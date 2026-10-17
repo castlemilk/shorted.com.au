@@ -95,6 +95,24 @@ describe("suburb profile price gating", () => {
     expect(screen.getAllByText(/NSW Bush Fire Prone Land/)).toHaveLength(1);
   });
 
+  it("credits each state's statutory layer under its own licence", () => {
+    render(<SourcesLine {...base} statutoryHazardSources={["sa_pdcode_hazards_flooding", "sa_pdcode_hazards_bushfire"]} stateName="South Australia" />);
+    // The P&D Code overlays are CC BY 3.0 AU, not the CC BY 4.0 of the other states.
+    expect(screen.getByText(/Hazards — Flooding, and Flooding — General\), Government of South Australia \(CC BY 3\.0 AU\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Hazards — Bushfire\), Government of South Australia \(CC BY 3\.0 AU\)/)).toBeInTheDocument();
+  });
+
+  it("credits VIC bushfire as the Designated Bushfire Prone Area, not the BMO", () => {
+    render(<SourcesLine {...base} statutoryHazardSources={["vic_bpa"]} stateName="Victoria" />);
+    expect(screen.getByText(/Designated Bushfire Prone Area.*\(CC BY 4\.0\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/Bushfire Management Overlay/)).not.toBeInTheDocument();
+  });
+
+  it("still credits the retired VIC BMO id, so a web deploy ahead of the data load keeps attribution", () => {
+    render(<SourcesLine {...base} statutoryHazardSources={["vic_plan_overlay_bmo"]} stateName="Victoria" />);
+    expect(screen.getByText(/Bushfire Management Overlay.*\(CC BY 4\.0\)/)).toBeInTheDocument();
+  });
+
   it("credits no hazard dataset on a suburb without one", () => {
     render(<SourcesLine {...base} hasCensus />);
     expect(screen.queryByText(/DEM-S/)).not.toBeInTheDocument();

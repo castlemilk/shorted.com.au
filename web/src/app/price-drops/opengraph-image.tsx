@@ -8,7 +8,9 @@ import {
   getOgLogo,
 } from "~/@/lib/og/card";
 
-export const alt = 'ASX Property Price Drops';
+export const maxDuration = 15;
+
+export const alt = 'Australian house price drops';
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 

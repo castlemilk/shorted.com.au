@@ -182,7 +182,7 @@ export function StateSuburbExplorer({ stateCode }: StateSuburbExplorerProps) {
                     s.salCode === selected ? "bg-foreground/10 font-medium text-foreground ring-1 ring-foreground/20"
                       : s.salCode === hovered ? "bg-muted font-medium text-foreground"
                       : "text-muted-foreground hover:bg-muted/50")}>
-                  <span className="truncate capitalize">{s.salName.toLowerCase()}</span>
+                  <span className="truncate">{s.salName}</span>
                   {priced ? (
                     <span className="ml-2 shrink-0 font-mono text-[11px] tabular-nums text-foreground">{fmtPriceShort(s.latestMedianPrice)}</span>
                   ) : (

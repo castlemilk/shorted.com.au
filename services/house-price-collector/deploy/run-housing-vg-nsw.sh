@@ -5,8 +5,9 @@
 # so the normal scheduled `official` mode deliberately does not request them.
 # This wrapper loads a machine-local env file and invokes only `-mode vg-nsw`
 # from approved residential egress. The collector writes the vg_nsw run row,
-# enforces persisted-period freshness, refreshes housing views on success, and
-# returns 1 on ingest/freshness failure.
+# enforces persisted-period freshness, refreshes housing views on success,
+# returns 1 on ingest/freshness failure, and 9 when the ingest committed but a
+# fetched year kept its stale rows (thin download or a prune over the cap).
 #
 # Config (~/.shorted-housing-vg.env, chmod 600, NOT committed):
 #   DATABASE_URL=postgresql://...          # prod Supabase txn pooler (6543)
@@ -36,7 +37,11 @@ echo "=== $(date -u +%FT%TZ) housing-vg-nsw (timeout=${VG_NSW_TIMEOUT_MIN}m) ===
 rc=$?
 echo "$(date -u +%FT%TZ) vg_nsw rc=$rc" >>"$LOG"
 
-if [[ "$rc" -ne 0 ]]; then
+if [[ "$rc" -eq 9 ]]; then
+	# Data written and views refreshed, but a fetched year kept its stale rows
+	# (thin download or a prune over the 20% cap) — read the log, don't re-run.
+	/usr/bin/osascript -e 'display notification "NSW Valuer-General ingest held back a prune (thin year or parser regression); check the collector log." with title "Housing collector"' >/dev/null 2>&1 || true
+elif [[ "$rc" -ne 0 ]]; then
 	/usr/bin/osascript -e 'display notification "NSW Valuer-General ingest failed; check the collector log." with title "Housing collector"' >/dev/null 2>&1 || true
 fi
 exit "$rc"

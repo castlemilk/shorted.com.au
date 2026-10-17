@@ -1,0 +1,190 @@
+
+
+Appendix 3A.1 - Notification of dividend / distribution
+Appendix 3A.1 - Notification of dividend / distribution
+1
+ / 
+5
+Announcement Summary
+Entity name
+COMMONWEALTH BANK OF AUSTRALIA.
+Security on which the Distribution will be paid
+CBAPI - CAP NOTE 3-BBSW+3.00% PERP NON-CUM RED T-04-27
+Announcement Type
+New announcement
+Date of this announcement
+17/9/2026
+Distribution Amount
+AUD 1.33930000
+Ex Date
+4/12/2026
+Record Date
+7/12/2026
+Payment Date
+15/12/2026
+Refer to below for full details of the announcement
+For personal use only
+
+
+
+Appendix 3A.1 - Notification of dividend / distribution
+Appendix 3A.1 - Notification of dividend / distribution
+2
+ / 
+5
+Announcement Details
+Part 1 - Entity and announcement details
+1.1 Name of +Entity
+COMMONWEALTH BANK OF AUSTRALIA.
+1.2 Registered Number Type
+ABN
+Registration Number
+48123123124
+1.3 ASX issuer code
+CBA
+1.4 The announcement is
+1.5 Date of this announcement
+17/9/2026
+1.6 ASX +Security Code
+CBAPI
+ASX +Security Description
+CAP NOTE 3-BBSW+3.00% PERP NON-CUM RED T-04-27
+Part 2A - All dividends/distributions basic details
+2A.1 Type of dividend/distribution
+2A.2 The Dividend/distribution:
+relates to a period of one quarter
+2A.3 The dividend/distribution relates to the financial reporting or payment period ending ended/ending (date)
+15/12/2026
+2A.4 +Record Date
+7/12/2026
+2A.5 Ex Date
+4/12/2026
+2A.6 Payment Date
+15/12/2026
+2A.7 Are any of the below approvals required for the dividend/distribution before business day 0 of the timetable?
+Security holder approval
+Court approval
+Lodgement of court order with +ASIC
+ACCC approval
+FIRB approval
+Ordinary
+New announcement
+For personal use only
+
+
+
+Appendix 3A.1 - Notification of dividend / distribution
+Appendix 3A.1 - Notification of dividend / distribution
+3
+ / 
+5
+FIRB approval
+Another approval/condition external to the entity required before business day 0 of the timetable for the
+dividend/distribution.
+2A.8 Currency in which the dividend/distribution is made ("primary currency")
+AUD - Australian Dollar
+2A.9 Total dividend/distribution payment amount per
++security (in primary currency) for all
+dividends/distributions notified in this form
+AUD 1.33930000
+Estimated or Actual?
+2A.10 Does the entity have arrangements relating to the
+currency in which the dividend/distribution is paid to
+securityholders that it wishes to disclose to the market?
+2A.11 Does the entity have a securities plan for
+dividends/distributions on this +security?
+2A.12 Does the +entity have tax component information
+apart from franking?
+Part 3A - Ordinary dividend/distribution
+3A.1 Is the ordinary dividend/distribution estimated at
+this time?
+3A.1a Ordinary dividend/distribution estimated amount
+per +security
+AUD
+3A.1b Ordinary Dividend/distribution amount per
+security
+AUD 1.33930000
+3A.2 Is the ordinary dividend/distribution franked?
+3A.2a Is the ordinary dividend/distribution fully franked?
+3A.3 Percentage of ordinary dividend/distribution that is
+franked
+100.0000 %
+3A.3a Applicable corporate tax rate for franking credit
+(%)
+30.0000 %
+3A.4 Ordinary dividend/distribution franked amount per
++security
+AUD 1.33930000
+3A.5 Percentage amount of dividend which is unfranked
+0.0000 %
+3A.6 Ordinary dividend/distribution unfranked amount
+per +security excluding conduit foreign income amount
+AUD 0.00000000
+3A.7 Ordinary dividend/distribution conduit foreign
+Yes
+Yes
+No
+No
+We do not have a securities plan for dividends/distributions
+on this security
+No
+Actual
+No
+For personal use only
+
+
+
+Appendix 3A.1 - Notification of dividend / distribution
+Appendix 3A.1 - Notification of dividend / distribution
+4
+ / 
+5
+3A.7 Ordinary dividend/distribution conduit foreign
+income amount per security
+AUD 0.00000000
+Part 3D - Preference +security distribution rate details
+3D.1 Start date of payment period
+15/9/2026
+3D.2 End date of payment period
+14/12/2026
+3D.3 Date dividend/distribution rate is set (optional)
+15/9/2026
+3D.4 Describe how the date that dividend/distribution rate is set is determined
+First Business Day of the Distribution Period
+3D.5 Number of days in the dividend/distribution period
+91
+3D.6 Dividend/distribution base rate (pa)
+4.6740 %
+3D.7 Comments on how dividend/distribution base rate is set
+90 day bank bill swap rate as at date dividend/distribution rate is set
+3D.8 Dividend/distribution margin
+3.0000 %
+3D.9 Comments on how dividend/distribution margin is set
+PERLS XII terms and conditions
+3D.10 Any other rate / multiplier used in calculating dividend/distribution rate
+-2.3022 %
+3D.11 Comments on how other rate used in calculating dividend/distribution rate is set
+This represents the value of "minus ((Dividend/distribution base rate + Dividend/distribution margin) x Tax Rate of 30%)"
+3D.12 Total dividend/distribution rate for the period (pa)
+5.3718 %
+3D.13 Comment on how total distribution rate is set
+Total dividend/distribution rate = (Dividend/distribution base rate + Dividend/distribution margin) x (1 - Tax Rate of 30%)
+Part 5 - Further information
+5.1 Please provide any further information applicable to this dividend/distribution
+The distribution in this form is the scheduled cash distribution and is expected to be fully franked.  
+Note that under the PERLS XII terms and conditions, the Commonwealth Bank of Australia has the discretion to make or
+not make the distribution in full.  
+Distributions will be paid by electronic transfer.  
+For personal use only
+
+
+
+Appendix 3A.1 - Notification of dividend / distribution
+Appendix 3A.1 - Notification of dividend / distribution
+5
+ / 
+5
+The website for more information about PERLS XII is 
+https://www.commbank.com.au/about-us/investors/other-securities.html
+5.2 Additional information for inclusion in the Announcement Summary
+For personal use only

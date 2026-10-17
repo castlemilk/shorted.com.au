@@ -9,10 +9,19 @@ import (
 )
 
 const (
-	// MaxConsecutiveFailures before a symbol is blocked
+	// MaxConsecutiveFailures before a symbol is blocked. Only a "no data" answer
+	// over a window that must have held a session counts (see RunWith); a
+	// refused or failed request never does.
 	MaxConsecutiveFailures = 3
-	// BlockDuration is how long a blocked symbol stays blocked before retry
-	BlockDuration = 30 * 24 * time.Hour // 30 days
+	// BlockDuration is how long a blocked symbol stays blocked before retry.
+	//
+	// It was 30 days, but no block was ever written: RecordFailure's timestamp
+	// arithmetic failed under the simple protocol prod uses (see there). So the
+	// first blocks are only now being written, and a month is too long for what
+	// actually collects three strikes: a stock halted for a week would come back
+	// to three more weeks without prices. A week still spares a dead code six
+	// requests in seven.
+	BlockDuration = 7 * 24 * time.Hour
 )
 
 // FailureTracker tracks symbols that consistently fail Yahoo Finance fetches
@@ -65,22 +74,28 @@ func (ft *FailureTracker) GetBlockedSymbols(ctx context.Context) map[string]bool
 
 // RecordFailure records a fetch failure for a symbol.
 // After MaxConsecutiveFailures, the symbol is blocked for BlockDuration.
+//
+// Every parameter is cast. The pool uses the simple protocol (the Supabase
+// transaction pooler needs it), which sends arguments as untyped literals, and
+// the old `$2 + INTERVAL '30 days'` resolved the timestamp literal as an
+// interval and failed: in prod this statement never wrote a row, so nothing
+// was ever blocked. The block's end is now computed here rather than in SQL.
 func (ft *FailureTracker) RecordFailure(ctx context.Context, symbol string, errMsg string) {
 	now := time.Now()
 	_, err := ft.db.Exec(ctx, `
 		INSERT INTO stock_sync_failures (stock_code, consecutive_failures, last_failure_at, last_error, updated_at)
-		VALUES ($1, 1, $2, $3, $2)
+		VALUES ($1, 1, $2::timestamptz, $3, $2::timestamptz)
 		ON CONFLICT (stock_code) DO UPDATE SET
 			consecutive_failures = stock_sync_failures.consecutive_failures + 1,
-			last_failure_at = $2,
+			last_failure_at = $2::timestamptz,
 			last_error = $3,
 			blocked_until = CASE
-				WHEN stock_sync_failures.consecutive_failures + 1 >= $4
-				THEN $2 + INTERVAL '30 days'
+				WHEN stock_sync_failures.consecutive_failures + 1 >= $4::int
+				THEN $5::timestamptz
 				ELSE stock_sync_failures.blocked_until
 			END,
-			updated_at = $2
-	`, symbol, now, errMsg, MaxConsecutiveFailures)
+			updated_at = $2::timestamptz
+	`, symbol, now, errMsg, MaxConsecutiveFailures, now.Add(BlockDuration))
 	if err != nil {
 		log.Printf("⚠️ Failed to record failure for %s: %v", symbol, err)
 	}
@@ -91,12 +106,12 @@ func (ft *FailureTracker) RecordSuccess(ctx context.Context, symbol string) {
 	now := time.Now()
 	_, err := ft.db.Exec(ctx, `
 		INSERT INTO stock_sync_failures (stock_code, consecutive_failures, last_success_at, updated_at)
-		VALUES ($1, 0, $2, $2)
+		VALUES ($1, 0, $2::timestamptz, $2::timestamptz)
 		ON CONFLICT (stock_code) DO UPDATE SET
 			consecutive_failures = 0,
 			blocked_until = NULL,
-			last_success_at = $2,
-			updated_at = $2
+			last_success_at = $2::timestamptz,
+			updated_at = $2::timestamptz
 	`, symbol, now)
 	if err != nil {
 		log.Printf("⚠️ Failed to record success for %s: %v", symbol, err)

@@ -3,6 +3,8 @@ import { ImageResponse } from "next/og";
 
 import { OG_SIZE, OG_CONTENT_TYPE, OgCard, getOgLogo } from "~/@/lib/og/card";
 
+export const maxDuration = 15;
+
 export const alt = "Party funding and donations — AEC Transparency Register";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

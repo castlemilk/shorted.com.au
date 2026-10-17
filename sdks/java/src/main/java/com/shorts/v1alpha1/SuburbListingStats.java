@@ -69,6 +69,7 @@ private static final long serialVersionUID = 0L;
             com.shorts.v1alpha1.SuburbListingStats.class, com.shorts.v1alpha1.SuburbListingStats.Builder.class);
   }
 
+  private int bitField0_;
   public static final int FOR_SALE_COUNT_FIELD_NUMBER = 1;
   private int forSaleCount_ = 0;
   /**
@@ -159,6 +160,76 @@ private static final long serialVersionUID = 0L;
     return medianSold_;
   }
 
+  public static final int AS_OF_FIELD_NUMBER = 7;
+  private com.google.protobuf.Timestamp asOf_;
+  /**
+   * <pre>
+   * When mv_suburb_listing_stats was last refreshed (every now()-relative
+   * window in it is anchored here), and the newest crawl observation it could
+   * contain. Unset when the refresh has never been recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+   * @return Whether the asOf field is set.
+   */
+  @java.lang.Override
+  public boolean hasAsOf() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * When mv_suburb_listing_stats was last refreshed (every now()-relative
+   * window in it is anchored here), and the newest crawl observation it could
+   * contain. Unset when the refresh has never been recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Timestamp getAsOf() {
+    return asOf_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : asOf_;
+  }
+  /**
+   * <pre>
+   * When mv_suburb_listing_stats was last refreshed (every now()-relative
+   * window in it is anchored here), and the newest crawl observation it could
+   * contain. Unset when the refresh has never been recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.TimestampOrBuilder getAsOfOrBuilder() {
+    return asOf_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : asOf_;
+  }
+
+  public static final int DATA_THROUGH_FIELD_NUMBER = 8;
+  private com.google.protobuf.Timestamp dataThrough_;
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+   * @return Whether the dataThrough field is set.
+   */
+  @java.lang.Override
+  public boolean hasDataThrough() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+   * @return The dataThrough.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Timestamp getDataThrough() {
+    return dataThrough_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : dataThrough_;
+  }
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.TimestampOrBuilder getDataThroughOrBuilder() {
+    return dataThrough_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : dataThrough_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -191,6 +262,12 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(medianSold_) != 0) {
       output.writeDouble(6, medianSold_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(7, getAsOf());
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(8, getDataThrough());
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -218,6 +295,14 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(medianSold_) != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(6, medianSold_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(7, getAsOf());
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(8, getDataThrough());
     }
     return size;
   }
@@ -259,6 +344,16 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getMedianSold())
         != java.lang.Double.doubleToLongBits(
             other.getMedianSold())) return false;
+    if (hasAsOf() != other.hasAsOf()) return false;
+    if (hasAsOf()) {
+      if (!getAsOf()
+          .equals(other.getAsOf())) return false;
+    }
+    if (hasDataThrough() != other.hasDataThrough()) return false;
+    if (hasDataThrough()) {
+      if (!getDataThrough()
+          .equals(other.getDataThrough())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -286,6 +381,14 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + MEDIAN_SOLD_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getMedianSold()));
+    if (hasAsOf()) {
+      hash = (37 * hash) + AS_OF_FIELD_NUMBER;
+      hash = (53 * hash) + getAsOf().hashCode();
+    }
+    if (hasDataThrough()) {
+      hash = (37 * hash) + DATA_THROUGH_FIELD_NUMBER;
+      hash = (53 * hash) + getDataThrough().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -426,13 +529,20 @@ private static final long serialVersionUID = 0L;
 
     // Construct using com.shorts.v1alpha1.SuburbListingStats.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessage
+              .alwaysUseFieldBuilders) {
+        internalGetAsOfFieldBuilder();
+        internalGetDataThroughFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -444,6 +554,16 @@ private static final long serialVersionUID = 0L;
       soldCount_ = 0;
       avgSold_ = 0D;
       medianSold_ = 0D;
+      asOf_ = null;
+      if (asOfBuilder_ != null) {
+        asOfBuilder_.dispose();
+        asOfBuilder_ = null;
+      }
+      dataThrough_ = null;
+      if (dataThroughBuilder_ != null) {
+        dataThroughBuilder_.dispose();
+        dataThroughBuilder_ = null;
+      }
       return this;
     }
 
@@ -495,6 +615,20 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.medianSold_ = medianSold_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.asOf_ = asOfBuilder_ == null
+            ? asOf_
+            : asOfBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.dataThrough_ = dataThroughBuilder_ == null
+            ? dataThrough_
+            : dataThroughBuilder_.build();
+        to_bitField0_ |= 0x00000002;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -526,6 +660,12 @@ private static final long serialVersionUID = 0L;
       }
       if (java.lang.Double.doubleToRawLongBits(other.getMedianSold()) != 0) {
         setMedianSold(other.getMedianSold());
+      }
+      if (other.hasAsOf()) {
+        mergeAsOf(other.getAsOf());
+      }
+      if (other.hasDataThrough()) {
+        mergeDataThrough(other.getDataThrough());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -583,6 +723,20 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000020;
               break;
             } // case 49
+            case 58: {
+              input.readMessage(
+                  internalGetAsOfFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
+            case 66: {
+              input.readMessage(
+                  internalGetDataThroughFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -862,6 +1016,302 @@ private static final long serialVersionUID = 0L;
       medianSold_ = 0D;
       onChanged();
       return this;
+    }
+
+    private com.google.protobuf.Timestamp asOf_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> asOfBuilder_;
+    /**
+     * <pre>
+     * When mv_suburb_listing_stats was last refreshed (every now()-relative
+     * window in it is anchored here), and the newest crawl observation it could
+     * contain. Unset when the refresh has never been recorded.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+     * @return Whether the asOf field is set.
+     */
+    public boolean hasAsOf() {
+      return ((bitField0_ & 0x00000040) != 0);
+    }
+    /**
+     * <pre>
+     * When mv_suburb_listing_stats was last refreshed (every now()-relative
+     * window in it is anchored here), and the newest crawl observation it could
+     * contain. Unset when the refresh has never been recorded.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+     * @return The asOf.
+     */
+    public com.google.protobuf.Timestamp getAsOf() {
+      if (asOfBuilder_ == null) {
+        return asOf_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : asOf_;
+      } else {
+        return asOfBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * When mv_suburb_listing_stats was last refreshed (every now()-relative
+     * window in it is anchored here), and the newest crawl observation it could
+     * contain. Unset when the refresh has never been recorded.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+     */
+    public Builder setAsOf(com.google.protobuf.Timestamp value) {
+      if (asOfBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        asOf_ = value;
+      } else {
+        asOfBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * When mv_suburb_listing_stats was last refreshed (every now()-relative
+     * window in it is anchored here), and the newest crawl observation it could
+     * contain. Unset when the refresh has never been recorded.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+     */
+    public Builder setAsOf(
+        com.google.protobuf.Timestamp.Builder builderForValue) {
+      if (asOfBuilder_ == null) {
+        asOf_ = builderForValue.build();
+      } else {
+        asOfBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * When mv_suburb_listing_stats was last refreshed (every now()-relative
+     * window in it is anchored here), and the newest crawl observation it could
+     * contain. Unset when the refresh has never been recorded.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+     */
+    public Builder mergeAsOf(com.google.protobuf.Timestamp value) {
+      if (asOfBuilder_ == null) {
+        if (((bitField0_ & 0x00000040) != 0) &&
+          asOf_ != null &&
+          asOf_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
+          getAsOfBuilder().mergeFrom(value);
+        } else {
+          asOf_ = value;
+        }
+      } else {
+        asOfBuilder_.mergeFrom(value);
+      }
+      if (asOf_ != null) {
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * When mv_suburb_listing_stats was last refreshed (every now()-relative
+     * window in it is anchored here), and the newest crawl observation it could
+     * contain. Unset when the refresh has never been recorded.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+     */
+    public Builder clearAsOf() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      asOf_ = null;
+      if (asOfBuilder_ != null) {
+        asOfBuilder_.dispose();
+        asOfBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * When mv_suburb_listing_stats was last refreshed (every now()-relative
+     * window in it is anchored here), and the newest crawl observation it could
+     * contain. Unset when the refresh has never been recorded.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+     */
+    public com.google.protobuf.Timestamp.Builder getAsOfBuilder() {
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return internalGetAsOfFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * When mv_suburb_listing_stats was last refreshed (every now()-relative
+     * window in it is anchored here), and the newest crawl observation it could
+     * contain. Unset when the refresh has never been recorded.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+     */
+    public com.google.protobuf.TimestampOrBuilder getAsOfOrBuilder() {
+      if (asOfBuilder_ != null) {
+        return asOfBuilder_.getMessageOrBuilder();
+      } else {
+        return asOf_ == null ?
+            com.google.protobuf.Timestamp.getDefaultInstance() : asOf_;
+      }
+    }
+    /**
+     * <pre>
+     * When mv_suburb_listing_stats was last refreshed (every now()-relative
+     * window in it is anchored here), and the newest crawl observation it could
+     * contain. Unset when the refresh has never been recorded.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
+        internalGetAsOfFieldBuilder() {
+      if (asOfBuilder_ == null) {
+        asOfBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
+                getAsOf(),
+                getParentForChildren(),
+                isClean());
+        asOf_ = null;
+      }
+      return asOfBuilder_;
+    }
+
+    private com.google.protobuf.Timestamp dataThrough_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> dataThroughBuilder_;
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+     * @return Whether the dataThrough field is set.
+     */
+    public boolean hasDataThrough() {
+      return ((bitField0_ & 0x00000080) != 0);
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+     * @return The dataThrough.
+     */
+    public com.google.protobuf.Timestamp getDataThrough() {
+      if (dataThroughBuilder_ == null) {
+        return dataThrough_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : dataThrough_;
+      } else {
+        return dataThroughBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+     */
+    public Builder setDataThrough(com.google.protobuf.Timestamp value) {
+      if (dataThroughBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        dataThrough_ = value;
+      } else {
+        dataThroughBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+     */
+    public Builder setDataThrough(
+        com.google.protobuf.Timestamp.Builder builderForValue) {
+      if (dataThroughBuilder_ == null) {
+        dataThrough_ = builderForValue.build();
+      } else {
+        dataThroughBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+     */
+    public Builder mergeDataThrough(com.google.protobuf.Timestamp value) {
+      if (dataThroughBuilder_ == null) {
+        if (((bitField0_ & 0x00000080) != 0) &&
+          dataThrough_ != null &&
+          dataThrough_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
+          getDataThroughBuilder().mergeFrom(value);
+        } else {
+          dataThrough_ = value;
+        }
+      } else {
+        dataThroughBuilder_.mergeFrom(value);
+      }
+      if (dataThrough_ != null) {
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+     */
+    public Builder clearDataThrough() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      dataThrough_ = null;
+      if (dataThroughBuilder_ != null) {
+        dataThroughBuilder_.dispose();
+        dataThroughBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+     */
+    public com.google.protobuf.Timestamp.Builder getDataThroughBuilder() {
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return internalGetDataThroughFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+     */
+    public com.google.protobuf.TimestampOrBuilder getDataThroughOrBuilder() {
+      if (dataThroughBuilder_ != null) {
+        return dataThroughBuilder_.getMessageOrBuilder();
+      } else {
+        return dataThrough_ == null ?
+            com.google.protobuf.Timestamp.getDefaultInstance() : dataThrough_;
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
+        internalGetDataThroughFieldBuilder() {
+      if (dataThroughBuilder_ == null) {
+        dataThroughBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
+                getDataThrough(),
+                getParentForChildren(),
+                isClean());
+        dataThrough_ = null;
+      }
+      return dataThroughBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.SuburbListingStats)

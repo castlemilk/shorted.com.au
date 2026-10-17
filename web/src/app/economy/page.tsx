@@ -186,7 +186,7 @@ export default async function EconomyPage() {
   ].some((v) => v !== undefined);
   // A failed/cold fetch must not bake the "data is loading" shell into the
   // route cache for the whole revalidate window.
-  if (!hasTiles) bailOnEmptyRender();
+  if (!hasTiles) await bailOnEmptyRender();
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -213,6 +213,7 @@ export default async function EconomyPage() {
 
   return (
     <DashboardLayout>
+      {(!hasTiles) && <span hidden data-isr-shell="empty" />}
       <LLMMeta
         title={TITLE}
         description={DESCRIPTION}

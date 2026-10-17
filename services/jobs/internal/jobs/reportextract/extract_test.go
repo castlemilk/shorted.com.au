@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	lx "github.com/skunkworq/stealth/brws/langextract"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 )
 
 // extractions_to_metrics produces the JSONB the weekly-report generator reads,
@@ -79,16 +81,12 @@ func TestExtractionExamplesPinTheMetricVocabulary(t *testing.T) {
 }
 
 // langextract validates that each example's extraction_text can be aligned back
-// into the example text. Every example except the revenue one (whose source has
-// a line break where the extraction has a space — true of the Python original
-// too) must align exactly, so a typo in a future edit is caught here rather than
-// as a runtime warning in prod.
+// into the example text. The synthetic example is written so every extraction
+// text appears verbatim, on one line (the old example's revenue sentence had a
+// line break where its extraction had a space, so it never aligned exactly).
 func TestExtractionExamplesAlignToTheirSourceText(t *testing.T) {
 	ex := extractionExamples()[0]
 	for _, e := range ex.Extractions {
-		if e.ExtractionClass == "revenue" {
-			continue // known newline-vs-space mismatch, carried over from Python
-		}
 		if !strings.Contains(ex.Text, e.ExtractionText) {
 			t.Errorf("%s: extraction_text not present verbatim in the example text: %q",
 				e.ExtractionClass, e.ExtractionText)
@@ -97,6 +95,81 @@ func TestExtractionExamplesAlignToTheirSourceText(t *testing.T) {
 
 	report := lx.ValidatePromptExamples([]lx.ExampleData{ex}, lx.DefaultTokenizer)
 	_ = report // the call must not panic; alignment quality is asserted above
+}
+
+// The prompt's example is extractiontrust's, byte for byte (contract 6.3): the
+// text, and every extraction's class, text and attributes in order.
+func TestExtractionExamplesAreTheTrustExample(t *testing.T) {
+	want := extractiontrust.FewShotExample()
+	got := extractionExamples()[0]
+	if got.Text != want.Text {
+		t.Errorf("example text differs from extractiontrust.FewShotExample():\n got %q\nwant %q", got.Text, want.Text)
+	}
+	if len(got.Extractions) != len(want.Extractions) {
+		t.Fatalf("%d extractions, want %d", len(got.Extractions), len(want.Extractions))
+	}
+	for i, e := range got.Extractions {
+		w := want.Extractions[i]
+		if e.ExtractionClass != w.Class || e.ExtractionText != w.Text {
+			t.Errorf("extraction %d: got %s %q, want %s %q", i, e.ExtractionClass, e.ExtractionText, w.Class, w.Text)
+		}
+		attrs := map[string]string{}
+		for k, v := range e.Attributes {
+			s, ok := v.(string)
+			if !ok {
+				t.Errorf("extraction %d attribute %s is %T, want a string", i, k, v)
+			}
+			attrs[k] = s
+		}
+		if !reflect.DeepEqual(attrs, w.Attributes) {
+			t.Errorf("extraction %d attributes: got %v, want %v", i, attrs, w.Attributes)
+		}
+		if !extractiontrust.IsFewShotText(e.ExtractionText) {
+			t.Errorf("extraction %d text is not on the denylist, so an echo of it would be stored: %q", i, e.ExtractionText)
+		}
+	}
+	for _, old := range extractiontrust.OldFewShotTexts {
+		if strings.Contains(got.Text, old) {
+			t.Errorf("the prompt still carries the old example text %q", old)
+		}
+	}
+}
+
+// Unaligned results never reach storage (contract 6.3): no char interval, or a
+// status outside the four aligned ones, is dropped; aligned results carry their
+// status and span.
+func TestGroundedExtractionsDropsUnaligned(t *testing.T) {
+	raw := []lx.Extraction{
+		{ExtractionClass: "revenue", ExtractionText: "Revenue up 7% to $3.9bn", Alignment: lx.AlignmentExact, CharInterval: &lx.CharInterval{StartPos: 10, EndPos: 33}},
+		{ExtractionClass: "eps", ExtractionText: "Basic earnings per share was 94.2 cents", Alignment: "", CharInterval: nil},
+		{ExtractionClass: "net_profit", ExtractionText: "NPAT $612m", Alignment: lx.AlignmentFuzzy, CharInterval: nil},
+		{ExtractionClass: "ebitda", ExtractionText: "EBITDA $1.5bn", Alignment: "unaligned", CharInterval: &lx.CharInterval{StartPos: 1, EndPos: 5}},
+		{ExtractionClass: "dividend", ExtractionText: "Interim dividend 21c", Alignment: lx.AlignmentLesser, CharInterval: &lx.CharInterval{StartPos: 40, EndPos: 60}, Attributes: map[string]any{"value_cents": "21"}},
+	}
+	got, dropped := groundedExtractions(raw)
+	if dropped != 3 {
+		t.Errorf("dropped = %d, want 3", dropped)
+	}
+	if len(got) != 2 || got[0].Class != "revenue" || got[1].Class != "dividend" {
+		t.Fatalf("kept %+v", got)
+	}
+	if got[0].Alignment != "match_exact" || got[0].CharStart != 10 || got[0].CharEnd != 33 {
+		t.Errorf("provenance not carried: %+v", got[0])
+	}
+
+	metrics := extractionsToMetrics(got)
+	rev := metrics["revenue"].(map[string]any)
+	if rev["alignment"] != "match_exact" || rev["char_start"] != "10" || rev["char_end"] != "33" {
+		t.Errorf("provenance must be stored as STRING attributes (extract.py parity): %v", rev)
+	}
+	div := metrics["dividend"].(map[string]any)
+	if div["value_cents"] != "21" || div["alignment"] != "match_lesser" {
+		t.Errorf("model attributes and provenance side by side: %v", div)
+	}
+	// What is stored passes the trust funnel every reader applies.
+	if !extractiontrust.GroundedEntry(rev) || !extractiontrust.GroundedEntry(div) {
+		t.Error("a stored aligned entry must be grounded")
+	}
 }
 
 func TestExtractionPromptIsVerbatim(t *testing.T) {

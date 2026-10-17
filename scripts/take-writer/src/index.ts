@@ -147,9 +147,10 @@ Commands:
   regen-images    Generate a hero + inline images for an existing take (--slug=SLUG [--inline=2])
   validate-article Screenshot + Gemini-vision cohesion check with auto-fix loop (--slug=SLUG [--rounds=2])
   results-watch   List companies that just filed results, ranked by short interest (--since-days=N [--limit=N])
-  import-mdx      Upsert a hand-written MDX article as a DRAFT (--file=... | --dir=... [--dry-run] [--publish])
+  import-mdx      Upsert a hand-written MDX article as a DRAFT (--file=... | --dir=... [--dry-run])
+  publish-content Import ONE content/news article by slug and publish it after required vision review (--slug=SLUG [--dir=...] [--no-images]) — the Cloud Run entrypoint
   list-drafts     List unpublished drafts; --slug=SLUG prints one draft's full body + citations
-  publish         Publish a draft: images → validate → set published_at → tweet (--slug=SLUG [--no-images] [--no-validate] [--tweet])
+  publish         Publish a draft: images → required vision review → set published_at → tweet (--slug=SLUG [--no-images] [--tweet])
   narrative Multi-section journalism-engine Take for one --stock=CODE
 
 run flags:
@@ -408,6 +409,16 @@ async function main(): Promise<void> {
       });
       break;
     }
+    case "publish-content": {
+      const { publishContent } = await import("./import-mdx.js");
+      await publishContent({
+        slug: args.slug,
+        dir: args.dir,
+        noImages: args.noImages,
+        noValidate: args.noValidate,
+      });
+      break;
+    }
     case "list-drafts": {
       await listDrafts({ slug: args.slug });
       break;
@@ -425,7 +436,7 @@ async function main(): Promise<void> {
     case "agenda": {
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) throw new Error("DATABASE_URL not set");
-      const pg = new PgClient({ connectionString: dbUrl });
+      const pg = new PgClient({ connectionString: dbUrl, keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
       await pg.connect();
       try {
         const cands = await buildAgenda(pg, {
@@ -452,7 +463,7 @@ async function main(): Promise<void> {
       if (!args.stockCode) throw new Error("--stock=CODE required for narrative");
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) throw new Error("DATABASE_URL not set");
-      const pg = new PgClient({ connectionString: dbUrl });
+      const pg = new PgClient({ connectionString: dbUrl, keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
       await pg.connect();
       try {
         const code = args.stockCode.toUpperCase();
@@ -535,5 +546,10 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   console.error("[take-writer] failed:", err.message ?? err);
+  // Wrapped errors (publish's "vision validation failed") carry the reason in
+  // their cause chain; without it the job log says only that it failed.
+  for (let cause = err?.cause, depth = 0; cause && depth < 5; cause = cause.cause, depth++) {
+    console.error("[take-writer]   caused by:", cause.message ?? cause);
+  }
   process.exit(1);
 });

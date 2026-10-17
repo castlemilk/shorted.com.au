@@ -205,6 +205,41 @@ module.exports = {
   					transform: 'translateY(4px)'
   				}
   			},
+  			// The picks desk (components/picks): the desk switches on, the gauge
+  			// needle settles, the readouts tick in. Entrances only, each under
+  			// 600ms, `backwards` fill so the natural state is the end state and
+  			// nothing is left carrying a filter or a transform.
+  			'phosphor-warm': {
+  				'0%': {
+  					opacity: '0.45',
+  					filter: 'blur(var(--phosphor-blur, 0px))'
+  				},
+  				'100%': {
+  					opacity: '1',
+  					filter: 'blur(0)'
+  				}
+  			},
+  			'needle-settle': {
+  				'0%': {
+  					transform: 'translateX(-12px)'
+  				},
+  				'65%': {
+  					transform: 'translateX(2px)'
+  				},
+  				'100%': {
+  					transform: 'translateX(0)'
+  				}
+  			},
+  			// A stroke draws from its start to its end: paths carry
+  			// pathLength="1" and stroke-dasharray 1, so one keyframe fits every length.
+  			'trace-draw': {
+  				'0%': {
+  					strokeDashoffset: '1'
+  				},
+  				'100%': {
+  					strokeDashoffset: '0'
+  				}
+  			},
   			'fade-in': {
   				'0%': {
   					opacity: '0',
@@ -229,7 +264,10 @@ module.exports = {
   			'text-glow-pulse': 'text-glow-pulse 2s ease-in-out infinite',
   			'scanline': 'scanline 0.1s linear infinite',
   			'fade-in': 'fade-in 0.5s ease-out forwards',
-  			'fade-in-delay': 'fade-in 0.5s ease-out 0.1s forwards'
+  			'fade-in-delay': 'fade-in 0.5s ease-out 0.1s forwards',
+  			'phosphor-warm': 'phosphor-warm 0.32s ease-out backwards',
+  			'needle-settle': 'needle-settle 0.48s cubic-bezier(0.22, 1, 0.36, 1) backwards',
+  			'trace-draw': 'trace-draw 0.36s ease-out backwards'
   		}
   	}
   },

@@ -33,7 +33,7 @@ export function SocialShare({ url, title }: SocialShareProps) {
   };
 
   return (
-    <div className="flex items-center gap-2 py-4 border-t border-b border-border">
+    <div className="flex flex-wrap items-center gap-2 py-4 border-t border-b border-border">
       <span className="text-sm text-muted-foreground mr-2">Share this article:</span>
       
       <Button

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { EmbedDialog } from "~/@/components/ui/embed-dialog";
-import Link from "next/link";
+import { IntentPrefetchLink } from "~/@/components/ui/intent-prefetch-link";
 import {
   TrendingUp,
   TrendingDown,
@@ -350,7 +350,7 @@ export function TopPageClient({
                   : 0;
 
               return (
-                <Link
+                <IntentPrefetchLink
                   key={item.productCode}
                   href={`/shorts/${item.productCode}`}
                   className="grid grid-cols-[60px_1fr_100px_100px_48px] md:grid-cols-[60px_1fr_120px_120px_160px_48px] gap-4 px-4 py-4 items-center hover:bg-muted/50 transition-colors group"
@@ -439,7 +439,7 @@ export function TopPageClient({
                   <div className="flex justify-end">
                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                   </div>
-                </Link>
+                </IntentPrefetchLink>
               );
             })}
           </div>

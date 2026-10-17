@@ -32,6 +32,10 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private ComparisonBaselines() {
+    capitalRegionName_ = "";
+    capitalRegionCode_ = "";
+    restOfStateRegionName_ = "";
+    absMedianPeriod_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -52,9 +56,16 @@ private static final long serialVersionUID = 0L;
             com.shorts.v1alpha1.ComparisonBaselines.class, com.shorts.v1alpha1.ComparisonBaselines.Builder.class);
   }
 
+  private int bitField0_;
   public static final int STATE_MEDIAN_PRICE_FIELD_NUMBER = 1;
   private double stateMedianPrice_ = 0D;
   /**
+   * <pre>
+   * Median of the latest public Valuer-General suburb medians in the state —
+   * NSW, VIC and SA only, 0 elsewhere. A median, not a mean: one $110.5M
+   * development sale moved the old NSW average by ~$45k.
+   * </pre>
+   *
    * <code>double state_median_price = 1 [json_name = "stateMedianPrice"];</code>
    * @return The stateMedianPrice.
    */
@@ -66,6 +77,12 @@ private static final long serialVersionUID = 0L;
   public static final int NATIONAL_MEDIAN_PRICE_FIELD_NUMBER = 2;
   private double nationalMedianPrice_ = 0D;
   /**
+   * <pre>
+   * Always 0. No open national median house price exists (ABS's
+   * established-house medians stop at capital city / rest of state, below);
+   * this used to average NSW, VIC and SA suburb medians under an "AU" label.
+   * </pre>
+   *
    * <code>double national_median_price = 2 [json_name = "nationalMedianPrice"];</code>
    * @return The nationalMedianPrice.
    */
@@ -77,6 +94,11 @@ private static final long serialVersionUID = 0L;
   public static final int STATE_MEDIAN_WEEKLY_HHD_INCOME_FIELD_NUMBER = 3;
   private double stateMedianWeeklyHhdIncome_ = 0D;
   /**
+   * <pre>
+   * Census 2021 median weekly household income of the MEDIAN suburb — in the
+   * state, and across every suburb nationally. Not a household-weighted median.
+   * </pre>
+   *
    * <code>double state_median_weekly_hhd_income = 3 [json_name = "stateMedianWeeklyHhdIncome"];</code>
    * @return The stateMedianWeeklyHhdIncome.
    */
@@ -94,6 +116,261 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public double getNationalMedianWeeklyHhdIncome() {
     return nationalMedianWeeklyHhdIncome_;
+  }
+
+  public static final int CAPITAL_MEDIAN_PRICE_FIELD_NUMBER = 5;
+  private double capitalMedianPrice_ = 0D;
+  /**
+   * <pre>
+   * ABS established-house medians (RES_DWELL, CC-BY-4.0) for the suburb's
+   * state: its Greater Capital City and the rest of the state, read from
+   * mv_housing_headline. 0 / "" where the state has no such region (the ACT
+   * has no rest of state).
+   * </pre>
+   *
+   * <code>double capital_median_price = 5 [json_name = "capitalMedianPrice"];</code>
+   * @return The capitalMedianPrice.
+   */
+  @java.lang.Override
+  public double getCapitalMedianPrice() {
+    return capitalMedianPrice_;
+  }
+
+  public static final int CAPITAL_REGION_NAME_FIELD_NUMBER = 6;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object capitalRegionName_ = "";
+  /**
+   * <pre>
+   * e.g. "Greater Sydney"
+   * </pre>
+   *
+   * <code>string capital_region_name = 6 [json_name = "capitalRegionName"];</code>
+   * @return The capitalRegionName.
+   */
+  @java.lang.Override
+  public java.lang.String getCapitalRegionName() {
+    java.lang.Object ref = capitalRegionName_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      capitalRegionName_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * e.g. "Greater Sydney"
+   * </pre>
+   *
+   * <code>string capital_region_name = 6 [json_name = "capitalRegionName"];</code>
+   * @return The bytes for capitalRegionName.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getCapitalRegionNameBytes() {
+    java.lang.Object ref = capitalRegionName_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      capitalRegionName_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int CAPITAL_REGION_CODE_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object capitalRegionCode_ = "";
+  /**
+   * <pre>
+   * ABS GCCSA code, e.g. "1GSYD"
+   * </pre>
+   *
+   * <code>string capital_region_code = 7 [json_name = "capitalRegionCode"];</code>
+   * @return The capitalRegionCode.
+   */
+  @java.lang.Override
+  public java.lang.String getCapitalRegionCode() {
+    java.lang.Object ref = capitalRegionCode_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      capitalRegionCode_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * ABS GCCSA code, e.g. "1GSYD"
+   * </pre>
+   *
+   * <code>string capital_region_code = 7 [json_name = "capitalRegionCode"];</code>
+   * @return The bytes for capitalRegionCode.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getCapitalRegionCodeBytes() {
+    java.lang.Object ref = capitalRegionCode_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      capitalRegionCode_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int REST_OF_STATE_MEDIAN_PRICE_FIELD_NUMBER = 8;
+  private double restOfStateMedianPrice_ = 0D;
+  /**
+   * <code>double rest_of_state_median_price = 8 [json_name = "restOfStateMedianPrice"];</code>
+   * @return The restOfStateMedianPrice.
+   */
+  @java.lang.Override
+  public double getRestOfStateMedianPrice() {
+    return restOfStateMedianPrice_;
+  }
+
+  public static final int REST_OF_STATE_REGION_NAME_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object restOfStateRegionName_ = "";
+  /**
+   * <pre>
+   * e.g. "Rest of NSW"
+   * </pre>
+   *
+   * <code>string rest_of_state_region_name = 9 [json_name = "restOfStateRegionName"];</code>
+   * @return The restOfStateRegionName.
+   */
+  @java.lang.Override
+  public java.lang.String getRestOfStateRegionName() {
+    java.lang.Object ref = restOfStateRegionName_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      restOfStateRegionName_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * e.g. "Rest of NSW"
+   * </pre>
+   *
+   * <code>string rest_of_state_region_name = 9 [json_name = "restOfStateRegionName"];</code>
+   * @return The bytes for restOfStateRegionName.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRestOfStateRegionNameBytes() {
+    java.lang.Object ref = restOfStateRegionName_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      restOfStateRegionName_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int ABS_MEDIAN_PERIOD_FIELD_NUMBER = 10;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object absMedianPeriod_ = "";
+  /**
+   * <pre>
+   * quarter end, "2026-03-31"
+   * </pre>
+   *
+   * <code>string abs_median_period = 10 [json_name = "absMedianPeriod"];</code>
+   * @return The absMedianPeriod.
+   */
+  @java.lang.Override
+  public java.lang.String getAbsMedianPeriod() {
+    java.lang.Object ref = absMedianPeriod_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      absMedianPeriod_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * quarter end, "2026-03-31"
+   * </pre>
+   *
+   * <code>string abs_median_period = 10 [json_name = "absMedianPeriod"];</code>
+   * @return The bytes for absMedianPeriod.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getAbsMedianPeriodBytes() {
+    java.lang.Object ref = absMedianPeriod_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      absMedianPeriod_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int STATE_CENSUS_FIELD_NUMBER = 11;
+  private com.shorts.v1alpha1.StateCensusAverages stateCensus_;
+  /**
+   * <pre>
+   * State references for the Who-lives-here and Housing-stock cards.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+   * @return Whether the stateCensus field is set.
+   */
+  @java.lang.Override
+  public boolean hasStateCensus() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * State references for the Who-lives-here and Housing-stock cards.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+   * @return The stateCensus.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.StateCensusAverages getStateCensus() {
+    return stateCensus_ == null ? com.shorts.v1alpha1.StateCensusAverages.getDefaultInstance() : stateCensus_;
+  }
+  /**
+   * <pre>
+   * State references for the Who-lives-here and Housing-stock cards.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.StateCensusAveragesOrBuilder getStateCensusOrBuilder() {
+    return stateCensus_ == null ? com.shorts.v1alpha1.StateCensusAverages.getDefaultInstance() : stateCensus_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -122,6 +399,27 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(nationalMedianWeeklyHhdIncome_) != 0) {
       output.writeDouble(4, nationalMedianWeeklyHhdIncome_);
     }
+    if (java.lang.Double.doubleToRawLongBits(capitalMedianPrice_) != 0) {
+      output.writeDouble(5, capitalMedianPrice_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(capitalRegionName_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 6, capitalRegionName_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(capitalRegionCode_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, capitalRegionCode_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(restOfStateMedianPrice_) != 0) {
+      output.writeDouble(8, restOfStateMedianPrice_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(restOfStateRegionName_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 9, restOfStateRegionName_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(absMedianPeriod_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 10, absMedianPeriod_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(11, getStateCensus());
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -141,6 +439,30 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(nationalMedianWeeklyHhdIncome_) != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(4, nationalMedianWeeklyHhdIncome_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capitalMedianPrice_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(5, capitalMedianPrice_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(capitalRegionName_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(6, capitalRegionName_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(capitalRegionCode_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, capitalRegionCode_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(restOfStateMedianPrice_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(8, restOfStateMedianPrice_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(restOfStateRegionName_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(9, restOfStateRegionName_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(absMedianPeriod_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(10, absMedianPeriod_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(11, getStateCensus());
     }
     return size;
   }
@@ -178,6 +500,25 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getNationalMedianWeeklyHhdIncome())
         != java.lang.Double.doubleToLongBits(
             other.getNationalMedianWeeklyHhdIncome())) return false;
+    if (java.lang.Double.doubleToLongBits(getCapitalMedianPrice())
+        != java.lang.Double.doubleToLongBits(
+            other.getCapitalMedianPrice())) return false;
+    if (!getCapitalRegionName()
+        .equals(other.getCapitalRegionName())) return false;
+    if (!getCapitalRegionCode()
+        .equals(other.getCapitalRegionCode())) return false;
+    if (java.lang.Double.doubleToLongBits(getRestOfStateMedianPrice())
+        != java.lang.Double.doubleToLongBits(
+            other.getRestOfStateMedianPrice())) return false;
+    if (!getRestOfStateRegionName()
+        .equals(other.getRestOfStateRegionName())) return false;
+    if (!getAbsMedianPeriod()
+        .equals(other.getAbsMedianPeriod())) return false;
+    if (hasStateCensus() != other.hasStateCensus()) return false;
+    if (hasStateCensus()) {
+      if (!getStateCensus()
+          .equals(other.getStateCensus())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -201,6 +542,24 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + NATIONAL_MEDIAN_WEEKLY_HHD_INCOME_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getNationalMedianWeeklyHhdIncome()));
+    hash = (37 * hash) + CAPITAL_MEDIAN_PRICE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getCapitalMedianPrice()));
+    hash = (37 * hash) + CAPITAL_REGION_NAME_FIELD_NUMBER;
+    hash = (53 * hash) + getCapitalRegionName().hashCode();
+    hash = (37 * hash) + CAPITAL_REGION_CODE_FIELD_NUMBER;
+    hash = (53 * hash) + getCapitalRegionCode().hashCode();
+    hash = (37 * hash) + REST_OF_STATE_MEDIAN_PRICE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getRestOfStateMedianPrice()));
+    hash = (37 * hash) + REST_OF_STATE_REGION_NAME_FIELD_NUMBER;
+    hash = (53 * hash) + getRestOfStateRegionName().hashCode();
+    hash = (37 * hash) + ABS_MEDIAN_PERIOD_FIELD_NUMBER;
+    hash = (53 * hash) + getAbsMedianPeriod().hashCode();
+    if (hasStateCensus()) {
+      hash = (37 * hash) + STATE_CENSUS_FIELD_NUMBER;
+      hash = (53 * hash) + getStateCensus().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -324,13 +683,19 @@ private static final long serialVersionUID = 0L;
 
     // Construct using com.shorts.v1alpha1.ComparisonBaselines.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessage
+              .alwaysUseFieldBuilders) {
+        internalGetStateCensusFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -340,6 +705,17 @@ private static final long serialVersionUID = 0L;
       nationalMedianPrice_ = 0D;
       stateMedianWeeklyHhdIncome_ = 0D;
       nationalMedianWeeklyHhdIncome_ = 0D;
+      capitalMedianPrice_ = 0D;
+      capitalRegionName_ = "";
+      capitalRegionCode_ = "";
+      restOfStateMedianPrice_ = 0D;
+      restOfStateRegionName_ = "";
+      absMedianPeriod_ = "";
+      stateCensus_ = null;
+      if (stateCensusBuilder_ != null) {
+        stateCensusBuilder_.dispose();
+        stateCensusBuilder_ = null;
+      }
       return this;
     }
 
@@ -385,6 +761,32 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.nationalMedianWeeklyHhdIncome_ = nationalMedianWeeklyHhdIncome_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.capitalMedianPrice_ = capitalMedianPrice_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.capitalRegionName_ = capitalRegionName_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.capitalRegionCode_ = capitalRegionCode_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.restOfStateMedianPrice_ = restOfStateMedianPrice_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.restOfStateRegionName_ = restOfStateRegionName_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.absMedianPeriod_ = absMedianPeriod_;
+      }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.stateCensus_ = stateCensusBuilder_ == null
+            ? stateCensus_
+            : stateCensusBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -410,6 +812,35 @@ private static final long serialVersionUID = 0L;
       }
       if (java.lang.Double.doubleToRawLongBits(other.getNationalMedianWeeklyHhdIncome()) != 0) {
         setNationalMedianWeeklyHhdIncome(other.getNationalMedianWeeklyHhdIncome());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getCapitalMedianPrice()) != 0) {
+        setCapitalMedianPrice(other.getCapitalMedianPrice());
+      }
+      if (!other.getCapitalRegionName().isEmpty()) {
+        capitalRegionName_ = other.capitalRegionName_;
+        bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      if (!other.getCapitalRegionCode().isEmpty()) {
+        capitalRegionCode_ = other.capitalRegionCode_;
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getRestOfStateMedianPrice()) != 0) {
+        setRestOfStateMedianPrice(other.getRestOfStateMedianPrice());
+      }
+      if (!other.getRestOfStateRegionName().isEmpty()) {
+        restOfStateRegionName_ = other.restOfStateRegionName_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      if (!other.getAbsMedianPeriod().isEmpty()) {
+        absMedianPeriod_ = other.absMedianPeriod_;
+        bitField0_ |= 0x00000200;
+        onChanged();
+      }
+      if (other.hasStateCensus()) {
+        mergeStateCensus(other.getStateCensus());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -457,6 +888,43 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 33
+            case 41: {
+              capitalMedianPrice_ = input.readDouble();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 41
+            case 50: {
+              capitalRegionName_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 50
+            case 58: {
+              capitalRegionCode_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
+            case 65: {
+              restOfStateMedianPrice_ = input.readDouble();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 65
+            case 74: {
+              restOfStateRegionName_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
+            case 82: {
+              absMedianPeriod_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 82
+            case 90: {
+              input.readMessage(
+                  internalGetStateCensusFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -476,6 +944,12 @@ private static final long serialVersionUID = 0L;
 
     private double stateMedianPrice_ ;
     /**
+     * <pre>
+     * Median of the latest public Valuer-General suburb medians in the state —
+     * NSW, VIC and SA only, 0 elsewhere. A median, not a mean: one $110.5M
+     * development sale moved the old NSW average by ~$45k.
+     * </pre>
+     *
      * <code>double state_median_price = 1 [json_name = "stateMedianPrice"];</code>
      * @return The stateMedianPrice.
      */
@@ -484,6 +958,12 @@ private static final long serialVersionUID = 0L;
       return stateMedianPrice_;
     }
     /**
+     * <pre>
+     * Median of the latest public Valuer-General suburb medians in the state —
+     * NSW, VIC and SA only, 0 elsewhere. A median, not a mean: one $110.5M
+     * development sale moved the old NSW average by ~$45k.
+     * </pre>
+     *
      * <code>double state_median_price = 1 [json_name = "stateMedianPrice"];</code>
      * @param value The stateMedianPrice to set.
      * @return This builder for chaining.
@@ -496,6 +976,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Median of the latest public Valuer-General suburb medians in the state —
+     * NSW, VIC and SA only, 0 elsewhere. A median, not a mean: one $110.5M
+     * development sale moved the old NSW average by ~$45k.
+     * </pre>
+     *
      * <code>double state_median_price = 1 [json_name = "stateMedianPrice"];</code>
      * @return This builder for chaining.
      */
@@ -508,6 +994,12 @@ private static final long serialVersionUID = 0L;
 
     private double nationalMedianPrice_ ;
     /**
+     * <pre>
+     * Always 0. No open national median house price exists (ABS's
+     * established-house medians stop at capital city / rest of state, below);
+     * this used to average NSW, VIC and SA suburb medians under an "AU" label.
+     * </pre>
+     *
      * <code>double national_median_price = 2 [json_name = "nationalMedianPrice"];</code>
      * @return The nationalMedianPrice.
      */
@@ -516,6 +1008,12 @@ private static final long serialVersionUID = 0L;
       return nationalMedianPrice_;
     }
     /**
+     * <pre>
+     * Always 0. No open national median house price exists (ABS's
+     * established-house medians stop at capital city / rest of state, below);
+     * this used to average NSW, VIC and SA suburb medians under an "AU" label.
+     * </pre>
+     *
      * <code>double national_median_price = 2 [json_name = "nationalMedianPrice"];</code>
      * @param value The nationalMedianPrice to set.
      * @return This builder for chaining.
@@ -528,6 +1026,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Always 0. No open national median house price exists (ABS's
+     * established-house medians stop at capital city / rest of state, below);
+     * this used to average NSW, VIC and SA suburb medians under an "AU" label.
+     * </pre>
+     *
      * <code>double national_median_price = 2 [json_name = "nationalMedianPrice"];</code>
      * @return This builder for chaining.
      */
@@ -540,6 +1044,11 @@ private static final long serialVersionUID = 0L;
 
     private double stateMedianWeeklyHhdIncome_ ;
     /**
+     * <pre>
+     * Census 2021 median weekly household income of the MEDIAN suburb — in the
+     * state, and across every suburb nationally. Not a household-weighted median.
+     * </pre>
+     *
      * <code>double state_median_weekly_hhd_income = 3 [json_name = "stateMedianWeeklyHhdIncome"];</code>
      * @return The stateMedianWeeklyHhdIncome.
      */
@@ -548,6 +1057,11 @@ private static final long serialVersionUID = 0L;
       return stateMedianWeeklyHhdIncome_;
     }
     /**
+     * <pre>
+     * Census 2021 median weekly household income of the MEDIAN suburb — in the
+     * state, and across every suburb nationally. Not a household-weighted median.
+     * </pre>
+     *
      * <code>double state_median_weekly_hhd_income = 3 [json_name = "stateMedianWeeklyHhdIncome"];</code>
      * @param value The stateMedianWeeklyHhdIncome to set.
      * @return This builder for chaining.
@@ -560,6 +1074,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Census 2021 median weekly household income of the MEDIAN suburb — in the
+     * state, and across every suburb nationally. Not a household-weighted median.
+     * </pre>
+     *
      * <code>double state_median_weekly_hhd_income = 3 [json_name = "stateMedianWeeklyHhdIncome"];</code>
      * @return This builder for chaining.
      */
@@ -600,6 +1119,616 @@ private static final long serialVersionUID = 0L;
       nationalMedianWeeklyHhdIncome_ = 0D;
       onChanged();
       return this;
+    }
+
+    private double capitalMedianPrice_ ;
+    /**
+     * <pre>
+     * ABS established-house medians (RES_DWELL, CC-BY-4.0) for the suburb's
+     * state: its Greater Capital City and the rest of the state, read from
+     * mv_housing_headline. 0 / "" where the state has no such region (the ACT
+     * has no rest of state).
+     * </pre>
+     *
+     * <code>double capital_median_price = 5 [json_name = "capitalMedianPrice"];</code>
+     * @return The capitalMedianPrice.
+     */
+    @java.lang.Override
+    public double getCapitalMedianPrice() {
+      return capitalMedianPrice_;
+    }
+    /**
+     * <pre>
+     * ABS established-house medians (RES_DWELL, CC-BY-4.0) for the suburb's
+     * state: its Greater Capital City and the rest of the state, read from
+     * mv_housing_headline. 0 / "" where the state has no such region (the ACT
+     * has no rest of state).
+     * </pre>
+     *
+     * <code>double capital_median_price = 5 [json_name = "capitalMedianPrice"];</code>
+     * @param value The capitalMedianPrice to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapitalMedianPrice(double value) {
+
+      capitalMedianPrice_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ABS established-house medians (RES_DWELL, CC-BY-4.0) for the suburb's
+     * state: its Greater Capital City and the rest of the state, read from
+     * mv_housing_headline. 0 / "" where the state has no such region (the ACT
+     * has no rest of state).
+     * </pre>
+     *
+     * <code>double capital_median_price = 5 [json_name = "capitalMedianPrice"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCapitalMedianPrice() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      capitalMedianPrice_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object capitalRegionName_ = "";
+    /**
+     * <pre>
+     * e.g. "Greater Sydney"
+     * </pre>
+     *
+     * <code>string capital_region_name = 6 [json_name = "capitalRegionName"];</code>
+     * @return The capitalRegionName.
+     */
+    public java.lang.String getCapitalRegionName() {
+      java.lang.Object ref = capitalRegionName_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        capitalRegionName_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * e.g. "Greater Sydney"
+     * </pre>
+     *
+     * <code>string capital_region_name = 6 [json_name = "capitalRegionName"];</code>
+     * @return The bytes for capitalRegionName.
+     */
+    public com.google.protobuf.ByteString
+        getCapitalRegionNameBytes() {
+      java.lang.Object ref = capitalRegionName_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        capitalRegionName_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * e.g. "Greater Sydney"
+     * </pre>
+     *
+     * <code>string capital_region_name = 6 [json_name = "capitalRegionName"];</code>
+     * @param value The capitalRegionName to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapitalRegionName(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      capitalRegionName_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * e.g. "Greater Sydney"
+     * </pre>
+     *
+     * <code>string capital_region_name = 6 [json_name = "capitalRegionName"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCapitalRegionName() {
+      capitalRegionName_ = getDefaultInstance().getCapitalRegionName();
+      bitField0_ = (bitField0_ & ~0x00000020);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * e.g. "Greater Sydney"
+     * </pre>
+     *
+     * <code>string capital_region_name = 6 [json_name = "capitalRegionName"];</code>
+     * @param value The bytes for capitalRegionName to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapitalRegionNameBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      capitalRegionName_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object capitalRegionCode_ = "";
+    /**
+     * <pre>
+     * ABS GCCSA code, e.g. "1GSYD"
+     * </pre>
+     *
+     * <code>string capital_region_code = 7 [json_name = "capitalRegionCode"];</code>
+     * @return The capitalRegionCode.
+     */
+    public java.lang.String getCapitalRegionCode() {
+      java.lang.Object ref = capitalRegionCode_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        capitalRegionCode_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * ABS GCCSA code, e.g. "1GSYD"
+     * </pre>
+     *
+     * <code>string capital_region_code = 7 [json_name = "capitalRegionCode"];</code>
+     * @return The bytes for capitalRegionCode.
+     */
+    public com.google.protobuf.ByteString
+        getCapitalRegionCodeBytes() {
+      java.lang.Object ref = capitalRegionCode_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        capitalRegionCode_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * ABS GCCSA code, e.g. "1GSYD"
+     * </pre>
+     *
+     * <code>string capital_region_code = 7 [json_name = "capitalRegionCode"];</code>
+     * @param value The capitalRegionCode to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapitalRegionCode(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      capitalRegionCode_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ABS GCCSA code, e.g. "1GSYD"
+     * </pre>
+     *
+     * <code>string capital_region_code = 7 [json_name = "capitalRegionCode"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCapitalRegionCode() {
+      capitalRegionCode_ = getDefaultInstance().getCapitalRegionCode();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ABS GCCSA code, e.g. "1GSYD"
+     * </pre>
+     *
+     * <code>string capital_region_code = 7 [json_name = "capitalRegionCode"];</code>
+     * @param value The bytes for capitalRegionCode to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapitalRegionCodeBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      capitalRegionCode_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private double restOfStateMedianPrice_ ;
+    /**
+     * <code>double rest_of_state_median_price = 8 [json_name = "restOfStateMedianPrice"];</code>
+     * @return The restOfStateMedianPrice.
+     */
+    @java.lang.Override
+    public double getRestOfStateMedianPrice() {
+      return restOfStateMedianPrice_;
+    }
+    /**
+     * <code>double rest_of_state_median_price = 8 [json_name = "restOfStateMedianPrice"];</code>
+     * @param value The restOfStateMedianPrice to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRestOfStateMedianPrice(double value) {
+
+      restOfStateMedianPrice_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double rest_of_state_median_price = 8 [json_name = "restOfStateMedianPrice"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRestOfStateMedianPrice() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      restOfStateMedianPrice_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object restOfStateRegionName_ = "";
+    /**
+     * <pre>
+     * e.g. "Rest of NSW"
+     * </pre>
+     *
+     * <code>string rest_of_state_region_name = 9 [json_name = "restOfStateRegionName"];</code>
+     * @return The restOfStateRegionName.
+     */
+    public java.lang.String getRestOfStateRegionName() {
+      java.lang.Object ref = restOfStateRegionName_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        restOfStateRegionName_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * e.g. "Rest of NSW"
+     * </pre>
+     *
+     * <code>string rest_of_state_region_name = 9 [json_name = "restOfStateRegionName"];</code>
+     * @return The bytes for restOfStateRegionName.
+     */
+    public com.google.protobuf.ByteString
+        getRestOfStateRegionNameBytes() {
+      java.lang.Object ref = restOfStateRegionName_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        restOfStateRegionName_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * e.g. "Rest of NSW"
+     * </pre>
+     *
+     * <code>string rest_of_state_region_name = 9 [json_name = "restOfStateRegionName"];</code>
+     * @param value The restOfStateRegionName to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRestOfStateRegionName(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      restOfStateRegionName_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * e.g. "Rest of NSW"
+     * </pre>
+     *
+     * <code>string rest_of_state_region_name = 9 [json_name = "restOfStateRegionName"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRestOfStateRegionName() {
+      restOfStateRegionName_ = getDefaultInstance().getRestOfStateRegionName();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * e.g. "Rest of NSW"
+     * </pre>
+     *
+     * <code>string rest_of_state_region_name = 9 [json_name = "restOfStateRegionName"];</code>
+     * @param value The bytes for restOfStateRegionName to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRestOfStateRegionNameBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      restOfStateRegionName_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object absMedianPeriod_ = "";
+    /**
+     * <pre>
+     * quarter end, "2026-03-31"
+     * </pre>
+     *
+     * <code>string abs_median_period = 10 [json_name = "absMedianPeriod"];</code>
+     * @return The absMedianPeriod.
+     */
+    public java.lang.String getAbsMedianPeriod() {
+      java.lang.Object ref = absMedianPeriod_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        absMedianPeriod_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * quarter end, "2026-03-31"
+     * </pre>
+     *
+     * <code>string abs_median_period = 10 [json_name = "absMedianPeriod"];</code>
+     * @return The bytes for absMedianPeriod.
+     */
+    public com.google.protobuf.ByteString
+        getAbsMedianPeriodBytes() {
+      java.lang.Object ref = absMedianPeriod_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        absMedianPeriod_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * quarter end, "2026-03-31"
+     * </pre>
+     *
+     * <code>string abs_median_period = 10 [json_name = "absMedianPeriod"];</code>
+     * @param value The absMedianPeriod to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAbsMedianPeriod(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      absMedianPeriod_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * quarter end, "2026-03-31"
+     * </pre>
+     *
+     * <code>string abs_median_period = 10 [json_name = "absMedianPeriod"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAbsMedianPeriod() {
+      absMedianPeriod_ = getDefaultInstance().getAbsMedianPeriod();
+      bitField0_ = (bitField0_ & ~0x00000200);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * quarter end, "2026-03-31"
+     * </pre>
+     *
+     * <code>string abs_median_period = 10 [json_name = "absMedianPeriod"];</code>
+     * @param value The bytes for absMedianPeriod to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAbsMedianPeriodBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      absMedianPeriod_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    private com.shorts.v1alpha1.StateCensusAverages stateCensus_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.StateCensusAverages, com.shorts.v1alpha1.StateCensusAverages.Builder, com.shorts.v1alpha1.StateCensusAveragesOrBuilder> stateCensusBuilder_;
+    /**
+     * <pre>
+     * State references for the Who-lives-here and Housing-stock cards.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+     * @return Whether the stateCensus field is set.
+     */
+    public boolean hasStateCensus() {
+      return ((bitField0_ & 0x00000400) != 0);
+    }
+    /**
+     * <pre>
+     * State references for the Who-lives-here and Housing-stock cards.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+     * @return The stateCensus.
+     */
+    public com.shorts.v1alpha1.StateCensusAverages getStateCensus() {
+      if (stateCensusBuilder_ == null) {
+        return stateCensus_ == null ? com.shorts.v1alpha1.StateCensusAverages.getDefaultInstance() : stateCensus_;
+      } else {
+        return stateCensusBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * State references for the Who-lives-here and Housing-stock cards.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+     */
+    public Builder setStateCensus(com.shorts.v1alpha1.StateCensusAverages value) {
+      if (stateCensusBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        stateCensus_ = value;
+      } else {
+        stateCensusBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * State references for the Who-lives-here and Housing-stock cards.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+     */
+    public Builder setStateCensus(
+        com.shorts.v1alpha1.StateCensusAverages.Builder builderForValue) {
+      if (stateCensusBuilder_ == null) {
+        stateCensus_ = builderForValue.build();
+      } else {
+        stateCensusBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * State references for the Who-lives-here and Housing-stock cards.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+     */
+    public Builder mergeStateCensus(com.shorts.v1alpha1.StateCensusAverages value) {
+      if (stateCensusBuilder_ == null) {
+        if (((bitField0_ & 0x00000400) != 0) &&
+          stateCensus_ != null &&
+          stateCensus_ != com.shorts.v1alpha1.StateCensusAverages.getDefaultInstance()) {
+          getStateCensusBuilder().mergeFrom(value);
+        } else {
+          stateCensus_ = value;
+        }
+      } else {
+        stateCensusBuilder_.mergeFrom(value);
+      }
+      if (stateCensus_ != null) {
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * State references for the Who-lives-here and Housing-stock cards.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+     */
+    public Builder clearStateCensus() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      stateCensus_ = null;
+      if (stateCensusBuilder_ != null) {
+        stateCensusBuilder_.dispose();
+        stateCensusBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * State references for the Who-lives-here and Housing-stock cards.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+     */
+    public com.shorts.v1alpha1.StateCensusAverages.Builder getStateCensusBuilder() {
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return internalGetStateCensusFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * State references for the Who-lives-here and Housing-stock cards.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+     */
+    public com.shorts.v1alpha1.StateCensusAveragesOrBuilder getStateCensusOrBuilder() {
+      if (stateCensusBuilder_ != null) {
+        return stateCensusBuilder_.getMessageOrBuilder();
+      } else {
+        return stateCensus_ == null ?
+            com.shorts.v1alpha1.StateCensusAverages.getDefaultInstance() : stateCensus_;
+      }
+    }
+    /**
+     * <pre>
+     * State references for the Who-lives-here and Housing-stock cards.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.StateCensusAverages, com.shorts.v1alpha1.StateCensusAverages.Builder, com.shorts.v1alpha1.StateCensusAveragesOrBuilder> 
+        internalGetStateCensusFieldBuilder() {
+      if (stateCensusBuilder_ == null) {
+        stateCensusBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.StateCensusAverages, com.shorts.v1alpha1.StateCensusAverages.Builder, com.shorts.v1alpha1.StateCensusAveragesOrBuilder>(
+                getStateCensus(),
+                getParentForChildren(),
+                isClean());
+        stateCensus_ = null;
+      }
+      return stateCensusBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.ComparisonBaselines)

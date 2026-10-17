@@ -17,7 +17,9 @@ func TestYahooFinanceDirectProvider_Integration(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	provider := NewYahooFinanceDirectProvider()
+	provider, err := NewYahooFinanceDirectProvider()
+	require.NoError(t, err)
+	defer func() { _ = provider.Close() }()
 	ctx := context.Background()
 
 	t.Run("provider_name", func(t *testing.T) {
@@ -25,7 +27,7 @@ func TestYahooFinanceDirectProvider_Integration(t *testing.T) {
 	})
 
 	t.Run("rate_limit", func(t *testing.T) {
-		assert.Equal(t, 2*time.Second, provider.GetRateLimit())
+		assert.Equal(t, 4*time.Second, provider.GetRateLimit())
 	})
 
 	t.Run("fetch_bhp_ax_recent_data", func(t *testing.T) {
@@ -120,10 +122,12 @@ func TestYahooFinanceDirectProvider_Integration(t *testing.T) {
 
 		require.NoError(t, err)
 		if len(records) > 0 {
-			// All records should be within the date range
+			// Records are session dates at midnight UTC; compare by day.
+			first := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, time.UTC)
+			last := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, time.UTC)
 			for _, record := range records {
-				assert.False(t, record.Date.Before(startDate), "Record date should not be before start date")
-				assert.False(t, record.Date.After(endDate), "Record date should not be after end date")
+				assert.False(t, record.Date.Before(first), "Record date should not be before start date")
+				assert.False(t, record.Date.After(last), "Record date should not be after end date")
 			}
 			t.Logf("✅ Date filtering works: %d records in range", len(records))
 		}

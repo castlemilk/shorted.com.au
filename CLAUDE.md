@@ -85,7 +85,7 @@ Shorted.com.au is a platform for tracking short selling positions in the Austral
 | ---------------- | ---- | -------------------------------- | ---------------------------------------------- |
 | Frontend         | 3020 | `web/`                           | Next.js app with dashboard, stock pages        |
 | Shorts API       | 9091 | `services/shorts/`               | Main API for short position data               |
-| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 25 read-only tools + OAuth 2.1 (same process as the Shorts API) |
+| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 28 read-only tools + OAuth 2.1 (same process as the Shorts API) |
 | Market Data      | 8090 | `services/market-data/`          | Historical stock prices                        |
 | Chat Service     | -    | `services/chat-service/`         | AI chat with Gemini LLM + 8 API tools          |
 | News Aggregator  | -    | `services/news-aggregator/`      | RSS news aggregation + Gemini sentiment        |
@@ -135,7 +135,7 @@ Connection string: `postgresql://admin:password@localhost:5438/shorts`
 ```sql
 stock_code VARCHAR     -- ASX code
 date DATE              -- Trading date
-open, high, low, close, adjusted_close DECIMAL
+open, high, low, close, adjusted_close NUMERIC(12,4)  -- DECIMAL(10,2) before 000131 (applied by the deploy)
 volume BIGINT
 ```
 
@@ -498,6 +498,416 @@ Stock screener with server-side filtering (`services/shorts/internal/services/sh
 - **Frontend**: `/screener` page + `screener-widget.tsx` dashboard widget
 - **Days to Cover**: Added in migration 000028
 
+## Stock picker (`/picks`, strategy-driven shortlists)
+
+`/picks` hub + `/picks/[strategy]` (ISR 3600, static params from
+`web/src/@/lib/strategies/registry.ts`) over `StrategyService`
+(`strategies.proto`: `ListStrategies`, `GetStrategyPicks` with `sort_by` /
+`require_fundamentals`, `GetStockStrategyFit`) and
+`StockService.GetStockFundamentals` (periods, `growth`, `quality`, `coverage`,
+`latest_filing`). Five strategies ship: `zanger-breakout`, `canslim`,
+`minervini-trend-template`, `crowded-short-breakout`, `quality-compounders`.
+Every rule evaluates to **pass / fail / unknown**; unknown (missing data, or a
+ratio not meaningful for the company) never counts as a pass and blocks status
+`triggered`. Contracts: `docs/plans/stock-picker.md` (picker, strategies) and
+`docs/plans/fundamentals-coverage.md` (full statements, filings, quality,
+valuation, stock page).
+
+| Piece | Where |
+|---|---|
+| Strategy prose, rules, weights, evaluator, sort, valuation, financials rule (no DB) | `services/shorts/internal/strategies/` (prose lives HERE once; the web registry holds SEO metadata only) |
+| `quality-compounders` (house, no regime gate) | core `roe` (>= 15%), `net_margin` (>= 10%), `cash_conversion` (FCF > 0 and >= 0.8x NPAT), `leverage` (net cash, or net debt / EBITDA <= 2.5), `liquidity`; trigger `above_sma200`; non-core `revenue_not_shrinking` |
+| `sort_by` | `score` (default, rank order), `revenue_yoy`, `eps_yoy`, `roe`, `net_margin`, `fcf_margin`, `pe` (ascending), `market_cap`; unknowns last, growth outside [-95%, +500%] after every measured figure; `rank` stays the evaluator's; any other value is `InvalidArgument` |
+| Store | `store/shorts/postgres_strategies.go`, `postgres_fundamentals.go`: a missing view = empty universe; a schema without 000132 (42P01 / 42703) = nil quality, provenance and coverage, never a 500 |
+| Data: `stock_fundamentals` (+ `_sync`), `mv_fundamentals_growth` | `000129`, widened by `000132` (below) |
+| Data: `mv_price_features`, `mv_market_regime`, `refresh_strategy_views()` | `000130`; refreshed by `shorted picks -mode refresh` weekdays 13:30 UTC, AFTER the price sweep (not inside `refresh_all_materialized_views()` at 10:00, which runs before prices land). Order: regime, growth, quality, price features. The step pins `client_min_messages = notice` and fails on a `Skipping <view>` warning or on a picker view with no `Refreshing <view>` NOTICE (a stale 000130 body: re-apply 000132) |
+| Data: `000132_extend_fundamentals` | 21 statement lines on `stock_fundamentals` (gross profit to current liabilities; outflows negative); `field_sources` JSONB (only fields NOT from the row's `source`: Markit, a filing, `derived:*`); `source_document_url` / `_date`; `period_type='quarter'` = a balance snapshot (no flow fields); sync `last_outcome`, `consecutive_empty`, `median_k`, `fx_converted`, `native_currency`; `picks_run_lease`; `financial_report_extractions.document_meta`; growth view rebuilt once with `revenue_basis_source` / `eps_basis_source` (`vendor` / `filing`) and `revenue_latest_period_end` / `revenue_prior_period_end` appended; new `mv_fundamentals_quality` (one flow row + one same-currency balance row at or up to 6 months before it) |
+| Job | `shorted picks` (`services/jobs/README.md` "picks"): `-mode all` daily 15:00 UTC (fundamentals, filings, refresh; 12600s timeout, 1 retry). Fundamentals is budget-driven, no count cap: `PICKS_FUNDAMENTALS_BUDGET_MIN` 170 at 4s/code, priority due filers, never attempted by market cap, failures, stale successes (14-day skip, 45 for repeat empties); pre-000132 sync rows (`last_outcome` NULL) queue with never attempted and are never skipped, so the first nights after the deploy re-fetch the universe largest first (`pre_000132=N` in the log); breakers at 25 consecutive failures, >30% of the last 100 Yahoo requests, Markit off after 10; 20-minute budget on a task retry. One writer via `picks_run_lease` (a held lease exits 0). After a refresh: waits 16 min, then revalidates tags `strategy-picks` (+ `fundamentals` when rows changed) |
+| Filings | `financial-report-extractor` (Python, `services/report-extractor`, `module "report_extractor"`): daily 14:00 UTC, `--recent 2 --limit 360 --workers 4 --max-pages 8 --budget-min 90` (360 since 2026-10-11; 917 companies had an unread results document), 7200s, no retries. **Backend `openrouter`** (`direct_extract.py`, since 2026-09-29): one call per document, DeepSeek v4 Flash primary + Gemini 2.5 Flash-Lite checker, Gemini 2.5 Flash arbitrates disagreements (no majority = withheld); every figure deterministically validated (quote located in the document, value in the quote, label keywords per metric, unit scaled to true millions); underlying/diluted figures stored as `underlying_*`/`diluted_eps`; `consensus` + `models` attributes on every entry; benchmark with `bench_direct.py` / `bench_gold.py` before changing the prompt. `--backend gemini` keeps the old langextract path. `director-trade-extractor` runs the same consensus over Appendix 3Y notices (`director_direct.py`: name and every number must be in the notice; a per-share price is multiplied in code; one consideration box over several lots, or over shares plus options, gives no value; a direction contradicting the stated nature is invalid); a failed model call is `model_error`, never recorded as an attempt (the old path recorded it as `no_extract` and skipped the notice for 30 days, which hid a total outage from 2026-07-30); score rule changes with `bench_director.py`. ONE statutory results document per company (filed within 45 days newest first, then companies with no parsed filing or an unread newest document by market cap, then the rest); a document ASX lists under several codes (a renamed company's old and new code, one report for several funds; 4,101 on 2026-10-11) is read once, under its owner (`choose_document_owners`: prices within 7 days of the newest, then ASIC's short report within 30, then market cap, then the code; market cap alone picked the old code for 591), and each run first moves an extracted row filed under an out-of-date listing to its owner (`rehome_shared_extractions`; 290 rows on the first run, e.g. Swift TV's results from SW1 to STV); an EMPTY extraction (no metrics and no usable digest, i.e. none, or confidence missing or under 0.6, the latest-filing gate, the only reader of a row without metrics; a text layer; `extraction_attempts`, migration 000136) is read again at most twice, 7 days apart, at up to 24 pages, after every first attempt in every tier (ranked within its own tier, 121 retries once sat ahead of CBA's unread full year); `task data:review` lists what is still unread, empty or withheld (`.claude/skills/data-review`); the results classifier (both languages, one fixture) also rejects notices ABOUT a result or report (dates, timing, call details, delays, extensions, dispatch, addenda, additional ASX information, clarifications, letters to holders), while re-lodged corrections stay results documents; an extraction not aligned to the document, or whose value's digits are not in the aligned span, is dropped; thinking off; writes `document_meta` (`report_kind` `other` only from the document's own heading). A model failure is never stored (no row, retried next run), 5 in a row stop new work, and the run exits 1 when its model errors look systemic (5, or at least 3 making up at least a fifth of the model calls). `--repair-echo-digests` is the one-off post-deploy repair of digests written from a few-shot echo; `--repair-document-meta` the one after a change to where `document_meta`'s entity or period is read from (no model call, no key). The only source of ASX half-year totals. Read by `-mode filings` |
+| Stock page | Financials tab (`components/stocks/financials-tab.tsx`): Latest result, Key ratios, the statements island (`financial-statements.tsx`, the ONLY `use client` file there), the reports list (the source filing marked), the tax card LAST. Overview: `StrategyFitStrip` (one row per strategy, SSR, names link to `/picks/<id>`, hidden when the fit call fails; the full readings are the Strategy tab, see "Stock page (one route per tab)" below) and `FundamentalsSummary` (crawlable prose, omitted without coverage) |
+| Picker web | `components/picks/`, `lib/strategies/`: a native `<details>` row detail (ratios, basis, source, "Full financials": a followed link to the indexable `/shorts/<code>/financials`, prefetch off), `?status=` and `?sort=` via the `picks-sorted-view.tsx` island (both POST to the rewrite; the shortlist's rows stand in while it loads), coverage "fundamentals for N of M stocks (growth figures for K)" only when `fundamentals_rows_count` is reported. The desk (2026-10): five bespoke strategy glyphs as path data in `lib/strategies/glyphs.ts` drawn by `strategy-glyph.tsx` (non-scaling 1.5px stroke, 1.75px at 40px; the only 56px bezel on a view is the strategy page header, which engraves itself on load); the hub is ONE hairline-divided rack (`<ol>`), never a grid of identical cards; the regime banner carries an aria-hidden, text-free ladder (`ladderMarks`) whose legend is the four readouts; statuses are square lamps, rule outcomes round dots. Motion is `phosphor-warm`, `needle-settle` and `trace-draw` only, all `motion-safe:`, no loops |
+| MCP | `list_strategies`, `get_strategy_picks` (`sort_by`), `get_stock_fundamentals` (`quality`, `coverage`); no new tool |
+
+### Landmines
+
+- **Fundamentals are in the company's REPORTING currency** (BHP is USD) and
+  growth compares like spans only: a year on the year before, 12 months on the
+  12 months a year earlier, a half on the same half a year earlier. Yahoo has NO
+  half-year totals for ASX companies; halves come only from filings. `*_yoy_pct` is NULL when a side is missing or the prior
+  is <= 0, and every nullable number travels with `has_*`. Never COALESCE an
+  unknown to 0 (the screener MV defect the MCP tools paper over).
+- **FX-converted vendor statements.** Yahoo converts some codes' statements,
+  EPS included, and its currency labels for them cannot be trusted (XRO's
+  FY25 EPS 1.3541 is AUD-converted NPAT over shares; the NZD figure is ~1.49).
+  A fractional value on an integral line sets `stock_fundamentals_sync.fx_converted`,
+  every monetary and per-share Yahoo field is rejected (shares kept), Markit
+  supplies native revenue/NPAT, filings supply native EPS, and valuation
+  withholds P/E and P/B on the flag itself, not only on the currency label.
+- **Price-based ratios need AUD statements AND one ordinary share per listed
+  unit.** A stock is valued only when `median_k` sits in [0.8, 1.25], or,
+  without one, every computable k = NPAT / (EPS x shares) does. `listed-unit` only on
+  positive evidence (`median_k` out of band, or without one any positive k
+  outside [1/3, 3]): a CDI (RMD, k ~10) gets no market cap, P/E or P/B, never
+  a number 10x off. Anything else (no k, a k <= 0, or a recent issuer's k
+  between the bands) is
+  `no-shares`, and the picker falls back to the screener market cap. A CDI's
+  filing EPS is withheld too (`-mode filings` gate 8, stricter: without a
+  `median_k` any vendor k outside [0.8, 1.25] withholds it).
+- **Financials are decided once, in Go** (`strategies/fundamentals_quality.go`):
+  banks, insurers and lending financial-services companies get the
+  not-meaningful ratios nulled and listed in `not_meaningful`, so
+  `cash_conversion` / `leverage` read unknown (never pass) and they rank watch
+  at most. Every surface reads that list; do not re-derive it.
+  `statement_is_financial` (TRUE = neither operating income nor EBITDA) is
+  read from the newest FULL Yahoo income statement (pretax income present,
+  revenue and NPAT its own), never from a Markit, filing or legacy row (those
+  never carry either line, which once made BHP, CSL and FMG read as banks);
+  NULL means the industry decides. Banks and other financials get a
+  Go-computed ROE: the view's 10% equity-to-assets guard applies only to
+  non-financials.
+- **Parsed filings once published the prompt's own few-shot example** (revenue
+  $5,142m, NPAT $1,823m, EPS 94.2c) as BHP, CBA, DRO, EDV and MSB results.
+  `services/pkg/extractiontrust` is the ONE funnel (grounding, the few-shot
+  denylist by TEXT never by value, provenance strip, `IsResultsDocument`) and
+  every reader of `financial_report_extractions.metrics` goes through it:
+  picks filings, `GetStockFinancialHighlights`, `latest_filing`, the
+  weekly-report collector, the digest prompts. A new reader must too. The
+  entity check is one rule too (`extractiontrust.EntityMatches`). The reader
+  re-applies the entity NAME rules (`cleanEntity`) to every stored row, but
+  WHERE in a document its entity and own period are read from is decided at
+  extraction (VIT's own 4E was stored as "Cortexa Pty Ltd", from its control
+  gained or lost section, with its prior year's period), so after such a rule
+  changes one `--repair-document-meta` run (the Report Extractor Repair
+  workflow, dry run by default, never while the extractor runs) reads both
+  again from every row's stored text with its report date, never removing a
+  name readers check or a stated period. Check each recap line of its dry run
+  against its document (in the step summary), and while one is wrong
+  fix the rule, never run the repair: only a `renamed` entity can make a
+  withheld filing pass, and a period line's effect is the stock page's alone
+  (picks and the dividend estimate read the same `period_end`).
+- **A filing never overwrites a vendor value.** It fills NULL vendor fields and
+  replaces only fields marked `field_sources = 'asx-filing-extraction'`. `-mode
+  filings` is a fail-closed rebuild in one transaction: exit 10 = REFUSED (a read
+  errored or zero extractions: nothing written), exit 1 = rolled back. A large
+  purge after a gate change is expected and logged, not refused. A filing's
+  net income or EPS takes its sign from its own number or the words that
+  govern it, never a comparative's ("compared with a loss", "(pcp: loss ...)");
+  an ambiguous sign is withheld (`5_statutory.sign_ambiguous`), never guessed.
+- **Prod does not run `migrate up`**, but 000129-000132 are all in the
+  terraform-deploy allowlist (replay-safe, catalog-guarded), so no hand-apply is
+  needed. 000132 runs on the session pooler before the image swap, as two
+  transactions under `lock_timeout = '15s'`: do not merge while
+  `financial-report-extractor` or a picks refresh is running. If it cannot
+  apply, `task db:prod:apply FILE=services/migrations/000132_extend_fundamentals.up.sql CONFIRM=prod`
+  in a quiet window and re-run the deploy; never drop its allowlist line (the
+  new jobs image writes those columns). After the deploy, `run_picks_job`
+  `filings` then `refresh` clears the echo rows within the hour, one
+  `--repair-echo-digests` extractor run (the Report Extractor Repair workflow,
+  dry run by default) restores the echo rows' summaries (the API withholds them
+  until then), and pre-000132 codes are re-fetched first,
+  largest first, over the next nights.
+- **Every picks row is served three times, so the shortlist is bounded.**
+  A ranked row lands in the HTML table, in the Suspense fallback's RSC tree
+  and in the sort island's props, each with its fundamentals disclosure.
+  With the API's 100 rows that made `/picks/minervini-trend-template`
+  1.85 MB of HTML (measured 2026-10-07). `shortlistRows` caps the server
+  shortlist at `SHORTLIST_MAX_ROWS` (40), the island gets `counts` from
+  `countByStatus` over every row instead of the rows, and a status chip
+  fetches its full list like a sort chip. Do not hand the island every row
+  again, and do not add a per-row `<details>` outside the fundamentals cell.
+- **The base is anchored.** After a breakout `mv_price_features` reports
+  `base_high` / `base_low` / `base_length_days` as at the breakout session, so the
+  pivot is the level cleared (the invalidation level), and `base_length_days`
+  counts from the FIRST touch of the high (a flat base reads its full length).
+  Both were defects found by applying the migration to a scratch Postgres; the
+  window is 40 sessions, so a base is never longer than 40.
+
+## Stock page (one route per tab)
+
+`/shorts/[stockCode]` is a shared server `layout.tsx` (breadcrumbs, then
+`StockHeader`, then the sticky `StockTabNav`) with seven ISR pages beneath it
+(3600 s; `/news` 600 s): `/` (Overview digest), `/short-interest`,
+`/strategy`, `/financials`, `/company`, `/news` and `/community`. The thread
+pages at `community/[threadId]` render under the same layout but stay
+per-request. The tab list lives ONCE in
+`web/src/@/lib/stocks/stock-tabs.ts`; tab metadata goes through
+`lib/seo/stock-tab-metadata.ts` (`stockTabMetadata` for the five newer tabs,
+which inherit `isStockIndexable`; Strategy adds noindex when `in_universe` is
+false, Short interest adds it (`noindexWhen`) when the stock read resolved and
+reports no short position, and Community is always noindex; Overview and News
+keep their own titles and share `stockOgImage`). An indexable page sets NO
+`robots` key: Next 14.2 merges metadata with `for (key in source)`, so
+`robots: undefined` would replace the root layout's googleBot snippet and
+image-preview directives with nothing.
+Specs: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`
+(one route per tab) and
+`docs/superpowers/specs/2026-10-10-stock-page-visible-first-design.md`, which
+amends it in three places: the layout chrome above the tab bar, the chart in
+the layout and the theme chips in the layout. Where the two differ, the second
+governs.
+
+### Chrome, charts and the readout (2026-10-10)
+
+Production (BHP, signed out, 2026-10-10) put the tab bar 1258px down on a
+1280x900 desktop and 1774px down on a 390x844 phone, beneath a sign-in banner,
+two cards, a summary, theme chips and a 420px chart. The layout now holds three
+blocks, each followed by 16px (`mb-4`): the breadcrumbs, `StockHeader` and
+`StockTabNav`. It loads no chart. `web/e2e/stock-tabs.spec.ts` pins the goals
+(no workflow runs it): the tab bar at most 340px down on the phone and 280px on
+the desktop, the tab's own content at most 400px and 340px down, the Overview
+chart whole inside the phone's first screen, and layout shift under 0.02 on
+first load and on a tab switch.
+
+`StockHeader` is a server component: the logo (its only client child, read
+inside `Suspense` in a fixed box so it cannot shift the header), the code, the
+industry badge, the name, and the short-interest readout (short %, the 30-day
+change in percentage points, reported shorts, shares on issue and the "as of"
+date). The readout is the page's one lit surface (`shadow-terminal-inset`,
+DESIGN.md's One Bloom Rule). The 30-day change is foreground, never red or
+green, because short interest is not market direction; a fall takes U+2212. A
+missing value is left out, never a dash or "undefined".
+
+`StockTabNav` is sticky at `top-16`, under the site header's `h-16` row, and
+bleeds to `<main>`'s edges with `-mx-8`; the scrolling list inside carries the
+`px-8`, so on a phone the tabs scroll to the screen edge. Its links pass
+`scroll={false}`: Next 14.2's own scroll on a tab switch does nothing when the
+new tab's first node is already in view, which leaves its first ~110px under
+the two bars, and jumps to the top when it is above. So a click sets a flag,
+and when the active tab changes a layout effect scrolls to `dockY` (the
+sentinel's document top minus the bar's sticky top) only when the page is
+scrolled past it. A bar that was not docked does not move, and back and
+forward keep the scroll the browser restores. Intent prefetch is unchanged. A
+hash target in a tab page takes `scroll-mt-[124px]` (64 header + 44 bar + 16).
+
+Two more things live in `StockTabNav`. The list fades the edge that can scroll
+(a 40px `mask-image`, driven by `data-scroll-start` / `data-scroll-end`, which
+its scroll event and a ResizeObserver keep): the scrollbar is hidden and at 360
+and 375px nothing of the fourth tab peeks out, so the fade is the only cue the
+row scrolls, and a bar that fits (a desktop) draws none. And a document
+`focusin` listener keeps keyboard focus out from under the docked bar (WCAG 2.2
+SC 2.4.11): a `:focus-visible` control outside the bar, the site header, any
+dialog and any `position: fixed` ancestor, with its top above the bar's bottom
++ 8px and its bottom on screen, is scrolled to sit 8px under the bar. It is not
+CSS `scroll-padding-top`, which makes Tab across the docked tab links scroll the
+page to the top; `stock-tabs.spec.ts` holds both.
+
+**A price chart lives only on the tab it is about.** `StockChartPanel` is the
+first block of the Overview (combined view, `prefsKey` `"<CODE>:overview"`) and
+of Short interest (the short view, or combined for a stock with no short
+history, `"<CODE>:short-interest"`), always client-only (`ssr: false`).
+Strategy keeps its own levels chart; Financials, Company, News and Community
+have none. The visitor's settings survive a tab switch in `chart-prefs.ts`, a
+client-only module store: the period is kept per stock and shared by both chart
+tabs, the view, SMA 20 and divergence per `prefsKey`. It lives until a reload
+and writes nothing to storage; a panel with no `prefsKey` (the dashboard, the
+stories) is plain local state.
+
+**Nor does a tab without a chart load one.** Next 14 builds each tab's client
+reference manifest from the Overview page's (the page above the other six), and
+maps each client module to the whole first-load chunk list of the page that
+holds it, so a tab that resolves a shared module (`next/link`) through the
+Overview's mapping downloads all of the Overview's first-load chunks. A
+`nextDynamic` in a server page is bundled into that list: Financials and
+Community downloaded the Overview's chart that way (227 KiB of JS for BHP). A
+route group does not stop it (Next strips the group from the manifest's group
+name). So Short interest loads the panel with `nextDynamic(..., { ssr: false })`
+in its page, and the Overview through `StockChartPanelLazy`
+(`components/charts/stock-chart-panel-lazy.tsx`), a `"use client"` module whose
+`next/dynamic` is a real `import()`: the chart is a chunk of its own, in no list
+another tab inherits. The module starts that download as it runs, so the
+Overview's chart lands when it did as a first-load chunk, but only when the
+path is the Overview: a tab that loads the Overview's page chunk runs every
+Overview client module, and the unguarded `import()` put the chart back on
+Financials and Community. `web/scripts/stock-chart-chunks.mjs`
+(`npm run routes:charts` after `next build`; `task test:bundle` and
+`perf-budget.yml` run it) fails when a client module in the manifest of the
+Overview or of a tab without a chart maps to a chunk carrying the chart's code
+(`data-chart-capture`). It cannot see an `import()` started at runtime; the
+download check in `web/e2e/stock-tabs.spec.ts` can (no workflow runs it).
+
+The chart box is sized by CSS, `h-[360px] sm:h-[420px]`
+(`CHART_BOX_HEIGHT_CLASS`), and `StockChart` takes its height from its parent
+when it is given no `height`. One `StockChartPanelSkeleton` serves as the
+dynamic import's `loading` fallback and as the first block of both chart tabs'
+`loading.tsx`, so the placeholder and the chart are the same size. The controls
+stack below `xl`: one 40px row above the plot (the view control and the embed
+button), then the period and the toggles beneath it. From `xl` they sit in one
+row, which needs about 960px of panel; every narrower window gets the stacked
+form.
+
+`StockChart` takes `readout?: "strip" | "tooltip"`, default `"strip"`. The
+strip is a fixed-height band above the plot, so nothing covers the plot: 28px
+from 640px wide, and below that `8 + 18 x (1 + series)` (44px for one series,
+62px for two). Its height depends on the chart's width and its series count
+only, never on the state or the values. The count is the series it has, or the
+`readoutReserveSeries` it is told to expect if that is more: the Combined panel and
+the embed's Combined view pass 2, so on a phone the short series landing after the
+price finds its row held and moves nothing (the rows of series still to come are drawn empty). It
+reads `latest` by default, then `hover`, `pinned` or `measure`
+(`data-readout-state`). A persistent `sr-only` `role="status"` announces a pin
+and its release, never a scrub, and the arrow keys step a reading from the pin,
+or else the point under the pointer (Home and End jump, Escape releases).
+`"tooltip"` is the floating card: the two dashboard widgets pass it, so does
+the embed when its chart is under 260px tall, and the strip falls back to it
+when the plot would be under 160px (`READOUT_MIN_PLOT`). Red and green mark the
+price series' direction only; the short series reads in the foreground, in
+percentage points, as the header's 30-day change does ("▲ +0.62 pp",
+"▼ −0.31 pp", "– 0.00 pp"). Short interest prints to two decimals everywhere
+the chart prints it (`shortFmt`). A reading is dated by the data point it
+shows, never by the pointer's instant: the strip, the card, the measure's
+headline and the pin's announcement all name the session, not a weekend the
+cursor happens to be over. The svg clips whatever is drawn outside it, so the
+margins follow the labels (`axis-margin.ts`): a side with an axis gets the room
+of the widest label it prints, and never less than 48px, which holds six
+characters at 10px mono after a tick and a gap ("$99.99", or short interest as
+"12.00%"). A price of $100 or more is seven characters and gets 53px. The labels
+are estimated from the data and the axis' format (the zoom, the normalised view,
+the same ticks the axis draws) and never measured, because the margin sets the
+plot's width. A zoom can widen a side but never narrows it: a side keeps the
+widest that the whole series or any zoom since has needed, until the data, the
+view or an axis changes, so a zoom whose widest label is a character shorter
+does not move the plot 5px under the pointer. With no right axis the right keeps 28px (the time axis' last label
+hangs half its width past the plot), and a compact chart its 32px and 12px.
+
+The sign-in banner renders on the Overview only, after the About card, as one
+44px line. Under `html.anon`, `critical-css.ts` reserves its `.login-slot` at
+46px (the line plus the wrapper's 2px border) with a 1rem margin, so the slot
+is the same height before and after the banner mounts. The site header's Sign
+in button stays on every page. The Strategy tab's `RegimeBanner` takes
+`compact` below `sm` (the pill, the as-of date and the verdict, without the
+four readouts and the ladder); on `/picks` it is unchanged.
+
+### Landmines
+
+- **Every tab page exports `revalidate`, `dynamicParams = true` and an EMPTY
+  `generateStaticParams`**, and nothing under the segment reads
+  `searchParams`, `cookies()`, `headers()`, `auth()` or a no-store fetch. Lose
+  any of that and the route renders on every request. Three guards, each
+  blind to something the others see:
+  - `web/scripts/route-kinds.mjs` (`npm run routes:kinds` after `next build`;
+    `task test:bundle` and `perf-budget.yml` run it) fails when a stock route
+    is missing from `dynamicRoutes` in `.next/prerender-manifest.json`. It
+    catches a lost `generateStaticParams`, `revalidate = 0` and
+    `dynamic = "force-dynamic"`. It does NOT catch a `cookies()`, `headers()`
+    or `searchParams` read under an empty `generateStaticParams`: nothing
+    renders at build time, so the route stays listed and fails at request
+    time.
+  - `web/src/app/shorts/__tests__/isr-source-safety.test.ts` (Jest) covers
+    that half: it scans every non-test file in the segment for those reads and
+    requires the trio in each tab page (the thread page is exempt; it is
+    per-request by design). It reads the segment's own files only. A read
+    inside a component imported from elsewhere is caught only by the e2e
+    check that a second request to each tab answers `x-nextjs-cache: HIT`
+    (`web/e2e/stock-tabs.spec.ts`; no workflow runs it) and the post-deploy
+    HIT check.
+  - `web/src/app/shorts/__tests__/ssr-import-safety.test.ts` (Jest) walks
+    static imports from the layout, the data loader and every tab page, and
+    fails when a `"use client"` module on the way reaches `@connectrpc` (the
+    SSR failure under Known Issues). Client widgets load through
+    `nextDynamic(() => import(...), { ssr: false })` and are listed in the
+    test's `CONNECT_ISLANDS`. The Overview's chart is the one exception: a test
+    of its own requires that the page has no `nextDynamic` and loads it through
+    the client module `stock-chart-panel-lazy.tsx`. The walk's allowlist, `KNOWN_CLIENT_CONNECT`, holds only
+    the pre-existing `company-info-with-retry` fallback (on the Overview) and
+    can only shrink. The layout's two twins, `company-profile-with-retry` and
+    `company-stats-with-retry`, were deleted with the cards they served, and
+    `StockHeader` is a server component with no twin, so the layout has no
+    entry. An allowlist entry is a risk, not a fix: `CompanyTaxCard` was on it,
+    and the Financials route then answered 500 for every stock in a production
+    build with every Jest test green. It is an island now.
+- **A transient stock read fails the render; it never degrades it.** The
+  layout, the Overview and the Short interest, Strategy, Financials and Company
+  pages read the stock through `loadStockOrFail(code)`
+  (`web/src/app/shorts/[stockCode]/stock-page-data.ts`): an unknown code is a
+  404, a transient `undefined` throws, so a degraded shell is never baked into
+  the cache for an hour. The News page applies the same rule to its own read: a
+  failed `getStockNews` (undefined) throws, while an empty feed (a response
+  with no articles) keeps its "No news found" copy. `[stockCode]/error.tsx`
+  covers the tab pages, not the layout (a boundary sits inside its own
+  layout): a throw from the layout renders the root error page with HTTP 500
+  and caches nothing. A page that is merely stale keeps being served while it
+  regenerates, so a failed regeneration leaves the last good one in place; but
+  the sync's layout revalidation EXPIRES every entry, so the next regeneration
+  is blocking and a transient read can show that error page for a stock that
+  was cached too, until a retry succeeds. A
+  `notFound()` from the layout is caught one level up, so
+  `web/src/app/shorts/not-found.tsx` re-exports the stock 404 card. Do not add
+  `app/shorts/error.tsx`: it would wrap the `/shorts` index too.
+- **Tab links prefetch on intent only** (`StockTabNav`: pointer enter, touch
+  start, focus; once per href). Never switch them to viewport prefetch: seven
+  ISR regenerations per page view. Every other link into a tab follows suit:
+  build it with `stockTabHref(code, tab)` and `prefetch={false}` (the stock
+  breadcrumbs pass `prefetch={false}` to the shared `Breadcrumbs`, whose
+  default is unchanged for the other pages; the News links in `take-related.tsx`
+  and `stock-news-tab.tsx` do the same).
+- **A missing community thread answers 200, not 404.**
+  `community/[threadId]/page.tsx` calls `notFound()` for an unknown or deleted
+  thread, but the segment's `loading.tsx` streams the layout before the page
+  runs, so the status line is already sent: the response is a 200 carrying the
+  not-found card and Next's `noindex` meta. A crawler reads a soft 404, and the
+  `noindex` is what takes a deleted, once-indexed thread out of the index. The
+  ISR tab pages are unaffected (static generation renders to completion before
+  anything is cached). A `generateMetadata` that noindexes a missing thread is
+  the alternative to accepting this.
+- **Old `?tab=` links are edge redirects.** The map and the redirect builder
+  live in `web/src/config/stock-tab-redirects.mjs` (dependency-free, so the
+  repo-hygiene job can import it; there is no JSON file) and are spread into
+  `redirects()` in `next.config.mjs`;
+  `scripts/tests/stock-tab-redirects.test.mjs` pins both. `?tab=overview` is
+  deliberately NOT redirected: Next forwards the query string, so a same-path
+  redirect would loop on itself. It renders the Overview, like any other
+  unmapped value. No client-side reader exists any more. Under `next start` the
+  redirect's `Location` keeps the stale `?tab=`, so the e2e test compares its
+  pathname.
+- **The sync's `/shorts/[stockCode]` path is revalidated with type `layout`**
+  (`/api/revalidate`), which expires every tab for every code in one call. An
+  expired page regenerates only when it is next visited.
+- **A chart is no longer one DOM node across the tabs.** Each chart tab mounts
+  its own, so a return to one within 30 minutes (the chart queries'
+  `DAILY_STALE`, and the client's `gcTime`) re-renders from the TanStack cache
+  with no request, and its settings come back from `chart-prefs.ts`. The
+  Strategy levels chart calls `useStockChartData(code, "1y")`, the default
+  period and query key of those charts, so its 1y queries are shared with the
+  Overview chart only after a visit to a chart tab. A visitor who lands on
+  Strategy directly pays one extra request; the layout's chart used to fetch
+  the prices first.
+- **`PriceFeatures` on `GetStockStrategyFit`** carries `has_` flags; the web
+  maps absent to `null` (`StockPriceFeatures`), never zero, and the fit's
+  `unstable_cache` key is `v2` so no entry without the field is read back.
+  Level sets are pure (`components/strategy/strategy-levels.ts`); after a
+  breakout the base band and its ranged pivot end at the BREAKOUT session, not
+  the last close, because the features are as at that session ("The base is
+  anchored" above); a moving-average line is drawn only with a full lookback. A
+  stock outside the
+  picker universe (under 60 sessions in the last 400 days, migration 000130)
+  gets an explanation and `noindex`, never a chart with empty levels.
+- `stock-news-tab.tsx` stays (`stock-news-feed.tsx` and `related-news-rail.tsx`
+  import its hooks); the old `stock-tabs.tsx` shell is gone.
+- **The Company tab draws its director trades on the server.** The page
+  starts `getDirectorTrades(code, 20)` with its other reads and awaits it where
+  the section renders (the ISR-safe fetch the insider-trading page uses; it
+  resolves `undefined` on any failure, and a rejection is taken the same way),
+  then draws `DirectorTradesView` from it: the table, or the "No director trades
+  found" card. That module (`components/company/director-trades-view.tsx`) has
+  no `"use client"`, no Connect and only type imports from the generated code,
+  and the `DirectorTradesTable` island draws it too for its loaded and empty
+  states, so the markup lives once. The island, under its
+  `DirectorTradesSkeleton` placeholder, is only the fallback for a read that
+  returned `undefined`. It used to be the only path: for a stock with no trades
+  its 322px skeleton collapsed to a 92px card, moving every card below it up by
+  230px (a first-load layout shift of 0.164 at 1280px and 0.215 at 390px for
+  SPLR on a local production build; BHP, which has trades, was 0.0007).
+  `PoliticianInterestsCard` had the same flaw one card lower (a 134px skeleton,
+  then `null` for most stocks): it renders `null` while it loads, as
+  `StockConnections` does, so a card that may resolve to nothing never holds a
+  place it gives back.
+- Every tab segment has a `loading.tsx` whose root is `role="status"` with
+  `aria-busy` and `aria-label` (a bare `aria-label` on a div is not announced);
+  `app/shorts/__tests__/loading-boundaries.test.tsx` finds them on disk. Where
+  a tab's first card follows the sr-only h1 (`CardTitle` is an h3), the page
+  carries one sr-only h2 naming the group so the outline never jumps a level;
+  a title an island already prints is never repeated by a wrapper heading.
+
 ## Weekly/Monthly/Yearly Reports
 
 LLM-generated short-selling reports at `/reports` (weekly `2026-W23`, monthly `2026-05`, yearly `2025` — one `weekly_reports` table, slug shape disambiguates).
@@ -512,7 +922,7 @@ Operating manual (running, prompt iteration via `-print-prompt`/`-dry-run`, qual
 ## Housing (tracker + suburb explorer + listings crawl + price-drops)
 
 Five products over one fact/dimension data model, one chart system and one
-Connect-RPC service (`HousingService`, `housing.proto`, 11 rpcs): the
+Connect-RPC service (`HousingService`, `housing.proto`, 17 rpcs): the
 **Widow-Maker editorial feature** (`/features/the-widow-maker`, baked arrays), the
 **House Prices Tracker** (`/housing`, live ABS/RBA/Valuer-General ingest), the
 **suburb explorer** (`/housing` → `/housing/[state]` → `/housing/[state]/[suburb]`
@@ -521,7 +931,7 @@ terrain / hazard shares, plus toggleable flood-planning, observed-water and
 bushfire **overlays** synced to `?metric=`/`?overlays=`), the
 **residential listings crawl** (REA/Domain via warm host-Chrome CDP on residential
 Macs, plus a property.com.au AVM tier), and the **price-drops board**
-(`/price-drops`). **All LIVE on prod** — as at 2026-08-09: 88,689 crawl listings
+(`/price-drops`), plus the **council hub** — `/housing/[state]/council` + `/housing/[state]/council/[slug]` (`ListCouncils`/`GetCouncilProfile`, map council level + borders; `architecture.md` §11; built 2026-09-24, awaiting its 000126 prod DDL + deploy). **The five products are LIVE on prod** — as at 2026-08-09: 88,689 crawl listings
 across 500 suburbs, a **500-suburb** crawl catalog, **22** collector modes, 16
 official-ingest jobs, 27 housing migrations (000053–000092). The
 `house-price-collector` Cloud Run job **is** wired into CI + both TF environments
@@ -534,21 +944,21 @@ official-ingest jobs, 27 housing migrations (000053–000092). The
 | `docs/feature/housing/README.md` | Current state + dated prod numbers, the five rules that shape every change, surfaces, known-open items |
 | `docs/feature/housing/data-sources.md` | Every source + licence, mandatory fetch posture, and what is ruled OUT (and why) |
 | `docs/feature/housing/data-model.md` | Tables, MVs, migration map, and where each guard is actually enforced (DB vs code) |
-| `docs/feature/housing/pipeline.md` | The 22 collector modes, the 16 official jobs, run order, timeouts, exit-code contract |
+| `docs/feature/housing/pipeline.md` | The 37 collector modes, the 16 official jobs, run order, timeouts, exit-code contract |
 | `docs/feature/housing/operations.md` | Runbook: prod DDL, rig crawl recovery, revalidation, takedown, credentials |
 | `docs/feature/housing/architecture.md` | Decision/incident record + extension recipes — read before touching crawl classification or caching |
 
 ### Landmines
 
-- **The prod deploy does NOT run `migrate up`** — it applies a hardcoded allowlist that contains **zero housing migrations**. Apply housing DDL BY HAND (session pooler **5432**, `PGOPTIONS="-c statement_timeout=0"`) *before* merging code that reads the new columns, or every housing read path 500s. Prod `schema_migrations` lies (force-written to 75).
-- **MV refresh needs that same session pooler.** Run `refresh_housing_materialized_views()` on 5432 with `statement_timeout=0`; the txn pooler (6543) kills it mid-`REFRESH … CONCURRENTLY`. The starvation hazard this used to warn about — an `EXCEPTION WHEN OTHERS` guard that does not catch the `query_canceled` a statement timeout raises, so one timed-out MV starves every MV after it — **is fixed**: `000107_harden_housing_mv_refresh` landed and prod's function handles `query_canceled` (verified against `pg_proc`, 2026-08-28). The pooler rule still stands, and the collector already issues `SET LOCAL statement_timeout = 0` before the call.
+- **The prod deploy does NOT run `migrate up`** — it applies a hardcoded allowlist that contains **zero housing migrations**. Apply housing DDL BY HAND (`task db:prod:apply FILE=… CONFIRM=prod`: session pooler **5432**, one transaction with `SET LOCAL statement_timeout = 0`; `PGOPTIONS` does nothing, Supavisor drops it) *before* merging code that reads the new columns, or every housing read path 500s. Prod `schema_migrations` lies (force-written to 75).
+- **MV refresh needs that same session pooler.** Run `refresh_housing_materialized_views()` via `task db:prod:refresh WHICH=housing CONFIRM=prod` (5432, `SET LOCAL statement_timeout = 0`, exits 1 if a view was skipped); the txn pooler (6543) kills it mid-`REFRESH … CONCURRENTLY`. The starvation hazard this used to warn about — an `EXCEPTION WHEN OTHERS` guard that does not catch the `query_canceled` a statement timeout raises, so one timed-out MV starves every MV after it — **is fixed**: `000107_harden_housing_mv_refresh` landed and prod's function handles `query_canceled` (verified against `pg_proc`, 2026-08-28). The pooler rule still stands, and the collector already issues `SET LOCAL statement_timeout = 0` before the call.
 - **Charts can't SSR, and functions can't cross the RSC boundary.** Every interactive chart is imported `dynamic(..., { ssr: false })` from a `"use client"` module; pass a **serializable key** (`format="aud"|"percent"|"index"`, `MetricKey` from `highlight-metrics.ts`) and look the formatter/colour scale up client-side — never pass a formatter or scale as a prop from a server page.
 - **Reading `searchParams` in a server page silently forces dynamic rendering** even with `revalidate` exported, killing the ISR that serves `/price-drops` in 40–58ms. Read `?state=` client-side via `useSearchParams` under a real `<Suspense>` boundary (the `next/dynamic` fallback does not satisfy it).
 - **ABS WAF**: `abs.go` MUST send `User-Agent: shorted-housing/1.0 (+https://shorted.com.au)` + `Accept: application/vnd.sdmx.data+csv;labels=both` — a bare request 403s. Conversely, don't hand-set a UA on the crawl tier; `stealthhttp`'s native engine supplies browser-realistic TLS/headers.
 - **Crawl rows are never republished raw.** REA/Domain/property.com.au rows carry `source_licence='proprietary-tos-restricted'` (a column DEFAULT, so the unlicensed state is unstorable); only derived aggregates are a publishable surface, only counts-only summaries cross to brandbrain, and `CRAWL_TRACE` artifacts stay local + gitignored. Kill switches: `HOUSING_DROP_LISTINGS_ENABLED` / `HOUSING_VALUATIONS_ENABLED` (both ON by default).
 - **A hand-run crawl writes nothing.** `CRAWL_DRY_RUN` / `CRIME_DRY_RUN` / `PURGE_DRY_RUN` default to true in code; only the launchd wrappers export `false`. Check `dryRun=` in the startup log before believing a run persisted.
 - **Crawl throughput and its alarm are ONE decision.** `CRAWL_DELTA_MAX_SUBURBS` (now **120**) is the ceiling of the whole crawl — 500 suburbs ÷ cap = the rotation — and `CRAWL_FRESHNESS_ALARM_HOURS` (now **120h**) must match it. The old 60/72h pairing implied an 8.3-day rotation against a 3-day alarm, so the alarm fired on the designed steady state and stopped meaning anything (measured 2026-08-18: median 117h, oldest 305h). Change one, change the other. **Reaching that throughput is a third thing, and it was broken:** a re-warm (exit 3) used to end the run and hand the rest back to the *schedule*, which fires at 10:00 daily — so one routine Kasada re-warm cost a whole day. Measured 2026-09-10: 21 of 38 jobs against a 120 cap, the ~4-day rotation stretched to weeks, 502 suburbs past the alarm. `hc_drain_until_empty` now cools down and retries in the same run (`CRAWL_REWARM_COOLDOWN_SEC` 900, `CRAWL_REWARM_MAX_RETRIES` 2, `0` disables), still returning 3 once the budget is spent so the exit contract and the alarm keep their meaning. It raises no ceiling — it makes the rig reach the one already set. **Judge a run by SUCCEEDED jobs, never by "processed"** — processed counts jobs claimed and immediately DEFERRED because the portal circuit was open, so a long run of deferrals reads as throughput. Measured 2026-09-11: budget 2 gave 85 processed / **34 succeeded** / 35 deferred and cleared 38 stale suburbs; budget 4 gave 323 processed / **26 succeeded** / 241 deferred / 56 failed and cleared 19. More retries against an open circuit is just asking a blocking portal again.
-- **Alerting: the sentinel is the only layer that survives a dead rig.** `.github/workflows/housing-freshness.yml` (daily, read-only, files one GitHub issue) checks per-suburb `CATALOG_STALENESS` (132h) + `RIG_STATUS` alongside global `EVENT_SILENCE` — the global check alone stayed **green through a two-day outage**. Rig-side, every terminal wrapper failure pushes via `hc_alert` (notification + `CRAWL_ALERT_WEBHOOK`, falling back to `CRAWL_FRESHNESS_WEBHOOK`); unset webhook = notification only.
+- **Alerting: the sentinel is the only layer that survives a dead rig.** `.github/workflows/housing-freshness.yml` (daily, GitHub-hosted — never the rig's self-hosted runners, which die with the rig — read-only, files one GitHub issue) checks MV refresh age (72h), per-suburb `CATALOG_STALENESS` (132h) + `RIG_STATUS` alongside global `EVENT_SILENCE` — the global check alone stayed **green through a two-day outage**. Rig-side, every terminal wrapper failure pushes via `hc_alert` (notification + `CRAWL_ALERT_WEBHOOK`, falling back to `CRAWL_FRESHNESS_WEBHOOK`); unset webhook = notification only.
 - **The rig is a hand deploy and has drifted before** (binary 4h17m behind the fix it was assumed to carry). Use `deploy/stage-rig.sh` (`--check` is read-only — run it FIRST in any crawl incident); wrappers log `vcs.revision` at run start. The Playwright driver now lives at `CRAWL_PW_DRIVER_DIR` (`~/.shorted-housing-crawl/pw-driver`), **not** `~/Library/Caches` where a sweep deleted it; repair with `-mode install-driver`.
 
 ## Economy (map explorer + state pages + series platform)
@@ -556,7 +966,7 @@ official-ingest jobs, 27 housing migrations (000053–000092). The
 `/economy` (map-first hub, ISR) → `/economy/[state]` (SSG ×8, banner heroes with
 centered state silhouettes, breadcrumbs) over a **generic economic-series
 layer**: `economic_series` + `economic_observations` (migrations
-000081/000082/000083/000085) fed by `services/economy-collector`
+000081/000082/000083/000085) fed by `shorted economy` (`services/jobs/internal/jobs/economy`)
 (**11 sources**: rba, cpi, labour, trade, gdp=SFD, petroleum, govfin+detail,
 approvals, retail, population, markets-derived) on a monthly Cloud Run Job,
 read by the public **`EconomyService`** (economy.proto after the proto split):
@@ -568,7 +978,7 @@ read by the public **`EconomyService`** (economy.proto after the proto split):
 
 | File | Purpose |
 |------|---------|
-| `services/economy-collector/` | All importers (`-mode all`); probe-pinned constants; fail-closed filters |
+| `services/jobs/internal/jobs/economy/` | All importers (`shorted economy -mode all`); probe-pinned constants; fail-closed filters |
 | `services/pkg/absdata/` | Shared ABS SDMX-CSV + RBA CSV clients (WAF-safe UA is mandatory) |
 | `services/migrations/000081…000085` | Series layer, registry kind/method extensions, state_exposure + MV |
 | `services/shorts/.../economy.go`, `state_exposure.go` | RPC handlers (normalized cache keys) |
@@ -577,7 +987,7 @@ read by the public **`EconomyService`** (economy.proto after the proto split):
 | `web/src/@/components/economy/` | Map explorer, state charts/companies/correlations, dual-axis chart, `<EconomyIcon>` sprite |
 | `web/src/app/economy/` + `[state]/` | Hub + state pages; actions in `app/actions/getEconomy.ts` (KV last-good layer) |
 | `web/scripts/economy-icons/` | Icon-set generation pipeline (housing-icons clone) |
-| `terraform/modules/economy-collector/` | Cloud Run Job + monthly scheduler (5th, 17:00 UTC) |
+| `terraform/environments/prod/main.tf` `module "shorted_job_economy"` | Cloud Run Job `shorted-economy` + monthly scheduler (5th, 17:00 UTC) |
 
 ### Landmines (details: `docs/economy-architecture.md`)
 
@@ -593,9 +1003,10 @@ read by the public **`EconomyService`** (economy.proto after the proto split):
   Never derive series keys from source labels — stable codes/static maps only.
 - **Prod company-metadata lacks `sector`/`description`** (local has them) —
   query only columns present in both.
-- **Prod MV refresh**: session pooler 5432 + `statement_timeout=0` (txn pooler
-  kills `refresh_all_materialized_views`).
-- First collector run in a new env is manual: `gcloud run jobs execute economy-collector`.
+- **Prod MV refresh**: `task db:prod:refresh CONFIRM=prod` (session pooler 5432,
+  `SET LOCAL statement_timeout = 0`; the txn pooler kills
+  `refresh_all_materialized_views`).
+- First collector run in a new env is manual: `gcloud run jobs execute shorted-economy`.
 
 Full architecture + extension recipes (new SDMX/XLSX source, new map metric,
 new derived series): `docs/economy-architecture.md`.
@@ -642,8 +1053,8 @@ must never fire from a deploy). `make register-photos` / `register-index`.
 ### Landmines
 
 - **The prod deploy does NOT run `migrate up`** — it applies a hardcoded
-  allowlist. Apply new migrations BY HAND (session pooler 5432,
-  `statement_timeout=0`) BEFORE merging, or the API ships selecting columns prod
+  allowlist. Apply new migrations BY HAND (`task db:prod:apply`: session pooler
+  5432, `SET LOCAL statement_timeout = 0`) BEFORE merging, or the API ships selecting columns prod
   lacks and every politician read path 500s.
 - `run-tests` is `if: github.event_name != 'pull_request'` — Go tests gate the
   DEPLOY, not the PR. **golangci-lint runs in no CI job at all.**
@@ -664,11 +1075,11 @@ must never fire from a deploy). `make register-photos` / `register-index`.
   the new row by name mints duplicates. The crawl is incremental (re-queue when the listing
   date ≥ fetch date). Runbook: operations.md "Re-crawling prod".
 
-## MCP server — OAuth 2.1, 25 tools, protocol `2026-07-28`
+## MCP server — OAuth 2.1, 28 tools, protocol `2026-07-28`
 
 `https://api.shorted.com.au/mcp` — read-only Model Context Protocol access to
 everything above: short positions, stocks, housing, economy, the register of
-interests. **LIVE on prod**, streamable HTTP, 25 tools, 3 resources, 3 prompts.
+interests. **LIVE on prod**, streamable HTTP, 28 tools, 3 resources, 3 prompts.
 Go SDK (`modelcontextprotocol/go-sdk`), served by the shorts API.
 
 **The product promise, and the constraint every change here answers to:** a user
@@ -687,7 +1098,7 @@ Next.js contributes only the consent screen.
 
 | File | Purpose |
 |------|---------|
-| `services/shorts/internal/mcp/` | Server, registry, 25 tools, catalog, resources, prompts |
+| `services/shorts/internal/mcp/` | Server, registry, 28 tools, catalog, resources, prompts |
 | `services/shorts/internal/mcp/auth.go` | Audience-bound verification, RFC 9728 metadata, `OptionalBearerToken` |
 | `services/shorts/internal/mcp/ratelimit.go` | Per-tool-call cost, identity, JSON-RPC 429 |
 | `services/shorts/internal/oauth/` | AS metadata, consent tickets, grant, token, CIMD + DCR |
@@ -735,7 +1146,7 @@ Next.js contributes only the consent screen.
   caller at their ceiling gets a plain 429: they have already done what a
   challenge asks, and what they need is `upgrade_url`. Do NOT "fix" adoption by
   gating anonymous access. (Before this, OAuth was live but fully dormant —
-  measured 2026-08-30, a real client connected, got 24 tools (25 today), stored no auth
+  measured 2026-08-30, a real client connected, got 24 tools (28 today), stored no auth
   state and never started the flow.)
 - **`RATE_LIMIT_ENABLED` is now TRUE in prod (Terraform, `shorts-api` module).**
   It was off everywhere until the app layer could tell our own traffic apart:
@@ -823,7 +1234,7 @@ Next.js contributes only the consent screen.
   **Postgres accepts `-NaN`/`+NaN` where Go's `ParseFloat` does not**, so that
   guard cannot lean on `ParseFloat` alone.
 - **The MCP SDK emits no `$defs`/`$ref`** — every nested struct is inlined at
-  every use site. `tools/list` is ~74KB for 25 tools, paid every session; the
+  every use site. `tools/list` is ~87KB for 28 tools (89,495 of the 90,112 B budget), paid every session; the
   lever is fewer fields and fewer redundant descriptions, never flattening.
 - **The SDK exports no setter for `TokenInfo` in a context.** A test wanting an
   authenticated request must drive `auth.RequireBearerToken` — which is
@@ -839,6 +1250,86 @@ Next.js contributes only the consent screen.
   any hand-apply.
 
 Full record: `docs/superpowers/handover-2026-08-29-mcp-oauth.md`.
+
+**Admin MCP server — `/mcp/admin`** (`docs/mcp-admin.md`). A SECOND resource
+for administrators, connected once as a claude.ai custom connector:
+`publish_news_article` / `news_publish_status` (scope `news:publish`) and
+`run_picks_job` / `picks_job_status` (scope `jobs:run`, starts `shorted picks
+-mode fundamentals|filings|refresh|all` via a `run.developer` grant on that one
+job, argv built server-side from the enum in `jobmonitor/picks.go`). It is a
+separate OAuth resource with its own scope vocabulary (`oauth/resources.go`) —
+never add a write tool or a non-`:read` scope to the public server or
+`mcp.Scopes`. Admin scopes name actions and are checked PER TOOL; the HTTP
+layer requires at least one, never all, so adding a scope does not log an
+existing connector out (a token minted before the scope gets a tool error
+naming it). Admin = verified email on the web app's `ADMIN_EMAILS`, resolved
+from the token's uid via the web app's `/api/internal/admin-check` and
+re-checked at ticket, grant, token, every refresh and every request.
+
+## Scheduled jobs on Kubernetes (Paprika on omega VKE, Telesis monitoring)
+
+Scheduled batch jobs are moving from Cloud Scheduler → Cloud Run Jobs to
+Kubernetes CronJobs on the omega VKE cluster: **`deploy/kubernetes/jobs/`**
+(chart + Paprika Application + scripts; runbook in its `README.md`). Paprika
+polls main and renders the chart into namespace `shorted-jobs`. The
+`shorted cronjob-reporter` Deployment (`services/jobs/internal/jobs/cronreporter/`)
+turns every Job's lifecycle into Telesis cron-monitor check-ins, and Telesis
+alerts on failed, missed and timed-out runs. That replaces the GCP
+`job-monitoring` policies for scheduled runs.
+
+- **Cutover is two lists that must match**: `enabled:` in
+  `deploy/kubernetes/jobs/chart/values.yaml` (unsuspends the CronJob) and
+  `local.jobs_on_vke` in `terraform/environments/prod/main.tf` (pauses the
+  Cloud Scheduler trigger). One without the other runs a job twice or not at
+  all. `scripts/tests/vke-jobs-cutover.test.mjs` enforces it. Ships with both
+  empty and `suspendAll: true`: nothing runs until a job is cut over.
+- **Cloud Run jobs are NOT deleted.** Admin Run now, validation runs, news
+  publish, the freshness/price-sync workflows and rollback all still use them.
+  Until a job's Cloud Run definition is retired, **change its
+  args/env/timeout in BOTH `values.yaml` and Terraform**. `chart/tests/render.sh`
+  only pins schedules.
+- **Cloud Run env is emulated.** `CLOUD_RUN_EXECUTION` = the Job name
+  (short-data-sync resume key, price-sync report key). `CLOUD_RUN_TASK_ATTEMPT` =
+  the Indexed Job's per-index failure count, so the Jobs must stay
+  `completionMode: Indexed` + `backoffLimitPerIndex`.
+- **Paprika tracks the `deploy/vke-jobs` branch, not main.** The deploy's `bump-vke-jobs-image` job moves it only after Terraform applies, so a cutover's CronJob can never go live before its Cloud Scheduler trigger is paused. When the Application tracked main, a failed image push on 2026-09-30 left six jobs live on both schedulers for about an hour.
+- **Jobs still on Cloud Run are tracked too.** `cronjob-reporter` lists their executions through a keyless `vke-cronjob-reporter` identity (job-level `run.viewer`, `local.vke_reporter_watched_jobs`) and reports each run to the same Telesis monitor. An execution matches its monitor only by exact args and env, so keep chart `args` equal to the Cloud Run job's.
+- **An ERROR log with exit 0 no longer pages** (the GCP log-metric policy did).
+  Exit non-zero (`runner.ExitCodeError`) if a path should alert.
+- Telesis **project tokens cannot register cron monitors** (user-role check).
+  `register-monitors.py` needs `telesis login`.
+
+## Blog MDX palette (project-owned figures)
+
+`/blog` posts (`web/_blogs/*.mdx`) use one component map,
+`web/src/@/components/blog/mdx-components.tsx`. Editorial figures live in
+`web/src/@/components/mdx/article-figures.tsx`: `Callout`, `Quote`, `Steps`,
+`GraphStat`, `GraphRank` and `GraphTable`. They render semantic HTML on the
+server, with ordinary CSS for layouts and bars. Extend these local components
+when an article needs a new diagram; do not import or vendor mdxcn figures.
+
+- **Use declarative attributes.** `next-mdx-remote` v6 blocks JavaScript
+  expressions by default (`blockJS: true`). This is why `items={[...]}` and
+  `max={30}` disappeared from the previous figure data; it is not a React
+  Flight limitation. Keep that default and use JSON string attributes for
+  `GraphStat`/`GraphRank` data, for example
+  `items='[{"label":"Fawkner","value":29.7,"display":"29.7%"}]'`.
+  Numeric options can use strings such as `max="30"`.
+- `Steps` wraps a native Markdown ordered list, and `GraphTable` wraps a
+  native Markdown table. `Callout` and `Quote` retain rich Markdown children.
+  Figures do not inspect React children or use invisible marker components.
+- The site's live islands (`Info`, `RegisterEmail`, `HousingChart`,
+  `ScrollReveal`, `CountUp`) remain in the blog map. `BLOG_MDX_FIGURES` lists
+  every name a post may use. Authoring examples and validation guidance:
+  `docs/article-mdx.md`. Article layout and cover direction are defined in
+  `docs/article-design.md` and `docs/blog-thumbnail-directions.md`; use versioned
+  1600 × 900 art with descriptive `coverAlt` and matching `ogImage.url`.
+  Use `.claude/skills/shorted-editorial-art/SKILL.md` for cover/thumbnail work,
+  including material plausibility and collection review. Generate the smaller
+  `thumbnailImage` card asset with `web/scripts/editorial-thumbnails.mts`.
+- The newsroom palette is separate and already project-owned
+  (`components/news/mdx/`). Its registry, manifest and take-writer prompt
+  must stay in sync as described in `$newsroom`.
 
 ## Twitter / X Automation
 
@@ -1634,6 +2125,14 @@ Defaults live in `terraform/modules/cloudflare-edge/variables.tf`:
 - `rate_limit_testing_bypass_user_agent = "Shorted-E2E"`.
 
 The secret is embedded in the Cloudflare rule/Terraform state. Keep it out of tracked tfvars and rotate it if it leaks. Regression coverage: `node --test terraform/modules/cloudflare-edge/rate-limit-expression.test.mjs`.
+
+Browser tests send it to our own origins and localhost only: specs import
+`test` from `web/e2e/helpers/test.ts` (`testing-bypass-scope.mjs` holds the
+list), and release smoke uses `scoped-release-headers.mjs`. Never put it in
+Playwright's `extraHTTPHeaders`, here or in a scratch script: those go to every
+host a page contacts, and a stock page contacts Google (Analytics, Tag Manager,
+the logo bucket) and Cloudflare's beacon. Until 2026-10-14 the shared config did
+exactly that, so every e2e run with the secret set sent it to them.
 
 ### Cloudflare SSR Bypass (first-party Vercel SSR)
 

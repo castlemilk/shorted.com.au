@@ -12,6 +12,16 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
+/**
+ * Whether an email is on the ADMIN_EMAILS allowlist. The single definition of
+ * "admin" — the session checks below and the API's uid-based admin check
+ * (/api/internal/admin-check) both go through it.
+ */
+export function isAdminEmail(email: string | null | undefined): boolean {
+  const normalised = email?.trim().toLowerCase();
+  return !!normalised && ADMIN_EMAILS.includes(normalised);
+}
+
 export interface AdminSession {
   email: string;
   userId: string;
@@ -47,6 +57,5 @@ export async function requireAdmin(): Promise<AdminSession> {
 /** Lightweight check — returns whether the current session is admin. */
 export async function isAdmin(): Promise<boolean> {
   const session = await auth();
-  const email = session?.user?.email?.toLowerCase();
-  return !!email && ADMIN_EMAILS.includes(email);
+  return isAdminEmail(session?.user?.email);
 }

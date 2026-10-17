@@ -29,7 +29,11 @@ import { Button } from "~/@/components/ui/button";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { GitCompare, RefreshCw } from "lucide-react";
 import Link from "next/link";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
+
+// A figure we do not hold reads "n/a" (DESIGN.md: never 0, never a dash).
+const NOT_HELD = "n/a";
 
 interface PeerComparisonTableProps {
   stockCode: string;
@@ -113,7 +117,11 @@ export function PeerComparisonTable({
     );
   }
 
-  if (!data?.peers?.length) {
+  // The peers share the stock's industry, so a stock the ASX has not
+  // classified ("Not Applic") has none: its "peers" would be whatever else the
+  // ASX left unclassified.
+  const industry = industryLabel(data?.industry);
+  if (!industry || !data?.peers?.length) {
     return (
       <Card>
         <CardHeader className="pb-3">
@@ -145,7 +153,7 @@ export function PeerComparisonTable({
           Peer comparison
         </CardTitle>
         <CardDescription>
-          {data.peers.length} largest {data.industry} peer
+          {data.peers.length} largest {industry} peer
           {data.peers.length !== 1 ? "s" : ""} by market cap
         </CardDescription>
       </CardHeader>
@@ -229,7 +237,7 @@ export function PeerComparisonTable({
                       </span>
                     </>
                   ) : (
-                    "—"
+                    NOT_HELD
                   )}
                 </TableCell>
                 <TableCell
@@ -243,18 +251,18 @@ export function PeerComparisonTable({
                 >
                   {stock.priceChange1m !== 0
                     ? `${stock.priceChange1m > 0 ? "+" : ""}${stock.priceChange1m.toFixed(1)}%`
-                    : "—"}
+                    : NOT_HELD}
                 </TableCell>
                 <TableCell className="text-right text-sm tabular-nums hidden sm:table-cell">
-                  {stock.marketCap > 0 ? formatMarketCap(stock.marketCap) : "—"}
+                  {stock.marketCap > 0 ? formatMarketCap(stock.marketCap) : NOT_HELD}
                 </TableCell>
                 <TableCell className="text-right text-sm tabular-nums hidden md:table-cell">
-                  {stock.peRatio > 0 ? stock.peRatio.toFixed(1) : "—"}
+                  {stock.peRatio > 0 ? stock.peRatio.toFixed(1) : NOT_HELD}
                 </TableCell>
                 <TableCell className="text-right text-sm tabular-nums hidden md:table-cell">
                   {stock.dividendYield > 0
                     ? `${stock.dividendYield.toFixed(2)}%`
-                    : "—"}
+                    : NOT_HELD}
                 </TableCell>
               </TableRow>
             ))}

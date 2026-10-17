@@ -38,6 +38,19 @@ jest.mock("@connectrpc/connect", () => ({
         { slug: "take-two", publishedAt: { seconds: BigInt(1_752_000_000) } },
       ],
     }),
+    listCouncils: async ({ stateCode }: { stateCode: string }) => ({
+      councils: stateCode === "ACT"
+        ? [{ slug: "unincorporated-act", kind: "unincorporated", dataThrough: "2026-07-31" }]
+        : [
+            { slug: `${stateCode.toLowerCase()}-city`, kind: "council", dataThrough: "2026-06-30" },
+            { slug: `${stateCode.toLowerCase()}-shire`, kind: "council", dataThrough: "" },
+            // Pseudo areas have no page and must never be advertised.
+            { slug: "no-usual-address", kind: "pseudo", dataThrough: "2026-06-30" },
+          ],
+    }),
+    getPriceDropsOverview: async () => ({
+      asOf: { seconds: BigInt(1_757_901_600), nanos: 0 },
+    }),
     listStateSuburbs: async ({ stateCode }: { stateCode: string }) => ({
       suburbs: Array.from({ length: 5 }, (_, i) => ({
         salCode: `${stateCode}${i}`,
@@ -106,8 +119,14 @@ jest.mock("~/lib/openapi/parser", () => ({
 
 jest.mock("~/@/lib/api", () => ({
   getAllPosts: () => [
-    { slug: "post-one", date: "2026-05-01T00:00:00.000Z" },
-    { slug: "post-two", date: "2026-06-01T00:00:00.000Z" },
+    { slug: "post-one", date: "2026-05-01T00:00:00.000Z", category: "guides" },
+    {
+      slug: "post-two",
+      date: "2026-06-01T00:00:00.000Z",
+      updated: "2026-07-15T00:00:00.000Z",
+      category: "guides",
+    },
+    { slug: "post-three", date: "2026-04-01T00:00:00.000Z", category: "housing" },
   ],
 }));
 
@@ -125,12 +144,14 @@ import {
   renderUrlset,
 } from "../sitemap-xml";
 import { THEME_SLUGS } from "~/@/lib/themes/registry";
+import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 import {
   HOUSING_RANKINGS,
   HOUSING_RANKING_SLUGS,
 } from "~/@/lib/housing-rankings/registry";
 import { CAPITALS, CAPITAL_SLUGS } from "~/@/lib/housing/capitals";
 import { PUBLISHED_ECONOMY_TOPIC_PAIRS } from "~/@/lib/economy/topics";
+import { STOCK_TABS } from "~/@/lib/stocks/stock-tabs";
 
 type Section = { name: string; entries: Awaited<ReturnType<typeof buildCoreSitemap>> };
 
@@ -194,6 +215,7 @@ describe("sitemap children", () => {
       ["/authors/", "sitemap-core.xml"],
       ["/scans/", "sitemap-core.xml"],
       ["/themes/", "sitemap-core.xml"],
+      ["/picks/", "sitemap-core.xml"],
       ["/directory/", "sitemap-core.xml"],
       ["/market/", "sitemap-core.xml"],
       ["/industry/", "sitemap-core.xml"],
@@ -216,6 +238,21 @@ describe("sitemap children", () => {
 
   // The theme URLs come from the registry, so a new theme reaches the sitemap
   // without anyone remembering to hand-edit a list.
+  it("dates the blog hub and each category hub from their newest post, honouring revisions", async () => {
+    const core = await buildCoreSitemap();
+    const lastmod = (path: string) =>
+      core.find((e) => e.url === `https://shorted.com.au${path}`)?.lastModified;
+
+    // A revision moves the post, its shelf and the hub forward together.
+    expect(lastmod("/blog/post-two")).toBe("2026-07-15T00:00:00.000Z");
+    expect(lastmod("/blog/category/guides")).toBe("2026-07-15T00:00:00.000Z");
+    expect(lastmod("/blog")).toBe("2026-07-15T00:00:00.000Z");
+    expect(lastmod("/blog/category/housing")).toBe("2026-04-01T00:00:00.000Z");
+    // Empty shelves are not advertised.
+    expect(core.some((e) => e.url.endsWith("/blog/category/product"))).toBe(false);
+    expect(core.some((e) => e.url.endsWith("/blog/category/analysis"))).toBe(false);
+  });
+
   it("lists the themes hub and every registry theme, dated like the other ASIC pages", async () => {
     const core = await buildCoreSitemap();
     const hub = core.find((e) => e.url === "https://shorted.com.au/themes");
@@ -229,6 +266,18 @@ describe("sitemap children", () => {
     }
     // ASIC-derived, so it carries a real data date rather than no lastmod.
     expect(hub!.lastModified).toBeTruthy();
+  });
+
+  // Picks are driven by the daily price sweep, not the ASIC date this builder
+  // fetches, so they carry no lastmod rather than a borrowed one.
+  it("lists the stock picker hub and every registry strategy without a fabricated lastmod", async () => {
+    const core = await buildCoreSitemap();
+    const urls = ["/picks", ...STRATEGY_SLUGS.map((slug) => `/picks/${slug}`)];
+    for (const path of urls) {
+      const entry = core.find((e) => e.url === `https://shorted.com.au${path}`);
+      expect(entry).toBeDefined();
+      expect(entry!.lastModified).toBeUndefined();
+    }
   });
 
   it("lists every published economy topic pair in the core sitemap without a fabricated lastmod", async () => {
@@ -276,6 +325,70 @@ describe("sitemap children", () => {
     }
   });
 
+  // The short-interest, financials and company tabs are indexable pages in
+  // their own right, beside news. Strategy stays out (most stocks read "not a
+  // candidate") and community is noindex, so neither is advertised.
+  it("lists the indexable stock tabs for every qualified code, and never strategy or community", async () => {
+    const shorts = (await buildAll()).find((s) => s.name === "sitemap-shorts.xml")!;
+    const urls = shorts.entries.map((e) => e.url);
+    for (const { productCode } of stockFixture) {
+      for (const tab of ["short-interest", "financials", "company", "news"]) {
+        expect(urls).toContain(`https://shorted.com.au/shorts/${productCode}/${tab}`);
+      }
+    }
+    expect(urls.some((u) => /\/shorts\/[A-Z0-9]+\/strategy$/.test(u))).toBe(false);
+    expect(urls.some((u) => /\/shorts\/[A-Z0-9]+\/community$/.test(u))).toBe(false);
+  });
+
+  // The segment strings are the registry's, not a copy kept here: rename one in
+  // STOCK_TABS and the sitemap follows. (The route directory is the other half
+  // of that change and has its own guards.) The registry is swapped for one
+  // whose Financials tab lives at /results, in an isolated module registry so
+  // the rest of this file keeps the real one.
+  it("takes each listed tab's segment from the STOCK_TABS registry", async () => {
+    const code = stockFixture[0]!.productCode;
+    try {
+      await jest.isolateModulesAsync(async () => {
+        jest.doMock("~/@/lib/stocks/stock-tabs", () => {
+          const actual = jest.requireActual<typeof import("~/@/lib/stocks/stock-tabs")>(
+            "~/@/lib/stocks/stock-tabs",
+          );
+          return {
+            ...actual,
+            STOCK_TABS: actual.STOCK_TABS.map((tab) =>
+              tab.id === "financials" ? { ...tab, segment: "results" } : tab,
+            ),
+          };
+        });
+        const { buildShortsSitemap: buildWithRenamedTab } = await import("../sitemap-sections");
+        const urls = (await buildWithRenamedTab()).map((e) => e.url);
+        expect(urls).toContain(`https://shorted.com.au/shorts/${code}/results`);
+        expect(urls).not.toContain(`https://shorted.com.au/shorts/${code}/financials`);
+        // The tabs that were not renamed are untouched, and the policy is
+        // still per tab, not per segment string.
+        expect(urls).toContain(`https://shorted.com.au/shorts/${code}/short-interest`);
+        expect(urls).not.toContain(`https://shorted.com.au/shorts/${code}/strategy`);
+      });
+    } finally {
+      jest.dontMock("~/@/lib/stocks/stock-tabs");
+    }
+  });
+
+  // Every URL the sitemap emits under a stock is the stock itself, a registry
+  // tab, or one of the stock's other families (insider-trading, compare): a
+  // segment that is none of them is a hand-typed route that nothing guards.
+  it("lists, for each qualified code, only the stock and registry tabs under /shorts/<code>", async () => {
+    const shorts = await buildShortsSitemap();
+    const registrySegments = new Set(STOCK_TABS.map((tab) => tab.segment).filter(Boolean));
+    const underStock = shorts
+      .map((e) => /^https:\/\/shorted\.com\.au\/shorts\/([A-Z0-9]+)(?:\/(.+))?$/.exec(e.url))
+      .filter((m): m is RegExpExecArray => m !== null);
+    expect(underStock.length).toBeGreaterThan(stockFixture.length);
+    for (const [, , segment] of underStock) {
+      if (segment !== undefined) expect(registrySegments.has(segment)).toBe(true);
+    }
+  });
+
   it("does not stamp one shared constant on every lastmod", async () => {
     const sections = await buildAll();
     const lastmods = sections
@@ -296,6 +409,14 @@ describe("sitemap children", () => {
     const reports = await buildReportsSitemap();
     const yearly = reports.find((e) => e.url.endsWith("/reports/yearly/2025"))!;
     expect(yearly.lastModified).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  // The price-drops board used to carry no lastmod because no read path had a
+  // data date. It now follows the view refresh the page's JSON-LD reports.
+  it("dates /price-drops from the price-drops view refresh", async () => {
+    const housing = await buildHousingSitemap();
+    const drops = housing.find((e) => e.url === "https://shorted.com.au/price-drops");
+    expect(drops?.lastModified).toBe(new Date(1_757_901_600 * 1000).toISOString());
   });
 
   it("gives priced suburbs their own period and leaves unpriced ones bare", async () => {
@@ -331,6 +452,20 @@ describe("sitemap children", () => {
       expect(entry).toBeDefined();
       expect(entry!.lastModified).toBe(state!.lastModified);
     }
+  });
+
+  it("lists every council page and a council index per state, dated from their data", async () => {
+    const housing = await buildHousingSitemap();
+    const byUrl = new Map(housing.map((e) => [e.url, e]));
+    for (const st of ["nsw", "vic", "qld", "sa", "wa", "tas", "nt"]) {
+      expect(byUrl.get(`https://shorted.com.au/housing/${st}/council`)?.lastModified).toBe("2026-06-30T00:00:00.000Z");
+      expect(byUrl.get(`https://shorted.com.au/housing/${st}/council/${st}-city`)?.lastModified).toBe("2026-06-30T00:00:00.000Z");
+      // No data date: listed, but with no invented lastmod.
+      expect(byUrl.has(`https://shorted.com.au/housing/${st}/council/${st}-shire`)).toBe(true);
+      expect(byUrl.get(`https://shorted.com.au/housing/${st}/council/${st}-shire`)?.lastModified).toBeUndefined();
+    }
+    expect(byUrl.has("https://shorted.com.au/housing/act/council/unincorporated-act")).toBe(true);
+    expect(housing.some((e) => e.url.endsWith("/council/no-usual-address"))).toBe(false);
   });
 
   it("lists the capital-prices hub and every capital registry slug", async () => {

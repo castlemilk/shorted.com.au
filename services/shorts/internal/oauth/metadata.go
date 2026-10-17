@@ -90,10 +90,12 @@ func Metadata(e Endpoints) *oauthex.AuthServerMeta {
 	return &oauthex.AuthServerMeta{
 		Issuer: issuer,
 		// The human goes to the WEB app; that page calls back into this API.
-		AuthorizationEndpoint:  e.consent(),
-		TokenEndpoint:          issuer + TokenPath,
-		RegistrationEndpoint:   issuer + RegisterPath,
-		ScopesSupported:        append([]string(nil), mcp.Scopes...),
+		AuthorizationEndpoint: e.consent(),
+		TokenEndpoint:         issuer + TokenPath,
+		RegistrationEndpoint:  issuer + RegisterPath,
+		// Every scope of every resource. Which scope is grantable where is the
+		// resource's decision (its RFC 9728 document lists its own).
+		ScopesSupported:        allScopes(),
 		ResponseTypesSupported: []string{"code"},
 		GrantTypesSupported:    []string{"authorization_code", "refresh_token"},
 		// S256 ONLY. "plain" is a PKCE downgrade: the verifier travels in the

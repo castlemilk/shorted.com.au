@@ -285,36 +285,36 @@ func TestExitCodeOfOrdinaryError(t *testing.T) {
 // a job returns *ExitCodeError, the runner still logs its normal
 // `status=error` end line (so nothing is skipped the way os.Exit would), the
 // error reaches the caller wrapped, and main's ExitCodeOf recovers the exact
-// code the external caller branches on. `shorted house-prices -mode warmcheck`
-// → 5 is exactly this path.
+// code the external caller branches on. `shorted economy -mode all` → 10
+// (DEGRADED) is exactly this path.
 func TestExitCodeErrorSurvivesDispatch(t *testing.T) {
 	cleanedUp := false
 	job := Func{
-		JobName: "house-prices",
+		JobName: "economy",
 		Desc:    "exit-code carrier",
 		Fn: func(ctx context.Context, args []string) error {
 			defer func() { cleanedUp = true }() // stands in for pool.Close()
-			return &ExitCodeError{Code: 5, Err: errors.New("-mode warmcheck: REA session is cold")}
+			return &ExitCodeError{Code: 10, Err: errors.New("-mode all: 1 of 19 sources failed")}
 		},
 	}
 	r := NewRegistry(job)
 
 	var out bytes.Buffer
-	err := r.Dispatch(context.Background(), "shorted", []string{"house-prices", "-mode", "warmcheck"}, &out)
+	err := r.Dispatch(context.Background(), "shorted", []string{"economy", "-mode", "all"}, &out)
 	if err == nil {
-		t.Fatal("want an error carrying exit code 5")
+		t.Fatal("want an error carrying exit code 10")
 	}
 	if !cleanedUp {
 		t.Fatal("deferred cleanup did not run — the whole point of not calling os.Exit")
 	}
-	if got := ExitCodeOf(err); got != 5 {
-		t.Fatalf("ExitCodeOf = %d, want 5", got)
+	if got := ExitCodeOf(err); got != 10 {
+		t.Fatalf("ExitCodeOf = %d, want 10", got)
 	}
 	var ec *ExitCodeError
-	if !errors.As(err, &ec) || ec.ExitCode() != 5 {
+	if !errors.As(err, &ec) || ec.ExitCode() != 10 {
 		t.Fatalf("errors.As lost the code: %v", err)
 	}
-	if logged := out.String(); !strings.Contains(logged, "status=error") || !strings.Contains(logged, "name=shorted house-prices") {
+	if logged := out.String(); !strings.Contains(logged, "status=error") || !strings.Contains(logged, "name=shorted economy") {
 		t.Fatalf("end-of-job line missing/incorrect: %q", logged)
 	}
 }

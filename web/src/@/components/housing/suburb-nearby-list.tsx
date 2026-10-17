@@ -8,7 +8,7 @@
 // where crawlers can follow them.
 import Link from "next/link";
 
-import { suburbHref, titleCaseName } from "@/lib/housing/states";
+import { suburbHref } from "@/lib/housing/states";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import type { SuburbContext, SuburbLike } from "@/lib/housing/suburb-stats";
 import { HousingIcon } from "./housing-icon";
@@ -45,7 +45,7 @@ export function SuburbNearbyList({
             href={suburbHref(stateCode, n)}
             className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
           >
-            <span className="truncate">{titleCaseName(n.salName)}</span>
+            <span className="truncate">{n.salName}</span>
             <span className="shrink-0 text-right">
               <span className="block font-mono text-[12px] font-semibold tabular-nums text-foreground">
                 {n.latestMedianPrice > 0 ? fmtPriceShort(n.latestMedianPrice) : "—"}

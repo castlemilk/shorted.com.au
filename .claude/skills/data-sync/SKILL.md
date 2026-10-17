@@ -98,7 +98,8 @@ cd services && make history.stock-data.status
 ## Daily Sync Pipeline
 
 The daily sync ingests ASIC short positions. Stock prices are a SEPARATE
-job (`shorted market-data sync`, the weekday `market-data-sync` scheduler):
+job (`shorted market-data sync`, Cloud Run Job `shorted-price-sync`, weekdays
+10:00 UTC; see "Stale or Wrong Prices" below):
 
 ```bash
 # Run locally
@@ -121,9 +122,12 @@ Deployment is CI-driven: `.github/workflows/terraform-deploy.yml` builds the
 
 The sync is `shorted short-data-sync` (`services/jobs/internal/jobs/shortdatasync/`) and runs:
 
-1. **ASIC Sync**: Downloads latest short position CSV
-2. **Stock Price Sync**: Updates prices for all tracked stocks
-3. **Algolia Sync**: Updates search index (optional)
+1. **ASIC Sync**: Downloads each newly published short position CSV (`MAX("DATE") + 1 → today`)
+2. **Reconcile**: Re-checks the last 20 published dates plus a rotating 1/28 of the archive against ASIC's current files, and writes what is missing or changed
+3. **MV refresh + frontend revalidation**
+4. **Algolia Sync**: Updates search index (optional, off in prod)
+
+Stock prices are not part of this job — see above.
 
 ## Algolia Search Index
 
@@ -257,6 +261,66 @@ psql postgresql://admin:password@localhost:5438/shorts \
   -c "TRUNCATE shorts RESTART IDENTITY;"
 make populate-data
 ```
+
+### Short Data Wrong or Missing on Past Dates (a stock's history "stops", has holes, or disagrees with ASIC)
+
+The live API can be current while past dates are short or stale. The forward
+window (`MAX("DATE") + 1 → today`) never revisits a date once any row of it
+lands, and ASIC republishes corrected files (index version `002`, `010`…)
+that nothing used to re-read. Every run now ends with a reconcile pass. It
+re-checks the last 20 published dates plus a rotating 1/28 of the whole
+archive, so every date since 2010 is re-verified every four weeks, and writes
+only the rows that are missing or changed. It never deletes: rows ASIC's
+current files no longer carry are named in the run log and in a range run's
+report (`extra_rows`, code as stored plus values) for a person to decide
+about. To heal
+everything now, run the whole archive once: preview with `-dry-run`, then run
+it live. With no local credentials, run the **Shorts Data Repair** GitHub
+workflow (`from = 2010-01-01`, dry run first). With `gcloud`:
+
+```bash
+gcloud run jobs execute shorts-data-sync \
+  --project=rosy-clover-477102-t5 --region=australia-southeast2 \
+  --args=short-data-sync,-dry-run,-reconcile-from,2010-01-01 --task-timeout=2h --wait   # then drop -dry-run
+```
+
+To measure it without DB access, compare `get_market_snapshot`'s `total_count`
+(public MCP at `https://api.shorted.com.au/mcp`; it counts rows with percent > 0)
+or `get_stock_history` at `full_resolution` with the file the index lists for
+that date: `https://download.asic.gov.au/short-selling/RR<yyyymmdd>-<version>-SSDailyAggShortPos.csv`.
+Never assume version `001`: 345 dates have been republished. Full runbook:
+`services/jobs/internal/jobs/shortdatasync/README.md` §Reconcile.
+
+### Stale or Wrong Prices
+
+The price job takes every listed stock, plus ETFs and other codes reported
+short or priced in the last 90 days, stalest first, one request each, from the
+day after its latest stored session to the last closed session, and stores a
+report at `gs://shorted-short-selling-data-prod/price-sync/<execution>.json`.
+Without local credentials, use the **Price Sync** GitHub workflow: a plain run
+is the catch-up after an outage (each stock resumes where its prices stop). To
+check stored prices against Yahoo, run it with `from` (and optionally `codes`)
+and `dry_run` on: the report lists every session whose stored close differs
+(largest ratio first; 2x or more is a different security or a $0 bar) and every
+stored session Yahoo does not have, e.g. weekend-dated rows. Run it again with
+`dry_run` off to overwrite them; it never deletes. A run longer than the
+workflow's ~5.5h wait (raise the job's 6h with `task_timeout`, which moves the
+sweep's own stop, `SYNC_RUN_BUDGET`, with it) is read later with `report_only`
+(an execution name, or `latest`), which starts nothing. The sweep stops itself
+30 minutes before its task timeout and exits 10, and the retry resumes from
+the stalest stock: a `Terminating task` on this job means it did not get to.
+Rows dated on weekends and ASX holidays are the one thing the sweep never
+fixes: run the workflow with `mode: prune` (dry run first, then check the
+holidays it lists) to delete them. Runbook: `services/jobs/README.md` §Daily
+price sweep.
+
+To look without DB access, compare `get_stock_prices` (public MCP at
+`https://api.shorted.com.au/mcp`, with `from`/`to`) against Yahoo's chart for
+`<CODE>.AX`. Prices are stored to four decimals (`NUMERIC(12,4)`, migration
+000131); before it they were `DECIMAL(10,2)`, which rounded every price to the
+cent and stored a price under half a cent as $0, and a price stored then keeps
+that rounding until it is re-fetched. Not every stored $0 is rounding: ENL's and
+BP8's August 2026 zeros were an older writer's, and a re-fetch repairs those.
 
 ### Missing Stock Prices
 

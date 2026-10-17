@@ -13,6 +13,13 @@
 //	→ one sync_status row for the admin jobs dashboard.
 //
 //	-days N          how far back to look when the shorts table is empty (SYNC_DAYS_SHORTS)
+//	-reconcile-days N re-check the last N published dates against ASIC and write
+//	                 what is missing or changed (SYNC_RECONCILE_DAYS, default 20)
+//	-reconcile-rotation K also re-check a rotating 1/K of the whole archive, so
+//	                 every date is re-verified every K days (SYNC_RECONCILE_ROTATION,
+//	                 default 28; 0 disables) — see reconcile.go
+//	-reconcile-from D / -reconcile-to D  reconcile an explicit date range instead
+//	                 (the one-off repair of history)
 //	-batch-size N    recorded into sync_status.checkpoint_batch_size (SYNC_BATCH_SIZE)
 //	-sync-algolia    trigger the Algolia index sync after a successful run (SYNC_ALGOLIA)
 //	-dry-run         run the whole pipeline, write NOTHING
@@ -20,10 +27,25 @@
 //	-stocks CODES    per-stock validation report (requires -shadow)
 //	-validate-days N validation window: the last N PUBLISHED ASIC dates,
 //	                 ignoring what is already ingested (requires -stocks)
+//	-poll            the cheap intraday probe (flag only, no env): ingest only
+//	                 what ASIC published after MAX("DATE"), with no reconcile
+//	                 pass and, when nothing is new, no writes at all — see runPoll
 //
-// Every flag defaults from the env var in parentheses, so the deployed
-// env-only contract keeps working untouched and a flag wins when both are set
-// (the `shorted news` RUN_MODE → -run-mode convention).
+// Every flag except -poll defaults from the env var in parentheses, so the
+// deployed env-only contract keeps working untouched and a flag wins when both
+// are set (the `shorted news` RUN_MODE → -run-mode convention).
+//
+// # Two schedules: the daily run and the intraday poll
+//
+// ASIC publishes each day's file at 11:30 Australia/Sydney (measured
+// 2026-10-01..06 from the CSVs' Last-Modified: 00:30 UTC in AEDT, 01:30 UTC in
+// AEST). The daily run fires at 10:00 UTC, about 9.5 hours later, and stays the
+// backstop and the ONLY run that reconciles. A Cloud Scheduler job runs `-poll`
+// just after ASIC's 11:30 Sydney posting (11:32, 11:37, 11:47) and then hourly
+// to 15:15 on weekdays, as a fallback for a late file: a poll that
+// finds nothing costs one LastShortsDate SELECT and one index fetch, and leaves
+// no sync_status row behind, so twenty empty polls a day do not bury the admin
+// jobs dashboard.
 //
 // # Reuse decision: prices and key metrics are NOT here
 //
@@ -97,6 +119,23 @@ const (
 	maxValidateDays = 30
 )
 
+// The RECONCILE window (every live run). See reconcile.go.
+const (
+	// defaultReconcileDays is how many of the most recent published ASIC dates
+	// every run re-checks for missing rows. Twenty business days is about four
+	// weeks: a date one bad run damages is retried by each of the next twenty,
+	// for twenty ~45KB downloads and twenty small SELECTs a day.
+	defaultReconcileDays = 20
+	// maxReconcileDays caps the rolling window. Reaching further back is what
+	// the rotation (routinely) and -reconcile-from (on demand) are for.
+	maxReconcileDays = 750
+	// defaultReconcileRotation re-verifies every date in the archive once every
+	// 28 days, at ~1/28 of it (~150 files) per daily run.
+	defaultReconcileRotation = 28
+	// maxReconcileRotation keeps a slice from shrinking to nothing useful.
+	maxReconcileRotation = 365
+)
+
 // config is the parsed flag set, threaded explicitly (package-level flag vars
 // would leak across subcommands).
 type config struct {
@@ -112,13 +151,26 @@ type config struct {
 	// published ASIC dates a `-stocks` run re-parses. Read on that path ONLY —
 	// a sync and a plain `-shadow` parity run never consult it.
 	validateDays int
+	// reconcileDays is the RECONCILE window: how many of the most recent
+	// published dates at or before the run's starting MAX("DATE") are
+	// re-checked against ASIC. Live and dry runs only; 0 disables.
+	reconcileDays int
+	// reconcileRotation adds a rotating 1/K slice of the whole archive to every
+	// run's reconcile window; 0 disables.
+	reconcileRotation int
+	// reconcileFrom/reconcileTo, when set, REPLACE both windows with an explicit
+	// range (the one-off repair). Zero when unset.
+	reconcileFrom, reconcileTo time.Time
+	// poll selects runPoll: probe for files newer than MAX("DATE"), ingest
+	// only those, never reconcile. Flag only — see parseConfig.
+	poll bool
 }
 
 // Job returns the `shorted short-data-sync` subcommand.
 func Job() runner.Job {
 	return runner.Func{
 		JobName: "short-data-sync",
-		Desc:    "ingest ASIC daily short positions into shorts, refresh MVs, bust the frontend cache",
+		Desc:    "ingest ASIC daily short positions into shorts, refresh MVs, bust the frontend cache (-poll: the cheap intraday probe)",
 		DryRun:  true,
 		Fn:      Run,
 	}
@@ -135,8 +187,8 @@ func Run(ctx context.Context, args []string) error {
 	client := &http.Client{}
 	now := time.Now().UTC()
 
-	log.Printf("🚀 SHORT DATA SYNC — starting (days=%d dry-run=%v shadow=%v algolia=%v stocks=%v)",
-		cfg.days, cfg.dryRun, cfg.shadow, cfg.syncAlgolia, cfg.stocks)
+	log.Printf("🚀 SHORT DATA SYNC — starting (days=%d dry-run=%v shadow=%v poll=%v algolia=%v stocks=%v)",
+		cfg.days, cfg.dryRun, cfg.shadow, cfg.poll, cfg.syncAlgolia, cfg.stocks)
 
 	pool, err := platform.ConnectFromEnv(ctx, platform.WithMaxConns(maxConns))
 	if err != nil {
@@ -165,6 +217,9 @@ func Run(ctx context.Context, args []string) error {
 		// call beyond the ASIC fetch — see artifact.go.
 		return summary.writeJSON(os.Stdout)
 	}
+	if cfg.poll {
+		return runPoll(ctx, cfg, store, client, now)
+	}
 	return runSync(ctx, cfg, store, client, now)
 }
 
@@ -188,6 +243,20 @@ func parseConfig(ctx context.Context, args []string) (config, error) {
 		"Comma-separated ASX product codes (max 20) to produce a per-stock validation report for; requires -shadow")
 	fs.IntVar(&cfg.validateDays, "validate-days", defaultValidateDays,
 		fmt.Sprintf("VALIDATION ONLY (requires -stocks): how many of the most recent PUBLISHED ASIC dates to re-parse, ignoring what is already ingested (1-%d)", maxValidateDays))
+	fs.IntVar(&cfg.reconcileDays, "reconcile-days", platform.GetEnvInt("SYNC_RECONCILE_DAYS", defaultReconcileDays),
+		fmt.Sprintf("Re-check the last N PUBLISHED ASIC dates already ingested and write whatever is missing or changed (0-%d, 0 disables; env SYNC_RECONCILE_DAYS)", maxReconcileDays))
+	fs.IntVar(&cfg.reconcileRotation, "reconcile-rotation", platform.GetEnvInt("SYNC_RECONCILE_ROTATION", defaultReconcileRotation),
+		fmt.Sprintf("Also re-check a rotating 1/K of the whole archive each run, so every date is re-verified every K days (0-%d, 0 disables; env SYNC_RECONCILE_ROTATION)", maxReconcileRotation))
+	reconcileFrom := fs.String("reconcile-from", "",
+		"Reconcile every published date from this one (YYYY-MM-DD) instead of the rolling windows — the one-off repair of history")
+	reconcileTo := fs.String("reconcile-to", "",
+		"With -reconcile-from: stop at this date (YYYY-MM-DD) instead of the latest ingested one")
+	// Deliberately NOT defaulted from an env var. The job's env is shared by
+	// every execution, so a SYNC_POLL=true left in it would silently turn the
+	// daily backstop into a poll and switch the reconcile pass off for good.
+	// The poll scheduler passes the flag as a per-execution arg override.
+	fs.BoolVar(&cfg.poll, "poll", false,
+		"Intraday probe: ingest only files ASIC published after MAX(\"DATE\"); no reconcile, and no sync_status row when nothing is new")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return config{}, runner.ErrUsage
@@ -203,15 +272,79 @@ func parseConfig(ctx context.Context, args []string) (config, error) {
 	if cfg.validateDays < 1 || cfg.validateDays > maxValidateDays {
 		return config{}, fmt.Errorf("invalid -validate-days %d (want 1-%d)", cfg.validateDays, maxValidateDays)
 	}
+	if cfg.reconcileDays < 0 || cfg.reconcileDays > maxReconcileDays {
+		return config{}, fmt.Errorf("invalid -reconcile-days %d (want 0-%d; 0 disables the recent window)", cfg.reconcileDays, maxReconcileDays)
+	}
+	if cfg.reconcileRotation < 0 || cfg.reconcileRotation > maxReconcileRotation {
+		return config{}, fmt.Errorf("invalid -reconcile-rotation %d (want 0-%d; 0 disables the rotation)", cfg.reconcileRotation, maxReconcileRotation)
+	}
+	if raw := strings.TrimSpace(*reconcileFrom); raw != "" {
+		d, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid -reconcile-from %q (want YYYY-MM-DD)", raw)
+		}
+		cfg.reconcileFrom = d
+	}
+	if raw := strings.TrimSpace(*reconcileTo); raw != "" {
+		if cfg.reconcileFrom.IsZero() {
+			return config{}, fmt.Errorf("-reconcile-to requires -reconcile-from")
+		}
+		d, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid -reconcile-to %q (want YYYY-MM-DD)", raw)
+		}
+		if d.Before(cfg.reconcileFrom) {
+			return config{}, fmt.Errorf("-reconcile-to %s is before -reconcile-from %s", raw, cfg.reconcileFrom.Format("2006-01-02"))
+		}
+		cfg.reconcileTo = d
+	}
 	if cfg.shadow {
 		cfg.dryRun = true
 	}
 	validateDaysSet := false
+	var reconcileFlags []string
 	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "validate-days" {
+		switch f.Name {
+		case "validate-days":
 			validateDaysSet = true
+		case "reconcile-days", "reconcile-rotation", "reconcile-from", "reconcile-to":
+			reconcileFlags = append(reconcileFlags, "-"+f.Name)
 		}
 	})
+	if cfg.poll {
+		// Refused, not ignored: each of these asks for work a poll exists to
+		// skip. -dry-run is allowed (probe and parse, write nothing).
+		var bad []string
+		if cfg.shadow {
+			bad = append(bad, "-shadow")
+		}
+		if strings.TrimSpace(*stocks) != "" {
+			bad = append(bad, "-stocks")
+		}
+		if validateDaysSet {
+			bad = append(bad, "-validate-days")
+		}
+		bad = append(bad, reconcileFlags...)
+		if len(bad) > 0 {
+			return config{}, fmt.Errorf("%s cannot be combined with -poll: a poll only ingests files newer than the table and leaves reconcile to the daily run (use -poll -dry-run to preview)", strings.Join(bad, " "))
+		}
+	}
+	if cfg.shadow && len(reconcileFlags) > 0 {
+		// Refused, not ignored: a shadow run is the pinned parity path and
+		// never reconciles. Only the FLAGS are refused — SYNC_RECONCILE_* in
+		// the job's env must not break the admin console's -shadow runs, which
+		// inherit it.
+		return config{}, fmt.Errorf("%s has no effect on a -shadow run; preview a repair with -dry-run instead", strings.Join(reconcileFlags, " "))
+	}
+	if !cfg.reconcileFrom.IsZero() {
+		for _, name := range reconcileFlags {
+			if name == "-reconcile-days" || name == "-reconcile-rotation" {
+				// A range REPLACES the rolling windows; setting both would
+				// silently ignore one of them.
+				return config{}, fmt.Errorf("%s has no effect with -reconcile-from, which replaces the rolling windows", name)
+			}
+		}
+	}
 	if raw := strings.TrimSpace(*stocks); raw != "" {
 		// A SCOPED LIVE RUN IS REFUSED, on purpose. `-stocks` narrows what the
 		// report talks about; it does NOT narrow what the pipeline writes. A
@@ -255,43 +388,81 @@ func warnUnsupportedEnv() {
 	}
 }
 
+// beginRun opens a write run's bookkeeping: the stuck-run cleanup and the
+// sync_status row. A dry run opens neither and gets a nil recorder.
+func beginRun(ctx context.Context, cfg config, store *pgStore) (*recorder, error) {
+	if cfg.dryRun {
+		return nil, nil
+	}
+	if n, err := store.CleanupStuckRuns(ctx); err != nil {
+		// Never fatal: an unclean dashboard must not stop an ingest.
+		log.Printf("⚠️  could not clean up stuck runs: %v", err)
+	} else if n > 0 {
+		log.Printf("🧹 Cleaned up %d stuck job(s) from previous runs", n)
+	}
+
+	existing, err := store.findResumableRun(ctx, os.Getenv("CLOUD_RUN_EXECUTION"))
+	if err != nil {
+		return nil, err
+	}
+	rec := newRecorder(store, existing)
+	if err := rec.Start(ctx, 0, cfg.batchSize, existing != ""); err != nil {
+		return nil, err
+	}
+	return rec, nil
+}
+
 // runSync is the write path.
 func runSync(ctx context.Context, cfg config, store *pgStore, client *http.Client, now time.Time) error {
-	if !cfg.dryRun {
-		if n, err := store.CleanupStuckRuns(ctx); err != nil {
-			// Never fatal: an unclean dashboard must not stop an ingest.
-			log.Printf("⚠️  could not clean up stuck runs: %v", err)
-		} else if n > 0 {
-			log.Printf("🧹 Cleaned up %d stuck job(s) from previous runs", n)
-		}
-	}
-
-	var rec *recorder
-	if !cfg.dryRun {
-		existing, err := store.findResumableRun(ctx, os.Getenv("CLOUD_RUN_EXECUTION"))
-		if err != nil {
-			return err
-		}
-		rec = newRecorder(store, existing)
-		if err := rec.Start(ctx, 0, cfg.batchSize, existing != ""); err != nil {
-			return err
-		}
-	}
-
-	recordCount, err := syncShorts(ctx, cfg, store, client, now, nil)
+	rec, err := beginRun(ctx, cfg, store)
 	if err != nil {
+		return err
+	}
+
+	fail := func(err error) error {
 		if rec != nil {
 			rec.Fail(ctx, truncateBytes([]byte(err.Error()), 1000))
 		}
 		return err
 	}
+
+	// Read BEFORE the forward window writes anything: the reconcile pass owns
+	// every published date up to here, the forward window every date after.
+	reconcileUpTo, haveData, err := store.LastShortsDate(ctx)
+	if err != nil {
+		return fail(err)
+	}
+
+	recordCount, err := syncShorts(ctx, cfg, store, client, now, nil)
+	if err != nil {
+		return fail(err)
+	}
 	log.Printf("✅ Shorts update complete: %d total records updated", recordCount)
 
+	// An empty table is an initial load: the forward window just wrote all of
+	// it, so there is nothing behind it to reconcile.
+	if haveData {
+		rep, err := reconcileRecent(ctx, cfg, store, client, reconcileUpTo, truncateDay(now))
+		if err != nil {
+			return fail(err)
+		}
+		recordCount += rep.RowsWritten
+	}
+
+	finishRun(ctx, cfg, store, client, rec, recordCount)
+	return nil
+}
+
+// finishRun is every write run's tail, shared by runSync and runPoll: the
+// health report, then (live runs only) the MV refresh, the revalidation ping
+// when rows changed, the optional Algolia trigger and the sync_status
+// completion. Nothing in it can fail the run.
+func finishRun(ctx context.Context, cfg config, store *pgStore, client *http.Client, rec *recorder, recordCount int) {
 	logHealth(ctx, store)
 
 	if cfg.dryRun {
 		log.Printf("[dry-run] skipping MV refresh, revalidation and Algolia; nothing was written")
-		return nil
+		return
 	}
 
 	log.Printf("🔄 REFRESHING MATERIALIZED VIEWS")
@@ -317,6 +488,86 @@ func runSync(ctx context.Context, cfg config, store *pgStore, client *http.Clien
 		// (the Python logged and exited cleanly here too).
 		log.Printf("⚠️  %v", err)
 	}
+}
+
+// errPollEmptyTable is a poll against a table with no rows. A poll's window
+// is "after MAX(DATE)", which does not exist yet; the initial load (and its
+// -days look-back) belongs to a plain sync.
+var errPollEmptyTable = errors.New("-poll needs an ingested shorts table (it only fetches files newer than MAX(\"DATE\")); run a plain sync first")
+
+// pollPlan is the poll's whole decision as a pure function: given the ASIC
+// index, the latest ingested date and today, which files are new. It reuses
+// the sync's own window (syncFileWindow, selectFiles) so a poll and the daily
+// run can never disagree about what "new" means. A nil result means there is
+// nothing to do.
+func pollPlan(index []asicFile, days int, today, lastDate time.Time) (files []asicFile, cutoffDate time.Time) {
+	cutoffDate, upToDate := syncFileWindow(days, today, lastDate, true)
+	if upToDate {
+		return nil, cutoffDate
+	}
+	files = selectFiles(index, yyyymmdd(cutoffDate))
+	if len(files) == 0 {
+		return nil, cutoffDate
+	}
+	return files, cutoffDate
+}
+
+// runPoll is the `-poll` path: the cheap intraday probe that closes the gap
+// between ASIC publishing (11:30 Sydney) and the daily run (10:00 UTC).
+//
+// It PROBES first and does nothing else when the probe finds nothing: no
+// stuck-run cleanup, no sync_status row, no reconcile, no MV refresh, no
+// revalidation, no Algolia. When ASIC has published files after MAX("DATE"),
+// it ingests exactly those through the same processFiles a sync uses and runs
+// the same tail (finishRun) — but never the reconcile pass, which stays with
+// the daily run so the ~170 archive downloads happen once a day, not twenty
+// times.
+func runPoll(ctx context.Context, cfg config, store *pgStore, client *http.Client, now time.Time) error {
+	today := truncateDay(now)
+	lastDate, haveData, err := store.LastShortsDate(ctx)
+	if err != nil {
+		return err
+	}
+	if !haveData {
+		return errPollEmptyTable
+	}
+	last := lastDate.Format("2006-01-02")
+	log.Printf("🔭 POLL: last ingested shorts date %s; probing the ASIC index for anything newer", last)
+
+	if _, upToDate := syncFileWindow(cfg.days, today, lastDate, true); upToDate {
+		log.Printf("📭 Poll: the table already holds today's date (%s); nothing to do", last)
+		return nil
+	}
+	index, err := fetchIndex(ctx, client)
+	if err != nil {
+		// The sync's tolerance: no index is "no files", not a failed run. The
+		// next poll (minutes later near publication, an hour in the tail) or the
+		// daily run will try again.
+		log.Printf("❌ Poll: failed to fetch ASIC file list: %v; nothing to do", err)
+		return nil
+	}
+	files, cutoffDate := pollPlan(index, cfg.days, today, lastDate)
+	if len(files) == 0 {
+		log.Printf("📭 Poll: ASIC has published nothing after %s; nothing to do", last)
+		return nil
+	}
+	log.Printf("📬 Poll: ASIC has published %d file(s) after %s; ingesting them (reconcile stays with the daily run)", len(files), last)
+
+	rec, err := beginRun(ctx, cfg, store)
+	if err != nil {
+		return err
+	}
+	recordCount, err := processFiles(ctx, cfg, store, client, files, cutoffDate, nil)
+	if err != nil {
+		if rec != nil {
+			rec.Fail(ctx, truncateBytes([]byte(err.Error()), 1000))
+		}
+		return err
+	}
+	log.Printf("✅ Shorts update complete: %d total records updated", recordCount)
+	log.Printf("⏭️  Poll: skipping the reconcile pass; the daily run owns it")
+
+	finishRun(ctx, cfg, store, client, rec, recordCount)
 	return nil
 }
 

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/test";
 
 test.describe("heatmap hover interactions", () => {
   test("uses edge cached data and keeps the tooltip tracking the cursor", async ({

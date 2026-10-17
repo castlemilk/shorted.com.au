@@ -15,6 +15,7 @@ import {
   type IndustrySummary,
   type IndustryStockInput,
 } from "~/@/lib/industry-intelligence";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { createSlug } from "~/@/lib/industry-slug";
 import {
   getIndustryData,
@@ -65,13 +66,6 @@ type TopShortsStock = NonNullable<
   Awaited<ReturnType<typeof getTopShortsSummary>>
 >["timeSeries"][number];
 
-const invalidIndustries = new Set([
-  "Class Pend",
-  "Not Applic",
-  "Not Applicable",
-  "",
-]);
-
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -82,13 +76,11 @@ function industryNameForStock(
 ): string {
   // Points-mode GetTopShorts responses never carry the industry field, so
   // prefer the summary-mode lookup map when the caller provides one.
-  const industry = (
-    industryByCode?.get(stock.productCode.toUpperCase()) ??
-    stock.industry ??
-    ""
-  ).trim();
-  if (invalidIndustries.has(industry)) return "Other";
-  return industry;
+  return (
+    industryLabel(
+      industryByCode?.get(stock.productCode.toUpperCase()) ?? stock.industry,
+    ) || "Other"
+  );
 }
 
 // Fallback industry lookup for when getIndustryData() returns empty: a

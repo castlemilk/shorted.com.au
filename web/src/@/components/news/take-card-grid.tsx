@@ -11,17 +11,6 @@ function fmtDate(ts: { seconds?: bigint | number } | undefined): string {
   });
 }
 
-const sentimentRing = (s: string | undefined) => {
-  switch (s) {
-    case "positive":
-      return "ring-emerald-500/30 hover:ring-emerald-500/60";
-    case "negative":
-      return "ring-rose-500/30 hover:ring-rose-500/60";
-    default:
-      return "ring-orange-500/20 hover:ring-orange-500/50";
-  }
-};
-
 export async function TakeCardGrid({
   limit = 6,
   excludeSlug,
@@ -65,67 +54,44 @@ export async function TakeCardGrid({
           <Link
             key={t.id}
             href={`/news/${t.slug}`}
-            // Same hover contract as its sibling <TakeHero>: the amber bloom,
-            // not a dark orange drop shadow (which only read as depth on the
-            // CRT-black theme and as grime on warm paper).
-            className={`group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card ring-1 ring-transparent transition-[transform,border-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-amber ${sentimentRing(t.sentiment)}`}
+            className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transition-none"
           >
             {t.heroImageUrl ? (
-              <div className="relative aspect-[16/9] overflow-hidden bg-muted/20">
+              <div className="relative aspect-video overflow-hidden border-b border-border bg-muted">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={t.heroImageUrl}
-                  alt={t.headline}
+                  alt=""
                   loading={idx < 3 ? "eager" : "lazy"}
                   decoding="async"
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                  className="h-full w-full object-cover"
                 />
-                {/* Bottom gradient fade so the ticker chip reads against any image */}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-stone-950 via-stone-950/60 to-transparent" />
-                {/* Ticker chip — bottom-left over the image */}
-                {t.stockCode ? (
-                  <span className={`absolute bottom-2 left-2 rounded-md border px-2 py-0.5 font-mono text-xs font-semibold backdrop-blur ${stockChipPalette(t.stockCode).onImage}`}>
-                    ${t.stockCode}
-                  </span>
-                ) : null}
-                {/* Take stamp — top-right */}
-                <span className="absolute right-2 top-2 rounded-md border border-orange-500/30 bg-stone-950/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-orange-300 backdrop-blur">
-                  Take
-                </span>
               </div>
             ) : (
-              <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-gradient-to-br from-orange-950/40 via-stone-950 to-stone-950">
-                <div
-                  className="pointer-events-none absolute inset-0 opacity-30"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(circle at 20% 30%, rgba(255,169,77,0.15), transparent 50%), radial-gradient(circle at 80% 70%, rgba(255,169,77,0.08), transparent 60%)",
-                  }}
-                />
+              <div className="flex aspect-video items-center justify-center overflow-hidden border-b border-border bg-muted">
                 {t.stockCode ? (
-                  <span className={`relative font-mono text-4xl font-bold tracking-tight md:text-5xl ${stockChipPalette(t.stockCode).onImage.split(" ").find((c) => c.startsWith("text-")) ?? "text-orange-300/80"}`}>
+                  <span className="font-mono text-4xl font-semibold tracking-tight text-muted-foreground md:text-5xl">
                     ${t.stockCode}
                   </span>
                 ) : (
-                  <span className="relative text-xs font-medium uppercase tracking-[0.2em] text-orange-300/70">
+                  <span className="font-mono text-sm text-muted-foreground">
                     Shorted Take
                   </span>
                 )}
-                <span className="absolute right-2 top-2 rounded-md border border-orange-500/30 bg-stone-950/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-orange-300 backdrop-blur">
-                  Take
-                </span>
               </div>
             )}
-            <div className="flex flex-1 flex-col p-4">
+            <div className="flex flex-1 flex-col gap-3 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-muted-foreground">
+                {t.stockCode ? (
+                  <span className={`rounded px-2 py-0.5 font-semibold ${stockChipPalette(t.stockCode).onCard}`}>
+                    ${t.stockCode}
+                  </span>
+                ) : null}
+                <span className="ml-auto tabular-nums">{fmtDate(t.publishedAt)}</span>
+              </div>
               <h3 className="line-clamp-3 text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary md:text-base">
                 {t.headline}
               </h3>
-              <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span className="uppercase tracking-wider">
-                  Editorial commentary
-                </span>
-                <span>{fmtDate(t.publishedAt)}</span>
-              </div>
             </div>
           </Link>
         ))}

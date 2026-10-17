@@ -9,11 +9,11 @@
  * - getMultipleStockQuotes (~/@/lib/stock-data-service) — the ONLY data
  *   call, spy-mocked in preview.tsx. No useWatchlistData, no getStock, no
  *   visibility gating (fetches immediately on mount).
- * - useAsyncErrorHandler (~/@/hooks/use-async-error): on rejection it
- *   re-throws INTO RENDER so the nearest error boundary catches — see Error.
- * - settings.refreshInterval is read by nothing: the widget hardcodes a
- *   5-minute setInterval. Stories set refreshInterval: 0 anyway per the
- *   no-polling contract.
+ * - React Query shares quotes by symbol set and re-throws errors into render
+ *   so the nearest error boundary catches — see Error. Holdings are local.
+ * - settings.refreshInterval is read by nothing: the widget keeps a
+ *   five-minute visible-tab query interval. Stories set refreshInterval: 0
+ *   for consistency with other widgets.
  *
  * Interaction choice (Default): the holdings editor is the widget's core
  * interaction surface — the play function expands "Show Holdings", opens the
@@ -153,7 +153,7 @@ export const Loading: Story = {
 
 /**
  * Error contract: the widget has no internal error UI — useAsyncErrorHandler
- * re-throws the fetch error into render so the nearest error boundary owns
+ * re-throws the query error into render so the nearest error boundary owns
  * it. The dashboard composes every widget through withErrorBoundary
  * (with-error-boundary.tsx → WidgetErrorBoundary), so this story pins the
  * real composed behavior by wrapping the story in the same boundary and

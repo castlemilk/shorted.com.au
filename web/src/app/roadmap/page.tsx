@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "~/@/lib/utils";
+import { planPricePerMonth } from "~/@/config/pricing";
 
 const Dither = dynamic(() => import("~/@/components/marketing/dither"), {
   ssr: false,
@@ -238,7 +239,7 @@ const roadmapData: Feature = {
           id: "premium-plan",
           name: "Premium",
           description:
-            "$4/mo investor workflow tier bundling AI Chat, Pulse, alerts, advanced dashboards, and priority support",
+            `${planPricePerMonth("premium")} investor workflow tier bundling AI Chat, Pulse, alerts, advanced dashboards, and priority support`,
           status: "done",
           entitlement: "premium",
         },
@@ -246,7 +247,7 @@ const roadmapData: Feature = {
           id: "api-access-plan",
           name: "API Access",
           description:
-            "$20/mo developer tier for API tokens, higher request limits, and programmatic data access",
+            `${planPricePerMonth("apiAccess")} developer tier for API tokens, higher request limits, and programmatic data access`,
           status: "done",
           entitlement: "api_access",
         },

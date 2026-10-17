@@ -2,98 +2,113 @@ import { type NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import isrShellPages from "~/config/isr-shell-pages.json";
 
-// Warm the static, data-backed ISR pages that render a "no data" / "loading"
-// shell when their fetch comes back empty.
-//
-// Why they need warming: at BUILD time `skipForBuild()` forces those fetches to
-// return [] (the backend is unreachable during `next build`), so every deploy
-// PRERENDERS the empty shell and serves it — for the full `revalidate` window —
-// until the first successful regeneration. i.e. the first visitor after each
-// deploy would otherwise see "No market snapshot data available" / "House-price
-// data is loading". This endpoint busts that shell and re-primes each page with
-// real runtime data (where `skipForBuild()` is false), so first load is clean.
-//
-// Triggered deploy-immediately from the post-deploy pipeline
-// (.github/workflows/post-deploy-smoke.yml) and, as a backstop, on a short
-// Vercel cron (web/vercel.json). Same revalidate-then-re-prime shape as
-// /api/pages/warm-cache.
+export const maxDuration = 150;
+export const dynamic = "force-dynamic";
 
-export const maxDuration = 120;
-
-// Cloudflare's bot protection rejects non-browser user agents, so the
-// self-fetches that re-prime the ISR cache must present a browser UA.
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const SHELL_MARKER = 'data-isr-shell="empty"';
+const CONCURRENCY = 5;
 
-// The static ISR pages whose empty-at-build render is a user-visible shell.
-// This is deliberately smaller than the full post-promote revalidation list in
-// config/isr-pages.json (which terraform-deploy.yml sweeps in full): only these
-// pages render the empty-at-build fallback described above, so only these need a
-// RE-PRIME rather than just an invalidate.
-//
-// Named explicitly in config/isr-shell-pages.json rather than derived as
-// `isrPages.slice(0, 5)`. The slice was correct only while nobody reordered or
-// prepended an entry in isr-pages.json, and nothing pinned that — a reorder
-// would have silently re-pointed the warm set at the wrong pages.
-// isr-shell-pages.test.ts asserts the subset relationship both ways.
-const STATIC_PAGES = isrShellPages;
-
+// Builds deliberately skip live data and prerender empty shells. A deployment
+// explicitly invalidates and primes them. The hourly repair only invalidates
+// confirmed shells, leaving healthy ISR entries to their own TTL/data events.
 export async function GET(request: NextRequest) {
-  // Optional secret gate — same pattern as the other warm-cache routes. When
-  // CACHE_WARM_SECRET is unset (as for the Vercel crons) the endpoint runs open.
-  const secret = request.nextUrl.searchParams.get("secret");
   const expectedSecret = process.env.CACHE_WARM_SECRET;
-  if (expectedSecret && secret !== expectedSecret) {
+  const providedSecret = request.headers.get("x-cache-warm-secret") ??
+    request.nextUrl.searchParams.get("secret");
+  const cronAuthorized = process.env.CRON_SECRET &&
+    request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+  if (expectedSecret && providedSecret !== expectedSecret && !cronAuthorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const startTime = Date.now();
-  const results: Record<string, { success: boolean; error?: string; ms?: number }> = {};
+  const mode = request.nextUrl.searchParams.get("mode") ?? "repair";
+  if (mode !== "repair" && mode !== "deploy") {
+    return NextResponse.json({ error: "mode must be repair or deploy" }, { status: 400 });
+  }
 
-  // Invalidate first so the re-prime regenerates with live data instead of
-  // just touching the stale build shell.
-  for (const path of STATIC_PAGES) revalidatePath(path);
-
-  // Re-prime against the INTERNAL deployment URL, never the public host. The
-  // public shorted.com.au sits behind Cloudflare bot protection, which 403s any
-  // server-side fetch (even with a browser UA — verified). VERCEL_URL is the
-  // deployment's own *.vercel.app origin, reached directly (no Cloudflare), so
-  // the self-fetch actually triggers regeneration. Falls back to the request
-  // origin only in local dev (where VERCEL_URL is unset and there is no edge).
+  // Direct deployment origin avoids Cloudflare challenges. Existing deployment
+  // protection credentials stay server-side and are only sent to this origin.
   const origin = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
     : request.nextUrl.origin;
-  await Promise.allSettled(
-    STATIC_PAGES.map(async (path) => {
+  const headers: Record<string, string> = { "User-Agent": BROWSER_UA };
+  if (process.env.VERCEL_URL && process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+    headers["x-vercel-protection-bypass"] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  }
+  const start = Date.now();
+  // Next commits revalidatePath after this handler returns. Invalidation and
+  // priming must be separate HTTP requests; a self-fetch here cannot observe
+  // an invalidation queued by this request.
+  if (mode === "deploy") {
+    for (const path of isrShellPages) revalidatePath(path);
+    return NextResponse.json({
+      success: false,
+      invalidated: true,
+      pending: true,
+      mode,
+      paths: isrShellPages,
+      message: "Build shells invalidated; call repair after this response to prime them",
+    }, { headers: { "Cache-Control": "no-store" } });
+  }
+  const results: Record<string, {
+    success: boolean;
+    action: "checked" | "repair-pending";
+    ms: number;
+    error?: string;
+  }> = {};
+
+  async function readPage(path: string): Promise<boolean> {
+    const response = await fetch(`${origin}${path}`, {
+      headers,
+      cache: "no-store",
+      redirect: "error",
+      // Price drops has a 60s cold-render allowance. Across three batches the
+      // maximum read budget is 60 + 30 + 30 seconds, below this handler's cap.
+      signal: AbortSignal.timeout(path === "/price-drops" ? 60_000 : 30_000),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return (await response.text()).includes(SHELL_MARKER);
+  }
+
+  for (let offset = 0; offset < isrShellPages.length; offset += CONCURRENCY) {
+    await Promise.all(isrShellPages.slice(offset, offset + CONCURRENCY).map(async (path) => {
       const pageStart = Date.now();
+      let action: "checked" | "repair-pending" = "checked";
       try {
-        const res = await fetch(`${origin}${path}`, {
-          headers: { "User-Agent": BROWSER_UA },
-          cache: "no-store",
-        });
+        const shell = await readPage(path);
+        if (shell) {
+          revalidatePath(path);
+          action = "repair-pending";
+        }
         results[path] = {
-          success: res.ok,
+          success: !shell,
+          action,
           ms: Date.now() - pageStart,
-          ...(res.ok ? {} : { error: `HTTP ${res.status}` }),
         };
-      } catch (err) {
+      } catch (error) {
         results[path] = {
           success: false,
-          error: err instanceof Error ? err.message : String(err),
+          action,
+          ms: Date.now() - pageStart,
+          error: error instanceof Error ? error.message : String(error),
         };
       }
-    }),
-  );
+    }));
+  }
 
-  const successCount = Object.values(results).filter((r) => r.success).length;
-  return NextResponse.json(
-    {
-      success: true,
-      message: `Warmed ${successCount}/${STATIC_PAGES.length} static pages`,
-      results,
-      duration: `${Date.now() - startTime}ms`,
-      timestamp: new Date().toISOString(),
-    },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  const successCount = Object.values(results).filter((result) => result.success).length;
+  const success = successCount === isrShellPages.length;
+  const pending = Object.values(results).some((result) => result.action === "repair-pending");
+  const failed = Object.values(results).some((result) => result.error);
+  return NextResponse.json({
+    success,
+    pending,
+    mode,
+    message: `Ready ${successCount}/${isrShellPages.length} static pages`,
+    results,
+    duration: `${Date.now() - start}ms`,
+    timestamp: new Date().toISOString(),
+  }, { status: failed ? 503 : pending ? 202 : 200, headers: { "Cache-Control": "no-store" } });
 }

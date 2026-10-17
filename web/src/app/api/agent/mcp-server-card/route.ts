@@ -22,7 +22,7 @@ export const revalidate = 3600;
  * there.
  *
  * `authentication.required` is false because it is true, not as a placeholder:
- * all 24 tools work with no credential. Phase 3 added OAuth 2.1, which RAISES
+ * all 28 tools work with no credential. Phase 3 added OAuth 2.1, which RAISES
  * the per-caller quota and identifies you — it is not a gate on first contact.
  * The card therefore advertises the discovery documents and the scopes as
  * OPTIONAL, so a client that wants a higher ceiling can find the flow without
@@ -63,6 +63,13 @@ interface CatalogPrompt {
   arguments?: Array<{ name: string; description?: string; required?: boolean }>;
 }
 
+interface CatalogIcon {
+  src: string;
+  mimeType?: string;
+  sizes?: string[];
+  theme?: "light" | "dark";
+}
+
 interface Catalog {
   server: {
     name: string;
@@ -75,6 +82,7 @@ interface Catalog {
     documentation?: string;
     website?: string;
     contact?: string;
+    icons?: CatalogIcon[];
   };
   authentication?: {
     required: boolean;
@@ -208,6 +216,7 @@ function renderCard(catalog: Catalog) {
       description: catalog.server.description,
       websiteUrl: catalog.server.website ?? WEBSITE,
       documentationUrl: catalog.server.documentation ?? `${WEBSITE}/docs/mcp.md`,
+      icons: catalog.server.icons ?? [],
     },
     transport: {
       type: catalog.server.transport ?? "streamable-http",
@@ -256,7 +265,7 @@ function renderCard(catalog: Catalog) {
       title: tool.title,
       description: tool.description,
       // Domain is not part of SEP-1649, but it is how a client (or a human
-      // reading the card) groups 24 tools into something legible.
+      // reading the card) groups 28 tools into something legible.
       domain: tool.domain,
       inputSchema: tool.inputSchema,
     })),

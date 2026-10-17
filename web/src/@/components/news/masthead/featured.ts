@@ -13,7 +13,7 @@ export interface FeaturedItem {
   kicker: string;
   headline: string;
   standfirst: string;
-  /** Optional card art (e.g. the page's OG image route). */
+  /** Optional topic-specific editorial thumbnail. */
   image?: string;
   /** Short meta facts, joined with dots under the standfirst. */
   meta?: string[];
@@ -26,7 +26,7 @@ export const FEATURED: FeaturedItem[] = [
     headline: "The Widow-Maker",
     standfirst:
       "Why betting against Australian housing keeps failing — negative gearing, the 1999 CGT switch, the buying power of four banks, and what Japan and China teach about the day it breaks.",
-    image: "/features/the-widow-maker/opengraph-image",
+    image: "/assets/features/the-widow-maker/thumbnail-editorial-v2.webp",
     meta: ["4 interactive dashboards", "27 sources", "23 June 2026"],
   },
 ];

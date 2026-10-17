@@ -72,6 +72,9 @@ const (
 	// StockServiceGetCompanyTaxProfileProcedure is the fully-qualified name of the StockService's
 	// GetCompanyTaxProfile RPC.
 	StockServiceGetCompanyTaxProfileProcedure = "/shorts.v1alpha1.StockService/GetCompanyTaxProfile"
+	// StockServiceGetStockFundamentalsProcedure is the fully-qualified name of the StockService's
+	// GetStockFundamentals RPC.
+	StockServiceGetStockFundamentalsProcedure = "/shorts.v1alpha1.StockService/GetStockFundamentals"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -90,6 +93,7 @@ var (
 	stockServiceGetEventTimelineMethodDescriptor            = stockServiceServiceDescriptor.Methods().ByName("GetEventTimeline")
 	stockServiceGetStockSignalsMethodDescriptor             = stockServiceServiceDescriptor.Methods().ByName("GetStockSignals")
 	stockServiceGetCompanyTaxProfileMethodDescriptor        = stockServiceServiceDescriptor.Methods().ByName("GetCompanyTaxProfile")
+	stockServiceGetStockFundamentalsMethodDescriptor        = stockServiceServiceDescriptor.Methods().ByName("GetStockFundamentals")
 )
 
 // StockServiceClient is a client for the shorts.v1alpha1.StockService service.
@@ -121,6 +125,10 @@ type StockServiceClient interface {
 	GetStockSignals(context.Context, *connect.Request[v1alpha1.GetStockSignalsRequest]) (*connect.Response[v1alpha1.GetStockSignalsResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
+	// Per-period reported fundamentals (revenue, net income, EPS, cash flow,
+	// shares) and year-on-year growth for a stock. Every value carries a has_*
+	// flag: a missing figure is absent, never zero.
+	GetStockFundamentals(context.Context, *connect.Request[v1alpha1.GetStockFundamentalsRequest]) (*connect.Response[v1alpha1.GetStockFundamentalsResponse], error)
 }
 
 // NewStockServiceClient constructs a client for the shorts.v1alpha1.StockService service. By
@@ -211,6 +219,12 @@ func NewStockServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(stockServiceGetCompanyTaxProfileMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getStockFundamentals: connect.NewClient[v1alpha1.GetStockFundamentalsRequest, v1alpha1.GetStockFundamentalsResponse](
+			httpClient,
+			baseURL+StockServiceGetStockFundamentalsProcedure,
+			connect.WithSchema(stockServiceGetStockFundamentalsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -229,6 +243,7 @@ type stockServiceClient struct {
 	getEventTimeline            *connect.Client[v1alpha1.GetEventTimelineRequest, v1alpha1.GetEventTimelineResponse]
 	getStockSignals             *connect.Client[v1alpha1.GetStockSignalsRequest, v1alpha1.GetStockSignalsResponse]
 	getCompanyTaxProfile        *connect.Client[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse]
+	getStockFundamentals        *connect.Client[v1alpha1.GetStockFundamentalsRequest, v1alpha1.GetStockFundamentalsResponse]
 }
 
 // GetStock calls shorts.v1alpha1.StockService.GetStock.
@@ -296,6 +311,11 @@ func (c *stockServiceClient) GetCompanyTaxProfile(ctx context.Context, req *conn
 	return c.getCompanyTaxProfile.CallUnary(ctx, req)
 }
 
+// GetStockFundamentals calls shorts.v1alpha1.StockService.GetStockFundamentals.
+func (c *stockServiceClient) GetStockFundamentals(ctx context.Context, req *connect.Request[v1alpha1.GetStockFundamentalsRequest]) (*connect.Response[v1alpha1.GetStockFundamentalsResponse], error) {
+	return c.getStockFundamentals.CallUnary(ctx, req)
+}
+
 // StockServiceHandler is an implementation of the shorts.v1alpha1.StockService service.
 type StockServiceHandler interface {
 	// Provides an overview of a specific stock based on PRODUCT_CODE.
@@ -325,6 +345,10 @@ type StockServiceHandler interface {
 	GetStockSignals(context.Context, *connect.Request[v1alpha1.GetStockSignalsRequest]) (*connect.Response[v1alpha1.GetStockSignalsResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
+	// Per-period reported fundamentals (revenue, net income, EPS, cash flow,
+	// shares) and year-on-year growth for a stock. Every value carries a has_*
+	// flag: a missing figure is absent, never zero.
+	GetStockFundamentals(context.Context, *connect.Request[v1alpha1.GetStockFundamentalsRequest]) (*connect.Response[v1alpha1.GetStockFundamentalsResponse], error)
 }
 
 // NewStockServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -411,6 +435,12 @@ func NewStockServiceHandler(svc StockServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(stockServiceGetCompanyTaxProfileMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	stockServiceGetStockFundamentalsHandler := connect.NewUnaryHandler(
+		StockServiceGetStockFundamentalsProcedure,
+		svc.GetStockFundamentals,
+		connect.WithSchema(stockServiceGetStockFundamentalsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.StockService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StockServiceGetStockProcedure:
@@ -439,6 +469,8 @@ func NewStockServiceHandler(svc StockServiceHandler, opts ...connect.HandlerOpti
 			stockServiceGetStockSignalsHandler.ServeHTTP(w, r)
 		case StockServiceGetCompanyTaxProfileProcedure:
 			stockServiceGetCompanyTaxProfileHandler.ServeHTTP(w, r)
+		case StockServiceGetStockFundamentalsProcedure:
+			stockServiceGetStockFundamentalsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -498,4 +530,8 @@ func (UnimplementedStockServiceHandler) GetStockSignals(context.Context, *connec
 
 func (UnimplementedStockServiceHandler) GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StockService.GetCompanyTaxProfile is not implemented"))
+}
+
+func (UnimplementedStockServiceHandler) GetStockFundamentals(context.Context, *connect.Request[v1alpha1.GetStockFundamentalsRequest]) (*connect.Response[v1alpha1.GetStockFundamentalsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StockService.GetStockFundamentals is not implemented"))
 }

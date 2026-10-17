@@ -4,6 +4,8 @@ import { ImageResponse } from "next/og";
 import { OG_SIZE, OG_CONTENT_TYPE, OgCard, getOgLogo } from "~/@/lib/og/card";
 import { getScan } from "~/@/lib/scans/registry";
 
+export const maxDuration = 15;
+
 export const alt = "ASX Short Interest Scan — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

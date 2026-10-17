@@ -266,4 +266,83 @@ public interface GetSuburbProfileResponseOrBuilder extends
    * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
    */
   com.shorts.v1alpha1.SuburbHazardExposureOrBuilder getHazardsOrBuilder();
+
+  /**
+   * <pre>
+   * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+   * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.LgaOverlap> 
+      getCouncilOverlapsList();
+  /**
+   * <pre>
+   * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+   * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+   */
+  com.shorts.v1alpha1.LgaOverlap getCouncilOverlaps(int index);
+  /**
+   * <pre>
+   * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+   * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+   */
+  int getCouncilOverlapsCount();
+  /**
+   * <pre>
+   * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+   * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.LgaOverlapOrBuilder> 
+      getCouncilOverlapsOrBuilderList();
+  /**
+   * <pre>
+   * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+   * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+   */
+  com.shorts.v1alpha1.LgaOverlapOrBuilder getCouncilOverlapsOrBuilder(
+      int index);
+
+  /**
+   * <pre>
+   * Profile-only planning block; absent when no planning source covers the
+   * suburb (WA, NT, and QLD beyond its heritage register).
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+   * @return Whether the planning field is set.
+   */
+  boolean hasPlanning();
+  /**
+   * <pre>
+   * Profile-only planning block; absent when no planning source covers the
+   * suburb (WA, NT, and QLD beyond its heritage register).
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+   * @return The planning.
+   */
+  com.shorts.v1alpha1.SuburbPlanning getPlanning();
+  /**
+   * <pre>
+   * Profile-only planning block; absent when no planning source covers the
+   * suburb (WA, NT, and QLD beyond its heritage register).
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+   */
+  com.shorts.v1alpha1.SuburbPlanningOrBuilder getPlanningOrBuilder();
 }

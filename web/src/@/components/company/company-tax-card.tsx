@@ -46,8 +46,9 @@ function financialYearLabel(incomeYear: number): string {
 }
 
 function TaxableCell({ year }: { year: CompanyTaxYear }) {
+  // Not held reads "n/a" (DESIGN.md: never 0, never a dash).
   if (!year.hasTaxableIncome) {
-    return <span className="text-muted-foreground">—</span>;
+    return <span className="text-muted-foreground">n/a</span>;
   }
   return <span className="tabular-nums">{formatAUD(year.taxableIncome)}</span>;
 }

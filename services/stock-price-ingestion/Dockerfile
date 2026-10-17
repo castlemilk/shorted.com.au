@@ -24,6 +24,11 @@ RUN pip install --upgrade pip && \
 # Copy application code and data
 COPY . .
 
+# cloud_run_service imports `main` lazily so the port binds before pandas and
+# yfinance load (see the note at its imports). Import it here instead, so a
+# broken dependency still fails the build and never reaches a deploy.
+RUN python -c "import main, cloud_run_service"
+
 # Create non-root user for security
 RUN useradd -m -u 1001 appuser && chown -R appuser:appuser /app
 USER appuser

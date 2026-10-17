@@ -32,6 +32,7 @@ import { Checkbox } from "~/@/components/ui/checkbox";
 import { X, Search, Loader2 } from "lucide-react";
 import { searchStocksClient } from "~/app/actions/searchStocks";
 import debounce from "lodash/debounce";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 
 interface StockSearchFieldProps {
@@ -78,7 +79,7 @@ function StockSearchField({
             productCode: stock.productCode,
             name: stock.name,
             percentageShorted: stock.percentageShorted,
-            industry: stock.industry,
+            industry: industryLabel(stock.industry),
           })),
         );
       } else {

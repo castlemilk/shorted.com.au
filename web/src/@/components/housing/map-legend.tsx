@@ -10,7 +10,7 @@ import { fmtPriceShort } from "@/lib/housing/price-scale";
 export function MapLegend({
   colorScale, min, max, clamped = false, label = "Median house price",
   showNoData = true,
-  format = fmtPriceShort, noDataLabel = "No price data",
+  format = fmtPriceShort, noDataLabel = "No price data", signed = false,
 }: {
   colorScale: (v: number) => string;
   min: number;
@@ -27,8 +27,10 @@ export function MapLegend({
   /** tick formatter — defaults to compact AUD for the price ramp. */
   format?: (v: number) => string;
   noDataLabel?: string;
+  /** Keep a negative minimum (a diverging metric such as population change). */
+  signed?: boolean;
 }) {
-  const lo = min > 0 ? min : 0;
+  const lo = signed || min > 0 ? min : 0;
   const stops = Array.from({ length: 10 }, (_, i) => i / 9);
   const gradient = `linear-gradient(to right, ${stops
     .map((t) => colorScale(lo + t * (max - lo)))

@@ -89,7 +89,7 @@ export default async function DonationsPage() {
     !page.listedOk ||
     page.parties.length === 0
   ) {
-    bailOnEmptyRender();
+    await bailOnEmptyRender();
   }
 
   const corpus = page.corpus;

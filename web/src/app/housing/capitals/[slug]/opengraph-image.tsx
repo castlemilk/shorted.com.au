@@ -4,6 +4,8 @@ import { ImageResponse } from "next/og";
 import { getCapital } from "~/@/lib/housing/capitals";
 import { OG_CONTENT_TYPE, OG_SIZE, OgCard, getOgLogo } from "~/@/lib/og/card";
 
+export const maxDuration = 15;
+
 export const alt = "Australian capital median house price — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

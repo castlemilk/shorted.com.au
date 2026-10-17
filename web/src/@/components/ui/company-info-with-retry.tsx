@@ -59,7 +59,7 @@ export function CompanyInfoWithRetry({ stockCode, initialData }: CompanyInfoClie
     return (
       <Card className="sm:col-span-4">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2"><Building2Icon className="h-5 w-5" />About</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2"><Building2Icon className="h-5 w-5" />Company details</CardTitle>
           <Separator />
           <CardContent className="p-0 pt-4">
             <p className="text-sm text-muted-foreground">
@@ -90,7 +90,7 @@ function CompanyInfoError({ onRetry, stockCode }: { onRetry: () => void; stockCo
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <AlertCircleIcon className="h-5 w-5 text-amber-500" />
-          About
+          Company details
         </CardTitle>
         <Separator />
         <CardContent className="p-0 pt-4">

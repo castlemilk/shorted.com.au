@@ -14,11 +14,11 @@ import {
   AccordionTrigger,
 } from "~/@/components/ui/accordion";
 import { Badge } from "~/@/components/ui/badge";
-import type { EnrichedCompanyMetadata } from "~/@/types/company-metadata";
+import { cn } from "~/@/lib/utils";
+import type { CompanyInsightsData } from "./company-insights-data";
 import { KeyPeopleList } from "./key-people";
 import {
   Building2,
-  BookOpen,
   History,
   TrendingUp,
   AlertTriangle,
@@ -27,7 +27,20 @@ import {
 } from "lucide-react";
 
 interface CompanyInsightsCardProps {
-  data: EnrichedCompanyMetadata;
+  /**
+   * Only the fields the card reads (pickCompanyInsights): the enriched
+   * record's financial_statements JSONB must not cross into this client
+   * component's props.
+   */
+  data: CompanyInsightsData;
+  /**
+   * The company's display name, as the page's header spells it ("BHP Group").
+   * The record's own `company_name` is the backend's title-casing of the ASIC
+   * name, which lower-cases a ticker acronym ("Bhp Group"), so a caller that
+   * has the cleaned name passes it. Without one the card falls back to the
+   * record's.
+   */
+  companyName?: string;
 }
 
 interface SectionDef {
@@ -39,28 +52,31 @@ interface SectionDef {
 }
 
 /**
- * Consolidated company research card: one card, one fact per section,
- * progressive disclosure via accordion instead of six stacked cards.
- * Renders on the Overview tab only — the Financials tab shows reports
- * via FinancialReportsSection instead of repeating this content.
+ * Consolidated company research card: the enhanced summary, then one fact per
+ * section, with progressive disclosure via accordion instead of six stacked
+ * cards. Renders on the Company tab; the Financials tab lists the company's
+ * filings instead of repeating this content.
+ *
+ * The summary is a plain paragraph at the top of the card, not an accordion
+ * item (the Overview's About card clamps the description to three lines and
+ * links here for the rest). Every accordion section starts closed, and the
+ * Accordion must keep it that way. An item the server sends open animates in
+ * (`animate-accordion-down`, 0.2s) from zero height to
+ * `--radix-accordion-content-height`, which Radix sets only in the browser,
+ * once it has hydrated. Until then the end of the animation has no value: the
+ * item sits at zero height, then jumps to its full height about 100ms after
+ * the first paint, and the rows beneath it move with it (84px on this tab, a
+ * layout shift of 0.136 on desktop). So no `defaultValue` here, and nothing
+ * else that renders open.
  */
-export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
+export function CompanyInsightsCard({
+  data,
+  companyName,
+}: CompanyInsightsCardProps) {
+  const subject = companyName ?? data.company_name;
   const validPeople = data.key_people?.filter((p) => p.name?.trim()) ?? [];
 
   const sections: SectionDef[] = [];
-
-  if (data.enhanced_summary) {
-    sections.push({
-      value: "overview",
-      label: "Overview",
-      icon: <BookOpen className="h-4 w-4 text-muted-foreground" />,
-      content: (
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {data.enhanced_summary}
-        </p>
-      ),
-    });
-  }
 
   if (data.company_history) {
     sections.push({
@@ -141,8 +157,9 @@ export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
   }
 
   const hasTags = Boolean(data.tags && data.tags.length > 0);
+  const hasSummary = Boolean(data.enhanced_summary);
 
-  if (!hasTags && sections.length === 0) {
+  if (!hasTags && !hasSummary && sections.length === 0) {
     return null;
   }
 
@@ -155,7 +172,7 @@ export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
         </CardTitle>
         <CardDescription>
           AI-generated research profile
-          {data.company_name ? ` of ${data.company_name}` : ""}
+          {subject ? ` of ${subject}` : ""}
         </CardDescription>
         {hasTags && (
           <div className="flex flex-wrap gap-1.5 pt-2">
@@ -167,30 +184,44 @@ export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
           </div>
         )}
       </CardHeader>
-      {sections.length > 0 && (
+      {(hasSummary || sections.length > 0) && (
         <CardContent className="pt-0">
-          <Accordion type="multiple">
-            {sections.map((section, index) => (
-              <AccordionItem
-                key={section.value}
-                value={section.value}
-                className={index === sections.length - 1 ? "border-b-0" : ""}
-              >
-                <AccordionTrigger className="py-3 text-sm hover:no-underline [&>svg]:text-muted-foreground">
-                  <span className="flex items-center gap-2 text-left">
-                    {section.icon}
-                    {section.label}
-                    {section.count !== undefined && (
-                      <span className="text-xs text-muted-foreground tabular-nums font-normal">
-                        {section.count}
-                      </span>
-                    )}
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent>{section.content}</AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+          {hasSummary && (
+            <p
+              className={cn(
+                "text-sm text-muted-foreground leading-relaxed",
+                // The rule an accordion item draws under itself, kept when
+                // sections follow and left off when the summary ends the card.
+                sections.length > 0 && "border-b pb-4",
+              )}
+            >
+              {data.enhanced_summary}
+            </p>
+          )}
+          {sections.length > 0 && (
+            <Accordion type="multiple">
+              {sections.map((section, index) => (
+                <AccordionItem
+                  key={section.value}
+                  value={section.value}
+                  className={index === sections.length - 1 ? "border-b-0" : ""}
+                >
+                  <AccordionTrigger className="py-3 text-sm hover:no-underline [&>svg]:text-muted-foreground">
+                    <span className="flex items-center gap-2 text-left">
+                      {section.icon}
+                      {section.label}
+                      {section.count !== undefined && (
+                        <span className="text-xs text-muted-foreground tabular-nums font-normal">
+                          {section.count}
+                        </span>
+                      )}
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>{section.content}</AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
         </CardContent>
       )}
     </Card>

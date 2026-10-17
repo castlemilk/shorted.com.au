@@ -134,3 +134,39 @@ func TestDigestAPIKeyPrefersGeminiVar(t *testing.T) {
 		t.Errorf("got %q, want the LANGEXTRACT_API_KEY fallback", got)
 	}
 }
+
+// The digest prompt sees only trusted metrics (contract 4.1, 6.3): an echo of
+// the old few-shot example or an unaligned entry is dropped and the provenance
+// keys are stripped, so a -backfill-digests re-summary of a stored echo row
+// cannot put "$5,142 million" back into a digest.
+func TestBuildDigestContentAppliesTheTrustFunnel(t *testing.T) {
+	metrics := map[string]any{
+		"revenue": map[string]any{
+			"source_text":    "Revenue from continuing operations for the half year ended 31 December 2024 was $5,142 million",
+			"value_millions": "5142",
+		},
+		"net_profit": map[string]any{
+			"source_text":    "Statutory NPAT of $612 million",
+			"value_millions": "612",
+			"alignment":      "match_exact",
+			"char_start":     "120",
+			"char_end":       "150",
+		},
+		"ebitda": map[string]any{"source_text": "EBITDA $900m", "value_millions": "900", "alignment": "unaligned"},
+	}
+	got := buildDigestContent(metrics, "Report body text")
+	for _, banned := range []string{"5142", "5,142", "EBITDA $900m", "alignment", "char_start", "char_end", "match_exact"} {
+		if strings.Contains(got, banned) {
+			t.Errorf("digest content carries %q:\n%s", banned, got)
+		}
+	}
+	if !strings.Contains(got, `"value_millions": "612"`) {
+		t.Errorf("the grounded entry must reach the prompt:\n%s", got)
+	}
+	if _, ok := metrics["revenue"]; !ok {
+		t.Error("the caller's metrics (what is stored) must not be modified")
+	}
+	if _, ok := metrics["net_profit"].(map[string]any)["alignment"]; !ok {
+		t.Error("the stored entry keeps its provenance; only the prompt copy is stripped")
+	}
+}

@@ -63,7 +63,10 @@ func main() {
 	serverAddr := fmt.Sprintf(":%d", cfg.AppSpec.Port)
 	g.Go(func() error {
 		log.Infof("starting server server at %s", serverAddr)
-		return s.Serve(ctx, logger, serverAddr)
+		// gCtx, not ctx: the signal listener's error cancels gCtx, and Serve
+		// must see that to stop — with the background ctx it never returned,
+		// g.Wait blocked forever, and SIGTERM was ignored until SIGKILL.
+		return s.Serve(gCtx, logger, serverAddr)
 	})
 	g.Go(signalListener(gCtx))
 	//TODO: do some work normally before setting ready
@@ -85,12 +88,14 @@ func signalListener(ctx context.Context) func() error {
 	return func() error {
 		signalC := make(chan os.Signal, 1)
 		defer close(signalC)
-		signal.Notify(signalC, syscall.SIGTERM)
+		// SIGTERM is Cloud Run's stop signal; SIGINT is Ctrl-C in local dev.
+		signal.Notify(signalC, syscall.SIGTERM, syscall.SIGINT)
+		defer signal.Stop(signalC)
 
 		select {
 		// app recives sigterm
-		case <-signalC:
-			return fmt.Errorf("recieved SIGTERM")
+		case sig := <-signalC:
+			return fmt.Errorf("received %s", sig)
 		// outer context finished
 		case <-ctx.Done():
 			return nil

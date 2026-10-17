@@ -4,6 +4,8 @@ import { ImageResponse } from "next/og";
 import { OG_SIZE, OG_CONTENT_TYPE, OgCard, getOgLogo } from "~/@/lib/og/card";
 import { getRegisterExplorer } from "~/app/actions/getPoliticians";
 
+export const maxDuration = 15;
+
 export const alt = "Australian Politicians' Share Register";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

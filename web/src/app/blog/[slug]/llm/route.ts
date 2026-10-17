@@ -1,36 +1,11 @@
 import { NextResponse } from "next/server";
 import { getPostBySlug } from "~/@/lib/api";
 import { siteConfig } from "~/@/config/site";
+import { mdxToCleanMarkdown } from "~/@/lib/blog/clean-markdown";
 import {
   calculateReadingTime,
   formatReadingTime,
 } from "~/@/utils/reading-time";
-
-/**
- * Strip MDX/markdown formatting to produce clean, readable plain text.
- * Preserves structural hierarchy using markdown headings but removes
- * JSX components, HTML tags, and other non-textual elements.
- */
-function mdxToCleanMarkdown(content: string): string {
-  return (
-    content
-      // Remove JSX component blocks like <RegisterEmail ... /> or <Info title="...">...</Info>
-      .replace(/<[A-Z][A-Za-z]*\b[^>]*\/>/g, "")
-      .replace(/<[A-Z][A-Za-z]*\b[^>]*>[\s\S]*?<\/[A-Z][A-Za-z]*>/g, "")
-      // Remove HTML img tags but keep alt text
-      .replace(/<img[^>]*alt="([^"]*)"[^>]*\/?>/g, "[$1]")
-      .replace(/<img[^>]*\/?>/g, "")
-      // Remove remaining HTML tags
-      .replace(/<[^>]+>/g, "")
-      // Remove import statements
-      .replace(/^import\s+.*$/gm, "")
-      // Remove export statements
-      .replace(/^export\s+.*$/gm, "")
-      // Clean up excessive blank lines
-      .replace(/\n{3,}/g, "\n\n")
-      .trim()
-  );
-}
 
 export async function GET(
   _request: Request,

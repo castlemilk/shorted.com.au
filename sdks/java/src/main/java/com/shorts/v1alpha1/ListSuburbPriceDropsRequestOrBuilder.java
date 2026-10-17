@@ -42,7 +42,10 @@ public interface ListSuburbPriceDropsRequestOrBuilder extends
 
   /**
    * <pre>
-   * optional: 'count' (default) | 'avg' | 'max'
+   * optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+   * 'share' ranks by dropped_share among suburbs with at least 20 recently
+   * swept active addresses (the drop index's panel floor); thinner suburbs
+   * sort after every ranked one rather than topping the board on 1 of 3.
    * </pre>
    *
    * <code>string sort = 3 [json_name = "sort"];</code>
@@ -51,7 +54,10 @@ public interface ListSuburbPriceDropsRequestOrBuilder extends
   java.lang.String getSort();
   /**
    * <pre>
-   * optional: 'count' (default) | 'avg' | 'max'
+   * optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+   * 'share' ranks by dropped_share among suburbs with at least 20 recently
+   * swept active addresses (the drop index's panel floor); thinner suburbs
+   * sort after every ranked one rather than topping the board on 1 of 3.
    * </pre>
    *
    * <code>string sort = 3 [json_name = "sort"];</code>

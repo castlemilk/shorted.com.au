@@ -331,6 +331,28 @@ func parseG02(rows [][]string) (map[string]g02Medians, error) {
 	return out, nil
 }
 
+// withholdSubFloorCulture applies the derived-rate population floor to the
+// culture block. It had no floor at all, so a locality of 3 to 17 residents
+// published a top-religion share of 106-167% (97 SALs) — ABS perturbs the
+// category and total cells independently, and at that size the noise is the
+// signal. Below censusDerivedRateMinPopulation every culture share is withheld,
+// and so are the top-religion and top-language LABELS: a plurality among a
+// handful of perturbed residents is not a statistic, and a language label
+// without its share would be misread downstream (the map's language layer
+// treats a missing share as under 5% and paints the suburb "English").
+func withholdSubFloorCulture(row *CensusRow) {
+	if row.Population != nil && *row.Population >= censusDerivedRateMinPopulation {
+		return
+	}
+	row.PctBornOverseas = nil
+	row.PctEnglishOnly = nil
+	row.TopReligion = nil
+	row.PctTopReligion = nil
+	row.PctNoReligion = nil
+	row.TopLanguage = nil
+	row.PctTopLanguage = nil
+}
+
 // ingestCensus builds one CensusRow per boundary suburb, attaching G01/G02
 // demographics where the bare SAL code matches.
 func ingestCensus(ctx context.Context) ([]CensusRow, error) {
@@ -380,52 +402,64 @@ func ingestCensus(ctx context.Context) ([]CensusRow, error) {
 
 	rows := make([]CensusRow, 0, len(registry))
 	for code, id := range registry {
-		row := CensusRow{
-			SALCode:   code,
-			SALName:   id.salName,
-			StateCode: id.stateCode,
-		}
-		if g, ok := g01[code]; ok {
-			row.Population = g.pop
-			row.PctBornOverseas = pctOf(g.bpElse, g.bpAus+g.bpElse)
-			row.PctEnglishOnly = pctOf(g.langEngOnly, g.langEngOnly+g.langOther)
-		}
-		if m, ok := medians[code]; ok {
-			row.MedianAge = m.age
-			row.MedianMonthlyMortgage = m.monthlyMortgage
-			row.MedianWeeklyPerIncome = m.weeklyPerInc
-			row.MedianWeeklyRent = m.weeklyRent
-			row.MedianWeeklyHhdIncome = m.weeklyHhdInc
-		}
-		if rel, ok := religion[code]; ok {
-			top := rel.top
-			row.TopReligion = &top
-			row.PctTopReligion = rel.pctTop
-			row.PctNoReligion = rel.pctNoRel
-		}
-		if lang, ok := language[code]; ok && lang.count > 0 {
-			top := lang.top
-			row.TopLanguage = &top
-			if row.Population != nil && *row.Population > 0 {
-				row.PctTopLanguage = pctOf(lang.count, *row.Population)
-			}
-		}
-		if extra, ok := expanded[code]; ok {
-			row.PctLowPersonalIncome = extra.pctLowPersonalIncome
-			row.PctHighPersonalIncome = extra.pctHighPersonalIncome
-			row.UnemploymentRate = extra.unemploymentRate
-			row.LabourForceParticipationRate = extra.labourForceParticipationRate
-			row.PctBachelorOrHigher = extra.pctBachelorOrHigher
-			row.PctSeparateHouse = extra.pctSeparateHouse
-			row.PctFlatApartment = extra.pctFlatApartment
-			row.PctCoupleWithChildren = extra.pctCoupleWithChildren
-			row.PctLonePersonHousehold = extra.pctLonePersonHousehold
-			row.PctOwnedOutright = extra.pctOwnedOutright
-			row.PctOwnedMortgage = extra.pctOwnedMortgage
-			row.PctRented = extra.pctRented
-			row.DwellingCount = extra.dwellingCount
-		}
-		rows = append(rows, row)
+		rows = append(rows, assembleCensusRow(code, id, g01, medians, religion, language, expanded))
 	}
 	return rows, nil
+}
+
+// assembleCensusRow joins one boundary suburb's parsed DataPack tables into
+// its CensusRow and applies the small-area floors that span tables (the
+// culture block is floored on the G01 population). Split from ingestCensus so
+// the floors are tested on the path the ingest actually runs.
+func assembleCensusRow(
+	code string, id suburbIdentity, g01 map[string]g01Row, medians map[string]g02Medians,
+	religion map[string]religionStats, language map[string]languageStats, expanded map[string]expandedCensusStats,
+) CensusRow {
+	row := CensusRow{
+		SALCode:   code,
+		SALName:   id.salName,
+		StateCode: id.stateCode,
+	}
+	if g, ok := g01[code]; ok {
+		row.Population = g.pop
+		row.PctBornOverseas = pctOf(g.bpElse, g.bpAus+g.bpElse)
+		row.PctEnglishOnly = pctOf(g.langEngOnly, g.langEngOnly+g.langOther)
+	}
+	if m, ok := medians[code]; ok {
+		row.MedianAge = m.age
+		row.MedianMonthlyMortgage = m.monthlyMortgage
+		row.MedianWeeklyPerIncome = m.weeklyPerInc
+		row.MedianWeeklyRent = m.weeklyRent
+		row.MedianWeeklyHhdIncome = m.weeklyHhdInc
+	}
+	if rel, ok := religion[code]; ok {
+		top := rel.top
+		row.TopReligion = &top
+		row.PctTopReligion = rel.pctTop
+		row.PctNoReligion = rel.pctNoRel
+	}
+	if lang, ok := language[code]; ok && lang.count > 0 {
+		top := lang.top
+		row.TopLanguage = &top
+		if row.Population != nil && *row.Population > 0 {
+			row.PctTopLanguage = pctOf(lang.count, *row.Population)
+		}
+	}
+	withholdSubFloorCulture(&row)
+	if extra, ok := expanded[code]; ok {
+		row.PctLowPersonalIncome = extra.pctLowPersonalIncome
+		row.PctHighPersonalIncome = extra.pctHighPersonalIncome
+		row.UnemploymentRate = extra.unemploymentRate
+		row.LabourForceParticipationRate = extra.labourForceParticipationRate
+		row.PctBachelorOrHigher = extra.pctBachelorOrHigher
+		row.PctSeparateHouse = extra.pctSeparateHouse
+		row.PctFlatApartment = extra.pctFlatApartment
+		row.PctCoupleWithChildren = extra.pctCoupleWithChildren
+		row.PctLonePersonHousehold = extra.pctLonePersonHousehold
+		row.PctOwnedOutright = extra.pctOwnedOutright
+		row.PctOwnedMortgage = extra.pctOwnedMortgage
+		row.PctRented = extra.pctRented
+		row.DwellingCount = extra.dwellingCount
+	}
+	return row
 }

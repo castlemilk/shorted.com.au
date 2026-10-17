@@ -665,6 +665,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.FilterSuburbsResponse'
+  /shorts.v1alpha1.HousingService/GetCouncilProfile:
+    post:
+      tags:
+        - shorts.v1alpha1.HousingService
+      summary: GetCouncilProfile
+      description: |-
+        One council's hub: identity, current facts, time series, member suburbs,
+         hazard/price/crime rollups, representation, price drops and neighbours.
+      operationId: HousingService_GetCouncilProfile
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetCouncilProfileRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetCouncilProfileResponse'
   /shorts.v1alpha1.HousingService/GetDropIndexSeries:
     post:
       tags:
@@ -1025,6 +1063,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.ListAgencyPriceStatsResponse'
+  /shorts.v1alpha1.HousingService/ListCouncils:
+    post:
+      tags:
+        - shorts.v1alpha1.HousingService
+      summary: ListCouncils
+      description: |-
+        Every council with a page in one state (kind council | unincorporated),
+         with the rollup metrics the council index and choropleth colour by.
+      operationId: HousingService_ListCouncils
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListCouncilsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListCouncilsResponse'
   /shorts.v1alpha1.HousingService/ListHousingRegions:
     post:
       tags:
@@ -3143,6 +3219,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStockFinancialHighlightsResponse'
+  /shorts.v1alpha1.StockService/GetStockFundamentals:
+    post:
+      tags:
+        - shorts.v1alpha1.StockService
+      summary: GetStockFundamentals
+      description: |-
+        Per-period reported fundamentals (revenue, net income, EPS, cash flow,
+         shares) and year-on-year growth for a stock. Every value carries a has_*
+         flag: a missing figure is absent, never zero.
+      operationId: StockService_GetStockFundamentals
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStockFundamentalsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetStockFundamentalsResponse'
   /shorts.v1alpha1.StockService/GetStockGraph:
     post:
       tags:
@@ -3289,6 +3404,121 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStockVerdictResponse'
+  /shorts.v1alpha1.StrategyService/GetStockStrategyFit:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: GetStockStrategyFit
+      description: |-
+        How one stock reads against every strategy: status, score, rank and the
+         per-rule pass / fail / unknown breakdown. A stock that is not a candidate
+         for a strategy still gets its rule results, with status "none".
+      operationId: StrategyService_GetStockStrategyFit
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStockStrategyFitRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetStockStrategyFitResponse'
+  /shorts.v1alpha1.StrategyService/GetStrategyPicks:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: GetStrategyPicks
+      description: |-
+        Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+         score and a per-rule pass / fail / unknown breakdown for each stock.
+      operationId: StrategyService_GetStrategyPicks
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStrategyPicksRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetStrategyPicksResponse'
+  /shorts.v1alpha1.StrategyService/ListStrategies:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: ListStrategies
+      description: |-
+        List every strategy with its rules, metadata, caveats and sources, plus
+         the current market regime (S&P/ASX 200).
+      operationId: StrategyService_ListStrategies
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListStrategiesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListStrategiesResponse'
 servers:
   - url: https://api.shorted.com.au
 components:
@@ -3582,6 +3812,9 @@ components:
       description: |-
         One physical address (deduped by stable address_key) whose for-sale asking
          price fell over the window, deep-linking to its per-address history page.
+         When the address is live on both portals (or relisted), every live advert
+         is judged on its own chain and the row carries the deepest qualifying cut;
+         the latest_* / current_* fields describe THAT advert.
     shorts.v1alpha1.AgencyPriceStats:
       type: object
       properties:
@@ -4086,25 +4319,664 @@ components:
           type: number
           title: state_median_price
           format: double
-          description: (proto double)
+          description: |-
+            Median of the latest public Valuer-General suburb medians in the state —
+             NSW, VIC and SA only, 0 elsewhere. A median, not a mean: one $110.5M
+             development sale moved the old NSW average by ~$45k. (proto double)
         nationalMedianPrice:
           type: number
           title: national_median_price
           format: double
-          description: (proto double)
+          description: |-
+            Always 0. No open national median house price exists (ABS's
+             established-house medians stop at capital city / rest of state, below);
+             this used to average NSW, VIC and SA suburb medians under an "AU" label. (proto double)
         stateMedianWeeklyHhdIncome:
           type: number
           title: state_median_weekly_hhd_income
           format: double
-          description: (proto double)
+          description: |-
+            Census 2021 median weekly household income of the MEDIAN suburb — in the
+             state, and across every suburb nationally. Not a household-weighted median. (proto double)
         nationalMedianWeeklyHhdIncome:
           type: number
           title: national_median_weekly_hhd_income
           format: double
           description: (proto double)
+        capitalMedianPrice:
+          type: number
+          title: capital_median_price
+          format: double
+          description: |-
+            ABS established-house medians (RES_DWELL, CC-BY-4.0) for the suburb's
+             state: its Greater Capital City and the rest of the state, read from
+             mv_housing_headline. 0 / "" where the state has no such region (the ACT
+             has no rest of state). (proto double)
+        capitalRegionName:
+          type: string
+          title: capital_region_name
+          description: e.g. "Greater Sydney" (proto string)
+        capitalRegionCode:
+          type: string
+          title: capital_region_code
+          description: ABS GCCSA code, e.g. "1GSYD" (proto string)
+        restOfStateMedianPrice:
+          type: number
+          title: rest_of_state_median_price
+          format: double
+          description: (proto double)
+        restOfStateRegionName:
+          type: string
+          title: rest_of_state_region_name
+          description: e.g. "Rest of NSW" (proto string)
+        absMedianPeriod:
+          type: string
+          title: abs_median_period
+          description: quarter end, "2026-03-31" (proto string)
+        stateCensus:
+          title: state_census
+          description: State references for the Who-lives-here and Housing-stock cards. (proto shorts.v1alpha1.StateCensusAverages)
+          $ref: '#/components/schemas/shorts.v1alpha1.StateCensusAverages'
       title: ComparisonBaselines
       additionalProperties: false
       description: State + national reference medians for the profile's comparison bars.
+    shorts.v1alpha1.CouncilCrimeStat:
+      type: object
+      properties:
+        crimeType:
+          type: string
+          title: crime_type
+          description: (proto string)
+        ratePer100k:
+          type: number
+          title: rate_per_100k
+          format: double
+          description: weighted by residents over covered suburbs (proto double)
+        fyEnding:
+          type: integer
+          title: fy_ending
+          format: int32
+          description: (proto int32)
+        coveredSuburbs:
+          type: integer
+          title: covered_suburbs
+          format: int32
+          description: (proto int32)
+        sourceJurisdiction:
+          type: string
+          title: source_jurisdiction
+          description: (proto string)
+        source:
+          type: string
+          title: source
+          description: (proto string)
+        sourceLicence:
+          type: string
+          title: source_licence
+          description: (proto string)
+      title: CouncilCrimeStat
+      additionalProperties: false
+    shorts.v1alpha1.CouncilDropSuburb:
+      type: object
+      properties:
+        salCode:
+          type: string
+          title: sal_code
+          description: (proto string)
+        salName:
+          type: string
+          title: sal_name
+          description: (proto string)
+        postcode:
+          type: string
+          title: postcode
+          description: (proto string)
+        droppedListingCount:
+          type: integer
+          title: dropped_listing_count
+          format: int32
+          description: (proto int32)
+        trackedListingCount:
+          type: integer
+          title: tracked_listing_count
+          format: int32
+          description: (proto int32)
+        droppedShare:
+          type: number
+          title: dropped_share
+          format: double
+          description: (proto double)
+        medianDropPct:
+          type:
+            - number
+            - "null"
+          title: median_drop_pct
+          format: double
+          description: (proto double)
+      title: CouncilDropSuburb
+      additionalProperties: false
+    shorts.v1alpha1.CouncilNeighbour:
+      type: object
+      properties:
+        lgaCode:
+          type: string
+          title: lga_code
+          description: (proto string)
+        slug:
+          type: string
+          title: slug
+          description: ''''' when the council has no page (proto string)'
+        displayName:
+          type: string
+          title: display_name
+          description: (proto string)
+        kind:
+          type: string
+          title: kind
+          description: (proto string)
+        stateCode:
+          type: string
+          title: state_code
+          description: (proto string)
+        sharesBorder:
+          type: boolean
+          title: shares_border
+          description: |-
+            The two councils touch. Within a state: a dominant-member suburb shares
+             a boundary with one of the neighbour's (ABS suburb topology). Across a
+             state or territory line (Albury-Wodonga, Queanbeyan-Palerang-ACT): their
+             ABS council boundaries touch (within 50 m). A cross-border neighbour is
+             the one whose state_code differs from the profiled council's. (proto bool)
+        sharedSuburbs:
+          type: integer
+          title: shared_suburbs
+          format: int32
+          description: Suburbs split between the two councils (each >= 1% of residents). (proto int32)
+      title: CouncilNeighbour
+      additionalProperties: false
+    shorts.v1alpha1.CouncilPriceDrops:
+      type: object
+      properties:
+        droppedListingCount:
+          type: integer
+          title: dropped_listing_count
+          format: int32
+          description: (proto int32)
+        trackedListingCount:
+          type: integer
+          title: tracked_listing_count
+          format: int32
+          description: (proto int32)
+        droppedShare:
+          type: number
+          title: dropped_share
+          format: double
+          description: dropped / tracked (proto double)
+        medianDropPct:
+          type:
+            - number
+            - "null"
+          title: median_drop_pct
+          format: double
+          description: median cut over every cut listing in the council (proto double)
+        suburbsTracked:
+          type: integer
+          title: suburbs_tracked
+          format: int32
+          description: (proto int32)
+        suburbs:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilDropSuburb'
+          title: suburbs
+          description: Only suburbs that clear 3 drops themselves are named. (proto shorts.v1alpha1.CouncilDropSuburb)
+        asOf:
+          title: as_of
+          description: when these figures were computed (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        dataThrough:
+          title: data_through
+          description: newest crawl observation behind them (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+      title: CouncilPriceDrops
+      additionalProperties: false
+      description: |-
+        Asking-price cuts in the last 30 days over the suburbs whose dominant
+         council this is, among listings active and seen by the crawl in the last 14
+         days (each address counted once). Counted from every crawled member suburb,
+         so cuts in suburbs below the floor still count; floored at 3 cuts
+         council-wide.
+    shorts.v1alpha1.CouncilProfile:
+      type: object
+      properties:
+        council:
+          title: council
+          description: Identity + current facts. dominant_share is absent (it is a suburb fact). (proto shorts.v1alpha1.LgaInfo)
+          $ref: '#/components/schemas/shorts.v1alpha1.LgaInfo'
+        summary:
+          title: summary
+          description: The same row ListCouncils serves, so the hub and the index never disagree. (proto shorts.v1alpha1.CouncilSummary)
+          $ref: '#/components/schemas/shorts.v1alpha1.CouncilSummary'
+        lgaVintage:
+          type: string
+          title: lga_vintage
+          description: (proto string)
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilSeries'
+          title: series
+          description: (proto shorts.v1alpha1.CouncilSeries)
+        suburbs:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilSuburb'
+          title: suburbs
+          description: |-
+            Every suburb whose dominant council this is, plus straddling suburbs where
+             this council holds at least 5% of the residents. Population desc. (proto shorts.v1alpha1.CouncilSuburb)
+        rollup:
+          title: rollup
+          description: (proto shorts.v1alpha1.CouncilRollup)
+          $ref: '#/components/schemas/shorts.v1alpha1.CouncilRollup'
+        federalElectorates:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilRepresentative'
+          title: federal_electorates
+          description: |-
+            Federal electorates / state districts over the member suburbs, weighted by
+             the residents each suburb contributes to this council. Largest first. (proto shorts.v1alpha1.CouncilRepresentative)
+        stateDistricts:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilRepresentative'
+          title: state_districts
+          description: (proto shorts.v1alpha1.CouncilRepresentative)
+        priceDrops:
+          title: price_drops
+          description: |-
+            Crawl-derived aggregate. Absent below 3 drops council-wide or with no
+             crawl coverage. (proto shorts.v1alpha1.CouncilPriceDrops)
+          $ref: '#/components/schemas/shorts.v1alpha1.CouncilPriceDrops'
+        neighbours:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilNeighbour'
+          title: neighbours
+          description: (proto shorts.v1alpha1.CouncilNeighbour)
+        factsAsOf:
+          type: string
+          title: facts_as_of
+          description: when the council facts were loaded, 'YYYY-MM-DD' (proto string)
+      title: CouncilProfile
+      additionalProperties: false
+    shorts.v1alpha1.CouncilRepresentative:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+          description: electorate or district (proto string)
+        member:
+          type: string
+          title: member
+          description: (proto string)
+        party:
+          type: string
+          title: party
+          description: (proto string)
+        partyAb:
+          type: string
+          title: party_ab
+          description: (proto string)
+        populationShare:
+          type: number
+          title: population_share
+          format: double
+          description: 0..1 of the council's member-suburb residents (proto double)
+        suburbCount:
+          type: integer
+          title: suburb_count
+          format: int32
+          description: (proto int32)
+      title: CouncilRepresentative
+      additionalProperties: false
+    shorts.v1alpha1.CouncilRollup:
+      type: object
+      properties:
+        memberSuburbs:
+          type: integer
+          title: member_suburbs
+          format: int32
+          description: (proto int32)
+        dominantSuburbs:
+          type: integer
+          title: dominant_suburbs
+          format: int32
+          description: (proto int32)
+        floodSharePct:
+          type:
+            - number
+            - "null"
+          title: flood_share_pct
+          format: double
+          description: (proto double)
+        floodCoveredSuburbs:
+          type: integer
+          title: flood_covered_suburbs
+          format: int32
+          description: (proto int32)
+        bushfireSharePct:
+          type:
+            - number
+            - "null"
+          title: bushfire_share_pct
+          format: double
+          description: (proto double)
+        bushfireCoveredSuburbs:
+          type: integer
+          title: bushfire_covered_suburbs
+          format: int32
+          description: (proto int32)
+        waterSharePct:
+          type:
+            - number
+            - "null"
+          title: water_share_pct
+          format: double
+          description: (proto double)
+        waterCoveredSuburbs:
+          type: integer
+          title: water_covered_suburbs
+          format: int32
+          description: (proto int32)
+        pricedSuburbs:
+          type: integer
+          title: priced_suburbs
+          format: int32
+          description: Member suburbs with their own Valuer-General median (unweighted). (proto int32)
+        medianMin:
+          type:
+            - number
+            - "null"
+          title: median_min
+          format: double
+          description: (proto double)
+        medianMax:
+          type:
+            - number
+            - "null"
+          title: median_max
+          format: double
+          description: (proto double)
+        medianOfMedians:
+          type:
+            - number
+            - "null"
+          title: median_of_medians
+          format: double
+          description: (proto double)
+        crime:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilCrimeStat'
+          title: crime
+          description: Latest crime rates where the source covers member suburbs (NSW today). (proto shorts.v1alpha1.CouncilCrimeStat)
+      title: CouncilRollup
+      additionalProperties: false
+      description: |-
+        Rollups over the member suburbs, weighted by the residents each contributes
+         (population x share). Absent = no member suburb is covered.
+    shorts.v1alpha1.CouncilSeries:
+      type: object
+      properties:
+        measure:
+          type: string
+          title: measure
+          description: e.g. 'erp', 'house_median_price', 'dwelling_approvals_total' (proto string)
+        unit:
+          type: string
+          title: unit
+          description: persons | AUD | count (proto string)
+        frequency:
+          type: string
+          title: frequency
+          description: annual (30 June) | fy | monthly (proto string)
+        source:
+          type: string
+          title: source
+          description: (proto string)
+        sourceLicence:
+          type: string
+          title: source_licence
+          description: (proto string)
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilSeriesPoint'
+          title: points
+          description: (proto shorts.v1alpha1.CouncilSeriesPoint)
+      title: CouncilSeries
+      additionalProperties: false
+      description: One lga_series measure for the council, ascending by period.
+    shorts.v1alpha1.CouncilSeriesPoint:
+      type: object
+      properties:
+        period:
+          type: string
+          title: period
+          description: period end, 'YYYY-MM-DD' (proto string)
+        periodLabel:
+          type: string
+          title: period_label
+          description: '''2025'' | ''2024-25'' | ''2026-07'' (proto string)'
+        value:
+          type: number
+          title: value
+          format: double
+          description: (proto double)
+      title: CouncilSeriesPoint
+      additionalProperties: false
+    shorts.v1alpha1.CouncilSuburb:
+      type: object
+      properties:
+        salCode:
+          type: string
+          title: sal_code
+          description: (proto string)
+        salName:
+          type: string
+          title: sal_name
+          description: (proto string)
+        postcode:
+          type: string
+          title: postcode
+          description: (proto string)
+        population:
+          type: integer
+          title: population
+          format: int32
+          description: Census 2021 persons, whole suburb (proto int32)
+        share:
+          type: number
+          title: share
+          format: double
+          description: 0..1 of the suburb's residents in this council (proto double)
+        dominant:
+          type: boolean
+          title: dominant
+          description: this is the suburb's dominant council (proto bool)
+        vgMedian:
+          type:
+            - number
+            - "null"
+          title: vg_median
+          format: double
+          description: the suburb's OWN Valuer-General median house price (proto double)
+        vgMedianPeriod:
+          type: string
+          title: vg_median_period
+          description: '''YYYY-MM-DD''; '''' without a median (proto string)'
+        floodSharePct:
+          type:
+            - number
+            - "null"
+          title: flood_share_pct
+          format: double
+          description: absent = no source covers the suburb (proto double)
+        bushfireSharePct:
+          type:
+            - number
+            - "null"
+          title: bushfire_share_pct
+          format: double
+          description: (proto double)
+        waterSharePct:
+          type:
+            - number
+            - "null"
+          title: water_share_pct
+          format: double
+          description: (proto double)
+        seifaIrsadDecile:
+          type:
+            - integer
+            - "null"
+          title: seifa_irsad_decile
+          format: int32
+          description: national decile (proto int32)
+      title: CouncilSuburb
+      additionalProperties: false
+    shorts.v1alpha1.CouncilSummary:
+      type: object
+      properties:
+        lgaCode:
+          type: string
+          title: lga_code
+          description: (proto string)
+        slug:
+          type: string
+          title: slug
+          description: (proto string)
+        displayName:
+          type: string
+          title: display_name
+          description: (proto string)
+        kind:
+          type: string
+          title: kind
+          description: council | unincorporated (proto string)
+        stateCode:
+          type: string
+          title: state_code
+          description: (proto string)
+        population:
+          type: integer
+          title: population
+          format: int32
+          description: ABS estimated resident population at 30 June erp_year; 0 if none (proto int32)
+        erpYear:
+          type: integer
+          title: erp_year
+          format: int32
+          description: (proto int32)
+        popGrowthPct:
+          type:
+            - number
+            - "null"
+          title: pop_growth_pct
+          format: double
+          description: ERP year-on-year change, % (proto double)
+        areaSqkm:
+          type:
+            - number
+            - "null"
+          title: area_sqkm
+          format: double
+          description: (proto double)
+        densityPerSqkm:
+          type:
+            - number
+            - "null"
+          title: density_per_sqkm
+          format: double
+          description: ERP / area (proto double)
+        memberSuburbCount:
+          type: integer
+          title: member_suburb_count
+          format: int32
+          description: suburbs whose DOMINANT council this is (proto int32)
+        councilHouseMedian:
+          type:
+            - number
+            - "null"
+          title: council_house_median
+          format: double
+          description: council-wide ABS established-house median (proto double)
+        councilHouseMedianPeriod:
+          type: string
+          title: council_house_median_period
+          description: e.g. '2023-24' (proto string)
+        fagPerResident:
+          type:
+            - number
+            - "null"
+          title: fag_per_resident
+          format: double
+          description: latest Financial Assistance Grant / ERP, AUD (proto double)
+        fagYear:
+          type: string
+          title: fag_year
+          description: e.g. '2025-26' (proto string)
+        approvalsPer1000:
+          type:
+            - number
+            - "null"
+          title: approvals_per_1000
+          format: double
+          description: dwelling approvals, last 12 months, per 1,000 residents (proto double)
+        approvalsThrough:
+          type: string
+          title: approvals_through
+          description: last month of that window, 'YYYY-MM' (proto string)
+        seifaIrsadDecile:
+          type:
+            - integer
+            - "null"
+          title: seifa_irsad_decile
+          format: int32
+          description: SEIFA 2021 IRSAD, national decile (proto int32)
+        floodSharePct:
+          type:
+            - number
+            - "null"
+          title: flood_share_pct
+          format: double
+          description: population-weighted over member suburbs (proto double)
+        bushfireSharePct:
+          type:
+            - number
+            - "null"
+          title: bushfire_share_pct
+          format: double
+          description: population-weighted over member suburbs (proto double)
+        priceDropShare:
+          type:
+            - number
+            - "null"
+          title: price_drop_share
+          format: double
+          description: 0..1, crawl-derived, only when >= 3 drops council-wide (proto double)
+        dataThrough:
+          type: string
+          title: data_through
+          description: newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none (proto string)
+      title: CouncilSummary
+      additionalProperties: false
+      description: |-
+        One council's headline row: the council index table and the council
+         choropleth read exactly these fields.
     shorts.v1alpha1.CreateAlertMonitorRequest:
       type: object
       properties:
@@ -4547,7 +5419,9 @@ components:
           type: number
           title: median_drop_pct
           format: double
-          description: 0..1 fraction, depth of the typical cut (proto double)
+          description: |-
+            0..1 fraction, depth of the typical cut. 0 when withheld — read
+             median_withheld, never the 0, to tell withheld from a measurement. (proto double)
         panelSuburbs:
           type: integer
           title: panel_suburbs
@@ -4587,6 +5461,15 @@ components:
           title: delisted_count
           format: int32
           description: withdrawn events in the trailing window (national grain only) (proto int32)
+        medianWithheld:
+          type: boolean
+          title: median_withheld
+          description: |-
+            True when median_drop_pct is withheld: fewer than 3 dropped addresses
+             stand behind this point, so a "median" would be one or two listings'
+             exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+             not a measurement. A separate flag rather than `optional` presence on
+             median_drop_pct, which would change that field's cardinality. (proto bool)
       title: DropIndexPoint
       additionalProperties: false
       description: |-
@@ -4925,6 +5808,723 @@ components:
       title: FinancialYearOption
       additionalProperties: false
       description: FinancialYearOption is one selectable year, with how much is in it.
+    shorts.v1alpha1.FundamentalsCoverage:
+      type: object
+      properties:
+        status:
+          type: string
+          title: status
+          description: |-
+            "covered" (rows held), "empty" (our providers returned nothing),
+             "pending" (not attempted yet) or "failed" (the last attempt errored).
+             Empty when unknown. (proto string)
+        lastAttemptAt:
+          type: string
+          title: last_attempt_at
+          description: RFC 3339. (proto string)
+        lastSuccessAt:
+          type: string
+          title: last_success_at
+          description: RFC 3339. (proto string)
+        sources:
+          type: array
+          items:
+            type: string
+          title: sources
+          description: Sources of the rows held. (proto string)
+      title: FundamentalsCoverage
+      additionalProperties: false
+      description: Whether fundamentals have been collected for the stock.
+    shorts.v1alpha1.FundamentalsGrowth:
+      type: object
+      properties:
+        basisPeriodType:
+          type: string
+          title: basis_period_type
+          description: 'Series the EPS growth was computed on: "half", "ttm" or "annual". (proto string)'
+        latestPeriodEnd:
+          type: string
+          title: latest_period_end
+          description: YYYY-MM-DD of the latest period in that series. (proto string)
+        revenueYoyPct:
+          type: number
+          title: revenue_yoy_pct
+          format: double
+          description: Revenue growth on revenue_basis_period_type vs the same series a year earlier. (proto double)
+        hasRevenueYoy:
+          type: boolean
+          title: has_revenue_yoy
+          description: (proto bool)
+        revenueYoyPriorPct:
+          type: number
+          title: revenue_yoy_prior_pct
+          format: double
+          description: The same growth one period earlier, for acceleration. (proto double)
+        hasRevenueYoyPrior:
+          type: boolean
+          title: has_revenue_yoy_prior
+          description: (proto bool)
+        epsYoyPct:
+          type: number
+          title: eps_yoy_pct
+          format: double
+          description: (proto double)
+        hasEpsYoy:
+          type: boolean
+          title: has_eps_yoy
+          description: (proto bool)
+        epsYoyPriorPct:
+          type: number
+          title: eps_yoy_prior_pct
+          format: double
+          description: (proto double)
+        hasEpsYoyPrior:
+          type: boolean
+          title: has_eps_yoy_prior
+          description: (proto bool)
+        netIncomePositive:
+          type: boolean
+          title: net_income_positive
+          description: Latest annual net income above zero. (proto bool)
+        periodsAvailable:
+          type: integer
+          title: periods_available
+          format: int32
+          description: (proto int32)
+        revenueTtm:
+          type: number
+          title: revenue_ttm
+          format: double
+          description: Latest trailing-twelve-month points. (proto double)
+        hasRevenueTtm:
+          type: boolean
+          title: has_revenue_ttm
+          description: (proto bool)
+        netIncomeTtm:
+          type: number
+          title: net_income_ttm
+          format: double
+          description: (proto double)
+        hasNetIncomeTtm:
+          type: boolean
+          title: has_net_income_ttm
+          description: (proto bool)
+        epsTtm:
+          type: number
+          title: eps_ttm
+          format: double
+          description: (proto double)
+        hasEpsTtm:
+          type: boolean
+          title: has_eps_ttm
+          description: (proto bool)
+        revenueBasisPeriodType:
+          type: string
+          title: revenue_basis_period_type
+          description: |-
+            Series the revenue growth was computed on: "half" (latest half-year from a
+             company filing vs the same half a year earlier, used when it is newer than
+             the latest annual), "ttm" (the latest trailing twelve months vs twelve
+             months earlier, used when it is newer than the latest annual) or "annual".
+             Empty when unknown. (proto string)
+        revenueHalfYoyPct:
+          type: number
+          title: revenue_half_yoy_pct
+          format: double
+          description: |-
+            Latest half-year vs the same half a year earlier, from company filings,
+             whether or not the half is the chosen basis. (proto double)
+        hasRevenueHalfYoy:
+          type: boolean
+          title: has_revenue_half_yoy
+          description: (proto bool)
+        epsHalfYoyPct:
+          type: number
+          title: eps_half_yoy_pct
+          format: double
+          description: (proto double)
+        hasEpsHalfYoy:
+          type: boolean
+          title: has_eps_half_yoy
+          description: (proto bool)
+        halfLatestPeriodEnd:
+          type: string
+          title: half_latest_period_end
+          description: YYYY-MM-DD of the latest half-year row; empty when none. (proto string)
+        revenueBasisSource:
+          type: string
+          title: revenue_basis_source
+          description: |-
+            "vendor" or "filing": where the rows behind each growth figure came from.
+             "filing" when either side of the pair is a figure extracted from a company
+             filing. Empty when unknown. (proto string)
+        epsBasisSource:
+          type: string
+          title: eps_basis_source
+          description: (proto string)
+        fetchedAt:
+          type: string
+          title: fetched_at
+          description: RFC 3339, newest fetch of the growth inputs. (proto string)
+        revenueLatestPeriodEnd:
+          type: string
+          title: revenue_latest_period_end
+          description: YYYY-MM-DD, the pair revenue_yoy_pct compares. (proto string)
+        revenuePriorPeriodEnd:
+          type: string
+          title: revenue_prior_period_end
+          description: (proto string)
+      title: FundamentalsGrowth
+      additionalProperties: false
+      description: |-
+        Year-on-year growth, always against the same series one year earlier
+         (annual vs prior annual, TTM vs the TTM point a year earlier), never across
+         series. A *_pct is absent (has_* false) when either side is missing or the
+         prior value is zero or negative.
+    shorts.v1alpha1.FundamentalsPeriod:
+      type: object
+      properties:
+        periodType:
+          type: string
+          title: period_type
+          description: '"annual" | "half" | "quarter" | "ttm" (trailing twelve months). (proto string)'
+        periodEnd:
+          type: string
+          title: period_end
+          description: YYYY-MM-DD. (proto string)
+        fiscalYear:
+          type: integer
+          title: fiscal_year
+          format: int32
+          description: 0 when unknown. (proto int32)
+        currency:
+          type: string
+          title: currency
+          description: (proto string)
+        revenue:
+          type: number
+          title: revenue
+          format: double
+          description: (proto double)
+        hasRevenue:
+          type: boolean
+          title: has_revenue
+          description: (proto bool)
+        netIncome:
+          type: number
+          title: net_income
+          format: double
+          description: (proto double)
+        hasNetIncome:
+          type: boolean
+          title: has_net_income
+          description: (proto bool)
+        epsBasic:
+          type: number
+          title: eps_basic
+          format: double
+          description: (proto double)
+        hasEpsBasic:
+          type: boolean
+          title: has_eps_basic
+          description: (proto bool)
+        epsDiluted:
+          type: number
+          title: eps_diluted
+          format: double
+          description: (proto double)
+        hasEpsDiluted:
+          type: boolean
+          title: has_eps_diluted
+          description: (proto bool)
+        operatingCashFlow:
+          type: number
+          title: operating_cash_flow
+          format: double
+          description: (proto double)
+        hasOperatingCashFlow:
+          type: boolean
+          title: has_operating_cash_flow
+          description: (proto bool)
+        sharesOutstanding:
+          type: number
+          title: shares_outstanding
+          format: double
+          description: (proto double)
+        hasSharesOutstanding:
+          type: boolean
+          title: has_shares_outstanding
+          description: (proto bool)
+        source:
+          type: string
+          title: source
+          description: e.g. "yahoo-timeseries". (proto string)
+        fetchedAt:
+          type: string
+          title: fetched_at
+          description: RFC 3339. (proto string)
+        freeCashFlow:
+          type: number
+          title: free_cash_flow
+          format: double
+          description: (proto double)
+        hasFreeCashFlow:
+          type: boolean
+          title: has_free_cash_flow
+          description: (proto bool)
+        grossProfit:
+          type: number
+          title: gross_profit
+          format: double
+          description: |-
+            Full statement lines (period_type "quarter" rows are balance-sheet
+             snapshots and carry only balance lines and shares). (proto double)
+        hasGrossProfit:
+          type: boolean
+          title: has_gross_profit
+          description: (proto bool)
+        operatingIncome:
+          type: number
+          title: operating_income
+          format: double
+          description: Absent for banks and insurers. (proto double)
+        hasOperatingIncome:
+          type: boolean
+          title: has_operating_income
+          description: (proto bool)
+        ebitda:
+          type: number
+          title: ebitda
+          format: double
+          description: 'Statutory: includes impairments and revaluations. (proto double)'
+        hasEbitda:
+          type: boolean
+          title: has_ebitda
+          description: (proto bool)
+        normalizedEbitda:
+          type: number
+          title: normalized_ebitda
+          format: double
+          description: EBITDA before unusual items, when the source publishes it. (proto double)
+        hasNormalizedEbitda:
+          type: boolean
+          title: has_normalized_ebitda
+          description: (proto bool)
+        ebit:
+          type: number
+          title: ebit
+          format: double
+          description: (proto double)
+        hasEbit:
+          type: boolean
+          title: has_ebit
+          description: (proto bool)
+        interestExpense:
+          type: number
+          title: interest_expense
+          format: double
+          description: A positive expense. (proto double)
+        hasInterestExpense:
+          type: boolean
+          title: has_interest_expense
+          description: (proto bool)
+        pretaxIncome:
+          type: number
+          title: pretax_income
+          format: double
+          description: (proto double)
+        hasPretaxIncome:
+          type: boolean
+          title: has_pretax_income
+          description: (proto bool)
+        taxProvision:
+          type: number
+          title: tax_provision
+          format: double
+          description: (proto double)
+        hasTaxProvision:
+          type: boolean
+          title: has_tax_provision
+          description: (proto bool)
+        netInterestIncome:
+          type: number
+          title: net_interest_income
+          format: double
+          description: Banks; other companies report it as minus interest expense. (proto double)
+        hasNetInterestIncome:
+          type: boolean
+          title: has_net_interest_income
+          description: (proto bool)
+        capitalExpenditure:
+          type: number
+          title: capital_expenditure
+          format: double
+          description: 'An outflow: negative. (proto double)'
+        hasCapitalExpenditure:
+          type: boolean
+          title: has_capital_expenditure
+          description: (proto bool)
+        dividendsPaid:
+          type: number
+          title: dividends_paid
+          format: double
+          description: 'Cash dividends paid in the period: negative. (proto double)'
+        hasDividendsPaid:
+          type: boolean
+          title: has_dividends_paid
+          description: (proto bool)
+        shareBuybacks:
+          type: number
+          title: share_buybacks
+          format: double
+          description: 'An outflow: negative. (proto double)'
+        hasShareBuybacks:
+          type: boolean
+          title: has_share_buybacks
+          description: (proto bool)
+        totalAssets:
+          type: number
+          title: total_assets
+          format: double
+          description: Balance sheet at period_end. (proto double)
+        hasTotalAssets:
+          type: boolean
+          title: has_total_assets
+          description: (proto bool)
+        totalLiabilities:
+          type: number
+          title: total_liabilities
+          format: double
+          description: (proto double)
+        hasTotalLiabilities:
+          type: boolean
+          title: has_total_liabilities
+          description: (proto bool)
+        totalEquity:
+          type: number
+          title: total_equity
+          format: double
+          description: Shareholders' equity. (proto double)
+        hasTotalEquity:
+          type: boolean
+          title: has_total_equity
+          description: (proto bool)
+        cashAndEquivalents:
+          type: number
+          title: cash_and_equivalents
+          format: double
+          description: (proto double)
+        hasCashAndEquivalents:
+          type: boolean
+          title: has_cash_and_equivalents
+          description: (proto bool)
+        totalDebt:
+          type: number
+          title: total_debt
+          format: double
+          description: Includes lease liabilities. (proto double)
+        hasTotalDebt:
+          type: boolean
+          title: has_total_debt
+          description: (proto bool)
+        capitalLeaseObligations:
+          type: number
+          title: capital_lease_obligations
+          format: double
+          description: Lease liabilities. (proto double)
+        hasCapitalLeaseObligations:
+          type: boolean
+          title: has_capital_lease_obligations
+          description: (proto bool)
+        netDebt:
+          type: number
+          title: net_debt
+          format: double
+          description: 'Excludes leases: total debt minus leases minus cash. Negative is net cash. (proto double)'
+        hasNetDebt:
+          type: boolean
+          title: has_net_debt
+          description: (proto bool)
+        currentAssets:
+          type: number
+          title: current_assets
+          format: double
+          description: (proto double)
+        hasCurrentAssets:
+          type: boolean
+          title: has_current_assets
+          description: (proto bool)
+        currentLiabilities:
+          type: number
+          title: current_liabilities
+          format: double
+          description: (proto double)
+        hasCurrentLiabilities:
+          type: boolean
+          title: has_current_liabilities
+          description: (proto bool)
+        fieldSources:
+          type: object
+          title: field_sources
+          additionalProperties:
+            type: string
+            title: value
+            description: (proto string)
+          description: |-
+            Per-field provenance: the fields whose value did not come from `source`,
+             mapped to where it came from, e.g. {"operating_cash_flow":
+             "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}. (proto shorts.v1alpha1.FundamentalsPeriod.FieldSourcesEntry)
+        sourceDocumentUrl:
+          type: string
+          title: source_document_url
+          description: The company filing a filing-sourced row or field came from; empty otherwise. (proto string)
+        sourceDocumentDate:
+          type: string
+          title: source_document_date
+          description: YYYY-MM-DD. (proto string)
+      title: FundamentalsPeriod
+      additionalProperties: false
+      description: |-
+        One reported period. Values are in `currency` exactly as the source reports
+         them (BHP reports in USD). has_* is false when the source omitted a figure.
+    shorts.v1alpha1.FundamentalsPeriod.FieldSourcesEntry:
+      type: object
+      properties:
+        key:
+          type: string
+          title: key
+          description: (proto string)
+        value:
+          type: string
+          title: value
+          description: (proto string)
+      title: FieldSourcesEntry
+      additionalProperties: false
+    shorts.v1alpha1.FundamentalsQuality:
+      type: object
+      properties:
+        basisPeriodType:
+          type: string
+          title: basis_period_type
+          description: '"annual" | "ttm". (proto string)'
+        basisPeriodEnd:
+          type: string
+          title: basis_period_end
+          description: YYYY-MM-DD. (proto string)
+        currency:
+          type: string
+          title: currency
+          description: Reporting currency of the flow period. (proto string)
+        balancePeriodEnd:
+          type: string
+          title: balance_period_end
+          description: YYYY-MM-DD; empty when no aligned balance sheet. (proto string)
+        grossMarginPct:
+          type: number
+          title: gross_margin_pct
+          format: double
+          description: (proto double)
+        hasGrossMarginPct:
+          type: boolean
+          title: has_gross_margin_pct
+          description: (proto bool)
+        operatingMarginPct:
+          type: number
+          title: operating_margin_pct
+          format: double
+          description: (proto double)
+        hasOperatingMarginPct:
+          type: boolean
+          title: has_operating_margin_pct
+          description: (proto bool)
+        netMarginPct:
+          type: number
+          title: net_margin_pct
+          format: double
+          description: (proto double)
+        hasNetMarginPct:
+          type: boolean
+          title: has_net_margin_pct
+          description: (proto bool)
+        fcfMarginPct:
+          type: number
+          title: fcf_margin_pct
+          format: double
+          description: (proto double)
+        hasFcfMarginPct:
+          type: boolean
+          title: has_fcf_margin_pct
+          description: (proto bool)
+        fcfConversion:
+          type: number
+          title: fcf_conversion
+          format: double
+          description: Free cash flow / net profit (a ratio, not a percentage). (proto double)
+        hasFcfConversion:
+          type: boolean
+          title: has_fcf_conversion
+          description: (proto bool)
+        roePct:
+          type: number
+          title: roe_pct
+          format: double
+          description: Net profit / average equity. (proto double)
+        hasRoePct:
+          type: boolean
+          title: has_roe_pct
+          description: (proto bool)
+        roaPct:
+          type: number
+          title: roa_pct
+          format: double
+          description: Net profit / average total assets. (proto double)
+        hasRoaPct:
+          type: boolean
+          title: has_roa_pct
+          description: (proto bool)
+        netDebt:
+          type: number
+          title: net_debt
+          format: double
+          description: Excludes leases; negative is net cash. In balance_currency. (proto double)
+        hasNetDebt:
+          type: boolean
+          title: has_net_debt
+          description: (proto bool)
+        netDebtToEbitda:
+          type: number
+          title: net_debt_to_ebitda
+          format: double
+          description: Normalized EBITDA when published, else statutory. (proto double)
+        hasNetDebtToEbitda:
+          type: boolean
+          title: has_net_debt_to_ebitda
+          description: (proto bool)
+        netDebtToEquity:
+          type: number
+          title: net_debt_to_equity
+          format: double
+          description: (proto double)
+        hasNetDebtToEquity:
+          type: boolean
+          title: has_net_debt_to_equity
+          description: (proto bool)
+        currentRatio:
+          type: number
+          title: current_ratio
+          format: double
+          description: (proto double)
+        hasCurrentRatio:
+          type: boolean
+          title: has_current_ratio
+          description: (proto bool)
+        interestCover:
+          type: number
+          title: interest_cover
+          format: double
+          description: Operating income / interest expense. (proto double)
+        hasInterestCover:
+          type: boolean
+          title: has_interest_cover
+          description: (proto bool)
+        payoutRatioPct:
+          type: number
+          title: payout_ratio_pct
+          format: double
+          description: Cash dividends paid / net profit. (proto double)
+        hasPayoutRatioPct:
+          type: boolean
+          title: has_payout_ratio_pct
+          description: (proto bool)
+        isFinancial:
+          type: boolean
+          title: is_financial
+          description: Bank, insurer or other financial. (proto bool)
+        source:
+          type: string
+          title: source
+          description: Source of the flow period, e.g. "yahoo-timeseries". (proto string)
+        operatingCashFlowDerived:
+          type: boolean
+          title: operating_cash_flow_derived
+          description: Operating cash flow = free cash flow minus capex. (proto bool)
+        marketCap:
+          type: number
+          title: market_cap
+          format: double
+          description: 'AUD: latest close x shares on issue. (proto double)'
+        hasMarketCap:
+          type: boolean
+          title: has_market_cap
+          description: (proto bool)
+        peRatio:
+          type: number
+          title: pe_ratio
+          format: double
+          description: Latest close / 12-month EPS; AUD reporters only. (proto double)
+        hasPeRatio:
+          type: boolean
+          title: has_pe_ratio
+          description: (proto bool)
+        priceToBook:
+          type: number
+          title: price_to_book
+          format: double
+          description: Market cap / equity; AUD reporters only. (proto double)
+        hasPriceToBook:
+          type: boolean
+          title: has_price_to_book
+          description: (proto bool)
+        priceAsOf:
+          type: string
+          title: price_as_of
+          description: YYYY-MM-DD of the close used. (proto string)
+        balanceCurrency:
+          type: string
+          title: balance_currency
+          description: (proto string)
+        notMeaningful:
+          type: array
+          items:
+            type: string
+          title: not_meaningful
+          description: Ratio names withheld because is_financial. (proto string)
+        isProperty:
+          type: boolean
+          title: is_property
+          description: 'Property trust: profit and EBITDA include revaluations. (proto bool)'
+        balanceLagMonths:
+          type: integer
+          title: balance_lag_months
+          format: int32
+          description: Months between the balance sheet and the flow period. (proto int32)
+        sharesAsOf:
+          type: string
+          title: shares_as_of
+          description: YYYY-MM-DD of the share count used for market cap. (proto string)
+        peEpsPeriodEnd:
+          type: string
+          title: pe_eps_period_end
+          description: YYYY-MM-DD of the EPS used for P/E. (proto string)
+        peEpsBasis:
+          type: string
+          title: pe_eps_basis
+          description: '"diluted" | "basic". (proto string)'
+        valuationNote:
+          type: string
+          title: valuation_note
+          description: |-
+            Why market cap, P/E or P/B are absent: "non-aud" (statements not in AUD),
+             "listed-unit" (the listed unit is not one ordinary share), "no-shares",
+             "no-price"; empty when present. (proto string)
+      title: FundamentalsQuality
+      additionalProperties: false
+      description: |-
+        Profitability, cash conversion, balance-sheet and valuation ratios. Flow
+         ratios use one period (basis_period_type/basis_period_end); balance ratios use
+         the balance sheet at or up to 6 months before it, in the same currency.
+         has_* is false when an input is missing, a denominator is zero or negative,
+         or the ratio is not meaningful for the company (listed in not_meaningful).
     shorts.v1alpha1.GetAvailableDatesRequest:
       type: object
       properties:
@@ -5036,6 +6636,28 @@ components:
       title: GetCompanyTaxProfileResponse
       additionalProperties: false
       description: Response for GetCompanyTaxProfile RPC
+    shorts.v1alpha1.GetCouncilProfileRequest:
+      type: object
+      properties:
+        stateCode:
+          type: string
+          title: state_code
+          description: NSW | VIC | QLD | SA | WA | TAS | NT | ACT (proto string)
+        slug:
+          type: string
+          title: slug
+          description: lga.slug — minted once, never reassigned (proto string)
+      title: GetCouncilProfileRequest
+      additionalProperties: false
+    shorts.v1alpha1.GetCouncilProfileResponse:
+      type: object
+      properties:
+        profile:
+          title: profile
+          description: (proto shorts.v1alpha1.CouncilProfile)
+          $ref: '#/components/schemas/shorts.v1alpha1.CouncilProfile'
+      title: GetCouncilProfileResponse
+      additionalProperties: false
     shorts.v1alpha1.GetDirectorTradesRequest:
       type: object
       properties:
@@ -5182,11 +6804,11 @@ components:
         grain:
           type: string
           title: grain
-          description: '''national'' | ''state'' | ''suburb'' (proto string)'
+          description: Anything outside these shapes is InvalidArgument. 'national' (default) | 'state' | 'suburb' (proto string)
         grainKey:
           type: string
           title: grain_key
-          description: '''AU'' | state code | sal_code (proto string)'
+          description: '''AU'' | state code (''NSW'', ...) | 5-digit sal_code (proto string)'
         from:
           type: string
           title: from
@@ -5194,7 +6816,7 @@ components:
         to:
           type: string
           title: to
-          description: '''YYYY-MM-DD'', inclusive; defaults to today (proto string)'
+          description: '''YYYY-MM-DD'', inclusive; defaults to (and is capped at) today (proto string)'
       title: GetDropIndexSeriesRequest
       additionalProperties: false
     shorts.v1alpha1.GetDropIndexSeriesResponse:
@@ -5210,6 +6832,20 @@ components:
           type: string
           title: tracking_since
           description: '''YYYY-MM-DD'' — earliest date the index exists for (proto string)'
+        asOf:
+          title: as_of
+          description: |-
+            as_of: the latest computed_at among the returned points (when the
+             collector last wrote this series). data_through: the end of the latest
+             returned snapshot day, or the crawl horizon the last housing MV refresh
+             recorded if that is earlier — a snapshot is computed daily whether or not
+             the crawl ran, so the date alone can outrun the data. Both unset when no
+             point is returned. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        dataThrough:
+          title: data_through
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: GetDropIndexSeriesResponse
       additionalProperties: false
     shorts.v1alpha1.GetEconomicSeriesRequest:
@@ -6103,6 +7739,24 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.StatePriceDropSummary'
           title: states
           description: ordered by dropped_count desc (proto shorts.v1alpha1.StatePriceDropSummary)
+        asOf:
+          title: as_of
+          description: |-
+            When mv_state_price_drops was last refreshed, and the newest crawl
+             observation that refresh could see. Unset when never recorded. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        dataThrough:
+          title: data_through
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        withheld:
+          type: boolean
+          title: withheld
+          description: |-
+            True when crawl-derived price-drop figures are switched off
+             (HOUSING_DROP_LISTINGS_ENABLED=false, a takedown): every other field is
+             empty ON PURPOSE and will stay so until the switch is flipped back. Lets a
+             client tell that apart from a cold or failed fetch, which is worth retrying. (proto bool)
       title: GetPriceDropsOverviewResponse
       additionalProperties: false
     shorts.v1alpha1.GetPropertyHistoryRequest:
@@ -6655,6 +8309,69 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.StockFinancialHighlights'
       title: HighlightsEntry
       additionalProperties: false
+    shorts.v1alpha1.GetStockFundamentalsRequest:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: ASX code, e.g. "BHP". (proto string)
+        periodType:
+          type: string
+          title: period_type
+          description: 'Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type. (proto string)'
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: Max periods, newest first (default 12, max 40). (proto int32)
+      title: GetStockFundamentalsRequest
+      additionalProperties: false
+      description: Request for GetStockFundamentals.
+    shorts.v1alpha1.GetStockFundamentalsResponse:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        periods:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundamentalsPeriod'
+          title: periods
+          description: Newest first. (proto shorts.v1alpha1.FundamentalsPeriod)
+        growth:
+          title: growth
+          description: (proto shorts.v1alpha1.FundamentalsGrowth)
+          $ref: '#/components/schemas/shorts.v1alpha1.FundamentalsGrowth'
+        hasGrowth:
+          type: boolean
+          title: has_growth
+          description: False when no growth row exists yet. (proto bool)
+        quality:
+          title: quality
+          description: (proto shorts.v1alpha1.FundamentalsQuality)
+          $ref: '#/components/schemas/shorts.v1alpha1.FundamentalsQuality'
+        hasQuality:
+          type: boolean
+          title: has_quality
+          description: False when no ratio row exists yet. (proto bool)
+        coverage:
+          title: coverage
+          description: (proto shorts.v1alpha1.FundamentalsCoverage)
+          $ref: '#/components/schemas/shorts.v1alpha1.FundamentalsCoverage'
+        latestFiling:
+          title: latest_filing
+          description: (proto shorts.v1alpha1.LatestFilingSummary)
+          $ref: '#/components/schemas/shorts.v1alpha1.LatestFilingSummary'
+        hasLatestFiling:
+          type: boolean
+          title: has_latest_filing
+          description: (proto bool)
+      title: GetStockFundamentalsResponse
+      additionalProperties: false
+      description: Response for GetStockFundamentals.
     shorts.v1alpha1.GetStockGraphRequest:
       type: object
       properties:
@@ -6847,6 +8564,48 @@ components:
           description: (proto shorts.v1alpha1.StockSignal)
       title: GetStockSignalsResponse
       additionalProperties: false
+    shorts.v1alpha1.GetStockStrategyFitRequest:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: ASX code, e.g. "BHP". (proto string)
+      title: GetStockStrategyFitRequest
+      additionalProperties: false
+      description: Request for GetStockStrategyFit.
+    shorts.v1alpha1.GetStockStrategyFitResponse:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        asOf:
+          type: string
+          title: as_of
+          description: YYYY-MM-DD of the latest price in the universe. (proto string)
+        regime:
+          title: regime
+          description: (proto shorts.v1alpha1.MarketRegime)
+          $ref: '#/components/schemas/shorts.v1alpha1.MarketRegime'
+        fits:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StrategyFit'
+          title: fits
+          description: One per strategy; empty when the stock is outside the universe. (proto shorts.v1alpha1.StrategyFit)
+        inUniverse:
+          type: boolean
+          title: in_universe
+          description: (proto bool)
+        priceFeatures:
+          title: price_features
+          description: Set only when in_universe is true. (proto shorts.v1alpha1.PriceFeatures)
+          $ref: '#/components/schemas/shorts.v1alpha1.PriceFeatures'
+      title: GetStockStrategyFitResponse
+      additionalProperties: false
+      description: Response for GetStockStrategyFit.
     shorts.v1alpha1.GetStockVerdictRequest:
       type: object
       properties:
@@ -6882,6 +8641,86 @@ components:
       title: GetStockVerdictResponse
       additionalProperties: false
       description: Response for GetStockVerdict RPC
+    shorts.v1alpha1.GetStrategyPicksRequest:
+      type: object
+      properties:
+        strategyId:
+          type: string
+          title: strategy_id
+          description: Required, e.g. "zanger-breakout". (proto string)
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: Default 20, max 100. (proto int32)
+        offset:
+          type: integer
+          title: offset
+          format: int32
+          description: (proto int32)
+        status:
+          type: string
+          title: status
+          description: 'Optional filter: "triggered" | "setup" | "watch". (proto string)'
+        sortBy:
+          type: string
+          title: sort_by
+          description: |-
+            Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+             "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+             sort last; growth above +500% or below -95% sorts after every measured value.
+             rank keeps the strategy's own ranking whatever the order. (proto string)
+        requireFundamentals:
+          type: boolean
+          title: require_fundamentals
+          description: Only stocks with a fundamentals row. (proto bool)
+      title: GetStrategyPicksRequest
+      additionalProperties: false
+      description: Request for GetStrategyPicks.
+    shorts.v1alpha1.GetStrategyPicksResponse:
+      type: object
+      properties:
+        strategy:
+          title: strategy
+          description: (proto shorts.v1alpha1.Strategy)
+          $ref: '#/components/schemas/shorts.v1alpha1.Strategy'
+        regime:
+          title: regime
+          description: (proto shorts.v1alpha1.MarketRegime)
+          $ref: '#/components/schemas/shorts.v1alpha1.MarketRegime'
+        picks:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StrategyPick'
+          title: picks
+          description: (proto shorts.v1alpha1.StrategyPick)
+        totalCount:
+          type: integer
+          title: total_count
+          format: int32
+          description: Picks matching the status filter, before paging. (proto int32)
+        universeCount:
+          type: integer
+          title: universe_count
+          format: int32
+          description: Stocks evaluated. (proto int32)
+        fundamentalsCoverageCount:
+          type: integer
+          title: fundamentals_coverage_count
+          format: int32
+          description: Evaluated stocks with growth data. (proto int32)
+        asOf:
+          type: string
+          title: as_of
+          description: YYYY-MM-DD of the latest price in the universe. (proto string)
+        fundamentalsRowsCount:
+          type: integer
+          title: fundamentals_rows_count
+          format: int32
+          description: Evaluated stocks with any reported fundamentals row. (proto int32)
+      title: GetStrategyPicksResponse
+      additionalProperties: false
+      description: Response for GetStrategyPicks.
     shorts.v1alpha1.GetSuburbIndexRequest:
       type: object
       properties:
@@ -6997,6 +8836,20 @@ components:
           title: hazards
           description: Profile-only hazard block; absent when no hazard source covers the suburb. (proto shorts.v1alpha1.SuburbHazardExposure)
           $ref: '#/components/schemas/shorts.v1alpha1.SuburbHazardExposure'
+        councilOverlaps:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.LgaOverlap'
+          title: council_overlaps
+          description: |-
+            Other councils holding >= 5% of this suburb's residents, largest first.
+             Empty for a suburb wholly (or >= 95%) inside `council`. (proto shorts.v1alpha1.LgaOverlap)
+        planning:
+          title: planning
+          description: |-
+            Profile-only planning block; absent when no planning source covers the
+             suburb (WA, NT, and QLD beyond its heritage register). (proto shorts.v1alpha1.SuburbPlanning)
+          $ref: '#/components/schemas/shorts.v1alpha1.SuburbPlanning'
       title: GetSuburbProfileResponse
       additionalProperties: false
     shorts.v1alpha1.GetSyncStatusRequest:
@@ -7756,6 +9609,41 @@ components:
       title: InlineImage
       additionalProperties: false
       description: Inline image embedded in a Take body.
+    shorts.v1alpha1.LatestFilingSummary:
+      type: object
+      properties:
+        reportUrl:
+          type: string
+          title: report_url
+          description: (proto string)
+        reportTitle:
+          type: string
+          title: report_title
+          description: (proto string)
+        reportDate:
+          type: string
+          title: report_date
+          description: YYYY-MM-DD. (proto string)
+        periodEnd:
+          type: string
+          title: period_end
+          description: YYYY-MM-DD, the period the filing reports. (proto string)
+        periodType:
+          type: string
+          title: period_type
+          description: '"annual" | "half". (proto string)'
+        digest:
+          type: string
+          title: digest
+          description: Short summary of the filing. (proto string)
+        digestConfidence:
+          type: number
+          title: digest_confidence
+          format: double
+          description: 0-1. (proto double)
+      title: LatestFilingSummary
+      additionalProperties: false
+      description: The company filing behind the latest reported period, with its summary.
     shorts.v1alpha1.LayoutImage:
       type: object
       properties:
@@ -7817,7 +9705,7 @@ components:
           type: integer
           title: population
           format: int32
-          description: summed from member-suburb Census populations (proto int32)
+          description: ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded (proto int32)
         fedFagAud:
           type: number
           title: fed_fag_aud
@@ -7850,9 +9738,165 @@ components:
           type: string
           title: fin_year
           description: financials reporting year, e.g. '2024-25' (proto string)
+        slug:
+          type: string
+          title: slug
+          description: |-
+            Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+             'council' and 'unincorporated'; 'pseudo' areas never reach a suburb. URL segment, unique within state, never reassigned (proto string)
+        displayName:
+          type: string
+          title: display_name
+          description: 'ABS name without the state suffix: ''Campbelltown'' (proto string)'
+        kind:
+          type: string
+          title: kind
+          description: council | unincorporated | pseudo (proto string)
+        erpYear:
+          type: integer
+          title: erp_year
+          format: int32
+          description: |-
+            Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+             never a measured zero. reference year of population; 0 if none (proto int32)
+        popGrowthPct:
+          type:
+            - number
+            - "null"
+          title: pop_growth_pct
+          format: double
+          description: ERP year-on-year change, % (proto double)
+        medianAge:
+          type:
+            - number
+            - "null"
+          title: median_age
+          format: double
+          description: Census 2021 (proto double)
+        medianHhdIncome:
+          type:
+            - integer
+            - "null"
+          title: median_hhd_income
+          format: int32
+          description: Census 2021, $/week (proto int32)
+        pctRented:
+          type:
+            - number
+            - "null"
+          title: pct_rented
+          format: double
+          description: Census 2021, % of households renting (proto double)
+        medianWeeklyRent:
+          type:
+            - integer
+            - "null"
+          title: median_weekly_rent
+          format: int32
+          description: Census 2021, $/week (proto int32)
+        medianMortgageMonthly:
+          type:
+            - integer
+            - "null"
+          title: median_mortgage_monthly
+          format: int32
+          description: Census 2021, $/month (proto int32)
+        avgHouseholdSize:
+          type:
+            - number
+            - "null"
+          title: avg_household_size
+          format: double
+          description: Census 2021, persons (proto double)
+        seifaIrsadDecile:
+          type:
+            - integer
+            - "null"
+          title: seifa_irsad_decile
+          format: int32
+          description: SEIFA 2021 IRSAD, national decile 1..10 (proto int32)
+        seifaIrsdDecile:
+          type:
+            - integer
+            - "null"
+          title: seifa_irsd_decile
+          format: int32
+          description: SEIFA 2021 IRSD, national decile 1..10 (proto int32)
+        website:
+          type: string
+          title: website
+          description: official website (Wikidata P856, CC0); '' if none (proto string)
+        wikidataQid:
+          type: string
+          title: wikidata_qid
+          description: e.g. 'Q1719401'; '' if none (proto string)
+        centroidLat:
+          type:
+            - number
+            - "null"
+          title: centroid_lat
+          format: double
+          description: area-weighted centroid of the ABS boundary (proto double)
+        centroidLon:
+          type:
+            - number
+            - "null"
+          title: centroid_lon
+          format: double
+          description: (proto double)
+        dominantShare:
+          type:
+            - number
+            - "null"
+          title: dominant_share
+          format: double
+          description: |-
+            Share (0..1] of THIS suburb's residents who live in this council (ABS
+             mesh-block allocation, Census 2021 persons). Absent outside a suburb profile. (proto double)
+        councilHouseMedian:
+          type:
+            - number
+            - "null"
+          title: council_house_median
+          format: double
+          description: |-
+            Latest ABS 'Data by Region' median established-house transfer price for
+             the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+             present it as this suburb's median. (proto double)
+        councilHouseMedianPeriod:
+          type: string
+          title: council_house_median_period
+          description: e.g. '2023-24'; '' if none (proto string)
       title: LgaInfo
       additionalProperties: false
       description: Local Government Area (council) a suburb belongs to (Local Insights, W2).
+    shorts.v1alpha1.LgaOverlap:
+      type: object
+      properties:
+        lgaCode:
+          type: string
+          title: lga_code
+          description: (proto string)
+        displayName:
+          type: string
+          title: display_name
+          description: (proto string)
+        stateCode:
+          type: string
+          title: state_code
+          description: (proto string)
+        slug:
+          type: string
+          title: slug
+          description: ''''' when the council has no page (proto string)'
+        share:
+          type: number
+          title: share
+          format: double
+          description: 0..1 of the suburb's residents (Census 2021 mesh blocks) (proto double)
+      title: LgaOverlap
+      additionalProperties: false
+      description: Another council a suburb spans, beyond the dominant one.
     shorts.v1alpha1.ListAddressPriceDropsRequest:
       type: object
       properties:
@@ -7949,6 +9993,41 @@ components:
       title: ListAlertMonitorsResponse
       additionalProperties: false
       description: Response for ListAlertMonitors RPC.
+    shorts.v1alpha1.ListCouncilsRequest:
+      type: object
+      properties:
+        stateCode:
+          type: string
+          title: state_code
+          description: 'required: NSW | VIC | QLD | SA | WA | TAS | NT | ACT (proto string)'
+      title: ListCouncilsRequest
+      additionalProperties: false
+    shorts.v1alpha1.ListCouncilsResponse:
+      type: object
+      properties:
+        councils:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilSummary'
+          title: councils
+          description: population desc, then name (proto shorts.v1alpha1.CouncilSummary)
+        lgaVintage:
+          type: string
+          title: lga_vintage
+          description: boundary vintage, e.g. 'ABS ASGS LGA 2024' (proto string)
+        priceDropsAsOf:
+          title: price_drops_as_of
+          description: |-
+            Freshness of every council's price_drop_share (program decision 9): when
+             the shares were computed, and the newest crawl observation behind any of
+             them. Both absent when no council publishes a share. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        priceDropsDataThrough:
+          title: price_drops_data_through
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+      title: ListCouncilsResponse
+      additionalProperties: false
     shorts.v1alpha1.ListDistinctiveHoldingsRequest:
       type: object
       properties:
@@ -8685,6 +10764,27 @@ components:
           description: (proto string)
       title: ListStockPoliticiansResponse
       additionalProperties: false
+    shorts.v1alpha1.ListStrategiesRequest:
+      type: object
+      title: ListStrategiesRequest
+      additionalProperties: false
+      description: Request for ListStrategies.
+    shorts.v1alpha1.ListStrategiesResponse:
+      type: object
+      properties:
+        strategies:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.Strategy'
+          title: strategies
+          description: (proto shorts.v1alpha1.Strategy)
+        regime:
+          title: regime
+          description: Verdict is strategy-neutral here; GetStrategyPicks phrases it per strategy. (proto shorts.v1alpha1.MarketRegime)
+          $ref: '#/components/schemas/shorts.v1alpha1.MarketRegime'
+      title: ListStrategiesResponse
+      additionalProperties: false
+      description: Response for ListStrategies.
     shorts.v1alpha1.ListSuburbDropListingsRequest:
       type: object
       properties:
@@ -8775,7 +10875,11 @@ components:
         sort:
           type: string
           title: sort
-          description: 'optional: ''count'' (default) | ''avg'' | ''max'' (proto string)'
+          description: |-
+            optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+             'share' ranks by dropped_share among suburbs with at least 20 recently
+             swept active addresses (the drop index's panel floor); thinner suburbs
+             sort after every ranked one rather than topping the board on 1 of 3. (proto string)
         limit:
           type: integer
           title: limit
@@ -8792,6 +10896,19 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.SuburbPriceDrop'
           title: suburbs
           description: (proto shorts.v1alpha1.SuburbPriceDrop)
+        asOf:
+          title: as_of
+          description: |-
+            The OLDER refresh of the two views this board joins
+             (mv_suburb_listing_stats, mv_suburb_price_drops), so the stamp never
+             claims more freshness than the staler half. data_through: the newest crawl
+             observation (price event or listing sighting) those refreshes could see.
+             Both unset when no refresh has been recorded. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        dataThrough:
+          title: data_through
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: ListSuburbPriceDropsResponse
       additionalProperties: false
     shorts.v1alpha1.ListTopDonorsRequest:
@@ -8914,6 +11031,48 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.EditorialTake'
       title: MarkTakeTweetPublishedResponse
       additionalProperties: false
+    shorts.v1alpha1.MarketRegime:
+      type: object
+      properties:
+        indexCode:
+          type: string
+          title: index_code
+          description: (proto string)
+        asOf:
+          type: string
+          title: as_of
+          description: YYYY-MM-DD of the last index close. (proto string)
+        regime:
+          type: string
+          title: regime
+          description: '"uptrend" | "neutral" | "downtrend"; empty when unavailable. (proto string)'
+        close:
+          type: number
+          title: close
+          format: double
+          description: (proto double)
+        sma50:
+          type: number
+          title: sma50
+          format: double
+          description: (proto double)
+        sma200:
+          type: number
+          title: sma200
+          format: double
+          description: (proto double)
+        pctOff52wHigh:
+          type: number
+          title: pct_off_52w_high
+          format: double
+          description: Negative or zero. (proto double)
+        verdict:
+          type: string
+          title: verdict
+          description: 'Strategy-specific sentence, e.g. "Stand aside: XJO below its 200-day average." (proto string)'
+      title: MarketRegime
+      additionalProperties: false
+      description: The broad market trend, read from an index (the S&P/ASX 200, "XJO").
     shorts.v1alpha1.MemberAnnualReturn:
       type: object
       properties:
@@ -9317,6 +11476,106 @@ components:
       title: PeerStock
       additionalProperties: false
       description: A peer stock for comparison
+    shorts.v1alpha1.PickFundamentals:
+      type: object
+      properties:
+        revenueBasisPeriodType:
+          type: string
+          title: revenue_basis_period_type
+          description: '"annual" | "half" | "ttm"; empty when no revenue growth. (proto string)'
+        revenuePeriodEnd:
+          type: string
+          title: revenue_period_end
+          description: YYYY-MM-DD, end of the latest period in the revenue pair. (proto string)
+        epsBasisPeriodType:
+          type: string
+          title: eps_basis_period_type
+          description: '"annual" | "half" | "ttm"; empty when no EPS growth. (proto string)'
+        epsPeriodEnd:
+          type: string
+          title: eps_period_end
+          description: YYYY-MM-DD, end of the latest period in the EPS pair. (proto string)
+        currency:
+          type: string
+          title: currency
+          description: Reporting currency (ISO 4217). (proto string)
+        fetchedAt:
+          type: string
+          title: fetched_at
+          description: RFC 3339, newest fetch of the inputs. (proto string)
+        revenueBasisSource:
+          type: string
+          title: revenue_basis_source
+          description: '"vendor" | "filing" (a company filing, extracted); empty when unknown. (proto string)'
+        epsBasisSource:
+          type: string
+          title: eps_basis_source
+          description: '"vendor" | "filing"; empty when unknown. (proto string)'
+        netMarginPct:
+          type: number
+          title: net_margin_pct
+          format: double
+          description: (proto double)
+        hasNetMarginPct:
+          type: boolean
+          title: has_net_margin_pct
+          description: (proto bool)
+        roePct:
+          type: number
+          title: roe_pct
+          format: double
+          description: (proto double)
+        hasRoePct:
+          type: boolean
+          title: has_roe_pct
+          description: (proto bool)
+        fcfMarginPct:
+          type: number
+          title: fcf_margin_pct
+          format: double
+          description: (proto double)
+        hasFcfMarginPct:
+          type: boolean
+          title: has_fcf_margin_pct
+          description: (proto bool)
+        netDebtToEbitda:
+          type: number
+          title: net_debt_to_ebitda
+          format: double
+          description: Net debt excluding leases over EBITDA (normalized when published). (proto double)
+        hasNetDebtToEbitda:
+          type: boolean
+          title: has_net_debt_to_ebitda
+          description: (proto bool)
+        peRatio:
+          type: number
+          title: pe_ratio
+          format: double
+          description: Latest close over 12-month EPS; AUD reporters only. (proto double)
+        hasPeRatio:
+          type: boolean
+          title: has_pe_ratio
+          description: (proto bool)
+        isFinancial:
+          type: boolean
+          title: is_financial
+          description: 'Bank, insurer or other financial: some ratios are not meaningful. (proto bool)'
+        netIncomePositive:
+          type: boolean
+          title: net_income_positive
+          description: Latest annual net income above zero. (proto bool)
+        notMeaningful:
+          type: array
+          items:
+            type: string
+          title: not_meaningful
+          description: Ratio names withheld because is_financial. (proto string)
+      title: PickFundamentals
+      additionalProperties: false
+      description: |-
+        Fundamentals for one pick. Every ratio is computed within one reporting
+         currency from one flow period and an aligned balance sheet; has_* is false
+         when an input is missing or the ratio is not meaningful for the company.
     shorts.v1alpha1.Politician:
       type: object
       properties:
@@ -9566,6 +11825,154 @@ components:
           description: (proto string)
       title: PoliticianTerm
       additionalProperties: false
+    shorts.v1alpha1.PriceFeatures:
+      type: object
+      properties:
+        asOf:
+          type: string
+          title: as_of
+          description: YYYY-MM-DD of the last close. (proto string)
+        close:
+          type: number
+          title: close
+          format: double
+          description: (proto double)
+        sma50:
+          type: number
+          title: sma50
+          format: double
+          description: (proto double)
+        hasSma50:
+          type: boolean
+          title: has_sma50
+          description: (proto bool)
+        sma150:
+          type: number
+          title: sma150
+          format: double
+          description: (proto double)
+        hasSma150:
+          type: boolean
+          title: has_sma150
+          description: (proto bool)
+        sma200:
+          type: number
+          title: sma200
+          format: double
+          description: (proto double)
+        hasSma200:
+          type: boolean
+          title: has_sma200
+          description: (proto bool)
+        sma200PriorMonth:
+          type: number
+          title: sma200_prior_month
+          format: double
+          description: (proto double)
+        hasSma200PriorMonth:
+          type: boolean
+          title: has_sma200_prior_month
+          description: (proto bool)
+        high52w:
+          type: number
+          title: high52w
+          format: double
+          description: (proto double)
+        hasHigh52w:
+          type: boolean
+          title: has_high52w
+          description: (proto bool)
+        low52w:
+          type: number
+          title: low52w
+          format: double
+          description: (proto double)
+        hasLow52w:
+          type: boolean
+          title: has_low52w
+          description: (proto bool)
+        baseHigh:
+          type: number
+          title: base_high
+          format: double
+          description: 'The pivot: the breakout and invalidation level. (proto double)'
+        hasBaseHigh:
+          type: boolean
+          title: has_base_high
+          description: (proto bool)
+        baseLow:
+          type: number
+          title: base_low
+          format: double
+          description: (proto double)
+        hasBaseLow:
+          type: boolean
+          title: has_base_low
+          description: (proto bool)
+        baseDepthPct:
+          type: number
+          title: base_depth_pct
+          format: double
+          description: (proto double)
+        hasBaseDepthPct:
+          type: boolean
+          title: has_base_depth_pct
+          description: (proto bool)
+        baseLengthDays:
+          type: integer
+          title: base_length_days
+          format: int32
+          description: (proto int32)
+        hasBaseLengthDays:
+          type: boolean
+          title: has_base_length_days
+          description: (proto bool)
+        breakoutRecent:
+          type: boolean
+          title: breakout_recent
+          description: (proto bool)
+        breakoutDate:
+          type: string
+          title: breakout_date
+          description: YYYY-MM-DD; empty when there was no breakout. (proto string)
+        rs3mPct:
+          type: number
+          title: rs3m_pct
+          format: double
+          description: (proto double)
+        hasRs3mPct:
+          type: boolean
+          title: has_rs3m_pct
+          description: (proto bool)
+        rs6mPct:
+          type: number
+          title: rs6m_pct
+          format: double
+          description: (proto double)
+        hasRs6mPct:
+          type: boolean
+          title: has_rs6m_pct
+          description: (proto bool)
+        volumeRatio50d:
+          type: number
+          title: volume_ratio50d
+          format: double
+          description: (proto double)
+        hasVolumeRatio50d:
+          type: boolean
+          title: has_volume_ratio50d
+          description: (proto bool)
+        sessionsAvailable:
+          type: integer
+          title: sessions_available
+          format: int32
+          description: (proto int32)
+      title: PriceFeatures
+      additionalProperties: false
+      description: |-
+        The price features the evaluator read for one stock (mv_price_features),
+         so a chart can draw the levels the rules tested. Every nullable number
+         travels with a has_ flag; read the value only when its flag is true.
     shorts.v1alpha1.PropertyListingSnapshot:
       type: object
       properties:
@@ -10155,6 +12562,33 @@ components:
       title: ReportListItem
       additionalProperties: false
       description: Summary of a published report for archive/index pages
+    shorts.v1alpha1.RuleResult:
+      type: object
+      properties:
+        ruleId:
+          type: string
+          title: rule_id
+          description: (proto string)
+        status:
+          type: string
+          title: status
+          description: '"pass" | "fail" | "unknown". (proto string)'
+        detail:
+          type: string
+          title: detail
+          description: Human-readable evidence, e.g. "Revenue +41% YoY (FY to 2026-06-30)". (proto string)
+        value:
+          type: number
+          title: value
+          format: double
+          description: The number the rule tested, when there is one. (proto double)
+        hasValue:
+          type: boolean
+          title: has_value
+          description: False when value is absent (unknown), never read value then. (proto bool)
+      title: RuleResult
+      additionalProperties: false
+      description: The outcome of one rule for one stock.
     shorts.v1alpha1.ScreenStocksRequest:
       type: object
       properties:
@@ -10648,6 +13082,77 @@ components:
         - SORT_DIRECTION_DESC
         - SORT_DIRECTION_ASC
       description: Sort direction
+    shorts.v1alpha1.StateCensusAverages:
+      type: object
+      properties:
+        pctOwnedOutright:
+          type: number
+          title: pct_owned_outright
+          format: double
+          description: (proto double)
+        pctOwnedMortgage:
+          type: number
+          title: pct_owned_mortgage
+          format: double
+          description: (proto double)
+        pctRented:
+          type: number
+          title: pct_rented
+          format: double
+          description: (proto double)
+        pctSeparateHouse:
+          type: number
+          title: pct_separate_house
+          format: double
+          description: (proto double)
+        pctFlatApartment:
+          type: number
+          title: pct_flat_apartment
+          format: double
+          description: (proto double)
+        pctCoupleWithChildren:
+          type: number
+          title: pct_couple_with_children
+          format: double
+          description: (proto double)
+        pctLonePersonHousehold:
+          type: number
+          title: pct_lone_person_household
+          format: double
+          description: (proto double)
+        unemploymentRate:
+          type: number
+          title: unemployment_rate
+          format: double
+          description: (proto double)
+        labourForceParticipationRate:
+          type: number
+          title: labour_force_participation_rate
+          format: double
+          description: (proto double)
+        pctBachelorOrHigher:
+          type: number
+          title: pct_bachelor_or_higher
+          format: double
+          description: (proto double)
+        pctLowPersonalIncome:
+          type: number
+          title: pct_low_personal_income
+          format: double
+          description: (proto double)
+        pctHighPersonalIncome:
+          type: number
+          title: pct_high_personal_income
+          format: double
+          description: (proto double)
+      title: StateCensusAverages
+      additionalProperties: false
+      description: |-
+        Census 2021 shares for a whole state, rebuilt from its suburbs: each suburb's
+         share weighted by the denominator it is a share of — occupied dwellings for
+         tenure, structure and household mix; residents for the person rates (the
+         labour force is not stored, so unemployment is resident-weighted too). Only
+         suburbs above the ingest floors contribute. 0 = not computable.
     shorts.v1alpha1.StateCompany:
       type: object
       properties:
@@ -10798,6 +13303,22 @@ components:
           title: suburbs_tracked
           format: int32
           description: tracked suburbs contributing listings (proto int32)
+        suburbsSwept14d:
+          type: integer
+          title: suburbs_swept_14d
+          format: int32
+          description: |-
+            Crawl coverage behind this row. catalog_suburbs is every suburb the crawl
+             has ever produced a listing for (the drop index's coverage denominator);
+             suburbs_swept_14d is the subset with a listing seen in the last 14 days.
+             Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl
+             coverage more than discounting, and the UI annotates it instead of ranking
+             it. Both 0 before migration 000124. (proto int32)
+        catalogSuburbs:
+          type: integer
+          title: catalog_suburbs
+          format: int32
+          description: (proto int32)
       title: StatePriceDropSummary
       additionalProperties: false
       description: |-
@@ -10934,6 +13455,288 @@ components:
       title: StockSignal
       additionalProperties: false
       description: A single reputation/risk signal for a stock
+    shorts.v1alpha1.Strategy:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: Stable slug, e.g. "zanger-breakout". (proto string)
+        name:
+          type: string
+          title: name
+          description: (proto string)
+        author:
+          type: string
+          title: author
+          description: e.g. "Dan Zanger". (proto string)
+        tagline:
+          type: string
+          title: tagline
+          description: One sentence. (proto string)
+        descriptionParagraphs:
+          type: array
+          items:
+            type: string
+          title: description_paragraphs
+          description: 2-4 paragraphs, plain text. (proto string)
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StrategyRule'
+          title: rules
+          description: (proto shorts.v1alpha1.StrategyRule)
+        metadata:
+          title: metadata
+          description: (proto shorts.v1alpha1.StrategyMetadata)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyMetadata'
+        caveats:
+          type: array
+          items:
+            type: string
+          title: caveats
+          description: What our data cannot see. (proto string)
+        sources:
+          type: array
+          items:
+            type: string
+          title: sources
+          description: Attribution lines. (proto string)
+      title: Strategy
+      additionalProperties: false
+      description: A named stock-picking strategy and how we evaluate it.
+    shorts.v1alpha1.StrategyFit:
+      type: object
+      properties:
+        strategyId:
+          type: string
+          title: strategy_id
+          description: (proto string)
+        strategyName:
+          type: string
+          title: strategy_name
+          description: (proto string)
+        status:
+          type: string
+          title: status
+          description: '"triggered" | "setup" | "watch" | "none" (not a candidate). (proto string)'
+        score:
+          type: number
+          title: score
+          format: double
+          description: 0-100; 0 when status is "none". (proto double)
+        rank:
+          type: integer
+          title: rank
+          format: int32
+          description: 1-based rank among the strategy's picks; 0 when status is "none". (proto int32)
+        totalCount:
+          type: integer
+          title: total_count
+          format: int32
+          description: Picks the strategy has in total. (proto int32)
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.RuleResult'
+          title: rules
+          description: (proto shorts.v1alpha1.RuleResult)
+      title: StrategyFit
+      additionalProperties: false
+      description: One strategy's reading of one stock.
+    shorts.v1alpha1.StrategyMetadata:
+      type: object
+      properties:
+        style:
+          type: string
+          title: style
+          description: e.g. "momentum-breakout", "trend-following". (proto string)
+        holdingPeriod:
+          type: string
+          title: holding_period
+          description: e.g. "weeks to months". (proto string)
+        riskPosture:
+          type: string
+          title: risk_posture
+          description: e.g. "cut on a failed breakout (back inside the base)". (proto string)
+        universe:
+          type: string
+          title: universe
+          description: e.g. "ASX equities with at least A$250k daily turnover". (proto string)
+        refreshCadence:
+          type: string
+          title: refresh_cadence
+          description: e.g. "daily after the price sweep". (proto string)
+        ruleCount:
+          type: integer
+          title: rule_count
+          format: int32
+          description: (proto int32)
+      title: StrategyMetadata
+      additionalProperties: false
+      description: Descriptive metadata for a strategy.
+    shorts.v1alpha1.StrategyPick:
+      type: object
+      properties:
+        rank:
+          type: integer
+          title: rank
+          format: int32
+          description: 1-based, across the full (unfiltered) list. (proto int32)
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        status:
+          type: string
+          title: status
+          description: '"triggered" | "setup" | "watch". (proto string)'
+        score:
+          type: number
+          title: score
+          format: double
+          description: 0-100, orders rows within a status. (proto double)
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.RuleResult'
+          title: rules
+          description: (proto shorts.v1alpha1.RuleResult)
+        close:
+          type: number
+          title: close
+          format: double
+          description: Headline numbers for the table. Meaningful only when has_close. (proto double)
+        asOf:
+          type: string
+          title: as_of
+          description: YYYY-MM-DD of the last price. (proto string)
+        pctOff52wHigh:
+          type: number
+          title: pct_off_52w_high
+          format: double
+          description: (proto double)
+        volumeRatio50d:
+          type: number
+          title: volume_ratio_50d
+          format: double
+          description: (proto double)
+        baseDepthPct:
+          type: number
+          title: base_depth_pct
+          format: double
+          description: (proto double)
+        baseLengthDays:
+          type: integer
+          title: base_length_days
+          format: int32
+          description: (proto int32)
+        pivot:
+          type: number
+          title: pivot
+          format: double
+          description: 'The base high: the breakout and invalidation level. (proto double)'
+        revenueYoyPct:
+          type: number
+          title: revenue_yoy_pct
+          format: double
+          description: (proto double)
+        hasRevenueYoy:
+          type: boolean
+          title: has_revenue_yoy
+          description: (proto bool)
+        epsYoyPct:
+          type: number
+          title: eps_yoy_pct
+          format: double
+          description: (proto double)
+        hasEpsYoy:
+          type: boolean
+          title: has_eps_yoy
+          description: (proto bool)
+        rs3mPct:
+          type: number
+          title: rs_3m_pct
+          format: double
+          description: Meaningful only when has_rs_3m_pct. (proto double)
+        shortPct:
+          type: number
+          title: short_pct
+          format: double
+          description: Meaningful only when has_short_pct. (proto double)
+        marketCap:
+          type: number
+          title: market_cap
+          format: double
+          description: Meaningful only when has_market_cap. (proto double)
+        logoUrl:
+          type: string
+          title: logo_url
+          description: (proto string)
+        hasRs3mPct:
+          type: boolean
+          title: has_rs_3m_pct
+          description: True when rs_3m_pct is set (enough stock and XJO history for the 3m window). (proto bool)
+        hasShortPct:
+          type: boolean
+          title: has_short_pct
+          description: True when short_pct is set (the stock has a reported ASIC short position). (proto bool)
+        hasMarketCap:
+          type: boolean
+          title: has_market_cap
+          description: True when market_cap is set. (proto bool)
+        hasClose:
+          type: boolean
+          title: has_close
+          description: True when close is set (the stock has a valid last price). (proto bool)
+        fundamentals:
+          title: fundamentals
+          description: |-
+            Reported fundamentals behind the growth cells, with their basis and
+             provenance, plus headline ratios. Absent when the stock has no
+             fundamentals row at all. (proto shorts.v1alpha1.PickFundamentals)
+          $ref: '#/components/schemas/shorts.v1alpha1.PickFundamentals'
+      title: StrategyPick
+      additionalProperties: false
+      description: One ranked stock for a strategy.
+    shorts.v1alpha1.StrategyRule:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: e.g. "growth", "base", "breakout", "regime", "rs", "liquidity", "short_interest". (proto string)
+        title:
+          type: string
+          title: title
+          description: (proto string)
+        ruleText:
+          type: string
+          title: rule_text
+          description: The rule in the author's terms. (proto string)
+        evaluation:
+          type: string
+          title: evaluation
+          description: Exactly how we test it, with thresholds. (proto string)
+        core:
+          type: boolean
+          title: core
+          description: Must pass for status "triggered". (proto bool)
+        dataSource:
+          type: string
+          title: data_source
+          description: '"stock_fundamentals", "stock_prices", "index_prices" or "asic_shorts". (proto string)'
+      title: StrategyRule
+      additionalProperties: false
+      description: 'One rule of a strategy: the author''s version and exactly how we test it.'
     shorts.v1alpha1.SubscriptionStatus:
       type: string
       title: SubscriptionStatus
@@ -11140,7 +13943,7 @@ components:
         crimeType:
           type: string
           title: crime_type
-          description: '''break_ins'' | ''violent'' | ''motor_vehicle'' (+ future types) (proto string)'
+          description: '''break_ins'' | ''violent'' | ''motor_vehicle'' | ''property_damage'' (+ future types) (proto string)'
         ratePer100k:
           type: number
           title: rate_per_100k
@@ -11150,7 +13953,7 @@ components:
           type: number
           title: pct_rank
           format: double
-          description: 0..100 national pop-weighted percentile; > 0 always (proto double)
+          description: 0..100 pop-weighted percentile WITHIN the suburb's state (never across states); > 0 always (proto double)
         fyEnding:
           type: integer
           title: fy_ending
@@ -11467,7 +14270,10 @@ components:
         floodSource:
           type: string
           title: flood_source
-          description: (proto string)
+          description: |-
+            Statutory instrument id the share was read against. Set with an absent
+             share when the instrument does not cover the suburb; '' when the state has
+             no open layer for that hazard. (proto string)
         bushfireSource:
           type: string
           title: bushfire_source
@@ -11476,7 +14282,8 @@ components:
       additionalProperties: false
       description: |-
         Measured hazard exposure per suburb — area shares, 0..100, absent when no
-         source covers the suburb. Every source is CC-BY-4.0.
+         source covers the suburb. Every source is CC BY 4.0 except the SA Planning
+         and Design Code and Tasmanian Planning Scheme overlays (CC BY 3.0 AU).
 
          water_observed_share_pct: share of the suburb's validly observed land where
          DEA Water Observations (Landsat, 1987 onward, 30 m) detected surface water in
@@ -11486,10 +14293,20 @@ components:
          share is a FLOOR on inundation, never a flood-risk estimate.
 
          flood_planning_share_pct: share inside a statutory flood planning overlay
-         (NSW EPI Flood; VIC LSIO/FO/SBO). A planning-control boundary, not a flood
-         extent; NSW councils own its currency. bushfire_prone_share_pct: share
-         designated bushfire prone for development control (NSW BFPL; VIC BMO).
-         Statutory shares exist for NSW and VIC only.
+         (NSW EPI Flood; VIC LSIO/FO/SBO; SA Code Hazards (Flooding) and (Flooding –
+         General); TAS Flood-prone Areas). A planning-control boundary, not a flood
+         extent. ACT is the exception: its only open layer is the modelled 1% AEP
+         flood extent, a model of one event. No open flood layer for QLD, WA or NT.
+         bushfire_prone_share_pct: share designated bushfire prone for development
+         control (NSW BFPL; VIC Designated Bushfire Prone Area; QLD, WA and ACT
+         bushfire prone areas; SA and TAS code overlays). None for NT.
+
+         Inside a state that has a layer, a statutory share is also absent where the
+         instrument does not cover most of the suburb (NSW flood outside the councils
+         that lodged a map; SA land under the Code's precautionary Evidence Required,
+         Regional or Outback overlays; TAS councils with no mapped overlay). Where the
+         suburb is partly covered the share is the mapped land over the WHOLE suburb,
+         a floor.
     shorts.v1alpha1.SuburbIndexEntry:
       type: object
       properties:
@@ -11554,6 +14371,17 @@ components:
           title: median_sold
           format: double
           description: median sold price, AUD; 0 if none (proto double)
+        asOf:
+          title: as_of
+          description: |-
+            When mv_suburb_listing_stats was last refreshed (every now()-relative
+             window in it is anchored here), and the newest crawl observation it could
+             contain. Unset when the refresh has never been recorded. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        dataThrough:
+          title: data_through
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: SuburbListingStats
       additionalProperties: false
       description: |-
@@ -11632,6 +14460,127 @@ components:
           description: inclusive; at least one bound is required (proto float)
       title: SuburbMetricPredicate
       additionalProperties: false
+    shorts.v1alpha1.SuburbPlanning:
+      type: object
+      properties:
+        zoneShares:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.ZoneFamilyShare'
+          title: zone_shares
+          description: (proto shorts.v1alpha1.ZoneFamilyShare)
+        zoningCoveragePct:
+          type:
+            - number
+            - "null"
+          title: zoning_coverage_pct
+          format: double
+          description: |-
+            % of the suburb inside any zone polygon. Under 50 it is the only value
+             set: the rest of the suburb is planned by an instrument these layers do
+             not carry, so no shares, dominant family or heritage are measured. (proto double)
+        dominantZoneFamily:
+          type: string
+          title: dominant_zone_family
+          description: ''''' when unzoned / no source (proto string)'
+        heritageSharePct:
+          type:
+            - number
+            - "null"
+          title: heritage_share_pct
+          format: double
+          description: |-
+            % of the suburb in a heritage conservation area / Heritage Overlay /
+             historic or character area (area classes only). (proto double)
+        heritageItemCount:
+          type:
+            - integer
+            - "null"
+          title: heritage_item_count
+          format: int32
+          description: listed heritage places, counted once (proto int32)
+        nswHeightMedianM:
+          type:
+            - number
+            - "null"
+          title: nsw_height_median_m
+          format: double
+          description: |-
+            NSW development standards over the residential-zoned part of the suburb
+             (area-weighted): maximum building height (m), floor space ratio (n:1),
+             minimum subdivision lot size (m²). (proto double)
+        nswHeightMaxM:
+          type:
+            - number
+            - "null"
+          title: nsw_height_max_m
+          format: double
+          description: (proto double)
+        nswFsrMedian:
+          type:
+            - number
+            - "null"
+          title: nsw_fsr_median
+          format: double
+          description: (proto double)
+        nswMinLotMedianM2:
+          type:
+            - number
+            - "null"
+          title: nsw_min_lot_median_m2
+          format: double
+          description: (proto double)
+        instruments:
+          type: array
+          items:
+            type: string
+          title: instruments
+          description: planning instrument names, largest coverage first (proto string)
+        zoningSource:
+          type: string
+          title: zoning_source
+          description: dataset id, '' when absent (proto string)
+        heritageSource:
+          type: string
+          title: heritage_source
+          description: (proto string)
+        sourceLicence:
+          type: string
+          title: source_licence
+          description: e.g. 'CC-BY-4.0' (proto string)
+        nswHeightMappedPct:
+          type:
+            - number
+            - "null"
+          title: nsw_height_mapped_pct
+          format: double
+          description: |-
+            % of the suburb's residential-zoned land each NSW standard is actually
+             mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+             centres; a standard mapped on under half the residential land has no
+             median/max above, because it would be the centre's number. (proto double)
+        nswFsrMappedPct:
+          type:
+            - number
+            - "null"
+          title: nsw_fsr_mapped_pct
+          format: double
+          description: (proto double)
+        nswMinLotMappedPct:
+          type:
+            - number
+            - "null"
+          title: nsw_min_lot_mapped_pct
+          format: double
+          description: (proto double)
+      title: SuburbPlanning
+      additionalProperties: false
+      description: |-
+        Statutory planning layer for one suburb, computed offline from the state
+         planning schemes (web/scripts/geo/planning/). Every scalar is optional: an
+         absent value means no open source covers it (QLD/WA/NT zoning, NSW-only
+         development standards), never zero. zone_shares lists only families with a
+         non-zero share, largest first, and sums to zoning_coverage_pct.
     shorts.v1alpha1.SuburbPoliticianProperty:
       type: object
       properties:
@@ -12583,6 +15532,24 @@ components:
       title: WeeklyReportTrendInsight
       additionalProperties: false
       description: Structured trend insight for a riser or faller
+    shorts.v1alpha1.ZoneFamilyShare:
+      type: object
+      properties:
+        family:
+          type: string
+          title: family
+          description: (proto string)
+        sharePct:
+          type: number
+          title: share_pct
+          format: double
+          description: '% of the whole suburb''s area, 0..100 (proto double)'
+      title: ZoneFamilyShare
+      additionalProperties: false
+      description: |-
+        One harmonised zoning family's share of a suburb (program decision 8).
+         family: res_low | res_medium_high | centre_mixed | industrial | rural |
+         conservation | open_space | infrastructure | water | other.
     stocks.v1alpha1.CompanyPerson:
       type: object
       properties:

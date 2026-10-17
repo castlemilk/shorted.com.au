@@ -124,10 +124,10 @@ resource "google_cloud_run_v2_service" "market_data" {
           path = "/health"
           port = 8090
         }
-        initial_delay_seconds = 10
-        period_seconds        = 10
-        timeout_seconds       = 5
-        failure_threshold     = 3
+        initial_delay_seconds = 0
+        period_seconds        = 1
+        timeout_seconds       = 1
+        failure_threshold     = 40
       }
 
       liveness_probe {

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getSuburbIndexClient, getSuburbMetricColumnsClient } from "~/app/actions/client/getHousingClient";
-import { decodeColumn } from "@/lib/housing/suburb-columns";
+import { decodeCategoricalColumn, decodeColumn } from "@/lib/housing/suburb-columns";
 
 const STALE = 60 * 60 * 1000;
 
@@ -44,9 +44,29 @@ export function useSuburbColumns(stateCode: string, metricKeys: readonly string[
     return out;
   }, [index.data, columns.data, keys]);
 
+  // Categorical columns (a non-empty categoryLabels dictionary) also decode to
+  // labels, with the dictionary itself for the legend. Numeric columns are
+  // absent here, so `categories.get(key)` doubles as "is this categorical?".
+  const categories = useMemo(() => {
+    const idx = index.data;
+    const cols = columns.data;
+    if (!idx || !cols || idx.indexVersion !== cols.indexVersion) return undefined;
+    const salCodes = idx.suburbs.map((s) => s.salCode);
+    const out = new Map<string, { labels: readonly string[]; byId: Map<string, string | null> }>();
+    for (const col of cols.columns) {
+      if (!col.categoryLabels.length) continue;
+      out.set(col.metricKey, {
+        labels: col.categoryLabels,
+        byId: decodeCategoricalColumn(salCodes, col.values, col.nullMask, col.categoryLabels),
+      });
+    }
+    return out;
+  }, [index.data, columns.data]);
+
   const mismatch = Boolean(index.data && columns.data && index.data.indexVersion !== columns.data.indexVersion);
   return {
     data,
+    categories,
     isLoading: keys.length > 0 && (index.isLoading || columns.isLoading),
     isError: index.isError || columns.isError || mismatch,
     refetch: () => { void index.refetch(); void columns.refetch(); },

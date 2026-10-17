@@ -1,10 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-  cloudflareTestingBypassHeaders,
-  withCloudflareTestingUserAgent,
-} from "./e2e/helpers/cloudflare-testing-bypass";
+import { withCloudflareTestingUserAgent } from "./e2e/helpers/cloudflare-testing-bypass";
 
 // ES module compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -13,8 +10,9 @@ const __dirname = path.dirname(__filename);
 // Auth state file path
 const AUTH_FILE = path.join(__dirname, ".auth/user.json");
 
+// Not the Cloudflare trusted-test header: these go to every host a page
+// contacts, Google's included. e2e/helpers/test.ts sends it to our own origins.
 const baseExtraHTTPHeaders: Record<string, string> = {
-  ...cloudflareTestingBypassHeaders(),
   ...(process.env.SHORTS_URL
     ? {
         "X-Test-Shorts-URL": process.env.SHORTS_URL,
@@ -51,7 +49,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
 
-    // Add Cloudflare trusted-test and backend-routing headers as context for tests.
+    // Backend-routing headers for a full-stack run against local services.
     extraHTTPHeaders: baseExtraHTTPHeaders,
   },
 

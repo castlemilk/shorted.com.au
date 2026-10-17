@@ -51,15 +51,16 @@ func TestGroupSubcommands(t *testing.T) {
 	require.True(t, ok, "market-data must be a runner.Group")
 	require.Equal(t, "market-data", group.Name())
 	require.Equal(t,
-		[]string{"serve", "sync", "audit-gaps", "historical-backfill", "index-sync"},
+		[]string{"serve", "sync", "prune", "audit-gaps", "historical-backfill", "index-sync"},
 		group.Sub().Names(),
 	)
 }
 
-// TestSubcommandsRefuseGlobalDryRun documents that no market-data subcommand
-// declares dry-run support: the runner must refuse a global -dry-run rather
-// than let it silently write. None of the ported paths has a preview mode.
-func TestSubcommandsRefuseGlobalDryRun(t *testing.T) {
+// TestOnlySyncAndPruneHonourGlobalDryRun documents which market-data
+// subcommands declare dry-run support. `sync` and `prune` have preview paths
+// (-dry-run writes nothing to the database); for every other one the runner
+// must refuse a global -dry-run rather than let it silently write.
+func TestOnlySyncAndPruneHonourGlobalDryRun(t *testing.T) {
 	t.Parallel()
 
 	group := Group().(*runner.Group)
@@ -67,7 +68,7 @@ func TestSubcommandsRefuseGlobalDryRun(t *testing.T) {
 		job, ok := group.Sub().Lookup(name)
 		require.True(t, ok)
 		aware, isAware := job.(runner.DryRunAware)
-		require.False(t, isAware && aware.SupportsDryRun(),
-			"%s must not declare dry-run support (it has no preview path)", name)
+		require.Equal(t, name == "sync" || name == "prune", isAware && aware.SupportsDryRun(),
+			"%s: dry-run support must match whether it has a preview path", name)
 	}
 }

@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import AboutClient from "../about-client";
+import { CompanySection } from "../company-section";
 import { type AboutPageStatistics } from "~/lib/statistics";
 
 // Mock next/link
@@ -64,6 +65,7 @@ jest.mock("lucide-react", () => ({
   BarChart3: () => <span data-testid="icon-barchart3" />,
   Bell: () => <span data-testid="icon-bell" />,
   Bot: () => <span data-testid="icon-bot" />,
+  Building2: () => <span data-testid="icon-building2" />,
   ChevronRight: () => <span data-testid="icon-chevron-right" />,
   Code2: () => <span data-testid="icon-code2" />,
   Database: () => <span data-testid="icon-database" />,
@@ -74,6 +76,7 @@ jest.mock("lucide-react", () => ({
   LineChart: () => <span data-testid="icon-linechart" />,
   Linkedin: () => <span data-testid="icon-linkedin" />,
   Lock: () => <span data-testid="icon-lock" />,
+  Mail: () => <span data-testid="icon-mail" />,
   Newspaper: () => <span data-testid="icon-newspaper" />,
   Rocket: () => <span data-testid="icon-rocket" />,
   Search: () => <span data-testid="icon-search" />,
@@ -142,6 +145,53 @@ describe("About Page", () => {
 
       // Daily updates
       expect(screen.getAllByText("Daily").length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Company & Founder Section", () => {
+    it("is slotted in by AboutClient", () => {
+      render(
+        <AboutClient
+          initialStatistics={mockStatistics}
+          companySection={<div data-testid="company-slot" />}
+        />
+      );
+
+      expect(screen.getByTestId("company-slot")).toBeInTheDocument();
+    });
+
+    it("names the founder and links to his public profiles", () => {
+      render(<CompanySection />);
+
+      expect(screen.getByRole("heading", { name: "Ben Ebsworth" })).toBeInTheDocument();
+      expect(screen.getByAltText(/Ben Ebsworth, founder of Shorted/i)).toHaveAttribute(
+        "src",
+        "/assets/blog/authors/ben-ebsworth-avatar.jpg"
+      );
+
+      expect(screen.getByRole("link", { name: /benebsworth\.com/i })).toHaveAttribute(
+        "href",
+        "https://benebsworth.com"
+      );
+      expect(screen.getByRole("link", { name: /LinkedIn/i })).toHaveAttribute(
+        "href",
+        "https://www.linkedin.com/in/ben-ebsworth/"
+      );
+      expect(screen.getByRole("link", { name: /Author profile/i })).toHaveAttribute(
+        "href",
+        "/authors/ben-ebsworth"
+      );
+    });
+
+    it("states the company facts and business model", () => {
+      render(<CompanySection />);
+
+      expect(screen.getByText("Who's Behind Shorted")).toBeInTheDocument();
+      expect(screen.getByText("Business model")).toBeInTheDocument();
+      expect(screen.getByText("Online, worldwide")).toBeInTheDocument();
+      expect(screen.getByText("How Shorted Makes Money")).toBeInTheDocument();
+      expect(screen.getByText("$4/mo")).toBeInTheDocument();
+      expect(screen.getByText("$20/mo")).toBeInTheDocument();
     });
   });
 
@@ -302,9 +352,11 @@ describe("About Page", () => {
 
   describe("Responsive Layout", () => {
     it("renders with proper section structure", () => {
-      const { container } = render(<AboutClient initialStatistics={mockStatistics} />);
+      const { container } = render(
+        <AboutClient initialStatistics={mockStatistics} companySection={<CompanySection />} />
+      );
 
-      // Check for 9 sections (hero, value prop, industry intelligence, features, data trust, team, timeline, usage policy, cta)
+      // Check for 9 sections (hero, company, value prop, industry intelligence, features, data trust, timeline, usage policy, cta)
       const sections = container.querySelectorAll("section");
       expect(sections.length).toBe(9);
     });

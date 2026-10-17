@@ -7,6 +7,8 @@
 // Cost: Gemini 2.0 Flash is ~$0.0001 per Take — negligible.
 
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { scrubTopic } from "./topic-policy.js";
+import { EDITORIAL_CRAFT_RULES } from "./brand-prompt.js";
 
 export type AssetType = "hero" | "thumbnail" | "inline";
 
@@ -16,62 +18,37 @@ export interface AssetPlan {
   rationale: string;
 }
 
-const SYSTEM_PROMPT = `You are the visual editor for "Shorted", a financial
-publication covering Australian stock market short positions. You decide
-what images an editorial article needs.
+const SYSTEM_PROMPT = `You are the visual editor for Shorted, an Australian
+research publication covering markets, housing and public records. Plan
+article-specific conceptual editorial illustrations.
 
-Visual brand rules (HARD BANS — your topic descriptions will be
-post-validated and rejected if they include any of these terms):
+Every brief needs one concrete subject and one visual action tied to the
+article's finding or mechanism. Preserve uncertainty and disputed claims.
+Prefer tactile cut-paper collage, printmaking, sculptural material still life
+or a relevant material close-up. Use warm paper, charcoal and selective amber;
+let each subject add restrained sage, rust, oil blue or brick. Choose light or
+dark according to the story, rather than repeating a dark scene and rim light.
+Relevant Australian housing forms and industrial subjects are welcome.
 
-NEVER write topics containing or implying:
-- Cityscapes, skylines, named cities (London, Tokyo, Sydney, etc.)
-- Arrows, trend lines, upward lines, downward lines, charts crossing
-- Pie charts, bar charts, line graphs, candlestick patterns
-- Stock-photo finance: handshakes, businessmen, suited figures,
-  trading floors, traders, screens with numbers, money stacks, gold
-  bars, coins, banknotes
-- Icons or symbols: bulls, bears, rockets, dollar signs, percent
-  signs, thumbs up/down, target arrows
-- Faces, people, figures (silhouettes are also banned)
-- Any text, words, letters, or numbers in the image
-- Australian flag, Aboriginal flag, opera house, harbour bridge,
-  kangaroos, koalas
+${EDITORIAL_CRAFT_RULES}
 
-PREFER (every topic should pull from this list):
-- Physical materials close-ups: raw ore, processed metal, paper
-  documents on desks, ink on paper, industrial pipes, conveyor belts,
-  storage tanks, shipping containers, mining equipment from
-  unconventional angles
-- Architectural: warehouse interiors, empty corridors, factory floors
-  at low light, document archives, sorting facilities
-- Natural: pit mines from above, salt flats, dry lake beds, mineral
-  outcrops, dust in low light
-- Abstract: paper textures, fabric folds, ceramic surfaces, metallic
-  oxidation, single objects in negative space
+Do not request baked-in text, numbers, logos, measured charts, invented product
+UI, human faces, generic finance icons, handshakes, money piles, bull/bear
+mascots, rockets, glowing fintech wallpaper or isometric asset-pack scenes.
+Generated art is an illustration, never a claimed photograph of a real event,
+site or person. Keep precise data in accessible project-owned MDX figures.
 
-Lighting/colour: low-key, deep shadow, single warm light source
-(orange/amber) hitting a small portion of the frame. Editorial photo
-register, not infographic.
+For each article, output a small focused plan:
+- Exactly ONE hero, wide 16:9 with a strong silhouette readable at 160 x 90.
+- Optionally ONE thumbnail only when a distinct secondary subject needs it;
+  it also uses wide 16:9, not a different square visual identity.
+- Optionally 0-2 inline assets only when a section benefits from illustration.
+  Most short Takes need just one hero.
 
-For each article, output a small, focused asset plan:
-- Always exactly ONE "hero" asset: 16:9 banner, the article's main image
-- Optionally ONE "thumbnail": square, used for cards / link previews —
-  include only if the article has a distinct secondary subject worth its
-  own image (most articles do not need one)
-- Optionally 0-2 "inline" assets: only if the article has clearly
-  delineated sections that would benefit from breaking up the wall of
-  text. Most ≤300-word Takes need 0 inline images.
-
-For each asset's "topic", write a vivid, specific image brief in 1-2
-sentences. Reference concrete subjects (an open-pit mine, a steel
-conveyor belt, a single document on a desk, a shipping container yard at
-dusk). Do NOT include brand rules in the topic — those are appended
-separately. Do NOT include text-in-image instructions.
-
-For "rationale", write one short sentence on why this asset.
-
-Be parsimonious. 1-2 assets per article is usually right. Articles
-shorter than 200 words almost never need more than a hero.`;
+Write each topic as a vivid subject-and-action brief in 1-2 sentences,
+not the SEO title alone. Include the relevant caveat so the visual does not
+make a stronger claim than the article. Brand rules are appended separately.
+For rationale, give one short sentence explaining the illustration's purpose.`;
 
 const RESPONSE_SCHEMA = {
   type: SchemaType.OBJECT,
@@ -99,64 +76,6 @@ export interface PlanInput {
   sentiment?: string;
 }
 
-// Words/phrases that almost always indicate a brand violation in the
-// topic string. Matched case-insensitively; if a topic contains any of
-// these, the planner discards it and falls back to a safe default. This
-// is the last line of defence — Gemini sometimes ignores the system
-// prompt's bans (observed: "Tokyo skyline at night", "upward-trending
-// arrow").
-const BANNED_TOPIC_TERMS = [
-  "skyline",
-  "cityscape",
-  "city",
-  "tokyo",
-  "london",
-  "sydney",
-  "new york",
-  "manhattan",
-  "arrow",
-  "trending line",
-  "trend line",
-  "upward",
-  "downward",
-  "chart",
-  "graph",
-  "candlestick",
-  "pie chart",
-  "bar chart",
-  "businessman",
-  "businesswoman",
-  "trader",
-  "trading floor",
-  "handshake",
-  "rocket",
-  "bull market",
-  "bear market",
-  "dollar sign",
-  "thumbs up",
-  "thumbs down",
-  "money stack",
-  "gold bar",
-  "opera house",
-  "harbour bridge",
-  "kangaroo",
-  "koala",
-];
-
-function scrubTopic(asset: AssetPlan): AssetPlan {
-  const lower = asset.topic.toLowerCase();
-  const hits = BANNED_TOPIC_TERMS.filter((t) => lower.includes(t));
-  if (hits.length === 0) return asset;
-  console.warn(
-    `[planner] topic contained banned terms (${hits.join(", ")}); replacing with safe fallback`,
-  );
-  return {
-    type: asset.type,
-    topic:
-      "Editorial close-up photograph: a single physical object related to the article subject (industrial material, document, raw resource) on a dark surface with deep shadow and a single warm amber light source catching one edge.",
-    rationale: `Original topic rejected for banned terms: ${hits.join(", ")}. ${asset.rationale}`,
-  };
-}
 
 export async function planAssets(input: PlanInput): Promise<AssetPlan[]> {
   const key = process.env.GEMINI_API_KEY;
@@ -188,7 +107,7 @@ export async function planAssets(input: PlanInput): Promise<AssetPlan[]> {
   const resp = await model.generateContent(userPrompt);
   const text = resp.response.text();
   const parsed = JSON.parse(text) as { assets: AssetPlan[] };
-  const assets = (parsed.assets ?? []).map(scrubTopic);
+  const assets = (parsed.assets ?? []).map((asset) => scrubTopic(asset, input.headline));
 
   // Enforce invariants the schema can't:
   // - At most 1 hero. If model returns multiple, keep the first.

@@ -18,6 +18,7 @@ import { NewsSourceBadge } from "~/@/components/ui/news-source-badge";
 import { SentimentBadge } from "~/@/components/ui/sentiment-badge";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { formatRelativeTime } from "~/@/lib/relative-time";
+import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { AlertTriangle, Newspaper, RefreshCw } from "lucide-react";
 
 function newsClient() {
@@ -262,8 +263,11 @@ export function StockNewsTab({
             </CardTitle>
             {description && <CardDescription>{description}</CardDescription>}
           </div>
+          {/* The News tab is an ISR route that generates on a cold cache: this
+              link prefetches on intent only, like the tab bar's. */}
           <Link
-            href={`/shorts/${stockCode}/news`}
+            href={stockTabHref(stockCode, "news")}
+            prefetch={false}
             className="inline-flex min-h-[40px] shrink-0 items-center rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
           >
             View all →

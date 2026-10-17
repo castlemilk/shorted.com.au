@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/@/components/ui/tooltip";
 import { useWatchlistData } from "~/@/hooks/use-stock-queries";
 import { getTypedSettings } from "~/@/lib/widget-settings";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { useWidgetVisibility } from "~/@/hooks/use-widget-visibility";
 import { cn } from "~/@/lib/utils";
 
@@ -281,7 +282,7 @@ export function WatchlistWidget({ config, onSettingsChange, sizeVariant = "stand
                                       <p className="font-medium">Short Position</p>
                                       <p>Shorted: {(shortData.reportedShortPositions / 1e6).toFixed(2)}M shares</p>
                                       <p>Total Issue: {(shortData.totalProductInIssue / 1e6).toFixed(2)}M shares</p>
-                                      {shortData.industry && <p>Industry: {shortData.industry}</p>}
+                                      {industryLabel(shortData.industry) && <p>Industry: {industryLabel(shortData.industry)}</p>}
                                     </div>
                                   </TooltipContent>
                                 </Tooltip>

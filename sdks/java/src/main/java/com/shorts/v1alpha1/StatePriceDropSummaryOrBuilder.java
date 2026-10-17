@@ -167,4 +167,25 @@ public interface StatePriceDropSummaryOrBuilder extends
    * @return The suburbsTracked.
    */
   int getSuburbsTracked();
+
+  /**
+   * <pre>
+   * Crawl coverage behind this row. catalog_suburbs is every suburb the crawl
+   * has ever produced a listing for (the drop index's coverage denominator);
+   * suburbs_swept_14d is the subset with a listing seen in the last 14 days.
+   * Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl
+   * coverage more than discounting, and the UI annotates it instead of ranking
+   * it. Both 0 before migration 000124.
+   * </pre>
+   *
+   * <code>int32 suburbs_swept_14d = 17 [json_name = "suburbsSwept14d"];</code>
+   * @return The suburbsSwept14d.
+   */
+  int getSuburbsSwept14D();
+
+  /**
+   * <code>int32 catalog_suburbs = 18 [json_name = "catalogSuburbs"];</code>
+   * @return The catalogSuburbs.
+   */
+  int getCatalogSuburbs();
 }

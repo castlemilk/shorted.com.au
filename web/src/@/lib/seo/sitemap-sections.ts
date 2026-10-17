@@ -42,6 +42,11 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { siteConfig } from "~/@/config/site";
 import { getAllPosts } from "~/@/lib/api";
+import {
+  BLOG_CATEGORY_SLUGS,
+  blogCategoryPath,
+  resolveCategory,
+} from "~/@/lib/blog/categories";
 import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
 import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
@@ -57,6 +62,7 @@ import { getReportsList } from "~/app/actions/reports/getReportData";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { SCAN_SLUGS } from "~/@/lib/scans/registry";
 import { THEME_SLUGS } from "~/@/lib/themes/registry";
+import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 import {
   HOUSING_RANKINGS,
   HOUSING_RANKING_SLUGS,
@@ -65,10 +71,13 @@ import { CAPITALS } from "~/@/lib/housing/capitals";
 import { STATE_SLUGS } from "~/@/lib/economy/map-metrics";
 import { PUBLISHED_ECONOMY_TOPIC_PAIRS } from "~/@/lib/economy/topics";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
+import { STOCK_TABS, type StockTabId } from "~/@/lib/stocks/stock-tabs";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { createSlug } from "~/@/lib/industry-slug";
 import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
 import { isSuburbSitemapEligible } from "~/@/lib/seo/suburb-indexability";
 import { newestLastMod, type SitemapEntry } from "~/@/lib/seo/sitemap-xml";
+import { timestampToDate } from "~/@/lib/housing/drops-freshness";
 
 const baseUrl = siteConfig.url;
 const API_URL = getServerShortsApiUrl();
@@ -126,6 +135,27 @@ const API_CLIENT_LANGUAGES = [
   "go",
   "java",
 ];
+
+// Which stock tabs get a sitemap URL for every qualified code. ONE decision per
+// tab id, so a tab added to STOCK_TABS does not compile until someone makes it,
+// and the segment strings come from the registry (stock-tabs.ts), never from a
+// copy kept here.
+const STOCK_TAB_IN_SITEMAP: Record<StockTabId, boolean> = {
+  // The stock's own URL, listed above as /shorts/<code>.
+  overview: false,
+  "short-interest": true,
+  // Most stocks read "not a candidate" on every strategy, which would read as
+  // thin content; reached through the tab bar, the Overview strip and /picks.
+  strategy: false,
+  financials: true,
+  company: true,
+  news: true,
+  // noindex: its list is client-rendered.
+  community: false,
+};
+const STOCK_TAB_SEGMENTS = STOCK_TABS.filter(
+  (tab) => tab.segment !== "" && STOCK_TAB_IN_SITEMAP[tab.id],
+).map((tab) => tab.segment);
 
 // Cap on stock URLs. The indexability gate (see stock-indexability) keeps the
 // set to enriched / genuinely-shorted stocks (~1k) which is well under this
@@ -259,7 +289,6 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
   const staticRoutes: SitemapEntry[] = [
     { url: baseUrl, lastModified: latestDataDate },
     { url: `${baseUrl}/about` },
-    { url: `${baseUrl}/blog` },
     { url: `${baseUrl}/terms` },
     { url: `${baseUrl}/roadmap` },
     { url: `${baseUrl}/pricing` },
@@ -301,6 +330,11 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
       url: `${baseUrl}/themes/${slug}`,
       lastModified: latestDataDate,
     })),
+    // Stock picker: strategy slugs from the registry. NO lastmod: the picks
+    // are driven by the daily PRICE sweep, whose date this builder does not
+    // fetch, and stamping the ASIC date on them would be a fabricated signal.
+    { url: `${baseUrl}/picks` },
+    ...STRATEGY_SLUGS.map((slug) => ({ url: `${baseUrl}/picks/${slug}` })),
     // Open data hub + press kit — both citation surfaces we point journalists at.
     { url: `${baseUrl}/data`, lastModified: latestDataDate },
     { url: `${baseUrl}/press` },
@@ -308,11 +342,33 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     { url: `${baseUrl}/privacy` },
   ];
 
-  // Blog posts carry their own publish date.
-  const blogRoutes: SitemapEntry[] = getAllPosts().map((post) => ({
+  // Blog posts carry their own publish date (or a declared revision date).
+  const blogPosts = getAllPosts();
+  const blogRoutes: SitemapEntry[] = blogPosts.map((post) => ({
     url: `${baseUrl}/blog/${post.slug}`,
-    lastModified: post.date,
+    lastModified: post.updated ?? post.date,
   }));
+  // The hub itself changes on every publish: newest member's date.
+  const blogHubRoute: SitemapEntry = {
+    url: `${baseUrl}/blog`,
+    lastModified: newestLastMod(blogRoutes.map((r) => r.lastModified)),
+  };
+  // Category hubs (/blog/category/[slug]) carry the newest date of a post
+  // filed under them; a category with no posts is not advertised.
+  const blogCategoryRoutes: SitemapEntry[] = BLOG_CATEGORY_SLUGS.flatMap(
+    (slug) => {
+      const dates = blogPosts
+        .filter((post) => resolveCategory(post).slug === slug)
+        .map((post) => post.updated ?? post.date);
+      if (dates.length === 0) return [];
+      const newest = dates.reduce((a, b) =>
+        new Date(b).getTime() > new Date(a).getTime() ? b : a,
+      );
+      return [
+        { url: `${baseUrl}${blogCategoryPath(slug)}`, lastModified: newest },
+      ];
+    },
+  );
 
   // Industry pages. Fetched directly (not via getAllIndustrySlugs) so the fetch
   // carries the ISR-safe cache mode; slug rules use the canonical helper.
@@ -337,11 +393,9 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
         const treemap = (await resp.json()) as {
           stocks?: Array<{ industry?: string }>;
         };
-        const invalid = new Set(["Class Pend", "Not Applic", "Not Applicable", ""]);
         const names = new Set<string>();
         for (const s of treemap.stocks ?? []) {
-          const industry = s.industry?.trim() ?? "Other";
-          names.add(invalid.has(industry) ? "Other" : industry);
+          names.add(industryLabel(s.industry) || "Other");
         }
         industrySlugs = [...names].map(createSlug);
       }
@@ -458,7 +512,9 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     ...directoryRoutes,
     ...marketRoutes,
     ...learnRoutes,
+    blogHubRoute,
     ...blogRoutes,
+    ...blogCategoryRoutes,
     ...authorRoutes,
     ...docRoutes,
     newsHub,
@@ -484,13 +540,27 @@ export async function buildShortsSitemap(): Promise<SitemapEntry[]> {
     })),
   ];
 
-  // Per-stock news pages share the qualified stockCodes list, so the news tree
-  // mirrors the pruned stock list (no thin pages get indexed). The stock's news
-  // tab is rebuilt with the same daily sync the stock page is.
-  const stockNewsRoutes: SitemapEntry[] = stockCodes.map((code) => ({
-    url: `${baseUrl}/shorts/${code}/news`,
-    lastModified: latestDataDate,
-  }));
+  // Per-stock tab pages share the qualified stockCodes list, so the tab trees
+  // mirror the pruned stock list (no thin pages get indexed). The tabs listed
+  // are STOCK_TAB_IN_SITEMAP's; Strategy and Community stay out and are reached
+  // through the tab bar.
+  //
+  // The Short interest tab is noindex for a stock with no reported short
+  // position (stockTabMetadata's noindexWhen), so its URL must not be listed
+  // for one. None is: stockCodes comes from getAllStockCodes, which reads
+  // GetTopShorts in summary mode, i.e. mv_top_shorts (or its fallback query),
+  // and every row there has current_percent > 0. So the list is not narrowed
+  // per tab. One edge stays on the safe side (the page noindexes): the view
+  // takes the newest NON-zero reading of the last month, while the page reads
+  // the stock's newest row of all, so a code whose newest row is a zero (if the
+  // table holds one) can be listed while its tab is noindex, until it leaves
+  // the view. Closing that needs a per-code read; it is not worth one.
+  const stockTabRoutes: SitemapEntry[] = stockCodes.flatMap((code) =>
+    STOCK_TAB_SEGMENTS.map((segment) => ({
+      url: `${baseUrl}/shorts/${code}/${segment}`,
+      lastModified: latestDataDate,
+    })),
+  );
 
   const insiderRoutes: SitemapEntry[] = [
     { url: `${baseUrl}/insider-trading`, lastModified: latestDataDate },
@@ -518,7 +588,7 @@ export async function buildShortsSitemap(): Promise<SitemapEntry[]> {
     }
   }
 
-  return [...stockRoutes, ...stockNewsRoutes, ...insiderRoutes, ...comparePairs];
+  return [...stockRoutes, ...stockTabRoutes, ...insiderRoutes, ...comparePairs];
 }
 
 /* --------------------------------------------------------------- reports -- */
@@ -637,9 +707,20 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
 
   type SuburbUrl = { state: string; suburb: string; lastModified?: string };
   const perStateEntries = new Map<string, SuburbUrl[]>();
+  // /price-drops' lastmod is the refresh of the view its headline figures come
+  // from (as_of, migration 000124) — the same instant the page's Dataset
+  // JSON-LD reports as dateModified. Unknown stays bare, never render time.
+  let priceDropsLastMod: string | undefined;
 
   if (!skipForBuild()) {
     const housingClient = createClient(HousingService, connectTransport());
+    const priceDropsAsOf = housingClient
+      .getPriceDropsOverview({})
+      .then((res) => timestampToDate(res.asOf)?.toISOString())
+      .catch((e: unknown) => {
+        console.error("price-drops as_of:", e);
+        return undefined;
+      });
     const perState = await Promise.all(
       ALL_STATES.map(async (st) => {
         try {
@@ -678,6 +759,37 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
       }),
     );
     for (const [slug, urls] of perState) perStateEntries.set(slug, urls);
+    priceDropsLastMod = await priceDropsAsOf;
+  }
+
+  // Council hub: one index per state and one page per council with a page.
+  // lastmod is the newest period in any of the council's series (data, not
+  // render time); the index takes its newest council.
+  type CouncilUrl = { state: string; slug: string; lastModified?: string };
+  const perStateCouncils = new Map<string, CouncilUrl[]>();
+  if (!skipForBuild()) {
+    const housingClient = createClient(HousingService, connectTransport());
+    const perState = await Promise.all(
+      ALL_STATES.map(async (st) => {
+        try {
+          const res = await housingClient.listCouncils({ stateCode: st });
+          return [
+            stateSlug(st),
+            res.councils
+              .filter((c) => c.slug && (c.kind === "council" || c.kind === "unincorporated"))
+              .map((c) => ({
+                state: stateSlug(st),
+                slug: c.slug,
+                lastModified: c.dataThrough ? `${c.dataThrough}T00:00:00.000Z` : undefined,
+              })),
+          ] as const;
+        } catch (e) {
+          console.error(`housing council urls (${st}):`, e);
+          return [stateSlug(st), [] as CouncilUrl[]] as const;
+        }
+      }),
+    );
+    for (const [slug, urls] of perState) perStateCouncils.set(slug, urls);
   }
 
   const allSuburbUrls = [...perStateEntries.values()].flat();
@@ -722,10 +834,9 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
         ),
       };
     }),
-    // Calculators are static tools; the price-drops board is crawl-driven and
-    // exposes no data date on any read path — neither fabricates a lastmod.
+    // Calculators are static tools with no data date — no fabricated lastmod.
     { url: `${baseUrl}/housing/calculators` },
-    { url: `${baseUrl}/price-drops` },
+    { url: `${baseUrl}/price-drops`, lastModified: priceDropsLastMod },
     // NOTE: /housing/suburbs is deliberately NOT listed — next.config.mjs 301s
     // it to /housing (the hub page was deprecated 2026-06-29); sitemapping it
     // would advertise a permanent redirect.
@@ -741,6 +852,20 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
       url: `${baseUrl}/housing/${s.state}/${s.suburb}`,
       lastModified: s.lastModified,
     })),
+    ...[...perStateCouncils].flatMap(([state, councils]) =>
+      councils.length
+        ? [
+            {
+              url: `${baseUrl}/housing/${state}/council`,
+              lastModified: newestLastMod(councils.map((c) => c.lastModified)),
+            },
+            ...councils.map((c) => ({
+              url: `${baseUrl}/housing/${c.state}/council/${c.slug}`,
+              lastModified: c.lastModified,
+            })),
+          ]
+        : [],
+    ),
   ];
 }
 

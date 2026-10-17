@@ -12,7 +12,7 @@ public interface SuburbCrimeStatOrBuilder extends
 
   /**
    * <pre>
-   * 'break_ins' | 'violent' | 'motor_vehicle' (+ future types)
+   * 'break_ins' | 'violent' | 'motor_vehicle' | 'property_damage' (+ future types)
    * </pre>
    *
    * <code>string crime_type = 1 [json_name = "crimeType"];</code>
@@ -21,7 +21,7 @@ public interface SuburbCrimeStatOrBuilder extends
   java.lang.String getCrimeType();
   /**
    * <pre>
-   * 'break_ins' | 'violent' | 'motor_vehicle' (+ future types)
+   * 'break_ins' | 'violent' | 'motor_vehicle' | 'property_damage' (+ future types)
    * </pre>
    *
    * <code>string crime_type = 1 [json_name = "crimeType"];</code>
@@ -42,7 +42,7 @@ public interface SuburbCrimeStatOrBuilder extends
 
   /**
    * <pre>
-   * 0..100 national pop-weighted percentile; &gt; 0 always
+   * 0..100 pop-weighted percentile WITHIN the suburb's state (never across states); &gt; 0 always
    * </pre>
    *
    * <code>double pct_rank = 3 [json_name = "pctRank"];</code>

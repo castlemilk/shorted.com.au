@@ -54,7 +54,7 @@ jobs:
         run: |
           echo "environment=prod" >> $GITHUB_OUTPUT
           echo "project-id=rosy-clover-477102-t5" >> $GITHUB_OUTPUT
-          echo "wip-provider=projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+          echo "wip-provider=projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/cuttlefish" >> $GITHUB_OUTPUT
           echo "sa-email=github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
 
           if [ "${{ github.event_name }}" == "pull_request" ]; then
@@ -209,52 +209,12 @@ jobs:
             exit 1
           fi
 
-  build-docker-images:
+  build-images:
     needs: [determine-environment, validate-secrets]
     # PRs plan the production configuration without publishing images.
     if: github.event_name != 'pull_request'
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - name: shorts
-            dockerfile: services/shorts/Dockerfile
-            context: services
-          - name: chat-service
-            dockerfile: services/chat-service/Dockerfile
-            context: services
-          - name: stock-price-ingestion
-            dockerfile: services/stock-price-ingestion/Dockerfile
-            context: services/stock-price-ingestion
-          - name: asx-discovery
-            dockerfile: services/asx-discovery/Dockerfile
-            context: services
-          - name: market-data-sync
-            dockerfile: services/market-data-sync/Dockerfile
-            context: services
-          - name: enrichment-processor
-            dockerfile: services/enrichment-processor/Dockerfile
-            context: services
-          - name: house-price-collector
-            dockerfile: services/house-price-collector/Dockerfile
-            context: services
-          - name: shorted-jobs
-            dockerfile: services/jobs/Dockerfile
-            context: services
-          # Same binary + build stage as shorted-jobs, Debian + Chromium
-          # runtime. Only `shorted discovery` needs it; the distroless image
-          # above stays lean for every other job.
-          - name: shorted-jobs-browser
-            dockerfile: services/jobs/Dockerfile.browser
-            context: services
-          - name: signals-collector
-            dockerfile: services/signals-collector/Dockerfile
-            context: services/signals-collector
-          - name: report-extractor
-            dockerfile: services/report-extractor/Dockerfile
-            context: services/report-extractor
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -272,102 +232,45 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
 
-      # Same images, second home: rigs pull task images from the Cuttlefish
-      # registry with their control-plane token, so nothing on a rig needs a
-      # cloud credential. CI pushes there with its GitHub OIDC token.
-      # Best-effort: the mirror below is additive, and a registry outage must
-      # never block a production deploy whose images already reached GAR.
-      - name: Log in to the Cuttlefish registry (GitHub OIDC)
-        uses: ./.github/actions/cuttlefish-registry-login
-        continue-on-error: true
-
-      # A persistent builder on the self-hosted rig: its layer cache and the
-      # Dockerfiles' Go module/build cache mounts survive across jobs and are
-      # shared by every runner replica on the host. The default (a fresh
-      # builder per job, torn down afterwards) rebuilt every Go dependency
-      # from a cold cache for each of the eight images and then shipped a
-      # mode=max layer cache to GitHub — ~30 minutes per image.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
         with:
           name: shorted-builder
           cleanup: false
 
-      - name: Build and push ${{ matrix.service.name }}
-        uses: docker/build-push-action@v7
-        with:
-          context: ${{ matrix.service.context }}
-          file: ${{ matrix.service.dockerfile }}
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:${{ needs.determine-environment.outputs.image-tag }}
-            ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:latest
-          secrets: |
-            github_token=${{ secrets.STEALTH_PAT }}
-
-      - name: Mirror ${{ matrix.service.name }} to the Cuttlefish registry
-        continue-on-error: true
+      # ONE bake publishes every image (docker-bake.hcl). The ten Go images
+      # share a single builder stage in services/images.Dockerfile, so the
+      # shared module compiles once instead of once per image; the Python and
+      # Node images build alongside in the same BuildKit session. This replaced
+      # a 12-way docker matrix plus two ko jobs that serialized for over an
+      # hour on one runner and failed the whole release when any one slot
+      # stalled (2026-10-07). Image names and tags are unchanged.
+      - name: Build and push all images
         env:
-          SRC: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}
+          REGISTRY: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
+          PLATFORM: linux/amd64
+          STEALTH_PAT: ${{ secrets.STEALTH_PAT }}
         run: |
-          set -euo pipefail
-          for TAG in "${{ needs.determine-environment.outputs.image-tag }}" latest; do
-            DST="cuttlefish-registry.benebsworth.com/shorted/${{ matrix.service.name }}:${TAG}"
-            docker pull "${SRC}:${TAG}"
-            docker tag "${SRC}:${TAG}" "$DST"
-            docker push "$DST"
-          done
+          docker buildx bake --file docker-bake.hcl --builder shorted-builder --push --progress plain
 
-  build-ko-images:
-    needs: [determine-environment, validate-secrets]
-    if: github.event_name != 'pull_request'
+  # Same images, second home: rigs pull task images from the Cuttlefish
+  # registry with their control-plane token, so nothing on a rig needs a cloud
+  # credential. This job copies what build-images just pushed to GAR there,
+  # authenticating with the job's OIDC token (no repository secret).
+  #
+  # A job of its own that nothing needs, and best-effort past GAR auth: GAR
+  # stays the deploy source for Cloud Run and the VKE chart, so a slow or
+  # unavailable registry must never delay terraform-plan or fail a release. A
+  # failed login or push is a warning on this job, never a red deploy.
+  mirror-images:
+    needs: [determine-environment, build-images]
+    if: github.event_name != 'pull_request' && needs.build-images.result == 'success'
     runs-on: [self-hosted, cuttlefish, linux]
-    timeout-minutes: 150
-    strategy:
-      matrix:
-        service:
-          - name: market-data
-            importpath: ./market-data
-          - name: weekly-report-generator
-            importpath: ./weekly-report-generator
+    timeout-minutes: 45
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: services/go.mod
-          cache: false
-
-      # setup-ko extracts to a RELATIVE `ko` path, and this job runs on a
-      # self-hosted runner that reuses its workspace between runs. A binary left
-      # by an earlier run — owned by another uid if that run used a container
-      # step — makes the extract fail with:
-      #
-      #   tar: ko: Cannot open: Permission denied
-      #
-      # which took down a production deploy on 2026-09-08 while a hotfix was
-      # queued behind it. GitHub-hosted runners start clean every time and never
-      # showed this; the move to the Cuttlefish runner is what exposed it.
-      #
-      # Best-effort by design: a failure to clean is a warning, not a build
-      # failure, because the extract may well succeed anyway and this step must
-      # not become a new way for the deploy to die.
-      - name: Clear stale ko binary (self-hosted workspace is reused)
-        run: |
-          for p in ko "${RUNNER_TEMP:-/tmp}/ko" "$HOME/.ko/ko"; do
-            [ -e "$p" ] || continue
-            rm -f "$p" 2>/dev/null && { echo "removed stale $p"; continue; }
-            sudo -n rm -f "$p" 2>/dev/null && { echo "removed stale $p (sudo)"; continue; }
-            echo "::warning::could not remove stale ko at $p — extract may fail"
-          done
-
-      - name: Setup ko
-        uses: ko-build/setup-ko@v0.9
-        with:
-          version: v0.19.1
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -382,47 +285,59 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
 
-      - name: Log in to the Cuttlefish registry (GitHub OIDC)
+      - name: Log in to the Cuttlefish registry (OIDC)
+        id: cuttlefish-login
+        continue-on-error: true
         uses: ./.github/actions/cuttlefish-registry-login
-        continue-on-error: true
 
-      - name: Configure private Go module access
-        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
-
-      - name: Build and push ${{ matrix.service.name }}
-        working-directory: services
-        env:
-          KO_DOCKER_REPO: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}
-        run: |
-          ko build ${{ matrix.service.importpath }} \
-            --bare \
-            --platform=linux/amd64 \
-            --tags="${{ needs.determine-environment.outputs.image-tag }},latest"
-
-      # Mirror the just-pushed image into the Cuttlefish registry so rigs can
-      # pull it with their control-plane token (see the docker-image job).
-      - name: Mirror ${{ matrix.service.name }} to the Cuttlefish registry
+      # The image list is docker-bake.hcl's targets, so a new image is mirrored
+      # without anyone remembering this job. Each pulled image is removed again:
+      # the rig's disk is shared by every runner replica on the host.
+      - name: Mirror every baked image to the Cuttlefish registry
+        if: steps.cuttlefish-login.outcome == 'success'
         continue-on-error: true
         env:
-          SRC: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}
+          SRC_REGISTRY: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted
+          DST_REGISTRY: cuttlefish-registry.benebsworth.com/shorted
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
         run: |
-          set -euo pipefail
-          for TAG in "${{ needs.determine-environment.outputs.image-tag }}" latest; do
-            DST="cuttlefish-registry.benebsworth.com/shorted/${{ matrix.service.name }}:${TAG}"
-            docker pull "${SRC}:${TAG}"
-            docker tag "${SRC}:${TAG}" "$DST"
-            docker push "$DST"
+          set -uo pipefail
+          images=$(sed -n 's/^target "\([a-z][a-z0-9-]*\)" {$/\1/p' docker-bake.hcl)
+          if [ -z "$images" ]; then
+            echo "::warning::no image targets found in docker-bake.hcl; nothing mirrored"
+            exit 1
+          fi
+          failed=()
+          for name in $images; do
+            for tag in "$IMAGE_TAG" latest; do
+              src="${SRC_REGISTRY}/${name}:${tag}"
+              dst="${DST_REGISTRY}/${name}:${tag}"
+              if docker pull -q "$src" && docker tag "$src" "$dst" && docker push -q "$dst"; then
+                echo "mirrored ${name}:${tag}"
+              else
+                failed+=("${name}:${tag}")
+              fi
+              docker image rm "$src" "$dst" >/dev/null 2>&1 || true
+            done
           done
+          if [ "${#failed[@]}" -gt 0 ]; then
+            echo "::warning::Cuttlefish registry mirror failed for ${failed[*]} (GAR is unaffected)"
+            exit 1
+          fi
+
+      - name: Log out of the Cuttlefish registry
+        if: always()
+        continue-on-error: true
+        run: docker logout cuttlefish-registry.benebsworth.com || true
 
   terraform-plan:
-    needs: [determine-environment, validate-secrets, build-docker-images, build-ko-images]
-    # Run even when image builds are skipped (PR without deploy-preview label)
+    needs: [determine-environment, validate-secrets, build-images]
+    # Run even when production image builds are skipped for a pull request
     if: |
       always() &&
       needs.determine-environment.result == 'success' &&
       needs.validate-secrets.result == 'success' &&
-      (needs.build-docker-images.result == 'success' || needs.build-docker-images.result == 'skipped') &&
-      (needs.build-ko-images.result == 'success' || needs.build-ko-images.result == 'skipped')
+      (needs.build-images.result == 'success' || needs.build-images.result == 'skipped')
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
     # dedupes runs of the same ref, so two PRs (or a PR + a push to main)
@@ -451,6 +366,9 @@ jobs:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
 
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
       - name: Terraform Init
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
         run: terraform init
@@ -463,6 +381,13 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+          # CREATE ONLY. This job has no GitHub environment, so it sees the
+          # REPO-level secrets; terraform-apply and deploy-vercel-prod run in the
+          # `prod` environment. When the two values differ, a plan job that
+          # writes versions fights the apply job: two versions per deploy and a
+          # window where the API's `latest` disagrees with the web app. The plan
+          # only needs the secrets to EXIST; the apply job owns their values.
+          ENSURE_SECRET_CREATE_ONLY: "1"
         run: |
           # Single source of truth: scripts/ensure-secret.sh. It only adds a new
           # version when the value actually changed, comparing sha256 of the
@@ -504,6 +429,7 @@ jobs:
             -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="take_writer_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/take-writer:${{ needs.determine-environment.outputs.image-tag }}" \
             -out=tfplan
         # No continue-on-error: a failing plan must fail the PR check. This was
         # advisory-only for months and silently swallowed a missing-variable
@@ -621,6 +547,9 @@ jobs:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
 
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
       - name: Terraform Init
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
         run: terraform init
@@ -709,6 +638,21 @@ jobs:
               "$@"
           }
 
+          # The same, on the SESSION pooler (5432), for DDL that holds its locks
+          # for minutes: the transaction pooler (6543) kills that mid-statement.
+          # It is the connection `task db:prod:apply` uses (the Taskfile's
+          # DB_PROD_SESSION), with the port matched only where a port can be, so
+          # a password that happens to start with 6543 is left alone.
+          DB_URL_SESSION=$(printf "%s" "$DB_URL_CLEAN" | sed -E 's#:6543([/?]|$)#:5432\1#')
+          run_psql_session() {
+            docker run --rm \
+              -v "${PWD}/services/migrations:/migrations:ro" \
+              postgres:15-alpine \
+              psql "$DB_URL_SESSION" \
+              -v ON_ERROR_STOP=1 \
+              "$@"
+          }
+
           # The prod DATABASE_URL uses a pooler that works with psql/simple protocol
           # and the app collectors, but golang-migrate's advisory-lock path can fail
           # with prepared-statement errors. Keep non-prod on migrate; repair prod via
@@ -763,6 +707,32 @@ jobs:
           # -freshness all SELECT the two columns, and this step runs BEFORE
           # `terraform apply` swaps the jobs image, so the DDL cannot land after
           # the code that reads it.
+          #
+          # 000129 and 000130 (stock picker) are the same shape: each is ONE
+          # BEGIN ... COMMIT holding CREATE TABLE / CREATE INDEX /
+          # CREATE MATERIALIZED VIEW ... IF NOT EXISTS, CREATE OR REPLACE
+          # FUNCTION refresh_strategy_views(), ALTER FUNCTION ... SET and
+          # COMMENT. No row is read or written by DDL and no view is dropped,
+          # so a replay is a no-op (the views are only BUILT when absent; they
+          # are refreshed by `shorted picks -mode refresh`, never here). They
+          # sit after 000095 because 000130 defines a guarded refresh function
+          # (a new one; it does not touch refresh_all_materialized_views()),
+          # and 000130 after 000129 because refresh_strategy_views() refreshes
+          # 000129's mv_fundamentals_growth. The operator hand-applies both
+          # BEFORE the API that reads them merges (docs/plans/stock-picker.md
+          # §7), so on prod this replay only ever re-issues the function; the
+          # SET LOCAL statement_timeout = 0 each file opens with is what keeps
+          # a first build from dying under the role's 2-minute default if that
+          # step was missed.
+          #
+          # 000133 adds the dividend notice columns to dividend_history and the
+          # dividend_notice_attempts table; every statement is IF NOT EXISTS and
+          # it touches no rows. It does not depend on where 000095 sits.
+          # 000134 adds the parser_version column to dividend_notice_attempts and
+          # touches no rows.
+          # 000136 adds financial_report_extractions.extraction_attempts only
+          # when the catalog lacks it, as 000132 does, so a replay takes no
+          # lock on a table the API reads; it touches no rows.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -781,7 +751,60 @@ jobs:
               -f /migrations/000121_economic_series_internal_only.up.sql \
               -f /migrations/000095_harden_mv_refresh.up.sql \
               -f /migrations/000122_add_suburb_hazard_exposure.up.sql \
-              -f /migrations/000123_register_document_succession.up.sql
+              -f /migrations/000123_register_document_succession.up.sql \
+              -f /migrations/000129_add_stock_fundamentals.up.sql \
+              -f /migrations/000130_add_price_features.up.sql \
+              -f /migrations/000133_add_dividend_notices.up.sql \
+              -f /migrations/000134_dividend_notice_parser_version.up.sql \
+              -f /migrations/000136_extraction_attempts.up.sql
+
+            # 000131 widens stock_prices' price columns to NUMERIC(12,4). Unlike
+            # everything above, its first run does real work: it rewrites the
+            # table and rebuilds every view that reads the prices (each dropped
+            # and recreated from its own catalog definition, with its indexes,
+            # grants and data). That happens once. The file's first statement
+            # asks the catalog whether close is already numeric(12,4) and returns
+            # if it is, so every later deploy's replay is one catalog read. The
+            # rule against DROP+CREATE of a view here is about a rebuild on every
+            # deploy, which this cannot do.
+            #
+            # It runs on the session pooler because the rewrite and the rebuild
+            # hold exclusive locks for minutes; reads of prices and of those views
+            # wait for them. The file is one BEGIN ... COMMIT with SET LOCAL
+            # statement_timeout = 0 and lock_timeout = '60s', so an error, or a
+            # lock it cannot get within a minute, rolls back to the old columns
+            # and fails this step before any image is swapped. To unblock a
+            # deploy, take it out of this step and apply it by hand in a quiet
+            # hour (`task db:prod:apply`).
+            run_psql_session -f /migrations/000131_widen_stock_price_precision.up.sql
+
+            # 000132 (docs/plans/fundamentals-coverage.md §2) widens
+            # stock_fundamentals to the full statements, adds
+            # mv_fundamentals_quality and rebuilds mv_fundamentals_growth with
+            # four appended columns. Its first run also adds a column to
+            # financial_report_extractions, so do not merge while the
+            # financial-report-extractor job is executing (plan §9).
+            # Never remove this line to unblock a deploy: the new jobs image
+            # writes these columns, and this step runs before `terraform apply`
+            # swaps it. If it cannot apply, hand-apply it in a quiet window:
+            #   task db:prod:apply FILE=services/migrations/000132_extend_fundamentals.up.sql CONFIRM=prod
+            # and then re-run the deploy, or revert.
+            #
+            # It is two transactions. The first re-issues
+            # refresh_strategy_views() with the quality view (replacing the
+            # three-view body 000130's replay above has just written) and
+            # commits. The second touches the picker objects in the order that
+            # function locks them, under lock_timeout = '15s', so a deploy that
+            # overlaps `shorted picks -mode refresh` waits for it instead of
+            # deadlocking, and a lock held past 15s fails this step before any
+            # image is swapped. Every step is catalog-guarded: the first run
+            # adds the columns and rebuilds the growth view once (a guarded
+            # DROP, which the rule against DROP+CREATE here does not forbid, for
+            # the same reason as 000131), and every later replay is a few
+            # catalog reads plus, at most, writing back the growth view's
+            # COMMENT that 000129's replay rewrites (best effort: a lock it
+            # cannot get is a NOTICE, never a failed deploy).
+            run_psql_session -f /migrations/000132_extend_fundamentals.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 
@@ -876,6 +899,7 @@ jobs:
             -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="take_writer_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/take-writer:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve
 
@@ -921,11 +945,11 @@ jobs:
         env:
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           GCP_REGION: ${{ env.GCP_REGION }}
-          EXPECTED_TAG: ${{ github.ref_name }}-${{ github.sha }}
+          EXPECTED_TAG: ${{ needs.determine-environment.outputs.image-tag }}
         run: |
           set -uo pipefail
-          # Image tags are <branch>-<short sha>; normalise to the same 8 chars.
-          want="${GITHUB_REF_NAME}-$(echo "$GITHUB_SHA" | cut -c1-8)"
+          # Use the same tag as the image builds and Terraform for every event.
+          want="$EXPECTED_TAG"
           echo "expecting image tag: $want"
 
           registry="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/"
@@ -1064,17 +1088,91 @@ jobs:
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
 
+  # Promote the Kubernetes CronJob chart (deploy/kubernetes/jobs, Paprika on
+  # omega) ONLY after Terraform has applied, by moving the deploy/vke-jobs
+  # branch that the Paprika Application tracks.
+  #
+  # Why a branch and not main: a cutover is two halves that must land
+  # together — the chart unsuspends a CronJob, Terraform pauses the Cloud
+  # Scheduler trigger it replaces. When Paprika tracked main, the chart half
+  # went live the moment a PR merged while the Terraform half waited for (or,
+  # 2026-09-30, was skipped by a failed image push in) this workflow: both
+  # schedulers live, every job running twice. Now nothing reaches the cluster
+  # until the apply that carries the other half has succeeded.
+  #
+  # The promoted commit is EXACTLY the commit this run applied (github.sha),
+  # plus one commit on top that sets the chart's image tags to the images this
+  # run built. It is never main's tip, which may already hold changes whose
+  # Terraform has not applied. A run that finishes after a newer one never
+  # moves the branch backwards.
+  #
+  # No repo-variable gate. This job used to also require the repo variable
+  # VKE_JOBS_IMAGE_BUMP to be 'true'. Since CI moved to Cuttlefish (#673) it
+  # was never scheduled, though the variable was 'true', so the cluster stayed
+  # on the 2026-09-30 images while main deployed on. The cutover made the
+  # promotion permanent, so the gate went rather than the workflow depending on
+  # which expression contexts the runner resolves.
+  bump-vke-jobs-image:
+    needs: [determine-environment, terraform-apply]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.terraform-apply.result == 'success'
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: vke-jobs-image-bump
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Promote the applied commit to deploy/vke-jobs
+        env:
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
+          APPLIED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          branch=deploy/vke-jobs
+          # Never move backwards: the branch's current base must be an
+          # ancestor of (or equal to) the commit this run applied.
+          if git fetch -q origin "refs/heads/${branch}:refs/remotes/origin/${branch}" 2>/dev/null; then
+            current_base="$(git log -1 --format=%B "origin/${branch}" | sed -n 's/^Applied-Commit: //p')"
+            current_base="${current_base:-$(git rev-parse "origin/${branch}")}"
+            if ! git merge-base --is-ancestor "${current_base}" "${APPLIED_SHA}"; then
+              echo "deploy/vke-jobs is at ${current_base}, which is not an ancestor of ${APPLIED_SHA}: a newer deploy already promoted; not moving it back"
+              exit 0
+            fi
+          fi
+          deploy/kubernetes/jobs/scripts/bump-image-tag.sh "${IMAGE_TAG}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/kubernetes/jobs/chart/values.yaml
+          git commit --allow-empty -q -F - <<MSG
+          chore(vke-jobs): promote ${APPLIED_SHA::8} with images ${IMAGE_TAG} [skip ci]
+
+          Applied-Commit: ${APPLIED_SHA}
+          MSG
+          git push --force origin "HEAD:refs/heads/${branch}"
+          echo "deploy/vke-jobs -> ${APPLIED_SHA::8} + images ${IMAGE_TAG}"
+
   deploy-vercel-prod:
-    needs: [determine-environment, validate-secrets, terraform-apply]
+    needs: [determine-environment, validate-secrets, terraform-apply, run-tests]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
-    # like market-data-sync fails startup probe). We query the shorts URL from
-    # gcloud as a fallback so Vercel isn't blocked by Terraform failures.
+    # Preserve the existing service-URL fallback after an infrastructure failure,
+    # while requiring the test suite and secrets to pass before web promotion.
     if: |
       always() &&
       github.event_name != 'pull_request' &&
       needs.determine-environment.outputs.environment == 'prod' &&
-      needs.validate-secrets.result == 'success'
+      needs.validate-secrets.result == 'success' &&
+      needs.run-tests.result == 'success' &&
+      github.event.inputs.plan_only != 'true'
     environment: prod
     steps:
       - name: Checkout code
@@ -1134,7 +1232,13 @@ jobs:
       # NOTE: AUTH_FIREBASE_PRIVATE_KEY must be set in the prod environment
       # or Vercel Dashboard because it contains special characters that break CLI parsing.
       # Environment secrets (prod) override repository secrets with same name.
-      - name: Deploy to Vercel (Release Candidate Preview)
+      - name: Set up Node for production deployment
+        uses: actions/setup-node@v5
+        with:
+          # Retain the verified Vercel upload pin from the retired preview workflow.
+          node-version: "24.8.0"
+
+      - name: Build and upload production deployment
         id: vercel-deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -1256,42 +1360,22 @@ jobs:
             --scope document-analyser \
             --token "$VERCEL_TOKEN"
 
-          npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-preview.log
-          preview_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-preview.log | tail -n 1)"
-          if [ -z "$preview_url" ]; then
-            echo "::error::Could not extract Vercel preview URL"
+          node scripts/verify-vercel-function-limits.mjs .vercel/output
+
+          npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-production.log
+          deployment_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-production.log | tail -n 1)"
+          if [ -z "$deployment_url" ]; then
+            echo "::error::Could not extract Vercel deployment URL"
             exit 1
           fi
-          echo "preview-url=$preview_url" >> "$GITHUB_OUTPUT"
+          echo "deployment-url=$deployment_url" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Node for release smoke
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install frontend dependencies for release smoke
-        working-directory: web
-        run: npm ci
-
-      - name: Install Playwright for release smoke
-        working-directory: web
-        run: npx playwright install --with-deps chromium
-
-      - name: Smoke release candidate preview
-        working-directory: web
-        timeout-minutes: 12
-        env:
-          BASE_URL: ${{ steps.vercel-deploy.outputs.preview-url }}
-          RELEASE_API_BASE_URL: https://api.shorted.com.au
-          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
-        run: node e2e/release-smoke-ci.mjs
-
-      - name: Promote smoked Vercel deployment to production
+      - name: Promote Vercel deployment to production
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          PREVIEW_URL: ${{ steps.vercel-deploy.outputs.preview-url }}
+          DEPLOYMENT_URL: ${{ steps.vercel-deploy.outputs.deployment-url }}
         run: |
-          npx -p vercel@54.1.0 vercel promote "$PREVIEW_URL" \
+          npx -p vercel@54.10.2 vercel promote "$DEPLOYMENT_URL" \
             --scope document-analyser \
             --yes \
             --token "$VERCEL_TOKEN"
@@ -1308,7 +1392,14 @@ jobs:
             if (!Array.isArray(pages) || pages.length === 0 || pages.some((path) => typeof path !== "string" || !path.startsWith("/"))) {
               throw new Error("web/src/config/isr-pages.json must be a non-empty array of /-prefixed paths");
             }
-            process.stdout.write(pages.join(","));
+            // Static build shells have a separate invalidate-then-prime step.
+            // Keep one owner so a page rendered between steps is not invalidated twice.
+            const shellPages = JSON.parse(fs.readFileSync("web/src/config/isr-shell-pages.json", "utf8"));
+            if (!Array.isArray(shellPages) || shellPages.some((path) => typeof path !== "string" || !path.startsWith("/"))) {
+              throw new Error("web/src/config/isr-shell-pages.json must be an array of /-prefixed paths");
+            }
+            const shellPaths = new Set(shellPages);
+            process.stdout.write(pages.filter((path) => !shellPaths.has(path)).join(","));
           ')
           status=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" \
             --connect-timeout 10 \
@@ -1329,13 +1420,33 @@ jobs:
             exit 1
           fi
 
+      - name: Prime static pages after promotion
+        continue-on-error: true
+        env:
+          CACHE_WARM_SECRET: ${{ secrets.CACHE_WARM_SECRET }}
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+        run: |
+          CURL_ARGS=(-A "Mozilla/5.0 Shorted-E2E/1.0")
+          if [ -n "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "X-Shorted-Testing-Bypass: ${CLOUDFLARE_TESTING_BYPASS_SECRET}")
+          fi
+          if [ -n "${CACHE_WARM_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "X-Cache-Warm-Secret: ${CACHE_WARM_SECRET}")
+          fi
+          curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
+            "https://shorted.com.au/api/static-pages/warm-cache?mode=deploy"
+          # Await the invalidation response before fetching: Next commits it
+          # after the handler returns. This second request primes real data.
+          curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
+            "https://shorted.com.au/api/static-pages/warm-cache?mode=repair"
+
       - name: Production Deployment Summary
         run: |
           echo "## 🚀 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Frontend" >> $GITHUB_STEP_SUMMARY
           echo "- **Vercel Production URL**: https://shorted.com.au" >> $GITHUB_STEP_SUMMARY
-          echo "- **Smoked Vercel Deployment**: ${{ steps.vercel-deploy.outputs.preview-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Promoted Vercel Deployment**: ${{ steps.vercel-deploy.outputs.deployment-url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Backend Services" >> $GITHUB_STEP_SUMMARY
           echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
@@ -1349,7 +1460,8 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        # v6.5.0, not v6: see go-quality.yml.
+        uses: actions/setup-go@v6.5.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -1372,10 +1484,6 @@ jobs:
         working-directory: services
         run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./house-price-collector
 
-      - name: Run housing jobs mirror tests
-        working-directory: services/jobs
-        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./internal/jobs/houseprices/...
-
       - name: Run housing wrapper lifecycle tests
         run: bash services/house-price-collector/deploy/housing-lifecycle-exit.test.sh
 
@@ -1385,7 +1493,7 @@ jobs:
         run: bash services/house-price-collector/deploy/stage-rig.test.sh
 
   run-tests:
-    needs: [determine-environment, build-docker-images, build-ko-images]
+    needs: [determine-environment, build-images]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
     if: github.event_name != 'pull_request'
@@ -1394,7 +1502,8 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        # v6.5.0, not v6: see go-quality.yml.
+        uses: actions/setup-go@v6.5.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false

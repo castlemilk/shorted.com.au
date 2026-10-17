@@ -47,6 +47,7 @@ import { Label } from "~/@/components/ui/label";
 import Image from "next/image";
 import { getSectorImagePath } from "~/@/lib/sector-images";
 import { getKnownIndustries } from "~/@/lib/sector-images";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 
 const PAGE_SIZE = 50;
 
@@ -296,8 +297,26 @@ function screenerRowsToPlain(stocks: ScreenerStock[]): Record<string, unknown>[]
     dividendYield: s.dividendYield > 0 ? s.dividendYield.toFixed(2) : "",
     netDirectorBuyValue: s.netDirectorBuyValue !== 0 ? s.netDirectorBuyValue : "",
     avgSentiment: s.newsCount30d > 0 ? s.avgSentiment.toFixed(2) : "",
-    industry: s.industry || "",
+    industry: industryLabel(s.industry),
   }));
+}
+
+/** A row's industry: the sector icon and the name, or "-" when it has none. */
+function IndustryCell({ industry: raw }: { industry: string }) {
+  const industry = industryLabel(raw);
+  if (!industry) return <>-</>;
+  return (
+    <>
+      <Image
+        src={getSectorImagePath(industry)}
+        alt=""
+        width={14}
+        height={14}
+        className="rounded-sm flex-shrink-0"
+      />
+      <span className="truncate">{industry}</span>
+    </>
+  );
 }
 
 function downloadBlob(content: string, filename: string, mimeType: string) {
@@ -1103,20 +1122,7 @@ export function ScreenerPageClient() {
                         </TableCell>
                         <TableCell className="text-right text-xs text-muted-foreground max-w-[150px]">
                           <span className="inline-flex items-center gap-1.5 justify-end">
-                            {stock.industry ? (
-                              <>
-                                <Image
-                                  src={getSectorImagePath(stock.industry)}
-                                  alt=""
-                                  width={14}
-                                  height={14}
-                                  className="rounded-sm flex-shrink-0"
-                                />
-                                <span className="truncate">{stock.industry}</span>
-                              </>
-                            ) : (
-                              "-"
-                            )}
+                            <IndustryCell industry={stock.industry} />
                           </span>
                         </TableCell>
                       </TableRow>

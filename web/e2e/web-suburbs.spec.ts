@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/test";
 
 test("legacy suburb explorer redirects to the housing hub", async ({ page }) => {
   const response = await page.goto("/housing/suburbs");

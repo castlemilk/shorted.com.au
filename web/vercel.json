@@ -1,16 +1,16 @@
 {
-  "ignoreCommand": "git diff HEAD^ HEAD --quiet -- web/src/ web/public/ web/package.json web/package-lock.json web/next.config.mjs web/tsconfig.json proto/",
+  "ignoreCommand": "git diff HEAD^ HEAD --quiet -- web/src/ web/public/ web/package.json web/package-lock.json web/next.config.mjs web/tsconfig.json proto/ web/vercel.json vercel.json",
   "regions": [
     "syd1"
   ],
   "crons": [
     {
       "path": "/api/about/warm-cache",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/homepage/warm-cache",
-      "schedule": "*/10 * * * *"
+      "schedule": "5 * * * *"
     },
     {
       "path": "/api/pages/warm-cache",
@@ -18,11 +18,13 @@
     },
     {
       "path": "/api/static-pages/warm-cache",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/auth/session",
-      "schedule": "*/5 * * * *"
+      "schedule": "10 * * * *"
     }
-  ]
+  ],
+  "fluid": true,
+  "functions": {
+    "src/app/**/*": {
+      "maxDuration": 15
+    }
+  }
 }

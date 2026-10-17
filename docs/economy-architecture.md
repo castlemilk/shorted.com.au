@@ -227,8 +227,11 @@ mobile <640px pins to the map bottom; desktop clamps to viewport), click →
   `/api/revalidate?secret=…&path=/economy,/economy/nsw,…` with a **browser
   UA** (curl UA is edge-blocked).
 - **Prod MV refresh**: txn pooler (6543) statement-timeout kills the full
-  `refresh_all_materialized_views()` — refresh individual MVs via the session
-  pooler (5432) + `PGOPTIONS="-c statement_timeout=0"`.
+  `refresh_all_materialized_views()`. Use `task db:prod:refresh CONFIRM=prod`
+  (session pooler 5432, one transaction, `SET LOCAL statement_timeout = 0`); for
+  one view, put `REFRESH MATERIALIZED VIEW CONCURRENTLY <mv>;` in a file and run
+  `task db:prod:apply FILE=<file> CONFIRM=prod`. Not `PGOPTIONS`: Supavisor
+  drops startup options, so it never lifted the timeout.
 - **Live regen debugging**: `vercel logs shorted.com.au --scope
   document-analyser` while curling the page catches ISR errors in real time.
 - **Local dev**: after large edits, Next dev servers serve stale chunks

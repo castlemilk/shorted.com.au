@@ -52,8 +52,8 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 export function prettySource(raw: string, isReport: boolean): string {
-  if (isReport) return SOURCE_LABELS[raw] ?? "Financial report";
-  return SOURCE_LABELS[raw] ?? raw;
+  const source = raw.trim();
+  return SOURCE_LABELS[source] ?? (source || (isReport ? "Report" : "Source"));
 }
 
 // Strip protocol + "www." and trim long URLs so the source line stays compact.
@@ -75,6 +75,18 @@ export interface ResolvedCitation<C extends { refId: string }> {
   label: string;
 }
 
+/** One display rule for legacy report-N and compacted ref-N citations. */
+function citationDisplay(refId: string, type?: string) {
+  const match = REF_ID_PATTERN.exec(refId);
+  if (!match) return null;
+  const isReport = match[1] === "report" || type === "report";
+  return {
+    displayIndex: Number(match[2]),
+    isReport,
+    label: isReport ? `R${match[2]}` : match[2]!,
+  };
+}
+
 /**
  * Map a refId ("ref-3" / "report-1") to its citation and display index.
  * Returns null when the id is malformed or no matching citation exists.
@@ -83,17 +95,13 @@ export function resolveCitation<C extends { refId: string; type?: string }>(
   refId: string,
   citations: readonly C[],
 ): ResolvedCitation<C> | null {
-  const m = REF_ID_PATTERN.exec(refId);
-  if (!m) return null;
   const citation = citations.find((c) => c.refId === refId);
   if (!citation) return null;
-  const num = m[2]!;
-  const isReport = m[1] === "report" || citation.type === "report";
+  const display = citationDisplay(refId, citation.type);
+  if (!display) return null;
   return {
     citation,
-    displayIndex: Number(num),
-    isReport,
-    label: isReport ? `R${num}` : num,
+    ...display,
   };
 }
 
@@ -134,14 +142,12 @@ export function CitationPill({
   refId: string;
   citation: CitationInfo | undefined;
 }) {
-  const m = REF_ID_PATTERN.exec(refId);
-  if (!m || !citation) {
+  const display = citationDisplay(refId, citation?.type);
+  if (!display || !citation) {
     return <span>{`[${refId}]`}</span>;
   }
-  const num = m[2]!;
-  const isReport = m[1] === "report" || citation.type === "report";
   const tooltip = [
-    isReport ? "Financial report" : citation.source,
+    prettySource(citation.source, display.isReport),
     citation.date ? `(${citation.date})` : "",
     citation.type ? `[${citation.type.replace(/_/g, " ")}]` : "",
   ]
@@ -151,9 +157,10 @@ export function CitationPill({
     <a
       href={`#${refId}`}
       title={tooltip}
-      className={isReport ? REPORT_PILL_CLASS : REF_PILL_CLASS}
+      aria-label={`Source ${display.label}: ${tooltip}`}
+      className={display.isReport ? REPORT_PILL_CLASS : REF_PILL_CLASS}
     >
-      {isReport ? `R${num}` : num}
+      {display.label}
     </a>
   );
 }
@@ -166,8 +173,9 @@ export function CitationSources({ citations }: { citations: TakeCitation[] }) {
       <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-primary">Sources</h2>
       <ol className="space-y-3">
         {citations.map((c) => {
-          const isReport = c.type === "report";
-          const label = isReport ? c.refId.replace("report-", "R") : c.refId.replace("ref-", "");
+          const display = citationDisplay(c.refId, c.type);
+          const isReport = display?.isReport ?? c.type === "report";
+          const label = display?.label ?? c.refId;
           const pillClass = isReport
             ? "h-5 min-w-6 rounded bg-amber-500/15 px-1 text-amber-700 dark:text-amber-300"
             : "h-5 min-w-5 rounded bg-primary/10 px-1 text-primary";

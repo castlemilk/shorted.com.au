@@ -60,6 +60,7 @@ func TestRunNSWVGRigOrchestratesExitAndRefresh(t *testing.T) {
 	tests := []struct {
 		name          string
 		ingestOK      bool
+		heldBack      []string
 		freshnessCode int
 		wantCode      int
 		wantCalls     []string
@@ -83,15 +84,34 @@ func TestRunNSWVGRigOrchestratesExitAndRefresh(t *testing.T) {
 			wantCode:  0,
 			wantCalls: []string{"ingest", "freshness", "refresh"},
 		},
+		{
+			// The upsert committed, so the views still refresh — but a year
+			// that kept its stale rows must not exit 0 (the wrapper alerts on
+			// any non-zero).
+			name:      "committed ingest that held back a prune",
+			ingestOK:  true,
+			heldBack:  []string{"2025: 459 of 2295 rows unemitted (over 20% prune cap)"},
+			wantCode:  exitVGPruneHeldBack,
+			wantCalls: []string{"ingest", "freshness", "refresh"},
+		},
+		{
+			// Stale data outranks a held prune: 1 is the louder failure.
+			name:          "stale data and a held prune",
+			ingestOK:      true,
+			heldBack:      []string{"2024: only 1200 house sales (under the 50000 floor)"},
+			freshnessCode: 1,
+			wantCode:      1,
+			wantCalls:     []string{"ingest", "freshness", "refresh"},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var calls []string
 			code := runNSWVGRig(
-				func() bool {
+				func() (bool, []string) {
 					calls = append(calls, "ingest")
-					return tc.ingestOK
+					return tc.ingestOK, tc.heldBack
 				},
 				func() int {
 					calls = append(calls, "freshness")
@@ -194,8 +214,8 @@ func TestRunNSWVGRigPartialCoverageRecordsErrorAndSkipsRefresh(t *testing.T) {
 	var status, detail string
 	freshnessCalls, refreshCalls := 0, 0
 
-	code := runNSWVGRig(func() bool {
-		return runOfficialJobWith(context.Background(), officialJob{
+	code := runNSWVGRig(func() (bool, []string) {
+		return runOfficialJobOutcome(context.Background(), officialJob{
 			name: nswSource,
 			fn: func(ctx context.Context) ([]Observation, error) {
 				return ingestNSWSuburbMediansWithFetcher(ctx, fetcher, years)

@@ -1,16 +1,44 @@
+/** @jest-environment-options {"url":"https://shorted.com.au/"} */
 import React from "react";
 import { render } from "@testing-library/react";
 import { DeferredGoogleAnalytics } from "../deferred-google-analytics";
+import { canCollectAnalytics } from "~/@/lib/analytics-host";
+import { usePathname, useSearchParams } from "next/navigation";
+
+jest.mock("~/@/lib/analytics-host", () => ({
+  canCollectAnalytics: jest.fn(() => true),
+}));
 
 jest.mock("next/navigation", () => ({
-  usePathname: () => "/",
-  useSearchParams: () => new URLSearchParams(),
+  usePathname: jest.fn(() => "/"),
+  useSearchParams: jest.fn(() => new URLSearchParams()),
 }));
 
 describe("DeferredGoogleAnalytics", () => {
   beforeEach(() => {
+    jest.mocked(canCollectAnalytics).mockReturnValue(true);
+    jest.mocked(usePathname).mockReturnValue("/");
     delete (window as { dataLayer?: unknown[] }).dataLayer;
     delete (window as { gtag?: unknown }).gtag;
+  });
+
+  it("removes callback and identity query strings from SPA page-view params", () => {
+    const { rerender } = render(<DeferredGoogleAnalytics gaId="G-TEST123" />);
+    jest.mocked(usePathname).mockReturnValue("/signup");
+    jest.mocked(useSearchParams).mockReturnValue(new URLSearchParams("email=private@example.com&callbackUrl=secret") as never);
+    rerender(<DeferredGoogleAnalytics gaId="G-TEST123" />);
+    const entry = window.dataLayer!.at(-1) as ArrayLike<unknown>;
+    expect(entry[0]).toBe("event");
+    expect(entry[1]).toBe("page_view");
+    expect(entry[2]).toEqual({ page_path: "/signup", page_location: "https://shorted.com.au/signup" });
+  });
+
+  it("does not create a queue or collector outside production hosts", () => {
+    jest.mocked(canCollectAnalytics).mockReturnValue(false);
+    render(<DeferredGoogleAnalytics gaId="G-TEST123" />);
+    expect(window.dataLayer).toBeUndefined();
+    expect(window.gtag).toBeUndefined();
+    expect(document.querySelector('script[src*="googletagmanager"]')).toBeNull();
   });
 
   it("queues gtag commands as Arguments objects, not arrays", () => {

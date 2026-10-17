@@ -99,6 +99,7 @@ func TestHousingHandlers_NormalizeBeforeStoreAndCache(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		store := mocks.NewMockShortsStore(ctrl)
 		store.EXPECT().ListSuburbPriceDrops("VIC", "asking", int32(50)).Return([]*shortsstore.SuburbPriceDropRow{}, nil).Times(1)
+		store.EXPECT().GetHousingMVRefresh(gomock.Any()).Return(nil, nil).Times(1)
 		srv := newTestServer(t, store)
 		for _, req := range []*shortsv1alpha1.ListSuburbPriceDropsRequest{
 			{StateCode: " vic ", Sort: " ASKING ", Limit: 0},

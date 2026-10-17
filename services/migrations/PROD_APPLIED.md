@@ -21,14 +21,35 @@ replay-safe: every statement `IF NOT EXISTS` / `CREATE OR REPLACE`, no bare
 materialized view. `000112_add_api_usage_monthly` is the worked example — every
 statement guarded, touches no rows.
 
+The other replay-safe shape is a whole body guarded on the catalog.
+`000131_widen_stock_price_precision` rewrites `stock_prices` and rebuilds the
+views that read it, but its first statement returns when the price columns are
+already `numeric(12,4)`, so only the first deploy does that work and every
+replay is one catalog read. It runs through `run_psql_session`, on the session
+pooler, rather than in the `run_psql` list: the transaction pooler kills DDL
+that holds its locks for minutes.
+
+`000132_extend_fundamentals` is the same idea, step by step rather than for
+the whole body. Every column add, the CHECK and both unique indexes run only
+when the catalog lacks them, and `mv_fundamentals_growth` is dropped and
+rebuilt only while it lacks its last column (`revenue_prior_period_end`), so
+the rebuild happens on the first deploy and never again. It is two
+transactions (the refresh function first, then the tables and views in the
+order that function locks them) and runs through `run_psql_session` after
+000131. Its allowlist line is not a lever for unblocking a deploy: the jobs
+image the same deploy ships writes the new columns. If it cannot apply,
+hand-apply it (`task db:prod:apply`) and re-run the deploy, or revert.
+
 Most existing housing migrations are **not** replay-safe and must never be added
 here: `000086`, `000090`, `000092`, `000054` and others drop and recreate
 materialized views, which would rebuild them on every deploy; `000105` inserts
 without `ON CONFLICT` and would duplicate rows.
 
-**Hand-applied** — run by an operator against the session pooler (5432) with
-`PGOPTIONS="-c statement_timeout=0"`, then recorded below. `task db:prod:apply
-FILE=… CONFIRM=prod` is the supported path.
+**Hand-applied** — run by an operator with `task db:prod:apply FILE=…
+CONFIRM=prod` (session pooler 5432, one transaction, `SET LOCAL
+statement_timeout = 0`), then recorded below. Entries before 2026-09-24 were
+applied with `PGOPTIONS="-c statement_timeout=0"`, which Supavisor drops: they
+ran under the role's 2-minute default and happened to fit.
 
 ## Baseline
 
@@ -56,3 +77,9 @@ not "ran it".
 |---|---|---|---|
 | `000083_add_state_exposure` | pre-2026-08-29 | (historical) | Removed from the replayed allowlist 2026-08-29. Prod confirmed to hold all three objects it creates: `mv_company_state_exposure` (`pg_matviews`), `idx_mv_company_state_exposure_region_weight` (`pg_indexes`), and `refresh_all_materialized_views` in its **hardened** form (`pg_proc.prosrc ILIKE '%query_canceled%'`). Recorded here because it is applied but no longer replayed. |
 | `000122_add_suburb_hazard_exposure` | 2026-09-09 | Claude (session 01QaKEGrZewvHZ3QnSsYu7ey), via `task db:prod:apply CONFIRM=prod` | `to_regclass('public.suburb_hazard_exposure')` non-null; `pg_constraint` lists `suburb_hazard_exposure_share_bounds_check`, `suburb_hazard_exposure_licence_check` and the PK/FK; `CREATE TABLE` + `CREATE INDEX` echoed by psql. Also allowlisted (replay-safe). |
+| `000124_housing_drops_recency` | 2026-09-24 | Claude, via `task db:prod:apply CONFIRM=prod` (`scripts/prod-psql.sh`, one transaction, `SET LOCAL statement_timeout=0`) | psql echoed the 4 MV drop/recreate/`CREATE INDEX` blocks, `CREATE TABLE housing_mv_refresh`, `CREATE FUNCTION`, `UPDATE 2872` (suburb index medians under k=3 withheld) and `COMMIT`. Read-only check afterwards: `housing_mv_refresh` has 4 rows (refreshed 2026-09-24 01:57 UTC, data_through 2026-09-15 01:46); `mv_state_price_drops` has `suburbs_swept_14d`/`catalog_suburbs` (AU 173/500); `refresh_housing_materialized_views()` has 19 `query_canceled` guards and `proconfig {statement_timeout=0}`. |
+| `000125_add_suburb_planning` | 2026-09-24 | Claude, via `task db:prod:apply CONFIRM=prod` | `to_regclass('public.suburb_planning')` non-null; 7 constraints on it in `pg_constraint` (PK/FK, licence and share-bound CHECKs); `CREATE TABLE` + `CREATE INDEX` echoed. |
+| `000126_council_foundation` | 2026-09-24 | Claude, via `task db:prod:apply CONFIRM=prod` | All 12 new `lga` columns present in `information_schema.columns`; `suburb_lga.dominant_share` present; `idx_lga_state_slug` in `pg_indexes`; `lga_series` exists with 3 constraints. |
+| `000127_council_price_drops_mv` | 2026-09-24 | Claude, via `task db:prod:apply CONFIRM=prod` | psql echoed `SELECT 229`, both `CREATE INDEX`, the `housing_mv_refresh` seed `INSERT 0 1`, `CREATE FUNCTION` and `COMMIT`. A later `task db:prod:refresh WHICH=housing` exited 0 with no Skipping line. `housing_mv_refresh` has an `mv_council_price_drops` row refreshed 2026-09-24 05:28 UTC, and `mv_council_price_drops` holds 229 rows. |
+| `000128_repoint_stripped_sal_links` | 2026-09-24 | Claude, via `task db:prod:apply CONFIRM=prod` | A read-only dry run of the candidate selection returned 30 before the apply. The apply echoed `SELECT 30`, `UPDATE 30` (regions), `UPDATE 222` (listings), `UPDATE 403` (events), `UPDATE 46` (drop-index rows) and `COMMIT`. Afterwards `SUBURB:NSW-MAYFIELD` links `12540` (Mayfield, Newcastle), and re-running the selection returns 0. |
+| `000135_drop_headline_dividends` | 2026-10-11 | Claude, via `task db:prod:apply CONFIRM=prod` | Before: a read-only count of 91 rows with `announcement_url IS NULL` (35 with an ex-date in the last 12 months). The apply echoed `SELECT 91` (the backup) and `DELETE 91`. Read-only check afterwards: `dividend_history` has 0 rows with `announcement_url IS NULL` and 157 in all; `dividend_history_headline_rows` holds 91. Tested first on a scratch Postgres: up, re-run (`DELETE 0`) and down. |

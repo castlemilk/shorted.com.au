@@ -214,3 +214,155 @@ func TestSelectSQLShapes(t *testing.T) {
 		t.Error("already-extracted filter must batch through ANY()")
 	}
 }
+
+// Statutory-filing targeting (a deliberate divergence from extract.py): the
+// weekly Gemini budget goes to Appendix 4D/4E first and never to presentations,
+// notices, dividend admin or quarterlies. Headlines are real asx_announcements
+// shapes (several carried over from results-watch.test.ts).
+func TestIsExtractionTarget(t *testing.T) {
+	accept := []string{
+		"",
+		"Appendix 4D and Half Year Report",
+		"Appendix 4E & Financial Report for year ended 30 June 2026",
+		"FY26 Appendix 4E and Annual Report",
+		"Appendix 4E - Preliminary Final Report",
+		"Appendix4E and Annual Report", // no space
+		"Half Year Financial Report",
+		"Half Yearly Report and Accounts",
+		"Preliminary Final Report",
+		"Annual Financial Report 2026",
+		"Annual Report 2025",
+		"Telix HY26 Results Announcement",
+		"FY26 Results Release",
+		"FY26 Financial Results Release and Webinar", // strong marker beats the webinar exclusion
+		"FY26 Financial Results and Dividend",        // results language beats the dividend exclusion
+		"Half Year Results and Interim Dividend",
+		"Financial Report for the half year ended 31 December 2025",
+		"1H25 Results Surging Revenue and Profitability",
+		"Appendix 4E Full Year Results and Investor Presentation", // statutory beats presentation
+		"Interim Financial Statements",
+		"Results Summary - Full Year Ended 30 June 2026",
+	}
+	for _, h := range accept {
+		if !isExtractionTarget(h) {
+			t.Errorf("want TARGET, got excluded: %q", h)
+		}
+	}
+	reject := []string{
+		"FY25 Results Presentation",
+		"Investor Presentation",
+		"Half Year Results Presentation",
+		"PolyNovo FY26 Results Presentation - Registration Details",
+		"Advanced Braking Technology FY26 Results Webinar",
+		"AMX to present FY26 Results at Coffee Microcaps Webinar",
+		"FY26 Results Date and Market Briefing",
+		"Notice of FY26 Results Market Briefing",
+		"Notice of General Meeting", // kept by the Python noise filter, excluded here
+		"Notice of Annual General Meeting/Proxy Form",
+		"Results of Meeting",
+		"Results of 2025 Annual General Meeting",
+		"Results of General Meeting - Share Issue Approvals",
+		"Dividend/Distribution - AMA",
+		"Update - Dividend/Distribution - ALK",
+		"Confirmation of Final Dividend Payment Date",
+		"Final Dividend Declaration",
+		"Dividend Reinvestment Plan Pricing",
+		"Quarterly Activities Report",
+		"Quarterly Activities/Appendix 4C Cash Flow Report",
+		"Quarterly Activity Report and Appendix 4C",
+		"1Q26 4C Results - Investor Presentation",
+		"Q3 FY26 Results Announcement", // a quarter, even with release language
+		"March 2026 Activities Report",
+		"Half Year Results Conference Call Details",
+		"FY26 Results Briefing Transcript",
+	}
+	for _, h := range reject {
+		if isExtractionTarget(h) {
+			t.Errorf("want EXCLUDED, got target: %q", h)
+		}
+	}
+}
+
+func TestFilingPriority(t *testing.T) {
+	cases := map[string]int{
+		"Appendix 4D and Half Year Report":            0,
+		"Appendix 4E - Preliminary Final Report":      0,
+		"Telix HY26 Results Announcement":             0,
+		"Half Yearly Report and Accounts":             0,
+		"Annual Financial Report 2026":                0,
+		"Financial Report for the year ended 30 June": 0,
+		"Annual Report 2025":                          1, // no "financial": not first tier
+		"FY2025 Full year results":                    1,
+		"Interim Financial Statements":                1,
+		"":                                            2,
+		"Operational Update":                          2,
+	}
+	for title, want := range cases {
+		if got := filingPriority(title); got != want {
+			t.Errorf("filingPriority(%q) = %d, want %d", title, got, want)
+		}
+	}
+}
+
+// Statutory filings are the primary key; most-shorted breaks ties within a
+// tier; newest breaks the rest. The old order (most-shorted alone) spent the
+// cap on a heavily shorted company's documents ahead of anyone's 4D.
+func TestPrioritiseForExtraction(t *testing.T) {
+	reports := []report{
+		{StockCode: "AAA", Title: "Annual Report 2025", Date: "2025-09-01", URL: "a-ar"},
+		{StockCode: "BBB", Title: "Appendix 4D and Half Year Report", Date: "2026-02-20", URL: "b-4d"},
+		{StockCode: "CCC", Title: "Appendix 4E - Preliminary Final Report", Date: "2025-08-20", URL: "c-4e"},
+		{StockCode: "AAA", Title: "Appendix 4D", Date: "2026-02-25", URL: "a-4d"},
+		{StockCode: "ZZZ", Title: "Appendix 4D", Date: "2026-02-27", URL: "z-4d"},
+		{StockCode: "YYY", Title: "Company Update", Date: "2026-03-01", URL: "y-other"},
+	}
+	prioritiseForExtraction(reports, map[string]float64{"AAA": 12.5, "CCC": 3.1})
+	var got []string
+	for _, r := range reports {
+		got = append(got, r.URL)
+	}
+	// Tier 0: AAA (12.5%), CCC (3.1%), then the unranked newest first (ZZZ, BBB).
+	want := []string{"a-4d", "c-4e", "z-4d", "b-4d", "a-ar", "y-other"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	// Without the short ranking: statutory first, newest first.
+	prioritiseForExtraction(reports, nil)
+	got = got[:0]
+	for _, r := range reports {
+		got = append(got, r.URL)
+	}
+	want = []string{"z-4d", "a-4d", "b-4d", "c-4e", "a-ar", "y-other"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("no ranking: got %v, want %v", got, want)
+	}
+}
+
+func TestParseReportRowsDropsNonTargets(t *testing.T) {
+	rows := []reportRow{{
+		StockCode: "BHP",
+		FinancialReports: `[
+			{"source":"asx_announcements","type":"half_year_results","title":"Appendix 4D and Half Year Report","url":"keep","date":"2026-02-17"},
+			{"source":"asx_announcements","type":"half_year_results","title":"Half Year Results Presentation","url":"pres","date":"2026-02-17"},
+			{"source":"asx_announcements","type":"annual_results","title":"Results of Meeting","url":"agm","date":"2025-11-01"},
+			{"source":"asx_announcements","type":"financial_report","title":"FY26 Results Webinar","url":"web","date":"2026-08-01"}
+		]`,
+	}}
+	got := parseReportRows(rows)
+	if len(got) != 1 || got[0].URL != "keep" {
+		t.Errorf("want only the 4D, got %+v", got)
+	}
+}
+
+// Same code, same date: the statutory filing wins the per-company cap.
+func TestSortReportsDescPrefersTheFilingOnTheSameDay(t *testing.T) {
+	reports := []report{
+		{StockCode: "AAA", Date: "2026-02-20", Title: "Half year update", URL: "update"},
+		{StockCode: "AAA", Date: "2026-02-20", Title: "Appendix 4D", URL: "4d"},
+	}
+	sortReportsDesc(reports)
+	if reports[0].URL != "4d" {
+		t.Errorf("want the 4D first, got %v", reports)
+	}
+}

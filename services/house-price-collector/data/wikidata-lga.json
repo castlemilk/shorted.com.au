@@ -1,0 +1,2155 @@
+{
+ "source": "https://query.wikidata.org/sparql",
+ "licence": "CC0-1.0",
+ "fetchedAt": "2026-09-23",
+ "query": "SELECT ?item ?code ?website WHERE {\n  ?item wdt:P10112 ?code .\n  FILTER(STRSTARTS(?code, \"LGA\"))\n  OPTIONAL { ?item wdt:P856 ?website }\n}",
+ "councils": {
+  "10050": {
+   "qid": "Q1719401",
+   "website": "https://www.alburycity.nsw.gov.au"
+  },
+  "10180": {
+   "qid": "Q24052502",
+   "website": "https://www.armidaleregional.nsw.gov.au/"
+  },
+  "10250": {
+   "qid": "Q805266",
+   "website": "https://ballina.nsw.gov.au/"
+  },
+  "10300": {
+   "qid": "Q751598",
+   "website": "https://balranald.nsw.gov.au"
+  },
+  "10470": {
+   "qid": "Q786795",
+   "website": "https://www.bathurst.nsw.gov.au/Home"
+  },
+  "10500": {
+   "qid": "Q26835506",
+   "website": "https://www.bayside.nsw.gov.au/"
+  },
+  "10550": {
+   "qid": "Q752512",
+   "website": "https://begavalley.nsw.gov.au/"
+  },
+  "10600": {
+   "qid": "Q752634",
+   "website": "https://www.bellingen.nsw.gov.au/Home"
+  },
+  "10650": {
+   "qid": "Q752639",
+   "website": "https://www.berriganshire.nsw.gov.au/Home"
+  },
+  "10750": {
+   "qid": "Q30919",
+   "website": "https://www.blacktown.nsw.gov.au/Home"
+  },
+  "10800": {
+   "qid": "Q881483",
+   "website": "https://www.blandshire.nsw.gov.au/Home"
+  },
+  "10850": {
+   "qid": "Q752517",
+   "website": "https://www.blayney.nsw.gov.au"
+  },
+  "10900": {
+   "qid": "Q251464",
+   "website": "https://www.bmcc.nsw.gov.au"
+  },
+  "10950": {
+   "qid": "Q142160",
+   "website": "https://www.bogan.nsw.gov.au"
+  },
+  "11150": {
+   "qid": "Q573910",
+   "website": "https://bourke.nsw.gov.au"
+  },
+  "11200": {
+   "qid": "Q752514",
+   "website": "https://brewarrina.nsw.gov.au"
+  },
+  "11250": {
+   "qid": "Q925757",
+   "website": "https://www.brokenhill.nsw.gov.au/Home"
+  },
+  "11300": {
+   "qid": "Q1017201",
+   "website": "https://www.burwood.nsw.gov.au/Home"
+  },
+  "11350": {
+   "qid": "Q752636",
+   "website": "https://www.byron.nsw.gov.au/Home"
+  },
+  "11400": {
+   "qid": "Q1024925",
+   "website": "https://www.cabonne.nsw.gov.au/Home"
+  },
+  "11450": {
+   "qid": "Q979106",
+   "website": "https://www.camden.nsw.gov.au"
+  },
+  "11500": {
+   "qid": "Q1030585",
+   "website": "https://www.campbelltown.nsw.gov.au/Home"
+  },
+  "11520": {
+   "qid": "Q582899",
+   "website": "https://www.canadabay.nsw.gov.au"
+  },
+  "11570": {
+   "qid": "Q24070750",
+   "website": "https://www.cbcity.nsw.gov.au/"
+  },
+  "11600": {
+   "qid": "Q753101",
+   "website": "https://carrathool.nsw.gov.au"
+  },
+  "11650": {
+   "qid": "Q24058852"
+  },
+  "11700": {
+   "qid": "Q752642",
+   "website": "https://www.centraldarling.nsw.gov.au/Home"
+  },
+  "11720": {
+   "qid": "Q1057393",
+   "website": "https://www.cessnock.nsw.gov.au/Home"
+  },
+  "11730": {
+   "qid": "Q283019",
+   "website": "https://www.clarence.nsw.gov.au/Home"
+  },
+  "11750": {
+   "qid": "Q753128",
+   "website": "https://www.cobar.nsw.gov.au"
+  },
+  "11800": {
+   "qid": "Q182671",
+   "website": "https://www.coffsharbour.nsw.gov.au/Home"
+  },
+  "12000": {
+   "qid": "Q753435",
+   "website": "https://coolamon.nsw.gov.au/"
+  },
+  "12150": {
+   "qid": "Q752632",
+   "website": "https://www.coonambleshire.nsw.gov.au"
+  },
+  "12160": {
+   "qid": "Q24053165",
+   "website": "https://www.cgrc.nsw.gov.au/"
+  },
+  "12350": {
+   "qid": "Q753124",
+   "website": "https://www.cowracouncil.com.au/Cowra-Council-Home"
+  },
+  "12380": {
+   "qid": "Q24055697",
+   "website": "https://www.cumberland.nsw.gov.au"
+  },
+  "12390": {
+   "qid": "Q24056546",
+   "website": "https://www.dubbo.nsw.gov.au/"
+  },
+  "12700": {
+   "qid": "Q753131",
+   "website": "https://www.dungog.nsw.gov.au/Home"
+  },
+  "12730": {
+   "qid": "Q24052505",
+   "website": "https://www.edwardriver.nsw.gov.au/Home"
+  },
+  "12750": {
+   "qid": "Q753512",
+   "website": "http://www.esc.nsw.gov.au/"
+  },
+  "12850": {
+   "qid": "Q571368",
+   "website": "https://www.fairfieldcity.nsw.gov.au/Home"
+  },
+  "12870": {
+   "qid": "Q24052509",
+   "website": "https://www.federationcouncil.nsw.gov.au/Home"
+  },
+  "12900": {
+   "qid": "Q664896",
+   "website": "https://www.forbes.nsw.gov.au"
+  },
+  "12930": {
+   "qid": "Q24069989",
+   "website": "https://www.georgesriver.nsw.gov.au/Home"
+  },
+  "12950": {
+   "qid": "Q753112",
+   "website": "https://www.gilgandra.nsw.gov.au/Home"
+  },
+  "13010": {
+   "qid": "Q753416",
+   "website": "https://www.gisc.nsw.gov.au/Home"
+  },
+  "13310": {
+   "qid": "Q753508",
+   "website": "https://www.goulburn.nsw.gov.au/Home"
+  },
+  "13340": {
+   "qid": "Q613414",
+   "website": "https://www.greaterhume.nsw.gov.au/Home"
+  },
+  "13450": {
+   "qid": "Q753590",
+   "website": "https://www.griffith.nsw.gov.au/Home"
+  },
+  "13550": {
+   "qid": "Q753458",
+   "website": "https://www.gunnedah.nsw.gov.au"
+  },
+  "13660": {
+   "qid": "Q583112",
+   "website": "https://www.gwydir.nsw.gov.au/Home"
+  },
+  "13800": {
+   "qid": "Q1539297",
+   "website": "https://www.hawkesbury.nsw.gov.au"
+  },
+  "13850": {
+   "qid": "Q649319",
+   "website": "https://www.hay.nsw.gov.au"
+  },
+  "13910": {
+   "qid": "Q24053159",
+   "website": "https://www.hilltops.nsw.gov.au"
+  },
+  "14000": {
+   "qid": "Q115549",
+   "website": "https://www.hornsby.nsw.gov.au/Home"
+  },
+  "14100": {
+   "qid": "Q1638179",
+   "website": "https://www.huntershill.nsw.gov.au/Home"
+  },
+  "14170": {
+   "qid": "Q24067070",
+   "website": "https://www.innerwest.nsw.gov.au"
+  },
+  "14220": {
+   "qid": "Q753404",
+   "website": "https://inverell.nsw.gov.au"
+  },
+  "14300": {
+   "qid": "Q753419",
+   "website": "https://www.junee.nsw.gov.au"
+  },
+  "14350": {
+   "qid": "Q753463",
+   "website": "http://www.kempsey.nsw.gov.au/"
+  },
+  "14400": {
+   "qid": "Q753426",
+   "website": "https://www.kiama.nsw.gov.au/Home"
+  },
+  "14500": {
+   "qid": "Q133642",
+   "website": "https://www.krg.nsw.gov.au"
+  },
+  "14550": {
+   "qid": "Q753455",
+   "website": "https://www.kyogle.nsw.gov.au/"
+  },
+  "14600": {
+   "qid": "Q753114",
+   "website": "https://www.lachlan.nsw.gov.au/"
+  },
+  "14650": {
+   "qid": "Q606193",
+   "website": "http://www.lakemac.com.au/"
+  },
+  "14700": {
+   "qid": "Q32311",
+   "website": "https://www.lanecove.nsw.gov.au/Home"
+  },
+  "14750": {
+   "qid": "Q753103",
+   "website": "https://www.leeton.nsw.gov.au/Home"
+  },
+  "14850": {
+   "qid": "Q753599",
+   "website": "https://www.lismore.nsw.gov.au/Home"
+  },
+  "14870": {
+   "qid": "Q586012",
+   "website": "https://council.lithgow.com/"
+  },
+  "14900": {
+   "qid": "Q1309863",
+   "website": "https://www.liverpool.nsw.gov.au"
+  },
+  "14920": {
+   "qid": "Q820671",
+   "website": "https://www.liverpoolplains.nsw.gov.au/Home"
+  },
+  "14950": {
+   "qid": "Q753594",
+   "website": "https://lockhart.nsw.gov.au/"
+  },
+  "15050": {
+   "qid": "Q820280",
+   "website": "https://www.maitland.nsw.gov.au"
+  },
+  "15240": {
+   "qid": "Q24056504",
+   "website": "https://www.midcoast.nsw.gov.au/Home"
+  },
+  "15270": {
+   "qid": "Q820340",
+   "website": "https://www.midwestern.nsw.gov.au/Home"
+  },
+  "15300": {
+   "qid": "Q820167",
+   "website": "https://www.mpsc.nsw.gov.au"
+  },
+  "15350": {
+   "qid": "Q13080916",
+   "website": "https://mosman.nsw.gov.au"
+  },
+  "15520": {
+   "qid": "Q24053061",
+   "website": "https://www.murrayriver.nsw.gov.au/Home"
+  },
+  "15560": {
+   "qid": "Q24052688",
+   "website": "https://www.murrumbidgee.nsw.gov.au/Home"
+  },
+  "15650": {
+   "qid": "Q820368",
+   "website": "https://www.muswellbrook.nsw.gov.au"
+  },
+  "15700": {
+   "qid": "Q820685",
+   "website": "https://www.nambucca.nsw.gov.au/Home"
+  },
+  "15750": {
+   "qid": "Q175095",
+   "website": "https://www.narrabri.nsw.gov.au/Home"
+  },
+  "15800": {
+   "qid": "Q820304",
+   "website": "https://www.narrandera.nsw.gov.au/Home"
+  },
+  "15850": {
+   "qid": "Q610975",
+   "website": "https://www.narromine.nsw.gov.au"
+  },
+  "15900": {
+   "qid": "Q820325",
+   "website": "https://newcastle.nsw.gov.au"
+  },
+  "15950": {
+   "qid": "Q114395",
+   "website": "https://www.northsydney.nsw.gov.au"
+  },
+  "15990": {
+   "qid": "Q24050090",
+   "website": "https://www.northernbeaches.nsw.gov.au/"
+  },
+  "16100": {
+   "qid": "Q820717",
+   "website": "https://www.oberon.nsw.gov.au/Home"
+  },
+  "16150": {
+   "qid": "Q820357",
+   "website": "https://www.orange.nsw.gov.au"
+  },
+  "16200": {
+   "qid": "Q1517703",
+   "website": "https://www.parkes.nsw.gov.au/Home"
+  },
+  "16260": {
+   "qid": "Q11079799",
+   "website": "https://www.cityofparramatta.nsw.gov.au/"
+  },
+  "16350": {
+   "qid": "Q2069208",
+   "website": "https://www.penrithcity.nsw.gov.au"
+  },
+  "16380": {
+   "qid": "Q596030",
+   "website": "https://www.pmhc.nsw.gov.au/Home"
+  },
+  "16400": {
+   "qid": "Q820318",
+   "website": "https://www.portstephens.nsw.gov.au"
+  },
+  "16490": {
+   "qid": "Q24053131",
+   "website": "https://www.qprc.nsw.gov.au/Home"
+  },
+  "16550": {
+   "qid": "Q1311882",
+   "website": "https://www.randwick.nsw.gov.au"
+  },
+  "16610": {
+   "qid": "Q820691",
+   "website": "https://richmondvalley.nsw.gov.au"
+  },
+  "16700": {
+   "qid": "Q2178230",
+   "website": "https://www.ryde.nsw.gov.au/Home"
+  },
+  "16900": {
+   "qid": "Q1534913",
+   "website": "https://www.shellharbour.nsw.gov.au"
+  },
+  "16950": {
+   "qid": "Q820286",
+   "website": "https://www.shoalhaven.nsw.gov.au/Home"
+  },
+  "17000": {
+   "qid": "Q769649",
+   "website": "https://www.singleton.nsw.gov.au/Home"
+  },
+  "17040": {
+   "qid": "Q24053113",
+   "website": "https://www.snowymonaro.nsw.gov.au/Home"
+  },
+  "17080": {
+   "qid": "Q24053098",
+   "website": "https://www.snowyvalleys.nsw.gov.au/Home"
+  },
+  "17100": {
+   "qid": "Q660171",
+   "website": "https://www.strathfield.nsw.gov.au/Home"
+  },
+  "17150": {
+   "qid": "Q1818997",
+   "website": "https://www.sutherlandshire.nsw.gov.au"
+  },
+  "17200": {
+   "qid": "Q1094194",
+   "website": "https://www.cityofsydney.nsw.gov.au"
+  },
+  "17310": {
+   "qid": "Q820721",
+   "website": "https://www.tamworth.nsw.gov.au"
+  },
+  "17350": {
+   "qid": "Q820638",
+   "website": "https://www.temora.nsw.gov.au/Home"
+  },
+  "17400": {
+   "qid": "Q940748",
+   "website": "https://www.tenterfield.nsw.gov.au"
+  },
+  "17420": {
+   "qid": "Q115553",
+   "website": "https://www.thehills.nsw.gov.au/Home"
+  },
+  "17550": {
+   "qid": "Q263160",
+   "website": "https://www.tweed.nsw.gov.au/home"
+  },
+  "17620": {
+   "qid": "Q820332",
+   "website": "https://www.upperhunter.nsw.gov.au/Home"
+  },
+  "17640": {
+   "qid": "Q176908",
+   "website": "https://upperlachlan.nsw.gov.au"
+  },
+  "17650": {
+   "qid": "Q820188",
+   "website": "https://www.uralla.nsw.gov.au/Home"
+  },
+  "17750": {
+   "qid": "Q820153",
+   "website": "https://wagga.nsw.gov.au"
+  },
+  "17850": {
+   "qid": "Q820180",
+   "website": "https://walcha.nsw.gov.au"
+  },
+  "17900": {
+   "qid": "Q265390",
+   "website": "https://www.walgett.nsw.gov.au"
+  },
+  "17950": {
+   "qid": "Q820651",
+   "website": "https://www.warren.nsw.gov.au"
+  },
+  "18020": {
+   "qid": "Q820679",
+   "website": "https://www.warrumbungle.nsw.gov.au/Home"
+  },
+  "18050": {
+   "qid": "Q2299900",
+   "website": "https://www.waverley.nsw.gov.au"
+  },
+  "18100": {
+   "qid": "Q820159",
+   "website": "https://www.weddin.nsw.gov.au/Home"
+  },
+  "18200": {
+   "qid": "Q820695",
+   "website": "https://www.wentworth.nsw.gov.au"
+  },
+  "18250": {
+   "qid": "Q634933",
+   "website": "https://www.willoughby.nsw.gov.au/Home"
+  },
+  "18350": {
+   "qid": "Q1508888",
+   "website": "https://www.wsc.nsw.gov.au/Home"
+  },
+  "18400": {
+   "qid": "Q1807241",
+   "website": "https://www.wollondilly.nsw.gov.au"
+  },
+  "18450": {
+   "qid": "Q820296",
+   "website": "https://www.wollongong.nsw.gov.au"
+  },
+  "18500": {
+   "qid": "Q1623372",
+   "website": "https://www.woollahra.nsw.gov.au/Home"
+  },
+  "18710": {
+   "qid": "Q820173",
+   "website": "https://www.yassvalley.nsw.gov.au/Home"
+  },
+  "20110": {
+   "qid": "Q1419674",
+   "website": "http://www.alpineshire.vic.gov.au/"
+  },
+  "20260": {
+   "qid": "Q626313",
+   "website": "https://www.ararat.vic.gov.au/"
+  },
+  "20570": {
+   "qid": "Q805150",
+   "website": "http://www.ballarat.vic.gov.au/"
+  },
+  "20660": {
+   "qid": "Q650144",
+   "website": "https://www.banyule.vic.gov.au/"
+  },
+  "20740": {
+   "qid": "Q810446",
+   "website": "http://www.basscoast.vic.gov.au/"
+  },
+  "20830": {
+   "qid": "Q812028",
+   "website": "http://www.bawbawshire.vic.gov.au/"
+  },
+  "20910": {
+   "qid": "Q546554",
+   "website": "https://www.bayside.vic.gov.au/"
+  },
+  "21010": {
+   "qid": "Q745220",
+   "website": "http://www.benalla.vic.gov.au/"
+  },
+  "21110": {
+   "qid": "Q894060",
+   "website": "http://www.boroondara.vic.gov.au/"
+  },
+  "21180": {
+   "qid": "Q917261",
+   "website": "https://www.brimbank.vic.gov.au/"
+  },
+  "21270": {
+   "qid": "Q1004687",
+   "website": "http://www.buloke.vic.gov.au/"
+  },
+  "21370": {
+   "qid": "Q1030333",
+   "website": "http://www.campaspe.vic.gov.au/"
+  },
+  "21450": {
+   "qid": "Q1035752",
+   "website": "https://www.cardinia.vic.gov.au/"
+  },
+  "21610": {
+   "qid": "Q1756241",
+   "website": "https://www.casey.vic.gov.au/"
+  },
+  "21670": {
+   "qid": "Q1053792",
+   "website": "http://www.centralgoldfields.com.au/"
+  },
+  "21750": {
+   "qid": "Q1107583",
+   "website": "http://www.colacotway.vic.gov.au/"
+  },
+  "21830": {
+   "qid": "Q1131914",
+   "website": "http://www.corangamite.vic.gov.au/"
+  },
+  "21890": {
+   "qid": "Q541032",
+   "website": "https://www.darebin.vic.gov.au/"
+  },
+  "22110": {
+   "qid": "Q721318",
+   "website": "https://www.eastgippsland.vic.gov.au/"
+  },
+  "22170": {
+   "qid": "Q1445363",
+   "website": "http://www.frankston.vic.gov.au"
+  },
+  "22250": {
+   "qid": "Q1475578",
+   "website": "https://www.gannawarra.vic.gov.au"
+  },
+  "22310": {
+   "qid": "Q1530742",
+   "website": "http://www.gleneira.vic.gov.au/"
+  },
+  "22410": {
+   "qid": "Q606378",
+   "website": "http://www.glenelg.vic.gov.au/"
+  },
+  "22490": {
+   "qid": "Q1338860",
+   "website": "http://www.goldenplains.vic.gov.au/"
+  },
+  "22620": {
+   "qid": "Q678469",
+   "website": "https://www.bendigo.vic.gov.au/"
+  },
+  "22670": {
+   "qid": "Q1544419",
+   "website": "http://www.greaterdandenong.com/"
+  },
+  "22750": {
+   "qid": "Q1476602",
+   "website": "http://www.geelongcity.vic.gov.au/"
+  },
+  "22830": {
+   "qid": "Q473188",
+   "website": "https://greatershepparton.com.au/"
+  },
+  "22910": {
+   "qid": "Q663654",
+   "website": "http://www.hepburn.vic.gov.au/"
+  },
+  "22980": {
+   "qid": "Q667866",
+   "website": "http://www.hindmarsh.vic.gov.au/"
+  },
+  "23110": {
+   "qid": "Q660298",
+   "website": "http://www.hobsonsbay.vic.gov.au/"
+  },
+  "23190": {
+   "qid": "Q1476336",
+   "website": "http://www.hrcc.vic.gov.au/"
+  },
+  "23270": {
+   "qid": "Q1637032",
+   "website": "http://www.hume.vic.gov.au/"
+  },
+  "23350": {
+   "qid": "Q1478179",
+   "website": "http://www.indigoshire.vic.gov.au/"
+  },
+  "23430": {
+   "qid": "Q1500830",
+   "website": "http://www.kingston.vic.gov.au/"
+  },
+  "23670": {
+   "qid": "Q1500804",
+   "website": "http://www.knox.vic.gov.au/"
+  },
+  "23810": {
+   "qid": "Q1475256",
+   "website": "http://www.latrobe.vic.gov.au/"
+  },
+  "23940": {
+   "qid": "Q662483"
+  },
+  "24130": {
+   "qid": "Q662472",
+   "website": "http://www.mrsc.vic.gov.au/"
+  },
+  "24210": {
+   "qid": "Q765334",
+   "website": "http://www.manningham.vic.gov.au/"
+  },
+  "24250": {
+   "qid": "Q647929",
+   "website": "http://www.mansfield.vic.gov.au/"
+  },
+  "24330": {
+   "qid": "Q1502208",
+   "website": "http://www.maribyrnong.vic.gov.au/"
+  },
+  "24410": {
+   "qid": "Q473183",
+   "website": "https://www.maroondah.vic.gov.au/"
+  },
+  "24600": {
+   "qid": "Q1919098",
+   "website": "https://www.melbourne.vic.gov.au/"
+  },
+  "24650": {
+   "qid": "Q979561",
+   "website": "http://www.melton.vic.gov.au/"
+  },
+  "24700": {
+   "qid": "Q1947531",
+   "website": "https://www.merri-bek.vic.gov.au"
+  },
+  "24780": {
+   "qid": "Q1476850",
+   "website": "http://www.mildura.vic.gov.au/"
+  },
+  "24850": {
+   "qid": "Q652395",
+   "website": "https://www.mitchellshire.vic.gov.au/"
+  },
+  "24900": {
+   "qid": "Q657666",
+   "website": "http://www.moira.vic.gov.au/"
+  },
+  "24970": {
+   "qid": "Q1785372",
+   "website": "http://www.monash.vic.gov.au/"
+  },
+  "25060": {
+   "qid": "Q1786648",
+   "website": "http://www.mvcc.vic.gov.au/"
+  },
+  "25150": {
+   "qid": "Q1479557",
+   "website": "http://www.moorabool.vic.gov.au/"
+  },
+  "25340": {
+   "qid": "Q684708",
+   "website": "http://www.mornpen.vic.gov.au/"
+  },
+  "25430": {
+   "qid": "Q657741",
+   "website": "http://www.mountalexander.vic.gov.au/"
+  },
+  "25490": {
+   "qid": "Q278688",
+   "website": "http://www.moyne.vic.gov.au/"
+  },
+  "25620": {
+   "qid": "Q1478730",
+   "website": "http://www.murrindindi.vic.gov.au/"
+  },
+  "25710": {
+   "qid": "Q175701",
+   "website": "http://www.nillumbik.vic.gov.au/"
+  },
+  "25810": {
+   "qid": "Q667893",
+   "website": "https://www.ngshire.vic.gov.au/Home"
+  },
+  "25900": {
+   "qid": "Q747477",
+   "website": "http://www.portphillip.vic.gov.au/"
+  },
+  "25990": {
+   "qid": "Q667879",
+   "website": "http://www.pyrenees.vic.gov.au/"
+  },
+  "26080": {
+   "qid": "Q663742",
+   "website": "http://www.queenscliffe.vic.gov.au/"
+  },
+  "26170": {
+   "qid": "Q652386",
+   "website": "http://www.southgippsland.vic.gov.au/"
+  },
+  "26260": {
+   "qid": "Q666486",
+   "website": "http://www.sthgrampians.vic.gov.au/"
+  },
+  "26350": {
+   "qid": "Q1409285",
+   "website": "http://www.stonnington.vic.gov.au/"
+  },
+  "26430": {
+   "qid": "Q652391",
+   "website": "http://www.strathbogie.vic.gov.au/"
+  },
+  "26490": {
+   "qid": "Q1476815",
+   "website": "http://www.surfcoast.vic.gov.au/"
+  },
+  "26610": {
+   "qid": "Q1476725",
+   "website": "https://www.swanhill.vic.gov.au/"
+  },
+  "26670": {
+   "qid": "Q646200",
+   "website": "https://www.towong.vic.gov.au/"
+  },
+  "26700": {
+   "qid": "Q1477083",
+   "website": "http://www.wangaratta.vic.gov.au/"
+  },
+  "26730": {
+   "qid": "Q1273502",
+   "website": "http://www.warrnambool.vic.gov.au/"
+  },
+  "26810": {
+   "qid": "Q646195",
+   "website": "https://www.wellington.vic.gov.au/"
+  },
+  "26890": {
+   "qid": "Q674471",
+   "website": "http://www.westwimmera.vic.gov.au/"
+  },
+  "26980": {
+   "qid": "Q1502393",
+   "website": "http://www.whitehorse.vic.gov.au/"
+  },
+  "27070": {
+   "qid": "Q970191",
+   "website": "https://whittlesea.vic.gov.au/"
+  },
+  "27170": {
+   "qid": "Q582046",
+   "website": "http://www.wodonga.vic.gov.au/"
+  },
+  "27260": {
+   "qid": "Q1502429",
+   "website": "https://www.wyndham.vic.gov.au/"
+  },
+  "27350": {
+   "qid": "Q1474848",
+   "website": "http://www.yarracity.vic.gov.au/"
+  },
+  "27450": {
+   "qid": "Q188422",
+   "website": "https://www.yarraranges.vic.gov.au/"
+  },
+  "27630": {
+   "qid": "Q673273",
+   "website": "http://www.yarriambiack.vic.gov.au/"
+  },
+  "30250": {
+   "qid": "Q264641",
+   "website": "https://www.aurukun.qld.gov.au/"
+  },
+  "30300": {
+   "qid": "Q805499",
+   "website": "https://www.balonne.qld.gov.au/"
+  },
+  "30370": {
+   "qid": "Q806083",
+   "website": "http://www.banana.qld.gov.au/"
+  },
+  "30410": {
+   "qid": "Q807896",
+   "website": "http://www.barcaldine.qld.gov.au/"
+  },
+  "30450": {
+   "qid": "Q807974",
+   "website": "https://www.barcoo.qld.gov.au"
+  },
+  "30760": {
+   "qid": "Q880682",
+   "website": "https://www.btrc.qld.gov.au/Home"
+  },
+  "30900": {
+   "qid": "Q895093",
+   "website": "https://www.boulia.qld.gov.au/Home"
+  },
+  "31000": {
+   "qid": "Q917682",
+   "website": "https://www.brisbane.qld.gov.au"
+  },
+  "31750": {
+   "qid": "Q1004546",
+   "website": "https://www.bulloo.qld.gov.au/Home"
+  },
+  "31820": {
+   "qid": "Q1005343",
+   "website": "https://www.bundaberg.qld.gov.au/Home"
+  },
+  "31900": {
+   "qid": "Q383090",
+   "website": "http://www.burdekin.qld.gov.au/"
+  },
+  "31950": {
+   "qid": "Q1016378",
+   "website": "http://www.burke.qld.gov.au/"
+  },
+  "32080": {
+   "qid": "Q1025962",
+   "website": "http://www.cairns.qld.gov.au/"
+  },
+  "32250": {
+   "qid": "Q676334",
+   "website": "https://www.carpentaria.qld.gov.au/"
+  },
+  "32260": {
+   "qid": "Q1048446",
+   "website": "https://www.cassowarycoast.qld.gov.au/"
+  },
+  "32270": {
+   "qid": "Q1053796",
+   "website": "http://www.centralhighlands.qld.gov.au/"
+  },
+  "32310": {
+   "qid": "Q1066838",
+   "website": "http://www.charterstowers.qld.gov.au/"
+  },
+  "32330": {
+   "qid": "Q1070208",
+   "website": "http://www.cherbourg.qld.gov.au"
+  },
+  "32450": {
+   "qid": "Q740289",
+   "website": "https://www.cloncurry.qld.gov.au/"
+  },
+  "32500": {
+   "qid": "Q1069392",
+   "website": "https://www.cook.qld.gov.au/"
+  },
+  "32600": {
+   "qid": "Q969590",
+   "website": "http://www.croydon.qld.gov.au/"
+  },
+  "32750": {
+   "qid": "Q1067063",
+   "website": "http://www.diamantina.qld.gov.au/"
+  },
+  "32770": {
+   "qid": "Q1221662",
+   "website": "http://www.doomadgee.qld.gov.au/"
+  },
+  "32810": {
+   "qid": "Q7498406"
+  },
+  "33100": {
+   "qid": "Q476477",
+   "website": "http://www.etheridge.qld.gov.au/"
+  },
+  "33200": {
+   "qid": "Q1066890",
+   "website": "http://www.flinders.qld.gov.au/index.shtml"
+  },
+  "33220": {
+   "qid": "Q1066809",
+   "website": "http://frasercoast.qld.gov.au/"
+  },
+  "33360": {
+   "qid": "Q925987",
+   "website": "http://gladstone.qld.gov.au/"
+  },
+  "33430": {
+   "qid": "Q1069385",
+   "website": "http://www.goldcoast.qld.gov.au/"
+  },
+  "33610": {
+   "qid": "Q162021",
+   "website": "http://www.goondiwindirc.qld.gov.au/"
+  },
+  "33620": {
+   "qid": "Q1066821",
+   "website": "http://www.gympie.qld.gov.au/"
+  },
+  "33800": {
+   "qid": "Q948147",
+   "website": "http://www.hinchinbrook.qld.gov.au/"
+  },
+  "33830": {
+   "qid": "Q14320095"
+  },
+  "33960": {
+   "qid": "Q1631867",
+   "website": "http://www.ipswich.qld.gov.au/"
+  },
+  "33980": {
+   "qid": "Q1066868",
+   "website": "http://isaac.qld.gov.au/"
+  },
+  "34420": {
+   "qid": "Q1236246"
+  },
+  "34530": {
+   "qid": "Q675722"
+  },
+  "34570": {
+   "qid": "Q1593316"
+  },
+  "34580": {
+   "qid": "Q1065012",
+   "website": "http://lockyervalley.qld.gov.au/"
+  },
+  "34590": {
+   "qid": "Q1782552"
+  },
+  "34710": {
+   "qid": "Q1066794",
+   "website": "https://www.longreach.qld.gov.au/"
+  },
+  "34770": {
+   "qid": "Q951713",
+   "website": "https://www.mackay.qld.gov.au/"
+  },
+  "34800": {
+   "qid": "Q667458",
+   "website": "http://www.mckinlay.qld.gov.au/"
+  },
+  "34830": {
+   "qid": "Q37448321"
+  },
+  "34860": {
+   "qid": "Q1066859",
+   "website": "http://www.maranoa.qld.gov.au/"
+  },
+  "34880": {
+   "qid": "Q2279343"
+  },
+  "35010": {
+   "qid": "Q1064985",
+   "website": "http://www.moretonbay.qld.gov.au/"
+  },
+  "35250": {
+   "qid": "Q1948315"
+  },
+  "35300": {
+   "qid": "Q1066830",
+   "website": "http://www.mountisa.qld.gov.au/"
+  },
+  "35600": {
+   "qid": "Q1066803",
+   "website": "http://www.murweh.qld.gov.au/"
+  },
+  "35670": {
+   "qid": "Q1965048"
+  },
+  "35740": {
+   "qid": "Q1322992"
+  },
+  "35760": {
+   "qid": "Q1069375",
+   "website": "http://www.northburnett.qld.gov.au/"
+  },
+  "35780": {
+   "qid": "Q1752892",
+   "website": "http://www.nparc.qld.gov.au/"
+  },
+  "35790": {
+   "qid": "Q427631",
+   "website": "http://www.palmcouncil.qld.gov.au/"
+  },
+  "35800": {
+   "qid": "Q1066844",
+   "website": "http://www.paroo.qld.gov.au/"
+  },
+  "36070": {
+   "qid": "Q778562"
+  },
+  "36150": {
+   "qid": "Q283252",
+   "website": "http://www.quilpie.qld.gov.au/"
+  },
+  "36250": {
+   "qid": "Q1492782",
+   "website": "http://www.redland.qld.gov.au/"
+  },
+  "36300": {
+   "qid": "Q1067044",
+   "website": "http://www.richmond.qld.gov.au/"
+  },
+  "36370": {
+   "qid": "Q201774",
+   "website": "http://www.rockhamptonregion.qld.gov.au/"
+  },
+  "36510": {
+   "qid": "Q1065054",
+   "website": "http://www.scenicrim.qld.gov.au/"
+  },
+  "36580": {
+   "qid": "Q1065025",
+   "website": "http://www.somerset.qld.gov.au/"
+  },
+  "36630": {
+   "qid": "Q1066852",
+   "website": "http://www.southburnett.qld.gov.au/"
+  },
+  "36660": {
+   "qid": "Q1065065",
+   "website": "http://www.southerndowns.qld.gov.au/"
+  },
+  "36720": {
+   "qid": "Q1065035",
+   "website": "http://sunshinecoast.qld.gov.au/"
+  },
+  "36820": {
+   "qid": "Q1066876",
+   "website": "http://www.trc.qld.gov.au/"
+  },
+  "36910": {
+   "qid": "Q1067014",
+   "website": "https://www.tr.qld.gov.au/"
+  },
+  "36950": {
+   "qid": "Q1276697",
+   "website": "http://www.torres.qld.gov.au/"
+  },
+  "36960": {
+   "qid": "Q1495808",
+   "website": "http://www.tsirc.qld.gov.au/"
+  },
+  "37010": {
+   "qid": "Q1066884",
+   "website": "http://www.townsville.qld.gov.au/"
+  },
+  "37300": {
+   "qid": "Q2556322"
+  },
+  "37310": {
+   "qid": "Q1066815",
+   "website": "http://www.wdrc.qld.gov.au/"
+  },
+  "37340": {
+   "qid": "Q1069401",
+   "website": "http://www.whitsunday.qld.gov.au/"
+  },
+  "37400": {
+   "qid": "Q1067032",
+   "website": "http://www.winton.qld.gov.au/"
+  },
+  "37550": {
+   "qid": "Q2593327"
+  },
+  "37570": {
+   "qid": "Q2594736"
+  },
+  "37600": {
+   "qid": "Q660227",
+   "website": "http://www.yarrabah.qld.gov.au/"
+  },
+  "40070": {
+   "qid": "Q1094063",
+   "website": "https://www.cityofadelaide.com.au/"
+  },
+  "40120": {
+   "qid": "Q353997",
+   "website": "https://www.ahc.sa.gov.au/"
+  },
+  "40150": {
+   "qid": "Q1538150",
+   "website": "https://www.apc.sa.gov.au/"
+  },
+  "40220": {
+   "qid": "Q909559",
+   "website": "https://www.alexandrina.sa.gov.au/"
+  },
+  "40250": {
+   "qid": "Q485826",
+   "website": "http://www.waru.org"
+  },
+  "40310": {
+   "qid": "Q808736",
+   "website": "https://www.barossa.sa.gov.au/"
+  },
+  "40430": {
+   "qid": "Q809642",
+   "website": "http://www.barungawest.sa.gov.au/"
+  },
+  "40520": {
+   "qid": "Q827093",
+   "website": "https://www.berribarmera.sa.gov.au/"
+  },
+  "40700": {
+   "qid": "Q1016835",
+   "website": "https://www.burnside.sa.gov.au/Home"
+  },
+  "40910": {
+   "qid": "Q1030580",
+   "website": "https://www.campbelltown.sa.gov.au/"
+  },
+  "41010": {
+   "qid": "Q179717",
+   "website": "https://www.ceduna.sa.gov.au/"
+  },
+  "41060": {
+   "qid": "Q1066185",
+   "website": "https://www.charlessturt.sa.gov.au/home"
+  },
+  "41140": {
+   "qid": "Q909571",
+   "website": "https://www.claregilbertvalleys.sa.gov.au/"
+  },
+  "41190": {
+   "qid": "Q278050",
+   "website": "https://www.cleve.sa.gov.au/"
+  },
+  "41330": {
+   "qid": "Q1129546",
+   "website": "https://www.cooberpedy.sa.gov.au/"
+  },
+  "41560": {
+   "qid": "Q371346",
+   "website": "http://www.coppercoast.sa.gov.au/"
+  },
+  "41750": {
+   "qid": "Q1332499",
+   "website": "https://www.elliston.sa.gov.au/"
+  },
+  "41830": {
+   "qid": "Q910265",
+   "website": "http://www.flindersrangescouncil.sa.gov.au/"
+  },
+  "41960": {
+   "qid": "Q1445247",
+   "website": "http://www.franklinharbour.sa.gov.au/"
+  },
+  "42030": {
+   "qid": "Q1847617",
+   "website": "https://www.gawler.sa.gov.au/"
+  },
+  "42110": {
+   "qid": "Q591459",
+   "website": "https://www.goyder.sa.gov.au/"
+  },
+  "42250": {
+   "qid": "Q1538299",
+   "website": "https://www.dcgrant.sa.gov.au/"
+  },
+  "42600": {
+   "qid": "Q1624414",
+   "website": "https://www.holdfast.sa.gov.au/"
+  },
+  "42750": {
+   "qid": "Q910328",
+   "website": "http://www.kangarooisland.sa.gov.au"
+  },
+  "43080": {
+   "qid": "Q910357",
+   "website": "http://www.dckem.sa.gov.au/"
+  },
+  "43220": {
+   "qid": "Q967010",
+   "website": "https://www.kimba.sa.gov.au/"
+  },
+  "43360": {
+   "qid": "Q1538349",
+   "website": "http://www.kingstondc.sa.gov.au/"
+  },
+  "43650": {
+   "qid": "Q1538164",
+   "website": "https://www.light.sa.gov.au/"
+  },
+  "43710": {
+   "qid": "Q1538334",
+   "website": "http://www.lowereyrepeninsula.sa.gov.au/"
+  },
+  "43790": {
+   "qid": "Q911495",
+   "website": "https://www.loxtonwaikerie.sa.gov.au/"
+  },
+  "44000": {
+   "qid": "Q431586",
+   "website": "http://maralingatjarutja.com/"
+  },
+  "44060": {
+   "qid": "Q1812769",
+   "website": "https://www.marion.sa.gov.au/"
+  },
+  "44210": {
+   "qid": "Q911515",
+   "website": "https://www.mid-murray.sa.gov.au/"
+  },
+  "44340": {
+   "qid": "Q1279553",
+   "website": "https://www.mitchamcouncil.sa.gov.au/"
+  },
+  "44550": {
+   "qid": "Q1538176",
+   "website": "https://www.mountbarker.sa.gov.au/"
+  },
+  "44620": {
+   "qid": "Q911503",
+   "website": "https://www.mountgambier.sa.gov.au/"
+  },
+  "44830": {
+   "qid": "Q1538545",
+   "website": "http://www.mtr.sa.gov.au/"
+  },
+  "45040": {
+   "qid": "Q736750",
+   "website": "https://www.murraybridge.sa.gov.au"
+  },
+  "45090": {
+   "qid": "Q1538142",
+   "website": "http://www.naracoortelucindale.sa.gov.au"
+  },
+  "45120": {
+   "qid": "Q911555",
+   "website": "https://www.nacouncil.sa.gov.au/"
+  },
+  "45290": {
+   "qid": "Q905608",
+   "website": "https://www.npsp.sa.gov.au/"
+  },
+  "45340": {
+   "qid": "Q1812778",
+   "website": "https://www.onkaparingacity.com/Home"
+  },
+  "45400": {
+   "qid": "Q431210",
+   "website": "https://www.orroroo.sa.gov.au/"
+  },
+  "45540": {
+   "qid": "Q610601",
+   "website": "http://www.peterborough.sa.gov.au/"
+  },
+  "45680": {
+   "qid": "Q976355",
+   "website": "https://www.playford.sa.gov.au/"
+  },
+  "45890": {
+   "qid": "Q1533526",
+   "website": "https://www.cityofpae.sa.gov.au/"
+  },
+  "46090": {
+   "qid": "Q1538187",
+   "website": "https://www.portaugusta.sa.gov.au/"
+  },
+  "46300": {
+   "qid": "Q1538207",
+   "website": "https://www.portlincoln.sa.gov.au/"
+  },
+  "46450": {
+   "qid": "Q2104769",
+   "website": "https://www.pirie.sa.gov.au/"
+  },
+  "46510": {
+   "qid": "Q1537228",
+   "website": "https://www.prospect.sa.gov.au/"
+  },
+  "46670": {
+   "qid": "Q1538197",
+   "website": "https://www.renmarkparinga.sa.gov.au/"
+  },
+  "46860": {
+   "qid": "Q2156191",
+   "website": "https://www.robe.sa.gov.au/"
+  },
+  "46970": {
+   "qid": "Q2170743",
+   "website": "https://www.roxbydowns.sa.gov.au/"
+  },
+  "47140": {
+   "qid": "Q947334",
+   "website": "https://www.salisbury.sa.gov.au/"
+  },
+  "47290": {
+   "qid": "Q912597",
+   "website": "https://www.southernmallee.sa.gov.au/"
+  },
+  "47490": {
+   "qid": "Q1538971",
+   "website": "http://www.streakybay.sa.gov.au/"
+  },
+  "47630": {
+   "qid": "Q1538963",
+   "website": "https://www.tatiara.sa.gov.au/"
+  },
+  "47700": {
+   "qid": "Q2062776",
+   "website": "https://www.teatreegully.sa.gov.au/"
+  },
+  "47800": {
+   "qid": "Q145862",
+   "website": "https://www.coorong.sa.gov.au/home"
+  },
+  "47910": {
+   "qid": "Q1538562",
+   "website": "http://www.tumbybay.sa.gov.au/"
+  },
+  "47980": {
+   "qid": "Q1766439",
+   "website": "https://www.unley.sa.gov.au/Home"
+  },
+  "48050": {
+   "qid": "Q912566",
+   "website": "https://www.victor.sa.gov.au/"
+  },
+  "48130": {
+   "qid": "Q629014",
+   "website": "https://www.wrc.sa.gov.au"
+  },
+  "48260": {
+   "qid": "Q1521840",
+   "website": "https://www.walkerville.sa.gov.au/"
+  },
+  "48340": {
+   "qid": "Q913151",
+   "website": "http://www.wattlerange.sa.gov.au/"
+  },
+  "48410": {
+   "qid": "Q1813391",
+   "website": "https://www.westtorrens.sa.gov.au/Home"
+  },
+  "48540": {
+   "qid": "Q945838",
+   "website": "https://www.whyalla.sa.gov.au/"
+  },
+  "48640": {
+   "qid": "Q770176",
+   "website": "https://www.wudinna.sa.gov.au/"
+  },
+  "48750": {
+   "qid": "Q547233",
+   "website": "https://www.yankalilla.sa.gov.au/"
+  },
+  "48830": {
+   "qid": "Q913845",
+   "website": "https://yorke.sa.gov.au/"
+  },
+  "50080": {
+   "qid": "Q1527935",
+   "website": "http://www.albany.wa.gov.au"
+  },
+  "50210": {
+   "qid": "Q606256",
+   "website": "http://www.armadale.wa.gov.au"
+  },
+  "50250": {
+   "qid": "Q724939",
+   "website": "http://www.ashburton.wa.gov.au"
+  },
+  "50280": {
+   "qid": "Q765386",
+   "website": "https://www.amrshire.wa.gov.au/"
+  },
+  "50350": {
+   "qid": "Q604332",
+   "website": "http://www.bassendean.wa.gov.au"
+  },
+  "50420": {
+   "qid": "Q606312",
+   "website": "http://www.bayswater.wa.gov.au"
+  },
+  "50490": {
+   "qid": "Q606246",
+   "website": "http://www.belmont.wa.gov.au"
+  },
+  "50560": {
+   "qid": "Q851696",
+   "website": "http://www.beverley.wa.gov.au"
+  },
+  "50630": {
+   "qid": "Q603898",
+   "website": "https://www.boddington.wa.gov.au/"
+  },
+  "50770": {
+   "qid": "Q896081",
+   "website": "http://www.boyupbrook.wa.gov.au"
+  },
+  "50840": {
+   "qid": "Q507081",
+   "website": "http://www.bridgetown.wa.gov.au"
+  },
+  "50910": {
+   "qid": "Q929958",
+   "website": "http://www.brookton.wa.gov.au"
+  },
+  "50980": {
+   "qid": "Q990636",
+   "website": "http://www.broome.wa.gov.au"
+  },
+  "51080": {
+   "qid": "Q990639",
+   "website": "http://www.shirebt.wa.gov.au"
+  },
+  "51120": {
+   "qid": "Q991793",
+   "website": "https://www.brucerock.wa.gov.au/"
+  },
+  "51190": {
+   "qid": "Q971890",
+   "website": "http://bunbury.wa.gov.au/"
+  },
+  "51260": {
+   "qid": "Q573771",
+   "website": "http://www.busselton.wa.gov.au"
+  },
+  "51310": {
+   "qid": "Q736170",
+   "website": "http://www.cambridge.wa.gov.au"
+  },
+  "51330": {
+   "qid": "Q585453",
+   "website": "https://www.canning.wa.gov.au/"
+  },
+  "51400": {
+   "qid": "Q1034526",
+   "website": "http://www.capel.wa.gov.au"
+  },
+  "51470": {
+   "qid": "Q1043884",
+   "website": "http://www.carnamah.wa.gov.au"
+  },
+  "51540": {
+   "qid": "Q1043909",
+   "website": "http://www.carnarvon.wa.gov.au"
+  },
+  "51610": {
+   "qid": "Q1062764",
+   "website": "http://www.chapmanvalley.wa.gov.au"
+  },
+  "51680": {
+   "qid": "Q1074976",
+   "website": "http://www.chittering.wa.gov.au"
+  },
+  "51710": {
+   "qid": "Q1084186",
+   "website": "http://www.shire.gov.cx"
+  },
+  "51750": {
+   "qid": "Q543331",
+   "website": "http://www.claremont.wa.gov.au"
+  },
+  "51820": {
+   "qid": "Q1105257",
+   "website": "http://www.cockburn.wa.gov.au"
+  },
+  "51860": {
+   "qid": "Q1105471",
+   "website": "http://www.shire.cc"
+  },
+  "51890": {
+   "qid": "Q1109445",
+   "website": "http://www.collie.wa.gov.au"
+  },
+  "51960": {
+   "qid": "Q586511",
+   "website": "http://www.coolgardie.wa.gov.au"
+  },
+  "52030": {
+   "qid": "Q1129901",
+   "website": "https://www.coorow.wa.gov.au/"
+  },
+  "52100": {
+   "qid": "Q1135358",
+   "website": "http://www.corrigin.wa.gov.au"
+  },
+  "52170": {
+   "qid": "Q1136726",
+   "website": "http://www.cottesloe.wa.gov.au"
+  },
+  "52240": {
+   "qid": "Q644951",
+   "website": "http://www.cranbrook.wa.gov.au"
+  },
+  "52310": {
+   "qid": "Q1142899",
+   "website": "http://www.cuballing.wa.gov.au"
+  },
+  "52380": {
+   "qid": "Q1143152",
+   "website": "https://www.cue.wa.gov.au/"
+  },
+  "52450": {
+   "qid": "Q1143918",
+   "website": "http://www.cunderdin.wa.gov.au"
+  },
+  "52520": {
+   "qid": "Q1158105",
+   "website": "http://www.dalwallinu.wa.gov.au"
+  },
+  "52590": {
+   "qid": "Q339405",
+   "website": "http://www.dandaragan.wa.gov.au"
+  },
+  "52660": {
+   "qid": "Q1165763",
+   "website": "http://www.dardanup.wa.gov.au"
+  },
+  "52730": {
+   "qid": "Q115534",
+   "website": "http://www.denmark.wa.gov.au"
+  },
+  "52800": {
+   "qid": "Q1199953",
+   "website": "http://www.sdwk.wa.gov.au"
+  },
+  "52870": {
+   "qid": "Q612302",
+   "website": "http://www.donnybrook-balingup.wa.gov.au"
+  },
+  "52940": {
+   "qid": "Q1253062",
+   "website": "http://www.dowerin.wa.gov.au"
+  },
+  "53010": {
+   "qid": "Q1264931",
+   "website": "http://www.dumbleyung.wa.gov.au"
+  },
+  "53080": {
+   "qid": "Q1265516",
+   "website": "http://www.dundas.wa.gov.au"
+  },
+  "53150": {
+   "qid": "Q604376",
+   "website": "http://www.eastfremantle.wa.gov.au"
+  },
+  "53220": {
+   "qid": "Q1277976",
+   "website": "http://www.eastpilbara.wa.gov.au"
+  },
+  "53290": {
+   "qid": "Q1368120",
+   "website": "https://www.esperance.wa.gov.au/"
+  },
+  "53360": {
+   "qid": "Q1383997",
+   "website": "http://www.exmouth.wa.gov.au"
+  },
+  "53430": {
+   "qid": "Q1455046",
+   "website": "http://www.fremantle.wa.gov.au"
+  },
+  "53570": {
+   "qid": "Q286453",
+   "website": "http://www.gingin.wa.gov.au"
+  },
+  "53640": {
+   "qid": "Q1481584",
+   "website": "http://www.gnowangerup.wa.gov.au"
+  },
+  "53710": {
+   "qid": "Q1537713",
+   "website": "http://www.goomalling.wa.gov.au"
+  },
+  "53780": {
+   "qid": "Q1538602",
+   "website": "http://www.gosnells.wa.gov.au"
+  },
+  "53800": {
+   "qid": "Q614973",
+   "website": "http://www.cgg.wa.gov.au"
+  },
+  "53920": {
+   "qid": "Q1571907",
+   "website": "http://www.hallscreek.wa.gov.au"
+  },
+  "53990": {
+   "qid": "Q968490",
+   "website": "http://www.harvey.wa.gov.au"
+  },
+  "54060": {
+   "qid": "Q1673314",
+   "website": "http://www.irwin.wa.gov.au"
+  },
+  "54130": {
+   "qid": "Q1687775",
+   "website": "https://www.jerramungup.wa.gov.au/"
+  },
+  "54170": {
+   "qid": "Q1703523",
+   "website": "http://www.joondalup.wa.gov.au"
+  },
+  "54200": {
+   "qid": "Q1721949",
+   "website": "http://www.kalamunda.wa.gov.au"
+  },
+  "54280": {
+   "qid": "Q203327",
+   "website": "https://www.ckb.wa.gov.au/"
+  },
+  "54310": {
+   "qid": "Q669605",
+   "website": "https://karratha.wa.gov.au/"
+  },
+  "54340": {
+   "qid": "Q1641887",
+   "website": "http://www.katanning.wa.gov.au"
+  },
+  "54410": {
+   "qid": "Q1738237",
+   "website": "http://www.kellerberrin.wa.gov.au"
+  },
+  "54480": {
+   "qid": "Q133480",
+   "website": "https://www.kent.wa.gov.au/"
+  },
+  "54550": {
+   "qid": "Q1778908",
+   "website": "http://www.kojonup.wa.gov.au"
+  },
+  "54620": {
+   "qid": "Q1573101",
+   "website": "http://www.kondinin.wa.gov.au"
+  },
+  "54690": {
+   "qid": "Q1573982",
+   "website": "https://www.koorda.wa.gov.au/"
+  },
+  "54760": {
+   "qid": "Q1573547",
+   "website": "http://www.kulin.wa.gov.au"
+  },
+  "54830": {
+   "qid": "Q1794961",
+   "website": "http://www.kwinana.wa.gov.au"
+  },
+  "54900": {
+   "qid": "Q1573562",
+   "website": "http://www.lakegrace.wa.gov.au"
+  },
+  "54970": {
+   "qid": "Q1808916",
+   "website": "http://www.laverton.wa.gov.au"
+  },
+  "55040": {
+   "qid": "Q684243",
+   "website": "http://www.leonora.wa.gov.au"
+  },
+  "55110": {
+   "qid": "Q1664472",
+   "website": "http://www.mandurah.wa.gov.au"
+  },
+  "55180": {
+   "qid": "Q1516885",
+   "website": "http://www.manjimup.wa.gov.au"
+  },
+  "55250": {
+   "qid": "Q934817",
+   "website": "https://www.meekashire.wa.gov.au"
+  },
+  "55320": {
+   "qid": "Q549764",
+   "website": "https://www.melvillecity.com.au/"
+  },
+  "55390": {
+   "qid": "Q1854263",
+   "website": "http://www.menzies.wa.gov.au"
+  },
+  "55460": {
+   "qid": "Q594167",
+   "website": "http://www.merredin.wa.gov.au"
+  },
+  "55530": {
+   "qid": "Q1854791",
+   "website": "http://www.mingenew.wa.gov.au"
+  },
+  "55600": {
+   "qid": "Q1752376",
+   "website": "http://www.moora.wa.gov.au"
+  },
+  "55670": {
+   "qid": "Q578323",
+   "website": "http://www.morawa.wa.gov.au"
+  },
+  "55740": {
+   "qid": "Q476922",
+   "website": "http://www.mosmanpark.wa.gov.au"
+  },
+  "55810": {
+   "qid": "Q677256",
+   "website": "http://www.mtmagnet.wa.gov.au"
+  },
+  "55880": {
+   "qid": "Q1573988",
+   "website": "http://www.mtmarshall.wa.gov.au"
+  },
+  "55950": {
+   "qid": "Q1341239",
+   "website": "http://www.mukinbudin.wa.gov.au"
+  },
+  "56090": {
+   "qid": "Q1261226",
+   "website": "http://www.mundaring.wa.gov.au"
+  },
+  "56160": {
+   "qid": "Q1953616",
+   "website": "https://www.murchison.wa.gov.au/"
+  },
+  "56230": {
+   "qid": "Q1647630",
+   "website": "http://www.murray.wa.gov.au"
+  },
+  "56300": {
+   "qid": "Q1854235",
+   "website": "http://www.nannup.wa.gov.au"
+  },
+  "56370": {
+   "qid": "Q1573730",
+   "website": "http://www.narembeen.wa.gov.au"
+  },
+  "56460": {
+   "qid": "Q1854746",
+   "website": "http://www.narroginshire.wa.gov.au"
+  },
+  "56580": {
+   "qid": "Q1490452",
+   "website": "https://www.nedlands.wa.gov.au/"
+  },
+  "56620": {
+   "qid": "Q1855295",
+   "website": "http://www.ngaanyatjarraku.wa.gov.au/"
+  },
+  "56730": {
+   "qid": "Q931111",
+   "website": "http://www.northam.wa.gov.au"
+  },
+  "56790": {
+   "qid": "Q1855392",
+   "website": "http://www.northampton.wa.gov.au"
+  },
+  "56860": {
+   "qid": "Q593802",
+   "website": "https://www.nungarin.wa.gov.au/"
+  },
+  "56930": {
+   "qid": "Q1469756",
+   "website": "http://www.peppermintgrove.wa.gov.au"
+  },
+  "57000": {
+   "qid": "Q1854706",
+   "website": "http://www.perenjori.wa.gov.au"
+  },
+  "57080": {
+   "qid": "Q1855330",
+   "website": "https://www.perth.wa.gov.au/"
+  },
+  "57140": {
+   "qid": "Q594744",
+   "website": "https://www.pingelly.wa.gov.au/"
+  },
+  "57210": {
+   "qid": "Q1855309",
+   "website": "http://www.plantagenet.wa.gov.au"
+  },
+  "57280": {
+   "qid": "Q1854731",
+   "website": "http://www.porthedland.wa.gov.au"
+  },
+  "57350": {
+   "qid": "Q1573346",
+   "website": "http://www.quairading.wa.gov.au"
+  },
+  "57420": {
+   "qid": "Q2094089",
+   "website": "http://www.ravensthorpe.wa.gov.au"
+  },
+  "57490": {
+   "qid": "Q1660264",
+   "website": "http://www.rockingham.wa.gov.au"
+  },
+  "57630": {
+   "qid": "Q1347321",
+   "website": "http://www.sandstone.wa.gov.au"
+  },
+  "57700": {
+   "qid": "Q2094463",
+   "website": "http://www.sjshire.wa.gov.au"
+  },
+  "57770": {
+   "qid": "Q1855284",
+   "website": "http://www.sharkbay.wa.gov.au"
+  },
+  "57840": {
+   "qid": "Q1671784",
+   "website": "https://southperth.wa.gov.au/"
+  },
+  "57910": {
+   "qid": "Q606236",
+   "website": "http://www.stirling.wa.gov.au"
+  },
+  "57980": {
+   "qid": "Q1857834",
+   "website": "http://www.subiaco.wa.gov.au"
+  },
+  "58050": {
+   "qid": "Q1506748",
+   "website": "https://www.swan.wa.gov.au/"
+  },
+  "58190": {
+   "qid": "Q1573300",
+   "website": "http://www.tammin.wa.gov.au"
+  },
+  "58260": {
+   "qid": "Q204511",
+   "website": "http://www.threesprings.wa.gov.au"
+  },
+  "58330": {
+   "qid": "Q1573309",
+   "website": "http://www.toodyay.wa.gov.au"
+  },
+  "58400": {
+   "qid": "Q1573339",
+   "website": "http://www.trayning.wa.gov.au"
+  },
+  "58470": {
+   "qid": "Q2093082",
+   "website": "https://www.uppergascoyne.wa.gov.au/"
+  },
+  "58510": {
+   "qid": "Q604307",
+   "website": "https://www.victoriapark.wa.gov.au/"
+  },
+  "58540": {
+   "qid": "Q1573108",
+   "website": "https://www.victoriaplains.wa.gov.au/"
+  },
+  "58570": {
+   "qid": "Q1573718",
+   "website": "https://www.vincent.wa.gov.au"
+  },
+  "58610": {
+   "qid": "Q1342501",
+   "website": "https://www.wagin.wa.gov.au/"
+  },
+  "58680": {
+   "qid": "Q378247",
+   "website": "https://www.wandering.wa.gov.au/"
+  },
+  "58760": {
+   "qid": "Q543262",
+   "website": "https://www.wanneroo.wa.gov.au/"
+  },
+  "58820": {
+   "qid": "Q766197",
+   "website": "https://www.waroona.wa.gov.au/"
+  },
+  "58890": {
+   "qid": "Q1573541",
+   "website": "https://www.westarthur.wa.gov.au/"
+  },
+  "59030": {
+   "qid": "Q1109652",
+   "website": "https://www.westonia.wa.gov.au/"
+  },
+  "59100": {
+   "qid": "Q1573179",
+   "website": "https://www.wickepin.wa.gov.au/"
+  },
+  "59170": {
+   "qid": "Q579259",
+   "website": "https://www.williams.wa.gov.au/"
+  },
+  "59250": {
+   "qid": "Q2051063",
+   "website": "https://www.wiluna.wa.gov.au/"
+  },
+  "59310": {
+   "qid": "Q1573579",
+   "website": "https://www.wongan.wa.gov.au/"
+  },
+  "59320": {
+   "qid": "Q1854273",
+   "website": "https://www.woodanilling.wa.gov.au/"
+  },
+  "59330": {
+   "qid": "Q1273700",
+   "website": "https://www.wyalkatchem.wa.gov.au/"
+  },
+  "59340": {
+   "qid": "Q2094067",
+   "website": "https://www.swek.wa.gov.au/"
+  },
+  "59350": {
+   "qid": "Q289258",
+   "website": "https://www.yalgoo.wa.gov.au/"
+  },
+  "59360": {
+   "qid": "Q1229691",
+   "website": "https://www.yilgarn.wa.gov.au/"
+  },
+  "59370": {
+   "qid": "Q163885",
+   "website": "https://www.york.wa.gov.au/"
+  },
+  "60210": {
+   "qid": "Q903612",
+   "website": "http://www.bodc.tas.gov.au/"
+  },
+  "60410": {
+   "qid": "Q740644",
+   "website": "http://www.brighton.tas.gov.au/"
+  },
+  "60610": {
+   "qid": "Q1016792",
+   "website": "https://www.burnie.tas.gov.au"
+  },
+  "60810": {
+   "qid": "Q1053740",
+   "website": "https://www.centralcoast.tas.gov.au/"
+  },
+  "61010": {
+   "qid": "Q648240",
+   "website": "http://www.centralhighlands.tas.gov.au/"
+  },
+  "61210": {
+   "qid": "Q764011",
+   "website": "http://www.circularhead.tas.gov.au/"
+  },
+  "61410": {
+   "qid": "Q1095386",
+   "website": "https://www.ccc.tas.gov.au/"
+  },
+  "61510": {
+   "qid": "Q1200416",
+   "website": "http://www.derwentvalley.tas.gov.au/"
+  },
+  "61610": {
+   "qid": "Q927683",
+   "website": "http://www.devonport.tas.gov.au/"
+  },
+  "61810": {
+   "qid": "Q386645",
+   "website": "https://www.dorset.tas.gov.au/"
+  },
+  "62010": {
+   "qid": "Q1848365",
+   "website": "http://www.flinders.tas.gov.au/"
+  },
+  "62210": {
+   "qid": "Q1508377",
+   "website": "http://www.georgetown.tas.gov.au/"
+  },
+  "62410": {
+   "qid": "Q1529157",
+   "website": "http://www.gsbc.tas.gov.au/"
+  },
+  "62610": {
+   "qid": "Q1435919",
+   "website": "http://www.gcc.tas.gov.au/"
+  },
+  "62810": {
+   "qid": "Q1621560",
+   "website": "http://www.hobartcity.com.au"
+  },
+  "63010": {
+   "qid": "Q605668",
+   "website": "http://www.huonvalley.tas.gov.au/"
+  },
+  "63210": {
+   "qid": "Q1739063",
+   "website": "http://www.kentish.tas.gov.au/"
+  },
+  "63410": {
+   "qid": "Q941713",
+   "website": "http://www.kingisland.tas.gov.au/"
+  },
+  "63610": {
+   "qid": "Q1742110",
+   "website": "https://www.kingborough.tas.gov.au/"
+  },
+  "63810": {
+   "qid": "Q1575755",
+   "website": "http://www.latrobe.tas.gov.au/"
+  },
+  "64010": {
+   "qid": "Q937765",
+   "website": "http://www.launceston.tas.gov.au/"
+  },
+  "64210": {
+   "qid": "Q1848537",
+   "website": "http://www.meander.tas.gov.au/"
+  },
+  "64610": {
+   "qid": "Q964717",
+   "website": "http://www.northernmidlands.tas.gov.au/"
+  },
+  "64810": {
+   "qid": "Q1848526",
+   "website": "http://www.sorell.tas.gov.au/"
+  },
+  "65010": {
+   "qid": "Q1848356",
+   "website": "https://www.southernmidlands.tas.gov.au/"
+  },
+  "65210": {
+   "qid": "Q1848510",
+   "website": "http://www.tasman.tas.gov.au/"
+  },
+  "65410": {
+   "qid": "Q1848324",
+   "website": "http://www.warwyn.tas.gov.au/"
+  },
+  "65610": {
+   "qid": "Q2092649",
+   "website": "http://www.westcoast.tas.gov.au/"
+  },
+  "65810": {
+   "qid": "Q1665325",
+   "website": "http://www.wtc.tas.gov.au/"
+  },
+  "70200": {
+   "qid": "Q768033",
+   "website": "https://www.alicesprings.nt.gov.au"
+  },
+  "70420": {
+   "qid": "Q1529979",
+   "website": "https://www.barkly.nt.gov.au/"
+  },
+  "70540": {
+   "qid": "Q3687976",
+   "website": "https://www.belyuen.nt.gov.au"
+  },
+  "70620": {
+   "qid": "Q866695",
+   "website": "https://www.centraldesert.nt.gov.au"
+  },
+  "70700": {
+   "qid": "Q3688109",
+   "website": "https://www.coomalie.nt.gov.au"
+  },
+  "71000": {
+   "qid": "Q2081765",
+   "website": "https://www.darwin.nt.gov.au/"
+  },
+  "71150": {
+   "qid": "Q24887011",
+   "website": "https://www.waterfront.nt.gov.au"
+  },
+  "71300": {
+   "qid": "Q3688163",
+   "website": "https://eastarnhem.nt.gov.au"
+  },
+  "72200": {
+   "qid": "Q3678526",
+   "website": "https://www.katherine.nt.gov.au"
+  },
+  "72300": {
+   "qid": "Q3867178",
+   "website": "https://www.litchfield.nt.gov.au"
+  },
+  "72330": {
+   "qid": "Q722747",
+   "website": "https://www.macdonnell.nt.gov.au"
+  },
+  "72800": {
+   "qid": "Q3678536",
+   "website": "https://palmerston.nt.gov.au"
+  },
+  "73600": {
+   "qid": "Q3688573",
+   "website": "https://ropergulf.nt.gov.au"
+  },
+  "74050": {
+   "qid": "Q3687906",
+   "website": "https://www.tiwiislands.nt.gov.au"
+  },
+  "74550": {
+   "qid": "Q386450",
+   "website": "https://www.victoriadaly.nt.gov.au"
+  },
+  "74560": {
+   "qid": "Q1840051",
+   "website": "https://wagait.nt.gov.au"
+  },
+  "74660": {
+   "qid": "Q3688745",
+   "website": "https://westarnhem.nt.gov.au"
+  },
+  "74680": {
+   "qid": "Q32327842",
+   "website": "https://www.westdaly.nt.gov.au"
+  }
+ }
+}

@@ -140,7 +140,7 @@
       },
       "shorts.v1alpha1.AddressPriceDrop": {
         "additionalProperties": false,
-        "description": "One physical address (deduped by stable address_key) whose for-sale asking\n price fell over the window, deep-linking to its per-address history page.",
+        "description": "One physical address (deduped by stable address_key) whose for-sale asking\n price fell over the window, deep-linking to its per-address history page.\n When the address is live on both portals (or relisted), every live advert\n is judged on its own chain and the row carries the deepest qualifying cut;\n the latest_* / current_* fields describe THAT advert.",
         "properties": {
           "addressKey": {
             "description": "(proto string)",
@@ -752,8 +752,29 @@
         "additionalProperties": false,
         "description": "State + national reference medians for the profile's comparison bars.",
         "properties": {
+          "absMedianPeriod": {
+            "description": "quarter end, \"2026-03-31\" (proto string)",
+            "title": "abs_median_period",
+            "type": "string"
+          },
+          "capitalMedianPrice": {
+            "description": "ABS established-house medians (RES_DWELL, CC-BY-4.0) for the suburb's\n state: its Greater Capital City and the rest of the state, read from\n mv_housing_headline. 0 / \"\" where the state has no such region (the ACT\n has no rest of state). (proto double)",
+            "format": "double",
+            "title": "capital_median_price",
+            "type": "number"
+          },
+          "capitalRegionCode": {
+            "description": "ABS GCCSA code, e.g. \"1GSYD\" (proto string)",
+            "title": "capital_region_code",
+            "type": "string"
+          },
+          "capitalRegionName": {
+            "description": "e.g. \"Greater Sydney\" (proto string)",
+            "title": "capital_region_name",
+            "type": "string"
+          },
           "nationalMedianPrice": {
-            "description": "(proto double)",
+            "description": "Always 0. No open national median house price exists (ABS's\n established-house medians stop at capital city / rest of state, below);\n this used to average NSW, VIC and SA suburb medians under an \"AU\" label. (proto double)",
             "format": "double",
             "title": "national_median_price",
             "type": "number"
@@ -764,20 +785,768 @@
             "title": "national_median_weekly_hhd_income",
             "type": "number"
           },
-          "stateMedianPrice": {
+          "restOfStateMedianPrice": {
             "description": "(proto double)",
+            "format": "double",
+            "title": "rest_of_state_median_price",
+            "type": "number"
+          },
+          "restOfStateRegionName": {
+            "description": "e.g. \"Rest of NSW\" (proto string)",
+            "title": "rest_of_state_region_name",
+            "type": "string"
+          },
+          "stateCensus": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.StateCensusAverages",
+            "description": "State references for the Who-lives-here and Housing-stock cards. (proto shorts.v1alpha1.StateCensusAverages)",
+            "title": "state_census"
+          },
+          "stateMedianPrice": {
+            "description": "Median of the latest public Valuer-General suburb medians in the state —\n NSW, VIC and SA only, 0 elsewhere. A median, not a mean: one $110.5M\n development sale moved the old NSW average by ~$45k. (proto double)",
             "format": "double",
             "title": "state_median_price",
             "type": "number"
           },
           "stateMedianWeeklyHhdIncome": {
-            "description": "(proto double)",
+            "description": "Census 2021 median weekly household income of the MEDIAN suburb — in the\n state, and across every suburb nationally. Not a household-weighted median. (proto double)",
             "format": "double",
             "title": "state_median_weekly_hhd_income",
             "type": "number"
           }
         },
         "title": "ComparisonBaselines",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilCrimeStat": {
+        "additionalProperties": false,
+        "properties": {
+          "coveredSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "covered_suburbs",
+            "type": "integer"
+          },
+          "crimeType": {
+            "description": "(proto string)",
+            "title": "crime_type",
+            "type": "string"
+          },
+          "fyEnding": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "fy_ending",
+            "type": "integer"
+          },
+          "ratePer100k": {
+            "description": "weighted by residents over covered suburbs (proto double)",
+            "format": "double",
+            "title": "rate_per_100k",
+            "type": "number"
+          },
+          "source": {
+            "description": "(proto string)",
+            "title": "source",
+            "type": "string"
+          },
+          "sourceJurisdiction": {
+            "description": "(proto string)",
+            "title": "source_jurisdiction",
+            "type": "string"
+          },
+          "sourceLicence": {
+            "description": "(proto string)",
+            "title": "source_licence",
+            "type": "string"
+          }
+        },
+        "title": "CouncilCrimeStat",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilDropSuburb": {
+        "additionalProperties": false,
+        "properties": {
+          "droppedListingCount": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "dropped_listing_count",
+            "type": "integer"
+          },
+          "droppedShare": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "dropped_share",
+            "type": "number"
+          },
+          "medianDropPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "median_drop_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "postcode": {
+            "description": "(proto string)",
+            "title": "postcode",
+            "type": "string"
+          },
+          "salCode": {
+            "description": "(proto string)",
+            "title": "sal_code",
+            "type": "string"
+          },
+          "salName": {
+            "description": "(proto string)",
+            "title": "sal_name",
+            "type": "string"
+          },
+          "trackedListingCount": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "tracked_listing_count",
+            "type": "integer"
+          }
+        },
+        "title": "CouncilDropSuburb",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilNeighbour": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "description": "(proto string)",
+            "title": "display_name",
+            "type": "string"
+          },
+          "kind": {
+            "description": "(proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "lgaCode": {
+            "description": "(proto string)",
+            "title": "lga_code",
+            "type": "string"
+          },
+          "sharedSuburbs": {
+            "description": "Suburbs split between the two councils (each \u003e= 1% of residents). (proto int32)",
+            "format": "int32",
+            "title": "shared_suburbs",
+            "type": "integer"
+          },
+          "sharesBorder": {
+            "description": "The two councils touch. Within a state: a dominant-member suburb shares\n a boundary with one of the neighbour's (ABS suburb topology). Across a\n state or territory line (Albury-Wodonga, Queanbeyan-Palerang-ACT): their\n ABS council boundaries touch (within 50 m). A cross-border neighbour is\n the one whose state_code differs from the profiled council's. (proto bool)",
+            "title": "shares_border",
+            "type": "boolean"
+          },
+          "slug": {
+            "description": "'' when the council has no page (proto string)",
+            "title": "slug",
+            "type": "string"
+          },
+          "stateCode": {
+            "description": "(proto string)",
+            "title": "state_code",
+            "type": "string"
+          }
+        },
+        "title": "CouncilNeighbour",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilPriceDrops": {
+        "additionalProperties": false,
+        "description": "Asking-price cuts in the last 30 days over the suburbs whose dominant\n council this is, among listings active and seen by the crawl in the last 14\n days (each address counted once). Counted from every crawled member suburb,\n so cuts in suburbs below the floor still count; floored at 3 cuts\n council-wide.",
+        "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "when these figures were computed (proto google.protobuf.Timestamp)",
+            "title": "as_of"
+          },
+          "dataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "newest crawl observation behind them (proto google.protobuf.Timestamp)",
+            "title": "data_through"
+          },
+          "droppedListingCount": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "dropped_listing_count",
+            "type": "integer"
+          },
+          "droppedShare": {
+            "description": "dropped / tracked (proto double)",
+            "format": "double",
+            "title": "dropped_share",
+            "type": "number"
+          },
+          "medianDropPct": {
+            "description": "median cut over every cut listing in the council (proto double)",
+            "format": "double",
+            "title": "median_drop_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "suburbs": {
+            "description": "Only suburbs that clear 3 drops themselves are named. (proto shorts.v1alpha1.CouncilDropSuburb)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilDropSuburb"
+            },
+            "title": "suburbs",
+            "type": "array"
+          },
+          "suburbsTracked": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "suburbs_tracked",
+            "type": "integer"
+          },
+          "trackedListingCount": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "tracked_listing_count",
+            "type": "integer"
+          }
+        },
+        "title": "CouncilPriceDrops",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "council": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.LgaInfo",
+            "description": "Identity + current facts. dominant_share is absent (it is a suburb fact). (proto shorts.v1alpha1.LgaInfo)",
+            "title": "council"
+          },
+          "factsAsOf": {
+            "description": "when the council facts were loaded, 'YYYY-MM-DD' (proto string)",
+            "title": "facts_as_of",
+            "type": "string"
+          },
+          "federalElectorates": {
+            "description": "Federal electorates / state districts over the member suburbs, weighted by\n the residents each suburb contributes to this council. Largest first. (proto shorts.v1alpha1.CouncilRepresentative)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilRepresentative"
+            },
+            "title": "federal_electorates",
+            "type": "array"
+          },
+          "lgaVintage": {
+            "description": "(proto string)",
+            "title": "lga_vintage",
+            "type": "string"
+          },
+          "neighbours": {
+            "description": "(proto shorts.v1alpha1.CouncilNeighbour)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilNeighbour"
+            },
+            "title": "neighbours",
+            "type": "array"
+          },
+          "priceDrops": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.CouncilPriceDrops",
+            "description": "Crawl-derived aggregate. Absent below 3 drops council-wide or with no\n crawl coverage. (proto shorts.v1alpha1.CouncilPriceDrops)",
+            "title": "price_drops"
+          },
+          "rollup": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.CouncilRollup",
+            "description": "(proto shorts.v1alpha1.CouncilRollup)",
+            "title": "rollup"
+          },
+          "series": {
+            "description": "(proto shorts.v1alpha1.CouncilSeries)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilSeries"
+            },
+            "title": "series",
+            "type": "array"
+          },
+          "stateDistricts": {
+            "description": "(proto shorts.v1alpha1.CouncilRepresentative)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilRepresentative"
+            },
+            "title": "state_districts",
+            "type": "array"
+          },
+          "suburbs": {
+            "description": "Every suburb whose dominant council this is, plus straddling suburbs where\n this council holds at least 5% of the residents. Population desc. (proto shorts.v1alpha1.CouncilSuburb)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilSuburb"
+            },
+            "title": "suburbs",
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.CouncilSummary",
+            "description": "The same row ListCouncils serves, so the hub and the index never disagree. (proto shorts.v1alpha1.CouncilSummary)",
+            "title": "summary"
+          }
+        },
+        "title": "CouncilProfile",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilRepresentative": {
+        "additionalProperties": false,
+        "properties": {
+          "member": {
+            "description": "(proto string)",
+            "title": "member",
+            "type": "string"
+          },
+          "name": {
+            "description": "electorate or district (proto string)",
+            "title": "name",
+            "type": "string"
+          },
+          "party": {
+            "description": "(proto string)",
+            "title": "party",
+            "type": "string"
+          },
+          "partyAb": {
+            "description": "(proto string)",
+            "title": "party_ab",
+            "type": "string"
+          },
+          "populationShare": {
+            "description": "0..1 of the council's member-suburb residents (proto double)",
+            "format": "double",
+            "title": "population_share",
+            "type": "number"
+          },
+          "suburbCount": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "suburb_count",
+            "type": "integer"
+          }
+        },
+        "title": "CouncilRepresentative",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilRollup": {
+        "additionalProperties": false,
+        "description": "Rollups over the member suburbs, weighted by the residents each contributes\n (population x share). Absent = no member suburb is covered.",
+        "properties": {
+          "bushfireCoveredSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "bushfire_covered_suburbs",
+            "type": "integer"
+          },
+          "bushfireSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "bushfire_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "crime": {
+            "description": "Latest crime rates where the source covers member suburbs (NSW today). (proto shorts.v1alpha1.CouncilCrimeStat)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilCrimeStat"
+            },
+            "title": "crime",
+            "type": "array"
+          },
+          "dominantSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "dominant_suburbs",
+            "type": "integer"
+          },
+          "floodCoveredSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "flood_covered_suburbs",
+            "type": "integer"
+          },
+          "floodSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "flood_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "medianMax": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "median_max",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "medianMin": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "median_min",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "medianOfMedians": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "median_of_medians",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memberSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "member_suburbs",
+            "type": "integer"
+          },
+          "pricedSuburbs": {
+            "description": "Member suburbs with their own Valuer-General median (unweighted). (proto int32)",
+            "format": "int32",
+            "title": "priced_suburbs",
+            "type": "integer"
+          },
+          "waterCoveredSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "water_covered_suburbs",
+            "type": "integer"
+          },
+          "waterSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "water_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "title": "CouncilRollup",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilSeries": {
+        "additionalProperties": false,
+        "description": "One lga_series measure for the council, ascending by period.",
+        "properties": {
+          "frequency": {
+            "description": "annual (30 June) | fy | monthly (proto string)",
+            "title": "frequency",
+            "type": "string"
+          },
+          "measure": {
+            "description": "e.g. 'erp', 'house_median_price', 'dwelling_approvals_total' (proto string)",
+            "title": "measure",
+            "type": "string"
+          },
+          "points": {
+            "description": "(proto shorts.v1alpha1.CouncilSeriesPoint)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilSeriesPoint"
+            },
+            "title": "points",
+            "type": "array"
+          },
+          "source": {
+            "description": "(proto string)",
+            "title": "source",
+            "type": "string"
+          },
+          "sourceLicence": {
+            "description": "(proto string)",
+            "title": "source_licence",
+            "type": "string"
+          },
+          "unit": {
+            "description": "persons | AUD | count (proto string)",
+            "title": "unit",
+            "type": "string"
+          }
+        },
+        "title": "CouncilSeries",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilSeriesPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "period": {
+            "description": "period end, 'YYYY-MM-DD' (proto string)",
+            "title": "period",
+            "type": "string"
+          },
+          "periodLabel": {
+            "description": "'2025' | '2024-25' | '2026-07' (proto string)",
+            "title": "period_label",
+            "type": "string"
+          },
+          "value": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "value",
+            "type": "number"
+          }
+        },
+        "title": "CouncilSeriesPoint",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilSuburb": {
+        "additionalProperties": false,
+        "properties": {
+          "bushfireSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "bushfire_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "dominant": {
+            "description": "this is the suburb's dominant council (proto bool)",
+            "title": "dominant",
+            "type": "boolean"
+          },
+          "floodSharePct": {
+            "description": "absent = no source covers the suburb (proto double)",
+            "format": "double",
+            "title": "flood_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "population": {
+            "description": "Census 2021 persons, whole suburb (proto int32)",
+            "format": "int32",
+            "title": "population",
+            "type": "integer"
+          },
+          "postcode": {
+            "description": "(proto string)",
+            "title": "postcode",
+            "type": "string"
+          },
+          "salCode": {
+            "description": "(proto string)",
+            "title": "sal_code",
+            "type": "string"
+          },
+          "salName": {
+            "description": "(proto string)",
+            "title": "sal_name",
+            "type": "string"
+          },
+          "seifaIrsadDecile": {
+            "description": "national decile (proto int32)",
+            "format": "int32",
+            "title": "seifa_irsad_decile",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "share": {
+            "description": "0..1 of the suburb's residents in this council (proto double)",
+            "format": "double",
+            "title": "share",
+            "type": "number"
+          },
+          "vgMedian": {
+            "description": "the suburb's OWN Valuer-General median house price (proto double)",
+            "format": "double",
+            "title": "vg_median",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "vgMedianPeriod": {
+            "description": "'YYYY-MM-DD'; '' without a median (proto string)",
+            "title": "vg_median_period",
+            "type": "string"
+          },
+          "waterSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "water_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "title": "CouncilSuburb",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilSummary": {
+        "additionalProperties": false,
+        "description": "One council's headline row: the council index table and the council\n choropleth read exactly these fields.",
+        "properties": {
+          "approvalsPer1000": {
+            "description": "dwelling approvals, last 12 months, per 1,000 residents (proto double)",
+            "format": "double",
+            "title": "approvals_per_1000",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "approvalsThrough": {
+            "description": "last month of that window, 'YYYY-MM' (proto string)",
+            "title": "approvals_through",
+            "type": "string"
+          },
+          "areaSqkm": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "area_sqkm",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "bushfireSharePct": {
+            "description": "population-weighted over member suburbs (proto double)",
+            "format": "double",
+            "title": "bushfire_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "councilHouseMedian": {
+            "description": "council-wide ABS established-house median (proto double)",
+            "format": "double",
+            "title": "council_house_median",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "councilHouseMedianPeriod": {
+            "description": "e.g. '2023-24' (proto string)",
+            "title": "council_house_median_period",
+            "type": "string"
+          },
+          "dataThrough": {
+            "description": "newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none (proto string)",
+            "title": "data_through",
+            "type": "string"
+          },
+          "densityPerSqkm": {
+            "description": "ERP / area (proto double)",
+            "format": "double",
+            "title": "density_per_sqkm",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "displayName": {
+            "description": "(proto string)",
+            "title": "display_name",
+            "type": "string"
+          },
+          "erpYear": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "erp_year",
+            "type": "integer"
+          },
+          "fagPerResident": {
+            "description": "latest Financial Assistance Grant / ERP, AUD (proto double)",
+            "format": "double",
+            "title": "fag_per_resident",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "fagYear": {
+            "description": "e.g. '2025-26' (proto string)",
+            "title": "fag_year",
+            "type": "string"
+          },
+          "floodSharePct": {
+            "description": "population-weighted over member suburbs (proto double)",
+            "format": "double",
+            "title": "flood_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "council | unincorporated (proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "lgaCode": {
+            "description": "(proto string)",
+            "title": "lga_code",
+            "type": "string"
+          },
+          "memberSuburbCount": {
+            "description": "suburbs whose DOMINANT council this is (proto int32)",
+            "format": "int32",
+            "title": "member_suburb_count",
+            "type": "integer"
+          },
+          "popGrowthPct": {
+            "description": "ERP year-on-year change, % (proto double)",
+            "format": "double",
+            "title": "pop_growth_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "population": {
+            "description": "ABS estimated resident population at 30 June erp_year; 0 if none (proto int32)",
+            "format": "int32",
+            "title": "population",
+            "type": "integer"
+          },
+          "priceDropShare": {
+            "description": "0..1, crawl-derived, only when \u003e= 3 drops council-wide (proto double)",
+            "format": "double",
+            "title": "price_drop_share",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "seifaIrsadDecile": {
+            "description": "SEIFA 2021 IRSAD, national decile (proto int32)",
+            "format": "int32",
+            "title": "seifa_irsad_decile",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "slug": {
+            "description": "(proto string)",
+            "title": "slug",
+            "type": "string"
+          },
+          "stateCode": {
+            "description": "(proto string)",
+            "title": "state_code",
+            "type": "string"
+          }
+        },
+        "title": "CouncilSummary",
         "type": "object"
       },
       "shorts.v1alpha1.DeclaredInterest": {
@@ -1217,10 +1986,15 @@
             "type": "boolean"
           },
           "medianDropPct": {
-            "description": "0..1 fraction, depth of the typical cut (proto double)",
+            "description": "0..1 fraction, depth of the typical cut. 0 when withheld — read\n median_withheld, never the 0, to tell withheld from a measurement. (proto double)",
             "format": "double",
             "title": "median_drop_pct",
             "type": "number"
+          },
+          "medianWithheld": {
+            "description": "True when median_drop_pct is withheld: fewer than 3 dropped addresses\n stand behind this point, so a \"median\" would be one or two listings'\n exact cuts (the stored median is NULL). median_drop_pct is then 0 and is\n not a measurement. A separate flag rather than `optional` presence on\n median_drop_pct, which would change that field's cardinality. (proto bool)",
+            "title": "median_withheld",
+            "type": "boolean"
           },
           "panelSuburbs": {
             "description": "suburbs contributing to this point (proto int32)",
@@ -1635,6 +2409,835 @@
         "title": "FinancialYearOption",
         "type": "object"
       },
+      "shorts.v1alpha1.FundamentalsCoverage": {
+        "additionalProperties": false,
+        "description": "Whether fundamentals have been collected for the stock.",
+        "properties": {
+          "lastAttemptAt": {
+            "description": "RFC 3339. (proto string)",
+            "title": "last_attempt_at",
+            "type": "string"
+          },
+          "lastSuccessAt": {
+            "description": "RFC 3339. (proto string)",
+            "title": "last_success_at",
+            "type": "string"
+          },
+          "sources": {
+            "description": "Sources of the rows held. (proto string)",
+            "items": {
+              "type": "string"
+            },
+            "title": "sources",
+            "type": "array"
+          },
+          "status": {
+            "description": "\"covered\" (rows held), \"empty\" (our providers returned nothing),\n \"pending\" (not attempted yet) or \"failed\" (the last attempt errored).\n Empty when unknown. (proto string)",
+            "title": "status",
+            "type": "string"
+          }
+        },
+        "title": "FundamentalsCoverage",
+        "type": "object"
+      },
+      "shorts.v1alpha1.FundamentalsGrowth": {
+        "additionalProperties": false,
+        "description": "Year-on-year growth, always against the same series one year earlier\n (annual vs prior annual, TTM vs the TTM point a year earlier), never across\n series. A *_pct is absent (has_* false) when either side is missing or the\n prior value is zero or negative.",
+        "properties": {
+          "basisPeriodType": {
+            "description": "Series the EPS growth was computed on: \"half\", \"ttm\" or \"annual\". (proto string)",
+            "title": "basis_period_type",
+            "type": "string"
+          },
+          "epsBasisSource": {
+            "description": "(proto string)",
+            "title": "eps_basis_source",
+            "type": "string"
+          },
+          "epsHalfYoyPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "eps_half_yoy_pct",
+            "type": "number"
+          },
+          "epsTtm": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "eps_ttm",
+            "type": "number"
+          },
+          "epsYoyPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "eps_yoy_pct",
+            "type": "number"
+          },
+          "epsYoyPriorPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "eps_yoy_prior_pct",
+            "type": "number"
+          },
+          "fetchedAt": {
+            "description": "RFC 3339, newest fetch of the growth inputs. (proto string)",
+            "title": "fetched_at",
+            "type": "string"
+          },
+          "halfLatestPeriodEnd": {
+            "description": "YYYY-MM-DD of the latest half-year row; empty when none. (proto string)",
+            "title": "half_latest_period_end",
+            "type": "string"
+          },
+          "hasEpsHalfYoy": {
+            "description": "(proto bool)",
+            "title": "has_eps_half_yoy",
+            "type": "boolean"
+          },
+          "hasEpsTtm": {
+            "description": "(proto bool)",
+            "title": "has_eps_ttm",
+            "type": "boolean"
+          },
+          "hasEpsYoy": {
+            "description": "(proto bool)",
+            "title": "has_eps_yoy",
+            "type": "boolean"
+          },
+          "hasEpsYoyPrior": {
+            "description": "(proto bool)",
+            "title": "has_eps_yoy_prior",
+            "type": "boolean"
+          },
+          "hasNetIncomeTtm": {
+            "description": "(proto bool)",
+            "title": "has_net_income_ttm",
+            "type": "boolean"
+          },
+          "hasRevenueHalfYoy": {
+            "description": "(proto bool)",
+            "title": "has_revenue_half_yoy",
+            "type": "boolean"
+          },
+          "hasRevenueTtm": {
+            "description": "(proto bool)",
+            "title": "has_revenue_ttm",
+            "type": "boolean"
+          },
+          "hasRevenueYoy": {
+            "description": "(proto bool)",
+            "title": "has_revenue_yoy",
+            "type": "boolean"
+          },
+          "hasRevenueYoyPrior": {
+            "description": "(proto bool)",
+            "title": "has_revenue_yoy_prior",
+            "type": "boolean"
+          },
+          "latestPeriodEnd": {
+            "description": "YYYY-MM-DD of the latest period in that series. (proto string)",
+            "title": "latest_period_end",
+            "type": "string"
+          },
+          "netIncomePositive": {
+            "description": "Latest annual net income above zero. (proto bool)",
+            "title": "net_income_positive",
+            "type": "boolean"
+          },
+          "netIncomeTtm": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "net_income_ttm",
+            "type": "number"
+          },
+          "periodsAvailable": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "periods_available",
+            "type": "integer"
+          },
+          "revenueBasisPeriodType": {
+            "description": "Series the revenue growth was computed on: \"half\" (latest half-year from a\n company filing vs the same half a year earlier, used when it is newer than\n the latest annual), \"ttm\" (the latest trailing twelve months vs twelve\n months earlier, used when it is newer than the latest annual) or \"annual\".\n Empty when unknown. (proto string)",
+            "title": "revenue_basis_period_type",
+            "type": "string"
+          },
+          "revenueBasisSource": {
+            "description": "\"vendor\" or \"filing\": where the rows behind each growth figure came from.\n \"filing\" when either side of the pair is a figure extracted from a company\n filing. Empty when unknown. (proto string)",
+            "title": "revenue_basis_source",
+            "type": "string"
+          },
+          "revenueHalfYoyPct": {
+            "description": "Latest half-year vs the same half a year earlier, from company filings,\n whether or not the half is the chosen basis. (proto double)",
+            "format": "double",
+            "title": "revenue_half_yoy_pct",
+            "type": "number"
+          },
+          "revenueLatestPeriodEnd": {
+            "description": "YYYY-MM-DD, the pair revenue_yoy_pct compares. (proto string)",
+            "title": "revenue_latest_period_end",
+            "type": "string"
+          },
+          "revenuePriorPeriodEnd": {
+            "description": "(proto string)",
+            "title": "revenue_prior_period_end",
+            "type": "string"
+          },
+          "revenueTtm": {
+            "description": "Latest trailing-twelve-month points. (proto double)",
+            "format": "double",
+            "title": "revenue_ttm",
+            "type": "number"
+          },
+          "revenueYoyPct": {
+            "description": "Revenue growth on revenue_basis_period_type vs the same series a year earlier. (proto double)",
+            "format": "double",
+            "title": "revenue_yoy_pct",
+            "type": "number"
+          },
+          "revenueYoyPriorPct": {
+            "description": "The same growth one period earlier, for acceleration. (proto double)",
+            "format": "double",
+            "title": "revenue_yoy_prior_pct",
+            "type": "number"
+          }
+        },
+        "title": "FundamentalsGrowth",
+        "type": "object"
+      },
+      "shorts.v1alpha1.FundamentalsPeriod": {
+        "additionalProperties": false,
+        "description": "One reported period. Values are in `currency` exactly as the source reports\n them (BHP reports in USD). has_* is false when the source omitted a figure.",
+        "properties": {
+          "capitalExpenditure": {
+            "description": "An outflow: negative. (proto double)",
+            "format": "double",
+            "title": "capital_expenditure",
+            "type": "number"
+          },
+          "capitalLeaseObligations": {
+            "description": "Lease liabilities. (proto double)",
+            "format": "double",
+            "title": "capital_lease_obligations",
+            "type": "number"
+          },
+          "cashAndEquivalents": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "cash_and_equivalents",
+            "type": "number"
+          },
+          "currency": {
+            "description": "(proto string)",
+            "title": "currency",
+            "type": "string"
+          },
+          "currentAssets": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "current_assets",
+            "type": "number"
+          },
+          "currentLiabilities": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "current_liabilities",
+            "type": "number"
+          },
+          "dividendsPaid": {
+            "description": "Cash dividends paid in the period: negative. (proto double)",
+            "format": "double",
+            "title": "dividends_paid",
+            "type": "number"
+          },
+          "ebit": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "ebit",
+            "type": "number"
+          },
+          "ebitda": {
+            "description": "Statutory: includes impairments and revaluations. (proto double)",
+            "format": "double",
+            "title": "ebitda",
+            "type": "number"
+          },
+          "epsBasic": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "eps_basic",
+            "type": "number"
+          },
+          "epsDiluted": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "eps_diluted",
+            "type": "number"
+          },
+          "fetchedAt": {
+            "description": "RFC 3339. (proto string)",
+            "title": "fetched_at",
+            "type": "string"
+          },
+          "fieldSources": {
+            "additionalProperties": {
+              "description": "(proto string)",
+              "title": "value",
+              "type": "string"
+            },
+            "description": "Per-field provenance: the fields whose value did not come from `source`,\n mapped to where it came from, e.g. {\"operating_cash_flow\":\n \"derived:fcf-minus-capex\", \"revenue\": \"markit-key-statistics\"}. (proto shorts.v1alpha1.FundamentalsPeriod.FieldSourcesEntry)",
+            "title": "field_sources",
+            "type": "object"
+          },
+          "fiscalYear": {
+            "description": "0 when unknown. (proto int32)",
+            "format": "int32",
+            "title": "fiscal_year",
+            "type": "integer"
+          },
+          "freeCashFlow": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "free_cash_flow",
+            "type": "number"
+          },
+          "grossProfit": {
+            "description": "Full statement lines (period_type \"quarter\" rows are balance-sheet\n snapshots and carry only balance lines and shares). (proto double)",
+            "format": "double",
+            "title": "gross_profit",
+            "type": "number"
+          },
+          "hasCapitalExpenditure": {
+            "description": "(proto bool)",
+            "title": "has_capital_expenditure",
+            "type": "boolean"
+          },
+          "hasCapitalLeaseObligations": {
+            "description": "(proto bool)",
+            "title": "has_capital_lease_obligations",
+            "type": "boolean"
+          },
+          "hasCashAndEquivalents": {
+            "description": "(proto bool)",
+            "title": "has_cash_and_equivalents",
+            "type": "boolean"
+          },
+          "hasCurrentAssets": {
+            "description": "(proto bool)",
+            "title": "has_current_assets",
+            "type": "boolean"
+          },
+          "hasCurrentLiabilities": {
+            "description": "(proto bool)",
+            "title": "has_current_liabilities",
+            "type": "boolean"
+          },
+          "hasDividendsPaid": {
+            "description": "(proto bool)",
+            "title": "has_dividends_paid",
+            "type": "boolean"
+          },
+          "hasEbit": {
+            "description": "(proto bool)",
+            "title": "has_ebit",
+            "type": "boolean"
+          },
+          "hasEbitda": {
+            "description": "(proto bool)",
+            "title": "has_ebitda",
+            "type": "boolean"
+          },
+          "hasEpsBasic": {
+            "description": "(proto bool)",
+            "title": "has_eps_basic",
+            "type": "boolean"
+          },
+          "hasEpsDiluted": {
+            "description": "(proto bool)",
+            "title": "has_eps_diluted",
+            "type": "boolean"
+          },
+          "hasFreeCashFlow": {
+            "description": "(proto bool)",
+            "title": "has_free_cash_flow",
+            "type": "boolean"
+          },
+          "hasGrossProfit": {
+            "description": "(proto bool)",
+            "title": "has_gross_profit",
+            "type": "boolean"
+          },
+          "hasInterestExpense": {
+            "description": "(proto bool)",
+            "title": "has_interest_expense",
+            "type": "boolean"
+          },
+          "hasNetDebt": {
+            "description": "(proto bool)",
+            "title": "has_net_debt",
+            "type": "boolean"
+          },
+          "hasNetIncome": {
+            "description": "(proto bool)",
+            "title": "has_net_income",
+            "type": "boolean"
+          },
+          "hasNetInterestIncome": {
+            "description": "(proto bool)",
+            "title": "has_net_interest_income",
+            "type": "boolean"
+          },
+          "hasNormalizedEbitda": {
+            "description": "(proto bool)",
+            "title": "has_normalized_ebitda",
+            "type": "boolean"
+          },
+          "hasOperatingCashFlow": {
+            "description": "(proto bool)",
+            "title": "has_operating_cash_flow",
+            "type": "boolean"
+          },
+          "hasOperatingIncome": {
+            "description": "(proto bool)",
+            "title": "has_operating_income",
+            "type": "boolean"
+          },
+          "hasPretaxIncome": {
+            "description": "(proto bool)",
+            "title": "has_pretax_income",
+            "type": "boolean"
+          },
+          "hasRevenue": {
+            "description": "(proto bool)",
+            "title": "has_revenue",
+            "type": "boolean"
+          },
+          "hasShareBuybacks": {
+            "description": "(proto bool)",
+            "title": "has_share_buybacks",
+            "type": "boolean"
+          },
+          "hasSharesOutstanding": {
+            "description": "(proto bool)",
+            "title": "has_shares_outstanding",
+            "type": "boolean"
+          },
+          "hasTaxProvision": {
+            "description": "(proto bool)",
+            "title": "has_tax_provision",
+            "type": "boolean"
+          },
+          "hasTotalAssets": {
+            "description": "(proto bool)",
+            "title": "has_total_assets",
+            "type": "boolean"
+          },
+          "hasTotalDebt": {
+            "description": "(proto bool)",
+            "title": "has_total_debt",
+            "type": "boolean"
+          },
+          "hasTotalEquity": {
+            "description": "(proto bool)",
+            "title": "has_total_equity",
+            "type": "boolean"
+          },
+          "hasTotalLiabilities": {
+            "description": "(proto bool)",
+            "title": "has_total_liabilities",
+            "type": "boolean"
+          },
+          "interestExpense": {
+            "description": "A positive expense. (proto double)",
+            "format": "double",
+            "title": "interest_expense",
+            "type": "number"
+          },
+          "netDebt": {
+            "description": "Excludes leases: total debt minus leases minus cash. Negative is net cash. (proto double)",
+            "format": "double",
+            "title": "net_debt",
+            "type": "number"
+          },
+          "netIncome": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "net_income",
+            "type": "number"
+          },
+          "netInterestIncome": {
+            "description": "Banks; other companies report it as minus interest expense. (proto double)",
+            "format": "double",
+            "title": "net_interest_income",
+            "type": "number"
+          },
+          "normalizedEbitda": {
+            "description": "EBITDA before unusual items, when the source publishes it. (proto double)",
+            "format": "double",
+            "title": "normalized_ebitda",
+            "type": "number"
+          },
+          "operatingCashFlow": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "operating_cash_flow",
+            "type": "number"
+          },
+          "operatingIncome": {
+            "description": "Absent for banks and insurers. (proto double)",
+            "format": "double",
+            "title": "operating_income",
+            "type": "number"
+          },
+          "periodEnd": {
+            "description": "YYYY-MM-DD. (proto string)",
+            "title": "period_end",
+            "type": "string"
+          },
+          "periodType": {
+            "description": "\"annual\" | \"half\" | \"quarter\" | \"ttm\" (trailing twelve months). (proto string)",
+            "title": "period_type",
+            "type": "string"
+          },
+          "pretaxIncome": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pretax_income",
+            "type": "number"
+          },
+          "revenue": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "revenue",
+            "type": "number"
+          },
+          "shareBuybacks": {
+            "description": "An outflow: negative. (proto double)",
+            "format": "double",
+            "title": "share_buybacks",
+            "type": "number"
+          },
+          "sharesOutstanding": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "shares_outstanding",
+            "type": "number"
+          },
+          "source": {
+            "description": "e.g. \"yahoo-timeseries\". (proto string)",
+            "title": "source",
+            "type": "string"
+          },
+          "sourceDocumentDate": {
+            "description": "YYYY-MM-DD. (proto string)",
+            "title": "source_document_date",
+            "type": "string"
+          },
+          "sourceDocumentUrl": {
+            "description": "The company filing a filing-sourced row or field came from; empty otherwise. (proto string)",
+            "title": "source_document_url",
+            "type": "string"
+          },
+          "taxProvision": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "tax_provision",
+            "type": "number"
+          },
+          "totalAssets": {
+            "description": "Balance sheet at period_end. (proto double)",
+            "format": "double",
+            "title": "total_assets",
+            "type": "number"
+          },
+          "totalDebt": {
+            "description": "Includes lease liabilities. (proto double)",
+            "format": "double",
+            "title": "total_debt",
+            "type": "number"
+          },
+          "totalEquity": {
+            "description": "Shareholders' equity. (proto double)",
+            "format": "double",
+            "title": "total_equity",
+            "type": "number"
+          },
+          "totalLiabilities": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "total_liabilities",
+            "type": "number"
+          }
+        },
+        "title": "FundamentalsPeriod",
+        "type": "object"
+      },
+      "shorts.v1alpha1.FundamentalsQuality": {
+        "additionalProperties": false,
+        "description": "Profitability, cash conversion, balance-sheet and valuation ratios. Flow\n ratios use one period (basis_period_type/basis_period_end); balance ratios use\n the balance sheet at or up to 6 months before it, in the same currency.\n has_* is false when an input is missing, a denominator is zero or negative,\n or the ratio is not meaningful for the company (listed in not_meaningful).",
+        "properties": {
+          "balanceCurrency": {
+            "description": "(proto string)",
+            "title": "balance_currency",
+            "type": "string"
+          },
+          "balanceLagMonths": {
+            "description": "Months between the balance sheet and the flow period. (proto int32)",
+            "format": "int32",
+            "title": "balance_lag_months",
+            "type": "integer"
+          },
+          "balancePeriodEnd": {
+            "description": "YYYY-MM-DD; empty when no aligned balance sheet. (proto string)",
+            "title": "balance_period_end",
+            "type": "string"
+          },
+          "basisPeriodEnd": {
+            "description": "YYYY-MM-DD. (proto string)",
+            "title": "basis_period_end",
+            "type": "string"
+          },
+          "basisPeriodType": {
+            "description": "\"annual\" | \"ttm\". (proto string)",
+            "title": "basis_period_type",
+            "type": "string"
+          },
+          "currency": {
+            "description": "Reporting currency of the flow period. (proto string)",
+            "title": "currency",
+            "type": "string"
+          },
+          "currentRatio": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "current_ratio",
+            "type": "number"
+          },
+          "fcfConversion": {
+            "description": "Free cash flow / net profit (a ratio, not a percentage). (proto double)",
+            "format": "double",
+            "title": "fcf_conversion",
+            "type": "number"
+          },
+          "fcfMarginPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "fcf_margin_pct",
+            "type": "number"
+          },
+          "grossMarginPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "gross_margin_pct",
+            "type": "number"
+          },
+          "hasCurrentRatio": {
+            "description": "(proto bool)",
+            "title": "has_current_ratio",
+            "type": "boolean"
+          },
+          "hasFcfConversion": {
+            "description": "(proto bool)",
+            "title": "has_fcf_conversion",
+            "type": "boolean"
+          },
+          "hasFcfMarginPct": {
+            "description": "(proto bool)",
+            "title": "has_fcf_margin_pct",
+            "type": "boolean"
+          },
+          "hasGrossMarginPct": {
+            "description": "(proto bool)",
+            "title": "has_gross_margin_pct",
+            "type": "boolean"
+          },
+          "hasInterestCover": {
+            "description": "(proto bool)",
+            "title": "has_interest_cover",
+            "type": "boolean"
+          },
+          "hasMarketCap": {
+            "description": "(proto bool)",
+            "title": "has_market_cap",
+            "type": "boolean"
+          },
+          "hasNetDebt": {
+            "description": "(proto bool)",
+            "title": "has_net_debt",
+            "type": "boolean"
+          },
+          "hasNetDebtToEbitda": {
+            "description": "(proto bool)",
+            "title": "has_net_debt_to_ebitda",
+            "type": "boolean"
+          },
+          "hasNetDebtToEquity": {
+            "description": "(proto bool)",
+            "title": "has_net_debt_to_equity",
+            "type": "boolean"
+          },
+          "hasNetMarginPct": {
+            "description": "(proto bool)",
+            "title": "has_net_margin_pct",
+            "type": "boolean"
+          },
+          "hasOperatingMarginPct": {
+            "description": "(proto bool)",
+            "title": "has_operating_margin_pct",
+            "type": "boolean"
+          },
+          "hasPayoutRatioPct": {
+            "description": "(proto bool)",
+            "title": "has_payout_ratio_pct",
+            "type": "boolean"
+          },
+          "hasPeRatio": {
+            "description": "(proto bool)",
+            "title": "has_pe_ratio",
+            "type": "boolean"
+          },
+          "hasPriceToBook": {
+            "description": "(proto bool)",
+            "title": "has_price_to_book",
+            "type": "boolean"
+          },
+          "hasRoaPct": {
+            "description": "(proto bool)",
+            "title": "has_roa_pct",
+            "type": "boolean"
+          },
+          "hasRoePct": {
+            "description": "(proto bool)",
+            "title": "has_roe_pct",
+            "type": "boolean"
+          },
+          "interestCover": {
+            "description": "Operating income / interest expense. (proto double)",
+            "format": "double",
+            "title": "interest_cover",
+            "type": "number"
+          },
+          "isFinancial": {
+            "description": "Bank, insurer or other financial. (proto bool)",
+            "title": "is_financial",
+            "type": "boolean"
+          },
+          "isProperty": {
+            "description": "Property trust: profit and EBITDA include revaluations. (proto bool)",
+            "title": "is_property",
+            "type": "boolean"
+          },
+          "marketCap": {
+            "description": "AUD: latest close x shares on issue. (proto double)",
+            "format": "double",
+            "title": "market_cap",
+            "type": "number"
+          },
+          "netDebt": {
+            "description": "Excludes leases; negative is net cash. In balance_currency. (proto double)",
+            "format": "double",
+            "title": "net_debt",
+            "type": "number"
+          },
+          "netDebtToEbitda": {
+            "description": "Normalized EBITDA when published, else statutory. (proto double)",
+            "format": "double",
+            "title": "net_debt_to_ebitda",
+            "type": "number"
+          },
+          "netDebtToEquity": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "net_debt_to_equity",
+            "type": "number"
+          },
+          "netMarginPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "net_margin_pct",
+            "type": "number"
+          },
+          "notMeaningful": {
+            "description": "Ratio names withheld because is_financial. (proto string)",
+            "items": {
+              "type": "string"
+            },
+            "title": "not_meaningful",
+            "type": "array"
+          },
+          "operatingCashFlowDerived": {
+            "description": "Operating cash flow = free cash flow minus capex. (proto bool)",
+            "title": "operating_cash_flow_derived",
+            "type": "boolean"
+          },
+          "operatingMarginPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "operating_margin_pct",
+            "type": "number"
+          },
+          "payoutRatioPct": {
+            "description": "Cash dividends paid / net profit. (proto double)",
+            "format": "double",
+            "title": "payout_ratio_pct",
+            "type": "number"
+          },
+          "peEpsBasis": {
+            "description": "\"diluted\" | \"basic\". (proto string)",
+            "title": "pe_eps_basis",
+            "type": "string"
+          },
+          "peEpsPeriodEnd": {
+            "description": "YYYY-MM-DD of the EPS used for P/E. (proto string)",
+            "title": "pe_eps_period_end",
+            "type": "string"
+          },
+          "peRatio": {
+            "description": "Latest close / 12-month EPS; AUD reporters only. (proto double)",
+            "format": "double",
+            "title": "pe_ratio",
+            "type": "number"
+          },
+          "priceAsOf": {
+            "description": "YYYY-MM-DD of the close used. (proto string)",
+            "title": "price_as_of",
+            "type": "string"
+          },
+          "priceToBook": {
+            "description": "Market cap / equity; AUD reporters only. (proto double)",
+            "format": "double",
+            "title": "price_to_book",
+            "type": "number"
+          },
+          "roaPct": {
+            "description": "Net profit / average total assets. (proto double)",
+            "format": "double",
+            "title": "roa_pct",
+            "type": "number"
+          },
+          "roePct": {
+            "description": "Net profit / average equity. (proto double)",
+            "format": "double",
+            "title": "roe_pct",
+            "type": "number"
+          },
+          "sharesAsOf": {
+            "description": "YYYY-MM-DD of the share count used for market cap. (proto string)",
+            "title": "shares_as_of",
+            "type": "string"
+          },
+          "source": {
+            "description": "Source of the flow period, e.g. \"yahoo-timeseries\". (proto string)",
+            "title": "source",
+            "type": "string"
+          },
+          "valuationNote": {
+            "description": "Why market cap, P/E or P/B are absent: \"non-aud\" (statements not in AUD),\n \"listed-unit\" (the listed unit is not one ordinary share), \"no-shares\",\n \"no-price\"; empty when present. (proto string)",
+            "title": "valuation_note",
+            "type": "string"
+          }
+        },
+        "title": "FundamentalsQuality",
+        "type": "object"
+      },
       "shorts.v1alpha1.GetAvailableDatesRequest": {
         "additionalProperties": false,
         "description": "Request for GetAvailableDates RPC",
@@ -1775,6 +3378,35 @@
           }
         },
         "title": "GetCompanyTaxProfileResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetCouncilProfileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "slug": {
+            "description": "lga.slug — minted once, never reassigned (proto string)",
+            "title": "slug",
+            "type": "string"
+          },
+          "stateCode": {
+            "description": "NSW | VIC | QLD | SA | WA | TAS | NT | ACT (proto string)",
+            "title": "state_code",
+            "type": "string"
+          }
+        },
+        "title": "GetCouncilProfileRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetCouncilProfileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.CouncilProfile",
+            "description": "(proto shorts.v1alpha1.CouncilProfile)",
+            "title": "profile"
+          }
+        },
+        "title": "GetCouncilProfileResponse",
         "type": "object"
       },
       "shorts.v1alpha1.GetDirectorTradesRequest": {
@@ -1960,17 +3592,17 @@
             "type": "string"
           },
           "grain": {
-            "description": "'national' | 'state' | 'suburb' (proto string)",
+            "description": "Anything outside these shapes is InvalidArgument. 'national' (default) | 'state' | 'suburb' (proto string)",
             "title": "grain",
             "type": "string"
           },
           "grainKey": {
-            "description": "'AU' | state code | sal_code (proto string)",
+            "description": "'AU' | state code ('NSW', ...) | 5-digit sal_code (proto string)",
             "title": "grain_key",
             "type": "string"
           },
           "to": {
-            "description": "'YYYY-MM-DD', inclusive; defaults to today (proto string)",
+            "description": "'YYYY-MM-DD', inclusive; defaults to (and is capped at) today (proto string)",
             "title": "to",
             "type": "string"
           }
@@ -1981,6 +3613,16 @@
       "shorts.v1alpha1.GetDropIndexSeriesResponse": {
         "additionalProperties": false,
         "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "as_of: the latest computed_at among the returned points (when the\n collector last wrote this series). data_through: the end of the latest\n returned snapshot day, or the crawl horizon the last housing MV refresh\n recorded if that is earlier — a snapshot is computed daily whether or not\n the crawl ran, so the date alone can outrun the data. Both unset when no\n point is returned. (proto google.protobuf.Timestamp)",
+            "title": "as_of"
+          },
+          "dataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "(proto google.protobuf.Timestamp)",
+            "title": "data_through"
+          },
           "points": {
             "description": "(proto shorts.v1alpha1.DropIndexPoint)",
             "items": {
@@ -3005,6 +4647,16 @@
       "shorts.v1alpha1.GetPriceDropsOverviewResponse": {
         "additionalProperties": false,
         "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "When mv_state_price_drops was last refreshed, and the newest crawl\n observation that refresh could see. Unset when never recorded. (proto google.protobuf.Timestamp)",
+            "title": "as_of"
+          },
+          "dataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "(proto google.protobuf.Timestamp)",
+            "title": "data_through"
+          },
           "national": {
             "$ref": "#/components/schemas/shorts.v1alpha1.StatePriceDropSummary",
             "description": "the 'AU' row (proto shorts.v1alpha1.StatePriceDropSummary)",
@@ -3017,6 +4669,11 @@
             },
             "title": "states",
             "type": "array"
+          },
+          "withheld": {
+            "description": "True when crawl-derived price-drop figures are switched off\n (HOUSING_DROP_LISTINGS_ENABLED=false, a takedown): every other field is\n empty ON PURPOSE and will stay so until the switch is flipped back. Lets a\n client tell that apart from a cold or failed fetch, which is worth retrying. (proto bool)",
+            "title": "withheld",
+            "type": "boolean"
           }
         },
         "title": "GetPriceDropsOverviewResponse",
@@ -3612,6 +5269,86 @@
         "title": "GetStockFinancialHighlightsResponse",
         "type": "object"
       },
+      "shorts.v1alpha1.GetStockFundamentalsRequest": {
+        "additionalProperties": false,
+        "description": "Request for GetStockFundamentals.",
+        "properties": {
+          "limit": {
+            "description": "Max periods, newest first (default 12, max 40). (proto int32)",
+            "format": "int32",
+            "title": "limit",
+            "type": "integer"
+          },
+          "periodType": {
+            "description": "Optional: \"annual\" | \"half\" | \"quarter\" (balance-sheet snapshots) | \"ttm\". Empty returns every type. (proto string)",
+            "title": "period_type",
+            "type": "string"
+          },
+          "stockCode": {
+            "description": "ASX code, e.g. \"BHP\". (proto string)",
+            "title": "stock_code",
+            "type": "string"
+          }
+        },
+        "title": "GetStockFundamentalsRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetStockFundamentalsResponse": {
+        "additionalProperties": false,
+        "description": "Response for GetStockFundamentals.",
+        "properties": {
+          "coverage": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.FundamentalsCoverage",
+            "description": "(proto shorts.v1alpha1.FundamentalsCoverage)",
+            "title": "coverage"
+          },
+          "growth": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.FundamentalsGrowth",
+            "description": "(proto shorts.v1alpha1.FundamentalsGrowth)",
+            "title": "growth"
+          },
+          "hasGrowth": {
+            "description": "False when no growth row exists yet. (proto bool)",
+            "title": "has_growth",
+            "type": "boolean"
+          },
+          "hasLatestFiling": {
+            "description": "(proto bool)",
+            "title": "has_latest_filing",
+            "type": "boolean"
+          },
+          "hasQuality": {
+            "description": "False when no ratio row exists yet. (proto bool)",
+            "title": "has_quality",
+            "type": "boolean"
+          },
+          "latestFiling": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.LatestFilingSummary",
+            "description": "(proto shorts.v1alpha1.LatestFilingSummary)",
+            "title": "latest_filing"
+          },
+          "periods": {
+            "description": "Newest first. (proto shorts.v1alpha1.FundamentalsPeriod)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundamentalsPeriod"
+            },
+            "title": "periods",
+            "type": "array"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.FundamentalsQuality",
+            "description": "(proto shorts.v1alpha1.FundamentalsQuality)",
+            "title": "quality"
+          },
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          }
+        },
+        "title": "GetStockFundamentalsResponse",
+        "type": "object"
+      },
       "shorts.v1alpha1.GetStockGraphRequest": {
         "additionalProperties": false,
         "description": "Request for GetStockGraph RPC",
@@ -3835,6 +5572,60 @@
         "title": "GetStockSignalsResponse",
         "type": "object"
       },
+      "shorts.v1alpha1.GetStockStrategyFitRequest": {
+        "additionalProperties": false,
+        "description": "Request for GetStockStrategyFit.",
+        "properties": {
+          "stockCode": {
+            "description": "ASX code, e.g. \"BHP\". (proto string)",
+            "title": "stock_code",
+            "type": "string"
+          }
+        },
+        "title": "GetStockStrategyFitRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetStockStrategyFitResponse": {
+        "additionalProperties": false,
+        "description": "Response for GetStockStrategyFit.",
+        "properties": {
+          "asOf": {
+            "description": "YYYY-MM-DD of the latest price in the universe. (proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
+          "fits": {
+            "description": "One per strategy; empty when the stock is outside the universe. (proto shorts.v1alpha1.StrategyFit)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.StrategyFit"
+            },
+            "title": "fits",
+            "type": "array"
+          },
+          "inUniverse": {
+            "description": "(proto bool)",
+            "title": "in_universe",
+            "type": "boolean"
+          },
+          "priceFeatures": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.PriceFeatures",
+            "description": "Set only when in_universe is true. (proto shorts.v1alpha1.PriceFeatures)",
+            "title": "price_features"
+          },
+          "regime": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.MarketRegime",
+            "description": "(proto shorts.v1alpha1.MarketRegime)",
+            "title": "regime"
+          },
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          }
+        },
+        "title": "GetStockStrategyFitResponse",
+        "type": "object"
+      },
       "shorts.v1alpha1.GetStockVerdictRequest": {
         "additionalProperties": false,
         "description": "Request for GetStockVerdict RPC",
@@ -3878,6 +5669,101 @@
           }
         },
         "title": "GetStockVerdictResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetStrategyPicksRequest": {
+        "additionalProperties": false,
+        "description": "Request for GetStrategyPicks.",
+        "properties": {
+          "limit": {
+            "description": "Default 20, max 100. (proto int32)",
+            "format": "int32",
+            "title": "limit",
+            "type": "integer"
+          },
+          "offset": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "offset",
+            "type": "integer"
+          },
+          "requireFundamentals": {
+            "description": "Only stocks with a fundamentals row. (proto bool)",
+            "title": "require_fundamentals",
+            "type": "boolean"
+          },
+          "sortBy": {
+            "description": "Optional ordering: \"score\" (default), \"revenue_yoy\", \"eps_yoy\", \"roe\",\n \"net_margin\", \"fcf_margin\", \"pe\" (ascending) or \"market_cap\". Unknown values\n sort last; growth above +500% or below -95% sorts after every measured value.\n rank keeps the strategy's own ranking whatever the order. (proto string)",
+            "title": "sort_by",
+            "type": "string"
+          },
+          "status": {
+            "description": "Optional filter: \"triggered\" | \"setup\" | \"watch\". (proto string)",
+            "title": "status",
+            "type": "string"
+          },
+          "strategyId": {
+            "description": "Required, e.g. \"zanger-breakout\". (proto string)",
+            "title": "strategy_id",
+            "type": "string"
+          }
+        },
+        "title": "GetStrategyPicksRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetStrategyPicksResponse": {
+        "additionalProperties": false,
+        "description": "Response for GetStrategyPicks.",
+        "properties": {
+          "asOf": {
+            "description": "YYYY-MM-DD of the latest price in the universe. (proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
+          "fundamentalsCoverageCount": {
+            "description": "Evaluated stocks with growth data. (proto int32)",
+            "format": "int32",
+            "title": "fundamentals_coverage_count",
+            "type": "integer"
+          },
+          "fundamentalsRowsCount": {
+            "description": "Evaluated stocks with any reported fundamentals row. (proto int32)",
+            "format": "int32",
+            "title": "fundamentals_rows_count",
+            "type": "integer"
+          },
+          "picks": {
+            "description": "(proto shorts.v1alpha1.StrategyPick)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.StrategyPick"
+            },
+            "title": "picks",
+            "type": "array"
+          },
+          "regime": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.MarketRegime",
+            "description": "(proto shorts.v1alpha1.MarketRegime)",
+            "title": "regime"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.Strategy",
+            "description": "(proto shorts.v1alpha1.Strategy)",
+            "title": "strategy"
+          },
+          "totalCount": {
+            "description": "Picks matching the status filter, before paging. (proto int32)",
+            "format": "int32",
+            "title": "total_count",
+            "type": "integer"
+          },
+          "universeCount": {
+            "description": "Stocks evaluated. (proto int32)",
+            "format": "int32",
+            "title": "universe_count",
+            "type": "integer"
+          }
+        },
+        "title": "GetStrategyPicksResponse",
         "type": "object"
       },
       "shorts.v1alpha1.GetSuburbIndexRequest": {
@@ -3983,6 +5869,14 @@
             "description": "council this suburb sits in ('' if unmatched) (proto shorts.v1alpha1.LgaInfo)",
             "title": "council"
           },
+          "councilOverlaps": {
+            "description": "Other councils holding \u003e= 5% of this suburb's residents, largest first.\n Empty for a suburb wholly (or \u003e= 95%) inside `council`. (proto shorts.v1alpha1.LgaOverlap)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.LgaOverlap"
+            },
+            "title": "council_overlaps",
+            "type": "array"
+          },
           "crime": {
             "$ref": "#/components/schemas/shorts.v1alpha1.SuburbCrime",
             "description": "null when the suburb has no gated crime data (proto shorts.v1alpha1.SuburbCrime)",
@@ -4007,6 +5901,11 @@
             "$ref": "#/components/schemas/shorts.v1alpha1.SuburbListingStats",
             "description": "Crawl-derived listing aggregates; null when the suburb is outside the crawl\n catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off. (proto shorts.v1alpha1.SuburbListingStats)",
             "title": "listing_stats"
+          },
+          "planning": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.SuburbPlanning",
+            "description": "Profile-only planning block; absent when no planning source covers the\n suburb (WA, NT, and QLD beyond its heritage register). (proto shorts.v1alpha1.SuburbPlanning)",
+            "title": "planning"
           },
           "similar": {
             "description": "most-similar suburbs nationally (knowledge graph) (proto shorts.v1alpha1.SimilarSuburb)",
@@ -4806,6 +6705,50 @@
         "title": "InlineImage",
         "type": "object"
       },
+      "shorts.v1alpha1.LatestFilingSummary": {
+        "additionalProperties": false,
+        "description": "The company filing behind the latest reported period, with its summary.",
+        "properties": {
+          "digest": {
+            "description": "Short summary of the filing. (proto string)",
+            "title": "digest",
+            "type": "string"
+          },
+          "digestConfidence": {
+            "description": "0-1. (proto double)",
+            "format": "double",
+            "title": "digest_confidence",
+            "type": "number"
+          },
+          "periodEnd": {
+            "description": "YYYY-MM-DD, the period the filing reports. (proto string)",
+            "title": "period_end",
+            "type": "string"
+          },
+          "periodType": {
+            "description": "\"annual\" | \"half\". (proto string)",
+            "title": "period_type",
+            "type": "string"
+          },
+          "reportDate": {
+            "description": "YYYY-MM-DD. (proto string)",
+            "title": "report_date",
+            "type": "string"
+          },
+          "reportTitle": {
+            "description": "(proto string)",
+            "title": "report_title",
+            "type": "string"
+          },
+          "reportUrl": {
+            "description": "(proto string)",
+            "title": "report_url",
+            "type": "string"
+          }
+        },
+        "title": "LatestFilingSummary",
+        "type": "object"
+      },
       "shorts.v1alpha1.LayoutImage": {
         "additionalProperties": false,
         "description": "An art-directed layout image with style/ratio/placement for bespoke\n editorial rendering. Stored in editorial_takes.layout_images.",
@@ -4866,11 +6809,72 @@
             "title": "asset_renewal_ratio",
             "type": "number"
           },
+          "avgHouseholdSize": {
+            "description": "Census 2021, persons (proto double)",
+            "format": "double",
+            "title": "avg_household_size",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
           "avgRates": {
             "description": "Per-council financials (VIC LGPRF, CC-BY; 0/'' for states not yet sourced). average rate per property assessment, AUD (proto double)",
             "format": "double",
             "title": "avg_rates",
             "type": "number"
+          },
+          "centroidLat": {
+            "description": "area-weighted centroid of the ABS boundary (proto double)",
+            "format": "double",
+            "title": "centroid_lat",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "centroidLon": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "centroid_lon",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "councilHouseMedian": {
+            "description": "Latest ABS 'Data by Region' median established-house transfer price for\n the WHOLE COUNCIL (year ended 30 June). A council-level figure: never\n present it as this suburb's median. (proto double)",
+            "format": "double",
+            "title": "council_house_median",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "councilHouseMedianPeriod": {
+            "description": "e.g. '2023-24'; '' if none (proto string)",
+            "title": "council_house_median_period",
+            "type": "string"
+          },
+          "displayName": {
+            "description": "ABS name without the state suffix: 'Campbelltown' (proto string)",
+            "title": "display_name",
+            "type": "string"
+          },
+          "dominantShare": {
+            "description": "Share (0..1] of THIS suburb's residents who live in this council (ABS\n mesh-block allocation, Census 2021 persons). Absent outside a suburb profile. (proto double)",
+            "format": "double",
+            "title": "dominant_share",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "erpYear": {
+            "description": "Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,\n never a measured zero. reference year of population; 0 if none (proto int32)",
+            "format": "int32",
+            "title": "erp_year",
+            "type": "integer"
           },
           "fedFagAud": {
             "description": "federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched (proto double)",
@@ -4893,6 +6897,11 @@
             "title": "fin_year",
             "type": "string"
           },
+          "kind": {
+            "description": "council | unincorporated | pseudo (proto string)",
+            "title": "kind",
+            "type": "string"
+          },
           "lgaCode": {
             "description": "(proto string)",
             "title": "lga_code",
@@ -4903,17 +6912,138 @@
             "title": "lga_name",
             "type": "string"
           },
+          "medianAge": {
+            "description": "Census 2021 (proto double)",
+            "format": "double",
+            "title": "median_age",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "medianHhdIncome": {
+            "description": "Census 2021, $/week (proto int32)",
+            "format": "int32",
+            "title": "median_hhd_income",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "medianMortgageMonthly": {
+            "description": "Census 2021, $/month (proto int32)",
+            "format": "int32",
+            "title": "median_mortgage_monthly",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "medianWeeklyRent": {
+            "description": "Census 2021, $/week (proto int32)",
+            "format": "int32",
+            "title": "median_weekly_rent",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "opSurplusRatio": {
             "description": "adjusted underlying (operating) result, % (negative = deficit) (proto double)",
             "format": "double",
             "title": "op_surplus_ratio",
             "type": "number"
           },
+          "pctRented": {
+            "description": "Census 2021, % of households renting (proto double)",
+            "format": "double",
+            "title": "pct_rented",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "popGrowthPct": {
+            "description": "ERP year-on-year change, % (proto double)",
+            "format": "double",
+            "title": "pop_growth_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
           "population": {
-            "description": "summed from member-suburb Census populations (proto int32)",
+            "description": "ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded (proto int32)",
             "format": "int32",
             "title": "population",
             "type": "integer"
+          },
+          "seifaIrsadDecile": {
+            "description": "SEIFA 2021 IRSAD, national decile 1..10 (proto int32)",
+            "format": "int32",
+            "title": "seifa_irsad_decile",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "seifaIrsdDecile": {
+            "description": "SEIFA 2021 IRSD, national decile 1..10 (proto int32)",
+            "format": "int32",
+            "title": "seifa_irsd_decile",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "slug": {
+            "description": "Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind\n 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb. URL segment, unique within state, never reassigned (proto string)",
+            "title": "slug",
+            "type": "string"
+          },
+          "stateCode": {
+            "description": "(proto string)",
+            "title": "state_code",
+            "type": "string"
+          },
+          "website": {
+            "description": "official website (Wikidata P856, CC0); '' if none (proto string)",
+            "title": "website",
+            "type": "string"
+          },
+          "wikidataQid": {
+            "description": "e.g. 'Q1719401'; '' if none (proto string)",
+            "title": "wikidata_qid",
+            "type": "string"
+          }
+        },
+        "title": "LgaInfo",
+        "type": "object"
+      },
+      "shorts.v1alpha1.LgaOverlap": {
+        "additionalProperties": false,
+        "description": "Another council a suburb spans, beyond the dominant one.",
+        "properties": {
+          "displayName": {
+            "description": "(proto string)",
+            "title": "display_name",
+            "type": "string"
+          },
+          "lgaCode": {
+            "description": "(proto string)",
+            "title": "lga_code",
+            "type": "string"
+          },
+          "share": {
+            "description": "0..1 of the suburb's residents (Census 2021 mesh blocks) (proto double)",
+            "format": "double",
+            "title": "share",
+            "type": "number"
+          },
+          "slug": {
+            "description": "'' when the council has no page (proto string)",
+            "title": "slug",
+            "type": "string"
           },
           "stateCode": {
             "description": "(proto string)",
@@ -4921,7 +7051,7 @@
             "type": "string"
           }
         },
-        "title": "LgaInfo",
+        "title": "LgaOverlap",
         "type": "object"
       },
       "shorts.v1alpha1.ListAddressPriceDropsRequest": {
@@ -5004,6 +7134,48 @@
           }
         },
         "title": "ListAgencyPriceStatsResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListCouncilsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "stateCode": {
+            "description": "required: NSW | VIC | QLD | SA | WA | TAS | NT | ACT (proto string)",
+            "title": "state_code",
+            "type": "string"
+          }
+        },
+        "title": "ListCouncilsRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListCouncilsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "councils": {
+            "description": "population desc, then name (proto shorts.v1alpha1.CouncilSummary)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilSummary"
+            },
+            "title": "councils",
+            "type": "array"
+          },
+          "lgaVintage": {
+            "description": "boundary vintage, e.g. 'ABS ASGS LGA 2024' (proto string)",
+            "title": "lga_vintage",
+            "type": "string"
+          },
+          "priceDropsAsOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "Freshness of every council's price_drop_share (program decision 9): when\n the shares were computed, and the newest crawl observation behind any of\n them. Both absent when no council publishes a share. (proto google.protobuf.Timestamp)",
+            "title": "price_drops_as_of"
+          },
+          "priceDropsDataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "(proto google.protobuf.Timestamp)",
+            "title": "price_drops_data_through"
+          }
+        },
+        "title": "ListCouncilsResponse",
         "type": "object"
       },
       "shorts.v1alpha1.ListDistinctiveHoldingsRequest": {
@@ -5892,6 +8064,33 @@
         "title": "ListStockPoliticiansResponse",
         "type": "object"
       },
+      "shorts.v1alpha1.ListStrategiesRequest": {
+        "additionalProperties": false,
+        "description": "Request for ListStrategies.",
+        "title": "ListStrategiesRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListStrategiesResponse": {
+        "additionalProperties": false,
+        "description": "Response for ListStrategies.",
+        "properties": {
+          "regime": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.MarketRegime",
+            "description": "Verdict is strategy-neutral here; GetStrategyPicks phrases it per strategy. (proto shorts.v1alpha1.MarketRegime)",
+            "title": "regime"
+          },
+          "strategies": {
+            "description": "(proto shorts.v1alpha1.Strategy)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.Strategy"
+            },
+            "title": "strategies",
+            "type": "array"
+          }
+        },
+        "title": "ListStrategiesResponse",
+        "type": "object"
+      },
       "shorts.v1alpha1.ListSuburbDropListingsRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5999,7 +8198,7 @@
             "type": "integer"
           },
           "sort": {
-            "description": "optional: 'count' (default) | 'avg' | 'max' (proto string)",
+            "description": "optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.\n 'share' ranks by dropped_share among suburbs with at least 20 recently\n swept active addresses (the drop index's panel floor); thinner suburbs\n sort after every ranked one rather than topping the board on 1 of 3. (proto string)",
             "title": "sort",
             "type": "string"
           },
@@ -6021,6 +8220,16 @@
       "shorts.v1alpha1.ListSuburbPriceDropsResponse": {
         "additionalProperties": false,
         "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "The OLDER refresh of the two views this board joins\n (mv_suburb_listing_stats, mv_suburb_price_drops), so the stamp never\n claims more freshness than the staler half. data_through: the newest crawl\n observation (price event or listing sighting) those refreshes could see.\n Both unset when no refresh has been recorded. (proto google.protobuf.Timestamp)",
+            "title": "as_of"
+          },
+          "dataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "(proto google.protobuf.Timestamp)",
+            "title": "data_through"
+          },
           "suburbs": {
             "description": "(proto shorts.v1alpha1.SuburbPriceDrop)",
             "items": {
@@ -6126,6 +8335,58 @@
           }
         },
         "title": "ListTopDonorsResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.MarketRegime": {
+        "additionalProperties": false,
+        "description": "The broad market trend, read from an index (the S\u0026P/ASX 200, \"XJO\").",
+        "properties": {
+          "asOf": {
+            "description": "YYYY-MM-DD of the last index close. (proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
+          "close": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "close",
+            "type": "number"
+          },
+          "indexCode": {
+            "description": "(proto string)",
+            "title": "index_code",
+            "type": "string"
+          },
+          "pctOff52wHigh": {
+            "description": "Negative or zero. (proto double)",
+            "format": "double",
+            "title": "pct_off_52w_high",
+            "type": "number"
+          },
+          "regime": {
+            "description": "\"uptrend\" | \"neutral\" | \"downtrend\"; empty when unavailable. (proto string)",
+            "title": "regime",
+            "type": "string"
+          },
+          "sma200": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "sma200",
+            "type": "number"
+          },
+          "sma50": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "sma50",
+            "type": "number"
+          },
+          "verdict": {
+            "description": "Strategy-specific sentence, e.g. \"Stand aside: XJO below its 200-day average.\" (proto string)",
+            "title": "verdict",
+            "type": "string"
+          }
+        },
+        "title": "MarketRegime",
         "type": "object"
       },
       "shorts.v1alpha1.MemberAnnualReturn": {
@@ -6571,6 +8832,127 @@
         "title": "PeerStock",
         "type": "object"
       },
+      "shorts.v1alpha1.PickFundamentals": {
+        "additionalProperties": false,
+        "description": "Fundamentals for one pick. Every ratio is computed within one reporting\n currency from one flow period and an aligned balance sheet; has_* is false\n when an input is missing or the ratio is not meaningful for the company.",
+        "properties": {
+          "currency": {
+            "description": "Reporting currency (ISO 4217). (proto string)",
+            "title": "currency",
+            "type": "string"
+          },
+          "epsBasisPeriodType": {
+            "description": "\"annual\" | \"half\" | \"ttm\"; empty when no EPS growth. (proto string)",
+            "title": "eps_basis_period_type",
+            "type": "string"
+          },
+          "epsBasisSource": {
+            "description": "\"vendor\" | \"filing\"; empty when unknown. (proto string)",
+            "title": "eps_basis_source",
+            "type": "string"
+          },
+          "epsPeriodEnd": {
+            "description": "YYYY-MM-DD, end of the latest period in the EPS pair. (proto string)",
+            "title": "eps_period_end",
+            "type": "string"
+          },
+          "fcfMarginPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "fcf_margin_pct",
+            "type": "number"
+          },
+          "fetchedAt": {
+            "description": "RFC 3339, newest fetch of the inputs. (proto string)",
+            "title": "fetched_at",
+            "type": "string"
+          },
+          "hasFcfMarginPct": {
+            "description": "(proto bool)",
+            "title": "has_fcf_margin_pct",
+            "type": "boolean"
+          },
+          "hasNetDebtToEbitda": {
+            "description": "(proto bool)",
+            "title": "has_net_debt_to_ebitda",
+            "type": "boolean"
+          },
+          "hasNetMarginPct": {
+            "description": "(proto bool)",
+            "title": "has_net_margin_pct",
+            "type": "boolean"
+          },
+          "hasPeRatio": {
+            "description": "(proto bool)",
+            "title": "has_pe_ratio",
+            "type": "boolean"
+          },
+          "hasRoePct": {
+            "description": "(proto bool)",
+            "title": "has_roe_pct",
+            "type": "boolean"
+          },
+          "isFinancial": {
+            "description": "Bank, insurer or other financial: some ratios are not meaningful. (proto bool)",
+            "title": "is_financial",
+            "type": "boolean"
+          },
+          "netDebtToEbitda": {
+            "description": "Net debt excluding leases over EBITDA (normalized when published). (proto double)",
+            "format": "double",
+            "title": "net_debt_to_ebitda",
+            "type": "number"
+          },
+          "netIncomePositive": {
+            "description": "Latest annual net income above zero. (proto bool)",
+            "title": "net_income_positive",
+            "type": "boolean"
+          },
+          "netMarginPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "net_margin_pct",
+            "type": "number"
+          },
+          "notMeaningful": {
+            "description": "Ratio names withheld because is_financial. (proto string)",
+            "items": {
+              "type": "string"
+            },
+            "title": "not_meaningful",
+            "type": "array"
+          },
+          "peRatio": {
+            "description": "Latest close over 12-month EPS; AUD reporters only. (proto double)",
+            "format": "double",
+            "title": "pe_ratio",
+            "type": "number"
+          },
+          "revenueBasisPeriodType": {
+            "description": "\"annual\" | \"half\" | \"ttm\"; empty when no revenue growth. (proto string)",
+            "title": "revenue_basis_period_type",
+            "type": "string"
+          },
+          "revenueBasisSource": {
+            "description": "\"vendor\" | \"filing\" (a company filing, extracted); empty when unknown. (proto string)",
+            "title": "revenue_basis_source",
+            "type": "string"
+          },
+          "revenuePeriodEnd": {
+            "description": "YYYY-MM-DD, end of the latest period in the revenue pair. (proto string)",
+            "title": "revenue_period_end",
+            "type": "string"
+          },
+          "roePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "roe_pct",
+            "type": "number"
+          }
+        },
+        "title": "PickFundamentals",
+        "type": "object"
+      },
       "shorts.v1alpha1.Politician": {
         "additionalProperties": false,
         "properties": {
@@ -6865,6 +9247,184 @@
           }
         },
         "title": "PoliticianTerm",
+        "type": "object"
+      },
+      "shorts.v1alpha1.PriceFeatures": {
+        "additionalProperties": false,
+        "description": "The price features the evaluator read for one stock (mv_price_features),\n so a chart can draw the levels the rules tested. Every nullable number\n travels with a has_ flag; read the value only when its flag is true.",
+        "properties": {
+          "asOf": {
+            "description": "YYYY-MM-DD of the last close. (proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
+          "baseDepthPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "base_depth_pct",
+            "type": "number"
+          },
+          "baseHigh": {
+            "description": "The pivot: the breakout and invalidation level. (proto double)",
+            "format": "double",
+            "title": "base_high",
+            "type": "number"
+          },
+          "baseLengthDays": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "base_length_days",
+            "type": "integer"
+          },
+          "baseLow": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "base_low",
+            "type": "number"
+          },
+          "breakoutDate": {
+            "description": "YYYY-MM-DD; empty when there was no breakout. (proto string)",
+            "title": "breakout_date",
+            "type": "string"
+          },
+          "breakoutRecent": {
+            "description": "(proto bool)",
+            "title": "breakout_recent",
+            "type": "boolean"
+          },
+          "close": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "close",
+            "type": "number"
+          },
+          "hasBaseDepthPct": {
+            "description": "(proto bool)",
+            "title": "has_base_depth_pct",
+            "type": "boolean"
+          },
+          "hasBaseHigh": {
+            "description": "(proto bool)",
+            "title": "has_base_high",
+            "type": "boolean"
+          },
+          "hasBaseLengthDays": {
+            "description": "(proto bool)",
+            "title": "has_base_length_days",
+            "type": "boolean"
+          },
+          "hasBaseLow": {
+            "description": "(proto bool)",
+            "title": "has_base_low",
+            "type": "boolean"
+          },
+          "hasHigh52w": {
+            "description": "(proto bool)",
+            "title": "has_high52w",
+            "type": "boolean"
+          },
+          "hasLow52w": {
+            "description": "(proto bool)",
+            "title": "has_low52w",
+            "type": "boolean"
+          },
+          "hasRs3mPct": {
+            "description": "(proto bool)",
+            "title": "has_rs3m_pct",
+            "type": "boolean"
+          },
+          "hasRs6mPct": {
+            "description": "(proto bool)",
+            "title": "has_rs6m_pct",
+            "type": "boolean"
+          },
+          "hasSma150": {
+            "description": "(proto bool)",
+            "title": "has_sma150",
+            "type": "boolean"
+          },
+          "hasSma200": {
+            "description": "(proto bool)",
+            "title": "has_sma200",
+            "type": "boolean"
+          },
+          "hasSma200PriorMonth": {
+            "description": "(proto bool)",
+            "title": "has_sma200_prior_month",
+            "type": "boolean"
+          },
+          "hasSma50": {
+            "description": "(proto bool)",
+            "title": "has_sma50",
+            "type": "boolean"
+          },
+          "hasVolumeRatio50d": {
+            "description": "(proto bool)",
+            "title": "has_volume_ratio50d",
+            "type": "boolean"
+          },
+          "high52w": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "high52w",
+            "type": "number"
+          },
+          "low52w": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "low52w",
+            "type": "number"
+          },
+          "rs3mPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "rs3m_pct",
+            "type": "number"
+          },
+          "rs6mPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "rs6m_pct",
+            "type": "number"
+          },
+          "sessionsAvailable": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "sessions_available",
+            "type": "integer"
+          },
+          "sma150": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "sma150",
+            "type": "number"
+          },
+          "sma200": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "sma200",
+            "type": "number"
+          },
+          "sma200PriorMonth": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "sma200_prior_month",
+            "type": "number"
+          },
+          "sma50": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "sma50",
+            "type": "number"
+          },
+          "volumeRatio50d": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "volume_ratio50d",
+            "type": "number"
+          }
+        },
+        "title": "PriceFeatures",
         "type": "object"
       },
       "shorts.v1alpha1.PropertyListingSnapshot": {
@@ -7546,6 +10106,40 @@
         "title": "ReportListItem",
         "type": "object"
       },
+      "shorts.v1alpha1.RuleResult": {
+        "additionalProperties": false,
+        "description": "The outcome of one rule for one stock.",
+        "properties": {
+          "detail": {
+            "description": "Human-readable evidence, e.g. \"Revenue +41% YoY (FY to 2026-06-30)\". (proto string)",
+            "title": "detail",
+            "type": "string"
+          },
+          "hasValue": {
+            "description": "False when value is absent (unknown), never read value then. (proto bool)",
+            "title": "has_value",
+            "type": "boolean"
+          },
+          "ruleId": {
+            "description": "(proto string)",
+            "title": "rule_id",
+            "type": "string"
+          },
+          "status": {
+            "description": "\"pass\" | \"fail\" | \"unknown\". (proto string)",
+            "title": "status",
+            "type": "string"
+          },
+          "value": {
+            "description": "The number the rule tested, when there is one. (proto double)",
+            "format": "double",
+            "title": "value",
+            "type": "number"
+          }
+        },
+        "title": "RuleResult",
+        "type": "object"
+      },
       "shorts.v1alpha1.ScreenStocksRequest": {
         "additionalProperties": false,
         "description": "Request for ScreenStocks RPC",
@@ -8160,6 +10754,86 @@
         "title": "SortDirection",
         "type": "string"
       },
+      "shorts.v1alpha1.StateCensusAverages": {
+        "additionalProperties": false,
+        "description": "Census 2021 shares for a whole state, rebuilt from its suburbs: each suburb's\n share weighted by the denominator it is a share of — occupied dwellings for\n tenure, structure and household mix; residents for the person rates (the\n labour force is not stored, so unemployment is resident-weighted too). Only\n suburbs above the ingest floors contribute. 0 = not computable.",
+        "properties": {
+          "labourForceParticipationRate": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "labour_force_participation_rate",
+            "type": "number"
+          },
+          "pctBachelorOrHigher": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct_bachelor_or_higher",
+            "type": "number"
+          },
+          "pctCoupleWithChildren": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct_couple_with_children",
+            "type": "number"
+          },
+          "pctFlatApartment": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct_flat_apartment",
+            "type": "number"
+          },
+          "pctHighPersonalIncome": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct_high_personal_income",
+            "type": "number"
+          },
+          "pctLonePersonHousehold": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct_lone_person_household",
+            "type": "number"
+          },
+          "pctLowPersonalIncome": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct_low_personal_income",
+            "type": "number"
+          },
+          "pctOwnedMortgage": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct_owned_mortgage",
+            "type": "number"
+          },
+          "pctOwnedOutright": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct_owned_outright",
+            "type": "number"
+          },
+          "pctRented": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct_rented",
+            "type": "number"
+          },
+          "pctSeparateHouse": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct_separate_house",
+            "type": "number"
+          },
+          "unemploymentRate": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "unemployment_rate",
+            "type": "number"
+          }
+        },
+        "title": "StateCensusAverages",
+        "type": "object"
+      },
       "shorts.v1alpha1.StateCompany": {
         "additionalProperties": false,
         "properties": {
@@ -8267,6 +10941,12 @@
             "title": "avg_sold",
             "type": "number"
           },
+          "catalogSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "catalog_suburbs",
+            "type": "integer"
+          },
           "droppedCount": {
             "description": "physical addresses that cut asking price (30-day window, deduped) (proto int32)",
             "format": "int32",
@@ -8331,6 +11011,12 @@
             "description": "'NSW'|'VIC'|... or 'AU' for the national row (proto string)",
             "title": "state_code",
             "type": "string"
+          },
+          "suburbsSwept14d": {
+            "description": "Crawl coverage behind this row. catalog_suburbs is every suburb the crawl\n has ever produced a listing for (the drop index's coverage denominator);\n suburbs_swept_14d is the subset with a listing seen in the last 14 days.\n Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl\n coverage more than discounting, and the UI annotates it instead of ranking\n it. Both 0 before migration 000124. (proto int32)",
+            "format": "int32",
+            "title": "suburbs_swept_14d",
+            "type": "integer"
           },
           "suburbsTracked": {
             "description": "tracked suburbs contributing listings (proto int32)",
@@ -8507,6 +11193,356 @@
           }
         },
         "title": "StockSignal",
+        "type": "object"
+      },
+      "shorts.v1alpha1.Strategy": {
+        "additionalProperties": false,
+        "description": "A named stock-picking strategy and how we evaluate it.",
+        "properties": {
+          "author": {
+            "description": "e.g. \"Dan Zanger\". (proto string)",
+            "title": "author",
+            "type": "string"
+          },
+          "caveats": {
+            "description": "What our data cannot see. (proto string)",
+            "items": {
+              "type": "string"
+            },
+            "title": "caveats",
+            "type": "array"
+          },
+          "descriptionParagraphs": {
+            "description": "2-4 paragraphs, plain text. (proto string)",
+            "items": {
+              "type": "string"
+            },
+            "title": "description_paragraphs",
+            "type": "array"
+          },
+          "id": {
+            "description": "Stable slug, e.g. \"zanger-breakout\". (proto string)",
+            "title": "id",
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.StrategyMetadata",
+            "description": "(proto shorts.v1alpha1.StrategyMetadata)",
+            "title": "metadata"
+          },
+          "name": {
+            "description": "(proto string)",
+            "title": "name",
+            "type": "string"
+          },
+          "rules": {
+            "description": "(proto shorts.v1alpha1.StrategyRule)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.StrategyRule"
+            },
+            "title": "rules",
+            "type": "array"
+          },
+          "sources": {
+            "description": "Attribution lines. (proto string)",
+            "items": {
+              "type": "string"
+            },
+            "title": "sources",
+            "type": "array"
+          },
+          "tagline": {
+            "description": "One sentence. (proto string)",
+            "title": "tagline",
+            "type": "string"
+          }
+        },
+        "title": "Strategy",
+        "type": "object"
+      },
+      "shorts.v1alpha1.StrategyFit": {
+        "additionalProperties": false,
+        "description": "One strategy's reading of one stock.",
+        "properties": {
+          "rank": {
+            "description": "1-based rank among the strategy's picks; 0 when status is \"none\". (proto int32)",
+            "format": "int32",
+            "title": "rank",
+            "type": "integer"
+          },
+          "rules": {
+            "description": "(proto shorts.v1alpha1.RuleResult)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.RuleResult"
+            },
+            "title": "rules",
+            "type": "array"
+          },
+          "score": {
+            "description": "0-100; 0 when status is \"none\". (proto double)",
+            "format": "double",
+            "title": "score",
+            "type": "number"
+          },
+          "status": {
+            "description": "\"triggered\" | \"setup\" | \"watch\" | \"none\" (not a candidate). (proto string)",
+            "title": "status",
+            "type": "string"
+          },
+          "strategyId": {
+            "description": "(proto string)",
+            "title": "strategy_id",
+            "type": "string"
+          },
+          "strategyName": {
+            "description": "(proto string)",
+            "title": "strategy_name",
+            "type": "string"
+          },
+          "totalCount": {
+            "description": "Picks the strategy has in total. (proto int32)",
+            "format": "int32",
+            "title": "total_count",
+            "type": "integer"
+          }
+        },
+        "title": "StrategyFit",
+        "type": "object"
+      },
+      "shorts.v1alpha1.StrategyMetadata": {
+        "additionalProperties": false,
+        "description": "Descriptive metadata for a strategy.",
+        "properties": {
+          "holdingPeriod": {
+            "description": "e.g. \"weeks to months\". (proto string)",
+            "title": "holding_period",
+            "type": "string"
+          },
+          "refreshCadence": {
+            "description": "e.g. \"daily after the price sweep\". (proto string)",
+            "title": "refresh_cadence",
+            "type": "string"
+          },
+          "riskPosture": {
+            "description": "e.g. \"cut on a failed breakout (back inside the base)\". (proto string)",
+            "title": "risk_posture",
+            "type": "string"
+          },
+          "ruleCount": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "rule_count",
+            "type": "integer"
+          },
+          "style": {
+            "description": "e.g. \"momentum-breakout\", \"trend-following\". (proto string)",
+            "title": "style",
+            "type": "string"
+          },
+          "universe": {
+            "description": "e.g. \"ASX equities with at least A$250k daily turnover\". (proto string)",
+            "title": "universe",
+            "type": "string"
+          }
+        },
+        "title": "StrategyMetadata",
+        "type": "object"
+      },
+      "shorts.v1alpha1.StrategyPick": {
+        "additionalProperties": false,
+        "description": "One ranked stock for a strategy.",
+        "properties": {
+          "asOf": {
+            "description": "YYYY-MM-DD of the last price. (proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
+          "baseDepthPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "base_depth_pct",
+            "type": "number"
+          },
+          "baseLengthDays": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "base_length_days",
+            "type": "integer"
+          },
+          "close": {
+            "description": "Headline numbers for the table. Meaningful only when has_close. (proto double)",
+            "format": "double",
+            "title": "close",
+            "type": "number"
+          },
+          "companyName": {
+            "description": "(proto string)",
+            "title": "company_name",
+            "type": "string"
+          },
+          "epsYoyPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "eps_yoy_pct",
+            "type": "number"
+          },
+          "fundamentals": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.PickFundamentals",
+            "description": "Reported fundamentals behind the growth cells, with their basis and\n provenance, plus headline ratios. Absent when the stock has no\n fundamentals row at all. (proto shorts.v1alpha1.PickFundamentals)",
+            "title": "fundamentals"
+          },
+          "hasClose": {
+            "description": "True when close is set (the stock has a valid last price). (proto bool)",
+            "title": "has_close",
+            "type": "boolean"
+          },
+          "hasEpsYoy": {
+            "description": "(proto bool)",
+            "title": "has_eps_yoy",
+            "type": "boolean"
+          },
+          "hasMarketCap": {
+            "description": "True when market_cap is set. (proto bool)",
+            "title": "has_market_cap",
+            "type": "boolean"
+          },
+          "hasRevenueYoy": {
+            "description": "(proto bool)",
+            "title": "has_revenue_yoy",
+            "type": "boolean"
+          },
+          "hasRs3mPct": {
+            "description": "True when rs_3m_pct is set (enough stock and XJO history for the 3m window). (proto bool)",
+            "title": "has_rs_3m_pct",
+            "type": "boolean"
+          },
+          "hasShortPct": {
+            "description": "True when short_pct is set (the stock has a reported ASIC short position). (proto bool)",
+            "title": "has_short_pct",
+            "type": "boolean"
+          },
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "logoUrl": {
+            "description": "(proto string)",
+            "title": "logo_url",
+            "type": "string"
+          },
+          "marketCap": {
+            "description": "Meaningful only when has_market_cap. (proto double)",
+            "format": "double",
+            "title": "market_cap",
+            "type": "number"
+          },
+          "pctOff52wHigh": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct_off_52w_high",
+            "type": "number"
+          },
+          "pivot": {
+            "description": "The base high: the breakout and invalidation level. (proto double)",
+            "format": "double",
+            "title": "pivot",
+            "type": "number"
+          },
+          "rank": {
+            "description": "1-based, across the full (unfiltered) list. (proto int32)",
+            "format": "int32",
+            "title": "rank",
+            "type": "integer"
+          },
+          "revenueYoyPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "revenue_yoy_pct",
+            "type": "number"
+          },
+          "rs3mPct": {
+            "description": "Meaningful only when has_rs_3m_pct. (proto double)",
+            "format": "double",
+            "title": "rs_3m_pct",
+            "type": "number"
+          },
+          "rules": {
+            "description": "(proto shorts.v1alpha1.RuleResult)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.RuleResult"
+            },
+            "title": "rules",
+            "type": "array"
+          },
+          "score": {
+            "description": "0-100, orders rows within a status. (proto double)",
+            "format": "double",
+            "title": "score",
+            "type": "number"
+          },
+          "shortPct": {
+            "description": "Meaningful only when has_short_pct. (proto double)",
+            "format": "double",
+            "title": "short_pct",
+            "type": "number"
+          },
+          "status": {
+            "description": "\"triggered\" | \"setup\" | \"watch\". (proto string)",
+            "title": "status",
+            "type": "string"
+          },
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          },
+          "volumeRatio50d": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "volume_ratio_50d",
+            "type": "number"
+          }
+        },
+        "title": "StrategyPick",
+        "type": "object"
+      },
+      "shorts.v1alpha1.StrategyRule": {
+        "additionalProperties": false,
+        "description": "One rule of a strategy: the author's version and exactly how we test it.",
+        "properties": {
+          "core": {
+            "description": "Must pass for status \"triggered\". (proto bool)",
+            "title": "core",
+            "type": "boolean"
+          },
+          "dataSource": {
+            "description": "\"stock_fundamentals\", \"stock_prices\", \"index_prices\" or \"asic_shorts\". (proto string)",
+            "title": "data_source",
+            "type": "string"
+          },
+          "evaluation": {
+            "description": "Exactly how we test it, with thresholds. (proto string)",
+            "title": "evaluation",
+            "type": "string"
+          },
+          "id": {
+            "description": "e.g. \"growth\", \"base\", \"breakout\", \"regime\", \"rs\", \"liquidity\", \"short_interest\". (proto string)",
+            "title": "id",
+            "type": "string"
+          },
+          "ruleText": {
+            "description": "The rule in the author's terms. (proto string)",
+            "title": "rule_text",
+            "type": "string"
+          },
+          "title": {
+            "description": "(proto string)",
+            "title": "title",
+            "type": "string"
+          }
+        },
+        "title": "StrategyRule",
         "type": "object"
       },
       "shorts.v1alpha1.SuburbAmenities": {
@@ -8727,7 +11763,7 @@
         "description": "Latest reliable crime observation for one crime type (2-yr pooled,\n CVS-adjusted; small_pop/unreliable rows are gated out server-side).",
         "properties": {
           "crimeType": {
-            "description": "'break_ins' | 'violent' | 'motor_vehicle' (+ future types) (proto string)",
+            "description": "'break_ins' | 'violent' | 'motor_vehicle' | 'property_damage' (+ future types) (proto string)",
             "title": "crime_type",
             "type": "string"
           },
@@ -8738,7 +11774,7 @@
             "type": "integer"
           },
           "pctRank": {
-            "description": "0..100 national pop-weighted percentile; \u003e 0 always (proto double)",
+            "description": "0..100 pop-weighted percentile WITHIN the suburb's state (never across states); \u003e 0 always (proto double)",
             "format": "double",
             "title": "pct_rank",
             "type": "number"
@@ -9077,7 +12113,7 @@
       },
       "shorts.v1alpha1.SuburbHazardExposure": {
         "additionalProperties": false,
-        "description": "Measured hazard exposure per suburb — area shares, 0..100, absent when no\n source covers the suburb. Every source is CC-BY-4.0.\n\n water_observed_share_pct: share of the suburb's validly observed land where\n DEA Water Observations (Landsat, 1987 onward, 30 m) detected surface water in\n at least 1% of clear observations but under 90% — land seen under water at\n least occasionally. permanent_water_share_pct: the 90%-and-over remainder\n (lakes, rivers, the sea). Landsat under-observes flood peaks, so the observed\n share is a FLOOR on inundation, never a flood-risk estimate.\n\n flood_planning_share_pct: share inside a statutory flood planning overlay\n (NSW EPI Flood; VIC LSIO/FO/SBO). A planning-control boundary, not a flood\n extent; NSW councils own its currency. bushfire_prone_share_pct: share\n designated bushfire prone for development control (NSW BFPL; VIC BMO).\n Statutory shares exist for NSW and VIC only.",
+        "description": "Measured hazard exposure per suburb — area shares, 0..100, absent when no\n source covers the suburb. Every source is CC BY 4.0 except the SA Planning\n and Design Code and Tasmanian Planning Scheme overlays (CC BY 3.0 AU).\n\n water_observed_share_pct: share of the suburb's validly observed land where\n DEA Water Observations (Landsat, 1987 onward, 30 m) detected surface water in\n at least 1% of clear observations but under 90% — land seen under water at\n least occasionally. permanent_water_share_pct: the 90%-and-over remainder\n (lakes, rivers, the sea). Landsat under-observes flood peaks, so the observed\n share is a FLOOR on inundation, never a flood-risk estimate.\n\n flood_planning_share_pct: share inside a statutory flood planning overlay\n (NSW EPI Flood; VIC LSIO/FO/SBO; SA Code Hazards (Flooding) and (Flooding –\n General); TAS Flood-prone Areas). A planning-control boundary, not a flood\n extent. ACT is the exception: its only open layer is the modelled 1% AEP\n flood extent, a model of one event. No open flood layer for QLD, WA or NT.\n bushfire_prone_share_pct: share designated bushfire prone for development\n control (NSW BFPL; VIC Designated Bushfire Prone Area; QLD, WA and ACT\n bushfire prone areas; SA and TAS code overlays). None for NT.\n\n Inside a state that has a layer, a statutory share is also absent where the\n instrument does not cover most of the suburb (NSW flood outside the councils\n that lodged a map; SA land under the Code's precautionary Evidence Required,\n Regional or Outback overlays; TAS councils with no mapped overlay). Where the\n suburb is partly covered the share is the mapped land over the WHOLE suburb,\n a floor.",
         "properties": {
           "bushfireProneSharePct": {
             "description": "(proto double)",
@@ -9103,7 +12139,7 @@
             ]
           },
           "floodSource": {
-            "description": "(proto string)",
+            "description": "Statutory instrument id the share was read against. Set with an absent\n share when the instrument does not cover the suburb; '' when the state has\n no open layer for that hazard. (proto string)",
             "title": "flood_source",
             "type": "string"
           },
@@ -9178,6 +12214,11 @@
         "additionalProperties": false,
         "description": "Crawl-derived listing aggregates for one suburb (mv_suburb_listing_stats).\n\n This is the ONLY price signal available for the ~11,700 suburbs with no\n Valuer-General feed — QLD, WA, TAS, NT and ACT publish no open suburb-level\n median, and every commercial alternative is licensed.\n\n It is NOT a substitute for `SuburbSummary.latest_median_price` and must never\n be rendered as one:\n   - it is derived from CURRENT portal listings, not settled transfers;\n   - `median_sold` is the price listings were marked sold at, which is a\n     different measure from a Valuer-General median and is not comparable with\n     the NSW/VIC/SA figures;\n   - it covers whatever the crawl catalog reaches (500 suburbs nationally), so\n     it is not a population any rank can be computed against.\n\n LICENCE: these are DERIVED AGGREGATES. The underlying rows carry\n source_licence='proprietary-tos-restricted' and are never republished — see\n docs/feature/housing/data-sources.md. Counts and medians only.",
         "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "When mv_suburb_listing_stats was last refreshed (every now()-relative\n window in it is anchored here), and the newest crawl observation it could\n contain. Unset when the refresh has never been recorded. (proto google.protobuf.Timestamp)",
+            "title": "as_of"
+          },
           "avgAsking": {
             "description": "mean asking price of priced for-sale listings, AUD; 0 if none (proto double)",
             "format": "double",
@@ -9189,6 +12230,11 @@
             "format": "double",
             "title": "avg_sold",
             "type": "number"
+          },
+          "dataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "(proto google.protobuf.Timestamp)",
+            "title": "data_through"
           },
           "forSaleCount": {
             "description": "active for-sale listings captured (proto int32)",
@@ -9282,6 +12328,140 @@
           }
         },
         "title": "SuburbMetricPredicate",
+        "type": "object"
+      },
+      "shorts.v1alpha1.SuburbPlanning": {
+        "additionalProperties": false,
+        "description": "Statutory planning layer for one suburb, computed offline from the state\n planning schemes (web/scripts/geo/planning/). Every scalar is optional: an\n absent value means no open source covers it (QLD/WA/NT zoning, NSW-only\n development standards), never zero. zone_shares lists only families with a\n non-zero share, largest first, and sums to zoning_coverage_pct.",
+        "properties": {
+          "dominantZoneFamily": {
+            "description": "'' when unzoned / no source (proto string)",
+            "title": "dominant_zone_family",
+            "type": "string"
+          },
+          "heritageItemCount": {
+            "description": "listed heritage places, counted once (proto int32)",
+            "format": "int32",
+            "title": "heritage_item_count",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "heritageSharePct": {
+            "description": "% of the suburb in a heritage conservation area / Heritage Overlay /\n historic or character area (area classes only). (proto double)",
+            "format": "double",
+            "title": "heritage_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "heritageSource": {
+            "description": "(proto string)",
+            "title": "heritage_source",
+            "type": "string"
+          },
+          "instruments": {
+            "description": "planning instrument names, largest coverage first (proto string)",
+            "items": {
+              "type": "string"
+            },
+            "title": "instruments",
+            "type": "array"
+          },
+          "nswFsrMappedPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "nsw_fsr_mapped_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "nswFsrMedian": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "nsw_fsr_median",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "nswHeightMappedPct": {
+            "description": "% of the suburb's residential-zoned land each NSW standard is actually\n mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their\n centres; a standard mapped on under half the residential land has no\n median/max above, because it would be the centre's number. (proto double)",
+            "format": "double",
+            "title": "nsw_height_mapped_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "nswHeightMaxM": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "nsw_height_max_m",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "nswHeightMedianM": {
+            "description": "NSW development standards over the residential-zoned part of the suburb\n (area-weighted): maximum building height (m), floor space ratio (n:1),\n minimum subdivision lot size (m²). (proto double)",
+            "format": "double",
+            "title": "nsw_height_median_m",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "nswMinLotMappedPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "nsw_min_lot_mapped_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "nswMinLotMedianM2": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "nsw_min_lot_median_m2",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sourceLicence": {
+            "description": "e.g. 'CC-BY-4.0' (proto string)",
+            "title": "source_licence",
+            "type": "string"
+          },
+          "zoneShares": {
+            "description": "(proto shorts.v1alpha1.ZoneFamilyShare)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.ZoneFamilyShare"
+            },
+            "title": "zone_shares",
+            "type": "array"
+          },
+          "zoningCoveragePct": {
+            "description": "% of the suburb inside any zone polygon. Under 50 it is the only value\n set: the rest of the suburb is planned by an instrument these layers do\n not carry, so no shares, dominant family or heritage are measured. (proto double)",
+            "format": "double",
+            "title": "zoning_coverage_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "zoningSource": {
+            "description": "dataset id, '' when absent (proto string)",
+            "title": "zoning_source",
+            "type": "string"
+          }
+        },
+        "title": "SuburbPlanning",
         "type": "object"
       },
       "shorts.v1alpha1.SuburbPoliticianProperty": {
@@ -10263,6 +13443,25 @@
           }
         },
         "title": "WeeklyReportTrendInsight",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ZoneFamilyShare": {
+        "additionalProperties": false,
+        "description": "One harmonised zoning family's share of a suburb (program decision 8).\n family: res_low | res_medium_high | centre_mixed | industrial | rural |\n conservation | open_space | infrastructure | water | other.",
+        "properties": {
+          "family": {
+            "description": "(proto string)",
+            "title": "family",
+            "type": "string"
+          },
+          "sharePct": {
+            "description": "% of the whole suburb's area, 0..100 (proto double)",
+            "format": "double",
+            "title": "share_pct",
+            "type": "number"
+          }
+        },
+        "title": "ZoneFamilyShare",
         "type": "object"
       },
       "stocks.v1alpha1.CompanyPerson": {
@@ -11469,6 +14668,65 @@
         ]
       }
     },
+    "/shorts.v1alpha1.HousingService/GetCouncilProfile": {
+      "post": {
+        "description": "One council's hub: identity, current facts, time series, member suburbs,\n hazard/price/crime rollups, representation, price drops and neighbours.",
+        "operationId": "HousingService_GetCouncilProfile",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetCouncilProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetCouncilProfileResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetCouncilProfile",
+        "tags": [
+          "shorts.v1alpha1.HousingService"
+        ]
+      }
+    },
     "/shorts.v1alpha1.HousingService/GetDropIndexSeries": {
       "post": {
         "description": "Daily discounting index series (national/state/suburb) for the price-drops chart.",
@@ -12054,6 +15312,65 @@
           }
         },
         "summary": "ListAgencyPriceStats",
+        "tags": [
+          "shorts.v1alpha1.HousingService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.HousingService/ListCouncils": {
+      "post": {
+        "description": "Every council with a page in one state (kind council | unincorporated),\n with the rollup metrics the council index and choropleth colour by.",
+        "operationId": "HousingService_ListCouncils",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.ListCouncilsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.ListCouncilsResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "ListCouncils",
         "tags": [
           "shorts.v1alpha1.HousingService"
         ]
@@ -15068,6 +18385,65 @@
         ]
       }
     },
+    "/shorts.v1alpha1.StockService/GetStockFundamentals": {
+      "post": {
+        "description": "Per-period reported fundamentals (revenue, net income, EPS, cash flow,\n shares) and year-on-year growth for a stock. Every value carries a has_*\n flag: a missing figure is absent, never zero.",
+        "operationId": "StockService_GetStockFundamentals",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetStockFundamentalsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetStockFundamentalsResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetStockFundamentals",
+        "tags": [
+          "shorts.v1alpha1.StockService"
+        ]
+      }
+    },
     "/shorts.v1alpha1.StockService/GetStockGraph": {
       "post": {
         "description": "Get a stock's people (with their other companies) and narrative-similar companies",
@@ -15301,6 +18677,183 @@
         "summary": "GetStockVerdict",
         "tags": [
           "shorts.v1alpha1.StockService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.StrategyService/GetStockStrategyFit": {
+      "post": {
+        "description": "How one stock reads against every strategy: status, score, rank and the\n per-rule pass / fail / unknown breakdown. A stock that is not a candidate\n for a strategy still gets its rule results, with status \"none\".",
+        "operationId": "StrategyService_GetStockStrategyFit",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetStockStrategyFitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetStockStrategyFitResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetStockStrategyFit",
+        "tags": [
+          "shorts.v1alpha1.StrategyService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.StrategyService/GetStrategyPicks": {
+      "post": {
+        "description": "Ranked picks for one strategy: status (triggered, setup, watch), a 0-100\n score and a per-rule pass / fail / unknown breakdown for each stock.",
+        "operationId": "StrategyService_GetStrategyPicks",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetStrategyPicksRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetStrategyPicksResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetStrategyPicks",
+        "tags": [
+          "shorts.v1alpha1.StrategyService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.StrategyService/ListStrategies": {
+      "post": {
+        "description": "List every strategy with its rules, metadata, caveats and sources, plus\n the current market regime (S\u0026P/ASX 200).",
+        "operationId": "StrategyService_ListStrategies",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.ListStrategiesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.ListStrategiesResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "ListStrategies",
+        "tags": [
+          "shorts.v1alpha1.StrategyService"
         ]
       }
     },

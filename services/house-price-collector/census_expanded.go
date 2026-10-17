@@ -12,6 +12,28 @@ const (
 	// derived rates remain NULL for SALs below this G01 total-person population.
 	censusDerivedRateMinPopulation = 100
 
+	// The population floor does not protect a rate whose denominator is
+	// DWELLINGS or HOUSEHOLDS: a 110-person locality can have 28 dwellings, and
+	// ABS perturbs every cell independently, so three tenure shares of 28
+	// dwellings summed to 132% (Sandy Gully WA). Tenure, dwelling structure and
+	// household composition stay NULL below this many dwellings/households in
+	// the rate's own denominator. Measured on the 2021 SAL DataPack: 588
+	// tenure groups summed past 101% before this floor, 381 after it.
+	censusDwellingShareMinDenominator = 50
+
+	// Unemployment is a share of the LABOUR FORCE, which in a remote locality of
+	// a few hundred people can be 14 to 30. 7 of the 11 SALs publishing an
+	// unemployment rate above 50% had a labour force under this; the 4 that
+	// remain (labour force 50-185) are remote NT/SA communities where ABS
+	// genuinely reports it, and they are published.
+	censusLabourForceMinDenominator = 50
+
+	// ABS perturbation makes mutually exclusive shares of one denominator sum
+	// slightly past 100%. Past this tolerance the group is internally
+	// inconsistent, and no member of it can be trusted, so every member is
+	// withheld rather than one being clamped into a plausible-looking guess.
+	censusShareGroupMaxTotalPct = 101.0
+
 	censusG17BEntry = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G17B_AUST_SAL.csv"
 	censusG17CEntry = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G17C_AUST_SAL.csv"
 	censusG36Entry  = "2021 Census GCP Suburbs and Localities for AUS/2021Census_G36_AUST_SAL.csv"
@@ -42,7 +64,30 @@ type expandedRateDefinition struct {
 	name        string
 	numerators  []string
 	denominator string
-	set         func(*expandedCensusStats, *float64)
+	// minDenominator leaves the rate NULL when the SAL's own denominator is
+	// below it (0 = only the population floor applies).
+	minDenominator int
+	set            func(*expandedCensusStats, *float64)
+}
+
+// withholdOverfullGroup nils every share in a group of mutually exclusive
+// shares of one denominator when they sum past censusShareGroupMaxTotalPct.
+// Nil members contribute nothing; a group with one or fewer present members
+// cannot be overfull.
+func withholdOverfullGroup(shares ...**float64) {
+	total, present := 0.0, 0
+	for _, share := range shares {
+		if *share != nil {
+			total += **share
+			present++
+		}
+	}
+	if present < 2 || total <= censusShareGroupMaxTotalPct {
+		return
+	}
+	for _, share := range shares {
+		*share = nil
+	}
 }
 
 func parseExpandedCount(value string) (*int, bool) {
@@ -125,7 +170,7 @@ func parseExpandedRates(table string, rows [][]string, populations map[string]*i
 				continue
 			}
 			denominator, ok := parseExpandedCount(cell(row, columns[definition.denominator]))
-			if !ok || *denominator == 0 {
+			if !ok || *denominator == 0 || *denominator < definition.minDenominator {
 				continue
 			}
 			numerator := 0
@@ -259,7 +304,7 @@ func parseG17(g17BRows, g17CRows [][]string, populations map[string]*int, logger
 	if rows == nil {
 		return map[string]expandedCensusStats{}
 	}
-	return parseExpandedRates("G17B+G17C", rows, populations, logger, []expandedRateDefinition{
+	out := parseExpandedRates("G17B+G17C", rows, populations, logger, []expandedRateDefinition{
 		{
 			name: "pct_low_personal_income",
 			numerators: []string{
@@ -277,39 +322,59 @@ func parseG17(g17BRows, g17CRows [][]string, populations map[string]*int, logger
 			set:         func(stats *expandedCensusStats, value *float64) { stats.pctHighPersonalIncome = value },
 		},
 	})
+	for code, stats := range out {
+		withholdOverfullGroup(&stats.pctLowPersonalIncome, &stats.pctHighPersonalIncome)
+		out[code] = stats
+	}
+	return out
 }
 
 func parseG36(rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
-	return parseExpandedRates("G36", rows, populations, logger, []expandedRateDefinition{
+	out := parseExpandedRates("G36", rows, populations, logger, []expandedRateDefinition{
 		{
 			name: "pct_separate_house", numerators: []string{"OPDs_Separate_house_Dwellings"}, denominator: "OPDs_Tot_OPDs_Dwellings",
-			set: func(stats *expandedCensusStats, value *float64) { stats.pctSeparateHouse = value },
+			minDenominator: censusDwellingShareMinDenominator,
+			set:            func(stats *expandedCensusStats, value *float64) { stats.pctSeparateHouse = value },
 		},
 		{
 			name: "pct_flat_apartment", numerators: []string{"OPDs_Flt_apart_Tot_Dwgs"}, denominator: "OPDs_Tot_OPDs_Dwellings",
-			set: func(stats *expandedCensusStats, value *float64) { stats.pctFlatApartment = value },
+			minDenominator: censusDwellingShareMinDenominator,
+			set:            func(stats *expandedCensusStats, value *float64) { stats.pctFlatApartment = value },
 		},
 	})
+	for code, stats := range out {
+		withholdOverfullGroup(&stats.pctSeparateHouse, &stats.pctFlatApartment)
+		out[code] = stats
+	}
+	return out
 }
 
 func parseG42(rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
-	return parseExpandedRates("G42", rows, populations, logger, []expandedRateDefinition{
+	out := parseExpandedRates("G42", rows, populations, logger, []expandedRateDefinition{
 		{
 			name: "pct_couple_with_children", numerators: []string{"Tot_FHs_CF_C"}, denominator: "Tot_Tot",
-			set: func(stats *expandedCensusStats, value *float64) { stats.pctCoupleWithChildren = value },
+			minDenominator: censusDwellingShareMinDenominator,
+			set:            func(stats *expandedCensusStats, value *float64) { stats.pctCoupleWithChildren = value },
 		},
 		{
 			name: "pct_lone_person_household", numerators: []string{"Tot_Lone_P_H"}, denominator: "Tot_Tot",
-			set: func(stats *expandedCensusStats, value *float64) { stats.pctLonePersonHousehold = value },
+			minDenominator: censusDwellingShareMinDenominator,
+			set:            func(stats *expandedCensusStats, value *float64) { stats.pctLonePersonHousehold = value },
 		},
 	})
+	for code, stats := range out {
+		withholdOverfullGroup(&stats.pctCoupleWithChildren, &stats.pctLonePersonHousehold)
+		out[code] = stats
+	}
+	return out
 }
 
 func parseG43(rows [][]string, populations map[string]*int, logger *log.Logger) map[string]expandedCensusStats {
 	return parseExpandedRates("G43", rows, populations, logger, []expandedRateDefinition{
 		{
 			name: "unemployment_rate", numerators: []string{"lfs_Unmplyed_lookng_for_wrk_P"}, denominator: "lfs_Tot_LF_P",
-			set: func(stats *expandedCensusStats, value *float64) { stats.unemploymentRate = value },
+			minDenominator: censusLabourForceMinDenominator,
+			set:            func(stats *expandedCensusStats, value *float64) { stats.unemploymentRate = value },
 		},
 		{
 			name: "labour_force_participation_rate", numerators: []string{"lfs_Tot_LF_P"}, denominator: "P_15_yrs_over_P",
@@ -330,17 +395,24 @@ func parseG37(rows [][]string, populations map[string]*int, logger *log.Logger) 
 	out := parseExpandedRates("G37", rows, populations, logger, []expandedRateDefinition{
 		{
 			name: "pct_owned_outright", numerators: []string{"O_OR_Total"}, denominator: "Total_Total",
-			set: func(stats *expandedCensusStats, value *float64) { stats.pctOwnedOutright = value },
+			minDenominator: censusDwellingShareMinDenominator,
+			set:            func(stats *expandedCensusStats, value *float64) { stats.pctOwnedOutright = value },
 		},
 		{
 			name: "pct_owned_mortgage", numerators: []string{"O_MTG_Total"}, denominator: "Total_Total",
-			set: func(stats *expandedCensusStats, value *float64) { stats.pctOwnedMortgage = value },
+			minDenominator: censusDwellingShareMinDenominator,
+			set:            func(stats *expandedCensusStats, value *float64) { stats.pctOwnedMortgage = value },
 		},
 		{
 			name: "pct_rented", numerators: []string{"R_Tot_Total"}, denominator: "Total_Total",
-			set: func(stats *expandedCensusStats, value *float64) { stats.pctRented = value },
+			minDenominator: censusDwellingShareMinDenominator,
+			set:            func(stats *expandedCensusStats, value *float64) { stats.pctRented = value },
 		},
 	})
+	for code, stats := range out {
+		withholdOverfullGroup(&stats.pctOwnedOutright, &stats.pctOwnedMortgage, &stats.pctRented)
+		out[code] = stats
+	}
 	if logger == nil {
 		logger = log.Default()
 	}

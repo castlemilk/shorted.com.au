@@ -2545,6 +2545,1628 @@ func (x *StockSignal) GetCitations() []string {
 	return nil
 }
 
+// Request for GetStockFundamentals.
+type GetStockFundamentalsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StockCode     string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`    // ASX code, e.g. "BHP".
+	PeriodType    string                 `protobuf:"bytes,2,opt,name=period_type,json=periodType,proto3" json:"period_type,omitempty"` // Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`                            // Max periods, newest first (default 12, max 40).
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetStockFundamentalsRequest) Reset() {
+	*x = GetStockFundamentalsRequest{}
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStockFundamentalsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStockFundamentalsRequest) ProtoMessage() {}
+
+func (x *GetStockFundamentalsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStockFundamentalsRequest.ProtoReflect.Descriptor instead.
+func (*GetStockFundamentalsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *GetStockFundamentalsRequest) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *GetStockFundamentalsRequest) GetPeriodType() string {
+	if x != nil {
+		return x.PeriodType
+	}
+	return ""
+}
+
+func (x *GetStockFundamentalsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+// One reported period. Values are in `currency` exactly as the source reports
+// them (BHP reports in USD). has_* is false when the source omitted a figure.
+type FundamentalsPeriod struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	PeriodType           string                 `protobuf:"bytes,1,opt,name=period_type,json=periodType,proto3" json:"period_type,omitempty"`  // "annual" | "half" | "quarter" | "ttm" (trailing twelve months).
+	PeriodEnd            string                 `protobuf:"bytes,2,opt,name=period_end,json=periodEnd,proto3" json:"period_end,omitempty"`     // YYYY-MM-DD.
+	FiscalYear           int32                  `protobuf:"varint,3,opt,name=fiscal_year,json=fiscalYear,proto3" json:"fiscal_year,omitempty"` // 0 when unknown.
+	Currency             string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`
+	Revenue              float64                `protobuf:"fixed64,5,opt,name=revenue,proto3" json:"revenue,omitempty"`
+	HasRevenue           bool                   `protobuf:"varint,6,opt,name=has_revenue,json=hasRevenue,proto3" json:"has_revenue,omitempty"`
+	NetIncome            float64                `protobuf:"fixed64,7,opt,name=net_income,json=netIncome,proto3" json:"net_income,omitempty"`
+	HasNetIncome         bool                   `protobuf:"varint,8,opt,name=has_net_income,json=hasNetIncome,proto3" json:"has_net_income,omitempty"`
+	EpsBasic             float64                `protobuf:"fixed64,9,opt,name=eps_basic,json=epsBasic,proto3" json:"eps_basic,omitempty"`
+	HasEpsBasic          bool                   `protobuf:"varint,10,opt,name=has_eps_basic,json=hasEpsBasic,proto3" json:"has_eps_basic,omitempty"`
+	EpsDiluted           float64                `protobuf:"fixed64,11,opt,name=eps_diluted,json=epsDiluted,proto3" json:"eps_diluted,omitempty"`
+	HasEpsDiluted        bool                   `protobuf:"varint,12,opt,name=has_eps_diluted,json=hasEpsDiluted,proto3" json:"has_eps_diluted,omitempty"`
+	OperatingCashFlow    float64                `protobuf:"fixed64,13,opt,name=operating_cash_flow,json=operatingCashFlow,proto3" json:"operating_cash_flow,omitempty"`
+	HasOperatingCashFlow bool                   `protobuf:"varint,14,opt,name=has_operating_cash_flow,json=hasOperatingCashFlow,proto3" json:"has_operating_cash_flow,omitempty"`
+	SharesOutstanding    float64                `protobuf:"fixed64,15,opt,name=shares_outstanding,json=sharesOutstanding,proto3" json:"shares_outstanding,omitempty"`
+	HasSharesOutstanding bool                   `protobuf:"varint,16,opt,name=has_shares_outstanding,json=hasSharesOutstanding,proto3" json:"has_shares_outstanding,omitempty"`
+	Source               string                 `protobuf:"bytes,17,opt,name=source,proto3" json:"source,omitempty"`                        // e.g. "yahoo-timeseries".
+	FetchedAt            string                 `protobuf:"bytes,18,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"` // RFC 3339.
+	FreeCashFlow         float64                `protobuf:"fixed64,19,opt,name=free_cash_flow,json=freeCashFlow,proto3" json:"free_cash_flow,omitempty"`
+	HasFreeCashFlow      bool                   `protobuf:"varint,20,opt,name=has_free_cash_flow,json=hasFreeCashFlow,proto3" json:"has_free_cash_flow,omitempty"`
+	// Full statement lines (period_type "quarter" rows are balance-sheet
+	// snapshots and carry only balance lines and shares).
+	GrossProfit    float64 `protobuf:"fixed64,21,opt,name=gross_profit,json=grossProfit,proto3" json:"gross_profit,omitempty"`
+	HasGrossProfit bool    `protobuf:"varint,22,opt,name=has_gross_profit,json=hasGrossProfit,proto3" json:"has_gross_profit,omitempty"`
+	// Absent for banks and insurers.
+	OperatingIncome    float64 `protobuf:"fixed64,23,opt,name=operating_income,json=operatingIncome,proto3" json:"operating_income,omitempty"`
+	HasOperatingIncome bool    `protobuf:"varint,24,opt,name=has_operating_income,json=hasOperatingIncome,proto3" json:"has_operating_income,omitempty"`
+	// Statutory: includes impairments and revaluations.
+	Ebitda    float64 `protobuf:"fixed64,25,opt,name=ebitda,proto3" json:"ebitda,omitempty"`
+	HasEbitda bool    `protobuf:"varint,26,opt,name=has_ebitda,json=hasEbitda,proto3" json:"has_ebitda,omitempty"`
+	// EBITDA before unusual items, when the source publishes it.
+	NormalizedEbitda    float64 `protobuf:"fixed64,27,opt,name=normalized_ebitda,json=normalizedEbitda,proto3" json:"normalized_ebitda,omitempty"`
+	HasNormalizedEbitda bool    `protobuf:"varint,28,opt,name=has_normalized_ebitda,json=hasNormalizedEbitda,proto3" json:"has_normalized_ebitda,omitempty"`
+	Ebit                float64 `protobuf:"fixed64,29,opt,name=ebit,proto3" json:"ebit,omitempty"`
+	HasEbit             bool    `protobuf:"varint,30,opt,name=has_ebit,json=hasEbit,proto3" json:"has_ebit,omitempty"`
+	// A positive expense.
+	InterestExpense    float64 `protobuf:"fixed64,31,opt,name=interest_expense,json=interestExpense,proto3" json:"interest_expense,omitempty"`
+	HasInterestExpense bool    `protobuf:"varint,32,opt,name=has_interest_expense,json=hasInterestExpense,proto3" json:"has_interest_expense,omitempty"`
+	PretaxIncome       float64 `protobuf:"fixed64,33,opt,name=pretax_income,json=pretaxIncome,proto3" json:"pretax_income,omitempty"`
+	HasPretaxIncome    bool    `protobuf:"varint,34,opt,name=has_pretax_income,json=hasPretaxIncome,proto3" json:"has_pretax_income,omitempty"`
+	TaxProvision       float64 `protobuf:"fixed64,35,opt,name=tax_provision,json=taxProvision,proto3" json:"tax_provision,omitempty"`
+	HasTaxProvision    bool    `protobuf:"varint,36,opt,name=has_tax_provision,json=hasTaxProvision,proto3" json:"has_tax_provision,omitempty"`
+	// Banks; other companies report it as minus interest expense.
+	NetInterestIncome    float64 `protobuf:"fixed64,37,opt,name=net_interest_income,json=netInterestIncome,proto3" json:"net_interest_income,omitempty"`
+	HasNetInterestIncome bool    `protobuf:"varint,38,opt,name=has_net_interest_income,json=hasNetInterestIncome,proto3" json:"has_net_interest_income,omitempty"`
+	// An outflow: negative.
+	CapitalExpenditure    float64 `protobuf:"fixed64,39,opt,name=capital_expenditure,json=capitalExpenditure,proto3" json:"capital_expenditure,omitempty"`
+	HasCapitalExpenditure bool    `protobuf:"varint,40,opt,name=has_capital_expenditure,json=hasCapitalExpenditure,proto3" json:"has_capital_expenditure,omitempty"`
+	// Cash dividends paid in the period: negative.
+	DividendsPaid    float64 `protobuf:"fixed64,41,opt,name=dividends_paid,json=dividendsPaid,proto3" json:"dividends_paid,omitempty"`
+	HasDividendsPaid bool    `protobuf:"varint,42,opt,name=has_dividends_paid,json=hasDividendsPaid,proto3" json:"has_dividends_paid,omitempty"`
+	// An outflow: negative.
+	ShareBuybacks    float64 `protobuf:"fixed64,43,opt,name=share_buybacks,json=shareBuybacks,proto3" json:"share_buybacks,omitempty"`
+	HasShareBuybacks bool    `protobuf:"varint,44,opt,name=has_share_buybacks,json=hasShareBuybacks,proto3" json:"has_share_buybacks,omitempty"`
+	// Balance sheet at period_end.
+	TotalAssets         float64 `protobuf:"fixed64,45,opt,name=total_assets,json=totalAssets,proto3" json:"total_assets,omitempty"`
+	HasTotalAssets      bool    `protobuf:"varint,46,opt,name=has_total_assets,json=hasTotalAssets,proto3" json:"has_total_assets,omitempty"`
+	TotalLiabilities    float64 `protobuf:"fixed64,47,opt,name=total_liabilities,json=totalLiabilities,proto3" json:"total_liabilities,omitempty"`
+	HasTotalLiabilities bool    `protobuf:"varint,48,opt,name=has_total_liabilities,json=hasTotalLiabilities,proto3" json:"has_total_liabilities,omitempty"`
+	// Shareholders' equity.
+	TotalEquity           float64 `protobuf:"fixed64,49,opt,name=total_equity,json=totalEquity,proto3" json:"total_equity,omitempty"`
+	HasTotalEquity        bool    `protobuf:"varint,50,opt,name=has_total_equity,json=hasTotalEquity,proto3" json:"has_total_equity,omitempty"`
+	CashAndEquivalents    float64 `protobuf:"fixed64,51,opt,name=cash_and_equivalents,json=cashAndEquivalents,proto3" json:"cash_and_equivalents,omitempty"`
+	HasCashAndEquivalents bool    `protobuf:"varint,52,opt,name=has_cash_and_equivalents,json=hasCashAndEquivalents,proto3" json:"has_cash_and_equivalents,omitempty"`
+	// Includes lease liabilities.
+	TotalDebt    float64 `protobuf:"fixed64,53,opt,name=total_debt,json=totalDebt,proto3" json:"total_debt,omitempty"`
+	HasTotalDebt bool    `protobuf:"varint,54,opt,name=has_total_debt,json=hasTotalDebt,proto3" json:"has_total_debt,omitempty"`
+	// Lease liabilities.
+	CapitalLeaseObligations    float64 `protobuf:"fixed64,55,opt,name=capital_lease_obligations,json=capitalLeaseObligations,proto3" json:"capital_lease_obligations,omitempty"`
+	HasCapitalLeaseObligations bool    `protobuf:"varint,56,opt,name=has_capital_lease_obligations,json=hasCapitalLeaseObligations,proto3" json:"has_capital_lease_obligations,omitempty"`
+	// Excludes leases: total debt minus leases minus cash. Negative is net cash.
+	NetDebt               float64 `protobuf:"fixed64,57,opt,name=net_debt,json=netDebt,proto3" json:"net_debt,omitempty"`
+	HasNetDebt            bool    `protobuf:"varint,58,opt,name=has_net_debt,json=hasNetDebt,proto3" json:"has_net_debt,omitempty"`
+	CurrentAssets         float64 `protobuf:"fixed64,59,opt,name=current_assets,json=currentAssets,proto3" json:"current_assets,omitempty"`
+	HasCurrentAssets      bool    `protobuf:"varint,60,opt,name=has_current_assets,json=hasCurrentAssets,proto3" json:"has_current_assets,omitempty"`
+	CurrentLiabilities    float64 `protobuf:"fixed64,61,opt,name=current_liabilities,json=currentLiabilities,proto3" json:"current_liabilities,omitempty"`
+	HasCurrentLiabilities bool    `protobuf:"varint,62,opt,name=has_current_liabilities,json=hasCurrentLiabilities,proto3" json:"has_current_liabilities,omitempty"`
+	// Per-field provenance: the fields whose value did not come from `source`,
+	// mapped to where it came from, e.g. {"operating_cash_flow":
+	// "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+	FieldSources map[string]string `protobuf:"bytes,63,rep,name=field_sources,json=fieldSources,proto3" json:"field_sources,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// The company filing a filing-sourced row or field came from; empty otherwise.
+	SourceDocumentUrl  string `protobuf:"bytes,64,opt,name=source_document_url,json=sourceDocumentUrl,proto3" json:"source_document_url,omitempty"`
+	SourceDocumentDate string `protobuf:"bytes,65,opt,name=source_document_date,json=sourceDocumentDate,proto3" json:"source_document_date,omitempty"` // YYYY-MM-DD.
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *FundamentalsPeriod) Reset() {
+	*x = FundamentalsPeriod{}
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FundamentalsPeriod) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FundamentalsPeriod) ProtoMessage() {}
+
+func (x *FundamentalsPeriod) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FundamentalsPeriod.ProtoReflect.Descriptor instead.
+func (*FundamentalsPeriod) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *FundamentalsPeriod) GetPeriodType() string {
+	if x != nil {
+		return x.PeriodType
+	}
+	return ""
+}
+
+func (x *FundamentalsPeriod) GetPeriodEnd() string {
+	if x != nil {
+		return x.PeriodEnd
+	}
+	return ""
+}
+
+func (x *FundamentalsPeriod) GetFiscalYear() int32 {
+	if x != nil {
+		return x.FiscalYear
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *FundamentalsPeriod) GetRevenue() float64 {
+	if x != nil {
+		return x.Revenue
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasRevenue() bool {
+	if x != nil {
+		return x.HasRevenue
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetNetIncome() float64 {
+	if x != nil {
+		return x.NetIncome
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasNetIncome() bool {
+	if x != nil {
+		return x.HasNetIncome
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetEpsBasic() float64 {
+	if x != nil {
+		return x.EpsBasic
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasEpsBasic() bool {
+	if x != nil {
+		return x.HasEpsBasic
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetEpsDiluted() float64 {
+	if x != nil {
+		return x.EpsDiluted
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasEpsDiluted() bool {
+	if x != nil {
+		return x.HasEpsDiluted
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetOperatingCashFlow() float64 {
+	if x != nil {
+		return x.OperatingCashFlow
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasOperatingCashFlow() bool {
+	if x != nil {
+		return x.HasOperatingCashFlow
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetSharesOutstanding() float64 {
+	if x != nil {
+		return x.SharesOutstanding
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasSharesOutstanding() bool {
+	if x != nil {
+		return x.HasSharesOutstanding
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *FundamentalsPeriod) GetFetchedAt() string {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return ""
+}
+
+func (x *FundamentalsPeriod) GetFreeCashFlow() float64 {
+	if x != nil {
+		return x.FreeCashFlow
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasFreeCashFlow() bool {
+	if x != nil {
+		return x.HasFreeCashFlow
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetGrossProfit() float64 {
+	if x != nil {
+		return x.GrossProfit
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasGrossProfit() bool {
+	if x != nil {
+		return x.HasGrossProfit
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetOperatingIncome() float64 {
+	if x != nil {
+		return x.OperatingIncome
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasOperatingIncome() bool {
+	if x != nil {
+		return x.HasOperatingIncome
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetEbitda() float64 {
+	if x != nil {
+		return x.Ebitda
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasEbitda() bool {
+	if x != nil {
+		return x.HasEbitda
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetNormalizedEbitda() float64 {
+	if x != nil {
+		return x.NormalizedEbitda
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasNormalizedEbitda() bool {
+	if x != nil {
+		return x.HasNormalizedEbitda
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetEbit() float64 {
+	if x != nil {
+		return x.Ebit
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasEbit() bool {
+	if x != nil {
+		return x.HasEbit
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetInterestExpense() float64 {
+	if x != nil {
+		return x.InterestExpense
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasInterestExpense() bool {
+	if x != nil {
+		return x.HasInterestExpense
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetPretaxIncome() float64 {
+	if x != nil {
+		return x.PretaxIncome
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasPretaxIncome() bool {
+	if x != nil {
+		return x.HasPretaxIncome
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetTaxProvision() float64 {
+	if x != nil {
+		return x.TaxProvision
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasTaxProvision() bool {
+	if x != nil {
+		return x.HasTaxProvision
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetNetInterestIncome() float64 {
+	if x != nil {
+		return x.NetInterestIncome
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasNetInterestIncome() bool {
+	if x != nil {
+		return x.HasNetInterestIncome
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetCapitalExpenditure() float64 {
+	if x != nil {
+		return x.CapitalExpenditure
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasCapitalExpenditure() bool {
+	if x != nil {
+		return x.HasCapitalExpenditure
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetDividendsPaid() float64 {
+	if x != nil {
+		return x.DividendsPaid
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasDividendsPaid() bool {
+	if x != nil {
+		return x.HasDividendsPaid
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetShareBuybacks() float64 {
+	if x != nil {
+		return x.ShareBuybacks
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasShareBuybacks() bool {
+	if x != nil {
+		return x.HasShareBuybacks
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetTotalAssets() float64 {
+	if x != nil {
+		return x.TotalAssets
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasTotalAssets() bool {
+	if x != nil {
+		return x.HasTotalAssets
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetTotalLiabilities() float64 {
+	if x != nil {
+		return x.TotalLiabilities
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasTotalLiabilities() bool {
+	if x != nil {
+		return x.HasTotalLiabilities
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetTotalEquity() float64 {
+	if x != nil {
+		return x.TotalEquity
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasTotalEquity() bool {
+	if x != nil {
+		return x.HasTotalEquity
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetCashAndEquivalents() float64 {
+	if x != nil {
+		return x.CashAndEquivalents
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasCashAndEquivalents() bool {
+	if x != nil {
+		return x.HasCashAndEquivalents
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetTotalDebt() float64 {
+	if x != nil {
+		return x.TotalDebt
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasTotalDebt() bool {
+	if x != nil {
+		return x.HasTotalDebt
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetCapitalLeaseObligations() float64 {
+	if x != nil {
+		return x.CapitalLeaseObligations
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasCapitalLeaseObligations() bool {
+	if x != nil {
+		return x.HasCapitalLeaseObligations
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetNetDebt() float64 {
+	if x != nil {
+		return x.NetDebt
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasNetDebt() bool {
+	if x != nil {
+		return x.HasNetDebt
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetCurrentAssets() float64 {
+	if x != nil {
+		return x.CurrentAssets
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasCurrentAssets() bool {
+	if x != nil {
+		return x.HasCurrentAssets
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetCurrentLiabilities() float64 {
+	if x != nil {
+		return x.CurrentLiabilities
+	}
+	return 0
+}
+
+func (x *FundamentalsPeriod) GetHasCurrentLiabilities() bool {
+	if x != nil {
+		return x.HasCurrentLiabilities
+	}
+	return false
+}
+
+func (x *FundamentalsPeriod) GetFieldSources() map[string]string {
+	if x != nil {
+		return x.FieldSources
+	}
+	return nil
+}
+
+func (x *FundamentalsPeriod) GetSourceDocumentUrl() string {
+	if x != nil {
+		return x.SourceDocumentUrl
+	}
+	return ""
+}
+
+func (x *FundamentalsPeriod) GetSourceDocumentDate() string {
+	if x != nil {
+		return x.SourceDocumentDate
+	}
+	return ""
+}
+
+// Year-on-year growth, always against the same series one year earlier
+// (annual vs prior annual, TTM vs the TTM point a year earlier), never across
+// series. A *_pct is absent (has_* false) when either side is missing or the
+// prior value is zero or negative.
+type FundamentalsGrowth struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	BasisPeriodType    string                 `protobuf:"bytes,1,opt,name=basis_period_type,json=basisPeriodType,proto3" json:"basis_period_type,omitempty"` // Series the EPS growth was computed on: "half", "ttm" or "annual".
+	LatestPeriodEnd    string                 `protobuf:"bytes,2,opt,name=latest_period_end,json=latestPeriodEnd,proto3" json:"latest_period_end,omitempty"` // YYYY-MM-DD of the latest period in that series.
+	RevenueYoyPct      float64                `protobuf:"fixed64,3,opt,name=revenue_yoy_pct,json=revenueYoyPct,proto3" json:"revenue_yoy_pct,omitempty"`     // Revenue growth on revenue_basis_period_type vs the same series a year earlier.
+	HasRevenueYoy      bool                   `protobuf:"varint,4,opt,name=has_revenue_yoy,json=hasRevenueYoy,proto3" json:"has_revenue_yoy,omitempty"`
+	RevenueYoyPriorPct float64                `protobuf:"fixed64,5,opt,name=revenue_yoy_prior_pct,json=revenueYoyPriorPct,proto3" json:"revenue_yoy_prior_pct,omitempty"` // The same growth one period earlier, for acceleration.
+	HasRevenueYoyPrior bool                   `protobuf:"varint,6,opt,name=has_revenue_yoy_prior,json=hasRevenueYoyPrior,proto3" json:"has_revenue_yoy_prior,omitempty"`
+	EpsYoyPct          float64                `protobuf:"fixed64,7,opt,name=eps_yoy_pct,json=epsYoyPct,proto3" json:"eps_yoy_pct,omitempty"`
+	HasEpsYoy          bool                   `protobuf:"varint,8,opt,name=has_eps_yoy,json=hasEpsYoy,proto3" json:"has_eps_yoy,omitempty"`
+	EpsYoyPriorPct     float64                `protobuf:"fixed64,9,opt,name=eps_yoy_prior_pct,json=epsYoyPriorPct,proto3" json:"eps_yoy_prior_pct,omitempty"`
+	HasEpsYoyPrior     bool                   `protobuf:"varint,10,opt,name=has_eps_yoy_prior,json=hasEpsYoyPrior,proto3" json:"has_eps_yoy_prior,omitempty"`
+	NetIncomePositive  bool                   `protobuf:"varint,11,opt,name=net_income_positive,json=netIncomePositive,proto3" json:"net_income_positive,omitempty"` // Latest annual net income above zero.
+	PeriodsAvailable   int32                  `protobuf:"varint,12,opt,name=periods_available,json=periodsAvailable,proto3" json:"periods_available,omitempty"`
+	RevenueTtm         float64                `protobuf:"fixed64,13,opt,name=revenue_ttm,json=revenueTtm,proto3" json:"revenue_ttm,omitempty"` // Latest trailing-twelve-month points.
+	HasRevenueTtm      bool                   `protobuf:"varint,14,opt,name=has_revenue_ttm,json=hasRevenueTtm,proto3" json:"has_revenue_ttm,omitempty"`
+	NetIncomeTtm       float64                `protobuf:"fixed64,15,opt,name=net_income_ttm,json=netIncomeTtm,proto3" json:"net_income_ttm,omitempty"`
+	HasNetIncomeTtm    bool                   `protobuf:"varint,16,opt,name=has_net_income_ttm,json=hasNetIncomeTtm,proto3" json:"has_net_income_ttm,omitempty"`
+	EpsTtm             float64                `protobuf:"fixed64,17,opt,name=eps_ttm,json=epsTtm,proto3" json:"eps_ttm,omitempty"`
+	HasEpsTtm          bool                   `protobuf:"varint,18,opt,name=has_eps_ttm,json=hasEpsTtm,proto3" json:"has_eps_ttm,omitempty"`
+	// Series the revenue growth was computed on: "half" (latest half-year from a
+	// company filing vs the same half a year earlier, used when it is newer than
+	// the latest annual), "ttm" (the latest trailing twelve months vs twelve
+	// months earlier, used when it is newer than the latest annual) or "annual".
+	// Empty when unknown.
+	RevenueBasisPeriodType string `protobuf:"bytes,19,opt,name=revenue_basis_period_type,json=revenueBasisPeriodType,proto3" json:"revenue_basis_period_type,omitempty"`
+	// Latest half-year vs the same half a year earlier, from company filings,
+	// whether or not the half is the chosen basis.
+	RevenueHalfYoyPct   float64 `protobuf:"fixed64,20,opt,name=revenue_half_yoy_pct,json=revenueHalfYoyPct,proto3" json:"revenue_half_yoy_pct,omitempty"`
+	HasRevenueHalfYoy   bool    `protobuf:"varint,21,opt,name=has_revenue_half_yoy,json=hasRevenueHalfYoy,proto3" json:"has_revenue_half_yoy,omitempty"`
+	EpsHalfYoyPct       float64 `protobuf:"fixed64,22,opt,name=eps_half_yoy_pct,json=epsHalfYoyPct,proto3" json:"eps_half_yoy_pct,omitempty"`
+	HasEpsHalfYoy       bool    `protobuf:"varint,23,opt,name=has_eps_half_yoy,json=hasEpsHalfYoy,proto3" json:"has_eps_half_yoy,omitempty"`
+	HalfLatestPeriodEnd string  `protobuf:"bytes,24,opt,name=half_latest_period_end,json=halfLatestPeriodEnd,proto3" json:"half_latest_period_end,omitempty"` // YYYY-MM-DD of the latest half-year row; empty when none.
+	// "vendor" or "filing": where the rows behind each growth figure came from.
+	// "filing" when either side of the pair is a figure extracted from a company
+	// filing. Empty when unknown.
+	RevenueBasisSource     string `protobuf:"bytes,25,opt,name=revenue_basis_source,json=revenueBasisSource,proto3" json:"revenue_basis_source,omitempty"`
+	EpsBasisSource         string `protobuf:"bytes,26,opt,name=eps_basis_source,json=epsBasisSource,proto3" json:"eps_basis_source,omitempty"`
+	FetchedAt              string `protobuf:"bytes,27,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`                                            // RFC 3339, newest fetch of the growth inputs.
+	RevenueLatestPeriodEnd string `protobuf:"bytes,28,opt,name=revenue_latest_period_end,json=revenueLatestPeriodEnd,proto3" json:"revenue_latest_period_end,omitempty"` // YYYY-MM-DD, the pair revenue_yoy_pct compares.
+	RevenuePriorPeriodEnd  string `protobuf:"bytes,29,opt,name=revenue_prior_period_end,json=revenuePriorPeriodEnd,proto3" json:"revenue_prior_period_end,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *FundamentalsGrowth) Reset() {
+	*x = FundamentalsGrowth{}
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FundamentalsGrowth) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FundamentalsGrowth) ProtoMessage() {}
+
+func (x *FundamentalsGrowth) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FundamentalsGrowth.ProtoReflect.Descriptor instead.
+func (*FundamentalsGrowth) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *FundamentalsGrowth) GetBasisPeriodType() string {
+	if x != nil {
+		return x.BasisPeriodType
+	}
+	return ""
+}
+
+func (x *FundamentalsGrowth) GetLatestPeriodEnd() string {
+	if x != nil {
+		return x.LatestPeriodEnd
+	}
+	return ""
+}
+
+func (x *FundamentalsGrowth) GetRevenueYoyPct() float64 {
+	if x != nil {
+		return x.RevenueYoyPct
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetHasRevenueYoy() bool {
+	if x != nil {
+		return x.HasRevenueYoy
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetRevenueYoyPriorPct() float64 {
+	if x != nil {
+		return x.RevenueYoyPriorPct
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetHasRevenueYoyPrior() bool {
+	if x != nil {
+		return x.HasRevenueYoyPrior
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetEpsYoyPct() float64 {
+	if x != nil {
+		return x.EpsYoyPct
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetHasEpsYoy() bool {
+	if x != nil {
+		return x.HasEpsYoy
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetEpsYoyPriorPct() float64 {
+	if x != nil {
+		return x.EpsYoyPriorPct
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetHasEpsYoyPrior() bool {
+	if x != nil {
+		return x.HasEpsYoyPrior
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetNetIncomePositive() bool {
+	if x != nil {
+		return x.NetIncomePositive
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetPeriodsAvailable() int32 {
+	if x != nil {
+		return x.PeriodsAvailable
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetRevenueTtm() float64 {
+	if x != nil {
+		return x.RevenueTtm
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetHasRevenueTtm() bool {
+	if x != nil {
+		return x.HasRevenueTtm
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetNetIncomeTtm() float64 {
+	if x != nil {
+		return x.NetIncomeTtm
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetHasNetIncomeTtm() bool {
+	if x != nil {
+		return x.HasNetIncomeTtm
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetEpsTtm() float64 {
+	if x != nil {
+		return x.EpsTtm
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetHasEpsTtm() bool {
+	if x != nil {
+		return x.HasEpsTtm
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetRevenueBasisPeriodType() string {
+	if x != nil {
+		return x.RevenueBasisPeriodType
+	}
+	return ""
+}
+
+func (x *FundamentalsGrowth) GetRevenueHalfYoyPct() float64 {
+	if x != nil {
+		return x.RevenueHalfYoyPct
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetHasRevenueHalfYoy() bool {
+	if x != nil {
+		return x.HasRevenueHalfYoy
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetEpsHalfYoyPct() float64 {
+	if x != nil {
+		return x.EpsHalfYoyPct
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetHasEpsHalfYoy() bool {
+	if x != nil {
+		return x.HasEpsHalfYoy
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetHalfLatestPeriodEnd() string {
+	if x != nil {
+		return x.HalfLatestPeriodEnd
+	}
+	return ""
+}
+
+func (x *FundamentalsGrowth) GetRevenueBasisSource() string {
+	if x != nil {
+		return x.RevenueBasisSource
+	}
+	return ""
+}
+
+func (x *FundamentalsGrowth) GetEpsBasisSource() string {
+	if x != nil {
+		return x.EpsBasisSource
+	}
+	return ""
+}
+
+func (x *FundamentalsGrowth) GetFetchedAt() string {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return ""
+}
+
+func (x *FundamentalsGrowth) GetRevenueLatestPeriodEnd() string {
+	if x != nil {
+		return x.RevenueLatestPeriodEnd
+	}
+	return ""
+}
+
+func (x *FundamentalsGrowth) GetRevenuePriorPeriodEnd() string {
+	if x != nil {
+		return x.RevenuePriorPeriodEnd
+	}
+	return ""
+}
+
+// Profitability, cash conversion, balance-sheet and valuation ratios. Flow
+// ratios use one period (basis_period_type/basis_period_end); balance ratios use
+// the balance sheet at or up to 6 months before it, in the same currency.
+// has_* is false when an input is missing, a denominator is zero or negative,
+// or the ratio is not meaningful for the company (listed in not_meaningful).
+type FundamentalsQuality struct {
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	BasisPeriodType          string                 `protobuf:"bytes,1,opt,name=basis_period_type,json=basisPeriodType,proto3" json:"basis_period_type,omitempty"`    // "annual" | "ttm".
+	BasisPeriodEnd           string                 `protobuf:"bytes,2,opt,name=basis_period_end,json=basisPeriodEnd,proto3" json:"basis_period_end,omitempty"`       // YYYY-MM-DD.
+	Currency                 string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`                                           // Reporting currency of the flow period.
+	BalancePeriodEnd         string                 `protobuf:"bytes,4,opt,name=balance_period_end,json=balancePeriodEnd,proto3" json:"balance_period_end,omitempty"` // YYYY-MM-DD; empty when no aligned balance sheet.
+	GrossMarginPct           float64                `protobuf:"fixed64,5,opt,name=gross_margin_pct,json=grossMarginPct,proto3" json:"gross_margin_pct,omitempty"`
+	HasGrossMarginPct        bool                   `protobuf:"varint,6,opt,name=has_gross_margin_pct,json=hasGrossMarginPct,proto3" json:"has_gross_margin_pct,omitempty"`
+	OperatingMarginPct       float64                `protobuf:"fixed64,7,opt,name=operating_margin_pct,json=operatingMarginPct,proto3" json:"operating_margin_pct,omitempty"`
+	HasOperatingMarginPct    bool                   `protobuf:"varint,8,opt,name=has_operating_margin_pct,json=hasOperatingMarginPct,proto3" json:"has_operating_margin_pct,omitempty"`
+	NetMarginPct             float64                `protobuf:"fixed64,9,opt,name=net_margin_pct,json=netMarginPct,proto3" json:"net_margin_pct,omitempty"`
+	HasNetMarginPct          bool                   `protobuf:"varint,10,opt,name=has_net_margin_pct,json=hasNetMarginPct,proto3" json:"has_net_margin_pct,omitempty"`
+	FcfMarginPct             float64                `protobuf:"fixed64,11,opt,name=fcf_margin_pct,json=fcfMarginPct,proto3" json:"fcf_margin_pct,omitempty"`
+	HasFcfMarginPct          bool                   `protobuf:"varint,12,opt,name=has_fcf_margin_pct,json=hasFcfMarginPct,proto3" json:"has_fcf_margin_pct,omitempty"`
+	FcfConversion            float64                `protobuf:"fixed64,13,opt,name=fcf_conversion,json=fcfConversion,proto3" json:"fcf_conversion,omitempty"` // Free cash flow / net profit (a ratio, not a percentage).
+	HasFcfConversion         bool                   `protobuf:"varint,14,opt,name=has_fcf_conversion,json=hasFcfConversion,proto3" json:"has_fcf_conversion,omitempty"`
+	RoePct                   float64                `protobuf:"fixed64,15,opt,name=roe_pct,json=roePct,proto3" json:"roe_pct,omitempty"` // Net profit / average equity.
+	HasRoePct                bool                   `protobuf:"varint,16,opt,name=has_roe_pct,json=hasRoePct,proto3" json:"has_roe_pct,omitempty"`
+	RoaPct                   float64                `protobuf:"fixed64,17,opt,name=roa_pct,json=roaPct,proto3" json:"roa_pct,omitempty"` // Net profit / average total assets.
+	HasRoaPct                bool                   `protobuf:"varint,18,opt,name=has_roa_pct,json=hasRoaPct,proto3" json:"has_roa_pct,omitempty"`
+	NetDebt                  float64                `protobuf:"fixed64,19,opt,name=net_debt,json=netDebt,proto3" json:"net_debt,omitempty"` // Excludes leases; negative is net cash. In balance_currency.
+	HasNetDebt               bool                   `protobuf:"varint,20,opt,name=has_net_debt,json=hasNetDebt,proto3" json:"has_net_debt,omitempty"`
+	NetDebtToEbitda          float64                `protobuf:"fixed64,21,opt,name=net_debt_to_ebitda,json=netDebtToEbitda,proto3" json:"net_debt_to_ebitda,omitempty"` // Normalized EBITDA when published, else statutory.
+	HasNetDebtToEbitda       bool                   `protobuf:"varint,22,opt,name=has_net_debt_to_ebitda,json=hasNetDebtToEbitda,proto3" json:"has_net_debt_to_ebitda,omitempty"`
+	NetDebtToEquity          float64                `protobuf:"fixed64,23,opt,name=net_debt_to_equity,json=netDebtToEquity,proto3" json:"net_debt_to_equity,omitempty"`
+	HasNetDebtToEquity       bool                   `protobuf:"varint,24,opt,name=has_net_debt_to_equity,json=hasNetDebtToEquity,proto3" json:"has_net_debt_to_equity,omitempty"`
+	CurrentRatio             float64                `protobuf:"fixed64,25,opt,name=current_ratio,json=currentRatio,proto3" json:"current_ratio,omitempty"`
+	HasCurrentRatio          bool                   `protobuf:"varint,26,opt,name=has_current_ratio,json=hasCurrentRatio,proto3" json:"has_current_ratio,omitempty"`
+	InterestCover            float64                `protobuf:"fixed64,27,opt,name=interest_cover,json=interestCover,proto3" json:"interest_cover,omitempty"` // Operating income / interest expense.
+	HasInterestCover         bool                   `protobuf:"varint,28,opt,name=has_interest_cover,json=hasInterestCover,proto3" json:"has_interest_cover,omitempty"`
+	PayoutRatioPct           float64                `protobuf:"fixed64,29,opt,name=payout_ratio_pct,json=payoutRatioPct,proto3" json:"payout_ratio_pct,omitempty"` // Cash dividends paid / net profit.
+	HasPayoutRatioPct        bool                   `protobuf:"varint,30,opt,name=has_payout_ratio_pct,json=hasPayoutRatioPct,proto3" json:"has_payout_ratio_pct,omitempty"`
+	IsFinancial              bool                   `protobuf:"varint,31,opt,name=is_financial,json=isFinancial,proto3" json:"is_financial,omitempty"`                                            // Bank, insurer or other financial.
+	Source                   string                 `protobuf:"bytes,32,opt,name=source,proto3" json:"source,omitempty"`                                                                          // Source of the flow period, e.g. "yahoo-timeseries".
+	OperatingCashFlowDerived bool                   `protobuf:"varint,33,opt,name=operating_cash_flow_derived,json=operatingCashFlowDerived,proto3" json:"operating_cash_flow_derived,omitempty"` // Operating cash flow = free cash flow minus capex.
+	MarketCap                float64                `protobuf:"fixed64,34,opt,name=market_cap,json=marketCap,proto3" json:"market_cap,omitempty"`                                                 // AUD: latest close x shares on issue.
+	HasMarketCap             bool                   `protobuf:"varint,35,opt,name=has_market_cap,json=hasMarketCap,proto3" json:"has_market_cap,omitempty"`
+	PeRatio                  float64                `protobuf:"fixed64,36,opt,name=pe_ratio,json=peRatio,proto3" json:"pe_ratio,omitempty"` // Latest close / 12-month EPS; AUD reporters only.
+	HasPeRatio               bool                   `protobuf:"varint,37,opt,name=has_pe_ratio,json=hasPeRatio,proto3" json:"has_pe_ratio,omitempty"`
+	PriceToBook              float64                `protobuf:"fixed64,38,opt,name=price_to_book,json=priceToBook,proto3" json:"price_to_book,omitempty"` // Market cap / equity; AUD reporters only.
+	HasPriceToBook           bool                   `protobuf:"varint,39,opt,name=has_price_to_book,json=hasPriceToBook,proto3" json:"has_price_to_book,omitempty"`
+	PriceAsOf                string                 `protobuf:"bytes,40,opt,name=price_as_of,json=priceAsOf,proto3" json:"price_as_of,omitempty"` // YYYY-MM-DD of the close used.
+	BalanceCurrency          string                 `protobuf:"bytes,41,opt,name=balance_currency,json=balanceCurrency,proto3" json:"balance_currency,omitempty"`
+	NotMeaningful            []string               `protobuf:"bytes,42,rep,name=not_meaningful,json=notMeaningful,proto3" json:"not_meaningful,omitempty"`             // Ratio names withheld because is_financial.
+	IsProperty               bool                   `protobuf:"varint,43,opt,name=is_property,json=isProperty,proto3" json:"is_property,omitempty"`                     // Property trust: profit and EBITDA include revaluations.
+	BalanceLagMonths         int32                  `protobuf:"varint,44,opt,name=balance_lag_months,json=balanceLagMonths,proto3" json:"balance_lag_months,omitempty"` // Months between the balance sheet and the flow period.
+	SharesAsOf               string                 `protobuf:"bytes,45,opt,name=shares_as_of,json=sharesAsOf,proto3" json:"shares_as_of,omitempty"`                    // YYYY-MM-DD of the share count used for market cap.
+	PeEpsPeriodEnd           string                 `protobuf:"bytes,46,opt,name=pe_eps_period_end,json=peEpsPeriodEnd,proto3" json:"pe_eps_period_end,omitempty"`      // YYYY-MM-DD of the EPS used for P/E.
+	PeEpsBasis               string                 `protobuf:"bytes,47,opt,name=pe_eps_basis,json=peEpsBasis,proto3" json:"pe_eps_basis,omitempty"`                    // "diluted" | "basic".
+	// Why market cap, P/E or P/B are absent: "non-aud" (statements not in AUD),
+	// "listed-unit" (the listed unit is not one ordinary share), "no-shares",
+	// "no-price"; empty when present.
+	ValuationNote string `protobuf:"bytes,48,opt,name=valuation_note,json=valuationNote,proto3" json:"valuation_note,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FundamentalsQuality) Reset() {
+	*x = FundamentalsQuality{}
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FundamentalsQuality) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FundamentalsQuality) ProtoMessage() {}
+
+func (x *FundamentalsQuality) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FundamentalsQuality.ProtoReflect.Descriptor instead.
+func (*FundamentalsQuality) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *FundamentalsQuality) GetBasisPeriodType() string {
+	if x != nil {
+		return x.BasisPeriodType
+	}
+	return ""
+}
+
+func (x *FundamentalsQuality) GetBasisPeriodEnd() string {
+	if x != nil {
+		return x.BasisPeriodEnd
+	}
+	return ""
+}
+
+func (x *FundamentalsQuality) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *FundamentalsQuality) GetBalancePeriodEnd() string {
+	if x != nil {
+		return x.BalancePeriodEnd
+	}
+	return ""
+}
+
+func (x *FundamentalsQuality) GetGrossMarginPct() float64 {
+	if x != nil {
+		return x.GrossMarginPct
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasGrossMarginPct() bool {
+	if x != nil {
+		return x.HasGrossMarginPct
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetOperatingMarginPct() float64 {
+	if x != nil {
+		return x.OperatingMarginPct
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasOperatingMarginPct() bool {
+	if x != nil {
+		return x.HasOperatingMarginPct
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetNetMarginPct() float64 {
+	if x != nil {
+		return x.NetMarginPct
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasNetMarginPct() bool {
+	if x != nil {
+		return x.HasNetMarginPct
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetFcfMarginPct() float64 {
+	if x != nil {
+		return x.FcfMarginPct
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasFcfMarginPct() bool {
+	if x != nil {
+		return x.HasFcfMarginPct
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetFcfConversion() float64 {
+	if x != nil {
+		return x.FcfConversion
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasFcfConversion() bool {
+	if x != nil {
+		return x.HasFcfConversion
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetRoePct() float64 {
+	if x != nil {
+		return x.RoePct
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasRoePct() bool {
+	if x != nil {
+		return x.HasRoePct
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetRoaPct() float64 {
+	if x != nil {
+		return x.RoaPct
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasRoaPct() bool {
+	if x != nil {
+		return x.HasRoaPct
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetNetDebt() float64 {
+	if x != nil {
+		return x.NetDebt
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasNetDebt() bool {
+	if x != nil {
+		return x.HasNetDebt
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetNetDebtToEbitda() float64 {
+	if x != nil {
+		return x.NetDebtToEbitda
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasNetDebtToEbitda() bool {
+	if x != nil {
+		return x.HasNetDebtToEbitda
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetNetDebtToEquity() float64 {
+	if x != nil {
+		return x.NetDebtToEquity
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasNetDebtToEquity() bool {
+	if x != nil {
+		return x.HasNetDebtToEquity
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetCurrentRatio() float64 {
+	if x != nil {
+		return x.CurrentRatio
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasCurrentRatio() bool {
+	if x != nil {
+		return x.HasCurrentRatio
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetInterestCover() float64 {
+	if x != nil {
+		return x.InterestCover
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasInterestCover() bool {
+	if x != nil {
+		return x.HasInterestCover
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetPayoutRatioPct() float64 {
+	if x != nil {
+		return x.PayoutRatioPct
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasPayoutRatioPct() bool {
+	if x != nil {
+		return x.HasPayoutRatioPct
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetIsFinancial() bool {
+	if x != nil {
+		return x.IsFinancial
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *FundamentalsQuality) GetOperatingCashFlowDerived() bool {
+	if x != nil {
+		return x.OperatingCashFlowDerived
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetMarketCap() float64 {
+	if x != nil {
+		return x.MarketCap
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasMarketCap() bool {
+	if x != nil {
+		return x.HasMarketCap
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetPeRatio() float64 {
+	if x != nil {
+		return x.PeRatio
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasPeRatio() bool {
+	if x != nil {
+		return x.HasPeRatio
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetPriceToBook() float64 {
+	if x != nil {
+		return x.PriceToBook
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetHasPriceToBook() bool {
+	if x != nil {
+		return x.HasPriceToBook
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetPriceAsOf() string {
+	if x != nil {
+		return x.PriceAsOf
+	}
+	return ""
+}
+
+func (x *FundamentalsQuality) GetBalanceCurrency() string {
+	if x != nil {
+		return x.BalanceCurrency
+	}
+	return ""
+}
+
+func (x *FundamentalsQuality) GetNotMeaningful() []string {
+	if x != nil {
+		return x.NotMeaningful
+	}
+	return nil
+}
+
+func (x *FundamentalsQuality) GetIsProperty() bool {
+	if x != nil {
+		return x.IsProperty
+	}
+	return false
+}
+
+func (x *FundamentalsQuality) GetBalanceLagMonths() int32 {
+	if x != nil {
+		return x.BalanceLagMonths
+	}
+	return 0
+}
+
+func (x *FundamentalsQuality) GetSharesAsOf() string {
+	if x != nil {
+		return x.SharesAsOf
+	}
+	return ""
+}
+
+func (x *FundamentalsQuality) GetPeEpsPeriodEnd() string {
+	if x != nil {
+		return x.PeEpsPeriodEnd
+	}
+	return ""
+}
+
+func (x *FundamentalsQuality) GetPeEpsBasis() string {
+	if x != nil {
+		return x.PeEpsBasis
+	}
+	return ""
+}
+
+func (x *FundamentalsQuality) GetValuationNote() string {
+	if x != nil {
+		return x.ValuationNote
+	}
+	return ""
+}
+
+// Whether fundamentals have been collected for the stock.
+type FundamentalsCoverage struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "covered" (rows held), "empty" (our providers returned nothing),
+	// "pending" (not attempted yet) or "failed" (the last attempt errored).
+	// Empty when unknown.
+	Status        string   `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	LastAttemptAt string   `protobuf:"bytes,2,opt,name=last_attempt_at,json=lastAttemptAt,proto3" json:"last_attempt_at,omitempty"` // RFC 3339.
+	LastSuccessAt string   `protobuf:"bytes,3,opt,name=last_success_at,json=lastSuccessAt,proto3" json:"last_success_at,omitempty"` // RFC 3339.
+	Sources       []string `protobuf:"bytes,4,rep,name=sources,proto3" json:"sources,omitempty"`                                    // Sources of the rows held.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FundamentalsCoverage) Reset() {
+	*x = FundamentalsCoverage{}
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FundamentalsCoverage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FundamentalsCoverage) ProtoMessage() {}
+
+func (x *FundamentalsCoverage) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FundamentalsCoverage.ProtoReflect.Descriptor instead.
+func (*FundamentalsCoverage) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *FundamentalsCoverage) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *FundamentalsCoverage) GetLastAttemptAt() string {
+	if x != nil {
+		return x.LastAttemptAt
+	}
+	return ""
+}
+
+func (x *FundamentalsCoverage) GetLastSuccessAt() string {
+	if x != nil {
+		return x.LastSuccessAt
+	}
+	return ""
+}
+
+func (x *FundamentalsCoverage) GetSources() []string {
+	if x != nil {
+		return x.Sources
+	}
+	return nil
+}
+
+// The company filing behind the latest reported period, with its summary.
+type LatestFilingSummary struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	ReportUrl        string                 `protobuf:"bytes,1,opt,name=report_url,json=reportUrl,proto3" json:"report_url,omitempty"`
+	ReportTitle      string                 `protobuf:"bytes,2,opt,name=report_title,json=reportTitle,proto3" json:"report_title,omitempty"`
+	ReportDate       string                 `protobuf:"bytes,3,opt,name=report_date,json=reportDate,proto3" json:"report_date,omitempty"`                     // YYYY-MM-DD.
+	PeriodEnd        string                 `protobuf:"bytes,4,opt,name=period_end,json=periodEnd,proto3" json:"period_end,omitempty"`                        // YYYY-MM-DD, the period the filing reports.
+	PeriodType       string                 `protobuf:"bytes,5,opt,name=period_type,json=periodType,proto3" json:"period_type,omitempty"`                     // "annual" | "half".
+	Digest           string                 `protobuf:"bytes,6,opt,name=digest,proto3" json:"digest,omitempty"`                                               // Short summary of the filing.
+	DigestConfidence float64                `protobuf:"fixed64,7,opt,name=digest_confidence,json=digestConfidence,proto3" json:"digest_confidence,omitempty"` // 0-1.
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *LatestFilingSummary) Reset() {
+	*x = LatestFilingSummary{}
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LatestFilingSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LatestFilingSummary) ProtoMessage() {}
+
+func (x *LatestFilingSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LatestFilingSummary.ProtoReflect.Descriptor instead.
+func (*LatestFilingSummary) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *LatestFilingSummary) GetReportUrl() string {
+	if x != nil {
+		return x.ReportUrl
+	}
+	return ""
+}
+
+func (x *LatestFilingSummary) GetReportTitle() string {
+	if x != nil {
+		return x.ReportTitle
+	}
+	return ""
+}
+
+func (x *LatestFilingSummary) GetReportDate() string {
+	if x != nil {
+		return x.ReportDate
+	}
+	return ""
+}
+
+func (x *LatestFilingSummary) GetPeriodEnd() string {
+	if x != nil {
+		return x.PeriodEnd
+	}
+	return ""
+}
+
+func (x *LatestFilingSummary) GetPeriodType() string {
+	if x != nil {
+		return x.PeriodType
+	}
+	return ""
+}
+
+func (x *LatestFilingSummary) GetDigest() string {
+	if x != nil {
+		return x.Digest
+	}
+	return ""
+}
+
+func (x *LatestFilingSummary) GetDigestConfidence() float64 {
+	if x != nil {
+		return x.DigestConfidence
+	}
+	return 0
+}
+
+// Response for GetStockFundamentals.
+type GetStockFundamentalsResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	StockCode       string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	Periods         []*FundamentalsPeriod  `protobuf:"bytes,2,rep,name=periods,proto3" json:"periods,omitempty"` // Newest first.
+	Growth          *FundamentalsGrowth    `protobuf:"bytes,3,opt,name=growth,proto3" json:"growth,omitempty"`
+	HasGrowth       bool                   `protobuf:"varint,4,opt,name=has_growth,json=hasGrowth,proto3" json:"has_growth,omitempty"` // False when no growth row exists yet.
+	Quality         *FundamentalsQuality   `protobuf:"bytes,5,opt,name=quality,proto3" json:"quality,omitempty"`
+	HasQuality      bool                   `protobuf:"varint,6,opt,name=has_quality,json=hasQuality,proto3" json:"has_quality,omitempty"` // False when no ratio row exists yet.
+	Coverage        *FundamentalsCoverage  `protobuf:"bytes,7,opt,name=coverage,proto3" json:"coverage,omitempty"`
+	LatestFiling    *LatestFilingSummary   `protobuf:"bytes,8,opt,name=latest_filing,json=latestFiling,proto3" json:"latest_filing,omitempty"`
+	HasLatestFiling bool                   `protobuf:"varint,9,opt,name=has_latest_filing,json=hasLatestFiling,proto3" json:"has_latest_filing,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetStockFundamentalsResponse) Reset() {
+	*x = GetStockFundamentalsResponse{}
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStockFundamentalsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStockFundamentalsResponse) ProtoMessage() {}
+
+func (x *GetStockFundamentalsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStockFundamentalsResponse.ProtoReflect.Descriptor instead.
+func (*GetStockFundamentalsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *GetStockFundamentalsResponse) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *GetStockFundamentalsResponse) GetPeriods() []*FundamentalsPeriod {
+	if x != nil {
+		return x.Periods
+	}
+	return nil
+}
+
+func (x *GetStockFundamentalsResponse) GetGrowth() *FundamentalsGrowth {
+	if x != nil {
+		return x.Growth
+	}
+	return nil
+}
+
+func (x *GetStockFundamentalsResponse) GetHasGrowth() bool {
+	if x != nil {
+		return x.HasGrowth
+	}
+	return false
+}
+
+func (x *GetStockFundamentalsResponse) GetQuality() *FundamentalsQuality {
+	if x != nil {
+		return x.Quality
+	}
+	return nil
+}
+
+func (x *GetStockFundamentalsResponse) GetHasQuality() bool {
+	if x != nil {
+		return x.HasQuality
+	}
+	return false
+}
+
+func (x *GetStockFundamentalsResponse) GetCoverage() *FundamentalsCoverage {
+	if x != nil {
+		return x.Coverage
+	}
+	return nil
+}
+
+func (x *GetStockFundamentalsResponse) GetLatestFiling() *LatestFilingSummary {
+	if x != nil {
+		return x.LatestFiling
+	}
+	return nil
+}
+
+func (x *GetStockFundamentalsResponse) GetHasLatestFiling() bool {
+	if x != nil {
+		return x.HasLatestFiling
+	}
+	return false
+}
+
 var File_shorts_v1alpha1_stock_proto protoreflect.FileDescriptor
 
 const file_shorts_v1alpha1_stock_proto_rawDesc = "" +
@@ -2765,14 +4387,219 @@ const file_shorts_v1alpha1_stock_proto_rawDesc = "" +
 	"\n" +
 	"confidence\x18\a \x01(\x01R\n" +
 	"confidence\x12\x1c\n" +
-	"\tcitations\x18\b \x03(\tR\tcitations*\xc2\x01\n" +
+	"\tcitations\x18\b \x03(\tR\tcitations\"s\n" +
+	"\x1bGetStockFundamentalsRequest\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12\x1f\n" +
+	"\vperiod_type\x18\x02 \x01(\tR\n" +
+	"periodType\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xff\x15\n" +
+	"\x12FundamentalsPeriod\x12\x1f\n" +
+	"\vperiod_type\x18\x01 \x01(\tR\n" +
+	"periodType\x12\x1d\n" +
+	"\n" +
+	"period_end\x18\x02 \x01(\tR\tperiodEnd\x12\x1f\n" +
+	"\vfiscal_year\x18\x03 \x01(\x05R\n" +
+	"fiscalYear\x12\x1a\n" +
+	"\bcurrency\x18\x04 \x01(\tR\bcurrency\x12\x18\n" +
+	"\arevenue\x18\x05 \x01(\x01R\arevenue\x12\x1f\n" +
+	"\vhas_revenue\x18\x06 \x01(\bR\n" +
+	"hasRevenue\x12\x1d\n" +
+	"\n" +
+	"net_income\x18\a \x01(\x01R\tnetIncome\x12$\n" +
+	"\x0ehas_net_income\x18\b \x01(\bR\fhasNetIncome\x12\x1b\n" +
+	"\teps_basic\x18\t \x01(\x01R\bepsBasic\x12\"\n" +
+	"\rhas_eps_basic\x18\n" +
+	" \x01(\bR\vhasEpsBasic\x12\x1f\n" +
+	"\veps_diluted\x18\v \x01(\x01R\n" +
+	"epsDiluted\x12&\n" +
+	"\x0fhas_eps_diluted\x18\f \x01(\bR\rhasEpsDiluted\x12.\n" +
+	"\x13operating_cash_flow\x18\r \x01(\x01R\x11operatingCashFlow\x125\n" +
+	"\x17has_operating_cash_flow\x18\x0e \x01(\bR\x14hasOperatingCashFlow\x12-\n" +
+	"\x12shares_outstanding\x18\x0f \x01(\x01R\x11sharesOutstanding\x124\n" +
+	"\x16has_shares_outstanding\x18\x10 \x01(\bR\x14hasSharesOutstanding\x12\x16\n" +
+	"\x06source\x18\x11 \x01(\tR\x06source\x12\x1d\n" +
+	"\n" +
+	"fetched_at\x18\x12 \x01(\tR\tfetchedAt\x12$\n" +
+	"\x0efree_cash_flow\x18\x13 \x01(\x01R\ffreeCashFlow\x12+\n" +
+	"\x12has_free_cash_flow\x18\x14 \x01(\bR\x0fhasFreeCashFlow\x12!\n" +
+	"\fgross_profit\x18\x15 \x01(\x01R\vgrossProfit\x12(\n" +
+	"\x10has_gross_profit\x18\x16 \x01(\bR\x0ehasGrossProfit\x12)\n" +
+	"\x10operating_income\x18\x17 \x01(\x01R\x0foperatingIncome\x120\n" +
+	"\x14has_operating_income\x18\x18 \x01(\bR\x12hasOperatingIncome\x12\x16\n" +
+	"\x06ebitda\x18\x19 \x01(\x01R\x06ebitda\x12\x1d\n" +
+	"\n" +
+	"has_ebitda\x18\x1a \x01(\bR\thasEbitda\x12+\n" +
+	"\x11normalized_ebitda\x18\x1b \x01(\x01R\x10normalizedEbitda\x122\n" +
+	"\x15has_normalized_ebitda\x18\x1c \x01(\bR\x13hasNormalizedEbitda\x12\x12\n" +
+	"\x04ebit\x18\x1d \x01(\x01R\x04ebit\x12\x19\n" +
+	"\bhas_ebit\x18\x1e \x01(\bR\ahasEbit\x12)\n" +
+	"\x10interest_expense\x18\x1f \x01(\x01R\x0finterestExpense\x120\n" +
+	"\x14has_interest_expense\x18  \x01(\bR\x12hasInterestExpense\x12#\n" +
+	"\rpretax_income\x18! \x01(\x01R\fpretaxIncome\x12*\n" +
+	"\x11has_pretax_income\x18\" \x01(\bR\x0fhasPretaxIncome\x12#\n" +
+	"\rtax_provision\x18# \x01(\x01R\ftaxProvision\x12*\n" +
+	"\x11has_tax_provision\x18$ \x01(\bR\x0fhasTaxProvision\x12.\n" +
+	"\x13net_interest_income\x18% \x01(\x01R\x11netInterestIncome\x125\n" +
+	"\x17has_net_interest_income\x18& \x01(\bR\x14hasNetInterestIncome\x12/\n" +
+	"\x13capital_expenditure\x18' \x01(\x01R\x12capitalExpenditure\x126\n" +
+	"\x17has_capital_expenditure\x18( \x01(\bR\x15hasCapitalExpenditure\x12%\n" +
+	"\x0edividends_paid\x18) \x01(\x01R\rdividendsPaid\x12,\n" +
+	"\x12has_dividends_paid\x18* \x01(\bR\x10hasDividendsPaid\x12%\n" +
+	"\x0eshare_buybacks\x18+ \x01(\x01R\rshareBuybacks\x12,\n" +
+	"\x12has_share_buybacks\x18, \x01(\bR\x10hasShareBuybacks\x12!\n" +
+	"\ftotal_assets\x18- \x01(\x01R\vtotalAssets\x12(\n" +
+	"\x10has_total_assets\x18. \x01(\bR\x0ehasTotalAssets\x12+\n" +
+	"\x11total_liabilities\x18/ \x01(\x01R\x10totalLiabilities\x122\n" +
+	"\x15has_total_liabilities\x180 \x01(\bR\x13hasTotalLiabilities\x12!\n" +
+	"\ftotal_equity\x181 \x01(\x01R\vtotalEquity\x12(\n" +
+	"\x10has_total_equity\x182 \x01(\bR\x0ehasTotalEquity\x120\n" +
+	"\x14cash_and_equivalents\x183 \x01(\x01R\x12cashAndEquivalents\x127\n" +
+	"\x18has_cash_and_equivalents\x184 \x01(\bR\x15hasCashAndEquivalents\x12\x1d\n" +
+	"\n" +
+	"total_debt\x185 \x01(\x01R\ttotalDebt\x12$\n" +
+	"\x0ehas_total_debt\x186 \x01(\bR\fhasTotalDebt\x12:\n" +
+	"\x19capital_lease_obligations\x187 \x01(\x01R\x17capitalLeaseObligations\x12A\n" +
+	"\x1dhas_capital_lease_obligations\x188 \x01(\bR\x1ahasCapitalLeaseObligations\x12\x19\n" +
+	"\bnet_debt\x189 \x01(\x01R\anetDebt\x12 \n" +
+	"\fhas_net_debt\x18: \x01(\bR\n" +
+	"hasNetDebt\x12%\n" +
+	"\x0ecurrent_assets\x18; \x01(\x01R\rcurrentAssets\x12,\n" +
+	"\x12has_current_assets\x18< \x01(\bR\x10hasCurrentAssets\x12/\n" +
+	"\x13current_liabilities\x18= \x01(\x01R\x12currentLiabilities\x126\n" +
+	"\x17has_current_liabilities\x18> \x01(\bR\x15hasCurrentLiabilities\x12Z\n" +
+	"\rfield_sources\x18? \x03(\v25.shorts.v1alpha1.FundamentalsPeriod.FieldSourcesEntryR\ffieldSources\x12.\n" +
+	"\x13source_document_url\x18@ \x01(\tR\x11sourceDocumentUrl\x120\n" +
+	"\x14source_document_date\x18A \x01(\tR\x12sourceDocumentDate\x1a?\n" +
+	"\x11FieldSourcesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xfd\t\n" +
+	"\x12FundamentalsGrowth\x12*\n" +
+	"\x11basis_period_type\x18\x01 \x01(\tR\x0fbasisPeriodType\x12*\n" +
+	"\x11latest_period_end\x18\x02 \x01(\tR\x0flatestPeriodEnd\x12&\n" +
+	"\x0frevenue_yoy_pct\x18\x03 \x01(\x01R\rrevenueYoyPct\x12&\n" +
+	"\x0fhas_revenue_yoy\x18\x04 \x01(\bR\rhasRevenueYoy\x121\n" +
+	"\x15revenue_yoy_prior_pct\x18\x05 \x01(\x01R\x12revenueYoyPriorPct\x121\n" +
+	"\x15has_revenue_yoy_prior\x18\x06 \x01(\bR\x12hasRevenueYoyPrior\x12\x1e\n" +
+	"\veps_yoy_pct\x18\a \x01(\x01R\tepsYoyPct\x12\x1e\n" +
+	"\vhas_eps_yoy\x18\b \x01(\bR\thasEpsYoy\x12)\n" +
+	"\x11eps_yoy_prior_pct\x18\t \x01(\x01R\x0eepsYoyPriorPct\x12)\n" +
+	"\x11has_eps_yoy_prior\x18\n" +
+	" \x01(\bR\x0ehasEpsYoyPrior\x12.\n" +
+	"\x13net_income_positive\x18\v \x01(\bR\x11netIncomePositive\x12+\n" +
+	"\x11periods_available\x18\f \x01(\x05R\x10periodsAvailable\x12\x1f\n" +
+	"\vrevenue_ttm\x18\r \x01(\x01R\n" +
+	"revenueTtm\x12&\n" +
+	"\x0fhas_revenue_ttm\x18\x0e \x01(\bR\rhasRevenueTtm\x12$\n" +
+	"\x0enet_income_ttm\x18\x0f \x01(\x01R\fnetIncomeTtm\x12+\n" +
+	"\x12has_net_income_ttm\x18\x10 \x01(\bR\x0fhasNetIncomeTtm\x12\x17\n" +
+	"\aeps_ttm\x18\x11 \x01(\x01R\x06epsTtm\x12\x1e\n" +
+	"\vhas_eps_ttm\x18\x12 \x01(\bR\thasEpsTtm\x129\n" +
+	"\x19revenue_basis_period_type\x18\x13 \x01(\tR\x16revenueBasisPeriodType\x12/\n" +
+	"\x14revenue_half_yoy_pct\x18\x14 \x01(\x01R\x11revenueHalfYoyPct\x12/\n" +
+	"\x14has_revenue_half_yoy\x18\x15 \x01(\bR\x11hasRevenueHalfYoy\x12'\n" +
+	"\x10eps_half_yoy_pct\x18\x16 \x01(\x01R\repsHalfYoyPct\x12'\n" +
+	"\x10has_eps_half_yoy\x18\x17 \x01(\bR\rhasEpsHalfYoy\x123\n" +
+	"\x16half_latest_period_end\x18\x18 \x01(\tR\x13halfLatestPeriodEnd\x120\n" +
+	"\x14revenue_basis_source\x18\x19 \x01(\tR\x12revenueBasisSource\x12(\n" +
+	"\x10eps_basis_source\x18\x1a \x01(\tR\x0eepsBasisSource\x12\x1d\n" +
+	"\n" +
+	"fetched_at\x18\x1b \x01(\tR\tfetchedAt\x129\n" +
+	"\x19revenue_latest_period_end\x18\x1c \x01(\tR\x16revenueLatestPeriodEnd\x127\n" +
+	"\x18revenue_prior_period_end\x18\x1d \x01(\tR\x15revenuePriorPeriodEnd\"\x8a\x0f\n" +
+	"\x13FundamentalsQuality\x12*\n" +
+	"\x11basis_period_type\x18\x01 \x01(\tR\x0fbasisPeriodType\x12(\n" +
+	"\x10basis_period_end\x18\x02 \x01(\tR\x0ebasisPeriodEnd\x12\x1a\n" +
+	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12,\n" +
+	"\x12balance_period_end\x18\x04 \x01(\tR\x10balancePeriodEnd\x12(\n" +
+	"\x10gross_margin_pct\x18\x05 \x01(\x01R\x0egrossMarginPct\x12/\n" +
+	"\x14has_gross_margin_pct\x18\x06 \x01(\bR\x11hasGrossMarginPct\x120\n" +
+	"\x14operating_margin_pct\x18\a \x01(\x01R\x12operatingMarginPct\x127\n" +
+	"\x18has_operating_margin_pct\x18\b \x01(\bR\x15hasOperatingMarginPct\x12$\n" +
+	"\x0enet_margin_pct\x18\t \x01(\x01R\fnetMarginPct\x12+\n" +
+	"\x12has_net_margin_pct\x18\n" +
+	" \x01(\bR\x0fhasNetMarginPct\x12$\n" +
+	"\x0efcf_margin_pct\x18\v \x01(\x01R\ffcfMarginPct\x12+\n" +
+	"\x12has_fcf_margin_pct\x18\f \x01(\bR\x0fhasFcfMarginPct\x12%\n" +
+	"\x0efcf_conversion\x18\r \x01(\x01R\rfcfConversion\x12,\n" +
+	"\x12has_fcf_conversion\x18\x0e \x01(\bR\x10hasFcfConversion\x12\x17\n" +
+	"\aroe_pct\x18\x0f \x01(\x01R\x06roePct\x12\x1e\n" +
+	"\vhas_roe_pct\x18\x10 \x01(\bR\thasRoePct\x12\x17\n" +
+	"\aroa_pct\x18\x11 \x01(\x01R\x06roaPct\x12\x1e\n" +
+	"\vhas_roa_pct\x18\x12 \x01(\bR\thasRoaPct\x12\x19\n" +
+	"\bnet_debt\x18\x13 \x01(\x01R\anetDebt\x12 \n" +
+	"\fhas_net_debt\x18\x14 \x01(\bR\n" +
+	"hasNetDebt\x12+\n" +
+	"\x12net_debt_to_ebitda\x18\x15 \x01(\x01R\x0fnetDebtToEbitda\x122\n" +
+	"\x16has_net_debt_to_ebitda\x18\x16 \x01(\bR\x12hasNetDebtToEbitda\x12+\n" +
+	"\x12net_debt_to_equity\x18\x17 \x01(\x01R\x0fnetDebtToEquity\x122\n" +
+	"\x16has_net_debt_to_equity\x18\x18 \x01(\bR\x12hasNetDebtToEquity\x12#\n" +
+	"\rcurrent_ratio\x18\x19 \x01(\x01R\fcurrentRatio\x12*\n" +
+	"\x11has_current_ratio\x18\x1a \x01(\bR\x0fhasCurrentRatio\x12%\n" +
+	"\x0einterest_cover\x18\x1b \x01(\x01R\rinterestCover\x12,\n" +
+	"\x12has_interest_cover\x18\x1c \x01(\bR\x10hasInterestCover\x12(\n" +
+	"\x10payout_ratio_pct\x18\x1d \x01(\x01R\x0epayoutRatioPct\x12/\n" +
+	"\x14has_payout_ratio_pct\x18\x1e \x01(\bR\x11hasPayoutRatioPct\x12!\n" +
+	"\fis_financial\x18\x1f \x01(\bR\visFinancial\x12\x16\n" +
+	"\x06source\x18  \x01(\tR\x06source\x12=\n" +
+	"\x1boperating_cash_flow_derived\x18! \x01(\bR\x18operatingCashFlowDerived\x12\x1d\n" +
+	"\n" +
+	"market_cap\x18\" \x01(\x01R\tmarketCap\x12$\n" +
+	"\x0ehas_market_cap\x18# \x01(\bR\fhasMarketCap\x12\x19\n" +
+	"\bpe_ratio\x18$ \x01(\x01R\apeRatio\x12 \n" +
+	"\fhas_pe_ratio\x18% \x01(\bR\n" +
+	"hasPeRatio\x12\"\n" +
+	"\rprice_to_book\x18& \x01(\x01R\vpriceToBook\x12)\n" +
+	"\x11has_price_to_book\x18' \x01(\bR\x0ehasPriceToBook\x12\x1e\n" +
+	"\vprice_as_of\x18( \x01(\tR\tpriceAsOf\x12)\n" +
+	"\x10balance_currency\x18) \x01(\tR\x0fbalanceCurrency\x12%\n" +
+	"\x0enot_meaningful\x18* \x03(\tR\rnotMeaningful\x12\x1f\n" +
+	"\vis_property\x18+ \x01(\bR\n" +
+	"isProperty\x12,\n" +
+	"\x12balance_lag_months\x18, \x01(\x05R\x10balanceLagMonths\x12 \n" +
+	"\fshares_as_of\x18- \x01(\tR\n" +
+	"sharesAsOf\x12)\n" +
+	"\x11pe_eps_period_end\x18. \x01(\tR\x0epeEpsPeriodEnd\x12 \n" +
+	"\fpe_eps_basis\x18/ \x01(\tR\n" +
+	"peEpsBasis\x12%\n" +
+	"\x0evaluation_note\x180 \x01(\tR\rvaluationNote\"\x98\x01\n" +
+	"\x14FundamentalsCoverage\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12&\n" +
+	"\x0flast_attempt_at\x18\x02 \x01(\tR\rlastAttemptAt\x12&\n" +
+	"\x0flast_success_at\x18\x03 \x01(\tR\rlastSuccessAt\x12\x18\n" +
+	"\asources\x18\x04 \x03(\tR\asources\"\xfd\x01\n" +
+	"\x13LatestFilingSummary\x12\x1d\n" +
+	"\n" +
+	"report_url\x18\x01 \x01(\tR\treportUrl\x12!\n" +
+	"\freport_title\x18\x02 \x01(\tR\vreportTitle\x12\x1f\n" +
+	"\vreport_date\x18\x03 \x01(\tR\n" +
+	"reportDate\x12\x1d\n" +
+	"\n" +
+	"period_end\x18\x04 \x01(\tR\tperiodEnd\x12\x1f\n" +
+	"\vperiod_type\x18\x05 \x01(\tR\n" +
+	"periodType\x12\x16\n" +
+	"\x06digest\x18\x06 \x01(\tR\x06digest\x12+\n" +
+	"\x11digest_confidence\x18\a \x01(\x01R\x10digestConfidence\"\xf3\x03\n" +
+	"\x1cGetStockFundamentalsResponse\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12=\n" +
+	"\aperiods\x18\x02 \x03(\v2#.shorts.v1alpha1.FundamentalsPeriodR\aperiods\x12;\n" +
+	"\x06growth\x18\x03 \x01(\v2#.shorts.v1alpha1.FundamentalsGrowthR\x06growth\x12\x1d\n" +
+	"\n" +
+	"has_growth\x18\x04 \x01(\bR\thasGrowth\x12>\n" +
+	"\aquality\x18\x05 \x01(\v2$.shorts.v1alpha1.FundamentalsQualityR\aquality\x12\x1f\n" +
+	"\vhas_quality\x18\x06 \x01(\bR\n" +
+	"hasQuality\x12A\n" +
+	"\bcoverage\x18\a \x01(\v2%.shorts.v1alpha1.FundamentalsCoverageR\bcoverage\x12I\n" +
+	"\rlatest_filing\x18\b \x01(\v2$.shorts.v1alpha1.LatestFilingSummaryR\flatestFiling\x12*\n" +
+	"\x11has_latest_filing\x18\t \x01(\bR\x0fhasLatestFiling*\xc2\x01\n" +
 	"\fVerdictLabel\x12\x1d\n" +
 	"\x19VERDICT_LABEL_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cVERDICT_LABEL_STRONG_BEARISH\x10\x01\x12\x19\n" +
 	"\x15VERDICT_LABEL_BEARISH\x10\x02\x12\x19\n" +
 	"\x15VERDICT_LABEL_NEUTRAL\x10\x03\x12\x19\n" +
 	"\x15VERDICT_LABEL_BULLISH\x10\x04\x12 \n" +
-	"\x1cVERDICT_LABEL_STRONG_BULLISH\x10\x052\x93\v\n" +
+	"\x1cVERDICT_LABEL_STRONG_BULLISH\x10\x052\x8e\f\n" +
 	"\fStockService\x12J\n" +
 	"\bGetStock\x12 .shorts.v1alpha1.GetStockRequest\x1a\x16.stocks.v1alpha1.Stock\"\x04\x80\xb5\x18\x01\x12_\n" +
 	"\x0fGetStockDetails\x12'.shorts.v1alpha1.GetStockDetailsRequest\x1a\x1d.stocks.v1alpha1.StockDetails\"\x04\x80\xb5\x18\x01\x12[\n" +
@@ -2786,7 +4613,8 @@ const file_shorts_v1alpha1_stock_proto_rawDesc = "" +
 	"\rGetStockGraph\x12%.shorts.v1alpha1.GetStockGraphRequest\x1a&.shorts.v1alpha1.GetStockGraphResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
 	"\x10GetEventTimeline\x12(.shorts.v1alpha1.GetEventTimelineRequest\x1a).shorts.v1alpha1.GetEventTimelineResponse\"\x04\x80\xb5\x18\x01\x12j\n" +
 	"\x0fGetStockSignals\x12'.shorts.v1alpha1.GetStockSignalsRequest\x1a(.shorts.v1alpha1.GetStockSignalsResponse\"\x04\x80\xb5\x18\x01\x12y\n" +
-	"\x14GetCompanyTaxProfile\x12,.shorts.v1alpha1.GetCompanyTaxProfileRequest\x1a-.shorts.v1alpha1.GetCompanyTaxProfileResponse\"\x04\x80\xb5\x18\x01B\xd9\x01\n" +
+	"\x14GetCompanyTaxProfile\x12,.shorts.v1alpha1.GetCompanyTaxProfileRequest\x1a-.shorts.v1alpha1.GetCompanyTaxProfileResponse\"\x04\x80\xb5\x18\x01\x12y\n" +
+	"\x14GetStockFundamentals\x12,.shorts.v1alpha1.GetStockFundamentalsRequest\x1a-.shorts.v1alpha1.GetStockFundamentalsResponse\"\x04\x80\xb5\x18\x01B\xd9\x01\n" +
 	"\x13com.shorts.v1alpha1B\n" +
 	"StockProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
@@ -2803,7 +4631,7 @@ func file_shorts_v1alpha1_stock_proto_rawDescGZIP() []byte {
 }
 
 var file_shorts_v1alpha1_stock_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_shorts_v1alpha1_stock_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_shorts_v1alpha1_stock_proto_msgTypes = make([]protoimpl.MessageInfo, 46)
 var file_shorts_v1alpha1_stock_proto_goTypes = []any{
 	(VerdictLabel)(0),                           // 0: shorts.v1alpha1.VerdictLabel
 	(*GetStockRequest)(nil),                     // 1: shorts.v1alpha1.GetStockRequest
@@ -2842,18 +4670,26 @@ var file_shorts_v1alpha1_stock_proto_goTypes = []any{
 	(*GetStockSignalsRequest)(nil),              // 34: shorts.v1alpha1.GetStockSignalsRequest
 	(*GetStockSignalsResponse)(nil),             // 35: shorts.v1alpha1.GetStockSignalsResponse
 	(*StockSignal)(nil),                         // 36: shorts.v1alpha1.StockSignal
-	nil,                                         // 37: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
-	nil,                                         // 38: shorts.v1alpha1.FinancialMetric.AttributesEntry
-	(*v1alpha1.Stock)(nil),                      // 39: stocks.v1alpha1.Stock
-	(*v1alpha1.StockDetails)(nil),               // 40: stocks.v1alpha1.StockDetails
-	(*v1alpha1.TimeSeriesData)(nil),             // 41: stocks.v1alpha1.TimeSeriesData
+	(*GetStockFundamentalsRequest)(nil),         // 37: shorts.v1alpha1.GetStockFundamentalsRequest
+	(*FundamentalsPeriod)(nil),                  // 38: shorts.v1alpha1.FundamentalsPeriod
+	(*FundamentalsGrowth)(nil),                  // 39: shorts.v1alpha1.FundamentalsGrowth
+	(*FundamentalsQuality)(nil),                 // 40: shorts.v1alpha1.FundamentalsQuality
+	(*FundamentalsCoverage)(nil),                // 41: shorts.v1alpha1.FundamentalsCoverage
+	(*LatestFilingSummary)(nil),                 // 42: shorts.v1alpha1.LatestFilingSummary
+	(*GetStockFundamentalsResponse)(nil),        // 43: shorts.v1alpha1.GetStockFundamentalsResponse
+	nil,                                         // 44: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
+	nil,                                         // 45: shorts.v1alpha1.FinancialMetric.AttributesEntry
+	nil,                                         // 46: shorts.v1alpha1.FundamentalsPeriod.FieldSourcesEntry
+	(*v1alpha1.Stock)(nil),                      // 47: stocks.v1alpha1.Stock
+	(*v1alpha1.StockDetails)(nil),               // 48: stocks.v1alpha1.StockDetails
+	(*v1alpha1.TimeSeriesData)(nil),             // 49: stocks.v1alpha1.TimeSeriesData
 }
 var file_shorts_v1alpha1_stock_proto_depIdxs = []int32{
 	6,  // 0: shorts.v1alpha1.GetStockPricesResponse.points:type_name -> shorts.v1alpha1.StockPricePoint
-	37, // 1: shorts.v1alpha1.GetStockFinancialHighlightsResponse.highlights:type_name -> shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
+	44, // 1: shorts.v1alpha1.GetStockFinancialHighlightsResponse.highlights:type_name -> shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
 	10, // 2: shorts.v1alpha1.StockFinancialHighlights.reports:type_name -> shorts.v1alpha1.FinancialReportHighlight
 	11, // 3: shorts.v1alpha1.FinancialReportHighlight.metrics:type_name -> shorts.v1alpha1.FinancialMetric
-	38, // 4: shorts.v1alpha1.FinancialMetric.attributes:type_name -> shorts.v1alpha1.FinancialMetric.AttributesEntry
+	45, // 4: shorts.v1alpha1.FinancialMetric.attributes:type_name -> shorts.v1alpha1.FinancialMetric.AttributesEntry
 	12, // 5: shorts.v1alpha1.GetDirectorTradesResponse.trades:type_name -> shorts.v1alpha1.DirectorTrade
 	15, // 6: shorts.v1alpha1.GetDividendHistoryResponse.dividends:type_name -> shorts.v1alpha1.DividendRecord
 	18, // 7: shorts.v1alpha1.GetPeerComparisonResponse.subject:type_name -> shorts.v1alpha1.PeerStock
@@ -2866,38 +4702,46 @@ var file_shorts_v1alpha1_stock_proto_depIdxs = []int32{
 	33, // 14: shorts.v1alpha1.GetEventTimelineResponse.events:type_name -> shorts.v1alpha1.TimelineEvent
 	36, // 15: shorts.v1alpha1.GetStockSignalsResponse.adverse:type_name -> shorts.v1alpha1.StockSignal
 	36, // 16: shorts.v1alpha1.GetStockSignalsResponse.positive:type_name -> shorts.v1alpha1.StockSignal
-	9,  // 17: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry.value:type_name -> shorts.v1alpha1.StockFinancialHighlights
-	1,  // 18: shorts.v1alpha1.StockService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
-	2,  // 19: shorts.v1alpha1.StockService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
-	3,  // 20: shorts.v1alpha1.StockService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
-	4,  // 21: shorts.v1alpha1.StockService.GetStockPrices:input_type -> shorts.v1alpha1.GetStockPricesRequest
-	7,  // 22: shorts.v1alpha1.StockService.GetStockFinancialHighlights:input_type -> shorts.v1alpha1.GetStockFinancialHighlightsRequest
-	13, // 23: shorts.v1alpha1.StockService.GetDirectorTrades:input_type -> shorts.v1alpha1.GetDirectorTradesRequest
-	16, // 24: shorts.v1alpha1.StockService.GetDividendHistory:input_type -> shorts.v1alpha1.GetDividendHistoryRequest
-	19, // 25: shorts.v1alpha1.StockService.GetPeerComparison:input_type -> shorts.v1alpha1.GetPeerComparisonRequest
-	21, // 26: shorts.v1alpha1.StockService.GetStockVerdict:input_type -> shorts.v1alpha1.GetStockVerdictRequest
-	27, // 27: shorts.v1alpha1.StockService.GetStockGraph:input_type -> shorts.v1alpha1.GetStockGraphRequest
-	31, // 28: shorts.v1alpha1.StockService.GetEventTimeline:input_type -> shorts.v1alpha1.GetEventTimelineRequest
-	34, // 29: shorts.v1alpha1.StockService.GetStockSignals:input_type -> shorts.v1alpha1.GetStockSignalsRequest
-	24, // 30: shorts.v1alpha1.StockService.GetCompanyTaxProfile:input_type -> shorts.v1alpha1.GetCompanyTaxProfileRequest
-	39, // 31: shorts.v1alpha1.StockService.GetStock:output_type -> stocks.v1alpha1.Stock
-	40, // 32: shorts.v1alpha1.StockService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
-	41, // 33: shorts.v1alpha1.StockService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
-	5,  // 34: shorts.v1alpha1.StockService.GetStockPrices:output_type -> shorts.v1alpha1.GetStockPricesResponse
-	8,  // 35: shorts.v1alpha1.StockService.GetStockFinancialHighlights:output_type -> shorts.v1alpha1.GetStockFinancialHighlightsResponse
-	14, // 36: shorts.v1alpha1.StockService.GetDirectorTrades:output_type -> shorts.v1alpha1.GetDirectorTradesResponse
-	17, // 37: shorts.v1alpha1.StockService.GetDividendHistory:output_type -> shorts.v1alpha1.GetDividendHistoryResponse
-	20, // 38: shorts.v1alpha1.StockService.GetPeerComparison:output_type -> shorts.v1alpha1.GetPeerComparisonResponse
-	23, // 39: shorts.v1alpha1.StockService.GetStockVerdict:output_type -> shorts.v1alpha1.GetStockVerdictResponse
-	28, // 40: shorts.v1alpha1.StockService.GetStockGraph:output_type -> shorts.v1alpha1.GetStockGraphResponse
-	32, // 41: shorts.v1alpha1.StockService.GetEventTimeline:output_type -> shorts.v1alpha1.GetEventTimelineResponse
-	35, // 42: shorts.v1alpha1.StockService.GetStockSignals:output_type -> shorts.v1alpha1.GetStockSignalsResponse
-	26, // 43: shorts.v1alpha1.StockService.GetCompanyTaxProfile:output_type -> shorts.v1alpha1.GetCompanyTaxProfileResponse
-	31, // [31:44] is the sub-list for method output_type
-	18, // [18:31] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	46, // 17: shorts.v1alpha1.FundamentalsPeriod.field_sources:type_name -> shorts.v1alpha1.FundamentalsPeriod.FieldSourcesEntry
+	38, // 18: shorts.v1alpha1.GetStockFundamentalsResponse.periods:type_name -> shorts.v1alpha1.FundamentalsPeriod
+	39, // 19: shorts.v1alpha1.GetStockFundamentalsResponse.growth:type_name -> shorts.v1alpha1.FundamentalsGrowth
+	40, // 20: shorts.v1alpha1.GetStockFundamentalsResponse.quality:type_name -> shorts.v1alpha1.FundamentalsQuality
+	41, // 21: shorts.v1alpha1.GetStockFundamentalsResponse.coverage:type_name -> shorts.v1alpha1.FundamentalsCoverage
+	42, // 22: shorts.v1alpha1.GetStockFundamentalsResponse.latest_filing:type_name -> shorts.v1alpha1.LatestFilingSummary
+	9,  // 23: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry.value:type_name -> shorts.v1alpha1.StockFinancialHighlights
+	1,  // 24: shorts.v1alpha1.StockService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
+	2,  // 25: shorts.v1alpha1.StockService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
+	3,  // 26: shorts.v1alpha1.StockService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
+	4,  // 27: shorts.v1alpha1.StockService.GetStockPrices:input_type -> shorts.v1alpha1.GetStockPricesRequest
+	7,  // 28: shorts.v1alpha1.StockService.GetStockFinancialHighlights:input_type -> shorts.v1alpha1.GetStockFinancialHighlightsRequest
+	13, // 29: shorts.v1alpha1.StockService.GetDirectorTrades:input_type -> shorts.v1alpha1.GetDirectorTradesRequest
+	16, // 30: shorts.v1alpha1.StockService.GetDividendHistory:input_type -> shorts.v1alpha1.GetDividendHistoryRequest
+	19, // 31: shorts.v1alpha1.StockService.GetPeerComparison:input_type -> shorts.v1alpha1.GetPeerComparisonRequest
+	21, // 32: shorts.v1alpha1.StockService.GetStockVerdict:input_type -> shorts.v1alpha1.GetStockVerdictRequest
+	27, // 33: shorts.v1alpha1.StockService.GetStockGraph:input_type -> shorts.v1alpha1.GetStockGraphRequest
+	31, // 34: shorts.v1alpha1.StockService.GetEventTimeline:input_type -> shorts.v1alpha1.GetEventTimelineRequest
+	34, // 35: shorts.v1alpha1.StockService.GetStockSignals:input_type -> shorts.v1alpha1.GetStockSignalsRequest
+	24, // 36: shorts.v1alpha1.StockService.GetCompanyTaxProfile:input_type -> shorts.v1alpha1.GetCompanyTaxProfileRequest
+	37, // 37: shorts.v1alpha1.StockService.GetStockFundamentals:input_type -> shorts.v1alpha1.GetStockFundamentalsRequest
+	47, // 38: shorts.v1alpha1.StockService.GetStock:output_type -> stocks.v1alpha1.Stock
+	48, // 39: shorts.v1alpha1.StockService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
+	49, // 40: shorts.v1alpha1.StockService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
+	5,  // 41: shorts.v1alpha1.StockService.GetStockPrices:output_type -> shorts.v1alpha1.GetStockPricesResponse
+	8,  // 42: shorts.v1alpha1.StockService.GetStockFinancialHighlights:output_type -> shorts.v1alpha1.GetStockFinancialHighlightsResponse
+	14, // 43: shorts.v1alpha1.StockService.GetDirectorTrades:output_type -> shorts.v1alpha1.GetDirectorTradesResponse
+	17, // 44: shorts.v1alpha1.StockService.GetDividendHistory:output_type -> shorts.v1alpha1.GetDividendHistoryResponse
+	20, // 45: shorts.v1alpha1.StockService.GetPeerComparison:output_type -> shorts.v1alpha1.GetPeerComparisonResponse
+	23, // 46: shorts.v1alpha1.StockService.GetStockVerdict:output_type -> shorts.v1alpha1.GetStockVerdictResponse
+	28, // 47: shorts.v1alpha1.StockService.GetStockGraph:output_type -> shorts.v1alpha1.GetStockGraphResponse
+	32, // 48: shorts.v1alpha1.StockService.GetEventTimeline:output_type -> shorts.v1alpha1.GetEventTimelineResponse
+	35, // 49: shorts.v1alpha1.StockService.GetStockSignals:output_type -> shorts.v1alpha1.GetStockSignalsResponse
+	26, // 50: shorts.v1alpha1.StockService.GetCompanyTaxProfile:output_type -> shorts.v1alpha1.GetCompanyTaxProfileResponse
+	43, // 51: shorts.v1alpha1.StockService.GetStockFundamentals:output_type -> shorts.v1alpha1.GetStockFundamentalsResponse
+	38, // [38:52] is the sub-list for method output_type
+	24, // [24:38] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_stock_proto_init() }
@@ -2911,7 +4755,7 @@ func file_shorts_v1alpha1_stock_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_stock_proto_rawDesc), len(file_shorts_v1alpha1_stock_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   38,
+			NumMessages:   46,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

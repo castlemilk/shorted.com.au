@@ -75,11 +75,23 @@ public interface SuburbHazardExposureOrBuilder extends
       getWaterSourceBytes();
 
   /**
+   * <pre>
+   * Statutory instrument id the share was read against. Set with an absent
+   * share when the instrument does not cover the suburb; '' when the state has
+   * no open layer for that hazard.
+   * </pre>
+   *
    * <code>string flood_source = 6 [json_name = "floodSource"];</code>
    * @return The floodSource.
    */
   java.lang.String getFloodSource();
   /**
+   * <pre>
+   * Statutory instrument id the share was read against. Set with an absent
+   * share when the instrument does not cover the suburb; '' when the state has
+   * no open layer for that hazard.
+   * </pre>
+   *
    * <code>string flood_source = 6 [json_name = "floodSource"];</code>
    * @return The bytes for floodSource.
    */

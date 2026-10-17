@@ -1,0 +1,69 @@
+{
+  "entity": "Quokka Minerals Limited",
+  "asx_code": "QKA",
+  "period": "H1 FY2031",
+  "text": "Quokka Minerals Limited (ASX: QKA) Appendix 4D and half year report for H1 FY2031.\nRevenue from continuing operations for the half year ended 31 December 2030 was $3,847 million, an increase of 7% on the prior corresponding period.\nStatutory net profit after tax (NPAT) attributable to Quokka shareholders was $612 million, up 15% on pcp.\nBasic earnings per share was 48.3 cents for H1 FY2031.\nThe Quokka Board declared an interim dividend of 21 cents per share, fully franked.\nOperating cash flow for H1 FY2031 was $1,094 million.\nH1 FY2031 EBITDA was $1,529 million, representing a margin of 39.7%.\nFY2031 guidance: Quokka expects revenue growth of 4-6%.",
+  "extractions": [
+    {
+      "extraction_class": "revenue",
+      "extraction_text": "Revenue from continuing operations for the half year ended 31 December 2030 was $3,847 million",
+      "attributes": {
+        "change_pct": "+7",
+        "period": "H1 FY2031",
+        "value_millions": "3847"
+      }
+    },
+    {
+      "extraction_class": "net_profit",
+      "extraction_text": "Statutory net profit after tax (NPAT) attributable to Quokka shareholders was $612 million, up 15% on pcp",
+      "attributes": {
+        "change_pct": "+15",
+        "period": "H1 FY2031",
+        "value_millions": "612"
+      }
+    },
+    {
+      "extraction_class": "eps",
+      "extraction_text": "Basic earnings per share was 48.3 cents for H1 FY2031",
+      "attributes": {
+        "period": "H1 FY2031",
+        "value_cents": "48.3"
+      }
+    },
+    {
+      "extraction_class": "dividend",
+      "extraction_text": "The Quokka Board declared an interim dividend of 21 cents per share, fully franked",
+      "attributes": {
+        "franking": "fully franked",
+        "period": "H1 FY2031",
+        "value_cents": "21"
+      }
+    },
+    {
+      "extraction_class": "cash_flow",
+      "extraction_text": "Operating cash flow for H1 FY2031 was $1,094 million",
+      "attributes": {
+        "period": "H1 FY2031",
+        "value_millions": "1094"
+      }
+    },
+    {
+      "extraction_class": "ebitda",
+      "extraction_text": "H1 FY2031 EBITDA was $1,529 million, representing a margin of 39.7%",
+      "attributes": {
+        "margin_pct": "39.7",
+        "period": "H1 FY2031",
+        "value_millions": "1529"
+      }
+    },
+    {
+      "extraction_class": "guidance",
+      "extraction_text": "FY2031 guidance: Quokka expects revenue growth of 4-6%",
+      "attributes": {
+        "metric": "revenue_growth",
+        "period": "FY2031",
+        "range": "4-6%"
+      }
+    }
+  ]
+}

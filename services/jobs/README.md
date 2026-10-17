@@ -21,12 +21,12 @@ services/jobs/
   internal/jobs/announcements/`shorted announcements` (was services/asx-announcement-crawler)
   internal/jobs/discovery/    `shorted discovery`  (was services/asx-discovery)
   internal/jobs/economy/      `shorted economy`    (was services/economy-collector)
-  internal/jobs/houseprices/  `shorted house-prices -mode …` (21 modes)
-                              (was services/house-price-collector)
   internal/jobs/influence/    `shorted influence`  (was services/influence-collector)
   internal/jobs/marketdata/   `shorted market-data serve|sync|audit-gaps|historical-backfill`
                               (was services/market-data-sync)
   internal/jobs/news/         `shorted news`       (was services/news-aggregator)
+  internal/jobs/picks/        `shorted picks`      stock-picker data: full statements, filing
+                              half-years + refresh_strategy_views() (new, not a port)
   internal/jobs/reportextract/`shorted report-extract concurrent|sequential`
                               + `shorted director-trades`
                               (was services/report-extractor, Python)
@@ -49,19 +49,21 @@ services/jobs/
 | `announcements` | `services/asx-announcement-crawler` | yes — `shorted-announcements` (cutover 1; old scheduler paused) |
 | `discovery` | `services/asx-discovery` | yes — the EXISTING `asx-discovery` job now runs the `shorted-jobs-browser` image with args `["discovery"]` (cutover 3, in-place; no old scheduler to pause) |
 | `economy` | `services/economy-collector` | yes — `shorted-economy` (cutover 1; old scheduler paused) |
-| `house-prices` | `services/house-price-collector` | **not yet** — ported (Phase 2d), no Terraform change, no rig cutover; see below |
+| ~~`house-prices`~~ | `services/house-price-collector` | **retired 2026-09-24** — the port was never scheduled and was deleted; `services/house-price-collector` is the only copy. See "Phase 2d (house-prices) — retired" |
 | `influence` | `services/influence-collector` | no — laptop-only tool |
 | `market-data serve` | `services/market-data-sync` (default mode) | yes — the EXISTING `market-data-sync` Cloud Run SERVICE now runs the `shorted-jobs` image with args `["market-data","serve"]` (cutover 3, in-place revision swap; same URI/SA/scheduler) |
-| `market-data sync` | `services/market-data-sync -cli` | n/a — CLI mode; the deployed surface is `serve` (cutover 3) |
+| `market-data sync` | `services/market-data-sync -cli` | yes — `shorted-price-sync`, the daily price sweep (weekdays 10:00 UTC); the `market-data-sync-daily` scheduler that drove `serve`'s `POST /api/sync/all` is paused. See "Daily price sweep" |
 | `market-data audit-gaps` | `services/market-data-sync/cmd/audit-gaps` | no — laptop-only tool |
 | `market-data historical-backfill` | `services/market-data-sync/cmd/historical-backfill` | no — laptop-only tool |
 | `news` | `services/news-aggregator` | yes — `shorted-news`, 1 job + 5 schedules (cutover 2; all 5 old schedulers paused) |
+| `picks` | — (new job, stock picker) | `shorted-picks` in `terraform/environments/prod/main.tf`: `-mode refresh` weekdays 13:30 UTC + `-mode all` daily 15:00 UTC. See "picks" |
 | `director-trades` | `services/report-extractor/extract_director_trades.py` | **not yet** — ported (Phase 3), no Terraform change; `director-trade-extractor` still runs the Python image |
-| `report-extract concurrent` | `services/report-extractor/extract_reports_concurrent.py` | **not yet** — ported (Phase 3); `financial-report-extractor` still runs the Python image |
+| `report-extract concurrent` | `services/report-extractor/extract_reports_concurrent.py` | **not yet** — ported (Phase 3); `financial-report-extractor` still runs the Python image, which has since moved ahead of the port (see "Phase 3 port notes") |
 | `report-extract sequential` | `services/report-extractor/extract.py` | no — laptop-only CLI |
 | `reports coverage` | `services/report-coverage` | no — laptop-only tool |
 | `reports link` | `services/report-linker` | no — laptop-only tool |
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
+| `review` | — (new job, data review) | no — laptop tool, read-only: `task data:review` |
 | `short-data-sync` | `services/daily-sync` (Python, **DELETED**) — **ASIC shorts tier only** | yes — `shorts-data-sync` (cutover 4, in-place image swap; Python source deleted in the cleanup slice) |
 | `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
 | `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
@@ -191,6 +193,119 @@ dry-run, so a global `-dry-run` is refused rather than silently uploading.
 | `POST /api/sync/all` background goroutine | `context.Background()` | **unchanged** | deliberately outlives both the request and the shutdown drain; the sweep is checkpointed/resumable. Documented at the call site rather than "fixed". |
 | OTel identity | service `shorted-market-data-sync`, metric attr `market-data-sync`; `asx-discovery` | unchanged | dashboard continuity — the two market-data identities differed in the original and are carried over as-is |
 
+### Daily price sweep (`market-data sync`, job `shorted-price-sync`)
+
+Until 2026-09 the daily sweep ran behind `serve`'s `POST /api/sync/all`: a
+goroutine on a CPU-throttled service with a 600s request ceiling. It restarted
+from the top of the list every day, spent ~8s a stock re-fetching holiday
+closures as "gaps" (Easter and Christmas never close, so they never stopped
+being gaps), and never reached the end: 37 of 51 sampled stocks had no price
+after 2026-08-20. It is a Cloud Run Job now, and each stock costs at most one
+request:
+
+- **Stocks**: every company on the ASX listing (`asx-stocks/latest.csv`), the
+  top shorted, and what the listing does not carry but is still trading: every
+  code in the last 90 days of ASIC short reports and every code holding a
+  session within 90 days of the newest stored one. The listing is companies
+  only, so ETFs (GDX, VAS, IOZ, STW) had never been swept; the old service
+  reached them through its gap repair, and they stopped with it on 2026-08-20.
+  Recent, not ever: Yahoo holds nothing for a delisted ASX code (#591), and
+  both windows run from the newest data, so an outage cannot age a code out.
+- **Window**: from the day after the stock's latest stored session to the last
+  closed ASX session (a weekday, from 17:00 Sydney time). A stock already there
+  is not requested at all. No gap repair in the sweep; gaps are `audit-gaps`,
+  `historical-backfill` and `/api/gaps`.
+- **Order**: stalest first (ties keep the top-shorted-first order; stocks with
+  nothing stored go last), so a run that stops early is resumed by the next.
+- **Session dates** come from Sydney time. Yahoo stamps a bar with the session's
+  open in UTC, which in daylight time is the previous UTC day; the UTC date
+  filed every October-April session a day early (Monday under Sunday), and each
+  Friday, then "missing", was filled from Alpha Vantage with the US security of
+  the same name (BHP's Fridays in Oct-Nov 2025 hold $55-57, NYSE's price, against
+~$43 on the ASX).
+- **Yahoo** goes through `pkg/stealthhttp` (a plain client is answered 429).
+  Null bars are skipped, not stored as $0.
+- **Alpha Vantage** is asked only when Yahoo fails to answer, never when Yahoo
+  says a window has no session, and a response for a different security is
+  refused (#583's guard, which only ever reached the retired standalone
+  service). Its requests time out at 30s (`http.DefaultClient` never did).
+- **Failures**: "no data" over a window of more than three weekdays is a strike
+  (three strikes block a code for 7 days); a 429, 5xx or timeout is not, and 25
+  in a row stop the run. `RecordFailure` had never written a row in prod (its
+  timestamp arithmetic failed under the simple protocol), so blocks start now.
+- **Writes**: one statement per stock (an `unnest` upsert). Prices are
+  `NUMERIC(12,4)` from migration 000131, which the prod deploy applies; before it,
+  `DECIMAL(10,2)` rounded every price to the cent (ENL's $0.045 as 0.05) and
+  stored a price under half a cent as $0.
+  A `-from` comparison allows half a unit of the column's last decimal, read
+  from the column, so it is right on either side of the migration.
+- **Deadline**: each stock gets 6 minutes, whatever it is waiting on (a
+  provider, the database), and a stock that runs out is a failure, not a
+  strike. The catch-up's first attempt on 2026-09-27 reached its 6-hour task
+  timeout after at most ~1,700 mostly one-request stocks; its retry did the
+  remaining 127 ten-year fetches in 28 minutes. The cause is not in the report
+  that survived, so the report now records where the time goes (below).
+- **Budget**: the run stops taking stocks after `SYNC_RUN_BUDGET` (terraform:
+  5h30m, 30 minutes under the job's 6h task timeout; `-budget` overrides it for
+  one run, `-budget 0` lifts it), publishes its report as a stopped run and
+  exits 10, the partial-run code economy and picks use. Cloud Run retries a
+  non-zero exit once, and the retry resumes from the stalest stock; the
+  execution fails only when the retry runs out too. Before this a slow run
+  ran until the platform killed it at the task timeout, which is the
+  `Terminating task` line the "Cloud Run Job logged ERROR / timeout" alert
+  pages on (it did, for that 2026-09-27 attempt), and the kill decided where
+  the run stopped. `TestRunBudgetClearsTheTaskTimeout` reads the budget and the
+  timeout from the terraform and keeps 16-60 minutes between them; change one,
+  change the other.
+
+Flags: `-from DATE` re-fetches every stock (or `-codes A,B`) from `DATE`,
+overwriting stored sessions and reporting where they differed and which stored
+sessions the provider does not have (reported, never deleted); `-dry-run`
+fetches and compares and writes nothing. Each run stores a report at
+`gs://<GCS_BUCKET_NAME>/price-sync/<execution>.json`, which the **Price Sync**
+workflow (`.github/workflows/price-sync.yml`) runs and prints; CI cannot read
+Cloud Logging. The workflow starts the execution detached and waits at most
+340 minutes; a run that outlasts that (a long `task_timeout`, a whole-market
+`from`) is read later by dispatching it with `report_only` set to the
+execution's name or `latest`, which starts nothing; a `task_timeout` there
+also moves the run budget to 30 minutes under it. A task that times out
+still writes its report (SIGTERM ends the sweep, which then publishes), and the
+workflow prints how the execution ended beside it: a timeout or a retry shows
+there, not in the report. The report also says where the time went (each
+provider's requests and seconds, the wait on rate limits, the ten slowest
+stocks), is published every 100 stocks while the run goes (`in_progress`), and
+each attempt keeps its own copy at `price-sync/<execution>/attempt-<n>.json`,
+because a retry overwrites the execution's report.
+
+`shorted market-data prune` (the workflow's `mode: prune`) deletes what the
+sweep never does: stored rows dated on a weekend, and rows on an ASX holiday.
+Most are the daylight-time dating defect, which filed each Monday's session
+under the Sunday before it and a session after a holiday under the holiday
+(62,026 weekend rows in 2024-10 to 2026-09 alone). Holidays are the weekdays on
+which none of ten reference stocks (BHP, CBA, CSL, NAB, WBC, ANZ, RIO, WES, TLS,
+WOW) holds a session at the primary provider; the fallback is never asked, and
+a failed reference, or a year with more than 15 such weekdays, deletes nothing.
+A weekday row on a trading day is kept even when the provider no longer has it:
+Yahoo's histories for some codes (ASM, AII, C1X) start on 2026-07-17, so the
+stored rows are the only record. Run it with `dry_run` first: the report lists
+the rows per year and per holiday, so the dates can be checked against the
+ASX's calendar. `from` bounds the holiday calendar; weekend rows are deleted
+wherever they are.
+
+The counts and the deletes run in one transaction with `SET LOCAL
+statement_timeout = '15min'` and a transaction-scoped advisory lock. Each one
+reads the whole table (a weekday cannot be indexed), and the role's default
+timeout is 2 minutes: the 2026-09-28 dry run counted inside it, and the
+2026-09-29 live run's retry did not ("count weekend rows: canceling statement
+due to statement timeout", which paged "Cloud Run Job logged ERROR /
+timeout"). A live run deletes with `RETURNING` and counts what came back, so
+it scans the table once per kind of row instead of counting and then
+deleting. The lock covers the Cloud Run retry: behind the transaction pooler
+a statement can outlive the task that sent it, and a retry that finds the
+previous attempt's transaction still open refuses, deleting nothing, rather
+than scanning beside it. The workflow prints every attempt's report, so a
+retry that fails early no longer hides what the first attempt did.
+
 ### Not ported
 
 - **`cmd/test-dmp-fetch`, `cmd/test-dmp-backfill`** — single-stock ("DMP")
@@ -301,160 +416,26 @@ docker build -f services/jobs/Dockerfile.browser --secret id=github_token,env=GH
 ```
 
 Both images use `ENTRYPOINT ["/shorted"]`, so a Cloud Run Job passes the
-subcommand as args (`args = ["discovery"]`). `house-prices`' Cloud Run mode
-(`-mode official`) needs no browser and rides the standard image; its CDP crawl
-modes drive a host Chrome on the residential Macs and need no browser in the
-image at all (that is what the source service's `Dockerfile.crawl` encodes).
+subcommand as args (`args = ["discovery"]`).
 
-## Phase 2d port notes (house-prices)
+## Phase 2d (house-prices) — retired
 
-The biggest single port: `services/house-price-collector` (~23.4k LoC across 105
-Go files, 21 `-mode` values) → `shorted house-prices -mode <mode>`. **CODE ONLY**
-— no Terraform, no launchd/plist change, no schedule change, no deletion. The
-old service is untouched, still builds and still runs everywhere it runs today.
+`services/house-price-collector` was ported here as `shorted house-prices`
+(#358), code only: no Terraform, launchd or schedule change. The cutover never
+happened. The Cloud Run job (`terraform/modules/house-price-collector`), the
+residential-rig launchers (`services/house-price-collector/deploy/`, which exec
+`$HOME/bin/house-price-collector`) and every Taskfile task kept running the
+original service. Meanwhile the copy drifted: by 2026-09-23 it was 119 files
+against the collector's 138, `store.go` differed by 110 lines, and fixes (NSW VG,
+LGA, the MV refresh timeout) landed in one copy only. It was deleted on
+2026-09-24 rather than kept in sync.
 
-### Three deployment surfaces, one binary
-
-This service is unusual: it is deployed three different ways, and this slice
-changes NONE of them.
-
-| Surface | What it runs | Status after this PR |
-|---|---|---|
-| **Cloud Run Job** (`terraform/modules/house-price-collector`) | monthly `-mode official` | unchanged — still the old image/module |
-| **Residential Mac rigs** (`services/house-price-collector/deploy/*.sh` + `*.plist.template`) | `-mode agent\|enqueue\|listings\|crawl\|details\|property\|warmcheck\|freshness` against a **host** Chrome over CDP | unchanged — the launchers still exec `$HOME/bin/house-price-collector` |
-| **Local operator runs** | `-mode census\|electorates\|banners\|amenities\|lga\|connectivity\|funding\|council-financials\|crime\|backfill-address\|purge\|refresh` | unchanged |
-
-**The rig cutover is deliberately NOT in this PR.** Flipping
-`HOUSING_CRAWL_BIN` on a residential Mac has to be tested on a real rig against
-live REA/Domain (warm Chrome, Kasada clearance, launchd env, the exit-code
-branches) — that is its own step with its own verification, not something to
-bundle into a mechanical port. What this PR guarantees is that
-`shorted house-prices -mode X` is an **argument-wise drop-in**: same flag
-(`-mode`), same 21 values (+ the undocumented `abs` alias for `official`), same
-environment contract, same exit codes. The eventual cutover is one line per
-launcher (`BIN=…/shorted` + a leading `house-prices` argument), or simply
-`HOUSING_CRAWL_BIN='…/shorted house-prices'` if the launchers' quoting is
-adjusted to allow it.
-
-### The exit-code contract (the thing that shapes this port)
-
-Every other job in this binary has ONE failure code. house-prices has six, and
-the rig launchers branch on them:
-
-| Code | Meaning | Who branches on it |
-|---|---|---|
-| 0 | ok | all |
-| 3 | re-warm the crawl Chrome (Kasada/Akamai clearance expired) | `run-housing-crawl.sh` (notify + exit 3), `run-housing-delta.sh` / `run-housing-full.sh` (`case … in 3\|4)`), `run-housing-agent.sh` |
-| 4 | fetcher init failed — Chrome/CDP unusable (wedged tab / stale `SingletonLock`) | `run-housing-crawl.sh` hard-recovers (SIGKILL + clear lock + relaunch) — a plain relaunch loop would spin forever |
-| 5 | warmcheck says the REA session is cold (Kasada stub) | `run-housing-crawl.sh` re-warms, retries twice, then exits 5 |
-| 6 | crawl-freshness ALARM | `run-housing-delta.sh` / `run-housing-full.sh` propagate it |
-| 7 | agent infrastructure failed before any jobs completed | drain wrappers notify and preserve it; a failure after completed work remains 0 |
-
-The runner maps *every* error to exit 1, so this needed an explicit mechanism.
-Three options were considered:
-
-1. `os.Exit(n)` inside the job — **rejected**: it skips `defer pool.Close()`,
-   skips the runner's `[job] done … status=error` line, and puts a hard exit
-   inside a shared binary where any future job could inherit it.
-2. A house-prices-only wrapper in `cmd/shorted/main.go` — **rejected**: main
-   would have to know about one job's internals.
-3. **Chosen:** a small, documented runner extension.
-   `runner.ExitCodeError{Code, Err}` is an ordinary error that carries a code;
-   `runner.ExitCodeOf(err)` is the single error→status mapping (`nil`→0, plain
-   error→1, `ExitCodeError`→`Code`, and a zero `Code` degrades to 1 so a
-   "successful error" is not expressible). `main` calls
-   `os.Exit(runner.ExitCodeOf(err))`.
-
-Inside the job, the mode helpers (`runWarmCheck`, `runAgent`, `runDetails`,
-`runProperty`, `runFreshness`, and `runCrawl`/`runListings`' rewarm bools) still
-return their original `int`/`bool` — **byte-identical to the standalone
-code** — and only the dispatch converts, via `exitFor(mode, code)`. So the
-crawl stack's own circuit-breakers and codes were not touched at all.
-
-Cleanup, logging and the code all survive together:
-
-```
-$ DATABASE_URL=… CRAWL_CDP_URL=http://127.0.0.1:9 shorted house-prices -mode warmcheck
-[job] start name=shorted house-prices at=2026-07-26T06:00:32Z
-[warmcheck] fetcher init failed (connect over CDP to http://127.0.0.1:9: …) — Chrome unreachable
-[job] done name=shorted house-prices duration=499ms status=error error=-mode warmcheck: crawl fetcher init failed — Chrome/CDP unusable (exit 4)
-error: -mode warmcheck: crawl fetcher init failed — Chrome/CDP unusable (exit 4)
-$ echo $?
-4
-```
-
-Covered by `internal/runner/runner_test.go`
-(`TestExitCodeErrorSurvivesDispatch` — asserts the code survives dispatch, the
-deferred cleanup ran, and the `status=error` line was still emitted) and
-`internal/jobs/houseprices/job_test.go` (`TestExitForPreservesRigContract` —
-pins 3/4/5/6 to the modes the launchers branch on).
-
-### The crawl stack came across byte-faithful
-
-`crawl_*.go` (CDP fetcher, Kasada warmcheck, smart pagination, sweep-poison /
-broadening gates, the circuit breaker, brandbrain token auto-refresh,
-`CRAWL_TRACE`) is battle-hardened against live anti-bot systems. **Every copied
-file differs from its original in the `package` line and nothing else** — no
-timing, header, retry, jitter or cancellation change. (Verified mechanically:
-`diff <(tail -n +2 old) <(tail -n +2 new)` is empty for all 103 files;
-`job.go`/`revalidate.go` are the two intentional exceptions.) That includes
-leaving three files gofmt-unclean exactly as they are upstream
-(`crawl_cdp.go`, `crawl_details_extract_test.go`, `crawl_details_test.go`) — a
-reformat would have been a non-mechanical change to this code.
-
-`store.go` also came across verbatim, so the tuned pool posture is preserved:
-`QueryExecModeSimpleProtocol` + `MaxConns = 4` for the Supabase transaction
-pooler (6543). It deliberately does **not** go through `platform.Connect`, for
-the same reason `market-data` doesn't.
-
-### `revalidate.go` — this service originated `platform.PingRevalidate`
-
-The shared helper was lifted from this file, and it still covers the housing
-contract exactly: POST `?path=/price-drops,/housing&flush=housing` with the
-secret in `X-Revalidate-Secret`, no `tag`, `Content-Type: application/json`,
-non-2xx tolerated, 45s deadline on a
-**detached** context (so a run's `CRAWL_TIMEOUT_MIN` expiring between the write
-and the ping can't kill the cache bust for already-committed data). So the local
-copy became a thin adapter that fills a `platform.RevalidateRequest` — the ~10
-crawl-side `pingRevalidate("agent")` call sites stay byte-identical, and the
-ported `revalidate_test.go` still asserts the path/flush query and secret-header
-contract end-to-end. The only observable change is the log text (`cache bust
-ok` instead of `housing cache bust ok`) and that transport errors are
-URL-redacted before logging.
-
-### Deliberate divergences
-
-| Area | Standalone | Here | Why |
-|---|---|---|---|
-| entry point | `main()` → `os.Exit(run())`, `run() int` | `Run(ctx, args) error` + `runner.ExitCodeError` | see the exit-code section; deferred cleanup + the runner's end line now always run |
-| `log.Fatal` ×3 (missing `DATABASE_URL`, `db connect`, unknown `-mode`) | exits immediately | returned errors, message texts preserved | `defer pool.Close()` runs; the runner logs `status=error`; still exit 1 |
-| root context | `context.Background()` + `CRAWL_TIMEOUT_MIN` | the runner's **signal** context + the same `CRAWL_TIMEOUT_MIN` | SIGTERM now cancels a run (launchd/Cloud Run stop). The timeout value, the per-mode defaults (240 min for agent/listings/crawl/details/property/crime, 15 otherwise) and every crawl-internal deadline are unchanged; the detached finalizers (`refresh`, the queue submit, `pingRevalidate`) still ignore it by design |
-| positional args | `flag.Parse()` left them in `flag.Args()`, ignored — `house-price-collector official` silently ran the DEFAULT `-mode all` | rejected with `unexpected argument "official"` | `all` runs a full ABS/RBA ingest; a typo'd invocation should not do that |
-| `-dry-run` | no such flag | not declared → a global `shorted -dry-run house-prices …` is refused | the per-mode dry-runs are env-driven (`CRAWL_DRY_RUN`, `PURGE_DRY_RUN`, `CRIME_DRY_RUN`, …, most defaulting ON) and unchanged; the runner must not imply a dry run it can't deliver |
-| `pingRevalidate` | local implementation | `platform.PingRevalidate` adapter | same wire contract; adds secret redaction, changes one log string |
-| log flags | package default (`LstdFlags`) | `LstdFlags\|Lmsgprefix` (set by `cmd/shorted/main.go`) | shared with every other job; no prefix is set, so line output is unchanged in practice |
-| `-mode` help text | inline string | `modeList` const, asserted against the dispatch switch by `TestModeListCoversEveryDispatchCase` | a mode added without updating the help (or dropped from the switch) now fails a test rather than a rig |
-
-Everything else — all 21 modes, the mode→helper mapping, the per-mode timeout
-table, `refresh`'s detached `finalizeTimeout` + `linkSuburbSalCodes` +
-`refreshHousingMV` order, the `official` job list and its per-source
-`updateRun` error handling, the `abs` alias — is unchanged.
-
-### Not ported
-
-- **`Dockerfile` / `Dockerfile.crawl`** from the source service. The Cloud Run
-  Job's `-mode official` needs no browser and would ride the standard
-  `services/jobs/Dockerfile`; `Dockerfile.crawl` exists precisely because the
-  crawl modes ship **without** Chromium and drive a host Chrome over CDP, which
-  is a rig concern, not an image concern. Both are decisions for the cutover PR.
-- **`deploy/`** (6 shell launchers + 5 launchd plist templates + a 22 KB
-  runbook). Untouched on purpose — see "the rig cutover is not in this PR".
-
-### Tests
-
-All 316 tests came across (every one of them env-gated where it needs a DB,
-a live CDP Chrome or real ABS/BOCSAR files, so `go test ./...` stays offline),
-plus 9 new dispatch/exit-code tests here and 3 in `internal/runner`.
+What it left behind is still live and still tested: the `runner.ExitCodeError`
+/ `runner.ExitCodeOf` extension (see "Conventions for new jobs" §5) and
+`TestExitCodeErrorSurvivesDispatch` in `internal/runner/runner_test.go`. If the
+collector ever moves into this binary, port it fresh from
+`services/house-price-collector` and cut the rig over in the same change; its
+launchers branch on exit codes 3/4/5/6/7 (see that service's `deploy/README.md`).
 
 ## Phase 3 port notes (report-extract / director-trades)
 
@@ -469,7 +450,7 @@ still points both Cloud Run Jobs at the Python image.
 | Python | Deployed as | Go |
 |---|---|---|
 | `extract.py` (helper library + sequential CLI) | — (laptop only) | `shorted report-extract sequential` + the whole package's shared layer |
-| `extract_reports_concurrent.py` | `financial-report-extractor` (weekly, Sun 14:00 UTC) | `shorted report-extract concurrent` |
+| `extract_reports_concurrent.py` | `financial-report-extractor` (daily 14:00 UTC, 120 reports) | `shorted report-extract concurrent` |
 | `extract_director_trades.py` | `director-trade-extractor` (daily, 12:30 UTC) | `shorted director-trades` |
 
 `report-extract` is a **`runner.Group`**, not one flat subcommand. The two report
@@ -493,6 +474,28 @@ args = ["director-trades", "-priority", "recent", "-limit", tostring(var.directo
 (`--flag value` still parses — the stdlib `flag` package accepts double dashes —
 so the existing arg lists work unchanged apart from the subcommand prefix.)
 
+**The Python has since moved ahead of the port (2026-09-28,
+`docs/plans/fundamentals-coverage.md` §6).** The deployed
+`financial-report-extractor` now runs `--recent 2 --limit <reports_limit>
+--workers 4 --max-pages 8 --budget-min 90` daily at 14:00 UTC (120 reports,
+`GEMINI_MAX_RUN_WORKERS = 4`, 7200 s, no retries) and has dropped
+`--top-shorted-first`. It selects ONE statutory results document per company
+(filed within 45 days, newest first; then companies with no metric-bearing
+extraction, by market cap; then the rest), drops an extraction whose value's
+digits are not inside its aligned span, writes `document_meta`, stops starting
+reports once `--budget-min` elapses, and runs Gemini with thinking off. It
+also treats a failed model call (an API error, a blocked or empty response, a
+missing key) as `model_error`: no row is written, 5 in a row stop new work, and
+the run exits 1 when the model errors look systemic; the port still logs the
+error and stores metrics `{}`
+(`no_metrics`). The Go port was brought to parity only on the synthetic
+few-shot example, dropping unaligned extractions and stripping provenance keys
+before the digest prompt (§6.3); it has none of the rest. The cut-over args
+above are therefore historical: a cut-over would first need the targeting, the
+span-digit check, `document_meta`, the budget, the thinking config and the
+model-error handling ported, and the flag tables below describe the port as it
+was made.
+
 ### Flag parity
 
 `report-extract concurrent` ← `extract_reports_concurrent.py`
@@ -501,10 +504,14 @@ so the existing arg lists work unchanged apart from the subcommand prefix.)
 |---|---|---|---|
 | `--recent` | `-recent` | 2 | ✅ |
 | `--limit` | `-limit` | 0 (=all, then capped by the run budget) | ✅ |
-| `--workers` | `-workers` | 8 (capped to 2) | ✅ |
+| `--workers` | `-workers` | 8 (capped to 2) | no since 2026-09-28: the Python default is 4 |
 | `--model` | `-model` | `gemini-2.5-flash` | ✅ |
-| `--max-pages` | `-max-pages` | 10 | ✅ |
-| `--top-shorted-first` | `-top-shorted-first` | false | ✅ |
+| `--max-pages` | `-max-pages` | 10 | no since 2026-09-28: the Python default is 8 |
+| `--top-shorted-first` | `-top-shorted-first` | false | no since 2026-09-28: the Python dropped it |
+| `--budget-min` | none | 90 (Python only) | no: not ported |
+| `--max-model-errors` | none | 5 (Python only) | no: not ported |
+| `--repair-echo-digests` | none | false (Python only; the one-off echo-digest repair) | no: not ported |
+| `--repair-document-meta` | none | false (Python only; the one-off repair of stored `document_meta` entities and periods, each read again with the row's report date: only a `renamed` row can make a withheld filing pass an entity gate, an `added` one can only withhold one, and each changed, added or kept period says what it does to the stock page's own-period check; check every line of the dry run's recap against its document) | no: not ported |
 | `--backfill-digests` | `-backfill-digests` | false | ✅ |
 | `--dry-run` | `-dry-run` | false (defaults from the global `-dry-run`) | ✅ + also gates GCS |
 
@@ -518,7 +525,7 @@ so the existing arg lists work unchanged apart from the subcommand prefix.)
 | `--recent` | `-recent` | 0 | ✅ |
 | `--model` | `-model` | `gemini-2.5-flash` | ✅ |
 | `--delay` | `-delay` | 2.0s | ✅ (now a ctx-aware wait, not `time.sleep`) |
-| `--max-pages` | `-max-pages` | 10 | ✅ |
+| `--max-pages` | `-max-pages` | 10 | no since 2026-09-28: the Python default is 8 |
 | `--dry-run` | `-dry-run` | false | ✅ + also gates GCS |
 | `--verbose` | `-verbose` | false | ✅ (per-metric dump; no global log-level change) |
 
@@ -544,7 +551,7 @@ budget env still ERRORS rather than degrading to unlimited.
 |---|---|---|---|
 | report selection (`codes`) | `IN (%s,…)` on `"company-metadata"` | `= ANY($1)` — same predicate, 1 bind param | ✅ |
 | report selection (`top50`) | `INNER JOIN (SELECT product_code FROM mv_top_shorts ORDER BY current_percent DESC LIMIT 50)` | verbatim | ✅ |
-| report selection (`all`) | `financial_reports::text LIKE '%asx_announcements%' ORDER BY stock_code` | verbatim | ✅ |
+| report selection (`all`) | `financial_reports::text LIKE '%asx_announcements%' ORDER BY stock_code` | verbatim | no since 2026-09-28: the Python's `--mode all` now uses the scheduled run's statutory-first selection (`select_extraction_targets`) |
 | type filter | 5 types, quarterlies excluded | verbatim | ✅ |
 | §6.3(a) title noise filter | 24 noise + 6 keep-override regexes | verbatim (`(?i)` prefix instead of `re.IGNORECASE`) | ✅ |
 | ordering | `sort(key=(code,date), reverse=True)` stable | `sort.SliceStable` with a `>` comparator | ✅ |
@@ -596,7 +603,9 @@ call is wrapped in a `recover` so one corrupt filing can't kill the batch.
 - **Missing key**: Python reached `lx.extract` with no key and its blanket
   `except` turned the provider error into "no extractions + a warning". The Go
   port short-circuits with the same warning and the same empty result, so the
-  digest-from-raw-text path still runs.
+  digest-from-raw-text path still runs. Since 2026-09-28 the Python no longer
+  does this: a missing key is a model error (no row written), and the
+  scheduled runner refuses to start without one.
 - **Prompt-example validation** defaults to `PromptValidationWarning` in the Go
   port. The `revenue` few-shot example's `extraction_text` joins two source lines
   with a space where the example text has a newline, so it does not align
@@ -638,7 +647,9 @@ every worker exception into an `error` tally entry and always exited 0 — an
 interrupted run looked clean. Here a per-item failure is still just a tally
 entry, but a CANCELLED run (SIGTERM, Cloud Run task timeout) returns an error so
 the job reports `status=error`. Selection is idempotent (already-extracted URLs
-skip; the §6.9 cool-off skips), so the next run resumes.
+skip; the §6.9 cool-off skips), so the next run resumes. (The Python report
+extractor has since stopped always exiting 0: it exits 1 when its model errors
+look systemic.)
 
 **7. Missing Gemini key now fails `director-trades` up front.** Python called
 `sys.exit(1)` from inside the first worker thread; the Go port checks before
@@ -648,6 +659,34 @@ opening a pool and returns the same message.
 hyphen-or-nothing between the words, so `"On market buyback"` is KEPT by both
 implementations. Pinned by `TestKnownNoisePatternGapsMatchPython` so a future
 "fix" is a deliberate decision.
+
+**9. Selection targeting now DIVERGES from Python (2026-09-27, on purpose).**
+`parseReportRows` applies `isExtractionTarget` after the Python noise filter:
+presentations, webinars, briefings, "to present", results-date notices, any
+"Notice of", AGM "Results of Meeting", dividend notices and every quarterly /
+Appendix 4C / activities report are excluded (a statutory marker overrides
+all but the quarterly rule), and `prioritiseForExtraction` orders statutory
+Appendix 4D/4E filings FIRST, then other results documents, then the rest
+(most-shorted, then newest, within a tier; `-top-shorted-first` is no longer
+the primary key). Reason: the weekly run is the only path to half-year totals
+for the stock picker (`shorted picks -mode filings`), and ~98% of what the
+Python order extracted had no metrics. `isFinancialReportTitle` itself is
+unchanged and still pinned against Python. This changes what the CUT-OVER
+does: the Go job will extract a different (statutory) set than the Python job
+it replaces. The cut-over itself is unchanged and not done: a
+`modules/shorted-job` pair with the args above (`report-extract concurrent
+-recent 2 -limit <reports_limit> -workers 2 -max-pages 6 -top-shorted-first`,
+same `GEMINI_MAX_RUN_ITEMS` / `GEMINI_MAX_RUN_WORKERS` env and Gemini secret),
+`scheduler_paused = true` on the old module, after the side-by-side PDF parity
+run callout 1 requires.
+
+Superseded on 2026-09-28: the PYTHON is now statutory-first itself, with a
+different order (one document per company; recent filers, then companies with
+no parsed filing by market cap, then the rest) and the statutory classifier of
+`services/pkg/extractiontrust` (`IsResultsDocument`) ported to Python against a
+shared title fixture. The statutory targeting therefore reached prod through
+the Python, not through this cut-over, and the two now diverge the other way
+(see the note under "Cutover args").
 
 ### Not ported
 
@@ -683,6 +722,11 @@ Python sources, the `short_data_sync_image` variable and the `short-data-sync`
 CI image build. Full detail, env table, divergences and the shadow-run
 procedure: `internal/jobs/shortdatasync/README.md`.
 
+- **Two schedules.** The daily 10:00 UTC run (forward window + reconcile) and
+  `-poll` at 11:32, 11:37 and 11:47 Australia/Sydney on weekdays, then hourly
+  to 15:15, because ASIC posts at 11:30:11 Sydney time; a poll that finds nothing writes nothing
+  (no `sync_status` row). See "Poll mode" in the package README.
+
 - **Scope split.** The Python bundled THREE pipelines. Only the ASIC shorts tier
   is ported here (download → parse → upsert → health report → MV refresh →
   revalidate → Algolia → `sync_status`). The `stock_prices` sweep is ALREADY
@@ -714,6 +758,352 @@ procedure: `internal/jobs/shortdatasync/README.md`.
   sorted-tuple checksum) on stdout for diffing against the Python's actual
   writes. 46 offline tests, including golden fixtures cut from real ASIC files.
 
+## picks
+
+`shorted picks` is the data layer of the stock picker
+(`docs/plans/stock-picker.md` §2, extended by
+`docs/plans/fundamentals-coverage.md` §2-4). It is a new job, not a port.
+
+| Mode | What it does |
+|---|---|
+| `-mode fundamentals` | The full statements into `stock_fundamentals` (migration 000129, widened by 000132), every attempt recorded in `stock_fundamentals_sync`. ONE Yahoo fundamentals-timeseries GET per code through `pkg/stealthhttp` (a plain client is 429'd; no cookie or crumb needed), 4s between requests like the price sweep: the annual and trailing income statement and cash flow, the annual and quarterly balance sheet, the share count. Sanity gates null bad values; Markit key statistics (plain HTTPS, 1/s) is the per-field fallback. Budget-driven, in priority order (below). |
+| `-mode filings` | Revenue / net profit / EPS from `financial_report_extractions.metrics` (the report-extractor's reading of statutory results documents) into typed `'half'` and `'annual'` rows, source `asx-filing-extraction`, through the `services/pkg/extractiontrust` funnel and nine gates. The only source of half-year totals (Yahoo has none for the ASX). A fail-closed deterministic rebuild in ONE transaction. DB-only: no network, no LLM. |
+| `-mode refresh` | `BEGIN; SET LOCAL statement_timeout = 0; SET LOCAL client_min_messages = notice; SELECT refresh_strategy_views(); COMMIT` as one simple-protocol command (000132's body: `mv_market_regime`, `mv_fundamentals_growth`, `mv_fundamentals_quality`, `mv_price_features`; the `client_min_messages` pin stops a role default hiding the NOTICEs). Fails if the function reports any `Skipping <view>` warning, because the function itself returns normally when a view is skipped, and also when a picker view exists but got no `Refreshing <view>` NOTICE: the live function body is stale (000130's three-view one, left live when the deploy failed between the 000130 replay and 000132), and the error says to re-apply 000132. After a successful refresh it waits 16 minutes (the API's 15-minute strategy cache, plus one), then pings `/api/revalidate` best-effort with tag `strategy-picks`, plus `fundamentals` when this execution's fundamentals or filings step changed rows. |
+| `-mode all` (default) | fundamentals, then filings, then refresh. The refresh runs even after a degraded pull; the worst step decides the exit code. |
+
+**Schedule** (`module "shorted_job_picks"` in `terraform/environments/prod/main.tf`):
+`-mode refresh` weekdays 13:30 UTC, after the 10:00 UTC price sweep; `-mode
+all` daily 15:00 UTC. `timeout_seconds = 12600`, `max_retries = 1`, env
+`PICKS_FUNDAMENTALS_BUDGET_MIN = "170"` and `REVALIDATION_URL`, secrets
+`DATABASE_URL` and `REVALIDATION_SECRET`. `PICKS_FUNDAMENTALS_MAX_CODES` is
+deliberately not set.
+
+**Run lease.** `-mode fundamentals`, `filings` and `all` claim the one
+`picks_run_lease` row (`name = 'picks'`, 4 hours, extended every 100 codes,
+deleted on exit; the holder is the Cloud Run execution, so a task retry takes
+back the lease its dead attempt left). A run that finds it held by another
+execution logs the holder and exits 0. `-mode refresh` and dry runs take no
+lease, and `-mode all` releases it before the refresh, so the 16-minute wait
+holds nothing. Without the table (000132 absent) the job runs without it.
+
+**Selection** (fundamentals). The universe is every code with a `stock_prices`
+row in the last 90 days plus every `mv_screener_data` code (the MV is optional:
+42P01 is tolerated). There is no count cap: the run takes codes in this order
+until `PICKS_FUNDAMENTALS_BUDGET_MIN` (170 minutes; the ~2,300-code universe is
+~155 minutes at 4s) elapses, and what is left carries to the next night, lowest
+priority first:
+
+1. **due filers**: an Appendix 4D/4E or period-results headline in
+   `asx_announcements` in the last 14 days that the code has not had a
+   successful pull since, plus one follow-up pull once the filing is 7 days old
+   (Yahoo lags small caps). An "Annual Report" headline does not count: it
+   lands weeks after the 4E that moved the numbers. Never-succeeded first;
+2. **never attempted**, by market cap descending, then 20-day dollar volume,
+   then code. A sync row written before 000132 (`last_outcome` NULL) queues
+   here too and is never skipped: the code's stored rows are 000129's seven
+   lines, so the first nights after the deploy re-fetch the universe, largest
+   first (without 000132 no row is treated this way);
+3. **last outcome `failed`**, oldest attempt first (failures are never skipped);
+4. **stale**: successes and single empties older than 14 days, and repeat
+   empties (`consecutive_empty >= 2`) older than 45 days, oldest attempt first.
+
+Headlines are classified by the regexes ported from
+`scripts/take-writer/src/results-watch.ts` (`filings.go`; keep the two in
+step), never by `announcement_type`. The log line `queued: due_filers=N
+never_attempted=N failed=N stale=N skipped=N pre_000132=N` shows the split
+(`pre_000132` counts the pre-000132 rows inside `never_attempted`).
+
+**Breakers.** A run stops taking codes after 25 consecutive failed codes (the
+price sweep's rule), or when more than 30 of the last 100 Yahoo requests failed
+(`stopped_early=error_rate`: a partly blocking Yahoo never trips the
+consecutive breaker). Markit is disabled for the rest of the run after 10
+consecutive Markit failures (`fallback_disabled`). On a Cloud Run task retry
+(`CLOUD_RUN_TASK_ATTEMPT > 0`) the budget is 20 minutes: the retry exists to
+finish filings and the refresh, not to run a second full pass.
+
+**What is stored** (vendor). `annual`, `ttm` and `quarter` rows, `period_end`
+exactly as the source dates it, values in the REPORTING currency (BHP is USD)
+with the row's `currency`; outflows (capex, dividends paid, buybacks) are
+negative, Yahoo's convention. A `quarter` row is a balance-sheet snapshot:
+balance lines and shares only, from Yahoo's `quarterly*` series; one dated at a
+fiscal year end also fills the annual row's NULL balance fields. Operating cash
+flow is the reported series, else the direct-method series, else free cash flow
+minus capex on the same period (`derived:fcf-minus-capex`, never over a reported
+value). A TTM row dated at the fiscal year end fills every flow field the
+annual row for that date lacks (`derived:ttm-at-fye`). `fiscal_year` is derived
+from the company's own balance date (its latest annual row; June when there is
+none). Non-finite values and values outside `1e-12 <= |v| <= 1e18` are set to
+NULL before the write; the table has the same CHECKs as a backstop.
+
+`field_sources` (JSONB) records ONLY the fields whose value did not come from
+the row's own `source`: `markit-key-statistics`, `asx-filing-extraction`,
+`derived:fcf-minus-capex`, `derived:ttm-at-fye`. The vendor upsert (`store.go`,
+per field, same currency):
+
+1. the vendor supplies the value: take it;
+2. a sanity gate rejected it: write NULL (never keep an earlier run's copy of
+   a value that now fails);
+3. otherwise keep the stored value on `ttm` rows and `quarter` snapshots
+   (Yahoo keeps TTM revenue only at the latest point or two, so the history is
+   ours to keep), or when `field_sources` names a filing or Markit;
+4. otherwise, on `annual` rows, NULL;
+5. a stored FILING row is taken over only when the vendor supplies revenue or
+   net income for that period, and every value kept from it is then marked
+   `asx-filing-extraction`;
+6. a currency change replaces the row and its `field_sources` wholesale.
+
+A Markit row never takes over a Yahoo row.
+
+**52/53-week years** (one fiscal year under two dates: Markit dates LOV's FY26
+28 June, Yahoo 30 June). A stored Markit annual row is pruned only when this
+statement writes a Yahoo annual row within 7 days of it that carries revenue or
+net income; a Markit annual row is not written when a non-Markit annual row
+within 7 days that carries revenue or net income is stored or in the same
+statement (the Yahoo-failure case). Beside an EPS-only year the Markit row is
+kept or written, because it holds the year's only revenue and net income, so
+that year can sit under two dates until a night both vendors answer.
+
+**Markit** is asked when Yahoo failed or published nothing, has no annual row,
+is visibly behind (a TTM point a year past the latest annual, or the latest
+annual older than ~15 months), when the latest annual lacks revenue or net
+income (the EPS-only Yahoo year: MAQ, LOV), when a gate refused an annual
+revenue or net income, and for an FX-converted code (for its native currency).
+Per annual period, Markit's revenue / net income fill a Yahoo row's NULLs in the
+same currency, and years Yahoo lacks are added as Markit rows.
+
+**Sanity gates.** Each rejection is counted in the run summary, logged per code
+and written as NULL:
+
+| Gate | Rejects |
+|---|---|
+| `currency_conflict` | one monetary field whose point is in another currency than its row (shares and EPS ignore `currencyCode`) |
+| `fx_converted` | every monetary and per-share field of a code with a fractional raw value on a normally integral line: Yahoo converted its statements, EPS included, so every monetary and per-share Yahoo field is rejected on every Yahoo row, whether or not Markit answers (shares kept; a stored converted value is nulled too), and filings supply the native EPS (XRO's FY25 EPS 1.3541 is AUD-converted; the NZD figure is ~1.49). Sets `stock_fundamentals_sync.fx_converted`, and `native_currency` from Markit's `curCode` |
+| `identity_outlier` | a period's monetary fields (EPS and shares kept) when k = net income / (basic EPS x shares) is more than 3x off the code's median k, with at least 3 periods. The median, not 1, is the reference: a CDI such as RMD has k near 10. It is stored as `median_k` for valuation and for `-mode filings` gate 8's EPS basis |
+| `scale_break` | every monetary field of a period where revenue, gross profit, total or current assets or liabilities is below 1/20 of BOTH neighbours in its series (IAG FY25 revenue 5.35m against ~14bn) |
+| `non_positive_assets` | a period's balance fields when total assets <= 0 |
+| `eps_sign_mismatch` | basic and diluted EPS of opposite signs (both) |
+| `sign_violation` | capex, dividends paid or buybacks > 0 |
+| `stray_ttm` | a TTM point older than the latest annual end minus 18 months |
+
+`stock_fundamentals_sync` records `last_outcome` (`loaded` | `empty` |
+`failed`; `empty` only when every source asked answered without error and
+without rows), `consecutive_empty`, and, only on a loaded attempt that Yahoo
+answered without error AND with at least one row (counted before the gates and
+the merge), `median_k`, `fx_converted` and `native_currency`. Any other attempt
+keeps the stored values, including a Yahoo 404 or an empty Yahoo answer
+followed by a Markit load, which measure nothing.
+
+**Filings (`-mode filings`)**. What is read, and what keeps an LLM mistake out
+of the table (`filings_ingest.go`, `filings_period.go`, `filings_values.go`,
+`filings_vendor.go`). The permissive first version published the prompt's own
+few-shot example (revenue $5,142m, NPAT $1,823m, EPS 94.2c) as BHP's, CBA's,
+DRO's, EDV's and MSB's results, comparatives as current (CBA), channel and
+segment sales as revenue (EDV, GYG, DMP, FLT), another company's report (LFT),
+"Profit from operations" as NPAT (BHP) and December filers dated June (DRO).
+Every value now passes nine gates in order, each counted in the run summary
+(`gates={...}`):
+
+1. **Document**: `digest_confidence >= 0.3` (NULL passes); a statutory results
+   document (`extractiontrust.IsResultsDocument` over the title and
+   `document_meta.report_kind`: 4D/4E, half-year and annual reports,
+   preliminary final, results announcements; never Pillar 3, Form 20-F,
+   presentations, webcasts, transcripts); `document_meta.entity`, when present,
+   names the code's company (`extractiontrust.EntityMatches`, the same rule
+   the stock page's latest filing summary applies); `report_kind` is not
+   `other` (the extractor sets `other` only when the document's own heading
+   names it a presentation, Pillar 3 disclosure, transcript or webcast).
+2. **Grounding** and 3. **few-shot denylist**: `extractiontrust.GroundedEntry`
+   (the extractor aligned the quote to the document, and the quote is not
+   either few-shot example's text; the denylist is by text, never by value:
+   CBA's real 1H25 NPAT is also $5,142m).
+4. **Own period**: the metric's period is the document's own period
+   (`document_meta.period_end`, else the latest half or annual end on or
+   before the report date on the company's balance date, within 5 months), and
+   the quote does not name only another period.
+5. **Statutory**: the quote names no underlying, normalised, adjusted, pro
+   forma, EBITDA / EBIT, segment, division, "profit from operations",
+   operating profit, profit before tax, cash NPAT, total comprehensive income,
+   network / online / channel sales or TTV figure (`nonStatutoryRe`). A net
+   income or EPS takes its sign from its own number (a minus, or parentheses)
+   or else from the nearest loss / profit word governing it in its clause;
+   words inside a closed parenthetical, a comparison ("compared with", "up
+   from", "pcp", "prior year") or a statement name ("statement of profit or
+   loss") do not count. A sign word right after the number and the value
+   attribute's sign also vote; when they disagree, or the governing word
+   belongs to a tagged comparative, the value is withheld
+   (`5_statutory.sign_ambiguous`, counted after gate 7).
+6. **Vendor context**: the code has a vendor annual row and a trustworthy
+   vendor currency; balance month and currency come from the vendor (there is
+   no June or AUD default any more). An FX-converted or mixed-currency code
+   uses Markit's native currency when a Markit row exists, else gets no filing
+   rows (`skipped_no_vendor`, `currency_unknown`).
+7. **Currency**: an explicit marker in the quote, and `document_meta.currency`,
+   must equal the vendor currency.
+8. **Magnitude**, against same-currency vendor references: half revenue in
+   [0.25, 0.75] of vendor TTM revenue at the same end, else of the containing
+   FY, else [0.15, 1.5] of the prior FY; annual revenue in [0.7, 1.4] of the
+   same FY, else [0.5, 2.5] of the prior FY; net income <= 1.5x revenue (not
+   for property / investment entities); EPS within [0.5, 2] of net income /
+   vendor shares, written only when that check can run and the vendor's EPS is
+   per ordinary share (`median_k` in [0.8, 1.25], or without one every
+   computable vendor k in that band). Otherwise, as for a CDI listing whose
+   vendor EPS is per CDI (RMD), every filing EPS of the code is withheld
+   (`8_magnitude.eps_listed_unit_not_one_share`) and revenue and net income
+   are kept.
+9. **TTM-EPS identity** for first halves, when all four inputs exist:
+   `|(H1 - H1 prior) - (TTM at the half end - prior FY)| <= max(10% x |TTM -
+   FY|, 2% x |FY EPS|, 0.01)`.
+
+Reading a value out of its quote (`filings_values.go`) is unchanged in spirit:
+a value is taken only when its number is FOUND in its own `source_text` in a
+unit the quote makes unambiguous ("$45.2 million", "$1.2bn", "$45,213,000", a
+`$m` / `$'000` heading). A bare table figure is scaled by
+`document_meta.units` (the 4D/4E summary tables' "US$ Million" header) or
+skipped. EPS is stored in currency units per share: the unit is read next to
+the value's own number (`c` / `cents` / `cps` / `¢` is cents, divided by 100;
+`$0.94` is dollars); the sign follows gate 5 (the number itself, else the
+words that govern it, never a comparative's); basic vs diluted from the nearest qualifier before the number. One document
+giving two values for one period is skipped. Several documents for one period:
+per column, the Appendix 4D/4E beats another results document, then the
+document filed closest after the period end, then the URL.
+
+**Period parser** (`parsePeriod`), in order:
+
+1. The headline gates the report: scheduling notices, webinars, "to present",
+   any "Notice of", AGM "Results of Meeting", dividend admin (the
+   `notAFiling` list, with the `strongFiling` override) and every quarterly /
+   Appendix 4C / activities report are rejected before any metric is read.
+2. A period naming a quarter, nine months, YTD, guidance, a forecast (`FY27E`)
+   or a comparative (`pcp`, "prior") is rejected.
+3. Type: half words (H1, 1H, HY, 2H, half-year, interim, six months) win over
+   annual words (FY, full year, annual, twelve months, year). Neither: the
+   headline decides (4D / half-year -> half; 4E / annual report / full year /
+   preliminary final -> annual), else rejected.
+4. End: an explicit date wins ("30 June 2025", "31/12/2024", "December 2024").
+   Otherwise the FY label (FY25, FY2025, 1H26, H1 FY2025, 1HFY26, 2025/26,
+   CY2025) goes on the company's balance date: FY Y ends in the balance month
+   of Y; H1 ends six months earlier (June year: H1 FY26 = 31 Dec 2025;
+   December year, e.g. DroneShield: H1 FY26 = 30 Jun 2026). No year at all
+   ("H1"): the latest such end on or before the report date. No year and no
+   report date: rejected.
+5. Balance month: the period's own date, else the vendor's annual rows, else a
+   dated headline. There is NO default; in practice the vendor decides (gate 6
+   runs first).
+6. With a report date: the period must end no later than 7 days after it (a
+   later end is guidance) and no more than 15 months before it (a comparative).
+7. Every end is folded to a month end (a 52/53-week year to 2 July 2023 is
+   June 2023), and an annual end within 10 days of a vendor annual row takes
+   the vendor's date, so one period is one key.
+
+**The rebuild** (`filings_store.go`, `RebuildFilings`): every run re-reads every
+extraction and writes the complete picture in ONE transaction, every predicate
+evaluated at write time:
+
+1. delete every filing row whose key this run does not produce (never a vendor
+   row);
+2. per column, NULL each vendor field marked `field_sources =
+   'asx-filing-extraction'` that this run does not reproduce, and drop the
+   marker;
+3. clear the document columns of vendor rows left with no filing value;
+4. upsert: no stored row (every half; an annual the vendor has not published
+   yet) is inserted whole; a stored FILING row is replaced; on a stored VENDOR
+   row, per column and only in the same currency, the filing FILLS a NULL or
+   REPLACES a value already marked `asx-filing-extraction`, recording the
+   marker and `source_document_url` / `_date`. A vendor's own value is never
+   touched.
+
+Filing rows are rebuildable from `financial_report_extractions`, so a large
+purge (the first run after a gate change, codes that lost vendor context) is
+allowed and logged per key, not refused. Without 000132 the legacy path runs
+(no markers, no per-field purge, no document columns). Nothing is written to
+`stock_fundamentals_sync`. Postgres coverage, when `PICKS_TEST_DATABASE_URL`
+names a local database: `TestFilingRebuildAgainstPostgres`,
+`TestFilingRebuildRollsBackAgainstPostgres`,
+`TestFilingPre132FallbackAgainstPostgres`, `TestRunFilingsAgainstPostgres` and
+`migration132_pg_test.go`.
+
+Exit (filings): 0; **10 = REFUSED** (a read of extractions, vendor rows or
+company profiles errored, or zero extractions were read, which includes a
+database without the table): nothing deleted or upserted, per-gate counts and
+the would-purge list logged; **1** when the rebuild transaction failed (rolled
+back, nothing written).
+
+**Flags / env**
+
+| Flag / env | Default | |
+|---|---|---|
+| `-mode` | `all` | `fundamentals` \| `filings` \| `refresh` \| `all` |
+| `-dry-run` (or global `-dry-run`) | false | fetch/read + parse + log. No upsert, no attempt row, no lease, no refresh (`-mode filings` logs every row it would write and the would-purge list). With `-codes` (fundamentals only) it needs no database. |
+| `-codes A,B` | none | fetch these codes instead of the selection (ignores the skips and any cap) |
+| `-no-fallback` | false | never ask Markit |
+| `-verbose` | false | log every Postgres notice |
+| `-max-codes` / `PICKS_FUNDAMENTALS_MAX_CODES` | 0 (no cap) | optional count cap per fundamentals run; zero, negative or garbage keeps the default |
+| `PICKS_FUNDAMENTALS_BUDGET_MIN` | 170 | stop taking new codes after this many minutes; the rest carries to the next run. Not a failure. 20 on a task retry |
+| `REVALIDATION_URL` / `REVALIDATION_SECRET` | unset | the post-refresh cache bust; unset skips it (pages self-heal on their ISR TTL) |
+| `DATABASE_URL` | required | except for `-dry-run -mode fundamentals -codes ...` |
+
+**Exit codes**
+
+| Code | Meaning |
+|---|---|
+| 0 | at least half of the attempted codes loaded rows or answered empty (an ETF with no statements is an answer, not an outage), nothing was due, or another execution holds the lease |
+| 10 | DEGRADED: under half answered, or Yahoo failed for more than half of them even if Markit covered the gaps; or `-mode filings` REFUSED to write |
+| 1 | nothing answered, the DB failed, the filings rebuild rolled back, the refresh failed or skipped a view, or the run was cancelled |
+
+In `-mode all` each step runs even when an earlier one degraded, and the worst
+verdict wins (a plain failure beats DEGRADED); the other steps' errors ride
+along in the message.
+
+**First run in an environment**
+
+1. Migrations 000129, 000130 and 000132 must be in the database. On prod the
+   terraform-deploy allowlist applies all three (000132 on the session pooler,
+   two transactions under `lock_timeout = '15s'`, before the jobs image swaps);
+   do not merge while `financial-report-extractor` or a picks run is executing.
+   If the deploy step fails, hand-apply in a quiet window with
+   `task db:prod:apply FILE=services/migrations/000132_extend_fundamentals.up.sql CONFIRM=prod`
+   and re-run the deploy; never remove the allowlist line (this image writes
+   the new columns). The job and the API tolerate 000132 being absent.
+2. Check the upstream without writing:
+   `shorted -dry-run picks -mode fundamentals -codes BHP,XRO,RMD`.
+3. Straight after the deploy, `filings` then `refresh` (seconds, no Yahoo)
+   removes the rows the old ingest wrote from echoes, comparatives and
+   segments: from an agent through the admin MCP connector
+   (`docs/mcp-admin.md`: `run_picks_job {mode: "filings"}`, then `{mode:
+   "refresh"}`, polling `picks_job_status`) or by hand with
+   `gcloud run jobs execute shorted-picks --region australia-southeast2 --args="picks,-mode,filings"`
+   (read the `gates={...}` and would-purge lines first with
+   `--args="picks,-mode,filings,-dry-run"`; the dry run is gcloud-only), then
+   `--args="picks,-mode,refresh"`. Once, also run the report-extractor with
+   `--repair-echo-digests` (`--dry-run` first lists the rows): the rows whose
+   metrics carry a few-shot echo lose those entries and get a digest through
+   the trusted prompt; the API withholds their summaries until then.
+4. The daily 15:00 UTC `-mode all` covers the universe when it fits the
+   170-minute budget; any remainder carries to the next night. A manual full
+   run should start before 12:20 UTC or after the scheduled run has finished:
+   one still holding the lease at 15:00 makes the scheduled run exit 0 without
+   its filings and refresh.
+5. Coverage is built when `GetStrategyPicks.fundamentals_rows_count` is near
+   the codes the vendors publish statements for (about three quarters of
+   `universe_count`). Pages revalidate on their own 16 minutes after each
+   successful refresh.
+
+**Enablement state (2026-09-28).** Scheduled: weekdays 13:30 UTC `-mode
+refresh`; daily 15:00 UTC `-mode all`. The half-year rows depend on the
+report-extractor (`module "report_extractor"`), which in prod is the PYTHON
+image, now statutory-first: 120 reports a day at 14:00 UTC, one results document
+per company (filed within 45 days newest first, then companies with no parsed
+filing by market cap, then the rest), grounded, with `document_meta`
+(`services/report-extractor`, fundamentals-coverage §6.1). It never stores a
+model failure (that document gets no row and is retried next run), stops
+starting reports after 5 consecutive model errors (`--max-model-errors`), and
+exits 1 when its model errors look systemic (the breaker's 5, or at least 3
+making up at least a fifth of the documents that called the model; one document the
+model refuses daily is logged and retried without failing the run), or up
+front when no Gemini key is set. The Go port in
+`reportextract` is not deployed and is parity-only on the few-shot example and
+grounding (see "Phase 3 port notes").
+
 ## Conventions for new jobs
 
 1. Add `internal/jobs/<name>/` with a `Job() runner.Job` constructor.
@@ -734,8 +1124,9 @@ procedure: `internal/jobs/shortdatasync/README.md`.
    scheduler) branches on specific codes, return a `*runner.ExitCodeError`
    instead of calling `os.Exit` — `main` maps it through `runner.ExitCodeOf`.
    Document the codes at the job, and keep the job's own helpers returning
-   whatever they returned before (convert once, at the dispatch). Today only
-   `house-prices` needs this (3/4/5/6/7 for the residential-rig launchers).
+   whatever they returned before (convert once, at the dispatch). `economy`
+   and `picks` return 10 (DEGRADED); 3-7 stay reserved for the retired
+   `house-prices` port, whose residential-rig launchers branch on them.
 6. Register it in `cmd/shorted/main.go`.
 
 ## Building the image
@@ -775,3 +1166,18 @@ worker bodies are panic-shielded into the "error" tally outcome (Python's
 as_completed except Exception equivalence); empty director date_of_change now
 writes NULL (Python raised a cast error and lost the row — a deliberate,
 disclosed improvement).
+
+## review
+
+`shorted review` prints a markdown report of the documents Shorted could not
+turn into data: newest results documents never read, empty and unreadable
+extractions, rows the API withholds (and which gate withheld them), dividend
+notices that failed, and the dividend estimates stored from a results
+document, each checked again with the pass's rule. It reads through one READ
+ONLY transaction and writes nothing. Not deployed: `task data:review` runs it
+against prod from the main checkout. `-text <url>` prints one announcement
+PDF's text as the Go parsers read it, with no database, to turn a failed
+notice into a test fixture.
+
+What to do with each list: `.claude/skills/data-review/SKILL.md`. Each review
+is recorded in `docs/data-review/LOG.md`.

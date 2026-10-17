@@ -57,7 +57,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object grain_ = "";
   /**
    * <pre>
-   * 'national' | 'state' | 'suburb'
+   * Anything outside these shapes is InvalidArgument.
    * </pre>
    *
    * <code>string grain = 1 [json_name = "grain"];</code>
@@ -78,7 +78,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * 'national' | 'state' | 'suburb'
+   * Anything outside these shapes is InvalidArgument.
    * </pre>
    *
    * <code>string grain = 1 [json_name = "grain"];</code>
@@ -104,7 +104,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object grainKey_ = "";
   /**
    * <pre>
-   * 'AU' | state code | sal_code
+   * 'AU' | state code ('NSW', ...) | 5-digit sal_code
    * </pre>
    *
    * <code>string grain_key = 2 [json_name = "grainKey"];</code>
@@ -125,7 +125,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * 'AU' | state code | sal_code
+   * 'AU' | state code ('NSW', ...) | 5-digit sal_code
    * </pre>
    *
    * <code>string grain_key = 2 [json_name = "grainKey"];</code>
@@ -198,7 +198,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object to_ = "";
   /**
    * <pre>
-   * 'YYYY-MM-DD', inclusive; defaults to today
+   * 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
    * </pre>
    *
    * <code>string to = 4 [json_name = "to"];</code>
@@ -219,7 +219,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * 'YYYY-MM-DD', inclusive; defaults to today
+   * 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
    * </pre>
    *
    * <code>string to = 4 [json_name = "to"];</code>
@@ -613,7 +613,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object grain_ = "";
     /**
      * <pre>
-     * 'national' | 'state' | 'suburb'
+     * Anything outside these shapes is InvalidArgument.
      * </pre>
      *
      * <code>string grain = 1 [json_name = "grain"];</code>
@@ -633,7 +633,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'national' | 'state' | 'suburb'
+     * Anything outside these shapes is InvalidArgument.
      * </pre>
      *
      * <code>string grain = 1 [json_name = "grain"];</code>
@@ -654,7 +654,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'national' | 'state' | 'suburb'
+     * Anything outside these shapes is InvalidArgument.
      * </pre>
      *
      * <code>string grain = 1 [json_name = "grain"];</code>
@@ -671,7 +671,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'national' | 'state' | 'suburb'
+     * Anything outside these shapes is InvalidArgument.
      * </pre>
      *
      * <code>string grain = 1 [json_name = "grain"];</code>
@@ -685,7 +685,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'national' | 'state' | 'suburb'
+     * Anything outside these shapes is InvalidArgument.
      * </pre>
      *
      * <code>string grain = 1 [json_name = "grain"];</code>
@@ -705,7 +705,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object grainKey_ = "";
     /**
      * <pre>
-     * 'AU' | state code | sal_code
+     * 'AU' | state code ('NSW', ...) | 5-digit sal_code
      * </pre>
      *
      * <code>string grain_key = 2 [json_name = "grainKey"];</code>
@@ -725,7 +725,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'AU' | state code | sal_code
+     * 'AU' | state code ('NSW', ...) | 5-digit sal_code
      * </pre>
      *
      * <code>string grain_key = 2 [json_name = "grainKey"];</code>
@@ -746,7 +746,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'AU' | state code | sal_code
+     * 'AU' | state code ('NSW', ...) | 5-digit sal_code
      * </pre>
      *
      * <code>string grain_key = 2 [json_name = "grainKey"];</code>
@@ -763,7 +763,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'AU' | state code | sal_code
+     * 'AU' | state code ('NSW', ...) | 5-digit sal_code
      * </pre>
      *
      * <code>string grain_key = 2 [json_name = "grainKey"];</code>
@@ -777,7 +777,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'AU' | state code | sal_code
+     * 'AU' | state code ('NSW', ...) | 5-digit sal_code
      * </pre>
      *
      * <code>string grain_key = 2 [json_name = "grainKey"];</code>
@@ -889,7 +889,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object to_ = "";
     /**
      * <pre>
-     * 'YYYY-MM-DD', inclusive; defaults to today
+     * 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
      * </pre>
      *
      * <code>string to = 4 [json_name = "to"];</code>
@@ -909,7 +909,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'YYYY-MM-DD', inclusive; defaults to today
+     * 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
      * </pre>
      *
      * <code>string to = 4 [json_name = "to"];</code>
@@ -930,7 +930,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'YYYY-MM-DD', inclusive; defaults to today
+     * 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
      * </pre>
      *
      * <code>string to = 4 [json_name = "to"];</code>
@@ -947,7 +947,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'YYYY-MM-DD', inclusive; defaults to today
+     * 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
      * </pre>
      *
      * <code>string to = 4 [json_name = "to"];</code>
@@ -961,7 +961,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 'YYYY-MM-DD', inclusive; defaults to today
+     * 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
      * </pre>
      *
      * <code>string to = 4 [json_name = "to"];</code>

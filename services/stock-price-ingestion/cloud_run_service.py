@@ -14,9 +14,14 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 import uvicorn
-from main import StockDataIngestion
-import pandas as pd
-import yfinance as yf
+
+# `main` (StockDataIngestion) is imported inside run_sync, not here. It pulls in
+# pandas, numpy, yfinance and both data providers: ~750 of the ~1,140 modules
+# this app used to load before uvicorn could bind 8080, none of which /health
+# needs. With them loaded first the port bound 25-28s after container start,
+# and revisions 00456 and 00503 never bound within the startup probe's budget,
+# which turns the whole terraform apply red. The Dockerfile imports `main` at
+# build time, so a broken dependency still fails the build, not the first sync.
 
 # Configure logging
 logging.basicConfig(
@@ -207,6 +212,8 @@ async def run_sync(
     """
     ingestion = None
     try:
+        from main import StockDataIngestion  # heavy; see the note at the imports
+
         # Initialize ingestion service
         ingestion = StockDataIngestion(DATABASE_URL)
         await ingestion.init_db()

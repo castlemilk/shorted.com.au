@@ -34,8 +34,10 @@ var reportTypes = map[string]bool{
 // The ASX-announcement crawler types an announcement as a "results"/"report" via
 // substring matching on the headline, which over-classifies: a "Half Year Results
 // Media Release" is typed half_year_results even though it carries no financial
-// statements. Presentations are KEPT (they summarise well via the digest); hard
-// non-statement noise is dropped here, on the *title*, regardless of `type`.
+// statements. Hard non-statement noise is dropped here, on the *title*,
+// regardless of `type`. (extract.py KEPT presentations because they summarise
+// well via the digest; the Go port now excludes them in isExtractionTarget
+// below, see "Statutory-filing targeting".)
 //
 // Ported verbatim from extract.py's NOISE_TITLE_PATTERNS.
 var noiseTitlePatterns = []string{
@@ -97,6 +99,132 @@ func isFinancialReportTitle(title string) bool {
 		return true
 	}
 	return !noiseTitleRE.MatchString(title)
+}
+
+// --- Statutory-filing targeting (a deliberate divergence from extract.py) ------
+//
+// The weekly financial-report-extractor is the ONLY path to half-year totals for
+// the stock picker (`shorted picks -mode filings` reads its metrics; Yahoo
+// carries no ASX half-years). Measured on a backfill, ~98% of what the Python
+// selection sent to Gemini produced no metrics: presentations and media
+// releases dominated, and the per-run cap was spent in reverse-alphabetical
+// order. So, on top of the Python noise filter above:
+//
+//  1. Headlines that are never a statutory results document are EXCLUDED:
+//     presentations, webinars, briefings, "to present", results-date notices,
+//     any "Notice of ...", AGM "Results of Meeting", dividend notices, and every
+//     quarterly / Appendix 4C / activities report. A STRONG statutory marker
+//     overrides the exclusion ("FY26 Financial Results Release and Webinar" is a
+//     real filing), except for a quarterly, which only a literal Appendix 4D/4E
+//     overrides.
+//  2. What survives is ordered statutory filings FIRST (filingPriority 0:
+//     Appendix 4D/4E, "results release|announcement|summary", "half-year
+//     report", "preliminary final", "financial report for", an annual report
+//     that says "financial"), then other results documents (1), then the rest
+//     (2); newest first within a tier (or most-shorted first with
+//     -top-shorted-first, newest breaking ties).
+//
+// The patterns are ported from scripts/take-writer/src/results-watch.ts
+// (NOT_A_FILING / STRONG_FILING) and picks/filings.go; keep the three in step.
+// isFinancialReportTitle is untouched (Python parity, pinned by its tests);
+// this is an additional filter. The deployed job is still the Python image
+// (services/report-extractor), so none of this reaches prod until the Go port
+// is cut over (services/jobs/README.md, "Phase 3 port notes").
+
+var statutoryFilingRE = regexp.MustCompile(`(?i)` + strings.Join([]string{
+	`\bappendix\s*4[de]\b`,
+	`\bresults?\s+(?:release|announcement|summary)\b`,
+	`\bhalf[\s-]?year(?:ly)?\s+(?:financial\s+)?report\b`,
+	`\bpreliminary\s+final\b`,
+	`\bfinancial\s+report\s+for\b`,
+	`\bannual\s+financial\s+(?:report|statements?)\b`,
+}, "|"))
+
+var (
+	annualReportRE = regexp.MustCompile(`(?i)\bannual\s+report\b`)
+	financialRE    = regexp.MustCompile(`(?i)\bfinancial\b`)
+	appendix4DERE  = regexp.MustCompile(`(?i)\bappendix\s*4[de]\b`)
+	quarterlyRE    = regexp.MustCompile(`(?i)\bquarterly\b|\bquarter\b|\bappendix\s*4c\b|\b4c\b|\b[1-4]q\s?(?:fy)?\s?\d{2,4}\b|\bq[1-4]\b|\bactivit(?:y|ies)\s+(?:report|statement|update)\b`)
+	// Period-results language: the tier below statutory.
+	periodResultsRE = regexp.MustCompile(`(?i)\b(?:fy\s?\d{2,4}|hy\s?\d{2,4}|\d\s?h\s?\d{2,4}|full[\s-]?year|half[\s-]?year(?:ly)?|interim)\b[^.]{0,40}\b(?:results?|report|financial\s+statements?|accounts)\b|\bannual\s+report\b|\bfinancial\s+(?:report|statements?)\b`)
+)
+
+var extractionExcludeRE = regexp.MustCompile(`(?i)` + strings.Join([]string{
+	`\bpresentation\b`,
+	`\bwebinar\b`,
+	`\bto\s+present\b`,
+	`\bresults?\s+date\b`,
+	`\bconference\s+call\b`,
+	`\bbriefing\b`,
+	`\binvestor\s+day\b`,
+	`\bregistration\s+details\b`,
+	`\bdial[-\s]?in\b`,
+	`\btranscript\b`,
+	`^\s*notice\s+of\b`,
+	`\bnotice\s+of\s+(?:annual\s+general\s+|general\s+|extraordinary\s+)?(?:agm|meeting)\b`,
+	`\bresults?\s+of\s+(?:the\s+)?(?:\d{4}\s+)?(?:annual\s+general\s+|general\s+|extraordinary\s+)?meeting\b`,
+	`^\s*(?:update\s*-\s*)?dividend/distribution\b`,
+	`^\s*confirmation\s+of\s+.*dividend`,
+}, "|"))
+
+// A dividend notice is excluded only when the headline carries no results
+// language: "FY26 Results and Final Dividend" is a real results release.
+var (
+	dividendNoticeRE = regexp.MustCompile(`(?i)\bdividend\b|\bdistribution\b|\bdrp\b`)
+	resultsWordRE    = regexp.MustCompile(`(?i)\bresults?\b|\breport\b|\bfinancial\b|\baccounts\b`)
+)
+
+// isStatutoryFiling: the markers strong enough to rank first and to override
+// an exclusion.
+func isStatutoryFiling(title string) bool {
+	if statutoryFilingRE.MatchString(title) {
+		return true
+	}
+	return annualReportRE.MatchString(title) && financialRE.MatchString(title)
+}
+
+// isExtractionTarget reports whether a headline (already past the Python noise
+// filter) is worth a paid Gemini extraction. An empty title is accepted, as in
+// isFinancialReportTitle.
+func isExtractionTarget(title string) bool {
+	if strings.TrimSpace(title) == "" {
+		return true
+	}
+	if quarterlyRE.MatchString(title) && !appendix4DERE.MatchString(title) {
+		return false
+	}
+	if isStatutoryFiling(title) {
+		return true
+	}
+	if dividendNoticeRE.MatchString(title) && !resultsWordRE.MatchString(title) {
+		return false
+	}
+	return !extractionExcludeRE.MatchString(title)
+}
+
+// filingPriority: 0 statutory filing, 1 other results document, 2 anything else.
+func filingPriority(title string) int {
+	switch {
+	case isStatutoryFiling(title):
+		return 0
+	case periodResultsRE.MatchString(title):
+		return 1
+	}
+	return 2
+}
+
+// prioritiseForExtraction orders the candidates the run cap is applied to:
+// newest first, then most-shorted first when rank is non-nil, then statutory
+// filings first. Each pass is a STABLE sort, so the last key is the primary one
+// and the earlier keys break its ties.
+func prioritiseForExtraction(reports []report, rank map[string]float64) {
+	sort.SliceStable(reports, func(i, j int) bool { return reports[i].Date > reports[j].Date })
+	if rank != nil {
+		applyTopShortedOrder(reports, rank)
+	}
+	sort.SliceStable(reports, func(i, j int) bool {
+		return filingPriority(reports[i].Title) < filingPriority(reports[j].Title)
+	})
 }
 
 // report is one selection row: the financial_reports JSON entry plus, for the
@@ -240,6 +368,8 @@ func getReportsToProcess(ctx context.Context, pool *pgxpool.Pool, mode string, c
 		reports = filtered
 	}
 
+	// Statutory filings first, newest first, before the cap takes its slice.
+	prioritiseForExtraction(reports, nil)
 	if limit > 0 && len(reports) > limit {
 		reports = reports[:limit]
 	}
@@ -274,6 +404,11 @@ func parseReportRows(rows []reportRow) []report {
 			if !isFinancialReportTitle(r.Title) {
 				continue
 			}
+			// Statutory-filing targeting: presentations, notices, dividend
+			// admin and quarterlies never reach Gemini.
+			if !isExtractionTarget(r.Title) {
+				continue
+			}
 			reports = append(reports, report{
 				StockCode: row.StockCode,
 				URL:       r.URL,
@@ -286,14 +421,19 @@ func parseReportRows(rows []reportRow) []report {
 	return reports
 }
 
-// sortReportsDesc orders by (stock_code, date) descending, stably.
+// sortReportsDesc orders by (stock_code, date) descending, stably. On the same
+// code and date a statutory filing goes first, so the per-company `-recent` cap
+// keeps the Appendix 4D over the same day's covering letter.
 func sortReportsDesc(reports []report) {
 	sort.SliceStable(reports, func(i, j int) bool {
 		a, b := reports[i], reports[j]
 		if a.StockCode != b.StockCode {
 			return a.StockCode > b.StockCode
 		}
-		return a.Date > b.Date
+		if a.Date != b.Date {
+			return a.Date > b.Date
+		}
+		return filingPriority(a.Title) < filingPriority(b.Title)
 	})
 }
 

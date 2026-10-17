@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { type WidgetProps } from "~/@/types/dashboard";
 import { ParentSize } from "@visx/responsive";
 import { Pie } from "@visx/shape";
@@ -9,7 +10,7 @@ import { scaleBand, scaleLinear } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { GridRows } from "@visx/grid";
 import { Skeleton } from "~/@/components/ui/skeleton";
-import { getSectorPerformance, type SectorPerformance } from "@/lib/stock-data-service";
+import { getSectorPerformance, QUOTE_REFRESH_INTERVAL_MS, type SectorPerformance } from "@/lib/stock-data-service";
 import { Badge } from "~/@/components/ui/badge";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
@@ -28,28 +29,32 @@ export function SectorPerformanceWidget({ config }: WidgetProps) {
   const period = (config.settings?.period as string) || "1w";
   const displayType = (config.settings?.displayType as string) || "pie";
   
-  const [loading, setLoading] = useState(true);
-  const [sectorData, setSectorData] = useState<SectorPerformance[]>([]);
-
-  useEffect(() => {
-    const fetchSectorData = async () => {
-      setLoading(true);
+  const lastSuccessfulData = useRef<SectorPerformance[]>([]);
+  const { data, isFetching: loading } = useQuery({
+    queryKey: ["sector-performance-widget", period],
+    queryFn: async ({ signal }) => {
       try {
-        const data = await getSectorPerformance(period);
-        setSectorData(data);
+        return await getSectorPerformance(period, signal);
       } catch (error) {
-        console.error("Error fetching sector performance:", error);
-      } finally {
-        setLoading(false);
+        if (!signal.aborted) console.error("Error fetching sector performance:", error);
+        throw error;
       }
-    };
-
-    void fetchSectorData();
-    
-    // Refresh every 5 minutes
-    const interval = setInterval(() => void fetchSectorData(), 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [period]);
+    },
+    // Quotes are daily snapshots; share a half-hour refresh while visible.
+    staleTime: QUOTE_REFRESH_INTERVAL_MS,
+    gcTime: QUOTE_REFRESH_INTERVAL_MS,
+    refetchInterval: QUOTE_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    // The quote service already retries transient failures.
+    retry: false,
+  });
+  useEffect(() => {
+    if (data) lastSuccessfulData.current = data;
+  }, [data]);
+  // Keep the last successful display if a refresh or period change fails,
+  // matching the widget's existing error behavior.
+  const sectorData = data ?? lastSuccessfulData.current;
 
   if (loading) {
     return (

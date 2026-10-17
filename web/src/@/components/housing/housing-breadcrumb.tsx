@@ -8,14 +8,17 @@ import {
 import { ALL_STATES, STATE_NAMES, stateSlug } from "@/lib/housing/states";
 
 /**
- * Housing place-trail: Australia › <state switcher> › <suburb>. The state
- * segment is a Select so you can jump laterally between states without bouncing
- * through the national page.
+ * Housing place-trail: Australia › <state switcher> › [council] › <suburb>. The
+ * state segment is a Select so you can jump laterally between states without
+ * bouncing through the national page. The council segment links the suburb's
+ * dominant council hub when it has one.
  */
 export function HousingBreadcrumb({
-  stateCode, suburb, compact = false,
+  stateCode, council, suburb, compact = false,
 }: {
   stateCode?: string;
+  /** The suburb's dominant council, when it has a page (councilHref non-null). */
+  council?: { name: string; href: string };
   suburb?: string;
   /**
    * Drop the "Australia ›" root below sm. In a narrow horizontal scroller the
@@ -52,10 +55,23 @@ export function HousingBreadcrumb({
           </Select>
         </>
       ) : null}
+      {council ? (
+        <>
+          {/* Below sm in compact mode the suburb segment matters more than
+              the council; the profile's council card links it there. */}
+          <Sep className={compact ? "hidden sm:inline" : undefined} />
+          <Link
+            href={council.href}
+            className={`shrink-0 transition-colors hover:text-foreground${compact ? " hidden sm:inline" : ""}`}
+          >
+            {council.name}
+          </Link>
+        </>
+      ) : null}
       {suburb ? (
         <>
           <Sep />
-          <span className="capitalize text-foreground">{suburb.toLowerCase()}</span>
+          <span className="text-foreground">{suburb}</span>
         </>
       ) : null}
     </nav>

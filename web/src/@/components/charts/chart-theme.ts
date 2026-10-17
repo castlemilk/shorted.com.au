@@ -1,7 +1,9 @@
 /**
  * Single source of truth for chart colors. Structural colors use CSS variables
  * so dark/light parity is automatic; semantic series roles keep the established
- * short=red / price=blue identity, centralized here.
+ * short=rust / price=blue identity, centralized here. Short interest is the
+ * chart rust (DESIGN.md §2), not a red: true red and green are quarantined for
+ * the direction of a number, and a falling price is drawn in that red.
  */
 export const chartTheme = {
   axis: "hsl(var(--muted-foreground))",
@@ -32,7 +34,7 @@ export function seriesColor(
   role: "short" | "price" | "volume" | "series",
   index = 0,
 ): string {
-  if (role === "short") return "#ef4444";
+  if (role === "short") return "#D16A47";
   if (role === "price") return "#3b82f6";
   if (role === "volume") return "#94a3b8";
   return SERIES_PALETTE[index % SERIES_PALETTE.length]!;

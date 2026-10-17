@@ -65,6 +65,7 @@
        #121212, so .dark aliases them straight through. */
     --semantic-green-text: #15803d;    /* 4.93:1 on --card */
     --semantic-red-text: #b91c1c;      /* 6.42:1 on --card */
+
     --secondary-text: 93 40% 26%;      /* Deep olive - 6.6:1 on --card (--secondary is a fill, 2.6:1) */
 
     /* Terminal effect variables */
@@ -125,6 +126,7 @@
        needed, so the text tokens alias the fills. */
     --semantic-green-text: #4ade80;
     --semantic-red-text: #f87171;
+
     --secondary-text: 96 33% 63%;      /* 8.0:1 on --card */
 
     /* Terminal effects - enhanced in dark mode */
@@ -212,44 +214,88 @@
   }
 }
 
-.custom-mdx-content img {
-  margin: 2rem auto;
-  border-radius: 0.5rem;
-  max-width: 80%;
-  height: auto;
+/* Long-form articles share one reading rhythm. Custom figure descendants
+   keep their own compact spacing rather than inheriting prose margins. */
+.article-prose {
+  @apply min-w-0 font-mono text-base text-foreground sm:text-lg;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.article-prose :where(p, ul, ol, blockquote, pre):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  margin-block: 1.5rem;
+}
+
+.article-prose > :first-child {
+  margin-top: 0;
+}
+
+.article-prose :where(h2):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  margin-block: 3rem 1rem;
+  line-height: 1.2;
+  scroll-margin-top: 6rem;
+}
+
+.article-prose :where(h3, h4, h5, h6):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  margin-block: 2rem 0.75rem;
+  scroll-margin-top: 6rem;
+}
+
+.article-prose :where(li):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  margin-block: 0.5rem;
+  padding-left: 0.25rem;
+}
+
+.article-prose :where(li > p):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  margin-block: 0.5rem;
+}
+
+.article-prose :where(pre) {
+  @apply max-w-full overflow-x-auto rounded-lg border border-border bg-muted p-4 text-sm;
+  overflow-wrap: normal;
+}
+
+.article-prose :where(code) {
+  @apply font-mono text-sm;
+}
+
+.article-prose :where(img):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  @apply mx-auto my-8 h-auto max-w-full rounded-lg;
 }
 
 .custom-mdx-content .image-wrapper {
-  width: 80%;
+  width: 100%;
   margin: 2rem auto;
 }
 
-.custom-mdx-content {
-  @apply text-lg leading-relaxed;
+.article-prose :where(a):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  text-underline-offset: 0.2em;
 }
 
-.custom-mdx-content p,
-.custom-mdx-content ul,
-.custom-mdx-content ol,
-.custom-mdx-content blockquote {
-  @apply my-6;
+.article-prose :where(a:focus-visible) {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
-.custom-mdx-content h2 {
-  @apply text-3xl mt-12 mb-4 leading-snug;
-}
-
-.custom-mdx-content h3 {
-  @apply text-2xl mt-8 mb-4 leading-snug;
-}
-
-/* Add this for code blocks */
-.custom-mdx-content pre {
-  @apply my-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-x-auto;
-}
-
-.custom-mdx-content code {
+.article-prose :where(table):not(:where([data-article-figure], [data-article-figure] *)) {
   @apply font-mono text-sm;
+  border-collapse: collapse;
+  line-height: 1.6;
+}
+
+.article-prose :where(th, td):not(:where([data-article-figure], [data-article-figure] *)) {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+  text-align: left;
+}
+
+.article-prose :where(figure img) {
+  margin-block: 0;
+}
+
+.article-prose :where(figcaption):not(:where([data-article-figure], [data-article-figure] *)) {
+  @apply font-mono text-xs leading-relaxed;
 }
 
 /* Enhanced animations for stock search */

@@ -20,7 +20,12 @@ import { Separator } from "./separator";
 import { Skeleton } from "./skeleton";
 
 /**
- * Shared presentational view for the "About" company info card.
+ * Shared presentational view for the "Company details" card in the Overview's
+ * right rail (website, address, social links).
+ *
+ * It is titled "Company details", not "About": the Overview's About card (the
+ * description, the short-interest prose and the themes, in page.tsx) is the
+ * page's "About", and two cards of that name made the page read as a repeat.
  *
  * Rendered by BOTH the server component (companyInfo.tsx) and the client
  * retry twin (company-info-with-retry.tsx) so the markup lives in exactly
@@ -48,7 +53,7 @@ export function CompanyInfoView({
           socialLinks.youtube),
     );
   // Industry intentionally excluded: it already shows as a badge in the
-  // page header (CompanyProfile).
+  // page header (StockHeader).
   const hasAnyData = Boolean(
     stockDetails.website || stockDetails.address || hasSocialLinks,
   );
@@ -60,7 +65,7 @@ export function CompanyInfoView({
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Building2Icon className="h-5 w-5" />
-            About
+            Company details
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
@@ -77,7 +82,7 @@ export function CompanyInfoView({
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Building2Icon className="h-5 w-5" />
-          About
+          Company details
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
@@ -218,7 +223,7 @@ export function CompanyInfoSkeleton({
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Building2Icon className="h-5 w-5" />
-          About
+          Company details
           {isRetrying && (
             <RefreshCwIcon className="h-4 w-4 animate-spin text-muted-foreground" />
           )}

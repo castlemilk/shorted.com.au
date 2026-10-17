@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import { Badge } from "~/@/components/ui/badge";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { Network } from "lucide-react";
 import Link from "next/link";
 
@@ -59,42 +60,45 @@ export function StockConnections({
       </CardHeader>
       <CardContent>
         <div className="space-y-1">
-          {similarCompanies.map((peer) => (
-            <Link
-              key={peer.stockCode}
-              href={`/shorts/${peer.stockCode}`}
-              className="block group"
-            >
-              <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-sm font-semibold text-primary group-hover:underline shrink-0">
-                    {peer.stockCode}
-                  </span>
-                  <span className="text-sm text-muted-foreground truncate">
-                    {peer.companyName}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {peer.industry && (
-                    // Hidden on the smallest viewports: an unbounded industry
-                    // badge in this shrink-0 cluster otherwise squeezes the
-                    // company name to nothing at ~360px.
-                    <Badge
-                      variant="secondary"
-                      className="hidden sm:inline-flex text-[11px] py-0"
-                    >
-                      {peer.industry}
-                    </Badge>
-                  )}
-                  {peer.similarity > 0 && (
-                    <span className="text-[11px] tabular-nums text-muted-foreground">
-                      {Math.round(peer.similarity * 100)}% match
+          {similarCompanies.map((peer) => {
+            const industry = industryLabel(peer.industry);
+            return (
+              <Link
+                key={peer.stockCode}
+                href={`/shorts/${peer.stockCode}`}
+                className="block group"
+              >
+                <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono text-sm font-semibold text-primary group-hover:underline shrink-0">
+                      {peer.stockCode}
                     </span>
-                  )}
+                    <span className="text-sm text-muted-foreground truncate">
+                      {peer.companyName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {industry && (
+                      // Hidden on the smallest viewports: an unbounded industry
+                      // badge in this shrink-0 cluster otherwise squeezes the
+                      // company name to nothing at ~360px.
+                      <Badge
+                        variant="secondary"
+                        className="hidden sm:inline-flex text-[11px] py-0"
+                      >
+                        {industry}
+                      </Badge>
+                    )}
+                    {peer.similarity > 0 && (
+                      <span className="text-[11px] tabular-nums text-muted-foreground">
+                        {Math.round(peer.similarity * 100)}% match
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       </CardContent>
     </Card>

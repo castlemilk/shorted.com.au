@@ -1,11 +1,12 @@
 # Housing official-ingest and listings-event freshness sentinel.
 #
-# This runs daily against the production database using read-only transactions.
-# Four checks: official ingest errors, cursor/fact period regressions, global
-# event silence (72h), and — because a limping crawl keeps the global check
-# green forever — per-suburb catalog staleness (oldest covered suburb > 132h)
-# plus the rig's own crawl_run_status health (error/blocked, or a daily delta
-# that has not finished in 30h).
+# This runs daily against the production database inside ONE read-only
+# transaction. Checks: official ingest errors, cursor/fact period regressions,
+# global event silence (72h), materialized-view refresh age (72h), and —
+# because a limping crawl keeps the global check green forever — per-suburb
+# catalog staleness (oldest covered suburb > 132h) plus the rig's own
+# crawl_run_status health (error/blocked, or a daily delta that has not
+# finished in 30h).
 name: Housing Freshness
 
 on:
@@ -25,12 +26,24 @@ permissions:
 env:
   DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
   CRAWL_FRESHNESS_WEBHOOK: ${{ secrets.CRAWL_FRESHNESS_WEBHOOK }}
-  # PostgreSQL enforces read-only access even if this workflow is edited badly.
-  PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000"
+  # No PGOPTIONS. This used to carry "-c default_transaction_read_only=on
+  # -c statement_timeout=60000" with the comment "PostgreSQL enforces read-only
+  # access even if this workflow is edited badly". It enforced nothing:
+  # Supabase's pooler (Supavisor) drops libpq startup options, so the session
+  # read back default_transaction_read_only=off and the role's 2-minute timeout
+  # (measured 2026-09-23). The guard now lives in the SQL itself: BEGIN READ
+  # ONLY and SET LOCAL, checked by a DO block before the query runs.
 
 jobs:
   freshness:
-    runs-on: [self-hosted, cuttlefish, linux]
+    # GitHub-hosted on purpose. This is the alarm for a dead crawl rig, and the
+    # self-hosted Cuttlefish runners are containers on that same laptop: when
+    # the rig was down they were down too, and the sentinel queued until
+    # GitHub cancelled it (2026-09-21 and 09-22). It ran on ubuntu-latest with
+    # the same DATABASE_URL_PROD secret until #600, and passed daily from
+    # there (2026-08-11..18), so the hosted path can reach the database.
+    # psql still comes from the pinned container below, not the image.
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check housing freshness
@@ -38,23 +51,38 @@ jobs:
         run: |
           set -Eeuo pipefail
 
+          raw_file="$RUNNER_TEMP/housing-freshness-raw.txt"
           report_file="$RUNNER_TEMP/housing-freshness-report.txt"
+          info_file="$RUNNER_TEMP/housing-freshness-info.txt"
           query_error_file="$RUNNER_TEMP/housing-freshness-query-error.txt"
 
           # Cursor names do not always equal fact-source names. Keeping this map
           # explicit also excludes non-fact cursors such as listings and census.
           set +e
-          # The self-hosted runner has no psql binary, so this step exited 127
-          # in ~9ms on every scheduled run from 2026-08-29 onward: the sentinel
-          # CLAUDE.md calls "the only layer that survives a dead rig" was itself
-          # dead, and a red daily run reported it in a way nobody read. Run the
-          # client from a container, exactly as terraform-deploy already does on
-          # this same runner. `-i` keeps the heredoc on stdin and `-e PGOPTIONS`
-          # carries the read-only enforcement into the container.
-          docker run --rm -i -e PGOPTIONS postgres:15-alpine \
+          # psql runs from a pinned container, not from whatever the runner
+          # image ships: the self-hosted runner had no psql binary, so this step
+          # exited 127 in ~9ms on every scheduled run from 2026-08-29 onward.
+          # `-i` keeps the heredoc on stdin.
+          #
+          # The read-only guard is the transaction: BEGIN READ ONLY and
+          # SET LOCAL, both of which end with it on any pooler, then a DO block
+          # that refuses to continue unless the guard is in effect. psql sends
+          # the heredoc's statements one by one on ONE connection, and an open
+          # transaction keeps the same backend even on the transaction pooler.
+          docker run --rm -i postgres:15-alpine \
             psql --no-psqlrc --set=ON_ERROR_STOP=1 --dbname="$DATABASE_URL" \
             --tuples-only --no-align --quiet \
-            >"$report_file" 2>"$query_error_file" <<'SQL'
+            >"$raw_file" 2>"$query_error_file" <<'SQL'
+          BEGIN READ ONLY;
+          SET LOCAL statement_timeout = '60s';
+          DO $guard$
+          BEGIN
+            IF current_setting('transaction_read_only') <> 'on' THEN
+              RAISE EXCEPTION 'read-only guard not in effect (transaction_read_only=%)',
+                current_setting('transaction_read_only');
+            END IF;
+          END
+          $guard$;
           WITH expected_fact_sources(cursor_source, fact_source, fact_measure) AS (
             VALUES
               ('abs_res_dwell_st', 'abs_res_dwell_st', NULL),
@@ -114,6 +142,23 @@ jobs:
           ),
           stale_suburb_total AS (
             SELECT COUNT(*) AS stale_total FROM stale_suburbs
+          ),
+          -- When each housing materialized view was last refreshed, from
+          -- housing_mv_refresh (migration 000124). That table may not exist
+          -- yet, and naming a missing table fails the whole query at parse
+          -- time, so it is read through query_to_xml only when to_regclass
+          -- finds it. Empty when absent; the MV check then falls back below.
+          mv_refresh AS (
+            SELECT
+              (xpath('/row/mv_name/text()', r))[1]::text AS mv_name,
+              (xpath('/row/refreshed_at/text()', r))[1]::text::timestamptz AS refreshed_at
+            FROM unnest(
+              CASE
+                WHEN to_regclass('public.housing_mv_refresh') IS NULL THEN ARRAY[]::xml[]
+                ELSE xpath('/table/row', query_to_xml(
+                  'SELECT mv_name, refreshed_at FROM public.housing_mv_refresh', false, false, ''))
+              END
+            ) AS r
           ),
           violations AS (
             SELECT
@@ -269,6 +314,49 @@ jobs:
             ) AS d
             WHERE d.max_date IS NULL
                OR d.max_date < (now() - interval '54 hours')::date
+
+            UNION ALL
+
+            -- MV_REFRESH_AGE: what /price-drops and the suburb pages actually
+            -- serve. The collector refreshes the housing MVs after every crawl
+            -- that wrote anything, and refresh_housing_materialized_views()
+            -- turns a failed view into a WARNING and carries on, so a view can
+            -- stop refreshing while every run reports success. 72h: longer
+            -- than a fortnightly full pass (~1.5 days, refreshed only at its
+            -- end) plus the delta gap before it, so a healthy rig never trips
+            -- it. One row for all stale views, not one per view.
+            SELECT
+              'MV_REFRESH_AGE',
+              string_agg(m.mv_name, ',' ORDER BY m.mv_name),
+              format(
+                '%s view(s) not refreshed within the 72-hour threshold; oldest refreshed_at=%s; newest event=%s',
+                COUNT(*),
+                MIN(m.refreshed_at),
+                COALESCE((SELECT max_observed_at::text FROM event_maximum), 'NULL')
+              )
+            FROM mv_refresh AS m
+            WHERE m.refreshed_at < now() - interval '72 hours'
+            HAVING COUNT(*) > 0
+
+            UNION ALL
+
+            -- Fallback while housing_mv_refresh is absent or empty: the refresh
+            -- follows every crawl write, so the newest event is the best
+            -- available bound on the last refresh.
+            SELECT
+              'MV_REFRESH_AGE',
+              'property_price_events (fallback)',
+              format(
+                'housing_mv_refresh %s; newest event=%s, older than the 72-hour threshold',
+                CASE
+                  WHEN to_regclass('public.housing_mv_refresh') IS NULL THEN 'not present (migration 000124 not applied)'
+                  ELSE 'has no rows'
+                END,
+                COALESCE(e.max_observed_at::text, 'NULL')
+              )
+            FROM event_maximum AS e
+            WHERE NOT EXISTS (SELECT 1 FROM mv_refresh)
+              AND (e.max_observed_at IS NULL OR e.max_observed_at < now() - interval '72 hours')
           )
           -- Ordered by CAUSALITY, not alphabetically.
           --
@@ -286,20 +374,48 @@ jobs:
           -- merely slow. The staleness counts come last — they are the widest
           -- and least specific thing in the report, and they are what a healthy
           -- rig fixes by itself.
-          SELECT concat_ws(E'\t', check_name, source, detail)
-          FROM violations
-          ORDER BY
-            CASE check_name
-              WHEN 'RIG_STATUS'            THEN 0  -- cause: the crawl itself
-              WHEN 'EVENT_SILENCE'         THEN 1  -- first downstream signal
-              WHEN 'DROP_INDEX_STALENESS'  THEN 2
-              WHEN 'CATALOG_STALENESS'     THEN 3  -- broadest symptom
-              ELSE 4
-            END,
-            check_name, source;
+          --
+          -- One INFO row rides along for the step summary: which source the MV
+          -- age was judged by. The shell splits it off; it is never a failure.
+          SELECT line
+          FROM (
+            SELECT
+              -1 AS rank,
+              concat_ws(
+                E'\t', 'INFO', 'mv_age_source',
+                CASE
+                  WHEN EXISTS (SELECT 1 FROM mv_refresh) THEN 'housing_mv_refresh'
+                  ELSE 'newest property_price_events.observed_at (housing_mv_refresh absent or empty)'
+                END
+              ) AS line,
+              '' AS check_name,
+              '' AS source
+
+            UNION ALL
+
+            SELECT
+              CASE check_name
+                WHEN 'RIG_STATUS'            THEN 0  -- cause: the crawl itself
+                WHEN 'EVENT_SILENCE'         THEN 1  -- first downstream signal
+                WHEN 'DROP_INDEX_STALENESS'  THEN 2
+                WHEN 'MV_REFRESH_AGE'        THEN 3  -- what the pages serve
+                WHEN 'CATALOG_STALENESS'     THEN 4  -- broadest symptom
+                ELSE 5
+              END,
+              concat_ws(E'\t', check_name, source, detail),
+              check_name,
+              source
+            FROM violations
+          ) AS out
+          ORDER BY rank, check_name, source;
+          ROLLBACK;
           SQL
           check_rc=$?
           set -e
+
+          # INFO rows describe the run; everything else is a violation.
+          grep $'^INFO\t' "$raw_file" >"$info_file" || true
+          grep -v $'^INFO\t' "$raw_file" >"$report_file" || true
 
           if (( check_rc != 0 )); then
             query_error="$(sed -n '1,20p' "$query_error_file" | tr '\r\n\t' '   ' | sed -E 's/[[:space:]]+/ /g' | cut -c1-2000)"
@@ -315,15 +431,19 @@ jobs:
           {
             echo "## Housing freshness report"
             echo
-            echo "Thresholds: event silence **72h** · catalog per-suburb **132h** · delta run age **30h** (suppressed while a full pass is in flight)."
+            echo "Thresholds: event silence **72h** · MV refresh age **72h** · catalog per-suburb **132h** · delta run age **30h** (suppressed while a full pass is in flight)."
             echo
+            if [[ -s "$info_file" ]]; then
+              echo "MV age judged by: $(cut -f3 "$info_file" | head -1)."
+              echo
+            fi
             if [[ -s "$report_file" ]]; then
               echo '```text'
               echo -e "CHECK\tSOURCE\tDETAIL"
               sed -n '1,100p' "$report_file"
               echo '```'
             else
-              echo "All checks passed: no ingest errors, period regressions, or event silence."
+              echo "All checks passed: no ingest errors, period regressions, event silence, stale views, or stale suburbs."
             fi
           } >>"$GITHUB_STEP_SUMMARY"
 

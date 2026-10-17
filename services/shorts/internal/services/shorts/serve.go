@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"time"
 
 	"connectrpc.com/connect"
 	connectcors "connectrpc.com/cors"
+	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/rs/cors"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
@@ -207,6 +209,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mount(shortsv1alpha1connect.NewEconomyServiceHandler(s, interceptors))
 	mount(shortsv1alpha1connect.NewIndustryIntelligenceServiceHandler(s, interceptors))
 	mount(shortsv1alpha1connect.NewPoliticiansServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewStrategyServiceHandler(s, interceptors))
 	// Operator console. Its own package, not shorts.v1alpha1: every rpc there
 	// must also exist on the legacy public ShortedStocksService, and admin write
 	// methods do not belong on the surface external API consumers hold.
@@ -219,7 +222,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// constrains them to VISIBILITY_PUBLIC methods.
 	//
 	// OAuth 2.1 resource-server wrapping. A bearer token is OPTIONAL: no
-	// Authorization header still means anonymous access to all 24 tools, which
+	// Authorization header still means anonymous access to all 28 tools, which
 	// is what makes this server adoptable. A token that IS presented is
 	// verified — signature, expiry, and RFC 8707 audience binding to this
 	// deployment's /mcp resource — and its identity attached to the request
@@ -263,6 +266,40 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// clients sometimes append a trailing segment.
 	mux.Handle("/mcp", mcpHandler)
 	mux.Handle("/mcp/", mcpHandler)
+
+	// ADMIN MCP server — publishing and on-demand data jobs, for administrators
+	// only. A separate OAuth resource (/mcp/admin) with its own scopes
+	// (news:publish, jobs:run); see internal/mcp/admin.go for why it is not
+	// tools on the public server.
+	//
+	// Exact patterns, so they beat "/mcp/" above by ServeMux's longest-match
+	// rule — without them the PUBLIC server would answer /mcp/admin.
+	//
+	// Order, outermost first:
+	//   1. RequireBearerToken — no anonymous path; a missing token gets the 401
+	//      + RFC 9728 challenge that starts a client's OAuth flow, a wrong
+	//      audience is refused.
+	//   2. RequireAdmin — requires at least one admin scope and re-checks admin
+	//      status on EVERY request, so removing someone from ADMIN_EMAILS stops
+	//      them within the check's cache TTL, not when their refresh family
+	//      expires. Each tool then checks its own scope.
+	//   3. The admin MCP handler (publish_news_article, news_publish_status,
+	//      run_picks_job, picks_job_status).
+	adminChecker := newAdminCheckerFromEnv()
+	var adminEntitlement oauth.Entitlement
+	var adminCheck mcp.AdminCheck
+	if adminChecker != nil {
+		adminEntitlement = adminChecker.IsAdmin
+		adminCheck = adminChecker.IsAdmin
+	}
+	adminMCPHandler := mcpauth.RequireBearerToken(
+		mcp.NewTokenVerifier(s.tokenService, mcp.AdminResourceURI(apiBaseURL)),
+		mcp.AdminBearerTokenOptions(apiBaseURL),
+	)(mcp.RequireAdmin(adminCheck)(mcp.AdminHandler(&adminMCPSource{Collector: s.jobsCollector, server: s})))
+	mcp.RegisterIconHandlers(mux)
+	mux.Handle("/mcp/admin", adminMCPHandler)
+	mux.Handle("/mcp/admin/", adminMCPHandler)
+	mux.Handle(mcp.AdminProtectedResourceMetadataPath, mcp.AdminProtectedResourceMetadataHandler(apiBaseURL))
 
 	// RFC 9728 protected resource metadata. This is the document the
 	// WWW-Authenticate challenge points at, and the first thing an MCP client
@@ -365,6 +402,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		Store:     oauthClients,
 		Tickets:   s.oauthStore,
 		Authorize: consentAuthorizer,
+		// The admin MCP resource is ticketed only for an administrator.
+		AdminEntitlement: adminEntitlement,
 	}
 	// What the human must be shown, computed by the same validation the grant
 	// applies — so the screen cannot describe one request and authorise another.
@@ -382,6 +421,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		Identity:  firebaseIdentityVerifier{},
 		Store:     oauthClients,
 		Consent:   s.oauthStore,
+		// Re-checked at grant time: an approval is about the past.
+		AdminEntitlement: adminEntitlement,
 	})))
 	// RFC 7591 dynamic client registration. Deprecated in protocol 2026-07-28
 	// in favour of CIMD above, but retained because Claude and ChatGPT still
@@ -403,6 +444,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		Store:       oauthClients,
 		Minter:      s.tokenService,
 		ResolveTier: oauth.TierResolver(authOpts.SubscriptionLookup),
+		// Re-checked on every code exchange AND every refresh.
+		AdminEntitlement: adminEntitlement,
 	})))
 
 	// Add health check endpoint
@@ -935,6 +978,12 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// constructed server-side from a validated stock list. See jobs_validate.go.
 	mux.HandleFunc("/api/admin/jobs/validate-sync", adminAuthMiddleware(adminJobsValidateSyncHandler(logger, s.jobsCollector)))
 
+	// Admin: publish one merged content/news article to /news —
+	// POST /api/admin/news/publish (start) + GET ?execution= (poll).
+	// Runs the shorted-news-publish job with an argv built server-side from a
+	// validated slug; the caller never supplies content. See news_publish.go.
+	mux.HandleFunc("/api/admin/news/publish", newsPublishAuthMiddleware(adminNewsPublishHandler(logger, s.jobsCollector)))
+
 	// Admin: list broadcasts
 	mux.HandleFunc("/api/admin/broadcasts", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		items, err := s.store.ListBroadcasts(50)
@@ -1155,8 +1204,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// (health, search, admin, docs), then with h2c for HTTP/2 support.
 	handler := shortedotel.HTTPMiddleware(mux)
 
-	return http.ListenAndServe(
-		address,
+	srv := &http.Server{
+		Addr: address,
 		// Use h2c so we can serve HTTP/2 without TLS.
 		//
 		// Deprecated in favour of http.Server.Protocols + SetUnencryptedHTTP2, but
@@ -1166,6 +1215,13 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		// Swapping it is a change to how this API negotiates every connection and
 		// belongs in its own change with its own verification, not here.
 		//nolint:staticcheck // SA1019: see above — deliberate, tracked separately.
-		h2c.NewHandler(handler, &http2.Server{}),
-	)
+		Handler: h2c.NewHandler(handler, &http2.Server{}),
+	}
+	ln, err := net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+	// Returns when ctx ends (SIGTERM/SIGINT in main), after a bounded drain, so
+	// main reaches s.Close() and flushes the monthly quota buffer.
+	return serveUntilDone(ctx, srv, ln, ShutdownGrace)
 }

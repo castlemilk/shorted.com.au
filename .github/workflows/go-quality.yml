@@ -41,8 +41,16 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
+        with:
+          # PRs lint against their merge base (below), which needs history.
+          fetch-depth: 0
 
-      - uses: actions/setup-go@v6
+      # v6.5.0, not v6: Cuttlefish resolves an action's ref through GitHub's
+      # commits API, which answers 422 "No commit found for SHA: v6" for
+      # setup-go's short tag (first seen 2026-10-15; refs/tags/v6 and v6.5.0
+      # are the same commit and still resolve). Every Go job failed at "Set up
+      # job" on it.
+      - uses: actions/setup-go@v6.5.0
         with:
           go-version: ${{ env.GO_VERSION }}
           # cache: false is deliberate and load-bearing — setup-go's cache SAVE
@@ -53,6 +61,12 @@ jobs:
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
+      # The checkout doesn't always create origin/<base>; without it
+      # --new-from-merge-base silently falls back to reporting every issue.
+      - name: Fetch PR base
+        if: github.base_ref != ''
+        run: git fetch --no-tags origin "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
 
       - name: Lint services
         uses: golangci/golangci-lint-action@v8
@@ -68,9 +82,21 @@ jobs:
         with:
           version: ${{ env.GOLANGCI_VERSION }}
           working-directory: services
+          # verify: false is deliberate. The action's default pre-step runs
+          # `golangci-lint config verify`, which downloads the JSON schema from
+          # golangci-lint.run on every run. From the self-hosted runners that
+          # fetch times out ("context deadline exceeded"), failing the job
+          # before a single file is linted. That broke main at 6240fd95 on code
+          # that had passed lint 50 minutes earlier. The lint run itself still
+          # loads and rejects a malformed config; schema-check it locally with
+          # `golangci-lint config verify` in services/ when editing it.
+          verify: false
           # --concurrency 1 mirrors `make lint-backend`: the linter OOMs on this
           # module at higher concurrency on constrained runners.
-          args: --concurrency 1 --timeout 300s ./...
+          # On PRs, only issues new against the merge base; pushes to main
+          # lint the whole module. (The action's only-new-issues fetches the
+          # PR patch from the GitHub API; the merge base needs no API.)
+          args: --concurrency 1 --timeout 300s ${{ github.base_ref && format('--new-from-merge-base=origin/{0}', github.base_ref) || '' }} ./...
 
   unit-tests:
     name: Go unit tests
@@ -79,7 +105,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v6
+      # v6.5.0, not v6: see the lint job above.
+      - uses: actions/setup-go@v6.5.0
         with:
           go-version: ${{ env.GO_VERSION }}
           # cache: false is deliberate and load-bearing — setup-go's cache SAVE

@@ -6,6 +6,7 @@ import {
   getMultipleStockQuotes,
   getHistoricalData,
   getStockPrice,
+  QUOTE_REFRESH_INTERVAL_MS,
   type StockQuote,
   type HistoricalDataPoint,
 } from "@/lib/stock-data-service";
@@ -20,7 +21,7 @@ import type { TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 // Short positions (ASIC T+4, refreshed by the daily sync), end-of-day prices,
 // top-shorts MV, and company details all change at most once per trading day.
 // Keep them fresh for 30 minutes so revisiting a stock/widget doesn't refetch
-// data that is identical all day. Intraday quotes keep their own short window.
+// data that is identical all day. Quotes also come from daily snapshots.
 const DAILY_STALE = 30 * 60 * 1000;
 
 /**
@@ -28,11 +29,15 @@ const DAILY_STALE = 30 * 60 * 1000;
  * Uses sorted, comma-joined codes as cache key for deduplication
  */
 export function useStockQuotes(codes: string[]) {
+  const symbols = [...new Set(codes.map((code) => code.toUpperCase()))].sort();
   return useQuery({
-    queryKey: queryKeys.stock.quotes(codes),
-    queryFn: () => getMultipleStockQuotes(codes),
-    enabled: codes.length > 0,
-    staleTime: 30 * 1000, // 30 seconds for quotes (more frequent updates needed)
+    queryKey: queryKeys.stock.quotes(symbols),
+    queryFn: ({ signal }) => getMultipleStockQuotes(symbols, signal),
+    enabled: symbols.length > 0,
+    staleTime: QUOTE_REFRESH_INTERVAL_MS,
+    gcTime: QUOTE_REFRESH_INTERVAL_MS,
+    refetchOnWindowFocus: true,
+    retry: false,
   });
 }
 
@@ -40,11 +45,15 @@ export function useStockQuotes(codes: string[]) {
  * Hook for fetching a single stock quote
  */
 export function useStockQuote(code: string) {
+  const symbol = code.toUpperCase();
   return useQuery({
-    queryKey: queryKeys.stock.quote(code),
-    queryFn: () => getStockPrice(code),
-    enabled: !!code,
-    staleTime: 30 * 1000,
+    queryKey: queryKeys.stock.quote(symbol),
+    queryFn: ({ signal }) => getStockPrice(symbol, signal),
+    enabled: !!symbol,
+    staleTime: QUOTE_REFRESH_INTERVAL_MS,
+    gcTime: QUOTE_REFRESH_INTERVAL_MS,
+    refetchOnWindowFocus: true,
+    retry: false,
   });
 }
 

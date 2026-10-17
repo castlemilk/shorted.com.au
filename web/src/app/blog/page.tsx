@@ -1,100 +1,182 @@
 import { type Metadata } from "next";
-import Container from "~/@/components/ui/container";
-import { HeroPost } from "~/@/components/ui/hero-post";
-import { Intro } from "~/@/components/ui/intro";
-import { MoreStories } from "~/@/components/ui/more-stories";
-import { getAllPosts } from "~/@/lib/api";
-import { MDXRemote } from "next-mdx-remote/rsc";
-import { type Post } from "~/@/interfaces/post";
-import Info from "~/@/components/ui/info";
-// Use client wrapper to avoid SSR issues with protobuf imports
-import RegisterEmailClient from "~/@/components/ui/register-email-client";
-// Lazy load Prism CSS only for blog pages
-import "prismjs/themes/prism-tomorrow.css";
+import Link from "next/link";
+
+import { cn } from "~/@/lib/utils";
+import { eyebrow, pageTitle, sectionTitle } from "~/@/lib/typography";
 import { siteConfig } from "~/@/config/site";
+import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
+import {
+  BreadcrumbListSchema,
+  ItemListStructuredData,
+} from "~/@/components/seo/enhanced-structured-data";
+import { LLMMeta } from "~/@/components/seo/llm-meta";
+import { getAllPosts } from "~/@/lib/api";
+import {
+  countByCategory,
+  formatBlogDate,
+  toBlogCard,
+} from "~/@/lib/blog/cards";
+import { blogItemListEntry } from "~/@/lib/blog/structured-data";
+import { BlogCategoryNav } from "~/@/components/blog/blog-category-nav";
+import { BlogFeaturedPost } from "~/@/components/blog/blog-featured-post";
+import { BlogPostGrid } from "~/@/components/blog/blog-post-grid";
+
+const TITLE = "ASX Short Selling Blog: Guides, Data and Analysis";
+const DESCRIPTION =
+  "Guides to ASIC's official short-position data, data stories on the most shorted ASX stocks, and housing analysis from ABS and Valuer-General data.";
 
 export const metadata: Metadata = {
-  title: "ASX Short Selling Blog — Analysis & Insights",
-  description:
-    "Expert analysis and insights on ASX short selling. Learn about short squeezes, market trends, ASIC reporting, and strategies for tracking bearish sentiment in Australian stocks.",
+  // Root layout applies the `%s | Shorted` template.
+  title: TITLE,
+  description: DESCRIPTION,
   keywords: [
     "ASX short selling blog",
     "short selling analysis",
-    "Australian stock market insights",
+    "how to read short interest data",
+    "most shorted ASX stocks",
     "short squeeze analysis",
     "ASIC short position insights",
+    "Australian house prices analysis",
     "market sentiment Australia",
-    "short interest strategies",
   ],
   openGraph: {
-    title: "Short Selling Insights & Analysis | Shorted Blog",
-    description:
-      "Expert analysis and insights on ASX short selling. Learn about short squeezes, market trends, and strategies.",
+    title: "Notes on shorting the ASX | Shorted Blog",
+    description: DESCRIPTION,
     url: `${siteConfig.url}/blog`,
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
+    // No `images` key: this route ships its own opengraph-image.tsx and an
+    // explicit `images` here would SHADOW the file convention.
   },
   twitter: {
     site: "@shorted___",
     creator: "@shorted___",
     card: "summary_large_image",
-    title: "Short Selling Insights & Analysis | Shorted Blog",
+    title: "Notes on shorting the ASX | Shorted Blog",
     description:
-      "Expert analysis and insights on ASX short selling.",
+      "Guides, data stories and analysis on ASX short selling, from official ASIC data.",
   },
   alternates: {
     canonical: `${siteConfig.url}/blog`,
+    languages: {
+      "en-AU": `${siteConfig.url}/blog`,
+      "x-default": `${siteConfig.url}/blog`,
+    },
   },
 };
 
-export const revalidate = 3600; // Revalidate every hour
+// Posts are files in `_blogs/`, read at build/regeneration time. Hourly ISR
+// is plenty; nothing here reads searchParams, so the page stays static.
+export const revalidate = 3600;
 
-export default async function Index() {
-  const allPosts: Post[] = getAllPosts();
-  const heroPost = allPosts[0];
-  const morePosts = allPosts.slice(1);
+export default function BlogIndexPage() {
+  // getAllPosts() is newest-first, so the first card is the featured post.
+  const cards = getAllPosts().map(toBlogCard);
+  const [featured, ...rest] = cards;
+  const counts = countByCategory(cards);
 
-  const components = {
-    h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h1 className="text-4xl font-bold mt-8 mb-4" {...props}>{children}</h1>,
-    h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h2 className="text-3xl font-semibold mt-6 mb-3" {...props}>{children}</h2>,
-    h3: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h3 className="text-2xl font-medium mt-4 mb-2" {...props}>{children}</h3>,
-    h4: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h4 className="text-xl font-medium mt-3 mb-2" {...props}>{children}</h4>,
-    h5: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h5 className="text-lg font-medium mt-2 mb-1" {...props}>{children}</h5>,
-    h6: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h6 className="text-base font-medium mt-2 mb-1" {...props}>{children}</h6>,
-    a: ({ children, ...props }: React.HTMLAttributes<HTMLAnchorElement>) => <a className="text-primary hover:underline" {...props}>{children}</a>,
-    p: (props: React.HTMLAttributes<HTMLParagraphElement>) => <p className="mt-4 mb-4" {...props} />,
-    ul: (props: React.HTMLAttributes<HTMLUListElement>) => <ul className="list-disc list-inside mt-2 mb-2" {...props} />,
-    ol: (props: React.HTMLAttributes<HTMLOListElement>) => <ol className="list-decimal list-inside mt-2 mb-2" {...props} />,
-    li: (props: React.HTMLAttributes<HTMLLIElement>) => <li className="mt-1 mb-1" {...props} />,
-    table: (props: React.HTMLAttributes<HTMLTableElement>) => <table className="w-full mt-4 mb-4" {...props} />,
-    tr: (props: React.HTMLAttributes<HTMLTableRowElement>) => <tr className="border-b border-border" {...props} />,
-    th: (props: React.HTMLAttributes<HTMLTableCellElement>) => <th className="px-4 py-2 text-left" {...props} />,
-    td: (props: React.HTMLAttributes<HTMLTableCellElement>) => <td className="px-4 py-2 text-left" {...props} />,
-    RegisterEmail: (props: Record<string, unknown>) => <RegisterEmailClient {...props} />,
-    Info: (props: { title: string; children: React.ReactNode }) => <Info {...props} />,
-  };
-
+  // Plain container rather than DashboardLayout: its sidebar mounts client
+  // side for signed-in readers and would reflow the whole listing after
+  // first paint. A reading surface has no dashboard nav to offer anyway.
   return (
-    <main>
-      <Container>
-        <Intro />
-        {heroPost && (
-          <HeroPost
-            title={heroPost.title}
-            coverImage={heroPost.coverImage}
-            date={heroPost.date}
-            author={heroPost.author}
-            slug={heroPost.slug}
-            excerpt={heroPost.excerpt}
-          >
-            <div className="max-w-2xl mx-auto custom-mdx-content">
-              <MDXRemote source={heroPost.content} components={components} />
+    <main className="container py-6">
+      <BreadcrumbListSchema
+        items={[
+          { name: "Home", url: siteConfig.url },
+          { name: "Blog", url: `${siteConfig.url}/blog` },
+        ]}
+      />
+      <ItemListStructuredData
+        name="Shorted Blog"
+        description={DESCRIPTION}
+        itemType="BlogPosting"
+        items={cards.map(blogItemListEntry)}
+      />
+      <LLMMeta
+        title={TITLE}
+        description={DESCRIPTION}
+        keywords={[
+          "ASX short selling",
+          "short interest guides",
+          "market analysis",
+          "Australian housing data",
+        ]}
+        dataSource="Shorted Blog"
+        // Posts land when they are ready, a few a month at most.
+        dataFrequency="irregular"
+        lastUpdated={featured?.date}
+      />
+
+      <div className="space-y-8">
+        <div className="mb-4">
+          <Breadcrumbs items={[{ label: "Blog", href: "/blog" }]} />
+        </div>
+
+        <header className="border-b border-border/40 pb-6">
+          <p className={cn(eyebrow, "mb-2 font-medium")}>Blog</p>
+          <h1 className={cn(pageTitle, "leading-[1.1]")}>
+            Notes on shorting the ASX
+          </h1>
+          <p className="mt-2 max-w-2xl text-muted-foreground">
+            Guides to reading ASIC&rsquo;s short-position data, data stories on
+            crowded trades and sector rotations, and the occasional detour into
+            Australian house prices and what we are building.
+          </p>
+          <p className="mt-3 font-mono text-xs text-muted-foreground">
+            <span className="tabular-nums">{cards.length}</span> articles
+            {featured ? (
+              <>
+                {" · "}Latest{" "}
+                <time dateTime={featured.date}>
+                  {formatBlogDate(featured.date)}
+                </time>
+              </>
+            ) : null}
+            {" · "}
+            <Link href="/feed.xml" className="text-primary hover:underline">
+              RSS
+            </Link>
+          </p>
+        </header>
+
+        <BlogCategoryNav active="all" counts={counts} />
+
+        {featured ? <BlogFeaturedPost card={featured} /> : null}
+
+        {rest.length > 0 ? (
+          <section aria-labelledby="blog-more-articles">
+            <div className="mb-5 flex items-baseline justify-between gap-4">
+              <h2 id="blog-more-articles" className={sectionTitle}>
+                More articles
+              </h2>
+              <p className="font-mono text-xs text-muted-foreground">
+                Newest first
+              </p>
             </div>
-          </HeroPost>
-        )}
-        {morePosts.length > 0 && <MoreStories posts={morePosts} />}
-      </Container>
+            <BlogPostGrid cards={rest} />
+          </section>
+        ) : null}
+
+        <footer className="border-t border-border/40 pt-6 text-sm text-muted-foreground">
+          <p>
+            Short positions come from ASIC&rsquo;s daily reports with a T+4
+            trading-day delay, and nothing here is financial advice. See also:{" "}
+            <Link href="/top" className="text-primary hover:underline">
+              most shorted ASX stocks
+            </Link>
+            {" · "}
+            <Link href="/reports" className="text-primary hover:underline">
+              weekly reports
+            </Link>
+            {" · "}
+            <Link href="/news" className="text-primary hover:underline">
+              newsroom
+            </Link>
+            .
+          </p>
+        </footer>
+      </div>
     </main>
   );
 }

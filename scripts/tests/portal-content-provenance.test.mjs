@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,8 +13,6 @@ const workflow = join(repoRoot, ".github/workflows/repo-hygiene.yml");
 const fixturePaths = [
   "services/house-price-collector/testdata/rea-pagemeta.html",
   "services/house-price-collector/testdata/domain-pagemeta.html",
-  "services/jobs/internal/jobs/houseprices/testdata/rea-pagemeta.html",
-  "services/jobs/internal/jobs/houseprices/testdata/domain-pagemeta.html",
 ];
 
 function temporaryRoot() {
@@ -37,6 +35,23 @@ function run(script, root) {
 function output(result) {
   return `${result.stdout}\n${result.stderr}`;
 }
+
+test("the checkout retains every tracked service and web provenance input", () => {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith("GIT_")) delete env[key];
+  }
+  const result = spawnSync("git", ["-C", repoRoot, "ls-files", "-z", "--", "services", "web"], {
+    env,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  assert.equal(result.status, 0, output(result));
+  const inputs = result.stdout.split("\0").filter(Boolean);
+  assert.ok(inputs.length > 0, "the provenance scope must contain tracked inputs");
+  assert.deepEqual(inputs.filter((path) => !existsSync(join(repoRoot, path))), [],
+    "a sparse checkout must not omit files that the provenance scanner guards");
+});
 
 test("rejects captured REA bootstrap markup with its relative path and signature", () => {
   const root = temporaryRoot();
@@ -263,7 +278,7 @@ test("workflow runs the provenance tests and gate for every protected path", () 
   assert.match(source, /node scripts\/check-portal-content-provenance\.mjs/);
 });
 
-test("generator deterministically reproduces all four committed fixtures", () => {
+test("generator deterministically reproduces both committed fixtures", () => {
   const root = temporaryRoot();
   const firstRun = run(generator, root);
   assert.equal(firstRun.status, 0, output(firstRun));
@@ -284,6 +299,4 @@ test("generator deterministically reproduces all four committed fixtures", () =>
   for (const path of fixturePaths) {
     assert.deepEqual(readFileSync(join(root, path)), firstContents.get(path), `${path} changed between generator runs`);
   }
-  assert.deepEqual(firstContents.get(fixturePaths[0]), firstContents.get(fixturePaths[2]));
-  assert.deepEqual(firstContents.get(fixturePaths[1]), firstContents.get(fixturePaths[3]));
 });

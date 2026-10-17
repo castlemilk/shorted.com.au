@@ -8,6 +8,8 @@ import {
   getOgLogo,
 } from "~/@/lib/og/card";
 
+export const maxDuration = 15;
+
 export const alt = 'ASX Short Battlegrounds';
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

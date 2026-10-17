@@ -10,11 +10,15 @@
  *  - **No-op when GA is absent** (SSR, adblocked, not yet loaded, not
  *    configured). `window.gtag` is installed by `deferred-google-analytics.tsx`
  *    on idle, so it is genuinely missing for the first seconds of a session.
- *  - **No runtime imports.** Keeps this ~0 bytes in any shared chunk, which
+ *  - **Only a dependency-free hostname guard.** Keeps this tiny in shared chunks, which
  *    matters for the 5% first-load budget on `/`, `/top` and `/statistics`.
+ *  - **Production hosts only.** No events from localhost or preview, even if
+ *    a test installs a gtag stub.
  *  - **Low cardinality, no PII.** Enforced by callers: only enumerated params,
  *    route *groups* rather than paths, never a raw query string.
  */
+
+import { canCollectAnalytics } from "./analytics-host";
 
 type Gtag = (...args: unknown[]) => void;
 
@@ -26,7 +30,7 @@ type Gtag = (...args: unknown[]) => void;
  * through server rendering.
  */
 function resolveGtag(): Gtag | undefined {
-  if (typeof window === "undefined") return undefined;
+  if (!canCollectAnalytics()) return undefined;
   const candidate = (window as unknown as Record<string, unknown>).gtag;
   return typeof candidate === "function" ? (candidate as Gtag) : undefined;
 }

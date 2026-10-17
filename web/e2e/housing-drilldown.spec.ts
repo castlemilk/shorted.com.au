@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 // Housing national → state → suburb drilldown.
 // NOTE: the state/suburb assertions need the shorts backend serving

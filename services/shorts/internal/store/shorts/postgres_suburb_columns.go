@@ -26,6 +26,8 @@ const (
 	suburbMetricJoinCrime
 	suburbMetricJoinRegister
 	suburbMetricJoinHazards
+	suburbMetricJoinCouncil
+	suburbMetricJoinPlanning
 )
 
 type suburbMetricDefinition struct {
@@ -44,6 +46,37 @@ var partyCategoryLabels = []string{
 	"Family First", "Democratic Labour", "Glenn Lazarus Team",
 	"Australian Motoring Enthusiast", "Australia's Voice", "Other",
 }
+
+// nbnImplausibleTechPredicate matches an NBN classification on a suburb too
+// populous for it to be true. Both tiers it covers come from coarse footprints
+// that the join (web/scripts/geo/join-nbn.mjs) has over-trusted before:
+//
+//   - Satellite on more than 1,000 residents. The original join defaulted every
+//     sample point outside the Fixed Line and Fixed Wireless footprints to
+//     Satellite, so 7,491 of 15,329 suburbs — Bondi, Parramatta, Point Cook
+//     (66,781 people) — were published as satellite-served. Satellite is a
+//     remote-area technology.
+//   - Fixed Wireless on more than 5,000 residents. The wireless footprint is a
+//     coarse tower grid that reaches over towns whose premises are fixed line
+//     (Dubbo, Orange, Pakenham, Sunbury were all labelled wireless), and a
+//     later join let one grid cell over one sample point label Rouse Hill
+//     (11,349 people) wireless. A town that size is not wireless-served.
+//
+// Until every environment has loaded a corrected suburb-nbn.json — and as a
+// backstop after that — these rows read as no data rather than a false fact.
+// Shared by the map metric and the profile/list readers so the three surfaces
+// cannot disagree about one suburb.
+const nbnImplausibleTechPredicate = `((UPPER(c.dominant_nbn_tech) = 'SATELLITE' AND COALESCE(d.population, 0) > 1000)` +
+	` OR (UPPER(c.dominant_nbn_tech) IN ('FW', 'FIXED WIRELESS') AND COALESCE(d.population, 0) > 5000))`
+
+// nbnTechDisplayExpr is the NBN technology the suburb readers publish: the
+// stored value, or an empty string when the classification is implausible.
+const nbnTechDisplayExpr = `CASE WHEN ` + nbnImplausibleTechPredicate + ` THEN '' ELSE COALESCE(c.dominant_nbn_tech, '') END`
+
+// nbnScoreDisplayExpr withholds the quality score with the technology: a score
+// is a property of the tier, so a suppressed tier must not leave its score
+// behind (the collector stores an unknown tier with no score, too).
+const nbnScoreDisplayExpr = `CASE WHEN ` + nbnImplausibleTechPredicate + ` THEN 0 ELSE COALESCE(c.connectivity_quality_score, 0) END`
 
 // suburbMetricRegistry is the single authority for public metric key -> SQL
 // expression mapping. Both column delivery and filtering resolve through it.
@@ -68,8 +101,11 @@ var suburbMetricRegistry = map[string]suburbMetricDefinition{
 		"No religion", "Catholic", "Anglican", "Other Christian", "Islam",
 		"Hinduism", "Buddhism", "Judaism", "Other",
 	}),
+	// Below the Census derived-rate floor (100 residents, censusDerivedRateMinPopulation
+	// in the collector) the culture block is withheld, label and share alike. A
+	// missing label must read as no data there, not fall through to "English".
 	"language": categoryMetric("language", `CASE
-		WHEN d.population IS NULL OR d.population <= 0 THEN NULL
+		WHEN d.population IS NULL OR d.population < 100 THEN NULL
 		WHEN NULLIF(d.top_language, '') IS NULL OR COALESCE(d.pct_top_language, 0) < 5 THEN 13
 		WHEN d.top_language = 'Mandarin' THEN 0
 		WHEN d.top_language = 'Cantonese' THEN 1
@@ -118,6 +154,7 @@ var suburbMetricRegistry = map[string]suburbMetricDefinition{
 	"distance_to_coast": metric("distance_to_coast", "a.dist_to_coast_km", suburbMetricJoinAmenities),
 	"nbn": categoryMetric("nbn", `CASE
 		WHEN NULLIF(c.dominant_nbn_tech, '') IS NULL THEN NULL
+		WHEN `+nbnImplausibleTechPredicate+` THEN NULL
 		WHEN UPPER(c.dominant_nbn_tech) IN ('FTTP', 'HFC', 'FTTC', 'FTTB', 'FTTN', 'FIXED LINE') THEN 0
 		WHEN UPPER(c.dominant_nbn_tech) IN ('FW', 'FIXED WIRELESS') THEN 1
 		WHEN UPPER(c.dominant_nbn_tech) = 'SATELLITE' THEN 2
@@ -160,6 +197,59 @@ var suburbMetricRegistry = map[string]suburbMetricDefinition{
 	"permanent_water_share_pct": metric("permanent_water_share_pct", "h.permanent_water_share_pct", suburbMetricJoinHazards),
 	"flood_planning_share_pct":  metric("flood_planning_share_pct", "h.flood_planning_share_pct", suburbMetricJoinHazards),
 	"bushfire_prone_share_pct":  metric("bushfire_prone_share_pct", "h.bushfire_prone_share_pct", suburbMetricJoinHazards),
+
+	// The suburb's DOMINANT council (suburb_lga, ABS mesh-block allocation) as
+	// its 5-digit ABS LGA code. An identifier column, not a metric: the map
+	// merges suburb polygons by it into council fills and outlines. ABS LGA
+	// codes are 5-digit integers, exact in float32 (< 2^24); the regex keeps
+	// any non-numeric code NULL rather than letting a cast fail the column.
+	"lga_code": metric("lga_code", `CASE WHEN sl.lga_code24 ~ '^[0-9]{5}$' THEN sl.lga_code24::int END`, suburbMetricJoinCouncil),
+
+	// suburb_planning (000125): zoning-family shares as % of the suburb, NULL
+	// where no scheme covers it (QLD/WA/NT, and any suburb the state's scheme
+	// does not reach). Licence-gated in the join.
+	"zone_res_low_share_pct":         metric("zone_res_low_share_pct", "pl.zone_res_low_share_pct", suburbMetricJoinPlanning),
+	"zone_res_medium_high_share_pct": metric("zone_res_medium_high_share_pct", "pl.zone_res_medium_high_share_pct", suburbMetricJoinPlanning),
+	"zone_centre_mixed_share_pct":    metric("zone_centre_mixed_share_pct", "pl.zone_centre_mixed_share_pct", suburbMetricJoinPlanning),
+	"zone_industrial_share_pct":      metric("zone_industrial_share_pct", "pl.zone_industrial_share_pct", suburbMetricJoinPlanning),
+	"zone_rural_share_pct":           metric("zone_rural_share_pct", "pl.zone_rural_share_pct", suburbMetricJoinPlanning),
+	"zone_conservation_share_pct":    metric("zone_conservation_share_pct", "pl.zone_conservation_share_pct", suburbMetricJoinPlanning),
+	"zone_open_space_share_pct":      metric("zone_open_space_share_pct", "pl.zone_open_space_share_pct", suburbMetricJoinPlanning),
+	"zoning_coverage_pct":            metric("zoning_coverage_pct", "pl.zoning_coverage_pct", suburbMetricJoinPlanning),
+	"dominant_zone_family": categoryMetric("dominant_zone_family",
+		zoneFamilyIndexExpression("pl.dominant_zone_family"), suburbMetricJoinPlanning, ZoneFamilyLabels),
+	"heritage_share_pct":    metric("heritage_share_pct", "pl.heritage_share_pct", suburbMetricJoinPlanning),
+	"heritage_item_count":   metric("heritage_item_count", "pl.heritage_item_count", suburbMetricJoinPlanning),
+	"nsw_height_median_m":   metric("nsw_height_median_m", "pl.nsw_height_median_m", suburbMetricJoinPlanning),
+	"nsw_fsr_median":        metric("nsw_fsr_median", "pl.nsw_fsr_median", suburbMetricJoinPlanning),
+	"nsw_min_lot_median_m2": metric("nsw_min_lot_median_m2", "pl.nsw_min_lot_median_m2", suburbMetricJoinPlanning),
+}
+
+// ZoneFamilyLabels are the reader-facing names of ZoneFamilies, index-aligned:
+// the dominant_zone_family column returns an index into this list.
+var ZoneFamilyLabels = []string{
+	"Low-density residential",
+	"General / medium / high-density residential",
+	"Centres & mixed use",
+	"Industrial & employment",
+	"Rural",
+	"Conservation",
+	"Open space & recreation",
+	"Infrastructure & special purpose",
+	"Waterways",
+	"Growth area, deferred or unzoned",
+}
+
+// zoneFamilyIndexExpression maps a family key column to its ZoneFamilies
+// index; NULL (no zoning) and any unknown key stay NULL.
+func zoneFamilyIndexExpression(column string) string {
+	var b strings.Builder
+	b.WriteString("CASE " + column)
+	for i, family := range ZoneFamilies {
+		fmt.Fprintf(&b, " WHEN '%s' THEN %d", family, i)
+	}
+	b.WriteString(" ELSE NULL END")
+	return b.String()
 }
 
 func metric(key, expression string, joins suburbMetricJoin) suburbMetricDefinition {
@@ -345,6 +435,12 @@ func buildSuburbMetricQuery(keys []string) (string, []suburbMetricDefinition, er
 	}
 	if joins&suburbMetricJoinHazards != 0 {
 		query.WriteString("\nLEFT JOIN suburb_hazard_exposure h ON h.sal_code = d.sal_code AND h.source_licence <> 'proprietary-tos-restricted'")
+	}
+	if joins&suburbMetricJoinCouncil != 0 {
+		query.WriteString("\nLEFT JOIN suburb_lga sl ON sl.sal_code = d.sal_code")
+	}
+	if joins&suburbMetricJoinPlanning != 0 {
+		query.WriteString("\nLEFT JOIN suburb_planning pl ON pl.sal_code = d.sal_code AND pl.source_licence <> 'proprietary-tos-restricted'")
 	}
 	query.WriteString("\nWHERE d.state_code = $1\nORDER BY d.sal_code")
 	return query.String(), definitions, nil

@@ -1,46 +1,67 @@
-"use client";
-
-import { useMemo } from "react";
+// Server component: where the suburb sits in its state. The state outline and
+// the suburb polygon are projected on the server (lib/housing/suburb-geometry)
+// and rendered as inline SVG — no per-state TopoJSON fetch, no client bundle.
+//
+// A suburb is a handful of pixels at state scale, so the polygon is drawn AND a
+// ringed marker sits on its centroid; the ring is what a reader actually sees.
 import Link from "next/link";
-import { ChoroplethMap } from "./choropleth-map";
-import { useTopojson } from "./use-topojson";
+
+import type { StateLocatorModel } from "@/lib/housing/suburb-geometry";
 import { STATE_NAMES, stateSlug } from "@/lib/housing/states";
 
-/** Static inset showing where a suburb sits within its state. */
 export function SuburbLocatorMap({
-  stateCode, salCode, salName,
+  stateCode, salCode, salName, model,
 }: {
-  stateCode: string; salCode: string; salName: string;
+  stateCode: string; salCode: string; salName: string; model: StateLocatorModel | null | undefined;
 }) {
-  const { data: topo } = useTopojson(`/geo/suburbs/${stateCode}.topojson`);
-  const valueById = useMemo(() => new Map<string, number | null>([[salCode, 1]]), [salCode]);
-  const nameById = useMemo(() => new Map<string, string>([[salCode, salName]]), [salCode, salName]);
-
+  const stateName = STATE_NAMES[stateCode] ?? stateCode;
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <h3 className="mb-2 font-serif text-base text-foreground">
-        Where it is in {STATE_NAMES[stateCode] ?? stateCode}
+        Where it is in {stateName}
       </h3>
-      {!topo ? (
-        <div className="h-[200px] w-full animate-pulse rounded-lg bg-muted" />
+      {model ? (
+        <svg
+          viewBox={`0 0 ${model.width} ${model.height}`}
+          className="h-[200px] w-full"
+          role="img"
+          aria-label={`Location of ${salName} within ${stateName}`}
+        >
+          <path
+            d={model.statePath}
+            fill="currentColor"
+            fillOpacity={0.08}
+            stroke="currentColor"
+            strokeOpacity={0.45}
+            strokeWidth={1}
+            className="text-muted-foreground"
+            vectorEffect="non-scaling-stroke"
+          />
+          {model.suburbPath ? (
+            <path d={model.suburbPath} className="fill-primary" stroke="none" />
+          ) : null}
+          <circle
+            cx={model.marker.x}
+            cy={model.marker.y}
+            r={7}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.5}
+            className="text-primary"
+            vectorEffect="non-scaling-stroke"
+          />
+          <circle cx={model.marker.x} cy={model.marker.y} r={2.5} className="fill-primary" />
+        </svg>
       ) : (
-        <ChoroplethMap
-          topology={topo}
-          objectName={Object.keys(topo.objects)[0]!}
-          valueById={valueById}
-          nameById={nameById}
-          colorScale={() => "hsl(24 92% 50%)"}
-          selectedId={salCode}
-          interactive={false}
-          height={200}
-          ariaLabel={`Location of ${salName} within ${STATE_NAMES[stateCode] ?? stateCode}`}
-        />
+        <p className="flex h-[200px] items-center justify-center text-xs text-muted-foreground">
+          Boundary not available for this suburb.
+        </p>
       )}
       <Link
         href={`/housing/${stateSlug(stateCode)}?sal=${salCode}`}
         className="mt-2 inline-block text-xs text-muted-foreground transition-colors hover:text-foreground"
       >
-        View on the full {STATE_NAMES[stateCode] ?? stateCode} map →
+        View on the full {stateName} map →
       </Link>
     </div>
   );

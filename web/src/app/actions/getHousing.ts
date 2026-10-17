@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
-import { GetDropIndexSeriesResponseSchema, GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse, type GetDropIndexSeriesResponse } from "~/gen/shorts/v1alpha1/housing_pb";
+import { GetCouncilProfileResponseSchema, ListCouncilsResponseSchema, type GetCouncilProfileResponse, type ListCouncilsResponse, GetDropIndexSeriesResponseSchema, GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse, type GetDropIndexSeriesResponse } from "~/gen/shorts/v1alpha1/housing_pb";
 import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { cache } from "react";
 import {
@@ -380,4 +380,90 @@ export const resolveSuburbSalCode = cache(
 
     return match?.salCode ?? null;
   },
+);
+
+// ── Council hub ─────────────────────────────────────────────────────────────
+//
+// Both reads follow the economy pattern: an ISR-tagged transport (without the
+// `next:{revalidate}` tag a Connect POST is no-store and the static route
+// throws "static to dynamic") plus an Upstash last-good layer that is written
+// only for a POPULATED response and read back only when populated — an empty
+// entry is a miss, never a hit (the /politicians 2026-07-31 lesson).
+
+function readCouncilCache<T>(
+  schema: Parameters<typeof fromJson>[0],
+  cached: JsonValue | null,
+  isPopulated: (value: T) => boolean,
+): T | undefined {
+  if (cached == null) return undefined;
+  try {
+    const parsed = fromJson(schema, cached) as T;
+    return isPopulated(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCouncilCache(schema: Parameters<typeof toJson>[0], key: string, value: unknown): void {
+  try {
+    void setCached(key, toJson(schema, value as never) as JsonValue, HOUSING_TTL);
+  } catch {
+    // A cache write must never break a render.
+  }
+}
+
+/** A ListCouncils response worth caching or serving from cache: any council. */
+export function isPopulatedCouncilList(r: ListCouncilsResponse): boolean {
+  return r.councils.length > 0;
+}
+
+/**
+ * A council profile worth caching: identity present AND, when the council has
+ * member suburbs, the member-suburb block too. The store tolerates a failed
+ * member-suburb query (empty section), and pinning that for the 24h TTL would
+ * serve a hub with no map, table or rollups.
+ */
+export function isPopulatedCouncilProfile(r: GetCouncilProfileResponse): boolean {
+  const p = r.profile;
+  if (!p?.summary?.lgaCode) return false;
+  return p.summary.memberSuburbCount === 0 || (p.suburbs?.length ?? 0) > 0;
+}
+
+/** Every council with a page in one state, largest first. */
+export const listCouncils = cache(
+  withRetryAndNotFound(
+    async (stateCode: string): Promise<ListCouncilsResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+      const key = CACHE_KEYS.councils(stateCode);
+      const populated = isPopulatedCouncilList;
+      const hit = readCouncilCache<ListCouncilsResponse>(ListCouncilsResponseSchema, await getCached<JsonValue>(key), populated);
+      if (hit) return hit;
+      const resp = await createSuburbIsrHousingClient().listCouncils({ stateCode });
+      if (populated(resp)) writeCouncilCache(ListCouncilsResponseSchema, key, resp);
+      return resp;
+    },
+  ),
+);
+
+/**
+ * One council's hub. Throws NotFoundError for a slug no council holds, so the
+ * page can 404 rather than render an empty shell.
+ */
+export const getCouncilProfile = cache(
+  withRetryAndThrowNotFound(
+    async (stateCode: string, rawSlug: string): Promise<GetCouncilProfileResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+      // The API lower-cases and trims the slug; key the cache the same way so
+      // /council/Sydney and /council/sydney share one entry (the page then
+      // redirects to the canonical URL).
+      const slug = rawSlug.trim().toLowerCase();
+      const key = CACHE_KEYS.councilProfile(stateCode, slug);
+      const populated = isPopulatedCouncilProfile;
+      const hit = readCouncilCache<GetCouncilProfileResponse>(GetCouncilProfileResponseSchema, await getCached<JsonValue>(key), populated);
+      if (hit) return hit;
+      const resp = await createSuburbIsrHousingClient().getCouncilProfile({ stateCode, slug });
+      if (populated(resp)) writeCouncilCache(GetCouncilProfileResponseSchema, key, resp);
+      return resp;
+    },
+  ),
 );

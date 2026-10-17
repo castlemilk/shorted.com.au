@@ -73,7 +73,7 @@ export default async function CapitalCitiesPage() {
     }))
     .sort((a, b) => (b.house?.value ?? -1) - (a.house?.value ?? -1));
   const hasHousePrices = ranked.some(({ house }) => house !== null);
-  if (!hasHousePrices) bailOnEmptyRender();
+  if (!hasHousePrices) await bailOnEmptyRender();
 
   const itemListSchema = {
     "@context": "https://schema.org",

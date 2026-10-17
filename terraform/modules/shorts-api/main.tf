@@ -169,6 +169,41 @@ resource "google_secret_manager_secret_iam_member" "ssr_bypass" {
   project   = var.project_id
 }
 
+# NEWS_PUBLISH_TOKEN — the ONE credential /api/admin/news/publish accepts
+# besides the INTERNAL_SERVICE_SECRET (news_publish_auth.go). No other route
+# knows it, so an automation that only publishes merged articles never needs
+# the admin-wide secret.
+#
+# Terraform OWNS the value: generated once, kept in state (the GCS backend, like
+# SSR_BYPASS_SECRET's), and never changes on later applies. Read it with
+#   gcloud secrets versions access latest --secret=NEWS_PUBLISH_TOKEN --project=<project>
+# Rotate with `terraform apply -replace=module.shorts_api.random_password.news_publish_token`.
+resource "random_password" "news_publish_token" {
+  length  = 48
+  special = false
+}
+
+resource "google_secret_manager_secret" "news_publish_token" {
+  secret_id = "NEWS_PUBLISH_TOKEN"
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "news_publish_token" {
+  secret      = google_secret_manager_secret.news_publish_token.id
+  secret_data = random_password.news_publish_token.result
+}
+
+resource "google_secret_manager_secret_iam_member" "news_publish_token" {
+  secret_id = google_secret_manager_secret.news_publish_token.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Grant access to token secret (for API token JWT signing)
 resource "google_secret_manager_secret_iam_member" "token_secret" {
   secret_id = "TOKEN_SECRET"
@@ -413,6 +448,17 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         }
       }
 
+      # Scoped credential for /api/admin/news/publish only (news_publish_auth.go).
+      env {
+        name = "NEWS_PUBLISH_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.news_publish_token.secret_id
+            version = "latest"
+          }
+        }
+      }
+
       # API token JWT signing secret
       env {
         name = "TOKEN_SECRET"
@@ -550,7 +596,9 @@ resource "google_cloud_run_v2_service" "shorts_api" {
     google_secret_manager_secret_iam_member.openai_api_key,
     google_secret_manager_secret_iam_member.internal_service_secret,
     google_secret_manager_secret_iam_member.token_secret,
-    google_secret_manager_secret_iam_member.otel_headers
+    google_secret_manager_secret_iam_member.otel_headers,
+    google_secret_manager_secret_iam_member.news_publish_token,
+    google_secret_manager_secret_version.news_publish_token,
   ]
 }
 

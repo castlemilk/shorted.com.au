@@ -30,8 +30,13 @@ func TestMain(m *testing.M) {
 
 	// Start PostgreSQL container
 	var err error
+	image := os.Getenv("MARKET_DATA_TEST_POSTGRES_IMAGE")
+	if image == "" {
+		image = "postgres:15-alpine"
+	}
+	fmt.Printf("  PostgreSQL image: %s\n", image)
 	postgresContainer, err = postgres.Run(ctx,
-		"postgres:15-alpine",
+		image,
 		postgres.WithDatabase("market_data_test"),
 		postgres.WithUsername("test_user"),
 		postgres.WithPassword("test_password"),

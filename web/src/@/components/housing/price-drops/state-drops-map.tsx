@@ -6,6 +6,7 @@ import { scaleSequential } from "d3-scale";
 import { interpolateYlOrRd } from "d3-scale-chromatic";
 
 import type { StatePriceDropSummary } from "~/gen/shorts/v1alpha1/housing_pb";
+import { stateCoverage } from "@/lib/housing/drops-freshness";
 import {
   STATE_NAMES,
   STATE_TO_STE_CODE,
@@ -28,6 +29,11 @@ const formatShare = (value: number) => `${value.toFixed(1)}%`;
  * Client-only state comparison for the static /price-drops route. State rows
  * arrive from the server's already-cached overview response; only the committed
  * boundary asset is fetched after hydration.
+ *
+ * A state whose crawl coverage is below the rank threshold (stateCoverage) is
+ * drawn in the no-data fill and named with its coverage instead of a share:
+ * colouring it would rank how much of it the crawl reached, not how hard it is
+ * discounting. It stays clickable — the address board still filters to it.
  */
 export function StateDropsMap({ states }: StateDropsMapProps) {
   const router = useRouter();
@@ -47,11 +53,21 @@ export function StateDropsMap({ states }: StateDropsMapProps) {
       const featureId = STATE_TO_STE_CODE[state.stateCode];
       if (!featureId) continue;
 
+      const stateName = STATE_NAMES[state.stateCode] ?? state.stateCode;
+      const coverage = stateCoverage(state);
+      if (!coverage.ranked) {
+        values.set(featureId, null);
+        names.set(
+          featureId,
+          `${stateName} — not ranked: only ${state.suburbsSwept14d} of ${state.catalogSuburbs} tracked suburbs swept in the last 14 days`,
+        );
+        continue;
+      }
       const sharePct = Math.min(100, Math.max(0, state.droppedShare * 100));
       values.set(featureId, sharePct);
       names.set(
         featureId,
-        `${STATE_NAMES[state.stateCode] ?? state.stateCode} — ${formatShare(sharePct)} of tracked listings cut in 30 days`,
+        `${stateName} — ${formatShare(sharePct)} of tracked listings cut in 30 days`,
       );
       max = Math.max(max, sharePct);
     }
@@ -118,7 +134,7 @@ export function StateDropsMap({ states }: StateDropsMapProps) {
             max={maxSharePct}
             label="Listings cut (30d)"
             format={formatShare}
-            noDataLabel="Not tracked"
+            noDataLabel="Not tracked, or too little crawl coverage to rank"
           />
         }
         onFeatureClick={(featureId) => {

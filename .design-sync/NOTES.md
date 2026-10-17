@@ -129,8 +129,7 @@ directions: `next/image` and `next/link` bundle fine, while modules reaching
   absent from a static stylesheet.
 - `[BUNDLE_EXPORT] Icons` — compound namespace, usable via `.Sub`. Not a failure.
 - `[RENDER_THIN]` — `CompanyLogo`, `GoogleLogo` (logo components: no text by
-  design), `Disclosure`, `CompanyProfileView`, `CompanyProfileWithRetry` (floor
-  cards awaiting data-shaped previews).
+  design), `Disclosure` (a floor card awaiting a data-shaped preview).
 
 ## Re-sync risks
 

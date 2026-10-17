@@ -4,6 +4,8 @@ import { ImageResponse } from "next/og";
 import { OG_SIZE, OG_CONTENT_TYPE, OgCard, getOgLogo } from "~/@/lib/og/card";
 import { getTermBySlug } from "~/@/data/glossary-terms";
 
+export const maxDuration = 15;
+
 export const alt = "ASX Short Selling Glossary — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

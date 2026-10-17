@@ -194,6 +194,8 @@ export type SuburbLike = {
   medianWeeklyHhdIncome: number;
   /** SuburbAmenities.amenity_density_score, 0..100; 0 when un-ingested. */
   amenityScore: number;
+  /** ABS Census usual-resident population; absent on older cache entries. */
+  population?: number;
 };
 
 export type SuburbContext = {

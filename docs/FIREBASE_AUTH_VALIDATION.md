@@ -41,14 +41,13 @@ The app normalizes these values through `web/src/@/lib/firebase-public-config.ts
 `npm --prefix web run firebase:preflight` is mandatory before Vercel build/deploy in:
 
 - `scripts/release-web.sh`
-- `.github/workflows/release-preview-smoke.yml`
 - `.github/workflows/terraform-deploy.yml`
 
 The preflight validates required public Firebase values and calls `identitytoolkit.googleapis.com` with the normalized API key. It logs only a short hash of the key.
 
 ### 2. Firebase Google sign-in bootstrap smoke
 
-Release smoke must run the Firebase Google sign-in bootstrap check in both entry points:
+The local release and production post-deploy smoke run the Firebase Google sign-in bootstrap check through both entry points. CI preview deployment and pre-promotion browser smoke have been removed; production preflight remains mandatory:
 
 - `web/e2e/release-smoke.spec.ts`
 - `web/e2e/release-smoke-ci.mjs`
@@ -101,5 +100,5 @@ If Google login fails:
 1. Run `npm --prefix web run firebase:preflight` against the same env used for the deployment.
 2. Run `node e2e/release-smoke-ci.mjs` with `BASE_URL` set to the exact preview or production URL.
 3. Inspect the smoke output for `API_KEY_INVALID`, escaped newline, CORS policy, Identity Toolkit status failures, and failed Google `createAuthUri` browser/probe checks.
-4. Confirm the Vercel deployment ID that was smoked is the deployment promoted to production.
+4. Confirm the production deployment ID and use its exact deployment URL for diagnosis. CI promotion no longer waits for preview smoke; the local release path still does.
 5. Search Vercel logs for `/api/auth` only after the browser bootstrap passes; this failure class often never reaches the server.

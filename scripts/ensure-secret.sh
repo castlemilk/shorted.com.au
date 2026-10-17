@@ -31,6 +31,14 @@
 #      disabled or destroyed), do NOT blindly add a version — that is exactly
 #      how churn snowballs and how a disabled-latest incident gets papered over.
 #      Warn loudly and skip; a human decides.
+#   4. ENSURE_SECRET_CREATE_ONLY=1 creates a missing secret but NEVER versions
+#      an existing one. The terraform-plan job runs with NO GitHub environment
+#      and so sees the REPO-level secrets, while terraform-apply and the Vercel
+#      deploy run in the `prod` environment. When the two INTERNAL_SERVICE_SECRET
+#      values differ, a versioning plan job and a versioning apply job fight:
+#      two new versions per deploy (1,410 by 2026-09-26) and a window in which
+#      `latest` holds a value the web app does not. Only the job whose
+#      environment matches the deploy may write values.
 
 set -euo pipefail
 
@@ -87,6 +95,11 @@ if ! gcloud secrets describe "$NAME" --project "$PROJECT" >/dev/null 2>"$DESCRIB
   exit 0
 fi
 rm -f "$DESCRIBE_ERR"
+
+if [ "${ENSURE_SECRET_CREATE_ONLY:-}" = "1" ]; then
+  echo "$NAME exists; create-only mode, not versioning"
+  exit 0
+fi
 
 ACCESS_ERR=$(mktemp)
 if ! CURRENT=$(gcloud secrets versions access latest --secret="$NAME" --project "$PROJECT" 2>"$ACCESS_ERR"); then

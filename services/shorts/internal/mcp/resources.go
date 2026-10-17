@@ -51,6 +51,7 @@ var accessContent string
 // derived from it, so an advertised resource cannot describe a body it does
 // not serve.
 type Resource struct {
+	Meta        sdk.Meta
 	URI         string
 	Name        string
 	Title       string
@@ -61,6 +62,7 @@ type Resource struct {
 
 func (r Resource) spec() *sdk.Resource {
 	return &sdk.Resource{
+		Meta:        r.Meta,
 		URI:         r.URI,
 		Name:        r.Name,
 		Title:       r.Title,
@@ -75,6 +77,7 @@ func (r Resource) spec() *sdk.Resource {
 // be able to mutate what the server serves.
 func Resources() []Resource {
 	return []Resource{
+		appResource(false),
 		{
 			URI:   readingGuideURI,
 			Name:  "reading-the-data",
@@ -128,6 +131,7 @@ func resourceHandler(resource Resource) sdk.ResourceHandler {
 		}
 		return &sdk.ReadResourceResult{
 			Contents: []*sdk.ResourceContents{{
+				Meta:     resource.Meta,
 				URI:      resource.URI,
 				MIMEType: resource.MIMEType,
 				Text:     resource.Text,

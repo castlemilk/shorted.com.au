@@ -28,9 +28,19 @@ import (
 //
 // Field layout (verified from live 2024 data), 0-indexed on ";" split:
 //
-//	[9]=suburb [10]=postcode [15]=purchase price [16]=zoning [18]=purpose
-//	[19]=strata-lot (non-empty ⇒ unit/apartment). purpose="RESIDENCE" cleanly
+//	[2]=property id [9]=suburb [10]=postcode [11]=area [12]=area unit (M=m²,
+//	H=ha) [15]=purchase price [16]=zoning [17]=nature (R=residence, V=vacant,
+//	3=other) [18]=purpose [19]=strata-lot (non-empty ⇒ unit/apartment)
+//	[22]=interest of sale (%) [23]=dealing number. purpose="RESIDENCE"
 //	marks houses; "VACANT LAND"/"COMMERCIAL"/"FARM"/… are excluded.
+//
+// A median of every RESIDENCE transfer is not a median house price: one
+// contract that buys a row of houses for a tower site is lodged as one B-record
+// PER PROPERTY, each carrying the whole contract price, so a single $110.5M
+// amalgamation outvoted St Leonards' real house sales (and Rhodes read $22.5M).
+// selectNSWHouseSales therefore keeps only a single-property, whole-interest,
+// residence-natured sale outside the business/industrial/special-purpose zones,
+// and not a development-sized lot in a medium/high-density zone.
 const (
 	nswPSIBase   = "https://www.valuergeneral.nsw.gov.au/__psi/yearly/"
 	nswAccept    = "application/zip,application/octet-stream,*/*"
@@ -40,12 +50,52 @@ const (
 	nswMinPooled = 6       // pooled-window sales for a thin suburb's single fallback median
 	nswMinPrice  = 50000.0 // drop non-market transfers ($1 family transfers, etc.)
 	nswYears     = 3       // trailing complete calendar years → annual series + YoY
+
+	// A non-strata residence on more than this much land in a medium/high-density
+	// zone (R1/R3/R4) is priced as a development site, not as a house: those
+	// zones are drawn for 450–900 m² lots, and a lot this size is what a
+	// developer amalgamates for a unit block.
+	nswDevSiteMinSqm = 2000.0
 )
+
+// nswNonHouseZonePrefixes are zone codes whose land cannot sell as an
+// established house except as a commercial or development site: business
+// (B1–B8, pre-2023), mixed use (MU1), industrial (IN1–IN4) and special purpose
+// (SP1–SP5). The E prefix is deliberately absent: the 2023 employment-zones
+// reform re-used it (pre-2023 E4 "Environmental Living" is ordinary housing
+// across Pittwater and Sutherland; post-2023 E4 is General Industrial), and the
+// PSI years straddle the change.
+var nswNonHouseZonePrefixes = []string{"B", "MU", "IN", "SP"}
+
+// nswMultiDwellingPurposes mark a RESIDENCE/DWELLING purpose that is more than
+// one dwelling, or a dwelling bundled with a commercial use.
+var nswMultiDwellingPurposes = []string{
+	"DWELLINGS", "RESIDENCES", "FLATS", "UNITS", "APARTMENT", "MULTI", "BOARDING",
+	"DEVELOPMENT", "COMMERCIAL", "SHOP", "OFFICE", "INDUSTRIAL",
+}
 
 type nswSale struct {
 	suburb   string
 	postcode string
 	price    float64
+}
+
+// nswBRecord is one parsed B-record (the main sale row), before any house
+// filter: dealing membership has to be counted over every record, including
+// the vacant lots and non-residence components of a multi-property contract.
+type nswBRecord struct {
+	propertyID string
+	dealing    string
+	suburb     string
+	postcode   string
+	price      float64
+	priceOK    bool
+	areaSqm    float64 // 0 = not recorded
+	zoning     string
+	nature     string
+	purpose    string
+	strataLot  string
+	interest   string
 }
 
 type nswAgg struct {
@@ -57,20 +107,74 @@ type nswFetcher interface {
 	FetchBytes(context.Context, string, string) ([]byte, string, error)
 }
 
-func ingestNSWSuburbMedians(ctx context.Context) ([]Observation, error) {
-	client, err := stealthhttp.New(stealthhttp.WithTimeout(120 * time.Second))
-	if err != nil {
-		return nil, fmt.Errorf("stealth init: %w", err)
+// nswReplaceMinSales is the fewest filtered house sales a fetched year must
+// yield before the run is allowed to prune that year's unemitted medians. A
+// full NSW year is 92k-109k (2023-2025, measured 2026-09-24); a year under half
+// that is a truncated or partial file, and pruning from it would delete real
+// suburbs. Such a year is still upserted, never pruned.
+const nswReplaceMinSales = 50000
+
+// newNSWVGJob is the rig's vg_nsw job: the live PSI ingest, authoritative for
+// every requested year that fetched in full.
+func newNSWVGJob() officialJob {
+	var counts map[int]int
+	return officialJob{
+		name: nswSource,
+		fn: func(ctx context.Context) ([]Observation, error) {
+			client, err := stealthhttp.New(stealthhttp.WithTimeout(120 * time.Second))
+			if err != nil {
+				return nil, fmt.Errorf("stealth init: %w", err)
+			}
+			obs, c, err := ingestNSWSuburbMediansCounted(ctx, client, nswRecentYears(nswYears))
+			counts = c
+			return obs, err
+		},
+		replace: func() *replaceScope { return nswReplaceScope(counts, nswReplaceMinSales) },
 	}
-	return ingestNSWSuburbMediansWithFetcher(ctx, client, nswRecentYears(nswYears))
+}
+
+// nswReplaceScope is the slice a vg_nsw run may prune: the annual house
+// medians of each year that fetched at least minSales filtered sales. A year
+// that failed never reaches here (the ingest errors on incomplete coverage);
+// a year that fetched thin is left unpruned and recorded in Withheld, which
+// fails the rig's exit code — a thin trailing COMPLETE year is a truncated
+// download, never a normal outcome.
+func nswReplaceScope(counts map[int]int, minSales int) *replaceScope {
+	scope := &replaceScope{Source: nswSource, Measure: "median_price", DwellingType: "house", PeriodFreq: "A"}
+	years := make([]int, 0, len(counts))
+	for yr := range counts {
+		years = append(years, yr)
+	}
+	sort.Ints(years)
+	for _, yr := range years {
+		if counts[yr] < minSales {
+			log.Printf("[vg_nsw] %d: only %d house sales (< %d) — upserted but NOT pruned", yr, counts[yr], minSales)
+			scope.Withheld = append(scope.Withheld, fmt.Sprintf("%d: only %d house sales (under the %d floor)", yr, counts[yr], minSales))
+			continue
+		}
+		scope.Years = append(scope.Years, yr)
+	}
+	return scope
+}
+
+func ingestNSWSuburbMedians(ctx context.Context) ([]Observation, error) {
+	return newNSWVGJob().fn(ctx)
 }
 
 func ingestNSWSuburbMediansWithFetcher(ctx context.Context, fetcher nswFetcher, years []int) ([]Observation, error) {
+	obs, _, err := ingestNSWSuburbMediansCounted(ctx, fetcher, years)
+	return obs, err
+}
+
+// ingestNSWSuburbMediansCounted also returns each fetched year's filtered
+// house-sale count, which decides whether that year may be pruned.
+func ingestNSWSuburbMediansCounted(ctx context.Context, fetcher nswFetcher, years []int) ([]Observation, map[int]int, error) {
 	// name → year → aggregate. Keyed by UPPER suburb name (the sal_code backfill
 	// matches case-insensitively, so casing is irrelevant to the join).
 	agg := map[string]map[int]*nswAgg{}
 	fetchedYears := make([]int, 0, len(years))
 	missingYears := make([]int, 0, len(years))
+	counts := make(map[int]int, len(years))
 	for _, yr := range years {
 		url := fmt.Sprintf("%s%d.zip", nswPSIBase, yr)
 		b, _, err := fetcher.FetchBytes(ctx, url, nswAccept)
@@ -106,10 +210,11 @@ func ingestNSWSuburbMediansWithFetcher(ctx context.Context, fetcher nswFetcher, 
 			}
 		}
 		fetchedYears = append(fetchedYears, yr)
+		counts[yr] = len(sales)
 		log.Printf("[vg_nsw] %d: %d house sales", yr, len(sales))
 	}
 	if len(fetchedYears) != len(years) {
-		return nil, fmt.Errorf(
+		return nil, nil, fmt.Errorf(
 			"incomplete NSW PSI coverage: fetched %d/%d requested years; missing %v",
 			len(fetchedYears), len(years), missingYears,
 		)
@@ -123,7 +228,7 @@ func ingestNSWSuburbMediansWithFetcher(ctx context.Context, fetcher nswFetcher, 
 		}
 	}
 	log.Printf("[vg_nsw] %d suburb-year medians (%d thin suburbs via %dyr pool) across %d years", len(obs), pooledN, nswYears, len(fetchedYears))
-	return obs, nil
+	return obs, counts, nil
 }
 
 func buildNSWObservations(agg map[string]map[int]*nswAgg, fetchedYears []int) []Observation {
@@ -184,7 +289,7 @@ func parseNSWYearSales(outer []byte) ([]nswSale, error) {
 	if err != nil {
 		return nil, err
 	}
-	var sales []nswSale
+	var records []nswBRecord
 	weeklyArchives := 0
 	for _, wf := range zr.File {
 		if !strings.HasSuffix(strings.ToLower(wf.Name), ".zip") {
@@ -225,7 +330,7 @@ func parseNSWYearSales(outer []byte) ([]nswSale, error) {
 			if closeErr != nil {
 				return nil, fmt.Errorf("close %s in %s: %w", df.Name, wf.Name, closeErr)
 			}
-			sales = append(sales, parseNSWDAT(db)...)
+			records = append(records, parseNSWBRecords(db)...)
 		}
 		if datFiles == 0 {
 			return nil, fmt.Errorf("weekly archive %s contains no DAT files", wf.Name)
@@ -234,6 +339,9 @@ func parseNSWYearSales(outer []byte) ([]nswSale, error) {
 	if weeklyArchives == 0 {
 		return nil, fmt.Errorf("NSW PSI year contains no weekly zip archives")
 	}
+	// Selected over the whole year, not per file, so a multi-property contract
+	// whose records were lodged in different weeks is still recognised.
+	sales := selectNSWHouseSales(records)
 	if len(sales) == 0 {
 		return nil, fmt.Errorf("NSW PSI year contains no qualifying house sales")
 	}
@@ -241,8 +349,16 @@ func parseNSWYearSales(outer []byte) ([]nswSale, error) {
 }
 
 // parseNSWDAT extracts house sales from one ";"-delimited .DAT file's B-records.
+// A yearly ingest selects over the whole year's records instead (see
+// parseNSWYearSales), so a contract lodged across weekly files is still seen
+// whole.
 func parseNSWDAT(dat []byte) []nswSale {
-	var out []nswSale
+	return selectNSWHouseSales(parseNSWBRecords(dat))
+}
+
+// parseNSWBRecords parses every well-formed B-record of one .DAT file.
+func parseNSWBRecords(dat []byte) []nswBRecord {
+	var out []nswBRecord
 	for _, line := range strings.Split(string(dat), "\n") {
 		if !strings.HasPrefix(line, "B;") {
 			continue
@@ -251,24 +367,127 @@ func parseNSWDAT(dat []byte) []nswSale {
 		if len(f) < 20 {
 			continue
 		}
-		suburb := strings.TrimSpace(f[9])
-		if suburb == "" {
-			continue
+		field := func(i int) string {
+			if i < len(f) {
+				return strings.TrimSpace(f[i])
+			}
+			return ""
 		}
-		if strings.TrimSpace(f[19]) != "" { // strata lot ⇒ unit/apartment, not a house
-			continue
-		}
-		purpose := strings.ToUpper(strings.TrimSpace(f[18]))
-		if !strings.Contains(purpose, "RESIDENCE") && !strings.Contains(purpose, "DWELLING") {
-			continue
-		}
-		price, err := strconv.ParseFloat(strings.TrimSpace(f[15]), 64)
-		if err != nil || price < nswMinPrice {
-			continue
-		}
-		out = append(out, nswSale{suburb: suburb, postcode: strings.TrimSpace(f[10]), price: price})
+		price, err := strconv.ParseFloat(field(15), 64)
+		out = append(out, nswBRecord{
+			propertyID: field(2),
+			dealing:    field(23),
+			suburb:     field(9),
+			postcode:   field(10),
+			price:      price,
+			priceOK:    err == nil,
+			areaSqm:    nswAreaSqm(field(11), field(12)),
+			zoning:     strings.ToUpper(field(16)),
+			nature:     strings.ToUpper(field(17)),
+			purpose:    strings.ToUpper(field(18)),
+			strataLot:  field(19),
+			interest:   field(22),
+		})
 	}
 	return out
+}
+
+// nswAreaSqm normalises the PSI area to square metres (0 when unrecorded).
+func nswAreaSqm(area, unit string) float64 {
+	v, err := strconv.ParseFloat(area, 64)
+	if err != nil || v <= 0 {
+		return 0
+	}
+	if strings.EqualFold(unit, "H") {
+		return v * 10000
+	}
+	return v
+}
+
+// selectNSWHouseSales keeps the records that are one established house sold
+// whole, at a market price. Multi-property contracts are recognised over ALL
+// the given records first — a dealing number on more than one distinct
+// property is a bundle whose price is the contract total — and every record of
+// such a dealing is dropped. A record lodged twice for the same property and
+// dealing counts once.
+func selectNSWHouseSales(records []nswBRecord) []nswSale {
+	properties := map[string]map[string]struct{}{}
+	for _, r := range records {
+		if r.dealing == "" {
+			continue
+		}
+		if properties[r.dealing] == nil {
+			properties[r.dealing] = map[string]struct{}{}
+		}
+		properties[r.dealing][r.propertyID] = struct{}{}
+	}
+	seen := map[string]struct{}{}
+	var out []nswSale
+	for _, r := range records {
+		if !nswIsHouseSale(r) {
+			continue
+		}
+		if r.dealing != "" {
+			if len(properties[r.dealing]) > 1 {
+				continue
+			}
+			key := r.dealing + "|" + r.propertyID
+			if _, dup := seen[key]; dup {
+				continue
+			}
+			seen[key] = struct{}{}
+		}
+		out = append(out, nswSale{suburb: r.suburb, postcode: r.postcode, price: r.price})
+	}
+	return out
+}
+
+// nswIsHouseSale is the per-record half of the filter (see selectNSWHouseSales
+// for the per-dealing half).
+func nswIsHouseSale(r nswBRecord) bool {
+	if r.suburb == "" || r.strataLot != "" { // strata lot ⇒ unit/apartment, not a house
+		return false
+	}
+	if !r.priceOK || r.price < nswMinPrice {
+		return false
+	}
+	if r.nature != "" && r.nature != "R" { // V = vacant land, 3 = other (incl. whole buildings)
+		return false
+	}
+	if !strings.Contains(r.purpose, "RESIDENCE") && !strings.Contains(r.purpose, "DWELLING") {
+		return false
+	}
+	for _, p := range nswMultiDwellingPurposes {
+		if strings.Contains(r.purpose, p) {
+			return false
+		}
+	}
+	// A part-interest transfer prices a share, not the house. The field carries
+	// a percentage only for those; whole sales read 0, 100 or blank.
+	if r.interest != "" && r.interest != "0" && r.interest != "100" {
+		return false
+	}
+	for _, prefix := range nswNonHouseZonePrefixes {
+		if nswZoneHasPrefix(r.zoning, prefix) {
+			return false
+		}
+	}
+	switch r.zoning {
+	case "R1", "R3", "R4":
+		if r.areaSqm > nswDevSiteMinSqm {
+			return false
+		}
+	}
+	return true
+}
+
+// nswZoneHasPrefix reports whether zone is prefix followed by a digit ("B4",
+// "SP2", "MU1"), so "R2" never matches "RU" and "B" never matches a word.
+func nswZoneHasPrefix(zone, prefix string) bool {
+	if !strings.HasPrefix(zone, prefix) || len(zone) == len(prefix) {
+		return false
+	}
+	return unicode.IsDigit(rune(zone[len(prefix)]))
 }
 
 // nswRecentYears returns the last n COMPLETE calendar years (excludes the current,

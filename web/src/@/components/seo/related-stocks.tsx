@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import { Badge } from "~/@/components/ui/badge";
+import { isPlaceholderIndustrySlug } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 
 export interface RelatedStock {
@@ -80,7 +81,9 @@ export function RelatedStocks({
           ))}
         </div>
 
-        {stocks.length > 5 && industrySlug && (
+        {/* Never to a placeholder's page: /industry/not-applic was a 200 shell
+            Google crawled from here (lib/industry-placeholder.ts). */}
+        {stocks.length > 5 && !isPlaceholderIndustrySlug(industrySlug) && (
           <Link
             href={`/industry/${industrySlug}`}
             className="mt-4 text-sm text-primary hover:underline flex items-center gap-1"

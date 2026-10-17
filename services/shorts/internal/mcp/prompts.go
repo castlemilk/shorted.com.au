@@ -279,6 +279,7 @@ func marketWrapPrompt() Prompt {
 		Tools: []string{
 			"list_top_shorts", "get_industry_treemap",
 			"list_squeeze_candidates", "list_reports",
+			"list_strategies", "get_strategy_picks",
 		},
 		render: func(args map[string]string) (string, error) {
 			period, err := normalisePeriod(optionalArg(args, "period", defaultBriefingPeriod))
@@ -294,12 +295,14 @@ Gather the data first:
 2. get_industry_treemap with period=%[1]s — which sectors the positioning sits in, and which have moved.
 3. list_squeeze_candidates — where short interest, days to cover and price momentum line up. A stock can top the leaderboard and rank nowhere here; that difference is usually the most interesting thing in the wrap.
 4. list_reports — if a published weekly, monthly or yearly report covers this window, read it before writing and cite it rather than restating its analysis as your own.
+5. get_strategy_picks with strategy_id=crowded-short-breakout and status=triggered — heavily shorted stocks breaking out on volume, which is where short covering would show up in price. Its regime verdict is the market backdrop; list_strategies has the other strategies if the wrap needs them.
 
 Then write the wrap:
 
 - Open with the shape of the market: is aggregate short interest concentrated in a few names, or spread?
 - Name the sectors carrying the positioning, and say which have moved over %[1]s rather than only which are highest.
 - Call out the stocks where the leaderboard and the squeeze ranking disagree, and explain why (usually liquidity — days to cover).
+- If the crowded-short breakout screen triggered anything, name it with its pivot and say it is a rules-based screen, not a call. If it triggered nothing, say so in one line rather than padding.
 - Date every figure. All of this is ASIC reported positioning published with a T+4 trading-day delay, and it is short INTEREST, not short-sale flow: it says nothing about how much was traded today.
 - If a large move looks like a data artefact rather than real positioning — a single enormous jump, or a stock appearing from nowhere — say so instead of narrating it.
 

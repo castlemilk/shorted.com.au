@@ -74,12 +74,20 @@ export const getTopShortsData = cache(
           );
           if (edgeResponse) return edgeResponse;
 
-          const transport = createConnectTransport({
-            fetch: serverFetchWithUserAgent,
-            baseUrl: SHORTS_API_URL,
-          });
-
-          const client = createClient(MarketService, transport);
+          // ISR-safe fallback, NOT a bare transport. A bare connect POST is
+          // `no-store` at Vercel runtime, and Next records that dynamic usage
+          // even when withRetryAndNotFound swallows the error — so every ISR
+          // regeneration of a page that reaches this line fails and Vercel
+          // keeps serving the previous copy. Measured 2026-10-07: /news was
+          // pinned on a render from before two takes were published, with
+          // `x-vercel-cache: STALE` and a growing `age` across on-demand
+          // revalidations that reported success, and `/` logged
+          // "Dynamic server usage: no-store fetch … GetTopShorts". The edge
+          // read above is the first choice; this is the path taken when it is
+          // disabled (no SHORTED_EDGE_API_URL) or times out.
+          const client = createIsrTopShortsClient(
+            TOP_SHORTS_FALLBACK_REVALIDATE_SECONDS,
+          );
           return client.getTopShorts({
             period: apiPeriod,
             limit,
@@ -101,16 +109,26 @@ export const getTopShortsData = cache(
   ),
 );
 
+// The connect fallback's data-cache lifetime. Same as the edge read's: the
+// entry is refreshed by the daily sync's `shorts-data` tag revalidation, not by
+// time, and a shorter figure here would silently lower the ISR interval of
+// every page that calls getTopShortsData (Next takes the minimum fetch
+// revalidate as the route's).
+export const TOP_SHORTS_FALLBACK_REVALIDATE_SECONDS = 86400;
+
 // A connect transport whose fetch is ISR-cacheable (next:{revalidate}) — a bare
 // connect POST forces cache:'no-store' at Vercel runtime, which would opt the
 // caller's route out of static generation (e.g. flip /industry-intelligence from
 // ○ static to ƒ dynamic). Mirrors getIndustryData / fetchIndustryByCode.
+// Tagged `shorts-data` so the sync's revalidation ping busts the entry the same
+// way it busts the edge-read entries (edgeRead.ts) — an untagged entry would
+// live its full lifetime regardless of revalidateTag.
 function createIsrTopShortsClient(revalidateSeconds: number) {
   const isrFetch: typeof fetch = (input, init) =>
     serverFetchWithUserAgent(input, {
       ...init,
-      next: { revalidate: revalidateSeconds },
-    });
+      next: { revalidate: revalidateSeconds, tags: ["shorts-data"] },
+    } as RequestInit);
   const transport = createConnectTransport({
     fetch: isrFetch,
     baseUrl: SHORTS_API_URL,

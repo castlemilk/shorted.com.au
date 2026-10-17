@@ -381,20 +381,25 @@ func RunConcurrent(ctx context.Context, args []string) error {
 // selectReports picks the latest `recent` key financial reports per company,
 // deduped against what has already been extracted (select_reports).
 func selectReports(ctx context.Context, pool *pgxpool.Pool, recent, limit int, topShortedFirst bool) ([]report, error) {
-	// NOTE the limit=0 here: the per-company cap is applied first, the top-shorted
-	// ordering second, and only THEN is the total capped — so `-limit` selects the
-	// most-shorted N, not the first N alphabetically.
+	// NOTE the limit=0 here: the per-company cap is applied first, the ordering
+	// (statutory filings first, then most-shorted, then newest) second, and only
+	// THEN is the total capped — so `-limit` selects the most-shorted N
+	// statutory filings, not the first N alphabetically.
 	reports, err := getReportsToProcess(ctx, pool, modeAll, nil, 0, recent)
 	if err != nil {
 		return nil, err
 	}
+	var rank map[string]float64
 	if topShortedFirst {
-		rank, err := topShortedRank(ctx, pool)
+		rank, err = topShortedRank(ctx, pool)
 		if err != nil {
 			return nil, err
 		}
-		applyTopShortedOrder(reports, rank)
 	}
+	// Statutory filings first; most-shorted then newest within a tier. The
+	// top-shorted order used to be the primary key, which spent the weekly cap
+	// on a heavily shorted company's presentations ahead of anyone's 4D.
+	prioritiseForExtraction(reports, rank)
 	if limit > 0 && len(reports) > limit {
 		reports = reports[:limit]
 	}

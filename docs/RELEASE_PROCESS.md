@@ -2,14 +2,20 @@
 
 For release failures or production regressions, use `$shorted-prod-troubleshooting` first. The skill lives at `/Users/benebsworth/.codex/skills/shorted-prod-troubleshooting/SKILL.md` and covers logs, metrics, Cloudflare RUM, build/hook success, E2E smoke, Vercel, Cloudflare wrangler, API edge, and data checks.
 
-This is the required release shape for the Shorted web app:
+CI uses one production path in `terraform-deploy.yml`:
 
-1. Clean generated build output, then build and run release guards.
-2. Build the Vercel artifact locally with `vercel build --target production`.
-3. Deploy that artifact as a production-target release candidate with `vercel deploy --prebuilt --target production --skip-domain`.
-4. Run `web/e2e/release-smoke.spec.ts` against that exact preview URL.
-5. Promote the same Vercel deployment to production only after smoke passes.
-6. Run post-deployment verification against production after the alias moves.
+1. Run the existing tests and validate deployment secrets.
+2. Run Firebase and Stripe preflights, then `vercel build --target production`.
+3. Upload the production artifact with `vercel deploy --prebuilt --target production --skip-domain`.
+4. Promote that exact deployment with `vercel promote` and revalidate ISR pages.
+5. Verify the live site with the existing Post-Deploy Smoke Test workflow.
+
+PRs do not deploy Vercel previews or run preview browser smoke. The Perf Budget
+workflow retains its production build and blocking bundle-size comparison; it
+no longer installs Chromium, starts a server or runs Lighthouse. The Lighthouse
+CLI and local release/browser tests remain available for deliberate local checks.
+The retired `release-preview-smoke.yml` workflow is removed, including its duplicate
+main promotion. CI no longer provides a separate web-only manual preview release.
 
 ## Local Release
 
@@ -27,6 +33,47 @@ PROMOTE_TO_PROD=1 RELEASE_CONFIRM_PROMOTE=1 npm run release:web
 
 The local script removes `web/.next`, `.vercel/output`, and `web/.vercel/output` before building, runs `vercel build --target production`, then deploys the release candidate with `vercel deploy --prebuilt --target production --force --skip-domain`. Production aliases only move through `vercel promote` after the smoke suite passes.
 
+## Local release: what broke on 2026-10-07, and the fixes
+
+The **Deploy Infrastructure** workflow has been disabled since early October
+2026 (as have the scheduled workflows); Cuttlefish's `shorted-ci` runs tests
+only. A merge to `main` deploys nothing, so every production release is the
+local path above, run from a checkout at the merge commit. Three things the
+script leaves to the operator's shell, found the hard way:
+
+1. **Sensitive variables pull as placeholders.** `vercel env pull` writes
+   every variable marked sensitive (`REDIS_URL`, `MARKET_DATA_API_URL`,
+   `SHORTED_SSR_BYPASS_SECRET`, `REVALIDATION_SECRET`, the Resend keys) as the
+   literal string `[SENSITIVE]`, and `vercel build` prerenders with them, so
+   the KV client throws `Invalid URL: redis://[SENSITIVE]` and the build fails
+   collecting page data. Strip those lines from `.vercel/.env.production.local`
+   before `vercel build` (the KV layer falls back to in-memory, as it always
+   has in CI). Never `source` the pulled file into the shell: it poisons the
+   release unit subset the same way.
+2. **The function bundles reference `web/.env.example` and
+   `web/.env.local.example`.** The `@vercel/next` builder lists every `.env*`
+   file in the project root in each function's `filePathMap`; the tgz archive
+   does not carry them, and the deploy fails with
+   `ENOENT: readlink '/vercel/path0/web/.env.example'`. The non-archive upload
+   (450 MB of individual files) aborted on `fetch failed`. Remove those two keys
+   from every `.vercel/output/functions/*/.vc-config.json` `filePathMap` (they
+   are metadata only; nothing reads them at runtime) and archive-upload. A stray
+   `web/.env.local` at build time is mapped the same way: delete it first.
+3. **Linking.** Link explicitly, `vercel link --yes --scope document-analyser
+   --project shorted-com-au`, before anything else: `--yes` on an unlinked
+   directory would create a project named after the directory.
+
+Then run the post-promote sweep the workflow used to run (the ISR paths from
+`web/src/config/isr-pages.json` minus `isr-shell-pages.json` through
+`/api/revalidate` with `REVALIDATION_SECRET`, then
+`/api/static-pages/warm-cache?mode=deploy` and `mode=repair`), because
+promotion resets every ISR page to its build-time shell.
+
+Newsroom takes do not ride the web release at all: `shorted-news-publish`'s
+image is built only by the disabled workflow, so a merged `content/news`
+article is published from the checkout with
+`npx tsx src/index.ts publish-content --slug=…` (see the newsroom skill).
+
 ## Release Validation Gates
 
 The release path must fail before deploy if client auth or payments are misconfigured:
@@ -35,7 +82,7 @@ The release path must fail before deploy if client auth or payments are misconfi
 - `npm --prefix web run stripe:preflight` validates configured Stripe checkout price IDs against the active Stripe account.
 - `node e2e/release-smoke-ci.mjs` includes the Firebase Google sign-in bootstrap check. It opens `/signin`, clicks "Continue with Google", verifies Identity Toolkit returns 200 responses, rejects `API_KEY_INVALID`, rejects escaped newline API keys, and confirms Firebase can create a Google auth URI through the browser flow or direct Identity Toolkit probe.
 
-Do not remove these gates from `scripts/release-web.sh`, `.github/workflows/release-preview-smoke.yml`, or `.github/workflows/terraform-deploy.yml`. `node --test scripts/release-pipeline.test.mjs` asserts this wiring.
+Firebase and Stripe preflights remain mandatory in `scripts/release-web.sh` and `.github/workflows/terraform-deploy.yml`. Browser bootstrap runs in the local release and production post-deploy smoke; it is no longer a CI pre-promotion gate. `node --test scripts/release-pipeline.test.mjs` asserts these contracts.
 
 Firebase auth details and triage commands live in `docs/FIREBASE_AUTH_VALIDATION.md`.
 
@@ -72,7 +119,7 @@ gh secret set CLOUDFLARE_TESTING_BYPASS_SECRET \
 
 Smoke against `https://shorted.com.au` should include that secret. Without it, Cloudflare may return 403s for browser-loaded resources during Playwright runs; smoke the emitted Vercel deployment URL when the secret is not available locally.
 
-The shared Playwright config applies the same bypass automatically for all browser/API test contexts when the secret is present. The helper lives at `web/e2e/helpers/cloudflare-testing-bypass.ts` and reads, in order:
+Specs run by the shared Playwright config import `test` from `web/e2e/helpers/test.ts`, which sends the same bypass when the secret is present to our own origins and this machine only: `shorted.com.au`, `www`, `api.shorted.com.au`, a Vercel preview of the app, and localhost (`web/e2e/helpers/testing-bypass-scope.mjs`). It covers the browser's requests and the `request` fixture's, not `page.request`. The header is never set in `extraHTTPHeaders`: those reach every host a page contacts, and a stock page also contacts Google (Analytics, Tag Manager, the logo bucket) and Cloudflare's beacon. Release smoke scopes its own headers the same way (`scoped-release-headers.mjs`). The helper that reads the secret lives at `web/e2e/helpers/cloudflare-testing-bypass.ts` and reads, in order:
 
 - `CLOUDFLARE_TESTING_BYPASS_SECRET`
 - `SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET`
@@ -111,13 +158,20 @@ If production smoke sees a Cloudflare challenge despite both headers, verify the
 
 ## GitHub Release
 
-Use **Release Preview Smoke** from GitHub Actions.
+Use **Deploy Infrastructure** (`terraform-deploy.yml`) for production CI.
+Main pushes and the existing release/manual triggers retain the `prod` environment
+protection. PRs cannot promote. `plan_only=true` cannot deploy the frontend, and
+production web promotion explicitly requires successful tests and secret validation.
+The existing service-URL fallback after a Terraform failure remains, subject to
+those test and secret gates. Manual/release runs still depend on their existing
+cloud identity policy; this change grants no additional access.
 
-- Pull requests deploy and smoke a preview only.
-- Manual dispatch with `promote=false` deploys and smokes a release candidate.
-- Manual dispatch with `promote=true` promotes the smoked preview deployment to production.
-
-The existing production path in `terraform-deploy.yml` also follows the same shape for the web app: release-candidate preview, smoke, then `vercel promote`.
+The upload uses `--skip-domain` so a failed upload cannot move production aliases.
+The following `vercel promote` step moves the domain to that same artifact, without
+a preview browser-smoke stage. Production post-deploy smoke still runs on main,
+on its existing schedule and by manual dispatch. It is a health check after release,
+not a prerequisite to promotion. The local release script keeps its preview/smoke
+and explicit-promotion behavior.
 
 ## Required Secrets
 
@@ -129,7 +183,5 @@ The existing production path in `terraform-deploy.yml` also follows the same sha
 - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET_PROD`
 - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID_PROD`
 - `NEXT_PUBLIC_FIREBASE_APP_ID_PROD`
-- Optional `RELEASE_SHORTS_SERVICE_ENDPOINT`
-- Optional `RELEASE_MARKET_DATA_API_URL`
 
-The optional endpoint secrets let CI force preview builds to use production-like backend origins instead of whatever is configured in the Vercel Preview environment.
+Production CI resolves service endpoints from Terraform outputs or its existing Cloud Run fallback. `RELEASE_SHORTS_SERVICE_ENDPOINT` and `RELEASE_MARKET_DATA_API_URL` remain optional local release overrides.

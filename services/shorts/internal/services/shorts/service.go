@@ -217,16 +217,9 @@ func (s *ShortsServer) GetMarketByDate(ctx context.Context, req *connect.Request
 			previousDate = prevDates[0]
 		}
 
-		// Get next date: fetch 2 dates starting from day after this one
-		// Dates come back DESC, so we need the last one that's after our date
-		nextDate := ""
-		recentDates, _, _, _, _ := s.store.GetAvailableDates(90, "")
-		for i := len(recentDates) - 1; i >= 0; i-- {
-			if recentDates[i] > req.Msg.Date {
-				nextDate = recentDates[i]
-				break
-			}
-		}
+		// Get next date (earliest date after this one). A failed lookup leaves
+		// it empty, as a failed previous-date lookup does.
+		nextDate, _ := s.store.GetNextAvailableDate(req.Msg.Date)
 
 		return &shortsv1alpha1.GetMarketByDateResponse{
 			Date:         req.Msg.Date,

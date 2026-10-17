@@ -4,6 +4,8 @@ import { ImageResponse } from "next/og";
 import { OG_SIZE, OG_CONTENT_TYPE, OgCard, getOgLogo } from "~/@/lib/og/card";
 import { getRegisterExplorer } from "~/app/actions/getPoliticians";
 
+export const maxDuration = 15;
+
 export const alt = "Register of Interests — recent additions and removals";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

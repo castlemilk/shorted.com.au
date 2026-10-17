@@ -26,6 +26,7 @@ const productLinks: FooterLink[] = [
   { title: "Company Directory", href: "/directory" },
   { title: "Short Selling Statistics", href: "/statistics" },
   { title: "Short Interest Scans", href: "/scans" },
+  { title: "ASX Stock Picker", href: "/picks" },
 ];
 
 const resourceLinks: FooterLink[] = [
@@ -36,7 +37,8 @@ const resourceLinks: FooterLink[] = [
   { title: "FAQ", href: "/faq" },
   { title: "Compare Stocks", href: "/compare" },
   { title: "Seasonality", href: "/seasonality" },
-  { title: "About", href: "/about" },
+  { title: "About & Founder", href: "/about" },
+  { title: "Pricing", href: "/pricing" },
   { title: "Press & Media", href: "/press" },
   { title: "Open Data", href: "/data" },
   { title: "Roadmap", href: "/roadmap" },
@@ -133,18 +135,23 @@ const SiteFooter = () => {
               <span>Not financial advice.</span>
             </div>
             <p className="text-sm text-muted-foreground mb-3">
-              Built with{" "}
-              <span aria-label="love" role="img" className="text-accent">
-                ❤️
-              </span>{" "}
-              in{" "}
+              Built in {siteConfig.company.city} by{" "}
               <a
-                href="https://benebsworth.com"
+                href={siteConfig.founder.website}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener me"
                 className="font-medium underline underline-offset-4 hover:text-foreground transition-colors"
               >
-                Melbourne
+                {siteConfig.founder.name}
+              </a>
+              <span aria-hidden="true"> · </span>
+              <a
+                href={siteConfig.founder.linkedin}
+                target="_blank"
+                rel="noopener me"
+                className="underline underline-offset-4 hover:text-foreground transition-colors"
+              >
+                LinkedIn
               </a>
             </p>
             <Badge

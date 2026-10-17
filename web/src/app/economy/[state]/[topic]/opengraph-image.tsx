@@ -13,6 +13,8 @@ import {
 } from "~/@/lib/economy/topics";
 import { OG_CONTENT_TYPE, OG_SIZE, OgCard, getOgLogo } from "~/@/lib/og/card";
 
+export const maxDuration = 15;
+
 export const alt = "Australian state economy topic data — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

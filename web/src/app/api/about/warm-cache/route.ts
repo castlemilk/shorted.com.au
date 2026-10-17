@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { CACHE_KEYS, setCached } from "~/@/lib/kv-cache";
 import { fetchAndCacheStatistics } from "~/lib/statistics";
+import { isCacheWarmAuthorized } from "~/@/lib/cache-warm-auth";
 import {
   SHORTS_API_URL,
   buildApiUrl,
@@ -16,16 +17,11 @@ export const revalidate = 0;
  * Can be called via cron job or webhook to pre-populate cache
  * 
  * Usage:
- * - Cron: Set up Vercel Cron to call this endpoint every 5 minutes
+ * - Cron: Vercel sends Authorization: Bearer CRON_SECRET on the hourly schedule
  * - Manual: GET /api/about/warm-cache?secret=YOUR_SECRET
  */
 export async function GET(request: NextRequest) {
-  // Optional: Add authentication/secret check for security
-  const secret = process.env.CACHE_WARM_SECRET;
-  const url = new URL(request.url);
-  const providedSecret = url.searchParams.get("secret");
-
-  if (secret && providedSecret !== secret) {
+  if (!isCacheWarmAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -11,18 +11,35 @@ public interface ComparisonBaselinesOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
+   * <pre>
+   * Median of the latest public Valuer-General suburb medians in the state —
+   * NSW, VIC and SA only, 0 elsewhere. A median, not a mean: one $110.5M
+   * development sale moved the old NSW average by ~$45k.
+   * </pre>
+   *
    * <code>double state_median_price = 1 [json_name = "stateMedianPrice"];</code>
    * @return The stateMedianPrice.
    */
   double getStateMedianPrice();
 
   /**
+   * <pre>
+   * Always 0. No open national median house price exists (ABS's
+   * established-house medians stop at capital city / rest of state, below);
+   * this used to average NSW, VIC and SA suburb medians under an "AU" label.
+   * </pre>
+   *
    * <code>double national_median_price = 2 [json_name = "nationalMedianPrice"];</code>
    * @return The nationalMedianPrice.
    */
   double getNationalMedianPrice();
 
   /**
+   * <pre>
+   * Census 2021 median weekly household income of the MEDIAN suburb — in the
+   * state, and across every suburb nationally. Not a household-weighted median.
+   * </pre>
+   *
    * <code>double state_median_weekly_hhd_income = 3 [json_name = "stateMedianWeeklyHhdIncome"];</code>
    * @return The stateMedianWeeklyHhdIncome.
    */
@@ -33,4 +50,130 @@ public interface ComparisonBaselinesOrBuilder extends
    * @return The nationalMedianWeeklyHhdIncome.
    */
   double getNationalMedianWeeklyHhdIncome();
+
+  /**
+   * <pre>
+   * ABS established-house medians (RES_DWELL, CC-BY-4.0) for the suburb's
+   * state: its Greater Capital City and the rest of the state, read from
+   * mv_housing_headline. 0 / "" where the state has no such region (the ACT
+   * has no rest of state).
+   * </pre>
+   *
+   * <code>double capital_median_price = 5 [json_name = "capitalMedianPrice"];</code>
+   * @return The capitalMedianPrice.
+   */
+  double getCapitalMedianPrice();
+
+  /**
+   * <pre>
+   * e.g. "Greater Sydney"
+   * </pre>
+   *
+   * <code>string capital_region_name = 6 [json_name = "capitalRegionName"];</code>
+   * @return The capitalRegionName.
+   */
+  java.lang.String getCapitalRegionName();
+  /**
+   * <pre>
+   * e.g. "Greater Sydney"
+   * </pre>
+   *
+   * <code>string capital_region_name = 6 [json_name = "capitalRegionName"];</code>
+   * @return The bytes for capitalRegionName.
+   */
+  com.google.protobuf.ByteString
+      getCapitalRegionNameBytes();
+
+  /**
+   * <pre>
+   * ABS GCCSA code, e.g. "1GSYD"
+   * </pre>
+   *
+   * <code>string capital_region_code = 7 [json_name = "capitalRegionCode"];</code>
+   * @return The capitalRegionCode.
+   */
+  java.lang.String getCapitalRegionCode();
+  /**
+   * <pre>
+   * ABS GCCSA code, e.g. "1GSYD"
+   * </pre>
+   *
+   * <code>string capital_region_code = 7 [json_name = "capitalRegionCode"];</code>
+   * @return The bytes for capitalRegionCode.
+   */
+  com.google.protobuf.ByteString
+      getCapitalRegionCodeBytes();
+
+  /**
+   * <code>double rest_of_state_median_price = 8 [json_name = "restOfStateMedianPrice"];</code>
+   * @return The restOfStateMedianPrice.
+   */
+  double getRestOfStateMedianPrice();
+
+  /**
+   * <pre>
+   * e.g. "Rest of NSW"
+   * </pre>
+   *
+   * <code>string rest_of_state_region_name = 9 [json_name = "restOfStateRegionName"];</code>
+   * @return The restOfStateRegionName.
+   */
+  java.lang.String getRestOfStateRegionName();
+  /**
+   * <pre>
+   * e.g. "Rest of NSW"
+   * </pre>
+   *
+   * <code>string rest_of_state_region_name = 9 [json_name = "restOfStateRegionName"];</code>
+   * @return The bytes for restOfStateRegionName.
+   */
+  com.google.protobuf.ByteString
+      getRestOfStateRegionNameBytes();
+
+  /**
+   * <pre>
+   * quarter end, "2026-03-31"
+   * </pre>
+   *
+   * <code>string abs_median_period = 10 [json_name = "absMedianPeriod"];</code>
+   * @return The absMedianPeriod.
+   */
+  java.lang.String getAbsMedianPeriod();
+  /**
+   * <pre>
+   * quarter end, "2026-03-31"
+   * </pre>
+   *
+   * <code>string abs_median_period = 10 [json_name = "absMedianPeriod"];</code>
+   * @return The bytes for absMedianPeriod.
+   */
+  com.google.protobuf.ByteString
+      getAbsMedianPeriodBytes();
+
+  /**
+   * <pre>
+   * State references for the Who-lives-here and Housing-stock cards.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+   * @return Whether the stateCensus field is set.
+   */
+  boolean hasStateCensus();
+  /**
+   * <pre>
+   * State references for the Who-lives-here and Housing-stock cards.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+   * @return The stateCensus.
+   */
+  com.shorts.v1alpha1.StateCensusAverages getStateCensus();
+  /**
+   * <pre>
+   * State references for the Who-lives-here and Housing-stock cards.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StateCensusAverages state_census = 11 [json_name = "stateCensus"];</code>
+   */
+  com.shorts.v1alpha1.StateCensusAveragesOrBuilder getStateCensusOrBuilder();
 }

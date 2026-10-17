@@ -96,7 +96,7 @@ func dedupe(in []string) []string {
 
 // The tools/list response is preamble: every client pays it, in full, at the
 // start of every session, before the user has asked anything. It was 23.4KB at
-// 9 tools, 46KB at 14, and 72KB at the full 24.
+// 9 tools, 46KB at 14, 72KB at 24, 75.8KB at 25 and 84.0KB at 28.
 //
 // The ceiling was raised from 64KB (set when there were 14 tools) after the
 // surface was measured at ~3.0KB per tool. Getting 24 tools under 64KB was
@@ -104,6 +104,30 @@ func dedupe(in []string) []string {
 // the coverage lists that stop an empty register reading as "this member
 // declared nothing", and the per-series source/licence that carries the CC-BY
 // credit we are obliged to pass on. Losing those is worse than the bytes.
+//
+// It was raised again from 76KB to 88KB for the stock picker's three tools —
+// list_strategies, get_strategy_picks and get_stock_fundamentals — which took
+// tools/list from 77,571 bytes (253 under the old ceiling) to 86,030. They were
+// trimmed first, from 10,328 bytes to 8,617 (2.9KB per tool, under the 3.1KB
+// surface average): int32 fields became int (jsonschema-go emits a 45-byte
+// min/max pair for every int32), and field descriptions that restated the tool
+// description or the field name went. What is left is load-bearing: the four
+// strategy ids a model must type, "absent when unknown, never zero", the
+// reporting-currency warning (BHP reports in USD, and a USD revenue figure
+// read as AUD understates it by about a third), and "false also when unknown" on
+// the one boolean that cannot carry absence. Fitting 28 tools under 76KB would
+// have meant deleting ~10KB of exactly that kind of prose from tools that
+// already exist.
+//
+// The fundamentals-coverage extension (docs/plans/fundamentals-coverage.md §8)
+// took it from 86,371 bytes to 89,495 inside the same 88KB ceiling:
+// get_stock_fundamentals gained the quality block, coverage, four statement
+// lines and per-field provenance (3,429 to 5,794 bytes), get_strategy_picks
+// gained sort_by, two ratios, a fundamentals source and the rows count. The
+// quality block's own currency was dropped (the view only aligns a balance
+// sheet in the flow row's currency, so balance_currency already says it) and
+// field descriptions were cut to the unit or caveat before the ceiling was
+// reached. About 600 bytes remain.
 //
 // WHEN THIS FAILS, THE LEVER IS FEWER FIELDS AND FEWER FIELD DESCRIPTIONS.
 // It is NOT flattening or type reuse, and this is counter-intuitive enough to
@@ -119,8 +143,16 @@ func dedupe(in []string) []string {
 // differentiate similar tools, or that carry a unit, a caveat or an
 // LLM-provenance label, is not on the table — those are what make tool
 // selection and honest citation work.
+//
+// It was raised from 90KB to 93KB on 11 Oct 2026 for get_stock_briefing, which
+// serves what the stock-report video runs found no MCP tool could: one stock's
+// strategy fit, its signals, its dividend history and its latest parsed filing.
+// One tool for all four instead of four tools saves three descriptions and input
+// schemas. tools/list went from 91,006 bytes (29 tools) to 93,700 (30). The
+// ceiling is the smallest whole KiB at least 1,024 bytes over that.
 func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
-	const budget = 76 * 1024
+	// One bounded mention tool and the market entrypoint metadata add 2 KiB.
+	const budget = 93 * 1024
 
 	ctx := context.Background()
 	server := NewServer(&fakeDataSource{})

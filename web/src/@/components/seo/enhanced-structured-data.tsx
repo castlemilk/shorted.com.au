@@ -150,11 +150,18 @@ export function ItemListStructuredData({
     name: string;
     url: string;
     description?: string;
+    /** Article-family extras (BlogPosting): a listed article with only
+     *  name/url reads as a partial Article to validators. Absolute URLs. */
+    headline?: string;
+    image?: string;
+    datePublished?: string;
+    dateModified?: string;
+    author?: { name: string; url?: string };
   }>;
   name: string;
   description?: string;
   /** Schema.org type for each listed entity; stock lists retain the default. */
-  itemType?: "FinancialProduct" | "Place" | "WebPage";
+  itemType?: "FinancialProduct" | "Place" | "WebPage" | "BlogPosting";
 }) {
   if (!items || items.length === 0) return <></>;
 
@@ -172,6 +179,13 @@ export function ItemListStructuredData({
         name: item.name,
         url: item.url,
         description: item.description,
+        ...(item.headline ? { headline: item.headline } : {}),
+        ...(item.image ? { image: item.image } : {}),
+        ...(item.datePublished ? { datePublished: item.datePublished } : {}),
+        ...(item.dateModified ? { dateModified: item.dateModified } : {}),
+        ...(item.author
+          ? { author: { "@type": "Person", ...item.author } }
+          : {}),
       },
     })),
   };
@@ -201,11 +215,32 @@ export function EnhancedOrganizationSchema() {
       height: siteConfig.logo.height,
     },
     description: siteConfig.description,
-    foundingDate: "2024",
-    areaServed: {
-      "@type": "Country",
-      name: "Australia",
+    foundingDate: siteConfig.company.foundingDate,
+    foundingLocation: {
+      "@type": "Place",
+      name: `${siteConfig.company.city}, ${siteConfig.company.countryName}`,
     },
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: siteConfig.company.city,
+      addressRegion: siteConfig.company.region,
+      addressCountry: siteConfig.company.country,
+    },
+    founder: {
+      "@type": "Person",
+      name: siteConfig.founder.name,
+      jobTitle: siteConfig.founder.jobTitle,
+      url: `${siteConfig.url}${siteConfig.founder.profilePath}`,
+      image: siteConfig.founder.image,
+      sameAs: [
+        siteConfig.founder.website,
+        siteConfig.founder.linkedin,
+        siteConfig.founder.github,
+      ],
+    },
+    // The data covers ASX stocks, but the product is a web/API service
+    // available worldwide.
+    areaServed: "Worldwide",
     knowsAbout: [
       "Short Selling",
       "ASX Stock Market",

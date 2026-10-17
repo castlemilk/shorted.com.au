@@ -1,9 +1,11 @@
 name: Registry OIDC selftest
 
-# Proves the Cuttlefish registry accepts this repository's GitHub OIDC token
-# for pushes, end to end, in under a minute: log in with the composite action,
+# Proves the Cuttlefish registry accepts this repository's job OIDC token for
+# pushes, end to end, in under a minute: log in with the composite action,
 # push a tiny image, and print the digest. Run it after changing registry
-# auth or the repository allow-list.
+# auth or the repository allow-list. Run it on the same kind of runner as the
+# deploy (a Cuttlefish rig, whose tokens are issued by api.cuttlefish.sh):
+# that is the token terraform-deploy's mirror-images job presents.
 on:
   workflow_dispatch:
     inputs:
@@ -25,7 +27,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Log in to the Cuttlefish registry (GitHub OIDC)
+      - name: Log in to the Cuttlefish registry (OIDC)
         uses: ./.github/actions/cuttlefish-registry-login
 
       - name: Push a tiny image and read it back

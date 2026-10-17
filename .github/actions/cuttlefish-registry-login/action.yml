@@ -1,8 +1,11 @@
 name: Cuttlefish registry login
 description: >-
-  Authenticate Docker to the Cuttlefish registry with this job's GitHub OIDC
-  token. No repository secret is involved: GitHub mints a short-lived token
-  and the registry Worker verifies it against the repository allow-list.
+  Authenticate Docker to the Cuttlefish registry with this job's OIDC token.
+  No repository secret is involved: the runner mints a short-lived token and
+  the registry Worker verifies it against the repository allow-list. On
+  Cuttlefish rigs (where this repo's CI runs) the token's issuer is
+  https://api.cuttlefish.sh, not GitHub's, so the Worker must trust that
+  issuer for these jobs to push.
 inputs:
   audience:
     description: OIDC audience the registry Worker is configured to trust.

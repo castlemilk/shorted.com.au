@@ -29,8 +29,11 @@ export type SitemapEntry = {
  *               /market(+dated snapshots) + /learn(+articles) + /blog(+posts) +
  *               /authors(+slugs) + /docs/* + /faq + /privacy + /data + /press +
  *               /economy(+states) + /features/* + /news + /news/[slug] takes
- *   shorts      /shorts + /shorts/[code] + /shorts/[code]/news +
- *               /insider-trading(+[code]) + /compare(+/compare/[pair])
+ *   shorts      /shorts + /shorts/[code] + /shorts/[code]/{short-interest,
+ *               financials,company,news} (the tabs STOCK_TAB_IN_SITEMAP lists,
+ *               segments from the STOCK_TABS registry; Strategy and Community
+ *               stay out) + /insider-trading(+[code]) +
+ *               /compare(+/compare/[pair])
  *   reports     /reports + weekly/monthly/yearly report pages
  *   housing     /housing + /housing/calculators + /price-drops +
  *               /housing/[state] + /housing/[state]/[suburb]

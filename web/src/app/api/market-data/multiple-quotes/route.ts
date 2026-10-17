@@ -7,8 +7,15 @@ import {
 } from "~/app/actions/config";
 import { BROWSER_READ_RATE_LIMIT, rateLimit } from "~/@/lib/rate-limit";
 import { recordProductEvent } from "~/@/lib/product-events";
+import {
+  getSharedStockQuotes,
+  normalizeQuoteCodes,
+} from "~/@/lib/shared-stock-quotes";
 
 const MARKET_DATA_API_URL = getServerMarketDataApiUrl();
+
+// Valid batch quote responses can take over 30 seconds at the origin.
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const rateLimitResult = await rateLimit(request, BROWSER_READ_RATE_LIMIT);
@@ -27,39 +34,49 @@ export async function POST(request: NextRequest) {
     return rateLimitResult.response;
   }
   try {
-    const body = (await request.json()) as Record<string, unknown>;
-
-    // Forward the request to the market data service
-    const response = await serverFetchWithUserAgent(
-      buildApiUrl(
-        MARKET_DATA_API_URL,
-        "/marketdata.v1.MarketDataService/GetMultipleStockPrices",
-      ),
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Connect-Protocol-Version": "1",
-        },
-        body: JSON.stringify(body),
-        cache: "no-store",
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `Market data API responded with status: ${response.status}`,
+    let codes: string[];
+    try {
+      codes = normalizeQuoteCodes(await request.json());
+    } catch {
+      return NextResponse.json(
+        { error: "Provide 1–50 stock codes of 3–4 letters" },
+        { status: 400 },
       );
     }
+    const result = await getSharedStockQuotes(
+      codes,
+      request.signal,
+      async (stockCodes, signal) => {
+        const response = await serverFetchWithUserAgent(
+          buildApiUrl(
+            MARKET_DATA_API_URL,
+            "/marketdata.v1.MarketDataService/GetMultipleStockPrices",
+          ),
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Connect-Protocol-Version": "1",
+            },
+            body: JSON.stringify({ stockCodes }),
+            cache: "no-store",
+            signal,
+          },
+        );
 
-    const data = (await response.json()) as Record<string, unknown>;
-
-    // Handle empty response from market data service
-    if (!data || Object.keys(data).length === 0) {
-      return NextResponse.json({ prices: {} });
-    }
-
-    return NextResponse.json(data);
+        if (!response.ok)
+          throw new Error(
+            `Market data API responded with status: ${response.status}`,
+          );
+        return response.json();
+      },
+    );
+    return NextResponse.json(
+      { prices: result.prices },
+      {
+        headers: { "Cache-Control": "no-store", "X-Quote-Cache": result.cache },
+      },
+    );
   } catch (error) {
     console.error("Market data proxy error:", error);
     return NextResponse.json(

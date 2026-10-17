@@ -63,7 +63,7 @@ The web admin dashboard provides real-time monitoring:
 | Service                 | Schedule          | Endpoint        | Purpose                        |
 | ----------------------- | ----------------- | --------------- | ------------------------------ |
 | `stock-price-ingestion` | Mon-Fri 8:00 UTC  | `/sync-all`     | Stock price updates            |
-| `market-data-sync`      | Mon-Fri 10:00 UTC | `/api/sync/all` | Market data sync + gap filling |
+| `shorted-price-sync`    | Mon-Fri 10:00 UTC | Cloud Run Job   | Price sync, stalest first (no gap filling) |
 | `enrichment-processor`  | On-demand         | Various         | Company metadata enrichment    |
 
 ## Viewing Logs

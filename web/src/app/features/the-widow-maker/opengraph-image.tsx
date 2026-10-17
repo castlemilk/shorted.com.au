@@ -1,5 +1,7 @@
 import { ImageResponse } from "next/og";
 
+export const maxDuration = 15;
+
 export const alt =
   "The Widow-Maker — why betting against Australian housing keeps failing";
 export const size = { width: 1200, height: 630 };

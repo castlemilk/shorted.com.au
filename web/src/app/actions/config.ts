@@ -2,7 +2,7 @@
  * Centralized configuration for server actions
  * Uses environment variables with fallbacks for different environments
  */
-import { unstable_noStore } from "next/cache";
+import { unstable_cache } from "next/cache";
 
 export function normalizeApiBaseUrl(
   value: string | undefined,
@@ -37,22 +37,59 @@ export function skipForBuild(): boolean {
 }
 
 /**
- * Mark the CURRENT render uncacheable — call from a static-ISR page exactly
- * when it is about to render its data-empty fallback. Without this, a single
- * failed fetch during a regeneration (e.g. a cold Cloud Run right after a
- * deploy, min-instances=0) bakes the "data is loading" shell into the route
- * cache for the FULL revalidate window. With it, the empty render is served
- * once, uncached, so the very next request retries; a background revalidation
- * that comes up empty bails out and keeps serving the previous good page.
+ * How long a data-empty fallback render may sit in the route cache before ISR
+ * retries it. Short enough that a recovered API shows up within a minute, long
+ * enough that an outage costs one regeneration per route per minute, not one
+ * per request.
+ */
+export const EMPTY_RENDER_REVALIDATE_SECONDS = 60;
+
+let warnedUnshortened = false;
+
+/**
+ * Cap the CURRENT render's ISR lifetime at EMPTY_RENDER_REVALIDATE_SECONDS —
+ * await it from a static-ISR page exactly when the page is about to render its
+ * data-empty fallback. Without it, a single failed fetch during a regeneration
+ * (e.g. a cold Cloud Run right after a deploy, min-instances=0) bakes the
+ * "data is loading" shell into the route cache for the FULL revalidate window
+ * (1-24h).
+ *
+ * It must NOT opt the render out of the cache. This used to call
+ * unstable_noStore(), and on a route prerendered as static Next 14 turns that
+ * into a DynamicServerError at runtime ("Page changed from static to dynamic",
+ * digest DYNAMIC_SERVER_USAGE): a background regeneration merely kept the old
+ * page, but every BLOCKING render — no cached entry yet, or the first request
+ * after revalidatePath — answered 500 instead of the fallback. /price-drops
+ * did that whenever the crawl had been down for 14 days, and the council pages
+ * whenever the API was unreachable.
+ *
+ * A route's revalidate is the LOWEST any segment, fetch or unstable_cache in
+ * the render asks for, so a no-op unstable_cache entry with a short revalidate
+ * lowers this render's lifetime and nothing else. The fallback is served and
+ * cached for a minute, then regenerated. The trade: a background regeneration
+ * that comes up empty now replaces the previous page for that minute rather
+ * than keeping it. Where a read has a KV last-good layer (economy, councils,
+ * politicians, the drops overview), a transient API failure is absorbed there
+ * and never reaches this branch.
  *
  * No-ops during the production build: the deliberately-empty skipForBuild
- * prerender must keep the route STATIC (the post-deploy warm-cache call fills
- * it) — calling noStore at build time would flip the whole route to dynamic
- * and undo the ISR optimization.
+ * prerender keeps the route's own revalidate (the post-deploy warm-cache call
+ * fills it).
  */
-export function bailOnEmptyRender(): void {
+export async function bailOnEmptyRender(): Promise<void> {
   if (skipForBuild()) return;
-  unstable_noStore();
+  try {
+    await unstable_cache(async () => true, ["empty-render-revalidate"], {
+      revalidate: EMPTY_RENDER_REVALIDATE_SECONDS,
+    })();
+  } catch (err) {
+    // Outside a Next render (unit tests, scripts) there is no incremental
+    // cache and no route to shorten. Never let the fallback itself fail.
+    if (!warnedUnshortened) {
+      warnedUnshortened = true;
+      console.warn("[bailOnEmptyRender] could not shorten the route revalidate:", err);
+    }
+  }
 }
 
 export function buildApiUrl(baseUrl: string, path: string): string {

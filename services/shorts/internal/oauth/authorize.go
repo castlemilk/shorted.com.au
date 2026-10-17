@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 )
 
 // CodeTTL is how long an authorization code lives.
@@ -98,6 +97,9 @@ type GrantConfig struct {
 	Consent ConsentRedeemer
 	// Now is injectable for tests. Defaults to time.Now.
 	Now func() time.Time
+	// AdminEntitlement decides who may be granted the admin MCP resource
+	// (/mcp/admin). Nil makes that resource ungrantable. See resources.go.
+	AdminEntitlement Entitlement
 }
 
 type grantRequest struct {
@@ -125,8 +127,7 @@ type grantHandler struct {
 	store         Store
 	consent       ConsentRedeemer
 	now           func() time.Time
-	resources     []string
-	scopes        map[string]bool
+	resources     []grantableResource
 }
 
 // originOf reduces a URL to its scheme://host form — what a browser puts in
@@ -166,10 +167,6 @@ func NewGrantHandler(cfg GrantConfig) http.Handler {
 		now = time.Now
 	}
 	issuer := cfg.Endpoints.issuer()
-	scopes := make(map[string]bool, len(mcp.Scopes))
-	for _, s := range mcp.Scopes {
-		scopes[s] = true
-	}
 	return &grantHandler{
 		issuer:        issuer,
 		consentOrigin: originOf(cfg.Endpoints.consent()),
@@ -177,12 +174,12 @@ func NewGrantHandler(cfg GrantConfig) http.Handler {
 		store:         cfg.Store,
 		consent:       cfg.Consent,
 		now:           now,
-		// The ONE grantable resource: this deployment's MCP server. The Connect
-		// API origin is deliberately absent — an OAuth grant here authorises the
-		// MCP surface, and widening it to the whole API would need its own
-		// consent copy and its own decision.
-		resources: []string{mcp.ResourceURI(issuer)},
-		scopes:    scopes,
+		// The grantable resources: this deployment's public MCP server, plus
+		// the admin MCP server when an admin entitlement is configured. The
+		// Connect API origin is deliberately absent — an OAuth grant here
+		// authorises an MCP surface, and widening it to the whole API would
+		// need its own consent copy and its own decision.
+		resources: grantableResources(issuer, cfg.AdminEntitlement),
 	}
 }
 
@@ -344,16 +341,20 @@ func (h *grantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 5. RESOURCE (RFC 8707). The code carries it, and Task 4 stamps it into the
 	//    minted token's audience — so an unvalidated resource here becomes an
 	//    unvalidated audience there.
-	resource := req.Resource
-	if resource == "" && len(h.resources) == 1 {
-		// Defaulting is provably not a widening WHILE exactly one resource is
-		// grantable: the default is the only value the allowlist would accept.
-		// The length guard is what keeps that true if a second one is added.
-		resource = h.resources[0]
-	}
-	if !containsString(h.resources, resource) {
+	//    An absent resource resolves to the PUBLIC MCP resource, never to the
+	//    admin one (resources.go).
+	target, ok := resolveResource(h.resources, req.Resource)
+	if !ok {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_target",
 			"resource is not a resource served by this authorization server")
+		return
+	}
+	resource := target.uri
+
+	// 5b. ENTITLEMENT. The ticket was minted only after the same check, but
+	//     the check is about NOW: an admin removed between approval and grant
+	//     gets nothing.
+	if !h.checkEntitled(w, r, target, identity.UserID) {
 		return
 	}
 
@@ -363,7 +364,7 @@ func (h *grantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//    a scope set at registration is also held to it — a registration is a
 	//    statement of what the client needs, and letting a request exceed it
 	//    makes the declaration decorative.
-	scope, ok := h.normaliseScope(req.Scope, client.Scope)
+	scope, ok := normaliseScope(target, req.Scope, client.Scope)
 	if !ok {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_scope", "unsupported scope requested")
 		return
@@ -426,22 +427,39 @@ func (h *grantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"redirect_to": redirectTo})
 }
 
-// normaliseScope validates the requested scope set against the published
-// vocabulary AND against the client's registered scope, returning the
-// space-delimited grant.
-//
-// An empty request gets the client's registered scope, or the full read
-// vocabulary when the client registered none — every scope in it is read-only
-// against one resource, so the default is the whole of what this AS grants.
-func (h *grantHandler) normaliseScope(requested, registered string) (string, bool) {
-	return normaliseScope(h.scopes, requested, registered)
+// checkEntitled writes the refusal and returns false when userID may not be
+// granted the resource. Shared by the grant; the consent and token handlers
+// have their own error vocabularies.
+func (h *grantHandler) checkEntitled(w http.ResponseWriter, r *http.Request, target *grantableResource, userID string) bool {
+	ok, err := target.entitledTo(r.Context(), userID)
+	if err != nil {
+		log.Errorf("oauth grant: entitlement check for %s failed: %v", target.uri, err)
+		writeOAuthError(w, http.StatusServiceUnavailable, "temporarily_unavailable",
+			"could not confirm access to this resource; try again")
+		return false
+	}
+	if !ok {
+		log.Warnf("oauth grant: user is not entitled to %s", target.uri)
+		writeOAuthError(w, http.StatusForbidden, "access_denied",
+			"this account may not be granted access to this resource")
+		return false
+	}
+	return true
 }
 
-// normaliseScope is the free function behind it, shared with the consent
-// endpoints so the scope the human is SHOWN is computed by the same code as the
-// scope that is GRANTED. Two implementations of this would be two chances for
-// the screen to describe a narrower grant than the one it authorises.
-func normaliseScope(vocabulary map[string]bool, requested, registered string) (string, bool) {
+// normaliseScope validates the requested scope set against the RESOURCE's
+// published vocabulary AND against the client's registered scope, returning the
+// space-delimited grant.
+//
+// An empty request gets the client's registered scope, or the resource's whole
+// vocabulary when the client registered none.
+//
+// It is shared with the consent endpoints so the scope the human is SHOWN is
+// computed by the same code as the scope that is GRANTED. Two implementations
+// of this would be two chances for the screen to describe a narrower grant than
+// the one it authorises.
+func normaliseScope(target *grantableResource, requested, registered string) (string, bool) {
+	vocabulary := target.vocab
 	allowed := vocabulary
 	if regFields := strings.Fields(registered); len(regFields) > 0 {
 		allowed = make(map[string]bool, len(regFields))
@@ -457,7 +475,7 @@ func normaliseScope(vocabulary map[string]bool, requested, registered string) (s
 	fields := strings.Fields(requested)
 	if len(fields) == 0 {
 		granted := make([]string, 0, len(allowed))
-		for _, s := range mcp.Scopes { // published order, not map order
+		for _, s := range target.scopes { // published order, not map order
 			if allowed[s] {
 				granted = append(granted, s)
 			}

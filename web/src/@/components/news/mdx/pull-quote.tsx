@@ -1,6 +1,6 @@
 export function PullQuote({ children }: { children: React.ReactNode }) {
   return (
-    <blockquote className="my-10 border-l-2 border-primary py-2 pl-6 font-serif text-2xl italic leading-snug text-foreground">
+    <blockquote data-article-figure className="my-10 border-l border-primary/50 py-2 pl-5 font-mono text-xl italic leading-relaxed text-foreground">
       {children}
     </blockquote>
   );

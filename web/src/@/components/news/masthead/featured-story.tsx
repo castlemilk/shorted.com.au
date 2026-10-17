@@ -1,18 +1,18 @@
 import Link from "next/link";
 import { preload } from "react-dom";
+import { cn } from "~/@/lib/utils";
+import { eyebrow, sectionTitle } from "~/@/lib/typography";
 import type { FeaturedItem } from "./featured";
 
 /**
  * FeaturedStory — a pinned, clearly-labelled "Featured investigation" card for
- * the /news masthead. Links out to a bespoke `/features/*` page. The visual
- * layers the page's OG art over an amber bloom so it degrades gracefully if the
- * image route is unavailable (background-image, not <img>, so no broken icon).
+ * the /news masthead. Links out to a bespoke `/features/*` page. Dedicated
+ * artwork fills a static 16:9 frame; legacy typed OG cards are contained.
  */
 /**
  * Route a same-origin image (e.g. the /features OG route, ~97KB PNG) through
  * the Next.js image optimizer so the card ships a resized AVIF/WebP instead.
- * Kept as a CSS background (see component docstring), so we build the
- * /_next/image URL by hand. External URLs pass through untouched — the
+ * We build the /_next/image URL by hand. External URLs pass through untouched — the
  * optimizer 400s on hosts outside remotePatterns.
  */
 function optimizedBackgroundUrl(image: string): string {
@@ -25,8 +25,7 @@ export function FeaturedStory({
   priority = false,
 }: {
   item: FeaturedItem;
-  /** Set on pages where this card is the LCP element (/news masthead): CSS
-   *  background images are discovered late (after CSS + DOM), so emit a
+  /** Set on pages where this card is the LCP element (/news masthead): emit a
    *  <link rel="preload" as="image"> for the optimized URL. Leave off where
    *  the card is below the fold (homepage). */
   priority?: boolean;
@@ -38,42 +37,38 @@ export function FeaturedStory({
     <section aria-label="Featured investigation">
       <Link
         href={item.href}
-        className="group block overflow-hidden rounded-xl border border-primary/30 bg-card shadow-amber-sm transition-colors hover:border-primary/60"
+        className="group block overflow-hidden rounded-lg border border-primary/30 bg-card transition-colors hover:border-primary/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transition-none"
       >
-        <div className="grid md:grid-cols-2">
+        <div className="grid items-center md:grid-cols-2">
           {/* visual */}
-          <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-orange-950/50 via-stone-950 to-stone-950 md:aspect-auto md:min-h-[240px]">
-            <div
-              aria-hidden
-              className="absolute inset-0"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle at 30% 30%, rgba(255,169,77,0.2), transparent 60%)",
-              }}
-            />
+          <div className="relative aspect-video w-full overflow-hidden border-b border-border bg-muted md:border-b-0 md:border-r">
             {item.image ? (
               // Real <img> (not CSS background): the preload scanner and
               // Lighthouse's LCP model both discover it from the HTML, and a
               // decorative empty alt means a failed load renders blank — same
               // graceful degradation as the old background-image approach.
+              // eslint-disable-next-line @next/next/no-img-element -- The src already uses the image optimizer.
               <img
                 aria-hidden
                 alt=""
                 src={optimizedBackgroundUrl(item.image)}
-                fetchPriority={priority ? "high" : "auto"}
-                className="absolute inset-0 h-full w-full object-cover object-center opacity-95 transition-transform duration-700 group-hover:scale-[1.02]"
+                // React 18 forwards the lowercase HTML attribute without an
+                // unknown-prop warning; the browser still honours its priority.
+                {...{ fetchpriority: priority ? "high" : "auto" }}
+                loading={priority ? "eager" : "lazy"}
+                decoding="async"
+                className={cn("absolute inset-0 h-full w-full object-center", item.image.includes("/opengraph-image") ? "object-contain" : "object-cover")}
               />
             ) : null}
           </div>
 
           {/* content */}
           <div className="flex flex-col justify-center gap-3 p-6 md:p-8">
-            <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-primary">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+            <p className={cn(eyebrow, "font-medium text-primary")}>
               {item.kicker}
             </p>
 
-            <h2 className="font-serif text-3xl font-semibold leading-[1.05] tracking-tight transition-colors group-hover:text-primary md:text-4xl">
+            <h2 className={cn(sectionTitle, "text-3xl leading-[1.08] transition-colors group-hover:text-primary md:text-4xl")}>
               {item.headline}
             </h2>
 
@@ -84,17 +79,11 @@ export function FeaturedStory({
             ) : null}
 
             {item.meta?.length ? (
-              <p className="font-mono text-[11px] text-muted-foreground">
-                {item.meta.join("  ·  ")}
+              <p className="flex flex-wrap gap-x-4 gap-y-2 font-mono text-xs tabular-nums text-muted-foreground">
+                {item.meta.map((text, index) => <span key={`${index}-${text}`}>{text}</span>)}
               </p>
             ) : null}
 
-            <span className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary">
-              Read the investigation
-              <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
-                →
-              </span>
-            </span>
           </div>
         </div>
       </Link>

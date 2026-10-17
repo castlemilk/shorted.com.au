@@ -1,8 +1,9 @@
 "use client";
 
-import { type FC } from "react";
+import { type FC, useRef } from "react";
 import { MainNav } from "./main-nav";
 import { ModeToggle } from "./mode-toggle";
+import { useFocusClearance } from "~/@/hooks/use-focus-clearance";
 import { type NavItem } from "~/@/types/nav";
 
 export interface NavItemWithGroup extends NavItem {
@@ -28,6 +29,7 @@ const items: NavItemWithGroup[] = [
   { title: "reports", href: "/reports" },
   { title: "statistics", href: "/statistics" },
   { title: "scans", href: "/scans" },
+  { title: "picks", href: "/picks" },
   { title: "news", href: "/news" },
   { title: "portfolio", href: "/portfolio", requiresAuth: true },
   { title: "about", href: "/about" },
@@ -68,8 +70,16 @@ const SiteHeader: FC = () => {
     ? items
     : items.filter((i) => i.href !== "/politicians");
 
+  // Keyboard focus never lands under the header's translucent 0-64px band, on
+  // any page (WCAG 2.2 SC 2.4.11). Stuck at top 0 from the first paint.
+  const headerRef = useRef<HTMLElement>(null);
+  useFocusClearance(headerRef, 0);
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl saturate-150 supports-[backdrop-filter]:bg-background/60">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl saturate-150 supports-[backdrop-filter]:bg-background/60"
+    >
       <div className="flex h-16 items-center w-full px-3 sm:px-4 md:px-6">
         <MainNav items={navItems} modeToggle={<ModeToggle />} />
       </div>

@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
@@ -56,8 +57,7 @@ async function buildFeaturedPairs(): Promise<
     const top = (data?.timeSeries ?? [])
       .map((ts) => ({
         code: ts.productCode,
-        industry:
-          (ts as { industry?: string }).industry ?? "",
+        industry: industryLabel((ts as { industry?: string }).industry),
       }))
       .filter((s) => !!s.code);
 
@@ -102,12 +102,13 @@ export default async function CompareIndexPage() {
   const pairs = await buildFeaturedPairs();
   // A failed/cold fetch must not bake the "pairs are being built" shell into
   // the route cache for the whole revalidate window.
-  if (pairs.length === 0) bailOnEmptyRender();
+  if (pairs.length === 0) await bailOnEmptyRender();
 
   const breadcrumbItems = [{ label: "Compare", href: "/compare" }];
 
   return (
     <main className="min-h-screen">
+      {(pairs.length === 0) && <span hidden data-isr-shell="empty" />}
       <BreadcrumbStructuredData items={breadcrumbItems} />
       <script
         type="application/ld+json"

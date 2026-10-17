@@ -12,6 +12,8 @@ import (
 
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 )
 
 // digestModel is the model NAME RECORDED in financial_report_extractions.digest_model.
@@ -135,13 +137,18 @@ func (geminiSummarizer) Summarize(ctx context.Context, metrics map[string]any, p
 // buildDigestContent assembles the user content: the structured metrics JSON
 // followed by a truncated raw-text excerpt.
 //
+// The metrics pass the trust funnel first (docs/plans/fundamentals-coverage.md
+// 4.1, 6.3): an entry the extractor could not align, or an echo of the
+// few-shot example (a stored row being re-digested by -backfill-digests can
+// still carry one), never reaches the prompt, and the provenance keys
+// (alignment, char_start, char_end) are stripped. The metrics that are STORED
+// are the caller's, untouched.
+//
 // `json.dumps(metrics, indent=2)` → MarshalIndent with two spaces. Go sorts map
 // keys where Python preserved insertion order; the model is not order-sensitive
 // and the value is not stored, so this is presentation-only.
 func buildDigestContent(metrics map[string]any, pageText string) string {
-	if metrics == nil {
-		metrics = map[string]any{}
-	}
+	metrics, _ = extractiontrust.TrustedMetrics(metrics)
 	metricsJSON, err := json.MarshalIndent(metrics, "", "  ")
 	if err != nil {
 		metricsJSON = []byte("{}")

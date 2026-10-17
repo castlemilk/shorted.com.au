@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { ArrowRight, Book, Terminal, Shield, Lock, AlertTriangle } from 'lucide-react';
 import { ApiAccessSection } from '~/@/components/docs/api-access-section';
 import { WebApiSchema } from '~/@/components/seo/web-api-schema';
+import { planPricePerMonth } from "~/@/config/pricing";
 
 export default async function ApiDocsIndex() {
   const spec = await parseOpenAPISpec();
@@ -172,22 +173,20 @@ export default async function ApiDocsIndex() {
                   </tr>
                   <tr className="border-b">
                     {/*
-                      $20/mo is the API Access tier. Do NOT link this to
-                      /pricing — that page covers Premium ($4/mo) only and says
+                      This is the API Access tier. Do NOT link this to
+                      /pricing — that page covers Premium only and says
                       nothing about API access, so it is a dead end for a
                       developer reading this table. The purchase path is the
                       ApiAccessSection in #authentication on this same page.
 
-                      This price previously read twenty-nine dollars a month,
-                      which matched nothing charged anywhere.
-                      Source of truth is the Stripe price behind
-                      STRIPE_API_ACCESS_PRICE_ID; if that changes, change it
-                      here and in /roadmap, which also states $20.
+                      The price comes from ~/@/config/pricing, which checkout
+                      also validates the Stripe price against — change it
+                      there, never inline.
                     */}
                     <td className="py-3 pr-4 font-medium text-foreground">
                       API Access{" "}
                       <a href="#authentication" className="font-normal underline">
-                        ($20/mo)
+                        ({planPricePerMonth("apiAccess")})
                       </a>
                     </td>
                     <td className="py-3 pr-4">120</td>

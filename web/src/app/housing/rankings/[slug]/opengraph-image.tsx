@@ -4,6 +4,8 @@ import { ImageResponse } from "next/og";
 import { getHousingRanking } from "~/@/lib/housing-rankings/registry";
 import { OG_CONTENT_TYPE, OG_SIZE, OgCard, getOgLogo } from "~/@/lib/og/card";
 
+export const maxDuration = 15;
+
 export const alt = "Australian Suburb House Price Ranking — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

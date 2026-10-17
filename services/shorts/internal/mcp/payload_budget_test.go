@@ -10,6 +10,7 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -208,10 +209,268 @@ func realisticSource() *fakeDataSource {
 	}
 
 	realisticDiscoverySource(src)
+	realisticStrategySource(src)
+	realisticBriefingSource(src)
 	realisticHousingSource(src)
 	realisticEconomySource(src)
 	realisticPoliticsSource(src)
 	return src
+}
+
+// realisticStrategySource fills the strategy and fundamentals fixtures at each
+// tool's CEILING rather than its default, because both have a worst case one
+// ordinary call can reach:
+//
+//   - list_strategies from the REAL registry, so a strategy gaining a rule or
+//     a longer tagline is measured here without anyone remembering to.
+//   - get_strategy_picks at 25 picks of the widest strategy (7 rules), every
+//     pick a watch-status row that passes ONE rule and fails or cannot
+//     evaluate the rest, each with an evidence sentence over the truncation
+//     limit, and every pick carrying a full fundamentals block whose growth
+//     figures both came from a filing. That is the row the evidence allowance
+//     exists for; a triggered row fails at most one or two rules and costs
+//     far less.
+//   - get_stock_fundamentals at its 24-period ceiling with every figure
+//     reported, a two-key field_sources map on every period, a full quality
+//     block (every ratio AND the not-meaningful list, which the API never
+//     sends together, so this over-counts), coverage and a latest filing.
+func realisticStrategySource(src *fakeDataSource) {
+	regime := &shortsv1alpha1.MarketRegime{
+		IndexCode: "XJO", AsOf: "2026-09-25", Regime: "downtrend",
+		Close: 8_123.45, Sma50: 8_234.56, Sma200: 8_345.67, PctOff_52WHigh: -7.1234,
+		Verdict: "Stand aside: XJO is below its 200-day average. Breakouts fail more often in a falling market, " +
+			"so no stock can trigger until the trend turns.",
+	}
+
+	registry := strategies.Registry()
+	list := make([]*shortsv1alpha1.Strategy, 0, len(registry))
+	widest := registry[0]
+	for _, st := range registry {
+		if len(st.Rules) > len(widest.Rules) {
+			widest = st
+		}
+		list = append(list, strategyFixture(st))
+	}
+	src.strategies = &shortsv1alpha1.ListStrategiesResponse{Strategies: list, Regime: regime}
+
+	evidence := "Close A$12.34, 150-day A$13.45, 200-day A$14.56: close is not above the 150-day; " +
+		"150-day is not above the 200-day, and the 200-day has fallen for a month"
+	picks := make([]*shortsv1alpha1.StrategyPick, 0, maxStrategyPicksLimit)
+	for i := 0; i < maxStrategyPicksLimit; i++ {
+		rules := make([]*shortsv1alpha1.RuleResult, 0, len(widest.Rules))
+		for j, r := range widest.Rules {
+			status := "fail"
+			switch {
+			case j == len(widest.Rules)-1:
+				status = "pass"
+			case j == 0:
+				status = "unknown"
+			}
+			rules = append(rules, &shortsv1alpha1.RuleResult{
+				RuleId: r.ID, Status: status, Detail: evidence, Value: 12.3456, HasValue: true,
+			})
+		}
+		picks = append(picks, &shortsv1alpha1.StrategyPick{
+			Rank: int32(i + 1), StockCode: fmt.Sprintf("PK%02d", i), CompanyName: "PILBARA MINERALS LIMITED",
+			Industry: "Metals & Mining", Status: "watch", Score: 41.2345, Rules: rules,
+			Close: 12.3456, AsOf: "2026-09-25", PctOff_52WHigh: -31.2345, VolumeRatio_50D: 1.8765,
+			BaseDepthPct: 18.7654, BaseLengthDays: 87, Pivot: 14.5678,
+			RevenueYoyPct: 41.2345, HasRevenueYoy: true, EpsYoyPct: -12.3456, HasEpsYoy: true,
+			Rs_3MPct: -8.7654, ShortPct: 6.5432, MarketCap: 7_123_456_789,
+			HasClose: true, HasRs_3MPct: true, HasShortPct: true, HasMarketCap: true,
+			LogoUrl:      "https://storage.googleapis.com/shorted/logos/pls.png",
+			Fundamentals: pickFundamentalsFixture(),
+		})
+	}
+	src.strategyPicks = &shortsv1alpha1.GetStrategyPicksResponse{
+		Strategy: strategyFixture(widest), Regime: regime, Picks: picks,
+		TotalCount: 212, UniverseCount: 1_234, FundamentalsCoverageCount: 987, FundamentalsRowsCount: 1_101,
+		AsOf: "2026-09-25",
+	}
+
+	// More periods than the tool publishes: the fake ignores the limit, so the
+	// handler's own cap is what is measured.
+	periods := make([]*shortsv1alpha1.FundamentalsPeriod, 0, maxFundamentalsLimit+16)
+	types := []string{"annual", "half", "ttm"}
+	for i := 0; i < maxFundamentalsLimit+16; i++ {
+		periods = append(periods, fullFundamentalsPeriod(types[i%3], fmt.Sprintf("20%02d-06-30", 26-i/3), int32(2026-i/3)))
+	}
+	src.fundamentals = &shortsv1alpha1.GetStockFundamentalsResponse{
+		StockCode: "BHP", Periods: periods, HasGrowth: true,
+		Growth: &shortsv1alpha1.FundamentalsGrowth{
+			BasisPeriodType: "ttm", LatestPeriodEnd: "2026-06-30",
+			RevenueYoyPct: 41.2345, HasRevenueYoy: true, RevenueYoyPriorPct: 12.3456, HasRevenueYoyPrior: true,
+			EpsYoyPct: 55.4321, HasEpsYoy: true, EpsYoyPriorPct: 20.9876, HasEpsYoyPrior: true,
+			NetIncomePositive: true, PeriodsAvailable: 40,
+			RevenueTtm: 55_658_123_456.78, HasRevenueTtm: true, NetIncomeTtm: 12_345_678_901.23, HasNetIncomeTtm: true,
+			EpsTtm: 2.345678, HasEpsTtm: true,
+			RevenueBasisPeriodType: "half", HalfLatestPeriodEnd: "2026-06-30",
+			RevenueHalfYoyPct: 38.7654, HasRevenueHalfYoy: true, EpsHalfYoyPct: 61.2345, HasEpsHalfYoy: true,
+			RevenueBasisSource: "filing", EpsBasisSource: "filing", FetchedAt: "2026-09-26T08:12:34Z",
+			RevenueLatestPeriodEnd: "2026-06-30", RevenuePriorPeriodEnd: "2025-06-30",
+		},
+		HasQuality: true,
+		Quality: &shortsv1alpha1.FundamentalsQuality{
+			BasisPeriodType: "ttm", BasisPeriodEnd: "2026-06-30", Currency: "AUD", BalancePeriodEnd: "2025-12-31",
+			GrossMarginPct: 48.1234, HasGrossMarginPct: true, OperatingMarginPct: 31.2345, HasOperatingMarginPct: true,
+			NetMarginPct: -22.1234, HasNetMarginPct: true, FcfMarginPct: 17.7654, HasFcfMarginPct: true,
+			FcfConversion: 0.812345, HasFcfConversion: true, RoePct: 23.4567, HasRoePct: true,
+			RoaPct: 11.2345, HasRoaPct: true, NetDebt: -12_345_678_901.23, HasNetDebt: true,
+			NetDebtToEbitda: 0.412345, HasNetDebtToEbitda: true, NetDebtToEquity: 0.212345, HasNetDebtToEquity: true,
+			CurrentRatio: 1.712345, HasCurrentRatio: true, InterestCover: 123.4567, HasInterestCover: true,
+			PayoutRatioPct: 61.2345, HasPayoutRatioPct: true,
+			IsFinancial: true, Source: "yahoo-timeseries", OperatingCashFlowDerived: true,
+			MarketCap: 331_234_567_890.12, HasMarketCap: true, PeRatio: 14.23456, HasPeRatio: true,
+			PriceToBook: 3.123456, HasPriceToBook: true, PriceAsOf: "2026-09-25", BalanceCurrency: "USD",
+			NotMeaningful: strategies.NotMeaningfulForFinancials(), IsProperty: true, BalanceLagMonths: 6,
+			SharesAsOf: "2026-06-30", PeEpsPeriodEnd: "2026-06-30", PeEpsBasis: "diluted",
+			ValuationNote: "listed-unit",
+		},
+		Coverage: &shortsv1alpha1.FundamentalsCoverage{
+			Status: "covered", LastAttemptAt: "2026-09-26T08:12:34Z", LastSuccessAt: "2026-09-26T08:12:34Z",
+			Sources: []string{"yahoo-timeseries", "markit-key-statistics", "asx-filing-extraction"},
+		},
+		HasLatestFiling: true,
+		LatestFiling: &shortsv1alpha1.LatestFilingSummary{
+			ReportUrl:   "https://www.asx.com.au/asxpdf/20260819/pdf/06abcdefghij.pdf",
+			ReportTitle: "Appendix 4E and Annual Report 2026", ReportDate: "2026-08-19",
+			PeriodEnd: "2026-06-30", PeriodType: "annual",
+			Digest:           strings.Repeat("Underlying EBITDA rose on higher copper volumes. ", 20),
+			DigestConfidence: 0.8765,
+		},
+	}
+}
+
+// fullFundamentalsPeriod is one period with every statement line reported and
+// a two-key field_sources map: the widest row the tool can publish.
+func fullFundamentalsPeriod(periodType, periodEnd string, fiscalYear int32) *shortsv1alpha1.FundamentalsPeriod {
+	return &shortsv1alpha1.FundamentalsPeriod{
+		PeriodType: periodType, PeriodEnd: periodEnd, FiscalYear: fiscalYear,
+		Currency: "USD", Source: "yahoo-timeseries", FetchedAt: "2026-09-26T08:12:34Z",
+		Revenue: 55_658_123_456.78, HasRevenue: true, NetIncome: -12_345_678_901.23, HasNetIncome: true,
+		EpsBasic: 1.234567, HasEpsBasic: true, EpsDiluted: 1.223456, HasEpsDiluted: true,
+		OperatingCashFlow: 18_765_432_109.87, HasOperatingCashFlow: true,
+		FreeCashFlow: 9_876_543_210.98, HasFreeCashFlow: true,
+		SharesOutstanding: 5_071_234_567, HasSharesOutstanding: true,
+		GrossProfit: 27_123_456_789.01, HasGrossProfit: true, OperatingIncome: -21_234_567_890.12, HasOperatingIncome: true,
+		Ebitda: 28_123_456_789.01, HasEbitda: true, NormalizedEbitda: 29_123_456_789.01, HasNormalizedEbitda: true,
+		Ebit: 20_123_456_789.01, HasEbit: true, InterestExpense: 1_234_567_890.12, HasInterestExpense: true,
+		PretaxIncome: 19_123_456_789.01, HasPretaxIncome: true, TaxProvision: 6_123_456_789.01, HasTaxProvision: true,
+		NetInterestIncome: -1_123_456_789.01, HasNetInterestIncome: true,
+		CapitalExpenditure: -10_123_456_789.01, HasCapitalExpenditure: true,
+		DividendsPaid: -8_123_456_789.01, HasDividendsPaid: true, ShareBuybacks: -1_123_456_789.01, HasShareBuybacks: true,
+		TotalAssets: 108_123_456_789.01, HasTotalAssets: true, TotalLiabilities: 58_123_456_789.01, HasTotalLiabilities: true,
+		TotalEquity: -48_123_456_789.01, HasTotalEquity: true, CashAndEquivalents: 12_123_456_789.01, HasCashAndEquivalents: true,
+		TotalDebt: 22_123_456_789.01, HasTotalDebt: true, CapitalLeaseObligations: 2_123_456_789.01, HasCapitalLeaseObligations: true,
+		NetDebt: -11_123_456_789.01, HasNetDebt: true, CurrentAssets: 25_123_456_789.01, HasCurrentAssets: true,
+		CurrentLiabilities: 17_123_456_789.01, HasCurrentLiabilities: true,
+		FieldSources: map[string]string{
+			"operating_cash_flow": "derived:fcf-minus-capex",
+			"net_income":          "asx-filing-extraction",
+		},
+		SourceDocumentUrl:  "https://www.asx.com.au/asxpdf/20260819/pdf/06abcdefghij.pdf",
+		SourceDocumentDate: "2026-08-19",
+	}
+}
+
+// pickFundamentalsFixture is a pick's full fundamentals block: every ratio
+// reported, both growth figures from a filing (the longer source string).
+func pickFundamentalsFixture() *shortsv1alpha1.PickFundamentals {
+	return &shortsv1alpha1.PickFundamentals{
+		RevenueBasisPeriodType: "ttm", RevenuePeriodEnd: "2026-06-30",
+		EpsBasisPeriodType: "half", EpsPeriodEnd: "2026-06-30",
+		Currency: "AUD", FetchedAt: "2026-09-26T08:12:34Z",
+		RevenueBasisSource: "filing", EpsBasisSource: "filing",
+		NetMarginPct: -22.1234, HasNetMarginPct: true, RoePct: -123.4567, HasRoePct: true,
+		FcfMarginPct: 17.7654, HasFcfMarginPct: true, NetDebtToEbitda: 0.412345, HasNetDebtToEbitda: true,
+		PeRatio: 14.23456, HasPeRatio: true, IsFinancial: true, NetIncomePositive: true,
+		NotMeaningful: strategies.NotMeaningfulForFinancials(),
+	}
+}
+
+// strategyFixture renders a registry strategy the way the handler does, prose
+// and all, so the list fixture costs what production costs.
+func strategyFixture(st strategies.Strategy) *shortsv1alpha1.Strategy {
+	rules := make([]*shortsv1alpha1.StrategyRule, 0, len(st.Rules))
+	for _, r := range st.Rules {
+		rules = append(rules, &shortsv1alpha1.StrategyRule{
+			Id: r.ID, Title: r.Title, RuleText: r.RuleText, Evaluation: r.Evaluation,
+			Core: r.Core, DataSource: r.DataSource,
+		})
+	}
+	return &shortsv1alpha1.Strategy{
+		Id: st.ID, Name: st.Name, Author: st.Author, Tagline: st.Tagline,
+		DescriptionParagraphs: st.Description, Rules: rules,
+		Metadata: &shortsv1alpha1.StrategyMetadata{
+			Style: st.Metadata.Style, HoldingPeriod: st.Metadata.HoldingPeriod,
+			RiskPosture: st.Metadata.RiskPosture, Universe: st.Metadata.Universe,
+			RefreshCadence: st.Metadata.RefreshCadence, RuleCount: int32(len(st.Rules)),
+		},
+		Caveats: st.Caveats, Sources: st.Sources,
+	}
+}
+
+// realisticBriefingSource fills the get_stock_briefing fixtures at worst case:
+// realisticBriefingSource fills the get_stock_briefing fixtures at worst case:
+// 5 strategy fits, 15 dividends (to exercise the 12-cap), 10 adverse + 10
+// positive signals with 150-character headlines and 300-character citations
+// realisticBriefingSource fills the get_stock_briefing fixtures at worst case:
+// 5 strategy fits, 15 dividends (to exercise the 12-cap), 10 adverse + 10
+// positive signals with 150-character headlines and 300-character citations
+// (not rendered). Latest filing digest is set in fundamentals (line 338).
+func realisticBriefingSource(src *fakeDataSource) {
+	// 5 strategy fits
+	fits := make([]*shortsv1alpha1.StrategyFit, 0, 5)
+	strategyNames := []string{"zanger-breakout", "canslim", "minervini-trend-template", "crowded-short-breakout", "quality-compounders"}
+	for i, name := range strategyNames {
+		fits = append(fits, &shortsv1alpha1.StrategyFit{
+			StrategyId:   name,
+			StrategyName: name,
+			Score:        float64(70 + i*5), // 70-90% score
+			Status:       "triggered",
+		})
+	}
+	src.strategyFit = &shortsv1alpha1.GetStockStrategyFitResponse{Fits: fits}
+
+	// 15 dividends (worst case: exceeds 12-cap)
+	divs := make([]*shortsv1alpha1.DividendRecord, 0, 15)
+	for i := 0; i < 15; i++ {
+		divs = append(divs, &shortsv1alpha1.DividendRecord{
+			ExDate:             fmt.Sprintf("2026-%02d-15", 1+i%12),
+			PaymentDate:        fmt.Sprintf("2026-%02d-28", 1+i%12),
+			AmountPerShare:     0.35 + float64(i)*0.02,
+			FrankingPercentage: 100.0,
+		})
+	}
+	src.dividendHistory = &shortsv1alpha1.GetDividendHistoryResponse{Dividends: divs}
+
+	// 10 adverse signals + 10 positive signals, each with 150-char headline
+	headlineBase := strings.Repeat("X", 150)
+	citationBase := strings.Repeat("A", 300)
+
+	adverseSignals := make([]*shortsv1alpha1.StockSignal, 0, 10)
+	for i := 0; i < 10; i++ {
+		date := time.Date(2026, 10, 15-i*2, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+		adverseSignals = append(adverseSignals, &shortsv1alpha1.StockSignal{
+			EventDate: date,
+			Polarity:  "adverse",
+			Headline:  fmt.Sprintf("Adverse signal %d: %s", i+1, headlineBase),
+			Citations: []string{citationBase, citationBase, citationBase},
+		})
+	}
+
+	positiveSignals := make([]*shortsv1alpha1.StockSignal, 0, 10)
+	for i := 0; i < 10; i++ {
+		date := time.Date(2026, 10, 10-i*2, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+		positiveSignals = append(positiveSignals, &shortsv1alpha1.StockSignal{
+			EventDate: date,
+			Polarity:  "positive",
+			Headline:  fmt.Sprintf("Positive signal %d: %s", i+1, headlineBase),
+			Citations: []string{citationBase, citationBase, citationBase},
+		})
+	}
+
+	src.stockSignals = &shortsv1alpha1.GetStockSignalsResponse{Adverse: adverseSignals, Positive: positiveSignals}
 }
 
 // realisticPoliticsSource fills the register fixtures at each tool's worst
@@ -380,7 +639,7 @@ func realisticHousingSource(src *fakeDataSource) {
 			MedianWeeklyRent: 550, MedianMonthlyMortgage: 2_800, PctRented: 48.2345, CensusYear: 2021,
 		},
 		Baselines: &shortsv1alpha1.ComparisonBaselines{
-			StateMedianPrice: 900_000, NationalMedianPrice: 850_000,
+			StateMedianPrice: 900_000, CapitalMedianPrice: 850_000,
 		},
 		Council: &shortsv1alpha1.LgaInfo{LgaName: "Yarra"},
 		Crime: &shortsv1alpha1.SuburbCrime{

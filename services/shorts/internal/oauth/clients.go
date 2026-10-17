@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 )
 
 // How a client comes to exist, and why there are two ways.
@@ -1088,11 +1087,17 @@ func normaliseGrantTypes(requested []string, strict bool) []string {
 // treatment as a client that sent no scope at all. That is not a widening:
 // every published scope is read-only against the single MCP resource.
 func filterScope(scope string) string {
+	// Every scope of every resource: a client registering for the admin
+	// resource declares news:publish, and dropping it would leave the client
+	// unable to request the one scope that resource grants. Registering a scope
+	// grants nothing by itself — normaliseScope intersects it with the
+	// requested RESOURCE's vocabulary, and the admin resource is gated by
+	// entitlement.
 	published := map[string]bool{}
-	for _, s := range mcp.Scopes {
+	for _, s := range allScopes() {
 		published[s] = true
 	}
-	kept := make([]string, 0, len(mcp.Scopes))
+	kept := make([]string, 0, len(published))
 	seen := map[string]bool{}
 	for _, s := range strings.Fields(scope) {
 		if published[s] && !seen[s] {

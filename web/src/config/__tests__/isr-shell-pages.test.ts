@@ -40,6 +40,15 @@ describe("isr-shell-pages.json", () => {
       "/compare",
       "/price-drops",
       "/themes",
+      "/picks",
+      "/housing/nsw/council",
+      "/housing/vic/council",
+      "/housing/qld/council",
+      "/housing/sa/council",
+      "/housing/wa/council",
+      "/housing/tas/council",
+      "/housing/nt/council",
+      "/housing/act/council",
     ]);
   });
 });
@@ -59,6 +68,23 @@ describe("theme pages in the ISR sweep inventory", () => {
     const all = new Set(isrPages as string[]);
     expect(all.has("/themes")).toBe(true);
     const missing = THEME_SLUGS.filter((slug) => !all.has(`/themes/${slug}`));
+    expect(missing).toEqual([]);
+  });
+});
+
+// /picks and /picks/[strategy] build as the same deliberately-empty static
+// shells as the themes (getStrategyPicks skips at build), so every strategy in
+// the registry must be in the post-promote sweep or it ships each deploy empty
+// until its first natural revalidation.
+describe("stock picker pages in the ISR sweep inventory", () => {
+  it("covers /picks and every registry strategy", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { STRATEGY_SLUGS } = require("~/@/lib/strategies/registry") as {
+      STRATEGY_SLUGS: string[];
+    };
+    const all = new Set(isrPages as string[]);
+    expect(all.has("/picks")).toBe(true);
+    const missing = STRATEGY_SLUGS.filter((slug) => !all.has(`/picks/${slug}`));
     expect(missing).toEqual([]);
   });
 });
@@ -98,5 +124,53 @@ describe("capital housing pages in the ISR sweep inventory", () => {
       (slug) => !all.has(`/housing/capitals/${slug}`),
     );
     expect(missing).toEqual([]);
+  });
+});
+
+// The council index pages build as empty shells under SKIP_STATIC_GENERATION
+// (listCouncils skips at build), so an invalidate alone would hand the first
+// post-deploy visitor "Council data is loading" (stale-while-revalidate serves
+// the shell once). They are in BOTH sets: the post-promote sweep inventory and
+// the shell re-prime. The hourly repair invalidates only confirmed empty shells; healthy pages
+// retain their ISR TTL. bailOnEmptyRender caps a runtime empty render at 60s.
+describe("council index pages in the ISR sweep and shell re-prime", () => {
+  it("covers /housing/<state>/council for all eight states", () => {
+    const all = new Set(isrPages as string[]);
+    const shells = new Set(isrShellPages as string[]);
+    for (const st of ["nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"]) {
+      expect(all.has(`/housing/${st}/council`)).toBe(true);
+      expect(shells.has(`/housing/${st}/council`)).toBe(true);
+    }
+  });
+});
+
+// The state indexes build with an empty suburb directory (the directory read
+// skips at build), the suburb, council and industry pages read live data, and
+// the editorial indexes list rows published between deploys. Until 2026-09-25
+// none of them were in the sweep, so every promote handed them out as
+// build-time placeholders for up to their 24h TTL unless someone ran
+// `task deploy:revalidate` by hand with the right path list. A path containing
+// `[` revalidates the whole dynamic route (see api/revalidate/route.ts).
+describe("state, suburb, industry and editorial routes in the ISR sweep inventory", () => {
+  it("covers the eight state indexes and the dynamic routes", () => {
+    const all = new Set(isrPages as string[]);
+    for (const st of ["nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"]) {
+      expect(all.has(`/housing/${st}`)).toBe(true);
+    }
+    for (const pattern of [
+      "/housing/[state]/[suburb]",
+      "/housing/[state]/council/[slug]",
+      "/industry-intelligence",
+      "/industry/[slug]",
+      "/blog",
+      "/news",
+      "/news/[slug]",
+    ]) {
+      expect(all.has(pattern)).toBe(true);
+    }
+  });
+
+  it("has no duplicates in the full inventory", () => {
+    expect(new Set(isrPages as string[]).size).toBe(isrPages.length);
   });
 });

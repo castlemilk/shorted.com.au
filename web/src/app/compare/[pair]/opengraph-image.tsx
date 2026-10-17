@@ -12,6 +12,8 @@ import {
 import { getStock } from "~/app/actions/getStock";
 import { formatCompanyName } from "~/@/lib/company-name";
 
+export const maxDuration = 15;
+
 export const alt = "Compare ASX stocks by short interest — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

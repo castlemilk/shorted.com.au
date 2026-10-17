@@ -34,7 +34,7 @@ const MaxBatchCost = 50
 // reimplemented — the published tier table has to mean one thing.
 type TierResolver func(userID string) (string, error)
 
-// RateLimitCost counts what a /mcp request consumes: one unit per TOOL CALL.
+// RateLimitCost counts what a /mcp request consumes: one unit per tool call or resource read.
 //
 // NOT one per HTTP request, and this is the deliberate part:
 //
@@ -69,7 +69,7 @@ func RateLimitCost(r *http.Request) int {
 }
 
 // countToolCalls parses a JSON-RPC request or batch and returns how many
-// tools/call entries it contains.
+// tool calls and resource reads it contains. Resource reads can query stocks.
 func countToolCalls(body []byte) int {
 	trimmed := bytes.TrimSpace(body)
 	if len(trimmed) == 0 {
@@ -90,7 +90,7 @@ func countToolCalls(body []byte) int {
 		}
 		count := 0
 		for _, entry := range batch {
-			if entry.Method == "tools/call" {
+			if entry.Method == "tools/call" || entry.Method == "resources/read" {
 				count++
 			}
 		}
@@ -104,7 +104,7 @@ func countToolCalls(body []byte) int {
 	if err := json.Unmarshal(trimmed, &single); err != nil {
 		return 0
 	}
-	if single.Method == "tools/call" {
+	if single.Method == "tools/call" || single.Method == "resources/read" {
 		return 1
 	}
 	return 0

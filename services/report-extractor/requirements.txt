@@ -1,5 +1,11 @@
-langextract>=0.1.0
+# langextract and google-genai are PINNED (contract 6.1): budgeted_gemini.py
+# overrides two hooks of langextract 1.7.0's Gemini provider, and the thinking
+# config rides on google-genai's GenerateContentConfig. 2.25.0 is what the
+# image resolved from the previous unpinned requirements on 2026-09-28
+# (langextract 1.7.0 requires google-genai>=1.39.0). Bump both deliberately and
+# rerun test_budgeted_gemini.py, which drives lx.extract end to end.
+langextract==1.7.0
+google-genai==2.25.0
 pymupdf>=1.24.0
 psycopg2-binary>=2.9.0
 requests>=2.31.0
-google-genai>=0.3.0

@@ -11,7 +11,6 @@ import { getTopShortsData } from "../getTopShorts";
 import {
   calculateMovers,
   type TimePeriod,
-  type MoversData,
 } from "~/@/lib/shorts-calculations";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { siteConfig } from "~/@/config/site";
@@ -39,12 +38,17 @@ export interface SerializedTimeSeriesData {
 }
 
 /**
- * Serialized movers data for caching
+ * Mover cards only use summary fields; table sparklines keep the full series.
  */
+export type SerializedMoverSummary = Pick<
+  SerializedTimeSeriesData,
+  "productCode" | "name" | "latestShortPosition"
+>;
+
 export interface SerializedMoversData {
-  biggestGainers: Array<SerializedTimeSeriesData & { change: number }>;
-  biggestLosers: Array<SerializedTimeSeriesData & { change: number }>;
-  mostVolatile: Array<SerializedTimeSeriesData & { volatility: number }>;
+  biggestGainers: Array<SerializedMoverSummary & { change: number }>;
+  biggestLosers: Array<SerializedMoverSummary & { change: number }>;
+  mostVolatile: Array<SerializedMoverSummary & { volatility: number }>;
 }
 
 /**
@@ -131,28 +135,26 @@ function serializeTimeSeriesData(data: TimeSeriesData): SerializedTimeSeriesData
 }
 
 /**
- * Serialize movers data for caching.
- * MoversData already contains plain serializable objects (no protobuf bigint),
- * so we just map the shape to match SerializedMoversData.
+ * Serialize the five visible items in each mover card without point histories.
+ * Accepts both calculated movers and legacy cache entries with extra fields.
  */
-function serializeMoversData(movers: MoversData): SerializedMoversData {
-  const serializeStock = (s: { productCode: string; name: string; latestShortPosition: number; points: Array<{ shortPosition: number }> }): SerializedTimeSeriesData => ({
+function serializeMoversData(movers: SerializedMoversData): SerializedMoversData {
+  const serializeStock = (s: SerializedMoverSummary): SerializedMoverSummary => ({
     productCode: s.productCode,
     name: s.name,
     latestShortPosition: s.latestShortPosition,
-    points: s.points.map((p) => ({ shortPosition: p.shortPosition })),
   });
 
   return {
-    biggestGainers: movers.biggestGainers.map((item) => ({
+    biggestGainers: movers.biggestGainers.slice(0, 5).map((item) => ({
       ...serializeStock(item),
       change: item.change,
     })),
-    biggestLosers: movers.biggestLosers.map((item) => ({
+    biggestLosers: movers.biggestLosers.slice(0, 5).map((item) => ({
       ...serializeStock(item),
       change: item.change,
     })),
-    mostVolatile: movers.mostVolatile.map((item) => ({
+    mostVolatile: movers.mostVolatile.slice(0, 5).map((item) => ({
       ...serializeStock(item),
       volatility: item.volatility,
     })),
@@ -277,7 +279,9 @@ export async function getTopPageData(
   // and the /top title built from it — sat on the same ASIC date for days. See
   // isCachedShortsDataStale for the bound and its rationale.
   if (isUsableTopPageData(cached) && !isCachedShortsDataStale(cached.timeSeries)) {
-    return cached;
+    // Existing cache entries may still contain ten movers and duplicate point
+    // histories. Normalize the response without changing the data's freshness.
+    return { ...cached, movers: serializeMoversData(cached.movers) };
   }
   if (cached !== null) {
     // Best-effort: during a read-only-cache incident this DEL is exactly what is

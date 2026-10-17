@@ -24,7 +24,6 @@ import {
   STATE_NAMES,
   stateSlug,
   suburbHref,
-  titleCaseName,
 } from "~/@/lib/housing/states";
 import { cn } from "~/@/lib/utils";
 import { eyebrow, pageTitle } from "~/@/lib/typography";
@@ -122,7 +121,7 @@ function LeaderTiles({
               {index + 1}
             </span>
             <h2 className="mt-1 font-semibold leading-snug group-hover:text-primary">
-              {titleCaseName(row.salName)}
+              {row.salName}
             </h2>
             <p className="mt-2 text-xl font-semibold tabular-nums">
               {leaderValue(row, ranking)}
@@ -146,7 +145,7 @@ export default async function HousingRankingPage({ params }: PageProps) {
 
   const data = await getHousingRankingData(ranking.stateCode);
   const rankedRows = data ? rankSuburbs(data.suburbs, ranking.metric) : [];
-  if (rankedRows.length === 0) bailOnEmptyRender();
+  if (rankedRows.length === 0) await bailOnEmptyRender();
 
   const visibleRows = rankedRows.slice(0, MAX_RENDERED_ROWS);
   const stateName = STATE_NAMES[ranking.stateCode]!;
@@ -182,7 +181,7 @@ export default async function HousingRankingPage({ params }: PageProps) {
           description={ranking.description}
           itemType="Place"
           items={visibleRows.slice(0, 15).map((row) => ({
-            name: titleCaseName(row.salName),
+            name: row.salName,
             url: `${siteConfig.url}${suburbHref(row.stateCode, row)}`,
             description: `${formatHousingMoney(row.latestMedianPrice)} median house price; ${row.yoyPct.toFixed(1)}% year-on-year change`,
           }))}

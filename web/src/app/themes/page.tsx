@@ -69,10 +69,11 @@ const breadcrumbs = [
 export default async function ThemesIndexPage() {
   const themes = Object.values(THEMES);
   const stats = await getThemeHubStats(themes.map((theme) => theme.slug));
-  if (Object.keys(stats).length === 0) bailOnEmptyRender();
+  if (Object.keys(stats).length === 0) await bailOnEmptyRender();
 
   return (
     <DashboardLayout>
+      {(Object.keys(stats).length === 0) && <span hidden data-isr-shell="empty" />}
       <BreadcrumbListSchema items={breadcrumbs} />
       <ItemListStructuredData
         name="ASX Stock Themes"

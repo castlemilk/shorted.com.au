@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChoroplethMap } from "./choropleth-map";
+import { useQuery } from "@tanstack/react-query";
+import { listCouncilsClient } from "~/app/actions/client/getHousingClient";
+import { ChoroplethMap, type OverlayHit } from "./choropleth-map";
 import { MapLegend } from "./map-legend";
 import { CategoricalLegend } from "./categorical-legend";
 import { makePriceScale, robustDomainTop } from "@/lib/housing/price-scale";
 import {
-  HIGHLIGHT_METRICS, METRIC_BY_KEY, METRIC_ICON, amberScale, type MetricKey, type HighlightMetric,
+  COLUMN_METRIC_GROUPS, HIGHLIGHT_METRICS, METRIC_BY_KEY, METRIC_ICON, amberScale, isColumnSourced, type MetricKey, type HighlightMetric,
 } from "@/lib/housing/highlight-metrics";
 import {
   OVERLAYS, OVERLAY_BY_KEY, overlayAvailable, parseOverlayParam, serializeOverlayParam, type OverlayKey,
@@ -16,8 +18,13 @@ import { HousingIcon } from "./housing-icon";
 import { useTopojson } from "./use-topojson";
 import { useSuburbColumns } from "./use-suburb-columns";
 import { useOverlayLayers } from "./use-overlay-layers";
-import { OverlayControl, OverlayLegend, type OverlayOpacities } from "./overlay-control";
+import { OverlayControl, OverlayLegend, OverlaySources, type OverlayOpacities } from "./overlay-control";
 import { SuburbTooltip, type TooltipExtra } from "./suburb-tooltip";
+import { CouncilLevelMap } from "./council-level-map";
+import { councilBorders, lgaCodesFromColumn } from "@/lib/housing/council-geometry";
+import {
+  COUNCIL_METRICS, DEFAULT_COUNCIL_METRIC, isCouncilMetricKey, type CouncilMetricKey,
+} from "@/lib/housing/council-metrics";
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -49,9 +56,13 @@ export type SuburbDatum = {
 const TOOLTIP_W = 224;
 const TOOLTIP_H = 260;
 
-const ROW_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind !== "column");
-const TERRAIN_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind === "column" && m.group === "terrain");
-const HAZARD_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind === "column" && m.group === "hazard");
+const ROW_METRICS = HIGHLIGHT_METRICS.filter((m) => !isColumnSourced(m));
+// Column metrics (continuous and categorical) are picker sections, in
+// COLUMN_METRIC_GROUPS order.
+const COLUMN_SECTIONS = COLUMN_METRIC_GROUPS.map((group) => ({
+  ...group,
+  metrics: HIGHLIGHT_METRICS.filter((m) => isColumnSourced(m) && m.group === group.key),
+})).filter((section) => section.metrics.length > 0);
 
 // Per-viewer overlay opacities. A convenience, not state worth a URL: the
 // right weighting depends on the reader's display, so it is remembered here
@@ -80,20 +91,56 @@ function isMetricKey(value: string | null): value is MetricKey {
   return value !== null && value in METRIC_BY_KEY;
 }
 
+export type MapLevel = "suburb" | "council";
+
+/** The lga_code column (dominant council per suburb) — requested only when used. */
+const LGA_COLUMN = ["lga_code"] as const;
+const NO_COLUMNS: readonly string[] = [];
+
+export interface MapView {
+  level: MapLevel;
+  metricKey: MetricKey;
+  councilMetricKey: CouncilMetricKey;
+  overlays: readonly OverlayKey[];
+  councilBorders: boolean;
+  defaultMetric: MetricKey;
+}
+
 /**
- * Writes the view (metric + overlays) into the URL without a navigation, so a
- * map someone has set up is a link they can send. Defaults are omitted so the
- * canonical `/housing/nsw` stays clean for the crawler. Same mechanism as the
- * economy explorer (`economy-map-explorer.tsx`).
+ * The view (level + metric + overlays + council borders) as URL params.
+ * Defaults are omitted so the canonical `/housing/nsw` stays clean for the
+ * crawler. At council level `metric` names a COUNCIL metric key
+ * (`?level=council&metric=population_growth`); borders are implied there.
  */
-function syncViewToUrl(metricKey: MetricKey, overlays: readonly OverlayKey[], defaultMetric: MetricKey) {
+export function viewSearchParams(view: MapView, base: URLSearchParams): URLSearchParams {
+  const out = new URLSearchParams(base);
+  if (view.level === "council") {
+    out.set("level", "council");
+    if (view.councilMetricKey === DEFAULT_COUNCIL_METRIC) out.delete("metric");
+    else out.set("metric", view.councilMetricKey);
+    out.delete("boundaries");
+  } else {
+    out.delete("level");
+    if (view.metricKey === view.defaultMetric) out.delete("metric");
+    else out.set("metric", view.metricKey);
+    if (view.councilBorders) out.set("boundaries", "councils");
+    else out.delete("boundaries");
+  }
+  const serialized = serializeOverlayParam(view.overlays);
+  if (serialized) out.set("overlays", serialized);
+  else out.delete("overlays");
+  return out;
+}
+
+/**
+ * Writes the view into the URL without a navigation, so a map someone has set
+ * up is a link they can send. Same mechanism as the economy explorer
+ * (`economy-map-explorer.tsx`).
+ */
+function syncViewToUrl(view: MapView) {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
-  if (metricKey === defaultMetric) url.searchParams.delete("metric");
-  else url.searchParams.set("metric", metricKey);
-  const serialized = serializeOverlayParam(overlays);
-  if (serialized) url.searchParams.set("overlays", serialized);
-  else url.searchParams.delete("overlays");
+  url.search = viewSearchParams(view, url.searchParams).toString();
   window.history.replaceState(null, "", url);
 }
 
@@ -110,9 +157,18 @@ export function StateSuburbMap({
 }) {
   const { data: topo, isLoading, isError } = useTopojson(`/geo/suburbs/${stateCode}.topojson`);
   const searchParams = useSearchParams();
-  const [hover, setHover] = useState<{ d: SuburbDatum; x: number; y: number } | null>(null);
+  const [hover, setHover] = useState<{ d: SuburbDatum; x: number; y: number; hits?: OverlayHit[] } | null>(null);
   const deepLinkedMetric = searchParams.get("metric");
-  const [metricKey, setMetricKey] = useState<MetricKey>(isMetricKey(deepLinkedMetric) ? deepLinkedMetric : "price");
+  // The ACT is one council (Unincorporated ACT): no council level, no borders.
+  const councilsSupported = stateCode !== "ACT";
+  const deepLinkedCouncil = councilsSupported && searchParams.get("level") === "council";
+  const [level, setLevel] = useState<MapLevel>(deepLinkedCouncil ? "council" : "suburb");
+  const [councilMetricKey, setCouncilMetricKey] = useState<CouncilMetricKey>(
+    deepLinkedCouncil && isCouncilMetricKey(deepLinkedMetric) ? deepLinkedMetric : DEFAULT_COUNCIL_METRIC);
+  const [showCouncilBorders, setShowCouncilBorders] = useState(
+    councilsSupported && searchParams.get("boundaries") === "councils");
+  const suburbDeepLink = !deepLinkedCouncil && isMetricKey(deepLinkedMetric) ? deepLinkedMetric : null;
+  const [metricKey, setMetricKey] = useState<MetricKey>(suburbDeepLink ?? "price");
   const [overlays, setOverlays] = useState<OverlayKey[]>(() => parseOverlayParam(searchParams.get("overlays")));
   const [opacities, setOpacities] = useState<OverlayOpacities>(() => readOpacities());
   const setOpacity = useCallback((key: OverlayKey, opacity: number) => {
@@ -144,7 +200,7 @@ export function StateSuburbMap({
   // When the loaded state has no priced suburbs, defaulting to "price" paints a
   // blank map. Fall back to population (always populated from the Census) so
   // the map is immediately useful — unless the user (or the URL) picked one.
-  const userPickedMetric = useRef(isMetricKey(deepLinkedMetric));
+  const userPickedMetric = useRef(suburbDeepLink !== null);
   const defaultMetric = useRef<MetricKey>("price");
   useEffect(() => {
     if (suburbs.length === 0) return;
@@ -154,15 +210,55 @@ export function StateSuburbMap({
     setMetricKey(defaultMetric.current);
   }, [suburbs]);
 
+  const view: MapView = {
+    level, metricKey, councilMetricKey, overlays, councilBorders: showCouncilBorders,
+    defaultMetric: defaultMetric.current,
+  };
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const updateView = useCallback((patch: Partial<MapView>) => {
+    syncViewToUrl({ ...viewRef.current, ...patch, defaultMetric: defaultMetric.current });
+  }, []);
   const selectMetric = useCallback((key: MetricKey) => {
     userPickedMetric.current = true;
     setMetricKey(key);
-    syncViewToUrl(key, overlays, defaultMetric.current);
-  }, [overlays]);
+    updateView({ metricKey: key });
+  }, [updateView]);
+  const selectCouncilMetric = useCallback((key: CouncilMetricKey) => {
+    setCouncilMetricKey(key);
+    updateView({ councilMetricKey: key });
+  }, [updateView]);
+  const selectLevel = useCallback((next: MapLevel) => {
+    setLevel(next);
+    updateView({ level: next });
+  }, [updateView]);
+  const toggleCouncilBorders = useCallback(() => {
+    const next = !viewRef.current.councilBorders;
+    setShowCouncilBorders(next);
+    updateView({ councilBorders: next });
+  }, [updateView]);
   const selectOverlays = useCallback((next: OverlayKey[]) => {
     setOverlays(next);
-    syncViewToUrl(metricKey, next, defaultMetric.current);
-  }, [metricKey]);
+    updateView({ overlays: next });
+  }, [updateView]);
+
+  // Council level + council borders both need each suburb's dominant council
+  // (one ~18 KB column, fetched only once either is on) — the council shapes
+  // are merged from the suburb topology on the client, no new geometry asset.
+  const needCouncils = councilsSupported && (level === "council" || showCouncilBorders);
+  const lgaColumn = useSuburbColumns(stateCode, needCouncils ? LGA_COLUMN : NO_COLUMNS);
+  const lgaBySal = useMemo(() => lgaCodesFromColumn(lgaColumn.data?.get("lga_code")), [lgaColumn.data]);
+  const councilList = useQuery({
+    queryKey: ["councils", stateCode],
+    queryFn: () => listCouncilsClient(stateCode),
+    staleTime: 60 * 60 * 1000,
+    // Borders mode needs it too: the suburb tooltip names the council.
+    enabled: needCouncils,
+  });
+  const councilNameByCode = useMemo(
+    () => new Map((councilList.data?.councils ?? []).map((c) => [c.lgaCode, c.displayName] as const)),
+    [councilList.data],
+  );
 
   // Columnar fetch: the coloured metric when it is column-sourced, plus the
   // share behind every active overlay so the tooltip can quote a number for the
@@ -171,7 +267,7 @@ export function StateSuburbMap({
     () => overlays.filter((k) => overlayAvailable(k, stateCode)), [overlays, stateCode]);
   const columnKeys = useMemo(() => {
     const keys = new Set<string>();
-    if (metric.kind === "column") keys.add(metric.key);
+    if (isColumnSourced(metric)) keys.add(metric.key);
     for (const k of activeOverlays) keys.add(OVERLAY_BY_KEY[k].metricKey);
     return [...keys];
   }, [metric, activeOverlays]);
@@ -202,7 +298,7 @@ export function StateSuburbMap({
   // Continuous metric → value map + scale over its own range. Row metrics read
   // the SuburbDatum; column metrics read the fetched column.
   const continuous = useMemo(() => {
-    if (metric.kind === "categorical") return null;
+    if (metric.kind === "categorical" || metric.kind === "column-categorical") return null;
     if (metric.key === "price") {
       return {
         valueById: priceValueById, scale: priceScale.scale,
@@ -234,6 +330,15 @@ export function StateSuburbMap({
 
   // Categorical metric → category map + the legend entries actually present.
   const categorical = useMemo(() => {
+    if (metric.kind === "column-categorical") {
+      // Server-labelled column: the legend lists the dictionary entries present.
+      const col = columns.categories?.get(metric.key);
+      if (!col) return null;
+      const present = new Set<string>();
+      for (const c of col.byId.values()) if (c) present.add(c);
+      const entries = col.labels.filter((l) => present.has(l)).map((l) => ({ label: l, color: metric.colorForLabel(l) }));
+      return { categoryById: col.byId, entries };
+    }
     if (metric.kind !== "categorical") return null;
     const m = new Map<string, string | null>();
     const present = new Set<string>();
@@ -244,12 +349,17 @@ export function StateSuburbMap({
     }
     const entries = metric.order.filter((o) => present.has(o)).map((o) => ({ label: o, color: metric.colorFor(o) }));
     return { categoryById: m, entries };
-  }, [metric, suburbs]);
+  }, [metric, suburbs, columns.categories]);
 
   // Tooltip rows: the column metric being coloured (if any) and one row per
   // active overlay, so the picture and the number travel together.
-  const extrasFor = useCallback((salCode: string): TooltipExtra[] => {
+  const extrasFor = useCallback((salCode: string, hits?: readonly OverlayHit[]): TooltipExtra[] => {
     const rows: TooltipExtra[] = [];
+    // Hover identify: the zoning class under the pointer, first — it answers
+    // "what is THIS spot zoned?", which the suburb-level share cannot.
+    for (const h of hits ?? []) {
+      rows.push({ label: `${OVERLAY_BY_KEY[h.key as OverlayKey]?.label ?? h.key} here`, value: h.label, color: h.color });
+    }
     const seen = new Set<string>();
     const push = (key: string, label: string, format: (v: number) => string, color?: string, missing = "—") => {
       if (seen.has(key)) return;
@@ -259,14 +369,36 @@ export function StateSuburbMap({
       const v = col.get(salCode);
       rows.push({ label, value: v == null ? missing : format(v), color });
     };
+    // With council borders on, name the suburb's dominant council — the lines
+    // alone do not say which side is which.
+    const council = showCouncilBorders ? councilNameByCode.get(lgaBySal.get(salCode) ?? "") : undefined;
+    if (council) rows.push({ label: "Council", value: council });
+    const pushCategory = (key: string, label: string, colorForLabel: (l: string) => string, missing = "—") => {
+      if (seen.has(key)) return;
+      seen.add(key);
+      const col = columns.categories?.get(key);
+      if (!col) return;
+      const v = col.byId.get(salCode);
+      rows.push({ label, value: v ?? missing, color: v ? colorForLabel(v) : undefined });
+    };
     if (metric.kind === "column") push(metric.key, metric.label, metric.format);
+    if (metric.kind === "column-categorical") pushCategory(metric.key, metric.label, metric.colorForLabel);
     for (const k of activeOverlays) {
       const o = OVERLAY_BY_KEY[k];
-      const def = METRIC_BY_KEY[o.metricKey];
-      push(o.metricKey, o.shareLabel, def.kind === "column" ? def.format : (v) => `${Math.round(v)}%`, o.color);
+      const def = METRIC_BY_KEY[o.metricKey as MetricKey];
+      if (def?.kind === "column-categorical") pushCategory(o.metricKey, o.shareLabel, def.colorForLabel);
+      else push(o.metricKey, o.shareLabel, def?.kind === "column" ? def.format : (v) => `${Math.round(v)}%`, o.color);
     }
     return rows;
-  }, [metric, activeOverlays, columns.data]);
+  }, [metric, activeOverlays, columns.data, columns.categories, showCouncilBorders, councilNameByCode, lgaBySal]);
+
+  // Council borders over the suburb map: shared arcs between suburbs in
+  // different councils (topojson.mesh), drawn as a non-scaling line layer.
+  const councilLines = useMemo(() => {
+    if (!showCouncilBorders || !topo || lgaBySal.size === 0) return undefined;
+    const geometry = councilBorders(topo, Object.keys(topo.objects)[0]!, lgaBySal);
+    return geometry ? [{ key: "council-borders", geometry, width: 1.3, opacity: 0.75 }] : undefined;
+  }, [showCouncilBorders, topo, lgaBySal]);
 
   const metricItem = (m: HighlightMetric) => (
     <SelectItem key={m.key} value={m.key}>
@@ -277,25 +409,36 @@ export function StateSuburbMap({
     </SelectItem>
   );
 
-  const controls = (
-    <div className="flex w-full items-center gap-2">
+  const levelToggle = councilsSupported ? (
+    <div role="group" aria-label="Map level" className="flex shrink-0 overflow-hidden rounded-md border border-border text-xs">
+      {(["suburb", "council"] as const).map((l) => (
+        <button
+          key={l} type="button" aria-pressed={level === l} onClick={() => selectLevel(l)}
+          className={`h-8 px-2.5 transition-colors ${level === l ? "bg-foreground/10 font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          {l === "suburb" ? "Suburbs" : "Councils"}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  const councilControls = (
+    <div className="flex w-full flex-wrap items-center gap-2">
+      {levelToggle}
       <span className="shrink-0 text-xs text-muted-foreground">Colour by</span>
-      <Select value={metricKey} onValueChange={(v) => selectMetric(v as MetricKey)}>
-        <SelectTrigger aria-label="Colour the map by" className="h-8 min-w-0 flex-1 text-xs sm:w-[220px] sm:flex-none">
+      <Select value={councilMetricKey} onValueChange={(v) => selectCouncilMetric(v as CouncilMetricKey)}>
+        <SelectTrigger aria-label="Colour the councils by" className="h-8 min-w-0 flex-1 text-xs sm:w-[220px] sm:flex-none">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {ROW_METRICS.map(metricItem)}
-          <SelectSeparator />
-          <SelectGroup>
-            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">Terrain</SelectLabel>
-            {TERRAIN_METRICS.map(metricItem)}
-          </SelectGroup>
-          <SelectSeparator />
-          <SelectGroup>
-            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">Hazard exposure</SelectLabel>
-            {HAZARD_METRICS.map(metricItem)}
-          </SelectGroup>
+          {COUNCIL_METRICS.map((m) => (
+            <SelectItem key={m.key} value={m.key}>
+              <span className="flex items-center gap-2">
+                <HousingIcon name={m.icon} size={16} />
+                {m.label}
+              </span>
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
       <OverlayControl
@@ -304,6 +447,43 @@ export function StateSuburbMap({
       />
     </div>
   );
+
+  const suburbControls = (
+    <div className="flex w-full flex-wrap items-center gap-2">
+      {levelToggle}
+      <span className="shrink-0 text-xs text-muted-foreground">Colour by</span>
+      <Select value={metricKey} onValueChange={(v) => selectMetric(v as MetricKey)}>
+        <SelectTrigger aria-label="Colour the map by" className="h-8 min-w-0 flex-1 text-xs sm:w-[220px] sm:flex-none">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {ROW_METRICS.map(metricItem)}
+          {COLUMN_SECTIONS.map((section) => (
+            <Fragment key={section.key}>
+              <SelectSeparator />
+              <SelectGroup>
+                <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">{section.label}</SelectLabel>
+                {section.metrics.map(metricItem)}
+              </SelectGroup>
+            </Fragment>
+          ))}
+        </SelectContent>
+      </Select>
+      {councilsSupported ? (
+        <button
+          type="button" aria-pressed={showCouncilBorders} onClick={toggleCouncilBorders}
+          className={`h-8 shrink-0 rounded-md border px-2.5 text-xs transition-colors ${showCouncilBorders ? "border-foreground/30 bg-foreground/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
+        >
+          Council borders
+        </button>
+      ) : null}
+      <OverlayControl
+        stateCode={stateCode} active={overlays} opacities={opacities} loading={overlayLayers.loadingKeys}
+        onChange={selectOverlays} onOpacityChange={setOpacity}
+      />
+    </div>
+  );
+  const controls = level === "council" ? councilControls : suburbControls;
 
   if (isError) {
     return (
@@ -320,6 +500,10 @@ export function StateSuburbMap({
       <div className="relative flex min-h-[460px] flex-1 flex-col overflow-hidden rounded-xl">
         {children}
       </div>
+      <OverlaySources
+        stateCode={stateCode} active={activeOverlays}
+        metricKey={level === "council" ? undefined : metric.key} className="mt-2"
+      />
     </div>
   );
 
@@ -329,13 +513,42 @@ export function StateSuburbMap({
     );
   }
   const objectName = Object.keys(topo.objects)[0]!;
-  const selected = selectedSalCode ? byCode.get(selectedSalCode) : undefined;
-  const columnPending = metric.kind === "column" && !continuous && columns.isLoading;
-  const columnFailed = metric.kind === "column" && !continuous && !columns.isLoading;
 
-  const colourLegend = metric.kind === "categorical"
+  if (level === "council") {
+    const councils = councilList.data?.councils ?? [];
+    const failed = (!lgaColumn.isLoading && !lgaColumn.data) || (!councilList.isLoading && councils.length === 0);
+    if (failed) {
+      return mapFrame(
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/30 p-6 text-center text-sm text-muted-foreground" role="status">
+          Council map unavailable right now.{" "}
+          <button type="button" className="ml-1 underline" onClick={() => { void lgaColumn.refetch(); void councilList.refetch(); }}>Retry</button>
+        </div>,
+      );
+    }
+    if (lgaBySal.size === 0 || councils.length === 0) {
+      return mapFrame(
+        <div className="absolute inset-0 animate-pulse bg-muted" role="status" aria-label="Loading councils" />,
+      );
+    }
+    return mapFrame(
+      <CouncilLevelMap
+        stateCode={stateCode} topology={topo} objectName={objectName} lgaBySal={lgaBySal}
+        councils={councils} metricKey={councilMetricKey} overlays={overlayLayers.layers}
+        dropsStamps={{ asOf: councilList.data?.priceDropsAsOf, dataThrough: councilList.data?.priceDropsDataThrough }}
+        legendExtra={<OverlayLegend stateCode={stateCode} active={overlays} opacities={opacities} onRemove={removeOverlay} />}
+      />,
+    );
+  }
+
+  const selected = selectedSalCode ? byCode.get(selectedSalCode) : undefined;
+  const columnReady = metric.kind === "column-categorical" ? Boolean(categorical) : Boolean(continuous);
+  const columnPending = isColumnSourced(metric) && !columnReady && columns.isLoading;
+  const columnFailed = isColumnSourced(metric) && !columnReady && !columns.isLoading;
+
+  const colourLegend = metric.kind === "categorical" || metric.kind === "column-categorical"
     ? (categorical?.entries.length
-        ? <CategoricalLegend label={metric.legendLabel} entries={categorical.entries} />
+        ? <CategoricalLegend label={metric.legendLabel} entries={categorical.entries}
+            noDataLabel={metric.kind === "column-categorical" ? (metric.noDataLabel ?? "No data") : "No data"} />
         : null)
     : (continuous
         ? <MapLegend
@@ -357,10 +570,10 @@ export function StateSuburbMap({
           fill
           topology={topo}
           objectName={objectName}
-          valueById={continuous?.valueById ?? (metric.kind === "column" ? new Map() : priceValueById)}
+          valueById={continuous?.valueById ?? (isColumnSourced(metric) ? new Map() : priceValueById)}
           colorScale={(v) => (continuous?.scale ?? priceScale.scale)(v)}
           categoryById={categorical?.categoryById}
-          categoryColor={metric.kind === "categorical" ? metric.colorFor : undefined}
+          categoryColor={metric.kind === "categorical" ? metric.colorFor : metric.kind === "column-categorical" ? metric.colorForLabel : undefined}
           fitValueById={priceValueById}
           nameById={nameById}
           selectedId={selectedSalCode}
@@ -370,12 +583,13 @@ export function StateSuburbMap({
           ariaLabel={`${stateCode} suburbs by ${metric.label}${activeOverlays.length ? `, with ${activeOverlays.map((k) => OVERLAY_BY_KEY[k].label.toLowerCase()).join(" and ")} overlay` : ""}`}
           legend={legend}
           overlays={overlayLayers.layers}
+          lines={councilLines}
           onFeatureClick={(id) => onSelect(id)}
-          onFeatureHover={(id, evt) => {
+          onFeatureHover={(id, evt, hits) => {
             onHover?.(id);
             if (!id || !evt) return setHover(null);
             const d = byCode.get(id);
-            if (d) setHover({ d, x: evt.clientX, y: evt.clientY });
+            if (d) setHover({ d, x: evt.clientX, y: evt.clientY, hits });
           }}
         />
 
@@ -413,7 +627,7 @@ export function StateSuburbMap({
               top: hover.y + TOOLTIP_H + 18 > window.innerHeight ? hover.y - TOOLTIP_H : hover.y + 14,
             }}
           >
-            <SuburbTooltip summary={hover.d} regionCode={hover.d.regionCode} extras={extrasFor(hover.d.salCode)} />
+            <SuburbTooltip summary={hover.d} regionCode={hover.d.regionCode} extras={extrasFor(hover.d.salCode, hover.hits)} />
           </div>
         ) : null}
     </>,

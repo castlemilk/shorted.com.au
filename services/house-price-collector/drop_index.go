@@ -57,10 +57,13 @@ type suburbDay struct {
 
 // indexPoint is one row of housing_drop_index_daily.
 type indexPoint struct {
-	ActiveAddresses       int
-	DroppedAddresses      int
-	DropRate              float64
-	MedianDropPct         float64
+	ActiveAddresses  int
+	DroppedAddresses int
+	DropRate         float64
+	// MedianDropPct is nil ("withheld") when fewer than indexMedianKFloor
+	// dropped addresses stand behind it — see kFlooredMedian. It is a pointer so
+	// that withheld reaches the table as NULL, never as a 0% cut.
+	MedianDropPct         *float64
 	WithdrawnThenRelisted int
 	DelistedCount         int
 	PanelSuburbs          int
@@ -114,7 +117,7 @@ func aggregateIndex(rows []suburbDay, minActive int, gapThreshold float64, catal
 		sum += v
 	}
 	out.DropRate = sum / float64(len(rates))
-	out.MedianDropPct = median(depths)
+	out.MedianDropPct = kFlooredMedian(out.DroppedAddresses, median(depths))
 
 	if catalogSize <= 0 {
 		// No catalog to measure coverage against — never claim a full house.
@@ -128,6 +131,21 @@ func aggregateIndex(rows []suburbDay, minActive int, gapThreshold float64, catal
 	out.IsGap = out.CoverageRatio < gapThreshold
 
 	return out
+}
+
+// kFlooredMedian publishes a depth-of-cut median only when at least
+// indexMedianKFloor dropped addresses stand behind it. Below that the "median"
+// IS one or two listings' exact cuts — ToS-restricted crawl rows republished
+// under an aggregate's name, the disclosure every listing MV's k>=3 floor
+// (migration 000109) exists to stop. Measured 2026-09-23: 1,794 of 9,913
+// suburb-grain rows carried a non-zero median from 1-2 dropped homes, served
+// by the public GetDropIndexSeries. Applied at WRITE time for every grain, so
+// no reader (API, MCP, a future export) can forget to apply it.
+func kFlooredMedian(dropped int, m float64) *float64 {
+	if dropped < indexMedianKFloor {
+		return nil
+	}
+	return &m
 }
 
 func median(xs []float64) float64 {
@@ -154,6 +172,10 @@ var indexBackfillStart = time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC)
 
 const (
 	indexMinActive = 20
+	// indexMedianKFloor is the minimum number of dropped addresses behind a
+	// published median_drop_pct (kFlooredMedian). Three matches every listing
+	// MV's floor.
+	indexMedianKFloor = 3
 	// indexGapThreshold is the CATALOG coverage ratio below which a day is not
 	// a fair reading. Coverage is panel suburbs / full catalog size, not panel
 	// suburbs / suburbs swept — see aggregateIndex.
@@ -189,6 +211,14 @@ const (
 // assert on its shape directly (see TestActiveCTEUsesSweepWindowNotSpanningDates
 // and TestDroppedCTEIsConstrainedToTheSweepWindow).
 //
+// The counting unit is the physical address: address_key first — the SAME
+// unit every listing MV uses (000109/000124) — then display_address, then
+// listing_id only for rows where extraction produced no key. It used to be
+// display_address, which counts the two portals' different renderings of one
+// home as two homes: measured 2026-09-23 over one sweep window, 20,968
+// distinct display addresses vs 15,905 address_keys (+32%), so the hero index
+// and the national tile disagreed about how many homes were on the market.
+//
 // Both CTEs source membership from ACTUAL SWEEPS in a trailing
 // indexSweepWindowDays window ($1::date - ($2::int - 1) .. $1::date on
 // last_seen_at), not from a first_seen_at <= d <= last_seen_at spanning-date
@@ -200,7 +230,7 @@ func suburbDaysSQL() string {
 WITH active AS (
     SELECT l.sal_code,
            max(l.state_code) AS state_code,
-           count(DISTINCT coalesce(nullif(l.display_address, ''), l.listing_id)) AS active_addr
+           count(DISTINCT coalesce(nullif(l.address_key, ''), nullif(l.display_address, ''), l.listing_id)) AS active_addr
     FROM property_listings l
     WHERE l.sal_code IS NOT NULL
       AND l.last_seen_at::date BETWEEN $1::date - ($2::int - 1) AND $1::date
@@ -208,7 +238,7 @@ WITH active AS (
 ),
 dropped AS (
     SELECT l.sal_code,
-           count(DISTINCT coalesce(nullif(l.display_address, ''), l.listing_id)) AS dropped_addr,
+           count(DISTINCT coalesce(nullif(l.address_key, ''), nullif(l.display_address, ''), l.listing_id)) AS dropped_addr,
            percentile_cont(0.5) WITHIN GROUP (ORDER BY e.drop_pct) AS median_drop_pct
     FROM property_price_events e
     JOIN property_listings l ON l.id = e.listing_pk
@@ -467,11 +497,15 @@ func groupByState(rows []suburbDay) map[string][]suburbDay {
 // sees — the same tautology bug that made the old national-level gap flag
 // worthless. The only real failure mode left at suburb grain is zero active
 // addresses, which the DropRate/IsGap fields below guard directly.
+//
+// The median, however, IS floored here (kFlooredMedian): a suburb with one or
+// two cut homes would otherwise publish that home's exact cut as its "median".
+// The drop RATE stays — it is a count ratio, not any one listing's price.
 func suburbPoint(r suburbDay) indexPoint {
 	p := indexPoint{
 		ActiveAddresses:  r.active,
 		DroppedAddresses: r.dropped,
-		MedianDropPct:    r.medianDropPct,
+		MedianDropPct:    kFlooredMedian(r.dropped, r.medianDropPct),
 		PanelSuburbs:     1,
 	}
 	if r.active > 0 {

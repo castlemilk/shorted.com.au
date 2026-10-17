@@ -6,9 +6,11 @@ import { useQuery } from "@tanstack/react-query";
 import { listSuburbPriceDropsClient } from "~/app/actions/client/getHousingClient";
 import { suburbHref } from "@/lib/housing/states";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
+import { dropsFreshness } from "@/lib/housing/drops-freshness";
 import { HousingIcon } from "./housing-icon";
+import { DropsStaleNotice } from "./price-drops/drops-stale-notice";
 
-type SortKey = "count" | "asking" | "sold" | "max";
+type SortKey = "count" | "share" | "asking" | "sold" | "max";
 
 export interface SuburbPriceDropsPanelProps {
   /** State filter; '' shows a national ranking. */
@@ -31,6 +33,9 @@ export function SuburbPriceDropsPanel({ stateCode = "", title = "Suburb prices &
     staleTime: 30 * 60 * 1000,
   });
   const rows = data?.suburbs ?? [];
+  // The same 72h rule as /price-drops and the council pages: every count here
+  // is a rolling window that runs to the data date, not to today.
+  const freshness = dropsFreshness(data);
   if (!isLoading && rows.length === 0) return null;
 
   const SortBtn = ({ k, label }: { k: SortKey; label: string }) => (
@@ -53,6 +58,7 @@ export function SuburbPriceDropsPanel({ stateCode = "", title = "Suburb prices &
         </h2>
         <div className="flex items-center gap-1">
           <SortBtn k="count" label="Most cuts" />
+          <SortBtn k="share" label="Share cut" />
           <SortBtn k="asking" label="Avg asking" />
           <SortBtn k="sold" label="Avg sold" />
           <SortBtn k="max" label="Biggest cut" />
@@ -61,12 +67,21 @@ export function SuburbPriceDropsPanel({ stateCode = "", title = "Suburb prices &
       <p className="mb-3 text-xs text-muted-foreground">
         Average asking &amp; recent sold prices per suburb, with the count of for-sale listings that reduced
         their asking price in the last 30 days. Derived from realestate.com.au &amp; domain.com.au listings.
+        {sort === "share"
+          ? " Share cut ranks only suburbs with at least 20 listings seen in the last 14 days, so one cut among a handful of listings cannot top the board."
+          : null}
       </p>
+      {freshness.dataToLabel ? (
+        <p className="mb-3 text-xs font-medium text-foreground" data-testid="suburb-drops-data-to">
+          {freshness.dataToLabel}
+        </p>
+      ) : null}
+      <DropsStaleNotice freshness={freshness} scope="in this table" testId="suburb-drops-stale" className="mb-3" />
       {isLoading ? (
         <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
                 <th className="px-3 py-2 font-medium">Suburb</th>
@@ -74,6 +89,7 @@ export function SuburbPriceDropsPanel({ stateCode = "", title = "Suburb prices &
                 <th className="px-3 py-2 text-right font-medium">Avg asking</th>
                 <th className="px-3 py-2 text-right font-medium">Avg sold</th>
                 <th className="px-3 py-2 text-right font-medium">Cuts (30d)</th>
+                <th className="px-3 py-2 text-right font-medium">Share cut</th>
                 <th className="px-3 py-2 text-right font-medium">Biggest cut</th>
               </tr>
             </thead>
@@ -81,12 +97,19 @@ export function SuburbPriceDropsPanel({ stateCode = "", title = "Suburb prices &
               {rows.map((r) => (
                 <tr key={r.regionCode} className="border-b border-border/60 last:border-0 hover:bg-muted/30">
                   <td className="px-3 py-2">
-                    <Link
-                      href={suburbHref(r.stateCode, { salName: cleanName(r.salName), postcode: r.postcode, salCode: r.salCode })}
-                      className="capitalize text-foreground underline-offset-2 hover:underline"
-                    >
-                      {cleanName(r.salName)}
-                    </Link>
+                    {/* sal_code '' means the crawl region matched no ABS suburb
+                        (proto: "'' if unlinked"); a link built without it is a
+                        guessed slug that 404s or redirects. */}
+                    {r.salCode ? (
+                      <Link
+                        href={suburbHref(r.stateCode, { salName: cleanName(r.salName), postcode: r.postcode, salCode: r.salCode })}
+                        className="capitalize text-foreground underline-offset-2 hover:underline"
+                      >
+                        {cleanName(r.salName)}
+                      </Link>
+                    ) : (
+                      <span className="capitalize text-foreground">{cleanName(r.salName)}</span>
+                    )}
                     <span className="ml-1 text-[10px] uppercase text-muted-foreground">{r.stateCode}</span>
                   </td>
                   <td className="px-3 py-2 text-right font-mono tabular-nums text-foreground">{r.forSaleCount}</td>
@@ -99,6 +122,9 @@ export function SuburbPriceDropsPanel({ stateCode = "", title = "Suburb prices &
                   </td>
                   <td className="px-3 py-2 text-right font-mono tabular-nums text-foreground">
                     {r.droppedListingCount > 0 ? r.droppedListingCount : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono tabular-nums text-foreground">
+                    {r.droppedShare > 0 ? `${(r.droppedShare * 100).toFixed(1)}%` : "—"}
                   </td>
                   <td className="px-3 py-2 text-right font-mono tabular-nums text-[color:var(--semantic-red)]">
                     {r.maxDropPct > 0 ? `−${Math.round(r.maxDropPct * 100)}%` : "—"}

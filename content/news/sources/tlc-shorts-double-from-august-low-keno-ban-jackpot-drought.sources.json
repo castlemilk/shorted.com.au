@@ -1,0 +1,141 @@
+{
+  "draft": "tlc-shorts-double-from-august-low-keno-ban-jackpot-drought.mdx",
+  "knownCodes": [
+    "TLC",
+    "JIN"
+  ],
+  "sources": [
+    {
+      "refId": "ref-1",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260930-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "30 September daily aggregate short-position report",
+      "date": "2026-09-30",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "retrievedDate": "2026-10-07",
+      "verification": "Official CSV on disk (scratchpad/asic/20260930.csv); grepped the TLC row on 7 October 2026: THE LOTTERY CORP ORDINARY,TLC,192019319,2225771703,8.6270896. The JIN row in the same file reads 1466377,63228555,2.31916893."
+    },
+    {
+      "refId": "ref-2",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260701-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "1 July daily aggregate short-position report",
+      "date": "2026-07-01",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded the official CSV with curl on 7 October 2026 and grepped the TLC row: THE LOTTERY CORP ORDINARY,TLC,106696633,2225771703,4.79369168. Dates named in the body (6 Aug 4.29130808 with 95,514,721 shares, the lowest point of the 1 July to 30 September series in both shares and percent; 19 Aug 4.58198601; 31 Aug 6.13675997; 18 Sep 7.45911662; JIN 2 Sep 7.64116174 with 4,840,831 shares) were each downloaded and grepped the same way and match the Shorted data. Neighbouring dates 4 Aug 4.33418867, 5 Aug 4.29395921 and 7 Aug 4.33677124 were downloaded to confirm the low; 20 Aug 4.87661915 and 24 Sep 8.11179012 were verified but are not used in the body."
+    },
+    {
+      "refId": "ref-3",
+      "type": "report",
+      "url": "https://www.thelotterycorporation.com/content/dam/projects/tlc/documents/The-Lottery-Corporation_FY26-ASX-Media-Release.pdf",
+      "source": "The Lottery Corporation",
+      "headline": "FY26 full-year results ASX release",
+      "date": "2026-08-19",
+      "dateBasis": "Release date stated on the company's performance-summary page (19 August 2026) and in the PDF header",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded the 4-page PDF from the company site with curl (HTTP 200, application/pdf) and extracted its text with macOS PDFKit. Read: revenue $3,582.5m (2.7%) down; EBITDA before significant items $736.1m (1.8%) down; 'In an especially unfavourable period for Powerball and Oz Lotto jackpots - a 1 in c.45 year outcome'; no $100m Powerball since FY21, no $50m Oz Lotto since FY17; revenue impact c.$350m; dividend 16.5 cps fully franked, payout 107% of NPAT before significant items; Net Debt/EBITDA 3.1x, to rise materially in 1H27 after the $1,145m payment, likely beyond the 3.0x-4.0x range; online Keno c.2% of Group turnover and c.$25m of FY26 EBITDA; 'If the Bill is passed without amendment, the reforms would commence from 1 January 2027.' The cover letter is dated 19 August 2026, the day after the House amendments recorded on the APH page (ref-4)."
+    },
+    {
+      "refId": "ref-4",
+      "type": "report",
+      "url": "https://www.aph.gov.au/Parliamentary_Business/Bills_Legislation/Bills_Search_Results/Result?bId=r7520",
+      "source": "Parliament of Australia",
+      "headline": "Interactive Gambling Amendment (Gambling Reform) Bill 2026: summary and progress",
+      "date": "2026-08-26",
+      "dateBasis": "Assent date shown in the bill's progress table (Act No. 72 of 2026)",
+      "retrievedDate": "2026-10-07",
+      "verification": "WebFetch returned 403; fetched the page with curl using a browser user agent (HTTP 200, 184,621 bytes) and read the stripped text. Summary: 'prohibit online keno and foreign matched lotteries'. Progress: House consideration in detail 18 Aug 2026 with 'Amendment details : 26 Government and 45 Opposition agreed to'; House third reading 18 Aug 2026; Senate introduced, second reading, Committee of the Whole and third reading all 19 Aug 2026 with no amendment-details line against any Senate stage; 'Finally passed both Houses 19 Aug 2026'; 'Assent Act no: 72 Year: 2026 26 Aug 2026'. The only schedule of amendments listed is 'Schedule of the amendments made by the House of Representatives'."
+    },
+    {
+      "refId": "ref-5",
+      "type": "news",
+      "url": "https://www.thelotterycorporation.com/news-and-media/the-lottery-corporation/Victorian_lottery_license_40_year_extensions",
+      "source": "The Lottery Corporation",
+      "headline": "40-year extension to the Victorian lottery licence",
+      "date": "2026-05-05",
+      "dateBasis": "Publication date shown on the page (5 May 2026, 11:50 AM AEST)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through the web tool: 40-year extension running until 2068; next major licence renewal not until 2050. The linked ASX PDF (wcsecure.weblink.com.au/pdf/TLC/03086447.pdf) could not be read by the web tool (binary), so no figure is taken from it."
+    },
+    {
+      "refId": "ref-6",
+      "type": "report",
+      "url": "https://www.audit.vic.gov.au/report/public-lottery-licence-extension/",
+      "source": "Victorian Auditor-General's Office",
+      "headline": "Public lottery licence extension: audit report",
+      "date": "2026-09-16",
+      "dateBasis": "Tabling date stated in the report",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through the web tool (the fetched address carried an empty '?section=' query string, same page). Read: tabled 16 September 2026; licence extended on 4 May 2026 from 30 June 2028 to 30 June 2068; 'TLC will pay the government $1.145 billion upfront'; 'We found nothing to suggest that the government's licence approach did not seek to optimise value for the state'; 'We found no significant probity issues'; 'the government's approach limited public transparency about key decisions and the reasons for them'."
+    },
+    {
+      "refId": "ref-7",
+      "type": "report",
+      "url": "https://www.rba.gov.au/media-releases/2026/mr-26-27.html",
+      "source": "Reserve Bank of Australia",
+      "headline": "Monetary policy decision, 29 September 2026",
+      "date": "2026-09-29",
+      "dateBasis": "Media release date (2026-27)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through the web tool and re-fetched with curl on 7 October 2026 (HTTP 200, 27,651 bytes): the Board decided to increase the cash rate target by 25 basis points to 4.60 per cent, and the decision was unanimous. The release says nothing about how many increases there have been in 2026 (no match for 'fourth', 'this year' or 'cumulative' in the HTML); the count is cited to ref-10."
+    },
+    {
+      "refId": "ref-8",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/consumer/does-lottery-corp-asxtlc-feel-the-squeeze-from-bond-yields",
+      "source": "Kalkine Media",
+      "headline": "Bond yields and The Lottery Corporation's share price",
+      "date": "2026-10-01",
+      "dateBasis": "Byline date shown on the page (October 01, 2026 11:52 AM AEST)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through the web tool and re-fetched with curl on 7 October 2026 (HTTP 200): 'long-term bond yields pressed toward their highest levels in well over a decade' (the body paraphrases this as 'pushing toward', not 'near'); 'Higher risk-free returns raise the hurdle that dividend-paying shares need to clear'; TLC 'ended September trading near the low end of its yearly range'. The article gives no dividend, yield, price or bond-yield figures, and none are attributed to it."
+    },
+    {
+      "refId": "ref-9",
+      "type": "report",
+      "url": "https://www.asic.gov.au/regulatory-resources/markets/short-selling/short-selling-reporting-short-position-reporting",
+      "source": "ASIC",
+      "headline": "Short position reporting: publication occurs T+4",
+      "date": "",
+      "dateBasis": "Undated guidance; retrieved 7 October 2026",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through the web tool: aggregate figures 'will be published on the ASIC website four days after the reporting day (T+4)' and 'These reports will not contain short seller details.'"
+    },
+    {
+      "refId": "ref-10",
+      "type": "data",
+      "url": "https://www.rba.gov.au/statistics/cash-rate/",
+      "source": "Reserve Bank of Australia",
+      "headline": "Cash Rate Target: history of decisions",
+      "date": "2026-09-30",
+      "dateBasis": "Effective date of the latest row in the RBA's cash rate target table (30 September 2026; the decision itself was announced on 29 September)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Fetched with curl on 7 October 2026 (HTTP 200, 145,383 bytes) and parsed the decisions table rows for 2026: 4 Feb 2026 +0.25 to 3.85; 18 Mar 2026 +0.25 to 4.10; 6 May 2026 +0.25 to 4.35; 17 Jun 2026 0.00; 12 Aug 2026 0.00; 30 Sep 2026 +0.25 to 4.60. Four increases in 2026 (February, March, May, September), which is the only fact the body takes from this page."
+    }
+  ],
+  "limits": [
+    "30 September is the latest position date; the build may have continued or reversed after it",
+    "Price moves ($5.64 to $4.87 for TLC; $7.08 to $5.90 for JIN), the 80% and doubling share-count comparisons, the JIN cut of about 70% (4,840,831 to 1,466,377 shares) and the 18.4 days to cover are Shorted's own calculations from ASIC counts and Shorted price data",
+    "The low is 6 August (95,514,721 shares, 4.29130808%), the minimum of the 1 July to 30 September series; 5 August was marginally higher (95,573,729, 4.29395921%). Shares on issue were 2,225,771,703 throughout, so the share-count and percentage doublings coincide; 6 August to 30 September is 55 days",
+    "The 1 January 2027 commencement is the company's 19 August statement, conditional on the bill passing unamended; the House agreed 71 amendments on 18 August and the APH record lists none for the Senate, but the Act's own commencement provisions were not opened, so no commencement date is asserted from the Act itself",
+    "The 13/14 September dividend update (DRP price) could not be opened behind the ASX click-through and is not cited; dividend facts come from the 19 August release",
+    "No trader motive, squeeze, guaranteed return or post-30-September position is claimed"
+  ],
+  "verification": {
+    "positionDate": "2026-09-30",
+    "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260930-001-SSDailyAggShortPos.csv",
+    "stockCode": "TLC",
+    "percentage": 8.6270896,
+    "roundedPercentage": 8.63,
+    "retrievedDate": "2026-10-07"
+  },
+  "identifierBasis": "Publication MDX reference IDs, matched to retrieval evidence by URL",
+  "publicationState": "Content file; not inserted into the publication database by this preparation script",
+  "image": {
+    "path": "/assets/news/tlc-shorts-double-from-august-low-keno-ban-jackpot-drought/cover.png",
+    "basis": "Generated by the publish job at this path; no artwork committed with the draft"
+  }
+}

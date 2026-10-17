@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -205,6 +206,46 @@ func TestParseFileDropsUnparseableRows(t *testing.T) {
 	}
 	if rows[1].ReportedShortPositions != 0 {
 		t.Fatalf("blank numeric should be 0, got %v", rows[1].ReportedShortPositions)
+	}
+}
+
+// TestParseFileListingKeepsTheCodesItDrops: the reconcile pass must know a code
+// is IN the file even when its record is dropped. ASIC prints "-" as the
+// percentage when a product's total in issue is 0; the SP1 line is verbatim
+// from RR20230206-010. Prod holds such rows with a NULL percentage from the
+// legacy loader, and the pass used to report them as rows ASIC no longer
+// carries.
+func TestParseFileListingKeepsTheCodesItDrops(t *testing.T) {
+	body := []byte("Product,Product Code,Reported Short Positions,Total Product in Issue,% of Total Product in Issue Reported as Short Positions\n" +
+		"GOOD LTD,GUD,1,2,3\n" +
+		"SOUTHERN X PAYMENTS ORDINARY,SP1,1473939,0,-\n" +
+		"SHORT ROW,SRT\n" +
+		"PADDED LTD, PAD ,1,2,3\n")
+	const name = "RR20230206-010-SSDailyAggShortPos.csv"
+	rows, listed, err := parseFileListing(name, body)
+	if err != nil {
+		t.Fatalf("parseFileListing: %v", err)
+	}
+	var got []string
+	for _, r := range rows {
+		got = append(got, r.ProductCode)
+	}
+	if strings.Join(got, ",") != "GUD,PAD" {
+		t.Fatalf("rows = %v, want GUD,PAD: a \"-\" percentage and a short record are still dropped", got)
+	}
+	for _, code := range []string{"GUD", "SP1", "SRT", "PAD"} {
+		if _, ok := listed[code]; !ok {
+			t.Fatalf("listed = %v, missing %s", listed, code)
+		}
+	}
+	if len(listed) != 4 {
+		t.Fatalf("listed = %v, want exactly the four codes, trimmed", listed)
+	}
+
+	// The forward sync reads parseFile, which must be unchanged.
+	plain, err := parseFile(name, body)
+	if err != nil || len(plain) != len(rows) || plain[0] != rows[0] || plain[1] != rows[1] {
+		t.Fatalf("parseFile = %+v, %v; want the same rows as parseFileListing", plain, err)
 	}
 }
 

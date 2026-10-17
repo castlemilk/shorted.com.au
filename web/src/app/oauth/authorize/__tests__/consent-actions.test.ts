@@ -11,6 +11,10 @@ jest.mock("~/server/auth", () => ({
   auth: () => mockAuth() as unknown,
 }));
 
+jest.mock("~/server/admin", () => ({
+  isAdminEmail: (email?: string | null) => email === "admin@example.test",
+}));
+
 jest.mock("~/app/actions/config", () => ({
   getServerShortsApiUrl: () => "https://api.test",
 }));
@@ -251,5 +255,46 @@ describe("denyAuthorization", () => {
 
     const result = await denyAuthorization(request);
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("the admin (publishing) resource", () => {
+  const adminRequest: AuthorizationRequest = {
+    ...request,
+    resource: "https://api.test/mcp/admin",
+    scope: "news:publish",
+  };
+
+  it("refuses a non-admin before any ticket is requested", async () => {
+    const calls = stubFetch({});
+    const result = await approveAuthorization(adminRequest);
+    expect(result.ok).toBe(false);
+    expect(result.ok ? "" : result.description).toMatch(/administrators/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("lets an admin through to the ticket and grant", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "uid-admin", email: "admin@example.test" } });
+    const calls = stubFetch({
+      "/oauth/consent/ticket": () => jsonResponse(200, { consent_ticket: "t" }),
+      "/oauth/authorize/grant": () =>
+        jsonResponse(200, { redirect_to: "http://127.0.0.1:51763/callback?code=c" }),
+    });
+    const result = await approveAuthorization(adminRequest);
+    expect(result.ok).toBe(true);
+    const ticketBody = JSON.parse(String(calls[0]!.init.body)) as Record<string, string>;
+    expect(ticketBody.resource).toBe("https://api.test/mcp/admin");
+    expect(ticketBody.user_id).toBe("uid-admin");
+  });
+
+  it("does not gate the public resource on admin status", async () => {
+    const calls = stubFetch({
+      "/oauth/consent/ticket": () => jsonResponse(200, { consent_ticket: "t" }),
+      "/oauth/authorize/grant": () =>
+        jsonResponse(200, { redirect_to: "http://127.0.0.1:51763/callback?code=c" }),
+    });
+    const result = await approveAuthorization(request);
+    expect(result.ok).toBe(true);
+    expect(calls).toHaveLength(2);
   });
 });

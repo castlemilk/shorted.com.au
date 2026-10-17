@@ -117,7 +117,10 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object sort_ = "";
   /**
    * <pre>
-   * optional: 'count' (default) | 'avg' | 'max'
+   * optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+   * 'share' ranks by dropped_share among suburbs with at least 20 recently
+   * swept active addresses (the drop index's panel floor); thinner suburbs
+   * sort after every ranked one rather than topping the board on 1 of 3.
    * </pre>
    *
    * <code>string sort = 3 [json_name = "sort"];</code>
@@ -138,7 +141,10 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * optional: 'count' (default) | 'avg' | 'max'
+   * optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+   * 'share' ranks by dropped_share among suburbs with at least 20 recently
+   * swept active addresses (the drop index's panel floor); thinner suburbs
+   * sort after every ranked one rather than topping the board on 1 of 3.
    * </pre>
    *
    * <code>string sort = 3 [json_name = "sort"];</code>
@@ -681,7 +687,10 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object sort_ = "";
     /**
      * <pre>
-     * optional: 'count' (default) | 'avg' | 'max'
+     * optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+     * 'share' ranks by dropped_share among suburbs with at least 20 recently
+     * swept active addresses (the drop index's panel floor); thinner suburbs
+     * sort after every ranked one rather than topping the board on 1 of 3.
      * </pre>
      *
      * <code>string sort = 3 [json_name = "sort"];</code>
@@ -701,7 +710,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * optional: 'count' (default) | 'avg' | 'max'
+     * optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+     * 'share' ranks by dropped_share among suburbs with at least 20 recently
+     * swept active addresses (the drop index's panel floor); thinner suburbs
+     * sort after every ranked one rather than topping the board on 1 of 3.
      * </pre>
      *
      * <code>string sort = 3 [json_name = "sort"];</code>
@@ -722,7 +734,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * optional: 'count' (default) | 'avg' | 'max'
+     * optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+     * 'share' ranks by dropped_share among suburbs with at least 20 recently
+     * swept active addresses (the drop index's panel floor); thinner suburbs
+     * sort after every ranked one rather than topping the board on 1 of 3.
      * </pre>
      *
      * <code>string sort = 3 [json_name = "sort"];</code>
@@ -739,7 +754,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * optional: 'count' (default) | 'avg' | 'max'
+     * optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+     * 'share' ranks by dropped_share among suburbs with at least 20 recently
+     * swept active addresses (the drop index's panel floor); thinner suburbs
+     * sort after every ranked one rather than topping the board on 1 of 3.
      * </pre>
      *
      * <code>string sort = 3 [json_name = "sort"];</code>
@@ -753,7 +771,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * optional: 'count' (default) | 'avg' | 'max'
+     * optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+     * 'share' ranks by dropped_share among suburbs with at least 20 recently
+     * swept active addresses (the drop index's panel floor); thinner suburbs
+     * sort after every ranked one rather than topping the board on 1 of 3.
      * </pre>
      *
      * <code>string sort = 3 [json_name = "sort"];</code>

@@ -292,6 +292,26 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/FilterSu
   -d '{}'
 ```
 
+#### `POST /shorts.v1alpha1.HousingService/GetCouncilProfile`
+
+One council's hub: identity, current facts, time series, member suburbs,
+ hazard/price/crime rollups, representation, price drops and neighbours.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `slug` | string | no | lga.slug — minted once, never reassigned (proto string) |
+| `stateCode` | string | no | NSW \| VIC \| QLD \| SA \| WA \| TAS \| NT \| ACT (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetCouncilProfile' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.HousingService/GetDropIndexSeries`
 
 Daily discounting index series (national/state/suburb) for the price-drops chart.
@@ -301,9 +321,9 @@ Request body fields:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `from` | string | no | 'YYYY-MM-DD', inclusive; clamped to 2026-08-13 (proto string) |
-| `grain` | string | no | 'national' \| 'state' \| 'suburb' (proto string) |
-| `grainKey` | string | no | 'AU' \| state code \| sal_code (proto string) |
-| `to` | string | no | 'YYYY-MM-DD', inclusive; defaults to today (proto string) |
+| `grain` | string | no | Anything outside these shapes is InvalidArgument. 'national' (default) \| 'state' \| 'suburb' (proto string) |
+| `grainKey` | string | no | 'AU' \| state code ('NSW', ...) \| 5-digit sal_code (proto string) |
+| `to` | string | no | 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today (proto string) |
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetDropIndexSeries' \
@@ -479,6 +499,25 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/ListAgen
   -d '{}'
 ```
 
+#### `POST /shorts.v1alpha1.HousingService/ListCouncils`
+
+Every council with a page in one state (kind council | unincorporated),
+ with the rollup metrics the council index and choropleth colour by.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `stateCode` | string | no | required: NSW \| VIC \| QLD \| SA \| WA \| TAS \| NT \| ACT (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/ListCouncils' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.HousingService/ListHousingRegions`
 
 List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
@@ -550,7 +589,7 @@ Request body fields:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `limit` | integer (int32) | no | optional; default 50 (proto int32) |
-| `sort` | string | no | optional: 'count' (default) \| 'avg' \| 'max' (proto string) |
+| `sort` | string | no | optional: 'count' (default) \| 'avg' \| 'max' \| 'asking' \| 'sold' \| 'share'. 'share' ranks by dropped_share among suburbs with at least 20 recently swept active addresses (the drop index's panel floor); thinner suburbs sort after every ranked one rather than topping the board on 1 of 3. (proto string) |
 | `stateCode` | string | no | optional filter, e.g. 'NSW'; '' = national (proto string) |
 | `windowDays` | integer (int32) | no | reserved; the aggregate uses a fixed rolling window (proto int32) |
 
@@ -1522,6 +1561,28 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockFi
   -d '{}'
 ```
 
+#### `POST /shorts.v1alpha1.StockService/GetStockFundamentals`
+
+Per-period reported fundamentals (revenue, net income, EPS, cash flow,
+ shares) and year-on-year growth for a stock. Every value carries a has_*
+ flag: a missing figure is absent, never zero.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | integer (int32) | no | Max periods, newest first (default 12, max 40). (proto int32) |
+| `periodType` | string | no | Optional: "annual" \| "half" \| "quarter" (balance-sheet snapshots) \| "ttm". Empty returns every type. (proto string) |
+| `stockCode` | string | no | ASX code, e.g. "BHP". (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockFundamentals' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.StockService/GetStockGraph`
 
 Get a stock's people (with their other companies) and narrative-similar companies
@@ -1595,6 +1656,67 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockVerdict' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+### shorts.v1alpha1.StrategyService
+
+#### `POST /shorts.v1alpha1.StrategyService/GetStockStrategyFit`
+
+How one stock reads against every strategy: status, score, rank and the
+ per-rule pass / fail / unknown breakdown. A stock that is not a candidate
+ for a strategy still gets its rule results, with status "none".
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `stockCode` | string | no | ASX code, e.g. "BHP". (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetStockStrategyFit' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.StrategyService/GetStrategyPicks`
+
+Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+ score and a per-rule pass / fail / unknown breakdown for each stock.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | integer (int32) | no | Default 20, max 100. (proto int32) |
+| `offset` | integer (int32) | no | (proto int32) |
+| `requireFundamentals` | boolean | no | Only stocks with a fundamentals row. (proto bool) |
+| `sortBy` | string | no | Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe", "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values sort last; growth above +500% or below -95% sorts after every measured value. rank keeps the strategy's own ranking whatever the order. (proto string) |
+| `status` | string | no | Optional filter: "triggered" \| "setup" \| "watch". (proto string) |
+| `strategyId` | string | no | Required, e.g. "zanger-breakout". (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetStrategyPicks' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.StrategyService/ListStrategies`
+
+List every strategy with its rules, metadata, caveats and sources, plus
+ the current market regime (S&P/ASX 200).
+
+Request body: an empty JSON object, `{}`.
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/ListStrategies' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \

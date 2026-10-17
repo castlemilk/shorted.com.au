@@ -82,6 +82,83 @@ To enable in an environment:
    to the GCS bucket.
 3. `terraform apply`.
 
+## Publishing a hand-written article from anywhere (LIVE in prod)
+
+`shorted-news-publish` is a prod Cloud Run Job (take-writer image, provisioned
+by `module "shorted_job_news_publish"` in `terraform/environments/prod/main.tf`)
+that publishes ONE merged `content/news/*.mdx` article with the full chain:
+upsert → images → vision check → `published_at` → revalidate `/news`. The
+caller needs no database URL, model keys or GCS credentials — only
+`NEWS_PUBLISH_TOKEN`, a Terraform-generated secret that **only this endpoint
+accepts** (the `INTERNAL_SERVICE_SECRET` also works, but it opens every admin
+route). Read it with:
+
+```bash
+gcloud secrets versions access latest --secret=NEWS_PUBLISH_TOKEN --project=rosy-clover-477102-t5
+```
+
+```bash
+# from a checkout (NEWS_PUBLISH_TOKEN from env, else INTERNAL_SERVICE_SECRET, else gcloud):
+CONFIRM=prod task news:publish:remote SLUG=<slug>            # images on
+CONFIRM=prod task news:publish:remote SLUG=<slug> NO_IMAGES=1
+
+# or directly:
+curl -X POST https://api.shorted.com.au/api/admin/news/publish \
+  -H "x-news-publish-token: $NEWS_PUBLISH_TOKEN" -H "Content-Type: application/json" \
+  -d '{"slug":"<slug>"}'                       # → 202 {"executionName":...}
+curl -H "x-news-publish-token: $NEWS_PUBLISH_TOKEN" \
+  "https://api.shorted.com.au/api/admin/news/publish?execution=<executionName>"
+                                               # → {"status":"running|succeeded|failed","logUri":...}
+```
+
+How it is kept narrow:
+
+- **The article must be merged to `main`.** `content/news` is baked into the
+  image at build time (a named `content` build context — `docker build
+  --build-context content=../../content/news .`), and CI rebuilds it on every
+  push to main. The API carries a slug, never an article body.
+- **The API builds the argv** (`publish-content --slug=<slug> [--no-images]`)
+  from a slug matching `^[a-z0-9]+(-[a-z0-9]+)*$`
+  (`services/shorts/internal/jobmonitor/publish.go`, mirrored in
+  `src/import-mdx.ts`; `scripts/tests/news-publish-job.test.mjs` pins they agree).
+- **Only the shorts-api SA can pass an override**, via `roles/run.developer`
+  scoped to this one job. The job is not in the fleet "Run now" map, and its
+  deployed args are `list-drafts`, so a bare execution writes nothing.
+- **No retries, and a running publish refuses a second** (409, `force:true`
+  overrides): a retry would pay for images twice.
+- Gemini uses `GEMINI_API_KEY_NEWS` (per-workload isolation); images go to
+  `shorted-company-logos-prod`.
+
+### Required publication review and limits
+
+`publish-content --no-images` keeps the existing cover and skips initial image
+generation. Publication requires a successfully fetched HTTPS PNG hero and a
+complete acceptable vision verdict for every supplied image. Fetch, token-count,
+model, truncation, malformed-verdict or image-quality failures leave the article
+as a draft; they do not write `published_at`, revalidate or tweet. This entrypoint
+cannot overwrite an already-published article before review. `--no-validate` and
+the legacy `import-mdx --publish` shortcut are rejected before any write.
+The verdict must score cohesion at least 7/10, mark each image as fitting its
+caption with acceptable quality, and leave no issue or regeneration request.
+
+The publication judge is pinned to Google's Gemini Developer API
+`gemini-3.5-flash`, one candidate, one round, at most 12,000 input tokens and
+`maxOutputTokens=8192`. A full-request `countTokens` preflight runs once before
+the single inference attempt; both have a 120-second SDK request timeout and no
+application retry. Image fetches have a 30-second timeout and 8 MiB per-image
+limit. The publisher never regenerates a rejected image in this one-round mode.
+`VALIDATOR_MODEL` applies to interactive validation, not the bounded publication
+judge. Input/output usage counters are logged without API keys or image data.
+
+These are request/token limits, not an account-wide dollar cap. Confirm current
+model pricing, billing access and the deployed image's exact source before
+approving paid publication. Two articles require at most two token-count requests
+and two inference requests. Do not run the standalone auto-fix validator as a
+substitute: its interactive default permits additional rounds and generation.
+
+The locally run `publish-content --slug=...` does the same thing against
+whatever `DATABASE_URL` you export (it reads `../../content/news` by default).
+
 ## Local CLI usage (unchanged)
 
 ```bash

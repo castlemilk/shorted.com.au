@@ -1,0 +1,50 @@
+{{- $root := . -}}
+# Default identity for jobs that call no Google API. No token is mounted
+# (automountServiceAccountToken: false on the pods too) — a batch job has no
+# business talking to the Kubernetes API.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: shorted-jobs
+  labels:
+    {{- include "shorted-jobs.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+{{- /* One KSA + credential config per distinct Google SA, so each job keeps
+exactly the bucket IAM its Cloud Run job had — no shared super-identity. */ -}}
+{{- $gsas := list -}}
+{{- range $_, $job := .Values.jobs -}}
+{{- if $job.gcpServiceAccount -}}{{- $gsas = append $gsas $job.gcpServiceAccount -}}{{- end -}}
+{{- end -}}
+{{- range $gsa := ($gsas | uniq | sortAlpha) }}
+{{- $wi := $root.Values.workloadIdentity }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "shorted-jobs.wifName" $gsa }}
+  labels:
+    {{- include "shorted-jobs.labels" $root | nindent 4 }}
+  annotations:
+    shorted.com.au/google-service-account: {{ $gsa }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "shorted-jobs.wifName" $gsa }}
+  labels:
+    {{- include "shorted-jobs.labels" $root | nindent 4 }}
+data:
+  {{ $wi.credentialConfigFile }}: |
+    {
+      "type": "external_account",
+      "audience": {{ include "shorted-jobs.wifAudience" $wi | quote }},
+      "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+      "token_url": "https://sts.googleapis.com/v1/token",
+      "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/{{ $gsa }}:generateAccessToken",
+      "credential_source": {
+        "file": "{{ $wi.tokenMountPath }}/{{ $wi.tokenFile }}",
+        "format": { "type": "text" }
+      }
+    }
+{{- end }}

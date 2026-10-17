@@ -41,16 +41,17 @@ const DocumentationURL = "https://shorted.com.au/docs/mcp.md"
 const protocolVersion = "2026-07-28"
 
 type CatalogServer struct {
-	Name            string `json:"name"`
-	Title           string `json:"title"`
-	Version         string `json:"version"`
-	Description     string `json:"description"`
-	ProtocolVersion string `json:"protocolVersion"`
-	Endpoint        string `json:"endpoint"`
-	Transport       string `json:"transport"`
-	Documentation   string `json:"documentation"`
-	Website         string `json:"website"`
-	Contact         string `json:"contact"`
+	Name            string     `json:"name"`
+	Title           string     `json:"title"`
+	Version         string     `json:"version"`
+	Description     string     `json:"description"`
+	ProtocolVersion string     `json:"protocolVersion"`
+	Endpoint        string     `json:"endpoint"`
+	Transport       string     `json:"transport"`
+	Documentation   string     `json:"documentation"`
+	Website         string     `json:"website"`
+	Contact         string     `json:"contact"`
+	Icons           []sdk.Icon `json:"icons"`
 }
 
 // CatalogAuthentication describes how a client authenticates, and — just as
@@ -89,7 +90,7 @@ type CatalogAuthentication struct {
 
 // CatalogRateLimits is the honest version of "what do I get".
 //
-// Per-TOOL-CALL, not per request: session preamble (initialize, tools/list,
+// Per tool call or resource read, not per request: session preamble (initialize, tools/list,
 // resources/list, prompts/list) is free, and a JSON-RPC batch is charged for
 // each call it carries.
 type CatalogRateLimits struct {
@@ -119,6 +120,7 @@ type CatalogTool struct {
 	// RPC is the public Connect-RPC method the tool calls, so a caller who
 	// wants the uncapped payload can go straight to the HTTP API.
 	RPC         string          `json:"rpc,omitempty"`
+	AlsoCalls   []string        `json:"alsoCalls,omitempty"`
 	ReadOnly    bool            `json:"readOnly"`
 	InputSchema json.RawMessage `json:"inputSchema,omitempty"`
 }
@@ -253,6 +255,7 @@ func BuildCatalogFor(ctx context.Context, src DataSource, opts CatalogOptions) C
 			Description: tool.Description,
 			Domain:      tool.Domain,
 			RPC:         tool.RPC,
+			AlsoCalls:   tool.AlsoCalls,
 			ReadOnly:    true,
 			InputSchema: schemas[tool.Name],
 		})
@@ -300,6 +303,7 @@ func BuildCatalogFor(ctx context.Context, src DataSource, opts CatalogOptions) C
 			Documentation:   DocumentationURL,
 			Website:         "https://shorted.com.au",
 			Contact:         "support@shorted.com.au",
+			Icons:           Icons(),
 		},
 		Authentication: buildCatalogAuthentication(apiBaseURL, opts.RateLimitEnabled),
 		ToolCount:      len(tools),
@@ -385,7 +389,7 @@ func buildCatalogAuthentication(apiBaseURL string, rateLimitEnforced bool) Catal
 
 	note := "Anonymous access. No token is required and every tool works without one — " +
 		"OAuth 2.1 identifies you and raises the per-caller quota, it is not a gate on " +
-		"first contact. Quota is counted per TOOL CALL: the session handshake, tools/list, " +
+		"first contact. Quota is counted per tool call or resource read: the session handshake, tools/list, " +
 		"resources/list and prompts/list are free."
 	description := "Enforced by the API after authentication (services/pkg/ratelimit). " +
 		"A separate, tier-blind per-IP ceiling at the Cloudflare edge protects the origin " +
@@ -414,7 +418,7 @@ func buildCatalogAuthentication(apiBaseURL string, rateLimitEnforced bool) Catal
 		AuthorizationServerMetadata: strings.TrimSuffix(apiBaseURL, "/") + "/.well-known/oauth-authorization-server",
 		Scopes:                      Scopes,
 		RateLimits: &CatalogRateLimits{
-			Unit:        "tool call",
+			Unit:        "tool call or resource read",
 			Enforced:    rateLimitEnforced,
 			Anonymous:   perCall("anonymous"),
 			Free:        perCall("free"),

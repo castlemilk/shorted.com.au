@@ -40,7 +40,7 @@ export function Figure({
   }
 
   return (
-    <figure className={cn(PLACEMENT_CLASSES[placement] ?? PLACEMENT_CLASSES.full)}>
+    <figure data-article-figure className={cn(PLACEMENT_CLASSES[placement] ?? PLACEMENT_CLASSES.full)}>
       {useNextImage ? (
         <Image
           src={src}

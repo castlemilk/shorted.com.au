@@ -12,9 +12,21 @@ interface BreadcrumbItem {
 interface BreadcrumbsProps {
   items: BreadcrumbItem[];
   className?: string;
+  /**
+   * Forwarded to every link of the trail. Left out, Next's own default applies
+   * (a link is prefetched as it scrolls into view), so no page that uses this
+   * component changes; a page opts out for itself. The stock tabs pass `false`:
+   * their trail links to the stock's Overview, an ISR route, and a viewport
+   * prefetch would fetch (and on a cold cache generate) it on every tab view.
+   */
+  prefetch?: boolean;
 }
 
-export function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {
+export function Breadcrumbs({
+  items,
+  className = "",
+  prefetch,
+}: BreadcrumbsProps) {
   return (
     <nav
       aria-label="Breadcrumb"
@@ -22,6 +34,7 @@ export function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {
     >
       <Link
         href="/"
+        prefetch={prefetch}
         className="flex items-center hover:text-foreground transition-colors"
         aria-label="Home"
       >
@@ -38,6 +51,7 @@ export function Breadcrumbs({ items, className = "" }: BreadcrumbsProps) {
           ) : (
             <Link
               href={item.href}
+              prefetch={prefetch}
               className="hover:text-foreground transition-colors"
             >
               {item.label}

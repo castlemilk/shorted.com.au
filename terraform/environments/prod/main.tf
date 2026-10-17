@@ -6,18 +6,34 @@
 terraform {
   required_version = ">= 1.5.0"
 
+  # EXACT provider versions, plus the committed .terraform.lock.hcl beside this
+  # file. Both used to float ("~> 5.19", lock file gitignored), so every deploy
+  # installed whatever was newest. On 2026-09-26 cloudflare v5.26.0 shipped
+  # mid-week, added a DNS attribute (include_shadow_metadata), turned all five
+  # DNS records into no-op "updates", and then failed the apply with the
+  # provider's own "inconsistent result after apply" bug — on a PR that
+  # touched no Terraform. Upgrade on purpose: bump the version here, run
+  # `terraform init -upgrade -backend=false`, then
+  #   terraform providers lock -platform=linux_amd64 -platform=linux_arm64 \
+  #     -platform=darwin_amd64 -platform=darwin_arm64
+  # (all four, or init fails on whichever runner/laptop is missing), commit the
+  # lock file, and read the plan.
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.0"
+      version = "5.45.2"
     }
     time = {
       source  = "hashicorp/time"
-      version = "~> 0.9"
+      version = "0.14.2"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.9.1"
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 5.19"
+      version = "5.26.0"
     }
   }
 
@@ -166,6 +182,13 @@ resource "google_storage_bucket_iam_member" "company_logos_writer" {
   member = "serviceAccount:${module.enrichment_processor.service_account_email}"
 }
 
+# The news publish job writes article hero/layout images (takes/<slug>-*.png).
+resource "google_storage_bucket_iam_member" "company_logos_news_publish_writer" {
+  bucket = google_storage_bucket.shared_assets["company_logos"].name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.shorted_job_news_publish.service_account_email}"
+}
+
 resource "google_storage_bucket_iam_member" "financial_reports_writer" {
   bucket = google_storage_bucket.shared_assets["financial_reports"].name
   role   = "roles/storage.objectAdmin"
@@ -293,6 +316,106 @@ locals {
   short_selling_bucket_name = "shorted-short-selling-data-prod" # Prod-specific bucket
 }
 
+# ---------------------------------------------------------------------------
+# Scheduled jobs that run as Kubernetes CronJobs on the omega VKE cluster
+# (deploy/kubernetes/jobs: delivered by Paprika, monitored by Telesis) instead
+# of Cloud Scheduler -> Cloud Run.
+#
+# Listing a CronJob name here PAUSES the Cloud Scheduler trigger it replaces.
+# The Cloud Run job itself stays deployed, so admin "Run now", validation runs,
+# the GitHub-dispatched executions and rollback all keep working. Rollback =
+# remove the name here AND from the chart.
+#
+# MUST equal `enabled` in deploy/kubernetes/jobs/chart/values.yaml — one list
+# without the other runs a job twice or not at all (guarded by
+# scripts/tests/vke-jobs-cutover.test.mjs). Runbook:
+# deploy/kubernetes/jobs/README.md "Cutting a job over".
+# ---------------------------------------------------------------------------
+locals {
+  jobs_on_vke = [
+    "shorted-news-cluster",
+    "shorted-index-sync",
+    "shorted-news",
+    "shorted-news-backfill-images",
+    "shorted-news-resolve-googlenews",
+    "shorted-news-digest",
+    "shorted-economy",
+  ]
+}
+
+# ---------------------------------------------------------------------------
+# cronjob-reporter's read-only Cloud Run identity.
+#
+# The reporter on omega (deploy/kubernetes/jobs) reports every scheduled job to
+# Telesis. Jobs still on Cloud Run are reported by listing their executions,
+# which needs roles/run.viewer on each job. It gets that as a keyless
+# identity: its Kubernetes ServiceAccount (shorted-jobs/cronjob-reporter)
+# exchanges a projected token through the vke-omega Workload Identity pool
+# (created by deploy/kubernetes/jobs/scripts/bootstrap.sh) for this Google SA.
+# Grants are per JOB, never project-wide: it can read executions, nothing else.
+#
+# Every Cloud Run job named in the chart's `cloudRun.job` must be listed here
+# (scripts/tests/vke-jobs-cutover.test.mjs enforces it), or its runs would go
+# unreported and its Telesis monitor would page as MISSED.
+# ---------------------------------------------------------------------------
+locals {
+  vke_reporter_watched_jobs = {
+    "shorts-data-sync"           = var.region
+    "house-price-collector"      = var.region
+    "influence-collector"        = var.region
+    "shorted-announcements"      = var.region
+    "shorted-index-sync"         = var.region
+    "shorted-price-sync"         = var.region
+    "shorted-picks"              = var.region
+    "shorted-economy"            = var.region
+    "shorted-weekly-report"      = var.region
+    "shorted-news"               = var.region
+    "shorted-signals"            = var.region
+    "director-trade-extractor"   = var.region
+    "financial-report-extractor" = var.region
+    "asx-discovery"              = "us-central1"
+  }
+}
+
+resource "google_service_account" "vke_cronjob_reporter" {
+  project      = var.project_id
+  account_id   = "vke-cronjob-reporter"
+  display_name = "omega cronjob-reporter (reads Cloud Run executions)"
+  description  = "Keyless (WIF) identity of shorted-jobs/cronjob-reporter on omega VKE; job-level run.viewer only."
+}
+
+resource "google_service_account_iam_member" "vke_cronjob_reporter_wif" {
+  service_account_id = google_service_account.vke_cronjob_reporter.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principal://iam.googleapis.com/projects/334313144667/locations/global/workloadIdentityPools/vke-omega/subject/system:serviceaccount:shorted-jobs:cronjob-reporter"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "vke_cronjob_reporter_viewer" {
+  for_each = local.vke_reporter_watched_jobs
+
+  project  = var.project_id
+  location = each.value
+  name     = each.key
+  role     = "roles/run.viewer"
+  member   = "serviceAccount:${google_service_account.vke_cronjob_reporter.email}"
+
+  depends_on = [
+    module.short_data_sync,
+    module.house_price_collector,
+    module.influence_collector,
+    module.shorted_job_announcements,
+    module.shorted_job_index_sync,
+    module.shorted_job_price_sync,
+    module.shorted_job_picks,
+    module.shorted_job_economy,
+    module.shorted_job_weekly_report,
+    module.shorted_job_news,
+    module.shorted_job_signals,
+    module.report_extractor,
+    module.market_discovery_sync,
+  ]
+}
+
 # Short Data Sync Job
 module "short_data_sync" {
   source = "../../modules/short-data-sync"
@@ -302,6 +425,8 @@ module "short_data_sync" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   bucket_name      = local.short_selling_bucket_name
+
+  scheduler_paused = contains(local.jobs_on_vke, "shorts-data-sync")
 
   # The shorts API reads this bucket to serve
   # GET /api/admin/jobs/validate-sync. Granted from the OWNING module — bucket
@@ -335,6 +460,9 @@ module "house_price_collector" {
   environment           = "production"
   image_url             = var.house_price_collector_image
   official_max_failures = var.house_price_collector_official_max_failures
+
+  monthly_scheduler_paused    = contains(local.jobs_on_vke, "house-price-collector-monthly")
+  drop_index_scheduler_paused = contains(local.jobs_on_vke, "house-price-collector-drop-index")
   # REVALIDATION_SECRET exists in prod Secret Manager (shared with short-data-sync)
   # + the matching value is set in the Vercel frontend env, so enable event-driven
   # housing cache busting after a crawl-driven MV refresh.
@@ -362,6 +490,8 @@ module "shorted_job_announcements" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   image_url        = var.shorted_jobs_image
+
+  paused = contains(local.jobs_on_vke, "shorted-announcements")
 
   # Identical to the old module's container args, prefixed with the subcommand.
   args = [
@@ -418,6 +548,8 @@ module "shorted_job_index_sync" {
   environment      = "production"
   image_url        = var.shorted_jobs_image
 
+  paused = contains(local.jobs_on_vke, "shorted-index-sync")
+
   # A 2-year window on every run. The upsert is idempotent, so re-fetching
   # settled history costs nothing and repairs any gap a failed run left behind
   # — cheaper and more reliable than tracking a high-water mark for four series.
@@ -452,6 +584,94 @@ module "shorted_job_index_sync" {
   ]
 }
 
+# `shorted market-data sync` — the daily ASX price sweep into stock_prices.
+#
+# Replaces the sweep module.market_discovery_sync's service ran behind
+# POST /api/sync/all (that scheduler is paused). That sweep ran in a goroutine
+# on a CPU-throttled service, restarted from the top of the list each day and
+# never reached the end: 37 of 51 sampled stocks had no price after 20 August
+# 2026. A job runs to completion, and this one takes stocks stalest first, so a
+# run that stops early is resumed by the next rather than restarted.
+#
+# One request per stock (~2,000 codes at Yahoo's 4s pace) is a ~2.5 hour run;
+# the timeout leaves room for a catch-up. Scheduled at 20:00 AEST / 21:00 AEDT,
+# after the close, so every run has the day's session.
+#
+# Region: next to the database. Each stock is a few round trips, which from
+# us-central1 cost ~150ms apiece against the Sydney pooler.
+module "shorted_job_price_sync" {
+  source = "../../modules/shorted-job"
+
+  name             = "shorted-price-sync"
+  description      = "Daily ASX prices into stock_prices, every listed stock, stalest first"
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1"
+  environment      = "production"
+  image_url        = var.shorted_jobs_image
+
+  paused = contains(local.jobs_on_vke, "shorted-price-sync")
+
+  args = [
+    "market-data",
+    "sync",
+  ]
+
+  schedule = "0 10 * * 1-5" # weekdays 10:00 UTC, the retired scheduler's slot
+
+  env = {
+    ENVIRONMENT = "production"
+    # The listed-stock CSV (asx-stocks/latest.csv) and the run report
+    # (price-sync/<execution>.json) both live in the short-selling bucket.
+    GCS_BUCKET_NAME      = local.short_selling_bucket_name
+    PRIORITY_STOCK_COUNT = "100"
+    DB_MAX_CONNS         = "2"
+    DB_MIN_CONNS         = "0"
+    # The sweep stops taking stocks after this long, publishes its report and
+    # exits 10 (partial), which Cloud Run retries once from the stalest stock.
+    # It sits 30 minutes under timeout_seconds so a slow run ends on its own
+    # terms: the stock in flight may take up to 6 minutes, and the wrap-up
+    # (checkpoint, coverage view, report) needs a few more. A task the
+    # platform kills at its timeout is what "Cloud Run Job logged ERROR /
+    # timeout" pages on (2026-09-27: the catch-up's first attempt, 6h, killed
+    # with ~125 stocks left). Change one of the pair, change the other:
+    # TestRunBudgetClearsTheTaskTimeout reads both from this file.
+    SYNC_RUN_BUDGET             = "5h30m"
+    REVALIDATION_URL            = "https://shorted.com.au/api/revalidate"
+    OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
+    OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
+  }
+
+  secret_env = {
+    DATABASE_URL               = "DATABASE_URL"
+    ALPHA_VANTAGE_API_KEY      = "ALPHA_VANTAGE_API_KEY"
+    OTEL_EXPORTER_OTLP_HEADERS = "OTEL_EXPORTER_OTLP_HEADERS"
+    REVALIDATION_SECRET        = "REVALIDATION_SECRET"
+  }
+
+  timeout_seconds = 21600 # 6h: a daily run is ~2.5h; SYNC_RUN_BUDGET above stops the sweep first
+  # One retry: a run that stops early (its run budget, or a refusing upstream
+  # tripping its circuit breaker) resumes from the stalest stock rather than
+  # repeating work.
+  max_retries = 1
+  cpu         = "1"
+  memory      = "512Mi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# The price job reads the listed-stock CSV and writes its run report in the
+# short-selling bucket (CI reads the report there: it cannot read Cloud
+# Logging). Bucket-level, as the retired service's grant was.
+resource "google_storage_bucket_iam_member" "price_sync_bucket" {
+  bucket = local.short_selling_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.shorted_job_price_sync.service_account_email}"
+}
+
 # `shorted economy -mode all` — replaces module.economy_collector.
 module "shorted_job_economy" {
   source = "../../modules/shorted-job"
@@ -463,6 +683,8 @@ module "shorted_job_economy" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   image_url        = var.shorted_jobs_image
+
+  paused = contains(local.jobs_on_vke, "shorted-economy")
 
   args     = ["economy", "-mode", "all"]
   schedule = "0 17 5 * *" # 5th of month, 17:00 UTC (an hour after the housing job)
@@ -550,6 +772,117 @@ module "shorted_job_economy_freshness" {
   ]
 }
 
+# `shorted picks` — the stock picker's data layer (docs/plans/stock-picker.md
+# §2.6, extended by docs/plans/fundamentals-coverage.md §3). ONE job, two
+# schedules:
+#
+#   - primary, weekdays 13:30 UTC, `-mode refresh`: SET LOCAL
+#     statement_timeout = 0; SELECT refresh_strategy_views() (mv_market_regime,
+#     mv_fundamentals_growth, mv_fundamentals_quality once 000132 is applied,
+#     mv_price_features). After the price sweep (module.shorted_job_price_sync
+#     starts 10:00 UTC, ~2.5h), which is why this is NOT part of
+#     refresh_all_materialized_views() at 10:00. Fails (exit 1) if any view
+#     was skipped. After a successful refresh it waits 16 minutes (the API's
+#     15-minute strategy cache + 1) and pings REVALIDATION_URL with tag
+#     strategy-picks (best-effort: a failed ping never fails the run).
+#   - "fundamentals", daily 15:00 UTC, `-mode all`: fundamentals, then
+#     filings, then the view refresh (and the same revalidation, plus tag
+#     fundamentals when this execution's fundamentals or filings step changed
+#     stock_fundamentals).
+#       fundamentals: ONE Yahoo fundamentals-timeseries GET per code through
+#       pkg/stealthhttp at the sweep's 4s pace, carrying the full income
+#       statement, balance sheet and cash flow (annual + trailing, quarterly
+#       balance snapshots); sanity gates (FX-converted statements, the
+#       NI/(EPS x shares) identity against the code's median k, scale breaks,
+#       sign rules, stray TTM points) null what they refuse; Markit key
+#       statistics fills revenue / net income per field. BUDGET-DRIVEN: no
+#       count cap (PICKS_FUNDAMENTALS_MAX_CODES is deliberately unset), every
+#       code in priority order (due 4D/4E filers, never attempted by market
+#       cap, failures, stale successes) until PICKS_FUNDAMENTALS_BUDGET_MIN
+#       (170) elapses; the ~2,300-code universe is ~155 minutes at 4s, and any
+#       remainder carries to the next night. Stops early when more than 30% of
+#       the last 100 Yahoo requests failed or 25 codes failed in a row. A task
+#       retry (max_retries = 1, CLOUD_RUN_TASK_ATTEMPT > 0) caps the step at
+#       20 minutes so it finishes filings and the refresh instead of a second
+#       full pass.
+#       filings: financial_report_extractions.metrics (module.report_extractor)
+#       -> typed 'half' / 'annual' rows, source asx-filing-extraction.
+#       DB-only, seconds.
+#       refresh: refresh_strategy_views(), so the night's pull and filings
+#       reach the views the same night.
+#     fundamentals, filings and all take the picks_run_lease row (000132): a
+#     second execution that finds it held logs the holder and exits 0, so a
+#     manual run_picks_job never overlaps the schedule. Without 000132 the job
+#     runs without the lease and writes the 000129 column set.
+#     timeout_seconds = 12600 (210 min) holds the 170-minute budget, the last
+#     fetch, filings, the refresh and the 16-minute revalidation wait.
+#     Exit 10 = DEGRADED (under half the attempted codes answered, Yahoo
+#     failed for most of them, or the filings step degraded); exit 1 =
+#     nothing answered, a DB read failed, or the refresh failed or skipped a
+#     view. The worst step decides.
+#
+# ORDERING: migrations 000129 + 000130 must exist before the first run, and
+# 000132 before the full statements are written (the deploy allowlist
+# replays them). See services/jobs/README.md "picks".
+#
+# In local.admin_runnable_jobs, paired with its jobmonitor catalog entry
+# (services/shorts/internal/jobmonitor/catalog.go): "Run now" executes the
+# deployed args, i.e. `-mode refresh`. The other modes (fundamentals, filings,
+# all) are argument overrides: the schedule below sends one, and so does the
+# admin MCP server's run_picks_job tool through the run.developer grant
+# `shorts_api_picks_overrides` further down (argv built server-side from a
+# closed enum, jobmonitor/picks.go). The schedule keeps name_suffix
+# "fundamentals" so the existing scheduler job is updated in place rather than
+# replaced.
+module "shorted_job_picks" {
+  source = "../../modules/shorted-job"
+
+  name             = "shorted-picks"
+  description      = "Stock picker: refresh_strategy_views() after the price sweep (weekdays); nightly full-statement fundamentals + filings pull"
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url        = var.shorted_jobs_image
+
+  paused = contains(local.jobs_on_vke, "shorted-picks")
+
+  args     = ["picks", "-mode", "refresh"]
+  schedule = "30 13 * * 1-5" # weekdays 13:30 UTC, after the 10:00 UTC price sweep
+
+  schedules = [
+    {
+      name_suffix   = "fundamentals"
+      cron          = "0 15 * * *" # daily 15:00 UTC (01:00 AEST)
+      description   = "Nightly fundamentals pull (Yahoo full statements, Markit per-field fallback; budget-driven, priority order), then filing half-years, then refresh_strategy_views()"
+      args_override = ["picks", "-mode", "all"]
+      paused        = contains(local.jobs_on_vke, "shorted-picks-fundamentals")
+    },
+  ]
+
+  env = {
+    ENVIRONMENT                   = "production"
+    GCP_PROJECT                   = var.project_id
+    PICKS_FUNDAMENTALS_BUDGET_MIN = "170"
+    REVALIDATION_URL              = "https://shorted.com.au/api/revalidate"
+  }
+
+  secret_env = {
+    DATABASE_URL        = "DATABASE_URL"
+    REVALIDATION_SECRET = "REVALIDATION_SECRET"
+  }
+
+  timeout_seconds = 12600
+  max_retries     = 1
+  cpu             = "1"
+  memory          = "512Mi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
 # `shorted weekly-report` — replaces module.weekly_report_generator.
 # Two schedules on one job, exactly as before: weekly (no override) + monthly
 # (REPORT_TYPE=monthly via container_overrides). The ported job resolves the
@@ -566,6 +899,8 @@ module "shorted_job_weekly_report" {
   environment      = "production"
   image_url        = var.shorted_jobs_image
 
+  paused = contains(local.jobs_on_vke, "shorted-weekly-report")
+
   args     = ["weekly-report"]
   schedule = "0 11 * * 5" # Friday 11 AM UTC = 9 PM AEST
 
@@ -576,6 +911,7 @@ module "shorted_job_weekly_report" {
       description      = "Monthly generation of short selling report — auto-detects previous month"
       attempt_deadline = "1800s"
       env_override     = { REPORT_TYPE = "monthly" }
+      paused           = contains(local.jobs_on_vke, "shorted-weekly-report-monthly")
     },
   ]
 
@@ -620,12 +956,15 @@ module "shorted_job_news" {
   environment      = "production"
   image_url        = var.shorted_jobs_image
 
+  paused = contains(local.jobs_on_vke, "shorted-news")
+
   args     = ["news"]
   schedule = "0 */4 * * *" # every 4 hours
 
   schedules = [
     {
       name_suffix      = "backfill-images"
+      paused           = contains(local.jobs_on_vke, "shorted-news-backfill-images")
       cron             = "0 3 * * *"
       description      = "Daily og:image backfill for news_articles rows missing image_url"
       attempt_deadline = "1800s"
@@ -637,6 +976,7 @@ module "shorted_job_news" {
     },
     {
       name_suffix      = "resolve-googlenews"
+      paused           = contains(local.jobs_on_vke, "shorted-news-resolve-googlenews")
       cron             = "0 4 * * 1"
       description      = "Weekly resolver: follow googlenews redirects to publisher articles and scrape og:image"
       attempt_deadline = "1800s"
@@ -649,6 +989,7 @@ module "shorted_job_news" {
     },
     {
       name_suffix      = "cluster"
+      paused           = contains(local.jobs_on_vke, "shorted-news-cluster")
       cron             = "30 */2 * * *"
       description      = "Cluster duplicate-event news coverage into shared cluster_id groups"
       attempt_deadline = "600s"
@@ -660,6 +1001,7 @@ module "shorted_job_news" {
     },
     {
       name_suffix      = "digest"
+      paused           = contains(local.jobs_on_vke, "shorted-news-digest")
       cron             = "0 1 * * 5"
       description      = "Weekly news digest: assemble draft broadcast for the current ISO week"
       attempt_deadline = "600s"
@@ -697,6 +1039,67 @@ module "shorted_job_news" {
   ]
 }
 
+# `publish-content` — publish ONE merged content/news article to /news.
+#
+# Operator-invoked only: no schedule. It runs when POST /api/admin/news/publish
+# executes it with an argv override built server-side from a validated slug
+# (services/shorts/internal/jobmonitor/publish.go). The article files are baked
+# into the take-writer image at build time, so the job can publish exactly
+# what was merged to main and nothing a caller supplies.
+#
+# Its DEPLOYED args are a read-only `list-drafts`: a bare execution (a manual
+# console click, a stray :run) prints the draft queue and writes nothing. The
+# only way to publish is the override, and the only principal that may pass an
+# override is the shorts-api SA, via the job-scoped run.developer grant below.
+module "shorted_job_news_publish" {
+  source = "../../modules/shorted-job"
+
+  name        = "shorted-news-publish"
+  description = "Publish one content/news article (admin API only, never scheduled)"
+  project_id  = var.project_id
+  region      = var.region
+  environment = "production"
+  image_url   = var.take_writer_image
+
+  args     = ["list-drafts"]
+  schedule = ""
+
+  env = {
+    ENVIRONMENT = "production"
+    CONTENT_DIR = "/app/content/news"
+    # Hero + layout images land in the prod-owned public bucket; the job SA's
+    # write access is company_logos_news_publish_writer below.
+    GCS_LOGO_BUCKET = local.shared_asset_buckets.company_logos
+    # The draft page is not live yet, and the image has no Chromium: judge
+    # images individually rather than from a full-page screenshot.
+    VALIDATOR_SCREENSHOT = "0"
+  }
+
+  # All four secrets already exist in prod Secret Manager. Gemini uses the
+  # NEWS workload's key (per-workload isolation; see
+  # gemini-secret-isolation.test.mjs) — this is the same newsroom workload.
+  secret_env = {
+    DATABASE_URL        = "DATABASE_URL"
+    GEMINI_API_KEY      = "GEMINI_API_KEY_NEWS"
+    OPENAI_API_KEY      = "OPENAI_API_KEY"
+    REVALIDATION_SECRET = "REVALIDATION_SECRET"
+  }
+
+  # Image generation dominates: a hero at `high` has been measured at ~180s
+  # before falling back to `medium`, plus three layout images and a vision
+  # check. max_retries = 0 because a retry re-pays for images, and a failed
+  # publish leaves the article a draft — safe to re-run by hand.
+  timeout_seconds = 1800
+  max_retries     = 0
+  cpu             = "1"
+  memory          = "1Gi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
 # `shorted signals` — replaces module.signals_collector.
 # workers=2: brandbrain single-instance 502s above ~2 concurrent grounded calls.
 module "shorted_job_signals" {
@@ -709,6 +1112,8 @@ module "shorted_job_signals" {
   scheduler_region = "australia-southeast1"
   environment      = "production"
   image_url        = var.shorted_jobs_image
+
+  paused = contains(local.jobs_on_vke, "shorted-signals")
 
   args = [
     "signals",
@@ -756,6 +1161,8 @@ module "influence_collector" {
   # standalone influence-collector image and CI no longer builds it. The module
   # passes the `influence` subcommand in its args.
   image_url = var.shorted_jobs_image
+
+  scheduler_paused = contains(local.jobs_on_vke, "influence-collector-monthly")
 
   # Prod is where the register crawl actually runs, so it owns the private PDF
   # bucket. report-extractor's SA is granted read HERE, not from that module:
@@ -873,6 +1280,7 @@ locals {
     (module.shorted_job_economy.job_name)                 = var.region
     (module.shorted_job_weekly_report.job_name)           = var.region
     (module.shorted_job_news.job_name)                    = var.region
+    (module.shorted_job_picks.job_name)                   = var.region
     (module.shorted_job_signals.job_name)                 = var.region
     (module.report_extractor.director_job_name)           = var.region
     (module.report_extractor.reports_job_name)            = var.region
@@ -915,6 +1323,42 @@ resource "google_cloud_run_v2_job_iam_member" "shorts_api_validate_sync" {
   project  = var.project_id
   location = var.region
   name     = module.short_data_sync.job_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.shorts_api.service_account_email}"
+}
+
+# News publish — POST /api/admin/news/publish.
+#
+# Same pairing as the validation grant above: run.developer (runWithOverrides)
+# scoped to this ONE job, and an argv the service constructs from a slug
+# validated against ^[a-z0-9]+(-[a-z0-9]+)*$. The job is deliberately NOT in
+# local.admin_runnable_jobs: "Run now" has nothing useful to do with it, and
+# the override grant is the only execution path it needs.
+resource "google_cloud_run_v2_job_iam_member" "shorts_api_news_publish" {
+  project  = var.project_id
+  location = var.region
+  name     = module.shorted_job_news_publish.job_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.shorts_api.service_account_email}"
+}
+
+# Stock picker data job — the admin MCP server's run_picks_job tool
+# (services/shorts/internal/mcp/admin.go, scope jobs:run).
+#
+# Same pairing as the two grants above: run.developer (runWithOverrides) scoped
+# to this ONE job, and an argv the service constructs — `picks -mode <mode>`
+# with <mode> matched against the job's own four-value enum
+# (jobmonitor.NormalizePicksMode; anything else is refused before GCP is
+# asked). The deployed args are `-mode refresh`, so without this grant the only
+# on-demand path is the fleet "Run now", which can never pull fundamentals or
+# ingest filings; building first coverage in a new environment used to need an
+# operator with gcloud. The job STAYS in local.admin_runnable_jobs (Run now =
+# refresh); run.developer is a superset of run.invoker on this one job, so the
+# two bindings overlap by design rather than conflict.
+resource "google_cloud_run_v2_job_iam_member" "shorts_api_picks_overrides" {
+  project  = var.project_id
+  location = var.region
+  name     = module.shorted_job_picks.job_name
   role     = "roles/run.developer"
   member   = "serviceAccount:${module.shorts_api.service_account_email}"
 }
@@ -1024,6 +1468,8 @@ module "market_discovery_sync" {
   market_data_sync_image = var.market_data_sync_image
   bucket_name            = module.short_data_sync.bucket_name
 
+  asx_discovery_scheduler_paused = contains(local.jobs_on_vke, "asx-discovery")
+
   # Jobs-monolith cutover (slice 3) — both surfaces now run the consolidated
   # `shorted` binary IN PLACE: the SAME Cloud Run service/job resources, the
   # same service accounts, the same schedulers, just a new image + args. The
@@ -1035,6 +1481,12 @@ module "market_discovery_sync" {
   market_data_sync_image_override = var.shorted_jobs_image
   market_data_sync_command        = ["/shorted"]
   market_data_sync_args           = ["market-data", "serve"]
+
+  # The daily price sweep is module.shorted_job_price_sync. The service stays
+  # up for its /api/gaps and /api/sync/stock endpoints; only the weekday
+  # trigger of its sweep is paused. Rollback: false here, and paused = true on
+  # shorted_job_price_sync.
+  market_data_sync_scheduler_paused = true
 
   asx_discovery_image_override = var.shorted_jobs_browser_image
   asx_discovery_command        = ["/shorted"]
@@ -1084,8 +1536,51 @@ module "report_extractor" {
   gemini_secret_exists = true
   gemini_secret_name   = "GEMINI_API_KEY_REPORT_EXTRACTOR"
   reports_bucket       = local.shared_asset_buckets.financial_reports
-  director_limit       = 20
-  reports_limit        = 10
+  # Director trades: 200 Appendix 3Y notices a day (was 20). The consensus
+  # extractor (director_direct.py) measured ~$0.0006 and ~11 s per notice per
+  # worker (2026-09-29 prod dry run), so a run is ~18 min of the 60-min
+  # timeout at 2 workers and ~$0.12 a day. 20 a day could never clear the
+  # ~1,260 notices the July-September outage misrecorded, let alone the
+  # ~24,000 rows still "Unknown Director" or valueless.
+  director_limit = 200
+  # Financial reports: 360 a day, daily 14:00 UTC (120 from late September, 40
+  # twice weekly before that), per
+  # docs/plans/fundamentals-coverage.md 6.2. This run is the ONLY path to
+  # half-year totals for the stock picker: Yahoo carries no ASX half-years, and
+  # `shorted picks -mode filings` reads the revenue / NPAT / EPS this job
+  # extracts from statutory filings into stock_fundamentals. The extractor
+  # itself now spends the slots well (6.1): statutory results documents only
+  # (no presentations, Form 20-F, Pillar 3, webcasts or transcripts), ONE per
+  # company per run, recent filers (45 days) first, then companies with no
+  # parsed filing yet by market cap, then the rest; thinking off; 8 pages.
+  # About 840 documents a week clears the ~2,146-company backlog in about three
+  # weeks, then keeps up with ~83 statutory filings a week. reports_limit also
+  # sets GEMINI_MAX_RUN_ITEMS, the container's own hard cap, so the two move
+  # together; the module default (10) is unchanged, and the module pins 4
+  # workers, a 90-minute submit budget and a 7200 s timeout with no retries.
+  # First run's measured wall time at 120: 108 min (2026-10-08), 54 (10-09) and
+  # 7 (10-10). The 90-minute submit budget, not the limit, ends a slow day.
+  # Raised to 360 on 2026-10-11. A read-only preview of the selection on prod
+  # found 917 companies with an unparsed results document, 258 of them filed
+  # in the last 45 days, so at 120 a run Commonwealth Bank's full year (filed
+  # 12 Aug) ranked 260th and still waited three more nights. Measured cost (the
+  # "Gemini tokens this run" lines of the 2026-10-08 to 10-10 runs): ~1.45M
+  # prompt and ~0.12M completion tokens for 120 documents, ~12,100 prompt
+  # tokens a document across the three models, so 360 a day is ~4.4M prompt
+  # tokens. Check the billing export after the first week.
+  reports_limit    = 360
+  reports_schedule = "0 14 * * *"
+  # CronJobs director-trade-extractor / financial-report-extractor on VKE.
+  director_scheduler_paused = contains(local.jobs_on_vke, "director-trade-extractor")
+  reports_scheduler_paused  = contains(local.jobs_on_vke, "financial-report-extractor")
+
+  # Financial reports extract through OpenRouter: one validated call per
+  # document, DeepSeek primary + cheapest-Gemini consensus
+  # (services/report-extractor/direct_extract.py; module extractor_models).
+  # The per-workload Gemini key above has been rejected as API_KEY_INVALID
+  # since 2026-08-30, so this is also the fix for a month of empty runs.
+  # ORDERING: the secret must exist before apply.
+  openrouter_secret_name = "OPENROUTER_API_KEY"
 
   depends_on = [
     google_project_service.required_apis,

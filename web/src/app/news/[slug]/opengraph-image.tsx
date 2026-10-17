@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getEditorialTake } from "~/app/actions/getEditorialTake";
 
+export const maxDuration = 15;
+
 export const alt = "Shorted Take";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";

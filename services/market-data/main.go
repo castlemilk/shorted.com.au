@@ -29,6 +29,33 @@ type MarketDataService struct {
 	db *pgxpool.Pool
 }
 
+// Each symbol needs only its latest row and the closest earlier trading date.
+// The stock_code/date index can stop after each LIMIT instead of scanning all
+// historical prices before DISTINCT ON discards them. Deduplicate request codes
+// here so repeated symbols retain the existing ANY/map response behavior.
+const multipleStockPricesQuery = `
+	WITH requested AS (
+		SELECT DISTINCT unnest($1::text[]) AS stock_code
+	)
+	SELECT lp.stock_code, lp.date, lp.open, lp.high, lp.low, lp.close,
+		lp.volume, lp.adjusted_close, pp.close AS prev_close
+	FROM requested r
+	CROSS JOIN LATERAL (
+		SELECT stock_code, date, open, high, low, close, volume, adjusted_close
+		FROM stock_prices
+		WHERE stock_code = r.stock_code
+		ORDER BY date DESC
+		LIMIT 1
+	) lp
+	LEFT JOIN LATERAL (
+		SELECT close
+		FROM stock_prices
+		WHERE stock_code = lp.stock_code AND date < lp.date
+		ORDER BY date DESC
+		LIMIT 1
+	) pp ON true
+`
+
 func applyMarketDataPoolConfig(config *pgxpool.Config) {
 	maxConns := envInt("MARKET_DATA_DB_MAX_CONNS", 3)
 	if maxConns < 1 {
@@ -323,36 +350,28 @@ func (s *MarketDataService) GetMultipleStockPrices(
 		}), nil
 	}
 
-	// Use a more efficient query with DISTINCT ON
-	query := `
-		WITH latest_prices AS (
-			SELECT DISTINCT ON (stock_code)
-				stock_code, date, open, high, low, close, volume, adjusted_close
-			FROM stock_prices
-			WHERE stock_code = ANY($1)
-			ORDER BY stock_code, date DESC
-		),
-		prev_prices AS (
-			SELECT DISTINCT ON (sp.stock_code)
-				sp.stock_code, sp.close as prev_close
-			FROM stock_prices sp
-			INNER JOIN latest_prices lp ON sp.stock_code = lp.stock_code
-			WHERE sp.date < lp.date
-			ORDER BY sp.stock_code, sp.date DESC
-		)
-		SELECT 
-			lp.stock_code, lp.date, lp.open, lp.high, lp.low, lp.close, 
-			lp.volume, lp.adjusted_close, pp.prev_close
-		FROM latest_prices lp
-		LEFT JOIN prev_prices pp ON lp.stock_code = pp.stock_code
-	`
-
-	rows, err := s.db.Query(ctx, query, req.Msg.StockCodes)
+	rows, err := s.db.Query(ctx, multipleStockPricesQuery, req.Msg.StockCodes)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer rows.Close()
 
+	prices, err := readMultipleStockPrices(rows)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&marketdatav1.GetMultipleStockPricesResponse{
+		Prices: prices,
+	}), nil
+}
+
+type stockPriceRows interface {
+	Next() bool
+	Scan(...any) error
+	Err() error
+}
+
+func readMultipleStockPrices(rows stockPriceRows) (map[string]*marketdatav1.StockPrice, error) {
 	prices := make(map[string]*marketdatav1.StockPrice)
 
 	for rows.Next() {
@@ -380,7 +399,7 @@ func (s *MarketDataService) GetMultipleStockPrices(
 			&prevClose,
 		)
 		if err != nil {
-			continue
+			return nil, err
 		}
 
 		// Create the price struct with converted timestamp
@@ -409,9 +428,13 @@ func (s *MarketDataService) GetMultipleStockPrices(
 		prices[stockCode] = &price
 	}
 
-	return connect.NewResponse(&marketdatav1.GetMultipleStockPricesResponse{
-		Prices: prices,
-	}), nil
+	// Query can succeed before a deadline, connection, or decode error occurs
+	// while consuming its rows. Never return an empty/partial successful map
+	// that downstream caches could mistake for valid missing price coverage.
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return prices, nil
 }
 
 // GetStockCorrelations returns correlation matrix for stocks

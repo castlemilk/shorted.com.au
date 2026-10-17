@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { getEnrichedCompanyMetadata } from "~/app/actions/company-metadata";
+import { cleanCompanyName } from "~/@/lib/company-name";
 import { CompanyInsightsCard } from "./company-insights-card";
-import { FinancialReports } from "./financial-reports";
-import { FinancialStatementsCard } from "./financial-statements-card";
+import { pickCompanyInsights } from "./company-insights-data";
 import {
   Card,
   CardContent,
@@ -14,9 +14,18 @@ import { Info } from "lucide-react";
 
 interface EnrichedCompanySectionProps {
   stockCode: string;
+  /**
+   * The company's display name as the page spells it (the header's
+   * `cleanCompanyName` of the ASIC name). Without one the enriched record's own
+   * name is cleaned here, so the card never prints the backend's "Bhp Group".
+   */
+  companyName?: string;
 }
 
-async function EnrichedCompanyData({ stockCode }: EnrichedCompanySectionProps) {
+async function EnrichedCompanyData({
+  stockCode,
+  companyName,
+}: EnrichedCompanySectionProps) {
   const enrichedData = await getEnrichedCompanyMetadata(stockCode);
 
   if (!enrichedData) {
@@ -42,7 +51,22 @@ async function EnrichedCompanyData({ stockCode }: EnrichedCompanySectionProps) {
     );
   }
 
-  return <CompanyInsightsCard data={enrichedData} />;
+  // Only the fields the card reads cross into the client component: the
+  // enriched payload also carries the ~32 KB financial_statements JSONB,
+  // which must never ride along in the page's RSC payload.
+  // A record with no name names no company, as it did before.
+  const subject =
+    companyName ??
+    (enrichedData.company_name
+      ? cleanCompanyName(enrichedData.company_name, stockCode)
+      : undefined);
+
+  return (
+    <CompanyInsightsCard
+      data={pickCompanyInsights(enrichedData)}
+      companyName={subject}
+    />
+  );
 }
 
 function EnrichedCompanyFallback() {
@@ -62,96 +86,18 @@ function EnrichedCompanyFallback() {
 }
 
 /**
- * Overview tab: consolidated Company insights card (tags + accordion
- * sections + key people). Reports are NOT rendered here — they live on
- * the Financials tab via FinancialReportsSection, so the two tabs no
- * longer duplicate content.
+ * Company tab: consolidated Company insights card (tags + accordion
+ * sections + key people). Reports are NOT rendered here: the Financials tab
+ * lists them (FinancialReports, passed in by the page), so the two tabs do
+ * not duplicate content.
  */
 export function EnrichedCompanySection({
   stockCode,
+  companyName,
 }: EnrichedCompanySectionProps) {
   return (
     <Suspense fallback={<EnrichedCompanyFallback />}>
-      <EnrichedCompanyData stockCode={stockCode} />
-    </Suspense>
-  );
-}
-
-async function FinancialReportsData({ stockCode }: { stockCode: string }) {
-  const enrichedData = await getEnrichedCompanyMetadata(stockCode);
-
-  if (!enrichedData?.financial_reports?.length) {
-    return null;
-  }
-
-  return (
-    <FinancialReports
-      reports={enrichedData.financial_reports}
-      stockCode={stockCode}
-    />
-  );
-}
-
-async function FinancialStatementsData({ stockCode }: { stockCode: string }) {
-  const enrichedData = await getEnrichedCompanyMetadata(stockCode);
-
-  if (!enrichedData?.financial_statements) {
-    return null;
-  }
-
-  return (
-    <FinancialStatementsCard statements={enrichedData.financial_statements} />
-  );
-}
-
-/**
- * Financials tab: annual (and, when present, quarterly) income statement /
- * balance sheet / cash flow tables from the enriched yfinance payload.
- * Renders nothing when the stock has no statement data.
- */
-export function FinancialStatementsSection({
-  stockCode,
-}: {
-  stockCode: string;
-}) {
-  return (
-    <Suspense
-      fallback={
-        <Card>
-          <CardHeader className="pb-3">
-            <Skeleton className="h-6 w-48" />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-8 w-full" />
-            ))}
-          </CardContent>
-        </Card>
-      }
-    >
-      <FinancialStatementsData stockCode={stockCode} />
-    </Suspense>
-  );
-}
-
-/** Financials tab: report links only — the enriched prose stays on Overview. */
-export function FinancialReportsSection({ stockCode }: { stockCode: string }) {
-  return (
-    <Suspense
-      fallback={
-        <Card>
-          <CardHeader className="pb-3">
-            <Skeleton className="h-6 w-40" />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full" />
-            ))}
-          </CardContent>
-        </Card>
-      }
-    >
-      <FinancialReportsData stockCode={stockCode} />
+      <EnrichedCompanyData stockCode={stockCode} companyName={companyName} />
     </Suspense>
   );
 }

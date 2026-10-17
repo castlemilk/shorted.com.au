@@ -1,3 +1,4 @@
+/** @jest-environment-options {"url":"https://shorted.com.au/"} */
 /**
  * The TanStack Query defaults are the thing that actually governs what a
  * browsing user experiences on a 429, so we assert against the real configured

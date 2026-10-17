@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -105,6 +106,9 @@ func TestCatalogPublishesTheServerIdentityAndEndpoint(t *testing.T) {
 	if got.Server.Endpoint != PublicEndpoint {
 		t.Errorf("endpoint = %q, want %q", got.Server.Endpoint, PublicEndpoint)
 	}
+	if !reflect.DeepEqual(got.Server.Icons, Icons()) {
+		t.Errorf("catalog icons = %+v, want the server's icons %+v", got.Server.Icons, Icons())
+	}
 	if got.Server.ProtocolVersion != latestProtocolVersion {
 		t.Errorf("protocolVersion = %q, want %q", got.Server.ProtocolVersion, latestProtocolVersion)
 	}
@@ -180,7 +184,7 @@ const testCatalogOrigin = "https://api.example.test"
 
 // ---------------------------------------------------------- OAuth advertising
 
-// Anonymous access is the adoption path. If this ever flips to true, 24 tools
+// Anonymous access is the adoption path. If this ever flips to true, 28 tools
 // stop working for every client that has not been through a browser.
 func TestTheCatalogStillSaysNoAuthenticationIsRequired(t *testing.T) {
 	catalog := BuildCatalogForOrigin(context.Background(), nil, testCatalogOrigin)
@@ -247,7 +251,7 @@ func TestThePublishedQuotasMatchWhatTheLimiterEnforces(t *testing.T) {
 	}
 	// Per TOOL CALL, which is what the middleware actually counts. Saying
 	// "per request" would understate the cost of a batch by its size.
-	if limits.Unit != "tool call" {
+	if limits.Unit != "tool call or resource read" {
 		t.Errorf("unit = %q", limits.Unit)
 	}
 }

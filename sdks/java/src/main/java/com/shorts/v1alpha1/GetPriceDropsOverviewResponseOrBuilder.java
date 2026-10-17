@@ -80,4 +80,62 @@ public interface GetPriceDropsOverviewResponseOrBuilder extends
    */
   com.shorts.v1alpha1.StatePriceDropSummaryOrBuilder getStatesOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * When mv_state_price_drops was last refreshed, and the newest crawl
+   * observation that refresh could see. Unset when never recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+   * @return Whether the asOf field is set.
+   */
+  boolean hasAsOf();
+  /**
+   * <pre>
+   * When mv_state_price_drops was last refreshed, and the newest crawl
+   * observation that refresh could see. Unset when never recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  com.google.protobuf.Timestamp getAsOf();
+  /**
+   * <pre>
+   * When mv_state_price_drops was last refreshed, and the newest crawl
+   * observation that refresh could see. Unset when never recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getAsOfOrBuilder();
+
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+   * @return Whether the dataThrough field is set.
+   */
+  boolean hasDataThrough();
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+   * @return The dataThrough.
+   */
+  com.google.protobuf.Timestamp getDataThrough();
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getDataThroughOrBuilder();
+
+  /**
+   * <pre>
+   * True when crawl-derived price-drop figures are switched off
+   * (HOUSING_DROP_LISTINGS_ENABLED=false, a takedown): every other field is
+   * empty ON PURPOSE and will stay so until the switch is flipped back. Lets a
+   * client tell that apart from a cold or failed fetch, which is worth retrying.
+   * </pre>
+   *
+   * <code>bool withheld = 5 [json_name = "withheld"];</code>
+   * @return The withheld.
+   */
+  boolean getWithheld();
 }

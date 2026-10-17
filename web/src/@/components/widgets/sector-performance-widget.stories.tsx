@@ -8,12 +8,11 @@
  * play function exercising what the widget really offers.
  *
  * Data trace (verified against sector-performance-widget.tsx):
- * - getSectorPerformance(period) — ~/@/lib/stock-data-service, called once
- *   per mount in a useEffect plus a 5-minute setInterval refresh (inert in
- *   stories). Spy-mocked in preview.tsx.
- * - No visibility gating (no useWidgetVisibility) and no other data calls;
- *   the real implementation would fan out to getMultipleStockQuotes, but the
- *   spy on getSectorPerformance intercepts above that.
+ * - getSectorPerformance(period) — ~/@/lib/stock-data-service, shared by a
+ *   React Query cache key with a five-minute visible-tab refresh. Spy-mocked
+ *   in preview.tsx; no viewport gating (no useWidgetVisibility).
+ * - The real service batches all 24 representative stocks into one quote
+ *   request, but the spy on getSectorPerformance intercepts above that.
  *
  * Interaction notes (KNOWN GAPs):
  * - The widget has NO interactive controls: period and displayType come only

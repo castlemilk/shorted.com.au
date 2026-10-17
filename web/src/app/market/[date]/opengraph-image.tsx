@@ -3,6 +3,8 @@ import { ImageResponse } from "next/og";
 
 import { OG_SIZE, OG_CONTENT_TYPE, OgCard, getOgLogo } from "~/@/lib/og/card";
 
+export const maxDuration = 15;
+
 export const alt = "ASX Short Positions Snapshot — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
@@ -39,7 +41,7 @@ export default async function Image({
             ? `ASX short positions, ${pretty}`
             : "ASX short positions by day"
         }
-        subtitle="Every reported short position for a single trading day, from official ASIC data."
+        subtitle="Top 50 securities with positive reported short positions. Official ASIC position data, published with a T+4 delay."
         logoSrc={logoSrc}
       />
     ),

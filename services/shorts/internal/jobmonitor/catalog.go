@@ -77,11 +77,31 @@ var catalog = map[string]catalogEntry{
 		Category:    "Signals",
 		Note:        "`shorted signals` — brandbrain grounded signals; replaced signals-collector",
 	},
+	"shorted-picks": {
+		DisplayName: "Stock Picker Data",
+		Category:    "Market data",
+		// Two schedulers on one job: refresh (weekdays 13:30 UTC, after the price
+		// sweep) + fundamentals (daily 15:00 UTC, args override). "Run now" sends
+		// no overrides, so it executes the deployed `-mode refresh`; the other
+		// modes run on demand through RunPicks (picks.go), driven by the admin
+		// MCP server's run_picks_job.
+		Note: "`shorted picks` — refresh_strategy_views() weekdays + daily fundamentals pull; Run now = refresh, other modes via the admin MCP run_picks_job",
+	},
 	"shorted-weekly-report": {
 		DisplayName: "Weekly & Monthly Reports",
 		Category:    "Reports",
 		// Two schedulers on one job: weekly (Fri) + monthly (1st, REPORT_TYPE override).
 		Note: "`shorted weekly-report` — weekly + monthly on one job; replaced weekly-report-generator",
+	},
+
+	// --- Operator-invoked (no schedule) ----------------------------------------
+	"shorted-news-publish": {
+		DisplayName: "News Publish",
+		Category:    "News",
+		// Runs only via POST /api/admin/news/publish, which supplies the slug as
+		// an argument override. Its deployed args are a read-only `list-drafts`,
+		// so a bare execution publishes nothing.
+		Note: "take-writer `publish-content --slug=…` — run via /api/admin/news/publish, never on a schedule",
 	},
 
 	// --- Surviving standalone jobs ---------------------------------------------

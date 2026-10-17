@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getServerShortsApiUrl } from "~/app/actions/config";
 
+export const maxDuration = 15;
+
 export const alt = "Yearly Short Selling Report - Shorted.com.au";
 export const size = {
   width: 1200,

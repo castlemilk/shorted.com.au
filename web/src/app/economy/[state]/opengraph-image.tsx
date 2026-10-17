@@ -11,6 +11,8 @@ import {
 import { getStateSilhouette } from "~/@/lib/og/state-silhouette";
 import { STATE_NAMES, type StateSlug } from "~/@/lib/economy/map-metrics";
 
+export const maxDuration = 15;
+
 export const alt = "Australian state economy — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

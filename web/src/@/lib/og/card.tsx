@@ -753,3 +753,265 @@ export function OgVersus({
     </div>
   );
 }
+
+/**
+ * Scene variant: a photographic backdrop (the same archetype art the page's
+ * banner uses) under the standard canvas — rule, eyebrow, serif headline, stat
+ * row and footer — with an optional boundary silhouette on the right, the
+ * same projected paths the page's locator inset renders.
+ *
+ * Why a variant and not a bespoke card at the call site: the suburb card was
+ * the one route that had drifted off the shared canvas (its own palette, its
+ * own footer), so it read as a different product in a feed next to a stock
+ * card. Everything here that is not the scene or the silhouette is inherited.
+ *
+ * The scrim is two flat washes rather than one clever gradient because satori
+ * cannot parse sized radial gradients and a diagonal linear gradient leaves the
+ * stat row unreadable over bright sky in half the scenes.
+ */
+export interface OgSceneProps {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+  stats?: OgCardProps["stats"];
+  /** Data URI (JPEG/PNG) or "" for the plain canvas. */
+  sceneSrc?: string;
+  /** Pre-projected SVG paths; drawn into a square viewBox of `size`. */
+  silhouette?: {
+    size: number;
+    targetPath: string;
+    neighbourPaths: Array<{ id: string; d: string }>;
+  } | null;
+  footer?: string;
+  logoSrc: string;
+}
+
+export function OgSceneCard({
+  eyebrow,
+  title,
+  subtitle,
+  stats,
+  sceneSrc,
+  silhouette,
+  footer = "shorted.com.au",
+  logoSrc,
+}: OgSceneProps) {
+  const hasSilhouette = Boolean(silhouette?.targetPath);
+  return (
+    <div
+      style={{
+        height: "100%",
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        backgroundColor: OG.bg,
+        backgroundImage: `linear-gradient(135deg, ${OG.bg} 0%, ${OG.bgAlt} 55%, ${OG.bg} 100%)`,
+      }}
+    >
+      {sceneSrc ? (
+        <img
+          src={sceneSrc}
+          width={OG_SIZE.width}
+          height={OG_SIZE.height}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
+      ) : null}
+      {sceneSrc ? (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            backgroundColor: "rgba(10,10,10,0.62)",
+          }}
+        />
+      ) : null}
+      {sceneSrc ? (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            backgroundImage:
+              "linear-gradient(90deg, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.15) 60%, rgba(10,10,10,0) 100%)",
+          }}
+        />
+      ) : null}
+
+      {/* top rule */}
+      <div
+        style={{
+          display: "flex",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 8,
+          backgroundImage: `linear-gradient(90deg, ${OG.orange} 0%, ${OG.orangeDim} 100%)`,
+        }}
+      />
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          padding: "56px 64px 0 64px",
+          position: "relative",
+        }}
+      >
+        <div style={{ display: "flex", flex: 1, gap: 36 }}>
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 22,
+                letterSpacing: 3,
+                textTransform: "uppercase",
+                color: OG.orange,
+                fontWeight: 600,
+              }}
+            >
+              {eyebrow}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                marginTop: 18,
+                fontSize: title.length > 22 ? 64 : 84,
+                lineHeight: 1.04,
+                fontFamily: OG_SERIF,
+                color: OG.text,
+                fontWeight: 700,
+                maxWidth: hasSilhouette ? 700 : 1010,
+              }}
+            >
+              {title}
+            </div>
+            {subtitle && (
+              <div
+                style={{
+                  display: "flex",
+                  marginTop: 16,
+                  fontSize: 26,
+                  lineHeight: 1.35,
+                  color: OG.textDim,
+                  maxWidth: hasSilhouette ? 660 : 940,
+                }}
+              >
+                {subtitle}
+              </div>
+            )}
+            {stats && stats.length > 0 && (
+              <div style={{ display: "flex", marginTop: "auto", paddingBottom: 28, gap: 48 }}>
+                {stats.slice(0, 3).map((s) => (
+                  <div key={s.label} style={{ display: "flex", flexDirection: "column" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        fontSize: 17,
+                        letterSpacing: 1.5,
+                        textTransform: "uppercase",
+                        color: OG.textDim,
+                      }}
+                    >
+                      {s.label}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        marginTop: 6,
+                        fontSize: 42,
+                        fontWeight: 700,
+                        color: toneColor(s.tone),
+                      }}
+                    >
+                      {s.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {hasSilhouette && silhouette ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 300,
+                height: 300,
+                marginTop: 8,
+                borderRadius: 24,
+                border: `1px solid ${OG.border}`,
+                backgroundColor: "rgba(10,10,10,0.55)",
+              }}
+            >
+              <svg
+                width={260}
+                height={260}
+                viewBox={`0 0 ${silhouette.size} ${silhouette.size}`}
+              >
+                {silhouette.neighbourPaths.map((n) => (
+                  <path
+                    key={n.id}
+                    d={n.d}
+                    fill="none"
+                    stroke={OG.textDim}
+                    strokeOpacity={0.35}
+                    strokeWidth={0.8}
+                  />
+                ))}
+                <path
+                  d={silhouette.targetPath}
+                  fill={OG.orange}
+                  fillOpacity={0.55}
+                  stroke={OG.orange}
+                  strokeWidth={1.4}
+                />
+              </svg>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* footer pinned to the bottom */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderTop: `1px solid ${OG.border}`,
+          margin: "0 64px",
+          padding: "22px 0 32px 0",
+          position: "relative",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {logoSrc && (
+            <img src={logoSrc} width={48} height={48} style={{ borderRadius: 8 }} />
+          )}
+          <div style={{ display: "flex", fontSize: 26, fontWeight: 700, color: OG.text }}>
+            Shorted
+          </div>
+        </div>
+        <div style={{ display: "flex", fontSize: 22, color: OG.textDim }}>{footer}</div>
+      </div>
+    </div>
+  );
+}

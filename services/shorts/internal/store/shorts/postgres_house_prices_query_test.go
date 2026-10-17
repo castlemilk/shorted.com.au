@@ -2,10 +2,13 @@ package shorts
 
 import (
 	"database/sql"
+	"errors"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func postgresHousePricesSource(t *testing.T) string {
@@ -190,8 +193,13 @@ func TestSuburbReaders_PreferOnePublicPricedRegionPerSAL(t *testing.T) {
 			t.Errorf("preferred suburb-region join missing %q", want)
 		}
 	}
-	if got := strings.Count(querySource, "` + preferredSuburbRegionJoin + `"); got != 2 {
-		t.Errorf("preferred suburb-region join must be shared by list and profile queries; got %d uses", got)
+	if got := strings.Count(querySource, "` + preferredSuburbRegionJoin + `"); got != 3 {
+		t.Errorf("preferred suburb-region join must be shared by the list, profile and similar-suburbs queries; got %d uses", got)
+	}
+	// The similar-suburbs kNN used to price its top-k through a bare join, so a
+	// SAL carrying a crawl key and a Valuer-General key was listed twice.
+	if strings.Contains(querySource, "LEFT JOIN house_price_regions r ON r.sal_code = ranked.sal_code") {
+		t.Fatal("similar suburbs must not fan its top-k out across every region sharing a SAL")
 	}
 }
 
@@ -224,5 +232,201 @@ func TestHousingRegionsQuery_PicksHousesNotUnits(t *testing.T) {
 	}
 	if strings.Contains(lateral, "'attached'") {
 		t.Error("latest-median LATERAL must not select attached-dwelling medians")
+	}
+}
+
+// The council block is its own tolerated query (like hazards): the 000126
+// columns land by hand on prod, and the base profile must not select them.
+// Its council median is the WHOLE council's, is licence-filtered, and is the
+// latest by period — never an average or a suburb figure.
+func TestSuburbCouncilQueries(t *testing.T) {
+	source := postgresHousePricesSource(t)
+	base := source[strings.Index(source, "func (s *postgresStore) GetSuburbProfile("):strings.Index(source, "p.Summary.Seifa = mapSuburbSeifa(rawSeifa)")]
+	for _, col := range []string{"lg.slug", "lg.display_name", "lg.erp_year", "lg.website", "dominant_share", "lga_series"} {
+		if strings.Contains(base, col) {
+			t.Errorf("the base profile query must not read 000126's %s", col)
+		}
+	}
+	for _, want := range []string{
+		"ls.measure = 'house_median_price'",
+		"ls.source_licence <> 'proprietary-tos-restricted'",
+		"ORDER BY ls.period DESC",
+		"sl.dominant_share",
+	} {
+		if !strings.Contains(suburbCouncilQuery, want) {
+			t.Errorf("suburbCouncilQuery missing %q", want)
+		}
+	}
+	for _, want := range []string{
+		"jsonb_to_recordset(sl.overlap_lgas)",
+		"o.lga_code24 <> sl.lga_code24",
+		"o.share >= $2",
+		"ORDER BY o.share DESC, o.lga_code24",
+		"WHEN l.kind IN ('council', 'unincorporated')",
+	} {
+		if !strings.Contains(suburbCouncilOverlapsQuery, want) {
+			t.Errorf("suburbCouncilOverlapsQuery missing %q", want)
+		}
+	}
+	if councilOverlapMinShare != 0.05 {
+		t.Errorf("councilOverlapMinShare = %v: the profile contract names councils >= 5%%", councilOverlapMinShare)
+	}
+}
+
+// TestAddressPriceDropsQuery_ComparesOnlyTheSameAdvertChain pins the rules that
+// stop the address board fabricating cuts. Measured 2026-09-23, the old query
+// (earliest ask at the address from ANY listing, bedrooms only) listed 247 of
+// 1,374 addresses with no price_drop event behind them — e.g. a fixed ask
+// against the low end of a later range guide shown as -24%.
+func TestAddressPriceDropsQuery_ComparesOnlyTheSameAdvertChain(t *testing.T) {
+	q := addressPriceDropsQuery
+	for _, want := range []string{
+		// Comparable kinds, mirroring the collector's comparableKinds.
+		"(e.price_kind IN ('fixed', 'offers_over') AND c.price_kind IN ('fixed', 'offers_over'))",
+		"(e.price_kind = c.price_kind AND c.price_kind IN ('range_low', 'range_high'))",
+		// Never the other portal's concurrent advert.
+		"epl.last_seen_at < c.first_seen_at - interval '14 days'",
+		// Same dwelling at a collapsed address.
+		"(c.bedrooms = 0 OR COALESCE(epl.bedrooms, 0) = c.bedrooms)",
+		// A listing-level move keeps its own earlier ask; an address-relist
+		// move's prev_price is another advert's and is not trusted.
+		"e.observed_at > epl.first_seen_at AS listing_level",
+		"WHERE event_type IN ('price_drop', 'price_rise') AND listing_level",
+		// Only addresses the collector actually saw cut, under the MVs' cap.
+		"event_type = 'price_drop' AND drop_pct <= 0.40 AS is_cut",
+		"WHERE f.has_drop",
+		// The MVs' liveness, not the old 21 days.
+		"pl.last_seen_at >= now() - interval '14 days'",
+		// A same-portal earlier advert joins only once it has ended (a
+		// relist), never while it is live alongside this one.
+		"(epl.source = c.latest_source AND epl.last_seen_at < c.first_seen_at)",
+		// Every live advert is judged on its own chain and the address keeps
+		// the deepest qualifying cut — chosen on prices, not on which portal
+		// the crawl swept last.
+		"GROUP BY advert",
+		"SELECT DISTINCT ON (c.address_key)",
+		"ORDER BY c.address_key, drop_pct DESC, drop_abs DESC, c.latest_source ASC, c.listing_pk DESC",
+		// A stale advert superseded by a later same-portal relist is not live.
+		"AND nx.first_seen_at > pl.last_seen_at",
+	} {
+		if !strings.Contains(q, want) {
+			t.Errorf("addressPriceDropsQuery missing %q", want)
+		}
+	}
+	// Picking ONE "current" advert per address by last_seen_at is what hid
+	// real cuts depending on sweep order (reviewer, 2026-09-24: 79 addresses).
+	if strings.Contains(q, "DISTINCT ON (pl.address_key)") {
+		t.Error("addressPriceDropsQuery must not pick one advert per address before judging chains")
+	}
+	if strings.Contains(q, "OR epl.source = c.latest_source\n") {
+		t.Error("a same-portal advert must not join the chain while it is still live")
+	}
+	if strings.Contains(q, "21 days") {
+		t.Error("addressPriceDropsQuery must use the 14-day liveness every listing MV uses")
+	}
+}
+
+// TestDropsQueries_OrderByEndsOnAUniqueKey: every ranking the drops surfaces
+// serve ends on the row's unique key, so ties at a board's cut-off can no
+// longer reorder between instances and cache fills (a 5-way tie sat at rank
+// 16-25 on 2026-09-23).
+func TestDropsQueries_OrderByEndsOnAUniqueKey(t *testing.T) {
+	for sort, clause := range addressPriceDropsSorts {
+		if !strings.HasSuffix(clause, ", address_key ASC") {
+			t.Errorf("address sort %q = %q must end on address_key", sort, clause)
+		}
+	}
+	for sort, clause := range suburbPriceDropsSorts {
+		if !strings.HasSuffix(clause, ", st.region_code ASC") {
+			t.Errorf("suburb sort %q = %q must end on st.region_code", sort, clause)
+		}
+	}
+	for _, sort := range []string{"count", "avg", "max", "share", "asking", "sold"} {
+		if _, ok := suburbPriceDropsSorts[sort]; !ok {
+			t.Errorf("suburb sort %q missing", sort)
+		}
+	}
+	source := postgresHousePricesSource(t)
+	for _, want := range []string{
+		`const tiebreak = ", source ASC, agency_id ASC, state_code ASC"`,
+		"ORDER BY t.drop_pct DESC, t.observed_at DESC, t.address_key ASC",
+		"ORDER BY (state_code = 'AU') DESC, dropped_count DESC, state_code ASC",
+	} {
+		if !strings.Contains(source, want) {
+			t.Errorf("drops ORDER BY missing %q", want)
+		}
+	}
+}
+
+// TestSuburbShareSort_FloorsThinSuburbs: 'share' ranks only suburbs with enough
+// recently-swept listings for a ratio to mean anything; 1 cut of 3 would
+// otherwise top the board at 33%.
+func TestSuburbShareSort_FloorsThinSuburbs(t *testing.T) {
+	want := "CASE WHEN COALESCE(d.total_active_listings, 0) >= 20 THEN d.dropped_share END DESC NULLS LAST"
+	if !strings.HasPrefix(suburbPriceDropsSorts["share"], want) {
+		t.Fatalf("share sort = %q, want prefix %q", suburbPriceDropsSorts["share"], want)
+	}
+}
+
+// TestListSuburbDropListings_UsesTheMVsLiveness: the drill-down and the
+// aggregate board it opens from agree on who is on the market. At 21 days vs
+// the MVs' window, 59 of 209 board suburbs opened an empty drill-down.
+func TestListSuburbDropListings_UsesTheMVsLiveness(t *testing.T) {
+	source := postgresHousePricesSource(t)
+	start := strings.Index(source, "func (s *postgresStore) ListSuburbDropListings(")
+	end := strings.Index(source[start:], "\n}\n")
+	body := source[start : start+end]
+	if !strings.Contains(body, "pl.last_seen_at >= now() - interval '14 days'") {
+		t.Fatal("ListSuburbDropListings must gate liveness at 14 days")
+	}
+	if strings.Contains(body, "21 days") {
+		t.Fatal("ListSuburbDropListings still carries the old 21-day liveness")
+	}
+}
+
+// TestGetPriceDropsOverview_ReadsCoverageTolerantly: the coverage columns come
+// from 000124, read through to_jsonb so the query also survives the older MV.
+func TestGetPriceDropsOverview_ReadsCoverageTolerantly(t *testing.T) {
+	source := postgresHousePricesSource(t)
+	for _, want := range []string{
+		"COALESCE((to_jsonb(m) ->> 'suburbs_swept_14d')::int, 0)",
+		"COALESCE((to_jsonb(m) ->> 'catalog_suburbs')::int, 0)",
+		"FROM mv_state_price_drops m",
+	} {
+		if !strings.Contains(source, want) {
+			t.Errorf("GetPriceDropsOverview missing %q", want)
+		}
+	}
+}
+
+// TestHousingMVRefreshQuery_ReadsTheBookkeepingTable and the missing-table
+// tolerance: a database before 000124 must read as "no refresh recorded".
+func TestHousingMVRefreshQuery_ReadsTheBookkeepingTable(t *testing.T) {
+	if !strings.Contains(housingMVRefreshQuery, "FROM housing_mv_refresh") ||
+		!strings.Contains(housingMVRefreshQuery, "WHERE mv_name = ANY($1)") {
+		t.Fatalf("unexpected housingMVRefreshQuery: %s", housingMVRefreshQuery)
+	}
+	if !isUndefinedTable(&pgconn.PgError{Code: "42P01"}) {
+		t.Fatal("42P01 must be recognised as undefined_table")
+	}
+	if isUndefinedTable(&pgconn.PgError{Code: "42703"}) || isUndefinedTable(errors.New("x")) {
+		t.Fatal("only 42P01 is undefined_table")
+	}
+}
+
+// TestGetDropIndexSeriesQuery_WithheldMedianIsFlagged: median_drop_pct is
+// nullable since 000124 (withheld below 3 dropped addresses); a NULL scans as
+// 0 AND sets MedianWithheld, so the wire says withheld instead of leaving a
+// client to infer it from the 0. computed_at is read for as_of.
+func TestGetDropIndexSeriesQuery_WithheldMedianIsFlagged(t *testing.T) {
+	source := postgresHousePricesSource(t)
+	for _, want := range []string{
+		"COALESCE(median_drop_pct, 0), median_drop_pct IS NULL",
+		"&r.MedianDropPct, &r.MedianWithheld,",
+		"computed_at\n\t\tFROM housing_drop_index_daily",
+	} {
+		if !strings.Contains(source, want) {
+			t.Errorf("GetDropIndexSeries query missing %q", want)
+		}
 	}
 }

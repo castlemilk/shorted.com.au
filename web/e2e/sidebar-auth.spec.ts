@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 test.describe("Sidebar Authentication Behavior", () => {
   test("should NOT show sidebar on public stock page when not logged in", async ({

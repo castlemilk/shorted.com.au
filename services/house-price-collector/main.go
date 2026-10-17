@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -18,6 +19,10 @@ import (
 type officialJob struct {
 	name string
 	fn   func(context.Context) ([]Observation, error)
+	// replace, when set, is asked after fn succeeds which slice the run is
+	// authoritative for. A non-nil scope makes the write an upsert PLUS a prune
+	// of that slice's unemitted rows, in one transaction (see replaceScope).
+	replace func() *replaceScope
 }
 
 type officialJobIO struct {
@@ -25,7 +30,10 @@ type officialJobIO struct {
 	loadLastPeriod     func(context.Context, string) (*time.Time, error)
 	upsertRegions      func(context.Context, []Observation) error
 	upsertObservations func(context.Context, []Observation) (int, error)
-	updateRun          func(context.Context, string, *time.Time, int, string, string) error
+	// replaceObservations is the authoritative write: upsert obs and prune the
+	// scope's unemitted rows atomically. Used only when job.replace yields a scope.
+	replaceObservations func(context.Context, []Observation, replaceScope) (replaceResult, error)
+	updateRun           func(context.Context, string, *time.Time, int, string, string) error
 }
 
 func main() {
@@ -35,18 +43,22 @@ func main() {
 // run executes the selected mode and returns a process exit code: 0 = ok;
 // 1 = official-ingest, VG freshness, materialized-view finalization, or
 // OPERATOR-INGEST failure (census, electorates, banners, amenities, elevation, hazards,
-// lga, connectivity, funding, council-financials, crime — see ingestExit);
+// planning, lga, erp-lga, census-lga, council-regional, building-approvals-lga,
+// wikidata-lga, connectivity, funding, council-financials, crime, backfill-address
+// — see ingestExit);
 // 3 = re-warm the Chrome profile; 4 = Chrome/CDP unusable; 5 = REA session
 // cold; 6 = crawl freshness alarm; 7 = agent infrastructure failed before
 // any jobs completed (also used for enqueue/listings finalization failures);
-// and 8 = the crawl ENVIRONMENT is broken (Playwright driver missing) — an
-// operator must reinstall it, no Chrome action or scheduler re-run will help.
+// 8 = the crawl ENVIRONMENT is broken (Playwright driver missing) — an
+// operator must reinstall it, no Chrome action or scheduler re-run will help;
+// and 9 = a VG rig ingest committed but held back a year's prune
+// (exitVGPruneHeldBack — thin download or a parser regression).
 // Keeping 8 distinct from 4 is deliberate: see crawl_env.go for the outage that
 // bought that distinction. drop-index also returns 1 on a query or write
 // failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
+	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
 	flag.Parse()
 
 	// install-driver needs no DB, no Chrome, no timeout plumbing — dispatch it
@@ -74,14 +86,20 @@ func run() int {
 	case "official", "abs", "all":
 		jobs := scheduledOfficialJobs()
 		total, failures := runOfficial(ctx, pool, jobs)
+		// Council (LGA) sources write lga_series, not house_prices, so they run
+		// beside the official jobs rather than through them — but count toward
+		// the same failure budget and alarm through the same freshness check.
+		councilTotal, councilFailures := runScheduledCouncil(ctx, pool, scheduledCouncilJobs())
+		total, failures = total+councilTotal, failures+councilFailures
 		vgFreshnessExitCode := assertOfficialVGFreshness(
 			ctx,
 			pool,
 			freshnessPoliciesForOfficialJobs(jobs, vgFreshnessPolicies),
 		)
+		councilFreshnessExitCode := assertCouncilFreshness(ctx, pool)
 		refreshErr := refresh(ctx, pool)
 		maxFailures := envInt("HOUSING_OFFICIAL_MAX_FAILURES", total-1)
-		if officialLifecycleFatal(total, failures, maxFailures, refreshErr) || vgFreshnessExitCode != 0 {
+		if officialLifecycleFatal(total, failures, maxFailures, refreshErr) || vgFreshnessExitCode != 0 || councilFreshnessExitCode != 0 {
 			if officialRunFatal(total, failures, maxFailures) {
 				log.Printf("official ingest failed policy: %d/%d sources failed (maximum %d)", failures, total, boundedOfficialMaxFailures(total, maxFailures))
 			}
@@ -225,9 +243,31 @@ func run() int {
 		// planning + bushfire-prone overlays), computed offline by
 		// web/scripts/geo/hazards/ and loaded from the committed artifact.
 		return ingestExit(runHazards(ctx, pool))
+	case "planning":
+		// Per-suburb planning layer (zoning-family mix, heritage share + item
+		// count, NSW development standards, instruments), computed offline by
+		// web/scripts/geo/planning/ and loaded from the embedded artifact.
+		return ingestExit(runPlanning(ctx, pool))
 	case "lga":
-		// Council/LGA dimension + suburb→council bridge (ABS LGA_2024 PiP join).
+		// Council/LGA dimension + suburb→council bridge (ABS mesh-block allocation,
+		// web/scripts/geo/join-lga-mb.py).
 		return ingestExit(runLGA(ctx, pool))
+	case "erp-lga":
+		// ABS ERP by council (+ its components) → lga.population + lga_series.
+		return ingestExit(runERPLGA(ctx, pool))
+	case "census-lga":
+		// ABS Census 2021 council medians, tenure and SEIFA 2021 deciles → lga.
+		return ingestExit(runCensusLGA(ctx, pool))
+	case "council-regional":
+		// ABS Data by Region council-level transfer medians/counts → lga_series.
+		return ingestExit(runCouncilRegional(ctx, pool))
+	case "building-approvals-lga":
+		// ABS monthly dwelling approvals by council → lga_series.
+		return ingestExit(runBuildingApprovalsLGA(ctx, pool))
+	case "wikidata-lga":
+		// Council QID + official website from the committed Wikidata (CC0)
+		// snapshot; WIKIDATA_REFRESH=true re-queries and rewrites it first.
+		return ingestExit(runWikidataLGA(ctx, pool))
 	case "connectivity":
 		// Dominant NBN access technology per suburb (centroid→footprint join).
 		return ingestExit(runConnectivity(ctx, pool))
@@ -258,7 +298,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|elevation|hazards|lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|elevation|hazards|planning|lga|erp-lga|census-lga|council-regional|building-approvals-lga|wikidata-lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
 	}
 	return 0
 }
@@ -327,24 +367,34 @@ func runVICFinancials(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
-// runFAGs fetches the national Financial Assistance Grants and attaches each
-// council's latest total to the lga dimension.
+// runFAGs fetches the federal FAG workbook, matches every council-year onto
+// the lga dimension, and writes the full history (lga_series) plus the latest
+// year (lga.fed_fag_*). It fails — rather than half-writing — when so few
+// councils match that the name normaliser, not the data, is what broke.
 func runFAGs(ctx context.Context, pool *pgxpool.Pool) error {
-	rows, err := ingestFAGs(ctx)
-	if err != nil {
-		log.Printf("[funding] ingest error: %v", err)
-		_ = updateRun(ctx, pool, fagSource, nil, 0, "error", err.Error())
-		return err
-	}
-	n, err := applyFAGs(ctx, pool, rows)
-	if err != nil {
-		log.Printf("[funding] apply error after %d: %v", n, err)
+	fail := func(n int, err error) error {
+		log.Printf("[funding] error after %d rows: %v", n, err)
 		_ = updateRun(ctx, pool, fagSource, nil, n, "error", err.Error())
 		return err
 	}
-	log.Printf("[funding] matched %d/%d councils to FAG grants", n, len(rows))
-	_ = updateRun(ctx, pool, fagSource, nil, n, "ok", "")
-	return nil
+	rows, err := ingestFAGs(ctx)
+	if err != nil {
+		return fail(0, err)
+	}
+	ix, err := loadLGAIndex(ctx, pool)
+	if err != nil {
+		return fail(0, err)
+	}
+	res, err := matchFAGs(rows, ix.byName())
+	if err != nil {
+		return fail(0, err)
+	}
+	n, err := applyFAGs(ctx, pool, res)
+	if err != nil {
+		return fail(n, err)
+	}
+	log.Printf("[funding] wrote %d council-years of FAG history (%d councils)", n, len(res.Latest))
+	return recordLGARun(ctx, pool, fagSource, latestSeriesPeriod(res.Series), n, nil)
 }
 
 // runConnectivity loads the precomputed per-suburb NBN tech and upserts it into
@@ -367,8 +417,10 @@ func runConnectivity(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
-// runLGA loads the precomputed council dimension + suburb→council bridge and
-// upserts them (lga + suburb_lga), recording the run cursor under "abs_lga".
+// runLGA loads the precomputed council dimension + suburb→council bridge
+// (lga + suburb_lga), mints slugs for councils that have none, and records the
+// run cursor under "abs_lga". Population is not touched: it is ABS ERP, owned by
+// -mode erp-lga.
 func runLGA(ctx context.Context, pool *pgxpool.Pool) error {
 	lgas, subs, err := ingestLGA()
 	if err != nil {
@@ -382,16 +434,19 @@ func runLGA(ctx context.Context, pool *pgxpool.Pool) error {
 		_ = updateRun(ctx, pool, "abs_lga", nil, nl, "error", err.Error())
 		return err
 	}
-	ns, err := upsertSuburbLGA(ctx, pool, subs)
+	minted, err := assignLGASlugs(ctx, pool, lgas)
 	if err != nil {
-		log.Printf("[lga] bridge upsert error after %d: %v", ns, err)
+		log.Printf("[lga] slug minting error after %d: %v", minted, err)
+		_ = updateRun(ctx, pool, "abs_lga", nil, nl, "error", err.Error())
+		return err
+	}
+	ns, removed, err := replaceSuburbLGA(ctx, pool, subs)
+	if err != nil {
+		log.Printf("[lga] bridge replace error after %d: %v", ns, err)
 		_ = updateRun(ctx, pool, "abs_lga", nil, ns, "error", err.Error())
 		return err
 	}
-	if err := refreshLGAPopulation(ctx, pool); err != nil {
-		log.Printf("[lga] population rollup failed: %v", err)
-	}
-	log.Printf("[lga] upserted %d councils + %d suburb links (+ population rollup)", nl, ns)
+	log.Printf("[lga] upserted %d councils (%d new slugs) + %d suburb links (%d stale links removed)", nl, minted, ns, removed)
 	_ = updateRun(ctx, pool, "abs_lga", nil, ns, "ok", "")
 	return nil
 }
@@ -452,8 +507,31 @@ func runHazards(ctx context.Context, pool *pgxpool.Pool) error {
 		_ = updateRun(ctx, pool, hazardsWaterSource, nil, updated, "error", err.Error())
 		return err
 	}
-	log.Printf("[hazards] upserted %d/%d suburbs (licence=%s)", updated, len(rows), hazardsLicence)
+	// Per-state coverage in the run log, so a load that silently lost a
+	// state's statutory layer (or regressed NSW flood nulls to zeros) shows.
+	log.Printf("[hazards] upserted %d/%d suburbs; per state (rows flood/bushfire non-null): %s",
+		updated, len(rows), hazardCoverageSummary(rows))
 	_ = updateRun(ctx, pool, hazardsWaterSource, nil, updated, "ok", "")
+	return nil
+}
+
+// runPlanning loads the offline planning artifact into suburb_planning. It
+// never fetches a source or touches geometry.
+func runPlanning(ctx context.Context, pool *pgxpool.Pool) error {
+	rows, err := ingestPlanning()
+	if err != nil {
+		log.Printf("[planning] ingest error: %v", err)
+		_ = updateRun(ctx, pool, planningCursor, nil, 0, "error", err.Error())
+		return err
+	}
+	updated, err := upsertPlanning(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[planning] upsert error after %d: %v", updated, err)
+		_ = updateRun(ctx, pool, planningCursor, nil, updated, "error", err.Error())
+		return err
+	}
+	log.Printf("[planning] upserted %d/%d suburbs", updated, len(rows))
+	_ = updateRun(ctx, pool, planningCursor, nil, updated, "ok", "")
 	return nil
 }
 
@@ -530,21 +608,21 @@ func refresh(_ context.Context, pool *pgxpool.Pool) error {
 // residential rig, which invokes the dedicated -mode vg-nsw path below.
 func scheduledOfficialJobs() []officialJob {
 	return []officialJob{
-		{"abs_res_dwell_st", ingestRESDWELLST},
-		{"abs_res_dwell", ingestRESDWELL},
-		{"abs_rppi", ingestRPPI},
-		{"abs_lend_housing", ingestLENDHOUSING},
-		{"abs_derived_index", ingestDerivedPriceIndex},
-		{"rba", ingestRBADebtToIncome},
-		{"rba_f6_rates", ingestRBAMortgageRates},
-		{"rba_cash_rate", ingestRBACashRate},
-		{"rba_housing_credit", ingestRBAHousingCredit},
-		{"rba_balance_sheet", ingestRBAHouseholdBalanceSheet},
-		{"abs_wpi", ingestWPI},
-		{"abs_cpi_rents", ingestCPIRents},
-		{"abs_price_to_income", ingestPriceToIncome},
-		{"vg_sa", ingestSAMetroMedians},
-		{"vg_vic", ingestVICSuburbMedians},
+		{name: "abs_res_dwell_st", fn: ingestRESDWELLST},
+		{name: "abs_res_dwell", fn: ingestRESDWELL},
+		{name: "abs_rppi", fn: ingestRPPI},
+		{name: "abs_lend_housing", fn: ingestLENDHOUSING},
+		{name: "abs_derived_index", fn: ingestDerivedPriceIndex},
+		{name: "rba", fn: ingestRBADebtToIncome},
+		{name: "rba_f6_rates", fn: ingestRBAMortgageRates},
+		{name: "rba_cash_rate", fn: ingestRBACashRate},
+		{name: "rba_housing_credit", fn: ingestRBAHousingCredit},
+		{name: "rba_balance_sheet", fn: ingestRBAHouseholdBalanceSheet},
+		{name: "abs_wpi", fn: ingestWPI},
+		{name: "abs_cpi_rents", fn: ingestCPIRents},
+		{name: "abs_price_to_income", fn: ingestPriceToIncome},
+		{name: "vg_sa", fn: ingestSAMetroMedians},
+		{name: "vg_vic", fn: ingestVICSuburbMedians},
 	}
 }
 
@@ -580,7 +658,14 @@ func runOfficial(ctx context.Context, pool *pgxpool.Pool, jobs []officialJob) (t
 // one official source. The bool is used by source-specific rig modes that must
 // propagate failures, while the scheduled multi-source job can continue onward.
 func runOfficialJob(ctx context.Context, pool *pgxpool.Pool, job officialJob) bool {
-	return runOfficialJobWith(ctx, job, officialJobIO{
+	ok, _ := runOfficialJobReporting(ctx, pool, job)
+	return ok
+}
+
+// runOfficialJobReporting is runOfficialJob plus the years an authoritative
+// write left unpruned (see replaceResult.HeldBack), for the VG rig's exit code.
+func runOfficialJobReporting(ctx context.Context, pool *pgxpool.Pool, job officialJob) (bool, []string) {
+	return runOfficialJobOutcome(ctx, job, officialJobIO{
 		lockSource: func(ctx context.Context, source string) (func(), error) {
 			return lockOfficialJobSource(ctx, pool, source)
 		},
@@ -593,6 +678,9 @@ func runOfficialJob(ctx context.Context, pool *pgxpool.Pool, job officialJob) bo
 		upsertObservations: func(ctx context.Context, obs []Observation) (int, error) {
 			return upsertObservations(ctx, pool, obs)
 		},
+		replaceObservations: func(ctx context.Context, obs []Observation, scope replaceScope) (replaceResult, error) {
+			return replaceObservations(ctx, pool, obs, scope)
+		},
 		updateRun: func(ctx context.Context, source string, lastPeriod *time.Time, rows int, status, detail string) error {
 			return updateRun(ctx, pool, source, lastPeriod, rows, status, detail)
 		},
@@ -600,29 +688,37 @@ func runOfficialJob(ctx context.Context, pool *pgxpool.Pool, job officialJob) bo
 }
 
 func runOfficialJobWith(ctx context.Context, job officialJob, io officialJobIO) bool {
+	ok, _ := runOfficialJobOutcome(ctx, job, io)
+	return ok
+}
+
+// runOfficialJobOutcome is the pipeline itself. heldBack is non-empty only on a
+// successful authoritative write that kept some year's stale rows: the data is
+// committed and the cursor advances, but the caller must still surface it.
+func runOfficialJobOutcome(ctx context.Context, job officialJob, io officialJobIO) (ok bool, heldBack []string) {
 	unlock, err := io.lockSource(ctx, job.name)
 	if err != nil {
 		log.Printf("[%s] acquire source lock: %v", job.name, err)
-		return false
+		return false, nil
 	}
 	defer unlock()
 
 	persistedPeriod, err := io.loadLastPeriod(ctx, job.name)
 	if err != nil {
 		log.Printf("[%s] load persisted cursor: %v", job.name, err)
-		return false
+		return false, nil
 	}
 
 	obs, err := job.fn(ctx)
 	if err != nil {
 		log.Printf("[%s] fetch error: %v", job.name, err)
 		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", err.Error())
-		return false
+		return false, nil
 	}
 	if len(obs) == 0 {
 		log.Printf("[%s] no observations returned", job.name)
 		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", "no observations")
-		return false
+		return false, nil
 	}
 	last := latestPeriod(obs)
 	if persistedPeriod != nil && last != nil && last.Before(*persistedPeriod) {
@@ -632,31 +728,70 @@ func runOfficialJobWith(ctx context.Context, job officialJob, io officialJobIO) 
 		)
 		log.Printf("[%s] %s", job.name, detail)
 		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", detail)
-		return false
+		return false, nil
 	}
 	if err := io.upsertRegions(ctx, obs); err != nil {
 		log.Printf("[%s] region upsert error: %v", job.name, err)
 		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", err.Error())
-		return false
+		return false, nil
 	}
-	n, err := io.upsertObservations(ctx, obs)
+	var scope *replaceScope
+	if job.replace != nil {
+		scope = job.replace()
+	}
+	var (
+		n   int
+		res replaceResult
+	)
+	if scope != nil {
+		res, err = io.replaceObservations(ctx, obs, *scope)
+		n = res.Upserted
+	} else {
+		n, err = io.upsertObservations(ctx, obs)
+	}
 	if err != nil {
+		// A replace is one transaction: on error nothing was written, so the
+		// recorded row count is 0 rather than the rolled-back batch's.
+		if scope != nil {
+			n = 0
+		}
 		log.Printf("[%s] fact upsert error after %d: %v", job.name, n, err)
 		_ = io.updateRun(ctx, job.name, persistedPeriod, n, "error", err.Error())
-		return false
+		return false, nil
 	}
-	if err := io.updateRun(ctx, job.name, last, n, "ok", ""); err != nil {
+	detail := ""
+	if scope != nil {
+		log.Printf("[%s] pruned %d unemitted row(s) across authoritative years %v", job.name, res.Pruned, scope.Years)
+		if len(res.HeldBack) > 0 {
+			// Status stays "ok": the upsert committed and the cursor is real.
+			// The detail is the durable trace; the exit code is the alert.
+			detail = "prune held back — " + strings.Join(res.HeldBack, "; ")
+			log.Printf("[%s] LOUD: %s", job.name, detail)
+		}
+	}
+	if err := io.updateRun(ctx, job.name, last, n, "ok", detail); err != nil {
 		log.Printf("[%s] persist successful run cursor: %v", job.name, err)
-		return false
+		return false, nil
 	}
 	log.Printf("[%s] upserted %d observations (latest %s)", job.name, n, fmtPeriod(last))
-	return true
+	return true, res.HeldBack
 }
 
+// exitVGPruneHeldBack is the VG rig's exit when the ingest COMMITTED but some
+// fetched year kept its stale rows: a thin download (nswReplaceMinSales) or a
+// prune over replaceMaxPruneShare. Both mean the parser or the download
+// probably regressed. Logging it and exiting 0 is the housing collector's
+// recurring silent-failure shape, so the rig exits non-zero and the wrapper
+// alerts. Distinct from 1 because the data IS written and the views refreshed;
+// the fix is to read the log, not to re-run.
+const exitVGPruneHeldBack = 9
+
 // runNSWVGRig keeps the source-specific exit/refresh contract independently
-// testable without requiring a database or live NSW download.
-func runNSWVGRig(ingest func() bool, assertFreshness func() int, refreshViews func()) int {
-	if !ingest() {
+// testable without requiring a database or live NSW download. ingest reports
+// success and any years an authoritative write held back.
+func runNSWVGRig(ingest func() (bool, []string), assertFreshness func() int, refreshViews func()) int {
+	ok, heldBack := ingest()
+	if !ok {
 		return 1
 	}
 	freshnessExitCode := assertFreshness()
@@ -664,24 +799,28 @@ func runNSWVGRig(ingest func() bool, assertFreshness func() int, refreshViews fu
 	if freshnessExitCode != 0 {
 		return 1
 	}
+	if len(heldBack) > 0 {
+		return exitVGPruneHeldBack
+	}
 	return 0
 }
 
 // runVGRig is the shared residential-rig path for a single Valuer-General
 // source: ingest it, assert its own freshness policy, refresh the views, and
 // return a non-zero exit code if either the ingest or the freshness gate failed
-// — so launchd cannot report a silent success.
-func runVGRig(ctx context.Context, pool *pgxpool.Pool, source string, ingest func(context.Context) ([]Observation, error)) int {
+// (1), or the ingest committed but held back a year's prune
+// (exitVGPruneHeldBack) — so launchd cannot report a silent success.
+func runVGRig(ctx context.Context, pool *pgxpool.Pool, job officialJob) int {
 	var policies []vgFreshnessPolicy
 	for _, policy := range vgFreshnessPolicies {
-		if policy.source == source {
+		if policy.source == job.name {
 			policies = append(policies, policy)
 		}
 	}
 	var refreshErr error
 	exitCode := runNSWVGRig(
-		func() bool {
-			return runOfficialJob(ctx, pool, officialJob{name: source, fn: ingest})
+		func() (bool, []string) {
+			return runOfficialJobReporting(ctx, pool, job)
 		},
 		func() int {
 			return assertOfficialVGFreshness(ctx, pool, policies)
@@ -690,14 +829,14 @@ func runVGRig(ctx context.Context, pool *pgxpool.Pool, source string, ingest fun
 			refreshErr = refresh(ctx, pool)
 		},
 	)
-	if exitCode != 0 || refreshErr != nil {
+	if refreshErr != nil {
 		return 1
 	}
-	return 0
+	return exitCode
 }
 
 func runNSWVG(ctx context.Context, pool *pgxpool.Pool) int {
-	return runVGRig(ctx, pool, nswSource, ingestNSWSuburbMedians)
+	return runVGRig(ctx, pool, newNSWVGJob())
 }
 
 // runVICVG is the VIC counterpart. land.vic.gov.au is Cloudflare-challenged from
@@ -706,7 +845,7 @@ func runNSWVG(ctx context.Context, pool *pgxpool.Pool) int {
 // so, like NSW, it needs a residential rig. Measured from one: listing page
 // 149ms, workbook 63ms, 8,739 suburb-year observations parsed in 275ms.
 func runVICVG(ctx context.Context, pool *pgxpool.Pool) int {
-	return runVGRig(ctx, pool, vicSource, ingestVICSuburbMedians)
+	return runVGRig(ctx, pool, officialJob{name: vicSource, fn: ingestVICSuburbMedians})
 }
 
 func boundedOfficialMaxFailures(total, configured int) int {

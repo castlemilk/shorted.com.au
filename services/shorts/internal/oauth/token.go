@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 	"github.com/google/uuid"
 )
 
@@ -177,6 +176,10 @@ type TokenConfig struct {
 	Minter      TokenMinter
 	ResolveTier TierResolver
 	Now         func() time.Time
+	// AdminEntitlement decides who may hold the admin MCP resource. It is
+	// re-checked on every code exchange AND every refresh. Nil makes that
+	// resource ungrantable. See resources.go.
+	AdminEntitlement Entitlement
 }
 
 type tokenHandler struct {
@@ -185,8 +188,7 @@ type tokenHandler struct {
 	minter      TokenMinter
 	resolveTier TierResolver
 	now         func() time.Time
-	resources   []string
-	scopes      map[string]bool
+	resources   []grantableResource
 }
 
 // NewTokenHandler builds the POST /oauth/token handler.
@@ -204,18 +206,13 @@ func NewTokenHandler(cfg TokenConfig) http.Handler {
 		now = time.Now
 	}
 	issuer := cfg.Endpoints.issuer()
-	scopes := make(map[string]bool, len(mcp.Scopes))
-	for _, s := range mcp.Scopes {
-		scopes[s] = true
-	}
 	return &tokenHandler{
 		issuer:      issuer,
 		store:       cfg.Store,
 		minter:      cfg.Minter,
 		resolveTier: cfg.ResolveTier,
 		now:         now,
-		resources:   []string{mcp.ResourceURI(issuer)},
-		scopes:      scopes,
+		resources:   grantableResources(issuer, cfg.AdminEntitlement),
 	}
 }
 
@@ -347,14 +344,46 @@ func (h *tokenHandler) authorizationCode(w http.ResponseWriter, r *http.Request)
 			"resource does not match the resource this code was issued for")
 		return
 	}
-	if !containsString(h.resources, record.Resource) {
+	target, ok := h.storedResource(record.Resource)
+	if !ok {
 		// The stored resource is no longer one this deployment serves.
 		log.Warnf("oauth token: code bound to unknown resource %q", record.Resource)
 		writeOAuthError(w, http.StatusBadRequest, "invalid_target", "unknown resource")
 		return
 	}
+	if !h.checkEntitled(w, r, target, record.UserID) {
+		return
+	}
 
 	h.issue(w, r, record.UserID, record.ClientID, record.Resource, record.Scope, "")
+}
+
+// storedResource resolves a resource recorded on a code or refresh token. Unlike
+// an authorize request, a stored resource is never empty and never defaulted.
+func (h *tokenHandler) storedResource(uri string) (*grantableResource, bool) {
+	if uri == "" {
+		return nil, false
+	}
+	return resolveResource(h.resources, uri)
+}
+
+// checkEntitled writes an invalid_grant (or a retryable error) and returns
+// false when the user may not hold the resource.
+func (h *tokenHandler) checkEntitled(w http.ResponseWriter, r *http.Request, target *grantableResource, userID string) bool {
+	ok, err := target.entitledTo(r.Context(), userID)
+	if err != nil {
+		log.Errorf("oauth token: entitlement check for %s failed: %v", target.uri, err)
+		writeOAuthError(w, http.StatusServiceUnavailable, "temporarily_unavailable",
+			"could not confirm access to this resource; try again")
+		return false
+	}
+	if !ok {
+		log.Warnf("oauth token: user is no longer entitled to %s", target.uri)
+		writeOAuthError(w, http.StatusBadRequest, "invalid_grant",
+			"this account is no longer entitled to this resource")
+		return false
+	}
+	return true
 }
 
 // refresh implements RFC 6749 §6 with mandatory rotation and reuse detection.
@@ -462,6 +491,19 @@ func (h *tokenHandler) refresh(w http.ResponseWriter, r *http.Request) {
 	if requested := r.PostFormValue("resource"); requested != "" && requested != parent.Resource {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_target",
 			"resource does not match the resource this token was issued for")
+		return
+	}
+
+	// The resource must still be grantable, AND the user must still be
+	// entitled to it. Without this a refresh family is a standing grant: an
+	// admin removed from the allowlist would keep rotating a 30-day token.
+	parentTarget, ok := h.storedResource(parent.Resource)
+	if !ok {
+		log.Warnf("oauth token: refresh token bound to unknown resource %q", parent.Resource)
+		writeOAuthError(w, http.StatusBadRequest, "invalid_target", "unknown resource")
+		return
+	}
+	if !h.checkEntitled(w, r, parentTarget, parent.UserID) {
 		return
 	}
 

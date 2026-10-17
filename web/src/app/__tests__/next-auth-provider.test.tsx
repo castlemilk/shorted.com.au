@@ -3,14 +3,20 @@ import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { NextAuthProvider } from "../next-auth-provider";
 import type { Session } from "next-auth";
+import { useSession } from "next-auth/react";
+import { clearUserSessionCaches } from "~/@/lib/auth-session";
 
 // Mock SessionProvider from next-auth/react
 jest.mock("next-auth/react", () => ({
+  useSession: jest.fn(),
   SessionProvider: ({ children, session }: any) => (
     <div data-testid="session-provider" data-session={JSON.stringify(session)}>
       {children}
     </div>
   ),
+}));
+jest.mock("~/@/lib/auth-session", () => ({
+  clearUserSessionCaches: jest.fn().mockResolvedValue(undefined),
 }));
 
 describe("NextAuthProvider", () => {
@@ -23,6 +29,15 @@ describe("NextAuthProvider", () => {
     },
     expires: "2024-12-31T23:59:59.999Z",
   };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(useSession).mockReturnValue({
+      data: mockSession,
+      status: "authenticated",
+      update: jest.fn(),
+    });
+  });
 
   it("renders children wrapped in SessionProvider", () => {
     render(
@@ -141,5 +156,51 @@ describe("NextAuthProvider", () => {
     expect(sessionData.user.image).toBe("https://example.com/detailed-avatar.jpg");
     expect(sessionData.expires).toBe("2025-12-31T23:59:59.999Z");
   });
-});
 
+  it("keeps account caches warm when an existing session first resolves", () => {
+    render(<NextAuthProvider session={mockSession}>Content</NextAuthProvider>);
+    expect(clearUserSessionCaches).not.toHaveBeenCalled();
+  });
+
+  it("cleans the previous account's cache when another tab switches accounts", () => {
+    const { rerender } = render(<NextAuthProvider>Content</NextAuthProvider>);
+    jest.mocked(useSession).mockReturnValue({
+      data: { ...mockSession, user: { ...mockSession.user, id: "new-user" } },
+      status: "authenticated",
+      update: jest.fn(),
+    });
+
+    rerender(<NextAuthProvider>Content</NextAuthProvider>);
+    expect(clearUserSessionCaches).toHaveBeenCalledWith("test-user-id");
+  });
+
+  it("cleans account caches when another tab signs out", () => {
+    const { rerender } = render(<NextAuthProvider>Content</NextAuthProvider>);
+    jest.mocked(useSession).mockReturnValue({
+      data: null,
+      status: "unauthenticated",
+      update: jest.fn(),
+    });
+
+    rerender(<NextAuthProvider>Content</NextAuthProvider>);
+    expect(clearUserSessionCaches).toHaveBeenCalledWith("test-user-id");
+  });
+
+  it("waits for a server-confirmed identity before clearing caches", () => {
+    jest.mocked(useSession).mockReturnValue({
+      data: null,
+      status: "loading",
+      update: jest.fn(),
+    });
+    const { rerender } = render(<NextAuthProvider>Content</NextAuthProvider>);
+    expect(clearUserSessionCaches).not.toHaveBeenCalled();
+
+    jest.mocked(useSession).mockReturnValue({
+      data: null,
+      status: "unauthenticated",
+      update: jest.fn(),
+    });
+    rerender(<NextAuthProvider>Content</NextAuthProvider>);
+    expect(clearUserSessionCaches).toHaveBeenCalledWith(undefined);
+  });
+});

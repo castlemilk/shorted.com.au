@@ -1,4 +1,4 @@
-export type HousingSeriesFormat = "aud" | "percent" | "index";
+export type HousingSeriesFormat = "aud" | "percent" | "index" | "count";
 export type HousingSeriesTransform = "level" | "yoy";
 
 export interface HousingSeriesPoint {
@@ -56,6 +56,12 @@ export function formatHousingValue(value: number, format: HousingSeriesFormat): 
     return `${value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}%`;
   }
   if (format === "index") return value.toFixed(0);
+  if (format === "count") {
+    const abs = Math.abs(value);
+    if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+    if (abs >= 10_000) return `${Math.round(value / 1_000)}k`;
+    return Math.round(value).toLocaleString("en-AU");
+  }
 
   if (value >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
   if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;

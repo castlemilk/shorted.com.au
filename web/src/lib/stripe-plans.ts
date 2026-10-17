@@ -1,17 +1,19 @@
+import { PLANS, PRICING_CURRENCY, PRICING_INTERVAL } from "~/@/config/pricing";
+
 export const CHECKOUT_PLAN_CONFIG = {
   premium: {
-    displayName: "Premium",
+    displayName: PLANS.premium.name,
     priceEnvNames: ["STRIPE_PREMIUM_PRICE_ID", "STRIPE_PRO_PRICE_ID"],
-    expectedUnitAmount: 400,
-    expectedCurrency: "aud",
-    expectedInterval: "month",
+    expectedUnitAmount: PLANS.premium.amountCents,
+    expectedCurrency: PRICING_CURRENCY,
+    expectedInterval: PRICING_INTERVAL,
   },
   api_access: {
-    displayName: "API Access",
+    displayName: PLANS.apiAccess.name,
     priceEnvNames: ["STRIPE_API_ACCESS_PRICE_ID"],
-    expectedUnitAmount: 2000,
-    expectedCurrency: "aud",
-    expectedInterval: "month",
+    expectedUnitAmount: PLANS.apiAccess.amountCents,
+    expectedCurrency: PRICING_CURRENCY,
+    expectedInterval: PRICING_INTERVAL,
   },
 } as const;
 

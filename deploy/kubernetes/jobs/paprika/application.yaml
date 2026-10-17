@@ -1,0 +1,66 @@
+# Paprika Application for Shorted's scheduled batch jobs on the omega VKE cluster.
+#
+# Apply by hand once (tenant apps have no auto-apply), after
+# scripts/bootstrap.sh + scripts/sync-secrets.sh:
+#
+#   kubectl apply -f deploy/kubernetes/jobs/paprika/application.yaml
+#
+# From then on Paprika polls the deploy/vke-jobs branch, which CI moves to
+# each applied main commit (plus that deploy's image tags) after Terraform
+# has applied it. Chart edits reach the cluster only through that branch. Runbook: deploy/kubernetes/jobs/README.md.
+apiVersion: pipelines.paprika.io/v1alpha1
+kind: Application
+metadata:
+  name: shorted-jobs
+  namespace: shorted-jobs
+  labels:
+    app.kubernetes.io/name: shorted-jobs
+    app.kubernetes.io/part-of: shorted
+spec:
+  project: default
+  source:
+    type: git
+    # Public repo: no git credential needed.
+    repoUrl: https://github.com/castlemilk/shorted.com.au.git
+    # NOT main: CI's bump-vke-jobs-image job moves this branch only after the
+    # Terraform apply that carries a cutover's other half (pausing the Cloud
+    # Scheduler trigger) has succeeded. Tracking main made every merged
+    # cutover live immediately, before its trigger was paused.
+    revision: deploy/vke-jobs
+    path: deploy/kubernetes/jobs/chart
+    targetNamespace: shorted-jobs
+    pollInterval: 60s
+  # Live-only overrides go here, never secrets. EMERGENCY STOP for every job:
+  #   kubectl -n shorted-jobs patch application shorted-jobs --type merge \
+  #     -p '{"spec":{"parameters":{"suspendAll":"true"}}}'
+  # (A kubectl patch on a CronJob itself is reverted by selfHeal below.)
+  parameters: {}
+  stages:
+    - name: omega
+      ring: 1
+      autoPromote: true
+  # CronJobs have no traffic to shift; a canary would only delay a schedule edit.
+  strategy: Rolling
+  syncPolicy: Auto
+  syncOptions:
+    # A job removed from values.yaml must stop running, not linger as an
+    # orphaned CronJob that nothing monitors.
+    prune: true
+  healthChecks:
+    - name: cronjob-reporter
+      interval: 60s
+      httpProbe:
+        url: http://cronjob-reporter.shorted-jobs.svc.cluster.local:8080/healthz
+        method: GET
+        timeout: 5
+      expression: http.statusCode == 200 && http.bodyJson.healthy == true
+  # No automatic rollback. The only health signal is the reporter, and a
+  # rollback restores the previous snapshot: when that snapshot is the broken
+  # one (the first rollout pinned an image without `cronjob-reporter`), every
+  # new release was applied and reverted in the same second, forever. A bad
+  # chart here is fixed forward by a commit; the CronJobs themselves are
+  # watched by Telesis, not by this health check.
+  selfHeal:
+    autoSyncOnDrift: true
+    autoRevertOnHealthFailure: false
+    cooldown: 5m

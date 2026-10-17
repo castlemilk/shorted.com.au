@@ -223,7 +223,7 @@ export default async function PoliticianPage({
   // cached for 24h, so a regen that caught a cold rpc would publish that absence
   // about a named person for a day. A populated-but-empty response is a genuine
   // answer and is left alone.
-  if (funding === undefined) bailOnEmptyRender();
+  if (funding === undefined) await bailOnEmptyRender();
 
   // Slugs are minted server-side and never derived by the client. If the request
   // used an old one, redirect to the canonical.

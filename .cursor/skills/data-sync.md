@@ -145,7 +145,7 @@ gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name=
 | -------- | ------------------------ | ---------- | ------------------------------------ |
 | Daily    | `shorts-data-sync-daily` | 10:00      | ASIC shorts + stock prices + metrics |
 | Mon-Fri  | `stock-price-daily-sync` | 8:00       | Stock price updates                  |
-| Mon-Fri  | `market-data-sync-daily` | 10:00      | Market data sync                     |
+| Mon-Fri  | `shorted-price-sync-schedule` | 10:00 | Price sync (Cloud Run Job `shorted-price-sync`) |
 | Sunday   | `asx-discovery-weekly`   | 12:00      | ASX stock list scraping              |
 
 ### Manual Trigger

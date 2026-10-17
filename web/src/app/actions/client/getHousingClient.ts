@@ -1,6 +1,6 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListHousingRegionsResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type ListAddressPriceDropsResponse, type GetPropertyHistoryResponse, type GetSuburbIndexResponse, type GetSuburbMetricColumnsResponse } from "~/gen/shorts/v1alpha1/housing_pb";
+import { type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListHousingRegionsResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type ListAddressPriceDropsResponse, type GetPropertyHistoryResponse, type GetSuburbIndexResponse, type GetSuburbMetricColumnsResponse, type ListCouncilsResponse } from "~/gen/shorts/v1alpha1/housing_pb";
 import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
@@ -222,6 +222,22 @@ export async function getSuburbMetricColumnsClient(
     const result = await retryWithBackoff(
       () => client.getSuburbMetricColumns({ stateCode, metricKeys }), RETRY_OPTIONS);
     setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Every council with a page in one state — the council level of the map. */
+export async function listCouncilsClient(stateCode: string): Promise<ListCouncilsResponse | undefined> {
+  const cacheKey = `councils:${stateCode}`;
+  const cached = getSessionCached<ListCouncilsResponse>(cacheKey);
+  if (cached) return cached;
+  const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
+  const client = createClient(HousingService, transport);
+  try {
+    const result = await retryWithBackoff(() => client.listCouncils({ stateCode }), RETRY_OPTIONS);
+    if (result.councils.length > 0) setSessionCached(cacheKey, result);
     return result;
   } catch {
     return undefined;

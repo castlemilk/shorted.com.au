@@ -18,3 +18,26 @@ test("renders nothing when every point is a gap", () => {
   const { container } = render(<CapitulationBoard points={allGaps} />);
   expect(container).toBeEmptyDOMElement();
 });
+
+test("dates the reading and says when it is older than the series", () => {
+  const trailingGaps = [...pts(), { ...pts()[1]!, snapshotDate: "2026-08-20" }];
+  render(<CapitulationBoard points={trailingGaps} />);
+  expect(screen.getByTestId("capitulation-reading-date")).toHaveTextContent("Last reliable reading 16 Aug");
+});
+
+// The delist path marks sold and withdrawn listings alike (measured: at least
+// 8.4% of delisted addresses had a sold card), so the label cannot say
+// "withdrawn".
+test("labels delistings as leaving the market, not as withdrawals", () => {
+  render(<CapitulationBoard points={pts()} />);
+  expect(screen.getByText("Left the market (30d)")).toBeInTheDocument();
+  expect(screen.queryByText("Withdrawn (30d)")).not.toBeInTheDocument();
+  expect(screen.getByText(/whether sold or withdrawn/)).toBeInTheDocument();
+});
+
+test("says when the counters' data ends before the reading's date", () => {
+  render(<CapitulationBoard points={pts()} dataThroughIso="2026-08-15T03:00:00.000Z" />);
+  expect(screen.getByTestId("capitulation-reading-date")).toHaveTextContent(
+    /Reading for 16 Aug — the listing data behind it runs only to 15 Aug/,
+  );
+});

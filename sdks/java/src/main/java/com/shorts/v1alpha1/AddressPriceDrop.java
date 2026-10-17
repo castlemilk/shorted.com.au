@@ -9,6 +9,9 @@ package com.shorts.v1alpha1;
  * <pre>
  * One physical address (deduped by stable address_key) whose for-sale asking
  * price fell over the window, deep-linking to its per-address history page.
+ * When the address is live on both portals (or relisted), every live advert
+ * is judged on its own chain and the row carries the deepest qualifying cut;
+ * the latest_* / current_* fields describe THAT advert.
  * </pre>
  *
  * Protobuf type {@code shorts.v1alpha1.AddressPriceDrop}
@@ -993,6 +996,9 @@ private static final long serialVersionUID = 0L;
    * <pre>
    * One physical address (deduped by stable address_key) whose for-sale asking
    * price fell over the window, deep-linking to its per-address history page.
+   * When the address is live on both portals (or relisted), every live advert
+   * is judged on its own chain and the row carries the deepest qualifying cut;
+   * the latest_* / current_* fields describe THAT advert.
    * </pre>
    *
    * Protobuf type {@code shorts.v1alpha1.AddressPriceDrop}

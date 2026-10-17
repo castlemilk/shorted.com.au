@@ -85,3 +85,44 @@ variable "reader_service_accounts" {
   type        = list(string)
   default     = []
 }
+
+variable "scheduler_paused" {
+  description = "Pause the job's Cloud Scheduler trigger. Set true once the job runs as a Kubernetes CronJob on omega instead (deploy/kubernetes/jobs; driven by local.jobs_on_vke in environments/prod/main.tf). The Cloud Run job itself stays deployed for admin Run-now and manual executions."
+  type        = bool
+  default     = false
+}
+
+variable "enable_poll_schedule" {
+  description = <<-EOT
+    Create the intraday `short-data-sync -poll` Cloud Scheduler job and the
+    job-scoped roles/run.developer grant its args override needs. ASIC
+    publishes each day's file at 11:30 Australia/Sydney (measured 2026-10-01..06
+    from the CSVs' Last-Modified); the daily 10:00 UTC run lands ~9.5h later.
+    The poll closes that gap; the daily run stays the backstop and the only
+    run that reconciles. false removes both resources.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "poll_schedules" {
+  description = <<-EOT
+    Cron expressions (in Australia/Sydney) for the `-poll` trigger, one Cloud
+    Scheduler job per entry. ASIC posts each day's CSV at 11:30:11 local, to
+    the second (Last-Modified on every file 2026-09-24..10-01, across the
+    AEST->AEDT change), so the `publish` entry polls just after that moment:
+    11:32 catches the normal day, 11:37 and 11:47 a CDN or scheduler lag. The
+    `late` entry is the fallback for a genuinely late file, hourly to 15:15.
+    Seven polls a weekday instead of twenty, and a poll that finds nothing
+    writes nothing. The daily 10:00 UTC run remains the backstop. The key
+    `publish` keeps the original `<job>-poll` scheduler name; any other key
+    is suffixed (`<job>-poll-<key>`). Cron minute lists apply to every hour
+    in the expression, which is why a near-publication burst plus an hourly
+    tail needs two entries rather than one.
+  EOT
+  type        = map(string)
+  default = {
+    publish = "32,37,47 11 * * 1-5"
+    late    = "15 12-15 * * 1-5"
+  }
+}

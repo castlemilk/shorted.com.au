@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 test.describe("Homepage Dashboard View", () => {
   test("should show dashboard view without login", async ({ page }) => {

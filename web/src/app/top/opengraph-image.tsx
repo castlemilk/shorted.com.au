@@ -6,6 +6,8 @@ import { getTopShortsSummary } from "~/app/actions/getTopShorts";
 import { filterEligibleTopShorts } from "~/@/lib/top-shorts-filter";
 import { formatCompanyName } from "~/@/lib/company-name";
 
+export const maxDuration = 15;
+
 export const alt = "Most Shorted ASX Stocks — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

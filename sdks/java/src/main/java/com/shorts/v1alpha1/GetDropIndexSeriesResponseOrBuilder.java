@@ -53,4 +53,61 @@ public interface GetDropIndexSeriesResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getTrackingSinceBytes();
+
+  /**
+   * <pre>
+   * as_of: the latest computed_at among the returned points (when the
+   * collector last wrote this series). data_through: the end of the latest
+   * returned snapshot day, or the crawl horizon the last housing MV refresh
+   * recorded if that is earlier — a snapshot is computed daily whether or not
+   * the crawl ran, so the date alone can outrun the data. Both unset when no
+   * point is returned.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+   * @return Whether the asOf field is set.
+   */
+  boolean hasAsOf();
+  /**
+   * <pre>
+   * as_of: the latest computed_at among the returned points (when the
+   * collector last wrote this series). data_through: the end of the latest
+   * returned snapshot day, or the crawl horizon the last housing MV refresh
+   * recorded if that is earlier — a snapshot is computed daily whether or not
+   * the crawl ran, so the date alone can outrun the data. Both unset when no
+   * point is returned.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  com.google.protobuf.Timestamp getAsOf();
+  /**
+   * <pre>
+   * as_of: the latest computed_at among the returned points (when the
+   * collector last wrote this series). data_through: the end of the latest
+   * returned snapshot day, or the crawl horizon the last housing MV refresh
+   * recorded if that is earlier — a snapshot is computed daily whether or not
+   * the crawl ran, so the date alone can outrun the data. Both unset when no
+   * point is returned.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getAsOfOrBuilder();
+
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+   * @return Whether the dataThrough field is set.
+   */
+  boolean hasDataThrough();
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+   * @return The dataThrough.
+   */
+  com.google.protobuf.Timestamp getDataThrough();
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getDataThroughOrBuilder();
 }

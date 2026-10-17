@@ -23,6 +23,7 @@ import "shorts/v1alpha1/reports.proto";
 import "shorts/v1alpha1/screener.proto";
 import "shorts/v1alpha1/search.proto";
 import "shorts/v1alpha1/stock.proto";
+import "shorts/v1alpha1/strategies.proto";
 
 option (gnostic.openapi.v3.document) = {
   info: {
@@ -806,6 +807,32 @@ service ShortedStocksService {
     };
   }
 
+  // Every council with a page in one state, with the council choropleth rollups.
+  rpc ListCouncils (ListCouncilsRequest) returns (ListCouncilsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/listCouncils"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Councils",
+      description: "Every council (local government area) with a page in one state: ABS estimated resident population and growth, area and density, member suburb count, the council-wide ABS house median, Financial Assistance Grant per resident, dwelling approvals per 1,000 residents over the last 12 months, SEIFA IRSAD decile, population-weighted flood and bushfire planning shares, and a k-floored asking-price drop share."
+    };
+  }
+
+  // One council's hub: identity, facts, series, member suburbs and rollups.
+  rpc GetCouncilProfile (GetCouncilProfileRequest) returns (GetCouncilProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/getCouncilProfile"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Council Profile",
+      description: "Everything held for one council in one response: identity (ABS LGA 2024, Wikidata website), current facts, ABS time series (population, population components, council-wide house and attached medians, dwelling approvals, Financial Assistance Grants), member suburbs with overlap shares, hazard and price rollups, representation, crawl-derived price drops floored at 3, and neighbouring councils."
+    };
+  }
+
   // List economic series catalog entries (Australian economy snapshot layer).
   rpc ListEconomicSeries (ListEconomicSeriesRequest) returns (ListEconomicSeriesResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
@@ -876,6 +903,46 @@ service ShortedStocksService {
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Industry Intelligence",
       description: "Imported, cited industry intelligence records for a Shorted industry. Only public-enabled sources and exact-reviewed records are returned."
+    };
+  }
+
+  // ==================== Fundamentals + Strategy Picks ====================
+  // Mirrored from StockService (GetStockFundamentals) and StrategyService for
+  // external API back-compat; the parity test enforces the visibility match.
+
+  // Per-period reported fundamentals and year-on-year growth for a stock.
+  rpc GetStockFundamentals (GetStockFundamentalsRequest) returns (GetStockFundamentalsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock Fundamentals",
+      description: "Per-period reported fundamentals (income statement, balance sheet and cash flow in the company's reporting currency, with per-field provenance), year-on-year growth, profitability, leverage and valuation ratios, collection status and the latest results filing for a stock. Growth compares a series with itself one year earlier. Every value carries a has_* flag: a missing figure is absent, never zero."
+    };
+  }
+
+  // List every stock-picking strategy with its rules and the market regime.
+  rpc ListStrategies (ListStrategiesRequest) returns (ListStrategiesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Strategies",
+      description: "Named stock-picking strategies (Zanger breakout, CAN SLIM, Minervini trend template, crowded-short breakout, quality compounders) with each rule in the author's terms, exactly how it is evaluated, caveats and sources, plus the current S&P/ASX 200 market regime."
+    };
+  }
+
+  // Ranked picks for one strategy with a per-rule breakdown.
+  rpc GetStrategyPicks (GetStrategyPicksRequest) returns (GetStrategyPicksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Strategy Picks",
+      description: "Ranked ASX stocks for one strategy: status (triggered, setup, watch), a 0-100 score, a pass / fail / unknown result for every rule, and the reported fundamentals behind each pick. Unknown means the data is missing or not meaningful for the company and never counts as a pass. Optional sort_by orders by a fundamentals metric. Not financial advice."
+    };
+  }
+
+  // How one stock reads against every strategy.
+  rpc GetStockStrategyFit (GetStockStrategyFitRequest) returns (GetStockStrategyFitResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock Strategy Fit",
+      description: "How one ASX stock reads against every stock-picking strategy: status (triggered, setup, watch, or none when it is not a candidate), score, rank and a pass / fail / unknown result for every rule. Not financial advice."
     };
   }
 

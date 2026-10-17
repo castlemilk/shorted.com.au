@@ -8,6 +8,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 // StoreAdapter adapts the concrete store implementation to the ShortsStore interface
@@ -66,6 +67,10 @@ func (s *StoreAdapter) GetMarketByDate(date string, limit, offset int32, include
 
 func (s *StoreAdapter) GetAvailableDates(limit int, before string) ([]string, string, string, int, error) {
 	return s.store.GetAvailableDates(limit, before)
+}
+
+func (s *StoreAdapter) GetNextAvailableDate(after string) (string, error) {
+	return s.store.GetNextAvailableDate(after)
 }
 
 func (s *StoreAdapter) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
@@ -259,6 +264,34 @@ func (s *StoreAdapter) GetStockVerdictInputs(productCode string) (*shorts.Verdic
 	return s.store.GetStockVerdictInputs(productCode)
 }
 
+func (s *StoreAdapter) ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error) {
+	return s.store.ListStrategyCandidates(ctx)
+}
+
+func (s *StoreAdapter) GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error) {
+	return s.store.GetMarketRegime(ctx, indexCode)
+}
+
+func (s *StoreAdapter) GetStockFundamentals(ctx context.Context, code, periodType string, limit int32) ([]shorts.FundamentalsPeriodRow, error) {
+	return s.store.GetStockFundamentals(ctx, code, periodType, limit)
+}
+
+func (s *StoreAdapter) GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error) {
+	return s.store.GetFundamentalsGrowth(ctx, code)
+}
+
+func (s *StoreAdapter) GetFundamentalsExtras(ctx context.Context, code string) (*shorts.FundamentalsExtras, error) {
+	return s.store.GetFundamentalsExtras(ctx, code)
+}
+
+func (s *StoreAdapter) GetFundamentalsCoverage(ctx context.Context, code string) (*shorts.FundamentalsCoverageRow, error) {
+	return s.store.GetFundamentalsCoverage(ctx, code)
+}
+
+func (s *StoreAdapter) GetLatestFilingInputs(ctx context.Context, code string) (*shorts.LatestFilingInputs, error) {
+	return s.store.GetLatestFilingInputs(ctx, code)
+}
+
 func (s *StoreAdapter) GetCompanyTaxProfile(productCode string) (*shorts.CompanyTaxProfile, error) {
 	return s.store.GetCompanyTaxProfile(productCode)
 }
@@ -341,6 +374,18 @@ func (s *StoreAdapter) ListAgencyPriceStats(stateCode, sort string, limit int32)
 
 func (s *StoreAdapter) GetDropIndexSeries(grain, grainKey, from, to string) ([]*shorts.DropIndexPointRow, error) {
 	return s.store.GetDropIndexSeries(grain, grainKey, from, to)
+}
+
+func (s *StoreAdapter) ListCouncils(stateCode string) ([]*shorts.CouncilSummaryRow, error) {
+	return s.store.ListCouncils(stateCode)
+}
+
+func (s *StoreAdapter) GetCouncilProfile(stateCode, slug string) (*shorts.CouncilProfileRow, error) {
+	return s.store.GetCouncilProfile(stateCode, slug)
+}
+
+func (s *StoreAdapter) GetHousingMVRefresh(mvNames []string) (map[string]shorts.HousingMVRefreshRow, error) {
+	return s.store.GetHousingMVRefresh(mvNames)
 }
 
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {

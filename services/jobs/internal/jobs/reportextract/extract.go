@@ -4,9 +4,12 @@ import (
 	"context"
 	"log"
 	"os"
+	"strconv"
 	"unicode/utf8"
 
 	lx "github.com/skunkworq/stealth/brws/langextract"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 )
 
 // extractionPrompt is extract.py's EXTRACTION_PROMPT, byte-for-byte.
@@ -29,84 +32,32 @@ const (
 	extractMaxCharBuffer = 2000
 )
 
-// extractionExamples is extract.py's EXTRACTION_EXAMPLES — one ExampleData with
-// seven few-shot extractions. Class names, extraction texts and attribute
-// keys/values are the prompt's contract with the model and are reproduced
-// verbatim; changing any of them changes what the model emits.
+// extractionExamples is the extraction prompt's few-shot example: ONE
+// ExampleData built from extractiontrust.FewShotExample(), the synthetic
+// "Quokka Minerals Limited" H1 FY2031 document (docs/plans/fundamentals-coverage.md
+// 6.1, 6.3). It is derived, never retyped, so the text, the class names, the
+// extraction texts and the attribute keys/values are byte-identical to the
+// package that defines them (and to extract.py, which copies the same example;
+// TestExtractPyExampleMatchesTheTrustExample enforces that side).
+//
+// The example it replaces (revenue $5,142m, NPAT $1,823m, EPS 94.2c, "H1
+// FY2025") was echoed back by the model and stored as BHP's, CBA's, DRO's,
+// EDV's and MSB's results; its texts stay on extractiontrust's denylist.
 func extractionExamples() []lx.ExampleData {
-	return []lx.ExampleData{{
-		Text: `Revenue from continuing operations for the half year ended 31 December 2024
-was $5,142 million, an increase of 8% on the prior corresponding period.
-Statutory net profit after tax (NPAT) was $1,823 million, up 12% on pcp.
-Basic earnings per share was 94.2 cents.
-The Board declared an interim dividend of 45 cents per share, fully franked.
-Operating cash flow was $2,156 million.
-EBITDA was $2,891 million, representing a margin of 56.2%.
-FY2025 guidance: Revenue growth of 6-8% expected.`,
-		Extractions: []lx.Extraction{
-			{
-				ExtractionClass: "revenue",
-				ExtractionText:  "Revenue from continuing operations for the half year ended 31 December 2024 was $5,142 million",
-				Attributes: map[string]any{
-					"value_millions": "5142",
-					"period":         "H1 FY2025",
-					"change_pct":     "+8",
-				},
-			},
-			{
-				ExtractionClass: "net_profit",
-				ExtractionText:  "Statutory net profit after tax (NPAT) was $1,823 million, up 12% on pcp",
-				Attributes: map[string]any{
-					"value_millions": "1823",
-					"period":         "H1 FY2025",
-					"change_pct":     "+12",
-				},
-			},
-			{
-				ExtractionClass: "eps",
-				ExtractionText:  "Basic earnings per share was 94.2 cents",
-				Attributes: map[string]any{
-					"value_cents": "94.2",
-					"period":      "H1 FY2025",
-				},
-			},
-			{
-				ExtractionClass: "dividend",
-				ExtractionText:  "interim dividend of 45 cents per share, fully franked",
-				Attributes: map[string]any{
-					"value_cents": "45",
-					"franking":    "fully franked",
-					"period":      "H1 FY2025",
-				},
-			},
-			{
-				ExtractionClass: "cash_flow",
-				ExtractionText:  "Operating cash flow was $2,156 million",
-				Attributes: map[string]any{
-					"value_millions": "2156",
-					"period":         "H1 FY2025",
-				},
-			},
-			{
-				ExtractionClass: "ebitda",
-				ExtractionText:  "EBITDA was $2,891 million, representing a margin of 56.2%",
-				Attributes: map[string]any{
-					"value_millions": "2891",
-					"margin_pct":     "56.2",
-					"period":         "H1 FY2025",
-				},
-			},
-			{
-				ExtractionClass: "guidance",
-				ExtractionText:  "FY2025 guidance: Revenue growth of 6-8% expected",
-				Attributes: map[string]any{
-					"metric": "revenue_growth",
-					"range":  "6-8%",
-					"period": "FY2025",
-				},
-			},
-		},
-	}}
+	ex := extractiontrust.FewShotExample()
+	out := lx.ExampleData{Text: ex.Text, Extractions: make([]lx.Extraction, 0, len(ex.Extractions))}
+	for _, e := range ex.Extractions {
+		attrs := make(map[string]any, len(e.Attributes))
+		for k, v := range e.Attributes {
+			attrs[k] = v
+		}
+		out.Extractions = append(out.Extractions, lx.Extraction{
+			ExtractionClass: e.Class,
+			ExtractionText:  e.Text,
+			Attributes:      attrs,
+		})
+	}
+	return []lx.ExampleData{out}
 }
 
 // extraction is one langextract result, flattened the way extract.py flattened
@@ -115,6 +66,46 @@ type extraction struct {
 	Class      string
 	Text       string
 	Attributes map[string]any
+	// Alignment is langextract's alignment status (match_exact, match_greater,
+	// match_lesser, match_fuzzy) and CharStart/CharEnd the aligned span in the
+	// document text. groundedExtractions only keeps aligned results, so a
+	// stored entry always carries them; "" / -1 only in hand-built test values.
+	Alignment string
+	CharStart int
+	CharEnd   int
+}
+
+// alignedStatuses are the langextract statuses that mean the extraction was
+// found in the document (extractiontrust's Grounded accepts exactly these).
+var alignedStatuses = map[lx.AlignmentStatus]bool{
+	lx.AlignmentExact:   true,
+	lx.AlignmentGreater: true,
+	lx.AlignmentLesser:  true,
+	lx.AlignmentFuzzy:   true,
+}
+
+// groundedExtractions keeps only the results langextract aligned to the
+// document (contract 6.3, parity with extract.py 6.1): no char interval, or an
+// alignment status outside alignedStatuses, means the model produced text that
+// is not in the report (the few-shot echo was exactly this), so it is dropped
+// before it can be stored. dropped counts them for the log.
+func groundedExtractions(raw []lx.Extraction) (out []extraction, dropped int) {
+	out = make([]extraction, 0, len(raw))
+	for _, e := range raw {
+		if e.CharInterval == nil || !alignedStatuses[e.Alignment] {
+			dropped++
+			continue
+		}
+		out = append(out, extraction{
+			Class:      e.ExtractionClass,
+			Text:       e.ExtractionText,
+			Attributes: e.Attributes,
+			Alignment:  string(e.Alignment),
+			CharStart:  e.CharStart(),
+			CharEnd:    e.CharEnd(),
+		})
+	}
+	return out, dropped
 }
 
 // langextractAPIKey resolves the key langextract itself reads from the
@@ -169,13 +160,9 @@ func extractFinancialData(ctx context.Context, text, stockCode, modelID string) 
 		return nil
 	}
 
-	out := make([]extraction, 0, len(raw.Extractions))
-	for _, e := range raw.Extractions {
-		out = append(out, extraction{
-			Class:      e.ExtractionClass,
-			Text:       e.ExtractionText,
-			Attributes: e.Attributes,
-		})
+	out, dropped := groundedExtractions(raw.Extractions)
+	if dropped > 0 {
+		log.Printf("  %s: dropped %d unaligned extraction(s)", stockCode, dropped)
 	}
 	return out
 }
@@ -195,6 +182,14 @@ func extractionsToMetrics(extractions []extraction) map[string]any {
 		entry := map[string]any{"source_text": ext.Text}
 		for k, v := range ext.Attributes {
 			entry[k] = v
+		}
+		// Provenance as STRING attributes, exactly as extract.py stores them
+		// (contract 6.1): the trust funnel reads "alignment", and the three
+		// keys are stripped before any prompt or API response.
+		if ext.Alignment != "" {
+			entry[extractiontrust.KeyAlignment] = ext.Alignment
+			entry[extractiontrust.KeyCharStart] = strconv.Itoa(ext.CharStart)
+			entry[extractiontrust.KeyCharEnd] = strconv.Itoa(ext.CharEnd)
 		}
 		existing, seen := metrics[ext.Class]
 		if !seen {

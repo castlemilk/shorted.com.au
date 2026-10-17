@@ -1,17 +1,23 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { getSession, signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useAuthPreconnect } from "@/hooks/use-auth-preconnect";
-import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-} from "firebase/auth";
+import { useAuthCallback } from "@/hooks/use-auth-callback";
+import { signInWithEmailAndPassword, type User } from "firebase/auth";
 import { auth as firebaseAuth } from "@/lib/firebase-client";
+import { restoreFirebaseUser, signInWithGoogle } from "@/lib/firebase-sign-in";
+import { authPageHref } from "@/lib/auth-redirect";
+import { clearFirebaseSession } from "@/lib/auth-session";
+import {
+  forgetRememberedLogin,
+  getRememberedLogin,
+  rememberLogin,
+  type RememberedLogin,
+} from "@/lib/remembered-login";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,7 +27,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, AlertCircle, Lock } from "lucide-react";
+import {
+  Loader2,
+  AlertCircle,
+  Lock,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  UserRound,
+  X,
+} from "lucide-react";
 import { GoogleLogo } from "@/components/ui/google-logo";
 import { useSearchParams } from "next/navigation";
 
@@ -51,7 +66,10 @@ function getFirebaseErrorMessage(code: string): string {
 function SignInForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  const { callbackUrl, ready: callbackReady } = useAuthCallback(
+    searchParams.get("callbackUrl"),
+  );
+  const { status } = useSession();
 
   // Is this sign-in the middle of an OAuth authorisation?
   //
@@ -73,47 +91,103 @@ function SignInForm() {
   })();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [pending, setPending] = useState<
+    "google" | "password" | "resume" | "forget" | null
+  >(null);
+  const [remembered, setRemembered] = useState<RememberedLogin | null>(null);
+  const [restoredUser, setRestoredUser] = useState<User | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const passwordInput = useRef<HTMLInputElement>(null);
+  const busy = useRef(false);
+  const restoreGeneration = useRef(0);
+  const isBusy = pending !== null;
   useAuthPreconnect();
 
-  // Client navigation instead of the old full-document reload: getSession()
-  // refreshes the SessionProvider cache (and broadcasts to other tabs),
-  // router.refresh() re-renders server components with the new cookie —
-  // skipping a full app re-parse between "signed in" and "sees signed-in UI".
-  const completeSignIn = async () => {
-    await getSession();
-    router.push(callbackUrl);
+  useEffect(() => {
+    let active = true;
+    const generation = restoreGeneration.current;
+    const lastLogin = getRememberedLogin();
+    if (lastLogin) {
+      setRemembered(lastLogin);
+      setEmail(lastLogin.email);
+    }
+    // Restore through Firebase's persistence API while the form is idle.
+    // Nothing is authenticated with Shorted until the user chooses Continue.
+    void restoreFirebaseUser()
+      .then((user) => {
+        if (!active || generation !== restoreGeneration.current) return;
+        if (user) setRestoredUser(user);
+        if (!lastLogin && user?.email) {
+          setRemembered({
+            email: user.email,
+            name: user.displayName,
+            image: user.photoURL,
+            method: user.providerData.some(
+              (provider) => provider.providerId === "google.com",
+            )
+              ? "google"
+              : "password",
+          });
+          setEmail((current) => (current ? current : (user.email ?? "")));
+        }
+      })
+      .catch(() => {
+        /* A failed restore leaves the normal login available. */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (callbackReady && status === "authenticated" && !busy.current)
+      router.replace(callbackUrl);
+  }, [status, callbackUrl, callbackReady, router]);
+
+  const completeSignIn = () => {
+    // signIn(redirect:false) already refreshes the shared NextAuth session.
+    router.replace(callbackUrl);
     router.refresh();
   };
 
-  const handleGoogleSignIn = async () => {
-    if (!firebaseAuth) {
-      setError("Firebase not initialized");
-      return;
+  const signInFirebaseUser = async (
+    user: User,
+    method: RememberedLogin["method"],
+  ) => {
+    const idToken = await user.getIdToken();
+    const result = await signIn("credentials", {
+      idToken,
+      email: user.email,
+      callbackUrl,
+      redirect: false,
+    });
+    if (!result?.ok || result.error) {
+      throw new Error("Authentication failed. Please try again.");
     }
-    setIsGoogleLoading(true);
+    if (user.email)
+      rememberLogin({
+        email: user.email,
+        name: user.displayName,
+        image: user.photoURL,
+        method,
+      });
+    completeSignIn();
+  };
+
+  const handleGoogleSignIn = async (
+    emailHint?: string,
+    chooseAccount = false,
+  ) => {
+    if (busy.current) return;
+    busy.current = true;
+    setPending("google");
     setError(null);
 
     try {
-      const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(firebaseAuth, provider);
-      const idToken = await userCredential.user.getIdToken();
-
-      const result = await signIn("credentials", {
-        idToken,
-        email: userCredential.user.email,
-        callbackUrl,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError("Authentication failed. Please try again.");
-        setIsGoogleLoading(false);
-      } else if (result?.ok) {
-        await completeSignIn();
-      }
+      // Open immediately in this click, preserving the browser's popup permission.
+      const credential = await signInWithGoogle({ emailHint, chooseAccount });
+      await signInFirebaseUser(credential.user, "google");
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
       if (code === "auth/account-exists-with-different-credential") {
@@ -125,79 +199,126 @@ function SignInForm() {
       } else {
         setError("Failed to sign in with Google. Please try again.");
       }
-      setIsGoogleLoading(false);
+    } finally {
+      busy.current = false;
+      setPending(null);
     }
   };
 
-  const handleCredentialsSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    if (!email || !password) {
-      setError("Please enter both email and password");
-      setIsLoading(false);
+  const handleContinue = async () => {
+    if (!remembered || busy.current) return;
+    // A different tab may have ended or switched the restored Firebase session.
+    const currentUser = firebaseAuth?.currentUser;
+    if (
+      !currentUser ||
+      currentUser.uid !== restoredUser?.uid ||
+      currentUser.email?.toLowerCase() !== remembered.email.toLowerCase()
+    ) {
+      if (remembered.method === "google") {
+        // No await before the popup. The idle restore is already complete or
+        // the standard Google flow remains available while it settles.
+        void handleGoogleSignIn(remembered.email);
+      } else {
+        setEmail(remembered.email);
+        setError(null);
+        passwordInput.current?.focus();
+      }
       return;
     }
-
-    let firebaseErrorCode: string | undefined;
-
-    // Try Firebase auth first
-    if (firebaseAuth) {
-      try {
-        const userCredential = await signInWithEmailAndPassword(
-          firebaseAuth,
-          email,
-          password,
-        );
-        const idToken = await userCredential.user.getIdToken();
-
-        const result = await signIn("credentials", {
-          idToken,
-          email,
-          callbackUrl,
-          redirect: false,
-        });
-
-        if (result?.error) {
-          setError("Authentication failed. Please try again.");
-          setIsLoading(false);
-        } else if (result?.ok) {
-          await completeSignIn();
-        }
-        return;
-      } catch (err: unknown) {
-        firebaseErrorCode = (err as { code?: string }).code;
-      }
-    }
-
-    // Fallback: direct credentials (E2E test compatibility)
+    busy.current = true;
+    setPending("resume");
+    setError(null);
     try {
+      await signInFirebaseUser(currentUser, remembered.method);
+    } catch {
+      setRestoredUser(null);
+      setError(
+        "Your saved session has expired. Continue with Google or enter your password.",
+      );
+    } finally {
+      busy.current = false;
+      setPending(null);
+    }
+  };
+
+  const handleForget = async () => {
+    if (busy.current) return;
+    busy.current = true;
+    setPending("forget");
+    restoreGeneration.current += 1;
+    forgetRememberedLogin();
+    setRemembered(null);
+    setRestoredUser(null);
+    setEmail("");
+    setPassword("");
+    setError(null);
+    try {
+      await clearFirebaseSession();
+    } catch {
+      setError(
+        "The account shortcut was removed, but the saved session could not be cleared. Clear this site's browser data to remove it.",
+      );
+    } finally {
+      busy.current = false;
+      setPending(null);
+    }
+  };
+
+  const handleCredentialsSignIn = async (
+    e: React.FormEvent<HTMLFormElement>,
+  ) => {
+    e.preventDefault();
+    if (busy.current) return;
+    // Read the DOM so Chrome/password managers that fill without a React
+    // change event still submit the credentials the visitor can see.
+    const fields = new FormData(e.currentTarget);
+    const submittedEmail = String(fields.get("email") ?? "").trim();
+    const submittedPassword = String(fields.get("password") ?? "");
+    busy.current = true;
+    setPending("password");
+    setError(null);
+    let firebaseErrorCode: string | undefined;
+    try {
+      if (!submittedEmail || !submittedPassword) {
+        setError("Please enter both email and password.");
+        return;
+      }
+      if (firebaseAuth) {
+        try {
+          const credential = await signInWithEmailAndPassword(
+            firebaseAuth,
+            submittedEmail,
+            submittedPassword,
+          );
+          await signInFirebaseUser(credential.user, "password");
+          return;
+        } catch (err: unknown) {
+          firebaseErrorCode = (err as { code?: string }).code;
+          if (!firebaseErrorCode) throw err;
+        }
+      }
+      // Preserve the server-gated E2E path on local and preview deployments.
       const result = await signIn("credentials", {
-        email,
-        password,
+        email: submittedEmail,
+        password: submittedPassword,
         callbackUrl,
         redirect: false,
       });
-
-      if (result?.error) {
-        // Show Firebase error if we had one, otherwise generic message
+      if (!result?.ok || result.error) {
         setError(
           firebaseErrorCode
             ? getFirebaseErrorMessage(firebaseErrorCode)
-            : "Invalid email or password",
+            : "Invalid email or password.",
         );
-        setIsLoading(false);
-      } else if (result?.ok) {
-        await completeSignIn();
+      } else {
+        rememberLogin({ email: submittedEmail, method: "password" });
+        completeSignIn();
       }
     } catch {
-      setError(
-        firebaseErrorCode
-          ? getFirebaseErrorMessage(firebaseErrorCode)
-          : "Failed to sign in. Please check your credentials.",
-      );
-      setIsLoading(false);
+      setError("Failed to sign in. Please try again.");
+    } finally {
+      busy.current = false;
+      setPending(null);
     }
   };
 
@@ -209,13 +330,14 @@ function SignInForm() {
         been — a two-column sign-in on a phone is just a logo pushing the form
         below the fold.
       */}
-      <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-10 lg:min-h-[calc(100vh-8rem)] lg:grid-cols-2 lg:gap-16">
+      <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-6 sm:py-10 lg:min-h-[calc(100vh-8rem)] lg:grid-cols-2 lg:gap-16">
         <aside className="hidden lg:flex lg:flex-col lg:justify-center lg:gap-8">
           <div className="relative h-40 w-40">
             <Image
               src="/logo.png"
               alt="Shorted"
               fill
+              sizes="160px"
               className="object-contain"
               priority
             />
@@ -252,15 +374,16 @@ function SignInForm() {
           )}
         </aside>
 
-        <div className="flex w-full justify-center lg:justify-start">
-          <Card className="w-full max-w-md shadow-lg">
+        <div className="flex min-w-0 w-full justify-center lg:justify-start">
+          <Card className="min-w-0 w-full max-w-md shadow-lg">
             <CardHeader className="space-y-4 pb-6">
               <div className="flex justify-center lg:hidden">
-                <div className="relative w-32 h-32">
+                <div className="relative h-16 w-16">
                   <Image
                     src="/logo.png"
                     alt="Shorted Logo"
                     fill
+                    sizes="64px"
                     className="object-contain"
                     priority
                   />
@@ -285,10 +408,12 @@ function SignInForm() {
                 ) : (
                   <>
                     <CardTitle className="text-3xl font-bold tracking-tight">
-                      Welcome to Shorted
+                      {remembered ? "Welcome back" : "Welcome to Shorted"}
                     </CardTitle>
                     <CardDescription className="text-base">
-                      Sign in to access advanced features and insights
+                      {remembered
+                        ? "Pick up where you left off."
+                        : "Your watchlists, portfolio and insights, in one place."}
                     </CardDescription>
                   </>
                 )}
@@ -296,14 +421,92 @@ function SignInForm() {
             </CardHeader>
 
             <CardContent className="space-y-6">
+              {remembered && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Last used on this device
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground"
+                      aria-label="Forget this account"
+                      onClick={handleForget}
+                      disabled={isBusy}
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </div>
+                  <div className="mb-4 flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background text-primary">
+                      {remembered.method === "google" ? (
+                        <GoogleLogo className="h-5 w-5" />
+                      ) : (
+                        <UserRound className="h-5 w-5" aria-hidden="true" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">
+                        {remembered.name?.trim()
+                          ? remembered.name
+                          : remembered.email}
+                      </p>
+                      {remembered.name && (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {remembered.email}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    className="h-11 min-w-0 w-full gap-2 overflow-hidden"
+                    onClick={handleContinue}
+                    disabled={isBusy}
+                  >
+                    {pending === "resume" ||
+                    (pending === "google" && remembered.method === "google") ? (
+                      <Loader2
+                        className="h-4 w-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    <span className="truncate">
+                      Continue as{" "}
+                      {remembered.name?.trim()
+                        ? remembered.name.trim().split(" ")[0]
+                        : remembered.email}
+                    </span>
+                  </Button>
+                </div>
+              )}
+
+              {error && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                >
+                  <AlertCircle
+                    className="mt-0.5 h-4 w-4 flex-shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span>{error}</span>
+                </div>
+              )}
+
               {/* Google Sign In */}
               <Button
                 variant="outline"
                 className="w-full h-12 text-base font-medium"
-                onClick={handleGoogleSignIn}
-                disabled={isGoogleLoading || isLoading}
+                onClick={() =>
+                  handleGoogleSignIn(undefined, Boolean(remembered))
+                }
+                disabled={isBusy}
               >
-                {isGoogleLoading ? (
+                {pending === "google" ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
                   <GoogleLogo className="mr-2 h-5 w-5" />
@@ -324,7 +527,11 @@ function SignInForm() {
               </div>
 
               {/* Email/Password Form */}
-              <form onSubmit={handleCredentialsSignIn} className="space-y-4">
+              <form
+                onSubmit={handleCredentialsSignIn}
+                autoComplete="on"
+                className="space-y-4"
+              >
                 <div className="space-y-2">
                   <label
                     htmlFor="email"
@@ -334,11 +541,16 @@ function SignInForm() {
                   </label>
                   <Input
                     id="email"
+                    name="email"
                     type="email"
+                    autoComplete="username"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     placeholder="name@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    disabled={isLoading || isGoogleLoading}
+                    disabled={isBusy}
                     required
                     className="h-11"
                   />
@@ -351,31 +563,47 @@ function SignInForm() {
                   >
                     Password
                   </label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading || isGoogleLoading}
-                    required
-                    className="h-11"
-                  />
-                </div>
-
-                {error && (
-                  <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
-                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                    <span>{error}</span>
+                  <div className="relative">
+                    <Input
+                      ref={passwordInput}
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isBusy}
+                      required
+                      className="h-11 pr-12"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1 h-9 w-9 text-muted-foreground"
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                      aria-pressed={showPassword}
+                      onClick={() => setShowPassword((visible) => !visible)}
+                      disabled={isBusy}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <Eye className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </Button>
                   </div>
-                )}
+                </div>
 
                 <Button
                   type="submit"
                   className="w-full h-11 text-base font-medium"
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isBusy}
                 >
-                  {isLoading ? (
+                  {pending === "password" ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                       Signing in...
@@ -390,7 +618,7 @@ function SignInForm() {
               <div className="text-center text-sm text-muted-foreground">
                 Don&apos;t have an account?{" "}
                 <Link
-                  href="/signup"
+                  href={authPageHref("/signup", callbackUrl)}
                   className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
                 >
                   Sign up

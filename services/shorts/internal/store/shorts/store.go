@@ -8,6 +8,7 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 // Row is a minimal interface for scanning a single database row.
@@ -69,6 +70,9 @@ type Store interface {
 	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
 	GetMarketByDate(date string, limit, offset int32, includeZero, ordinaryOnly bool) ([]*stockv1alpha1.Stock, int, error)
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
+	// GetNextAvailableDate returns the first trading date after `after`
+	// (YYYY-MM-DD), or "" when `after` is the latest.
+	GetNextAvailableDate(after string) (string, error)
 	GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
 	// GetCrawlRunStatuses returns the residential-crawl health records (migration
@@ -167,6 +171,21 @@ type Store interface {
 	// Bear/bull verdict methods
 	GetStockVerdictInputs(productCode string) (*VerdictInputs, error)
 
+	// Stock picker (postgres_strategies.go; plan docs/plans/stock-picker.md §3.2).
+	// A missing relation (dev without migrations 000129/000130) yields an
+	// empty result, never an error.
+	ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error)
+	GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error)
+	GetStockFundamentals(ctx context.Context, code, periodType string, limit int32) ([]FundamentalsPeriodRow, error)
+	GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error)
+
+	// Fundamentals coverage (postgres_fundamentals.go; plan
+	// docs/plans/fundamentals-coverage.md §5.3). Every read tolerates a
+	// database without migration 000132 (42P01 / 42703): nil, never an error.
+	GetFundamentalsExtras(ctx context.Context, code string) (*FundamentalsExtras, error)
+	GetFundamentalsCoverage(ctx context.Context, code string) (*FundamentalsCoverageRow, error)
+	GetLatestFilingInputs(ctx context.Context, code string) (*LatestFilingInputs, error)
+
 	// Corporate tax (influence layer) methods
 	GetCompanyTaxProfile(productCode string) (*CompanyTaxProfile, error)
 	GetIndustryIntelligence(industry string, stockCode string, recordLimit int32) (*IndustryIntelligenceResult, error)
@@ -195,6 +214,10 @@ type Store interface {
 	GetPriceDropsOverview() ([]*StatePriceDropSummaryRow, error)
 	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*AgencyPriceStatsRow, error)
 	GetDropIndexSeries(grain, grainKey, from, to string) ([]*DropIndexPointRow, error)
+	// Council hub (postgres_councils.go).
+	ListCouncils(stateCode string) ([]*CouncilSummaryRow, error)
+	GetCouncilProfile(stateCode, slug string) (*CouncilProfileRow, error)
+	GetHousingMVRefresh(mvNames []string) (map[string]HousingMVRefreshRow, error)
 
 	// Register of Members'/Senators' Interests methods
 	GetRegisterOverview() (*RegisterOverviewRow, error)

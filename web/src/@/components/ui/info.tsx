@@ -8,7 +8,7 @@ interface InfoProps {
 
 const Info: React.FC<InfoProps> = ({ title, children }) => {
   return (
-    <div className="bg-muted rounded-lg p-6 relative overflow-visible">
+    <div data-article-callout className="bg-muted rounded-lg p-6 relative overflow-visible">
       <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
       {/* Quarter circle border in top-left corner */}
       <svg
@@ -37,9 +37,11 @@ const Info: React.FC<InfoProps> = ({ title, children }) => {
       </div>
       <div className="mt-2 ml-4">
         <h4 className="text-l font-semibold text-foreground m-0">{title}</h4>
-        <div className="text-foreground ">
-          <p className="m-0">{children}</p>
-        </div>
+        {/* Not a <p>: MDX hands us paragraphs as children, and a <p> inside a
+            <p> is invalid HTML that React refuses to hydrate (the whole blog
+            article then re-rendered client-side, on 14 of 23 posts). The
+            arbitrary variants keep the callout as tight as the old m-0. */}
+        <div className="text-foreground [&>p]:my-0 [&>p+p]:mt-3">{children}</div>
       </div>
     </div>
   );

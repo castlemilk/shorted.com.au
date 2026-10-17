@@ -6,6 +6,7 @@ package absdata
 import (
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -30,6 +31,7 @@ type Client struct {
 	http     *http.Client
 	attempts int
 	backoff  time.Duration
+	base     string // SDMX data endpoint; empty = the live ABS API (tests override)
 }
 
 func NewClient() *Client {
@@ -38,6 +40,14 @@ func NewClient() *Client {
 		attempts: defaultAttempts,
 		backoff:  defaultBackoff,
 	}
+}
+
+// WithBaseURL returns a copy of c that fetches SDMX data from base instead of
+// the live ABS API — for tests that serve captured fixtures.
+func (c *Client) WithBaseURL(base string) *Client {
+	cp := *c
+	cp.base = strings.TrimRight(base, "/")
+	return &cp
 }
 
 // get issues a retrying GET with the caller's headers. It returns the last
@@ -49,7 +59,11 @@ func (c *Client) get(ctx context.Context, url string, header http.Header) (*http
 // FetchSDMXCSV GETs one ABS dataflow as SDMX-CSV (labels=both) and returns raw
 // CSV rows. key is the dotted dimension key ("1.AUS.Q" style; "all" allowed).
 func (c *Client) FetchSDMXCSV(ctx context.Context, dataflow, key, startPeriod string) ([][]string, error) {
-	url := fmt.Sprintf("%s/ABS,%s/%s?startPeriod=%s", absBase, dataflow, key, startPeriod)
+	base := c.base
+	if base == "" {
+		base = absBase
+	}
+	url := fmt.Sprintf("%s/ABS,%s/%s?startPeriod=%s", base, dataflow, key, startPeriod)
 	resp, err := c.get(ctx, url, http.Header{
 		"User-Agent": {UserAgent},
 		"Accept":     {csvAccept},
@@ -60,11 +74,31 @@ func (c *Client) FetchSDMXCSV(ctx context.Context, dataflow, key, startPeriod st
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return nil, fmt.Errorf("ABS %s/%s: HTTP %d: %s", dataflow, key, resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, &StatusError{
+			Status: resp.StatusCode,
+			msg:    fmt.Sprintf("ABS %s/%s: HTTP %d: %s", dataflow, key, resp.StatusCode, strings.TrimSpace(string(body))),
+		}
 	}
 	r := csv.NewReader(resp.Body)
 	r.FieldsPerRecord = -1
 	return r.ReadAll()
+}
+
+// StatusError is a non-200 ABS response. The message keeps the historical
+// "ABS <flow>/<key>: HTTP <n>: <body>" wording; Status lets a caller tell "this
+// dataflow does not exist (yet)" — ABS answers 404 for a flow it has not
+// published — from a real failure, without matching on the text.
+type StatusError struct {
+	Status int
+	msg    string
+}
+
+func (e *StatusError) Error() string { return e.msg }
+
+// IsNotFound reports whether err is an ABS 404 (unknown dataflow or key).
+func IsNotFound(err error) bool {
+	var se *StatusError
+	return errors.As(err, &se) && se.Status == http.StatusNotFound
 }
 
 // ColIndex maps SDMX-CSV header names to column indexes. labels=both headers

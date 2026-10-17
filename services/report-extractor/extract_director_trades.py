@@ -16,6 +16,19 @@ Run (against prod):
   DATABASE_URL=... GEMINI_API_KEY=... python extract_director_trades.py \
       --limit 500 --priority recent --workers 8 [--dry-run]
 
+Backends (EXTRACTOR_BACKEND / --backend):
+  openrouter  (default) director_direct.py: DeepSeek v4 Flash reads the notice,
+              Gemini 2.5 Flash-Lite reads it independently, Gemini 2.5 Flash
+              arbitrates; the trade is written only on agreement, every name and
+              number validated against the notice. Needs OPENROUTER_API_KEY.
+  gemini      the original single gemini-2.5-flash call (GEMINI_API_KEY).
+
+Model failures: a call that fails (bad key, quota, outage) is model_error. It
+is NOT recorded as an attempt, so the next run retries the notice, and the run
+exits 1 when model errors look systemic. Until 2026-09-29 a failed call was
+recorded as no_extract and the notice skipped for 30 days: from 2026-07-30 every
+attempt was such a failure (--retry-no-extract-between re-admits them).
+
 Priorities:
   recent      most recent trade_date first (default)
   unknown     only rows still named "Unknown Director"
@@ -31,6 +44,8 @@ import os
 import re
 import sys
 import threading
+from collections import Counter
+from typing import Any, Optional
 
 import psycopg2
 import psycopg2.extras
@@ -40,6 +55,7 @@ import requests
 # financial-report extractor (importing is side-effect-free — its work is under
 # `if __name__ == "__main__"`).
 import extract  # noqa: E402
+from token_usage import TokenUsage  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("director-extract")
@@ -135,9 +151,8 @@ def extract_3y(text: str) -> dict | None:
     except json.JSONDecodeError as e:
         log.warning("  JSON parse failed: %s", e)
         return None
-    except Exception as e:
-        log.warning("  gemini extract failed: %s", e)
-        return None
+    except Exception as e:  # noqa: BLE001 - the call itself failed: retry next run
+        raise extract.ModelError(f"gemini extract failed: {e}") from e
 
 
 def _merge_changes(changes: list) -> dict | None:
@@ -226,17 +241,24 @@ def attempts_table_exists(conn) -> bool:
     return exists
 
 
-def select_urls(conn, priority: str, limit: int, retry_after_days: int = 0) -> list[dict]:
+def select_urls(conn, priority: str, limit: int, retry_after_days: int = 0,
+                retry_no_extract_between: Optional[tuple[str, str]] = None) -> list[dict]:
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     # §6.9 Skip URLs attempted within the cool-off window so the scheduled job converges
     # instead of re-burning Gemini on the same persistent no_pdf/no_extract failures.
+    # A no_extract recorded inside retry_no_extract_between is NOT a reason to
+    # skip: those were model failures misrecorded (see the module docstring).
     skip = ""
     params: list = []
     if retry_after_days > 0 and attempts_table_exists(conn):
+        forgive = ""
+        if retry_no_extract_between:
+            forgive = (" AND NOT (a.last_outcome = 'no_extract' "
+                       "AND a.last_attempted_at >= %s::date AND a.last_attempted_at < %s::date)")
         skip = (
             " AND NOT EXISTS (SELECT 1 FROM director_extract_attempts a "
             "WHERE a.announcement_url = {col} "
-            "AND a.last_attempted_at > NOW() - make_interval(days => %s))"
+            "AND a.last_attempted_at > NOW() - make_interval(days => %s)" + forgive + ")"
         )
 
     if priority == "top-shorted":
@@ -251,6 +273,7 @@ def select_urls(conn, priority: str, limit: int, retry_after_days: int = 0) -> l
         if skip:
             base += skip.format(col="dt.announcement_url")
             params.append(retry_after_days)
+            params.extend(retry_no_extract_between or ())
         base += " ORDER BY dt.announcement_url, dt.trade_date DESC"
     else:
         base = """
@@ -265,6 +288,7 @@ def select_urls(conn, priority: str, limit: int, retry_after_days: int = 0) -> l
         if skip:
             base += skip.format(col="director_trades.announcement_url")
             params.append(retry_after_days)
+            params.extend(retry_no_extract_between or ())
         base += " ORDER BY announcement_url, trade_date DESC"
 
     # Re-sort the de-duplicated set by recency and cap.
@@ -323,21 +347,47 @@ def update_trade(url: str, d: dict, dry_run: bool):
         raise
 
 
-def process_one(row: dict, dry_run: bool, record_attempts: bool) -> str:
+def process_one(row: dict, dry_run: bool, record_attempts: bool, direct: Any = None, usage: Any = None) -> str:
     url = row["announcement_url"]
-    outcome = _process_one_inner(row, dry_run)
-    # §6.9 Record the attempt so persistent failures are skipped next run.
-    if record_attempts and not dry_run:
+    outcome = _process_one_inner(row, dry_run, direct, usage)
+    # §6.9 Record the attempt so persistent failures are skipped next run. A
+    # model failure is never recorded: it says nothing about the notice.
+    if record_attempts and not dry_run and outcome != extract.MODEL_ERROR:
         record_attempt(url, outcome)
     return outcome
 
 
-def _process_one_inner(row: dict, dry_run: bool) -> str:
+def _process_one_inner(row: dict, dry_run: bool, direct: Any = None, usage: Any = None) -> str:
     url = row["announcement_url"]
     text = extract.download_pdf_text(_session(), url, max_pages=4)
     if not text:
         return "no_pdf"
-    parsed = extract_3y(text)
+    if direct is not None:
+        import direct_extract
+
+        try:
+            trade, outcome = direct.extract(text, usage=usage)
+        except direct_extract.ModelCallError as e:
+            log.warning("  %s: model error, not recorded (the next run retries it): %s", url[-40:], e)
+            return extract.MODEL_ERROR
+        if trade is None:
+            return outcome  # not_3y | disputed | invalid_<reason>
+        d = {
+            "director_name": trade.director_name,
+            "trade_type": trade.trade_type,
+            "shares_traded": trade.shares,
+            "total_value": trade.total_value,
+            "price_per_share": trade.price,
+            "trade_date": trade.trade_date,
+            "confidence": 1.0 if outcome in ("agree", "majority") else 0.6,
+        }
+        update_trade(url, d, dry_run)
+        return "ok" if outcome in ("agree", "majority") else f"ok_{outcome}"
+    try:
+        parsed = extract_3y(text)
+    except extract.ModelError as e:
+        log.warning("  %s: model error, not recorded (the next run retries it): %s", url[-40:], e)
+        return extract.MODEL_ERROR
     if not parsed:
         return "no_extract"
     d = derive_trade(parsed)
@@ -354,8 +404,28 @@ def main():
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--retry-after-days", type=int, default=30,
                     help="§6.9 skip URLs attempted within this many days (0=disable, retry everything)")
+    ap.add_argument("--backend", choices=["openrouter", "gemini"], default=os.environ.get("EXTRACTOR_BACKEND") or "openrouter")
+    ap.add_argument("--retry-no-extract-between", default=os.environ.get("DIRECTOR_RETRY_NO_EXTRACT_BETWEEN", ""),
+                    help="FROM:TO dates: no_extract markers recorded in [FROM, TO) do not cause a skip "
+                         "(re-admits notices misrecorded during a model outage)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
+    window = None
+    if args.retry_no_extract_between:
+        a, _, b = args.retry_no_extract_between.partition(":")
+        if not (re.fullmatch(r"\d{4}-\d{2}-\d{2}", a) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", b)):
+            ap.error("--retry-no-extract-between must be YYYY-MM-DD:YYYY-MM-DD")
+        window = (a, b)
+    direct = None
+    if args.backend == "openrouter":
+        import director_direct
+
+        direct = director_direct.from_env()
+        if direct is None and not args.dry_run:
+            log.error("--backend openrouter needs OPENROUTER_API_KEY: refusing to run (nothing selected, nothing written)")
+            sys.exit(1)
+        if direct is not None:
+            log.info("Backend openrouter: primary=%s checker=%s arbiter=%s", direct.primary, direct.checker, direct.arbiter)
 
     original_limit, original_workers = args.limit, args.workers
     args.limit, args.workers = extract.resolve_gemini_run_budget(
@@ -374,17 +444,21 @@ def main():
         )
 
     conn = extract.get_db_connection()
-    rows = select_urls(conn, args.priority, args.limit, retry_after_days=args.retry_after_days)
+    rows = select_urls(conn, args.priority, args.limit, retry_after_days=args.retry_after_days,
+                       retry_no_extract_between=window)
     record_attempts = args.retry_after_days > 0 and attempts_table_exists(conn)
     if args.retry_after_days > 0 and not record_attempts:
         log.warning("director_extract_attempts table missing (apply migration 000069) — failure-budget disabled this run")
+    conn.close()  # selection is done; workers open their own connections
     log.info("Director-trade extraction: %d PDFs to process (priority=%s, retry_after_days=%d)",
              len(rows), args.priority, args.retry_after_days)
 
-    counts: dict[str, int] = {}
+    counts: Counter = Counter()
     done = 0
+    run_usage = TokenUsage()
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(process_one, r, args.dry_run, record_attempts): r for r in rows}
+        futs = {ex.submit(process_one, r, args.dry_run, record_attempts, direct, TokenUsage(parent=run_usage)): r
+                for r in rows}
         for fut in concurrent.futures.as_completed(futs):
             try:
                 outcome = fut.result()
@@ -396,8 +470,17 @@ def main():
             if done % 50 == 0:
                 log.info("  progress %d/%d  %s", done, len(rows), counts)
 
-    log.info("DONE: %s", counts)
-    conn.close()
+    log.info("DONE: %s", dict(counts))
+    log.info("Model tokens this run: %s", run_usage.summary())
+    if direct is not None:
+        log.info("Consensus: %s", dict(direct.stats))
+    if counts[extract.MODEL_ERROR]:
+        log.error("%d model errors: those notices were not recorded and the next run retries them",
+                  counts[extract.MODEL_ERROR])
+        from extract_reports_concurrent import model_errors_fail_run
+
+        if model_errors_fail_run(counts, extract.MAX_CONSECUTIVE_MODEL_ERRORS):
+            sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ import { StatGroup, Stat } from "./stat-group";
 import { PullQuote } from "./pull-quote";
 import { Figure } from "./figure";
 import { Timeline, TimelineEvent } from "./timeline";
+import { articleFigureComponents } from "~/@/components/mdx/article-figures";
 
 // Charts are client-only (connect-web under the hood) — never SSR them.
 const ShortInterestChart = dynamic(
@@ -34,6 +35,7 @@ const FlowChart = dynamic(
 );
 
 export const MDX_COMPONENTS = {
+  ...articleFigureComponents,
   ShortInterestChart,
   PriceChart,
   BankShortBasket,

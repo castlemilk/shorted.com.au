@@ -40,7 +40,18 @@ export function useOverlayLayers(
   const layers = useMemo(
     () => wanted.flatMap((key, i) => {
       const topo = loaded[i];
-      return topo ? [{ key, topology: topo, color: OVERLAY_BY_KEY[key].color, opacity: opacities[key] }] : [];
+      if (!topo) return [];
+      const def = OVERLAY_BY_KEY[key];
+      if (def.kind === "categorical" && def.classProperty && def.classes) {
+        // Categorical (zoning): per-class fills + hover identify by class label.
+        return [{
+          key, topology: topo, color: def.color, opacity: opacities[key],
+          classProperty: def.classProperty,
+          classColors: Object.fromEntries(def.classes.map((c) => [c.value, c.color])),
+          classLabels: Object.fromEntries(def.classes.map((c) => [c.value, c.label])),
+        }];
+      }
+      return [{ key, topology: topo, color: def.color, opacity: opacities[key] }];
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- identity encodes wanted, opacity and load time
     [identity],

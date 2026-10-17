@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -137,8 +138,8 @@ export default async function ComparePage({ params }: PageProps) {
   const posB = stockB.reportedShortPositions ?? 0;
   const nameA = stockA.name || lo;
   const nameB = stockB.name || hi;
-  const industryA = stockA.industry || "";
-  const industryB = stockB.industry || "";
+  const industryA = industryLabel(stockA.industry);
+  const industryB = industryLabel(stockB.industry);
 
   const asOfIso = new Date().toISOString().slice(0, 10);
   const asOfDisplay = new Date().toLocaleDateString("en-AU", {

@@ -1,0 +1,250 @@
+syntax = "proto3";
+
+package shorts.v1alpha1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+
+import "options/v1/options.proto";
+
+// Named, rule-based stock-picking strategies evaluated daily against ASX
+// price structure, reported fundamentals and ASIC short interest. Every rule
+// resolves to pass, fail or unknown; unknown (missing data) never counts as a
+// pass. Nothing here is financial advice.
+service StrategyService {
+  // ==================== Strategy Picks ====================
+
+  // List every strategy with its rules, metadata, caveats and sources, plus
+  // the current market regime (S&P/ASX 200).
+  rpc ListStrategies (ListStrategiesRequest) returns (ListStrategiesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+  // score and a per-rule pass / fail / unknown breakdown for each stock.
+  rpc GetStrategyPicks (GetStrategyPicksRequest) returns (GetStrategyPicksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // How one stock reads against every strategy: status, score, rank and the
+  // per-rule pass / fail / unknown breakdown. A stock that is not a candidate
+  // for a strategy still gets its rule results, with status "none".
+  rpc GetStockStrategyFit (GetStockStrategyFitRequest) returns (GetStockStrategyFitResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+}
+
+// ==================== Strategy Messages ====================
+
+// A named stock-picking strategy and how we evaluate it.
+message Strategy {
+  string id = 1;                                // Stable slug, e.g. "zanger-breakout".
+  string name = 2;
+  string author = 3;                            // e.g. "Dan Zanger".
+  string tagline = 4;                           // One sentence.
+  repeated string description_paragraphs = 5;   // 2-4 paragraphs, plain text.
+  repeated StrategyRule rules = 6;
+  StrategyMetadata metadata = 7;
+  repeated string caveats = 8;                  // What our data cannot see.
+  repeated string sources = 9;                  // Attribution lines.
+}
+
+// One rule of a strategy: the author's version and exactly how we test it.
+message StrategyRule {
+  string id = 1;              // e.g. "growth", "base", "breakout", "regime", "rs", "liquidity", "short_interest".
+  string title = 2;
+  string rule_text = 3;       // The rule in the author's terms.
+  string evaluation = 4;      // Exactly how we test it, with thresholds.
+  bool core = 5;              // Must pass for status "triggered".
+  string data_source = 6;     // "stock_fundamentals", "stock_prices", "index_prices" or "asic_shorts".
+}
+
+// Descriptive metadata for a strategy.
+message StrategyMetadata {
+  string style = 1;             // e.g. "momentum-breakout", "trend-following".
+  string holding_period = 2;    // e.g. "weeks to months".
+  string risk_posture = 3;      // e.g. "cut on a failed breakout (back inside the base)".
+  string universe = 4;          // e.g. "ASX equities with at least A$250k daily turnover".
+  string refresh_cadence = 5;   // e.g. "daily after the price sweep".
+  int32 rule_count = 6;
+}
+
+// The broad market trend, read from an index (the S&P/ASX 200, "XJO").
+message MarketRegime {
+  string index_code = 1;
+  string as_of = 2;               // YYYY-MM-DD of the last index close.
+  string regime = 3;              // "uptrend" | "neutral" | "downtrend"; empty when unavailable.
+  double close = 4;
+  double sma50 = 5;
+  double sma200 = 6;
+  double pct_off_52w_high = 7;    // Negative or zero.
+  string verdict = 8;             // Strategy-specific sentence, e.g. "Stand aside: XJO below its 200-day average."
+}
+
+// The outcome of one rule for one stock.
+message RuleResult {
+  string rule_id = 1;
+  string status = 2;      // "pass" | "fail" | "unknown".
+  string detail = 3;      // Human-readable evidence, e.g. "Revenue +41% YoY (FY to 2026-06-30)".
+  double value = 4;       // The number the rule tested, when there is one.
+  bool has_value = 5;     // False when value is absent (unknown), never read value then.
+}
+
+// One ranked stock for a strategy.
+message StrategyPick {
+  int32 rank = 1;                // 1-based, across the full (unfiltered) list.
+  string stock_code = 2;
+  string company_name = 3;
+  string industry = 4;
+  string status = 5;             // "triggered" | "setup" | "watch".
+  double score = 6;              // 0-100, orders rows within a status.
+  repeated RuleResult rules = 7;
+
+  // Headline numbers for the table.
+  double close = 8;              // Meaningful only when has_close.
+  string as_of = 9;              // YYYY-MM-DD of the last price.
+  double pct_off_52w_high = 10;
+  double volume_ratio_50d = 11;
+  double base_depth_pct = 12;
+  int32 base_length_days = 13;
+  double pivot = 14;             // The base high: the breakout and invalidation level.
+  double revenue_yoy_pct = 15;
+  bool has_revenue_yoy = 16;
+  double eps_yoy_pct = 17;
+  bool has_eps_yoy = 18;
+  double rs_3m_pct = 19;         // Meaningful only when has_rs_3m_pct.
+  double short_pct = 20;         // Meaningful only when has_short_pct.
+  double market_cap = 21;        // Meaningful only when has_market_cap.
+  string logo_url = 22;
+
+  // Presence flags for the headline numbers above. proto3 doubles cannot tell
+  // 0 from missing, and "0 means unknown" is the screener defect this feature
+  // must not repeat: reading short_pct 0 as "no short interest" is wrong for a
+  // stock we simply have no ASIC row for.
+
+  // True when rs_3m_pct is set (enough stock and XJO history for the 3m window).
+  bool has_rs_3m_pct = 23;
+  // True when short_pct is set (the stock has a reported ASIC short position).
+  bool has_short_pct = 24;
+  // True when market_cap is set.
+  bool has_market_cap = 25;
+  // True when close is set (the stock has a valid last price).
+  bool has_close = 26;
+
+  // Reported fundamentals behind the growth cells, with their basis and
+  // provenance, plus headline ratios. Absent when the stock has no
+  // fundamentals row at all.
+  PickFundamentals fundamentals = 27;
+}
+
+// Fundamentals for one pick. Every ratio is computed within one reporting
+// currency from one flow period and an aligned balance sheet; has_* is false
+// when an input is missing or the ratio is not meaningful for the company.
+message PickFundamentals {
+  string revenue_basis_period_type = 1;  // "annual" | "half" | "ttm"; empty when no revenue growth.
+  string revenue_period_end = 2;         // YYYY-MM-DD, end of the latest period in the revenue pair.
+  string eps_basis_period_type = 3;      // "annual" | "half" | "ttm"; empty when no EPS growth.
+  string eps_period_end = 4;             // YYYY-MM-DD, end of the latest period in the EPS pair.
+  string currency = 5;                   // Reporting currency (ISO 4217).
+  string fetched_at = 6;                 // RFC 3339, newest fetch of the inputs.
+  string revenue_basis_source = 7;       // "vendor" | "filing" (a company filing, extracted); empty when unknown.
+  string eps_basis_source = 8;           // "vendor" | "filing"; empty when unknown.
+  double net_margin_pct = 9;
+  bool has_net_margin_pct = 10;
+  double roe_pct = 11;
+  bool has_roe_pct = 12;
+  double fcf_margin_pct = 13;
+  bool has_fcf_margin_pct = 14;
+  double net_debt_to_ebitda = 15;        // Net debt excluding leases over EBITDA (normalized when published).
+  bool has_net_debt_to_ebitda = 16;
+  double pe_ratio = 17;                  // Latest close over 12-month EPS; AUD reporters only.
+  bool has_pe_ratio = 18;
+  bool is_financial = 19;                // Bank, insurer or other financial: some ratios are not meaningful.
+  bool net_income_positive = 20;         // Latest annual net income above zero.
+  repeated string not_meaningful = 21;   // Ratio names withheld because is_financial.
+}
+
+// Request for GetStrategyPicks.
+message GetStrategyPicksRequest {
+  string strategy_id = 1;   // Required, e.g. "zanger-breakout".
+  int32 limit = 2;          // Default 20, max 100.
+  int32 offset = 3;
+  string status = 4;        // Optional filter: "triggered" | "setup" | "watch".
+  // Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+  // "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+  // sort last; growth above +500% or below -95% sorts after every measured value.
+  // rank keeps the strategy's own ranking whatever the order.
+  string sort_by = 5;
+  bool require_fundamentals = 6;   // Only stocks with a fundamentals row.
+}
+
+// Response for GetStrategyPicks.
+message GetStrategyPicksResponse {
+  Strategy strategy = 1;
+  MarketRegime regime = 2;
+  repeated StrategyPick picks = 3;
+  int32 total_count = 4;                   // Picks matching the status filter, before paging.
+  int32 universe_count = 5;                // Stocks evaluated.
+  int32 fundamentals_coverage_count = 6;   // Evaluated stocks with growth data.
+  string as_of = 7;                        // YYYY-MM-DD of the latest price in the universe.
+  int32 fundamentals_rows_count = 8;       // Evaluated stocks with any reported fundamentals row.
+}
+
+// Request for GetStockStrategyFit.
+message GetStockStrategyFitRequest {
+  string stock_code = 1;   // ASX code, e.g. "BHP".
+}
+
+// One strategy's reading of one stock.
+message StrategyFit {
+  string strategy_id = 1;
+  string strategy_name = 2;
+  string status = 3;        // "triggered" | "setup" | "watch" | "none" (not a candidate).
+  double score = 4;         // 0-100; 0 when status is "none".
+  int32 rank = 5;           // 1-based rank among the strategy's picks; 0 when status is "none".
+  int32 total_count = 6;    // Picks the strategy has in total.
+  repeated RuleResult rules = 7;
+}
+
+// The price features the evaluator read for one stock (mv_price_features),
+// so a chart can draw the levels the rules tested. Every nullable number
+// travels with a has_ flag; read the value only when its flag is true.
+message PriceFeatures {
+  string as_of = 1;                      // YYYY-MM-DD of the last close.
+  double close = 2;
+  double sma50 = 3;                      bool has_sma50 = 4;
+  double sma150 = 5;                     bool has_sma150 = 6;
+  double sma200 = 7;                     bool has_sma200 = 8;
+  double sma200_prior_month = 9;         bool has_sma200_prior_month = 10;
+  double high52w = 11;                   bool has_high52w = 12;
+  double low52w = 13;                    bool has_low52w = 14;
+  // The pivot: the breakout and invalidation level.
+  double base_high = 15;                 bool has_base_high = 16;
+  double base_low = 17;                  bool has_base_low = 18;
+  double base_depth_pct = 19;            bool has_base_depth_pct = 20;
+  int32 base_length_days = 21;           bool has_base_length_days = 22;
+  bool breakout_recent = 23;
+  string breakout_date = 24;             // YYYY-MM-DD; empty when there was no breakout.
+  double rs3m_pct = 25;                  bool has_rs3m_pct = 26;
+  double rs6m_pct = 27;                  bool has_rs6m_pct = 28;
+  double volume_ratio50d = 29;           bool has_volume_ratio50d = 30;
+  int32 sessions_available = 31;
+}
+
+// Response for GetStockStrategyFit.
+message GetStockStrategyFitResponse {
+  string stock_code = 1;
+  string as_of = 2;                 // YYYY-MM-DD of the latest price in the universe.
+  MarketRegime regime = 3;
+  repeated StrategyFit fits = 4;    // One per strategy; empty when the stock is outside the universe.
+  bool in_universe = 5;
+  PriceFeatures price_features = 6;  // Set only when in_universe is true.
+}
+
+// Request for ListStrategies.
+message ListStrategiesRequest {}
+
+// Response for ListStrategies.
+message ListStrategiesResponse {
+  repeated Strategy strategies = 1;
+  MarketRegime regime = 2;   // Verdict is strategy-neutral here; GetStrategyPicks phrases it per strategy.
+}

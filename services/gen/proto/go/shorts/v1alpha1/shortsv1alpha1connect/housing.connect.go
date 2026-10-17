@@ -78,6 +78,12 @@ const (
 	// HousingServiceGetDropIndexSeriesProcedure is the fully-qualified name of the HousingService's
 	// GetDropIndexSeries RPC.
 	HousingServiceGetDropIndexSeriesProcedure = "/shorts.v1alpha1.HousingService/GetDropIndexSeries"
+	// HousingServiceListCouncilsProcedure is the fully-qualified name of the HousingService's
+	// ListCouncils RPC.
+	HousingServiceListCouncilsProcedure = "/shorts.v1alpha1.HousingService/ListCouncils"
+	// HousingServiceGetCouncilProfileProcedure is the fully-qualified name of the HousingService's
+	// GetCouncilProfile RPC.
+	HousingServiceGetCouncilProfileProcedure = "/shorts.v1alpha1.HousingService/GetCouncilProfile"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -98,6 +104,8 @@ var (
 	housingServiceGetPriceDropsOverviewMethodDescriptor  = housingServiceServiceDescriptor.Methods().ByName("GetPriceDropsOverview")
 	housingServiceListAgencyPriceStatsMethodDescriptor   = housingServiceServiceDescriptor.Methods().ByName("ListAgencyPriceStats")
 	housingServiceGetDropIndexSeriesMethodDescriptor     = housingServiceServiceDescriptor.Methods().ByName("GetDropIndexSeries")
+	housingServiceListCouncilsMethodDescriptor           = housingServiceServiceDescriptor.Methods().ByName("ListCouncils")
+	housingServiceGetCouncilProfileMethodDescriptor      = housingServiceServiceDescriptor.Methods().ByName("GetCouncilProfile")
 )
 
 // HousingServiceClient is a client for the shorts.v1alpha1.HousingService service.
@@ -132,6 +140,12 @@ type HousingServiceClient interface {
 	ListAgencyPriceStats(context.Context, *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error)
 	// Daily discounting index series (national/state/suburb) for the price-drops chart.
 	GetDropIndexSeries(context.Context, *connect.Request[v1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[v1alpha1.GetDropIndexSeriesResponse], error)
+	// Every council with a page in one state (kind council | unincorporated),
+	// with the rollup metrics the council index and choropleth colour by.
+	ListCouncils(context.Context, *connect.Request[v1alpha1.ListCouncilsRequest]) (*connect.Response[v1alpha1.ListCouncilsResponse], error)
+	// One council's hub: identity, current facts, time series, member suburbs,
+	// hazard/price/crime rollups, representation, price drops and neighbours.
+	GetCouncilProfile(context.Context, *connect.Request[v1alpha1.GetCouncilProfileRequest]) (*connect.Response[v1alpha1.GetCouncilProfileResponse], error)
 }
 
 // NewHousingServiceClient constructs a client for the shorts.v1alpha1.HousingService service. By
@@ -234,6 +248,18 @@ func NewHousingServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(housingServiceGetDropIndexSeriesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listCouncils: connect.NewClient[v1alpha1.ListCouncilsRequest, v1alpha1.ListCouncilsResponse](
+			httpClient,
+			baseURL+HousingServiceListCouncilsProcedure,
+			connect.WithSchema(housingServiceListCouncilsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getCouncilProfile: connect.NewClient[v1alpha1.GetCouncilProfileRequest, v1alpha1.GetCouncilProfileResponse](
+			httpClient,
+			baseURL+HousingServiceGetCouncilProfileProcedure,
+			connect.WithSchema(housingServiceGetCouncilProfileMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -254,6 +280,8 @@ type housingServiceClient struct {
 	getPriceDropsOverview  *connect.Client[v1alpha1.GetPriceDropsOverviewRequest, v1alpha1.GetPriceDropsOverviewResponse]
 	listAgencyPriceStats   *connect.Client[v1alpha1.ListAgencyPriceStatsRequest, v1alpha1.ListAgencyPriceStatsResponse]
 	getDropIndexSeries     *connect.Client[v1alpha1.GetDropIndexSeriesRequest, v1alpha1.GetDropIndexSeriesResponse]
+	listCouncils           *connect.Client[v1alpha1.ListCouncilsRequest, v1alpha1.ListCouncilsResponse]
+	getCouncilProfile      *connect.Client[v1alpha1.GetCouncilProfileRequest, v1alpha1.GetCouncilProfileResponse]
 }
 
 // GetHousingOverview calls shorts.v1alpha1.HousingService.GetHousingOverview.
@@ -331,6 +359,16 @@ func (c *housingServiceClient) GetDropIndexSeries(ctx context.Context, req *conn
 	return c.getDropIndexSeries.CallUnary(ctx, req)
 }
 
+// ListCouncils calls shorts.v1alpha1.HousingService.ListCouncils.
+func (c *housingServiceClient) ListCouncils(ctx context.Context, req *connect.Request[v1alpha1.ListCouncilsRequest]) (*connect.Response[v1alpha1.ListCouncilsResponse], error) {
+	return c.listCouncils.CallUnary(ctx, req)
+}
+
+// GetCouncilProfile calls shorts.v1alpha1.HousingService.GetCouncilProfile.
+func (c *housingServiceClient) GetCouncilProfile(ctx context.Context, req *connect.Request[v1alpha1.GetCouncilProfileRequest]) (*connect.Response[v1alpha1.GetCouncilProfileResponse], error) {
+	return c.getCouncilProfile.CallUnary(ctx, req)
+}
+
 // HousingServiceHandler is an implementation of the shorts.v1alpha1.HousingService service.
 type HousingServiceHandler interface {
 	// Latest house-price headline metrics by region (national/state/capital city).
@@ -363,6 +401,12 @@ type HousingServiceHandler interface {
 	ListAgencyPriceStats(context.Context, *connect.Request[v1alpha1.ListAgencyPriceStatsRequest]) (*connect.Response[v1alpha1.ListAgencyPriceStatsResponse], error)
 	// Daily discounting index series (national/state/suburb) for the price-drops chart.
 	GetDropIndexSeries(context.Context, *connect.Request[v1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[v1alpha1.GetDropIndexSeriesResponse], error)
+	// Every council with a page in one state (kind council | unincorporated),
+	// with the rollup metrics the council index and choropleth colour by.
+	ListCouncils(context.Context, *connect.Request[v1alpha1.ListCouncilsRequest]) (*connect.Response[v1alpha1.ListCouncilsResponse], error)
+	// One council's hub: identity, current facts, time series, member suburbs,
+	// hazard/price/crime rollups, representation, price drops and neighbours.
+	GetCouncilProfile(context.Context, *connect.Request[v1alpha1.GetCouncilProfileRequest]) (*connect.Response[v1alpha1.GetCouncilProfileResponse], error)
 }
 
 // NewHousingServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -461,6 +505,18 @@ func NewHousingServiceHandler(svc HousingServiceHandler, opts ...connect.Handler
 		connect.WithSchema(housingServiceGetDropIndexSeriesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	housingServiceListCouncilsHandler := connect.NewUnaryHandler(
+		HousingServiceListCouncilsProcedure,
+		svc.ListCouncils,
+		connect.WithSchema(housingServiceListCouncilsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	housingServiceGetCouncilProfileHandler := connect.NewUnaryHandler(
+		HousingServiceGetCouncilProfileProcedure,
+		svc.GetCouncilProfile,
+		connect.WithSchema(housingServiceGetCouncilProfileMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.HousingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case HousingServiceGetHousingOverviewProcedure:
@@ -493,6 +549,10 @@ func NewHousingServiceHandler(svc HousingServiceHandler, opts ...connect.Handler
 			housingServiceListAgencyPriceStatsHandler.ServeHTTP(w, r)
 		case HousingServiceGetDropIndexSeriesProcedure:
 			housingServiceGetDropIndexSeriesHandler.ServeHTTP(w, r)
+		case HousingServiceListCouncilsProcedure:
+			housingServiceListCouncilsHandler.ServeHTTP(w, r)
+		case HousingServiceGetCouncilProfileProcedure:
+			housingServiceGetCouncilProfileHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -560,4 +620,12 @@ func (UnimplementedHousingServiceHandler) ListAgencyPriceStats(context.Context, 
 
 func (UnimplementedHousingServiceHandler) GetDropIndexSeries(context.Context, *connect.Request[v1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[v1alpha1.GetDropIndexSeriesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.HousingService.GetDropIndexSeries is not implemented"))
+}
+
+func (UnimplementedHousingServiceHandler) ListCouncils(context.Context, *connect.Request[v1alpha1.ListCouncilsRequest]) (*connect.Response[v1alpha1.ListCouncilsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.HousingService.ListCouncils is not implemented"))
+}
+
+func (UnimplementedHousingServiceHandler) GetCouncilProfile(context.Context, *connect.Request[v1alpha1.GetCouncilProfileRequest]) (*connect.Response[v1alpha1.GetCouncilProfileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.HousingService.GetCouncilProfile is not implemented"))
 }

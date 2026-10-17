@@ -1,0 +1,61 @@
+-- Startup file for the interactive `scripts/prod-psql.sh read-only` shell
+-- (task db:prod:psql). psql loads it in place of ~/.psqlrc.
+--
+-- The whole shell is ONE read-only transaction. Nothing is SET at session
+-- level: whether Supavisor's session pooler resets session state before it
+-- hands the backend to another client is unverified, and a read-only default
+-- left behind would fail the next client's writes. SET LOCAL dies with the
+-- transaction on any pooler. See prod-psql.sh.
+--
+-- What keeps the transaction open:
+--   ON_ERROR_ROLLBACK  a typo rolls back to a savepoint instead of aborting
+--                      the transaction, so you never need to type ROLLBACK.
+--   AUTOCOMMIT off     if you end the transaction yourself (COMMIT, ROLLBACK,
+--                      END, ABORT) or psql reconnects after a dropped
+--                      connection, the guard is gone. With AUTOCOMMIT off,
+--                      nothing after that is kept unless you also type COMMIT.
+--                      Quit and reopen instead.
+--
+-- ON_ERROR_STOP must be OFF while this file runs. In a startup file it ends
+-- only the FILE: psql then reads the terminal anyway, so a failed BEGIN or SET
+-- below would skip the check and the kill and open a shell with no guard
+-- (measured with psql 17: an out-of-range timeout did exactly that). Off, every
+-- line runs and a failure falls through to the \else branch. It can arrive on
+-- from -v or the system-wide psqlrc, so force it here. ON_ERROR_ROLLBACK is
+-- forced off for the same reason: on, it would roll a failed SET back to a
+-- savepoint and carry on.
+\set ON_ERROR_STOP off
+\set ON_ERROR_ROLLBACK off
+\set QUIET on
+\set AUTOCOMMIT off
+BEGIN READ ONLY;
+SET LOCAL default_transaction_read_only = on;
+SET LOCAL statement_timeout = :'prod_timeout';
+-- If any statement above failed, the transaction is aborted, this SELECT fails
+-- too, and :prod_guarded is never set.
+SELECT current_setting('transaction_read_only') = 'on'
+       AND current_setting('statement_timeout')::interval = :'prod_timeout'::interval
+       AS prod_guarded \gset
+\set QUIET off
+\if :prod_guarded
+-- Only now: set before the checks, it would roll back a failed SET to a
+-- savepoint and let the shell open without it.
+\set ON_ERROR_ROLLBACK on
+SELECT current_user AS role,
+       current_setting('transaction_read_only') AS transaction_read_only,
+       current_setting('default_transaction_read_only') AS default_transaction_read_only,
+       current_setting('statement_timeout') AS statement_timeout;
+\echo 'Production, READ-ONLY for as long as this transaction lasts. Ending it (COMMIT/ROLLBACK) ends the guard: quit (\\q) and reopen instead.'
+\set PROMPT1 'prod(read-only)%x %/%R%# '
+\set PROMPT2 'prod(read-only)%x %/%R%# '
+\else
+-- Also reached when the check above never ran: an unset :prod_guarded is not
+-- a valid boolean, and psql treats that \if as false.
+--
+-- \q cannot stop the shell from here. In a startup file it ends only the file:
+-- measured with psql 17, psql then goes on to read the terminal, on a
+-- connection whose guard failed. So terminate psql itself. `\!` runs the
+-- command in a /bin/sh whose parent is this psql.
+\warn 'prod-psql: the read-only guard did NOT take effect. Not opening a shell.'
+\! kill -TERM $PPID
+\endif

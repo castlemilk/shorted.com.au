@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import OpenAI from "openai";
 import { Storage } from "@google-cloud/storage";
+import { illustrationCaption } from "./illustration-caption.js";
+import { EDITORIAL_CRAFT_RULES } from "./editorial-art-policy.js";
 
 const GCS_BUCKET = process.env.GCS_LOGO_BUCKET ?? "shorted-company-logos";
 const ART_MODEL = () => process.env.ART_DIRECTOR_MODEL ?? "gemini-3.5-flash";
@@ -31,13 +33,15 @@ export interface ArtContext {
 }
 
 export const STYLE_PROMPTS: Record<string, string> = {
-  documentary: "Documentary news photograph. 35mm lens, natural available light, shallow depth of field, off-centre composition with leading lines, Reuters/Bloomberg wire-photo realism, true-to-life colour. NOT: text, charts, logos, readable signage, recognisable faces, watermarks, illustration look, oversaturation, HDR halos.",
-  aerial: "Aerial photograph, golden-hour low sun, long shadows, three-quarter oblique angle (not straight down), atmospheric haze toward the horizon, sense of scale from human-made structures. NOT: text, logos, map labels, drone visible in frame, fisheye distortion, miniature/tilt-shift effect.",
-  still_life: "Editorial still life. Single warm key light from upper left, deep soft shadows, macro detail on material texture, objects on raw stone or brushed steel surface, restrained dark palette with one warm accent. NOT: text, labels, logos, hands, lifestyle props, white studio background.",
-  isometric: "Clean isometric 3D render, translucent layered materials, single amber accent light against near-black, precise geometry, soft global illumination, subtle depth-of-field falloff at edges. NOT: text, numbers, axis labels, cartoon style, bright saturated palette, visible UI elements.",
-  archival: "Archival press photograph, grainy black-and-white or faded period-correct colour, period-correct equipment and dress, slight vignetting, scanned-print texture. NOT: text overlays, modern objects, digital sharpness, watermarks, recognisable faces in close-up.",
-  abstract: "Abstract editorial art: folded paper planes, layered gradients, or long-exposure light forms; brand amber (#FFA94D) accents on near-black (#0a0a0a); generous negative space; matte finish. NOT: text, charts, dollar signs, bulls or bears, logos, glossy 3D chrome, stock-photo clichés.",
-  environmental: "Wide environmental establishing shot, 24mm lens, overcast or dusk light, human-scale but figures distant and anonymous, industrial or landscape context dominating the frame, muted cinematic grade. NOT: text, signage close-ups, logos, recognisable faces, dramatic sky HDR, lens flare.",
+  paper_collage: "Conceptual editorial illustration in hand-cut paper collage. One recognisable subject performing one story-specific visual action, strong silhouette, tactile paper edges and warm ink. Selective amber with restrained subject colours such as sage, rust, oil black or limestone. Warm paper or dark ink ground chosen for the story; central crop-safe composition. NOT: baked-in text, numbers, logos, fake charts or interfaces, generic fintech symbols, toy-like asset packs, simulated news photography.",
+  printmaking: "Conceptual editorial illustration using woodcut or screen-print texture, warm paper, substantial ink shapes and selective amber. One concrete subject and one meaningful action, clear negative space and a silhouette readable at thumbnail size. Light or dark composition according to the subject, restrained sage or rust where useful. NOT: text, numbers, logos, invented measured data, generic financial wallpaper, simulated news photography.",
+  documentary: "Photographic material study presented as a conceptual editorial illustration. Natural light, tangible texture, restrained subject colours, warm paper or ink ground. Depict arranged objects or a visibly reconstructed model, never an image claiming to document an actual event, named site or facility. NOT: text, charts, logos, readable signage, people, watermarks, simulated wire photography, oversaturation, HDR halos.",
+  aerial: "Conceptual editorial illustration of a landscape or architectural model viewed from a three-quarter aerial angle. Tactile surfaces, warm paper or dark ink setting, readable scale and a story-specific relationship between objects. Generic geographical context only; do not claim to show an actual named site or event. NOT: text, logos, map labels, people, fisheye distortion, simulated news photography.",
+  still_life: "Conceptual editorial still life. A recognisable physical subject in one story-specific action or comparison, tactile material detail, soft natural or raking light, deliberate negative space. Warm paper, raw stone or dark ink surface selected for the subject, selective amber and restrained material colours. NOT: text, labels, logos, people, generic lifestyle props, fabricated documentary scenes, glossy fintech symbols.",
+  isometric: "Conceptual sculptural editorial illustration, physical layered paper or material models viewed at an oblique angle, readable subject and meaningful action. Warm paper or dark ink ground, restrained sage/rust and selective amber, matte texture. NOT: text, numbers, axis labels, fabricated data, visible UI elements, glowing asset packs, glossy toy-like 3D.",
+  archival: "Archival-inspired editorial illustration using grainy monochrome or restrained faded colour, period-appropriate material models, scanned-paper texture. Clearly an illustration, never a fabricated historical photograph, document, event or named location. NOT: text, logos, watermarks, people, simulated press photography.",
+  abstract: "Conceptual editorial art built from recognisable folded-paper or material objects, showing one specific story mechanism through a clear visual action. Warm ink/paper, selective amber, restrained subject colours and generous negative space. NOT: text, charts, dollar signs, bulls or bears, logos, gradients as the subject, glossy chrome, generic financial wallpaper.",
+  environmental: "Conceptual editorial illustration of an industrial or landscape context using paper, print texture or tangible models. One dominant subject and a story-specific action or tension, restrained natural material colours on warm paper or dark ink. Do not imitate a photograph of an actual event, named facility or location. NOT: text, signage, logos, people, dramatic HDR, lens flare, simulated photojournalism.",
 };
 
 const PLAN_SCHEMA = {
@@ -51,8 +55,8 @@ const PLAN_SCHEMA = {
           role: { type: SchemaType.STRING, enum: ["hero", "inline"], format: "enum" },
           style: { type: SchemaType.STRING, enum: Object.keys(STYLE_PROMPTS), format: "enum" },
           ratio: { type: SchemaType.STRING, enum: ["landscape", "portrait", "square"], format: "enum" },
-          brief: { type: SchemaType.STRING, description: "One concrete, specific photographic/illustrative subject tied to THIS article — use real place names, project names, materials, facilities, or events from the content. No text, charts, logos, readable labels, or recognisable faces." },
-          caption: { type: SchemaType.STRING, description: "Short editorial caption (<=12 words), factual, no period needed." },
+          brief: { type: SchemaType.STRING, description: "A conceptual illustration showing one concrete subject and one visual action tied to THIS article's finding or mechanism. Article details inform the subject, never a fabricated photograph of a real place, facility or event. No text, invented data, logos, readable labels or people." },
+          caption: { type: SchemaType.STRING, description: "Short caption (<=12 words) beginning 'Illustration:' and describing the conceptual subject/action, without claiming a real photographed place or event." },
           placement: { type: SchemaType.STRING, enum: ["full", "left", "right", "inset"], format: "enum" },
           anchorAfterBlock: { type: SchemaType.NUMBER, description: "0-based index of the body block (blank-line-separated) AFTER which to place this image." },
         },
@@ -63,14 +67,16 @@ const PLAN_SCHEMA = {
   required: ["images"],
 };
 
-const ART_SYSTEM = `You are the art director for Shorted, a sharp financial publication. Design a varied, editorial set of images for one article. Rules:
-- The FIRST image is the HERO: role='hero', ratio='landscape', documentary or environmental style, the single most arresting concrete subject from the dossier (a real project, site, material, or location). It must work as the page-top image of a serious financial masthead. Its caption is a proper news caption (what/where), not marketing copy. Every other image is role='inline'.
-- VARY the styles and ratios across the set — never all the same. Match style to content: aerial/environmental for sites & locations, documentary for events, still_life for materials/objects, isometric/abstract for data or concepts, archival for history.
-- Ground every brief in SPECIFIC real details from the article and company data — name the actual place, project, facility, material, or event (e.g. "the Kayelekera open-pit uranium mine in northern Malawi", not "a mine").
-- portrait ratio suits a single tall subject or person-free environmental shot; square suits objects/detail; landscape suits scenes/aerials/full-bleed.
-- Choose placement that reads well: "full" for a strong landscape/aerial; "right"/"left" for portrait beside text; "inset" for a smaller square detail.
+const ART_SYSTEM = `You are the art director for Shorted, the publication side of a warm Australian market terminal. Design a coherent editorial set of conceptual illustrations for one article. Rules:
+- The FIRST image is the HERO: role='hero', ratio='landscape', default to paper_collage or still_life. Show one recognisable concrete subject performing one visual action that communicates THIS article's finding, mechanism or tension. It must work as a 16:9 masthead and at 160x90 thumbnail size; keep the subject and action in the central 80%. Every other image is role='inline'.
+- Use tactile paper collage, printmaking or sculptural still life. Vary treatment and ratio where the content benefits, without forcing unrelated styles or adding decorative pictures. Match the material to the subject: oil black, limestone, sage, oxidised metal or brick can join warm ink/paper and selective amber. Choose light or dark grounds for the story, never force every image onto black with orange lighting.
+- Ground concepts in SPECIFIC article details, not the SEO headline alone. Actual project names and company data inform which materials or mechanisms matter; depict a conceptual model or object, never fabricate photojournalism of a real named place, facility or event. A property topic can use relevant Australian building forms; no universal skyline, Australia map or gum-leaf badge.
+- Every caption begins 'Illustration:' and names the conceptual subject/action in <=12 words. Never caption generated imagery as a photographed place, historical record or actual event. Preserve uncertainty: scrutiny is not proof of fraud, a squeeze candidate is not a promised squeeze, and qualitative illustration is not measured data.
+- portrait ratio suits a tall physical subject; square suits object detail; landscape suits a grouped comparison or full-bleed action.
+- Choose placement that reads well: "full" for the hero or a strong landscape comparison; "right"/"left" for portrait beside text; "inset" for a smaller square detail.
 - Spread anchorAfterBlock across the article (never all at the start; never after the final block).
-- NEVER request text, words, numbers, charts, graphs, logos, brand names, readable labels, or recognisable human faces in any image.
+- NEVER request text, words, numbers, charts, graphs, logos, brand names, readable labels, people, money piles, bulls/bears, rockets, invented interfaces or decorative data fragments. Keep exact measurements in accessible article figures, outside generated artwork.
+${EDITORIAL_CRAFT_RULES}
 Return STRICT JSON per the schema.`;
 
 export type PlanItem = Omit<LayoutImage, "url">;
@@ -104,6 +110,12 @@ export function normalisePlanRoles(items: PlanItem[]): PlanItem[] {
 
 export async function designImagePlan(ai: GoogleGenerativeAI, ctx: ArtContext, count = 3): Promise<PlanItem[]> {
   const blocks = ctx.bodyMd.split(/\n\s*\n/).filter((b) => b.trim().length > 0);
+  // Share a bounded prompt budget across the whole article rather than only
+  // showing its opening. Include the same indices used by anchorAfterBlock.
+  const labels = blocks.map((_, index) => `[${index}] `);
+  const labelChars = labels.reduce((sum, label) => sum + label.length, 0) + Math.max(0, blocks.length - 1);
+  const excerptChars = Math.min(400, Math.max(0, Math.floor((16_000 - labelChars) / Math.max(1, blocks.length))));
+  const bodyExcerpts = blocks.map((block, index) => `${labels[index]}${block.trim().slice(0, excerptChars)}`).join("\n");
   const model = ai.getGenerativeModel({
     model: ART_MODEL(),
     systemInstruction: ART_SYSTEM,
@@ -125,6 +137,7 @@ export async function designImagePlan(ai: GoogleGenerativeAI, ctx: ArtContext, c
     ctx.reportMetrics?.length ? `Reported financials: ${ctx.reportMetrics.slice(0, 8).join("; ")}` : "",
     "",
     `The article has ${blocks.length} body blocks (0-indexed, blank-line separated). Anchor images between them.`,
+    `Article body excerpts by block (each may be truncated):\n${bodyExcerpts}`,
     "",
     `Design ${count} images. Return the JSON now.`,
   ].filter(Boolean).join("\n");
@@ -136,6 +149,7 @@ export async function designImagePlan(ai: GoogleGenerativeAI, ctx: ArtContext, c
     .filter((im) => im && im.brief && STYLE_PROMPTS[im.style])
     .map((im) => ({
       ...im,
+      caption: illustrationCaption(im.caption),
       anchorAfterBlock: Math.min(Math.max(0, Math.floor(im.anchorAfterBlock ?? 0)), Math.max(0, blocksN - 2)),
     }));
   return normalisePlanRoles(items);
@@ -149,12 +163,14 @@ export function sizeForRatio(ratio: string): "1536x1024" | "1024x1536" | "1024x1
 
 /** Render one plan spec via gpt-image-2 and return the PNG buffer. */
 async function renderSpec(openai: OpenAI, spec: PlanItem, quality: ImageQuality): Promise<Buffer> {
-  const stylePrefix = STYLE_PROMPTS[spec.style] ?? STYLE_PROMPTS.documentary;
+  const stylePrefix = STYLE_PROMPTS[spec.style] ?? STYLE_PROMPTS.paper_collage;
   const prompt = `${stylePrefix}.
 
-Subject (depict specifically): ${spec.brief}
+${EDITORIAL_CRAFT_RULES}
 
-STRICT: no text, words, numbers, letters, charts, graphs, logos, brand names, readable labels, or recognisable human faces.`;
+Conceptual subject and visual action (depict specifically): ${spec.brief}
+
+STRICT: no text, words, numbers, letters, charts, graphs, logos, brand names, readable labels, people, fake interfaces or invented measured data. Clearly conceptual editorial illustration; never simulate photojournalism of an actual named location, facility or event.`;
   const resp = await openai.images.generate({ model: "gpt-image-2-2026-04-21", prompt, size: sizeForRatio(spec.ratio), quality, n: 1 });
   const b64 = resp.data?.[0]?.b64_json;
   if (!b64) throw new Error("empty image response");

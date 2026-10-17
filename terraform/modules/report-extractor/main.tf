@@ -3,7 +3,9 @@
  *
  * Manages TWO Cloud Run Jobs from ONE image (services/report-extractor):
  *   - director-trade-extractor    (extract_director_trades.py): Appendix 3Y PDFs -> director_trades
- *   - financial-report-extractor  (extract_reports_concurrent.py): report PDFs -> financial_report_extractions + digests
+ *   - financial-report-extractor  (extract_reports_concurrent.py): statutory results PDFs ->
+ *     grounded metrics + document_meta + digests in financial_report_extractions
+ *     (docs/plans/fundamentals-coverage.md 6.1 / 6.2)
  * Plus a shared service account, secret IAM (DATABASE_URL, OTEL, optional GEMINI_API_KEY),
  * GCS write access for digest raw-text, and a Cloud Scheduler per job.
  *
@@ -46,6 +48,15 @@ resource "google_secret_manager_secret_iam_member" "otel_headers" {
 resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
   count     = var.gemini_secret_exists ? 1 : 0
   secret_id = var.gemini_secret_name
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.report_extractor.email}"
+  project   = var.project_id
+}
+
+# The direct extractor's OpenRouter key (financial-report-extractor only).
+resource "google_secret_manager_secret_iam_member" "openrouter_api_key" {
+  count     = var.openrouter_secret_name != "" ? 1 : 0
+  secret_id = var.openrouter_secret_name
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.report_extractor.email}"
   project   = var.project_id
@@ -106,6 +117,43 @@ resource "google_cloud_run_v2_job" "director_trade_extractor" {
             }
           }
         }
+        # Backend: openrouter (director_direct.py consensus) when an
+        # OpenRouter key is configured, else the single Gemini call.
+        env {
+          name  = "EXTRACTOR_BACKEND"
+          value = var.openrouter_secret_name != "" ? "openrouter" : "gemini"
+        }
+        dynamic "env" {
+          for_each = var.openrouter_secret_name != "" ? [1] : []
+          content {
+            name = "OPENROUTER_API_KEY"
+            value_source {
+              secret_key_ref {
+                secret  = var.openrouter_secret_name
+                version = "latest"
+              }
+            }
+          }
+        }
+        env {
+          name  = "EXTRACTOR_PRIMARY_MODEL"
+          value = var.extractor_models.primary
+        }
+        env {
+          name  = "EXTRACTOR_CHECKER_MODEL"
+          value = var.extractor_models.checker
+        }
+        env {
+          name  = "EXTRACTOR_ARBITER_MODEL"
+          value = var.extractor_models.arbiter
+        }
+        # Re-admits the notices misrecorded as no_extract while every model
+        # call was failing (2026-07-30 until this fix); a marker recorded
+        # after the window's end skips normally. Remove once the backlog clears.
+        env {
+          name  = "DIRECTOR_RETRY_NO_EXTRACT_BETWEEN"
+          value = var.openrouter_secret_name != "" ? "2026-07-30:2026-10-15" : ""
+        }
         env {
           name  = "GEMINI_MAX_RUN_ITEMS"
           value = tostring(var.director_limit)
@@ -144,12 +192,24 @@ resource "google_cloud_run_v2_job" "director_trade_extractor" {
   depends_on = [
     google_secret_manager_secret_iam_member.database_url,
     google_secret_manager_secret_iam_member.otel_headers,
+    google_secret_manager_secret_iam_member.openrouter_api_key,
   ]
 }
 
 # ---------------------------------------------------------------------------
 # Job 2: financial-report-extractor  (extract_reports_concurrent.py)
 # ---------------------------------------------------------------------------
+# Paid Gemini work, so every knob here is a cost guardrail pinned by
+# cost-guardrails.test.mjs (contract 6.2):
+#   - --limit and GEMINI_MAX_RUN_ITEMS both come from var.reports_limit;
+#   - --workers and GEMINI_MAX_RUN_WORKERS are both 4 (the container's own cap
+#     would otherwise silently clamp the CLI value);
+#   - --max-pages 8 bounds the text (and so the tokens) per document;
+#   - --budget-min 90 stops STARTING reports after 90 minutes, and the 7200 s
+#     timeout leaves 30 minutes for the (at most 4) in-flight reports to
+#     finish, so a slow day ends with a clean exit and a logged remainder, not
+#     a killed task;
+#   - max_retries = 0: a retry would re-spend the run's tokens.
 resource "google_cloud_run_v2_job" "financial_report_extractor" {
   name     = "financial-report-extractor"
   location = var.region
@@ -161,12 +221,12 @@ resource "google_cloud_run_v2_job" "financial_report_extractor" {
     template {
       service_account = google_service_account.report_extractor.email
       max_retries     = 0
-      timeout         = "3600s"
+      timeout         = "7200s"
 
       containers {
         image   = var.image_url
         command = ["python", "extract_reports_concurrent.py"]
-        args    = ["--recent", "2", "--limit", tostring(var.reports_limit), "--workers", "2", "--max-pages", "6", "--top-shorted-first"]
+        args    = ["--recent", "2", "--limit", tostring(var.reports_limit), "--workers", "4", "--max-pages", "8", "--budget-min", "90"]
 
         env {
           name  = "ENVIRONMENT"
@@ -206,13 +266,43 @@ resource "google_cloud_run_v2_job" "financial_report_extractor" {
             }
           }
         }
+        # Backend: openrouter (direct_extract.py) when an OpenRouter key is
+        # configured, else the langextract + Gemini path.
+        env {
+          name  = "EXTRACTOR_BACKEND"
+          value = var.openrouter_secret_name != "" ? "openrouter" : "gemini"
+        }
+        dynamic "env" {
+          for_each = var.openrouter_secret_name != "" ? [1] : []
+          content {
+            name = "OPENROUTER_API_KEY"
+            value_source {
+              secret_key_ref {
+                secret  = var.openrouter_secret_name
+                version = "latest"
+              }
+            }
+          }
+        }
+        env {
+          name  = "EXTRACTOR_PRIMARY_MODEL"
+          value = var.extractor_models.primary
+        }
+        env {
+          name  = "EXTRACTOR_CHECKER_MODEL"
+          value = var.extractor_models.checker
+        }
+        env {
+          name  = "EXTRACTOR_ARBITER_MODEL"
+          value = var.extractor_models.arbiter
+        }
         env {
           name  = "GEMINI_MAX_RUN_ITEMS"
           value = tostring(var.reports_limit)
         }
         env {
           name  = "GEMINI_MAX_RUN_WORKERS"
-          value = "2"
+          value = "4"
         }
         env {
           name  = "GCS_REPORTS_BUCKET"
@@ -248,6 +338,7 @@ resource "google_cloud_run_v2_job" "financial_report_extractor" {
   depends_on = [
     google_secret_manager_secret_iam_member.database_url,
     google_secret_manager_secret_iam_member.otel_headers,
+    google_secret_manager_secret_iam_member.openrouter_api_key,
   ]
 }
 
@@ -287,6 +378,7 @@ resource "google_cloud_scheduler_job" "director_trade_extractor" {
   attempt_deadline = "1800s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.director_scheduler_paused
 
   retry_config {
     retry_count          = 0
@@ -305,15 +397,19 @@ resource "google_cloud_scheduler_job" "director_trade_extractor" {
   depends_on = [google_cloud_run_v2_job_iam_member.director_invoker]
 }
 
-# Financial-report extractor — weekly (Sundays 14:00 UTC).
+# Financial-report extractor: var.reports_schedule (production: daily 14:00
+# UTC). The scheduler keeps its historical "-weekly" name on purpose: the name
+# is the resource's identity, and renaming it would replace the scheduler for
+# no behavioural gain.
 resource "google_cloud_scheduler_job" "financial_report_extractor" {
   name             = "financial-report-extractor-weekly"
-  description      = "Weekly financial-report digest extraction (top-shorted first)"
+  description      = "Financial-report extraction (statutory results, recent filers first)"
   schedule         = var.reports_schedule
   time_zone        = "UTC"
   attempt_deadline = "1800s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.reports_scheduler_paused
 
   retry_config {
     retry_count          = 0

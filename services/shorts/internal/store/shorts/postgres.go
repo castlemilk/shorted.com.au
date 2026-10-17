@@ -1168,30 +1168,28 @@ func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1
 		return ""
 	}
 
-	// Merge each field, preferring existing values over key_metrics
-	if existing.MarketCap == 0 {
-		existing.MarketCap = toFloat64(keyMetrics["market_cap"])
+	// key_metrics WINS for the market-moving fields (plan
+	// docs/plans/fundamentals-coverage.md §5.3). financial_statements.info is a
+	// stale manual snapshot with no date: it showed BHP at A$220bn while the
+	// peers card, reading key_metrics, showed A$331bn. A key_metrics value
+	// replaces the snapshot's whenever it is present, non-zero and finite; the
+	// snapshot survives only where key_metrics has nothing.
+	preferKeyMetric := func(dst *float64, key string) {
+		if v := toFloat64(keyMetrics[key]); v != 0 && !math.IsNaN(v) && !math.IsInf(v, 0) {
+			*dst = v
+		}
 	}
+	preferKeyMetric(&existing.MarketCap, "market_cap")
+	preferKeyMetric(&existing.PeRatio, "pe_ratio")
+	preferKeyMetric(&existing.Eps, "eps")
+	preferKeyMetric(&existing.DividendYield, "dividend_yield")
+	preferKeyMetric(&existing.Beta, "beta")
+	preferKeyMetric(&existing.Week_52High, "fifty_two_week_high")
+	preferKeyMetric(&existing.Week_52Low, "fifty_two_week_low")
+
+	// Everything else still prefers existing values over key_metrics.
 	if existing.CurrentPrice == 0 {
 		existing.CurrentPrice = toFloat64(keyMetrics["current_price"])
-	}
-	if existing.PeRatio == 0 {
-		existing.PeRatio = toFloat64(keyMetrics["pe_ratio"])
-	}
-	if existing.Eps == 0 {
-		existing.Eps = toFloat64(keyMetrics["eps"])
-	}
-	if existing.DividendYield == 0 {
-		existing.DividendYield = toFloat64(keyMetrics["dividend_yield"])
-	}
-	if existing.Beta == 0 {
-		existing.Beta = toFloat64(keyMetrics["beta"])
-	}
-	if existing.Week_52High == 0 {
-		existing.Week_52High = toFloat64(keyMetrics["fifty_two_week_high"])
-	}
-	if existing.Week_52Low == 0 {
-		existing.Week_52Low = toFloat64(keyMetrics["fifty_two_week_low"])
 	}
 	if existing.Volume == 0 {
 		existing.Volume = toFloat64(keyMetrics["avg_volume"])
@@ -1656,7 +1654,40 @@ func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, s
 	return dates, earliest.Format("2006-01-02"), latest.Format("2006-01-02"), totalCount, nil
 }
 
+// GetNextAvailableDate returns the first trading date after `after`, or "" if
+// there is none.
+//
+// GetMarketByDate used to derive next_date from the 90 most recent dates, so
+// every date older than those 90 reported the oldest of them as its next date:
+// on 2026-09-26 both 2024-01-02 and 2015-03-02 said 2026-05-18, and a client
+// stepping forward from an old date jumped years at once.
+func (s *postgresStore) GetNextAvailableDate(after string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// MIN over no rows is NULL, which scans into a nil *time.Time.
+	var next *time.Time
+	err := s.db.QueryRow(ctx,
+		`SELECT MIN(date) FROM mv_available_dates WHERE date > $1::date`, after).Scan(&next)
+	if err != nil {
+		// Same fallback as GetAvailableDates, for a database without the MV
+		// (migration 000049). The (DATE, PRODUCT_CODE) unique index serves it.
+		log.Infof("mv_available_dates not available, using fallback query: %v", err)
+		err = s.db.QueryRow(ctx,
+			`SELECT MIN("DATE") FROM shorts WHERE "DATE" >= $1::date + 1`, after).Scan(&next)
+		if err != nil {
+			return "", fmt.Errorf("failed to query next available date: %w", err)
+		}
+	}
+	if next == nil {
+		return "", nil
+	}
+	return next.Format("2006-01-02"), nil
+}
+
 func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	// Build dynamic query with filters
 	baseQuery := `
 		SELECT 
@@ -1709,7 +1740,7 @@ func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha
 	baseQuery += fmt.Sprintf(" LIMIT $%d", argIndex)
 	args = append(args, limit)
 
-	rows, err := s.db.Query(context.Background(), baseQuery, args...)
+	rows, err := s.db.Query(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query sync_status: %w", err)
 	}
@@ -2607,39 +2638,12 @@ func (s *postgresStore) GetStockFinancialHighlights(stockCodes []string, maxPerS
 			continue
 		}
 
-		// Parse metrics JSON — values can be objects or arrays of objects
-		var rawMetrics map[string]json.RawMessage
-		if err := json.Unmarshal([]byte(metricsJSON), &rawMetrics); err != nil {
+		// The trust funnel (plan fundamentals-coverage.md §4.1): ungrounded
+		// entries and echoed few-shot examples are dropped, provenance keys
+		// stripped. A report left with no metric does not take a slot.
+		metrics := parseHighlightMetrics([]byte(metricsJSON))
+		if len(metrics) == 0 {
 			continue
-		}
-
-		var metrics []FinancialMetricEntry
-		for metricType, raw := range rawMetrics {
-			// Try array first
-			var arr []map[string]string
-			if err := json.Unmarshal(raw, &arr); err == nil {
-				for _, attrs := range arr {
-					sourceText := attrs["source_text"]
-					delete(attrs, "source_text")
-					metrics = append(metrics, FinancialMetricEntry{
-						MetricType: metricType,
-						SourceText: sourceText,
-						Attributes: attrs,
-					})
-				}
-				continue
-			}
-			// Fall back to single object
-			var single map[string]string
-			if err := json.Unmarshal(raw, &single); err == nil {
-				sourceText := single["source_text"]
-				delete(single, "source_text")
-				metrics = append(metrics, FinancialMetricEntry{
-					MetricType: metricType,
-					SourceText: sourceText,
-					Attributes: single,
-				})
-			}
 		}
 
 		result[code] = append(result[code], FinancialReportHighlight{

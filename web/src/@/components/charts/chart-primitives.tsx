@@ -4,6 +4,12 @@ import { LinearGradient } from "@visx/gradient";
 import { AxisBottom, AxisLeft, AxisRight } from "@visx/axis";
 import { curveLinear } from "@visx/curve";
 import { chartTheme } from "./chart-theme";
+import {
+  AXIS_FONT_PX,
+  AXIS_LABEL_DX_PX,
+  AXIS_NUM_TICKS,
+  AXIS_TICK_PX,
+} from "./axis-margin";
 import type { ChartPoint, ChartSeriesSpec } from "./types";
 import type { ChartScales } from "./use-chart-scales";
 
@@ -64,31 +70,44 @@ export const Axes = React.memo(function Axes({
   rightFormat?: (v: number) => string;
   compact?: boolean;
 }) {
+  // `numTicks` is only a hint to d3: a two-month domain asked for 5 ticks gets
+  // every week (9 labels), which on a phone-width plot (~330px) collide into
+  // "Apr 05Apr 12Apr 19…". Thin the generated ticks so neighbouring labels
+  // keep at least `minGap` px — at desktop widths nothing is dropped.
+  const xTickValues = (() => {
+    const raw = xScale.ticks(compact ? 3 : 5);
+    if (raw.length < 2 || innerW <= 0) return raw;
+    const minGap = compact ? 48 : 64;
+    const spacing = innerW / (raw.length - 1);
+    const step = Math.max(1, Math.ceil(minGap / spacing));
+    return step === 1 ? raw : raw.filter((_, i) => i % step === 0);
+  })();
   return (
     <g pointerEvents="none">
       <AxisBottom
         top={innerH}
         scale={xScale}
-        numTicks={compact ? 3 : 5}
+        tickValues={xTickValues}
         stroke={chartTheme.axis}
         tickStroke={chartTheme.axis}
         tickLabelProps={() => ({
           fill: chartTheme.axisLabel,
-          fontSize: compact ? 9 : 10,
+          fontSize: compact ? 9 : AXIS_FONT_PX,
           textAnchor: "middle" as const,
         })}
       />
       <AxisLeft
         scale={leftScale}
-        numTicks={compact ? 3 : 4}
+        numTicks={compact ? 3 : AXIS_NUM_TICKS}
+        tickLength={AXIS_TICK_PX}
         stroke={chartTheme.axis}
         tickStroke={chartTheme.axis}
         tickFormat={leftFormat ? (v) => leftFormat(Number(v)) : undefined}
         tickLabelProps={() => ({
           fill: chartTheme.axisLabel,
-          fontSize: compact ? 9 : 10,
+          fontSize: compact ? 9 : AXIS_FONT_PX,
           textAnchor: "end" as const,
-          dx: -2,
+          dx: -AXIS_LABEL_DX_PX,
           dy: 3,
         })}
       />
@@ -96,15 +115,16 @@ export const Axes = React.memo(function Axes({
         <AxisRight
           left={innerW}
           scale={rightScale}
-          numTicks={compact ? 3 : 4}
+          numTicks={compact ? 3 : AXIS_NUM_TICKS}
+          tickLength={AXIS_TICK_PX}
           stroke={chartTheme.axis}
           tickStroke={chartTheme.axis}
           tickFormat={rightFormat ? (v) => rightFormat(Number(v)) : undefined}
           tickLabelProps={() => ({
             fill: chartTheme.axisLabel,
-            fontSize: compact ? 9 : 10,
+            fontSize: compact ? 9 : AXIS_FONT_PX,
             textAnchor: "start" as const,
-            dx: 2,
+            dx: AXIS_LABEL_DX_PX,
             dy: 3,
           })}
         />

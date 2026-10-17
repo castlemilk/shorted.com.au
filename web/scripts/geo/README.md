@@ -43,3 +43,49 @@ with the real DEM before `house-price-collector -mode elevation` is used.
 ## Attributes used
 - STE: `STE_CODE21`, `STE_NAME21`
 - SAL: `SAL_CODE21`, `SAL_NAME21`, `STE_NAME21`, `STE_CODE21`
+
+## Council (LGA) bridge
+
+`join-lga-mb.py` writes `web/public/geo/insights/suburb-lga.json` (each
+suburb's dominant council, its share, and every other council holding at least
+1% of it) and `lga-facts.json` (council identity: name, display name, state
+code, kind, area, Census 2021 dwellings, centroid). `house-price-collector -mode
+lga` loads both.
+
+It needs no geometry. SAL_2021 and LGA_2024 are both built from the same ASGS
+2021 mesh blocks, so the bridge is the exact sum of each suburb's mesh blocks,
+weighted by Census 2021 usual residents (dwellings, then area, when a suburb
+has nobody living in it). It replaced a centroid-in-polygon join that put 224
+suburbs in the wrong council and left 20 with none.
+
+Inputs, all ABS CC BY 4.0, staged outside git (e.g.
+`/Volumes/gamma-systems-2/shorted-council/abs/`):
+- ASGS Ed.3 allocation files `SAL_2021_AUST.xlsx` and `LGA_2024_AUST.xlsx`
+- Census 2021 `Mesh Block Counts, 2021.xlsx`
+- `abs-lga.geojson` from `fetch-abs-lga.mjs` (only for centroids; optional)
+
+    python3 -m pip install openpyxl
+    python3 web/scripts/geo/join-lga-mb.py --staging /Volumes/gamma-systems-2/shorted-council/abs
+    python3 -m unittest web/scripts/geo/test_join_lga_mb.py
+    node --test web/scripts/geo/lga-bridge.test.mjs
+
+## Council adjacency
+
+`services/shorts/internal/store/shorts/lga_adjacency.json` (go:embed) holds the
+council page's neighbours in two maps:
+
+- `neighbours`: councils in the SAME state whose dominant suburbs share a
+  boundary arc (`build-lga-adjacency.mjs`, from the committed suburb topology
+  and bridge). The topology is per state, so it never crosses a border.
+- `cross_state`: councils in DIFFERENT states whose ABS LGA_2024 boundaries
+  touch or come within 50 m (`build-lga-cross-border.mjs`, from
+  `.staging/abs-lga.geojson`; pseudo areas excluded). 76 pairs: Albury–Wodonga,
+  Queanbeyan-Palerang/Yass Valley/Snowy–ACT, Tweed–Gold Coast, the Murray
+  River councils, Shoalhaven–Jervis Bay and the desert borders. The pairs are
+  committed as `lga-cross-border.json`, so the artifact rebuilds from
+  committed inputs.
+
+      node web/scripts/geo/fetch-abs-lga.mjs            # only if .staging/abs-lga.geojson is absent
+      node web/scripts/geo/build-lga-cross-border.mjs   # after an LGA boundary edition change
+      node web/scripts/geo/build-lga-adjacency.mjs      # after any topology/bridge/pairs change
+      node --test web/scripts/geo/lga-adjacency.test.mjs web/scripts/geo/lga-cross-border.test.mjs
