@@ -529,3 +529,23 @@ func (c *MemoryCache) GetStrategyPicksKey(strategyID string) string {
 func (c *MemoryCache) GetMarketRegimeKey(indexCode string) string {
 	return c.generateKey("market_regime", indexCode)
 }
+
+// GetOwnershipOverviewKey builds the cache key for the ownership overview.
+func (c *MemoryCache) GetOwnershipOverviewKey() string {
+	return c.generateKey("ownership_overview")
+}
+
+// ListInstitutionsKey builds a cache key for one page of institutions.
+func (c *MemoryCache) ListInstitutionsKey(kind, query string, limit, offset int32) string {
+	return c.generateKey("ownership_institutions", kind, query, limit, offset)
+}
+
+// GetInstitutionKey builds a cache key for one institution.
+func (c *MemoryCache) GetInstitutionKey(slug string) string {
+	return c.generateKey("ownership_institution", slug)
+}
+
+// GetStockOwnershipKey builds a cache key for one stock's register.
+func (c *MemoryCache) GetStockOwnershipKey(stockCode string) string {
+	return c.generateKey("stock_ownership", stockCode)
+}
