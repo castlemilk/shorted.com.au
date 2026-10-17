@@ -254,6 +254,82 @@ jobs:
         run: |
           docker buildx bake --file docker-bake.hcl --builder shorted-builder --push --progress plain
 
+  # Same images, second home: rigs pull task images from the Cuttlefish
+  # registry with their control-plane token, so nothing on a rig needs a cloud
+  # credential. This job copies what build-images just pushed to GAR there,
+  # authenticating with the job's OIDC token (no repository secret).
+  #
+  # A job of its own that nothing needs, and best-effort past GAR auth: GAR
+  # stays the deploy source for Cloud Run and the VKE chart, so a slow or
+  # unavailable registry must never delay terraform-plan or fail a release. A
+  # failed login or push is a warning on this job, never a red deploy.
+  mirror-images:
+    needs: [determine-environment, build-images]
+    if: github.event_name != 'pull_request' && needs.build-images.result == 'success'
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
+          service_account: ${{ needs.determine-environment.outputs.sa-email }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
+
+      - name: Log in to the Cuttlefish registry (OIDC)
+        id: cuttlefish-login
+        continue-on-error: true
+        uses: ./.github/actions/cuttlefish-registry-login
+
+      # The image list is docker-bake.hcl's targets, so a new image is mirrored
+      # without anyone remembering this job. Each pulled image is removed again:
+      # the rig's disk is shared by every runner replica on the host.
+      - name: Mirror every baked image to the Cuttlefish registry
+        if: steps.cuttlefish-login.outcome == 'success'
+        continue-on-error: true
+        env:
+          SRC_REGISTRY: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted
+          DST_REGISTRY: cuttlefish-registry.benebsworth.com/shorted
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
+        run: |
+          set -uo pipefail
+          images=$(sed -n 's/^target "\([a-z][a-z0-9-]*\)" {$/\1/p' docker-bake.hcl)
+          if [ -z "$images" ]; then
+            echo "::warning::no image targets found in docker-bake.hcl; nothing mirrored"
+            exit 1
+          fi
+          failed=()
+          for name in $images; do
+            for tag in "$IMAGE_TAG" latest; do
+              src="${SRC_REGISTRY}/${name}:${tag}"
+              dst="${DST_REGISTRY}/${name}:${tag}"
+              if docker pull -q "$src" && docker tag "$src" "$dst" && docker push -q "$dst"; then
+                echo "mirrored ${name}:${tag}"
+              else
+                failed+=("${name}:${tag}")
+              fi
+              docker image rm "$src" "$dst" >/dev/null 2>&1 || true
+            done
+          done
+          if [ "${#failed[@]}" -gt 0 ]; then
+            echo "::warning::Cuttlefish registry mirror failed for ${failed[*]} (GAR is unaffected)"
+            exit 1
+          fi
+
+      - name: Log out of the Cuttlefish registry
+        if: always()
+        continue-on-error: true
+        run: docker logout cuttlefish-registry.benebsworth.com || true
+
   terraform-plan:
     needs: [determine-environment, validate-secrets, build-images]
     # Run even when production image builds are skipped for a pull request

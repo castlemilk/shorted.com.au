@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { parse } from "yaml";
@@ -284,4 +286,85 @@ test("run-tests runs the separate jobs module", () => {
   const s = step("run-tests", "Run jobs-module unit tests");
   assert.match(s.run, /cd services\/jobs/, "must cd into the jobs module");
   assert.match(s.run, /go test \.\/\.\.\./, "must run the whole module's tests");
+});
+
+// The Cuttlefish registry is a second home for the images, so rigs can pull
+// them with their control-plane token. It is never the deploy source: GAR is.
+// So the mirror may not sit on the deploy's path, and its failure may not
+// fail a deploy (a registry outage or a token the registry refuses is a
+// warning on its own job).
+test("the Cuttlefish mirror is off the deploy path and best-effort", () => {
+  const mirror = workflow.jobs?.["mirror-images"];
+  assert.ok(mirror, "mirror-images job missing");
+  assert.deepEqual(mirror.needs, ["determine-environment", "build-images"]);
+  assert.match(String(mirror.if), /github\.event_name != 'pull_request'/);
+  assert.match(String(mirror.if), /needs\.build-images\.result == 'success'/);
+
+  for (const [name, job] of Object.entries(workflow.jobs)) {
+    const needs = [job.needs ?? []].flat();
+    assert.ok(!needs.includes("mirror-images"), `${name} must not wait for the Cuttlefish mirror`);
+  }
+
+  const login = step("mirror-images", "Log in to the Cuttlefish registry (OIDC)");
+  assert.equal(login.uses, "./.github/actions/cuttlefish-registry-login");
+  assert.equal(login["continue-on-error"], true);
+  const copy = step("mirror-images", "Mirror every baked image to the Cuttlefish registry");
+  assert.equal(copy["continue-on-error"], true);
+  assert.equal(copy.if, "steps.cuttlefish-login.outcome == 'success'");
+  assert.equal(workflow.permissions["id-token"], "write", "the registry login needs the job's OIDC token");
+
+  // Only build-images publishes, and it never talks to the second registry.
+  const build = JSON.stringify(workflow.jobs["build-images"]);
+  assert.doesNotMatch(build, /cuttlefish-registry/);
+});
+
+const logPath = join(tmpdir(), `mirror-docker-${process.pid}.log`);
+
+function runMirror({ failOn = "" } = {}) {
+  const copy = step("mirror-images", "Mirror every baked image to the Cuttlefish registry");
+  return spawnSync("bash", ["-c", `docker() {
+  echo "docker $*" >> "$DOCKER_LOG"
+  if [ -n "$FAIL_ON" ] && [ "$1" = push ] && [[ "$*" == *"$FAIL_ON"* ]]; then return 1; fi
+  return 0
+}
+${copy.run}`], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      PATH: process.env.PATH,
+      SRC_REGISTRY: "gar.example/proj/shorted",
+      DST_REGISTRY: "registry.example/shorted",
+      IMAGE_TAG: "main-f55838bd",
+      DOCKER_LOG: logPath,
+      FAIL_ON: failOn,
+    },
+  });
+}
+
+test("the mirror copies every bake target, under both tags, and cleans up", () => {
+  rmSync(logPath, { force: true });
+  const result = runMirror();
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const log = readFileSync(logPath, "utf8");
+  const bake = readFileSync(new URL("../../docker-bake.hcl", import.meta.url), "utf8");
+  const targets = [...bake.matchAll(/^target "([a-z][a-z0-9-]*)" \{$/gm)].map((m) => m[1]);
+  assert.ok(targets.length >= 14, `expected every bake target, found ${targets.length}`);
+  assert.ok(!targets.includes("_go"), "the shared _go template is not an image");
+  for (const name of targets) {
+    for (const tag of ["main-f55838bd", "latest"]) {
+      assert.match(log, new RegExp(`docker pull -q gar\\.example/proj/shorted/${name}:${tag}\\n`));
+      assert.match(log, new RegExp(`docker push -q registry\\.example/shorted/${name}:${tag}\\n`));
+      assert.match(log, new RegExp(`docker image rm gar\\.example/proj/shorted/${name}:${tag} registry\\.example/shorted/${name}:${tag}\\n`));
+    }
+  }
+  rmSync(logPath, { force: true });
+});
+
+test("a failed push is a warning that names the image, after every other image is tried", () => {
+  rmSync(logPath, { force: true });
+  const result = runMirror({ failOn: "/shorts:latest" });
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /::warning::Cuttlefish registry mirror failed for shorts:latest \(GAR is unaffected\)/);
+  assert.match(readFileSync(logPath, "utf8"), /docker push -q registry\.example\/shorted\/take-writer:latest/);
+  rmSync(logPath, { force: true });
 });
