@@ -86,6 +86,24 @@ variable "resend_from" {
   default     = "Shorted <support@shorted.com.au>"
 }
 
+variable "telesis_secret_exists" {
+  description = "Whether the TELESIS_API_TOKEN secret exists in Secret Manager. Gates the secret binding and its IAM grant, so apply is safe before it is provisioned. Without it the admin job monitor cannot read Telesis, and jobs on the omega cluster read as paused and overdue."
+  type        = bool
+  default     = false
+}
+
+variable "telesis_org_id" {
+  description = "Telesis organisation that owns the shorted cron monitors (TELESIS_ORG_ID)."
+  type        = string
+  default     = ""
+}
+
+variable "telesis_service_id" {
+  description = "Telesis service the cron monitors hang on (\"shorted.com.au scheduled jobs\"). Required when the project token is scoped to it, which it should be."
+  type        = string
+  default     = ""
+}
+
 variable "unsubscribe_secret_exists" {
   description = "Whether the UNSUBSCRIBE_SECRET secret exists in Secret Manager (gates the secret env binding)."
   type        = bool

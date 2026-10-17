@@ -1302,7 +1302,13 @@ alerts on failed, missed and timed-out runs. That replaces the GCP
 - **An ERROR log with exit 0 no longer pages** (the GCP log-metric policy did).
   Exit non-zero (`runner.ExitCodeError`) if a path should alert.
 - Telesis **project tokens cannot register cron monitors** (user-role check).
-  `register-monitors.py` needs `telesis login`.
+  `register-monitors.py` needs `telesis login`. A read-role project token CAN
+  read them (skunkworq/uptime project-token read access), which is how the
+  admin job monitor shows cut-over jobs: a PAUSED Cloud Scheduler trigger whose
+  name is a monitor's name (or its name plus `-schedule`) becomes state
+  `CLUSTER` and takes its runs from Telesis (`jobmonitor/cluster.go`). Without
+  `TELESIS_API_TOKEN` those jobs read as paused and overdue. Keep CronJob names
+  matching their old trigger names, or the overlay cannot find them.
 
 ## Blog MDX palette (project-owned figures)
 

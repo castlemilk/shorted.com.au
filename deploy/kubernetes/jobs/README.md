@@ -67,6 +67,11 @@ Every chart job has a Telesis cron monitor, wherever it runs:
   match the monitor exactly. Ad hoc runs are ignored rather than paged on:
   operator re-fetches, validation runs, freshness checks.
 
+The admin job monitor (`/admin`, `list_async_jobs`) reads these monitors
+too, so a cut-over job shows its cluster runs instead of a paused trigger and
+an old Cloud Run run. It needs a read-role Telesis project token; see
+`docs/mcp-admin.md`, "Jobs on the omega cluster".
+
 A cutover moves a job's reporting from Cloud Run to Kubernetes
 automatically. **Keep `args` in `values.yaml` identical to the Cloud Run
 job's.** A drifted job's runs no longer match, so its monitor pages as MISSED.

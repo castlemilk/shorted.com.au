@@ -121,6 +121,37 @@ healthy or empty. `get_job_execution` reads execution state directly. Poll with
 backoff instead of rapidly reloading the fleet. The overview's Refresh respects
 the cache, and execution history uses explicit pagination.
 
+## Jobs on the omega cluster (Telesis)
+
+Jobs cut over to the omega Kubernetes cluster keep their Cloud Run job but
+have their Cloud Scheduler trigger paused, so Cloud Run and Cloud Scheduler
+alone describe them as paused and long overdue. Their runs are reported to
+Telesis cron monitors by `cronjob-reporter`, and the job monitor reads them
+there (`services/shorts/internal/jobmonitor/cluster.go`). The same rows serve
+`list_async_jobs` and `/admin`.
+
+- A **paused** trigger whose name is a monitor's name, or a monitor's name
+  plus `-schedule`, becomes state `CLUSTER` (`runner: kubernetes`) with that
+  monitor's newest run, last success, next expected run and terminal reason.
+  A paused trigger with no monitor stays paused.
+- The row takes the newest cluster run when it is newer than the last Cloud
+  Run execution (Run now still uses Cloud Run), and each `CLUSTER` trigger is
+  also judged on its own runs: a failed weekly digest is not hidden behind
+  the job's 2-hourly successes. A missed run reads overdue, not failed.
+- `sources` names `telesis_cron_monitors` as `available`, `degraded` (the
+  rows fall back to Cloud Run) or `unconfigured`.
+
+Setup, once:
+
+1. In Telesis (Settings > Security), create a project token with role
+   **read**, scoped to the `shorted.com.au scheduled jobs` service. Telesis
+   admits project tokens to cron-monitor reads only from skunkworq/uptime's
+   project-token read access onwards; earlier, every project token was
+   refused.
+2. Store it as Secret Manager secret `TELESIS_API_TOKEN` in the prod project.
+3. In `terraform/environments/prod/main.tf`, set `telesis_secret_exists = true`
+   with `telesis_org_id` and `telesis_service_id`, and deploy.
+
 ## Native MCP extensions
 
 The implementation follows the [OpenAI MCP extensions wire specification](https://github.com/openai/mcp-extensions/blob/main/docs/spec.md):

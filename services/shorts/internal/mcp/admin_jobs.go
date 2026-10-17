@@ -100,7 +100,7 @@ func adminScopedReadTool[I, O any](scope, name, title, description string, meta 
 	return t
 }
 func listAsyncJobsTool() AdminTool {
-	return adminReadTool("list_async_jobs", "Async jobs", "Read the async job fleet: Cloud Run runs, all scheduler triggers, housing rig health and enrichment queues. Includes running executions, task counts, timing, errors, log links and explicit source coverage. A successful scheduler trigger alone does not prove its downstream work finished. Data may be cached for 60 seconds; inspect stale, incomplete and warnings. Filter status=running for active work.", entrypointMeta(adminAppURI), func(ctx context.Context, r AdminReader, in JobsInput) (*AsyncJobsOutput, error) {
+	return adminReadTool("list_async_jobs", "Async jobs", "Read the async job fleet: Cloud Run runs, all scheduler triggers, runs of jobs on the omega Kubernetes cluster (triggers in state CLUSTER, from Telesis), housing rig health and enrichment queues. Includes running executions, task counts, timing, errors, log links and explicit source coverage. A successful scheduler trigger alone does not prove its downstream work finished. Data may be cached for 60 seconds; inspect stale, incomplete and warnings. Filter status=running for active work.", entrypointMeta(adminAppURI), func(ctx context.Context, r AdminReader, in JobsInput) (*AsyncJobsOutput, error) {
 		if len(in.Query) > 200 {
 			return nil, fmt.Errorf("query must be at most 200 bytes")
 		}
