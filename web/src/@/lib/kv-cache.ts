@@ -161,10 +161,21 @@ export const HOUSING_DATA_CACHE_PREFIXES = ["cache:housing:"] as const;
 export const POLITICIANS_TTL = 86400;
 export const POLITICIANS_DATA_CACHE_PREFIXES = ["cache:politicians:"] as const;
 
+// Ownership data changes once a day (`shorted ownership`). Cache with a 6h
+// ceiling and bust the family via /api/revalidate?flush=ownership.
+export const OWNERSHIP_TTL = 21600;
+export const OWNERSHIP_DATA_CACHE_PREFIXES = ["cache:ownership:"] as const;
+
 /**
  * Cache keys for various data types
  */
 export const CACHE_KEYS = {
+  // --- Ownership (substantial holders, ETF and super fund holdings) ---
+  ownershipOverview: () => `cache:ownership:overview`,
+  ownershipInstitutions: (kind: string, query: string, limit: number, offset: number) =>
+    `cache:ownership:institutions:${kind || "all"}:${query || "-"}:${limit}:${offset}`,
+  ownershipInstitution: (slug: string) => `cache:ownership:institution:${slug}`,
+  stockOwnership: (stockCode: string) => `cache:ownership:stock:${stockCode}`,
   // --- Registers of Members'/Senators' Interests ---
   parliamentOverview: () => `cache:politicians:overview`,
   politicianList: (chamber: string, state: string, party: string, query: string, limit: number, offset: number) =>

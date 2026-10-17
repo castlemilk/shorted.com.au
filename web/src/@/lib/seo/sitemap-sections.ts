@@ -335,6 +335,7 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     // fetch, and stamping the ASIC date on them would be a fabricated signal.
     { url: `${baseUrl}/picks` },
     ...STRATEGY_SLUGS.map((slug) => ({ url: `${baseUrl}/picks/${slug}` })),
+    { url: `${baseUrl}/ownership`, lastModified: latestDataDate },
     // Open data hub + press kit — both citation surfaces we point journalists at.
     { url: `${baseUrl}/data`, lastModified: latestDataDate },
     { url: `${baseUrl}/press` },
