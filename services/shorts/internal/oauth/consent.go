@@ -107,6 +107,7 @@ var scopeDescriptions = map[string]string{
 	"news:publish": "Publish merged articles to shorted.com.au/news, including generating their images",
 	"jobs:read":    "View asynchronous jobs, execution history, queue status and operational errors",
 	"jobs:run":     "Start on-demand runs of the stock picker data job (fundamentals, filings, view refresh)",
+	"users:read":   "View personal data: signed-up accounts, paying subscribers and mailing list addresses",
 }
 
 // DescribeScopes turns a space-delimited grant into ordered, human-readable

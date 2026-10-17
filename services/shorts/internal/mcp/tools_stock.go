@@ -648,15 +648,27 @@ func projectPeer(p *shortsv1alpha1.PeerStock) *PeerStockEntry {
 // ---------------------------------------------------------------------------
 
 type GetStockPricesInput struct {
-	Code      string `json:"code" jsonschema:"ASX ticker code, 3-4 alphanumeric characters, e.g. BHP. Case-insensitive."`
-	Period    string `json:"period,omitempty" jsonschema:"Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Defaults to 1Y. Ignored when \"from\" is set."`
-	From      string `json:"from,omitempty" jsonschema:"Start of an explicit window, YYYY-MM-DD."`
-	To        string `json:"to,omitempty" jsonschema:"End of an explicit window, YYYY-MM-DD."`
-	MaxPoints int    `json:"max_points,omitempty" jsonschema:"Cap on returned sessions, 1-5000. Defaults to 150."`
+	Code   string `json:"code" jsonschema:"ASX ticker code, 3-4 alphanumeric characters, e.g. BHP. Case-insensitive."`
+	Period string `json:"period,omitempty" jsonschema:"Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Defaults to 1Y. Ignored when \"from\" is set."`
+	From   string `json:"from,omitempty" jsonschema:"Start of an explicit window, YYYY-MM-DD."`
+	To     string `json:"to,omitempty" jsonschema:"End of an explicit window, YYYY-MM-DD."`
+
+	// The same opt-out get_stock_history has. Without it the only route to
+	// every session was max_points set to a number big enough to mean "all",
+	// and the model on claude.ai went to the HTTP API instead.
+	FullResolution bool `json:"full_resolution,omitempty" jsonschema:"Return every trading session in the window instead of a thinned series. Use for quantitative work; the result can be large."`
+	MaxPoints      int  `json:"max_points,omitempty" jsonschema:"Cap on returned sessions, 1-5000. Defaults to 100. Ignored when full_resolution is true."`
 }
 
 type StockPriceEntry struct {
-	Date          string  `json:"date" jsonschema:"Trading date, YYYY-MM-DD."`
+	Date string `json:"date" jsonschema:"Trading date, YYYY-MM-DD."`
+
+	// Open, high and low are what an intraday or overnight question needs
+	// (open against the prior close is the overnight move, close against open
+	// the session's). The RPC always carried them; this projection dropped them.
+	Open          float64 `json:"open,omitempty" jsonschema:"Opening price in AUD, as printed (not adjusted)."`
+	High          float64 `json:"high,omitempty" jsonschema:"Session high in AUD, as printed (not adjusted)."`
+	Low           float64 `json:"low,omitempty" jsonschema:"Session low in AUD, as printed (not adjusted)."`
 	Close         float64 `json:"close" jsonschema:"Closing price in AUD, as printed."`
 	AdjustedClose float64 `json:"adjusted_close" jsonschema:"Close adjusted for splits and dividends. Compute returns from this, not from close."`
 	Volume        int64   `json:"volume,omitempty" jsonschema:"Shares traded."`
@@ -671,14 +683,17 @@ type GetStockPricesOutput struct {
 	Points            []StockPriceEntry `json:"points" jsonschema:"Sessions, oldest first."`
 }
 
-const getStockPricesDescription = "Get adjusted daily prices and volume for one ASX-listed company over a window " +
+const getStockPricesDescription = "Get daily prices and volume for one ASX-listed company over a window " +
 	"(1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX; default 1Y), or an explicit from/to range. Each session " +
-	"carries the close as printed, the close adjusted for splits and dividends, and the traded volume. " +
+	"carries open, high, low and close as printed, the close adjusted for splits and dividends, and the traded volume. " +
 	"Use adjusted_close to compute returns; use close only to reconcile against another source. " +
+	"Open, high and low are NOT adjusted: an overnight move (open against the prior close) across an ex-dividend " +
+	"date or a split includes it, and multiplying by adjusted_close/close puts a session on the adjusted basis. " +
 	"These are the SAME ticker codes and the same dates as get_stock_history, so short interest and price can " +
 	"be joined directly — no ticker mapping and no second adjustment methodology. " +
 	"Combine the two to answer whether a heavily shorted name underperformed, or what price did after a squeeze. " +
-	"Long windows are thinned to at most 150 sessions by default, always keeping the first and last; " +
+	"Long windows are thinned to at most 100 sessions by default, always keeping the first and last; " +
+	"pass full_resolution=true for every session (about 250 a year), or max_points for a different cap. " +
 	"total_observations reports the true count and downsampled says whether thinning happened."
 
 func getStockPricesTool() Tool {
@@ -718,6 +733,10 @@ func getStockPricesHandler(src DataSource) sdk.ToolHandlerFor[GetStockPricesInpu
 			}
 			maxPoints = int32(in.MaxPoints)
 		}
+		// 0 is the RPC's "no cap".
+		if in.FullResolution {
+			maxPoints = 0
+		}
 
 		res, err := src.GetStockPrices(ctx, connect.NewRequest(&shortsv1alpha1.GetStockPricesRequest{
 			ProductCode: code,
@@ -751,6 +770,9 @@ func getStockPricesHandler(src DataSource) sdk.ToolHandlerFor[GetStockPricesInpu
 			}
 			out.Points = append(out.Points, StockPriceEntry{
 				Date:          p.GetDate(),
+				Open:          finite(p.GetOpen()),
+				High:          finite(p.GetHigh()),
+				Low:           finite(p.GetLow()),
 				Close:         finite(p.GetClose()),
 				AdjustedClose: finite(p.GetAdjustedClose()),
 				Volume:        p.GetVolume(),

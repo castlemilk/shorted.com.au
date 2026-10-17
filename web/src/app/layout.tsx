@@ -126,14 +126,15 @@ export const metadata = {
   verification: {
     google: "jk574DQKIqA97yDXw873BVts2Z9Yz_FxmGZCmXYsv9c",
   },
-  alternates: {
-    canonical: siteConfig.url,
-    languages: {
-      "en-AU": siteConfig.url,
-      "en": siteConfig.url,
-      "x-default": siteConfig.url,
-    },
-  },
+  // No `alternates` here on purpose. Next merges metadata per segment, so a
+  // canonical (or hreflang set) declared in the root layout is inherited by
+  // every page that does not declare its own, and each of those pages then
+  // tells Google it is a copy of the homepage. Found 2026-10-15 on /pricing
+  // and /terms (OpenSEO crawl) and, from the code, /docs/api and its
+  // children, /developer, /alerts and more. Each page names its own canonical
+  // (the homepage does in app/page.tsx); a page that names none has none,
+  // which Google reads as self-canonical. Guarded by
+  // app/__tests__/root-canonical.test.ts.
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",

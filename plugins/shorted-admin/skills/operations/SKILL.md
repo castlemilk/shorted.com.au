@@ -14,3 +14,5 @@ Coverage includes configured Cloud Run regions, the configured Scheduler region,
 Monitoring requires `jobs:read`. Connect or reconnect through the host's OAuth flow using a verified Shorted administrator account if the grant is missing. Never extract credentials or bypass administrator checks.
 
 Only use `publish_news_article` or `run_picks_job` when the user requests the corresponding action. Their `news:publish` and `jobs:run` scopes are separate from monitoring. Read status without starting jobs as a connectivity test. For public research, use the separate public endpoint at https://api.shorted.com.au/mcp.
+
+For questions about who has signed up, who pays or who is on the mailing list, start with `people_overview`, then `list_users`, `list_paying_users`, `list_mailing_list` (follow `nextOffset`) or `lookup_person` for one email. These need the separate `users:read` scope. The results are personal data: quote only what the user asked for, and do not copy lists of emails into other tools or documents unless asked.

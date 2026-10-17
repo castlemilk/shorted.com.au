@@ -23,6 +23,11 @@ import (
 //
 // 16KB leaves roughly 40% headroom over today's largest (get_industry_treemap
 // at its 150-row cap). If this trips, fix the cap, do not raise the budget.
+//
+// The budget applies to each REPRESENTATION, not to the two together, because
+// a client hands its model one of them: Claude Code reads structuredContent,
+// claude.ai reads content. content is the summary plus the same JSON (see
+// structuredContentAsText), so it is always the larger of the two.
 const maxToolResultBytes = 16 * 1024
 
 // Drives every tool through a real in-memory MCP client session, so the number
@@ -47,11 +52,18 @@ func TestToolResultsStayWithinTheirPayloadBudget(t *testing.T) {
 		if res.IsError {
 			t.Fatalf("%s returned a tool error: %v", c.name, res.Content)
 		}
-		b, _ := json.Marshal(res)
-		t.Logf("%-26s %6d bytes (%.1f KB)", c.name, len(b), float64(len(b))/1024)
-		if len(b) > maxToolResultBytes {
-			t.Errorf("%s returned %d bytes, over the %d-byte budget — tighten its cap rather than raising the budget",
-				c.name, len(b), maxToolResultBytes)
+		structured, _ := json.Marshal(res.StructuredContent)
+		content := contentTextBytes(res)
+		t.Logf("%-26s content %6d bytes (%.1f KB), structuredContent %6d bytes",
+			c.name, content, float64(content)/1024, len(structured))
+		for _, rep := range []struct {
+			name string
+			size int
+		}{{"content", content}, {"structuredContent", len(structured)}} {
+			if rep.size > maxToolResultBytes {
+				t.Errorf("%s returned %d bytes of %s, over the %d-byte budget — tighten its cap rather than raising the budget",
+					c.name, rep.size, rep.name, maxToolResultBytes)
+			}
 		}
 	}
 
@@ -140,7 +152,7 @@ func realisticSource() *fakeDataSource {
 	}
 
 	// The same worst case for prices: a MAX window of daily sessions, thinned
-	// to the 200-session default.
+	// to the default cap (maxPricePoints).
 	prices := make([]*shortsv1alpha1.StockPricePoint, 0, 2500)
 	for i := 0; i < 2500; i++ {
 		prices = append(prices, &shortsv1alpha1.StockPricePoint{
@@ -798,4 +810,16 @@ func realisticDiscoverySource(src *fakeDataSource) {
 			StocksAbove_10Pct: 41, StocksAbove_5Pct: 128, RiserCount: 412, FallerCount: 388,
 		},
 	}
+}
+
+// contentTextBytes is what a client that reads content puts in front of its
+// model: the text of every block, unescaped.
+func contentTextBytes(res *sdk.CallToolResult) int {
+	n := 0
+	for _, c := range res.Content {
+		if text, ok := c.(*sdk.TextContent); ok {
+			n += len(text.Text)
+		}
+	}
+	return n
 }

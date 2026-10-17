@@ -64,11 +64,15 @@ const (
 	ScopeJobsRun = "jobs:run"
 	// ScopeJobsRead observes the fleet without permission to start jobs.
 	ScopeJobsRead = "jobs:read"
+	// ScopeUsersRead reads personal data: signed-up accounts, paying
+	// subscribers and the mailing list (admin_people.go). Its own scope, not
+	// part of jobs:read, so a monitoring-only connection never carries it.
+	ScopeUsersRead = "users:read"
 )
 
 // AdminScopes is the admin resource's entire scope vocabulary, in published
 // order. An empty scope request against /mcp/admin is granted all of it.
-var AdminScopes = []string{ScopeNewsPublish, ScopeJobsRun, ScopeJobsRead}
+var AdminScopes = []string{ScopeNewsPublish, ScopeJobsRun, ScopeJobsRead, ScopeUsersRead}
 
 // AdminProtectedResourceMetadataPath is RFC 9728 §3.1's location for a
 // resource whose identifier has the path /mcp/admin.
@@ -181,6 +185,7 @@ func hasAnyScope(granted, wanted []string) bool {
 // In particular it is NOT the fleet-wide RunJob.
 type AdminOperator interface {
 	AdminReader
+	AdminPeopleReader
 	RunPublish(ctx context.Context, req jobmonitor.PublishRequest) (*jobmonitor.PublishRun, error)
 	PublishResult(ctx context.Context, executionName string) (*jobmonitor.PublishStatus, error)
 	RunPicks(ctx context.Context, req jobmonitor.PicksRequest) (*jobmonitor.PicksRun, error)
@@ -200,7 +205,8 @@ type AdminTool struct {
 // AdminRegistry is every tool on the admin server.
 func AdminRegistry() []AdminTool {
 	return []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool(),
-		listAsyncJobsTool(), listJobExecutionsTool(), getJobExecutionTool(), listEnrichmentJobsTool(), searchJobMentionsTool()}
+		listAsyncJobsTool(), listJobExecutionsTool(), getJobExecutionTool(), listEnrichmentJobsTool(), searchJobMentionsTool(),
+		peopleOverviewTool(), listUsersTool(), listPayingUsersTool(), listMailingListTool(), lookupPersonTool()}
 }
 
 // NewAdminServer builds the admin MCP server with operational tools, its app,
@@ -213,7 +219,7 @@ func NewAdminServer(pub AdminOperator) *sdk.Server {
 	// go-sdk v1.7.0 unconditionally resets resource CacheScope to "public"
 	// after calling a resource handler. Apply the admin policy AFTER that
 	// normalization; setting it only in the handler is silently overwritten.
-	server.AddReceivingMiddleware(func(next sdk.MethodHandler) sdk.MethodHandler {
+	server.AddReceivingMiddleware(structuredContentAsText, func(next sdk.MethodHandler) sdk.MethodHandler {
 		return func(ctx context.Context, method string, req sdk.Request) (sdk.Result, error) {
 			result, err := next(ctx, method, req)
 			if resource, ok := result.(*sdk.ReadResourceResult); ok && resource != nil {
