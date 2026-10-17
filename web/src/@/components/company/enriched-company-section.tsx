@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { getEnrichedCompanyMetadata } from "~/app/actions/company-metadata";
+import { cleanCompanyName } from "~/@/lib/company-name";
 import { CompanyInsightsCard } from "./company-insights-card";
 import { pickCompanyInsights } from "./company-insights-data";
 import {
@@ -13,9 +14,18 @@ import { Info } from "lucide-react";
 
 interface EnrichedCompanySectionProps {
   stockCode: string;
+  /**
+   * The company's display name as the page spells it (the header's
+   * `cleanCompanyName` of the ASIC name). Without one the enriched record's own
+   * name is cleaned here, so the card never prints the backend's "Bhp Group".
+   */
+  companyName?: string;
 }
 
-async function EnrichedCompanyData({ stockCode }: EnrichedCompanySectionProps) {
+async function EnrichedCompanyData({
+  stockCode,
+  companyName,
+}: EnrichedCompanySectionProps) {
   const enrichedData = await getEnrichedCompanyMetadata(stockCode);
 
   if (!enrichedData) {
@@ -44,7 +54,19 @@ async function EnrichedCompanyData({ stockCode }: EnrichedCompanySectionProps) {
   // Only the fields the card reads cross into the client component: the
   // enriched payload also carries the ~32 KB financial_statements JSONB,
   // which must never ride along in the page's RSC payload.
-  return <CompanyInsightsCard data={pickCompanyInsights(enrichedData)} />;
+  // A record with no name names no company, as it did before.
+  const subject =
+    companyName ??
+    (enrichedData.company_name
+      ? cleanCompanyName(enrichedData.company_name, stockCode)
+      : undefined);
+
+  return (
+    <CompanyInsightsCard
+      data={pickCompanyInsights(enrichedData)}
+      companyName={subject}
+    />
+  );
 }
 
 function EnrichedCompanyFallback() {
@@ -64,17 +86,18 @@ function EnrichedCompanyFallback() {
 }
 
 /**
- * Overview tab: consolidated Company insights card (tags + accordion
+ * Company tab: consolidated Company insights card (tags + accordion
  * sections + key people). Reports are NOT rendered here: the Financials tab
  * lists them (FinancialReports, passed in by the page), so the two tabs do
  * not duplicate content.
  */
 export function EnrichedCompanySection({
   stockCode,
+  companyName,
 }: EnrichedCompanySectionProps) {
   return (
     <Suspense fallback={<EnrichedCompanyFallback />}>
-      <EnrichedCompanyData stockCode={stockCode} />
+      <EnrichedCompanyData stockCode={stockCode} companyName={companyName} />
     </Suspense>
   );
 }

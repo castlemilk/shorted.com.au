@@ -45,16 +45,19 @@ working; a flag wins when both are present.
 
 ## Poll mode — closing the gap to ASIC's 11:30 publication
 
-ASIC publishes each day's file at **11:30 Australia/Sydney**, consistently
-(measured 2026-10-01..06 from the `Last-Modified` header on
-`RR<yyyymmdd>-001-SSDailyAggShortPos.csv`: 00:30 UTC during AEDT, 01:30 UTC
-during AEST). The daily run fires at 10:00 UTC, about 9.5 hours after every
+ASIC posts each day's file at **11:30:11 Australia/Sydney**, to the second
+(the `Last-Modified` header on every
+`RR<yyyymmdd>-001-SSDailyAggShortPos.csv` from 2026-09-24 to 2026-10-01, across
+the AEST→AEDT change: 01:30 UTC before it, 00:30 UTC after). One file per
+business day, each covering the trade date four business days earlier. The daily run fires at 10:00 UTC, about 9.5 hours after every
 file appears. That lag is ours; ASIC's own T+4 business-day delay is not.
 
 So the module also schedules `shorted short-data-sync -poll`
 (`google_cloud_scheduler_job.poll_sync` in `terraform/modules/short-data-sync`,
-`*/15 11-15 * * 1-5` in `Australia/Sydney`: every 15 minutes, 11:00–15:45,
-weekdays). The daily 10:00 UTC run stays the backstop and the only run that
+one scheduler per entry of `var.poll_schedules`, in `Australia/Sydney`):
+`publish` = `32,37,47 11 * * 1-5`, a burst just after the posting moment, and
+`late` = `15 12-15 * * 1-5`, an hourly tail for a late file. Seven polls a
+weekday. The daily 10:00 UTC run stays the backstop and the only run that
 reconciles.
 
 | | A poll that finds nothing | A poll that finds files |
@@ -69,7 +72,8 @@ reconciles.
 
 An empty table is an error (a poll's window is "after `MAX("DATE")`"; run a
 plain sync for the initial load). A failed index fetch is logged and exits 0,
-the sync's own tolerance: the next poll is 15 minutes away. The decision itself
+the sync's own tolerance: another poll follows within minutes near
+publication, or within the hour in the tail. The decision itself
 is the pure `pollPlan`, built on the sync's `syncFileWindow` + `selectFiles`, so
 a poll and the daily run cannot disagree about what is new. When nothing is new
 the log carries one line: `📭 Poll: ASIC has published nothing after <date>;

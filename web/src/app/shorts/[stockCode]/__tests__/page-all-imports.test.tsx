@@ -41,6 +41,11 @@ jest.mock("next-auth/react", () => ({
   })),
 }));
 
+// The Overview and Company pages reach kv-cache through their actions, and the
+// real module logs "No Redis configured" when it loads. The same stand-in
+// page.test.tsx uses.
+jest.mock("~/@/lib/kv-cache", () => require("~/@/lib/__mocks__/kv-cache"));
+
 // Mock actions
 jest.mock("~/app/actions/getStockDetails", () => ({
   getStockDetails: jest.fn().mockResolvedValue({
@@ -99,14 +104,10 @@ describe("Page Component Imports - All Components", () => {
       CardModule,
       StockChartPanelModule,
       CompanyInfoModule,
-      CompanyProfileModule,
-      CompanyStatsModule,
     ] = await Promise.all([
       import("~/@/components/ui/card"),
       import("~/@/components/charts/StockChartPanel"),
       import("~/@/components/ui/companyInfo"),
-      import("~/@/components/ui/companyProfile"),
-      import("~/@/components/ui/companyStats"),
     ]);
 
     expect(CardModule.Card).toBeDefined();
@@ -120,12 +121,6 @@ describe("Page Component Imports - All Components", () => {
 
     expect(CompanyInfoModule.default).toBeDefined();
     expect(CompanyInfoModule.CompanyInfoPlaceholder).toBeDefined();
-    
-    expect(CompanyProfileModule.default).toBeDefined();
-    expect(CompanyProfileModule.CompanyProfilePlaceholder).toBeDefined();
-    
-    expect(CompanyStatsModule.default).toBeDefined();
-    expect(CompanyStatsModule.CompanyStatsPlaceholder).toBeDefined();
   });
 
   it("should import EnrichedCompanySection", async () => {
@@ -139,10 +134,6 @@ describe("Page Component Imports - All Components", () => {
     // Import exactly as page.tsx does
     const [
       StockChartPanel,
-      CompanyProfile,
-      CompanyProfilePlaceholder,
-      CompanyStats,
-      CompanyStatsPlaceholder,
       CompanyInfo,
       CompanyInfoPlaceholder,
       EnrichedCompanySection,
@@ -158,10 +149,6 @@ describe("Page Component Imports - All Components", () => {
       CardTitle,
     ] = await Promise.all([
       import("~/@/components/charts/StockChartPanel").then(m => m.StockChartPanel),
-      import("~/@/components/ui/companyProfile").then(m => m.default),
-      import("~/@/components/ui/companyProfile").then(m => m.CompanyProfilePlaceholder),
-      import("~/@/components/ui/companyStats").then(m => m.default),
-      import("~/@/components/ui/companyStats").then(m => m.CompanyStatsPlaceholder),
       import("~/@/components/ui/companyInfo").then(m => m.default),
       import("~/@/components/ui/companyInfo").then(m => m.CompanyInfoPlaceholder),
       import("~/@/components/company/enriched-company-section").then(m => m.EnrichedCompanySection),
@@ -180,10 +167,6 @@ describe("Page Component Imports - All Components", () => {
     // Verify none are undefined
     const components = {
       StockChartPanel,
-      CompanyProfile,
-      CompanyProfilePlaceholder,
-      CompanyStats,
-      CompanyStatsPlaceholder,
       CompanyInfo,
       CompanyInfoPlaceholder,
       EnrichedCompanySection,
@@ -208,5 +191,32 @@ describe("Page Component Imports - All Components", () => {
   });
 });
 
+describe("Stock page route modules", () => {
+  // The layout and every tab page, imported the way Next imports them. A module
+  // that throws while loading, or a route file without a component as its
+  // default export, otherwise only shows up at render time as "Element type is
+  // invalid" (for the layout, on every route beneath it).
+  it("should import the layout and every tab page with a component as its default export", async () => {
+    const routes = await Promise.all([
+      import("../layout"),
+      import("../page"),
+      import("../short-interest/page"),
+      import("../strategy/page"),
+      import("../financials/page"),
+      import("../company/page"),
+      import("../news/page"),
+      import("../community/page"),
+    ]);
 
+    expect(routes).toHaveLength(8);
+    for (const route of routes) {
+      expect(typeof route.default).toBe("function");
+    }
+  });
 
+  it("should import the stock loader the layout and the tab pages share", async () => {
+    const { loadStockOrFail } = await import("../stock-page-data");
+
+    expect(typeof loadStockOrFail).toBe("function");
+  });
+});

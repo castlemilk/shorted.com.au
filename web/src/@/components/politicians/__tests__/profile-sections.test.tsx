@@ -96,6 +96,22 @@ describe("profile industry bars", () => {
     const { container } = render(<IndustryBars industries={[{ industry: "Banks", companyCount: 0 }]} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("gives an ASX placeholder no bar: it is not an industry", () => {
+    render(
+      <IndustryBars
+        industries={[
+          { industry: "Not Applic", companyCount: 4 },
+          { industry: "Class Pend", companyCount: 1 },
+          { industry: "Banks", companyCount: 2 },
+        ]}
+      />,
+    );
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Banks")).toBeInTheDocument();
+    expect(within(table).getAllByRole("row")).toHaveLength(2); // the sr-only header and Banks
+    expect(table.textContent).not.toMatch(/not applic|class pend/i);
+  });
 });
 
 describe("profile recent changes", () => {

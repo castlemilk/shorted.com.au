@@ -780,6 +780,9 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
                 : undefined
             }
             showBrush
+            // A dashboard widget is small and dense: the reading floats by the
+            // cursor rather than taking a row of the 300px it has.
+            readout="tooltip"
             height={300}
           />
         )}

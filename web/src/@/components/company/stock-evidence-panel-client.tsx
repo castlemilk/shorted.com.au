@@ -19,10 +19,17 @@ export function StockEvidencePanelClient({
   stockCode,
   industry,
   industrySlug,
+  callbackUrl,
 }: {
   stockCode: string;
   industry?: string | null;
   industrySlug?: string | null;
+  /**
+   * Where signing in from the lock card returns to. Defaults to the stock's
+   * Overview; the page that hosts the dossier passes its own URL so the
+   * visitor lands back on the dossier, not on a page that does not show it.
+   */
+  callbackUrl?: string;
 }) {
   const { status } = useSession();
 
@@ -54,7 +61,7 @@ export function StockEvidencePanelClient({
           "Emissions and trade exposure",
           "Political donations and lobbying links",
         ]}
-        callbackUrl={`/shorts/${stockCode}`}
+        callbackUrl={callbackUrl ?? `/shorts/${stockCode}`}
         ctaLabel="Sign in to unlock the dossier"
       />
     );

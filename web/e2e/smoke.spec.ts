@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 /**
  * Smoke Tests for Preview Deployments
@@ -93,9 +93,9 @@ test.describe("Smoke Tests - Preview Deployment", () => {
     expect(hasError500).toBeFalsy();
   });
 
-  test("API health endpoint responds", async ({ page }) => {
+  test("API health endpoint responds", async ({ request }) => {
     // Test the health endpoint - this should be fast
-    const healthResponse = await page.request.get("/api/health", {
+    const healthResponse = await request.get("/api/health", {
       timeout: 10000,
     });
 
@@ -125,9 +125,9 @@ test.describe("Smoke Tests - Preview Deployment", () => {
 });
 
 test.describe("Backend API Smoke Tests", () => {
-  test("shorts API search endpoint works", async ({ page }) => {
+  test("shorts API search endpoint works", async ({ request }) => {
     // Test the search API endpoint
-    const searchResponse = await page.request.get("/api/stocks/search?q=BHP&limit=1", {
+    const searchResponse = await request.get("/api/stocks/search?q=BHP&limit=1", {
       timeout: 15000,
     });
 

@@ -8,6 +8,7 @@ import { Skeleton } from "~/@/components/ui/skeleton";
 import { Sparkline } from "~/@/components/ui/sparkline";
 import { type StockSearchResult } from "@/lib/stock-data-service";
 import { getIndustryColor } from "@/lib/industry-colors";
+import { industryLabel } from "@/lib/industry-placeholder";
 import { useSparklineData } from "@/hooks/use-sparkline-data";
 import { cn } from "~/@/lib/utils";
 import { TrendingUp, TrendingDown, ArrowRight, Percent } from "lucide-react";
@@ -28,6 +29,7 @@ export function StockSearchResultItem({
     isPositive,
   } = useSparklineData(stock.product_code);
   const industryColor = getIndustryColor(stock.industry);
+  const industry = industryLabel(stock.industry);
 
   // Validate logo URL - only use if it's from an allowed domain
   const isValidLogoUrl = (url: string | undefined): boolean => {
@@ -126,7 +128,7 @@ export function StockSearchResultItem({
             <span className="font-bold text-base group-hover:text-primary transition-colors">
               {stock.product_code}
             </span>
-            {stock.industry && (
+            {industry && (
               <Badge
                 variant={industryColor.variant}
                 className={cn(
@@ -134,7 +136,7 @@ export function StockSearchResultItem({
                   industryColor.className
                 )}
               >
-                {stock.industry}
+                {industry}
               </Badge>
             )}
           </div>

@@ -3,8 +3,8 @@
  * (docs/plans/fundamentals-coverage.md §7.1).
  *
  * financial-statements.tsx is the kit's ONE "use client" island, and the
- * server cards are composed into StockTabs (a client component) as slots. If a
- * kit file imported the generated protobuf modules, the protobuf runtime,
+ * server cards are composed into the stock pages beside it. If a kit file
+ * imported the generated protobuf modules, the protobuf runtime,
  * @connectrpc or a server action (directly or at any depth), that runtime
  * would follow it into the route's client bundle and the static build would
  * die with the undiagnosable "Element type is invalid" digest (see
@@ -84,7 +84,7 @@ describe("stock fundamentals component boundary", () => {
         "financial-statements.tsx",
         "latest-result-card.tsx",
         "key-ratios-card.tsx",
-        "strategy-fit-card.tsx",
+        "strategy-fit-strip.tsx",
         "fundamentals-summary.tsx",
         "statements-shape.ts",
         "statement-lines.ts",
@@ -136,10 +136,10 @@ describe("stock fundamentals component boundary", () => {
         join("@", "components", "stocks", "statement-lines.ts"),
       ]),
     );
-    const fromFitCard = walk(join(COMPONENT_DIR, "strategy-fit-card.tsx"))
+    const fromFitStrip = walk(join(COMPONENT_DIR, "strategy-fit-strip.tsx"))
       .map(([, , target]) => (target ? relative(SRC_DIR, target) : ""))
       .filter(Boolean);
-    expect(fromFitCard).toEqual(
+    expect(fromFitStrip).toEqual(
       expect.arrayContaining([join("@", "components", "picks", "picks-table.tsx")]),
     );
   });

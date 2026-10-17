@@ -56,6 +56,33 @@ describe("FinancialsTab", () => {
     expect(screen.queryByText("Key metrics")).not.toBeInTheDocument();
   });
 
+  it("renders an older API's response (no quality, coverage or filing) as held: no ratios card, no empty state", () => {
+    // The pre-000132 proto carried periods and growth only. The mapper yields
+    // null quality and filing and an "unknown" coverage
+    // (getStockFundamentals.test.ts), which must read as "held", never as
+    // "not collected".
+    render(
+      <FinancialsTab
+        stockCode="WES"
+        fundamentals={{
+          ...wesLike(),
+          quality: null,
+          latestFiling: null,
+          coverage: {
+            status: "unknown",
+            lastAttemptAt: "",
+            lastSuccessAt: "",
+            sources: [],
+          },
+        }}
+      />,
+    );
+    expect(screen.getByRole("region", { name: "Latest result" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Financial statements" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Key ratios" })).not.toBeInTheDocument();
+    expect(screen.queryByText(EMPTY_STATE)).not.toBeInTheDocument();
+  });
+
   it("states each empty state exactly, only when nothing is held and the status is definite", () => {
     // The page streams the filings sentence into `filingsNote` only when the
     // reports slot lists a filing.

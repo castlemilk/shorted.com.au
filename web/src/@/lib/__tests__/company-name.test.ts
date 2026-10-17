@@ -1,4 +1,4 @@
-import { formatCompanyName } from "../company-name";
+import { cleanCompanyName, formatCompanyName } from "../company-name";
 
 describe("formatCompanyName", () => {
   it("uppercases a word matching the stock code (backend-mangled name)", () => {
@@ -134,5 +134,11 @@ describe("formatCompanyName", () => {
 
   it("never strips a suffix that is the whole name", () => {
     expect(formatCompanyName("LIMITED", "LTD")).toBe("Limited");
+  });
+});
+
+describe("cleanCompanyName", () => {
+  it("title-cases the raw ASIC product string and drops its security descriptor", () => {
+    expect(cleanCompanyName("BHP GROUP LIMITED ORDINARY", "BHP")).toBe("BHP Group");
   });
 });

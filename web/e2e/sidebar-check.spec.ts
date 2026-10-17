@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 test.describe("Sidebar Navigation Check", () => {
   test("should check home page structure", async ({ page }) => {

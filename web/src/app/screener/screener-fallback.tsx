@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 
 type ScreenerFallbackProps = {
   /**
@@ -76,7 +77,7 @@ export async function ScreenerFallback({
                   <Link href={`/shorts/${s.code}`}>{s.code}</Link>
                 </td>
                 <td>{s.name}</td>
-                <td>{s.industry || "—"}</td>
+                <td>{industryLabel(s.industry) || "—"}</td>
                 <td>{s.percent.toFixed(2)}%</td>
               </tr>
             ))}

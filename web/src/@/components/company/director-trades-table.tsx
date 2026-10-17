@@ -4,39 +4,26 @@ import { useQuery } from "@tanstack/react-query";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
+import { DirectorTradesSkeleton } from "./director-trades-skeleton";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/@/components/ui/table";
-import { Badge } from "~/@/components/ui/badge";
-import { Skeleton } from "~/@/components/ui/skeleton";
-import { Users, ExternalLink } from "lucide-react";
+  DIRECTOR_TRADES_LIMIT,
+  DirectorTradesView,
+} from "./director-trades-view";
 
 interface DirectorTradesTableProps {
   stockCode: string;
   limit?: number;
 }
 
-const tradeTypeStyles: Record<string, string> = {
-  buy: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400",
-  sell: "bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-400",
-  exercise_options: "bg-stone-500/15 text-stone-700 dark:text-stone-300",
-};
-
+/**
+ * The director trades card read in the browser. The Company page reads the
+ * trades on the server and draws DirectorTradesView itself; this is the
+ * island it falls back to when that read returns nothing, so it fetches for
+ * itself and draws the same view.
+ */
 export function DirectorTradesTable({
   stockCode,
-  limit = 20,
+  limit = DIRECTOR_TRADES_LIMIT,
 }: DirectorTradesTableProps) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["director-trades", stockCode, limit],
@@ -50,113 +37,14 @@ export function DirectorTradesTable({
     staleTime: 5 * 60 * 1000,
   });
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Director trades
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // The same card the Company page holds this island's place with.
+  if (isLoading) return <DirectorTradesSkeleton />;
 
-  if (isError || !data?.trades?.length) {
-    return (
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Director trades
-          </CardTitle>
-          <CardDescription>No director trades found</CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
-
+  // A failed read says what an empty one does: there are none to show.
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          Director trades
-        </CardTitle>
-        <CardDescription>
-          {data.totalCount} trade{data.totalCount !== 1 ? "s" : ""} recorded
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Director</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead className="text-right">Shares</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Value</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.trades.map((trade) => (
-              <TableRow key={trade.id}>
-                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                  {trade.tradeDate}
-                </TableCell>
-                <TableCell className="font-medium text-sm">
-                  {trade.directorName}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={`text-xs border-0 ${tradeTypeStyles[trade.tradeType] ?? ""}`}
-                  >
-                    {trade.tradeType.replace(/_/g, " ")}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right text-sm tabular-nums">
-                  {trade.sharesTraded
-                    ? Number(trade.sharesTraded).toLocaleString()
-                    : "-"}
-                </TableCell>
-                <TableCell className="text-right text-sm tabular-nums">
-                  {trade.pricePerShare
-                    ? `$${trade.pricePerShare.toFixed(3)}`
-                    : "-"}
-                </TableCell>
-                <TableCell className="text-right text-sm tabular-nums">
-                  {trade.totalValue
-                    ? `$${Number(trade.totalValue).toLocaleString()}`
-                    : "-"}
-                </TableCell>
-                <TableCell>
-                  {trade.announcementUrl && (
-                    <a
-                      href={trade.announcementUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-primary"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <DirectorTradesView
+      trades={isError ? [] : (data?.trades ?? [])}
+      totalCount={data?.totalCount ?? 0}
+    />
   );
 }

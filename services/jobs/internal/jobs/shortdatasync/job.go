@@ -41,7 +41,8 @@
 // 2026-10-01..06 from the CSVs' Last-Modified: 00:30 UTC in AEDT, 01:30 UTC in
 // AEST). The daily run fires at 10:00 UTC, about 9.5 hours later, and stays the
 // backstop and the ONLY run that reconciles. A Cloud Scheduler job runs `-poll`
-// every 15 minutes from 11:00 to 15:45 Sydney time on weekdays: a poll that
+// just after ASIC's 11:30 Sydney posting (11:32, 11:37, 11:47) and then hourly
+// to 15:15 on weekdays, as a fallback for a late file: a poll that
 // finds nothing costs one LastShortsDate SELECT and one index fetch, and leaves
 // no sync_status row behind, so twenty empty polls a day do not bury the admin
 // jobs dashboard.
@@ -540,7 +541,8 @@ func runPoll(ctx context.Context, cfg config, store *pgStore, client *http.Clien
 	index, err := fetchIndex(ctx, client)
 	if err != nil {
 		// The sync's tolerance: no index is "no files", not a failed run. The
-		// next poll (15 minutes later) or the daily run will try again.
+		// next poll (minutes later near publication, an hour in the tail) or the
+		// daily run will try again.
 		log.Printf("❌ Poll: failed to fetch ASIC file list: %v; nothing to do", err)
 		return nil
 	}

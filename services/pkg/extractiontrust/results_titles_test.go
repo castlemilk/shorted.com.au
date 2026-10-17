@@ -71,6 +71,15 @@ func TestResultsFixtureCarriesTheNamedTitles(t *testing.T) {
 		"Preliminary Final Report":                     true,
 		"Annual Report 2025":                           true,
 		"Winsome Resources Annual Report 30 June 2025": true,
+		// The false positives the 2026-10-11 data review named
+		// (docs/data-review/LOG.md), and the two it named wrongly.
+		"FPH to announce half year results on 26 November 2026":      false,
+		"Extension of Time to Hold AGM and Dispatch Annual Report":   false,
+		"Annual Report Clarification":                                false,
+		"Correction to ASX Additional Information in Annual Report":  false,
+		"Annual Report FY2026 - Additional ASX Information":          false,
+		"Highlights of the Annual Report for FY 2026":                true,
+		"Correction Appendix 4D and F26 Half Year Financial Reports": true,
 	}
 	got := map[string]bool{}
 	for _, c := range loadTitleCases(t) {

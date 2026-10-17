@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -291,7 +292,7 @@ export default async function MarketDatePage({ params }: PageProps) {
                   {/* Industry */}
                   <div className="text-right hidden md:block">
                     <span className="text-xs text-muted-foreground truncate">
-                      {stock.industry || "—"}
+                      {industryLabel(stock.industry) || "—"}
                     </span>
                   </div>
 

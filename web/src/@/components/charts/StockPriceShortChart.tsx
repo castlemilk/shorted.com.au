@@ -6,14 +6,12 @@ import { StockChart } from "./StockChart";
 import { seriesColor } from "./chart-theme";
 import { calculateSMA } from "./indicators";
 import { computeDivergenceRegions } from "./divergence";
+import { priceFmt, shortFmt } from "./chart-views";
 import { useStockChartData } from "./use-stock-chart-data";
 import type { ChartSeriesSpec, SeriesIndicator } from "./types";
 
 const PERIODS = ["1m", "3m", "6m", "1y", "2y", "max"] as const;
 type Period = (typeof PERIODS)[number];
-
-const priceFmt = (v: number) => `$${v.toFixed(2)}`;
-const shortFmt = (v: number) => `${v.toFixed(1)}%`;
 
 function Toggle({
   active,

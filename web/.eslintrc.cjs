@@ -128,8 +128,6 @@ const config = {
         "**/*widget*.tsx",
         "**/*Widget*.tsx",
         "**/treemap-tooltip.tsx",
-        "**/companyProfile.tsx",
-        "**/companyStats.tsx",
         "**/use-stock-data.ts",
         "**/client-api.ts",
         "**/shorts-calculations.ts",

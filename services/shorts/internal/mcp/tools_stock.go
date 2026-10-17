@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
@@ -1264,4 +1265,250 @@ func describeQuality(q *FundamentalsQualitySummary) string {
 		b.WriteString(" Valuation withheld: the listed unit is not one ordinary share (for example a CDI).")
 	}
 	return b.String()
+}
+
+// ---------------------------------------------------------------------------
+// get_stock_briefing
+// ---------------------------------------------------------------------------
+
+type GetStockBriefingInput struct {
+	Code string `json:"code" jsonschema:"ASX ticker code, 3-4 alphanumeric characters, e.g. BHP. Case-insensitive."`
+}
+
+type BriefingStrategyFit struct {
+	Strategy string  `json:"strategy"`
+	Status   string  `json:"status" jsonschema:"triggered, setup, watch or none. A screen's label, not a recommendation."`
+	Score    float64 `json:"score"`
+	Rank     int     `json:"rank"`
+	Of       int     `json:"of"`
+}
+
+type BriefingDividendRecord struct {
+	ExDate      string  `json:"ex_date"`
+	PaymentDate string  `json:"payment_date,omitempty"`
+	AmountAud   float64 `json:"amount_aud" jsonschema:"AUD per share; a dividend declared in another currency is the company's stated AUD equivalent."`
+	FrankingPct float64 `json:"franking_pct" jsonschema:"0 when unfranked or not stated."`
+	Type        string  `json:"type"`
+}
+
+type BriefingSignal struct {
+	Date     string `json:"date,omitempty"`
+	Polarity string `json:"polarity"`
+	Kind     string `json:"kind"`
+	Headline string `json:"headline"`
+}
+
+type BriefingLatestFiling struct {
+	Title      string `json:"title"`
+	Date       string `json:"date"`
+	PeriodEnd  string `json:"period_end"`
+	PeriodType string `json:"period_type"`
+	URL        string `json:"url"`
+	Digest     string `json:"digest" jsonschema:"Summary written by a language model from the filing."`
+}
+
+type GetStockBriefingOutput struct {
+	Code         string                   `json:"code"`
+	StrategyFit  []BriefingStrategyFit    `json:"strategy_fit"`
+	Regime       string                   `json:"regime,omitempty"`
+	Dividends    []BriefingDividendRecord `json:"dividends"`
+	Signals      []BriefingSignal         `json:"signals"`
+	LatestFiling *BriefingLatestFiling    `json:"latest_filing,omitempty"`
+	Unavailable  []string                 `json:"unavailable,omitempty"`
+}
+
+const getStockBriefingDescription = "For one ASX stock: how it rates on each of Shorted's stock-picker strategies (status, score, rank) and the market regime; its dividend history, newest first (AUD per share, franking); up to ten company signals, adverse first, collected by a language model from web search with no source link; and the latest results filing Shorted has parsed, with a model-written summary. An empty list means Shorted holds none; a section that could not be read is listed in unavailable. Short positions, prices, news (including ASX announcements) and director trades have their own tools."
+
+func getStockBriefingTool() Tool {
+	tool := Tool{
+		Name:        "get_stock_briefing",
+		Title:       "Get a comprehensive stock snapshot",
+		Description: getStockBriefingDescription,
+		RPC:         "shorts.v1alpha1.StrategyService.GetStockStrategyFit",
+		AlsoCalls: []string{
+			"shorts.v1alpha1.StockService.GetDividendHistory",
+			"shorts.v1alpha1.StockService.GetStockSignals",
+			"shorts.v1alpha1.StockService.GetStockFundamentals",
+		},
+		Domain: "stock",
+	}
+	tool.register = func(server *sdk.Server, src DataSource) {
+		sdk.AddTool(server, tool.spec(), getStockBriefingHandler(src))
+	}
+	return tool
+}
+
+func getStockBriefingHandler(src DataSource) sdk.ToolHandlerFor[GetStockBriefingInput, GetStockBriefingOutput] {
+	return func(ctx context.Context, _ *sdk.CallToolRequest, in GetStockBriefingInput) (*sdk.CallToolResult, GetStockBriefingOutput, error) {
+		code, err := normaliseCode(in.Code)
+		if err != nil {
+			return nil, GetStockBriefingOutput{}, err
+		}
+
+		out := GetStockBriefingOutput{
+			Code:        code,
+			StrategyFit: []BriefingStrategyFit{},
+			Dividends:   []BriefingDividendRecord{},
+			Signals:     []BriefingSignal{},
+		}
+
+		// GetStockStrategyFit
+		stratRes, err := src.GetStockStrategyFit(ctx, connect.NewRequest(&shortsv1alpha1.GetStockStrategyFitRequest{
+			StockCode: code,
+		}))
+		if err != nil {
+			if connect.CodeOf(err) == connect.CodeNotFound {
+				return nil, GetStockBriefingOutput{}, fmt.Errorf(
+					"no ASX stock found with code %s — check the ticker, or use search_stocks to find it by company name", code)
+			}
+			out.Unavailable = append(out.Unavailable, "strategy_fit")
+		} else if stratRes != nil && stratRes.Msg != nil {
+			strat := stratRes.Msg
+			if strat.GetRegime() != nil && strat.GetRegime().GetRegime() != "" {
+				out.Regime = strat.GetRegime().GetRegime()
+			}
+			for _, fit := range strat.GetFits() {
+				out.StrategyFit = append(out.StrategyFit, BriefingStrategyFit{
+					Strategy: fit.GetStrategyName(),
+					Status:   fit.GetStatus(),
+					Score:    finite(float64(fit.GetScore())),
+					Rank:     int(fit.GetRank()),
+					Of:       int(fit.GetTotalCount()),
+				})
+			}
+		}
+
+		// GetDividendHistory
+		divRes, err := src.GetDividendHistory(ctx, connect.NewRequest(&shortsv1alpha1.GetDividendHistoryRequest{
+			StockCode: code,
+			Years:     5,
+		}))
+		if err != nil {
+			out.Unavailable = append(out.Unavailable, "dividends")
+		} else if divRes != nil && divRes.Msg != nil {
+			records := divRes.Msg.GetDividends()
+			// Cap at 12
+			if len(records) > 12 {
+				records = records[:12]
+			}
+			for _, rec := range records {
+				out.Dividends = append(out.Dividends, BriefingDividendRecord{
+					ExDate:      rec.GetExDate(),
+					PaymentDate: rec.GetPaymentDate(),
+					AmountAud:   finite(float64(rec.GetAmountPerShare())),
+					FrankingPct: finite(float64(rec.GetFrankingPercentage())),
+					Type:        rec.GetDividendType(),
+				})
+			}
+		}
+
+		// GetStockSignals
+		sigRes, err := src.GetStockSignals(ctx, connect.NewRequest(&shortsv1alpha1.GetStockSignalsRequest{
+			StockCode: code,
+			Limit:     10,
+		}))
+		if err != nil {
+			out.Unavailable = append(out.Unavailable, "signals")
+		} else if sigRes != nil && sigRes.Msg != nil {
+			sig := sigRes.Msg
+			adverseList := signalsNewestFirst(sig.GetAdverse())
+			positiveList := signalsNewestFirst(sig.GetPositive())
+
+			// Adverse first, then positive, limit to 10 total
+			count := 0
+			for _, adv := range adverseList {
+				if count >= 10 {
+					break
+				}
+				out.Signals = append(out.Signals, BriefingSignal{
+					Date:     adv.GetEventDate(),
+					Polarity: "adverse",
+					Kind:     adv.GetKind(),
+					Headline: adv.GetHeadline(),
+				})
+				count++
+			}
+			for _, pos := range positiveList {
+				if count >= 10 {
+					break
+				}
+				out.Signals = append(out.Signals, BriefingSignal{
+					Date:     pos.GetEventDate(),
+					Polarity: "positive",
+					Kind:     pos.GetKind(),
+					Headline: pos.GetHeadline(),
+				})
+				count++
+			}
+		}
+
+		// GetStockFundamentals
+		fundRes, err := src.GetStockFundamentals(ctx, connect.NewRequest(&shortsv1alpha1.GetStockFundamentalsRequest{
+			StockCode: code,
+		}))
+		if err != nil {
+			out.Unavailable = append(out.Unavailable, "latest_filing")
+		} else if fundRes != nil && fundRes.Msg != nil {
+			fund := fundRes.Msg
+			if fund.GetHasLatestFiling() && fund.GetLatestFiling() != nil {
+				lf := fund.GetLatestFiling()
+				out.LatestFiling = &BriefingLatestFiling{
+					Title:      lf.GetReportTitle(),
+					Date:       lf.GetReportDate(),
+					PeriodEnd:  lf.GetPeriodEnd(),
+					PeriodType: lf.GetPeriodType(),
+					URL:        lf.GetReportUrl(),
+					Digest:     truncate(lf.GetDigest(), 900),
+				}
+			}
+		}
+
+		// Text summary for transcripts
+		b := strings.Builder{}
+		fmt.Fprintf(&b, "%s: ", code)
+		if out.Regime != "" {
+			fmt.Fprintf(&b, "Market %s. ", out.Regime)
+		}
+		if len(out.StrategyFit) > 0 {
+			triggered := 0
+			for _, fit := range out.StrategyFit {
+				if fit.Status == "triggered" {
+					triggered++
+				}
+			}
+			fmt.Fprintf(&b, "%d strategy fits (%d triggered). ", len(out.StrategyFit), triggered)
+		}
+		if len(out.Dividends) > 0 {
+			fmt.Fprintf(&b, "%d dividend records. ", len(out.Dividends))
+		}
+		if len(out.Signals) > 0 {
+			fmt.Fprintf(&b, "%d signals. ", len(out.Signals))
+		}
+		if out.LatestFiling != nil {
+			fmt.Fprintf(&b, "Latest filing: %s (%s). ", out.LatestFiling.Title, out.LatestFiling.PeriodType)
+		}
+		if len(out.Unavailable) > 0 {
+			fmt.Fprintf(&b, "Unavailable: %s. ", strings.Join(out.Unavailable, ", "))
+		}
+
+		return &sdk.CallToolResult{
+			Content: []sdk.Content{&sdk.TextContent{Text: b.String()}},
+		}, out, nil
+	}
+}
+
+// signalsNewestFirst returns a sorted COPY: GetStockSignals hands back its cached
+// response, so sorting the message's own slice would reorder it under every
+// other caller. Dates are YYYY-MM-DD or a bare year, so they sort as strings;
+// an undated signal goes last, and ties keep the RPC's order.
+func signalsNewestFirst(in []*shortsv1alpha1.StockSignal) []*shortsv1alpha1.StockSignal {
+	out := append([]*shortsv1alpha1.StockSignal(nil), in...)
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := out[i].GetEventDate(), out[j].GetEventDate()
+		if a == "" || b == "" {
+			return b == "" && a != ""
+		}
+		return a > b
+	})
+	return out
 }

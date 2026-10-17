@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 test.describe("API Documentation", () => {
   test("should load the main API docs page", async ({ page }) => {

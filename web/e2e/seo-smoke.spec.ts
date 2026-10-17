@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "./helpers/test";
 
 /**
  * SEO smoke suite. Verifies that the fixes shipped post-audit are live

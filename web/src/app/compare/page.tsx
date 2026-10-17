@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
@@ -56,8 +57,7 @@ async function buildFeaturedPairs(): Promise<
     const top = (data?.timeSeries ?? [])
       .map((ts) => ({
         code: ts.productCode,
-        industry:
-          (ts as { industry?: string }).industry ?? "",
+        industry: industryLabel((ts as { industry?: string }).industry),
       }))
       .filter((s) => !!s.code);
 

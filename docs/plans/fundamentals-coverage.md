@@ -595,7 +595,11 @@ provenance keys are stripped before any API response or LLM prompt (including
 5. **Statutory**: `nonStatutoryRe` gains `profit from operations`, `operating
    profit`, `profit before tax`, `cash (npat|earnings)`, `total comprehensive
    income`, `underlying`, `pro forma`, `network sales`, `online sales`,
-   `total transaction value|TTV`, `segment`, `division`.
+   `total transaction value|TTV`, `segment`, `division`; since 2026-10-13
+   also `loss` or `earnings before (income) tax`, `PBT`, `NPBT`, `pre-tax`,
+   `total comprehensive loss` and `gross operating loss`. It is matched
+   against the quote's comparison form (`extractiontrust.Normalise`), and a
+   footnote digit run into a term still matches.
    A net income or EPS takes its sign from the matched number itself (a
    minus, or parentheses around the digits or the whole money figure:
    `(12.3)`, `($3.2m)`, `(US$12.3m)`, `-$3.2m`); otherwise from the NEAREST
@@ -794,6 +798,7 @@ message StrategyFit {
 message GetStockStrategyFitResponse {
   string stock_code = 1; string as_of = 2; MarketRegime regime = 3;
   repeated StrategyFit fits = 4; bool in_universe = 5;
+  PriceFeatures price_features = 6;  // set only when in_universe; see the stock-page tab-routes spec §4
 }
 ```
 The strategy cache stores the evaluation env (regime + rs6m quartile) and a
@@ -909,6 +914,12 @@ when the stock is in the pick list, else `strategies.EvaluateOne(st, cand, env)`
   `extractiontrust`'s new list.
 - **`document_meta`** (2.5), from deterministic regexes over the raw text,
   written to the new column (checked once at start, omitted when absent).
+  Every read gets the document's report date (the announcement's, or the
+  stored row's `report_date`; never a date from the text), on every path: the
+  extraction (the document actually read, a fallback's own date included),
+  `--backfill-digests`, `--repair-echo-digests` and `--repair-document-meta`.
+  A period ending on or after it is not the document's own (NIC's 1H26 report
+  names a sales quota "for the year ended 31 December 2026").
 - **Connections**: the selection connection runs with `autocommit = True`; no
   connection holds a transaction across a PDF download or a model call (a test
   asserts idle after selection).
@@ -934,6 +945,90 @@ when the stock is in the pick list, else `strategies.EvaluateOne(st, cand, env)`
   the trusted prompt, or digest NULL when none can be written (a later
   `--backfill-digests` then summarises them). Until then the API withholds
   their summaries (5.1).
+- **Document meta repair** (`--repair-document-meta`, one-off, after a change
+  to where `document_meta`'s entity or period is read from; `--dry-run`
+  first): the reader re-applies the entity name rules to every stored row, but
+  where the entity and the period are read from is decided at extraction.
+  VIT's own Appendix 4E was stored as "Cortexa Pty Ltd", from its control
+  gained or lost section, and with `period_end` 2025-06-30, from its prior
+  year's dividend line; latest_filing.go's own-period check (5.1) and picks
+  gate 4 (4.2) take that `period_end` as the document's own, so the 4E stayed
+  off the stock page and out of picks, and no fresh extraction reaches a
+  stored row. The dividend estimate's ConfirmEstimate reads it too: a results
+  document counts only when it states the notice's period end. Every row with
+  `document_meta` (a JSON object) and stored text (`raw_text_gcs_url`),
+  whether or not it states an entity or a period, has both read again with
+  the current rule from that text and the row's `report_date` (no PDF
+  download, no model call, no key). Each is judged by
+  what readers see now, `ParseDocumentMeta`'s view of the stored value. The
+  entity (seen = the stored value reduced by `cleanEntity`), because every
+  entity gate (latest_filing.go, 5.1; picks filings_ingest.go, 4.2 gate 1;
+  the dividend estimate's ConfirmEstimate) checks an entity only when one is
+  stated: `unchanged` (new = stored: not written), `cosmetic` (new = seen:
+  written, nothing readers see changes; a stored value that is not a name
+  goes), `renamed` (seen and new different names: written), `added` (seen
+  none, new a name: written) and `kept` (seen a name, new none: NOT written;
+  removing it would publish the row unchecked, and the writer refuses it;
+  this repair never publishes it unchecked, but a re-extraction rewrites
+  `document_meta` whole). The first review found the removal would have
+  published AXR's two "Sturt Exploration Pty Ltd financial statements" (a
+  Core Lithium subsidiary's accounts) as Axiant Resources' filings: the
+  auditor's name stored with them is what withholds them on entity grounds.
+  The period (`period_end` a real day, `period_type` in the vocabulary; a
+  period is stated when it has an end): `period unchanged`, `period changed`
+  (both state one and they differ: written), `period added` (only the text
+  states one: written) and `period kept` (only the stored row states one: NOT
+  written; readers would then place the document from its report date
+  alone, a guess the repair does not make for them, and the writer refuses a
+  removal). One UPDATE per row writes both, as jsonb edits of the stored
+  object (`document_meta || jsonb_build_object(...)` for the keys set,
+  `- 'entity'` for a removal; every other key as stored), guarded by the
+  WHOLE `document_meta` as read (jsonb equality: any key order or spacing,
+  and a NULL never matches) AND `extracted_at` as read: `store_extraction`
+  (and the Go port's store) rewrite `extracted_at` on every write and the
+  repair never does, so a row extracted again since it was read, or with any
+  key rewritten, is left alone (counted, with neither of its classes); the
+  only other writer, `rehome_shared_extractions`, changes `stock_code` alone.
+  Because `extracted_at` never moves, a dividend estimate waiting on a
+  document whose period the repair writes is read again (`pendingNoticesSql`
+  needs an extraction of its code newer than its attempt) only at its code's
+  next extraction, or after a parser bump.
+  Every renamed, added and kept entity is logged in both runs with its
+  company (`"company-metadata".company_name`, LEFT JOINed in the selection:
+  the name every gate compares), its stored, seen and new entity, and the
+  entity check's outcome: before fails when seen is a name `EntityMatches`
+  does not match to the company (none on record fails any name), after
+  likewise for new when written and seen when kept, giving `now passes`, `now
+  fails` or `no change`, each counted in the summary. `entity_match.py` ports
+  `EntityMatches`, pinned to it by the shared fixture
+  `extractiontrust/testdata/entity_matches_cases.json`. Only a renamed row
+  can make a failing row pass; an added row can only make one fail. Every
+  changed, added and kept period is logged with its company, report date,
+  stored and new period, the code's newest flow period and its effect on the
+  stock page's own-period check: whether the document's own period
+  (`resolveOwnPeriod`: `period_end` folded onto its month end, else the
+  report date placed on the balance date; ported, and checked against the Go
+  code) is the newest flow period before and after, giving `becomes the
+  newest period`, `was the newest period` or `neither`, each counted in the
+  summary. That effect is the stock page's alone: picks gate 4 and
+  ConfirmEstimate read the same `period_end`, unlabelled. The selection reads
+  that newest flow period and the balance month as `LatestFilingInputs` does
+  (`latestFilingContextQuery`'s `NewestFlowPeriodEnd` and
+  `LatestAnnualPeriodEnd`, grouped per code). A kept period's effect is
+  `neither`: nothing is written. A recap just before
+  the summary lists every row that now passes or now fails, every kept
+  entity (code, company, URL, seen -> new, outcome), and every changed, added
+  and kept period (stored -> new, report date, newest flow period, effect),
+  and the workflow's step summary prints it with the summary line: check each
+  recap line against its document before the real run. The repair cannot
+  leave one row alone: while a line is wrong, the rule is fixed until it reads
+  that document right (a 2026-10-13 dry run would have rewritten VIG's
+  correct FY2025 `period_end` to a half its events after the reporting period
+  say is still to be reported). Cosmetic rows are logged as a count and 5
+  samples; unreadable texts as a count after the first one's cause. The run
+  exits 1 only when no selected row's text could be read. Nothing is selected
+  for extraction. Not while `financial-report-extractor` runs: an execution
+  started on the old image writes its later rows with the old rule.
 - **Targeting**: statutory first via `IsResultsDocument`'s rules ported to
   Python (a shared fixture of titles asserted by both): drop presentations,
   Form 20-F, Pillar 3, webcasts, transcripts. Order: report_date within 45 days
@@ -1061,7 +1156,7 @@ Overview:
   `/picks/<id>`; footer "Prices to <date> · Mechanical readings of published
   rules, not recommendations · Not financial advice" linking `/disclaimer`.
   Fetched by `getStockStrategyFit(code)` (unstable_cache key
-  `['stock-strategy-fit', code, 'v1']`, revalidate 3600, tags
+  `['stock-strategy-fit', code, 'v2']`, revalidate 3600, tags
   `['strategy-picks', ...stockPageCacheTags('strategy-fit', code)]`,
   `serverFetchOutsideNextCache`, 4 s abort), errors thrown inside the cached
   function (never cached) and caught at the call site (card hidden); never in
@@ -1269,6 +1364,11 @@ its fixes made (commits b6180fa7..19233581, plus the follow-up b81a099b).
 - **4.2 gate 5**: a net income or EPS takes its sign from its own number or
   the governing sign word, never a comparative's; disagreement is withheld as
   `5_statutory.sign_ambiguous`.
+- **4.2 gate 5 (2026-10-13)**: the loss forms of the pre-tax and comprehensive
+  terms, `PBT`/`NPBT`, `pre-tax` and `gross operating loss` join the list,
+  which is now matched against the normalised quote with footnote digits
+  allowed. Prod had stored FLT's "statutory PBT", DMP's and BMN's losses
+  before tax and TSR's total comprehensive loss as half-year net income.
 - **4.2 gate 8**: filing EPS is written only when the vendor EPS is per
   ordinary share, so a CDI listing's per-share filing EPS is withheld
   (`8_magnitude.eps_listed_unit_not_one_share`).
@@ -1318,6 +1418,17 @@ Deliberate trade-offs, chosen and recorded:
   "Basic EPS 3.4 cents loss per share" (a before-word and an after-word
   disagree) and "Loss of $3.1m in the pcp widened to $12.3m" (a tagged
   comparative) are withheld, not read.
+- **The whole quote is read (4.2 gate 5, 2026-10-13).** A widened 4D/4E table
+  quote whose pre-tax line reads "Loss before income tax" or "Profit/(loss)
+  before income tax" withholds the after-tax figure under it (LGF's and RLG's
+  FY26, both behind vendor values when measured). "... from ordinary
+  activities / continuing operations before income tax" is not matched, so
+  FGG's, FGX's, MYX's and PPK's after-tax lines are kept; matching "before
+  (income) tax" anywhere would withhold them, and FGG's and FGX's are half
+  years only filings provide. "Operating loss" is not matched either:
+  directors' reports give the statutory loss as "an operating loss after
+  income tax" (CDT, IRD, ORD, T88). Testing the pre-tax words against the
+  label that governs the matched figure only would remove both costs.
 - **Filing EPS is stricter than valuation (4.2 gate 8 vs 5.3).** Without a
   `median_k`, any computable vendor k outside [0.8, 1.25] withholds the code's
   filing EPS (a k <= 0 included), while valuation needs a positive k outside

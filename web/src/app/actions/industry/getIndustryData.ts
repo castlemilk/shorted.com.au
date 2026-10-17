@@ -3,6 +3,7 @@
 import { SHORTS_API_URL, serverFetchWithUserAgent, skipForBuild } from "../config";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS } from "~/@/lib/kv-cache";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { createSlug } from "~/@/lib/industry-slug";
 
 // ViewMode enum values - using constants to avoid protobuf-es SSR issues
@@ -46,14 +47,6 @@ interface IndustryStocksResult {
   // emit noindex, or a degraded regen would deindex a real industry page).
   reason?: "unknown-slug" | "unavailable";
 }
-
-// Raw ASIC classifications that should be mapped to "Other"
-const INVALID_INDUSTRIES = new Set([
-  "Class Pend",
-  "Not Applic",
-  "Not Applicable",
-  "",
-]);
 
 // Build-phase-only data-fetch skip — shared helper (see actions/config.ts).
 
@@ -112,10 +105,8 @@ export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
           >();
 
           for (const stock of response.stocks) {
-            let industry = stock.industry?.trim() ?? "Other";
-            if (INVALID_INDUSTRIES.has(industry)) {
-              industry = "Other";
-            }
+            // The ASX's placeholders for unclassified securities go in "Other".
+            const industry = industryLabel(stock.industry) || "Other";
             const shortPercent = stock.shortPosition ?? 0;
 
             if (!industryMap.has(industry)) {
@@ -237,10 +228,7 @@ export const getIndustryStocks = cache(
       }> = [];
 
       for (const stock of response.stocks) {
-        let industry = stock.industry?.trim() ?? "Other";
-        if (INVALID_INDUSTRIES.has(industry)) {
-          industry = "Other";
-        }
+        const industry = industryLabel(stock.industry) || "Other";
         const slug = createSlug(industry);
 
         if (slug === industrySlug) {

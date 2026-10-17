@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/reportextract"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
@@ -69,6 +70,7 @@ type config struct {
 	newsTable        bool
 	directorTrades   bool
 	dividends        bool
+	dividendNotices  int
 	workers          int
 }
 
@@ -158,7 +160,8 @@ func Run(ctx context.Context, args []string) error {
 	fs.BoolVar(&cfg.allAnnouncements, "all-announcements", false, "Store all announcements to asx_announcements table (not just financial reports)")
 	fs.BoolVar(&cfg.newsTable, "news-table", false, "Also write announcements into news_articles table")
 	fs.BoolVar(&cfg.directorTrades, "director-trades", false, "Extract director trades from Appendix 3Y announcements into director_trades table")
-	fs.BoolVar(&cfg.dividends, "dividends", false, "Extract dividend announcements into dividend_history table")
+	fs.BoolVar(&cfg.dividends, "dividends", false, "Parse ASX dividend notices (Appendix 3A.1 PDFs) into dividend_history")
+	fs.IntVar(&cfg.dividendNotices, "dividend-notices", 200, "With -dividends: the most ASX dividend notices (Appendix 3A.1) to download and parse per run, newest first")
 	fs.IntVar(&cfg.workers, "workers", 6, "Number of concurrent crawl workers (network-bound; keep modest to respect ASX rate limits)")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -230,6 +233,24 @@ func Run(ctx context.Context, args []string) error {
 
 	stats := &crawlStats{}
 	crawlErr := crawlAll(ctx, db, client, cfg, numWorkers, codes, years, stats)
+
+	// Dividends come from the notices' PDFs, after the crawl has stored the day's
+	// announcements; the headline never carries the amount.
+	if cfg.dividends && cfg.dividendNotices > 0 {
+		fetcher := reportextract.NewAnnouncementTextFetcher()
+		res, passErr := runDividendNoticePass(ctx, &postgresDividendNoticeStore{db: db},
+			func(c context.Context, url string) string { return fetcher.Text(c, url, 10) },
+			cfg.dividendNotices, 3, cfg.delay, cfg.dryRun, log.Printf)
+		if passErr != nil {
+			if crawlErr == nil {
+				crawlErr = passErr
+			} else {
+				log.Printf("dividend notice pass error: %v", passErr)
+			}
+		}
+		atomic.AddInt64(&stats.dividends, int64(res.Rows))
+		log.Printf("Dividend notices: selected %d, parsed %d (%d rows), outcomes %v", res.Selected, res.Parsed, res.Rows, res.Outcomes)
+	}
 
 	// NOTE: "financial_reports updated" is legitimately near-zero on steady-state
 	// runs (the JSONB merge is idempotent once a stock's report URLs are known).
@@ -374,27 +395,6 @@ func crawlOne(ctx context.Context, db *pgxpool.Pool, client *stealthhttp.Client,
 				log.Printf("  ERROR storing director trades for %s: %v", code, err)
 			} else {
 				atomic.AddInt64(&stats.dirTrades, int64(stored))
-			}
-		}
-	}
-
-	// Extract dividend announcements
-	if cfg.dividends && !cfg.dryRun {
-		var dividends []*DividendParseResult
-		for _, ann := range allAnns {
-			if isDividendAnnouncement(ann.Headline) {
-				div := parseDividendFromHeadline(ann, code)
-				if div.AmountPerShare != nil {
-					dividends = append(dividends, div)
-				}
-			}
-		}
-		if len(dividends) > 0 {
-			stored, err := storeDividends(ctx, db, dividends, cfg.verbose)
-			if err != nil {
-				log.Printf("  ERROR storing dividends for %s: %v", code, err)
-			} else {
-				atomic.AddInt64(&stats.dividends, int64(stored))
 			}
 		}
 	}

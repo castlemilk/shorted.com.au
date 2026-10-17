@@ -427,7 +427,7 @@ Keyed by `sal_code` (ABS SAL_CODE21, PK). Indexed on `(state_code)` and `(sal_na
 
 ### Collector container
 
-`services/house-price-collector/Dockerfile` — multi-stage distroless (`gcr.io/distroless/static-debian12`), static `CGO_ENABLED=0` build. Uses the project's **stealth bind-mount/PAT pattern**: secret-mount a GitHub token (CI) or bind-mount local stealth (`--mount=type=bind,from=stealth`) with `go.mod` replace, `GOPRIVATE=github.com/skunkworq/*`. Default `ENTRYPOINT` runs `-mode all`. No GCS — it fetches HTTPS and writes Postgres directly.
+The `house-price-collector` target of `services/images.Dockerfile` (one Go builder stage shared by every Go image, see `docker-bake.hcl`) — distroless (`gcr.io/distroless/static-debian12`), static `CGO_ENABLED=0` build. Uses the project's **stealth bind-mount/PAT pattern**: secret-mount a GitHub token (CI) or bind-mount local stealth (`--mount=type=bind,from=stealth`) with `go.mod` replace, `GOPRIVATE=github.com/skunkworq/*`. Default `ENTRYPOINT` runs `-mode all`. No GCS — it fetches HTTPS and writes Postgres directly.
 
 ### Terraform module (built, NOT yet wired)
 
@@ -496,7 +496,7 @@ The crawl is live (§6) — a real host Chrome over CDP, warmed via a native REA
 
 ### F. Finish the **Terraform wiring**
 The module is built; to schedule the collector in prod:
-1. **CI matrix** — add to `.github/workflows/terraform-deploy.yml` `build-docker-images` matrix: `{name: house-price-collector, dockerfile: services/house-price-collector/Dockerfile, context: services}` (it pushes `…/shorted/house-price-collector:${tag}`, needs the stealth `github_token` secret-mount like other services).
+1. **CI bake** — add a `house-price-collector` stage to `services/images.Dockerfile` and a matching target to `docker-bake.hcl` (the `build-images` job publishes every target; formerly a matrix entry `{name: house-price-collector, dockerfile: services/house-price-collector/Dockerfile, context: services}` (it pushes `…/shorted/house-price-collector:${tag}`, needs the stealth `github_token` secret-mount like other services).
 2. **Variable** — add `house_price_collector_image` to `terraform/environments/{dev,prod}/variables.tf`.
 3. **Module** — instantiate `module "house_price_collector"` in `environments/{dev,prod}/main.tf` (`source = "../../modules/house-price-collector"`, `scheduler_region = "australia-southeast1"`, `image_url = var.house_price_collector_image`).
 4. **Plan var** — add `-var="house_price_collector_image=…:${image-tag}"` to the `terraform-plan` step.

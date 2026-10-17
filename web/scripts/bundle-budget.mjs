@@ -43,7 +43,43 @@ const BUDGETS = {
     // shorts-RPC routes dropped 25-31kB each; budgets tightened back to the
     // new floor + headroom. Keep new messages in the right domain file — a
     // message added to a domain lands only in that domain's importers.
-    "/shorts/[stockCode]": 330,
+    //
+    // 2026-10-10: the stock page is one ISR route per tab, so each tab carries
+    // its own guard: measured first-load + 10%, rounded up to 5 kB. The
+    // Overview shed the tab bundles (312 -> 201 kB). Re-measure with a
+    // production build before raising any of these. The matching ISR gate is
+    // scripts/route-kinds.mjs.
+    // 2026-10-10, visible-first: the price chart moved out of the stock layout
+    // and into the Overview and Short interest pages. Next's printed First Load
+    // JS counts the PAGE entry, never the layout entry, so those two rows rose
+    // (Overview 201 -> 278 kB, Short interest 199 -> 276 kB) while the stock
+    // layout entry fell 289 -> 137 kB and every tab's root layout + stock layout
+    // + page union fell or held (Overview -1.5, Short interest -11.7, the other
+    // five -45 to -152 kB; app-build-manifest.json, gzip kB, before and after).
+    // These two budgets are the new measure + 10%, rounded up to 5 kB. Their
+    // numbers now include the chart's chunks, which the layout used to carry
+    // where no budget counted them; what a visit loads did not grow. A
+    // layout-aware metric is a follow-up.
+    //
+    //
+    // 2026-10-13: Financials and Community were still loading the chart. Next
+    // 14 merges the Overview page's client manifest into every tab's, and a
+    // shared module (next/link) resolved through it fetched the Overview's 26
+    // first-load chunks, the chart's among them. (A route group would not have
+    // stopped that: Next strips the group from the manifest's group name.) The
+    // Overview now fetches its chart after the page, from the client module
+    // stock-chart-panel-lazy.tsx, so the chart left its first load (278 -> 203
+    // kB) and the lists the tabs inherit. Measured in a browser on BHP, what a
+    // visit downloads fell 1340 -> 1113 KiB of JS on Financials and 1453 ->
+    // 1226 KiB on Community (uncompressed); scripts/stock-chart-chunks.mjs is
+    // the gate. The Overview's budget is the new measure + 10%, rounded up.
+    "/shorts/[stockCode]": 225,
+    "/shorts/[stockCode]/short-interest": 305,
+    "/shorts/[stockCode]/strategy": 260,
+    "/shorts/[stockCode]/financials": 230,
+    "/shorts/[stockCode]/company": 200,
+    "/shorts/[stockCode]/news": 190,
+    "/shorts/[stockCode]/community": 135,
     "/news/[slug]": 315,
     "/screener": 250,
     "/dashboards": 280,
