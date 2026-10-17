@@ -25,7 +25,8 @@ import { industryLabel } from "~/@/lib/industry-placeholder";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { thirtyDayChangeClause } from "~/@/lib/seo/short-change-clause";
 import { stockOgImage } from "~/@/lib/seo/stock-tab-metadata";
-import { asOfClauseFor, formatAsOfDate } from "~/@/lib/stocks/as-of-date";
+import { asOfClauseFor, formatAsOfDate, isStaleShortDate } from "~/@/lib/stocks/as-of-date";
+import { stockPageTitle } from "~/@/lib/seo/stock-page-title";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
@@ -69,10 +70,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const stock = await getStockOrNotFound(code);
     if (stock) {
       const companyName = stock.name ? cleanCompanyName(stock.name, code) : "";
-      const shortPct = stock.percentageShorted > 0 ? ` | ${stock.percentageShorted.toFixed(2)}% Shorted` : "";
-      title = companyName
-        ? `${code} Short Interest — ${companyName} (ASX:${code})${shortPct}`
-        : `${code} Short Interest${shortPct} | ASIC Data`;
+      const pct = stock.percentageShorted > 0 ? stock.percentageShorted.toFixed(2) : null;
+      title = stockPageTitle(code, companyName, pct);
       percentShorted = stock.percentageShorted;
 
       // The date of the latest ASIC report this stock appears in — NOT
@@ -92,12 +91,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       const asOf = await asOfRead;
       const dateStr = asOf ? formatAsOfDate(asOf) : null;
       const descName = companyName || code;
-      const shortInfo = stock.percentageShorted > 0
-        ? `${descName} short interest is ${stock.percentageShorted.toFixed(2)}%${dateStr ? ` as of ${dateStr}` : ""}${thirtyDayChangeClause(series)}.`
-        : `${descName} short selling data from official ASIC reports.`;
+      // A stock that has dropped out of ASIC's report (delisted, or no
+      // reportable short position for months) keeps its page, but its
+      // snippet must not claim a live figure: AGF read "2.52% Shorted ...
+      // up 2.52 points in 30 days ... Updated daily" from a 2016 report.
+      const stale = isStaleShortDate(asOf);
+      if (stale) title = stockPageTitle(code, companyName, null);
+      const shortInfo = !pct
+        ? `${descName} short selling data from official ASIC reports.`
+        : stale && dateStr
+          ? `${descName} last appeared in ASIC's short position report on ${dateStr}, at ${pct}% short.`
+          : `${descName} short interest is ${pct}%${dateStr ? ` as of ${dateStr}` : ""}${thirtyDayChangeClause(series)}.`;
       const industry = industryLabel(stock.industry);
       const industryInfo = industry ? ` Industry: ${industry}.` : "";
-      description = `${shortInfo}${industryInfo} Track ${code}'s short position history, price charts, peer comparison, and ASIC data. Updated daily with T+4 delay.`;
+      description = stale
+        ? `${shortInfo}${industryInfo} Full ${code} short position history, price charts and ASIC data.`
+        : `${shortInfo}${industryInfo} Track ${code}'s short position history, price charts, peer comparison, and ASIC data. Updated daily with T+4 delay.`;
 
       // Index real companies (named + enriched OR meaningfully shorted), only
       // noindex genuinely thin stubs. Shared with the sitemap so the two never

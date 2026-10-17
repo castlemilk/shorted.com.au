@@ -30,10 +30,12 @@ jest.mock("~/app/actions/getRelatedStocks", () => ({
 }));
 
 import { getStockOrNotFound } from "~/app/actions/getStock";
+import { getLatestShortDate } from "~/app/actions/getLatestShortDate";
 import { siteConfig } from "~/@/config/site";
 import { generateMetadata } from "../page";
 
 const mockGetStock = getStockOrNotFound as jest.Mock;
+const mockLatestDate = getLatestShortDate as jest.Mock;
 
 function stock(percentageShorted: number) {
   return {
@@ -129,5 +131,28 @@ describe("stock Overview metadata", () => {
 
     expect(meta.openGraph?.images).toEqual([card("default")]);
     expect(meta.twitter?.images).toEqual([card("default")]);
+  });
+
+  // Titles stay inside Google's display width; the old form ran ~70
+  // characters before the root template's " | Shorted".
+  it("leads with the code and the live short %, in a short title", async () => {
+    mockLatestDate.mockResolvedValueOnce(new Date());
+    mockGetStock.mockResolvedValue(stock(1.2));
+    const meta = await generateMetadata({ params: Promise.resolve({ stockCode: "bhp" }) });
+    expect(meta.title).toMatch(/^BHP Short Interest: 1\.20% \(/);
+    expect(String(meta.title).length).toBeLessThanOrEqual(50);
+    expect(meta.description).toContain("Updated daily");
+  });
+
+  // A stock that left ASIC's report long ago must not claim a live figure
+  // (AGF read "2.52% Shorted ... Updated daily" from a 2016 report).
+  it("drops the live claims when the latest report is stale", async () => {
+    mockLatestDate.mockResolvedValueOnce(new Date("2016-12-30T00:00:00Z"));
+    mockGetStock.mockResolvedValue(stock(2.52));
+    const meta = await generateMetadata({ params: Promise.resolve({ stockCode: "bhp" }) });
+    expect(meta.title).not.toContain("%");
+    expect(meta.description).toContain("last appeared in ASIC's short position report on 30 Dec 2016, at 2.52% short.");
+    expect(meta.description).not.toContain("Updated daily");
+    expect(meta.description).not.toContain("30 days");
   });
 });

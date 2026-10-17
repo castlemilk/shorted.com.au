@@ -1,10 +1,12 @@
 import { type Metadata } from "next";
+import { siteConfig } from "~/@/config/site";
 import { Separator } from "~/@/components/ui/separator";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
     "Terms of Service and Privacy Policy for Shorted - Australian short selling data and insights platform.",
+  alternates: { canonical: `${siteConfig.url}/terms` },
 };
 
 const Page = () => {
