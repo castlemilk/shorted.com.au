@@ -87,7 +87,11 @@ function sizeOf(inst: OwnershipInstitution): string {
 
 export default async function OwnershipPage() {
   const [overview, directory] = await Promise.all([getOwnershipOverview(), listInstitutions("", "", 200, 0)]);
-  if (!overview || (overview.noticesParsed === 0 && overview.superFunds === 0)) await bailOnEmptyRender();
+  // Nothing to show: a failed read, or a database the first `shorted
+  // ownership` run has not filled yet. The page says so instead of drawing
+  // empty tables, and its cache is shortened so the data shows once it lands.
+  const empty = !overview || (overview.noticesParsed === 0 && overview.superFunds === 0);
+  if (empty) await bailOnEmptyRender();
 
   const kinds = [...(overview?.kinds ?? [])].sort((a, b) => kindRank(a.kind) - kindRank(b.kind));
   const institutions = directory?.institutions ?? [];
@@ -96,6 +100,49 @@ export default async function OwnershipPage() {
     members: institutions.filter((i) => i.kind === kind),
   })).filter((g) => g.members.length > 0);
   const asOf = overview?.asOf ?? "";
+
+  const header = (
+    <header className="space-y-1.5">
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <h1 className={pageTitle}>Who owns the ASX</h1>
+        <p className={eyebrow}>Ownership</p>
+      </div>
+      <p className={lede}>
+        Super funds, index funds, hedge funds, banks and the rest of the register: every substantial holding notice
+        read from its PDF, the full holdings of the largest index ETFs and super fund options, and where a crowded
+        register meets heavy short interest.
+        {asOf ? (
+          <>
+            {" "}
+            Notices to <span className="whitespace-nowrap">{asOf}</span>.
+          </>
+        ) : null}
+      </p>
+    </header>
+  );
+
+  if (empty) {
+    return (
+      <DashboardLayout fullWidth>
+        <div className="mx-auto w-full max-w-[100rem] space-y-10">
+          {header}
+          <section aria-label="Status" className="rounded-lg border bg-card p-6">
+            <p className="max-w-[70ch] text-sm">
+              Ownership data is not available yet. It is collected once a day from ASX substantial holding notices,
+              APRA, ASX&apos;s investment products report and the funds&apos; own holdings files. Check back later
+              today.
+            </p>
+          </section>
+          <section className="space-y-3" aria-labelledby="sources">
+            <h2 id="sources" className={sectionTitle}>
+              Sources and method
+            </h2>
+            <OwnershipMethodology className="max-w-[80ch]" />
+          </section>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -128,17 +175,7 @@ export default async function OwnershipPage() {
       />
       <DashboardLayout fullWidth>
         <div className="mx-auto w-full max-w-[100rem] space-y-10">
-          <header className="space-y-1.5">
-            <div className="flex flex-wrap items-baseline gap-x-3">
-              <h1 className={pageTitle}>Who owns the ASX</h1>
-              <p className={eyebrow}>Ownership</p>
-            </div>
-            <p className={lede}>
-              Super funds, index funds, hedge funds, banks and the rest of the register: every substantial holding
-              notice read from its PDF, the full holdings of the largest index ETFs and super fund options, and where a
-              crowded register meets heavy short interest.{asOf ? <> Notices to <span className="whitespace-nowrap">{asOf}</span>.</> : null}
-            </p>
-          </header>
+          {header}
 
           <section aria-label="Coverage">
             <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border md:grid-cols-4">
