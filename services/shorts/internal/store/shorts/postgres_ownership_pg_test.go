@@ -120,6 +120,22 @@ func TestOwnershipReadsAgainstPostgres(t *testing.T) {
 		companies, err := s.OwnershipCompanies(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, "Zip Co Limited", companies["ZIP"].Name)
+		require.NotNil(t, companies["ZIP"].MarketCap)
+		assert.InDelta(t, 1.5e9, *companies["ZIP"].MarketCap, 1)
+	})
+
+	// Production's market_cap is text, with an empty string for a missing
+	// value: a bare ::float8 cast failed every ownership read (22P02).
+	t.Run("a text market_cap with empty and non-numeric values reads as unknown", func(t *testing.T) {
+		exec(`ALTER TABLE "company-metadata" ALTER COLUMN market_cap TYPE text USING market_cap::text`)
+		exec(`INSERT INTO "company-metadata" VALUES ('EMP', 'Empty Cap Ltd', 'Materials', ''), ('NA1', 'No Cap Ltd', 'Materials', 'N/A')`)
+		companies, err := s.OwnershipCompanies(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, companies["ZIP"].MarketCap)
+		assert.InDelta(t, 1.5e9, *companies["ZIP"].MarketCap, 1)
+		assert.Nil(t, companies["EMP"].MarketCap)
+		assert.Nil(t, companies["NA1"].MarketCap)
+		assert.Equal(t, "Empty Cap Ltd", companies["EMP"].Name)
 	})
 }
 
