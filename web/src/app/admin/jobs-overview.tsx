@@ -484,15 +484,22 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
                           title={(job.triggers ?? [])
                             .map(
                               (t) =>
-                                `${t.name}: ${t.scheduleHuman}${t.state === "PAUSED" ? " (PAUSED)" : ""}`,
+                                `${t.name}: ${t.scheduleHuman}${t.state === "PAUSED" ? " (PAUSED)" : t.state === "CLUSTER" ? " (omega cluster)" : ""}`,
                             )
                             .join("\n")}
                         >
                           <CalendarClock className="h-3 w-3 text-muted-foreground" />
                           {job.scheduleHuman || "–"}
                         </span>
-                        {job.schedulerState && job.schedulerState !== "ENABLED" && (
-                          <span className="text-[10px] text-amber-600 dark:text-amber-400">{job.schedulerState}</span>
+                        {/* CLUSTER is a job that moved to the omega cluster, not a
+                            stopped one: it is labelled, not flagged. */}
+                        {job.schedulerState === "CLUSTER" ? (
+                          <span className="text-[10px] text-muted-foreground">omega cluster</span>
+                        ) : (
+                          job.schedulerState &&
+                          job.schedulerState !== "ENABLED" && (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400">{job.schedulerState}</span>
+                          )
                         )}
                       </div>
                     </TableCell>

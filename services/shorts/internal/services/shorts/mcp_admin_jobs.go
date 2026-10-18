@@ -65,6 +65,18 @@ func (a *adminMCPSource) AsyncJobs(ctx context.Context) (*mcp.AsyncJobsOutput, e
 		out.Sources = append(out.Sources, mcp.JobSource{Name: "cloud_run_and_scheduler", Status: "available", Detail: "Configured Cloud Run regions and Cloud Scheduler region; HTTP trigger success is not downstream completion."})
 	}
 	out.Jobs = append(out.Jobs, jobs...)
+	// The jobs moved to the omega cluster read their runs from Telesis; without
+	// it they read as paused and overdue, so say which it is.
+	switch state, clusterErr := a.ClusterMonitoring(); state {
+	case "available":
+		out.Sources = append(out.Sources, mcp.JobSource{Name: "telesis_cron_monitors", Status: "available", Detail: "Runs of jobs on the omega Kubernetes cluster (triggers in state CLUSTER), as cronjob-reporter reports them to Telesis."})
+	case "degraded":
+		out.Incomplete = true
+		out.Warnings = append(out.Warnings, "Telesis cron monitors could not be read: "+clusterErr.Error())
+		out.Sources = append(out.Sources, mcp.JobSource{Name: "telesis_cron_monitors", Status: "degraded", Detail: "Jobs on the omega cluster fall back to their paused Cloud Scheduler triggers and old Cloud Run runs, so they can read as paused or overdue."})
+	default:
+		out.Sources = append(out.Sources, mcp.JobSource{Name: "telesis_cron_monitors", Status: "unconfigured", Detail: "TELESIS_API_TOKEN and TELESIS_ORG_ID are unset: jobs on the omega cluster read as paused and overdue from their old Cloud Run history."})
+	}
 	if crawlErr != nil {
 		out.Incomplete = true
 		out.Warnings = append(out.Warnings, "Housing crawl health could not be read.")

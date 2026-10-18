@@ -15,9 +15,17 @@ export interface JobTrigger {
   name: string;
   schedule: string;
   scheduleHuman: string;
-  state: string; // ENABLED | PAUSED
+  /** ENABLED | PAUSED | CLUSTER (moved to the omega cluster; runs from Telesis). */
+  state: string;
   lastAttemptAt: string;
-  lastStatus: string; // succeeded | failed | never
+  /** succeeded | failed | never; a CLUSTER trigger also running | missed | unknown. */
+  lastStatus: string;
+  /** Set on a CLUSTER trigger only. */
+  runner?: string;
+  monitorStatus?: string;
+  nextExpectedAt?: string;
+  lastSuccessAt?: string;
+  lastMessage?: string;
 }
 
 /** A per-run volume metric from a job's own bookkeeping (sync_status). */
@@ -38,7 +46,7 @@ export interface JobStatus {
   region?: string;
   schedule: string;
   scheduleHuman: string;
-  schedulerState: string; // ENABLED | PAUSED | ""
+  schedulerState: string; // ENABLED | PAUSED | CLUSTER | ""
   /** Every scheduler trigger for this job; schedule* above is the primary one. */
   triggers?: JobTrigger[];
   lastRunAt: string; // RFC3339 or ""

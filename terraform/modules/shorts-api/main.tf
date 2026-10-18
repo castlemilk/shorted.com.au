@@ -133,6 +133,16 @@ resource "google_secret_manager_secret_iam_member" "unsubscribe_secret" {
   project   = var.project_id
 }
 
+# Read-only Telesis project token for the admin job monitor's view of the
+# omega cluster's CronJobs (jobmonitor/cluster.go). Gated like the secrets above.
+resource "google_secret_manager_secret_iam_member" "telesis_api_token" {
+  count     = var.telesis_secret_exists ? 1 : 0
+  secret_id = "TELESIS_API_TOKEN"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Grant access to internal service secret (for webhook/server action calls from frontend)
 resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
   secret_id = "INTERNAL_SERVICE_SECRET"
@@ -290,6 +300,30 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       env {
         name  = "JOBS_SCHEDULER_REGION"
         value = "australia-southeast1"
+      }
+
+      # Jobs on the omega cluster report their runs to Telesis cron monitors;
+      # the job monitor reads them there (jobmonitor/cluster.go). The token is a
+      # read-role project token scoped to the service below.
+      dynamic "env" {
+        for_each = var.telesis_secret_exists ? [1] : []
+        content {
+          name = "TELESIS_API_TOKEN"
+          value_source {
+            secret_key_ref {
+              secret  = "TELESIS_API_TOKEN"
+              version = "latest"
+            }
+          }
+        }
+      }
+      env {
+        name  = "TELESIS_ORG_ID"
+        value = var.telesis_org_id
+      }
+      env {
+        name  = "TELESIS_SERVICE_ID"
+        value = var.telesis_service_id
       }
 
       # Where GET /api/admin/jobs/validate-sync reads a per-stock validation

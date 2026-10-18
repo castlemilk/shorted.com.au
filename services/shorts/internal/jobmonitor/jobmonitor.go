@@ -51,9 +51,23 @@ type Trigger struct {
 	Name          string `json:"name"`
 	Schedule      string `json:"schedule"`
 	ScheduleHuman string `json:"scheduleHuman"`
-	State         string `json:"state"` // ENABLED | PAUSED
+	// State is ENABLED or PAUSED, or CLUSTER for a paused trigger whose job
+	// now runs as a CronJob on the omega cluster (see cluster.go).
+	State         string `json:"state"`
 	LastAttemptAt string `json:"lastAttemptAt"`
-	LastStatus    string `json:"lastStatus"` // succeeded | failed | never
+	// LastStatus is succeeded | failed | never from Cloud Scheduler. A CLUSTER
+	// trigger reports its newest run instead, which can also be running,
+	// missed (no run started by the deadline) or unknown.
+	LastStatus string `json:"lastStatus"`
+
+	// Set only on a CLUSTER trigger, from its Telesis cron monitor.
+	Runner         string `json:"runner,omitempty"`        // "kubernetes"
+	MonitorStatus  string `json:"monitorStatus,omitempty"` // waiting | healthy | running | late | failing | paused
+	NextExpectedAt string `json:"nextExpectedAt,omitempty"`
+	LastSuccessAt  string `json:"lastSuccessAt,omitempty"`
+	LastMessage    string `json:"lastMessage,omitempty"` // the newest run's terminal reason
+
+	clusterRuns []CronRun // newest first; read by applyClusterRow
 }
 
 // RecordCount is a per-run volume metric from a job's own bookkeeping (currently
@@ -121,6 +135,9 @@ type Config struct {
 	// not configured — it refuses with ErrNoBucket rather than guessing, since
 	// the bucket name differs per environment.
 	ValidationBucket string
+	// Telesis reads the cron monitors of jobs that run on the omega cluster
+	// (cluster.go). Unconfigured, those jobs read as paused and overdue.
+	Telesis TelesisConfig
 }
 
 // ConfigFromEnv resolves the project + regions from the environment, falling
@@ -159,6 +176,7 @@ func ConfigFromEnv() Config {
 		// prod and dev use different bucket names, so a guess would read the
 		// wrong bucket rather than fail honestly.
 		ValidationBucket: os.Getenv("SHORTS_DATA_BUCKET"),
+		Telesis:          TelesisConfigFromEnv(),
 	}
 }
 
@@ -205,16 +223,39 @@ type Collector struct {
 	execLister     ExecutionLister
 	execReader     ExecutionReader
 	artifactReader ArtifactReader
+	// cron reads the Telesis cron monitors of jobs on the omega cluster. nil
+	// means Telesis is not configured.
+	cron CronSource
 
-	mu        sync.Mutex
-	cached    []JobStatus
-	cachedAt  time.Time
-	cachedErr error
+	mu         sync.Mutex
+	cached     []JobStatus
+	cachedAt   time.Time
+	cachedErr  error
+	clusterErr error
 }
 
 // NewCollector builds a Collector with a 60s cache TTL.
 func NewCollector(cfg Config) *Collector {
-	return &Collector{cfg: cfg, ttl: 60 * time.Second, runner: cloudRunRunner{}}
+	c := &Collector{cfg: cfg, ttl: 60 * time.Second, runner: cloudRunRunner{}}
+	if cfg.Telesis.Enabled() {
+		c.cron = newTelesisClient(cfg.Telesis)
+	}
+	return c
+}
+
+// ClusterMonitoring reports the Telesis source behind the cluster jobs'
+// status: "unconfigured", "available", or "degraded" when the last
+// collection could not read it (those rows then fall back to Cloud Run).
+func (c *Collector) ClusterMonitoring() (string, error) {
+	if c.cron == nil {
+		return "unconfigured", nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.clusterErr != nil {
+		return "degraded", c.clusterErr
+	}
+	return "available", nil
 }
 
 // Collect returns the unified job status list, served from cache when fresh.
@@ -229,7 +270,7 @@ func (c *Collector) Collect(ctx context.Context) ([]JobStatus, error) {
 	}
 	c.mu.Unlock()
 
-	fresh, err := collect(ctx, c.cfg)
+	fresh, clusterErr, err := collectWith(ctx, c.cfg, c.cron)
 	if fresh == nil && err != nil {
 		c.mu.Lock()
 		stale := c.cached
@@ -243,6 +284,7 @@ func (c *Collector) Collect(ctx context.Context) ([]JobStatus, error) {
 	c.mu.Lock()
 	c.cached = fresh
 	c.cachedErr = err
+	c.clusterErr = clusterErr
 	c.cachedAt = time.Now()
 	c.mu.Unlock()
 	return fresh, err
@@ -251,8 +293,17 @@ func (c *Collector) Collect(ctx context.Context) ([]JobStatus, error) {
 // collect does the actual GCP queries and merge. Exported indirectly via Collect.
 // authOpts are applied to every client (used by tests to inject credentials).
 func collect(ctx context.Context, cfg Config, authOpts ...option.ClientOption) ([]JobStatus, error) {
+	jobs, _, err := collectWith(ctx, cfg, nil, authOpts...)
+	return jobs, err
+}
+
+// collectWith is collect plus the cluster overlay from cron (nil skips it).
+// clusterErr reports a Telesis read that failed. It is kept out of err, which
+// describes Cloud Run and Cloud Scheduler: a Telesis outage degrades the cluster
+// rows only, and must not mark the whole fleet stale.
+func collectWith(ctx context.Context, cfg Config, cron CronSource, authOpts ...option.ClientOption) (jobs []JobStatus, clusterErr, err error) {
 	if cfg.ProjectID == "" {
-		return nil, fmt.Errorf("jobmonitor: project ID not configured (set JOBS_GCP_PROJECT / GOOGLE_CLOUD_PROJECT)")
+		return nil, nil, fmt.Errorf("jobmonitor: project ID not configured (set JOBS_GCP_PROJECT / GOOGLE_CLOUD_PROJECT)")
 	}
 
 	// --- Cloud Run Jobs (one regional endpoint per configured region) ---
@@ -328,9 +379,9 @@ func collect(ctx context.Context, cfg Config, authOpts ...option.ClientOption) (
 	// Every configured region failed — that's a hard error (serve stale instead).
 	if regionsSeen == 0 {
 		if lastRegionErr != nil {
-			return nil, lastRegionErr
+			return nil, nil, lastRegionErr
 		}
-		return nil, fmt.Errorf("jobmonitor: no Cloud Run regions configured")
+		return nil, nil, fmt.Errorf("jobmonitor: no Cloud Run regions configured")
 	}
 
 	// --- Cloud Scheduler triggers (global endpoint, regional parent) ---
@@ -348,11 +399,19 @@ func collect(ctx context.Context, cfg Config, authOpts ...option.ClientOption) (
 		warnings = append(warnings, fmt.Errorf("scheduler status unavailable: %w", schedErr))
 	}
 
+	// Jobs moved to the omega cluster: their paused triggers take their runs
+	// from Telesis. Before finalizeHealth, so health is judged on those runs.
+	if cron != nil {
+		clusterErr = applyClusterRuns(ctx, byName, cron)
+	}
+
 	// Finalise health + assemble in stable order.
+	now := time.Now()
 	out := make([]JobStatus, 0, len(order))
 	for _, n := range order {
 		st := byName[n]
 		finalizeHealth(st)
+		escalateClusterTriggers(st, now)
 		out = append(out, *st)
 	}
 
@@ -363,7 +422,7 @@ func collect(ctx context.Context, cfg Config, authOpts ...option.ClientOption) (
 		}
 		return healthRank(out[i].Health) < healthRank(out[j].Health)
 	})
-	return out, errors.Join(warnings...)
+	return out, clusterErr, errors.Join(warnings...)
 }
 
 // applyExecutions picks the newest execution for last-run status and scans for

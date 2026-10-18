@@ -931,6 +931,9 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			stale = true
 			logger.Warnf("Serving stale job status after collect error: %v", err)
 		}
+		if state, clusterErr := s.jobsCollector.ClusterMonitoring(); state == "degraded" {
+			logger.Warnf("Telesis cron monitors unavailable; jobs on the omega cluster fall back to Cloud Run status: %v", clusterErr)
+		}
 
 		// Merge in the Mac-based residential-crawl health records (migration 000089).
 		// jobmonitor.Collect() is GCP-only (Cloud Run + Cloud Scheduler) and cannot
