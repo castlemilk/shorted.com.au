@@ -323,10 +323,17 @@ func (s *postgresStore) LatestShortPositions(ctx context.Context) (map[string]Sh
 	return out, err
 }
 
+// marketCapSQL reads company-metadata.market_cap whatever its type: a bigint
+// locally, text in production, where a missing value is an empty string and a
+// bare ::float8 cast fails the whole read (22P02). Anything that is not a
+// number reads as NULL, an unknown market cap.
+const marketCapSQL = `CASE WHEN btrim(market_cap::text) ~ '^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$'
+		THEN btrim(market_cap::text)::float8 END`
+
 func (s *postgresStore) OwnershipCompanies(ctx context.Context) (map[string]OwnershipCompany, error) {
 	out := map[string]OwnershipCompany{}
 	err := ownershipRead(ctx, s, "OwnershipCompanies", `
-		SELECT stock_code, COALESCE(company_name, ''), COALESCE(industry, ''), market_cap::float8
+		SELECT stock_code, COALESCE(company_name, ''), COALESCE(industry, ''), `+marketCapSQL+`
 		FROM "company-metadata"`, nil,
 		func(r pgx.Rows) error {
 			var code string
