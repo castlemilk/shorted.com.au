@@ -1,0 +1,282 @@
+syntax = "proto3";
+
+package shorts.v1alpha1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+
+import "options/v1/options.proto";
+
+// OwnershipService: who holds ASX stocks.
+//
+// Three public sources, never blended into one number:
+//   - ASX substantial holding notices (Corporations Act s671B, Forms 603/604/605):
+//     every holder of 5% or more, whatever it is: super funds, index managers,
+//     hedge funds, banks lending stock to short sellers, companies, families.
+//     A figure is the notice's own voting power, as at the notice.
+//   - Index ETF holdings files (iShares, Vanguard, SPDR, Betashares), daily or
+//     monthly: shares held by the fund.
+//   - Super fund portfolio holdings disclosures, semi-annual: one investment
+//     option's holdings (the default or balanced option), never the whole fund.
+//
+// Every nullable number travels with a has_* flag: a missing figure is absent,
+// never zero. An institution's kind is its dominant business, decided once in
+// a curated registry; a holder not in it is "corporate" when its name is a
+// listed company's, else "unclassified".
+service OwnershipService {
+  // The map and the aggregated view: institutions by kind, the most crowded
+  // registers, stocks crowded both long and short, the latest notices, super
+  // funds' consensus holdings and the stocks most owned by index funds.
+  rpc GetOwnershipOverview (GetOwnershipOverviewRequest) returns (GetOwnershipOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Browse the institutions, by kind or name.
+  rpc ListInstitutions (ListInstitutionsRequest) returns (ListInstitutionsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // One institution: its current substantial holdings, its notices, its funds
+  // and what its holdings files hold.
+  rpc GetInstitution (GetInstitutionRequest) returns (GetInstitutionResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Who holds one stock: its substantial holders, their notices, and the index
+  // ETFs and super fund options that hold it.
+  rpc GetStockOwnership (GetStockOwnershipRequest) returns (GetStockOwnershipResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+}
+
+message OwnershipInstitution {
+  string slug = 1;
+  string name = 2;
+  // super_fund, index_manager, hedge_fund, active_manager, bank_broker,
+  // sovereign_public, insurer, private_equity, corporate, other.
+  string kind = 3;
+  string country = 4;
+  string website = 5;
+  string description = 6;
+  // A super fund's total assets: the sum of the APRA-regulated funds it is
+  // trustee of (APRA's annual fund-level statistics).
+  double aum_aud = 7;
+  bool has_aum = 8;
+  string aum_as_at = 9;
+  // Current substantial holdings and the notices behind them.
+  int32 substantial_positions = 10;
+  int32 notices = 11;
+  string latest_notice_date = 12;
+  // Products linked to it in the fund registers (ETFs, LICs, super funds),
+  // with their combined size (FUM, market cap or total assets).
+  int32 funds = 13;
+  double funds_size_aud = 14;
+  bool has_funds_size = 15;
+}
+
+// A holder's current substantial holding in one stock: its latest notice,
+// when that notice leaves it substantial.
+message SubstantialHolding {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  string holder_key = 4;
+  string holder_name = 5;
+  string institution_slug = 6;
+  string kind = 7;
+  // 603, 604 or nz: the form the holding was last stated on.
+  string form = 8;
+  double voting_power_pct = 9;
+  double previous_pct = 10;
+  bool has_previous = 11;
+  int64 votes = 12;
+  bool has_votes = 13;
+  // The date the holding changed, as the notice states it ("" when it does
+  // not), and the date ASX released the notice.
+  string event_date = 14;
+  string announced_on = 15;
+  string announcement_url = 16;
+}
+
+// One notice as released.
+message SubstantialNotice {
+  string stock_code = 1;
+  string company_name = 2;
+  string holder_key = 3;
+  string holder_name = 4;
+  string institution_slug = 5;
+  string kind = 6;
+  string form = 7;
+  double present_pct = 8;
+  bool has_present = 9;
+  double previous_pct = 10;
+  bool has_previous = 11;
+  bool ceased = 12;
+  string event_date = 13;
+  string announced_on = 14;
+  string announcement_url = 15;
+}
+
+// One stock in one fund's holdings file.
+message FundHolding {
+  string institution_slug = 1;
+  string institution_name = 2;
+  string kind = 3;
+  string fund_name = 4;
+  // An ETF's ASX code; "" for a super fund option.
+  string fund_code = 5;
+  // etf or super_phd.
+  string source_kind = 6;
+  string as_at = 7;
+  string stock_code = 8;
+  string company_name = 9;
+  double units = 10;
+  bool has_units = 11;
+  double value_aud = 12;
+  bool has_value = 13;
+  // The stock's weight in the fund (or option), as the file states it.
+  double weight_pct = 14;
+  bool has_weight = 15;
+  // Units over the shares on issue (ASIC's short position report).
+  double pct_of_issued = 16;
+  bool has_pct_of_issued = 17;
+}
+
+// A product in the fund registers.
+message OwnershipFund {
+  string fund_key = 1;
+  string name = 2;
+  // super_fund, etf or lic.
+  string fund_type = 3;
+  string asx_code = 4;
+  string manager_name = 5;
+  string category = 6;
+  // FUM for an ETF, market cap for a LIC, total assets for a super fund.
+  double size_aud = 7;
+  bool has_size = 8;
+  string as_at = 9;
+}
+
+message KindShare {
+  string kind = 1;
+  double pct = 2;
+  int32 holders = 3;
+}
+
+message OwnershipKindSummary {
+  string kind = 1;
+  // Registry institutions of this kind.
+  int32 institutions = 2;
+  // Holders of this kind with a current substantial holding, the holdings,
+  // and the distinct stocks they are in.
+  int32 holders = 3;
+  int32 positions = 4;
+  int32 stocks = 5;
+  double aum_aud = 6;
+  bool has_aum = 7;
+}
+
+// A stock's register as the three sources show it.
+message OwnershipStock {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  // Current substantial holders, and the sum of their voting power with each
+  // interest counted once: a group and its member (MUFG and First Sentier)
+  // count the larger figure, and two notices disclosing the same voting power
+  // as at the same date count once. Other overlaps remain, so the sum is what
+  // the notices disclose, not a share of the company.
+  int32 holders = 4;
+  double disclosed_pct = 5;
+  repeated KindShare by_kind = 6;
+  // ASIC's latest reported short position, as a percentage of shares on issue.
+  double short_pct = 7;
+  bool has_short_pct = 8;
+  // Shares held by the index ETFs tracked, over shares on issue.
+  double index_pct = 9;
+  bool has_index_pct = 10;
+  // Super fund options holding it, of those tracked, and their combined value.
+  int32 super_options = 11;
+  double super_value_aud = 12;
+  bool has_super_value = 13;
+  double market_cap = 14;
+  bool has_market_cap = 15;
+}
+
+// One holdings source's coverage.
+message OwnershipSource {
+  string source = 1;
+  string description = 2;
+  string as_at = 3;
+  int32 records = 4;
+}
+
+message GetOwnershipOverviewRequest {}
+
+message GetOwnershipOverviewResponse {
+  repeated OwnershipKindSummary kinds = 1;
+  // Institutions with the most current substantial holdings.
+  repeated OwnershipInstitution top_holders = 2;
+  // Stocks with the highest disclosed substantial voting power.
+  repeated OwnershipStock crowded = 3;
+  // Stocks where hedge funds and active managers hold substantial stakes and
+  // short interest is high: crowded on both sides.
+  repeated OwnershipStock crowded_both_ways = 4;
+  // Stocks where banks and brokers hold substantial interests (mostly stock
+  // lent to, or held as collateral from, short sellers) beside their short
+  // interest.
+  repeated OwnershipStock lending = 5;
+  repeated SubstantialNotice recent = 6;
+  // Stocks the tracked super fund options hold most of, by combined value.
+  repeated OwnershipStock super_consensus = 7;
+  // Stocks the tracked index ETFs own the largest share of.
+  repeated OwnershipStock passive = 8;
+  repeated OwnershipSource sources = 9;
+  int32 notices_parsed = 10;
+  int32 notices_withheld = 11;
+  int32 super_funds = 12;
+  double super_assets_aud = 13;
+  int32 etfs = 14;
+  double etf_fum_aud = 15;
+  int32 lics = 16;
+  double lic_market_cap_aud = 17;
+  string as_of = 18;
+}
+
+message ListInstitutionsRequest {
+  // A kind to filter to; "" for all.
+  string kind = 1;
+  string query = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListInstitutionsResponse {
+  repeated OwnershipInstitution institutions = 1;
+  int32 total = 2;
+}
+
+message GetInstitutionRequest {
+  string slug = 1;
+}
+
+message GetInstitutionResponse {
+  OwnershipInstitution institution = 1;
+  repeated SubstantialHolding positions = 2;
+  repeated SubstantialNotice notices = 3;
+  // The largest holdings, by value, of its latest holdings files.
+  repeated FundHolding fund_holdings = 4;
+  repeated OwnershipFund funds = 5;
+}
+
+message GetStockOwnershipRequest {
+  string stock_code = 1;
+}
+
+message GetStockOwnershipResponse {
+  OwnershipStock summary = 1;
+  repeated SubstantialHolding holders = 2;
+  repeated SubstantialNotice history = 3;
+  repeated FundHolding fund_holdings = 4;
+  double shares_on_issue = 5;
+  bool has_shares_on_issue = 6;
+}

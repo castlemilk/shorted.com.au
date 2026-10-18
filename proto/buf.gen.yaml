@@ -78,6 +78,7 @@ plugins:
       - services=shorts.v1alpha1.AlertsService
       - services=shorts.v1alpha1.BillingService
       - services=shorts.v1alpha1.StrategyService
+      - services=shorts.v1alpha1.OwnershipService
       - trim-unused-types
       - short-operation-ids
       - without-default-tags

@@ -367,6 +367,7 @@ locals {
     "shorted-index-sync"         = var.region
     "shorted-price-sync"         = var.region
     "shorted-picks"              = var.region
+    "shorted-ownership"          = var.region
     "shorted-economy"            = var.region
     "shorted-weekly-report"      = var.region
     "shorted-news"               = var.region
@@ -407,6 +408,7 @@ resource "google_cloud_run_v2_job_iam_member" "vke_cronjob_reporter_viewer" {
     module.shorted_job_index_sync,
     module.shorted_job_price_sync,
     module.shorted_job_picks,
+    module.shorted_job_ownership,
     module.shorted_job_economy,
     module.shorted_job_weekly_report,
     module.shorted_job_news,
@@ -876,6 +878,56 @@ module "shorted_job_picks" {
   max_retries     = 1
   cpu             = "1"
   memory          = "512Mi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# `shorted ownership` — who holds ASX stocks (/ownership and the stock page's
+# Company tab). Daily, after shorted-announcements (11:00 UTC) has stored the
+# day's substantial holding notice headlines: registry, APRA + ASX fund
+# registers, index ETF holdings, super fund portfolio holdings disclosures,
+# then up to 3000 notice PDFs, newest first (the first runs drain the backlog
+# since 2024 in about five nights). OWNERSHIP_DRY_RUN=false is what makes it
+# write; a hand run writes nothing. Memory: each notice PDF is read in a child
+# process under a shared 2 GiB resident budget (an encrypted notice needs
+# about 32x its size), plus the parent. Migration 000137 is in the deploy
+# allowlist. After a run that stored rows it waits 11 minutes for the API's
+# ownership cache, then revalidates tag + KV family "ownership".
+module "shorted_job_ownership" {
+  source = "../../modules/shorted-job"
+
+  name             = "shorted-ownership"
+  description      = "Ownership map: substantial holder notices, ETF and super fund holdings, APRA/ASX fund registers"
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url        = var.shorted_jobs_image
+
+  paused = contains(local.jobs_on_vke, "shorted-ownership")
+
+  args     = ["ownership", "-mode", "all", "-limit", "3000"]
+  schedule = "45 12 * * *" # daily 12:45 UTC, after the 11:00 UTC announcements ingest
+
+  env = {
+    ENVIRONMENT       = "production"
+    GCP_PROJECT       = var.project_id
+    OWNERSHIP_DRY_RUN = "false"
+    REVALIDATION_URL  = "https://shorted.com.au/api/revalidate"
+  }
+
+  secret_env = {
+    DATABASE_URL        = "DATABASE_URL"
+    REVALIDATION_SECRET = "REVALIDATION_SECRET"
+  }
+
+  timeout_seconds = 7200
+  max_retries     = 1
+  cpu             = "1"
+  memory          = "4Gi"
 
   depends_on = [
     google_project_service.required_apis,

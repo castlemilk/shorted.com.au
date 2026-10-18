@@ -1,0 +1,96 @@
+James Hardie Industries plc
+1 st Floor, Block A,
+One Park Place,
+Upper Hatch Street, Dublin 2,
+D02 FD79, Ireland
+T: +353 (0) 1 411 6924
+F: +353 (0) 1 479 1128
+24 September 2026
+The Manager
+Company Announcements Office
+Australian Securities Exchange Limited
+20 Bridge Street
+SYDNEY NSW 2000
+Dear Sir/Madam
+Substantial Holding Notice
+As required under ASX Listing Rule 3.17.3, please see attached a copy of the substantial holding
+notice received by James Hardie Industries plc on 23 September 2026.
+Regards
+Aoife Rockett
+Group Company Secretary
+This announcement has been authorised for release by the Group Company Secretary, Ms Aoife
+For personal use only | Rockett.
+James Hardie Industries plc is a limited liability company incorporated in Ireland with its registered office at
+1 st Floor, Block A, One Park Place, Upper Hatch Street, Dublin 2, D02 FD79, Ireland.
+Directors: Nigel Stein (UK) (Chair), Howard Heckes (USA), Gary Hendrickson (USA),
+Renee Peterson (USA), John Pfeifer (USA), Suzanne B. Rowland (USA), Rob Sindel (AUS), Jesse Singh (USA).
+Chief Executive Officer and Director: Aaron Erter (USA)
+Company number: 485719
+ARBN: 097 829 895
+
+
+STANDARD FORM TR-1
+VOTING RIGHTS ATTACHED TO SHARES– ARTICLE 12(1) OF DIRECTIVE 2004/109/EC
+FINANCIAL INSTRUMENTS – ARTICLE 11(3) OF THE COMMISSION DIRECTIVE 2007/14/EC i
+1. | Identity of the issuer or the underlying issuer of existing shares to which voting
+rights are attached ii :
+JAMES HARDIE INDUSTRIES PLC
+2. | Reason for the notification (please tick the appropriate box or boxes):
+[ X ]  an acquisition or disposal of voting rights
+[ ]   an acquisition or disposal of financial instruments which may result in the
+acquisition of shares already issued to which voting rights are attached
+[ ] | an event changing the breakdown of voting rights
+3. | Full name of person(s) subject to the notification obligation iii:
+BlackRock, Inc.
+4. | Full name of shareholder(s) (if different from 3.) iv:
+See Section 9
+5. | Date of the transaction and date on which the threshold is crossed or reached | v:
+22/09/2026
+6.         Date on which issuer notified: 23/09/2026
+7. | Threshold(s) that is/are crossed or reached:
+Holdings for BlackRock, Inc. have gone above 3%.
+8. | Notified details:
+A) Voting rights attached to shares
+Class/type of | Situation previous to the | Resulting situation after the triggering transaction viiviii
+For personal use only
+shares (if | Triggering transaction vi
+possible using | Number of Number of | Number of Number of voting | % of voting rights
+the ISIN CODE) Shares ix | Voting | shares xi | rights xii
+rights x | Direct | Direct | Indirect xiv | Direct | Indirect
+xiii
+IE000R94NGM2 | N/A | Below3% | N/A | N/A | 20,213,733  N/A | 3.48%
+SUBTOTAL A
+20,213,733 | 3.48%
+(based on
+
+
+aggregate voting
+rights)
+B) Financial Instruments
+Resulting situation after the triggering transaction xv
+Type of financial | Expiration Date xvi  Exercise/Conversion Number of voting | % of voting rights
+instrument | Period/ Date xvii | rights that may be
+acquired if the
+instrument is
+exercised/converted
+SUBTOTAL B  (in
+relation to all
+expiration dates)
+Total (A+B) | number of voting | % of voting rights
+rights
+20,213,733 | 20,213,733 | 3.48%
+9. | Chain of controlled undertakings through which the voting rights and/or the
+financial instruments are effectively held, if applicable xviii:
+Each of the following entities, which are wholly owned subsidiaries of BlackRock, Inc.,
+For personal use only | hold the following interests in voting rights in their capacity as Investment Manager on
+behalf of clients:
+Investment Manager | Voting Rights | %
+BlackRock Institutional Trust Company, National Association | 10,964,527 | 1.88%
+BlackRock Fund Advisors | 4,884,187 | 0.84%
+BlackRock Investment Management (Australia) Limited | 2,110,105 | 0.36%
+BlackRock Advisors (UK) Limited | 911,779 | 0.15%
+BlackRock Investment Management (UK) Limited | 636,499 | 0.10%
+Aperio Group, LLC | 365,503 | 0.06%
+BlackRock Advisors, LLC | 113,371 | 0.01%
+BlackRock Asset Management Canada Limited | 89,635 | 0.01%
+BlackRock Financial Management, Inc. | 67,509 | 0.01%

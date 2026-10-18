@@ -18,6 +18,7 @@ import "shorts/v1alpha1/housing.proto";
 import "shorts/v1alpha1/industry.proto";
 import "shorts/v1alpha1/market.proto";
 import "shorts/v1alpha1/news.proto";
+import "shorts/v1alpha1/ownership.proto";
 import "shorts/v1alpha1/politicians.proto";
 import "shorts/v1alpha1/reports.proto";
 import "shorts/v1alpha1/screener.proto";
@@ -943,6 +944,46 @@ service ShortedStocksService {
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Stock Strategy Fit",
       description: "How one ASX stock reads against every stock-picking strategy: status (triggered, setup, watch, or none when it is not a candidate), score, rank and a pass / fail / unknown result for every rule. Not financial advice."
+    };
+  }
+
+  // ==================== Ownership ====================
+  // Mirrored from OwnershipService for external API back-compat; the parity
+  // test enforces the visibility match.
+
+  // The map of ASX investors and the aggregated ownership view.
+  rpc GetOwnershipOverview (GetOwnershipOverviewRequest) returns (GetOwnershipOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Ownership Overview",
+      description: "Who holds ASX stocks: super funds, index managers, hedge funds, banks and others by kind, the most crowded registers, stocks crowded both long (substantial holders) and short (ASIC short interest), recent substantial holding notices, super funds' consensus holdings and index ETF ownership. Substantial holdings are the voting power stated in ASX Forms 603/604/605; ETF and super fund holdings are the funds' own disclosures."
+    };
+  }
+
+  // List the institutions on the ownership map.
+  rpc ListInstitutions (ListInstitutionsRequest) returns (ListInstitutionsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Institutions",
+      description: "Institutions that invest in ASX stocks (super funds, index managers, hedge funds, active managers, banks and brokers, sovereign funds), filterable by kind or name, with their current substantial holdings count and super fund total assets."
+    };
+  }
+
+  // One institution's holdings.
+  rpc GetInstitution (GetInstitutionRequest) returns (GetInstitutionResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Institution",
+      description: "One institution's current substantial holdings (from ASX substantial holding notices), its notices, its products, and the largest holdings in its ETF or super fund holdings files."
+    };
+  }
+
+  // Who holds one stock.
+  rpc GetStockOwnership (GetStockOwnershipRequest) returns (GetStockOwnershipResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock Ownership",
+      description: "One ASX stock's substantial holders (voting power as stated in their latest Form 603/604), their notice history, and the index ETFs and super fund options that hold it, with shares held as a percentage of shares on issue."
     };
   }
 

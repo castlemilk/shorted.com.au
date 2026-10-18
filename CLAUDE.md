@@ -908,6 +908,43 @@ four readouts and the ladder); on `/picks` it is unchanged.
   carries one sr-only h2 naming the group so the outline never jumps a level;
   a title an island already prints is never repeated by a wrapper heading.
 
+## Ownership (who holds ASX stocks)
+
+`/ownership` (hub: the map by kind, biggest holders, crowded registers, crowded
+both ways, lending desks, index fund ownership, super funds' consensus, latest
+notices, institutions directory), `/ownership/[slug]` (one institution) and the
+"Who owns it" card on the stock page's Company tab, over `OwnershipService`
+(`ownership.proto`, 4 rpcs, all public, mirrored on `ShortedStocksService`).
+Fed by `shorted ownership` (`services/jobs/README.md` "ownership"): a curated
+registry of ~145 institutions, APRA's super fund statistics, ASX's ETF/LIC
+report, 11 index ETFs' holdings files, 11 super funds' portfolio holdings
+disclosures, and every substantial holding notice PDF since 2024. Migration
+`000137_add_ownership` is in the deploy allowlist.
+
+| Piece | Where |
+|---|---|
+| Job, parser, registry | `services/jobs/internal/jobs/ownership/` (`notice.go` parser, fixtures in `testdata/notices/`; `registry.go` kinds, aliases, groups) |
+| API | `services/shorts/internal/services/shorts/ownership.go` (views built in pure functions, 10-minute cache), `store/shorts/postgres_ownership.go` (a schema without 000137 reads empty, never a 500) |
+| Web | `app/ownership/`, `components/ownership/` (server components only), `lib/ownership/kinds.ts`, `app/actions/getOwnership.ts` (ISR tag `ownership` + KV last-good, flush `ownership`) |
+
+### Landmines
+
+- **A notice is withheld rather than guessed** (scans, annexure-only figures,
+  a headline naming a company not on record, votes that do not fit ASIC's
+  share count as at the notice's date). The overview reports read and
+  withheld counts; never estimate a withheld figure.
+- **Notices overlap.** MUFG files for First Sentier and Morgan Stanley, a bank
+  files for its fund manager, CBA and KKR both file for Colonial First State.
+  `countedHoldings` counts a registry `Group` once and identical (voting power,
+  date) pairs once; other overlaps remain, so every sum is "what the notices
+  disclose", never a share of the company. Say so wherever a sum is shown.
+- **Kinds are colours of a category, never market red or green**
+  (`kinds.ts`); a sum prints to two decimals, a single notice's figure keeps
+  the precision it states (`formatSum` / `formatVotingPower`).
+- **A super fund's holdings disclosure is one investment option**, not the
+  whole fund; ETF issuers are linked by the manager before the slash in ASX's
+  issuer field ("Milford / EQT" is Equity Trustees the RE, not EQT the firm).
+
 ## Weekly/Monthly/Yearly Reports
 
 LLM-generated short-selling reports at `/reports` (weekly `2026-W23`, monthly `2026-05`, yearly `2025` — one `weekly_reports` table, slug shape disambiguates).

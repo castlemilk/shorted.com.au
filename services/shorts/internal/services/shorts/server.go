@@ -52,6 +52,9 @@ type ShortsServer struct {
 	// subscriptions, mailing list). Nil when the store is not Postgres; those
 	// tools then report the source as unavailable.
 	peopleStore shorts.PeopleStore
+	// ownershipStore serves OwnershipService (migration 000137). Nil when the
+	// store is not Postgres; the ownership rpcs then answer empty.
+	ownershipStore shorts.OwnershipStore
 	// oauthStore backs the OAuth authorization server (clients, codes,
 	// refresh tokens — migration 000116). Nil when no Postgres pool is
 	// reachable, in which case the grant endpoint reports
@@ -138,6 +141,7 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	}
 
 	peopleStore, _ := storeImpl.(shorts.PeopleStore)
+	ownershipStore, _ := storeImpl.(shorts.OwnershipStore)
 
 	var rateLimiter ratelimit.RateLimiter
 	if cfg.RateLimitConfig.Enabled {
@@ -176,5 +180,6 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		jobsCollector:  jobmonitor.NewCollector(jobmonitor.ConfigFromEnv()),
 		oauthStore:     oauthStore,
 		peopleStore:    peopleStore,
+		ownershipStore: ownershipStore,
 	}, nil
 }

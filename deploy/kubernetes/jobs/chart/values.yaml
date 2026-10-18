@@ -348,6 +348,24 @@ jobs:
     env:
       PICKS_FUNDAMENTALS_BUDGET_MIN: "170"
 
+  shorted-ownership:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-ownership
+    image: jobs
+    args: ["ownership", "-mode", "all", "-limit", "3000"]
+    schedule: "45 12 * * *"
+    timeoutSeconds: 7200
+    maxRetries: 1
+    resources:
+      cpuRequest: 500m
+      memory: 4Gi
+      memoryRequest: 2Gi
+    profiles: [db, gcpProject, revalidate]
+    env:
+      OWNERSHIP_DRY_RUN: "false"
+
   shorted-economy:
     # The Cloud Run job whose executions report to this monitor while
     # the CronJob is not live (reporter -cloudrun-config).
