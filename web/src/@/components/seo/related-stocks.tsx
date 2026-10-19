@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import { Badge } from "~/@/components/ui/badge";
+import { StockLogo } from "~/@/components/reports/stock-logo";
 import { isPlaceholderIndustrySlug } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 
@@ -16,6 +17,8 @@ export interface RelatedStock {
   name: string;
   shortPercent: number;
   industry: string;
+  /** A logo the bucket is known to hold; absent draws the letter avatar. */
+  logoUrl?: string;
 }
 
 interface RelatedStocksProps {
@@ -63,8 +66,9 @@ export function RelatedStocks({
             <Link
               key={stock.code}
               href={`/shorts/${stock.code}`}
-              className="flex items-center justify-between p-3 rounded-lg border border-border/60 hover:border-primary/50 hover:bg-muted/50 transition-colors duration-200 ease-out group"
+              className="flex items-center gap-3 p-3 rounded-lg border border-border/60 hover:border-primary/50 hover:bg-muted/50 transition-colors duration-200 ease-out group"
             >
+              <StockLogo code={stock.code} logoUrl={stock.logoUrl} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold group-hover:text-primary transition-colors">
@@ -72,9 +76,13 @@ export function RelatedStocks({
                   </span>
                   <ShortBadge percent={stock.shortPercent} />
                 </div>
-                <div className="text-xs text-muted-foreground truncate mt-0.5">
-                  {stock.name}
-                </div>
+                {/* The industry feed has no names and sends the code as one:
+                    a second line repeating the code says nothing. */}
+                {stock.name && stock.name !== stock.code ? (
+                  <div className="text-xs text-muted-foreground truncate mt-0.5">
+                    {stock.name}
+                  </div>
+                ) : null}
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
             </Link>

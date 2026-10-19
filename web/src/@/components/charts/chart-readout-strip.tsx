@@ -31,9 +31,9 @@ function directionColor(change: ReadoutDelta): string | undefined {
   return change.tone === "up" ? UP : change.tone === "down" ? DOWN : undefined;
 }
 
-// The glyphs of a percentage-point change, which takes no colour: the same three
-// the stock header prints beside its 30-day change (stock-header.tsx,
-// describeChange), so one figure reads one way wherever it is on the page. U+2013
+// The glyphs of a percentage-point change, which takes no colour here: the same
+// three the stock header prints beside its 30-day change (stock-header.tsx,
+// describeChange, which also colours it), so one figure reads one way. U+2013
 // for no change is written as an escape, because it looks like a hyphen.
 const POINTS_GLYPH: Record<ReadoutDelta["tone"], string> = {
   up: "▲",

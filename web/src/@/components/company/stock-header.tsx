@@ -18,6 +18,17 @@ const NAME_ID = "stock-header-name";
 const MINUS = "\u2212";
 const FLAT = "\u2013";
 
+// The 30-day change in signal red and green (DESIGN.md, the Semantic
+// Quarantine Rule: the direction of a number). A rise is more of the register
+// betting against the stock, so it is red; a fall is green, as the industry
+// panel colours the same change. No change stays in the foreground. The light
+// shades are a step darker than the dark ones, for contrast at 11px on white.
+const CHANGE_TONE = {
+  up: "text-red-600 dark:text-red-400",
+  down: "text-green-700 dark:text-green-400",
+  flat: "text-foreground",
+} as const;
+
 // What the logo needs of the company details, for when there are none.
 const NO_DETAILS: Pick<
   StockDetails,
@@ -137,7 +148,7 @@ export function StockHeader({
           {change ? (
             <dd
               title="Change in short interest over the last 30 days, in percentage points"
-              className="font-mono text-[11px] leading-[13px] tabular-nums text-foreground"
+              className={`font-mono text-[11px] leading-[13px] tabular-nums ${CHANGE_TONE[change.tone]}`}
             >
               {/* The sign says which way it went; the arrow only shows it. */}
               <span aria-hidden="true">{change.arrow}</span> {change.text} 30d
@@ -218,16 +229,22 @@ export async function StockHeaderLogo({ stockCode }: { stockCode: string }) {
 }
 
 /**
- * The 30-day change as the header prints it: a direction glyph and a signed
- * magnitude. Round first, so the glyph, the sign and the digits always agree
- * ("0.004" is flat, not "▲ +0.00"), and a true minus signs a fall.
+ * The 30-day change as the header prints it: a direction glyph, a signed
+ * magnitude and the tone it is coloured by. Round first, so the glyph, the
+ * sign, the digits and the colour always agree ("0.004" is flat, not a red
+ * "▲ +0.00"), and a true minus signs a fall.
  */
-function describeChange(change: number): { arrow: string; text: string } {
+function describeChange(change: number): {
+  arrow: string;
+  text: string;
+  tone: keyof typeof CHANGE_TONE;
+} {
   const rounded = Number(change.toFixed(2)) || 0; // `|| 0` turns -0 into 0
-  if (rounded === 0) return { arrow: FLAT, text: "0.00 pp" };
+  if (rounded === 0) return { arrow: FLAT, text: "0.00 pp", tone: "flat" };
   const sign = rounded > 0 ? "+" : MINUS;
   return {
     arrow: rounded > 0 ? "▲" : "▼",
     text: `${sign}${Math.abs(rounded).toFixed(2)} pp`,
+    tone: rounded > 0 ? "up" : "down",
   };
 }

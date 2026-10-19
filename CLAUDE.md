@@ -663,9 +663,11 @@ inside `Suspense` in a fixed box so it cannot shift the header), the code, the
 industry badge, the name, and the short-interest readout (short %, the 30-day
 change in percentage points, reported shorts, shares on issue and the "as of"
 date). The readout is the page's one lit surface (`shadow-terminal-inset`,
-DESIGN.md's One Bloom Rule). The 30-day change is foreground, never red or
-green, because short interest is not market direction; a fall takes U+2212. A
-missing value is left out, never a dash or "undefined".
+DESIGN.md's One Bloom Rule). The 30-day change is coloured by its rounded
+direction (2026-10-19, at the owner's request): a rise in short interest is
+signal red, a fall green (as the industry panel colours it), no change the
+foreground; a fall takes U+2212. It is the only coloured figure in the header.
+A missing value is left out, never a dash or "undefined".
 
 `StockTabNav` is sticky at `top-16`, under the site header's `h-16` row, and
 bleeds to `<main>`'s edges with `-mx-8`; the scrolling list inside carries the
@@ -751,8 +753,8 @@ or else the point under the pointer (Home and End jump, Escape releases).
 the embed when its chart is under 260px tall, and the strip falls back to it
 when the plot would be under 160px (`READOUT_MIN_PLOT`). Red and green mark the
 price series' direction only; the short series reads in the foreground, in
-percentage points, as the header's 30-day change does ("▲ +0.62 pp",
-"▼ −0.31 pp", "– 0.00 pp"). Short interest prints to two decimals everywhere
+percentage points, in the header's 30-day change format ("▲ +0.62 pp",
+"▼ −0.31 pp", "– 0.00 pp"; the header colours its figure, the chart does not). Short interest prints to two decimals everywhere
 the chart prints it (`shortFmt`). A reading is dated by the data point it
 shows, never by the pointer's instant: the strip, the card, the measure's
 headline and the pin's announcement all name the session, not a weekend the
