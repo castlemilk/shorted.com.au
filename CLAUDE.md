@@ -2291,6 +2291,20 @@ make test             # Runs full validation
 make install-hooks    # Sets up pre-push hook
 ```
 
+### A merge is not a deploy until its run exists
+
+Every push to `main` deploys through `terraform-deploy.yml`, which Cuttlefish
+runs (the workflow is disabled on GitHub, so `workflow_dispatch` there fails).
+Its `deploy-vercel-prod` job builds and promotes the whole of `main` on every
+push; there is no path filter. But when two merges land within a minute,
+Cuttlefish has dropped the second push's deploy outright: no run, no cancel
+record, no alert. On 2026-10-19 #724 merged 50s after #725, and production
+stayed on #725 for over an hour while every check read green. After a merge,
+confirm a `gha-terraform-deploy-*` run exists for the merge commit
+(`cuttlefish_runs_list`, project `shorted`). If it does not, the next push to
+`main` deploys it; the fix (queue the second run, as GitHub does) belongs in
+`skunkworq/cuttlefish`.
+
 ## Versioning
 
 The project uses git-based versioning. The version is automatically bumped on each frontend build via `web/scripts/bump-version.sh`, which generates versions like `v0.2.2-748-g032f59db`.
