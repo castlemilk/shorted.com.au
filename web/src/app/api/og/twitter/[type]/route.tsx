@@ -316,7 +316,12 @@ export async function GET(
     width: WIDTH,
     height: HEIGHT,
     headers: {
-      "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
+      // Lowercase on purpose: ImageResponse spreads these over its own
+      // `"cache-control": "public, immutable, no-transform, max-age=31536000"`,
+      // and object keys are case-sensitive, so "Cache-Control" would sit
+      // beside the default and Headers would join both into one value.
+      "cache-control":
+        "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
     },
   });
 }
