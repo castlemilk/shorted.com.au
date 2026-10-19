@@ -1432,6 +1432,7 @@ onboarding: `docs/discord-bot.md`.
 |---|---|
 | Which app (id, public key, Activity switch), committed | `web/src/config/discord-app.json`; env `DISCORD_PUBLIC_KEY` / `DISCORD_ACTIVITY_ENABLED` override it for a second app |
 | Onboarding and checks | `task discord:setup` / `discord:status` / `discord:register` (`web/scripts/discord.ts`; `DISCORD_BOT_TOKEN` in the repo `.env`, never in Vercel) |
+| Public page (install buttons, commands, privacy) | `/docs/discord` (`web/src/app/docs/discord/page.tsx`); renders from `COMMANDS` and the committed app, so it needs no edit when either changes |
 | Router, 1.5s fast path then defer + webhook edit (`waitUntil`) | `web/src/@/lib/discord/handler.ts` |
 | Messages, commands (registered and handled from one list), button `custom_id` codec | `lib/discord/messages.ts`, `commands.ts`, `custom-id.ts` |
 | Reads: the stock pages' server actions, 6s cap each | `lib/discord/data.ts` |

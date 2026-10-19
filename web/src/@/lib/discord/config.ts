@@ -53,3 +53,10 @@ export function discordActivityEnabled(): boolean {
   const value = envValue("DISCORD_ACTIVITY_ENABLED").toLowerCase();
   return value ? value === "true" : DISCORD_APP.activity;
 }
+
+/** The committed app's id, for its install links; null until it is set up. */
+export function discordApplicationId(): string | null {
+  return /^\d{15,22}$/.test(DISCORD_APP.applicationId)
+    ? DISCORD_APP.applicationId
+    : null;
+}

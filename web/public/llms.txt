@@ -103,6 +103,10 @@ Australian short selling is regulated under the **Corporations Act 2001** and gu
 
 All short position data is sourced directly from official ASIC publications. Data is updated daily after ASIC releases new reports, typically in the late afternoon Australian Eastern Time. Historical data is available from 2010 onwards when ASIC began publishing daily aggregated short position data following the Global Financial Crisis.
 
+## Discord app
+
+[Shorted for Discord](https://shorted.com.au/docs/discord) answers slash commands in Discord: `/stock` and `/chart` post a stock's ASIC short interest and its chart card (`https://shorted.com.au/chart/<CODE>/image`), with buttons that redraw it by period and view; `/search` and `/top` list stocks. It installs with the `applications.commands` scope only and reads no messages.
+
 ## MCP Server (for AI agents)
 
 Shorted exposes a Model Context Protocol server with read-only tools over all of the data described above — no authentication required, and OAuth 2.1 available to identify a caller:

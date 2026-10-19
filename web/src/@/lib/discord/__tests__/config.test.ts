@@ -51,6 +51,20 @@ describe("Discord app config", () => {
     expect(config.discordActivityEnabled()).toBe(false);
   });
 
+  it("offers install links only for a real application id", () => {
+    const empty = { applicationId: "", publicKey: "", activity: false };
+    expect(load(empty).discordApplicationId()).toBeNull();
+    expect(
+      load({ ...empty, applicationId: "1234" }).discordApplicationId(),
+    ).toBeNull();
+    expect(
+      load({
+        ...empty,
+        applicationId: "1290000000000000000",
+      }).discordApplicationId(),
+    ).toBe("1290000000000000000");
+  });
+
   it("refuses a malformed key rather than verifying against it", () => {
     process.env.DISCORD_PUBLIC_KEY = "not-a-key";
     expect(

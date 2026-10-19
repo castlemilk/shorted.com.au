@@ -26,6 +26,12 @@ on, an **Interactive** button opens the site's full chart inside Discord.
 `task discord:status` shows where things stand at any time. `task discord:setup`
 is safe to run again: it changes only what has drifted.
 
+The public page for people adding the app is
+[`/docs/discord`](https://shorted.com.au/docs/discord)
+(`web/src/app/docs/discord/page.tsx`). It renders its command table from
+`COMMANDS` and its install buttons from the committed app, so it shows "being
+set up" until step 2 is merged and needs no edit afterwards.
+
 ## Commands
 
 | Command | What it posts |
