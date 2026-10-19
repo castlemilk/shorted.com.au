@@ -71,17 +71,12 @@ export const InteractionContextType = {
 export const LIMITS = {
   embedTitle: 256,
   embedDescription: 4096,
-  embedFieldName: 256,
   embedFieldValue: 1024,
   embedFooter: 2048,
-  buttonLabel: 80,
   selectOptions: 25,
   selectOptionLabel: 100,
-  selectOptionDescription: 100,
   autocompleteChoices: 25,
   choiceName: 100,
-  customId: 100,
-  buttonsPerRow: 5,
 } as const;
 
 export interface CommandOption {

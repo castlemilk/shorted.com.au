@@ -3,7 +3,7 @@
  */
 import { generateKeyPairSync, sign } from "node:crypto";
 import { NextRequest } from "next/server";
-import { POST } from "../route";
+import { GET, POST } from "../route";
 
 // The bot's reads are the server actions; nothing here should reach them.
 jest.mock("~/@/lib/discord/data", () => ({
@@ -66,6 +66,23 @@ describe("POST /api/discord/interactions", () => {
   afterEach(() => {
     process.env = env;
     jest.restoreAllMocks();
+  });
+
+  it("reports, on GET, which key this deployment verifies with", async () => {
+    const response = GET();
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({
+      service: "shorted-discord",
+      configured: true,
+      publicKey: PUBLIC_KEY,
+      activity: false,
+    });
+
+    delete process.env.DISCORD_PUBLIC_KEY;
+    expect(await GET().json()).toMatchObject({
+      configured: false,
+      publicKey: null,
+    });
   });
 
   it("answers Discord's PING with a PONG", async () => {

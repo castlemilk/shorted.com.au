@@ -10,12 +10,12 @@ import { StockChartEmbed } from "~/@/components/charts/StockChartEmbed";
 import { shortFmt } from "~/@/components/charts/chart-views";
 import { Input } from "~/@/components/ui/input";
 import { siteConfig } from "~/@/config/site";
-import { formatCompanyName } from "~/@/lib/company-name";
 import {
   discordClientIdFromHost,
   isDiscordLaunch,
 } from "~/@/lib/discord/activity";
 import { normalizeCode, type ChartState } from "~/@/lib/discord/custom-id";
+import { hitFromStock, type StockHit } from "~/@/lib/discord/messages";
 import { SearchService } from "~/gen/shorts/v1alpha1/search_pb";
 
 /**
@@ -74,12 +74,6 @@ function useDiscordSdk(): DiscordSDK | null {
   return sdk;
 }
 
-interface Hit {
-  code: string;
-  name: string;
-  shortPct?: number;
-}
-
 // Relative: the request goes to the page's own origin, which inside Discord
 // is the proxy, which forwards it to shorted.com.au and its rewrite.
 const searchClient = createClient(
@@ -87,8 +81,8 @@ const searchClient = createClient(
   createConnectTransport({ baseUrl: "" }),
 );
 
-function useStockSearch(query: string): { hits: Hit[]; loading: boolean } {
-  const [hits, setHits] = useState<Hit[]>([]);
+function useStockSearch(query: string): { hits: StockHit[]; loading: boolean } {
+  const [hits, setHits] = useState<StockHit[]>([]);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     const q = query.trim();
@@ -107,14 +101,7 @@ function useStockSearch(query: string): { hits: Hit[]; loading: boolean } {
         )
         .then((response) =>
           setHits(
-            response.stocks
-              .filter((s) => s.productCode)
-              .map((s) => ({
-                code: s.productCode.toUpperCase(),
-                name: formatCompanyName(s.name, s.productCode),
-                shortPct:
-                  s.percentageShorted > 0 ? s.percentageShorted : undefined,
-              })),
+            response.stocks.filter((s) => s.productCode).map(hitFromStock),
           ),
         )
         .catch((error: unknown) => {

@@ -1419,21 +1419,22 @@ because chat apps show HTML as text (a WBT snippet pasted into Discord,
 ## Discord bot (slash commands, live charts, Activity)
 
 An HTTP interactions endpoint, not a gateway bot: Discord POSTs every command,
-autocomplete keystroke and button press to
-`/api/discord/interactions` (`web/src/app/api/discord/interactions/route.ts`),
+autocomplete keystroke and button press to `/api/discord/interactions`
+(`web/src/app/api/discord/interactions/route.ts`; a GET reports its status),
 signed with the app's Ed25519 key, and it deploys with the web app. Commands:
 `/stock`, `/chart`, `/search`, `/top`, `/help`. A chart message is the
 `/chart/<CODE>/image` card plus two rows of buttons (period, view) that redraw
-it in place; with `DISCORD_ACTIVITY_ENABLED=true` an **Interactive** button
-opens `StockChartEmbed` inside Discord as an Activity (`/embed/discord`).
-Runbook, setup and the Activity's URL mapping: `docs/discord-bot.md`.
+it in place; with `"activity": true` an **Interactive** button opens
+`StockChartEmbed` inside Discord as an Activity (`/embed/discord`). Runbook and
+onboarding: `docs/discord-bot.md`.
 
 | Piece | Where |
 |---|---|
+| Which app (id, public key, Activity switch), committed | `web/src/config/discord-app.json`; env `DISCORD_PUBLIC_KEY` / `DISCORD_ACTIVITY_ENABLED` override it for a second app |
+| Onboarding and checks | `task discord:setup` / `discord:status` / `discord:register` (`web/scripts/discord.ts`; `DISCORD_BOT_TOKEN` in the repo `.env`, never in Vercel) |
 | Router, 1.5s fast path then defer + webhook edit (`waitUntil`) | `web/src/@/lib/discord/handler.ts` |
 | Messages, commands (registered and handled from one list), button `custom_id` codec | `lib/discord/messages.ts`, `commands.ts`, `custom-id.ts` |
 | Reads: the stock pages' server actions, 6s cap each | `lib/discord/data.ts` |
-| Register commands | `cd web && npm run discord:register` (bot token used only there) |
 
 ### Landmines
 

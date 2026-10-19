@@ -5,6 +5,7 @@ import {
   chartImageUrl,
   chartShareUrl,
 } from "~/@/lib/embed/snippet";
+import { formatCompanyName } from "~/@/lib/company-name";
 import { formatNumber } from "~/@/lib/utils";
 import {
   ButtonStyle,
@@ -42,8 +43,10 @@ import {
 export const EMBED_COLOR = 0xffac4d;
 
 const SITE = siteConfig.url;
-const MINUS = "−";
-const FLAT = "–";
+// U+2212 for a fall and U+2013 for no change, as the stock header prints them;
+// written as escapes because both look like a hyphen.
+const MINUS = "\u2212";
+const FLAT = "\u2013";
 
 const NO_MENTIONS = {
   parse: [],
@@ -88,13 +91,33 @@ export interface StockHit {
   industry?: string;
 }
 
+/**
+ * A search result as a hit: the code upper-cased, the name cleaned, and a
+ * zero short percentage left out (it means none reported, not 0.00%).
+ */
+export function hitFromStock(stock: {
+  productCode: string;
+  name: string;
+  percentageShorted: number;
+  industry: string;
+}): StockHit {
+  return {
+    code: stock.productCode.toUpperCase(),
+    name: formatCompanyName(stock.name, stock.productCode),
+    shortPct: stock.percentageShorted > 0 ? stock.percentageShorted : undefined,
+    industry: stock.industry || undefined,
+  };
+}
+
 /** Discord markdown would read `*`, `_` and friends in a name as formatting. */
 export function escapeMarkdown(text: string): string {
   return text.replace(/([\\*_~`|>[\]()])/g, "\\$1");
 }
 
-const known = (v: number | undefined | null): v is number =>
-  typeof v === "number" && Number.isFinite(v) && v > 0;
+const finite = (v: number | undefined | null): v is number =>
+  typeof v === "number" && Number.isFinite(v);
+
+const known = (v: number | undefined | null): v is number => finite(v) && v > 0;
 
 /**
  * The 30-day change as the stock page's header prints it: "▲ +0.62 pp",
@@ -123,63 +146,31 @@ export function chartCardUrl(state: ChartState, now: Date): string {
   return url.toString();
 }
 
-function headline(summary: StockSummary): string {
-  const parts: string[] = [];
-  if (
-    typeof summary.shortPct === "number" &&
-    Number.isFinite(summary.shortPct)
-  ) {
-    parts.push(`**${shortFmt(summary.shortPct)}** of shares reported short`);
-    if (
-      typeof summary.change30d === "number" &&
-      Number.isFinite(summary.change30d)
-    ) {
-      parts.push(`${formatChange(summary.change30d)} in 30 days`);
-    }
-  } else {
-    parts.push("No short position in the latest ASIC data");
-  }
-  return parts.join(" · ");
+function headline({ shortPct, change30d }: StockSummary): string {
+  if (!finite(shortPct)) return "No short position in the latest ASIC data";
+  const pct = `**${shortFmt(shortPct)}** of shares reported short`;
+  return finite(change30d)
+    ? `${pct} · ${formatChange(change30d)} in 30 days`
+    : pct;
 }
 
-function stockFields(summary: StockSummary): NonNullable<Embed["fields"]> {
-  const fields: NonNullable<Embed["fields"]> = [];
-  if (known(summary.reportedShorts)) {
-    fields.push({
-      name: "Reported short",
-      value: `${formatNumber(summary.reportedShorts)} shares`,
-      inline: true,
-    });
-  }
-  if (known(summary.sharesOnIssue)) {
-    fields.push({
-      name: "Shares on issue",
-      value: formatNumber(summary.sharesOnIssue),
-      inline: true,
-    });
-  }
-  if (known(summary.daysToCover)) {
-    fields.push({
-      name: "Days to cover",
-      value: summary.daysToCover.toFixed(1),
-      inline: true,
-    });
-  }
-  if (known(summary.marketCap)) {
-    fields.push({
-      name: "Market cap",
-      value: `$${formatNumber(summary.marketCap)}`,
-      inline: true,
-    });
-  }
-  if (summary.industry) {
-    fields.push({
-      name: "Industry",
-      value: truncate(summary.industry, LIMITS.embedFieldValue),
-      inline: true,
-    });
-  }
-  return fields;
+function stockFields(s: StockSummary): NonNullable<Embed["fields"]> {
+  const rows: [name: string, value: string | false][] = [
+    [
+      "Reported short",
+      known(s.reportedShorts) && `${formatNumber(s.reportedShorts)} shares`,
+    ],
+    [
+      "Shares on issue",
+      known(s.sharesOnIssue) && formatNumber(s.sharesOnIssue),
+    ],
+    ["Days to cover", known(s.daysToCover) && s.daysToCover.toFixed(1)],
+    ["Market cap", known(s.marketCap) && `$${formatNumber(s.marketCap)}`],
+    ["Industry", !!s.industry && truncate(s.industry, LIMITS.embedFieldValue)],
+  ];
+  return rows.flatMap(([name, value]) =>
+    value ? [{ name, value, inline: true }] : [],
+  );
 }
 
 function footer(summary: StockSummary, state: ChartState): string {
@@ -321,10 +312,7 @@ function fitLines(lines: string[], max: number): string {
   return out;
 }
 
-export function buildTopMessage(
-  rows: StockHit[],
-  asOf?: Date | null,
-): MessagePayload {
+export function buildTopMessage(rows: StockHit[]): MessagePayload {
   if (rows.length === 0) {
     return notice(
       "The top shorts table is unavailable right now. Try again in a minute.",
@@ -339,9 +327,7 @@ export function buildTopMessage(
     ),
     color: EMBED_COLOR,
     footer: {
-      text: `Percent of shares on issue reported short${
-        asOf ? `, ASIC data as of ${asOfFmt.format(asOf)}` : ""
-      } · shorted.com.au`,
+      text: "Percent of shares on issue reported short, from ASIC's daily reports · shorted.com.au",
     },
   };
   return {

@@ -6,7 +6,7 @@ import { withTimeout } from "~/app/chart/[code]/image/chart-data";
 import { getShortInterestDeltas } from "~/app/shorts/[stockCode]/short-interest-summary";
 import { formatCompanyName } from "~/@/lib/company-name";
 import { filterEligibleTopShorts } from "~/@/lib/top-shorts-filter";
-import type { StockHit, StockSummary } from "./messages";
+import { hitFromStock, type StockHit, type StockSummary } from "./messages";
 
 /**
  * What the bot reads, through the same server actions the pages use: the
@@ -62,12 +62,7 @@ export const discordData: DiscordData = {
     );
     return (response?.stocks ?? [])
       .filter((s) => s.productCode)
-      .map((s) => ({
-        code: s.productCode.toUpperCase(),
-        name: formatCompanyName(s.name, s.productCode),
-        shortPct: positive(s.percentageShorted),
-        industry: s.industry || undefined,
-      }));
+      .map(hitFromStock);
   },
 
   async topShorts(count) {

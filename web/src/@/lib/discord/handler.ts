@@ -1,6 +1,11 @@
 import {
+  DEFAULT_CHART_PERIOD,
+  DEFAULT_CHART_VIEW,
+} from "~/@/lib/embed/snippet";
+import {
   InteractionResponseType,
   InteractionType,
+  LIMITS,
   MessageFlags,
   type Interaction,
   type InteractionResponse,
@@ -75,6 +80,28 @@ type Reply =
 
 const FAILED = "Something went wrong on our side. Try again in a moment.";
 
+/** A response that needs nothing fetched. */
+function now(action: string, response: InteractionResponse): Reply {
+  return { kind: "now", action, response };
+}
+
+/** A note only the person who acted can see. */
+function privately(action: string, text: string): Reply {
+  return now(action, {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: notice(text),
+  });
+}
+
+/** A message that needs data: a new one, or the one a button is on. */
+function withData(
+  action: string,
+  mode: Mode,
+  work: Promise<MessagePayload>,
+): Reply {
+  return { kind: "message", action, mode, work };
+}
+
 function isEphemeral(message: MessagePayload): boolean {
   return ((message.flags ?? 0) & MessageFlags.EPHEMERAL) !== 0;
 }
@@ -96,12 +123,12 @@ function stringOption(interaction: Interaction, name: string): string {
 
 function viewOption(interaction: Interaction): ChartState["view"] {
   const raw = stringOption(interaction, "view");
-  return DISCORD_VIEWS.find((v) => v.id === raw)?.id ?? "short";
+  return DISCORD_VIEWS.find((v) => v.id === raw)?.id ?? DEFAULT_CHART_VIEW;
 }
 
 function periodOption(interaction: Interaction): ChartState["period"] {
   const raw = stringOption(interaction, "period");
-  return DISCORD_PERIODS.find((p) => p.id === raw)?.id ?? "1y";
+  return DISCORD_PERIODS.find((p) => p.id === raw)?.id ?? DEFAULT_CHART_PERIOD;
 }
 
 /**
@@ -140,12 +167,13 @@ function chartMessage(
 
 async function chartForInput(
   input: string,
-  view: ChartState["view"],
-  period: ChartState["period"],
   deps: HandlerDeps,
+  view: ChartState["view"] = DEFAULT_CHART_VIEW,
+  period: ChartState["period"] = DEFAULT_CHART_PERIOD,
 ): Promise<MessagePayload> {
-  if (!input)
+  if (!input) {
     return notice("Give me an ASX code or a company name, e.g. `/stock BHP`.");
+  }
   const summary = await resolveStock(input, deps.data);
   if (!summary) {
     return notice(
@@ -158,64 +186,50 @@ async function chartForInput(
 function routeCommand(interaction: Interaction, deps: HandlerDeps): Reply {
   const name = interaction.data?.name;
   if (!isCommandName(name)) {
-    return {
-      kind: "now",
-      action: "command_unknown",
-      response: {
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: notice("That command is not available any more."),
-      },
-    };
+    return privately(
+      "command_unknown",
+      "That command is not available any more.",
+    );
   }
   const action = `command_${name}`;
   switch (name) {
     case "help":
-      return {
-        kind: "now",
-        action,
-        response: {
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: buildHelpMessage({ activity: deps.activityEnabled }),
-        },
-      };
+      return now(action, {
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: buildHelpMessage({ activity: deps.activityEnabled }),
+      });
     case "stock":
-      return {
-        kind: "message",
+      return withData(
         action,
-        mode: "new",
-        work: chartForInput(
-          stringOption(interaction, "code"),
-          "short",
-          "1y",
-          deps,
-        ),
-      };
+        "new",
+        chartForInput(stringOption(interaction, "code"), deps),
+      );
     case "chart":
-      return {
-        kind: "message",
+      return withData(
         action,
-        mode: "new",
-        work: chartForInput(
+        "new",
+        chartForInput(
           stringOption(interaction, "code"),
+          deps,
           viewOption(interaction),
           periodOption(interaction),
-          deps,
         ),
-      };
+      );
     case "search": {
       const query = stringOption(interaction, "query");
-      return {
-        kind: "message",
+      if (!query) {
+        return privately(
+          action,
+          "Search for a code or part of a company name.",
+        );
+      }
+      return withData(
         action,
-        mode: "new",
-        work: query
-          ? deps.data
-              .search(query, SEARCH_RESULTS)
-              .then((hits) => buildSearchMessage(query, hits))
-          : Promise.resolve(
-              notice("Search for a code or part of a company name."),
-            ),
-      };
+        "new",
+        deps.data
+          .search(query, SEARCH_RESULTS)
+          .then((hits) => buildSearchMessage(query, hits)),
+      );
     }
     case "top": {
       const raw = option(interaction, "count");
@@ -223,12 +237,11 @@ function routeCommand(interaction: Interaction, deps: HandlerDeps): Reply {
         typeof raw === "number"
           ? Math.min(TOP_MAX_COUNT, Math.max(5, Math.round(raw)))
           : TOP_DEFAULT_COUNT;
-      return {
-        kind: "message",
+      return withData(
         action,
-        mode: "new",
-        work: deps.data.topShorts(count).then((rows) => buildTopMessage(rows)),
-      };
+        "new",
+        deps.data.topShorts(count).then(buildTopMessage),
+      );
     }
   }
 }
@@ -237,55 +250,41 @@ function routeComponent(interaction: Interaction, deps: HandlerDeps): Reply {
   const parsed = parseCustomId(interaction.data?.custom_id);
   switch (parsed?.kind) {
     case "chart": {
-      const { state } = parsed;
-      return {
-        kind: "message",
-        action: "component_chart",
-        mode: "update",
-        work: deps.data
-          .stockSummary(state.code)
+      const { code, view, period } = parsed.state;
+      return withData(
+        "component_chart",
+        "update",
+        deps.data
+          .stockSummary(code)
           .then((summary) =>
             summary
-              ? chartMessage(summary, state.view, state.period, deps)
+              ? chartMessage(summary, view, period, deps)
               : notice(
                   "Couldn't redraw that chart just now. Try again in a moment.",
                 ),
           ),
-      };
+      );
     }
     case "activity":
-      return {
-        kind: "now",
-        action: "component_activity",
-        response: deps.activityEnabled
-          ? { type: InteractionResponseType.LAUNCH_ACTIVITY }
-          : {
-              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-              data: notice(
-                "The interactive chart isn't switched on for this bot. Use **Open on Shorted** instead.",
-              ),
-            },
-      };
+      return deps.activityEnabled
+        ? now("component_activity", {
+            type: InteractionResponseType.LAUNCH_ACTIVITY,
+          })
+        : privately(
+            "component_activity",
+            "The interactive chart isn't switched on for this bot. Use **Open on Shorted** instead.",
+          );
     case "pick": {
       const code = normalizeCode(interaction.data?.values?.[0]);
-      return {
-        kind: "message",
-        action: "component_pick",
-        mode: "new",
-        work: code
-          ? chartForInput(code, "short", "1y", deps)
-          : Promise.resolve(notice("Pick a stock from the list.")),
-      };
+      return code
+        ? withData("component_pick", "new", chartForInput(code, deps))
+        : privately("component_pick", "Pick a stock from the list.");
     }
     default:
-      return {
-        kind: "now",
-        action: "component_unknown",
-        response: {
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: notice("This control has expired. Run the command again."),
-        },
-      };
+      return privately(
+        "component_unknown",
+        "This control has expired. Run the command again.",
+      );
   }
 }
 
@@ -315,7 +314,10 @@ async function autocomplete(
   const query = typeof focused?.value === "string" ? focused.value.trim() : "";
   // Nothing typed yet: offer the most shorted stocks, which is what most
   // people reach for here.
-  const lookup = query ? deps.data.search(query, 25) : deps.data.topShorts(25);
+  const limit = LIMITS.autocompleteChoices;
+  const lookup = query
+    ? deps.data.search(query, limit)
+    : deps.data.topShorts(limit);
   const settled = await within(
     lookup.catch(() => []),
     deps.fastPathMs ?? DEFAULT_FAST_PATH_MS,
@@ -325,8 +327,9 @@ async function autocomplete(
   // choice, so a reader who knows the code is never stuck. With matches on
   // offer it would only push a half-typed name ("PIL") above them.
   const typed = normalizeCode(query);
-  if (typed && choices.length === 0)
+  if (typed && choices.length === 0) {
     choices.push({ name: typed, value: typed });
+  }
   return {
     type: InteractionResponseType.APPLICATION_COMMAND_AUTOCOMPLETE_RESULT,
     data: { choices },
@@ -379,19 +382,12 @@ export async function handleInteraction(
     return response;
   }
 
-  const reply: Reply =
+  const reply =
     interaction.type === InteractionType.APPLICATION_COMMAND
       ? routeCommand(interaction, deps)
       : interaction.type === InteractionType.MESSAGE_COMPONENT
         ? routeComponent(interaction, deps)
-        : {
-            kind: "now",
-            action: "unsupported",
-            response: {
-              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-              data: notice("That isn't something this bot handles."),
-            },
-          };
+        : privately("unsupported", "That isn't something this bot handles.");
 
   if (reply.kind === "now") {
     deps.onOutcome?.({

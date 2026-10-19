@@ -1,16 +1,32 @@
+import app from "~/config/discord-app.json";
+
 /**
- * The bot's server-side configuration. None of it is NEXT_PUBLIC_: the public
- * key only verifies requests and nothing here belongs in a client bundle.
+ * Which Discord application the bot answers for.
  *
- *   DISCORD_PUBLIC_KEY        the application's public key (developer portal,
- *                             General Information). Unset, the endpoint answers
- *                             503 and Discord will not accept its URL.
- *   DISCORD_ACTIVITY_ENABLED  "true" once Activities are enabled for the app
- *                             and its URL mapping points at shorted.com.au
- *                             (docs/discord-bot.md). Until then the chart
- *                             message offers no "Interactive" button, because
- *                             Discord rejects a launch for an app without one.
+ * The production app lives in src/config/discord-app.json, committed: its
+ * application id and public key are public values (the key only VERIFIES
+ * Discord's signatures), so they are configuration, reviewed like any other,
+ * and `task discord:setup` writes them. Until they are filled in the endpoint
+ * answers 503 and Discord will not accept its URL.
+ *
+ * The environment overrides the file, for a second app pointed at a preview
+ * or a local tunnel:
+ *
+ *   DISCORD_PUBLIC_KEY        another app's public key
+ *   DISCORD_ACTIVITY_ENABLED  "true" / "false"
+ *
+ * `activity` turns on the "Interactive" button. Leave it false until the app
+ * has Activities enabled and its URL mapping set (docs/discord-bot.md):
+ * Discord rejects a launch for an app without them.
  */
+
+export interface DiscordAppConfig {
+  applicationId: string;
+  publicKey: string;
+  activity: boolean;
+}
+
+const DISCORD_APP: DiscordAppConfig = app;
 
 /**
  * Vercel has been seen to store a value with a literal "\n" on the end
@@ -24,11 +40,16 @@ function envValue(name: string): string {
     .trim();
 }
 
+function isPublicKey(value: string): boolean {
+  return /^[0-9a-f]{64}$/i.test(value);
+}
+
 export function discordPublicKey(): string | null {
-  const value = envValue("DISCORD_PUBLIC_KEY");
-  return /^[0-9a-f]{64}$/i.test(value) ? value : null;
+  const value = envValue("DISCORD_PUBLIC_KEY") || DISCORD_APP.publicKey;
+  return isPublicKey(value) ? value.toLowerCase() : null;
 }
 
 export function discordActivityEnabled(): boolean {
-  return envValue("DISCORD_ACTIVITY_ENABLED").toLowerCase() === "true";
+  const value = envValue("DISCORD_ACTIVITY_ENABLED").toLowerCase();
+  return value ? value === "true" : DISCORD_APP.activity;
 }

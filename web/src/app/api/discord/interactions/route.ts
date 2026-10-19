@@ -27,6 +27,27 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 15;
 
+const NO_STORE = { "Cache-Control": "no-store" };
+
+/**
+ * Whether this deployment can verify Discord's requests, and for which app's
+ * key: what `task discord:setup` waits for before pointing Discord here, and
+ * the quickest check after a deploy. All of it is public; the key only
+ * verifies.
+ */
+export function GET() {
+  const publicKey = discordPublicKey();
+  return NextResponse.json(
+    {
+      service: "shorted-discord",
+      configured: publicKey !== null,
+      publicKey,
+      activity: discordActivityEnabled(),
+    },
+    { headers: NO_STORE },
+  );
+}
+
 export async function POST(request: NextRequest) {
   const started = Date.now();
   const publicKey = discordPublicKey();
@@ -76,7 +97,5 @@ export async function POST(request: NextRequest) {
         },
       }),
   });
-  return NextResponse.json(response, {
-    headers: { "Cache-Control": "no-store" },
-  });
+  return NextResponse.json(response, { headers: NO_STORE });
 }

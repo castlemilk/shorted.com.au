@@ -51,10 +51,10 @@ function buttons(message: ReturnType<typeof chart>): Button[] {
 describe("formatChange", () => {
   it.each([
     [0.62, "▲ +0.62 pp"],
-    [-0.314, "▼ −0.31 pp"],
-    [0.004, "– 0.00 pp"],
-    [-0.004, "– 0.00 pp"],
-    [0, "– 0.00 pp"],
+    [-0.314, "▼ \u22120.31 pp"],
+    [0.004, "\u2013 0.00 pp"],
+    [-0.004, "\u2013 0.00 pp"],
+    [0, "\u2013 0.00 pp"],
   ])("prints %d as the stock header does: %s", (change, text) => {
     expect(formatChange(change)).toBe(text);
   });
@@ -88,7 +88,7 @@ describe("buildChartMessage", () => {
     expect(embed!.title).toBe("BHP · BHP Group");
     expect(embed!.url).toBe("https://shorted.com.au/shorts/BHP");
     expect(embed!.description).toBe(
-      "**0.81%** of shares reported short · ▼ −0.31 pp in 30 days",
+      "**0.81%** of shares reported short · ▼ \u22120.31 pp in 30 days",
     );
     expect(embed!.color).toBe(EMBED_COLOR);
     expect(embed!.image!.url).toContain("/chart/BHP/image");
