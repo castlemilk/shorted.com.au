@@ -1416,6 +1416,41 @@ because chat apps show HTML as text (a WBT snippet pasted into Discord,
   `getBoundingClientRect` or `clientX` arithmetic would break scrubbing in
   landscape.
 
+## Discord bot (slash commands, live charts, Activity)
+
+An HTTP interactions endpoint, not a gateway bot: Discord POSTs every command,
+autocomplete keystroke and button press to `/api/discord/interactions`
+(`web/src/app/api/discord/interactions/route.ts`; a GET reports its status),
+signed with the app's Ed25519 key, and it deploys with the web app. Commands:
+`/stock`, `/chart`, `/search`, `/top`, `/help`. A chart message is the
+`/chart/<CODE>/image` card plus two rows of buttons (period, view) that redraw
+it in place; with `"activity": true` an **Interactive** button opens
+`StockChartEmbed` inside Discord as an Activity (`/embed/discord`). Runbook and
+onboarding: `docs/discord-bot.md`.
+
+| Piece | Where |
+|---|---|
+| Which app (id, public key, Activity switch), committed | `web/src/config/discord-app.json`; env `DISCORD_PUBLIC_KEY` / `DISCORD_ACTIVITY_ENABLED` override it for a second app |
+| Onboarding and checks | `task discord:setup` / `discord:status` / `discord:register` (`web/scripts/discord.ts`; `DISCORD_BOT_TOKEN` in the repo `.env`, never in Vercel) |
+| Public page (install buttons, commands, privacy) | `/docs/discord` (`web/src/app/docs/discord/page.tsx`); renders from `COMMANDS` and the committed app, so it needs no edit when either changes |
+| Router, 1.5s fast path then defer + webhook edit (`waitUntil`) | `web/src/@/lib/discord/handler.ts` |
+| Messages, commands (registered and handled from one list), button `custom_id` codec | `lib/discord/messages.ts`, `commands.ts`, `custom-id.ts` |
+| Reads: the stock pages' server actions, 6s cap each | `lib/discord/data.ts` |
+
+### Landmines
+
+- **Buttons carry their chart in `custom_id`** (`chart:p:BHP:short:3m`); old
+  messages keep sending what they were posted with. Add kinds, never change one.
+- **The Activity loads `/`.** Discord's proxy (`<app id>.discordsays.com`,
+  root mapping `shorted.com.au`) always opens the root with `frame_id` and
+  `instance_id`; `src/config/discord-activity.mjs` redirects exactly those
+  requests to `/embed/discord` (frameable). Inside it only same-origin requests
+  work, so it uses relative rewrites and opens links through the SDK.
+- **`/api/discord/` is in the Cloudflare SBFM skip** (Discord is an automated
+  client); the signature check is what keeps the route closed.
+- `@vercel/functions` stays on 1.x: 3.x drags in an OIDC chain and moved
+  next-auth's `jose`.
+
 ## Twitter / X Automation
 
 `@shorted___` is the live X handle. The bot is a self-contained Node + TypeScript project at `scripts/twitter/` that pulls live ASIC short data, market news, and director trades from the public shorted.com.au API and posts curated tweets.

@@ -175,3 +175,27 @@ describe("StockChartEmbed: open full screen (framed)", () => {
     expect(screen.queryByRole("link", { name: /full screen/ })).not.toBeInTheDocument();
   });
 });
+
+// A publisher's embed keeps the view they chose; the Discord Activity hands the
+// view to the reader.
+describe("StockChartEmbed: selectableView", () => {
+  it("offers no view control by default", () => {
+    render(<StockChartEmbed stockCode="BHP" defaultView="short" />);
+    expect(screen.queryByRole("group", { name: "View" })).not.toBeInTheDocument();
+  });
+
+  it("switches the chart between the views when the reader picks one", () => {
+    render(<StockChartEmbed stockCode="BHP" defaultView="short" selectableView />);
+    const views = screen.getByRole("group", { name: "View" });
+    expect(views).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Short" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("stock-chart")).toHaveAttribute("data-series", "1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Combined" }));
+    expect(screen.getByRole("button", { name: "Combined" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Short" })).toHaveAttribute("aria-pressed", "false");
+    // Price and short interest together, the strip holding both rows.
+    expect(screen.getByTestId("stock-chart")).toHaveAttribute("data-series", "2");
+    expect(screen.getByTestId("stock-chart")).toHaveAttribute("data-reserve", "2");
+  });
+});

@@ -7,6 +7,7 @@ await import("./src/env.js");
 
 import packageJson from "./package.json" with { type: "json" };
 import { legacyTabRedirects } from "./src/config/stock-tab-redirects.mjs";
+import { discordActivityRedirect } from "./src/config/discord-activity.mjs";
 import { execSync } from "child_process";
 
 // Get version from git if available, fallback to package.json
@@ -293,6 +294,9 @@ const config = {
       // entry: it renders the Overview like any value outside the map. The map
       // and the reasoning live in src/config/stock-tab-redirects.mjs.
       ...legacyTabRedirects(),
+      // The Discord Activity loads `/` with its launch parameters; only those
+      // requests go to the Activity page (src/config/discord-activity.mjs).
+      discordActivityRedirect(),
       { source: "/housing/suburbs", destination: "/housing", permanent: true },
       {
         source: "/short-squeeze",

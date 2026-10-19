@@ -670,6 +670,45 @@ tasks:
       - 'go run . review {{.CLI_ARGS}}'
 
   # =========================================================================
+  # discord — the Discord bot's app, endpoint and commands (docs/discord-bot.md)
+  # =========================================================================
+  discord:status:
+    desc: "Discord bot: what is configured, deployed and registered (read-only)"
+    dir: web
+    cmds:
+      - 'npm run --silent discord -- status {{.CLI_ARGS}}'
+
+  discord:setup:
+    desc: "Discord bot: set up the app from DISCORD_BOT_TOKEN in .env (safe to re-run)"
+    summary: |
+      Takes a Discord app from "just created" to live, and on any later run
+      repairs whatever has drifted. Needs only DISCORD_BOT_TOKEN in the repo's
+      .env (developer portal > your app > Bot > Reset Token).
+
+        1. records the app's id and public key in web/src/config/discord-app.json
+           (public values; the deployed endpoint verifies Discord with them)
+        2. checks the live endpoint carries that key; until the config is
+           deployed it stops and says so (`-- --wait` waits for the deploy)
+        3. sets the app's Interactions Endpoint URL, server + user install
+           (commands only, no bot permissions), and a description, tags and
+           icon where the app has none
+        4. registers the slash commands globally (`-- --guild <id>` for one
+           server, instantly) and prints the install links
+
+      `-- --dry-run` changes nothing. A token for a DIFFERENT app than the
+      config records is refused unless `-- --write-config`: that would switch
+      production's bot.
+    dir: web
+    cmds:
+      - 'npm run --silent discord -- setup {{.CLI_ARGS}}'
+
+  discord:register:
+    desc: "Discord bot: re-upload the slash commands (after editing commands.ts)"
+    dir: web
+    cmds:
+      - 'npm run --silent discord -- register {{.CLI_ARGS}}'
+
+  # =========================================================================
   # deploy
   # =========================================================================
   deploy:status:

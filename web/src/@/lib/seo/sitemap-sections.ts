@@ -470,6 +470,7 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     { url: `${baseUrl}/docs/llm-context-raw` },
     { url: `${baseUrl}/docs/api-reference` },
     { url: `${baseUrl}/docs/api` },
+    { url: `${baseUrl}/docs/discord` },
     ...apiEndpointIds.map((id) => ({ url: `${baseUrl}/docs/api/${id}` })),
     ...API_CLIENT_LANGUAGES.map((language) => ({
       url: `${baseUrl}/docs/api/clients/${language}`,

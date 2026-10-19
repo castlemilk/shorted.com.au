@@ -1,0 +1,224 @@
+# Shorted for Discord
+
+A Discord app that brings Shorted into a chat: search ASX stocks as you type,
+post a stock's short interest with its chart, and redraw that chart in place
+with buttons that everyone in the channel can press. With the Activity switched
+on, an **Interactive** button opens the site's full chart inside Discord.
+
+## Quick start
+
+1. **Create the app.** <https://discord.com/developers/applications> →
+   **New Application** → name it "Shorted". Then **Bot → Reset Token**, and add
+   the token to the repo's `.env` (gitignored):
+
+   ```bash
+   DISCORD_BOT_TOKEN=...
+   ```
+
+2. **Record it.** `task discord:setup` writes the app's id and public key to
+   `web/src/config/discord-app.json`. Commit that file and merge it to `main`.
+
+3. **Finish.** Once the deploy is out, `task discord:setup` again. It points
+   Discord at the endpoint, sets the install options, description, tags and
+   icon, registers the commands and prints the install links. (Or run step 2
+   with `-- --wait`: it waits for the deploy and finishes on its own.)
+
+`task discord:status` shows where things stand at any time. `task discord:setup`
+is safe to run again: it changes only what has drifted.
+
+The public page for people adding the app is
+[`/docs/discord`](https://shorted.com.au/docs/discord)
+(`web/src/app/docs/discord/page.tsx`). It renders its command table from
+`COMMANDS` and its install buttons from the committed app, so it shows "being
+set up" until step 2 is merged and needs no edit afterwards.
+
+## Commands
+
+| Command | What it posts |
+|---|---|
+| `/stock <code>` | The stock's short interest, 30-day change, short position, shares on issue, days to cover, market cap and industry, over its 1-year short-interest chart |
+| `/chart <code> [view] [period]` | The same message for any view (short interest, price and volume, both) and period (1M, 3M, 6M, 1Y, Max) |
+| `/search <query>` | Up to 10 matches with their short interest, and a menu to chart one |
+| `/top [count]` | The 5 to 25 most shorted stocks (default 10), and a menu to chart one |
+| `/help` | The list, privately |
+
+`code` autocompletes: typing a code or part of a name searches as you go, and
+an empty field offers the most shorted stocks. A name typed without picking a
+suggestion still works (`/stock pilbara` charts PLS, the best match).
+
+Under every chart are two rows of buttons: the periods, then the views, an
+**Open on Shorted** link (the chart's share page) and, with the Activity on,
+**Interactive**. A press redraws the message for everyone; pressing the
+highlighted one redraws it with the latest figures.
+
+Lookups that fail are answered privately (ephemeral), never posted to the
+channel. Every message sets `allowed_mentions: { parse: [] }`, so a search for
+"@everyone" pings no one.
+
+## How it works
+
+It is an **HTTP interactions endpoint**, not a gateway bot: there is no process
+to run and no bot token in production. Discord POSTs each slash command,
+autocomplete keystroke and button press to
+`https://shorted.com.au/api/discord/interactions`, signed with the app's
+Ed25519 key, and the endpoint answers with the message. It deploys with the web
+app.
+
+```
+Discord ──POST, Ed25519-signed──▶ /api/discord/interactions (Vercel, Node)
+                                    │ verify the signature (401 if bad)
+                                    │ route: handler.ts
+                                    │ read: getStock, getShortInterestDeltas,
+                                    │       searchStocks, getTopShortsSummary
+                                    ▼
+                   reply within 1.5s ──▶ the message itself
+                   slower           ──▶ "thinking…" now, then the message over
+                                        the interaction's webhook (waitUntil)
+
+Discord media proxy ──GET──▶ /chart/<CODE>/image?view=&period=&v=<day>
+                             (the site's 1200x630 chart card)
+```
+
+| Piece | Where |
+|---|---|
+| Endpoint (POST: interactions; GET: status) | `web/src/app/api/discord/interactions/route.ts` |
+| Which app: id, public key, Activity switch | `web/src/config/discord-app.json`, read by `web/src/@/lib/discord/config.ts` |
+| Router, deferral | `web/src/@/lib/discord/handler.ts` |
+| Messages (embeds, buttons, menus) | `web/src/@/lib/discord/messages.ts` |
+| Commands (registered and handled from one list) | `web/src/@/lib/discord/commands.ts` |
+| Button state codec | `web/src/@/lib/discord/custom-id.ts` |
+| Signature check | `web/src/@/lib/discord/verify.ts` |
+| Reads (the stock pages' server actions, 6s cap each) | `web/src/@/lib/discord/data.ts` |
+| Follow-up webhooks | `web/src/@/lib/discord/rest.ts` |
+| Setup and status | `web/scripts/discord.ts` (`task discord:*`), decisions in `web/src/@/lib/discord/setup.ts` |
+| Activity page | `web/src/app/embed/discord/page.tsx`, `web/src/@/components/discord/discord-activity.tsx` |
+| Activity redirect | `web/src/config/discord-activity.mjs` (in `next.config.mjs` `redirects()`) |
+| Cloudflare bot-fight skip for `/api/discord/` | `terraform/modules/cloudflare-edge/main.tf` (`app_api_security_skip`) |
+
+**The app is configuration.** Its id and public key are public values (the key
+only verifies Discord's signatures), so they are committed and reviewed like
+any other config; `task discord:setup` writes them. Until they are filled in,
+the endpoint answers 503 and Discord will not accept its URL. For a second app
+(a preview deployment, or a tunnel to `next dev`), set `DISCORD_PUBLIC_KEY` on
+that deployment and pass `-- --endpoint <url>` to the tasks.
+
+**The chart image** is the share card the site already serves to unfurlers.
+Its URL carries `v=<today in Sydney>`: Discord's media proxy caches an image by
+URL, so without it a chart posted tomorrow would show today's picture. The
+route ignores the parameter; the CDN keys on it.
+
+**The reads** are the server actions the stock pages use, through the same
+caches and the first-party fetch, so Discord traffic lands on warm entries and
+is never bucketed as an anonymous scraper at the edge.
+
+**The buttons carry their chart** in their `custom_id`
+(`chart:p:BHP:short:3m`), so the bot stores nothing, and a message posted
+months ago still works after any deploy.
+
+Each interaction logs a `product_event` with `feature: "discord"`, the action
+(`command_stock`, `component_chart`, `autocomplete`, ...), the status and
+`event_type: immediate | deferred` (`docs/observability/cost-attribution.md`).
+
+## The tasks
+
+| Task | Does |
+|---|---|
+| `task discord:status` | Read-only: the config, the live endpoint's key, the app's endpoint URL and the registered commands, each ✓ or ✗, and the install links |
+| `task discord:setup` | Everything in the quick start, idempotently |
+| `task discord:register` | Re-upload the commands after editing `commands.ts` |
+
+Flags go after `--`: `--guild <id>` registers to one server, where commands
+appear at once (global ones can take up to an hour); `--endpoint <url>` targets
+another deployment; `--wait` waits for the deploy; `--dry-run` changes nothing.
+A token for a different app than the config records is refused unless
+`--write-config`, because that would switch production's bot.
+
+What setup sets on the app: the Interactions Endpoint URL; installation to
+servers and to users' accounts with the `applications.commands` scope only (no
+bot user permissions, no privileged intents: it only answers interactions);
+and a description, tags and the Shorted icon where the app has none, so
+anything set in the portal is kept. Bulk-registering the commands keeps the
+Activity's Entry Point command when there is one.
+
+## The Activity (interactive chart inside Discord)
+
+The chart messages are pictures: a fresh one per button press. The Activity is
+the real chart, the site's `StockChartEmbed` with every period and view, the
+scrub readout, pinning and measuring, plus a stock search box, in an iframe
+inside Discord. **Interactive** on a chart message launches it at that chart
+(Discord passes the button's `custom_id` to the Activity's URL); the App
+Launcher opens it at the default stock. Each person explores on their own; it
+does not sync one person's chart to the others.
+
+Discord serves an Activity from `https://<application id>.discordsays.com/`
+through a proxy, and its CSP blocks every other host. So:
+
+- The proxy's **root URL mapping** is the site: `/` → `shorted.com.au`. Every
+  request the page makes is same-origin: the chart's queries use the site's
+  relative rewrites, the search box calls the `SearchService` rewrite, and the
+  "on Shorted" button opens links through the SDK (`openExternalLink`), because
+  a plain link does nothing inside an Activity.
+- Discord always loads the mapping's root, `/`, with its launch parameters
+  (`frame_id`, `instance_id`, `platform`, `custom_id`). The redirect in
+  `src/config/discord-activity.mjs` sends exactly those requests (both
+  `frame_id` and `instance_id` present) to `/embed/discord`, which can be
+  framed (`frame-ancestors *`, like every `/embed/` page); every other visit to
+  `/` is untouched.
+- The page reads its application id from its hostname and completes Discord's
+  handshake with `@discord/embedded-app-sdk`, loaded on this page only. Opened
+  outside Discord (`/embed/discord?code=BHP&view=combined`) it is a plain chart
+  page, which is how to check it in a browser.
+
+To switch it on:
+
+1. Developer portal → **Activities → Settings**: enable Activities.
+2. **Activities → URL Mappings**: one mapping, prefix `/`, target
+   `shorted.com.au` (no protocol).
+3. Set `"activity": true` in `web/src/config/discord-app.json` and merge it.
+   Only then do chart messages show **Interactive**: Discord refuses a launch
+   for an app without Activities, so the button stays hidden until this is set.
+4. `task discord:register` once: enabling Activities created the Entry Point
+   command, and registration keeps it.
+
+## Troubleshooting
+
+`task discord:status` names the broken link. Otherwise:
+
+- `curl -s https://shorted.com.au/api/discord/interactions` should answer
+  `{"service":"shorted-discord","configured":true,...}`. `configured: false`
+  means the config has not been deployed. A `403` with `cf-mitigated: challenge`
+  means Cloudflare's bot-fight skip for `/api/discord/` is not applied
+  (`terraform-deploy` applies it) or Vercel's firewall is challenging the
+  request.
+- "This interaction failed" in Discord with nothing in the logs: the request
+  did not reach the endpoint (see above), or the Interactions Endpoint URL in
+  the portal points elsewhere (`task discord:status`).
+- Commands missing: global registration takes up to an hour to reach every
+  client; `-- --guild <id>` shows them in one server at once.
+
+## Landmines
+
+- **Discord allows three seconds.** The handler waits 1.5s for a reply
+  (`DEFAULT_FAST_PATH_MS`) and otherwise defers. Autocomplete cannot be
+  deferred: it answers with whatever arrived in time, or the typed code. Do not
+  raise the fast path to "avoid the thinking state": a cold start sits inside
+  the same three seconds.
+- **A public deferral cannot become private.** When a slow reply turns out to
+  be a private note (nothing matched), the handler deletes the "thinking…"
+  message and sends the note as an ephemeral follow-up. On a button press it
+  leaves the chart as it was and sends the note.
+- **Five buttons per row.** The period row is full (1M, 3M, 6M, 1Y, Max).
+  The site's 2Y is left out on purpose; the image route still draws it.
+- **`custom_id` is a public contract.** Old messages keep sending the ids they
+  were posted with. Add new kinds; do not change what an existing one means.
+  `parseCustomId` rejects anything malformed, and the handler answers an id it
+  does not know with a private "run the command again".
+- **No bot token in production.** Replies and follow-ups use the interaction's
+  own token (valid 15 minutes). The bot token belongs in `.env` for the tasks
+  only.
+- **SBFM.** Cloudflare's Super Bot Fight Mode challenges automated clients on
+  the apex, and Discord's interaction POSTs are one. `/api/discord/` is in the
+  app API skip rule (`security-skip-expression.test.mjs`); the route's
+  signature check is what keeps it closed.
+- **`@vercel/functions` stays on 1.x** for `waitUntil`: 3.x pulls in an OIDC
+  and CLI-config chain and moved next-auth's `jose`.
