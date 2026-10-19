@@ -785,6 +785,10 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
 
   rules = [
     {
+      # /api/discord/ is the Discord bot's interactions endpoint: Discord's
+      # servers POST every interaction there as an automated client that SBFM
+      # would challenge, and the route answers 401 to anything not signed with
+      # the app's Ed25519 key (security-skip-expression.test.mjs).
       action      = "skip"
       expression  = <<-EOT
         (
@@ -802,6 +806,7 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
               or starts_with(http.request.uri.path, "/api/community/")
               or starts_with(http.request.uri.path, "/api/algolia/")
               or starts_with(http.request.uri.path, "/api/revalidate")
+              or starts_with(http.request.uri.path, "/api/discord/")
             )
           )
         )

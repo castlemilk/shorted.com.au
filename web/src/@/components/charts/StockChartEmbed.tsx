@@ -10,6 +10,7 @@ import { useStockChartData } from "./use-stock-chart-data";
 import { chartShareUrl } from "@/lib/embed/snippet";
 import {
   CHART_PERIODS,
+  CHART_VIEWS,
   buildChartView,
   chartViewLabel,
   type ChartPeriod,
@@ -46,6 +47,11 @@ export interface StockChartEmbedProps {
    * full screen on its share page in a new tab.
    */
   expandable?: boolean;
+  /**
+   * Let the reader switch views too. Off for a publisher's embed, whose view
+   * is the one they chose; on in the Discord Activity, which is the reader's.
+   */
+  selectableView?: boolean;
 }
 
 function LegendSwatch({ color, label }: { color: string; label: string }) {
@@ -68,7 +74,8 @@ function LegendSwatch({ color, label }: { color: string; label: string }) {
  * whatever height is left after the header, legend and caption.
  *
  * The view is fixed by the snippet (it is what the publisher chose to embed);
- * only the period is interactive.
+ * only the period is interactive, unless `selectableView` hands the view to
+ * the reader as well.
  *
  * LANDSCAPE MODE: a phone held upright gives a time series a tall, narrow
  * plot, and many phones keep rotation locked, which no page can override
@@ -86,8 +93,10 @@ export function StockChartEmbed({
   defaultPeriod = "1y",
   allowLandscape = false,
   expandable = false,
+  selectableView = false,
 }: StockChartEmbedProps) {
   const [period, setPeriod] = useState<ChartPeriod>(defaultPeriod);
+  const [chosenView, setView] = useState<ChartViewId>(defaultView);
   const [landscape, setLandscape] = useState(false);
 
   useEffect(() => {
@@ -98,7 +107,7 @@ export function StockChartEmbed({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [landscape]);
-  const view = defaultView;
+  const view = selectableView ? chosenView : defaultView;
   const { short, price, volume, anyLoading, isError } = useStockChartData(
     stockCode,
     period,
@@ -146,11 +155,46 @@ export function StockChartEmbed({
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
         <h2 className="flex min-w-0 items-baseline gap-2 text-sm font-semibold">
           <span className="tracking-tight">{stockCode}</span>
-          <span className="truncate font-normal text-muted-foreground">
+          <span
+            className={cn(
+              "truncate font-normal text-muted-foreground",
+              selectableView && "sr-only",
+            )}
+          >
             {chartViewLabel(view)}
           </span>
         </h2>
-        <div className="flex items-center gap-1">
+        <div
+          className={cn(
+            "flex items-center gap-1",
+            selectableView && "flex-wrap",
+          )}
+        >
+          {selectableView && (
+            <div
+              className="flex items-center gap-0.5 rounded-md border p-0.5"
+              role="group"
+              aria-label="View"
+            >
+              {CHART_VIEWS.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setView(v.id)}
+                  aria-pressed={view === v.id}
+                  className={cn(
+                    "inline-flex min-h-8 items-center justify-center rounded px-2 text-xs font-medium transition-colors",
+                    "[@media(pointer:coarse)]:min-h-11",
+                    view === v.id
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                  )}
+                >
+                  {v.shortLabel}
+                </button>
+              ))}
+            </div>
+          )}
           <div
             className="flex items-center gap-0.5 rounded-md border p-0.5"
             role="group"

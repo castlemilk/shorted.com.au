@@ -281,3 +281,46 @@ test("Super Bot Fight Mode remains the thing being skipped, not disabled", () =>
   assert.match(mainTf, /sbfm_verified_bots\s+=\s+"allow"/);
   assert.match(mainTf, /sbfm_static_resource_protection\s+=\s+false/);
 });
+
+// ---------------------------------------------------------------------------
+// The app API/RPC rule. The Discord bot's interactions endpoint is the newest
+// path in it: Discord's servers are an automated client, so without the skip
+// every slash command would get a managed challenge instead of the bot, and
+// the developer portal would refuse the endpoint URL. The route verifies each
+// request's Ed25519 signature, so the skip opens nothing unsigned.
+// ---------------------------------------------------------------------------
+
+const appApiSkips = compile(
+  skipExpressionForDescription("Allow app API/RPC traffic"),
+);
+
+test("app API skip covers the Discord interactions endpoint on both frontend hosts", () => {
+  for (const host of FRONTEND_HOSTS) {
+    assert.equal(appApiSkips({ host, path: "/api/discord/interactions" }), true);
+  }
+});
+
+test("app API skip still covers the RPC paths it always did", () => {
+  for (const path of [
+    "/shorts.v1alpha1.StockService/GetStock",
+    "/api/auth/session",
+    "/api/market-data/historical",
+    "/api/revalidate",
+  ]) {
+    for (const host of FRONTEND_HOSTS) {
+      assert.equal(appApiSkips({ host, path }), true, path);
+    }
+  }
+});
+
+test("app API skip does not cover lookalikes of the Discord path", () => {
+  for (const path of ["/api/discord", "/api/discordx/interactions", "/discord/interactions"]) {
+    for (const host of FRONTEND_HOSTS) {
+      assert.equal(appApiSkips({ host, path }), false, path);
+    }
+  }
+  assert.equal(
+    appApiSkips({ host: "evil.example.com", path: "/api/discord/interactions" }),
+    false,
+  );
+});
