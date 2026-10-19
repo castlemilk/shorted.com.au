@@ -1,4 +1,10 @@
-import { buildEmbedSnippet, embedNoun, type EmbedTarget } from "../snippet";
+import {
+  buildEmbedSnippet,
+  chartImageUrl,
+  chartShareUrl,
+  embedNoun,
+  type EmbedTarget,
+} from "../snippet";
 
 const ALL_TARGETS: EmbedTarget[] = [
   { kind: "chart", code: "BHP" },
@@ -150,5 +156,26 @@ describe("buildEmbedSnippet", () => {
     for (const view of ["short", "price", "combined"] as const) {
       expect(embedNoun({ kind: "chart", code: "BHP", view })).toBe("chart");
     }
+  });
+});
+
+describe("chartShareUrl / chartImageUrl", () => {
+  it("builds the share page and its card, omitting default params", () => {
+    expect(chartShareUrl("bhp")).toBe("https://shorted.com.au/chart/BHP");
+    expect(chartShareUrl(" wbt ", "combined", "1m")).toBe(
+      "https://shorted.com.au/chart/WBT?view=combined&period=1m",
+    );
+    expect(chartShareUrl("BHP", "short", "max")).toBe(
+      "https://shorted.com.au/chart/BHP?period=max",
+    );
+    expect(chartImageUrl("WBT", "combined", "1m")).toBe(
+      "https://shorted.com.au/chart/WBT/image?view=combined&period=1m",
+    );
+    expect(chartImageUrl("BHP")).toBe("https://shorted.com.au/chart/BHP/image");
+  });
+
+  it("is never under /embed/, which robots.txt disallows (no unfurl on X or Slack)", () => {
+    expect(chartShareUrl("BHP", "price", "3m")).not.toContain("/embed/");
+    expect(chartImageUrl("BHP", "price", "3m")).not.toContain("/embed/");
   });
 });

@@ -1379,6 +1379,41 @@ when an article needs a new diagram; do not import or vendor mdxcn figures.
   (`components/news/mdx/`). Its registry, manifest and take-writer prompt
   must stay in sync as described in `$newsroom`.
 
+## Share & embed (charts and widgets)
+
+Every embeddable widget carries a **Share** button (`components/ui/embed-dialog.tsx`;
+the dialog body is a lazy chunk, `embed-dialog-content.tsx`). It offers a link,
+the native share sheet where there is one, and copy per destination: Discord,
+Slack, X, LinkedIn, Reddit, Markdown and Website (`lib/embed/share.ts`). Only
+Website is the HTML `<figure>` snippet (`lib/embed/snippet.ts`, whose comment
+explains the host-page credit); every other channel is a link plus a line,
+because chat apps show HTML as text (a WBT snippet pasted into Discord,
+2026-10-19).
+
+| Piece | Where |
+|---|---|
+| Chart share page `/chart/<CODE>?view=&period=` | `app/chart/[code]/` (noindex, follow; no site chrome; params and fallbacks are `/embed/chart`'s, `app/embed/chart/params.ts`) |
+| Its card `/chart/<CODE>/image` | `app/chart/[code]/image/route.tsx` + `lib/og/chart-image.ts` (geometry) + `lib/og/chart-card.tsx`: the chart itself, 1200x630, never a 500 |
+| Landscape mode | `StockChartEmbed` `allowLandscape`: on a portrait phone the box is turned 90deg with CSS (`portrait:` variants), because rotation lock cannot be overridden and iOS has no orientation lock API |
+
+### Landmines
+
+- **`/chart/` must stay out of robots.txt; `/embed/` stays in it.** Twitterbot
+  and Slackbot honour robots.txt, so a disallowed share link posts with no
+  preview. The share page keeps itself out of the index with its noindex meta.
+  `robots-rpc-disallow.test.ts` pins both.
+- **The card's Cache-Control key is lowercase** (`ImageResponse` spreads caller
+  headers over its own `cache-control`; a capitalised key is appended to the
+  one-year immutable default). A card missing a series it asked for is cached
+  for 5 minutes, not 6 hours.
+- **Never wrap a Discord link in `<angle brackets>`**: Discord suppresses the
+  preview. Tickers are `ASX:CODE` on X, LinkedIn and Reddit (`$CODE` reads as
+  a US cashtag).
+- **The rotated chart reads the pointer through `getScreenCTM`** (visx
+  `localPoint`), which includes the CSS rotation. A pointer path that uses
+  `getBoundingClientRect` or `clientX` arithmetic would break scrubbing in
+  landscape.
+
 ## Twitter / X Automation
 
 `@shorted___` is the live X handle. The bot is a self-contained Node + TypeScript project at `scripts/twitter/` that pulls live ASIC short data, market news, and director trades from the public shorted.com.au API and posts curated tweets.

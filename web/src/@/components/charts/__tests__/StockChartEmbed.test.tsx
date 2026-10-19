@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { StockChartEmbed } from "../StockChartEmbed";
 import type { StockChartData } from "../use-stock-chart-data";
 import type { ChartPoint } from "../types";
@@ -110,5 +110,68 @@ describe("StockChartEmbed: the readout's rows", () => {
   it("holds none by default: the default view is the short interest one", () => {
     render(<StockChartEmbed stockCode="BHP" />);
     expect(reserve()).toBe("");
+  });
+});
+
+// A phone held upright gives the chart a tall, narrow plot, and with rotation
+// locked the reader cannot turn it (reported 2026-10-19, WBT opened from
+// Discord). The landscape mode draws the chart sideways instead.
+describe("StockChartEmbed: landscape mode", () => {
+  const box = (container: HTMLElement) => container.firstElementChild as HTMLElement;
+
+  it("is offered only where the chart is the page", () => {
+    render(<StockChartEmbed stockCode="BHP" />);
+    expect(screen.queryByRole("button", { name: /landscape/i })).not.toBeInTheDocument();
+  });
+
+  it("turns the chart's box sideways on a portrait screen, and back", () => {
+    const { container } = render(<StockChartEmbed stockCode="WBT" allowLandscape />);
+    const toggle = screen.getByRole("button", { name: "Rotate chart to landscape" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(box(container)).not.toHaveAttribute("data-landscape");
+
+    fireEvent.click(toggle);
+    expect(box(container)).toHaveAttribute("data-landscape", "true");
+    // Rotated only while the viewport is portrait; a landscape viewport (the
+    // phone turned with rotation unlocked) gets the same box, unrotated.
+    expect(box(container).className).toContain("portrait:rotate-90");
+    expect(box(container).className).toContain("fixed");
+    // The way back stays on screen whatever the viewport does.
+    const back = screen.getByRole("button", { name: "Back to portrait" });
+    expect(back).toHaveAttribute("aria-pressed", "true");
+    expect(back.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+
+    fireEvent.click(back);
+    expect(box(container)).not.toHaveAttribute("data-landscape");
+  });
+
+  it("leaves with Escape", () => {
+    const { container } = render(<StockChartEmbed stockCode="WBT" allowLandscape />);
+    fireEvent.click(screen.getByRole("button", { name: "Rotate chart to landscape" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(box(container)).not.toHaveAttribute("data-landscape");
+  });
+});
+
+describe("StockChartEmbed: open full screen (framed)", () => {
+  it("links to the share page at the period on screen", () => {
+    render(<StockChartEmbed stockCode="WBT" defaultView="combined" defaultPeriod="1m" expandable />);
+    const link = screen.getByRole("link", { name: "Open WBT chart full screen" });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://shorted.com.au/chart/WBT?view=combined&period=1m",
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+
+    fireEvent.click(screen.getByRole("button", { name: "6m" }));
+    expect(link).toHaveAttribute(
+      "href",
+      "https://shorted.com.au/chart/WBT?view=combined&period=6m",
+    );
+  });
+
+  it("is absent unless asked for", () => {
+    render(<StockChartEmbed stockCode="WBT" />);
+    expect(screen.queryByRole("link", { name: /full screen/ })).not.toBeInTheDocument();
   });
 });

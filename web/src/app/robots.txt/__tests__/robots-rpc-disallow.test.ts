@@ -93,4 +93,19 @@ describe("robots.txt", () => {
   it("keeps the Content-Signal directive", () => {
     expect(body).toContain("Content-Signal:");
   });
+
+  // A chart shared to X or Slack is a /chart/<code> link, and Twitterbot and
+  // Slackbot honour robots.txt: disallowed, the link posts with no preview.
+  // The page keeps itself out of the index with a noindex meta instead.
+  // /embed/ stays disallowed: it is the iframe, not the thing people share.
+  it("lets unfurlers fetch chart share links and their cards", () => {
+    const disallows = body
+      .split("\n")
+      .filter((line) => line.startsWith("Disallow:"))
+      .map((line) => line.slice("Disallow:".length).trim());
+    for (const path of ["/chart/WBT", "/chart/WBT/image"]) {
+      expect(disallows.some((d) => path.startsWith(d))).toBe(false);
+    }
+    expect(disallows).toContain("/embed/");
+  });
 });

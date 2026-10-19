@@ -233,10 +233,11 @@ export default async function PressPage() {
           Embeddable charts
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Every chart and table below carries an{" "}
-          <span className="font-medium text-foreground">Embed</span> button that
-          copies a ready-made snippet. The widgets update daily on their own —
-          no maintenance once published.
+          Every chart and table below carries a{" "}
+          <span className="font-medium text-foreground">Share</span> button with
+          a ready-made embed snippet for your site, and links that preview
+          cleanly in Discord, Slack, X and LinkedIn. The widgets update daily on
+          their own — no maintenance once published.
         </p>
         <ul className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
           {[
