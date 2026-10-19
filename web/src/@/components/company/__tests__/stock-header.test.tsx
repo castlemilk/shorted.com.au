@@ -363,15 +363,31 @@ describe("StockHeader 30-day change", () => {
     expect(screen.queryByText(/pp\b/)).toBeNull();
   });
 
-  it.each([2.5, -2.5, 0])("is the foreground colour, never red, green or amber (%p)", async (change30d) => {
+  it.each([
+    [2.5, "text-red-600", "a rise in short interest is red"],
+    [0.005, "text-red-600", "a rise that rounds up is red, as its arrow is up"],
+    [-2.5, "text-green-700", "a fall is green"],
+    [0, "text-foreground", "no change is the foreground"],
+    [0.004, "text-foreground", "a change that rounds to 0.00 is the foreground, as its arrow is flat"],
+  ])("colours %p %s: %s", async (change30d, tone) => {
     const { container } = await renderHeader(props({ change30d }));
     const change = figuresOf("Short interest")[1]!;
-    expect(change).toHaveClass("text-foreground");
-    for (const element of [change, ...Array.from(change.querySelectorAll("*"))]) {
-      expect(element.className).not.toMatch(/text-(red|green|amber|destructive|primary|accent)|bg-(red|green|amber)/);
+    expect(change).toHaveClass(tone);
+    for (const other of ["text-red-600", "text-green-700", "text-foreground"].filter((c) => c !== tone)) {
+      expect(change).not.toHaveClass(other);
     }
-    // Nor does the direction of a short position colour anything else here.
+    // The change is the only coloured figure: the direction of a short position
+    // colours nothing else in the header.
+    change.remove();
     expect(container.innerHTML).not.toMatch(/text-(red|green|amber)|bg-(red|green)/);
+  });
+
+  it.each([
+    [1, "dark:text-red-400"],
+    [-1, "dark:text-green-400"],
+  ])("gives %p its dark-mode shade, %s", async (change30d, shade) => {
+    await renderHeader(props({ change30d }));
+    expect(figuresOf("Short interest")[1]).toHaveClass(shade);
   });
 });
 

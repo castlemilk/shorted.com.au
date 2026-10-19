@@ -2,6 +2,7 @@
 
 import { cache } from "react";
 import { getStockDetails } from "./getStockDetails";
+import { getVerifiedCompanyLogoUrls } from "./company-logo-availability";
 import { getIndustryStocks } from "./industry/getIndustryData";
 import { type RelatedStock } from "~/@/components/seo/related-stocks";
 import { industryLabel } from "~/@/lib/industry-placeholder";
@@ -33,16 +34,24 @@ export const getRelatedStocks = cache(
       // Get other stocks in the same industry
       const { stocks } = await getIndustryStocks(industrySlug);
 
-      // Map to RelatedStock format and filter out the current stock
-      const relatedStocks: RelatedStock[] = stocks
+      // Filter out the current stock
+      const others = stocks
         .filter((s) => s.code.toUpperCase() !== stockCode.toUpperCase())
-        .slice(0, 6) // Limit to 6 related stocks
-        .map((s) => ({
-          code: s.code,
-          name: s.name,
-          shortPercent: s.shortPercent,
-          industry,
-        }));
+        .slice(0, 6); // Limit to 6 related stocks
+
+      // A logo only for a code the bucket holds: one cached listing, never a
+      // read per stock, and never a rejection (an empty map on failure). The
+      // rest draw StockLogo's letter avatar instead of requesting a 404.
+      const logoUrls = await getVerifiedCompanyLogoUrls(others.map((s) => s.code));
+
+      // Map to RelatedStock format
+      const relatedStocks: RelatedStock[] = others.map((s) => ({
+        code: s.code,
+        name: s.name,
+        shortPercent: s.shortPercent,
+        industry,
+        logoUrl: logoUrls.get(s.code.toUpperCase()),
+      }));
 
       return {
         stocks: relatedStocks,
