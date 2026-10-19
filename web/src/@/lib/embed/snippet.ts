@@ -78,19 +78,56 @@ function qs(params: Record<string, string | number | undefined>): string {
 export const DEFAULT_CHART_VIEW: ChartViewId = "short";
 export const DEFAULT_CHART_PERIOD: ChartPeriod = "1y";
 
-/** Keyword-rich subject per chart view, used in the iframe title and anchor. */
 /** What each chart view's data actually comes from. */
-const CHART_SOURCE: Record<ChartViewId, string> = {
+export const CHART_SOURCE: Record<ChartViewId, string> = {
   short: ASIC_SOURCE,
   price: "end-of-day ASX prices",
   combined: "ASIC short position reports and end-of-day ASX prices",
 };
 
+/** Keyword-rich subject per chart view, used in the iframe title and anchor. */
 const CHART_SUBJECT: Record<ChartViewId, string> = {
   short: "short interest",
   price: "share price",
   combined: "share price and short interest",
 };
+
+export function chartSubject(view: ChartViewId): string {
+  return CHART_SUBJECT[view];
+}
+
+/** A chart's view and period as query params, each omitted at its default. */
+function chartParams(view: ChartViewId, period: ChartPeriod) {
+  return {
+    view: view === DEFAULT_CHART_VIEW ? undefined : view,
+    period: period === DEFAULT_CHART_PERIOD ? undefined : period,
+  };
+}
+
+/**
+ * The chart's share page, `/chart/BHP?view=combined&period=6m`: the link to
+ * paste into Discord, Slack, X or LinkedIn. Unlike /embed/*, /chart/* is not
+ * robots-disallowed, because Twitterbot and Slackbot honour robots.txt and
+ * would not unfurl it; the page itself is noindex.
+ */
+export function chartShareUrl(
+  code: string,
+  view: ChartViewId = DEFAULT_CHART_VIEW,
+  period: ChartPeriod = DEFAULT_CHART_PERIOD,
+): string {
+  const c = code.trim().toUpperCase();
+  return `${siteConfig.url}/chart/${encodeURIComponent(c)}${qs(chartParams(view, period))}`;
+}
+
+/** The share page's social card: a 1200x630 PNG of the chart itself. */
+export function chartImageUrl(
+  code: string,
+  view: ChartViewId = DEFAULT_CHART_VIEW,
+  period: ChartPeriod = DEFAULT_CHART_PERIOD,
+): string {
+  const c = code.trim().toUpperCase();
+  return `${siteConfig.url}/chart/${encodeURIComponent(c)}/image${qs(chartParams(view, period))}`;
+}
 
 function specFor(target: EmbedTarget): TargetSpec {
   switch (target.kind) {
@@ -103,11 +140,7 @@ function specFor(target: EmbedTarget): TargetSpec {
         // Defaults are OMITTED so every snippet copied before views existed
         // (`/embed/chart?code=BHP`, short interest, 1y) is byte-identical to
         // what the short view builds today.
-        path: `/embed/chart${qs({
-          code,
-          view: view === DEFAULT_CHART_VIEW ? undefined : view,
-          period: period === DEFAULT_CHART_PERIOD ? undefined : period,
-        })}`,
+        path: `/embed/chart${qs({ code, ...chartParams(view, period) })}`,
         height: view === "combined" ? 520 : 480,
         title: `${code} ${subject} — Shorted.com.au`,
         deepLinkPath: `/shorts/${encodeURIComponent(code)}`,

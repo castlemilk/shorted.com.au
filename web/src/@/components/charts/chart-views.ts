@@ -41,6 +41,16 @@ export function isChartPeriod(p: unknown): p is ChartPeriod {
   );
 }
 
+/** A period in words, for share copy and social cards: "past 3 months". */
+export const CHART_PERIOD_PHRASE: Record<ChartPeriod, string> = {
+  "1m": "past month",
+  "3m": "past 3 months",
+  "6m": "past 6 months",
+  "1y": "past year",
+  "2y": "past 2 years",
+  max: "all available history",
+};
+
 export const priceFmt = (v: number) => `$${v.toFixed(2)}`;
 /**
  * Short interest to two decimals, as ASIC publishes it and the stock header

@@ -13,6 +13,11 @@ export const DEFAULT_EMBED_CODE = "BHP";
 
 const CODE_RE = /^[A-Z0-9]{2,6}$/;
 
+/** Whether a raw code is shaped like an ASX code (case-insensitive). */
+export function isChartCode(raw: string | null | undefined): boolean {
+  return CODE_RE.test(raw?.trim().toUpperCase() ?? "");
+}
+
 export interface EmbedChartParams {
   code: string;
   view: ChartViewId;
@@ -43,4 +48,23 @@ export function parseEmbedChartParams(
     view: isChartViewId(rawView) ? rawView : DEFAULT_CHART_VIEW,
     period: isChartPeriod(rawPeriod) ? rawPeriod : DEFAULT_CHART_PERIOD,
   };
+}
+
+type SearchParamsRecord = Record<string, string | string[] | undefined>;
+
+/**
+ * /chart/[code]'s params: the code from the path, view and period from the
+ * query, with the same defaults and fallbacks as /embed/chart. A share link
+ * and the embed it was copied beside always draw the same chart.
+ */
+export function parseChartShareParams(
+  code: string | undefined,
+  searchParams: SearchParamsRecord | null | undefined,
+): EmbedChartParams {
+  const first = (v: string | string[] | undefined) =>
+    (Array.isArray(v) ? v[0] : v) ?? null;
+  return parseEmbedChartParams({
+    get: (name) =>
+      name === "code" ? (code ?? null) : first(searchParams?.[name]),
+  });
 }

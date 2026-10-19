@@ -71,3 +71,16 @@ describe("site chrome on the OAuth flow", () => {
     expect(chromeOn("/roadmap")).toEqual({ header: true, footer: false });
   });
 });
+
+// The chart share page (/chart/<code>) is a full-screen chart with its own bar
+// back to the stock page; the site's header would take a phone's first 64px.
+describe("site chrome on the chart share page", () => {
+  it("is absent on /chart/<code>", () => {
+    expect(chromeOn("/chart/WBT")).toEqual({ header: false, footer: false });
+  });
+
+  it("does not swallow a route that merely starts the same way", () => {
+    expect(chromeOn("/charts")).toEqual({ header: true, footer: true });
+    expect(chromeOn("/chartbook")).toEqual({ header: true, footer: true });
+  });
+});

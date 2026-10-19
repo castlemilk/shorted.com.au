@@ -12,6 +12,7 @@ export function ConditionalFooter() {
   if (
     pathname.startsWith("/roadmap") ||
     pathname.startsWith("/embed") ||
+    pathname.startsWith("/chart/") ||
     pathname.startsWith("/oauth/")
   )
     return null;

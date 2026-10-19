@@ -36,7 +36,7 @@ jest.mock("lucide-react", () => ({
   // EmbedDialog's trigger icon — this mock is an allowlist, so a component
   // pulling in a new icon fails with "Element type is invalid" until it is
   // listed here.
-  Code2: () => <div />,
+  Share2: () => <div />,
 }));
 
 // Mock the components with correct paths

@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Maximize2, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useElementSize } from "@/hooks/use-element-size";
 import { StockChart } from "./StockChart";
 import { seriesColor } from "./chart-theme";
 import { useStockChartData } from "./use-stock-chart-data";
+import { chartShareUrl } from "@/lib/embed/snippet";
 import {
   CHART_PERIODS,
   buildChartView,
@@ -33,6 +35,17 @@ export interface StockChartEmbedProps {
   stockCode: string;
   defaultView?: ChartViewId;
   defaultPeriod?: ChartPeriod;
+  /**
+   * Offer a landscape mode on a portrait phone. Only where the chart IS the
+   * page (the share page, or /embed/chart opened on its own): inside a
+   * publisher's iframe there is no screen to turn.
+   */
+  allowLandscape?: boolean;
+  /**
+   * Inside an iframe: a link that opens the chart, at the period on screen,
+   * full screen on its share page in a new tab.
+   */
+  expandable?: boolean;
 }
 
 function LegendSwatch({ color, label }: { color: string; label: string }) {
@@ -51,18 +64,40 @@ function LegendSwatch({ color, label }: { color: string; label: string }) {
 /**
  * The public /embed/chart widget: the same three views as the stock page's
  * StockChartPanel (built by the shared buildChartView), sized to FILL its
- * container — the embed page gives it a 100vh box, and the chart takes
+ * container — the embed page gives it a 100dvh box, and the chart takes
  * whatever height is left after the header, legend and caption.
  *
  * The view is fixed by the snippet (it is what the publisher chose to embed);
  * only the period is interactive.
+ *
+ * LANDSCAPE MODE: a phone held upright gives a time series a tall, narrow
+ * plot, and many phones keep rotation locked, which no page can override
+ * (iOS Safari has no Screen Orientation lock at all). So the toggle draws the
+ * chart sideways instead: a fixed box the size of the screen turned through
+ * 90 degrees, which the reader reads by turning the phone. It applies only
+ * while the viewport is portrait; turn the phone with rotation unlocked and
+ * the viewport is landscape, so the box simply fills it unrotated. The chart
+ * reads the pointer through getScreenCTM (visx localPoint), which includes
+ * the rotation, so scrubbing and pinning follow the finger.
  */
 export function StockChartEmbed({
   stockCode,
   defaultView = "short",
   defaultPeriod = "1y",
+  allowLandscape = false,
+  expandable = false,
 }: StockChartEmbedProps) {
   const [period, setPeriod] = useState<ChartPeriod>(defaultPeriod);
+  const [landscape, setLandscape] = useState(false);
+
+  useEffect(() => {
+    if (!landscape) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLandscape(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [landscape]);
   const view = defaultView;
   const { short, price, volume, anyLoading, isError } = useStockChartData(
     stockCode,
@@ -95,7 +130,18 @@ export function StockChartEmbed({
   const readout = chartHeight >= STRIP_MIN_CHART_HEIGHT ? "strip" : "tooltip";
 
   return (
-    <div className="flex h-full min-h-[280px] flex-col gap-2 p-2 sm:p-3">
+    <div
+      data-landscape={landscape || undefined}
+      className={cn(
+        "flex h-full min-h-[280px] flex-col gap-2 p-2 sm:p-3",
+        landscape && [
+          "fixed inset-0 z-[60] h-auto overscroll-contain bg-background",
+          // Portrait viewport: a screen-sized box turned 90deg about its top
+          // left corner, from the right edge, so it covers the screen exactly.
+          "portrait:inset-auto portrait:left-full portrait:top-0 portrait:h-[100vw] portrait:w-[100dvh] portrait:origin-top-left portrait:rotate-90 portrait:touch-none",
+        ],
+      )}
+    >
       {/* Header: code + view, then the period control. Wraps on narrow frames. */}
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
         <h2 className="flex min-w-0 items-baseline gap-2 text-sm font-semibold">
@@ -104,29 +150,66 @@ export function StockChartEmbed({
             {chartViewLabel(view)}
           </span>
         </h2>
-        <div
-          className="flex items-center gap-0.5 rounded-md border p-0.5"
-          role="group"
-          aria-label="Period"
-        >
-          {CHART_PERIODS.map((p) => (
+        <div className="flex items-center gap-1">
+          <div
+            className="flex items-center gap-0.5 rounded-md border p-0.5"
+            role="group"
+            aria-label="Period"
+          >
+            {CHART_PERIODS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                aria-pressed={period === p}
+                className={cn(
+                  "inline-flex min-h-8 min-w-8 items-center justify-center rounded px-2 text-xs font-medium uppercase transition-colors",
+                  // Finger-sized targets where the pointer is a finger.
+                  "[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11",
+                  period === p
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          {allowLandscape && (
             <button
-              key={p}
               type="button"
-              onClick={() => setPeriod(p)}
-              aria-pressed={period === p}
+              onClick={() => setLandscape((v) => !v)}
+              aria-pressed={landscape}
+              title={landscape ? "Back to portrait" : "Rotate to landscape"}
               className={cn(
-                "inline-flex min-h-8 min-w-8 items-center justify-center rounded px-2 text-xs font-medium uppercase transition-colors",
-                // Finger-sized targets where the pointer is a finger.
-                "[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11",
-                period === p
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                "min-h-11 min-w-11 items-center justify-center rounded-md border transition-colors hover:bg-muted/50 hover:text-foreground",
+                // Offered only on a portrait phone, where the screen lacks the
+                // width; once on, it stays, so the mode can always be left.
+                landscape
+                  ? "inline-flex bg-muted text-foreground"
+                  : "hidden text-muted-foreground max-sm:portrait:inline-flex",
               )}
             >
-              {p}
+              <RotateCw aria-hidden className="h-4 w-4" />
+              <span className="sr-only">
+                {landscape ? "Back to portrait" : "Rotate chart to landscape"}
+              </span>
             </button>
-          ))}
+          )}
+          {expandable && (
+            <a
+              href={chartShareUrl(stockCode, view, period)}
+              target="_blank"
+              rel="noopener"
+              title="Open full screen"
+              className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+            >
+              <Maximize2 aria-hidden className="h-3.5 w-3.5" />
+              <span className="sr-only">
+                Open {stockCode} chart full screen
+              </span>
+            </a>
+          )}
         </div>
       </div>
 
@@ -174,12 +257,19 @@ export function StockChartEmbed({
         )}
       </div>
 
-      {/* Caption. Right padding clears the layout's fixed brand link. */}
-      <div className="flex min-h-4 flex-wrap items-center gap-x-3 pr-24 text-[11px] text-muted-foreground">
+      {/* Caption. Right padding clears the embed layout's fixed brand link,
+          which the landscape box covers, so it carries the brand itself. */}
+      <div
+        className={cn(
+          "flex min-h-4 flex-wrap items-center gap-x-3 text-[11px] text-muted-foreground",
+          !landscape && "pr-24",
+        )}
+      >
         {asOf != null && series.length > 0 && (
           <span>As of {asOfFmt.format(new Date(asOf))}</span>
         )}
         {partialNote && <span>{partialNote}</span>}
+        {landscape && <span className="ml-auto">shorted.com.au</span>}
       </div>
     </div>
   );

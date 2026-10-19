@@ -1,4 +1,8 @@
-import { parseEmbedChartParams } from "../params";
+import {
+  isChartCode,
+  parseChartShareParams,
+  parseEmbedChartParams,
+} from "../params";
 
 const p = (query: string) => parseEmbedChartParams(new URLSearchParams(query));
 
@@ -51,5 +55,46 @@ describe("parseEmbedChartParams", () => {
       view: "combined",
       period: "3m",
     });
+  });
+});
+
+describe("parseChartShareParams", () => {
+  it("takes the code from the path and the rest from the query", () => {
+    expect(
+      parseChartShareParams("wbt", { view: "combined", period: "1m" }),
+    ).toEqual({ code: "WBT", view: "combined", period: "1m" });
+  });
+
+  it("falls back exactly as the embed does", () => {
+    expect(parseChartShareParams("BHP", {})).toEqual({
+      code: "BHP",
+      view: "short",
+      period: "1y",
+    });
+    expect(
+      parseChartShareParams("BHP", { view: "nope", period: "10y" }),
+    ).toEqual({ code: "BHP", view: "short", period: "1y" });
+    expect(parseChartShareParams("BHP", undefined).view).toBe("short");
+  });
+
+  it("reads the first of a repeated param", () => {
+    expect(parseChartShareParams("BHP", { period: ["6m", "1m"] }).period).toBe(
+      "6m",
+    );
+  });
+});
+
+describe("isChartCode", () => {
+  it("accepts ASX-shaped codes in any case", () => {
+    expect(isChartCode("WBT")).toBe(true);
+    expect(isChartCode("bhp")).toBe(true);
+    expect(isChartCode("XJO1")).toBe(true);
+  });
+
+  it("rejects anything else", () => {
+    expect(isChartCode("")).toBe(false);
+    expect(isChartCode(undefined)).toBe(false);
+    expect(isChartCode("TOOLONGCODE")).toBe(false);
+    expect(isChartCode("BH-P")).toBe(false);
   });
 });
