@@ -179,6 +179,16 @@ To switch it on:
    for an app without Activities, so the button stays hidden until this is set.
 4. `task discord:register` once: enabling Activities created the Entry Point
    command, and registration keeps it.
+5. Press **Interactive** on a chart message and check the chart loads. The
+   Activity's requests reach the site from Discord's proxy, not from a
+   browser, and Cloudflare's Super Bot Fight Mode challenges automated
+   clients on the apex: `curl "https://shorted.com.au/?frame_id=x&instance_id=y"`
+   answers `403 cf-mitigated: challenge` (checked 2026-10-19). Only
+   `/api/discord/` and the RPC rewrites are in the skip rule. If the Activity
+   shows Cloudflare's "Just a moment…" page instead of the chart, add the
+   launch (`/` with `frame_id`), `/embed/discord` and `/_next/` to
+   `app_api_security_skip` in `terraform/modules/cloudflare-edge/main.tf`,
+   with a test in `security-skip-expression.test.mjs`.
 
 ## Troubleshooting
 
