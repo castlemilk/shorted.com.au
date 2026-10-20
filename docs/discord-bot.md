@@ -8,20 +8,44 @@ on, an **Interactive** button opens the site's full chart inside Discord.
 ## Quick start
 
 1. **Create the app.** <https://discord.com/developers/applications> →
-   **New Application** → name it "Shorted". Then **Bot → Reset Token**, and add
-   the token to the repo's `.env` (gitignored):
+   **New Application** → name it "Shorted". Add one credential to the repo's
+   `.env` (gitignored), or to the cloud environment's variables:
 
    ```bash
-   DISCORD_BOT_TOKEN=...
+   DISCORD_BOT_TOKEN=...      # Bot → Reset Token: setup does everything
+   DISCORD_CLIENT_SECRET=...  # OAuth2 → Client Secret: setup does all but
+                              # step 3's app settings, which it prints
    ```
+
+   The two are easy to swap: a bot token has three dot-separated parts, a
+   client secret is 32 characters. The script recognises a client secret in
+   either variable and says so.
 
 2. **Record it.** `task discord:setup` writes the app's id and public key to
    `web/src/config/discord-app.json`. Commit that file and merge it to `main`.
+   With a client secret, the first run names the app:
+   `task discord:setup -- --app <application id>`.
 
-3. **Finish.** Once the deploy is out, `task discord:setup` again. It points
-   Discord at the endpoint, sets the install options, description, tags and
-   icon, registers the commands and prints the install links. (Or run step 2
-   with `-- --wait`: it waits for the deploy and finishes on its own.)
+3. **Finish.** Once the deploy is out, `task discord:setup` again. It
+   registers the commands and prints the install links. With a bot token it
+   also points Discord at the endpoint and sets the install options,
+   description, tags and icon. With a client secret it prints those as portal
+   settings instead, because only a bot token may edit the application:
+   - **General Information → Interactions Endpoint URL:**
+     `https://shorted.com.au/api/discord/interactions`. Discord sends a signed
+     PING when you save, so the deploy must be out first.
+   - **Installation → Installation Contexts:** User Install and Guild Install.
+   - **Installation → Default Install Settings:** scope `applications.commands`
+     for both, no permissions.
+
+   (Or run step 2 with `-- --wait`: it waits for the deploy and finishes on
+   its own.)
+
+**No OAuth2 redirect.** Leave OAuth2 → Redirects empty and **Requires OAuth2
+Code Grant** off: the bot answers interactions and never runs an OAuth2 code
+flow, and the install links need no redirect. The Activity does not
+authenticate users either (it only completes the SDK's `ready` handshake). The
+client secret is used only by the setup script, never by the deployed site.
 
 `task discord:status` shows where things stand at any time. `task discord:setup`
 is safe to run again: it changes only what has drifted.
@@ -223,9 +247,9 @@ To switch it on:
   were posted with. Add new kinds; do not change what an existing one means.
   `parseCustomId` rejects anything malformed, and the handler answers an id it
   does not know with a private "run the command again".
-- **No bot token in production.** Replies and follow-ups use the interaction's
-  own token (valid 15 minutes). The bot token belongs in `.env` for the tasks
-  only.
+- **No credentials in production.** Replies and follow-ups use the
+  interaction's own token (valid 15 minutes). The bot token or client secret
+  belongs in `.env` for the tasks only, never in Vercel.
 - **SBFM.** Cloudflare's Super Bot Fight Mode challenges automated clients on
   the apex, and Discord's interaction POSTs are one. `/api/discord/` is in the
   app API skip rule (`security-skip-expression.test.mjs`); the route's

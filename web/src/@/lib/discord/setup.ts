@@ -142,6 +142,49 @@ export function applicationPatch(
   return patch;
 }
 
+/**
+ * Which credential a value looks like. A bot token is three dot-separated
+ * parts (the first is the application id, base64); an OAuth2 client secret is
+ * 32 URL-safe characters. The portal shows the client secret on its OAuth2
+ * page and the bot token only behind Bot > Reset Token, so the two get
+ * swapped.
+ */
+export function credentialKind(
+  value: string,
+): "bot-token" | "client-secret" | "unknown" {
+  const v = value.trim();
+  if (/^[\w-]+\.[\w-]+\.[\w-]+$/.test(v)) return "bot-token";
+  if (/^[\w-]{32}$/.test(v)) return "client-secret";
+  return "unknown";
+}
+
+/**
+ * What a client secret cannot set, as portal steps: only a bot token may edit
+ * the application (PATCH /applications/@me), so with the client secret alone
+ * these are done by hand, once. The optional lines appear only where the app
+ * has nothing yet.
+ */
+export function portalSteps(
+  app: Pick<DiscordApplication, "description" | "icon" | "tags">,
+  endpointUrl: string,
+): string[] {
+  const steps = [
+    `General Information > Interactions Endpoint URL: ${endpointUrl}`,
+    "Installation > Installation Contexts: User Install and Guild Install",
+    "Installation > Default Install Settings: scope applications.commands for both, no permissions",
+  ];
+  if (!app.description?.trim()) {
+    steps.push(`General Information > Description: ${APP_DESCRIPTION}`);
+  }
+  if (!app.tags?.length) {
+    steps.push(`General Information > Tags: ${APP_TAGS.join(", ")}`);
+  }
+  if (!app.icon) {
+    steps.push("General Information > App Icon: web/public/icon-512.png");
+  }
+  return steps;
+}
+
 export interface RegisteredCommand {
   name: string;
   /** 1 a slash command; 4 the Activity's Entry Point, which Discord made. */
