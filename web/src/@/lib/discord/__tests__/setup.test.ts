@@ -5,9 +5,11 @@ import {
   applicationPatch,
   commandsInSync,
   configAction,
+  credentialKind,
   endpointVerdict,
   installLinks,
   parseEndpointStatus,
+  portalSteps,
   slashCommands,
   type DiscordApplication,
 } from "../setup";
@@ -179,5 +181,41 @@ it("installLinks asks for commands only, to a server or to a user's apps", () =>
     server:
       "https://discord.com/oauth2/authorize?client_id=123&integration_type=0&scope=applications.commands",
     user: "https://discord.com/oauth2/authorize?client_id=123&integration_type=1&scope=applications.commands",
+  });
+});
+
+describe("credentialKind", () => {
+  it("tells a bot token from the client secret the portal shows beside it", () => {
+    // Shapes only: a bot token's first part is the application id, base64.
+    const botToken = `${Buffer.from("1291234567890123456").toString("base64url")}.GxYz12.${"a".repeat(38)}`;
+    expect(credentialKind(botToken)).toBe("bot-token");
+    expect(credentialKind(` ${"Ab3_-x".repeat(5)}Zz `)).toBe("client-secret");
+    expect(credentialKind(KEY)).toBe("unknown");
+    expect(credentialKind("")).toBe("unknown");
+  });
+});
+
+describe("portalSteps", () => {
+  it("names the endpoint URL and the commands-only install, always", () => {
+    const steps = portalSteps(
+      { description: "Set already", icon: "abc", tags: ["asx"] },
+      DEFAULT_ENDPOINT,
+    );
+    expect(steps).toEqual([
+      `General Information > Interactions Endpoint URL: ${DEFAULT_ENDPOINT}`,
+      "Installation > Installation Contexts: User Install and Guild Install",
+      "Installation > Default Install Settings: scope applications.commands for both, no permissions",
+    ]);
+  });
+
+  it("adds the description, tags and icon only where the app has none", () => {
+    const steps = portalSteps(
+      { description: "", icon: null, tags: [] },
+      DEFAULT_ENDPOINT,
+    );
+    expect(steps).toHaveLength(6);
+    expect(steps[3]).toContain(APP_DESCRIPTION);
+    expect(steps[4]).toContain(APP_TAGS.join(", "));
+    expect(steps[5]).toContain("icon-512.png");
   });
 });

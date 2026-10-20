@@ -5,6 +5,14 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import { NextRequest } from "next/server";
 import { GET, POST } from "../route";
 
+// Keys come from the environment here, never from the committed production
+// app, so "no key" can be tested whatever app the repo records.
+jest.mock("~/config/discord-app.json", () => ({
+  applicationId: "",
+  publicKey: "",
+  activity: false,
+}));
+
 // The bot's reads are the server actions; nothing here should reach them.
 jest.mock("~/@/lib/discord/data", () => ({
   discordData: {
