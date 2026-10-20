@@ -1,0 +1,81 @@
+---
+title: "Shorted Is on Discord: ASX Short Interest Charts Your Whole Server Can Turn"
+excerpt: "Type /stock in Discord and Shorted posts a stock's ASIC short interest with its chart. Buttons under the chart change its period and view in place, for everyone in the channel. Here's what it does, what it cannot see, and the decisions behind it."
+standfirst: "Search ASX stocks, post short interest with its chart, and redraw it in the conversation. Free, read-only, and it never reads your messages."
+coverImage: "/assets/blog/shorted-for-discord/cover-editorial-v1.webp"
+thumbnailImage: "/assets/blog/shorted-for-discord/thumbnail-editorial-v1.webp"
+coverAlt: "A cut-paper split-flap panel on a charcoal field, its upper flap falling to reveal a new ink line, above a row of keys with one amber key pressed down."
+date: "2026-10-19"
+category: product
+tags: ["Discord", "Discord bot", "short interest", "ASX charts", "slash commands"]
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben-ebsworth.jpg"
+ogImage:
+  url: "/assets/blog/shorted-for-discord/cover-editorial-v1.webp"
+---
+
+# Shorted Is on Discord
+
+A lot of the conversation about ASX stocks, small caps especially, happens in Discord servers. When someone asks how crowded the short side of a stock is, the answer is usually a screenshot: cropped, undated, and out of date by the time anyone reads it.
+
+So we built a Discord app. Type `/stock`, start typing a code or a company name, and Shorted posts the stock's short interest, its 30-day change and its chart into the channel. Buttons under the chart change the period and the view, and the message redraws in place, for everyone reading it.
+
+It is free. It asks for no bot permissions, and it never reads your messages.
+
+**[Add Shorted to Discord](/docs/discord)**
+
+## What it does
+
+<GraphTable title="The five commands">
+
+| Command | What it posts |
+| --- | --- |
+| `/stock <code>` | Short interest and its 30-day change, the reported short position, shares on issue, days to cover, market cap and industry, over a one-year chart |
+| `/chart <code> [view] [period]` | The same message for any view (short interest, share price, or both) and period (1M, 3M, 6M, 1Y or Max) |
+| `/search <query>` | Up to 10 matches with their short interest, and a menu to chart one |
+| `/top [count]` | The 5 to 25 most shorted ASX stocks (10 unless you ask), and a menu to chart one |
+| `/help` | The commands, shown only to you |
+
+</GraphTable>
+
+You don't need to know the code. Suggestions appear as you type a code or part of a company name, and with nothing typed, `/stock` suggests the most shorted stocks.
+
+## A chart the whole channel can turn
+
+The buttons are the part we like most. Press **3M** and the chart redraws over three months; press **Price** and it switches to the share price and volume; press **Combined** to see price and short interest together. It is one message, the same for everyone, so a conversation about a stock can move with the chart instead of collecting a new screenshot every time someone wants another period.
+
+The highlighted button is what is on screen, and pressing it again redraws with the latest figures. **Open on Shorted** takes you to the full interactive chart on the site.
+
+In servers where it is switched on, an **Interactive** button opens that chart inside Discord itself. You can scrub across it, pin a reading, measure between two dates and search for another stock, without leaving the conversation.
+
+## What it cannot see
+
+Discord apps come in two kinds. A classic bot joins your server as a member, keeps a connection open, and can be granted permission to read messages. Ours is the other kind: Discord sends it the slash commands, the autocomplete keystrokes and the button presses aimed at it, and nothing else.
+
+It installs with one scope, `applications.commands`, which lets it add its commands and nothing more. It cannot read your messages, see your member list or join voice, because Discord never sends it any of that.
+
+Two more rules come from not wanting to be noisy:
+
+- **Failures are private.** A lookup that fails, or a search with no match, is answered only to the person who asked. The channel does not fill up with error messages.
+- **It never pings anyone.** Mentions are switched off on every message it posts, so a company name that happens to match a role cannot notify half a server.
+
+## Decisions behind it
+
+**Old buttons keep working.** Each button carries the chart it draws in its own ID: the stock, the view and the period. When someone presses a button on a message from last month, the bot reads what to draw from the button itself, and draws it from today's data. There is no record of messages to keep, expire or lose, so nothing about an old message can go stale except the figures, and pressing a button refreshes those.
+
+**Discord gives an app three seconds.** That is the deadline for a first reply. Most lookups come from the same caches that serve Shorted's stock pages and answer well inside it. When one does not, the bot shows Discord's "thinking…" state, finishes in the background and fills in the message when the data arrives. A slow read costs a short wait, never an "interaction failed".
+
+**The chart is the share card.** The image in each message is the chart card Shorted draws for shared links, drawn from the latest data. Discord holds on to images it has fetched, so each image link carries the date in Sydney: a chart redrawn tomorrow fetches tomorrow's card instead of a cached copy of today's.
+
+## The caveats, stated plainly
+
+**Short interest is T+4.** ASIC publishes short positions four trading days after the date they describe. Each message dates its short figures by the report they come from, not by the day you ask. Redrawing a chart fetches the latest published data; it is not a tick-by-tick feed.
+
+**Short interest is positioning, not flow.** It is the size of the short positions reported to ASIC, not what short sellers traded today.
+
+**Nothing here is financial advice.** The app is a quick way to bring the data into a conversation. What the conversation makes of it is up to the people having it.
+
+---
+
+Add it from **[shorted.com.au/docs/discord](/docs/discord)**, to a server you manage or to your own account. If something it posts looks wrong, we would like to know: [support@shorted.com.au](mailto:support@shorted.com.au).
