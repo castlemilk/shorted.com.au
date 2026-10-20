@@ -1269,12 +1269,12 @@ module "shorts_api" {
   # Unsubscribe HMAC secret for broadcast emails — provisioned in prod Secret Manager.
   unsubscribe_secret_exists = true
 
-  # Telesis cron monitors for the jobs on the omega cluster. Set the three
-  # together once a read-role project token scoped to the "shorted.com.au
-  # scheduled jobs" service is stored as TELESIS_API_TOKEN (docs/mcp-admin.md).
-  telesis_secret_exists = false
-  telesis_org_id        = ""
-  telesis_service_id    = ""
+  # Telesis cron monitors for the jobs on the omega cluster, read with the
+  # read-role project token stored as TELESIS_API_TOKEN (docs/mcp-admin.md).
+  # The service is "shorted.com.au scheduled jobs".
+  telesis_secret_exists = true
+  telesis_org_id        = "2571efb1-144c-4ec4-9757-30cdc23c920f"
+  telesis_service_id    = "2d6332a1-f560-4a54-9032-4ef174cd0256"
 
   depends_on = [
     google_project_service.required_apis,
