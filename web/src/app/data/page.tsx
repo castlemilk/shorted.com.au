@@ -12,7 +12,8 @@ import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { DatasetStructuredData } from "~/@/components/seo/enhanced-structured-data";
 
 export const metadata: Metadata = {
-  title: "ASX Short Selling Datasets | Open Data Hub | Shorted",
+  // No brand: the root layout's `%s | Shorted` template appends it.
+  title: "ASX Short Selling Datasets: Open Data Hub",
   description:
     "Download every ASIC short position, 2010 → today. Open ASX short selling datasets with programmatic API endpoints and Dataset schema for Google Dataset Search. Free for research, journalism, and analysis.",
   keywords: [
