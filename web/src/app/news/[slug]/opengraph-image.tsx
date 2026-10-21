@@ -29,7 +29,9 @@ async function getLogo(): Promise<string> {
 // approach isn't available in OG runtime — we just fetch the PNG and
 // inline it. Fails gracefully if the network call doesn't return.
 async function getHeroBackdrop(url: string | null | undefined): Promise<string | null> {
-  // A stored URL: fetched only from Cloud Storage (lib/og/image-fetch.ts).
+  // A stored URL: fetched only from Cloud Storage or our own /assets/
+  // (lib/og/image-fetch.ts), where a take imported from content/news keeps
+  // its art.
   const target = ogImageFetchUrl(url);
   if (!target) return null;
   try {

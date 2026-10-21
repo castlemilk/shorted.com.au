@@ -126,7 +126,8 @@ function pngSize(buf: Buffer): { w: number; h: number } | null {
 export async function getCompanyLogo(
   url: string | undefined | null,
 ): Promise<CompanyLogo> {
-  // A stored URL: fetched only from Cloud Storage (image-fetch.ts).
+  // A stored URL: fetched only from Cloud Storage or our own /assets/
+  // (image-fetch.ts).
   const target = ogImageFetchUrl(url);
   if (!target) return NO_LOGO;
   try {

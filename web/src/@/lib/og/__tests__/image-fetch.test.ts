@@ -9,7 +9,9 @@ import { ogImageFetchUrl } from "../image-fetch";
  * OG image routes fetch a stored logo or take image from our servers, and
  * fetched whatever URL the row held, following redirects. company-metadata is
  * writable with the anon key today (security review SEC-07), so a row could
- * point our server at any address. Only Cloud Storage over https is fetched.
+ * point our server at any address. Only https is fetched: Cloud Storage, and
+ * the static files under /assets/ on our own host, where a take imported from
+ * content/news keeps its art.
  */
 
 const LOGO = "https://storage.googleapis.com/shorted-company-logos/BHP.png";
@@ -51,6 +53,53 @@ describe("ogImageFetchUrl", () => {
     [null],
     [undefined],
   ])("refuses %p", (url) => {
+    expect(ogImageFetchUrl(url)).toBeUndefined();
+  });
+
+  // The shapes content/news frontmatter uses (import-mdx.ts stores them as
+  // written): absolute on our host, or root-relative, which resolves to it.
+  it.each([
+    [
+      "https://shorted.com.au/assets/news/tlx-bipass-fast-track-and-short-baseline/cover.png",
+      "https://shorted.com.au/assets/news/tlx-bipass-fast-track-and-short-baseline/cover.png",
+    ],
+    [
+      "/assets/news/droneshield-dro-short-interest/cover.png",
+      "https://shorted.com.au/assets/news/droneshield-dro-short-interest/cover.png",
+    ],
+    [
+      " https://Shorted.com.au/assets/news/a-take/cover-editorial-v1.webp",
+      "https://shorted.com.au/assets/news/a-take/cover-editorial-v1.webp",
+    ],
+  ])("allows our own static file %p", (url, fetched) => {
+    expect(ogImageFetchUrl(url)).toBe(fetched);
+  });
+
+  it.each([
+    ["https://shorted.com.au/api/internal/admin-check"],
+    ["/api/internal/admin-check"],
+    ["https://shorted.com.au/shorts/BHP"],
+    ["https://shorted.com.au/"],
+    ["https://shorted.com.au/assets"],
+    ["https://shorted.com.au/assets/"],
+    ["https://shorted.com.au/assets/../api/internal/admin-check"],
+    ["/assets/%2e%2e/api/internal/admin-check"],
+    ["https://shorted.com.au/assets/..%2fapi/internal/admin-check"],
+    ["https://shorted.com.au/assets/news%2F..%2F..%2Fapi/x.png"],
+    ["https://shorted.com.au/assets/.env"],
+    ["https://shorted.com.au/assets//x.png"],
+    ["http://shorted.com.au/assets/news/a-take/cover.png"],
+    ["https://shorted.com.au:8443/assets/news/a-take/cover.png"],
+    ["https://user@shorted.com.au/assets/news/a-take/cover.png"],
+    ["https://shorted.com.au./assets/news/a-take/cover.png"],
+    ["https://shorted.com.au.evil.example/assets/news/a-take/cover.png"],
+    ["https://evil.example/assets/news/a-take/cover.png"],
+    ["//shorted.com.au/assets/news/a-take/cover.png"],
+    ["/\\evil.example/assets/news/a-take/cover.png"],
+    ["/\t/evil.example/assets/news/a-take/cover.png"],
+    ["assets/news/a-take/cover.png"],
+    ["#cover"],
+  ])("refuses %p on or beside our own host", (url) => {
     expect(ogImageFetchUrl(url)).toBeUndefined();
   });
 });
