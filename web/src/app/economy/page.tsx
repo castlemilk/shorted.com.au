@@ -30,7 +30,10 @@ const DESCRIPTION =
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: `${TITLE} — cash rate, inflation, labour, trade, commodities, US rates`,
+  // The root template appends " | Shorted". Keep this under 60 characters:
+  // the six-topic title it replaced rendered at 98 and was cut off in
+  // results (SEO review 2026-10-21, F14). The description lists the rest.
+  title: "Australian economy — cash rate, inflation, jobs, trade",
   description: DESCRIPTION,
   keywords: [
     "Australian economy",

@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 
-import EconomyPage from "./page";
+import EconomyPage, { metadata } from "./page";
+import { siteConfig } from "~/@/config/site";
 import { STATE_NAMES, STATE_SLUGS } from "~/@/lib/economy/map-metrics";
 import {
   ECONOMY_TOPICS,
@@ -55,6 +56,20 @@ const cashRate = {
     },
   ],
 };
+
+describe("/economy metadata", () => {
+  // The old title rendered at 98 characters, so results cut it off mid-list.
+  it("keeps the title under 60 characters, the brand appended once by the template", () => {
+    const title = metadata.title;
+    if (typeof title !== "string") throw new Error("expected a plain title");
+
+    expect(title.startsWith("Australian economy")).toBe(true);
+    expect(title.length).toBeLessThanOrEqual(60);
+    expect(title).not.toContain(siteConfig.name);
+    expect(`${title} | ${siteConfig.name}`.length).toBeLessThanOrEqual(65);
+    expect(metadata.alternates?.canonical).toBe(`${siteConfig.url}/economy`);
+  });
+});
 
 describe("EconomyPage", () => {
   beforeEach(() => {
