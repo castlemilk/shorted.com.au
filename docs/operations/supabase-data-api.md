@@ -29,6 +29,15 @@ that workflow replays, so once it runs again every deploy re-closes what a
 replayed or hand-applied migration opened. Until then, run the loop below by
 hand: pre-check, apply, check, and repeat until the check returns zero rows.
 
+**Apply it only with psql, statement by statement**: `task db:prod:apply`
+(below), or `psql -X -v ON_ERROR_STOP=1 -f` (`-X`, because an `AUTOCOMMIT off`
+in a `~/.psqlrc` would wrap the file in one transaction). Never paste it into
+the dashboard's SQL editor or send it through the Management API or Supabase
+MCP (`execute_sql`, `apply_migration`): each sends the file as ONE query, so
+step 1 commits and step 2 fails with `invalid_transaction_termination`,
+leaving row level security off. If that has happened, the privileges are
+closed and no table has changed: run the loop below.
+
 ### When
 
 Outside every materialized-view refresh. Each one holds its views until it
@@ -42,8 +51,12 @@ ends, and a REVOKE of a view being refreshed would wait for it:
 | `refresh_register_materialized_views()` | the end of `shorted influence -mode register-resolve` | mean 6s |
 | `refresh_aec_donations_materialized_views()` | the end of `shorted influence -mode aec-donations` | mean 13s |
 
-The housing refresh keeps no schedule, so always run the pre-check right
-before applying.
+That table is the schedule, not the gate. The pre-check is the gate: it also
+sees catalog writers the table leaves out, such as the market-data sync's
+`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_stock_price_coverage`,
+`refresh_stock_price_coverage()`, and the AEC donations and register loads,
+which TRUNCATE inside their transaction. The housing refresh keeps no schedule
+either, so always run the pre-check right before applying.
 
 ### 1. Pre-check (read-only; zero rows = go)
 
@@ -100,6 +113,24 @@ SELECT pid, usename, application_name, state, xact_age, why, public_relations, q
  ORDER BY xact_age DESC NULLS LAST, pid;
 ```
 
+### 1b. Optional while prod runs PostgreSQL before 15.9: nothing being vacuumed, analyzed or indexed
+
+Prod ran 15.6 on 2026-10-21. VACUUM and ANALYZE write a table's statistics
+(and VACUUM its frozen transaction horizon) into its `pg_class` row in place,
+and CREATE INDEX sets `relhasindex` the same way. Before 15.9 such a write that
+lands while another transaction updates the same row, as each of step 1's
+REVOKEs does, can be lost. Step 1 takes a fraction of a second, so the chance
+is small, but it costs one read-only query to rule out, right after the
+pre-check (zero rows = go; autovacuum counts here):
+
+```bash
+task db:prod:psql -- -P pager=off -f scripts/prod-data-api-progress.sql
+```
+
+A row names the command, its backend and the table; wait for it and run both
+checks again. The lasting fix is the Supabase minor-version upgrade, an owner
+action.
+
 ### 2. Apply
 
 ```bash
@@ -131,12 +162,31 @@ If it returns rows, go back to step 1.
   found a backend rewriting a catalog row the REVOKE would wait for. Nothing
   changed and psql stopped before step 2. Wait for that backend (the message
   names its query and relations) and start again from the pre-check.
-- **`ERROR: canceling statement due to lock timeout`, `CONTEXT: while updating tuple ... in relation "pg_class"`.**
-  The backstop: something the look cannot see (a refresh that started just
-  after it, an ALTER that takes only SHARE UPDATE EXCLUSIVE, a concurrent
-  GRANT, CREATE OR REPLACE FUNCTION or ALTER FUNCTION) held a row for more
-  than 3s. Step 1 rolled back whole, so again nothing changed. Start again
-  from the pre-check.
+- **`ERROR: canceling statement due to lock timeout`, `CONTEXT: while updating tuple ... in relation "pg_class"`** (or `"pg_attribute"`).
+  The backstop: something the look cannot see held a row step 1 rewrites for
+  more than 3s: a refresh that started just after the look, an ALTER that takes
+  only SHARE UPDATE EXCLUSIVE but rewrites such a row (`ALTER TABLE ... SET`
+  with storage parameters, or `SET STATISTICS` on a column with a column grant;
+  `public` had none on 2026-10-21), a concurrent GRANT, CREATE OR REPLACE
+  FUNCTION or ALTER FUNCTION. Step 1 rolled back whole, so again nothing
+  changed. Start again from the pre-check.
+- **`ERROR: invalid transaction termination`, right after the `revoked ...` NOTICE.**
+  The file went in as one query (the dashboard's SQL editor, the Management
+  API, Supabase MCP, golang-migrate). Step 1 committed, so the privileges are
+  closed; step 2 changed no table. Run the loop again, with `task db:prod:apply`.
+- **psql was killed mid-run** (a dropped terminal, `kill -9`). The server does
+  not notice at once and finishes the statement it had: in step 2 it goes on
+  enabling, or deferring, tables after the client has gone. Before re-running,
+  wait until that backend has ended (this returns zero rows), then run the
+  check:
+
+  ```bash
+  task db:prod:psql -- -P pager=off -c "SELECT pid, state, wait_event, now() - query_start AS running FROM pg_stat_activity WHERE query LIKE '%000138:%' AND pid <> pg_backend_pid()"
+  ```
+
+  A Ctrl-C is different: psql cancels the statement, so step 1 rolls back
+  whole, and step 2 stops at the table it was on, with the tables before it
+  done.
 - After either ERROR, `prod-psql` also warns that psql stopped before
   `RESET ALL` ran, so the session-level `statement_timeout = 0` stays on that
   server connection until it closes. That is the wrapper's standard warning
@@ -185,7 +235,7 @@ implicit transaction block, so the step's first per-table COMMIT fails with
 server with the `anon` and `authenticated` roles and a table with row level
 security off. No environment has both today: prod is applied by hand with psql,
 and local docker and the test containers have no such roles, so there the file
-is a no-op. On such a server, apply the file with `psql -v ON_ERROR_STOP=1 -f`
+is a no-op. On such a server, apply the file with `psql -X -v ON_ERROR_STOP=1 -f`
 and then run `migrate ... force 138`.
 
 ## Who else notices
@@ -200,6 +250,14 @@ and then run `migrate ... force 138`.
   schema's own default privileges. A future Auth hook, or a helper that a
   storage or realtime policy calls, needs an explicit `GRANT EXECUTE` to the
   role that calls it.
+- `web/scripts/test-db-setup.ts` (`npm run test:seed`, which
+  `scripts/run-e2e-tests.sh` runs in CI mode) used the Data API with the anon
+  key and defaulted to prod's URL, and it DELETEs the `stock_prices` and
+  `shorts` rows of five codes before inserting fake ones. It never got that far
+  (its CommonJS entry check threw in an ES module), and 000138 now denies it.
+  It is guarded: it refuses to run unless `SUPABASE_URL` is set and is not the
+  prod project (`web/scripts/test-db-target.mjs`), so point it at a local or
+  test project.
 
 ## Still open outside public: switch the Data API off
 

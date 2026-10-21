@@ -3,11 +3,12 @@
 -- WHY. Prod is a Supabase project, so PostgREST runs beside the API (it
 -- connects as role authenticator and switches to anon, authenticated or
 -- service_role per request) and serves schema public to anyone holding the
--- project's anon key, which Supabase does not treat as a secret. Nothing here
--- uses it: the Go services and jobs connect as postgres, which owns every
--- object in public and has BYPASSRLS, and pg_stat_statements (reset
+-- project's anon key, which Supabase does not treat as a secret. Nothing in
+-- the product uses it: the Go services and jobs connect as postgres, which
+-- owns every object in public and has BYPASSRLS, and pg_stat_statements (reset
 -- 2026-07-23) holds zero statements by anon, authenticated or service_role;
--- authenticator ran only PostgREST's schema-cache introspection. Measured
+-- authenticator ran only PostgREST's schema-cache introspection. (One test
+-- script was pointed at it; see WHO ELSE NOTICES.) Measured
 -- read-only on 2026-10-21, Supabase's default privileges had nonetheless given
 -- anon and authenticated every privilege (SELECT, INSERT, UPDATE, DELETE,
 -- TRUNCATE, REFERENCES, TRIGGER) on all 154 relations in public, including 24
@@ -56,6 +57,15 @@
 --     privileges grant.
 --     A future Auth hook, or a helper that a storage or realtime policy calls,
 --     needs an explicit GRANT EXECUTE to the role that calls it.
+--   * web/scripts/test-db-setup.ts (npm run test:seed, which
+--     scripts/run-e2e-tests.sh runs in CI mode) used the Data API with the
+--     anon key and defaulted to prod's URL, and it DELETEs the stock_prices
+--     and shorts rows of five codes before inserting fake ones. Against prod,
+--     with the anon key set, it would have replaced real price history: anon
+--     held DELETE, and stock_prices had RLS off. It never got that far (its
+--     CommonJS entry check threw in an ES module), and this file now denies it.
+--     It is guarded: it refuses to run unless SUPABASE_URL is set and is not
+--     the prod project (web/scripts/test-db-target.mjs).
 --
 -- WHAT IT DOES NOT DO, deliberately:
 --   * FORCE ROW LEVEL SECURITY. FORCE is the one switch that would subject an
@@ -125,15 +135,21 @@
 --      for a moment, to truncate a table's empty tail, rewriting no catalog row
 --      in a transaction, and an autovacuum worker doing that is not counted.
 --      So, before the first REVOKE, the block looks in pg_locks for another
---      backend holding one of those modes on a relation in public and, if it
+--      backend holding one of those modes on any relation in public (even one
+--      the list does not touch: simpler, and a re-run costs nothing) and, if it
 --      finds one, raises object_in_use naming the backend, its query and the
 --      relations: nothing has changed, and psql stops before step 2. Re-run
 --      when it has finished. lock_timeout is the backstop for what that look
---      cannot see: a refresh that starts just after it, an ALTER that takes
---      only SHARE UPDATE EXCLUSIVE (ALTER TABLE ... SET STATISTICS, or SET with
---      storage parameters), a concurrent GRANT, CREATE OR REPLACE FUNCTION or
---      ALTER FUNCTION. The waiting REVOKE is cancelled after 3s and the whole
---      step rolls back. Either way nothing is half-applied.
+--      cannot see: a refresh that starts just after it; an ALTER that takes
+--      only SHARE UPDATE EXCLUSIVE but rewrites a row a REVOKE rewrites too
+--      (ALTER TABLE ... SET with storage parameters, its pg_class row; SET
+--      STATISTICS on a column with a column grant, its pg_attribute row, which
+--      the table-level REVOKE also rewrites; public had no column grant on
+--      2026-10-21, and while open, SET STATISTICS on any other column only
+--      gets that table deferred in step 2); a concurrent GRANT, CREATE OR
+--      REPLACE FUNCTION or ALTER FUNCTION. The waiting REVOKE is cancelled
+--      after 3s and the whole step rolls back. Either way nothing is
+--      half-applied.
 --   2. Row level security: one DO block that COMMITs after each table.
 --      ALTER TABLE ... ENABLE ROW LEVEL SECURITY takes an ACCESS EXCLUSIVE lock.
 --      It only flips a catalog flag, so it is instant once granted, but it
@@ -164,6 +180,22 @@
 -- deploy replays it with plain `psql -f`, which also sends each statement on
 -- its own. Either way step 2's DO runs outside any transaction block, which a
 -- DO must do to COMMIT.
+-- APPLY IT ONLY WITH PSQL, statement by statement: `task db:prod:apply`, or
+-- `psql -X -v ON_ERROR_STOP=1 -f` (-X, because an AUTOCOMMIT off in a
+-- ~/.psqlrc would wrap the file in one transaction). Never through the
+-- dashboard's SQL editor, the Management API or Supabase MCP (execute_sql,
+-- apply_migration): each sends the file as ONE query, like golang-migrate
+-- below, so step 1 commits and step 2 fails with
+-- invalid_transaction_termination, leaving row level security off. If that
+-- has happened, the privileges are closed and no table has changed: run the
+-- file again with task db:prod:apply.
+-- If psql itself is killed mid-run (a dropped terminal, kill -9), the server
+-- does not notice at once and finishes the statement it has: in step 2 it
+-- goes on enabling or deferring tables after the client is gone. So before
+-- re-running, wait until pg_stat_activity shows no backend whose query
+-- contains '000138:' (the runbook has the query), then run the check. A
+-- Ctrl-C is different: psql cancels the statement, so step 1 rolls back
+-- whole, and step 2 stops at its current table with the ones before it done.
 -- golang-migrate (`make migrate-up`) cannot run step 2 wherever it has work to
 -- do. It sends the whole file as ONE multi-statement query, and every
 -- statement after the explicit COMMIT then runs in an implicit transaction
@@ -174,7 +206,7 @@
 -- current_user can alter. No environment does that today: prod is applied by
 -- hand with psql, and local docker and the test containers have no such roles,
 -- so there the DO returns before any COMMIT and golang-migrate runs the file as
--- a no-op. On such a server, apply the file with `psql -v ON_ERROR_STOP=1 -f`
+-- a no-op. On such a server, apply the file with `psql -X -v ON_ERROR_STOP=1 -f`
 -- and then run `migrate ... force 138`.
 --
 -- REPLAY-SAFE. Every step is catalog-guarded: an object is touched only while
@@ -206,9 +238,14 @@
 --                                               of the nightly run that starts at 15:00 UTC
 --   refresh_register_materialized_views()       at the end of `shorted influence -mode register-resolve`
 --   refresh_aec_donations_materialized_views()  at the end of `shorted influence -mode aec-donations`
--- The housing refresh keeps no schedule, so check right before applying. This
--- read-only query is scripts/prod-data-api-precheck.sql; it returns one row per
--- backend the apply would wait for, and zero rows when it is clear to go:
+-- That list is the schedule, not the gate. The pre-check below is the gate:
+-- it also sees catalog writers the list leaves out, such as the market-data
+-- sync's REFRESH MATERIALIZED VIEW CONCURRENTLY mv_stock_price_coverage,
+-- refresh_stock_price_coverage(), and the AEC donations and register loads,
+-- which TRUNCATE inside their transaction. The housing refresh keeps no
+-- schedule either, so check right before applying. This read-only query is
+-- scripts/prod-data-api-precheck.sql; it returns one row per backend the
+-- apply would wait for, and zero rows when it is clear to go:
 --   task db:prod:psql -- -P pager=off -f scripts/prod-data-api-precheck.sql
 --
 --   WITH held AS (
@@ -249,14 +286,23 @@
 --    WHERE why <> ''
 --    ORDER BY xact_age DESC NULLS LAST, pid;
 --
+-- Optional, and cheap, while prod runs a release before 15.9 (it ran 15.6 on
+-- 2026-10-21): right before applying, also check that nothing in public is
+-- being vacuumed, analyzed or indexed (zero rows = go):
+--   task db:prod:psql -- -P pager=off -f scripts/prod-data-api-progress.sql
+-- Those write a table's pg_class row in place, and before 15.9 such a write
+-- that lands while another transaction updates the same row, as each REVOKE
+-- here does, can be lost. Step 1 takes a fraction of a second, so the chance
+-- is small; the lasting fix is the Supabase minor-version upgrade.
 -- Then apply it, and check it (zero rows = closed):
 --   task db:prod:apply FILE=services/migrations/000138_harden_data_api_grants.up.sql CONFIRM=prod
 --   task db:prod:psql -- -P pager=off -f scripts/prod-data-api-check.sql
--- Repeat all three until the check returns zero rows: a refresh that started
+-- Repeat them all until the check returns zero rows: a refresh that started
 -- in between stops step 1 with an error, and a busy table is deferred with a
--- WARNING. A row the file cannot close needs its owner or a superuser: an
--- object postgres cannot act for (the file names it in a NOTICE), or an
--- extension_relation_privilege row. The runbook is
+-- WARNING. A row the file cannot close needs a hand fix: an object postgres
+-- cannot act for (the file names it in a NOTICE) or an
+-- extension_relation_privilege row needs its owner or a superuser, and a
+-- default_acl_public_grant row a REVOKE ... FROM PUBLIC. The runbook is
 -- docs/operations/supabase-data-api.md. The down migration is a deliberate
 -- no-op; see it for why.
 

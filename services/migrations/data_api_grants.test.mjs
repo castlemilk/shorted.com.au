@@ -58,6 +58,7 @@ const down = read(DOWN);
 const workflow = readRepo(".github/workflows/terraform-deploy.yml");
 const check = readRepo("scripts/prod-data-api-check.sql");
 const precheck = readRepo("scripts/prod-data-api-precheck.sql");
+const progress = readRepo("scripts/prod-data-api-progress.sql");
 const runbook = readRepo("docs/operations/supabase-data-api.md");
 
 /** SQL with `--` comments removed, so prose never satisfies or trips an assertion. */
@@ -612,11 +613,12 @@ test("000138 is replayed on every deploy, on the session pooler, as the LAST mig
 });
 
 // ---------------------------------------------------------------------------
-// the read-only check and pre-check
+// the read-only check and pre-checks
 
 for (const [name, sql] of [
   ["scripts/prod-data-api-check.sql", check],
   ["scripts/prod-data-api-precheck.sql", precheck],
+  ["scripts/prod-data-api-progress.sql", progress],
 ]) {
   test(`${name} is a read-only probe prod-psql.sh accepts`, () => {
     assert.equal(classify(sql, { probe: true }).verdict, "transaction");
@@ -845,6 +847,29 @@ test("the pre-check matches what step 1 refuses on, and the same query is in 000
   assert.ok(sqlBlocks.includes(query), "docs/operations/supabase-data-api.md must carry the pre-check verbatim");
 });
 
+test("the optional progress pre-check sees every in-place pg_class writer in public, and rows it cannot place", () => {
+  // Before PostgreSQL 15.9 (prod ran 15.6) an in-place pg_class update by
+  // VACUUM, ANALYZE or CREATE INDEX can be lost to a concurrent update of the
+  // same row, as by a REVOKE. Autovacuum counts: the write matters, not a lock.
+  const sql = code(progress);
+  for (const view of ["pg_stat_progress_vacuum", "pg_stat_progress_analyze", "pg_stat_progress_create_index"]) {
+    assert.match(sql, new RegExp(`\\bFROM ${view}\\b`), view);
+  }
+  assert.match(sql, /\n  LEFT JOIN pg_class c ON c\.oid = p\.relid\n WHERE p\.datid = \(SELECT oid FROM pg_database WHERE datname = current_database\(\)\)\n   AND \(c\.oid IS NULL OR c\.relnamespace = 'public'::regnamespace\)\n/);
+  assert.doesNotMatch(sql, /autovacuum|backend_type/);
+});
+
+test("the apply procedure: psql statement by statement, -X wherever psql -f is named, and the progress pre-check", () => {
+  const header = up.slice(0, up.indexOf("\nBEGIN;"));
+  for (const [name, text] of [["000138's header", header], ["the runbook", runbook]]) {
+    const prose = words(text.replace(/^--[ \t]?/gm, ""));
+    assert.match(text, /psql -X -v ON_ERROR_STOP=1 -f/, `${name}: the psql recipe`);
+    assert.doesNotMatch(text, /psql -v ON_ERROR_STOP=1 -f/, `${name}: without -X, AUTOCOMMIT off in a ~/.psqlrc wraps the file in one transaction`);
+    assert.match(prose, /Supabase MCP \(`?execute_sql`?, `?apply_migration`?\)/, `${name}: never through a route that sends the file as one query`);
+    assert.ok(text.includes("scripts/prod-data-api-progress.sql"), `${name}: the optional progress pre-check`);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // every SQL file in the repository, so the Data API stays closed
 
@@ -873,8 +898,8 @@ function repoSqlFiles(dir = "") {
   return out.sort();
 }
 const sqlFiles = repoSqlFiles();
-/** The read-only probes, one WITH ... SELECT each (pinned above): they name what they look for. */
-const READ_ONLY_PROBES = new Set(["scripts/prod-data-api-check.sql", "scripts/prod-data-api-precheck.sql"]);
+/** The read-only probes, one WITH ... SELECT each (tested above): they name what they look for. */
+const READ_ONLY_PROBES = new Set(["scripts/prod-data-api-check.sql", "scripts/prod-data-api-precheck.sql", "scripts/prod-data-api-progress.sql"]);
 const API_ROLES = ["anon", "authenticated", "public"];
 
 /** The role names a GRANT ... TO lists, literally (a %s placeholder lists none). */
@@ -956,7 +981,7 @@ test("no SQL file creates a policy, or forces or disables row level security", (
     "Every table in public has row level security on and no policy, which denies every role that is neither the owner nor BYPASSRLS. A policy is the only way that opens a row to the Data API; FORCE would subject an owner to it. Every .sql file is scanned, the legacy supabase/ and web/supabase/ SQL included.",
   );
   // the read-only probes left out above are the check (whose rls_forced class
-  // names FORCE in its message) and the pre-check, and nothing else
+  // names FORCE in its message) and the two pre-checks, and nothing else
   assert.ok([...READ_ONLY_PROBES].every((p) => sqlFiles.includes(p)));
 });
 
