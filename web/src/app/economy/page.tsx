@@ -14,6 +14,11 @@ import {
   GLOBAL_ECONOMY_SERIES,
   GLOBAL_SERIES_GROUPS,
 } from "@/lib/economy/global-series";
+import { STATE_NAMES, STATE_SLUGS } from "@/lib/economy/map-metrics";
+import {
+  ECONOMY_TOPICS,
+  PUBLISHED_ECONOMY_TOPIC_PAIRS,
+} from "@/lib/economy/topics";
 import { WhenVisible } from "@/components/housing/when-visible";
 import { LLMMeta } from "@/components/seo/llm-meta";
 
@@ -337,6 +342,50 @@ export default async function EconomyPage() {
             blurb="Colour the map, hover for detail, click a state to drill down."
           />
           <EconomyMapExplorer />
+        </section>
+
+        {/* ── By state and topic ────────────────────────────────────── */}
+        {/*
+          Server-rendered, because the map above is client-only: without
+          these links no page linked to the state topic pages except other
+          topic pages (SEO review 2026-10-21, F08).
+        */}
+        <section className="space-y-4">
+          <SectionHeading
+            title="Every state, topic by topic"
+            blurb="Each topic page carries the state's full series family, with the latest values, changes and history."
+          />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {STATE_SLUGS.map((state) => (
+              <div
+                key={state}
+                className="rounded-xl border border-border bg-card p-4"
+              >
+                <h3 className="font-serif text-lg text-foreground">
+                  <Link
+                    href={`/economy/${state}`}
+                    className="underline-offset-4 hover:underline"
+                  >
+                    {STATE_NAMES[state]}
+                  </Link>
+                </h3>
+                <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+                  {PUBLISHED_ECONOMY_TOPIC_PAIRS.filter(
+                    (pair) => pair.state === state,
+                  ).map(({ topic }) => (
+                    <li key={topic}>
+                      <Link
+                        href={`/economy/${state}/${topic}`}
+                        className="text-primary underline-offset-4 hover:underline"
+                      >
+                        {ECONOMY_TOPICS[topic].name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/* ── Macro ─────────────────────────────────────────────────── */}
