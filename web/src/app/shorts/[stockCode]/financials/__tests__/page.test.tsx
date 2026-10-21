@@ -84,6 +84,10 @@ describe("/shorts/[stockCode]/financials", () => {
     expect(input.code).toBe("BHP");
     expect(input.tab).toBe("financials");
     expect(input.title("BHP Group")).toBe("BHP Financials: Results, Ratios & Statements | BHP Group");
+    // stockTabTitle's 60-character budget: a name that does not fit, or the
+    // code standing in for one, is left to the description.
+    expect(input.title("Commonwealth Bank of Australia")).toBe("BHP Financials: Results, Ratios & Statements");
+    expect(input.title("BHP")).toBe("BHP Financials: Results, Ratios & Statements");
   });
 
   it("renders the filings and the tax card even without fundamentals, dividends before tax", async () => {

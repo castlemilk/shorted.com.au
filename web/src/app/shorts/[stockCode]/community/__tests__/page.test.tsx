@@ -49,6 +49,10 @@ describe("/shorts/[stockCode]/community", () => {
       description: (c: string) => string;
     };
     expect(input.title("BHP Group")).toBe("BHP Community Discussion | BHP Group");
+    // stockTabTitle's 60-character budget: a name that does not fit, or the
+    // code standing in for one, is left to the description.
+    expect(input.title("Australian Foundation Investment Company")).toBe("BHP Community Discussion");
+    expect(input.title("BHP")).toBe("BHP Community Discussion");
     expect(input.description("BHP Group")).toContain("BHP Group (ASX:BHP)");
   });
 
