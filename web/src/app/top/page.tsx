@@ -8,6 +8,7 @@ import {
   BreadcrumbListSchema,
 } from "~/@/components/seo/enhanced-structured-data";
 import { getTopPageData } from "../actions/top/getTopPageData";
+import { toTopRows } from "../actions/top/top-rows";
 import { type TimePeriod } from "~/@/lib/shorts-calculations";
 import { TopPageSkeleton } from "./components/top-page-skeleton";
 import { ReportsBanner } from "~/@/components/reports/reports-banner";
@@ -159,8 +160,11 @@ async function TopPageData() {
         }}
       />
 
+      {/* The rows, not the cached series: island props are serialised into
+          the RSC payload, and the series' 60 timestamped points per stock were
+          394 KB of it for a latest value, a change and a sparkline. */}
       <TopPageClient
-        initialData={pageData.timeSeries}
+        initialData={toTopRows(pageData.timeSeries)}
         initialMoversData={pageData.movers}
         initialPeriod={DEFAULT_PERIOD}
         dataAsOf={pageData.lastUpdated}
