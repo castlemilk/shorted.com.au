@@ -161,7 +161,17 @@ it from `refresh()` (after the housing views) and after a successful
 refresh into a `Skipping` WARNING and returns the skipped views; the collector
 fails its run on any, and logs `refreshed the suburb reference views` on
 success. The views are not in `housing_mv_refresh`, so `MV_REFRESH_AGE` never
-sees them. After a hand fix to `house_prices`, `suburb_demographics` or
+sees them. The sentinel's `SUBURB_VIEW_STALENESS` check watches them instead:
+it reports a public suburb median loaded after
+`mv_housing_state_baselines.computed_at` once that load is 6 hours old.
+
+Only a collector built with 000139's change calls the function, and nothing
+else does, so apply 000139 only after the Cloud Run job and the rig binary
+both run such a commit (the exact check is the 000139 row in
+`services/migrations/PROD_APPLIED.md`). An older collector would leave the
+suburb pages on the apply date's prices while every run reports success.
+
+After a hand fix to `house_prices`, `suburb_demographics` or
 `suburb_amenities`, or a load by a collector built before 000139:
 
 ```bash

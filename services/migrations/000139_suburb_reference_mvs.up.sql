@@ -45,11 +45,36 @@
 -- drains: the crawl writes only proprietary rows, which none of these views
 -- read. It records nothing in housing_mv_refresh on purpose:
 -- the freshness sentinel (housing-freshness.yml) alarms on any row there older
--- than 72 hours, and these views change monthly. By hand:
+-- than 72 hours, and these views change monthly. Its SUBURB_VIEW_STALENESS
+-- check watches them instead: it alarms when a public suburb median was
+-- loaded after mv_housing_state_baselines.computed_at, more than 6 hours ago.
+-- By hand:
 --   task db:prod:refresh WHICH=suburbs CONFIRM=prod
 --
--- The API reads the views and falls back to the live SQL only when a view does
--- not exist (42P01), so code may deploy before this file is applied.
+-- Order. The API reads the views and falls back to the live SQL only when one
+-- of them does not exist (a 42P01 naming it), so shorts-api may deploy before
+-- or after this file. The collector must not lag it: only a
+-- house-price-collector built with this change calls
+-- refresh_suburb_reference_views(). An older binary refreshes the housing
+-- views alone, so once this file is applied the suburb list, profile, map
+-- price column, council suburb table and similar suburbs would keep the apply
+-- date's values through every later official or Valuer-General load, while
+-- every run reports success. Apply this file only after BOTH collector
+-- deployments carry the change, that is, run a commit for which
+--   git grep -q refresh_suburb_reference_views <commit> -- services/house-price-collector/store.go
+-- succeeds:
+--   * the Cloud Run job house-price-collector (the official ingest on the
+--     5th): `gcloud run jobs describe house-price-collector --region
+--     australia-southeast2` shows the image, whose tag names the commit
+--     (main-<sha8> or manual-<sha> from terraform-deploy.yml). A tag that
+--     names no commit, such as `latest`, does not count: redeploy first.
+--   * the residential rig (vg-nsw on the 8th, a hand-run vg-vic):
+--     services/house-price-collector/deploy/stage-rig.sh --check prints the
+--     rig binary's revision (`CURRENT (<rev> == origin/main)` or
+--     `deployed=<rev>`). `unknown` does not count.
+-- If either one still runs an older binary after the apply, run the refresh
+-- above after each of its loads until it is redeployed. The sentinel's
+-- SUBURB_VIEW_STALENESS check reports a load the views missed.
 --
 -- Hand-applied (prod does not run `migrate up`): `task db:prod:apply
 -- FILE=services/migrations/000139_suburb_reference_mvs.up.sql CONFIRM=prod`,

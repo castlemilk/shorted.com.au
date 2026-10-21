@@ -82,6 +82,33 @@ test("housing freshness workflow enforces the read-only production sentinel cont
     /'MV_REFRESH_AGE'\s*,\s*'property_price_events \(fallback\)'[\s\S]*?FROM\s+event_maximum\s+AS\s+e\s+WHERE\s+NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+mv_refresh\s*\)[\s\S]*?max_observed_at\s*<\s*now\(\)\s*-\s*interval\s*'72 hours'/i,
     "without housing_mv_refresh, MV age must fall back to max(observed_at)",
   );
+  // Suburb reference views (000139). Only refresh_suburb_reference_views()
+  // moves them, and a collector built before 000139 never calls it, so a load
+  // newer than their last refresh means the suburb pages serve old prices
+  // while every run reports success. The views may not exist yet, so they
+  // are read dynamically, like housing_mv_refresh.
+  assert.match(
+    workflow,
+    /suburb_views\s+AS\s*\([\s\S]*?to_regclass\('public\.mv_housing_state_baselines'\)\s+IS\s+NULL\s+THEN\s+ARRAY\[\]::xml\[\][\s\S]*?query_to_xml\(\s*'SELECT max\(computed_at\) AS computed_at FROM public\.mv_housing_state_baselines'/,
+    "mv_housing_state_baselines must be read only when to_regclass finds it",
+  );
+  assert.doesNotMatch(
+    guardedSql.replace(/'[^']*'/g, "''"),
+    /\bFROM\s+(?:public\.)?mv_(?:housing_state_baselines|suburb_latest_price|suburb_similarity_features)\b/i,
+    "a static reference to a 000139 view would fail the whole query where 000139 is not applied",
+  );
+  assert.match(
+    workflow,
+    /suburb_price_load\s+AS\s*\(\s*SELECT\s+MAX\(hp\.fetched_at\)\s+AS\s+max_fetched_at\s+FROM\s+house_prices\s+AS\s+hp\s+JOIN\s+house_price_regions\s+AS\s+sr\s+ON\s+sr\.region_code\s*=\s*hp\.region_code\s+WHERE\s+sr\.region_type\s*=\s*'suburb'\s+AND\s+hp\.measure\s*=\s*'median_price'\s+AND\s+hp\.dwelling_type\s*=\s*'house'\s+AND\s+hp\.source_licence\s*<>\s*'proprietary-tos-restricted'\s*\)/,
+    "the views must be judged against the public suburb medians they read, never a crawl row",
+  );
+  assert.match(
+    workflow,
+    /'SUBURB_VIEW_STALENESS'[\s\S]*?FROM\s+suburb_views\s+AS\s+v\s+CROSS\s+JOIN\s+suburb_price_load\s+AS\s+l\s+WHERE\s+v\.computed_at\s*<\s*l\.max_fetched_at\s+AND\s+l\.max_fetched_at\s*<\s*now\(\)\s*-\s*interval\s*'6 hours'/i,
+    "views older than a public suburb median load past the 6h grace must be reported",
+  );
+  assert.match(workflow, /WHEN 'SUBURB_VIEW_STALENESS' THEN \d/, "the new check must have a report rank");
+
   // The INFO row is split off before a report decides pass/fail.
   assert.match(workflow, /grep \$'\^INFO\\t' "\$raw_file" >"\$info_file"/);
   assert.match(workflow, /grep -v \$'\^INFO\\t' "\$raw_file" >"\$report_file"/);

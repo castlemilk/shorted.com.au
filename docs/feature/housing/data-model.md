@@ -375,7 +375,11 @@ any, because its pool never sees the warning. They read official data only (publ
 suburb medians, Census, amenities), so the collector calls it from `refresh()`
 (official, VG, suburb crawl, crime, `-mode refresh`) and after a successful `-mode census` or
 `-mode amenities`, never after an agent or listing drain. It records nothing in
-`housing_mv_refresh` (whose 72h sentinel would trip on monthly views). By hand:
+`housing_mv_refresh` (whose 72h sentinel would trip on monthly views); the
+sentinel's `SUBURB_VIEW_STALENESS` check compares `mv_housing_state_baselines.computed_at`
+with the newest public suburb median load instead. Nothing but the collector
+calls it, so 000139 is applied only after both collector deployments carry the
+call (`PROD_APPLIED.md`). By hand:
 `task db:prod:refresh WHICH=suburbs CONFIRM=prod`. Every reader falls back to the
 per-request SQL on a 42P01 that names one of the three views (any other missing
 relation is returned as an error), so a database without 000139 keeps working at

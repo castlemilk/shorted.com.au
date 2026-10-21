@@ -2,11 +2,12 @@
 #
 # This runs daily against the production database inside ONE read-only
 # transaction. Checks: official ingest errors, cursor/fact period regressions,
-# global event silence (72h), materialized-view refresh age (72h), and —
-# because a limping crawl keeps the global check green forever — per-suburb
-# catalog staleness (oldest covered suburb > 132h) plus the rig's own
-# crawl_run_status health (error/blocked, or a daily delta that has not
-# finished in 30h).
+# global event silence (72h), materialized-view refresh age (72h), suburb
+# reference views (000139) older than the newest public suburb median load
+# (6h grace), and — because a limping crawl keeps the global check green
+# forever — per-suburb catalog staleness (oldest covered suburb > 132h) plus
+# the rig's own crawl_run_status health (error/blocked, or a daily delta that
+# has not finished in 30h).
 name: Housing Freshness
 
 on:
@@ -159,6 +160,36 @@ jobs:
                   'SELECT mv_name, refreshed_at FROM public.housing_mv_refresh', false, false, ''))
               END
             ) AS r
+          ),
+          -- When the suburb reference views (000139) were last refreshed.
+          -- refresh_suburb_reference_views() refreshes all three together, and
+          -- mv_housing_state_baselines.computed_at is now() at that refresh.
+          -- Read through query_to_xml only when to_regclass finds the view,
+          -- like housing_mv_refresh above: naming a missing view fails the
+          -- whole query at parse time. Empty until 000139 is applied.
+          suburb_views AS (
+            SELECT
+              (xpath('/row/computed_at/text()', r))[1]::text::timestamptz AS computed_at
+            FROM unnest(
+              CASE
+                WHEN to_regclass('public.mv_housing_state_baselines') IS NULL THEN ARRAY[]::xml[]
+                ELSE xpath('/table/row', query_to_xml(
+                  'SELECT max(computed_at) AS computed_at FROM public.mv_housing_state_baselines', false, false, ''))
+              END
+            ) AS r
+          ),
+          -- The newest load of a public suburb median, the rows those views
+          -- read. Every official and Valuer-General upsert stamps
+          -- fetched_at = now(), even when the value has not changed.
+          suburb_price_load AS (
+            SELECT MAX(hp.fetched_at) AS max_fetched_at
+            FROM house_prices AS hp
+            JOIN house_price_regions AS sr
+              ON sr.region_code = hp.region_code
+            WHERE sr.region_type = 'suburb'
+              AND hp.measure = 'median_price'
+              AND hp.dwelling_type = 'house'
+              AND hp.source_licence <> 'proprietary-tos-restricted'
           ),
           violations AS (
             SELECT
@@ -357,6 +388,32 @@ jobs:
             FROM event_maximum AS e
             WHERE NOT EXISTS (SELECT 1 FROM mv_refresh)
               AND (e.max_observed_at IS NULL OR e.max_observed_at < now() - interval '72 hours')
+
+            UNION ALL
+
+            -- SUBURB_VIEW_STALENESS: the suburb list, profile, similar suburbs,
+            -- map price column and council suburb table read the 000139 views,
+            -- and only refresh_suburb_reference_views() moves them. A collector
+            -- built before 000139 refreshes the housing views alone, so after
+            -- an official or Valuer-General load those pages keep the previous
+            -- prices while every run reports success. Alarm when a public
+            -- suburb median was loaded after the last refresh of the views and
+            -- that load is more than 6 hours old. A run refreshes at its end,
+            -- and the longest, the rig's vg-nsw, stops at 240 minutes
+            -- (VG_NSW_TIMEOUT_MIN; the official Cloud Run task at 30), so an
+            -- in-flight run never trips it. Silent until 000139 is applied.
+            SELECT
+              'SUBURB_VIEW_STALENESS',
+              'mv_suburb_latest_price,mv_housing_state_baselines,mv_suburb_similarity_features',
+              format(
+                'suburb reference views last refreshed %s; a public suburb median was loaded at %s, after that (threshold 6h); refresh: task db:prod:refresh WHICH=suburbs CONFIRM=prod',
+                v.computed_at,
+                l.max_fetched_at
+              )
+            FROM suburb_views AS v
+            CROSS JOIN suburb_price_load AS l
+            WHERE v.computed_at < l.max_fetched_at
+              AND l.max_fetched_at < now() - interval '6 hours'
           )
           -- Ordered by CAUSALITY, not alphabetically.
           --
@@ -399,6 +456,7 @@ jobs:
                 WHEN 'EVENT_SILENCE'         THEN 1  -- first downstream signal
                 WHEN 'DROP_INDEX_STALENESS'  THEN 2
                 WHEN 'MV_REFRESH_AGE'        THEN 3  -- what the pages serve
+                WHEN 'SUBURB_VIEW_STALENESS' THEN 3
                 WHEN 'CATALOG_STALENESS'     THEN 4  -- broadest symptom
                 ELSE 5
               END,
@@ -431,7 +489,7 @@ jobs:
           {
             echo "## Housing freshness report"
             echo
-            echo "Thresholds: event silence **72h** · MV refresh age **72h** · catalog per-suburb **132h** · delta run age **30h** (suppressed while a full pass is in flight)."
+            echo "Thresholds: event silence **72h** · MV refresh age **72h** · catalog per-suburb **132h** · delta run age **30h** (suppressed while a full pass is in flight) · suburb reference views older than a public suburb median load **6h** old."
             echo
             if [[ -s "$info_file" ]]; then
               echo "MV age judged by: $(cut -f3 "$info_file" | head -1)."
