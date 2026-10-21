@@ -1,0 +1,363 @@
+{
+  "slug": "wtc-record-short-meets-asic-no-action",
+  "format": "cover.svg hand-composed from the series below; cover.png is a 1600x900 Chromium rasterisation",
+  "brief": "Finding: the position held at 11% through ASIC's no-action announcement while the price jumped. Subject: short line against price line. Action: the price lifting off from the 14 October marker while the amber line stays flat. Hook: a dated marker with a shaded after-zone. Caveat: positions after 15 October are not yet published.",
+  "retrievedDate": "2026-10-21",
+  "shortSeries": {
+    "basis": "ASIC daily aggregate, % of total product in issue, T+4; values via Shorted's get_stock_history (downsampled), dates marked verifiedAgainstCsv were read from the official CSV",
+    "series": {
+      "WTC": [
+        {
+          "date": "2026-07-16",
+          "value": 8.32,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260716-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": true
+        },
+        {
+          "date": "2026-07-20",
+          "value": 8.26,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260720-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-07-22",
+          "value": 8.28,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260722-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-07-27",
+          "value": 8.46,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260727-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-07-29",
+          "value": 8.1,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260729-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-07-31",
+          "value": 8.26,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260731-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-08-04",
+          "value": 8.31,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260804-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-08-07",
+          "value": 8.23,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260807-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-08-11",
+          "value": 8.25,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260811-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-08-13",
+          "value": 8.33,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260813-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-08-17",
+          "value": 8.48,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260817-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-08-20",
+          "value": 8.5,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260820-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": true
+        },
+        {
+          "date": "2026-08-24",
+          "value": 8.5,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260824-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-08-26",
+          "value": 8.83,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260826-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-08-28",
+          "value": 8.85,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260828-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-09-02",
+          "value": 9.3,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260902-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-09-04",
+          "value": 9.29,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260904-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-09-08",
+          "value": 9.32,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260908-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-09-10",
+          "value": 9.38,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260910-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-09-15",
+          "value": 9.77,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260915-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-09-17",
+          "value": 9.96,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260917-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": true
+        },
+        {
+          "date": "2026-09-21",
+          "value": 10.19,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260921-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-09-23",
+          "value": 10.43,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260923-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-09-28",
+          "value": 10.64,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260928-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-09-29",
+          "value": 10.76,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260929-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": true
+        },
+        {
+          "date": "2026-09-30",
+          "value": 10.94,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260930-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": true
+        },
+        {
+          "date": "2026-10-01",
+          "value": 11.04,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20261001-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-10-02",
+          "value": 11.05,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20261002-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-10-05",
+          "value": 11.08,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20261005-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-10-06",
+          "value": 11.17,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20261006-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": true
+        },
+        {
+          "date": "2026-10-07",
+          "value": 11.17,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20261007-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-10-08",
+          "value": 11.17,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20261008-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": true
+        },
+        {
+          "date": "2026-10-09",
+          "value": 11.03,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20261009-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": true
+        },
+        {
+          "date": "2026-10-12",
+          "value": 10.99,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20261012-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": false
+        },
+        {
+          "date": "2026-10-13",
+          "value": 11.05,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20261013-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": true
+        },
+        {
+          "date": "2026-10-14",
+          "value": 11.01,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20261014-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": true
+        },
+        {
+          "date": "2026-10-15",
+          "value": 11.08,
+          "sourceUrl": "https://download.asic.gov.au/short-selling/RR20261015-001-SSDailyAggShortPos.csv",
+          "verifiedAgainstCsv": true
+        }
+      ]
+    }
+  },
+  "priceSeries": {
+    "basis": "Daily close, AUD, via Shorted's get_stock_prices (downsampled)",
+    "series": {
+      "WTC": [
+        {
+          "date": "2026-07-21",
+          "close": 34.0
+        },
+        {
+          "date": "2026-07-24",
+          "close": 30.02
+        },
+        {
+          "date": "2026-07-30",
+          "close": 37.89
+        },
+        {
+          "date": "2026-08-04",
+          "close": 37.86
+        },
+        {
+          "date": "2026-08-10",
+          "close": 41.05
+        },
+        {
+          "date": "2026-08-13",
+          "close": 41.1
+        },
+        {
+          "date": "2026-08-19",
+          "close": 39.58
+        },
+        {
+          "date": "2026-08-24",
+          "close": 43.49
+        },
+        {
+          "date": "2026-08-27",
+          "close": 39.55
+        },
+        {
+          "date": "2026-09-02",
+          "close": 37.65
+        },
+        {
+          "date": "2026-09-07",
+          "close": 36.26
+        },
+        {
+          "date": "2026-09-11",
+          "close": 32.69
+        },
+        {
+          "date": "2026-09-16",
+          "close": 32.27
+        },
+        {
+          "date": "2026-09-21",
+          "close": 31.77
+        },
+        {
+          "date": "2026-09-25",
+          "close": 31.33
+        },
+        {
+          "date": "2026-09-30",
+          "close": 32.46
+        },
+        {
+          "date": "2026-10-01",
+          "close": 31.34
+        },
+        {
+          "date": "2026-10-02",
+          "close": 33.43
+        },
+        {
+          "date": "2026-10-05",
+          "close": 32.73
+        },
+        {
+          "date": "2026-10-06",
+          "close": 31.9
+        },
+        {
+          "date": "2026-10-07",
+          "close": 32.09
+        },
+        {
+          "date": "2026-10-08",
+          "close": 32.26
+        },
+        {
+          "date": "2026-10-09",
+          "close": 33.63
+        },
+        {
+          "date": "2026-10-12",
+          "close": 34.07
+        },
+        {
+          "date": "2026-10-13",
+          "close": 33.11
+        },
+        {
+          "date": "2026-10-14",
+          "close": 33.55
+        },
+        {
+          "date": "2026-10-15",
+          "close": 34.5
+        },
+        {
+          "date": "2026-10-16",
+          "close": 37.61
+        },
+        {
+          "date": "2026-10-19",
+          "close": 38.12
+        },
+        {
+          "date": "2026-10-20",
+          "close": 38.64
+        }
+      ]
+    }
+  },
+  "generator": "scripts/news-covers/october-2026-data-covers.py"
+}
