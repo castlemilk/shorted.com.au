@@ -110,6 +110,11 @@ jobs:
             api
             content
             .github
+            # services/migrations/data_api_grants.test.mjs scans every .sql file
+            # (the legacy Supabase projects and analysis/sql included), and
+            # scripts/tests/test-db-target.test.mjs reads supabase/config.toml.
+            supabase
+            analysis/sql
 
       - uses: actions/setup-node@v5
         with:

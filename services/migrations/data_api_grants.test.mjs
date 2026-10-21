@@ -42,6 +42,7 @@
 // readers of other tables not held up while one table waits; and the deadlock
 // a single RLS transaction allowed gone.
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 
@@ -898,6 +899,27 @@ function repoSqlFiles(dir = "") {
   return out.sort();
 }
 const sqlFiles = repoSqlFiles();
+
+test("the CI job that runs this file checks out every SQL file it scans", () => {
+  // repo-hygiene.yml's portal-content-provenance job runs services/migrations/*.test.mjs
+  // on a sparse checkout. A tracked .sql file outside its list is simply absent there,
+  // so the repo-wide scans below would pass in CI without reading it. Root files are
+  // always checked out in cone mode. supabase/config.toml is read by test-db-target.
+  const workflow = readRepo(".github/workflows/repo-hygiene.yml");
+  const job = workflow.split("\n  portal-content-provenance:\n")[1]?.split(/\n  [a-z][a-z-]*:\n/)[0];
+  assert.ok(job, "the repository hygiene job is missing");
+  const sparse = [...job.matchAll(/^ {12}([^\s#]\S*)$/gm)].map((m) => m[1]);
+  assert.ok(sparse.includes("services"), "could not read the job's sparse-checkout list");
+  const tracked = execFileSync("git", ["ls-files", "-z", "--", "*.sql", "supabase/config.toml"], {
+    cwd: new URL(".", repoRoot),
+    encoding: "utf8",
+  })
+    .split("\0")
+    .filter(Boolean);
+  const covered = (path) => !path.includes("/") || sparse.some((dir) => path === dir || path.startsWith(`${dir}/`));
+  assert.ok(tracked.includes("supabase/config.toml"));
+  assert.deepEqual(tracked.filter((path) => !covered(path)), [], "add these paths' directories to the job's sparse-checkout list");
+});
 /** The read-only probes, one WITH ... SELECT each (tested above): they name what they look for. */
 const READ_ONLY_PROBES = new Set(["scripts/prod-data-api-check.sql", "scripts/prod-data-api-precheck.sql", "scripts/prod-data-api-progress.sql"]);
 const API_ROLES = ["anon", "authenticated", "public"];
