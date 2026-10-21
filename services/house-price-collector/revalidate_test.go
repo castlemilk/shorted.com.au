@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 )
@@ -109,6 +112,54 @@ func TestPingRevalidateToleratesNon2xx(t *testing.T) {
 
 	// Must return normally despite the 5xx (no panic, no error propagation).
 	pingRevalidate("test")
+}
+
+// A round run by the drain wrapper must not ping: one ping purges /price-drops,
+// /housing and every suburb page, and a drain runs many rounds. It logs the
+// marker instead and the drain pings once. Outside the drain (the single-round
+// run-housing-agent.sh, a hand run) the round still pings itself.
+func TestRevalidateAfterCrawlWriteDefersToTheDrain(t *testing.T) {
+	hits := 0
+	useRevalidateTransport(t, func(r *http.Request) (*http.Response, error) {
+		hits++
+		return revalidateResponse(http.StatusOK, `{"revalidated":true}`), nil
+	})
+	t.Setenv("REVALIDATION_URL", "https://revalidate.invalid/api/revalidate")
+	t.Setenv("REVALIDATION_SECRET", "s3cr3t")
+	var logs bytes.Buffer
+	previous := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previous) })
+
+	t.Setenv(revalidateDeferEnv, "1")
+	revalidateAfterCrawlWrite("agent")
+	if hits != 0 {
+		t.Fatalf("a deferred round sent %d revalidation request(s), want 0", hits)
+	}
+	if !strings.Contains(logs.String(), "[revalidate:agent] "+revalidateDeferredMarker) {
+		t.Errorf("a deferred round must log the drain's marker, got: %q", logs.String())
+	}
+
+	t.Setenv(revalidateDeferEnv, "")
+	revalidateAfterCrawlWrite("agent")
+	if hits != 1 {
+		t.Fatalf("a round outside the drain sent %d revalidation request(s), want 1", hits)
+	}
+}
+
+// The drain finds a round's deferred ping only by grepping its output, and sets
+// the deferral env itself. Pin both strings on the shell side, so renaming
+// either here (or there) fails a test instead of silently dropping the ping.
+func TestDrainWrapperMatchesTheDeferralContract(t *testing.T) {
+	src, err := os.ReadFile("deploy/housing-crawl-common.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{revalidateDeferEnv + "=1", revalidateDeferredMarker, "-mode revalidate"} {
+		if !strings.Contains(string(src), want) {
+			t.Errorf("deploy/housing-crawl-common.sh does not contain %q", want)
+		}
+	}
 }
 
 // A raw *url.Error stringifies the full request URL. That is how an endpoint —

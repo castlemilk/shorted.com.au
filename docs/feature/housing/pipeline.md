@@ -258,6 +258,18 @@ write and the ping must not kill the cache bust) and **no-ops silently** when
 the ISR TTL. Rigs read both from `~/.shorted-housing-crawl.env`; the Cloud Run
 job from Terraform (`manage_revalidation_secret`).
 
+**Once per drain, not once per round.** One ping purges `/price-drops`,
+`/housing` and every suburb and state page (tag `housing`) and flushes the
+whole housing KV prefix, and on Next 14 the first request after a purge renders
+while the visitor waits. Pinging per `-mode agent` round made nearly every visit
+during a drain that first request (2026-10-21: `/price-drops`, two GETs 20
+minutes apart, both 44s at Age 0). `hc_drain_until_empty` now runs each round
+with `CRAWL_REVALIDATE_DEFER=1`; a round that wrote data logs `deferred to the
+drain` instead of pinging, and the drain runs `-mode revalidate` once when it
+ends (whatever its exit code, which it keeps), and at most once per
+`CRAWL_REVALIDATE_INTERVAL_SEC` (default 3600) during a long drain. A single
+`-mode agent` run outside the drain still pings itself.
+
 ## Rig wrappers (launchd)
 
 All drainers share one host Chrome + one residential IP, so
