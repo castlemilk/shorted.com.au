@@ -72,6 +72,7 @@ type config struct {
 	dividends        bool
 	dividendNotices  int
 	workers          int
+	pdfMemoryMB      int
 }
 
 // crawlStats holds the cross-worker tallies. All fields are int64 and updated
@@ -163,6 +164,7 @@ func Run(ctx context.Context, args []string) error {
 	fs.BoolVar(&cfg.dividends, "dividends", false, "Parse ASX dividend notices (Appendix 3A.1 PDFs) into dividend_history")
 	fs.IntVar(&cfg.dividendNotices, "dividend-notices", 200, "With -dividends: the most ASX dividend notices (Appendix 3A.1) to download and parse per run, newest first")
 	fs.IntVar(&cfg.workers, "workers", 6, "Number of concurrent crawl workers (network-bound; keep modest to respect ASX rate limits)")
+	fs.IntVar(&cfg.pdfMemoryMB, "pdf-memory-mb", 512, "With -dividends: resident memory the notice PDF readers share (each reads in its own process and is killed past its share)")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return runner.ErrUsage
@@ -237,7 +239,7 @@ func Run(ctx context.Context, args []string) error {
 	// Dividends come from the notices' PDFs, after the crawl has stored the day's
 	// announcements; the headline never carries the amount.
 	if cfg.dividends && cfg.dividendNotices > 0 {
-		fetcher := reportextract.NewAnnouncementTextFetcher()
+		fetcher := reportextract.NewAnnouncementTextFetcher(reportextract.WithPDFMemory(int64(cfg.pdfMemoryMB) << 20))
 		res, passErr := runDividendNoticePass(ctx, &postgresDividendNoticeStore{db: db},
 			func(c context.Context, url string) string { return fetcher.Text(c, url, 10) },
 			cfg.dividendNotices, 3, cfg.delay, cfg.dryRun, log.Printf)
