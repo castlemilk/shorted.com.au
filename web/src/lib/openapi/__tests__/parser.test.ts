@@ -67,6 +67,43 @@ describe("buildOpenAPISpec", () => {
   });
 });
 
+// A path's `servers` is data the parser keeps: it names the host that serves
+// that path. OpenAPI 3 resolves operation, then path, then document.
+describe("buildOpenAPISpec servers", () => {
+  const spec = buildOpenAPISpec({
+    servers: [{ url: "https://api.shorted.com.au" }],
+    paths: {
+      "/feed.xml": {
+        servers: [{ url: "https://shorted.com.au", description: "Web app" }],
+        get: { summary: "RSS feed" },
+      },
+      "/both": {
+        servers: [{ url: "https://path.example" }],
+        get: { servers: [{ url: "https://operation.example" }] },
+      },
+      "/empty": { servers: [], post: { summary: "Uses the document's" } },
+      "/plain": { post: { summary: "Uses the document's" } },
+    },
+  });
+  const servers = (path: string) => spec.endpoints.find((e) => e.path === path)?.servers;
+
+  it("carries a path's servers onto its operations", () => {
+    expect(servers("/feed.xml")).toEqual([
+      { url: "https://shorted.com.au", description: "Web app" },
+    ]);
+  });
+
+  it("lets an operation's servers replace its path's", () => {
+    expect(servers("/both")).toEqual([{ url: "https://operation.example" }]);
+  });
+
+  it("leaves servers unset where the document's apply", () => {
+    expect(servers("/empty")).toBeUndefined();
+    expect(servers("/plain")).toBeUndefined();
+    expect(spec.servers).toEqual([{ url: "https://api.shorted.com.au" }]);
+  });
+});
+
 describe("parseOpenAPISpec on the committed spec", () => {
   const raw = JSON.parse(
     fs.readFileSync(path.join(process.cwd(), "public", "openapi.json"), "utf8"),
@@ -88,5 +125,17 @@ describe("parseOpenAPISpec on the committed spec", () => {
       Object.keys(item).filter((key) => key === "get" || key === "post"),
     );
     expect(endpoints).toHaveLength(operations.length);
+  });
+
+  it("names the web app as the host of the two web-app endpoints, and no other", async () => {
+    const { endpoints } = await parseOpenAPISpec();
+    const withServers = endpoints
+      .filter((e) => e.servers)
+      .map((e) => [e.id, e.servers?.[0]?.url]);
+
+    expect(withServers.sort()).toEqual([
+      ["get--api-search-stocks", "https://shorted.com.au"],
+      ["get--feed.xml", "https://shorted.com.au"],
+    ]);
   });
 });

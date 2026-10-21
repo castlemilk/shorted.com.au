@@ -27,9 +27,11 @@ export default async function EndpointPage({ params }: EndpointPageProps) {
     return notFound();
   }
 
-  // The host the published samples target comes from the generated spec
-  // (`servers[0].url`), so the docs cannot drift from the document.
-  const baseUrl = await getApiBaseUrl();
+  // The host the published samples target comes from the generated spec, so
+  // the docs cannot drift from the document: the endpoint's own `servers`
+  // when its path declares one (/api/search/stocks and /feed.xml are served by
+  // the web app, not the API host), else the document's `servers[0].url`.
+  const baseUrl = endpoint.servers?.[0]?.url ?? (await getApiBaseUrl());
 
   return (
     <div className="xl:grid xl:grid-cols-[1fr_400px] gap-0">
