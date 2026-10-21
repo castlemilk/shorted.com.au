@@ -11,6 +11,7 @@ import {
   DatasetStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import {
   getShortStatistics,
   type ShortStatistics,
@@ -197,6 +198,9 @@ function MoverList({
 export default async function StatisticsPage() {
   const stats = await getShortStatistics();
   const asOf = stats ? formatAsOf(stats.asOfDate) : "";
+  // No figures (API down, or the latest report unreadable, so withheld):
+  // cache the shell for a minute, not the page's 15.
+  if (!stats) await bailOnEmptyRender();
 
   const breadcrumbItems = [
     { label: "Short Selling Statistics", href: "/statistics" },
