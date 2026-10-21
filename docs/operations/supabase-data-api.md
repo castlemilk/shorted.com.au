@@ -194,5 +194,9 @@ development, lists `public`, `storage` and `graphql_public`.
   GRANTs anything to `anon`, `authenticated` or `PUBLIC`, creates a policy, or
   FORCEs or DISABLEs row level security, and on a `SECURITY DEFINER` function
   that does not pin `search_path` and revoke `PUBLIC`'s EXECUTE.
+- The grant scan also covers the legacy Supabase CLI SQL under `supabase/` and
+  `web/supabase/`: `web/package.json`'s `supabase:migrate` is `supabase db
+  push`, which would apply it to whatever project is linked. Its old grants are
+  commented out.
 - A new allowlisted migration goes ABOVE 000138 in `terraform-deploy.yml`, so
   000138 stays the last file a deploy replays.

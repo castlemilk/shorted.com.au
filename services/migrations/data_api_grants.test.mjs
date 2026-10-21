@@ -17,7 +17,9 @@
 // covers, what makes a replay a no-op, its place at the END of the deploy
 // allowlist, the read-only check and pre-check files, and three rules over
 // every migration that keep the Data API closed afterwards:
-//   * no migration GRANTs anything to anon, authenticated or PUBLIC;
+//   * no migration GRANTs anything to anon, authenticated or PUBLIC (nor does
+//     any SQL in the legacy Supabase CLI directories, which `supabase db push`
+//     would apply);
 //   * none creates a policy, or FORCEs or DISABLEs row level security;
 //   * every SECURITY DEFINER function pins search_path and revokes PUBLIC's
 //     EXECUTE in the same file.
@@ -445,6 +447,17 @@ const migrationFiles = readdirSync(migrationsDir)
 const versionOf = (file) => Number.parseInt(file.slice(0, 6), 10);
 const THIS_VERSION = versionOf(UP);
 
+/** Every .sql file under a repo directory, as repo-relative paths. */
+const sqlFilesUnder = (dir) =>
+  readdirSync(new URL(`${dir}/`, repoRoot), { recursive: true })
+    .filter((f) => f.endsWith(".sql"))
+    .map((f) => `${dir}/${f}`)
+    .sort();
+// The legacy Supabase CLI projects (supabase/config.toml, web/supabase/config.toml).
+// web/package.json's `supabase:migrate` is `supabase db push`, which applies
+// their migrations to whatever project is linked, prod included.
+const legacySqlFiles = [...sqlFilesUnder("supabase"), ...sqlFilesUnder("web/supabase")];
+
 /** The role names a GRANT ... TO lists, literally (a %s placeholder lists none). */
 function literalGrantees(sql) {
   const out = [];
@@ -454,26 +467,34 @@ function literalGrantees(sql) {
   return out;
 }
 
-test("no migration grants anything to anon, authenticated or PUBLIC", () => {
+test("no migration grants anything to anon, authenticated or PUBLIC, nor does the legacy Supabase CLI SQL", () => {
   // A dynamic carry of an object's existing grants (000131, 000132:
   // format('GRANT %s ... TO %s%s', ...)) names no role and is allowed: after
   // 000138 there is nothing of anon's left to carry, and 000138 replays after
   // both. ALTER DEFAULT PRIVILEGES ... GRANT ... TO anon is caught here too.
+  const sources = [
+    ...migrationFiles.map((file) => [`services/migrations/${file}`, read(file)]),
+    ...legacySqlFiles.map((path) => [path, readRepo(path)]),
+  ];
   const offenders = [];
-  for (const file of migrationFiles) {
-    for (const grantee of literalGrantees(read(file))) {
-      if (["anon", "authenticated", "public"].includes(grantee)) offenders.push(`${file}: GRANT ... TO ${grantee}`);
+  for (const [path, sql] of sources) {
+    for (const grantee of literalGrantees(sql)) {
+      if (["anon", "authenticated", "public"].includes(grantee)) offenders.push(`${path}: GRANT ... TO ${grantee}`);
     }
   }
   assert.deepEqual(
     offenders,
     [],
-    "The Supabase Data API serves anything anon or authenticated (or PUBLIC, which both inherit) can read or call, to anyone holding the project's anon key. Nothing in this repo uses the Data API. If one object is ever meant to be published through it, grant exactly that object to exactly one role in its own migration and change this test in the same change.",
+    "The Supabase Data API serves anything anon or authenticated (or PUBLIC, which both inherit) can read or call, to anyone holding the project's anon key. Nothing in this repo uses the Data API. If one object is ever meant to be published through it, grant exactly that object to exactly one role in its own migration and change this test in the same change. The legacy supabase/ and web/supabase/ SQL is scanned too: `supabase db push` would apply it.",
   );
+  // the scan reaches the legacy file that used to grant everything
+  assert.ok(legacySqlFiles.includes("web/supabase/migrations/20250107_001_initial_schema.sql"));
+  assert.ok(legacySqlFiles.some((p) => p.startsWith("supabase/migrations/")));
   // the matcher itself
   assert.deepEqual(literalGrantees("GRANT SELECT ON t TO service_role, anon;"), ["service_role", "anon"]);
   assert.deepEqual(literalGrantees("EXECUTE format('GRANT %s ON TABLE %I TO %s%s', a, b, CASE WHEN x THEN 'PUBLIC' END);"), []);
   assert.deepEqual(literalGrantees('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO "authenticated";'), ["authenticated"]);
+  assert.deepEqual(literalGrantees("-- GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;"), [], "a commented-out grant is inert");
 });
 
 test("no migration creates a policy, or forces or disables row level security", () => {

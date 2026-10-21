@@ -165,7 +165,8 @@ CREATE TRIGGER update_stock_prices_updated_at BEFORE UPDATE
     ON stock_prices FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Grant appropriate permissions (adjust as needed for your Supabase setup)
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+-- Neutralised: these opened the Supabase Data API; services/migrations/000138_harden_data_api_grants.up.sql closes it.
+-- GRANT USAGE ON SCHEMA public TO anon, authenticated;
+-- GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
+-- GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+-- GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
