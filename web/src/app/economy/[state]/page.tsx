@@ -16,6 +16,11 @@ import { StateCharts } from "@/components/economy/state-charts-loader";
 import { hasLabour } from "@/components/economy/availability";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import {
+  stateEconomyDescription,
+  stateEconomyIndicators,
+  stateEconomyTitle,
+} from "./state-metadata";
+import {
   ECONOMY_SERIES_FORMATTERS,
   STATE_NAMES,
   STATE_SLUGS,
@@ -54,10 +59,11 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { state } = await params;
   if (!isStateSlug(state)) return {};
-  const name = STATE_NAMES[state];
   const url = `https://shorted.com.au/economy/${state}`;
-  const title = `${name} economy — unemployment, state final demand, trade`;
-  const description = `${name} economic snapshot: unemployment, state final demand, goods exports and imports, diesel sales and the ASX companies operating there — from ABS and DCCEEW open data.`;
+  // Names only what the page reads: no unemployment for NT and ACT, no diesel
+  // for ACT (state-metadata.ts).
+  const title = stateEconomyTitle(state);
+  const description = stateEconomyDescription(state);
   return {
     title,
     description,
@@ -276,7 +282,7 @@ export default async function EconomyStatePage({ params }: PageProps) {
     "@context": "https://schema.org",
     "@type": "Dataset",
     name: `${name} economic snapshot`,
-    description: `Unemployment, state final demand, trade and petroleum indicators for ${name}.`,
+    description: `${name}: ${stateEconomyIndicators(state).join(", ")}.`,
     creator: {
       "@type": "Organization",
       name: "Shorted",
@@ -303,13 +309,13 @@ export default async function EconomyStatePage({ params }: PageProps) {
     <DashboardLayout>
       <LLMMeta
         title={`${name} economy`}
-        description={`Unemployment, state final demand, trade and petroleum indicators for ${name}, plus the ASX companies operating there.`}
+        description={`${name}: ${stateEconomyIndicators(state).join(", ")}, plus the ASX companies operating there.`}
         url={url}
         dataSource="ABS, DCCEEW"
         dataFrequency="monthly / quarterly"
         keywords={[
           `${name} economy`,
-          `${name} unemployment`,
+          ...(hasLabour(state) ? [`${name} unemployment`] : []),
           `${name} state final demand`,
           `${name} exports`,
         ]}
