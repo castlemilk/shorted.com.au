@@ -6,7 +6,7 @@ lists in `main.go`, `all` included (recounted 2026-09-24 on the integration of
 the council, planning and price-drops streams, plus the drain's `revalidate`
 on 2026-10-21; the switch also accepts an undocumented `abs` alias for
 `official`). Earlier counts in these docs ("22", "27", "37") and the monolith's
-"7 modes" / CLAUDE.md's "11" and "37" are stale. The table
+"7 modes" / CLAUDE.md's "11" are stale. The table
 below lists the ingest modes; `vg-nsw`, `vg-vic`, `seifa`, `elevation`,
 `property-resolve`, `mcp`, `drop-index` and `all` have no row of their own;
 they are only mentioned in the trigger table above and the sections below.
