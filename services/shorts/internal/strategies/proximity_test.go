@@ -17,7 +17,7 @@ func TestProximityMapsTheGapOntoTheUnitInterval(t *testing.T) {
 		{1, 0, 0}, // a far distance of zero grades nothing
 	}
 	for _, c := range cases {
-		if got := proximity(c.gap, c.far); math.Abs(got-c.want) > 1e-9 {
+		if got := proximity(c.gap, c.far); math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(got-c.want) > 1e-9 {
 			t.Errorf("proximity(%v, %v) = %v, want %v", c.gap, c.far, got, c.want)
 		}
 	}

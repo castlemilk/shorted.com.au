@@ -101,7 +101,7 @@ export function StrategyPanel({ strategy }: StrategyPanelProps) {
           without gating it. The score is the rules&apos; weights earned: a
           pass earns more the more decisively it passes, and a trigger rule
           that has not fired yet earns part of its weight for how close the
-          price is to its line, so the setups nearest to triggering rank
+          relevant measure is to its threshold, so the setups nearest to triggering rank
           first.
         </p>
         <ol className="mt-5 divide-y divide-border/60 rounded-lg border border-border/60">

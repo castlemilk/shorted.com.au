@@ -211,7 +211,7 @@ export default async function PicksHubPage() {
             and unknown never counts as a pass. Stocks are ranked by status
             first, then by a 0 to 100 score: a rule earns more of its weight
             the more decisively it passes, and a setup earns part of its
-            trigger rule&apos;s weight for how close the price is to the
+            trigger rule&apos;s weight for how close its measure is to the
             trigger, so the names nearest to firing rank first.
           </p>
           {/* The printed key: each status beside what it looks like as rule

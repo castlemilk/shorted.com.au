@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 
 import { SceneSvg, StrategyScene } from "../strategy-scene";
 import { StrategySceneCanvas, sceneStageOf } from "../strategy-scene-canvas";
@@ -53,6 +53,37 @@ describe("StrategyScene", () => {
 });
 
 describe("StrategySceneCanvas", () => {
+  it("stops and restores the still when reduced motion changes live, then resumes safely", () => {
+    const matchMedia = window.matchMedia;
+    const listeners = new Set<() => void>();
+    const preference = {
+      matches: false,
+      addEventListener: jest.fn((_name: string, callback: () => void) => listeners.add(callback)),
+      removeEventListener: jest.fn((_name: string, callback: () => void) => listeners.delete(callback)),
+    };
+    window.matchMedia = jest.fn().mockReturnValue(preference) as unknown as typeof window.matchMedia;
+    const getContext = jest.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({} as CanvasRenderingContext2D);
+    const request = jest.spyOn(window, "requestAnimationFrame").mockReturnValue(42);
+    const cancel = jest.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+    const view = render(<div><StrategySceneCanvas slug="canslim" variant="plate" /></div>);
+    try {
+      expect(request).toHaveBeenCalledTimes(1);
+      view.container.firstElementChild?.setAttribute("data-scene-live", "");
+      act(() => { preference.matches = true; listeners.forEach((callback) => callback()); });
+      expect(cancel).toHaveBeenCalledWith(42);
+      expect(view.container.firstElementChild).not.toHaveAttribute("data-scene-live");
+      expect(request).toHaveBeenCalledTimes(1);
+      act(() => { preference.matches = false; listeners.forEach((callback) => callback()); });
+      expect(request).toHaveBeenCalledTimes(2);
+      view.unmount();
+      expect(listeners.size).toBe(0);
+      expect(cancel).toHaveBeenCalledTimes(2);
+    } finally {
+      view.unmount();
+      getContext.mockRestore(); request.mockRestore(); cancel.mockRestore();
+      window.matchMedia = matchMedia;
+    }
+  });
   it("mounts a decorative canvas and stays quiet where there is no 2D context", () => {
     const getContext = jest.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => null);
     const { container } = render(

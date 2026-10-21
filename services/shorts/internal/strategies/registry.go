@@ -211,7 +211,7 @@ const (
 		"That prior 40-session high is the pivot, and we report it as the level a failed breakout falls back through. " +
 		"Unknown when the breakout cannot be measured from price history." + evalTriggerCredit
 	// evalTriggerCredit follows every trigger rule's evaluation (proximity.go).
-	evalTriggerCredit = " Until it passes, the stock scores higher the closer the price is to this line, so the setups nearest to triggering rank first."
+	evalTriggerCredit = " Until it passes, the stock scores higher the closer its relevant measure is to this rule's trigger threshold, so the setups nearest to triggering rank first."
 
 	caveatSubCent  = "Prices are stored to 2 decimal places, so sub-cent stocks cannot be measured reliably; the A$250,000 turnover floor excludes them."
 	caveatEOD      = "Everything is measured on end-of-day prices after the evening sweep. We do not see intraday breakouts, the time of day a move happened, or news released after the close."

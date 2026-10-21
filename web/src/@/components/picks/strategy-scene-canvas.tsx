@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   SCENE_UNIT_HEIGHT,
@@ -14,7 +14,7 @@ import {
  * The strategy scene, animated: a Canvas 2D loop over the same geometry the
  * server drew as an SVG still (lib/strategies/scenes.ts). A few kilobytes,
  * no WebGL, no three.js: the scenes are hairline strokes, and a 2D context
- * draws forty paths thirty times a second for nothing.
+ * uses a capped loop for the decorative paths.
  *
  * It is a layer OVER the still, not a replacement. The still is in the ISR
  * HTML, so the scene is there at first paint, for a crawler, without
@@ -86,11 +86,21 @@ export function StrategySceneCanvas({
   variant: SceneVariant;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const preference = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!preference) return;
+    const sync = () => setReducedMotion(preference.matches);
+    sync();
+    preference.addEventListener?.("change", sync);
+    return () => preference.removeEventListener?.("change", sync);
+  }, []);
 
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    if (reducedMotion || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const host = canvas.parentElement;
@@ -253,7 +263,7 @@ export function StrategySceneCanvas({
       stage.removeEventListener("pointercancel", onPointerUp);
       host?.removeAttribute("data-scene-live");
     };
-  }, [slug, variant]);
+  }, [slug, variant, reducedMotion]);
 
   return (
     <canvas
