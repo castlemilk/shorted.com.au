@@ -38,6 +38,8 @@ export type SitemapEntry = {
  *   housing     /housing + /housing/calculators + /price-drops +
  *               /housing/[state] + /housing/[state]/[suburb]
  *   politicians /politicians hubs + /politicians/[slug]
+ *   ownership   /ownership + the /ownership/[slug] pages the page indexes
+ *               (institutionIsIndexable)
  *
  * Removed vs the flat sitemap: /developer (auth-gated dashboard stub — it
  * renders a spinner for anonymous crawlers).
@@ -49,6 +51,7 @@ export const SITEMAP_CHILDREN = [
   "sitemap-reports.xml",
   "sitemap-housing.xml",
   "sitemap-politicians.xml",
+  "sitemap-ownership.xml",
 ] as const;
 
 export type SitemapChild = (typeof SITEMAP_CHILDREN)[number];
