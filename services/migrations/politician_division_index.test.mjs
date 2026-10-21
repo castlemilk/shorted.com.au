@@ -16,8 +16,10 @@ test("000140 indexes exactly the division expression the politician readers filt
   assert.deepEqual(classify(up), { verdict: "transaction", reason: "" });
   assert.match(
     code(up),
-    /CREATE INDEX IF NOT EXISTS idx_suburb_demographics_federal_division\s+ON suburb_demographics \(\(upper\(btrim\(federal_division\)\)\)\)\s+INCLUDE \(federal_party, federal_party_ab\);/,
+    /CREATE INDEX idx_suburb_demographics_federal_division\s+ON public\.suburb_demographics \(\(upper\(btrim\(federal_division\)\)\)\)\s+INCLUDE \(federal_party, federal_party_ab\);/,
   );
+  // Built (and the table analyzed) only when absent: a replay takes no lock.
+  assert.match(code(up), /IF to_regclass\('public\.idx_suburb_demographics_federal_division'\) IS NULL THEN/);
   // Not partial: the represented-suburbs read has no party predicate.
   assert.doesNotMatch(code(up), /WHERE federal_party/);
   // Plain build on a 15k-row table, so the file stays one transaction.

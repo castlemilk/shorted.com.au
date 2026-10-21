@@ -28,17 +28,24 @@
 --
 -- Hand-applied (prod does not run `migrate up`):
 --   task db:prod:apply FILE=services/migrations/000140_suburb_demographics_division_index.up.sql CONFIRM=prod
--- Replay-safe: IF NOT EXISTS, and ANALYZE only refreshes statistics (it gives
--- the planner the expression's statistics the first time).
+-- Replay-safe and catalog-guarded: the index is built, and the table analyzed
+-- (which gives the planner the expression's statistics), only when the index
+-- is absent, so a replay reads the catalog and takes no lock on the table.
 
 BEGIN;
 
 SET LOCAL lock_timeout = '5s';
 
-CREATE INDEX IF NOT EXISTS idx_suburb_demographics_federal_division
-    ON suburb_demographics ((upper(btrim(federal_division))))
-    INCLUDE (federal_party, federal_party_ab);
-
-ANALYZE suburb_demographics;
+DO $migration$
+BEGIN
+    IF to_regclass('public.idx_suburb_demographics_federal_division') IS NULL THEN
+        CREATE INDEX idx_suburb_demographics_federal_division
+            ON public.suburb_demographics ((upper(btrim(federal_division))))
+            INCLUDE (federal_party, federal_party_ab);
+        ANALYZE public.suburb_demographics;
+        RAISE NOTICE '000140: built idx_suburb_demographics_federal_division';
+    END IF;
+END
+$migration$;
 
 COMMIT;

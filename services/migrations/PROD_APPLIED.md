@@ -83,3 +83,24 @@ not "ran it".
 | `000127_council_price_drops_mv` | 2026-09-24 | Claude, via `task db:prod:apply CONFIRM=prod` | psql echoed `SELECT 229`, both `CREATE INDEX`, the `housing_mv_refresh` seed `INSERT 0 1`, `CREATE FUNCTION` and `COMMIT`. A later `task db:prod:refresh WHICH=housing` exited 0 with no Skipping line. `housing_mv_refresh` has an `mv_council_price_drops` row refreshed 2026-09-24 05:28 UTC, and `mv_council_price_drops` holds 229 rows. |
 | `000128_repoint_stripped_sal_links` | 2026-09-24 | Claude, via `task db:prod:apply CONFIRM=prod` | A read-only dry run of the candidate selection returned 30 before the apply. The apply echoed `SELECT 30`, `UPDATE 30` (regions), `UPDATE 222` (listings), `UPDATE 403` (events), `UPDATE 46` (drop-index rows) and `COMMIT`. Afterwards `SUBURB:NSW-MAYFIELD` links `12540` (Mayfield, Newcastle), and re-running the selection returns 0. |
 | `000135_drop_headline_dividends` | 2026-10-11 | Claude, via `task db:prod:apply CONFIRM=prod` | Before: a read-only count of 91 rows with `announcement_url IS NULL` (35 with an ex-date in the last 12 months). The apply echoed `SELECT 91` (the backup) and `DELETE 91`. Read-only check afterwards: `dividend_history` has 0 rows with `announcement_url IS NULL` and 157 in all; `dividend_history_headline_rows` holds 91. Tested first on a scratch Postgres: up, re-run (`DELETE 0`) and down. |
+
+## Written, not yet applied
+
+Hand-apply migrations that are merged before an operator runs them. They are
+listed here so the drift guard sees them as accounted for, and so the gap is
+written down: **none of these is on prod until its row moves to "Applied by
+hand" above** with a Verified column. Each one's header has the full context.
+The code that reads them works without them (42P01 fallbacks), so merging
+first is safe; the speedup arrives when they are applied.
+
+From the 2026-10-21 database review (DBP-01, -02, -04, -05), in apply order:
+
+| Migration | Command | How to verify, then move the row up |
+|---|---|---|
+| `000139_suburb_reference_mvs` | `task db:prod:apply FILE=services/migrations/000139_suburb_reference_mvs.up.sql CONFIRM=prod` (one transaction, about 3 s) | `SELECT count(*) FROM mv_suburb_latest_price` (about 3,795), `mv_housing_state_baselines` (8), `mv_suburb_similarity_features` (about 15,345); `to_regprocedure('refresh_suburb_reference_views()')` non-null; then `task db:prod:refresh WHICH=suburbs CONFIRM=prod` exits 0 |
+| `000140_suburb_demographics_division_index` | `task db:prod:apply FILE=services/migrations/000140_suburb_demographics_division_index.up.sql CONFIRM=prod` | `to_regclass('idx_suburb_demographics_federal_division')` non-null; `EXPLAIN SELECT federal_party FROM suburb_demographics WHERE upper(btrim(federal_division)) = 'KOOYONG' LIMIT 1` shows that index |
+| `000144_autovacuum_append_tables` | `task db:prod:apply FILE=services/migrations/000144_autovacuum_append_tables.up.sql CONFIRM=prod` | `SELECT relname, reloptions FROM pg_class WHERE relname IN ('shorts','news_articles','asx_announcements')` shows the settings; then run the one-off `VACUUM (ANALYZE)` of the three tables (session, not a transaction) |
+| `000141_shorts_timeseries_full_index` | `task db:prod:apply FILE=services/migrations/000141_shorts_timeseries_full_index.up.sql CONFIRM=prod` (session fallback; quiet window, not during the daily ASIC load) | `SELECT indisvalid FROM pg_index WHERE indexrelid = 'idx_shorts_timeseries_full'::regclass` is true (if false: apply the down file, then retry); after `VACUUM (ANALYZE) shorts`, `EXPLAIN` of the chart query shows `Index Only Scan using idx_shorts_timeseries_full` |
+| `000142_drop_idx_shorts_product_code_date` | `task db:prod:apply FILE=services/migrations/000142_drop_idx_shorts_product_code_date.up.sql CONFIRM=prod` | only after 000141 verifies; `to_regclass('idx_shorts_product_code_date')` is NULL |
+| `000143_drop_idx_shorts_timeseries_covering` | `task db:prod:apply FILE=services/migrations/000143_drop_idx_shorts_timeseries_covering.up.sql CONFIRM=prod` | only after 000141 verifies; `to_regclass('idx_shorts_timeseries_covering')` is NULL |
+
