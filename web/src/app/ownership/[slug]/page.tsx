@@ -11,7 +11,9 @@ import { institutionIsIndexable } from "~/@/lib/ownership/indexability";
 import { isInstitutionSlug, kindInfo } from "~/@/lib/ownership/kinds";
 import { INSTITUTION_NOTICES_SHOWN, fileHoldingRow, holdingRow } from "~/@/lib/ownership/rows";
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
-import { getInstitution } from "~/app/actions/getOwnership";
+import { getInstitutionOrNotFound } from "~/app/actions/getOwnership";
+import { NotFoundError } from "~/app/actions/withRetry";
+import type { GetInstitutionResponse } from "~/gen/shorts/v1alpha1/ownership_pb";
 
 // On-demand ISR: rendered on first visit, cached for an hour. The empty
 // generateStaticParams keeps the segment static (the stock tabs' rule).
@@ -42,9 +44,33 @@ function institutionTitle(name: string): string {
   return full.length <= TITLE_MAX ? full : `${name} ASX holdings`;
 }
 
+/**
+ * The page's one read, split by cause (loadStockOrFail's rule). Undefined for
+ * a slug the API does not know, which is a 404. A failed read THROWS: ISR
+ * caches whatever a regeneration renders, so answering it with notFound() put
+ * a 404 in place of a live institution for the hour, where a failed
+ * regeneration keeps serving the last good page. generateMetadata and the
+ * page make the same call, so React's cache reads once.
+ */
+async function readInstitutionPage(slug: string): Promise<GetInstitutionResponse | undefined> {
+  let data: GetInstitutionResponse | undefined;
+  try {
+    data = await getInstitutionOrNotFound(slug);
+  } catch (err) {
+    if (err instanceof NotFoundError) return undefined;
+    throw err;
+  }
+  if (!data) {
+    throw new Error(
+      `ownership data transiently unavailable for ${slug}; failing the ISR render instead of caching a 404`,
+    );
+  }
+  return data;
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const slug = (await params).slug;
-  const data = isInstitutionSlug(slug) ? await getInstitution(slug) : undefined;
+  const data = isInstitutionSlug(slug) ? await readInstitutionPage(slug) : undefined;
   const inst = data?.institution;
   if (!inst) return { title: "Institution not found", robots: NOINDEX };
   const url = `https://shorted.com.au/ownership/${inst.slug}`;
@@ -83,7 +109,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function InstitutionPage({ params }: PageProps) {
   const slug = (await params).slug;
   if (!isInstitutionSlug(slug)) notFound();
-  const data = await getInstitution(slug);
+  const data = await readInstitutionPage(slug);
   const inst = data?.institution;
   if (!data || !inst) notFound();
 

@@ -7,15 +7,19 @@ import type {
   SubstantialNotice,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
 
+import { notFound } from "next/navigation";
+
+import { NotFoundError } from "~/app/actions/withRetry";
+
 import InstitutionPage, { generateMetadata } from "./page";
 
-const getInstitution = jest.fn();
+const getInstitutionOrNotFound = jest.fn();
 
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   DashboardLayout: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 jest.mock("~/app/actions/getOwnership", () => ({
-  getInstitution: (slug: string) => getInstitution(slug),
+  getInstitutionOrNotFound: (slug: string) => getInstitutionOrNotFound(slug),
 }));
 
 const position = (i: number): SubstantialHolding =>
@@ -125,7 +129,7 @@ describe("InstitutionPage", () => {
   // perf review's fix kept them whole; a first cut drew 25 of each). Only the
   // notices, a dated log of filings, wait behind "Show all" past the newest 25.
   it("draws every stake and holdings-file row and the newest 25 notices, and holds the other notices", async () => {
-    getInstitution.mockResolvedValue(response({ positions: 88, fundHoldings: 100, notices: 100 }));
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 88, fundHoldings: 100, notices: 100 }));
     render(await InstitutionPage(params("vanguard")));
 
     const stakes = screen.getByRole("table", { name: "Vanguard's current substantial holdings" });
@@ -155,7 +159,7 @@ describe("InstitutionPage", () => {
   it("says how many of the notices on record it can show, and never calls a capped list all", async () => {
     const data = response({ slug: "state-street", name: "State Street", positions: 3, notices: 100 });
     data.institution!.notices = 1117;
-    getInstitution.mockResolvedValue(data);
+    getInstitutionOrNotFound.mockResolvedValue(data);
     render(await InstitutionPage(params("state-street")));
 
     expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
@@ -164,7 +168,7 @@ describe("InstitutionPage", () => {
   });
 
   it("draws the external-link glyph once and points every ASX link at it", async () => {
-    getInstitution.mockResolvedValue(response({ positions: 3, notices: 2 }));
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 3, notices: 2 }));
     const { container } = render(await InstitutionPage(params("vanguard")));
 
     expect(container.querySelectorAll("symbol#ownership-external-link")).toHaveLength(1);
@@ -177,7 +181,7 @@ describe("InstitutionPage", () => {
   });
 
   it("says so when there is no current stake, and still draws the holdings files", async () => {
-    getInstitution.mockResolvedValue(response({ name: "HESTA", kind: "super_fund", fundHoldings: 10 }));
+    getInstitutionOrNotFound.mockResolvedValue(response({ name: "HESTA", kind: "super_fund", fundHoldings: 10 }));
     render(await InstitutionPage(params("hesta")));
 
     expect(screen.getByText(/No current substantial holding on record/)).toBeInTheDocument();
@@ -188,7 +192,7 @@ describe("InstitutionPage", () => {
   // The visible trail had no structured counterpart: the page's only JSON-LD
   // was the site-wide WebSite.
   it("describes its breadcrumb trail as a BreadcrumbList", async () => {
-    getInstitution.mockResolvedValue(response({ positions: 1 }));
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1 }));
     const { container } = render(await InstitutionPage(params("vanguard")));
 
     const blocks = Array.from(container.querySelectorAll('script[type="application/ld+json"]')).map((s) =>
@@ -215,7 +219,7 @@ describe("institution metadata", () => {
   beforeEach(() => jest.clearAllMocks());
 
   it("noindexes, and follows, an institution with no current stake and no holdings files", async () => {
-    getInstitution.mockResolvedValue(response({ slug: "ophir", name: "Ophir Asset Management", kind: "active_manager" }));
+    getInstitutionOrNotFound.mockResolvedValue(response({ slug: "ophir", name: "Ophir Asset Management", kind: "active_manager" }));
     const meta = await generateMetadata(params("ophir"));
 
     expect(meta.robots).toEqual(NOINDEX);
@@ -229,7 +233,7 @@ describe("institution metadata", () => {
   // the root layout's googleBot directives with nothing, so indexable means
   // no key at all.
   it("sets no robots key on a holder, names its own canonical and keeps the title short", async () => {
-    getInstitution.mockResolvedValue(
+    getInstitutionOrNotFound.mockResolvedValue(
       response({ slug: "magellan", name: "Magellan Financial Group", kind: "active_manager", positions: 6 }),
     );
     const meta = await generateMetadata(params("magellan"));
@@ -244,12 +248,12 @@ describe("institution metadata", () => {
   });
 
   it("indexes an institution on its holdings files alone, and counts one stake in the singular", async () => {
-    getInstitution.mockResolvedValue(response({ slug: "hesta", name: "HESTA", kind: "super_fund", fundHoldings: 100 }));
+    getInstitutionOrNotFound.mockResolvedValue(response({ slug: "hesta", name: "HESTA", kind: "super_fund", fundHoldings: 100 }));
     const files = await generateMetadata(params("hesta"));
     expect(Object.keys(files)).not.toContain("robots");
     expect(files.description).toBe("What HESTA (super fund) holds on the ASX: the largest holdings in its published holdings files.");
 
-    getInstitution.mockResolvedValue(response({ slug: "argo", name: "Argo Investments", kind: "active_manager", positions: 1 }));
+    getInstitutionOrNotFound.mockResolvedValue(response({ slug: "argo", name: "Argo Investments", kind: "active_manager", positions: 1 }));
     expect((await generateMetadata(params("argo"))).description).toBe(
       "What Argo Investments (active manager) holds on the ASX: 1 current substantial holding from its notices.",
     );
@@ -257,7 +261,7 @@ describe("institution metadata", () => {
 
   it("keeps the head term alone for a name too long for the full title", async () => {
     // The longest name on the map, 40 characters.
-    getInstitution.mockResolvedValue(
+    getInstitutionOrNotFound.mockResolvedValue(
       response({ slug: "afic", name: "Australian Foundation Investment Company", kind: "active_manager", positions: 2 }),
     );
     const meta = await generateMetadata(params("afic"));
@@ -270,7 +274,7 @@ describe("institution metadata", () => {
   // own `twitter` replaces the root's wholesale: the first one carried no
   // `site`, so every institution page lost twitter:site.
   it("leaves the social card to the segment's opengraph-image, and keeps the site handle", async () => {
-    getInstitution.mockResolvedValue(response({ positions: 2 }));
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 2 }));
     const meta = await generateMetadata(params("vanguard"));
 
     expect(meta.openGraph).toMatchObject({ url: "https://shorted.com.au/ownership/vanguard" });
@@ -279,11 +283,43 @@ describe("institution metadata", () => {
   });
 
   it("noindexes an institution not on the map, and reads nothing for a malformed slug", async () => {
-    getInstitution.mockResolvedValue(undefined);
+    getInstitutionOrNotFound.mockRejectedValue(new NotFoundError("institution not found"));
     expect((await generateMetadata(params("nobody"))).robots).toEqual(NOINDEX);
 
-    getInstitution.mockClear();
+    getInstitutionOrNotFound.mockClear();
     expect((await generateMetadata(params("Not_A_Slug"))).robots).toEqual(NOINDEX);
-    expect(getInstitution).not.toHaveBeenCalled();
+    expect(getInstitutionOrNotFound).not.toHaveBeenCalled();
+  });
+});
+
+// The page is on-demand ISR, and ISR caches whatever a regeneration renders:
+// a 404 for a failed read would replace a live institution for the hour. A
+// failed read (undefined from getInstitutionOrNotFound) must FAIL the render,
+// which keeps the last good page; only the API's NotFound is a 404.
+describe("institution page when the read fails", () => {
+  it("fails the render and the metadata instead of answering 404", async () => {
+    getInstitutionOrNotFound.mockResolvedValue(undefined);
+
+    await expect(InstitutionPage(params("vanguard"))).rejects.toThrow(/transiently unavailable/);
+    await expect(generateMetadata(params("vanguard"))).rejects.toThrow(/transiently unavailable/);
+  });
+
+  it("answers 404 for a slug the API does not know", async () => {
+    getInstitutionOrNotFound.mockRejectedValue(new NotFoundError("institution not found"));
+    // src/test/setup.ts stubs notFound(); make it throw as Next's does.
+    jest.mocked(notFound).mockClear();
+    jest.mocked(notFound).mockImplementationOnce(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(InstitutionPage(params("nobody"))).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(notFound).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets any other error through untouched", async () => {
+    const outage = new Error("socket hang up");
+    getInstitutionOrNotFound.mockRejectedValue(outage);
+
+    await expect(InstitutionPage(params("vanguard"))).rejects.toBe(outage);
   });
 });

@@ -24,6 +24,7 @@
 import * as comparePage from "../compare/[pair]/page";
 import * as insiderPage from "../insider-trading/[stockCode]/page";
 import * as newsPage from "../news/[slug]/page";
+import * as ownershipPage from "../ownership/[slug]/page";
 import * as scanPage from "../scans/[slug]/page";
 
 const getStock = jest.fn();
@@ -31,6 +32,7 @@ const getStockOrNotFound = jest.fn();
 const getDirectorTrades = jest.fn();
 const getEditorialTake = jest.fn();
 const getScanResults = jest.fn();
+const getInstitutionOrNotFound = jest.fn();
 const bailOnEmptyRender = jest.fn();
 
 const NOT_FOUND = "NEXT_NOT_FOUND";
@@ -59,6 +61,13 @@ jest.mock("~/app/actions/getEditorialTake", () => ({
 }));
 jest.mock("~/app/actions/getScanResults", () => ({
   getScanResults: (...args: unknown[]) => getScanResults(...args),
+}));
+// Both reads answer alike, so a page that went back to getInstitution (which
+// returns undefined for NotFound and for a failure) fails its case here rather
+// than throwing for a missing mock.
+jest.mock("~/app/actions/getOwnership", () => ({
+  getInstitution: (...args: unknown[]) => getInstitutionOrNotFound(...args),
+  getInstitutionOrNotFound: (...args: unknown[]) => getInstitutionOrNotFound(...args),
 }));
 // The pages are called, not rendered, so their components never run; these
 // keep the imports out of jsdom.
@@ -130,6 +139,25 @@ const TAKE = {
   layoutImages: [],
 };
 
+const INSTITUTION = {
+  institution: {
+    slug: "vanguard",
+    name: "Vanguard Group",
+    kind: "index_manager",
+    description: "",
+    website: "",
+    substantialPositions: 1,
+    notices: 1,
+    latestNoticeDate: "2026-10-16",
+    hasAum: false,
+    hasFundsSize: false,
+  },
+  positions: [],
+  fundHoldings: [],
+  funds: [],
+  notices: [],
+};
+
 interface Case {
   page: string;
   /** The page module, for its route-segment exports. */
@@ -179,6 +207,15 @@ const CASES: Case[] = [
     fail: () => getStockOrNotFound.mockResolvedValue(undefined),
     render: () => insiderPage.default({ params: Promise.resolve({ stockCode: "BHP" }) }),
   },
+  {
+    // It used to read through getInstitution (withRetryAndNotFound), so a dead
+    // backend was a 404 for the hour.
+    page: "ownership/[slug]/page.tsx",
+    route: ownershipPage,
+    read: "the institution",
+    fail: () => getInstitutionOrNotFound.mockResolvedValue(undefined),
+    render: () => ownershipPage.default({ params: Promise.resolve({ slug: "vanguard" }) }),
+  },
 ];
 
 /** A dynamic page is statically optimised when it exports generateStaticParams. */
@@ -210,6 +247,7 @@ describe("a failed read in a dynamic page that ISR could cache", () => {
     getDirectorTrades.mockResolvedValue({ trades: [TRADE], totalCount: 1 });
     getEditorialTake.mockResolvedValue({ take: TAKE });
     getScanResults.mockResolvedValue({ asOfDate: "2026-10-15", rows: [], totalCount: 0 });
+    getInstitutionOrNotFound.mockResolvedValue(INSTITUTION);
   });
   afterEach(() => jest.restoreAllMocks());
 

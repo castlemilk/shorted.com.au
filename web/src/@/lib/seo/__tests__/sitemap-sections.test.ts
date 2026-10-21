@@ -125,6 +125,8 @@ jest.mock("~/app/actions/getOwnership", () => ({
   getOwnershipOverview: () => getOwnershipOverview(),
   listInstitutions: (...args: unknown[]) => listInstitutions(...args),
   getInstitution: (slug: string) => getInstitution(slug),
+  // The institution page reads through the NotFound-aware twin.
+  getInstitutionOrNotFound: (slug: string) => getInstitution(slug),
 }));
 // The institution page's metadata is read below; its layout never renders.
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({ DashboardLayout: () => null }));
