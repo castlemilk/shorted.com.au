@@ -86,7 +86,9 @@ export default async function PriceDropsPage() {
     listSuburbPriceDrops("", "count", 25),
     listAgencyPriceStats("", "drops", 12),
     // Seed the address board's default (all-states, biggest-%) view so the static
-    // shell renders rows without a client round-trip.
+    // shell renders rows without a client round-trip. One bounded attempt: the
+    // board fetches for itself when the seed is empty, so a slow address query
+    // costs the seed, never the render (it once held every render for 44s).
     listAddressPriceDrops(),
     getDropIndexSeries(),
   ]);

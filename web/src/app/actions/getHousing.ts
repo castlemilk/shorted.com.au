@@ -280,15 +280,28 @@ export const listAgencyPriceStats = cache(
  * client board without a first-paint round-trip. Like the agency read, it
  * bypasses shared KV; the takedown revalidation clears ISR/Data Cache so later
  * renders consult the backend kill switch.
+ *
+ * ONE attempt, bounded by ADDRESS_SEED_TIMEOUT_MS. The seed is optional (the
+ * board fetches for itself when it is empty) but the page waits for it. Measured
+ * 2026-10-21: this RPC failed at the backend's 10s store deadline on every
+ * call, and the default four attempts plus backoff held every /price-drops
+ * render for 44s. A timeout gives up the seed, never the page; the backend
+ * still finishes the query and caches a success for the next caller.
  */
+export const ADDRESS_SEED_TIMEOUT_MS = 2_000;
+
 export const listAddressPriceDrops = cache(
   withRetryAndNotFound(
     async (stateCode: string = "", windowDays: number = 90, limit: number = 50, sort: string = "pct"): Promise<ListAddressPriceDropsResponse | undefined> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
       if (skipForBuild()) return undefined;
 
       const client = createCacheableHousingClient();
-      return client.listAddressPriceDrops({ stateCode, windowDays, limit, sort });
+      return client.listAddressPriceDrops(
+        { stateCode, windowDays, limit, sort },
+        { timeoutMs: ADDRESS_SEED_TIMEOUT_MS },
+      );
     },
+    { maxRetries: 0 },
   ),
 );
 

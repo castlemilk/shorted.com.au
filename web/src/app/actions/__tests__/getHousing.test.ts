@@ -157,14 +157,34 @@ describe("housing server actions", () => {
 
     await listAddressPriceDrops("VIC", 90, 50, "pct");
 
-    expect(clientMock.listAddressPriceDrops).toHaveBeenCalledWith({
-      stateCode: "VIC",
-      windowDays: 90,
-      limit: 50,
-      sort: "pct",
-    });
+    expect(clientMock.listAddressPriceDrops).toHaveBeenCalledWith(
+      { stateCode: "VIC", windowDays: 90, limit: 50, sort: "pct" },
+      expect.anything(),
+    );
     expect(getCachedMock).not.toHaveBeenCalled();
     expect(setCachedMock).not.toHaveBeenCalled();
+  });
+
+  // /price-drops waits for this seed. On 2026-10-21 the RPC failed at the
+  // backend's 10s store deadline on every call, and four attempts plus backoff
+  // held each render for 44s. The board fetches for itself when the seed is
+  // empty, so a failed seed must cost one bounded attempt and nothing more.
+  it("makes one bounded attempt at the optional address seed", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const consoleLog = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    clientMock.listAddressPriceDrops.mockRejectedValue(connectError(4, "deadline exceeded"));
+    const { ADDRESS_SEED_TIMEOUT_MS, listAddressPriceDrops } = await import("../getHousing");
+
+    await expect(listAddressPriceDrops()).resolves.toBeUndefined();
+
+    expect(clientMock.listAddressPriceDrops).toHaveBeenCalledTimes(1);
+    expect(clientMock.listAddressPriceDrops).toHaveBeenCalledWith(
+      { stateCode: "", windowDays: 90, limit: 50, sort: "pct" },
+      { timeoutMs: ADDRESS_SEED_TIMEOUT_MS },
+    );
+    expect(ADDRESS_SEED_TIMEOUT_MS).toBeLessThanOrEqual(2_000);
+    consoleError.mockRestore();
+    consoleLog.mockRestore();
   });
 
   it("resolves already-indexed suburb slugs with one trailing hyphen", async () => {
