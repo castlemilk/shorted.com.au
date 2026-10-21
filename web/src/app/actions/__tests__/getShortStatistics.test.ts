@@ -2,6 +2,7 @@ const unstableCache = jest.fn((callback: () => Promise<unknown>) => callback);
 const screenStocks = jest.fn();
 const getMarketByDate = jest.fn();
 const getAvailableDates = jest.fn();
+const bailOnEmptyRender = jest.fn();
 
 jest.mock("next/cache", () => ({
   unstable_cache: (...args: unknown[]) => unstableCache(...(args as [() => Promise<unknown>])),
@@ -17,6 +18,7 @@ jest.mock("@connectrpc/connect", () => ({
 }));
 jest.mock("../config", () => ({
   SHORTS_API_URL: "https://shorts.test",
+  bailOnEmptyRender: (...args: unknown[]) => bailOnEmptyRender(...args),
   serverFetchOutsideNextCache: jest.fn(),
   skipForBuild: () => false,
 }));
@@ -117,6 +119,31 @@ describe("getShortStatistics", () => {
     getMarketByDate.mockResolvedValue(report([]));
 
     await expect(getShortStatistics()).resolves.toBeNull();
+  });
+
+  // /press and the share card render from this null too, and neither caps its
+  // own fallback: without the cap here, a failed read dropped the /press
+  // citation for an hour and the card's figures for a day.
+  it.each([
+    ["the report holds nothing", () => getMarketByDate.mockResolvedValue(report([]))],
+    ["the report cannot be read", () => getMarketByDate.mockRejectedValue(new Error("unavailable"))],
+    ["there is no report date", () => getAvailableDates.mockResolvedValue({ dates: [] })],
+    ["the screener comes back empty", () => screenStocks.mockResolvedValue({ totalCount: 0, stocks: [] })],
+  ])("caps the reading render at a minute when %s", async (_, arrange) => {
+    screenStocks.mockResolvedValue({ totalCount: 1, stocks: [stock("BHP", "Materials", 2e11)] });
+    getMarketByDate.mockResolvedValue(report(["BHP"]));
+    arrange();
+
+    await expect(getShortStatistics()).resolves.toBeNull();
+    expect(bailOnEmptyRender).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the render's lifetime alone when it has the figures", async () => {
+    screenStocks.mockResolvedValue({ totalCount: 1, stocks: [stock("BHP", "Materials", 2e11)] });
+    getMarketByDate.mockResolvedValue(report(["BHP"]));
+
+    await expect(getShortStatistics()).resolves.not.toBeNull();
+    expect(bailOnEmptyRender).not.toHaveBeenCalled();
   });
 
   it("caches the report's codes and the figures per report date", async () => {

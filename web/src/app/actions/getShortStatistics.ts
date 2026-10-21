@@ -10,6 +10,7 @@ import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
 import { ScreenerService } from "~/gen/shorts/v1alpha1/screener_pb";
 import {
   SHORTS_API_URL,
+  bailOnEmptyRender,
   serverFetchOutsideNextCache,
   skipForBuild,
 } from "./config";
@@ -295,7 +296,11 @@ async function fetchShortStatistics(
 // 1h TTL; the page is also busted by the daily sync via /api/revalidate.
 // Degrades to null so the page can render its static shell if the API is
 // down, or if the latest report cannot be read: the figures are withheld
-// rather than computed over every screener row.
+// rather than computed over every screener row. The null also caps the
+// reading render at a minute (bailOnEmptyRender), here rather than in each
+// page: /statistics, the /press citation and the share card all render a
+// no-figures fallback from it, which otherwise stays cached for their whole
+// revalidate (an hour; a day for the card).
 export async function getShortStatistics(): Promise<ShortStatistics | null> {
   // Build prerenders render the static shell only (skipForBuild is env AND
   // build-phase, so runtime ISR still fetches — see the SKIP_STATIC_GENERATION
@@ -327,6 +332,7 @@ export async function getShortStatistics(): Promise<ShortStatistics | null> {
     )();
   } catch (err) {
     console.error("[getShortStatistics] failed:", err);
+    await bailOnEmptyRender();
     return null;
   }
 }
