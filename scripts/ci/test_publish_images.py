@@ -59,6 +59,20 @@ class Tests(unittest.TestCase):
         self.assertFalse(m.retryable(TRANSIENT+'\n#14 ERROR: compiler failed'))
         self.assertFalse(m.retryable('ERROR: target shorts: compile failure'))
     def test_observed_push_timeout_is_retryable(self):self.assertTrue(m.retryable(TRANSIENT))
+    def test_mixed_unknown_push_error_prevents_retry(self):
+        self.assertFalse(m.retryable(TRANSIENT+'\n#22 ERROR: failed to push registry.test/other: unknown publishing problem'))
+    def test_denied_other_target_prevents_retry(self):
+        self.assertFalse(m.retryable(TRANSIENT+'\n#22 ERROR: failed to push registry.test/other: denied: requested access to the resource is denied'))
+    def test_truncated_diagnostics_never_authorize_retry(self):
+        script='import sys; print("permission denied"); print("x"*70000); print('+repr(TRANSIENT)+'); sys.exit(1)'
+        code, output=m.command([sys.executable,'-c',script],timeout=2)
+        self.assertEqual(code,1)
+        self.assertLess(len(output),66000)
+        self.assertIn(m.TRUNCATED,output)
+        self.assertFalse(m.retryable(output))
+    def test_mixed_missing_and_transport_error_is_inconclusive(self):
+        with self.assertRaises(m.PublishError):
+            m.inspect_tag('x',lambda *a,**k:(1,'manifest unknown\nTLS handshake timeout'))
     def test_wrong_digest_never_passes(self):
         with self.assertRaises(m.PublishError):m.publish('registry.test','main-abc',Fake(bad_metadata=True))
     def test_rejects_missing_and_mutable_release_tag(self):

@@ -21,20 +21,27 @@ BAKE_FILE = 'docker-bake.hcl'
 DIGEST = re.compile(r'^sha256:[0-9a-f]{64}$')
 # Only the observed registry transport class, never arbitrary build failures.
 PUSH_TRANSIENT = re.compile(r'^#\d+ ERROR: failed to push .+: .*?(?:DeadlineExceeded|context deadline exceeded|TLS handshake timeout|i/o timeout|connection reset by peer)', re.M)
-PERMANENT = re.compile(r'(?i)permission.?denied|unauthorized|unauthenticated|invalid_grant|invalid credential|403 forbidden|401 unauthorized|no space left on device')
+PERMANENT = re.compile(r'(?i)permission.?denied|access.?denied|\bdenied\b|unauthorized|unauthenticated|invalid_grant|invalid credential|\bforbidden\b|no space left on device')
 MISSING = re.compile(r'(?i)manifest unknown|manifest_unknown|no such manifest|name unknown')
+TRANSPORT = re.compile(r'(?i)DeadlineExceeded|context deadline exceeded|TLS handshake timeout|i/o timeout|connection reset by peer|no route to host|connection refused')
+TRUNCATED = '[publication output truncated; retry classification unavailable]'
 
 class PublishError(RuntimeError):
     pass
 
 def retryable(log: str) -> bool:
-    if PERMANENT.search(log) or not PUSH_TRANSIENT.search(log):
+    if TRUNCATED in log or PERMANENT.search(log) or not PUSH_TRANSIENT.search(log):
         return False
     errors = [line for line in log.splitlines() if re.match(r'^#\d+ ERROR:|^ERROR:', line)]
-    return bool(errors) and all(any(term in line for term in (
-        'failed to push ', 'DeadlineExceeded', 'context deadline exceeded',
-        'TLS handshake timeout', 'i/o timeout', 'connection reset by peer',
-        'context canceled', 'context cancelled')) for line in errors)
+    # One known transient push must not conceal another target's unknown error.
+    def known_error(line: str) -> bool:
+        if PUSH_TRANSIENT.match(line):
+            return True
+        if re.fullmatch(r'#\d+ ERROR: context cancel(?:ed|led)', line):
+            return True
+        return bool(re.match(r'^ERROR: (?:target [^:]+: )?failed to solve:', line)
+                    and TRANSPORT.search(line))
+    return bool(errors) and all(known_error(line) for line in errors)
 
 def command(args: list[str], timeout: int, stream: bool = False) -> tuple[int, str]:
     # File-backed output bounds memory even for a very verbose build. The
@@ -69,6 +76,10 @@ def command(args: list[str], timeout: int, stream: bool = False) -> tuple[int, s
         size = output.tell()
         output.seek(max(0, size - 65536))
         tail = output.read().decode('utf-8', errors='replace')
+        if size > 65536:
+            # Missing earlier output is unknown evidence, not permission to
+            # retry. Successful builds still verify their output metadata.
+            tail = TRUNCATED + '\n' + tail
     if stream:
         print('\n'.join(tail.splitlines()[-100:]), flush=True)
     return code, tail
@@ -91,7 +102,7 @@ def inspect_tag(ref: str, run=command) -> str | None:
     code, output = run(['docker', 'buildx', 'imagetools', 'inspect', ref,
                         '--format', '{{json .Manifest}}'], timeout=45)
     if code:
-        if MISSING.search(output) and not PERMANENT.search(output):
+        if MISSING.search(output) and not PERMANENT.search(output) and not TRANSPORT.search(output) and TRUNCATED not in output:
             return None
         # Do not turn an auth failure/network timeout into a missing image.
         raise PublishError('Registry inspection is inconclusive; automatic retry is stopped.')
