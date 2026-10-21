@@ -174,3 +174,16 @@ describe("state, suburb, industry and editorial routes in the ISR sweep inventor
     expect(new Set(isrPages as string[]).size).toBe(isrPages.length);
   });
 });
+
+// Rendered per request until 2026-10-21, so they never had a build render to
+// replace. Now static ISR, each is built once and kept for its revalidate:
+// /housing/calculators builds with the hard-coded $1,000,000 default
+// (getHousingOverview skips at build, and bailOnEmptyRender no-ops there)
+// under copy that calls it the national mean; /shorts and /battlegrounds read
+// at build, so they ship empty only when the build cannot reach the API. The
+// post-promote sweep replaces the build render on its first request.
+describe("pages moved to static ISR in the sweep inventory", () => {
+  it.each(["/housing/calculators", "/shorts", "/battlegrounds"])("lists %s", (page) => {
+    expect(new Set(isrPages as string[]).has(page)).toBe(true);
+  });
+});

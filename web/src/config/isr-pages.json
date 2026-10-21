@@ -1,7 +1,10 @@
 [
   "/top",
+  "/shorts",
+  "/battlegrounds",
   "/market",
   "/housing",
+  "/housing/calculators",
   "/housing/capitals",
   "/housing/capitals/greater-sydney",
   "/housing/capitals/greater-melbourne",
