@@ -1,0 +1,12 @@
+-- Drop idx_shorts_timeseries_covering (000022): same keys as
+-- idx_shorts_timeseries_full (000141), whose INCLUDE list is a superset of its
+-- one column (95 MB on prod, 3.24M scans in 90 days to 2026-10-21; DBP-02).
+-- After 000142 and 000143 the two old indexes (170 MB) are replaced by one of
+-- about 130 MB.
+--
+-- Apply ONLY under the same conditions as 000142: 000141 valid, shorts vacuumed
+-- and analyzed, and EXPLAIN on prod showing idx_shorts_timeseries_full for the
+-- chart, the sparklines and GetStock. One statement per file (see 000141).
+-- Hand-applied:
+--   task db:prod:apply FILE=services/migrations/000143_drop_idx_shorts_timeseries_covering.up.sql CONFIRM=prod
+DROP INDEX CONCURRENTLY IF EXISTS idx_shorts_timeseries_covering;

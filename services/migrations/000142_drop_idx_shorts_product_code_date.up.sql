@@ -1,0 +1,17 @@
+-- Drop idx_shorts_product_code_date (000001): its keys, ("PRODUCT_CODE",
+-- "DATE" DESC), are a strict subset of idx_shorts_timeseries_full (000141), and
+-- every reader it served is served by that one (75 MB on prod, 1.62M scans in
+-- 90 days to 2026-10-21; DBP-02).
+--
+-- Apply ONLY after 000141 is valid and VACUUM (ANALYZE) shorts has run, and
+-- only once EXPLAIN on prod shows idx_shorts_timeseries_full for GetStockData,
+-- the top-shorts sparklines (sparklineQuery) and GetStock, for example:
+--   EXPLAIN SELECT "DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
+--          "REPORTED_SHORT_POSITIONS", "TOTAL_PRODUCT_IN_ISSUE"
+--   FROM shorts WHERE "PRODUCT_CODE" = 'BHP' ORDER BY "DATE";
+--
+-- One statement per file: DROP INDEX CONCURRENTLY cannot run in a transaction
+-- block (see 000141). It waits for running queries on shorts and blocks none.
+-- Hand-applied:
+--   task db:prod:apply FILE=services/migrations/000142_drop_idx_shorts_product_code_date.up.sql CONFIRM=prod
+DROP INDEX CONCURRENTLY IF EXISTS idx_shorts_product_code_date;
