@@ -18,7 +18,10 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"os"
+	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -235,6 +238,8 @@ func Run(ctx context.Context, args []string) error {
 
 	stats := &crawlStats{}
 	crawlErr := crawlAll(ctx, db, client, cfg, numWorkers, codes, years, stats)
+	log.Printf("Crawl finished: %d stocks processed, %d errors | %s",
+		atomic.LoadInt64(&stats.processed), atomic.LoadInt64(&stats.errors), memoryUse())
 
 	// Dividends come from the notices' PDFs, after the crawl has stored the day's
 	// announcements; the headline never carries the amount.
@@ -251,7 +256,7 @@ func Run(ctx context.Context, args []string) error {
 			}
 		}
 		atomic.AddInt64(&stats.dividends, int64(res.Rows))
-		log.Printf("Dividend notices: selected %d, parsed %d (%d rows), outcomes %v", res.Selected, res.Parsed, res.Rows, res.Outcomes)
+		log.Printf("Dividend notices: selected %d, parsed %d (%d rows), outcomes %v | %s", res.Selected, res.Parsed, res.Rows, res.Outcomes, memoryUse())
 	}
 
 	// NOTE: "financial_reports updated" is legitimately near-zero on steady-state
@@ -336,11 +341,11 @@ func crawlAll(ctx context.Context, db *pgxpool.Pool, shared *stealthhttp.Client,
 // cancellation; every other failure is logged and counted so the run continues.
 func crawlOne(ctx context.Context, db *pgxpool.Pool, client *stealthhttp.Client, cfg config, code string, years, codes []string, stats *crawlStats, progress *int64) error {
 	if n := atomic.AddInt64(progress, 1); n%50 == 0 {
-		log.Printf("Progress: %d/%d stocks | ann stored: %d, news: %d, dir-trades: %d, dividends: %d, reports: %d, errors: %d",
+		log.Printf("Progress: %d/%d stocks | ann stored: %d, news: %d, dir-trades: %d, dividends: %d, reports: %d, errors: %d | %s",
 			n, len(codes),
 			atomic.LoadInt64(&stats.annStored), atomic.LoadInt64(&stats.newsStored),
 			atomic.LoadInt64(&stats.dirTrades), atomic.LoadInt64(&stats.dividends),
-			atomic.LoadInt64(&stats.reports), atomic.LoadInt64(&stats.errors))
+			atomic.LoadInt64(&stats.reports), atomic.LoadInt64(&stats.errors), memoryUse())
 	}
 
 	reports, allAnns, err := crawlStockAnnouncementsFull(ctx, client, code, years, cfg.verbose)
@@ -427,6 +432,28 @@ func crawlOne(ctx context.Context, db *pgxpool.Pool, client *stealthhttp.Client,
 	}
 
 	return politeDelay(ctx, cfg.delay)
+}
+
+// memoryUse is the job's memory for a log line: the Go heap in use and the
+// process's resident set, which is what Cloud Run's limit counts. The job ran
+// out of its 1 GiB from 2026-10-15 with nothing in its log to say where; every
+// progress line and each phase boundary now carries this.
+func memoryUse() string {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	rss := "rss n/a"
+	if b, err := os.ReadFile("/proc/self/status"); err == nil {
+		for _, line := range strings.Split(string(b), "\n") {
+			if rest, ok := strings.CutPrefix(line, "VmRSS:"); ok {
+				if f := strings.Fields(rest); len(f) > 0 {
+					if kb, err := strconv.ParseInt(f[0], 10, 64); err == nil {
+						rss = fmt.Sprintf("rss %d MB", kb>>10)
+					}
+				}
+			}
+		}
+	}
+	return fmt.Sprintf("heap %d MB, %s", m.HeapAlloc>>20, rss)
 }
 
 // politeDelay waits delay plus up to half of it as jitter, honouring
