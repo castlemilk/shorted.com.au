@@ -364,7 +364,7 @@ The suburb-median tier (`-mode crawl`, `crawl_targets.go`) and the listings tier
 
 - **Delta enqueue** (`crawl_delta.go`, `CRAWL_ENQUEUE_SELECTION=delta`). `queryCatalogFreshness` reads each catalog suburb's freshness + churn **read-only** from prod — two cheap aggregates over `property_listings` (max `last_seen_at` + active count) and `property_price_events` (recent event count), joined on a normalised `lower(suburb)|upper(state)|trim(postcode)` key so catalog `Display` vs stored `suburb` casing still matches (a mismatch → treated as never-crawled → still selected, the safe direction). `selectDeltaSuburbs` (pure, unit-tested) selects a suburb if **never crawled**, **stale** (`last_crawled < now − CRAWL_DELTA_TTL_HOURS`, default 24h), or **churny** (`>= CRAWL_DELTA_CHURN_MIN` events, default 1, over `CRAWL_DELTA_CHURN_DAYS`, default 7d); ranks never-first → churniest → oldest; caps at `CRAWL_DELTA_MAX_SUBURBS` (default 120 — 500 suburbs rotate in ~4.2 days) and **logs the capped-off tail** (no silent truncation). `CRAWL_ENQUEUE_SELECTION=all` (the default) preserves the whole-catalog behaviour.
 - **Freshness alarm** (`crawl_freshness.go`, `-mode freshness`, READ-ONLY). `classifyFreshness` (pure, unit-tested) reduces the same freshness rows to freshest/median/oldest **covered**-suburb age + the never-crawled coverage gap + a count stale past the TTL. It **alarms** (process **exit 6** + best-effort POST to `CRAWL_FRESHNESS_WEBHOOK`, Slack/Discord-shaped) when the **oldest covered suburb** exceeds `CRAWL_FRESHNESS_ALARM_HOURS` (default 120h — above the ~101h rotation the 120-suburb cap implies, so a healthy rotation cannot alarm). Never-crawled suburbs are a coverage gap, NOT an alarm (else a partially-seeded catalog alarms forever); a fresh/never-run env with zero coverage never alarms. This is the guard that catches the board silently going stale.
-- **Drain-until-empty** (shell, `deploy/housing-crawl-common.sh` `hc_drain_until_empty`). Loops `-mode agent` until the queue reports empty — parsing the collector's stable `[agent] no more jobs` / `[agent] done: processed N job(s)` lines (pinned by a comment in `runAgent`) — bounded by `CRAWL_DRAIN_MAX_ROUNDS` (default 30) and honoring the exit-3 re-warm / exit-4 Chrome breaks. Chosen over a Go re-claim loop so each `-mode agent` round keeps its per-run semantics (self-warm Chrome + end-of-run MV refresh + revalidate ping); the safety cap stays a cap.
+- **Drain-until-empty** (shell, `deploy/housing-crawl-common.sh` `hc_drain_until_empty`). Loops `-mode agent` until the queue reports empty — parsing the collector's stable `[agent] no more jobs` / `[agent] done: processed N job(s)` lines (pinned by a comment in `runAgent`) — bounded by `CRAWL_DRAIN_MAX_ROUNDS` (default 30) and honoring the exit-3 re-warm / exit-4 Chrome breaks. Chosen over a Go re-claim loop so each `-mode agent` round keeps its per-run semantics (self-warm Chrome + end-of-run MV refresh); the safety cap stays a cap. The revalidate ping is the exception: since 2026-10-21 the drain sends it once, not once per round (§10.3).
 - **Wrappers + launchd** (`deploy/`). `run-housing-delta.sh` (daily 03:00, `com.shorted.housing-delta.plist.template`) = delta enqueue → drain → freshness. `run-housing-full.sh` (fortnightly 1st/15th 02:00, `com.shorted.housing-full.plist.template`) = full enqueue → drain → freshness. Both source `~/.shorted-housing-crawl.env` and set conservative pacing (`CRAWL_MIN_DELAY_MS`/`CRAWL_MAX_DELAY_MS` 20–45s). Install/env details + the full knob table: `deploy/README.md` ("Demand-right-sizing scheduler"). The older `run-housing-agent.sh` (single drain, whole-catalog enqueue) still works unchanged.
 
 ### 6.10 Crawl health → the admin jobs dashboard (`crawl_run_status`)
@@ -654,14 +654,34 @@ TTLs only as self-healing ceilings:
 crawl batch (rig -mode agent / -mode listings / official refresh)
   └─ refreshHousingMV()  — SQL refresh of all housing MVs
       └─ pingRevalidate() — services/house-price-collector/revalidate.go
-          POST $REVALIDATION_URL?path=/price-drops,/housing&flush=housing
+          POST $REVALIDATION_URL?path=/price-drops,/housing&flush=housing&tag=housing
           X-Revalidate-Secret: $REVALIDATION_SECRET
           (detached 45s ctx; warn-only; NO-OP when env unset)
               ├─ revalidatePath(/price-drops, /housing)   — busts the ISR route cache
+              ├─ revalidateTag(housing) — the state-suburb index (unstable_cache), and
+              │    with it every state and suburb page that read it
               └─ flush=housing → deleteCachedByPrefix(cache:housing:*)  — busts KV
                      (flush= takes a comma list; `shorts` and `housing` families exist)
 next visitor → ISR regen → server actions live-fetch → repopulate KV → HIT for everyone
+
+rig drain (hc_drain_until_empty, deploy/housing-crawl-common.sh: up to
+           CRAWL_DRAIN_MAX_ROUNDS=30 `-mode agent` rounds)
+  ├─ each round runs with CRAWL_REVALIDATE_DEFER=1: refreshHousingMV(), then logs
+  │    "deferred to the drain" (revalidateAfterCrawlWrite) instead of pingRevalidate()
+  ├─ a ping owed for CRAWL_REVALIDATE_INTERVAL_SEC (3600) mid-drain
+  │    └─ -mode revalidate → pingRevalidate()
+  └─ the drain ends, whatever its exit code (which it keeps), with a ping owed
+       └─ -mode revalidate → pingRevalidate()   — the drain's one cache bust
 ```
+
+**Once per drain, not once per round.** One ping purges `/price-drops`, `/housing` and every
+state and suburb page (they share the `housing` tag) and flushes the whole `cache:housing:`
+prefix, and on Next 14 the first request after a purge renders while the visitor waits. When
+every round pinged, nearly every visit during a drain was that first request (2026-10-21:
+`/price-drops`, two GETs 20 minutes apart, both 44s at Age 0, most of it the address seed's
+retries, since bounded to one 2s attempt). A single `-mode agent` run outside the drain still
+pings itself, and `-mode listings` and `refresh` ping directly. `TestDrainWrapperMatchesTheDeferralContract`
+pins the env, the marker and the mode name in the wrapper's code.
 
 Layer map for one `/price-drops` view:
 

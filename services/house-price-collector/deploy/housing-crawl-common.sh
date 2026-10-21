@@ -214,8 +214,9 @@ hc_acquire_lock() {
 # hc_drain_until_empty loops `-mode agent` until the brandbrain queue is drained, so
 # ONE scheduled invocation clears the whole enqueue instead of leaving ~cap jobs
 # behind (each `-mode agent` run only claims up to CRAWL_AGENT_MAX_JOBS, default 20,
-# then self-warms Chrome + refreshes the housing MVs + pings revalidate). Bounded by
-# CRAWL_DRAIN_MAX_ROUNDS (default 30). Round-terminating signals, in order:
+# then self-warms Chrome + refreshes the housing MVs, and leaves its revalidate ping
+# to the drain, below). Bounded by CRAWL_DRAIN_MAX_ROUNDS (default 30).
+# Round-terminating signals, in order:
 #   rc 3  -> a sweep tripped the re-warm circuit. COOL DOWN and retry in the same
 #            invocation (CRAWL_REWARM_COOLDOWN_SEC, CRAWL_REWARM_MAX_RETRIES);
 #            only return 3 once that budget is spent. Handing a re-warm back to
