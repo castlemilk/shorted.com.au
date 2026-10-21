@@ -6,6 +6,7 @@ import { ImageResponse } from "next/og";
 import { OG_SIZE, OG_CONTENT_TYPE, OgCard, getOgLogo } from "~/@/lib/og/card";
 import { strategyArt } from "~/@/lib/strategies/art";
 import { getStrategy } from "~/@/lib/strategies/registry";
+import { sceneStill } from "~/@/lib/strategies/scenes";
 
 export const maxDuration = 15;
 
@@ -34,7 +35,9 @@ async function getStrategyArt(slug: string): Promise<string> {
 /**
  * Per-strategy card. Copy comes from the strategy registry, so the card can
  * never drift from the page's own H1 and needs no data fetch: it cannot fail
- * on the API. The baked art, where it exists, is the scene behind it.
+ * on the API. The strategy's generative scene (its still, as plate-shaped
+ * SVG) sits behind the copy; baked brandbrain art, where it exists, takes
+ * its place.
  */
 export default async function Image({
   params,
@@ -58,6 +61,7 @@ export default async function Image({
           "Named strategies applied to ASX stocks, with every rule shown pass or fail."
         }
         backgroundSrc={backgroundSrc}
+        scene={strategy ? sceneStill(strategy.slug, "plate") : undefined}
         logoSrc={logoSrc}
       />
     ),

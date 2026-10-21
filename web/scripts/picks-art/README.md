@@ -8,8 +8,11 @@ strategy's engraved glyph (`web/src/@/lib/strategies/glyphs.ts`) at scene
 scale: the mechanism the strategy waits for, never a stock chart, never a
 person.
 
-The site renders exactly as it did before art existed for any strategy that
-is not in the manifest, so this pipeline can be run one strategy at a time.
+A strategy that is not in the manifest shows its **generative scene** instead
+(`web/src/@/lib/strategies/scenes.ts`: the same mechanism, drawn as hairline
+SVG on the server and animated on a canvas in the browser), so this pipeline
+is optional and can be run one strategy at a time; baked art replaces the
+scene wherever it exists.
 
 ## Pieces
 

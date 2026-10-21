@@ -728,3 +728,9 @@ fundamentals-coverage §9:
   a status tape. Editorial art per strategy is wired through the brandbrain
   flow (`web/scripts/picks-art/`, manifest `lib/strategies/art.generated.ts`,
   empty until baked on the owner's machine).
+- DONE (2026-10-21): generative strategy scenes. `lib/strategies/scenes.ts`
+  draws each strategy's mechanism (the weir, the staircase, the fan, the
+  coil, the meter) as a pure function of (box, time): an SSR'd SVG still in
+  the ISR HTML, a Canvas 2D animation over it in the browser (no WebGL; 30
+  fps cap, paused off-screen, nothing under reduced motion), and the OG
+  card's scene. The brandbrain pipeline above stays as the override.

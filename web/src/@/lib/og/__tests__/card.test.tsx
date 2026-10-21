@@ -6,6 +6,7 @@ import {
   OgSilhouetteCard,
   OgVersus,
 } from "../card";
+import { sceneStill } from "~/@/lib/strategies/scenes";
 
 /**
  * The generators themselves need a real satori render to prove they work, so
@@ -266,5 +267,41 @@ describe("OgCard with a scene", () => {
         expect(el.props.style?.display).toBe("flex");
       }
     });
+  });
+});
+
+describe("OgCard with a generative scene", () => {
+  it("draws the scene's paths as inline SVG, flush right under the copy, unless a baked scene is given", () => {
+    const scene = sceneStill("quality-compounders", "plate");
+    const card = OgCard({ eyebrow: "E", title: "T", logoSrc: "", scene });
+    const svgs: El[] = [];
+    walk(card, (el) => {
+      if (el.type === "svg") svgs.push(el);
+    });
+    expect(svgs).toHaveLength(1);
+    expect(svgs[0]!.props.viewBox).toBe("0 0 180 120");
+    expect(svgs[0]!.props.style?.position).toBe("absolute");
+    const paths: El[] = [];
+    walk(svgs[0], (el) => {
+      if (el.type === "path") paths.push(el);
+    });
+    expect(paths).toHaveLength(scene.paths.length);
+    for (const p of paths) {
+      expect(typeof p.props.d).toBe("string");
+      expect(p.props.fill === "none" || p.props.stroke === "none").toBe(true);
+    }
+
+    const baked = OgCard({
+      eyebrow: "E",
+      title: "T",
+      logoSrc: "",
+      scene,
+      backgroundSrc: "data:image/jpeg;base64,AAAA",
+    });
+    const bakedSvgs: unknown[] = [];
+    walk(baked, (el) => {
+      if (el.type === "svg") bakedSvgs.push(el);
+    });
+    expect(bakedSvgs).toHaveLength(0);
   });
 });

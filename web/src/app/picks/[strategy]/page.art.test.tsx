@@ -3,10 +3,9 @@ import { render, screen } from "@testing-library/react";
 import StrategyPicksPage from "./page";
 import { PICKS } from "~/@/components/picks/__tests__/fixtures";
 
-// The strategy page with baked art for one strategy (page.test.tsx covers
-// the page without any): the faceplate becomes a bordered band on the scene,
-// the H1 and the provenance plate stay above it, and a strategy without art
-// keeps the hairline-ruled header.
+// The strategy page's art: baked brandbrain art for one strategy, the
+// generative scene for every other. The faceplate is a bordered band on
+// either, with the H1 and the provenance plate above it.
 jest.mock("~/@/lib/strategies/art.generated", () => ({
   STRATEGY_ART: { "zanger-breakout": { hash: "deadbeef" } },
 }));
@@ -51,10 +50,12 @@ describe("StrategyPicksPage with baked art", () => {
     expect(screen.getByText(/ASIC shorts T\+4/).closest("div")!.className).toContain("relative");
   });
 
-  it("keeps the hairline header for a strategy without art", async () => {
+  it("sets the faceplate on the generative scene for a strategy without baked art", async () => {
     render(await StrategyPicksPage({ params: params("canslim") }));
     const header = screen.getByRole("heading", { level: 1 }).closest("section")!;
-    expect(header.className).toContain("border-b border-border/40");
-    expect(header.querySelector("[data-strategy-art]")).toBeNull();
+    expect(header.className).toContain("overflow-hidden rounded-lg border");
+    const band = header.querySelector('[data-strategy-art="scene"]')!;
+    expect(band.querySelector('[data-strategy-scene="canslim"] svg')).not.toBeNull();
+    expect(band.querySelector(".banner-art")).toBeNull();
   });
 });

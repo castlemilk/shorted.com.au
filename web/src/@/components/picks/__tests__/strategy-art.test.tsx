@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 
-import { StrategyArtBand, StrategyArtPlate } from "../strategy-art";
+import { StrategyArtBand, StrategyArtPlate, hasStrategyArt } from "../strategy-art";
 import { StatusTape, StrategyCard } from "../strategy-card";
 import { strategiesWithArt, strategyArt } from "~/@/lib/strategies/art";
 import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
@@ -39,17 +39,33 @@ describe("strategyArt", () => {
 });
 
 describe("StrategyArtBand and StrategyArtPlate", () => {
-  it("render nothing at all for a strategy without art", () => {
+  it("render nothing at all for a slug with neither baked art nor a scene", () => {
     const { container } = render(
       <>
-        <StrategyArtBand slug="canslim" />
-        <StrategyArtPlate slug="canslim" />
+        <StrategyArtBand slug="not-a-strategy" />
+        <StrategyArtPlate slug="not-a-strategy" />
       </>,
     );
     expect(container.innerHTML).toBe("");
+    expect(hasStrategyArt("not-a-strategy")).toBe(false);
   });
 
-  it("draw the band through .banner-art with both theme URLs, under a scrim, decoratively", () => {
+  it("draw the strategy's generative scene by default, in both forms", () => {
+    expect(hasStrategyArt("canslim")).toBe(true);
+    const band = render(<StrategyArtBand slug="canslim" />).container.firstElementChild!;
+    expect(band).toHaveAttribute("data-strategy-art", "scene");
+    expect(band).toHaveAttribute("aria-hidden", "true");
+    expect(band.querySelector('[data-strategy-scene="canslim"][data-scene-variant="band"] svg')).not.toBeNull();
+    expect(band.querySelector(".banner-art")).toBeNull();
+    expect(band.querySelectorAll(".bg-gradient-to-r, .bg-gradient-to-t").length).toBe(2);
+
+    const plate = render(<StrategyArtPlate slug="canslim" />).container.firstElementChild!;
+    expect(plate).toHaveAttribute("data-strategy-art", "plate-scene");
+    expect(plate.className).toContain("aspect-[3/2]");
+    expect(plate.querySelector('[data-scene-variant="plate"] svg')).not.toBeNull();
+  });
+
+  it("draw the band through .banner-art with both theme URLs, under a scrim, when art is baked", () => {
     const { container } = render(<StrategyArtBand slug="zanger-breakout" />);
     const band = container.querySelector('[data-strategy-art="band"]')!;
     expect(band).toHaveAttribute("aria-hidden", "true");
@@ -66,12 +82,13 @@ describe("StrategyArtBand and StrategyArtPlate", () => {
     expect(band.textContent).toBe("");
   });
 
-  it("draws the plate as a bordered 3:2 tile", () => {
+  it("draws baked art as a bordered 3:2 plate, in place of the scene", () => {
     const { container } = render(<StrategyArtPlate slug="zanger-breakout" />);
     const plate = container.querySelector('[data-strategy-art="plate"]')!;
     expect(plate).toHaveAttribute("aria-hidden", "true");
-    expect(plate.className).toContain("banner-art");
-    expect(plate.className).toContain("aspect-[3/2]");
+    const art = plate.querySelector(".banner-art")!;
+    expect(art.className).toContain("aspect-[3/2]");
+    expect(container.querySelector("[data-strategy-scene]")).toBeNull();
   });
 });
 
@@ -123,18 +140,23 @@ describe("StrategyCard with art", () => {
     leaders: [],
   };
 
-  it("adds the plate column only for a strategy with baked art", () => {
-    const withArt = render(<StrategyCard slug="zanger-breakout" {...props} />);
-    const row = withArt.container.querySelector("article")!;
+  it("adds the plate column for every strategy with art: baked, or its scene", () => {
+    const baked = render(<StrategyCard slug="zanger-breakout" {...props} />);
+    const row = baked.container.querySelector("article")!;
     expect(row).toHaveAttribute("data-strategy-art-row");
     expect(row.querySelector('[data-strategy-art="plate"]')).not.toBeNull();
     expect(row.className).toContain("md:grid-cols-[7.5rem_2.5rem_");
     expect(row.querySelector("[data-status-tape]")).not.toBeNull();
 
-    const without = render(<StrategyCard slug="canslim" {...props} />);
-    const plain = without.container.querySelector("article")!;
+    const scene = render(<StrategyCard slug="canslim" {...props} />);
+    const sceneRow = scene.container.querySelector("article")!;
+    expect(sceneRow).toHaveAttribute("data-strategy-art-row");
+    expect(sceneRow.querySelector('[data-strategy-art="plate-scene"]')).not.toBeNull();
+
+    const none = render(<StrategyCard slug="not-a-strategy" {...props} />);
+    const plain = none.container.querySelector("article")!;
     expect(plain).not.toHaveAttribute("data-strategy-art-row");
-    expect(plain.querySelector('[data-strategy-art="plate"]')).toBeNull();
+    expect(plain.querySelector("[data-strategy-art]")).toBeNull();
     expect(plain.className).toContain("md:grid-cols-[2.5rem_");
   });
 });

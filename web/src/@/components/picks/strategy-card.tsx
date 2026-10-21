@@ -9,9 +9,8 @@ import {
 } from "~/@/lib/strategies/shortlist";
 import { PICK_STATUSES, type PickStatus } from "~/@/lib/strategies/types";
 import { StatusPill } from "./picks-table";
-import { StrategyArtPlate } from "./strategy-art";
+import { StrategyArtPlate, hasStrategyArt } from "./strategy-art";
 import { StrategyGlyph } from "./strategy-glyph";
-import { strategyArt } from "~/@/lib/strategies/art";
 
 /**
  * One strategy on the /picks hub: one instrument in the rack. The rack is a
@@ -131,9 +130,10 @@ export function StrategyCard({
   leaders,
 }: StrategyCardProps) {
   const href = `/picks/${slug}`;
-  // With baked art the row gains a plate column on md+ (the scene beside
-  // the glyph); without it the grid is exactly what it was.
-  const art = strategyArt(slug) !== null;
+  // With art (the strategy's scene, or baked brandbrain art) the row gains
+  // a plate column on md+ beside the glyph; without any, the grid is what
+  // it was.
+  const art = hasStrategyArt(slug);
   return (
     <article
       data-strategy-art-row={art ? "" : undefined}

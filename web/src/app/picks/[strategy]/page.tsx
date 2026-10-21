@@ -17,9 +17,11 @@ import { RegimeBanner } from "~/@/components/picks/regime-banner";
 import { PicksProvenance } from "~/@/components/picks/picks-provenance";
 import { PicksFilterView } from "~/@/components/picks/picks-filter-view";
 import { RuleLegend, type RuleColumn } from "~/@/components/picks/picks-table";
-import { StrategyArtBand } from "~/@/components/picks/strategy-art";
+import {
+  StrategyArtBand,
+  hasStrategyArt,
+} from "~/@/components/picks/strategy-art";
 import { StrategyBezel } from "~/@/components/picks/strategy-glyph";
-import { strategyArt } from "~/@/lib/strategies/art";
 import { StrategyPanel } from "~/@/components/picks/strategy-panel";
 import { StrategySwitcher } from "~/@/components/picks/strategy-switcher";
 import {
@@ -189,13 +191,13 @@ export default async function StrategyPicksPage({ params }: PageProps) {
         {/* The instrument's faceplate: its glyph lit in the bezel beside the
             serif H1, the provenance nameplate under it. A 320ms phosphor
             warm-up on load; the H1 is painted from the first frame. With
-            baked art (lib/strategies/art.ts) the faceplate sits on the
-            strategy's scene under a scrim, a bordered band like the suburb
-            banner; without it, the hairline-ruled header it always was. */}
+            art (the strategy's generative scene, or baked brandbrain art)
+            the faceplate sits on it under a scrim, a bordered band like the
+            suburb banner; without any, the hairline-ruled header. */}
         <section
           className={cn(
             "motion-safe:animate-phosphor-warm",
-            strategyArt(seo.slug)
+            hasStrategyArt(seo.slug)
               ? "relative overflow-hidden rounded-lg border border-border/60 p-4 sm:p-6"
               : "border-b border-border/40 pb-6",
           )}
