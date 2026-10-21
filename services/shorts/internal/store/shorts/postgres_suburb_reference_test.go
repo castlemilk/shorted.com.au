@@ -219,3 +219,48 @@ func TestReadSuburbReference_FallsBackOnlyWhenAViewIsMissing(t *testing.T) {
 		t.Fatalf("non-42P01 error: got %v after %v; want it returned with no fallback", err, tried)
 	}
 }
+
+// A missing hand-applied table the queries also join (a metric merged before
+// its table reached prod) is not a missing 000139 view: it must surface as
+// itself and leave every other suburb reader on the views.
+func TestReadSuburbReference_AnotherMissingRelationSurfaces(t *testing.T) {
+	suburbViewsMissingUntil.Store(0)
+	t.Cleanup(func() { suburbViewsMissingUntil.Store(0) })
+	planning := &pgconn.PgError{Code: "42P01", Message: `relation "suburb_planning" does not exist`}
+
+	var tried []suburbReadSource
+	_, err := readSuburbReference("test", func(src suburbReadSource) (string, error) {
+		tried = append(tried, src)
+		return "", planning
+	})
+	if !errors.Is(err, planning) || len(tried) != 1 || tried[0] != suburbFromViews {
+		t.Fatalf("got %v after %v; want the 42P01 returned from the views read, no live SQL", err, tried)
+	}
+	if until := suburbViewsMissingUntil.Load(); until != 0 {
+		t.Fatalf("the recheck window opened (until %d): other readers would leave the views", until)
+	}
+}
+
+func TestIsMissingSuburbReferenceView(t *testing.T) {
+	for msg, want := range map[string]bool{
+		`relation "mv_suburb_latest_price" does not exist`:        true,
+		`relation "mv_housing_state_baselines" does not exist`:    true,
+		`relation "mv_suburb_similarity_features" does not exist`: true,
+		`relation "public.mv_suburb_latest_price" does not exist`: true,
+		`relation "suburb_planning" does not exist`:               false,
+		`relation "suburb_hazard_exposure" does not exist`:        false,
+		`relation "mv_register_suburb_property" does not exist`:   false,
+		`relation "mv_suburb_latest_price_v2" does not exist`:     false,
+	} {
+		if got := isMissingSuburbReferenceView(&pgconn.PgError{Code: "42P01", Message: msg}); got != want {
+			t.Errorf("%s: got %v, want %v", msg, got, want)
+		}
+	}
+	// The view's name under another error code is not a missing view.
+	if isMissingSuburbReferenceView(&pgconn.PgError{Code: "42501", Message: `permission denied for materialized view mv_suburb_latest_price`}) {
+		t.Error("a permission error must not count as a missing view")
+	}
+	if isMissingSuburbReferenceView(errors.New(`relation "mv_suburb_latest_price" does not exist`)) {
+		t.Error("only a Postgres 42P01 counts")
+	}
+}

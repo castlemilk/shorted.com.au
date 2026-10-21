@@ -1,11 +1,14 @@
 package shorts
 
 import (
+	"errors"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Suburb reference views (migration 000139).
@@ -16,8 +19,9 @@ import (
 // the state baselines and the similarity deviations. That was a third of all
 // prod database time (2026-10-21 review, DBP-01). 000139 materializes them;
 // the readers take them from there and fall back to the live SQL below only
-// when a view does not exist (42P01), so a database without 000139 (dev, test,
-// or prod before the hand-apply) keeps working at the old cost.
+// when one of those views does not exist (a 42P01 naming it), so a database
+// without 000139 (dev, test, or prod before the hand-apply) keeps working at
+// the old cost.
 //
 // Both sources expose the same columns under the same aliases (r.* for the
 // price, sb.* for the baselines), so every reader has one select list.
@@ -201,22 +205,39 @@ const suburbViewsRecheck = 5 * time.Minute
 // views; zero while they have not been found missing.
 var suburbViewsMissingUntil atomic.Int64
 
+// suburbReferenceViewName matches a 000139 view as Postgres quotes it in a
+// 42P01 message ("relation \"mv_suburb_latest_price\" does not exist"), bare
+// or schema-qualified.
+var suburbReferenceViewName = regexp.MustCompile(`"(?:[^".]+\.)?(?:mv_suburb_latest_price|mv_housing_state_baselines|mv_suburb_similarity_features)"`)
+
+// isMissingSuburbReferenceView reports a 42P01 that names one of the 000139
+// views. Any 42P01 is not enough: the same queries join hand-applied tables
+// (suburb_planning, suburb_hazard_exposure, suburb_connectivity, suburb_lga,
+// mv_register_suburb_property), and one of those missing fails the live SQL
+// too. Treating it as "000139 not applied" would send every suburb reader in
+// the process to the per-request SQL for suburbViewsRecheck, again each time
+// a request for that metric arrived, under a log line naming the wrong cause.
+func isMissingSuburbReferenceView(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "42P01" && suburbReferenceViewName.MatchString(pgErr.Message)
+}
+
 // readSuburbReference runs read against the 000139 views and, only when one
-// of them does not exist (42P01), against the live SQL. Any other error is
-// returned as is: falling back on a timeout would hide a sick view behind the
-// slow query it replaced. The fallback is logged once per reader per process.
+// of them does not exist (isMissingSuburbReferenceView), against the live SQL.
+// Any other error, another missing relation included, is returned as is:
+// falling back on a timeout would hide a sick view behind the slow query it
+// replaced. The fallback is logged once per reader per process.
 func readSuburbReference[T any](reader string, read func(src suburbReadSource) (T, error)) (T, error) {
 	if time.Now().UnixNano() < suburbViewsMissingUntil.Load() {
 		return read(suburbFromLiveSQL)
 	}
-	return fallbackOnUndefinedTable(
-		func() (T, error) { return read(suburbFromViews) },
-		func(err error) (T, error) {
-			suburbViewsMissingUntil.Store(time.Now().Add(suburbViewsRecheck).UnixNano())
-			logSuburbViewsMissingOnce(reader, err)
-			return read(suburbFromLiveSQL)
-		},
-	)
+	out, err := read(suburbFromViews)
+	if err == nil || !isMissingSuburbReferenceView(err) {
+		return out, err
+	}
+	suburbViewsMissingUntil.Store(time.Now().Add(suburbViewsRecheck).UnixNano())
+	logSuburbViewsMissingOnce(reader, err)
+	return read(suburbFromLiveSQL)
 }
 
 // suburbViewsMissingLog holds one sync.Once per reader.
