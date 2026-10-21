@@ -2,7 +2,6 @@ import Link from "next/link";
 import type {
   KindShare,
   OwnershipStock,
-  SubstantialNotice,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
 import { Badge } from "~/@/components/ui/badge";
 import {
@@ -15,15 +14,15 @@ import {
 } from "~/@/components/ui/table";
 import { formatAmount, formatPct } from "~/@/lib/fundamentals/format";
 import { holderHref, kindInfo, kindRank } from "~/@/lib/ownership/kinds";
-import { noticeRow } from "~/@/lib/ownership/rows";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { cn } from "~/@/lib/utils";
-import { NoticeRowsTable } from "./ownership-tables";
 
 // Server components only: no "use client", no Connect import, type imports
 // from the generated code. The ownership pages and the stock page's Company
-// tab draw these into ISR HTML; the long tables are islands
-// (ownership-tables.tsx) fed formatted rows (lib/ownership/rows.ts).
+// tab draw these into ISR HTML. The long tables are islands
+// (ownership-tables.tsx, NoticeTable in notice-table.tsx), never imported
+// from here: Next ships every client module a route's server graph reaches,
+// and the Company tab reaches this file.
 
 /**
  * A sum of voting powers: two decimals, so a column of sums lines up. A single
@@ -213,38 +212,6 @@ export function HolderName({
     </Link>
   ) : (
     <span>{text}</span>
-  );
-}
-
-/**
- * Substantial holding notices, newest first. With a `limit`, the rows past it
- * wait behind "Show all". The page draws ExternalLinkSymbol, which each
- * notice's ASX link points at.
- */
-export function NoticeTable({
-  notices,
-  showStock = true,
-  showHolder = true,
-  caption,
-  limit,
-}: {
-  notices: readonly SubstantialNotice[];
-  showStock?: boolean;
-  showHolder?: boolean;
-  caption: string;
-  limit?: number;
-}) {
-  if (notices.length === 0) {
-    return <p className="text-sm text-muted-foreground">No notices on record.</p>;
-  }
-  return (
-    <NoticeRowsTable
-      rows={notices.map((n) => noticeRow(n, showHolder))}
-      showStock={showStock}
-      showHolder={showHolder}
-      caption={caption}
-      limit={limit}
-    />
   );
 }
 

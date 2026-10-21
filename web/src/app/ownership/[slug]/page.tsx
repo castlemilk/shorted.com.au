@@ -3,11 +3,8 @@ import { notFound } from "next/navigation";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { BreadcrumbStructuredData, Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { ExternalLinkGlyph, ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
-import {
-  KindBadge,
-  NoticeTable,
-  OwnershipMethodology,
-} from "~/@/components/ownership/ownership-parts";
+import { NoticeTable } from "~/@/components/ownership/notice-table";
+import { KindBadge, OwnershipMethodology } from "~/@/components/ownership/ownership-parts";
 import { FileHoldingsTable, SubstantialHoldingsTable } from "~/@/components/ownership/ownership-tables";
 import { formatAmount } from "~/@/lib/fundamentals/format";
 import { institutionIsIndexable } from "~/@/lib/ownership/indexability";

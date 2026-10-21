@@ -19,11 +19,11 @@ import {
 } from "~/@/components/ui/table";
 import {
   KindBadge,
-  NoticeTable,
   OwnershipMethodology,
   OwnershipStockTable,
 } from "~/@/components/ownership/ownership-parts";
 import { ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
+import { NoticeTable } from "~/@/components/ownership/notice-table";
 import { formatAmount } from "~/@/lib/fundamentals/format";
 import { KIND_ORDER, kindInfo, kindRank } from "~/@/lib/ownership/kinds";
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";

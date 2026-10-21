@@ -6,7 +6,8 @@ import type {
   SubstantialNotice,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
 import { EXTERNAL_LINK_SYMBOL_ID, ExternalLinkSymbol } from "../external-link-glyph";
-import { KindBar, NoticeTable, OwnershipStockTable } from "../ownership-parts";
+import { NoticeTable } from "../notice-table";
+import { KindBar, OwnershipStockTable } from "../ownership-parts";
 import { FileHoldingsTable, SubstantialHoldingsTable } from "../ownership-tables";
 import { StockOwnershipView } from "../stock-ownership-view";
 import {
