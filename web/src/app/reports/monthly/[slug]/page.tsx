@@ -73,8 +73,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
   const headline = enhanced?.headline;
 
-  const title = headline
-    ?? `ASX Short Selling Report: ${monthTitle}`;
+  // The document title is the query-matching series form, as the weekly's is;
+  // the editorial headline stays the H1 and titles the social card. Titled by
+  // the headline, the published months rendered at 70-86 characters ("BAP
+  // shorts hit the eject button — while BOE and IPX crash the top 10 |
+  // Shorted", 2026-10-21) and were cut off in results without the month or
+  // the query in them.
+  const title = `ASX Short Selling Report: ${monthTitle}`;
+  const socialTitle = headline ?? title;
   const description = enhanced?.summary
     ?? `Monthly short selling report for the ASX — ${monthTitle}. Top shorted stocks, industry analysis, and aggregate short interest from official ASIC data.`;
 
@@ -103,7 +109,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       "ASIC monthly report",
     ],
     openGraph: {
-      title,
+      title: socialTitle,
       description,
       url: `${siteConfig.url}/reports/monthly/${slug}`,
       siteName: siteConfig.name,
@@ -126,7 +132,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       site: "@shorted___",
       creator: "@shorted___",
       card: "summary_large_image",
-      title,
+      title: socialTitle,
       description,
       images: [`${siteConfig.url}/reports/monthly/${slug}/opengraph-image`],
     },

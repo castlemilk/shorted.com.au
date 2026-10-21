@@ -48,7 +48,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const formattedDate = formatDate(date);
 
   // Root layout applies a `%s | Shorted` title template — no brand suffix here.
-  const title = `ASX Short Positions on ${formattedDate} | Daily ASIC Report`;
+  // No weekday either: "ASX Short Positions on Thursday 15 October 2026 | Daily
+  // ASIC Report | Shorted" rendered at 77 characters and was cut off in
+  // results (2026-10-21). This form is at most 59 before the template; the
+  // description keeps the weekday.
+  const title = `ASX Short Positions on ${formatTitleDate(date)}: Daily ASIC Report`;
   const description = `Reported ASX securities with positive short positions for ${formattedDate}. View the top 50 securities, including shares, ETFs and debt, from ASIC data published with a T+4 delay.`;
 
   return {
@@ -98,6 +102,17 @@ function formatDate(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00Z");
   return date.toLocaleDateString("en-AU", {
     weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** "15 October 2026": the title's date, without the weekday. */
+function formatTitleDate(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00Z");
+  return date.toLocaleDateString("en-AU", {
     year: "numeric",
     month: "long",
     day: "numeric",
