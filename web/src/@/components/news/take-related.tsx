@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import { getStock } from "~/app/actions/getStock";
 import { getStockNews } from "~/app/actions/getStockNews";
 import { listEditorialTakes } from "~/app/actions/getEditorialTake";
@@ -27,6 +28,14 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
     getStockNews(stockCode, 6).catch(() => undefined),
     listEditorialTakes(10, 0, stockCode).catch(() => undefined),
   ]);
+  // The take page is on-demand ISR (600 s), so a soft-failed read would be
+  // cached for ten minutes as "Stock info unavailable", or as no news and no
+  // other takes (and the page's NewsArticle names the company by its code: the
+  // same cached stock read). Cap such a render at a minute. Only a failure
+  // comes back undefined from the news and takes reads, which answer an empty
+  // list; getStock also does for a code the API does not know, whose take
+  // then regenerates every minute and caches nothing wrong.
+  if (!stock || !news || !takes) await bailOnEmptyRender();
 
   const otherTakes = (takes?.takes ?? []).filter((t) => t.slug !== excludeSlug).slice(0, 4);
   const recentNews = news?.articles ?? [];
