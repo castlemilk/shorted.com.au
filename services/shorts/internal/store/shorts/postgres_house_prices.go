@@ -491,7 +491,15 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 	if limit <= 0 || limit > 20000 {
 		limit = 5000
 	}
-	const q = `
+	return readSuburbReference("ListStateSuburbs", func(src suburbReadSource) ([]*SuburbSummaryRow, error) {
+		return s.listStateSuburbs(ctx, src, stateCode, query, limit)
+	})
+}
+
+// listStateSuburbsQuery is the state list for src: about 5,000 rows per state,
+// each joined to its suburb's price (one region per SAL) by sal_code.
+func listStateSuburbsQuery(src suburbReadSource) string {
+	return `
 		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(d.postcode, ''),
 		       COALESCE(r.value, 0), r.period, COALESCE(r.yoy_pct, 0),
 		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
@@ -514,7 +522,7 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       ` + nbnTechDisplayExpr + `, ` + nbnScoreDisplayExpr + `,
 		       cr.break_ins_rank, cr.violent_rank, cr.motor_vehicle_rank,
 		       COALESCE(rp.declared_property_count, 0)
-		FROM suburb_demographics d` + preferredSuburbRegionJoin + `
+		FROM suburb_demographics d` + suburbPriceJoin(src) + `
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
 		-- Register-of-interests property counts. Read from the MV, never a
@@ -524,7 +532,10 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		  AND ($2 = '' OR d.sal_name ILIKE '%' || $2 || '%')
 		ORDER BY d.sal_name
 		LIMIT $3`
-	rows, err := s.db.Query(ctx, q, stateCode, query, limit)
+}
+
+func (s *postgresStore) listStateSuburbs(ctx context.Context, src suburbReadSource, stateCode, query string, limit int32) ([]*SuburbSummaryRow, error) {
+	rows, err := s.db.Query(ctx, listStateSuburbsQuery(src), stateCode, query, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +569,7 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 }
 
 // StateCensusAveragesRow is a state's Census shares rebuilt from its suburbs
-// (see stateCensusAveragesJoin). 0 = not computable for the state.
+// (see suburbBaselinesJoin). 0 = not computable for the state.
 type StateCensusAveragesRow struct {
 	PctOwnedOutright             float64
 	PctOwnedMortgage             float64
@@ -593,39 +604,14 @@ const suburbProfileABSReferenceJoin = `
 		    AND hh.measure = 'median_price' AND hh.dwelling_type = 'established_house'
 		) abs_ref ON true`
 
-// stateCensusAveragesJoin computes, in one pass over the state's suburbs, the
-// state references for the income bar and the household cards. Each share is
-// rebuilt as SUM(share × weight) / SUM(weight) over the suburbs that carry it
-// (a suburb below an ingest floor is NULL and drops out of both sums), weighted
-// by the denominator it is a share of: dwelling_count for tenure, structure and
-// household mix, population for the person rates (the labour force is not
-// stored, so unemployment is resident-weighted).
-const stateCensusAveragesJoin = `
-		LEFT JOIN LATERAL (
-		  SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY sd.median_weekly_hhd_income)
-		           FILTER (WHERE sd.median_weekly_hhd_income > 0) AS median_hhd_income,
-		         SUM(sd.pct_owned_outright * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_owned_outright IS NOT NULL), 0) AS pct_owned_outright,
-		         SUM(sd.pct_owned_mortgage * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_owned_mortgage IS NOT NULL), 0) AS pct_owned_mortgage,
-		         SUM(sd.pct_rented * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_rented IS NOT NULL), 0) AS pct_rented,
-		         SUM(sd.pct_separate_house * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_separate_house IS NOT NULL), 0) AS pct_separate_house,
-		         SUM(sd.pct_flat_apartment * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_flat_apartment IS NOT NULL), 0) AS pct_flat_apartment,
-		         SUM(sd.pct_couple_with_children * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_couple_with_children IS NOT NULL), 0) AS pct_couple_with_children,
-		         SUM(sd.pct_lone_person_household * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_lone_person_household IS NOT NULL), 0) AS pct_lone_person_household,
-		         SUM(sd.unemployment_rate * sd.population) / NULLIF(SUM(sd.population) FILTER (WHERE sd.unemployment_rate IS NOT NULL), 0) AS unemployment_rate,
-		         SUM(sd.labour_force_participation_rate * sd.population) / NULLIF(SUM(sd.population) FILTER (WHERE sd.labour_force_participation_rate IS NOT NULL), 0) AS labour_force_participation_rate,
-		         SUM(sd.pct_bachelor_or_higher * sd.population) / NULLIF(SUM(sd.population) FILTER (WHERE sd.pct_bachelor_or_higher IS NOT NULL), 0) AS pct_bachelor_or_higher,
-		         SUM(sd.pct_low_personal_income * sd.population) / NULLIF(SUM(sd.population) FILTER (WHERE sd.pct_low_personal_income IS NOT NULL), 0) AS pct_low_personal_income,
-		         SUM(sd.pct_high_personal_income * sd.population) / NULLIF(SUM(sd.population) FILTER (WHERE sd.pct_high_personal_income IS NOT NULL), 0) AS pct_high_personal_income
-		  FROM suburb_demographics sd
-		  WHERE sd.state_code = d.state_code
-		) sc ON true`
-
-// GetSuburbProfile returns one suburb's full demographics + headline price +
-// state/national comparison baselines.
-func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	const q = `
+// suburbProfileQuery is one suburb's profile row for src. The state references
+// for the price and income bars and the household cards are sb.*
+// (suburbBaselinesJoin, postgres_suburb_reference.go): mv_housing_state_baselines
+// (000139) or, without it, the same aggregates computed per request. No
+// national price baseline exists (no open national median house price does,
+// and the old one averaged NSW+VIC+SA suburbs under "AU"), so that slot stays 0.
+func suburbProfileQuery(src suburbReadSource) string {
+	return `
 		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(d.postcode, ''),
 		       COALESCE(r.value, 0), r.period, COALESCE(r.yoy_pct, 0),
 		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
@@ -652,30 +638,18 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(d.dwelling_count, 0), COALESCE(d.census_year, 2021),
 		       COALESCE(d.pct_english_only, 0), COALESCE(d.pct_top_religion, 0),
 		       COALESCE(d.pct_no_religion, 0),
-		       -- state baseline: MEDIAN of the latest public median per priced suburb in
-		       -- the state (covers VIC annual). A mean let one $110.5M development sale
-		       -- move NSW by ~$45k.
-		       COALESCE((SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY latest) FROM (
-		                 SELECT DISTINCT ON (hp.region_code) hp.value AS latest
-		                 FROM house_prices hp JOIN house_price_regions sr ON sr.region_code = hp.region_code
-		                 WHERE sr.state_code = d.state_code AND sr.region_type = 'suburb' AND hp.source_licence <> 'proprietary-tos-restricted'
-		                   AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
-		                 ORDER BY hp.region_code, hp.period DESC) s), 0),
-		       -- no national price baseline: no open national median house price
-		       -- exists, and the old one averaged NSW+VIC+SA suburbs under "AU".
+		       COALESCE(sb.state_median_price, 0),
 		       0::float8,
-		       -- income: the median suburb's median, in the state and nationally.
-		       COALESCE(sc.median_hhd_income, 0),
-		       COALESCE((SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY median_weekly_hhd_income)
-		                 FROM suburb_demographics WHERE median_weekly_hhd_income > 0), 0),
+		       COALESCE(sb.median_hhd_income, 0),
+		       COALESCE(sb.national_median_hhd_income, 0),
 		       COALESCE(abs_ref.capital_price, 0), COALESCE(abs_ref.capital_name, ''), COALESCE(abs_ref.capital_code, ''),
 		       COALESCE(abs_ref.rest_price, 0), COALESCE(abs_ref.rest_name, ''), abs_ref.period,
-		       COALESCE(sc.pct_owned_outright, 0), COALESCE(sc.pct_owned_mortgage, 0), COALESCE(sc.pct_rented, 0),
-		       COALESCE(sc.pct_separate_house, 0), COALESCE(sc.pct_flat_apartment, 0),
-		       COALESCE(sc.pct_couple_with_children, 0), COALESCE(sc.pct_lone_person_household, 0),
-		       COALESCE(sc.unemployment_rate, 0), COALESCE(sc.labour_force_participation_rate, 0),
-		       COALESCE(sc.pct_bachelor_or_higher, 0),
-		       COALESCE(sc.pct_low_personal_income, 0), COALESCE(sc.pct_high_personal_income, 0),
+		       COALESCE(sb.pct_owned_outright, 0), COALESCE(sb.pct_owned_mortgage, 0), COALESCE(sb.pct_rented, 0),
+		       COALESCE(sb.pct_separate_house, 0), COALESCE(sb.pct_flat_apartment, 0),
+		       COALESCE(sb.pct_couple_with_children, 0), COALESCE(sb.pct_lone_person_household, 0),
+		       COALESCE(sb.unemployment_rate, 0), COALESCE(sb.labour_force_participation_rate, 0),
+		       COALESCE(sb.pct_bachelor_or_higher, 0),
+		       COALESCE(sb.pct_low_personal_income, 0), COALESCE(sb.pct_high_personal_income, 0),
 		       COALESCE(lg.lga_code24,''), COALESCE(lg.lga_name,''), COALESCE(lg.state_code,''), COALESCE(lg.area_sqkm,0), COALESCE(lg.population,0),
 		       COALESCE(lg.fed_fag_aud,0), COALESCE(lg.fed_fag_year,''),
 		       COALESCE(lg.avg_rates,0), COALESCE(lg.op_surplus_ratio,0), COALESCE(lg.asset_renewal_ratio,0),
@@ -694,19 +668,39 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       d.unemployment_rate, d.labour_force_participation_rate,
 		       d.pct_bachelor_or_higher, d.pct_separate_house, d.pct_flat_apartment,
 		       d.pct_couple_with_children, d.pct_lone_person_household
-		FROM suburb_demographics d` + preferredSuburbRegionJoin + `
+		FROM suburb_demographics d` + suburbPriceJoin(src) + `
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
 		LEFT JOIN suburb_lga sl ON sl.sal_code = d.sal_code
 		LEFT JOIN lga lg ON lg.lga_code24 = sl.lga_code24
-		LEFT JOIN mv_register_suburb_property rp ON rp.sal_code = d.sal_code` + suburbProfileABSReferenceJoin + stateCensusAveragesJoin + `
+		LEFT JOIN mv_register_suburb_property rp ON rp.sal_code = d.sal_code` + suburbProfileABSReferenceJoin + suburbBaselinesJoin(src) + `
 		WHERE d.sal_code = $1
 		LIMIT 1`
+}
+
+// GetSuburbProfile returns one suburb's full demographics + headline price +
+// state/national comparison baselines.
+func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	p, err := readSuburbReference("GetSuburbProfile", func(src suburbReadSource) (*SuburbProfileRow, error) {
+		return s.scanSuburbProfile(ctx, src, salCode)
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.attachSuburbProfileExtras(ctx, salCode, p)
+	return p, nil
+}
+
+// scanSuburbProfile reads the profile row itself; the optional blocks are
+// attachSuburbProfileExtras.
+func (s *postgresStore) scanSuburbProfile(ctx context.Context, src suburbReadSource, salCode string) (*SuburbProfileRow, error) {
 	var p SuburbProfileRow
 	var rawSeifa nullableSuburbSeifa
 	var rawElevation nullableSuburbElevation
 	var rawExpandedCensus nullableExpandedCensus
-	row := s.db.QueryRow(ctx, q, salCode)
+	row := s.db.QueryRow(ctx, suburbProfileQuery(src), salCode)
 	if err := row.Scan(
 		&p.Summary.SALCode, &p.Summary.SALName, &p.Summary.StateCode, &p.Summary.Postcode,
 		&p.Summary.LatestMedianPrice, &p.Summary.LatestPeriod, &p.Summary.YoYPct,
@@ -754,6 +748,12 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 	p.Summary.Seifa = mapSuburbSeifa(rawSeifa)
 	p.Elevation = mapSuburbElevation(rawElevation)
 	p.ExpandedCensus = mapExpandedCensus(rawExpandedCensus)
+	return &p, nil
+}
+
+// attachSuburbProfileExtras adds the profile's optional blocks, each its own
+// query and each tolerated on failure.
+func (s *postgresStore) attachSuburbProfileExtras(ctx context.Context, salCode string, p *SuburbProfileRow) {
 	if sim, err := s.similarSuburbs(ctx, salCode, 6); err == nil {
 		p.Similar = sim
 	} else {
@@ -787,7 +787,6 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 			log.Warnf("GetSuburbProfile(%s): council facts unavailable: %v", salCode, err)
 		}
 	}
-	return &p, nil
 }
 
 // SuburbCouncilRow is the suburb's dominant council beyond the base columns
@@ -1140,56 +1139,17 @@ func buildSuburbPlanningRow(row *SuburbPlanningRow, shares []sql.NullFloat64, sc
 // similarSuburbs finds the k nearest suburbs nationally in a z-scored feature
 // space (age, income, born-overseas, amenity density, log-population, and
 // distance-to-coast capped at 100km so coastal suburbs cluster together) — the
-// knowledge-graph "similar_to" relation, computed at query time.
+// knowledge-graph "similar_to" relation. The features come precomputed from
+// mv_suburb_similarity_features (000139), or are computed per request without
+// it (similarSuburbsLiveQuery).
 func (s *postgresStore) similarSuburbs(ctx context.Context, salCode string, limit int32) ([]SimilarSuburbRow, error) {
-	const q = `
-		WITH stats AS (
-			SELECT NULLIF(stddev_pop(d.median_age),0) sage,
-			       NULLIF(stddev_pop(d.median_weekly_hhd_income),0) sinc,
-			       NULLIF(stddev_pop(d.pct_born_overseas),0) sbo,
-			       NULLIF(stddev_pop(COALESCE(a.amenity_density_score,0)),0) sden,
-			       NULLIF(stddev_pop(ln(GREATEST(d.population,1))),0) spop,
-			       NULLIF(stddev_pop(LEAST(COALESCE(a.dist_to_coast_km,0),100)),0) scoast
-			FROM suburb_demographics d LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
-			WHERE d.population > 200
-		),
-		tgt AS (
-			SELECT d.median_age ma, d.median_weekly_hhd_income mi, d.pct_born_overseas mb,
-			       COALESCE(a.amenity_density_score,0) md, ln(GREATEST(d.population,1)) mp,
-			       LEAST(COALESCE(a.dist_to_coast_km,0),100) mc
-			FROM suburb_demographics d LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
-			WHERE d.sal_code = $1
-		),
-		ranked AS (
-			SELECT d.sal_code, d.sal_name, d.state_code,
-			       sqrt(
-			         COALESCE(pow((d.median_age - tgt.ma)/stats.sage,2),0) +
-			         COALESCE(pow((d.median_weekly_hhd_income - tgt.mi)/stats.sinc,2),0) +
-			         COALESCE(pow((d.pct_born_overseas - tgt.mb)/stats.sbo,2),0) +
-			         COALESCE(pow((COALESCE(a.amenity_density_score,0) - tgt.md)/stats.sden,2),0) +
-			         COALESCE(pow((ln(GREATEST(d.population,1)) - tgt.mp)/stats.spop,2),0) +
-			         COALESCE(pow((LEAST(COALESCE(a.dist_to_coast_km,0),100) - tgt.mc)/stats.scoast,2),0)
-			       ) AS dist
-			FROM suburb_demographics d
-			LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
-			CROSS JOIN tgt CROSS JOIN stats
-			WHERE d.sal_code <> $1 AND d.population > 200
-			  AND d.median_age IS NOT NULL AND d.median_weekly_hhd_income IS NOT NULL
-			ORDER BY dist ASC NULLS LAST
-			LIMIT $2
-		)
-		-- Price is display-only (it never enters the distance), so defer the
-		-- per-candidate latest-median LATERAL probe until AFTER the top-k are
-		-- chosen: k probes instead of one per ~15k candidate suburbs. It is the
-		-- SAME one-region-per-SAL preference the list and profile readers use:
-		-- a bare join on house_price_regions fanned out on every SAL carrying
-		-- both a crawl key and a Valuer-General key (329 in prod), so the list
-		-- repeated suburbs and returned more rows than its LIMIT.
-		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(r.value,0),
-		       COALESCE(r.region_code,''), d.dist
-		FROM ranked d` + preferredSuburbRegionJoin + `
-		ORDER BY d.dist ASC NULLS LAST, d.sal_code`
-	rows, err := s.db.Query(ctx, q, salCode, limit)
+	return readSuburbReference("similarSuburbs", func(src suburbReadSource) ([]SimilarSuburbRow, error) {
+		return s.querySimilarSuburbs(ctx, src, salCode, limit)
+	})
+}
+
+func (s *postgresStore) querySimilarSuburbs(ctx context.Context, src suburbReadSource, salCode string, limit int32) ([]SimilarSuburbRow, error) {
+	rows, err := s.db.Query(ctx, similarSuburbsQuery(src), salCode, limit)
 	if err != nil {
 		return nil, err
 	}

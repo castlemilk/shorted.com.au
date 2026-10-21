@@ -394,7 +394,7 @@ tasks:
       - npx tsx src/index.ts import-mdx {{.TARGET}} --dry-run
 
   db:prod:refresh:
-    desc: "Refresh prod materialized views (WHICH=all|housing|register, CONFIRM=prod)"
+    desc: "Refresh prod materialized views (WHICH=all|housing|register|suburbs, CONFIRM=prod)"
     summary: |
       SESSION pooler (5432) with statement_timeout=0. On the txn pooler (6543)
       a REFRESH ... CONCURRENTLY is killed mid-flight. That is how five MVs went
@@ -407,6 +407,11 @@ tasks:
       functions catch a failed view and RAISE only a WARNING ('Skipping mv_…'),
       so a view that hit the limit was skipped and the call still reported
       success. The wrapper now exits 1 when any view was skipped.
+
+      WHICH=suburbs refreshes the suburb reference views (000139: latest
+      public price per SAL, state baselines, similarity features). The
+      collector does it after every official load; run it by hand after a
+      hand-run fix to house_prices, suburb_demographics or suburb_amenities.
 
       Do not use scripts/refresh-materialized-views.sh: it rewrites 5432 to 6543.
     requires: {vars: [CONFIRM]}
@@ -425,6 +430,7 @@ tasks:
         case "{{.WHICH}}" in
           housing)  fn=refresh_housing_materialized_views ;;
           register) fn=refresh_register_materialized_views ;;
+          suburbs)  fn=refresh_suburb_reference_views ;;
         esac
         scripts/prod-psql.sh refresh "$fn"
 

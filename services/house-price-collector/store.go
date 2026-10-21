@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -182,6 +184,43 @@ func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, `SET LOCAL statement_timeout = 0;
 		SELECT refresh_housing_materialized_views()`)
 	return err
+}
+
+// refreshSuburbReferenceViews refreshes the suburb reference views of
+// migration 000139 (each SAL's latest public median, the state baselines and
+// the similar-suburbs features) that the API's suburb list, profile and
+// similar suburbs read instead of recomputing them per request. Their inputs
+// are official data only: public-licence suburb medians, the Census and the
+// amenities. So this runs after an official or Valuer-General load, -mode
+// refresh and the Census/amenity loads, never after a crawl drain (the crawl
+// writes only proprietary rows, which the views never read).
+//
+// A database without 000139 has no such function (42883): that is a skipped
+// step, never a failed run, so the collector can ship before the hand-apply.
+func refreshSuburbReferenceViews(ctx context.Context, pool *pgxpool.Pool) error {
+	_, err := pool.Exec(ctx, `SET LOCAL statement_timeout = 0;
+		SELECT refresh_suburb_reference_views()`)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "42883" {
+		log.Printf("suburb reference views not refreshed: refresh_suburb_reference_views() is absent (migration 000139 not applied)")
+		return nil
+	}
+	return err
+}
+
+// afterSuburbReferenceIngest refreshes the suburb reference views once an
+// ingest that feeds them (Census, amenities) succeeded, so the profile
+// baselines and similar suburbs move with it instead of waiting for the next
+// official run. A failed ingest is returned as is, with no refresh.
+func afterSuburbReferenceIngest(ctx context.Context, pool *pgxpool.Pool, ingestErr error) error {
+	if ingestErr != nil {
+		return ingestErr
+	}
+	if err := refreshSuburbReferenceViews(ctx, pool); err != nil {
+		log.Printf("suburb reference view refresh failed: %v", err)
+		return err
+	}
+	return nil
 }
 
 // linkSuburbSalCodes backfills house_price_regions.sal_code for suburb regions by

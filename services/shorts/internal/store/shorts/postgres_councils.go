@@ -655,11 +655,13 @@ const councilSeriesQuery = `
 		WHERE lga_code24 = $1 AND source_licence <> 'proprietary-tos-restricted'
 		ORDER BY measure, source, period`
 
-// councilSuburbsQuery lists the member suburbs with the per-suburb facts the
-// hub table and every Go-side rollup read. vg_median comes from the suburb's
-// own public price series (preferredSuburbRegionJoin); a suburb without one
-// stays NULL — the council median is never substituted.
-const councilSuburbsQuery = `
+// councilSuburbsQueryFrom lists the member suburbs with the per-suburb facts
+// the hub table and every Go-side rollup read. vg_median comes from the
+// suburb's own public price series (suburbPriceJoin: mv_suburb_latest_price,
+// or preferredSuburbRegionJoin without it); a suburb without one stays NULL —
+// the council median is never substituted.
+func councilSuburbsQueryFrom(src suburbReadSource) string {
+	return `
 		WITH` + councilMembersCTE + `
 		SELECT d.sal_code, d.sal_name, COALESCE(d.postcode, ''), COALESCE(d.population, 0),
 		       m.share, m.dominant, r.value, r.period,
@@ -670,9 +672,13 @@ const councilSuburbsQuery = `
 		       COALESCE(d.state_district, ''), COALESCE(d.state_member, ''),
 		       COALESCE(d.state_party, ''), COALESCE(d.state_party_ab, '')
 		FROM m
-		JOIN suburb_demographics d ON d.sal_code = m.sal_code` + preferredSuburbRegionJoin + `
+		JOIN suburb_demographics d ON d.sal_code = m.sal_code` + suburbPriceJoin(src) + `
 		LEFT JOIN suburb_hazard_exposure h ON h.sal_code = d.sal_code AND h.source_licence <> 'proprietary-tos-restricted'
 		ORDER BY COALESCE(d.population, 0) DESC, d.sal_name, d.sal_code`
+}
+
+// councilSuburbsQuery is the view-free form, the fallback without 000139.
+var councilSuburbsQuery = councilSuburbsQueryFrom(suburbFromLiveSQL)
 
 // councilCrimeQuery pools the latest gated crime rates over member suburbs the
 // source covers, weighted by the residents each contributes. A rate per 100k
@@ -805,7 +811,13 @@ func (s *postgresStore) councilSeries(ctx context.Context, code string) ([]Counc
 }
 
 func (s *postgresStore) councilSuburbs(ctx context.Context, stateCode, code string) ([]CouncilSuburbRow, error) {
-	rows, err := s.db.Query(ctx, councilSuburbsQuery, stateCode, code, councilMemberMinShare)
+	return readSuburbReference("councilSuburbs", func(src suburbReadSource) ([]CouncilSuburbRow, error) {
+		return s.scanCouncilSuburbs(ctx, src, stateCode, code)
+	})
+}
+
+func (s *postgresStore) scanCouncilSuburbs(ctx context.Context, src suburbReadSource, stateCode, code string) ([]CouncilSuburbRow, error) {
+	rows, err := s.db.Query(ctx, councilSuburbsQueryFrom(src), stateCode, code, councilMemberMinShare)
 	if err != nil {
 		return nil, err
 	}

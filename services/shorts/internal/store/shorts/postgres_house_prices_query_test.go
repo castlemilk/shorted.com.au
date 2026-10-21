@@ -193,13 +193,31 @@ func TestSuburbReaders_PreferOnePublicPricedRegionPerSAL(t *testing.T) {
 			t.Errorf("preferred suburb-region join missing %q", want)
 		}
 	}
-	if got := strings.Count(querySource, "` + preferredSuburbRegionJoin + `"); got != 3 {
-		t.Errorf("preferred suburb-region join must be shared by the list, profile and similar-suburbs queries; got %d uses", got)
+	// The list and the profile take the price through one selector: the
+	// 000139 view (one row per SAL, built with this same preference) or, without
+	// it, preferredSuburbRegionJoin itself. The similar-suburbs kNN prices its
+	// top-k the same way in both of its forms.
+	if got := strings.Count(querySource, "` + suburbPriceJoin(src) + `"); got != 2 {
+		t.Errorf("the list and profile queries must both price through suburbPriceJoin; got %d uses", got)
+	}
+	if suburbPriceJoin(suburbFromLiveSQL) != preferredSuburbRegionJoin {
+		t.Error("without the views, the suburb price must be preferredSuburbRegionJoin")
+	}
+	if suburbPriceJoin(suburbFromViews) != suburbLatestPriceViewJoin {
+		t.Error("with the views, the suburb price must be mv_suburb_latest_price")
+	}
+	if !strings.Contains(similarSuburbsLiveQuery, preferredSuburbRegionJoin) {
+		t.Error("the live similar-suburbs kNN must price its top-k through preferredSuburbRegionJoin")
+	}
+	if !strings.Contains(similarSuburbsViewQuery, suburbLatestPriceViewJoin) {
+		t.Error("the view similar-suburbs kNN must price its top-k through mv_suburb_latest_price")
 	}
 	// The similar-suburbs kNN used to price its top-k through a bare join, so a
 	// SAL carrying a crawl key and a Valuer-General key was listed twice.
-	if strings.Contains(querySource, "LEFT JOIN house_price_regions r ON r.sal_code = ranked.sal_code") {
-		t.Fatal("similar suburbs must not fan its top-k out across every region sharing a SAL")
+	for _, q := range []string{querySource, similarSuburbsLiveQuery, similarSuburbsViewQuery} {
+		if strings.Contains(q, "LEFT JOIN house_price_regions r ON r.sal_code = ranked.sal_code") {
+			t.Fatal("similar suburbs must not fan its top-k out across every region sharing a SAL")
+		}
 	}
 }
 
