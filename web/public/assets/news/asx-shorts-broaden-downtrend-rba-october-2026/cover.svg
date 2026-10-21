@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img">
+<rect width="1600" height="900" fill="#0D0D0D"/>
+<text x="80.0" y="78.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="700" fill="#FFAC4D" text-anchor="start" >SHORTED · ASX MOST SHORTED · 16 JULY TO 15 OCTOBER 2026</text>
+<text x="80.0" y="150.0" font-family="Newsreader, Georgia, serif" font-size="72" font-weight="500" fill="#E8DEB5" text-anchor="start" >Half the top ten turned over</text>
+<text x="80.0" y="196.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="22" font-weight="400" fill="#A39A75" text-anchor="start" >The ten most shorted stocks on each date, and where each one moved</text>
+<line x1="420" x2="1000" y1="763.0" y2="763.0" stroke="#352E27"/>
+<text x="270.0" y="769.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="end" >5%</text>
+<line x1="420" x2="1000" y1="628.0" y2="628.0" stroke="#352E27"/>
+<text x="270.0" y="634.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="end" >10%</text>
+<line x1="420" x2="1000" y1="493.0" y2="493.0" stroke="#352E27"/>
+<text x="270.0" y="499.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="end" >15%</text>
+<line x1="420" x2="1000" y1="358.0" y2="358.0" stroke="#352E27"/>
+<text x="270.0" y="364.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="end" >20%</text>
+<text x="420.0" y="230.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="400" fill="#A39A75" text-anchor="end" >16 Jul</text>
+<text x="1000.0" y="230.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="400" fill="#A39A75" text-anchor="start" >15 Oct</text>
+<line x1="420" x2="1000" y1="556.2" y2="610.5" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
+<circle cx="420" cy="556.2" r="6" fill="#A39A75"/><circle cx="1000" cy="610.5" r="6" fill="#A39A75"/>
+<line x1="420" x2="1000" y1="582.6" y2="501.6" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
+<circle cx="420" cy="582.6" r="6" fill="#E8DEB5"/><circle cx="1000" cy="501.6" r="6" fill="#E8DEB5"/>
+<line x1="420" x2="1000" y1="585.6" y2="762.5" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
+<circle cx="420" cy="585.6" r="6" fill="#A39A75"/><circle cx="1000" cy="762.5" r="6" fill="#A39A75"/>
+<line x1="420" x2="1000" y1="524.0" y2="577.0" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
+<circle cx="420" cy="524.0" r="6" fill="#E8DEB5"/><circle cx="1000" cy="577.0" r="6" fill="#E8DEB5"/>
+<line x1="420" x2="1000" y1="550.5" y2="455.2" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
+<circle cx="420" cy="550.5" r="6" fill="#E8DEB5"/><circle cx="1000" cy="455.2" r="6" fill="#E8DEB5"/>
+<line x1="420" x2="1000" y1="604.0" y2="646.6" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
+<circle cx="420" cy="604.0" r="6" fill="#A39A75"/><circle cx="1000" cy="646.6" r="6" fill="#A39A75"/>
+<line x1="420" x2="1000" y1="562.1" y2="619.6" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
+<circle cx="420" cy="562.1" r="6" fill="#A39A75"/><circle cx="1000" cy="619.6" r="6" fill="#A39A75"/>
+<line x1="420" x2="1000" y1="644.5" y2="547.3" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
+<circle cx="420" cy="644.5" r="6" fill="#FFAC4D"/><circle cx="1000" cy="547.3" r="6" fill="#FFAC4D"/>
+<line x1="420" x2="1000" y1="282.4" y2="480.0" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
+<circle cx="420" cy="282.4" r="6" fill="#E8DEB5"/><circle cx="1000" cy="480.0" r="6" fill="#E8DEB5"/>
+<line x1="420" x2="1000" y1="635.6" y2="581.3" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
+<circle cx="420" cy="635.6" r="6" fill="#FFAC4D"/><circle cx="1000" cy="581.3" r="6" fill="#FFAC4D"/>
+<line x1="420" x2="1000" y1="579.7" y2="571.6" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
+<circle cx="420" cy="579.7" r="6" fill="#E8DEB5"/><circle cx="1000" cy="571.6" r="6" fill="#E8DEB5"/>
+<line x1="420" x2="1000" y1="643.1" y2="544.8" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
+<circle cx="420" cy="643.1" r="6" fill="#FFAC4D"/><circle cx="1000" cy="544.8" r="6" fill="#FFAC4D"/>
+<line x1="420" x2="1000" y1="582.1" y2="599.4" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
+<circle cx="420" cy="582.1" r="6" fill="#A39A75"/><circle cx="1000" cy="599.4" r="6" fill="#A39A75"/>
+<line x1="420" x2="1000" y1="673.4" y2="598.8" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
+<circle cx="420" cy="673.4" r="6" fill="#FFAC4D"/><circle cx="1000" cy="598.8" r="6" fill="#FFAC4D"/>
+<line x1="420" x2="1000" y1="683.9" y2="531.1" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
+<circle cx="420" cy="683.9" r="6" fill="#FFAC4D"/><circle cx="1000" cy="531.1" r="6" fill="#FFAC4D"/>
+<text x="404.0" y="288.4" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="end" >LOT 22.80%</text>
+<text x="404.0" y="499.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="end" >DMP 13.85%</text>
+<text x="404.0" y="522.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="end" >DRO 12.87%</text>
+<text x="404.0" y="545.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="end" >4DX 12.66%</text>
+<text x="404.0" y="568.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="end" >FLT 12.44%</text>
+<text x="404.0" y="591.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="end" >PDN 11.79%</text>
+<text x="404.0" y="614.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="end" >TLX 11.70%</text>
+<text x="404.0" y="637.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="end" >BOE 11.68%</text>
+<text x="404.0" y="660.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="end" >CAR 11.57%</text>
+<text x="404.0" y="683.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="end" >ELD 10.89%</text>
+<text x="404.0" y="706.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="700" fill="#FFAC4D" text-anchor="end" >LYC 9.72%</text>
+<text x="404.0" y="729.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="700" fill="#FFAC4D" text-anchor="end" >PLS 9.44%</text>
+<text x="404.0" y="752.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="700" fill="#FFAC4D" text-anchor="end" >IPX 9.39%</text>
+<text x="404.0" y="775.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="700" fill="#FFAC4D" text-anchor="end" >WTC 8.32%</text>
+<text x="404.0" y="798.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="700" fill="#FFAC4D" text-anchor="end" >ZIP 7.93%</text>
+<text x="1016.0" y="461.2" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="start" >16.40% DRO</text>
+<text x="1016.0" y="486.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="start" >15.48% LOT</text>
+<text x="1016.0" y="509.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="start" >14.68% BOE</text>
+<text x="1016.0" y="537.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="700" fill="#FFAC4D" text-anchor="start" >13.59% ZIP</text>
+<text x="1016.0" y="560.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="700" fill="#FFAC4D" text-anchor="start" >13.08% PLS</text>
+<text x="1016.0" y="583.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="700" fill="#FFAC4D" text-anchor="start" >12.99% IPX</text>
+<text x="1016.0" y="606.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="start" >12.09% PDN</text>
+<text x="1016.0" y="629.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="start" >11.89% DMP</text>
+<text x="1016.0" y="652.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="700" fill="#FFAC4D" text-anchor="start" >11.73% LYC</text>
+<text x="1016.0" y="675.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="700" fill="#FFAC4D" text-anchor="start" >11.08% WTC</text>
+<text x="1016.0" y="698.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="start" >11.06% TLX</text>
+<text x="1016.0" y="721.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="start" >10.65% 4DX</text>
+<text x="1016.0" y="744.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="start" >10.31% FLT</text>
+<text x="1016.0" y="767.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="start" >9.31% ELD</text>
+<text x="1016.0" y="790.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="start" >5.02% CAR</text>
+<line x1="1200" x2="1240" y1="300" y2="300" stroke="#FFAC4D" stroke-width="5"/>
+<text x="1252.0" y="306.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#E8DEB5" text-anchor="start" >entered the ten</text>
+<line x1="1200" x2="1240" y1="336" y2="336" stroke="#E8DEB5" stroke-width="3"/>
+<text x="1252.0" y="342.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#E8DEB5" text-anchor="start" >stayed</text>
+<line x1="1200" x2="1240" y1="372" y2="372" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8"/>
+<text x="1252.0" y="378.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#E8DEB5" text-anchor="start" >left the ten</text>
+<text x="1200.0" y="480.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="96" font-weight="700" fill="#FFAC4D" text-anchor="start" >16</text>
+<text x="1330.0" y="480.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="22" font-weight="400" fill="#E8DEB5" text-anchor="start" >stocks above 10%</text>
+<text x="1330.0" y="510.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="start" >on 15 Oct; 12 in Sept</text>
+<text x="1200.0" y="610.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="54" font-weight="700" fill="#E8DEB5" text-anchor="start" >188 : 104</text>
+<text x="1200.0" y="646.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="start" >risers to fallers, week to 12 Oct</text>
+<text x="1200.0" y="730.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="22" font-weight="700" fill="#D16A47" text-anchor="start" >XJO below its 200-day</text>
+<text x="1200.0" y="760.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="start" >Cash rate 4.35% · CPI 4.0%</text>
+<text x="80.0" y="856.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="start" >Source: ASIC daily aggregate short-position reports, % of shares on issue, published T+4; LOT's fall is a doubled share count, not covering</text>
+</svg>

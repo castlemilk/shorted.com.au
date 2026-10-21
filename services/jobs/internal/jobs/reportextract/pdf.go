@@ -1,6 +1,7 @@
 package reportextract
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -12,8 +13,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/pdfchild"
 	"github.com/ledongthuc/pdf"
 )
+
+// PDFTextMode is the pdfchild mode that runs ExtractPDFText; main serves it.
+const PDFTextMode = "text"
+
+// defaultPDFMemory is the resident memory a fetcher's PDF children share
+// unless WithPDFMemory says otherwise: two notices at once at the smallest
+// allowance, inside a 1 GiB job with room for the parent.
+const defaultPDFMemory = 512 << 20
 
 // asxHeaders is extract.py's ASX_HEADERS, applied to every ASX request. ASX
 // serves announcement PDFs only to browser-shaped clients; the UA string and
@@ -37,7 +47,7 @@ const minPDFTextChars = 100
 // maxPDFBytes bounds a single announcement download. requests streamed the whole
 // body unbounded; a shared batch binary must not be OOM-able by one hostile URL.
 // ASX announcement PDFs are single-digit MB; 64 MiB is far above any real filing.
-const maxPDFBytes = 64 << 20
+const maxPDFBytes = pdfchild.MaxPDFBytes
 
 // pdfURLPattern extracts the real announcements.asx.com.au URL from the hidden
 // form field on ASX's displayAnnouncement.do terms page.
@@ -61,15 +71,22 @@ type pdfFetcher interface {
 // per-thread duplication is not.
 type fetcher struct {
 	client *http.Client
+	// pdfs reads every document in a child process (package pdfchild), so a
+	// PDF the reader cannot bound costs only itself.
+	pdfs *pdfchild.Reader
 }
 
 func newFetcher() *fetcher {
+	return newFetcherWithPDFMemory(defaultPDFMemory)
+}
+
+func newFetcherWithPDFMemory(pdfMemory int64) *fetcher {
 	// Cookie jar restores requests.Session parity: the displayAnnouncement.do
 	// terms page may set cookies the announcements.asx.com.au PDF host checks
 	// on the follow-up GET — without a jar every display-URL resolve could
 	// systematically degrade to no_pdf, masked by the tally.
 	jar, _ := cookiejar.New(nil)
-	return &fetcher{client: &http.Client{Jar: jar}}
+	return &fetcher{client: &http.Client{Jar: jar}, pdfs: pdfchild.NewReader(PDFTextMode, pdfMemory)}
 }
 
 // AnnouncementTextFetcher downloads an ASX announcement's text the way the
@@ -77,9 +94,24 @@ func newFetcher() *fetcher {
 // and the same PDF extraction. Safe for concurrent use.
 type AnnouncementTextFetcher struct{ f *fetcher }
 
+// FetcherOption configures an AnnouncementTextFetcher.
+type FetcherOption func(*fetcherOptions)
+
+type fetcherOptions struct{ pdfMemory int64 }
+
+// WithPDFMemory sets the resident memory the fetcher's PDF reader children
+// share (pdfchild.Reader); a child waits until its allowance fits.
+func WithPDFMemory(bytes int64) FetcherOption {
+	return func(o *fetcherOptions) { o.pdfMemory = bytes }
+}
+
 // NewAnnouncementTextFetcher returns a fetcher with its own HTTP client.
-func NewAnnouncementTextFetcher() *AnnouncementTextFetcher {
-	return &AnnouncementTextFetcher{f: newFetcher()}
+func NewAnnouncementTextFetcher(opts ...FetcherOption) *AnnouncementTextFetcher {
+	o := fetcherOptions{pdfMemory: defaultPDFMemory}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return &AnnouncementTextFetcher{f: newFetcherWithPDFMemory(o.pdfMemory)}
 }
 
 // Text returns the text of the announcement's first maxPages pages, or "" on
@@ -189,8 +221,13 @@ func (f *fetcher) resolveASXPDFURL(ctx context.Context, displayURL string) strin
 // downloadPDFText downloads an ASX announcement PDF and extracts up to maxPages
 // pages of text (extract.py's download_pdf_text).
 //
+// The body streams from the response into a pdfchild reader: the parent never
+// holds the document, and a PDF the reader cannot bound is killed with its
+// child instead of taking the job's memory with it.
+//
 // Returns "" for every failure mode Python returned None for: unresolvable
 // display URL, non-200, non-PDF body, unparseable PDF, or <100 chars of text.
+// A child killed for its memory or its deadline is one more unparseable PDF.
 func (f *fetcher) downloadPDFText(ctx context.Context, url string, maxPages int) string {
 	pdfURL := url
 	if strings.Contains(url, "displayAnnouncement.do") {
@@ -213,17 +250,13 @@ func (f *fetcher) downloadPDFText(ctx context.Context, url string, maxPages int)
 		log.Printf("  HTTP %d for %s", resp.StatusCode, pdfURL)
 		return ""
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxPDFBytes))
-	if err != nil {
-		log.Printf("  PDF download/extract failed: %v", err)
-		return ""
-	}
-	if !bytes.HasPrefix(body, pdfMagic) {
+	body := bufio.NewReader(resp.Body)
+	if head, err := body.Peek(len(pdfMagic)); err != nil || !bytes.Equal(head, pdfMagic) {
 		log.Printf("  Not a PDF response")
 		return ""
 	}
 
-	text, err := extractPDFText(body, maxPages)
+	text, err := f.pdfs.Read(ctx, body, resp.ContentLength, maxPages)
 	if err != nil {
 		log.Printf("  PDF download/extract failed: %v", err)
 		return ""
@@ -235,7 +268,7 @@ func (f *fetcher) downloadPDFText(ctx context.Context, url string, maxPages int)
 	return text
 }
 
-// extractPDFText renders the first maxPages pages of a PDF to plain text,
+// ExtractPDFText renders the first maxPages pages of a PDF to plain text,
 // joining pages with a blank line — the shape extract.py produced with
 // `"\n\n".join(page.get_text() for page in doc[:max_pages])`.
 //
@@ -244,7 +277,9 @@ func (f *fetcher) downloadPDFText(ctx context.Context, url string, maxPages int)
 // github.com/ledongthuc/pdf. Layout, whitespace and glyph coverage therefore
 // DIFFER from pymupdf's output — see the README's Phase 3 port notes. Page
 // selection, the join separator and the <100-char floor are unchanged.
-func extractPDFText(data []byte, maxPages int) (text string, err error) {
+//
+// It runs in a pdfchild child (PDFTextMode), never in a job's own process.
+func ExtractPDFText(data []byte, maxPages int) (text string, err error) {
 	// The reader panics on malformed xref tables/objects rather than returning
 	// an error; a corrupt announcement must not take the whole batch down.
 	defer func() {

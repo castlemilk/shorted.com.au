@@ -13,6 +13,11 @@ const notFound = jest.fn(() => {
 });
 let searchParams = new URLSearchParams("");
 
+// The scene's canvas loads through next/dynamic, whose resolution in jsdom
+// is an un-acted state update: the still is what these tests look at.
+jest.mock("~/@/components/picks/strategy-scene-lazy", () => ({
+  StrategySceneLazy: () => null,
+}));
 jest.mock("next/navigation", () => ({
   notFound: () => notFound(),
   useSearchParams: () => searchParams,

@@ -6,6 +6,7 @@ import {
   OgSilhouetteCard,
   OgVersus,
 } from "../card";
+import { sceneStill } from "~/@/lib/strategies/scenes";
 
 /**
  * The generators themselves need a real satori render to prove they work, so
@@ -231,5 +232,76 @@ describe("OgVersus", () => {
     expect(text).toEqual(
       expect.arrayContaining(["BHP", "CBA", "1.47%", "2.06%", "vs"]),
     );
+  });
+});
+
+describe("OgCard with a scene", () => {
+  it("draws the scene full-bleed under a scrim only when a background is passed", () => {
+    const plain = OgCard({ eyebrow: "E", title: "T", logoSrc: "" });
+    const images: unknown[] = [];
+    walk(plain, (el) => {
+      if (el.type === "img") images.push(el);
+    });
+    expect(images).toHaveLength(0);
+
+    const scene = OgCard({
+      eyebrow: "E",
+      title: "T",
+      logoSrc: "",
+      backgroundSrc: "data:image/jpeg;base64,AAAA",
+    });
+    const found: El[] = [];
+    walk(scene, (el) => {
+      if (el.type === "img") found.push(el);
+    });
+    expect(found).toHaveLength(1);
+    expect(found[0]!.props.src).toBe("data:image/jpeg;base64,AAAA");
+    expect(found[0]!.props.width).toBe(OG_SIZE.width);
+    expect(found[0]!.props.height).toBe(OG_SIZE.height);
+    expect(found[0]!.props.style?.position).toBe("absolute");
+    // Every multi-child element still declares display: flex (the satori
+    // rule the walker above checks for the standard card).
+    walk(scene, (el) => {
+      const children = el.props.children;
+      if (Array.isArray(children) && children.filter(Boolean).length > 1) {
+        expect(el.props.style?.display).toBe("flex");
+      }
+    });
+  });
+});
+
+describe("OgCard with a generative scene", () => {
+  it("draws the scene's paths as inline SVG, flush right under the copy, unless a baked scene is given", () => {
+    const scene = sceneStill("quality-compounders", "plate");
+    const card = OgCard({ eyebrow: "E", title: "T", logoSrc: "", scene });
+    const svgs: El[] = [];
+    walk(card, (el) => {
+      if (el.type === "svg") svgs.push(el);
+    });
+    expect(svgs).toHaveLength(1);
+    expect(svgs[0]!.props.viewBox).toBe("0 0 180 120");
+    expect(svgs[0]!.props.style?.position).toBe("absolute");
+    const paths: El[] = [];
+    walk(svgs[0], (el) => {
+      if (el.type === "path") paths.push(el);
+    });
+    expect(paths).toHaveLength(scene.paths.length);
+    for (const p of paths) {
+      expect(typeof p.props.d).toBe("string");
+      expect(p.props.fill === "none" || p.props.stroke === "none").toBe(true);
+    }
+
+    const baked = OgCard({
+      eyebrow: "E",
+      title: "T",
+      logoSrc: "",
+      scene,
+      backgroundSrc: "data:image/jpeg;base64,AAAA",
+    });
+    const bakedSvgs: unknown[] = [];
+    walk(baked, (el) => {
+      if (el.type === "svg") bakedSvgs.push(el);
+    });
+    expect(bakedSvgs).toHaveLength(0);
   });
 });

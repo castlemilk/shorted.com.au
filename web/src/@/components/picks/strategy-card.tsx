@@ -7,8 +7,9 @@ import {
   formatStatusCount,
   type StatusCount,
 } from "~/@/lib/strategies/shortlist";
-import type { PickStatus } from "~/@/lib/strategies/types";
+import { PICK_STATUSES, type PickStatus } from "~/@/lib/strategies/types";
 import { StatusPill } from "./picks-table";
+import { StrategyArtPlate, hasStrategyArt } from "./strategy-art";
 import { StrategyGlyph } from "./strategy-glyph";
 
 /**
@@ -41,9 +42,57 @@ export interface StrategyCardProps {
   author: string;
   tagline: string;
   /** Null when the picks could not be read. */
-  counts: Record<"triggered" | "setup", StatusCount> | null;
+  counts: Record<PickStatus, StatusCount> | null;
+  /** Ranked rows the counts were taken over (the API's page, at most 100). */
+  ranked?: number;
   leaders: StrategyCardLeader[];
 }
+
+/**
+ * The tape: one hairline band under the readouts, divided in proportion to
+ * the ranked list's statuses (lit for triggered, hollow amber for setup,
+ * muted for watch), so a row shows the shape of its list before a reader
+ * counts. Decorative: the readouts above it carry the numbers. Nothing is
+ * drawn for an empty list.
+ */
+export function StatusTape({
+  counts,
+  ranked,
+}: {
+  counts: Record<PickStatus, StatusCount>;
+  ranked: number;
+}) {
+  const parts = PICK_STATUSES.map((status) => ({
+    status,
+    count: Math.max(0, Math.min(ranked, counts[status].count)),
+  }));
+  const total = parts.reduce((sum, part) => sum + part.count, 0);
+  if (total <= 0) return null;
+  return (
+    <div
+      aria-hidden="true"
+      data-status-tape=""
+      className="mt-2 flex h-1.5 w-full gap-px overflow-hidden rounded-[1px]"
+    >
+      {parts
+        .filter((part) => part.count > 0)
+        .map((part) => (
+          <span
+            key={part.status}
+            data-tape-segment={part.status}
+            style={{ flexGrow: part.count, flexBasis: 0 }}
+            className={cn(
+              "block min-w-[2px]",
+              part.status === "triggered" && "bg-primary",
+              part.status === "setup" && "border border-primary/70",
+              part.status === "watch" && "bg-muted-foreground/30",
+            )}
+          />
+        ))}
+    </div>
+  );
+}
+
 
 /** A recessed readout window; the number sits still. */
 function Readout({
@@ -77,17 +126,34 @@ export function StrategyCard({
   author,
   tagline,
   counts,
+  ranked = 0,
   leaders,
 }: StrategyCardProps) {
   const href = `/picks/${slug}`;
+  // With art (the strategy's scene, or baked brandbrain art) the row gains
+  // a plate column on md+ beside the glyph; without any, the grid is what
+  // it was.
+  const art = hasStrategyArt(slug);
   return (
     <article
+      data-strategy-art-row={art ? "" : undefined}
+      // The whole row is the scene's stage: moving across it plays the plate.
+      data-scene-stage={art ? "" : undefined}
       className={cn(
         "group relative grid gap-4 p-4 sm:p-5",
-        "md:grid-cols-[2.5rem_minmax(0,1.3fr)_auto_minmax(0,1fr)] md:items-start md:gap-x-6",
+        art
+          ? "md:grid-cols-[7.5rem_2.5rem_minmax(0,1.3fr)_auto_minmax(0,1fr)]"
+          : "md:grid-cols-[2.5rem_minmax(0,1.3fr)_auto_minmax(0,1fr)]",
+        "md:items-start md:gap-x-6",
         "transition-colors duration-200 hover:bg-muted/30 focus-within:bg-muted/30 motion-reduce:transition-none",
       )}
     >
+      {art ? (
+        <StrategyArtPlate
+          slug={slug}
+          className="hidden md:block md:mt-0.5"
+        />
+      ) : null}
       <StrategyGlyph
         slug={slug}
         strokeWidth={1.75}
@@ -118,11 +184,14 @@ export function StrategyCard({
       </div>
 
       {counts ? (
-        <dl className="flex gap-2 md:justify-end">
-          {(["triggered", "setup"] as const).map((status) => (
-            <Readout key={status} status={status} count={counts[status]} />
-          ))}
-        </dl>
+        <div className="md:min-w-[11.5rem]">
+          <dl className="flex gap-2 md:justify-end">
+            {(["triggered", "setup"] as const).map((status) => (
+              <Readout key={status} status={status} count={counts[status]} />
+            ))}
+          </dl>
+          <StatusTape counts={counts} ranked={ranked} />
+        </div>
       ) : (
         <div aria-hidden="true" />
       )}

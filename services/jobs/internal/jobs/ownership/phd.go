@@ -31,7 +31,14 @@ type phdSource struct {
 // phdSources are each fund's default or balanced option: the option most
 // members are in. A snapshot is that option's holdings, never the whole
 // fund's. AustralianSuper, UniSuper, CFS, MLC, CareSuper and CSC publish
-// behind bot protection that refuses this job, so they are not here.
+// behind bot protection that refuses this job, so they are not here. Checked
+// again on 2026-10-21 from a cloud address, for the four largest: Akamai
+// answers AustralianSuper's every path (robots.txt too) with 403 Access
+// Denied; F5 answers CFS's the same way; UniSuper's pages and sitemap are an
+// Imperva JavaScript challenge, and CareSuper's a Cloudflare one, though both
+// robots.txt files allow crawling. None is fetched by getting past a
+// challenge: a fund that refuses automated access stays out until it
+// publishes a file it does not.
 var phdSources = []phdSource{
 	{"australian-retirement-trust", "Balanced", "https://files.australianretirementtrust.com.au/phd/super/diversified/Diversified_Balanced_Superannuation.csv", "csv"},
 	{"aware-super", "Balanced (Accumulation)", "https://aware.com.au/content/dam/aware/au/en/documents/member/disclosure/phd/portfolio-holdings-disclosure/Accumulation-Balanced.csv", "csv"},

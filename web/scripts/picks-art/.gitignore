@@ -1,0 +1,3 @@
+# Generated full-res masters and run summaries. The shipped assets are the
+# baked files in web/public/picks-art/ and the manifest in src/@/lib/strategies/art.generated.ts.
+out/

@@ -22,7 +22,7 @@ export const revalidate = 3600;
  * there.
  *
  * `authentication.required` is false because it is true, not as a placeholder:
- * all 28 tools work with no credential. Phase 3 added OAuth 2.1, which RAISES
+ * all 32 tools work with no credential. Phase 3 added OAuth 2.1, which RAISES
  * the per-caller quota and identifies you — it is not a gate on first contact.
  * The card therefore advertises the discovery documents and the scopes as
  * OPTIONAL, so a client that wants a higher ceiling can find the flow without
@@ -265,7 +265,7 @@ function renderCard(catalog: Catalog) {
       title: tool.title,
       description: tool.description,
       // Domain is not part of SEP-1649, but it is how a client (or a human
-      // reading the card) groups 28 tools into something legible.
+      // reading the card) groups 32 tools into something legible.
       domain: tool.domain,
       inputSchema: tool.inputSchema,
     })),

@@ -95,7 +95,7 @@ const COLUMN_HEADS: Record<StockColumn, string> = {
   longActive: "Hedge + active",
   bank: "Banks, brokers",
   short: "Short",
-  index: "Index ETFs",
+  index: "Index funds",
   superOptions: "Super options",
   superValue: "Super value",
 };
