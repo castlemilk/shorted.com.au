@@ -195,6 +195,7 @@ export default async function StrategyPicksPage({ params }: PageProps) {
             the faceplate sits on it under a scrim, a bordered band like the
             suburb banner; without any, the hairline-ruled header. */}
         <section
+          data-scene-stage={hasStrategyArt(seo.slug) ? "" : undefined}
           className={cn(
             "motion-safe:animate-phosphor-warm",
             hasStrategyArt(seo.slug)

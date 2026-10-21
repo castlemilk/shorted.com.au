@@ -52,6 +52,36 @@ export interface SceneFrame {
   paths: ScenePath[];
 }
 
+/**
+ * The reader's pointer, in scene units, as the canvas tracks it
+ * (strategy-scene-canvas.tsx): where it is (smoothed, so a scene never
+ * jumps), how long it has been over the stage, and, once it has left, how
+ * long ago (x and y then stay where it left). The still and the share card
+ * pass none. Each scene answers it in its own terms: the plume follows a
+ * pointer past the base, the marker walks to it on the stairs, price lifts
+ * under it on the fan, the coil compresses under it and releases when it
+ * leaves, the needle swings to it on the meter.
+ */
+export interface ScenePointer {
+  x: number;
+  y: number;
+  /** Seconds since the pointer arrived. */
+  since: number;
+  /** Seconds since it left, or null while it is over the stage. */
+  left: number | null;
+}
+
+/**
+ * How much the pointer bears on a scene right now, 0..1: it arrives over a
+ * third of a second and fades out over two thirds once it leaves, so a
+ * scene eases into and out of the reader's hand.
+ */
+export function pointerPresence(pointer: ScenePointer | undefined): number {
+  if (!pointer) return 0;
+  if (pointer.left === null) return clamp(pointer.since * 3, 0, 1);
+  return clamp(1 - pointer.left * 1.5, 0, 1);
+}
+
 /** The scene's height in units; the width follows the box's aspect ratio. */
 export const SCENE_UNIT_HEIGHT = 120;
 
@@ -173,10 +203,16 @@ const fill = (d: string, tone: SceneTone, opacity: number): ScenePath => ({
 
 // ---------------------------------------------------------------- the scenes
 
-type SceneFn = (w: number, h: number, t: number) => ScenePath[];
+type SceneFn = (w: number, h: number, t: number, pointer?: ScenePointer) => ScenePath[];
+
+/** A bell around x0, 1 at x0 and ~0 beyond 2.5 sigma. */
+function bell(x: number, x0: number, sigma: number): number {
+  const d = (x - x0) / sigma;
+  return Math.exp(-0.5 * d * d);
+}
 
 /** The weir: a tight base under the pivot, one plume over it on volume. */
-function zangerBreakout(w: number, h: number, t: number): ScenePath[] {
+function zangerBreakout(w: number, h: number, t: number, pointer?: ScenePointer): ScenePath[] {
   const out: ScenePath[] = [];
   const x0 = 0.06 * w;
   const x1 = 0.94 * w;
@@ -184,9 +220,13 @@ function zangerBreakout(w: number, h: number, t: number): ScenePath[] {
   const floor = 0.92 * h;
   const baseEnd = 0.7 * w;
   // A seven-second cycle: the base holds, the plume rises through the
-  // pivot, holds, and the traces settle back.
+  // pivot, holds, and the traces settle back. A pointer past the base end
+  // pulls the plume up itself, and over the base it stirs the traces.
   const cyc = mod(t, 7);
-  const env = smooth(cyc, 4.2, 5.0) * (1 - smooth(cyc, 6.4, 7.0));
+  const presence = pointerPresence(pointer);
+  const pull = pointer ? presence * smooth(pointer.x, baseEnd, 0.9 * w) : 0;
+  const env = Math.max(smooth(cyc, 4.2, 5.0) * (1 - smooth(cyc, 6.4, 7.0)), pull);
+  const stirX = pointer ? pointer.x : -w;
 
   // The floor and the pivot: the two levels the strategy reads.
   out.push(stroke(line(x0, floor, x1, floor), "muted", 1, 0.6));
@@ -202,7 +242,8 @@ function zangerBreakout(w: number, h: number, t: number): ScenePath[] {
     for (let i = 0; i <= steps; i++) {
       const x = x0 + ((baseEnd - x0) * i) / steps;
       const drift = fbm(i * 0.22 + t * 0.18 + k * 3.7, 101 + k);
-      const y = pivot + 0.05 * h + (0.03 * k + 0.22 * drift) * h;
+      const stir = presence * bell(x, stirX, 0.07 * w) * (fbm(i * 0.9 + t * 1.6 + k, 131 + k) - 0.5) * 0.12 * h;
+      const y = pivot + 0.05 * h + (0.03 * k + 0.22 * drift) * h + stir;
       pts.push([x, clamp(y, pivot + 0.04 * h, floor - 0.14 * h)]);
     }
     if (k === 0) lastPoint = pts[pts.length - 1]!;
@@ -245,21 +286,24 @@ function zangerBreakout(w: number, h: number, t: number): ScenePath[] {
 }
 
 /** The staircase: risers that grow, the top one clearing the prior high. */
-function canslim(w: number, h: number, t: number): ScenePath[] {
+function canslim(w: number, h: number, t: number, pointer?: ScenePointer): ScenePath[] {
   const out: ScenePath[] = [];
   const steps = 5;
   const left = 0.1 * w;
   const right = 0.9 * w;
   const treadW = (right - left) / steps;
   const baseY = 0.88 * h;
+  const presence = pointerPresence(pointer);
   const pts: Array<[number, number]> = [[left, baseY]];
   let y = baseY;
   let x = left;
   let priorHigh = baseY;
   for (let k = 0; k < steps; k++) {
     // Each riser 1.32x the one before (earnings accelerating), breathing
-    // a little so the climb is alive.
-    const riser = 0.074 * h * Math.pow(1.32, k) * (1 + 0.03 * Math.sin(t * 1.1 + k));
+    // a little so the climb is alive, and the step under the pointer
+    // lifting a little more.
+    const under = pointer ? presence * bell(pointer.x, x + treadW / 2, treadW * 0.6) : 0;
+    const riser = 0.074 * h * Math.pow(1.32, k) * (1 + 0.03 * Math.sin(t * 1.1 + k) + 0.06 * under);
     y -= riser;
     if (k === steps - 2) priorHigh = y;
     pts.push([x, y]);
@@ -274,8 +318,11 @@ function canslim(w: number, h: number, t: number): ScenePath[] {
   // level a stock has yet to pass.
   out.push(stroke(line(0.06 * w, priorHigh - 0.06 * h, 0.94 * w, priorHigh - 0.06 * h), "muted", 1, 0.8, { dash: "4 3" }));
   // The climber: an amber marker walking up the stairs every six seconds,
-  // pausing on each tread.
-  const u = smooth(mod(t, 6) / 6, 0.05, 0.92);
+  // pausing on each tread; with a pointer over the stage it walks to the
+  // pointer instead.
+  const cycleU = smooth(mod(t, 6) / 6, 0.05, 0.92);
+  const pointerU = pointer ? clamp((pointer.x - left) / (right - left), 0, 1) : 0;
+  const u = cycleU + (pointerU - cycleU) * presence;
   const [mx, my] = alongPolyline(pts, u);
   out.push(fill(circle(mx, my - 2.2, 2.4), "amber", 1));
   out.push(stroke(circle(mx, my - 2.2, 4.6), "amber", 1, 0.45));
@@ -283,14 +330,18 @@ function canslim(w: number, h: number, t: number): ScenePath[] {
 }
 
 /** The fan: three ridges stacked in order, fanning apart as they rise. */
-function minervini(w: number, h: number, t: number): ScenePath[] {
+function minervini(w: number, h: number, t: number, pointer?: ScenePointer): ScenePath[] {
   const out: ScenePath[] = [];
   const steps = 40;
+  const presence = pointerPresence(pointer);
+  // A pointer high on the stage opens the fan (the averages pull apart as
+  // a trend strengthens); low, it closes a little.
+  const open = pointer ? presence * (0.5 - clamp(pointer.y / h, 0, 1)) * 0.5 : 0;
   const ridge = (k: number, x: number) => {
     const u = x / w;
     const base = (0.9 - 0.08 * k) * h;
     const slope = (0.16 + 0.08 * k) * h;
-    const breathe = 1 + 0.04 * Math.sin(t * 0.5 + k);
+    const breathe = 1 + 0.04 * Math.sin(t * 0.5 + k) + open * (0.4 + 0.3 * k);
     const relief = (fbm(u * 6 + t * 0.06 + k * 9, 211 + k) - 0.5) * (0.06 + 0.02 * k) * h;
     return base - slope * u * breathe + relief;
   };
@@ -311,19 +362,27 @@ function minervini(w: number, h: number, t: number): ScenePath[] {
     const x = (w * i) / steps;
     const lift = (0.05 + 0.04 * (i / steps)) * h;
     const jitter = (fbm(i * 0.6 + t * 0.4, 307) - 0.5) * 0.07 * h;
-    price.push([x, ridge(2, x) - lift + jitter]);
+    // Price lifts under the pointer: a leader extending its lead.
+    const hand = pointer ? presence * bell(x, pointer.x, 0.07 * w) * 0.09 * h : 0;
+    price.push([x, ridge(2, x) - lift + jitter - hand]);
   }
   out.push(stroke(polyline(price), "amber", 1.5, 0.9));
   return out;
 }
 
 /** The coil: a spring compressed under a plate, then released. */
-function crowdedShort(w: number, h: number, t: number): ScenePath[] {
+function crowdedShort(w: number, h: number, t: number, pointer?: ScenePointer): ScenePath[] {
   const out: ScenePath[] = [];
   const cx = 0.5 * w;
   const floor = 0.9 * h;
   // A seven-second cycle: five seconds of compression, a snap, a settle.
+  // The reader's hand is the crowd too: a pointer pressing down on the
+  // stage compresses the coil (lower is harder), and when it leaves, the
+  // coil releases with whatever it was holding.
   const cyc = mod(t, 7);
+  const held = pointer ? clamp((pointer.y - 0.25 * h) / (0.5 * h), 0, 1) : 0;
+  const handRelease =
+    typeof pointer?.left === "number" ? held * clamp(1 - pointer.left / 1.4, 0, 1) : 0;
   let c: number;
   if (cyc < 5.2) {
     c = Math.pow(smooth(cyc, 0, 5.2), 1.4);
@@ -336,7 +395,12 @@ function crowdedShort(w: number, h: number, t: number): ScenePath[] {
   } else {
     c = -0.1 * Math.exp(-(cyc - 5.7) * 3) * Math.cos((cyc - 5.7) * 9);
   }
-  const release = cyc >= 5.2 ? Math.max(0, 1 - (cyc - 5.2) / 1.5) : 0;
+  if (pointer && pointer.left === null) {
+    c = Math.max(c, held * pointerPresence(pointer));
+  } else if (handRelease > 0) {
+    c = Math.min(c, -0.25 * handRelease * Math.cos(pointer!.left! * 9));
+  }
+  const release = Math.max(cyc >= 5.2 ? Math.max(0, 1 - (cyc - 5.2) / 1.5) : 0, handRelease);
   const restH = 0.46 * h;
   const coilH = restH * (1 - 0.6 * c);
   const plateY = floor - coilH - 0.02 * h;
@@ -383,11 +447,12 @@ function crowdedShort(w: number, h: number, t: number): ScenePath[] {
 }
 
 /** The meter: a bench gauge settling on a high reading, over compounding curves. */
-function qualityCompounders(w: number, h: number, t: number): ScenePath[] {
+function qualityCompounders(w: number, h: number, t: number, pointer?: ScenePointer): ScenePath[] {
   const out: ScenePath[] = [];
   const cx = 0.5 * w;
   const cy = 0.86 * h;
   const r = 0.62 * h;
+  const presence = pointerPresence(pointer);
   const deg = (a: number) => (a * Math.PI) / 180;
   const at = (a: number, rr: number): [number, number] => [cx + rr * Math.cos(deg(a)), cy + rr * Math.sin(deg(a))];
 
@@ -420,17 +485,32 @@ function qualityCompounders(w: number, h: number, t: number): ScenePath[] {
   out.push(stroke(`M${n(bx)} ${n(by)}A${n(r - 0.025 * h)} ${n(r - 0.025 * h)} 0 0 1 ${n(bex)} ${n(bey)}`, "amber", 3, 0.7));
 
   // The needle: dropped to the left at the start of each eight-second
-  // cycle, swinging up and settling on the high reading.
+  // cycle, swinging up and settling on the high reading; or, under a
+  // pointer, swinging to where the pointer is across the dial.
   const cyc = mod(t, 8);
   const start = 212;
   const target = 322;
-  const angle = target + (start - target) * Math.exp(-2.2 * cyc) * Math.cos(5 * cyc);
+  const cycleAngle = target + (start - target) * Math.exp(-2.2 * cyc) * Math.cos(5 * cyc);
+  const handAngle = pointer ? dialAngle(pointer.x - cx, pointer.y - cy) : cycleAngle;
+  const angle = cycleAngle + (handAngle - cycleAngle) * presence;
   const [nx, ny] = at(angle, r * 0.9);
   out.push(stroke(line(cx, cy, nx, ny), "rust", 1.6, 0.95));
   out.push(fill(circle(cx, cy, 3), "amber", 1));
   out.push(stroke(circle(cx, cy, 5.5), "ink", 1, 0.6));
   out.push(stroke(line(0.06 * w, 0.94 * h, 0.94 * w, 0.94 * h), "muted", 1, 0.6));
   return out;
+}
+
+/**
+ * The dial angle (200..340, the meter's sweep, 270 straight up) nearest a
+ * point relative to the pivot: above the pivot it is the point's own
+ * bearing, below it the nearer end of the sweep.
+ */
+export function dialAngle(dx: number, dy: number): number {
+  let a = (Math.atan2(dy, dx) * 180) / Math.PI;
+  if (a < 0) a += 360;
+  if (a < 180) return a < 90 ? 340 : 200;
+  return clamp(a, 200, 340);
 }
 
 const SCENES: Record<string, SceneFn> = {
@@ -446,14 +526,25 @@ export function hasScene(slug: string): boolean {
   return Object.prototype.hasOwnProperty.call(SCENES, slug);
 }
 
-/** One frame of a strategy's scene, at time t (seconds), in a w x h box. */
-export function sceneFrame(slug: string, width: number, height: number, t: number): SceneFrame {
+/**
+ * One frame of a strategy's scene, at time t (seconds), in a w x h box,
+ * under a pointer when the canvas has one.
+ */
+export function sceneFrame(
+  slug: string,
+  width: number,
+  height: number,
+  t: number,
+  pointer?: ScenePointer,
+): SceneFrame {
   const fn = hasScene(slug) ? SCENES[slug]! : null;
   const safeT = Number.isFinite(t) ? t : 0;
+  const safePointer =
+    pointer && Number.isFinite(pointer.x) && Number.isFinite(pointer.y) ? pointer : undefined;
   return {
     width,
     height,
-    paths: fn ? fn(width, height, safeT) : [],
+    paths: fn ? fn(width, height, safeT, safePointer) : [],
   };
 }
 

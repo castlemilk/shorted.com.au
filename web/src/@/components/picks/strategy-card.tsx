@@ -137,6 +137,8 @@ export function StrategyCard({
   return (
     <article
       data-strategy-art-row={art ? "" : undefined}
+      // The whole row is the scene's stage: moving across it plays the plate.
+      data-scene-stage={art ? "" : undefined}
       className={cn(
         "group relative grid gap-4 p-4 sm:p-5",
         art

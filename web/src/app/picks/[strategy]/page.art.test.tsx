@@ -9,6 +9,11 @@ import { PICKS } from "~/@/components/picks/__tests__/fixtures";
 jest.mock("~/@/lib/strategies/art.generated", () => ({
   STRATEGY_ART: { "zanger-breakout": { hash: "deadbeef" } },
 }));
+// The scene's canvas loads through next/dynamic, whose resolution in jsdom
+// is an un-acted state update: the still is what these tests look at.
+jest.mock("~/@/components/picks/strategy-scene-lazy", () => ({
+  StrategySceneLazy: () => null,
+}));
 jest.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
@@ -37,6 +42,8 @@ describe("StrategyPicksPage with baked art", () => {
     const h1 = screen.getByRole("heading", { level: 1 });
     const header = h1.closest("section")!;
     expect(header.className).toContain("overflow-hidden rounded-lg border");
+    // The header is the scene's stage: a pointer over the H1 plays it.
+    expect(header).toHaveAttribute("data-scene-stage");
     expect(header.className).not.toContain("border-b border-border/40");
     const band = header.querySelector('[data-strategy-art="band"]')!;
     expect(band).toHaveAttribute("aria-hidden", "true");

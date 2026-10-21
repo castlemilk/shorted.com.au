@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 
 import { SceneSvg, StrategyScene } from "../strategy-scene";
-import { StrategySceneCanvas } from "../strategy-scene-canvas";
+import { StrategySceneCanvas, sceneStageOf } from "../strategy-scene-canvas";
 import { sceneStill } from "~/@/lib/strategies/scenes";
 
 jest.mock("../strategy-scene-lazy", () => ({
@@ -77,5 +77,21 @@ describe("StrategySceneCanvas", () => {
     expect(getContext).not.toHaveBeenCalled();
     getContext.mockRestore();
     window.matchMedia = matchMedia;
+  });
+});
+
+describe("sceneStageOf", () => {
+  it("reads the pointer on the nearest data-scene-stage ancestor, else the canvas itself", () => {
+    const { container } = render(
+      <section data-scene-stage="">
+        <div>
+          <canvas data-testid="a" />
+        </div>
+      </section>,
+    );
+    const canvas = container.querySelector("canvas")!;
+    expect(sceneStageOf(canvas)).toBe(container.querySelector("section"));
+    const alone = render(<canvas />).container.querySelector("canvas")!;
+    expect(sceneStageOf(alone)).toBe(alone);
   });
 });

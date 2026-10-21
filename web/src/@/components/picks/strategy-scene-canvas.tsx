@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import {
   SCENE_UNIT_HEIGHT,
   sceneFrame,
+  type ScenePointer,
   type SceneTone,
   type SceneVariant,
 } from "~/@/lib/strategies/scenes";
@@ -26,7 +27,26 @@ import {
  * visibilitychange gate the loop), the device pixel ratio capped at 2, and
  * the theme's colours read from the document's custom properties every
  * couple of seconds, so a theme switch recolours the scene.
+ *
+ * It answers the reader's hand. The scene sits under the page's copy, so
+ * the pointer is read on the STAGE, the nearest ancestor marked
+ * `data-scene-stage` (the strategy page's header section, the hub row's
+ * article), and mapped into scene units against the canvas: moving over
+ * the H1 stirs the scene behind it. The pointer the geometry sees is
+ * smoothed every frame, so nothing jumps, and it keeps its last place
+ * after leaving, so a scene can finish what the hand started (the coil's
+ * release). Touch is a tap: pointerdown places the hand, pointerup lifts
+ * it; nothing is prevented, so the page still scrolls. Keyboard focus is
+ * not involved: the scene is decorative and carries no meaning.
  */
+
+/** Per-frame easing of the pointer the scene sees toward the real one. */
+const POINTER_EASE = 0.22;
+
+/** The stage: where pointer events are read for a scene. */
+export function sceneStageOf(canvas: HTMLElement): HTMLElement {
+  return canvas.closest<HTMLElement>("[data-scene-stage]") ?? canvas;
+}
 
 const TONE_VAR: Record<SceneTone, string> = {
   ink: "--foreground",
@@ -98,6 +118,52 @@ export function StrategySceneCanvas({
     let live = false;
     const start = performance.now();
 
+    // The hand: the real pointer in scene units, the eased one the
+    // geometry reads, and when it arrived or left.
+    let target: { x: number; y: number } | null = null;
+    let hand: ScenePointer | null = null;
+    let arrived = 0;
+    let departed = 0;
+    const stage = sceneStageOf(canvas);
+    const place = (event: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      if (scale <= 0) return;
+      const x = (event.clientX - rect.left) / scale;
+      const y = (event.clientY - rect.top) / scale;
+      if (!target) {
+        target = { x, y };
+        hand = { x, y, since: 0, left: null };
+        arrived = performance.now();
+      } else {
+        target.x = x;
+        target.y = y;
+        if (typeof hand?.left === "number") {
+          hand.left = null;
+          arrived = performance.now();
+        }
+      }
+      schedule();
+    };
+    const lift = () => {
+      if (!target) return;
+      target = null;
+      departed = performance.now();
+      if (hand) hand.left = 0;
+      schedule();
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      place(event);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      place(event);
+    };
+    const onPointerUp = (event: PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      lift();
+    };
+
     const schedule = () => {
       if (!raf) raf = requestAnimationFrame(draw);
     };
@@ -113,9 +179,20 @@ export function StrategySceneCanvas({
         palette = readPalette();
         paletteAge = 0;
       }
+      if (hand) {
+        if (target) {
+          hand.x += (target.x - hand.x) * POINTER_EASE;
+          hand.y += (target.y - hand.y) * POINTER_EASE;
+          hand.since = (now - arrived) / 1000;
+        } else {
+          hand.left = (now - departed) / 1000;
+          // Two seconds after leaving, the hand is forgotten entirely.
+          if (hand.left > 2) hand = null;
+        }
+      }
       if (scale > 0 && width > 0) {
         const unitWidth = width / scale;
-        const frame = sceneFrame(slug, unitWidth, SCENE_UNIT_HEIGHT, (now - start) / 1000);
+        const frame = sceneFrame(slug, unitWidth, SCENE_UNIT_HEIGHT, (now - start) / 1000, hand ?? undefined);
         ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
         ctx.clearRect(0, 0, unitWidth, SCENE_UNIT_HEIGHT);
         ctx.lineCap = "round";
@@ -157,6 +234,11 @@ export function StrategySceneCanvas({
       if (!document.hidden) schedule();
     };
     document.addEventListener("visibilitychange", onVisibility);
+    stage.addEventListener("pointermove", onPointerMove, { passive: true });
+    stage.addEventListener("pointerleave", lift, { passive: true });
+    stage.addEventListener("pointerdown", onPointerDown, { passive: true });
+    stage.addEventListener("pointerup", onPointerUp, { passive: true });
+    stage.addEventListener("pointercancel", onPointerUp, { passive: true });
     schedule();
 
     return () => {
@@ -164,6 +246,11 @@ export function StrategySceneCanvas({
       ro?.disconnect();
       io?.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
+      stage.removeEventListener("pointermove", onPointerMove);
+      stage.removeEventListener("pointerleave", lift);
+      stage.removeEventListener("pointerdown", onPointerDown);
+      stage.removeEventListener("pointerup", onPointerUp);
+      stage.removeEventListener("pointercancel", onPointerUp);
       host?.removeAttribute("data-scene-live");
     };
   }, [slug, variant]);

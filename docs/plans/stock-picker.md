@@ -733,4 +733,6 @@ fundamentals-coverage §9:
   coil, the meter) as a pure function of (box, time): an SSR'd SVG still in
   the ISR HTML, a Canvas 2D animation over it in the browser (no WebGL; 30
   fps cap, paused off-screen, nothing under reduced motion), and the OG
-  card's scene. The brandbrain pipeline above stays as the override.
+  card's scene. They answer the pointer on their stage (the header, the hub
+  row): plume, marker, fan, coil and needle each in their own terms. The
+  brandbrain pipeline above stays as the override.
