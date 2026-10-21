@@ -14,7 +14,15 @@ import { join } from "node:path";
 
 import { render } from "@testing-library/react";
 
-import { PartyMark, partyMarkLabel, markInk, markTile } from "../party-mark";
+import {
+  PartyMark,
+  PartyTileStyles,
+  partyMarkLabel,
+  partyMonogram,
+  partyTileClass,
+  markInk,
+  markTile,
+} from "../party-mark";
 import {
   PARTY_LABEL,
   PARTY_OTHER_COLOR,
@@ -251,5 +259,59 @@ describe("the party palette reads the Senate's abbreviations", () => {
     // must still be visibly unrecognised rather than mislabelled.
     expect(partyLabel("ZZZ")).toBe("Other");
     expect(partyColorFromAb("ZZZ")).toBe(PARTY_OTHER_COLOR);
+  });
+});
+
+/*
+ * THE CLASS TILE. The hub's roll draws ~490 tiles, and an inline style is sent
+ * twice per tile (HTML and RSC payload), so there a tile is a class from one
+ * stylesheet. It must be the same tile PartyMark draws.
+ */
+describe("the class tile", () => {
+  const sheet = render(<PartyTileStyles />).container.querySelector("style")!.textContent ?? "";
+
+  function rule(className: string): string | undefined {
+    return sheet.match(new RegExp(`\\.${className}\\{([^}]*)\\}`))?.[1];
+  }
+
+  function rgb(hex: string): string {
+    return `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")})`;
+  }
+
+  it("paints every party in the colours its PartyMark is painted in", () => {
+    for (const abbreviation of [...Object.keys(PARTY_LABEL), "ZZZ"]) {
+      const mark = render(<PartyMark abbreviation={abbreviation} />).container
+        .firstElementChild as HTMLElement;
+      const [, colourClass] = partyTileClass(abbreviation).split(" ");
+      const { background, ink } = markTile(partyColorFromAb(abbreviation));
+
+      expect({ abbreviation, rule: rule(colourClass!) }).toEqual({
+        abbreviation,
+        rule: `background-color:${background};color:${ink}`,
+      });
+      expect(mark.style.backgroundColor).toBe(rgb(background));
+      expect(mark.style.color).toBe(rgb(ink));
+    }
+  });
+
+  it("is the sm mark's size and type, with the smaller type for a four-letter monogram", () => {
+    const mark = render(<PartyMark abbreviation="ALP" size="sm" />).container
+      .firstElementChild as HTMLElement;
+    const base = rule("party-tile")!;
+    expect(base).toContain(`width:${mark.style.width}`);
+    expect(base).toContain(`height:${mark.style.height}`);
+    expect(base).toContain(`border-radius:${mark.style.borderRadius}`);
+    expect(base).toContain(`font-size:${mark.style.fontSize}`);
+
+    const long = render(<PartyMark abbreviation="DHJP" size="sm" />).container
+      .firstElementChild as HTMLElement;
+    expect(partyTileClass("DHJP").split(" ")).toContain("party-tile-long");
+    expect(rule("party-tile-long")).toBe(`font-size:${long.style.fontSize}`);
+    expect(partyTileClass("ALP").split(" ")).not.toContain("party-tile-long");
+    expect(partyMonogram("DHJP")).toBe("DHJP");
+  });
+
+  it("files an unknown party under Other, as the palette does", () => {
+    expect(partyTileClass("ZZZ")).toBe("party-tile party-tile-other");
   });
 });
