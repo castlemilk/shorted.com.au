@@ -37,10 +37,7 @@ const APP_DIR = path.resolve(__dirname, "..");
  * skips them, and a check below fails once one no longer carries the brand:
  * delete the entry when its fix lands, so the scan covers the file again.
  */
-const KNOWN_OFFENDERS: Record<string, string> = {
-  // "Search ASX Stocks | Shorted | Shorted": noindexed, outside this round.
-  "search/page.tsx": "noindexed search results; outside this round",
-};
+const KNOWN_OFFENDERS: Record<string, string> = {};
 
 /** The brand after a separator, or the domain. "Most Shorted ASX" is fine. */
 const BRAND = /(?:[|—–]|\s-)\s*Shorted\b|Shorted\.com\.au/;
