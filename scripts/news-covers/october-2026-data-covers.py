@@ -280,7 +280,7 @@ def cover_market():
         for i in range(len(ys)-2,-1,-1): ys[i]=min(ys[i], ys[i+1]-gap)    # push back up from the floor
         return [(c,yy,col,t) for (c,_,col,t),yy in zip(labels,ys)]
     left_labels=[]; right_labels=[]
-    for c in codes:
+    for c in sorted(codes):
         vj = jul.get(c, OTHER_JUL.get(c)); vo = oct_.get(c, OTHER_OCT.get(c))
         entrant = c in oct_ and c not in jul; leaver = c in jul and c not in oct_
         col = AMBER_LIGHT if entrant else (DIM_SAND if leaver else SAND)
@@ -308,6 +308,52 @@ def cover_market():
     s.append("</svg>")
     return "\n".join(s)
 
+
+# Australian petroleum statistics (DCCEEW, via Shorted), July of each year, megalitres.
+FUEL_YEARS = list(range(2010, 2027))
+FUEL_IMPORTS = [1449,1747,1743,2120,2132,2565,2516,2956,3134,3112,3314,3333,3459,4480,5139,4783,4468]
+FUEL_REFINERY = [3714,3499,3459,3109,3214,2468,2382,2495,2506,2403,1704,1599,1255,1222,1088,1150,1230]
+FUEL_IMP = [(dt.date(y,7,1), v) for y,v in zip(FUEL_YEARS, FUEL_IMPORTS)]
+FUEL_REF = [(dt.date(y,7,1), v) for y,v in zip(FUEL_YEARS, FUEL_REFINERY)]
+
+def cover_fuel():
+    s=[frame(CRT)]
+    s.append(text(80, 78, "SHORTED · AUSTRALIA'S FUEL SUPPLY · JULY 2010 TO JULY 2026", 20, AMBER_LIGHT, weight=700))
+    s.append(text(80, 150, "Five weeks of diesel", 72, SAND, SERIF, 500))
+    s.append(text(80, 196, "Fuel imported refined (amber) and refined at home (sand), each July; days held under the obligation, right", 22, DIM_SAND))
+    x0,x1,y0,y1 = 80, 880, 760, 260
+    sx = xscale(x0,x1,dt.date(2010,7,1),dt.date(2026,7,1)); sy = yscale(y0,y1,0,6000)
+    s.append(grid(x0,x1,sy,[0,2000,4000,6000],lambda t:f"{t/1000:.0f} GL",TERM_BORDER,x0-12,DIM_SAND))
+    s.append(path(FUEL_REF, sx, sy, SAND, 4))
+    s.append(path(FUEL_IMP, sx, sy, AMBER_LIGHT, 6))
+    s.append(text(sx(FUEL_IMP[-1][0])+14, sy(FUEL_IMP[-1][1])+8, f"imported {FUEL_IMP[-1][1]/1000:.1f} GL", 21, AMBER_LIGHT, weight=700))
+    s.append(text(sx(FUEL_REF[-1][0])+14, sy(FUEL_REF[-1][1])+8, f"refined {FUEL_REF[-1][1]/1000:.1f} GL", 21, SAND))
+    s.append(text(sx(FUEL_IMP[0][0])+10, sy(FUEL_IMP[0][1])+40, "2010: 3.7 GL refined, 1.4 imported", 17, DIM_SAND))
+    cross = dt.date(2015,7,1)
+    s.append(f'<line x1="{sx(cross):.1f}" x2="{sx(cross):.1f}" y1="{y1}" y2="{y0}" stroke="{TERM_BORDER}" stroke-dasharray="4 8"/>')
+    s.append(text(sx(cross)+8, y1+24, "2015: imports overtake refining", 16, DIM_SAND))
+    for y in (2010,2014,2018,2022,2026):
+        s.append(text(sx(dt.date(y,7,1)), 800, f"Jul {y}", 17, DIM_SAND, anchor="middle" if y not in (2010,2026) else ("start" if y==2010 else "end")))
+    # right: days of cover as three vertical gauges against the 50-day target
+    gx=1210; gw=80; gap=50; gy0=760; gy1=320
+    gs = yscale(gy0, gy1, 0, 60)
+    for i,(label,days,ml) in enumerate([("Petrol",41,"1,730 ML"),("Diesel",33,"3,044 ML"),("Jet",28,"757 ML")]):
+        x=gx+i*(gw+gap)
+        s.append(f'<rect x="{x}" y="{gy1}" width="{gw}" height="{gy0-gy1}" fill="none" stroke="{TERM_BORDER}"/>')
+        s.append(f'<rect x="{x}" y="{gs(days):.1f}" width="{gw}" height="{gy0-gs(days):.1f}" fill="{AMBER if label=="Diesel" else DIM_SAND}"/>')
+        s.append(text(x+gw/2, gs(days)-12, f"{days} days", 24, SAND, weight=700, anchor="middle"))
+        s.append(text(x+gw/2, 800, label, 18, DIM_SAND, anchor="middle"))
+        s.append(text(x+gw/2, 824, ml, 14, DIM_SAND, anchor="middle"))
+    right = gx+3*gw+2*gap
+    for t,lab in ((50,"50-day target, 2030"),(32,"diesel floor, 32")):
+        yy=gs(t); s.append(f'<line x1="{gx-10}" x2="{right+10}" y1="{yy:.1f}" y2="{yy:.1f}" stroke="{RUST if t==50 else SAND}" stroke-width="2" stroke-dasharray="6 6"/>')
+        if t==50: s.append(text(right+10, yy-8, lab, 15, RUST, anchor="end"))
+        else: s.append(text(gx-16, yy+5, lab, 15, SAND, anchor="end"))
+    s.append(text(gx, 296, "Days held, 13 Oct 2026", 18, DIM_SAND))
+    s.append(text(80, 856, "Source: DCCEEW Australian Petroleum Statistics (volumes, via Shorted); fuelplan.gov.au (days held under the Minimum Stockholding Obligation)", 17, DIM_SAND))
+    s.append("</svg>")
+    return "\n".join(s)
+
 COVERS = {
  "aya-shorts-tenfold-since-july-price-halves": (cover_aya, {"AYA": AYA_SHORT}, {"AYA": AYA_PRICE},
    "Finding: the ASX's largest four-week short build. Subject: Artrya's own position line. Action: the single-session step on 18 September and the climb to 10.17%, with the price falling beneath it. Hook: one hard vertical step in an otherwise flat line. Caveat: a position, not a thesis; the price line is the close, not a prediction."),
@@ -319,6 +365,8 @@ COVERS = {
    "Finding: three consumer shorts with 26 to 35 days to cover as prices rise. Subject: three runways. Action: the runways' length in five-day segments, with the position and price sparklines beside them. Hook: the longest runway belongs to the smallest position. Caveat: days to cover is arithmetic on recent volume, not a forecast of covering."),
  "asx-shorts-broaden-downtrend-rba-october-2026": (cover_market, {"top-ten 16 Jul": TOP_JUL, "top-ten 15 Oct": TOP_OCT}, None,
    "Finding: half the ten most shorted stocks changed in a quarter. Subject: a slope chart of fifteen stocks across two dates. Action: five amber entrants rising into the ten, five leaving. Hook: Lotus's line falls without any covering. Caveat: counts above 10% are ordinary-share lines; the macro figures are the publishers' series as Shorted holds them."),
+ "australia-fuel-security-33-days-diesel-hormuz-october-2026": (cover_fuel, {"refined product imports, July": FUEL_IMP, "refinery output, July": FUEL_REF}, None,
+   "Finding: Australia makes a fifth of its fuel and holds five weeks of diesel while the strait closes again. Subject: two volume lines crossing in 2015, imports rising, refining falling. Action: three gauges of days held against the 50-day target line. Hook: the diesel gauge is amber and sits a day above its floor. Caveat: days are a national average of stock in tanks and on water, not a forecast; the series is July of each year."),
 }
 
 def write_all(png: bool):
@@ -326,6 +374,8 @@ def write_all(png: bool):
         folder = OUT/slug; folder.mkdir(parents=True, exist_ok=True)
         svg = fn(); (folder/"cover.svg").write_text(svg)
         def ser(x):
+            if isinstance(x, list) and x and isinstance(x[0][0], dt.date) and slug.startswith("australia-fuel"):
+                return [{"period": a.isoformat(), "megalitres": b, "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"} for a,b in x]
             if isinstance(x, list) and x and isinstance(x[0][0], dt.date):
                 return [{"date": a.isoformat(), "value": b,
                          "sourceUrl": ASIC.format(d=a.strftime("%Y%m%d")),

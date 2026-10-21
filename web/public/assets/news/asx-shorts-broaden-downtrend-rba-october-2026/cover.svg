@@ -15,34 +15,34 @@
 <text x="1000.0" y="230.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="400" fill="#A39A75" text-anchor="start" >15 Oct</text>
 <line x1="420" x2="1000" y1="556.2" y2="610.5" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
 <circle cx="420" cy="556.2" r="6" fill="#A39A75"/><circle cx="1000" cy="610.5" r="6" fill="#A39A75"/>
+<line x1="420" x2="1000" y1="582.6" y2="501.6" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
+<circle cx="420" cy="582.6" r="6" fill="#E8DEB5"/><circle cx="1000" cy="501.6" r="6" fill="#E8DEB5"/>
+<line x1="420" x2="1000" y1="585.6" y2="762.5" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
+<circle cx="420" cy="585.6" r="6" fill="#A39A75"/><circle cx="1000" cy="762.5" r="6" fill="#A39A75"/>
+<line x1="420" x2="1000" y1="524.0" y2="577.0" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
+<circle cx="420" cy="524.0" r="6" fill="#E8DEB5"/><circle cx="1000" cy="577.0" r="6" fill="#E8DEB5"/>
+<line x1="420" x2="1000" y1="550.5" y2="455.2" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
+<circle cx="420" cy="550.5" r="6" fill="#E8DEB5"/><circle cx="1000" cy="455.2" r="6" fill="#E8DEB5"/>
+<line x1="420" x2="1000" y1="604.0" y2="646.6" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
+<circle cx="420" cy="604.0" r="6" fill="#A39A75"/><circle cx="1000" cy="646.6" r="6" fill="#A39A75"/>
+<line x1="420" x2="1000" y1="562.1" y2="619.6" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
+<circle cx="420" cy="562.1" r="6" fill="#A39A75"/><circle cx="1000" cy="619.6" r="6" fill="#A39A75"/>
 <line x1="420" x2="1000" y1="644.5" y2="547.3" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
 <circle cx="420" cy="644.5" r="6" fill="#FFAC4D"/><circle cx="1000" cy="547.3" r="6" fill="#FFAC4D"/>
 <line x1="420" x2="1000" y1="282.4" y2="480.0" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
 <circle cx="420" cy="282.4" r="6" fill="#E8DEB5"/><circle cx="1000" cy="480.0" r="6" fill="#E8DEB5"/>
-<line x1="420" x2="1000" y1="550.5" y2="455.2" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
-<circle cx="420" cy="550.5" r="6" fill="#E8DEB5"/><circle cx="1000" cy="455.2" r="6" fill="#E8DEB5"/>
-<line x1="420" x2="1000" y1="524.0" y2="577.0" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
-<circle cx="420" cy="524.0" r="6" fill="#E8DEB5"/><circle cx="1000" cy="577.0" r="6" fill="#E8DEB5"/>
 <line x1="420" x2="1000" y1="635.6" y2="581.3" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
 <circle cx="420" cy="635.6" r="6" fill="#FFAC4D"/><circle cx="1000" cy="581.3" r="6" fill="#FFAC4D"/>
-<line x1="420" x2="1000" y1="562.1" y2="619.6" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
-<circle cx="420" cy="562.1" r="6" fill="#A39A75"/><circle cx="1000" cy="619.6" r="6" fill="#A39A75"/>
-<line x1="420" x2="1000" y1="673.4" y2="598.8" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
-<circle cx="420" cy="673.4" r="6" fill="#FFAC4D"/><circle cx="1000" cy="598.8" r="6" fill="#FFAC4D"/>
-<line x1="420" x2="1000" y1="582.6" y2="501.6" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
-<circle cx="420" cy="582.6" r="6" fill="#E8DEB5"/><circle cx="1000" cy="501.6" r="6" fill="#E8DEB5"/>
 <line x1="420" x2="1000" y1="579.7" y2="571.6" stroke="#E8DEB5" stroke-width="3"  stroke-linecap="round"/>
 <circle cx="420" cy="579.7" r="6" fill="#E8DEB5"/><circle cx="1000" cy="571.6" r="6" fill="#E8DEB5"/>
-<line x1="420" x2="1000" y1="582.1" y2="599.4" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
-<circle cx="420" cy="582.1" r="6" fill="#A39A75"/><circle cx="1000" cy="599.4" r="6" fill="#A39A75"/>
-<line x1="420" x2="1000" y1="585.6" y2="762.5" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
-<circle cx="420" cy="585.6" r="6" fill="#A39A75"/><circle cx="1000" cy="762.5" r="6" fill="#A39A75"/>
-<line x1="420" x2="1000" y1="683.9" y2="531.1" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
-<circle cx="420" cy="683.9" r="6" fill="#FFAC4D"/><circle cx="1000" cy="531.1" r="6" fill="#FFAC4D"/>
-<line x1="420" x2="1000" y1="604.0" y2="646.6" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
-<circle cx="420" cy="604.0" r="6" fill="#A39A75"/><circle cx="1000" cy="646.6" r="6" fill="#A39A75"/>
 <line x1="420" x2="1000" y1="643.1" y2="544.8" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
 <circle cx="420" cy="643.1" r="6" fill="#FFAC4D"/><circle cx="1000" cy="544.8" r="6" fill="#FFAC4D"/>
+<line x1="420" x2="1000" y1="582.1" y2="599.4" stroke="#A39A75" stroke-width="3" stroke-dasharray="6 8" stroke-linecap="round"/>
+<circle cx="420" cy="582.1" r="6" fill="#A39A75"/><circle cx="1000" cy="599.4" r="6" fill="#A39A75"/>
+<line x1="420" x2="1000" y1="673.4" y2="598.8" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
+<circle cx="420" cy="673.4" r="6" fill="#FFAC4D"/><circle cx="1000" cy="598.8" r="6" fill="#FFAC4D"/>
+<line x1="420" x2="1000" y1="683.9" y2="531.1" stroke="#FFAC4D" stroke-width="5"  stroke-linecap="round"/>
+<circle cx="420" cy="683.9" r="6" fill="#FFAC4D"/><circle cx="1000" cy="531.1" r="6" fill="#FFAC4D"/>
 <text x="404.0" y="288.4" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="end" >LOT 22.80%</text>
 <text x="404.0" y="499.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="end" >DMP 13.85%</text>
 <text x="404.0" y="522.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#E8DEB5" text-anchor="end" >DRO 12.87%</text>

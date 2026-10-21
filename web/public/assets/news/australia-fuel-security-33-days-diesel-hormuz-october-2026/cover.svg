@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img">
+<rect width="1600" height="900" fill="#0D0D0D"/>
+<text x="80.0" y="78.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="700" fill="#FFAC4D" text-anchor="start" >SHORTED · AUSTRALIA'S FUEL SUPPLY · JULY 2010 TO JULY 2026</text>
+<text x="80.0" y="150.0" font-family="Newsreader, Georgia, serif" font-size="72" font-weight="500" fill="#E8DEB5" text-anchor="start" >Five weeks of diesel</text>
+<text x="80.0" y="196.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="22" font-weight="400" fill="#A39A75" text-anchor="start" >Fuel imported refined (amber) and refined at home (sand), each July; days held under the obligation, right</text>
+<line x1="80" x2="880" y1="760.0" y2="760.0" stroke="#352E27" stroke-width="1"/>
+<text x="68.0" y="766.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="end" >0 GL</text>
+<line x1="80" x2="880" y1="593.3" y2="593.3" stroke="#352E27" stroke-width="1"/>
+<text x="68.0" y="599.3" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="end" >2 GL</text>
+<line x1="80" x2="880" y1="426.7" y2="426.7" stroke="#352E27" stroke-width="1"/>
+<text x="68.0" y="432.7" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="end" >4 GL</text>
+<line x1="80" x2="880" y1="260.0" y2="260.0" stroke="#352E27" stroke-width="1"/>
+<text x="68.0" y="266.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="end" >6 GL</text>
+<path d="M 80.0 450.5 L 130.0 468.4 L 180.1 471.8 L 230.0 500.9 L 280.0 492.2 L 330.0 554.3 L 380.1 561.5 L 430.0 552.1 L 480.0 551.2 L 530.0 559.8 L 580.1 618.0 L 630.0 626.8 L 680.0 655.4 L 730.0 658.2 L 780.1 669.3 L 830.0 664.2 L 880.0 657.5" fill="none" stroke="#E8DEB5" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 80.0 639.2 L 130.0 614.4 L 180.1 614.8 L 230.0 583.3 L 280.0 582.3 L 330.0 546.2 L 380.1 550.3 L 430.0 513.7 L 480.0 498.8 L 530.0 500.7 L 580.1 483.8 L 630.0 482.2 L 680.0 471.8 L 730.0 386.7 L 780.1 331.8 L 830.0 361.4 L 880.0 387.7" fill="none" stroke="#FFAC4D" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" />
+<text x="894.0" y="395.7" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="21" font-weight="700" fill="#FFAC4D" text-anchor="start" >imported 4.5 GL</text>
+<text x="894.0" y="665.5" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="21" font-weight="400" fill="#E8DEB5" text-anchor="start" >refined 1.2 GL</text>
+<text x="90.0" y="679.2" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="start" >2010: 3.7 GL refined, 1.4 imported</text>
+<line x1="330.0" x2="330.0" y1="260" y2="760" stroke="#352E27" stroke-dasharray="4 8"/>
+<text x="338.0" y="284.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="16" font-weight="400" fill="#A39A75" text-anchor="start" >2015: imports overtake refining</text>
+<text x="80.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="start" >Jul 2010</text>
+<text x="280.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="middle" >Jul 2014</text>
+<text x="480.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="middle" >Jul 2018</text>
+<text x="680.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="middle" >Jul 2022</text>
+<text x="880.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="end" >Jul 2026</text>
+<rect x="1210" y="320" width="80" height="440" fill="none" stroke="#352E27"/>
+<rect x="1210" y="459.3" width="80" height="300.7" fill="#A39A75"/>
+<text x="1250.0" y="447.3" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="24" font-weight="700" fill="#E8DEB5" text-anchor="middle" >41 days</text>
+<text x="1250.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="middle" >Petrol</text>
+<text x="1250.0" y="824.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="14" font-weight="400" fill="#A39A75" text-anchor="middle" >1,730 ML</text>
+<rect x="1340" y="320" width="80" height="440" fill="none" stroke="#352E27"/>
+<rect x="1340" y="518.0" width="80" height="242.0" fill="#9E5210"/>
+<text x="1380.0" y="506.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="24" font-weight="700" fill="#E8DEB5" text-anchor="middle" >33 days</text>
+<text x="1380.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="middle" >Diesel</text>
+<text x="1380.0" y="824.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="14" font-weight="400" fill="#A39A75" text-anchor="middle" >3,044 ML</text>
+<rect x="1470" y="320" width="80" height="440" fill="none" stroke="#352E27"/>
+<rect x="1470" y="554.7" width="80" height="205.3" fill="#A39A75"/>
+<text x="1510.0" y="542.7" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="24" font-weight="700" fill="#E8DEB5" text-anchor="middle" >28 days</text>
+<text x="1510.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="middle" >Jet</text>
+<text x="1510.0" y="824.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="14" font-weight="400" fill="#A39A75" text-anchor="middle" >757 ML</text>
+<line x1="1200" x2="1560" y1="393.3" y2="393.3" stroke="#D16A47" stroke-width="2" stroke-dasharray="6 6"/>
+<text x="1560.0" y="385.3" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="15" font-weight="400" fill="#D16A47" text-anchor="end" >50-day target, 2030</text>
+<line x1="1200" x2="1560" y1="525.3" y2="525.3" stroke="#E8DEB5" stroke-width="2" stroke-dasharray="6 6"/>
+<text x="1194.0" y="530.3" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="15" font-weight="400" fill="#E8DEB5" text-anchor="end" >diesel floor, 32</text>
+<text x="1210.0" y="296.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#A39A75" text-anchor="start" >Days held, 13 Oct 2026</text>
+<text x="80.0" y="856.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#A39A75" text-anchor="start" >Source: DCCEEW Australian Petroleum Statistics (volumes, via Shorted); fuelplan.gov.au (days held under the Minimum Stockholding Obligation)</text>
+</svg>
