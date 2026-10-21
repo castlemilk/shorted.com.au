@@ -155,7 +155,7 @@ func dedupe(in []string) []string {
 // answer who owns a stock or what an institution holds, which the substantial
 // holding notices, index ETF files and super fund disclosures now answer.
 // get_stock_ownership and get_institution_holdings took tools/list from 94,502
-// bytes (30 tools) to 99,763 (32), after the trims: counts as int (an int32
+// bytes (30 tools) to 99,833 (32), after the trims: counts as int (an int32
 // schema carries 55 bytes of bounds), omitted counts in the note, and no field
 // another tool already serves.
 func TestToolsListPreambleStaysWithinBudget(t *testing.T) {

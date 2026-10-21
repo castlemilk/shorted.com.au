@@ -95,7 +95,7 @@ type GetStockOwnershipOutput struct {
 	DisclosedPct  *float64           `json:"disclosed_pct,omitempty" jsonschema:"Their voting power summed; see note."`
 	ByKind        []OwnershipKindRow `json:"by_kind"`
 	ShortPct      *float64           `json:"short_pct,omitempty"`
-	IndexETFPct   *float64           `json:"index_etf_pct,omitempty" jsonschema:"Held by the index ETFs tracked, % of shares on issue."`
+	IndexFundPct  *float64           `json:"index_fund_pct,omitempty" jsonschema:"Held by the index funds tracked, % of shares on issue. Vanguard's files are the whole fund, its unlisted classes included."`
 	SuperOptions  int                `json:"super_options"`
 	SuperValueAUD *float64           `json:"super_value_aud,omitempty"`
 	MarketCapAUD  *float64           `json:"market_cap_aud,omitempty"`
@@ -148,7 +148,7 @@ func getStockOwnershipHandler(src DataSource) sdk.ToolHandlerFor[GetStockOwnersh
 			Holders:       int(sum.GetHolders()),
 			ByKind:        []OwnershipKindRow{},
 			ShortPct:      roundedOptional(sum.GetShortPct(), sum.GetHasShortPct()),
-			IndexETFPct:   roundedOptional(sum.GetIndexPct(), sum.GetHasIndexPct()),
+			IndexFundPct:  roundedOptional(sum.GetIndexPct(), sum.GetHasIndexPct()),
 			SuperOptions:  int(sum.GetSuperOptions()),
 			SuperValueAUD: wholeOptional(sum.GetSuperValueAud(), sum.GetHasSuperValue()),
 			MarketCapAUD:  wholeOptional(sum.GetMarketCap(), sum.GetHasMarketCap()),
@@ -214,8 +214,8 @@ func stockOwnershipSummary(out GetStockOwnershipOutput) string {
 		fmt.Fprintf(&b, "%s %s %.2f%% in sum (not a share of the company)",
 			plural(out.Holders, "substantial holder"), verb, *out.DisclosedPct)
 	}
-	if out.IndexETFPct != nil {
-		fmt.Fprintf(&b, "; the index ETFs tracked hold %.2f%% of shares on issue", *out.IndexETFPct)
+	if out.IndexFundPct != nil {
+		fmt.Fprintf(&b, "; the index funds tracked hold %.2f%% of shares on issue", *out.IndexFundPct)
 	}
 	if out.SuperOptions > 0 {
 		fmt.Fprintf(&b, "; %s hold it", plural(out.SuperOptions, "tracked super fund option"))

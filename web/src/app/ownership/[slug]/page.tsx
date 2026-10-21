@@ -18,7 +18,14 @@ import {
   OwnershipMethodology,
 } from "~/@/components/ownership/ownership-parts";
 import { formatAmount, formatPct } from "~/@/lib/fundamentals/format";
-import { formLabel, formatPointChange, formatVotingPower, fundLabel, kindInfo } from "~/@/lib/ownership/kinds";
+import {
+  formLabel,
+  formatFundWeight,
+  formatPointChange,
+  formatVotingPower,
+  fundLabel,
+  kindInfo,
+} from "~/@/lib/ownership/kinds";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { getInstitution } from "~/app/actions/getOwnership";
@@ -231,7 +238,7 @@ export default async function InstitutionPage({ params }: PageProps) {
                       {h.hasValue ? formatAmount(h.valueAud, "AUD") : "n/a"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {h.hasWeight ? formatPct(h.weightPct, { digits: 2 }) : "n/a"}
+                      {formatFundWeight(h.weightPct, h.hasWeight, h.hasValue ? h.valueAud : null)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {h.hasPctOfIssued ? formatPct(h.pctOfIssued, { digits: 2 }) : "n/a"}
