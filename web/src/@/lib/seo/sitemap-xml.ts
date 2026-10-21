@@ -27,7 +27,8 @@ export type SitemapEntry = {
  *               /seasonality + /screener + /scans(+slugs) + /industry(+slugs) +
  *               /industry-intelligence + /glossary(+terms) + /directory(+a–z) +
  *               /market(+dated snapshots) + /learn(+articles) + /blog(+posts) +
- *               /authors(+slugs) + /docs/* + /faq + /privacy + /data + /press +
+ *               /authors(+slugs) + /docs/* (not the per-endpoint
+ *               /docs/api/[endpoint] pages) + /faq + /privacy + /data + /press +
  *               /economy(+states) + /features/* + /news + /news/[slug] takes
  *   shorts      /shorts + /shorts/[code] + /shorts/[code]/{short-interest,
  *               financials,company,news} (the tabs STOCK_TAB_IN_SITEMAP lists,
@@ -43,7 +44,12 @@ export type SitemapEntry = {
  *
  * Removed vs the flat sitemap: /developer (auth-gated dashboard stub — it
  * renders a spinner for anonymous crawlers).
- * Added: /docs/api, /docs/api/[endpoint], /docs/api/clients/[language].
+ * Added: /docs/api, /docs/api/clients/[language]. /docs/api/[endpoint] was
+ * listed too until 2026-10-21: 87 thin per-RPC stubs that the docs sidebar
+ * already links from every docs page.
+ *
+ * Each child needs its own route, app/<child>/route.ts; /sitemap.xml and
+ * robots.txt list every entry here (sitemap-children.test.ts).
  */
 export const SITEMAP_CHILDREN = [
   "sitemap-core.xml",
