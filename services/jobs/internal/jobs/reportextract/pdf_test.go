@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/pdfchild"
 )
@@ -89,5 +90,31 @@ func TestDownloadPDFTextSurvivesAReaderThatBalloons(t *testing.T) {
 	f.pdfs = pdfchild.NewReader(PDFTextMode, 0)
 	if got := f.downloadPDFText(context.Background(), srv.URL, 3); !strings.Contains(got, "xxxx") {
 		t.Fatalf("the next document must still read, got %q", got)
+	}
+}
+
+// LF1's dividend update of 2026-03-06 (ASX 03069118, 554 KB, 16 pages) sends
+// ledongthuc/pdf's readArray into an unbounded loop: read in the job's own
+// process it held 1.36 GB within 11 seconds, then asked for a 792 MB block.
+// shorted-announcements read it in-process and died at its 1 GiB on every run
+// from 2026-10-15. In a child it costs only itself.
+func TestDownloadPDFTextSurvivesLF1Notice(t *testing.T) {
+	if _, err := os.Stat("/proc/self/status"); err != nil {
+		t.Skip("no /proc: the deadline is the bound here, and it is a minute")
+	}
+	doc, err := os.ReadFile("testdata/lf1_dividend_update_2026-03-06.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(doc)
+	}))
+	defer srv.Close()
+	start := time.Now()
+	if got := newFetcher().downloadPDFText(context.Background(), srv.URL, 10); got != "" {
+		t.Fatalf("LF1's notice must read as no text, got %d bytes", len(got))
+	}
+	if d := time.Since(start); d > 30*time.Second {
+		t.Fatalf("took %s to give up on LF1's notice", d)
 	}
 }
