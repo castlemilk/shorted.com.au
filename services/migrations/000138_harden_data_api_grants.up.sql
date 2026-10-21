@@ -69,34 +69,55 @@
 --   * service_role. Its key is a server-side secret by design; it keeps its
 --     grants and its BYPASSRLS.
 --
--- SHAPE. Two transactions, each opening with SET LOCAL lock_timeout = '3s':
---   1. Privileges: every REVOKE and ALTER DEFAULT PRIVILEGES. GRANT and REVOKE
---      rewrite the object's catalog row without locking the object, so this
---      commits in well under a second whatever is reading the tables, and the
---      part that closes the Data API lands even if step 2 has to wait.
---   2. Row level security: ALTER TABLE ... ENABLE ROW LEVEL SECURITY takes an
---      ACCESS EXCLUSIVE lock. It only flips a catalog flag, so it is instant
---      once granted, but it queues behind any open reader of the table (a
---      refresh of a view over shorts, a pg_dump), and every new reader queues
---      behind it. lock_timeout bounds that queue at 3s, longer than the API's
---      ordinary queries take. A table whose lock is not granted in time is
---      skipped with a WARNING naming it (lock_not_available is caught per table,
---      in its own subtransaction, and nothing else is), and the next replay or a
---      re-run in a quiet moment finishes it; its privileges are closed by then.
---      Tables are taken smallest first (reltuples), so the hottest, shorts and
---      stock_prices, are locked last and held for the shortest time before
---      COMMIT.
--- SET LOCAL inside an explicit BEGIN ... COMMIT is what makes the timeout hold
--- on every path that runs this file, exactly as in 000132. `task
--- db:prod:apply` runs it through prod-psql.sh, whose classifier reads two
--- BEGIN ... COMMIT pairs as `session` (so the wrapper sets a session
--- statement_timeout = 0 and RESET ALLs before it exits); the deploy replays it
--- with plain `psql -f`; golang-migrate (`make migrate-up`) sends it as one
--- multi-statement query. On all three each BEGIN opens a real transaction, so
--- each SET LOCAL lasts exactly as long as its transaction, on a direct
--- connection or either pooler, and never reaches a later file. A bare SET would
--- outlive the file; a SET LOCAL with no BEGIN around it only warns and does
--- nothing.
+-- SHAPE. One transaction for the privileges, then one per table for row level
+-- security.
+--   1. Privileges, in one transaction under SET LOCAL lock_timeout = '3s':
+--      every REVOKE and ALTER DEFAULT PRIVILEGES. GRANT and REVOKE rewrite the
+--      object's catalog row without locking the object, so this commits in well
+--      under a second whatever is reading the tables, and the part that closes
+--      the Data API lands even if step 2 has to wait.
+--   2. Row level security: one DO block that COMMITs after each table.
+--      ALTER TABLE ... ENABLE ROW LEVEL SECURITY takes an ACCESS EXCLUSIVE lock.
+--      It only flips a catalog flag, so it is instant once granted, but it
+--      queues behind any open transaction that has the table locked at all (a
+--      refresh reading it, a long report query, a pg_dump), and every new
+--      reader of that table queues behind it. Each table's transaction sets its
+--      own lock_timeout = '3s' (set_config(..., true)), so that queue lasts 3s
+--      at most, and its lock is released at that table's COMMIT, before the
+--      next table is asked for. Only the table being waited on holds up its
+--      readers, and no lock cycle can form across tables. (In one transaction,
+--      every table already flipped stayed locked through each later wait:
+--      readers of company-metadata stalled 2.5s behind a busy shorts, and a
+--      read locking shorts and then company-metadata deadlocked with the loop.)
+--      A table whose lock is not granted in time, or whose wait is chosen to
+--      break a deadlock, is skipped with a WARNING naming it: lock_not_available
+--      and deadlock_detected are caught per table, in its own subtransaction,
+--      and nothing else is. Re-run the file to finish it; its privileges are
+--      closed by then. Tables are taken in name order, for a stable log: the
+--      order no longer decides how long any lock is held.
+--
+-- HOW IT RUNS. SET LOCAL inside BEGIN ... COMMIT keeps step 1's lock_timeout
+-- to step 1, exactly as in 000132, and set_config(..., true) keeps each table's
+-- to that table's transaction; neither reaches a later file, on a direct
+-- connection or either pooler. A bare SET would outlive the file. `task
+-- db:prod:apply` runs the file through prod-psql.sh, whose classifier reads a
+-- COMMIT before the end as `session`: it sets a session statement_timeout = 0,
+-- runs the file statement by statement and RESET ALLs before it exits. The
+-- deploy replays it with plain `psql -f`, which also sends each statement on
+-- its own. Either way step 2's DO runs outside any transaction block, which a
+-- DO must do to COMMIT.
+-- golang-migrate (`make migrate-up`) cannot run step 2 wherever it has work to
+-- do. It sends the whole file as ONE multi-statement query, and every
+-- statement after the explicit COMMIT then runs in an implicit transaction
+-- block, so the DO's first COMMIT fails with invalid_transaction_termination:
+-- step 1 has committed by then, no table has changed, and schema_migrations is
+-- left dirty at 138. The DO reaches a COMMIT only on a server that has the anon
+-- and authenticated roles and a table with row level security off that
+-- current_user can alter. No environment does that today: prod is applied by
+-- hand with psql, and local docker and the test containers have no such roles,
+-- so there the DO returns before any COMMIT and golang-migrate runs the file as
+-- a no-op. On such a server, apply the file with `psql -v ON_ERROR_STOP=1 -f`
+-- and then run `migrate ... force 138`.
 --
 -- REPLAY-SAFE. Every step is catalog-guarded: an object is touched only while
 -- its ACL (or a column's) still grants PUBLIC, anon or authenticated something,
@@ -123,7 +144,7 @@
 -- The down migration is a deliberate no-op; see it for why.
 
 -- ===========================================================================
--- Transaction 1: privileges (no lock on any table)
+-- Step 1, one transaction: privileges (no lock on any table)
 -- ===========================================================================
 BEGIN;
 
@@ -268,12 +289,8 @@ $m138$;
 COMMIT;
 
 -- ===========================================================================
--- Transaction 2: row level security on every table (ACCESS EXCLUSIVE, bounded)
+-- Step 2, one transaction per table: row level security (ACCESS EXCLUSIVE, 3s each)
 -- ===========================================================================
-BEGIN;
-
-SET LOCAL lock_timeout = '3s';
-
 DO $m138$
 DECLARE
     t         record;
@@ -295,18 +312,23 @@ BEGIN
            AND NOT c.relrowsecurity
            AND NOT EXISTS (SELECT 1 FROM pg_depend d
                             WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e')
-         ORDER BY greatest(c.reltuples, 0), c.relname
+         ORDER BY c.relname
     LOOP
         IF NOT pg_has_role(current_user, t.relowner, 'MEMBER') THEN
             not_owned := not_owned || format('%I.%I (owner %I)', t.nspname, t.relname, pg_get_userbyid(t.relowner));
             CONTINUE;
         END IF;
+        PERFORM set_config('lock_timeout', '3s', true);  -- this table's transaction only
         BEGIN
             EXECUTE format('ALTER TABLE IF EXISTS %I.%I ENABLE ROW LEVEL SECURITY', t.nspname, t.relname);
             enabled := enabled + 1;
-        EXCEPTION WHEN lock_not_available THEN
+        EXCEPTION WHEN lock_not_available OR deadlock_detected THEN
             deferred := deferred || format('%I.%I', t.nspname, t.relname);
         END;
+        -- Ends this table's transaction, and so releases its lock, before the
+        -- next table is asked for. It sits outside the block above because a
+        -- transaction cannot end inside a block that has an EXCEPTION clause.
+        COMMIT;
     END LOOP;
 
     RAISE NOTICE '000138: row level security enabled on % table(s)', enabled;
@@ -314,10 +336,8 @@ BEGIN
         RAISE NOTICE '000138: row level security left off (% cannot alter them): %', current_user, array_to_string(not_owned, '; ');
     END IF;
     IF cardinality(deferred) > 0 THEN
-        RAISE WARNING '000138: row level security NOT enabled on % table(s) whose lock was not granted within lock_timeout: %. Their privileges are already closed; re-run this file in a quiet moment, or let the next deploy replay it.',
+        RAISE WARNING '000138: row level security NOT enabled on % table(s) whose lock was not granted within lock_timeout, or whose wait was chosen to break a deadlock: %. Their privileges are already closed; re-run this file in a quiet moment, or let the next deploy replay it.',
             cardinality(deferred), array_to_string(deferred, ', ');
     END IF;
 END
 $m138$;
-
-COMMIT;

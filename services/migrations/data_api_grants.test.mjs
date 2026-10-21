@@ -8,11 +8,13 @@
 // backend never needed any of it (it connects as postgres, the owner of every
 // object, with BYPASSRLS).
 //
-// These pin the file's shape (two transactions, a short lock_timeout, every
-// role-dependent statement behind a pg_roles check), what it covers, what makes
-// a replay a no-op, its place at the END of the deploy allowlist, the
-// read-only check file, and three rules over every migration that keep the
-// Data API closed afterwards:
+// These pin the file's shape (a privileges transaction under a short
+// lock_timeout, then row level security one table per transaction, each with
+// its own short lock_timeout, a handler for lock_not_available and
+// deadlock_detected, and a COMMIT; every role-dependent statement behind a
+// pg_roles check), what it covers, what makes a replay a no-op, its place at
+// the END of the deploy allowlist, the read-only check file, and three rules
+// over every migration that keep the Data API closed afterwards:
 //   * no migration GRANTs anything to anon, authenticated or PUBLIC;
 //   * none creates a policy, or FORCEs or DISABLEs row level security;
 //   * every SECURITY DEFINER function pins search_path and revokes PUBLIC's
@@ -21,9 +23,11 @@
 // role model and default privileges plus the whole migration chain: applied
 // through prod-psql.sh, then replayed with plain psql (no catalog row
 // rewritten), a no-op where the roles do not exist (golang-migrate up, down,
-// up), the backend unaffected, anon and authenticated denied on every object
-// kind, REVOKE completing while another session held ACCESS EXCLUSIVE, and a
-// table under a long reader skipped after 3s and finished on the next run.
+// up) and the documented invalid_transaction_termination where they do, the
+// backend unaffected, anon and authenticated denied on every object kind, a
+// table under a long reader skipped after 3s and finished on the next run,
+// readers of other tables not held up meanwhile, and the deadlock a single
+// row level security transaction allowed gone.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
@@ -54,39 +58,48 @@ const topLevel = (sql) => splitStatements(sql).map((s) => s.text.replace(/\s+/g,
 const bodies = [...upCode.matchAll(/^DO \$m138\$\n([\s\S]*?)\n\$m138\$;$/gm)].map((m) => m[1]);
 const [privileges, rls] = bodies;
 
+/** Single-quoted literals inside the DO bodies ('' is an escaped quote). */
+const STRING = /'(?:[^']|'')*'/g;
+/** The code with every literal masked, so a message never satisfies or trips a keyword test. */
+const masked = (sql) => sql.replace(STRING, "'s'");
+
 const ROLE_GUARD = /FROM pg_roles\s+WHERE rolname IN \('anon', 'authenticated'\)/;
 
 // ---------------------------------------------------------------------------
 // shape
 
-test("two transactions, each opening with SET LOCAL lock_timeout, and nothing else at top level", () => {
-  assert.deepEqual(topLevel(up), [
-    "BEGIN",
-    "SET LOCAL lock_timeout = 's'",
-    "DO $body$",
-    "COMMIT",
-    "BEGIN",
-    "SET LOCAL lock_timeout = 's'",
-    "DO $body$",
-    "COMMIT",
-  ]);
+test("a privileges transaction, then the row level security block, and nothing else at top level", () => {
+  assert.deepEqual(topLevel(up), ["BEGIN", "SET LOCAL lock_timeout = 's'", "DO $body$", "COMMIT", "DO $body$"]);
   assert.equal(bodies.length, 2, "expected the privileges block and the row level security block");
 });
 
-test("lock_timeout is short: an ACCESS EXCLUSIVE wait queues every reader of a hot table behind it", () => {
-  const timeouts = [...upCode.matchAll(/SET LOCAL lock_timeout = '(\d+)s';/g)].map((m) => Number(m[1]));
-  assert.equal(timeouts.length, 2);
-  for (const seconds of timeouts) {
+test("lock_timeout is short, and scoped: step 1 by SET LOCAL, each table by set_config(..., true)", () => {
+  // An ACCESS EXCLUSIVE wait queues every new reader of the table behind it.
+  const stepOne = [...upCode.matchAll(/SET LOCAL lock_timeout = '(\d+)s';/g)].map((m) => Number(m[1]));
+  const perTable = [...rls.matchAll(/PERFORM set_config\('lock_timeout', '(\d+)s', true\);/g)].map((m) => Number(m[1]));
+  assert.equal(stepOne.length, 1, "one SET LOCAL lock_timeout, for the privileges transaction");
+  assert.equal(perTable.length, 1, "one transaction-local lock_timeout per table, set inside the loop");
+  for (const seconds of [...stepOne, ...perTable]) {
     assert.ok(seconds >= 1 && seconds <= 5, `lock_timeout ${seconds}s: keep it between 1s and 5s`);
   }
+  // Nothing else sets it: outside its messages the file names lock_timeout
+  // only in that SET LOCAL (the set_config argument is a literal, so masked).
+  assert.equal([...masked(upCode).matchAll(/lock_timeout/g)].length, 1);
+  assert.equal([...upCode.matchAll(/set_config\(/g)].length, 1);
+  assert.doesNotMatch(upCode, /set_config\('lock_timeout'[^)]*false\)/, "is_local false would outlive the table's transaction");
   // A session-level SET would outlive the file (the deploy runs several files
   // in one psql session); SET LOCAL ends with its transaction on any pooler.
   assert.doesNotMatch(upCode, /^\s*SET (?!LOCAL)/m);
   assert.doesNotMatch(upCode, /statement_timeout/, "the catalog work is quick; the wrapper owns statement_timeout");
 });
 
-test("prod-psql.sh reads it as `session`, as it does 000132's two transactions", () => {
-  assert.equal(classify(up).verdict, "session");
+test("prod-psql.sh reads it as `session`, so it runs the file statement by statement, as psql -f does", () => {
+  // The row level security block COMMITs, which a DO can do only outside a
+  // transaction block. The `transaction` verdict would run the file under
+  // --single-transaction; `session` runs it statement by statement.
+  const verdict = classify(up);
+  assert.equal(verdict.verdict, "session");
+  assert.match(verdict.reason, /manages its own transactions/);
   assert.equal(classify(down).verdict, "transaction");
 });
 
@@ -106,10 +119,13 @@ test("both DO blocks stop at their first statement where anon and authenticated 
   assert.match(privileges.slice(privilegesExit, privileges.indexOf("END IF;", privilegesExit)), /RETURN;/);
   assert.doesNotMatch(privileges.slice(0, privilegesExit), /\bEXECUTE\b/, "nothing runs before the check");
 
+  // golang-migrate sends the file as one multi-statement query, where a COMMIT
+  // inside a DO fails; on a server without the roles the block must return
+  // before its first COMMIT, so the file stays a no-op there.
   const rlsExit = rls.indexOf("IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('anon', 'authenticated')) THEN");
   assert.ok(rlsExit > 0, "row level security block: early exit");
   assert.match(rls.slice(rlsExit, rls.indexOf("END IF;", rlsExit)), /RETURN;/);
-  assert.doesNotMatch(rls.slice(0, rlsExit), /\bEXECUTE\b/, "nothing runs before the check");
+  assert.doesNotMatch(rls.slice(0, rlsExit), /\b(EXECUTE|COMMIT|set_config)\b/, "nothing runs before the check");
 });
 
 test("postgres's default privileges change only once the role exists and current_user can act for it", () => {
@@ -232,15 +248,22 @@ test("every step is catalog-guarded, so a closed database replays with no catalo
   assert.match(rls, /AND NOT c\.relrowsecurity/);
 });
 
-test("a contended table is skipped with a WARNING, never a failed deploy, and nothing else is swallowed", () => {
-  assert.equal([...upCode.matchAll(/\bEXCEPTION\b/g)].length, 1, "one handler in the whole file");
-  assert.match(rls, /BEGIN\n\s+EXECUTE format\('ALTER TABLE IF EXISTS %I\.%I ENABLE ROW LEVEL SECURITY'[^\n]*\n[^\n]*\n\s+EXCEPTION WHEN lock_not_available THEN\n\s+deferred := deferred \|\|/);
+test("row level security: one transaction per table, a contended table skipped with a WARNING, nothing else swallowed", () => {
+  assert.equal([...upCode.matchAll(/\bEXCEPTION WHEN\b/g)].length, 1, "one handler in the whole file");
+  // set the table's own lock_timeout, flip it in a subtransaction that catches
+  // only a lock it cannot get or a deadlock, then COMMIT outside that block
+  // (a transaction cannot end inside a block with an EXCEPTION clause)
+  assert.match(
+    rls,
+    /PERFORM set_config\('lock_timeout', '\d+s', true\);[^\n]*\n\s+BEGIN\n\s+EXECUTE format\('ALTER TABLE IF EXISTS %I\.%I ENABLE ROW LEVEL SECURITY'[^\n]*\n[^\n]*\n\s+EXCEPTION WHEN lock_not_available OR deadlock_detected THEN\n\s+deferred := deferred \|\| format\('%I\.%I', t\.nspname, t\.relname\);\n\s+END;\n(?:[ \t]*\n)*[ \t]+COMMIT;\n\s+END LOOP;/,
+  );
+  assert.equal([...rls.matchAll(/\bCOMMIT\b/g)].length, 1, "the per-table COMMIT is the block's only one");
   assert.doesNotMatch(upCode, /WHEN OTHERS/i, "a real error must fail the step");
-  assert.match(rls, /RAISE WARNING '000138: row level security NOT enabled on % table\(s\) whose lock was not granted within lock_timeout: %/);
+  assert.match(rls, /RAISE WARNING '000138: row level security NOT enabled on % table\(s\) whose lock was not granted within lock_timeout, or whose wait was chosen to break a deadlock: %/);
 });
 
-test("the hottest tables (shorts, stock_prices) are locked last, so they are held for the shortest time", () => {
-  assert.match(rls, /ORDER BY greatest\(c\.reltuples, 0\), c\.relname/);
+test("with one transaction per table the order decides nothing; tables are taken by name, for a stable log", () => {
+  assert.match(rls, /ORDER BY c\.relname\n\s+LOOP/);
 });
 
 test("objects current_user cannot act for are reported, not attempted", () => {
