@@ -369,14 +369,17 @@ shorts `refresh_all_materialized_views()`.
 ### `refresh_suburb_reference_views()` (000139)
 
 Refreshes the three suburb reference views independently (CONCURRENTLY →
-blocking fallback → `Skipping` warning). They read official data only (public
+blocking fallback → `Skipping` warning) and returns the views it skipped as
+`'view: error'` (empty when all three refreshed); the collector fails its run on
+any, because its pool never sees the warning. They read official data only (public
 suburb medians, Census, amenities), so the collector calls it from `refresh()`
 (official, VG, suburb crawl, crime, `-mode refresh`) and after a successful `-mode census` or
 `-mode amenities`, never after an agent or listing drain. It records nothing in
 `housing_mv_refresh` (whose 72h sentinel would trip on monthly views). By hand:
 `task db:prod:refresh WHICH=suburbs CONFIRM=prod`. Every reader falls back to the
-per-request SQL on 42P01, so a database without 000139 keeps working at the old
-cost (2026-10-21 database review: these reads were a third of prod DB time).
+per-request SQL on a 42P01 that names one of the three views (any other missing
+relation is returned as an error), so a database without 000139 keeps working at
+the old cost (2026-10-21 database review: these reads were a third of prod DB time).
 
 ## Where each guard actually lives
 

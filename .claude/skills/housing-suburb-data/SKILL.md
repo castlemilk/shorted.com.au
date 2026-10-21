@@ -369,6 +369,22 @@ needs the **session pooler (5432)** with `statement_timeout=0` — the txn poole
 (6543) kills it mid-`REFRESH … CONCURRENTLY`. The collector's `refresh()` already
 sets `SET LOCAL statement_timeout = 0`.
 
+There are two refreshes. The suburb list, profile, similar suburbs, `price`
+column and council suburb table read the 000139 suburb reference views
+(`mv_suburb_latest_price`, `mv_housing_state_baselines`,
+`mv_suburb_similarity_features`), which only `refresh_suburb_reference_views()`
+moves. The collector runs it in `refresh()` and after `-mode census` /
+`-mode amenities`, and fails the run if a view was skipped. After a hand fix to
+`house_prices`, `suburb_demographics` or `suburb_amenities`, or an ingest run by
+a binary built before 000139, run both (each exits 1 on a skipped view):
+
+```bash
+task db:prod:refresh WHICH=housing CONFIRM=prod
+task db:prod:refresh WHICH=suburbs CONFIRM=prod
+```
+
+Then the cache bust:
+
 ```bash
 task deploy:revalidate CONFIRM=prod FLUSH=housing \
   PATHS="/housing,/housing/[state],/housing/[state]/[suburb]"

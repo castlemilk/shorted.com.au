@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -197,15 +198,50 @@ func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
 //
 // A database without 000139 has no such function (42883): that is a skipped
 // step, never a failed run, so the collector can ship before the hand-apply.
+//
+// The function turns a view it cannot refresh into a WARNING and carries on,
+// and this pool has no notice handler, so the warning alone would never reach
+// a log line or an exit code. It also returns the views it skipped, and any
+// skipped view fails the run: the pages would keep serving that view's
+// previous data.
 func refreshSuburbReferenceViews(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, `SET LOCAL statement_timeout = 0;
-		SELECT refresh_suburb_reference_views()`)
+	skipped, err := callRefreshSuburbReferenceViews(ctx, pool)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "42883" {
 		log.Printf("suburb reference views not refreshed: refresh_suburb_reference_views() is absent (migration 000139 not applied)")
 		return nil
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	if len(skipped) > 0 {
+		return fmt.Errorf("refresh_suburb_reference_views() skipped %d view(s), which still hold their previous data: %s",
+			len(skipped), strings.Join(skipped, "; "))
+	}
+	log.Printf("refreshed the suburb reference views (mv_suburb_latest_price, mv_housing_state_baselines, mv_suburb_similarity_features)")
+	return nil
+}
+
+// callRefreshSuburbReferenceViews runs the refresh in its own transaction so
+// it can read the function's result: a multi-statement simple-protocol query
+// (refreshHousingMV's shape) returns only its first statement's rows to pgx.
+// SET LOCAL still precedes the call, because a function-scoped GUC cannot
+// disarm the timeout already armed for the calling statement, and one
+// transaction keeps one backend on the transaction pooler.
+func callRefreshSuburbReferenceViews(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }() // a no-op after Commit
+	if _, err := tx.Exec(ctx, `SET LOCAL statement_timeout = 0`); err != nil {
+		return nil, err
+	}
+	var skipped []string
+	if err := tx.QueryRow(ctx, `SELECT refresh_suburb_reference_views()`).Scan(&skipped); err != nil {
+		return nil, err
+	}
+	return skipped, tx.Commit(ctx)
 }
 
 // afterSuburbReferenceIngest refreshes the suburb reference views once an

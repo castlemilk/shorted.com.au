@@ -57,6 +57,22 @@ test("the refresh function guards each view: concurrent, blocking fallback, then
   assert.match(code, /ALTER FUNCTION refresh_suburb_reference_views\(\) SET statement_timeout TO '0';/);
 });
 
+test("the refresh function returns the views it skipped, so the collector can fail its run", () => {
+  // The collector's pool has no notice handler: a WARNING alone never reaches
+  // its log or its exit code (house-price-collector/store.go).
+  const fn = code.slice(code.indexOf("CREATE OR REPLACE FUNCTION refresh_suburb_reference_views()"), code.indexOf("ALTER FUNCTION"));
+  assert.match(fn, /RETURNS text\[\]/);
+  assert.match(fn, /skipped text\[\] := ARRAY\[\]::text\[\];/);
+  for (const mv of views) {
+    assert.match(
+      fn,
+      new RegExp(`RAISE WARNING 'Skipping ${mv}: %', SQLERRM;\\s*skipped := skipped \\|\\| \\('${mv}: ' \\|\\| SQLERRM\\);`),
+      `a skipped ${mv} must be returned, not only warned about`,
+    );
+  }
+  assert.match(fn, /RETURN skipped;\s*END;\s*\$\$;/);
+});
+
 test("the refresh records nothing in housing_mv_refresh, whose 72h sentinel these monthly views would trip", () => {
   assert.doesNotMatch(code, /housing_mv_refresh/);
 });

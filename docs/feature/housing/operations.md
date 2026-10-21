@@ -148,6 +148,28 @@ council page showing no drops block while `/price-drops` has data: check
 `SELECT * FROM housing_mv_refresh WHERE mv_name = 'mv_council_price_drops'`
 (no row = nothing published, by design), then refresh.
 
+**The suburb reference views (000139) are a second refresh.**
+`refresh_suburb_reference_views()` refreshes `mv_suburb_latest_price`,
+`mv_housing_state_baselines` and `mv_suburb_similarity_features`: each
+suburb's latest public median and YoY, the state baselines and the
+similar-suburbs features that the suburb list, profile, similar suburbs, map
+price column and council suburb table read instead of computing them per
+request. Before 000139 those values were computed per request, so they could
+not go stale; now they move only when this function runs. The collector calls
+it from `refresh()` (after the housing views) and after a successful
+`-mode census` or `-mode amenities`. The function turns a view it cannot
+refresh into a `Skipping` WARNING and returns the skipped views; the collector
+fails its run on any, and logs `refreshed the suburb reference views` on
+success. The views are not in `housing_mv_refresh`, so `MV_REFRESH_AGE` never
+sees them. After a hand fix to `house_prices`, `suburb_demographics` or
+`suburb_amenities`, or a load by a collector built before 000139:
+
+```bash
+task db:prod:refresh WHICH=suburbs CONFIRM=prod
+```
+
+Like `WHICH=housing`, it exits 1 on any `Skipping` line.
+
 For a read-only look at prod, use `task db:prod:psql -- -At -c "SQL"`: one
 `BEGIN READ ONLY; SET LOCAL statement_timeout = '60s'; …; ROLLBACK`.
 

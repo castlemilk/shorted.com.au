@@ -197,12 +197,17 @@ COMMENT ON MATERIALIZED VIEW mv_suburb_similarity_features IS
 -- ---------------------------------------------------------------------------
 -- 4. Refresh function: each view independently, concurrent first, a blocking
 --    refresh as fallback, then a 'Skipping' WARNING (which
---    `scripts/prod-psql.sh refresh` turns into a non-zero exit).
+--    `scripts/prod-psql.sh refresh` turns into a non-zero exit). It returns
+--    the views it skipped, as 'view: error', and an empty array when all three
+--    refreshed. A WARNING never reaches the collector (its pool has no notice
+--    handler), so the collector fails its run on a non-empty result instead.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION refresh_suburb_reference_views()
-RETURNS void
+RETURNS text[]
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    skipped text[] := ARRAY[]::text[];
 BEGIN
     BEGIN
         BEGIN
@@ -213,6 +218,7 @@ BEGIN
         END;
     EXCEPTION WHEN query_canceled OR OTHERS THEN
         RAISE WARNING 'Skipping mv_suburb_latest_price: %', SQLERRM;
+        skipped := skipped || ('mv_suburb_latest_price: ' || SQLERRM);
     END;
 
     BEGIN
@@ -224,6 +230,7 @@ BEGIN
         END;
     EXCEPTION WHEN query_canceled OR OTHERS THEN
         RAISE WARNING 'Skipping mv_housing_state_baselines: %', SQLERRM;
+        skipped := skipped || ('mv_housing_state_baselines: ' || SQLERRM);
     END;
 
     BEGIN
@@ -235,7 +242,10 @@ BEGIN
         END;
     EXCEPTION WHEN query_canceled OR OTHERS THEN
         RAISE WARNING 'Skipping mv_suburb_similarity_features: %', SQLERRM;
+        skipped := skipped || ('mv_suburb_similarity_features: ' || SQLERRM);
     END;
+
+    RETURN skipped;
 END;
 $$;
 
@@ -244,7 +254,7 @@ $$;
 ALTER FUNCTION refresh_suburb_reference_views() SET statement_timeout TO '0';
 
 COMMENT ON FUNCTION refresh_suburb_reference_views() IS
-    'Refreshes the suburb reference views (mv_suburb_latest_price, mv_housing_state_baselines, mv_suburb_similarity_features) independently: concurrent, blocking fallback, then a Skipping WARNING. Called by house-price-collector after official and Census/amenity loads, never after a crawl drain.';
+    'Refreshes the suburb reference views (mv_suburb_latest_price, mv_housing_state_baselines, mv_suburb_similarity_features) independently: concurrent, blocking fallback, then a Skipping WARNING. Returns the skipped views as ''view: error'' (empty when all three refreshed); house-price-collector fails its run on any. Called by the collector after official and Census/amenity loads, never after a crawl drain.';
 
 -- Fresh statistics for the three new views, so the readers' joins plan on real
 -- row counts from the first request.
