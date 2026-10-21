@@ -843,8 +843,8 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
         (perStateEntries.get(slug) ?? []).map((s) => s.lastModified),
       ),
     })),
-    // Clean canonical URLs (the page resolves the SAL from the slug; ?sal= is
-    // only a fast-path).
+    // Clean canonical URLs, the form suburbHref links everywhere: the page
+    // resolves the SAL from the slug alone and ignores any query.
     ...allSuburbUrls.map((s) => ({
       url: `${baseUrl}/housing/${s.state}/${s.suburb}`,
       lastModified: s.lastModified,
