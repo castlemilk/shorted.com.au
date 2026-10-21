@@ -133,9 +133,17 @@ If it returns rows, go back to step 1.
   names its query and relations) and start again from the pre-check.
 - **`ERROR: canceling statement due to lock timeout`, `CONTEXT: while updating tuple ... in relation "pg_class"`.**
   The backstop: something the look cannot see (a refresh that started just
-  after it, a concurrent GRANT or CREATE OR REPLACE FUNCTION) held a row for
-  more than 3s. Step 1 rolled back whole, so again nothing changed. Start
-  again from the pre-check.
+  after it, an ALTER that takes only SHARE UPDATE EXCLUSIVE, a concurrent
+  GRANT, CREATE OR REPLACE FUNCTION or ALTER FUNCTION) held a row for more
+  than 3s. Step 1 rolled back whole, so again nothing changed. Start again
+  from the pre-check.
+- After either ERROR, `prod-psql` also warns that psql stopped before
+  `RESET ALL` ran, so the session-level `statement_timeout = 0` stays on that
+  server connection until it closes. That is the wrapper's standard warning
+  for a file it runs in session mode, and it is expected here. psql has exited
+  by then, which closes the connection; whether Supavisor resets a session
+  setting before handing the server connection to another client is
+  unverified.
 - **`WARNING: 000138: row level security NOT enabled on N table(s) whose lock was not granted within lock_timeout, or whose wait was chosen to break a deadlock: ...`**
   Row level security runs one table per transaction, each waiting at most 3s
   for its ACCESS EXCLUSIVE lock. Only that table's readers wait, and only for

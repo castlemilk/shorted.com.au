@@ -110,19 +110,21 @@
 --      rewrites the view's pg_class row), a TRUNCATE or an ALTER, for as long
 --      as that transaction lasts. Each refresh function refreshes all its views
 --      in one transaction, so while one runs it holds every view it has
---      refreshed so far. Each of those statements holds SHARE ROW EXCLUSIVE,
---      EXCLUSIVE or ACCESS EXCLUSIVE on its relation until it commits, modes
---      that readers (ACCESS SHARE), writers (ROW EXCLUSIVE), ANALYZE and
---      CREATE INDEX never take; VACUUM takes ACCESS EXCLUSIVE only for a moment,
---      to truncate a table's empty tail, rewriting no catalog row in a
---      transaction, and an autovacuum worker doing that is not counted. So,
---      before the first REVOKE, the block looks in pg_locks for another backend
---      holding one of those modes on a relation in public and, if it finds one,
---      raises object_in_use naming the backend, its query and the relations:
---      nothing has changed, and psql stops before step 2. Re-run when it has
---      finished. lock_timeout is the backstop for what that look cannot see (a
---      refresh that starts just after it, a concurrent GRANT or CREATE OR
---      REPLACE FUNCTION): the waiting REVOKE is cancelled after 3s and the whole
+--      refreshed so far. A refresh, a TRUNCATE and nearly every ALTER hold
+--      SHARE ROW EXCLUSIVE, EXCLUSIVE or ACCESS EXCLUSIVE on the relation until
+--      they commit, modes that readers (ACCESS SHARE), writers (ROW EXCLUSIVE),
+--      ANALYZE and CREATE INDEX never take; VACUUM takes ACCESS EXCLUSIVE only
+--      for a moment, to truncate a table's empty tail, rewriting no catalog row
+--      in a transaction, and an autovacuum worker doing that is not counted.
+--      So, before the first REVOKE, the block looks in pg_locks for another
+--      backend holding one of those modes on a relation in public and, if it
+--      finds one, raises object_in_use naming the backend, its query and the
+--      relations: nothing has changed, and psql stops before step 2. Re-run
+--      when it has finished. lock_timeout is the backstop for what that look
+--      cannot see: a refresh that starts just after it, an ALTER that takes
+--      only SHARE UPDATE EXCLUSIVE (ALTER TABLE ... SET STATISTICS, or SET with
+--      storage parameters), a concurrent GRANT, CREATE OR REPLACE FUNCTION or
+--      ALTER FUNCTION. The waiting REVOKE is cancelled after 3s and the whole
 --      step rolls back. Either way nothing is half-applied.
 --   2. Row level security: one DO block that COMMITs after each table.
 --      ALTER TABLE ... ENABLE ROW LEVEL SECURITY takes an ACCESS EXCLUSIVE lock.
