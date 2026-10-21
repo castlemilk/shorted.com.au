@@ -3,8 +3,8 @@
 /**
  * Structural guard for the sitemap index restructure (August 2026).
  *
- * /sitemap.xml is a sitemapindex over five children. The invariants that
- * matter — and that no runtime check can recover from once broken — are:
+ * /sitemap.xml is a sitemapindex over the SITEMAP_CHILDREN. The invariants
+ * that matter — and that no runtime check can recover from once broken — are:
  *
  *  1. every child produces URLs (an empty child is a silently vanished section)
  *  2. no URL appears in TWO children (duplicate <loc> across a sitemap set)
@@ -120,10 +120,14 @@ const institutionsFixture = [
 ];
 const getOwnershipOverview = jest.fn();
 const listInstitutions = jest.fn();
+const getInstitution = jest.fn();
 jest.mock("~/app/actions/getOwnership", () => ({
   getOwnershipOverview: () => getOwnershipOverview(),
   listInstitutions: (...args: unknown[]) => listInstitutions(...args),
+  getInstitution: (slug: string) => getInstitution(slug),
 }));
+// The institution page's metadata is read below; its layout never renders.
+jest.mock("~/@/components/layouts/dashboard-layout", () => ({ DashboardLayout: () => null }));
 beforeEach(() => {
   getOwnershipOverview.mockResolvedValue({ asOf: "2026-10-20", noticesParsed: 6367 });
   listInstitutions.mockResolvedValue({ institutions: institutionsFixture, total: institutionsFixture.length });
@@ -159,7 +163,7 @@ import {
   buildReportsSitemap,
   buildShortsSitemap,
 } from "../sitemap-sections";
-import { institutionIsIndexable } from "~/@/lib/ownership/indexability";
+import { generateMetadata as institutionMetadata } from "~/app/ownership/[slug]/page";
 import {
   SITEMAP_CHILDREN,
   dedupeEntries,
@@ -503,16 +507,32 @@ describe("sitemap children", () => {
       "https://shorted.com.au/ownership/vanguard",
       "https://shorted.com.au/ownership/argo",
     ]);
-    // Strict subset: each listed slug is indexed by the page whatever its
-    // holdings files hold, because the stake count alone passes the predicate.
-    for (const entry of listed) {
-      const inst = institutionsFixture.find((i) => entry.url.endsWith(`/ownership/${i.slug}`))!;
-      expect(institutionIsIndexable({ substantialPositions: inst.substantialPositions, fundHoldings: 0 })).toBe(true);
-    }
     expect(listed[0]!.lastModified).toBe("2026-10-16T00:00:00.000Z");
     // No notice date: listed, with no invented lastmod.
     expect(listed[1]!.lastModified).toBeUndefined();
     expect(listInstitutions).toHaveBeenCalledWith("", "", 200, 0);
+  });
+
+  // Strict subset, asked of the page itself rather than of the predicate the
+  // builder already applied: each listed slug's own metadata sets no robots
+  // key when GetInstitution returns only what ListInstitutions showed the
+  // sitemap (its stakes) and no holdings files at all.
+  it("lists no institution page that the page's own metadata noindexes", async () => {
+    const listed = (await buildOwnershipSitemap()).filter((e) => e.url.includes("/ownership/"));
+    expect(listed).toHaveLength(2);
+    for (const entry of listed) {
+      const inst = institutionsFixture.find((i) => entry.url.endsWith(`/ownership/${i.slug}`))!;
+      getInstitution.mockResolvedValue({
+        institution: { ...inst, kind: "index_manager", notices: 0 },
+        positions: Array.from({ length: inst.substantialPositions }, (_, n) => ({ stockCode: `S${n}` })),
+        fundHoldings: [],
+        notices: [],
+        funds: [],
+      });
+      const meta = await institutionMetadata({ params: Promise.resolve({ slug: inst.slug }) });
+      expect(meta.alternates?.canonical).toBe(entry.url);
+      expect(Object.keys(meta)).not.toContain("robots");
+    }
   });
 
   it("dates /ownership from the ownership data's asOf, not the ASIC date, and only in its own child", async () => {
