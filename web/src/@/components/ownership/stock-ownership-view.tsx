@@ -17,7 +17,13 @@ import {
   TableRow,
 } from "~/@/components/ui/table";
 import { formatAmount, formatPct } from "~/@/lib/fundamentals/format";
-import { formLabel, formatPointChange, formatVotingPower, fundLabel } from "~/@/lib/ownership/kinds";
+import {
+  formLabel,
+  formatFundWeight,
+  formatPointChange,
+  formatVotingPower,
+  fundLabel,
+} from "~/@/lib/ownership/kinds";
 import { HolderName, KindBadge, KindBar, formatSum } from "./ownership-parts";
 
 /** Fund holdings the card lists: the largest by value. */
@@ -103,10 +109,10 @@ export function StockOwnershipView({ data }: { data: GetStockOwnershipResponse }
         {funds.length > 0 ? (
           <div className="space-y-2">
             <h4 className="text-sm font-semibold">
-              Index ETFs and super funds
+              Index funds and super funds
               {summary?.hasIndexPct ? (
                 <span className="ml-2 font-normal text-muted-foreground">
-                  index ETFs tracked hold {formatPct(summary.indexPct, { digits: 2 })} of shares on issue
+                  index funds tracked hold {formatPct(summary.indexPct, { digits: 2 })} of shares on issue
                 </span>
               ) : null}
             </h4>
@@ -137,7 +143,7 @@ export function StockOwnershipView({ data }: { data: GetStockOwnershipResponse }
                       {f.hasPctOfIssued ? formatPct(f.pctOfIssued, { digits: 2 }) : "n/a"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {f.hasWeight ? formatPct(f.weightPct, { digits: 2 }) : "n/a"}
+                      {formatFundWeight(f.weightPct, f.hasWeight, f.hasValue ? f.valueAud : null)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap tabular-nums">{f.asAt}</TableCell>
                   </TableRow>

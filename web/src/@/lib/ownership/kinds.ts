@@ -142,6 +142,21 @@ export function formatVotingPower(pct: number | null | undefined): string {
   return `${whole}.${trimmed}%`;
 }
 
+/**
+ * A holding's weight in its fund. Super funds' disclosures state weights to
+ * two decimals, so a small holding of real value is stated as 0.00: that is
+ * "<0.01%", never a holding of nothing.
+ */
+export function formatFundWeight(
+  pct: number | null | undefined,
+  hasWeight: boolean,
+  valueAud: number | null | undefined,
+): string {
+  if (!hasWeight || pct == null || !Number.isFinite(pct)) return "n/a";
+  if (pct < 0.005 && valueAud != null && valueAud > 0) return "<0.01%";
+  return `${pct.toFixed(2)}%`;
+}
+
 /** A change in percentage points with a true minus: "+1.14 pp", "−0.31 pp". */
 export function formatPointChange(from: number, to: number): string {
   const d = to - from;

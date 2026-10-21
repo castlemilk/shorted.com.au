@@ -1152,8 +1152,12 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
   revalidates tag `ownership` and the KV family `ownership`.
 - **Known gaps**: BlackRock's and some other managers' notices are scanned
   images (only their 605s are read); AustralianSuper, UniSuper, CFS, MLC,
-  CareSuper and CSC publish their holdings disclosures behind pages this job
-  cannot fetch; a super fund's disclosure is one option, not the whole fund;
+  CareSuper and CSC publish their holdings disclosures behind bot protection
+  that refuses this job (re-checked 2026-10-21: Akamai and F5 403s for
+  AustralianSuper and CFS, Imperva and Cloudflare challenges for UniSuper and
+  CareSuper), and a challenge is never solved to get past one, so the largest
+  fund's holdings come only from its substantial holding notices; a super
+  fund's disclosure is one option, not the whole fund;
   there is no public register of hedge funds, so the map's hedge funds are
   curated and their stakes come from notices.
 

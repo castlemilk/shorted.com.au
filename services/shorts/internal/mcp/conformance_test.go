@@ -158,6 +158,7 @@ func TestToolsCallReturnsStructuredContentForEveryDomain(t *testing.T) {
 		"housing":     {"get_housing_overview", map[string]any{}, []string{"count", "metrics", "source"}},
 		"economy":     {"list_economic_series", map[string]any{}, []string{"count", "series"}},
 		"politicians": {"search_politicians", map[string]any{}, []string{"count", "politicians"}},
+		"ownership":   {"get_stock_ownership", map[string]any{"code": "PLS"}, []string{"code", "substantial_holders", "funds"}},
 	}
 
 	// Every domain the registry knows about must have a representative here.
