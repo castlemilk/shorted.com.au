@@ -24,7 +24,7 @@ import {
   formatChange,
 } from "~/@/lib/shorts-calculations";
 import {
-  getTopPageDataForPeriod,
+  getTopRowsForPeriod,
   type SerializedMoversData,
 } from "../actions/top/getTopPageData";
 import type { TopRow } from "../actions/top/top-rows";
@@ -127,7 +127,13 @@ export function TopPageClient({
     setIsLoading(true);
     try {
       // Uses Redis-cached server action for fast response
-      const pageData = await getTopPageDataForPeriod(newPeriod);
+      const pageData = await getTopRowsForPeriod(newPeriod);
+      // A tab open across a deploy can reach a build that answers in another
+      // shape, or with nothing (Next 14.2 resolves undefined for an action the
+      // build lacks). Keep the rows on screen rather than render that.
+      if (!Array.isArray(pageData?.rows) || !pageData.movers) {
+        throw new Error(`Unexpected /top data for period ${newPeriod}`);
+      }
       setData(pageData.rows);
       setMoversData(pageData.movers);
     } catch (error) {

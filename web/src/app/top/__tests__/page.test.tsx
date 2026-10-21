@@ -9,7 +9,7 @@ import type { TopPageData } from "~/app/actions/top/getTopPageData";
 const getTopPageData = jest.fn();
 jest.mock("~/app/actions/top/getTopPageData", () => ({
   getTopPageData: (...args: unknown[]) => getTopPageData(...args),
-  getTopPageDataForPeriod: jest.fn(),
+  getTopRowsForPeriod: jest.fn(),
 }));
 jest.mock("~/@/components/reports/latest-weekly-report-link", () => ({
   LatestWeeklyReportLink: () => null,
