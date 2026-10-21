@@ -244,6 +244,25 @@ describe("housing server actions", () => {
     });
   });
 
+  // Internal suburb links carry no ?sal=, so the path alone must pick the
+  // suburb. ABS qualifies a name that repeats inside one state with its LGA
+  // (prod, 2026-10-21: no slug is shared by two SALs in a state), and the bare
+  // name is ambiguous, so it resolves to nothing rather than to either Ascot.
+  it("resolves a name that repeats in one state from its qualified slug alone", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({
+      suburbs: [
+        { salCode: "20073", salName: "Ascot (Ballarat - Vic.)", postcode: "" },
+        { salCode: "20074", salName: "Ascot (Greater Bendigo - Vic.)", postcode: "" },
+        { salCode: "20075", salName: "Ascot Vale", postcode: "" },
+      ],
+    });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("VIC", "ascot-ballarat-vic")).resolves.toBe("20073");
+    await expect(resolveSuburbSalCode("VIC", "ascot-greater-bendigo-vic")).resolves.toBe("20074");
+    await expect(resolveSuburbSalCode("VIC", "ascot")).resolves.toBeNull();
+  });
+
   it("returns null only when a suburb slug is a genuine miss", async () => {
     clientMock.listStateSuburbs.mockResolvedValue({ suburbs: [] });
     const { resolveSuburbSalCode } = await import("../getHousing");
