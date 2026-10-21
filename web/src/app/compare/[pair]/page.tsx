@@ -15,7 +15,14 @@ type PageProps = {
   params: Promise<{ pair: string }>;
 };
 
-const PAIR_RE = /^([A-Z0-9]{1,4})-vs-([A-Z0-9]{1,4})$/i;
+/**
+ * Two codes GetStock accepts (validateStockCode in services/shorts: three or
+ * four alphanumerics), so any other pair is a 404 before a read. The API
+ * answers a shorter code InvalidArgument, which loadStockOrFail takes for a
+ * failed read: the render would fail, cache nothing, and fail again on every
+ * request.
+ */
+const PAIR_RE = /^([A-Z0-9]{3,4})-vs-([A-Z0-9]{3,4})$/i;
 
 function parsePair(pair: string): [string, string] | null {
   const m = PAIR_RE.exec(pair);

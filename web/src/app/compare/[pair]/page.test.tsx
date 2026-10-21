@@ -72,6 +72,24 @@ describe("/compare/[pair]", () => {
     await expect(page("DRO-vs-LOT")).rejects.toThrow(/transiently unavailable/);
   });
 
+  // GetStock answers a code outside three or four alphanumerics
+  // InvalidArgument, and the read swallows that into undefined (the mock's
+  // answer for an unknown code here). Read, it failed the render on every
+  // request: on-demand ISR caches nothing for a failed render.
+  it.each([["AB-vs-BHP"], ["A-vs-BHP"], ["BHP-vs-X1"]])(
+    "404s %s before any read: a code GetStock cannot accept",
+    async (pair) => {
+      await expect(page(pair)).rejects.toThrow("NEXT_NOT_FOUND");
+      expect(getStockOrNotFound).not.toHaveBeenCalled();
+    },
+  );
+
+  it("gives such a pair the not-found metadata, with no canonical", async () => {
+    const meta = await segment.generateMetadata({ params: Promise.resolve({ pair: "AB-vs-BHP" }) });
+
+    expect(meta).toEqual({ title: "Comparison Not Found" });
+  });
+
   it("redirects a non-canonical ordering", async () => {
     await expect(page("LOT-vs-DRO")).rejects.toThrow("NEXT_REDIRECT /compare/DRO-vs-LOT");
     expect(getStockOrNotFound).not.toHaveBeenCalled();
