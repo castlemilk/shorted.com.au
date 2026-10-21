@@ -98,7 +98,11 @@ export function StrategyPanel({ strategy }: StrategyPanelProps) {
           means the data is missing, or the figure is not meaningful for this
           company: it never counts as a pass, and a stock cannot trigger while
           a core rule is unknown. Rules marked scoring only order the list
-          without gating it.
+          without gating it. The score is the rules&apos; weights earned: a
+          pass earns more the more decisively it passes, and a trigger rule
+          that has not fired yet earns part of its weight for how close the
+          relevant measure is to its threshold, so the setups nearest to triggering rank
+          first.
         </p>
         <ol className="mt-5 divide-y divide-border/60 rounded-lg border border-border/60">
           {strategy.rules.map((rule, index) => (

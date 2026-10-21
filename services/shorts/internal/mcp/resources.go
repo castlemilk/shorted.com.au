@@ -92,7 +92,7 @@ func Resources() []Resource {
 			URI:   coverageURI,
 			Name:  "coverage",
 			Title: "Coverage and exclusions",
-			Description: "What each domain (market, housing, economy, politicians) actually contains, " +
+			Description: "What each domain (market, housing, economy, politicians, ownership) actually contains, " +
 				"how fresh it is, and the licence-driven exclusions that will never be filled — " +
 				"no individual property listings, no declared-interest amounts, no rewritten parliamentary prose.",
 			MIMEType: "text/markdown",

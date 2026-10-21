@@ -130,4 +130,16 @@ type DataSource interface {
 	GetPolitician(context.Context, *connect.Request[shortsv1alpha1.GetPoliticianRequest]) (*connect.Response[shortsv1alpha1.GetPoliticianResponse], error)
 	// ListStockPoliticians: shorts.v1alpha1.PoliticiansService.ListStockPoliticians
 	ListStockPoliticians(context.Context, *connect.Request[shortsv1alpha1.ListStockPoliticiansRequest]) (*connect.Response[shortsv1alpha1.ListStockPoliticiansResponse], error)
+
+	// --- OwnershipService ---
+	//
+	// Three of four. GetOwnershipOverview is the website's hub, a dozen ranked
+	// lists in one body; no tool needs it yet.
+
+	// GetStockOwnership: shorts.v1alpha1.OwnershipService.GetStockOwnership
+	GetStockOwnership(context.Context, *connect.Request[shortsv1alpha1.GetStockOwnershipRequest]) (*connect.Response[shortsv1alpha1.GetStockOwnershipResponse], error)
+	// GetInstitution: shorts.v1alpha1.OwnershipService.GetInstitution
+	GetInstitution(context.Context, *connect.Request[shortsv1alpha1.GetInstitutionRequest]) (*connect.Response[shortsv1alpha1.GetInstitutionResponse], error)
+	// ListInstitutions: shorts.v1alpha1.OwnershipService.ListInstitutions
+	ListInstitutions(context.Context, *connect.Request[shortsv1alpha1.ListInstitutionsRequest]) (*connect.Response[shortsv1alpha1.ListInstitutionsResponse], error)
 }

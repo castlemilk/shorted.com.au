@@ -341,15 +341,16 @@ export default async function OwnershipPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Index fund ownership</CardTitle>
                   <CardDescription>
-                    The share of each company held by the index ETFs tracked (iShares, Vanguard, SPDR, Betashares),
-                    from their holdings files.
+                    The share of each company held by the index funds tracked (iShares, Vanguard, SPDR, Betashares),
+                    from their holdings files. Vanguard&apos;s files cover the whole fund behind each ETF, its
+                    unlisted classes included, so VAS&apos;s figures are the fund&apos;s, not the ETF&apos;s alone.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <OwnershipStockTable
                     stocks={overview?.passive ?? []}
                     columns={["index", "short"]}
-                    caption="Stocks most owned by index ETFs"
+                    caption="Stocks most owned by index funds"
                   />
                 </CardContent>
               </Card>

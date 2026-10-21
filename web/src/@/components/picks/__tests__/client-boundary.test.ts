@@ -133,13 +133,17 @@ describe("stock picker component boundary", () => {
     }
   });
 
-  // The one island lives with its route (app/picks/[strategy]); the kit
-  // itself is all server-safe, props-only components.
-  it("marks no kit file as a client component", () => {
+  // The sort island lives with its route (app/picks/[strategy]); the kit
+  // itself is server-safe, props-only components, with ONE exception: the
+  // strategy scene's canvas animation and the lazy module that loads it
+  // (strategy-scene.tsx renders the still on the server and mounts the
+  // canvas through that import()). Neither touches a network or a server
+  // action; the transitive walk below holds them to that.
+  it("marks no kit file but the scene's canvas as a client component", () => {
     const clientFiles = KIT_FILES.filter((file) =>
       /^\s*["']use client["']/m.test(readFileSync(file, "utf8")),
     ).map((file) => relative(COMPONENT_DIR, file));
-    expect(clientFiles).toEqual([]);
+    expect(clientFiles.sort()).toEqual(["strategy-scene-canvas.tsx", "strategy-scene-lazy.tsx"]);
   });
 
   it("never reaches protobuf, @connectrpc or a server action, however indirectly", () => {

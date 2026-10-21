@@ -1,3 +1,4 @@
+import { editorialThumbnailUrl } from "~/@/lib/editorial-art";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "~/@/lib/utils";
@@ -44,7 +45,7 @@ export function StoryStack({ takes }: { takes: TakeLike[] }) {
               {take.heroImageUrl ? (
                 <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-muted">
                   <Image
-                    src={take.heroImageUrl}
+                    src={editorialThumbnailUrl(take.heroImageUrl)}
                     alt=""
                     fill
                     sizes="(max-width: 640px) 112px, 160px"

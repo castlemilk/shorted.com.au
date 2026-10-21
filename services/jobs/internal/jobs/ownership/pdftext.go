@@ -5,20 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math"
-	"os"
-	"os/exec"
 	"sort"
-	"strconv"
 	"strings"
-	"syscall"
-	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/pdfchild"
 	"github.com/ledongthuc/pdf"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
-	"golang.org/x/sync/semaphore"
 )
 
 // A substantial holding notice is a statutory form: its figures sit in a table
@@ -154,34 +148,22 @@ func layoutTexts(texts []pdf.Text) string {
 // A malformed content stream sends ledongthuc/pdf's array reader into an
 // unbounded loop (TLX's 2026-07-24 notice asked for a 790 MB block), and a
 // recover() cannot catch an out-of-memory. So the job never parses a notice
-// in its own process: it re-executes itself as `ownership -mode pdf-layout`,
-// with the PDF on stdin and a deadline, and kills the child when its resident
-// memory passes the notice's allowance. A child that dies is a notice with no
-// text, never a dead run.
+// in its own process: it reads each one in a pdfchild child (PDFLayoutMode),
+// which is killed when its resident memory passes the notice's allowance. A
+// child that dies is a notice with no text, never a dead run.
 //
 // The allowance scales with the file: pdfcpu decrypts a whole document to
 // read three pages, about 32x its size resident (a 33 MB Morgan Stanley 603
 // with 590 pages of annexures peaks at 1.06 GB; a 300 KB notice at 84 MB).
-// Children draw their allowances from one budget, so small notices run in
-// parallel and a large one waits for room. The bound is on resident memory,
-// watched from outside, because the binary reserves far more address space
-// than it uses: childAddressLimit is only the backstop for a platform
-// without /proc.
-const (
-	childBaseAllowance = 64 << 20
-	childPerByte       = 40
-	childMinAllowance  = 256 << 20
-	childMaxAllowance  = 1536 << 20
-	childAddressLimit  = 4 << 30
-	childTimeout       = 60 * time.Second
-	childMaxOutput     = 4 << 20
-	maxPDFBytes        = 64 << 20
-)
+// Children draw their allowances from one budget (-child-memory-mb), so small
+// notices run in parallel and a large one waits for room.
 
-// childAllowance is the resident memory a child may use for a PDF of n bytes.
-func childAllowance(n int) int64 {
-	a := int64(childBaseAllowance) + int64(n)*childPerByte
-	return min(max(a, childMinAllowance), childMaxAllowance)
+// PDFLayoutMode is the pdfchild mode that runs LayoutText; main serves it.
+const PDFLayoutMode = "layout"
+
+// LayoutText is layoutText, as a pdfchild child runs it.
+func LayoutText(data []byte, maxPages int) (string, error) {
+	return layoutText(data, maxPages)
 }
 
 // textExtractor turns a downloaded PDF into layout text. An interface so the
@@ -190,143 +172,9 @@ type textExtractor interface {
 	extract(ctx context.Context, pdf []byte) (string, error)
 }
 
-// childExtractor runs layoutText in a child process of this binary.
-type childExtractor struct {
-	exe    string
-	budget *semaphore.Weighted
-	total  int64
-}
+// childExtractor reads a notice's first noticeMaxPages pages in a child.
+type childExtractor struct{ pdfs *pdfchild.Reader }
 
-// newChildExtractor shares budgetBytes of resident memory among its children.
-func newChildExtractor(budgetBytes int64) (*childExtractor, error) {
-	exe, err := os.Executable()
-	if err != nil {
-		return nil, fmt.Errorf("locate own executable: %w", err)
-	}
-	budgetBytes = max(budgetBytes, childMinAllowance)
-	return &childExtractor{exe: exe, budget: semaphore.NewWeighted(budgetBytes), total: budgetBytes}, nil
-}
-
-func (c *childExtractor) extract(ctx context.Context, data []byte) (string, error) {
-	allowance := min(childAllowance(len(data)), c.total)
-	if err := c.budget.Acquire(ctx, allowance); err != nil {
-		return "", err
-	}
-	defer c.budget.Release(allowance)
-	ctx, cancel := context.WithTimeout(ctx, childTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, c.exe, "ownership", "-mode", modePDFLayout, "-max-pages", strconv.Itoa(noticeMaxPages))
-	cmd.Stdin = bytes.NewReader(data)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &limitedBuffer{buf: &stdout, max: childMaxOutput}
-	cmd.Stderr = &limitedBuffer{buf: &stderr, max: 8 << 10}
-	// The child inherits nothing it could write with.
-	cmd.Env = []string{"PDF_LAYOUT_CHILD=1"}
-	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("start pdf-layout child: %w", err)
-	}
-	done := make(chan struct{})
-	overLimit := make(chan int64, 1)
-	go watchRSS(cmd.Process, allowance, done, overLimit)
-	err := cmd.Wait()
-	close(done)
-	select {
-	case rss := <-overLimit:
-		return "", fmt.Errorf("pdf-layout child killed at %d MB resident", rss>>20)
-	default:
-	}
-	if err != nil {
-		tail := strings.TrimSpace(stderr.String())
-		if i := strings.LastIndex(tail, "\n"); i >= 0 && len(tail)-i < 300 {
-			tail = tail[i+1:]
-		}
-		if len(tail) > 300 {
-			tail = tail[:300]
-		}
-		return "", fmt.Errorf("pdf-layout child: %w (%s)", err, tail)
-	}
-	return stdout.String(), nil
-}
-
-// watchRSS kills the child when /proc says its resident set passed limit.
-// Without /proc (macOS) it returns at once and the deadline is the bound.
-func watchRSS(p *os.Process, limit int64, done <-chan struct{}, overLimit chan<- int64) {
-	path := "/proc/" + strconv.Itoa(p.Pid) + "/status"
-	tick := time.NewTicker(25 * time.Millisecond)
-	defer tick.Stop()
-	for {
-		select {
-		case <-done:
-			return
-		case <-tick.C:
-		}
-		rss, ok := residentBytes(path)
-		if !ok {
-			return
-		}
-		if rss > limit {
-			overLimit <- rss
-			_ = p.Kill()
-			return
-		}
-	}
-}
-
-// residentBytes reads VmRSS from a /proc/<pid>/status file.
-func residentBytes(path string) (int64, bool) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return 0, false
-	}
-	for _, line := range strings.Split(string(b), "\n") {
-		if rest, ok := strings.CutPrefix(line, "VmRSS:"); ok {
-			f := strings.Fields(rest)
-			if len(f) == 0 {
-				return 0, false
-			}
-			kb, err := strconv.ParseInt(f[0], 10, 64)
-			if err != nil {
-				return 0, false
-			}
-			return kb << 10, true
-		}
-	}
-	return 0, false
-}
-
-// limitedBuffer stops collecting past max bytes but never fails the write, so
-// a chatty child cannot grow the parent.
-type limitedBuffer struct {
-	buf *bytes.Buffer
-	max int
-}
-
-func (l *limitedBuffer) Write(p []byte) (int, error) {
-	if room := l.max - l.buf.Len(); room > 0 {
-		if len(p) > room {
-			l.buf.Write(p[:room])
-		} else {
-			l.buf.Write(p)
-		}
-	}
-	return len(p), nil
-}
-
-// runPDFLayoutChild is the child side: PDF on stdin, layout text on stdout.
-func runPDFLayoutChild(stdin io.Reader, stdout io.Writer, maxPages int) error {
-	// The backstop for a parent that cannot watch /proc. macOS refuses
-	// RLIMIT_AS; there the deadline is the bound.
-	if err := syscall.Setrlimit(syscall.RLIMIT_AS, &syscall.Rlimit{Cur: childAddressLimit, Max: childAddressLimit}); err != nil {
-		fmt.Fprintf(os.Stderr, "pdf-layout: address-space limit not set: %v\n", err)
-	}
-	data, err := io.ReadAll(io.LimitReader(stdin, maxPDFBytes))
-	if err != nil {
-		return err
-	}
-	text, err := layoutText(data, maxPages)
-	if err != nil {
-		return err
-	}
-	_, err = io.WriteString(stdout, text)
-	return err
+func (c childExtractor) extract(ctx context.Context, data []byte) (string, error) {
+	return c.pdfs.Read(ctx, bytes.NewReader(data), int64(len(data)), noticeMaxPages)
 }

@@ -1,0 +1,273 @@
+{
+  "draft": "australia-fuel-security-33-days-diesel-hormuz-october-2026.mdx",
+  "knownCodes": [
+    "BPT",
+    "WDS",
+    "STO",
+    "KAR",
+    "ALD",
+    "VEA",
+    "ORG",
+    "WHC"
+  ],
+  "sources": [
+    {
+      "refId": "ref-1",
+      "type": "data",
+      "url": "https://fuelplan.gov.au/fuel-statistics",
+      "source": "Australian Government (fuelplan.gov.au)",
+      "headline": "Fuel statistics: days of fuel reserves held under the MSO, ships on water, scheduled arrivals",
+      "date": "2026-10-16",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-2",
+      "type": "news",
+      "url": "https://www.aljazeera.com/news/2026/10/14/iran-steps-up-hormuz-surveillance-attacks-soar-oil-flows-crash-again",
+      "source": "Al Jazeera",
+      "headline": "Iran steps up Hormuz surveillance: Attacks soar, oil flows crash again",
+      "date": "2026-10-14",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-3",
+      "type": "news",
+      "url": "https://oilprice.com/Latest-Energy-News/World-News/Brent-Tops-110-as-Tanker-Attacks-Threaten-Persian-Gulf-Supply.html",
+      "source": "OilPrice.com",
+      "headline": "Brent Tops $110 as Tanker Attacks Threaten Persian Gulf Supply",
+      "date": "2026-10-19",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-4",
+      "type": "news",
+      "url": "https://gcaptain.com/iea-moves-to-accelerate-oil-reserve-releases-as-hormuz-crisis-drags-on/",
+      "source": "gCaptain",
+      "headline": "IEA Moves to Accelerate Oil Reserve Releases as Hormuz Crisis Drags On",
+      "date": "2026-10-16",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-5",
+      "type": "news",
+      "url": "https://www.sbs.com.au/news/article/the-90-day-question-looming-over-australias-fuel-price-pain/zjxno4pbs",
+      "source": "SBS News",
+      "headline": "The 90-day question looming over Australia's fuel price pain",
+      "date": "2026-03-18",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-6",
+      "type": "news",
+      "url": "https://www.pm.gov.au/media/government-securing-more-fuel-reserves-australian-fuel-security-and-resilience-package",
+      "source": "Prime Minister of Australia",
+      "headline": "Government securing more fuel reserves: the Australian Fuel Security and Resilience package",
+      "date": "2026-05-06",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-7",
+      "type": "report",
+      "url": "https://budget.gov.au/content/01-fuel-supply-and-security.htm",
+      "source": "Budget 2026-27",
+      "headline": "Fuel supply and security",
+      "date": "",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Budget page carries no single date; the 2026-27 Budget measures it describes were announced 6 May 2026 and tabled the following week",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-8",
+      "type": "news",
+      "url": "https://www.stockjournal.com.au/story/9333064/new-national-reserve-for-fuel-consultation-opens/",
+      "source": "Stock Journal",
+      "headline": "New rules to force more diesel to be held onshore: how reserve would work",
+      "date": "2026-08-19",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-9",
+      "type": "news",
+      "url": "https://www.sharecafe.com.au/2026/03/20/ampol-welcomes-fssp-amendments-and-defers-refinery-maintenance/",
+      "source": "ShareCafe",
+      "headline": "Ampol Welcomes FSSP Amendments and Defers Refinery Maintenance",
+      "date": "2026-03-20",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-10",
+      "type": "news",
+      "url": "https://www.abc.net.au/news/2026-08-02/fuel-excise-cut-ending/106987482",
+      "source": "ABC News",
+      "headline": "Drivers brace for petrol price hikes as fuel excise cut comes to end",
+      "date": "2026-08-02",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-11",
+      "type": "news",
+      "url": "https://www.mynrma.com.au/open-road/news/2026/fuel-price-updates-war-in-iran",
+      "source": "NRMA",
+      "headline": "Fuel costs and supply in Australia: when will fuel prices drop?",
+      "date": "2026-09-22",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-12",
+      "type": "data",
+      "url": "https://aip.com.au/pricing/terminal-gate-prices/",
+      "source": "Australian Institute of Petroleum",
+      "headline": "Terminal gate prices, 21 October 2026",
+      "date": "2026-10-21",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-13",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/dividend/why-did-ampol-asxald-slip-despite-a-refining-windfall",
+      "source": "Kalkine Media",
+      "headline": "Why did Ampol (ASX:ALD) slip despite a refining windfall?",
+      "date": "2026-10-21",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-14",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/oil-gas/will-record-diesel-margins-boost-viva-energy-asxvea",
+      "source": "Kalkine Media",
+      "headline": "Will Record Diesel Margins Boost Viva Energy (ASX:VEA)?",
+      "date": "2026-10-16",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-15",
+      "type": "news",
+      "url": "https://www.sbs.com.au/news/article/australia-fuel-security-package-reserves-stockholding/r8el4u2mn",
+      "source": "SBS News",
+      "headline": "Albanese unveils $10bn fuel plan with billion-litre government stockpile",
+      "date": "2026-05-06",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-16",
+      "type": "news",
+      "url": "https://finance.yahoo.com/news/oil-stays-above-100-barrel-035819939.html",
+      "source": "Al Jazeera (via Yahoo Finance)",
+      "headline": "Oil stays above $100 a barrel amid Iran's stranglehold on Strait of Hormuz",
+      "date": "2026-03-12",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-17",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20261015-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "15 October daily aggregate short-position report",
+      "date": "2026-10-15",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for BPT, WDS, STO, KAR, ALD, VEA, ORG, WHC; every percentage in the article's table for this date is the row's own value."
+    },
+    {
+      "refId": "ref-18",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260227-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "27 February daily aggregate short-position report",
+      "date": "2026-02-27",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for BPT, WDS, STO, KAR, ALD, VEA, ORG, WHC; every percentage in the article's table for this date is the row's own value."
+    },
+    {
+      "refId": "ref-19",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260409-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "9 April daily aggregate short-position report",
+      "date": "2026-04-09",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for BPT, WDS, STO, KAR, ALD, VEA, ORG, WHC; every percentage in the article's table for this date is the row's own value."
+    },
+    {
+      "refId": "ref-20",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260615-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "15 June daily aggregate short-position report",
+      "date": "2026-06-15",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for BPT, WDS, STO, KAR, ALD, VEA, ORG, WHC; every percentage in the article's table for this date is the row's own value."
+    },
+    {
+      "refId": "ref-21",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260716-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "16 July daily aggregate short-position report",
+      "date": "2026-07-16",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for BPT, WDS, STO, KAR, ALD, VEA, ORG, WHC; every percentage in the article's table for this date is the row's own value."
+    },
+    {
+      "refId": "ref-22",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/energy/how-long-can-high-oil-prices-support-woodside-asxwds",
+      "source": "Kalkine Media",
+      "headline": "How Long Can High Oil Prices Support Woodside (ASX:WDS)?",
+      "date": "2026-10-16",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date shown on the page",
+      "verification": "Opened with WebFetch on 21 October 2026 and the figures quoted in the article were extracted from the page text; quotations are verbatim from the page."
+    },
+    {
+      "refId": "ref-23",
+      "type": "report",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03153745",
+      "source": "ASX / Ampol",
+      "headline": "3Q 2026 Trading Update",
+      "date": "2026-10-18",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed",
+      "verification": "Headline, date and idsId from Shorted's announcement feed. The PDF sits behind ASX's terms interstitial and was NOT opened; the article states only that the update was lodged and attributes its contents to Kalkine's report of it (ref-13)."
+    }
+  ],
+  "notes": [
+    "Petroleum volumes (imports, refinery output, sales, exports) are DCCEEW monthly statistics read from Shorted's get_economic_series (petroleum.* keys) on 21 October 2026; July 2026 is the latest month.",
+    "Shorted's energy-sector average short position is markets.short_interest_avg.energy.aus, read the same day.",
+    "Prices are Shorted's get_stock_prices daily closes (1Y windows, downsampled)."
+  ]
+}

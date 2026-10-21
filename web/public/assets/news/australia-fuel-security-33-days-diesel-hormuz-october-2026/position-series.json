@@ -1,0 +1,187 @@
+{
+  "slug": "australia-fuel-security-33-days-diesel-hormuz-october-2026",
+  "format": "cover.svg hand-composed from the series below; cover.png is a 1600x900 Chromium rasterisation",
+  "brief": "Finding: Australia makes a fifth of its fuel and holds five weeks of diesel while the strait closes again. Subject: two volume lines crossing in 2015, imports rising, refining falling. Action: three gauges of days held against the 50-day target line. Hook: the diesel gauge is amber and sits a day above its floor. Caveat: days are a national average of stock in tanks and on water, not a forecast; the series is July of each year.",
+  "retrievedDate": "2026-10-21",
+  "shortSeries": {
+    "basis": "ASIC daily aggregate, % of total product in issue, T+4; values via Shorted's get_stock_history (downsampled), dates marked verifiedAgainstCsv were read from the official CSV",
+    "series": {
+      "refined product imports, July": [
+        {
+          "period": "2010-07-01",
+          "megalitres": 1449,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2011-07-01",
+          "megalitres": 1747,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2012-07-01",
+          "megalitres": 1743,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2013-07-01",
+          "megalitres": 2120,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2014-07-01",
+          "megalitres": 2132,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2015-07-01",
+          "megalitres": 2565,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2016-07-01",
+          "megalitres": 2516,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2017-07-01",
+          "megalitres": 2956,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2018-07-01",
+          "megalitres": 3134,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2019-07-01",
+          "megalitres": 3112,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2020-07-01",
+          "megalitres": 3314,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2021-07-01",
+          "megalitres": 3333,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2022-07-01",
+          "megalitres": 3459,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2023-07-01",
+          "megalitres": 4480,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2024-07-01",
+          "megalitres": 5139,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2025-07-01",
+          "megalitres": 4783,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2026-07-01",
+          "megalitres": 4468,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        }
+      ],
+      "refinery output, July": [
+        {
+          "period": "2010-07-01",
+          "megalitres": 3714,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2011-07-01",
+          "megalitres": 3499,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2012-07-01",
+          "megalitres": 3459,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2013-07-01",
+          "megalitres": 3109,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2014-07-01",
+          "megalitres": 3214,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2015-07-01",
+          "megalitres": 2468,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2016-07-01",
+          "megalitres": 2382,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2017-07-01",
+          "megalitres": 2495,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2018-07-01",
+          "megalitres": 2506,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2019-07-01",
+          "megalitres": 2403,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2020-07-01",
+          "megalitres": 1704,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2021-07-01",
+          "megalitres": 1599,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2022-07-01",
+          "megalitres": 1255,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2023-07-01",
+          "megalitres": 1222,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2024-07-01",
+          "megalitres": 1088,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2025-07-01",
+          "megalitres": 1150,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        },
+        {
+          "period": "2026-07-01",
+          "megalitres": 1230,
+          "source": "DCCEEW Australian Petroleum Statistics via Shorted get_economic_series"
+        }
+      ]
+    }
+  },
+  "priceSeries": null,
+  "generator": "scripts/news-covers/october-2026-data-covers.py"
+}

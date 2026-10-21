@@ -352,6 +352,22 @@ describe("StockOwnershipView", () => {
         pctOfIssued: 1.54,
         hasPctOfIssued: true,
       },
+      {
+        institutionSlug: "rest",
+        institutionName: "Rest",
+        kind: "super_fund",
+        fundName: "Growth",
+        sourceKind: "super_phd",
+        asAt: "2026-06-30",
+        stockCode: "ZIP",
+        valueAud: 2.97e6,
+        hasValue: true,
+        // Super disclosures state weights to two decimals: a real holding reads 0.00.
+        weightPct: 0,
+        hasWeight: true,
+        pctOfIssued: 0.07,
+        hasPctOfIssued: true,
+      },
     ],
     sharesOnIssue: 1.3e9,
     hasSharesOnIssue: true,
@@ -370,5 +386,10 @@ describe("StockOwnershipView", () => {
     expect(holderCells[4]!.textContent).toBe("2026-10-16");
     const fundCells = within(within(tables[1]!).getAllByRole("row")[1]!).getAllByRole("cell");
     expect(fundCells[2]!.textContent).toBe("1.54%");
+    expect(fundCells[3]!.textContent).toBe("0.12%");
+    // A stated 0.00 beside a real value is a small holding, never none.
+    const superCells = within(within(tables[1]!).getAllByRole("row")[2]!).getAllByRole("cell");
+    expect(superCells[3]!.textContent).toBe("<0.01%");
+    expect(screen.getByText(/index funds tracked hold/)).toBeInTheDocument();
   });
 });

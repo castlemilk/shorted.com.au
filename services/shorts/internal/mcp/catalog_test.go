@@ -184,7 +184,7 @@ const testCatalogOrigin = "https://api.example.test"
 
 // ---------------------------------------------------------- OAuth advertising
 
-// Anonymous access is the adoption path. If this ever flips to true, 28 tools
+// Anonymous access is the adoption path. If this ever flips to true, 32 tools
 // stop working for every client that has not been through a browser.
 func TestTheCatalogStillSaysNoAuthenticationIsRequired(t *testing.T) {
 	catalog := BuildCatalogForOrigin(context.Background(), nil, testCatalogOrigin)
