@@ -97,12 +97,14 @@ export function StockSearchResultItem({
         <div className="flex-shrink-0 relative">
           {validLogoUrl && !imageError ? (
             <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-muted ring-1 ring-border/50 group-hover:ring-2 group-hover:ring-primary/40 transition-shadow duration-200 ease-out">
+              {/* Fixed width/height, not fill + sizes: a 1x/2x srcset (48w,
+                  96w) instead of all 16 configured widths. */}
               <Image
                 src={validLogoUrl}
                 alt={`${stock.product_code} logo`}
-                fill
-                className="object-contain p-1.5"
-                sizes="48px"
+                width={48}
+                height={48}
+                className="h-full w-full object-contain p-1.5"
                 onError={() => {
                   setImageError(true);
                 }}

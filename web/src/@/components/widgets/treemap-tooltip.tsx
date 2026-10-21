@@ -176,12 +176,14 @@ export function TreemapTooltip({
 
                 return validLogoUrl && !imageError && logoUrl ? (
                   <div className="relative h-12 w-12 flex-shrink-0 rounded-md overflow-hidden bg-muted">
+                    {/* Fixed width/height, not fill + sizes: a 1x/2x srcset
+                        (48w, 96w) instead of all 16 configured widths. */}
                     <Image
                       src={logoUrl}
                       alt={`${stockDetails?.companyName ?? productCode} logo`}
-                      fill
-                      className="object-contain"
-                      sizes="48px"
+                      width={48}
+                      height={48}
+                      className="h-full w-full object-contain"
                       loading="lazy"
                       onError={() => setImageError(true)}
                     />
