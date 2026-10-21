@@ -13,18 +13,49 @@ import { TakeRelated } from "~/@/components/news/take-related";
 import { TakeBody } from "~/@/components/news/take-body";
 import { MdxTakeBody } from "~/@/components/news/mdx-take-body";
 import { formatCompanyName } from "~/@/lib/company-name";
-import { getEditorialTake } from "~/app/actions/getEditorialTake";
+import { getEditorialTakeOrNotFound } from "~/app/actions/getEditorialTake";
 import { getStock } from "~/app/actions/getStock";
+import { NotFoundError } from "~/app/actions/withRetry";
+import { type GetEditorialTakeResponse } from "~/gen/shorts/v1alpha1/news_pb";
 
+// On-demand ISR: nothing renders at build, and each take generates on its
+// first request and is cached for 600 s. Without generateStaticParams the
+// revalidate was inert and every take rendered per request
+// (app/__tests__/isr-static-params.test.ts). Safe because loadTake fails the
+// render on a failed read (app/__tests__/isr-degraded-render.test.ts).
 export const revalidate = 600;
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ slug: string }> {
+  return [];
+}
 
 interface Params {
   params: Promise<{ slug: string }>;
 }
 
-async function loadTake(slug: string) {
-  const resp = await getEditorialTake(slug);
-  return resp?.take;
+/**
+ * The take, split by cause (loadStockOrFail's rule). Undefined for a slug the
+ * API does not know, which is a 404. A failed read THROWS: ISR caches whatever
+ * a regeneration renders, so answering it with notFound() put a 404 and a
+ * noindex "Take not found" title in place of a live take for 600 s, where a
+ * failed regeneration keeps serving the last good page. generateMetadata and
+ * the page make the same call, so React's cache reads once. Any other error
+ * propagates untouched.
+ */
+async function loadTake(slug: string): Promise<GetEditorialTakeResponse["take"]> {
+  let resp: GetEditorialTakeResponse | undefined;
+  try {
+    resp = await getEditorialTakeOrNotFound(slug);
+  } catch (err) {
+    if (err instanceof NotFoundError) return undefined;
+    throw err;
+  }
+  if (!resp) {
+    throw new Error(
+      `editorial take transiently unavailable for ${slug}; failing the ISR render instead of caching a 404`,
+    );
+  }
+  return resp.take;
 }
 
 /**
@@ -93,10 +124,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const take = await loadTake(slug);
   if (!take) {
-    // Root layout template handles the "| Shorted" suffix. The page body
-    // notFound()s, but a take can also be missing transiently (RPC blip) and
-    // the 404 status can be pre-empted once the response has streamed —
-    // noindex the fallback so a soft-200 never enters the index.
+    // A slug the API does not know: loadTake throws on a failed read, so this
+    // is never a transient miss. Root layout template handles the "| Shorted"
+    // suffix. The page body notFound()s, but the 404 status can be pre-empted
+    // once the response has streamed — noindex it so a soft-200 never enters
+    // the index.
     return {
       title: "Take not found",
       robots: { index: false, follow: false },

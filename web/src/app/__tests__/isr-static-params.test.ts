@@ -11,9 +11,8 @@
  * on its first request (see app/shorts/[stockCode]/page.tsx). Only for a page
  * whose render fails, or caps its lifetime, when a read fails: ISR caches
  * whatever a regeneration returns, so a page that answers a failed read with
- * a 404 or an empty list would serve that for its whole revalidate. Takes and
- * insider pages do, so they still render per request
- * (isr-degraded-render.test.ts).
+ * a 404 or an empty list would serve that for its whole revalidate. Insider
+ * pages do, so they still render per request (isr-degraded-render.test.ts).
  *
  * The check: every page.tsx under a dynamic segment that exports `revalidate`
  * also has a generateStaticParams export, in the page or in a layout.tsx
@@ -44,7 +43,6 @@ const ALLOWED: Record<string, string> = {
   // Owned outside the ISR partition, and per request until a failed read
   // fails the render (isr-degraded-render.test.ts lists what each page
   // caches today). Then add the empty generateStaticParams and delete the line.
-  "news/[slug]/page.tsx": "owned elsewhere: a failed take read is answered with notFound()",
   "insider-trading/[stockCode]/page.tsx": "owned elsewhere: a failed read renders an empty trades list",
 };
 

@@ -19,7 +19,7 @@ jest.mock("next/navigation", () => ({
     throw new Error("NEXT_NOT_FOUND");
   },
 }));
-jest.mock("~/app/actions/getEditorialTake", () => ({ getEditorialTake: jest.fn() }));
+jest.mock("~/app/actions/getEditorialTake", () => ({ getEditorialTakeOrNotFound: jest.fn() }));
 jest.mock("~/app/actions/getStock", () => ({ getStock: jest.fn() }));
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   DashboardLayout: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -35,11 +35,12 @@ jest.mock("~/@/components/news/take-related", () => ({ TakeRelated: () => null }
 jest.mock("~/@/components/news/take-body", () => ({ TakeBody: () => null }));
 jest.mock("~/@/components/news/mdx-take-body", () => ({ MdxTakeBody: () => null }));
 
-import { getEditorialTake } from "~/app/actions/getEditorialTake";
+import { getEditorialTakeOrNotFound } from "~/app/actions/getEditorialTake";
 import { getStock } from "~/app/actions/getStock";
+import { NotFoundError } from "~/app/actions/withRetry";
 import ShortedTakePage, { generateMetadata } from "../page";
 
-const mockTake = getEditorialTake as jest.Mock;
+const mockTake = getEditorialTakeOrNotFound as jest.Mock;
 const mockStock = getStock as jest.Mock;
 
 const BOE_HEADLINE = "Boss Energy's short position rebuilt from 8.46% to 13.58% in five weeks";
@@ -198,5 +199,42 @@ describe("news take metadata", () => {
     mockStock.mockResolvedValue(undefined);
     const json = await newsArticle();
     expect((json.about as { name?: string }).name).toBe("BOE");
+  });
+});
+
+// The page is on-demand ISR, and ISR caches whatever a regeneration renders:
+// a 404 and a noindex "Take not found" title for a failed read would replace a
+// live take for 600 s. A failed read (undefined from
+// getEditorialTakeOrNotFound) must FAIL the render, which keeps the last good
+// page; only the API's NotFound is a 404.
+describe("news take when the read fails", () => {
+  beforeEach(() => {
+    mockTake.mockReset();
+    mockStock.mockReset();
+    mockStock.mockResolvedValue({ name: "BOSS ENERGY LTD ORDINARY" });
+  });
+
+  it("fails the metadata and the render instead of answering 404", async () => {
+    mockTake.mockResolvedValue(undefined);
+
+    await expect(generateMetadata({ params })).rejects.toThrow(/transiently unavailable/);
+    await expect(ShortedTakePage({ params })).rejects.toThrow(/transiently unavailable/);
+  });
+
+  it("answers a slug the API does not know with a noindexed 404", async () => {
+    mockTake.mockRejectedValue(new NotFoundError("editorial take not found"));
+
+    expect(await generateMetadata({ params })).toEqual({
+      title: "Take not found",
+      robots: { index: false, follow: false },
+    });
+    await expect(ShortedTakePage({ params })).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
+  it("lets any other error through untouched", async () => {
+    const outage = new Error("socket hang up");
+    mockTake.mockRejectedValue(outage);
+
+    await expect(ShortedTakePage({ params })).rejects.toBe(outage);
   });
 });

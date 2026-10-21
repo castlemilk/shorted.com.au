@@ -14,11 +14,13 @@
  * fallback stays a minute (/scans/[slug]).
  *
  * The actions return undefined (or null) for a failed read. That is the
- * withRetryAndNotFound contract, and getEditorialTake and getDirectorTrades
- * return it for NotFound and for a dead backend alike. Each case makes one
- * read come back that way, renders the page and checks what a regeneration
- * would cache. isr-static-params.test.ts checks the other half: that the
- * pages which can be ISR are.
+ * withRetryAndNotFound contract, and getEditorialTake and getStock return it
+ * for NotFound and for a dead backend alike, which is why these pages read
+ * through their withRetryAndThrowNotFound siblings (NotFound throws
+ * NotFoundError, undefined is only a failure). Each case makes one read come
+ * back that way, renders the page and checks what a regeneration would cache.
+ * isr-static-params.test.ts checks the other half: that the pages which can
+ * be ISR are.
  */
 
 import * as comparePage from "../compare/[pair]/page";
@@ -30,7 +32,7 @@ import * as scanPage from "../scans/[slug]/page";
 const getStock = jest.fn();
 const getStockOrNotFound = jest.fn();
 const getDirectorTrades = jest.fn();
-const getEditorialTake = jest.fn();
+const getEditorialTakeOrNotFound = jest.fn();
 const getScanResults = jest.fn();
 const getInstitutionOrNotFound = jest.fn();
 const bailOnEmptyRender = jest.fn();
@@ -56,8 +58,11 @@ jest.mock("~/app/actions/getStock", () => ({
 jest.mock("~/app/actions/getDirectorTrades", () => ({
   getDirectorTrades: (...args: unknown[]) => getDirectorTrades(...args),
 }));
+// As for getOwnership below: a take page that went back to getEditorialTake
+// (undefined for NotFound and for a failure alike) fails its case here.
 jest.mock("~/app/actions/getEditorialTake", () => ({
-  getEditorialTake: (...args: unknown[]) => getEditorialTake(...args),
+  getEditorialTake: (...args: unknown[]) => getEditorialTakeOrNotFound(...args),
+  getEditorialTakeOrNotFound: (...args: unknown[]) => getEditorialTakeOrNotFound(...args),
 }));
 jest.mock("~/app/actions/getScanResults", () => ({
   getScanResults: (...args: unknown[]) => getScanResults(...args),
@@ -97,11 +102,6 @@ jest.mock("~/@/components/news/mdx-take-body", () => ({ MdxTakeBody: () => null 
  * and its ALLOWED line in isr-static-params.test.ts.
  */
 const PER_REQUEST: Record<string, string> = {
-  // A failed read is answered like an unknown slug: notFound(), with a noindex
-  // "Take not found" title. Under ISR that 404 would replace a live take for
-  // up to 600 s. Fix: read with withRetryAndThrowNotFound, call notFound()
-  // only on NotFoundError, and throw on undefined.
-  "news/[slug]/page.tsx": "a failed take read is cached as a 404",
   // A failed trades read renders "No director trades recorded" with zero
   // totals, and a failed stock read the ticker as the company name. Under ISR
   // either would stay for up to an hour. GetDirectorTrades never returns
@@ -187,10 +187,12 @@ const CASES: Case[] = [
     render: () => scanPage.default({ params: Promise.resolve({ slug: "short-interest-rising" }) }),
   },
   {
+    // It used to read through getEditorialTake (withRetryAndNotFound), so a
+    // dead backend was a 404 and a noindex "Take not found" title.
     page: "news/[slug]/page.tsx",
     route: newsPage,
     read: "the take",
-    fail: () => getEditorialTake.mockResolvedValue(undefined),
+    fail: () => getEditorialTakeOrNotFound.mockResolvedValue(undefined),
     render: () => newsPage.default({ params: Promise.resolve({ slug: TAKE.slug }) }),
   },
   {
@@ -245,7 +247,7 @@ describe("a failed read in a dynamic page that ISR could cache", () => {
     getStock.mockImplementation(async (code: string) => STOCKS[code]);
     getStockOrNotFound.mockImplementation(async (code: string) => STOCKS[code]);
     getDirectorTrades.mockResolvedValue({ trades: [TRADE], totalCount: 1 });
-    getEditorialTake.mockResolvedValue({ take: TAKE });
+    getEditorialTakeOrNotFound.mockResolvedValue({ take: TAKE });
     getScanResults.mockResolvedValue({ asOfDate: "2026-10-15", rows: [], totalCount: 0 });
     getInstitutionOrNotFound.mockResolvedValue(INSTITUTION);
   });

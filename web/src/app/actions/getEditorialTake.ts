@@ -4,7 +4,7 @@ import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
 import { type GetEditorialTakeResponse, type ListEditorialTakesResponse } from "~/gen/shorts/v1alpha1/news_pb";
 import { cache } from "react";
 import { SERVER_SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
-import { withRetryAndNotFound } from "./withRetry";
+import { withRetryAndNotFound, withRetryAndThrowNotFound } from "./withRetry";
 
 // ISR-safe fetch — same bug class as screenStocks.ts: with no explicit `next`
 // (or `cache`) option, serverFetchWithUserAgent forces `cache: "no-store"` on
@@ -29,14 +29,26 @@ function createEditorialClient() {
   return createClient(NewsService, transport);
 }
 
-export const getEditorialTake = cache(
-  withRetryAndNotFound(
-    async (slug: string): Promise<GetEditorialTakeResponse> => {
-      const client = createEditorialClient();
-      return await client.getEditorialTake({ slug });
-    },
-  ),
-);
+async function readEditorialTake(slug: string): Promise<GetEditorialTakeResponse> {
+  const client = createEditorialClient();
+  return await client.getEditorialTake({ slug });
+}
+
+/**
+ * One take. Undefined for a slug the API does not know AND for a failed read,
+ * so it suits a surface that degrades either way (the social card, the admin
+ * preview). A page that ISR caches must tell the two apart:
+ * getEditorialTakeOrNotFound.
+ */
+export const getEditorialTake = cache(withRetryAndNotFound(readEditorialTake));
+
+/**
+ * The same read for /news/[slug]: a slug the API does not know (Connect
+ * NotFound; GetEditorialTake answers a database error with Internal) throws
+ * NotFoundError, and undefined means only that the read failed, so the page
+ * can fail its render instead of caching a 404 for the revalidate.
+ */
+export const getEditorialTakeOrNotFound = cache(withRetryAndThrowNotFound(readEditorialTake));
 
 export const listEditorialTakes = cache(
   withRetryAndNotFound(
