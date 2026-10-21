@@ -58,11 +58,11 @@ async function readLastGoodSeries(
  * Observations for up to 50 economic series keys: the newest
  * `maxObservations` of each, or the API's default history when 0.
  *
- * The live read comes first. Its fetch is ISR-tagged, so a regeneration is
- * usually answered by the Next data cache without a network hop. KV (Upstash)
- * is the last-good fallback, read only when that read fails or comes back
- * empty. It used to be read first, which cost every regeneration an Upstash
- * round trip before the data cache was even consulted.
+ * The live read comes first, and its fetch is ISR-tagged, so the Next data
+ * cache answers it while its entry is fresh. KV (Upstash) is the last-good
+ * fallback, read only when that read fails or comes back empty. It used to be
+ * read first, which cost every regeneration an Upstash round trip whether or
+ * not the data cache could answer.
  */
 export const getEconomicSeries = cache(
   withRetryAndNotFound(
