@@ -16,6 +16,7 @@ import {
   LgaInfoSchema,
 } from "~/gen/shorts/v1alpha1/housing_pb";
 
+import { siteConfig } from "~/@/config/site";
 import { NotFoundError } from "~/app/actions/withRetry";
 import CouncilPage, { generateMetadata, generateStaticParams } from "./page";
 
@@ -329,6 +330,42 @@ describe("council page", () => {
     const types = ld["@graph"].map((n: { "@type": string }) => n["@type"]);
     expect(types).toEqual(["AdministrativeArea", "GovernmentOrganization"]);
     expect(ld["@graph"][0].sameAs).toEqual(["https://www.wikidata.org/wiki/Q24070750"]);
+  });
+
+  // Measured 2026-10-21: council titles rendered at 75-87 characters ("Brewarrina,
+  // New South Wales: council profile, population, housing and hazards | Shorted").
+  // The root layout appends " | Shorted"; what comes before it now leads with the
+  // place and the word "council" and stays within about 60 characters.
+  describe("title", () => {
+    const rendered = (title: unknown) => `${String(title)} | ${siteConfig.name}`;
+    const withSummary = (displayName: string, kind: string, stateCode: string) => {
+      const p = profile();
+      Object.assign(p.profile!.summary!, { displayName, kind, stateCode, slug: "x" });
+      return p;
+    };
+
+    it("is the root layout's template around the page title", () => {
+      const layout = readFileSync(resolve(__dirname, "../../../../layout.tsx"), "utf8");
+      expect(layout).toContain("template: `%s | ${siteConfig.name}`");
+    });
+
+    it.each([
+      ["vic", "Casey", "council", "Casey council, Victoria: population, housing and hazards"],
+      ["nsw", "Brewarrina", "council", "Brewarrina council, NSW: population, housing and hazards"],
+      ["nsw", "Canterbury-Bankstown", "council", "Canterbury-Bankstown council, NSW: population and housing"],
+      ["sa", "Anangu Pitjantjatjara Yankunytjatjara", "council", "Anangu Pitjantjatjara Yankunytjatjara council, SA"],
+      // No council governs an unincorporated area, and its ABS name names the state.
+      ["nsw", "Unincorporated NSW", "unincorporated", "Unincorporated NSW: population, housing and hazards"],
+    ])("%s %s (%s) → %s", async (state, displayName, kind, title) => {
+      getCouncilProfile.mockResolvedValue(withSummary(displayName, kind, state.toUpperCase()));
+      const meta = await generateMetadata(params(state, "x"));
+      expect(meta.title).toBe(title);
+      expect(title.length).toBeLessThanOrEqual(60);
+      expect(title.startsWith(kind === "council" ? `${displayName} council` : displayName)).toBe(true);
+      expect(rendered(meta.title).length).toBeLessThanOrEqual(70);
+      expect(meta.openGraph?.title).toBe(title);
+      expect(meta.twitter?.title).toBe(title);
+    });
   });
 
   it("generateStaticParams lists every council in every state", async () => {

@@ -14,6 +14,7 @@ import { cn } from "~/@/lib/utils";
 import { eyebrow, pageTitle } from "~/@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { listCouncils } from "~/app/actions/getHousing";
+import { councilIndexTitle } from "./council-titles";
 
 export const revalidate = 86400;
 
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!code) return {};
   const name = STATE_NAMES[code]!;
   const url = `${SITE}${councilIndexPath(code)}`;
-  const title = code === "ACT" ? "ACT local government: the territory as one area" : `${name} councils: population, housing, grants and hazards`;
+  const title = councilIndexTitle(code);
   const description = `Every ${name} local government area in one place: ABS estimated resident population and growth, density, council-wide house medians, federal grants, dwelling approvals, SEIFA and hazard exposure.`;
   return {
     title,
