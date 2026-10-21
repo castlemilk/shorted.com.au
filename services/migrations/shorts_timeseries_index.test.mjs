@@ -46,6 +46,39 @@ test("000141 covers every column the short-interest chart reads", () => {
   }
 });
 
+test("the drops wait only for the chart's plan: the old indexes hold the other reads until they go", () => {
+  // 000142 and 000143 once waited for GetStock and the sparklines to show
+  // idx_shorts_timeseries_full. GetStock reads "PRODUCT", which no index here
+  // carries, and while the two smaller indexes exist the planner prefers them
+  // for both reads (a prod-shaped local copy: sparklines on the covering index,
+  // GetStock on product_code_date). That gate could never be met, so an operator
+  // following it would keep all three indexes. The other reads are checked
+  // after both drops instead.
+  const getStock = go("postgres.go").match(/func \(s \*postgresStore\) GetStock\([\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(getStock, /s\."PRODUCT"/, "GetStock no longer reads PRODUCT? Then it can be index-only and 000143's check can say so");
+
+  const prose = (file) =>
+    read(file)
+      .split("\n")
+      .filter((line) => line.startsWith("--"))
+      .map((line) => line.replace(/^--\s?/, ""))
+      .join(" ")
+      .replace(/\s+/g, " ");
+  for (const file of ["000141_shorts_timeseries_full_index.up.sql", "000142_drop_idx_shorts_product_code_date.up.sql", "000143_drop_idx_shorts_timeseries_covering.up.sql"]) {
+    assert.doesNotMatch(prose(file), /GetStock (?:can|could) (?:all )?be index-only/, `${file} claims GetStock can be index-only`);
+  }
+  for (const file of ["000142_drop_idx_shorts_product_code_date.up.sql", "000143_drop_idx_shorts_timeseries_covering.up.sql"]) {
+    const gate = prose(file).match(/Apply ONLY [\s\S]*?(?:, for example|\.(?= [A-Z]))/)?.[0] ?? "";
+    assert.match(gate, /chart[\s\S]*Index Only Scan using idx_shorts_timeseries_full/, `${file}: the gate is the chart's index-only plan`);
+    assert.doesNotMatch(gate, /\bGetStock\b|sparkline/, `${file}: the gate must not wait for a plan only the drops can produce`);
+  }
+  assert.match(
+    prose("000143_drop_idx_shorts_timeseries_covering.up.sql"),
+    /After 000142 and 000143 both, check on prod that the top-shorts sparkline scan \(sparklineQuery\) is an Index Only Scan using idx_shorts_timeseries_full and that GetStock is an Index Scan using it/,
+    "the sparkline and GetStock plans are checked after both drops",
+  );
+});
+
 test("000142 and 000143 drop only the two indexes 000141 supersedes, and their downs rebuild them as defined", () => {
   assert.match(code(read("000142_drop_idx_shorts_product_code_date.up.sql")), /^\s*DROP INDEX CONCURRENTLY IF EXISTS idx_shorts_product_code_date;\s*$/);
   assert.match(code(read("000143_drop_idx_shorts_timeseries_covering.up.sql")), /^\s*DROP INDEX CONCURRENTLY IF EXISTS idx_shorts_timeseries_covering;\s*$/);

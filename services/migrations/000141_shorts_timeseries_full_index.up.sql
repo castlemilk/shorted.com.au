@@ -8,14 +8,22 @@
 -- (pg_stat_statements): the bucketed chart query ran 111,780 times at 646 ms
 -- mean (max 45.9 s), reading 316 blocks per call from outside shared_buffers;
 -- the chart statements were 14% of all database time and 24% of all disk
--- reads. This index carries all three values, so the chart, its COUNT, the
--- full-resolution read, the top-shorts sparklines and GetStock can all be
--- index-only scans (once the visibility map is set: see 000144 and its
--- owner action, VACUUM (ANALYZE) shorts).
+-- reads. This index carries all three values, so the chart (bucketed and
+-- full-resolution) and the top-shorts sparklines can be index-only scans, once
+-- the visibility map is set (see 000144 and its owner action, VACUUM (ANALYZE)
+-- shorts). GetStock also reads "PRODUCT", which no index here carries, so it
+-- stays a plain Index Scan of one row and is never index-only.
 --
 -- It has the same keys as idx_shorts_product_code_date (000001) and
--- idx_shorts_timeseries_covering (000022), 75 MB + 95 MB on prod; 000142 and
--- 000143 drop those two once this one is valid and in use.
+-- idx_shorts_timeseries_covering (000022), 75 MB + 95 MB on prod. While those
+-- two exist the planner prefers them wherever they suffice, because they are
+-- smaller, so only the chart moves to this index at once. On a prod-shaped
+-- local copy (Postgres 15, 2.27M rows, vacuumed and analyzed, all three
+-- indexes) the chart was an Index Only Scan on this index, the sparklines an
+-- Index Only Scan on idx_shorts_timeseries_covering, and GetStock an Index
+-- Scan on idx_shorts_product_code_date. 000142 and 000143 drop the two once
+-- this one is valid and the chart uses it; the sparklines and GetStock move
+-- here only as they go (see 000143 for the check after both).
 --
 -- ONE statement per file, on purpose: CREATE INDEX CONCURRENTLY cannot run in
 -- a transaction block, and `migrate up` sends a file as one query string, which

@@ -127,7 +127,7 @@ Connection string: `postgresql://admin:password@localhost:5438/shorts`
 
 **Key Indexes:**
 - `shorts_date_product_code_unique` ON (DATE, PRODUCT_CODE) - unique constraint
-- `idx_shorts_timeseries_full` ON (PRODUCT_CODE, DATE DESC) INCLUDE (PERCENT, REPORTED_SHORT_POSITIONS, TOTAL_PRODUCT_IN_ISSUE) - covering index for every time-series read (000141, hand-applied); it replaces `idx_shorts_product_code_date` and `idx_shorts_timeseries_covering` (dropped by 000142/000143 once the plans use it)
+- `idx_shorts_timeseries_full` ON (PRODUCT_CODE, DATE DESC) INCLUDE (PERCENT, REPORTED_SHORT_POSITIONS, TOTAL_PRODUCT_IN_ISSUE) - covering index for the chart and sparkline reads (000141, hand-applied); it replaces `idx_shorts_product_code_date` and `idx_shorts_timeseries_covering`, which 000142/000143 drop once the chart's plan uses it (the sparklines and GetStock keep the smaller old indexes until they are gone)
 - `idx_shorts_percent_nonzero` - partial index for non-zero percentages
 
 ### stock_prices Table

@@ -1467,8 +1467,9 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			) w
 		) px ON TRUE
 		-- Both hit an index whose leading column is the code and whose second
-		-- is the date descending (idx_shorts_timeseries_full since 000141, which
-		-- replaces idx_shorts_product_code_date, and the stock_prices
+		-- is the date descending (on shorts the smallest such index, which is
+		-- idx_shorts_product_code_date until 000142 and 000143 leave only
+		-- idx_shorts_timeseries_full, and the stock_prices
 		-- equivalent), so each is an index read of one row rather
 		-- than a scan of the 2.1M-row report or the 3.7M-row price table.
 		LEFT JOIN LATERAL (
