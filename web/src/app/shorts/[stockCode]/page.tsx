@@ -51,6 +51,16 @@ interface PageProps {
   params: Promise<{ stockCode: string }>;
 }
 
+/**
+ * The short % as the title and description state it, or null when there is
+ * no level to state. A position that rounds to 0.00 counts as none: ANT, 164
+ * shares short, was titled "ANT Short Interest: 0.00% (Arcadia Minerals, ASX)".
+ */
+function statedShortPercent(percentageShorted: number): string | null {
+  const fixed = percentageShorted.toFixed(2);
+  return percentageShorted > 0 && fixed !== "0.00" ? fixed : null;
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { stockCode } = await params;
   const code = stockCode.toUpperCase();
@@ -70,7 +80,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const stock = await getStockOrNotFound(code);
     if (stock) {
       const companyName = stock.name ? cleanCompanyName(stock.name, code) : "";
-      const pct = stock.percentageShorted > 0 ? stock.percentageShorted.toFixed(2) : null;
+      const pct = statedShortPercent(stock.percentageShorted);
       title = stockPageTitle(code, companyName, pct);
       percentShorted = stock.percentageShorted;
 
