@@ -64,12 +64,17 @@ function FooterLinkItem({
   // Locked items bounce to signin on click, but the anchor keeps the real
   // destination — baking /signin?callbackUrl= into the href leaked sitewide
   // internal link equity to a signin URL (crawlers read the signed-out
-  // SSR'd anchor).
+  // SSR'd anchor). The real destination is no better for a crawler, though:
+  // signed out, /dashboards and /portfolio 307 to the noindexed /signin, and
+  // the footer linked them from 46 of the 47 pages probed on 2026-10-21. So a
+  // locked link is nofollow. The footer is a client component and SSR has no
+  // session, so every server render is the signed-out one.
   return (
     <li>
       <Link
         href={link.href}
         prefetch={false}
+        rel={isLocked ? "nofollow" : undefined}
         onClick={(e) => {
           // Plain left-clicks only: modified clicks keep native
           // open-in-new-tab on the real destination.

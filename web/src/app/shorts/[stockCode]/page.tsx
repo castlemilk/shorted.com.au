@@ -51,6 +51,26 @@ interface PageProps {
   params: Promise<{ stockCode: string }>;
 }
 
+/**
+ * The short % as the title and description state it, or null when there is
+ * no level to state. A position that rounds to 0.00 counts as none: ANT, 164
+ * shares short, was titled "ANT Short Interest: 0.00% (Arcadia Minerals, ASX)".
+ *
+ * Checked before it is formatted: the edge read returns the API's JSON as
+ * sent, and protojson leaves a zero float out, so the field can be absent
+ * whatever the Stock type says. A throw here would land in generateMetadata's
+ * catch and skip the noindex gate.
+ */
+function statedShortPercent(
+  percentageShorted: number | undefined,
+): string | null {
+  if (typeof percentageShorted !== "number" || !(percentageShorted > 0)) {
+    return null;
+  }
+  const fixed = percentageShorted.toFixed(2);
+  return fixed === "0.00" ? null : fixed;
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { stockCode } = await params;
   const code = stockCode.toUpperCase();
@@ -70,7 +90,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const stock = await getStockOrNotFound(code);
     if (stock) {
       const companyName = stock.name ? cleanCompanyName(stock.name, code) : "";
-      const pct = stock.percentageShorted > 0 ? stock.percentageShorted.toFixed(2) : null;
+      const pct = statedShortPercent(stock.percentageShorted);
       title = stockPageTitle(code, companyName, pct);
       percentShorted = stock.percentageShorted;
 

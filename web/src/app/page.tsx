@@ -188,6 +188,8 @@ export default async function Page() {
           name: "ASIC Short Position Data for ASX Stocks",
           description:
             "Daily short selling position data for Australian Securities Exchange (ASX) listed companies, sourced from official ASIC reports. Covers 4,500+ stocks with data from 2010 to present.",
+          // The ASIC report date the "as at" stamp shows; omitted without one.
+          dateModified: asicAsOf?.toISOString(),
         }}
       />
       {/* WebSite schema comes from the sitewide block in layout.tsx — a second

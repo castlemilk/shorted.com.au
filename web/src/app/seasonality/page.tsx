@@ -9,7 +9,11 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 
 export const metadata: Metadata = {
-  title: "ASX Short Interest Seasonality — Calendar Patterns in Short Selling",
+  // About 60 characters before the root template's " | Shorted": the old
+  // "ASX Short Interest Seasonality — Calendar Patterns in Short Selling"
+  // rendered at 77 and was cut off in results (2026-10-21). The social title
+  // below is not templated and keeps the long form.
+  title: "ASX Short Interest Seasonality: Earnings, Dividends & EOFY",
   description:
     "Seasonal patterns in ASX short interest explained: earnings season spikes, dividend-date dislocations, commodity cycles, tax-loss selling, and end-of-financial-year effects. Reference guide with ASIC data context.",
   keywords: [

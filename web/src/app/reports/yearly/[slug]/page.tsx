@@ -60,9 +60,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title,
     description,
-    robots: noindex
-      ? { index: false, follow: true, googleBot: { index: false, follow: true } }
-      : undefined,
+    // Omitted, never undefined, when indexable: Next merges metadata with
+    // `for (key in source)`, so an own `robots: undefined` replaces the root
+    // layout's robots (and its googleBot max-image-preview / max-snippet
+    // directives) with nothing. Absent, the page inherits them.
+    ...(noindex
+      ? {
+          robots: {
+            index: false,
+            follow: true,
+            googleBot: { index: false, follow: true },
+          },
+        }
+      : {}),
     keywords: [
       `ASX short selling ${slug} year in review`,
       `${slug} most shorted stocks`,

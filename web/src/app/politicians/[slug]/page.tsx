@@ -107,7 +107,11 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical: url },
-    robots: indexable ? undefined : { index: false, follow: true },
+    // Omitted, never undefined, when indexable: Next merges metadata with
+    // `for (key in source)`, so an own `robots: undefined` replaces the root
+    // layout's robots (and its googleBot max-image-preview / max-snippet
+    // directives) with nothing. Absent, the page inherits them.
+    ...(indexable ? {} : { robots: { index: false, follow: true } }),
     openGraph: {
       type: "profile",
       url,

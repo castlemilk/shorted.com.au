@@ -12,7 +12,8 @@ import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 
 export const metadata: Metadata = {
-  title: "ASX Insider Trading & Director Trades | Shorted",
+  // No brand: the root layout's `%s | Shorted` template appends it.
+  title: "ASX Insider Trading & Director Trades",
   description:
     "Track director and insider share dealings on the Australian Securities Exchange. Per-stock trade history, ASX Appendix 3Y filings, and insider sentiment.",
   keywords: [

@@ -12,7 +12,9 @@ import { EditorialMarkdown } from "~/@/components/news/editorial-markdown";
 import { TakeRelated } from "~/@/components/news/take-related";
 import { TakeBody } from "~/@/components/news/take-body";
 import { MdxTakeBody } from "~/@/components/news/mdx-take-body";
+import { formatCompanyName } from "~/@/lib/company-name";
 import { getEditorialTake } from "~/app/actions/getEditorialTake";
+import { getStock } from "~/app/actions/getStock";
 
 export const revalidate = 600;
 
@@ -26,19 +28,38 @@ async function loadTake(slug: string) {
 }
 
 /**
+ * An MDX component or HTML tag, opening, closing or self-closing. Quoted
+ * attribute values may hold a ">" (`<Stat context="a > b" />`).
+ */
+const MARKUP_TAG = /<\/?[A-Za-z][^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*\/?>/g;
+
+/**
  * Build a short, social-share-friendly description from the body. The
- * raw body_md contains [ref-N]/[report-N] citation markers, markdown
- * tokens, and is multiple paragraphs — none of which are useful in a
- * 155-char SERP preview. We strip everything, take the first paragraph
- * (the editorial hook), and truncate at a word boundary if needed.
+ * raw body_md contains [ref-N]/[report-N] citation markers, Markdown links
+ * and tokens, MDX components, and is multiple paragraphs — none of which are
+ * useful in a 155-char SERP preview. We strip everything, take the first
+ * paragraph with text left in it (the editorial hook; an MDX body can open
+ * with a component block), and truncate at a word boundary if needed.
+ *
+ * A link keeps its text: eight of the 11 staged takes open with one, and every
+ * probed snippet read "[Boss Energy](/shorts/BOE) was…" (2026-10-21).
  */
 function buildDescription(bodyMd: string): string {
-  const firstPara = bodyMd.split(/\n\s*\n/)[0] ?? bodyMd;
-  const clean = firstPara
-    .replace(/\[(?:ref|report)-\d+\]/g, "") // citation markers
-    .replace(/[#*_`>]/g, "") // md tokens
-    .replace(/\s+/g, " ")
-    .trim();
+  const clean =
+    bodyMd
+      .split(/\n\s*\n/)
+      .map((paragraph) =>
+        paragraph
+          .replace(/\[(?:ref|report)-\d+\]/g, "") // citation markers
+          .replace(/!\[[^\]]*\]\([^)]*\)/g, "") // images
+          .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // links keep their text
+          .replace(MARKUP_TAG, "") // MDX components, HTML tags
+          .replace(/[#*_`>]/g, "") // md tokens
+          .replace(/\s+/g, " ")
+          .replace(/\s+([.,;:!?])/g, "$1") // a removed marker's space
+          .trim(),
+      )
+      .find((paragraph) => paragraph.length > 0) ?? "";
   // SERP descriptions truncate around 155-160 chars. Trim at word
   // boundary just before that.
   const MAX = 155;
@@ -46,6 +67,26 @@ function buildDescription(bodyMd: string): string {
   const cut = clean.slice(0, MAX);
   const lastSpace = cut.lastIndexOf(" ");
   return (lastSpace > 100 ? cut.slice(0, lastSpace) : cut).trimEnd() + "…";
+}
+
+/**
+ * Past this a headline is cut to its first clause, when that clause reads
+ * alone. "<headline> — Shorted Take | Shorted" ran 96-115 characters
+ * (2026-10-21) against the ~60 Google shows.
+ */
+const TAKE_TITLE_MAX = 80;
+
+/**
+ * The take's <title>: the headline, or for a long one its first clause ("EOS
+ * short position more than doubled to 10.15% in a quarter; the price rose 25%
+ * in a month" keeps the 59 characters before the semicolon). A long headline
+ * with no clause break stays whole: cutting it mid-phrase would show no more
+ * than Google's own truncation does, and would drop words from the title.
+ */
+function takeTitle(headline: string): string {
+  if (headline.length <= TAKE_TITLE_MAX) return headline;
+  const clause = headline.split(/;\s+|\s+[—–]\s+/)[0]?.trim() ?? "";
+  return clause.length >= 30 && clause.length <= 70 ? clause : headline;
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
@@ -78,9 +119,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
         : undefined;
 
   return {
-    // Root layout applies '%s | Shorted' template. Append "Shorted Take"
-    // qualifier without the brand suffix.
-    title: `${take.headline} — Shorted Take`,
+    // Absolute: the headline alone, without the root template's
+    // " | Shorted" or a " — Shorted Take" qualifier. Google names the site
+    // beside every result, and the brand pushed the headline past the width
+    // results show. The social titles keep the full headline.
+    title: { absolute: takeTitle(take.headline) },
     description,
     openGraph: {
       title: take.headline,
@@ -126,6 +169,12 @@ export default async function ShortedTakePage({ params }: Params) {
 
   const url = `${siteConfig.url}/news/${slug}`;
   const publishedISO = toISO(take.publishedAt?.seconds);
+  // The company the take is about, named as the stock pages name it.
+  // TakeRelated below reads the same stock, so React's cache makes this one
+  // read; a failed read names it by its code.
+  const stock = take.stockCode
+    ? await getStock(take.stockCode).catch(() => undefined)
+    : undefined;
   // Original editorial content — NewsArticle is the highest-value schema on
   // the site. Author/publisher are the Organization (not a fake Person).
   const newsArticleSchema = {
@@ -161,6 +210,7 @@ export default async function ShortedTakePage({ params }: Params) {
       ? {
           about: {
             "@type": "Corporation",
+            name: formatCompanyName(stock?.name, take.stockCode),
             tickerSymbol: take.stockCode,
             sameAs: `https://www.asx.com.au/markets/company/${take.stockCode}`,
           },
