@@ -13,9 +13,9 @@ header is the full record; this page is the procedure.
 
 - Revokes everything `PUBLIC`, `anon` and `authenticated` hold on every table,
   view, materialized view, foreign table, sequence and routine in `public`.
-- Stops `postgres`'s default privileges in `public` from granting new objects
-  to `anon` and `authenticated`, and stops new functions being executable by
-  `PUBLIC`.
+- Stops `postgres`'s default privileges from granting new objects to `anon`
+  and `authenticated` (its entries for `public` and its schema-less ones), and
+  stops new functions being executable by `PUBLIC`.
 - Enables row level security on every table, with no policy and no FORCE.
 
 The backend sees no change: an owner keeps its own privileges, RLS without
@@ -142,7 +142,11 @@ If it returns rows, go back to step 1.
   those 3s. The privileges are already closed; re-run the loop to finish the
   table.
 - **A check row the file cannot close.** An object `postgres` cannot act for
-  (the file names it in a NOTICE) needs its owner or a superuser.
+  (the file names it in a NOTICE), or an `extension_relation_privilege` row:
+  an extension installed into `public` brought a relation in with
+  `supabase_admin`'s default privileges, which grant `anon` and `authenticated`
+  everything. 000138 never touches extension members; a superuser must revoke
+  it, or the extension must move out of `public`.
 
 ## golang-migrate
 

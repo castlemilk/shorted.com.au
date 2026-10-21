@@ -28,11 +28,13 @@
 --      partitioned table, view, materialized view, foreign table and sequence
 --      (a table-level REVOKE also revokes the same privileges on each column),
 --      and EXECUTE on every function, procedure and aggregate;
---   2. stops postgres's default privileges in public from granting new tables,
---      sequences and functions to anon and authenticated, and stops its global
---      default from granting EXECUTE on new functions to PUBLIC. That one has to
---      be schema-less: a per-schema default can only add to the built-in
---      default (EXECUTE to PUBLIC), never take it away;
+--   2. stops postgres's default privileges from granting new tables,
+--      sequences and functions to anon and authenticated, in its entries for
+--      schema public and in its schema-less ones (which apply in every
+--      schema), and stops its schema-less default from granting EXECUTE on new
+--      functions to PUBLIC. That last one has to be schema-less: a per-schema
+--      default can only add to the built-in default (EXECUTE to PUBLIC), never
+--      take it away;
 --   3. enables row level security on every table, as defence in depth: with no
 --      policy, a table then denies every role that is neither its owner nor
 --      BYPASSRLS, even if a grant comes back.
@@ -65,7 +67,10 @@
 --   * Extension members. pg_trgm and vector live in public, owned by
 --     supabase_admin. Their functions stay callable: they compute over their
 --     arguments and read no table, and ALTER EXTENSION UPDATE would restore
---     their grants anyway.
+--     their grants anyway. Neither has a relation. An extension installed into
+--     public later that brings one is reported by
+--     scripts/prod-data-api-check.sql as extension_relation_privilege, for a
+--     superuser to close (or for the extension to move out of public).
 --   * The ensure_rls event trigger and its function public.rls_auto_enable().
 --     Supabase manages both (a dashboard setting). They enable RLS on each new
 --     table in prod, but no file in this repo creates them, which is why
@@ -239,10 +244,11 @@
 --   task db:prod:psql -- -P pager=off -f scripts/prod-data-api-check.sql
 -- Repeat all three until the check returns zero rows: a refresh that started
 -- in between stops step 1 with an error, and a busy table is deferred with a
--- WARNING. A row the file cannot close (an object postgres cannot act for,
--- which the file names in a NOTICE) needs its owner or a superuser. The
--- runbook is docs/operations/supabase-data-api.md. The down migration is a
--- deliberate no-op; see it for why.
+-- WARNING. A row the file cannot close needs its owner or a superuser: an
+-- object postgres cannot act for (the file names it in a NOTICE), or an
+-- extension_relation_privilege row. The runbook is
+-- docs/operations/supabase-data-api.md. The down migration is a deliberate
+-- no-op; see it for why.
 
 -- ===========================================================================
 -- Step 1, one transaction: privileges (no lock on any table)
@@ -330,23 +336,25 @@ BEGIN
     END LOOP;
 
     -- 2. postgres's default privileges: what every object it creates from now
-    --    on is born with. Checked in two steps so pg_has_role never sees a
-    --    role name that does not exist.
+    --    on is born with, in public (its entries for the schema) and anywhere
+    --    (its schema-less entries, which apply in every schema). Checked in two
+    --    steps so pg_has_role never sees a role name that does not exist.
     IF pg_oid IS NULL THEN
         RAISE NOTICE '000138: no postgres role here, so no postgres default privileges to close';
     ELSIF NOT pg_has_role(current_user, 'postgres', 'MEMBER') THEN
         RAISE NOTICE '000138: % cannot act for postgres, so its default privileges are left as they are', current_user;
     ELSE
         FOR r IN
-            SELECT d.defaclobjtype
+            SELECT d.defaclobjtype, d.defaclnamespace = 0 AS everywhere
               FROM pg_default_acl d
              WHERE d.defaclrole = pg_oid
-               AND d.defaclnamespace = public_oid
+               AND d.defaclnamespace IN (public_oid, 0)
                AND d.defaclobjtype IN ('r', 'S', 'f')
                AND EXISTS (SELECT 1 FROM aclexplode(d.defaclacl) a WHERE a.grantee = ANY (api_oids))
-             ORDER BY 1
+             ORDER BY 2, 1
         LOOP
-            todo := todo || format('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON %s FROM %s',
+            todo := todo || format('ALTER DEFAULT PRIVILEGES FOR ROLE postgres %sREVOKE ALL ON %s FROM %s',
+                                   CASE WHEN r.everywhere THEN '' ELSE 'IN SCHEMA public ' END,
                                    CASE r.defaclobjtype WHEN 'r' THEN 'TABLES' WHEN 'S' THEN 'SEQUENCES' ELSE 'FUNCTIONS' END,
                                    api_roles);
             n_defaults := n_defaults + 1;

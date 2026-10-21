@@ -185,11 +185,13 @@ test("routines: every function, procedure and aggregate, PUBLIC included", () =>
   assert.doesNotMatch(privileges, /p\.prokind/, "no routine kind is skipped");
 });
 
-test("default privileges: tables, sequences and functions per schema, and the schema-less EXECUTE to PUBLIC", () => {
+test("default privileges: postgres's entries for public and its schema-less ones, and the schema-less EXECUTE to PUBLIC", () => {
+  assert.match(privileges, /d\.defaclnamespace IN \(public_oid, 0\)/);
+  assert.match(privileges, /d\.defaclnamespace = 0 AS everywhere/);
   assert.match(privileges, /d\.defaclobjtype IN \('r', 'S', 'f'\)/);
   assert.match(
     privileges,
-    /todo := todo \|\| format\('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON %s FROM %s',\s+CASE r\.defaclobjtype WHEN 'r' THEN 'TABLES' WHEN 'S' THEN 'SEQUENCES' ELSE 'FUNCTIONS' END,\s+api_roles\);/,
+    /todo := todo \|\| format\('ALTER DEFAULT PRIVILEGES FOR ROLE postgres %sREVOKE ALL ON %s FROM %s',\s+CASE WHEN r\.everywhere THEN '' ELSE 'IN SCHEMA public ' END,\s+CASE r\.defaclobjtype WHEN 'r' THEN 'TABLES' WHEN 'S' THEN 'SEQUENCES' ELSE 'FUNCTIONS' END,\s+api_roles\);/,
   );
   // A per-schema default can only add to the built-in one (EXECUTE to PUBLIC),
   // so closing new functions to PUBLIC takes the schema-less form.
@@ -376,7 +378,7 @@ for (const [name, sql] of [
   });
 }
 
-test("the check covers what the migration closes, with the same scope", () => {
+test("the check covers what the migration closes, with the same scope, and what it cannot", () => {
   for (const violation of [
     "rls_disabled",
     "rls_forced",
@@ -384,18 +386,28 @@ test("the check covers what the migration closes, with the same scope", () => {
     "relation_privilege",
     "sequence_privilege",
     "function_execute",
+    "extension_relation_privilege",
     "default_acl",
+    "default_acl_global",
     "default_acl_public_execute",
   ]) {
-    assert.match(check, new RegExp(`'${violation}'`), violation);
+    assert.match(check, new RegExp(`SELECT '${violation}'`), violation);
   }
   assert.match(check, /c\.relkind IN \('r', 'p', 'v', 'm', 'f', 'S'\)/);
-  assert.match(check, /d\.classid = 'pg_class'::regclass AND d\.objid = c\.oid AND d\.deptype = 'e'/);
-  assert.match(check, /d\.classid = 'pg_proc'::regclass AND d\.objid = p\.oid AND d\.deptype = 'e'/);
+  // our relations and functions: extension members excluded, as in the migration
+  assert.match(check, /rel AS \([\s\S]*?NOT EXISTS \(SELECT 1 FROM pg_depend d\s+WHERE d\.classid = 'pg_class'::regclass AND d\.objid = c\.oid AND d\.deptype = 'e'\)/);
+  assert.match(check, /fn AS \([\s\S]*?NOT EXISTS \(SELECT 1 FROM pg_depend d\s+WHERE d\.classid = 'pg_proc'::regclass AND d\.objid = p\.oid AND d\.deptype = 'e'\)/);
+  // ... but an extension's relations are reported, since the migration cannot close them
+  assert.match(check, /ext_rel AS \(\s+SELECT [^)]*\s+FROM pg_class c\s+JOIN pg_depend d ON d\.classid = 'pg_class'::regclass AND d\.objid = c\.oid AND d\.deptype = 'e'/);
+  // postgres's schema-less defaults, which the migration closes too
+  assert.match(check, /SELECT 'default_acl_global',[\s\S]*?AND d\.defaclnamespace = 0\s+AND d\.defaclobjtype IN \('r', 'S', 'f'\)/);
   // column-level grants count: PostgREST serves a table through them
   assert.match(check, /has_any_column_privilege\(api\.oid, rel\.oid, privs\.priv\)/);
-  // roles come from pg_roles, so the check runs (and returns nothing for them) where they are missing
+  assert.match(check, /has_any_column_privilege\(api\.oid, ext_rel\.oid, p\.priv\)/);
+  // roles come from pg_roles, so the check runs where they are missing, and
+  // reports nothing there (no Data API)
   assert.match(check, /SELECT oid, rolname FROM pg_roles WHERE rolname IN \('anon', 'authenticated'\)/);
+  assert.match(check, /FROM violations\s+WHERE EXISTS \(SELECT 1 FROM api\)\s+ORDER BY/);
   assert.doesNotMatch(code(check), /'(anon|authenticated|postgres)'::regrole/);
 });
 
