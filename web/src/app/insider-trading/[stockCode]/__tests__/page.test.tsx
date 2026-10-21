@@ -55,6 +55,14 @@ function trade(id: string, tradeDate: string, tradeType = "buy") {
 
 const params = (stockCode: string) => ({ params: Promise.resolve({ stockCode }) });
 
+function articleSchema(container: HTMLElement): Record<string, unknown> {
+  const found = Array.from(container.querySelectorAll('script[type="application/ld+json"]'))
+    .map((script) => JSON.parse(script.innerHTML) as Record<string, unknown>)
+    .find((json) => json["@type"] === "Article");
+  if (!found) throw new Error("the page renders no Article");
+  return found;
+}
+
 describe("insider trading page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -75,6 +83,27 @@ describe("insider trading page", () => {
     expect(getAllByRole("row")).toHaveLength(3);
     expect(getStockOrNotFound).toHaveBeenCalledWith("BHP");
     expect(getDirectorTrades).toHaveBeenCalledWith("BHP", 100);
+  });
+
+  // They were `new Date()`, so every regeneration read as a new article.
+  it("dates its Article from the oldest and newest trade shown", async () => {
+    const { container } = render(await StockInsiderTradingPage(params("BHP")));
+
+    expect(articleSchema(container)).toMatchObject({
+      datePublished: "2026-08-14",
+      dateModified: "2026-10-01",
+    });
+  });
+
+  it("states no Article dates without a trade", async () => {
+    getDirectorTrades.mockResolvedValue({ trades: [], totalCount: 0 });
+    const { container, getByText } = render(await StockInsiderTradingPage(params("BHP")));
+
+    const article = articleSchema(container);
+    expect(article).not.toHaveProperty("datePublished");
+    expect(article).not.toHaveProperty("dateModified");
+    // An empty list the API answered is a real answer, and renders as one.
+    expect(getByText(/No director trades recorded for BHP yet/)).toBeInTheDocument();
   });
 
   it("fails the render when the trades cannot be read", async () => {

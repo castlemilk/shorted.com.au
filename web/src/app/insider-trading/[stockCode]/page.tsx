@@ -162,6 +162,9 @@ interface ApiTrade {
   announcementUrl?: string;
 }
 
+/** A trade date as the API sends it (trade_date is a DATE): YYYY-MM-DD. */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 const toNumber = (v: bigint | number | undefined): number => {
   if (v === undefined) return 0;
   if (typeof v === "bigint") return Number(v);
@@ -244,14 +247,23 @@ export default async function StockInsiderTradingPage({ params }: PageProps) {
     { label: code, href: `/insider-trading/${code}` },
   ];
 
+  // The Article's dates are its trades' own: the oldest and newest trade
+  // shown. They used to be `new Date()`, which under ISR told Google every
+  // regeneration was a new article. A page with no dated trade states neither.
+  const tradeDates = trades
+    .map((t) => t.tradeDate)
+    .filter((d) => ISO_DATE.test(d))
+    .sort();
+  const firstTrade = tradeDates[0];
+  const lastTrade = tradeDates[tradeDates.length - 1];
+
   const article = {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: `${companyName} (${code}) Director Trades & Insider Activity`,
     description: `Recent director trades for ${companyName} on the ASX.`,
     url: `${siteConfig.url}/insider-trading/${code}`,
-    datePublished: new Date().toISOString(),
-    dateModified: new Date().toISOString(),
+    ...(firstTrade && lastTrade ? { datePublished: firstTrade, dateModified: lastTrade } : {}),
     author: {
       "@type": "Organization",
       name: "Shorted",
