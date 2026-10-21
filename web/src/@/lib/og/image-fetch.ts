@@ -28,9 +28,9 @@ const SITE_ASSET_PATH = /^\/assets\/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*[A-Za-z0-
  * The absolute URL when an OG route may fetch it from our servers, otherwise
  * undefined.
  *
- * The URL is stored, and company-metadata is writable with the anon key today
- * (security review SEC-07), so a fetch of whatever the row holds would let a
- * row point our server at any address. Only https on the default port and with
+ * The URL is stored data, scraped or written by a model (security review
+ * SEC-07), so a fetch of whatever the row holds would let a bad row point our
+ * server at any address. Only https on the default port and with
  * no credentials is fetched: anywhere on an allowed host, or a static file
  * under /assets/ on our own. A root-relative path is our own host; a
  * protocol-relative one is refused (safeLinkHref). Fetch it with

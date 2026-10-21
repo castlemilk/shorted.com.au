@@ -7,9 +7,9 @@ import { ogImageFetchUrl } from "../image-fetch";
 
 /**
  * OG image routes fetch a stored logo or take image from our servers, and
- * fetched whatever URL the row held, following redirects. company-metadata is
- * writable with the anon key today (security review SEC-07), so a row could
- * point our server at any address. Only https is fetched: Cloud Storage, and
+ * fetched whatever URL the row held, following redirects. Those rows are
+ * scraped or model-written (security review SEC-07), so a bad row could point
+ * our server at any address. Only https is fetched: Cloud Storage, and
  * the static files under /assets/ on our own host, where a take imported from
  * content/news keeps its art.
  */

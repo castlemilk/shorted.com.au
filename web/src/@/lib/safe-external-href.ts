@@ -6,8 +6,7 @@
  * users, and React 18 renders whatever string it is handed as an href,
  * `javascript:` included. A `javascript:` link runs in our origin when it is
  * followed, and `data:` and `vbscript:` links are no better (security review
- * SEC-07: company-metadata is writable with the anon key, and its scraped
- * `links` already hold 135 `javascript:` URLs).
+ * SEC-07: the scraped company `links` already hold 135 `javascript:` URLs).
  *
  * Where these return undefined, render the text without a link, or leave the
  * link out as the component does for a missing URL.
