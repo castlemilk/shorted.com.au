@@ -9,6 +9,7 @@
  */
 
 import {
+  isDynamicServerUsageError,
   retryWithBackoff,
   shouldRetryConnectError,
   type RetryOptions,
@@ -16,6 +17,20 @@ import {
 
 // gRPC/Connect error code for NotFound - hardcoded to avoid SSR-breaking import
 const CODE_NOT_FOUND = 5;
+
+/**
+ * The log line for an error a wrapper swallows. Next's dynamic-usage signal
+ * gets its own wording because it is neither a backend failure nor retried: a
+ * read inside a statically generated render went out `no-store` (a Connect
+ * POST through serverFetchWithUserAgent with no `next` option), so Next
+ * discards the render ("Page changed from static to dynamic at runtime") and
+ * the route stops regenerating. The fix is the transport, not the backend.
+ */
+function swallowedErrorLabel(wrapper: string, err: unknown): string {
+  return isDynamicServerUsageError(err)
+    ? `[${wrapper}] no-store read inside a static render (not retried; give the transport next: { revalidate } or serverFetchOutsideNextCache), returning undefined:`
+    : `[${wrapper}] All retries exhausted, returning undefined:`;
+}
 
 // Duck-type check for ConnectError shape (avoids importing @connectrpc/connect)
 function isConnectError(error: unknown): error is { code: number; message: string } {
@@ -111,7 +126,7 @@ export function withRetryAndNotFound<TArgs extends unknown[], TReturn>(
       // For other errors after all retries exhausted, log and return undefined
       // This prevents Server Component crashes in production
       console.error(
-        "[withRetryAndNotFound] All retries exhausted, returning undefined:",
+        swallowedErrorLabel("withRetryAndNotFound", err),
         err instanceof Error ? err.message : String(err),
         {
           args: args
@@ -159,7 +174,7 @@ export function withRetryAndThrowNotFound<TArgs extends unknown[], TReturn>(
 
       // For other errors, return undefined to let components show retry UI
       console.error(
-        "[withRetryAndThrowNotFound] All retries exhausted, returning undefined:",
+        swallowedErrorLabel("withRetryAndThrowNotFound", err),
         err instanceof Error ? err.message : String(err),
         {
           args: args
