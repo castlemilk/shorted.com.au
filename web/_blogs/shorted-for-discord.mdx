@@ -5,7 +5,7 @@ standfirst: "Search ASX stocks, post short interest with its chart, and redraw i
 coverImage: "/assets/blog/shorted-for-discord/cover-editorial-v1.webp"
 thumbnailImage: "/assets/blog/shorted-for-discord/thumbnail-editorial-v1.webp"
 coverAlt: "A cut-paper split-flap panel on a charcoal field, its upper flap falling to reveal a new ink line, above a row of keys with one amber key pressed down."
-date: "2026-10-19"
+date: "2026-10-21"
 category: product
 tags: ["Discord", "Discord bot", "short interest", "ASX charts", "slash commands"]
 author:
@@ -47,8 +47,6 @@ The buttons are the part we like most. Press **3M** and the chart redraws over t
 
 The highlighted button is what is on screen, and pressing it again redraws with the latest figures. **Open on Shorted** takes you to the full interactive chart on the site.
 
-In servers where it is switched on, an **Interactive** button opens that chart inside Discord itself. You can scrub across it, pin a reading, measure between two dates and search for another stock, without leaving the conversation.
-
 ## What it cannot see
 
 Discord apps come in two kinds. A classic bot joins your server as a member, keeps a connection open, and can be granted permission to read messages. Ours is the other kind: Discord sends it the slash commands, the autocomplete keystrokes and the button presses aimed at it, and nothing else.
@@ -62,9 +60,9 @@ Two more rules come from not wanting to be noisy:
 
 ## Decisions behind it
 
-**Old buttons keep working.** Each button carries the chart it draws in its own ID: the stock, the view and the period. When someone presses a button on a message from last month, the bot reads what to draw from the button itself, and draws it from today's data. There is no record of messages to keep, expire or lose, so nothing about an old message can go stale except the figures, and pressing a button refreshes those.
+**Old buttons keep working.** Each button carries the chart it draws in its own ID: the stock, the view and the period. When someone presses a button on a message from last month, the bot reads what to draw from the button itself, and draws it from the latest published data. There is no record of messages to keep, expire or lose, so nothing about an old message can go stale except the figures, and pressing a button refreshes those.
 
-**Discord gives an app three seconds.** That is the deadline for a first reply. Most lookups come from the same caches that serve Shorted's stock pages and answer well inside it. When one does not, the bot shows Discord's "thinking…" state, finishes in the background and fills in the message when the data arrives. A slow read costs a short wait, never an "interaction failed".
+**Discord gives an app three seconds.** That is the deadline for a first reply. Most lookups come from the same caches that serve Shorted's stock pages and answer well inside it. When one does not, the bot shows Discord's "thinking…" state, finishes in the background and fills in the message when the data arrives. That deferral gives a slow lookup time to finish; network or service failures can still produce an error.
 
 **The chart is the share card.** The image in each message is the chart card Shorted draws for shared links, drawn from the latest data. Discord holds on to images it has fetched, so each image link carries the date in Sydney: a chart redrawn tomorrow fetches tomorrow's card instead of a cached copy of today's.
 

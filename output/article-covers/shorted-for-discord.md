@@ -1,8 +1,6 @@
-# shorted-for-discord — editorial v1 (commission, not yet generated)
+# shorted-for-discord — editorial v1
 
-- Status: **brief and prompt only.** Generate with the built-in `image_gen` tool
-  (`$imagegen`, see `.claude/skills/shorted-editorial-art/SKILL.md`), then
-  replace this status line with the mode, the source path and the review below.
+- Status: Generated with built-in image_gen on 21 October 2026. Original saved and inspected; WebP header and separate thumbnail exported.
 - Mode: built-in `image_gen`, new generation.
 - Original (to save): `output/article-covers/shorted-for-discord.png`.
 - Cover (to export): `web/public/assets/blog/shorted-for-discord/cover-editorial-v1.webp`, 1600 × 900.
@@ -37,7 +35,7 @@ a live ticker.
   feed or a trading signal. The lines are plain ink strokes with no axes,
   numbers or labels.
 
-## Exact prompt
+## Commission prompt (direction, not the executed wording)
 
 ```text
 Use case: stylized-concept
@@ -56,3 +54,11 @@ Check at full size and at 160 × 90: the eye lands on the falling flap first and
 reads the two different lines; the amber key reads as pressed; the spindle and
 hinge are coherent; nothing implies a live feed or carries writing. Compare with
 `shorted-mcp-server` and `shorted-2026-platform-update` for repetition.
+
+## Executed prompt
+
+Use case: stylized-concept. Create a single 16:9 editorial article header for Shorted, an Australian financial-data publication, also legible as a small thumbnail. A bold tactile cut-paper still life: one large warm-ivory split-flap panel like a departure board, at three-quarter angle against a near-black charcoal field. Its upper thick-card flap is caught halfway falling on a plausible visible steel hinge, revealing a different single ink stroke underneath. The falling flap makes a strong diagonal and casts a crisp coherent shadow. In front, five chunky card keys, exactly one burnt-amber key visibly depressed lower than the others. Subject fills two thirds of frame; mechanism within central 80%, quiet surrounding dark negative space. Restrained sparse paper fibres and cut edges, matte surfaces, large clear light/dark shapes. This is a conceptual illustration of redrawing a shared chart from latest published data, not a real interface or live feed. No text, letters, numbers, logos, watermark, axes, grids, candlesticks, speech bubbles, people, hands, screens, neon, glow, plastic or uniform distressed grain. Emphasise the falling flap and depressed key; all hinges and attachments mechanically coherent.
+
+## Completed review
+
+The generated panel has five keys, a visibly depressed amber key and one hinged flap in mid-turn. No writing or labels. Plain ink strokes are illustrative, not measured stock data. The mechanical metaphor is distinct from the existing speech-bubble MCP cover. Full image inspected; thumbnail proof generated with the publication exporter. AI-generated editorial illustration, not handmade artwork or a verified product screenshot.
