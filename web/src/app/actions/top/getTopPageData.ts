@@ -16,6 +16,7 @@ import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { siteConfig } from "~/@/config/site";
 import { isEligibleTopShortsInstrument } from "~/@/lib/top-shorts-filter";
 import { isCachedShortsDataStale } from "~/@/lib/cache-freshness";
+import { toTopRows, type TopRow } from "./top-rows";
 
 /**
  * Serialized time series point for caching
@@ -38,7 +39,8 @@ export interface SerializedTimeSeriesData {
 }
 
 /**
- * Mover cards only use summary fields; table sparklines keep the full series.
+ * Mover cards only use summary fields. The cached series keep every point; the
+ * table gets them projected (toTopRows).
  */
 export type SerializedMoverSummary = Pick<
   SerializedTimeSeriesData,
@@ -299,12 +301,20 @@ export async function getTopPageData(
   return pageData;
 }
 
+/** What the /top island holds for a period: its table rows and mover cards. */
+export interface TopPeriodData {
+  rows: TopRow[];
+  movers: SerializedMoversData;
+}
+
 /**
  * Client-callable version for period changes.
- * Uses the same caching mechanism.
+ * Uses the same caching mechanism, and answers with the projected rows the
+ * page hands the island, not the cached series.
  */
 export async function getTopPageDataForPeriod(
   period: TimePeriod
-): Promise<TopPageData> {
-  return getTopPageData(period, 100);
+): Promise<TopPeriodData> {
+  const { timeSeries, movers } = await getTopPageData(period, 100);
+  return { rows: toTopRows(timeSeries), movers };
 }
