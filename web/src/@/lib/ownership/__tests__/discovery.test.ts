@@ -9,4 +9,13 @@ describe("ownership discovery", () => {
     const keyContent = llms.slice(llms.indexOf("## Key Content"), llms.indexOf("## Programmatic access"));
     expect(keyContent).toMatch(/^- \[[^\]]+\]\(https:\/\/shorted\.com\.au\/ownership\): \S/m);
   });
+
+  // The extended file (/llms-full.txt, linked from the API catalog) kept the
+  // pre-ownership dataset count and no line for the hub.
+  it("lists /ownership among llms-full.txt's key content pages, and counts the dataset", () => {
+    const full = readFileSync(join(process.cwd(), "public/llms-full.txt"), "utf8");
+    const keyContent = full.slice(full.indexOf("## Key Content Pages"), full.indexOf("## Educational Resources"));
+    expect(keyContent).toMatch(/^- \[[^\]]+\]\(https:\/\/shorted\.com\.au\/ownership\): \S/m);
+    expect(full).toContain("four further Australian datasets alongside it: who holds ASX stocks");
+  });
 });
