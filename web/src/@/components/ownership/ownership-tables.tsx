@@ -34,19 +34,28 @@ function useShown<T>(rows: readonly T[], limit: number | undefined) {
   };
 }
 
+/**
+ * The notices' control. GetInstitution serves a holder's newest 100 notices,
+ * so a holder with more on record (State Street has 1,117) is told how many
+ * it shows instead of "all".
+ */
 function ShowAll({
-  total,
-  noun,
+  served,
+  onRecord,
   expanded,
   controls,
   onToggle,
 }: {
-  total: number;
-  noun: string;
+  served: number;
+  onRecord: number | undefined;
   expanded: boolean;
   controls: string;
   onToggle: () => void;
 }) {
+  const label =
+    onRecord !== undefined && onRecord > served
+      ? `Show the latest ${served} of ${onRecord.toLocaleString("en-AU")} notices`
+      : `Show all ${served} notices`;
   return (
     <button
       type="button"
@@ -55,7 +64,7 @@ function ShowAll({
       aria-controls={controls}
       className="py-1 text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
     >
-      {expanded ? "Show fewer" : `Show all ${total} ${noun}`}
+      {expanded ? "Show fewer" : label}
     </button>
   );
 }
@@ -181,12 +190,15 @@ export function NoticeRowsTable({
   showHolder,
   caption,
   limit,
+  onRecord,
 }: {
   rows: readonly NoticeRow[];
   showStock: boolean;
   showHolder: boolean;
   caption: string;
   limit?: number;
+  /** The holder's notices on record, which can be more than the rows served. */
+  onRecord?: number;
 }) {
   const bodyId = useId();
   const { shown, bounded, expanded, toggle } = useShown(rows, limit);
@@ -238,7 +250,7 @@ export function NoticeRowsTable({
         </TableBody>
       </Table>
       {bounded ? (
-        <ShowAll total={rows.length} noun="notices" expanded={expanded} controls={bodyId} onToggle={toggle} />
+        <ShowAll served={rows.length} onRecord={onRecord} expanded={expanded} controls={bodyId} onToggle={toggle} />
       ) : null}
     </>
   );

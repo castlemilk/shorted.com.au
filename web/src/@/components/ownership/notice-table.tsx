@@ -8,8 +8,9 @@ import { NoticeRowsTable } from "./ownership-tables";
 
 /**
  * Substantial holding notices, newest first. With a `limit`, the rows past it
- * wait behind "Show all". The page draws ExternalLinkSymbol, which each
- * notice's ASX link points at.
+ * wait behind "Show all", which names `onRecord` when the API served only the
+ * newest of more. The page draws ExternalLinkSymbol, which each notice's ASX
+ * link points at.
  */
 export function NoticeTable({
   notices,
@@ -17,12 +18,14 @@ export function NoticeTable({
   showHolder = true,
   caption,
   limit,
+  onRecord,
 }: {
   notices: readonly SubstantialNotice[];
   showStock?: boolean;
   showHolder?: boolean;
   caption: string;
   limit?: number;
+  onRecord?: number;
 }) {
   if (notices.length === 0) {
     return <p className="text-sm text-muted-foreground">No notices on record.</p>;
@@ -34,6 +37,7 @@ export function NoticeTable({
       showHolder={showHolder}
       caption={caption}
       limit={limit}
+      onRecord={onRecord}
     />
   );
 }

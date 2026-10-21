@@ -217,6 +217,7 @@ export default async function InstitutionPage({ params }: PageProps) {
             showHolder={false}
             caption={`${inst.name}'s substantial holding notices`}
             limit={INSTITUTION_NOTICES_SHOWN}
+            onRecord={inst.notices}
           />
         </section>
 

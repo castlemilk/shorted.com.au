@@ -149,6 +149,20 @@ describe("InstitutionPage", () => {
     expect(bodyRows(notices)).toHaveLength(100);
   });
 
+  // GetInstitution serves a holder's newest 100 notices. State Street has
+  // 1,117 on record, and its control said "Show all 100 notices" under a
+  // "Notices read" tile of 1117.
+  it("says how many of the notices on record it can show, and never calls a capped list all", async () => {
+    const data = response({ slug: "state-street", name: "State Street", positions: 3, notices: 100 });
+    data.institution!.notices = 1117;
+    getInstitution.mockResolvedValue(data);
+    render(await InstitutionPage(params("state-street")));
+
+    expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show the latest 100 of 1,117 notices" }));
+    expect(bodyRows(screen.getByRole("table", { name: "State Street's substantial holding notices" }))).toHaveLength(100);
+  });
+
   it("draws the external-link glyph once and points every ASX link at it", async () => {
     getInstitution.mockResolvedValue(response({ positions: 3, notices: 2 }));
     const { container } = render(await InstitutionPage(params("vanguard")));

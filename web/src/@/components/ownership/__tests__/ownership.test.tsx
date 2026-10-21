@@ -256,6 +256,22 @@ describe("ownership table islands", () => {
     expect(bodyRows(table)).toHaveLength(25);
   });
 
+  // GetInstitution serves a holder's newest 100 notices. "Show all 100
+  // notices" beside a holder with 1,117 on record called a capped list whole.
+  it("names the notices on record when the rows served are only the newest of them", () => {
+    render(<NoticeTable notices={notices(100)} showHolder={false} caption="Capped" limit={25} onRecord={1117} />);
+    render(<NoticeTable notices={notices(30)} showHolder={false} caption="Whole" limit={25} onRecord={30} />);
+
+    const capped = screen.getByRole("button", { name: "Show the latest 100 of 1,117 notices" });
+    expect(capped).toHaveAttribute("aria-controls", screen.getByRole("table", { name: "Capped" }).querySelector("tbody")!.id);
+    expect(screen.getByRole("button", { name: "Show all 30 notices" })).toHaveAttribute(
+      "aria-controls",
+      screen.getByRole("table", { name: "Whole" }).querySelector("tbody")!.id,
+    );
+    fireEvent.click(capped);
+    expect(bodyRows(screen.getByRole("table", { name: "Capped" }))).toHaveLength(100);
+  });
+
   it("draws every notice, and no control, within the limit or without one", () => {
     render(<NoticeTable notices={notices(25)} caption="Within" limit={25} />);
     expect(bodyRows(screen.getByRole("table", { name: "Within" }))).toHaveLength(25);
