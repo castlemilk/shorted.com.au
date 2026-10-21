@@ -405,9 +405,9 @@ describe("server API surface", () => {
     // and Next discards the render even when the caller swallows the error.
     // /battlegrounds sat STALE with a frozen `age` for exactly this reason
     // (2026-10-21), as /economy did on 2026-07-22. A transport a static route
-    // can reach must either tag its fetch (`next: { revalidate }`) or bypass
-    // Next's patched fetch (serverFetchOutsideNextCache, for reads that cache
-    // themselves in unstable_cache).
+    // can reach must either give its fetch a lifetime (`next: { revalidate }`)
+    // or bypass Next's patched fetch (serverFetchOutsideNextCache, for reads
+    // that cache themselves in unstable_cache).
     //
     // Reachability is the static import graph from every route file that Next
     // generates statically: page, layout and image files that do not opt out
@@ -666,7 +666,11 @@ describe("server API surface", () => {
       expect(fixture("createConnectTransport({ fetch: serverFetchWithUserAgent, baseUrl });")).toEqual([
         { fetch: "serverFetchWithUserAgent", safe: false },
       ]);
-      // A tag without a lifetime is still the default no-store POST.
+      // A tag alone is not a no-store POST: any `next` option skips the
+      // override, and Next's "auto cache" gives the fetch the route's
+      // revalidate. It still fails the check, which asks each transport to
+      // state its own lifetime rather than inherit one from whichever route
+      // renders it.
       expect(
         fixture(
           "const tagged = (i, init) => serverFetchWithUserAgent(i, { ...init, next: { tags: ['x'] } });\n" +
