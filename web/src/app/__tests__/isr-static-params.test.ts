@@ -41,11 +41,6 @@ const ALLOWED: Record<string, string> = {
   // Per request by design: an operator console that reads the session
   // (`dynamic = "force-dynamic"`, `revalidate = 0`).
   "admin/register/politicians/[slug]/page.tsx": "admin console, per request by design",
-  // Owned outside the ISR partition. It is noindexed and fetches nothing on
-  // the server (the history loads client-side), so an empty
-  // generateStaticParams with dynamicParams = true would make its
-  // `revalidate = 3600` real at no risk.
-  "housing/property/[addressKey]/page.tsx": "owned elsewhere: needs an empty generateStaticParams",
   // Owned outside the ISR partition, and per request until a failed read
   // fails the render (isr-degraded-render.test.ts lists what each page
   // caches today). Then add the empty generateStaticParams and delete the line.
