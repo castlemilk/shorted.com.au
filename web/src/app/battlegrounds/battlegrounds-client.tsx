@@ -116,10 +116,19 @@ function TableSkeleton() {
   );
 }
 
-function WinBadge({ won }: { won: boolean | null }) {
+function WinBadge({
+  won,
+  change,
+}: {
+  won: boolean | null;
+  change: number | null;
+}) {
   if (won === null) {
     return <span className="text-xs text-muted-foreground">—</span>;
   }
+  // `won` is the view's strict "close below the close at the peak", so a
+  // close that did not move is false too: it is not lower, and not higher.
+  const unchanged = !won && change === 0;
   return (
     <Badge
       variant="outline"
@@ -127,10 +136,12 @@ function WinBadge({ won }: { won: boolean | null }) {
         "whitespace-nowrap",
         won
           ? "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400"
-          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+          : unchanged
+            ? "border-border bg-muted/50 text-muted-foreground"
+            : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
       )}
     >
-      {won ? "Shorts won" : "Shorts lost"}
+      {won ? "Price lower" : unchanged ? "Price unchanged" : "Price higher"}
     </Badge>
   );
 }
@@ -147,7 +158,7 @@ function ReturnCell({ value }: { value: number | null }) {
     <TableCell
       className={cn(
         "text-right font-mono tabular-nums",
-        // Price falling after the peak = shorts were right
+        // Price lower after the peak: red; higher: green
         changeColor(value),
       )}
     >
@@ -170,7 +181,7 @@ function ScoreboardStatsStrip({ data }: { data: ScoreboardData }) {
           {data.shortsWinRate3m.toFixed(0)}%
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          Shorts were right 3 months later — the price fell in{" "}
+          Price lower 3 months after the peak in{" "}
           {data.shortsWinRate3m.toFixed(0)}% of campaigns
         </p>
       </div>
@@ -179,7 +190,7 @@ function ScoreboardStatsStrip({ data }: { data: ScoreboardData }) {
           {data.shortsWinRate6m.toFixed(0)}%
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          Shorts were right 6 months later — the price fell in{" "}
+          Price lower 6 months after the peak in{" "}
           {data.shortsWinRate6m.toFixed(0)}% of campaigns
         </p>
       </div>
@@ -233,7 +244,10 @@ function ScoreboardTable({ rows }: { rows: ScoreboardRow[] }) {
               <ReturnCell value={row.return3m} />
               <ReturnCell value={row.return6m} />
               <TableCell className="text-right">
-                <WinBadge won={row.shortsWon6m ?? row.shortsWon3m} />
+                <WinBadge
+                  won={row.shortsWon6m ?? row.shortsWon3m}
+                  change={row.return6m ?? row.return3m}
+                />
               </TableCell>
             </TableRow>
           ))}
@@ -284,6 +298,17 @@ function ScoreboardSection() {
   return (
     <div className="space-y-4">
       <ScoreboardStatsStrip data={data} />
+      <p className="text-xs text-muted-foreground">
+        Every priced row, ETFs and bonds included, on closes not adjusted for
+        dividends. For an index-relative study of company shares, see{" "}
+        <Link
+          href="/blog/what-happens-after-asx-short-interest-peaks"
+          className="underline underline-offset-2 hover:text-foreground"
+        >
+          what happens after short interest peaks
+        </Link>
+        .
+      </p>
       <ScoreboardTable rows={data.rows} />
       {data.totalCount > data.rows.length && (
         <p className="text-xs text-muted-foreground">
