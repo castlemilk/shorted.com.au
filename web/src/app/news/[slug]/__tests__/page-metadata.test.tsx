@@ -104,12 +104,51 @@ describe("news take metadata", () => {
     expect(meta.description).toBe("Only DroneShield at 15.07% sits higher. It was 11.96% on 1 July.");
   });
 
-  it("titles the take by its headline alone, near 60 characters", async () => {
+  it("titles the take by its headline alone, without the brand", async () => {
     const meta = await generateMetadata({ params });
     expect(meta.title).toEqual({ absolute: BOE_HEADLINE });
-    expect(BOE_HEADLINE.length).toBeLessThanOrEqual(72);
     expect(meta.openGraph?.title).toBe(BOE_HEADLINE);
   });
+
+  // Each of takeTitle's limits from both sides: a headline is cut only past
+  // 80 characters, and then only to a first clause of 30 to 70 characters.
+  // The case names are counted from the fixtures, so they cannot drift.
+  function headlineCase(clause: string, separator: string, rest: string, cut: boolean) {
+    const headline = `${clause}${separator}${rest}`;
+    return {
+      headline,
+      title: cut ? clause : headline,
+      length: headline.length,
+      clauseLength: clause.length,
+      outcome: cut ? "cut to its first clause" : "kept whole",
+    };
+  }
+
+  it.each([
+    headlineCase("Boss Energy's short position rebuilt to 13.58%", "; ", "the price fell 12% in five weeks", false),
+    headlineCase("Boss Energy shorts reach 13.6%", " – ", "the price fell 9% while the new chair settled in", true),
+    headlineCase("Boss Energy shorts hit 13.58%", "; ", "the price fell 12.5% while the new chair settled in", false),
+    headlineCase(
+      "The Lottery Corporation's short position doubled to 8.63% in six weeks",
+      " — ",
+      "and the bears added more",
+      true,
+    ),
+    headlineCase(
+      "The Lottery Corporation's short position doubled to 8.6% in eight weeks",
+      "; ",
+      "the bears added more",
+      false,
+    ),
+  ])(
+    "a headline of $length characters, first clause $clauseLength: $outcome",
+    async ({ headline, title }) => {
+      mockTake.mockResolvedValue({ take: take({ headline }) });
+      const meta = await generateMetadata({ params });
+      expect(meta.title).toEqual({ absolute: title });
+      expect(meta.openGraph?.title).toBe(headline);
+    },
+  );
 
   it("cuts a long headline to its first clause", async () => {
     const headline =
