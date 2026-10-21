@@ -102,7 +102,8 @@ function cardFor(
     name: firstNonEmpty(strategy?.name, seo.label),
     author: strategy?.author ?? "",
     tagline: firstNonEmpty(strategy?.tagline, seo.dek),
-    counts: counts ? { triggered: counts.triggered, setup: counts.setup } : null,
+    counts,
+    ranked: picks?.picks.length ?? 0,
     leaders: (picks?.picks ?? [])
       .filter((row) => row.status === "triggered" || row.status === "setup")
       .slice(0, LEADERS_PER_CARD)
@@ -208,7 +209,10 @@ export default async function PicksHubPage() {
             unknown when the data is missing, or when the figure is not
             meaningful for the company (a bank&apos;s cash conversion, say),
             and unknown never counts as a pass. Stocks are ranked by status
-            first, then by a 0 to 100 score.
+            first, then by a 0 to 100 score: a rule earns more of its weight
+            the more decisively it passes, and a setup earns part of its
+            trigger rule&apos;s weight for how close the price is to the
+            trigger, so the names nearest to firing rank first.
           </p>
           {/* The printed key: each status beside what it looks like as rule
               outcomes, and the dot marks themselves, so both are taught

@@ -715,3 +715,16 @@ fundamentals-coverage §9:
   On the web, `fundamentals-block.tsx` hard-codes revenue as "YoY (annual)"
   and `basisLabel` passes `half` through raw. Until then a half-basis figure
   is correct but labelled with the FY end.
+- DONE (2026-10-21): trigger proximity. A failing trigger rule used to
+  contribute nothing, so two setups passing everything else equally were
+  ordered by how decisively they passed the rules NOT in question, and a
+  stock 0.5% under its pivot could rank below one 14% under it.
+  `strategies/proximity.go`: a failing trigger rule earns
+  weight x 0.3 x proximity x 100 (proximity 1 at the line, 0 at the rule's
+  far distance), below the 0.6 floor a pass earns, so a near miss never
+  outranks a pass and a triggered score is untouched. The trigger rules'
+  evaluation prose says so (`evalTriggerCredit`). The web's Pivot cell shows
+  the close against the pivot, the Score column is a meter, and each hub row
+  a status tape. Editorial art per strategy is wired through the brandbrain
+  flow (`web/scripts/picks-art/`, manifest `lib/strategies/art.generated.ts`,
+  empty until baked on the owner's machine).

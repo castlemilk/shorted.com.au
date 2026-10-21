@@ -223,6 +223,14 @@ export interface OgCardProps {
   footer?: string;
   /** Optional company mark shown beside the eyebrow. */
   brand?: CompanyLogo;
+  /**
+   * Optional scene behind the copy: a data URI of a 1200x630 JPEG (satori
+   * decodes JPEG and PNG, never AVIF), drawn full-bleed under a dark scrim
+   * so the type keeps its contrast. The strategy cards pass their baked
+   * brandbrain art (lib/strategies/art.ts); "" or absent draws the plain
+   * gradient canvas.
+   */
+  backgroundSrc?: string;
   logoSrc: string;
 }
 
@@ -239,6 +247,7 @@ export function OgCard({
   stats,
   footer = "shorted.com.au",
   brand,
+  backgroundSrc,
   logoSrc,
 }: OgCardProps) {
   return (
@@ -255,6 +264,34 @@ export function OgCard({
         position: "relative",
       }}
     >
+      {backgroundSrc && (
+        <img
+          src={backgroundSrc}
+          width={OG_SIZE.width}
+          height={OG_SIZE.height}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            objectFit: "cover",
+          }}
+        />
+      )}
+      {backgroundSrc && (
+        <div
+          style={{
+            display: "flex",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            // The scrim: the canvas colour over the scene, heaviest where
+            // the copy sits, so the headline holds its contrast.
+            backgroundImage: `linear-gradient(90deg, ${OG.bg} 0%, rgba(10, 10, 10, 0.88) 55%, rgba(10, 10, 10, 0.45) 100%)`,
+          }}
+        />
+      )}
       {/* top rule */}
       <div
         style={{

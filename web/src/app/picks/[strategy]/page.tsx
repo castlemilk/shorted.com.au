@@ -17,7 +17,9 @@ import { RegimeBanner } from "~/@/components/picks/regime-banner";
 import { PicksProvenance } from "~/@/components/picks/picks-provenance";
 import { PicksFilterView } from "~/@/components/picks/picks-filter-view";
 import { RuleLegend, type RuleColumn } from "~/@/components/picks/picks-table";
+import { StrategyArtBand } from "~/@/components/picks/strategy-art";
 import { StrategyBezel } from "~/@/components/picks/strategy-glyph";
+import { strategyArt } from "~/@/lib/strategies/art";
 import { StrategyPanel } from "~/@/components/picks/strategy-panel";
 import { StrategySwitcher } from "~/@/components/picks/strategy-switcher";
 import {
@@ -186,9 +188,20 @@ export default async function StrategyPicksPage({ params }: PageProps) {
 
         {/* The instrument's faceplate: its glyph lit in the bezel beside the
             serif H1, the provenance nameplate under it. A 320ms phosphor
-            warm-up on load; the H1 is painted from the first frame. */}
-        <section className="border-b border-border/40 pb-6 motion-safe:animate-phosphor-warm">
-          <div className="flex items-start gap-4 sm:gap-5">
+            warm-up on load; the H1 is painted from the first frame. With
+            baked art (lib/strategies/art.ts) the faceplate sits on the
+            strategy's scene under a scrim, a bordered band like the suburb
+            banner; without it, the hairline-ruled header it always was. */}
+        <section
+          className={cn(
+            "motion-safe:animate-phosphor-warm",
+            strategyArt(seo.slug)
+              ? "relative overflow-hidden rounded-lg border border-border/60 p-4 sm:p-6"
+              : "border-b border-border/40 pb-6",
+          )}
+        >
+          <StrategyArtBand slug={seo.slug} />
+          <div className="relative flex items-start gap-4 sm:gap-5">
             <StrategyBezel slug={seo.slug} className="mt-1 text-primary" />
             <div className="min-w-0">
               <p className={cn(eyebrow, "mb-2 font-medium")}>
@@ -200,8 +213,8 @@ export default async function StrategyPicksPage({ params }: PageProps) {
               <h1 className={cn(pageTitle, "leading-[1.1]")}>{seo.h1}</h1>
             </div>
           </div>
-          <p className="mt-3 max-w-3xl text-muted-foreground">{seo.dek}</p>
-          <div className="mt-3">
+          <p className="relative mt-3 max-w-3xl text-muted-foreground">{seo.dek}</p>
+          <div className="relative mt-3">
             <PicksProvenance
               asOf={data?.asOf ?? ""}
               coverage={data?.fundamentalsCoverageCount ?? 0}

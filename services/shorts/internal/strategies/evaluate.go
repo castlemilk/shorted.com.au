@@ -114,18 +114,25 @@ func EvaluateOne(strategy Strategy, c Candidate, env *Env) (Pick, bool) {
 		env = &evalEnv{}
 	}
 	weights := ruleWeights[strategy.ID]
+	triggers := triggerRuleSet(strategy)
 	results := make([]RuleResult, 0, len(strategy.Rules))
 	var score float64
 	anyPass := false
 	for _, rule := range strategy.Rules {
 		out := evaluateRule(rule.ID, &c, env)
-		if out.Status == RulePass {
+		switch {
+		case out.Status == RulePass:
 			// The regime rule says nothing about the stock, so passing it
 			// alone does not make a stock a pick.
 			if rule.ID != RuleRegime {
 				anyPass = true
 			}
 			score += weights[rule.ID] * (passFloor + passStrength*clamp01(out.Strength)) * 100
+		case out.Status == RuleFail && triggers[rule.ID]:
+			// A trigger that has not fired yet earns a share of its weight
+			// for how close it is (proximity.go), so a setup about to break
+			// out ranks above one far from its pivot.
+			score += weights[rule.ID] * triggerCredit * clamp01(out.Proximity) * 100
 		}
 		results = append(results, RuleResult{
 			RuleID:   rule.ID,

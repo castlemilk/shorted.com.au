@@ -233,3 +233,38 @@ describe("OgVersus", () => {
     );
   });
 });
+
+describe("OgCard with a scene", () => {
+  it("draws the scene full-bleed under a scrim only when a background is passed", () => {
+    const plain = OgCard({ eyebrow: "E", title: "T", logoSrc: "" });
+    const images: unknown[] = [];
+    walk(plain, (el) => {
+      if (el.type === "img") images.push(el);
+    });
+    expect(images).toHaveLength(0);
+
+    const scene = OgCard({
+      eyebrow: "E",
+      title: "T",
+      logoSrc: "",
+      backgroundSrc: "data:image/jpeg;base64,AAAA",
+    });
+    const found: El[] = [];
+    walk(scene, (el) => {
+      if (el.type === "img") found.push(el);
+    });
+    expect(found).toHaveLength(1);
+    expect(found[0]!.props.src).toBe("data:image/jpeg;base64,AAAA");
+    expect(found[0]!.props.width).toBe(OG_SIZE.width);
+    expect(found[0]!.props.height).toBe(OG_SIZE.height);
+    expect(found[0]!.props.style?.position).toBe("absolute");
+    // Every multi-child element still declares display: flex (the satori
+    // rule the walker above checks for the standard card).
+    walk(scene, (el) => {
+      const children = el.props.children;
+      if (Array.isArray(children) && children.filter(Boolean).length > 1) {
+        expect(el.props.style?.display).toBe("flex");
+      }
+    });
+  });
+});

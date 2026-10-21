@@ -9,6 +9,7 @@ import {
   formatPrice,
   formatScore,
   formatSigned,
+  pctVersus,
 } from "~/@/lib/strategies/format";
 import { STATUS_LABELS } from "~/@/lib/strategies/shortlist";
 import { pickSortDef, type PickSortKey } from "~/@/lib/strategies/sort";
@@ -106,6 +107,43 @@ export function RuleDot({ status }: { status: RuleStatus }) {
       )}
     />
   );
+}
+
+/**
+ * The score as a reading on a recessed meter: a hairline track with an amber
+ * fill the length of the score, and the numeral beside it, so a column of
+ * scores reads as a bar chart at a glance and still as numbers to a screen
+ * reader (the track is decorative). The fill is data, not decoration: it is
+ * exactly as long as the number says, and nothing glows.
+ */
+export function ScoreMeter({ score }: { score: number | null }) {
+  const text = formatScore(score);
+  if (text === NOT_AVAILABLE) return <Muted>{text}</Muted>;
+  const width = Math.max(0, Math.min(100, score!));
+  return (
+    <span className="inline-flex items-center justify-end gap-2">
+      <span
+        aria-hidden="true"
+        data-score-meter={Math.round(width)}
+        className="relative hidden h-1.5 w-12 shrink-0 overflow-hidden rounded-[1px] border border-border/60 bg-background md:inline-block"
+      >
+        <span
+          className="absolute inset-y-0 left-0 bg-primary"
+          style={{ width: `${width}%` }}
+        />
+      </span>
+      <span className="tabular-nums">{text}</span>
+    </span>
+  );
+}
+
+/**
+ * Close relative to the pivot, in percent: negative is under the breakout
+ * level (how far a setup has to go), positive is above it (cleared). Null
+ * when either price is unknown.
+ */
+export function pctVsPivot(row: Pick<PickRow, "close" | "pivot">): number | null {
+  return pctVersus(row.close, row.pivot);
 }
 
 function ruleLabel(index: number, title: string, result: RuleResultRow | undefined) {
@@ -372,7 +410,7 @@ export function PicksTable({
                     <StatusPill status={row.status} />
                   </td>
                   <NumCell className="hidden sm:table-cell">
-                    {formatScore(row.score)}
+                    <ScoreMeter score={row.score} />
                   </NumCell>
                   <td className="px-3 py-2">
                     <RuleDots rules={rules} results={row.rules} />
@@ -382,6 +420,19 @@ export function PicksTable({
                   </NumCell>
                   <NumCell>
                     <Value text={formatPrice(row.pivot)} />
+                    {/* How far the close sits from the level, so a reader
+                        sees which setups are a session away from clearing
+                        it without hovering the trigger dot. Muted: a
+                        position against a level, never a price move. */}
+                    {pctVsPivot(row) !== null ? (
+                      <span
+                        data-vs-pivot=""
+                        title="Close relative to the pivot"
+                        className="block text-[11px] leading-tight text-muted-foreground"
+                      >
+                        {formatSigned(pctVsPivot(row))}
+                      </span>
+                    ) : null}
                   </NumCell>
                   <NumCell className="hidden md:table-cell">
                     <Value text={formatBase(row)} />
