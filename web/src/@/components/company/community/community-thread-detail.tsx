@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { type CommunityComment, type CommunityThread } from "~/@/types/community";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { Button } from "~/@/components/ui/button";
 import { Badge } from "~/@/components/ui/badge";
 import {
@@ -74,15 +75,26 @@ export function CommunityThreadDetail({
                 Sources
               </h2>
               <div className="flex flex-col gap-2">
-                {thread.sources.map((source) => (
-                  <Link
-                    key={source.url}
-                    href={source.url}
-                    className="text-sm font-medium text-primary hover:underline"
-                  >
-                    {source.label}
-                  </Link>
-                ))}
+                {/* A source is whatever its author typed: a link only when
+                    it is an http(s) URL, otherwise just its label. */}
+                {thread.sources.map((source) => {
+                  const href = safeExternalHref(source.url);
+                  return href ? (
+                    <a
+                      key={source.url}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow ugc"
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      {source.label}
+                    </a>
+                  ) : (
+                    <span key={source.url} className="text-sm font-medium">
+                      {source.label}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           ) : null}

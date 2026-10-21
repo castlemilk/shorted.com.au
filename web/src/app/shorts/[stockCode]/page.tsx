@@ -50,6 +50,7 @@ import {
 import { loadStockOrFail } from "./stock-page-data";
 import { STOCK_CODE_PATTERN } from "./stock-page-shared";
 import { JsonLd } from "~/@/components/seo/json-ld";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -568,7 +569,7 @@ const Page = async ({ params }: PageProps) => {
                 {newsArticles.map((article) => (
                   <li key={article.id || article.url} className="px-4 py-2.5">
                     <a
-                      href={article.url}
+                      href={safeExternalHref(article.url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm leading-snug hover:text-primary hover:underline"

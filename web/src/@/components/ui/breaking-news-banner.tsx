@@ -7,6 +7,7 @@ import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
 import { AlertTriangle, ExternalLink } from "lucide-react";
 import { NewsSourceBadge } from "~/@/components/ui/news-source-badge";
 import Link from "next/link";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 export function BreakingNewsBanner() {
   const { data } = useQuery({
@@ -41,7 +42,7 @@ export function BreakingNewsBanner() {
           {data.articles.map((article) => (
             <a
               key={article.id}
-              href={article.url}
+              href={safeExternalHref(article.url)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between gap-2 group"

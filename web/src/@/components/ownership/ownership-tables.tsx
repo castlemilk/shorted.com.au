@@ -12,6 +12,7 @@ import {
 } from "~/@/components/ui/table";
 import type { FileHoldingRow, HoldingRow, NoticeRow } from "~/@/lib/ownership/rows";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { ExternalLinkGlyph } from "./external-link-glyph";
 
 // The ownership tables that run long: an index manager's ninety-odd stakes, a
@@ -81,10 +82,13 @@ function StockLink({ code }: { code: string }) {
   );
 }
 
+/** The notice's ASX link; nothing when its stored URL is not http(s). */
 function AsxLink({ url, label }: { url: string; label: string }) {
+  const href = safeExternalHref(url);
+  if (!href) return null;
   return (
     <a
-      href={url}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       className="hit-target inline-flex text-muted-foreground hover:text-primary"

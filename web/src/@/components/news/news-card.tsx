@@ -4,6 +4,7 @@ import { NewsImage } from "~/@/components/news/news-image";
 import { NewsSourceBadge } from "~/@/components/ui/news-source-badge";
 import { SentimentBadge } from "~/@/components/ui/sentiment-badge";
 import { cn } from "~/@/lib/utils";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { formatRelativeTime } from "~/@/lib/relative-time";
 import { isValidStockCode } from "~/@/lib/stock-code";
 import { stockChipPalette } from "~/@/lib/stock-color";
@@ -49,6 +50,10 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
     (article.syndicatedSources?.length ?? 0) > 0
       ? `Also covered by ${article.syndicatedSources!.join(", ")}`
       : undefined;
+  // A scraped URL: an http(s) one is the card's link. Any other leaves the
+  // card unlinked: its anchors lose their href (HTML's placeholder link, shown
+  // as plain content) and "Continue reading" is left out.
+  const articleHref = safeExternalHref(article.url);
 
   return (
     <article
@@ -63,13 +68,13 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
     >
       {article.imageUrl && !isCompact && (
         <a
-          href={article.url}
+          href={articleHref}
           target="_blank"
           rel="noopener noreferrer"
           // The image is decorative (alt=""); the link needs its own
           // accessible name or screen readers / crawlers see an empty link
           // ("Links must have discernible text"). Mirror the headline.
-          aria-label={article.headline}
+          aria-label={articleHref ? article.headline : undefined}
           className={cn(
             // `relative` + a locked aspect ratio give the slot intrinsic
             // height before the image loads (prevents CLS) and position the
@@ -127,7 +132,7 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
         </div>
 
         <a
-          href={article.url}
+          href={articleHref}
           target="_blank"
           rel="noopener noreferrer"
           className="block"
@@ -154,17 +159,19 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
           </p>
         )}
 
-        <div className="mt-auto flex items-center gap-1 pt-1 text-[11px] text-muted-foreground">
-          <a
-            href={article.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 hover:text-foreground"
-          >
-            Continue reading
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        </div>
+        {articleHref ? (
+          <div className="mt-auto flex items-center gap-1 pt-1 text-[11px] text-muted-foreground">
+            <a
+              href={articleHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 hover:text-foreground"
+            >
+              Continue reading
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        ) : null}
       </div>
     </article>
   );

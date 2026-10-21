@@ -18,6 +18,7 @@ import { getStock } from "~/app/actions/getStock";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { type GetEditorialTakeResponse } from "~/gen/shorts/v1alpha1/news_pb";
 import { JsonLd } from "~/@/components/seo/json-ld";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 // On-demand ISR: nothing renders at build, and each take generates on its
 // first request and is cached for 600 s. Without generateStaticParams the
@@ -342,7 +343,7 @@ export default async function ShortedTakePage({ params }: Params) {
             <div>
               Originally reported by{" "}
               <a
-                href={take.sourceUrl}
+                href={safeExternalHref(take.sourceUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium text-primary hover:underline"

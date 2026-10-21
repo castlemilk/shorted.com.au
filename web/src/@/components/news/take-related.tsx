@@ -6,6 +6,7 @@ import { listEditorialTakes } from "~/app/actions/getEditorialTake";
 import { normalizedLogoUrl } from "~/@/lib/logo";
 import { industryLabel } from "~/@/lib/industry-placeholder";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 interface TakeRelatedProps {
   stockCode: string;
@@ -100,7 +101,7 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
             {recentNews.map((a) => (
               <li key={a.id} className="rounded-lg border border-border bg-card p-3 transition-colors hover:border-orange-500/30">
                 <a
-                  href={a.url}
+                  href={safeExternalHref(a.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block"

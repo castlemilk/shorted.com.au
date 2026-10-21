@@ -18,6 +18,7 @@ import {
   type FyBucketDatum,
   type FyBucketFormat,
 } from "./charts/fy-bucket-bar-chart";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 
 
@@ -298,9 +299,10 @@ export function ChannelDetail({ channel }: { channel: EvidenceChannel }) {
           </p>
         ) : null}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-          {channel.sources[0] ? (
+          {/* A stored URL: linked only when it is http(s). */}
+          {channel.sources[0] && safeExternalHref(channel.sources[0].sourceUrl) ? (
             <a
-              href={channel.sources[0].sourceUrl}
+              href={safeExternalHref(channel.sources[0].sourceUrl)}
               target="_blank"
               rel="noreferrer"
               className="inline-flex min-h-10 items-center gap-1 text-primary hover:underline"
@@ -308,6 +310,10 @@ export function ChannelDetail({ channel }: { channel: EvidenceChannel }) {
               {channel.sources[0].publisher}
               <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
             </a>
+          ) : channel.sources[0] ? (
+            <span className="inline-flex min-h-10 items-center">
+              {channel.sources[0].publisher}
+            </span>
           ) : (
             <span />
           )}

@@ -15,6 +15,7 @@ import { getStockOrNotFound } from "~/app/actions/getStock";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { cn } from "~/@/lib/utils";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { type GetDirectorTradesResponse } from "~/gen/shorts/v1alpha1/stock_pb";
 import { type Stock } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { JsonLd } from "~/@/components/seo/json-ld";
@@ -438,9 +439,9 @@ export default async function StockInsiderTradingPage({ params }: PageProps) {
                       {value > 0 ? formatMoney(value) : "—"}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {t.announcementUrl ? (
+                      {safeExternalHref(t.announcementUrl) ? (
                         <a
-                          href={t.announcementUrl}
+                          href={safeExternalHref(t.announcementUrl)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"

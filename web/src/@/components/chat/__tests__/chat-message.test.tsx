@@ -101,3 +101,63 @@ describe("ChatMessageBubble rich tool rendering", () => {
     expect(screen.queryByText(/"shortPosition"/)).not.toBeInTheDocument();
   });
 });
+
+/**
+ * A tool result's website and a citation's URL come from stored data and the
+ * model, and were rendered as hrefs as they came: a `javascript:` URL ran in
+ * our origin when clicked (security review SEC-07). Only http(s) is a link.
+ */
+describe("ChatMessageBubble links from data", () => {
+  function stockCard(website: string) {
+    return assistantMessage({
+      toolCalls: [
+        {
+          toolName: "get_stock_details",
+          arguments: JSON.stringify({ stock_code: "ZIP" }),
+          result: JSON.stringify({
+            stock: { productCode: "ZIP", companyName: "ZIP Co Limited", website },
+          }),
+        },
+      ],
+    });
+  }
+
+  it("links an http(s) company site", () => {
+    render(<ChatMessageBubble message={stockCard("https://zip.co")} />);
+
+    expect(screen.getByRole("link", { name: "Company site" })).toHaveAttribute(
+      "href",
+      "https://zip.co",
+    );
+  });
+
+  it.each([["javascript:alert(document.cookie)"], [" data:text/html,<b>x</b>"], ["//evil.example"]])(
+    "shows the company site %p as text, not a link",
+    (website) => {
+      const { container } = render(<ChatMessageBubble message={stockCard(website)} />);
+
+      expect(screen.getByText(website.trim())).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Company site" })).not.toBeInTheDocument();
+      expect(container.querySelector("a")).toBeNull();
+    },
+  );
+
+  it("links only the http(s) citations", () => {
+    const { container } = render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          citations: [
+            { sourceType: "news", reference: "AFR", url: "https://www.afr.com/x" },
+            { sourceType: "news", reference: "Injected", url: "javascript:alert(1)" },
+            { sourceType: "asx", reference: "Notice", url: "  vbscript:msgbox(1)" },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Injected")).toBeInTheDocument();
+    expect(Array.from(container.querySelectorAll("a")).map((a) => a.getAttribute("href"))).toEqual([
+      "https://www.afr.com/x",
+    ]);
+  });
+});

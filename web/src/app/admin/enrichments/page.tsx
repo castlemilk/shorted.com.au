@@ -28,6 +28,7 @@ import { triggerEnrichmentAction } from "~/app/actions/triggerEnrichment";
 import { EnrichmentStatus } from "~/gen/shorts/v1alpha1/enrichment_pb";
 import { EnrichmentJobsStatus } from "@/components/admin/enrichment-jobs-status";
 import { retryWithBackoff } from "@/lib/retry";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 export const dynamic = "force-dynamic";
 
@@ -429,7 +430,7 @@ export default async function AdminEnrichmentsPage({
                                         unoptimized
                                       />
                                       <a
-                                        href={f.v1}
+                                        href={safeExternalHref(f.v1)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-xs text-primary hover:underline"
@@ -465,7 +466,7 @@ export default async function AdminEnrichmentsPage({
                                         unoptimized
                                       />
                                       <a
-                                        href={f.v2}
+                                        href={safeExternalHref(f.v2)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-xs text-primary hover:underline"

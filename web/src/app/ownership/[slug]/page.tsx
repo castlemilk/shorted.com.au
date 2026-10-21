@@ -13,6 +13,7 @@ import { INSTITUTION_NOTICES_SHOWN, fileHoldingRow, holdingRow } from "~/@/lib/o
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { getInstitutionOrNotFound } from "~/app/actions/getOwnership";
 import { NotFoundError } from "~/app/actions/withRetry";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import type { GetInstitutionResponse } from "~/gen/shorts/v1alpha1/ownership_pb";
 
 // On-demand ISR: rendered on first visit, cached for an hour. The empty
@@ -134,11 +135,11 @@ export default async function InstitutionPage({ params }: PageProps) {
           </div>
           <p className={lede}>
             {inst.description || info.note}
-            {inst.website ? (
+            {safeExternalHref(inst.website) ? (
               <>
                 {" "}
                 <a
-                  href={inst.website}
+                  href={safeExternalHref(inst.website)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"

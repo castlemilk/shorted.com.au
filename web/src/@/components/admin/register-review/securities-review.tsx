@@ -56,6 +56,7 @@ import {
   type ReviewAliasKind,
   type ReviewDecision,
 } from "~/app/actions/admin/registerReview";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 /**
  * A decision touching this many people opens a confirmation instead of writing
@@ -355,11 +356,11 @@ export function SecuritiesReview({
                   <span className="text-[11px] text-muted-foreground">
                     {s.politicianName || "unattributed"} · item {s.itemNo}
                     {s.parliament ? ` · ${s.parliament}P` : ""}
-                    {s.sourceUrl ? (
+                    {safeExternalHref(s.sourceUrl) ? (
                       <>
                         {" · "}
                         <a
-                          href={s.sourceUrl}
+                          href={safeExternalHref(s.sourceUrl)}
                           target="_blank"
                           rel="noreferrer noopener"
                           className="underline underline-offset-2"

@@ -10,6 +10,7 @@ import {
   getTooltipDataClient,
 } from "~/app/actions/client/getTooltipData";
 import { getSectorImagePath } from "~/@/lib/sector-images";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 interface TreemapTooltipProps {
   productCode: string;
@@ -82,6 +83,7 @@ export function TreemapTooltip({
       ? sparklineData[sparklineData.length - 1]!.value - sparklineData[0]!.value
       : 0;
   const isPositive = change >= 0;
+  const websiteHref = safeExternalHref(stockDetails?.website);
 
   // Simple positioning: render near mouse, adjust if would go off-screen
   const TOOLTIP_WIDTH = 320;
@@ -270,17 +272,22 @@ export function TreemapTooltip({
               </div>
             )}
 
-            {/* Website */}
-            {stockDetails?.website && (
-              <a
-                href={stockDetails.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline pointer-events-auto"
-              >
-                {stockDetails.website}
-              </a>
-            )}
+            {/* Website: a link only when it is an http(s) URL, else text */}
+            {stockDetails?.website &&
+              (websiteHref ? (
+                <a
+                  href={websiteHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline pointer-events-auto"
+                >
+                  {stockDetails.website}
+                </a>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {stockDetails.website}
+                </p>
+              ))}
 
             {/* Sparkline chart */}
             {sparklineData.length > 1 && (

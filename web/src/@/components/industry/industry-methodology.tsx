@@ -5,6 +5,7 @@ import type {
   EvidenceChannel,
   IndustryEvidenceSourceInput,
 } from "~/@/lib/industry-intelligence";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 
 
@@ -71,15 +72,20 @@ export function IndustryMethodology({
             className="rounded-md border border-border/60 bg-background/70 p-4"
           >
             <dt className="text-sm font-semibold">
-              <a
-                href={source.sourceUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 hover:text-primary hover:underline"
-              >
-                {source.displayName}
-                <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-              </a>
+              {/* A stored URL: linked only when it is http(s). */}
+              {safeExternalHref(source.sourceUrl) ? (
+                <a
+                  href={safeExternalHref(source.sourceUrl)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 hover:text-primary hover:underline"
+                >
+                  {source.displayName}
+                  <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                </a>
+              ) : (
+                source.displayName
+              )}
             </dt>
             <dd className="mt-1 text-xs leading-5 text-muted-foreground">
               {source.publisher} · {source.licence} · {channelLabel}
