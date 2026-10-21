@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
-import { GetCouncilProfileResponseSchema, ListCouncilsResponseSchema, type GetCouncilProfileResponse, type ListCouncilsResponse, GetDropIndexSeriesResponseSchema, GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse, type GetDropIndexSeriesResponse } from "~/gen/shorts/v1alpha1/housing_pb";
+import { GetCouncilProfileResponseSchema, ListCouncilsResponseSchema, type GetCouncilProfileResponse, type ListCouncilsResponse, GetDropIndexSeriesResponseSchema, GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse, type GetDropIndexSeriesResponse } from "~/gen/shorts/v1alpha1/housing_pb";
 import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { cache } from "react";
 import {
@@ -20,13 +20,13 @@ import {
 import { withRetryAndNotFound, withRetryAndThrowNotFound } from "./withRetry";
 import { suburbSlug } from "@/lib/housing/states";
 
-function createHousingClient() {
-  const transport = createConnectTransport({
-    fetch: serverFetchWithUserAgent,
-    baseUrl: SERVER_SHORTS_API_URL,
-  });
-  return createClient(HousingService, transport);
-}
+// Every housing transport here gives its fetch a lifetime. A bare
+// serverFetchWithUserAgent transport (the old createHousingClient) is no-store
+// on a POST at Vercel runtime, which throws inside a static render; the
+// serverApiSurface test fails on one in any module a static route reaches.
+// getHousePriceSeries and listSuburbDropListings, its only users, had no
+// server caller: the charts and the drops panel read through the browser
+// twins in actions/client/getHousingClient.ts.
 
 // A transport whose fetch tags the request ISR-cacheable. Without a `next`
 // (or explicit `cache`) option, serverFetchWithUserAgent forces `cache:'no-store'`
@@ -109,20 +109,6 @@ export const getHousingOverview = cache(
         }
       }
       return resp;
-    },
-  ),
-);
-
-/** A single house-price time series for a region × measure (× dwelling type). */
-export const getHousePriceSeries = cache(
-  withRetryAndNotFound(
-    async (
-      regionCode: string,
-      measure: string,
-      dwellingType: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
-    ): Promise<GetHousePriceSeriesResponse> => {
-      const client = createHousingClient();
-      return client.getHousePriceSeries({ regionCode, measure, dwellingType });
     },
   ),
 );
@@ -212,16 +198,6 @@ export const listSuburbPriceDrops = cache(
         }
       }
       return resp;
-    },
-  ),
-);
-
-/** Per-suburb recently-reduced listings (deep-links out; flag-gated server-side). */
-export const listSuburbDropListings = cache(
-  withRetryAndNotFound(
-    async (salCode: string = "", regionCode: string = "", windowDays: number = 30, limit: number = 30): Promise<ListSuburbDropListingsResponse> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
-      const client = createHousingClient();
-      return client.listSuburbDropListings({ salCode, regionCode, windowDays, limit });
     },
   ),
 );

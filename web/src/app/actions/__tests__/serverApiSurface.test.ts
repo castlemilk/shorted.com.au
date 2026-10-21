@@ -418,17 +418,12 @@ describe("server API surface", () => {
     // whichever of its functions that route calls.
 
     /**
-     * Untagged transports that static routes reach, each with why it stays.
-     * Every entry is a file this partition does not own; the fix is named so
-     * whoever owns it can delete the line.
+     * Untagged transports that static routes reach, each with why it stays and
+     * the fix that deletes its line. Empty since 2026-10-21: getIndustryTreeMap
+     * tags its fallback read, and getHousing.ts lost its untagged
+     * createHousingClient with the two server reads nothing called.
      */
-    const ALLOWED_UNTAGGED: Record<string, string> = {
-      // createHousingClient serves getHousePriceSeries and
-      // listSuburbDropListings, which no server render calls (the browser
-      // twins in actions/client/ do); the housing pages import this module for
-      // its tagged reads. Fix: tag createHousingClient or delete it.
-      "src/app/actions/getHousing.ts": "housing: untagged client no server render calls",
-    };
+    const ALLOWED_UNTAGGED: Record<string, string> = {};
 
     const appDir = path.join(webRoot, "src/app");
     const srcDir = path.join(webRoot, "src");
