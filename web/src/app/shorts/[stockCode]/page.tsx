@@ -28,6 +28,9 @@ import { stockOgImage } from "~/@/lib/seo/stock-tab-metadata";
 import { asOfClauseFor, formatAsOfDate, isStaleShortDate } from "~/@/lib/stocks/as-of-date";
 import { stockPageTitle } from "~/@/lib/seo/stock-page-title";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
+// The title, summary, Dataset, header and card share one rule: a position
+// that rounds to zero is never printed as 0.00% (see the module).
+import { shortPercentFigure, statedShortPercent } from "~/@/lib/stocks/short-percent";
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { getStockHeadlines } from "~/app/actions/getStockNews";
@@ -49,26 +52,6 @@ import { STOCK_CODE_PATTERN } from "./stock-page-shared";
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
-}
-
-/**
- * The short % as the title and description state it, or null when there is
- * no level to state. A position that rounds to 0.00 counts as none: ANT, 164
- * shares short, was titled "ANT Short Interest: 0.00% (Arcadia Minerals, ASX)".
- *
- * Checked before it is formatted: the edge read returns the API's JSON as
- * sent, and protojson leaves a zero float out, so the field can be absent
- * whatever the Stock type says. A throw here would land in generateMetadata's
- * catch and skip the noindex gate.
- */
-function statedShortPercent(
-  percentageShorted: number | undefined,
-): string | null {
-  if (typeof percentageShorted !== "number" || !(percentageShorted > 0)) {
-    return null;
-  }
-  const fixed = percentageShorted.toFixed(2);
-  return fixed === "0.00" ? null : fixed;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -283,6 +266,10 @@ const Page = async ({ params }: PageProps) => {
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: proto string fields default to "" which must fall through to the next summary
   const description = (stockDetails?.enhancedSummary || stockDetails?.summary || "").trim();
   const shortPct = stock.percentageShorted ?? 0;
+  // The level the Dataset states and the figure the summary shows: none and
+  // "<0.01%" for a position that rounds to zero, as the title has it.
+  const statedPct = statedShortPercent(stock.percentageShorted);
+  const shortFigure = shortPercentFigure(stock.percentageShorted);
   const shortPositions = stock.reportedShortPositions ?? 0;
   // "" for none, and for the ASX's "Not Applic" of an ETF or a trust: no
   // sentence or meta tag on the page names a placeholder as an industry.
@@ -358,7 +345,7 @@ const Page = async ({ params }: PageProps) => {
               "@type": "PropertyValue",
               name: "percentShort",
               unitText: "PERCENT",
-              ...(shortPct > 0 ? { value: Number(shortPct.toFixed(2)) } : {}),
+              ...(statedPct ? { value: Number(statedPct) } : {}),
             },
             {
               "@type": "PropertyValue",
@@ -428,11 +415,11 @@ const Page = async ({ params }: PageProps) => {
                 {companyName} ({stockCode}) Short Interest
               </h1>
               <p className="mt-2 text-sm md:text-base text-muted-foreground leading-relaxed">
-                {shortPct > 0 ? (
+                {shortFigure ? (
                   <>
                     {companyName} (ASX:{stockCode}) had{" "}
                     <strong className="text-foreground">
-                      {shortPct.toFixed(2)}%
+                      {shortFigure}
                     </strong>{" "}
                     of shares reported as short positions {asOfClause},
                     representing {positionsDisplay} shares.
