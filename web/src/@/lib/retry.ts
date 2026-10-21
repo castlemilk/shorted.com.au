@@ -390,6 +390,38 @@ export function isAbortError(error: unknown): boolean {
   );
 }
 
+// The digest Next puts on its DynamicServerError (next/dist/client/components/
+// hooks-server-context.js), spelled out rather than imported: this module also
+// runs in the browser.
+const DYNAMIC_SERVER_USAGE_DIGEST = "DYNAMIC_SERVER_USAGE";
+
+/**
+ * True when the error is Next's dynamic-usage signal, or wraps it.
+ *
+ * Inside a statically generated render (a build prerender or an ISR
+ * regeneration) a `no-store` fetch, cookies() or headers() throws an error
+ * whose `digest` is DYNAMIC_SERVER_USAGE. Connect never passes it through: its
+ * transport wraps whatever fetch threw as a ConnectError with code Unknown and
+ * the original as `cause`, so the cause chain is checked too.
+ *
+ * It is control flow, not a transient failure. Next has already marked the
+ * render dynamic before throwing, so a retry cannot succeed and only delays
+ * the render Next is about to discard: an untagged read on /battlegrounds spent
+ * 3.5 s in backoff on every regeneration this way (measured 2026-10-21).
+ */
+export function isDynamicServerUsageError(error: unknown): boolean {
+  let current: unknown = error;
+  // Bounded: a cause chain can be cyclic.
+  for (let depth = 0; depth < 5; depth++) {
+    if (current === null || typeof current !== "object") return false;
+    if ((current as { digest?: unknown }).digest === DYNAMIC_SERVER_USAGE_DIGEST) {
+      return true;
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) {
     throw signal.reason ?? new DOMException("The operation was aborted", "AbortError");
@@ -401,6 +433,8 @@ function throwIfAborted(signal?: AbortSignal): void {
  *
  * This function is smart about Connect-RPC errors:
  * - NOT retried: NotFound, InvalidArgument, PermissionDenied, etc. (deterministic failures)
+ * - NOT retried: Next's dynamic-usage signal, whatever Connect code wraps it
+ *   (see isDynamicServerUsageError)
  * - Retried: Unavailable, DeadlineExceeded, Internal, etc. (transient failures)
  * - Network errors are always retried
  *
@@ -408,7 +442,7 @@ function throwIfAborted(signal?: AbortSignal): void {
  * @returns true if the error is transient and should be retried
  */
 export function shouldRetryConnectError(error: unknown): boolean {
-  if (isAbortError(error)) return false;
+  if (isAbortError(error) || isDynamicServerUsageError(error)) return false;
   // gRPC/Connect error codes (used as numeric values to avoid SSR import issues)
   const NON_RETRYABLE_CODES = [
     5,  // NotFound
@@ -570,8 +604,13 @@ export async function retryWithBackoff<T>(
       throwIfAborted(signal);
       lastError = error;
 
-      // Check if we should retry this error
-      if (isAbortError(error) || !shouldRetryError(error)) {
+      // Check if we should retry this error. Cancellation and Next's
+      // dynamic-usage signal are never retried, whatever `shouldRetry` says.
+      if (
+        isAbortError(error) ||
+        isDynamicServerUsageError(error) ||
+        !shouldRetryError(error)
+      ) {
         throw error;
       }
 
