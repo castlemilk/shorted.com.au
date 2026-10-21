@@ -11,38 +11,102 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getDirectorTrades } from "~/app/actions/getDirectorTrades";
-import { getStock, getStockOrNotFound } from "~/app/actions/getStock";
+import { getStockOrNotFound } from "~/app/actions/getStock";
+import { NotFoundError } from "~/app/actions/withRetry";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { cn } from "~/@/lib/utils";
+import { type GetDirectorTradesResponse } from "~/gen/shorts/v1alpha1/stock_pb";
+import { type Stock } from "~/gen/stocks/v1alpha1/stocks_pb";
 
+// On-demand ISR: nothing renders at build, and each code generates on its
+// first request and is cached for the hour. Without generateStaticParams the
+// revalidate was inert and every page rendered per request
+// (app/__tests__/isr-static-params.test.ts). Safe because both reads fail the
+// render when they fail (app/__tests__/isr-degraded-render.test.ts).
 export const revalidate = 3600;
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ stockCode: string }> {
+  return [];
+}
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
 }
 
+/**
+ * The codes GetStock and GetDirectorTrades accept (validateStockCode in
+ * services/shorts: three or four alphanumerics). Any other is a 404 before a
+ * read: the API answers it InvalidArgument, which the reads below would take
+ * for a failed read, failing the render on every request.
+ */
+const INSIDER_CODE_PATTERN = /^[A-Z0-9]{3,4}$/;
+
+const NOINDEX = {
+  index: false,
+  follow: true,
+  googleBot: { index: false, follow: true },
+} as const;
+
+/**
+ * The stock the page names, split by cause (loadStockOrFail's rule).
+ * Undefined for a code the API does not know, which is a 404: the hub and the
+ * sitemap list only codes from GetTopShorts, all of them stocks GetStock knows,
+ * and without it any three or four characters generated a cached, indexable
+ * "No director trades recorded" page. A failed read THROWS, so a regeneration
+ * keeps the last good page instead of caching the ticker as the company name
+ * for the hour. generateMetadata and the page make the same call, so React's
+ * cache reads once. Any other error propagates untouched.
+ */
+async function readInsiderStock(code: string): Promise<Stock | undefined> {
+  let stock: Stock | undefined;
+  try {
+    stock = await getStockOrNotFound(code);
+  } catch (err) {
+    if (err instanceof NotFoundError) return undefined;
+    throw err;
+  }
+  if (!stock) {
+    throw new Error(
+      `stock data transiently unavailable for ${code}; failing the ISR render instead of caching a degraded page`,
+    );
+  }
+  return stock;
+}
+
+/**
+ * The page's trades. GetDirectorTrades never answers NotFound (a code with no
+ * trades is an empty list), so undefined is always a failed read, and it
+ * THROWS: cached, it would read "No director trades recorded" with zero
+ * totals for the hour.
+ */
+async function readTrades(code: string): Promise<GetDirectorTradesResponse> {
+  const response = await getDirectorTrades(code, 100);
+  if (!response) {
+    throw new Error(
+      `director trades transiently unavailable for ${code}; failing the ISR render instead of caching an empty list`,
+    );
+  }
+  return response;
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { stockCode } = await params;
   const code = stockCode.toUpperCase();
+  // The page's own read, so the metadata fails with the render: a failed read
+  // never caches the page as indexable (or noindexed) for the hour.
+  const stock = INSIDER_CODE_PATTERN.test(code) ? await readInsiderStock(code) : undefined;
+  if (!stock) return { title: "Stock not found", robots: NOINDEX };
   const title = `${code} Director Trades & Insider Activity | ASX`;
   const description = `Director and insider trades for ${code} on the ASX, sourced from Appendix 3Y filings. Buy/sell/exercise history, share counts and disclosed prices.`;
 
   // Inherit the stock page's indexability gate: a noindexed thin stock must
-  // not leak an indexable insider-trading subpage (fail open on fetch errors).
-  let shouldNoindex = false;
-  try {
-    const stock = await getStock(code);
-    if (stock) {
-      shouldNoindex = !isStockIndexable({
-        code,
-        name: stock.name,
-        industry: stock.industry,
-        percentShorted: stock.percentageShorted,
-      });
-    }
-  } catch {
-    // fail open — keep default robots
-  }
+  // not leak an indexable insider-trading subpage.
+  const shouldNoindex = !isStockIndexable({
+    code,
+    name: stock.name,
+    industry: stock.industry,
+    percentShorted: stock.percentageShorted,
+  });
 
   return {
     title,
@@ -51,15 +115,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     // `for (key in source)`, so an own `robots: undefined` replaces the root
     // layout's robots (and its googleBot max-image-preview / max-snippet
     // directives) with nothing. Absent, the page inherits them.
-    ...(shouldNoindex
-      ? {
-          robots: {
-            index: false,
-            follow: true,
-            googleBot: { index: false, follow: true },
-          },
-        }
-      : {}),
+    ...(shouldNoindex ? { robots: NOINDEX } : {}),
     keywords: [
       `${code} director trades`,
       `${code} insider trading`,
@@ -165,15 +221,13 @@ const tradeTone = (type: string) => {
 export default async function StockInsiderTradingPage({ params }: PageProps) {
   const { stockCode: raw } = await params;
   const code = raw.toUpperCase();
-  if (!/^[A-Z0-9]{1,4}$/.test(code)) notFound();
+  if (!INSIDER_CODE_PATTERN.test(code)) notFound();
 
-  const [response, stock] = await Promise.all([
-    getDirectorTrades(code, 100),
-    getStockOrNotFound(code).catch(() => undefined),
-  ]);
+  const [response, stock] = await Promise.all([readTrades(code), readInsiderStock(code)]);
+  if (!stock) notFound();
 
-  const trades: ApiTrade[] = ((response?.trades ?? []) as unknown as ApiTrade[]);
-  const companyName = stock?.name ?? code;
+  const trades: ApiTrade[] = response.trades as unknown as ApiTrade[];
+  const companyName = stock.name || code;
 
   // Aggregate buy/sell totals for the insider-sentiment summary.
   let totalBoughtValue = 0;

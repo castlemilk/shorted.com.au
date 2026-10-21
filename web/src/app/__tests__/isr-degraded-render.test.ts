@@ -101,14 +101,7 @@ jest.mock("~/@/components/news/mdx-take-body", () => ({ MdxTakeBody: () => null 
  * generateStaticParams with dynamicParams = true), then delete its line here
  * and its ALLOWED line in isr-static-params.test.ts.
  */
-const PER_REQUEST: Record<string, string> = {
-  // A failed trades read renders "No director trades recorded" with zero
-  // totals, and a failed stock read the ticker as the company name. Under ISR
-  // either would stay for up to an hour. GetDirectorTrades never returns
-  // NotFound (no trades is an empty list), so undefined is always a failure:
-  // throw on it, and treat the stock read the way loadStockOrFail does.
-  "insider-trading/[stockCode]/page.tsx": "a failed read is cached as an empty trades list",
-};
+const PER_REQUEST: Record<string, string> = {};
 
 const STOCKS: Record<string, { name: string; industry: string; percentageShorted: number; reportedShortPositions: number }> = {
   BHP: { name: "BHP Group", industry: "Materials", percentageShorted: 0.4, reportedShortPositions: 20_000_000 },
@@ -196,6 +189,8 @@ const CASES: Case[] = [
     render: () => newsPage.default({ params: Promise.resolve({ slug: TAKE.slug }) }),
   },
   {
+    // It used to render "No director trades recorded" with zero totals, and
+    // (next case) the ticker as the company name for a failed stock read.
     page: "insider-trading/[stockCode]/page.tsx",
     route: insiderPage,
     read: "the director trades",
