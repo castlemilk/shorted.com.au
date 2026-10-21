@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img">
+<rect width="1600" height="900" fill="#F9F8F5"/>
+<text x="80.0" y="78.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="700" fill="#9E5210" text-anchor="start" >SHORTED · ASX: NXT · NEXTDC</text>
+<text x="80.0" y="150.0" font-family="Newsreader, Georgia, serif" font-size="72" font-weight="500" fill="#483932" text-anchor="start" >Short before the fall</text>
+<text x="80.0" y="196.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="22" font-weight="400" fill="#72625A" text-anchor="start" >Short position (amber, left) and share price (ink, right), 10 August to 21 October 2026</text>
+<line x1="80" x2="1300" y1="687.1" y2="687.1" stroke="#E5E1DC" stroke-width="1"/>
+<text x="68.0" y="693.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >7%</text>
+<line x1="80" x2="1300" y1="541.4" y2="541.4" stroke="#E5E1DC" stroke-width="1"/>
+<text x="68.0" y="547.4" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >8%</text>
+<line x1="80" x2="1300" y1="395.7" y2="395.7" stroke="#E5E1DC" stroke-width="1"/>
+<text x="68.0" y="401.7" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >9%</text>
+<line x1="80" x2="1300" y1="250.0" y2="250.0" stroke="#E5E1DC" stroke-width="1"/>
+<text x="68.0" y="256.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >10%</text>
+<text x="1312.0" y="596.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="start" >$8</text>
+<text x="1312.0" y="511.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="start" >$10</text>
+<text x="1312.0" y="426.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="start" >$12</text>
+<text x="1312.0" y="341.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="start" >$14</text>
+<rect x="1215.3" y="250" width="84.7" height="510" fill="#FDFDFC" stroke="#E5E1DC"/>
+<text x="1257.6" y="272.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="16" font-weight="400" fill="#72625A" text-anchor="middle" >halt</text>
+<line x1="605.3" x2="605.3" y1="250" y2="760" stroke="#9E5210" stroke-width="2" stroke-dasharray="6 6"/>
+<text x="593.3" y="280.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="700" fill="#9E5210" text-anchor="end" >10 Sep</text>
+<text x="593.3" y="304.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#9E5210" text-anchor="end" >A$1.1bn convertible priced;</text>
+<text x="593.3" y="326.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#9E5210" text-anchor="end" >18.6m-share delta placement</text>
+<line x1="740.8" x2="740.8" y1="250" y2="760" stroke="#E5E1DC" stroke-width="2" stroke-dasharray="4 8"/>
+<text x="748.8" y="732.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#72625A" text-anchor="start" >18 Sep · ASX 50 rebalance, 21.9m shares traded</text>
+<path d="M 80.0 318.0 L 96.9 315.4 L 113.9 316.3 L 130.8 306.1 L 147.8 297.6 L 198.6 300.6 L 215.6 304.0 L 232.5 339.2 L 249.4 339.2 L 266.4 349.0 L 317.2 362.2 L 334.2 352.4 L 351.1 343.5 L 368.1 352.8 L 385.0 340.5 L 435.8 343.1 L 452.8 367.7 L 469.7 389.4 L 486.7 397.1 L 503.6 383.5 L 554.4 388.1 L 571.4 397.9 L 588.3 386.4 L 605.3 407.2 L 622.2 417.4 L 673.1 432.3 L 690.0 452.3 L 706.9 445.9 L 723.9 459.9 L 740.8 447.2 L 791.7 463.3 L 808.6 445.5 L 825.6 438.3 L 842.5 445.1 L 859.4 453.6 L 910.3 466.3 L 927.2 470.6 L 944.2 469.7 L 961.1 479.5 L 978.1 473.6 L 1028.9 477.8 L 1045.8 487.6 L 1062.8 495.2 L 1079.7 493.1 L 1096.7 489.3 L 1147.5 498.6 L 1164.4 531.4 L 1181.4 523.3 L 1198.3 553.5 L 1215.3 539.9" fill="none" stroke="#483932" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round" />
+<line x1="1215.3" x2="1300.0" y1="539.9" y2="539.9" stroke="#483932" stroke-width="2" stroke-dasharray="3 6"/>
+<line x1="1300.0" x2="1300.0" y1="539.9" y2="695.8" stroke="#483932" stroke-width="2" stroke-dasharray="3 6"/>
+<circle cx="1215.3" cy="539.9" r="7" fill="#483932"/>
+<text x="1201.3" y="573.9" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="700" fill="#483932" text-anchor="end" >$9.18 · 16 Oct close</text>
+<circle cx="1300.0" cy="695.8" r="9" fill="#483932"/>
+<text x="1284.0" y="703.8" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="26" font-weight="700" fill="#483932" text-anchor="end" >$5.51 · 21 Oct, 10:08am</text>
+<text x="1284.0" y="673.8" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >about 40% below the pre-halt close</text>
+<path d="M 80.0 564.7 L 96.9 569.1 L 113.9 576.4 L 130.8 588.1 L 147.8 595.3 L 198.6 593.9 L 215.6 599.7 L 232.5 602.6 L 249.4 591.0 L 266.4 592.4 L 317.2 591.0 L 334.2 588.1 L 351.1 583.7 L 368.1 570.6 L 385.0 540.0 L 435.8 550.2 L 452.8 537.1 L 469.7 538.5 L 486.7 540.0 L 503.6 525.4 L 554.4 537.1 L 571.4 532.7 L 588.3 534.1 L 605.3 333.1 L 622.2 314.1 L 673.1 346.2 L 690.0 354.9 L 706.9 382.6 L 723.9 401.5 L 740.8 448.2 L 791.7 486.1 L 808.6 489.0 L 825.6 472.9 L 842.5 471.5 L 859.4 471.5 L 910.3 464.2 L 927.2 455.5 L 944.2 429.2 L 961.1 435.1 L 978.1 442.3 L 1028.9 440.9 L 1045.8 440.9 L 1062.8 461.3 L 1079.7 474.4 L 1096.7 465.7 L 1147.5 459.8 L 1164.4 449.6 L 1181.4 465.7 L 1198.3 490.4" fill="none" stroke="#9E5210" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" />
+<circle cx="622.2" cy="314.1" r="7" fill="#9E5210"/>
+<text x="636.2" y="308.1" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="700" fill="#9E5210" text-anchor="start" >9.56% · 11 Sep, 72.6m shares</text>
+<circle cx="1198.3" cy="490.4" r="9" fill="#9E5210"/>
+<line x1="1198.3" x2="1198.3" y1="478.4" y2="388.4" stroke="#9E5210" stroke-width="1.5"/>
+<text x="1188.3" y="358.4" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="26" font-weight="700" fill="#483932" text-anchor="end" >8.35% short · 15 Oct</text>
+<text x="1188.3" y="382.4" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#72625A" text-anchor="end" >63.4m shares; the last report before the halt</text>
+<text x="90.0" y="624.7" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="700" fill="#9E5210" text-anchor="start" >7.84% · 10 Aug</text>
+<rect x="100" y="664" width="560" height="52" fill="#FDFDFC" stroke="#E5E1DC"/>
+<text x="116.0" y="699.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#483932" text-anchor="start" >FY27 EBITDA guidance  A$385–410m → A$245–265m  (21 Oct)</text>
+<text x="80.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="start" >10 Aug</text>
+<text x="1300.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >21 Oct</text>
+<text x="80.0" y="856.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#72625A" text-anchor="start" >Source: ASIC daily aggregate short-position reports, % of shares on issue, published T+4; price is the daily close; 21 Oct is the 10:08am price per Capital Brief</text>
+</svg>

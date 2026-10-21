@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Data-drawn SVG covers for the five October 2026 newsroom takes.
+"""Data-drawn SVG covers for the October 2026 newsroom takes.
 
 Each cover is built from the article's own series (ASIC daily aggregate
 short positions as a percentage of shares on issue, and end-of-day prices),
@@ -28,7 +28,8 @@ SERIF = "Newsreader, Georgia, serif"
 
 ASIC = "https://download.asic.gov.au/short-selling/RR{d}-001-SSDailyAggShortPos.csv"
 VERIFIED = {"20260716","20260820","20260917","20260918","20260922","20260929","20260930",
-            "20261006","20261008","20261009","20261013","20261014","20261015"}
+            "20261006","20261008","20261009","20261013","20261014","20261015",
+            "20251016","20260320","20260428","20260429","20260512","20260909","20260910","20260911","20260921"}
 
 def d(s: str) -> dt.date:
     return dt.date(2026, int(s[:2]), int(s[3:]))
@@ -117,6 +118,15 @@ def frame(bg):
 def mon(dd): return dd.strftime("%-d %b")
 def source_line(y, fill, extra=""):
     return text(80, y, "Source: ASIC daily aggregate short-position reports, % of shares on issue, published T+4" + extra, 17, fill)
+
+# NEXTDC: every ASIC observation 10 Aug to 15 Oct 2026 (the full published record for the window), daily closes to the 16 Oct pre-halt close.
+NXT_SHORT = series(
+ "08-10 08-11 08-12 08-13 08-14 08-17 08-18 08-19 08-20 08-21 08-24 08-25 08-26 08-27 08-28 08-31 09-01 09-02 09-03 09-04 09-07 09-08 09-09 09-10 09-11 09-14 09-15 09-16 09-17 09-18 09-21 09-22 09-23 09-24 09-25 09-28 09-29 09-30 10-01 10-02 10-05 10-06 10-07 10-08 10-09 10-12 10-13 10-14 10-15",
+ "7.84 7.81 7.76 7.68 7.63 7.64 7.60 7.58 7.66 7.65 7.66 7.68 7.71 7.80 8.01 7.94 8.03 8.02 8.01 8.11 8.03 8.06 8.05 9.43 9.56 9.34 9.28 9.09 8.96 8.64 8.38 8.36 8.47 8.48 8.48 8.53 8.59 8.77 8.73 8.68 8.69 8.69 8.55 8.46 8.52 8.56 8.63 8.52 8.35")
+NXT_PRICE = series(
+ "08-10 08-11 08-12 08-13 08-14 08-17 08-18 08-19 08-20 08-21 08-24 08-25 08-26 08-27 08-28 08-31 09-01 09-02 09-03 09-04 09-07 09-08 09-09 09-10 09-11 09-14 09-15 09-16 09-17 09-18 09-21 09-22 09-23 09-24 09-25 09-28 09-29 09-30 10-01 10-02 10-05 10-06 10-07 10-08 10-09 10-12 10-13 10-14 10-15 10-16",
+ "14.40 14.46 14.44 14.68 14.88 14.81 14.73 13.90 13.90 13.67 13.36 13.59 13.80 13.58 13.87 13.81 13.23 12.72 12.54 12.86 12.75 12.52 12.79 12.30 12.06 11.71 11.24 11.39 11.06 11.36 10.98 11.40 11.57 11.41 11.21 10.91 10.81 10.83 10.60 10.74 10.64 10.41 10.23 10.28 10.37 10.15 9.38 9.57 8.86 9.18")
+NXT_DROP = 5.51   # 21 Oct 2026, 10:08am, Capital Brief; the stock was halted 19 and 20 Oct
 
 # -------------------------------------------------------------- covers ------
 def cover_aya():
@@ -354,6 +364,59 @@ def cover_fuel():
     s.append("</svg>")
     return "\n".join(s)
 
+def cover_nxt():
+    s=[frame(PAPER)]
+    s.append(text(80, 78, "SHORTED · ASX: NXT · NEXTDC", 20, AMBER, weight=700))
+    s.append(text(80, 150, "Short before the fall", 72, INK, SERIF, 500))
+    s.append(text(80, 196, "Short position (amber, left) and share price (ink, right), 10 August to 21 October 2026", 22, MUTED))
+    x0,x1,y0,y1 = 80, 1300, 760, 250
+    d0,d1 = d("08-10"), d("10-21")
+    sx = xscale(x0,x1,d0,d1); sy = yscale(y0,y1,6.5,10); py = yscale(y0,y1,4,16)
+    s.append(grid(x0,x1,sy,[7,8,9,10],lambda t:f"{t}%",BORDER,x0-12,MUTED))
+    for t in [8,10,12,14]:
+        s.append(text(x1+12, py(t)+6, f"${t}", 18, MUTED))
+    # halt zone: 19 and 20 Oct, no trade
+    xh0, xh1 = sx(d("10-16")), sx(d1)
+    s.append(f'<rect x="{xh0:.1f}" y="{y1}" width="{xh1-xh0:.1f}" height="{y0-y1}" fill="{CARD}" stroke="{BORDER}"/>')
+    s.append(text((xh0+xh1)/2, y1+22, "halt", 16, MUTED, anchor="middle"))
+    # convertible pricing and index rebalance markers
+    xc = sx(d("09-10"))
+    s.append(f'<line x1="{xc:.1f}" x2="{xc:.1f}" y1="{y1}" y2="{y0}" stroke="{AMBER}" stroke-width="2" stroke-dasharray="6 6"/>')
+    s.append(text(xc-12, y1+30, "10 Sep", 20, AMBER, weight=700, anchor="end"))
+    s.append(text(xc-12, y1+54, "A$1.1bn convertible priced;", 18, AMBER, anchor="end"))
+    s.append(text(xc-12, y1+76, "18.6m-share delta placement", 18, AMBER, anchor="end"))
+    xr = sx(d("09-18"))
+    s.append(f'<line x1="{xr:.1f}" x2="{xr:.1f}" y1="{y1}" y2="{y0}" stroke="{BORDER}" stroke-width="2" stroke-dasharray="4 8"/>')
+    s.append(text(xr+8, y0-28, "18 Sep · ASX 50 rebalance, 21.9m shares traded", 17, MUTED))
+    # price: the tape to the halt, flat through it, then the 21 Oct print
+    s.append(path(NXT_PRICE, sx, py, INK, 3.5))
+    lp = NXT_PRICE[-1]
+    s.append(f'<line x1="{sx(lp[0]):.1f}" x2="{xh1:.1f}" y1="{py(lp[1]):.1f}" y2="{py(lp[1]):.1f}" stroke="{INK}" stroke-width="2" stroke-dasharray="3 6"/>')
+    s.append(f'<line x1="{xh1:.1f}" x2="{xh1:.1f}" y1="{py(lp[1]):.1f}" y2="{py(NXT_DROP):.1f}" stroke="{INK}" stroke-width="2" stroke-dasharray="3 6"/>')
+    s.append(f'<circle cx="{sx(lp[0]):.1f}" cy="{py(lp[1]):.1f}" r="7" fill="{INK}"/>')
+    s.append(text(sx(lp[0])-14, py(lp[1])+34, f"${lp[1]:.2f} · 16 Oct close", 20, INK, weight=700, anchor="end"))
+    s.append(f'<circle cx="{xh1:.1f}" cy="{py(NXT_DROP):.1f}" r="9" fill="{INK}"/>')
+    s.append(text(xh1-16, py(NXT_DROP)+8, f"${NXT_DROP:.2f} · 21 Oct, 10:08am", 26, INK, weight=700, anchor="end"))
+    s.append(text(xh1-16, py(NXT_DROP)-22, "about 40% below the pre-halt close", 18, MUTED, anchor="end"))
+    # short position
+    s.append(path(NXT_SHORT, sx, sy, AMBER, 6))
+    pk = max(NXT_SHORT, key=lambda p:p[1])
+    s.append(f'<circle cx="{sx(pk[0]):.1f}" cy="{sy(pk[1]):.1f}" r="7" fill="{AMBER}"/>')
+    s.append(text(sx(pk[0])+14, sy(pk[1])-6, f"{pk[1]:.2f}% · 11 Sep, 72.6m shares", 20, AMBER, weight=700))
+    last = NXT_SHORT[-1]
+    s.append(f'<circle cx="{sx(last[0]):.1f}" cy="{sy(last[1]):.1f}" r="9" fill="{AMBER}"/>')
+    s.append(f'<line x1="{sx(last[0]):.1f}" x2="{sx(last[0]):.1f}" y1="{sy(last[1])-12:.1f}" y2="{sy(9.05):.1f}" stroke="{AMBER}" stroke-width="1.5"/>')
+    s.append(text(sx(last[0])-10, sy(9.05)-30, f"{last[1]:.2f}% short · 15 Oct", 26, INK, weight=700, anchor="end"))
+    s.append(text(sx(last[0])-10, sy(9.05)-6, "63.4m shares; the last report before the halt", 17, MUTED, anchor="end"))
+    s.append(text(sx(NXT_SHORT[0][0])+10, sy(NXT_SHORT[0][1])+60, f"{NXT_SHORT[0][1]:.2f}% · 10 Aug", 20, AMBER, weight=700))
+    # guidance tile
+    s.append(f'<rect x="100" y="{y0-96}" width="560" height="52" fill="{CARD}" stroke="{BORDER}"/>')
+    s.append(text(116, y0-61, "FY27 EBITDA guidance  A$385–410m → A$245–265m  (21 Oct)", 18, INK))
+    s.append(text(x0, 800, "10 Aug", 18, MUTED)); s.append(text(x1, 800, "21 Oct", 18, MUTED, anchor="end"))
+    s.append(source_line(856, MUTED, "; price is the daily close; 21 Oct is the 10:08am price per Capital Brief"))
+    s.append("</svg>")
+    return "\n".join(s)
+
 COVERS = {
  "aya-shorts-tenfold-since-july-price-halves": (cover_aya, {"AYA": AYA_SHORT}, {"AYA": AYA_PRICE},
    "Finding: the ASX's largest four-week short build. Subject: Artrya's own position line. Action: the single-session step on 18 September and the climb to 10.17%, with the price falling beneath it. Hook: one hard vertical step in an otherwise flat line. Caveat: a position, not a thesis; the price line is the close, not a prediction."),
@@ -367,6 +430,8 @@ COVERS = {
    "Finding: half the ten most shorted stocks changed in a quarter. Subject: a slope chart of fifteen stocks across two dates. Action: five amber entrants rising into the ten, five leaving. Hook: Lotus's line falls without any covering. Caveat: counts above 10% are ordinary-share lines; the macro figures are the publishers' series as Shorted holds them."),
  "australia-fuel-security-33-days-diesel-hormuz-october-2026": (cover_fuel, {"refined product imports, July": FUEL_IMP, "refinery output, July": FUEL_REF}, None,
    "Finding: Australia makes a fifth of its fuel and holds five weeks of diesel while the strait closes again. Subject: two volume lines crossing in 2015, imports rising, refining falling. Action: three gauges of days held against the 50-day target line. Hook: the diesel gauge is amber and sits a day above its floor. Caveat: days are a national average of stock in tanks and on water, not a forecast; the series is July of each year."),
+ "nxt-shorts-8pc-into-40pc-fall-jemena-m3-delay": (cover_nxt, {"NXT": NXT_SHORT}, {"NXT": NXT_PRICE},
+   "Finding: the 8.35% position met a 40% fall it had not been built for, and was shrinking. Subject: short line against price line through the convertible hedge spike, the index rebalance and the halt. Action: the amber line steps up on 10 September and bleeds back; the ink line falls to the halt zone and drops out of it. Hook: the dashed drop to $5.51 after two blank sessions. Caveat: the 21 October figure is a reported intraday price, not a close; positions after 15 October are not yet published."),
 }
 
 def write_all(png: bool):

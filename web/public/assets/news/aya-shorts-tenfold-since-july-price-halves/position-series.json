@@ -101,7 +101,7 @@
           "date": "2026-09-09",
           "value": 1.839,
           "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260909-001-SSDailyAggShortPos.csv",
-          "verifiedAgainstCsv": false
+          "verifiedAgainstCsv": true
         },
         {
           "date": "2026-09-14",
@@ -125,7 +125,7 @@
           "date": "2026-09-21",
           "value": 5.848,
           "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260921-001-SSDailyAggShortPos.csv",
-          "verifiedAgainstCsv": false
+          "verifiedAgainstCsv": true
         },
         {
           "date": "2026-09-22",
