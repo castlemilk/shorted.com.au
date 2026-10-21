@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"math"
 
 	"connectrpc.com/connect"
@@ -59,6 +60,10 @@ type fakeDataSource struct {
 	gotPolitician       *shortsv1alpha1.GetPoliticianRequest
 	gotStockPoliticians *shortsv1alpha1.ListStockPoliticiansRequest
 
+	gotStockOwnership  *shortsv1alpha1.GetStockOwnershipRequest
+	gotInstitution     []*shortsv1alpha1.GetInstitutionRequest
+	gotListInstitution *shortsv1alpha1.ListInstitutionsRequest
+
 	// Canned responses.
 	stock           *stocksv1alpha1.Stock
 	topShorts       *shortsv1alpha1.GetTopShortsResponse
@@ -94,6 +99,12 @@ type fakeDataSource struct {
 	listPoliticians  *shortsv1alpha1.ListPoliticiansResponse
 	politician       *shortsv1alpha1.GetPoliticianResponse
 	stockPoliticians *shortsv1alpha1.ListStockPoliticiansResponse
+
+	stockOwnership *shortsv1alpha1.GetStockOwnershipResponse
+	// institution answers GetInstitution for its own slug; any other slug is
+	// NotFound, as the handler answers an unknown one.
+	institution  *shortsv1alpha1.GetInstitutionResponse
+	institutions *shortsv1alpha1.ListInstitutionsResponse
 
 	// err, when set, is returned by every method — tests set it to drive the
 	// error paths.
@@ -423,4 +434,33 @@ func (f *fakeDataSource) ListStockPoliticians(_ context.Context, req *connect.Re
 		return nil, f.err
 	}
 	return connect.NewResponse(f.stockPoliticians), nil
+}
+
+func (f *fakeDataSource) GetStockOwnership(_ context.Context, req *connect.Request[shortsv1alpha1.GetStockOwnershipRequest]) (*connect.Response[shortsv1alpha1.GetStockOwnershipResponse], error) {
+	f.gotStockOwnership = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.stockOwnership), nil
+}
+
+func (f *fakeDataSource) GetInstitution(_ context.Context, req *connect.Request[shortsv1alpha1.GetInstitutionRequest]) (*connect.Response[shortsv1alpha1.GetInstitutionResponse], error) {
+	f.gotInstitution = append(f.gotInstitution, req.Msg)
+	if f.err != nil {
+		return nil, f.err
+	}
+	// An empty slug is seedNonFiniteFloats' probe, which must reach the
+	// canned body; the real handler would answer it InvalidArgument.
+	if f.institution == nil || (req.Msg.GetSlug() != "" && f.institution.GetInstitution().GetSlug() != req.Msg.GetSlug()) {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("institution not found"))
+	}
+	return connect.NewResponse(f.institution), nil
+}
+
+func (f *fakeDataSource) ListInstitutions(_ context.Context, req *connect.Request[shortsv1alpha1.ListInstitutionsRequest]) (*connect.Response[shortsv1alpha1.ListInstitutionsResponse], error) {
+	f.gotListInstitution = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.institutions), nil
 }

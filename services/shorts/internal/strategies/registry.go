@@ -206,10 +206,12 @@ const (
 	evalRS3m = "Pass when the stock's 3-month return beats the S&P/ASX 200's 3-month return, that is, relative strength above zero. " +
 		"Unknown without 3 months of price history."
 	evalRSLeader = "Pass when the stock's 6-month return minus the S&P/ASX 200's 6-month return is in the top quartile (at or above the 75th percentile) " +
-		"of every stock evaluated that day. Unknown without 6 months of price history."
+		"of every stock evaluated that day. Unknown without 6 months of price history." + evalTriggerCredit
 	evalBreakout = "Pass when any of the last 5 sessions closed above the highest high of the 40 sessions before it, on volume at least 1.5 times the 50-day average. " +
 		"That prior 40-session high is the pivot, and we report it as the level a failed breakout falls back through. " +
-		"Unknown when the breakout cannot be measured from price history."
+		"Unknown when the breakout cannot be measured from price history." + evalTriggerCredit
+	// evalTriggerCredit follows every trigger rule's evaluation (proximity.go).
+	evalTriggerCredit = " Until it passes, the stock scores higher the closer its relevant measure is to this rule's trigger threshold, so the setups nearest to triggering rank first."
 
 	caveatSubCent  = "Prices are stored to 2 decimal places, so sub-cent stocks cannot be measured reliably; the A$250,000 turnover floor excludes them."
 	caveatEOD      = "Everything is measured on end-of-day prices after the evening sweep. We do not see intraday breakouts, the time of day a move happened, or news released after the close."
@@ -373,7 +375,7 @@ func canslim() Strategy {
 				ID:         RuleNearHigh,
 				Title:      "New highs (N)",
 				RuleText:   "Buy stocks emerging to new price highs from a sound base, not stocks near their lows.",
-				Evaluation: "Pass when the close is within 5% of the 52-week high. Unknown without a 52-week high.",
+				Evaluation: "Pass when the close is within 5% of the 52-week high. Unknown without a 52-week high." + evalTriggerCredit,
 				Core:       true,
 				DataSource: SourcePrices,
 			},
@@ -470,7 +472,7 @@ func minerviniTrendTemplate() Strategy {
 				ID:         RuleOffHigh,
 				Title:      "Near the high",
 				RuleText:   "The price is within 25% of its 52-week high; the closer to a new high, the better.",
-				Evaluation: "Pass when the close is no more than 25% below the 52-week high. Unknown without a 52-week high.",
+				Evaluation: "Pass when the close is no more than 25% below the 52-week high. Unknown without a 52-week high." + evalTriggerCredit,
 				Core:       true,
 				DataSource: SourcePrices,
 			},
@@ -681,7 +683,7 @@ func qualityCompounders() Strategy {
 				ID:         RuleAboveSMA200,
 				Title:      "Long-term uptrend",
 				RuleText:   "Own quality while the market agrees: the share price is above its long-term average.",
-				Evaluation: "Pass when the close is above the 200-day simple moving average. Unknown without 200 sessions of price history.",
+				Evaluation: "Pass when the close is above the 200-day simple moving average. Unknown without 200 sessions of price history." + evalTriggerCredit,
 				Core:       true,
 				DataSource: SourcePrices,
 			},

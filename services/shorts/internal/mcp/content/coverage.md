@@ -83,6 +83,20 @@ rules-based screen, not a recommendation.
 parsed into structured facts: which politician declared which asset class,
 which listed company, which suburb, in which parliament.
 
+**Ownership.** Who holds ASX stocks, from three public sources kept apart: ASX
+substantial holding notices (Forms 603, 604 and 605, read from each PDF) since
+2024, the holdings files of the largest index ETFs, and the semi-annual
+portfolio holdings disclosures of large super funds, each of which covers one
+investment option, not the whole fund. Holders are mapped to a curated registry
+of about 145 institutions by kind (super fund, index manager, hedge fund, active
+manager, bank or broker, sovereign or public fund, insurer, private equity). A
+notice's figure is its own voting power as at the notice. Notices overlap (a
+bank files for its fund manager, a parent for its subsidiary) and only a
+registry group and identical filings are counted once, so a sum is what the
+notices disclose, never a share of the company. A notice that could not be read
+(a scan, figures only in an annexure, votes that do not fit the share count) is
+withheld, never estimated.
+
 ## The exclusions that are not going away
 
 **Individual property listings are never republished.** The site crawls
@@ -121,6 +135,7 @@ absent politician-to-company link means "not confidently resolved", not
 | Reports | weekly, monthly, yearly | published after period close |
 | House prices, economic series | monthly or quarterly, per source | weeks to a quarter, set by ABS/RBA |
 | Register of interests | per parliamentary update | days after publication |
+| Ownership | notices nightly; ETF files daily or monthly; super disclosures half-yearly | a day to six months, per source |
 
 ## Attribution
 

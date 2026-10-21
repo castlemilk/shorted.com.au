@@ -38,6 +38,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/shortdatasync"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/signals"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/weeklyreport"
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/pdfchild"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 )
 
@@ -64,6 +65,15 @@ func jobs() *runner.Registry {
 }
 
 func main() {
+	// A PDF reader child (package pdfchild) is this binary started with one
+	// environment variable; it reads stdin and exits before any flag parsing.
+	if handled, code := pdfchild.Serve(map[string]pdfchild.Extract{
+		reportextract.PDFTextMode: reportextract.ExtractPDFText,
+		ownership.PDFLayoutMode:   ownership.LayoutText,
+	}); handled {
+		os.Exit(code)
+	}
+
 	log.SetFlags(log.LstdFlags | log.Lmsgprefix)
 
 	registry := jobs()

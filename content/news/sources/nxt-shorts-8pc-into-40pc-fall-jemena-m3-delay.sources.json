@@ -1,0 +1,252 @@
+{
+  "draft": "nxt-shorts-8pc-into-40pc-fall-jemena-m3-delay.mdx",
+  "knownCodes": [
+    "NXT",
+    "WTC",
+    "SDR"
+  ],
+  "sources": [
+    {
+      "refId": "ref-1",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20261015-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "15 October daily aggregate short-position report",
+      "date": "2026-10-15",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded the official CSV with curl on 21 October 2026 into /tmp/asic and read the NXT row; the short percentage, shares-short count and shares-on-issue figure the article states for that date are the row's own values, and each matched Shorted's get_stock_history series for the same date."
+    },
+    {
+      "refId": "ref-2",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20251016-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "16 October 2025 daily aggregate short-position report",
+      "date": "2025-10-16",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded the official CSV with curl on 21 October 2026 into /tmp/asic and read the NXT row; the short percentage, shares-short count and shares-on-issue figure the article states for that date are the row's own values, and each matched Shorted's get_stock_history series for the same date."
+    },
+    {
+      "refId": "ref-3",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260909-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "9 September daily aggregate short-position report",
+      "date": "2026-09-09",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded the official CSV with curl on 21 October 2026 into /tmp/asic and read the NXT row; the short percentage, shares-short count and shares-on-issue figure the article states for that date are the row's own values, and each matched Shorted's get_stock_history series for the same date."
+    },
+    {
+      "refId": "ref-4",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260910-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "10 September daily aggregate short-position report",
+      "date": "2026-09-10",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded the official CSV with curl on 21 October 2026 into /tmp/asic and read the NXT row; the short percentage, shares-short count and shares-on-issue figure the article states for that date are the row's own values, and each matched Shorted's get_stock_history series for the same date."
+    },
+    {
+      "refId": "ref-5",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260911-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "11 September daily aggregate short-position report",
+      "date": "2026-09-11",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded the official CSV with curl on 21 October 2026 into /tmp/asic and read the NXT row; the short percentage, shares-short count and shares-on-issue figure the article states for that date are the row's own values, and each matched Shorted's get_stock_history series for the same date."
+    },
+    {
+      "refId": "ref-6",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260918-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "18 September daily aggregate short-position report",
+      "date": "2026-09-18",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded the official CSV with curl on 21 October 2026 into /tmp/asic and read the NXT row; the short percentage, shares-short count and shares-on-issue figure the article states for that date are the row's own values, and each matched Shorted's get_stock_history series for the same date."
+    },
+    {
+      "refId": "ref-7",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260428-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "28 April daily aggregate short-position report",
+      "date": "2026-04-28",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded the official CSV with curl on 21 October 2026 into /tmp/asic and read the NXT row; the short percentage, shares-short count and shares-on-issue figure the article states for that date are the row's own values, and each matched Shorted's get_stock_history series for the same date."
+    },
+    {
+      "refId": "ref-8",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260429-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "29 April daily aggregate short-position report",
+      "date": "2026-04-29",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded the official CSV with curl on 21 October 2026 into /tmp/asic and read the NXT row; the short percentage, shares-short count and shares-on-issue figure the article states for that date are the row's own values, and each matched Shorted's get_stock_history series for the same date."
+    },
+    {
+      "refId": "ref-9",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260921-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "21 September daily aggregate short-position report",
+      "date": "2026-09-21",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded the official CSV with curl on 21 October 2026 into /tmp/asic and read the NXT row; the short percentage, shares-short count and shares-on-issue figure the article states for that date are the row's own values, and each matched Shorted's get_stock_history series for the same date."
+    },
+    {
+      "refId": "ref-10",
+      "type": "report",
+      "url": "https://announcements.asx.com.au/asxpdf/20260910/pdf/073y1w4rflr2ry.pdf",
+      "source": "ASX / NEXTDC",
+      "headline": "Successful pricing of A$1.1 billion Convertible Notes",
+      "date": "2026-09-10",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date printed on the document",
+      "verification": "Downloaded the PDF from announcements.asx.com.au and read it with pdftotext on 21 October 2026. Note size, coupon, maturity, conversion price and premium, reference price, delta placement size and purpose, capped-call cap price, ranking, settlement date and pro forma liquidity are quoted from the document."
+    },
+    {
+      "refId": "ref-11",
+      "type": "report",
+      "url": "https://announcements.asx.com.au/asxpdf/20260827/pdf/073c04gt4ts40y.pdf",
+      "source": "ASX / NEXTDC",
+      "headline": "FY26 Record Results and Record FY27 Growth Guidance",
+      "date": "2026-08-27",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date printed on the document",
+      "verification": "Downloaded the PDF from announcements.asx.com.au and read it with pdftotext on 21 October 2026. FY26 net revenue, underlying EBITDA, statutory NPAT and prior-year loss, contracted, billing and built utilisation, forward order book, capex against guidance, capital raised since August 2025 and the M3 in-progress capacity are quoted from the document."
+    },
+    {
+      "refId": "ref-12",
+      "type": "report",
+      "url": "https://www.nextdc.com/hubfs/3053265.pdf",
+      "source": "NEXTDC",
+      "headline": "Record Contracted Utilisation and A$2.2bn Capital Plan: Entitlement Offer presentation",
+      "date": "2026-04-20",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Date printed on the presentation cover",
+      "verification": "Downloaded the PDF from nextdc.com and read it with pdftotext on 21 October 2026. Offer ratio, price, size, discount to TERP, the hybrid upsizing and the S4 contract wins are quoted from the document."
+    },
+    {
+      "refId": "ref-13",
+      "type": "news",
+      "url": "https://www.fool.com.au/2026/10/21/nextdc-slashes-fy27-guidance-after-m3-melbourne-power-delay/",
+      "source": "The Motley Fool Australia",
+      "headline": "NEXTDC slashes FY27 guidance after M3 Melbourne power delay",
+      "date": "2026-10-21",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date in the article URL and byline",
+      "verification": "Opened in full on 21 October 2026. Guidance ranges before and after the cut and the A$140m M3 contribution are as the article reports them from NEXTDC's ASX release."
+    },
+    {
+      "refId": "ref-14",
+      "type": "news",
+      "url": "https://w.media/nextdc-cuts-fy27-guidance-pauses-new-projects-over-m3-power-delay/",
+      "source": "W.Media",
+      "headline": "NextDC cuts FY27 guidance, pauses new projects over M3 power delay",
+      "date": "2026-10-21",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date on the article",
+      "verification": "Opened in full on 21 October 2026. Jemena's stated reasons for the suspension, the February 2027 restart, the termination rights and the liquidity components at 30 September are as the article reports them from NEXTDC's ASX release."
+    },
+    {
+      "refId": "ref-15",
+      "type": "news",
+      "url": "https://www.capitalbrief.com/briefing/nextdc-cuts-fy27-guidance-after-power-delays-at-melbourne-site-5705cd17-aeb6-4606-90e3-9f13c8aaeb76/",
+      "source": "Capital Brief",
+      "headline": "NextDC cuts FY27 guidance after power delays at Melbourne site",
+      "date": "2026-10-21",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date on the article",
+      "verification": "Opened in full on 21 October 2026. The 10:08am price of $5.51, the state-election timing of the stages 6 and 7 planning decision and Citi's Siraj Ahmed quote are as the article reports them."
+    },
+    {
+      "refId": "ref-16",
+      "type": "report",
+      "url": "https://www.ad-hoc-news.de/boerse/news/ad-hoc-mitteilungen/nextdc-limited-m3-melbourne-power-delay-and-revised-fy27-guidance/70378644",
+      "source": "NEXTDC ASX release (EQS reprint)",
+      "headline": "M3 Melbourne Power Delay and Revised FY27 Guidance",
+      "date": "2026-10-21",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Date of the ASX release the reprint carries",
+      "verification": "Opened on 21 October 2026. An EQS wire reprint of NEXTDC's ASX release 'M3 Melbourne Power Delay and Revised FY27 Guidance'; the service-level-credit warning, the covenant statement and test date, the project and land-purchase pause and the capital-recycling review with its AGM deadline are quoted from the reprinted text. The ASX copy was not opened (terms interstitial)."
+    },
+    {
+      "refId": "ref-17",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/artificial-intelligence/why-did-nextdc-asxnxt-cut-its-outlook-over-melbourne-power",
+      "source": "Kalkine Media",
+      "headline": "Why did NEXTDC (ASX:NXT) cut its outlook over Melbourne power?",
+      "date": "2026-10-21",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date on the article",
+      "verification": "Opened on 21 October 2026; used as a secondary confirmation of the guidance figures only."
+    },
+    {
+      "refId": "ref-18",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/artificial-intelligence/why-is-nextdc-asxnxt-caught-in-the-ai-cloud-jitters",
+      "source": "Kalkine Media",
+      "headline": "Why is NextDC (ASX:NXT) caught in the AI cloud jitters?",
+      "date": "2026-10-16",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Byline date on the article (16 October 2026; its price widget later updated)",
+      "verification": "Opened in full on 21 October 2026. The article attributes the sector fall to an unnamed US-listed AI cloud provider's debt concerns, a hotter-than-expected US inflation reading and a circulated forecast about independent AI cloud providers, and ties none of it to a NEXTDC announcement; the piece states only what the article states and attributes it to Kalkine."
+    },
+    {
+      "refId": "ref-19",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/artificial-intelligence/what-does-nextdc-asxnxt-reveal-about-australias-ai-build",
+      "source": "Kalkine Media",
+      "headline": "What does NEXTDC (ASX:NXT) reveal about Australia's AI build?",
+      "date": "2026-10-17",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Byline date on the article",
+      "verification": "Opened in full on 21 October 2026. States that Firmus withdrew its listing after weak demand and concerns about debt levels and valuation; no withdrawal date is given and none is stated."
+    },
+    {
+      "refId": "ref-20",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/artificial-intelligence/fresh-capital-and-a-top-tier-index-spot-can-nextdc-asxnxt-fund-its-ai-data-centre-boom",
+      "source": "Kalkine Media",
+      "headline": "Fresh Capital and a Top-Tier Index Spot: Can NEXTDC (ASX:NXT) Fund Its AI Data Centre Boom?",
+      "date": "2026-09-28",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Byline date on the article",
+      "verification": "Opened in full on 21 October 2026. States the quarterly benchmark rebalance took effect before the open on the Monday of the prior week (21 September 2026, consistent with the 18 September volume); the article gives no volume figure, which comes from Shorted's get_stock_prices."
+    },
+    {
+      "refId": "ref-21",
+      "type": "news",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03153882",
+      "source": "ASX / NEXTDC",
+      "headline": "Trading Halt",
+      "date": "",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement as recorded in Shorted's ASX announcements feed; the lodgement date is not printed in the feed in local time, so the citation carries none",
+      "verification": "Headline and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened; the article states only that a halt was requested, with the 19 October date taken from the Capital Brief report."
+    },
+    {
+      "refId": "ref-22",
+      "type": "trade",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03096368",
+      "source": "ASX / NEXTDC Appendix 3Y",
+      "headline": "Change of Director's Interest Notice - Douglas Flynn",
+      "date": "2026-05-21",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's director-trades feed (get_director_trades)",
+      "verification": "Director name, shares, price and date from Shorted's get_director_trades on 21 October 2026, which parses the Appendix 3Y; the PDF was NOT opened. The other five directors' entitlement take-ups at $12.70 on 18 May are from the same feed and are Shorted data, stated uncited."
+    }
+  ]
+}

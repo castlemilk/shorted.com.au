@@ -93,6 +93,12 @@ func Registry() []Tool {
 		searchPoliticiansTool(),
 		getPoliticianTool(),
 		listStockPoliticiansTool(),
+
+		// Ownership — substantial holding notices, index ETF and super fund
+		// holdings. See tools_ownership.go for why no sum is a share of the
+		// company.
+		getStockOwnershipTool(),
+		getInstitutionHoldingsTool(),
 	}
 }
 

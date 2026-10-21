@@ -548,6 +548,7 @@ var nameTails = []string{
 	" as responsible entity", " (", ";",
 	" and its subsidiary companies", " and each of ", " and each other entity", " and the entities listed",
 	" and the other entities", " and entities listed", " - a subsidiary of", " a subsidiary of", "__",
+	" and its entities",
 }
 
 // tidyHolderName cuts a section 1 name at the first boilerplate tail, so

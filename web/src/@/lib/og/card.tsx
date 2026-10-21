@@ -2,6 +2,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import type { SceneFrame, SceneTone } from "~/@/lib/strategies/scenes";
+
 /**
  * Shared building blocks for `opengraph-image.tsx` generators.
  *
@@ -223,7 +225,59 @@ export interface OgCardProps {
   footer?: string;
   /** Optional company mark shown beside the eyebrow. */
   brand?: CompanyLogo;
+  /**
+   * Optional scene behind the copy: a data URI of a 1200x630 JPEG (satori
+   * decodes JPEG and PNG, never AVIF), drawn full-bleed under a dark scrim
+   * so the type keeps its contrast. The strategy cards pass their baked
+   * brandbrain art (lib/strategies/art.ts); "" or absent draws the plain
+   * gradient canvas.
+   */
+  backgroundSrc?: string;
+  /**
+   * Optional generative scene (lib/strategies/scenes.ts) drawn as inline SVG
+   * paths on the right of the canvas, under the copy: the strategy cards'
+   * default art. Plain data, so the card stays data-in.
+   */
+  scene?: SceneFrame;
   logoSrc: string;
+}
+
+/** The dark card's colour for each scene tone. */
+const OG_SCENE_TONE: Record<SceneTone, string> = {
+  ink: "#e8ddb5",
+  amber: "#FFA94D",
+  olive: "#9AC082",
+  rust: "#E17E51",
+  muted: "#8a7f6a",
+};
+
+/** The scene's box on the card: 3:2, flush right. */
+const OG_SCENE_W = 720;
+const OG_SCENE_H = 480;
+
+function OgScene({ scene }: { scene: SceneFrame }) {
+  if (scene.paths.length === 0) return null;
+  return (
+    <svg
+      viewBox={`0 0 ${scene.width} ${scene.height}`}
+      width={OG_SCENE_W}
+      height={OG_SCENE_H}
+      style={{ position: "absolute", right: 0, top: 75, opacity: 0.55 }}
+    >
+      {scene.paths.map((p, index) => (
+        <path
+          key={index}
+          d={p.d}
+          fill={p.fill ? OG_SCENE_TONE[p.tone] : "none"}
+          stroke={p.fill ? "none" : OG_SCENE_TONE[p.tone]}
+          strokeWidth={p.fill ? 0 : Math.max(0.6, p.width * 0.55)}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={p.opacity}
+        />
+      ))}
+    </svg>
+  );
 }
 
 function toneColor(tone?: "up" | "down" | "flat"): string {
@@ -239,6 +293,8 @@ export function OgCard({
   stats,
   footer = "shorted.com.au",
   brand,
+  backgroundSrc,
+  scene,
   logoSrc,
 }: OgCardProps) {
   return (
@@ -255,6 +311,35 @@ export function OgCard({
         position: "relative",
       }}
     >
+      {backgroundSrc && (
+        <img
+          src={backgroundSrc}
+          width={OG_SIZE.width}
+          height={OG_SIZE.height}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            objectFit: "cover",
+          }}
+        />
+      )}
+      {backgroundSrc && (
+        <div
+          style={{
+            display: "flex",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            // The scrim: the canvas colour over the scene, heaviest where
+            // the copy sits, so the headline holds its contrast.
+            backgroundImage: `linear-gradient(90deg, ${OG.bg} 0%, rgba(10, 10, 10, 0.88) 55%, rgba(10, 10, 10, 0.45) 100%)`,
+          }}
+        />
+      )}
+      {scene && !backgroundSrc && <OgScene scene={scene} />}
       {/* top rule */}
       <div
         style={{

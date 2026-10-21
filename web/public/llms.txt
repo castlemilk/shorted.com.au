@@ -60,7 +60,7 @@ return the same figures the pages render, as JSON, and neither is challenged.
 - [OpenAPI 3.1 description](https://shorted.com.au/openapi.json): Machine-readable description of every public endpoint. YAML twin at /openapi.yaml.
 - [API reference (markdown)](https://shorted.com.au/docs/api.md): JavaScript-free reference with worked curl examples.
 - [API catalog (RFC 9727)](https://shorted.com.au/.well-known/api-catalog): Link set pointing at everything on this list.
-- [MCP server](https://api.shorted.com.au/mcp): Model Context Protocol endpoint (streamable HTTP, protocol 2026-07-28). 28 read-only tools across short positions, strategy picks and company fundamentals, housing, economy and the federal register of interests.
+- [MCP server](https://api.shorted.com.au/mcp): Model Context Protocol endpoint (streamable HTTP, protocol 2026-07-28). 32 read-only tools across short positions, strategy picks and company fundamentals, housing, economy, the federal register of interests and who owns ASX stocks.
 
 Every endpoint is a Connect-RPC method. Call it with an HTTP POST, a JSON body,
 and the `Connect-Protocol-Version: 1` header. Send an identifying `User-Agent`:
