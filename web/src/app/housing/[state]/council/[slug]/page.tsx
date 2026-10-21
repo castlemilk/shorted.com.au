@@ -20,6 +20,7 @@ import { eyebrow, pageTitle } from "~/@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getCouncilProfile, listCouncils } from "~/app/actions/getHousing";
 import { NotFoundError } from "~/app/actions/withRetry";
+import { councilPageTitle } from "../council-titles";
 
 export const revalidate = 86400;
 
@@ -61,7 +62,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const s = profile.summary;
   const url = `${SITE}${councilPath(code, s.slug)}`;
   const place = `${s.displayName}, ${STATE_NAMES[code]}`;
-  const title = `${place}: council profile, population, housing and hazards`;
+  const title = councilPageTitle(s, code);
   const description = [
     s.population > 0 ? `${fmtInt(s.population)} residents (ABS estimated resident population ${s.erpYear})` : "",
     s.councilHouseMedian !== undefined && s.councilHouseMedianPeriod ? "council-wide house median" : "",

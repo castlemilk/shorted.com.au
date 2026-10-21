@@ -37,9 +37,10 @@ const DESCRIPTION =
 // fetches consult the backend on each render; the route itself is prerendered.
 // We deliberately do NOT read the request query in this server page
 // (doing so forces dynamic rendering). The ?state= deep link is instead read
-// client-side by AddressDropsBoard (under a Suspense boundary). Busted on the
-// crawl event via /api/revalidate?path=/price-drops&flush=housing and warmed
-// post-deploy by /api/static-pages/warm-cache.
+// client-side by AddressDropsBoard (under a Suspense boundary). Busted when a
+// crawl drain ends (and at most hourly during a long one) via
+// /api/revalidate?path=/price-drops&flush=housing, and warmed post-deploy by
+// /api/static-pages/warm-cache.
 export const revalidate = 3600;
 // A cold overview query can take 10s and retry before the hourly page is cached.
 export const maxDuration = 60;
@@ -86,7 +87,9 @@ export default async function PriceDropsPage() {
     listSuburbPriceDrops("", "count", 25),
     listAgencyPriceStats("", "drops", 12),
     // Seed the address board's default (all-states, biggest-%) view so the static
-    // shell renders rows without a client round-trip.
+    // shell renders rows without a client round-trip. One bounded attempt: the
+    // board fetches for itself when the seed is empty, so a slow address query
+    // costs the seed, never the render (it once held every render for 44s).
     listAddressPriceDrops(),
     getDropIndexSeries(),
   ]);
@@ -100,8 +103,8 @@ export default async function PriceDropsPage() {
   const withheld = overview?.withheld === true;
   // Every figure below is a rolling window anchored at the last view refresh,
   // so the page says what date it runs to, and warns once that date is old.
-  // Computed at render: ISR regenerates at most hourly, and the crawl flush
-  // busts it the moment new data lands.
+  // Computed at render: ISR regenerates at most hourly, and the crawl ping
+  // busts it when a drain that wrote data ends.
   const freshness = dropsFreshness(overview);
   const stale = freshness.stale || dropsFreshness(suburbs).stale;
   const catalogSuburbs = national?.catalogSuburbs ?? 0;

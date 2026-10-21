@@ -195,6 +195,115 @@ EOF
 	fi
 }
 
+# A fake collector for the drain's revalidation contract. Each `-mode agent`
+# round records "agent:<its CRAWL_REVALIDATE_DEFER>", logs the deferred marker
+# when its plan says it wrote data, and exits with its planned code; `-mode
+# revalidate` records "revalidate" and exits $3 (default 0).
+#   $1 = calls file, $2 = one "<wrote 0|1>:<rc>[:last]" per round, comma-separated
+apply_revalidate_fake() {
+	local calls="$1" plan="$2" revalidate_rc="${3:-0}"
+	cat >"$FAKE_COLLECTOR" <<EOF
+#!/usr/bin/env bash
+case "\${2:-}" in
+agent)
+	echo "agent:\${CRAWL_REVALIDATE_DEFER:-unset}" >>"$calls"
+	n="\$(/usr/bin/grep -c '^agent:' "$calls")"
+	IFS=: read -r wrote rc last <<<"\$(echo "$plan" | /usr/bin/tr ',' '\n' | /usr/bin/sed -n "\${n}p")"
+	if [[ "\$wrote" == 1 ]]; then echo "[revalidate:agent] deferred to the drain: it pings once for the whole drain"; fi
+	echo "[agent] done: processed 3 job(s)"
+	if [[ "\${last:-}" == last ]]; then echo "[agent] no more jobs"; fi
+	exit "\$rc"
+	;;
+revalidate)
+	echo revalidate >>"$calls"
+	exit $revalidate_rc
+	;;
+*)
+	exit 0
+	;;
+esac
+EOF
+	chmod +x "$FAKE_COLLECTOR"
+}
+
+# drain_calls_after <calls file> <log> <want rc> [VAR=value ...] runs one drain
+# with the given settings and prints the recorded calls on one line.
+drain_calls_after() {
+	local calls="$1" log="$2" want="$3"
+	shift 3
+	run_expect_rc "$want" env "$@" bash -c '
+		set -uo pipefail
+		source "$1/housing-crawl-common.sh"
+		BIN="$2"
+		LOG="$3"
+		CRAWL_DRAIN_MAX_ROUNDS=5
+		CRAWL_REWARM_COOLDOWN_SEC=0
+		hc_drain_until_empty
+	' _ "$DIR" "$FAKE_COLLECTOR" "$log" || return 1
+	/usr/bin/tr '\n' ' ' <"$calls"
+}
+
+expect_calls() {
+	local got="$1" want="$2" why="$3"
+	if [[ "$got" != "$want" ]]; then
+		echo "FAIL: $why: want '$want', got '$got'" >&2
+		return 1
+	fi
+}
+
+# Each round that wrote data used to ping /api/revalidate itself, and one ping
+# purges /price-drops, /housing and every suburb page. Measured 2026-10-21: two
+# /price-drops GETs 20 minutes apart both rendered from a purge (44s, Age 0).
+# Rounds defer (CRAWL_REVALIDATE_DEFER=1) and the drain pings once, at the end.
+test_common_revalidates_once_per_drain() {
+	local calls="$TMP_ROOT/revalidate-once.calls" got
+	: >"$calls"
+	apply_revalidate_fake "$calls" "1:0,1:0,1:0:last"
+	got="$(drain_calls_after "$calls" "$TMP_ROOT/revalidate-once.log" 0)" || return 1
+	expect_calls "$got" "agent:1 agent:1 agent:1 revalidate " "three deferring rounds, then one ping"
+}
+
+# A round that wrote data and then ended the drain (a re-warm, with the retry
+# budget off) still gets its ping, and the drain keeps the round's exit code.
+test_common_revalidates_when_a_round_ends_the_drain() {
+	local calls="$TMP_ROOT/revalidate-ends.calls" got
+	: >"$calls"
+	apply_revalidate_fake "$calls" "1:3"
+	got="$(drain_calls_after "$calls" "$TMP_ROOT/revalidate-ends.log" 3 CRAWL_REWARM_MAX_RETRIES=0)" || return 1
+	expect_calls "$got" "agent:1 revalidate " "a round that wrote data before the re-warm"
+}
+
+test_common_does_not_revalidate_without_writes() {
+	local calls="$TMP_ROOT/revalidate-none.calls" got
+	: >"$calls"
+	apply_revalidate_fake "$calls" "0:0,0:0:last"
+	got="$(drain_calls_after "$calls" "$TMP_ROOT/revalidate-none.log" 0)" || return 1
+	expect_calls "$got" "agent:1 agent:1 " "no round wrote data, so nothing to bust"
+}
+
+# The ping is best-effort: a failure is logged and never becomes the result.
+test_common_revalidate_failure_keeps_the_drain_result() {
+	local calls="$TMP_ROOT/revalidate-fails.calls" log="$TMP_ROOT/revalidate-fails.log" got
+	: >"$calls"
+	apply_revalidate_fake "$calls" "1:0:last" 1
+	got="$(drain_calls_after "$calls" "$log" 0)" || return 1
+	expect_calls "$got" "agent:1 revalidate " "one ping, even when it fails" || return 1
+	if ! /usr/bin/grep -q "revalidate exited 1" "$log"; then
+		echo "FAIL: the failed ping is not visible in the log: $log" >&2
+		return 1
+	fi
+}
+
+# A long drain still busts as it goes, at most once per interval. At 0 every
+# deferring round pings at once, and the end of the drain owes nothing more.
+test_common_revalidates_at_most_once_per_interval() {
+	local calls="$TMP_ROOT/revalidate-interval.calls" got
+	: >"$calls"
+	apply_revalidate_fake "$calls" "1:0,1:0:last"
+	got="$(drain_calls_after "$calls" "$TMP_ROOT/revalidate-interval.log" 0 CRAWL_REVALIDATE_INTERVAL_SEC=0)" || return 1
+	expect_calls "$got" "agent:1 revalidate agent:1 revalidate " "an elapsed interval pings within the drain"
+}
+
 # rc=8 is the "crawl environment broken" signal (a missing Playwright driver).
 # The generic failure path propagates the code correctly, but the LOG LINE is the
 # artefact a human actually reads during an outage — in the 2026-08-13 stoppage a
@@ -469,6 +578,11 @@ test_common_names_the_driver_fix_on_broken_env || failures=$((failures + 1))
 test_common_retries_after_rewarm_and_recovers || failures=$((failures + 1))
 test_common_rewarm_retry_budget_is_bounded || failures=$((failures + 1))
 test_common_rewarm_retry_can_be_disabled || failures=$((failures + 1))
+test_common_revalidates_once_per_drain || failures=$((failures + 1))
+test_common_revalidates_when_a_round_ends_the_drain || failures=$((failures + 1))
+test_common_does_not_revalidate_without_writes || failures=$((failures + 1))
+test_common_revalidate_failure_keeps_the_drain_result || failures=$((failures + 1))
+test_common_revalidates_at_most_once_per_interval || failures=$((failures + 1))
 test_wrapper_preserves_fatal_zero_processed run-housing-delta.sh || failures=$((failures + 1))
 test_wrapper_preserves_fatal_zero_processed run-housing-full.sh || failures=$((failures + 1))
 test_wrapper_preserves_enqueue_failure run-housing-delta.sh || failures=$((failures + 1))
