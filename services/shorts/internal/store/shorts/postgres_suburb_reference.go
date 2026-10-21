@@ -2,6 +2,8 @@ package shorts
 
 import (
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 )
@@ -188,14 +190,29 @@ func similarSuburbsQuery(src suburbReadSource) string {
 	return similarSuburbsLiveQuery
 }
 
+// suburbViewsRecheck is how long a process reads the live SQL after a
+// reader found the views missing, before it tries them again. Without it,
+// every suburb read on a database without 000139 would first fail (and log an
+// ERROR in Postgres) and then rerun; with it, applying 000139 takes effect
+// within this long, with no restart.
+const suburbViewsRecheck = 5 * time.Minute
+
+// suburbViewsMissingUntil is the UnixNano until which the readers skip the
+// views; zero while they have not been found missing.
+var suburbViewsMissingUntil atomic.Int64
+
 // readSuburbReference runs read against the 000139 views and, only when one
 // of them does not exist (42P01), against the live SQL. Any other error is
 // returned as is: falling back on a timeout would hide a sick view behind the
 // slow query it replaced. The fallback is logged once per reader per process.
 func readSuburbReference[T any](reader string, read func(src suburbReadSource) (T, error)) (T, error) {
+	if time.Now().UnixNano() < suburbViewsMissingUntil.Load() {
+		return read(suburbFromLiveSQL)
+	}
 	return fallbackOnUndefinedTable(
 		func() (T, error) { return read(suburbFromViews) },
 		func(err error) (T, error) {
+			suburbViewsMissingUntil.Store(time.Now().Add(suburbViewsRecheck).UnixNano())
 			logSuburbViewsMissingOnce(reader, err)
 			return read(suburbFromLiveSQL)
 		},

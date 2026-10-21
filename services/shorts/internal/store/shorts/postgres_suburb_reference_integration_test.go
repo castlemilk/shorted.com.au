@@ -26,6 +26,9 @@ func applySuburbReferenceViews(t *testing.T, pool *pgxpool.Pool) {
 	require.NoError(t, err)
 	_, err = pool.Exec(context.Background(), string(sql))
 	require.NoError(t, err, "apply 000139")
+	// An earlier test on a database without the views may have opened the
+	// readers' recheck window; these views exist now.
+	suburbViewsMissingUntil.Store(0)
 }
 
 func refreshSuburbReferenceViews(t *testing.T, pool *pgxpool.Pool) {

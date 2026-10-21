@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -165,6 +166,8 @@ func TestSuburbReferenceQueries_ReadOnlyTheirSource(t *testing.T) {
 }
 
 func TestReadSuburbReference_FallsBackOnlyWhenAViewIsMissing(t *testing.T) {
+	suburbViewsMissingUntil.Store(0)
+	t.Cleanup(func() { suburbViewsMissingUntil.Store(0) })
 	undefined := &pgconn.PgError{Code: "42P01", Message: `relation "mv_suburb_latest_price" does not exist`}
 
 	var tried []suburbReadSource
@@ -182,12 +185,25 @@ func TestReadSuburbReference_FallsBackOnlyWhenAViewIsMissing(t *testing.T) {
 		t.Fatalf("sources tried %v: views first, live only after 42P01", tried)
 	}
 
+	// Within the recheck window the readers go straight to the live SQL: no
+	// failed statement per request while 000139 is not applied.
+	tried = nil
+	got, err = readSuburbReference("test", func(src suburbReadSource) (string, error) {
+		tried = append(tried, src)
+		return "live", nil
+	})
+	if err != nil || got != "live" || len(tried) != 1 || tried[0] != suburbFromLiveSQL {
+		t.Fatalf("inside the recheck window: got %q, %v after %v; want the live SQL only", got, err, tried)
+	}
+
+	// Once the window has passed, the views are tried again.
+	suburbViewsMissingUntil.Store(time.Now().Add(-time.Second).UnixNano())
 	tried = nil
 	got, err = readSuburbReference("test", func(src suburbReadSource) (string, error) {
 		tried = append(tried, src)
 		return "views", nil
 	})
-	if err != nil || got != "views" || len(tried) != 1 {
+	if err != nil || got != "views" || len(tried) != 1 || tried[0] != suburbFromViews {
 		t.Fatalf("views present: got %q, %v after %v; want the views only", got, err, tried)
 	}
 
