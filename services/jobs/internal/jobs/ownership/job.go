@@ -43,18 +43,18 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/reportextract"
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/pdfchild"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 )
 
 const (
-	modeRegistry  = "registry"
-	modeFunds     = "funds"
-	modeNotices   = "notices"
-	modeETF       = "etf"
-	modePHD       = "phd"
-	modeAll       = "all"
-	modePDFLayout = "pdf-layout"
+	modeRegistry = "registry"
+	modeFunds    = "funds"
+	modeNotices  = "notices"
+	modeETF      = "etf"
+	modePHD      = "phd"
+	modeAll      = "all"
 )
 
 const exitCodeDegraded = 10
@@ -65,15 +65,14 @@ const exitCodeDegraded = 10
 const revalidateWait = 11 * time.Minute
 
 type config struct {
-	mode     string
-	dryRun   bool
-	limit    int
-	since    string
-	workers  int
-	delay    time.Duration
-	maxPages int
-	childMB  int
-	rvWait   time.Duration
+	mode    string
+	dryRun  bool
+	limit   int
+	since   string
+	workers int
+	delay   time.Duration
+	childMB int
+	rvWait  time.Duration
 }
 
 // Job returns the `shorted ownership` subcommand.
@@ -97,7 +96,6 @@ func Run(ctx context.Context, args []string) error {
 	fs.StringVar(&cfg.since, "since", "2024-01-01", "notices: read notices released on or after this date")
 	fs.IntVar(&cfg.workers, "workers", 3, "notices: concurrent PDF downloads")
 	fs.DurationVar(&cfg.delay, "delay", 400*time.Millisecond, "notices: pause per worker between ASX downloads")
-	fs.IntVar(&cfg.maxPages, "max-pages", noticeMaxPages, "pdf-layout: pages to read")
 	fs.IntVar(&cfg.childMB, "child-memory-mb", 2048, "notices: resident memory shared by the PDF reader children (a large encrypted notice needs about 32x its size)")
 	fs.DurationVar(&cfg.rvWait, "revalidate-wait", revalidateWait, "wait before revalidating the web pages after a run that stored rows (0 pings at once)")
 	if err := fs.Parse(args); err != nil {
@@ -108,9 +106,6 @@ func Run(ctx context.Context, args []string) error {
 	}
 	if fs.NArg() > 0 {
 		return fmt.Errorf("unexpected argument %q (modes are passed as -mode %s)", fs.Arg(0), fs.Arg(0))
-	}
-	if cfg.mode == modePDFLayout {
-		return runPDFLayoutChild(os.Stdin, os.Stdout, cfg.maxPages)
 	}
 	if _, err := time.Parse("2006-01-02", cfg.since); err != nil {
 		return fmt.Errorf("-since %q is not YYYY-MM-DD", cfg.since)
@@ -360,11 +355,7 @@ func runPHD(ctx context.Context, st *pgStore, client *http.Client, cfg config) (
 }
 
 func runNotices(ctx context.Context, st *pgStore, cfg config) ([]string, int) {
-	extractor, err := newChildExtractor(int64(cfg.childMB) << 20)
-	if err != nil {
-		log.Printf("ownership notices: %v", err)
-		return []string{"notices"}, 1
-	}
+	extractor := childExtractor{pdfs: pdfchild.NewReader(PDFLayoutMode, int64(cfg.childMB)<<20)}
 	pass := &noticePass{
 		store: st, pdfs: reportextract.NewAnnouncementTextFetcher(), extractor: extractor,
 		workers: cfg.workers, delay: cfg.delay, dryRun: cfg.dryRun, logf: log.Printf,

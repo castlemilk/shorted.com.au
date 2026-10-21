@@ -1,0 +1,143 @@
+{
+  "draft": "aya-shorts-tenfold-since-july-price-halves.mdx",
+  "knownCodes": [
+    "AYA",
+    "4DX",
+    "PNV",
+    "NAN"
+  ],
+  "sources": [
+    {
+      "refId": "ref-1",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20261015-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "15 October daily aggregate short-position report",
+      "date": "2026-10-15",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for AYA, 4DX, PNV, NAN; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    },
+    {
+      "refId": "ref-2",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260716-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "16 July daily aggregate short-position report",
+      "date": "2026-07-16",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for AYA, 4DX, PNV, NAN; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    },
+    {
+      "refId": "ref-3",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260917-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "17 September daily aggregate short-position report",
+      "date": "2026-09-17",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for AYA, 4DX, PNV, NAN; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    },
+    {
+      "refId": "ref-4",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260918-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "18 September daily aggregate short-position report",
+      "date": "2026-09-18",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for AYA, 4DX, PNV, NAN; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    },
+    {
+      "refId": "ref-5",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20261014-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "14 October daily aggregate short-position report",
+      "date": "2026-10-14",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for AYA, 4DX, PNV, NAN; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    },
+    {
+      "refId": "ref-6",
+      "type": "report",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03126936",
+      "source": "ASX / Artrya Appendix 4E",
+      "headline": "Appendix 4E and Annual Report to Shareholders",
+      "date": "2026-08-19",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it. Revenue and loss figures are Shorted's parsed extraction of this Appendix 4E (latest_filing digest), not a reading of the PDF."
+    },
+    {
+      "refId": "ref-7",
+      "type": "news",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03147576",
+      "source": "ASX / Artrya",
+      "headline": "Huntsville Hospital Health System Commercial Agreement",
+      "date": "2026-10-01",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it."
+    },
+    {
+      "refId": "ref-8",
+      "type": "news",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03141328",
+      "source": "ASX / Artrya",
+      "headline": "Ceasing to be a substantial holder from WAM/WAA/WMI/WAX",
+      "date": "2026-09-17",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it."
+    },
+    {
+      "refId": "ref-9",
+      "type": "news",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03143063",
+      "source": "ASX / Artrya",
+      "headline": "Becoming a substantial holder",
+      "date": "2026-09-23",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it."
+    },
+    {
+      "refId": "ref-10",
+      "type": "news",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03145575",
+      "source": "ASX / Artrya",
+      "headline": "Becoming a substantial holder",
+      "date": "2026-09-28",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it."
+    },
+    {
+      "refId": "ref-11",
+      "type": "news",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03146662",
+      "source": "ASX / Artrya",
+      "headline": "Ceasing to be a substantial holder",
+      "date": "2026-09-29",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it."
+    },
+    {
+      "refId": "ref-12",
+      "type": "news",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03152444",
+      "source": "ASX / Artrya",
+      "headline": "Notice of Annual General Meeting/Proxy Form",
+      "date": "2026-10-13",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it."
+    }
+  ]
+}

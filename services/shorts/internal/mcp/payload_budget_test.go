@@ -226,7 +226,88 @@ func realisticSource() *fakeDataSource {
 	realisticHousingSource(src)
 	realisticEconomySource(src)
 	realisticPoliticsSource(src)
+	realisticOwnershipSource(src)
 	return src
+}
+
+// realisticOwnershipSource fills the ownership fixtures past every cap, with
+// the longest names production holds: a holder named with its annexure ("FMR
+// LLC and its entities listed in Annexure A"), a super option named for its
+// fund, and the 100 fund rows the API serves for one institution. Rows past
+// the caps cost nothing, so the expensive case is a full page of the longest.
+func realisticOwnershipSource(src *fakeDataSource) {
+	holding := func(i int) *shortsv1alpha1.SubstantialHolding {
+		return &shortsv1alpha1.SubstantialHolding{
+			StockCode: "PLS", CompanyName: "Pilbara Minerals Limited", Industry: "Materials",
+			HolderKey: "state-street", HolderName: "FMR LLC and its entities listed in Annexure A and Annexure B",
+			InstitutionSlug: "state-street", Kind: "active_manager", Form: "604",
+			VotingPowerPct: 12.3456, PreviousPct: 11.2345, HasPrevious: true, Votes: 398_765_432, HasVotes: true,
+			EventDate: "2026-10-16", AnnouncedOn: "2026-10-20",
+			AnnouncementUrl: fmt.Sprintf("https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=0300%04d", i),
+		}
+	}
+	fund := func(i int) *shortsv1alpha1.FundHolding {
+		return &shortsv1alpha1.FundHolding{
+			InstitutionSlug: "australian-retirement-trust", InstitutionName: "Australian Retirement Trust",
+			Kind: "super_fund", FundName: "Balanced (Lifecycle Investment Strategy, Accumulation)",
+			FundCode: "", SourceKind: "super_phd", AsAt: "2026-06-30",
+			StockCode: "PLS", CompanyName: "Pilbara Minerals Limited",
+			Units: 123_456_789, HasUnits: true, ValueAud: float64(9_876_543_210 - i), HasValue: true,
+			WeightPct: 2.345678, HasWeight: true, PctOfIssued: 1.234567, HasPctOfIssued: true,
+		}
+	}
+	holders := make([]*shortsv1alpha1.SubstantialHolding, 0, maxOwnershipHolders+10)
+	for i := 0; i < maxOwnershipHolders+10; i++ {
+		holders = append(holders, holding(i))
+	}
+	funds := make([]*shortsv1alpha1.FundHolding, 0, 40)
+	for i := 0; i < 40; i++ {
+		funds = append(funds, fund(i))
+	}
+	kinds := []*shortsv1alpha1.KindShare{}
+	for _, k := range []string{"super_fund", "index_manager", "hedge_fund", "active_manager", "bank_broker",
+		"sovereign_public", "insurer", "private_equity", "corporate", "unclassified"} {
+		kinds = append(kinds, &shortsv1alpha1.KindShare{Kind: k, Pct: 5.4321, Holders: 3})
+	}
+	src.stockOwnership = &shortsv1alpha1.GetStockOwnershipResponse{
+		Summary: &shortsv1alpha1.OwnershipStock{
+			StockCode: "PLS", CompanyName: "Pilbara Minerals Limited", Industry: "Materials",
+			Holders: int32(len(holders)), DisclosedPct: 54.321, ByKind: kinds,
+			ShortPct: 13.0833, HasShortPct: true, IndexPct: 3.0129, HasIndexPct: true,
+			SuperOptions: 11, SuperValueAud: 579_467_732.02, HasSuperValue: true,
+			MarketCap: 9_581_061_901, HasMarketCap: true,
+		},
+		Holders: holders, FundHoldings: funds,
+		SharesOnIssue: 3_225_946_768, HasSharesOnIssue: true,
+	}
+
+	positions := make([]*shortsv1alpha1.SubstantialHolding, 0, 119)
+	for i := 0; i < 119; i++ {
+		positions = append(positions, holding(i))
+	}
+	instFunds := make([]*shortsv1alpha1.FundHolding, 0, 100)
+	for i := 0; i < 100; i++ {
+		instFunds = append(instFunds, fund(i))
+	}
+	src.institution = &shortsv1alpha1.GetInstitutionResponse{
+		Institution: &shortsv1alpha1.OwnershipInstitution{
+			Slug: "state-street", Name: "State Street", Kind: "index_manager", Country: "US",
+			Website:     "https://www.ssga.com/au",
+			Description: strings.Repeat("State Street Global Advisors (SPDR ETFs, STW) and State Street Bank, a large custodian and agent lender. ", 8),
+			AumAud:      412_301_040_000, HasAum: true,
+			SubstantialPositions: 119, Notices: 1117, LatestNoticeDate: "2026-10-20",
+			Funds: 19, FundsSizeAud: 12_573_950_000, HasFundsSize: true,
+		},
+		Positions: positions, FundHoldings: instFunds,
+	}
+	src.institutions = &shortsv1alpha1.ListInstitutionsResponse{
+		Institutions: []*shortsv1alpha1.OwnershipInstitution{
+			{Slug: "state-street", Name: "State Street", Kind: "index_manager"},
+			{Slug: "australiansuper", Name: "AustralianSuper", Kind: "super_fund"},
+			{Slug: "aware-super", Name: "Aware Super", Kind: "super_fund"},
+		},
+		Total: 3,
+	}
 }
 
 // realisticStrategySource fills the strategy and fundamentals fixtures at each

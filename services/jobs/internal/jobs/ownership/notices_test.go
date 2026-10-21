@@ -80,6 +80,7 @@ func TestTidyHolderNameAndKey(t *testing.T) {
 		"State Street Corporation and subsidiaries named in paragraph 6":      "State Street Corporation",
 		"Macquarie Group Limited ('MQG'); and its controlled bodies":          "Macquarie Group Limited",
 		"UBS Group AG and its related bodies corporate":                       "UBS Group AG",
+		"FMR LLC and its entities listed in Annexure A":                       "FMR LLC",
 		"Australian Retirement Trust Pty LTD ATF Australian Retirement Trust": "Australian Retirement Trust Pty LTD ATF Australian Retirement Trust",
 	} {
 		if got := tidyHolderName(in); got != want {

@@ -1,0 +1,97 @@
+{
+  "slug": "asx-shorts-broaden-downtrend-rba-october-2026",
+  "format": "cover.svg hand-composed from the series below; cover.png is a 1600x900 Chromium rasterisation",
+  "brief": "Finding: half the ten most shorted stocks changed in a quarter. Subject: a slope chart of fifteen stocks across two dates. Action: five amber entrants rising into the ten, five leaving. Hook: Lotus's line falls without any covering. Caveat: counts above 10% are ordinary-share lines; the macro figures are the publishers' series as Shorted holds them.",
+  "retrievedDate": "2026-10-21",
+  "shortSeries": {
+    "basis": "ASIC daily aggregate, % of total product in issue, T+4; values via Shorted's get_stock_history (downsampled), dates marked verifiedAgainstCsv were read from the official CSV",
+    "series": {
+      "top-ten 16 Jul": [
+        {
+          "code": "LOT",
+          "value": 22.8
+        },
+        {
+          "code": "DMP",
+          "value": 13.85
+        },
+        {
+          "code": "DRO",
+          "value": 12.87
+        },
+        {
+          "code": "4DX",
+          "value": 12.66
+        },
+        {
+          "code": "FLT",
+          "value": 12.44
+        },
+        {
+          "code": "PDN",
+          "value": 11.79
+        },
+        {
+          "code": "TLX",
+          "value": 11.7
+        },
+        {
+          "code": "BOE",
+          "value": 11.68
+        },
+        {
+          "code": "CAR",
+          "value": 11.57
+        },
+        {
+          "code": "ELD",
+          "value": 10.89
+        }
+      ],
+      "top-ten 15 Oct": [
+        {
+          "code": "DRO",
+          "value": 16.4
+        },
+        {
+          "code": "LOT",
+          "value": 15.48
+        },
+        {
+          "code": "BOE",
+          "value": 14.68
+        },
+        {
+          "code": "ZIP",
+          "value": 13.59
+        },
+        {
+          "code": "PLS",
+          "value": 13.08
+        },
+        {
+          "code": "IPX",
+          "value": 12.99
+        },
+        {
+          "code": "PDN",
+          "value": 12.09
+        },
+        {
+          "code": "DMP",
+          "value": 11.89
+        },
+        {
+          "code": "LYC",
+          "value": 11.73
+        },
+        {
+          "code": "WTC",
+          "value": 11.08
+        }
+      ]
+    }
+  },
+  "priceSeries": null,
+  "generator": "scripts/news-covers/october-2026-data-covers.py"
+}

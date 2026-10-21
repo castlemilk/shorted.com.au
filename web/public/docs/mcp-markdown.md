@@ -19,7 +19,7 @@ it will discover the flow, open a browser once, and come back authorised.
 
 ## What it covers
 
-Thirty read-only tools across four domains:
+Thirty-two read-only tools across five domains:
 
 - **Market and stocks** — ASIC short positions for ASX-listed securities,
   rankings, industry treemaps, squeeze candidates, price and short-interest
@@ -43,6 +43,12 @@ Thirty read-only tools across four domains:
 - **Economy** — the ABS/RBA economic-series layer (CPI, labour, trade, state
   final demand, approvals, retail, population) and company-to-state exposure.
 - **Politicians** — the federal Registers of Members' and Senators' Interests.
+- **Ownership** — who holds an ASX stock (`get_stock_ownership`: its
+  substantial holders from ASX notices, and the index ETFs and super fund
+  options that hold it) and what one institution holds
+  (`get_institution_holdings`). A sum of substantial holdings is what the
+  notices disclose, not a share of the company, and a super fund disclosure is
+  one investment option, not the whole fund.
 
 Three **resources** carry the context the tools cannot: how to read a short
 interest figure, what each domain covers and what is deliberately excluded, and
