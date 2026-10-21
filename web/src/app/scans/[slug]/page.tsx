@@ -12,6 +12,7 @@ import {
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
 import { getScan, SCANS } from "~/@/lib/scans/registry";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import { getScanResults } from "~/app/actions/getScanResults";
 import { ShortInterestTable } from "~/@/components/shorts/short-interest-table";
 
@@ -23,15 +24,20 @@ interface PageProps {
 // streaming boundary the page resolves before the response commits, so
 // notFound() below yields a real HTTP 404 for unknown scan slugs.
 //
-// force-dynamic (matching /market/[date] and /reports/weekly/[slug]): the
-// backend is unreachable at build time, where skipForBuild() forces
-// getScanResults() → null. Static prerendering therefore baked a
-// "Scan data is temporarily unavailable" shell into every scan page that was
-// served until the first *successful* ISR revalidation — i.e. the first
-// visitor after each deploy saw an empty page. Rendering per-request instead
-// always fetches real data at runtime (skipForBuild() is false off the build
-// phase); getScanResults()'s own 1h unstable_cache keeps the DB cost down.
-export const dynamic = "force-dynamic";
+// On-demand ISR, as /market/[date] and /reports/weekly/[slug] now are. A
+// build prerender once baked a "Scan data is temporarily unavailable" shell
+// into every scan page (skipForBuild() forces getScanResults() to null at
+// build), which is why this was force-dynamic and served `private, no-store`
+// on every request (2026-10-21). An EMPTY generateStaticParams renders
+// nothing at build, so there is no shell: each scan generates on its first
+// request with real data, and lives as long as getScanResults()'s own 1h
+// unstable_cache. Its read is ISR-safe (serverFetchOutsideNextCache), and the
+// daily sync's `scan-results` tag busts both.
+export const revalidate = 3600;
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ slug: string }> {
+  return [];
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -89,6 +95,8 @@ export default async function ScanPage({ params }: PageProps) {
   const results = await getScanResults(scan.slug);
   const rows = results?.rows ?? [];
   const asOf = results ? formatAsOf(results.asOfDate) : "";
+  // The "temporarily unavailable" shell: cache it for a minute, not the hour.
+  if (!results) await bailOnEmptyRender();
 
   const breadcrumbItems = [
     { label: "Scans", href: "/scans" },

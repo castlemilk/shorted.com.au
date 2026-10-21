@@ -1,6 +1,7 @@
 import nextDynamic from "next/dynamic";
 import { type Metadata } from "next";
 import { getTopShortsData } from "../actions/getTopShorts";
+import { bailOnEmptyRender } from "../actions/config";
 import { calculateMovers, type TimePeriod } from "~/@/lib/shorts-calculations";
 import { siteConfig } from "~/@/config/site";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
@@ -50,10 +51,13 @@ export const metadata: Metadata = {
 const DEFAULT_PERIOD: TimePeriod = "3m";
 const LOAD_CHUNK_SIZE = 20;
 
-// Force dynamic rendering to avoid build-time prerendering (triggers Supabase circuit breaker)
-export const dynamic = "force-dynamic";
-
-// Revalidate every 10 minutes for fresh data
+// ISR, at most 10 minutes old. getTopShortsData is ISR-safe on all three of
+// its paths (the KV, a tagged edge read, a tagged Connect fallback), and the
+// daily sync flushes its KV entry (flush=shorts), so the next regeneration
+// after a sync reads fresh rows. This used to be force-dynamic "to avoid
+// build-time prerendering (triggers Supabase circuit breaker)", which made the
+// revalidate inert and served the page `private, no-store` on every request
+// (2026-10-21); `/` prerenders the same read at build.
 export const revalidate = 600;
 
 // Breadcrumbs for structured data
@@ -66,6 +70,9 @@ export default async function TopShortsPage() {
   // Fetch data on server — returns undefined if backend is unreachable (e.g. during build)
   const data = await getTopShortsData(DEFAULT_PERIOD, LOAD_CHUNK_SIZE, 0);
   const timeSeries = data?.timeSeries ?? [];
+  // A failed read leaves only the client dashboard: cache that shell for a
+  // minute, not the full 10.
+  if (timeSeries.length === 0) await bailOnEmptyRender();
   const moversData = calculateMovers(timeSeries, DEFAULT_PERIOD);
 
   // Server-rendered fallback rows so crawlers see real data (the interactive
