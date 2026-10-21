@@ -33,9 +33,9 @@ import * as ts from "typescript";
 const APP_DIR = path.resolve(__dirname, "..");
 
 /**
- * Files with a known doubled brand that another workstream owns. Skipped, not
- * asserted: delete the entry when its fix lands, so the scan covers the file
- * again.
+ * Files with a known doubled brand that another workstream owns. The scan
+ * skips them, and a check below fails once one no longer carries the brand:
+ * delete the entry when its fix lands, so the scan covers the file again.
  */
 const KNOWN_OFFENDERS: Record<string, string> = {
   // "GetInstitution | Shorted API Documentation | Shorted": the docs/api
@@ -229,6 +229,15 @@ describe("page titles", () => {
         ),
       );
     expect(offenders).toEqual([]);
+  });
+
+  // A skipped file whose fix has landed would stay out of the scan for good:
+  // nothing else fails when its entry goes stale.
+  it("skips only files that still carry the brand (delete an entry once its fix lands)", () => {
+    const fixed = Object.keys(KNOWN_OFFENDERS).filter(
+      (file) => brandedTitles(file, fs.readFileSync(path.join(APP_DIR, file), "utf8")).length === 0,
+    );
+    expect(fixed).toEqual([]);
   });
 
   // The scan has to recognise the shapes it exists to stop, or it passes on
