@@ -15,6 +15,7 @@ import { eyebrow, pageTitle } from "~/@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { listCouncils } from "~/app/actions/getHousing";
 import { councilIndexTitle } from "./council-titles";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const revalidate = 86400;
 
@@ -98,7 +99,7 @@ export default async function StateCouncilsPage({ params }: PageProps) {
         ]}
       />
       {councils.length ? (
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }} />
+        <JsonLd data={itemList} />
       ) : null}
       <div className="mx-auto max-w-6xl space-y-7 px-4 py-8 sm:py-10">
         <Breadcrumbs

@@ -1,5 +1,6 @@
 import React from "react";
 import { siteConfig } from "../../config/site";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 /**
  * Enhanced structured data for richer Google search results
@@ -61,10 +62,7 @@ export function FAQStructuredData({ faqs }: { faqs: FAQItem[] }) {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }
 
@@ -140,10 +138,7 @@ export function DatasetStructuredData({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }
 
@@ -199,10 +194,7 @@ export function ItemListStructuredData({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }
 
@@ -273,10 +265,7 @@ export function EnhancedOrganizationSchema() {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }
 
@@ -302,10 +291,7 @@ export function BreadcrumbListSchema({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }
 
@@ -352,9 +338,6 @@ export function EnhancedWebSiteSchema() {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }

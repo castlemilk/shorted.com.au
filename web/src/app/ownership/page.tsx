@@ -30,6 +30,7 @@ import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getOwnershipOverview, listInstitutions } from "~/app/actions/getOwnership";
 import type { OwnershipInstitution } from "~/gen/shorts/v1alpha1/ownership_pb";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/ownership";
 const TITLE = "Who Owns the ASX: Super Funds, Index Funds and Hedge Funds";
@@ -168,7 +169,7 @@ export default async function OwnershipPage() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <LLMMeta
         title={TITLE}
         description={DESCRIPTION}

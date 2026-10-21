@@ -6,6 +6,7 @@ import {
   Breadcrumbs,
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "Disclaimer — General Information, Not Financial Advice",
@@ -60,48 +61,43 @@ export default function DisclaimerPage() {
       <BreadcrumbStructuredData
         items={[{ label: "Disclaimer", href: "/disclaimer" }]}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebPage",
-            name: "Disclaimer — General Information, Not Financial Advice",
-            url: `${siteConfig.url}/disclaimer`,
-            description:
-              "Terms of reliance for Shorted.com.au content: general information only, not personal financial advice per Corporations Act 2001 s766B.",
-            datePublished: "2026-04-22",
-            dateModified: "2026-04-22",
-            inLanguage: "en-AU",
-            isPartOf: {
-              "@type": "WebSite",
-              name: siteConfig.name,
-              url: siteConfig.url,
-            },
-            author: {
-              "@type": "Organization",
-              name: siteConfig.name,
-              url: siteConfig.url,
-            },
-            publisher: {
-              "@type": "Organization",
-              name: siteConfig.name,
-              url: siteConfig.url,
-              logo: { "@type": "ImageObject", url: siteConfig.ogImage },
-            },
-            about: {
-              "@type": "Thing",
-              name: "Financial product advice disclaimer under Corporations Act 2001 (Cth) s766B",
-            },
-            specialty: "FinancialRegulation",
-            significantLink: [
-              `${siteConfig.url}/methodology`,
-              `${siteConfig.url}/terms`,
-              `${siteConfig.url}/privacy`,
-            ],
-          }),
-        }}
-      />
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: "Disclaimer — General Information, Not Financial Advice",
+        url: `${siteConfig.url}/disclaimer`,
+        description:
+          "Terms of reliance for Shorted.com.au content: general information only, not personal financial advice per Corporations Act 2001 s766B.",
+        datePublished: "2026-04-22",
+        dateModified: "2026-04-22",
+        inLanguage: "en-AU",
+        isPartOf: {
+          "@type": "WebSite",
+          name: siteConfig.name,
+          url: siteConfig.url,
+        },
+        author: {
+          "@type": "Organization",
+          name: siteConfig.name,
+          url: siteConfig.url,
+        },
+        publisher: {
+          "@type": "Organization",
+          name: siteConfig.name,
+          url: siteConfig.url,
+          logo: { "@type": "ImageObject", url: siteConfig.ogImage },
+        },
+        about: {
+          "@type": "Thing",
+          name: "Financial product advice disclaimer under Corporations Act 2001 (Cth) s766B",
+        },
+        specialty: "FinancialRegulation",
+        significantLink: [
+          `${siteConfig.url}/methodology`,
+          `${siteConfig.url}/terms`,
+          `${siteConfig.url}/privacy`,
+        ],
+      }} />
       <div className="container mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6">
           <Breadcrumbs items={[{ label: "Disclaimer", href: "/disclaimer" }]} />

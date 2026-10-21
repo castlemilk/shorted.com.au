@@ -57,6 +57,7 @@ import {
   RegisterChangeKind,
   RegisterHolder,
 } from "~/gen/shorts/v1alpha1/politicians_pb";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 // Fully server-rendered: this is the SEO asset. The one client island (the
 // declarations filter) receives already-rendered rows, so every published row is
@@ -363,10 +364,7 @@ export default async function PoliticianPage({
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
       {/*
         THE MACHINE-READABLE TWINS OF THE META DESCRIPTION, BRANCHED ON THE SAME
         PREDICATE.

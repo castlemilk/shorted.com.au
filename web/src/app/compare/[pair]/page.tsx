@@ -9,6 +9,7 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { loadStockOrFail } from "~/app/shorts/[stockCode]/stock-page-data";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 type PageProps = {
   params: Promise<{ pair: string }>;
@@ -207,10 +208,7 @@ export default async function ComparePage({ params }: PageProps) {
   return (
     <main className="min-h-screen">
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageSchema) }}
-      />
+      <JsonLd data={webPageSchema} />
 
       <div className="container mx-auto max-w-4xl px-4 py-8">
         <div className="mb-4">

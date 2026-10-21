@@ -12,6 +12,7 @@ import { cleanCompanyName } from "~/@/lib/company-name";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { stockOgImage } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 // The timeline imports @connectrpc/connect, so it is client-only (as the chart
 // panels on the Overview and Short interest tabs are) and fetches after
@@ -221,16 +222,9 @@ export default async function StockNewsPage({ params }: PageProps) {
   return (
     <>
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
-      />
+      <JsonLd data={itemList} />
       {newsSchema.map((s, i) => (
-        <script
-          key={i}
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(s) }}
-        />
+        <JsonLd key={i} data={s} />
       ))}
       <LLMMeta
         title={`${code} News & Sentiment`}

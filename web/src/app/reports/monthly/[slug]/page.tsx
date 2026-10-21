@@ -25,6 +25,7 @@ import {
   getMonthlyReportDataStrict,
   getEnhancedWeeklyReportDataStrict,
 } from "~/app/actions/reports/getReportData";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -251,10 +252,7 @@ export default async function MonthlyReportPage({ params }: PageProps) {
     <DashboardLayout>
       <BreadcrumbListSchema items={breadcrumbsSchema} />
       {articleSchema && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
-        />
+        <JsonLd data={articleSchema} />
       )}
       {/* FAQPage schema removed — only eligible for government/healthcare sites since Aug 2023 */}
       <ItemListStructuredData

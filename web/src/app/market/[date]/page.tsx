@@ -25,6 +25,7 @@ import {
   getMarketByDateStrict,
   isValidMarketDate,
 } from "~/app/actions/market/getMarketByDate";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 interface PageProps {
   params: Promise<{ date: string }>;
@@ -142,10 +143,7 @@ function DateDatasetStructuredData({ date }: { date: string }) {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-    />
+    <JsonLd data={structuredData} />
   );
 }
 

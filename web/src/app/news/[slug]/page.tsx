@@ -17,6 +17,7 @@ import { getEditorialTakeOrNotFound } from "~/app/actions/getEditorialTake";
 import { getStock } from "~/app/actions/getStock";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { type GetEditorialTakeResponse } from "~/gen/shorts/v1alpha1/news_pb";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 // On-demand ISR: nothing renders at build, and each take generates on its
 // first request and is cached for 600 s. Without generateStaticParams the
@@ -266,10 +267,7 @@ export default async function ShortedTakePage({ params }: Params) {
         dataSource="ASIC short-position data + Australian news publishers"
       />
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(newsArticleSchema) }}
-      />
+      <JsonLd data={newsArticleSchema} />
 
       <div className="mx-auto max-w-4xl px-4 py-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-6" />

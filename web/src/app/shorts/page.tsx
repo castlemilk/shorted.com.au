@@ -6,6 +6,7 @@ import { calculateMovers, type TimePeriod } from "~/@/lib/shorts-calculations";
 import { siteConfig } from "~/@/config/site";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { ShortsListFallback } from "~/@/components/shorts-list-fallback";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 // Dynamic import to avoid SSR issues — child imports @connectrpc/connect
 const TopShortsClient = nextDynamic(
@@ -111,10 +112,7 @@ export default async function TopShortsPage() {
   return (
     <>
       <BreadcrumbListSchema items={breadcrumbs} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
-      />
+      <JsonLd data={itemList} />
 
       {/* Server-rendered header — the interactive dashboard below is
           client-only (ssr:false), so this is the indexable page intro. */}

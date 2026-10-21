@@ -49,6 +49,7 @@ import {
 } from "./short-interest-summary";
 import { loadStockOrFail } from "./stock-page-data";
 import { STOCK_CODE_PATTERN } from "./stock-page-shared";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -391,18 +392,8 @@ const Page = async ({ params }: PageProps) => {
         };
         return (
           <>
-            <script
-              type="application/ld+json"
-              dangerouslySetInnerHTML={{
-                __html: JSON.stringify(datasetSchema),
-              }}
-            />
-            <script
-              type="application/ld+json"
-              dangerouslySetInnerHTML={{
-                __html: JSON.stringify(corporationSchema),
-              }}
-            />
+            <JsonLd data={datasetSchema} />
+            <JsonLd data={corporationSchema} />
             {/* Crawler/LLM summary — kept in the SSR DOM for SEO + AI bots but
                 visually hidden (sr-only, not display:none, so it stays indexed
                 and in the a11y tree). The same facts are shown visibly in the

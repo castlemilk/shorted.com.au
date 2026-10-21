@@ -21,6 +21,7 @@ import {
   PolicyPriceChart,
 } from "@/components/features/housing/dashboards";
 import { LLMMeta } from "@/components/seo/llm-meta";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/features/the-widow-maker";
 const TITLE = "The Widow-Maker: why betting against Australian housing keeps failing";
@@ -107,10 +108,7 @@ export default function WidowMakerFeature() {
           "CGT discount",
         ]}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
-      />
+      <JsonLd data={articleSchema} />
 
       <Hero />
 

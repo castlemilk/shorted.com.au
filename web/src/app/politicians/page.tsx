@@ -51,6 +51,7 @@ import {
 import type { PoliticsIconName } from "@/components/politicians/politics-icons.generated";
 import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
 import { RegisterChangeKind } from "~/gen/shorts/v1alpha1/politicians_pb";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/politicians";
 const TITLE = "Parliament's Portfolio — What Federal MPs and Senators Declare";
@@ -486,10 +487,7 @@ export default async function PoliticiansPage() {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
       <LLMMeta
         title={TITLE}
         description={DESCRIPTION}

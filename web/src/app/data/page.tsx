@@ -12,6 +12,7 @@ import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { DatasetStructuredData } from "~/@/components/seo/enhanced-structured-data";
 import { latestAsicDataDate } from "~/@/components/home/asic-data-freshness";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   // No brand: the root layout's `%s | Shorted` template appends it.
@@ -247,11 +248,7 @@ export default async function DataHubPage() {
     <DashboardLayout>
       <BreadcrumbStructuredData items={breadcrumbItems} />
       {DATASETS.map((d) => (
-        <script
-          key={d.slug}
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildDatasetSchema(d)) }}
-        />
+        <JsonLd key={d.slug} data={buildDatasetSchema(d)} />
       ))}
       <DatasetStructuredData
         datasetInfo={{

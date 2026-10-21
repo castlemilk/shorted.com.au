@@ -14,6 +14,7 @@ import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-dat
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { glossaryTerms } from "~/@/data/glossary-terms";
 import { createSlug } from "~/@/lib/industry-slug";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "Short Selling Glossary | Key Terms & Definitions",
@@ -82,10 +83,7 @@ function GlossaryStructuredData() {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-    />
+    <JsonLd data={structuredData} />
   );
 }
 

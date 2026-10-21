@@ -17,6 +17,7 @@ import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { cn } from "~/@/lib/utils";
 import { type GetDirectorTradesResponse } from "~/gen/shorts/v1alpha1/stock_pb";
 import { type Stock } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 // On-demand ISR: nothing renders at build, and each code generates on its
 // first request and is cached for the hour. Without generateStaticParams the
@@ -305,14 +306,8 @@ export default async function StockInsiderTradingPage({ params }: PageProps) {
   return (
     <DashboardLayout>
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(article) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
-      />
+      <JsonLd data={article} />
+      <JsonLd data={itemList} />
       <LLMMeta
         title={`${code} Director Trades`}
         description={`Director trades for ${companyName} (ASX:${code}) from Appendix 3Y filings.`}

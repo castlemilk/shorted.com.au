@@ -21,6 +21,7 @@ import { bailOnEmptyRender } from "~/app/actions/config";
 import { getCouncilProfile, listCouncils } from "~/app/actions/getHousing";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { councilPageTitle } from "../council-titles";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const revalidate = 86400;
 
@@ -129,7 +130,7 @@ export default async function CouncilPage({ params }: PageProps) {
           { name: s.displayName, url: pageUrl },
         ]}
       />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(councilJsonLd(profile, code)) }} />
+      <JsonLd data={councilJsonLd(profile, code)} />
       <div className="mx-auto max-w-6xl space-y-9 px-4 py-8 sm:py-10">
         <Breadcrumbs items={crumbs} />
 

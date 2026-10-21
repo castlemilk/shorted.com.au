@@ -33,6 +33,7 @@ import {
   economyTopicHeadlineKey,
   type EconomyTopicDefinition,
 } from "@/lib/economy/topics";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const revalidate = 3600;
 
@@ -320,10 +321,7 @@ export default async function EconomyStatePage({ params }: PageProps) {
           `${name} exports`,
         ]}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
         <EconomyBreadcrumbs stateName={name} stateSlug={state} />

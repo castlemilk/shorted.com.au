@@ -22,6 +22,7 @@ import { Badge } from "~/@/components/ui/badge";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { getIndustryData } from "../actions/industry/getIndustryData";
 import { getSectorImagePath, getSectorImageAlt } from "~/@/lib/sector-images";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "ASX Short Positions by Industry | Sector Analysis",
@@ -106,10 +107,7 @@ export default async function IndustryIndexPage() {
 
   return (
     <DashboardLayout>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
-      />
+      <JsonLd data={itemList} />
       <BreadcrumbListSchema items={breadcrumbs} />
 
       <div className="space-y-8">

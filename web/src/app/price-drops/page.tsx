@@ -26,6 +26,7 @@ import { LLMMeta } from "@/components/seo/llm-meta";
 import { dropsFreshness, fmtDropsDate, timestampToDate } from "@/lib/housing/drops-freshness";
 import { pageTitle, sectionTitle, eyebrow, lede } from "@/lib/typography";
 import { cn } from "@/lib/utils";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/price-drops";
 const TITLE = "Australian House Price Drops — by State, Suburb & Agency";
@@ -173,7 +174,7 @@ export default async function PriceDropsPage() {
           "real estate price reductions",
         ]}
       />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
 
       <div className="mx-auto max-w-6xl space-y-12 px-4 py-8">
         <header>

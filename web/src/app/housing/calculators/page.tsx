@@ -9,6 +9,7 @@ import { HousingIcon } from "@/components/housing/housing-icon";
 import { QueryPrefilledCalculators, QueryPrefillNote } from "./calculator-prefill";
 import { CalculatorSet, PrefillNote } from "./calculator-set";
 import { resolvePrefill } from "./prefill";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/housing/calculators";
 const TITLE = "Home Loan & Deposit Calculators — Australian House Prices";
@@ -75,7 +76,7 @@ export default async function HousingCalculatorsPage() {
         dataFrequency="quarterly"
         keywords={["mortgage calculator", "stamp duty", "home deposit", "Australia"]}
       />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
         <header>

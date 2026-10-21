@@ -7,6 +7,7 @@ import {
   Breadcrumbs,
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   // About 60 characters before the root template's " | Shorted": the old
@@ -167,14 +168,8 @@ export default function SeasonalityPage() {
   return (
     <main className="min-h-screen">
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-      />
+      <JsonLd data={articleSchema} />
+      <JsonLd data={faqSchema} />
 
       <div className="container mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6">

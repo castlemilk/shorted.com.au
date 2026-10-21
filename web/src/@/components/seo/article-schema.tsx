@@ -1,4 +1,5 @@
 import { siteConfig } from "~/@/config/site";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 interface ArticleSchemaProps {
   /** Schema.org type. BlogPosting for `/blog`, NewsArticle for the newsroom. */
@@ -95,9 +96,6 @@ export function ArticleSchema({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }

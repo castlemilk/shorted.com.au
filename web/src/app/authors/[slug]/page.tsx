@@ -18,6 +18,7 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { AUTHORS, getAuthorBySlug } from "~/@/data/authors";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -130,10 +131,7 @@ export default async function AuthorPage({ params }: PageProps) {
   return (
     <DashboardLayout>
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(personSchema) }}
-      />
+      <JsonLd data={personSchema} />
 
       <section className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">

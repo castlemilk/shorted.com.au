@@ -21,6 +21,7 @@ import {
 } from "@/lib/economy/topics";
 import { WhenVisible } from "@/components/housing/when-visible";
 import { LLMMeta } from "@/components/seo/llm-meta";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/economy";
 const TITLE = "Australian Economy Snapshot";
@@ -237,7 +238,7 @@ export default async function EconomyPage() {
         dataFrequency="monthly"
         keywords={["Australian economy", "RBA cash rate", "CPI inflation", "unemployment rate", "trade balance", "iron ore price", "gold price", "US Treasury yields"]}
       />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
 
       <div className="mx-auto max-w-6xl space-y-10 px-4 py-8">
         <header>
