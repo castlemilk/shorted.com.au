@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_suburb_demographics_federal_division;

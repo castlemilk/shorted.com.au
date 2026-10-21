@@ -255,7 +255,7 @@ const changes90dCount = `
 	    ) events
 	    GROUP BY politician_id`
 
-// politicianSummarySelect joins the rollup as an OUTER join, not an inner one.
+// politicianSummarySelectWith joins the rollup as an OUTER join, not an inner one.
 //
 // mv_register_politician_rollup is a snapshot: a politician inserted (or
 // un-merged) since the last refresh has no row in it. Under an INNER JOIN that
@@ -266,7 +266,12 @@ const changes90dCount = `
 // figures, and the ORDER BY expressions COALESCE too (a bare NULL sorts FIRST
 // under `DESC` in Postgres, which would have floated exactly those unrefreshed
 // rows to the top of the default sort).
-const politicianSummarySelect = `
+//
+// changesJoin attaches c.changes_90d_count: the grouped pass over every
+// member's holdings for the hub list, or a per-member count for the one-member
+// read (politicianSummarySelectOne).
+func politicianSummarySelectWith(changesJoin string) string {
+	return `
 	SELECT p.slug, p.display_name, p.surname, p.given_names, p.honorific,
 	       COALESCE(t.chamber, ''), COALESCE(t.division, ''), COALESCE(t.state_code, ''),
 	       COALESCE(t.party, e.federal_party, ''), COALESCE(t.party_ab, e.federal_party_ab, ''),
@@ -300,8 +305,7 @@ const politicianSummarySelect = `
 	       COALESCE(r.liability_count, 0), COALESCE(c.changes_90d_count, 0), COALESCE(r.undated_count, 0)
 	FROM politicians p
 	LEFT JOIN mv_register_politician_rollup r ON r.politician_id = p.id
-	LEFT JOIN (` + changes90dCount + `
-	) c ON c.politician_id = p.id
+	` + changesJoin + `
 	LEFT JOIN LATERAL (
 	    SELECT chamber, division, state_code, party, party_ab
 	    FROM politician_terms
@@ -318,6 +322,34 @@ const politicianSummarySelect = `
 	    LIMIT 1
 	) e ON TRUE
 	WHERE p.merged_into_id IS NULL`
+}
+
+// changes90dGroupedJoin counts every member's events in one grouped pass and
+// hash-joins it: the right shape for the hub list, which reads every member.
+const changes90dGroupedJoin = `LEFT JOIN (` + changes90dCount + `
+	) c ON c.politician_id = p.id`
+
+// changes90dOneJoin is changes90dCount for the one member p: the same two
+// event kinds, each counted once, read from that member's own entries in
+// idx_mv_register_public_holdings (politician_id leads it) instead of
+// aggregating every member to keep one. The profile read used the grouped
+// pass, which seq-scans the whole 21 MB view for the declared_to events: on
+// prod (2026-10-21) that form ran 29,080 times at 680 ms, and EXPLAIN puts it
+// at cost 3,477 against 112 for this one. Its counts match the grouped pass
+// for all 491 members (read-only prod check, 157 events).
+const changes90dOneJoin = `LEFT JOIN LATERAL (
+	    SELECT (count(*) FILTER (WHERE declared_from_known AND declared_from >= CURRENT_DATE - 90)
+	          + count(*) FILTER (WHERE declared_to IS NOT NULL AND declared_to >= CURRENT_DATE - 90))::INTEGER AS changes_90d_count
+	    FROM mv_register_public_holdings
+	    WHERE politician_id = p.id
+	) c ON TRUE`
+
+var (
+	// politicianSummarySelect reads every member (ListPoliticianSummaries).
+	politicianSummarySelect = politicianSummarySelectWith(changes90dGroupedJoin)
+	// politicianSummarySelectOne reads one member (loadPoliticianSummaryBySlug).
+	politicianSummarySelectOne = politicianSummarySelectWith(changes90dOneJoin)
+)
 
 func (s *postgresStore) GetRegisterExplorer() (*RegisterExplorerRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -631,7 +663,7 @@ func (s *postgresStore) loadPoliticianTerms(ctx context.Context, slug string) ([
 
 func (s *postgresStore) loadPoliticianSummaryBySlug(ctx context.Context, slug string) (*PoliticianSummaryRow, *politicianRollupScanRow, error) {
 	return scanPoliticianSummary(s.db.QueryRow(ctx,
-		politicianSummarySelect+" AND p.slug = $1 LIMIT 1", slug).Scan)
+		politicianSummarySelectOne+" AND p.slug = $1 LIMIT 1", slug).Scan)
 }
 
 func (s *postgresStore) GetPoliticianExplorerProfile(slug string, topIndustries int32) (*PoliticianExplorerProfileRow, error) {
