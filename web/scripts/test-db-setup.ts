@@ -1,15 +1,23 @@
 #!/usr/bin/env tsx
 /**
  * Test Database Setup Script
- * Creates test data for E2E testing
+ * Creates test data for E2E testing.
+ *
+ * It goes through the Supabase Data API and DELETEs the stock_prices and shorts
+ * rows of the TEST_STOCKS before inserting random fixtures, so it seeds only a
+ * local or test project: it refuses to start unless SUPABASE_URL is set and is
+ * not the prod project (./test-db-target.mjs). It used to default to prod.
+ *
+ *   SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_ANON_KEY=<key> npm run test:seed
  */
+
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import { createClient } from '@supabase/supabase-js';
 import { format, subDays } from 'date-fns';
 
-// Test database connection (can be overridden with env vars)
-const supabaseUrl = process.env.SUPABASE_URL || 'https://xivfykscsdagwsreyqgf.supabase.co';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || 'your-anon-key';
+import { resolveSeedTarget } from './test-db-target.mjs';
 
 // Test stocks to seed
 const TEST_STOCKS = [
@@ -71,9 +79,11 @@ function generateShortData(stockCode: string, days: number = 365) {
 }
 
 async function setupTestDatabase() {
-  console.log('🚀 Setting up test database...\n');
-  
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  // First, before any client exists: never prod, and never a default project.
+  const { url, key } = resolveSeedTarget(process.env);
+  console.log(`🚀 Setting up test database at ${new URL(url).host}...\n`);
+
+  const supabase = createClient(url, key);
   
   try {
     // Clear existing test data
@@ -178,12 +188,14 @@ async function setupTestDatabase() {
   }
 }
 
-// Run if called directly
-if (require.main === module) {
+// Run if called directly. web/package.json makes this an ES module, where the
+// old `require.main === module` threw before the setup ever ran.
+const entry = process.argv[1];
+if (entry && realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url))) {
   setupTestDatabase()
     .then(() => process.exit(0))
     .catch((error) => {
-      console.error('Fatal error:', error);
+      console.error('Fatal error:', error instanceof Error ? error.message : error);
       process.exit(1);
     });
 }
