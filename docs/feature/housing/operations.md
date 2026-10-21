@@ -164,6 +164,14 @@ success. The views are not in `housing_mv_refresh`, so `MV_REFRESH_AGE` never
 sees them. The sentinel's `SUBURB_VIEW_STALENESS` check watches them instead:
 it reports a public suburb median loaded after
 `mv_housing_state_baselines.computed_at` once that load is 6 hours old.
+The Housing Freshness workflow is `disabled_manually` on GitHub (last run
+2026-10-01), so until it is re-enabled nothing runs that check. By hand,
+read-only; `t` means the views were refreshed after the newest public suburb
+median load:
+
+```bash
+task db:prod:psql -- -At -c "SELECT (SELECT max(computed_at) FROM mv_housing_state_baselines) > (SELECT max(hp.fetched_at) FROM house_prices hp JOIN house_price_regions sr ON sr.region_code = hp.region_code WHERE sr.region_type = 'suburb' AND hp.measure = 'median_price' AND hp.dwelling_type = 'house' AND hp.source_licence <> 'proprietary-tos-restricted') AS views_current"
+```
 
 Only a collector built with 000139's change calls the function, and nothing
 else does, so apply 000139 only after the Cloud Run job and the rig binary

@@ -74,7 +74,10 @@
 --     `deployed=<rev>`). `unknown` does not count.
 -- If either one still runs an older binary after the apply, run the refresh
 -- above after each of its loads until it is redeployed. The sentinel's
--- SUBURB_VIEW_STALENESS check reports a load the views missed.
+-- SUBURB_VIEW_STALENESS check reports a load the views missed, but only while
+-- the Housing Freshness workflow runs. It is disabled_manually on GitHub (no
+-- run since 2026-10-01); operations.md ("MV refresh") has the same check as a
+-- read-only query.
 --
 -- Hand-applied (prod does not run `migrate up`): `task db:prod:apply
 -- FILE=services/migrations/000139_suburb_reference_mvs.up.sql CONFIRM=prod`,
