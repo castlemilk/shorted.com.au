@@ -31,7 +31,7 @@ The data is frozen at 21 October 2026: ASIC short positions to 15 October 2026 (
 
 ## What counts as a peak
 
-Short sellers report positions above a threshold to ASIC, which publishes the total for each stock, without the sellers' names, four days after the reporting day ([ASIC INFO 98](https://asic.gov.au/regulatory-resources/markets/short-selling/short-selling-reporting-short-position-reporting/)). The figure Shorted shows is that total as a percentage of the shares on issue.
+Short sellers report positions above a threshold to ASIC, which publishes the total for each stock, without the sellers' names, four business days after the position date ([ASIC INFO 98](https://asic.gov.au/regulatory-resources/markets/short-selling/short-selling-reporting-short-position-reporting/)). The figure Shorted shows is that total as a percentage of the shares on issue.
 
 Shorted's campaign table, the one behind the Scoreboard tab on [Battlegrounds](/battlegrounds), takes each stock's single highest reported position over the trailing three years and keeps it when it reached 5% or more. That reading is the campaign's peak. The table refreshes daily; this study uses the version fetched on 21 October 2026.
 
@@ -80,13 +80,13 @@ The market mostly rose over these windows, so the comparison with it matters mor
   items='[
     {"value":"52.3%","label":"trailed the S&P/ASX 200 total return six months after the peak date","hint":"86 campaigns old enough to measure","accent":true},
     {"value":"64.7%","label":"trailed it six months after ASIC published the peak","hint":"85 campaigns; publication is four business days later","accent":true},
-    {"value":"62.5%","label":"of positions had halved within six months of the peak","hint":"55 of 88 peaks at least six months old"}
+    {"value":"62.5%","label":"of peaks had fallen back to half within six months","hint":"55 of 88 peaks at least six months old, in % of shares on issue"}
   ]'
 />
 
 <GraphTable title="Share prices after the peak against the S&P/ASX 200 total return (XJT), prices to 20 October 2026">
 
-| Window and clock | Campaigns | Price lower | Median price change | Trailed XJT | Median vs XJT | Middle half vs XJT |
+| Window and clock | Campaigns | Share with a lower price | Median price change | Share that trailed XJT | Median vs XJT | Middle half vs XJT |
 | --- | --- | --- | --- | --- | --- | --- |
 | 3 months, from the peak date | 107 | 43.0% | +3.3% | 52.3% | -1.1 pts | -14.7 to +21.3 pts |
 | 3 months, from ASIC publication | 106 | 44.3% | +3.0% | 53.8% | -2.3 pts | -15.6 to +17.2 pts |
