@@ -17,6 +17,7 @@ import type {
 import { formatAmount, formatPct } from "~/@/lib/fundamentals/format";
 import {
   formLabel,
+  formatFundWeight,
   formatPointChange,
   formatVotingPower,
   fundLabel,
@@ -70,7 +71,9 @@ export function fileHoldingRow(h: FundHolding): FileHoldingRow {
     code: h.stockCode,
     fund: fundLabel(h.fundCode, h.fundName),
     value: h.hasValue ? formatAmount(h.valueAud, "AUD") : "n/a",
-    ofFund: h.hasWeight ? formatPct(h.weightPct, { digits: 2 }) : "n/a",
+    // The stock card's rule (StockOwnershipView): a super fund's stated 0.00
+    // beside a real value is "<0.01%", never a holding of nothing.
+    ofFund: formatFundWeight(h.weightPct, h.hasWeight, h.hasValue ? h.valueAud : null),
     ofShares: h.hasPctOfIssued ? formatPct(h.pctOfIssued, { digits: 2 }) : "n/a",
     asAt: h.asAt,
   };

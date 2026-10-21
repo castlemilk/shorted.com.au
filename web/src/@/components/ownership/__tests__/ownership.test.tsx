@@ -19,7 +19,7 @@ import {
   institutionHref,
   kindInfo,
 } from "~/@/lib/ownership/kinds";
-import { noticeRow, type FileHoldingRow, type HoldingRow } from "~/@/lib/ownership/rows";
+import { fileHoldingRow, noticeRow, type FileHoldingRow, type HoldingRow } from "~/@/lib/ownership/rows";
 
 const share = (kind: string, pct: number, holders = 1): KindShare =>
   ({ kind, pct, holders }) as unknown as KindShare;
@@ -391,5 +391,26 @@ describe("StockOwnershipView", () => {
     const superCells = within(within(tables[1]!).getAllByRole("row")[2]!).getAllByRole("cell");
     expect(superCells[3]!.textContent).toBe("<0.01%");
     expect(screen.getByText(/index funds tracked hold/)).toBeInTheDocument();
+  });
+
+  // The institution page's holdings-file island prints rows formatted apart
+  // from this card (lib/ownership/rows.ts), so a holding can read one way here
+  // and another there: Rest's 0.00 was "<0.01%" on this card and "0.00%" on
+  // /ownership/rest.
+  it("reads each fund holding as the institution page's holdings-file rows do", () => {
+    render(<StockOwnershipView data={data} />);
+    const drawn = within(screen.getAllByRole("table")[1]!)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => {
+        const [, value, ofShares, ofFund, asAt] = within(row).getAllByRole("cell").map((c) => c.textContent);
+        return { value, ofShares, ofFund, asAt };
+      });
+    expect(drawn).toEqual(
+      data.fundHoldings.map((h) => {
+        const { value, ofShares, ofFund, asAt } = fileHoldingRow(h);
+        return { value, ofShares, ofFund, asAt };
+      }),
+    );
   });
 });

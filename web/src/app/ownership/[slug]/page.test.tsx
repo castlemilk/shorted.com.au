@@ -189,6 +189,27 @@ describe("InstitutionPage", () => {
     expect(screen.queryByRole("button", { name: /^Show all/ })).toBeNull();
   });
 
+  // Super funds' disclosures state weights to two decimals, so Rest's A$2.97M
+  // of DRO is stated as 0.00 of its fund. 5753139f7 drew that "<0.01%" on the
+  // stock card and on this page's old inline table; the holdings-file island
+  // that replaced the table kept printing "0.00%".
+  it("draws a stated 0.00 weight beside a real value as under 0.01% of the fund", async () => {
+    const data = response({ slug: "rest", name: "Rest", kind: "super_fund", fundHoldings: 3 });
+    const option = { fundName: "Growth", fundCode: "", sourceKind: "super_phd", asAt: "2026-06-30" };
+    data.fundHoldings[1] = { ...data.fundHoldings[1]!, ...option, stockCode: "DRO", valueAud: 2.97e6, weightPct: 0 };
+    // A stated 0.00 with no value stated beside it is left as stated.
+    data.fundHoldings[2] = { ...data.fundHoldings[2]!, ...option, valueAud: 0, hasValue: false, weightPct: 0 };
+    getInstitutionOrNotFound.mockResolvedValue(data);
+    render(await InstitutionPage(params("rest")));
+
+    const files = screen.getByRole("table", { name: "Rest's largest disclosed ASX holdings" });
+    expect(bodyRows(files).map((row) => within(row).getAllByRole("cell")[3]!.textContent)).toEqual([
+      "1.00%",
+      "<0.01%",
+      "0.00%",
+    ]);
+  });
+
   // The visible trail had no structured counterpart: the page's only JSON-LD
   // was the site-wide WebSite.
   it("describes its breadcrumb trail as a BreadcrumbList", async () => {
