@@ -14,7 +14,8 @@ import { bailOnEmptyRender } from "~/app/actions/config";
 import { getScanResults } from "~/app/actions/getScanResults";
 
 export const metadata: Metadata = {
-  title: "ASX Short Interest Scans — Rising Shorts, Covering & Squeeze Fuel",
+  // The root template adds " | Shorted": keep the whole under ~65 characters.
+  title: "ASX Short Interest Scans — Rising Shorts & Covering",
   description:
     "Daily short-selling scans over every ASX stock: rising short interest, short covering, heavily shorted names, days-to-cover extremes and squeeze setups. Official ASIC data.",
   keywords: [
