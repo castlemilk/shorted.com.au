@@ -8,8 +8,8 @@ export const maxDuration = 60;
 // DEPRECATED — this is a compatibility shim, not the MCP server.
 //
 // The real server is Go, in-process with the API, at
-// https://api.shorted.com.au/mcp: 28 tools across market, stock, discovery,
-// news, housing, economy and politicians, plus resources and prompts, on
+// https://api.shorted.com.au/mcp: 32 tools across market, stock, discovery,
+// news, housing, economy, politicians and ownership, plus resources and prompts, on
 // protocol 2026-07-28. This route has four tools, calls the API back over
 // HTTP through the WAF, and speaks whatever protocol the Vercel `mcp-handler`
 // package supports.
@@ -24,8 +24,8 @@ const NEW_ENDPOINT = "https://api.shorted.com.au/mcp";
 const MIGRATION_DOCS = "https://shorted.com.au/docs/mcp.md";
 const DEPRECATION_NOTICE =
   `This endpoint is deprecated. Reconfigure this MCP server to ${NEW_ENDPOINT}, ` +
-  `which serves 28 tools (market, stocks, discovery, news, housing, economy, ` +
-  `politicians) plus resources and prompts, against the same data. ` +
+  `which serves 32 tools (market, stocks, discovery, news, housing, economy, ` +
+  `politicians, ownership) plus resources and prompts, against the same data. ` +
   `Migration guide: ${MIGRATION_DOCS}`;
 
 // All tools call the public Connect-RPC JSON endpoints server-side with

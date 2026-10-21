@@ -150,9 +150,17 @@ func dedupe(in []string) []string {
 // One tool for all four instead of four tools saves three descriptions and input
 // schemas. tools/list went from 91,006 bytes (29 tools) to 93,700 (30). The
 // ceiling is the smallest whole KiB at least 1,024 bytes over that.
+//
+// It was raised from 93KB to 99KB on 21 Oct 2026 for ownership: no tool could
+// answer who owns a stock or what an institution holds, which the substantial
+// holding notices, index ETF files and super fund disclosures now answer.
+// get_stock_ownership and get_institution_holdings took tools/list from 94,502
+// bytes (30 tools) to 99,763 (32), after the trims: counts as int (an int32
+// schema carries 55 bytes of bounds), omitted counts in the note, and no field
+// another tool already serves.
 func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	// One bounded mention tool and the market entrypoint metadata add 2 KiB.
-	const budget = 93 * 1024
+	const budget = 99 * 1024
 
 	ctx := context.Background()
 	server := NewServer(&fakeDataSource{})

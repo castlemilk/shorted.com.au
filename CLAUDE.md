@@ -85,7 +85,7 @@ Shorted.com.au is a platform for tracking short selling positions in the Austral
 | ---------------- | ---- | -------------------------------- | ---------------------------------------------- |
 | Frontend         | 3020 | `web/`                           | Next.js app with dashboard, stock pages        |
 | Shorts API       | 9091 | `services/shorts/`               | Main API for short position data               |
-| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 28 read-only tools + OAuth 2.1 (same process as the Shorts API) |
+| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 32 read-only tools + OAuth 2.1 (same process as the Shorts API) |
 | Market Data      | 8090 | `services/market-data/`          | Historical stock prices                        |
 | Chat Service     | -    | `services/chat-service/`         | AI chat with Gemini LLM + 8 API tools          |
 | News Aggregator  | -    | `services/news-aggregator/`      | RSS news aggregation + Gemini sentiment        |
@@ -928,6 +928,7 @@ disclosures, and every substantial holding notice PDF since 2024. Migration
 | Job, parser, registry | `services/jobs/internal/jobs/ownership/` (`notice.go` parser, fixtures in `testdata/notices/`; `registry.go` kinds, aliases, groups) |
 | API | `services/shorts/internal/services/shorts/ownership.go` (views built in pure functions, 10-minute cache), `store/shorts/postgres_ownership.go` (a schema without 000137 reads empty, never a 500) |
 | Web | `app/ownership/`, `components/ownership/` (server components only), `lib/ownership/kinds.ts`, `app/actions/getOwnership.ts` (ISR tag `ownership` + KV last-good, flush `ownership`) |
+| MCP | `get_stock_ownership` (holders, by-kind sum, the 15 largest fund holdings, each fund named with its institution) and `get_institution_holdings` (slug or name; an ambiguous name lists the slugs), `services/shorts/internal/mcp/tools_ownership.go`. A stated 0.00% fund weight beside a real value is omitted (super disclosures state two places) |
 
 ### Landmines
 
@@ -1114,11 +1115,11 @@ must never fire from a deploy). `make register-photos` / `register-index`.
   the new row by name mints duplicates. The crawl is incremental (re-queue when the listing
   date ≥ fetch date). Runbook: operations.md "Re-crawling prod".
 
-## MCP server — OAuth 2.1, 28 tools, protocol `2026-07-28`
+## MCP server — OAuth 2.1, 32 tools, protocol `2026-07-28`
 
 `https://api.shorted.com.au/mcp` — read-only Model Context Protocol access to
 everything above: short positions, stocks, housing, economy, the register of
-interests. **LIVE on prod**, streamable HTTP, 28 tools, 3 resources, 3 prompts.
+interests, ownership. **LIVE on prod**, streamable HTTP, 32 tools, 3 resources, 3 prompts.
 Go SDK (`modelcontextprotocol/go-sdk`), served by the shorts API.
 
 **The product promise, and the constraint every change here answers to:** a user
@@ -1137,7 +1138,7 @@ Next.js contributes only the consent screen.
 
 | File | Purpose |
 |------|---------|
-| `services/shorts/internal/mcp/` | Server, registry, 28 tools, catalog, resources, prompts |
+| `services/shorts/internal/mcp/` | Server, registry, 32 tools, catalog, resources, prompts |
 | `services/shorts/internal/mcp/auth.go` | Audience-bound verification, RFC 9728 metadata, `OptionalBearerToken` |
 | `services/shorts/internal/mcp/ratelimit.go` | Per-tool-call cost, identity, JSON-RPC 429 |
 | `services/shorts/internal/oauth/` | AS metadata, consent tickets, grant, token, CIMD + DCR |
@@ -1185,7 +1186,7 @@ Next.js contributes only the consent screen.
   caller at their ceiling gets a plain 429: they have already done what a
   challenge asks, and what they need is `upgrade_url`. Do NOT "fix" adoption by
   gating anonymous access. (Before this, OAuth was live but fully dormant —
-  measured 2026-08-30, a real client connected, got 24 tools (28 today), stored no auth
+  measured 2026-08-30, a real client connected, got 24 tools (32 today), stored no auth
   state and never started the flow.)
 - **`RATE_LIMIT_ENABLED` is now TRUE in prod (Terraform, `shorts-api` module).**
   It was off everywhere until the app layer could tell our own traffic apart:
@@ -1273,8 +1274,9 @@ Next.js contributes only the consent screen.
   **Postgres accepts `-NaN`/`+NaN` where Go's `ParseFloat` does not**, so that
   guard cannot lean on `ParseFloat` alone.
 - **The MCP SDK emits no `$defs`/`$ref`** — every nested struct is inlined at
-  every use site. `tools/list` is ~87KB for 28 tools (89,495 of the 90,112 B budget), paid every session; the
-  lever is fewer fields and fewer redundant descriptions, never flattening.
+  every use site. `tools/list` is ~97KB for 32 tools (99,763 of the 101,376 B budget), paid every session; the
+  lever is fewer fields and fewer redundant descriptions, never flattening. An
+  `int32` output field costs ~55 bytes of schema bounds an `int` does not.
 - **The SDK exports no setter for `TokenInfo` in a context.** A test wanting an
   authenticated request must drive `auth.RequireBearerToken` — which is
   fortunate, because a faked context would pass even with the middleware
