@@ -64,11 +64,16 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Obs) (int
 		ids[key] = id
 	}
 
-	// 2. Batch-upsert observations (latest vintage wins).
+	// 2. Batch-upsert observations (latest vintage wins). An observation the
+	// source re-publishes unchanged is not rewritten: each run re-sends whole
+	// histories, which cost prod 1.42M updates of a 119k-row table in 90 days
+	// (2026-10-21 review DBP-11). n below counts observations sent, not rows
+	// written, so the guard changes no reported count.
 	const oq = `
 		INSERT INTO economic_observations (series_id, period, value)
 		VALUES ($1, $2, $3)
-		ON CONFLICT (series_id, period) DO UPDATE SET value = EXCLUDED.value`
+		ON CONFLICT (series_id, period) DO UPDATE SET value = EXCLUDED.value
+		WHERE economic_observations.value IS DISTINCT FROM EXCLUDED.value`
 	batch := &pgx.Batch{}
 	for _, o := range obs {
 		batch.Queue(oq, ids[o.Series.Key()], o.Period, o.Value)
