@@ -181,6 +181,14 @@
       "thumbnail": "web/public/assets/blog/shorted-2026-platform-update/thumbnail-editorial-v2.webp"
     },
     {
+      "slug": "shorted-for-discord",
+      "asset": "web/public/assets/blog/shorted-for-discord/cover-editorial-v1.webp",
+      "alt": "A cut-paper split-flap panel on a charcoal field, its upper flap falling to reveal a new ink line, above a row of keys with one amber key pressed down.",
+      "prompt": "output/article-covers/shorted-for-discord.md",
+      "original": "output/article-covers/shorted-for-discord.png",
+      "thumbnail": "web/public/assets/blog/shorted-for-discord/thumbnail-editorial-v1.webp"
+    },
+    {
       "slug": "shorted-mcp-server",
       "asset": "web/public/assets/blog/shorted-mcp-server/cover-editorial-v2.webp",
       "alt": "An ivory conversation frame connects by an amber cable to organised research records, with one plain card pulled forward.",
