@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
 import type {
   KindShare,
   OwnershipStock,
@@ -15,20 +14,16 @@ import {
   TableRow,
 } from "~/@/components/ui/table";
 import { formatAmount, formatPct } from "~/@/lib/fundamentals/format";
-import {
-  formLabel,
-  formatPointChange,
-  formatVotingPower,
-  institutionHref,
-  kindInfo,
-  kindRank,
-} from "~/@/lib/ownership/kinds";
+import { holderHref, kindInfo, kindRank } from "~/@/lib/ownership/kinds";
+import { noticeRow } from "~/@/lib/ownership/rows";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { cn } from "~/@/lib/utils";
+import { NoticeRowsTable } from "./ownership-tables";
 
 // Server components only: no "use client", no Connect import, type imports
 // from the generated code. The ownership pages and the stock page's Company
-// tab draw these into ISR HTML.
+// tab draw these into ISR HTML; the long tables are islands
+// (ownership-tables.tsx) fed formatted rows (lib/ownership/rows.ts).
 
 /**
  * A sum of voting powers: two decimals, so a column of sums lines up. A single
@@ -194,11 +189,9 @@ export function OwnershipStockTable({
   );
 }
 
-const LISTED_HOLDER = /^asx:([A-Z0-9]{2,6})$/;
-
 /**
  * A notice's holder, linked to its institution page when it has one, or to its
- * own stock page when the holder is a listed company (key `asx:CODE`).
+ * own stock page when the holder is a listed company (holderHref).
  */
 export function HolderName({
   name,
@@ -211,8 +204,7 @@ export function HolderName({
   holderKey?: string;
   fallback?: string;
 }) {
-  const listed = holderKey ? LISTED_HOLDER.exec(holderKey)?.[1] : undefined;
-  const href = institutionHref(slug) ?? (listed ? stockTabHref(listed, "company") : null);
+  const href = holderHref(slug, holderKey);
   // An empty name falls through to the fallback, so not `??`.
   const text = [name, fallback].find((s) => s) ?? "Unnamed holder";
   return href ? (
@@ -224,79 +216,35 @@ export function HolderName({
   );
 }
 
-/** Substantial holding notices, newest first. */
+/**
+ * Substantial holding notices, newest first. With a `limit`, the rows past it
+ * wait behind "Show all". The page draws ExternalLinkSymbol, which each
+ * notice's ASX link points at.
+ */
 export function NoticeTable({
   notices,
   showStock = true,
   showHolder = true,
   caption,
+  limit,
 }: {
   notices: readonly SubstantialNotice[];
   showStock?: boolean;
   showHolder?: boolean;
   caption: string;
+  limit?: number;
 }) {
   if (notices.length === 0) {
     return <p className="text-sm text-muted-foreground">No notices on record.</p>;
   }
   return (
-    <Table>
-      <caption className="sr-only">{caption}</caption>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Released</TableHead>
-          {showStock ? <TableHead>Stock</TableHead> : null}
-          {showHolder ? <TableHead>Holder</TableHead> : null}
-          <TableHead>Notice</TableHead>
-          <TableHead className="text-right">Voting power</TableHead>
-          <TableHead className="text-right">Change</TableHead>
-          <TableHead>
-            <span className="sr-only">Document</span>
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {notices.map((n) => (
-          <TableRow key={n.announcementUrl}>
-            <TableCell className="whitespace-nowrap tabular-nums">{n.announcedOn}</TableCell>
-            {showStock ? (
-              <TableCell>
-                <Link
-                  href={stockTabHref(n.stockCode, "company")}
-                  prefetch={false}
-                  className="font-semibold text-primary underline-offset-4 hover:underline"
-                >
-                  {n.stockCode}
-                </Link>
-              </TableCell>
-            ) : null}
-            {showHolder ? (
-              <TableCell className="max-w-64">
-                <HolderName name={n.holderName} slug={n.institutionSlug} holderKey={n.holderKey} />
-              </TableCell>
-            ) : null}
-            <TableCell className="whitespace-nowrap">{formLabel(n.form, n.ceased)}</TableCell>
-            <TableCell className="text-right tabular-nums">
-              {n.ceased ? "under 5%" : n.hasPresent ? formatVotingPower(n.presentPct) : "n/a"}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-              {n.hasPrevious && n.hasPresent ? formatPointChange(n.previousPct, n.presentPct) : ""}
-            </TableCell>
-            <TableCell>
-              <a
-                href={n.announcementUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hit-target inline-flex text-muted-foreground hover:text-primary"
-                aria-label={`Notice for ${n.stockCode}, released ${n.announcedOn}, on ASX`}
-              >
-                <ExternalLink className="h-4 w-4" aria-hidden />
-              </a>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <NoticeRowsTable
+      rows={notices.map((n) => noticeRow(n, showHolder))}
+      showStock={showStock}
+      showHolder={showHolder}
+      caption={caption}
+      limit={limit}
+    />
   );
 }
 

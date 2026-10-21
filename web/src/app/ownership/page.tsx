@@ -23,6 +23,7 @@ import {
   OwnershipMethodology,
   OwnershipStockTable,
 } from "~/@/components/ownership/ownership-parts";
+import { ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
 import { formatAmount } from "~/@/lib/fundamentals/format";
 import { KIND_ORDER, kindInfo, kindRank } from "~/@/lib/ownership/kinds";
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
@@ -175,6 +176,8 @@ export default async function OwnershipPage() {
       />
       <DashboardLayout fullWidth>
         <div className="mx-auto w-full max-w-[100rem] space-y-10">
+          {/* The latest notices' ASX links point at it. */}
+          <ExternalLinkSymbol />
           {header}
 
           <section aria-label="Coverage">

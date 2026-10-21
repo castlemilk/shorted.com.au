@@ -1,20 +1,24 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type {
   GetStockOwnershipResponse,
   KindShare,
   OwnershipStock,
   SubstantialNotice,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
+import { EXTERNAL_LINK_SYMBOL_ID, ExternalLinkSymbol } from "../external-link-glyph";
 import { KindBar, NoticeTable, OwnershipStockTable } from "../ownership-parts";
+import { FileHoldingsTable, SubstantialHoldingsTable } from "../ownership-tables";
 import { StockOwnershipView } from "../stock-ownership-view";
 import {
   formLabel,
   formatPointChange,
   formatVotingPower,
   fundLabel,
+  holderHref,
   institutionHref,
   kindInfo,
 } from "~/@/lib/ownership/kinds";
+import { noticeRow, type FileHoldingRow, type HoldingRow } from "~/@/lib/ownership/rows";
 
 const share = (kind: string, pct: number, holders = 1): KindShare =>
   ({ kind, pct, holders }) as unknown as KindShare;
@@ -96,6 +100,12 @@ describe("ownership vocabulary", () => {
     expect(institutionHref("vanguard")).toBe("/ownership/vanguard");
     expect(institutionHref("")).toBeNull();
   });
+
+  it("links a holder to its institution page, a listed holder to its stock, and nobody else", () => {
+    expect(holderHref("vanguard", "vanguard")).toBe("/ownership/vanguard");
+    expect(holderHref("", "asx:SFR")).toBe("/shorts/SFR/company");
+    expect(holderHref("", "name:wesley jon maas")).toBeNull();
+  });
 });
 
 describe("KindBar", () => {
@@ -173,6 +183,109 @@ describe("HolderName in a notice", () => {
       "/shorts/SFR/company",
     );
     expect(screen.queryByRole("link", { name: "Wesley Jon Maas" })).toBeNull();
+  });
+});
+
+// The institution page's tables ran to every row the API returns (88 stakes,
+// 100 holdings-file rows and 100 notices for Vanguard), each row drawn as
+// HTML and again as an RSC element tree, with its own copy of the lucide
+// icon: /ownership/vanguard weighed 946 KB.
+describe("bounded ownership tables", () => {
+  const holdings = (n: number): HoldingRow[] =>
+    Array.from({ length: n }, (_, i) => ({
+      code: `S${String(i).padStart(2, "0")}`,
+      company: `Company ${i}`,
+      votingPower: `${(20 - i / 10).toFixed(2)}%`,
+      change: "",
+      asAt: "2026-10-14",
+      form: "Changed",
+      url: `https://www.asx.com.au/${i}.pdf`,
+    }));
+  const bodyRows = (table: HTMLElement) => within(table).getAllByRole("row").slice(1);
+
+  it("draws the first rows in the server's order and holds the rest behind Show all", () => {
+    render(<SubstantialHoldingsTable rows={holdings(30)} holder="Vanguard" caption="Stakes" limit={25} />);
+    const table = screen.getByRole("table", { name: "Stakes" });
+    expect(bodyRows(table)).toHaveLength(25);
+    expect(within(table).getAllByRole("link", { name: /^S\d\d$/ }).map((a) => a.textContent)).toEqual(
+      holdings(25).map((h) => h.code),
+    );
+
+    const more = screen.getByRole("button", { name: "Show all 30 substantial holdings" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(more).toHaveAttribute("aria-controls", table.querySelector("tbody")!.id);
+    fireEvent.click(more);
+    expect(bodyRows(table)).toHaveLength(30);
+    expect(within(table).getByRole("link", { name: "S29" })).toHaveAttribute("href", "/shorts/S29/company");
+    fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(bodyRows(table)).toHaveLength(25);
+  });
+
+  it("draws every row, and no control, within the limit or without one", () => {
+    render(<SubstantialHoldingsTable rows={holdings(25)} holder="Vanguard" caption="Stakes" limit={25} />);
+    expect(bodyRows(screen.getByRole("table", { name: "Stakes" }))).toHaveLength(25);
+    expect(screen.queryByRole("button")).toBeNull();
+
+    render(<NoticeTable notices={Array.from({ length: 30 }, (_, i) => notice({ announcementUrl: `u${i}` }))} caption="Latest" />);
+    expect(bodyRows(screen.getByRole("table", { name: "Latest" }))).toHaveLength(30);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("bounds the notices and the holdings-file rows the same way", () => {
+    const files: FileHoldingRow[] = Array.from({ length: 40 }, (_, i) => ({
+      code: `F${String(i).padStart(2, "0")}`,
+      fund: "VAS, Vanguard Australian Shares Index ETF",
+      value: "A$1.0b",
+      ofFund: "1.00%",
+      ofShares: "0.50%",
+      asAt: "2026-10-19",
+    }));
+    render(
+      <>
+        <FileHoldingsTable rows={files} caption="Files" limit={25} />
+        <NoticeTable
+          notices={Array.from({ length: 100 }, (_, i) => notice({ announcementUrl: `u${i}` }))}
+          showHolder={false}
+          caption="Notices"
+          limit={25}
+        />
+      </>,
+    );
+    expect(bodyRows(screen.getByRole("table", { name: "Files" }))).toHaveLength(25);
+    expect(bodyRows(screen.getByRole("table", { name: "Notices" }))).toHaveLength(25);
+    fireEvent.click(screen.getByRole("button", { name: "Show all 100 notices" }));
+    expect(bodyRows(screen.getByRole("table", { name: "Notices" }))).toHaveLength(100);
+    expect(screen.getByRole("button", { name: "Show all 40 holdings" })).toBeInTheDocument();
+  });
+
+  it("points every ASX link at the page's one external-link symbol, with a label", () => {
+    const { container } = render(
+      <>
+        <ExternalLinkSymbol />
+        <SubstantialHoldingsTable rows={holdings(3)} holder="Vanguard" caption="Stakes" />
+        <NoticeTable notices={[notice()]} caption="Notices" />
+      </>,
+    );
+    expect(container.querySelectorAll(`symbol#${EXTERNAL_LINK_SYMBOL_ID}`)).toHaveLength(1);
+    const asx = screen.getAllByRole("link", { name: /on ASX$/ });
+    expect(asx.map((a) => a.getAttribute("aria-label"))).toEqual([
+      "Vanguard's S00 notice on ASX",
+      "Vanguard's S01 notice on ASX",
+      "Vanguard's S02 notice on ASX",
+      "Notice for ZIP, released 2026-10-16, on ASX",
+    ]);
+    for (const a of asx) {
+      expect(a.querySelector("use")).toHaveAttribute("href", `#${EXTERNAL_LINK_SYMBOL_ID}`);
+    }
+    expect(container.querySelector("svg.lucide")).toBeNull();
+  });
+
+  it("leaves the holder out of a notice row where the table names none", () => {
+    expect(noticeRow(notice(), false)).not.toHaveProperty("holder");
+    expect(noticeRow(notice(), true).holder).toEqual({
+      name: "Australian Retirement Trust Pty Ltd",
+      href: "/ownership/australian-retirement-trust",
+    });
   });
 });
 
