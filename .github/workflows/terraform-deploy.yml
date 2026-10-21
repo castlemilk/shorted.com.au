@@ -215,6 +215,10 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
+    # A terminal status is not build evidence: Cuttlefish once reported success
+    # without a cf-steps result. Publish this only after the whole bake exits 0.
+    outputs:
+      built-sha: ${{ steps.bake.outputs.built-sha }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -246,13 +250,17 @@ jobs:
       # hour on one runner and failed the whole release when any one slot
       # stalled (2026-10-07). Image names and tags are unchanged.
       - name: Build and push all images
+        id: bake
         env:
           REGISTRY: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted
           IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
           PLATFORM: linux/amd64
           STEALTH_PAT: ${{ secrets.STEALTH_PAT }}
         run: |
+          set -euo pipefail
+          : "${GITHUB_SHA:?missing build commit}"
           docker buildx bake --file docker-bake.hcl --builder shorted-builder --push --progress plain
+          echo "built-sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
   # Same images, second home: rigs pull task images from the Cuttlefish
   # registry with their control-plane token, so nothing on a rig needs a cloud
@@ -265,7 +273,10 @@ jobs:
   # failed login or push is a warning on this job, never a red deploy.
   mirror-images:
     needs: [determine-environment, build-images]
-    if: github.event_name != 'pull_request' && needs.build-images.result == 'success'
+    if: >-
+      github.event_name != 'pull_request' &&
+      needs.build-images.result == 'success' &&
+      needs.build-images.outputs.built-sha == github.sha
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 45
     steps:
@@ -337,7 +348,8 @@ jobs:
       always() &&
       needs.determine-environment.result == 'success' &&
       needs.validate-secrets.result == 'success' &&
-      (needs.build-images.result == 'success' || needs.build-images.result == 'skipped')
+      ((needs.build-images.result == 'success' && needs.build-images.outputs.built-sha == github.sha) ||
+       (github.event_name == 'pull_request' && needs.build-images.result == 'skipped'))
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
     # dedupes runs of the same ref, so two PRs (or a PR + a push to main)
@@ -504,7 +516,7 @@ jobs:
     #
     # If a flaky test starts blocking deploys, fix or quarantine the test — do not
     # remove this edge, or the gate silently becomes decorative again.
-    needs: [determine-environment, validate-secrets, terraform-plan, run-tests]
+    needs: [determine-environment, validate-secrets, build-images, terraform-plan, run-tests]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
     # apply holds the lock far longer than a plan, so this is the job most
@@ -523,6 +535,8 @@ jobs:
     if: >-
       github.event_name != 'pull_request' &&
       github.event.inputs.plan_only != 'true' &&
+      needs.build-images.result == 'success' &&
+      needs.build-images.outputs.built-sha == github.sha &&
       needs.terraform-plan.result == 'success' &&
       needs.run-tests.result == 'success'
     environment:
@@ -1157,10 +1171,12 @@ jobs:
   # promotion permanent, so the gate went rather than the workflow depending on
   # which expression contexts the runner resolves.
   bump-vke-jobs-image:
-    needs: [determine-environment, terraform-apply]
+    needs: [determine-environment, build-images, terraform-apply]
     if: >-
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
+      needs.build-images.result == 'success' &&
+      needs.build-images.outputs.built-sha == github.sha &&
       needs.terraform-apply.result == 'success'
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 10
@@ -1205,7 +1221,7 @@ jobs:
           echo "deploy/vke-jobs -> ${APPLIED_SHA::8} + images ${IMAGE_TAG}"
 
   deploy-vercel-prod:
-    needs: [determine-environment, validate-secrets, terraform-apply, run-tests]
+    needs: [determine-environment, validate-secrets, build-images, terraform-apply, run-tests]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
     # Preserve the existing service-URL fallback after an infrastructure failure,
@@ -1215,6 +1231,8 @@ jobs:
       github.event_name != 'pull_request' &&
       needs.determine-environment.outputs.environment == 'prod' &&
       needs.validate-secrets.result == 'success' &&
+      needs.build-images.result == 'success' &&
+      needs.build-images.outputs.built-sha == github.sha &&
       needs.run-tests.result == 'success' &&
       github.event.inputs.plan_only != 'true'
     environment: prod
@@ -1540,7 +1558,10 @@ jobs:
     needs: [determine-environment, build-images]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
-    if: github.event_name != 'pull_request'
+    if: >-
+      github.event_name != 'pull_request' &&
+      needs.build-images.result == 'success' &&
+      needs.build-images.outputs.built-sha == github.sha
     steps:
       - name: Checkout code
         uses: actions/checkout@v5

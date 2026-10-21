@@ -215,7 +215,9 @@ test("every image is published by the single bake job, and the deploy gates on i
   for (const job of ["terraform-plan", "run-tests"]) {
     assert.ok(workflow.jobs[job].needs.includes("build-images"), `${job} must wait for build-images`);
   }
-  assert.match(String(workflow.jobs["terraform-plan"].if).replace(/\s+/g, " "), /needs\.build-images\.result == 'success' \|\| needs\.build-images\.result == 'skipped'/);
+  const planGate = String(workflow.jobs["terraform-plan"].if).replace(/\s+/g, " ");
+  assert.match(planGate, /needs\.build-images\.result == 'success' && needs\.build-images\.outputs\.built-sha == github\.sha/);
+  assert.match(planGate, /github\.event_name == 'pull_request' && needs\.build-images\.result == 'skipped'/);
 });
 
 test("the bake publishes every image Terraform consumes, under the names it expects", () => {

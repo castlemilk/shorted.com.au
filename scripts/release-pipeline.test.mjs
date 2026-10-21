@@ -152,7 +152,7 @@ test("production promotion condition rejects PRs, failed checks and plan-only ru
   const workflow = read(".github/workflows/terraform-deploy.yml");
   const job = workflow.slice(workflow.indexOf("  deploy-vercel-prod:"));
   const expression = job.match(/    if: \|\n([\s\S]*?)    environment: prod/)[1]
-    .trim().replace(/\bneeds\.([\w-]+)/g, 'needs["$1"]');
+    .trim().replace(/\.([\w]+-[\w-]+)/g, '["$1"]');
   // Evaluate the actual simple GitHub condition with completed job results.
   const eligible = new Function("github", "needs", "always", `return (${expression});`);
   const cases = [
@@ -164,8 +164,9 @@ test("production promotion condition rejects PRs, failed checks and plan-only ru
     ["plan-only dispatch", "workflow_dispatch", "success", "success", true, false],
   ];
   for (const [name, event, tests, secrets, planOnly, expected] of cases) {
-    assert.equal(eligible({ event_name: event, event: { inputs: { plan_only: String(planOnly) } } }, {
+    assert.equal(eligible({ sha: "fixture-sha", event_name: event, event: { inputs: { plan_only: String(planOnly) } } }, {
       "determine-environment": { outputs: { environment: "prod" } },
+      "build-images": { result: "success", outputs: { "built-sha": "fixture-sha" } },
       "run-tests": { result: tests }, "validate-secrets": { result: secrets },
       "terraform-apply": { result: "failure" },
     }, () => true), expected, name);

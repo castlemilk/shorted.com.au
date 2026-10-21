@@ -22,6 +22,7 @@ on:
       # Drift guard: prod does not run `migrate up`, so a migration that is
       # neither allowlisted nor recorded in PROD_APPLIED.md never reaches it.
       - "scripts/tests/migration-drift.test.mjs"
+      - "scripts/tests/build-completion-gate.test.mjs"
       # Guard: a self-hosted job must not depend on tooling that happens to be
       # baked into a hand-built runner image (see the test's own preamble).
       - "scripts/tests/self-hosted-toolchain.test.mjs"
@@ -125,6 +126,9 @@ jobs:
       # 6.2); until it was listed here it ran in no CI job.
       - name: Test repository hygiene tooling
         run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs scripts/tests/shorts-container-password.test.mjs scripts/tests/integration-image-prefetch.test.mjs scripts/tests/vke-jobs-cutover.test.mjs terraform/modules/report-extractor/cost-guardrails.test.mjs scripts/release-pipeline.test.mjs scripts/bundle-budget-ci.test.mjs scripts/tests/browser-analytics-isolation.test.mjs scripts/tests/scoped-release-headers.test.mjs scripts/tests/testing-bypass-scope.test.mjs scripts/tests/stock-tab-redirects.test.mjs scripts/tests/route-kinds.test.mjs scripts/tests/stock-chart-chunks.test.mjs scripts/tests/release-page-readiness.test.mjs scripts/tests/test-db-target.test.mjs
+
+      - name: Test completed-build release gates
+        run: node --test scripts/tests/build-completion-gate.test.mjs
 
       # These assert properties of migrations that prod REPLAYS on every deploy
       # from a hardcoded allowlist — most importantly that 000095 stays last, so
