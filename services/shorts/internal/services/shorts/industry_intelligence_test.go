@@ -133,3 +133,28 @@ func TestGetIndustryIntelligence_StoreErrorReturnsInternalWithoutLeaking(t *test
 	assert.Contains(t, err.Error(), "failed to get industry intelligence")
 	assert.NotContains(t, err.Error(), "password authentication")
 }
+
+// A response is computed once and served from the cache for the hour: the
+// store is asked once for two identical requests, even when the cache-wide
+// lifetime has already passed.
+func TestGetIndustryIntelligence_CachesForAnHour(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().
+		GetIndustryIntelligence("Materials", "BHP", industryIntelligenceDefaultLimit).
+		Return(&shortsstore.IndustryIntelligenceResult{}, nil).
+		Times(1)
+
+	srv := newTestServer(t, mockStore)
+	srv.cache = NewMemoryCache(time.Nanosecond) // the cache-wide lifetime is spent at once
+	for i := 0; i < 2; i++ {
+		_, err := srv.GetIndustryIntelligence(context.Background(), connect.NewRequest(&shortsv1alpha1.GetIndustryIntelligenceRequest{
+			Industry: "Materials", StockCode: "bhp",
+		}))
+		require.NoError(t, err)
+		time.Sleep(time.Millisecond)
+	}
+	assert.Equal(t, time.Hour, industryIntelligenceCacheTTL)
+}
