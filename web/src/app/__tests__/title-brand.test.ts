@@ -45,9 +45,6 @@ const KNOWN_OFFENDERS: Record<string, string> = {
   "docs/api/clients/[language]/page.tsx": "seo-review finding 7 (docs/api)",
   // "Search ASX Stocks | Shorted | Shorted": noindexed, outside this round.
   "search/page.tsx": "noindexed search results; outside this round",
-  // "<headline> — Shorted Take | Shorted": the take title is reworked in its
-  // own change (seo-review finding 6).
-  "news/[slug]/page.tsx": "seo-review finding 6 (news takes)",
 };
 
 /** The brand after a separator, or the domain. "Most Shorted ASX" is fine. */
