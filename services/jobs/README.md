@@ -1134,12 +1134,13 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
   count outside 0.5-2x ASIC's total product in issue AS AT THE NOTICE'S DATE,
   so a consolidation or a scrip takeover never rejects an older notice).
   Refusals are re-read only after `noticeParserVersion` rises.
-- **PDFs are read in a child process** (`-mode pdf-layout`, the same binary):
-  `ledongthuc/pdf` loops on some malformed streams and pdfcpu decrypts
-  AES-256 notices at about 32x the file's size. Each child gets a resident
-  allowance scaled to the file (256 MB to 1.5 GB), all children share
-  `-child-memory-mb` (2048), and a watchdog kills a child over its allowance
-  (`no_text`, never a crashed run). Size the job's memory above that budget.
+- **PDFs are read in a child process** (package `pdfchild`, mode `layout`,
+  the same binary): `ledongthuc/pdf` loops on some malformed streams and
+  pdfcpu decrypts AES-256 notices at about 32x the file's size. Each child
+  gets a resident allowance scaled to the file (256 MB to 1.5 GB), all
+  children share `-child-memory-mb` (2048), and a watchdog kills a child over
+  its allowance (`no_text`, never a crashed run). Size the job's memory above
+  that budget.
 - **Sums count each interest once where the overlap is known**, in the API
   (`countedHoldings`): a registry `Group` (MUFG files for First Sentier and
   Morgan Stanley) counts its largest figure, and two notices disclosing the
@@ -1180,6 +1181,15 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
    and `picks` return 10 (DEGRADED); 3-7 stay reserved for the retired
    `house-prices` port, whose residential-rig launchers branch on them.
 6. Register it in `cmd/shorted/main.go`.
+7. Never parse a PDF in the job's own process. The pure-Go readers cannot
+   bound what one document costs, and a recover() does not catch an
+   out-of-memory: `shorted-announcements` died at its 1 GiB limit every night
+   from 2026-10-15 while its dividend pass read notices in-process. Read
+   through `reportextract.AnnouncementTextFetcher` (plain text; it streams the
+   download into a `pdfchild` child) or a `pdfchild.Reader` of your own mode,
+   registered in `main`'s `pdfchild.Serve` map and in the package's test
+   `TestMain`. A child over its allowance or its minute is killed; the
+   document reads as no text and the run goes on.
 
 ## Building the image
 
