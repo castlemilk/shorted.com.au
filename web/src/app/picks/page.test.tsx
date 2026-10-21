@@ -15,6 +15,11 @@ const getStrategies = jest.fn();
 const getStrategyPicks = jest.fn();
 const bailOnEmptyRender = jest.fn();
 
+// The scene's canvas loads through next/dynamic, whose resolution in jsdom
+// is an un-acted state update: the still is what these tests look at.
+jest.mock("~/@/components/picks/strategy-scene-lazy", () => ({
+  StrategySceneLazy: () => null,
+}));
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   DashboardLayout: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>

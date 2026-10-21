@@ -5,9 +5,13 @@ package strategies
 // strategy declares has exactly one weight (TestWeightsCoverEveryRule).
 //
 // A passing rule contributes weight x (0.6 + 0.4 x strength) x 100 points,
-// where strength (0..1) grades how decisively it passed; a failing or unknown
-// rule contributes nothing. So a stock passing every rule scores 60-100, and
-// the score only orders rows WITHIN a status: the status ladder decides first.
+// where strength (0..1) grades how decisively it passed. A failing TRIGGER
+// rule contributes weight x 0.3 x proximity x 100, where proximity (0..1)
+// grades how close the stock is to the trigger line (proximity.go); any other
+// failing or unknown rule contributes nothing. So a stock passing every rule
+// scores 60-100, a setup scores higher the nearer its trigger is to firing,
+// and the score only orders rows WITHIN a status: the status ladder decides
+// first.
 var ruleWeights = map[string]map[string]float64{
 	IDZangerBreakout: {
 		RuleGrowth:    0.25,

@@ -16,6 +16,11 @@ type outcome struct {
 	Value    float64
 	HasValue bool
 	Strength float64
+	// Proximity grades a FAIL of a trigger rule by how close the stock is to
+	// the trigger line, 1 at the line and 0 at or beyond the rule's far
+	// distance (proximity.go); ignored on a pass or an unknown. Only the
+	// trigger rules set it, so a failing non-trigger rule earns nothing.
+	Proximity float64
 }
 
 // evalEnv is the per-Evaluate context rules may read: the market regime and
@@ -95,6 +100,15 @@ func fail(detail string, value float64, hasValue bool) outcome {
 
 func unknown(detail string) outcome {
 	return outcome{Status: RuleUnknown, Detail: detail}
+}
+
+// failNear is fail with the distance to the trigger line graded: gap is how
+// far the stock is from passing, in the rule's own unit (a non-positive gap is
+// at the line), and far is the distance at which the credit runs out.
+func failNear(detail string, value float64, hasValue bool, gap, far float64) outcome {
+	out := fail(detail, value, hasValue)
+	out.Proximity = proximity(gap, far)
+	return out
 }
 
 // ---------------------------------------------------------------- growth
@@ -296,7 +310,12 @@ func ruleBreakout(c *Candidate, _ *evalEnv) outcome {
 			detail += fmt.Sprintf("; close is %s from the pivot", pct(value))
 		}
 	}
-	return fail(detail, value, hasValue)
+	if !hasValue {
+		return fail(detail, value, hasValue)
+	}
+	// The gap is how far the close sits under the pivot; a close already
+	// above it without the volume is at the line.
+	return failNear(detail, value, hasValue, -value, breakoutFarPct)
 }
 
 // ruleNearHigh (CAN SLIM N): pct_off_52w_high >= -5.
@@ -308,7 +327,7 @@ func ruleNearHigh(c *Candidate, _ *evalEnv) outcome {
 	if off >= nearHighMaxOffPct {
 		return pass(offHighPhrase(off), off, true, (off-nearHighMaxOffPct)/-nearHighMaxOffPct)
 	}
-	return fail(offHighPhrase(off)+", more than 5% away", off, true)
+	return failNear(offHighPhrase(off)+", more than 5% away", off, true, nearHighMaxOffPct-off, nearHighFarPct)
 }
 
 // ruleOffHigh (Minervini): pct_off_52w_high >= -25.
@@ -320,7 +339,7 @@ func ruleOffHigh(c *Candidate, _ *evalEnv) outcome {
 	if off >= offHighMaxOffPct {
 		return pass(offHighPhrase(off), off, true, (off-offHighMaxOffPct)/-offHighMaxOffPct)
 	}
-	return fail(offHighPhrase(off)+", more than 25% away", off, true)
+	return failNear(offHighPhrase(off)+", more than 25% away", off, true, offHighMaxOffPct-off, offHighFarPct)
 }
 
 // ruleTrendStack (Minervini): close > sma150 > sma200.
@@ -440,7 +459,7 @@ func ruleRSLeader(c *Candidate, env *evalEnv) outcome {
 		}
 		return pass(fmt.Sprintf("6-month relative strength %s points, in the top quartile (cut-off %s)", signed(rs), signed(q.threshold)), rs, true, strength)
 	}
-	return fail(fmt.Sprintf("6-month relative strength %s points, below the top-quartile cut-off of %s", signed(rs), signed(q.threshold)), rs, true)
+	return failNear(fmt.Sprintf("6-month relative strength %s points, below the top-quartile cut-off of %s", signed(rs), signed(q.threshold)), rs, true, q.threshold-rs, rsLeaderFarPoints)
 }
 
 // ruleLiquidity: dollar_volume_20d >= A$250,000.
@@ -657,7 +676,7 @@ func ruleAboveSMA200(c *Candidate, _ *evalEnv) outcome {
 	if c.Close > s200 {
 		return pass(detail, value, true, value/20)
 	}
-	return fail(detail+": not above the 200-day average", value, true)
+	return failNear(detail+": not above the 200-day average", value, true, -value, aboveSMA200FarPct)
 }
 
 // ruleRevenueNotShrinking (quality compounders, non-core): revenue YoY >= 0
