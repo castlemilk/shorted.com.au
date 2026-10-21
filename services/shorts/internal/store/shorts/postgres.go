@@ -419,34 +419,33 @@ func (s *postgresStore) GetStockData(q StockDataQuery) (*stocksv1alpha1.TimeSeri
 		WHERE "PRODUCT_CODE" = $1` + where + `
 		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL`
 
-	// The true number of observations in the window, counted on the raw table.
-	//
-	// This is reported to the caller as total_observations, and it has to come
-	// from the raw rows: when the series is bucketed, the number of points is
-	// a count of BUCKETS. Reporting that as "observations" told an integrator
-	// that 16 years of MAX held 846 daily observations when 846 is the number
-	// of weekly buckets and the real daily count is several thousand.
-	var totalObservations int
-	if err := s.db.QueryRow(ctx, `SELECT COUNT(*) `+base, args...).Scan(&totalObservations); err != nil {
-		return nil, fmt.Errorf("failed to count observations for %s: %w", q.ProductCode, err)
-	}
-
 	// Full resolution returns the stored rows untouched. Otherwise the long
 	// periods are bucketed as they always have been, so existing chart callers
 	// see no change.
+	//
+	// Each row also carries how many raw observations it stands for (1, or the
+	// bucket's COUNT(*)), and their sum is total_observations. It has to come
+	// from the raw rows: when the series is bucketed, the number of points is
+	// a count of BUCKETS. Reporting that as "observations" told an integrator
+	// that 16 years of MAX held 846 daily observations when 846 is the number
+	// of weekly buckets and the real daily count is several thousand. It used
+	// to be a separate SELECT COUNT(*) over the same window before every chart
+	// read: 220,977 calls in 90 days on prod (2026-10-21 review DBP-02).
 	var query string
 	if q.FullResolution {
 		query = `SELECT "DATE" as interval_start,
 			       "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as avg_percent,
 			       "REPORTED_SHORT_POSITIONS" as short_positions,
-			       "TOTAL_PRODUCT_IN_ISSUE" as product_in_issue
+			       "TOTAL_PRODUCT_IN_ISSUE" as product_in_issue,
+			       1::bigint as observations
 			` + base + `
 			ORDER BY interval_start ASC`
 	} else {
 		query = fmt.Sprintf(`SELECT date_trunc('%s', "DATE") as interval_start,
 			       AVG("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") as avg_percent,
 			       AVG("REPORTED_SHORT_POSITIONS") as short_positions,
-			       AVG("TOTAL_PRODUCT_IN_ISSUE") as product_in_issue
+			       AVG("TOTAL_PRODUCT_IN_ISSUE") as product_in_issue,
+			       COUNT(*) as observations
 			`+base+`
 			GROUP BY interval_start
 			ORDER BY interval_start ASC`, periodToTruncInterval(q.Period))
@@ -468,12 +467,17 @@ func (s *postgresStore) GetStockData(q StockDataQuery) (*stocksv1alpha1.TimeSeri
 	defer rows.Close()
 
 	var points []*stocksv1alpha1.TimeSeriesPoint
+	var totalObservations int
 	for rows.Next() {
 		var date pgtype.Timestamp
 		var percent, shortPositions, productInIssue pgtype.Float8
-		if err := rows.Scan(&date, &percent, &shortPositions, &productInIssue); err != nil {
+		var observations int64
+		if err := rows.Scan(&date, &percent, &shortPositions, &productInIssue, &observations); err != nil {
 			return nil, err
 		}
+		// Counted before any row is skipped below: total_observations is the
+		// raw rows in the window, whatever the as_of or the point cap keeps.
+		totalObservations += int(observations)
 		// Skip if the date or percent is null
 		if date.Status != pgtype.Present || percent.Status != pgtype.Present {
 			continue
