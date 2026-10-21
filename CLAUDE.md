@@ -230,6 +230,17 @@ Query performance expectations (measured January 2026):
 - work_mem: 2 MB
 - Use transaction pooler (port 6543) to avoid connection limits
 
+**Supabase Data API: closed by `000138_harden_data_api_grants`; keep it closed.**
+PostgREST serves whatever `anon` and `authenticated` can reach in `public` to
+anyone with the (non-secret) anon key, and nothing here uses it.
+- Never `GRANT` anything to `anon`, `authenticated` or `PUBLIC` in a migration,
+  create a policy, or FORCE/DISABLE row level security:
+  `services/migrations/data_api_grants.test.mjs` fails. A `SECURITY DEFINER`
+  function pins `search_path` and revokes `PUBLIC`'s EXECUTE in the same file.
+- 000138 is the LAST file the deploy replays, so it re-closes what the others
+  open: a new allowlisted migration goes ABOVE it in `terraform-deploy.yml`.
+- Closed = zero rows from `task db:prod:psql -- -P pager=off -f scripts/prod-data-api-check.sql`.
+
 ## Common Tasks
 
 ### Adding a New API Endpoint
