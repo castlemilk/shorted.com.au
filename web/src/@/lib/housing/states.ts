@@ -75,7 +75,7 @@ export const suburbSlug = (salName: string, postcode: string) =>
  *
  * `postcode` is the SAL feed's own (ListStateSuburbs, GetSuburbProfile), never
  * a crawl region's: no SAL carries one today, and a slug with a postcode the
- * feed lacks redirects, or 404s for a qualified name ("abbotsford-nsw-2046").
+ * feed lacks costs a redirect through resolveSuburbSalCode's name-only match.
  */
 export const suburbHref = (
   stateCode: string,

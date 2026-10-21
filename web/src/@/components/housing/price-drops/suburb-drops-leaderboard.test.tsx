@@ -22,7 +22,7 @@ const row = (over: Partial<SuburbPriceDrop>) =>
 // The board's postcode is the crawl region's, which the SAL feed does not carry
 // (0 of 15,345 SALs had one on 2026-10-21). Every one of the 15 links on
 // /price-drops was /<name>-<postcode>?sal=… and 308-redirected, and for an
-// ABS-qualified name the postcode slug 404s. Each link is the canonical path the
+// ABS-qualified name the postcode slug 404ed. Each link is the canonical path the
 // sitemap lists: the ABS name's slug, with no query and no postcode.
 describe("SuburbDropsLeaderboard links", () => {
   it("links each suburb by its canonical path", () => {

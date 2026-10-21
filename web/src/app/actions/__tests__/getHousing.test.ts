@@ -263,6 +263,36 @@ describe("housing server actions", () => {
     await expect(resolveSuburbSalCode("VIC", "ascot")).resolves.toBeNull();
   });
 
+  // The name-only fallback keeps the ABS qualifier. Prod, 2026-10-21:
+  // /housing/vic/clyde-north-3978 308s to clyde-north, but
+  // /housing/nsw/abbotsford-nsw-2046 (a crawl postcode on a qualified name, as
+  // the price-drops boards linked it) 404ed.
+  it("resolves a qualified name whatever postcode its slug carries", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({
+      suburbs: [{ salCode: "10003", salName: "Abbotsford (NSW)", postcode: "" }],
+    });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("NSW", "abbotsford-nsw-2046")).resolves.toBe("10003");
+  });
+
+  // Price-drops and similar-suburbs links pass postcode "", so once the feed
+  // carries one, they are name-only slugs of a postcoded canonical.
+  it("resolves a qualified name-only slug once the feed carries a postcode", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({
+      suburbs: [
+        { salCode: "10003", salName: "Abbotsford (NSW)", postcode: "2046" },
+        { salCode: "20073", salName: "Ascot (Ballarat - Vic.)", postcode: "3350" },
+        { salCode: "20074", salName: "Ascot (Greater Bendigo - Vic.)", postcode: "3551" },
+      ],
+    });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("NSW", "abbotsford-nsw")).resolves.toBe("10003");
+    await expect(resolveSuburbSalCode("VIC", "ascot-ballarat-vic")).resolves.toBe("20073");
+    await expect(resolveSuburbSalCode("VIC", "ascot")).resolves.toBeNull();
+  });
+
   it("returns null only when a suburb slug is a genuine miss", async () => {
     clientMock.listStateSuburbs.mockResolvedValue({ suburbs: [] });
     const { resolveSuburbSalCode } = await import("../getHousing");

@@ -379,15 +379,20 @@ export const resolveSuburbSalCode = cache(
     // Last resort: a name-only slug, when exactly one suburb in the state bears
     // that name. No state currently publishes a postcode on this feed, so today
     // the canonical slug IS name-only — but the moment one does, every existing
-    // name-only link (the similar-suburbs rail builds them with an empty
-    // postcode, and so does anything already indexed) would start 404ing. The
-    // page permanent-redirects to the canonical URL from here, so the fallback
-    // costs one redirect and never guesses: two suburbs of the same name in one
-    // state resolve to nothing, as before.
+    // name-only link (the similar-suburbs rail and the price-drops boards build
+    // them with an empty postcode, and so does anything already indexed) would
+    // start 404ing. The page permanent-redirects to the canonical URL from
+    // here, so the fallback costs one redirect and never guesses: two suburbs
+    // of the same name in one state resolve to nothing, as before.
+    //
+    // The name keeps its ABS qualifier ("abbotsford-nsw", "ascot-ballarat-vic"):
+    // only a postcode comes off. Matching the query form instead, qualifier
+    // stripped, could never find a qualified name, so a link carrying a crawl
+    // postcode the feed lacks ("abbotsford-nsw-2046", from the price-drops
+    // boards) 404ed instead of redirecting.
     if (!match) {
-      const byName = res.suburbs.filter(
-        (s) => suburbSlug(s.salName, "") === normalizedSlug,
-      );
+      const nameOnly = canonicalSlug.replace(/-\d{4}$/, "");
+      const byName = res.suburbs.filter((s) => suburbSlug(s.salName, "") === nameOnly);
       if (byName.length === 1) match = byName[0];
     }
 
