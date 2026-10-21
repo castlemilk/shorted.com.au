@@ -135,6 +135,10 @@ const breadcrumbs = [
 
 async function TopPageData() {
   const pageData = await getTopPageData(DEFAULT_PERIOD, INITIAL_LOAD);
+  // The data's own date, for the Dataset and the "as of" line, as the title
+  // has it. Not pageData.lastUpdated, which is the render time for an empty
+  // series; without a dated point both are left out.
+  const dataAsOf = latestDataDate(pageData.timeSeries)?.toISOString();
 
   return (
     <>
@@ -156,7 +160,7 @@ async function TopPageData() {
           description:
             "Daily rankings of the most shorted stocks on the Australian Securities Exchange, sourced from official ASIC short position reports.",
           url: `${siteConfig.url}/top`,
-          dateModified: pageData.lastUpdated,
+          dateModified: dataAsOf,
         }}
       />
 
@@ -167,7 +171,7 @@ async function TopPageData() {
         initialData={toTopRows(pageData.timeSeries)}
         initialMoversData={pageData.movers}
         initialPeriod={DEFAULT_PERIOD}
-        dataAsOf={pageData.lastUpdated}
+        dataAsOf={dataAsOf}
       />
 
       {/* Crawlable evergreen copy + internal-link mesh. Server-rendered on

@@ -46,7 +46,10 @@ jest.mock("~/@/components/seo/breadcrumbs", () => ({
 }));
 jest.mock("~/@/components/seo/enhanced-structured-data", () => ({
   BreadcrumbListSchema: () => null,
-  DatasetStructuredData: () => null,
+  // The real one: the Dataset's dateModified is pinned below.
+  DatasetStructuredData: jest.requireActual<
+    typeof import("~/@/components/seo/enhanced-structured-data")
+  >("~/@/components/seo/enhanced-structured-data").DatasetStructuredData,
   ItemListStructuredData: ({ items }: { items: unknown[] }) => (
     <div data-testid="itemlist">{items.length}</div>
   ),
@@ -97,6 +100,24 @@ describe("StrategyPicksPage", () => {
     );
     expect(STRATEGY_SLUGS).toHaveLength(5);
     expect(generateStaticParams()).toContainEqual({ strategy: "quality-compounders" });
+  });
+
+  // DatasetStructuredData leaves dateModified out without a date (it used to
+  // stamp the render time), so each caller must hand it the data's own.
+  it("dates its Dataset from the picks' as-of date, and leaves it out without one", async () => {
+    const dataset = (container: HTMLElement) =>
+      Array.from(container.querySelectorAll('script[type="application/ld+json"]'))
+        .map((script) => JSON.parse(script.innerHTML) as Record<string, unknown>)
+        .find((json) => json["@type"] === "Dataset");
+
+    const dated = render(await StrategyPicksPage({ params: params("zanger-breakout") }));
+    expect(dataset(dated.container)).toMatchObject({ dateModified: PICKS.asOf });
+    dated.unmount();
+
+    getStrategyPicks.mockResolvedValue({ ...PICKS, asOf: "" });
+    const undated = render(await StrategyPicksPage({ params: params("zanger-breakout") }));
+    expect(dataset(undated.container)).toBeDefined();
+    expect(dataset(undated.container)).not.toHaveProperty("dateModified");
   });
 
   it("404s an unknown strategy without calling the API", async () => {

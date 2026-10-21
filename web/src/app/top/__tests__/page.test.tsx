@@ -149,6 +149,23 @@ describe("/top page", () => {
     );
   });
 
+  // getTopPageData's lastUpdated is the render time for an empty series
+  // (getLastUpdatedTimestamp), which the Dataset reported as its data date.
+  it("dates neither the Dataset nor the island without a dated point", async () => {
+    getTopPageData.mockResolvedValue({
+      ...data,
+      timeSeries: [],
+      stockListItems: [],
+      lastUpdated: "2026-10-22T03:14:15.000Z",
+    });
+    const tree = await topPageData();
+
+    const dataset = find(tree, (element) => "datasetInfo" in (element.props as object));
+    const info = (dataset!.props as { datasetInfo: Record<string, unknown> }).datasetInfo;
+    expect(info.dateModified).toBeUndefined();
+    expect(islandProps(tree).dataAsOf).toBeUndefined();
+  });
+
   it("server-renders every ranked stock as a link, with its short % and change", async () => {
     const props = islandProps(await topPageData());
     const host = document.createElement("div");
