@@ -189,6 +189,18 @@
     background-image: var(--banner-dark);
   }
 
+  /* A strategy scene (components/picks/strategy-scene.tsx) is an SVG still
+     with a canvas over it; once the canvas has drawn a frame the host gets
+     data-scene-live and the still fades out beneath it, so the hand-over is
+     a cross-fade, never a flash. */
+  .strategy-scene > svg {
+    transition: opacity 240ms ease-out;
+  }
+
+  .strategy-scene[data-scene-live] > svg {
+    opacity: 0;
+  }
+
   .hit-target,
   .hit-target-touch {
     position: relative;

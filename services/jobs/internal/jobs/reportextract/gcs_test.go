@@ -163,7 +163,7 @@ func TestDownloadPDFTextRejectsNonPDFAndThinText(t *testing.T) {
 }
 
 func TestExtractPDFTextFailsClosedOnGarbage(t *testing.T) {
-	if _, err := extractPDFText([]byte("%PDF-1.4 nonsense"), 4); err == nil {
+	if _, err := ExtractPDFText([]byte("%PDF-1.4 nonsense"), 4); err == nil {
 		t.Error("want an error for a corrupt PDF")
 	}
 }

@@ -303,6 +303,8 @@ func toolCallFixtures() []toolCall {
 		{"search_politicians", map[string]any{"limit": 50}},
 		{"get_politician", map[string]any{"slug": "anthony-smith"}},
 		{"list_stock_politicians", map[string]any{"code": "BHP"}},
+		{"get_stock_ownership", map[string]any{"code": "PLS"}},
+		{"get_institution_holdings", map[string]any{"institution": "state-street"}},
 	}
 }
 

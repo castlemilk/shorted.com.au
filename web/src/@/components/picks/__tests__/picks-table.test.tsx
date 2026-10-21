@@ -5,7 +5,9 @@ import {
   PicksTable,
   RuleDots,
   RuleLegend,
+  ScoreMeter,
   StatusPill,
+  pctVsPivot,
 } from "../picks-table";
 import { pickGrowthFigures, pickRatioLines } from "../pick-fundamentals";
 import {
@@ -397,5 +399,52 @@ describe("exports shared with the stock page", () => {
     expect(
       screen.queryByText(/Dots follow the rule order/),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("score meter and pivot distance", () => {
+  it("draws the score as a fill exactly as long as the number, beside the numeral", () => {
+    const { container } = render(<ScoreMeter score={71.4} />);
+    const meter = container.querySelector("[data-score-meter]") as HTMLElement;
+    expect(meter).toHaveAttribute("aria-hidden", "true");
+    expect(meter.dataset.scoreMeter).toBe("71");
+    const fill = meter.firstElementChild as HTMLElement;
+    expect(fill.style.width).toBe("71.4%");
+    expect(fill.className).toContain("bg-primary");
+    expect(container.textContent).toBe("71");
+  });
+
+  it("clamps the fill to the 0..100 track and renders n/a with no meter", () => {
+    const over = render(<ScoreMeter score={140} />);
+    expect((over.container.querySelector("[data-score-meter]")!.firstElementChild as HTMLElement).style.width).toBe("100%");
+    const none = render(<ScoreMeter score={null} />);
+    expect(none.container.querySelector("[data-score-meter]")).toBeNull();
+    expect(none.container.textContent).toBe("n/a");
+  });
+
+  it("reads the close against the pivot in percent, null without either price", () => {
+    expect(pctVsPivot({ close: 11.9 * 0.97, pivot: 11.9 })).toBeCloseTo(-3, 6);
+    expect(pctVsPivot({ close: 12.5, pivot: 10 })).toBeCloseTo(25, 6);
+    expect(pctVsPivot({ close: null, pivot: 10 })).toBeNull();
+    expect(pctVsPivot({ close: 10, pivot: null })).toBeNull();
+  });
+
+  it("prints the distance under the pivot price in every row that has both, muted, and the meter in the score cell", () => {
+    renderTable({
+      rows: [
+        TRIGGERED,
+        pick({ code: "NOP", rank: 2, pivot: null }),
+        pick({ code: "UND", rank: 3, close: 10, pivot: 12.5 }),
+      ],
+    });
+    // TRIGGERED: close 12.34 over a 11.9 pivot: +3.7%.
+    const bhp = rowFor("BHP").querySelector("[data-vs-pivot]")!;
+    expect(bhp.textContent).toBe("+3.7%");
+    expect(bhp).toHaveAttribute("title", "Close relative to the pivot");
+    expect(bhp.className).toContain("text-muted-foreground");
+    expect(rowFor("UND").querySelector("[data-vs-pivot]")!.textContent).toBe("−20.0%");
+    expect(rowFor("NOP").querySelector("[data-vs-pivot]")).toBeNull();
+    expect(rowFor("BHP").querySelector("[data-score-meter]")).not.toBeNull();
+    expect(within(rowFor("BHP")).getByText("88")).toBeInTheDocument();
   });
 });
