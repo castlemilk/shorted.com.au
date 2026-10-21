@@ -1,4 +1,13 @@
-export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+// Every operation an OpenAPI 3 Path Item can hold (parser.ts OPERATION_METHODS).
+export type HTTPMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'PATCH'
+  | 'HEAD'
+  | 'OPTIONS'
+  | 'TRACE';
 
 export interface Parameter {
   name: string;
