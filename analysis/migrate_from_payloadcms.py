@@ -10,6 +10,9 @@ This script:
 5. Reports what was migrated
 
 Usage:
+  # The PayloadCMS database (required, from the environment only)
+  export CMS_DATABASE_URL=postgresql://...
+
   # Dry run (just report gaps)
   python3 migrate_from_payloadcms.py --dry-run
 
@@ -24,15 +27,14 @@ import argparse
 import json
 import os
 import sys
+from urllib.parse import urlsplit
 
 import psycopg2
 import psycopg2.extras
 
 
-CMS_DB_URL = os.environ.get(
-    "CMS_DATABASE_URL",
-    "postgresql://postgres.vfzzkelbpyjdvuujyrpu:GpbQqFc7rwe3gF0v@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres",
-)
+# Required. Never give it a default here: this repository is public.
+CMS_DB_URL = os.environ.get("CMS_DATABASE_URL", "")
 
 MAIN_DB_URL = os.environ.get(
     "MAIN_DATABASE_URL",
@@ -52,13 +54,22 @@ FIELDS_TO_FILL = [
 ]
 
 
+def redact(url):
+    """host:port/database of a connection URL, never its user or password."""
+    parts = urlsplit(url)
+    return f"{parts.hostname}:{parts.port or 5432}{parts.path}"
+
+
 def main():
     parser = argparse.ArgumentParser(description="Migrate data from PayloadCMS → main DB")
     parser.add_argument("--dry-run", action="store_true", help="Report gaps without writing")
     args = parser.parse_args()
 
-    print(f"CMS DB: {CMS_DB_URL[:50]}...")
-    print(f"Main DB: {MAIN_DB_URL[:50]}...")
+    if not CMS_DB_URL:
+        sys.exit("CMS_DATABASE_URL is not set: export the PayloadCMS database's connection string first")
+
+    print(f"CMS DB: {redact(CMS_DB_URL)}")
+    print(f"Main DB: {redact(MAIN_DB_URL)}")
     print()
 
     cms_conn = psycopg2.connect(CMS_DB_URL)
