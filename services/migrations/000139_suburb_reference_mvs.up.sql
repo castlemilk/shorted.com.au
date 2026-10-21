@@ -6,8 +6,8 @@
 -- database time (about 220k s). Every cache miss recomputed, for ONE suburb:
 --   * the state price baseline: the latest public median of every suburb in
 --     the state (an index scan over all 26.8k suburb medians for NSW);
---   * 13 Census references over every suburb in the state, and the national
---     income median over all 15,345 suburbs;
+--   * the state income median and 12 Census shares over every suburb in the
+--     state, and the national income median over all 15,345 suburbs;
 --   * six standard deviations over all suburbs joined to amenities, then the
 --     distance to every candidate (similarSuburbs);
 --   * the latest price and the price 11 months earlier, per suburb row, via a
@@ -24,7 +24,8 @@
 --    ListStateSuburbs, GetSuburbProfile, similarSuburbs, the suburb metric
 --    columns and the council suburb table, joined by sal_code.
 -- 2. mv_housing_state_baselines: one row per state, the profile's state
---    price median, its 13 Census references and the national income median.
+--    price and income medians, its 12 Census shares and the national income
+--    median.
 -- 3. mv_suburb_similarity_features: the six similarity features per SAL,
 --    each divided by its standard deviation over suburbs of more than 200
 --    people. (x - t)/s = x/s - t/s, so the distance is unchanged and a NULL or
@@ -38,10 +39,11 @@
 -- public medians for one period.
 --
 -- Refresh: refresh_suburb_reference_views(), called by house-price-collector
--- after the official ingest, the residential Valuer-General runs, -mode
--- refresh, the census and amenity loads, and the crime load. Not after agent
--- or listing crawl drains: the crawl writes only proprietary rows, which none
--- of these views read. It records nothing in housing_mv_refresh on purpose:
+-- wherever it calls refresh() (the official ingest, the residential
+-- Valuer-General runs, the suburb crawl, the crime load, -mode refresh) and
+-- after a successful census or amenity load. Not after agent or listing crawl
+-- drains: the crawl writes only proprietary rows, which none of these views
+-- read. It records nothing in housing_mv_refresh on purpose:
 -- the freshness sentinel (housing-freshness.yml) alarms on any row there older
 -- than 72 hours, and these views change monthly. By hand:
 --   task db:prod:refresh WHICH=suburbs CONFIRM=prod
