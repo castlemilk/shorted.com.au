@@ -230,6 +230,30 @@ Query performance expectations (measured January 2026):
 - work_mem: 2 MB
 - Use transaction pooler (port 6543) to avoid connection limits
 
+**Supabase Data API: closed by `000138_harden_data_api_grants`; keep it closed.**
+PostgREST serves whatever `anon` and `authenticated` can reach in `public` to
+anyone with the (non-secret) anon key, and nothing here uses it.
+- Never `GRANT` anything to `anon`, `authenticated` or `PUBLIC`, make one of them
+  an owner, create a policy, or FORCE/DISABLE row level security, in ANY `.sql`
+  file (migrations, the legacy `supabase/` and `web/supabase/` SQL that
+  `supabase db push` would apply, `analysis/`, `scripts/`):
+  `services/migrations/data_api_grants.test.mjs` fails. A GRANT with a computed
+  grantee is allowed only in the reviewed carries in 000131 and 000132. A
+  `SECURITY DEFINER` function pins `search_path` and revokes `PUBLIC`'s EXECUTE
+  in the same file. The same test pins 000138's catalog queries and the check's
+  classes whole: change one only with a re-verification, pin included.
+- Closed = zero rows from `task db:prod:psql -- -P pager=off -f scripts/prod-data-api-check.sql`.
+  Apply 000138 by hand (pre-check, `task db:prod:apply`, check, until zero rows)
+  BEFORE its merge, and open its PR only after (the repo is public). The merge
+  deploys (see "A merge is not a deploy until its deploy has run"): on a
+  still-open database the replay stops with `object_in_use` if a refresh is in
+  flight, failing `terraform-apply` before any image is swapped, but
+  `deploy-vercel-prod` still promotes the web app. On a closed database it does
+  nothing. Runbook: `docs/operations/supabase-data-api.md`.
+- 000138 stays the LAST file the deploy replays, so each deploy re-closes what
+  the others open (re-running it by hand is the immediate fix): a new
+  allowlisted migration goes ABOVE it in `terraform-deploy.yml`.
+
 ## Common Tasks
 
 ### Adding a New API Endpoint
