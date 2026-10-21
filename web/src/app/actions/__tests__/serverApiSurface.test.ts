@@ -423,11 +423,6 @@ describe("server API surface", () => {
      * whoever owns it can delete the line.
      */
     const ALLOWED_UNTAGGED: Record<string, string> = {
-      // Reached from `/` (ISR). Its read goes through the KV first and the
-      // homepage warm-cache route keeps that filled, which is the only reason
-      // the homepage's regenerations survive a KV miss. Fix: give the
-      // transport `next: { revalidate, tags: ["shorts-data"] }`.
-      "src/app/actions/getIndustryTreeMap.ts": "homepage treemap: untagged fallback read",
       // createHousingClient serves getHousePriceSeries and
       // listSuburbDropListings, which no server render calls (the browser
       // twins in actions/client/ do); the housing pages import this module for
