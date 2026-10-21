@@ -601,14 +601,16 @@ func refresh(_ context.Context, pool *pgxpool.Pool) error {
 	log.Println("refreshed mv_housing_headline")
 	// After the housing views and the sal_code links above: the suburb
 	// reference views read both (mv_suburb_latest_price is keyed by sal_code).
-	if err := refreshSuburbReferenceViews(ctx, pool); err != nil {
-		log.Printf("suburb reference view refresh failed: %v", err)
-		return err
+	// A failure here still fails the run, but only after the cache bust below,
+	// which the housing views just earned.
+	refErr := refreshSuburbReferenceViews(ctx, pool)
+	if refErr != nil {
+		log.Printf("suburb reference view refresh failed: %v", refErr)
 	}
 	// Official/crawl ingest refreshed the housing MVs → bust the web tier's
 	// long-TTL housing caches now. Best-effort, never fails the run.
 	pingRevalidate("refresh")
-	return nil
+	return refErr
 }
 
 // scheduledOfficialJobs contains sources safe to run from the Cloud Run job.
