@@ -172,8 +172,13 @@ function TopicsSection({
               key={definition.slug}
               className="rounded-lg border border-border/60 bg-card/40 p-4"
             >
+              {/*
+                No viewport prefetch: nine topic payloads (about 140 KB
+                gzipped) per view, and a regeneration for each stale one.
+              */}
               <Link
                 href={`/economy/${state}/${definition.slug}`}
+                prefetch={false}
                 className="font-medium text-primary underline-offset-4 hover:underline"
               >
                 {copy.h1}

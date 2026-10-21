@@ -351,7 +351,9 @@ export default async function EconomyPage() {
         {/*
           Server-rendered, because the map above is client-only: without
           these links no page linked to the state topic pages except other
-          topic pages (SEO review 2026-10-21, F08).
+          topic pages (SEO review 2026-10-21, F08). Prefetch is off: once in
+          view, the 78 links would fetch every target's RSC payload (about
+          1 MB gzipped) and regenerate each stale one. Crawlers read the href.
         */}
         <section className="space-y-4">
           <SectionHeading
@@ -367,6 +369,7 @@ export default async function EconomyPage() {
                 <h3 className="font-serif text-lg text-foreground">
                   <Link
                     href={`/economy/${state}`}
+                    prefetch={false}
                     className="underline-offset-4 hover:underline"
                   >
                     {STATE_NAMES[state]}
@@ -379,6 +382,7 @@ export default async function EconomyPage() {
                     <li key={topic}>
                       <Link
                         href={`/economy/${state}/${topic}`}
+                        prefetch={false}
                         className="text-primary underline-offset-4 hover:underline"
                       >
                         {ECONOMY_TOPICS[topic].name}

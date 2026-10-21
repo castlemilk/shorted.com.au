@@ -36,6 +36,25 @@ jest.mock("@/components/economy/economy-breadcrumbs", () => ({
 jest.mock("@/components/economy/economy-icon", () => ({
   EconomyIcon: () => null,
 }));
+// next/link with the prefetch prop surfaced as data-prefetch so a test can read
+// it, as the stock tab bar's tests do.
+jest.mock("next/link", () => ({
+  __esModule: true,
+  default: ({
+    children,
+    href,
+    prefetch,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    href: string;
+    prefetch?: boolean;
+  }) => (
+    <a href={href} data-prefetch={String(prefetch)} {...rest}>
+      {children}
+    </a>
+  ),
+}));
 jest.mock("@/components/economy/state-banner", () => ({
   StateBanner: ({ name }: { name: string }) => <h1>{name} economy</h1>,
 }));
@@ -170,6 +189,22 @@ describe("EconomyStatePage topics", () => {
 
     expect(screen.getByText("ABS, chain volume · Apr–Jun 2026")).toBeInTheDocument();
     expect(screen.getByText("ABS, seas. adj. · Aug 2026")).toBeInTheDocument();
+  });
+
+  // In view, the nine topic links would add about 140 KB gzipped of RSC
+  // prefetches to each view and regenerate every stale topic page.
+  it("turns off Link's own prefetch on every topic link", async () => {
+    render(await EconomyStatePage({ params: params("vic") }));
+
+    const links = screen
+      .getAllByRole("link")
+      .filter((link) =>
+        /^\/economy\/vic\/[a-z]+$/.test(link.getAttribute("href") ?? ""),
+      );
+    expect(links).toHaveLength(9);
+    for (const link of links) {
+      expect(link).toHaveAttribute("data-prefetch", "false");
+    }
   });
 
   it("omits the labour topic where the ABS publishes no labour family", async () => {

@@ -16,6 +16,25 @@ jest.mock("react-dom", () => ({
   ...jest.requireActual("react-dom"),
   preload: jest.fn(),
 }));
+// next/link with the prefetch prop surfaced as data-prefetch so a test can read
+// it, as the stock tab bar's tests do.
+jest.mock("next/link", () => ({
+  __esModule: true,
+  default: ({
+    children,
+    href,
+    prefetch,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    href: string;
+    prefetch?: boolean;
+  }) => (
+    <a href={href} data-prefetch={String(prefetch)} {...rest}>
+      {children}
+    </a>
+  ),
+}));
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   DashboardLayout: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
@@ -100,6 +119,24 @@ describe("EconomyPage", () => {
     expect(
       screen.getAllByRole("link", { name: ECONOMY_TOPICS.wages.name }),
     ).toHaveLength(STATE_SLUGS.length);
+  });
+
+  // In view, the grid would fetch the RSC payload of all 78 targets (a topic
+  // page is 12-20 KB gzipped) and regenerate each stale one.
+  it("turns off Link's own prefetch on every state and topic link", async () => {
+    render(await EconomyPage());
+
+    const gridLinks = screen
+      .getAllByRole("link")
+      .filter((link) =>
+        /^\/economy\/[a-z]+(\/[a-z]+)?$/.test(link.getAttribute("href") ?? ""),
+      );
+    expect(gridLinks).toHaveLength(
+      STATE_SLUGS.length + PUBLISHED_ECONOMY_TOPIC_PAIRS.length,
+    );
+    for (const link of gridLinks) {
+      expect(link).toHaveAttribute("data-prefetch", "false");
+    }
   });
 
   it("asks for only the newest observation of each headline series", async () => {
