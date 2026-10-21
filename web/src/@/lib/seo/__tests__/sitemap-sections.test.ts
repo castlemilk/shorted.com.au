@@ -334,12 +334,27 @@ describe("sitemap children", () => {
     ).toBe(false);
   });
 
-  it("drops the auth-gated /developer stub and adds the API docs tree", async () => {
+  it("drops the auth-gated /developer stub and lists the API docs index and client guides", async () => {
     const all = (await buildAll()).flatMap((s) => s.entries.map((e) => e.url));
     expect(all.filter((u) => u.endsWith("/developer"))).toEqual([]);
     expect(all).toContain("https://shorted.com.au/docs/api");
-    expect(all).toContain("https://shorted.com.au/docs/api/get-top-shorts");
-    expect(all).toContain("https://shorted.com.au/docs/api/clients/python");
+    expect(
+      all.filter((u) => u.startsWith("https://shorted.com.au/docs/api/")).sort(),
+    ).toEqual(
+      ["curl", "go", "java", "javascript", "python", "typescript"].map(
+        (language) => `https://shorted.com.au/docs/api/clients/${language}`,
+      ),
+    );
+  });
+
+  // The endpoint pages are thin per-RPC stubs that the docs sidebar links from
+  // every docs page; the sitemap listed all 87 (two of them parser artefacts,
+  // /docs/api/servers--feed.xml), SEO review 2026-10-21. The parser mock above
+  // still serves endpoints, so listing them again fails here.
+  it("lists no per-endpoint API reference page", async () => {
+    const all = (await buildAll()).flatMap((s) => s.entries.map((e) => e.url));
+    expect(all).not.toContain("https://shorted.com.au/docs/api/get-top-shorts");
+    expect(all).not.toContain("https://shorted.com.au/docs/api/get-stock-data");
   });
 
   it("caps compare pairs at 80 and only pairs indexable codes", async () => {

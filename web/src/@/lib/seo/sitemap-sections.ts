@@ -453,27 +453,20 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     ...getAllAuthorSlugs().map((slug) => ({ url: `${baseUrl}/authors/${slug}` })),
   ];
 
-  // Documentation for LLMs and developers. The /docs/api tree generates real
-  // static pages (generateStaticParams over the OpenAPI spec + the client
-  // guides) but had never been submitted. The spec is read from disk, which is
-  // only present at build time on Vercel — a runtime miss yields an empty
-  // endpoint list, which is fine: the index + client guides still ship.
-  let apiEndpointIds: string[] = [];
-  try {
-    const { parseOpenAPISpec } = await import("~/lib/openapi/parser");
-    const spec = await parseOpenAPISpec();
-    apiEndpointIds = spec.endpoints.map((e) => e.id);
-  } catch (error) {
-    console.error("Failed to parse OpenAPI spec for sitemap:", error);
-  }
-
+  // Documentation for LLMs and developers: the /docs/api index and the client
+  // guides. The per-endpoint pages (/docs/api/<method>--<path>, one per spec
+  // operation) are deliberately NOT listed. They are reference stubs titled by
+  // RPC name ("GetInstitution — Ownership API"); each names its own canonical,
+  // and the sidebar on every docs page links all of them, so crawlers find them
+  // without the sitemap. Listing them put 87 thin URLs in sitemap-core
+  // (SEO review 2026-10-21), two of them parser artefacts
+  // (/docs/api/servers--feed.xml).
   const docRoutes: SitemapEntry[] = [
     { url: `${baseUrl}/docs/llm-context` },
     { url: `${baseUrl}/docs/llm-context-raw` },
     { url: `${baseUrl}/docs/api-reference` },
     { url: `${baseUrl}/docs/api` },
     { url: `${baseUrl}/docs/discord` },
-    ...apiEndpointIds.map((id) => ({ url: `${baseUrl}/docs/api/${id}` })),
     ...API_CLIENT_LANGUAGES.map((language) => ({
       url: `${baseUrl}/docs/api/clients/${language}`,
     })),
