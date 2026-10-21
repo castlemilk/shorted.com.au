@@ -166,6 +166,25 @@ describe("InstitutionPage", () => {
     expect(bodyRows(screen.getByRole("table", { name: "HESTA's largest disclosed ASX holdings" }))).toHaveLength(10);
     expect(screen.queryByRole("button", { name: /^Show all/ })).toBeNull();
   });
+
+  // The visible trail had no structured counterpart: the page's only JSON-LD
+  // was the site-wide WebSite.
+  it("describes its breadcrumb trail as a BreadcrumbList", async () => {
+    getInstitution.mockResolvedValue(response({ positions: 1 }));
+    const { container } = render(await InstitutionPage(params("vanguard")));
+
+    const blocks = Array.from(container.querySelectorAll('script[type="application/ld+json"]')).map((s) =>
+      JSON.parse(s.textContent ?? "{}"),
+    );
+    const trail = blocks.find((b) => b["@type"] === "BreadcrumbList");
+    expect(
+      trail.itemListElement.map((i: { position: number; name: string; item: string }) => [i.position, i.name, i.item]),
+    ).toEqual([
+      [1, "Home", "https://shorted.com.au/"],
+      [2, "Ownership", "https://shorted.com.au/ownership"],
+      [3, "Vanguard", "https://shorted.com.au/ownership/vanguard"],
+    ]);
+  });
 });
 
 const NOINDEX = { index: false, follow: true, googleBot: { index: false, follow: true } };
@@ -226,6 +245,17 @@ describe("institution metadata", () => {
     const meta = await generateMetadata(params("afic"));
     expect(meta.title).toBe("Australian Foundation Investment Company ASX holdings");
     expect(String(meta.title).length).toBeLessThanOrEqual(60);
+  });
+
+  // An explicit `images` would shadow the segment's opengraph-image.tsx, and a
+  // page without its own `twitter` keeps the root layout's image there.
+  it("leaves the social card to the segment's opengraph-image", async () => {
+    getInstitution.mockResolvedValue(response({ positions: 2 }));
+    const meta = await generateMetadata(params("vanguard"));
+
+    expect(meta.openGraph).toMatchObject({ url: "https://shorted.com.au/ownership/vanguard" });
+    expect(Object.keys(meta.openGraph ?? {})).not.toContain("images");
+    expect(meta.twitter).toEqual({ card: "summary_large_image", creator: "@shorted___" });
   });
 
   it("noindexes an institution not on the map, and reads nothing for a malformed slug", async () => {

@@ -50,6 +50,8 @@ export const metadata: Metadata = {
     "index fund ownership",
   ],
   alternates: { canonical: URL },
+  // No `images` key on either: this route ships its own opengraph-image.tsx,
+  // and an explicit `images` here would shadow the file convention.
   openGraph: {
     type: "website",
     url: URL,

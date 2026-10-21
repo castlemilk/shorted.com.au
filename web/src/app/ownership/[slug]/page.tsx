@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
-import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
+import { BreadcrumbStructuredData, Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { ExternalLinkGlyph, ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
 import {
   KindBadge,
@@ -74,7 +74,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description,
     alternates: { canonical: url },
     ...(indexable ? {} : { robots: NOINDEX }),
+    // No `images` on either: the segment's opengraph-image.tsx is the card,
+    // and an explicit `images` would shadow it. `twitter` is set so its image
+    // follows the card instead of the root layout's.
     openGraph: { type: "website", url, title, description, siteName: "Shorted", locale: "en_AU" },
+    twitter: { card: "summary_large_image", creator: "@shorted___" },
   };
 }
 
@@ -88,17 +92,17 @@ export default async function InstitutionPage({ params }: PageProps) {
   const info = kindInfo(inst.kind);
   const etfs = data.funds.filter((f) => f.fundType === "etf");
   const superFunds = data.funds.filter((f) => f.fundType === "super_fund");
+  const crumbs = [
+    { label: "Ownership", href: "/ownership" },
+    { label: inst.name, href: `/ownership/${inst.slug}` },
+  ];
 
   return (
     <DashboardLayout fullWidth>
+      <BreadcrumbStructuredData items={crumbs} />
       <div className="mx-auto w-full max-w-[100rem] space-y-10">
         <ExternalLinkSymbol />
-        <Breadcrumbs
-          items={[
-            { label: "Ownership", href: "/ownership" },
-            { label: inst.name, href: `/ownership/${inst.slug}` },
-          ]}
-        />
+        <Breadcrumbs items={crumbs} />
         <header className="space-y-1.5">
           <div className="flex flex-wrap items-baseline gap-x-3">
             <h1 className={pageTitle}>{inst.name}</h1>
