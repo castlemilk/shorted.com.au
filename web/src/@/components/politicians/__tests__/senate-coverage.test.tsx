@@ -45,6 +45,19 @@ import {
   splitCoverageByChamber,
 } from "@/lib/politics/register-coverage";
 
+// The profile page's metadata is asserted through generateMetadata, so its one
+// read is mocked (the page's other actions only build a client at import).
+jest.mock("@connectrpc/connect", () => ({ createClient: jest.fn(() => ({})) }));
+jest.mock("@connectrpc/connect-web", () => ({
+  createConnectTransport: jest.fn(() => ({})),
+}));
+jest.mock("~/app/actions/getPoliticians", () => ({ getPolitician: jest.fn() }));
+
+import { getPolitician } from "~/app/actions/getPoliticians";
+import { generateMetadata } from "~/app/politicians/[slug]/page";
+
+const mockGetPolitician = getPolitician as jest.Mock;
+
 /** `web/src` — this file sits at `src/@/components/politicians/__tests__`. */
 const ROOT = join(__dirname, "..", "..", "..", "..");
 
@@ -315,10 +328,28 @@ describe("a senator with funding but no register rows", () => {
     expect(action).toMatch(/hasInterests:\s*profileIsIndexable\(p\)/);
   });
 
-  it("is noindexed on its own page by that same predicate", () => {
+  it("is noindexed on its own page by that same predicate", async () => {
     const profile = readFileSync(join(ROOT, "app", "politicians", "[slug]", "page.tsx"), "utf8");
     expect(profile).toMatch(/const indexable = profileIsIndexable\(p\)/);
-    expect(profile).toMatch(/robots: indexable \? undefined : \{ index: false, follow: true \}/);
+
+    // The metadata itself, not the spelling of the expression that builds it.
+    // An indexable profile carries NO robots key: an own `robots: undefined`
+    // replaces the root layout's robots with nothing when Next merges metadata.
+    mockGetPolitician.mockResolvedValueOnce({
+      politician: { ...FUNDING_ONLY_SENATOR, displayName: "Pauline Hanson", stateCode: "QLD" },
+    });
+    const thin = await generateMetadata({
+      params: Promise.resolve({ slug: FUNDING_ONLY_SENATOR.slug }),
+    });
+    expect(thin.robots).toEqual({ index: false, follow: true });
+
+    mockGetPolitician.mockResolvedValueOnce({
+      politician: { ...DUAL_CHAMBER_SENATOR, displayName: "Barnaby Joyce", stateCode: "NSW" },
+    });
+    const indexed = await generateMetadata({
+      params: Promise.resolve({ slug: DUAL_CHAMBER_SENATOR.slug }),
+    });
+    expect(Object.keys(indexed)).not.toContain("robots");
   });
 
   it("stays searchable: nothing filters the index by has_interests", () => {
