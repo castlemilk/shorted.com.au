@@ -13,16 +13,25 @@
 // REFRESH, TRUNCATE or ALTER is in flight in public; then row level security
 // one table per transaction, each with its own short lock_timeout, a handler
 // for lock_not_available and deadlock_detected, and a COMMIT; and every
-// role-dependent statement behind a pg_roles check. They also pin what it
-// covers, what makes a replay a no-op, its place at the END of the deploy
-// allowlist, the read-only check and pre-check files, and three rules over
-// every migration that keep the Data API closed afterwards:
-//   * no migration GRANTs anything to anon, authenticated or PUBLIC (nor does
-//     any SQL in the legacy Supabase CLI directories, which `supabase db push`
-//     would apply);
+// role-dependent statement behind a pg_roles check. Every catalog query in the
+// file, the in-flight look with its refusal, and the read-only check's scope
+// and each of its classes are pinned WHOLE (whitespace aside), not by
+// fragments: fragments let an inverted refusal, an extra AND in a WHERE clause
+// or a class that skips views pass (the second review's mutations). Changing
+// one changes verified SQL, so the same commit changes its pin here. They also
+// pin what it covers, what makes a replay a no-op, its place at the END of the
+// deploy allowlist, the read-only probes, and rules over every .sql file in the
+// repository (the migrations, the legacy Supabase CLI directories that
+// `supabase db push` would apply, analysis/, scripts/) that keep the Data API
+// closed afterwards:
+//   * none GRANTs anything to anon, authenticated or PUBLIC, or makes one of
+//     them an object's owner;
+//   * a GRANT whose grantee is computed (a format placeholder or a
+//     concatenated string), which no scan can read, appears only in the
+//     reviewed carries of an object's own grants (000131, 000132);
 //   * none creates a policy, or FORCEs or DISABLEs row level security;
-//   * every SECURITY DEFINER function pins search_path and revokes PUBLIC's
-//     EXECUTE in the same file.
+//   * every SECURITY DEFINER function in a migration pins search_path and
+//     revokes PUBLIC's EXECUTE in the same file.
 // The behaviour itself was exercised against Postgres 15 built with prod's
 // role model and default privileges plus the whole migration chain: applied
 // twice through prod-psql.sh (the second run rewrote no catalog row), the
@@ -78,6 +87,64 @@ const statementStrings = (sql) =>
 
 const ROLE_GUARD = /FROM pg_roles\s+WHERE rolname IN \('anon', 'authenticated'\)/;
 const CATALOG_WRITER_MODES = "l.mode IN ('ShareRowExclusiveLock', 'ExclusiveLock', 'AccessExclusiveLock')";
+
+/** Whitespace collapsed, so a pinned clause compares tokens, not layout. */
+const words = (text) => text.replace(/\s+/g, " ").trim();
+
+/**
+ * From `start` through the first `end` after it, whitespace collapsed. Fails
+ * when either is missing, so a pinned clause that moves cannot pass by
+ * comparing nothing.
+ */
+function span(text, start, end) {
+  const from = text.indexOf(start);
+  assert.ok(from >= 0, `expected to find: ${start}`);
+  const to = text.indexOf(end, from + start.length);
+  assert.ok(to >= 0, `expected to find, after "${start}": ${end}`);
+  return words(text.slice(from, to + end.length));
+}
+
+/**
+ * The text with everything inside parentheses or quotes blanked out, at the
+ * same length so its indices are the text's: what is left is the statement's
+ * own level, where a CTE starts, a UNION ALL joins two classes and a FROM
+ * names a class's rows.
+ */
+function topLevelMask(text) {
+  let out = "";
+  let depth = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === "'" || ch === '"') {
+      let j = i + 1;
+      while (j < text.length && !(text[j] === ch && text[j + 1] !== ch)) j += text[j] === ch ? 2 : 1;
+      out += " ".repeat(j + 1 - i);
+      i = j;
+    } else if (ch === "(") {
+      out += depth === 0 ? ch : " ";
+      depth += 1;
+    } else if (ch === ")") {
+      depth -= 1;
+      out += depth === 0 ? ch : " ";
+    } else {
+      out += depth === 0 ? ch : " ";
+    }
+  }
+  return out;
+}
+
+/** The text cut at every top-level match of `re` (a /g regex), the matches dropped. */
+function splitTopLevel(text, re) {
+  const cuts = [...topLevelMask(text).matchAll(re)];
+  const parts = [];
+  let from = 0;
+  for (const m of cuts) {
+    parts.push(text.slice(from, m.index));
+    from = m.index + m[0].length;
+  }
+  parts.push(text.slice(from));
+  return parts;
+}
 
 // ---------------------------------------------------------------------------
 // shape
@@ -168,6 +235,188 @@ test("postgres's default privileges change only once the role exists and current
 
 // ---------------------------------------------------------------------------
 // what it covers
+
+/**
+ * Every catalog query 000138 runs, and the in-flight look with its refusal
+ * and the run, pinned whole: { what, body, start, end, sql }, the SQL copied
+ * from the file as it was verified on the prod-like rig.
+ */
+const PINNED_SQL = [
+  {
+    what: "the PostgREST roles that exist",
+    body: privileges,
+    start: "SELECT array_agg(oid ORDER BY rolname)",
+    end: ";",
+    sql: `
+    SELECT array_agg(oid ORDER BY rolname), string_agg(format('%I', rolname), ', ' ORDER BY rolname)
+      INTO api_oids, api_roles
+      FROM pg_roles
+     WHERE rolname IN ('anon', 'authenticated');`,
+  },
+  {
+    what: "schema public",
+    body: privileges,
+    start: "public_oid  oid :=",
+    end: ";",
+    sql: `public_oid  oid := (SELECT oid FROM pg_namespace WHERE nspname = 'public');`,
+  },
+  {
+    what: "step 1a, the relations to revoke on",
+    body: privileges,
+    start: "SELECT n.nspname, c.relname, c.relkind, c.relowner",
+    end: "LOOP",
+    sql: `
+        SELECT n.nspname, c.relname, c.relkind, c.relowner
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE c.relnamespace = public_oid
+           AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+           AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                            WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e')
+           AND (EXISTS (SELECT 1 FROM aclexplode(c.relacl) a
+                         WHERE a.grantee = 0 OR a.grantee = ANY (api_oids))
+                OR EXISTS (SELECT 1 FROM pg_attribute att
+                             CROSS JOIN LATERAL aclexplode(att.attacl) a
+                            WHERE att.attrelid = c.oid AND att.attacl IS NOT NULL
+                              AND (a.grantee = 0 OR a.grantee = ANY (api_oids))))
+         ORDER BY c.relname
+    LOOP`,
+  },
+  {
+    what: "step 1b, the routines to revoke on",
+    body: privileges,
+    start: "SELECT n.nspname, p.proname, p.proowner, oidvectortypes(p.proargtypes) AS args",
+    end: "LOOP",
+    sql: `
+        SELECT n.nspname, p.proname, p.proowner, oidvectortypes(p.proargtypes) AS args
+          FROM pg_proc p
+          JOIN pg_namespace n ON n.oid = p.pronamespace
+         WHERE p.pronamespace = public_oid
+           AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                            WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')
+           AND EXISTS (SELECT 1 FROM aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+                        WHERE a.grantee = 0 OR a.grantee = ANY (api_oids))
+         ORDER BY p.proname, 4
+    LOOP`,
+  },
+  {
+    what: "step 2, postgres's default-privilege entries to close",
+    body: privileges,
+    start: "SELECT d.defaclobjtype, d.defaclnamespace = 0 AS everywhere",
+    end: "LOOP",
+    sql: `
+            SELECT d.defaclobjtype, d.defaclnamespace = 0 AS everywhere
+              FROM pg_default_acl d
+             WHERE d.defaclrole = pg_oid
+               AND d.defaclnamespace IN (public_oid, 0)
+               AND d.defaclobjtype IN ('r', 'S', 'f')
+               AND EXISTS (SELECT 1 FROM aclexplode(d.defaclacl) a WHERE a.grantee = ANY (api_oids))
+             ORDER BY 2, 1
+        LOOP`,
+  },
+  {
+    what: "step 2, the schema-less EXECUTE to PUBLIC",
+    body: privileges,
+    start: "IF EXISTS (SELECT 1",
+    end: "::text;",
+    sql: `
+        IF EXISTS (SELECT 1
+                     FROM aclexplode(coalesce(
+                            (SELECT d.defaclacl FROM pg_default_acl d
+                              WHERE d.defaclrole = pg_oid AND d.defaclnamespace = 0 AND d.defaclobjtype = 'f'),
+                            acldefault('f', pg_oid))) a
+                    WHERE a.grantee = 0) THEN
+            todo := todo || 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC'::text;`,
+  },
+  {
+    what: "step 2, another role's default privileges, reported",
+    body: privileges,
+    start: "SELECT pg_get_userbyid(d.defaclrole) AS for_role",
+    end: "LOOP",
+    sql: `
+        SELECT pg_get_userbyid(d.defaclrole) AS for_role,
+               string_agg(CASE d.defaclobjtype WHEN 'r' THEN 'tables' WHEN 'S' THEN 'sequences' ELSE 'functions' END,
+                          ', ' ORDER BY d.defaclobjtype) AS kinds
+          FROM pg_default_acl d
+         WHERE d.defaclnamespace = public_oid
+           AND d.defaclrole IS DISTINCT FROM pg_oid
+           AND d.defaclobjtype IN ('r', 'S', 'f')
+           AND EXISTS (SELECT 1 FROM aclexplode(d.defaclacl) a WHERE a.grantee = ANY (api_oids))
+         GROUP BY d.defaclrole
+         ORDER BY 1
+    LOOP`,
+  },
+  {
+    // A plain JOIN would hide a prepared transaction's locks, an extra AND
+    // (AND l.fastpath, AND c.relkind <> 'm', AND false) would hide a refresh,
+    // and IF in_flight IS NULL would refuse only when nothing is running.
+    what: "step 3, the in-flight look, the refusal and the run",
+    body: privileges,
+    start: "IF cardinality(todo) > 0 THEN",
+    end: "END LOOP;",
+    sql: `
+    IF cardinality(todo) > 0 THEN
+        SELECT string_agg(format('pid %s (%s) holds %s on %s', h.pid, h.what, h.modes, h.relations), '; ' ORDER BY h.pid)
+          INTO in_flight
+          FROM (SELECT l.pid,
+                       coalesce(left(regexp_replace(a.query, '[[:space:]]+', ' ', 'g'), 80), 'a prepared transaction') AS what,
+                       string_agg(DISTINCT l.mode, '/') AS modes,
+                       string_agg(DISTINCT c.relname::text, ', ') AS relations
+                  FROM pg_locks l
+                  JOIN pg_class c ON c.oid = l.relation
+                  LEFT JOIN pg_stat_activity a ON a.pid = l.pid
+                 WHERE l.locktype = 'relation'
+                   AND l.granted
+                   AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+                   AND l.mode IN ('ShareRowExclusiveLock', 'ExclusiveLock', 'AccessExclusiveLock')
+                   AND l.pid IS DISTINCT FROM pg_backend_pid()
+                   AND a.backend_type IS DISTINCT FROM 'autovacuum worker'
+                   AND c.relnamespace = public_oid
+                   AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+                 GROUP BY l.pid, a.query) h;
+        IF in_flight IS NOT NULL THEN
+            RAISE EXCEPTION USING
+                ERRCODE = 'object_in_use',
+                MESSAGE = format('000138: a REFRESH, TRUNCATE or ALTER is in flight in schema public, so nothing was changed: %s', in_flight),
+                HINT    = 'Re-run this file once it has finished; scripts/prod-data-api-precheck.sql returns zero rows when it is clear.';
+        END IF;
+
+        FOREACH stmt IN ARRAY todo LOOP
+            EXECUTE stmt;
+        END LOOP;`,
+  },
+  {
+    // AND c.relkind = 'r' alone would skip partitioned tables
+    what: "row level security, the tables to enable it on",
+    body: rls,
+    start: "FOR t IN",
+    end: "LOOP",
+    sql: `
+    FOR t IN
+        SELECT n.nspname, c.relname, c.relowner
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public'
+           AND c.relkind IN ('r', 'p')
+           AND NOT c.relrowsecurity
+           AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                            WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e')
+         ORDER BY c.relname
+    LOOP`,
+  },
+];
+
+test("every catalog query, and the in-flight look with its refusal, are pinned whole", () => {
+  for (const { what, body, start, end, sql } of PINNED_SQL) {
+    assert.equal(
+      span(body, start, end),
+      words(sql),
+      `000138, ${what}: the file no longer matches its pin. It was verified as it stands on a prod-like rig, so change the pin only with a re-verification.`,
+    );
+  }
+  // the run is the last thing step 3 does, and step 3 is the block's last work
+  assert.match(privileges, /EXECUTE stmt;\s+END LOOP;\s+END IF;\s+RAISE NOTICE '000138: revoked/);
+});
 
 test("relations: tables, partitioned tables, views, materialized views, foreign tables and sequences", () => {
   // the planning loop's own clause (the in-flight look repeats the list)
@@ -422,6 +671,155 @@ test("the check covers what the migration closes, with the same scope, and what 
   assert.doesNotMatch(code(check), /'(anon|authenticated|postgres)'::regrole/);
 });
 
+/** The check's scope: its CTEs before `violations`, pinned whole. */
+const CHECK_SCOPE = {
+  api: `SELECT oid, rolname FROM pg_roles WHERE rolname IN ('anon', 'authenticated')`,
+  pg: `SELECT oid FROM pg_roles WHERE rolname = 'postgres'`,
+  rel: `
+    SELECT c.oid, c.relname, c.relkind, c.relrowsecurity, c.relforcerowsecurity
+      FROM pg_class c
+     WHERE c.relnamespace = 'public'::regnamespace
+       AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+       AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                        WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e')`,
+  ext_rel: `
+    SELECT c.oid, c.relname, c.relkind, c.relrowsecurity, e.extname
+      FROM pg_class c
+      JOIN pg_depend d ON d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e'
+                      AND d.refclassid = 'pg_extension'::regclass
+      JOIN pg_extension e ON e.oid = d.refobjid
+     WHERE c.relnamespace = 'public'::regnamespace
+       AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')`,
+  fn: `
+    SELECT p.oid, p.proname, p.proowner, p.proacl, p.prosecdef, oidvectortypes(p.proargtypes) AS args
+      FROM pg_proc p
+     WHERE p.pronamespace = 'public'::regnamespace
+       AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                        WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')`,
+  privs: `SELECT unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) AS priv`,
+};
+
+/**
+ * Each class's rows: its branch of `violations` from its own FROM to its end,
+ * so the joins, the LATERAL that decides who holds what, and the WHERE clause
+ * are all pinned. Only the SELECT list (the row's wording) is free to change.
+ */
+const CHECK_CLASSES = {
+  rls_disabled: `
+      FROM rel
+     WHERE rel.relkind IN ('r', 'p') AND NOT rel.relrowsecurity`,
+  rls_forced: `
+      FROM rel
+     WHERE rel.relkind IN ('r', 'p') AND rel.relforcerowsecurity`,
+  policy_for_api_role: `
+      FROM pg_policy pol
+      JOIN pg_class c ON c.oid = pol.polrelid
+     WHERE c.relnamespace = 'public'::regnamespace
+       AND (0 = ANY (pol.polroles) OR pol.polroles && ARRAY(SELECT oid FROM api))`,
+  relation_privilege: `
+      FROM rel
+     CROSS JOIN api
+     CROSS JOIN LATERAL (
+            SELECT string_agg(privs.priv, ',' ORDER BY privs.priv) AS list
+              FROM privs
+             WHERE CASE WHEN privs.priv IN ('SELECT', 'INSERT', 'UPDATE', 'REFERENCES')
+                        THEN has_any_column_privilege(api.oid, rel.oid, privs.priv)
+                        ELSE has_table_privilege(api.oid, rel.oid, privs.priv) END
+          ) held
+     WHERE rel.relkind <> 'S' AND held.list IS NOT NULL`,
+  sequence_privilege: `
+      FROM rel
+     CROSS JOIN api
+     WHERE rel.relkind = 'S'
+       AND (has_sequence_privilege(api.oid, rel.oid, 'USAGE')
+            OR has_sequence_privilege(api.oid, rel.oid, 'SELECT')
+            OR has_sequence_privilege(api.oid, rel.oid, 'UPDATE'))`,
+  function_execute: `
+      FROM fn
+     CROSS JOIN LATERAL (
+            SELECT string_agg(grantee, ', ' ORDER BY grantee) AS list
+              FROM (SELECT 'PUBLIC' AS grantee
+                     WHERE EXISTS (SELECT 1 FROM aclexplode(coalesce(fn.proacl, acldefault('f', fn.proowner))) a
+                                    WHERE a.grantee = 0)
+                    UNION ALL
+                    SELECT api.rolname FROM api
+                     WHERE has_function_privilege(api.oid, fn.oid, 'EXECUTE')) g
+          ) who
+     WHERE who.list IS NOT NULL`,
+  extension_relation_privilege: `
+      FROM ext_rel
+     CROSS JOIN api
+     CROSS JOIN LATERAL (
+            SELECT string_agg(p.priv, ',' ORDER BY p.priv) AS list
+              FROM unnest(CASE WHEN ext_rel.relkind = 'S' THEN ARRAY['USAGE', 'SELECT', 'UPDATE']
+                               ELSE ARRAY(SELECT privs.priv FROM privs) END) AS p(priv)
+             WHERE CASE WHEN ext_rel.relkind = 'S'
+                        THEN has_sequence_privilege(api.oid, ext_rel.oid, p.priv)
+                        WHEN p.priv IN ('SELECT', 'INSERT', 'UPDATE', 'REFERENCES')
+                        THEN has_any_column_privilege(api.oid, ext_rel.oid, p.priv)
+                        ELSE has_table_privilege(api.oid, ext_rel.oid, p.priv) END
+          ) held
+     WHERE held.list IS NOT NULL`,
+  default_acl: `
+      FROM pg_default_acl d
+     WHERE d.defaclrole = (SELECT oid FROM pg)
+       AND d.defaclnamespace = 'public'::regnamespace
+       AND d.defaclobjtype IN ('r', 'S', 'f')
+       AND EXISTS (SELECT 1 FROM aclexplode(d.defaclacl) a WHERE a.grantee IN (SELECT oid FROM api))`,
+  default_acl_global: `
+      FROM pg_default_acl d
+     WHERE d.defaclrole = (SELECT oid FROM pg)
+       AND d.defaclnamespace = 0
+       AND d.defaclobjtype IN ('r', 'S', 'f')
+       AND EXISTS (SELECT 1 FROM aclexplode(d.defaclacl) a WHERE a.grantee IN (SELECT oid FROM api))`,
+  default_acl_public_execute: `
+      FROM pg
+     WHERE EXISTS (SELECT 1
+                     FROM aclexplode(coalesce(
+                            (SELECT d.defaclacl FROM pg_default_acl d
+                              WHERE d.defaclrole = pg.oid AND d.defaclnamespace = 0 AND d.defaclobjtype = 'f'),
+                            acldefault('f', pg.oid))) a
+                    WHERE a.grantee = 0)`,
+  default_acl_public_grant: `
+      FROM pg_default_acl d
+     WHERE d.defaclrole = (SELECT oid FROM pg)
+       AND (d.defaclnamespace = 'public'::regnamespace
+            OR (d.defaclnamespace = 0 AND d.defaclobjtype IN ('r', 'S')))
+       AND d.defaclobjtype IN ('r', 'S', 'f')
+       AND EXISTS (SELECT 1 FROM aclexplode(d.defaclacl) a WHERE a.grantee = 0)`,
+};
+
+test("the check's scope and every class's rows are pinned whole", () => {
+  // A class that skips views (relkind NOT IN ('S', 'v')), a function_execute
+  // that no longer sees PUBLIC, an rls_disabled that skips partitioned tables:
+  // each reads "closed" while something is open.
+  const text = code(check);
+  const mask = topLevelMask(text);
+  const ctes = new Map();
+  let last = -1;
+  for (const m of mask.matchAll(/\b(\w+) AS \(/g)) {
+    const open = m.index + m[0].length - 1;
+    last = mask.indexOf(")", open);
+    ctes.set(m[1], text.slice(open + 1, last));
+  }
+  assert.deepEqual([...ctes.keys()], [...Object.keys(CHECK_SCOPE), "violations"], "the check's CTEs");
+  for (const [name, sql] of Object.entries(CHECK_SCOPE)) {
+    assert.equal(words(ctes.get(name)), words(sql), `scripts/prod-data-api-check.sql: the ${name} CTE no longer matches its pin`);
+  }
+  const classes = splitTopLevel(ctes.get("violations"), /\bUNION ALL\b/g).map((branch) => [
+    /^\s*SELECT '(\w+)'/.exec(branch)?.[1],
+    words(branch.slice(topLevelMask(branch).search(/\bFROM\b/))),
+  ]);
+  assert.deepEqual(classes.map(([name]) => name).sort(), Object.keys(CHECK_CLASSES).sort(), "one branch per class");
+  for (const [name, rows] of classes) {
+    assert.equal(rows, words(CHECK_CLASSES[name]), `scripts/prod-data-api-check.sql: ${name}'s rows no longer match their pin`);
+  }
+  assert.equal(
+    words(text.slice(last + 1)),
+    "SELECT violation, object, detail FROM violations WHERE EXISTS (SELECT 1 FROM api) ORDER BY violation, object, detail;",
+  );
+});
+
 test("the pre-check matches what step 1 refuses on, and the same query is in 000138's header and the runbook", () => {
   for (const condition of [
     "l.locktype = 'relation'",
@@ -448,7 +846,7 @@ test("the pre-check matches what step 1 refuses on, and the same query is in 000
 });
 
 // ---------------------------------------------------------------------------
-// every migration, so the Data API stays closed
+// every SQL file in the repository, so the Data API stays closed
 
 const migrationFiles = readdirSync(migrationsDir)
   .filter((f) => /^\d{6}_.+\.(up|down)\.sql$/.test(f))
@@ -456,16 +854,28 @@ const migrationFiles = readdirSync(migrationsDir)
 const versionOf = (file) => Number.parseInt(file.slice(0, 6), 10);
 const THIS_VERSION = versionOf(UP);
 
-/** Every .sql file under a repo directory, as repo-relative paths. */
-const sqlFilesUnder = (dir) =>
-  readdirSync(new URL(`${dir}/`, repoRoot), { recursive: true })
-    .filter((f) => f.endsWith(".sql"))
-    .map((f) => `${dir}/${f}`)
-    .sort();
-// The legacy Supabase CLI projects (supabase/config.toml, web/supabase/config.toml).
-// web/package.json's `supabase:migrate` is `supabase db push`, which applies
-// their migrations to whatever project is linked, prod included.
-const legacySqlFiles = [...sqlFilesUnder("supabase"), ...sqlFilesUnder("web/supabase")];
+/**
+ * Every .sql file in the repository, tracked or not, as sorted repo-relative
+ * paths: whatever psql -f, a paste into a SQL editor or `supabase db push`
+ * (web/package.json's `supabase:migrate`, which applies the legacy
+ * supabase/ and web/supabase/ projects to whatever project is linked, prod
+ * included) could run. Dependencies and dot-directories (.git, the .claude
+ * worktrees, .next, .terraform) are skipped; a symlink is never followed.
+ */
+function repoSqlFiles(dir = "") {
+  const out = [];
+  for (const entry of readdirSync(dir ? new URL(`${dir}/`, repoRoot) : repoRoot, { withFileTypes: true })) {
+    if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+    const path = dir ? `${dir}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) out.push(...repoSqlFiles(path));
+    else if (entry.isFile() && entry.name.endsWith(".sql")) out.push(path);
+  }
+  return out.sort();
+}
+const sqlFiles = repoSqlFiles();
+/** The read-only probes, one WITH ... SELECT each (pinned above): they name what they look for. */
+const READ_ONLY_PROBES = new Set(["scripts/prod-data-api-check.sql", "scripts/prod-data-api-precheck.sql"]);
+const API_ROLES = ["anon", "authenticated", "public"];
 
 /** The role names a GRANT ... TO lists, literally (a %s placeholder lists none). */
 function literalGrantees(sql) {
@@ -476,49 +886,78 @@ function literalGrantees(sql) {
   return out;
 }
 
-test("no migration grants anything to anon, authenticated or PUBLIC, nor does the legacy Supabase CLI SQL", () => {
-  // A dynamic carry of an object's existing grants (000131, 000132:
-  // format('GRANT %s ... TO %s%s', ...)) names no role and is allowed: after
-  // 000138 there is nothing of anon's left to carry, and 000138 replays after
-  // both. ALTER DEFAULT PRIVILEGES ... GRANT ... TO anon is caught here too.
-  const sources = [
-    ...migrationFiles.map((file) => [`services/migrations/${file}`, read(file)]),
-    ...legacySqlFiles.map((path) => [path, readRepo(path)]),
-  ];
+/** The role an ALTER ... OWNER TO names, literally (a %I placeholder names none). */
+const literalOwners = (sql) =>
+  [...code(sql).matchAll(/\bOWNER\s+TO\s+("?[A-Za-z_][A-Za-z0-9_$]*"?)/gi)].map((m) => m[1].replace(/"/g, "").toLowerCase());
+
+/** GRANTs whose grantee is computed (a format placeholder, a concatenated string): no scan can read who they name. */
+const computedGrants = (sql) => [...code(sql).matchAll(/\bGRANT\b[^;]*?\bTO\s+(?:%|'\s*\|\|)/gi)].length;
+
+test("no SQL file grants anything to anon, authenticated or PUBLIC, or makes one of them an owner", () => {
+  // ALTER DEFAULT PRIVILEGES ... GRANT ... TO anon is caught here too, and so
+  // is a GRANT inside a function body: the scan reads everything but comments.
   const offenders = [];
-  for (const [path, sql] of sources) {
-    for (const grantee of literalGrantees(sql)) {
-      if (["anon", "authenticated", "public"].includes(grantee)) offenders.push(`${path}: GRANT ... TO ${grantee}`);
-    }
+  for (const path of sqlFiles) {
+    const sql = readRepo(path);
+    for (const grantee of literalGrantees(sql)) if (API_ROLES.includes(grantee)) offenders.push(`${path}: GRANT ... TO ${grantee}`);
+    for (const owner of literalOwners(sql)) if (API_ROLES.includes(owner)) offenders.push(`${path}: OWNER TO ${owner}`);
   }
   assert.deepEqual(
     offenders,
     [],
-    "The Supabase Data API serves anything anon or authenticated (or PUBLIC, which both inherit) can read or call, to anyone holding the project's anon key. Nothing in this repo uses the Data API. If one object is ever meant to be published through it, grant exactly that object to exactly one role in its own migration and change this test in the same change. The legacy supabase/ and web/supabase/ SQL is scanned too: `supabase db push` would apply it.",
+    "The Supabase Data API serves anything anon or authenticated (or PUBLIC, which both inherit) can read or call, to anyone holding the project's anon key, and an owner holds everything on its object. Nothing in this repo uses the Data API. If one object is ever meant to be published through it, grant exactly that object to exactly one role in its own migration and change this test in the same change. Every .sql file is scanned, not only migrations: psql -f or `supabase db push` would run any of them.",
   );
-  // the scan reaches the legacy file that used to grant everything
-  assert.ok(legacySqlFiles.includes("web/supabase/migrations/20250107_001_initial_schema.sql"));
-  assert.ok(legacySqlFiles.some((p) => p.startsWith("supabase/migrations/")));
-  // the matcher itself
+  // the scan reaches every migration, the legacy file that used to grant
+  // everything, the other legacy project, and SQL outside all of them
+  assert.equal(sqlFiles.filter((p) => p.startsWith("services/migrations/")).length, migrationFiles.length);
+  assert.ok(sqlFiles.includes("web/supabase/migrations/20250107_001_initial_schema.sql"));
+  assert.ok(sqlFiles.some((p) => p.startsWith("supabase/migrations/")));
+  assert.ok(sqlFiles.some((p) => p.startsWith("analysis/")));
+  // the matchers themselves
   assert.deepEqual(literalGrantees("GRANT SELECT ON t TO service_role, anon;"), ["service_role", "anon"]);
   assert.deepEqual(literalGrantees("EXECUTE format('GRANT %s ON TABLE %I TO %s%s', a, b, CASE WHEN x THEN 'PUBLIC' END);"), []);
   assert.deepEqual(literalGrantees('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO "authenticated";'), ["authenticated"]);
   assert.deepEqual(literalGrantees("-- GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;"), [], "a commented-out grant is inert");
+  assert.deepEqual(literalOwners("ALTER TABLE public.weekly_reports OWNER TO anon;"), ["anon"]);
+  assert.deepEqual(literalOwners("EXECUTE format('ALTER %s %I.%I OWNER TO %I', kind, a, b, owner);"), []);
 });
 
-test("no migration creates a policy, or forces or disables row level security", () => {
+test("a GRANT whose grantee is computed appears only in the reviewed carries of an object's own grants", () => {
+  // 000131 and 000132 rebuild a view and re-grant exactly what the old one
+  // held, reading its ACL (format('GRANT %s ... TO %s%s', ...)). After 000138
+  // nothing of anon's is left to carry, and 000138 replays after both. Any
+  // other computed grantee could be anon (format('... TO %I', 'anon')), and
+  // the literal scan above cannot see it: review it, then list it here.
+  const found = Object.fromEntries(sqlFiles.map((path) => [path, computedGrants(readRepo(path))]).filter(([, n]) => n > 0));
+  assert.deepEqual(found, {
+    "services/migrations/000131_widen_stock_price_precision.down.sql": 1,
+    "services/migrations/000131_widen_stock_price_precision.up.sql": 1,
+    "services/migrations/000132_extend_fundamentals.down.sql": 1,
+    "services/migrations/000132_extend_fundamentals.up.sql": 1,
+  });
+  // the matcher itself
+  assert.equal(computedGrants("DO $$ BEGIN EXECUTE format('GRANT SELECT ON public.shorts TO %I', 'anon'); END $$;"), 1);
+  assert.equal(computedGrants("EXECUTE 'GRANT SELECT ON public.shorts TO ' || quote_ident(r);"), 1);
+  assert.equal(computedGrants("GRANT SELECT ON public.shorts TO service_role;"), 0);
+  assert.equal(computedGrants("-- EXECUTE format('GRANT SELECT ON t TO %I', r);"), 0);
+});
+
+test("no SQL file creates a policy, or forces or disables row level security", () => {
   const offenders = [];
-  for (const file of migrationFiles) {
-    const sql = code(read(file));
-    if (/\bCREATE\s+POLICY\b/i.test(sql)) offenders.push(`${file}: CREATE POLICY`);
-    if (/(?<!\bNO\s)\bFORCE\s+ROW\s+LEVEL\s+SECURITY\b/i.test(sql)) offenders.push(`${file}: FORCE ROW LEVEL SECURITY`);
-    if (/\bDISABLE\s+ROW\s+LEVEL\s+SECURITY\b/i.test(sql)) offenders.push(`${file}: DISABLE ROW LEVEL SECURITY`);
+  for (const path of sqlFiles.filter((p) => !READ_ONLY_PROBES.has(p))) {
+    const sql = code(readRepo(path));
+    if (/\bCREATE\s+POLICY\b/i.test(sql)) offenders.push(`${path}: CREATE POLICY`);
+    if (/(?<!\bNO\s)\bFORCE\s+ROW\s+LEVEL\s+SECURITY\b/i.test(sql)) offenders.push(`${path}: FORCE ROW LEVEL SECURITY`);
+    if (/\bDISABLE\s+ROW\s+LEVEL\s+SECURITY\b/i.test(sql)) offenders.push(`${path}: DISABLE ROW LEVEL SECURITY`);
   }
   assert.deepEqual(
     offenders,
     [],
-    "Every table in public has row level security on and no policy, which denies every role that is neither the owner nor BYPASSRLS. A policy is the only way that opens a row to the Data API; FORCE would subject an owner to it.",
+    "Every table in public has row level security on and no policy, which denies every role that is neither the owner nor BYPASSRLS. A policy is the only way that opens a row to the Data API; FORCE would subject an owner to it. Every .sql file is scanned, the legacy supabase/ and web/supabase/ SQL included.",
   );
+  // the read-only probes left out above are the check (whose rls_forced class
+  // names FORCE in its message) and the pre-check, and nothing else
+  assert.ok([...READ_ONLY_PROBES].every((p) => sqlFiles.includes(p)));
 });
 
 /**

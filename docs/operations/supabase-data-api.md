@@ -216,13 +216,20 @@ development, lists `public`, `storage` and `graphql_public`.
 
 ## Keeping it closed
 
-- `services/migrations/data_api_grants.test.mjs` fails on a migration that
-  GRANTs anything to `anon`, `authenticated` or `PUBLIC`, creates a policy, or
-  FORCEs or DISABLEs row level security, and on a `SECURITY DEFINER` function
-  that does not pin `search_path` and revoke `PUBLIC`'s EXECUTE.
-- The grant scan also covers the legacy Supabase CLI SQL under `supabase/` and
-  `web/supabase/`: `web/package.json`'s `supabase:migrate` is `supabase db
-  push`, which would apply it to whatever project is linked. Its old grants are
-  commented out.
+- `services/migrations/data_api_grants.test.mjs` fails when any `.sql` file in
+  the repository GRANTs anything to `anon`, `authenticated` or `PUBLIC`, makes
+  one of them an owner, creates a policy, or FORCEs or DISABLEs row level
+  security; when a GRANT's grantee is computed (a format placeholder) anywhere
+  but the two reviewed carries in 000131 and 000132; and when a migration's
+  `SECURITY DEFINER` function does not pin `search_path` and revoke `PUBLIC`'s
+  EXECUTE.
+- Every `.sql` file, not only migrations, because psql or `supabase db push`
+  would run any of them: `web/package.json`'s `supabase:migrate` is `supabase
+  db push`, which applies the legacy `supabase/` and `web/supabase/` SQL to
+  whatever project is linked. That SQL's old grants are commented out.
+- The same test pins 000138's catalog queries, its in-flight look and refusal,
+  and the check's scope and every class whole, not by fragments. They were
+  verified on a prod-like rig as they stand: change one only with a
+  re-verification, and change its pin in the same commit.
 - A new allowlisted migration goes ABOVE 000138 in `terraform-deploy.yml`, so
   000138 stays the last file a deploy replays.

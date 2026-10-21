@@ -233,11 +233,15 @@ Query performance expectations (measured January 2026):
 **Supabase Data API: closed by `000138_harden_data_api_grants`; keep it closed.**
 PostgREST serves whatever `anon` and `authenticated` can reach in `public` to
 anyone with the (non-secret) anon key, and nothing here uses it.
-- Never `GRANT` anything to `anon`, `authenticated` or `PUBLIC` in a migration
-  (or in the legacy `supabase/` and `web/supabase/` SQL, which `supabase db push`
-  would apply), create a policy, or FORCE/DISABLE row level security:
-  `services/migrations/data_api_grants.test.mjs` fails. A `SECURITY DEFINER`
-  function pins `search_path` and revokes `PUBLIC`'s EXECUTE in the same file.
+- Never `GRANT` anything to `anon`, `authenticated` or `PUBLIC`, make one of them
+  an owner, create a policy, or FORCE/DISABLE row level security, in ANY `.sql`
+  file (migrations, the legacy `supabase/` and `web/supabase/` SQL that
+  `supabase db push` would apply, `analysis/`, `scripts/`):
+  `services/migrations/data_api_grants.test.mjs` fails. A GRANT with a computed
+  grantee is allowed only in the reviewed carries in 000131 and 000132. A
+  `SECURITY DEFINER` function pins `search_path` and revokes `PUBLIC`'s EXECUTE
+  in the same file. The same test pins 000138's catalog queries and the check's
+  classes whole: change one only with a re-verification, pin included.
 - Closed = zero rows from `task db:prod:psql -- -P pager=off -f scripts/prod-data-api-check.sql`.
   Nothing re-closes it on its own while the Deploy Infrastructure workflow is
   disabled: re-run 000138 by hand (pre-check, `task db:prod:apply`, check) until
