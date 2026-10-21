@@ -37,12 +37,11 @@ const HUBS = [
   "housing/calculators/page.tsx",
 ];
 
-/** Pages that export both, each with its owner's fix. */
-const ALLOWED_BOTH: Record<string, string> = {
-  // Owned outside the ISR partition: drop force-dynamic once its reads are
-  // shown ISR-safe, or drop the inert revalidate.
-  "industry/page.tsx": "owned elsewhere",
-};
+/**
+ * Pages that export both, each with its owner's fix. Empty since 2026-10-21,
+ * when industry/page.tsx dropped its inert revalidate.
+ */
+const ALLOWED_BOTH: Record<string, string> = {};
 
 const parse = (file: string): ts.SourceFile =>
   ts.createSourceFile(

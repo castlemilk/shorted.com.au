@@ -58,9 +58,14 @@ export const metadata: Metadata = {
   },
 };
 
-// Force dynamic rendering: this page requires a live backend for data
+// Force dynamic rendering: this page requires a live backend for data.
+// There is no `revalidate`: beside force-dynamic it was inert (the page
+// renders per request either way; app/__tests__/isr-hubs.test.ts). Making
+// /industry ISR is a separate change: getIndustryData returns [] at build
+// (skipForBuild), so the build shell would be an empty industry list for the
+// whole revalidate unless the page caps an empty render and the post-deploy
+// sweep (config/isr-pages.json) regenerates it.
 export const dynamic = "force-dynamic";
-export const revalidate = 3600;
 
 const breadcrumbs = [
   { name: "Home", url: siteConfig.url },
