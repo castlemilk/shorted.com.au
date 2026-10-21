@@ -764,6 +764,13 @@ func (m *SyncManager) buildEnrichedAlgoliaRecords(ctx context.Context, basicReco
 // upsertPricesSQL writes one stock's sessions in one statement. Dates travel
 // as text and are cast by the database, so a session is stored under exactly
 // the date the provider gave it, whatever the connection's TimeZone.
+//
+// A session the provider returns unchanged is left alone: every sweep re-sends
+// days already stored, and rewriting them cost prod 4.62M updates in 90 days,
+// 3.7M of them non-HOT, each adding entries to all five stock_prices indexes
+// (2026-10-21 review DBP-11). EXCLUDED holds the values already cast to the
+// columns' numeric(12,4), so an unchanged price compares equal. Nothing reads
+// updated_at, so it now means "last changed".
 const upsertPricesSQL = `
 	INSERT INTO stock_prices (stock_code, date, open, high, low, close, adjusted_close, volume)
 	SELECT $1, t.date, t.open, t.high, t.low, t.close, t.adjusted_close, t.volume
@@ -776,7 +783,11 @@ const upsertPricesSQL = `
 		close = EXCLUDED.close,
 		adjusted_close = EXCLUDED.adjusted_close,
 		volume = EXCLUDED.volume,
-		updated_at = CURRENT_TIMESTAMP`
+		updated_at = CURRENT_TIMESTAMP
+	WHERE (stock_prices.open, stock_prices.high, stock_prices.low, stock_prices.close,
+	       stock_prices.adjusted_close, stock_prices.volume)
+	      IS DISTINCT FROM (EXCLUDED.open, EXCLUDED.high, EXCLUDED.low, EXCLUDED.close,
+	       EXCLUDED.adjusted_close, EXCLUDED.volume)`
 
 // upsertRecords writes one stock's sessions, at most one per date (see
 // sessionsIn), in a single round trip. It used to be a statement per row, which

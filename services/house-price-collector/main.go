@@ -215,7 +215,8 @@ func run() int {
 		return ingestExit(runBackfillAddress(ctx, pool))
 	case "census":
 		// ABS 2021 Census GCP SAL demographics — boundary-anchored suburb rows.
-		return ingestExit(runCensus(ctx, pool))
+		// The state baselines and similarity features (000139) read them.
+		return ingestExit(afterSuburbReferenceIngest(ctx, pool, runCensus(ctx, pool)))
 	case "seifa":
 		// ABS 2021 SEIFA by SAL — annual, operator-run, and deliberately excluded
 		// from the monthly "all" lifecycle.
@@ -233,7 +234,8 @@ func run() int {
 	case "amenities":
 		// Per-suburb amenity/lifestyle metrics, spatially joined offline
 		// (web/scripts/geo/join-amenities.mjs) and upserted into suburb_amenities.
-		return ingestExit(runAmenities(ctx, pool))
+		// The similarity features (000139) read amenity density and coast distance.
+		return ingestExit(afterSuburbReferenceIngest(ctx, pool, runAmenities(ctx, pool)))
 	case "elevation":
 		// GA national DEM-S terrain statistics are an expensive offline
 		// recompute and deliberately excluded from the scheduled "all" mode.
@@ -597,10 +599,18 @@ func refresh(_ context.Context, pool *pgxpool.Pool) error {
 		return err
 	}
 	log.Println("refreshed mv_housing_headline")
+	// After the housing views and the sal_code links above: the suburb
+	// reference views read both (mv_suburb_latest_price is keyed by sal_code).
+	// A failure here still fails the run, but only after the cache bust below,
+	// which the housing views just earned.
+	refErr := refreshSuburbReferenceViews(ctx, pool)
+	if refErr != nil {
+		log.Printf("suburb reference view refresh failed: %v", refErr)
+	}
 	// Official/crawl ingest refreshed the housing MVs → bust the web tier's
 	// long-TTL housing caches now. Best-effort, never fails the run.
 	pingRevalidate("refresh")
-	return nil
+	return refErr
 }
 
 // scheduledOfficialJobs contains sources safe to run from the Cloud Run job.

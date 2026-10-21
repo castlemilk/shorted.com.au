@@ -2,7 +2,9 @@ package shorts
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -111,4 +113,59 @@ func TestGetStockDataQueryOptions(t *testing.T) {
 		require.Zero(t, got.TotalObservations)
 		require.False(t, got.Downsampled)
 	})
+}
+
+// total_observations rides on the chart rows themselves (one statement per
+// chart, not a COUNT plus the read). It must still be the raw rows in the
+// window: the same for the bucketed and full-resolution reads of a period, and
+// unchanged by an as_of that hides the newest reports or by a point cap.
+func TestGetStockDataCountsObservationsInTheReadItself(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	dbURL := getTestDatabaseURL()
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+	pool := createTestPool(t, dbURL)
+	defer pool.Close()
+	store := &postgresStore{db: pool}
+
+	var code string
+	var latest time.Time
+	require.NoError(t, pool.QueryRow(context.Background(), `
+		SELECT "PRODUCT_CODE", MAX("DATE")
+		FROM shorts
+		WHERE "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		GROUP BY "PRODUCT_CODE" ORDER BY COUNT(*) DESC LIMIT 1`).Scan(&code, &latest))
+
+	for _, period := range []string{"6M", "1Y", "MAX"} {
+		var raw int32
+		require.NoError(t, pool.QueryRow(context.Background(), fmt.Sprintf(`
+			SELECT COUNT(*) FROM shorts
+			WHERE "PRODUCT_CODE" = $1 AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '%s'
+			  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL`, periodToInterval(period)), code).Scan(&raw))
+
+		bucketed, err := store.GetStockData(StockDataQuery{ProductCode: code, Period: period})
+		require.NoError(t, err)
+		full, err := store.GetStockData(StockDataQuery{ProductCode: code, Period: period, FullResolution: true})
+		require.NoError(t, err)
+		require.Equal(t, raw, bucketed.TotalObservations, "%s bucketed", period)
+		require.Equal(t, raw, full.TotalObservations, "%s full resolution", period)
+		require.Len(t, full.Points, int(raw), "%s: every observation is a full-resolution point", period)
+
+		capped, err := store.GetStockData(StockDataQuery{ProductCode: code, Period: period, FullResolution: true, MaxPoints: 3})
+		require.NoError(t, err)
+		require.Equal(t, raw, capped.TotalObservations, "%s: the cap leaves the total alone", period)
+	}
+
+	// An as_of a month before the newest report hides the reports published
+	// since, but the window's observation count is unchanged, as before.
+	asOf := latest.AddDate(0, -1, 0).Format("2006-01-02")
+	hidden, err := store.GetStockData(StockDataQuery{ProductCode: code, Period: "1Y", FullResolution: true, AsOf: asOf})
+	require.NoError(t, err)
+	open, err := store.GetStockData(StockDataQuery{ProductCode: code, Period: "1Y", FullResolution: true})
+	require.NoError(t, err)
+	require.Less(t, len(hidden.Points), len(open.Points), "as_of hides the newest reports")
+	require.Equal(t, open.TotalObservations, hidden.TotalObservations)
 }

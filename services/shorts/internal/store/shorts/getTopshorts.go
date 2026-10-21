@@ -3,6 +3,7 @@ package shorts
 import (
 	"context"
 	"fmt"
+	"math"
 
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
@@ -202,20 +203,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 		topShorts = productCodes
 	}
 
-	// Optimized query for time series data without downsampling
-	// Uses MAX(DATE) instead of CURRENT_DATE to work with historical data
-	timeSeriesQuery := fmt.Sprintf(`
-	SELECT 
-	    "PRODUCT_CODE",
-	    "DATE",
-	    "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" AS "PERCENT"
-	FROM shorts
-	WHERE "PRODUCT_CODE" = ANY($1)
-	    AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '%s'
-	    AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
-	ORDER BY "PRODUCT_CODE", "DATE" ASC`, interval)
-
-	rows, err = connection.Query(ctx, timeSeriesQuery, topShorts)
+	rows, err = connection.Query(ctx, fmt.Sprintf(sparklineQuery, interval), topShorts, topShortsSparklineMaxPoints)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -230,31 +218,36 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 		var productCode string
 		var date pgtype.Timestamp
 		var percent pgtype.Float8
-		if err := rows.Scan(&productCode, &date, &percent); err != nil {
+		var isPoint, isMin, isMax bool
+		if err := rows.Scan(&productCode, &date, &percent, &isPoint, &isMin, &isMax); err != nil {
 			return nil, 0, err
 		}
 		if date.Status != pgtype.Present || percent.Status != pgtype.Present {
 			continue
 		}
-		shortPosition := percent.Float
 		point := &stocksv1alpha1.TimeSeriesPoint{
 			Timestamp:     timestamppb.New(date.Time),
-			ShortPosition: shortPosition,
+			ShortPosition: percent.Float,
 		}
-		timeSeriesMap[productCode] = append(timeSeriesMap[productCode], point)
-
-		if minMax, ok := minMaxMap[productCode]; !ok {
-			minMaxMap[productCode] = &struct {
+		if isPoint {
+			timeSeriesMap[productCode] = append(timeSeriesMap[productCode], point)
+		}
+		minMax, ok := minMaxMap[productCode]
+		if !ok {
+			minMax = &struct {
 				min, max *stocksv1alpha1.TimeSeriesPoint
-			}{point, point}
-		} else {
-			if shortPosition < minMax.min.ShortPosition {
-				minMax.min = point
-			}
-			if shortPosition > minMax.max.ShortPosition {
-				minMax.max = point
-			}
+			}{}
+			minMaxMap[productCode] = minMax
 		}
+		if isMin {
+			minMax.min = point
+		}
+		if isMax {
+			minMax.max = point
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
 	}
 
 	// Calculate the new offset for subsequent queries
@@ -263,20 +256,20 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 	timeSeriesDataSlice := make([]*stocksv1alpha1.TimeSeriesData, 0)
 	for _, productCode := range topShorts {
 		points := timeSeriesMap[productCode]
-		// Require at least 2 points to draw a meaningful line chart
+		// Require at least 2 points to draw a meaningful line chart. The SQL
+		// keeps every point of a series of up to topShortsSparklineMaxPoints,
+		// so this counts the full series exactly as before.
 		if len(points) >= 2 {
 			minMax := minMaxMap[productCode]
-			latest := points[len(points)-1].ShortPosition
 			tsData := &stocksv1alpha1.TimeSeriesData{
 				ProductCode: productCode,
 				Name:        productNames[productCode],
-				// Decimate the series to a sparkline-appropriate resolution. These
-				// are list sparklines (not the full per-stock chart), so full daily
-				// resolution just bloats the payload (a 50-stock 6mo response was
-				// ~370KB). Min/Max/Latest are computed from the FULL series, so
-				// the markers and current value stay exact.
-				Points:              decimatePoints(points, topShortsSparklineMaxPoints),
-				LatestShortPosition: latest,
+				// Already decimated by sparklineQuery to a sparkline-appropriate
+				// resolution: these are list sparklines (not the full per-stock
+				// chart). Min/Max/Latest come from the FULL series, so the
+				// markers and current value stay exact.
+				Points:              points,
+				LatestShortPosition: points[len(points)-1].ShortPosition,
 				Max:                 minMax.max,
 				Min:                 minMax.min,
 			}
@@ -292,18 +285,77 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 // fraction of the bytes of full daily resolution.
 const topShortsSparklineMaxPoints = 60
 
-// decimatePoints evenly downsamples points to at most maxPoints, always keeping
-// the first and last point so the line spans the full period. Returns the input
-// unchanged when it's already small enough.
-func decimatePoints(points []*stocksv1alpha1.TimeSeriesPoint, maxPoints int) []*stocksv1alpha1.TimeSeriesPoint {
-	if maxPoints <= 1 || len(points) <= maxPoints {
-		return points
+// sparklineQuery returns each code's sparkline already decimated, plus the
+// rows that hold its minimum and maximum, instead of the full daily series.
+// The full series was 40.5k rows per call on prod (pg_stat_statements,
+// 2026-10-21: 19,275 calls, 1.28 s mean, 95 s max, 781M rows), every one
+// shipped to Go only for Go to keep 60 per code. %s is periodToInterval's
+// output; $1 = the codes, $2 = topShortsSparklineMaxPoints.
+//
+// The sampled points are exactly the ones the Go decimation kept before it
+// moved here (decimatePoints, 2026-10): a series of n <= $2 points is kept whole; a longer one
+// keeps index n-1 and every floor(i * step) for i in [0, $2-2], with
+// step = (n-1)/($2-1), computed in float8 exactly as Go computed it in float64.
+// step > 1 there, so at most one i lands on an index, and it is within one of
+// ceil(rn / step) whatever the rounding of that division: each row tests those
+// three candidates (sparklineKeeps is the same test in Go, checked against the
+// old decimation for every series length up to 3,000 and a sample to 20,000).
+//
+// The scan walks the covering index in its own order (code, date DESC), so the
+// window functions need no sort. is_min / is_max flag the FIRST date holding
+// the series' minimum / maximum, which is what the old ascending scan with
+// strict comparisons kept.
+const sparklineQuery = `
+	WITH s AS (
+	    SELECT "PRODUCT_CODE" AS code,
+	           "DATE" AS date,
+	           "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" AS pct,
+	           count(*) OVER w AS n,
+	           row_number() OVER (w ORDER BY "DATE" DESC) AS back,
+	           min("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") OVER w AS lo,
+	           max("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") OVER w AS hi
+	    FROM shorts
+	    WHERE "PRODUCT_CODE" = ANY($1)
+	        AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '%s'
+	        AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+	    WINDOW w AS (PARTITION BY "PRODUCT_CODE")
+	), r AS (
+	    SELECT code, date, pct, n, n - back AS rn,
+	           min(date) FILTER (WHERE pct = lo) OVER (PARTITION BY code) AS lo_date,
+	           min(date) FILTER (WHERE pct = hi) OVER (PARTITION BY code) AS hi_date
+	    FROM s
+	), k AS (
+	    SELECT code, date, pct, n, rn, lo_date, hi_date, step,
+	           CASE WHEN n > $2::int THEN ceil(rn::float8 / step)::int END AS c
+	    FROM (
+	        SELECT r.*, CASE WHEN n > $2::int THEN (n - 1)::float8 / ($2::int - 1)::float8 END AS step
+	        FROM r
+	    ) stepped
+	), picked AS (
+	    SELECT code, date, pct, lo_date, hi_date,
+	           (n <= $2::int OR rn = n - 1
+	            OR (c - 1 BETWEEN 0 AND $2::int - 2 AND floor((c - 1)::float8 * step) = rn)
+	            OR (c     BETWEEN 0 AND $2::int - 2 AND floor(c::float8 * step) = rn)
+	            OR (c + 1 BETWEEN 0 AND $2::int - 2 AND floor((c + 1)::float8 * step) = rn)) AS is_point
+	    FROM k
+	)
+	SELECT code, date, pct, is_point, date = lo_date AS is_min, date = hi_date AS is_max
+	FROM picked
+	WHERE is_point OR date = lo_date OR date = hi_date
+	ORDER BY code, date`
+
+// sparklineKeeps is sparklineQuery's is_point test in Go: whether index rn of
+// an n-point series is one of the maxPoints the decimation keeps.
+func sparklineKeeps(rn, n, maxPoints int) bool {
+	if n <= maxPoints || rn == n-1 {
+		return true
 	}
-	out := make([]*stocksv1alpha1.TimeSeriesPoint, 0, maxPoints)
-	step := float64(len(points)-1) / float64(maxPoints-1)
-	for i := 0; i < maxPoints-1; i++ {
-		out = append(out, points[int(float64(i)*step)])
+	step := float64(n-1) / float64(maxPoints-1)
+	c := int(math.Ceil(float64(rn) / step))
+	for _, i := range []int{c - 1, c, c + 1} {
+		if i >= 0 && i <= maxPoints-2 && int(math.Floor(float64(i)*step)) == rn {
+			return true
+		}
 	}
-	out = append(out, points[len(points)-1]) // always include the most recent point
-	return out
+	return false
 }

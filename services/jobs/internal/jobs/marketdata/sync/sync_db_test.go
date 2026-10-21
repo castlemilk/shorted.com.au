@@ -52,10 +52,16 @@ func newPriceDB(t *testing.T) *pgxpool.Pool {
 	return newPriceDBWith(t, priceMigrations)
 }
 
-// migrationsDir is services/migrations.
+// migrationsDir is services/migrations. Under -trimpath (set machine-wide on
+// the shared Macs) runtime.Caller reports the import path rather than a file
+// on disk, so fall back to the package directory, which `go test` runs in.
 func migrationsDir() string {
 	_, thisFile, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..", "..", "migrations")
+	dir := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..", "..", "migrations")
+	if _, err := os.Stat(dir); err == nil {
+		return dir
+	}
+	return filepath.Join("..", "..", "..", "..", "..", "migrations")
 }
 
 func newPriceDBWith(t *testing.T, migrations []string) *pgxpool.Pool {
@@ -79,6 +85,9 @@ func newPriceDBWith(t *testing.T, migrations []string) *pgxpool.Pool {
 	dir := migrationsDir()
 	conn, err := admin.Acquire(ctx)
 	require.NoError(t, err)
+	// Released on every path: admin.Close() waits for it, so a failed
+	// require below would otherwise hang the test until its timeout.
+	defer conn.Release()
 	_, err = conn.Exec(ctx, `SET search_path = `+schema)
 	require.NoError(t, err)
 	for _, m := range migrations {
@@ -91,7 +100,6 @@ func newPriceDBWith(t *testing.T, migrations []string) *pgxpool.Pool {
 		_, err = conn.Exec(ctx, sql)
 		require.NoError(t, err, "apply %s", m)
 	}
-	conn.Release()
 
 	cfg, err := pgxpool.ParseConfig(url)
 	require.NoError(t, err)
@@ -651,4 +659,52 @@ func TestFailureTrackerBlocksAfterThreeStrikes(t *testing.T) {
 
 	ft.RecordSuccess(ctx, "DEAD")
 	assert.False(t, ft.IsBlocked(ctx, "DEAD"), "a success clears the block")
+}
+
+// A re-sent session that has not changed is not rewritten: no new row version,
+// no index entries, updated_at untouched. A changed one is.
+func TestUpsertLeavesUnchangedSessionsAlone(t *testing.T) {
+	pool := newPriceDB(t)
+	ctx := context.Background()
+	m := &SyncManager{db: pool}
+
+	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
+	sessions := []providers.PriceRecord{
+		{StockCode: "BHP", Date: day(19), Open: 43.1, High: 43.9, Low: 42.8, Close: 43.45, AdjustedClose: 43.45, Volume: 1000},
+		{StockCode: "BHP", Date: day(20), Open: 43.5, High: 44.0, Low: 43.2, Close: 43.80, AdjustedClose: 43.80, Volume: 1200},
+	}
+	require.NoError(t, m.upsertRecords(ctx, "BHP", sessions))
+
+	versions := func() map[string]string {
+		rows, err := pool.Query(ctx, `SELECT date::text, xmin::text || '/' || updated_at::text FROM stock_prices WHERE stock_code = 'BHP' ORDER BY date`)
+		require.NoError(t, err)
+		defer rows.Close()
+		out := map[string]string{}
+		for rows.Next() {
+			var d, v string
+			require.NoError(t, rows.Scan(&d, &v))
+			out[d] = v
+		}
+		require.NoError(t, rows.Err())
+		return out
+	}
+	before := versions()
+	require.Len(t, before, 2)
+
+	// The provider re-sends both days unchanged (a float that rounds to the
+	// stored numeric(12,4) value is unchanged too).
+	resent := append([]providers.PriceRecord(nil), sessions...)
+	resent[0].Close = 43.45000001
+	require.NoError(t, m.upsertRecords(ctx, "BHP", resent))
+	assert.Equal(t, before, versions(), "an unchanged session must not be rewritten")
+
+	// A revised close is written.
+	resent[1].Close = 43.95
+	require.NoError(t, m.upsertRecords(ctx, "BHP", resent))
+	after := versions()
+	assert.Equal(t, before["2026-10-19"], after["2026-10-19"], "the unchanged day stays as it was")
+	assert.NotEqual(t, before["2026-10-20"], after["2026-10-20"], "the revised day is rewritten")
+	var close float64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT close::float8 FROM stock_prices WHERE stock_code = 'BHP' AND date = '2026-10-20'`).Scan(&close))
+	assert.InDelta(t, 43.95, close, 1e-9)
 }

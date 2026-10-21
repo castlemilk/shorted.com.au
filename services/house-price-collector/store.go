@@ -4,12 +4,15 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -182,6 +185,78 @@ func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, `SET LOCAL statement_timeout = 0;
 		SELECT refresh_housing_materialized_views()`)
 	return err
+}
+
+// refreshSuburbReferenceViews refreshes the suburb reference views of
+// migration 000139 (each SAL's latest public median, the state baselines and
+// the similar-suburbs features) that the API's suburb list, profile and
+// similar suburbs read instead of recomputing them per request. Their inputs
+// are official data only: public-licence suburb medians, the Census and the
+// amenities. So this runs after an official or Valuer-General load, -mode
+// refresh and the Census/amenity loads, never after a crawl drain (the crawl
+// writes only proprietary rows, which the views never read).
+//
+// A database without 000139 has no such function (42883): that is a skipped
+// step, never a failed run, so the collector can ship before the hand-apply.
+//
+// The function turns a view it cannot refresh into a WARNING and carries on,
+// and this pool has no notice handler, so the warning alone would never reach
+// a log line or an exit code. It also returns the views it skipped, and any
+// skipped view fails the run: the pages would keep serving that view's
+// previous data.
+func refreshSuburbReferenceViews(ctx context.Context, pool *pgxpool.Pool) error {
+	skipped, err := callRefreshSuburbReferenceViews(ctx, pool)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "42883" {
+		log.Printf("suburb reference views not refreshed: refresh_suburb_reference_views() is absent (migration 000139 not applied)")
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if len(skipped) > 0 {
+		return fmt.Errorf("refresh_suburb_reference_views() skipped %d view(s), which still hold their previous data: %s",
+			len(skipped), strings.Join(skipped, "; "))
+	}
+	log.Printf("refreshed the suburb reference views (mv_suburb_latest_price, mv_housing_state_baselines, mv_suburb_similarity_features)")
+	return nil
+}
+
+// callRefreshSuburbReferenceViews runs the refresh in its own transaction so
+// it can read the function's result: a multi-statement simple-protocol query
+// (refreshHousingMV's shape) returns only its first statement's rows to pgx.
+// SET LOCAL still precedes the call, because a function-scoped GUC cannot
+// disarm the timeout already armed for the calling statement, and one
+// transaction keeps one backend on the transaction pooler.
+func callRefreshSuburbReferenceViews(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }() // a no-op after Commit
+	if _, err := tx.Exec(ctx, `SET LOCAL statement_timeout = 0`); err != nil {
+		return nil, err
+	}
+	var skipped []string
+	if err := tx.QueryRow(ctx, `SELECT refresh_suburb_reference_views()`).Scan(&skipped); err != nil {
+		return nil, err
+	}
+	return skipped, tx.Commit(ctx)
+}
+
+// afterSuburbReferenceIngest refreshes the suburb reference views once an
+// ingest that feeds them (Census, amenities) succeeded, so the profile
+// baselines and similar suburbs move with it instead of waiting for the next
+// official run. A failed ingest is returned as is, with no refresh.
+func afterSuburbReferenceIngest(ctx context.Context, pool *pgxpool.Pool, ingestErr error) error {
+	if ingestErr != nil {
+		return ingestErr
+	}
+	if err := refreshSuburbReferenceViews(ctx, pool); err != nil {
+		log.Printf("suburb reference view refresh failed: %v", err)
+		return err
+	}
+	return nil
 }
 
 // linkSuburbSalCodes backfills house_price_regions.sal_code for suburb regions by

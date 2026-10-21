@@ -4,6 +4,7 @@ package shorts
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -15,11 +16,18 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// setupTestDatabase creates a PostgreSQL container with test data
+// setupTestDatabase creates a PostgreSQL container with test data, or, when
+// SHORTS_TEST_POSTGRES_URL names a server, a fresh database on it.
 func setupTestDatabase(t *testing.T) (*pgxpool.Pool, func()) {
 	t.Helper()
 
 	ctx := context.Background()
+	if adminURL := os.Getenv("SHORTS_TEST_POSTGRES_URL"); adminURL != "" {
+		pool, cleanup := isolatedTestDatabase(t, adminURL, "shorts_test")
+		setupSchema(t, pool)
+		loadTestData(t, pool)
+		return pool, cleanup
+	}
 
 	// Start PostgreSQL container
 	postgresContainer, err := postgres.Run(ctx,

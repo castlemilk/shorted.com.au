@@ -399,7 +399,13 @@ func bitIsSet(mask []byte, index int) bool {
 	return index >= 0 && index/8 < len(mask) && mask[index/8]&(1<<uint(index%8)) != 0
 }
 
+// buildSuburbMetricQuery builds the columns query over the suburb reference
+// views (000139); buildSuburbMetricQueryFrom picks the source.
 func buildSuburbMetricQuery(keys []string) (string, []suburbMetricDefinition, error) {
+	return buildSuburbMetricQueryFrom(keys, suburbFromViews)
+}
+
+func buildSuburbMetricQueryFrom(keys []string, src suburbReadSource) (string, []suburbMetricDefinition, error) {
 	validated, err := ValidateSuburbMetricKeys(keys)
 	if err != nil {
 		return "", nil, err
@@ -419,7 +425,7 @@ func buildSuburbMetricQuery(keys []string) (string, []suburbMetricDefinition, er
 	query.WriteString(strings.Join(selects, ",\n       "))
 	query.WriteString("\nFROM suburb_demographics d")
 	if joins&suburbMetricJoinPrice != 0 {
-		query.WriteString(preferredSuburbRegionJoin)
+		query.WriteString(suburbPriceJoin(src))
 	}
 	if joins&suburbMetricJoinAmenities != 0 {
 		query.WriteString("\nLEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code")
@@ -486,13 +492,34 @@ func (s *postgresStore) GetSuburbMetricColumns(stateCode string, metricKeys []st
 	return &SuburbMetricColumnsResult{Columns: columns, IndexVersion: suburbIndexVersion(salCodes)}, nil
 }
 
+// suburbMetricColumnsResult carries one columns read through
+// readSuburbReference, which returns a single value.
+type suburbMetricColumnsResult struct {
+	columns  []*SuburbMetricColumnRow
+	salCodes []string
+}
+
 func (s *postgresStore) querySuburbMetricColumns(stateCode string, metricKeys []string) ([]*SuburbMetricColumnRow, []string, error) {
-	query, definitions, err := buildSuburbMetricQuery(metricKeys)
-	if err != nil {
+	if _, _, err := buildSuburbMetricQuery(metricKeys); err != nil {
 		return nil, nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	out, err := readSuburbReference("GetSuburbMetricColumns", func(src suburbReadSource) (suburbMetricColumnsResult, error) {
+		columns, salCodes, err := s.scanSuburbMetricColumns(ctx, src, stateCode, metricKeys)
+		return suburbMetricColumnsResult{columns: columns, salCodes: salCodes}, err
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return out.columns, out.salCodes, nil
+}
+
+func (s *postgresStore) scanSuburbMetricColumns(ctx context.Context, src suburbReadSource, stateCode string, metricKeys []string) ([]*SuburbMetricColumnRow, []string, error) {
+	query, definitions, err := buildSuburbMetricQueryFrom(metricKeys, src)
+	if err != nil {
+		return nil, nil, err
+	}
 	rows, err := s.db.Query(ctx, query, stateCode)
 	if err != nil {
 		return nil, nil, err

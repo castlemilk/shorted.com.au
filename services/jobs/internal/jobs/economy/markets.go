@@ -232,8 +232,9 @@ func assembleIndustryMarketObs(rows []industryMarketRow) ([]Obs, industryMarketS
 //
 // Shape: for each stock, take its LAST short observation within each calendar
 // month (DISTINCT ON (stock, month) ORDER BY DATE DESC — served by the
-// covering index idx_shorts_timeseries_covering on (PRODUCT_CODE, DATE DESC)
-// INCLUDE (PERCENT...)). One materialized CTE then feeds a UNION ALL of the
+// covering index on (PRODUCT_CODE, DATE DESC) INCLUDE (PERCENT...):
+// idx_shorts_timeseries_covering, replaced by idx_shorts_timeseries_full in
+// 000141-000143). One materialized CTE then feeds a UNION ALL of the
 // state exposure-weighted family and the equal-weight industry family, tagged
 // with a discriminator for the Go assembly paths. Set-based, one shorts scan,
 // ~100ms locally / seconds on the full ~2.1M-row history.
