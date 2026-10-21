@@ -90,6 +90,13 @@ Hand-apply migrations that are merged before an operator runs them. **None of
 these is on prod until its row moves to "Applied by hand" above** with a
 Verified column. Each one's header has the full context.
 
+The drift guard (`scripts/tests/migration-drift.test.mjs`) reads this table
+and the one above, not the prose: a migration counts only by its own row. A row
+here satisfies the guard without claiming the migration is applied, and every
+run of the guard names these migrations as not on prod. A row needs the
+`task db:prod:apply FILE=… CONFIRM=prod` command and a way to verify the apply.
+Once it is applied, move the row up (do not copy it) and fill in Verified.
+
 The API reads them only through 42P01 fallbacks, so merging the code first is
 safe for every reader. It is not the whole order: 000139's views have a
 writer, house-price-collector, and an older collector never refreshes them.
