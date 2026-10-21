@@ -134,6 +134,23 @@ func TestSuburbReferenceViews_MatchTheLiveSQL(t *testing.T) {
 		}
 	}
 
+	// The council suburb table prices its members the same way.
+	_, err := pool.Exec(ctx, `
+		ALTER TABLE suburb_lga ADD COLUMN IF NOT EXISTS overlap_lgas JSONB NOT NULL DEFAULT '[]'::jsonb;
+		ALTER TABLE suburb_lga ADD COLUMN IF NOT EXISTS dominant_share DOUBLE PRECISION;
+		CREATE TABLE IF NOT EXISTS suburb_hazard_exposure (
+			sal_code TEXT PRIMARY KEY, flood_planning_share_pct DOUBLE PRECISION, bushfire_prone_share_pct DOUBLE PRECISION,
+			water_observed_share_pct DOUBLE PRECISION, source_licence TEXT NOT NULL DEFAULT 'CC-BY-4.0');
+		INSERT INTO suburb_lga (sal_code, lga_code24, dominant_share) VALUES
+			('20604', '24600', 1), ('20075', '24600', 1), ('20830', '24600', 0.9), ('29999', '24600', 1)`)
+	require.NoError(t, err)
+	liveCouncil, err := s.scanCouncilSuburbs(ctx, suburbFromLiveSQL, "VIC", "24600")
+	require.NoError(t, err)
+	viewCouncil, err := s.scanCouncilSuburbs(ctx, suburbFromViews, "VIC", "24600")
+	require.NoError(t, err)
+	require.Len(t, liveCouncil, 4)
+	assert.Equal(t, liveCouncil, viewCouncil, "the council suburb table must price members as the live join does")
+
 	// Spot checks, so parity cannot pass by both sides being empty.
 	p, err := s.scanSuburbProfile(ctx, suburbFromViews, salRichmond)
 	require.NoError(t, err)
