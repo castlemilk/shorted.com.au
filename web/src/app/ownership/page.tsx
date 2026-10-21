@@ -51,7 +51,9 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: URL },
   // No `images` key on either: this route ships its own opengraph-image.tsx,
-  // and an explicit `images` here would shadow the file convention.
+  // and an explicit `images` here would shadow the file convention. `twitter`
+  // replaces the root layout's object wholesale, so it repeats site and
+  // creator.
   openGraph: {
     type: "website",
     url: URL,
@@ -60,7 +62,7 @@ export const metadata: Metadata = {
     siteName: "Shorted",
     locale: "en_AU",
   },
-  twitter: { card: "summary_large_image", creator: "@shorted___" },
+  twitter: { card: "summary_large_image", site: "@shorted___", creator: "@shorted___" },
 };
 
 function Tile({ value, label, meta }: { value: string; label: string; meta?: string }) {

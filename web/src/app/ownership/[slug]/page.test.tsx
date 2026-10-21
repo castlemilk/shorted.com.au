@@ -266,14 +266,16 @@ describe("institution metadata", () => {
   });
 
   // An explicit `images` would shadow the segment's opengraph-image.tsx, and a
-  // page without its own `twitter` keeps the root layout's image there.
-  it("leaves the social card to the segment's opengraph-image", async () => {
+  // page without its own `twitter` keeps the root layout's image there. Its
+  // own `twitter` replaces the root's wholesale: the first one carried no
+  // `site`, so every institution page lost twitter:site.
+  it("leaves the social card to the segment's opengraph-image, and keeps the site handle", async () => {
     getInstitution.mockResolvedValue(response({ positions: 2 }));
     const meta = await generateMetadata(params("vanguard"));
 
     expect(meta.openGraph).toMatchObject({ url: "https://shorted.com.au/ownership/vanguard" });
     expect(Object.keys(meta.openGraph ?? {})).not.toContain("images");
-    expect(meta.twitter).toEqual({ card: "summary_large_image", creator: "@shorted___" });
+    expect(meta.twitter).toEqual({ card: "summary_large_image", site: "@shorted___", creator: "@shorted___" });
   });
 
   it("noindexes an institution not on the map, and reads nothing for a malformed slug", async () => {

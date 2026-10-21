@@ -79,11 +79,13 @@ describe("OwnershipPage", () => {
 // The hub had no og:image (SEO review F09): its own openGraph replaced the
 // root layout's, and the segment had no card. The card is now the segment's
 // opengraph-image.tsx (its own test), which an explicit `images` would shadow.
+// Its own `twitter` replaces the root's wholesale, and it carried no `site`.
 describe("OwnershipPage metadata", () => {
   it("is indexable, self-canonical, and leaves the social card to the segment's opengraph-image", () => {
     expect(Object.keys(metadata)).not.toContain("robots");
     expect(metadata.alternates?.canonical).toBe("https://shorted.com.au/ownership");
     expect(Object.keys(metadata.openGraph ?? {})).not.toContain("images");
     expect(Object.keys(metadata.twitter ?? {})).not.toContain("images");
+    expect(metadata.twitter).toMatchObject({ site: "@shorted___", creator: "@shorted___" });
   });
 });

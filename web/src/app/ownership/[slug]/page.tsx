@@ -73,9 +73,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     ...(indexable ? {} : { robots: NOINDEX }),
     // No `images` on either: the segment's opengraph-image.tsx is the card,
     // and an explicit `images` would shadow it. `twitter` is set so its image
-    // follows the card instead of the root layout's.
+    // follows the card instead of the root layout's; it replaces the root's
+    // object wholesale, so it repeats site and creator.
     openGraph: { type: "website", url, title, description, siteName: "Shorted", locale: "en_AU" },
-    twitter: { card: "summary_large_image", creator: "@shorted___" },
+    twitter: { card: "summary_large_image", site: "@shorted___", creator: "@shorted___" },
   };
 }
 
