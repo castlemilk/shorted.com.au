@@ -70,7 +70,7 @@ func run() int {
 	// The drain's one cache bust (hc_drain_until_empty) for the rounds that
 	// deferred theirs (revalidateAfterCrawlWrite). No DB either. Best-effort
 	// like every ping, so it always exits 0 and the drain keeps its own code.
-	if *mode == "revalidate" {
+	if *mode == revalidateMode {
 		pingRevalidate("drain")
 		return 0
 	}

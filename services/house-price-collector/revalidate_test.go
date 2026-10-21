@@ -147,17 +147,31 @@ func TestRevalidateAfterCrawlWriteDefersToTheDrain(t *testing.T) {
 	}
 }
 
-// The drain finds a round's deferred ping only by grepping its output, and sets
-// the deferral env itself. Pin both strings on the shell side, so renaming
-// either here (or there) fails a test instead of silently dropping the ping.
+// The drain finds a round's deferred ping only by grepping its output, sets the
+// deferral env itself, and names the mode that sends the one ping. Pin all three
+// in the wrapper's code, so renaming any of them here (or there) fails a test
+// instead of silently dropping the ping. Comment lines are dropped first: the
+// wrapper's header comment names all three, so a match over the whole file
+// stayed green with the code that uses them gone.
 func TestDrainWrapperMatchesTheDeferralContract(t *testing.T) {
 	src, err := os.ReadFile("deploy/housing-crawl-common.sh")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{revalidateDeferEnv + "=1", revalidateDeferredMarker, "-mode revalidate"} {
-		if !strings.Contains(string(src), want) {
-			t.Errorf("deploy/housing-crawl-common.sh does not contain %q", want)
+	var code strings.Builder
+	for _, line := range strings.Split(string(src), "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "#") {
+			code.WriteString(line + "\n")
+		}
+	}
+	// The trailing spaces end each mode name: "-mode revalidate-all" is no match.
+	for _, want := range []string{
+		revalidateDeferEnv + `=1 "$BIN" -mode agent `, // each round defers its ping
+		`grep -q "` + revalidateDeferredMarker + `"`,  // the drain sees that one did
+		`"$BIN" -mode ` + revalidateMode + ` `,        // and sends the one ping
+	} {
+		if !strings.Contains(code.String(), want) {
+			t.Errorf("deploy/housing-crawl-common.sh has no code line containing %q", want)
 		}
 	}
 }

@@ -85,6 +85,11 @@ const revalidateDeferEnv = "CRAWL_REVALIDATE_DEFER"
 // breaks hc_drain_until_empty: the drain would never ping.
 const revalidateDeferredMarker = "deferred to the drain"
 
+// revalidateMode is the -mode the drain runs to send that one bust. The
+// wrapper names it literally, so renaming it alone leaves the drain calling a
+// mode the binary does not have.
+const revalidateMode = "revalidate"
+
 // revalidateAfterCrawlWrite busts the web tier's housing caches after a crawl
 // round refreshed the views over new data, unless the drain wrapper asked for
 // one bust per drain. A ping purges /price-drops, /housing and every suburb
