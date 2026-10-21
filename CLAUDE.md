@@ -237,9 +237,13 @@ anyone with the (non-secret) anon key, and nothing here uses it.
   create a policy, or FORCE/DISABLE row level security:
   `services/migrations/data_api_grants.test.mjs` fails. A `SECURITY DEFINER`
   function pins `search_path` and revokes `PUBLIC`'s EXECUTE in the same file.
-- 000138 is the LAST file the deploy replays, so it re-closes what the others
-  open: a new allowlisted migration goes ABOVE it in `terraform-deploy.yml`.
 - Closed = zero rows from `task db:prod:psql -- -P pager=off -f scripts/prod-data-api-check.sql`.
+  Nothing re-closes it on its own while the Deploy Infrastructure workflow is
+  disabled: re-run 000138 by hand (pre-check, `task db:prod:apply`, check) until
+  the check returns zero rows. Runbook: `docs/operations/supabase-data-api.md`.
+- 000138 stays the LAST file the deploy replays, so once that workflow runs
+  again it re-closes what the others open: a new allowlisted migration goes
+  ABOVE it in `terraform-deploy.yml`.
 
 ## Common Tasks
 

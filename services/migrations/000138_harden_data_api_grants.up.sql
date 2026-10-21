@@ -16,13 +16,12 @@
 -- USAGE, SELECT and UPDATE on all 17 sequences; and EXECUTE, through PUBLIC
 -- as well, on all 23 of our functions (the MV refreshes,
 -- reset_stuck_enrichment_jobs, and the SECURITY DEFINER event-trigger
--- function rls_auto_enable). 16 tables,
--- shorts and stock_prices among them, had row level security off. The other
--- 96 had it on with no policy, which denies everything, but only on tables:
--- RLS does nothing for a view or a materialized view. No anon key was found
--- in the public repo's history or in the shipped JavaScript, so the exposure
--- was latent, not observed. This file removes it in the database instead of
--- relying on the key staying unknown.
+-- function rls_auto_enable). 16 tables, shorts and stock_prices among them,
+-- had row level security off. The other 96 had it on with no policy, which
+-- denies everything, but only on tables: RLS does nothing for a view or a
+-- materialized view. No anon key was found in the public repo's history or in
+-- the shipped JavaScript, so the exposure was latent, not observed. This file
+-- removes it in the database instead of relying on the key staying unknown.
 --
 -- WHAT IT DOES, in schema public, on a server that has the PostgREST roles:
 --   1. revokes everything PUBLIC, anon and authenticated hold on every table,
@@ -42,6 +41,19 @@
 -- never applies to an owner; and postgres has BYPASSRLS anyway. Triggers keep
 -- firing (a trigger does not check EXECUTE on its function) and so does the
 -- ensure_rls event trigger.
+--
+-- WHO ELSE NOTICES:
+--   * supabase_read_only_user (the dashboard's read-only SQL, read-only queries
+--     through the Management API, Supabase MCP in read-only mode) could EXECUTE
+--     our functions only through PUBLIC, so it can no longer call them. It
+--     still reads every table through pg_read_all_data. If a read-only caller
+--     needs a function, grant EXECUTE on that function to that role explicitly.
+--   * The schema-less default (item 2 above) covers every function postgres
+--     creates from now on in ANY schema, not only public: each is born
+--     executable by postgres alone, plus whatever that schema's own default
+--     privileges grant.
+--     A future Auth hook, or a helper that a storage or realtime policy calls,
+--     needs an explicit GRANT EXECUTE to the role that calls it.
 --
 -- WHAT IT DOES NOT DO, deliberately:
 --   * FORCE ROW LEVEL SECURITY. FORCE is the one switch that would subject an
@@ -68,14 +80,45 @@
 --     members.
 --   * service_role. Its key is a server-side secret by design; it keeps its
 --     grants and its BYPASSRLS.
+--   * Anything outside public. Supabase owns the other schemas, and postgres
+--     cannot revoke what anon still holds there (measured 2026-10-21): EXECUTE
+--     on 8 SECURITY DEFINER functions in pgsodium (create_key among them, which
+--     runs as pgsodium_keymaker), SELECT on realtime.subscription (row level
+--     security off) and SELECT on extensions.pg_stat_statements. PostgREST
+--     reaches only the schemas the project exposes, so these stay out of reach
+--     only while the hosted Data API exposes no schema but public and
+--     graphql_public. Nothing uses the Data API, so the owner should switch it
+--     off in the dashboard (Project Settings > Data API), or at least confirm
+--     the exposed schemas there. supabase/config.toml, which only configures
+--     local development, lists public, storage and graphql_public.
 --
 -- SHAPE. One transaction for the privileges, then one per table for row level
 -- security.
---   1. Privileges, in one transaction under SET LOCAL lock_timeout = '3s':
---      every REVOKE and ALTER DEFAULT PRIVILEGES. GRANT and REVOKE rewrite the
---      object's catalog row without locking the object, so this commits in well
---      under a second whatever is reading the tables, and the part that closes
---      the Data API lands even if step 2 has to wait.
+--   1. Privileges: BEGIN, SET LOCAL lock_timeout = '3s', one DO block, COMMIT.
+--      The block reads the catalog first and lists every REVOKE and ALTER
+--      DEFAULT PRIVILEGES still needed. With none (a closed database) it stops
+--      there, having written nothing and waited for nothing. A REVOKE takes no
+--      lock on its object, so readers and writers of the tables never hold it
+--      up. It does rewrite the object's catalog row (pg_class, pg_proc), so it
+--      waits for any transaction that has rewritten the same row and not yet
+--      committed: a REFRESH MATERIALIZED VIEW (CONCURRENTLY too, which also
+--      rewrites the view's pg_class row), a TRUNCATE or an ALTER, for as long
+--      as that transaction lasts. Each refresh function refreshes all its views
+--      in one transaction, so while one runs it holds every view it has
+--      refreshed so far. Each of those statements holds SHARE ROW EXCLUSIVE,
+--      EXCLUSIVE or ACCESS EXCLUSIVE on its relation until it commits, modes
+--      that readers (ACCESS SHARE), writers (ROW EXCLUSIVE), ANALYZE and
+--      CREATE INDEX never take; VACUUM takes ACCESS EXCLUSIVE only for a moment,
+--      to truncate a table's empty tail, rewriting no catalog row in a
+--      transaction, and an autovacuum worker doing that is not counted. So,
+--      before the first REVOKE, the block looks in pg_locks for another backend
+--      holding one of those modes on a relation in public and, if it finds one,
+--      raises object_in_use naming the backend, its query and the relations:
+--      nothing has changed, and psql stops before step 2. Re-run when it has
+--      finished. lock_timeout is the backstop for what that look cannot see (a
+--      refresh that starts just after it, a concurrent GRANT or CREATE OR
+--      REPLACE FUNCTION): the waiting REVOKE is cancelled after 3s and the whole
+--      step rolls back. Either way nothing is half-applied.
 --   2. Row level security: one DO block that COMMITs after each table.
 --      ALTER TABLE ... ENABLE ROW LEVEL SECURITY takes an ACCESS EXCLUSIVE lock.
 --      It only flips a catalog flag, so it is instant once granted, but it
@@ -125,8 +168,12 @@
 -- its RLS is off. On a closed database a replay reads the catalog and writes
 -- nothing: no catalog row is updated, no lock is taken, PostgREST is not told
 -- to reload its schema cache. The file is in the deploy allowlist as the LAST
--- file, after 000132, so every deploy re-closes anything a replayed or
--- hand-applied migration opened again.
+-- file, after 000132, so a deploy re-closes anything a replayed or hand-applied
+-- migration opened again. That happens only while the Deploy Infrastructure
+-- workflow runs, and it has been disabled since October 2026. Until it is
+-- enabled again, nothing re-closes a re-grant or finishes a deferred table on
+-- its own: re-run this file by hand until scripts/prod-data-api-check.sql
+-- returns zero rows.
 --
 -- WHERE THE ROLES DO NOT EXIST. Local docker (role admin) and test containers
 -- (test_user, or a superuser called postgres) have no anon or authenticated
@@ -136,12 +183,66 @@
 -- shows the role exists (and, for postgres's default privileges, after
 -- pg_has_role shows current_user can act for it).
 --
--- APPLY BY HAND in a quiet window (not 10:00 UTC refresh_all_materialized_views,
--- not 13:30 UTC `shorted picks -mode refresh`, not while the ASIC sync runs):
+-- APPLY BY HAND, outside every materialized-view refresh; each holds its
+-- views until it ends:
+--   refresh_all_materialized_views()            the ASIC sync, from 10:00 UTC (mean 191s, up to 7 min)
+--   refresh_housing_materialized_views()        about 11 times a day, at no fixed time (mean 21s)
+--   refresh_strategy_views()                    shorted picks, 13:30 UTC on weekdays, and at the end
+--                                               of the nightly run that starts at 15:00 UTC
+--   refresh_register_materialized_views()       at the end of `shorted influence -mode register-resolve`
+--   refresh_aec_donations_materialized_views()  at the end of `shorted influence -mode aec-donations`
+-- The housing refresh keeps no schedule, so check right before applying. This
+-- read-only query is scripts/prod-data-api-precheck.sql; it returns one row per
+-- backend the apply would wait for, and zero rows when it is clear to go:
+--   task db:prod:psql -- -P pager=off -f scripts/prod-data-api-precheck.sql
+--
+--   WITH held AS (
+--       SELECT l.pid,
+--              string_agg(DISTINCT c.relname::text, ', ' ORDER BY c.relname::text)
+--                  FILTER (WHERE l.mode IN ('ShareRowExclusiveLock', 'ExclusiveLock', 'AccessExclusiveLock')
+--                            AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')) AS exclusive_on,
+--              string_agg(DISTINCT c.relname::text, ', ' ORDER BY c.relname::text)
+--                  FILTER (WHERE c.relkind IN ('r', 'p') AND NOT c.relrowsecurity) AS rls_off
+--         FROM pg_locks l
+--         JOIN pg_class c ON c.oid = l.relation
+--        WHERE l.locktype = 'relation'
+--          AND l.granted
+--          AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+--          AND c.relnamespace = 'public'::regnamespace
+--        GROUP BY l.pid
+--   ),
+--   backends AS (
+--       SELECT a.pid, a.usename, a.application_name, a.state,
+--              date_trunc('second', now() - a.xact_start) AS xact_age,
+--              concat_ws(', ',
+--                  CASE WHEN a.state = 'active'
+--                        AND a.query ~* 'refresh_[a-z_]+_views[[:space:]]*[(]|REFRESH[[:space:]]+MATERIALIZED[[:space:]]+VIEW'
+--                       THEN 'refresh' END,
+--                  CASE WHEN h.exclusive_on IS NOT NULL THEN 'catalog_writer' END,
+--                  CASE WHEN h.rls_off IS NOT NULL AND a.xact_start < now() - interval '3 seconds'
+--                       THEN 'rls_wait' END) AS why,
+--              coalesce(h.exclusive_on, h.rls_off) AS public_relations,
+--              left(regexp_replace(a.query, '[[:space:]]+', ' ', 'g'), 80) AS query
+--         FROM pg_stat_activity a
+--         LEFT JOIN held h ON h.pid = a.pid
+--        WHERE a.pid <> pg_backend_pid()
+--          AND a.datname = current_database()
+--          AND a.backend_type IS DISTINCT FROM 'autovacuum worker'
+--   )
+--   SELECT pid, usename, application_name, state, xact_age, why, public_relations, query
+--     FROM backends
+--    WHERE why <> ''
+--    ORDER BY xact_age DESC NULLS LAST, pid;
+--
+-- Then apply it, and check it (zero rows = closed):
 --   task db:prod:apply FILE=services/migrations/000138_harden_data_api_grants.up.sql CONFIRM=prod
--- then confirm it is closed (zero rows):
 --   task db:prod:psql -- -P pager=off -f scripts/prod-data-api-check.sql
--- The down migration is a deliberate no-op; see it for why.
+-- Repeat all three until the check returns zero rows: a refresh that started
+-- in between stops step 1 with an error, and a busy table is deferred with a
+-- WARNING. A row the file cannot close (an object postgres cannot act for,
+-- which the file names in a NOTICE) needs its owner or a superuser. The
+-- runbook is docs/operations/supabase-data-api.md. The down migration is a
+-- deliberate no-op; see it for why.
 
 -- ===========================================================================
 -- Step 1, one transaction: privileges (no lock on any table)
@@ -158,6 +259,9 @@ DECLARE
     api_roles   text;   -- the PostgREST roles that exist here, quoted: anon, authenticated
     from_list   text;   -- PUBLIC, anon, authenticated
     r           record;
+    todo        text[] := '{}';  -- every REVOKE and ALTER DEFAULT PRIVILEGES still needed, in order
+    stmt        text;
+    in_flight   text;
     n_relations int := 0;
     n_routines  int := 0;
     n_defaults  int := 0;
@@ -197,9 +301,9 @@ BEGIN
             left_alone := left_alone || format('%I.%I (owner %I)', r.nspname, r.relname, pg_get_userbyid(r.relowner));
             CONTINUE;
         END IF;
-        EXECUTE format('REVOKE ALL ON %s %I.%I FROM %s CASCADE',
-                       CASE r.relkind WHEN 'S' THEN 'SEQUENCE' ELSE 'TABLE' END,
-                       r.nspname, r.relname, from_list);
+        todo := todo || format('REVOKE ALL ON %s %I.%I FROM %s CASCADE',
+                               CASE r.relkind WHEN 'S' THEN 'SEQUENCE' ELSE 'TABLE' END,
+                               r.nspname, r.relname, from_list);
         n_relations := n_relations + 1;
     END LOOP;
 
@@ -220,8 +324,8 @@ BEGIN
             left_alone := left_alone || format('%I.%I(%s) (owner %I)', r.nspname, r.proname, r.args, pg_get_userbyid(r.proowner));
             CONTINUE;
         END IF;
-        EXECUTE format('REVOKE ALL ON ROUTINE %I.%I(%s) FROM %s CASCADE',
-                       r.nspname, r.proname, r.args, from_list);
+        todo := todo || format('REVOKE ALL ON ROUTINE %I.%I(%s) FROM %s CASCADE',
+                               r.nspname, r.proname, r.args, from_list);
         n_routines := n_routines + 1;
     END LOOP;
 
@@ -242,9 +346,9 @@ BEGIN
                AND EXISTS (SELECT 1 FROM aclexplode(d.defaclacl) a WHERE a.grantee = ANY (api_oids))
              ORDER BY 1
         LOOP
-            EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON %s FROM %s',
-                           CASE r.defaclobjtype WHEN 'r' THEN 'TABLES' WHEN 'S' THEN 'SEQUENCES' ELSE 'FUNCTIONS' END,
-                           api_roles);
+            todo := todo || format('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON %s FROM %s',
+                                   CASE r.defaclobjtype WHEN 'r' THEN 'TABLES' WHEN 'S' THEN 'SEQUENCES' ELSE 'FUNCTIONS' END,
+                                   api_roles);
             n_defaults := n_defaults + 1;
         END LOOP;
 
@@ -256,7 +360,7 @@ BEGIN
                               WHERE d.defaclrole = pg_oid AND d.defaclnamespace = 0 AND d.defaclobjtype = 'f'),
                             acldefault('f', pg_oid))) a
                     WHERE a.grantee = 0) THEN
-            EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC';
+            todo := todo || 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC'::text;
             n_defaults := n_defaults + 1;
         END IF;
     END IF;
@@ -277,6 +381,46 @@ BEGIN
     LOOP
         left_alone := left_alone || format('default privileges FOR ROLE %I IN SCHEMA public (%s)', r.for_role, r.kinds);
     END LOOP;
+
+    -- 3. Run the list. An empty list (a closed database) writes and waits for
+    --    nothing, so it needs no look at what else is running.
+    IF cardinality(todo) > 0 THEN
+        -- A REFRESH (CONCURRENTLY too), TRUNCATE or ALTER in flight has
+        -- rewritten its relation's catalog row and holds SHARE ROW EXCLUSIVE,
+        -- EXCLUSIVE or ACCESS EXCLUSIVE until it commits; a REVOKE of that
+        -- relation would wait for it. Refuse at once, with nothing changed,
+        -- rather than wait out lock_timeout. An autovacuum worker's brief ACCESS
+        -- EXCLUSIVE (truncating a table's empty tail) rewrites no catalog row in
+        -- a transaction, so it is not counted.
+        SELECT string_agg(format('pid %s (%s) holds %s on %s', h.pid, h.what, h.modes, h.relations), '; ' ORDER BY h.pid)
+          INTO in_flight
+          FROM (SELECT l.pid,
+                       coalesce(left(regexp_replace(a.query, '[[:space:]]+', ' ', 'g'), 80), 'a prepared transaction') AS what,
+                       string_agg(DISTINCT l.mode, '/') AS modes,
+                       string_agg(DISTINCT c.relname::text, ', ') AS relations
+                  FROM pg_locks l
+                  JOIN pg_class c ON c.oid = l.relation
+                  LEFT JOIN pg_stat_activity a ON a.pid = l.pid
+                 WHERE l.locktype = 'relation'
+                   AND l.granted
+                   AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+                   AND l.mode IN ('ShareRowExclusiveLock', 'ExclusiveLock', 'AccessExclusiveLock')
+                   AND l.pid IS DISTINCT FROM pg_backend_pid()
+                   AND a.backend_type IS DISTINCT FROM 'autovacuum worker'
+                   AND c.relnamespace = public_oid
+                   AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+                 GROUP BY l.pid, a.query) h;
+        IF in_flight IS NOT NULL THEN
+            RAISE EXCEPTION USING
+                ERRCODE = 'object_in_use',
+                MESSAGE = format('000138: a REFRESH, TRUNCATE or ALTER is in flight in schema public, so nothing was changed: %s', in_flight),
+                HINT    = 'Re-run this file once it has finished; scripts/prod-data-api-precheck.sql returns zero rows when it is clear.';
+        END IF;
+
+        FOREACH stmt IN ARRAY todo LOOP
+            EXECUTE stmt;
+        END LOOP;
+    END IF;
 
     RAISE NOTICE '000138: revoked PUBLIC/anon/authenticated on % relation(s) and % routine(s); closed % default-privilege entries',
         n_relations, n_routines, n_defaults;
@@ -336,7 +480,7 @@ BEGIN
         RAISE NOTICE '000138: row level security left off (% cannot alter them): %', current_user, array_to_string(not_owned, '; ');
     END IF;
     IF cardinality(deferred) > 0 THEN
-        RAISE WARNING '000138: row level security NOT enabled on % table(s) whose lock was not granted within lock_timeout, or whose wait was chosen to break a deadlock: %. Their privileges are already closed; re-run this file in a quiet moment, or let the next deploy replay it.',
+        RAISE WARNING '000138: row level security NOT enabled on % table(s) whose lock was not granted within lock_timeout, or whose wait was chosen to break a deadlock: %. Their privileges are already closed. Re-run this file in a quiet moment (scripts/prod-data-api-precheck.sql returns zero rows) until scripts/prod-data-api-check.sql returns zero rows.',
             cardinality(deferred), array_to_string(deferred, ', ');
     END IF;
 END

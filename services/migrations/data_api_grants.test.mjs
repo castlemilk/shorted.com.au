@@ -8,26 +8,28 @@
 // backend never needed any of it (it connects as postgres, the owner of every
 // object, with BYPASSRLS).
 //
-// These pin the file's shape (a privileges transaction under a short
-// lock_timeout, then row level security one table per transaction, each with
-// its own short lock_timeout, a handler for lock_not_available and
-// deadlock_detected, and a COMMIT; every role-dependent statement behind a
-// pg_roles check), what it covers, what makes a replay a no-op, its place at
-// the END of the deploy allowlist, the read-only check file, and three rules
-// over every migration that keep the Data API closed afterwards:
+// These pin the file's shape: a privileges transaction under SET LOCAL
+// lock_timeout that lists its work first and refuses to start while a
+// REFRESH, TRUNCATE or ALTER is in flight in public; then row level security
+// one table per transaction, each with its own short lock_timeout, a handler
+// for lock_not_available and deadlock_detected, and a COMMIT; and every
+// role-dependent statement behind a pg_roles check. They also pin what it
+// covers, what makes a replay a no-op, its place at the END of the deploy
+// allowlist, the read-only check and pre-check files, and three rules over
+// every migration that keep the Data API closed afterwards:
 //   * no migration GRANTs anything to anon, authenticated or PUBLIC;
 //   * none creates a policy, or FORCEs or DISABLEs row level security;
 //   * every SECURITY DEFINER function pins search_path and revokes PUBLIC's
 //     EXECUTE in the same file.
 // The behaviour itself was exercised against Postgres 15 built with prod's
 // role model and default privileges plus the whole migration chain: applied
-// through prod-psql.sh, then replayed with plain psql (no catalog row
-// rewritten), a no-op where the roles do not exist (golang-migrate up, down,
-// up) and the documented invalid_transaction_termination where they do, the
-// backend unaffected, anon and authenticated denied on every object kind, a
-// table under a long reader skipped after 3s and finished on the next run,
-// readers of other tables not held up meanwhile, and the deadlock a single
-// row level security transaction allowed gone.
+// twice through prod-psql.sh (the second run rewrote no catalog row), the
+// deploy block replayed twice, a no-op under golang-migrate where the roles do
+// not exist and the documented invalid_transaction_termination where they do,
+// anon and authenticated denied on every object kind, the backend unaffected;
+// a refresh, TRUNCATE or ALTER in flight refused at once with nothing changed;
+// readers of other tables not held up while one table waits; and the deadlock
+// a single RLS transaction allowed gone.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
@@ -35,13 +37,17 @@ import test from "node:test";
 import { classify, splitStatements } from "../../scripts/prod-psql-classify.mjs";
 
 const migrationsDir = new URL("./", import.meta.url);
+const repoRoot = new URL("../../", import.meta.url);
 const read = (name) => readFileSync(new URL(name, migrationsDir), "utf8");
+const readRepo = (path) => readFileSync(new URL(path, repoRoot), "utf8");
 const UP = "000138_harden_data_api_grants.up.sql";
 const DOWN = "000138_harden_data_api_grants.down.sql";
 const up = read(UP);
 const down = read(DOWN);
-const workflow = readFileSync(new URL("../../.github/workflows/terraform-deploy.yml", import.meta.url), "utf8");
-const check = readFileSync(new URL("../../scripts/prod-data-api-check.sql", import.meta.url), "utf8");
+const workflow = readRepo(".github/workflows/terraform-deploy.yml");
+const check = readRepo("scripts/prod-data-api-check.sql");
+const precheck = readRepo("scripts/prod-data-api-precheck.sql");
+const runbook = readRepo("docs/operations/supabase-data-api.md");
 
 /** SQL with `--` comments removed, so prose never satisfies or trips an assertion. */
 const code = (sql) => sql.replace(/--.*$/gm, "");
@@ -62,8 +68,14 @@ const [privileges, rls] = bodies;
 const STRING = /'(?:[^']|'')*'/g;
 /** The code with every literal masked, so a message never satisfies or trips a keyword test. */
 const masked = (sql) => sql.replace(STRING, "'s'");
+/** The SQL the blocks hand to EXECUTE: every literal that starts with a statement verb. */
+const statementStrings = (sql) =>
+  [...sql.matchAll(STRING)]
+    .map((m) => m[0].slice(1, -1))
+    .filter((s) => /^(REVOKE|ALTER|GRANT|CREATE|DROP|INSERT|UPDATE|DELETE|TRUNCATE|COMMENT|VACUUM|REINDEX|CLUSTER|SET|DO|CALL|SELECT)\b/i.test(s));
 
 const ROLE_GUARD = /FROM pg_roles\s+WHERE rolname IN \('anon', 'authenticated'\)/;
+const CATALOG_WRITER_MODES = "l.mode IN ('ShareRowExclusiveLock', 'ExclusiveLock', 'AccessExclusiveLock')";
 
 // ---------------------------------------------------------------------------
 // shape
@@ -136,12 +148,12 @@ test("postgres's default privileges change only once the role exists and current
   assert.match(privileges, /pg_oid\s+oid := \(SELECT oid FROM pg_roles WHERE rolname = 'postgres'\);/);
   // Never a cast from a role name, which errors where the role is missing.
   assert.doesNotMatch(upCode, /'(anon|authenticated|postgres|service_role)'::regrole/);
-  // Each ALTER DEFAULT PRIVILEGES is a string handed to EXECUTE, so the block
-  // compiles and runs on a server without the role.
+  // Each ALTER DEFAULT PRIVILEGES is a string put on the work list, which only
+  // EXECUTE runs, so the block compiles and runs on a server without the role.
   const alters = [...privileges.matchAll(/ALTER DEFAULT PRIVILEGES/g)].map((m) => m.index);
   assert.equal(alters.length, 2);
   for (const at of alters) {
-    assert.match(privileges.slice(Math.max(0, at - 20), at), /EXECUTE (format\()?'$/, "ALTER DEFAULT PRIVILEGES via EXECUTE");
+    assert.match(privileges.slice(Math.max(0, at - 30), at), /todo := todo \|\| (format\()?'$/, "ALTER DEFAULT PRIVILEGES onto the work list");
   }
   // Only postgres's are changed. supabase_admin's (or anyone else's) are
   // reported and left alone: prod runs this as postgres, which cannot act for them.
@@ -156,17 +168,18 @@ test("postgres's default privileges change only once the role exists and current
 // what it covers
 
 test("relations: tables, partitioned tables, views, materialized views, foreign tables and sequences", () => {
-  assert.match(privileges, /c\.relkind IN \('r', 'p', 'v', 'm', 'f', 'S'\)/);
+  // the planning loop's own clause (the in-flight look repeats the list)
+  assert.match(privileges, /WHERE c\.relnamespace = public_oid\n\s+AND c\.relkind IN \('r', 'p', 'v', 'm', 'f', 'S'\)\n\s+AND NOT EXISTS \(SELECT 1 FROM pg_depend d/);
   assert.match(
     privileges,
-    /EXECUTE format\('REVOKE ALL ON %s %I\.%I FROM %s CASCADE',\s+CASE r\.relkind WHEN 'S' THEN 'SEQUENCE' ELSE 'TABLE' END,\s+r\.nspname, r\.relname, from_list\);/,
+    /todo := todo \|\| format\('REVOKE ALL ON %s %I\.%I FROM %s CASCADE',\s+CASE r\.relkind WHEN 'S' THEN 'SEQUENCE' ELSE 'TABLE' END,\s+r\.nspname, r\.relname, from_list\);/,
   );
   // PUBLIC as well as the two roles: anon inherits whatever PUBLIC holds.
   assert.match(privileges, /from_list := 'PUBLIC, ' \|\| api_roles;/);
 });
 
 test("routines: every function, procedure and aggregate, PUBLIC included", () => {
-  assert.match(privileges, /EXECUTE format\('REVOKE ALL ON ROUTINE %I\.%I\(%s\) FROM %s CASCADE',\s+r\.nspname, r\.proname, r\.args, from_list\);/);
+  assert.match(privileges, /todo := todo \|\| format\('REVOKE ALL ON ROUTINE %I\.%I\(%s\) FROM %s CASCADE',\s+r\.nspname, r\.proname, r\.args, from_list\);/);
   // The argument list is the input types only, the identity GRANT/REVOKE take.
   assert.match(privileges, /oidvectortypes\(p\.proargtypes\) AS args/);
   assert.doesNotMatch(privileges, /p\.prokind/, "no routine kind is skipped");
@@ -176,11 +189,11 @@ test("default privileges: tables, sequences and functions per schema, and the sc
   assert.match(privileges, /d\.defaclobjtype IN \('r', 'S', 'f'\)/);
   assert.match(
     privileges,
-    /EXECUTE format\('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON %s FROM %s',\s+CASE r\.defaclobjtype WHEN 'r' THEN 'TABLES' WHEN 'S' THEN 'SEQUENCES' ELSE 'FUNCTIONS' END,\s+api_roles\);/,
+    /todo := todo \|\| format\('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON %s FROM %s',\s+CASE r\.defaclobjtype WHEN 'r' THEN 'TABLES' WHEN 'S' THEN 'SEQUENCES' ELSE 'FUNCTIONS' END,\s+api_roles\);/,
   );
   // A per-schema default can only add to the built-in one (EXECUTE to PUBLIC),
   // so closing new functions to PUBLIC takes the schema-less form.
-  assert.match(privileges, /EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC';/);
+  assert.match(privileges, /todo := todo \|\| 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC'::text;/);
 });
 
 test("row level security on every ordinary and partitioned table, never FORCE", () => {
@@ -207,20 +220,21 @@ test("schema privileges are left alone: USAGE flows through PUBLIC, and the back
 });
 
 test("identifiers are quoted with %I: table names here contain hyphens", () => {
-  const executes = [...upCode.matchAll(/EXECUTE (format\('[^']*'|'[^']*')/g)].map((m) => m[1]);
-  assert.equal(executes.length, 5, "three REVOKE/ALTER DEFAULT PRIVILEGES formats, one constant, one ALTER TABLE");
-  for (const stmt of executes) {
-    if (!stmt.startsWith("format(")) {
-      assert.doesNotMatch(stmt, /%/, "a constant EXECUTE string interpolates nothing");
-      continue;
-    }
-    // ALTER DEFAULT PRIVILEGES interpolates no object name: a fixed keyword
-    // (TABLES / SEQUENCES / FUNCTIONS, from a CASE) and the role list, itself
-    // built with format('%I'); the "default privileges" test pins both.
-    if (/ALTER DEFAULT PRIVILEGES/.test(stmt)) continue;
-    assert.match(stmt, /REVOKE ALL ON|ALTER TABLE/, stmt);
+  const statements = [...statementStrings(privileges), ...statementStrings(rls)];
+  assert.equal(statements.length, 5, "two REVOKEs and two ALTER DEFAULT PRIVILEGES on the work list, one ALTER TABLE");
+  for (const stmt of statements) {
+    // ALTER DEFAULT PRIVILEGES interpolates no object name: a fixed clause or
+    // keyword (from a CASE) and the role list, itself built with format('%I');
+    // the "default privileges" test pins both.
+    if (/^ALTER DEFAULT PRIVILEGES/.test(stmt)) continue;
+    assert.match(stmt, /^(REVOKE ALL ON|ALTER TABLE)/, stmt);
     assert.match(stmt, /%I\.%I/, stmt);
   }
+  // Nothing reaches the server except through those strings: the privileges
+  // block EXECUTEs only its work list, the row level security block only its
+  // ALTER TABLE (literals masked, so `REVOKE EXECUTE ON` inside one is not counted).
+  assert.deepEqual([...masked(privileges).matchAll(/\bEXECUTE\s+(\w+)/g)].map((m) => m[1]), ["stmt"]);
+  assert.deepEqual([...masked(rls).matchAll(/\bEXECUTE\s+(\w+)/g)].map((m) => m[1]), ["format"]);
   assert.doesNotMatch(upCode, /quote_ident\(|EXECUTE\s+'[^']*'\s*\|\|/, "no hand-built identifiers");
   assert.match(privileges, /string_agg\(format\('%I', rolname\), ', ' ORDER BY rolname\)/);
 });
@@ -229,7 +243,14 @@ test("identifiers are quoted with %I: table names here contain hyphens", () => {
 // replay-safe: prod replays it on every deploy
 
 test("idempotent statements only: nothing is created, dropped, granted or written", () => {
-  assert.doesNotMatch(upCode, /\b(CREATE|DROP|INSERT|UPDATE|DELETE|TRUNCATE|GRANT|COMMENT|VACUUM|REINDEX|CLUSTER)\b/i);
+  const forbidden = /\b(CREATE|DROP|INSERT|UPDATE|DELETE|TRUNCATE|GRANT|COMMENT|VACUUM|REINDEX|CLUSTER)\b/i;
+  // the PL/pgSQL itself, with every message masked ...
+  assert.doesNotMatch(masked(upCode), forbidden);
+  // ... and every statement it hands to EXECUTE
+  for (const stmt of [...statementStrings(privileges), ...statementStrings(rls)]) {
+    assert.match(stmt, /^(REVOKE ALL ON |ALTER DEFAULT PRIVILEGES FOR ROLE postgres |ALTER TABLE IF EXISTS %I\.%I ENABLE ROW LEVEL SECURITY$)/, stmt);
+    assert.doesNotMatch(stmt.replace(/^ALTER (DEFAULT PRIVILEGES|TABLE)/, ""), forbidden, stmt);
+  }
   for (const m of upCode.matchAll(/ALTER TABLE[^,']*/g)) {
     assert.equal(m[0], "ALTER TABLE IF EXISTS %I.%I ENABLE ROW LEVEL SECURITY");
   }
@@ -248,6 +269,37 @@ test("every step is catalog-guarded, so a closed database replays with no catalo
   assert.match(rls, /AND NOT c\.relrowsecurity/);
 });
 
+test("step 1 lists its work, refuses while a REFRESH, TRUNCATE or ALTER is in flight, then runs the list", () => {
+  // A REVOKE takes no lock, but it rewrites the object's catalog row and so
+  // waits for a transaction that has rewritten that row: a refresh (CONCURRENTLY
+  // too), TRUNCATE or ALTER, each holding one of these modes until it commits.
+  const gate = privileges.indexOf("IF cardinality(todo) > 0 THEN");
+  const look = privileges.indexOf("FROM pg_locks l", gate);
+  const refuse = privileges.indexOf("RAISE EXCEPTION USING", gate);
+  const run = privileges.indexOf("FOREACH stmt IN ARRAY todo LOOP");
+  const lastPlanned = Math.max(...[...privileges.matchAll(/todo := todo \|\|/g)].map((m) => m.index));
+  assert.ok(gate > lastPlanned, "the look comes after the whole list is built");
+  assert.ok(gate > 0 && look > gate && refuse > look && run > refuse, "nothing to do: no look; then look, refuse, run");
+  const query = privileges.slice(look, refuse);
+  for (const condition of [
+    "l.locktype = 'relation'",
+    "AND l.granted",
+    "AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())",
+    `AND ${CATALOG_WRITER_MODES}`,
+    "AND l.pid IS DISTINCT FROM pg_backend_pid()",
+    "AND a.backend_type IS DISTINCT FROM 'autovacuum worker'",
+    "AND c.relnamespace = public_oid",
+    "AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')",
+  ]) {
+    assert.ok(query.includes(condition), `the in-flight look must keep: ${condition}`);
+  }
+  assert.match(privileges.slice(refuse, run), /ERRCODE = 'object_in_use',\s+MESSAGE = format\('000138: a REFRESH, TRUNCATE or ALTER is in flight in schema public, so nothing was changed: %s', in_flight\)/);
+  assert.match(privileges, /FOREACH stmt IN ARRAY todo LOOP\n\s+EXECUTE stmt;\n\s+END LOOP;/);
+  assert.equal([...upCode.matchAll(/\bRAISE EXCEPTION\b/g)].length, 1, "the refusal is the file's one RAISE EXCEPTION");
+  // Step 1 is one transaction: nothing in it commits.
+  assert.doesNotMatch(privileges, /\b(COMMIT|ROLLBACK)\b/);
+});
+
 test("row level security: one transaction per table, a contended table skipped with a WARNING, nothing else swallowed", () => {
   assert.equal([...upCode.matchAll(/\bEXCEPTION WHEN\b/g)].length, 1, "one handler in the whole file");
   // set the table's own lock_timeout, flip it in a subtransaction that catches
@@ -260,6 +312,11 @@ test("row level security: one transaction per table, a contended table skipped w
   assert.equal([...rls.matchAll(/\bCOMMIT\b/g)].length, 1, "the per-table COMMIT is the block's only one");
   assert.doesNotMatch(upCode, /WHEN OTHERS/i, "a real error must fail the step");
   assert.match(rls, /RAISE WARNING '000138: row level security NOT enabled on % table\(s\) whose lock was not granted within lock_timeout, or whose wait was chosen to break a deadlock: %/);
+  // The deploy workflow that would replay it is disabled: the WARNING tells
+  // the operator to re-run, and never to wait for a deploy.
+  const warning = rls.slice(rls.indexOf("RAISE WARNING"), rls.indexOf("cardinality(deferred), array_to_string"));
+  assert.match(warning, /until scripts\/prod-data-api-check\.sql returns zero rows/);
+  assert.doesNotMatch(warning, /deploy/i);
 });
 
 test("with one transaction per table the order decides nothing; tables are taken by name, for a stable log", () => {
@@ -302,15 +359,22 @@ test("000138 is replayed on every deploy, on the session pooler, as the LAST mig
 });
 
 // ---------------------------------------------------------------------------
-// the read-only check
+// the read-only check and pre-check
 
-test("scripts/prod-data-api-check.sql is a read-only probe prod-psql.sh accepts", () => {
-  assert.equal(classify(check, { probe: true }).verdict, "transaction");
-  for (const stmt of topLevel(check)) {
-    assert.match(stmt, /^WITH\b/, "one read-only WITH ... SELECT");
-    assert.doesNotMatch(stmt, /\b(CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|TRUNCATE|GRANT|REVOKE|BEGIN|COMMIT|ROLLBACK|SET|COPY|CALL|DO)\b/i);
-  }
-});
+for (const [name, sql] of [
+  ["scripts/prod-data-api-check.sql", check],
+  ["scripts/prod-data-api-precheck.sql", precheck],
+]) {
+  test(`${name} is a read-only probe prod-psql.sh accepts`, () => {
+    assert.equal(classify(sql, { probe: true }).verdict, "transaction");
+    const stmts = topLevel(sql);
+    assert.equal(stmts.length, 1, "one statement");
+    assert.match(stmts[0], /^WITH\b/, "one read-only WITH ... SELECT");
+    assert.doesNotMatch(stmts[0], /\b(CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|TRUNCATE|GRANT|REVOKE|BEGIN|COMMIT|ROLLBACK|SET|COPY|CALL|DO)\b/i);
+    // no backslash anywhere, so it reads the same whatever standard_conforming_strings is
+    assert.doesNotMatch(code(sql), /\\/);
+  });
+}
 
 test("the check covers what the migration closes, with the same scope", () => {
   for (const violation of [
@@ -333,6 +397,31 @@ test("the check covers what the migration closes, with the same scope", () => {
   // roles come from pg_roles, so the check runs (and returns nothing for them) where they are missing
   assert.match(check, /SELECT oid, rolname FROM pg_roles WHERE rolname IN \('anon', 'authenticated'\)/);
   assert.doesNotMatch(code(check), /'(anon|authenticated|postgres)'::regrole/);
+});
+
+test("the pre-check matches what step 1 refuses on, and the same query is in 000138's header and the runbook", () => {
+  for (const condition of [
+    "l.locktype = 'relation'",
+    "AND l.granted",
+    "AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())",
+    "AND c.relnamespace = 'public'::regnamespace",
+    CATALOG_WRITER_MODES,
+    "c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')",
+    "a.pid <> pg_backend_pid()",
+    "a.backend_type IS DISTINCT FROM 'autovacuum worker'",
+  ]) {
+    assert.ok(precheck.includes(condition), `pre-check: ${condition}`);
+  }
+  // the RLS step's hazard too: a transaction older than lock_timeout on a table it will alter
+  assert.match(precheck, /FILTER \(WHERE c\.relkind IN \('r', 'p'\) AND NOT c\.relrowsecurity\) AS rls_off/);
+  assert.match(precheck, /a\.xact_start < now\(\) - interval '3 seconds'/);
+
+  const words = (text) => text.replace(/\s+/g, " ").trim();
+  const query = words(code(precheck));
+  const header = words(up.slice(0, up.indexOf("\nBEGIN;")).replace(/^--[ \t]?/gm, ""));
+  assert.ok(header.includes(query), "000138's header must carry the pre-check verbatim");
+  const sqlBlocks = [...runbook.matchAll(/```sql\n([\s\S]*?)```/g)].map((m) => words(code(m[1])));
+  assert.ok(sqlBlocks.includes(query), "docs/operations/supabase-data-api.md must carry the pre-check verbatim");
 });
 
 // ---------------------------------------------------------------------------

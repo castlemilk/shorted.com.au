@@ -79,8 +79,9 @@ after each sync.
   functions, RLS off on 16 tables). `000138_harden_data_api_grants` revokes all of
   it, closes `postgres`'s default privileges and enables RLS on every table, with no
   policies and no FORCE. The backend owns everything and has BYPASSRLS, so it sees no
-  change. It is the last file in the deploy allowlist; zero rows from the check
-  means closed.
+  change. Zero rows from the check means closed. While the deploy workflow is
+  disabled nothing re-closes it on its own: apply and re-run it by hand, after the
+  read-only pre-check, as `docs/operations/supabase-data-api.md` describes.
 
 ## Note on the news-aggregator build
 
