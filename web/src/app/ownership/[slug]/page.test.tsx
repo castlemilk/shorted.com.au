@@ -7,7 +7,7 @@ import type {
   SubstantialNotice,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
 
-import InstitutionPage from "./page";
+import InstitutionPage, { generateMetadata } from "./page";
 
 const getInstitution = jest.fn();
 
@@ -165,5 +165,75 @@ describe("InstitutionPage", () => {
     expect(screen.getByText(/No current substantial holding on record/)).toBeInTheDocument();
     expect(bodyRows(screen.getByRole("table", { name: "HESTA's largest disclosed ASX holdings" }))).toHaveLength(10);
     expect(screen.queryByRole("button", { name: /^Show all/ })).toBeNull();
+  });
+});
+
+const NOINDEX = { index: false, follow: true, googleBot: { index: false, follow: true } };
+
+// SEO review F09, measured 2026-10-21: every institution page was indexable,
+// /ownership/ophir with "0 current substantial holdings" among them, and the
+// titles ran 70-85 characters ("Magellan Financial Group ASX Holdings:
+// Substantial Stakes and Fund Holdings | Shorted").
+describe("institution metadata", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("noindexes, and follows, an institution with no current stake and no holdings files", async () => {
+    getInstitution.mockResolvedValue(response({ slug: "ophir", name: "Ophir Asset Management", kind: "active_manager" }));
+    const meta = await generateMetadata(params("ophir"));
+
+    expect(meta.robots).toEqual(NOINDEX);
+    expect(meta.alternates?.canonical).toBe("https://shorted.com.au/ownership/ophir");
+    expect(meta.description).toBe(
+      "Ophir Asset Management (active manager): no current substantial holding in an ASX company on record in its notices.",
+    );
+  });
+
+  // Next merges metadata key by key: an own `robots: undefined` would replace
+  // the root layout's googleBot directives with nothing, so indexable means
+  // no key at all.
+  it("sets no robots key on a holder, names its own canonical and keeps the title short", async () => {
+    getInstitution.mockResolvedValue(
+      response({ slug: "magellan", name: "Magellan Financial Group", kind: "active_manager", positions: 6 }),
+    );
+    const meta = await generateMetadata(params("magellan"));
+
+    expect(Object.keys(meta)).not.toContain("robots");
+    expect(meta.alternates?.canonical).toBe("https://shorted.com.au/ownership/magellan");
+    expect(meta.title).toBe("Magellan Financial Group ASX holdings and substantial stakes");
+    expect(String(meta.title).length).toBeLessThanOrEqual(60);
+    expect(meta.description).toBe(
+      "What Magellan Financial Group (active manager) holds on the ASX: 6 current substantial holdings from its notices.",
+    );
+  });
+
+  it("indexes an institution on its holdings files alone, and counts one stake in the singular", async () => {
+    getInstitution.mockResolvedValue(response({ slug: "hesta", name: "HESTA", kind: "super_fund", fundHoldings: 100 }));
+    const files = await generateMetadata(params("hesta"));
+    expect(Object.keys(files)).not.toContain("robots");
+    expect(files.description).toBe("What HESTA (super fund) holds on the ASX: the largest holdings in its published holdings files.");
+
+    getInstitution.mockResolvedValue(response({ slug: "argo", name: "Argo Investments", kind: "active_manager", positions: 1 }));
+    expect((await generateMetadata(params("argo"))).description).toBe(
+      "What Argo Investments (active manager) holds on the ASX: 1 current substantial holding from its notices.",
+    );
+  });
+
+  it("keeps the head term alone for a name too long for the full title", async () => {
+    // The longest name on the map, 40 characters.
+    getInstitution.mockResolvedValue(
+      response({ slug: "afic", name: "Australian Foundation Investment Company", kind: "active_manager", positions: 2 }),
+    );
+    const meta = await generateMetadata(params("afic"));
+    expect(meta.title).toBe("Australian Foundation Investment Company ASX holdings");
+    expect(String(meta.title).length).toBeLessThanOrEqual(60);
+  });
+
+  it("noindexes an institution not on the map, and reads nothing for a malformed slug", async () => {
+    getInstitution.mockResolvedValue(undefined);
+    expect((await generateMetadata(params("nobody"))).robots).toEqual(NOINDEX);
+
+    getInstitution.mockClear();
+    expect((await generateMetadata(params("Not_A_Slug"))).robots).toEqual(NOINDEX);
+    expect(getInstitution).not.toHaveBeenCalled();
   });
 });

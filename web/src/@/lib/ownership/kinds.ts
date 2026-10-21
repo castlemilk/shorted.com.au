@@ -156,6 +156,13 @@ export function institutionHref(slug: string | null | undefined): string | null 
   return slug ? `/ownership/${slug}` : null;
 }
 
+const INSTITUTION_SLUG = /^[a-z0-9-]{2,64}$/;
+
+/** Whether a path segment can be a registry slug, checked before any read. */
+export function isInstitutionSlug(slug: string): boolean {
+  return INSTITUTION_SLUG.test(slug);
+}
+
 const LISTED_HOLDER = /^asx:([A-Z0-9]{2,6})$/;
 
 /**

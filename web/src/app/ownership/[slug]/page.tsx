@@ -10,7 +10,8 @@ import {
 } from "~/@/components/ownership/ownership-parts";
 import { FileHoldingsTable, SubstantialHoldingsTable } from "~/@/components/ownership/ownership-tables";
 import { formatAmount } from "~/@/lib/fundamentals/format";
-import { kindInfo } from "~/@/lib/ownership/kinds";
+import { institutionIsIndexable } from "~/@/lib/ownership/indexability";
+import { isInstitutionSlug, kindInfo } from "~/@/lib/ownership/kinds";
 import { INSTITUTION_ROWS_SHOWN, fileHoldingRow, holdingRow } from "~/@/lib/ownership/rows";
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { getInstitution } from "~/app/actions/getOwnership";
@@ -23,33 +24,63 @@ export function generateStaticParams(): Array<{ slug: string }> {
   return [];
 }
 
-const SLUG = /^[a-z0-9-]{2,64}$/;
-
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+const NOINDEX = {
+  index: false,
+  follow: true,
+  googleBot: { index: false, follow: true },
+} as const;
+
+// Titles stay inside Google's display width before the root template's
+// " | Shorted": the old "<name> ASX Holdings: Substantial Stakes and Fund
+// Holdings | Shorted" ran 70-85 characters. A name too long for the full form
+// (21 of the 145 on the map) keeps the head term alone.
+const TITLE_MAX = 60;
+
+function institutionTitle(name: string): string {
+  const full = `${name} ASX holdings and substantial stakes`;
+  return full.length <= TITLE_MAX ? full : `${name} ASX holdings`;
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const slug = (await params).slug;
-  const data = SLUG.test(slug) ? await getInstitution(slug) : undefined;
+  const data = isInstitutionSlug(slug) ? await getInstitution(slug) : undefined;
   const inst = data?.institution;
-  if (!inst) return { title: "Institution not found", robots: { index: false } };
+  if (!inst) return { title: "Institution not found", robots: NOINDEX };
   const url = `https://shorted.com.au/ownership/${inst.slug}`;
-  const title = `${inst.name} ASX Holdings: Substantial Stakes and Fund Holdings`;
-  const description = `What ${inst.name} (${kindInfo(inst.kind).label.toLowerCase()}) holds on the ASX: ${inst.substantialPositions} current substantial holdings from its notices${
-    data.fundHoldings.length > 0 ? ", and the largest holdings in its published holdings files" : ""
-  }.`;
+  const title = institutionTitle(inst.name);
+  const stakes = inst.substantialPositions;
+  const holds = [
+    stakes > 0 ? `${stakes} current substantial holding${stakes === 1 ? "" : "s"} from its notices` : "",
+    data.fundHoldings.length > 0 ? "the largest holdings in its published holdings files" : "",
+  ].filter(Boolean);
+  const kind = kindInfo(inst.kind).label.toLowerCase();
+  const description =
+    holds.length > 0
+      ? `What ${inst.name} (${kind}) holds on the ASX: ${holds.join(", and ")}.`
+      : `${inst.name} (${kind}): no current substantial holding in an ASX company on record in its notices.`;
+  // The one predicate the ownership sitemap also applies. Indexable means NO
+  // robots key: Next merges metadata key by key, so `robots: undefined` would
+  // replace the root layout's googleBot directives with nothing.
+  const indexable = institutionIsIndexable({
+    substantialPositions: stakes,
+    fundHoldings: data.fundHoldings.length,
+  });
   return {
     title,
     description,
     alternates: { canonical: url },
+    ...(indexable ? {} : { robots: NOINDEX }),
     openGraph: { type: "website", url, title, description, siteName: "Shorted", locale: "en_AU" },
   };
 }
 
 export default async function InstitutionPage({ params }: PageProps) {
   const slug = (await params).slug;
-  if (!SLUG.test(slug)) notFound();
+  if (!isInstitutionSlug(slug)) notFound();
   const data = await getInstitution(slug);
   const inst = data?.institution;
   if (!data || !inst) notFound();
