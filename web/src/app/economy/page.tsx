@@ -60,6 +60,11 @@ const HEADLINE_KEYS = [
   "rates.treasury_yield.10y.usa",
 ];
 
+// The tiles read only the newest observation of each series. Uncapped, the
+// API sends up to 600 per series: 2,942 observations (153 KB) for these ten
+// keys, measured 2026-10-21.
+const LATEST_ONLY = 1;
+
 function latest(
   response: GetEconomicSeriesResponse | undefined,
   key: string,
@@ -155,7 +160,9 @@ function SectionHeading({ title, blurb }: { title: string; blurb: string }) {
 
 export default async function EconomyPage() {
   preload("/geo/states.topojson", { as: "fetch", crossOrigin: "anonymous" });
-  const headline = await getEconomicSeries(HEADLINE_KEYS).catch(() => undefined);
+  const headline = await getEconomicSeries(HEADLINE_KEYS, LATEST_ONLY).catch(
+    () => undefined,
+  );
 
   const cashRate = latest(headline, "rates.cash_rate_target.aus");
   const cpiYoy = latest(headline, "cpi.annual_change.all_groups.aus");

@@ -22,6 +22,11 @@ import {
 
 export const revalidate = 3600;
 
+// The chip strip reads only the newest observation of each series; uncapped,
+// the three chip keys alone return 566 observations (32 KB for Victoria,
+// measured 2026-10-21).
+const LATEST_ONLY = 1;
+
 interface PageProps {
   params: Promise<{ state: string }>;
 }
@@ -144,7 +149,9 @@ export default async function EconomyStatePage({ params }: PageProps) {
     sfdKey,
     exportsKey,
   ];
-  const headline = await getEconomicSeries(chipKeys).catch(() => undefined);
+  const headline = await getEconomicSeries(chipKeys, LATEST_ONLY).catch(
+    () => undefined,
+  );
 
   const unemployment = hasLabour(state)
     ? latest(headline, unemploymentKey)
