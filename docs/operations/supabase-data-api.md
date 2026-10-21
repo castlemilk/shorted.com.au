@@ -23,11 +23,34 @@ FORCE never applies to an owner, and `postgres` has `BYPASSRLS` anyway.
 
 ## Applying it, or re-closing drift
 
-Nothing re-closes the Data API on its own while the **Deploy Infrastructure**
-workflow is disabled (it has been since October 2026). 000138 is the last file
-that workflow replays, so once it runs again every deploy re-closes what a
-replayed or hand-applied migration opened. Until then, run the loop below by
-hand: pre-check, apply, check, and repeat until the check returns zero rows.
+Every push to `main` deploys through `.github/workflows/terraform-deploy.yml`,
+which Cuttlefish runs (runs named `gha-terraform-deploy-*`; the workflow is
+disabled on GitHub, which no longer runs it). Its `terraform-apply` job replays
+the migration allowlist, 000138 last, with `run_psql_session -f`: psql on the
+session pooler, statement by statement, as the per-table COMMITs need. Then
+`deploy-vercel-prod` promotes the web app. So merging the branch that adds
+000138 applies it, unless it is applied already.
+
+**Apply it by hand first, then merge.** Run the loop below (pre-check, apply,
+check, and repeat until the check returns zero rows), and merge only after.
+The merge's replay then finds a closed database and writes nothing. Two
+reasons not to leave the first application to the deploy:
+
+- It belongs in a quiet window you chose, with someone watching its output.
+- On a database still open, the replay stops with `object_in_use` if a
+  REFRESH, TRUNCATE or ALTER is in flight in `public` (or on the 3s
+  lock-timeout backstop). That fails the migration step and with it
+  `terraform-apply`, before any image is swapped. `deploy-vercel-prod` still
+  promotes the web app, because it runs `always()` once the tests and secrets
+  pass, so the site would ship ahead of its backend.
+
+The repository is public, so push the branch and open its PR only after the
+hand-apply. A PR open before then announces the exposure, and merging it would
+apply the file too, but not under observation.
+
+After that, each deploy re-closes drift (a re-grant, or a table a run
+deferred), on the next push to `main`. The immediate remedy is still the loop
+below, by hand, until the check returns zero rows.
 
 **Apply it only with psql, statement by statement**: `task db:prod:apply`
 (below), or `psql -X -v ON_ERROR_STOP=1 -f` (`-X`, because an `AUTOCOMMIT off`
@@ -233,10 +256,11 @@ implicit transaction block, so the step's first per-table COMMIT fails with
 `invalid_transaction_termination` and `schema_migrations` is left dirty at 138
 (the privileges have committed by then; no table has changed). That needs a
 server with the `anon` and `authenticated` roles and a table with row level
-security off. No environment has both today: prod is applied by hand with psql,
-and local docker and the test containers have no such roles, so there the file
-is a no-op. On such a server, apply the file with `psql -X -v ON_ERROR_STOP=1 -f`
-and then run `migrate ... force 138`.
+security off. No environment has both today: prod gets the file only through
+psql (by hand, and in each deploy's replay), and local docker and the test
+containers have no such roles, so there the file is a no-op. On such a server,
+apply the file with `psql -X -v ON_ERROR_STOP=1 -f` and then run
+`migrate ... force 138`.
 
 ## Who else notices
 

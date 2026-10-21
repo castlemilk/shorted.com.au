@@ -243,12 +243,16 @@ anyone with the (non-secret) anon key, and nothing here uses it.
   in the same file. The same test pins 000138's catalog queries and the check's
   classes whole: change one only with a re-verification, pin included.
 - Closed = zero rows from `task db:prod:psql -- -P pager=off -f scripts/prod-data-api-check.sql`.
-  Nothing re-closes it on its own while the Deploy Infrastructure workflow is
-  disabled: re-run 000138 by hand (pre-check, `task db:prod:apply`, check) until
-  the check returns zero rows. Runbook: `docs/operations/supabase-data-api.md`.
-- 000138 stays the LAST file the deploy replays, so once that workflow runs
-  again it re-closes what the others open: a new allowlisted migration goes
-  ABOVE it in `terraform-deploy.yml`.
+  Apply 000138 by hand (pre-check, `task db:prod:apply`, check, until zero rows)
+  BEFORE its merge, and open its PR only after (the repo is public). The merge
+  deploys (see "A merge is not a deploy until its deploy has run"): on a
+  still-open database the replay stops with `object_in_use` if a refresh is in
+  flight, failing `terraform-apply` before any image is swapped, but
+  `deploy-vercel-prod` still promotes the web app. On a closed database it does
+  nothing. Runbook: `docs/operations/supabase-data-api.md`.
+- 000138 stays the LAST file the deploy replays, so each deploy re-closes what
+  the others open (re-running it by hand is the immediate fix): a new
+  allowlisted migration goes ABOVE it in `terraform-deploy.yml`.
 
 ## Common Tasks
 

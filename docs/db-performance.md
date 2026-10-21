@@ -79,9 +79,11 @@ after each sync.
   functions, RLS off on 16 tables). `000138_harden_data_api_grants` revokes all of
   it, closes `postgres`'s default privileges and enables RLS on every table, with no
   policies and no FORCE. The backend owns everything and has BYPASSRLS, so it sees no
-  change. Zero rows from the check means closed. While the deploy workflow is
-  disabled nothing re-closes it on its own: apply and re-run it by hand, after the
-  read-only pre-check, as `docs/operations/supabase-data-api.md` describes.
+  change. Zero rows from the check means closed. Apply it by hand, after the
+  read-only pre-check, before its merge: every push to `main` deploys (Cuttlefish
+  runs `terraform-deploy.yml`) and replays 000138 last, which writes nothing on a
+  closed database and re-closes any later drift. The procedure is in
+  `docs/operations/supabase-data-api.md`.
 
 ## Note on the news-aggregator build
 

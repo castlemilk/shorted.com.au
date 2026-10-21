@@ -819,28 +819,34 @@ jobs:
             # tables, views, materialized views, sequences and functions there,
             # stops postgres's default privileges granting new objects to them,
             # and enables row level security on every table. The backend owns
-            # every object and has BYPASSRLS, so it sees no change. It stays
-            # the LAST file here, so a deploy re-closes anything a file above
-            # or a hand-apply opened again: a new allowlisted migration goes
-            # ABOVE this line. That re-closing happens only while this workflow
-            # runs; while it is disabled, re-run the file by hand until the
-            # check below returns zero rows (docs/operations/supabase-data-api.md).
-            # Every step is catalog-guarded, so on a closed database the replay
-            # reads the catalog and writes nothing.
+            # every object and has BYPASSRLS, so it sees no change. Its first
+            # application is by hand, before the merge that adds it, so this
+            # replay finds the database closed (docs/operations/supabase-data-api.md
+            # says why). It stays the LAST file here, so each deploy (Cuttlefish
+            # runs this workflow on every push to main; it is disabled on
+            # GitHub, which no longer runs it) re-closes anything a file above
+            # or a hand-apply opened again, and finishes a table a run deferred:
+            # a new allowlisted migration goes ABOVE this line. The immediate
+            # remedy is by hand all the same: re-run the file until the check
+            # below returns zero rows. Every step is catalog-guarded, so on a
+            # closed database the replay reads the catalog and writes nothing.
             # The privileges commit first, in one transaction under
             # lock_timeout = '3s'. A REVOKE locks no table, but it waits for a
             # transaction that has rewritten the same catalog row: a REFRESH,
             # TRUNCATE or ALTER in flight. So when there is anything left to
             # revoke and one is running in public, the file stops at once with
-            # an error naming it and changes nothing, and this step fails;
-            # re-run the deploy when it has finished. Then row level security,
-            # one transaction per table: each ENABLE ROW LEVEL SECURITY needs an
-            # ACCESS EXCLUSIVE lock, and a table whose lock is not granted in 3s
-            # (a long reader on it) is skipped with a WARNING naming it, never a
-            # failed deploy, and holds up only its own readers. Plain psql -f
-            # sends each statement on its own, which that per-table COMMIT
-            # needs. On the session pooler, like 000131 and 000132, because of
-            # those locks. Check it (zero rows = closed):
+            # an error naming it and changes nothing, and this step fails, and
+            # with it this job, before any image is swapped. deploy-vercel-prod
+            # still promotes the web app: it runs always(), once the tests and
+            # secrets pass. Re-run the deploy when that writer has finished.
+            # Then row level security, one transaction per table: each ENABLE
+            # ROW LEVEL SECURITY needs an ACCESS EXCLUSIVE lock, and a table
+            # whose lock is not granted in 3s (a long reader on it) is skipped
+            # with a WARNING naming it, never a failed deploy, and holds up only
+            # its own readers. Plain psql -f sends each statement on its own,
+            # which that per-table COMMIT needs. On the session pooler, like
+            # 000131 and 000132, because of those locks. Check it (zero rows =
+            # closed):
             #   task db:prod:psql -- -P pager=off -f scripts/prod-data-api-check.sql
             run_psql_session -f /migrations/000138_harden_data_api_grants.up.sql
 

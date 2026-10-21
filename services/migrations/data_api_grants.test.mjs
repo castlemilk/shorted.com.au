@@ -566,8 +566,8 @@ test("row level security: one transaction per table, a contended table skipped w
   assert.equal([...rls.matchAll(/\bCOMMIT\b/g)].length, 1, "the per-table COMMIT is the block's only one");
   assert.doesNotMatch(upCode, /WHEN OTHERS/i, "a real error must fail the step");
   assert.match(rls, /RAISE WARNING '000138: row level security NOT enabled on % table\(s\) whose lock was not granted within lock_timeout, or whose wait was chosen to break a deadlock: %/);
-  // The deploy workflow that would replay it is disabled: the WARNING tells
-  // the operator to re-run, and never to wait for a deploy.
+  // The WARNING tells the operator to re-run, and never to wait for a deploy:
+  // a deploy finishes a deferred table only on the next push to main.
   const warning = rls.slice(rls.indexOf("RAISE WARNING"), rls.indexOf("cardinality(deferred), array_to_string"));
   assert.match(warning, /until scripts\/prod-data-api-check\.sql returns zero rows/);
   assert.doesNotMatch(warning, /deploy/i);

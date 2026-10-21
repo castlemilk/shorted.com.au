@@ -177,9 +177,10 @@
 -- db:prod:apply` runs the file through prod-psql.sh, whose classifier reads a
 -- COMMIT before the end as `session`: it sets a session statement_timeout = 0,
 -- runs the file statement by statement and RESET ALLs before it exits. The
--- deploy replays it with plain `psql -f`, which also sends each statement on
--- its own. Either way step 2's DO runs outside any transaction block, which a
--- DO must do to COMMIT.
+-- deploy, on every push to main, replays it with run_psql_session -f (plain
+-- psql on the session pooler), which also sends each statement on its own.
+-- Either way step 2's DO runs outside any transaction block, which a DO must
+-- do to COMMIT.
 -- APPLY IT ONLY WITH PSQL, statement by statement: `task db:prod:apply`, or
 -- `psql -X -v ON_ERROR_STOP=1 -f` (-X, because an AUTOCOMMIT off in a
 -- ~/.psqlrc would wrap the file in one transaction). Never through the
@@ -203,11 +204,12 @@
 -- step 1 has committed by then, no table has changed, and schema_migrations is
 -- left dirty at 138. The DO reaches a COMMIT only on a server that has the anon
 -- and authenticated roles and a table with row level security off that
--- current_user can alter. No environment does that today: prod is applied by
--- hand with psql, and local docker and the test containers have no such roles,
--- so there the DO returns before any COMMIT and golang-migrate runs the file as
--- a no-op. On such a server, apply the file with `psql -X -v ON_ERROR_STOP=1 -f`
--- and then run `migrate ... force 138`.
+-- current_user can alter. No environment does that today: prod gets the file
+-- only through psql (by hand, and in each deploy's replay), and local docker
+-- and the test containers have no such roles, so there the DO returns before
+-- any COMMIT and golang-migrate runs the file as a no-op. On such a server,
+-- apply the file with `psql -X -v ON_ERROR_STOP=1 -f` and then run
+-- `migrate ... force 138`.
 --
 -- REPLAY-SAFE. Every step is catalog-guarded: an object is touched only while
 -- its ACL (or a column's) still grants PUBLIC, anon or authenticated something,
@@ -215,11 +217,11 @@
 -- its RLS is off. On a closed database a replay reads the catalog and writes
 -- nothing: no catalog row is updated, no lock is taken, PostgREST is not told
 -- to reload its schema cache. The file is in the deploy allowlist as the LAST
--- file, after 000132, so a deploy re-closes anything a replayed or hand-applied
--- migration opened again. That happens only while the Deploy Infrastructure
--- workflow runs, and it has been disabled since October 2026. Until it is
--- enabled again, nothing re-closes a re-grant or finishes a deferred table on
--- its own: re-run this file by hand until scripts/prod-data-api-check.sql
+-- file, after 000132. Every push to main deploys through terraform-deploy.yml,
+-- which Cuttlefish runs (it is disabled on GitHub, which no longer runs it),
+-- so the next deploy re-closes anything a replayed or hand-applied migration
+-- opened again, and finishes a table a run deferred. The immediate remedy is
+-- still by hand: re-run this file until scripts/prod-data-api-check.sql
 -- returns zero rows.
 --
 -- WHERE THE ROLES DO NOT EXIST. Local docker (role admin) and test containers
@@ -230,8 +232,15 @@
 -- shows the role exists (and, for postgres's default privileges, after
 -- pg_has_role shows current_user can act for it).
 --
--- APPLY BY HAND, outside every materialized-view refresh; each holds its
--- views until it ends:
+-- APPLY BY HAND, THEN MERGE. Merging deploys, and a deploy that meets an open
+-- database applies the file itself: whenever the merge lands, with no one
+-- watching, and it stops with an error (object_in_use, or the 3s backstop)
+-- if a refresh or another catalog writer is in flight. That fails the
+-- deploy's migration step and so terraform-apply, before any image is
+-- swapped, while deploy-vercel-prod, which runs always() once tests and
+-- secrets pass, still promotes the web app. Applied by hand first, the
+-- database is closed and the merge's replay does nothing. Apply it outside
+-- every materialized-view refresh; each holds its views until it ends:
 --   refresh_all_materialized_views()            the ASIC sync, from 10:00 UTC (mean 191s, up to 7 min)
 --   refresh_housing_materialized_views()        about 11 times a day, at no fixed time (mean 21s)
 --   refresh_strategy_views()                    shorted picks, 13:30 UTC on weekdays, and at the end
