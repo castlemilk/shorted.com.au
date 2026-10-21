@@ -392,9 +392,18 @@ test("the check covers what the migration closes, with the same scope, and what 
     "default_acl",
     "default_acl_global",
     "default_acl_public_execute",
+    "default_acl_public_grant",
   ]) {
     assert.match(check, new RegExp(`SELECT '${violation}'`), violation);
   }
+  // A default that grants PUBLIC (which anon and authenticated inherit) is
+  // reported even though 000138 closes only the schema-less EXECUTE on
+  // functions: per-schema entries in public of any kind, and schema-less ones
+  // for tables and sequences (functions there are default_acl_public_execute).
+  assert.match(
+    check,
+    /SELECT 'default_acl_public_grant',[\s\S]*?WHERE d\.defaclrole = \(SELECT oid FROM pg\)\s+AND \(d\.defaclnamespace = 'public'::regnamespace\s+OR \(d\.defaclnamespace = 0 AND d\.defaclobjtype IN \('r', 'S'\)\)\)\s+AND d\.defaclobjtype IN \('r', 'S', 'f'\)\s+AND EXISTS \(SELECT 1 FROM aclexplode\(d\.defaclacl\) a WHERE a\.grantee = 0\)\n\)/,
+  );
   assert.match(check, /c\.relkind IN \('r', 'p', 'v', 'm', 'f', 'S'\)/);
   // our relations and functions: extension members excluded, as in the migration
   assert.match(check, /rel AS \([\s\S]*?NOT EXISTS \(SELECT 1 FROM pg_depend d\s+WHERE d\.classid = 'pg_class'::regclass AND d\.objid = c\.oid AND d\.deptype = 'e'\)/);

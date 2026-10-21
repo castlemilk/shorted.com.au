@@ -83,6 +83,14 @@
 --     and prod runs this as postgres, so they are reported with a NOTICE and
 --     left alone. What supabase_admin creates in public today is extension
 --     members.
+--   * A default of postgres's that grants PUBLIC anything but the schema-less
+--     EXECUTE on functions (item 2 closes that one): a per-schema entry in
+--     public, or a schema-less one for tables or sequences. anon inherits
+--     PUBLIC, so every new view or function would be born open to it. None
+--     existed (measured 2026-10-21), and this file's SQL stays as it was
+--     verified, so scripts/prod-data-api-check.sql reports one as
+--     default_acl_public_grant, for the hand REVOKE ... FROM PUBLIC in the
+--     runbook.
 --   * service_role. Its key is a server-side secret by design; it keeps its
 --     grants and its BYPASSRLS.
 --   * Anything outside public. Supabase owns the other schemas, and postgres

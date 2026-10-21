@@ -27,6 +27,9 @@
 --                                 or authenticated
 --   default_acl_public_execute    postgres's schema-less default lets PUBLIC execute every
 --                                 new function
+--   default_acl_public_grant      postgres's default privileges in public, or its schema-less
+--                                 ones for tables or sequences, grant PUBLIC something, which
+--                                 anon and authenticated inherit
 -- Extension members are the migration's one exclusion: an extension's objects
 -- belong to whoever installed it (supabase_admin, on Supabase), and ALTER
 -- EXTENSION UPDATE would restore their grants. Their functions are left out
@@ -37,9 +40,16 @@
 -- one anon or authenticated can use is reported as extension_relation_privilege.
 -- 000138 cannot close that row (it never touches extension members, and
 -- postgres does not own them): it needs a superuser, or the extension moved out
--- of public. Every other class is one the migration closes, except where
--- postgres cannot act for an object's owner; the migration names those objects
--- in a NOTICE and leaves them for their owner.
+-- of public.
+-- Nor can it close default_acl_public_grant. From postgres's default-privilege
+-- entries it revokes anon and authenticated, and PUBLIC only in the one case
+-- above (EXECUTE on functions, schema-less), so a default that grants PUBLIC
+-- anything else survives a re-run. None did on 2026-10-21. Revoke it by hand,
+-- from a file applied with task db:prod:apply, naming the entry the row names:
+--   ALTER DEFAULT PRIVILEGES FOR ROLE postgres [IN SCHEMA public] REVOKE ALL ON TABLES FROM PUBLIC;
+-- (or ON SEQUENCES, ON FUNCTIONS). Every other class is one the migration
+-- closes, except where postgres cannot act for an object's owner; the
+-- migration names those objects in a NOTICE and leaves them for their owner.
 -- Not checked: supabase_admin's own default privileges in public (only
 -- supabase_admin or a superuser can change them, and whatever it creates there
 -- shows up above, as relation_privilege, function_execute or
@@ -222,6 +232,23 @@ violations AS (
                               WHERE d.defaclrole = pg.oid AND d.defaclnamespace = 0 AND d.defaclobjtype = 'f'),
                             acldefault('f', pg.oid))) a
                     WHERE a.grantee = 0)
+
+    -- The schema-less entry for functions is left to the class above, which
+    -- also sees the built-in default (no entry at all) that grants PUBLIC.
+    UNION ALL
+    SELECT 'default_acl_public_grant',
+           format('FOR ROLE postgres %sON %s%s',
+                  CASE WHEN d.defaclnamespace = 0 THEN '' ELSE 'IN SCHEMA public ' END,
+                  CASE d.defaclobjtype WHEN 'r' THEN 'TABLES' WHEN 'S' THEN 'SEQUENCES' ELSE 'FUNCTIONS' END,
+                  CASE WHEN d.defaclnamespace = 0 THEN ' (every schema)' ELSE '' END),
+           format('new objects%s are granted to PUBLIC, which anon and authenticated inherit; 000138 does not close this',
+                  CASE WHEN d.defaclnamespace = 0 THEN ' in every schema' ELSE '' END)
+      FROM pg_default_acl d
+     WHERE d.defaclrole = (SELECT oid FROM pg)
+       AND (d.defaclnamespace = 'public'::regnamespace
+            OR (d.defaclnamespace = 0 AND d.defaclobjtype IN ('r', 'S')))
+       AND d.defaclobjtype IN ('r', 'S', 'f')
+       AND EXISTS (SELECT 1 FROM aclexplode(d.defaclacl) a WHERE a.grantee = 0)
 )
 SELECT violation, object, detail
   FROM violations

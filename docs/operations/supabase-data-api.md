@@ -155,6 +155,24 @@ If it returns rows, go back to step 1.
   `supabase_admin`'s default privileges, which grant `anon` and `authenticated`
   everything. 000138 never touches extension members; a superuser must revoke
   it, or the extension must move out of `public`.
+- **A `default_acl_public_grant` row.** One of `postgres`'s default-privilege
+  entries grants `PUBLIC` something: for tables, sequences or functions in
+  `public`, or for tables or sequences in every schema. Every new object of
+  that kind is then born usable by `anon`, which inherits `PUBLIC`, and row
+  level security covers only tables, not views or functions. 000138 revokes
+  only `anon` and `authenticated` from those entries, plus `PUBLIC`'s EXECUTE
+  from the schema-less one for functions, so a re-run leaves this row. None
+  existed on 2026-10-21. Revoke it by hand: put the statement for the entry
+  the row names in a file and apply it with
+  `task db:prod:apply FILE=<that file> CONFIRM=prod`, then run the check again.
+
+  ```sql
+  -- object "FOR ROLE postgres IN SCHEMA public ON TABLES"
+  ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC;
+  -- object "FOR ROLE postgres ON TABLES (every schema)"
+  ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE ALL ON TABLES FROM PUBLIC;
+  -- likewise ON SEQUENCES, and ON FUNCTIONS (IN SCHEMA public only)
+  ```
 
 ## golang-migrate
 
