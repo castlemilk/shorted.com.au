@@ -1,3 +1,4 @@
+import { editorialThumbnailUrl } from "~/@/lib/editorial-art";
 import Link from "next/link";
 import { listEditorialTakes } from "~/app/actions/getEditorialTake";
 import { stockChipPalette } from "~/@/lib/stock-color";
@@ -60,7 +61,7 @@ export async function TakeCardGrid({
               <div className="relative aspect-video overflow-hidden border-b border-border bg-muted">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={t.heroImageUrl}
+                  src={editorialThumbnailUrl(t.heroImageUrl)}
                   alt=""
                   loading={idx < 3 ? "eager" : "lazy"}
                   decoding="async"

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img">
+<rect width="1600" height="900" fill="#F9F8F5"/>
+<text x="80.0" y="78.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="700" fill="#9E5210" text-anchor="start" >SHORTED · ASX: WTC · WISETECH GLOBAL</text>
+<text x="80.0" y="150.0" font-family="Newsreader, Georgia, serif" font-size="72" font-weight="500" fill="#483932" text-anchor="start" >Record short, no action</text>
+<text x="80.0" y="196.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="22" font-weight="400" fill="#72625A" text-anchor="start" >Short position (amber, left) and share price (ink, right), 16 July to 20 October 2026</text>
+<line x1="80" x2="1340" y1="760.0" y2="760.0" stroke="#E5E1DC" stroke-width="1"/>
+<text x="68.0" y="766.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >6%</text>
+<line x1="80" x2="1340" y1="675.0" y2="675.0" stroke="#E5E1DC" stroke-width="1"/>
+<text x="68.0" y="681.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >7%</text>
+<line x1="80" x2="1340" y1="590.0" y2="590.0" stroke="#E5E1DC" stroke-width="1"/>
+<text x="68.0" y="596.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >8%</text>
+<line x1="80" x2="1340" y1="505.0" y2="505.0" stroke="#E5E1DC" stroke-width="1"/>
+<text x="68.0" y="511.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >9%</text>
+<line x1="80" x2="1340" y1="420.0" y2="420.0" stroke="#E5E1DC" stroke-width="1"/>
+<text x="68.0" y="426.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >10%</text>
+<line x1="80" x2="1340" y1="335.0" y2="335.0" stroke="#E5E1DC" stroke-width="1"/>
+<text x="68.0" y="341.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >11%</text>
+<line x1="80" x2="1340" y1="250.0" y2="250.0" stroke="#E5E1DC" stroke-width="1"/>
+<text x="68.0" y="256.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >12%</text>
+<text x="1352.0" y="664.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="start" >$30</text>
+<text x="1352.0" y="536.5" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="start" >$35</text>
+<text x="1352.0" y="409.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="start" >$40</text>
+<text x="1352.0" y="281.5" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="start" >$45</text>
+<rect x="1261.2" y="250" width="78.8" height="510" fill="#FDFDFC" stroke="#E5E1DC"/>
+<line x1="1261.2" x2="1261.2" y1="250" y2="760" stroke="#9E5210" stroke-width="2" stroke-dasharray="6 6"/>
+<text x="1249.2" y="706.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="700" fill="#9E5210" text-anchor="end" >14 Oct</text>
+<text x="1249.2" y="732.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#9E5210" text-anchor="end" >"Resolution of ASIC matters"</text>
+<path d="M 145.6 556.0 L 185.0 657.5 L 263.8 456.8 L 329.4 457.6 L 408.1 376.2 L 447.5 374.9 L 526.2 413.7 L 591.9 314.0 L 631.2 414.5 L 710.0 462.9 L 775.6 498.4 L 828.1 589.4 L 893.8 600.1 L 959.4 612.9 L 1011.9 624.1 L 1077.5 595.3 L 1090.6 623.8 L 1103.8 570.5 L 1143.1 588.4 L 1156.2 609.6 L 1169.4 604.7 L 1182.5 600.4 L 1195.6 565.4 L 1235.0 554.2 L 1248.1 578.7 L 1261.2 567.5 L 1274.4 543.2 L 1287.5 463.9 L 1326.9 450.9 L 1340.0 437.7" fill="none" stroke="#483932" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round" />
+<path d="M 80.0 562.8 L 132.5 567.9 L 158.8 566.2 L 224.4 550.9 L 250.6 581.5 L 276.9 567.9 L 329.4 563.6 L 368.8 570.4 L 421.2 568.8 L 447.5 562.0 L 500.0 549.2 L 539.4 547.5 L 591.9 547.5 L 618.1 519.5 L 644.4 517.8 L 710.0 479.5 L 736.2 480.4 L 788.8 477.8 L 815.0 472.7 L 880.6 439.6 L 906.9 423.4 L 959.4 403.9 L 985.6 383.5 L 1051.2 365.6 L 1064.4 355.4 L 1077.5 340.1 L 1090.6 331.6 L 1103.8 330.7 L 1143.1 328.2 L 1156.2 320.6 L 1169.4 320.6 L 1182.5 320.6 L 1195.6 332.5 L 1235.0 335.8 L 1248.1 330.7 L 1261.2 334.2 L 1274.4 328.2" fill="none" stroke="#9E5210" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" />
+<circle cx="1274.4" cy="328.2" r="9" fill="#9E5210"/>
+<text x="1258.4" y="304.2" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="26" font-weight="700" fill="#483932" text-anchor="end" >11.08% short · 15 Oct</text>
+<circle cx="1340.0" cy="437.7" r="7" fill="#483932"/>
+<text x="1352.0" y="423.7" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="24" font-weight="700" fill="#483932" text-anchor="start" >$38.64</text>
+<text x="1352.0" y="451.7" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="start" >+15% in four sessions</text>
+<text x="90.0" y="596.8" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="20" font-weight="700" fill="#9E5210" text-anchor="start" >8.32% · 16 Jul</text>
+<rect x="100" y="664" width="470" height="52" fill="#FDFDFC" stroke="#E5E1DC"/>
+<text x="116.0" y="699.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#483932" text-anchor="start" >Days to cover  20.7  (position ÷ 20-day average volume)</text>
+<text x="80.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="start" >16 Jul</text>
+<text x="1340.0" y="800.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="18" font-weight="400" fill="#72625A" text-anchor="end" >20 Oct</text>
+<text x="80.0" y="856.0" font-family="IBM Plex Mono, JetBrains Mono, Menlo, monospace" font-size="17" font-weight="400" fill="#72625A" text-anchor="start" >Source: ASIC daily aggregate short-position reports, % of shares on issue, published T+4; price is the daily close</text>
+</svg>

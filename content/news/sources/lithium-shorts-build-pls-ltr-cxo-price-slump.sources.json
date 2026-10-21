@@ -1,0 +1,188 @@
+{
+  "draft": "lithium-shorts-build-pls-ltr-cxo-price-slump.mdx",
+  "knownCodes": [
+    "PLS",
+    "LTR",
+    "CXO",
+    "ELV",
+    "VUL"
+  ],
+  "sources": [
+    {
+      "refId": "ref-1",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20261015-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "15 October daily aggregate short-position report",
+      "date": "2026-10-15",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for PLS, LTR, CXO, ELV, VUL; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    },
+    {
+      "refId": "ref-2",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260716-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "16 July daily aggregate short-position report",
+      "date": "2026-07-16",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for PLS, LTR, CXO, ELV, VUL; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    },
+    {
+      "refId": "ref-3",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260917-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "17 September daily aggregate short-position report",
+      "date": "2026-09-17",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for PLS, LTR, CXO, ELV, VUL; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    },
+    {
+      "refId": "ref-4",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260918-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "18 September daily aggregate short-position report",
+      "date": "2026-09-18",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for PLS, LTR, CXO, ELV, VUL; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    },
+    {
+      "refId": "ref-5",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260929-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "29 September daily aggregate short-position report",
+      "date": "2026-09-29",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for PLS, LTR, CXO, ELV, VUL; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    },
+    {
+      "refId": "ref-6",
+      "type": "news",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03153065",
+      "source": "ASX / PLS Group",
+      "headline": "PLS approves P2000 FID to lift production to circa 2Mtpa",
+      "date": "2026-10-15",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it."
+    },
+    {
+      "refId": "ref-7",
+      "type": "news",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03154553",
+      "source": "ASX / PLS Group",
+      "headline": "Proposed offering of up to US$700M Senior Unsecured Notes",
+      "date": "2026-10-19",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it."
+    },
+    {
+      "refId": "ref-8",
+      "type": "news",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03145704",
+      "source": "ASX / Liontown Resources",
+      "headline": "Kathleen Valley Expansion Final Investment Decision",
+      "date": "2026-09-29",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it."
+    },
+    {
+      "refId": "ref-9",
+      "type": "report",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03152006",
+      "source": "ASX / Core Lithium",
+      "headline": "Quarterly Activities and Cashflow Report",
+      "date": "2026-10-13",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it."
+    },
+    {
+      "refId": "ref-10",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/lithium/lithium-futures-break-a-key-level-how-exposed-is-liontown-asxltr",
+      "source": "Kalkine Media",
+      "headline": "Lithium Futures Break a Key Level: How Exposed Is Liontown (ASX:LTR)?",
+      "date": "2026-10-20",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date as recorded in Shorted's news feed",
+      "verification": "Headline, publisher, date and summary from Shorted's aggregated news feed (RSS) on 21 October 2026; the full article was not opened in this session, so every claim drawn from it is attributed to the publisher by name in the text and limited to what the feed summary states."
+    },
+    {
+      "refId": "ref-11",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/lithium/pls-asxpls-gives-back-its-p2000-gains-why-are-investors-questioning-the-costs",
+      "source": "Kalkine Media",
+      "headline": "PLS (ASX:PLS) Gives Back Its P2000 Gains: Why Are Investors Questioning the Costs?",
+      "date": "2026-10-20",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date as recorded in Shorted's news feed",
+      "verification": "Headline, publisher, date and summary from Shorted's aggregated news feed (RSS) on 21 October 2026; the full article was not opened in this session, so every claim drawn from it is attributed to the publisher by name in the text and limited to what the feed summary states."
+    },
+    {
+      "refId": "ref-12",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/smallcap/how-far-along-is-core-lithium-asxcxo-at-finniss",
+      "source": "Kalkine Media",
+      "headline": "How Far Along Is Core Lithium (ASX:CXO) at Finniss?",
+      "date": "2026-10-15",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date as recorded in Shorted's news feed",
+      "verification": "Headline, publisher, date and summary from Shorted's aggregated news feed (RSS) on 21 October 2026; the full article was not opened in this session, so every claim drawn from it is attributed to the publisher by name in the text and limited to what the feed summary states."
+    },
+    {
+      "refId": "ref-13",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/lithium/how-will-liontowns-kathleen-valley-expansion-reshape-its-output-asxltr",
+      "source": "Kalkine Media",
+      "headline": "How Will Liontown's Kathleen Valley Expansion Reshape Its Output (ASX:LTR)?",
+      "date": "2026-10-20",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Publication date as recorded in Shorted's news feed",
+      "verification": "Headline, publisher, date and summary from Shorted's aggregated news feed (RSS) on 21 October 2026; the full article was not opened in this session, so every claim drawn from it is attributed to the publisher by name in the text and limited to what the feed summary states."
+    },
+    {
+      "refId": "ref-14",
+      "type": "trade",
+      "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03136008",
+      "source": "ASX / Liontown Resources Appendix 3Y",
+      "headline": "Change of Director's Interest Notice - Adrienne Parker",
+      "date": "2026-09-04",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Announcement date as recorded in Shorted's ASX announcements feed (get_stock_news / get_director_trades)",
+      "verification": "Headline, date and idsId from Shorted's announcement feed on 21 October 2026. The PDF sits behind ASX's terms interstitial and was NOT opened in this session: the article states only the lodgement's headline and date, and attributes any detail of its contents to the secondary source that reported it. Trade figures (shares, price, value) are Shorted's parsed Appendix 3Y record for this notice."
+    },
+    {
+      "refId": "ref-15",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20261008-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "8 October daily aggregate short-position report",
+      "date": "2026-10-08",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for PLS, LTR, CXO, ELV, VUL; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    },
+    {
+      "refId": "ref-16",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20261009-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "9 October daily aggregate short-position report",
+      "date": "2026-10-09",
+      "retrievedDate": "2026-10-21",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "verification": "Downloaded official CSV with curl on 21 October 2026 and read the rows for PLS, LTR, CXO, ELV, VUL; every short percentage, share count and shares-on-issue figure in the article for that date is the row's own value, and each matched Shorted's get_stock_history series for the same date. Ordinary-share counts above 5% and 10% were computed over the file's ORDINARY lines."
+    }
+  ]
+}
