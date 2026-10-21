@@ -291,7 +291,10 @@ export type EconomySeriesDisplayFormat =
   | "usd_price"
   // Exchange rates need 4dp below 10 (USD/EUR at 1.1618) and 2 above it
   // (JPY/USD at 156.11); 2dp everywhere throws away the pair that moves least.
-  | "fx";
+  | "fx"
+  // Whole counts in prose: "5,075" dwellings, "7,154,221" people. The compact
+  // "number" format reads 5.1K, which suits an axis tick, not a sentence.
+  | "count";
 
 export interface EconomyCorrelationSeriesDef {
   key: string;
@@ -752,4 +755,5 @@ export const ECONOMY_SERIES_FORMATTERS: Record<
     })}`;
   },
   fx: (value) => (Math.abs(value) >= 10 ? value.toFixed(2) : value.toFixed(4)),
+  count: (value) => Math.round(value).toLocaleString("en-AU"),
 };

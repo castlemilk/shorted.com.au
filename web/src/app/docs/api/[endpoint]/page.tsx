@@ -1,8 +1,11 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { parseOpenAPISpec, getEndpoint, getApiBaseUrl } from '~/lib/openapi/parser';
 import { EndpointContent } from '~/@/components/docs/endpoint-content';
 import { CodePanel } from '~/@/components/docs/code-panel';
+import { siteConfig } from '~/@/config/site';
+import { apiDocsMetadata, descriptionSnippet, endpointTitle } from '../docs-metadata';
 
 interface EndpointPageProps {
   params: {
@@ -46,14 +49,17 @@ export default async function EndpointPage({ params }: EndpointPageProps) {
   );
 }
 
-export async function generateMetadata({ params }: EndpointPageProps) {
+export async function generateMetadata({ params }: EndpointPageProps): Promise<Metadata> {
   const endpoint = await getEndpoint(params.endpoint);
   if (!endpoint) return {};
 
-  return {
-    title: `${endpoint.summary ?? endpoint.path} | Shorted API Documentation`,
-    description: endpoint.description ?? `Documentation for the ${endpoint.path} API endpoint.`,
-  };
+  return apiDocsMetadata({
+    title: endpointTitle(endpoint),
+    description:
+      descriptionSnippet(endpoint.description ?? '') ||
+      `Documentation for the ${endpoint.path} API endpoint.`,
+    canonical: `${siteConfig.url}/docs/api/${endpoint.id}`,
+  });
 }
 
 

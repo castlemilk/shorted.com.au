@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '~/@/lib/utils';
 import { ScrollArea } from '~/@/components/ui/scroll-area';
-import type { NavigationGroup } from '~/lib/openapi/types';
+import type { ApiNavGroup } from './api-nav';
 import { Shield, Home, Terminal } from 'lucide-react';
 
 interface ApiSidebarProps {
-  groups: NavigationGroup[];
+  groups: ApiNavGroup[];
 }
 
 export function ApiSidebar({ groups }: ApiSidebarProps) {
