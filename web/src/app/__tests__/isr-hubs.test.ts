@@ -33,6 +33,8 @@ const HUBS = [
   "scans/[slug]/page.tsx",
   "battlegrounds/page.tsx",
   "statistics/page.tsx",
+  // Its ?price=&state= prefill is read in the browser (calculator-prefill.tsx).
+  "housing/calculators/page.tsx",
 ];
 
 /** Pages that export both, each with its owner's fix. */
