@@ -9,7 +9,7 @@ import { FileHoldingsTable, SubstantialHoldingsTable } from "~/@/components/owne
 import { formatAmount } from "~/@/lib/fundamentals/format";
 import { institutionIsIndexable } from "~/@/lib/ownership/indexability";
 import { isInstitutionSlug, kindInfo } from "~/@/lib/ownership/kinds";
-import { INSTITUTION_ROWS_SHOWN, fileHoldingRow, holdingRow } from "~/@/lib/ownership/rows";
+import { INSTITUTION_NOTICES_SHOWN, fileHoldingRow, holdingRow } from "~/@/lib/ownership/rows";
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { getInstitution } from "~/app/actions/getOwnership";
 
@@ -167,7 +167,6 @@ export default async function InstitutionPage({ params }: PageProps) {
               rows={data.positions.map(holdingRow)}
               holder={inst.name}
               caption={`${inst.name}'s current substantial holdings`}
-              limit={INSTITUTION_ROWS_SHOWN}
             />
           )}
         </section>
@@ -184,7 +183,6 @@ export default async function InstitutionPage({ params }: PageProps) {
             <FileHoldingsTable
               rows={data.fundHoldings.map(fileHoldingRow)}
               caption={`${inst.name}'s largest disclosed ASX holdings`}
-              limit={INSTITUTION_ROWS_SHOWN}
             />
           </section>
         ) : null}
@@ -218,7 +216,7 @@ export default async function InstitutionPage({ params }: PageProps) {
             notices={data.notices}
             showHolder={false}
             caption={`${inst.name}'s substantial holding notices`}
-            limit={INSTITUTION_ROWS_SHOWN}
+            limit={INSTITUTION_NOTICES_SHOWN}
           />
         </section>
 

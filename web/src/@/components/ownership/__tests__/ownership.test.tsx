@@ -190,8 +190,9 @@ describe("HolderName in a notice", () => {
 // The institution page's tables ran to every row the API returns (88 stakes,
 // 100 holdings-file rows and 100 notices for Vanguard), each row drawn as
 // HTML and again as an RSC element tree, with its own copy of the lucide
-// icon: /ownership/vanguard weighed 946 KB.
-describe("bounded ownership tables", () => {
+// icon: /ownership/vanguard weighed 946 KB. The islands send rows as data;
+// only the notices are bounded.
+describe("ownership table islands", () => {
   const holdings = (n: number): HoldingRow[] =>
     Array.from({ length: n }, (_, i) => ({
       code: `S${String(i).padStart(2, "0")}`,
@@ -202,38 +203,8 @@ describe("bounded ownership tables", () => {
       form: "Changed",
       url: `https://www.asx.com.au/${i}.pdf`,
     }));
-  const bodyRows = (table: HTMLElement) => within(table).getAllByRole("row").slice(1);
-
-  it("draws the first rows in the server's order and holds the rest behind Show all", () => {
-    render(<SubstantialHoldingsTable rows={holdings(30)} holder="Vanguard" caption="Stakes" limit={25} />);
-    const table = screen.getByRole("table", { name: "Stakes" });
-    expect(bodyRows(table)).toHaveLength(25);
-    expect(within(table).getAllByRole("link", { name: /^S\d\d$/ }).map((a) => a.textContent)).toEqual(
-      holdings(25).map((h) => h.code),
-    );
-
-    const more = screen.getByRole("button", { name: "Show all 30 substantial holdings" });
-    expect(more).toHaveAttribute("aria-expanded", "false");
-    expect(more).toHaveAttribute("aria-controls", table.querySelector("tbody")!.id);
-    fireEvent.click(more);
-    expect(bodyRows(table)).toHaveLength(30);
-    expect(within(table).getByRole("link", { name: "S29" })).toHaveAttribute("href", "/shorts/S29/company");
-    fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
-    expect(bodyRows(table)).toHaveLength(25);
-  });
-
-  it("draws every row, and no control, within the limit or without one", () => {
-    render(<SubstantialHoldingsTable rows={holdings(25)} holder="Vanguard" caption="Stakes" limit={25} />);
-    expect(bodyRows(screen.getByRole("table", { name: "Stakes" }))).toHaveLength(25);
-    expect(screen.queryByRole("button")).toBeNull();
-
-    render(<NoticeTable notices={Array.from({ length: 30 }, (_, i) => notice({ announcementUrl: `u${i}` }))} caption="Latest" />);
-    expect(bodyRows(screen.getByRole("table", { name: "Latest" }))).toHaveLength(30);
-    expect(screen.queryByRole("button")).toBeNull();
-  });
-
-  it("bounds the notices and the holdings-file rows the same way", () => {
-    const files: FileHoldingRow[] = Array.from({ length: 40 }, (_, i) => ({
+  const files = (n: number): FileHoldingRow[] =>
+    Array.from({ length: n }, (_, i) => ({
       code: `F${String(i).padStart(2, "0")}`,
       fund: "VAS, Vanguard Australian Shares Index ETF",
       value: "A$1.0b",
@@ -241,22 +212,58 @@ describe("bounded ownership tables", () => {
       ofShares: "0.50%",
       asAt: "2026-10-19",
     }));
+  const notices = (n: number) =>
+    Array.from({ length: n }, (_, i) => notice({ stockCode: `N${String(i).padStart(2, "0")}`, announcementUrl: `u${i}` }));
+  const bodyRows = (table: HTMLElement) => within(table).getAllByRole("row").slice(1);
+
+  // What an institution holds is the page's promise: no holdings table hides
+  // a row, or a stock link, behind a control.
+  it("draws every stake and holdings-file row, in the server's order, with no control", () => {
     render(
       <>
-        <FileHoldingsTable rows={files} caption="Files" limit={25} />
-        <NoticeTable
-          notices={Array.from({ length: 100 }, (_, i) => notice({ announcementUrl: `u${i}` }))}
-          showHolder={false}
-          caption="Notices"
-          limit={25}
-        />
+        <SubstantialHoldingsTable rows={holdings(90)} holder="Vanguard" caption="Stakes" />
+        <FileHoldingsTable rows={files(100)} caption="Files" />
       </>,
     );
-    expect(bodyRows(screen.getByRole("table", { name: "Files" }))).toHaveLength(25);
-    expect(bodyRows(screen.getByRole("table", { name: "Notices" }))).toHaveLength(25);
-    fireEvent.click(screen.getByRole("button", { name: "Show all 100 notices" }));
-    expect(bodyRows(screen.getByRole("table", { name: "Notices" }))).toHaveLength(100);
-    expect(screen.getByRole("button", { name: "Show all 40 holdings" })).toBeInTheDocument();
+    const stakes = screen.getByRole("table", { name: "Stakes" });
+    expect(bodyRows(stakes)).toHaveLength(90);
+    expect(within(stakes).getAllByRole("link", { name: /^S\d\d$/ }).map((a) => a.textContent)).toEqual(
+      holdings(90).map((h) => h.code),
+    );
+    expect(within(screen.getByRole("table", { name: "Files" })).getByRole("link", { name: "F99" })).toHaveAttribute(
+      "href",
+      "/shorts/F99/company",
+    );
+    expect(bodyRows(screen.getByRole("table", { name: "Files" }))).toHaveLength(100);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("draws the newest notices and holds the rest behind Show all", () => {
+    render(<NoticeTable notices={notices(30)} showHolder={false} caption="Notices" limit={25} />);
+    const table = screen.getByRole("table", { name: "Notices" });
+    expect(bodyRows(table)).toHaveLength(25);
+    expect(within(table).getAllByRole("link", { name: /^N\d\d$/ }).map((a) => a.textContent)).toEqual(
+      notices(25).map((n) => n.stockCode),
+    );
+
+    const more = screen.getByRole("button", { name: "Show all 30 notices" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(more).toHaveAttribute("aria-controls", table.querySelector("tbody")!.id);
+    fireEvent.click(more);
+    expect(bodyRows(table)).toHaveLength(30);
+    expect(within(table).getByRole("link", { name: "N29" })).toHaveAttribute("href", "/shorts/N29/company");
+    fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(bodyRows(table)).toHaveLength(25);
+  });
+
+  it("draws every notice, and no control, within the limit or without one", () => {
+    render(<NoticeTable notices={notices(25)} caption="Within" limit={25} />);
+    expect(bodyRows(screen.getByRole("table", { name: "Within" }))).toHaveLength(25);
+    expect(screen.queryByRole("button")).toBeNull();
+
+    render(<NoticeTable notices={notices(30)} caption="Latest" />);
+    expect(bodyRows(screen.getByRole("table", { name: "Latest" }))).toHaveLength(30);
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("points every ASX link at the page's one external-link symbol, with a label", () => {

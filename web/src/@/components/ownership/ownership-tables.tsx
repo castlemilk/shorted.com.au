@@ -15,11 +15,13 @@ import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { ExternalLinkGlyph } from "./external-link-glyph";
 
 // The ownership tables that run long: an index manager's ninety-odd stakes, a
-// hundred notices, a hundred holdings-file rows. Each draws its first `limit`
-// rows, in the server's order, and holds the rest as data behind "Show all";
-// without a limit it draws every row. The rows arrive formatted
-// (lib/ownership/rows.ts) and the page draws the external-link symbol the
-// glyphs point at (ExternalLinkSymbol).
+// hundred holdings-file rows, a hundred notices. Each is an island so its rows
+// arrive as data the server formatted (lib/ownership/rows.ts), not as an
+// element tree beside their HTML. The two holdings tables draw every row: they
+// are the page's account of what an institution holds. The notices table can
+// draw its first `limit` rows, newest first, and hold the rest behind "Show
+// all". The page draws the external-link symbol the glyphs point at
+// (ExternalLinkSymbol).
 
 function useShown<T>(rows: readonly T[], limit: number | undefined) {
   const [expanded, setExpanded] = useState(false);
@@ -89,56 +91,47 @@ export function SubstantialHoldingsTable({
   rows,
   holder,
   caption,
-  limit,
 }: {
   rows: readonly HoldingRow[];
   /** The institution, for each ASX link's label. */
   holder: string;
   caption: string;
-  limit?: number;
 }) {
-  const bodyId = useId();
-  const { shown, bounded, expanded, toggle } = useShown(rows, limit);
   return (
-    <>
-      <Table>
-        <caption className="sr-only">{caption}</caption>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Stock</TableHead>
-            <TableHead className="text-right">Voting power</TableHead>
-            <TableHead className="text-right">Change</TableHead>
-            <TableHead>As at</TableHead>
-            <TableHead className="hidden md:table-cell">Notice</TableHead>
-            <TableHead>
-              <span className="sr-only">Document</span>
-            </TableHead>
+    <Table>
+      <caption className="sr-only">{caption}</caption>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Stock</TableHead>
+          <TableHead className="text-right">Voting power</TableHead>
+          <TableHead className="text-right">Change</TableHead>
+          <TableHead>As at</TableHead>
+          <TableHead className="hidden md:table-cell">Notice</TableHead>
+          <TableHead>
+            <span className="sr-only">Document</span>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((p) => (
+          <TableRow key={p.code}>
+            <TableCell>
+              <StockLink code={p.code} />
+              {p.company ? (
+                <span className="ml-2 hidden text-xs text-muted-foreground sm:inline">{p.company}</span>
+              ) : null}
+            </TableCell>
+            <TableCell className="text-right tabular-nums">{p.votingPower}</TableCell>
+            <TableCell className="text-right tabular-nums">{p.change}</TableCell>
+            <TableCell className="whitespace-nowrap tabular-nums">{p.asAt}</TableCell>
+            <TableCell className="hidden md:table-cell">{p.form}</TableCell>
+            <TableCell>
+              <AsxLink url={p.url} label={`${holder}'s ${p.code} notice on ASX`} />
+            </TableCell>
           </TableRow>
-        </TableHeader>
-        <TableBody id={bodyId}>
-          {shown.map((p) => (
-            <TableRow key={p.code}>
-              <TableCell>
-                <StockLink code={p.code} />
-                {p.company ? (
-                  <span className="ml-2 hidden text-xs text-muted-foreground sm:inline">{p.company}</span>
-                ) : null}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{p.votingPower}</TableCell>
-              <TableCell className="text-right tabular-nums">{p.change}</TableCell>
-              <TableCell className="whitespace-nowrap tabular-nums">{p.asAt}</TableCell>
-              <TableCell className="hidden md:table-cell">{p.form}</TableCell>
-              <TableCell>
-                <AsxLink url={p.url} label={`${holder}'s ${p.code} notice on ASX`} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      {bounded ? (
-        <ShowAll total={rows.length} noun="substantial holdings" expanded={expanded} controls={bodyId} onToggle={toggle} />
-      ) : null}
-    </>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -146,47 +139,38 @@ export function SubstantialHoldingsTable({
 export function FileHoldingsTable({
   rows,
   caption,
-  limit,
 }: {
   rows: readonly FileHoldingRow[];
   caption: string;
-  limit?: number;
 }) {
-  const bodyId = useId();
-  const { shown, bounded, expanded, toggle } = useShown(rows, limit);
   return (
-    <>
-      <Table>
-        <caption className="sr-only">{caption}</caption>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Stock</TableHead>
-            <TableHead>Fund</TableHead>
-            <TableHead className="text-right">Value</TableHead>
-            <TableHead className="text-right">Of fund</TableHead>
-            <TableHead className="text-right">Of shares</TableHead>
-            <TableHead>As at</TableHead>
+    <Table>
+      <caption className="sr-only">{caption}</caption>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Stock</TableHead>
+          <TableHead>Fund</TableHead>
+          <TableHead className="text-right">Value</TableHead>
+          <TableHead className="text-right">Of fund</TableHead>
+          <TableHead className="text-right">Of shares</TableHead>
+          <TableHead>As at</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((h) => (
+          <TableRow key={`${h.fund}|${h.code}`}>
+            <TableCell>
+              <StockLink code={h.code} />
+            </TableCell>
+            <TableCell className="max-w-64 truncate text-xs text-muted-foreground">{h.fund}</TableCell>
+            <TableCell className="text-right tabular-nums">{h.value}</TableCell>
+            <TableCell className="text-right tabular-nums">{h.ofFund}</TableCell>
+            <TableCell className="text-right tabular-nums">{h.ofShares}</TableCell>
+            <TableCell className="whitespace-nowrap tabular-nums">{h.asAt}</TableCell>
           </TableRow>
-        </TableHeader>
-        <TableBody id={bodyId}>
-          {shown.map((h) => (
-            <TableRow key={`${h.fund}|${h.code}`}>
-              <TableCell>
-                <StockLink code={h.code} />
-              </TableCell>
-              <TableCell className="max-w-64 truncate text-xs text-muted-foreground">{h.fund}</TableCell>
-              <TableCell className="text-right tabular-nums">{h.value}</TableCell>
-              <TableCell className="text-right tabular-nums">{h.ofFund}</TableCell>
-              <TableCell className="text-right tabular-nums">{h.ofShares}</TableCell>
-              <TableCell className="whitespace-nowrap tabular-nums">{h.asAt}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      {bounded ? (
-        <ShowAll total={rows.length} noun="holdings" expanded={expanded} controls={bodyId} onToggle={toggle} />
-      ) : null}
-    </>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 

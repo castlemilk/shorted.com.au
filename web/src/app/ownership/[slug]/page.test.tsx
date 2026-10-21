@@ -120,28 +120,32 @@ describe("InstitutionPage", () => {
 
   // /ownership/vanguard drew all 88 stakes, 100 holdings-file rows and 100
   // notices as server tables, each row as HTML and again in the RSC payload:
-  // 946 KB. The top of each table stays in the HTML, crawlable; the rest is
-  // the island's data until a reader asks for it.
-  it("draws the largest 25 stakes and holdings and the newest 25 notices, and holds the rest", async () => {
+  // 946 KB. The stakes and holdings files are the page's account of what an
+  // institution holds, so every row and its stock link stays in the HTML (the
+  // perf review's fix kept them whole; a first cut drew 25 of each). Only the
+  // notices, a dated log of filings, wait behind "Show all" past the newest 25.
+  it("draws every stake and holdings-file row and the newest 25 notices, and holds the other notices", async () => {
     getInstitution.mockResolvedValue(response({ positions: 88, fundHoldings: 100, notices: 100 }));
     render(await InstitutionPage(params("vanguard")));
 
     const stakes = screen.getByRole("table", { name: "Vanguard's current substantial holdings" });
     const files = screen.getByRole("table", { name: "Vanguard's largest disclosed ASX holdings" });
     const notices = screen.getByRole("table", { name: "Vanguard's substantial holding notices" });
-    expect(bodyRows(stakes)).toHaveLength(25);
-    expect(bodyRows(files)).toHaveLength(25);
-    expect(bodyRows(notices)).toHaveLength(25);
-    // The top holdings' stock links are in the page, largest first.
-    expect(within(stakes).getAllByRole("link", { name: /^P\d\d$/ }).map((a) => a.getAttribute("href"))).toEqual(
-      Array.from({ length: 25 }, (_, i) => `/shorts/P${String(i).padStart(2, "0")}/company`),
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Show all 88 substantial holdings" }));
-    fireEvent.click(screen.getByRole("button", { name: "Show all 100 holdings" }));
-    fireEvent.click(screen.getByRole("button", { name: "Show all 100 notices" }));
     expect(bodyRows(stakes)).toHaveLength(88);
     expect(bodyRows(files)).toHaveLength(100);
+    expect(bodyRows(notices)).toHaveLength(25);
+    // Every holding's stock link is in the page, in the API's order.
+    expect(within(stakes).getAllByRole("link", { name: /^P\d\d$/ }).map((a) => a.getAttribute("href"))).toEqual(
+      Array.from({ length: 88 }, (_, i) => `/shorts/P${String(i).padStart(2, "0")}/company`),
+    );
+    expect(within(files).getAllByRole("link", { name: /^F\d\d$/ }).map((a) => a.getAttribute("href"))).toEqual(
+      Array.from({ length: 100 }, (_, i) => `/shorts/F${String(i).padStart(2, "0")}/company`),
+    );
+
+    // One control, under the notices.
+    const more = screen.getByRole("button", { name: /^Show all/ });
+    expect(more).toHaveAttribute("aria-controls", notices.querySelector("tbody")!.id);
+    fireEvent.click(more);
     expect(bodyRows(notices)).toHaveLength(100);
   });
 
