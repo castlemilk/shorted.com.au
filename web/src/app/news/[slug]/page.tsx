@@ -16,6 +16,17 @@ import { getEditorialTake } from "~/app/actions/getEditorialTake";
 
 export const revalidate = 600;
 
+// On-demand ISR, the stock pages' rule: a dynamic segment is statically
+// optimised only when generateStaticParams EXISTS. Without it every take
+// rendered per request (`private, no-store`, measured 2026-10-21) and the
+// revalidate above was inert. Empty, so a take generates on its first request.
+// Every read is ISR-safe: the takes tag their fetch (isrEditorialFetch), and
+// TakeRelated's getStock and getStockNews bypass the patched fetch.
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ slug: string }> {
+  return [];
+}
+
 interface Params {
   params: Promise<{ slug: string }>;
 }

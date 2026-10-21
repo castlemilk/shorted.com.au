@@ -17,6 +17,17 @@ import { cn } from "~/@/lib/utils";
 
 export const revalidate = 3600;
 
+// On-demand ISR, the stock pages' rule: a dynamic segment is statically
+// optimised only when generateStaticParams EXISTS. Without it all ~800 pages
+// rendered per request (`private, no-store`, measured 2026-10-21) and the
+// revalidate above was inert. Empty, so each code generates on its first
+// request. Every read is ISR-safe: getDirectorTrades tags its fetch, and
+// getStock runs in unstable_cache over serverFetchOutsideNextCache.
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ stockCode: string }> {
+  return [];
+}
+
 interface PageProps {
   params: Promise<{ stockCode: string }>;
 }

@@ -8,8 +8,7 @@ import {
   Breadcrumbs,
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
-import { getStockOrNotFound } from "~/app/actions/getStock";
-import { NotFoundError } from "~/app/actions/withRetry";
+import { loadStockOrFail } from "~/app/shorts/[stockCode]/stock-page-data";
 
 type PageProps = {
   params: Promise<{ pair: string }>;
@@ -29,19 +28,6 @@ function parsePair(pair: string): [string, string] | null {
 function canonicalSlug(a: string, b: string): string {
   const [lo, hi] = a < b ? [a, b] : [b, a];
   return `${lo}-vs-${hi}`;
-}
-
-async function fetchBoth(a: string, b: string) {
-  return Promise.all([
-    getStockOrNotFound(a).catch((err: unknown) => {
-      if (err instanceof NotFoundError) throw err;
-      return undefined;
-    }),
-    getStockOrNotFound(b).catch((err: unknown) => {
-      if (err instanceof NotFoundError) throw err;
-      return undefined;
-    }),
-  ]);
 }
 
 export async function generateMetadata({
@@ -99,6 +85,18 @@ export async function generateMetadata({
 
 export const revalidate = 86400;
 
+// On-demand ISR, the stock pages' rule: a dynamic segment is statically
+// optimised only when generateStaticParams EXISTS. Without it every pair
+// rendered per request (`private, no-store`, measured 2026-10-21) and the
+// revalidate above was inert. Empty, so each pair generates on its first
+// request. Its only read, getStock, runs in unstable_cache over
+// serverFetchOutsideNextCache, so a regeneration cannot trip the no-store
+// landmine; the daily sync's shorts-data revalidation busts it.
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ pair: string }> {
+  return [];
+}
+
 export default async function ComparePage({ params }: PageProps) {
   const { pair } = await params;
   const parsed = parsePair(pair);
@@ -115,22 +113,15 @@ export default async function ComparePage({ params }: PageProps) {
 
   const [lo, hi] = canonical.split("-vs-") as [string, string];
 
-  // If either stock genuinely doesn't exist, 404. Transient errors yield
-  // undefined — we still render but with a fallback note so we don't
-  // publish an empty 200.
-  let stockA: Awaited<ReturnType<typeof getStockOrNotFound>> = undefined;
-  let stockB: Awaited<ReturnType<typeof getStockOrNotFound>> = undefined;
-  try {
-    [stockA, stockB] = await fetchBoth(lo, hi);
-  } catch (err) {
-    if (err instanceof NotFoundError) notFound();
-  }
-
-  if (!stockA || !stockB) {
-    // Don't publish a thin page on transient failures — 404 is safer for SEO
-    // than indexing a page that says "data temporarily unavailable".
-    notFound();
-  }
+  // A code the API does not know is a 404. A transient read FAILS the render
+  // instead: under ISR a 404 is cached like any page, so answering a blip with
+  // notFound() would hide a live pair for up to a day (and a background
+  // regeneration would replace the good page with it). A failed render caches
+  // nothing and keeps serving the last good page.
+  const [stockA, stockB] = await Promise.all([
+    loadStockOrFail(lo),
+    loadStockOrFail(hi),
+  ]);
 
   const pctA = stockA.percentageShorted ?? 0;
   const pctB = stockB.percentageShorted ?? 0;
