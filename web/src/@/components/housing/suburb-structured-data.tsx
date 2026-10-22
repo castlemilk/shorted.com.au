@@ -1,5 +1,6 @@
 import { siteConfig } from "~/@/config/site";
 import { STATE_NAMES } from "@/lib/housing/states";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 /**
  * JSON-LD for a suburb profile: a `Place` with real coordinates and the
@@ -130,9 +131,6 @@ export function buildSuburbJsonLd(p: SuburbStructuredDataProps): unknown[] {
 
 export function SuburbStructuredData(props: SuburbStructuredDataProps) {
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(buildSuburbJsonLd(props)) }}
-    />
+    <JsonLd data={buildSuburbJsonLd(props)} />
   );
 }

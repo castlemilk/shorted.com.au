@@ -33,6 +33,7 @@ import {
   getEconomyTopicSnapshot,
   type EconomyTopicSeriesSnapshot,
 } from "~/app/actions/getEconomyTopic";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const revalidate = 3600;
 export const maxDuration = 60;
@@ -506,10 +507,7 @@ export default async function EconomyTopicPage({ params }: PageProps) {
         keywords={copy.keywords}
       />
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
         <Breadcrumbs items={breadcrumbItems} />

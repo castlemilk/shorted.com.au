@@ -23,6 +23,7 @@ import {
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
 import { websiteLabel } from "../suburb-council-card";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 export function Section({ id, title, lede, children }: { id: string; title: string; lede?: ReactNode; children: ReactNode }) {
   return (
@@ -411,7 +412,7 @@ export function Neighbours({ neighbours, stateCode }: { neighbours: readonly Cou
 export function CouncilWebsite({ website }: { website: string }) {
   if (!website) return null;
   return (
-    <a href={website} rel="noopener noreferrer" target="_blank" className="text-primary underline-offset-2 hover:underline">
+    <a href={safeExternalHref(website)} rel="noopener noreferrer" target="_blank" className="text-primary underline-offset-2 hover:underline">
       {websiteLabel(website)}
     </a>
   );

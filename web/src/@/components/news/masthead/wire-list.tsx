@@ -1,4 +1,5 @@
 import { type NewsCardArticle } from "~/@/components/news/news-card";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 const sentimentDot = (sentiment?: string) => {
   switch (sentiment) {
@@ -65,7 +66,7 @@ export function WireList({
                   />
                   <div className="min-w-0">
                     <a
-                      href={article.url}
+                      href={safeExternalHref(article.url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block text-sm leading-snug transition-colors hover:text-primary"

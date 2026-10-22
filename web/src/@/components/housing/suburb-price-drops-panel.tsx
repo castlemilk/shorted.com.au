@@ -102,7 +102,9 @@ export function SuburbPriceDropsPanel({ stateCode = "", title = "Suburb prices &
                         guessed slug that 404s or redirects. */}
                     {r.salCode ? (
                       <Link
-                        href={suburbHref(r.stateCode, { salName: cleanName(r.salName), postcode: r.postcode, salCode: r.salCode })}
+                        // r.postcode is the crawl region's, not the SAL feed's:
+                        // the canonical slug is the ABS name alone.
+                        href={suburbHref(r.stateCode, { salName: cleanName(r.salName), postcode: "" })}
                         className="capitalize text-foreground underline-offset-2 hover:underline"
                       >
                         {cleanName(r.salName)}

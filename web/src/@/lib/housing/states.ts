@@ -66,8 +66,26 @@ export function splitSalName(name: string): { place: string; region: string | nu
 export const suburbSlug = (salName: string, postcode: string) =>
   `${salName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}${postcode ? `-${postcode}` : ""}`;
 
-/** The single source of truth for a suburb's URL — load-bearing `?sal=`. */
+/**
+ * The single source of truth for a suburb's URL: its canonical path, the form
+ * the sitemap lists and the page canonicalises to. The page resolves the
+ * suburb from this path alone (ABS qualifies a name that repeats in a state,
+ * "Ascot (Ballarat - Vic.)", so the slug is unique there), so a query string
+ * only adds a duplicate URL for crawlers.
+ *
+ * `postcode` is the SAL feed's own (ListStateSuburbs, GetSuburbProfile), never
+ * a crawl region's: no SAL carries one today, and a slug with a postcode the
+ * feed lacks costs a redirect through resolveSuburbSalCode's name-only match.
+ */
 export const suburbHref = (
   stateCode: string,
-  s: { salName: string; postcode: string; salCode: string },
-) => `/housing/${stateSlug(stateCode)}/${suburbSlug(s.salName, s.postcode)}?sal=${s.salCode}`;
+  s: { salName: string; postcode: string },
+) => `/housing/${stateSlug(stateCode)}/${suburbSlug(s.salName, s.postcode)}`;
+
+/**
+ * The state map explorer with one suburb selected (and optionally an overlay
+ * value already serialized for `?overlays=`). The explorer reads `?sal=`; a
+ * suburb page does not, so this is never a suburb's URL: that is suburbHref.
+ */
+export const suburbExplorerHref = (stateCode: string, salCode: string, overlays?: string) =>
+  `/housing/${stateSlug(stateCode)}?sal=${salCode}${overlays ? `&overlays=${overlays}` : ""}`;

@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import { industryLabel } from "~/@/lib/industry-placeholder";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { cn } from "~/@/lib/utils";
 import type { ChatMessage } from "~/@/hooks/use-chat";
 
@@ -75,6 +76,8 @@ function renderRichToolResult(toolCall: ToolCall, index: number) {
 }
 
 function StockCard({ stock }: { stock: StockCardData }) {
+  // A tool result's website is stored company data: a link only when http(s).
+  const websiteHref = safeExternalHref(stock.website);
   return (
     <Card
       data-testid="chat-stock-card"
@@ -110,17 +113,20 @@ function StockCard({ stock }: { stock: StockCardData }) {
             {stock.summary}
           </p>
         )}
-        {stock.website && (
-          <a
-            href={stock.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
-          >
-            Company site
-            <ArrowUpRight className="h-3 w-3" />
-          </a>
-        )}
+        {stock.website &&
+          (websiteHref ? (
+            <a
+              href={websiteHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
+            >
+              Company site
+              <ArrowUpRight className="h-3 w-3" />
+            </a>
+          ) : (
+            <p className="break-all text-muted-foreground">{stock.website}</p>
+          ))}
       </CardContent>
     </Card>
   );

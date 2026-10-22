@@ -58,7 +58,7 @@ func main() {
 // failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
+	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | revalidate | all")
 	flag.Parse()
 
 	// install-driver needs no DB, no Chrome, no timeout plumbing — dispatch it
@@ -66,6 +66,13 @@ func run() int {
 	// with nothing but the binary.
 	if *mode == "install-driver" {
 		return runInstallDriver()
+	}
+	// The drain's one cache bust (hc_drain_until_empty) for the rounds that
+	// deferred theirs (revalidateAfterCrawlWrite). No DB either. Best-effort
+	// like every ping, so it always exits 0 and the drain keeps its own code.
+	if *mode == revalidateMode {
+		pingRevalidate("drain")
+		return 0
 	}
 
 	dbURL := os.Getenv("DATABASE_URL")

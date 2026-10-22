@@ -214,3 +214,314 @@ click and no page aimed at it. Searches naming the competitor ("shortman
   show up under the stock page for the same query. `/glossary/*`: 67 pages,
   2 clicks, entries of 130-150 words. Candidates for noindex or merging.
 - Economy state pages answer in 1.6-3.1s on a cold cache.
+
+---
+
+## 7. Round of 2026-10-21: technical probe, ISR, page weight and stale data
+
+No first-party data this round. The OpenSEO connector was not authorised (it
+needs the owner's Cloudflare Access sign-in), so there are no Search Console
+figures and no crawl of the real domain, and §6's 2026-10-15 baseline stands
+(28 days: 783 clicks, 66.5k impressions, CTR 1.2%, position about 8.3).
+Instead, on 2026-10-21, with the code read at `origin/main` 9acd3e126:
+
+- a probe of one page of every type, and of the routes added since 10-14, on
+  the Vercel origin (Chrome user agent, at most three requests in flight, 255
+  requests), with 25 URLs from each sitemap child and 141 internal link
+  targets;
+- a weight and timing probe of about 20 pages, two sequential GETs each (84
+  requests): raw HTML, gzip, the RSC flight, TTFB and `x-vercel-cache`;
+- read-only production queries through `task db:prod:psql`: tagged news codes
+  against ASIC rows, politician duplicates, linked codes no sitemap lists,
+  the screener rows behind `/statistics`, suburb slugs and postcodes, and a
+  plain `EXPLAIN` (no `ANALYZE`) of the price-drops address board.
+
+KB below is 1,024 bytes. "Simulated" means the fix was spliced into the page
+the origin served and the page re-gzipped, not measured on a deployment.
+Re-gzipped sizes run 5-10% under what Vercel serves, so read the deltas.
+
+### Findings and their status
+
+| # | Finding (evidence 2026-10-21) | Status |
+|---|---|---|
+| F01 | `/price-drops` took 44.1 s and 44.2 s on two GETs 20 minutes apart (`REVALIDATED`, `Age: 0`) | shipped, in three deploys |
+| F02 | `/statistics`' "4-week moves" led by codes last reported 2011-2023 (CSJ 2012, REY 2011) | shipped for `/statistics`; the view needs DDL |
+| F03 | no robots or googlebot meta on 6,655 sitemap URLs (`robots: undefined`) | shipped |
+| F04 | about 944 sitemap URLs rendered per request, `private, no-store` | shipped, except `/screener` (owner call) |
+| F05 | 19 MPs with two indexable profiles each | owner call (register console) |
+| F06 | take snippets open with Markdown links; take titles of 96-115 characters | shipped |
+| F07 | `/docs/api` serves the homepage's title; no canonicals; pages of about 1.9 MB | shipped |
+| F08 | the 70 economy topic pages linked only from each other; `/economy/vic` 114 words | shipped |
+| F09 | `/ownership/<slug>` (new 10-17): unsitemapped, empty pages indexable, titles of 70-85 | shipped; holdings-file-only institutions need an API field |
+| F10 | suburb links carry `?sal=`; price-drops links use postcode slugs that 308 or 404 | shipped |
+| F11 | links to stock pages that do not exist (news cards; ERL from `/politicians`) | owner call |
+| F12 | titles that repeat the brand; `/alerts` indexable and thin | shipped; `/pulse` is an owner call |
+| F13 | `Dataset.dateModified` is the render time on `/`, `/battlegrounds` and `/data` | shipped |
+| F14 | templated titles of 70-98 characters | shipped, except `/features/the-widow-maker` (79) |
+| F15 | the footer links `/dashboards` and `/portfolio`, which 307 to the noindexed sign-in, on 46 of 47 pages | shipped |
+| F16 | `/roadmap` thin again (100 words) | shipped |
+| F17 | 20 px logos list 16 `srcSet` widths (747 KB of `/reports/weekly`) | shipped |
+| F18 | `/shorts/ANT` titled "0.00%" | shipped |
+| F19 | `/compare/*` (80 pairs) and `/glossary/*` (83 terms) thin and indexable | owner call, unchanged |
+| F20 | `/` and `/top` share "most shorted ASX stocks" | owner call, unchanged |
+
+### Shipped
+
+**Freshness (F01, F02, F13, F18).**
+
+- **F01.** The 44 s was the address board, not the overview RPC the review
+  suspected. `ListAddressPriceDrops` failed `internal` at 10.2 s (the store's
+  10 s deadline) and the action retried it three times: 4 × 10.2 s plus 3.5 s
+  of backoff, then an empty seed baked into the page. The other four RPCs
+  answered in 0.27-0.47 s. One fix per deploy:
+  - web: the seed makes one attempt under a 2 s deadline, and the browser
+    asks once (`app/actions/getHousing.ts`,
+    `app/actions/client/getHousingClient.ts`);
+  - API: each board row's listing count is one index probe
+    (`services/shorts/internal/store/shorts/postgres_house_prices.go`).
+    Production's plain `EXPLAIN` costs the query at 34,240 against 46,620,
+    and the step that grew with the square of the board is gone; its runtime
+    is unmeasured until the deploy;
+  - rig: a crawl drain revalidates once when it ends, and at most hourly in a
+    long drain, instead of after each of up to 30 rounds. Each round's ping
+    purged `/price-drops`, `/housing`, every state and suburb page and the
+    housing KV prefix
+    (`services/house-price-collector/deploy/housing-crawl-common.sh`, the
+    new `-mode revalidate`).
+
+  Declined: serving the stale page while it regenerates (in Next 14.2.13
+  `revalidatePath` is a tag revalidation, which blocks; it needs Next 16),
+  and a KV last-good copy of the board (its rows are licence-restricted and
+  kept out of shared KV, so that a takedown stops serving them).
+- **F02.** `/statistics` counts only the codes in the latest ASIC report
+  (`app/actions/getShortStatistics.ts`). On production, where the 10-15 report's
+  828 codes cover 712 of the screener's 3,299 rows: companies 3,299 to 712,
+  average short interest 0.43% to 1.55%, at 10% or more 18 to 16, at 5% or
+  more 79 to 69, rows without a market cap 1,589 to 24, total $108.73B to
+  $108.55B. An unreadable report withholds the figures and caps the render at
+  a minute for every reader (`/statistics`, `/press`, the share card). The
+  screener's pages after the first go four at a time; 17 sequential calls
+  took 1.7 s cold.
+- **F13.** `DatasetStructuredData` leaves `dateModified` out when it gets no
+  date. `/` passes its ASIC "as at" date, `/data` its latest report,
+  `/battlegrounds` the latest report date and `/top` its latest data point (it
+  fell back to the render time on an empty series). An insider page's Article
+  is dated from its trades.
+- **F18.** A position that rounds to 0.00% is stated as no level
+  (`lib/stocks/short-percent.ts`). ANT, 164 shares short, is titled "ANT
+  Short Interest (Arcadia Minerals, ASX)"; its header, summary and About card
+  read "<0.01%", its social card "<0.1%", and its Dataset has no `value`.
+
+**ISR (F04).**
+
+- Blog posts, compare pairs, takes and insider pages (about 940 sitemap URLs)
+  are on-demand ISR: an empty `generateStaticParams` and `dynamicParams =
+  true` beside the `revalidate` that was inert without them. Takes and
+  insider pages became ISR only after their reads failed closed. A 404 comes
+  only from NotFound, and a failed read throws, so Next keeps the last good
+  page instead of caching a 404 or "No director trades recorded" for the
+  whole revalidate (`getEditorialTakeOrNotFound`; the insider page also 404s
+  codes the API rejects). A take's related block caps its render at a minute
+  when one of its reads fails. A compare pair with a code GetStock cannot
+  take 404s before any read.
+- `/shorts` dropped the `force-dynamic` that made its `revalidate = 600`
+  inert; `/scans` is ISR at 900 s and its six scan pages on demand;
+  `/housing/calculators` reads its `?price=&state=` prefill in the browser.
+- `/battlegrounds` was `STALE` on every request with a frozen `age` (594 s,
+  then 665 s). Its Connect read had no `next` lifetime, went `no-store` at
+  runtime and threw inside every regeneration, after 3.5 s of retries. The
+  read is tagged (`app/actions/getBattlegrounds.ts`), and the retry helpers
+  no longer retry Next's dynamic-usage signal (`lib/retry.ts`).
+- `/ownership/<slug>` fails its regeneration on a failed read instead of
+  caching a 404.
+- The post-promote sweep (`config/isr-pages.json`) now covers `/shorts`,
+  `/battlegrounds`, `/housing/calculators`, `/ownership` and the 70 economy
+  topic pages, whose build renders hold no data.
+- Guards: `app/__tests__/isr-static-params.test.ts`, `isr-hubs.test.ts`,
+  `isr-degraded-render.test.ts`,
+  `app/actions/__tests__/serverApiSurface.test.ts` and
+  `config/__tests__/isr-shell-pages.test.ts`.
+- Declined: `/screener` stays per request. It reads `?preset=` on the server
+  only to give each preset URL its own title and canonical, which
+  `e2e/seo-smoke.spec.ts` pins. Whether presets keep their own URLs is the
+  owner's call.
+
+**Metadata (F03, F06, F07, F09, F12, F14).**
+
+- **F03.** Indexable suburb, politician, report and insider pages omit the
+  `robots` key, so they now inherit `max-image-preview:large` and
+  `max-snippet:-1` (`app/__tests__/robots-undefined.test.ts`).
+- **F06.** Take descriptions drop Markdown links and MDX tags. Titles are the
+  headline alone (`title.absolute`), cut at the first clause only past 80
+  characters: Boss Energy 96 to 71, EOS 115 to 59, TLC 97 to 72.
+  `NewsArticle.about` names the company.
+- **F07.** `/docs/api`, its 85 endpoint pages and its six client guides have
+  their own titles and canonicals, with the brand once
+  (`app/docs/api/docs-metadata.ts`). The endpoint pages left `sitemap-core`
+  (every docs page's sidebar links them), and the OpenAPI parser no longer
+  turns path-level `servers` into two junk `SERVERS` pages
+  (`lib/openapi/parser.ts`). The spec has 85 operations, not the 164 the
+  review counted.
+- **F09.** One predicate, `lib/ownership/indexability.ts` (a current stake or
+  published holdings files), sets the noindex, which about 83 of the 145
+  institution pages now carry, and fills the new `sitemap-ownership.xml`: the
+  56 institutions with a stake, and `/ownership` dated from its own `asOf`
+  (10-20, not the ASIC date). Titles fit 60 characters before the brand. The
+  hub and each institution have a social card, institutions a
+  `BreadcrumbList`, and `llms.txt` and `llms-full.txt` list `/ownership`.
+- **F12.** The brand is gone from the titles of `/data`, `/insider-trading`,
+  `/authors/*`, `/alerts`, `/pulse`, `/press`, `/roadmap` and `/search`.
+  `/alerts` is noindex, follow, with its own canonical
+  (`app/__tests__/title-brand.test.ts`, whose allowlist is empty).
+- **F14**, rendered lengths: `/economy` 98 to 64; councils 75-87 to 65 or
+  less, all 547 checked and none duplicated
+  (`app/housing/[state]/council/council-titles.ts`); `/economy/[state]` 68-88 to
+  49-64; `/market/<date>` 77 to 67; DRO's Company tab 77 to 65 and Strategy
+  tab 73 to 67, with the Short interest, Financials and Community tabs on the
+  same budget (CBA's Financials tab was 87; `lib/seo/stock-tab-title.ts`);
+  `/seasonality` 77 to 68; `/scans` 75 to 61; monthly reports 70-86 to about
+  50, the series title, with the headline moved to the social cards
+  (`app/__tests__/title-length.test.ts`).
+
+**Links and thin pages (F08, F10, F15, F16).**
+
+- **F08.** Each state page server-renders its topic pages (9, or 8 for NT and
+  ACT) with a sentence of the latest reading, about 150 words on top of
+  `/economy/vic`'s 114, and the hub links all 70 (`app/economy/page.tsx`,
+  `app/economy/[state]/page.tsx`). The links carry `prefetch={false}`:
+  viewport prefetch would have fetched 0.9-1.4 MB gzip per hub view. The NT
+  and ACT titles no longer promise an unemployment rate they do not show.
+- **F10.** `suburbHref` returns the canonical path, with no `?sal=`
+  (`lib/housing/states.ts`). The price-drops boards link by the ABS name,
+  without the crawl postcode: for an ABS-qualified name the postcode slug was
+  a 404 (`/housing/nsw/abbotsford-nsw-2046`), not a 308, and that URL now
+  resolves.
+- **F15.** The footer's `/dashboards` and `/portfolio` links carry
+  `rel="nofollow"` for signed-out visitors (`components/ui/site-footer.tsx`).
+- **F16.** `/roadmap` server-renders its 31 features by status beneath the
+  tree: 373 words in a test render, from 100
+  (`app/roadmap/roadmap-feature-list.tsx`).
+
+**Also shipped, from the security review.** Every JSON-LD block goes through
+one serializer that escapes `<`, `>` and `&` (`components/seo/json-ld.tsx`);
+output without those characters is byte-identical, so crawlers read the same
+schema. A stored URL becomes a link only when it is http(s)
+(`lib/safe-external-href.ts`). Social cards fetch images only from Cloud
+Storage and this site's `/assets/`, over https (`lib/og/image-fetch.ts`).
+
+### Page weight and response time
+
+| Page | Before (served 10-21) | After | How |
+|---|---|---|---|
+| `/top` | 781 KB raw / 83 KB gz | 376 / 40 | simulated. The island gets each row's latest value, change and at most 30 sparkline points, not 100 series of 60 dated points (props 396 to 27 KB); the HTML is unchanged |
+| `/politicians` | 1,660 / 93 | 719 / 83 | simulated. The roll of 491 and the 200-row most-declared list render as plain elements and links: flight 954 to 388 KB, DOM 9,844 to 6,708 elements, every profile and stock link kept |
+| `/picks/minervini-trend-template` | 877 / 64 | 471 / 50 | simulated. The island draws its own Suspense fallback, so the fallback's element tree leaves the flight; the HTML is unchanged |
+| `/ownership/vanguard` | 936 raw | 366 raw | simulated. Every stake and holdings-file row stays in the HTML; the notices show the newest 25; the link icon is drawn once |
+| `/ownership` | 673 raw | 604 raw | simulated |
+| `/reports/weekly` | 1,723 / 54 | 1,061 / 44 | simulated. Fixed-size logos list a 1x/2x pair: a 20 px logo's tag goes from 2,003 to 512 bytes |
+| `/reports` | 405 / 30 | 273 / 27 | simulated, the same fix |
+| `/docs/api` | 1,963 raw | 284 raw | simulated by replaying the saved page. The header and sidebar get a slim endpoint list: props 1,464 to 40 KB. The Java guide 1,853 to 164, `GetInstitution` 1,913 to 234 |
+| `/economy` series read | 149 KB | 4 KB | measured. The hub and state pages ask for the latest observation only (Victoria's read 32 to 1 KB) |
+
+Response times, before only (nothing is deployed yet):
+
+- `/price-drops`: 44.1 s and 44.2 s. After a purge the render should wait at
+  most the 2 s seed budget plus 0.3-0.5 s of reads.
+- `/battlegrounds`: 4,376 ms after a purge, then `STALE` on every request. It
+  should regenerate in the background like the other ISR pages; its RPC
+  answers in 212-245 ms.
+- `/statistics`: 1,728 ms cold, from 17 sequential screener calls. The change
+  makes that five rounds of calls, plus one report read per new report date
+  (measured at 2.56 s cold, 0.27 s warm).
+- The F04 URLs were `private, no-store` and a MISS on every request. From the
+  second request they should be `public, max-age=0, must-revalidate` and a
+  HIT.
+
+### Corrections to §1, §3 and §6
+
+- §1: `/top`'s 354 inline SVGs are its row icons, not the sparklines, which
+  render in the browser. Its weight was a 394 KB prop. The picks page's
+  remaining weight was not inherent either: the fallback's RSC copy could go
+  without touching the HTML.
+- §3: `/battlegrounds`' 4.65 s was not a cold regeneration. It was 3.5 s of
+  retries on a `no-store` fetch, on every regeneration, and the page stayed
+  `STALE`.
+- §3: `/roadmap`'s 1,909 words did not reproduce. It served 100, because the
+  page is a client component.
+- §6: the economy state pages answered a cold request in 546-828 ms across
+  six states, not 1.6-3.1 s.
+
+### What remains
+
+1. **Owner calls.**
+   - `/compare/*` (80 pairs; `/compare/DRO-vs-LOT` has 199 words) and
+     `/glossary/*` (83 terms; `/glossary/hedging` 194): noindex or merge.
+   - `/` against `/top` for "most shorted ASX stocks": no new data this round.
+   - The 19 duplicate politician profiles, both slugs of each pair indexable
+     and in the sitemap. Merge each pair in the register console
+     (`/admin/register/politicians`, with `merge_evidence`); a merged slug
+     already 308s and leaves the lists and the sitemap. The pairs:
+     chris/christopher-bowen, anthony/tony-burke, james/jim-chalmers,
+     elizabeth/libby-coker, pat/patrick-conroy, michael/mike-freelander,
+     steve/steven-georganas, alex/alexander-hawke, chris/christopher-hayes,
+     ed/edham-husic, rob/robert-mitchell, llew/llewellyn-o-brien,
+     antony/tony-pasin, hom-keith/keith-pitt, rebeka/rebekha-sharkie,
+     dan/daniel-tehan, matt/matthew-thistlethwaite, tim/timothy-watts and
+     josh/joshua-wilson. A given-name alias rule (James/Jim, Antony/Tony)
+     would stop `register-load` minting more.
+   - `/pulse`: Premium-gated like `/alerts`, but indexable with no canonical.
+     Noindex it with a canonical as `/alerts` now is, or keep it.
+   - Codes without a stock page. News cards link every tagged code, and 217 of
+     the 2,151 codes tagged in the 30 days to 10-21 have no ASIC row (AYM in
+     124 articles, SET 31, NMD 25). The `/politicians` most-declared table
+     links ERL, a 404. Render a company page without short data, link only
+     codes that have a page, or at least drop the chip on the homepage strip.
+   - `/screener` presets: canonicalise `?preset=` to `/screener`, which lets
+     the page be ISR, or give presets an ISR segment of their own.
+2. **Needs DDL or an API deploy.**
+   - Bound `latest_shorts` in `mv_screener_data` (a new view migration,
+     applied by hand), or carry each row's short date on `ScreenerStock`.
+     `/screener` and the MCP `screen_stocks` tool still show codes ASIC
+     stopped reporting, and so do `/scans` (CSJ, last reported in 2012, leads
+     short-interest-rising, with EHE, CZZ, TPD and RDH in its top six) and
+     `/battlegrounds` (CAN in the squeeze top 25).
+   - The holdings-file signal for the sitemap. `ListInstitutions` carries no
+     holdings-file count, so `sitemap-ownership.xml` lists only institutions
+     with a stake. HESTA, Betashares and about four other funds that qualify
+     on their holdings files alone are indexable but unlisted until
+     `OwnershipInstitution` gains the field (proto, `ownership.go`,
+     regeneration, API deploy). The page needs no change.
+3. **Measure after the deploy.**
+   - Two sequential GETs per route, Chrome user agent, on the Vercel origin:
+     `/blog/<slug>`, `/news/<take>`, `/compare/DRO-vs-LOT`,
+     `/insider-trading/BHP`, `/shorts`, `/scans`,
+     `/scans/short-interest-rising`,
+     `/housing/calculators?price=750000&state=VIC` and `/battlegrounds`. The
+     second must be `public, max-age=0, must-revalidate` and a HIT. On
+     `/price-drops` the first GET after a purge should take under about 2.5 s
+     and the second should be a HIT.
+   - `/statistics` should read about 712 companies, with none of CSJ, EHE,
+     CZZ, TPD or REY among its movers.
+   - Search Console page-level CTR for the stock cluster four weeks after the
+     deploy, the Overview pages apart from the tabs; crawl stats for
+     `/price-drops` and `/docs/api`; and the 500-page crawl again once OpenSEO
+     is authorised.
+4. **Smaller.** `/features/the-widow-maker` still renders at 79 characters.
+   The `/feed.xml` and `/v1/latest` docs titles (66, 69) come from the spec's
+   summaries. `/compare`'s "as of" line and `WebPage.dateModified` are the
+   render time. About 30 cached social cards prerender without data at build,
+   and no sweep refreshes them. The jobs still purge without re-priming what
+   they purge (the perf review's fix 7), so the first reader after each daily
+   purge, often a crawler, waits for the render: 0.3-1.6 s on the stock pages
+   and tabs sampled.
+
+**This round moves §6's baselines.** The Company and Strategy tabs have new
+titles, and the other tabs drop a company name that does not fit. The
+indexable suburb, politician, report and insider pages now carry
+`max-snippet` and `max-image-preview`. About 950 URLs move from per-request
+rendering to ISR. Take, council, economy and monthly report titles change.
+`/alerts` and about 83 institution pages are noindexed, and `/statistics` now
+states 712 companies, not 3,299. So compare Search Console windows that start
+after the deploy with each other. The stock Overview pages (`/shorts/DRO`,
+`/shorts/4DX`) keep their titles and descriptions unless a position rounds to
+zero, so §6's figures stay their baseline.

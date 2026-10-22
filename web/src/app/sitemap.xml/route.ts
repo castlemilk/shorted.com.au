@@ -10,8 +10,9 @@ import {
  *
  * Replaces the old app/sitemap.ts flat urlset (8,686 URLs, ~6.9s to generate,
  * 62% of it housing). The index itself fetches nothing, so it is force-static
- * and answers instantly; the five children each carry their own section and
- * their own recrawl signal. See ~/@/lib/seo/sitemap-xml.ts for the full URL map.
+ * and answers instantly; each child in SITEMAP_CHILDREN (six since the
+ * ownership child) carries its own section and its own recrawl signal. See
+ * ~/@/lib/seo/sitemap-xml.ts for the full URL map.
  *
  * Written as an explicit route handler (like robots.txt) rather than Next's
  * generateSitemaps convention: the child URLs are then plain, stable,

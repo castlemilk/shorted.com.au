@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { SuburbElevation, SuburbHazardExposure } from "~/gen/shorts/v1alpha1/housing_pb";
 import { OVERLAY_BY_KEY, overlayAvailable, overlayCaveat, serializeOverlayParam, type OverlayKey } from "@/lib/housing/overlays";
-import { STATE_NAMES, stateSlug } from "@/lib/housing/states";
+import { STATE_NAMES, suburbExplorerHref } from "@/lib/housing/states";
 import { HousingIcon, type HousingIconName } from "./housing-icon";
 
 /**
@@ -35,7 +35,7 @@ export function SuburbHazardCard({
 
   const stateName = STATE_NAMES[stateCode] ?? stateCode;
   const mapHref = (overlay: OverlayKey) =>
-    `/housing/${stateSlug(stateCode)}?sal=${salCode}&overlays=${serializeOverlayParam([overlay])}`;
+    suburbExplorerHref(stateCode, salCode, serializeOverlayParam([overlay]));
   // Per hazard: QLD and WA publish a bushfire layer but no open flood layer.
   const floodInState = overlayAvailable("flood_planning", stateCode);
   const fireInState = overlayAvailable("bushfire_prone", stateCode);

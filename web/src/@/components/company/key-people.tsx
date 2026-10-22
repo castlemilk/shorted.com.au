@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import type { Person } from "~/@/types/company-metadata";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { Users, Linkedin, Globe } from "lucide-react";
 
 interface KeyPeopleProps {
@@ -67,11 +68,16 @@ function WikipediaIcon({ className }: { className?: string }) {
 const SOURCE_LINK_HIT_AREA = "p-2 -m-2 box-content";
 
 function PersonSourceLink({ person }: { person: Person }) {
+  // Model-written URLs: a link only when http(s). One that is not counts as
+  // missing, so the next source in line is tried.
+  const linkedinUrl = safeExternalHref(person.linkedin_url);
+  const sourceUrl = safeExternalHref(person.source_url);
+
   // Priority 1: LinkedIn URL
-  if (person.linkedin_url) {
+  if (linkedinUrl) {
     return (
       <a
-        href={person.linkedin_url}
+        href={linkedinUrl}
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`${person.name} on LinkedIn (opens in new tab)`}
@@ -85,10 +91,10 @@ function PersonSourceLink({ person }: { person: Person }) {
   }
 
   // Priority 2: Wikipedia source
-  if (person.source_type === "wikipedia" && person.source_url) {
+  if (person.source_type === "wikipedia" && sourceUrl) {
     return (
       <a
-        href={person.source_url}
+        href={sourceUrl}
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`${person.name} on Wikipedia (opens in new tab)`}
@@ -102,10 +108,10 @@ function PersonSourceLink({ person }: { person: Person }) {
   }
 
   // Priority 3: Any other source URL
-  if (person.source_url) {
+  if (sourceUrl) {
     return (
       <a
-        href={person.source_url}
+        href={sourceUrl}
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`${person.name} source (opens in new tab)`}

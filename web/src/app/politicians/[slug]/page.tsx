@@ -57,6 +57,7 @@ import {
   RegisterChangeKind,
   RegisterHolder,
 } from "~/gen/shorts/v1alpha1/politicians_pb";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 // Fully server-rendered: this is the SEO asset. The one client island (the
 // declarations filter) receives already-rendered rows, so every published row is
@@ -107,7 +108,11 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical: url },
-    robots: indexable ? undefined : { index: false, follow: true },
+    // Omitted, never undefined, when indexable: Next merges metadata with
+    // `for (key in source)`, so an own `robots: undefined` replaces the root
+    // layout's robots (and its googleBot max-image-preview / max-snippet
+    // directives) with nothing. Absent, the page inherits them.
+    ...(indexable ? {} : { robots: { index: false, follow: true } }),
     openGraph: {
       type: "profile",
       url,
@@ -359,10 +364,7 @@ export default async function PoliticianPage({
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
       {/*
         THE MACHINE-READABLE TWINS OF THE META DESCRIPTION, BRANCHED ON THE SAME
         PREDICATE.

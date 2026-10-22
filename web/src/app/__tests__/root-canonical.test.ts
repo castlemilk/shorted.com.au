@@ -6,7 +6,9 @@
  * tells Google it is a duplicate of the homepage. An OpenSEO crawl on
  * 2026-10-15 found /pricing and /terms canonicalised to "/", and the same held
  * for /docs/api and its children, /developer, /alerts and others. The
- * homepage names its own canonical in app/page.tsx.
+ * homepage names its own canonical in app/page.tsx. Removing the inherited
+ * canonical left /docs/api with none at all and the homepage's title (SEO
+ * review 2026-10-21, F07), so it names itself too.
  *
  * Read from source: importing the layout pulls fonts and providers into Jest.
  */
@@ -30,6 +32,7 @@ describe("canonical URLs", () => {
   it.each([
     ["pricing/page.tsx", "/pricing"],
     ["terms/page.tsx", "/terms"],
+    ["docs/api/page.tsx", "/docs/api"],
   ])("%s names itself", (file, route) => {
     expect(read(file)).toContain(`canonical: \`\${siteConfig.url}${route}\``);
   });

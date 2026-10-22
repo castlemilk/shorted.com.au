@@ -9,9 +9,13 @@ import {
   CaveatNote,
   CoverageNote,
   DeclaredEntity,
-  PartyChip,
   SourceLine,
 } from "@/components/politicians/compliance";
+import {
+  PartyTileStyles,
+  partyMonogram,
+  partyTileClass,
+} from "@/components/politicians/party-mark";
 // The component only. NEVER import a plain value from a "use client" module
 // here: a server component receives a client-reference proxy for it and throws
 // "Cannot access <prop>.valueOf on the server" during the prerender.
@@ -47,6 +51,7 @@ import {
 import type { PoliticsIconName } from "@/components/politicians/politics-icons.generated";
 import { REPORT_ERROR_EMAIL } from "@/lib/report-error";
 import { RegisterChangeKind } from "~/gen/shorts/v1alpha1/politicians_pb";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/politicians";
 const TITLE = "Parliament's Portfolio — What Federal MPs and Senators Declare";
@@ -86,6 +91,39 @@ const REPORT_ERROR_HREF = `mailto:${REPORT_ERROR_EMAIL}?subject=${encodeURICompo
  * itself. Everything past it is fetched on demand.
  */
 const HUB_TABLE_PAGE_SIZE = 25;
+
+/*
+ * THE TWO LONG LISTS ARE STYLED FROM THEIR CONTAINER, NOT ROW BY ROW.
+ *
+ * On a server-rendered page every element, class and inline style is sent
+ * twice: as HTML, and again in the RSC payload's copy of the tree. Measured
+ * 2026-10-21, the roll (491 cards) was 408 KB of HTML and 557 KB of payload,
+ * and the most-declared list (200 rows) 103 KB and 154 KB: per card a
+ * next/link (a client component to hydrate, for a link that never
+ * prefetched), PartyChip's inline-styled tile and half a dozen classed spans.
+ * So their rows are bare elements with plain <a href>s, the classes sit once
+ * on the list through `[&_…]` variants, the party tile is a class from one
+ * stylesheet (<PartyTileStyles>), and each line is one string.
+ */
+const ROLL_LIST = [
+  "mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
+  "[&>li]:rounded-md [&>li]:border [&>li]:p-2.5",
+  "[&_a]:inline-block [&_a]:py-1 [&_a]:text-sm [&_a:hover]:underline",
+  "[&_p]:mt-1 [&_p]:flex [&_p]:flex-wrap [&_p]:items-center [&_p]:gap-x-2 [&_p]:text-[11px] [&_p]:text-muted-foreground",
+].join(" ");
+
+const MOST_DECLARED_TABLE = [
+  "w-full text-sm",
+  "[&_tbody_tr]:border-b [&_tbody_tr:last-child]:border-0",
+  "[&_tbody_th]:w-40 [&_tbody_th]:py-1.5 [&_tbody_th]:pr-3 [&_tbody_th]:text-left [&_tbody_th]:font-normal",
+  "[&_th_a]:font-medium [&_th_a:hover]:underline",
+  "[&_th>span]:block [&_th>span]:truncate [&_th>span]:text-[11px] [&_th>span]:text-muted-foreground",
+  "[&_td]:py-1.5",
+  "[&_td>div]:flex [&_td>div]:items-center [&_td>div]:gap-2 [&_td>div]:text-xs [&_td>div]:tabular-nums [&_td>div]:text-muted-foreground",
+  // The bar. CSS width, not a chart library: this is a count, and a plain bar
+  // keeps it accessible and bundle-free.
+  "[&_td_span]:h-3 [&_td_span]:rounded-sm [&_td_span]:bg-primary/70",
+].join(" ");
 
 // Static ISR. The register corpus changes only when the APH crawl re-ingests, so
 // the server fetches are KV-cached (getPoliticians.ts) and this route prerenders.
@@ -449,10 +487,7 @@ export default async function PoliticiansPage() {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
       <LLMMeta
         title={TITLE}
         description={DESCRIPTION}
@@ -889,13 +924,14 @@ export default async function PoliticiansPage() {
                 section's height (and the page's) no longer depends on how many
                 companies parliament declares. All rows are server-rendered
                 into the ISR HTML; nothing loads on scroll, it is simply there.
-                `prefetch={false}` on every row link — 200 bulk links would
-                otherwise re-create the roll's measured prefetch storm.
+                Plain <a>s, not next/link: 200 bulk links would otherwise
+                re-create the roll's measured prefetch storm, and each Link is
+                a client component to hydrate.
               */}
               {/* 33rem ≈ ten 53px rows with the tenth partly cut — the cut row
                   is the scroll affordance. */}
               <div className="max-h-[33rem] overflow-auto overscroll-contain rounded-lg border bg-background px-3">
-                <table className="w-full text-sm">
+                <table className={MOST_DECLARED_TABLE}>
                   <caption className="sr-only">
                     Number of federal parliamentarians declaring an interest in
                     each ASX-listed company. A count of declarations, not an
@@ -909,36 +945,19 @@ export default async function PoliticiansPage() {
                   </thead>
                   <tbody>
                     {(mostHeld?.stocks ?? []).map((s) => (
-                      <tr key={s.stockCode} className="border-b last:border-0">
-                        <th
-                          scope="row"
-                          className="w-40 py-1.5 pr-3 text-left font-normal"
-                        >
-                          <Link
-                            href={`/shorts/${s.stockCode}`}
-                            prefetch={false}
-                            className="hover:underline"
-                          >
-                            <span className="font-medium">{s.stockCode}</span>
-                          </Link>
-                          <span className="block truncate text-[11px] text-muted-foreground">
-                            {s.companyName}
-                          </span>
+                      <tr key={s.stockCode}>
+                        <th scope="row">
+                          <a href={`/shorts/${s.stockCode}`}>{s.stockCode}</a>
+                          <span>{s.companyName}</span>
                         </th>
-                        <td className="py-1.5">
-                          <div className="flex items-center gap-2">
-                            {/* CSS width, not a chart library: this is a count, and a
-                            plain bar keeps it accessible and bundle-free. */}
-                            <div
-                              className="h-3 rounded-sm bg-primary/70"
+                        <td>
+                          <div>
+                            <span
                               style={{
-                                width: `${(s.politicianCount / maxCount) * 100}%`,
+                                width: `${Math.round((s.politicianCount / maxCount) * 1000) / 10}%`,
                               }}
-                              aria-hidden
                             />
-                            <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
-                              {s.politicianCount}
-                            </span>
+                            {s.politicianCount}
                           </div>
                         </td>
                       </tr>
@@ -1069,43 +1088,42 @@ export default async function PoliticiansPage() {
               <summary className="cursor-pointer text-muted-foreground">
                 {people?.total ?? 0} members and senators
               </summary>
-              <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                {/*
-                  `prefetch={false}` — this is the single biggest source of the
-                  hub's load-time request storm. 400 member links in the HTML is
-                  400 candidate RSC prefetches (~23 KB each); the measured first
-                  load pulled 1,179 KB across 56 requests before the reader had
-                  clicked anything. A roll is a directory, not a set of likely
-                  next steps.
-                */}
-                {roll.map((p) => (
-                  <li key={p.slug} className="rounded-md border p-2.5">
-                    <Link
-                      href={`/politicians/${p.slug}`}
-                      prefetch={false}
-                      className="inline-block py-1 text-sm hover:underline"
-                    >
-                      {p.displayName}
-                    </Link>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <PartyChip partyAb={p.partyAb} />
-                      {p.division ? (
-                        <span className="text-[11px] text-muted-foreground">
-                          {p.division}
-                        </span>
+              <PartyTileStyles />
+              {/*
+                Plain <a>s, never next/link. A Link is a client component to
+                hydrate per member, and a prefetching one was the single
+                biggest source of the hub's load-time request storm: 400
+                member links were 400 candidate RSC prefetches (~23 KB each),
+                and the measured first load pulled 1,179 KB across 56 requests
+                before the reader had clicked anything. A roll is a directory,
+                not a set of likely next steps.
+              */}
+              <ul className={ROLL_LIST}>
+                {roll.map((p) => {
+                  const where = [
+                    p.partyAb ? partyLabel(p.partyAb) : "",
+                    p.division,
+                    p.stateCode,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ");
+                  return (
+                    <li key={p.slug}>
+                      <a href={`/politicians/${p.slug}`}>{p.displayName}</a>
+                      {where ? (
+                        <p>
+                          {p.partyAb ? (
+                            <span className={partyTileClass(p.partyAb)} aria-hidden>
+                              {partyMonogram(p.partyAb)}
+                            </span>
+                          ) : null}
+                          {where}
+                        </p>
                       ) : null}
-                      {p.stateCode ? (
-                        <span className="text-[11px] text-muted-foreground">
-                          {p.stateCode}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="mt-1 flex gap-3 text-[11px] text-muted-foreground">
-                      <span>{p.declaredListedCount} listed</span>
-                      <span>{p.declaredPropertyCount} property</span>
-                    </div>
-                  </li>
-                ))}
+                      <p>{`${p.declaredListedCount} listed · ${p.declaredPropertyCount} property`}</p>
+                    </li>
+                  );
+                })}
               </ul>
             </details>
           </section>

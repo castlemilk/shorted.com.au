@@ -771,8 +771,9 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 			fatalDetail = "mv refresh failed: " + err.Error()
 		} else {
 			// Data changed (wroteAny) + MVs refreshed → bust the web tier's
-			// long-TTL housing caches now. Best-effort, never fails the run.
-			pingRevalidate("agent")
+			// long-TTL housing caches, now or (under the drain wrapper) once
+			// when the drain ends. Best-effort, never fails the run.
+			revalidateAfterCrawlWrite("agent")
 		}
 		finCancel()
 	}

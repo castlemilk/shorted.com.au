@@ -144,6 +144,45 @@ describe("stock Overview metadata", () => {
     expect(meta.description).toContain("Updated daily");
   });
 
+  // A position that rounds to 0.00 is no level to state: ANT, 164 shares
+  // short, was titled "ANT Short Interest: 0.00% (Arcadia Minerals, ASX)".
+  it("states no level when the short % rounds to 0.00", async () => {
+    mockLatestDate.mockResolvedValueOnce(new Date());
+    mockGetStock.mockResolvedValue({
+      name: "ARCADIA MINERALS LIMITED",
+      industry: "Materials",
+      percentageShorted: 0.00014,
+      reportedShortPositions: 164,
+    });
+    const meta = await generateMetadata({ params: Promise.resolve({ stockCode: "ant" }) });
+    expect(meta.title).toBe("ANT Short Interest (Arcadia Minerals, ASX)");
+    expect(meta.description).toMatch(
+      /^Arcadia Minerals short selling data from official ASIC reports\. /,
+    );
+    expect(meta.description).not.toContain("%");
+  });
+
+  // The edge read returns the API's JSON as sent, and protojson leaves a zero
+  // float out, so percentageShorted can be missing altogether. Formatting it
+  // before the check threw: the catch served the generic title and skipped
+  // the noindex gate.
+  it("states no level, and still gates indexing, when the short % is absent", async () => {
+    mockGetStock.mockResolvedValue({
+      name: "ARCADIA MINERALS LIMITED",
+      industry: "Materials",
+      reportedShortPositions: 0,
+    });
+    const named = await generateMetadata({ params: Promise.resolve({ stockCode: "ant" }) });
+    expect(named.title).toBe("ANT Short Interest (Arcadia Minerals, ASX)");
+    expect(named.description).toMatch(
+      /^Arcadia Minerals short selling data from official ASIC reports\. /,
+    );
+
+    mockGetStock.mockResolvedValue({ name: "", industry: "", reportedShortPositions: 0 });
+    const stub = await generateMetadata({ params: Promise.resolve({ stockCode: "tny" }) });
+    expect(stub.robots).toEqual({ index: false, follow: true, googleBot: { index: false, follow: true } });
+  });
+
   // A stock that left ASIC's report long ago must not claim a live figure
   // (AGF read "2.52% Shorted ... Updated daily" from a 2016 report).
   it("drops the live claims when the latest report is stale", async () => {

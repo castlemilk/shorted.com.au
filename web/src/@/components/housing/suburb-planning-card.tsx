@@ -10,7 +10,7 @@ import {
   planningCreditIds,
   planningView,
 } from "@/lib/housing/planning-sources";
-import { STATE_NAMES, stateSlug } from "@/lib/housing/states";
+import { STATE_NAMES, suburbExplorerHref } from "@/lib/housing/states";
 import { ZONE_FAMILY_COLORS, ZONE_FAMILY_LABELS, isZoneFamily } from "@/lib/housing/zone-families";
 import { HousingIcon } from "./housing-icon";
 import { fmtShare } from "./suburb-hazard-card";
@@ -55,8 +55,7 @@ export function SuburbPlanningCard({
   const mappedPct = (key: "height" | "fsr" | "lot") => controls.find((c) => c.key === key)?.mappedPct;
 
   const stateName = STATE_NAMES[stateCode] ?? stateCode;
-  const mapHref = (overlay: "zoning" | "heritage") =>
-    `/housing/${stateSlug(stateCode)}?sal=${salCode}&overlays=${overlay}`;
+  const mapHref = (overlay: "zoning" | "heritage") => suburbExplorerHref(stateCode, salCode, overlay);
   const sources = planningCreditIds(planning)
     .map((id) => PLANNING_SOURCE_CREDITS[id]?.short)
     .filter(Boolean);

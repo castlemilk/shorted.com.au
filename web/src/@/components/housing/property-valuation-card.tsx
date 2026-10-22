@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { HousingIcon } from "./housing-icon";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 const SALES_VISIBLE_LIMIT = 8;
 const BUILDING_ESTIMATE_TOOLTIP =
@@ -100,9 +101,9 @@ export function PropertyValuationCard({
         </h2>
         <div className="text-right text-xs text-muted-foreground">
           <p>property.com.au estimate</p>
-          {valuation.profileUrl ? (
+          {safeExternalHref(valuation.profileUrl) ? (
             <a
-              href={valuation.profileUrl}
+              href={safeExternalHref(valuation.profileUrl)}
               target="_blank"
               rel="noopener noreferrer nofollow"
               className="mt-1 inline-flex font-medium text-foreground underline-offset-4 hover:underline"

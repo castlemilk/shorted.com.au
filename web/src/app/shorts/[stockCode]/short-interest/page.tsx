@@ -9,6 +9,7 @@ import {
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { cleanCompanyName } from "~/@/lib/company-name";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
+import { stockTabTitle } from "~/@/lib/seo/stock-tab-title";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { ShortInterestHistory } from "../short-interest-history";
 import { loadStockOrFail } from "../stock-page-data";
@@ -54,7 +55,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return stockTabMetadata({
     code,
     tab: "short-interest",
-    title: (company) => `${code} Short Interest History & FAQ | ${company}`,
+    title: (company) => stockTabTitle(code, "Short Interest History & FAQ", company),
     description: (company) =>
       `${company} (ASX:${code}) short interest over time: trend, peak, peer comparison and the questions investors ask. Official ASIC data, T+4.`,
     keywords: [`${code} short interest history`, `${code} short position trend`, `${code} most shorted`, "ASIC short positions"],

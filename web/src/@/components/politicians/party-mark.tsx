@@ -31,7 +31,12 @@
  */
 
 import { cn } from "@/lib/utils";
-import { partyColorFromAb, partyLabel, PARTY_OTHER_COLOR } from "@/lib/politics/party-palette";
+import {
+  partyColorFromAb,
+  partyLabel,
+  PARTY_COLORS,
+  PARTY_OTHER_COLOR,
+} from "@/lib/politics/party-palette";
 
 /** Two sizes: `sm` for a table row or a chip, `md` for a card header. */
 export type PartyMarkSize = "sm" | "md";
@@ -132,7 +137,7 @@ export function partyMarkLabel(abbreviation: string | undefined | null): string 
  * abbreviation is never the whole story, which is why the full name is always in
  * the accessible label rather than only in a tooltip.
  */
-function monogram(abbreviation: string | undefined | null): string {
+export function partyMonogram(abbreviation: string | undefined | null): string {
   const key = (abbreviation ?? "").trim().toUpperCase();
   if (!key) return "–";
   return key.slice(0, 4);
@@ -169,7 +174,7 @@ export function PartyMark({
     backgroundOverride ?? (recorded ? partyColorFromAb(abbreviation) : PARTY_OTHER_COLOR),
   );
   const label = partyMarkLabel(abbreviation);
-  const text = monogram(abbreviation);
+  const text = partyMonogram(abbreviation);
   const { box, radius, font } = SIZES[size];
 
   return (
@@ -198,4 +203,49 @@ export function PartyMark({
       {text}
     </span>
   );
+}
+
+/**
+ * THE SAME TILE AS A CLASS, for a list that draws hundreds of them.
+ *
+ * <PartyMark> styles its tile inline, and on a server-rendered page an inline
+ * style is sent twice: in the HTML and again in the RSC payload's copy of the
+ * element. The hub's roll draws ~490 of them. There, <PartyTileStyles> names
+ * every party's tile once, and a tile is `<span className={partyTileClass(ab)}
+ * aria-hidden>{partyMonogram(ab)}</span>` beside the party's name in words.
+ * Both read `markTile` and the `sm` size, so it is the same tile, minus the
+ * mark's own accessible name: the words beside it carry that.
+ */
+const PARTY_TILE = "party-tile";
+
+function partyTileKey(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+/**
+ * The tile's classes for an AEC abbreviation. Colours key off its label, and a
+ * label the palette does not hold reads as "Other", as `partyColorFromAb` does.
+ */
+export function partyTileClass(abbreviation: string): string {
+  const label = partyLabel(abbreviation);
+  const key = `${PARTY_TILE}-${partyTileKey(label in PARTY_COLORS ? label : "Other")}`;
+  return partyMonogram(abbreviation).length > 3
+    ? `${PARTY_TILE} ${key} ${PARTY_TILE}-long`
+    : `${PARTY_TILE} ${key}`;
+}
+
+/** The stylesheet behind `partyTileClass`, rendered once on a page that uses it. */
+export function PartyTileStyles() {
+  const { box, radius, font } = SIZES.sm;
+  const rules = [
+    // font-mono, font-semibold, uppercase, tracking-tight, leading-none: the
+    // mark's Tailwind classes, spelled out.
+    `.${PARTY_TILE}{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:${box}px;height:${box}px;border-radius:${radius}px;font-family:var(--font-sans),ui-monospace,monospace;font-size:${font}px;font-weight:600;line-height:1;letter-spacing:-0.025em;text-transform:uppercase}`,
+    `.${PARTY_TILE}-long{font-size:${font - 1}px}`,
+    ...Object.entries(PARTY_COLORS).map(([label, colour]) => {
+      const { background, ink } = markTile(colour);
+      return `.${PARTY_TILE}-${partyTileKey(label)}{background-color:${background};color:${ink}}`;
+    }),
+  ];
+  return <style dangerouslySetInnerHTML={{ __html: rules.join("") }} />;
 }

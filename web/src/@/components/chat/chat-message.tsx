@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { type ChatMessage } from "~/@/hooks/use-chat";
 import { cn } from "~/@/lib/utils";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import {
   Bot,
   User,
@@ -83,9 +84,9 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 {c.reference && (
                   <span className="text-muted-foreground">{c.reference}</span>
                 )}
-                {c.url && (
+                {safeExternalHref(c.url) && (
                   <a
-                    href={c.url}
+                    href={safeExternalHref(c.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-primary"

@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import { getHousingOverview } from "~/app/actions/getHousing";
-import {
-  DepositCalculator,
-  MortgageSimulator,
-  RentVsBuyCalculator,
-  StampDutyCalculator,
-} from "@/components/housing/calculators/calculators";
-import { isStampDutyState, type StampDutyState } from "@/lib/housing/stamp-duty";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { HousingIcon } from "@/components/housing/housing-icon";
+import { QueryPrefilledCalculators, QueryPrefillNote } from "./calculator-prefill";
+import { CalculatorSet, PrefillNote } from "./calculator-set";
+import { resolvePrefill } from "./prefill";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/housing/calculators";
 const TITLE = "Home Loan & Deposit Calculators — Australian House Prices";
@@ -35,27 +34,7 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION, creator: "@shorted___" },
 };
 
-const PRICE_MIN = 100_000;
-const PRICE_MAX = 5_000_000;
-
-function parsePrice(raw: string | undefined, fallback: number): number {
-  const n = Number(raw);
-  if (!raw || !Number.isFinite(n) || n <= 0) return fallback;
-  return Math.min(PRICE_MAX, Math.max(PRICE_MIN, Math.round(n / 1000) * 1000));
-}
-
-function parseState(raw: string | undefined): StampDutyState {
-  const up = (raw ?? "").toUpperCase();
-  return isStampDutyState(up) ? up : "NSW";
-}
-
-interface PageProps {
-  searchParams: Promise<{ price?: string; state?: string }>;
-}
-
-export default async function HousingCalculatorsPage({ searchParams }: PageProps) {
-  const sp = await searchParams;
-
+export default async function HousingCalculatorsPage() {
   // Live default: the national mean dwelling price from the ABS-fed tracker.
   const overview = await getHousingOverview("");
   const national = overview?.metrics?.find(
@@ -64,11 +43,16 @@ export default async function HousingCalculatorsPage({ searchParams }: PageProps
   const liveDefault = national?.value
     ? Math.round(national.value / 10_000) * 10_000
     : 1_000_000;
+  // The hard-coded $1m default is this page's data-empty render: a minute in
+  // the route cache, not the hour.
+  if (!national?.value) await bailOnEmptyRender();
 
-  const price = parsePrice(sp.price, liveDefault);
-  const state = parseState(sp.state);
-  const prefilled = Boolean(sp.price);
-  const initialLoan = Math.min(3_000_000, Math.max(50_000, Math.round((price * 0.8) / 10_000) * 10_000));
+  // The page is ISR, so it never reads the query: a suburb's ?price=&state=
+  // is applied in the browser by the two Query* islands below. Each sits under
+  // a real Suspense boundary whose fallback is the unprefilled render, which is
+  // what the static HTML (and so a crawler) gets: the same markup the
+  // canonical URL always served.
+  const unprefilled = resolvePrefill(null, liveDefault);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -92,7 +76,7 @@ export default async function HousingCalculatorsPage({ searchParams }: PageProps
         dataFrequency="quarterly"
         keywords={["mortgage calculator", "stamp duty", "home deposit", "Australia"]}
       />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
         <header>
@@ -105,21 +89,15 @@ export default async function HousingCalculatorsPage({ searchParams }: PageProps
             work out how long a deposit will take to save, estimate stamp
             duty in every state and territory, and compare whether buying or
             renting leaves you better off.
-            {prefilled ? (
-              <> Prefilled with a median price of{" "}
-                <span className="font-mono text-foreground">${price.toLocaleString("en-AU")}</span>
-                {sp.state ? <> in {state}</> : null} from the suburb you came from.</>
-            ) : (
-              <> Defaults start from the national mean dwelling price tracked on our{" "}
-                <a href="/housing" className="text-foreground underline underline-offset-2 hover:text-primary">house-prices dashboard</a>.</>
-            )}
+            <Suspense fallback={<PrefillNote prefill={unprefilled} />}>
+              <QueryPrefillNote liveDefault={liveDefault} />
+            </Suspense>
           </p>
         </header>
 
-        <MortgageSimulator initialLoan={initialLoan} />
-        <DepositCalculator initialPrice={price} initialState={state} />
-        <StampDutyCalculator initialPrice={price} initialState={state} />
-        <RentVsBuyCalculator initialPrice={price} initialState={state} />
+        <Suspense fallback={<CalculatorSet {...unprefilled} />}>
+          <QueryPrefilledCalculators liveDefault={liveDefault} />
+        </Suspense>
 
         <p className="border-t border-border pt-4 text-xs text-muted-foreground">
           Estimates only, not financial advice; excludes LMI, fees; verify duty

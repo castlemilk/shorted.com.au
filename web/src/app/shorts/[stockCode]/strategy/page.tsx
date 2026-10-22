@@ -12,6 +12,7 @@ import {
 import { cleanCompanyName } from "~/@/lib/company-name";
 import { formatDate } from "~/@/lib/fundamentals/format";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
+import { stockTabTitle } from "~/@/lib/seo/stock-tab-title";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import {
   getStockStrategyFit,
@@ -80,7 +81,7 @@ export async function generateMetadata({
     code,
     tab: "strategy",
     title: (company) =>
-      `${code} Strategy Fit: Breakout, CANSLIM & Trend Rules | ${company}`,
+      stockTabTitle(code, "Strategy Fit: Breakout, CANSLIM & Trend", company),
     description: (company) =>
       `How ${company} (ASX:${code}) reads against the Zanger breakout, CAN SLIM, Minervini trend, crowded-short and quality-compounder rules today, with the levels drawn on the chart.`,
     keywords: [

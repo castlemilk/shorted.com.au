@@ -164,6 +164,10 @@ describe("/shorts/[stockCode]/short-interest", () => {
     expect(input.code).toBe("BHP");
     expect(input.tab).toBe("short-interest");
     expect(input.title("BHP Group")).toBe("BHP Short Interest History & FAQ | BHP Group");
+    // stockTabTitle's 60-character budget: a name that does not fit, or the
+    // code standing in for one, is left to the description.
+    expect(input.title("Commonwealth Bank of Australia")).toBe("BHP Short Interest History & FAQ");
+    expect(input.title("BHP")).toBe("BHP Short Interest History & FAQ");
   });
 
   // A stock ASIC reports no short position in gets a one-sentence tab, and a

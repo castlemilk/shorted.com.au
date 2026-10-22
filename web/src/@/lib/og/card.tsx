@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { SceneFrame, SceneTone } from "~/@/lib/strategies/scenes";
+import { ogImageFetchUrl } from "~/@/lib/og/image-fetch";
 
 /**
  * Shared building blocks for `opengraph-image.tsx` generators.
@@ -125,10 +126,14 @@ function pngSize(buf: Buffer): { w: number; h: number } | null {
 export async function getCompanyLogo(
   url: string | undefined | null,
 ): Promise<CompanyLogo> {
-  if (!url) return NO_LOGO;
+  // A stored URL: fetched only from Cloud Storage or our own /assets/
+  // (image-fetch.ts).
+  const target = ogImageFetchUrl(url);
+  if (!target) return NO_LOGO;
   try {
-    const res = await fetch(url, {
+    const res = await fetch(target, {
       signal: AbortSignal.timeout(2500),
+      redirect: "error",
       // Logos change rarely; let the platform cache them alongside the card.
       next: { revalidate: 86400 },
     });

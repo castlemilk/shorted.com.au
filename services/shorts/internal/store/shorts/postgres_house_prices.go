@@ -1877,20 +1877,24 @@ const addressPriceDropsQuery = `
 			  -- counted in the aggregates.
 			  AND (f.first_price - c.current_price) / f.first_price <= 0.40
 			ORDER BY c.address_key, drop_pct DESC, drop_abs DESC, c.latest_source ASC, c.listing_pk DESC
-		),
-		nlist AS (
-			SELECT pl.address_key, COUNT(DISTINCT pl.source || ':' || pl.listing_id) AS num_listings
-			FROM property_listings pl
-			JOIN best b ON b.address_key = pl.address_key
-			GROUP BY pl.address_key
 		)
 		SELECT b.address_key, b.display_address, b.suburb, b.state_code, b.postcode,
 		       b.first_price, b.current_price, b.drop_abs, b.drop_pct,
-		       COALESCE(n.num_listings, 1)                        AS num_listings,
+		       n.num_listings,
 		       b.latest_source, b.latest_listing_url, b.last_observed_at,
 		       b.property_type, b.bedrooms, b.bathrooms, b.agency_name, b.agent_names
 		FROM best b
-		LEFT JOIN nlist n ON n.address_key = b.address_key
+		-- One index probe per board row (the partial address_key index, hence
+		-- the <> ''). As a CTE joined to best, the planner costed best at one
+		-- row and put the count inside a nested loop that re-aggregated every
+		-- board address once per board row: quadratic in the board, and by
+		-- 2026-10-21 past the 10s deadline on every call.
+		CROSS JOIN LATERAL (
+			SELECT COUNT(DISTINCT pl.source || ':' || pl.listing_id) AS num_listings
+			FROM property_listings pl
+			WHERE pl.address_key = b.address_key
+			  AND pl.address_key <> ''
+		) n
 		`
 
 // ListAddressPriceDrops ranks individual physical addresses (deduped by

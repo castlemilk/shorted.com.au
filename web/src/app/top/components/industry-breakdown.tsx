@@ -3,13 +3,13 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { PieChart, ChevronRight } from "lucide-react";
-import { type SerializedTimeSeriesData } from "~/app/actions/top/getTopPageData";
+import type { TopRow } from "~/app/actions/top/top-rows";
 import { cn } from "~/@/lib/utils";
 import { formatPercentage } from "~/@/lib/shorts-calculations";
 import { getSectorImagePath, getSectorImageAlt } from "~/@/lib/sector-images";
 
 interface IndustryBreakdownProps {
-  data: SerializedTimeSeriesData[];
+  data: TopRow[];
 }
 
 // Industry mapping based on stock codes (simplified - in production, this would come from API)
