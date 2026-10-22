@@ -11,8 +11,18 @@ authentication. It does not establish that the token is invalid. Vercel's
 interactive `vc env pull` recovery requires an existing stored refresh token and
 a terminal, starts its supported step-up device flow, and updates local CLI
 credentials. It is unavailable when an explicit CI token is supplied. The account
-owner must resolve that challenge through Vercel's supported authentication path;
-any CI credential replacement is a separate authorized action. Do not enable
+owner can complete that one-time step using an existing interactive CLI session
+and `vercel pull --environment production --project shorted-com-au --scope document-analyser`
+with no explicit `VERCEL_TOKEN` or `--token`. This updates the local CLI session;
+it does **not** replace or prove acceptance of the explicit token stored for CI.
+Do not create a login or run that credential-changing flow as part of source-only
+diagnosis. The persistent CI credential needs account-owner review. Replacing only
+the effective production `VERCEL_TOKEN`, if needed, requires separate approval and
+must use Vercel's supported automation authentication; do not copy a temporary
+interactive access token into CI as a lasting fix. The web job uses environment
+`prod`, whose secret can override the repository-level secret checked by
+`validate-secrets`; a presence check does not establish effective token acceptance.
+Do not enable
 interactive login in CI, bypass the challenge, copy production env files into
 artifacts, or rebuild repeatedly while access remains blocked.
 
@@ -35,6 +45,14 @@ refuse to move an older commit over a newer main. These checks do not prove HTTP
 runtime acceptance: after promotion, `/api/version` must return the same full
 commit baked into the artifact. A failed runtime check fails the release summary;
 it does not automatically promote again or roll back.
+
+The existing Bundle budget build now checks the real compiled version handler
+without starting a server or building twice, and rejects tracked source changes.
+The repository contract job also runs the actual pinned CLI against a loopback
+fake API: it checks `--non-interactive`, bare `--env NAME` inheritance, the pull's
+project-link fields, production JSON output and a terminal fake challenge. These
+tests contain fixture credentials only and establish CLI compatibility, not live
+production authentication or deployment acceptance.
 
 Sources: [Vercel CLI step-up implementation](https://github.com/vercel/vercel/commit/92988c2),
 [pinned CLI token handling](https://github.com/vercel/vercel/blob/vercel%4054.10.2/packages/cli/src/index.ts),

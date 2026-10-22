@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   CLI_VERSION,
   NODE_VERSION,
@@ -36,11 +38,15 @@ const workflowSource = readFileSync(
   new URL("../../.github/workflows/terraform-deploy.yml", import.meta.url),
   "utf8",
 );
-const require = createRequire(
-  new URL("../../web/package.json", import.meta.url),
+const job = workflowSource.slice(
+  workflowSource.indexOf("  deploy-vercel-prod:"),
 );
-const workflow = require("js-yaml").load(workflowSource);
-const job = workflow.jobs["deploy-vercel-prod"];
+function step(name) {
+  const start = job.indexOf(`      - name: ${name}\n`);
+  assert.notEqual(start, -1, name);
+  const end = job.indexOf("\n      - name:", start + 1);
+  return job.slice(start, end === -1 ? undefined : end);
+}
 
 test("source must be the complete checked-out SHA", () => {
   assertSource(sha, sha);
@@ -63,7 +69,7 @@ for (const message of [
         },
         { wait: () => assert.fail("must not retry") },
       ),
-      /account owner.*supported authentication challenge/,
+      /interactive challenge.*not the explicit CI token.*account owner.*separate approval/,
     );
     assert.equal(reads, 1);
   });
@@ -202,7 +208,9 @@ test("metadata reads reject redirects, retry plain-text 503 and never print resp
 });
 
 test("production preflight precedes cloud lookup, dependency install and compilation", () => {
-  const names = job.steps.map((step) => step.name);
+  const names = [...job.matchAll(/^      - name: (.+)$/gm)].map(
+    (match) => match[1],
+  );
   assert.ok(
     names.indexOf("Preflight production Vercel access") <
       names.indexOf("Authenticate to Google Cloud"),
@@ -211,14 +219,12 @@ test("production preflight precedes cloud lookup, dependency install and compila
     names.indexOf("Preflight production Vercel access") <
       names.indexOf("Build and upload production deployment"),
   );
-  assert.equal(
-    job.steps.find(
-      (step) => step.name === "Set up Node for production deployment",
-    ).with["node-version"],
-    NODE_VERSION,
+  assert.match(
+    step("Set up Node for production deployment"),
+    new RegExp(`node-version: "${NODE_VERSION.replaceAll(".", "\\.")}"`),
   );
-  const body = job.steps.find((step) => step.id === "vercel-deploy").run;
-  assert.equal(job.steps.find((step) => step.id === "vercel-deploy").env.SKIP_VERSION_BUMP, "1");
+  const body = step("Build and upload production deployment");
+  assert.match(body, /SKIP_VERSION_BUMP: "1"/);
   for (const pin of body.matchAll(/vercel@(\d+\.\d+\.\d+)/g))
     assert.equal(pin[1], CLI_VERSION);
   assert.match(body, /--meta "shortedCommitSha=\$\{GITHUB_SHA\}"/);
@@ -230,26 +236,43 @@ test("production preflight precedes cloud lookup, dependency install and compila
 });
 
 test("promotion verifies the uploaded deployment, refuses stale main and requires live identity afterward", () => {
-  const promote = job.steps.find(
-    (step) => step.name === "Promote Vercel deployment to production",
-  );
+  const promote = step("Promote Vercel deployment to production");
   assert.ok(
-    promote.run.indexOf("verify-deployment") <
-      promote.run.indexOf("vercel promote"),
+    promote.indexOf("verify-deployment") < promote.indexOf("vercel promote"),
   );
-  assert.match(promote.run, /current_main_sha.*!=.*GITHUB_SHA/);
-  assert.match(
-    promote.env.DEPLOYMENT_ID,
-    /vercel-deploy.outputs.deployment-id/,
-  );
-  assert.ok(
-    job.steps.findIndex((step) => step.run?.includes("verify-production")) >
-      job.steps.indexOf(promote),
-  );
-  for (const step of job.steps.filter((step) => step.run))
+  assert.match(promote, /current_main_sha.*!=.*GITHUB_SHA/);
+  assert.match(promote, /DEPLOYMENT_ID:.*vercel-deploy.outputs.deployment-id/);
+  assert.ok(job.indexOf("verify-production") > job.indexOf(promote));
+  const lines = job.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i] !== "        run: |") continue;
+    let body = "";
+    while (
+      ++i < lines.length &&
+      (!lines[i].trim() || lines[i].startsWith("          "))
+    )
+      body += lines[i].slice(10) + "\n";
     assert.equal(
-      spawnSync("bash", ["-n"], { input: step.run, encoding: "utf8" }).status,
+      spawnSync("bash", ["-n"], { input: body, encoding: "utf8" }).status,
       0,
-      step.name,
     );
+    i--;
+  }
+});
+
+test("the actual prebuild hook leaves tracked package bytes untouched in release CI", (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "shorted-version-hook-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const original = '{"name":"fixture","version":"1.2.3"}\n';
+  writeFileSync(join(directory, "package.json"), original);
+  const script = fileURLToPath(
+    new URL("../../web/scripts/bump-version.sh", import.meta.url),
+  );
+  const result = spawnSync("/bin/sh", [script], {
+    cwd: directory,
+    env: { SKIP_VERSION_BUMP: "1" },
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(join(directory, "package.json"), "utf8"), original);
 });

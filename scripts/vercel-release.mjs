@@ -44,7 +44,7 @@ export async function boundedRead(read, { wait = delay } = {}) {
     }
     if (kind === "challenge") {
       throw new Error(
-        "Vercel requires fresh authentication for production environment access. The account owner must complete Vercel's supported authentication challenge; CI will not retry it, log in, or rebuild around it.",
+        "Vercel requires fresh authentication for production environment access. A supported interactive challenge refreshes that CLI session, not the explicit CI token. The account owner must review the CI credential; replacement requires separate approval. CI will not retry this challenge or rebuild around it.",
       );
     }
     // Provider output can contain sensitive values. Keep only the classification.

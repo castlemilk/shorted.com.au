@@ -15,18 +15,20 @@ function scratch(t) {
 test("capturing the production build preserves its failure and stderr", (t) => {
   const directory = scratch(t);
   const workflow = readFileSync(new URL("../.github/workflows/perf-budget.yml", import.meta.url), "utf8");
-  const block = workflow.match(/- name: Production build\n        run: \|\n((?:          [^\n]*\n)+)/);
+  const block = workflow.match(/- name: Production build\n(?:        id: [^\n]+\n)?        run: \|\n((?:          [^\n]*\n)+)/);
   assert.ok(block, "production build should capture its output");
   const command = block[1].replace(/^          /gm, "");
   writeFileSync(join(directory, "npx"), "#!/bin/sh\nprintf 'build stdout\\n'\nprintf 'build stderr\\n' >&2\nexit 7\n", { mode: 0o755 });
+  writeFileSync(join(directory, "git"), `#!/bin/sh\nprintf '%s\\n' '${"a".repeat(40)}'\n`, { mode: 0o755 });
   const result = spawnSync("bash", ["--noprofile", "--norc", "-e", "-c", command], {
     cwd: directory,
-    env: { ...process.env, PATH: directory + delimiter + process.env.PATH },
+    env: { ...process.env, PATH: directory + delimiter + process.env.PATH, GITHUB_OUTPUT: join(directory, "outputs") },
     encoding: "utf8",
   });
   assert.equal(result.error, undefined);
   assert.equal(result.status, 7, "tee must not hide a failed production build");
   assert.equal(readFileSync(join(directory, "perf-results/build.log"), "utf8"), "build stdout\nbuild stderr\n");
+  assert.equal(readFileSync(join(directory, "outputs"), "utf8"), `release-sha=${"a".repeat(40)}\n`);
 });
 
 test("existing build output passes budgets without invoking another build", (t) => {
