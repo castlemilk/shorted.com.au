@@ -1,5 +1,7 @@
 /// <reference types="jest" />
 import { TextDecoder, TextEncoder } from "util";
+import { AsyncLocalStorage } from "node:async_hooks";
+import type { StaticGenerationStore } from "next/dist/client/components/static-generation-async-storage.external";
 
 if (!globalThis.TextEncoder) {
   globalThis.TextEncoder = TextEncoder;
@@ -19,6 +21,11 @@ const clientMock = {
   listAddressPriceDrops: jest.fn(),
   getSuburbProfile: jest.fn(),
   listStateSuburbs: jest.fn(),
+  getPriceDropsOverview: jest.fn(),
+  listSuburbPriceDrops: jest.fn(),
+  getDropIndexSeries: jest.fn(),
+  listCouncils: jest.fn(),
+  getCouncilProfile: jest.fn(),
 };
 
 const connectError = (code: number, message: string) => Object.assign(new Error(message), {
@@ -40,6 +47,8 @@ jest.mock("@/lib/kv-cache", () => ({
     priceDropsOverview: () => "housing:price-drops:overview",
     suburbPriceDrops: (state: string, sort: string, limit: number) =>
       `housing:price-drops:suburbs:${state}:${sort}:${limit}`,
+    councils: (state: string) => `housing:councils:${state}`,
+    councilProfile: (state: string, slug: string) => `housing:council:${state}:${slug}`,
   },
   HOUSING_TTL: 300,
   PRICE_DROPS_TTL: 300,
@@ -75,6 +84,11 @@ describe("housing server actions", () => {
     clientMock.listAddressPriceDrops.mockResolvedValue({ addresses: [] });
     clientMock.getSuburbProfile.mockResolvedValue({ summary: undefined });
     clientMock.listStateSuburbs.mockResolvedValue({ suburbs: [] });
+    clientMock.getPriceDropsOverview.mockResolvedValue({ states: [] });
+    clientMock.listSuburbPriceDrops.mockResolvedValue({ suburbs: [] });
+    clientMock.getDropIndexSeries.mockResolvedValue({ points: [] });
+    clientMock.listCouncils.mockResolvedValue({ councils: [] });
+    clientMock.getCouncilProfile.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -333,22 +347,78 @@ describe("housing server actions", () => {
     consoleError.mockRestore();
   });
 
-  it("keeps the ISR guard on suburb list and profile RPC fetches", async () => {
-    const { getSuburbProfile, listStateSuburbs } = await import("../getHousing");
-    await listStateSuburbs("VIC", "", 5000);
-    await getSuburbProfile("206041122");
+  it.each([
+    "getHousingOverview",
+    "getPriceDropsOverview",
+    "listSuburbPriceDrops",
+    "listAgencyPriceStats",
+    "listAddressPriceDrops",
+    "getDropIndexSeries",
+    "listStateSuburbs",
+    "getSuburbProfile",
+    "listCouncils",
+    "getCouncilProfile",
+  ] as const)("%s preserves the RPC body and ISR without entering Next's fetch cache", async (action) => {
+    process.env.VERCEL_ENV = "production";
+    process.env.SHORTED_SSR_BYPASS_SECRET = "test-ssr-secret";
+    const housing = await import("../getHousing");
+    const calls = {
+      getHousingOverview: () => housing.getHousingOverview(),
+      getPriceDropsOverview: () => housing.getPriceDropsOverview(),
+      listSuburbPriceDrops: () => housing.listSuburbPriceDrops(),
+      listAgencyPriceStats: () => housing.listAgencyPriceStats(),
+      listAddressPriceDrops: () => housing.listAddressPriceDrops(),
+      getDropIndexSeries: () => housing.getDropIndexSeries(),
+      listStateSuburbs: () => housing.listStateSuburbs("VIC"),
+      getSuburbProfile: () => housing.getSuburbProfile("206041122"),
+      listCouncils: () => housing.listCouncils("VIC"),
+      getCouncilProfile: () => housing.getCouncilProfile("VIC", "example"),
+    };
+    await calls[action]();
+    const transportFetch = createConnectTransportMock.mock.calls[0]?.[0]?.fetch as typeof fetch;
 
-    for (const call of createConnectTransportMock.mock.calls.slice(0, 2)) {
-      const transportFetch = call[0]?.fetch as typeof fetch;
-      const fetchMock = jest.fn().mockResolvedValue(new Response("{}"));
-      global.fetch = fetchMock;
-      await transportFetch("https://shorts-prod.run.app/shorts.v1alpha1.HousingService/Test", {
+    // Use the installed Next patch and key generator, not a mock that merely
+    // checks `next.revalidate`. Next 14 treats Uint8Array.keys as FormData and
+    // calls its nonexistent getAll, logging a cache-key error on every RPC.
+    const { patchFetch } = await import("next/dist/server/lib/patch-fetch");
+    const { IncrementalCache } = await import("next/dist/server/lib/incremental-cache");
+    const serverHooks = await import("next/dist/client/components/hooks-server-context");
+    const storage = new AsyncLocalStorage<StaticGenerationStore>();
+    const fetchCacheKey = jest.fn(IncrementalCache.prototype.fetchCacheKey);
+    const store: StaticGenerationStore = {
+      isStaticGeneration: true,
+      urlPathname: "/price-drops",
+      pagePath: "/price-drops/page",
+      prerenderState: null,
+      revalidate: 3600,
+      incrementalCache: { fetchCacheKey } as unknown as InstanceType<typeof IncrementalCache>,
+    };
+    const origin = jest.fn().mockResolvedValue(new Response("{}"));
+    global.fetch = origin;
+    patchFetch({ staticGenerationAsyncStorage: storage, serverHooks });
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const body = new TextEncoder().encode('{"stateCode":"VIC"}');
+    const signal = new AbortController().signal;
+    try {
+      await storage.run(store, () => transportFetch("https://shorts-prod.run.app/shorts.v1alpha1.HousingService/Test", {
         method: "POST",
-      });
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ next: { revalidate: 86400 } }),
-      );
+        body,
+        signal,
+        headers: { "Content-Type": "application/json" },
+      }));
+      expect(fetchCacheKey).not.toHaveBeenCalled();
+      expect(error).not.toHaveBeenCalled();
+      expect(store.revalidate).toBe(3600);
+      expect(store.dynamicUsageErr).toBeUndefined();
+      expect(origin).toHaveBeenCalledTimes(1);
+      const sent = origin.mock.calls[0]?.[1] as RequestInit;
+      expect(sent.body).toBe(body);
+      expect(sent.signal).toBe(signal);
+      expect(sent.cache).not.toBe("no-store");
+      expect((sent.headers as Headers).get("User-Agent")).toContain("shorted-web-ssr");
+      expect((sent.headers as Headers).get("X-Shorted-SSR-Bypass")).toBe("test-ssr-secret");
+    } finally {
+      error.mockRestore();
     }
   });
 });
