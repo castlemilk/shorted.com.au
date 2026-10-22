@@ -1,5 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { appendFileSync, readFileSync } from "node:fs";
+import {
+  appendFileSync,
+  readFileSync,
+  existsSync,
+  realpathSync,
+} from "node:fs";
+import { delimiter, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -8,6 +14,26 @@ export const NODE_VERSION = "24.8.0";
 const project = "shorted-com-au";
 const scope = "document-analyser";
 const shaPattern = /^[a-f0-9]{40}$/;
+
+export function pinnedCLI(packageRoot) {
+  if (!packageRoot) {
+    const binary = (process.env.PATH ?? "")
+      .split(delimiter)
+      .map((path) => join(path, "vercel"))
+      .find((path) => existsSync(path));
+    if (!binary)
+      throw new Error(
+        `Run the preflight through npm exec with Vercel ${CLI_VERSION}.`,
+      );
+    packageRoot = dirname(dirname(realpathSync(binary)));
+  }
+  const metadata = JSON.parse(
+    readFileSync(join(packageRoot, "package.json"), "utf8"),
+  );
+  if (metadata.name !== "vercel" || metadata.version !== CLI_VERSION)
+    throw new Error(`Release requires Vercel CLI ${CLI_VERSION}.`);
+  return join(packageRoot, "dist/vc.js");
+}
 
 export function assertSource(expected, actual) {
   if (!shaPattern.test(expected ?? "") || expected !== actual) {
@@ -44,7 +70,7 @@ export async function boundedRead(read, { wait = delay } = {}) {
     }
     if (kind === "challenge") {
       throw new Error(
-        "Vercel requires fresh authentication for production environment access. A supported interactive challenge refreshes that CLI session, not the explicit CI token. The account owner must review the CI credential; replacement requires separate approval. CI will not retry this challenge or rebuild around it.",
+        "Vercel blocked production environment access with an authentication challenge. A supported interactive challenge refreshes that CLI session, not the explicit CI token. The account owner must review the CI credential; replacement requires separate approval. CI will not retry this challenge or rebuild around it.",
       );
     }
     // Provider output can contain sensitive values. Keep only the classification.
@@ -158,15 +184,14 @@ async function preflight() {
     throw new Error(`Release requires Node ${NODE_VERSION}.`);
   if (!process.env.VERCEL_TOKEN)
     throw new Error("The existing CI VERCEL_TOKEN is unavailable.");
+  const cli = pinnedCLI();
   await boundedRead(() => {
+    // Run the Node entry point directly. Timing out an npm wrapper could leave
+    // its CLI child alive while the next read attempt starts.
     const result = spawnSync(
-      "npx",
+      process.execPath,
       [
-        "--yes",
-        "--package",
-        `vercel@${CLI_VERSION}`,
-        "--",
-        "vercel",
+        cli,
         "pull",
         "--yes",
         "--environment",

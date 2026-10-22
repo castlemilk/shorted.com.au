@@ -157,6 +157,8 @@ test("production promotion condition rejects PRs, failed checks and plan-only ru
   const eligible = new Function("github", "needs", "always", `return (${expression});`);
   const cases = [
     ["main with passing tests", "push", "success", "success", false, true],
+    ["manual dispatch with passing tests", "workflow_dispatch", "success", "success", false, true],
+    ["published tag release with passing tests", "release", "success", "success", false, true],
     ["pull request", "pull_request", "success", "success", false, false],
     ["failed tests", "push", "failure", "success", false, false],
     ["cancelled tests", "push", "cancelled", "success", false, false],

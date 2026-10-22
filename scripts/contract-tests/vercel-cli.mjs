@@ -8,36 +8,21 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { join } from "node:path";
 import {
   CLI_VERSION,
+  pinnedCLI,
   deploymentRecord,
   assertDeployment,
 } from "../vercel-release.mjs";
 
-const binary = (process.env.PATH ?? "")
-  .split(delimiter)
-  .map((path) => join(path, "vercel"))
-  .find((path) => existsSync(path));
-const packageRoot =
-  process.env.VERCEL_CLI_CONTRACT_PACKAGE ??
-  (binary && dirname(dirname(realpathSync(binary))));
-assert.ok(
-  packageRoot,
-  "Run this contract through npm exec with the pinned Vercel package",
-);
-assert.equal(
-  JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")).version,
-  CLI_VERSION,
-);
+const cli = pinnedCLI(process.env.VERCEL_CLI_CONTRACT_PACKAGE);
 const scratch = mkdtempSync(join(tmpdir(), "shorted-vercel-contract-"));
 const config = join(scratch, "cli-config");
-const cli = resolve(packageRoot, "dist/vc.js");
 const sha = "a".repeat(40);
 const team = {
   id: "team_fixture",

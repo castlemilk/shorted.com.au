@@ -1228,9 +1228,10 @@ jobs:
           node-version: "24.8.0"
 
       - name: Preflight production Vercel access
+        timeout-minutes: 5
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: node scripts/vercel-release.mjs preflight
+        run: npm exec --yes --ignore-scripts --package=vercel@54.10.2 -- node scripts/vercel-release.mjs preflight
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
