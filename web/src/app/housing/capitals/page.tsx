@@ -13,6 +13,7 @@ import {
   getCapitalPrices,
   type CapitalPriceSeriesSnapshot,
 } from "~/app/actions/getCapitalPrices";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const revalidate = 3600;
 
@@ -97,10 +98,7 @@ export default async function CapitalCitiesPage() {
 
   return (
     <DashboardLayout>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
-      />
+      <JsonLd data={itemListSchema} />
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:py-10">
         <Breadcrumbs
           items={[

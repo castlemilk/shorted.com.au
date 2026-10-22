@@ -7,6 +7,8 @@
  * category, not a direction (DESIGN.md, The Semantic Quarantine Rule).
  */
 
+import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
+
 export type OwnershipKind =
   | "super_fund"
   | "index_manager"
@@ -167,6 +169,25 @@ export function formatPointChange(from: number, to: number): string {
 /** The URL of an institution's page; holders off the map have none. */
 export function institutionHref(slug: string | null | undefined): string | null {
   return slug ? `/ownership/${slug}` : null;
+}
+
+const INSTITUTION_SLUG = /^[a-z0-9-]{2,64}$/;
+
+/** Whether a path segment can be a registry slug, checked before any read. */
+export function isInstitutionSlug(slug: string): boolean {
+  return INSTITUTION_SLUG.test(slug);
+}
+
+const LISTED_HOLDER = /^asx:([A-Z0-9]{2,6})$/;
+
+/**
+ * Where a holder's name links: its institution page when it has one, or its
+ * own stock page when the holder is a listed company (key `asx:CODE`). Null
+ * for a holder off the map.
+ */
+export function holderHref(slug: string | null | undefined, holderKey?: string): string | null {
+  const listed = holderKey ? LISTED_HOLDER.exec(holderKey)?.[1] : undefined;
+  return institutionHref(slug) ?? (listed ? stockTabHref(listed, "company") : null);
 }
 
 /** A fund's name with its ASX code in front, unless the name already carries it. */

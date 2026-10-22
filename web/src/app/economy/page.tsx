@@ -14,8 +14,14 @@ import {
   GLOBAL_ECONOMY_SERIES,
   GLOBAL_SERIES_GROUPS,
 } from "@/lib/economy/global-series";
+import { STATE_NAMES, STATE_SLUGS } from "@/lib/economy/map-metrics";
+import {
+  ECONOMY_TOPICS,
+  PUBLISHED_ECONOMY_TOPIC_PAIRS,
+} from "@/lib/economy/topics";
 import { WhenVisible } from "@/components/housing/when-visible";
 import { LLMMeta } from "@/components/seo/llm-meta";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/economy";
 const TITLE = "Australian Economy Snapshot";
@@ -25,7 +31,10 @@ const DESCRIPTION =
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: `${TITLE} — cash rate, inflation, labour, trade, commodities, US rates`,
+  // The root template appends " | Shorted". Keep this under 60 characters:
+  // the six-topic title it replaced rendered at 98 and was cut off in
+  // results (SEO review 2026-10-21, F14). The description lists the rest.
+  title: "Australian economy — cash rate, inflation, jobs, trade",
   description: DESCRIPTION,
   keywords: [
     "Australian economy",
@@ -59,6 +68,11 @@ const HEADLINE_KEYS = [
   "commodities.crude_oil.brent.eur",
   "rates.treasury_yield.10y.usa",
 ];
+
+// The tiles read only the newest observation of each series. Uncapped, the
+// API sends up to 600 per series: 2,942 observations (153 KB) for these ten
+// keys, measured 2026-10-21.
+const LATEST_ONLY = 1;
 
 function latest(
   response: GetEconomicSeriesResponse | undefined,
@@ -155,7 +169,9 @@ function SectionHeading({ title, blurb }: { title: string; blurb: string }) {
 
 export default async function EconomyPage() {
   preload("/geo/states.topojson", { as: "fetch", crossOrigin: "anonymous" });
-  const headline = await getEconomicSeries(HEADLINE_KEYS).catch(() => undefined);
+  const headline = await getEconomicSeries(HEADLINE_KEYS, LATEST_ONLY).catch(
+    () => undefined,
+  );
 
   const cashRate = latest(headline, "rates.cash_rate_target.aus");
   const cpiYoy = latest(headline, "cpi.annual_change.all_groups.aus");
@@ -222,7 +238,7 @@ export default async function EconomyPage() {
         dataFrequency="monthly"
         keywords={["Australian economy", "RBA cash rate", "CPI inflation", "unemployment rate", "trade balance", "iron ore price", "gold price", "US Treasury yields"]}
       />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
 
       <div className="mx-auto max-w-6xl space-y-10 px-4 py-8">
         <header>
@@ -330,6 +346,54 @@ export default async function EconomyPage() {
             blurb="Colour the map, hover for detail, click a state to drill down."
           />
           <EconomyMapExplorer />
+        </section>
+
+        {/* ── By state and topic ────────────────────────────────────── */}
+        {/*
+          Server-rendered, because the map above is client-only: without
+          these links no page linked to the state topic pages except other
+          topic pages (SEO review 2026-10-21, F08). Prefetch is off: once in
+          view, the 78 links would fetch every target's RSC payload (about
+          1 MB gzipped) and regenerate each stale one. Crawlers read the href.
+        */}
+        <section className="space-y-4">
+          <SectionHeading
+            title="Every state, topic by topic"
+            blurb="Each topic page carries the state's full series family, with the latest values, changes and history."
+          />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {STATE_SLUGS.map((state) => (
+              <div
+                key={state}
+                className="rounded-xl border border-border bg-card p-4"
+              >
+                <h3 className="font-serif text-lg text-foreground">
+                  <Link
+                    href={`/economy/${state}`}
+                    prefetch={false}
+                    className="underline-offset-4 hover:underline"
+                  >
+                    {STATE_NAMES[state]}
+                  </Link>
+                </h3>
+                <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+                  {PUBLISHED_ECONOMY_TOPIC_PAIRS.filter(
+                    (pair) => pair.state === state,
+                  ).map(({ topic }) => (
+                    <li key={topic}>
+                      <Link
+                        href={`/economy/${state}/${topic}`}
+                        prefetch={false}
+                        className="text-primary underline-offset-4 hover:underline"
+                      >
+                        {ECONOMY_TOPICS[topic].name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/* ── Macro ─────────────────────────────────────────────────── */}

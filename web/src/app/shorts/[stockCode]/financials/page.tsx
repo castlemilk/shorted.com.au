@@ -10,6 +10,7 @@ import { FinancialsTab } from "~/@/components/stocks/financials-tab";
 import { latestResultSourceDocument } from "~/@/components/stocks/fundamentals-model";
 import { cleanCompanyName } from "~/@/lib/company-name";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
+import { stockTabTitle } from "~/@/lib/seo/stock-tab-title";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { getStockFundamentals } from "~/app/actions/getStockFundamentals";
 import { loadStockOrFail } from "../stock-page-data";
@@ -43,7 +44,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return stockTabMetadata({
     code,
     tab: "financials",
-    title: (company) => `${code} Financials: Results, Ratios & Statements | ${company}`,
+    title: (company) => stockTabTitle(code, "Financials: Results, Ratios & Statements", company),
     description: (company) =>
       `${company} (ASX:${code}) latest result, key ratios, income statement, balance sheet, cash flow, dividends and ATO tax transparency data.`,
     keywords: [`${code} financials`, `${code} results`, `${code} revenue`, `${code} dividend history`, `${code} annual report`],

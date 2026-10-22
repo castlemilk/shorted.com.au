@@ -71,8 +71,19 @@ after each sync.
   state — consider a tracked runner.
 - **Legacy `supabase/migrations`** (14 files) is diverged from the canonical
   `services/migrations` (48); document/retire it.
-- **RLS:** no row-level security (fine for backend-only access; revisit if direct
-  client access is ever added).
+- **RLS and the Supabase Data API:** "backend-only" was never true of the database
+  itself. Prod is a Supabase project, so PostgREST serves schema `public` to anyone
+  holding the anon key, and Supabase's default privileges had granted `anon` and
+  `authenticated` everything there: on 2026-10-21 `scripts/prod-data-api-check.sql`
+  listed 385 violations (every table, view, materialized view and sequence, all 23
+  functions, RLS off on 16 tables). `000138_harden_data_api_grants` revokes all of
+  it, closes `postgres`'s default privileges and enables RLS on every table, with no
+  policies and no FORCE. The backend owns everything and has BYPASSRLS, so it sees no
+  change. Zero rows from the check means closed. Apply it by hand, after the
+  read-only pre-check, before its merge: every push to `main` deploys (Cuttlefish
+  runs `terraform-deploy.yml`) and replays 000138 last, which writes nothing on a
+  closed database and re-closes any later drift. The procedure is in
+  `docs/operations/supabase-data-api.md`.
 
 ## Note on the news-aggregator build
 

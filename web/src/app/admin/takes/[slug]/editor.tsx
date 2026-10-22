@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChatMarkdown } from "~/@/components/chat/chat-markdown";
 import { publishTake, deleteTake, updateTake } from "~/app/actions/admin/takes";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 interface TakeJSON {
   id: string;
@@ -159,7 +160,7 @@ export function AdminTakeEditor({ takeJSON }: { takeJSON: string }) {
       {initial.sourceUrl ? (
         <div className="mb-6 rounded border border-border bg-muted/20 p-3 text-sm">
           Source:{" "}
-          <a href={initial.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+          <a href={safeExternalHref(initial.sourceUrl)} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
             {initial.sourceName ?? initial.sourceUrl}
           </a>
         </div>

@@ -148,6 +148,46 @@ council page showing no drops block while `/price-drops` has data: check
 `SELECT * FROM housing_mv_refresh WHERE mv_name = 'mv_council_price_drops'`
 (no row = nothing published, by design), then refresh.
 
+**The suburb reference views (000139) are a second refresh.**
+`refresh_suburb_reference_views()` refreshes `mv_suburb_latest_price`,
+`mv_housing_state_baselines` and `mv_suburb_similarity_features`: each
+suburb's latest public median and YoY, the state baselines and the
+similar-suburbs features that the suburb list, profile, similar suburbs, map
+price column and council suburb table read instead of computing them per
+request. Before 000139 those values were computed per request, so they could
+not go stale; now they move only when this function runs. The collector calls
+it from `refresh()` (after the housing views) and after a successful
+`-mode census` or `-mode amenities`. The function turns a view it cannot
+refresh into a `Skipping` WARNING and returns the skipped views; the collector
+fails its run on any, and logs `refreshed the suburb reference views` on
+success. The views are not in `housing_mv_refresh`, so `MV_REFRESH_AGE` never
+sees them. The sentinel's `SUBURB_VIEW_STALENESS` check watches them instead:
+it reports a public suburb median loaded after
+`mv_housing_state_baselines.computed_at` once that load is 6 hours old.
+The Housing Freshness workflow is `disabled_manually` on GitHub (last run
+2026-10-01), so until it is re-enabled nothing runs that check. By hand,
+read-only; `t` means the views were refreshed after the newest public suburb
+median load:
+
+```bash
+task db:prod:psql -- -At -c "SELECT (SELECT max(computed_at) FROM mv_housing_state_baselines) > (SELECT max(hp.fetched_at) FROM house_prices hp JOIN house_price_regions sr ON sr.region_code = hp.region_code WHERE sr.region_type = 'suburb' AND hp.measure = 'median_price' AND hp.dwelling_type = 'house' AND hp.source_licence <> 'proprietary-tos-restricted') AS views_current"
+```
+
+Only a collector built with 000139's change calls the function, and nothing
+else does, so apply 000139 only after the Cloud Run job and the rig binary
+both run such a commit (the exact check is the 000139 row in
+`services/migrations/PROD_APPLIED.md`). An older collector would leave the
+suburb pages on the apply date's prices while every run reports success.
+
+After a hand fix to `house_prices`, `suburb_demographics` or
+`suburb_amenities`, or a load by a collector built before 000139:
+
+```bash
+task db:prod:refresh WHICH=suburbs CONFIRM=prod
+```
+
+Like `WHICH=housing`, it exits 1 on any `Skipping` line.
+
 For a read-only look at prod, use `task db:prod:psql -- -At -c "SQL"`: one
 `BEGIN READ ONLY; SET LOCAL statement_timeout = '60s'; …; ROLLBACK`.
 

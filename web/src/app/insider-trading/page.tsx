@@ -10,9 +10,11 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "ASX Insider Trading & Director Trades | Shorted",
+  // No brand: the root layout's `%s | Shorted` template appends it.
+  title: "ASX Insider Trading & Director Trades",
   description:
     "Track director and insider share dealings on the Australian Securities Exchange. Per-stock trade history, ASX Appendix 3Y filings, and insider sentiment.",
   keywords: [
@@ -98,10 +100,7 @@ export default async function InsiderTradingHubPage() {
   return (
     <DashboardLayout>
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }}
-      />
+      <JsonLd data={collectionSchema} />
       <LLMMeta
         title="ASX Insider Trading & Director Trades Hub"
         description="Index of ASX stocks with director trades sourced from Appendix 3Y filings, including buy/sell/exercise activity."

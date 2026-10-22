@@ -33,6 +33,10 @@ jest.mock("~/app/actions/getStockNews", () => ({
 jest.mock("~/app/actions/getEditorialTake", () => ({
   listEditorialTakes: (...a: unknown[]) => mockListEditorialTakes(...a),
 }));
+const mockBailOnEmptyRender = jest.fn();
+jest.mock("~/app/actions/config", () => ({
+  bailOnEmptyRender: () => mockBailOnEmptyRender(),
+}));
 
 import { TakeRelated } from "../take-related";
 
@@ -84,5 +88,27 @@ describe("TakeRelated", () => {
     expect(screen.getByText("No recent articles indexed for $BHP.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "All $BHP news →" })).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("${stockCode}");
+  });
+
+  // The take page is on-demand ISR (600 s): a soft-failed read must cap the
+  // render at a minute, or the gap is cached for ten.
+  describe("on a failed read", () => {
+    beforeEach(() => mockBailOnEmptyRender.mockReset());
+
+    it("leaves the page's lifetime alone when every read answers, empty or not", async () => {
+      mockGetStockNews.mockResolvedValue({ articles: [] });
+      await renderRail();
+      expect(mockBailOnEmptyRender).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["the stock", () => mockGetStock.mockResolvedValue(undefined)],
+      ["the news", () => mockGetStockNews.mockRejectedValue(new Error("unavailable"))],
+      ["the other takes", () => mockListEditorialTakes.mockResolvedValue(undefined)],
+    ])("caps the render at a minute when %s cannot be read", async (_read, fail) => {
+      fail();
+      await renderRail();
+      expect(mockBailOnEmptyRender).toHaveBeenCalledTimes(1);
+    });
   });
 });

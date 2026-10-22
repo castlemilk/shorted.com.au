@@ -1,4 +1,5 @@
 import { siteConfig } from "../../config/site";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 interface StructuredDataProps {
   type?: "WebSite" | "Organization" | "Article" | "FinancialService";
@@ -112,12 +113,7 @@ export function StructuredData({
   const structuredData = getStructuredData();
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(structuredData),
-      }}
-    />
+    <JsonLd data={structuredData} />
   );
 }
 
@@ -156,11 +152,6 @@ export function StockStructuredData({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(structuredData),
-      }}
-    />
+    <JsonLd data={structuredData} />
   );
 }

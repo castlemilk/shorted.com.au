@@ -37,6 +37,7 @@
 import { formatCents, formatCount } from "@/lib/politics/funding-money";
 import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
 import { sectionTitle } from "@/lib/typography";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 /** One lodged annual member/senator return, as the rpc serves it. */
 export interface MemberAnnualReturnInput {
@@ -94,10 +95,12 @@ export interface FundingReturnsProps {
 const NOTE_CLASS = "text-[11px] leading-relaxed text-muted-foreground";
 
 function SourceReturnLink({ sourceUrl }: { sourceUrl: string }) {
-  if (!sourceUrl) return null;
+  // A stored URL: one that is not http(s) counts as missing.
+  const href = safeExternalHref(sourceUrl);
+  if (!href) return null;
   return (
     <a
-      href={sourceUrl}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       title="Open this return on the AEC Transparency Register"

@@ -10,6 +10,7 @@ import {
 } from "./citations";
 import { DROP_CAP_CONTAINER } from "./drop-cap";
 import { injectLayoutFigures, type LayoutImageLike } from "./mdx-figures";
+import { remarkSafeJsxHrefs, TakeLink } from "./mdx-safe-links";
 import { TakeBody } from "./take-body";
 import { articleHtmlComponents } from "~/@/components/mdx/article-html";
 
@@ -32,11 +33,9 @@ const ELEMENT_COMPONENTS = {
     <strong className="font-semibold text-foreground">{children}</strong>
   ),
   em: ({ children }: { children?: React.ReactNode }) => <em>{children}</em>,
-  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary">
-      {children}
-    </a>
-  ),
+  // A link only for a fragment, a root-relative path or an http(s) URL
+  // (mdx-safe-links.tsx says why).
+  a: TakeLink,
   code: ({ children }: { children?: React.ReactNode }) => (
     <code className="rounded bg-muted px-1 py-0.5 font-mono text-sm">{children}</code>
   ),
@@ -80,7 +79,7 @@ export async function MdxTakeBody({ body, citations, layoutImages }: MdxTakeBody
     const compiled = await compileMDX({
       source: processed,
       components: { ...ELEMENT_COMPONENTS, ...MDX_COMPONENTS, Cite },
-      options: { mdxOptions: { remarkPlugins: [remarkGfm] } },
+      options: { mdxOptions: { remarkPlugins: [remarkGfm, remarkSafeJsxHrefs] } },
     });
     content = compiled.content;
   } catch (err) {

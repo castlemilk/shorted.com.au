@@ -10,8 +10,16 @@ import {
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
 import { BattlegroundView } from "~/gen/shorts/v1alpha1/market_pb";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import { getBattlegrounds } from "~/app/actions/getBattlegrounds";
+import { getAvailableDates } from "~/app/actions/market/getMarketByDate";
 import { toBattlegroundRows, type BattlegroundRow } from "./types";
+
+// ISR: at most an hour old, and busted with every other ASIC-derived page by
+// the daily sync's `shorts-data` revalidation (the tag rides on both reads
+// below). Without this export the page was static with no lifetime, and with
+// an untagged read no regeneration ever completed (see getBattlegrounds.ts).
+export const revalidate = 3600;
 
 const BattlegroundsClient = dynamic(
   () =>
@@ -197,11 +205,21 @@ function MethodologySection() {
 }
 
 export default async function BattlegroundsPage() {
-  // SSR-fetch the default squeeze view; on failure the client refetches
-  const initial = await getBattlegrounds(BattlegroundView.SQUEEZE, 25, 0);
+  // SSR-fetch the default squeeze view (on failure the client refetches) and
+  // the ASIC report date the scores are computed from, which dates the
+  // Dataset below. Without it the schema fell back to the render time.
+  const [initial, asicDate] = await Promise.all([
+    getBattlegrounds(BattlegroundView.SQUEEZE, 25, 0),
+    getAvailableDates(1).then(
+      (response) => response.dates[0],
+      () => undefined,
+    ),
+  ]);
   const initialRows: BattlegroundRow[] | undefined = initial
     ? toBattlegroundRows(initial.stocks)
     : undefined;
+  // The shell the client fills in: cache it for a minute, not the hour.
+  if (!initialRows?.length) await bailOnEmptyRender();
 
   return (
     <main className="min-h-[calc(100vh-4rem)]">
@@ -221,6 +239,7 @@ export default async function BattlegroundsPage() {
           description:
             "Daily 0-100 squeeze scores for ASX stocks, combining days-to-cover, short interest, price momentum, and short-position crowding from official ASIC short position reports.",
           url: `${siteConfig.url}/battlegrounds`,
+          dateModified: asicDate,
         }}
       />
       <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">

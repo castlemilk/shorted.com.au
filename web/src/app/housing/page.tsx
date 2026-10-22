@@ -17,6 +17,7 @@ import type { StateStat } from "@/lib/housing/map-lod";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { cn } from "@/lib/utils";
 import { HousingIcon, type HousingIconName } from "@/components/housing/housing-icon";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/housing";
 const TITLE = "Australian House Prices Tracker";
@@ -162,7 +163,7 @@ export default async function HousingPage() {
         dataFrequency="monthly and quarterly"
         keywords={["Australian house prices", "ABS residential property", "household debt to income"]}
       />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
 
       <div className="mx-auto max-w-6xl space-y-10 px-4 py-8">
         <header>

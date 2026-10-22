@@ -1,0 +1,4 @@
+-- One statement: CREATE INDEX CONCURRENTLY cannot run in a transaction block.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shorts_timeseries_covering
+    ON shorts ("PRODUCT_CODE", "DATE" DESC)
+    INCLUDE ("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS");

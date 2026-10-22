@@ -16,6 +16,15 @@ const (
 	industryIntelligenceMaxIndustryLength = 120
 	industryIntelligenceDefaultLimit      = int32(50)
 	industryIntelligenceMaxLimit          = int32(200)
+
+	// industryIntelligenceCacheTTL keeps a computed response for an hour
+	// instead of the cache-wide five minutes. The records change only when
+	// the influence collector imports (about once a day), and each miss runs
+	// four queries of 0.4-0.8 s on four pooled connections: on prod 17.3k
+	// misses in 90 days cost 30k s, 4.5% of all database time (2026-10-21
+	// review DBP-12). The web tier already serves these as a 24h snapshot, so
+	// an hour here adds no staleness a reader of the pages can see.
+	industryIntelligenceCacheTTL = time.Hour
 )
 
 func (s *ShortsServer) GetIndustryIntelligence(ctx context.Context, req *connect.Request[shortsv1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[shortsv1alpha1.GetIndustryIntelligenceResponse], error) {
@@ -31,7 +40,7 @@ func (s *ShortsServer) GetIndustryIntelligence(ctx context.Context, req *connect
 	limit := normalizeIndustryIntelligenceLimit(req.Msg.RecordLimit)
 	cacheKey := s.cache.GetIndustryIntelligenceKey(industry, stockCode, limit)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSetWithTTL(cacheKey, industryIntelligenceCacheTTL, func() (interface{}, error) {
 		result, err := s.store.GetIndustryIntelligence(industry, stockCode, limit)
 		if err != nil {
 			return nil, err

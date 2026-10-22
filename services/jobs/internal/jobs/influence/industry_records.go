@@ -80,6 +80,12 @@ func upsertIndustryRecords(ctx context.Context, pool *pgxpool.Pool, sourceKey st
 		return 0, nil
 	}
 
+	// A record the source re-publishes unchanged is not rewritten (the WHERE
+	// on DO UPDATE): every run re-sends every record, which cost prod 8.97M
+	// updates of a 35k-row table and 585 autovacuums in 90 days (2026-10-21
+	// review DBP-11). The guard compares every column the update sets, so any
+	// real change still lands; n counts records sent, not rows written, and
+	// nothing reads updated_at, which now means "last changed".
 	const q = `
 		INSERT INTO industry_intelligence_records
 			(source_key, source_record_id, signal_kind, industry, stock_code, entity_abn,
@@ -106,7 +112,20 @@ func upsertIndustryRecords(ctx context.Context, pool *pgxpool.Pool, sourceKey st
 			source_url = EXCLUDED.source_url,
 			confidence = EXCLUDED.confidence,
 			metadata = EXCLUDED.metadata,
-			updated_at = now()`
+			updated_at = now()
+		WHERE (industry_intelligence_records.signal_kind, industry_intelligence_records.industry,
+		       industry_intelligence_records.stock_code, industry_intelligence_records.entity_abn,
+		       industry_intelligence_records.metric_key, industry_intelligence_records.metric_label,
+		       industry_intelligence_records.metric_value, industry_intelligence_records.unit,
+		       industry_intelligence_records.period_start, industry_intelligence_records.period_end,
+		       industry_intelligence_records.as_of, industry_intelligence_records.title,
+		       industry_intelligence_records.summary, industry_intelligence_records.source_url,
+		       industry_intelligence_records.confidence, industry_intelligence_records.metadata)
+		      IS DISTINCT FROM
+		      (EXCLUDED.signal_kind, EXCLUDED.industry, EXCLUDED.stock_code, EXCLUDED.entity_abn,
+		       EXCLUDED.metric_key, EXCLUDED.metric_label, EXCLUDED.metric_value, EXCLUDED.unit,
+		       EXCLUDED.period_start, EXCLUDED.period_end, EXCLUDED.as_of, EXCLUDED.title,
+		       EXCLUDED.summary, EXCLUDED.source_url, EXCLUDED.confidence, EXCLUDED.metadata)`
 
 	batch := &pgx.Batch{}
 	industries := map[string]bool{}

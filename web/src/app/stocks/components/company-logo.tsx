@@ -45,9 +45,11 @@ export function CompanyLogo({ src, code }: { src: string | null; code: string })
       <Image
         src={versioned}
         alt=""
-        width={96}
-        height={72}
-        sizes="48px"
+        // The tile's content box (56x40 less p-1). A fixed width with no
+        // `sizes` gives a 1x/2x srcset, 48w and 96w, the files `sizes="48px"`
+        // picked from all 16 configured widths (a ~2 KB srcset per logo).
+        width={48}
+        height={32}
         unoptimized={isSvg}
         // h/w-full + object-contain (not max-*): small source images must
         // scale UP to fill the tile too, or a 30px mark renders as a speck.

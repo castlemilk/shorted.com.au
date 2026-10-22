@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "~/@/components/ui/table";
 import { Badge } from "~/@/components/ui/badge";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 /**
  * How many trades the Company tab lists. The page's server read and the client
@@ -128,9 +129,9 @@ export function DirectorTradesView({
                     : "-"}
                 </TableCell>
                 <TableCell>
-                  {trade.announcementUrl && (
+                  {safeExternalHref(trade.announcementUrl) && (
                     <a
-                      href={trade.announcementUrl}
+                      href={safeExternalHref(trade.announcementUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-muted-foreground hover:text-primary"

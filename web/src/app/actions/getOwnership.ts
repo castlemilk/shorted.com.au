@@ -19,7 +19,7 @@ import {
   skipForBuild,
 } from "./config";
 import { CACHE_KEYS, OWNERSHIP_TTL, getCached, setCached } from "@/lib/kv-cache";
-import { withRetryAndNotFound } from "./withRetry";
+import { withRetryAndNotFound, withRetryAndThrowNotFound } from "./withRetry";
 
 // ISR-tagged transport. LOAD-BEARING: without `next`, serverFetchWithUserAgent
 // forces no-store on a POST at Vercel runtime and an ISR regeneration throws
@@ -103,18 +103,30 @@ export const listInstitutions = cache(
   ),
 );
 
-/** One institution's holdings. Undefined when it is not on the map. */
-export const getInstitution = cache(
-  withRetryAndNotFound(async (slug: string): Promise<GetInstitutionResponse | undefined> => {
-    if (skipForBuild()) return undefined;
-    return cachedRead<GetInstitutionResponse>(
-      CACHE_KEYS.ownershipInstitution(slug),
-      GetInstitutionResponseSchema,
-      (v) => v.institution != null,
-      () => ownershipClient().getInstitution({ slug }),
-    );
-  }),
-);
+async function readInstitution(slug: string): Promise<GetInstitutionResponse | undefined> {
+  if (skipForBuild()) return undefined;
+  return cachedRead<GetInstitutionResponse>(
+    CACHE_KEYS.ownershipInstitution(slug),
+    GetInstitutionResponseSchema,
+    (v) => v.institution != null,
+    () => ownershipClient().getInstitution({ slug }),
+  );
+}
+
+/**
+ * One institution's holdings. Undefined when it is not on the map AND when the
+ * read failed, so it suits a surface that degrades either way (the social
+ * card). A page that ISR caches must tell the two apart: getInstitutionOrNotFound.
+ */
+export const getInstitution = cache(withRetryAndNotFound(readInstitution));
+
+/**
+ * The same read for /ownership/[slug]: a slug the API does not know (Connect
+ * NotFound; GetInstitution never answers an empty institution) throws
+ * NotFoundError, and undefined means only that the read failed, so the page
+ * can fail its render instead of caching a 404 for the hour.
+ */
+export const getInstitutionOrNotFound = cache(withRetryAndThrowNotFound(readInstitution));
 
 /** Who holds one stock. */
 export const getStockOwnership = cache(

@@ -1,0 +1,17 @@
+-- Drop idx_shorts_timeseries_covering (000022): same keys as
+-- idx_shorts_timeseries_full (000141), whose INCLUDE list is a superset of its
+-- one column (95 MB on prod, 3.24M scans in 90 days to 2026-10-21; DBP-02).
+-- After 000142 and 000143 the two old indexes (170 MB) are replaced by one of
+-- about 130 MB.
+--
+-- Apply ONLY under the same conditions as 000142: 000141 valid, shorts vacuumed
+-- and analyzed, and EXPLAIN on prod showing the chart as an Index Only Scan
+-- using idx_shorts_timeseries_full. The sparklines read this index until it is
+-- dropped, so their plan cannot be a precondition. After 000142 and 000143
+-- both, check on prod that the top-shorts sparkline scan (sparklineQuery) is
+-- an Index Only Scan using idx_shorts_timeseries_full and that GetStock is an
+-- Index Scan using it (never index-only: it reads "PRODUCT"); a prod-shaped
+-- local copy planned both that way. One statement per file (see 000141).
+-- Hand-applied:
+--   task db:prod:apply FILE=services/migrations/000143_drop_idx_shorts_timeseries_covering.up.sql CONFIRM=prod
+DROP INDEX CONCURRENTLY IF EXISTS idx_shorts_timeseries_covering;

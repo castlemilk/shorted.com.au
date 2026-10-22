@@ -16,7 +16,9 @@ import {
   LgaInfoSchema,
 } from "~/gen/shorts/v1alpha1/housing_pb";
 
+import { siteConfig } from "~/@/config/site";
 import { NotFoundError } from "~/app/actions/withRetry";
+import { councilPageTitle } from "../council-titles";
 import CouncilPage, { generateMetadata, generateStaticParams } from "./page";
 
 const getCouncilProfile = jest.fn();
@@ -329,6 +331,58 @@ describe("council page", () => {
     const types = ld["@graph"].map((n: { "@type": string }) => n["@type"]);
     expect(types).toEqual(["AdministrativeArea", "GovernmentOrganization"]);
     expect(ld["@graph"][0].sameAs).toEqual(["https://www.wikidata.org/wiki/Q24070750"]);
+  });
+
+  // Measured 2026-10-21: council titles rendered at 75-87 characters ("Brewarrina,
+  // New South Wales: council profile, population, housing and hazards | Shorted").
+  // The title now leads with the place and the word "council", and the whole
+  // rendered title, the root layout's " | Shorted" included, is at most 65.
+  describe("title", () => {
+    const rendered = (title: unknown) => `${String(title)} | ${siteConfig.name}`;
+    const withSummary = (displayName: string, kind: string, stateCode: string) => {
+      const p = profile();
+      Object.assign(p.profile!.summary!, { displayName, kind, stateCode, slug: "x" });
+      return p;
+    };
+
+    it("is the root layout's template around the page title", () => {
+      const layout = readFileSync(resolve(__dirname, "../../../../layout.tsx"), "utf8");
+      expect(layout).toContain("template: `%s | ${siteConfig.name}`");
+    });
+
+    it.each([
+      // Exactly 65 with the brand: the longest title that keeps the state's name.
+      ["vic", "Knox", "council", "Knox council, Victoria: population, housing and hazards"],
+      ["vic", "Casey", "council", "Casey council, VIC: population, housing and hazards"],
+      ["nsw", "Brewarrina", "council", "Brewarrina council, NSW: population and housing"],
+      ["nsw", "Canterbury-Bankstown", "council", "Canterbury-Bankstown council, NSW: population"],
+      ["sa", "Anangu Pitjantjatjara Yankunytjatjara", "council", "Anangu Pitjantjatjara Yankunytjatjara council, SA"],
+      // No council governs an unincorporated area, and its ABS name names the state.
+      ["nsw", "Unincorporated NSW", "unincorporated", "Unincorporated NSW: population, housing and hazards"],
+    ])("%s %s (%s) → %s", async (state, displayName, kind, title) => {
+      getCouncilProfile.mockResolvedValue(withSummary(displayName, kind, state.toUpperCase()));
+      const meta = await generateMetadata(params(state, "x"));
+      expect(meta.title).toBe(title);
+      expect(title.startsWith(kind === "council" ? `${displayName} council` : displayName)).toBe(true);
+      expect(rendered(meta.title).length).toBeLessThanOrEqual(65);
+      expect(meta.openGraph?.title).toBe(title);
+      expect(meta.twitter?.title).toBe(title);
+    });
+
+    // lga-facts.json is what `-mode lga` loads the lga table from, so these are
+    // the names every council page renders, the longest 37 characters. Seven of
+    // them (Bayside, Campbelltown, Kingston...) name a council in two states.
+    it("fits every council the hub serves, each under its own title", () => {
+      const facts = JSON.parse(
+        readFileSync(resolve(__dirname, "../../../../../../public/geo/insights/lga-facts.json"), "utf8"),
+      ) as Record<string, { displayName: string; kind: string; stateCode: string }>;
+      const served = Object.values(facts).filter((f) => f.kind !== "pseudo");
+      expect(served.length).toBeGreaterThan(500);
+      const titles = served.map((f) =>
+        rendered(councilPageTitle({ displayName: f.displayName, kind: f.kind }, f.stateCode)));
+      expect(titles.filter((t) => t.length > 65)).toEqual([]);
+      expect(new Set(titles).size).toBe(titles.length);
+    });
   });
 
   it("generateStaticParams lists every council in every state", async () => {

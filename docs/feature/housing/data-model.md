@@ -312,6 +312,9 @@ database without 000126 still serves the base council card.
 | `mv_agency_stats` | 000086, rebuilt 000109, 000124 | `(source, agency_id, state_code)` — per-portal, no entity resolution | row floor `active_listings >= 3`; `avg_drop_pct`/`total_drop_value` NULL until **≥3 dropped addresses**; `agent_names` always empty (000109); 14-day liveness |
 | `mv_suburb_crime_latest` | 000090, rebuilt 000092 | `(sal_code, crime_type)` pooled latest | `NOT small_pop AND NOT unreliable`, WA ToU excluded |
 | `mv_council_price_drops` | 000127 | `(state_code, lga_code24, sal_code)`; `sal_code = ''` is the council total (GROUPING SETS) | the council store's live query (`councilDropsQuery`) verbatim: address winner, 30-day window, 40% cap, 14-day liveness; suburb median NULL below 3 cuts. The council-level k≥3 floor stays in Go (`aggregateCouncilDrops`) |
+| `mv_suburb_latest_price` | 000139 (hand-apply) | `sal_code`: the one public price identity (`region_code`, latest median, `period`, `yoy_pct`) | `preferredSuburbRegionJoin` verbatim: licence gate on latest and prior, priced first, newest period, then `region_code`. Read by the suburb list, profile, similar suburbs, metric columns and council suburb table |
+| `mv_housing_state_baselines` | 000139 (hand-apply) | `state_code` | the profile's state price median (latest public median per priced suburb), state and national median suburb income, and the 12 dwelling-/resident-weighted Census references |
+| `mv_suburb_similarity_features` | 000139 (hand-apply) | `sal_code` | the six similar-suburbs features divided by their `stddev_pop` over suburbs of more than 200 people; `candidate` is the live kNN's candidate rule |
 
 Shared unit (000109, numerators AND denominators): the physical address,
 `NULLIF(address_key, '') IS NOT NULL` — keyless rows are excluded rather than
@@ -362,6 +365,25 @@ after it), each followed by its own guarded `housing_mv_refresh` upsert. The
 collector calls it after every run (`store.go`
 `SELECT refresh_housing_materialized_views()`); it is decoupled from the daily
 shorts `refresh_all_materialized_views()`.
+
+### `refresh_suburb_reference_views()` (000139)
+
+Refreshes the three suburb reference views independently (CONCURRENTLY →
+blocking fallback → `Skipping` warning) and returns the views it skipped as
+`'view: error'` (empty when all three refreshed); the collector fails its run on
+any, because its pool never sees the warning. They read official data only (public
+suburb medians, Census, amenities), so the collector calls it from `refresh()`
+(official, VG, suburb crawl, crime, `-mode refresh`) and after a successful `-mode census` or
+`-mode amenities`, never after an agent or listing drain. It records nothing in
+`housing_mv_refresh` (whose 72h sentinel would trip on monthly views); the
+sentinel's `SUBURB_VIEW_STALENESS` check compares `mv_housing_state_baselines.computed_at`
+with the newest public suburb median load instead. Nothing but the collector
+calls it, so 000139 is applied only after both collector deployments carry the
+call (`PROD_APPLIED.md`). By hand:
+`task db:prod:refresh WHICH=suburbs CONFIRM=prod`. Every reader falls back to the
+per-request SQL on a 42P01 that names one of the three views (any other missing
+relation is returned as an error), so a database without 000139 keeps working at
+the old cost (2026-10-21 database review: these reads were a third of prod DB time).
 
 ## Where each guard actually lives
 
@@ -425,3 +447,5 @@ verified in prod `pg_matviews` 2026-09-23) and the refresh function's missing
 | 000126 | council foundation: `lga` identity + ABS fact columns, `lga_series`, `suburb_lga.dominant_share` |
 | 000127 | `mv_council_price_drops` (council drops, once per refresh instead of per cold read) + its refresh block; partial index `idx_lga_series_public_latest` for the council index's `data_through` |
 | 000128 | data repair: re-point 30 stripped-pass `sal_code` links to the populous same-name SAL, postcode-guarded, with their crawl copies |
+| 000139 | suburb reference views (`mv_suburb_latest_price`, `mv_housing_state_baselines`, `mv_suburb_similarity_features`) + `refresh_suburb_reference_views()`; hand-apply, see `PROD_APPLIED.md` "Written, not yet applied" |
+| 000140 | expression index on `upper(btrim(federal_division))` INCLUDE party, for the politician pages' division lookups; hand-apply |

@@ -157,14 +157,34 @@ describe("housing server actions", () => {
 
     await listAddressPriceDrops("VIC", 90, 50, "pct");
 
-    expect(clientMock.listAddressPriceDrops).toHaveBeenCalledWith({
-      stateCode: "VIC",
-      windowDays: 90,
-      limit: 50,
-      sort: "pct",
-    });
+    expect(clientMock.listAddressPriceDrops).toHaveBeenCalledWith(
+      { stateCode: "VIC", windowDays: 90, limit: 50, sort: "pct" },
+      expect.anything(),
+    );
     expect(getCachedMock).not.toHaveBeenCalled();
     expect(setCachedMock).not.toHaveBeenCalled();
+  });
+
+  // /price-drops waits for this seed. On 2026-10-21 the RPC failed at the
+  // backend's 10s store deadline on every call, and four attempts plus backoff
+  // held each render for 44s. The board fetches for itself when the seed is
+  // empty, so a failed seed must cost one bounded attempt and nothing more.
+  it("makes one bounded attempt at the optional address seed", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const consoleLog = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    clientMock.listAddressPriceDrops.mockRejectedValue(connectError(4, "deadline exceeded"));
+    const { ADDRESS_SEED_TIMEOUT_MS, listAddressPriceDrops } = await import("../getHousing");
+
+    await expect(listAddressPriceDrops()).resolves.toBeUndefined();
+
+    expect(clientMock.listAddressPriceDrops).toHaveBeenCalledTimes(1);
+    expect(clientMock.listAddressPriceDrops).toHaveBeenCalledWith(
+      { stateCode: "", windowDays: 90, limit: 50, sort: "pct" },
+      { timeoutMs: ADDRESS_SEED_TIMEOUT_MS },
+    );
+    expect(ADDRESS_SEED_TIMEOUT_MS).toBeLessThanOrEqual(2_000);
+    consoleError.mockRestore();
+    consoleLog.mockRestore();
   });
 
   it("resolves already-indexed suburb slugs with one trailing hyphen", async () => {
@@ -222,6 +242,55 @@ describe("housing server actions", () => {
       query: "connor",
       limit: 50,
     });
+  });
+
+  // Internal suburb links carry no ?sal=, so the path alone must pick the
+  // suburb. ABS qualifies a name that repeats inside one state with its LGA
+  // (prod, 2026-10-21: no slug is shared by two SALs in a state), and the bare
+  // name is ambiguous, so it resolves to nothing rather than to either Ascot.
+  it("resolves a name that repeats in one state from its qualified slug alone", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({
+      suburbs: [
+        { salCode: "20073", salName: "Ascot (Ballarat - Vic.)", postcode: "" },
+        { salCode: "20074", salName: "Ascot (Greater Bendigo - Vic.)", postcode: "" },
+        { salCode: "20075", salName: "Ascot Vale", postcode: "" },
+      ],
+    });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("VIC", "ascot-ballarat-vic")).resolves.toBe("20073");
+    await expect(resolveSuburbSalCode("VIC", "ascot-greater-bendigo-vic")).resolves.toBe("20074");
+    await expect(resolveSuburbSalCode("VIC", "ascot")).resolves.toBeNull();
+  });
+
+  // The name-only fallback keeps the ABS qualifier. Prod, 2026-10-21:
+  // /housing/vic/clyde-north-3978 308s to clyde-north, but
+  // /housing/nsw/abbotsford-nsw-2046 (a crawl postcode on a qualified name, as
+  // the price-drops boards linked it) 404ed.
+  it("resolves a qualified name whatever postcode its slug carries", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({
+      suburbs: [{ salCode: "10003", salName: "Abbotsford (NSW)", postcode: "" }],
+    });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("NSW", "abbotsford-nsw-2046")).resolves.toBe("10003");
+  });
+
+  // Price-drops and similar-suburbs links pass postcode "", so once the feed
+  // carries one, they are name-only slugs of a postcoded canonical.
+  it("resolves a qualified name-only slug once the feed carries a postcode", async () => {
+    clientMock.listStateSuburbs.mockResolvedValue({
+      suburbs: [
+        { salCode: "10003", salName: "Abbotsford (NSW)", postcode: "2046" },
+        { salCode: "20073", salName: "Ascot (Ballarat - Vic.)", postcode: "3350" },
+        { salCode: "20074", salName: "Ascot (Greater Bendigo - Vic.)", postcode: "3551" },
+      ],
+    });
+    const { resolveSuburbSalCode } = await import("../getHousing");
+
+    await expect(resolveSuburbSalCode("NSW", "abbotsford-nsw")).resolves.toBe("10003");
+    await expect(resolveSuburbSalCode("VIC", "ascot-ballarat-vic")).resolves.toBe("20073");
+    await expect(resolveSuburbSalCode("VIC", "ascot")).resolves.toBeNull();
   });
 
   it("returns null only when a suburb slug is a genuine miss", async () => {

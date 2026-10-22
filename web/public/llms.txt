@@ -1,10 +1,10 @@
 # Shorted.com.au
 
-> Shorted.com.au tracks official ASIC short position data on ASX-listed securities, and publishes four related Australian datasets: short selling, house prices by suburb, ABS/RBA economic series by state, and the federal register of members' and senators' interests. It provides daily short selling reports, historical analysis back to 2010, industry heatmaps, and reference material on the Corporations Act 2001 short selling framework and ASIC Regulatory Guide 196.
+> Shorted.com.au tracks official ASIC short position data on ASX-listed securities, and publishes five related Australian datasets: short selling, who holds ASX stocks (substantial holding notices and fund holdings files), house prices by suburb, ABS/RBA economic series by state, and the federal register of members' and senators' interests. It provides daily short selling reports, historical analysis back to 2010, industry heatmaps, and reference material on the Corporations Act 2001 short selling framework and ASIC Regulatory Guide 196.
 
 ## About
 
-Shorted aggregates and visualises official ASIC (Australian Securities and Investments Commission) short position data for all ASX-listed securities, alongside Australian house prices, economic series and parliamentary declarations of interest. It serves retail investors, researchers and journalists.
+Shorted aggregates and visualises official ASIC (Australian Securities and Investments Commission) short position data for all ASX-listed securities, alongside who holds ASX stocks, Australian house prices, economic series and parliamentary declarations of interest. It serves retail investors, researchers and journalists.
 
 - Website: https://shorted.com.au
 - Contact: support@shorted.com.au
@@ -33,6 +33,7 @@ Shorted aggregates and visualises official ASIC (Australian Securities and Inves
 - [Residential Price Drops](https://shorted.com.au/price-drops): Suburbs where asking prices are being cut, as derived aggregates. Individual listings are never republished.
 - [Australian Economy Explorer](https://shorted.com.au/economy): ABS and RBA economic series by state — CPI, labour, trade, GDP proxy, retail, approvals, population — with per-state pages and operations-weighted company exposure.
 - [Parliament's Portfolio](https://shorted.com.au/politicians): What federal MPs and senators declare in the Registers of Members'/Senators' Interests, joined to ASX companies and suburbs. What is held, never how much.
+- [Who Owns the ASX](https://shorted.com.au/ownership): Which super funds, index managers, hedge funds, banks and other institutions hold ASX stocks — every ASX substantial holding notice (Forms 603, 604 and 605) read from its PDF, the holdings files of the largest index ETFs and super fund options, and a page per institution (e.g. /ownership/vanguard). A figure is what a notice or file states, never an estimate. Not financial advice.
 - [Company Directory](https://shorted.com.au/directory): Browsable index of ASX-listed companies.
 - [Methodology](https://shorted.com.au/methodology): How each dataset is sourced, derived and bounded.
 - [The Widow-Maker Trade](https://shorted.com.au/features/the-widow-maker): Investigative feature on why betting against Australian housing keeps failing, with interactive dashboards.

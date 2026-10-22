@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
-import { GetCouncilProfileResponseSchema, ListCouncilsResponseSchema, type GetCouncilProfileResponse, type ListCouncilsResponse, GetDropIndexSeriesResponseSchema, GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse, type GetDropIndexSeriesResponse } from "~/gen/shorts/v1alpha1/housing_pb";
+import { GetCouncilProfileResponseSchema, ListCouncilsResponseSchema, type GetCouncilProfileResponse, type ListCouncilsResponse, GetDropIndexSeriesResponseSchema, GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse, type GetDropIndexSeriesResponse } from "~/gen/shorts/v1alpha1/housing_pb";
 import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { cache } from "react";
 import {
@@ -20,13 +20,13 @@ import {
 import { withRetryAndNotFound, withRetryAndThrowNotFound } from "./withRetry";
 import { suburbSlug } from "@/lib/housing/states";
 
-function createHousingClient() {
-  const transport = createConnectTransport({
-    fetch: serverFetchWithUserAgent,
-    baseUrl: SERVER_SHORTS_API_URL,
-  });
-  return createClient(HousingService, transport);
-}
+// Every housing transport here gives its fetch a lifetime. A bare
+// serverFetchWithUserAgent transport (the old createHousingClient) is no-store
+// on a POST at Vercel runtime, which throws inside a static render; the
+// serverApiSurface test fails on one in any module a static route reaches.
+// getHousePriceSeries and listSuburbDropListings, its only users, had no
+// server caller: the charts and the drops panel read through the browser
+// twins in actions/client/getHousingClient.ts.
 
 // A transport whose fetch tags the request ISR-cacheable. Without a `next`
 // (or explicit `cache`) option, serverFetchWithUserAgent forces `cache:'no-store'`
@@ -109,20 +109,6 @@ export const getHousingOverview = cache(
         }
       }
       return resp;
-    },
-  ),
-);
-
-/** A single house-price time series for a region × measure (× dwelling type). */
-export const getHousePriceSeries = cache(
-  withRetryAndNotFound(
-    async (
-      regionCode: string,
-      measure: string,
-      dwellingType: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
-    ): Promise<GetHousePriceSeriesResponse> => {
-      const client = createHousingClient();
-      return client.getHousePriceSeries({ regionCode, measure, dwellingType });
     },
   ),
 );
@@ -216,16 +202,6 @@ export const listSuburbPriceDrops = cache(
   ),
 );
 
-/** Per-suburb recently-reduced listings (deep-links out; flag-gated server-side). */
-export const listSuburbDropListings = cache(
-  withRetryAndNotFound(
-    async (salCode: string = "", regionCode: string = "", windowDays: number = 30, limit: number = 30): Promise<ListSuburbDropListingsResponse> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
-      const client = createHousingClient();
-      return client.listSuburbDropListings({ salCode, regionCode, windowDays, limit });
-    },
-  ),
-);
-
 /** Per-state price-drop + asking/sold rollup with an AU national row (derived aggregate). */
 export const getPriceDropsOverview = cache(
   withRetryAndNotFound(
@@ -280,15 +256,28 @@ export const listAgencyPriceStats = cache(
  * client board without a first-paint round-trip. Like the agency read, it
  * bypasses shared KV; the takedown revalidation clears ISR/Data Cache so later
  * renders consult the backend kill switch.
+ *
+ * ONE attempt, bounded by ADDRESS_SEED_TIMEOUT_MS. The seed is optional (the
+ * board fetches for itself when it is empty) but the page waits for it. Measured
+ * 2026-10-21: this RPC failed at the backend's 10s store deadline on every
+ * call, and the default four attempts plus backoff held every /price-drops
+ * render for 44s. A timeout gives up the seed, never the page; the backend
+ * still finishes the query and caches a success for the next caller.
  */
+export const ADDRESS_SEED_TIMEOUT_MS = 2_000;
+
 export const listAddressPriceDrops = cache(
   withRetryAndNotFound(
     async (stateCode: string = "", windowDays: number = 90, limit: number = 50, sort: string = "pct"): Promise<ListAddressPriceDropsResponse | undefined> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
       if (skipForBuild()) return undefined;
 
       const client = createCacheableHousingClient();
-      return client.listAddressPriceDrops({ stateCode, windowDays, limit, sort });
+      return client.listAddressPriceDrops(
+        { stateCode, windowDays, limit, sort },
+        { timeoutMs: ADDRESS_SEED_TIMEOUT_MS },
+      );
     },
+    { maxRetries: 0 },
   ),
 );
 
@@ -366,15 +355,20 @@ export const resolveSuburbSalCode = cache(
     // Last resort: a name-only slug, when exactly one suburb in the state bears
     // that name. No state currently publishes a postcode on this feed, so today
     // the canonical slug IS name-only — but the moment one does, every existing
-    // name-only link (the similar-suburbs rail builds them with an empty
-    // postcode, and so does anything already indexed) would start 404ing. The
-    // page permanent-redirects to the canonical URL from here, so the fallback
-    // costs one redirect and never guesses: two suburbs of the same name in one
-    // state resolve to nothing, as before.
+    // name-only link (the similar-suburbs rail and the price-drops boards build
+    // them with an empty postcode, and so does anything already indexed) would
+    // start 404ing. The page permanent-redirects to the canonical URL from
+    // here, so the fallback costs one redirect and never guesses: two suburbs
+    // of the same name in one state resolve to nothing, as before.
+    //
+    // The name keeps its ABS qualifier ("abbotsford-nsw", "ascot-ballarat-vic"):
+    // only a postcode comes off. Matching the query form instead, qualifier
+    // stripped, could never find a qualified name, so a link carrying a crawl
+    // postcode the feed lacks ("abbotsford-nsw-2046", from the price-drops
+    // boards) 404ed instead of redirecting.
     if (!match) {
-      const byName = res.suburbs.filter(
-        (s) => suburbSlug(s.salName, "") === normalizedSlug,
-      );
+      const nameOnly = canonicalSlug.replace(/-\d{4}$/, "");
+      const byName = res.suburbs.filter((s) => suburbSlug(s.salName, "") === nameOnly);
       if (byName.length === 1) match = byName[0];
     }
 

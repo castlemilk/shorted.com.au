@@ -1,4 +1,13 @@
-export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+// Every operation an OpenAPI 3 Path Item can hold (parser.ts OPERATION_METHODS).
+export type HTTPMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'PATCH'
+  | 'HEAD'
+  | 'OPTIONS'
+  | 'TRACE';
 
 export interface Parameter {
   name: string;
@@ -37,6 +46,13 @@ export interface ParsedEndpoint {
   parameters: Parameter[];
   requestBody?: RequestBody;
   responses: Record<string, Response>;
+  /**
+   * Servers the operation or its path declares, which replace the document's
+   * (OpenAPI 3: operation, then path, then document). /api/search/stocks and
+   * /feed.xml are served by the web app, not the API host. Absent when the
+   * endpoint uses the document's servers.
+   */
+  servers?: Server[];
 }
 
 export interface NavigationGroup {

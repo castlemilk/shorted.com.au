@@ -9,6 +9,7 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { AUTHORS } from "~/@/data/authors";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "Authors & Contributors",
@@ -77,10 +78,7 @@ export default function AuthorsIndexPage() {
   return (
     <DashboardLayout>
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }}
-      />
+      <JsonLd data={collectionSchema} />
 
       <section className="mb-4 flex items-center gap-3">
         <div className="rounded-lg bg-primary/10 p-2">

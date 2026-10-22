@@ -19,16 +19,18 @@ import {
 } from "~/@/components/ui/table";
 import {
   KindBadge,
-  NoticeTable,
   OwnershipMethodology,
   OwnershipStockTable,
 } from "~/@/components/ownership/ownership-parts";
+import { ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
+import { NoticeTable } from "~/@/components/ownership/notice-table";
 import { formatAmount } from "~/@/lib/fundamentals/format";
 import { KIND_ORDER, kindInfo, kindRank } from "~/@/lib/ownership/kinds";
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getOwnershipOverview, listInstitutions } from "~/app/actions/getOwnership";
 import type { OwnershipInstitution } from "~/gen/shorts/v1alpha1/ownership_pb";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/ownership";
 const TITLE = "Who Owns the ASX: Super Funds, Index Funds and Hedge Funds";
@@ -49,6 +51,10 @@ export const metadata: Metadata = {
     "index fund ownership",
   ],
   alternates: { canonical: URL },
+  // No `images` key on either: this route ships its own opengraph-image.tsx,
+  // and an explicit `images` here would shadow the file convention. `twitter`
+  // replaces the root layout's object wholesale, so it repeats site and
+  // creator.
   openGraph: {
     type: "website",
     url: URL,
@@ -57,7 +63,7 @@ export const metadata: Metadata = {
     siteName: "Shorted",
     locale: "en_AU",
   },
-  twitter: { card: "summary_large_image", creator: "@shorted___" },
+  twitter: { card: "summary_large_image", site: "@shorted___", creator: "@shorted___" },
 };
 
 function Tile({ value, label, meta }: { value: string; label: string; meta?: string }) {
@@ -163,7 +169,7 @@ export default async function OwnershipPage() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <LLMMeta
         title={TITLE}
         description={DESCRIPTION}
@@ -175,6 +181,8 @@ export default async function OwnershipPage() {
       />
       <DashboardLayout fullWidth>
         <div className="mx-auto w-full max-w-[100rem] space-y-10">
+          {/* The latest notices' ASX links point at it. */}
+          <ExternalLinkSymbol />
           {header}
 
           <section aria-label="Coverage">

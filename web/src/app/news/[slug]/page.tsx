@@ -12,33 +12,87 @@ import { EditorialMarkdown } from "~/@/components/news/editorial-markdown";
 import { TakeRelated } from "~/@/components/news/take-related";
 import { TakeBody } from "~/@/components/news/take-body";
 import { MdxTakeBody } from "~/@/components/news/mdx-take-body";
-import { getEditorialTake } from "~/app/actions/getEditorialTake";
+import { formatCompanyName } from "~/@/lib/company-name";
+import { getEditorialTakeOrNotFound } from "~/app/actions/getEditorialTake";
+import { getStock } from "~/app/actions/getStock";
+import { NotFoundError } from "~/app/actions/withRetry";
+import { type GetEditorialTakeResponse } from "~/gen/shorts/v1alpha1/news_pb";
+import { JsonLd } from "~/@/components/seo/json-ld";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
+// On-demand ISR: nothing renders at build, and each take generates on its
+// first request and is cached for 600 s. Without generateStaticParams the
+// revalidate was inert and every take rendered per request
+// (app/__tests__/isr-static-params.test.ts). Safe because loadTake fails the
+// render on a failed read (app/__tests__/isr-degraded-render.test.ts).
 export const revalidate = 600;
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ slug: string }> {
+  return [];
+}
 
 interface Params {
   params: Promise<{ slug: string }>;
 }
 
-async function loadTake(slug: string) {
-  const resp = await getEditorialTake(slug);
-  return resp?.take;
+/**
+ * The take, split by cause (loadStockOrFail's rule). Undefined for a slug the
+ * API does not know, which is a 404. A failed read THROWS: ISR caches whatever
+ * a regeneration renders, so answering it with notFound() put a 404 and a
+ * noindex "Take not found" title in place of a live take for 600 s, where a
+ * failed regeneration keeps serving the last good page. generateMetadata and
+ * the page make the same call, so React's cache reads once. Any other error
+ * propagates untouched.
+ */
+async function loadTake(slug: string): Promise<GetEditorialTakeResponse["take"]> {
+  let resp: GetEditorialTakeResponse | undefined;
+  try {
+    resp = await getEditorialTakeOrNotFound(slug);
+  } catch (err) {
+    if (err instanceof NotFoundError) return undefined;
+    throw err;
+  }
+  if (!resp) {
+    throw new Error(
+      `editorial take transiently unavailable for ${slug}; failing the ISR render instead of caching a 404`,
+    );
+  }
+  return resp.take;
 }
 
 /**
+ * An MDX component or HTML tag, opening, closing or self-closing. Quoted
+ * attribute values may hold a ">" (`<Stat context="a > b" />`).
+ */
+const MARKUP_TAG = /<\/?[A-Za-z][^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*\/?>/g;
+
+/**
  * Build a short, social-share-friendly description from the body. The
- * raw body_md contains [ref-N]/[report-N] citation markers, markdown
- * tokens, and is multiple paragraphs — none of which are useful in a
- * 155-char SERP preview. We strip everything, take the first paragraph
- * (the editorial hook), and truncate at a word boundary if needed.
+ * raw body_md contains [ref-N]/[report-N] citation markers, Markdown links
+ * and tokens, MDX components, and is multiple paragraphs — none of which are
+ * useful in a 155-char SERP preview. We strip everything, take the first
+ * paragraph with text left in it (the editorial hook; an MDX body can open
+ * with a component block), and truncate at a word boundary if needed.
+ *
+ * A link keeps its text: eight of the 11 staged takes open with one, and every
+ * probed snippet read "[Boss Energy](/shorts/BOE) was…" (2026-10-21).
  */
 function buildDescription(bodyMd: string): string {
-  const firstPara = bodyMd.split(/\n\s*\n/)[0] ?? bodyMd;
-  const clean = firstPara
-    .replace(/\[(?:ref|report)-\d+\]/g, "") // citation markers
-    .replace(/[#*_`>]/g, "") // md tokens
-    .replace(/\s+/g, " ")
-    .trim();
+  const clean =
+    bodyMd
+      .split(/\n\s*\n/)
+      .map((paragraph) =>
+        paragraph
+          .replace(/\[(?:ref|report)-\d+\]/g, "") // citation markers
+          .replace(/!\[[^\]]*\]\([^)]*\)/g, "") // images
+          .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // links keep their text
+          .replace(MARKUP_TAG, "") // MDX components, HTML tags
+          .replace(/[#*_`>]/g, "") // md tokens
+          .replace(/\s+/g, " ")
+          .replace(/\s+([.,;:!?])/g, "$1") // a removed marker's space
+          .trim(),
+      )
+      .find((paragraph) => paragraph.length > 0) ?? "";
   // SERP descriptions truncate around 155-160 chars. Trim at word
   // boundary just before that.
   const MAX = 155;
@@ -48,14 +102,35 @@ function buildDescription(bodyMd: string): string {
   return (lastSpace > 100 ? cut.slice(0, lastSpace) : cut).trimEnd() + "…";
 }
 
+/**
+ * Past this a headline is cut to its first clause, when that clause reads
+ * alone. "<headline> — Shorted Take | Shorted" ran 96-115 characters
+ * (2026-10-21) against the ~60 Google shows.
+ */
+const TAKE_TITLE_MAX = 80;
+
+/**
+ * The take's <title>: the headline, or for a long one its first clause ("EOS
+ * short position more than doubled to 10.15% in a quarter; the price rose 25%
+ * in a month" keeps the 59 characters before the semicolon). A long headline
+ * with no clause break stays whole: cutting it mid-phrase would show no more
+ * than Google's own truncation does, and would drop words from the title.
+ */
+function takeTitle(headline: string): string {
+  if (headline.length <= TAKE_TITLE_MAX) return headline;
+  const clause = headline.split(/;\s+|\s+[—–]\s+/)[0]?.trim() ?? "";
+  return clause.length >= 30 && clause.length <= 70 ? clause : headline;
+}
+
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const take = await loadTake(slug);
   if (!take) {
-    // Root layout template handles the "| Shorted" suffix. The page body
-    // notFound()s, but a take can also be missing transiently (RPC blip) and
-    // the 404 status can be pre-empted once the response has streamed —
-    // noindex the fallback so a soft-200 never enters the index.
+    // A slug the API does not know: loadTake throws on a failed read, so this
+    // is never a transient miss. Root layout template handles the "| Shorted"
+    // suffix. The page body notFound()s, but the 404 status can be pre-empted
+    // once the response has streamed — noindex it so a soft-200 never enters
+    // the index.
     return {
       title: "Take not found",
       robots: { index: false, follow: false },
@@ -78,9 +153,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
         : undefined;
 
   return {
-    // Root layout applies '%s | Shorted' template. Append "Shorted Take"
-    // qualifier without the brand suffix.
-    title: `${take.headline} — Shorted Take`,
+    // Absolute: the headline alone, without the root template's
+    // " | Shorted" or a " — Shorted Take" qualifier. Google names the site
+    // beside every result, and the brand pushed the headline past the width
+    // results show. The social titles keep the full headline.
+    title: { absolute: takeTitle(take.headline) },
     description,
     openGraph: {
       title: take.headline,
@@ -126,6 +203,12 @@ export default async function ShortedTakePage({ params }: Params) {
 
   const url = `${siteConfig.url}/news/${slug}`;
   const publishedISO = toISO(take.publishedAt?.seconds);
+  // The company the take is about, named as the stock pages name it.
+  // TakeRelated below reads the same stock, so React's cache makes this one
+  // read; a failed read names it by its code.
+  const stock = take.stockCode
+    ? await getStock(take.stockCode).catch(() => undefined)
+    : undefined;
   // Original editorial content — NewsArticle is the highest-value schema on
   // the site. Author/publisher are the Organization (not a fake Person).
   const newsArticleSchema = {
@@ -161,6 +244,7 @@ export default async function ShortedTakePage({ params }: Params) {
       ? {
           about: {
             "@type": "Corporation",
+            name: formatCompanyName(stock?.name, take.stockCode),
             tickerSymbol: take.stockCode,
             sameAs: `https://www.asx.com.au/markets/company/${take.stockCode}`,
           },
@@ -184,10 +268,7 @@ export default async function ShortedTakePage({ params }: Params) {
         dataSource="ASIC short-position data + Australian news publishers"
       />
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(newsArticleSchema) }}
-      />
+      <JsonLd data={newsArticleSchema} />
 
       <div className="mx-auto max-w-4xl px-4 py-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-6" />
@@ -262,7 +343,7 @@ export default async function ShortedTakePage({ params }: Params) {
             <div>
               Originally reported by{" "}
               <a
-                href={take.sourceUrl}
+                href={safeExternalHref(take.sourceUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium text-primary hover:underline"

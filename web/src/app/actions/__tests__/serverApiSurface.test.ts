@@ -1,6 +1,7 @@
 /// <reference types="jest" />
 import fs from "node:fs";
 import path from "node:path";
+import * as ts from "typescript";
 
 describe("server API surface", () => {
   const originalEnv = process.env;
@@ -391,6 +392,285 @@ describe("server API surface", () => {
     visit(path.join(webRoot, "src/app"));
 
     expect(violations).toEqual([]);
+  });
+
+  // -------------------------------------------------------------------------
+  // ISR safety (the /battlegrounds regeneration that never landed)
+  // -------------------------------------------------------------------------
+
+  describe("transports an ISR route reaches", () => {
+    // At Vercel runtime serverFetchWithUserAgent forces `cache: "no-store"` on
+    // a POST that carries no `next` option. Inside a static render (a build
+    // prerender or an ISR regeneration) that fetch throws DynamicServerError,
+    // and Next discards the render even when the caller swallows the error.
+    // /battlegrounds sat STALE with a frozen `age` for exactly this reason
+    // (2026-10-21), as /economy did on 2026-07-22. A transport a static route
+    // can reach must either give its fetch a lifetime (`next: { revalidate }`)
+    // or bypass Next's patched fetch (serverFetchOutsideNextCache, for reads
+    // that cache themselves in unstable_cache).
+    //
+    // Reachability is the static import graph from every route file that Next
+    // generates statically: page, layout and image files that do not opt out
+    // with `dynamic = "force-dynamic"` or `revalidate = 0` and do not read
+    // searchParams. Client modules end the walk: their reads run in the
+    // browser, through the rewrites. The check is per FILE: a module that
+    // holds an untagged transport fails when any static route imports it,
+    // whichever of its functions that route calls.
+
+    /**
+     * Untagged transports that static routes reach, each with why it stays and
+     * the fix that deletes its line. Empty since 2026-10-21: getIndustryTreeMap
+     * tags its fallback read, and getHousing.ts lost its untagged
+     * createHousingClient with the two server reads nothing called.
+     */
+    const ALLOWED_UNTAGGED: Record<string, string> = {};
+
+    const appDir = path.join(webRoot, "src/app");
+    const srcDir = path.join(webRoot, "src");
+    const ROUTE_FILE = /^(page|layout|opengraph-image|twitter-image)\.tsx?$/;
+    const ISR_SAFE_FETCH = /\bnext\s*:\s*\{[^}]*\brevalidate\s*:/;
+
+    const parse = (file: string): ts.SourceFile =>
+      ts.createSourceFile(
+        file,
+        fs.readFileSync(file, "utf8"),
+        ts.ScriptTarget.Latest,
+        true,
+        file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+      );
+
+    const isClientModule = (sf: ts.SourceFile): boolean =>
+      sf.statements.some(
+        (s) =>
+          ts.isExpressionStatement(s) &&
+          ts.isStringLiteral(s.expression) &&
+          s.expression.text === "use client",
+      );
+
+    /** Every node of the tree, depth first. */
+    function* nodes(root: ts.Node): Generator<ts.Node> {
+      yield root;
+      for (const child of root.getChildren()) yield* nodes(child);
+    }
+
+    /** `export const <name> = <literal>` initializer text, if the module has one. */
+    const exportedConst = (sf: ts.SourceFile, name: string): string | undefined => {
+      for (const s of sf.statements) {
+        if (!ts.isVariableStatement(s)) continue;
+        if (!s.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue;
+        for (const d of s.declarationList.declarations) {
+          if (ts.isIdentifier(d.name) && d.name.text === name) {
+            return d.initializer?.getText(sf);
+          }
+        }
+      }
+      return undefined;
+    };
+
+    /** A route file Next renders per request, so its reads may be no-store. */
+    const rendersPerRequest = (sf: ts.SourceFile): boolean =>
+      /^["'`]force-dynamic["'`]$/.test(exportedConst(sf, "dynamic") ?? "") ||
+      exportedConst(sf, "revalidate") === "0" ||
+      [...nodes(sf)].some((n) => ts.isIdentifier(n) && n.text === "searchParams");
+
+    /** Runtime imports: type-only imports and re-exports are not edges. */
+    const runtimeImports = (sf: ts.SourceFile): string[] => {
+      const specifiers: string[] = [];
+      for (const n of nodes(sf)) {
+        if (
+          ts.isImportDeclaration(n) &&
+          !n.importClause?.isTypeOnly &&
+          ts.isStringLiteral(n.moduleSpecifier)
+        ) {
+          specifiers.push(n.moduleSpecifier.text);
+        } else if (
+          ts.isExportDeclaration(n) &&
+          !n.isTypeOnly &&
+          n.moduleSpecifier &&
+          ts.isStringLiteral(n.moduleSpecifier)
+        ) {
+          specifiers.push(n.moduleSpecifier.text);
+        } else if (
+          ts.isCallExpression(n) &&
+          n.expression.kind === ts.SyntaxKind.ImportKeyword &&
+          n.arguments[0] &&
+          ts.isStringLiteral(n.arguments[0])
+        ) {
+          specifiers.push(n.arguments[0].text);
+        }
+      }
+      return specifiers;
+    };
+
+    const resolveImport = (from: string, specifier: string): string | undefined => {
+      const base = specifier.startsWith("~/")
+        ? path.join(srcDir, specifier.slice(2))
+        : specifier.startsWith("@/")
+          ? path.join(srcDir, "@", specifier.slice(2))
+          : specifier.startsWith(".")
+            ? path.resolve(path.dirname(from), specifier)
+            : undefined;
+      if (!base) return undefined; // a package
+      return [base, `${base}.ts`, `${base}.tsx`, path.join(base, "index.ts"), path.join(base, "index.tsx")]
+        .find((candidate) => /\.tsx?$/.test(candidate) && fs.existsSync(candidate) && fs.statSync(candidate).isFile());
+    };
+
+    /** Each createConnectTransport call's `fetch`, and whether it is ISR-safe. */
+    const transportFetches = (sf: ts.SourceFile): Array<{ fetch: string; safe: boolean }> => {
+      const declarationText = (name: string): string | undefined => {
+        for (const n of nodes(sf)) {
+          if (
+            (ts.isVariableDeclaration(n) || ts.isFunctionDeclaration(n)) &&
+            n.name &&
+            ts.isIdentifier(n.name) &&
+            n.name.text === name
+          ) {
+            return n.getText(sf);
+          }
+        }
+        return undefined;
+      };
+      const isSafe = (text: string | undefined): boolean =>
+        text !== undefined &&
+        (ISR_SAFE_FETCH.test(text) || text.includes("serverFetchOutsideNextCache"));
+
+      const found: Array<{ fetch: string; safe: boolean }> = [];
+      for (const n of nodes(sf)) {
+        if (
+          !ts.isCallExpression(n) ||
+          !ts.isIdentifier(n.expression) ||
+          n.expression.text !== "createConnectTransport"
+        ) {
+          continue;
+        }
+        const options = n.arguments[0];
+        const property =
+          options && ts.isObjectLiteralExpression(options)
+            ? options.properties.find((p) => p.name?.getText(sf) === "fetch")
+            : undefined;
+        if (!property || !ts.isPropertyAssignment(property)) {
+          found.push({ fetch: "(global fetch)", safe: false });
+          continue;
+        }
+        const value = property.initializer;
+        if (ts.isIdentifier(value)) {
+          found.push({
+            fetch: value.text,
+            safe: value.text === "serverFetchOutsideNextCache" || isSafe(declarationText(value.text)),
+          });
+        } else {
+          found.push({ fetch: "(inline)", safe: isSafe(value.getText(sf)) });
+        }
+      }
+      return found;
+    };
+
+    const routeFiles = (dir: string): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) return entry.name === "__tests__" ? [] : routeFiles(full);
+        return ROUTE_FILE.test(entry.name) ? [full] : [];
+      });
+
+    /** [module, the route that reached it] for every server module static routes reach. */
+    let reachedCache: Map<string, string> | undefined;
+    const reachedFromStaticRoutes = (): Map<string, string> => {
+      if (reachedCache) return reachedCache;
+      const reached = new Map<string, string>();
+      const queue: Array<[file: string, route: string]> = [];
+      for (const file of routeFiles(appDir)) {
+        const sf = parse(file);
+        if (isClientModule(sf) || rendersPerRequest(sf)) continue;
+        queue.push([file, path.relative(webRoot, file)]);
+      }
+      while (queue.length > 0) {
+        const [file, route] = queue.shift()!;
+        if (reached.has(file)) continue;
+        const sf = parse(file);
+        if (isClientModule(sf)) continue;
+        reached.set(file, route);
+        for (const specifier of runtimeImports(sf)) {
+          const target = resolveImport(file, specifier);
+          if (target && !target.includes(`${path.sep}gen${path.sep}`) && !reached.has(target)) {
+            queue.push([target, route]);
+          }
+        }
+      }
+      reachedCache = reached;
+      return reached;
+    };
+
+    it("reaches the route files and the actions they read", () => {
+      const reached = [...reachedFromStaticRoutes().keys()].map((f) => path.relative(webRoot, f));
+      expect(reached).toEqual(
+        expect.arrayContaining([
+          "src/app/battlegrounds/page.tsx",
+          "src/app/actions/getBattlegrounds.ts",
+          "src/app/actions/getShortStatistics.ts",
+          "src/app/actions/getEconomy.ts",
+        ]),
+      );
+      // Per-request routes are not entries: /search reads searchParams.
+      expect(reached).not.toContain("src/app/search/page.tsx");
+    });
+
+    it("tags or bypasses the patched fetch on every transport a static route reaches", () => {
+      const violations: string[] = [];
+      for (const [file, route] of reachedFromStaticRoutes()) {
+        const relative = path.relative(webRoot, file);
+        if (relative in ALLOWED_UNTAGGED) continue;
+        if (!fs.readFileSync(file, "utf8").includes("createConnectTransport(")) continue;
+        for (const { fetch, safe } of transportFetches(parse(file))) {
+          if (!safe) violations.push(`${relative} (fetch: ${fetch}), reached from ${route}`);
+        }
+      }
+      expect(violations).toEqual([]);
+    });
+
+    it("allows only untagged transports that still exist and are still reached", () => {
+      const reached = reachedFromStaticRoutes();
+      for (const relative of Object.keys(ALLOWED_UNTAGGED)) {
+        const file = path.join(webRoot, relative);
+        expect(reached.has(file)).toBe(true);
+        expect(transportFetches(parse(file)).some(({ safe }) => !safe)).toBe(true);
+      }
+    });
+
+    it("tells a tagged or bypassing fetch from an untagged one", () => {
+      const fixture = (code: string) =>
+        transportFetches(
+          ts.createSourceFile("fixture.ts", code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS),
+        );
+      expect(fixture("createConnectTransport({ fetch: serverFetchOutsideNextCache, baseUrl });")).toEqual([
+        { fetch: "serverFetchOutsideNextCache", safe: true },
+      ]);
+      expect(
+        fixture(
+          "const isrFetch: typeof fetch = (input, init) => serverFetchWithUserAgent(input, { ...init, next: { revalidate: 3600, tags: ['shorts-data'] } });\n" +
+            "createConnectTransport({ fetch: isrFetch, baseUrl });",
+        ),
+      ).toEqual([{ fetch: "isrFetch", safe: true }]);
+      expect(
+        fixture("createConnectTransport({ fetch: (i, init) => serverFetchWithUserAgent(i, { ...init, next: { revalidate: 60 } }), baseUrl });"),
+      ).toEqual([{ fetch: "(inline)", safe: true }]);
+      expect(fixture("createConnectTransport({ fetch: serverFetchWithUserAgent, baseUrl });")).toEqual([
+        { fetch: "serverFetchWithUserAgent", safe: false },
+      ]);
+      // A tag alone is not a no-store POST: any `next` option skips the
+      // override, and Next's "auto cache" gives the fetch the route's
+      // revalidate. It still fails the check, which asks each transport to
+      // state its own lifetime rather than inherit one from whichever route
+      // renders it.
+      expect(
+        fixture(
+          "const tagged = (i, init) => serverFetchWithUserAgent(i, { ...init, next: { tags: ['x'] } });\n" +
+            "createConnectTransport({ fetch: tagged, baseUrl });",
+        ),
+      ).toEqual([{ fetch: "tagged", safe: false }]);
+      expect(fixture("createConnectTransport({ baseUrl });")).toEqual([
+        { fetch: "(global fetch)", safe: false },
+      ]);
+    });
   });
 
   it("shouts once when a production process talks to a shorted API origin without the bypass secret", async () => {

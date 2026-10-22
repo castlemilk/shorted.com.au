@@ -225,6 +225,31 @@ describe("the stock Overview's own blocks: the chart, the About card and the sig
     },
   );
 
+  // ANT, 164 shares short: the crawler summary said "had 0.00%", the About
+  // card "has 0.00%" and the Dataset `value: 0`, each a measured zero for a
+  // reported position. The title states no level for it (page-metadata.test).
+  it("never prints a position that rounds to zero as 0.00%, nor states it in the Dataset", async () => {
+    const getStock = jest.requireMock<{ getStockOrNotFound: jest.Mock }>(
+      "~/app/actions/getStock",
+    ).getStockOrNotFound;
+    const bhp = (await getStock.getMockImplementation()!("BHP")) as Record<string, unknown>;
+    getStock.mockResolvedValueOnce({ ...bhp, percentageShorted: 0.0000205, reportedShortPositions: 164 });
+
+    const { container } = await renderOverview();
+
+    expect(container.querySelector("section.sr-only")).toHaveTextContent(
+      "BHP Group (ASX:BHP) had <0.01% of shares reported as short positions",
+    );
+    expect(aboutCard()).toHaveTextContent("BHP Group (ASX:BHP) has <0.01% of its shares on issue");
+    expect(container).not.toHaveTextContent("0.00%");
+    const dataset = Array.from(container.querySelectorAll('script[type="application/ld+json"]'))
+      .map((script) => JSON.parse(script.innerHTML) as Record<string, unknown>)
+      .find((json) => json["@type"] === "Dataset");
+    const measured = (dataset?.variableMeasured ?? []) as Array<Record<string, unknown>>;
+    expect(measured.find((v) => v.name === "percentShort")).not.toHaveProperty("value");
+    expect(measured.find((v) => v.name === "reportedShortPositions")).toMatchObject({ value: 164 });
+  });
+
   it("leaves the short-interest sentences that need a move out when the series has none", async () => {
     mockDeltas().mockResolvedValueOnce({
       change7d: null,

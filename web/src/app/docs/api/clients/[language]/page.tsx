@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 import { FALLBACK_API_BASE_URL } from '~/lib/openapi/api-base-url';
+import { siteConfig } from '~/@/config/site';
+import { apiDocsMetadata } from '../../docs-metadata';
 
 // The client guides are a module-level literal, so this cannot await the spec
 // the way [endpoint]/page.tsx does — but it must still never publish the raw
@@ -618,10 +620,11 @@ export async function generateMetadata({
   const guide = CLIENT_GUIDES[language];
   if (!guide) return {};
 
-  return {
-    title: `${guide.name} Client Guide | Shorted API`,
+  return apiDocsMetadata({
+    title: `${guide.name} Client Guide — ASX Short Data API`,
     description: `How to use the Shorted API with ${guide.name}. Includes authentication, code examples, and error handling.`,
-  };
+    canonical: `${siteConfig.url}/docs/api/clients/${language}`,
+  });
 }
 
 function CodeBlock({ code, language }: { code: string; language: string }) {

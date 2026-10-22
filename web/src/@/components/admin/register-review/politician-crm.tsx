@@ -49,6 +49,7 @@ import {
   setPoliticianPhoto,
   type CrmProfile,
 } from "~/app/actions/admin/politicianCrm";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 /** Field names rendered readably. The vocabulary is closed by a DB trigger. */
 const FIELD_LABEL: Record<string, string> = {
@@ -249,11 +250,11 @@ function FactRow({
           ) : null}
           <p className="mt-1 text-[10px] text-muted-foreground">
             {fact.sourceKey}
-            {fact.sourceUrl ? (
+            {safeExternalHref(fact.sourceUrl) ? (
               <>
                 {" · "}
                 <a
-                  href={fact.sourceUrl}
+                  href={safeExternalHref(fact.sourceUrl)}
                   target="_blank"
                   rel="noreferrer noopener"
                   className="underline underline-offset-2"

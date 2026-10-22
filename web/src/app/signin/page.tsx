@@ -332,13 +332,16 @@ function SignInForm() {
       */}
       <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-6 sm:py-10 lg:min-h-[calc(100vh-8rem)] lg:grid-cols-2 lg:gap-16">
         <aside className="hidden lg:flex lg:flex-col lg:justify-center lg:gap-8">
-          <div className="relative h-40 w-40">
+          <div className="h-40 w-40">
+            {/* Fixed width/height, not fill + sizes: a 1x/2x srcset (256w,
+                384w) instead of all 16 configured widths. h-full w-full keeps
+                the box over preflight's height:auto. */}
             <Image
               src="/logo.png"
               alt="Shorted"
-              fill
-              sizes="160px"
-              className="object-contain"
+              width={160}
+              height={160}
+              className="h-full w-full object-contain"
               priority
             />
           </div>
@@ -378,13 +381,13 @@ function SignInForm() {
           <Card className="min-w-0 w-full max-w-md shadow-lg">
             <CardHeader className="space-y-4 pb-6">
               <div className="flex justify-center lg:hidden">
-                <div className="relative h-16 w-16">
+                <div className="h-16 w-16">
                   <Image
                     src="/logo.png"
                     alt="Shorted Logo"
-                    fill
-                    sizes="64px"
-                    className="object-contain"
+                    width={64}
+                    height={64}
+                    className="h-full w-full object-contain"
                     priority
                   />
                 </div>

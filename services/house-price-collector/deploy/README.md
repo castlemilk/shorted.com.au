@@ -609,6 +609,14 @@ run, and when either env var is unset the collector logs a skip and moves on
 (pages self-heal on the ISR TTL). The `-mode agent`/`-mode listings` paths only
 ping when the run actually wrote data.
 
+Under the drain wrapper (`hc_drain_until_empty`: the delta and full passes) the
+rounds do **not** ping. Each runs with `CRAWL_REVALIDATE_DEFER=1` and logs
+`deferred to the drain`, and the drain runs `-mode revalidate` (no DB needed)
+once when it ends, and at most once per `CRAWL_REVALIDATE_INTERVAL_SEC`
+(default 3600) while it runs. A ping purges `/price-drops`, `/housing` and every
+suburb page, so a ping per round left nearly every visit during a drain waiting
+on a fresh render. The ping never changes the drain's exit code.
+
 - **`REVALIDATION_URL`** — default the **Vercel origin**
   (`https://shorted-com-au-document-analyser.vercel.app/api/revalidate`), NOT the
   canonical `shorted.com.au` host: Cloudflare's managed challenge can block

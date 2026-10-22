@@ -5,12 +5,12 @@ import { SearchDialog } from './search-dialog';
 import { Button } from '~/@/components/ui/button';
 import { Search } from 'lucide-react';
 import Image from 'next/image';
-import type { ParsedEndpoint } from '~/lib/openapi/types';
+import type { ApiSearchEndpoint } from './api-nav';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 
 interface ApiHeaderProps {
-  endpoints: ParsedEndpoint[];
+  endpoints: ApiSearchEndpoint[];
 }
 
 export function ApiHeader({ endpoints }: ApiHeaderProps) {

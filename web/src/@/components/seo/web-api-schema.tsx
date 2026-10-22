@@ -1,3 +1,4 @@
+import { JsonLd } from "~/@/components/seo/json-ld";
 /**
  * schema.org WebAPI markup for the public API docs.
  *
@@ -28,9 +29,6 @@ export function WebApiSchema() {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }

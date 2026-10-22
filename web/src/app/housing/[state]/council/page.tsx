@@ -14,6 +14,8 @@ import { cn } from "~/@/lib/utils";
 import { eyebrow, pageTitle } from "~/@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { listCouncils } from "~/app/actions/getHousing";
+import { councilIndexTitle } from "./council-titles";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const revalidate = 86400;
 
@@ -31,7 +33,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!code) return {};
   const name = STATE_NAMES[code]!;
   const url = `${SITE}${councilIndexPath(code)}`;
-  const title = code === "ACT" ? "ACT local government: the territory as one area" : `${name} councils: population, housing, grants and hazards`;
+  const title = councilIndexTitle(code);
   const description = `Every ${name} local government area in one place: ABS estimated resident population and growth, density, council-wide house medians, federal grants, dwelling approvals, SEIFA and hazard exposure.`;
   return {
     title,
@@ -97,7 +99,7 @@ export default async function StateCouncilsPage({ params }: PageProps) {
         ]}
       />
       {councils.length ? (
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }} />
+        <JsonLd data={itemList} />
       ) : null}
       <div className="mx-auto max-w-6xl space-y-7 px-4 py-8 sm:py-10">
         <Breadcrumbs

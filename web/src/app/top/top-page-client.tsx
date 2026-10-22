@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { EmbedDialog } from "~/@/components/ui/embed-dialog";
 import { IntentPrefetchLink } from "~/@/components/ui/intent-prefetch-link";
 import {
@@ -23,10 +24,10 @@ import {
   formatChange,
 } from "~/@/lib/shorts-calculations";
 import {
-  getTopPageDataForPeriod,
-  type SerializedTimeSeriesData,
+  getTopRowsForPeriod,
   type SerializedMoversData,
 } from "../actions/top/getTopPageData";
+import type { TopRow } from "../actions/top/top-rows";
 import { cn } from "~/@/lib/utils";
 import { pageTitle } from "~/@/lib/typography";
 import { Badge } from "~/@/components/ui/badge";
@@ -48,7 +49,6 @@ const MiniSparkline = dynamic(
 import { SentimentGauge } from "./components/sentiment-gauge";
 import { MoversCard } from "./components/movers-card";
 import { IndustryBreakdown } from "./components/industry-breakdown";
-import dynamic from "next/dynamic";
 import { Map } from "lucide-react";
 import { Skeleton } from "~/@/components/ui/skeleton";
 
@@ -66,7 +66,8 @@ const IndustryTreeMapView = dynamic(
 );
 
 interface TopPageClientProps {
-  initialData: SerializedTimeSeriesData[];
+  /** The table's rows, projected on the server (toTopRows). */
+  initialData: TopRow[];
   initialMoversData: SerializedMoversData;
   initialPeriod: TimePeriod;
   /** Latest ASIC data date (ISO) — rendered as a visible freshness signal. */
@@ -81,7 +82,7 @@ export function TopPageClient({
   initialPeriod,
   dataAsOf,
 }: TopPageClientProps) {
-  const [data, setData] = useState<SerializedTimeSeriesData[]>(initialData);
+  const [data, setData] = useState<TopRow[]>(initialData);
   const [moversData, setMoversData] = useState<SerializedMoversData>(initialMoversData);
   const [period, setPeriod] = useState<TimePeriod>(initialPeriod);
   const [searchQuery, setSearchQuery] = useState("");
@@ -126,8 +127,14 @@ export function TopPageClient({
     setIsLoading(true);
     try {
       // Uses Redis-cached server action for fast response
-      const pageData = await getTopPageDataForPeriod(newPeriod);
-      setData(pageData.timeSeries);
+      const pageData = await getTopRowsForPeriod(newPeriod);
+      // A tab open across a deploy can reach a build that answers in another
+      // shape, or with nothing (Next 14.2 resolves undefined for an action the
+      // build lacks). Keep the rows on screen rather than render that.
+      if (!Array.isArray(pageData?.rows) || !pageData.movers) {
+        throw new Error(`Unexpected /top data for period ${newPeriod}`);
+      }
+      setData(pageData.rows);
       setMoversData(pageData.movers);
     } catch (error) {
       console.error("Failed to fetch data:", error);
@@ -135,17 +142,6 @@ export function TopPageClient({
       setIsLoading(false);
     }
   }, []);
-
-  // Get rank change indicator
-  const getRankChange = (item: SerializedTimeSeriesData) => {
-    const points = item.points ?? [];
-    if (points.length < 2) return 0;
-    const oldPosition = points[0]?.shortPosition ?? 0;
-    const newPosition = item.latestShortPosition ?? 0;
-    if (newPosition > oldPosition) return 1;
-    if (newPosition < oldPosition) return -1;
-    return 0;
-  };
 
   return (
     <div className="relative" data-asset-revision={TOP_PAGE_CLIENT_ASSET_REVISION}>
@@ -342,12 +338,8 @@ export function TopPageClient({
           {/* Rows */}
           <div className="divide-y divide-border/40">
             {filteredData.map((item, index) => {
-              const rankChange = getRankChange(item);
-              const points = item.points ?? [];
-              const change =
-                points.length >= 2
-                  ? (item.latestShortPosition ?? 0) - (points[0]?.shortPosition ?? 0)
-                  : 0;
+              const change = item.change;
+              const rankChange = Math.sign(change);
 
               return (
                 <IntentPrefetchLink
@@ -430,8 +422,12 @@ export function TopPageClient({
 
                   {/* Sparkline */}
                   <div className="hidden md:block">
-                    {points.length > 0 && (
-                      <MiniSparkline data={item} height={32} />
+                    {item.sparkline.length > 0 && (
+                      <MiniSparkline
+                        id={item.productCode}
+                        values={item.sparkline}
+                        height={32}
+                      />
                     )}
                   </div>
 

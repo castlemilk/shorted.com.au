@@ -8,6 +8,18 @@ import { PropertyHistoryView } from "@/components/housing/property-history-view-
 
 export const revalidate = 3600;
 
+// On-demand ISR, the stock pages' rule: a dynamic segment is statically
+// optimised only when generateStaticParams EXISTS. Without it the page
+// rendered per request (`private, no-store`) and the revalidate above was
+// inert. Empty, so the build renders nothing and each address generates on its
+// first request. Safe to cache: the server render reads nothing (the history
+// loads in the browser, flag-gated by the API), so no degraded read can be
+// cached, and no crawl row is ever in the HTML.
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ addressKey: string }> {
+  return [];
+}
+
 interface PageProps {
   params: Promise<{ addressKey: string }>;
 }

@@ -22,6 +22,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "~/@/lib/utils";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 interface StockSignalsProps {
   stockCode: string;
@@ -80,10 +81,11 @@ function SignalItem({ s }: { s: SignalView }) {
         {s.detail && (
           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-3">{s.detail}</p>
         )}
-        {s.citations?.length > 0 && (
-          // py-2 -my-1 grows the only path to the evidence to a usable tap target
+        {safeExternalHref(s.citations?.[0]) && (
+          // py-2 -my-1 grows the only path to the evidence to a usable tap target.
+          // The citation is model-written: shown only when it is an http(s) URL.
           <a
-            href={s.citations[0]}
+            href={safeExternalHref(s.citations[0])}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Source for "${s.headline}" (opens in new tab)`}
