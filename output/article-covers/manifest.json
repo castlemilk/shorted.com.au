@@ -197,12 +197,36 @@
       "thumbnail": "web/public/assets/blog/shorted-mcp-server/thumbnail-editorial-v2.webp"
     },
     {
+      "slug": "shorting-australian-bank-stocks",
+      "asset": "web/public/assets/blog/shorting-australian-bank-stocks/cover-editorial-v2.webp",
+      "alt": "Low light casts long parallel charcoal shadows from four upright fluted ivory columns across a golden sandstone step.",
+      "prompt": "output/article-covers/shorting-australian-bank-stocks-v2.md",
+      "original": "output/article-covers/shorting-australian-bank-stocks-v2.png",
+      "thumbnail": "web/public/assets/blog/shorting-australian-bank-stocks/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "substantial-holder-notices-explained",
+      "asset": "web/public/assets/blog/substantial-holder-notices-explained/cover-editorial-v3.webp",
+      "alt": "A blank ivory card tilts out of a blackened-steel card frame screwed to a dark oak wall, as a second blank card with burnt-amber edges crosses over it on its way in.",
+      "prompt": "output/article-covers/substantial-holder-notices-explained-v3.md",
+      "original": "output/article-covers/substantial-holder-notices-explained-v3.png",
+      "thumbnail": "web/public/assets/blog/substantial-holder-notices-explained/thumbnail-editorial-v3.webp"
+    },
+    {
       "slug": "what-are-short-positions",
       "asset": "web/public/assets/blog/what-are-short-positions/cover-editorial-v2.webp",
       "alt": "An amber loan-and-return loop carries a charcoal share tile from an ivory holder beside a plain ruled record ledger.",
       "prompt": "output/article-covers/what-are-short-positions-v2.md",
       "original": "output/article-covers/what-are-short-positions-v2.png",
       "thumbnail": "web/public/assets/blog/what-are-short-positions/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "what-happens-after-asx-short-interest-peaks",
+      "asset": "web/public/assets/blog/what-happens-after-asx-short-interest-peaks/cover-editorial-v1.webp",
+      "alt": "An amber glazed ball balances on the sharp apex of a folded ivory card peak, with a long shallow slope to the left and a short steep face to the right, on a dark smoky-grey ground.",
+      "prompt": "output/article-covers/what-happens-after-asx-short-interest-peaks.md",
+      "original": "output/article-covers/what-happens-after-asx-short-interest-peaks.png",
+      "thumbnail": "web/public/assets/blog/what-happens-after-asx-short-interest-peaks/thumbnail-editorial-v1.webp"
     },
     {
       "slug": "where-asking-prices-are-being-cut-australia-2026",

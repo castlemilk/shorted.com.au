@@ -1,0 +1,184 @@
+---
+title: "What Happens After Short Interest Peaks on the ASX"
+excerpt: "Where six months had passed since an ASX stock's reported short interest peaked at 5% or more, 52.3% of 86 campaigns trailed the S&P/ASX 200 total return from the peak date, and 64.7% of 85 from ASIC's publication four business days later. A study of 155 campaigns, with build and unwind times."
+standfirst: "We followed 155 ASX stocks whose reported short interest peaked at 5% or more. Where six months had passed, 52% trailed the S&P/ASX 200 total return from the peak date, and 65% from the day ASIC published it."
+coverImage: "/assets/blog/what-happens-after-asx-short-interest-peaks/cover-editorial-v1.webp"
+thumbnailImage: "/assets/blog/what-happens-after-asx-short-interest-peaks/thumbnail-editorial-v1.webp"
+coverAlt: "An amber glazed ball balances on the sharp apex of a folded ivory card peak, with a long shallow slope to the left and a short steep face to the right, on a dark smoky-grey ground."
+date: "2026-10-22"
+category: analysis
+tags:
+  - short campaigns
+  - short interest peaks
+  - ASIC short data
+  - data study
+  - short covering
+  - S&P/ASX 200
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben-ebsworth.jpg"
+ogImage:
+  url: "/assets/blog/what-happens-after-asx-short-interest-peaks/cover-editorial-v1.webp"
+---
+
+# What happens after short interest peaks on the ASX
+
+Six months after an ASX stock's reported short interest peaked, its share price had trailed the S&P/ASX 200 total return index slightly more often than it beat it: in 52.3% of the 86 campaigns old enough to measure. Start the clock on the day ASIC published that peak, four business days later, and 64.7% trailed.
+
+The gap between those two figures is the first finding: a peak can only be identified in hindsight, the public sees it four business days late, and the price moves in between. What follows is how the sample was built, what prices did on both clocks, how long the positions took to build and unwind, and what the method cannot tell you. It describes what happened. It is not a trading rule, and a lower share price is not a short seller's profit.
+
+The data is frozen at 21 October 2026: ASIC short positions to 15 October 2026 (published 21 October) and closing prices to 20 October 2026.
+
+## What counts as a peak
+
+Short sellers report positions above a threshold to ASIC, which publishes the total for each stock, without the sellers' names, four business days after the position date ([ASIC INFO 98](https://asic.gov.au/regulatory-resources/markets/short-selling/short-selling-reporting-short-position-reporting/)). The figure Shorted shows is that total as a percentage of the shares on issue.
+
+Shorted's campaign table, the one behind the Scoreboard tab on [Battlegrounds](/battlegrounds), takes each stock's single highest reported position over the trailing three years and keeps it when it reached 5% or more. That reading is the campaign's peak. The table refreshes daily; this study uses the version fetched on 21 October 2026.
+
+Two things follow. A peak is chosen with hindsight: nobody can know on the day that a reading will be the highest of three years. And every later report is lower by construction, so the peak is the last report before the reported percentage falls. The question is narrow: after the reported position peaked, what did the share price do against the market, and how long did the position take to unwind?
+
+## From 255 rows to 155 campaigns
+
+<Steps title="From 255 rows to 155 campaigns">
+
+1. Start with the campaign table
+
+   255 rows, each a stock's highest reported short position between 23 October 2023 and 15 October 2026, kept when it reached 5% or more.
+
+2. Keep company shares
+
+   174 rows with a three-character ASX code and a company name: ordinary shares and stapled securities. This drops ETFs, bonds, hybrids and other listed products.
+
+3. Remove what the percentage cannot compare
+
+   Eight depositary-interest (CDI) lines, four stocks whose price stood still inside a window and seven short-lived spikes. That leaves 155 campaigns.
+
+4. Measure the share price on two clocks
+
+   The dividend-adjusted close three and six calendar months after the peak date, and again from ASIC's publication date, taken as the fourth weekday after the peak. Each is compared with the S&P/ASX 200 Gross Total Return index (XJT) over the same sessions.
+
+5. Time the build and the unwind
+
+   On the daily ASIC series: the build runs from the last report at or below half the peak to the peak, and the unwind from the peak to the first report at or below half of it.
+
+</Steps>
+
+**Depositary interests.** Eight rows are CHESS Depositary Interests (CDIs), the form in which some foreign companies' shares trade on the ASX: Capstone Copper, James Hardie, Adriatic Metals, Energy Fuels, SSR Mining, Glencore, Orezone Gold and Alcoa. On these lines the percentage is measured against the CDIs on issue, which can be a small and moving share of the company. Capstone Copper's 66.49% on 19 April 2024, the first day its line appears in the series, was 1,531,800 CDIs short of 2,303,635 on issue. By 15 October 2026 the same line counted 209,886,525 CDIs, against [763,949,339 Capstone shares outstanding](https://capstonecopper.com/investors/stock-information/) at 30 July 2026. [Glencore's CDIs began trading](https://www.glencore.com/media-and-insights/news/glencore-begins-trading-on-asx) on 14 October 2026, and its 6.99% peak is from the next day. Alcoa's 5.57% peak came on 2 August 2024, [the day its CDIs began normal trading](https://www.sec.gov/Archives/edgar/data/1675149/000095010324011378/dp215750_ex9901.htm).
+
+**Prices that stood still.** Four stocks had more than ten sessions without a trade inside a measurement window: Corporate Travel Management, The Star Entertainment Group, Bellevue Gold and Solara Minerals. Corporate Travel Management last traded on 22 August 2025, at $16.07, and [returned to quotation on 3 September 2026](https://investorpa.com/announcement-pdf/20260902/337981.pdf), when it closed at $2.32. Measured from its 10.14% peak on 23 July 2025 (close $15.59), both its three-month and its six-month price are the frozen $16.07, a gain of 3.1%.
+
+**Short-lived spikes.** Seven peaks were more than 1.5 times both the median of the five reports before them and the median of up to five after (United Malt, which delisted, had four). Atomic Eagle's series reads 0.02% on 7 January 2026, 7.82% on 8 and 9 January, and 0.05% on 12 January. Beach Energy's went from 8.87% on 1 July 2026 to 14.59% on 2 July, then 8.59% the next day. Whatever produced readings like these, they are not positions that built up and unwound.
+
+Of the 155 campaigns, 107 can be measured three months after the peak and 86 six months after. From the publication date the counts are 106 and 85, because the windows for Firefly Metals and Telix Pharmaceuticals end after 20 October 2026.
+
+## What the share price did next
+
+The market mostly rose over these windows, so the comparison with it matters more than the raw price change. XJT was higher over 81 of the 86 six-month windows counted from the peak date and 80 of the 85 counted from publication, and over 84 of the 107 three-month windows from the peak date and 82 of the 106 from publication. A stock could rise and still trail it: over six months, four did on the peak-date clock and five on the publication clock.
+
+<GraphStat
+  title="155 ASX short campaigns, 23 October 2023 to 15 October 2026"
+  items='[
+    {"value":"52.3%","label":"trailed the S&P/ASX 200 total return six months after the peak date","hint":"86 campaigns old enough to measure","accent":true},
+    {"value":"64.7%","label":"trailed it six months after ASIC published the peak","hint":"85 campaigns; publication is four business days later","accent":true},
+    {"value":"62.5%","label":"of peaks had fallen back to half within six months","hint":"55 of 88 peaks at least six months old, in % of shares on issue"}
+  ]'
+/>
+
+<GraphTable title="Share prices after the peak against the S&P/ASX 200 total return (XJT), prices to 20 October 2026">
+
+| Window and clock | Campaigns | Share with a lower price | Median price change | Share that trailed XJT | Median vs XJT | Middle half vs XJT |
+| --- | --- | --- | --- | --- | --- | --- |
+| 3 months, from the peak date | 107 | 43.0% | +3.3% | 52.3% | -1.1 pts | -14.7 to +21.3 pts |
+| 3 months, from ASIC publication | 106 | 44.3% | +3.0% | 53.8% | -2.3 pts | -15.6 to +17.2 pts |
+| 6 months, from the peak date | 86 | 47.7% | +1.1% | 52.3% | -4.1 pts | -27.0 to +24.1 pts |
+| 6 months, from ASIC publication | 85 | 58.8% | -5.0% | 64.7% | -10.5 pts | -26.3 to +15.0 pts |
+
+</GraphTable>
+
+From the peak date, the median stock finished 1.1 points behind the index at three months and 4.1 points behind at six; from publication, 2.3 and 10.5 points behind. The spread dwarfs the medians. At six months the middle half of campaigns, from the first quartile to the third, runs from 27.0 points behind the index to 24.1 ahead on the peak-date clock, and from 26.3 behind to 15.0 ahead on the publication clock.
+
+## Four business days change the answer
+
+Between the peak date and ASIC's publication of it, the share price rose in 64 of the 107 campaigns measured at three months and fell in 39, with a median gain of 1.9%. Across all 147 campaigns with prices for those days, including peaks up to 14 October 2026, it rose in 82 and fell in 60, with a median gain of 0.7%. Either way, prices rose more often than they fell in the four business days after a peak, and a clock that starts at publication skips those days.
+
+[Boss Energy](/shorts/BOE) and [Paladin Energy](/shorts/PDN) show the effect at full size. Each rose about 17% between its peak and its publication: 16.6% for Boss after its 26.13% peak on 9 April 2025, and 16.7% for Paladin after its 18.80% peak on 20 August 2025. Over six months, Paladin gained 119.7% from the peak date and 80.3% from publication; Boss changed by -11.4% and -26.0%. For the 85 campaigns measurable at six months on both clocks, the share that trailed XJT rises from 52.9% to 64.7% when the clock moves four business days.
+
+<Callout type="warning" title="A peak is only visible afterwards">
+
+Every peak here was picked with hindsight, as the highest reading in up to three years of data, and the public saw it four business days late. Neither clock is a trading rule.
+
+A lower share price is not a short seller's profit either. The RBA describes the result of a short sale as the sale price, less the cost of borrowing the shares and the price paid to buy them back, and notes that the lender keeps the benefit of dividends ([RBA Bulletin, December 2014](https://www.rba.gov.au/publications/bulletin/2014/dec/5.html)). Short sellers also open and close at many different prices and dates. This study measures share prices, not anyone's returns.
+
+</Callout>
+
+## Same peak, opposite outcomes
+
+<GraphTable title="Same peak, opposite outcomes: six months after the peak, prices to 20 October 2026">
+
+| Stock | Peak | From the peak date | vs XJT | From ASIC publication | vs XJT | Short, 15 Oct 2026 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Deep Yellow (DYL) | 13.50%, 9 Apr 2025 | +156.1% | +132.4 pts | +155.0% | +137.3 pts | 9.69% |
+| Mineral Resources (MIN) | 15.37%, 13 Jun 2025 | +116.9% | +114.2 pts | +138.8% | +136.0 pts | 4.58% |
+| Paladin Energy (PDN) | 18.80%, 20 Aug 2025 | +119.7% | +116.3 pts | +80.3% | +75.9 pts | 12.09% |
+| Boss Energy (BOE) | 26.13%, 9 Apr 2025 | -11.4% | -35.0 pts | -26.0% | -43.7 pts | 14.68% |
+| PLS Group (PLS) | 22.50%, 8 Aug 2024 | -26.2% | -38.6 pts | -22.5% | -33.4 pts | 13.08% |
+| Domino's Pizza Enterprises (DMP) | 17.96%, 17 Dec 2025 | -27.5% | -33.6 pts | -24.7% | -26.2 pts | 11.89% |
+
+</GraphTable>
+
+Deep Yellow and Boss Energy, two uranium stocks, peaked on the same day. Three months later both were well ahead of the index: Deep Yellow up 106.4% and Boss up 64.1% from the peak date, or 86.8% and 41.5% from publication. At six months Deep Yellow was up 156.1% and Boss down 11.4% from the peak date, or up 155.0% and down 26.0% from publication. [Mineral Resources](/shorts/MIN) fell 7.7% between peak and publication, so its six-month gain is larger on the publication clock. [PLS](/shorts/PLS) and [Domino's](/shorts/DMP) trailed the index by 26.2 to 38.6 points on either clock.
+
+The right tail is largely one episode. On either clock, seven of the twelve largest six-month gains against the index came from uranium and lithium stocks whose positions peaked between April and August 2025: Deep Yellow, Paladin Energy and Silex Systems (uranium enrichment technology) in uranium; Mineral Resources (iron ore and lithium), Liontown, IGO and Ioneer in lithium. The left tail is more mixed. The largest fall followed G8 Education's 7.79% peak on 13 November 2025: -76.1% over six months from the peak date and -75.5% from publication.
+
+## How long campaigns take to build and unwind
+
+Positions took longer to build than to unwind. For the 92 peaks at least six months old, the median time from the last report at or below half the peak to the peak itself was 140.5 days, about four and a half months, with a middle half of 83.5 to 253 days. The position had been at 5% or more for a median of 74.5 days before it peaked.
+
+Of the 88 peaks at least six months old on lines with prices in Shorted's data, 77 had fallen back to half the peak or lower by 15 October 2026. The median time was 103 days among those 77, or 119.5 days (about four months) counting the 11 still above half as slower than any that halved. The 88 leave out four lines with no prices: Estia Health and Talon Energy peaked on their last report, and Boral and Tietto Minerals halved within 17 days. Counting those two would make it 57 of 90 within six months (63.3%).
+
+<GraphRank
+  title="Time from the peak back to half the peak, 88 peaks at least six months old"
+  items='[
+    {"label":"Within 30 days","value":19,"display":"19"},
+    {"label":"31 to 91 days","value":16,"display":"16"},
+    {"label":"92 to 182 days","value":20,"display":"20"},
+    {"label":"More than 182 days","value":22,"display":"22"},
+    {"label":"Still above half at 15 October 2026","value":11,"display":"11"}
+  ]'
+/>
+
+That is 19 (21.6%) halved within 30 days, 35 (39.8%) within three months and 55 (62.5%) within six. The 11 still above half, with days since the peak: Domino's Pizza Enterprises (302), DigiCo Infrastructure REIT (288), Flight Centre (252), Pinnacle Investment Management (244), IPH (234), Treasury Wine Estates and Catapult Sports (210 each), Nanosonics (209), Supply Network (197), Mesoblast (185) and Telix Pharmaceuticals (183). At their latest report, 21 of the 88 were below 1% short, 43 between 1% and 5%, and 24 still at 5% or more. For four lines, Insignia Financial, Johns Lyng, Platinum Asset Management and Sayona Mining, that report is from 2025 or April 2026, when their ASIC series end.
+
+## When the percentage falls but the position does not
+
+The unwind is measured in percentage terms, and a percentage has two parts. Across the 77 halvings, the number of shares reported short fell by a median of 52.0%, and by at least half in 63. In the other 14, more shares on issue did some of the work. Seven of the 77 came with at least 20% more shares on issue, and [Sigma Healthcare](/shorts/SIG) is the extreme case.
+
+<Callout type="note" title="When the percentage falls but the position does not">
+
+Sigma Healthcare's reported position fell from 6.34% on 11 February 2025 to 0.91% the next day, a halving in one report. The number of shares short rose, from 103,481,642 to 105,024,703. What changed was the denominator: ASIC's figures counted 1.63 billion shares on issue on 11 February and 11.54 billion on 12 February, as the merger with Chemist Warehouse took effect ([the new shares began trading on 13 February 2025](https://www.asx.com.au/blog/listed-at-asx/celebrating-the-merger-of-chemist-warehouse-and-sigma)). On 15 October 2026 Sigma's position was 5.30%, or 611,283,247 shares: nearly six times the count at its percentage peak.
+
+</Callout>
+
+## What this study cannot tell you
+
+- **One peak per stock.** The table keeps each stock's single highest reading, so a second campaign is invisible. Boss Energy fell back to half its April 2025 peak within 107 days and was back up to 14.68% on 15 October 2026; PLS halved within 111 days and was back up to 13.08%.
+- **Window edges.** The three years run back from the day the table refreshes, so a stock already heavily shorted in October 2023 enters with a peak in the window's first days. Genesis Minerals' 11.22% on 23 October 2023, the first trading day in the window, compares with 11.32% the trading day before; Tietto Minerals' 6.49% that day compares with 7.61% on 9 October 2023.
+- **Survivorship, in both directions.** Six campaigns are old enough to score but have no closing price at the end of a window in Shorted's price data. Two were acquisitions: [Estia Health, by Bain Capital](https://www.estiahealth.com.au/about-us/former-investors) under a scheme of arrangement in December 2023, and [Boral, by Seven Group Holdings](https://www.asxonline.com/public/notices/2024/june/0656.24.06.html) through a takeover bid in 2024. Shorted holds no prices for Tietto Minerals or Talon Energy, and its prices for Platinum Asset Management and Johns Lyng stop on 8 August 2025, although ASIC kept reporting both lines into October 2025; that leaves Platinum unscored and Johns Lyng scored at three months only. At the other end, the stale-price rule drops Corporate Travel Management and The Star, which stopped trading soon after their peaks, Corporate Travel for more than a year and The Star for six weeks. The missing outcomes point both ways, and the study cannot say which way they would tilt it.
+- **A small sample from one period.** 86 campaigns at six months, peaks from October 2023 to April 2026, and a middle half about 41 to 51 points wide, with a right tail that is largely one 2025 episode in uranium and lithium. The figures describe these campaigns; they do not project to the next ones.
+- **Prices, not positions.** Borrowing costs and the dividends a lender keeps are not modelled, and the windows are not any short seller's actual holding period.
+- **An approximate publication date.** The publication clock takes the fourth weekday after the peak. For nine peaks a public holiday fell within those four days, putting the fourth business day, and ASIC's publication, one or two business days later. Counting ASX trading days instead moves the three-month share that trailed from publication from 53.8% to 52.8%, the three-month median price change from +3.0% to +3.9% and its median against XJT from -2.3 to -2.1 points, and the six-month median against XJT from -10.5 to -9.3 points. No other share or median in the main table moves.
+- **Rules, not judgements.** Depositary-interest lines were found by company name and checked against company announcements. The name screen missed Alcoa's, which the spike test had removed anyway, so another CDI line under an ordinary-looking name could still be in the sample. The spike test needs at least one report after the peak, so it could not be applied to Estia and Talon, whose peak was their last report, or to the four peaks set on 15 October 2026. The eleven set between 9 and 14 October were tested on one to four later reports. None of these has a three- or six-month outcome.
+
+## Following live campaigns
+
+The Scoreboard tab on [Battlegrounds](/battlegrounds) runs a simpler test on the same campaign table. It scores every row that has a price at the end of the window, ETFs and bonds included (172 of the 255 rows at three months, 52 of them outside the 174 company lines, and 142 at six), compares closes not adjusted for dividends three and six months after the peak date with the close on or before it, and reports how often the price was lower: 40% of campaigns at three months and 43% at six on 21 October 2026. This study asks a different question of a narrower set: whether each of the 155 campaigns beat or trailed the index, on dividend-adjusted prices, from two start dates. On these campaigns the scoreboard's own test gives 43.9% and 48.8%, and the dividend-adjusted price was lower in 43.0% and 47.7% from the peak date (44.3% and 58.8% counted from ASIC publication). Neither figure is a short seller's result.
+
+For the campaigns running now, [the most shorted list](/top) ranks the latest reported positions, each stock page carries the full ASIC history (for example [Domino's](/shorts/DMP)), the [statistics page](/statistics) tracks short interest across the market, and the [data hub](/data) has every ASIC short position since 2010. The [crowded-short breakout](/picks/crowded-short-breakout) strategy starts from positions of 5% or more and also requires a breakout; a crowded position alone does not qualify.
+
+For the mechanics, see [how to read ASX short interest data](/blog/how-to-read-short-interest-data), [days to cover](/blog/days-to-cover-asx), [how short squeezes happen](/blog/short-squeeze-explained) and [how to find squeeze candidates](/blog/asx-short-squeeze-candidates). [Do short sellers know something?](/blog/do-short-sellers-know-something) reviews the academic evidence, and the [October 2026 short list](/blog/asx-stocks-under-fire-october-2026) has the current leaders.
+
+---
+
+*Method and sources: Shorted's campaign table, fetched 21 October 2026; ASIC daily aggregated short position reports to the position date 15 October 2026; daily closes adjusted for dividends and splits, to 20 October 2026; the S&P/ASX 200 Gross Total Return index (XJT). A price change runs from the close on or before the peak date (or the first session on or after the fourth weekday after it) to the first session on or after the same date three or six calendar months later. Differences from XJT are percentage points over the same sessions, with the index's daily closes aligned to ASX session dates. Medians and quartiles are across campaigns, unweighted.*
+
+_This content is for informational purposes only and does not constitute financial advice. It describes what share prices and reported positions did after past peaks; it does not say who held the positions or why, and it is not a forecast. Short-position figures are from ASIC's daily aggregate reports, published four business days after the position date. Always conduct your own research before making investment decisions._
