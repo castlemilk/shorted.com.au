@@ -1499,6 +1499,27 @@ jobs:
           curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
             "https://shorted.com.au/api/static-pages/warm-cache?mode=repair"
 
+      # Gate the release on smoke AFTER the actual promotion, not a parallel
+      # push workflow with a guessed sleep. Failure leaves the deployed release
+      # visible for investigation; it does not silently roll back production.
+      - name: Install production smoke browser
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify promoted production release
+        working-directory: web
+        timeout-minutes: 12
+        env:
+          BASE_URL: https://shorted.com.au
+          RELEASE_API_BASE_URL: https://api.shorted.com.au
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+        run: |
+          if [ -z "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
+            echo "::error::CLOUDFLARE_TESTING_BYPASS_SECRET is required for production smoke through Cloudflare"
+            exit 1
+          fi
+          node e2e/release-smoke-ci.mjs
+
       - name: Production Deployment Summary
         run: |
           echo "## 🚀 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
@@ -1535,6 +1556,9 @@ jobs:
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
+      - name: Verify production smoke ordering
+        run: node --test .github/workflows/production-smoke-order.test.mjs
 
       - name: Run housing workflow contract tests
         run: node --test .github/workflows/housing-lifecycle.test.mjs
@@ -1588,4 +1612,5 @@ jobs:
           echo "🧪 Running integration tests (local testcontainers)..."
           cd services
           make test-integration-ci
+
 
