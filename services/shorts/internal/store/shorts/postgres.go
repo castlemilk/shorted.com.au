@@ -3289,38 +3289,44 @@ func (s *postgresStore) GetAPISubscriptionByCustomer(stripeCustomerID string) (*
 	return &sub, nil
 }
 
+// upsertAPISubscriptionSQL writes a user's row from a read of Stripe. It runs on
+// routine events (renewals, the daily reconcile) as well as at checkout, so it must
+// never destroy what it did not write.
+//
+// Two things here are deliberate:
+//   - Nothing is deleted. Rows are keyed by user, but Stripe events name the
+//     customer, and UpdateAPISubscriptionByCustomer updates by customer.
+//     stripe_customer_id is UNIQUE, so a second user id on the same customer
+//     cannot get a row here: its insert fails with a unique violation, the error
+//     is returned, and the existing row is untouched. The DELETE this replaced
+//     resolved that clash silently, by removing the row a paying customer was
+//     using.
+//   - A NULL period means "not known here", not "none". The checkout write never
+//     carries a period, so the period columns keep the last known value until
+//     the update that follows lands the true one.
+const upsertAPISubscriptionSQL = `
+	INSERT INTO api_subscriptions (
+		user_id, user_email, stripe_customer_id, stripe_subscription_id,
+		status, tier, current_period_start, current_period_end, cancel_at_period_end
+	) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9)
+	ON CONFLICT (user_id) DO UPDATE SET
+		stripe_customer_id = EXCLUDED.stripe_customer_id,
+		stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+		status = EXCLUDED.status,
+		tier = EXCLUDED.tier,
+		current_period_start = COALESCE(EXCLUDED.current_period_start, api_subscriptions.current_period_start),
+		current_period_end = COALESCE(EXCLUDED.current_period_end, api_subscriptions.current_period_end),
+		cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+		updated_at = CURRENT_TIMESTAMP
+`
+
+// UpsertAPISubscription writes the subscription state of a user. See
+// upsertAPISubscriptionSQL for what it does, and what it deliberately does not do.
 func (s *postgresStore) UpsertAPISubscription(sub *APISubscription) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// First, delete any existing subscription with the same stripe_customer_id but different user_id.
-	// This handles the case where a customer ID was previously associated with a different user
-	// (e.g., during testing or account migration).
-	if sub.StripeCustomerID != "" {
-		deleteQuery := `
-			DELETE FROM api_subscriptions 
-			WHERE stripe_customer_id = $1 AND user_id != $2
-		`
-		_, _ = s.db.Exec(ctx, deleteQuery, sub.StripeCustomerID, sub.UserID)
-	}
-
-	query := `
-		INSERT INTO api_subscriptions (
-			user_id, user_email, stripe_customer_id, stripe_subscription_id,
-			status, tier, current_period_start, current_period_end, cancel_at_period_end
-		) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9)
-		ON CONFLICT (user_id) DO UPDATE SET
-			stripe_customer_id = EXCLUDED.stripe_customer_id,
-			stripe_subscription_id = EXCLUDED.stripe_subscription_id,
-			status = EXCLUDED.status,
-			tier = EXCLUDED.tier,
-			current_period_start = EXCLUDED.current_period_start,
-			current_period_end = EXCLUDED.current_period_end,
-			cancel_at_period_end = EXCLUDED.cancel_at_period_end,
-			updated_at = CURRENT_TIMESTAMP
-	`
-
-	_, err := s.db.Exec(ctx, query,
+	_, err := s.db.Exec(ctx, upsertAPISubscriptionSQL,
 		sub.UserID,
 		sub.UserEmail,
 		sub.StripeCustomerID,
@@ -3339,6 +3345,11 @@ func (s *postgresStore) UpsertAPISubscription(sub *APISubscription) error {
 	return nil
 }
 
+// UpdateAPISubscriptionByCustomer applies a Stripe event to the row of a customer.
+// The WHERE clause matches on stripe_customer_id, so it reaches every row of that
+// customer whatever user id it is keyed under. The schema makes that at most one
+// row, because stripe_customer_id is UNIQUE. A customer with no row is a no-op,
+// not an error (see the comment in the body).
 func (s *postgresStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *APISubscriptionUpdate) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
