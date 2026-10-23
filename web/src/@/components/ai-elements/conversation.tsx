@@ -16,6 +16,14 @@ import { cn } from "~/@/lib/utils";
 /** Within this many pixels of the end counts as the live edge. */
 const LIVE_EDGE_PX = 48;
 
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 interface StickToBottom {
   scrollerRef: RefObject<HTMLDivElement>;
   contentRef: RefObject<HTMLDivElement>;
@@ -69,7 +77,10 @@ function useStickToBottom(): StickToBottom {
     if (!scroller) return;
     followRef.current = true;
     if (typeof scroller.scrollTo === "function") {
-      scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+      scroller.scrollTo({
+        top: scroller.scrollHeight,
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
     } else {
       scroller.scrollTop = scroller.scrollHeight;
     }
