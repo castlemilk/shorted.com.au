@@ -23,9 +23,6 @@
   ],
   "fluid": true,
   "functions": {
-    "src/app/api/chat/route.ts": {
-      "maxDuration": 60
-    },
     "src/app/**/*": {
       "maxDuration": 15
     }
