@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 
@@ -17,6 +18,25 @@ type LLMClient struct {
 	model           string
 	maxOutputTokens int32
 	toolExecutor    *ToolExecutor
+}
+
+// turnError is what ChatStream returns when a turn fails. ModelReached says
+// whether Gemini answered at all. A request it refuses before any response is
+// not billed, so the send must not count against the caller's limits. A failure
+// after the first response did reach the model, and counts.
+type turnError struct {
+	ModelReached bool
+	err          error
+}
+
+func (e *turnError) Error() string { return e.err.Error() }
+
+func (e *turnError) Unwrap() error { return e.err }
+
+// modelAnswered reports whether a failed turn got as far as the model.
+func modelAnswered(err error) bool {
+	var te *turnError
+	return errors.As(err, &te) && te.ModelReached
 }
 
 // LLMResponse represents a response from the LLM.
@@ -171,6 +191,7 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 	var initialUsage GeminiUsage
 
 	// Consume the streaming response
+	modelReached := false
 	for {
 		resp, err := iter.Next()
 		if err == iterator.Done {
@@ -178,8 +199,9 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 		}
 		if err != nil {
 			recordGeminiRequest(ctx, lc.model, "initial", "error", initialUsage)
-			return nil, fmt.Errorf("stream next: %w", err)
+			return nil, &turnError{ModelReached: modelReached, err: fmt.Errorf("stream next: %w", err)}
 		}
+		modelReached = true
 		if usage := geminiUsageFromResponse(resp); usage.hasTokens() {
 			initialUsage = usage
 		}
@@ -263,7 +285,8 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 			}
 			if err != nil {
 				recordGeminiRequest(ctx, lc.model, "tool_response", "error", toolUsage)
-				return nil, fmt.Errorf("stream function response: %w", err)
+				// Tool rounds run only after the model has answered the first call.
+				return nil, &turnError{ModelReached: true, err: fmt.Errorf("stream function response: %w", err)}
 			}
 			if usage := geminiUsageFromResponse(resp); usage.hasTokens() {
 				toolUsage = usage

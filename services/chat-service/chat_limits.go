@@ -47,11 +47,15 @@ const (
 	usageOutcomeError    = "error"
 	usageOutcomeCanceled = "canceled"
 	usageOutcomeLimited  = "limited"
+	// usageOutcomeFailedBeforeModel is a turn that failed before the provider
+	// answered. Nothing was billed, so it does not count against the limits.
+	usageOutcomeFailedBeforeModel = "failed_before_model"
 )
 
 // countedOutcomesSQL lists the outcomes that count against every window: the
 // sends that are running or reached the model. It must match the four
-// outcomes above, which TestCountedOutcomesMatchConstants checks.
+// outcomes above, which TestCountedOutcomesMatchConstants checks. Refused and
+// failed-before-model rows are deliberately absent.
 const countedOutcomesSQL = "('pending', 'ok', 'error', 'canceled')"
 
 // chatLimitHeader carries the machine-readable limit on a ResourceExhausted
@@ -250,11 +254,17 @@ func completionTokens(usage GeminiUsage) (*int64, *int64) {
 	return &in, &out
 }
 
-// sendOutcome maps how a send's turn ended onto a ledger outcome.
-func sendOutcome(ctx context.Context, err error) string {
+// sendOutcome maps how a send's turn ended onto a ledger outcome. A turn that
+// never reached the model is not counted: a failure in the conversation writes,
+// or a request the provider refused before answering, costs nothing to count
+// as free. Once the model has answered, the send is counted whatever happens
+// after it.
+func sendOutcome(ctx context.Context, err error, reachedModel bool) string {
 	switch {
 	case err == nil:
 		return usageOutcomeOK
+	case !reachedModel:
+		return usageOutcomeFailedBeforeModel
 	case errors.Is(ctx.Err(), context.Canceled):
 		return usageOutcomeCanceled
 	default:

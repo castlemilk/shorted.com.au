@@ -8,8 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"connectrpc.com/connect"
+	"github.com/google/generative-ai-go/genai"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/api/option"
+
+	chatv1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/chat/v1"
 )
 
 // TestUsageLedgerAgainstPostgres runs the ledger SQL against a real database,
@@ -230,5 +235,134 @@ func TestParallelSendsCannotExceedTheMinuteLimit(t *testing.T) {
 
 	if n := admitted.Load(); n > limit {
 		t.Fatalf("admitted %d parallel sends, want at most %d", n, limit)
+	}
+}
+
+// TestPreModelFailureIsNotCounted runs a real send that fails in the conversation
+// write, before the model. The context stock code is longer than its column, so
+// CreateConversation fails in the database. The send must be recorded as failed
+// before the model, and must not count against the caller's limits afterwards.
+func TestPreModelFailureIsNotCounted(t *testing.T) {
+	dsn := os.Getenv("CHAT_LIMITS_TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("set CHAT_LIMITS_TEST_DATABASE_URL to run the ledger against Postgres")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("pgxpool.New() error = %v", err)
+	}
+	t.Cleanup(pool.Close)
+	store := NewConversationStore(pool)
+
+	user := "pre-model-test-" + uuid.NewString()
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_usage_events WHERE user_id = $1`, user)
+	})
+
+	// The model is never reached, so the client's SDK handle is never used.
+	handler := NewChatServiceHandler(store, &LLMClient{model: "gemini-test"}, nil)
+	client := newWireTestServer(t, handler)
+
+	req := connect.NewRequest(&chatv1.SendMessageRequest{
+		Message:          "what is short interest in ZIP?",
+		ContextStockCode: "THIS-CODE-IS-TOO-LONG", // > VARCHAR(10): the conversation insert fails
+	})
+	req.Header().Set("X-User-Id", user)
+	stream, err := client.SendMessage(ctx, req)
+	if err != nil {
+		t.Fatalf("SendMessage() error = %v", err)
+	}
+	for stream.Receive() {
+	}
+	if stream.Err() == nil {
+		t.Fatal("SendMessage() succeeded, want the conversation write to fail")
+	}
+
+	var outcome string
+	if err := pool.QueryRow(ctx,
+		`SELECT outcome FROM chat_usage_events WHERE user_id = $1`, user,
+	).Scan(&outcome); err != nil {
+		t.Fatalf("read the send's row: %v", err)
+	}
+	if outcome != usageOutcomeFailedBeforeModel {
+		t.Fatalf("outcome = %q, want %q", outcome, usageOutcomeFailedBeforeModel)
+	}
+
+	// The failed send must not count: the next admission sees only itself.
+	_, counts, err := store.AdmitSend(ctx, user)
+	if err != nil {
+		t.Fatalf("AdmitSend() error = %v", err)
+	}
+	if counts.UserMinute != 1 {
+		t.Fatalf("UserMinute = %d after a failed-before-model send, want 1 (the new send only)", counts.UserMinute)
+	}
+}
+
+// TestRefusedBeforeAnswerIsNotCounted runs a real send through a real Gemini
+// client whose endpoint refuses connections, so the provider never answers. The
+// send must be recorded as failed before the model, and must not count.
+func TestRefusedBeforeAnswerIsNotCounted(t *testing.T) {
+	dsn := os.Getenv("CHAT_LIMITS_TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("set CHAT_LIMITS_TEST_DATABASE_URL to run the ledger against Postgres")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("pgxpool.New() error = %v", err)
+	}
+	t.Cleanup(pool.Close)
+	store := NewConversationStore(pool)
+
+	// Port 1 refuses connections, so the first request fails before any response.
+	gemini, err := genai.NewClient(ctx,
+		option.WithAPIKey("test-key"),
+		option.WithEndpoint("http://127.0.0.1:1"),
+	)
+	if err != nil {
+		t.Fatalf("genai.NewClient() error = %v", err)
+	}
+	t.Cleanup(func() { _ = gemini.Close() })
+
+	user := "refused-test-" + uuid.NewString()
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_usage_events WHERE user_id = $1`, user)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_conversations WHERE user_id = $1`, user)
+	})
+
+	handler := NewChatServiceHandler(store, &LLMClient{client: gemini, model: "gemini-test"}, nil)
+	client := newWireTestServer(t, handler)
+
+	req := connect.NewRequest(&chatv1.SendMessageRequest{Message: "hello"})
+	req.Header().Set("X-User-Id", user)
+	stream, err := client.SendMessage(ctx, req)
+	if err != nil {
+		t.Fatalf("SendMessage() error = %v", err)
+	}
+	for stream.Receive() {
+	}
+	if stream.Err() == nil {
+		t.Fatal("SendMessage() succeeded, want the provider to refuse")
+	}
+
+	var outcome string
+	if err := pool.QueryRow(ctx,
+		`SELECT outcome FROM chat_usage_events WHERE user_id = $1`, user,
+	).Scan(&outcome); err != nil {
+		t.Fatalf("read the send's row: %v", err)
+	}
+	if outcome != usageOutcomeFailedBeforeModel {
+		t.Fatalf("outcome = %q, want %q", outcome, usageOutcomeFailedBeforeModel)
+	}
+	_, counts, err := store.AdmitSend(ctx, user)
+	if err != nil {
+		t.Fatalf("AdmitSend() error = %v", err)
+	}
+	if counts.UserMinute != 1 {
+		t.Fatalf("UserMinute = %d after a refused send, want 1 (the new send only)", counts.UserMinute)
 	}
 }

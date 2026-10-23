@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -376,14 +377,49 @@ func TestSendOutcomeMapsHowTheTurnEnded(t *testing.T) {
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if got := sendOutcome(context.Background(), nil); got != usageOutcomeOK {
-		t.Fatalf("nil error = %q, want ok", got)
+	cases := []struct {
+		name         string
+		ctx          context.Context
+		err          error
+		reachedModel bool
+		want         string
+	}{
+		{"completed", context.Background(), nil, true, usageOutcomeOK},
+		{"model error after it answered", context.Background(), errors.New("gemini 500"), true, usageOutcomeError},
+		{"client left after the model answered", canceled, errors.New("stream closed"), true, usageOutcomeCanceled},
+		// A turn that never reached the model is not counted, whatever the cause.
+		{"conversation write failed before the model", context.Background(), errors.New("insert failed"), false, usageOutcomeFailedBeforeModel},
+		{"provider refused before answering", context.Background(), errors.New("quota"), false, usageOutcomeFailedBeforeModel},
+		{"client left before the model answered", canceled, errors.New("stream closed"), false, usageOutcomeFailedBeforeModel},
 	}
-	if got := sendOutcome(canceled, errors.New("stream closed")); got != usageOutcomeCanceled {
-		t.Fatalf("canceled context = %q, want canceled", got)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := sendOutcome(tc.ctx, tc.err, tc.reachedModel); got != tc.want {
+				t.Fatalf("sendOutcome() = %q, want %q", got, tc.want)
+			}
+		})
 	}
-	if got := sendOutcome(context.Background(), errors.New("gemini 500")); got != usageOutcomeError {
-		t.Fatalf("model error = %q, want error", got)
+}
+
+func TestFailedBeforeModelIsNotACountedOutcome(t *testing.T) {
+	if strings.Contains(countedOutcomesSQL, usageOutcomeFailedBeforeModel) {
+		t.Fatalf("countedOutcomesSQL = %s, must not count %q", countedOutcomesSQL, usageOutcomeFailedBeforeModel)
+	}
+}
+
+func TestModelAnsweredOnlyForTurnsThatReachedTheProvider(t *testing.T) {
+	cause := errors.New("connection refused")
+	if modelAnswered(&turnError{ModelReached: false, err: cause}) {
+		t.Fatal("a refusal before any response must not read as the model answering")
+	}
+	if !modelAnswered(&turnError{ModelReached: true, err: cause}) {
+		t.Fatal("a failure after a response must read as the model answering")
+	}
+	if !modelAnswered(fmt.Errorf("wrapped: %w", &turnError{ModelReached: true, err: cause})) {
+		t.Fatal("a wrapped turn error must still be recognised")
+	}
+	if modelAnswered(cause) || modelAnswered(nil) {
+		t.Fatal("an error that is not a turn error must not read as the model answering")
 	}
 }
 

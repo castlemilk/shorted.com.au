@@ -187,8 +187,11 @@ func (h *ChatServiceHandler) SendMessage(
 		return err
 	}
 	completion := sendCompletion{Model: h.llmClient.model}
+	// reachedModel is set once the provider has answered. Until then a failure
+	// is a failure before the model, and does not count against the limits.
+	reachedModel := false
 	defer func() {
-		completion.Outcome = sendOutcome(ctx, retErr)
+		completion.Outcome = sendOutcome(ctx, retErr, reachedModel)
 		turn.finish(ctx, completion)
 	}()
 
@@ -239,6 +242,7 @@ func (h *ChatServiceHandler) SendMessage(
 	}
 
 	llmResp, err := h.llmClient.ChatStream(ctx, systemPrompt, history, msg.Message, onChunk)
+	reachedModel = err == nil || modelAnswered(err)
 	if err != nil {
 		log.Printf("LLM error: %v", err)
 		recordChatExperienceEvent("send_message", "error", "llm_error")
