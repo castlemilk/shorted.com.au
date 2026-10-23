@@ -18,11 +18,14 @@ export function useSubscription(): UseSubscriptionResult {
   const { data: subscription = null, isLoading: queryLoading } = useQuery<SubscriptionInfo | null>({
     queryKey: ["subscription", session?.user?.id],
     queryFn: async () => {
-      try {
-        return await getSubscriptionStatus();
-      } catch {
-        return null;
+      const info = await getSubscriptionStatus();
+      // A failed lookup is not an answer. Throwing keeps it out of the cache as
+      // a success, so the next mount or retry asks again instead of holding
+      // "free" for the whole staleTime. Any earlier good answer is kept.
+      if (info.lookupFailed) {
+        throw new Error("Subscription lookup failed");
       }
+      return info;
     },
     enabled: authStatus !== "loading" && !!session?.user,
     staleTime: 5 * 60 * 1000,

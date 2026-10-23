@@ -50,6 +50,13 @@ export interface SubscriptionInfo {
   features: readonly string[];
   requestsPerDay: number;
   stripeCustomerId?: string;
+  /**
+   * True when the backend could not be asked (transport or backend error). The
+   * answer is then unknown, not "free": a paying user must not be told they are
+   * not Premium because of a blip. Absent or false on every real answer,
+   * including a genuine "no subscription".
+   */
+  lookupFailed?: boolean;
 }
 
 /**
@@ -164,7 +171,8 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       stripeCustomerId: response.stripeCustomerId || undefined,
     };
   } catch (error) {
-    // Fall back to free tier on error
+    // Fall back to free tier on error, but say so: the caller must not treat
+    // this as a confirmed "no subscription".
     return {
       status: "inactive",
       tier: "free",
@@ -175,6 +183,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       cancelAtPeriodEnd: false,
       features: SUBSCRIPTION_TIERS.free.features,
       requestsPerDay: SUBSCRIPTION_TIERS.free.requestsPerDay,
+      lookupFailed: true,
     };
   }
 }
@@ -201,10 +210,12 @@ export async function createCheckoutSession(
       body: JSON.stringify({ tier }),
     });
 
-    const data = await response.json() as { url?: string; error?: string };
+    // `message` is the readable text (the 409 "already subscribed" case);
+    // `error` is the machine code and is only a fallback.
+    const data = await response.json() as { url?: string; error?: string; message?: string };
 
     if (!response.ok) {
-      return { url: null, error: data.error ?? "Failed to create checkout session" };
+      return { url: null, error: data.message ?? data.error ?? "Failed to create checkout session" };
     }
 
     return { url: data.url ?? null };

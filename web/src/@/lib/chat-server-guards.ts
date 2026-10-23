@@ -88,6 +88,26 @@ export async function authorizeChatRequest(
     return { ok: false, response: premiumRequiredResponse() };
   }
 
+  // A failed lookup is not evidence the user is free. Answering 403 here told
+  // paying customers they were not Premium during a backend blip, so say the
+  // service is unavailable and let the client retry.
+  if (subscription.lookupFailed) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: "Chat unavailable",
+          code: "unavailable",
+          message: "Chat is temporarily unavailable. Please try again shortly.",
+        },
+        {
+          status: 503,
+          headers: { "Retry-After": "30" },
+        },
+      ),
+    };
+  }
+
   if (!hasValidChatEntitlement(subscription)) {
     return { ok: false, response: premiumRequiredResponse() };
   }
