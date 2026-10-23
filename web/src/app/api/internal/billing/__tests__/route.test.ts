@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { POST } from "../route";
+import { POST, maxDuration } from "../route";
 import { stripe } from "~/lib/stripe";
 
 jest.mock("~/lib/stripe", () => ({
@@ -378,3 +378,104 @@ describe("POST /api/internal/billing", () => {
     expect(result.body).toEqual({ error: "lookup failed" });
   });
 });
+
+describe("customer email lookup", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...originalEnv, INTERNAL_SERVICE_SECRET: "internal-secret", STRIPE_PREMIUM_PRICE_ID: "price_premium" };
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [], has_more: false });
+    stripeMock.invoices.list.mockResolvedValue({ data: [] });
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  /** Stripe's filter is case-sensitive: each address matches only its own spelling. */
+  function customersStoredAs(stored: Record<string, Array<{ id: string; created: number }>>) {
+    stripeMock.customers.list.mockImplementation(async (params: { email: string }) => ({
+      data: stored[params.email] ?? [],
+    }));
+  }
+
+  it("searches the address as given, once, when it is already lowercase", async () => {
+    stripeMock.customers.list.mockResolvedValue({ data: [PII_CUSTOMER] });
+
+    const result = await call({ action: "customer", email: "jane@example.test" });
+
+    expect(result.body).toMatchObject({ customer: { id: "cus_1" } });
+    expect(stripeMock.customers.list).toHaveBeenCalledTimes(1);
+    expect(stripeMock.customers.list).toHaveBeenCalledWith({
+      email: "jane@example.test",
+      limit: 3,
+    });
+  });
+
+  it("finds a customer stored in lowercase when the address is typed in mixed case", async () => {
+    customersStoredAs({ "jane@example.test": [{ id: "cus_1", created: CREATED }] });
+
+    const result = await call({ action: "customer", email: "Jane@Example.test" });
+
+    expect(stripeMock.customers.list.mock.calls.map(([params]) => params.email)).toEqual([
+      "Jane@Example.test",
+      "jane@example.test",
+    ]);
+    expect(result.body).toMatchObject({ customer: { id: "cus_1" } });
+  });
+
+  it("reports two customers that differ only by case as ambiguous, without choosing one", async () => {
+    customersStoredAs({
+      "Jane@Example.test": [{ id: "cus_mixed", created: CREATED }],
+      "jane@example.test": [{ id: "cus_lower", created: CREATED }],
+    });
+
+    const result = await call({ action: "customer", email: "Jane@Example.test" });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({
+      customer: null,
+      subscriptions: [],
+      latestInvoice: null,
+      ambiguous: true,
+      customerIds: ["cus_mixed", "cus_lower"],
+    });
+    expect(stripeMock.subscriptions.list).not.toHaveBeenCalled();
+  });
+
+  it("counts a customer that both searches return once, so it is not reported as ambiguous", async () => {
+    stripeMock.customers.list.mockResolvedValue({ data: [PII_CUSTOMER] });
+
+    const result = await call({ action: "customer", email: "Jane@Example.test" });
+
+    expect(stripeMock.customers.list).toHaveBeenCalledTimes(2);
+    expect(result.body).toMatchObject({ customer: { id: "cus_1" } });
+    expect(result.body).not.toHaveProperty("ambiguous");
+  });
+
+  it("returns no customer when neither spelling matches", async () => {
+    customersStoredAs({});
+
+    const result = await call({ action: "customer", email: "Nobody@Example.test" });
+
+    expect(result.body).toEqual({ customer: null, subscriptions: [], latestInvoice: null });
+  });
+
+  it("keeps the amount null when the price has no unit amount", async () => {
+    stripeMock.customers.list.mockResolvedValue({ data: [PII_CUSTOMER] });
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [{ ...SUBSCRIPTION, items: { data: [{ ...SUBSCRIPTION.items.data[0], price: { id: "price_premium", unit_amount: null, currency: "aud", recurring: { interval: "month" } } }] } }],
+      has_more: false,
+    });
+
+    const result = await call({ action: "customer", email: "jane@example.test" });
+
+    expect(result.body).toMatchObject({ subscriptions: [{ amount: null }] });
+  });
+
+  it("carries its own 30 second budget, above the Go caller's 20 second timeout", () => {
+    expect(maxDuration).toBe(30);
+  });
+});
+
