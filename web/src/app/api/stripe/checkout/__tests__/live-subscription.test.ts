@@ -200,17 +200,28 @@ describe("POST /api/stripe/checkout with an existing subscription", () => {
       expect(stripeMock.subscriptions.list).toHaveBeenCalledTimes(1);
     });
 
-    it("fails closed with 503 when the mirror cannot be read, and creates no session", async () => {
+    it("falls back to the Stripe customer check when the mirror cannot be read", async () => {
       mirrorMock.mockResolvedValue({ ...NO_MIRROR_SUBSCRIPTION, lookupFailed: true });
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
 
       const response = await send(request({ tier: "premium" }));
 
-      expect(response.status).toBe(503);
-      expect(response.headers.get("Retry-After")).toBe("30");
-      await expect(response.json()).resolves.toMatchObject({
-        error: "Subscription check unavailable",
-      });
+      expect(response.status).toBe(200);
+      expect(stripeMock.checkout.sessions.create).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
+    });
+
+    it("still refuses when the mirror cannot be read but the email's customer pays", async () => {
+      mirrorMock.mockResolvedValue({ ...NO_MIRROR_SUBSCRIPTION, lookupFailed: true });
+      stripeMock.customers.list.mockResolvedValue({ data: [{ id: "cus_email" }] });
+      stripeMock.subscriptions.list.mockResolvedValue({ data: [{ id: "sub_live", status: "active" }] });
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+
+      const response = await send(request({ tier: "premium" }));
+
+      expect(response.status).toBe(409);
       expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
+      warn.mockRestore();
     });
   });
 

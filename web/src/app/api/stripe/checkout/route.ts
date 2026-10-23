@@ -122,27 +122,19 @@ export async function POST(request: NextRequest) {
     // catches a customer whose Stripe email differs from the session email.
     const mirror = await getSubscriptionStatus();
     if (mirror.lookupFailed) {
-      // Fail closed. Without the mirror we cannot rule out a second live
-      // subscription, and a second charge needs a refund. A retry is cheap.
-      recordProductEvent({
-        feature: "payment",
-        action: "checkout_create",
-        status: "error",
-        properties: { tier, error_type: "subscription_lookup_failed" },
-      });
-      return NextResponse.json(
-        {
-          error: "Subscription check unavailable",
-          message:
-            "We could not confirm your subscription status. Please try again shortly.",
-        },
-        { status: 503, headers: { "Retry-After": "30" } }
+      // Continue with the Stripe-side check alone. The email-matched customer
+      // above already catches almost every second subscription; the mirror only
+      // adds a customer whose Stripe email differs from the session email.
+      // Refusing here would turn every billing-backend blip into lost sales from
+      // new customers, which is the more common and costlier failure.
+      console.warn(
+        "[checkout] subscription mirror unavailable; checking Stripe customer only",
       );
     }
 
     const existingCustomerIds = [
       ...new Set(
-        [customerId, mirror.stripeCustomerId].filter(
+        [customerId, mirror.lookupFailed ? undefined : mirror.stripeCustomerId].filter(
           (id): id is string => Boolean(id)
         )
       ),
