@@ -1,12 +1,7 @@
 "use client";
 
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
-import { mermaid } from "@streamdown/mermaid";
-import type { ComponentProps, HTMLAttributes } from "react";
-import { createContext, memo, useContext } from "react";
-import { Streamdown } from "streamdown";
+import type { HTMLAttributes } from "react";
+import { createContext, useContext } from "react";
 import { cn } from "~/@/lib/utils";
 
 export type MessageRole = "user" | "assistant";
@@ -52,25 +47,3 @@ export const MessageContent = ({
     />
   );
 };
-
-export type MessageResponseProps = ComponentProps<typeof Streamdown>;
-
-const streamdownPlugins = { cjk, code, math, mermaid };
-
-export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-        className,
-      )}
-      plugins={streamdownPlugins}
-      {...props}
-    />
-  ),
-  (prevProps, nextProps) =>
-    prevProps.children === nextProps.children &&
-    nextProps.isAnimating === prevProps.isAnimating,
-);
-
-MessageResponse.displayName = "MessageResponse";
