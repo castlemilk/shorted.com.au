@@ -26,8 +26,8 @@ export const dynamic = "force-dynamic";
 // A tool-heavy turn runs several database-backed tool calls before its text
 // ends. The default 15s cut those off mid-stream. vercel.json's src/app/**
 // catch-all sets 15s for every route; this export raises this route to 60s.
-// scripts/verify-vercel-function-limits.mjs checks the built value, so removing
-// the export fails the build.
+// scripts/verify-vercel-function-limits.mjs checks the built value in the deploy
+// workflow, so removing the export fails the deploy.
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
