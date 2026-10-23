@@ -27,7 +27,8 @@ function prefersReducedMotion(): boolean {
 interface StickToBottom {
   scrollerRef: RefObject<HTMLDivElement>;
   contentRef: RefObject<HTMLDivElement>;
-  isAtBottom: boolean;
+  /** True while new content is followed, which is what hides the jump button. */
+  isFollowing: boolean;
   onScroll: () => void;
   scrollToBottom: () => void;
 }
@@ -55,21 +56,25 @@ function useStickToBottom(): StickToBottom {
   const contentRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(true);
   const lastTopRef = useRef(0);
-  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isFollowing, setIsFollowing] = useState(true);
 
   const onScroll = useCallback(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
     const distance =
       scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-    const atBottom = distance <= LIVE_EDGE_PX;
-    if (atBottom) {
-      followRef.current = true;
-    } else if (scroller.scrollTop < lastTopRef.current) {
+    const movedUp = scroller.scrollTop < lastTopRef.current;
+    if (movedUp && distance > 0) {
+      // The reader's own scroll up, even a few pixels inside the live-edge band.
+      // A trackpad's first frames must not be pulled back down by the next
+      // streamed line. A browser clamp after content shrinks lands exactly on
+      // the bottom (distance 0), so it is not a scroll up.
       followRef.current = false;
+    } else if (distance <= LIVE_EDGE_PX) {
+      followRef.current = true;
     }
     lastTopRef.current = scroller.scrollTop;
-    setIsAtBottom(atBottom);
+    setIsFollowing(followRef.current);
   }, []);
 
   const scrollToBottom = useCallback(() => {
@@ -84,7 +89,7 @@ function useStickToBottom(): StickToBottom {
     } else {
       scroller.scrollTop = scroller.scrollHeight;
     }
-    setIsAtBottom(true);
+    setIsFollowing(true);
   }, []);
 
   useEffect(() => {
@@ -105,7 +110,7 @@ function useStickToBottom(): StickToBottom {
     return () => observer.disconnect();
   }, []);
 
-  return { scrollerRef, contentRef, isAtBottom, onScroll, scrollToBottom };
+  return { scrollerRef, contentRef, isFollowing, onScroll, scrollToBottom };
 }
 
 export type ConversationProps = ComponentProps<"div">;
@@ -165,10 +170,10 @@ export function ConversationScrollButton({
   className,
   ...props
 }: Omit<ComponentProps<typeof Button>, "onClick">) {
-  const { isAtBottom, scrollToBottom } = useConversationContext(
+  const { isFollowing, scrollToBottom } = useConversationContext(
     "ConversationScrollButton",
   );
-  if (isAtBottom) return null;
+  if (isFollowing) return null;
   return (
     <Button
       type="button"

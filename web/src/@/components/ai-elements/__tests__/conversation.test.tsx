@@ -106,6 +106,20 @@ describe("Conversation stick-to-bottom", () => {
     expect(log.scrollTop).toBe(100);
   });
 
+  it("stops following on a few pixels of scroll up, and a streamed line does not pull the reader back", () => {
+    // A trackpad's first frames are a few pixels, well inside the live-edge band.
+    const log = renderThread();
+    setGeometry(log, { scrollHeight: 1000, clientHeight: 400, scrollTop: 600 });
+    fireEvent.scroll(log);
+
+    log.scrollTop = 595;
+    fireEvent.scroll(log);
+
+    expect(screen.getByRole("button", { name: "Jump to latest message" })).toBeInTheDocument();
+    growContent(log, 1100);
+    expect(log.scrollTop).toBe(595);
+  });
+
   it("jump to latest returns to the live edge and follows again", () => {
     const log = renderThread();
     setGeometry(log, { scrollHeight: 1000, clientHeight: 400, scrollTop: 600 });
