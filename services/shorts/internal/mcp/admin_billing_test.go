@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -161,5 +162,44 @@ func TestBillingToolsAreAnnotatedHonestly(t *testing.T) {
 	}
 	if readOnly["run_paid_probe"] {
 		t.Error("run_paid_probe is annotated read-only; it starts a probe run")
+	}
+}
+
+// Both billing tools publish the subscription_user_mismatch kind in their output
+// schema, so a client reading the tool list knows the finding exists. Read from the
+// tools the server lists, not from the Go struct.
+func TestBillingToolsPublishTheSubscriptionUserMismatchKind(t *testing.T) {
+	ctx := context.Background()
+	server := NewAdminServer(&fakePublisher{})
+	clientT, serverT := sdk.NewInMemoryTransports()
+	if _, err := server.Connect(ctx, serverT, nil); err != nil {
+		t.Fatal(err)
+	}
+	session, err := sdk.NewClient(&sdk.Implementation{Name: "t", Version: "1"}, nil).Connect(ctx, clientT, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = session.Close() }()
+	res, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"check_subscription", "list_billing_exceptions"} {
+		var found *sdk.Tool
+		for _, tool := range res.Tools {
+			if tool.Name == name {
+				found = tool
+			}
+		}
+		if found == nil {
+			t.Fatalf("%s is not listed", name)
+		}
+		raw, err := json.Marshal(found)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(raw), "subscription_user_mismatch") {
+			t.Errorf("%s does not publish the subscription_user_mismatch kind", name)
+		}
 	}
 }

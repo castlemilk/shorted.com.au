@@ -36,40 +36,42 @@ const (
 // Finding kinds. A kind's name is the contract the tools publish; the severity
 // order below decides how the lists are sorted.
 const (
-	kindPaidWithoutMirror     = "paid_without_mirror"
-	kindUnpaidWithoutMirror   = "unpaid_without_mirror"
-	kindEntitledWithoutStripe = "entitled_without_stripe"
-	kindStaleSubscriptionID   = "stale_subscription_id"
-	kindStatusMismatch        = "status_mismatch"
-	kindPeriodEndMismatch     = "period_end_mismatch"
-	kindCancelMismatch        = "cancel_mismatch"
-	kindMissingPeriodEnd      = "missing_period_end"
-	kindNullStatus            = "null_status"
-	kindPastDue               = "past_due"
-	kindPeriodEnded           = "period_ended"
-	kindUnpaidTier            = "unpaid_tier"
-	kindEmailKeyedUserID      = "email_keyed_user_id"
-	kindDuplicateEmail        = "duplicate_email"
+	kindPaidWithoutMirror        = "paid_without_mirror"
+	kindSubscriptionUserMismatch = "subscription_user_mismatch"
+	kindUnpaidWithoutMirror      = "unpaid_without_mirror"
+	kindEntitledWithoutStripe    = "entitled_without_stripe"
+	kindStaleSubscriptionID      = "stale_subscription_id"
+	kindStatusMismatch           = "status_mismatch"
+	kindPeriodEndMismatch        = "period_end_mismatch"
+	kindCancelMismatch           = "cancel_mismatch"
+	kindMissingPeriodEnd         = "missing_period_end"
+	kindNullStatus               = "null_status"
+	kindPastDue                  = "past_due"
+	kindPeriodEnded              = "period_ended"
+	kindUnpaidTier               = "unpaid_tier"
+	kindEmailKeyedUserID         = "email_keyed_user_id"
+	kindDuplicateEmail           = "duplicate_email"
 )
 
 // kindSeverity orders findings: money taken with no access first, then access with
 // no money, then the mirror's own state, then the tidy-ups. A stale subscription
 // id is low: the state it should describe is already right.
 var kindSeverity = map[string]int{
-	kindPaidWithoutMirror:     0,
-	kindEntitledWithoutStripe: 1,
-	kindUnpaidWithoutMirror:   2,
-	kindPeriodEnded:           3,
-	kindUnpaidTier:            4,
-	kindPastDue:               5,
-	kindNullStatus:            6,
-	kindStatusMismatch:        7,
-	kindPeriodEndMismatch:     8,
-	kindCancelMismatch:        9,
-	kindStaleSubscriptionID:   10,
-	kindMissingPeriodEnd:      11,
-	kindEmailKeyedUserID:      12,
-	kindDuplicateEmail:        13,
+	kindPaidWithoutMirror:        0,
+	kindSubscriptionUserMismatch: 1,
+	kindEntitledWithoutStripe:    2,
+	kindUnpaidWithoutMirror:      3,
+	kindPeriodEnded:              4,
+	kindUnpaidTier:               5,
+	kindPastDue:                  6,
+	kindNullStatus:               7,
+	kindStatusMismatch:           8,
+	kindPeriodEndMismatch:        9,
+	kindCancelMismatch:           10,
+	kindStaleSubscriptionID:      11,
+	kindMissingPeriodEnd:         12,
+	kindEmailKeyedUserID:         13,
+	kindDuplicateEmail:           14,
 }
 
 // liveRank is the web's preference order among live subscriptions (its LIVE_RANK).
@@ -285,6 +287,12 @@ func billingDrift(now time.Time, rows []shortsstore.BillingSubscription, views [
 			if isPaidStripe(best.Status) && !ent.Entitled {
 				add(kindPaidWithoutMirror, "the customer's "+normaliseRowValue(best.Status)+" subscription is live, but the row grants no paid access ("+ent.Reason+")")
 			}
+			// The payer Stripe recorded at checkout is not the user the row is keyed to:
+			// the subscription was stamped onto a stale row, or the account was recreated.
+			// The real payer then has no row, and the row's user gets the access.
+			if isLiveStripe(best.Status) && best.MetadataUserID != "" && best.MetadataUserID != row.UserID {
+				add(kindSubscriptionUserMismatch, subscriptionUserMismatchDetail(best.MetadataUserID, row.UserID))
+			}
 			if row.StripeSubscriptionID != best.ID {
 				if row.StripeSubscriptionID == "" {
 					add(kindStaleSubscriptionID, "the row names no subscription; the customer's current one is not recorded on it")
@@ -336,6 +344,13 @@ func sortFindings(findings []mcp.BillingDriftFinding) {
 	sort.SliceStable(findings, func(i, j int) bool {
 		return kindSeverity[findings[i].Kind] < kindSeverity[findings[j].Kind]
 	})
+}
+
+// subscriptionUserMismatchDetail names both user ids and nothing else. The
+// mismatch is a fact about two keys, so it carries no email or name.
+func subscriptionUserMismatchDetail(metadataUserID, rowUserID string) string {
+	return "Stripe's live subscription for this customer is recorded as belonging to user " +
+		strconv.Quote(metadataUserID) + ", but the mirror row for the customer is keyed to user " + strconv.Quote(rowUserID)
 }
 
 func periodLabel(t time.Time, ok bool) string {
@@ -397,7 +412,7 @@ func billingExceptions(in exceptionInput) exceptionResult {
 		res.Counts[kind] = 0
 	}
 	if in.AliveOK {
-		for _, kind := range []string{kindPaidWithoutMirror, kindUnpaidWithoutMirror, kindStaleSubscriptionID} {
+		for _, kind := range []string{kindPaidWithoutMirror, kindSubscriptionUserMismatch, kindUnpaidWithoutMirror, kindStaleSubscriptionID} {
 			res.Counts[kind] = 0
 		}
 		// A cut list cannot show that a customer has no live subscription.
@@ -453,6 +468,9 @@ func billingExceptions(in exceptionInput) exceptionResult {
 				continue
 			}
 			ent := billingVerdict(row.UserID, row, in.Now)
+			if isLiveStripe(b.Status) && b.MetadataUserID != "" && b.MetadataUserID != row.UserID {
+				add(kindSubscriptionUserMismatch, row.UserEmail, row.UserID, subscriptionUserMismatchDetail(b.MetadataUserID, row.UserID))
+			}
 			if isPaidStripe(b.Status) && !ent.Entitled {
 				add(kindPaidWithoutMirror, row.UserEmail, row.UserID, "Stripe says "+normaliseRowValue(b.Status)+" but the row grants no paid access ("+ent.Reason+")")
 			}

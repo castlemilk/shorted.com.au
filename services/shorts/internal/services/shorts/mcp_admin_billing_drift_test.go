@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -613,3 +614,208 @@ func TestBestAliveByCustomerRanksWithinACustomer(t *testing.T) {
 func ptrTime(t time.Time) *time.Time { return &t }
 
 func ptrInt64(v int64) *int64 { return &v }
+
+// withMetadata is a Stripe subscription that records the user id it was bought for.
+func withMetadata(s webSubscription, uid string) webSubscription {
+	s.MetadataUserID = uid
+	return s
+}
+
+// A live Stripe subscription recorded for one user, on a row keyed to another, is a
+// finding: the real payer has no row, and the row's user holds the access. Only a
+// live subscription counts, a blank id counts for nothing, and a recent row is left
+// out like any other.
+func TestSubscriptionUserMismatchInDrift(t *testing.T) {
+	periodEnd := billingNow.Add(20 * 24 * time.Hour)
+	cases := []struct {
+		name     string
+		rows     []shortsstore.BillingSubscription
+		views    []stripeCustomerView
+		stripeOK bool
+		want     []string
+	}{
+		{
+			name:     "a live subscription recorded for another user is a mismatch",
+			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-stale", "stale@example.com", "active")},
+			views:    []stripeCustomerView{stripeView("cus_uid-stale", withMetadata(stripeSub("sub_uid-stale", "active", periodEnd), "uid-new"))},
+			stripeOK: true,
+			want:     []string{kindSubscriptionUserMismatch},
+		},
+		{
+			name:     "a past-due live subscription recorded for another user is a mismatch",
+			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-stale", "stale@example.com", "past_due")},
+			views:    []stripeCustomerView{stripeView("cus_uid-stale", withMetadata(stripeSub("sub_uid-stale", "past_due", periodEnd), "uid-new"))},
+			stripeOK: true,
+			want:     []string{kindSubscriptionUserMismatch},
+		},
+		{
+			name:     "the same user on both sides is not a mismatch",
+			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-a", "a@example.com", "active")},
+			views:    []stripeCustomerView{stripeView("cus_uid-a", withMetadata(stripeSub("sub_uid-a", "active", periodEnd), "uid-a"))},
+			stripeOK: true,
+			want:     []string{},
+		},
+		{
+			name:     "a subscription with no recorded user is not a mismatch",
+			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-a", "a@example.com", "active")},
+			views:    []stripeCustomerView{stripeView("cus_uid-a", stripeSub("sub_uid-a", "active", periodEnd))},
+			stripeOK: true,
+			want:     []string{},
+		},
+		{
+			// Only a live subscription is the customer's answer. An ended one that names
+			// another user says nothing about who pays now.
+			name:     "an ended subscription recorded for another user is not a mismatch",
+			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-stale", "stale@example.com", "canceled")},
+			views:    []stripeCustomerView{stripeView("cus_uid-stale", withMetadata(stripeSub("sub_uid-stale", "canceled", periodEnd), "uid-new"))},
+			stripeOK: true,
+			want:     []string{},
+		},
+		{
+			name:     "a recent row is left out of the mismatch check",
+			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-stale", "stale@example.com", "active", withRecent(billingNow, 5*time.Minute))},
+			views:    []stripeCustomerView{stripeView("cus_uid-stale", withMetadata(stripeSub("sub_uid-stale", "active", periodEnd), "uid-new"))},
+			stripeOK: true,
+			want:     []string{},
+		},
+		{
+			name:     "Stripe unread: the mismatch is not checked",
+			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-stale", "stale@example.com", "active")},
+			views:    []stripeCustomerView{stripeView("cus_uid-stale", withMetadata(stripeSub("sub_uid-stale", "active", periodEnd), "uid-new"))},
+			stripeOK: false,
+			want:     []string{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			findings, _ := billingDrift(billingNow, tc.rows, tc.views, tc.stripeOK)
+			if got := kindsOf(findings); !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("kinds = %v, want %v; findings %+v", got, tc.want, findings)
+			}
+		})
+	}
+}
+
+// The mismatch is set against the customer's BEST live subscription, so a sibling
+// that was bought for someone else does not stand in for the one that is current.
+func TestSubscriptionUserMismatchUsesTheBestLiveSubscription(t *testing.T) {
+	periodEnd := billingNow.Add(20 * 24 * time.Hour)
+	old := billingNow.Add(-60 * 24 * time.Hour)
+	newest := billingNow.Add(-1 * 24 * time.Hour)
+	rows := []shortsstore.BillingSubscription{billingRow(billingNow, "uid-new", "new@example.com", "active")}
+	views := []stripeCustomerView{stripeView("cus_uid-new",
+		withMetadata(stripeSubCreated("sub_old", "active", periodEnd, old), "uid-retired"),
+		withMetadata(stripeSubCreated("sub_new", "active", periodEnd, newest), "uid-new"))}
+	findings, _ := billingDrift(billingNow, rows, views, true)
+	// The row names sub_uid-new, the customer's newest live subscription, which was
+	// bought by the row's own user. So no mismatch. Its id is an earlier one, which
+	// is a different finding and is allowed here.
+	for _, f := range findings {
+		if f.Kind == kindSubscriptionUserMismatch {
+			t.Fatalf("findings = %+v; the newest live subscription was bought by the row's own user", findings)
+		}
+	}
+}
+
+// The detail names both user ids and nothing else: no email, no name, no Stripe id.
+func TestSubscriptionUserMismatchDetailNamesTheTwoUserIDsOnly(t *testing.T) {
+	periodEnd := billingNow.Add(20 * 24 * time.Hour)
+	rows := []shortsstore.BillingSubscription{billingRow(billingNow, "uid-stale", "stale@example.com", "active")}
+	views := []stripeCustomerView{stripeView("cus_uid-stale", withMetadata(stripeSub("sub_uid-stale", "active", periodEnd), "uid-new"))}
+	findings, _ := billingDrift(billingNow, rows, views, true)
+	if len(findings) != 1 || findings[0].Kind != kindSubscriptionUserMismatch {
+		t.Fatalf("findings = %+v", findings)
+	}
+	detail := findings[0].Detail
+	if !strings.Contains(detail, `"uid-new"`) || !strings.Contains(detail, `"uid-stale"`) {
+		t.Fatalf("detail %q does not name both user ids", detail)
+	}
+	for _, leak := range []string{"@", "stale@example.com", "cus_", "sub_"} {
+		if strings.Contains(detail, leak) {
+			t.Fatalf("detail %q carries %q, which is not a user id", detail, leak)
+		}
+	}
+}
+
+// The severity of the new kind sits just below paid_without_mirror.
+func TestSubscriptionUserMismatchSeverityIsJustBelowPaidWithoutMirror(t *testing.T) {
+	if kindSeverity[kindSubscriptionUserMismatch] != kindSeverity[kindPaidWithoutMirror]+1 {
+		t.Fatalf("severity %d, want paid_without_mirror (%d) + 1", kindSeverity[kindSubscriptionUserMismatch], kindSeverity[kindPaidWithoutMirror])
+	}
+	if kindSeverity[kindEntitledWithoutStripe] <= kindSeverity[kindSubscriptionUserMismatch] {
+		t.Fatalf("entitled_without_stripe must rank below the mismatch")
+	}
+}
+
+// The sweep applies the same rule to the live list, keyed by customer.
+func TestSubscriptionUserMismatchInTheSweep(t *testing.T) {
+	now := billingNow
+	cases := []struct {
+		name  string
+		rows  []shortsstore.BillingSubscription
+		alive []webAliveSubscription
+		want  []string
+	}{
+		{
+			name:  "a live customer recorded for another user is a mismatch",
+			rows:  []shortsstore.BillingSubscription{billingRow(now, "uid-stale", "stale@example.com", "active", withCustomer("cus_X"), withSubID("sub_X"))},
+			alive: []webAliveSubscription{{CustomerID: "cus_X", SubscriptionID: "sub_X", Status: "active", Email: "new@example.com", MetadataUserID: "uid-new"}},
+			want:  []string{kindSubscriptionUserMismatch},
+		},
+		{
+			name:  "the same user on both sides is not a mismatch",
+			rows:  []shortsstore.BillingSubscription{billingRow(now, "uid-a", "a@example.com", "active", withCustomer("cus_A"), withSubID("sub_A"))},
+			alive: []webAliveSubscription{{CustomerID: "cus_A", SubscriptionID: "sub_A", Status: "active", MetadataUserID: "uid-a"}},
+			want:  []string{},
+		},
+		{
+			name:  "a live customer with no recorded user is not a mismatch",
+			rows:  []shortsstore.BillingSubscription{billingRow(now, "uid-a", "a@example.com", "active", withCustomer("cus_A"), withSubID("sub_A"))},
+			alive: []webAliveSubscription{{CustomerID: "cus_A", SubscriptionID: "sub_A", Status: "active"}},
+			want:  []string{},
+		},
+		{
+			name:  "a recent row is skipped, not reported",
+			rows:  []shortsstore.BillingSubscription{billingRow(now, "uid-stale", "stale@example.com", "active", withCustomer("cus_X"), withSubID("sub_X"), withRecent(now, 3*time.Minute))},
+			alive: []webAliveSubscription{{CustomerID: "cus_X", SubscriptionID: "sub_X", Status: "active", MetadataUserID: "uid-new"}},
+			want:  []string{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := billingExceptions(exceptionInput{Now: now, Rows: tc.rows, Alive: tc.alive, AliveOK: true})
+			var got []string
+			for _, f := range res.Findings {
+				got = append(got, f.Kind)
+			}
+			if got == nil {
+				got = []string{}
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("kinds = %v, want %v; findings %+v", got, tc.want, res.Findings)
+			}
+		})
+	}
+}
+
+// The sweep names both user ids in the detail, and the row it reports is the stale
+// one, since that is the row a reader must go and fix.
+func TestSubscriptionUserMismatchInTheSweepNamesBothIDsAndTheRow(t *testing.T) {
+	now := billingNow
+	rows := []shortsstore.BillingSubscription{billingRow(now, "uid-stale", "stale@example.com", "active", withCustomer("cus_X"), withSubID("sub_X"))}
+	alive := []webAliveSubscription{{CustomerID: "cus_X", SubscriptionID: "sub_X", Status: "active", Email: "new@example.com", MetadataUserID: "uid-new"}}
+	res := billingExceptions(exceptionInput{Now: now, Rows: rows, Alive: alive, AliveOK: true})
+	if len(res.Findings) != 1 {
+		t.Fatalf("findings = %+v", res.Findings)
+	}
+	f := res.Findings[0]
+	if f.UserID != "uid-stale" || f.Email != "stale@example.com" {
+		t.Fatalf("row = %+v, want the stale row the finding is about", f)
+	}
+	if !strings.Contains(f.Detail, `"uid-new"`) || !strings.Contains(f.Detail, `"uid-stale"`) || strings.Contains(f.Detail, "@") {
+		t.Fatalf("detail %q must name the two user ids and no email", f.Detail)
+	}
+	if res.Counts[kindSubscriptionUserMismatch] != 1 {
+		t.Fatalf("counts = %v", res.Counts)
+	}
+}

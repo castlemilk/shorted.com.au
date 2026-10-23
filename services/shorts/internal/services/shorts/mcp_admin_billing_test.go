@@ -840,3 +840,89 @@ func TestStripeAmountIsNullableAndOmittedWhenUnknown(t *testing.T) {
 		t.Fatalf("stripe JSON = %s, want amount present once, omitted for the unpriced subscription", raw)
 	}
 }
+
+// The scenario the mismatch exists for: the account that really pays is "uid-a",
+// but Stripe's live subscription on the customer was stamped onto a stale row keyed
+// to "uid-stale". The real payer has no row, so the subject's own entitlement is
+// no_subscription, and the stale row holds the customer. check_subscription must
+// say so. Before this kind it was silent: the row existed, and it was entitled.
+func TestCheckSubscriptionFindsASubscriptionRecordedForAnotherUser(t *testing.T) {
+	f := billingHealthyFixture()
+	f.store.rows[0].UserID = "uid-stale" // the row for the customer is keyed to a stale user
+	out, err := f.source(t).CheckSubscription(context.Background(), mcp.CheckSubscriptionInput{Email: "ada@example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Drift) != 1 || out.Drift[0].Kind != kindSubscriptionUserMismatch {
+		t.Fatalf("drift = %+v, want subscription_user_mismatch alone", out.Drift)
+	}
+	detail := out.Drift[0].Detail
+	if !strings.Contains(detail, `"uid-a"`) || !strings.Contains(detail, `"uid-stale"`) {
+		t.Fatalf("detail %q must name both user ids", detail)
+	}
+	if strings.Contains(detail, "@") || strings.Contains(detail, "cus_") || strings.Contains(detail, "sub_") {
+		t.Fatalf("detail %q carries an email or a Stripe id", detail)
+	}
+	// The subject is the paying account. It has no row, so it has no entitlement;
+	// the finding is what explains the paid subscription that the account cannot use.
+	if out.Entitlement == nil || out.Entitlement.Entitled || out.Entitlement.Reason != "no_subscription" {
+		t.Fatalf("entitlement = %+v, want the paying account to read no_subscription", out.Entitlement)
+	}
+}
+
+// The same case through list_billing_exceptions: the sweep reports the stale row as
+// the one to fix, with both user ids, and does not count it as paid without mirror.
+func TestBillingExceptionsReportsASubscriptionRecordedForAnotherUser(t *testing.T) {
+	f := billingHealthyFixture()
+	f.store.rows[0].UserID = "uid-stale"
+	// Stripe's live list carries the customer's live subscription, recorded for the
+	// paying account. Without it the sweep would read the customer as having none.
+	f.web.alive = webAliveList{Subscriptions: []webAliveSubscription{{
+		CustomerID: "cus_A", SubscriptionID: "sub_A", Status: "active", Tier: "premium",
+		Email: "ada@example.com", MetadataUserID: "uid-a",
+	}}}
+	src := f.source(t)
+	out, err := src.BillingExceptions(context.Background(), mcp.BillingExceptionsInput{Limit: 25})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := (*out.Counts)[kindSubscriptionUserMismatch]; got != 1 {
+		t.Fatalf("counts = %v, want one subscription_user_mismatch", *out.Counts)
+	}
+	if got := (*out.Counts)[kindPaidWithoutMirror]; got != 0 {
+		t.Fatalf("counts = %v: the customer has a row, so it is not paid without mirror", *out.Counts)
+	}
+	if len(out.Rows) != 1 || out.Rows[0].Kind != kindSubscriptionUserMismatch || out.Rows[0].UserID != "uid-stale" {
+		t.Fatalf("rows = %+v, want the stale row reported", out.Rows)
+	}
+	detail := out.Rows[0].Detail
+	if !strings.Contains(detail, `"uid-a"`) || !strings.Contains(detail, `"uid-stale"`) || strings.Contains(detail, "@") {
+		t.Fatalf("detail %q must name both user ids and no email", detail)
+	}
+}
+
+// Nothing is reported when the recorded user is the row's own user: the mismatch
+// must not fire on a healthy customer, or it would drown the real findings.
+func TestHealthyCustomerRaisesNoMismatch(t *testing.T) {
+	out, err := billingHealthyFixture().source(t).CheckSubscription(context.Background(), mcp.CheckSubscriptionInput{Email: "ada@example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range out.Drift {
+		if d.Kind == kindSubscriptionUserMismatch {
+			t.Fatalf("drift = %+v: a customer whose subscription names its own row raised a mismatch", out.Drift)
+		}
+	}
+	healthy := billingHealthyFixture()
+	healthy.web.alive = webAliveList{Subscriptions: []webAliveSubscription{{
+		CustomerID: "cus_A", SubscriptionID: "sub_A", Status: "active", Tier: "premium",
+		Email: "ada@example.com", MetadataUserID: "uid-a",
+	}}}
+	exc, err := healthy.source(t).BillingExceptions(context.Background(), mcp.BillingExceptionsInput{Limit: 25})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := (*exc.Counts)[kindSubscriptionUserMismatch]; !ok || got != 0 {
+		t.Fatalf("counts = %v: the kind must be checked and zero for a healthy customer", *exc.Counts)
+	}
+}

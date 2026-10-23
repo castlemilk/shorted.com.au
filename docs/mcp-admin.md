@@ -126,6 +126,12 @@ for match what they can use, and do the paid features work right now?
     no access.
   - `unpaid_without_mirror`: a past-due or unpaid customer with no row. Owed
     money, not access.
+  - `subscription_user_mismatch`: the customer's best live subscription was
+    bought for one user id (Stripe's `metadataUserId`), and the one row that holds
+    the customer is keyed to another. The real payer has no row, and the row's user
+    holds the access. This is the case of an account deleted and recreated, or a
+    subscription stamped onto a stale row during a deploy. The detail names both
+    user ids and nothing else.
   - `entitled_without_stripe`: access with no live subscription behind it.
   - `stale_subscription_id`: low severity. The row does not name the customer's
     current subscription, though its state can already be right.

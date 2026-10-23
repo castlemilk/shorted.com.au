@@ -136,7 +136,7 @@ type BillingStripeInvoice struct {
 // BillingDriftFinding is one disagreement between the mirror and Stripe, or one
 // inconsistency inside the mirror.
 type BillingDriftFinding struct {
-	Kind   string `json:"kind" jsonschema:"paid_without_mirror | unpaid_without_mirror | entitled_without_stripe | stale_subscription_id | status_mismatch | period_end_mismatch | cancel_mismatch | missing_period_end | null_status | duplicate_email | email_keyed_user_id. Severity order is the array order."`
+	Kind   string `json:"kind" jsonschema:"paid_without_mirror | subscription_user_mismatch | unpaid_without_mirror | entitled_without_stripe | stale_subscription_id | status_mismatch | period_end_mismatch | cancel_mismatch | missing_period_end | null_status | duplicate_email | email_keyed_user_id. Severity order is the array order."`
 	Detail string `json:"detail"`
 }
 
@@ -192,7 +192,7 @@ type BillingExceptionCounts map[string]int
 
 // BillingExceptionRow is one finding.
 type BillingExceptionRow struct {
-	Kind   string `json:"kind" jsonschema:"paid_without_mirror | unpaid_without_mirror | entitled_without_stripe | stale_subscription_id | period_ended | unpaid_tier | past_due | null_status | missing_period_end | email_keyed_user_id | duplicate_email."`
+	Kind   string `json:"kind" jsonschema:"paid_without_mirror | subscription_user_mismatch | unpaid_without_mirror | entitled_without_stripe | stale_subscription_id | period_ended | unpaid_tier | past_due | null_status | missing_period_end | email_keyed_user_id | duplicate_email."`
 	Email  string `json:"email,omitempty"`
 	UserID string `json:"userId,omitempty"`
 	Detail string `json:"detail"`
