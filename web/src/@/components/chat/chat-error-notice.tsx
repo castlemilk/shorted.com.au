@@ -10,6 +10,12 @@ interface ChatErrorNoticeProps {
   error: ChatErrorInfo;
   /** Offered for `unavailable` only: a limit or a sign-in is not fixed by asking again. */
   onRetry?: () => void;
+  /**
+   * Offered for `invalid_request` while a conversation is open: a refused send
+   * there is a conversation the service no longer has, and asking again with
+   * the same id cannot work. A new chat is the way on.
+   */
+  onNewChat?: () => void;
 }
 
 /**
@@ -17,7 +23,7 @@ interface ChatErrorNoticeProps {
  * contract is never rendered: the copy is built from the error's code and
  * fields in `chatErrorCopy`.
  */
-export function ChatErrorNotice({ error, onRetry }: ChatErrorNoticeProps) {
+export function ChatErrorNotice({ error, onRetry, onNewChat }: ChatErrorNoticeProps) {
   const pathname = usePathname() ?? "/chat";
   const copy = chatErrorCopy(error);
 
@@ -52,6 +58,17 @@ export function ChatErrorNotice({ error, onRetry }: ChatErrorNoticeProps) {
           onClick={onRetry}
         >
           Try again
+        </Button>
+      )}
+      {error.code === "invalid_request" && onNewChat && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={onNewChat}
+        >
+          Start a new chat
         </Button>
       )}
     </div>

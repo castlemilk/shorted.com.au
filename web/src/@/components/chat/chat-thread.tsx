@@ -33,6 +33,8 @@ interface ChatThreadProps {
   error: ChatErrorInfo | null;
   historyError: string | null;
   onRetry: () => void;
+  /** Offered for a refused send while a conversation is open. See ChatErrorNotice. */
+  onNewChat?: () => void;
   onSuggest: (question: string) => void;
   stockCode?: string;
   variant: "page" | "sheet";
@@ -50,6 +52,7 @@ export function ChatThread({
   error,
   historyError,
   onRetry,
+  onNewChat,
   onSuggest,
   stockCode,
   variant,
@@ -100,6 +103,7 @@ export function ChatThread({
           <ChatErrorNotice
             error={error}
             onRetry={error.code === "unavailable" ? onRetry : undefined}
+            onNewChat={onNewChat}
           />
         )}
 

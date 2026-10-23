@@ -166,6 +166,7 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
                 error={error}
                 historyError={historyError}
                 onRetry={() => void retry()}
+                onNewChat={conversationId ? handleNewChat : undefined}
                 onSuggest={(question) => void sendMessage(question)}
                 stockCode={stockCode}
                 variant="sheet"

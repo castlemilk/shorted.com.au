@@ -229,6 +229,18 @@ describe("chat-server-guards", () => {
       });
     });
 
+    it("says a conversation the service cannot find is no longer available, not a bad request", () => {
+      expect(chatErrorFromUpstreamError(connectLike(5, "conversation not found"))).toEqual({
+        error: "Conversation not found",
+        code: "invalid_request",
+        message: "This conversation is no longer available. Start a new chat.",
+      });
+      expect(chatErrorFromUpstreamError(connectLike(7, "conversation not found"))).toMatchObject({
+        code: "invalid_request",
+        message: "This conversation is no longer available. Start a new chat.",
+      });
+    });
+
     it.each([
       ["internal", 13],
       ["unavailable", 14],

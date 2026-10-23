@@ -542,7 +542,23 @@ export function chatErrorFromUpstreamError(error: unknown): ChatErrorBody {
       parseChatLimitDetail(metadataGet(error, CHAT_LIMIT_HEADER)),
     );
   }
+  if (code === CONNECT_NOT_FOUND || code === CONNECT_PERMISSION_DENIED) {
+    return conversationUnavailableBody();
+  }
   return contractBody(contractCodeForConnectCode(code));
+}
+
+/**
+ * The conversation id the client sent is one it cannot use: deleted, or not the
+ * caller's. Sent as its own copy, so the client can offer a new chat instead of
+ * repeating the same refused id on every send.
+ */
+function conversationUnavailableBody(): ChatErrorBody {
+  return chatErrorBody(
+    "invalid_request",
+    "Conversation not found",
+    "This conversation is no longer available. Start a new chat.",
+  );
 }
 
 /**
@@ -555,16 +571,16 @@ export async function chatErrorResponseFromUpstream(
   upstream: Response,
 ): Promise<NextResponse> {
   const text = await upstream.text().catch(() => "");
-  const code = contractCodeForConnectName(
-    connectNameFrom(text),
-    upstream.status,
-  );
+  const name = connectNameFrom(text);
+  const code = contractCodeForConnectName(name, upstream.status);
   const body =
     code === "rate_limited"
       ? rateLimitedBody(
           parseChatLimitDetail(upstream.headers.get(CHAT_LIMIT_HEADER)),
         )
-      : contractBody(code);
+      : name === "not_found" || name === "permission_denied"
+        ? conversationUnavailableBody()
+        : contractBody(code);
   const headers: Record<string, string> = {};
   if (body.retryAfterSeconds !== undefined) {
     headers["Retry-After"] = String(body.retryAfterSeconds);

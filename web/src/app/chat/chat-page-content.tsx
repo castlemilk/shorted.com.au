@@ -72,6 +72,7 @@ export function ChatPageContent() {
           error={error}
           historyError={historyError}
           onRetry={() => void retry()}
+          onNewChat={conversationId ? clearChat : undefined}
           onSuggest={(question) => void sendMessage(question)}
           variant="page"
         />

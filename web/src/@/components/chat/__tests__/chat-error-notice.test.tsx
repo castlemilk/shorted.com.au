@@ -96,6 +96,32 @@ describe("ChatErrorNotice", () => {
     expect(screen.getByText("Message is too long.")).toBeInTheDocument();
   });
 
+  it("offers a new chat for a refused send in a conversation the service no longer has", () => {
+    const onNewChat = jest.fn();
+    render(
+      <ChatErrorNotice
+        error={contract({
+          error: "Conversation not found",
+          code: "invalid_request",
+          message: "This conversation is no longer available. Start a new chat.",
+        })}
+        onNewChat={onNewChat}
+      />,
+    );
+
+    expect(screen.getByText("This conversation is no longer available. Start a new chat.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Start a new chat" }));
+    expect(onNewChat).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no new chat when there is no conversation to leave", () => {
+    render(
+      <ChatErrorNotice error={contract({ code: "invalid_request", message: "Message is too long." })} />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Start a new chat" })).not.toBeInTheDocument();
+  });
+
   it.each([
     [{ code: "rate_limited", limitKind: "per_minute", retryAfterSeconds: 3, message: "" }],
     [{ code: "premium_required", message: "" }],
