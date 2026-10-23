@@ -227,6 +227,54 @@ order, for this app or a second one:
    command, and registration keeps it.
 6. Press **Interactive** on a chart message and check the chart loads.
 
+### Proxy authentication
+
+With proxy authentication on for the app in the developer portal (on since
+2026-10-23), Discord's proxy adds three headers to what it forwards from the
+Activity: `X-Discord-Proxy-Payload` (base64 JSON with the user's context and
+`created_at` / `expires_at`), `X-Signature-Ed25519` (the application key's
+signature of those payload bytes) and `X-Signature-Timestamp` (`created_at`
+again). The key is the one in `discord-app.json`, the same key that signs
+interactions.
+
+What a valid set proves, and what it does not:
+
+- It proves the request came through Discord's proxy for this app, for the
+  user in the payload, before `expires_at`. The signature covers the payload
+  only, not the path, method or body, so a captured set can be replayed on any
+  path until it expires. Treat it as a short-lived session pass: it may say
+  who is asking, but never authorises a write on its own.
+- The rules `verifyDiscordProxyRequest` (`web/src/@/lib/discord/verify.ts`)
+  keeps: verify the signature over the payload's exact bytes BEFORE reading a
+  field; the timestamp header equals `created_at`; `expires_at` not passed;
+  `created_at` at most 60s ahead of our clock; the signature in hex or base64
+  (Discord's samples disagree), 64 bytes either way; 401 on any failure; never
+  throw.
+- Interactions use the same key and the same header names over a different
+  message (the timestamp, then the body). `verifyDiscordRequest` accepts only a
+  timestamp of digits, so a proxy payload (which starts with `{`) can never be
+  replayed as an interaction; `verify.test.ts` tries every split.
+- Never log the headers or the payload's values.
+
+**Stage 1 (now): observe.** After Discord's handshake the Activity POSTs once
+to `/api/discord/activity` (through the proxy, in the Cloudflare skip with the
+rest of `/api/discord/`). The route verifies and records a `product_event`
+(`feature: "discord"`, `action: "activity_proxy_auth"`, `event_type` one of
+`verified`, `missing`, `malformed`, `bad_signature`, `bad_payload`,
+`timestamp_mismatch`, `expired`, `not_yet_valid`), plus one
+`discord_proxy_payload_fields` line per payload shape naming its fields,
+never their values. It answers 204 (verified, or no headers) or 401 (headers
+that fail); the Activity ignores the answer.
+
+**Stage 2: require them, once the data says so.** When real launches read
+`verified` and no `missing`, the Cloudflare rule "Allow the Discord Activity"
+can also require the proxy's headers to be present (Cloudflare cannot check a
+signature, so presence only filters bots that do not send them), and anything
+that needs to know the user (state shared per `instance_id`, a saved list) can
+take it from a verified payload instead of an OAuth flow. Confirming that the
+user is in a live instance needs the activity-instances API and a bot token;
+this repo holds only a client secret.
+
 ## Troubleshooting
 
 `task discord:status` names the broken link. Otherwise:

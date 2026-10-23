@@ -311,6 +311,12 @@ test("app API skip covers the Discord interactions endpoint on both frontend hos
   }
 });
 
+test("app API skip covers the Activity's proxy-auth check, which Discord's proxy forwards", () => {
+  for (const host of FRONTEND_HOSTS) {
+    assert.equal(appApiSkips({ host, path: "/api/discord/activity" }), true);
+  }
+});
+
 test("app API skip still covers the RPC paths it always did", () => {
   for (const path of [
     "/shorts.v1alpha1.StockService/GetStock",
