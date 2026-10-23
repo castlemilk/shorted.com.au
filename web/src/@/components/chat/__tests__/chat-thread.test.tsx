@@ -58,6 +58,57 @@ function message(overrides: Partial<ChatMessage>): ChatMessage {
   };
 }
 
+describe("ChatThread interrupted reply", () => {
+  it("says a reply stopped before it finished, and offers Try again, when it still reads streaming", () => {
+    const onRetry = jest.fn();
+    renderThread({
+      messages: [
+        message({ id: "u-1", role: "user", content: "Why?" }),
+        message({ id: "a-1", role: "assistant", content: "Partly", isStreaming: true }),
+      ],
+      status: "ready",
+      onRetry,
+    });
+
+    expect(screen.getByText("This reply stopped before it finished.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not claim a stop while the reply is still arriving", () => {
+    renderThread({
+      messages: [
+        message({ id: "u-1", role: "user", content: "Why?" }),
+        message({ id: "a-1", role: "assistant", content: "Partly", isStreaming: true }),
+      ],
+      status: "streaming",
+    });
+
+    expect(screen.queryByText("This reply stopped before it finished.")).not.toBeInTheDocument();
+  });
+
+  it("leaves a failed reply to its error notice, and a finished reply alone", () => {
+    renderThread({
+      messages: [
+        message({ id: "u-1", role: "user", content: "Why?" }),
+        message({ id: "a-1", role: "assistant", content: "Partly", isStreaming: true }),
+      ],
+      status: "ready",
+      error: errorFrom({ error: "Chat unavailable", code: "unavailable", message: "Chat is temporarily unavailable." }),
+    });
+    expect(screen.queryByText("This reply stopped before it finished.")).not.toBeInTheDocument();
+
+    renderThread({
+      messages: [
+        message({ id: "u-2", role: "user", content: "Why?" }),
+        message({ id: "a-2", role: "assistant", content: "Done", isStreaming: false }),
+      ],
+      status: "ready",
+    });
+    expect(screen.queryByText("This reply stopped before it finished.")).not.toBeInTheDocument();
+  });
+});
+
 function errorFrom(body: Record<string, unknown>): ChatErrorInfo {
   return parseChatError(new Error(JSON.stringify(body)));
 }

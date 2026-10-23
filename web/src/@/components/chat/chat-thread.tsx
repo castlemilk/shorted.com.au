@@ -10,6 +10,7 @@ import {
 import type { PromptInputStatus } from "~/@/components/ai-elements/prompt-input";
 import type { ChatMessage } from "~/@/hooks/use-chat";
 import type { ChatErrorInfo } from "~/@/lib/chat-errors";
+import { Button } from "~/@/components/ui/button";
 import { ChatErrorNotice } from "./chat-error-notice";
 import { QuickActions } from "./quick-actions";
 
@@ -58,6 +59,14 @@ export function ChatThread({
   const lastMessage = messages[messages.length - 1];
   const awaitingReply = isGenerating && lastMessage?.role !== "assistant";
   const threadKey = messages[0]?.id ?? "empty";
+  // The request has ended, the newest reply still reads as streaming, and no
+  // error explains why: the stream closed before its end (a stop, a sheet
+  // closed mid-reply, or a cut-off). It must not look like a finished answer.
+  const interrupted =
+    !isGenerating &&
+    !error &&
+    lastMessage?.role === "assistant" &&
+    lastMessage.isStreaming === true;
 
   return (
     <Conversation key={threadKey} className={className}>
@@ -92,6 +101,18 @@ export function ChatThread({
             error={error}
             onRetry={error.code === "unavailable" ? onRetry : undefined}
           />
+        )}
+
+        {interrupted && (
+          <div
+            role="status"
+            className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground"
+          >
+            <span>This reply stopped before it finished.</span>
+            <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+              Try again
+            </Button>
+          </div>
         )}
 
         {historyError && (
