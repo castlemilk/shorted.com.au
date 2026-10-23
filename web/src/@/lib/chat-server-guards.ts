@@ -69,6 +69,15 @@ const HOP_BY_HOP_HEADERS = new Set([
   "x-vercel-set-bypass-cookie",
 ]);
 
+/**
+ * Response headers that describe the bytes as the chat service sent them. fetch
+ * has already decoded that body by the time the proxy copies it on, so a
+ * Content-Encoding copied across makes the caller decode it a second time, and
+ * the caller fails with "TypeError: terminated" (cause Z_DATA_ERROR). Content-Length
+ * is already in HOP_BY_HOP_HEADERS for the same reason.
+ */
+const ENCODED_BODY_HEADERS = new Set(["content-encoding"]);
+
 const DEFAULT_SENDS_PER_MINUTE = 4;
 const DEFAULT_SENDS_PER_DAY = 40;
 const DEFAULT_SENDS_PER_MONTH = 600;
@@ -803,6 +812,11 @@ export function buildUpstreamHeaders(
       headers.set(key, value);
     }
   });
+  // The proxy reads the chat service's answer and does not pass its encoding on,
+  // so the answer is asked for uncompressed. Forwarding the browser's
+  // Accept-Encoding made connect-go gzip every unary answer; fetch decoded it
+  // here, and the response had to be rebuilt to match (filterResponseHeaders).
+  headers.set("accept-encoding", "identity");
   if (trusted.internalSecret) {
     headers.set("x-internal-secret", trusted.internalSecret);
   }
@@ -816,7 +830,8 @@ export function buildUpstreamHeaders(
 export function filterResponseHeaders(source: Headers): Headers {
   const headers = new Headers();
   source.forEach((value, key) => {
-    if (!HOP_BY_HOP_HEADERS.has(key.toLowerCase())) {
+    const name = key.toLowerCase();
+    if (!HOP_BY_HOP_HEADERS.has(name) && !ENCODED_BODY_HEADERS.has(name)) {
       headers.set(key, value);
     }
   });

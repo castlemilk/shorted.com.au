@@ -297,6 +297,75 @@ describe("chat step", () => {
     expect(step.detail).toBe("via shorted.com.au: tools=query_short_positions; cleanup warning: HTTP 500");
   });
 
+  it("reports a conversation the delete removed as deleted", async () => {
+    const step = byName(await runPaidProbe(context(fakeFetch())), "chat");
+    expect(step.detail).toBe("via shorted.com.au: tools=query_short_positions; conversation deleted");
+  });
+
+  it("still reports a delete as done when its answer body cannot be read", async () => {
+    // The 2xx is the delete. A body that fails to decode must not turn it into a warning.
+    const unreadable = {
+      ok: true,
+      status: 200,
+      text: () => Promise.reject(new TypeError("terminated")),
+    } as unknown as Response;
+    const step = byName(await runPaidProbe(context(fakeFetch({ deleteConversation: () => unreadable }))), "chat");
+    expect(step.ok).toBe(true);
+    expect(step.detail).toBe("via shorted.com.au: tools=query_short_positions; conversation deleted");
+  });
+
+  it("names the status and the reason a refused delete gives", async () => {
+    const refused = json(404, {
+      error: "Conversation not found",
+      code: "invalid_request",
+      message: "This conversation is no longer available. Start a new chat.",
+    });
+    const step = byName(await runPaidProbe(context(fakeFetch({ deleteConversation: () => refused }))), "chat");
+    expect(step.detail).toBe(
+      "via shorted.com.au: tools=query_short_positions; cleanup warning: HTTP 404: Conversation not found",
+    );
+  });
+
+  it("names the error and the code of its cause, never a message", async () => {
+    const cause = Object.assign(new Error(`incorrect header check at https://shorted.com.au/?t=${COOKIE_VALUE}`), {
+      code: "Z_DATA_ERROR",
+    });
+    const broken = Object.assign(new TypeError(`terminated ${COOKIE_VALUE}`), { cause });
+    const step = byName(
+      await runPaidProbe(
+        context(
+          fakeFetch({
+            deleteConversation: () => {
+              throw broken;
+            },
+          }),
+        ),
+      ),
+      "chat",
+    );
+    expect(step.ok).toBe(true);
+    expect(step.detail).toBe(
+      "via shorted.com.au: tools=query_short_positions; cleanup warning: TypeError (Z_DATA_ERROR)",
+    );
+    expect(step.detail).not.toContain(COOKIE_VALUE);
+  });
+
+  it("names only the error when its cause carries no code", async () => {
+    const step = byName(
+      await runPaidProbe(
+        context(
+          fakeFetch({
+            deleteConversation: () => {
+              throw new TypeError("fetch failed");
+            },
+          }),
+        ),
+      ),
+      "chat",
+    );
+    expect(step.detail).toBe("via shorted.com.au: tools=query_short_positions; cleanup warning: TypeError");
+  });
+
   it("sends the probe cookie, the app origin and the fixed question", async () => {
     const fetchImpl = fakeFetch();
     await runPaidProbe(context(fetchImpl));

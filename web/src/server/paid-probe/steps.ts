@@ -369,12 +369,30 @@ async function cleanUpConversation(
       },
       body: JSON.stringify({ conversationId }),
     });
-    await res.text();
-    return res.ok ? "conversation deleted" : `cleanup warning: HTTP ${res.status}`;
+    if (res.ok) {
+      // The 2xx is the delete. The body is read only to release the connection, so
+      // a failure to read it cannot turn a delete that happened into a warning.
+      await res.text().catch(() => "");
+      return "conversation deleted";
+    }
+    return `cleanup warning: HTTP ${res.status}${await errorSuffix(res)}`;
   } catch (err) {
     // A warning, never a step failure: the answer itself was still judged.
-    return `cleanup warning: ${errorName(err)}`;
+    return `cleanup warning: ${failureCause(err)}`;
   }
+}
+
+/**
+ * The error's name and the code of its cause, when it has one. undici reports a
+ * body it cannot decode as a TypeError caused by a zlib code, so the code says
+ * what failed. The messages are never used, because they can carry a URL. A
+ * code that is not a plain token is dropped rather than echoed.
+ */
+function failureCause(err: unknown): string {
+  const name = errorName(err);
+  const cause = (err as { cause?: unknown } | null)?.cause;
+  const code = (cause as { code?: unknown } | null | undefined)?.code;
+  return typeof code === "string" && /^[A-Za-z0-9_]{1,40}$/.test(code) ? `${name} (${code})` : name;
 }
 
 function cookieHeader(cookie: ProbeCookie): string {
