@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	firebase "firebase.google.com/go"
@@ -93,6 +94,63 @@ var adminEmails = []string{
 	"ben@shorted.com.au",
 }
 
+// The auth methods the interceptor records on Claims.AuthMethod.
+const (
+	// AuthMethodToken is a bespoke whole-API token minted by MintToken. The
+	// identity-only path accepts the same tokens on public methods and records
+	// this method too.
+	AuthMethodToken = "token"
+	// AuthMethodFirebase is a Firebase ID token presented by a browser.
+	AuthMethodFirebase = "firebase"
+	// AuthMethodInternal is the shared internal service secret, asserted by the web
+	// tier, webhooks and other trusted services.
+	AuthMethodInternal = "internal"
+	// AuthMethodServiceAccount is a Google service-account identity token.
+	AuthMethodServiceAccount = "service_account"
+)
+
+// adminTokenNotBefore is the earliest issue time at which a bespoke API token may
+// carry the admin role.
+//
+// WHY A CUT-OVER AND NOT A REVOCATION. Before the verified-email fix, MintToken issued
+// 30-day admin tokens to anyone holding an operator email, and MintToken renewed them.
+// Those tokens cannot be revoked. They are stateless HS256 JWTs, and the signing secret
+// is shared with every paying customer's token, so rotating it would log out every
+// subscriber. Honouring the admin claim only on tokens issued after this instant
+// withdraws admin from the old ones wherever they are presented. Everything else they
+// carry (api-user, tier) keeps working. It is a var only because time.Time cannot be a
+// constant, and tests move it.
+var adminTokenNotBefore = time.Date(2026, 10, 24, 0, 0, 0, 0, time.UTC)
+
+// bespokeTokenClaims marks claims as verified from a bespoke API token and withdraws
+// the admin role when the token was issued before adminTokenNotBefore. Every path
+// that accepts such a token calls it before the claims reach a handler.
+func bespokeTokenClaims(claims *Claims) *Claims {
+	claims.AuthMethod = AuthMethodToken
+	if hasRoleInList(claims.Roles, "admin") && !issuedOnOrAfter(claims, adminTokenNotBefore) {
+		log.Infof("Dropped admin role from API token for user %s: issued before the admin cut-over", claims.UserID)
+		claims.Roles = withoutRole(claims.Roles, "admin")
+	}
+	return claims
+}
+
+// issuedOnOrAfter reports whether the token carries an issue time at or after t. A
+// token with no iat counts as older than any cut-over, so it fails closed.
+func issuedOnOrAfter(claims *Claims, t time.Time) bool {
+	return claims.IssuedAt != nil && !claims.IssuedAt.Time.Before(t)
+}
+
+// withoutRole returns roles with every occurrence of role removed.
+func withoutRole(roles []string, role string) []string {
+	out := make([]string, 0, len(roles))
+	for _, r := range roles {
+		if r != role {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 // SubscriptionLookup is a function that looks up a user's subscription tier by user ID.
 // Returns the tier (e.g., "free", "pro", "enterprise") or empty string if not found.
 type SubscriptionLookup func(userID string) (tier string, err error)
@@ -122,6 +180,7 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 			log.Debugf("Failed to lookup subscription for user %s: %v", claims.UserID, err)
 			return
 		}
+		claims.TierResolved = true
 		if tier != "" {
 			claims.Tier = tier
 			log.Debugf("Set tier=%s for user %s", tier, claims.UserID)
@@ -222,9 +281,10 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 					// admin from x-user-email would not be: that header carries the address
 					// alone, not whether the address was verified.
 					normalizedClaims := &Claims{
-						UserID: userID,
-						Email:  userEmail,
-						Roles:  roles,
+						UserID:     userID,
+						Email:      userEmail,
+						Roles:      roles,
+						AuthMethod: AuthMethodInternal,
 					}
 
 					// Look up subscription tier
@@ -281,6 +341,7 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 				if hdr := req.Header().Get("Authorization"); hdr != "" {
 					tok := strings.TrimPrefix(hdr, "Bearer ")
 					if idClaims, idErr := opts.TokenService.ValidateIdentityToken(tok); idErr == nil {
+						bespokeTokenClaims(idClaims)
 						lookupTier(idClaims)
 						ctx = context.WithValue(ctx, userKey, idClaims)
 						authMethod = "token-identity"
@@ -317,6 +378,9 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 						otelmetric.WithAttributes(attribute.String("method", "token")),
 					)
 				}
+				// Record that this is a bespoke token and withdraw admin from one issued before
+				// the cut-over. See adminTokenNotBefore.
+				bespokeTokenClaims(claims)
 				// Always re-resolve tier from the subscription store — never trust the
 				// tier embedded in the (30-day, non-revocable) token. A canceled or
 				// downgraded subscription then loses paid limits immediately instead of
@@ -350,6 +414,7 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 							UserID:        fbToken.UID,
 							Email:         email,
 							Roles:         roles,
+							AuthMethod:    AuthMethodFirebase,
 							IsBrowserAuth: true, // Firebase auth = browser access
 						}
 
@@ -384,9 +449,10 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 					email = e
 				}
 				normalizedClaims := &Claims{
-					UserID: payload.Subject,
-					Email:  email,
-					Roles:  []string{},
+					UserID:     payload.Subject,
+					Email:      email,
+					Roles:      []string{},
+					AuthMethod: AuthMethodServiceAccount,
 				}
 
 				// Look up subscription tier (service accounts typically don't have subscriptions)
