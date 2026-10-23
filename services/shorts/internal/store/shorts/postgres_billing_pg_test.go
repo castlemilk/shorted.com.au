@@ -293,6 +293,14 @@ func TestBillingRowsByCustomerAndNullStatusAgainstPostgres(t *testing.T) {
 		require.Len(t, byUser, 1)
 		assert.True(t, byUser[0].StatusNull, "the same row read by user id is NULL too")
 	})
+
+	// The audit grants nothing on a NULL status because the product cannot read the
+	// row: its own read scans the status into a plain string, which a NULL fails.
+	t.Run("the product's own read fails on a NULL status, so it grants nothing", func(t *testing.T) {
+		sub, err := s.GetAPISubscription("uid_null")
+		assert.Error(t, err, "a NULL status must not read as a valid subscription")
+		assert.Nil(t, sub)
+	})
 }
 
 // The quota table keeps the API-token and signed-in browser identity (user:<uid>)
