@@ -8,7 +8,17 @@ import {
   resolveCheckoutPriceId,
   validateCheckoutPriceForTier,
 } from "~/lib/stripe-plans";
-import { isLiveStripeStatus } from "~/lib/billing-sync";
+import { isLiveStripeStatus, listCustomerSubscriptions } from "~/lib/billing-sync";
+import { getSubscriptionStatus } from "~/app/actions/subscription";
+
+/**
+ * How long a Checkout Session stays payable. Stripe requires at least 30
+ * minutes, measured when the request arrives, so an exact 30 would be refused
+ * by any request that takes time to reach Stripe. The margin keeps the floor
+ * honest. Shorter sessions shrink the window in which a second checkout can be
+ * paid for.
+ */
+const CHECKOUT_SESSION_LIFETIME_SECONDS = 31 * 60;
 
 export async function POST(request: NextRequest) {
   const started = Date.now();
@@ -107,20 +117,42 @@ export async function POST(request: NextRequest) {
       customerId = firstCustomer.id;
     }
 
-    if (customerId) {
-      // Checkout does not stop a second live subscription on its own, and a
-      // second one is a second charge the customer did not ask for. Refuse it
-      // here, before any session exists.
-      const existingSubscriptions = await stripe.subscriptions.list({
-        customer: customerId,
-        status: "all",
-        limit: 10,
+    // Two places can say a customer already pays: the Stripe customer matched by
+    // this email, and the customer id on the user's own mirror row. The mirror
+    // catches a customer whose Stripe email differs from the session email.
+    const mirror = await getSubscriptionStatus();
+    if (mirror.lookupFailed) {
+      // Fail closed. Without the mirror we cannot rule out a second live
+      // subscription, and a second charge needs a refund. A retry is cheap.
+      recordProductEvent({
+        feature: "payment",
+        action: "checkout_create",
+        status: "error",
+        properties: { tier, error_type: "subscription_lookup_failed" },
       });
-      if (
-        existingSubscriptions.data.some((subscription) =>
-          isLiveStripeStatus(subscription.status)
+      return NextResponse.json(
+        {
+          error: "Subscription check unavailable",
+          message:
+            "We could not confirm your subscription status. Please try again shortly.",
+        },
+        { status: 503, headers: { "Retry-After": "30" } }
+      );
+    }
+
+    const existingCustomerIds = [
+      ...new Set(
+        [customerId, mirror.stripeCustomerId].filter(
+          (id): id is string => Boolean(id)
         )
-      ) {
+      ),
+    ];
+    for (const existingCustomerId of existingCustomerIds) {
+      // Checkout does not stop a second live subscription on its own, and a second
+      // one is a second charge the customer did not ask for. Refuse it here,
+      // before any session exists.
+      const existingSubscriptions = await listCustomerSubscriptions(existingCustomerId);
+      if (existingSubscriptions.some((subscription) => isLiveStripeStatus(subscription.status))) {
         recordProductEvent({
           feature: "payment",
           action: "checkout_create",
@@ -159,6 +191,7 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
+      expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_LIFETIME_SECONDS,
       success_url: `${baseUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/pricing?canceled=true`,
       subscription_data: {

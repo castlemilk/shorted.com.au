@@ -4,6 +4,7 @@ import { stripe } from "~/lib/stripe";
 import { auth } from "~/server/auth";
 import { rateLimit } from "~/@/lib/rate-limit";
 import { recordProductEvent } from "~/@/lib/product-events";
+import { getSubscriptionStatus } from "~/app/actions/subscription";
 
 jest.mock("~/lib/stripe", () => ({
   stripe: {
@@ -31,6 +32,10 @@ jest.mock("~/@/lib/rate-limit", () => ({
 
 jest.mock("~/@/lib/product-events", () => ({
   recordProductEvent: jest.fn(),
+}));
+
+jest.mock("~/app/actions/subscription", () => ({
+  getSubscriptionStatus: jest.fn(),
 }));
 
 const stripeMock = stripe as unknown as {
@@ -63,6 +68,12 @@ describe("/api/stripe/checkout", () => {
       },
     });
     rateLimitMock.mockResolvedValue({ success: true });
+    (getSubscriptionStatus as jest.Mock).mockResolvedValue({
+      status: "inactive",
+      tier: "free",
+      hasActiveSubscription: false,
+      isPremium: false,
+    });
     stripeMock.prices.retrieve.mockImplementation(async (priceId: string) => {
       if (priceId === "price_premium") {
         return {
