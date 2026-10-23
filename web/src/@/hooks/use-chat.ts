@@ -270,7 +270,9 @@ export function useChat(options: UseChatOptions = {}) {
       /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
       setConversations(convs);
     } catch (err) {
-      console.error("Failed to fetch conversations:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Failed to fetch conversations:", err);
+      }
     } finally {
       setIsLoadingConversations(false);
     }
@@ -352,7 +354,9 @@ export function useChat(options: UseChatOptions = {}) {
           await clearChat();
         }
       } catch (err) {
-        console.error("Failed to delete conversation:", err);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Failed to delete conversation:", err);
+        }
       }
     },
     [options.userId, conversationId, clearChat],

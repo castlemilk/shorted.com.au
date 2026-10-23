@@ -59,14 +59,15 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
   const [showHistory, setShowHistory] = useState(false);
   const [isOpen, setIsOpen] = useState(initialOpen);
 
-  // Fetch conversations when the sheet opens
+  const showChat = Boolean(session && isPremium);
+
+  // The list is for people who can chat. A free user who opens the sheet to see
+  // the upgrade prompt must not spend a request on it, or log its refusal.
   useEffect(() => {
-    if (isOpen && userId) {
+    if (isOpen && showChat) {
       void fetchConversations();
     }
-  }, [isOpen, userId, fetchConversations]);
-
-  const showChat = session && isPremium;
+  }, [isOpen, showChat, fetchConversations]);
 
   const handleLoadConversation = async (convId: string) => {
     await loadConversation(convId);

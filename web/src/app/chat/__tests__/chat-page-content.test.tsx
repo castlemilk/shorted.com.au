@@ -5,13 +5,14 @@ import { ChatPageContent } from "../chat-page-content";
 // so what is under test is which of its flags the composer and thread receive.
 let mockChatState: Record<string, unknown>;
 let mockFetchConversations: jest.Mock;
+let mockIsPremium = true;
 
 jest.mock("next-auth/react", () => ({
   useSession: () => ({ data: { user: { id: "user-1", email: "buyer@example.test" } } }),
 }));
 
 jest.mock("~/@/hooks/use-subscription", () => ({
-  useSubscription: () => ({ isPremium: true }),
+  useSubscription: () => ({ isPremium: mockIsPremium }),
 }));
 
 jest.mock("~/@/hooks/use-chat", () => ({
@@ -79,6 +80,27 @@ function chatState(overrides: Record<string, unknown> = {}) {
 function composer() {
   return screen.getByRole("textbox", { name: "Message Shorted AI" });
 }
+
+beforeEach(() => {
+  mockIsPremium = true;
+});
+
+describe("ChatPageContent conversation list", () => {
+  it("loads the conversation list for a subscriber", () => {
+    mockChatState = chatState();
+    render(<ChatPageContent />);
+
+    expect(mockFetchConversations).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not load it for a free user, who only sees the upgrade prompt", () => {
+    mockIsPremium = false;
+    mockChatState = chatState();
+    render(<ChatPageContent />);
+
+    expect(mockFetchConversations).not.toHaveBeenCalled();
+  });
+});
 
 describe("ChatPageContent composer", () => {
   it("stays open while a reply streams, so the next question can be drafted", () => {

@@ -33,13 +33,14 @@ export function ChatPageContent() {
     deleteConversation,
   } = useChat({ userId });
 
+  const showChat = Boolean(session && isPremium);
+
+  // A free user sees the upgrade prompt here and gets no conversation list.
   useEffect(() => {
-    if (userId) {
+    if (showChat) {
       void fetchConversations();
     }
-  }, [userId, fetchConversations]);
-
-  const showChat = session && isPremium;
+  }, [showChat, fetchConversations]);
 
   if (!showChat) {
     return (
