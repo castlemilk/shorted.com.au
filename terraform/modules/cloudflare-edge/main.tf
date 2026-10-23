@@ -822,6 +822,43 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
       }
     },
     {
+      # The Discord Activity (docs/discord-bot.md, "The Activity"). Discord
+      # serves it from <app id>.discordsays.com through a proxy whose URL
+      # mapping targets this host, so every request reaches us from Discord's
+      # servers, an automated client SBFM managed-challenges: the Activity
+      # showed "Just a moment..." (403 cf-mitigated: challenge on both paths,
+      # 2026-10-23). Two documents only:
+      #   - the launch: Discord always loads `/` with `frame_id` and
+      #     `instance_id`, which next.config.mjs redirects to /embed/discord.
+      #     `/` without both stays challenged.
+      #   - /embed/discord, the page itself.
+      # Its JS, CSS and fonts bypass SBFM by extension, its data calls are the
+      # RPC rewrites and /api/auth/ in the rule above, and it loads no images.
+      action      = "skip"
+      expression  = <<-EOT
+        (
+          (http.host eq "shorted.com.au" or http.host eq "www.shorted.com.au")
+          and (
+            http.request.uri.path eq "/embed/discord"
+            or (
+              http.request.uri.path eq "/"
+              and http.request.uri.query contains "frame_id="
+              and http.request.uri.query contains "instance_id="
+            )
+          )
+        )
+      EOT
+      description = "Allow the Discord Activity, loaded through Discord's proxy, through SBFM, BIC, and Security Level checks"
+      enabled     = true
+      action_parameters = {
+        phases   = ["http_request_sbfm"]
+        products = ["bic", "securityLevel"]
+      }
+      logging = {
+        enabled = false
+      }
+    },
+    {
       # Machine-readable public surfaces — the documents we ADVERTISE to agents.
       #
       # SBFM's static-resource bypass is EXTENSION-based (plus the /.well-known/

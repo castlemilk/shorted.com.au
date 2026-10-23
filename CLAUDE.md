@@ -1463,9 +1463,9 @@ autocomplete keystroke and button press to `/api/discord/interactions`
 signed with the app's Ed25519 key, and it deploys with the web app. Commands:
 `/stock`, `/chart`, `/search`, `/top`, `/help`. A chart message is the
 `/chart/<CODE>/image` card plus two rows of buttons (period, view) that redraw
-it in place; with `"activity": true` an **Interactive** button opens
-`StockChartEmbed` inside Discord as an Activity (`/embed/discord`). Runbook and
-onboarding: `docs/discord-bot.md`.
+it in place, and an **Interactive** button (`"activity": true`, on since
+2026-10-23) that opens `StockChartEmbed` inside Discord as an Activity
+(`/embed/discord`). Runbook and onboarding: `docs/discord-bot.md`.
 
 | Piece | Where |
 |---|---|
@@ -1486,7 +1486,14 @@ onboarding: `docs/discord-bot.md`.
   requests to `/embed/discord` (frameable). Inside it only same-origin requests
   work, so it uses relative rewrites and opens links through the SDK.
 - **`/api/discord/` is in the Cloudflare SBFM skip** (Discord is an automated
-  client); the signature check is what keeps the route closed.
+  client); the signature check is what keeps the route closed. So is the
+  Activity: Discord's proxy fetches it from Discord's servers, and SBFM served
+  it "Just a moment…". Its rule ("Allow the Discord Activity") opens
+  `/embed/discord` and `/` ONLY with both `frame_id` and `instance_id`; keep
+  the homepage itself challenged.
+- **Activities and the URL mapping exist only in the developer portal** (no
+  API field; the env's credential is a client secret, which cannot edit the
+  app). `"activity": true` on an app without them shows a button that fails.
 - `@vercel/functions` stays on 1.x: 3.x drags in an OIDC chain and moved
   next-auth's `jose`.
 

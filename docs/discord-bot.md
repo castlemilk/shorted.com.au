@@ -2,8 +2,8 @@
 
 A Discord app that brings Shorted into a chat: search ASX stocks as you type,
 post a stock's short interest with its chart, and redraw that chart in place
-with buttons that everyone in the channel can press. With the Activity switched
-on, an **Interactive** button opens the site's full chart inside Discord.
+with buttons that everyone in the channel can press, and an **Interactive**
+button that opens the site's full chart inside Discord (the Activity).
 
 ## Quick start
 
@@ -71,8 +71,8 @@ an empty field offers the most shorted stocks. A name typed without picking a
 suggestion still works (`/stock pilbara` charts PLS, the best match).
 
 Under every chart are two rows of buttons: the periods, then the views, an
-**Open on Shorted** link (the chart's share page) and, with the Activity on,
-**Interactive**. A press redraws the message for everyone; pressing the
+**Open on Shorted** link (the chart's share page) and **Interactive** (the
+Activity, below). A press redraws the message for everyone; pressing the
 highlighted one redraws it with the latest figures.
 
 Lookups that fail are answered privately (ephemeral), never posted to the
@@ -193,26 +193,39 @@ through a proxy, and its CSP blocks every other host. So:
   outside Discord (`/embed/discord?code=BHP&view=combined`) it is a plain chart
   page, which is how to check it in a browser.
 
-To switch it on:
+The Activity is on (`"activity": true` in `web/src/config/discord-app.json`,
+2026-10-23), so every chart message carries **Interactive**. What it takes, in
+order, for this app or a second one:
 
-1. Developer portal → **Activities → Settings**: enable Activities.
+1. Developer portal → **Activities → Settings**: enable Activities. Only the
+   portal does this: Discord's public API has no field for it, and a client
+   secret cannot edit the app at all. The public
+   `GET https://discord.com/api/v10/applications/<id>/rpc` shows it took:
+   `flags` gains `EMBEDDED` (`1 << 17`).
 2. **Activities → URL Mappings**: one mapping, prefix `/`, target
-   `shorted.com.au` (no protocol).
-3. Set `"activity": true` in `web/src/config/discord-app.json` and merge it.
-   Only then do chart messages show **Interactive**: Discord refuses a launch
-   for an app without Activities, so the button stays hidden until this is set.
-4. `task discord:register` once: enabling Activities created the Entry Point
+   `shorted.com.au` (no protocol). Unmapped,
+   `curl -s "https://<id>.discordsays.com/?frame_id=x&instance_id=y"` is
+   Discord's own page, titled "Discord Activity not available at this time";
+   mapped, it is the site's answer (a 307 to `/embed/discord` once step 3 is
+   deployed, Cloudflare's challenge before).
+3. Cloudflare lets the Activity through: Discord's proxy fetches from Discord's
+   servers, an automated client, and Super Bot Fight Mode managed-challenged
+   both the launch and `/embed/discord` (403 `cf-mitigated: challenge`,
+   2026-10-23), which inside Discord is the "Just a moment…" page. The rule
+   "Allow the Discord Activity" in `app_api_security_skip`
+   (`terraform/modules/cloudflare-edge/main.tf`) skips SBFM for `/` only when
+   it carries both `frame_id` and `instance_id`, and for `/embed/discord`; the
+   page's JS, CSS and fonts bypass SBFM by extension, and its data calls are
+   the RPC rewrites, already skipped. `security-skip-expression.test.mjs`
+   evaluates it both ways.
+4. Set `"activity": true` and merge, after step 1: Discord refuses a launch for
+   an app without Activities, so the button would fail until it is done.
+   `curl -s https://shorted.com.au/api/discord/interactions` then reports
+   `"activity": true` (a `DISCORD_ACTIVITY_ENABLED` env var on the deployment
+   would override the file).
+5. `task discord:register` once: enabling Activities created the Entry Point
    command, and registration keeps it.
-5. Press **Interactive** on a chart message and check the chart loads. The
-   Activity's requests reach the site from Discord's proxy, not from a
-   browser, and Cloudflare's Super Bot Fight Mode challenges automated
-   clients on the apex: `curl "https://shorted.com.au/?frame_id=x&instance_id=y"`
-   answers `403 cf-mitigated: challenge` (checked 2026-10-19). Only
-   `/api/discord/` and the RPC rewrites are in the skip rule. If the Activity
-   shows Cloudflare's "Just a moment…" page instead of the chart, add the
-   launch (`/` with `frame_id`), `/embed/discord` and `/_next/` to
-   `app_api_security_skip` in `terraform/modules/cloudflare-edge/main.tf`,
-   with a test in `security-skip-expression.test.mjs`.
+6. Press **Interactive** on a chart message and check the chart loads.
 
 ## Troubleshooting
 
