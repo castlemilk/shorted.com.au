@@ -466,8 +466,9 @@ defaults to `false`.
    rewrite-proxied RPCs. Without it, browser traffic behind the Vercel rewrite
    lands in the anonymous per-IP bucket.
 2. `SHORTED_SSR_BYPASS_SECRET` is set in Vercel production **and**
-   `TF_VAR_rate_limit_ssr_bypass_secret` (GitHub secret
-   `CLOUDFLARE_SSR_BYPASS_SECRET`) is set in CI — both sides of the same secret.
+   `TF_VAR_rate_limit_ssr_bypass_secret` (the Cuttlefish secret
+   `CLOUDFLARE_SSR_BYPASS_SECRET`, which the deploy reads) is set in CI — both sides of
+   the same secret. The GitHub repo copy of that name feeds only `rate-limit-sentinel.yml`.
 3. Terraform has been applied at least once so the nine `ratelimit` bindings
    exist on the script. Applying the bindings is safe while the flag is off:
    the worker never calls them.

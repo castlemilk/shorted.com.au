@@ -394,26 +394,56 @@ jobs:
           GEMINI_API_KEY_CHAT: ${{ secrets.GEMINI_API_KEY_CHAT }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
-          # CREATE ONLY. This job has no GitHub environment, so it sees the
-          # REPO-level secrets; terraform-apply and deploy-vercel-prod run in the
-          # `prod` environment. When the two values differ, a plan job that
-          # writes versions fights the apply job: two versions per deploy and a
-          # window where the API's `latest` disagrees with the web app. The plan
-          # only needs the secrets to EXIST; the apply job owns their values.
+          # CREATE ONLY. This job has no GitHub environment, so it reads each secret's
+          # project-level copy in Cuttlefish; terraform-apply and deploy-vercel-prod run
+          # in the `prod` environment and read a `prod` copy when one is set. When the
+          # two values differ, a plan job that writes versions fights the apply job: two
+          # versions per deploy and a window where the API's `latest` disagrees with the
+          # web app. The plan only needs the secrets to EXIST; the apply job owns their values.
           ENSURE_SECRET_CREATE_ONLY: "1"
         run: |
+          # This step handles the Gemini keys, so trace stays off even under BASH_ENV or
+          # SHELLOPTS that turn xtrace on. Nothing else runs before this line.
+          { set +x; } 2>/dev/null
           # Single source of truth: scripts/ensure-secret.sh. It only adds a new
           # version when the value actually changed, comparing sha256 of the
           # trailing-newline-normalised bytes (a raw `$(...)` string compare can
           # never match a GH secret that carries a trailing newline — that bug
           # produced 1,002 INTERNAL_SERVICE_SECRET versions and led to the
           # 2026-07-26 outage; see docs/incidents/).
-          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
+          # Where these values come from: this job runs on a Cuttlefish runner, so the
+          # secrets.* it reads are injected from Cuttlefish's project secret store,
+          # not from the GitHub repo secrets. Set them with
+          # `cuttle secrets set NAME --project shorted`; updating the GitHub repo
+          # secret changes nothing for these jobs.
+          # The value goes on stdin ("-"), never as an argument: ps would show an argument
+          # for the whole of every gcloud call that ensure-secret.sh makes.
+          ensure_secret() { printf '%s' "${2:-}" | bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" -; }
+
+          # Gemini keys are checked by scripts/validate-gemini-key.sh before any
+          # write. Incident 2026-10-23 13:57: a key that passed models.list but could
+          # not generate was rolled to chat and failed every request. Incident 14:16:
+          # this sync wrote the old key back over the fix, because it read Cuttlefish's
+          # store and not the GitHub secret that had been updated. The validator cannot
+          # stop a stale key that still generates, so that copy must be updated in
+          # Cuttlefish first.
+          ensure_gemini_secret() {
+            local name="$1" value="${2:-}" out rc=0
+            # The key goes to the validator on stdin. As an argument, ps would show it for the whole call.
+            out=$(printf '%s' "$value" | bash "$GITHUB_WORKSPACE/scripts/validate-gemini-key.sh" -) || rc=$?
+            echo "$out"
+            case "$rc" in
+              0) ensure_secret "$name" "$value" ;;
+              # Exit 4: no key at all. Nothing is written, and the deploy carries on.
+              4) echo "::warning title=Gemini key not set::$name: no key to sync; Secret Manager keeps its current version" ;;
+              *) echo "::warning title=Gemini key not synced::$name: $out; Secret Manager keeps its current version" ;;
+            esac
+          }
 
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
-          ensure_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
+          ensure_gemini_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
 
@@ -587,18 +617,50 @@ jobs:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
+          # This step handles the Gemini keys, so trace stays off even under BASH_ENV or
+          # SHELLOPTS that turn xtrace on. Nothing else runs before this line.
+          { set +x; } 2>/dev/null
           # Only add a new version if the value has actually changed
           # ($0.06/version/month, and version bloat is what broke prod on
           # 2026-07-26). Logic lives in scripts/ensure-secret.sh: sha256 compare
           # over trailing-newline-normalised bytes, and never add a version when
           # `versions access latest` fails on an existing secret.
-          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
+          # Where these values come from: this job runs on a Cuttlefish runner, so the
+          # secrets.* it reads are injected from Cuttlefish's project secret store,
+          # not from the GitHub repo secrets. Set them with
+          # `cuttle secrets set NAME --project shorted`; updating the GitHub repo
+          # secret changes nothing for these jobs. This job names a GitHub environment,
+          # so a copy set with `cuttle secrets set NAME --environment <env>` is read
+          # before the project copy of the same name.
+          # The value goes on stdin ("-"), never as an argument: ps would show an argument
+          # for the whole of every gcloud call that ensure-secret.sh makes.
+          ensure_secret() { printf '%s' "${2:-}" | bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" -; }
+
+          # Gemini keys are checked by scripts/validate-gemini-key.sh before any
+          # write. Incident 2026-10-23 13:57: a key that passed models.list but could
+          # not generate was rolled to chat and failed every request. Incident 14:16:
+          # this sync wrote the old key back over the fix, because it read Cuttlefish's
+          # store and not the GitHub secret that had been updated. The validator cannot
+          # stop a stale key that still generates, so that copy must be updated in
+          # Cuttlefish first.
+          ensure_gemini_secret() {
+            local name="$1" value="${2:-}" out rc=0
+            # The key goes to the validator on stdin. As an argument, ps would show it for the whole call.
+            out=$(printf '%s' "$value" | bash "$GITHUB_WORKSPACE/scripts/validate-gemini-key.sh" -) || rc=$?
+            echo "$out"
+            case "$rc" in
+              0) ensure_secret "$name" "$value" ;;
+              # Exit 4: no key at all. Nothing is written, and the deploy carries on.
+              4) echo "::warning title=Gemini key not set::$name: no key to sync; Secret Manager keeps its current version" ;;
+              *) echo "::warning title=Gemini key not synced::$name: $out; Secret Manager keeps its current version" ;;
+            esac
+          }
 
           # Core secrets
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
-          ensure_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
+          ensure_gemini_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
           ensure_secret "ALGOLIA_APP_ID" "$ALGOLIA_APP_ID"
@@ -609,7 +671,8 @@ jobs:
           ensure_secret "ALPHA_VANTAGE_API_KEY" "$AV_KEY"
 
           # Revalidation secret (event-driven cache invalidation; must match the
-          # frontend Vercel REVALIDATION_SECRET env). Maintained from the GH secret.
+          # frontend Vercel REVALIDATION_SECRET env). Maintained in Cuttlefish's
+          # project secret store, see the note above.
           ensure_secret "REVALIDATION_SECRET" "$REVALIDATION_SECRET"
 
           # Database secrets (environment-specific)

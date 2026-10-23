@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 #
-# ensure-secret.sh NAME VALUE  (project from $GCP_PROJECT_ID)
+# ensure-secret.sh NAME [VALUE|-]  (project from $GCP_PROJECT_ID)
+#
+# VALUE "-" reads the value from stdin, and every deploy caller passes it that way.
+# An argument is in the process table (ps) for every gcloud call this script makes,
+# so a VALUE argument is for an operator at a terminal only.
 #
 # Creates a Secret Manager secret if missing, and adds a new version ONLY when
 # the value has actually changed. Single source of truth for the three
@@ -32,35 +36,23 @@
 #      how churn snowballs and how a disabled-latest incident gets papered over.
 #      Warn loudly and skip; a human decides.
 #   4. ENSURE_SECRET_CREATE_ONLY=1 creates a missing secret but NEVER versions
-#      an existing one. The terraform-plan job runs with NO GitHub environment
-#      and so sees the REPO-level secrets, while terraform-apply and the Vercel
-#      deploy run in the `prod` environment. When the two INTERNAL_SERVICE_SECRET
-#      values differ, a versioning plan job and a versioning apply job fight:
+#      an existing one. The terraform-plan job runs with NO GitHub environment, so
+#      it reads each secret's project-level copy in Cuttlefish, while terraform-apply
+#      and the Vercel deploy run in the `prod` environment and read a `prod` copy
+#      when one is set. When the two INTERNAL_SERVICE_SECRET values differ, a
+#      versioning plan job and a versioning apply job fight:
 #      two new versions per deploy (1,410 by 2026-09-26) and a window in which
 #      `latest` holds a value the web app does not. Only the job whose
 #      environment matches the deploy may write values.
+#   5. A value that is empty once trailing CR/LF are removed counts as not set, and
+#      nothing is written for it. The emptiness check runs after the strip, so a
+#      value of only CR/LF cannot become a 0-byte version.
+
+# Turn xtrace off before anything else, so `bash -x`, SHELLOPTS=xtrace and a
+# BASH_ENV that sets -x never print the value. The redirect hides this line's own trace.
+{ set +x; } 2>/dev/null
 
 set -euo pipefail
-
-NAME="${1:-}"
-VALUE="${2:-}"
-PROJECT="${GCP_PROJECT_ID:-}"
-
-[ -n "$NAME" ] || { echo "ensure-secret.sh: secret name is required" >&2; exit 2; }
-[ -n "$PROJECT" ] || { echo "ensure-secret.sh: GCP_PROJECT_ID is required" >&2; exit 2; }
-
-if [ -z "$VALUE" ]; then
-  echo "WARNING: $NAME not set, skipping"
-  exit 0
-fi
-
-sha256() {
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum | awk '{print $1}'
-  else
-    shasum -a 256 | awk '{print $1}'
-  fi
-}
 
 # Strip trailing CR/LF only (never interior or trailing spaces).
 strip_trailing_newlines() {
@@ -72,6 +64,35 @@ strip_trailing_newlines() {
     esac
   done
   printf '%s' "$s"
+}
+
+NAME="${1:-}"
+VALUE="${2:-}"
+PROJECT="${GCP_PROJECT_ID:-}"
+
+[ -n "$NAME" ] || { echo "ensure-secret.sh: secret name is required" >&2; exit 2; }
+[ -n "$PROJECT" ] || { echo "ensure-secret.sh: GCP_PROJECT_ID is required" >&2; exit 2; }
+
+if [ "$VALUE" = "-" ]; then
+  # Reads all of stdin with IFS empty and -r, so every byte is kept. read returns
+  # non-zero at end of input, which is expected here.
+  IFS= read -r -d '' VALUE || true
+fi
+
+# Empty means empty AFTER the strip. Checking before it let a value of only CR/LF
+# through, and it was written as a 0-byte version.
+VALUE=$(strip_trailing_newlines "$VALUE")
+if [ -z "$VALUE" ]; then
+  echo "WARNING: $NAME not set, skipping"
+  exit 0
+fi
+
+sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print $1}'
+  else
+    shasum -a 256 | awk '{print $1}'
+  fi
 }
 
 # A failed describe is NOT proof the secret is missing — a transient auth or

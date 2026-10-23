@@ -130,9 +130,11 @@ test("production web deploy preserves preflights, artifact promotion and test ga
   assert.match(workflow, /GEMINI_API_KEY:\s*\$\{\{\s*secrets\.GEMINI_API_KEY\s*\}\}/);
   // The chat key prefers its own secret and falls back to the shared one
   // (terraform-deploy-workflow.test.mjs pins both jobs).
-  assert.match(workflow, /ensure_secret "GEMINI_API_KEY_CHAT" "\$\{GEMINI_API_KEY_CHAT:-\$GEMINI_API_KEY\}"/);
-  assert.match(workflow, /ensure_secret "GEMINI_API_KEY_NEWS" "\$GEMINI_API_KEY"/);
-  assert.match(workflow, /ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "\$GEMINI_API_KEY"/);
+  // Every Gemini sync goes through ensure_gemini_secret, which validates the key
+  // first (terraform-deploy-workflow.test.mjs pins both jobs).
+  assert.match(workflow, /ensure_gemini_secret "GEMINI_API_KEY_CHAT" "\$\{GEMINI_API_KEY_CHAT:-\$GEMINI_API_KEY\}"/);
+  assert.match(workflow, /ensure_gemini_secret "GEMINI_API_KEY_NEWS" "\$GEMINI_API_KEY"/);
+  assert.match(workflow, /ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "\$GEMINI_API_KEY"/);
   assert.doesNotMatch(
     workflow,
     /STRIPE_API_ACCESS_PRICE_ID[^\n]*secrets\.STRIPE_PRO_PRICE_ID/,
