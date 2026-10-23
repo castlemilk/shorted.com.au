@@ -113,6 +113,14 @@ function useStickToBottom(): StickToBottom {
   return { scrollerRef, contentRef, isFollowing, onScroll, scrollToBottom };
 }
 
+/**
+ * Scrolls the conversation to its newest content and follows it again, for a
+ * cue the thread owns, such as a send. Must be used inside <Conversation>.
+ */
+export function useConversationScrollToLatest(): () => void {
+  return useConversationContext("useConversationScrollToLatest").scrollToBottom;
+}
+
 export type ConversationProps = ComponentProps<"div">;
 
 /** The region a thread lives in. It fills its parent and clips its own scroll. */

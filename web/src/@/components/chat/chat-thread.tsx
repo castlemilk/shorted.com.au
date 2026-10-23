@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, MessageSquare } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
+  useConversationScrollToLatest,
 } from "~/@/components/ai-elements/conversation";
 import type { PromptInputStatus } from "~/@/components/ai-elements/prompt-input";
 import type { ChatMessage } from "~/@/hooks/use-chat";
@@ -73,6 +75,7 @@ export function ChatThread({
 
   return (
     <Conversation key={threadKey} className={className}>
+      <FollowSubmittedRequest status={status} />
       <ConversationContent
         aria-busy={isGenerating}
         className={variant === "page" ? "p-4 md:p-6" : "p-4"}
@@ -128,6 +131,19 @@ export function ChatThread({
       <ConversationScrollButton />
     </Conversation>
   );
+}
+
+/**
+ * Brings the newest turn into view when a request is sent. A reader who had
+ * scrolled up to re-read would otherwise find the question, the thinking
+ * indicator and the reply all below the fold.
+ */
+function FollowSubmittedRequest({ status }: { status: PromptInputStatus }) {
+  const scrollToLatest = useConversationScrollToLatest();
+  useEffect(() => {
+    if (status === "submitted") scrollToLatest();
+  }, [status, scrollToLatest]);
+  return null;
 }
 
 function EmptyThread({

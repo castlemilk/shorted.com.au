@@ -58,6 +58,33 @@ function message(overrides: Partial<ChatMessage>): ChatMessage {
   };
 }
 
+describe("ChatThread follows a request it sends", () => {
+  it("brings the newest turn into view when a request is submitted, after the reader scrolled up", () => {
+    const { rerender, props } = renderThread({
+      messages: [message({ id: "u-1", role: "user", content: "First" })],
+      status: "ready",
+    });
+    const log = screen.getByRole("log");
+    // jsdom has no layout: the reader is up, the thread is 1000px tall.
+    Object.defineProperty(log, "scrollHeight", { configurable: true, value: 1000 });
+    Object.defineProperty(log, "clientHeight", { configurable: true, value: 400 });
+    Object.defineProperty(log, "scrollTop", { configurable: true, writable: true, value: 100 });
+
+    rerender(
+      <ChatThread
+        {...props}
+        status="submitted"
+        messages={[
+          message({ id: "u-1", role: "user", content: "First" }),
+          message({ id: "u-2", role: "user", content: "Follow-up" }),
+        ]}
+      />,
+    );
+
+    expect(log.scrollTop).toBe(1000);
+  });
+});
+
 describe("ChatThread interrupted reply", () => {
   it("says a reply stopped before it finished, and offers Try again, when it still reads streaming", () => {
     const onRetry = jest.fn();
