@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat as useAIChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { createConnectTransport } from "@connectrpc/connect-web";
@@ -84,6 +84,10 @@ export function useChat(options: UseChatOptions = {}) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  // Each history load takes the next number. Only the latest may change the
+  // thread, so a slow answer to an earlier click cannot overwrite a later one,
+  // and New chat cancels a load that is still pending.
+  const loadSeqRef = useRef(0);
   const transport = useMemo(
     () =>
       new DefaultChatTransport<ShortedChatUIMessage>({
@@ -216,13 +220,21 @@ export function useChat(options: UseChatOptions = {}) {
     uiMessages.length,
   ]);
 
-  const clearChat = useCallback(() => {
+  /**
+   * Starts a new chat. The reply in flight is stopped first: it is still
+   * streaming into the thread otherwise, and would be appended to the empty
+   * thread and point the conversation back at the old one.
+   */
+  const clearChat = useCallback(async () => {
+    loadSeqRef.current += 1;
+    await stop();
     setUIMessages([]);
     setConversationId(null);
     setSendError(null);
     setHistoryError(null);
+    setIsLoadingHistory(false);
     clearError();
-  }, [clearError, setUIMessages]);
+  }, [clearError, setUIMessages, stop]);
 
   const stopGeneration = useCallback(() => {
     void stop();
@@ -265,10 +277,15 @@ export function useChat(options: UseChatOptions = {}) {
   const loadConversation = useCallback(
     async (convId: string) => {
       if (!options.userId) return;
+      loadSeqRef.current += 1;
+      const requestId = loadSeqRef.current;
       setIsLoadingHistory(true);
       setSendError(null);
       setHistoryError(null);
       clearError();
+      // Stop the reply in flight before the thread is replaced, so nothing it
+      // streams after this point can land in the conversation being opened.
+      await stop();
       try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const client = getChatClient();
@@ -304,15 +321,19 @@ export function useChat(options: UseChatOptions = {}) {
           }),
         );
         /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
+        // A later click, or New chat, has superseded this load.
+        if (requestId !== loadSeqRef.current) return;
         setUIMessages(loadedMessages.map(chatMessageToUIMessage));
         setConversationId(convId);
       } catch {
-        setHistoryError("Couldn't load that conversation. Please try again.");
+        if (requestId === loadSeqRef.current) {
+          setHistoryError("Couldn't load that conversation. Please try again.");
+        }
       } finally {
-        setIsLoadingHistory(false);
+        if (requestId === loadSeqRef.current) setIsLoadingHistory(false);
       }
     },
-    [clearError, options.userId, setUIMessages],
+    [clearError, options.userId, setUIMessages, stop],
   );
 
   const deleteConversation = useCallback(
@@ -326,7 +347,7 @@ export function useChat(options: UseChatOptions = {}) {
         /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
         setConversations((prev) => prev.filter((c) => c.id !== convId));
         if (conversationId === convId) {
-          clearChat();
+          await clearChat();
         }
       } catch (err) {
         console.error("Failed to delete conversation:", err);
