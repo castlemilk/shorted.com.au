@@ -1494,6 +1494,15 @@ it in place, and an **Interactive** button (`"activity": true`, on since
 - **Activities and the URL mapping exist only in the developer portal** (no
   API field; the env's credential is a client secret, which cannot edit the
   app). `"activity": true` on an app without them shows a button that fails.
+- **Proxy auth headers are a session pass, not request signing.** The proxy's
+  `X-Discord-Proxy-Payload` signature covers the payload only (not path, method
+  or body), so a valid set replays on any path until `expires_at`. Verify with
+  `verifyDiscordProxyRequest` (signature over the exact bytes FIRST, then the
+  times), never log the headers, and never let them authorise a write alone.
+  Interactions share the key and the header names: `verifyDiscordRequest`
+  accepts only a digits timestamp, which keeps the two messages apart.
+  `/api/discord/activity` only observes today (docs/discord-bot.md, "Proxy
+  authentication").
 - `@vercel/functions` stays on 1.x: 3.x drags in an OIDC chain and moved
   next-auth's `jose`.
 

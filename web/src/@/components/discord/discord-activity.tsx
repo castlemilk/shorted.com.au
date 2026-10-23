@@ -52,6 +52,14 @@ function connectDiscord(): Promise<DiscordSDK | null> {
     const { DiscordSDK } = await import("@discord/embedded-app-sdk");
     const sdk = new DiscordSDK(clientId, { disableConsoleLogOverride: true });
     await sdk.ready();
+    // Through Discord's proxy, which signs it on the way: the server records
+    // whether launches carry valid proxy headers (api/discord/activity). The
+    // answer changes nothing here.
+    void fetch("/api/discord/activity", {
+      method: "POST",
+      cache: "no-store",
+      keepalive: true,
+    }).catch(() => undefined);
     return sdk;
   })().catch((error: unknown) => {
     console.error("[discord-activity] handshake failed:", error);
