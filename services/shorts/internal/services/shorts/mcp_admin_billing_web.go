@@ -22,10 +22,7 @@ import (
 
 const (
 	adminWebBillingTimeout = 20 * time.Second
-	// adminWebProbeTimeout is above the probe's own budget (about two minutes),
-	// so a slow but healthy run is not cut here.
-	adminWebProbeTimeout = 150 * time.Second
-	adminWebMaxBody      = 4 << 20
+	adminWebMaxBody        = 4 << 20
 )
 
 // adminWebClient calls the web app's internal billing and probe routes.
@@ -205,12 +202,11 @@ func (c *adminWebClient) aliveSubscriptions(ctx context.Context) (*webAliveList,
 	return &out, nil
 }
 
-// runPaidProbe starts one probe run. It returns the status with the report on
-// 200 and 503; 409 (a run already in progress) returns no report and no error.
-// Any other refusal is an error that names the status.
+// runPaidProbe starts one probe run and waits for it on ctx, which bounds it. It
+// returns the status with the report on 200 and 503; 409 (a run already in progress
+// on the web side) returns no report and no error. Any other refusal is an error
+// that names the status.
 func (c *adminWebClient) runPaidProbe(ctx context.Context) (int, *webProbeReport, error) {
-	ctx, cancel := context.WithTimeout(ctx, adminWebProbeTimeout)
-	defer cancel()
 	status, raw, err := c.post(ctx, "paid-probe", nil)
 	if err != nil {
 		return 0, nil, err

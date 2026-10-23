@@ -88,19 +88,21 @@ func (a *adminMCPSource) PaidFeatureStatus(ctx context.Context) (*mcp.PaidFeatur
 	return out, nil
 }
 
-// RunPaidProbe starts one probe run on the web app and returns its report. A
-// run already in progress is a result (InProgress), not an error. The secret
-// is never in the error text.
-//
-// The request's own deadline is not inherited. The admin handler bounds every
-// request at StreamLifetime (90s), a probe can run to about two minutes, and
-// the probe has its own budget (adminWebProbeTimeout). Cut at 90s, the caller
-// would see a failure while the web app went on running the probe.
+// RunPaidProbe runs one probe on the web app, on ctx, and returns its report. A
+// run already in progress is a result (InProgress), not an error, and it is decided
+// at once: a second caller is refused while the first holds the guard, never queued.
+// The guard is this source's, and the web's own 409 is the same answer from the
+// other side. The secret is never in the error text.
 func (a *adminMCPSource) RunPaidProbe(ctx context.Context) (*mcp.PaidProbeOutput, error) {
 	if a.web == nil {
 		return nil, errWebUnavailable
 	}
-	status, report, err := a.web.runPaidProbe(context.WithoutCancel(ctx))
+	if !a.probing.CompareAndSwap(false, true) {
+		return &mcp.PaidProbeOutput{InProgress: true, HTTPStatus: http.StatusConflict, Steps: []mcp.PaidProbeStep{}}, nil
+	}
+	defer a.probing.Store(false)
+
+	status, report, err := a.web.runPaidProbe(ctx)
 	if err != nil {
 		log.Warnf("admin run_paid_probe: %v", err)
 		return nil, err

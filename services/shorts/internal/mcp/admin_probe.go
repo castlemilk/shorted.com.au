@@ -14,11 +14,19 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 )
+
+// PaidProbeTimeout bounds one run_paid_probe call. The request itself is bounded
+// at StreamLifetime (90s), and the probe's own worst case on the web side is about
+// 75s, so 85s lets a slow run finish while the call still returns before the
+// request is cut. A call that runs past it fails, and the run may still complete on
+// the web side: paid_feature_status shows its outcome.
+const PaidProbeTimeout = 85 * time.Second
 
 // AdminProbeOperator is the paid-feature half of the admin operator.
 type AdminProbeOperator interface {
@@ -97,9 +105,9 @@ func runPaidProbeTool() AdminTool {
 			Name:  t.Name,
 			Title: "Run the paid-feature probe",
 			Description: "Start one run of the paid-feature probe on the web app: it exercises each paid feature as a real subscriber " +
-				"(entitlement, chat, API tokens, gates) and reports each step. Takes up to about two minutes and returns the report. " +
-				"Only one run is allowed at a time: a run already in progress is reported, not started twice. Results land in " +
-				"paid_feature_status when the run reports to Telesis.",
+				"(entitlement, chat, API tokens, gates) and reports each step. The run happens inside this call and the report comes back " +
+				"with it; the call is bounded at 85 seconds. Only one run is allowed at a time: a second call while one is in progress " +
+				"returns at once and starts nothing. Results also land in paid_feature_status when the run reports to Telesis.",
 			Annotations: &sdk.ToolAnnotations{
 				ReadOnlyHint:    false,
 				DestructiveHint: boolPtr(false),
@@ -111,6 +119,10 @@ func runPaidProbeTool() AdminTool {
 				return denied, PaidProbeOutput{}, nil
 			}
 			log.Infof("admin run_paid_probe: actor=%s", adminActor(req))
+			// The probe runs on this request's context, so the connector's own bound
+			// is the one that applies; PaidProbeTimeout keeps it under the stream bound.
+			ctx, cancel := context.WithTimeout(ctx, PaidProbeTimeout)
+			defer cancel()
 			out, err := pub.RunPaidProbe(ctx)
 			if err == nil && out == nil {
 				err = errors.New("paid probe: the web app returned no report")
@@ -127,7 +139,7 @@ func runPaidProbeTool() AdminTool {
 // paidProbeText says what the run did in one line, naming the failed steps.
 func paidProbeText(out *PaidProbeOutput) string {
 	if out.InProgress {
-		return "A paid-feature probe is already running. Nothing was started; wait for it and read paid_feature_status."
+		return "a probe run is already in progress; nothing was started. Read paid_feature_status for the outcome of the run in progress."
 	}
 	checkins := firstNonEmptyText(out.Checkins, "disabled")
 	if out.OK {

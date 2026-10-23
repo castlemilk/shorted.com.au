@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -27,6 +28,9 @@ type adminMCPSource struct {
 	// Stripe-facing and probe routes of the web app. Either may be nil.
 	billing shortsstore.BillingStore
 	web     *adminWebClient
+	// probing is set while a paid-feature probe run is in flight through this
+	// source. A second run is refused at once, not queued behind the first.
+	probing atomic.Bool
 }
 
 var _ mcp.AdminOperator = (*adminMCPSource)(nil)

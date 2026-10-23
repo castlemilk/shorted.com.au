@@ -46,7 +46,7 @@ every Claude session (including Claude Code on the web) with eighteen tools:
 | `check_subscription` `{email}` or `{userId}` | `users:read` | Does one subscriber's access match what they paid for: the account, every mirror row for the email or user id, the entitlement the product applies, the live Stripe customer, drift between the mirror and Stripe, and chat and API usage. Give exactly one key. A source that fails is named in `sources` and its section is `null`. |
 | `list_billing_exceptions` `{limit?}` | `users:read` | Billing exceptions across every subscriber, most severe first. `counts` covers every finding; `rows` is the first `limit` (default 25). |
 | `paid_feature_status` `{}` | `jobs:read` | Each paid feature's probe monitor in Telesis (`paid-feature: <feature>`): its status, whether it is armed or paused, when it last and next ran, and its five newest runs. |
-| `run_paid_probe` `{}` | `jobs:run` | Starts one run of the paid-feature probe on the web app and returns each step. Takes up to about two minutes. A run already in progress is reported, not started twice. |
+| `run_paid_probe` `{}` | `jobs:run` | Runs the paid-feature probe on the web app inside the call and returns each step. Bounded at 85 seconds. A second call while a run is in flight returns `inProgress: true` at once and starts nothing. |
 
 Only merged articles can be published — the job image bakes `content/news` in
 at build time, and the tool takes a slug, never a body. Likewise the picks tool
@@ -146,14 +146,18 @@ a missed run alerts. `configured: false` means Telesis is not set up on this
 deployment; that is not an error. The Telesis setup is in "Jobs on the omega
 cluster" above.
 
-`run_paid_probe` (`jobs:run`) starts one run of the probe on the web app
-(`POST /api/internal/paid-probe`), which exercises each paid feature as a
-subscriber would and returns every step. A run already in progress returns
-`inProgress: true` and starts nothing. The probe is not cut at the admin
-server's 90-second request bound; it has its own 150-second budget. A run that
-takes longer than about two minutes can still reach the connector as a Cloudflare
-524 (Cloudflare gives up on a silent response at 120 seconds) while the probe
-completes on the server, so check `paid_feature_status` for its outcome.
+`run_paid_probe` (`jobs:run`) runs the probe on the web app
+(`POST /api/internal/paid-probe`) inside the call. The probe exercises each paid
+feature as a subscriber would and returns every step with the call.
+
+- **Bounded at 85 seconds.** The admin server bounds every request at 90 seconds,
+  and the probe's worst case on the web side is about 75, so the call is given
+  85. A run that exceeds it returns a tool error. The run may still finish on the
+  web app, so check `paid_feature_status` for its outcome.
+- **One run at a time.** The connector holds an in-flight guard. A second call
+  while a run is in flight returns `inProgress: true` at once, with the message
+  "a probe run is already in progress", and starts nothing. It does not queue.
+  The guard is released when the run ends or the call is cancelled.
 
 ## Job visibility and freshness
 

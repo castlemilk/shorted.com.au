@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
@@ -133,14 +134,133 @@ func TestRunPaidProbePassesEachAnswerThrough(t *testing.T) {
 	}
 }
 
-// The probe is not cut by the request's own deadline: a caller whose context
-// is already done still gets the web app's answer.
-func TestRunPaidProbeIsNotCutByTheRequestDeadline(t *testing.T) {
+// blockingProbeWeb answers the paid-probe route only when release is closed. Each
+// run that reaches the route is announced on started, so a test knows a run is in
+// flight before it makes the second call.
+func blockingProbeWeb(t *testing.T, started chan<- struct{}, release <-chan struct{}) *adminWebClient {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/internal/paid-probe" {
+			http.NotFound(w, r)
+			return
+		}
+		started <- struct{}{}
+		select {
+		case <-release:
+		case <-r.Context().Done():
+			return
+		}
+		_, _ = io.WriteString(w, passingProbe)
+	}))
+	t.Cleanup(srv.Close)
+	return &adminWebClient{checkURL: srv.URL + "/api/internal/admin-check", secret: billingTestSecret, client: srv.Client()}
+}
+
+// A second probe while one is in flight is refused at once, as a result, and the
+// web app sees one run, not two.
+func TestSecondConcurrentProbeIsRefusedAtOnce(t *testing.T) {
+	started := make(chan struct{}, 4)
+	release := make(chan struct{})
+	src := &adminMCPSource{web: blockingProbeWeb(t, started, release)}
+
+	type answer struct {
+		out *mcp.PaidProbeOutput
+		err error
+	}
+	first := make(chan answer, 1)
+	go func() {
+		out, err := src.RunPaidProbe(context.Background())
+		first <- answer{out, err}
+	}()
+	<-started // the first run has reached the web app
+
+	begin := time.Now()
+	out, err := src.RunPaidProbe(context.Background())
+	if err != nil || out == nil || !out.InProgress {
+		t.Fatalf("second call: out %+v, err %v; want an in-progress result, not an error", out, err)
+	}
+	if waited := time.Since(begin); waited > 2*time.Second {
+		t.Fatalf("second call waited %s; a refusal must not queue behind the first run", waited)
+	}
+	if len(started) != 0 {
+		t.Fatalf("the second call reached the web app (%d runs announced)", len(started))
+	}
+
+	close(release)
+	got := <-first
+	if got.err != nil || got.out == nil || !got.out.OK {
+		t.Fatalf("first run: out %+v, err %v; want the passing report", got.out, got.err)
+	}
+}
+
+// The guard is released when a run ends, so the next probe runs.
+func TestGuardIsReleasedWhenTheRunEnds(t *testing.T) {
+	started := make(chan struct{}, 4)
+	release := make(chan struct{})
+	close(release)
+	src := &adminMCPSource{web: blockingProbeWeb(t, started, release)}
+	for i := 0; i < 2; i++ {
+		out, err := src.RunPaidProbe(context.Background())
+		if err != nil || out == nil || out.InProgress || !out.OK {
+			t.Fatalf("run %d: out %+v, err %v; want a finished passing run", i, out, err)
+		}
+	}
+	if src.probing.Load() {
+		t.Fatal("the guard is still held after the runs finished")
+	}
+}
+
+// A cancelled call releases the guard too: a run that the caller abandoned must not
+// block every later probe.
+func TestGuardIsReleasedWhenTheCallIsCancelled(t *testing.T) {
+	started := make(chan struct{}, 4)
+	release := make(chan struct{})
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	src := &adminMCPSource{web: blockingProbeWeb(t, started, release)}
+
 	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := src.RunPaidProbe(ctx)
+		done <- err
+	}()
+	<-started
 	cancel()
-	out, err := (&adminMCPSource{web: probeWeb(t, http.StatusOK, passingProbe)}).RunPaidProbe(ctx)
-	if err != nil || !out.OK {
-		t.Fatalf("out %+v, err %v: a done request context must not stop the probe", out, err)
+	if err := <-done; err == nil {
+		t.Fatal("a cancelled probe returned no error")
+	}
+	if src.probing.Load() {
+		t.Fatal("the guard is still held after the caller cancelled")
+	}
+}
+
+// The run is bounded by the context it is given, so a caller's deadline is the
+// deadline that applies.
+func TestRunPaidProbeIsBoundedByItsContext(t *testing.T) {
+	started := make(chan struct{}, 4)
+	release := make(chan struct{})
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	src := &adminMCPSource{web: blockingProbeWeb(t, started, release)}
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	begin := time.Now()
+	if _, err := src.RunPaidProbe(ctx); err == nil {
+		t.Fatal("a probe past its deadline returned no error")
+	}
+	if elapsed := time.Since(begin); elapsed > 5*time.Second {
+		t.Fatalf("the probe ran %s past a 150ms deadline", elapsed)
 	}
 }
 

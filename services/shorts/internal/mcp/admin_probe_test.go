@@ -5,14 +5,17 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 // probeFixture is what the fake operator answers for the paid-feature tools.
 var probeFixture struct {
-	status     *PaidFeatureStatusOutput
-	probe      *PaidProbeOutput
-	probeErr   error
-	probeCalls int
+	status      *PaidFeatureStatusOutput
+	probe       *PaidProbeOutput
+	probeErr    error
+	probeCalls  int
+	deadline    time.Time
+	hasDeadline bool
 }
 
 func (f *fakePublisher) PaidFeatureStatus(context.Context) (*PaidFeatureStatusOutput, error) {
@@ -22,8 +25,9 @@ func (f *fakePublisher) PaidFeatureStatus(context.Context) (*PaidFeatureStatusOu
 	return &PaidFeatureStatusOutput{Configured: true, Features: []PaidFeature{}, Sources: []JobSource{}}, nil
 }
 
-func (f *fakePublisher) RunPaidProbe(context.Context) (*PaidProbeOutput, error) {
+func (f *fakePublisher) RunPaidProbe(ctx context.Context) (*PaidProbeOutput, error) {
 	probeFixture.probeCalls++
+	probeFixture.deadline, probeFixture.hasDeadline = ctx.Deadline()
 	if probeFixture.probeErr != nil {
 		return nil, probeFixture.probeErr
 	}
@@ -114,7 +118,7 @@ func TestRunPaidProbeInProgressIsAResultNotAnError(t *testing.T) {
 	defer func() { probeFixture.probe = nil }()
 
 	body := peopleCall(t, []string{ScopeJobsRun}, runPaidProbeCall)
-	if strings.Contains(body, `"isError":true`) || !strings.Contains(body, "already running") || !strings.Contains(body, `"inProgress":true`) {
+	if strings.Contains(body, `"isError":true`) || !strings.Contains(body, "a probe run is already in progress") || !strings.Contains(body, `"inProgress":true`) {
 		t.Fatalf("body = %s, want an in-progress result", body)
 	}
 }
@@ -137,5 +141,22 @@ func TestRunPaidProbeIsNotStartedWithoutTheScope(t *testing.T) {
 	body := peopleCall(t, []string{ScopeJobsRead}, runPaidProbeCall)
 	if !strings.Contains(body, `"isError":true`) || probeFixture.probeCalls != 0 {
 		t.Fatalf("jobs:read started a probe (%d calls): %s", probeFixture.probeCalls, body)
+	}
+}
+
+// run_paid_probe runs synchronously inside the call, bounded at PaidProbeTimeout,
+// which sits under the 90-second request bound.
+func TestRunPaidProbeIsBoundedAt85Seconds(t *testing.T) {
+	probeFixture.hasDeadline = false
+	peopleCall(t, []string{ScopeJobsRun}, runPaidProbeCall)
+	if !probeFixture.hasDeadline {
+		t.Fatal("the probe ran with no deadline")
+	}
+	left := time.Until(probeFixture.deadline)
+	if left > PaidProbeTimeout || left < PaidProbeTimeout-10*time.Second {
+		t.Fatalf("deadline in %s, want about %s", left, PaidProbeTimeout)
+	}
+	if PaidProbeTimeout != 85*time.Second {
+		t.Fatalf("PaidProbeTimeout = %s, want 85s", PaidProbeTimeout)
 	}
 }
