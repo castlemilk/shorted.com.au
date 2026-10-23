@@ -137,7 +137,7 @@ func bespokeTokenClaims(claims *Claims) *Claims {
 // issuedOnOrAfter reports whether the token carries an issue time at or after t. A
 // token with no iat counts as older than any cut-over, so it fails closed.
 func issuedOnOrAfter(claims *Claims, t time.Time) bool {
-	return claims.IssuedAt != nil && !claims.IssuedAt.Time.Before(t)
+	return claims.IssuedAt != nil && !claims.IssuedAt.Before(t)
 }
 
 // withoutRole returns roles with every occurrence of role removed.
