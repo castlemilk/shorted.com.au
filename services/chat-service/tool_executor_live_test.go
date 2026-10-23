@@ -104,6 +104,7 @@ var liveToolCases = []liveToolCase{
 		tool:     "get_related_news",
 		args:     map[string]interface{}{"stock_code": "BHP", "limit": 3.0},
 		evidence: []string{`"articles":[`},
+		mustFit:  true,
 	},
 	{
 		name:     "get_stock_graph BHP",
@@ -118,10 +119,12 @@ var liveToolCases = []liveToolCase{
 		evidence: []string{`"events":[`},
 	},
 	{
+		// limit 10 is the size whose raw response, 32.9 KB, the budget used to cut.
 		name:     "get_stock_signals CBA",
 		tool:     "get_stock_signals",
-		args:     map[string]interface{}{"stock_code": "CBA", "limit": 5.0},
+		args:     map[string]interface{}{"stock_code": "CBA", "limit": 10.0},
 		evidence: []string{`"adverse":[`, `"positive":[`},
+		mustFit:  true,
 	},
 	{
 		name:     "get_economic_series cash rate",

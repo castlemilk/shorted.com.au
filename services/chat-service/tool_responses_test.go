@@ -5,10 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
@@ -210,6 +215,433 @@ func TestWeeklyReportKeepsMoversAndSectorsWithinBudget(t *testing.T) {
 	for _, dropped := range []string{`"trendInsights"`, `"faqs"`, `"history"`, `"logoUrl"`} {
 		if strings.Contains(result, dropped) {
 			t.Errorf("result keeps %s, which the model does not need", dropped)
+		}
+	}
+}
+
+// readFixture returns a response recorded from the live Shorts API, from testdata.
+func readFixture(t *testing.T, name string) []byte {
+	t.Helper()
+	body, err := os.ReadFile(filepath.Join("testdata", name))
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", name, err)
+	}
+	return body
+}
+
+// replyWith returns a handler that answers every request with body.
+func replyWith(body []byte) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(body)
+	})
+}
+
+// signalsOutput is a get_stock_signals result as the model reads it. Tests decode the
+// wire JSON, so the names checked are the ones the model sees.
+type signalsOutput struct {
+	Adverse         []signalItemOutput `json:"adverse"`
+	Positive        []signalItemOutput `json:"positive"`
+	OmittedAdverse  int                `json:"omittedAdverse"`
+	OmittedPositive int                `json:"omittedPositive"`
+}
+
+type signalItemOutput struct {
+	Polarity  string `json:"polarity"`
+	Kind      string `json:"kind"`
+	Headline  string `json:"headline"`
+	Detail    string `json:"detail"`
+	Date      string `json:"date"`
+	Severity  string `json:"severity"`
+	Source    string `json:"source"`
+	SourceURL string `json:"sourceUrl"`
+}
+
+// decodeSignals fails unless result is valid JSON within the budget, and returns it
+// decoded.
+func decodeSignals(t *testing.T, result string) signalsOutput {
+	t.Helper()
+	if len(result) > maxToolResultBytes {
+		t.Fatalf("result is %d bytes, over the %d byte budget", len(result), maxToolResultBytes)
+	}
+	if !json.Valid([]byte(result)) {
+		t.Fatalf("result is not valid JSON: %.200s", result)
+	}
+	var out signalsOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	return out
+}
+
+// TestStockSignalsFitTheBudgetAtLiveSize replays the GetStockSignals response for CBA at
+// limit 10, recorded from the live API. Raw it is 32.9 KB and nearly all of it is
+// grounding redirects. The budget used to cut it into a prefix that was not valid JSON,
+// so the model lost the end. The shaped answer must be whole.
+func TestStockSignalsFitTheBudgetAtLiveSize(t *testing.T) {
+	body := readFixture(t, "get_stock_signals_cba_10.json")
+	if len(body) <= maxToolResultBytes {
+		t.Fatalf("fixture is %d bytes, want it over the budget so the test means something", len(body))
+	}
+	var recorded shortsv1alpha1.GetStockSignalsResponse
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(body, &recorded); err != nil {
+		t.Fatalf("decode fixture: %v", err)
+	}
+	recordedHeadlines := make(map[string]bool)
+	for _, signal := range recorded.GetPositive() {
+		recordedHeadlines[signal.GetHeadline()] = true
+	}
+
+	executor := newTestToolExecutor(replyWith(body))
+	result, err := executor.Execute(context.Background(), "get_stock_signals", map[string]interface{}{"stock_code": "CBA", "limit": 10.0})
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	out := decodeSignals(t, result)
+
+	if strings.Contains(result, "vertexaisearch") || strings.Contains(result, `"citations"`) {
+		t.Errorf("result keeps a grounding redirect or the citation list")
+	}
+	if len(out.Positive) != len(recorded.GetPositive()) {
+		t.Errorf("positive items = %d, want all %d from the fixture", len(out.Positive), len(recorded.GetPositive()))
+	}
+	if !strings.Contains(result, `"adverse":[]`) {
+		t.Errorf("adverse list is not an empty array: %.200s", result)
+	}
+	if out.OmittedAdverse != 0 || out.OmittedPositive != 0 {
+		t.Errorf("omitted = %d adverse, %d positive, want none", out.OmittedAdverse, out.OmittedPositive)
+	}
+	for _, item := range out.Positive {
+		if item.Polarity != "positive" || !recordedHeadlines[item.Headline] {
+			t.Errorf("item %q does not match a fixture positive signal", item.Headline)
+		}
+	}
+}
+
+// TestStockSignalsKeepsAdverseFirstWhenTheBudgetIsTight builds 10 adverse and 40 positive
+// signals. The adverse list fits on its own but not beside the positive one, so the budget
+// drops positive items. It keeps every adverse item, ordered by severity and then newest.
+func TestStockSignalsKeepsAdverseFirstWhenTheBudgetIsTight(t *testing.T) {
+	response := &shortsv1alpha1.GetStockSignalsResponse{}
+	for i := 0; i < 10; i++ {
+		severity := "medium"
+		if i%2 == 0 {
+			severity = "high"
+		}
+		response.Adverse = append(response.Adverse, &shortsv1alpha1.StockSignal{
+			Polarity:  "adverse",
+			Kind:      "court",
+			Headline:  fmt.Sprintf("Adverse matter %02d", i),
+			Detail:    strings.Repeat("detail ", 75),
+			EventDate: fmt.Sprintf("2026-%02d-01", i+1),
+			Severity:  severity,
+		})
+	}
+	for i := 0; i < 40; i++ {
+		response.Positive = append(response.Positive, &shortsv1alpha1.StockSignal{
+			Polarity:  "positive",
+			Kind:      "press",
+			Headline:  fmt.Sprintf("Positive item %02d", i),
+			Detail:    strings.Repeat("detail ", 40),
+			EventDate: fmt.Sprintf("2024-%02d-%02d", i/28+1, i%28+1),
+			Severity:  "low",
+		})
+	}
+	body, err := protojson.Marshal(response)
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+	if len(body) <= maxToolResultBytes {
+		t.Fatalf("fixture is %d bytes, want it over the budget so the test means something", len(body))
+	}
+
+	result, err := summarizeStockSignals(body)
+	if err != nil {
+		t.Fatalf("summarizeStockSignals() error = %v", err)
+	}
+	out := decodeSignals(t, result)
+
+	var adverse []string
+	for _, item := range out.Adverse {
+		adverse = append(adverse, item.Headline)
+	}
+	wantAdverse := []string{
+		"Adverse matter 08", "Adverse matter 06", "Adverse matter 04", "Adverse matter 02", "Adverse matter 00",
+		"Adverse matter 09", "Adverse matter 07", "Adverse matter 05", "Adverse matter 03", "Adverse matter 01",
+	}
+	if !slices.Equal(adverse, wantAdverse) {
+		t.Errorf("adverse order = %v, want high severity first, newest first within each", adverse)
+	}
+	if out.OmittedAdverse != 0 {
+		t.Errorf("omittedAdverse = %d, want every adverse item kept", out.OmittedAdverse)
+	}
+	if len(out.Positive) == 0 || len(out.Positive) >= maxSignalsPerPolarity {
+		t.Fatalf("positive items = %d, want the budget to drop some but keep some", len(out.Positive))
+	}
+	if out.OmittedPositive != 40-len(out.Positive) {
+		t.Errorf("omittedPositive = %d, want %d: the 40 fixture items less the %d kept", out.OmittedPositive, 40-len(out.Positive), len(out.Positive))
+	}
+	if out.Positive[0].Headline != "Positive item 39" {
+		t.Errorf("first positive = %q, want the newest kept", out.Positive[0].Headline)
+	}
+}
+
+// TestStockSignalsCapsEachPolarityAndCountsTheRest checks the per-polarity cap, the
+// omitted count, and the empty answer. A count of zero is left out of the JSON.
+func TestStockSignalsCapsEachPolarityAndCountsTheRest(t *testing.T) {
+	response := &shortsv1alpha1.GetStockSignalsResponse{}
+	for i := 0; i < 12; i++ {
+		response.Positive = append(response.Positive, &shortsv1alpha1.StockSignal{
+			Polarity:  "positive",
+			Kind:      "award",
+			Headline:  fmt.Sprintf("Award %02d", i),
+			EventDate: fmt.Sprintf("2025-%02d-01", i+1),
+		})
+	}
+	body, err := protojson.Marshal(response)
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+
+	result, err := summarizeStockSignals(body)
+	if err != nil {
+		t.Fatalf("summarizeStockSignals() error = %v", err)
+	}
+	out := decodeSignals(t, result)
+	if len(out.Positive) != maxSignalsPerPolarity || out.OmittedPositive != 2 {
+		t.Errorf("positive = %d shown, %d omitted, want %d shown and 2 omitted", len(out.Positive), out.OmittedPositive, maxSignalsPerPolarity)
+	}
+	if out.Positive[0].Headline != "Award 11" {
+		t.Errorf("first positive = %q, want the newest, Award 11", out.Positive[0].Headline)
+	}
+	if strings.Contains(result, "omittedAdverse") {
+		t.Errorf("a zero adverse count is in the result: %s", result)
+	}
+
+	empty, err := summarizeStockSignals([]byte(`{}`))
+	if err != nil {
+		t.Fatalf("summarizeStockSignals(empty) error = %v", err)
+	}
+	if want := `{"adverse":[],"positive":[]}`; empty != want {
+		t.Errorf("empty answer = %s, want %s", empty, want)
+	}
+}
+
+// TestStockSignalsKeepsThePublisherDomainAndDropsRedirects: a grounding redirect names
+// only the grounding service, so it is dropped. A publisher link keeps its domain, and
+// its URL when the URL is short enough.
+func TestStockSignalsKeepsThePublisherDomainAndDropsRedirects(t *testing.T) {
+	redirect := "https://vertexaisearch.cloud.google.com/grounding-api-redirect/" + strings.Repeat("A", 250)
+	response := &shortsv1alpha1.GetStockSignalsResponse{Positive: []*shortsv1alpha1.StockSignal{
+		{Polarity: "positive", Headline: "Publisher link", Citations: []string{redirect, "https://www.ASX.com.au/announcements/cba-result.pdf"}},
+		{Polarity: "positive", Headline: "Redirect only", Citations: []string{redirect}},
+		{Polarity: "positive", Headline: "Long link", Citations: []string{"https://news.example.com/" + strings.Repeat("x", 220)}},
+		{Polarity: "positive", Headline: "Not a link", Citations: []string{"see the annual report"}},
+	}}
+	body, err := protojson.Marshal(response)
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+
+	result, err := summarizeStockSignals(body)
+	if err != nil {
+		t.Fatalf("summarizeStockSignals() error = %v", err)
+	}
+	out := decodeSignals(t, result)
+	if strings.Contains(result, "vertexaisearch") {
+		t.Errorf("result keeps a grounding redirect: %.200s", result)
+	}
+
+	byHeadline := make(map[string]signalItemOutput, len(out.Positive))
+	for _, item := range out.Positive {
+		byHeadline[item.Headline] = item
+	}
+	for _, want := range []struct{ headline, source, sourceURL string }{
+		{"Publisher link", "asx.com.au", "https://www.ASX.com.au/announcements/cba-result.pdf"},
+		{"Redirect only", "", ""},
+		{"Long link", "news.example.com", ""},
+		{"Not a link", "", ""},
+	} {
+		item, ok := byHeadline[want.headline]
+		if !ok {
+			t.Errorf("%s is missing from the result", want.headline)
+			continue
+		}
+		if item.Source != want.source || item.SourceURL != want.sourceURL {
+			t.Errorf("%s: source %q and url %q, want %q and %q", want.headline, item.Source, item.SourceURL, want.source, want.sourceURL)
+		}
+	}
+}
+
+// TestTopShortsSparklineFitsTheBudgetAtLiveSize replays the GetTopShorts response for the
+// top 10 over 3 months, recorded from the live API. Raw it is 37.5 KB with 60 points per
+// stock. Shaped, the 10 rows must fit as valid JSON, each sparkline cut to 8 points that
+// keep the first and the latest.
+func TestTopShortsSparklineFitsTheBudgetAtLiveSize(t *testing.T) {
+	body := readFixture(t, "get_top_shorts_3m_10.json")
+	if len(body) <= maxToolResultBytes {
+		t.Fatalf("fixture is %d bytes, want it over the budget so the test means something", len(body))
+	}
+	var recorded struct {
+		TimeSeries []struct {
+			ProductCode         string  `json:"productCode"`
+			LatestShortPosition float64 `json:"latestShortPosition"`
+			Points              []struct {
+				Timestamp     string  `json:"timestamp"`
+				ShortPosition float64 `json:"shortPosition"`
+			} `json:"points"`
+		} `json:"timeSeries"`
+	}
+	if err := json.Unmarshal(body, &recorded); err != nil {
+		t.Fatalf("decode fixture: %v", err)
+	}
+	if len(recorded.TimeSeries) != 10 {
+		t.Fatalf("fixture has %d rows, want the 10 the test is for", len(recorded.TimeSeries))
+	}
+
+	executor := newTestToolExecutor(replyWith(body))
+	result, err := executor.Execute(context.Background(), "get_top_shorts", map[string]interface{}{"limit": 10.0})
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if len(result) > maxToolResultBytes {
+		t.Fatalf("result is %d bytes, over the %d byte budget", len(result), maxToolResultBytes)
+	}
+	if !json.Valid([]byte(result)) {
+		t.Fatalf("result is not valid JSON: %.200s", result)
+	}
+
+	var out struct {
+		TimeSeries []struct {
+			ProductCode         string  `json:"productCode"`
+			Name                string  `json:"name"`
+			LatestShortPosition float64 `json:"latestShortPosition"`
+			Points              []struct {
+				Timestamp     string  `json:"timestamp"`
+				ShortPosition float64 `json:"shortPosition"`
+			} `json:"points"`
+		} `json:"timeSeries"`
+		OmittedStocks int `json:"omittedStocks"`
+	}
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(out.TimeSeries) != 10 || out.OmittedStocks != 0 {
+		t.Fatalf("rows = %d with %d omitted, want all 10 rows", len(out.TimeSeries), out.OmittedStocks)
+	}
+	for i, row := range out.TimeSeries {
+		want := recorded.TimeSeries[i]
+		if row.ProductCode != want.ProductCode || row.LatestShortPosition != want.LatestShortPosition || row.Name == "" {
+			t.Errorf("row %d = %s %q %v, want %s with latest %v and a name", i, row.ProductCode, row.Name, row.LatestShortPosition, want.ProductCode, want.LatestShortPosition)
+		}
+		// A stock with fewer points than the cap keeps them all, so the expected count is
+		// the smaller of the two.
+		if wantPoints := min(len(want.Points), topShortsSparklinePoints); len(row.Points) != wantPoints {
+			t.Fatalf("%s has %d points, want %d", row.ProductCode, len(row.Points), wantPoints)
+		}
+		first, last := row.Points[0], row.Points[len(row.Points)-1]
+		wantFirst, wantLast := want.Points[0], want.Points[len(want.Points)-1]
+		if first.Timestamp != wantFirst.Timestamp || first.ShortPosition != wantFirst.ShortPosition {
+			t.Errorf("%s first point = %+v, want %+v", row.ProductCode, first, wantFirst)
+		}
+		if last.Timestamp != wantLast.Timestamp || last.ShortPosition != wantLast.ShortPosition {
+			t.Errorf("%s latest point = %+v, want %+v", row.ProductCode, last, wantLast)
+		}
+		for j := 1; j < len(row.Points); j++ {
+			if row.Points[j].Timestamp <= row.Points[j-1].Timestamp {
+				t.Errorf("%s points are not in time order at %d", row.ProductCode, j)
+			}
+		}
+	}
+}
+
+// TestThinSparklineKeepsFirstAndLatestEvenly checks the thinning for short and long
+// series. The first and latest points are always kept, and the gaps between the kept
+// points differ by at most one.
+func TestThinSparklineKeepsFirstAndLatestEvenly(t *testing.T) {
+	for _, n := range []int{1, 2, 8, 9, 60, 61, 1000} {
+		points := make([]*stocksv1alpha1.TimeSeriesPoint, n)
+		for i := range points {
+			points[i] = &stocksv1alpha1.TimeSeriesPoint{ShortPosition: float64(i)}
+		}
+		thinned := thinSparkline(points, topShortsSparklinePoints)
+		if want := min(n, topShortsSparklinePoints); len(thinned) != want {
+			t.Errorf("n=%d: kept %d points, want %d", n, len(thinned), want)
+			continue
+		}
+		if thinned[0] != points[0] || thinned[len(thinned)-1] != points[n-1] {
+			t.Errorf("n=%d: first or latest point is not kept", n)
+		}
+		if len(thinned) < 2 {
+			continue
+		}
+		minGap, maxGap := n, 0
+		for i := 1; i < len(thinned); i++ {
+			gap := int(thinned[i].ShortPosition - thinned[i-1].ShortPosition)
+			minGap, maxGap = min(minGap, gap), max(maxGap, gap)
+		}
+		if gap := maxGap - minGap; gap > 1 {
+			t.Errorf("n=%d: gaps range from %d to %d, want them even to within one", n, minGap, maxGap)
+		}
+	}
+}
+
+// TestTopShortsTrimsTheLowestRankedRowsThatDoNotFit: 50 stocks with long names and full
+// sparklines do not fit. The rows kept are the top-ranked ones, and omittedStocks counts
+// the rest.
+func TestTopShortsTrimsTheLowestRankedRowsThatDoNotFit(t *testing.T) {
+	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	response := &shortsv1alpha1.GetTopShortsResponse{}
+	for i := 0; i < 50; i++ {
+		series := &stocksv1alpha1.TimeSeriesData{
+			ProductCode:         fmt.Sprintf("T%02d", i),
+			Name:                strings.Repeat("Company Name ", 4),
+			LatestShortPosition: float64(50 - i),
+		}
+		for d := 0; d < 60; d++ {
+			series.Points = append(series.Points, &stocksv1alpha1.TimeSeriesPoint{
+				Timestamp:     timestamppb.New(start.AddDate(0, 0, d)),
+				ShortPosition: float64(i) + float64(d)/100,
+			})
+		}
+		response.TimeSeries = append(response.TimeSeries, series)
+	}
+	body, err := protojson.Marshal(response)
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+
+	result, err := summarizeTopShorts(body)
+	if err != nil {
+		t.Fatalf("summarizeTopShorts() error = %v", err)
+	}
+	if len(result) > maxToolResultBytes {
+		t.Fatalf("result is %d bytes, over the %d byte budget", len(result), maxToolResultBytes)
+	}
+	if !json.Valid([]byte(result)) {
+		t.Fatalf("result is not valid JSON: %.200s", result)
+	}
+
+	var out struct {
+		TimeSeries []struct {
+			ProductCode string `json:"productCode"`
+		} `json:"timeSeries"`
+		OmittedStocks int `json:"omittedStocks"`
+	}
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if out.OmittedStocks == 0 {
+		t.Fatalf("no rows omitted, so the fixture does not exercise the trim")
+	}
+	if len(out.TimeSeries)+out.OmittedStocks != 50 {
+		t.Errorf("kept %d rows and omitted %d, want 50 in all", len(out.TimeSeries), out.OmittedStocks)
+	}
+	if len(out.TimeSeries) < 10 {
+		t.Errorf("kept %d rows, want at least the 10 the default limit asks for", len(out.TimeSeries))
+	}
+	for i, row := range out.TimeSeries {
+		if want := fmt.Sprintf("T%02d", i); row.ProductCode != want {
+			t.Errorf("row %d = %s, want %s: rows must stay in rank order", i, row.ProductCode, want)
 		}
 	}
 }

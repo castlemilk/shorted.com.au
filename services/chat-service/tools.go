@@ -29,7 +29,7 @@ func GetToolDefinitions() []ToolDefinition {
 		},
 		{
 			Name:        "get_top_shorts",
-			Description: "Get the top N most shorted stocks on the ASX, ranked by current short interest percentage. Returns each stock's code, name, industry and latest short position. For how a stock's short interest has moved over time, use query_short_positions.",
+			Description: "Get the top N most shorted stocks on the ASX, ranked by current short interest percentage. Returns each stock's code, name and latest short position, with a sparkline of its short interest over the last 3 months (up to 8 points, the first and the latest always included). If the list is too long for one answer, the lowest-ranked stocks are left out and omittedStocks says how many. For the full daily history of one stock, use query_short_positions.",
 			Parameters: map[string]ToolParameter{
 				"limit": {Type: "integer", Description: "Number of stocks to return (default 10, max 50)"},
 			},
@@ -89,6 +89,7 @@ func GetToolDefinitions() []ToolDefinition {
 			Description: "Find news articles semantically related to a stock (cross-outlet, by meaning). Uses vector similarity to surface thematically relevant coverage beyond simple keyword matching.",
 			Parameters: map[string]ToolParameter{
 				"stock_code": {Type: "string", Description: "ASX stock code (e.g., 'BHP', 'CBA')"},
+				"article_id": {Type: "string", Description: "Optional id of an article from an earlier get_news or get_related_news result, to find news related to that article instead of the stock's latest one. Omit it to relate to the stock's latest article."},
 				"limit":      {Type: "integer", Description: "Number of related articles to return (default 5)"},
 			},
 			Required: []string{"stock_code"},
@@ -114,10 +115,10 @@ func GetToolDefinitions() []ToolDefinition {
 		},
 		{
 			Name:        "get_stock_signals",
-			Description: "Get a stock's risk and reputation signals — adverse items (court cases, sanctions, regulatory actions, complaints, safety incidents) and positive items (awards, favourable press), each with a severity rating and source citations. Use when the user asks about a company's risks, controversies, legal issues, or reputation.",
+			Description: "Get a stock's risk and reputation signals — adverse items (court cases, sanctions, regulatory actions, complaints, safety incidents) and positive items (awards, favourable press), each with a severity rating, its date and, where known, the publisher's domain. Use when the user asks about a company's risks, controversies, legal issues, or reputation.",
 			Parameters: map[string]ToolParameter{
 				"stock_code": {Type: "string", Description: "ASX stock code"},
-				"limit":      {Type: "integer", Description: "Max signals per polarity (default 10, max 50)"},
+				"limit":      {Type: "integer", Description: "Max signals per polarity to fetch (default 10, max 50). At most 10 of each polarity reach the answer; omittedAdverse and omittedPositive count the rest."},
 			},
 			Required: []string{"stock_code"},
 		},

@@ -58,25 +58,25 @@ var toolContractCases = []toolContractCase{
 	},
 	{
 		// The period is not declared for this tool, so a period a model sends must not
-		// reach the request: the summary query ignores it.
-		name:     "get_top_shorts is summary only and ignores period",
+		// reach the request: the sparkline window is fixed at 3 months.
+		name:     "get_top_shorts asks for 3M sparklines and ignores period",
 		tool:     "get_top_shorts",
 		args:     map[string]interface{}{"limit": 5.0, "period": "1m"},
 		service:  legacyShortsService,
 		method:   "GetTopShorts",
 		request:  &shortsv1alpha1.GetTopShortsRequest{},
-		want:     map[string]interface{}{"summary_only": true, "limit": 5},
-		wireKeys: []string{"limit", "summaryOnly"},
+		want:     map[string]interface{}{"summary_only": false, "period": "3M", "limit": 5},
+		wireKeys: []string{"limit", "period"},
 	},
 	{
-		name:     "get_top_shorts defaults to 10 in summary mode",
+		name:     "get_top_shorts defaults to 10 stocks",
 		tool:     "get_top_shorts",
 		args:     map[string]interface{}{},
 		service:  legacyShortsService,
 		method:   "GetTopShorts",
 		request:  &shortsv1alpha1.GetTopShortsRequest{},
-		want:     map[string]interface{}{"summary_only": true, "limit": 10},
-		wireKeys: []string{"limit", "summaryOnly"},
+		want:     map[string]interface{}{"summary_only": false, "period": "3M", "limit": 10},
+		wireKeys: []string{"limit", "period"},
 	},
 	{
 		name:     "get_stock_details",
@@ -203,6 +203,18 @@ var toolContractCases = []toolContractCase{
 		request:  &shortsv1alpha1.GetRelatedNewsRequest{},
 		want:     map[string]interface{}{"stock_code": "BHP", "article_id": "a1", "limit": 3},
 		wireKeys: []string{"articleId", "limit", "stockCode"},
+	},
+	{
+		// Without an article the call anchors on the stock's latest article, so no
+		// article_id reaches the wire.
+		name:     "get_related_news without article_id anchors on the stock",
+		tool:     "get_related_news",
+		args:     map[string]interface{}{"stock_code": "BHP"},
+		service:  legacyShortsService,
+		method:   "GetRelatedNews",
+		request:  &shortsv1alpha1.GetRelatedNewsRequest{},
+		want:     map[string]interface{}{"stock_code": "BHP", "limit": 5},
+		wireKeys: []string{"limit", "stockCode"},
 	},
 	{
 		name:     "get_stock_graph",
@@ -419,6 +431,48 @@ func TestEveryDeclaredParameterChangesTheRequest(t *testing.T) {
 				}
 				if a.service == b.service && a.method == b.method && proto.Equal(a.request, b.request) {
 					t.Errorf("parameter %q does not change the request: both calls send %s/%s %v", name, a.service, a.method, a.request)
+				}
+			})
+		}
+	}
+}
+
+// TestBuilderReadsOnlyDeclaredArguments fails when a builder reads an argument that
+// tools.go does not declare. The model can send only declared parameters, so a read of
+// any other name is dead code: the request never changes for the model. Each contract
+// case's undeclared arguments are removed in turn, and the request must stay the same.
+func TestBuilderReadsOnlyDeclaredArguments(t *testing.T) {
+	declared := make(map[string]map[string]bool)
+	for _, def := range GetToolDefinitions() {
+		names := make(map[string]bool, len(def.Parameters))
+		for name := range def.Parameters {
+			names[name] = true
+		}
+		declared[def.Name] = names
+	}
+
+	for _, tc := range toolContractCases {
+		for key := range tc.args {
+			if declared[tc.tool][key] {
+				continue
+			}
+			t.Run(tc.name+" "+key, func(t *testing.T) {
+				with, err := buildToolCall(tc.tool, tc.args)
+				if err != nil {
+					t.Fatalf("buildToolCall(%s) error = %v", tc.tool, err)
+				}
+				without := make(map[string]interface{}, len(tc.args))
+				for k, v := range tc.args {
+					if k != key {
+						without[k] = v
+					}
+				}
+				bare, err := buildToolCall(tc.tool, without)
+				if err != nil {
+					t.Fatalf("buildToolCall(%s) without %s error = %v", tc.tool, key, err)
+				}
+				if !proto.Equal(with.request, bare.request) {
+					t.Errorf("%s reads %q, which tools.go does not declare, so the model cannot send it", tc.tool, key)
 				}
 			})
 		}
