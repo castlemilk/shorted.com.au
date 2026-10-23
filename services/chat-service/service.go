@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"connectrpc.com/connect"
@@ -33,6 +34,8 @@ type ChatServiceHandler struct {
 	// and then SendMessage refuses before reaching it.
 	ledger usageLedger
 	limits chatSendLimits
+	// admitTimeout bounds admission. Zero means chatAdmitTimeout.
+	admitTimeout time.Duration
 }
 
 var _ chatv1connect.ChatServiceHandler = (*ChatServiceHandler)(nil)
@@ -67,6 +70,7 @@ func NewChatServiceHandler(store *ConversationStore, llmClient *LLMClient, cfg *
 			PerMonth:        cfg.ChatSendsPerMonth,
 			GlobalPerMinute: cfg.ChatGlobalSendsPerMinute,
 		},
+		admitTimeout: chatAdmitTimeout,
 	}
 	// Assigned only when there is a store: a nil *ConversationStore inside a
 	// non-nil interface would look configured to the limiter.

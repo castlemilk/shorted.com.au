@@ -64,6 +64,17 @@ const chatLimitHeader = "x-chat-limit"
 // so they get their own deadline instead of none.
 const usageWriteTimeout = 5 * time.Second
 
+// chatAdmitTimeout bounds admission: the pending insert and the count that checks
+// a send against the limits. Without it a slow ledger would hold every send for
+// as long as the request lasts. Past this the send is admitted, and the timeout
+// is logged at error severity, as any other ledger failure is.
+const chatAdmitTimeout = 2 * time.Second
+
+// rejectAttempts is how many times a refused send's row is marked limited. A row
+// that stays pending keeps counting against its user until its window passes, so
+// one transient failure is worth a retry.
+const rejectAttempts = 2
+
 // sendCountsSQL counts sends in one statement, FILTERed per window. The WHERE
 // clause limits the scan to the caller's last 30 days plus everyone's last
 // minute, which are the two indexes on chat_usage_events. Only counted
@@ -283,7 +294,9 @@ func (h *ChatServiceHandler) admitSend(ctx context.Context, userID string) (*sen
 	if h.ledger == nil {
 		return nil, nil
 	}
-	id, counts, err := h.ledger.AdmitSend(ctx, userID)
+	admitCtx, cancelAdmit := context.WithTimeout(ctx, h.admitBudget())
+	id, counts, err := h.ledger.AdmitSend(admitCtx, userID)
+	cancelAdmit()
 	turn := &sendTurn{ledger: h.ledger, id: id}
 	if err != nil {
 		logLimitFailure("admit", err)
@@ -297,21 +310,37 @@ func (h *ChatServiceHandler) admitSend(ctx context.Context, userID string) (*sen
 
 	rejectCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), usageWriteTimeout)
 	defer cancel()
-	if err := h.ledger.RejectSend(rejectCtx, id); err != nil {
-		logLimitFailure("reject", err)
+	var rejectErr error
+	for attempt := 0; attempt < rejectAttempts; attempt++ {
+		if rejectErr = h.ledger.RejectSend(rejectCtx, id); rejectErr == nil {
+			break
+		}
+	}
+	if rejectErr != nil {
+		logLimitFailure("reject", rejectErr)
 	}
 	recordChatExperienceEvent("send_message", "rate_limited", exceeded.Kind)
 	return nil, limitExceededError(exceeded)
+}
+
+// admitBudget is the admission deadline, falling back to the production default
+// for a handler built without one.
+func (h *ChatServiceHandler) admitBudget() time.Duration {
+	if h.admitTimeout > 0 {
+		return h.admitTimeout
+	}
+	return chatAdmitTimeout
 }
 
 // logLimitFailure records a ledger failure at error severity. The line is
 // structured so it can be alerted on, and it still names the failure in text.
 func logLimitFailure(stage string, err error) {
 	log.Printf("%s", mustMarshalLogEvent(map[string]any{
-		"type":     "chat_limit_error",
-		"severity": "ERROR",
-		"stage":    stage,
-		"error":    err.Error(),
+		"type":      "chat_limit_error",
+		"severity":  "ERROR",
+		"stage":     stage,
+		"error":     err.Error(),
+		"timed_out": errors.Is(err, context.DeadlineExceeded),
 	}))
 }
 

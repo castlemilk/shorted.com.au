@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -215,6 +217,8 @@ type fakeLedger struct {
 	countErr    error
 	admitCalls  int
 	rejected    []int64
+	rejectErrs  []error // consumed one per RejectSend call; nil once empty
+	rejectCalls int
 	completions []fakeCompletion
 }
 
@@ -235,8 +239,26 @@ func (f *fakeLedger) AdmitSend(_ context.Context, _ string) (int64, sendCounts, 
 }
 
 func (f *fakeLedger) RejectSend(_ context.Context, id int64) error {
+	f.rejectCalls++
 	f.rejected = append(f.rejected, id)
-	return nil
+	if len(f.rejectErrs) == 0 {
+		return nil
+	}
+	err := f.rejectErrs[0]
+	f.rejectErrs = f.rejectErrs[1:]
+	return err
+}
+
+// hangingLedger never answers AdmitSend until its context is done, the way a
+// stalled database behaves.
+type hangingLedger struct {
+	fakeLedger
+}
+
+func (h *hangingLedger) AdmitSend(ctx context.Context, _ string) (int64, sendCounts, error) {
+	h.admitCalls++
+	<-ctx.Done()
+	return 0, sendCounts{}, ctx.Err()
 }
 
 func (f *fakeLedger) CompleteSend(_ context.Context, id int64, c sendCompletion) error {
@@ -469,4 +491,116 @@ func captureLogEventResult(t *testing.T, fn func() (*sendTurn, error)) (*sendTur
 		turn, err = fn()
 	})
 	return turn, err
+}
+
+func TestAdmitSendFailsOpenWhenTheLedgerStallsPastTheDeadline(t *testing.T) {
+	// A stalled ledger must not hold the send. The deadline is what bounds it, so
+	// the test shortens it rather than waiting for the production two seconds.
+	ledger := &hangingLedger{}
+	h := &ChatServiceHandler{ledger: ledger, limits: testLimits, admitTimeout: 20 * time.Millisecond}
+
+	var turn *sendTurn
+	var err error
+	started := time.Now()
+	logged := captureLogEvent(t, func() {
+		turn, err = h.admitSend(context.Background(), "user-1")
+	})
+
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("admitSend() took %s, want it bounded by its deadline", elapsed)
+	}
+	if err != nil {
+		t.Fatalf("admitSend() error = %v, want the send admitted (fail open)", err)
+	}
+	if turn == nil || turn.id != 0 {
+		t.Fatalf("turn = %+v, want a no-op turn with id 0", turn)
+	}
+	if logged["severity"] != "ERROR" || logged["stage"] != "admit" || logged["timed_out"] != true {
+		t.Fatalf("log = %v, want an ERROR-severity admit timeout", logged)
+	}
+}
+
+func TestAdmissionUsesTheProductionDeadlineByDefault(t *testing.T) {
+	h := &ChatServiceHandler{}
+	if got := h.admitBudget(); got != 2*time.Second {
+		t.Fatalf("admitBudget() = %s, want 2s", got)
+	}
+	configured := NewChatServiceHandler(nil, nil, nil)
+	if configured.admitTimeout != 2*time.Second {
+		t.Fatalf("NewChatServiceHandler admitTimeout = %s, want 2s", configured.admitTimeout)
+	}
+}
+
+func TestRejectSendIsRetriedOnceAndThenSucceeds(t *testing.T) {
+	// A transient failure on the first attempt must not leave the refused send
+	// pending, which would count it against the user.
+	ledger := &fakeLedger{id: 9, counts: sendCounts{UserMinute: 5, OldestUserMinute: testNow.Add(-time.Second)}}
+	ledger.rejectErrs = []error{errors.New("connection reset")}
+	h := &ChatServiceHandler{ledger: ledger, limits: testLimits}
+
+	_, err := h.admitSend(context.Background(), "user-1")
+
+	if code := connect.CodeOf(err); code != connect.CodeResourceExhausted {
+		t.Fatalf("code = %v, want resource_exhausted", code)
+	}
+	if ledger.rejectCalls != 2 {
+		t.Fatalf("RejectSend called %d times, want 2 (one retry)", ledger.rejectCalls)
+	}
+}
+
+func TestRejectSendFailingTwiceIsLoggedOnce(t *testing.T) {
+	ledger := &fakeLedger{id: 9, counts: sendCounts{UserMinute: 5, OldestUserMinute: testNow.Add(-time.Second)}}
+	ledger.rejectErrs = []error{errors.New("first"), errors.New("second")}
+	h := &ChatServiceHandler{ledger: ledger, limits: testLimits}
+
+	lines := captureLogLines(t, func() {
+		_, _ = h.admitSend(context.Background(), "user-1")
+	})
+
+	if ledger.rejectCalls != 2 {
+		t.Fatalf("RejectSend called %d times, want exactly 2 attempts", ledger.rejectCalls)
+	}
+	var failures []map[string]any
+	for _, line := range lines {
+		if line["type"] == "chat_limit_error" {
+			failures = append(failures, line)
+		}
+	}
+	if len(failures) != 1 || failures[0]["stage"] != "reject" || failures[0]["severity"] != "ERROR" {
+		t.Fatalf("limit failures = %v, want one ERROR-severity reject failure", failures)
+	}
+}
+
+// captureLogLines runs fn and returns every structured log line it wrote. The
+// refusal path also writes a product event, so a test that needs one specific
+// line cannot use captureLogEvent, which insists on exactly one.
+func captureLogLines(t *testing.T, fn func()) []map[string]any {
+	t.Helper()
+	var buf bytes.Buffer
+	oldOutput := log.Writer()
+	oldFlags := log.Flags()
+	oldPrefix := log.Prefix()
+	log.SetOutput(&buf)
+	log.SetFlags(0)
+	log.SetPrefix("")
+	defer func() {
+		log.SetOutput(oldOutput)
+		log.SetFlags(oldFlags)
+		log.SetPrefix(oldPrefix)
+	}()
+
+	fn()
+
+	var lines []map[string]any
+	for _, raw := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
+		if raw == "" {
+			continue
+		}
+		var event map[string]any
+		if err := json.Unmarshal([]byte(raw), &event); err != nil {
+			t.Fatalf("log line is not JSON: %q: %v", raw, err)
+		}
+		lines = append(lines, event)
+	}
+	return lines
 }
