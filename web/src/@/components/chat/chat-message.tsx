@@ -202,8 +202,17 @@ function toolTitle(toolName: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-/** The error a tool reported in its result, if it reported one. */
+/** What the person sees for a failed tool call. The upstream text is never shown. */
+const TOOL_FAILED_MESSAGE = "This data could not be retrieved.";
+
+/**
+ * The error a tool reported in its result, if it reported one. The chat service
+ * records a failed call as plain text, "Error: " and the failure, which can
+ * carry an upstream response body, so only the fact of the failure is shown.
+ * A tool may also return an object with an `error` string.
+ */
 function toolFailure(result: string): string | undefined {
+  if (result.startsWith("Error:")) return TOOL_FAILED_MESSAGE;
   if (!result.startsWith("{")) return undefined;
   try {
     const parsed: unknown = JSON.parse(result);

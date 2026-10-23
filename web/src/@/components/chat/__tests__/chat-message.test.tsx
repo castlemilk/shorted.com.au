@@ -274,6 +274,33 @@ describe("ChatMessageBubble tool calls", () => {
     expect(screen.getByText("News feed is unavailable")).toBeInTheDocument();
     expect(screen.queryByText(/"error"/)).not.toBeInTheDocument();
   });
+
+  it("marks a tool the chat service recorded as failed, with its text and body hidden", () => {
+    // The shape the chat service stores for a failed call: "Error: " and the
+    // failure, which carries the upstream response body.
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_stock_details",
+              arguments: JSON.stringify({ stock_code: "ZIP" }),
+              result:
+                'Error: RPC GetStockDetails returned 404: {"code":"not_found","message":"no stock ZIPX"}',
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+    expect(screen.queryByText("Completed")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Stock details/ }));
+
+    expect(screen.getByText("This data could not be retrieved.")).toBeInTheDocument();
+    expect(screen.queryByText(/not_found/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/RPC GetStockDetails/)).not.toBeInTheDocument();
+  });
 });
 
 describe("ChatMessageBubble streaming state", () => {
