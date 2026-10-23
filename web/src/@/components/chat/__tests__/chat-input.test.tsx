@@ -88,10 +88,32 @@ describe("ChatInput length", () => {
   it("caps the input at 2000 characters", () => {
     const { textarea } = renderInput();
 
-    expect(textarea).toHaveAttribute("maxlength", "2000");
+    // No maxlength: the browser counts UTF-16 units, and the cap is in characters.
+    expect(textarea).not.toHaveAttribute("maxlength");
     typeText(textarea, "a".repeat(2500));
 
     expect(textarea).toHaveValue("a".repeat(2000));
+  });
+
+  it("counts an emoji as one character, as the service does", () => {
+    const { textarea } = renderInput();
+
+    typeText(textarea, "\u{1F4C8}".repeat(1600));
+
+    // 1600 code points, 3200 UTF-16 units: all of it is kept, and the counter
+    // reads the characters the service counts.
+    expect(textarea).toHaveValue("\u{1F4C8}".repeat(1600));
+    expect(screen.getByText("1600/2000")).toBeInTheDocument();
+  });
+
+  it("cuts an over-long emoji message on a whole character, never inside a pair", () => {
+    const { textarea } = renderInput();
+
+    typeText(textarea, "\u{1F4C8}".repeat(2500));
+
+    const value = (textarea as HTMLTextAreaElement).value;
+    expect(Array.from(value)).toHaveLength(2000);
+    expect(Array.from(value).every((char) => char === "\u{1F4C8}")).toBe(true);
   });
 
   it("shows no counter until the person nears the limit", () => {

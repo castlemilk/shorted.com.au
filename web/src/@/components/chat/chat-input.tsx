@@ -10,8 +10,24 @@ import {
 } from "~/@/components/ai-elements/prompt-input";
 import { cn } from "~/@/lib/utils";
 
-/** The longest question the API accepts. */
+/** The longest question the API accepts, in characters as the service counts them. */
 export const CHAT_MESSAGE_MAX_LENGTH = 2000;
+
+/**
+ * Characters as the chat service counts them: code points, so an emoji or a
+ * CJK extension character is one. A UTF-16 length counts each of those twice.
+ */
+export function chatCharCount(value: string): number {
+  return Array.from(value).length;
+}
+
+/** The value cut to the limit in code points, so a surrogate pair is never split. */
+export function clampChatMessage(value: string): string {
+  const chars = Array.from(value);
+  return chars.length > CHAT_MESSAGE_MAX_LENGTH
+    ? chars.slice(0, CHAT_MESSAGE_MAX_LENGTH).join("")
+    : value;
+}
 
 /** From this length the counter shows, so the limit is never a surprise. */
 const COUNTER_THRESHOLD = 1600;
@@ -46,8 +62,9 @@ export function ChatInput({
   const isGenerating = status === "submitted" || status === "streaming";
   const trimmed = value.trim();
   const canSend = trimmed.length > 0 && !isGenerating && !busy;
-  const showCounter = value.length >= COUNTER_THRESHOLD;
-  const remaining = CHAT_MESSAGE_MAX_LENGTH - value.length;
+  const length = chatCharCount(value);
+  const showCounter = length >= COUNTER_THRESHOLD;
+  const remaining = CHAT_MESSAGE_MAX_LENGTH - length;
 
   const submit = useCallback(() => {
     if (!canSend) return;
@@ -77,13 +94,10 @@ export function ChatInput({
       <PromptInputTextarea
         ref={textareaRef}
         value={value}
-        onChange={(event) =>
-          setValue(event.target.value.slice(0, CHAT_MESSAGE_MAX_LENGTH))
-        }
+        onChange={(event) => setValue(clampChatMessage(event.target.value))}
         placeholder={placeholder}
         aria-label="Message Shorted AI"
         aria-describedby={showCounter ? counterId : undefined}
-        maxLength={CHAT_MESSAGE_MAX_LENGTH}
         disabled={busy || status === "submitted"}
         className="text-sm"
       />
@@ -98,7 +112,7 @@ export function ChatInput({
                 : "text-muted-foreground",
             )}
           >
-            {value.length}/{CHAT_MESSAGE_MAX_LENGTH}
+            {length}/{CHAT_MESSAGE_MAX_LENGTH}
           </span>
         ) : (
           <span className="hidden text-[11px] text-muted-foreground sm:inline">
