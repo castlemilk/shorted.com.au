@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -22,7 +23,15 @@ func (s *ShortsServer) CreateAlertMonitor(
 	if !ok {
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("user not authenticated"))
 	}
-	if !canCreateAlertMonitors(userClaims.Tier) {
+	// Alerts follow the same entitlement rule as the rate-limit tier and the
+	// subscription RPC, read from the store rather than from the claims, so a
+	// stale or missing tier on the claims cannot decide it.
+	_, ent, err := s.loadEntitlement(userClaims.UserID, time.Now())
+	if err != nil {
+		s.logger.Errorf("failed to check subscription for user %s: %v", userClaims.UserID, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to check subscription"))
+	}
+	if !ent.Entitled {
 		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("alerts require an active Premium subscription"))
 	}
 
@@ -127,15 +136,6 @@ func validateCreateAlertMonitor(claims *Claims, msg *shortsv1alpha1.CreateAlertM
 		Threshold: threshold,
 		Cadence:   cadence,
 	}, nil
-}
-
-func canCreateAlertMonitors(tier string) bool {
-	switch strings.ToLower(strings.TrimSpace(tier)) {
-	case "premium", "pro", "enterprise":
-		return true
-	default:
-		return false
-	}
 }
 
 func normalizeAlertTarget(scope, target string) string {
