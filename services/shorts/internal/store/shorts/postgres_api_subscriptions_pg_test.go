@@ -135,62 +135,105 @@ func TestUpsertAPISubscriptionAgainstPostgres(t *testing.T) {
 		assert.Nil(t, periodEpoch(t, s, "uid_fresh", "current_period_end"))
 	})
 
-	t.Run("a second user on the same customer is refused and the first row survives", func(t *testing.T) {
+	t.Run("a new subscription from a second user replaces the stale row", func(t *testing.T) {
+		// The first subscription has ended, and the customer checks out again under a
+		// new uid. The new subscription id is what makes this a re-point.
 		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
 			UserID: "uid_first", UserEmail: "first@example.com", StripeCustomerID: "cus_shared", StripeSubscriptionID: "sub_first",
 			Status: "active", Tier: "premium", CurrentPeriodStart: strPtr(periodStart), CurrentPeriodEnd: strPtr(periodEnd),
 		}))
 
-		err := s.UpsertAPISubscription(&APISubscription{
+		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
 			UserID: "uid_second", UserEmail: "second@example.com", StripeCustomerID: "cus_shared", StripeSubscriptionID: "sub_second",
-			Status: "active", Tier: "premium",
-		})
-		// The refusal is the customer uniqueness itself, and it is returned, not
-		// swallowed the way the old DELETE's error was.
-		require.Error(t, err)
-		assert.ErrorContains(t, err, "api_subscriptions_stripe_customer_id_key")
+			Status: "active", Tier: "enterprise",
+		}))
 
 		first, err := s.GetAPISubscription("uid_first")
 		require.NoError(t, err)
-		require.NotNil(t, first, "the existing row must not be deleted by another user's write")
-		assert.Equal(t, "active", first.Status)
-		assert.Equal(t, epochOf(t, periodEnd), *periodEpoch(t, s, "uid_first", "current_period_end"))
+		assert.Nil(t, first, "the row of the ended subscription is removed")
 
 		second, err := s.GetAPISubscription("uid_second")
 		require.NoError(t, err)
-		assert.Nil(t, second)
+		require.NotNil(t, second)
+		assert.Equal(t, "cus_shared", second.StripeCustomerID)
+		assert.Equal(t, "sub_second", second.StripeSubscriptionID)
+		assert.Equal(t, "enterprise", second.Tier)
+		assert.Nil(t, periodEpoch(t, s, "uid_second", "current_period_end"), "the old subscription's period is not carried over")
 	})
 
-	t.Run("a routine renewal with a stale user id does not delete the re-pointed row", func(t *testing.T) {
-		// The customer's row is under uid_new. A renewal still carries the old uid.
+	t.Run("a write with no subscription id cannot re-point another user's row", func(t *testing.T) {
+		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
+			UserID: "uid_holder", UserEmail: "holder@example.com", StripeCustomerID: "cus_nosub", StripeSubscriptionID: "sub_holder",
+			Status: "active", Tier: "premium",
+		}))
+
+		err := s.UpsertAPISubscription(&APISubscription{
+			UserID: "uid_other", UserEmail: "other@example.com", StripeCustomerID: "cus_nosub",
+			Status: "active", Tier: "premium",
+		})
+		require.Error(t, err)
+
+		holder, err := s.GetAPISubscription("uid_holder")
+		require.NoError(t, err)
+		require.NotNil(t, holder, "a write that names no subscription must not remove the holder's row")
+
+		other, err := s.GetAPISubscription("uid_other")
+		require.NoError(t, err)
+		assert.Nil(t, other)
+	})
+
+	t.Run("a row with no subscription id is re-pointed by a real subscription", func(t *testing.T) {
+		// A row written before subscription ids were recorded. Only one row can hold
+		// an empty id, because the column is unique.
+		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
+			UserID: "uid_legacy", UserEmail: "legacy@example.com", StripeCustomerID: "cus_legacy",
+			Status: "active", Tier: "premium",
+		}))
+
+		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
+			UserID: "uid_real", UserEmail: "real@example.com", StripeCustomerID: "cus_legacy", StripeSubscriptionID: "sub_real",
+			Status: "active", Tier: "premium",
+		}))
+
+		legacy, err := s.GetAPISubscription("uid_legacy")
+		require.NoError(t, err)
+		assert.Nil(t, legacy)
+
+		replacement, err := s.GetAPISubscription("uid_real")
+		require.NoError(t, err)
+		require.NotNil(t, replacement)
+	})
+
+	t.Run("a routine event for the same subscription from a stale user id changes nothing", func(t *testing.T) {
+		// The subscription's row is under uid_new. A renewal for that same
+		// subscription still carries the old uid.
 		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
 			UserID: "uid_new", UserEmail: "new@example.com", StripeCustomerID: "cus_repoint", StripeSubscriptionID: "sub_repoint",
 			Status: "active", Tier: "premium", CurrentPeriodStart: strPtr(periodStart), CurrentPeriodEnd: strPtr(periodEnd),
 		}))
 
-		err := s.UpsertAPISubscription(&APISubscription{
+		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
 			UserID: "uid_old", UserEmail: "old@example.com", StripeCustomerID: "cus_repoint", StripeSubscriptionID: "sub_repoint",
 			Status: "active", Tier: "premium",
-		})
-		require.Error(t, err)
+		}))
 
-		// The step that follows a renewal lands the true period on the row the
-		// customer actually uses.
+		stale, err := s.GetAPISubscription("uid_old")
+		require.NoError(t, err)
+		assert.Nil(t, stale, "the stale uid gets no row")
+
+		current, err := s.GetAPISubscription("uid_new")
+		require.NoError(t, err)
+		require.NotNil(t, current, "the row the subscription belongs to must survive")
+		assert.Equal(t, "sub_repoint", current.StripeSubscriptionID)
+		assert.Equal(t, epochOf(t, periodEnd), *periodEpoch(t, s, "uid_new", "current_period_end"))
+
+		// The step that follows a renewal lands the true period on that row.
 		const renewedEnd = "2026-12-01 00:00:00+00"
 		renewed := "active"
 		require.NoError(t, s.UpdateAPISubscriptionByCustomer("cus_repoint", &APISubscriptionUpdate{
 			Status: &renewed, CurrentPeriodEnd: strPtr(renewedEnd),
 		}))
-
-		current, err := s.GetAPISubscription("uid_new")
-		require.NoError(t, err)
-		require.NotNil(t, current, "the re-pointed row must survive a renewal with a stale uid")
-		assert.Equal(t, "active", current.Status)
 		assert.Equal(t, epochOf(t, renewedEnd), *periodEpoch(t, s, "uid_new", "current_period_end"))
-
-		stale, err := s.GetAPISubscription("uid_old")
-		require.NoError(t, err)
-		assert.Nil(t, stale)
 	})
 }
 
