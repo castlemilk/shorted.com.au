@@ -176,6 +176,7 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
                   onSend={(message) => void sendMessage(message)}
                   onStop={stopGeneration}
                   status={status}
+                  busy={isLoading}
                 />
               </div>
             </>

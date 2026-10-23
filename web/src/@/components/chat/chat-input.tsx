@@ -23,6 +23,11 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   onStop?: () => void;
   status: PromptInputStatus;
+  /**
+   * The thread is busy for a reason the request status does not cover, such as
+   * a conversation still loading. Sending is held until it clears.
+   */
+  busy?: boolean;
   placeholder?: string;
 }
 
@@ -30,6 +35,7 @@ export function ChatInput({
   onSend,
   onStop,
   status,
+  busy = false,
   placeholder = "Ask about short positions, stocks, or market trends...",
 }: ChatInputProps) {
   const [value, setValue] = useState("");
@@ -39,7 +45,7 @@ export function ChatInput({
 
   const isGenerating = status === "submitted" || status === "streaming";
   const trimmed = value.trim();
-  const canSend = trimmed.length > 0 && !isGenerating;
+  const canSend = trimmed.length > 0 && !isGenerating && !busy;
   const showCounter = value.length >= COUNTER_THRESHOLD;
   const remaining = CHAT_MESSAGE_MAX_LENGTH - value.length;
 
@@ -78,7 +84,7 @@ export function ChatInput({
         aria-label="Message Shorted AI"
         aria-describedby={showCounter ? counterId : undefined}
         maxLength={CHAT_MESSAGE_MAX_LENGTH}
-        disabled={status === "submitted"}
+        disabled={busy || status === "submitted"}
         className="text-sm"
       />
       <PromptInputFooter>

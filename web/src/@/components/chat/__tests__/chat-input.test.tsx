@@ -156,6 +156,26 @@ describe("ChatInput generation controls", () => {
   });
 });
 
+describe("ChatInput while a conversation loads", () => {
+  it("holds the composer and Send while the thread is busy, though the request is ready", () => {
+    const { textarea, onSend } = renderInput({ status: "ready", busy: true });
+
+    expect(textarea).toBeDisabled();
+    typeText(textarea, "Hello");
+    fireEvent.keyDown(textarea, { key: "Enter" });
+
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("releases the composer once the thread is no longer busy", () => {
+    const { textarea, rerender, onSend, onStop } = renderInput({ status: "ready", busy: true });
+
+    rerender(<ChatInput onSend={onSend} onStop={onStop} status="ready" busy={false} />);
+    expect(textarea).toBeEnabled();
+  });
+});
+
 describe("ChatInput focus", () => {
   it("returns focus to the composer after a send", () => {
     const { textarea } = renderInput();

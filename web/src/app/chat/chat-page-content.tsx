@@ -17,6 +17,7 @@ export function ChatPageContent() {
   const {
     messages,
     status,
+    isLoading,
     error,
     historyError,
     conversationId,
@@ -81,6 +82,7 @@ export function ChatPageContent() {
               onSend={(message) => void sendMessage(message)}
               onStop={stopGeneration}
               status={status}
+              busy={isLoading}
             />
           </div>
         </div>
