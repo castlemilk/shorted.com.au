@@ -1,0 +1,320 @@
+import { hasValidChatEntitlement } from "@/lib/chat-server-guards";
+
+import {
+  PAID_API_MONTHLY_LIMIT_MIN,
+  PAID_PROBE_QUESTION,
+  STEP_BUDGET_MS,
+} from "./constants";
+import type { ProbeCookie } from "./session-cookie";
+import { getMySubscription, mintApiToken } from "./shorts-client";
+import { parseChatUIStream, toolCallFailure } from "./sse";
+import { errorName, ProbeFailure, type ProbeContext } from "./types";
+
+export type ProbeStepName = "entitlement" | "chat" | "api_token" | "gates";
+
+export const PROBE_STEP_NAMES: readonly ProbeStepName[] = [
+  "entitlement",
+  "chat",
+  "api_token",
+  "gates",
+];
+
+export interface ProbeStepResult {
+  name: ProbeStepName;
+  ok: boolean;
+  durationMs: number;
+  /** Short and free of secrets. On a pass it says what was proven; on a fail, why. */
+  detail: string;
+}
+
+export interface PaidProbeRun {
+  ok: boolean;
+  startedAt: string;
+  durationMs: number;
+  steps: ProbeStepResult[];
+}
+
+interface StepDefinition {
+  name: ProbeStepName;
+  budgetMs: number;
+  /** Resolves with a detail on success; throws (ideally ProbeFailure) on failure. */
+  run: (ctx: ProbeContext, signal: AbortSignal) => Promise<string>;
+}
+
+const STEPS: readonly StepDefinition[] = [
+  { name: "entitlement", budgetMs: STEP_BUDGET_MS.entitlement, run: checkEntitlement },
+  { name: "chat", budgetMs: STEP_BUDGET_MS.chat, run: checkChat },
+  { name: "api_token", budgetMs: STEP_BUDGET_MS.apiToken, run: checkApiToken },
+  { name: "gates", budgetMs: STEP_BUDGET_MS.gates, run: checkGates },
+];
+
+const DETAIL_MAX_CHARS = 300;
+
+/**
+ * Run every step in order. Each one gets its own timeout and its failure is
+ * recorded, not thrown, so a broken chat path still tells us the token path
+ * works. The steps run one after another because they share one probe identity
+ * and its per-user caps, and an ordered run reads like a timeline in the response.
+ */
+export async function runPaidProbe(ctx: ProbeContext): Promise<PaidProbeRun> {
+  const started = ctx.now();
+  const steps: ProbeStepResult[] = [];
+  for (const step of STEPS) {
+    steps.push(await runStep(step, ctx));
+  }
+  return {
+    ok: steps.every((step) => step.ok),
+    startedAt: new Date(started).toISOString(),
+    durationMs: ctx.now() - started,
+    steps,
+  };
+}
+
+async function runStep(step: StepDefinition, ctx: ProbeContext): Promise<ProbeStepResult> {
+  const started = ctx.now();
+  const signal = AbortSignal.timeout(step.budgetMs);
+  let ok = false;
+  let detail: string;
+  try {
+    detail = await step.run(ctx, signal);
+    ok = true;
+  } catch (err) {
+    detail = describeFailure(err, signal, step.budgetMs);
+  }
+  return {
+    name: step.name,
+    ok,
+    durationMs: ctx.now() - started,
+    detail: clip(scrub(detail, ctx.secrets), DETAIL_MAX_CHARS),
+  };
+}
+
+function describeFailure(err: unknown, signal: AbortSignal, budgetMs: number): string {
+  if (signal.aborted && errorName(signal.reason) === "TimeoutError") {
+    return `timed out after ${Math.round(budgetMs / 1000)}s`;
+  }
+  if (err instanceof ProbeFailure) return err.message;
+  if (err instanceof Error) return `${err.name}: ${err.message}`;
+  return "unknown error";
+}
+
+/** Replace every configured secret that appears in a detail string. */
+function scrub(text: string, secrets: readonly string[]): string {
+  let out = text;
+  for (const secret of secrets) {
+    if (secret) out = out.split(secret).join("[redacted]");
+  }
+  return out;
+}
+
+function clip(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 3)}...` : text;
+}
+
+/** Step 1: the Go API grants the probe identity a chat-eligible subscription. */
+async function checkEntitlement(ctx: ProbeContext, signal: AbortSignal): Promise<string> {
+  const info = await getMySubscription(ctx, signal);
+  if (!hasValidChatEntitlement(info)) {
+    throw new ProbeFailure(`no paid chat entitlement (status=${info.status}, tier=${info.tier})`);
+  }
+  return `status=${info.status} tier=${info.tier}`;
+}
+
+/**
+ * Step 2: a real chat send, through the app's own /api/chat, as the probe user.
+ * It exercises the gate, the Gemini call and the tool calls. It fails on the
+ * chat-service's own tool error reports: on 2026-10-23 every tool failure
+ * arrived inside an HTTP 200 chat response, which is why nothing alerted.
+ */
+async function checkChat(ctx: ProbeContext, signal: AbortSignal): Promise<string> {
+  const cookie = await ctx.sessionCookie();
+  const res = await ctx.fetch(`${ctx.origin}/api/chat`, {
+    method: "POST",
+    redirect: "manual",
+    signal,
+    headers: {
+      "content-type": "application/json",
+      accept: "text/event-stream",
+      origin: ctx.origin,
+      cookie: cookieHeader(cookie),
+    },
+    body: JSON.stringify(chatRequestBody()),
+  });
+  if (res.status !== 200) {
+    throw new ProbeFailure(`HTTP ${res.status}${await errorSuffix(res)}`);
+  }
+
+  const stream = parseChatUIStream(await res.text());
+  // Clean up before judging, so a failed assertion does not leave the
+  // conversation behind. The probe would otherwise add one per run, forever.
+  const cleanup = await cleanUpConversation(ctx, cookie, stream.finalData?.conversationId);
+
+  if (stream.errors.length > 0) {
+    throw new ProbeFailure(`stream error: ${stream.errors[0] ?? "unknown"}`);
+  }
+  if (!stream.done) throw new ProbeFailure("stream ended without [DONE]");
+  if (stream.text.trim() === "") throw new ProbeFailure("no answer text");
+  if (!stream.finalData) throw new ProbeFailure("no data-shorted-final part");
+
+  const toolCalls = stream.finalData.toolCalls ?? [];
+  if (toolCalls.length === 0) throw new ProbeFailure("no tool calls");
+  for (const call of toolCalls) {
+    const failure = toolCallFailure(call);
+    if (failure) throw new ProbeFailure(`tool failed: ${failure}`);
+  }
+
+  const names = toolCalls.map((call) => call.toolName).join(",");
+  return `tools=${names}; ${cleanup}`;
+}
+
+/**
+ * Step 3: a bespoke API token minted for the probe identity is accepted by the
+ * public read path, and it is metered as a PAID caller, not as an anonymous IP.
+ */
+async function checkApiToken(ctx: ProbeContext, signal: AbortSignal): Promise<string> {
+  const token = await mintApiToken(ctx, signal);
+  if (!token) throw new ProbeFailure("MintToken returned an empty token");
+
+  // The token is held in this closure only: never logged, never in a detail.
+  const res = await ctx.fetch(`${ctx.shortsApiUrl}/shorts.v1alpha1.ShortedStocksService/GetStock`, {
+    method: "POST",
+    redirect: "manual",
+    signal,
+    headers: {
+      "content-type": "application/json",
+      "connect-protocol-version": "1",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ productCode: "BHP" }),
+  });
+  const body = await res.text();
+  if (res.status !== 200) {
+    throw new ProbeFailure(`GetStock with the token answered HTTP ${res.status}`);
+  }
+  if (!isJsonObject(body)) {
+    throw new ProbeFailure("GetStock with the token returned no JSON object");
+  }
+
+  // The Go API emits the monthly header only for a metered tier. Free is 1,000
+  // and anonymous 500, so a value at or above the paid floor is the proof. An
+  // absent header (rate limiting off, or an anonymous fallback) fails here.
+  const limitHeader = res.headers.get("x-ratelimit-monthly-limit");
+  const monthly = limitHeader === null ? Number.NaN : Number(limitHeader);
+  if (!Number.isInteger(monthly) || monthly < PAID_API_MONTHLY_LIMIT_MIN) {
+    throw new ProbeFailure(
+      `token is not on a paid API tier (monthly limit ${limitHeader ?? "absent"})`,
+    );
+  }
+  return `GetStock 200, monthly limit ${monthly}`;
+}
+
+/**
+ * Step 4: paid features stay closed to anonymous callers. Both answers must be
+ * a 401, not a redirect to sign-in and not a 200.
+ */
+async function checkGates(ctx: ProbeContext, signal: AbortSignal): Promise<string> {
+  const headers = { "content-type": "application/json" };
+  // The chat body carries a real user message on purpose. /api/chat answers
+  // 400 for a message-less body before it reaches the auth check, so an empty
+  // body would pass for the wrong reason.
+  const [chat, checkout] = await Promise.all([
+    ctx.fetch(`${ctx.origin}/api/chat`, {
+      method: "POST",
+      redirect: "manual",
+      signal,
+      headers,
+      body: JSON.stringify(chatRequestBody()),
+    }),
+    ctx.fetch(`${ctx.origin}/api/stripe/checkout`, {
+      method: "POST",
+      redirect: "manual",
+      signal,
+      headers,
+      body: "{}",
+    }),
+  ]);
+  await Promise.all([chat.text(), checkout.text()]);
+
+  const problems: string[] = [];
+  if (chat.status !== 401) problems.push(`/api/chat answered ${chat.status}, want 401`);
+  if (checkout.status !== 401) {
+    problems.push(`/api/stripe/checkout answered ${checkout.status}, want 401`);
+  }
+  if (problems.length > 0) throw new ProbeFailure(problems.join("; "));
+  return "anonymous /api/chat and /api/stripe/checkout both 401";
+}
+
+/** The request body /api/chat reads. Exported for the tests that pin its shape. */
+export function chatRequestBody(text: string = PAID_PROBE_QUESTION) {
+  return {
+    messages: [
+      {
+        id: "paid-probe-question",
+        role: "user",
+        parts: [{ type: "text", text }],
+      },
+    ],
+  };
+}
+
+async function cleanUpConversation(
+  ctx: ProbeContext,
+  cookie: ProbeCookie,
+  conversationId: string | undefined,
+): Promise<string> {
+  if (!conversationId) return "no conversation id to clean up";
+  try {
+    const res = await ctx.fetch(`${ctx.origin}/chat.v1.ChatService/DeleteConversation`, {
+      method: "POST",
+      redirect: "manual",
+      signal: AbortSignal.timeout(STEP_BUDGET_MS.chatCleanup),
+      headers: {
+        "content-type": "application/json",
+        "connect-protocol-version": "1",
+        origin: ctx.origin,
+        cookie: cookieHeader(cookie),
+      },
+      body: JSON.stringify({ conversationId }),
+    });
+    await res.text();
+    return res.ok ? "conversation deleted" : `cleanup warning: HTTP ${res.status}`;
+  } catch (err) {
+    // A warning, never a step failure: the answer itself was still judged.
+    return `cleanup warning: ${errorName(err)}`;
+  }
+}
+
+function cookieHeader(cookie: ProbeCookie): string {
+  return `${cookie.name}=${cookie.value}`;
+}
+
+/**
+ * The message from a JSON error body (`{"error": "..."}` as the app's own
+ * routes send), and nothing else. An HTML error page is never echoed.
+ */
+async function errorSuffix(res: Response): Promise<string> {
+  const text = await res.text().catch(() => "");
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed !== "object" || parsed === null) return "";
+    const body = parsed as { error?: unknown; message?: unknown };
+    const message =
+      typeof body.error === "string"
+        ? body.error
+        : typeof body.message === "string"
+          ? body.message
+          : "";
+    return message ? `: ${message}` : "";
+  } catch {
+    return "";
+  }
+}
+
+function isJsonObject(text: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed);
+  } catch {
+    return false;
+  }
+}

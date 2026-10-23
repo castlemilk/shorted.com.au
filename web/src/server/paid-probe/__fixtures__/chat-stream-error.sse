@@ -1,0 +1,6 @@
+data: {"type":"text-start","id":"shorted-assistant-text"}
+
+data: {"type":"error","errorText":"Chat is temporarily unavailable."}
+
+data: [DONE]
+
