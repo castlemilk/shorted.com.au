@@ -81,6 +81,17 @@ const firebaseAuthHelperOrigin = `https://${
 const config = {
   output: "standalone", // Enable standalone mode for Docker
   poweredByHeader: false,
+  // Bake the full source identity into the artifact; runtime env changes cannot
+  // make an old build report a newer release. This value is public metadata.
+  env: {
+    NEXT_PUBLIC_RELEASE_COMMIT: /^[a-f0-9]{40}$/.test(
+      process.env.SHORTED_RELEASE_SHA ??
+        process.env.VERCEL_GIT_COMMIT_SHA ??
+        "",
+    )
+      ? (process.env.SHORTED_RELEASE_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA)
+      : "local",
+  },
   // Proxy Connect-RPC and backend API requests to avoid CORS issues.
   // Client-side code uses relative URLs; Next.js rewrites proxy them to the backend.
   async headers() {

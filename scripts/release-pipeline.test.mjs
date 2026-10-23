@@ -62,7 +62,7 @@ test("CI has no PR preview workflow or dangling preview-job dependency", () => {
 test("bundle CI remains blocking without a browser or Lighthouse server", () => {
   const workflow = read(".github/workflows/perf-budget.yml");
   assert.match(workflow, /name: Bundle budget/);
-  assert.match(workflow, /set -o pipefail/);
+  assert.match(workflow, /set -(?:euo|o) pipefail/);
   assert.match(workflow, /npx next build 2>&1 \| tee perf-results\/build\.log/);
   assert.match(workflow, /node scripts\/bundle-budget\.mjs --build-log perf-results\/build\.log --compare \.\.\/docs\/perf\/bundle-baseline\.json/);
   assert.doesNotMatch(workflow, /continue-on-error|lighthouse-bench|playwright install|next start|Start production server/);
@@ -157,6 +157,8 @@ test("production promotion condition rejects PRs, failed checks and plan-only ru
   const eligible = new Function("github", "needs", "always", `return (${expression});`);
   const cases = [
     ["main with passing tests", "push", "success", "success", false, true],
+    ["manual dispatch with passing tests", "workflow_dispatch", "success", "success", false, true],
+    ["published tag release with passing tests", "release", "success", "success", false, true],
     ["pull request", "pull_request", "success", "success", false, false],
     ["failed tests", "push", "failure", "success", false, false],
     ["cancelled tests", "push", "cancelled", "success", false, false],
