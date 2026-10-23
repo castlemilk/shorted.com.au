@@ -111,7 +111,15 @@ test("production web deploy preserves preflights, artifact promotion and test ga
   assert.match(prodJob, /--force/);
   assert.match(prodJob, /--skip-domain/);
   assert.match(prodJob, /NPM_CONFIG_FETCH_RETRIES:\s*"5"/);
-  assert.doesNotMatch(prodJob, /Smoke release candidate preview|release-smoke-ci\.mjs|playwright install/);
+  // Preview smoke remains excluded, but the promoted release must be tested.
+  const beforePromotion = prodJob.slice(0, prodJob.indexOf("Promote Vercel deployment to production"));
+  assert.doesNotMatch(beforePromotion, /Smoke release candidate preview|release-smoke-ci\.mjs|playwright install/);
+  assert.doesNotMatch(prodJob, /Smoke release candidate preview/);
+  const smokeIndex = prodJob.indexOf("Verify promoted production release");
+  const summaryIndex = prodJob.indexOf("Production Deployment Summary");
+  assert.ok(smokeIndex > prodJob.indexOf("Promote Vercel deployment to production"));
+  assert.ok(summaryIndex > smokeIndex, "deployment success must follow release smoke");
+  assert.match(prodJob.slice(smokeIndex, summaryIndex), boundedReleaseSmokePattern);
   assert.match(prodJob, /Promote Vercel deployment to production/);
   assert.match(prodJob, /vercel promote/);
   assert.match(workflow, /check_secret "GEMINI_API_KEY"/);
@@ -264,3 +272,4 @@ test("release docs document Firebase auth validation gates", () => {
   assert.match(firebaseDocs, /x-shorted-testing-bypass/);
   assert.match(firebaseDocs, /NEXT_PUBLIC_FIREBASE_API_KEY_PROD/);
 });
+
