@@ -439,48 +439,44 @@ func (s *ShortsServer) MintToken(ctx context.Context, req *connect.Request[short
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("user not authenticated"))
 	}
 
-	// Check subscription status
-	subscription, err := s.store.GetAPISubscription(userClaims.UserID)
-	if err != nil {
-		s.logger.Errorf("failed to check subscription for %s: %v", userClaims.Email, err)
-		// Continue with free tier if DB check fails
-	}
+	// The interceptor resolved this caller's tier on this request through the one
+	// entitlement rule every RPC uses (internal grants, then the subscription store).
+	// It is not looked up again here. The tier only backs a grant when the lookup
+	// succeeded on this request (TierResolved). When it failed, the tier is whatever
+	// the credential carried, and an old token can carry a paid tier that has since
+	// lapsed. So a non-admin mint needs a resolved, paid tier.
+	tier := userClaims.Tier
+	paid := tier != "" && tier != "free"
 
-	// Determine subscription tier
-	tier := "free"
-	if subscription != nil && (subscription.Status == "active" || subscription.Status == "trialing") {
-		tier = subscription.Tier
-	}
+	// Admin is the role the interceptor granted: a verified Firebase email on the
+	// admin allowlist, or the role the web tier asserted for an internal call. The
+	// email is not consulted here, so an address alone grants nothing.
+	//
+	// A bespoke API token never renews admin. Its admin role is only ever a copy of an
+	// earlier grant, and minting from it would let that grant renew itself for 30 days
+	// at a time with no way to revoke it. A caller who holds admin only through such a
+	// token is a plain caller here.
+	isAdmin := hasRole(userClaims, "admin") && userClaims.AuthMethod != AuthMethodToken
 
-	// Admin emails can always mint tokens (for testing/development)
-	adminEmails := []string{
-		"ben.ebsworth@gmail.com",
-		"ben@shorted.com.au",
-		"e2e-test@shorted.com.au",
-	}
-
-	isAdmin := false
-	for _, adminEmail := range adminEmails {
-		if userClaims.Email == adminEmail {
-			isAdmin = true
-			break
-		}
+	if !isAdmin && !userClaims.TierResolved {
+		s.logger.Warnf("Refusing token mint for %s: subscription lookup did not resolve", userClaims.Email)
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("could not confirm your subscription; try again"))
 	}
 
 	// Non-admin users without active subscription cannot mint tokens
-	if !isAdmin && tier == "free" {
+	if !isAdmin && !paid {
 		s.logger.Warnf("User %s attempted to mint token without active subscription", userClaims.Email)
 		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("active subscription required to generate API tokens"))
 	}
 
 	// Determine roles for the API token
 	// All authenticated users get "api-user" role (can access public APIs)
-	// Specific emails get "admin" role (can access admin endpoints)
+	// Admins also get "admin" role (can access admin endpoints)
 	roles := []string{"api-user"}
 	if isAdmin {
 		roles = append(roles, "admin")
 		// Admins get pro tier by default if they don't have a subscription
-		if tier == "free" {
+		if !paid {
 			tier = "pro"
 		}
 	}

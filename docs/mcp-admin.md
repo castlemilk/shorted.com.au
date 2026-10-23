@@ -2,7 +2,8 @@
 
 A separate MCP server for **administrators**, served at
 `https://api.shorted.com.au/mcp/admin`. It observes asynchronous jobs and queues,
-publishes merged news articles, and starts the stock-picks data job.
+publishes merged news articles, starts the stock-picks data job, audits
+subscribers' billing against Stripe, and runs the paid-feature probe.
 
 The public, anonymous-first research server is a separate connection:
 `https://api.shorted.com.au/mcp`. Public and admin tokens have different audiences;
@@ -24,7 +25,7 @@ sends you to the Shorted consent screen, you sign in with your normal account
 and approve **jobs:read**, **news:publish**, **jobs:run** and **users:read**.
 For a monitoring-only client, request only `jobs:read`; leave out `users:read`
 unless the client needs personal data. The connector then appears in
-every Claude session (including Claude Code on the web) with fourteen tools:
+every Claude session (including Claude Code on the web) with eighteen tools:
 
 | Tool | Scope | What it does |
 |---|---|---|
@@ -39,9 +40,13 @@ every Claude session (including Claude Code on the web) with fourteen tools:
 | `picks_job_status` `{execution_name}` | `jobs:run` | `running` / `succeeded` / `failed`, log link, failure reason (exit 10 in the message = DEGRADED, a partial pull) |
 | `people_overview` `{}` | `users:read` | Counts: signed-up accounts (total, verified, new in 7/30 days, signed in within 30 days, by provider), paying subscriptions (active or trialing, by tier and status, cancelling, new in 30 days) and the mailing list (subscribed, unsubscribed, joined and left recently). A source that cannot be read is omitted and named in `warnings`. |
 | `list_users` `{query?, sort?, limit?, offset?}` | `users:read` | Signed-up accounts, newest first (or `sort: "last_sign_in"`): uid, email, verified, providers, dates, plan and mailing list membership. `query` is an email substring. Follow `nextOffset`. |
-| `list_paying_users` `{status?, limit?, offset?}` | `users:read` | Subscriptions from the Stripe webhook mirror: uid, email, tier, status, period end, cancelling. `status` defaults to `paying` (active or trialing); also `past_due`, `canceled`, `all`, ... |
+| `list_paying_users` `{status?, limit?, offset?}` | `users:read` | Subscriptions from the Stripe webhook mirror: uid, email, tier, status, period end, cancelling. `status` defaults to `paying` (active or trialing); also `past_due`, `canceled`, `all`, ... Each row carries `entitled` and `entitlementReason`: the product's own verdict for the row, so a paying row that grants nothing reads as such. |
 | `list_mailing_list` `{status?, query?, limit?, offset?}` | `users:read` | Mailing list addresses with join and unsubscribe dates; `status` defaults to `subscribed`. |
 | `lookup_person` `{email}` | `users:read` | One email across all three: account, subscription and mailing list entry. |
+| `check_subscription` `{email}` or `{userId}` | `users:read` | Does one subscriber's access match what they paid for: the account, every mirror row for the email or user id, the entitlement the product applies, the live Stripe customer, drift between the mirror and Stripe, and chat and API usage. Give exactly one key. A source that fails is named in `sources` and its section is `null`. |
+| `list_billing_exceptions` `{limit?}` | `users:read` | Billing exceptions across every subscriber, most severe first. `counts` covers every finding; `rows` is the first `limit` (default 25). |
+| `paid_feature_status` `{}` | `jobs:read` | Each paid feature's probe monitor in Telesis (`paid-feature: <feature>`): its status, whether it is armed or paused, when it last and next ran, and its five newest runs. |
+| `run_paid_probe` `{}` | `jobs:run` | Runs the paid-feature probe on the web app inside the call and returns each step. Bounded at 85 seconds. A second call while a run is in flight returns `inProgress: true` at once and starts nothing. |
 
 Only merged articles can be published — the job image bakes `content/news` in
 at build time, and the tool takes a slug, never a body. Likewise the picks tool
@@ -94,6 +99,97 @@ id, dates, plan and status. No display names, photos, phone numbers, Stripe ids
 or unsubscribe ids. Every call is logged as `admin personal-data read:
 tool=<name> actor=oauth:<uid>` (the arguments are not logged; they can be an
 email). Reconnect the connector after deploying to approve `users:read`.
+
+## Billing audit and the paid-feature probe
+
+Two questions an administrator asks about a paying customer: does what they paid
+for match what they can use, and do the paid features work right now?
+
+- **Stripe is read live through the web app**, not from the mirror alone:
+  `POST /api/internal/billing` behind `INTERNAL_SERVICE_SECRET`, at the same
+  origin as `ADMIN_CHECK_URL`, as `admin-users` is. Without the secret, Stripe is
+  named unavailable and nothing is guessed.
+- **The verdict is the product's own.** `entitled` is `ResolveEntitlement`: the
+  operator grant, the status, the paid tier and the 72-hour period grace the paid
+  features apply. A null status is the one exception. The product cannot read
+  such a row, so it grants nothing, and the audit reports it as `null_status`.
+- **Unread is not empty.** A source that fails is named in `sources`, and its
+  section is `null`; a count is absent, not zero. An empty list means the source
+  was read and found nothing.
+- **Drift is by customer.** Stripe's subscriptions are grouped by customer, and
+  each customer's best subscription is chosen by the web's ranking: active, then
+  trialing, past_due, unpaid, then the newest ended one. That subscription is set
+  against the one row that holds the customer. The row is found by its customer
+  id, wherever it is keyed, so a row under another email still counts. Findings:
+  - `paid_without_mirror`: the worst case. An active or trialing subscription
+    whose customer has no row, or whose row grants no paid access. Money taken,
+    no access.
+  - `unpaid_without_mirror`: a past-due or unpaid customer with no row. Owed
+    money, not access.
+  - `subscription_user_mismatch`: the customer's best live subscription was
+    bought for one user id (Stripe's `metadataUserId`), and the one row that holds
+    the customer is keyed to another. The real payer has no row, and the row's user
+    holds the access. This is the case of an account deleted and recreated, or a
+    subscription stamped onto a stale row during a deploy. The detail names both
+    user ids and nothing else.
+  - `entitled_without_stripe`: access with no live subscription behind it.
+  - `stale_subscription_id`: low severity. The row does not name the customer's
+    current subscription, though its state can already be right.
+  - `status_mismatch` (the webhook's own mapping: unpaid is recorded as past_due),
+    `period_end_mismatch` (more than an hour apart), `missing_period_end`,
+    `cancel_mismatch`, `null_status`, `duplicate_email` (once per email) and
+    `email_keyed_user_id` (a legacy row keyed by an email, which no uid can match).
+- **An ambiguous email is partial.** Stripe can match one email to more than one
+  customer. Each is read and compared with its own row, up to ten; `notes` says how
+  many were left out. The Stripe source is `partial`, because the subject may hold
+  more customers than the answer shows. A matched customer that cannot be read makes
+  the source `unavailable`, never `partial`.
+- **Stripe is asked with the email as typed.** The mirror and the account are read
+  with the email in lower case. The web app retries Stripe in lower case itself.
+- **A row updated in the last 15 minutes is left out of drift**, because the
+  Stripe webhook may still be in flight. `notes` says how many were left out, and
+  the row is marked `recentlyUpdated`.
+- **Stripe ids never leave the server.** The one exception is
+  `stripeDashboardUrl`, which needs a Stripe login.
+- **Usage.** Chat counts come from `chat_conversations` and `chat_messages`, and
+  count only the user's own messages. Sends by outcome come from
+  `chat_usage_events` (migration 000145, the send-limits ledger). That ledger is
+  on the chat-limits branch and is not in every database: where it is absent the
+  output says "not in this database", and sends are unknown, not zero. Metered requests come from `api_usage_monthly`, which the rate limiter
+  writes. `user:<uid>` is the API-token and signed-in browser identity, and
+  `oauth:<uid>` is the MCP connector's; the two are reported apart. Unlimited
+  tiers are not metered, so a zero there is no metering, not no use. It is the
+  rate limiter's count, not a billing ledger.
+- **`list_billing_exceptions` counts every kind it checked, zero included.** A
+  kind missing from `counts` was not checked, and `notes` says why. A live Stripe
+  list that was cut at its limit does not run `entitled_without_stripe`.
+
+The probe reports to one Telesis cron monitor per step, named
+`paid-feature: <step>`: `entitlement`, `chat`, `api_token`, `gates` and `all`.
+The monitors must exist in the Telesis service configured by
+`TELESIS_SERVICE_ID`. `paid_feature_status` lists each one that exists, and
+says so when none does.
+
+`paid_feature_status` (`jobs:read`) reads the Telesis cron monitors the probe
+reports to, one per feature: `paid-feature: entitlement`, `chat`, `api_token`,
+`gates` and `all`. `armed` is Telesis' own flag: it is true only after the monitor's first
+check-in. An armed monitor alerts when a run is missed; an unarmed one has not
+reported yet, so a missed run cannot alert. `configured: false` means Telesis is not set up on this
+deployment; that is not an error. The Telesis setup is in "Jobs on the omega
+cluster" above.
+
+`run_paid_probe` (`jobs:run`) runs the probe on the web app
+(`POST /api/internal/paid-probe`) inside the call. The probe exercises each paid
+feature as a subscriber would and returns every step with the call.
+
+- **Bounded at 85 seconds.** The admin server bounds every request at 90 seconds,
+  and the probe's worst case on the web side is about 75, so the call is given
+  85. A run that exceeds it returns a tool error. The run may still finish on the
+  web app, so check `paid_feature_status` for its outcome.
+- **One run at a time.** The connector holds an in-flight guard. A second call
+  while a run is in flight returns `inProgress: true` at once, with the message
+  "a probe run is already in progress", and starts nothing. It does not queue.
+  The guard is released when the run ends or the call is cancelled.
 
 ## Job visibility and freshness
 
@@ -230,6 +326,15 @@ Files: `services/shorts/internal/mcp/admin.go`, `internal/jobmonitor/publish.go`
   is not grantable (fail closed).
 - **"this connection was not granted the jobs:run scope"** as a tool error —
   the connector was authorised before the scope existed; reconnect it.
+- **"the web app rejected INTERNAL_SERVICE_SECRET (HTTP 401 or 403)"** from a billing
+  tool or `run_paid_probe` — the API's `INTERNAL_SERVICE_SECRET` does not match
+  the web app's. Stripe and the probe are unreadable until they match; the
+  mirror-only checks still answer.
+- **`configured: false`** from `paid_feature_status` — the Telesis token or
+  organization is unset on this deployment (see "Jobs on the omega cluster").
+- **`chat_usage_events` "not in this database"** in `check_subscription` — the
+  send-limits ledger (migration 000145) is not applied here. Chat sends are
+  unknown, not zero.
 - **"job execution is not configured in this deployment"** from `run_picks_job`
   — the API's service account lacks `run.developer` on `shorted-picks`
   (Terraform `shorts_api_picks_overrides` not applied) or the job monitor has no

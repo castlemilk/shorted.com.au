@@ -8,6 +8,17 @@ import {
   resolveCheckoutPriceId,
   validateCheckoutPriceForTier,
 } from "~/lib/stripe-plans";
+import { isLiveStripeStatus, listCustomerSubscriptions } from "~/lib/billing-sync";
+import { getSubscriptionStatus } from "~/app/actions/subscription";
+
+/**
+ * How long a Checkout Session stays payable. Stripe requires at least 30
+ * minutes, measured when the request arrives, so an exact 30 would be refused
+ * by any request that takes time to reach Stripe. The margin keeps the floor
+ * honest. Shorter sessions shrink the window in which a second checkout can be
+ * paid for.
+ */
+const CHECKOUT_SESSION_LIFETIME_SECONDS = 31 * 60;
 
 export async function POST(request: NextRequest) {
   const started = Date.now();
@@ -106,6 +117,51 @@ export async function POST(request: NextRequest) {
       customerId = firstCustomer.id;
     }
 
+    // Two places can say a customer already pays: the Stripe customer matched by
+    // this email, and the customer id on the user's own mirror row. The mirror
+    // catches a customer whose Stripe email differs from the session email.
+    const mirror = await getSubscriptionStatus();
+    if (mirror.lookupFailed) {
+      // Continue with the Stripe-side check alone. The email-matched customer
+      // above already catches almost every second subscription; the mirror only
+      // adds a customer whose Stripe email differs from the session email.
+      // Refusing here would turn every billing-backend blip into lost sales from
+      // new customers, which is the more common and costlier failure.
+      console.warn(
+        "[checkout] subscription mirror unavailable; checking Stripe customer only",
+      );
+    }
+
+    const existingCustomerIds = [
+      ...new Set(
+        [customerId, mirror.lookupFailed ? undefined : mirror.stripeCustomerId].filter(
+          (id): id is string => Boolean(id)
+        )
+      ),
+    ];
+    for (const existingCustomerId of existingCustomerIds) {
+      // Checkout does not stop a second live subscription on its own, and a second
+      // one is a second charge the customer did not ask for. Refuse it here,
+      // before any session exists.
+      const existingSubscriptions = await listCustomerSubscriptions(existingCustomerId);
+      if (existingSubscriptions.some((subscription) => isLiveStripeStatus(subscription.status))) {
+        recordProductEvent({
+          feature: "payment",
+          action: "checkout_create",
+          status: "error",
+          properties: { tier, error_type: "already_subscribed" },
+        });
+        return NextResponse.json(
+          {
+            error: "already_subscribed",
+            message:
+              "You already have a Shorted subscription. Manage it from your account settings.",
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     // Determine the base URL for redirects
     const baseUrl = process.env.NEXTAUTH_URL ?? "https://shorted.com.au";
 
@@ -127,6 +183,7 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
+      expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_LIFETIME_SECONDS,
       success_url: `${baseUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/pricing?canceled=true`,
       subscription_data: {

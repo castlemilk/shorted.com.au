@@ -7,6 +7,10 @@
 
 const mockAuth = jest.fn();
 
+beforeAll(() => {
+  process.env.INTERNAL_SERVICE_SECRET = "test-internal-secret";
+});
+
 jest.mock("~/server/auth", () => ({
   auth: () => mockAuth() as unknown,
 }));
@@ -273,8 +277,28 @@ describe("the admin (publishing) resource", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("lets an admin through to the ticket and grant", async () => {
-    mockAuth.mockResolvedValue({ user: { id: "uid-admin", email: "admin@example.test" } });
+  it("refuses an unverified account under an admin address before any ticket is requested", async () => {
+    // The same allowlisted address without a verified email is not an admin. A
+    // session minted before the flag existed has no flag, so it is refused too.
+    for (const flags of [{ emailVerified: false }, {}]) {
+      mockAuth.mockResolvedValue({
+        user: { id: "uid-admin", email: "admin@example.test", ...flags },
+      });
+      const calls = stubFetch({});
+      const result = await approveAuthorization(adminRequest);
+      expect(result.ok).toBe(false);
+      expect(calls).toHaveLength(0);
+    }
+  });
+
+  it("lets a verified admin through to the ticket and grant", async () => {
+    mockAuth.mockResolvedValue({
+      user: {
+        id: "uid-admin",
+        email: "admin@example.test",
+        emailVerified: true,
+      },
+    });
     const calls = stubFetch({
       "/oauth/consent/ticket": () => jsonResponse(200, { consent_ticket: "t" }),
       "/oauth/authorize/grant": () =>

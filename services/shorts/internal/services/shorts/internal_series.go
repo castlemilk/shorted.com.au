@@ -14,10 +14,11 @@ import "context"
 // TWO PATHS, because this service has two kinds of caller and they carry
 // different identity:
 //
-//  1. Browser/session auth resolves an EMAIL, and middleware_connect.go already
-//     promotes the operator emails (ben.ebsworth@gmail.com among them) to the
-//     `admin` role. This is the path the site itself uses, so it is the one that
-//     makes the series visible on a page.
+//  1. Browser/session auth resolves an EMAIL, and middleware_connect.go grants the
+//     `admin` role to the operator emails (ben.ebsworth@gmail.com among them) only
+//     once Firebase reports the address verified. A verified operator's own signed-in
+//     API calls therefore see the series. The web's economy pages send no identity,
+//     so they do not show it.
 //
 //  2. An OAuth access token carries NEITHER roles NOR email — MintAccessToken is
 //     explicit that a role is an operator grant rather than something a consent

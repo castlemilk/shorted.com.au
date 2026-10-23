@@ -19,6 +19,14 @@
     {
       "path": "/api/static-pages/warm-cache",
       "schedule": "10 * * * *"
+    },
+    {
+      "path": "/api/stripe/reconcile",
+      "schedule": "40 18 * * *"
+    },
+    {
+      "path": "/api/internal/paid-probe",
+      "schedule": "15 */2 * * *"
     }
   ],
   "fluid": true,

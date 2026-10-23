@@ -101,7 +101,9 @@ type UserRow struct {
 	OnMailingList *bool    `json:"onMailingList,omitempty" jsonschema:"Whether the account's email is subscribed to the mailing list. Omitted when the list could not be read."`
 }
 
-// PayingUserRow is one api_subscriptions row.
+// PayingUserRow is one api_subscriptions row. Entitled and EntitlementReason
+// are the verdict the product applies to the row (ResolveEntitlement), so a
+// paying row that grants nothing reads as such rather than as paying.
 type PayingUserRow struct {
 	UserID            string `json:"userId"`
 	Email             string `json:"email"`
@@ -110,6 +112,8 @@ type PayingUserRow struct {
 	CurrentPeriodEnd  string `json:"currentPeriodEnd,omitempty"`
 	CancelAtPeriodEnd bool   `json:"cancelAtPeriodEnd,omitempty"`
 	CreatedAt         string `json:"createdAt,omitempty"`
+	Entitled          bool   `json:"entitled" jsonschema:"Whether the product grants this row paid features right now."`
+	EntitlementReason string `json:"entitlementReason" jsonschema:"ResolveEntitlement's reason: active | period_ended | unpaid_tier | status_<status> | internal_grant | no_subscription."`
 }
 
 // MailingListRow is one mailing list address.

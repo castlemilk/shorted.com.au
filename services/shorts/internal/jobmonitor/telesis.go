@@ -4,14 +4,54 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// ErrCronUnconfigured reports that no Telesis token or organization is set, so
+// no cron monitor can be read at all. It is a state, not a failure.
+var ErrCronUnconfigured = errors.New("telesis cron monitors are not configured")
+
+// CronMonitorHistory is one cron monitor with its newest runs. RunsErr is set
+// when the run history could not be read; Runs is then empty and must not be
+// taken for a clean history.
+type CronMonitorHistory struct {
+	Monitor CronMonitor
+	Runs    []CronRun
+	RunsErr error
+}
+
+// CronMonitorsNamed returns the Telesis cron monitors whose names start with
+// prefix, sorted by name, each with its newest `runs` runs. A monitor list that
+// cannot be read is the error; a run history that cannot be read is reported on
+// its own entry, so one bad monitor does not hide the others.
+func (c *Collector) CronMonitorsNamed(ctx context.Context, prefix string, runs int) ([]CronMonitorHistory, error) {
+	if c == nil || c.cron == nil {
+		return nil, ErrCronUnconfigured
+	}
+	monitors, err := c.cron.ListCronMonitors(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("telesis cron monitors unavailable: %w", err)
+	}
+	var out []CronMonitorHistory
+	for _, m := range monitors {
+		if strings.HasPrefix(m.Name, prefix) {
+			out = append(out, CronMonitorHistory{Monitor: m})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Monitor.Name < out[j].Monitor.Name })
+	for i := range out {
+		out[i].Runs, out[i].RunsErr = c.cron.ListCronRuns(ctx, out[i].Monitor.ID, runs)
+	}
+	return out, nil
+}
 
 // TelesisConfig points the collector at the Telesis cron monitors that
 // cronjob-reporter keeps for every scheduled job. The token is a Telesis
@@ -71,6 +111,7 @@ type telesisMonitor struct {
 	Name           string `json:"name"`
 	Status         string `json:"status"`
 	Paused         bool   `json:"paused"`
+	Armed          bool   `json:"armed"`
 	LastRunAt      string `json:"lastRunAt"`
 	NextExpectedAt string `json:"nextExpectedAt"`
 }
@@ -127,7 +168,7 @@ func (c *telesisClient) ListCronMonitors(ctx context.Context) ([]CronMonitor, er
 		for _, m := range resp.Monitors {
 			out = append(out, CronMonitor{
 				ID: m.ID, Name: m.Name, Status: enumSuffix(m.Status, "CRON_MONITOR_STATUS_"),
-				Paused: m.Paused, LastRunAt: m.LastRunAt, NextExpectedAt: m.NextExpectedAt,
+				Paused: m.Paused, Armed: m.Armed, LastRunAt: m.LastRunAt, NextExpectedAt: m.NextExpectedAt,
 			})
 		}
 		if !resp.PageInfo.HasNextPage || resp.PageInfo.NextPageToken == "" {

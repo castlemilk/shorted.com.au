@@ -3289,38 +3289,97 @@ func (s *postgresStore) GetAPISubscriptionByCustomer(stripeCustomerID string) (*
 	return &sub, nil
 }
 
+// upsertAPISubscriptionSQL writes a user's row from a read of Stripe. It runs on
+// routine events (renewals, the daily reconcile) as well as at checkout, so it
+// never NULLs a period it was not given.
+//
+// A NULL period means "not known here", not "none". The checkout write never
+// carries a period, so the period columns keep the last known value until the
+// update that follows lands the true one.
+const upsertAPISubscriptionSQL = `
+	INSERT INTO api_subscriptions (
+		user_id, user_email, stripe_customer_id, stripe_subscription_id,
+		status, tier, current_period_start, current_period_end, cancel_at_period_end
+	) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9)
+	ON CONFLICT (user_id) DO UPDATE SET
+		stripe_customer_id = EXCLUDED.stripe_customer_id,
+		stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+		status = EXCLUDED.status,
+		tier = EXCLUDED.tier,
+		current_period_start = COALESCE(EXCLUDED.current_period_start, api_subscriptions.current_period_start),
+		current_period_end = COALESCE(EXCLUDED.current_period_end, api_subscriptions.current_period_end),
+		cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+		updated_at = CURRENT_TIMESTAMP
+`
+
+// otherUserSubscriptionSQL finds the row that already holds a Stripe customer under
+// another user id. FOR UPDATE keeps it locked until the transaction ends, so a
+// concurrent event for the same customer waits instead of deciding on stale data.
+const otherUserSubscriptionSQL = `
+	SELECT user_id, COALESCE(stripe_subscription_id, '')
+	FROM api_subscriptions
+	WHERE stripe_customer_id = $1 AND user_id <> $2
+	FOR UPDATE
+`
+
+// repointSubscriptionSQL removes the row that another user holds for a customer
+// whose subscription has been replaced by a new one. Both the customer and the
+// user are named, so it can only ever remove that one row.
+const repointSubscriptionSQL = `
+	DELETE FROM api_subscriptions
+	WHERE stripe_customer_id = $1 AND user_id = $2
+`
+
+// UpsertAPISubscription writes the subscription state of a user, in one transaction.
+//
+// A customer can already hold a row under another user id. An account that is
+// deleted and recreated gets a new Firebase uid, and its checkout reuses the Stripe
+// customer its email matched. The Stripe subscription id tells the two possible
+// events apart:
+//
+//   - The subscription that row already holds, carried with older metadata (a
+//     renewal still naming the old uid). The row belongs to this subscription and
+//     is left alone. Deleting it here is how a paying customer silently loses
+//     access, so nothing is written at all.
+//   - A different subscription. A new checkout only happens once the old
+//     subscription has ended (the web refuses a second checkout while the customer
+//     has a live one), so the other row is stale. It is removed, and the upsert
+//     writes the new subscription under this user.
+//
+// A write with no subscription id cannot be told apart from the first case, so it
+// is refused rather than allowed to remove another user's row.
 func (s *postgresStore) UpsertAPISubscription(sub *APISubscription) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// First, delete any existing subscription with the same stripe_customer_id but different user_id.
-	// This handles the case where a customer ID was previously associated with a different user
-	// (e.g., during testing or account migration).
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin subscription upsert: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
 	if sub.StripeCustomerID != "" {
-		deleteQuery := `
-			DELETE FROM api_subscriptions 
-			WHERE stripe_customer_id = $1 AND user_id != $2
-		`
-		_, _ = s.db.Exec(ctx, deleteQuery, sub.StripeCustomerID, sub.UserID)
+		var otherUserID, otherSubscriptionID string
+		err = tx.QueryRow(ctx, otherUserSubscriptionSQL, sub.StripeCustomerID, sub.UserID).
+			Scan(&otherUserID, &otherSubscriptionID)
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			// No other user holds this customer, so there is nothing to re-point.
+		case err != nil:
+			return fmt.Errorf("failed to read subscription for customer: %w", err)
+		case sub.StripeSubscriptionID == "":
+			return fmt.Errorf("refusing to link customer %s to user %s without a subscription id", sub.StripeCustomerID, sub.UserID)
+		case otherSubscriptionID == sub.StripeSubscriptionID:
+			log.Infof("subscription already linked to another user; not re-pointing (subscription %s, user %s)", sub.StripeSubscriptionID, sub.UserID)
+			return nil
+		default:
+			if _, err = tx.Exec(ctx, repointSubscriptionSQL, sub.StripeCustomerID, otherUserID); err != nil {
+				return fmt.Errorf("failed to re-point subscription: %w", err)
+			}
+		}
 	}
 
-	query := `
-		INSERT INTO api_subscriptions (
-			user_id, user_email, stripe_customer_id, stripe_subscription_id,
-			status, tier, current_period_start, current_period_end, cancel_at_period_end
-		) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9)
-		ON CONFLICT (user_id) DO UPDATE SET
-			stripe_customer_id = EXCLUDED.stripe_customer_id,
-			stripe_subscription_id = EXCLUDED.stripe_subscription_id,
-			status = EXCLUDED.status,
-			tier = EXCLUDED.tier,
-			current_period_start = EXCLUDED.current_period_start,
-			current_period_end = EXCLUDED.current_period_end,
-			cancel_at_period_end = EXCLUDED.cancel_at_period_end,
-			updated_at = CURRENT_TIMESTAMP
-	`
-
-	_, err := s.db.Exec(ctx, query,
+	_, err = tx.Exec(ctx, upsertAPISubscriptionSQL,
 		sub.UserID,
 		sub.UserEmail,
 		sub.StripeCustomerID,
@@ -3331,14 +3390,21 @@ func (s *postgresStore) UpsertAPISubscription(sub *APISubscription) error {
 		sub.CurrentPeriodEnd,
 		sub.CancelAtPeriodEnd,
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to upsert subscription: %w", err)
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit subscription upsert: %w", err)
+	}
 	return nil
 }
 
+// UpdateAPISubscriptionByCustomer applies a Stripe event to the row of a customer.
+// The WHERE clause matches on stripe_customer_id, so it reaches every row of that
+// customer whatever user id it is keyed under. The schema makes that at most one
+// row, because stripe_customer_id is UNIQUE. A customer with no row is a no-op,
+// not an error (see the comment in the body).
 func (s *postgresStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *APISubscriptionUpdate) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -3371,6 +3437,14 @@ func (s *postgresStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string,
 	if update.CancelAtPeriodEnd != nil {
 		setParts = append(setParts, fmt.Sprintf("cancel_at_period_end = $%d", argNum))
 		args = append(args, *update.CancelAtPeriodEnd)
+		argNum++
+	}
+	// The row names the subscription its state describes. Without this write the
+	// id stays whatever the first checkout put there, and a row can keep naming a
+	// subscription that has ended while its state follows the customer's current one.
+	if update.StripeSubscriptionID != nil && *update.StripeSubscriptionID != "" {
+		setParts = append(setParts, fmt.Sprintf("stripe_subscription_id = $%d", argNum))
+		args = append(args, *update.StripeSubscriptionID)
 		argNum++
 	}
 
