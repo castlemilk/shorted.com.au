@@ -23,6 +23,7 @@ test('verifies built ordinary and long-running warmers without emitting private 
   assert.equal(results.find(r => r.route === '/api/static-pages/warm-cache').maxDuration, 150);
   assert.equal(results.find(r => r.route === '/api/pages/warm-cache').maxDuration, 300);
   assert.equal(results.find(r => r.route === '/api/market-data/multiple-quotes').maxDuration, 60);
+  assert.equal(results.find(r => r.route === '/api/internal/paid-probe').maxDuration, 120);
   assert.equal(JSON.stringify(results).includes('never-print-me'), false);
 });
 
