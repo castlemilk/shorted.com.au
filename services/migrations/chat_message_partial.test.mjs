@@ -26,7 +26,7 @@ function sqlOnly(text) {
 test("the partial flag is a NOT NULL boolean that defaults to FALSE, so existing rows read as complete", () => {
   assert.match(
     sqlOnly(up),
-    /ALTER TABLE chat_messages ADD COLUMN partial BOOLEAN NOT NULL DEFAULT FALSE/,
+    /ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS partial BOOLEAN NOT NULL DEFAULT FALSE/,
   );
 });
 

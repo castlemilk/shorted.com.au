@@ -34,7 +34,10 @@ BEGIN
           AND attname = 'partial'
           AND NOT attisdropped
     ) THEN
-        ALTER TABLE chat_messages ADD COLUMN partial BOOLEAN NOT NULL DEFAULT FALSE;
+        -- IF NOT EXISTS is redundant inside the guard. It is there because
+        -- scripts/tests/migration-drift.test.mjs requires it on every allowlisted
+        -- ADD COLUMN, and the guard is what keeps the replay from taking a lock.
+        ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS partial BOOLEAN NOT NULL DEFAULT FALSE;
     END IF;
 END
 $m146_partial$;
