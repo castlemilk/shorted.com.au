@@ -7,8 +7,15 @@ import {
 } from "./constants";
 import type { ProbeCookie } from "./session-cookie";
 import { getMySubscription, mintApiToken } from "./shorts-client";
-import { parseChatUIStream, toolCallFailure } from "./sse";
-import { errorName, ProbeFailure, type ProbeContext } from "./types";
+import { ChatStreamParser, consumeChatStream, toolCallFailure } from "./sse";
+import {
+  errorName,
+  ProbeFailure,
+  remember,
+  requireTrusted,
+  unexpectedErrorDetail,
+  type ProbeContext,
+} from "./types";
 
 export type ProbeStepName = "entitlement" | "chat" | "api_token" | "gates";
 
@@ -90,15 +97,20 @@ async function runStep(step: StepDefinition, ctx: ProbeContext): Promise<ProbeSt
 }
 
 function describeFailure(err: unknown, signal: AbortSignal, budgetMs: number): string {
-  if (signal.aborted && errorName(signal.reason) === "TimeoutError") {
+  if (isTimeout(err, signal)) {
     return `timed out after ${Math.round(budgetMs / 1000)}s`;
   }
   if (err instanceof ProbeFailure) return err.message;
-  if (err instanceof Error) return `${err.name}: ${err.message}`;
-  return "unknown error";
+  return unexpectedErrorDetail(err);
 }
 
-/** Replace every configured secret that appears in a detail string. */
+/** A step timed out when our own budget fired, whether the fetch or the body read reported it. */
+function isTimeout(err: unknown, signal: AbortSignal): boolean {
+  if (errorName(err) === "TimeoutError") return true;
+  return signal.aborted && errorName(signal.reason) === "TimeoutError";
+}
+
+/** Replace every configured or per-run secret that appears in a detail string. */
 function scrub(text: string, secrets: readonly string[]): string {
   let out = text;
   for (const secret of secrets) {
@@ -125,17 +137,24 @@ async function checkEntitlement(ctx: ProbeContext, signal: AbortSignal): Promise
  * It exercises the gate, the Gemini call and the tool calls. It fails on the
  * chat-service's own tool error reports: on 2026-10-23 every tool failure
  * arrived inside an HTTP 200 chat response, which is why nothing alerted.
+ *
+ * The conversation is removed whatever the outcome, including a timed-out turn:
+ * its id is read from the stream as it arrives, not after it finishes.
  */
 async function checkChat(ctx: ProbeContext, signal: AbortSignal): Promise<string> {
+  // Trust is settled before anything is sent: an untrusted origin gets no cookie and no request.
+  const origin = requireTrusted(ctx.origin);
   const cookie = await ctx.sessionCookie();
-  const res = await ctx.fetch(`${ctx.origin}/api/chat`, {
+  remember(ctx, cookie.value);
+
+  const res = await ctx.fetch(`${origin}/api/chat`, {
     method: "POST",
     redirect: "manual",
     signal,
     headers: {
       "content-type": "application/json",
       accept: "text/event-stream",
-      origin: ctx.origin,
+      origin,
       cookie: cookieHeader(cookie),
     },
     body: JSON.stringify(chatRequestBody()),
@@ -144,11 +163,20 @@ async function checkChat(ctx: ProbeContext, signal: AbortSignal): Promise<string
     throw new ProbeFailure(`HTTP ${res.status}${await errorSuffix(res)}`);
   }
 
-  const stream = parseChatUIStream(await res.text());
-  // Clean up before judging, so a failed assertion does not leave the
-  // conversation behind. The probe would otherwise add one per run, forever.
-  const cleanup = await cleanUpConversation(ctx, cookie, stream.finalData?.conversationId);
+  const parser = new ChatStreamParser();
+  let readFailure: unknown = null;
+  try {
+    await consumeChatStream(res.body, parser);
+  } catch (err) {
+    readFailure = err;
+  }
 
+  // Cleanup before judging, and before rethrowing a read failure, so neither a
+  // failed assertion nor a timeout leaves the conversation behind.
+  const cleanup = await cleanUpConversation(ctx, origin, cookie, parser.knownConversationId());
+  if (readFailure !== null) throw readFailure;
+
+  const stream = parser.snapshot();
   if (stream.errors.length > 0) {
     throw new ProbeFailure(`stream error: ${stream.errors[0] ?? "unknown"}`);
   }
@@ -170,18 +198,27 @@ async function checkChat(ctx: ProbeContext, signal: AbortSignal): Promise<string
 /**
  * Step 3: a bespoke API token minted for the probe identity is accepted by the
  * public read path, and it is metered as a PAID caller, not as an anonymous IP.
+ *
+ * MintToken is internal and goes to the server API. The authenticated read goes
+ * to the public host, through the edge worker, the way a paying customer's does.
  */
 async function checkApiToken(ctx: ProbeContext, signal: AbortSignal): Promise<string> {
+  // Trust first: an untrusted public host is refused before any token exists.
+  const publicOrigin = requireTrusted(ctx.publicApiOrigin);
+
   const token = await mintApiToken(ctx, signal);
   if (!token) throw new ProbeFailure("MintToken returned an empty token");
+  remember(ctx, token);
 
   // The token is held in this closure only: never logged, never in a detail.
-  const res = await ctx.fetch(`${ctx.shortsApiUrl}/shorts.v1alpha1.ShortedStocksService/GetStock`, {
+  const res = await ctx.fetch(`${publicOrigin}/shorts.v1alpha1.ShortedStocksService/GetStock`, {
     method: "POST",
     redirect: "manual",
     signal,
     headers: {
       "content-type": "application/json",
+      // The edge worker treats any Connect request as pass-through (BYPASS), so
+      // the answer is this token's own, never a cached one served to someone else.
       "connect-protocol-version": "1",
       authorization: `Bearer ${token}`,
     },
@@ -190,6 +227,13 @@ async function checkApiToken(ctx: ProbeContext, signal: AbortSignal): Promise<st
   const body = await res.text();
   if (res.status !== 200) {
     throw new ProbeFailure(`GetStock with the token answered HTTP ${res.status}`);
+  }
+
+  // The worker stamps every answer it passes through. Anything but BYPASS means
+  // the answer came from the shared edge cache, whose headers are someone else's.
+  const edgeCache = res.headers.get("x-shorted-cache");
+  if (edgeCache !== "BYPASS") {
+    throw new ProbeFailure(`answer was not passed through to origin (x-shorted-cache: ${edgeCache ?? "absent"})`);
   }
   if (!isJsonObject(body)) {
     throw new ProbeFailure("GetStock with the token returned no JSON object");
@@ -205,7 +249,7 @@ async function checkApiToken(ctx: ProbeContext, signal: AbortSignal): Promise<st
       `token is not on a paid API tier (monthly limit ${limitHeader ?? "absent"})`,
     );
   }
-  return `GetStock 200, monthly limit ${monthly}`;
+  return `GetStock 200 via the public API, monthly limit ${monthly}`;
 }
 
 /**
@@ -213,19 +257,20 @@ async function checkApiToken(ctx: ProbeContext, signal: AbortSignal): Promise<st
  * a 401, not a redirect to sign-in and not a 200.
  */
 async function checkGates(ctx: ProbeContext, signal: AbortSignal): Promise<string> {
+  const origin = requireTrusted(ctx.origin);
   const headers = { "content-type": "application/json" };
   // The chat body carries a real user message on purpose. /api/chat answers
   // 400 for a message-less body before it reaches the auth check, so an empty
   // body would pass for the wrong reason.
   const [chat, checkout] = await Promise.all([
-    ctx.fetch(`${ctx.origin}/api/chat`, {
+    ctx.fetch(`${origin}/api/chat`, {
       method: "POST",
       redirect: "manual",
       signal,
       headers,
       body: JSON.stringify(chatRequestBody()),
     }),
-    ctx.fetch(`${ctx.origin}/api/stripe/checkout`, {
+    ctx.fetch(`${origin}/api/stripe/checkout`, {
       method: "POST",
       redirect: "manual",
       signal,
@@ -259,19 +304,20 @@ export function chatRequestBody(text: string = PAID_PROBE_QUESTION) {
 
 async function cleanUpConversation(
   ctx: ProbeContext,
+  origin: string,
   cookie: ProbeCookie,
   conversationId: string | undefined,
 ): Promise<string> {
   if (!conversationId) return "no conversation id to clean up";
   try {
-    const res = await ctx.fetch(`${ctx.origin}/chat.v1.ChatService/DeleteConversation`, {
+    const res = await ctx.fetch(`${origin}/chat.v1.ChatService/DeleteConversation`, {
       method: "POST",
       redirect: "manual",
       signal: AbortSignal.timeout(STEP_BUDGET_MS.chatCleanup),
       headers: {
         "content-type": "application/json",
         "connect-protocol-version": "1",
-        origin: ctx.origin,
+        origin,
         cookie: cookieHeader(cookie),
       },
       body: JSON.stringify({ conversationId }),

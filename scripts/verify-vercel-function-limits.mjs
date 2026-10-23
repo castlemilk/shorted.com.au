@@ -13,6 +13,7 @@ export const EXPECTED_LIMITS = {
   'industry/[slug]/twitter-image': 15,
   'price-drops': 60,
   'price-drops.rsc': 60,
+  'api/internal/paid-probe': 120,
 };
 
 async function* builtFunctions(directory, prefix = '') {

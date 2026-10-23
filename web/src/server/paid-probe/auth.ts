@@ -3,6 +3,8 @@ import type { NextRequest } from "next/server";
 
 import { hasInternalSecret } from "~/server/internal-secret";
 
+import type { ProbeEnv } from "./types";
+
 /**
  * Who may start a probe run.
  *
@@ -14,7 +16,7 @@ import { hasInternalSecret } from "~/server/internal-secret";
  */
 export function isAuthorizedProbeRequest(
   request: NextRequest,
-  env: NodeJS.ProcessEnv,
+  env: ProbeEnv,
 ): boolean {
   if (hasInternalSecret(request)) return true;
   return bearerMatches(request, env.PAID_PROBE_TOKEN);

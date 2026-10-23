@@ -1,0 +1,6 @@
+data: {"type":"text-start","id":"shorted-assistant-text"}
+
+data: {"type":"data-shorted-conversation","id":"shorted-conversation","data":{"conversationId":"conv-probe-part"}}
+
+data: {"type":"text-delta","id":"shorted-assistant-text","delta":"BHP's reported short position "}
+

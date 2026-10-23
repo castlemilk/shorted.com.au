@@ -23,9 +23,6 @@
   ],
   "fluid": true,
   "functions": {
-    "src/app/api/internal/paid-probe/route.ts": {
-      "maxDuration": 120
-    },
     "src/app/**/*": {
       "maxDuration": 15
     }

@@ -32,15 +32,4 @@ describe("paid probe contracts", () => {
     const tf = read(path.join(REPO_ROOT, "terraform/environments/prod/main.tf"));
     expect(tf).toContain(`["${PAID_PROBE_USER_ID}"]`);
   });
-
-  it("the probe route's 120s entry comes before the catch-all, which would otherwise win at 15s", () => {
-    const vercel = JSON.parse(read(path.join(WEB_ROOT, "vercel.json"))) as {
-      functions: Record<string, { maxDuration: number }>;
-    };
-    const keys = Object.keys(vercel.functions);
-    const probe = "src/app/api/internal/paid-probe/route.ts";
-    expect(keys).toContain(probe);
-    expect(keys.indexOf(probe)).toBeLessThan(keys.indexOf("src/app/**/*"));
-    expect(vercel.functions[probe]?.maxDuration).toBe(120);
-  });
 });

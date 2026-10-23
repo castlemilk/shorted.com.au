@@ -1,14 +1,12 @@
 /** @jest-environment node */
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import type { SubscriptionInfo } from "~/app/actions/subscription";
 import { extractLatestUserText, type ShortedChatUIMessage } from "@/hooks/chat-ui-message-adapter";
 
 import { PAID_API_MONTHLY_LIMIT_MIN, PAID_PROBE_QUESTION } from "../constants";
-import { chatRequestBody, runPaidProbe, type PaidProbeRun } from "../steps";
 import { getMySubscription, mintApiToken } from "../shorts-client";
-import type { ProbeContext } from "../types";
+import { chatRequestBody, runPaidProbe, type PaidProbeRun } from "../steps";
+import { ProbeFailure, type ProbeContext } from "../types";
+import { cutOffStream, fixture, json, sseResponse, streamOf } from "./helpers";
 
 // The chat guard reads the real entitlement rule; everything behind it is stubbed.
 jest.mock("~/server/auth", () => ({ auth: jest.fn() }));
@@ -20,22 +18,9 @@ jest.mock("../shorts-client", () => ({
 }));
 
 const TOKEN = "tok-probe-secret-value";
-const CHAT_STEP = "chat";
-
-function fixture(name: string): string {
-  return readFileSync(path.join(__dirname, "..", "__fixtures__", name), "utf8");
-}
-
-function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json", ...headers },
-  });
-}
-
-function sse(body: string): Response {
-  return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
-}
+const COOKIE_VALUE = "jwe-value";
+const PUBLIC_GET_STOCK = "https://api.shorted.com.au/shorts.v1alpha1.ShortedStocksService/GetStock";
+const DELETE_CONVERSATION = "https://shorted.com.au/chat.v1.ChatService/DeleteConversation";
 
 const PAID: SubscriptionInfo = {
   status: "active",
@@ -48,6 +33,11 @@ const PAID: SubscriptionInfo = {
   features: [],
   requestsPerDay: 0,
 };
+
+/** A healthy answer from the public host: origin-passed-through, paid monthly limit. */
+function paidStock(): Response {
+  return json(200, { productCode: "BHP" }, { "x-ratelimit-monthly-limit": "50000", "x-shorted-cache": "BYPASS" });
+}
 
 interface Behaviour {
   chat?: () => Response;
@@ -74,13 +64,13 @@ function fakeFetch(behaviour: Behaviour = {}) {
       if (headers.cookie === undefined) {
         return (behaviour.gateChat ?? (() => json(401, { error: "Authentication required" })))();
       }
-      return (behaviour.chat ?? (() => sse(fixture("chat-stream-ok.sse"))))();
+      return (behaviour.chat ?? (() => sseResponse(fixture("chat-stream-ok.sse"))))();
     }
     if (url.endsWith("/chat.v1.ChatService/DeleteConversation")) {
       return (behaviour.deleteConversation ?? (() => json(200, {})))();
     }
     if (url.endsWith("/shorts.v1alpha1.ShortedStocksService/GetStock")) {
-      return (behaviour.getStock ?? (() => json(200, { productCode: "BHP" }, { "x-ratelimit-monthly-limit": "50000" })))();
+      return (behaviour.getStock ?? paidStock)();
     }
     throw new Error(`unexpected url in test: ${url}`);
   });
@@ -88,11 +78,12 @@ function fakeFetch(behaviour: Behaviour = {}) {
 
 function context(fetchImpl: ReturnType<typeof fakeFetch>, overrides: Partial<ProbeContext> = {}): ProbeContext {
   return {
-    origin: "https://shorted.com.au",
+    origin: { trusted: true, value: "https://shorted.com.au" },
+    publicApiOrigin: { trusted: true, value: "https://api.shorted.com.au" },
     shortsApiUrl: "https://shorts.test",
     internalSecret: "internal-secret",
     fetch: fetchImpl as unknown as typeof fetch,
-    sessionCookie: async () => ({ name: "__Secure-next-auth.session-token", value: "jwe-value" }),
+    sessionCookie: async () => ({ name: "__Secure-next-auth.session-token", value: COOKIE_VALUE }),
     now: Date.now,
     secrets: ["internal-secret"],
     ...overrides,
@@ -105,7 +96,13 @@ function byName(run: PaidProbeRun, name: string) {
   return step;
 }
 
+function callsTo(fetchImpl: ReturnType<typeof fakeFetch>, suffix: string) {
+  return fetchImpl.mock.calls.filter(([url]) => String(url).endsWith(suffix));
+}
+
 beforeEach(() => {
+  // Call records from earlier tests must not count toward this test's assertions.
+  jest.clearAllMocks();
   jest.mocked(getMySubscription).mockResolvedValue(PAID);
   jest.mocked(mintApiToken).mockResolvedValue(TOKEN);
 });
@@ -118,62 +115,127 @@ describe("runPaidProbe", () => {
     expect(run.steps.map((step) => step.name)).toEqual(["entitlement", "chat", "api_token", "gates"]);
     expect(run.steps.every((step) => step.ok)).toBe(true);
     expect(byName(run, "entitlement").detail).toBe("status=active tier=enterprise");
-    expect(byName(run, CHAT_STEP).detail).toBe("tools=query_short_positions; conversation deleted");
-    expect(byName(run, "api_token").detail).toBe("GetStock 200, monthly limit 50000");
+    expect(byName(run, "chat").detail).toBe("tools=query_short_positions; conversation deleted");
+    expect(byName(run, "api_token").detail).toBe("GetStock 200 via the public API, monthly limit 50000");
     expect(byName(run, "gates").detail).toContain("both 401");
   });
 
   it("keeps running the later steps after the entitlement step fails", async () => {
-    jest.mocked(getMySubscription).mockResolvedValue({ ...PAID, status: "inactive", tier: "free", hasActiveSubscription: false, isPremium: false });
-    const fetchImpl = fakeFetch();
-
-    const run = await runPaidProbe(context(fetchImpl));
-
-    expect(run.ok).toBe(false);
-    const entitlement = byName(run, "entitlement");
-    expect(entitlement.ok).toBe(false);
-    expect(entitlement.detail).toBe("no paid chat entitlement (status=inactive, tier=free)");
-    expect(byName(run, CHAT_STEP).ok).toBe(true);
-    expect(byName(run, "api_token").ok).toBe(true);
-    expect(byName(run, "gates").ok).toBe(true);
-  });
-
-  it("does not leak the internal secret or the minted token into any detail", async () => {
-    jest.mocked(getMySubscription).mockRejectedValue(new Error("upstream said internal-secret is wrong"));
-    jest.mocked(mintApiToken).mockResolvedValue(TOKEN);
+    jest.mocked(getMySubscription).mockResolvedValue({
+      ...PAID,
+      status: "inactive",
+      tier: "free",
+      hasActiveSubscription: false,
+      isPremium: false,
+    });
 
     const run = await runPaidProbe(context(fakeFetch()));
 
-    expect(byName(run, "entitlement").detail).toBe("Error: upstream said [redacted] is wrong");
+    expect(run.ok).toBe(false);
+    expect(byName(run, "entitlement").detail).toBe("no paid chat entitlement (status=inactive, tier=free)");
+    expect(byName(run, "chat").ok).toBe(true);
+    expect(byName(run, "api_token").ok).toBe(true);
+    expect(byName(run, "gates").ok).toBe(true);
+  });
+});
+
+describe("scrubbing", () => {
+  it("scrubs a configured secret from a deliberate failure message", async () => {
+    jest.mocked(getMySubscription).mockRejectedValue(new ProbeFailure("upstream said internal-secret is wrong"));
+
+    const run = await runPaidProbe(context(fakeFetch()));
+
+    expect(byName(run, "entitlement").detail).toBe("upstream said [redacted] is wrong");
+  });
+
+  it("never shows an unexpected error's message, which can carry a secret", async () => {
+    jest.mocked(getMySubscription).mockRejectedValue(new Error("upstream said internal-secret is wrong"));
+
+    const run = await runPaidProbe(context(fakeFetch()));
+
+    expect(byName(run, "entitlement").detail).toBe("Error");
     expect(JSON.stringify(run)).not.toContain("internal-secret");
+  });
+
+  it("describes a Connect-style error by its name and numeric code", async () => {
+    jest.mocked(getMySubscription).mockRejectedValue(Object.assign(new Error("[unavailable] down"), { name: "ConnectError", code: 14 }));
+
+    const run = await runPaidProbe(context(fakeFetch()));
+
+    expect(byName(run, "entitlement").detail).toBe("ConnectError code=14");
+  });
+
+  it("keeps the minted API token out of an unexpected error from the public read", async () => {
+    const fetchImpl = fakeFetch({
+      getStock: () => {
+        throw new TypeError(`request failed for ${TOKEN}`);
+      },
+    });
+
+    const run = await runPaidProbe(context(fetchImpl));
+
+    expect(byName(run, "api_token").detail).toBe("TypeError");
+    expect(JSON.stringify(run)).not.toContain(TOKEN);
+  });
+
+  it("scrubs the minted API token from a deliberate failure, because it was registered for this run", async () => {
+    const fetchImpl = fakeFetch({
+      getStock: () => {
+        throw new ProbeFailure(`public API rejected ${TOKEN}`);
+      },
+    });
+
+    const run = await runPaidProbe(context(fetchImpl));
+
+    expect(byName(run, "api_token").detail).toBe("public API rejected [redacted]");
+    expect(JSON.stringify(run)).not.toContain(TOKEN);
+  });
+
+  it("keeps the session cookie value out of a stream error's text", async () => {
+    const withCookieInError = [
+      'data: {"type":"error","errorText":"boom jwe-value"}',
+      "data: [DONE]",
+      "",
+    ].join("\n\n");
+
+    const run = await runPaidProbe(
+      context(fakeFetch({ chat: () => sseResponse(withCookieInError) })),
+    );
+
+    expect(byName(run, "chat").detail).toBe("stream error: boom [redacted]");
+    expect(JSON.stringify(run)).not.toContain(COOKIE_VALUE);
+  });
+
+  it("never lets the minted token appear in any detail of a healthy run", async () => {
+    const run = await runPaidProbe(context(fakeFetch()));
     expect(JSON.stringify(run)).not.toContain(TOKEN);
   });
 });
 
 describe("chat step", () => {
   it("fails on the 2026-10-23 tool 403 even though the HTTP status is 200", async () => {
-    const fetchImpl = fakeFetch({ chat: () => sse(fixture("chat-stream-tool-403.sse")) });
+    const fetchImpl = fakeFetch({ chat: () => sseResponse(fixture("chat-stream-tool-403.sse")) });
 
-    const step = byName(await runPaidProbe(context(fetchImpl)), CHAT_STEP);
+    const step = byName(await runPaidProbe(context(fetchImpl)), "chat");
 
     expect(step.ok).toBe(false);
     expect(step.detail).toContain("tool failed: get_stock_details: RPC GetStockDetails returned 403");
   });
 
   it("still deletes the conversation after judging a failure", async () => {
-    const fetchImpl = fakeFetch({ chat: () => sse(fixture("chat-stream-tool-403.sse")) });
+    const fetchImpl = fakeFetch({ chat: () => sseResponse(fixture("chat-stream-tool-403.sse")) });
 
     await runPaidProbe(context(fetchImpl));
 
-    const deletes = fetchImpl.mock.calls.filter(([url]) => String(url).endsWith("DeleteConversation"));
+    const deletes = callsTo(fetchImpl, "DeleteConversation");
     expect(deletes).toHaveLength(1);
     expect(JSON.parse(String((deletes[0]![1] as RequestInit).body))).toEqual({ conversationId: "conv-probe-403" });
   });
 
   it("fails on the error chunk and quotes its text", async () => {
     const step = byName(
-      await runPaidProbe(context(fakeFetch({ chat: () => sse(fixture("chat-stream-error.sse")) }))),
-      CHAT_STEP,
+      await runPaidProbe(context(fakeFetch({ chat: () => sseResponse(fixture("chat-stream-error.sse")) }))),
+      "chat",
     );
     expect(step.ok).toBe(false);
     expect(step.detail).toBe("stream error: Chat is temporarily unavailable.");
@@ -181,10 +243,8 @@ describe("chat step", () => {
 
   it("fails on a non-200, quoting only the JSON error message", async () => {
     const step = byName(
-      await runPaidProbe(
-        context(fakeFetch({ chat: () => json(403, { error: "Premium subscription required" }) })),
-      ),
-      CHAT_STEP,
+      await runPaidProbe(context(fakeFetch({ chat: () => json(403, { error: "Premium subscription required" }) }))),
+      "chat",
     );
     expect(step.detail).toBe("HTTP 403: Premium subscription required");
   });
@@ -193,7 +253,7 @@ describe("chat step", () => {
     const html = "<html><body>Cloudflare says no</body></html>";
     const step = byName(
       await runPaidProbe(context(fakeFetch({ chat: () => new Response(html, { status: 502 }) }))),
-      CHAT_STEP,
+      "chat",
     );
     expect(step.detail).toBe("HTTP 502");
     expect(step.detail).not.toContain("Cloudflare");
@@ -209,7 +269,7 @@ describe("chat step", () => {
       "",
     ].join("\n\n");
 
-    const step = byName(await runPaidProbe(context(fakeFetch({ chat: () => sse(noTools) }))), CHAT_STEP);
+    const step = byName(await runPaidProbe(context(fakeFetch({ chat: () => sseResponse(noTools) }))), "chat");
     expect(step.ok).toBe(false);
     expect(step.detail).toBe("no tool calls");
   });
@@ -217,7 +277,7 @@ describe("chat step", () => {
   it("treats a failed conversation delete as a warning, not a failure", async () => {
     const step = byName(
       await runPaidProbe(context(fakeFetch({ deleteConversation: () => json(500, {}) }))),
-      CHAT_STEP,
+      "chat",
     );
     expect(step.ok).toBe(true);
     expect(step.detail).toBe("tools=query_short_positions; cleanup warning: HTTP 500");
@@ -230,27 +290,71 @@ describe("chat step", () => {
     const chatCall = fetchImpl.mock.calls.find(([url]) => String(url) === "https://shorted.com.au/api/chat");
     const init = chatCall![1] as RequestInit;
     const headers = init.headers as Record<string, string>;
-    expect(headers.cookie).toBe("__Secure-next-auth.session-token=jwe-value");
+    expect(headers.cookie).toBe(`__Secure-next-auth.session-token=${COOKIE_VALUE}`);
     expect(headers.origin).toBe("https://shorted.com.au");
     expect(init.redirect).toBe("manual");
     const body = JSON.parse(String(init.body)) as { messages: ShortedChatUIMessage[] };
     expect(extractLatestUserText(body.messages)).toBe(PAID_PROBE_QUESTION);
   });
 
-  it("fails when NEXTAUTH_SECRET is not configured, without reaching /api/chat", async () => {
+  it("fails when NEXTAUTH_SECRET is not configured, before any cookied request", async () => {
     const fetchImpl = fakeFetch();
     const run = await runPaidProbe(
       context(fetchImpl, {
         sessionCookie: async () => {
-          throw new Error("NEXTAUTH_SECRET is not configured");
+          throw new ProbeFailure("NEXTAUTH_SECRET is not configured");
         },
       }),
     );
-    expect(byName(run, CHAT_STEP).detail).toBe("Error: NEXTAUTH_SECRET is not configured");
-    const cookiedChatCalls = fetchImpl.mock.calls.filter(
-      ([url, init]) => String(url).endsWith("/api/chat") && (init?.headers as Record<string, string>).cookie !== undefined,
+    expect(byName(run, "chat").detail).toBe("NEXTAUTH_SECRET is not configured");
+    expect(callsTo(fetchImpl, "/api/chat").filter(([, init]) => (init?.headers as Record<string, string>).cookie !== undefined)).toHaveLength(0);
+  });
+
+  it("deletes the conversation of a turn that timed out after streaming its id", async () => {
+    const fetchImpl = fakeFetch({
+      chat: () => new Response(cutOffStream(fixture("chat-stream-conversation-timeout.sse")), { status: 200 }),
+    });
+
+    const step = byName(await runPaidProbe(context(fetchImpl)), "chat");
+
+    expect(step.ok).toBe(false);
+    expect(step.detail).toBe("timed out after 60s");
+    const deletes = callsTo(fetchImpl, "DeleteConversation");
+    expect(deletes).toHaveLength(1);
+    expect(JSON.parse(String((deletes[0]![1] as RequestInit).body))).toEqual({ conversationId: "conv-probe-part" });
+  });
+
+  it("deletes the conversation of a turn that ended in an error chunk after its id was streamed", async () => {
+    const partThenError = [
+      'data: {"type":"text-start","id":"a"}',
+      'data: {"type":"data-shorted-conversation","id":"shorted-conversation","data":{"conversationId":"conv-error-part"}}',
+      'data: {"type":"error","errorText":"Chat is temporarily unavailable."}',
+      "data: [DONE]",
+      "",
+    ].join("\n\n");
+    const fetchImpl = fakeFetch({ chat: () => sseResponse(partThenError) });
+
+    const step = byName(await runPaidProbe(context(fetchImpl)), "chat");
+
+    expect(step.detail).toBe("stream error: Chat is temporarily unavailable.");
+    const deletes = callsTo(fetchImpl, "DeleteConversation");
+    expect(JSON.parse(String((deletes[0]![1] as RequestInit).body))).toEqual({ conversationId: "conv-error-part" });
+  });
+
+  it("sends nothing to an untrusted origin: no cookie, no chat request, no delete", async () => {
+    const fetchImpl = fakeFetch();
+    const sessionCookie = jest.fn(async () => ({ name: "n", value: COOKIE_VALUE }));
+
+    const run = await runPaidProbe(
+      context(fetchImpl, {
+        origin: { trusted: false, reason: "untrusted base URL" },
+        sessionCookie,
+      }),
     );
-    expect(cookiedChatCalls).toHaveLength(0);
+
+    expect(byName(run, "chat").detail).toBe("untrusted base URL");
+    expect(sessionCookie).not.toHaveBeenCalled();
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).startsWith("https://shorted.com.au"))).toBe(false);
   });
 });
 
@@ -258,7 +362,7 @@ describe("api_token step", () => {
   it("fails a token on the free tier", async () => {
     const step = byName(
       await runPaidProbe(
-        context(fakeFetch({ getStock: () => json(200, { productCode: "BHP" }, { "x-ratelimit-monthly-limit": "1000" }) })),
+        context(fakeFetch({ getStock: () => json(200, { productCode: "BHP" }, { "x-ratelimit-monthly-limit": "1000", "x-shorted-cache": "BYPASS" }) })),
       ),
       "api_token",
     );
@@ -267,25 +371,93 @@ describe("api_token step", () => {
   });
 
   it("fails when the monthly header is absent, as when rate limiting is off", async () => {
-    const step = byName(await runPaidProbe(context(fakeFetch({ getStock: () => json(200, { productCode: "BHP" }) }))), "api_token");
+    const step = byName(
+      await runPaidProbe(context(fakeFetch({ getStock: () => json(200, { productCode: "BHP" }, { "x-shorted-cache": "BYPASS" }) }))),
+      "api_token",
+    );
     expect(step.ok).toBe(false);
     expect(step.detail).toBe("token is not on a paid API tier (monthly limit absent)");
   });
 
-  it("passes at the paid floor and sends the token as a Bearer credential", async () => {
+  it("passes at the paid floor, sending the token as a Bearer credential to the public host", async () => {
     const fetchImpl = fakeFetch({
-      getStock: () => json(200, { productCode: "BHP" }, { "x-ratelimit-monthly-limit": String(PAID_API_MONTHLY_LIMIT_MIN) }),
+      getStock: () =>
+        json(200, { productCode: "BHP" }, {
+          "x-ratelimit-monthly-limit": String(PAID_API_MONTHLY_LIMIT_MIN),
+          "x-shorted-cache": "BYPASS",
+        }),
     });
     const step = byName(await runPaidProbe(context(fetchImpl)), "api_token");
 
     expect(step.ok).toBe(true);
-    const stockCall = fetchImpl.mock.calls.find(([url]) => String(url).endsWith("/GetStock"));
+    const stockCall = fetchImpl.mock.calls.find(([url]) => String(url) === PUBLIC_GET_STOCK);
+    expect(stockCall).toBeDefined();
     expect((stockCall![1] as RequestInit).headers).toMatchObject({ authorization: `Bearer ${TOKEN}` });
+  });
+
+  it("sends the authenticated read with no bypass header, and mints the token on the server API", async () => {
+    const fetchImpl = fakeFetch();
+    await runPaidProbe(context(fetchImpl));
+
+    const stockCall = fetchImpl.mock.calls.find(([url]) => String(url) === PUBLIC_GET_STOCK);
+    const headers = (stockCall![1] as RequestInit).headers as Record<string, string>;
+    expect(Object.keys(headers).map((key) => key.toLowerCase())).not.toEqual(
+      expect.arrayContaining(["x-shorted-ssr-bypass", "x-shorted-testing-bypass"]),
+    );
+    expect(headers["connect-protocol-version"]).toBe("1");
+    // The mint is internal: it is handed the server API URL, not the public host.
+    const mintContext = jest.mocked(mintApiToken).mock.calls[0]![0];
+    expect(mintContext.shortsApiUrl).toBe("https://shorts.test");
+  });
+
+  it("fails when the answer did not pass through the edge, or came from its cache", async () => {
+    for (const [header, want] of [
+      ["HIT", "x-shorted-cache: HIT"],
+      ["MISS", "x-shorted-cache: MISS"],
+      [undefined, "x-shorted-cache: absent"],
+    ] as const) {
+      const extra: Record<string, string> = header === undefined ? {} : { "x-shorted-cache": header };
+      const step = byName(
+        await runPaidProbe(
+          context(
+            fakeFetch({ getStock: () => json(200, { productCode: "BHP" }, { "x-ratelimit-monthly-limit": "50000", ...extra }) }),
+          ),
+        ),
+        "api_token",
+      );
+      expect(step.ok).toBe(false);
+      expect(step.detail).toBe(`answer was not passed through to origin (${want})`);
+    }
+  });
+
+  it("refuses an untrusted public host before minting anything", async () => {
+    const fetchImpl = fakeFetch();
+
+    const step = byName(
+      await runPaidProbe(
+        context(fetchImpl, { publicApiOrigin: { trusted: false, reason: "untrusted public API URL" } }),
+      ),
+      "api_token",
+    );
+
+    expect(step.detail).toBe("untrusted public API URL");
+    expect(mintApiToken).not.toHaveBeenCalled();
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).endsWith("/GetStock"))).toBe(false);
   });
 
   it("fails when the answer is not a JSON object", async () => {
     const step = byName(
-      await runPaidProbe(context(fakeFetch({ getStock: () => new Response("<html>", { status: 200, headers: { "x-ratelimit-monthly-limit": "50000" } }) }))),
+      await runPaidProbe(
+        context(
+          fakeFetch({
+            getStock: () =>
+              new Response("<html>", {
+                status: 200,
+                headers: { "x-ratelimit-monthly-limit": "50000", "x-shorted-cache": "BYPASS" },
+              }),
+          }),
+        ),
+      ),
       "api_token",
     );
     expect(step.ok).toBe(false);
@@ -296,7 +468,9 @@ describe("api_token step", () => {
 describe("gates step", () => {
   it("fails when /api/chat answers a redirect instead of a 401", async () => {
     const step = byName(
-      await runPaidProbe(context(fakeFetch({ gateChat: () => new Response(null, { status: 307, headers: { location: "/signin" } }) }))),
+      await runPaidProbe(
+        context(fakeFetch({ gateChat: () => new Response(null, { status: 307, headers: { location: "/signin" } }) })),
+      ),
       "gates",
     );
     expect(step.ok).toBe(false);
@@ -313,7 +487,7 @@ describe("gates step", () => {
   });
 
   it("sends the anonymous gate a real user message and no cookie", async () => {
-    const fetchImpl = fakeFetch({ gateChat: () => json(401, { error: "Authentication required" }) });
+    const fetchImpl = fakeFetch();
     await runPaidProbe(context(fetchImpl));
 
     const gateCall = fetchImpl.mock.calls.find(
@@ -322,14 +496,34 @@ describe("gates step", () => {
         (init?.headers as Record<string, string> | undefined)?.cookie === undefined,
     );
     const init = gateCall![1] as RequestInit;
-    expect((init.headers as Record<string, string>).cookie).toBeUndefined();
     const body = JSON.parse(String(init.body)) as { messages: ShortedChatUIMessage[] };
     expect(extractLatestUserText(body.messages)).toBe(PAID_PROBE_QUESTION);
+  });
+
+  it("sends nothing to an untrusted origin", async () => {
+    const fetchImpl = fakeFetch();
+
+    const step = byName(
+      await runPaidProbe(context(fetchImpl, { origin: { trusted: false, reason: "untrusted base URL" } })),
+      "gates",
+    );
+
+    expect(step.detail).toBe("untrusted base URL");
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).startsWith("https://shorted.com.au"))).toBe(false);
   });
 });
 
 describe("chatRequestBody", () => {
   it("is the shape the app's own reader expects", () => {
     expect(extractLatestUserText(chatRequestBody().messages as ShortedChatUIMessage[])).toBe(PAID_PROBE_QUESTION);
+  });
+});
+
+describe("stream helpers", () => {
+  it("streamOf delivers its chunks in order", async () => {
+    const reader = streamOf("a", "b").getReader();
+    const first = await reader.read();
+    expect(first.done).toBe(false);
+    expect(new TextDecoder().decode(first.value)).toBe("a");
   });
 });

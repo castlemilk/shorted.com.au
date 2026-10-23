@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerShortsApiUrl } from "~/app/actions/config";
 import { isAuthorizedProbeRequest } from "~/server/paid-probe/auth";
 import { reportCheckins } from "~/server/paid-probe/checkins";
-import { buildProbeContext, resolveProbeOrigin } from "~/server/paid-probe/context";
+import { buildProbeContext } from "~/server/paid-probe/context";
 import { runIfIdle } from "~/server/paid-probe/run-lock";
 import { runPaidProbe } from "~/server/paid-probe/steps";
 
@@ -17,9 +17,9 @@ import { runPaidProbe } from "~/server/paid-probe/steps";
  * Callers: Telesis with PAID_PROBE_TOKEN as a Bearer token, or the shorts API
  * with INTERNAL_SERVICE_SECRET. Nothing else reaches it.
  *
- * maxDuration is set in two places: the export here, and a web/vercel.json entry
- * placed before the catch-all `src/app` entry. Vercel uses the first matching
- * glob, so without that ordering the catch-all's 15s would end the run early.
+ * maxDuration is the export below. The built value is checked in CI by
+ * scripts/verify-vercel-function-limits.mjs (EXPECTED_LIMITS), so a build that
+ * drops it fails the deploy.
  */
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,9 +31,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const outcome = await runIfIdle(async () => {
-    const origin = resolveProbeOrigin(request.url, process.env.PAID_PROBE_BASE_URL);
     const run = await runPaidProbe(
-      buildProbeContext(process.env, { origin, shortsApiUrl: getServerShortsApiUrl() }),
+      buildProbeContext(process.env, {
+        requestUrl: request.url,
+        shortsApiUrl: getServerShortsApiUrl(),
+      }),
     );
     const checkins = await reportCheckins(run, process.env);
     return { run, checkins };

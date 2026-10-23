@@ -11,7 +11,7 @@ jest.mock("~/app/actions/config", () => ({ getServerShortsApiUrl: () => "https:/
 jest.mock("~/server/paid-probe/steps", () => ({ runPaidProbe: jest.fn() }));
 jest.mock("~/server/paid-probe/checkins", () => ({ reportCheckins: jest.fn(async () => "disabled") }));
 
-const ENV_KEYS = ["INTERNAL_SERVICE_SECRET", "PAID_PROBE_TOKEN", "PAID_PROBE_BASE_URL"] as const;
+const ENV_KEYS = ["INTERNAL_SERVICE_SECRET", "PAID_PROBE_TOKEN", "PAID_PROBE_BASE_URL", "VERCEL_ENV"] as const;
 const savedEnv: Record<string, string | undefined> = {};
 const CALLED_ON = "https://shorted.com.au/api/internal/paid-probe";
 
@@ -28,7 +28,7 @@ function run(ok: boolean): PaidProbeRun {
         durationMs: 2,
         detail: ok ? "tools=query_short_positions; conversation deleted" : "tool failed: get_stock_details: RPC GetStockDetails returned 403",
       },
-      { name: "api_token", ok: true, durationMs: 3, detail: "GetStock 200, monthly limit 50000" },
+      { name: "api_token", ok: true, durationMs: 3, detail: "GetStock 200 via the public API, monthly limit 50000" },
       { name: "gates", ok: true, durationMs: 4, detail: "anonymous /api/chat and /api/stripe/checkout both 401" },
     ],
   };
@@ -49,6 +49,7 @@ beforeEach(() => {
   process.env.INTERNAL_SERVICE_SECRET = "internal-secret";
   process.env.PAID_PROBE_TOKEN = "probe-token";
   delete process.env.PAID_PROBE_BASE_URL;
+  delete process.env.VERCEL_ENV;
   jest.mocked(runPaidProbe).mockResolvedValue(run(true));
 });
 
@@ -60,7 +61,7 @@ afterAll(() => {
 });
 
 describe("POST /api/internal/paid-probe", () => {
-  it("exports the 120s budget the vercel.json entry also sets", () => {
+  it("exports the 120s budget that scripts/verify-vercel-function-limits.mjs checks in the built output", () => {
     expect(maxDuration).toBe(120);
   });
 
@@ -133,8 +134,16 @@ describe("POST /api/internal/paid-probe", () => {
     await POST(request({ authorization: "Bearer probe-token" }));
 
     const ctx = jest.mocked(runPaidProbe).mock.calls[0]![0];
-    expect(ctx.origin).toBe("https://preview.example.test");
+    expect(ctx.origin).toEqual({ trusted: true, value: "https://preview.example.test" });
     expect(ctx.shortsApiUrl).toBe("https://shorts.test");
+  });
+
+  it("hands an untrusted origin to the steps, so a production Host header cannot pick the cookie's destination", async () => {
+    process.env.VERCEL_ENV = "production";
+    await POST(request({ authorization: "Bearer probe-token" }, "https://evil.example/api/internal/paid-probe"));
+
+    const ctx = jest.mocked(runPaidProbe).mock.calls[0]![0];
+    expect(ctx.origin).toEqual({ trusted: false, reason: "untrusted base URL" });
   });
 
   it("passes the check-in outcome through", async () => {

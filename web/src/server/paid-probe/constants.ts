@@ -46,3 +46,20 @@ export const STEP_BUDGET_MS = {
  * this number, so the two cannot drift.
  */
 export const PAID_API_MONTHLY_LIMIT_MIN = 10_000;
+
+/**
+ * The public API host paying customers call. The api_token step authenticates
+ * through it, so the Cloudflare edge worker is part of what the probe checks.
+ * In production this is the only public origin the probe will send a token to.
+ */
+export const PUBLIC_API_ORIGIN = "https://api.shorted.com.au";
+
+/**
+ * The app origins a production run may use when the base URL is derived from
+ * the request's Host header rather than configured. NEXTAUTH_URL's origin is
+ * added to this set at runtime (context.ts).
+ */
+export const PRODUCTION_APP_ORIGINS: readonly string[] = [
+  "https://shorted.com.au",
+  "https://www.shorted.com.au",
+];

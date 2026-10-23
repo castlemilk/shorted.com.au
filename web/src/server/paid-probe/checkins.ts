@@ -1,6 +1,6 @@
 import { PAID_PROBE_USER_AGENT } from "./constants";
 import type { PaidProbeRun, ProbeStepName } from "./steps";
-import { errorName } from "./types";
+import { errorName, type ProbeEnv } from "./types";
 
 /**
  * Telesis check-ins for the probe. The protocol is the one the Go cron reporter
@@ -180,7 +180,7 @@ function truncateBytes(text: string, max: number): string {
  */
 export async function reportCheckins(
   run: PaidProbeRun,
-  env: NodeJS.ProcessEnv,
+  env: ProbeEnv,
   fetchImpl: typeof fetch = fetch,
 ): Promise<CheckinStatus> {
   const urls = parseCheckinConfig(env.TELESIS_PAID_PROBE_CHECKINS);

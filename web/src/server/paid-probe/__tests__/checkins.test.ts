@@ -35,7 +35,8 @@ const RUN_CHAT_FAILED: PaidProbeRun = {
 };
 
 function okFetch(status = 200) {
-  return jest.fn(async () => new Response("{}", { status }));
+  // Typed with parameters so its recorded calls are indexable, as the assertions below need.
+  return jest.fn(async (_url?: unknown, _init?: unknown) => new Response("{}", { status }));
 }
 
 function bodyOf(call: unknown[]): unknown {
