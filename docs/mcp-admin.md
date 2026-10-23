@@ -110,19 +110,36 @@ for match what they can use, and do the paid features work right now?
   origin as `ADMIN_CHECK_URL`, as `admin-users` is. Without the secret, Stripe is
   named unavailable and nothing is guessed.
 - **The verdict is the product's own.** `entitled` is `ResolveEntitlement`: the
-  operator grant, the status, the paid tier and the 24-hour period grace the paid
-  features apply. The tools cannot disagree with what a customer can use.
+  operator grant, the status, the paid tier and the 72-hour period grace the paid
+  features apply. A null status is the one exception. The product cannot read
+  such a row, so it grants nothing, and the audit reports it as `null_status`.
 - **Unread is not empty.** A source that fails is named in `sources`, and its
   section is `null`; a count is absent, not zero. An empty list means the source
   was read and found nothing.
-- **Drift** compares each mirror row with Stripe's live subscription for its
-  customer. `paid_without_mirror` is the worst case: a live Stripe subscription no
-  row tracks, or a row that grants no access while Stripe says active or trialing
-  (money taken, no access). `entitled_without_stripe` is access with no live
-  subscription behind it. The others are `status_mismatch` (the webhook's own
-  mapping: unpaid is recorded as past_due), `period_end_mismatch` (more than an
-  hour apart), `missing_period_end`, `cancel_mismatch`, `duplicate_email` and
-  `email_keyed_user_id` (a legacy row keyed by an email, which no uid can match).
+- **Drift is by customer.** Stripe's subscriptions are grouped by customer, and
+  each customer's best subscription is chosen by the web's ranking: active, then
+  trialing, past_due, unpaid, then the newest ended one. That subscription is set
+  against the one row that holds the customer. The row is found by its customer
+  id, wherever it is keyed, so a row under another email still counts. Findings:
+  - `paid_without_mirror`: the worst case. An active or trialing subscription
+    whose customer has no row, or whose row grants no paid access. Money taken,
+    no access.
+  - `unpaid_without_mirror`: a past-due or unpaid customer with no row. Owed
+    money, not access.
+  - `entitled_without_stripe`: access with no live subscription behind it.
+  - `stale_subscription_id`: low severity. The row does not name the customer's
+    current subscription, though its state can already be right.
+  - `status_mismatch` (the webhook's own mapping: unpaid is recorded as past_due),
+    `period_end_mismatch` (more than an hour apart), `missing_period_end`,
+    `cancel_mismatch`, `null_status`, `duplicate_email` (once per email) and
+    `email_keyed_user_id` (a legacy row keyed by an email, which no uid can match).
+- **An ambiguous email is partial.** Stripe can match one email to more than one
+  customer. Each is read and compared with its own row, up to ten; `notes` says how
+  many were left out. The Stripe source is `partial`, because the subject may hold
+  more customers than the answer shows. A matched customer that cannot be read makes
+  the source `unavailable`, never `partial`.
+- **Stripe is asked with the email as typed.** The mirror and the account are read
+  with the email in lower case. The web app retries Stripe in lower case itself.
 - **A row updated in the last 15 minutes is left out of drift**, because the
   Stripe webhook may still be in flight. `notes` says how many were left out, and
   the row is marked `recentlyUpdated`.
@@ -303,7 +320,7 @@ Files: `services/shorts/internal/mcp/admin.go`, `internal/jobmonitor/publish.go`
   is not grantable (fail closed).
 - **"this connection was not granted the jobs:run scope"** as a tool error —
   the connector was authorised before the scope existed; reconnect it.
-- **"the web app rejected INTERNAL_SERVICE_SECRET (HTTP 401)"** from a billing
+- **"the web app rejected INTERNAL_SERVICE_SECRET (HTTP 401 or 403)"** from a billing
   tool or `run_paid_probe` — the API's `INTERNAL_SERVICE_SECRET` does not match
   the web app's. Stripe and the probe are unreadable until they match; the
   mirror-only checks still answer.
