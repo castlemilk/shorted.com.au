@@ -214,6 +214,13 @@ func (h *ChatServiceHandler) SendMessage(
 	}
 	recordChatStorageWrite(ctx, "user")
 
+	// Name the conversation before the model runs. A turn can fail before any
+	// text (the model errors, or a tool round does), and until this frame the
+	// client had no id, so Try again created a second conversation.
+	if err := announceConversation(stream, conv.ID); err != nil {
+		return internalFailure("announce conversation", err)
+	}
+
 	// Get conversation history
 	history, err := h.store.GetRecentMessages(ctx, conv.ID, h.historyLimit)
 	if err != nil {
@@ -304,6 +311,17 @@ func (h *ChatServiceHandler) SendMessage(
 	}
 
 	return nil
+}
+
+// frameSender is the part of the response stream the frames above need.
+type frameSender interface {
+	Send(*chatv1.SendMessageResponse) error
+}
+
+// announceConversation sends the conversation id as a frame of its own, with no
+// text, so the client learns the id before any text or failure can arrive.
+func announceConversation(stream frameSender, conversationID string) error {
+	return stream.Send(&chatv1.SendMessageResponse{ConversationId: conversationID})
 }
 
 // keepPartialReply stores what the model streamed before its turn failed or was

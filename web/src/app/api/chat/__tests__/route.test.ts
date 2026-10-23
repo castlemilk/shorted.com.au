@@ -407,6 +407,25 @@ describe("AI SDK chat route", () => {
       });
     });
 
+    it("keeps the conversation id when the turn fails before any text, from an id-only frame", async () => {
+      // The chat service names the conversation before the model runs, in a
+      // frame with no text, so a failure before the first token still has it.
+      mockStreamChatFromUpstream.mockReturnValue(
+        (async function* () {
+          yield { conversationId: "conv-early" };
+          throw connectLikeError(14, "model unavailable");
+        })(),
+      );
+
+      const parts = await partsOf(await POST(request({ conversationId: "" })));
+
+      expect(parts.find((part) => part.type === "data-shorted-conversation")).toMatchObject({
+        data: { conversationId: "conv-early" },
+      });
+      expect(parts.some((part) => part.type === "text-delta")).toBe(false);
+      expect(parts.some((part) => part.type === "error")).toBe(true);
+    });
+
     it("keeps the conversation id when the turn fails, so the next send does not fork it", async () => {
       mockStreamChatFromUpstream.mockReturnValue(
         (async function* () {
