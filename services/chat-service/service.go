@@ -207,12 +207,23 @@ func (h *ChatServiceHandler) SendMessage(
 	}
 	completion.ConversationID = conv.ID
 
-	// Store user message
-	_, err = h.store.AddMessage(ctx, conv.ID, "user", msg.Message, nil, nil)
-	if err != nil {
-		return internalFailure("store user message", err)
+	// Store user message. A retry finds its question already stored by the
+	// failed attempt, so it is not stored a second time, and the partial reply
+	// that attempt kept is replaced rather than left in front of the new one.
+	questionStored := false
+	if msg.Retry && msg.ConversationId != "" {
+		questionStored, err = h.replaceFailedReply(ctx, conv.ID, msg.Message)
+		if err != nil {
+			return internalFailure("replace failed reply", err)
+		}
 	}
-	recordChatStorageWrite(ctx, "user")
+	if !questionStored {
+		_, err = h.store.AddMessage(ctx, conv.ID, "user", msg.Message, nil, nil)
+		if err != nil {
+			return internalFailure("store user message", err)
+		}
+		recordChatStorageWrite(ctx, "user")
+	}
 
 	// Name the conversation before the model runs. A turn can fail before any
 	// text (the model errors, or a tool round does), and until this frame the
@@ -311,6 +322,45 @@ func (h *ChatServiceHandler) SendMessage(
 	}
 
 	return nil
+}
+
+// replaceFailedReply makes a retry of question idempotent. It reads the stored
+// tail, deletes the partial reply a failed attempt left after the question, and
+// reports whether the question itself is already stored.
+func (h *ChatServiceHandler) replaceFailedReply(ctx context.Context, conversationID, question string) (bool, error) {
+	recent, err := h.store.GetRecentMessages(ctx, conversationID, 2)
+	if err != nil {
+		return false, fmt.Errorf("get recent messages: %w", err)
+	}
+	stored, partialID := retryTail(recent, question)
+	if partialID != "" {
+		if err := h.store.DeleteMessage(ctx, conversationID, partialID); err != nil {
+			return false, err
+		}
+	}
+	return stored, nil
+}
+
+// retryTail reads the last stored messages, in chronological order, against the
+// question a retry asks again. The question is already stored when it is the
+// latest message, or when the latest is the partial reply its failed attempt
+// kept. In that second case partialID names the reply to replace. Anything else
+// is not a retry of this question, and the question is stored as a new one.
+func retryTail(recent []Message, question string) (questionStored bool, partialID string) {
+	n := len(recent)
+	if n == 0 {
+		return false, ""
+	}
+	last := recent[n-1]
+	if last.Role == "user" && last.Content == question {
+		return true, ""
+	}
+	if last.Role == "assistant" && n >= 2 {
+		if prev := recent[n-2]; prev.Role == "user" && prev.Content == question {
+			return true, last.ID
+		}
+	}
+	return false, ""
 }
 
 // frameSender is the part of the response stream the frames above need.

@@ -230,6 +230,20 @@ func (s *ConversationStore) GetRecentMessages(ctx context.Context, conversationI
 	return msgs, nil
 }
 
+// DeleteMessage removes one assistant reply from a conversation. A retry uses
+// it to replace the partial reply its failed attempt left behind. It never
+// removes a user message, and it touches nothing outside the conversation.
+func (s *ConversationStore) DeleteMessage(ctx context.Context, conversationID, messageID string) error {
+	_, err := s.pool.Exec(ctx,
+		`DELETE FROM chat_messages WHERE id = $1 AND conversation_id = $2 AND role = 'assistant'`,
+		messageID, conversationID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete message: %w", err)
+	}
+	return nil
+}
+
 // PruneMessages deletes old messages beyond maxMessages for a conversation.
 func (s *ConversationStore) PruneMessages(ctx context.Context, conversationID string, maxMessages int) (int64, error) {
 	if maxMessages <= 0 {
