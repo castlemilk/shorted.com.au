@@ -149,7 +149,10 @@ export function ConversationContent({
       role="log"
       aria-live="polite"
       onScroll={onScroll}
-      className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+      // Focusable from script only, so the jump button can hand focus here
+      // instead of dropping it to <body>.
+      tabIndex={-1}
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain focus:outline-none"
       {...props}
     >
       <div
@@ -165,24 +168,38 @@ export function ConversationContent({
   );
 }
 
-/** Appears when the reader has scrolled away from the live edge. */
+/**
+ * Appears when the reader has scrolled away from the live edge. It stays
+ * mounted while the thread follows, hidden from view and from assistive tech,
+ * so using it does not unmount the control that had focus.
+ */
 export function ConversationScrollButton({
   className,
   ...props
 }: Omit<ComponentProps<typeof Button>, "onClick">) {
-  const { isFollowing, scrollToBottom } = useConversationContext(
+  const { isFollowing, scrollerRef, scrollToBottom } = useConversationContext(
     "ConversationScrollButton",
   );
-  if (isFollowing) return null;
+
+  const jump = () => {
+    scrollToBottom();
+    // Focus stays in the log: the button is about to hide, and a focused
+    // control that disappears takes the keyboard position with it.
+    scrollerRef.current?.focus({ preventScroll: true });
+  };
+
   return (
     <Button
       type="button"
       variant="outline"
       size="icon"
       aria-label="Jump to latest message"
-      onClick={scrollToBottom}
+      aria-hidden={isFollowing || undefined}
+      tabIndex={isFollowing ? -1 : undefined}
+      onClick={jump}
       className={cn(
         "absolute bottom-3 left-1/2 z-10 h-10 w-10 -translate-x-1/2 rounded-full bg-background shadow-md",
+        isFollowing && "pointer-events-none invisible",
         className,
       )}
       {...props}

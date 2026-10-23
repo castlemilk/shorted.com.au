@@ -136,6 +136,25 @@ describe("Conversation stick-to-bottom", () => {
     expect(log.scrollTop).toBe(1600);
   });
 
+  it("keeps the jump button mounted and moves focus to the log when it is used", () => {
+    const log = renderThread();
+    setGeometry(log, { scrollHeight: 1000, clientHeight: 400, scrollTop: 600 });
+    fireEvent.scroll(log);
+    log.scrollTop = 100;
+    fireEvent.scroll(log);
+
+    const button = screen.getByRole("button", { name: "Jump to latest message" });
+    button.focus();
+    fireEvent.click(button);
+
+    // Hidden, not removed: the focused control is no longer the one under focus.
+    const hidden = document.querySelector('button[aria-label="Jump to latest message"]');
+    expect(hidden).not.toBeNull();
+    expect(hidden).toHaveAttribute("aria-hidden", "true");
+    expect(hidden).toHaveAttribute("tabindex", "-1");
+    expect(log).toHaveFocus();
+  });
+
   it("re-engages when the reader returns to the bottom by hand", () => {
     const log = renderThread();
     setGeometry(log, { scrollHeight: 1000, clientHeight: 400, scrollTop: 600 });
