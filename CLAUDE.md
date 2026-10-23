@@ -1809,7 +1809,7 @@ cd services && go test -v ./test/integration/...
 - **Region**: `australia-southeast2`
 - **Artifact Registry**: `australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted`
 - **Database**: Supabase (production), Docker PostgreSQL (development)
-- **Deploy secrets live in Cuttlefish, not GitHub**: the deploy jobs run on Cuttlefish runners and read `secrets.*` from its project store. Set them with `cuttle login --project shorted`, then `cuttle secrets set NAME --project shorted`. A copy set with `--environment prod` wins in the apply job, so check for one.
+- **Gemini and bypass deploy secrets live in Cuttlefish, not GitHub**: the deploy jobs run on Cuttlefish runners and read `secrets.GEMINI_API_KEY*` and `secrets.CLOUDFLARE_*_BYPASS_SECRET` from its project store, so a GitHub repo secret of that name changes nothing for them. Set a value with `printf '%s' "$VALUE" | cuttle secrets set NAME --project shorted` (stdin; `--value` lands in shell history), after `cuttle login --project shorted`. A copy set with `--environment <env>` is read before the project copy by any job that names that environment, so check for one. The one GitHub-hosted reader is `rate-limit-sentinel.yml` (`ubuntu-latest`), which reads the GitHub repo copy of `CLOUDFLARE_SSR_BYPASS_SECRET`.
 - **Gemini keys are validated before they sync**: `scripts/validate-gemini-key.sh` makes a real generation call and only a key that answers is written. A failing key leaves a warning and Secret Manager keeps its current version. `models.list` alone proves nothing.
 - **A Gemini rotation touches every copy**: Cuttlefish (`GEMINI_API_KEY`, `GEMINI_API_KEY_CHAT`), Secret Manager (`_CHAT`, `_NEWS`, `_REPORT_EXTRACTOR`, written by the deploy), and the VKE jobs (`deploy/kubernetes/jobs/scripts/sync-secrets.sh`, `CONFIRM=prod` to write). Change Cuttlefish first. A stale key that still generates passes the validator.
 
@@ -2086,7 +2086,7 @@ full skip and therefore stays fail-closed.
 
 Corollaries that keep it that way:
 - CI-side `vercel build` steps must be handed `SHORTED_SSR_BYPASS_SECRET`
-  explicitly (from GH secret `CLOUDFLARE_SSR_BYPASS_SECRET`) — export-only,
+  explicitly (from the Cuttlefish secret `CLOUDFLARE_SSR_BYPASS_SECRET`) — export-only,
   never as `--env`, which would downgrade the sensitive Vercel var.
 - `SHORTS_SERVICE_ENDPOINT` must reach every build, or `getServerShortsApiUrl()`
   falls back to the **public** host and the whole prerender crosses Cloudflare
@@ -2332,8 +2332,10 @@ These three values are also delivered to the **edge worker** (as
 worker's per-minute buckets exempt the same traffic the zone rule exempts. An
 unset secret disables the bypass in both places identically.
 
-CI passes it as `TF_VAR_rate_limit_ssr_bypass_secret` from the GitHub Actions
-secret `CLOUDFLARE_SSR_BYPASS_SECRET` (terraform-deploy.yml plan + apply).
+The deploy passes it as `TF_VAR_rate_limit_ssr_bypass_secret` from the Cuttlefish
+project secret `CLOUDFLARE_SSR_BYPASS_SECRET` (terraform-deploy.yml plan + apply).
+The GitHub repo copy of the same name feeds only `rate-limit-sentinel.yml`, which
+probes with it on a GitHub-hosted runner.
 
 Web side: `web/src/app/actions/config.ts` attaches
 `X-Shorted-Ssr-Bypass: $SHORTED_SSR_BYPASS_SECRET` in
@@ -2343,10 +2345,14 @@ configured `SHORTS_SERVICE_ENDPOINT`/`SHORTS_API_URL`/`SHORTED_EDGE_API_URL`
 host). It is **never** `NEXT_PUBLIC_*` and must never reach a client bundle or
 a third-party host.
 
-Mint + rotate (all three must be updated together — Cloudflare rule, CI, Vercel):
+Mint + rotate (all four must be updated together — Cloudflare rule, the Cuttlefish
+copy the deploy reads, the GitHub copy the sentinel reads, Vercel):
 ```bash
 SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
-gh secret set CLOUDFLARE_SSR_BYPASS_SECRET --repo <owner>/shorted --body "$SECRET"
+# The Cuttlefish copy is the one the deploy reads. Updating only the GitHub copy
+# leaves the deploy on the old value.
+printf '%s' "$SECRET" | cuttle secrets set CLOUDFLARE_SSR_BYPASS_SECRET --project shorted
+printf '%s' "$SECRET" | gh secret set CLOUDFLARE_SSR_BYPASS_SECRET --repo <owner>/shorted
 printf '%s' "$SECRET" | vercel env add SHORTED_SSR_BYPASS_SECRET production
 # then re-run terraform-deploy (or: cd terraform/environments/prod &&
 # TF_VAR_rate_limit_ssr_bypass_secret="$SECRET" terraform apply)

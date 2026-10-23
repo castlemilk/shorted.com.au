@@ -102,7 +102,7 @@ export RELEASE_MARKET_DATA_API_URL="https://market-data-...a.run.app"
 - `User-Agent: ... Shorted-E2E/1.0`
 - `X-Shorted-Testing-Bypass: <secret>`
 
-To create or rotate the bypass, apply the same generated value to Cloudflare Terraform and GitHub Actions:
+To create or rotate the bypass, apply the same generated value to Cloudflare Terraform and to Cuttlefish, which runs the deploy and the post-deploy smoke:
 
 ```bash
 export CLOUDFLARE_TESTING_BYPASS_SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
@@ -112,10 +112,10 @@ export TF_VAR_rate_limit_testing_bypass_secret="$CLOUDFLARE_TESTING_BYPASS_SECRE
 terraform plan
 terraform apply
 
-gh secret set CLOUDFLARE_TESTING_BYPASS_SECRET \
-  --repo castlemilk/shorted.com.au \
-  --body "$CLOUDFLARE_TESTING_BYPASS_SECRET"
+printf '%s' "$CLOUDFLARE_TESTING_BYPASS_SECRET" | cuttle secrets set CLOUDFLARE_TESTING_BYPASS_SECRET --project shorted
 ```
+
+The deploy and the post-deploy smoke run on Cuttlefish and read this secret from its project store. No GitHub repo secret is read for it. If a copy exists under a GitHub environment (`cuttle secrets set ... --environment prod`), the apply job reads that copy first, so update it too.
 
 Smoke against `https://shorted.com.au` should include that secret. Without it, Cloudflare may return 403s for browser-loaded resources during Playwright runs; smoke the emitted Vercel deployment URL when the secret is not available locally.
 
@@ -154,7 +154,7 @@ CLOUDFLARE_TESTING_BYPASS_SECRET="$CLOUDFLARE_TESTING_BYPASS_SECRET" \
 node e2e/release-smoke-ci.mjs
 ```
 
-If production smoke sees a Cloudflare challenge despite both headers, verify the live `shorted-app-api-security-skip` ruleset in phase `http_request_firewall_custom` is not using the disabled sentinel expression `http.host eq "__shorted-testing-bypass-disabled.invalid__"`. The GitHub repository secret `CLOUDFLARE_TESTING_BYPASS_SECRET` and Terraform variable `TF_VAR_rate_limit_testing_bypass_secret` must match after any rotation. Re-check this after Terraform or Cloudflare deploys, because applying Terraform without the Terraform secret variable can restore the disabled expression.
+If production smoke sees a Cloudflare challenge despite both headers, verify the live `shorted-app-api-security-skip` ruleset in phase `http_request_firewall_custom` is not using the disabled sentinel expression `http.host eq "__shorted-testing-bypass-disabled.invalid__"`. The Cuttlefish project secret `CLOUDFLARE_TESTING_BYPASS_SECRET` and Terraform variable `TF_VAR_rate_limit_testing_bypass_secret` must match after any rotation. Re-check this after Terraform or Cloudflare deploys, because applying Terraform without the Terraform secret variable can restore the disabled expression.
 
 ## GitHub Release
 

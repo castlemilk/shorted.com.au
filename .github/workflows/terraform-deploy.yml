@@ -394,12 +394,12 @@ jobs:
           GEMINI_API_KEY_CHAT: ${{ secrets.GEMINI_API_KEY_CHAT }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
-          # CREATE ONLY. This job has no GitHub environment, so it sees the
-          # REPO-level secrets; terraform-apply and deploy-vercel-prod run in the
-          # `prod` environment. When the two values differ, a plan job that
-          # writes versions fights the apply job: two versions per deploy and a
-          # window where the API's `latest` disagrees with the web app. The plan
-          # only needs the secrets to EXIST; the apply job owns their values.
+          # CREATE ONLY. This job has no GitHub environment, so it reads each secret's
+          # project-level copy in Cuttlefish; terraform-apply and deploy-vercel-prod run
+          # in the `prod` environment and read a `prod` copy when one is set. When the
+          # two values differ, a plan job that writes versions fights the apply job: two
+          # versions per deploy and a window where the API's `latest` disagrees with the
+          # web app. The plan only needs the secrets to EXIST; the apply job owns their values.
           ENSURE_SECRET_CREATE_ONLY: "1"
         run: |
           # Single source of truth: scripts/ensure-secret.sh. It only adds a new
@@ -424,13 +424,15 @@ jobs:
           # Cuttlefish first.
           ensure_gemini_secret() {
             local name="$1" value="${2:-}" out rc=0
-            out=$(bash "$GITHUB_WORKSPACE/scripts/validate-gemini-key.sh" "$value") || rc=$?
+            # The key goes to the validator on stdin. As an argument, ps would show it for the whole call.
+            out=$(printf '%s' "$value" | bash "$GITHUB_WORKSPACE/scripts/validate-gemini-key.sh" -) || rc=$?
             echo "$out"
-            if [ "$rc" -eq 0 ]; then
-              ensure_secret "$name" "$value"
-            else
-              echo "::warning title=Gemini key not synced::$name: $out; Secret Manager keeps its current version"
-            fi
+            case "$rc" in
+              0) ensure_secret "$name" "$value" ;;
+              # Exit 4: no key at all. Nothing is written, and the deploy carries on.
+              4) echo "::warning title=Gemini key not set::$name: no key to sync; Secret Manager keeps its current version" ;;
+              *) echo "::warning title=Gemini key not synced::$name: $out; Secret Manager keeps its current version" ;;
+            esac
           }
 
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
@@ -619,7 +621,9 @@ jobs:
           # secrets.* it reads are injected from Cuttlefish's project secret store,
           # not from the GitHub repo secrets. Set them with
           # `cuttle secrets set NAME --project shorted`; updating the GitHub repo
-          # secret changes nothing for these jobs.
+          # secret changes nothing for these jobs. This job names a GitHub environment,
+          # so a copy set with `cuttle secrets set NAME --environment <env>` is read
+          # before the project copy of the same name.
           ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
 
           # Gemini keys are checked by scripts/validate-gemini-key.sh before any
@@ -631,13 +635,15 @@ jobs:
           # Cuttlefish first.
           ensure_gemini_secret() {
             local name="$1" value="${2:-}" out rc=0
-            out=$(bash "$GITHUB_WORKSPACE/scripts/validate-gemini-key.sh" "$value") || rc=$?
+            # The key goes to the validator on stdin. As an argument, ps would show it for the whole call.
+            out=$(printf '%s' "$value" | bash "$GITHUB_WORKSPACE/scripts/validate-gemini-key.sh" -) || rc=$?
             echo "$out"
-            if [ "$rc" -eq 0 ]; then
-              ensure_secret "$name" "$value"
-            else
-              echo "::warning title=Gemini key not synced::$name: $out; Secret Manager keeps its current version"
-            fi
+            case "$rc" in
+              0) ensure_secret "$name" "$value" ;;
+              # Exit 4: no key at all. Nothing is written, and the deploy carries on.
+              4) echo "::warning title=Gemini key not set::$name: no key to sync; Secret Manager keeps its current version" ;;
+              *) echo "::warning title=Gemini key not synced::$name: $out; Secret Manager keeps its current version" ;;
+            esac
           }
 
           # Core secrets

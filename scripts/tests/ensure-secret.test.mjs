@@ -95,3 +95,25 @@ test("create-only mode still creates a missing secret", () => {
   });
   assert.match(calls, /secrets create/);
 });
+
+// Trailing CR/LF are not content. A value of only CR/LF is empty, so it is skipped
+// like an unset value. The emptiness check must run after the strip, or a CR-only
+// value would be versioned as 0 bytes.
+test("a value of only CR or LF is treated as not set: never versioned, never created", () => {
+  for (const valueArg of ["\r", "\n", "\r\n"]) {
+    const existing = run({
+      describe: "exit 0",
+      access: 'printf "%s" "old-value"; exit 0',
+      valueArg,
+    });
+    assert.doesNotMatch(existing.calls, /versions add/, `${JSON.stringify(valueArg)} must not add a version`);
+    assert.match(existing.stdout, /not set, skipping/, `${JSON.stringify(valueArg)} must skip`);
+
+    const missing = run({
+      describe: 'echo "ERROR: NOT_FOUND: Secret [MY_SECRET] not found." >&2; exit 1',
+      access: "exit 1",
+      valueArg,
+    });
+    assert.doesNotMatch(missing.calls, /secrets create/, `${JSON.stringify(valueArg)} must not create an empty secret`);
+  }
+});

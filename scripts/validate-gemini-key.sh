@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# validate-gemini-key.sh KEY [MODEL]
+# validate-gemini-key.sh [-|KEY] [MODEL]
 #
 # Proves a Gemini API key can GENERATE before scripts/ensure-secret.sh may write
 # it to Secret Manager. Prints one line that never contains the key:
@@ -8,27 +8,36 @@
 #   gemini key <sha256 prefix 12>: ok                      exit 0
 #   gemini key <sha256 prefix 12>: rejected: <reason>      exit 2
 #   gemini key <sha256 prefix 12>: unverified: <cause>     exit 3
-#   gemini key: skipped (empty)                            exit 0
+#   gemini key: skipped (empty)                            exit 4
 #
 # Exit 2 means Google definitively refused the key: HTTP 400, 401 or 403 with
 # the API's own reason. Exit 3 means the answer is unknown: a network error, a
-# 5xx or 429 that survived two retries, or a reply with no text. Exit 1 is a
-# usage error. Only exit 0 may lead to a write.
+# 5xx or 429 that survived two retries, or a reply with no text. Exit 4 means there
+# was no key to test once trailing CR/LF are removed, so nothing may be written.
+# Exit 1 is a usage error. Only exit 0 may lead to a write.
 #
 # WHY A GENERATION CALL: models.list answers 200 for keys that cannot generate.
 # A service-account-bound key passed that check on 2026-10-23 and then failed
 # every chat request with 401 ACCESS_TOKEN_TYPE_UNSUPPORTED.
 #
+# HOW THE KEY ARRIVES: "-" reads it from stdin. The deploy calls it that way, so
+# the key is never in the process table. A KEY given as an argument is for an
+# operator at a terminal, and ps shows it for the length of the call.
+#
 # The key goes in the x-goog-api-key header, fed to curl on stdin (-H @-). It is
-# never in a URL, where logs would keep it, and never written to disk. KEY is
-# positional, as in ensure-secret.sh, so it is visible in the process table for
-# the length of this call.
+# never in a URL, where logs would keep it, and never written to disk. curl runs
+# with -q, so no .curlrc can add a trace or verbose output. The only text taken
+# from curl is a three-digit status code.
 #
 # Overrides: MODEL is the second argument, then GEMINI_VALIDATE_MODEL, then
 # gemini-2.5-flash (the chat-service default in services/chat-service/config.go).
 # GEMINI_VALIDATE_BASE_URL and GEMINI_VALIDATE_RETRY_DELAY_SEC exist for the
 # tests. The base URL may point only at a loopback address, so a stray variable
 # cannot send the key to another host.
+
+# Turn xtrace off before anything else, so `bash -x`, SHELLOPTS=xtrace and a
+# BASH_ENV that sets -x never print the key. The redirect hides this line's own trace.
+{ set +x; } 2>/dev/null
 
 set -u
 
@@ -39,10 +48,17 @@ LOOPBACK_RE='^http://(127\.0\.0\.1|localhost)(:[0-9]+)?(/[A-Za-z0-9._/-]*)?$'
 MODEL_RE='^[A-Za-z0-9._-]+$'
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: validate-gemini-key.sh KEY [MODEL]" >&2
+  echo "usage: validate-gemini-key.sh [-|KEY] [MODEL]" >&2
   exit 1
 fi
-KEY="$1"
+
+if [ "$1" = "-" ]; then
+  # Reads all of stdin. With IFS empty and -r, read keeps every byte. It returns
+  # non-zero at end of input, which is expected here.
+  IFS= read -r -d '' KEY || true
+else
+  KEY="$1"
+fi
 
 # Strip trailing CR/LF exactly as ensure-secret.sh does before it stores a value,
 # so the key tested here is the key that would be written.
@@ -55,7 +71,7 @@ done
 
 if [ -z "$KEY" ]; then
   echo "gemini key: skipped (empty)"
-  exit 0
+  exit 4
 fi
 
 BASE_URL="${GEMINI_VALIDATE_BASE_URL:-$DEFAULT_BASE_URL}"
@@ -81,7 +97,14 @@ sha256_hex() {
 }
 
 FP=$(printf '%s' "$KEY" | sha256_hex | cut -c1-12)
-emit() { echo "gemini key $FP: $1"; }
+
+# Every line this script prints goes through here, so the key is scrubbed from all
+# of them: a refusal's reason, a 200 reply's block or finish reason, and any cause.
+emit() {
+  local msg="$1"
+  msg="${msg//"$KEY"/[redacted]}"
+  echo "gemini key $FP: $msg"
+}
 
 # A line break cannot travel in a header, and no Gemini key contains one.
 case "$KEY" in
@@ -114,7 +137,9 @@ attempt=0
 while :; do
   attempt=$((attempt + 1))
   retry=0
-  code=$(printf 'x-goog-api-key: %s\n' "$KEY" | curl -sS -o "$BODY" -w '%{http_code}' \
+  # -q must be the first curl argument. It stops curl reading any .curlrc or curlrc,
+  # which could otherwise add a trace that carries the key.
+  code=$(printf 'x-goog-api-key: %s\n' "$KEY" | curl -q -sS -o "$BODY" -w '%{http_code}' \
     --connect-timeout 5 --max-time 20 \
     -H @- -H 'Content-Type: application/json' \
     --data-binary @"$REQ" "$URL" 2>"$CURL_ERR")
@@ -123,6 +148,10 @@ while :; do
   if [ "$curl_rc" -ne 0 ]; then
     cause="network error (curl exit $curl_rc)"
     retry=1
+  elif ! [[ "$code" =~ ^[0-9][0-9][0-9]$ ]]; then
+    # The status must be three digits. Anything else is never printed.
+    emit "unverified: unexpected curl output"
+    exit 3
   else
     case "$code" in
       200)

@@ -186,7 +186,7 @@ Security rule: never use a user-agent-only bypass. The Cloudflare challenge-skip
 
 Operational notes for local and CI smoke:
 - Local `.env` commonly holds the same secret as `TF_VAR_rate_limit_testing_bypass_secret`; export `CLOUDFLARE_TESTING_BYPASS_SECRET="$TF_VAR_rate_limit_testing_bypass_secret"` before Playwright production smoke.
-- GitHub Actions must have `CLOUDFLARE_TESTING_BYPASS_SECRET` set to the same value used by Terraform.
+- Cuttlefish must have `CLOUDFLARE_TESTING_BYPASS_SECRET` set to the same value used by Terraform (`cuttle secrets set CLOUDFLARE_TESTING_BYPASS_SECRET --project shorted`). The deploy and the smoke read Cuttlefish, not GitHub repo secrets.
 - If both headers are present but Cloudflare still challenges, inspect the `shorted-app-api-security-skip` ruleset in phase `http_request_firewall_custom`; the disabled sentinel expression is `http.host eq "__shorted-testing-bypass-disabled.invalid__"`.
 - Re-check the ruleset after Terraform or Cloudflare deploys. Applying Terraform without `TF_VAR_rate_limit_testing_bypass_secret` can overwrite a direct API fix and restore the disabled sentinel expression.
 - Cloudflare Web Analytics can emit test-only beacon noise when the bypass header is attached cross-origin. Treat only `static.cloudflareinsights.com/beacon.min.js` failures and CORS messages mentioning `x-shorted-testing-bypass` as non-app noise.
