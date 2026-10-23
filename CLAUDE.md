@@ -1809,6 +1809,9 @@ cd services && go test -v ./test/integration/...
 - **Region**: `australia-southeast2`
 - **Artifact Registry**: `australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted`
 - **Database**: Supabase (production), Docker PostgreSQL (development)
+- **Deploy secrets live in Cuttlefish, not GitHub**: the deploy jobs run on Cuttlefish runners and read `secrets.*` from its project store. Set them with `cuttle login --project shorted`, then `cuttle secrets set NAME --project shorted`. A copy set with `--environment prod` wins in the apply job, so check for one.
+- **Gemini keys are validated before they sync**: `scripts/validate-gemini-key.sh` makes a real generation call and only a key that answers is written. A failing key leaves a warning and Secret Manager keeps its current version. `models.list` alone proves nothing.
+- **A Gemini rotation touches every copy**: Cuttlefish (`GEMINI_API_KEY`, `GEMINI_API_KEY_CHAT`), Secret Manager (`_CHAT`, `_NEWS`, `_REPORT_EXTRACTOR`, written by the deploy), and the VKE jobs (`deploy/kubernetes/jobs/scripts/sync-secrets.sh`, `CONFIRM=prod` to write). Change Cuttlefish first. A stale key that still generates passes the validator.
 
 ### Terraform
 

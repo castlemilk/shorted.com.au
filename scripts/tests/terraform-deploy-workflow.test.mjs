@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -393,10 +393,10 @@ test("a pull request plan cannot cancel or block main's plan and apply", () => {
 // URLs). Every deploy re-syncs GEMINI_API_KEY_CHAT, so the sync must prefer the
 // chat key's own GitHub secret, or the next deploy silently reverts the rotation.
 test("the chat service's Gemini key is synced from its own secret, not the shared key", () => {
-  const syncs = workflowSource.match(/ensure_secret "GEMINI_API_KEY_CHAT" "[^"]+"/g) ?? [];
+  const syncs = workflowSource.match(/ensure_gemini_secret "GEMINI_API_KEY_CHAT" "[^"]+"/g) ?? [];
   assert.equal(syncs.length, 2, "expected the plan and apply jobs to sync GEMINI_API_KEY_CHAT");
   for (const sync of syncs) {
-    assert.equal(sync, 'ensure_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"');
+    assert.equal(sync, 'ensure_gemini_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"');
   }
   for (const jobName of ["terraform-plan", "terraform-apply"]) {
     const job = parse(workflowSource).jobs[jobName];
@@ -404,3 +404,92 @@ test("the chat service's Gemini key is synced from its own secret, not the share
     assert.ok(exposes, `${jobName} must expose secrets.GEMINI_API_KEY_CHAT to the sync step`);
   }
 });
+
+// Gemini keys reach Secret Manager only after scripts/validate-gemini-key.sh has
+// seen them generate. Both sync jobs route the three Gemini secrets through
+// ensure_gemini_secret, and nothing calls ensure_secret on them directly. On
+// 2026-10-23 a key that could not generate was written, and a stale copy then
+// replaced the working key.
+const GEMINI_SECRETS = ["GEMINI_API_KEY_CHAT", "GEMINI_API_KEY_NEWS", "GEMINI_API_KEY_REPORT_EXTRACTOR"];
+const SYNC_STEPS = [
+  ["terraform-plan", "Ensure secrets exist in Secret Manager"],
+  ["terraform-apply", "Ensure all secrets exist in Secret Manager"],
+];
+
+test("both sync jobs route the three Gemini secrets through the validating function", () => {
+  for (const [jobName, stepName] of SYNC_STEPS) {
+    const run = step(jobName, stepName).run;
+    for (const name of GEMINI_SECRETS) {
+      const calls = run.split("\n").filter((line) => line.trim().startsWith(`ensure_gemini_secret "${name}" `));
+      assert.equal(calls.length, 1, `${jobName} must sync ${name} exactly once, through ensure_gemini_secret`);
+    }
+    assert.match(
+      run,
+      /bash "\$GITHUB_WORKSPACE\/scripts\/validate-gemini-key\.sh" "\$value"/,
+      `${jobName} must run the validator on the key before writing it`,
+    );
+  }
+});
+
+test("no Gemini secret is written through ensure_secret without validation", () => {
+  assert.doesNotMatch(
+    workflowSource,
+    /ensure_secret\s+"GEMINI_/,
+    "a Gemini secret is written by ensure_secret directly, bypassing scripts/validate-gemini-key.sh",
+  );
+});
+
+// The sync step itself, run as the runner runs it: its env block with every
+// ${{ ... }} replaced by a fake value, under bash -e. Only the two scripts it
+// calls are replaced. The ensure-secret stub records the names it was asked to
+// write, and the validator stub returns the verdict the test sets. No network.
+function runSyncStep(jobName, stepName, verdict) {
+  const dir = mkdtempSync(join(tmpdir(), "gemini-sync-"));
+  const log = join(dir, "written.log");
+  mkdirSync(join(dir, "scripts"));
+  writeFileSync(join(dir, "scripts", "ensure-secret.sh"), `#!/usr/bin/env bash\necho "$1" >> "${log}"\n`);
+  writeFileSync(
+    join(dir, "scripts", "validate-gemini-key.sh"),
+    `#!/usr/bin/env bash\necho "gemini key stub: ${verdict.label}"\nexit ${verdict.rc}\n`,
+  );
+  const stepDef = step(jobName, stepName);
+  const env = { PATH: process.env.PATH, GITHUB_WORKSPACE: dir };
+  for (const [key, value] of Object.entries(stepDef.env ?? {})) {
+    env[key] = String(value).replace(/\$\{\{[^}]*\}\}/g, `fake-${key.toLowerCase()}`);
+  }
+  try {
+    const result = spawnSync("bash", ["-e", "-c", stepDef.run], { env, encoding: "utf8", cwd: dir });
+    const written = existsSync(log) ? readFileSync(log, "utf8").split("\n").filter(Boolean) : [];
+    return { status: result.status, output: (result.stdout ?? "") + (result.stderr ?? ""), written };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+for (const [jobName, stepName] of SYNC_STEPS) {
+  test(`${jobName} writes a Gemini key only when it generates, and a refused key never fails the deploy`, () => {
+    const passing = runSyncStep(jobName, stepName, { rc: 0, label: "ok" });
+    assert.equal(passing.status, 0, passing.output);
+    for (const name of GEMINI_SECRETS) {
+      assert.ok(passing.written.includes(name), `${name} must be written when the validator passes`);
+    }
+
+    for (const verdict of [
+      { rc: 2, label: "rejected: ACCESS_TOKEN_TYPE_UNSUPPORTED" },
+      { rc: 3, label: "unverified: HTTP 503" },
+    ]) {
+      const refused = runSyncStep(jobName, stepName, verdict);
+      assert.equal(refused.status, 0, `exit ${verdict.rc} must not fail the deploy:\n${refused.output}`);
+      for (const name of GEMINI_SECRETS) {
+        assert.ok(!refused.written.includes(name), `${name} must not be written when the validator exits ${verdict.rc}`);
+        assert.match(
+          refused.output,
+          new RegExp(`::warning title=Gemini key not synced::${name}: `),
+          `${name} must leave a warning when the validator exits ${verdict.rc}`,
+        );
+      }
+      assert.ok(refused.written.includes("OPENAI_API_KEY"), "the non-Gemini secrets must still sync");
+      assert.ok(refused.written.includes("INTERNAL_SERVICE_SECRET"), "the non-Gemini secrets must still sync");
+    }
+  });
+}

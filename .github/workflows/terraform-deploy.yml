@@ -408,12 +408,35 @@ jobs:
           # never match a GH secret that carries a trailing newline — that bug
           # produced 1,002 INTERNAL_SERVICE_SECRET versions and led to the
           # 2026-07-26 outage; see docs/incidents/).
+          # Where these values come from: this job runs on a Cuttlefish runner, so the
+          # secrets.* it reads are injected from Cuttlefish's project secret store,
+          # not from the GitHub repo secrets. Set them with
+          # `cuttle secrets set NAME --project shorted`; updating the GitHub repo
+          # secret changes nothing for these jobs.
           ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
 
+          # Gemini keys are checked by scripts/validate-gemini-key.sh before any
+          # write. Incident 2026-10-23 13:57: a key that passed models.list but could
+          # not generate was rolled to chat and failed every request. Incident 14:16:
+          # this sync wrote the old key back over the fix, because it read Cuttlefish's
+          # store and not the GitHub secret that had been updated. The validator cannot
+          # stop a stale key that still generates, so that copy must be updated in
+          # Cuttlefish first.
+          ensure_gemini_secret() {
+            local name="$1" value="${2:-}" out rc=0
+            out=$(bash "$GITHUB_WORKSPACE/scripts/validate-gemini-key.sh" "$value") || rc=$?
+            echo "$out"
+            if [ "$rc" -eq 0 ]; then
+              ensure_secret "$name" "$value"
+            else
+              echo "::warning title=Gemini key not synced::$name: $out; Secret Manager keeps its current version"
+            fi
+          }
+
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
-          ensure_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
+          ensure_gemini_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
 
@@ -592,13 +615,36 @@ jobs:
           # 2026-07-26). Logic lives in scripts/ensure-secret.sh: sha256 compare
           # over trailing-newline-normalised bytes, and never add a version when
           # `versions access latest` fails on an existing secret.
+          # Where these values come from: this job runs on a Cuttlefish runner, so the
+          # secrets.* it reads are injected from Cuttlefish's project secret store,
+          # not from the GitHub repo secrets. Set them with
+          # `cuttle secrets set NAME --project shorted`; updating the GitHub repo
+          # secret changes nothing for these jobs.
           ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
+
+          # Gemini keys are checked by scripts/validate-gemini-key.sh before any
+          # write. Incident 2026-10-23 13:57: a key that passed models.list but could
+          # not generate was rolled to chat and failed every request. Incident 14:16:
+          # this sync wrote the old key back over the fix, because it read Cuttlefish's
+          # store and not the GitHub secret that had been updated. The validator cannot
+          # stop a stale key that still generates, so that copy must be updated in
+          # Cuttlefish first.
+          ensure_gemini_secret() {
+            local name="$1" value="${2:-}" out rc=0
+            out=$(bash "$GITHUB_WORKSPACE/scripts/validate-gemini-key.sh" "$value") || rc=$?
+            echo "$out"
+            if [ "$rc" -eq 0 ]; then
+              ensure_secret "$name" "$value"
+            else
+              echo "::warning title=Gemini key not synced::$name: $out; Secret Manager keeps its current version"
+            fi
+          }
 
           # Core secrets
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
-          ensure_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
+          ensure_gemini_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
           ensure_secret "ALGOLIA_APP_ID" "$ALGOLIA_APP_ID"
@@ -609,7 +655,8 @@ jobs:
           ensure_secret "ALPHA_VANTAGE_API_KEY" "$AV_KEY"
 
           # Revalidation secret (event-driven cache invalidation; must match the
-          # frontend Vercel REVALIDATION_SECRET env). Maintained from the GH secret.
+          # frontend Vercel REVALIDATION_SECRET env). Maintained in Cuttlefish's
+          # project secret store, see the note above.
           ensure_secret "REVALIDATION_SECRET" "$REVALIDATION_SECRET"
 
           # Database secrets (environment-specific)
