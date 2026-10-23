@@ -8,10 +8,74 @@ export interface ShortedFinalData {
   createdAt?: string;
 }
 
+/**
+ * Emitted as soon as the chat service names the conversation, before any text,
+ * so the client knows the id even when the turn later fails.
+ */
+export interface ShortedConversationData {
+  conversationId: string;
+}
+
 export type ShortedChatUIMessage = UIMessage<
   { createdAt?: string },
-  { "shorted-final": ShortedFinalData }
+  {
+    "shorted-final": ShortedFinalData;
+    "shorted-conversation": ShortedConversationData;
+  }
 >;
+
+/**
+ * The error body every non-2xx chat response carries, and the `errorText` of an
+ * in-stream error. The chat UI renders from this shape, so it is a contract:
+ * change a field here and the UI branch must change with it.
+ */
+export type ChatErrorCode =
+  | "unauthenticated"
+  | "premium_required"
+  | "rate_limited"
+  | "invalid_request"
+  | "unavailable";
+
+export type ChatLimitKind = "per_minute" | "daily" | "monthly" | "global";
+
+export interface ChatErrorBody {
+  /** Short, stable label for the error (the legacy `error` string). */
+  error: string;
+  code: ChatErrorCode;
+  /** A user-facing sentence. */
+  message: string;
+  retryAfterSeconds?: number;
+  limitKind?: ChatLimitKind;
+  /** Unix seconds at which the refused window has room again. */
+  resetAt?: number;
+}
+
+/**
+ * Parses the `errorText` of an in-stream error back into the contract. Returns
+ * undefined for anything else, so a plain-text error from another source is not
+ * mistaken for a contract error.
+ */
+export function parseChatErrorBody(
+  errorText: string | undefined,
+): ChatErrorBody | undefined {
+  if (!errorText) {
+    return undefined;
+  }
+  try {
+    const parsed: unknown = JSON.parse(errorText);
+    if (
+      parsed !== null &&
+      typeof parsed === "object" &&
+      typeof (parsed as ChatErrorBody).code === "string" &&
+      typeof (parsed as ChatErrorBody).message === "string"
+    ) {
+      return parsed as ChatErrorBody;
+    }
+  } catch {
+    // Not JSON: not a contract error.
+  }
+  return undefined;
+}
 
 type ShortedMessagePart = ShortedChatUIMessage["parts"][number];
 interface ShortedTextPart {

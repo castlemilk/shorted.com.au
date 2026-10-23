@@ -1,73 +1,130 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { Button } from "~/@/components/ui/button";
-import { Textarea } from "~/@/components/ui/textarea";
-import { Send, Square } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  PromptInput,
+  PromptInputFooter,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  type PromptInputStatus,
+} from "~/@/components/ai-elements/prompt-input";
+import { cn } from "~/@/lib/utils";
+
+/** The longest question the API accepts, in characters as the service counts them. */
+export const CHAT_MESSAGE_MAX_LENGTH = 2000;
+
+/**
+ * Characters as the chat service counts them: code points, so an emoji or a
+ * CJK extension character is one. A UTF-16 length counts each of those twice.
+ */
+export function chatCharCount(value: string): number {
+  return Array.from(value).length;
+}
+
+/** The value cut to the limit in code points, so a surrogate pair is never split. */
+export function clampChatMessage(value: string): string {
+  const chars = Array.from(value);
+  return chars.length > CHAT_MESSAGE_MAX_LENGTH
+    ? chars.slice(0, CHAT_MESSAGE_MAX_LENGTH).join("")
+    : value;
+}
+
+/** From this length the counter shows, so the limit is never a surprise. */
+const COUNTER_THRESHOLD = 1600;
+
+/** Within this many characters of the limit the counter turns to a warning. */
+const COUNTER_WARNING = 100;
 
 interface ChatInputProps {
   onSend: (message: string) => void;
   onStop?: () => void;
-  isLoading: boolean;
+  status: PromptInputStatus;
+  /**
+   * The thread is busy for a reason the request status does not cover, such as
+   * a conversation still loading. Sending is held until it clears.
+   */
+  busy?: boolean;
   placeholder?: string;
 }
 
 export function ChatInput({
   onSend,
   onStop,
-  isLoading,
+  status,
+  busy = false,
   placeholder = "Ask about short positions, stocks, or market trends...",
 }: ChatInputProps) {
-  const [input, setInput] = useState("");
+  const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const wasGeneratingRef = useRef(false);
+  const counterId = useId();
 
-  const handleSubmit = useCallback(() => {
-    if (!input.trim() || isLoading) return;
-    onSend(input.trim());
-    setInput("");
+  const isGenerating = status === "submitted" || status === "streaming";
+  const trimmed = value.trim();
+  const canSend = trimmed.length > 0 && !isGenerating && !busy;
+  const length = chatCharCount(value);
+  const showCounter = length >= COUNTER_THRESHOLD;
+  const remaining = CHAT_MESSAGE_MAX_LENGTH - length;
+
+  const submit = useCallback(() => {
+    if (!canSend) return;
+    onSend(trimmed);
+    setValue("");
     textareaRef.current?.focus();
-  }, [input, isLoading, onSend]);
+  }, [canSend, onSend, trimmed]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSubmit();
-      }
-    },
-    [handleSubmit],
-  );
+  // The textarea is disabled while a request is submitted, which drops focus.
+  // Hand it back once the reply is done, unless the person has moved focus
+  // somewhere on purpose.
+  useEffect(() => {
+    if (isGenerating) {
+      wasGeneratingRef.current = true;
+      return;
+    }
+    if (!wasGeneratingRef.current) return;
+    wasGeneratingRef.current = false;
+    const active = document.activeElement;
+    if (!active || active === document.body) {
+      textareaRef.current?.focus();
+    }
+  }, [isGenerating]);
 
   return (
-    <div className="flex items-end gap-2 p-3 border-t">
-      <Textarea
+    <PromptInput onSubmit={submit} className="flex flex-col gap-2 p-3">
+      <PromptInputTextarea
         ref={textareaRef}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={handleKeyDown}
+        value={value}
+        onChange={(event) => setValue(clampChatMessage(event.target.value))}
         placeholder={placeholder}
-        className="min-h-[40px] max-h-[120px] resize-none text-sm"
-        rows={1}
+        aria-label="Message Shorted AI"
+        aria-describedby={showCounter ? counterId : undefined}
+        disabled={busy || status === "submitted"}
+        className="text-sm"
       />
-      {isLoading ? (
-        <Button
-          size="icon"
-          variant="destructive"
-          onClick={onStop}
-          className="shrink-0"
-        >
-          <Square className="h-4 w-4" />
-        </Button>
-      ) : (
-        <Button
-          size="icon"
-          onClick={handleSubmit}
-          disabled={!input.trim()}
-          className="shrink-0"
-        >
-          <Send className="h-4 w-4" />
-        </Button>
-      )}
-    </div>
+      <PromptInputFooter>
+        {showCounter ? (
+          <span
+            id={counterId}
+            className={cn(
+              "text-xs tabular-nums",
+              remaining <= COUNTER_WARNING
+                ? "font-medium text-destructive"
+                : "text-muted-foreground",
+            )}
+          >
+            {length}/{CHAT_MESSAGE_MAX_LENGTH}
+          </span>
+        ) : (
+          <span className="hidden text-[11px] text-muted-foreground sm:inline">
+            Enter to send, Shift+Enter for a new line
+          </span>
+        )}
+        <PromptInputSubmit
+          status={status}
+          onStop={onStop}
+          disabled={!canSend}
+        />
+      </PromptInputFooter>
+    </PromptInput>
   );
 }

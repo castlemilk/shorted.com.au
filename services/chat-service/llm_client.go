@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 
@@ -17,6 +18,25 @@ type LLMClient struct {
 	model           string
 	maxOutputTokens int32
 	toolExecutor    *ToolExecutor
+}
+
+// turnError is what ChatStream returns when a turn fails. ModelReached says
+// whether Gemini answered at all. A request it refuses before any response is
+// not billed, so the send must not count against the caller's limits. A failure
+// after the first response did reach the model, and counts.
+type turnError struct {
+	ModelReached bool
+	err          error
+}
+
+func (e *turnError) Error() string { return e.err.Error() }
+
+func (e *turnError) Unwrap() error { return e.err }
+
+// modelAnswered reports whether a failed turn got as far as the model.
+func modelAnswered(err error) bool {
+	var te *turnError
+	return errors.As(err, &te) && te.ModelReached
 }
 
 // LLMResponse represents a response from the LLM.
@@ -42,9 +62,12 @@ type Citation struct {
 
 // NewLLMClient creates a new LLM client.
 func NewLLMClient(ctx context.Context, apiKey, model string, maxOutputTokens int32, toolExecutor *ToolExecutor) (*LLMClient, error) {
+	// The key is registered before any request can fail, so every error the
+	// client produces from here on is scrubbed of it.
+	registerSecrets(apiKey)
 	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
-		return nil, fmt.Errorf("create genai client: %w", err)
+		return nil, providerError("create genai client", err)
 	}
 
 	return &LLMClient{
@@ -82,7 +105,7 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 	resp, err := cs.SendMessage(ctx, genai.Text(userMessage))
 	if err != nil {
 		recordGeminiRequest(ctx, lc.model, "initial", "error", GeminiUsage{})
-		return nil, fmt.Errorf("send message: %w", err)
+		return nil, providerError("send message", err)
 	}
 	initialUsage := geminiUsageFromResponse(resp)
 	recordGeminiRequest(ctx, lc.model, "initial", "success", initialUsage)
@@ -111,7 +134,7 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 			status := "success"
 			if execErr != nil {
 				status = "error"
-				result = fmt.Sprintf("Error: %s", execErr.Error())
+				result = "Error: " + redactSecrets(execErr.Error())
 			}
 			recordToolCall(ctx, fc.Name, len([]byte(result)), status)
 
@@ -137,7 +160,7 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 		resp, err = cs.SendMessage(ctx, funcResponses...)
 		if err != nil {
 			recordGeminiRequest(ctx, lc.model, "tool_response", "error", GeminiUsage{})
-			return nil, fmt.Errorf("send function response: %w", err)
+			return nil, providerError("send function response", err)
 		}
 		toolUsage := geminiUsageFromResponse(resp)
 		recordGeminiRequest(ctx, lc.model, "tool_response", "success", toolUsage)
@@ -171,6 +194,7 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 	var initialUsage GeminiUsage
 
 	// Consume the streaming response
+	modelReached := false
 	for {
 		resp, err := iter.Next()
 		if err == iterator.Done {
@@ -178,8 +202,9 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 		}
 		if err != nil {
 			recordGeminiRequest(ctx, lc.model, "initial", "error", initialUsage)
-			return nil, fmt.Errorf("stream next: %w", err)
+			return nil, &turnError{ModelReached: modelReached, err: providerError("stream next", err)}
 		}
+		modelReached = true
 		if usage := geminiUsageFromResponse(resp); usage.hasTokens() {
 			initialUsage = usage
 		}
@@ -200,10 +225,29 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 	recordGeminiRequest(ctx, lc.model, "initial", "success", initialUsage)
 	totalUsage.Add(initialUsage)
 
-	// Process tool calls in a loop (max 5 rounds)
-	for round := 0; round < 5 && len(pendingFuncCalls) > 0; round++ {
+	// Rounds 0 to maxToolRounds-1 run tools. The round after them runs none:
+	// every call still pending is answered with a notice, and the model is asked
+	// for text with function calling off. A turn therefore never ends on a
+	// request the model made and never got an answer to, and never ends without
+	// text while the model still had calls to make.
+	for round := 0; len(pendingFuncCalls) > 0; round++ {
+		hasBudget := roundHasBudget(round)
+		model.ToolConfig = toolConfigFor(hasBudget)
+
+		calls := pendingFuncCalls
+		pendingFuncCalls = nil
+		decisions := planToolCalls(len(calls), hasBudget)
+
 		var funcResponses []genai.Part
-		for _, fc := range pendingFuncCalls {
+		for i, fc := range calls {
+			if decisions[i] != toolCallExecute {
+				funcResponses = append(funcResponses, genai.FunctionResponse{
+					Name:     fc.Name,
+					Response: toolCallNotice(decisions[i]),
+				})
+				continue
+			}
+
 			args := make(map[string]any)
 			for k, v := range fc.Args {
 				args[k] = v
@@ -214,7 +258,7 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 			status := "success"
 			if execErr != nil {
 				status = "error"
-				result = fmt.Sprintf("Error: %s", execErr.Error())
+				result = "Error: " + redactSecrets(execErr.Error())
 			}
 			recordToolCall(ctx, fc.Name, len([]byte(result)), status)
 
@@ -233,7 +277,6 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 				Response: resultMap,
 			})
 		}
-		pendingFuncCalls = nil
 
 		// Send function responses back to the model, stream the result
 		nextIter := cs.SendMessageStream(ctx, funcResponses...)
@@ -245,7 +288,8 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 			}
 			if err != nil {
 				recordGeminiRequest(ctx, lc.model, "tool_response", "error", toolUsage)
-				return nil, fmt.Errorf("stream function response: %w", err)
+				// Tool rounds run only after the model has answered the first call.
+				return nil, &turnError{ModelReached: true, err: providerError("stream function response", err)}
 			}
 			if usage := geminiUsageFromResponse(resp); usage.hasTokens() {
 				toolUsage = usage
@@ -264,12 +308,84 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 		}
 		recordGeminiRequest(ctx, lc.model, "tool_response", "success", toolUsage)
 		totalUsage.Add(toolUsage)
+
+		// Without budget there is no round left to run calls in, so anything
+		// the model requested in this response is dropped rather than looped on.
+		if !hasBudget {
+			break
+		}
 	}
 
 	return &LLMResponse{
 		ToolCalls: allToolCalls,
 		Usage:     totalUsage,
 	}, nil
+}
+
+// maxToolRounds is how many rounds of tool calls one turn may run.
+const maxToolRounds = 5
+
+// maxToolCallsPerRound caps the calls one model response may make. The model
+// can ask for many at once, and each one is a database-backed tool call.
+const maxToolCallsPerRound = 4
+
+// roundHasBudget reports whether a zero-based round may still run tools.
+func roundHasBudget(round int) bool {
+	return round < maxToolRounds
+}
+
+// toolCallDecision says what happens to one call a model response requested.
+type toolCallDecision int
+
+const (
+	toolCallExecute toolCallDecision = iota
+	// toolCallOverCap: the response asked for more calls than one round runs.
+	toolCallOverCap
+	// toolCallNoBudget: the turn has no tool rounds left.
+	toolCallNoBudget
+)
+
+// planToolCalls decides, for each of the n calls one response requested,
+// whether it runs. Calls past the cap, or in a round without budget, are not
+// run, but each still gets a response, because Gemini rejects a history with an
+// unanswered call.
+func planToolCalls(n int, roundHasBudget bool) []toolCallDecision {
+	decisions := make([]toolCallDecision, n)
+	for i := range decisions {
+		switch {
+		case !roundHasBudget:
+			decisions[i] = toolCallNoBudget
+		case i >= maxToolCallsPerRound:
+			decisions[i] = toolCallOverCap
+		default:
+			decisions[i] = toolCallExecute
+		}
+	}
+	return decisions
+}
+
+// toolCallNotice is the function response for a call that did not run. The
+// wording is for the model, which reads it and answers the user.
+func toolCallNotice(d toolCallDecision) map[string]any {
+	if d == toolCallOverCap {
+		return map[string]any{"error": fmt.Sprintf(
+			"Only %d tool calls run per reply, so this call did not run. If it is still needed, ask for it in a later message.",
+			maxToolCallsPerRound,
+		)}
+	}
+	return map[string]any{"error": "The tool budget for this reply is spent, so this call did not run. Answer from the data already retrieved, and say plainly what is missing."}
+}
+
+// toolConfigFor returns the function calling config for a round. A round with
+// no budget carries NONE, so the model must answer in text. The model is a
+// pointer, so the next request reads whatever is set here.
+func toolConfigFor(roundHasBudget bool) *genai.ToolConfig {
+	if roundHasBudget {
+		return nil
+	}
+	return &genai.ToolConfig{
+		FunctionCallingConfig: &genai.FunctionCallingConfig{Mode: genai.FunctionCallingNone},
+	}
 }
 
 // buildGeminiTools converts our tool definitions to Gemini format.

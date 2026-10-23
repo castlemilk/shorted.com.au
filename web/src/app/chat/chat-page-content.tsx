@@ -1,15 +1,13 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useSubscription } from "~/@/hooks/use-subscription";
 import { useChat } from "~/@/hooks/use-chat";
-import { ChatMessageBubble } from "~/@/components/chat/chat-message";
 import { ChatInput } from "~/@/components/chat/chat-input";
-import { QuickActions } from "~/@/components/chat/quick-actions";
+import { ChatThread } from "~/@/components/chat/chat-thread";
 import { ChatConversationList } from "~/@/components/chat/chat-conversation-list";
 import { PremiumGate } from "~/@/components/premium/premium-gate";
-import { MessageSquare, Loader2 } from "lucide-react";
 
 export function ChatPageContent() {
   const { data: session } = useSession();
@@ -18,12 +16,15 @@ export function ChatPageContent() {
 
   const {
     messages,
-    isLoading,
+    status,
+    isLoadingHistory,
     error,
+    historyError,
     conversationId,
     conversations,
     isLoadingConversations,
     sendMessage,
+    retry,
     clearChat,
     stopGeneration,
     fetchConversations,
@@ -31,21 +32,14 @@ export function ChatPageContent() {
     deleteConversation,
   } = useChat({ userId });
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const showChat = Boolean(session && isPremium);
 
+  // A free user sees the upgrade prompt here and gets no conversation list.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  useEffect(() => {
-    if (userId) {
+    if (showChat) {
       void fetchConversations();
     }
-  }, [userId, fetchConversations]);
-
-  const showChat = session && isPremium;
+  }, [showChat, fetchConversations]);
 
   if (!showChat) {
     return (
@@ -73,43 +67,25 @@ export function ChatPageContent() {
 
       {/* Right panel — chat */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center max-w-md mx-auto">
-              <MessageSquare className="h-10 w-10 text-muted-foreground mb-4" />
-              <h2 className="text-lg font-semibold">Ask Shorted AI</h2>
-              <p className="text-sm text-muted-foreground mt-1 mb-6">
-                Get insights about short positions, stocks, director trades,
-                peer comparisons, and market trends.
-              </p>
-              <QuickActions onSelect={sendMessage} />
-            </div>
-          ) : (
-            <>
-              {messages.map((msg) => (
-                <ChatMessageBubble key={msg.id} message={msg} />
-              ))}
-              {isLoading && !messages.some((m) => m.isStreaming) && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Thinking...
-                </div>
-              )}
-              {error && (
-                <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-                  {error}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <ChatThread
+          messages={messages}
+          status={status}
+          error={error}
+          historyError={historyError}
+          onRetry={() => void retry()}
+          onNewChat={conversationId ? clearChat : undefined}
+          onSuggest={(question) => void sendMessage(question)}
+          loadingHistory={isLoadingHistory}
+          variant="page"
+        />
 
         <div className="border-t">
           <div className="max-w-3xl mx-auto">
             <ChatInput
-              onSend={sendMessage}
+              onSend={(message) => void sendMessage(message)}
               onStop={stopGeneration}
-              isLoading={isLoading}
+              status={status}
+              busy={isLoadingHistory}
             />
           </div>
         </div>

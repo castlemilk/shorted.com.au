@@ -34,7 +34,10 @@ type Message struct {
 	Content        string          `json:"content"`
 	ToolCalls      json.RawMessage `json:"toolCalls,omitempty"`
 	Citations      json.RawMessage `json:"citations,omitempty"`
-	CreatedAt      time.Time       `json:"createdAt"`
+	// Partial marks an assistant reply that a failed turn kept. Only a retry of
+	// that turn may remove it. A complete reply is never Partial.
+	Partial   bool      `json:"partial,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // NewConversationStore creates a new store with the given connection pool.
@@ -131,15 +134,26 @@ func (s *ConversationStore) DeleteConversation(ctx context.Context, conversation
 	return nil
 }
 
-// AddMessage adds a message to a conversation.
+// AddMessage adds a complete message to a conversation.
 func (s *ConversationStore) AddMessage(ctx context.Context, conversationID, role, content string, toolCalls, citations json.RawMessage) (*Message, error) {
+	return s.addMessage(ctx, conversationID, role, content, toolCalls, citations, false)
+}
+
+// AddPartialReply stores the assistant reply a failed turn kept, marked Partial.
+// Only a retry of that turn may replace it, and only while it is the latest
+// reply after the question.
+func (s *ConversationStore) AddPartialReply(ctx context.Context, conversationID, content string) (*Message, error) {
+	return s.addMessage(ctx, conversationID, "assistant", content, nil, nil, true)
+}
+
+func (s *ConversationStore) addMessage(ctx context.Context, conversationID, role, content string, toolCalls, citations json.RawMessage, partial bool) (*Message, error) {
 	id := uuid.New().String()
 	now := time.Now()
 
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO chat_messages (id, conversation_id, role, content, tool_calls, citations, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		id, conversationID, role, content, nullJSONIfEmpty(toolCalls), nullJSONIfEmpty(citations), now,
+		`INSERT INTO chat_messages (id, conversation_id, role, content, tool_calls, citations, partial, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		id, conversationID, role, content, nullJSONIfEmpty(toolCalls), nullJSONIfEmpty(citations), partial, now,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("add message: %w", err)
@@ -152,6 +166,7 @@ func (s *ConversationStore) AddMessage(ctx context.Context, conversationID, role
 		Content:        content,
 		ToolCalls:      toolCalls,
 		Citations:      citations,
+		Partial:        partial,
 		CreatedAt:      now,
 	}, nil
 }
@@ -162,7 +177,7 @@ func (s *ConversationStore) GetMessages(ctx context.Context, conversationID stri
 		limit = 50
 	}
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, conversation_id, role, content, tool_calls, citations, created_at
+		`SELECT id, conversation_id, role, content, tool_calls, citations, partial, created_at
 		 FROM chat_messages WHERE conversation_id = $1 ORDER BY created_at ASC LIMIT $2`,
 		conversationID, limit,
 	)
@@ -175,7 +190,7 @@ func (s *ConversationStore) GetMessages(ctx context.Context, conversationID stri
 	for rows.Next() {
 		var msg Message
 		var tc, cit *json.RawMessage
-		if err := rows.Scan(&msg.ID, &msg.ConversationID, &msg.Role, &msg.Content, &tc, &cit, &msg.CreatedAt); err != nil {
+		if err := rows.Scan(&msg.ID, &msg.ConversationID, &msg.Role, &msg.Content, &tc, &cit, &msg.Partial, &msg.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan message: %w", err)
 		}
 		if tc != nil {
@@ -196,9 +211,9 @@ func (s *ConversationStore) GetRecentMessages(ctx context.Context, conversationI
 		limit = 20
 	}
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, conversation_id, role, content, tool_calls, citations, created_at
+		`SELECT id, conversation_id, role, content, tool_calls, citations, partial, created_at
 		 FROM (
-		     SELECT id, conversation_id, role, content, tool_calls, citations, created_at
+		     SELECT id, conversation_id, role, content, tool_calls, citations, partial, created_at
 		     FROM chat_messages
 		     WHERE conversation_id = $1
 		     ORDER BY created_at DESC
@@ -216,7 +231,7 @@ func (s *ConversationStore) GetRecentMessages(ctx context.Context, conversationI
 	for rows.Next() {
 		var msg Message
 		var tc, cit *json.RawMessage
-		if err := rows.Scan(&msg.ID, &msg.ConversationID, &msg.Role, &msg.Content, &tc, &cit, &msg.CreatedAt); err != nil {
+		if err := rows.Scan(&msg.ID, &msg.ConversationID, &msg.Role, &msg.Content, &tc, &cit, &msg.Partial, &msg.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan recent message: %w", err)
 		}
 		if tc != nil {
@@ -228,6 +243,22 @@ func (s *ConversationStore) GetRecentMessages(ctx context.Context, conversationI
 		msgs = append(msgs, msg)
 	}
 	return msgs, nil
+}
+
+// DeletePartialReply removes a partial assistant reply from a conversation. A
+// retry uses it to replace the reply its failed attempt kept. The statement
+// itself requires a Partial assistant row in this conversation, so no caller
+// can remove a complete reply or a user message through it.
+func (s *ConversationStore) DeletePartialReply(ctx context.Context, conversationID, messageID string) error {
+	_, err := s.pool.Exec(ctx,
+		`DELETE FROM chat_messages
+		 WHERE id = $1 AND conversation_id = $2 AND role = 'assistant' AND partial`,
+		messageID, conversationID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete partial reply: %w", err)
+	}
+	return nil
 }
 
 // PruneMessages deletes old messages beyond maxMessages for a conversation.

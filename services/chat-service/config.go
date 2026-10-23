@@ -20,6 +20,14 @@ type Config struct {
 	ChatHistoryLimit      int
 	MaxConversations      int
 	MaxMessagesPerConv    int
+
+	// Send limits, enforced against chat_usage_events before the model is
+	// called. The web app's Redis buckets use the same names and defaults; they
+	// are a first line that fails open, so this service is the authority.
+	ChatSendsPerMinute       int
+	ChatSendsPerDay          int
+	ChatSendsPerMonth        int
+	ChatGlobalSendsPerMinute int
 }
 
 // LoadConfig loads configuration from environment variables.
@@ -33,6 +41,11 @@ func LoadConfig() (*Config, error) {
 		ChatHistoryLimit:      20,
 		MaxConversations:      100,
 		MaxMessagesPerConv:    100,
+
+		ChatSendsPerMinute:       4,
+		ChatSendsPerDay:          40,
+		ChatSendsPerMonth:        600,
+		ChatGlobalSendsPerMinute: 60,
 	}
 
 	if port := os.Getenv("PORT"); port != "" {
@@ -93,6 +106,30 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	} else if v > 0 {
 		cfg.MaxMessagesPerConv = v
+	}
+
+	if v, err := parsePositiveIntEnv("CHAT_SENDS_PER_MINUTE"); err != nil {
+		return nil, err
+	} else if v > 0 {
+		cfg.ChatSendsPerMinute = v
+	}
+
+	if v, err := parsePositiveIntEnv("CHAT_SENDS_PER_DAY"); err != nil {
+		return nil, err
+	} else if v > 0 {
+		cfg.ChatSendsPerDay = v
+	}
+
+	if v, err := parsePositiveIntEnv("CHAT_SENDS_PER_MONTH"); err != nil {
+		return nil, err
+	} else if v > 0 {
+		cfg.ChatSendsPerMonth = v
+	}
+
+	if v, err := parsePositiveIntEnv("CHAT_GLOBAL_SENDS_PER_MINUTE"); err != nil {
+		return nil, err
+	} else if v > 0 {
+		cfg.ChatGlobalSendsPerMinute = v
 	}
 
 	return cfg, nil

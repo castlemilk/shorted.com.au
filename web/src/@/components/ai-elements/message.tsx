@@ -1,32 +1,49 @@
 "use client";
 
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
-import { mermaid } from "@streamdown/mermaid";
-import type { ComponentProps } from "react";
-import { memo } from "react";
-import { Streamdown } from "streamdown";
+import type { HTMLAttributes } from "react";
+import { createContext, useContext } from "react";
 import { cn } from "~/@/lib/utils";
 
-export type MessageResponseProps = ComponentProps<typeof Streamdown>;
+export type MessageRole = "user" | "assistant";
 
-const streamdownPlugins = { cjk, code, math, mermaid };
+const MessageRoleContext = createContext<MessageRole>("assistant");
 
-export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
+export type MessageProps = HTMLAttributes<HTMLDivElement> & {
+  from: MessageRole;
+};
+
+/**
+ * One turn in a conversation. `from` aligns it: the person's turns sit on the
+ * trailing edge, the assistant's on the leading edge.
+ */
+export const Message = ({ className, from, ...props }: MessageProps) => (
+  <MessageRoleContext.Provider value={from}>
+    <div
+      data-role={from}
       className={cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        "flex w-full min-w-0 gap-3",
+        from === "user" ? "flex-row-reverse" : "flex-row",
         className,
       )}
-      plugins={streamdownPlugins}
       {...props}
     />
-  ),
-  (prevProps, nextProps) =>
-    prevProps.children === nextProps.children &&
-    nextProps.isAnimating === prevProps.isAnimating,
+  </MessageRoleContext.Provider>
 );
 
-MessageResponse.displayName = "MessageResponse";
+/** The column a turn's bubble and its attachments stack in. */
+export const MessageContent = ({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) => {
+  const from = useContext(MessageRoleContext);
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 max-w-[85%] flex-col gap-2",
+        from === "user" ? "items-end" : "items-start",
+        className,
+      )}
+      {...props}
+    />
+  );
+};

@@ -289,8 +289,13 @@ type SendMessageRequest struct {
 	ConversationId   string                 `protobuf:"bytes,1,opt,name=conversation_id,json=conversationId,proto3" json:"conversation_id,omitempty"`         // Empty to start new conversation
 	Message          string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                                             // User message text
 	ContextStockCode string                 `protobuf:"bytes,3,opt,name=context_stock_code,json=contextStockCode,proto3" json:"context_stock_code,omitempty"` // Optional stock context
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// True when the person asked again after a failed reply (Try again). The
+	// question is already stored in the conversation, so the service reuses it
+	// instead of storing it a second time, and replaces the partial reply the
+	// failed attempt left behind.
+	Retry         bool `protobuf:"varint,4,opt,name=retry,proto3" json:"retry,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SendMessageRequest) Reset() {
@@ -342,6 +347,13 @@ func (x *SendMessageRequest) GetContextStockCode() string {
 		return x.ContextStockCode
 	}
 	return ""
+}
+
+func (x *SendMessageRequest) GetRetry() bool {
+	if x != nil {
+		return x.Retry
+	}
+	return false
 }
 
 // Response chunk for SendMessage streaming RPC
@@ -838,11 +850,12 @@ const file_chat_v1_chat_proto_rawDesc = "" +
 	"\vsource_type\x18\x01 \x01(\tR\n" +
 	"sourceType\x12\x1c\n" +
 	"\treference\x18\x02 \x01(\tR\treference\x12\x10\n" +
-	"\x03url\x18\x03 \x01(\tR\x03url\"\x85\x01\n" +
+	"\x03url\x18\x03 \x01(\tR\x03url\"\x9b\x01\n" +
 	"\x12SendMessageRequest\x12'\n" +
 	"\x0fconversation_id\x18\x01 \x01(\tR\x0econversationId\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12,\n" +
-	"\x12context_stock_code\x18\x03 \x01(\tR\x10contextStockCode\"\xd8\x01\n" +
+	"\x12context_stock_code\x18\x03 \x01(\tR\x10contextStockCode\x12\x14\n" +
+	"\x05retry\x18\x04 \x01(\bR\x05retry\"\xd8\x01\n" +
 	"\x13SendMessageResponse\x12'\n" +
 	"\x0fconversation_id\x18\x01 \x01(\tR\x0econversationId\x12\x14\n" +
 	"\x05chunk\x18\x02 \x01(\tR\x05chunk\x12\x1f\n" +

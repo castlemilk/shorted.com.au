@@ -73,3 +73,63 @@ func TestLoadConfigRejectsInvalidCostGuardrails(t *testing.T) {
 		t.Fatal("LoadConfig() error = nil, want invalid CHAT_HISTORY_LIMIT error")
 	}
 }
+
+func TestLoadConfigDefaultsSendLimits(t *testing.T) {
+	t.Setenv("CHAT_SENDS_PER_MINUTE", "")
+	t.Setenv("CHAT_SENDS_PER_DAY", "")
+	t.Setenv("CHAT_SENDS_PER_MONTH", "")
+	t.Setenv("CHAT_GLOBAL_SENDS_PER_MINUTE", "")
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+
+	if cfg.ChatSendsPerMinute != 4 {
+		t.Fatalf("ChatSendsPerMinute = %d, want 4", cfg.ChatSendsPerMinute)
+	}
+	if cfg.ChatSendsPerDay != 40 {
+		t.Fatalf("ChatSendsPerDay = %d, want 40", cfg.ChatSendsPerDay)
+	}
+	if cfg.ChatSendsPerMonth != 600 {
+		t.Fatalf("ChatSendsPerMonth = %d, want 600", cfg.ChatSendsPerMonth)
+	}
+	if cfg.ChatGlobalSendsPerMinute != 60 {
+		t.Fatalf("ChatGlobalSendsPerMinute = %d, want 60", cfg.ChatGlobalSendsPerMinute)
+	}
+}
+
+func TestLoadConfigParsesSendLimits(t *testing.T) {
+	t.Setenv("CHAT_SENDS_PER_MINUTE", "6")
+	t.Setenv("CHAT_SENDS_PER_DAY", "50")
+	t.Setenv("CHAT_SENDS_PER_MONTH", "900")
+	t.Setenv("CHAT_GLOBAL_SENDS_PER_MINUTE", "120")
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+
+	if cfg.ChatSendsPerMinute != 6 || cfg.ChatSendsPerDay != 50 ||
+		cfg.ChatSendsPerMonth != 900 || cfg.ChatGlobalSendsPerMinute != 120 {
+		t.Fatalf("send limits = %d/%d/%d/%d, want 6/50/900/120",
+			cfg.ChatSendsPerMinute, cfg.ChatSendsPerDay, cfg.ChatSendsPerMonth, cfg.ChatGlobalSendsPerMinute)
+	}
+}
+
+func TestLoadConfigRejectsInvalidSendLimits(t *testing.T) {
+	for _, name := range []string{
+		"CHAT_SENDS_PER_MINUTE",
+		"CHAT_SENDS_PER_DAY",
+		"CHAT_SENDS_PER_MONTH",
+		"CHAT_GLOBAL_SENDS_PER_MINUTE",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(name, "-1")
+
+			if _, err := LoadConfig(); err == nil {
+				t.Fatalf("LoadConfig() error = nil, want invalid %s error", name)
+			}
+		})
+	}
+}

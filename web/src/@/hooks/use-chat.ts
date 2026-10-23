@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat as useAIChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { createConnectTransport } from "@connectrpc/connect-web";
@@ -12,6 +12,7 @@ import {
   uiMessageToChatMessage,
   type ShortedChatUIMessage,
 } from "./chat-ui-message-adapter";
+import { parseChatError, type ChatErrorInfo } from "~/@/lib/chat-errors";
 
 export interface ChatCitation {
   sourceType: string;
@@ -42,6 +43,27 @@ interface UseChatOptions {
   userId?: string;
 }
 
+/**
+ * The conversation id from a `data-shorted-conversation` part, or undefined.
+ *
+ * Read structurally: the part type is owned by the stream adapter, so this
+ * module does not import it. A part that arrives while the reply streams is
+ * a transient data chunk, so it is handled here as it arrives instead of
+ * waiting for the message list to contain it.
+ */
+export function conversationIdFromDataPart(value: unknown): string | undefined {
+  if (!isRecord(value) || value.type !== "data-shorted-conversation") {
+    return undefined;
+  }
+  if (!isRecord(value.data)) return undefined;
+  const id = value.data.conversationId;
+  return typeof id === "string" && id.trim() !== "" ? id : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function createChatTransport() {
   return createConnectTransport({
     baseUrl: "",
@@ -57,10 +79,15 @@ function getChatClient(): any {
 
 export function useChat(options: UseChatOptions = {}) {
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [manualError, setManualError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<ChatErrorInfo | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  // Each history load takes the next number. Only the latest may change the
+  // thread, so a slow answer to an earlier click cannot overwrite a later one,
+  // and New chat cancels a load that is still pending.
+  const loadSeqRef = useRef(0);
   const transport = useMemo(
     () =>
       new DefaultChatTransport<ShortedChatUIMessage>({
@@ -68,16 +95,24 @@ export function useChat(options: UseChatOptions = {}) {
       }),
     [],
   );
+
+  const handleData = useCallback((dataPart: unknown) => {
+    const id = conversationIdFromDataPart(dataPart);
+    if (id) setConversationId(id);
+  }, []);
+
   const {
     messages: uiMessages,
     setMessages: setUIMessages,
     sendMessage: sendAIMessage,
+    regenerate,
     stop,
     clearError,
     status,
     error: aiError,
   } = useAIChat<ShortedChatUIMessage>({
     transport,
+    onData: handleData,
   });
 
   const generationInFlight = status === "submitted" || status === "streaming";
@@ -86,7 +121,11 @@ export function useChat(options: UseChatOptions = {}) {
     () => uiMessages.map(uiMessageToChatMessage),
     [uiMessages],
   );
-  const error = manualError ?? (aiError ? aiError.message : null);
+  const streamError = useMemo(
+    () => (aiError ? parseChatError(aiError) : null),
+    [aiError],
+  );
+  const error = sendError ?? streamError;
 
   useEffect(() => {
     return () => {
@@ -100,9 +139,13 @@ export function useChat(options: UseChatOptions = {}) {
       if (!uiMessage) {
         continue;
       }
-      const data = getShortedFinalData(uiMessage);
-      if (data?.conversationId) {
-        setConversationId(data.conversationId);
+      const id =
+        getShortedFinalData(uiMessage)?.conversationId ??
+        uiMessage.parts
+          .map((part) => conversationIdFromDataPart(part))
+          .find((value) => value !== undefined);
+      if (id) {
+        setConversationId(id);
         return;
       }
     }
@@ -111,9 +154,10 @@ export function useChat(options: UseChatOptions = {}) {
   const sendMessage = useCallback(
     async (content: string) => {
       const trimmedContent = content.trim();
-      if (!trimmedContent || generationInFlight) return;
+      if (!trimmedContent || generationInFlight || isLoadingHistory) return;
 
-      setManualError(null);
+      setSendError(null);
+      setHistoryError(null);
       clearError();
 
       try {
@@ -130,26 +174,69 @@ export function useChat(options: UseChatOptions = {}) {
         if (err instanceof Error && err.name === "AbortError") {
           return;
         }
-        setManualError(
-          err instanceof Error ? err.message : "Failed to send message",
-        );
+        setSendError(parseChatError(err));
       }
     },
     [
       clearError,
       conversationId,
       generationInFlight,
+      isLoadingHistory,
       options.contextStockCode,
       sendAIMessage,
     ],
   );
 
-  const clearChat = useCallback(() => {
+  /**
+   * Asks again after a failed reply. `regenerate` drops a failed assistant turn
+   * from the thread and resends the person's last message. The request carries
+   * the regenerate trigger, which the route forwards as a retry, so the chat
+   * service reuses the stored question instead of storing it a second time.
+   */
+  const retry = useCallback(async () => {
+    if (generationInFlight || isLoadingHistory || uiMessages.length === 0) return;
+
+    setSendError(null);
+    clearError();
+
+    try {
+      await regenerate({
+        body: {
+          conversationId: conversationId ?? "",
+          contextStockCode: options.contextStockCode ?? "",
+        },
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return;
+      }
+      setSendError(parseChatError(err));
+    }
+  }, [
+    clearError,
+    conversationId,
+    generationInFlight,
+    isLoadingHistory,
+    options.contextStockCode,
+    regenerate,
+    uiMessages.length,
+  ]);
+
+  /**
+   * Starts a new chat. The reply in flight is stopped first: it is still
+   * streaming into the thread otherwise, and would be appended to the empty
+   * thread and point the conversation back at the old one.
+   */
+  const clearChat = useCallback(async () => {
+    loadSeqRef.current += 1;
+    await stop();
     setUIMessages([]);
     setConversationId(null);
-    setManualError(null);
+    setSendError(null);
+    setHistoryError(null);
+    setIsLoadingHistory(false);
     clearError();
-  }, [clearError, setUIMessages]);
+  }, [clearError, setUIMessages, stop]);
 
   const stopGeneration = useCallback(() => {
     void stop();
@@ -183,7 +270,9 @@ export function useChat(options: UseChatOptions = {}) {
       /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
       setConversations(convs);
     } catch (err) {
-      console.error("Failed to fetch conversations:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Failed to fetch conversations:", err);
+      }
     } finally {
       setIsLoadingConversations(false);
     }
@@ -192,9 +281,15 @@ export function useChat(options: UseChatOptions = {}) {
   const loadConversation = useCallback(
     async (convId: string) => {
       if (!options.userId) return;
+      loadSeqRef.current += 1;
+      const requestId = loadSeqRef.current;
       setIsLoadingHistory(true);
-      setManualError(null);
+      setSendError(null);
+      setHistoryError(null);
       clearError();
+      // Stop the reply in flight before the thread is replaced, so nothing it
+      // streams after this point can land in the conversation being opened.
+      await stop();
       try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const client = getChatClient();
@@ -230,17 +325,19 @@ export function useChat(options: UseChatOptions = {}) {
           }),
         );
         /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
+        // A later click, or New chat, has superseded this load.
+        if (requestId !== loadSeqRef.current) return;
         setUIMessages(loadedMessages.map(chatMessageToUIMessage));
         setConversationId(convId);
-      } catch (err) {
-        setManualError(
-          err instanceof Error ? err.message : "Failed to load conversation",
-        );
+      } catch {
+        if (requestId === loadSeqRef.current) {
+          setHistoryError("Couldn't load that conversation. Please try again.");
+        }
       } finally {
-        setIsLoadingHistory(false);
+        if (requestId === loadSeqRef.current) setIsLoadingHistory(false);
       }
     },
-    [clearError, options.userId, setUIMessages],
+    [clearError, options.userId, setUIMessages, stop],
   );
 
   const deleteConversation = useCallback(
@@ -254,10 +351,12 @@ export function useChat(options: UseChatOptions = {}) {
         /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
         setConversations((prev) => prev.filter((c) => c.id !== convId));
         if (conversationId === convId) {
-          clearChat();
+          await clearChat();
         }
       } catch (err) {
-        console.error("Failed to delete conversation:", err);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Failed to delete conversation:", err);
+        }
       }
     },
     [options.userId, conversationId, clearChat],
@@ -265,12 +364,16 @@ export function useChat(options: UseChatOptions = {}) {
 
   return {
     messages,
+    status,
     isLoading,
+    isLoadingHistory,
     error,
+    historyError,
     conversationId,
     conversations,
     isLoadingConversations,
     sendMessage,
+    retry,
     clearChat,
     stopGeneration,
     fetchConversations,

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ChatMessageBubble } from "../chat-message";
 import type { ChatMessage } from "~/@/hooks/use-chat";
 
@@ -18,6 +18,7 @@ jest.mock("lucide-react", () => {
     ChevronRight: Icon,
     ExternalLink: Icon,
     Loader2: Icon,
+    Link2: Icon,
     Activity: Icon,
     ArrowUpRight: Icon,
     BarChart3: Icon,
@@ -100,6 +101,26 @@ describe("ChatMessageBubble rich tool rendering", () => {
     expect(screen.getByText("8.90% latest")).toBeInTheDocument();
     expect(screen.queryByText(/"shortPosition"/)).not.toBeInTheDocument();
   });
+
+  it("opens a rich result by default, inside the tool", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_stock_details",
+              arguments: "{}",
+              result: JSON.stringify({ stock: { productCode: "ZIP", companyName: "ZIP Co" } }),
+            },
+          ],
+        })}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Stock details/ });
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("chat-stock-card")).toBeInTheDocument();
+  });
 });
 
 /**
@@ -155,9 +176,184 @@ describe("ChatMessageBubble links from data", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "3 sources" }));
+
     expect(screen.getByText("Injected")).toBeInTheDocument();
     expect(Array.from(container.querySelectorAll("a")).map((a) => a.getAttribute("href"))).toEqual([
       "https://www.afr.com/x",
     ]);
+  });
+});
+
+describe("ChatMessageBubble sources", () => {
+  it("collapses citations behind a count and opens them as links", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          citations: [
+            { sourceType: "asx_announcement", reference: "ZIP 2026-07-06", url: "https://example.com/zip.pdf" },
+          ],
+        })}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: "1 source" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("ZIP 2026-07-06")).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+
+    const link = screen.getByRole("link", { name: /ZIP 2026-07-06/ });
+    expect(link).toHaveAttribute("href", "https://example.com/zip.pdf");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(within(link).getByText("asx_announcement")).toBeInTheDocument();
+  });
+
+  it("falls back to the source type when a citation has no reference", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          citations: [{ sourceType: "news", reference: "", url: "https://www.afr.com/x" }],
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "1 source" }));
+
+    expect(screen.getByRole("link", { name: /^news/ })).toBeInTheDocument();
+  });
+});
+
+describe("ChatMessageBubble tool calls", () => {
+  it("collapses an ordinary tool call and shows its arguments and result when opened", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "search_stocks",
+              arguments: JSON.stringify({ query: "zip" }),
+              result: JSON.stringify({ hits: 3 }),
+            },
+          ],
+        })}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Search stocks/ });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("Completed")).toBeInTheDocument();
+    expect(screen.queryByText("Arguments")).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+
+    expect(screen.getByText("Arguments")).toBeInTheDocument();
+    expect(screen.getByText(/"query": "zip"/)).toBeInTheDocument();
+    expect(screen.getByText("Result")).toBeInTheDocument();
+  });
+
+  it("marks a tool that reported an error as failed and shows its message, not the JSON", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_news",
+              arguments: "{}",
+              result: JSON.stringify({ error: "News feed is unavailable" }),
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Get news/ }));
+
+    expect(screen.getByText("News feed is unavailable")).toBeInTheDocument();
+    expect(screen.queryByText(/"error"/)).not.toBeInTheDocument();
+  });
+
+  it("marks a tool the chat service recorded as failed, with its text and body hidden", () => {
+    // The shape the chat service stores for a failed call: "Error: " and the
+    // failure, which carries the upstream response body.
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_stock_details",
+              arguments: JSON.stringify({ stock_code: "ZIP" }),
+              result:
+                'Error: RPC GetStockDetails returned 404: {"code":"not_found","message":"no stock ZIPX"}',
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+    expect(screen.queryByText("Completed")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Stock details/ }));
+
+    expect(screen.getByText("This data could not be retrieved.")).toBeInTheDocument();
+    expect(screen.queryByText(/not_found/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/RPC GetStockDetails/)).not.toBeInTheDocument();
+  });
+});
+
+describe("ChatMessageBubble streaming state", () => {
+  it("shows the thinking indicator while the active reply has no text yet", () => {
+    render(
+      <ChatMessageBubble
+        isActive
+        message={assistantMessage({ content: "", isStreaming: true })}
+      />,
+    );
+
+    expect(screen.getByText("Thinking...")).toBeInTheDocument();
+  });
+
+  it("shows the caret only while the active reply is streaming", () => {
+    const { container, rerender } = render(
+      <ChatMessageBubble
+        isActive
+        message={assistantMessage({ content: "Partial", isStreaming: true })}
+      />,
+    );
+    expect(container.querySelector("span.inline-block.h-4")).not.toBeNull();
+
+    rerender(
+      <ChatMessageBubble
+        message={assistantMessage({ content: "Partial", isStreaming: true })}
+      />,
+    );
+    expect(container.querySelector("span.inline-block.h-4")).toBeNull();
+  });
+
+  it("leaves no spinner or caret after a failed reply, even though its part still reads streaming", () => {
+    const { container } = render(
+      <ChatMessageBubble
+        isActive={false}
+        message={assistantMessage({ content: "", isStreaming: true })}
+      />,
+    );
+
+    expect(screen.queryByText("Thinking...")).not.toBeInTheDocument();
+    expect(container.querySelector("span.inline-block.h-4")).toBeNull();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("keeps a failed reply's partial text but drops its caret", () => {
+    const { container } = render(
+      <ChatMessageBubble
+        isActive={false}
+        message={assistantMessage({ content: "Half an answer", isStreaming: true })}
+      />,
+    );
+
+    expect(screen.getByText("Half an answer")).toBeInTheDocument();
+    expect(container.querySelector("span.inline-block.h-4")).toBeNull();
   });
 });

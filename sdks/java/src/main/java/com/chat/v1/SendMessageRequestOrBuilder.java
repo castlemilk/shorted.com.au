@@ -69,4 +69,17 @@ public interface SendMessageRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getContextStockCodeBytes();
+
+  /**
+   * <pre>
+   * True when the person asked again after a failed reply (Try again). The
+   * question is already stored in the conversation, so the service reuses it
+   * instead of storing it a second time, and replaces the partial reply the
+   * failed attempt left behind.
+   * </pre>
+   *
+   * <code>bool retry = 4 [json_name = "retry"];</code>
+   * @return The retry.
+   */
+  boolean getRetry();
 }
