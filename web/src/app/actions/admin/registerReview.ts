@@ -60,6 +60,9 @@ async function reviewClient() {
       // body: a body-supplied identity is one the caller chose for themselves.
       "X-User-Email": admin.email,
       "X-User-Id": admin.userId,
+      // Asserted only because requireAdmin() above just passed. The API grants
+      // admin from this header and from nothing else.
+      "X-User-Roles": "admin",
     },
   };
 }

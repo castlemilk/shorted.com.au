@@ -34,6 +34,9 @@ export async function getPendingEnrichments(limit = 100, offset = 0) {
             "X-Internal-Secret": internalSecret,
             "X-User-Email": admin.email,
             "X-User-Id": admin.userId,
+            // Asserted only because requireAdmin() above just passed. The API grants
+            // admin from this header and from nothing else.
+            "X-User-Roles": "admin",
           },
         },
       ),

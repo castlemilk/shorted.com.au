@@ -27,6 +27,7 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       isAdmin?: boolean;
+      emailVerified?: boolean;
     };
   }
 }
@@ -35,8 +36,16 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     isAdmin?: boolean;
+    emailVerified?: boolean;
   }
 }
+
+/**
+ * The Credentials provider's user. authorize() adds the verification flag here
+ * rather than augmenting next-auth's User: AdapterUser extends User with
+ * `emailVerified: Date | null`, and widening User would conflict with it.
+ */
+type CredentialsUser = User & { emailVerified?: boolean };
 
 /**
  * Options for NextAuth.js used to configure adapters, providers, callbacks, etc.
@@ -80,12 +89,16 @@ export const authOptions = {
         if (idToken) {
           try {
             const decoded = await adminAuth.verifyIdToken(idToken);
-            return {
+            const user: CredentialsUser = {
               id: decoded.uid,
               email: decoded.email ?? email ?? null,
               name: (decoded.name as string) ?? null,
               image: decoded.picture ?? null,
+              // The admin decision rests on this. Without it an unverified
+              // email/password account could claim an admin's address.
+              emailVerified: decoded.email_verified === true,
             };
+            return user;
           } catch (error) {
             console.error("[Auth] Firebase ID token verification failed:", error);
             return null;
@@ -117,11 +130,13 @@ export const authOptions = {
           if (process.env.NODE_ENV === "development") {
             console.log("[Auth] E2E test user authenticated successfully");
           }
-          return {
+          const user: CredentialsUser = {
             id: E2E_TEST_USER.id,
             email: E2E_TEST_USER.email,
             name: E2E_TEST_USER.name,
+            emailVerified: true,
           };
+          return user;
         }
 
         return null;
@@ -149,6 +164,10 @@ export const authOptions = {
         if (!token.sub) {
           token.sub = user.id ?? user.email ?? "unknown";
         }
+        // Only sign-in carries the provider's verdict, set by authorize(). Refreshes
+        // arrive without a user object, so the flag is kept on the token from here
+        // on. Anything other than an explicit true reads as unverified.
+        token.emailVerified = (user as CredentialsUser).emailVerified === true;
       }
 
       // CRITICAL: Always ensure sub is set - middleware depends on this
@@ -166,7 +185,11 @@ export const authOptions = {
         token.id = token.email;
       }
 
-      // Admin check
+      // Admin check. An allowlisted address is not enough on its own: an
+      // email/password account can be registered under any address, so admin
+      // also needs the provider to have verified the email. Sessions minted
+      // before emailVerified existed have no flag and are not admin until the
+      // holder signs in again.
       const adminEmails = (process.env.ADMIN_EMAILS ?? "")
         .split(",")
         .map((e) => e.trim());
@@ -175,7 +198,10 @@ export const authOptions = {
       const isTestUser =
         process.env.NODE_ENV !== "production" &&
         token.email === E2E_TEST_USER.email;
-      token.isAdmin = isTestUser || adminEmails.includes(token.email ?? "");
+      token.isAdmin =
+        isTestUser ||
+        (token.emailVerified === true &&
+          adminEmails.includes(token.email ?? ""));
 
       return token;
     },
@@ -194,6 +220,7 @@ export const authOptions = {
         session.user.id =
           token.id ?? token.sub ?? session.user.email ?? "unknown";
         session.user.isAdmin = token.isAdmin;
+        session.user.emailVerified = token.emailVerified === true;
       }
       return session;
     },
