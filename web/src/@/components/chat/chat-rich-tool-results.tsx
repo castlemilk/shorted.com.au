@@ -37,24 +37,16 @@ interface ShortChartData {
   points: ShortPoint[];
 }
 
-export function ChatRichToolResults({ toolCalls }: { toolCalls?: ToolCall[] }) {
-  if (!toolCalls?.length) return null;
+/** A tool result drawn as a card or chart instead of raw JSON. */
+export type RichToolResult =
+  | { kind: "stock"; stock: StockCardData }
+  | { kind: "chart"; chart: ShortChartData };
 
-  const results = toolCalls
-    .map((toolCall, index) => renderRichToolResult(toolCall, index))
-    .filter(Boolean);
-
-  if (!results.length) return null;
-
-  return <div className="mt-2 grid w-full gap-2">{results}</div>;
-}
-
-function renderRichToolResult(toolCall: ToolCall, index: number) {
+/** The rich rendering for a tool call, or null when its output is not one we draw. */
+export function getRichToolResult(toolCall: ToolCall): RichToolResult | null {
   if (toolCall.toolName === "get_stock_details") {
     const stock = extractStockCard(toolCall);
-    if (stock) {
-      return <StockCard key={`${toolCall.toolName}-${index}`} stock={stock} />;
-    }
+    return stock ? { kind: "stock", stock } : null;
   }
 
   if (
@@ -62,17 +54,18 @@ function renderRichToolResult(toolCall: ToolCall, index: number) {
     toolCall.toolName === "get_top_shorts"
   ) {
     const chart = extractShortChart(toolCall);
-    if (chart) {
-      return (
-        <ShortInterestChart
-          key={`${toolCall.toolName}-${index}`}
-          chart={chart}
-        />
-      );
-    }
+    return chart ? { kind: "chart", chart } : null;
   }
 
   return null;
+}
+
+export function RichToolResultView({ result }: { result: RichToolResult }) {
+  return result.kind === "stock" ? (
+    <StockCard stock={result.stock} />
+  ) : (
+    <ShortInterestChart chart={result.chart} />
+  );
 }
 
 function StockCard({ stock }: { stock: StockCardData }) {

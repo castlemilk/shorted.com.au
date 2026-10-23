@@ -12,6 +12,7 @@ import {
   uiMessageToChatMessage,
   type ShortedChatUIMessage,
 } from "./chat-ui-message-adapter";
+import { parseChatError, type ChatErrorInfo } from "~/@/lib/chat-errors";
 
 export interface ChatCitation {
   sourceType: string;
@@ -42,6 +43,27 @@ interface UseChatOptions {
   userId?: string;
 }
 
+/**
+ * The conversation id from a `data-shorted-conversation` part, or undefined.
+ *
+ * Read structurally: the part type is owned by the stream adapter, so this
+ * module does not import it. A part that arrives while the reply streams is
+ * a transient data chunk, so it is handled here as it arrives instead of
+ * waiting for the message list to contain it.
+ */
+export function conversationIdFromDataPart(value: unknown): string | undefined {
+  if (!isRecord(value) || value.type !== "data-shorted-conversation") {
+    return undefined;
+  }
+  if (!isRecord(value.data)) return undefined;
+  const id = value.data.conversationId;
+  return typeof id === "string" && id.trim() !== "" ? id : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function createChatTransport() {
   return createConnectTransport({
     baseUrl: "",
@@ -57,7 +79,8 @@ function getChatClient(): any {
 
 export function useChat(options: UseChatOptions = {}) {
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [manualError, setManualError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<ChatErrorInfo | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -68,16 +91,24 @@ export function useChat(options: UseChatOptions = {}) {
       }),
     [],
   );
+
+  const handleData = useCallback((dataPart: unknown) => {
+    const id = conversationIdFromDataPart(dataPart);
+    if (id) setConversationId(id);
+  }, []);
+
   const {
     messages: uiMessages,
     setMessages: setUIMessages,
     sendMessage: sendAIMessage,
+    regenerate,
     stop,
     clearError,
     status,
     error: aiError,
   } = useAIChat<ShortedChatUIMessage>({
     transport,
+    onData: handleData,
   });
 
   const generationInFlight = status === "submitted" || status === "streaming";
@@ -86,7 +117,11 @@ export function useChat(options: UseChatOptions = {}) {
     () => uiMessages.map(uiMessageToChatMessage),
     [uiMessages],
   );
-  const error = manualError ?? (aiError ? aiError.message : null);
+  const streamError = useMemo(
+    () => (aiError ? parseChatError(aiError) : null),
+    [aiError],
+  );
+  const error = sendError ?? streamError;
 
   useEffect(() => {
     return () => {
@@ -100,9 +135,13 @@ export function useChat(options: UseChatOptions = {}) {
       if (!uiMessage) {
         continue;
       }
-      const data = getShortedFinalData(uiMessage);
-      if (data?.conversationId) {
-        setConversationId(data.conversationId);
+      const id =
+        getShortedFinalData(uiMessage)?.conversationId ??
+        uiMessage.parts
+          .map((part) => conversationIdFromDataPart(part))
+          .find((value) => value !== undefined);
+      if (id) {
+        setConversationId(id);
         return;
       }
     }
@@ -113,7 +152,8 @@ export function useChat(options: UseChatOptions = {}) {
       const trimmedContent = content.trim();
       if (!trimmedContent || generationInFlight) return;
 
-      setManualError(null);
+      setSendError(null);
+      setHistoryError(null);
       clearError();
 
       try {
@@ -130,9 +170,7 @@ export function useChat(options: UseChatOptions = {}) {
         if (err instanceof Error && err.name === "AbortError") {
           return;
         }
-        setManualError(
-          err instanceof Error ? err.message : "Failed to send message",
-        );
+        setSendError(parseChatError(err));
       }
     },
     [
@@ -144,10 +182,44 @@ export function useChat(options: UseChatOptions = {}) {
     ],
   );
 
+  /**
+   * Asks again after a failed reply. `regenerate` drops a failed assistant turn
+   * and resends from the person's last message, so the question is not
+   * duplicated in the thread.
+   */
+  const retry = useCallback(async () => {
+    if (generationInFlight || uiMessages.length === 0) return;
+
+    setSendError(null);
+    clearError();
+
+    try {
+      await regenerate({
+        body: {
+          conversationId: conversationId ?? "",
+          contextStockCode: options.contextStockCode ?? "",
+        },
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return;
+      }
+      setSendError(parseChatError(err));
+    }
+  }, [
+    clearError,
+    conversationId,
+    generationInFlight,
+    options.contextStockCode,
+    regenerate,
+    uiMessages.length,
+  ]);
+
   const clearChat = useCallback(() => {
     setUIMessages([]);
     setConversationId(null);
-    setManualError(null);
+    setSendError(null);
+    setHistoryError(null);
     clearError();
   }, [clearError, setUIMessages]);
 
@@ -193,7 +265,8 @@ export function useChat(options: UseChatOptions = {}) {
     async (convId: string) => {
       if (!options.userId) return;
       setIsLoadingHistory(true);
-      setManualError(null);
+      setSendError(null);
+      setHistoryError(null);
       clearError();
       try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -232,10 +305,8 @@ export function useChat(options: UseChatOptions = {}) {
         /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
         setUIMessages(loadedMessages.map(chatMessageToUIMessage));
         setConversationId(convId);
-      } catch (err) {
-        setManualError(
-          err instanceof Error ? err.message : "Failed to load conversation",
-        );
+      } catch {
+        setHistoryError("Couldn't load that conversation. Please try again.");
       } finally {
         setIsLoadingHistory(false);
       }
@@ -265,12 +336,15 @@ export function useChat(options: UseChatOptions = {}) {
 
   return {
     messages,
+    status,
     isLoading,
     error,
+    historyError,
     conversationId,
     conversations,
     isLoadingConversations,
     sendMessage,
+    retry,
     clearChat,
     stopGeneration,
     fetchConversations,
