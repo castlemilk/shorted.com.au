@@ -105,7 +105,7 @@ func TestPaidFeatureStatusStatesItsConfiguration(t *testing.T) {
 	}
 	// Configured with no paid-feature monitor yet: available, and the detail says the probe has not reported.
 	out, err = (&adminMCPSource{Collector: telesisFake(t, `{"monitors":[{"id":"m-news","name":"shorted-news"}],"pageInfo":{}}`, nil)}).PaidFeatureStatus(context.Background())
-	if err != nil || len(out.Features) != 0 || !strings.Contains(sourceDetail(out.Sources, "telesis_cron_monitors"), "has not reported") {
+	if detail := sourceDetail(out.Sources, "telesis_cron_monitors"); err != nil || len(out.Features) != 0 || !strings.Contains(detail, "TELESIS_SERVICE_ID") || !strings.Contains(detail, "has not reported") {
 		t.Fatalf("no feature monitors: %+v, %v", out, err)
 	}
 }

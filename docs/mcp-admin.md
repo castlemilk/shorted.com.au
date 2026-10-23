@@ -141,6 +141,12 @@ for match what they can use, and do the paid features work right now?
   kind missing from `counts` was not checked, and `notes` says why. A live Stripe
   list that was cut at its limit does not run `entitled_without_stripe`.
 
+The probe reports to one Telesis cron monitor per step, named
+`paid-feature: <step>`: `entitlement`, `chat`, `api_token`, `gates` and `all`.
+The monitors must exist in the Telesis service configured by
+`TELESIS_SERVICE_ID`. `paid_feature_status` lists each one that exists, and
+says so when none does.
+
 `paid_feature_status` (`jobs:read`) reads the Telesis cron monitors the probe
 reports to, one per feature: `paid-feature: entitlement`, `chat`, `api_token`,
 `gates` and `all`. `armed` is Telesis' own flag: it is true only after the monitor's first

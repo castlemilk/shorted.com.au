@@ -49,7 +49,7 @@ func (a *adminMCPSource) PaidFeatureStatus(ctx context.Context) (*mcp.PaidFeatur
 	out.Configured = true
 	detail := fmt.Sprintf("%d paid-feature monitor(s) in Telesis", len(history))
 	if len(history) == 0 {
-		detail = "no monitor named 'paid-feature: <feature>' exists yet, so the probe has not reported to Telesis"
+		detail = "no monitor named 'paid-feature: <step>' exists in the Telesis service configured by TELESIS_SERVICE_ID, so the probe has not reported to Telesis. Its steps are entitlement, chat, api_token, gates and all."
 	}
 	out.Sources = append(out.Sources, mcp.JobSource{Name: "telesis_cron_monitors", Status: "available", Detail: detail})
 
