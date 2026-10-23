@@ -43,6 +43,11 @@ func NewToolExecutor(shortsAPIURL string) *ToolExecutor {
 
 // Execute runs a tool and returns the JSON result.
 func (te *ToolExecutor) Execute(ctx context.Context, toolName string, args map[string]interface{}) (string, error) {
+	// answer_without_data makes no request. Its result is fixed, so it returns at once.
+	if toolName == answerWithoutDataTool {
+		return answerWithoutDataResult, nil
+	}
+
 	call, err := buildToolCall(toolName, args)
 	if err != nil {
 		return "", err

@@ -297,3 +297,21 @@ func newTestToolExecutor(handler http.Handler) *ToolExecutor {
 	})}
 	return executor
 }
+
+func TestExecuteAnswerWithoutDataReturnsItsFixedResultWithNoRequest(t *testing.T) {
+	executor := newTestToolExecutor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("answer_without_data made a request to %s", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+
+	got, err := executor.Execute(context.Background(), answerWithoutDataTool, nil)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if got != answerWithoutDataResult {
+		t.Fatalf("Execute() = %q, want the fixed result %q", got, answerWithoutDataResult)
+	}
+	if !json.Valid([]byte(got)) {
+		t.Fatalf("fixed result %q is not JSON", got)
+	}
+}
