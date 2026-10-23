@@ -335,6 +335,33 @@ test("a key with an embedded line break is rejected without a request", async ()
   }
 });
 
+// HTTP drops a header's leading and trailing spaces, so a padded key would be checked
+// trimmed and answer 200, while ensure-secret.sh stores the padded value. No Gemini key
+// has whitespace, so a padded key is refused before any request, on argv and on stdin.
+test("a key with whitespace anywhere is rejected without a request, from argv or stdin", async () => {
+  const stub = await startStub(() => {
+    throw new Error("a padded key must not reach the network");
+  });
+  try {
+    const padded = [`  ${FAKE_KEY}`, `${FAKE_KEY}   `, `${FAKE_KEY}\t`, `\t${FAKE_KEY}`, `FAKE-inner ${FAKE_KEY}`, "   "];
+    for (const key of padded) {
+      const fromArgv = await runValidator([key], { baseUrl: stub.baseUrl });
+      assert.equal(fromArgv.code, 2, `argv ${JSON.stringify(key)}: ${fromArgv.stdout}${fromArgv.stderr}`);
+      assert.match(fromArgv.stdout, /^gemini key [0-9a-f]{12}: rejected: malformed key \(whitespace\)\n$/);
+      const fromStdin = await runValidator(["-"], { baseUrl: stub.baseUrl, input: key });
+      assert.equal(fromStdin.code, 2, `stdin ${JSON.stringify(key)}: ${fromStdin.stdout}${fromStdin.stderr}`);
+      assert.ok(!fromStdin.stdout.includes(FAKE_KEY), "the key must not be printed");
+    }
+    // The strip runs first, so a key that only has spaces left once CR/LF are gone is still refused.
+    const afterStrip = await runValidator(["-"], { baseUrl: stub.baseUrl, input: `${FAKE_KEY} \n` });
+    assert.equal(afterStrip.code, 2, afterStrip.stdout + afterStrip.stderr);
+    assert.match(afterStrip.stdout, /rejected: malformed key \(whitespace\)/);
+    assert.equal(stub.requests.length, 0, "a padded key must never reach the network");
+  } finally {
+    await stub.close();
+  }
+});
+
 test("the key value never appears in stdout or stderr, even when Google's reason echoes it", async () => {
   const echoing = {
     error: {

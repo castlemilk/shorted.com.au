@@ -454,7 +454,8 @@ function runSyncStep(jobName, stepName, verdict) {
   const log = join(dir, "written.log");
   const validatorLog = join(dir, "validated.log");
   mkdirSync(join(dir, "scripts"));
-  writeFileSync(join(dir, "scripts", "ensure-secret.sh"), `#!/usr/bin/env bash\necho "$1" >> "${log}"\n`);
+  // The value arrives on stdin, so the stub reads it. Otherwise printf can hit a closed pipe.
+  writeFileSync(join(dir, "scripts", "ensure-secret.sh"), `#!/usr/bin/env bash\necho "$1" >> "${log}"\ncat >/dev/null\n`);
   // Records the arguments and the stdin of each validator call, so a test can see the key arrive on stdin.
   writeFileSync(
     join(dir, "scripts", "validate-gemini-key.sh"),
@@ -520,7 +521,10 @@ test("both sync jobs pass each Gemini key to the validator on stdin, never as an
 // are faked, on PATH. curl answers 200 with a text reply, so a key passes validation only
 // when the validator really sends it in the header. gcloud records each version it is asked
 // to add, with the bytes it was given on stdin. Any base URL is loopback, so nothing leaves the machine.
-function runSyncStepWithRealScripts(jobName, stepName, geminiEnv) {
+// Every gcloud and curl call also records ps's view of its parent, so a test can see
+// whether the key was in any process argument list. `extraEnv` and `transformRun` exist
+// for the xtrace control, which runs the same step with the guard removed.
+function runSyncStepWithRealScripts(jobName, stepName, geminiEnv, { extraEnv = {}, transformRun = (run) => run } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "gemini-real-sync-"));
   try {
     const bin = join(dir, "bin");
@@ -529,6 +533,7 @@ function runSyncStepWithRealScripts(jobName, stepName, geminiEnv) {
       join(bin, "gcloud"),
       `#!/usr/bin/env bash
 echo "$*" >> "${dir}/gcloud.log"
+ps -o args= -p $PPID >> "${dir}/ps.log" 2>/dev/null
 case "$*" in
   "secrets describe "*) exit 0 ;;
   "secrets versions access latest "*) printf '%s' 'current-stub-value'; exit 0 ;;
@@ -542,6 +547,7 @@ esac
       join(bin, "curl"),
       `#!/usr/bin/env bash
 echo "$*" >> "${dir}/curl-args.log"
+ps -o args= -p $PPID >> "${dir}/ps.log" 2>/dev/null
 out=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -565,8 +571,8 @@ printf '200'
     for (const [key, value] of Object.entries(stepDef.env ?? {})) {
       env[key] = String(value).replace(/\$\{\{[^}]*\}\}/g, `fake-${key.toLowerCase()}`);
     }
-    Object.assign(env, geminiEnv);
-    const result = spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", "-c", stepDef.run], {
+    Object.assign(env, geminiEnv, extraEnv);
+    const result = spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", "-c", transformRun(stepDef.run)], {
       env,
       encoding: "utf8",
       cwd: dir,
@@ -582,6 +588,7 @@ printf '200'
       gcloud: read("gcloud.log").split("\n").filter(Boolean),
       curlArgs: read("curl-args.log"),
       curlHeaders: read("curl-header.log").split("\n").filter(Boolean),
+      psLog: read("ps.log"),
       added,
     };
   } finally {
@@ -635,6 +642,104 @@ for (const [jobName, stepName] of SYNC_STEPS) {
           `${label}: ${name} must leave a warning`,
         );
       }
+    }
+  });
+}
+
+// Each sync step sends every value to ensure-secret.sh on stdin. As an argument, ps
+// would show it for the whole of each gcloud call the script makes.
+test("both sync steps send each secret value to ensure-secret.sh on stdin, never as an argument", () => {
+  for (const [jobName, stepName] of SYNC_STEPS) {
+    const run = step(jobName, stepName).run;
+    assert.ok(
+      run.includes(`ensure_secret() { printf '%s' "\${2:-}" | bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" -; }`),
+      `${jobName} must pipe ensure_secret's value to ensure-secret.sh on stdin`,
+    );
+    assert.doesNotMatch(run, /ensure-secret\.sh" "\$1" "\$\{2:-\}"/, `${jobName} must not pass the value as an argument`);
+  }
+});
+
+// The sync steps run as the runner runs them, with the real validator and the real
+// ensure-secret.sh. The key is padded, so the validator must refuse it before any
+// request, and nothing may be versioned. Only the two calls each step makes are stubbed.
+for (const [jobName, stepName] of SYNC_STEPS) {
+  test(`${jobName} refuses a Gemini key with stray whitespace, with the real scripts: no request, no version`, () => {
+    for (const key of [
+      "  FAKE-padded-chain-0001-not-real",
+      "FAKE-padded-chain-0001-not-real\t",
+      "FAKE-padded-chain-0001-not-real ",
+    ]) {
+      const label = JSON.stringify(key);
+      const result = runSyncStepWithRealScripts(jobName, stepName, { GEMINI_API_KEY: key, GEMINI_API_KEY_CHAT: "" });
+      assert.equal(result.status, 0, `${label} must not fail the deploy:\n${result.output}`);
+      assert.deepEqual(result.curlHeaders, [], `${label} must never reach the validator's network call`);
+      assert.deepEqual(
+        Object.keys(result.added).filter((name) => name.startsWith("GEMINI_API_KEY")),
+        [],
+        `${label} must not write a Gemini version`,
+      );
+      for (const name of GEMINI_SECRETS) {
+        assert.match(
+          result.output,
+          new RegExp(`::warning title=Gemini key not synced::${name}: gemini key [0-9a-f]{12}: rejected: malformed key \\(whitespace\\)`),
+          `${label}: ${name} must leave a whitespace warning`,
+        );
+      }
+      assert.ok(!result.output.includes(key), `${label} must not be printed`);
+    }
+  });
+}
+
+const PS_AVAILABLE = spawnSync("ps", ["-p", String(process.pid)]).status === 0;
+
+// Control first: ps must show the step's own helper processes, or an absent key proves nothing.
+for (const [jobName, stepName] of SYNC_STEPS) {
+  test(`${jobName} keeps the Gemini key out of every process argument list, with the real scripts`, { skip: !PS_AVAILABLE }, () => {
+    const key = "FAKE-argv-chain-0001-not-real";
+    const result = runSyncStepWithRealScripts(jobName, stepName, { GEMINI_API_KEY: key, GEMINI_API_KEY_CHAT: "" });
+    assert.equal(result.status, 0, result.output);
+    assert.match(result.psLog, /ensure-secret\.sh/, `control: ps must show ensure-secret.sh:\n${result.psLog}`);
+    assert.match(result.psLog, /validate-gemini-key\.sh/, `control: ps must show the validator:\n${result.psLog}`);
+    assert.ok(!result.psLog.includes(key), `the key was in a process argument list:\n${result.psLog}`);
+    assert.ok(!result.output.includes(key), "the key reached the step log");
+  });
+}
+
+// bash -x, SHELLOPTS=xtrace and a BASH_ENV that sets -x all trace the step shell. Each
+// sync step turns xtrace off as its first command, and the lines before it are comments.
+const XTRACE_GUARD = "{ set +x; } 2>/dev/null";
+
+for (const [jobName, stepName] of SYNC_STEPS) {
+  test(`${jobName} turns xtrace off as its first command, before any key is handled`, () => {
+    const first = step(jobName, stepName)
+      .run.split("\n")
+      .map((line) => line.trim())
+      .find((line) => line && !line.startsWith("#"));
+    assert.equal(first, XTRACE_GUARD);
+  });
+
+  test(`${jobName} never traces a Gemini key into the step log, even with BASH_ENV that sets -x`, () => {
+    const dir = mkdtempSync(join(tmpdir(), "gemini-xtrace-"));
+    try {
+      const bashEnv = join(dir, "bash-env.sh");
+      writeFileSync(bashEnv, "set -x\n");
+      const key = "FAKE-xtrace-chain-0001-not-real";
+      const geminiEnv = { GEMINI_API_KEY: key, GEMINI_API_KEY_CHAT: "" };
+
+      const result = runSyncStepWithRealScripts(jobName, stepName, geminiEnv, { extraEnv: { BASH_ENV: bashEnv } });
+      assert.equal(result.status, 0, result.output);
+      assert.equal(result.curlHeaders.length, 3, "the keys were validated, so the run reached the key handling");
+      assert.ok(!result.output.includes(key), "the key reached the step log under BASH_ENV=set -x");
+
+      // Control: with the guard removed, the same run does trace the key, so the clean run above means something.
+      assert.ok(step(jobName, stepName).run.includes(XTRACE_GUARD), "the guard line must exist to be removed");
+      const control = runSyncStepWithRealScripts(jobName, stepName, geminiEnv, {
+        extraEnv: { BASH_ENV: bashEnv },
+        transformRun: (run) => run.replace(XTRACE_GUARD, ":"),
+      });
+      assert.ok(control.output.includes(key), "control failed: without the guard, BASH_ENV=set -x should trace the key");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 }

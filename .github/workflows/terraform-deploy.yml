@@ -402,6 +402,9 @@ jobs:
           # web app. The plan only needs the secrets to EXIST; the apply job owns their values.
           ENSURE_SECRET_CREATE_ONLY: "1"
         run: |
+          # This step handles the Gemini keys, so trace stays off even under BASH_ENV or
+          # SHELLOPTS that turn xtrace on. Nothing else runs before this line.
+          { set +x; } 2>/dev/null
           # Single source of truth: scripts/ensure-secret.sh. It only adds a new
           # version when the value actually changed, comparing sha256 of the
           # trailing-newline-normalised bytes (a raw `$(...)` string compare can
@@ -413,7 +416,9 @@ jobs:
           # not from the GitHub repo secrets. Set them with
           # `cuttle secrets set NAME --project shorted`; updating the GitHub repo
           # secret changes nothing for these jobs.
-          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
+          # The value goes on stdin ("-"), never as an argument: ps would show an argument
+          # for the whole of every gcloud call that ensure-secret.sh makes.
+          ensure_secret() { printf '%s' "${2:-}" | bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" -; }
 
           # Gemini keys are checked by scripts/validate-gemini-key.sh before any
           # write. Incident 2026-10-23 13:57: a key that passed models.list but could
@@ -612,6 +617,9 @@ jobs:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
+          # This step handles the Gemini keys, so trace stays off even under BASH_ENV or
+          # SHELLOPTS that turn xtrace on. Nothing else runs before this line.
+          { set +x; } 2>/dev/null
           # Only add a new version if the value has actually changed
           # ($0.06/version/month, and version bloat is what broke prod on
           # 2026-07-26). Logic lives in scripts/ensure-secret.sh: sha256 compare
@@ -624,7 +632,9 @@ jobs:
           # secret changes nothing for these jobs. This job names a GitHub environment,
           # so a copy set with `cuttle secrets set NAME --environment <env>` is read
           # before the project copy of the same name.
-          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
+          # The value goes on stdin ("-"), never as an argument: ps would show an argument
+          # for the whole of every gcloud call that ensure-secret.sh makes.
+          ensure_secret() { printf '%s' "${2:-}" | bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" -; }
 
           # Gemini keys are checked by scripts/validate-gemini-key.sh before any
           # write. Incident 2026-10-23 13:57: a key that passed models.list but could

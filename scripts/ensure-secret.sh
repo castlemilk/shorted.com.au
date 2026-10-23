@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 #
-# ensure-secret.sh NAME VALUE  (project from $GCP_PROJECT_ID)
+# ensure-secret.sh NAME [VALUE|-]  (project from $GCP_PROJECT_ID)
+#
+# VALUE "-" reads the value from stdin, and every deploy caller passes it that way.
+# An argument is in the process table (ps) for every gcloud call this script makes,
+# so a VALUE argument is for an operator at a terminal only.
 #
 # Creates a Secret Manager secret if missing, and adds a new version ONLY when
 # the value has actually changed. Single source of truth for the three
@@ -44,6 +48,10 @@
 #      nothing is written for it. The emptiness check runs after the strip, so a
 #      value of only CR/LF cannot become a 0-byte version.
 
+# Turn xtrace off before anything else, so `bash -x`, SHELLOPTS=xtrace and a
+# BASH_ENV that sets -x never print the value. The redirect hides this line's own trace.
+{ set +x; } 2>/dev/null
+
 set -euo pipefail
 
 # Strip trailing CR/LF only (never interior or trailing spaces).
@@ -64,6 +72,12 @@ PROJECT="${GCP_PROJECT_ID:-}"
 
 [ -n "$NAME" ] || { echo "ensure-secret.sh: secret name is required" >&2; exit 2; }
 [ -n "$PROJECT" ] || { echo "ensure-secret.sh: GCP_PROJECT_ID is required" >&2; exit 2; }
+
+if [ "$VALUE" = "-" ]; then
+  # Reads all of stdin with IFS empty and -r, so every byte is kept. read returns
+  # non-zero at end of input, which is expected here.
+  IFS= read -r -d '' VALUE || true
+fi
 
 # Empty means empty AFTER the strip. Checking before it let a value of only CR/LF
 # through, and it was written as a 0-byte version.

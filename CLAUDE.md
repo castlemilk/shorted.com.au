@@ -1810,7 +1810,7 @@ cd services && go test -v ./test/integration/...
 - **Artifact Registry**: `australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted`
 - **Database**: Supabase (production), Docker PostgreSQL (development)
 - **Gemini and bypass deploy secrets live in Cuttlefish, not GitHub**: the deploy jobs run on Cuttlefish runners and read `secrets.GEMINI_API_KEY*` and `secrets.CLOUDFLARE_*_BYPASS_SECRET` from its project store, so a GitHub repo secret of that name changes nothing for them. Set a value with `printf '%s' "$VALUE" | cuttle secrets set NAME --project shorted` (stdin; `--value` lands in shell history), after `cuttle login --project shorted`. A copy set with `--environment <env>` is read before the project copy by any job that names that environment, so check for one. The one GitHub-hosted reader is `rate-limit-sentinel.yml` (`ubuntu-latest`), which reads the GitHub repo copy of `CLOUDFLARE_SSR_BYPASS_SECRET`.
-- **Gemini keys are validated before they sync**: `scripts/validate-gemini-key.sh` makes a real generation call and only a key that answers is written. A failing key leaves a warning and Secret Manager keeps its current version. `models.list` alone proves nothing.
+- **Gemini keys are validated before they sync**: `scripts/validate-gemini-key.sh` makes a real generation call and only a key that answers is written. A failing key leaves a warning and Secret Manager keeps its current version. A key with whitespace or a line break is refused before any request. `models.list` alone proves nothing.
 - **A Gemini rotation touches every copy**: Cuttlefish (`GEMINI_API_KEY`, `GEMINI_API_KEY_CHAT`), Secret Manager (`_CHAT`, `_NEWS`, `_REPORT_EXTRACTOR`, written by the deploy), and the VKE jobs (`deploy/kubernetes/jobs/scripts/sync-secrets.sh`, `CONFIRM=prod` to write). Change Cuttlefish first. A stale key that still generates passes the validator.
 
 ### Terraform
@@ -2352,7 +2352,7 @@ SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
 # The Cuttlefish copy is the one the deploy reads. Updating only the GitHub copy
 # leaves the deploy on the old value.
 printf '%s' "$SECRET" | cuttle secrets set CLOUDFLARE_SSR_BYPASS_SECRET --project shorted
-printf '%s' "$SECRET" | gh secret set CLOUDFLARE_SSR_BYPASS_SECRET --repo <owner>/shorted
+printf '%s' "$SECRET" | gh secret set CLOUDFLARE_SSR_BYPASS_SECRET --repo castlemilk/shorted.com.au
 printf '%s' "$SECRET" | vercel env add SHORTED_SSR_BYPASS_SECRET production
 # then re-run terraform-deploy (or: cd terraform/environments/prod &&
 # TF_VAR_rate_limit_ssr_bypass_secret="$SECRET" terraform apply)

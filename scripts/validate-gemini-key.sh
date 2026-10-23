@@ -10,10 +10,12 @@
 #   gemini key <sha256 prefix 12>: unverified: <cause>     exit 3
 #   gemini key: skipped (empty)                            exit 4
 #
-# Exit 2 means Google definitively refused the key: HTTP 400, 401 or 403 with
-# the API's own reason. Exit 3 means the answer is unknown: a network error, a
-# 5xx or 429 that survived two retries, or a reply with no text. Exit 4 means there
-# was no key to test once trailing CR/LF are removed, so nothing may be written.
+# Exit 2 means the key is refused: HTTP 400, 401 or 403 with the API's own
+# reason, or a malformed key refused before any request (an embedded line break,
+# or whitespace anywhere in it). Exit 3 means the answer is unknown: a network
+# error, a 5xx or 429 that survived two retries, or a reply with no text. Exit 4
+# means there was no key to test once trailing CR/LF are removed, so nothing may
+# be written.
 # Exit 1 is a usage error. Only exit 0 may lead to a write.
 #
 # WHY A GENERATION CALL: models.list answers 200 for keys that cannot generate.
@@ -106,10 +108,17 @@ emit() {
   echo "gemini key $FP: $msg"
 }
 
-# A line break cannot travel in a header, and no Gemini key contains one.
+# No Gemini key contains whitespace, and a line break cannot travel in a header.
+# Whitespace is refused, never trimmed. HTTP drops a header's leading and trailing
+# spaces, so Google checks the trimmed key and answers 200, while ensure-secret.sh
+# stores the padded value and every consumer reads it unchanged.
 case "$KEY" in
   *$'\n'* | *$'\r'*)
     emit "rejected: malformed key (embedded line break)"
+    exit 2
+    ;;
+  *[[:space:]]*)
+    emit "rejected: malformed key (whitespace)"
     exit 2
     ;;
 esac
