@@ -8,6 +8,7 @@ import {
   resolveCheckoutPriceId,
   validateCheckoutPriceForTier,
 } from "~/lib/stripe-plans";
+import { isLiveStripeStatus } from "~/lib/billing-sync";
 
 export async function POST(request: NextRequest) {
   const started = Date.now();
@@ -104,6 +105,37 @@ export async function POST(request: NextRequest) {
     const firstCustomer = existingCustomers.data[0];
     if (firstCustomer) {
       customerId = firstCustomer.id;
+    }
+
+    if (customerId) {
+      // Checkout does not stop a second live subscription on its own, and a
+      // second one is a second charge the customer did not ask for. Refuse it
+      // here, before any session exists.
+      const existingSubscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "all",
+        limit: 10,
+      });
+      if (
+        existingSubscriptions.data.some((subscription) =>
+          isLiveStripeStatus(subscription.status)
+        )
+      ) {
+        recordProductEvent({
+          feature: "payment",
+          action: "checkout_create",
+          status: "error",
+          properties: { tier, error_type: "already_subscribed" },
+        });
+        return NextResponse.json(
+          {
+            error: "already_subscribed",
+            message:
+              "You already have a Shorted subscription. Manage it from your account settings.",
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Determine the base URL for redirects
