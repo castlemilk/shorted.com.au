@@ -149,7 +149,10 @@ export function ConversationContent({
     >
       <div
         ref={contentRef}
-        className={cn("flex min-h-full flex-col gap-4", className)}
+        // shrink-0: as a flex item the content would shrink to the scroller's
+        // height instead of growing past it, so the ResizeObserver never fired
+        // and the newest message ended below the fold.
+        className={cn("flex min-h-full shrink-0 flex-col gap-4", className)}
       >
         {children}
       </div>

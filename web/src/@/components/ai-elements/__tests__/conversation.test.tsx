@@ -150,6 +150,17 @@ describe("Conversation stick-to-bottom", () => {
     expect(screen.queryByRole("button", { name: "Jump to latest message" })).not.toBeInTheDocument();
   });
 
+  it("lets the content grow past the scroller instead of shrinking to it", () => {
+    // A flex item shrinks to its container unless it cannot. jsdom has no
+    // layout, so the class is the thing to pin: min-h-full alone let the
+    // content shrink, and the newest message then sat below the fold.
+    const log = renderThread();
+    const content = log.firstElementChild as HTMLElement;
+
+    expect(content.className).toMatch(/\bshrink-0\b/);
+    expect(content.className).toMatch(/\bmin-h-full\b/);
+  });
+
   it("is a live log that the thread can mark busy", () => {
     render(
       <Conversation>
