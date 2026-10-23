@@ -42,6 +42,10 @@ import { triggerEnrichmentAction } from "../triggerEnrichment";
 
 const REFUSED = new Error("NEXT_REDIRECT /?adminDenied=1");
 
+beforeAll(() => {
+  process.env.INTERNAL_SERVICE_SECRET = "test-internal-secret";
+});
+
 describe("getPendingEnrichments", () => {
   beforeEach(() => {
     jest.clearAllMocks();

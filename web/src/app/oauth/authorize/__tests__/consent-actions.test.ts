@@ -7,6 +7,10 @@
 
 const mockAuth = jest.fn();
 
+beforeAll(() => {
+  process.env.INTERNAL_SERVICE_SECRET = "test-internal-secret";
+});
+
 jest.mock("~/server/auth", () => ({
   auth: () => mockAuth() as unknown,
 }));

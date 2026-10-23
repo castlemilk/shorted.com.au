@@ -6,6 +6,7 @@
 
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { isDevOrTestRuntime, isE2eTestEmail } from "./e2e-identity";
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
@@ -19,7 +20,11 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
  */
 export function isAdminEmail(email: string | null | undefined): boolean {
   const normalised = email?.trim().toLowerCase();
-  return !!normalised && ADMIN_EMAILS.includes(normalised);
+  if (!normalised) return false;
+  // The E2E test identity is an admin only in a development or test runtime, even
+  // when it is on ADMIN_EMAILS.
+  if (isE2eTestEmail(normalised) && !isDevOrTestRuntime()) return false;
+  return ADMIN_EMAILS.includes(normalised);
 }
 
 export interface AdminSession {
@@ -52,7 +57,7 @@ export async function requireAdmin(): Promise<AdminSession> {
     );
   }
   // An unverified account is refused exactly like a non-admin.
-  if (!ADMIN_EMAILS.includes(email) || session?.user?.emailVerified !== true) {
+  if (!isAdminEmail(email) || session?.user?.emailVerified !== true) {
     redirect("/?adminDenied=1");
   }
   return {

@@ -128,6 +128,79 @@ describe("authorize: E2E fallback (non-production)", () => {
   });
 });
 
+describe("E2E identity outside development and test", () => {
+  const saved = {
+    NODE_ENV: process.env.NODE_ENV,
+    VERCEL_ENV: process.env.VERCEL_ENV,
+    ALLOW_E2E_AUTH: process.env.ALLOW_E2E_AUTH,
+    E2E_TEST_PASSWORD: process.env.E2E_TEST_PASSWORD,
+    ADMIN_EMAILS: process.env.ADMIN_EMAILS,
+  };
+
+  function restoreEnv(key: keyof typeof saved) {
+    const value = saved[key];
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+
+  beforeEach(() => {
+    // A preview build: production mode, but not the real production deployment, so the
+    // E2E fallback is switched on. The question is only the password and admin rules.
+    process.env.NODE_ENV = "production";
+    process.env.VERCEL_ENV = "preview";
+    process.env.ALLOW_E2E_AUTH = "true";
+    delete process.env.E2E_TEST_PASSWORD;
+    // The E2E account is listed as an admin on purpose. Outside development and test
+    // the listing must still grant nothing.
+    process.env.ADMIN_EMAILS = "ben@shorted.com.au,e2e-test@shorted.com.au";
+  });
+
+  afterEach(() => {
+    (Object.keys(saved) as Array<keyof typeof saved>).forEach(restoreEnv);
+  });
+
+  it("refuses the hard-coded password", async () => {
+    await expect(
+      provider.authorize({
+        email: "e2e-test@shorted.com.au",
+        password: "E2ETestPassword123!",
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("accepts an explicit preview password, and still grants no admin", async () => {
+    process.env.E2E_TEST_PASSWORD = "preview-only-password";
+
+    const user = await provider.authorize({
+      email: "e2e-test@shorted.com.au",
+      password: "preview-only-password",
+    });
+    expect(user).toMatchObject({
+      email: "e2e-test@shorted.com.au",
+      emailVerified: true,
+    });
+
+    const token = await jwt(
+      {} as JWT,
+      user as unknown as Record<string, unknown>,
+    );
+    expect(token.isAdmin).toBe(false);
+  });
+
+  it("keeps the hard-coded password and the E2E admin in development", async () => {
+    process.env.NODE_ENV = "development";
+
+    const user = await provider.authorize({
+      email: "e2e-test@shorted.com.au",
+      password: "E2ETestPassword123!",
+    });
+    expect(user).toMatchObject({ email: "e2e-test@shorted.com.au" });
+
+    const token = await jwt({ email: "e2e-test@shorted.com.au" } as JWT);
+    expect(token.isAdmin).toBe(true);
+  });
+});
+
 describe("jwt and session callbacks: admin needs a verified email", () => {
   const savedAdmins = process.env.ADMIN_EMAILS;
 

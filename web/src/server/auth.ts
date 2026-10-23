@@ -3,12 +3,16 @@ import Credentials from "next-auth/providers/credentials";
 import type { JWT } from "next-auth/jwt";
 import type { AdapterUser } from "next-auth/adapters";
 import { adminAuth } from "@/lib/firebase-admin";
+import {
+  e2eTestEmail,
+  e2eTestPassword,
+  isDevOrTestRuntime,
+  isE2eTestEmail,
+} from "~/server/e2e-identity";
 
-// E2E Test User - only enabled in non-production environments
-// This allows Playwright tests to authenticate without OAuth
+// E2E test user. Its email and password come from e2e-identity.ts, which gives the
+// hard-coded password only to a development or test runtime.
 const E2E_TEST_USER = {
-  email: process.env.E2E_TEST_EMAIL ?? "e2e-test@shorted.com.au",
-  password: process.env.E2E_TEST_PASSWORD ?? "E2ETestPassword123!",
   id: "e2e-test-user",
   name: "E2E Test User",
 };
@@ -127,17 +131,19 @@ export const authOptions = {
           console.log("[Auth] E2E fallback check:", { email, allowE2E });
         }
 
+        const e2ePassword = e2eTestPassword();
         if (
           allowE2E &&
-          email === E2E_TEST_USER.email &&
-          password === E2E_TEST_USER.password
+          e2ePassword !== undefined &&
+          email === e2eTestEmail() &&
+          password === e2ePassword
         ) {
           if (process.env.NODE_ENV === "development") {
             console.log("[Auth] E2E test user authenticated successfully");
           }
           const user: CredentialsUser = {
             id: E2E_TEST_USER.id,
-            email: E2E_TEST_USER.email,
+            email: e2eTestEmail(),
             name: E2E_TEST_USER.name,
             emailVerified: true,
           };
@@ -199,13 +205,15 @@ export const authOptions = {
         .split(",")
         .map((e) => e.trim());
 
-      // In non-production, allow E2E test user to be admin
+      // The E2E test identity is an admin only in a development or test runtime. It
+      // never takes admin through the allowlist, so ADMIN_EMAILS cannot grant it
+      // anywhere else.
       const isTestUser =
-        process.env.NODE_ENV !== "production" &&
-        token.email === E2E_TEST_USER.email;
+        isDevOrTestRuntime() && isE2eTestEmail(token.email);
       token.isAdmin =
         isTestUser ||
         (token.emailVerified === true &&
+          !isE2eTestEmail(token.email) &&
           adminEmails.includes(token.email ?? ""));
 
       return token;

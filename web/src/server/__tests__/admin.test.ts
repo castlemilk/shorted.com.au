@@ -20,7 +20,7 @@ let admin: AdminModule;
 
 beforeAll(async () => {
   // ADMIN_EMAILS is read when the module loads, so it is set first.
-  process.env.ADMIN_EMAILS = ADMIN;
+  process.env.ADMIN_EMAILS = `${ADMIN},e2e-test@shorted.com.au`;
   admin = await import("~/server/admin");
 });
 
@@ -69,6 +69,27 @@ describe("requireAdmin", () => {
     await expect(admin.requireAdmin()).rejects.toThrow(
       "NEXT_REDIRECT /?adminDenied=1",
     );
+  });
+});
+
+describe("the E2E identity", () => {
+  it("is an admin only in a development or test runtime, even when it is on ADMIN_EMAILS", async () => {
+    const savedNodeEnv = process.env.NODE_ENV;
+    signedInAs({
+      id: "uid-e2e",
+      email: "e2e-test@shorted.com.au",
+      emailVerified: true,
+    });
+    try {
+      process.env.NODE_ENV = "production";
+      await expect(admin.isAdmin()).resolves.toBe(false);
+      expect(admin.isAdminEmail("e2e-test@shorted.com.au")).toBe(false);
+
+      process.env.NODE_ENV = "test";
+      await expect(admin.isAdmin()).resolves.toBe(true);
+    } finally {
+      process.env.NODE_ENV = savedNodeEnv;
+    }
   });
 });
 

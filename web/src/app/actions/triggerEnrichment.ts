@@ -4,6 +4,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { EnrichmentService } from "~/gen/shorts/v1alpha1/enrichment_pb";
 import { requireAdmin } from "~/server/admin";
+import { internalServiceSecret } from "~/server/internal-service-secret";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { revalidatePath } from "next/cache";
 import { retryWithBackoff } from "@/lib/retry";
@@ -32,7 +33,7 @@ export async function triggerEnrichmentAction(formData: FormData) {
   });
   const client = createClient(EnrichmentService, transport);
 
-  const internalSecret = process.env.INTERNAL_SECRET ?? "dev-internal-secret";
+  const internalSecret = internalServiceSecret();
 
   try {
     const resp = await retryWithBackoff(

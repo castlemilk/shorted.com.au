@@ -5,6 +5,7 @@ import { createClient } from "@connectrpc/connect";
 import { EnrichmentService } from "~/gen/shorts/v1alpha1/enrichment_pb";
 import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import { requireAdmin } from "~/server/admin";
+import { internalServiceSecret } from "~/server/internal-service-secret";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
 
@@ -27,7 +28,7 @@ export async function getEnrichmentComparison(
   });
   const enrichmentClient = createClient(EnrichmentService, transport);
   const stockClient = createClient(StockService, transport);
-  const internalSecret = process.env.INTERNAL_SECRET ?? "dev-internal-secret";
+  const internalSecret = internalServiceSecret();
 
   const headers = {
     "X-Internal-Secret": internalSecret,

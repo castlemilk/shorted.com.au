@@ -19,6 +19,7 @@ import { revalidatePath } from "next/cache";
 
 import { RegisterReviewService } from "~/gen/registerreview/v1/register_review_pb";
 import { requireAdmin } from "~/server/admin";
+import { internalServiceSecret } from "~/server/internal-service-secret";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "../config";
 
 /** The decision vocabulary, mirroring the proto enum. No fuzzy member exists. */
@@ -55,7 +56,7 @@ async function reviewClient() {
   return {
     client: createClient(RegisterReviewService, transport),
     headers: {
-      "X-Internal-Secret": process.env.INTERNAL_SECRET ?? "dev-internal-secret",
+      "X-Internal-Secret": internalServiceSecret(),
       // curated_by is read from this header server-side, never from the request
       // body: a body-supplied identity is one the caller chose for themselves.
       "X-User-Email": admin.email,
