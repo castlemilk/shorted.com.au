@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { localPoint } from "@visx/event";
-import { formatReadoutDate } from "./chart-readout";
+import { formatReadoutDate, type ReadoutVolume } from "./chart-readout";
 import { chartTheme } from "./chart-theme";
 import { nearest } from "./nearest";
 import type { ChartPoint, ChartSeriesSpec, AxisSpec } from "./types";
@@ -234,15 +234,21 @@ export function useChartPointer(opts: {
   };
 }
 
-/** Tooltip body: one row per series, value formatted by its axis. */
+/**
+ * Tooltip body: one row per series, value formatted by its axis, then the
+ * session's volume where the chart draws it.
+ */
 export function TooltipContent({
   hover,
   leftAxis,
   rightAxis,
+  volume = null,
 }: {
   hover: HoverState;
   leftAxis?: AxisSpec;
   rightAxis?: AxisSpec;
+  /** The session's volume (`volumeReading`); null leaves the row out. */
+  volume?: ReadoutVolume | null;
 }) {
   // The same formatter as the strip and the measure card (spec D5, Dates), so
   // one chart prints one date one way, whoever's browser it is in. And the same
@@ -304,6 +310,30 @@ export function TooltipContent({
           </div>
         );
       })}
+      {volume && (
+        <div
+          data-tooltip-volume
+          title="Shares traded on the ASX in the session: the grey bars at the foot of the chart"
+          style={{ display: "flex", alignItems: "center", gap: 6 }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 1,
+              background: chartTheme.volume,
+              opacity: 0.6,
+              display: "inline-block",
+            }}
+          />
+          <span style={{ opacity: 0.8 }}>Volume</span>
+          <span style={{ marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>
+            {volume.value ?? "n/a"}
+            {volume.dateNote ? ` · ${volume.dateNote}` : ""}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

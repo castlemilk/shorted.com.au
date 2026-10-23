@@ -797,6 +797,16 @@ view or an axis changes, so a zoom whose widest label is a character shorter
 does not move the plot 5px under the pointer. With no right axis the right keeps 28px (the time axis' last label
 hangs half its width past the plot), and a compact chart its 32px and 12px.
 
+Volume (the Price and Combined views, wider than 500px) is a grey bar per
+session in the bottom 28% of the plot on a scale of its own, all ONE path
+(`volume-bars.ts`). It is read, never left unlabelled: the strip's `Vol` entry
+follows the series on one row and sits in the headline row on a phone (it adds
+no row, so the strip's height rule stands), the card has a Volume row, the bar
+under a reading is highlighted, and a measure leaves it out. A reading takes
+volume from the RAW points on screen, never the decimated bars. The brush band
+draws the one series spanning the most time (`brushOverviewPoints`): merged, a
+$4 price and a 9% short position alternated day by day into a grey comb.
+
 The sign-in banner renders on the Overview only, after the About card, as one
 44px line. Under `html.anon`, `critical-css.ts` reserves its `.login-slot` at
 46px (the line plus the wrapper's 2px border) with a 1rem margin, so the slot

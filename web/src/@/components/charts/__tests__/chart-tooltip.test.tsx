@@ -297,6 +297,21 @@ describe("TooltipContent", () => {
     );
     expect(container.textContent).toContain("6 Jan 2026");
   });
+
+  it("names the session's volume in full, last, when it is given one", () => {
+    const { container } = render(
+      <TooltipContent hover={hoverOn(T0)} volume={{ value: "1.2M", dateNote: null }} />,
+    );
+    const row = container.querySelector("[data-tooltip-volume]")!;
+    expect(row.textContent).toBe("Volume1.2M");
+    expect(row.getAttribute("title")).toMatch(/shares traded/i);
+    expect(row.parentElement!.lastElementChild).toBe(row);
+  });
+
+  it("has no volume row when the chart draws no volume", () => {
+    const { container } = render(<TooltipContent hover={hoverOn(T0)} />);
+    expect(container.querySelector("[data-tooltip-volume]")).toBeNull();
+  });
 });
 
 describe("stepIndex", () => {

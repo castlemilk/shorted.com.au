@@ -21,6 +21,7 @@ import { Line, AreaClosed } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
 import { localPoint } from "@visx/event";
 import { decimate } from "./decimate";
+import { volumeBarAt } from "./volume-bars";
 import { AXIS_NUM_TICKS, axisMargin } from "./axis-margin";
 import { useChartScales, valueAxisLabels } from "./use-chart-scales";
 import { normalizeToPercentChange } from "./indicators";
@@ -29,8 +30,10 @@ import {
   buildLatestReadout,
   buildMeasureReadout,
   buildPointReadout,
+  readoutDayKey,
   readoutStripHeight,
   resolveReadoutMode,
+  volumeReading,
   widestValueChars,
   type ReadoutDelta,
   type ReadoutEntry,
@@ -103,6 +106,26 @@ function normalizePoints(points: ChartPoint[]): ChartPoint[] {
   if (!points.length) return points;
   const norm = normalizeToPercentChange(points.map((p) => p.v));
   return points.map((p, i) => ({ t: p.t, v: norm[i] ?? 0 }));
+}
+
+/**
+ * The points the brush band draws: the series that spans the most time (the
+ * first of equals), alone. Series in different units cannot share one line:
+ * merged, a price and a short position alternate day by day and draw a comb.
+ */
+export function brushOverviewPoints(series: ChartSeriesSpec[]): ChartPoint[] {
+  let best: ChartPoint[] = [];
+  let bestSpan = -1;
+  for (const s of series) {
+    const a = s.points[0];
+    const b = s.points[s.points.length - 1];
+    if (!a || !b) continue;
+    if (b.t - a.t > bestSpan) {
+      bestSpan = b.t - a.t;
+      best = s.points;
+    }
+  }
+  return best;
 }
 
 /** Exported for tests only — use `StockChart` (sized by ParentSize) in app code. */
@@ -318,14 +341,25 @@ export function StockChartInner({
     [leftScale, rightScale],
   );
 
-  // Volume scale: bottom ~28% of the main panel.
-  const decVolume = useMemo(() => {
-    if (!showVolume || !volume) return [] as ChartPoint[];
-    const raw = filtered
+  // The volume on screen, raw: what a reading names and the highlight marks.
+  // Undefined when the chart draws none, which keeps volume out of the readout.
+  const rangeVolume = useMemo(() => {
+    if (!showVolume || !volume) return undefined;
+    return filtered
       ? volume.filter((p) => p.t >= filtered[0] && p.t <= filtered[1])
       : volume;
-    return decimate(raw, Math.max(innerW * decimationTargetPerPx, 2)).points;
-  }, [showVolume, volume, filtered, innerW, decimationTargetPerPx]);
+  }, [showVolume, volume, filtered]);
+
+  // Volume scale: bottom ~28% of the main panel. The bars are drawn from a
+  // decimated set; a reading never is (it could drop the session it names).
+  // The extremes are kept: the busiest session is always drawn, and the scale's
+  // top is the raw maximum, so a highlighted bar never rises out of the band.
+  const decVolume = useMemo(() => {
+    if (!rangeVolume) return [] as ChartPoint[];
+    return decimate(rangeVolume, Math.max(innerW * decimationTargetPerPx, 2), {
+      keepExtrema: true,
+    }).points;
+  }, [rangeVolume, innerW, decimationTargetPerPx]);
 
   const volumeScale = useMemo(() => {
     const maxV = decVolume.reduce((m, p) => Math.max(m, p.v), 0) || 1;
@@ -667,9 +701,10 @@ export function StockChartInner({
             zoomed: filtered !== null,
             viewMode,
             format: readoutFormat,
+            volume: rangeVolume,
           })
         : null,
-    [readoutMode, renderSeries, filtered, viewMode, readoutFormat],
+    [readoutMode, renderSeries, filtered, viewMode, readoutFormat, rangeVolume],
   );
 
   // The room each series' value keeps on one row: that of the widest it can show
@@ -694,6 +729,7 @@ export function StockChartInner({
         entries: active.entries,
         pinned: isPinnedView,
         format: readoutFormat,
+        volume: rangeVolume,
       });
     }
     return latestModel;
@@ -705,8 +741,37 @@ export function StockChartInner({
     isPinnedView,
     renderSeries,
     readoutFormat,
+    rangeVolume,
     latestModel,
   ]);
+
+  // The time of the session being read: the first series' point, as the
+  // readout's headline dates it.
+  const activeT = active?.entries[0]?.point.t ?? null;
+
+  // The bar under the reading (hover, pin or key step), measured on the raw
+  // volume so it is the session the readout names. None while measuring.
+  const activeVolumeBar = useMemo(
+    () =>
+      rangeVolume && activeT !== null && !measure
+        ? volumeBarAt(rangeVolume, activeT, {
+            x: (t) => dateScale(new Date(t)) ?? 0,
+            y: (v) => volumeScale(v) ?? 0,
+            baseline: volumeScale(0) ?? 0,
+            width: innerW,
+          })
+        : null,
+    [rangeVolume, activeT, measure, dateScale, volumeScale, innerW],
+  );
+
+  // The hover card's volume row: the same reading the strip would show.
+  const tooltipVolume = useMemo(
+    () =>
+      readoutMode === "tooltip" && activeT !== null
+        ? volumeReading(rangeVolume, activeT, readoutDayKey(activeT))
+        : null,
+    [readoutMode, rangeVolume, activeT],
+  );
 
   // The announcer speaks when a reading is pinned and when it is released, in
   // both modes, and never while one is scrubbed (a scrub is not a pin). Keyed on
@@ -721,10 +786,11 @@ export function StockChartInner({
               entries: pinnedEntries,
               pinned: true,
               format: readoutFormat,
+              volume: rangeVolume,
             }),
           )
         : null,
-    [pinnedEntries, renderSeries, readoutFormat],
+    [pinnedEntries, renderSeries, readoutFormat, rangeVolume],
   );
   const [announcement, setAnnouncement] = useState("");
   useEffect(() => {
@@ -772,15 +838,17 @@ export function StockChartInner({
     [pinned, active, onLeave, pinAtTime, releasePin, stepPoints],
   );
 
-  // Brush overview: aggregate ALL series' points so the band + selectable range
-  // span the full dataset (not just series[0]). Hard-decimated for the overview.
-  const brushSeries = useMemo(() => {
-    const all: ChartPoint[] = [];
-    for (const s of series) for (const p of s.points) all.push(p);
-    if (!all.length) return [] as ChartPoint[];
-    all.sort((a, b) => a.t - b.t);
-    return decimate(all, Math.max(Math.floor(innerW / 2), 2)).points;
-  }, [series, innerW]);
+  // Brush overview: the shape of ONE series, the one spanning the most time
+  // (`brushOverviewPoints`), hard-decimated. It once merged every series' points
+  // into one line, and in the Combined view that zig-zagged between a $4 price
+  // and a 9% short position on alternate days: a grey comb that read as volume.
+  // The band and its selectable range still span every series' dates.
+  const brushSeries = useMemo(
+    () =>
+      decimate(brushOverviewPoints(series), Math.max(Math.floor(innerW / 2), 2))
+        .points,
+    [series, innerW],
+  );
 
   // Reduce loops (not Math.min(...arr) spread) — safe for any point count.
   const brushDomain = useMemo(() => {
@@ -788,11 +856,20 @@ export function StockChartInner({
     let tHi = -Infinity;
     let vLo = Infinity;
     let vHi = -Infinity;
+    // Points are ascending, so each series' ends are its first and last.
+    for (const s of series) {
+      const a = s.points[0];
+      const b = s.points[s.points.length - 1];
+      if (a && a.t < tLo) tLo = a.t;
+      if (b && b.t > tHi) tHi = b.t;
+    }
     for (const p of brushSeries) {
-      if (p.t < tLo) tLo = p.t;
-      if (p.t > tHi) tHi = p.t;
       if (p.v < vLo) vLo = p.v;
       if (p.v > vHi) vHi = p.v;
+    }
+    if (!Number.isFinite(vLo)) {
+      vLo = 0;
+      vHi = 1;
     }
     if (!Number.isFinite(tLo)) {
       tLo = 0;
@@ -801,7 +878,7 @@ export function StockChartInner({
       vHi = 1;
     }
     return { tLo, tHi, vLo, vHi };
-  }, [brushSeries]);
+  }, [series, brushSeries]);
 
   const brushDateScale = useMemo(
     () =>
@@ -938,7 +1015,26 @@ export function StockChartInner({
             </rect>
           ))}
           {showVolume && (
-            <VolumePath data={decVolume} xScale={dateScale} yScale={volumeScale} />
+            <VolumePath
+              data={decVolume}
+              xScale={dateScale}
+              yScale={volumeScale}
+              width={innerW}
+            />
+          )}
+          {/* The bar of the session being read, so the reading's Vol figure
+              points at the bar it names. */}
+          {activeVolumeBar && (
+            <rect
+              data-chart="volume-active"
+              x={activeVolumeBar.x}
+              y={activeVolumeBar.y}
+              width={activeVolumeBar.width}
+              height={activeVolumeBar.height}
+              fill={chartTheme.volume}
+              fillOpacity={chartTheme.volumeActiveOpacity}
+              pointerEvents="none"
+            />
           )}
           {renderSeries.map((s, i) => (
             <SeriesPath
@@ -1202,7 +1298,12 @@ export function StockChartInner({
                 zIndex: 20,
               }}
             >
-              <TooltipContent hover={active} leftAxis={leftAxis} rightAxis={rightAxis} />
+              <TooltipContent
+                hover={active}
+                leftAxis={leftAxis}
+                rightAxis={rightAxis}
+                volume={tooltipVolume}
+              />
               {isPinnedView && (
                 <>
                   <div

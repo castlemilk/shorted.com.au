@@ -12,6 +12,7 @@ import {
 } from "./axis-margin";
 import type { ChartPoint, ChartSeriesSpec } from "./types";
 import type { ChartScales } from "./use-chart-scales";
+import { volumeBarsPath } from "./volume-bars";
 
 type TimeScale = ChartScales["dateScale"];
 type LinearScale = ChartScales["leftScale"];
@@ -200,28 +201,39 @@ export const SeriesPath = React.memo(function SeriesPath({
   );
 });
 
-/** Single AreaClosed for volume (replaces the per-point <Bar> map). */
+/**
+ * Volume as a bar per session, all of them ONE path (volume-bars.ts), never a
+ * node per point. `width` is the plot's, so the end bars stop at its edges.
+ */
 export const VolumePath = React.memo(function VolumePath({
   data,
   xScale,
   yScale,
+  width,
 }: {
   data: ChartPoint[];
   xScale: TimeScale;
   yScale: LinearScale;
+  width: number;
 }) {
-  if (!data.length) return null;
+  const d = React.useMemo(
+    () =>
+      volumeBarsPath(data, {
+        x: (t) => xScale(new Date(t)) ?? 0,
+        y: (v) => yScale(v) ?? 0,
+        baseline: yScale(0) ?? 0,
+        width,
+      }),
+    [data, xScale, yScale, width],
+  );
+  if (!d) return null;
   return (
     <g data-chart="volume" pointerEvents="none">
-      <AreaClosed<ChartPoint>
-        data={data}
-        x={sx(xScale)}
-        y={sy(yScale)}
-        yScale={yScale}
+      <path
+        d={d}
         fill={chartTheme.volume}
         fillOpacity={chartTheme.volumeOpacity}
         stroke="none"
-        curve={curveLinear}
       />
     </g>
   );

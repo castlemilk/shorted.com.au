@@ -1,5 +1,9 @@
 import { fireEvent, render, within } from "@testing-library/react";
-import { ChartReadoutStrip, pinnedAnnouncement } from "../chart-readout-strip";
+import {
+  ChartReadoutStrip,
+  VOLUME_EXPLAINER,
+  pinnedAnnouncement,
+} from "../chart-readout-strip";
 import {
   readoutStripHeight,
   type ReadoutDelta,
@@ -611,5 +615,70 @@ describe("pinnedAnnouncement", () => {
         model({ state: "pinned", headline: "6 Oct 2026", entries: [entry({ value: null })] }),
       ),
     ).toBe("Pinned 6 Oct 2026");
+  });
+});
+
+describe("ChartReadoutStrip: the session's volume", () => {
+  const volume = { value: "1.2M", dateNote: null };
+  const vol = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-readout-volume]");
+
+  it("follows the series on one row, labelled, with the bars' explanation", () => {
+    const { container } = renderStrip(model({ volume }), { width: 700 });
+    const v = vol(container)!;
+    expect(v).toBeTruthy();
+    expect(v.textContent).toBe("Vol1.2M");
+    expect(v.getAttribute("title")).toBe(VOLUME_EXPLAINER);
+    expect(VOLUME_EXPLAINER).toMatch(/shares traded/i);
+    // It is the last of the entries, after every series.
+    const entries = container.querySelector("[data-readout-entries]")!;
+    expect(entries.lastElementChild).toBe(v);
+  });
+
+  it("sits on the headline row of a phone strip, so it adds no row", () => {
+    const width = 560;
+    const { container } = renderStrip(model({ volume }), { width });
+    const rows = container.querySelectorAll("[data-readout-row]");
+    expect(within(rows[0] as HTMLElement).getByText("1.2M")).toBeTruthy();
+    expect((container.firstElementChild as HTMLElement).style.height).toBe(
+      `${readoutStripHeight(width, 1)}px`,
+    );
+  });
+
+  it("keeps the room of the widest volume on one row, so a scrub moves nothing after it", () => {
+    const { container } = renderStrip(model({ volume }), { width: 700 });
+    const value = container.querySelector<HTMLElement>("[data-readout-volume-value]")!;
+    expect(value.style.minWidth).toBe("7ch");
+  });
+
+  it("dates a volume from another day, and reads n/a for one not held", () => {
+    const { container } = renderStrip(
+      model({ volume: { value: null, dateNote: "5 Oct" } }),
+      { width: 700 },
+    );
+    expect(vol(container)!.textContent).toBe("Voln/a· 5 Oct");
+  });
+
+  it("is absent when the chart draws no volume, and in a measure", () => {
+    expect(vol(renderStrip(model(), { width: 700 }).container)).toBeNull();
+    expect(
+      vol(renderStrip(model({ state: "measure", volume }), { width: 700 }).container),
+    ).toBeNull();
+  });
+
+  it("is announced with a pinned reading", () => {
+    expect(
+      pinnedAnnouncement(
+        model({ state: "pinned", headline: "6 Oct 2026", volume }),
+      ),
+    ).toBe("Pinned 6 Oct 2026: Price $43.21, Volume 1.2M");
+    expect(
+      pinnedAnnouncement(
+        model({
+          state: "pinned",
+          headline: "6 Oct 2026",
+          volume: { value: "1.2M", dateNote: "5 Oct" },
+        }),
+      ),
+    ).toBe("Pinned 6 Oct 2026: Price $43.21, Volume 1.2M on 5 Oct");
   });
 });
