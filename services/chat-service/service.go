@@ -5,9 +5,9 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"connectrpc.com/connect"
@@ -28,6 +28,13 @@ type ChatServiceHandler struct {
 	maxConversations   int
 	internalSecret     string
 	environment        string
+
+	// ledger counts sends against limits. It is nil when there is no database,
+	// and then SendMessage refuses before reaching it.
+	ledger usageLedger
+	limits chatSendLimits
+	// admitTimeout bounds admission. Zero means chatAdmitTimeout.
+	admitTimeout time.Duration
 }
 
 var _ chatv1connect.ChatServiceHandler = (*ChatServiceHandler)(nil)
@@ -36,14 +43,18 @@ var _ chatv1connect.ChatServiceHandler = (*ChatServiceHandler)(nil)
 func NewChatServiceHandler(store *ConversationStore, llmClient *LLMClient, cfg *Config) *ChatServiceHandler {
 	if cfg == nil {
 		cfg = &Config{
-			ChatMaxInputChars:  2000,
-			ChatHistoryLimit:   20,
-			MaxMessagesPerConv: 100,
-			MaxConversations:   100,
-			Environment:        "development",
+			ChatMaxInputChars:        2000,
+			ChatHistoryLimit:         20,
+			MaxMessagesPerConv:       100,
+			MaxConversations:         100,
+			Environment:              "development",
+			ChatSendsPerMinute:       4,
+			ChatSendsPerDay:          40,
+			ChatSendsPerMonth:        600,
+			ChatGlobalSendsPerMinute: 60,
 		}
 	}
-	return &ChatServiceHandler{
+	handler := &ChatServiceHandler{
 		store:              store,
 		llmClient:          llmClient,
 		maxInputChars:      cfg.ChatMaxInputChars,
@@ -52,7 +63,20 @@ func NewChatServiceHandler(store *ConversationStore, llmClient *LLMClient, cfg *
 		maxConversations:   cfg.MaxConversations,
 		internalSecret:     cfg.InternalServiceSecret,
 		environment:        cfg.Environment,
+		limits: chatSendLimits{
+			PerMinute:       cfg.ChatSendsPerMinute,
+			PerDay:          cfg.ChatSendsPerDay,
+			PerMonth:        cfg.ChatSendsPerMonth,
+			GlobalPerMinute: cfg.ChatGlobalSendsPerMinute,
+		},
+		admitTimeout: chatAdmitTimeout,
 	}
+	// Assigned only when there is a store: a nil *ConversationStore inside a
+	// non-nil interface would look configured to the limiter.
+	if store != nil {
+		handler.ledger = store
+	}
+	return handler
 }
 
 func validateChatMessage(message string, maxChars int) error {
@@ -114,11 +138,16 @@ func (h *ChatServiceHandler) authorizeChatRequest(headers http.Header) (string, 
 }
 
 // SendMessage handles a chat message, executing tools and returning the assistant response.
+//
+// Order matters. The message is validated first, so an oversized message costs
+// nothing. The send is admitted against the limits before anything is written,
+// so a refused send leaves no conversation or message behind. The model is
+// called only after both.
 func (h *ChatServiceHandler) SendMessage(
 	ctx context.Context,
 	req *connect.Request[chatv1.SendMessageRequest],
 	stream *connect.ServerStream[chatv1.SendMessageResponse],
-) error {
+) (retErr error) {
 	msg := req.Msg
 	if err := validateChatMessage(msg.Message, h.maxInputChars); err != nil {
 		return connect.NewError(connect.CodeInvalidArgument, err)
@@ -136,12 +165,13 @@ func (h *ChatServiceHandler) SendMessage(
 		return err
 	}
 
-	// Get or create conversation
+	// An existing conversation is resolved before admission, so a send that
+	// names a conversation the caller cannot use spends no send.
 	var conv *Conversation
 	if msg.ConversationId != "" {
 		conv, err = h.store.GetConversation(ctx, msg.ConversationId)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, fmt.Errorf("get conversation: %w", err))
+			return internalFailure("get conversation", err)
 		}
 		if conv == nil {
 			return connect.NewError(connect.CodeNotFound, fmt.Errorf("conversation not found"))
@@ -149,7 +179,22 @@ func (h *ChatServiceHandler) SendMessage(
 		if err := ensureConversationOwner(conv, userID); err != nil {
 			return connect.NewError(connect.CodePermissionDenied, err)
 		}
-	} else {
+	}
+
+	turn, err := h.admitSend(ctx, userID)
+	if err != nil {
+		return err
+	}
+	completion := sendCompletion{Model: h.llmClient.model}
+	// reachedModel is set once the provider has answered. Until then a failure
+	// is a failure before the model, and does not count against the limits.
+	reachedModel := false
+	defer func() {
+		completion.Outcome = sendOutcome(ctx, retErr, reachedModel)
+		turn.finish(ctx, completion)
+	}()
+
+	if conv == nil {
 		// Create new conversation with first message as title
 		title := msg.Message
 		if len(title) > 100 {
@@ -157,21 +202,22 @@ func (h *ChatServiceHandler) SendMessage(
 		}
 		conv, err = h.store.CreateConversation(ctx, userID, title, msg.ContextStockCode)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, fmt.Errorf("create conversation: %w", err))
+			return internalFailure("create conversation", err)
 		}
 	}
+	completion.ConversationID = conv.ID
 
 	// Store user message
 	_, err = h.store.AddMessage(ctx, conv.ID, "user", msg.Message, nil, nil)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("store user message: %w", err))
+		return internalFailure("store user message", err)
 	}
 	recordChatStorageWrite(ctx, "user")
 
 	// Get conversation history
 	history, err := h.store.GetRecentMessages(ctx, conv.ID, h.historyLimit)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("get history: %w", err))
+		return internalFailure("get history", err)
 	}
 
 	// Remove the just-added user message from history (it will be sent as the current message)
@@ -195,11 +241,14 @@ func (h *ChatServiceHandler) SendMessage(
 	}
 
 	llmResp, err := h.llmClient.ChatStream(ctx, systemPrompt, history, msg.Message, onChunk)
+	reachedModel = err == nil || modelAnswered(err)
 	if err != nil {
-		log.Printf("LLM error: %v", err)
 		recordChatExperienceEvent("send_message", "error", "llm_error")
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("chat error: %w", err))
+		h.keepPartialReply(ctx, conv.ID, fullContent)
+		return modelFailure(err)
 	}
+	completion.InputTokens, completion.OutputTokens = completionTokens(llmResp.Usage)
+	completion.ToolCalls = len(llmResp.ToolCalls)
 
 	// Marshal tool calls and citations for storage
 	var toolCallsJSON, citationsJSON json.RawMessage
@@ -213,11 +262,11 @@ func (h *ChatServiceHandler) SendMessage(
 	// Store assistant message
 	_, err = h.store.AddMessage(ctx, conv.ID, "assistant", fullContent, toolCallsJSON, citationsJSON)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("store assistant message: %w", err))
+		return internalFailure("store assistant message", err)
 	}
 	recordChatStorageWrite(ctx, "assistant")
 	if pruned, pruneErr := h.store.PruneMessages(ctx, conv.ID, h.maxMessagesPerConv); pruneErr != nil {
-		log.Printf("chat prune failed for conversation %s: %v", conv.ID, pruneErr)
+		logRedacted("chat prune failed for conversation %s: %v", conv.ID, pruneErr)
 	} else {
 		recordChatMessagesPruned(ctx, pruned)
 	}
@@ -251,10 +300,30 @@ func (h *ChatServiceHandler) SendMessage(
 		ToolCalls:      protoToolCalls,
 		Citations:      protoCitations,
 	}); err != nil {
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("send response: %w", err))
+		return internalFailure("send response", err)
 	}
 
 	return nil
+}
+
+// keepPartialReply stores what the model streamed before its turn failed or was
+// canceled, so a reload shows what the user saw. It writes with a context that
+// outlives the request, because a canceled stream is exactly when this matters,
+// and the write is bounded by usageWriteTimeout.
+func (h *ChatServiceHandler) keepPartialReply(ctx context.Context, conversationID, content string) {
+	if content == "" {
+		return
+	}
+	writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), usageWriteTimeout)
+	defer cancel()
+	if _, err := h.store.AddMessage(writeCtx, conversationID, "assistant", content, nil, nil); err != nil {
+		logRedacted("chat: keep partial reply for conversation %s: %v", conversationID, err)
+		return
+	}
+	recordChatStorageWrite(writeCtx, "assistant")
+	if _, err := h.store.PruneMessages(writeCtx, conversationID, h.maxMessagesPerConv); err != nil {
+		logRedacted("chat prune failed for conversation %s: %v", conversationID, err)
+	}
 }
 
 // GetConversationHistory returns messages for a conversation.
@@ -272,7 +341,7 @@ func (h *ChatServiceHandler) GetConversationHistory(
 
 	conv, err := h.store.GetConversation(ctx, req.Msg.ConversationId)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, internalFailure("get conversation history", err)
 	}
 	if conv == nil {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("conversation not found"))
@@ -283,7 +352,7 @@ func (h *ChatServiceHandler) GetConversationHistory(
 
 	messages, err := h.store.GetMessages(ctx, req.Msg.ConversationId, h.maxMessagesPerConv)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, internalFailure("get messages", err)
 	}
 
 	var protoMsgs []*chatv1.ChatMessage
@@ -351,7 +420,7 @@ func (h *ChatServiceHandler) ListConversations(
 
 	convs, err := h.store.ListConversations(ctx, userID, limit)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, internalFailure("list conversations", err)
 	}
 
 	var protoConvs []*chatv1.ConversationSummary
@@ -385,7 +454,7 @@ func (h *ChatServiceHandler) DeleteConversation(
 	}
 
 	if err := h.store.DeleteConversation(ctx, req.Msg.ConversationId, userID); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, internalFailure("delete conversation", err)
 	}
 
 	return connect.NewResponse(&chatv1.DeleteConversationResponse{

@@ -1,6 +1,7 @@
 import {
   chatMessageToUIMessage,
   extractLatestUserText,
+  parseChatErrorBody,
   uiMessageToChatMessage,
 } from "../chat-ui-message-adapter";
 import type { ChatMessage } from "../use-chat";
@@ -79,5 +80,28 @@ describe("chat UI message adapter", () => {
     });
 
     expect(message.isStreaming).toBe(true);
+  });
+});
+
+describe("parseChatErrorBody", () => {
+  it("reads the contract body out of an in-stream error's text", () => {
+    const body = {
+      error: "Rate limit exceeded",
+      code: "rate_limited",
+      message: "You can send 4 messages per minute. Try again in 30 seconds.",
+      retryAfterSeconds: 30,
+      limitKind: "per_minute",
+      resetAt: 1_800_000_000,
+    };
+
+    expect(parseChatErrorBody(JSON.stringify(body))).toEqual(body);
+  });
+
+  it("does not mistake plain text or other JSON for a contract error", () => {
+    expect(parseChatErrorBody("Chat is temporarily unavailable.")).toBeUndefined();
+    expect(parseChatErrorBody(JSON.stringify({ code: 8 }))).toBeUndefined();
+    expect(parseChatErrorBody("null")).toBeUndefined();
+    expect(parseChatErrorBody(undefined)).toBeUndefined();
+    expect(parseChatErrorBody("")).toBeUndefined();
   });
 });

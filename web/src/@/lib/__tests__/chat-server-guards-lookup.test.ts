@@ -58,6 +58,7 @@ describe("authorizeChatRequest subscription lookup", () => {
       error: "Chat unavailable",
       code: "unavailable",
       message: "Chat is temporarily unavailable. Please try again shortly.",
+      retryAfterSeconds: 30,
     });
   });
 
@@ -81,6 +82,8 @@ describe("authorizeChatRequest subscription lookup", () => {
     expect(result.response.status).toBe(403);
     await expect(result.response.json()).resolves.toEqual({
       error: "Premium subscription required",
+      code: "premium_required",
+      message: "Shorted AI is included with a paid subscription.",
     });
   });
 });

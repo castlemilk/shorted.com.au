@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,12 +20,22 @@ import (
 )
 
 func main() {
+	// Every line this process writes passes through the redacting writer, so a
+	// secret that reaches a log call unscrubbed still does not leave the process.
+	log.SetOutput(redactingWriter{dst: os.Stderr})
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	cfg, err := LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+	registerSecrets(cfg.GeminiAPIKey, cfg.InternalServiceSecret, cfg.DatabaseURL)
+	if dsn, err := url.Parse(cfg.DatabaseURL); err == nil && dsn.User != nil {
+		if password, ok := dsn.User.Password(); ok {
+			registerSecrets(password)
+		}
 	}
 
 	otelShutdown, otelErr := shortedotel.InitProvider(ctx, "chat-service")
