@@ -76,7 +76,7 @@ type webSubscription struct {
 	Status             string  `json:"status"`
 	Tier               string  `json:"tier"`
 	PriceID            string  `json:"priceId"`
-	Amount             int64   `json:"amount"`
+	Amount             *int64  `json:"amount"` // nullable: a subscription with no price yet has none
 	Currency           string  `json:"currency"`
 	Interval           string  `json:"interval"`
 	CurrentPeriodStart *string `json:"currentPeriodStart"`
@@ -159,9 +159,11 @@ func (c *adminWebClient) post(ctx context.Context, name string, body any) (int, 
 
 // statusError names a refusal by its status. 401 is the one an operator can fix
 // by reading the secret, so it says so.
+// A 403 is the same refusal as a 401 from this side: the web app did not accept the
+// internal secret. Both name the secret, so an operator knows what to check.
 func statusError(name string, status int) error {
-	if status == http.StatusUnauthorized {
-		return fmt.Errorf("web %s: HTTP 401 (the web app rejected INTERNAL_SERVICE_SECRET)", name)
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return fmt.Errorf("web %s: HTTP %d (the web app rejected INTERNAL_SERVICE_SECRET)", name, status)
 	}
 	return fmt.Errorf("web %s: HTTP %d", name, status)
 }

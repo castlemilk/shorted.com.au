@@ -115,7 +115,7 @@ type BillingStripeSubscription struct {
 	Status             string `json:"status"`
 	Tier               string `json:"tier"`
 	Interval           string `json:"interval,omitempty"`
-	Amount             int64  `json:"amount" jsonschema:"The subscription price in minor units of its currency."`
+	Amount             *int64 `json:"amount,omitempty" jsonschema:"The subscription price in minor units of its currency. Omitted when Stripe has no price for the subscription."`
 	Currency           string `json:"currency,omitempty"`
 	CurrentPeriodStart string `json:"currentPeriodStart,omitempty"`
 	CurrentPeriodEnd   string `json:"currentPeriodEnd,omitempty"`

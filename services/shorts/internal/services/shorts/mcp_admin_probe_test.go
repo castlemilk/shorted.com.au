@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -321,3 +322,22 @@ func TestAdminWebClientSendsTheSecretAndDerivesRoutes(t *testing.T) {
 // server is built over.
 var _ mcp.AdminProbeOperator = (*adminMCPSource)(nil)
 var _ mcp.AdminBillingReader = (*adminMCPSource)(nil)
+
+// The web app refuses a request it cannot authenticate with 401 or 403. Both are
+// the secret being rejected, so both name it, on every route.
+func TestWebRoutesTreatAForbiddenSecretLikeAnUnauthorisedOne(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		web := &billingWeb{billingStatus: status, probeStatus: status}
+		srv := httptest.NewServer(web)
+		t.Cleanup(srv.Close)
+		c := &adminWebClient{checkURL: srv.URL + "/api/internal/admin-check", secret: billingTestSecret, client: srv.Client()}
+
+		_, err := c.customer(context.Background(), webBillingRequest{Action: "customer", Email: "ada@example.com"})
+		if err == nil || !strings.Contains(err.Error(), "rejected INTERNAL_SERVICE_SECRET") || !strings.Contains(err.Error(), "HTTP "+strconv.Itoa(status)) {
+			t.Fatalf("billing %d: err = %v, want the rejected secret named with the status", status, err)
+		}
+		if _, _, err := c.runPaidProbe(context.Background()); err == nil || !strings.Contains(err.Error(), "rejected INTERNAL_SERVICE_SECRET") {
+			t.Fatalf("probe %d: err = %v, want the rejected secret named", status, err)
+		}
+	}
+}

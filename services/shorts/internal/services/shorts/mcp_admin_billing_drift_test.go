@@ -80,7 +80,7 @@ func withRecent(now time.Time, ago time.Duration) func(*shortsstore.BillingSubsc
 // created a day before billingNow unless the test overrides it.
 func stripeSub(id, status string, end time.Time) webSubscription {
 	created := billingNow.Add(-24 * time.Hour)
-	return webSubscription{ID: id, Status: status, Tier: "premium", Interval: "month", Amount: 2900, Currency: "aud",
+	return webSubscription{ID: id, Status: status, Tier: "premium", Interval: "month", Amount: ptrInt64(2900), Currency: "aud",
 		CurrentPeriodEnd: billingRFC(end), CurrentPeriodStart: billingRFC(end.AddDate(0, -1, 0)), Created: billingRFC(created)}
 }
 
@@ -611,3 +611,5 @@ func TestBestAliveByCustomerRanksWithinACustomer(t *testing.T) {
 }
 
 func ptrTime(t time.Time) *time.Time { return &t }
+
+func ptrInt64(v int64) *int64 { return &v }

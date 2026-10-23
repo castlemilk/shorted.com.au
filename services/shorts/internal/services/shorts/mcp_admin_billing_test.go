@@ -233,7 +233,7 @@ func billingAdaCustomer(periodEnd time.Time) webCustomerView {
 	return webCustomerView{
 		Customer: &webCustomer{ID: "cus_A", Created: &created},
 		Subscriptions: []webSubscription{{
-			ID: "sub_A", Status: "active", Tier: "premium", PriceID: "price_A", Amount: 2900, Currency: "aud",
+			ID: "sub_A", Status: "active", Tier: "premium", PriceID: "price_A", Amount: ptrInt64(2900), Currency: "aud",
 			Interval: "month", CurrentPeriodEnd: billingRFC(periodEnd), Created: &created, MetadataUserID: "uid-a",
 		}},
 		LatestInvoice: &webInvoice{Status: "paid", AmountPaid: 2900, Currency: "aud", Created: &created, PaidAt: &created},
@@ -799,5 +799,44 @@ func TestSubscriberUsageReportsUserAndMCPApart(t *testing.T) {
 	}
 	if got := sourceStatus(sources, sourceAPIUsage); got != "available" {
 		t.Fatalf("api usage source = %s, want available", got)
+	}
+}
+
+// amount is nullable on the wire: a subscription with no price reads as no amount,
+// and the output omits it rather than reporting zero. A set price comes through.
+func TestStripeAmountIsNullableAndOmittedWhenUnknown(t *testing.T) {
+	periodEnd := billingClock().Add(20 * 24 * time.Hour)
+	f := billingHealthyFixture()
+	f.web.customers["id:cus_A"] = webCustomerView{
+		Customer: &webCustomer{ID: "cus_A"},
+		Subscriptions: []webSubscription{
+			{ID: "sub_priced", Status: "active", Tier: "premium", Amount: ptrInt64(2900), Currency: "aud", CurrentPeriodEnd: billingRFC(periodEnd)},
+			{ID: "sub_unpriced", Status: "canceled", Tier: "premium", Amount: nil, CurrentPeriodEnd: billingRFC(periodEnd)},
+		},
+	}
+	out, err := f.source(t).CheckSubscription(context.Background(), mcp.CheckSubscriptionInput{UserID: "uid-a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var priced, unpriced *mcp.BillingStripeSubscription
+	for i := range out.Stripe {
+		for j := range out.Stripe[i].Subscriptions {
+			s := &out.Stripe[i].Subscriptions[j]
+			if s.Status == "active" {
+				priced = s
+			} else {
+				unpriced = s
+			}
+		}
+	}
+	if priced == nil || priced.Amount == nil || *priced.Amount != 2900 {
+		t.Fatalf("priced subscription = %+v, want its amount", priced)
+	}
+	if unpriced == nil || unpriced.Amount != nil {
+		t.Fatalf("unpriced subscription = %+v, want no amount", unpriced)
+	}
+	raw, _ := json.Marshal(out.Stripe)
+	if !strings.Contains(string(raw), `"amount":2900`) || strings.Count(string(raw), `"amount"`) != 1 {
+		t.Fatalf("stripe JSON = %s, want amount present once, omitted for the unpriced subscription", raw)
 	}
 }
