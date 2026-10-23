@@ -159,12 +159,26 @@ function needsReconcile(subscription: Stripe.Subscription, now: number): boolean
 }
 
 function isCronAuthorized(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  // Fail closed: an unset secret must not make the route public.
-  if (!secret) return false;
-  const expected = digest(`Bearer ${secret}`);
-  const provided = digest(request.headers.get("authorization") ?? "");
-  return timingSafeEqual(provided, expected);
+  return bearerMatches(request, process.env.CRON_SECRET);
+}
+
+/**
+ * Constant-time Bearer check with the same rules as the paid probe's cron door
+ * (web/src/server/paid-probe/auth.ts), so the two cron doors agree. The configured
+ * secret and the presented token are both trimmed. A blank value on either side
+ * never matches, and an unset secret disables the door. Without the trim, a secret
+ * stored with a trailing newline would fail here and pass there.
+ */
+function bearerMatches(request: NextRequest, expected: string | undefined): boolean {
+  const configured = expected?.trim();
+  if (!configured) return false;
+
+  const header = request.headers.get("authorization");
+  if (!header?.startsWith("Bearer ")) return false;
+  const presented = header.slice("Bearer ".length).trim();
+  if (!presented) return false;
+
+  return timingSafeEqual(digest(presented), digest(configured));
 }
 
 /** Fixed-size digests, so a length difference neither leaks nor throws. */

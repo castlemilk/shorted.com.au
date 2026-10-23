@@ -5,7 +5,9 @@ import { stripe } from "~/lib/stripe";
 import {
   idOf,
   isoFromUnix,
+  listCustomerSubscriptions,
   nonEmpty,
+  pickBestSubscription,
   planForPrice,
   syncCustomerFromStripe,
 } from "~/lib/billing-sync";
@@ -14,7 +16,8 @@ import { hasInternalSecret } from "~/server/internal-secret";
 /**
  * POST /api/internal/billing — billing state for the admin MCP server.
  *
- *   { "action": "customer", "email" | "customerId" } → customer, subscriptions, latest invoice
+ *   { "action": "customer", "email" | "customerId" } → customer, subscriptions (every one, with
+ *                                                       `representative` on the one the sync writes), latest invoice
  *   { "action": "alive" }                             → every live subscription (capped)
  *   { "action": "reconcile", "customerId" }           → re-sync that customer once, from its best subscription
  *
@@ -185,19 +188,28 @@ async function describeCustomer(customer: Stripe.Customer | null): Promise<objec
     return { customer: null, subscriptions: [], latestInvoice: null };
   }
 
+  // Every subscription the customer has, not the first page. The drift check
+  // reads this list to decide whether a customer has a live subscription, so a
+  // payer whose live subscription sits past a page boundary would read as having
+  // none.
   const [subscriptions, invoices] = await Promise.all([
-    stripe.subscriptions.list({ customer: customer.id, status: "all", limit: 10 }),
+    listCustomerSubscriptions(customer.id),
     stripe.invoices.list({ customer: customer.id, limit: 1 }),
   ]);
   const latest = invoices.data[0];
+  // The subscription the sync writes for this customer, picked by the same rule
+  // the sync uses, so the view and the mirror cannot disagree about which one
+  // represents the customer.
+  const representative = pickBestSubscription(subscriptions);
 
   return {
     customer: { id: customer.id, created: isoFromUnix(customer.created) },
-    subscriptions: subscriptions.data.map((subscription) => {
+    subscriptions: subscriptions.map((subscription) => {
       const item = subscription.items.data[0];
       const price = item?.price;
       return {
         id: subscription.id,
+        representative: subscription.id === representative?.id,
         status: subscription.status,
         tier: planForPrice(price?.id),
         priceId: price?.id ?? null,

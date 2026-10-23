@@ -180,6 +180,7 @@ describe("POST /api/internal/billing", () => {
       subscriptions: [
         {
           id: "sub_1",
+          representative: true,
           status: "active",
           tier: "premium",
           priceId: "price_premium",
@@ -367,6 +368,87 @@ describe("POST /api/internal/billing", () => {
     expect(result.status).toBe(200);
     expect(result.body).toEqual({ customerId: "cus_1", subscription: null });
     expect(goClient.handleStripeSubscriptionUpdated).not.toHaveBeenCalled();
+  });
+
+  describe("a customer with more subscriptions than one page", () => {
+    /** Stripe's list for one customer: honours `limit` up to `pageSize`, and `starting_after`. */
+    function pagedSubscriptions(all: unknown[], pageSize = 100) {
+      stripeMock.subscriptions.list.mockImplementation(
+        async (params: { customer?: string; limit?: number; starting_after?: string }) => {
+          const mine = all.filter(
+            (candidate) => (candidate as { customer: string }).customer === params.customer,
+          );
+          const start = params.starting_after
+            ? mine.findIndex((candidate) => (candidate as { id: string }).id === params.starting_after) + 1
+            : 0;
+          const size = Math.min(params.limit ?? 10, pageSize);
+          return {
+            data: mine.slice(start, start + size),
+            has_more: start + size < mine.length,
+          };
+        },
+      );
+    }
+
+    /** Twelve subscriptions newest first. Ten ended ones sit ahead of the live one. */
+    function twelveWithLiveEleventh() {
+      const ended = Array.from({ length: 10 }, (_, index) => ({
+        ...SUBSCRIPTION,
+        id: `sub_ended_${index}`,
+        status: "canceled",
+        created: CREATED + 1000 - index,
+      }));
+      const live = { ...SUBSCRIPTION, id: "sub_live", status: "active", created: CREATED + 500 };
+      const oldest = { ...SUBSCRIPTION, id: "sub_oldest", status: "canceled", created: CREATED };
+      // The live one is the 11th in the listing.
+      return [...ended, live, oldest];
+    }
+
+    it("shows the live subscription the 11th position, which a ten-item window would miss", async () => {
+      pagedSubscriptions(twelveWithLiveEleventh());
+      stripeMock.customers.list.mockResolvedValue({ data: [PII_CUSTOMER] });
+
+      const result = await call({ action: "customer", email: "jane@example.test" });
+
+      const listed = (result.body as { subscriptions: Array<{ id: string; status: string; representative: boolean }> })
+        .subscriptions;
+      expect(listed).toHaveLength(12);
+      expect(listed.find((candidate) => candidate.id === "sub_live")).toMatchObject({
+        status: "active",
+        representative: true,
+      });
+      expect(listed.filter((candidate) => candidate.representative)).toHaveLength(1);
+    });
+
+    it("reads every page of the customer's subscriptions, not only the first", async () => {
+      // A server page cap of 5 forces three pages for twelve subscriptions.
+      pagedSubscriptions(twelveWithLiveEleventh(), 5);
+      stripeMock.customers.list.mockResolvedValue({ data: [PII_CUSTOMER] });
+
+      const result = await call({ action: "customer", email: "jane@example.test" });
+
+      expect((result.body as { subscriptions: unknown[] }).subscriptions).toHaveLength(12);
+      expect(stripeMock.subscriptions.list).toHaveBeenCalledTimes(3);
+      expect(result.body).toMatchObject({
+        subscriptions: expect.arrayContaining([
+          expect.objectContaining({ id: "sub_live", representative: true }),
+        ]),
+      });
+    });
+
+    it("marks the representative by the sync's rule, so an unpaid sibling is not chosen over an active one", async () => {
+      const unpaid = { ...SUBSCRIPTION, id: "sub_unpaid", status: "unpaid", created: CREATED + 900 };
+      const active = { ...SUBSCRIPTION, id: "sub_active", status: "active", created: CREATED };
+      pagedSubscriptions([unpaid, active]);
+      stripeMock.customers.list.mockResolvedValue({ data: [PII_CUSTOMER] });
+
+      const result = await call({ action: "customer", email: "jane@example.test" });
+
+      const listed = (result.body as { subscriptions: Array<{ id: string; representative: boolean }> })
+        .subscriptions;
+      expect(listed.find((candidate) => candidate.id === "sub_active")?.representative).toBe(true);
+      expect(listed.find((candidate) => candidate.id === "sub_unpaid")?.representative).toBe(false);
+    });
   });
 
   it("reports a Stripe failure as 503 without the underlying message", async () => {

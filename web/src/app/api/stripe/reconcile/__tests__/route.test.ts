@@ -36,7 +36,7 @@ const stripeMock = stripe as unknown as {
   subscriptions: { retrieve: jest.Mock; list: jest.Mock };
 };
 const goClient = (jest.requireMock("@connectrpc/connect") as {
-  goClient: { handleStripeSubscriptionUpdated: jest.Mock };
+  goClient: { handleStripeCheckoutCompleted: jest.Mock; handleStripeSubscriptionUpdated: jest.Mock };
 }).goClient;
 const notifyMock = notifyOperator as jest.Mock;
 
@@ -140,6 +140,44 @@ describe("GET /api/stripe/reconcile", () => {
     expect(notifyMock).not.toHaveBeenCalled();
   });
 
+  // The paid probe's cron door trims both sides of the comparison. These cases
+  // keep this door doing the same, so one stored secret opens both or neither.
+  it("accepts a secret stored with a trailing newline, as the probe's door does", async () => {
+    process.env.CRON_SECRET = "cron-secret\n";
+    listAccount([]);
+
+    const response = await GET(request("Bearer cron-secret"));
+
+    expect(response.status).toBe(200);
+  });
+
+  it("accepts a presented token with extra whitespace after the scheme", async () => {
+    listAccount([]);
+
+    const response = await GET(request("Bearer    cron-secret  "));
+
+    expect(response.status).toBe(200);
+  });
+
+  it("refuses a blank presented token, and a blank configured secret, which disables the door", async () => {
+    listAccount([]);
+    expect((await GET(request("Bearer    "))).status).toBe(401);
+
+    process.env.CRON_SECRET = "   ";
+    expect((await GET(request("Bearer    "))).status).toBe(401);
+    expect((await GET(request("Bearer cron-secret"))).status).toBe(401);
+    expect(stripeMock.subscriptions.list).not.toHaveBeenCalled();
+  });
+
+  it("refuses the right token under another authorization scheme", async () => {
+    listAccount([]);
+
+    const response = await GET(request("Basic cron-secret"));
+
+    expect(response.status).toBe(401);
+    expect(stripeMock.subscriptions.list).not.toHaveBeenCalled();
+  });
+
   it("fails closed when CRON_SECRET is unset, even with a bearer header", async () => {
     delete process.env.CRON_SECRET;
 
@@ -208,6 +246,28 @@ describe("GET /api/stripe/reconcile", () => {
         status: 1,
       }),
     );
+  });
+
+  it("never writes an unpaid customer's sibling over a paying user, whichever customer the run reaches first", async () => {
+    // One user pays on cus_1 and has an old unpaid subscription on cus_2 with the
+    // same metadata userId. The row may only ever be linked to cus_1.
+    const payingOn1 = {
+      ...subscription("pays_c1", "active", { customer: "cus_1", created: NOW_SECONDS - 60 * DAY }),
+      metadata: { userId: "user-1", userEmail: "buyer@example.test" },
+    };
+    const unpaidOn2 = {
+      ...subscription("unpaid_c2", "unpaid", { customer: "cus_2", created: NOW_SECONDS - 5 * DAY }),
+      metadata: { userId: "user-1", userEmail: "buyer@example.test" },
+    };
+    listAccount([unpaidOn2, payingOn1]);
+
+    await GET(request("Bearer cron-secret"));
+
+    expect(goClient.handleStripeSubscriptionUpdated).toHaveBeenCalledTimes(2);
+    const linked = goClient.handleStripeCheckoutCompleted.mock.calls.map(
+      (call) => (call[0] as { stripeCustomerId: string }).stripeCustomerId,
+    );
+    expect(linked).toEqual(["cus_1"]);
   });
 
   it("counts a failed customer, keeps going, and alerts the operator with counts only", async () => {

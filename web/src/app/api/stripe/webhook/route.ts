@@ -233,7 +233,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       `Customer:     ${customerId ?? "(none)"}`,
       `Subscription: ${subscriptionId}`,
       `Status:       ${result.status}`,
-      `Linked:       ${result.ensuredRow ? "yes" : "NO — the subscription carried no Shorted user identity"}`,
+      `Linked:       ${result.ensuredRow ? "yes" : `no — status is ${result.status} or the subscription carried no Shorted user identity`}`,
       `Session:      ${session.id}`,
       "",
       "— shorted.com.au",
