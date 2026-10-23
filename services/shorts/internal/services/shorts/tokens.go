@@ -17,6 +17,16 @@ type Claims struct {
 	Roles         []string `json:"roles"`
 	Tier          string   `json:"tier,omitempty"`            // Subscription tier: free, pro, enterprise
 	IsBrowserAuth bool     `json:"is_browser_auth,omitempty"` // True if authenticated via Firebase (browser)
+	// AuthMethod records how the interceptor verified this request's credential: one
+	// of the AuthMethod* constants in middleware_connect.go. The interceptor sets it
+	// after verification and it is never read from a token (json:"-"), so a token
+	// cannot claim a method for itself.
+	AuthMethod string `json:"-"`
+	// TierResolved is true only when the subscription lookup for this request
+	// succeeded, so Tier is the store's answer. When false, Tier is whatever the
+	// credential carried and must not back a grant such as minting a token. Set by
+	// the interceptor and never serialized.
+	TierResolved bool `json:"-"`
 	// Scope is the OAuth 2.0 granted scope set, space-delimited per RFC 6749
 	// §3.3. Empty on every token this service mints today — the tokens minted
 	// through MintTokenWithTier are whole-API credentials, not scoped grants.

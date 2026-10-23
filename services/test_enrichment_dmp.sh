@@ -18,6 +18,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -H "X-Internal-Secret: ${INTERNAL_SECRET}" \
   -H "X-User-Email: ${USER_EMAIL}" \
+  -H "X-User-Roles: admin" \
   -H "X-User-Id: test-user-id" \
   -d "{
     \"stockCode\": \"${STOCK_CODE}\",

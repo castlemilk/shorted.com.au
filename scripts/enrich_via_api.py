@@ -61,6 +61,8 @@ class APIClient:
                 "Content-Type": "application/json",
                 "X-Internal-Secret": INTERNAL_SECRET,
                 "X-User-Email": ADMIN_EMAIL,
+                # The API grants admin from this header alone, so the script must assert it.
+                "X-User-Roles": "admin",
                 "X-User-Id": "enrichment-script",
             }
         )

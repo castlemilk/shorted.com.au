@@ -522,10 +522,11 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
 // Public endpoints: No auth required
 // User endpoints: Valid session required
-// Admin endpoints: Email in admin list required
+// Admin endpoints: admin role required. Firebase grants it only when the email is
+// on adminEmails AND Firebase reports it verified. An internal caller holds it only
+// when the web tier asserts it in x-user-roles, after its own verified-admin check.
 
-adminEmails := []string{
-    "e2e-test@shorted.com.au",  // TODO: Remove from production
+var adminEmails = []string{
     "ben.ebsworth@gmail.com",
     "ben@shorted.com.au",
 }
