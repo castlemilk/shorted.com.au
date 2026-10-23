@@ -29,7 +29,7 @@ func GetToolDefinitions() []ToolDefinition {
 		},
 		{
 			Name:        "get_top_shorts",
-			Description: "Get the top N most shorted stocks on the ASX, ranked by current short interest percentage. Returns each stock's code, name and latest short position, with a sparkline of its short interest over the last 3 months (up to 8 points, the first and the latest always included). If the list is too long for one answer, the lowest-ranked stocks are left out and omittedStocks says how many. For the full daily history of one stock, use query_short_positions.",
+			Description: "Get the top N most shorted stocks on the ASX, ranked by current short interest percentage. Returns each stock's code, name and latest short position, with a sparkline of its short interest over the last 3 months (up to 8 points, the first and the latest always included) for the highest-ranked stocks. When the answer is long, lower-ranked stocks come without a sparkline. Stocks are left out only if even the bare rows do not fit, and omittedStocks says how many. For the full daily history of one stock, use query_short_positions.",
 			Parameters: map[string]ToolParameter{
 				"limit": {Type: "integer", Description: "Number of stocks to return (default 10, max 50)"},
 			},

@@ -437,10 +437,11 @@ func TestEveryDeclaredParameterChangesTheRequest(t *testing.T) {
 	}
 }
 
-// TestBuilderReadsOnlyDeclaredArguments fails when a builder reads an argument that
-// tools.go does not declare. The model can send only declared parameters, so a read of
+// TestBuilderReadsOnlyDeclaredArguments fails when a builder reads an undeclared argument
+// that a contract case sends. The model can send only declared parameters, so a read of
 // any other name is dead code: the request never changes for the model. Each contract
 // case's undeclared arguments are removed in turn, and the request must stay the same.
+// A read of an undeclared name that no case sends is not caught here.
 func TestBuilderReadsOnlyDeclaredArguments(t *testing.T) {
 	declared := make(map[string]map[string]bool)
 	for _, def := range GetToolDefinitions() {

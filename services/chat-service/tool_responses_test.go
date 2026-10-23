@@ -427,13 +427,14 @@ func TestStockSignalsCapsEachPolarityAndCountsTheRest(t *testing.T) {
 }
 
 // TestStockSignalsKeepsThePublisherDomainAndDropsRedirects: a grounding redirect names
-// only the grounding service, so it is dropped. A publisher link keeps its domain, and
-// its URL when the URL is short enough.
+// only the grounding service, so it is dropped whatever the case of its host. A publisher
+// link keeps its domain, and its URL when the URL is short enough.
 func TestStockSignalsKeepsThePublisherDomainAndDropsRedirects(t *testing.T) {
 	redirect := "https://vertexaisearch.cloud.google.com/grounding-api-redirect/" + strings.Repeat("A", 250)
 	response := &shortsv1alpha1.GetStockSignalsResponse{Positive: []*shortsv1alpha1.StockSignal{
 		{Polarity: "positive", Headline: "Publisher link", Citations: []string{redirect, "https://www.ASX.com.au/announcements/cba-result.pdf"}},
 		{Polarity: "positive", Headline: "Redirect only", Citations: []string{redirect}},
+		{Polarity: "positive", Headline: "Mixed case redirect", Citations: []string{"https://VertexAISearch.cloud.google.com/grounding-api-redirect/AbC"}},
 		{Polarity: "positive", Headline: "Long link", Citations: []string{"https://news.example.com/" + strings.Repeat("x", 220)}},
 		{Polarity: "positive", Headline: "Not a link", Citations: []string{"see the annual report"}},
 	}}
@@ -458,6 +459,7 @@ func TestStockSignalsKeepsThePublisherDomainAndDropsRedirects(t *testing.T) {
 	for _, want := range []struct{ headline, source, sourceURL string }{
 		{"Publisher link", "asx.com.au", "https://www.ASX.com.au/announcements/cba-result.pdf"},
 		{"Redirect only", "", ""},
+		{"Mixed case redirect", "", ""},
 		{"Long link", "news.example.com", ""},
 		{"Not a link", "", ""},
 	} {
@@ -468,6 +470,74 @@ func TestStockSignalsKeepsThePublisherDomainAndDropsRedirects(t *testing.T) {
 		}
 		if item.Source != want.source || item.SourceURL != want.sourceURL {
 			t.Errorf("%s: source %q and url %q, want %q and %q", want.headline, item.Source, item.SourceURL, want.source, want.sourceURL)
+		}
+	}
+}
+
+// TestSignalsSortByTheLeadingDate: the API sends placeholder dates such as "Unknown" and
+// "2019 onwards" beside full dates. Compared as raw strings, "Unknown" would sort ahead of
+// the dated signals. Only the leading year, year-month or date orders a signal, and one
+// without any sorts last, in the API's order.
+func TestSignalsSortByTheLeadingDate(t *testing.T) {
+	dates := []string{"2026-09-01", "Unknown", "2024", "", "2019 onwards", "2026-09"}
+	response := &shortsv1alpha1.GetStockSignalsResponse{}
+	for _, date := range dates {
+		response.Adverse = append(response.Adverse, &shortsv1alpha1.StockSignal{
+			Polarity:  "adverse",
+			Headline:  "[" + date + "]",
+			EventDate: date,
+			Severity:  "high",
+		})
+	}
+	body, err := protojson.Marshal(response)
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+
+	result, err := summarizeStockSignals(body)
+	if err != nil {
+		t.Fatalf("summarizeStockSignals() error = %v", err)
+	}
+	out := decodeSignals(t, result)
+
+	var got []string
+	for _, item := range out.Adverse {
+		got = append(got, item.Headline)
+	}
+	want := []string{"[2026-09-01]", "[2026-09]", "[2024]", "[2019 onwards]", "[Unknown]", "[]"}
+	if !slices.Equal(got, want) {
+		t.Errorf("adverse order = %v, want the dated signals newest first, then the undated ones in the API's order", got)
+	}
+}
+
+// TestStockSignalsCapDropsUndatedFirst: at the per-polarity cap, the undated signal is the
+// one left out, even though the API sent it first.
+func TestStockSignalsCapDropsUndatedFirst(t *testing.T) {
+	response := &shortsv1alpha1.GetStockSignalsResponse{}
+	response.Positive = append(response.Positive, &shortsv1alpha1.StockSignal{
+		Polarity: "positive", Headline: "Undated", EventDate: "Unknown",
+	})
+	for i := 0; i < maxSignalsPerPolarity; i++ {
+		response.Positive = append(response.Positive, &shortsv1alpha1.StockSignal{
+			Polarity: "positive", Headline: fmt.Sprintf("Dated %02d", i), EventDate: fmt.Sprintf("2025-%02d-01", i+1),
+		})
+	}
+	body, err := protojson.Marshal(response)
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+
+	result, err := summarizeStockSignals(body)
+	if err != nil {
+		t.Fatalf("summarizeStockSignals() error = %v", err)
+	}
+	out := decodeSignals(t, result)
+	if len(out.Positive) != maxSignalsPerPolarity || out.OmittedPositive != 1 {
+		t.Errorf("positive = %d shown, %d omitted, want %d shown and 1 omitted", len(out.Positive), out.OmittedPositive, maxSignalsPerPolarity)
+	}
+	for _, item := range out.Positive {
+		if item.Headline == "Undated" {
+			t.Errorf("the undated signal is kept at the cap ahead of dated ones")
 		}
 	}
 }
@@ -585,17 +655,17 @@ func TestThinSparklineKeepsFirstAndLatestEvenly(t *testing.T) {
 	}
 }
 
-// TestTopShortsTrimsTheLowestRankedRowsThatDoNotFit: 50 stocks with long names and full
-// sparklines do not fit. The rows kept are the top-ranked ones, and omittedStocks counts
-// the rest.
-func TestTopShortsTrimsTheLowestRankedRowsThatDoNotFit(t *testing.T) {
+// topShortsBody returns a GetTopShorts response of rows stocks in rank order. Each has
+// the given name and a 3-month series of 60 daily points.
+func topShortsBody(t *testing.T, rows int, name string) []byte {
+	t.Helper()
 	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	response := &shortsv1alpha1.GetTopShortsResponse{}
-	for i := 0; i < 50; i++ {
+	for i := 0; i < rows; i++ {
 		series := &stocksv1alpha1.TimeSeriesData{
 			ProductCode:         fmt.Sprintf("T%02d", i),
-			Name:                strings.Repeat("Company Name ", 4),
-			LatestShortPosition: float64(50 - i),
+			Name:                name,
+			LatestShortPosition: float64(rows - i),
 		}
 		for d := 0; d < 60; d++ {
 			series.Points = append(series.Points, &stocksv1alpha1.TimeSeriesPoint{
@@ -609,29 +679,102 @@ func TestTopShortsTrimsTheLowestRankedRowsThatDoNotFit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal fixture: %v", err)
 	}
+	return body
+}
 
-	result, err := summarizeTopShorts(body)
-	if err != nil {
-		t.Fatalf("summarizeTopShorts() error = %v", err)
-	}
+// topShortsOutput is a get_top_shorts result as the model reads it.
+type topShortsOutput struct {
+	TimeSeries []struct {
+		ProductCode string `json:"productCode"`
+		Points      []struct {
+			Timestamp     string  `json:"timestamp"`
+			ShortPosition float64 `json:"shortPosition"`
+		} `json:"points"`
+	} `json:"timeSeries"`
+	OmittedStocks int `json:"omittedStocks"`
+}
+
+// decodeTopShorts fails unless result is valid JSON within the budget, and returns it
+// decoded.
+func decodeTopShorts(t *testing.T, result string) topShortsOutput {
+	t.Helper()
 	if len(result) > maxToolResultBytes {
 		t.Fatalf("result is %d bytes, over the %d byte budget", len(result), maxToolResultBytes)
 	}
 	if !json.Valid([]byte(result)) {
 		t.Fatalf("result is not valid JSON: %.200s", result)
 	}
-
-	var out struct {
-		TimeSeries []struct {
-			ProductCode string `json:"productCode"`
-		} `json:"timeSeries"`
-		OmittedStocks int `json:"omittedStocks"`
-	}
+	var out topShortsOutput
 	if err := json.Unmarshal([]byte(result), &out); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
+	return out
+}
+
+// TestTopShortsKeepsAllFiftyRowsAndThinsTheLowestSparklines: 50 stocks with full sparklines
+// are over the budget, but the same rows without their sparklines fit. The lowest-ranked
+// sparklines go first, so every row is kept in rank order, the top rows keep theirs, and
+// the first row keeps its first and latest points.
+func TestTopShortsKeepsAllFiftyRowsAndThinsTheLowestSparklines(t *testing.T) {
+	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	body := topShortsBody(t, 50, strings.Repeat("Company Name ", 4))
+	if len(body) <= maxToolResultBytes {
+		t.Fatalf("fixture is %d bytes, want it over the budget so the test means something", len(body))
+	}
+
+	result, err := summarizeTopShorts(body)
+	if err != nil {
+		t.Fatalf("summarizeTopShorts() error = %v", err)
+	}
+	out := decodeTopShorts(t, result)
+	if len(out.TimeSeries) != 50 || out.OmittedStocks != 0 {
+		t.Fatalf("rows = %d with %d omitted, want all 50 rows", len(out.TimeSeries), out.OmittedStocks)
+	}
+
+	withSparkline := 0
+	for i, row := range out.TimeSeries {
+		if want := fmt.Sprintf("T%02d", i); row.ProductCode != want {
+			t.Errorf("row %d = %s, want %s: rows must stay in rank order", i, row.ProductCode, want)
+		}
+		if len(row.Points) == 0 {
+			continue
+		}
+		// Sparklines are cleared from the bottom up, so no row can keep one below a row
+		// that lost its own.
+		if withSparkline != i {
+			t.Fatalf("row %d keeps its sparkline, but row %d above it lost its", i, withSparkline)
+		}
+		withSparkline++
+	}
+	if withSparkline == 0 || withSparkline == 50 {
+		t.Fatalf("%d rows keep a sparkline, want some cleared and some kept so the test means something", withSparkline)
+	}
+
+	points := out.TimeSeries[0].Points
+	if len(points) != topShortsSparklinePoints {
+		t.Fatalf("first row has %d points, want %d", len(points), topShortsSparklinePoints)
+	}
+	if got, want := points[0].Timestamp, start.Format(time.RFC3339); got != want {
+		t.Errorf("first row starts at %s, want %s", got, want)
+	}
+	if got, want := points[len(points)-1].Timestamp, start.AddDate(0, 0, 59).Format(time.RFC3339); got != want {
+		t.Errorf("first row ends at %s, want its latest point %s", got, want)
+	}
+}
+
+// TestTopShortsDropsRowsOnlyWhenEvenBareRowsDoNotFit: names long enough that 50 rows
+// without sparklines are over the budget. Every sparkline but the first row's is cleared
+// before any row is dropped, and omittedStocks counts the dropped rows.
+func TestTopShortsDropsRowsOnlyWhenEvenBareRowsDoNotFit(t *testing.T) {
+	body := topShortsBody(t, 50, strings.Repeat("Long Company Name ", 20))
+
+	result, err := summarizeTopShorts(body)
+	if err != nil {
+		t.Fatalf("summarizeTopShorts() error = %v", err)
+	}
+	out := decodeTopShorts(t, result)
 	if out.OmittedStocks == 0 {
-		t.Fatalf("no rows omitted, so the fixture does not exercise the trim")
+		t.Fatalf("no rows omitted, so the fixture does not exercise the drop")
 	}
 	if len(out.TimeSeries)+out.OmittedStocks != 50 {
 		t.Errorf("kept %d rows and omitted %d, want 50 in all", len(out.TimeSeries), out.OmittedStocks)
@@ -643,5 +786,11 @@ func TestTopShortsTrimsTheLowestRankedRowsThatDoNotFit(t *testing.T) {
 		if want := fmt.Sprintf("T%02d", i); row.ProductCode != want {
 			t.Errorf("row %d = %s, want %s: rows must stay in rank order", i, row.ProductCode, want)
 		}
+		if i > 0 && len(row.Points) > 0 {
+			t.Errorf("row %d keeps a sparkline although rows were dropped, so the sparklines below the first row should have been cleared first", i)
+		}
+	}
+	if len(out.TimeSeries[0].Points) != topShortsSparklinePoints {
+		t.Errorf("first row has %d points, want its sparkline kept", len(out.TimeSeries[0].Points))
 	}
 }

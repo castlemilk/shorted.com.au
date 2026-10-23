@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -191,8 +192,8 @@ func weeklyCitations(citations []*shortsv1alpha1.WeeklyReportCitation) []*shorts
 	return out
 }
 
-// stockSignalsResult is the risk and reputation view get_stock_signals returns. The
-// adverse list comes first, so it is the part kept when the budget cuts the answer.
+// stockSignalsResult is the risk and reputation view get_stock_signals returns. When the
+// answer is over budget, summarizeStockSignals drops positive items before adverse ones.
 type stockSignalsResult struct {
 	Adverse         []stockSignalItem `json:"adverse"`
 	Positive        []stockSignalItem `json:"positive"`
@@ -225,8 +226,11 @@ func summarizeStockSignals(respBody []byte) (string, error) {
 		return "", fmt.Errorf("decode GetStockSignals response: %w", err)
 	}
 
-	adverse := signalsInPriorityOrder(response.GetAdverse())
-	positive := signalsInPriorityOrder(response.GetPositive())
+	// The response is decoded for this call alone, so its lists are sorted in place.
+	adverse := response.GetAdverse()
+	positive := response.GetPositive()
+	sortSignalsInPriorityOrder(adverse)
+	sortSignalsInPriorityOrder(positive)
 	result := stockSignalsResult{
 		Adverse:  stockSignalItems(adverse[:min(len(adverse), maxSignalsPerPolarity)]),
 		Positive: stockSignalItems(positive[:min(len(positive), maxSignalsPerPolarity)]),
@@ -250,25 +254,34 @@ func summarizeStockSignals(respBody []byte) (string, error) {
 	}
 }
 
-// signalsInPriorityOrder returns a sorted copy, because the API's cached response must
-// not be reordered in place. Severity ranks first, so a serious adverse signal is never
-// cut for a minor one; the API rates positive signals low, so those sort by date. Within
-// a severity the newest comes first, an undated signal sorts last, and ties keep the
-// API's order.
-func signalsInPriorityOrder(signals []*shortsv1alpha1.StockSignal) []*shortsv1alpha1.StockSignal {
-	out := append([]*shortsv1alpha1.StockSignal(nil), signals...)
-	sort.SliceStable(out, func(i, j int) bool {
-		a, b := out[i], out[j]
+// sortSignalsInPriorityOrder sorts signals in place. Severity ranks first, so a serious
+// adverse signal is never cut for a minor one; the API rates positive signals low, so
+// those sort by date. Within a severity the newest comes first, an undated signal sorts
+// last, and ties keep the API's order.
+func sortSignalsInPriorityOrder(signals []*shortsv1alpha1.StockSignal) {
+	sort.SliceStable(signals, func(i, j int) bool {
+		a, b := signals[i], signals[j]
 		if ra, rb := severityRank(a.GetSeverity()), severityRank(b.GetSeverity()); ra != rb {
 			return ra < rb
 		}
-		da, db := a.GetEventDate(), b.GetEventDate()
+		da, db := signalSortDate(a.GetEventDate()), signalSortDate(b.GetEventDate())
 		if da == "" || db == "" {
 			return da != "" && db == ""
 		}
 		return da > db
 	})
-	return out
+}
+
+// signalDatePrefix matches the year, year-month or date a signal's event date starts
+// with. The API also sends values such as "2019 onwards" and "Unknown".
+var signalDatePrefix = regexp.MustCompile(`^\d{4}(?:-\d{2}(?:-\d{2})?)?`)
+
+// signalSortDate returns the leading year, year-month or date of an event date, or ""
+// when it has none. Raw strings would sort "Unknown" after every digit, ahead of the
+// dated signals. A shorter prefix is the smaller string, so newest first puts a year
+// alone after the dates within it.
+func signalSortDate(eventDate string) string {
+	return signalDatePrefix.FindString(eventDate)
 }
 
 // severityRank orders severities from high to low. A severity the API does not name
@@ -326,10 +339,16 @@ func signalSource(citations []string) (domain, sourceURL string) {
 	return "", ""
 }
 
+// groundingRedirectHost is the host of the Gemini grounding redirects the API stores for
+// web-search citations.
+const groundingRedirectHost = "vertexaisearch.cloud.google.com"
+
 // isGroundingRedirect reports whether a citation is one of the Gemini grounding
-// redirects the API stores for web-search citations.
+// redirects. url.Parse keeps the host's case as written, so the host is lower-cased
+// before it is matched, and the match is exact or on a whole label, never a suffix.
 func isGroundingRedirect(u *url.URL) bool {
-	return strings.HasSuffix(u.Hostname(), "vertexaisearch.cloud.google.com")
+	host := strings.ToLower(u.Hostname())
+	return host == groundingRedirectHost || strings.HasSuffix(host, "."+groundingRedirectHost)
 }
 
 // topShortsResult is the top shorts list get_top_shorts returns, in rank order.
@@ -338,8 +357,9 @@ type topShortsResult struct {
 	OmittedStocks int           `json:"omittedStocks,omitempty"`
 }
 
-// topShortRow is one stock: its latest short position and a thinned sparkline. The
-// JSON names match the proto's, which the web chat card reads.
+// topShortRow is one stock: its latest short position and its thinned sparkline. Lower
+// rows can lose the sparkline when the answer is long. The JSON names match the proto's,
+// which the web chat card reads.
 type topShortRow struct {
 	ProductCode         string          `json:"productCode"`
 	Name                string          `json:"name,omitempty"`
@@ -354,8 +374,9 @@ type topShortPoint struct {
 
 // summarizeTopShorts decodes a GetTopShorts response into rows the chat card can draw.
 // Each sparkline is thinned to topShortsSparklinePoints. If the rows still exceed the
-// budget, the lowest-ranked rows are dropped and omittedStocks counts them, so the
-// output is always valid JSON within maxToolResultBytes.
+// budget, sparklines are cleared from the lowest-ranked rows first, and whole rows are
+// dropped only once no sparkline is left to clear. omittedStocks counts the dropped rows,
+// so the output is always valid JSON within maxToolResultBytes.
 func summarizeTopShorts(respBody []byte) (string, error) {
 	var response shortsv1alpha1.GetTopShortsResponse
 	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(respBody, &response); err != nil {
@@ -387,9 +408,26 @@ func summarizeTopShorts(respBody []byte) (string, error) {
 		if len(resultBytes) <= maxToolResultBytes || len(result.TimeSeries) == 0 {
 			return string(resultBytes), nil
 		}
-		result.TimeSeries = result.TimeSeries[:len(result.TimeSeries)-1]
-		result.OmittedStocks++
+		// A row without its sparkline is far smaller, so clearing sparklines keeps more
+		// stocks than dropping rows would.
+		if !clearLowestSparkline(result.TimeSeries) {
+			result.TimeSeries = result.TimeSeries[:len(result.TimeSeries)-1]
+			result.OmittedStocks++
+		}
 	}
+}
+
+// clearLowestSparkline empties the sparkline of the lowest-ranked row that still has one,
+// and reports whether it found one. The first row is never cleared: the chat card draws
+// only that row's sparkline, and it needs at least two points to draw it.
+func clearLowestSparkline(rows []topShortRow) bool {
+	for i := len(rows) - 1; i > 0; i-- {
+		if len(rows[i].Points) > 0 {
+			rows[i].Points = []topShortPoint{}
+			return true
+		}
+	}
+	return false
 }
 
 // thinSparkline keeps limit points spaced evenly through a series in time order, and
