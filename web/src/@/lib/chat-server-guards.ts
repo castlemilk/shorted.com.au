@@ -60,6 +60,7 @@ const HOP_BY_HOP_HEADERS = new Set([
   "content-length",
   "x-user-id",
   "x-user-email",
+  "x-user-roles",
   "x-internal-secret",
 ]);
 

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "~/server/auth";
 import IORedis from "ioredis";
 import {
+  buildUpstreamHeaders,
   CHAT_LIMIT_HEADER,
   CHAT_MAX_MESSAGE_CHARS,
   chatErrorFromUpstreamError,
@@ -341,6 +342,30 @@ describe("chat-server-guards", () => {
       expect(chatRateLimitMessage("daily", 40, 30)).toContain("40 messages in 24 hours");
       expect(chatRateLimitMessage("monthly", 600, 30)).toContain("600 messages in 30 days");
       expect(chatRateLimitMessage("global", 60, 30)).toContain("busy");
+    });
+  });
+
+  describe("buildUpstreamHeaders", () => {
+    it("drops a client-supplied x-user-roles, and every other identity header, before forwarding", () => {
+      const source = new Headers({
+        "x-user-roles": "admin",
+        "x-user-id": "attacker",
+        "x-user-email": "attacker@example.com",
+        "x-internal-secret": "attacker-secret",
+        "content-type": "application/json",
+      });
+
+      const upstream = buildUpstreamHeaders(source, {
+        internalSecret: "server-secret",
+        userID: "user-1",
+        userEmail: "user@example.com",
+      });
+
+      expect(upstream.get("x-user-roles")).toBeNull();
+      expect(upstream.get("x-user-id")).toBe("user-1");
+      expect(upstream.get("x-user-email")).toBe("user@example.com");
+      expect(upstream.get("x-internal-secret")).toBe("server-secret");
+      expect(upstream.get("content-type")).toBe("application/json");
     });
   });
 

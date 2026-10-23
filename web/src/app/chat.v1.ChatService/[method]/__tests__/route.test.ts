@@ -344,6 +344,27 @@ describe("chat RPC proxy", () => {
     expect(headers.get("cookie")).toBeNull();
   });
 
+  it("never forwards a client-supplied x-user-roles header upstream", async () => {
+    // The chat service trusts x-user-roles when it arrives with the internal
+    // secret. The secret is attached here, so a browser-sent roles header must
+    // be dropped, or a caller could grant itself a role.
+    await POST(
+      requestFor("SendMessage", {
+        "x-user-roles": "admin",
+        "X-User-Roles": "admin",
+      }),
+      {
+        params: { method: "SendMessage" },
+      },
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = new Headers(init.headers);
+    expect(headers.get("x-user-roles")).toBeNull();
+    expect(headers.get("x-internal-secret")).toBe("server-secret");
+  });
+
   it("fails closed in production when the internal secret is missing", async () => {
     delete process.env.INTERNAL_SERVICE_SECRET;
 
