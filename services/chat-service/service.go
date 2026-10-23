@@ -203,9 +203,9 @@ func (h *ChatServiceHandler) SendMessage(
 	}
 	completion.ConversationID = conv.ID
 
-	// Store user message. A retry finds its question already stored by the
-	// failed attempt, so it is not stored a second time, and the partial reply
-	// that attempt kept is replaced rather than left in front of the new one.
+	// Store user message. A retry reuses its question when the failed attempt
+	// stored it, and replaces only the partial reply that attempt kept. A
+	// question the failed attempt never stored is stored now, as new.
 	questionStored := false
 	if msg.Retry && msg.ConversationId != "" {
 		questionStored, err = h.replaceFailedReply(ctx, conv.ID, msg.Message)
@@ -330,7 +330,7 @@ func (h *ChatServiceHandler) replaceFailedReply(ctx context.Context, conversatio
 	}
 	stored, partialID := retryTail(recent, question)
 	if partialID != "" {
-		if err := h.store.DeleteMessage(ctx, conversationID, partialID); err != nil {
+		if err := h.store.DeletePartialReply(ctx, conversationID, partialID); err != nil {
 			return false, err
 		}
 	}
@@ -354,9 +354,12 @@ func conversationTitle(message string) string {
 
 // retryTail reads the last stored messages, in chronological order, against the
 // question a retry asks again. The question is already stored when it is the
-// latest message, or when the latest is the partial reply its failed attempt
-// kept. In that second case partialID names the reply to replace. Anything else
-// is not a retry of this question, and the question is stored as a new one.
+// latest message, or when the latest is a partial reply its failed attempt kept
+// (Partial) with the question just before it. In that second case partialID
+// names the reply to replace. A complete reply is never named, so a repeated
+// question whose earlier answer is complete is stored as a new question, and
+// the answer the person already received stays. Anything else is not a retry
+// of this question, and the question is stored as a new one.
 func retryTail(recent []Message, question string) (questionStored bool, partialID string) {
 	n := len(recent)
 	if n == 0 {
@@ -366,7 +369,7 @@ func retryTail(recent []Message, question string) (questionStored bool, partialI
 	if last.Role == "user" && last.Content == question {
 		return true, ""
 	}
-	if last.Role == "assistant" && n >= 2 {
+	if last.Role == "assistant" && last.Partial && n >= 2 {
 		if prev := recent[n-2]; prev.Role == "user" && prev.Content == question {
 			return true, last.ID
 		}
@@ -395,7 +398,7 @@ func (h *ChatServiceHandler) keepPartialReply(ctx context.Context, conversationI
 	}
 	writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), usageWriteTimeout)
 	defer cancel()
-	if _, err := h.store.AddMessage(writeCtx, conversationID, "assistant", content, nil, nil); err != nil {
+	if _, err := h.store.AddPartialReply(writeCtx, conversationID, content); err != nil {
 		logRedacted("chat: keep partial reply for conversation %s: %v", conversationID, err)
 		return
 	}

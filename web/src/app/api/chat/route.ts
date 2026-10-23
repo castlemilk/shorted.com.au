@@ -85,8 +85,10 @@ export async function POST(request: NextRequest) {
   }
 
   // The AI SDK sends regenerate-message when the person asks again after a
-  // failed reply. The question is already stored, so the chat service must
-  // reuse it rather than store it again.
+  // failed reply. The chat service reuses the question when the failed attempt
+  // stored it, and removes only a partial reply that attempt kept. A question
+  // that was never stored is stored as new, and a complete reply is never
+  // removed, so the trigger alone is safe to forward.
   const retry = body.trigger === "regenerate-message";
 
   const textPartID = "shorted-assistant-text";
