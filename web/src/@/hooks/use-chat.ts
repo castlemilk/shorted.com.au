@@ -184,8 +184,9 @@ export function useChat(options: UseChatOptions = {}) {
 
   /**
    * Asks again after a failed reply. `regenerate` drops a failed assistant turn
-   * and resends from the person's last message, so the question is not
-   * duplicated in the thread.
+   * from the thread and resends the person's last message. The request carries
+   * the regenerate trigger, which the route forwards as a retry, so the chat
+   * service reuses the stored question instead of storing it a second time.
    */
   const retry = useCallback(async () => {
     if (generationInFlight || uiMessages.length === 0) return;

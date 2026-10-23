@@ -249,6 +249,21 @@ describe("AI SDK chat route", () => {
     expect(mockStreamChatFromUpstream).not.toHaveBeenCalled();
   });
 
+  it("forwards a regenerate as a retry, so the chat service does not store the question twice", async () => {
+    // The upstream call happens while the response streams, so read it through.
+    mockStreamChatFromUpstream.mockReturnValueOnce(upstreamChunks());
+    await (await POST(request({ trigger: "regenerate-message" }))).text();
+    expect(mockStreamChatFromUpstream).toHaveBeenLastCalledWith(
+      expect.objectContaining({ retry: true }),
+    );
+
+    mockStreamChatFromUpstream.mockReturnValueOnce(upstreamChunks());
+    await (await POST(request({ trigger: "submit-message" }))).text();
+    expect(mockStreamChatFromUpstream).toHaveBeenLastCalledWith(
+      expect.objectContaining({ retry: false }),
+    );
+  });
+
   it("streams markdown text and final Shorted data through AI SDK UI message chunks", async () => {
     const response = await POST(request());
     const body = await response.text();

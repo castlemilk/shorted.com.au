@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     conversationId?: unknown;
     contextStockCode?: unknown;
     messages?: unknown;
+    trigger?: unknown;
   };
 
   try {
@@ -81,6 +82,11 @@ export async function POST(request: NextRequest) {
     return access.response;
   }
 
+  // The AI SDK sends regenerate-message when the person asks again after a
+  // failed reply. The question is already stored, so the chat service must
+  // reuse it rather than store it again.
+  const retry = body.trigger === "regenerate-message";
+
   const textPartID = "shorted-assistant-text";
   const stream = createUIMessageStream({
     originalMessages: messages,
@@ -97,6 +103,7 @@ export async function POST(request: NextRequest) {
           conversationId,
           message,
           contextStockCode: stringValue(body.contextStockCode),
+          retry,
           userID: access.value.userID,
           userEmail: access.value.userEmail,
           internalSecret: access.value.internalSecret,
