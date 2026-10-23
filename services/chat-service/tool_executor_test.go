@@ -8,6 +8,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"connectrpc.com/connect"
+	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 )
 
 func TestExecuteEconomicSeriesValidatesSeriesKeys(t *testing.T) {
@@ -164,6 +167,56 @@ func TestCallServiceRPCPostsToRequestedServiceAndMethod(t *testing.T) {
 	if got, want := string(body), `{"series":[]}`; got != want {
 		t.Fatalf("body = %q, want %q", got, want)
 	}
+}
+
+// TestGetStockDetailsSendsUserAgentTheShortsAPIAccepts is the regression test for
+// chat tools failing with 403 "automated access detected": the API rejected Go's
+// default User-Agent, so the tool call must send toolUserAgent instead.
+func TestGetStockDetailsSendsUserAgentTheShortsAPIAccepts(t *testing.T) {
+	executor := newTestToolExecutor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got, want := r.URL.Path, "/shorts.v1alpha1.ShortedStocksService/GetStockDetails"; got != want {
+			t.Errorf("path = %q, want %q", got, want)
+		}
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Errorf("Content-Type = %q, want application/json", got)
+		}
+		if got := r.Header.Get("User-Agent"); got != toolUserAgent {
+			t.Errorf("User-Agent = %q, want %q", got, toolUserAgent)
+		}
+		if err := apiScraperFilter(r.Header.Get("User-Agent")); err != nil {
+			t.Errorf("Shorts API rejects the chat tool User-Agent: %v", err)
+		}
+		_, _ = w.Write([]byte(`{"stock":{}}`))
+	}))
+
+	if _, err := executor.Execute(context.Background(), "get_stock_details", map[string]interface{}{"stock_code": "BHP"}); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+}
+
+// TestAPIScraperFilterAllowsToolUserAgentAndBlocksGoDefault checks the constant
+// against the API's real blocklist, and that the Go default is blocked so the
+// first test proves the mechanism rather than passing vacuously.
+func TestAPIScraperFilterAllowsToolUserAgentAndBlocksGoDefault(t *testing.T) {
+	if err := apiScraperFilter(toolUserAgent); err != nil {
+		t.Errorf("API blocks toolUserAgent %q: %v", toolUserAgent, err)
+	}
+	if err := apiScraperFilter("Go-http-client/1.1"); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("API on Go default User-Agent: code = %v, want %v", connect.CodeOf(err), connect.CodePermissionDenied)
+	}
+}
+
+// apiScraperFilter sends an unauthenticated call with the given User-Agent through
+// the Shorts API's own UserAgentInterceptor and returns its verdict.
+func apiScraperFilter(userAgent string) error {
+	type claimsKey struct{}
+	next := func(context.Context, connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(new(string)), nil
+	}
+	req := connect.NewRequest(new(string))
+	req.Header().Set("User-Agent", userAgent)
+	_, err := ratelimit.UserAgentInterceptor(claimsKey{})(next)(context.Background(), req)
+	return err
 }
 
 func TestExecuteEconomicSeriesNormalizesLimit(t *testing.T) {

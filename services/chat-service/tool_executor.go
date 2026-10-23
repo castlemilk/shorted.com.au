@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+// toolUserAgent is sent on every Shorts API call made for a chat tool. The API's
+// UserAgentInterceptor blocks Go's default "Go-http-client/1.1" as a scraper
+// (services/pkg/ratelimit/useragent.go), which silently failed every tool call.
+const toolUserAgent = "shorted-chat-service/1.0 (+https://shorted.com.au)"
+
 // ToolExecutor calls the Shorts API to execute tool functions.
 type ToolExecutor struct {
 	shortsAPIURL string
@@ -224,6 +229,7 @@ func (te *ToolExecutor) callServiceRPC(
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", toolUserAgent)
 
 	resp, err := te.httpClient.Do(req)
 	if err != nil {
