@@ -56,6 +56,24 @@ func (f *billingStore) BillingSubscriptionsAll(_ context.Context, limit int) ([]
 	return f.rows, false, nil
 }
 
+// BillingSubscriptionsByCustomers returns the rows whose customer is asked for,
+// whatever their user id or email, as the store does.
+func (f *billingStore) BillingSubscriptionsByCustomers(_ context.Context, customerIDs []string) ([]shortsstore.BillingSubscription, error) {
+	if f.rowsErr != nil {
+		return nil, f.rowsErr
+	}
+	var out []shortsstore.BillingSubscription
+	for _, r := range f.rows {
+		for _, id := range customerIDs {
+			if r.StripeCustomerID == id {
+				out = append(out, r)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
 func (f *billingStore) ChatUsage(context.Context, []string) (*shortsstore.ChatUsage, error) {
 	return f.chat, f.chatErr
 }
@@ -360,8 +378,11 @@ func TestCheckSubscriptionReportsTheProductsVerdict(t *testing.T) {
 	if e := out.Entitlement; e == nil || e.Entitled || e.Reason != "period_ended" {
 		t.Fatalf("entitlement = %+v, want period_ended", out.Entitlement)
 	}
-	if len(out.Drift) != 0 {
-		t.Fatalf("the period ended on both sides; drift = %+v", out.Drift)
+	// Stripe still says active, on the same ended period. The row grants nothing
+	// because its period is past the grace, so the customer Stripe calls paying is
+	// paid without access. That is the finding, and the periods themselves agree.
+	if len(out.Drift) != 1 || out.Drift[0].Kind != kindPaidWithoutMirror {
+		t.Fatalf("drift = %+v, want paid_without_mirror alone (the periods agree)", out.Drift)
 	}
 }
 
@@ -402,8 +423,8 @@ func TestCheckSubscriptionFindsDuplicateRowsUnderOtherUserIDs(t *testing.T) {
 			dups++
 		}
 	}
-	if dups != 2 {
-		t.Fatalf("drift = %+v, want duplicate_email on each row", out.Drift)
+	if dups != 1 {
+		t.Fatalf("drift = %+v, want one duplicate_email finding for the email", out.Drift)
 	}
 }
 

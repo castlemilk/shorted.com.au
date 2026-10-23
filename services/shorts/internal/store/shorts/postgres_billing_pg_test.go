@@ -244,3 +244,53 @@ func TestUpdateAPISubscriptionByCustomerWritesTheSubscriptionID(t *testing.T) {
 		assert.Equal(t, "sub_b", subscriptionIDOf("cus_b"))
 	})
 }
+
+// The rows that hold a Stripe customer are found by that customer, whatever user
+// id or email they are keyed under, and a NULL status reaches the audit as a NULL
+// (never as the 'inactive' a COALESCE would make it look like).
+func TestBillingRowsByCustomerAndNullStatusAgainstPostgres(t *testing.T) {
+	s := apiSubscriptionsTestStore(t)
+	ctx := context.Background()
+	require.NoError(t, s.UpsertAPISubscription(&APISubscription{
+		UserID: "uid_a", UserEmail: "a@example.com", StripeCustomerID: "cus_a", StripeSubscriptionID: "sub_a",
+		Status: "active", Tier: "premium",
+	}))
+	// A row keyed under another email and uid than the customer's Stripe email.
+	require.NoError(t, s.UpsertAPISubscription(&APISubscription{
+		UserID: "uid_moved", UserEmail: "old-address@example.com", StripeCustomerID: "cus_moved", StripeSubscriptionID: "sub_moved",
+		Status: "active", Tier: "premium",
+	}))
+	// A row with no status: NULL is the value the store really holds.
+	_, err := s.db.Exec(ctx, `INSERT INTO api_subscriptions (user_id, user_email, stripe_customer_id, status, tier)
+		VALUES ('uid_null', 'null@example.com', 'cus_null', NULL, 'premium')`)
+	require.NoError(t, err)
+
+	t.Run("a customer is found under any user id or email", func(t *testing.T) {
+		rows, err := s.BillingSubscriptionsByCustomers(ctx, []string{"cus_moved", "cus_missing"})
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		assert.Equal(t, "uid_moved", rows[0].UserID)
+		assert.Equal(t, "old-address@example.com", rows[0].UserEmail)
+		assert.Equal(t, "active", rows[0].Status)
+		assert.False(t, rows[0].StatusNull)
+	})
+
+	t.Run("no customers asked for reads nothing", func(t *testing.T) {
+		rows, err := s.BillingSubscriptionsByCustomers(ctx, nil)
+		require.NoError(t, err)
+		assert.Empty(t, rows)
+	})
+
+	t.Run("a NULL status is reported as NULL, not as inactive", func(t *testing.T) {
+		rows, err := s.BillingSubscriptionsByCustomers(ctx, []string{"cus_null"})
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		assert.True(t, rows[0].StatusNull)
+		assert.Empty(t, rows[0].Status)
+
+		byUser, _, err := s.BillingSubscriptionsFor(ctx, "uid_null", "")
+		require.NoError(t, err)
+		require.Len(t, byUser, 1)
+		assert.True(t, byUser[0].StatusNull, "the same row read by user id is NULL too")
+	})
+}

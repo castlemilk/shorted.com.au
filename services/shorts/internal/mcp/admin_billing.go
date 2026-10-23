@@ -73,18 +73,18 @@ type BillingAccount struct {
 // BillingMirrorRow is one api_subscriptions row, as the Stripe webhook last
 // recorded it.
 type BillingMirrorRow struct {
-	UserID                string `json:"userId"`
-	Email                 string `json:"email"`
-	Tier                  string `json:"tier"`
-	Status                string `json:"status"`
-	CurrentPeriodStart    string `json:"currentPeriodStart,omitempty"`
-	CurrentPeriodEnd      string `json:"currentPeriodEnd,omitempty"`
-	CancelAtPeriodEnd     bool   `json:"cancelAtPeriodEnd"`
-	CreatedAt             string `json:"createdAt,omitempty"`
-	UpdatedAt             string `json:"updatedAt,omitempty"`
-	HasStripeSubscription bool   `json:"hasStripeSubscription"`
-	StripeDashboardURL    string `json:"stripeDashboardUrl,omitempty" jsonschema:"The customer in the Stripe dashboard (requires a Stripe login). Absent when the row has no customer."`
-	RecentlyUpdated       bool   `json:"recentlyUpdated,omitempty" jsonschema:"Updated in the last 15 minutes. Excluded from the drift check: a webhook may still be in flight."`
+	UserID                string  `json:"userId"`
+	Email                 string  `json:"email"`
+	Tier                  string  `json:"tier"`
+	Status                *string `json:"status" jsonschema:"The row's status. Null when the row has none: a finding (null_status), never read as inactive."`
+	CurrentPeriodStart    string  `json:"currentPeriodStart,omitempty"`
+	CurrentPeriodEnd      string  `json:"currentPeriodEnd,omitempty"`
+	CancelAtPeriodEnd     bool    `json:"cancelAtPeriodEnd"`
+	CreatedAt             string  `json:"createdAt,omitempty"`
+	UpdatedAt             string  `json:"updatedAt,omitempty"`
+	HasStripeSubscription bool    `json:"hasStripeSubscription"`
+	StripeDashboardURL    string  `json:"stripeDashboardUrl,omitempty" jsonschema:"The customer in the Stripe dashboard (requires a Stripe login). Absent when the row has no customer."`
+	RecentlyUpdated       bool    `json:"recentlyUpdated,omitempty" jsonschema:"Updated in the last 15 minutes. Excluded from the drift check: a webhook may still be in flight."`
 }
 
 // SubscriberEntitlement is the verdict the product applies to one user id.
@@ -132,7 +132,7 @@ type BillingStripeInvoice struct {
 // BillingDriftFinding is one disagreement between the mirror and Stripe, or one
 // inconsistency inside the mirror.
 type BillingDriftFinding struct {
-	Kind   string `json:"kind" jsonschema:"paid_without_mirror | entitled_without_stripe | status_mismatch | missing_period_end | period_end_mismatch | cancel_mismatch | duplicate_email | email_keyed_user_id."`
+	Kind   string `json:"kind" jsonschema:"paid_without_mirror | unpaid_without_mirror | entitled_without_stripe | stale_subscription_id | status_mismatch | period_end_mismatch | cancel_mismatch | missing_period_end | null_status | duplicate_email | email_keyed_user_id. Severity order is the array order."`
 	Detail string `json:"detail"`
 }
 
@@ -187,7 +187,7 @@ type BillingExceptionCounts map[string]int
 
 // BillingExceptionRow is one finding.
 type BillingExceptionRow struct {
-	Kind   string `json:"kind" jsonschema:"paid_without_mirror | entitled_without_stripe | period_ended | unpaid_tier | past_due | missing_period_end | email_keyed_user_id | duplicate_email."`
+	Kind   string `json:"kind" jsonschema:"paid_without_mirror | unpaid_without_mirror | entitled_without_stripe | stale_subscription_id | period_ended | unpaid_tier | past_due | null_status | missing_period_end | email_keyed_user_id | duplicate_email."`
 	Email  string `json:"email,omitempty"`
 	UserID string `json:"userId,omitempty"`
 	Detail string `json:"detail"`
@@ -232,8 +232,10 @@ func checkSubscriptionTool() AdminTool {
 		"Does one subscriber's access match what they paid for? Give exactly one of email or userId. Returns the Firebase account, "+
 			"every subscription-mirror row for the email or user id (more than one is a finding), the entitlement the product applies, "+
 			"the live Stripe customer and subscriptions read through the web app, drift between the mirror and Stripe, and chat and API "+
-			"usage. A source that fails is named in sources and its section is null, never empty. Rows updated in the last 15 minutes are "+
-			"left out of the drift check because a webhook may still be in flight; notes says so.",
+			"usage. Drift compares each Stripe customer's best subscription with the one row that holds the customer, wherever that row is "+
+			"keyed. api lists metered requests under the user id; mcp lists them under the OAuth identity. Unlimited tiers are not metered, "+
+			"so their counts stay zero here. A source that fails is named in sources and its section is null, never empty. Rows updated in "+
+			"the last 15 minutes are left out of the drift check because a webhook may still be in flight; notes says so.",
 		func(ctx context.Context, r AdminBillingReader, in CheckSubscriptionInput) (*CheckSubscriptionOutput, error) {
 			email, uid := strings.TrimSpace(in.Email), strings.TrimSpace(in.UserID)
 			if (email == "") == (uid == "") {
@@ -257,8 +259,9 @@ func checkSubscriptionTool() AdminTool {
 func billingExceptionsTool() AdminTool {
 	return billingTool("list_billing_exceptions", "Billing exceptions across subscribers",
 		"The billing exceptions across all subscribers, most severe first: a live Stripe subscription with no entitled mirror row "+
-			"(money taken, no access) before access with no live Stripe subscription, then mirror rows that are past due, past their period "+
-			"end, on an unpaid tier, missing a period end, keyed by email instead of a user id, or sharing an email. counts covers every "+
+			"(money taken, no access), then access with no live Stripe subscription, then customers owed money with no row, then mirror rows "+
+			"that are past due, past their period end, on an unpaid tier, with no status or no period end, keyed by email instead of a user id, "+
+			"or sharing an email. Each Stripe customer's best live subscription is set against the one row that holds it. counts covers every "+
 			"finding; rows are the first limit (default 25). Rows updated in the last 15 minutes are skipped. A kind absent from counts "+
 			"was not checked, and notes says why.",
 		func(ctx context.Context, r AdminBillingReader, in BillingExceptionsInput) (*BillingExceptionsOutput, error) {

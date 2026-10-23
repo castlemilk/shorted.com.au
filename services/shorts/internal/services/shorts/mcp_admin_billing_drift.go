@@ -4,13 +4,19 @@ package shorts
 // functions over the mirror rows and the Stripe views. No I/O here, so every
 // rule is a table test.
 //
-// Two rules hold throughout:
+// Three rules hold throughout:
 //
-//   - Entitlement is ResolveEntitlement, never restated. Every "does this row
-//     grant paid access" question goes through it.
+//   - The unit is the CUSTOMER. api_subscriptions has one row per Stripe customer
+//     (stripe_customer_id is UNIQUE), and the web sync writes the customer's best
+//     subscription onto it. So a row is compared with the customer's best
+//     subscription, chosen by the same ranking the web uses (bestStripeSubscription),
+//     and never with "the subscription this event named".
+//   - Entitlement is the product's rule (ResolveEntitlement), never restated. The
+//     one exception is a null status, which the product cannot read at all, so it
+//     is reported as its own reason rather than guessed.
 //   - A row updated in the last billingRecentWindow is left out of every
-//     comparison. The webhook that wrote it may still be in flight, and a
-//     mismatch that is about to heal is not a finding.
+//     comparison. The webhook that wrote it may still be in flight, and a mismatch
+//     that is about to heal is not a finding.
 
 import (
 	"sort"
@@ -27,14 +33,18 @@ const (
 	billingPeriodTolerance = time.Hour
 )
 
-// Finding kinds. Mirror-only kinds need no Stripe; the rest need a Stripe read.
+// Finding kinds. A kind's name is the contract the tools publish; the severity
+// order below decides how the lists are sorted.
 const (
 	kindPaidWithoutMirror     = "paid_without_mirror"
+	kindUnpaidWithoutMirror   = "unpaid_without_mirror"
 	kindEntitledWithoutStripe = "entitled_without_stripe"
+	kindStaleSubscriptionID   = "stale_subscription_id"
 	kindStatusMismatch        = "status_mismatch"
 	kindPeriodEndMismatch     = "period_end_mismatch"
 	kindCancelMismatch        = "cancel_mismatch"
 	kindMissingPeriodEnd      = "missing_period_end"
+	kindNullStatus            = "null_status"
 	kindPastDue               = "past_due"
 	kindPeriodEnded           = "period_ended"
 	kindUnpaidTier            = "unpaid_tier"
@@ -42,21 +52,29 @@ const (
 	kindDuplicateEmail        = "duplicate_email"
 )
 
-// kindSeverity orders findings: money taken with no access first, then access
-// with no money, then the mirror's own state, then the tidy-ups.
+// kindSeverity orders findings: money taken with no access first, then access with
+// no money, then the mirror's own state, then the tidy-ups. A stale subscription
+// id is low: the state it should describe is already right.
 var kindSeverity = map[string]int{
 	kindPaidWithoutMirror:     0,
 	kindEntitledWithoutStripe: 1,
-	kindPeriodEnded:           2,
-	kindUnpaidTier:            3,
-	kindPastDue:               4,
-	kindStatusMismatch:        5,
-	kindPeriodEndMismatch:     6,
-	kindCancelMismatch:        7,
-	kindMissingPeriodEnd:      8,
-	kindEmailKeyedUserID:      9,
-	kindDuplicateEmail:        10,
+	kindUnpaidWithoutMirror:   2,
+	kindPeriodEnded:           3,
+	kindUnpaidTier:            4,
+	kindPastDue:               5,
+	kindNullStatus:            6,
+	kindStatusMismatch:        7,
+	kindPeriodEndMismatch:     8,
+	kindCancelMismatch:        9,
+	kindStaleSubscriptionID:   10,
+	kindMissingPeriodEnd:      11,
+	kindEmailKeyedUserID:      12,
+	kindDuplicateEmail:        13,
 }
+
+// liveRank is the web's preference order among live subscriptions (its LIVE_RANK).
+// A status not listed is ended and ranks after all of these.
+var liveRank = []string{"active", "trialing", "past_due", "unpaid"}
 
 // stripeCustomerView is one Stripe customer as read through the web app. The
 // customer id is kept for matching only; the output never carries it.
@@ -74,26 +92,73 @@ func isRecentlyUpdated(r shortsstore.BillingSubscription, now time.Time) bool {
 	return r.UpdatedAt != nil && !r.UpdatedAt.Before(now.Add(-billingRecentWindow))
 }
 
+// stripeRank orders one Stripe status the way the web's pickBestSubscription does
+// (lower is better). Every ended status shares the last rank.
+func stripeRank(status string) int {
+	s := normaliseRowValue(status)
+	for i, live := range liveRank {
+		if s == live {
+			return i
+		}
+	}
+	return len(liveRank)
+}
+
 // isLiveStripe is the set Stripe calls live: it still bills or still owes.
 func isLiveStripe(status string) bool {
-	switch status {
-	case "active", "trialing", "past_due", "unpaid":
-		return true
+	return stripeRank(status) < len(liveRank)
+}
+
+// isPaidStripe is the set that carries paid access: active or trialing. Past due
+// and unpaid are owed money, not access.
+func isPaidStripe(status string) bool {
+	return stripeRank(status) < 2
+}
+
+// bestStripeSubscription is the subscription the web writes onto a customer's row:
+// the best live one, else the newest ended one. Within a rank the newest created
+// wins, as in the web. A tie keeps the first seen.
+func bestStripeSubscription(subs []webSubscription) (webSubscription, bool) {
+	var best webSubscription
+	found := false
+	for _, s := range subs {
+		if !found {
+			best, found = s, true
+			continue
+		}
+		rs, rb := stripeRank(s.Status), stripeRank(best.Status)
+		if rs < rb || (rs == rb && createdOf(s).After(createdOf(best))) {
+			best = s
+		}
 	}
-	return false
+	return best, found
+}
+
+// createdOf reads a Stripe creation time; an unreadable one is the zero time, which
+// ranks as oldest.
+func createdOf(s webSubscription) time.Time {
+	if s.Created == nil {
+		return time.Time{}
+	}
+	t, ok := parseStoreTimestamp(*s.Created)
+	if !ok {
+		return time.Time{}
+	}
+	return t
 }
 
 // mirrorStatusFor maps a Stripe status to the value the webhook writes. The
-// mapping is the webhook's own: unpaid is recorded as past_due, and an
-// incomplete or paused subscription as inactive.
+// mapping is the web's own: unpaid is recorded as past_due, and an incomplete or
+// paused subscription as inactive.
 func mirrorStatusFor(stripe string) string {
+	s := normaliseRowValue(stripe)
 	switch {
-	case stripe == "unpaid":
+	case s == "unpaid":
 		return "past_due"
-	case strings.HasPrefix(stripe, "incomplete"), stripe == "paused":
+	case strings.HasPrefix(s, "incomplete"), s == "paused":
 		return "inactive"
 	}
-	return stripe
+	return s
 }
 
 // parsePeriod reads a period bound as the store returns it.
@@ -104,38 +169,49 @@ func parsePeriod(text *string) (time.Time, bool) {
 	return parseStoreTimestamp(*text)
 }
 
-// rowsForStripeSub returns the mirror rows that track a Stripe subscription.
-// A row tracks it by subscription id; a live subscription is also tracked by a
-// row on the same customer that has no subscription id yet (the checkout
-// webhook wrote the customer first).
-func rowsForStripeSub(rows []shortsstore.BillingSubscription, customerID string, s webSubscription) []shortsstore.BillingSubscription {
-	var byID, byCustomer []shortsstore.BillingSubscription
-	for _, r := range rows {
-		switch {
-		case s.ID != "" && r.StripeSubscriptionID == s.ID:
-			byID = append(byID, r)
-		case isLiveStripe(s.Status) && r.StripeSubscriptionID == "" && customerID != "" && r.StripeCustomerID == customerID:
-			byCustomer = append(byCustomer, r)
+// rowForCustomer returns the mirror row that holds a Stripe customer, or nil. The
+// schema makes it at most one, because stripe_customer_id is UNIQUE. rows must be
+// the whole set, recent rows included: a recent row still holds the customer, and
+// skipping it would report the customer as unmirrored.
+func rowForCustomer(rows []shortsstore.BillingSubscription, customerID string) *shortsstore.BillingSubscription {
+	if customerID == "" {
+		return nil
+	}
+	for i := range rows {
+		if rows[i].StripeCustomerID == customerID {
+			return &rows[i]
 		}
 	}
-	if len(byID) > 0 {
-		return byID
-	}
-	return byCustomer
+	return nil
 }
 
-// rowIsLiveInStripe reports whether Stripe has a live subscription for the row:
-// the row's own subscription, or any live subscription on its customer.
-func rowIsLiveInStripe(r shortsstore.BillingSubscription, views []stripeCustomerView) bool {
+// billingVerdict is the entitlement the product applies to a row. A grant decides
+// first, as it always does. A null status is the one row the product cannot read
+// at all (its scan fails), so it grants nothing, and is reported as such.
+func billingVerdict(userID string, row *shortsstore.BillingSubscription, now time.Time) Entitlement {
+	if row == nil {
+		return ResolveEntitlement(userID, nil, now)
+	}
+	if row.StatusNull {
+		if _, granted := InternalTierFor(userID); !granted {
+			return Entitlement{Tier: "free", Reason: "null_status", Source: "stripe"}
+		}
+	}
+	return ResolveEntitlement(userID, row.APISubscription(), now)
+}
+
+// customerHasLive reports whether Stripe has a live subscription on the customer.
+// An empty customer id has none: a row that names no customer cannot be matched.
+func customerHasLive(views []stripeCustomerView, customerID string) bool {
+	if customerID == "" {
+		return false
+	}
 	for _, v := range views {
+		if v.customerID != customerID {
+			continue
+		}
 		for _, s := range v.subs {
-			if !isLiveStripe(s.Status) {
-				continue
-			}
-			if r.StripeSubscriptionID != "" && s.ID == r.StripeSubscriptionID {
-				return true
-			}
-			if r.StripeCustomerID != "" && v.customerID == r.StripeCustomerID {
+			if isLiveStripe(s.Status) {
 				return true
 			}
 		}
@@ -143,10 +219,10 @@ func rowIsLiveInStripe(r shortsstore.BillingSubscription, views []stripeCustomer
 	return false
 }
 
-// billingDrift compares one subject's mirror rows with the Stripe customers
-// read for them. stripeOK is false when Stripe was not fully read: the
-// Stripe-dependent checks are then skipped, never guessed. It returns the
-// findings, most severe first, and the emails of the rows left out as recent.
+// billingDrift compares each Stripe customer with the mirror row that holds it.
+// stripeOK is false when Stripe was not fully read: the Stripe-dependent checks
+// are then skipped, never guessed. It returns the findings, most severe first, and
+// the emails of the rows left out as recent.
 func billingDrift(now time.Time, rows []shortsstore.BillingSubscription, views []stripeCustomerView, stripeOK bool) ([]mcp.BillingDriftFinding, []string) {
 	var findings []mcp.BillingDriftFinding
 	add := func(kind, detail string) {
@@ -163,68 +239,91 @@ func billingDrift(now time.Time, rows []shortsstore.BillingSubscription, views [
 		eligible = append(eligible, r)
 	}
 
-	// Mirror-only: no Stripe needed.
+	// Structure of the mirror itself. These need no Stripe.
 	perEmail := map[string]int{}
 	for _, r := range eligible {
 		perEmail[strings.ToLower(r.UserEmail)]++
 	}
-	flaggedMissingPeriod := map[string]bool{}
+	reportedEmail := map[string]bool{}
 	for _, r := range eligible {
 		if strings.Contains(r.UserID, "@") {
 			add(kindEmailKeyedUserID, "the row is keyed by an email address, which no Firebase account can match; the user it belongs to can never be entitled through it")
 		}
-		if perEmail[strings.ToLower(r.UserEmail)] > 1 {
-			add(kindDuplicateEmail, "this email has more than one mirror row")
+		if r.StatusNull {
+			add(kindNullStatus, "the row has no status; the product cannot read it, so it grants nothing")
+		}
+		email := strings.ToLower(r.UserEmail)
+		if perEmail[email] > 1 && !reportedEmail[email] {
+			reportedEmail[email] = true
+			add(kindDuplicateEmail, "this email has "+strconv.Itoa(perEmail[email])+" mirror rows")
 		}
 	}
 
+	flaggedMissingPeriod := map[string]bool{}
 	if stripeOK {
-		// Every live Stripe subscription should be tracked by a row.
 		for _, v := range views {
-			for _, s := range v.subs {
-				matched := rowsForStripeSub(rows, v.customerID, s)
-				if len(matched) == 0 {
-					if isLiveStripe(s.Status) {
-						add(kindPaidWithoutMirror, "Stripe has a "+s.Status+" "+s.Tier+" subscription that no mirror row tracks")
-					}
-					continue
+			best, ok := bestStripeSubscription(v.subs)
+			if !ok {
+				// A customer with no subscription at all has nothing to compare.
+				continue
+			}
+			row := rowForCustomer(rows, v.customerID)
+			if row == nil {
+				switch {
+				case isPaidStripe(best.Status):
+					add(kindPaidWithoutMirror, "the customer's "+normaliseRowValue(best.Status)+" subscription is live and no mirror row holds this customer, so it has no paid access")
+				case isLiveStripe(best.Status):
+					add(kindUnpaidWithoutMirror, "the customer's subscription is "+normaliseRowValue(best.Status)+" and no mirror row holds this customer")
 				}
-				r := matched[0]
-				if isRecentlyUpdated(r, now) {
-					continue
-				}
-				if want := mirrorStatusFor(s.Status); r.Status != want {
-					add(kindStatusMismatch, "the mirror says "+r.Status+", Stripe says "+s.Status)
-				}
-				if s.CurrentPeriodEnd != nil {
-					stripeEnd, ok := parsePeriod(s.CurrentPeriodEnd)
-					switch mirrorEnd, mirrorOK := parsePeriod(r.CurrentPeriodEnd); {
-					case r.CurrentPeriodEnd == nil:
-						add(kindMissingPeriodEnd, "Stripe has a current period end ("+periodLabel(stripeEnd, ok)+"); the mirror has none")
-						flaggedMissingPeriod[r.UserID] = true
-					case ok && mirrorOK && mirrorEnd.Sub(stripeEnd).Abs() > billingPeriodTolerance:
-						add(kindPeriodEndMismatch, "the mirror ends "+periodLabel(mirrorEnd, true)+", Stripe ends "+periodLabel(stripeEnd, ok))
-					}
-				}
-				if r.CancelAtPeriodEnd != s.CancelAtPeriodEnd {
-					add(kindCancelMismatch, "the mirror has cancel at period end set to "+boolLabel(r.CancelAtPeriodEnd)+", Stripe "+boolLabel(s.CancelAtPeriodEnd))
+				continue
+			}
+			if isRecentlyUpdated(*row, now) {
+				continue
+			}
+
+			ent := billingVerdict(row.UserID, row, now)
+			if isPaidStripe(best.Status) && !ent.Entitled {
+				add(kindPaidWithoutMirror, "the customer's "+normaliseRowValue(best.Status)+" subscription is live, but the row grants no paid access ("+ent.Reason+")")
+			}
+			if row.StripeSubscriptionID != best.ID {
+				if row.StripeSubscriptionID == "" {
+					add(kindStaleSubscriptionID, "the row names no subscription; the customer's current one is not recorded on it")
+				} else {
+					add(kindStaleSubscriptionID, "the row names an earlier subscription, not the customer's current one")
 				}
 			}
+			if !row.StatusNull && normaliseRowValue(row.Status) != mirrorStatusFor(best.Status) {
+				add(kindStatusMismatch, "the mirror says "+normaliseRowValue(row.Status)+", Stripe's current subscription says "+normaliseRowValue(best.Status))
+			}
+			if best.CurrentPeriodEnd != nil {
+				stripeEnd, ok := parsePeriod(best.CurrentPeriodEnd)
+				if row.CurrentPeriodEnd == nil {
+					add(kindMissingPeriodEnd, "Stripe has a current period end ("+periodLabel(stripeEnd, ok)+"); the mirror has none")
+					flaggedMissingPeriod[row.UserID] = true
+				} else if mirrorEnd, mOK := parsePeriod(row.CurrentPeriodEnd); ok && mOK && mirrorEnd.Sub(stripeEnd).Abs() > billingPeriodTolerance {
+					add(kindPeriodEndMismatch, "the mirror ends "+periodLabel(mirrorEnd, true)+", Stripe ends "+periodLabel(stripeEnd, ok))
+				}
+			}
+			if row.CancelAtPeriodEnd != best.CancelAtPeriodEnd {
+				add(kindCancelMismatch, "the mirror has cancel at period end set to "+boolLabel(row.CancelAtPeriodEnd)+", Stripe "+boolLabel(best.CancelAtPeriodEnd))
+			}
 		}
-		// A row that grants paid access from Stripe must have a live Stripe
-		// subscription behind it.
+
+		// A row that grants paid access from Stripe must sit on a customer with a
+		// live subscription behind it.
 		for _, r := range eligible {
-			ent := ResolveEntitlement(r.UserID, r.APISubscription(), now)
-			if !ent.Entitled || ent.Source != "stripe" || rowIsLiveInStripe(r, views) {
+			ent := billingVerdict(r.UserID, &r, now)
+			if !ent.Entitled || ent.Source != "stripe" || customerHasLive(views, r.StripeCustomerID) {
 				continue
 			}
 			add(kindEntitledWithoutStripe, "the mirror grants paid access ("+ent.Reason+") but Stripe has no live subscription for this customer")
 		}
 	}
 
-	// A paying-looking row with no period end, when Stripe was not asked.
+	// Active with no period end: a mirror-only fact, reported unless the Stripe
+	// comparison already said so.
 	for _, r := range eligible {
-		if r.Status == "active" && r.CurrentPeriodEnd == nil && !flaggedMissingPeriod[r.UserID] {
+		if normaliseRowValue(r.Status) == "active" && r.CurrentPeriodEnd == nil && !flaggedMissingPeriod[r.UserID] {
 			add(kindMissingPeriodEnd, "the row is active with no current period end")
 		}
 	}
@@ -265,16 +364,17 @@ type exceptionInput struct {
 	AliveTruncated bool
 }
 
-// exceptionResult is the sweep's findings, most severe first, with the counts
-// of every kind the sweep checked.
+// exceptionResult is the sweep's findings, most severe first, with the count of
+// every kind the sweep checked.
 type exceptionResult struct {
 	Findings      []mcp.BillingExceptionRow
 	Counts        map[string]int
 	SkippedRecent int
-	Notes         []string
 }
 
-// billingExceptions finds the exceptions across every subscriber.
+// billingExceptions finds the exceptions across every subscriber. The Stripe side
+// is the live list, keyed by customer: each customer's best live subscription is
+// set against the one row that holds the customer.
 func billingExceptions(in exceptionInput) exceptionResult {
 	res := exceptionResult{Counts: map[string]int{}}
 	add := func(kind, email, uid, detail string) {
@@ -291,68 +391,84 @@ func billingExceptions(in exceptionInput) exceptionResult {
 		eligible = append(eligible, r)
 	}
 
+	// Every mirror-only kind is always checked, so each is present in counts, zero
+	// included. An absent kind means it was not checked.
+	for _, kind := range []string{kindPastDue, kindPeriodEnded, kindUnpaidTier, kindMissingPeriodEnd, kindNullStatus, kindEmailKeyedUserID, kindDuplicateEmail} {
+		res.Counts[kind] = 0
+	}
+	if in.AliveOK {
+		for _, kind := range []string{kindPaidWithoutMirror, kindUnpaidWithoutMirror, kindStaleSubscriptionID} {
+			res.Counts[kind] = 0
+		}
+		// A cut list cannot show that a customer has no live subscription.
+		if !in.AliveTruncated {
+			res.Counts[kindEntitledWithoutStripe] = 0
+		}
+	}
+
 	perEmail := map[string]int{}
 	for _, r := range eligible {
 		perEmail[strings.ToLower(r.UserEmail)]++
 	}
-
-	// Each eligible row's verdict, computed once.
-	verdicts := make(map[string]Entitlement, len(eligible))
+	reportedEmail := map[string]bool{}
 	for _, r := range eligible {
-		verdicts[r.UserID] = ResolveEntitlement(r.UserID, r.APISubscription(), in.Now)
-	}
-
-	// Every kind this sweep checks is present in counts, zero included, so an
-	// absent kind always means "not checked". The Stripe kinds are added only
-	// when the live list was read; entitled_without_stripe also needs the list
-	// whole, since a cut list cannot show a customer has no live subscription.
-	for _, kind := range []string{kindPastDue, kindPeriodEnded, kindUnpaidTier, kindMissingPeriodEnd, kindEmailKeyedUserID, kindDuplicateEmail} {
-		res.Counts[kind] = 0
-	}
-	stripeChecked := in.AliveOK && !in.AliveTruncated
-	if in.AliveOK {
-		res.Counts[kindPaidWithoutMirror] = 0
-	}
-	if stripeChecked {
-		res.Counts[kindEntitledWithoutStripe] = 0
-	}
-
-	for _, r := range eligible {
-		v := verdicts[r.UserID]
-		if r.Status == "past_due" {
+		ent := billingVerdict(r.UserID, &r, in.Now)
+		if !r.StatusNull && normaliseRowValue(r.Status) == "past_due" {
 			add(kindPastDue, r.UserEmail, r.UserID, "payment failed; the row is past_due and grants no paid access")
 		}
-		if v.Reason == "period_ended" {
-			add(kindPeriodEnded, r.UserEmail, r.UserID, "the row is "+r.Status+" but its period ended more than "+strconv.Itoa(int(periodEndGrace.Hours()))+" hours ago; Stripe has not renewed it on this row")
+		if ent.Reason == "period_ended" {
+			add(kindPeriodEnded, r.UserEmail, r.UserID, "the row is "+normaliseRowValue(r.Status)+" but its period ended more than the grace allows; Stripe has not renewed it on this row")
 		}
-		if v.Reason == "unpaid_tier" {
-			add(kindUnpaidTier, r.UserEmail, r.UserID, "the row is "+r.Status+" on tier "+r.Tier+", which carries no paid features")
+		if ent.Reason == "unpaid_tier" {
+			add(kindUnpaidTier, r.UserEmail, r.UserID, "the row is "+normaliseRowValue(r.Status)+" on tier "+normaliseRowValue(r.Tier)+", which carries no paid features")
 		}
-		if r.Status == "active" && r.CurrentPeriodEnd == nil {
+		if r.StatusNull {
+			add(kindNullStatus, r.UserEmail, r.UserID, "the row has no status; the product cannot read it, so it grants nothing")
+		}
+		if !r.StatusNull && normaliseRowValue(r.Status) == "active" && r.CurrentPeriodEnd == nil {
 			add(kindMissingPeriodEnd, r.UserEmail, r.UserID, "the row is active with no current period end, so its entitlement cannot be checked against time")
 		}
 		if strings.Contains(r.UserID, "@") {
 			add(kindEmailKeyedUserID, r.UserEmail, r.UserID, "the row is keyed by an email address, which no Firebase account can match")
 		}
-		if perEmail[strings.ToLower(r.UserEmail)] > 1 {
-			add(kindDuplicateEmail, r.UserEmail, r.UserID, "this email has more than one mirror row")
-		}
-		if stripeChecked && v.Entitled && v.Source == "stripe" && !rowIsLiveInAlive(r, in.Alive) {
-			add(kindEntitledWithoutStripe, r.UserEmail, r.UserID, "the mirror grants paid access ("+v.Reason+") but Stripe has no live subscription for this customer")
+		email := strings.ToLower(r.UserEmail)
+		if perEmail[email] > 1 && !reportedEmail[email] {
+			reportedEmail[email] = true
+			add(kindDuplicateEmail, r.UserEmail, r.UserID, "this email has "+strconv.Itoa(perEmail[email])+" mirror rows")
 		}
 	}
 
 	if in.AliveOK {
-		for _, a := range in.Alive {
-			matched, found := matchAliveRow(in.Rows, a)
-			switch {
-			case !found:
-				add(kindPaidWithoutMirror, a.Email, a.MetadataUserID, "Stripe has a "+a.Status+" subscription that no mirror row tracks")
-			case isRecentlyUpdated(matched, in.Now):
-				res.SkippedRecent++
-			case (a.Status == "active" || a.Status == "trialing") && !verdicts[matched.UserID].Entitled:
-				add(kindPaidWithoutMirror, a.Email, matched.UserID, "Stripe says "+a.Status+" but the mirror row grants no paid access ("+verdicts[matched.UserID].Reason+")")
+		for _, b := range bestAliveByCustomer(in.Alive) {
+			row := rowForCustomer(in.Rows, b.CustomerID)
+			if row == nil {
+				if isPaidStripe(b.Status) {
+					add(kindPaidWithoutMirror, b.Email, b.MetadataUserID, "Stripe has a "+normaliseRowValue(b.Status)+" subscription and no mirror row holds this customer")
+				} else {
+					add(kindUnpaidWithoutMirror, b.Email, b.MetadataUserID, "Stripe has a "+normaliseRowValue(b.Status)+" subscription and no mirror row holds this customer")
+				}
+				continue
 			}
+			if isRecentlyUpdated(*row, in.Now) {
+				continue
+			}
+			ent := billingVerdict(row.UserID, row, in.Now)
+			if isPaidStripe(b.Status) && !ent.Entitled {
+				add(kindPaidWithoutMirror, row.UserEmail, row.UserID, "Stripe says "+normaliseRowValue(b.Status)+" but the row grants no paid access ("+ent.Reason+")")
+			}
+			if row.StripeSubscriptionID != b.SubscriptionID {
+				add(kindStaleSubscriptionID, row.UserEmail, row.UserID, "the row does not name the customer's current subscription")
+			}
+		}
+	}
+
+	if in.AliveOK && !in.AliveTruncated {
+		for _, r := range eligible {
+			ent := billingVerdict(r.UserID, &r, in.Now)
+			if !ent.Entitled || ent.Source != "stripe" || aliveHasCustomer(in.Alive, r.StripeCustomerID) {
+				continue
+			}
+			add(kindEntitledWithoutStripe, r.UserEmail, r.UserID, "the mirror grants paid access ("+ent.Reason+") but Stripe has no live subscription for this customer")
 		}
 	}
 
@@ -369,41 +485,41 @@ func billingExceptions(in exceptionInput) exceptionResult {
 	return res
 }
 
-// matchAliveRow finds the mirror row a live Stripe subscription belongs to: by
-// subscription id, else by the user id Stripe was told at checkout, else (only
-// when that user id is empty) by email. Rows are newest first, so the most
-// recent of several email matches is the one taken.
-func matchAliveRow(rows []shortsstore.BillingSubscription, a webAliveSubscription) (shortsstore.BillingSubscription, bool) {
-	if a.SubscriptionID != "" {
-		for _, r := range rows {
-			if r.StripeSubscriptionID == a.SubscriptionID {
-				return r, true
-			}
+// bestAliveByCustomer picks each customer's best live subscription from the live
+// list, by the web's ranking. The list carries no creation time, so a tie of rank
+// keeps the first listed. The result is in customer order, so output is stable.
+func bestAliveByCustomer(alive []webAliveSubscription) []webAliveSubscription {
+	byCustomer := map[string]webAliveSubscription{}
+	for _, a := range alive {
+		key := a.CustomerID
+		if key == "" {
+			key = "sub:" + a.SubscriptionID
+		}
+		cur, ok := byCustomer[key]
+		if !ok || stripeRank(a.Status) < stripeRank(cur.Status) {
+			byCustomer[key] = a
 		}
 	}
-	if a.MetadataUserID != "" {
-		for _, r := range rows {
-			if r.UserID == a.MetadataUserID {
-				return r, true
-			}
-		}
-		return shortsstore.BillingSubscription{}, false
+	keys := make([]string, 0, len(byCustomer))
+	for k := range byCustomer {
+		keys = append(keys, k)
 	}
-	for _, r := range rows {
-		if a.Email != "" && strings.EqualFold(r.UserEmail, a.Email) {
-			return r, true
-		}
+	sort.Strings(keys)
+	out := make([]webAliveSubscription, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, byCustomer[k])
 	}
-	return shortsstore.BillingSubscription{}, false
+	return out
 }
 
-// rowIsLiveInAlive is rowIsLiveInStripe for the alive list.
-func rowIsLiveInAlive(r shortsstore.BillingSubscription, alive []webAliveSubscription) bool {
+// aliveHasCustomer reports whether the live list has a subscription on the
+// customer. An empty customer id matches nothing.
+func aliveHasCustomer(alive []webAliveSubscription, customerID string) bool {
+	if customerID == "" {
+		return false
+	}
 	for _, a := range alive {
-		if r.StripeSubscriptionID != "" && a.SubscriptionID == r.StripeSubscriptionID {
-			return true
-		}
-		if r.StripeCustomerID != "" && a.CustomerID == r.StripeCustomerID {
+		if a.CustomerID == customerID {
 			return true
 		}
 	}

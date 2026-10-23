@@ -14,7 +14,6 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
@@ -53,6 +52,12 @@ func billingStoreFrom(people shortsstore.PeopleStore) shortsstore.BillingStore {
 
 // CheckSubscription answers "does this subscriber's access match what they
 // paid for?" for one email or one user id.
+//
+// It reads in phases, because each one can name a key the next needs: the mirror
+// rows for the key given, then Stripe for the customers those rows and the email
+// name, then the row that holds each customer Stripe found (under any email or uid),
+// then usage, then the verdict and drift. A customer's row is the one drift compares
+// with, so it must be found by customer, not only by the subject's email.
 func (a *adminMCPSource) CheckSubscription(ctx context.Context, in mcp.CheckSubscriptionInput) (*mcp.CheckSubscriptionOutput, error) {
 	now := time.Now()
 	out := &mcp.CheckSubscriptionOutput{
@@ -65,19 +70,20 @@ func (a *adminMCPSource) CheckSubscription(ctx context.Context, in mcp.CheckSubs
 	}
 	uid, email := in.UserID, in.Email
 
-	// Read the mirror under the key we have. A user id alone learns its email
-	// from its own row, and the account lookup is by email.
+	// 1. The mirror, under the keys given. A user id alone learns its email from its
+	// own row, and the account lookup is by email.
 	queriedUID, queriedEmail := uid, email
 	rows, truncated, mirrorErr := a.billingRows(ctx, uid, email)
 	if mirrorErr == nil && email == "" && len(rows) > 0 {
 		email = strings.ToLower(rows[0].UserEmail)
 	}
+
+	// 2. The account by email. Its uid completes the key when only the email was given.
 	account, accountErr := a.accountFor(ctx, email)
 	if accountErr == nil && account != nil && uid == "" {
 		uid = account.UID
 	}
-	// Re-read when the key grew, so every row for the email, under any user
-	// id, is in view. A duplicate is only visible this way.
+	// Re-read when the key grew, so every row for the email and for the uid is in view.
 	if uid != queriedUID || email != queriedEmail {
 		rows, truncated, mirrorErr = a.billingRows(ctx, uid, email)
 	}
@@ -88,28 +94,26 @@ func (a *adminMCPSource) CheckSubscription(ctx context.Context, in mcp.CheckSubs
 		out.Notes = append(out.Notes, "More than "+strconv.Itoa(shortsstore.BillingRowsPerSubject)+" mirror rows match; the list is cut and the drift check saw only what is listed.")
 	}
 
-	// Stripe and usage are independent of each other: read them together.
-	customerIDs := distinctCustomerIDs(rows)
-	usageIDs := distinctUserIDs(uid, rows)
-	var (
-		views        []stripeCustomerView
-		stripeErr    error
-		usage        *mcp.SubscriberUsage
-		usageSources []mcp.JobSource
-		wg           sync.WaitGroup
-	)
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		views, stripeErr = a.stripeCustomerViews(ctx, email, customerIDs)
-	}()
-	go func() {
-		defer wg.Done()
-		usage, usageSources = a.subscriberUsage(ctx, usageIDs, now)
-	}()
-	wg.Wait()
+	// 3. Stripe, for the customers the rows and the email name.
+	views, stripeErr := a.stripeCustomerViews(ctx, email, distinctCustomerIDs(rows))
 
-	// The entitlement is for one user id: the one given, the Firebase account's,
+	// 4. The row that holds each customer Stripe found, however it is keyed. A
+	// customer's row under another email or user id is the one drift compares with.
+	if mirrorErr == nil && stripeErr == nil {
+		if extra := customerIDsNotIn(views, rows); len(extra) > 0 {
+			more, err := a.billingRowsByCustomers(ctx, extra)
+			if err != nil {
+				mirrorErr = errBillingUnavailable
+			} else {
+				rows = mergeBillingRows(rows, more)
+			}
+		}
+	}
+
+	// 5. Usage for every user id the rows hold.
+	usage, usageSources := a.subscriberUsage(ctx, distinctUserIDs(uid, rows), now)
+
+	// 6. The entitlement is for one user id: the one given, the Firebase account's,
 	// or, with neither, the newest row the mirror holds for the email.
 	entUID, basis := uid, "none"
 	switch {
@@ -127,11 +131,7 @@ func (a *adminMCPSource) CheckSubscription(ctx context.Context, in mcp.CheckSubs
 		}
 	}
 	if mirrorErr == nil {
-		var api *shortsstore.APISubscription
-		if row := findBillingRow(rows, entUID); row != nil {
-			api = row.APISubscription()
-		}
-		out.Entitlement = entitlementOutput(entUID, ResolveEntitlement(entUID, api, now), basis)
+		out.Entitlement = entitlementOutput(entUID, billingVerdict(entUID, findBillingRow(rows, entUID), now), basis)
 	} else {
 		// The mirror is down, so the only verdict we can give without it is an
 		// operator grant, which the product checks before the store.
@@ -143,6 +143,8 @@ func (a *adminMCPSource) CheckSubscription(ctx context.Context, in mcp.CheckSubs
 		}
 	}
 
+	// 7. Mirror rows and drift. Drift needs the whole mirror and Stripe; without
+	// either it does not run, and the notes say so.
 	stripeOK := stripeErr == nil || errors.Is(stripeErr, errNothingToLookUp)
 	if mirrorErr == nil {
 		for i := range rows {
@@ -254,6 +256,53 @@ func (a *adminMCPSource) billingRows(ctx context.Context, uid, email string) ([]
 		return nil, false, errBillingUnavailable
 	}
 	return rows, truncated, nil
+}
+
+// billingRowsByCustomers reads the rows that hold the given Stripe customers.
+func (a *adminMCPSource) billingRowsByCustomers(ctx context.Context, customerIDs []string) ([]shortsstore.BillingSubscription, error) {
+	if a.billing == nil {
+		return nil, errBillingUnavailable
+	}
+	rows, err := a.billing.BillingSubscriptionsByCustomers(ctx, customerIDs)
+	if err != nil {
+		log.Warnf("admin billing: mirror rows by customer: %v", err)
+		return nil, errBillingUnavailable
+	}
+	return rows, nil
+}
+
+// customerIDsNotIn returns the Stripe customers the views hold that no row in rows
+// already names, in view order.
+func customerIDsNotIn(views []stripeCustomerView, rows []shortsstore.BillingSubscription) []string {
+	known := map[string]bool{}
+	for _, r := range rows {
+		if r.StripeCustomerID != "" {
+			known[r.StripeCustomerID] = true
+		}
+	}
+	var out []string
+	for _, v := range views {
+		if v.customerID != "" && !known[v.customerID] {
+			known[v.customerID] = true
+			out = append(out, v.customerID)
+		}
+	}
+	return out
+}
+
+// mergeBillingRows adds the rows of more that rows does not already hold, by user id.
+func mergeBillingRows(rows, more []shortsstore.BillingSubscription) []shortsstore.BillingSubscription {
+	seen := map[string]bool{}
+	for _, r := range rows {
+		seen[r.UserID] = true
+	}
+	for _, r := range more {
+		if !seen[r.UserID] {
+			seen[r.UserID] = true
+			rows = append(rows, r)
+		}
+	}
+	return rows
 }
 
 // accountFor looks up the Firebase account by email. A nil account with no
@@ -459,11 +508,15 @@ func accountOutput(u *firebaseUser) *mcp.BillingAccount {
 }
 
 func mirrorRowOutput(r shortsstore.BillingSubscription, now time.Time) mcp.BillingMirrorRow {
+	var status *string
+	if !r.StatusNull {
+		status = &r.Status
+	}
 	return mcp.BillingMirrorRow{
 		UserID:                r.UserID,
 		Email:                 r.UserEmail,
 		Tier:                  r.Tier,
-		Status:                r.Status,
+		Status:                status,
 		CurrentPeriodStart:    periodOutput(r.CurrentPeriodStart),
 		CurrentPeriodEnd:      periodOutput(r.CurrentPeriodEnd),
 		CancelAtPeriodEnd:     r.CancelAtPeriodEnd,

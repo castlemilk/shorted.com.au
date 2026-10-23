@@ -8,6 +8,8 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+func strPtr(s string) *string { return &s }
+
 // lastBilling records the last normalised input each billing tool handed the
 // reader. Tests run sequentially, so a package variable is enough.
 var lastBilling struct {
@@ -22,7 +24,7 @@ func (f *fakePublisher) CheckSubscription(_ context.Context, in CheckSubscriptio
 		Email:       in.Email,
 		UserID:      in.UserID,
 		Account:     nil, // the accounts source is unavailable, and the output says so
-		Mirror:      []BillingMirrorRow{{UserID: "uid-1", Email: "ada@example.com", Tier: "premium", Status: "active"}},
+		Mirror:      []BillingMirrorRow{{UserID: "uid-1", Email: "ada@example.com", Tier: "premium", Status: strPtr("active")}},
 		Entitlement: &SubscriberEntitlement{UserID: "uid-1", Entitled: true, Tier: "premium", Reason: "active", Source: "stripe", Basis: "user id"},
 		Stripe:      []BillingStripeView{},
 		Drift:       []BillingDriftFinding{{Kind: "missing_period_end", Detail: "Stripe has a period end; the mirror has none"}},

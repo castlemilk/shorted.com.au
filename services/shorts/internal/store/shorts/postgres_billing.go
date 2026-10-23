@@ -32,6 +32,9 @@ type BillingStore interface {
 	// BillingSubscriptionsAll returns up to limit mirror rows, newest update
 	// first, and whether there were more.
 	BillingSubscriptionsAll(ctx context.Context, limit int) (rows []BillingSubscription, truncated bool, err error)
+	// BillingSubscriptionsByCustomers returns the mirror rows that hold the given
+	// Stripe customers. A customer whose row is keyed under any user id is found.
+	BillingSubscriptionsByCustomers(ctx context.Context, customerIDs []string) ([]BillingSubscription, error)
 	// ChatUsage summarises the chat history of the given user ids.
 	ChatUsage(ctx context.Context, userIDs []string) (*ChatUsage, error)
 	// ChatUsageEvents summarises chat_usage_events (migration 000145) for the
@@ -66,13 +69,16 @@ type BillingSubscription struct {
 	UserEmail            string
 	StripeCustomerID     string
 	StripeSubscriptionID string
-	Status               string
-	Tier                 string
-	CurrentPeriodStart   *string // ::text, as GetAPISubscription reads it
-	CurrentPeriodEnd     *string // ::text, as GetAPISubscription reads it
-	CancelAtPeriodEnd    bool
-	CreatedAt            *time.Time
-	UpdatedAt            *time.Time
+	// Status is empty when StatusNull is set. A NULL status is reported as its own
+	// finding; it is never read as "inactive".
+	Status             string
+	StatusNull         bool
+	Tier               string
+	CurrentPeriodStart *string // ::text, as GetAPISubscription reads it
+	CurrentPeriodEnd   *string // ::text, as GetAPISubscription reads it
+	CancelAtPeriodEnd  bool
+	CreatedAt          *time.Time
+	UpdatedAt          *time.Time
 }
 
 // APISubscription is the row in the shape ResolveEntitlement takes.
@@ -112,15 +118,53 @@ type APIUsageMonth struct {
 	Requests int64
 }
 
+// billingSubscriptionColumns reads status WITHOUT a COALESCE: a NULL status must
+// reach the audit as a NULL, not as the 'inactive' a default would make it look
+// like. The tier is still defaulted, as the product itself defaults it.
 const billingSubscriptionColumns = `user_id, user_email, COALESCE(stripe_customer_id, ''), COALESCE(stripe_subscription_id, ''),
-	COALESCE(status, 'inactive'), COALESCE(tier, 'free'), current_period_start::text, current_period_end::text,
+	status, COALESCE(tier, 'free'), current_period_start::text, current_period_end::text,
 	COALESCE(cancel_at_period_end, false), created_at, updated_at`
 
 func scanBillingSubscription(scan func(dest ...any) error) (BillingSubscription, error) {
 	var b BillingSubscription
-	err := scan(&b.UserID, &b.UserEmail, &b.StripeCustomerID, &b.StripeSubscriptionID, &b.Status, &b.Tier,
+	var status *string
+	err := scan(&b.UserID, &b.UserEmail, &b.StripeCustomerID, &b.StripeSubscriptionID, &status, &b.Tier,
 		&b.CurrentPeriodStart, &b.CurrentPeriodEnd, &b.CancelAtPeriodEnd, &b.CreatedAt, &b.UpdatedAt)
+	if status == nil {
+		b.StatusNull = true
+	} else {
+		b.Status = *status
+	}
 	return b, err
+}
+
+// BillingSubscriptionsByCustomers returns the rows that hold the given customers.
+// The customer id is UNIQUE, so there is at most one row per customer, and the
+// result is bounded by the number of ids asked for.
+func (s *postgresStore) BillingSubscriptionsByCustomers(ctx context.Context, customerIDs []string) ([]BillingSubscription, error) {
+	if len(customerIDs) == 0 {
+		return nil, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, peopleQueryTimeout)
+	defer cancel()
+	rows, err := s.db.Query(ctx, `
+		SELECT `+billingSubscriptionColumns+`
+		FROM api_subscriptions
+		WHERE stripe_customer_id = ANY($1::text[])
+		ORDER BY updated_at DESC NULLS LAST, user_id`, customerIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []BillingSubscription{}
+	for rows.Next() {
+		b, err := scanBillingSubscription(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
 }
 
 func (s *postgresStore) BillingSubscriptionsFor(ctx context.Context, userID, email string) ([]BillingSubscription, bool, error) {
