@@ -75,7 +75,7 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
   };
 
   const handleNewChat = () => {
-    clearChat();
+    void clearChat();
     setShowHistory(false);
   };
 

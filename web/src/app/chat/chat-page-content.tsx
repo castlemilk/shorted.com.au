@@ -17,7 +17,6 @@ export function ChatPageContent() {
   const {
     messages,
     status,
-    isLoading,
     isLoadingHistory,
     error,
     historyError,
