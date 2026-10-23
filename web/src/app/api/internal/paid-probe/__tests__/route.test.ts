@@ -2,7 +2,7 @@
 import type { NextRequest } from "next/server";
 
 import { PROBE_WORST_CASE_CEILING_MS } from "~/server/paid-probe/constants";
-import { POST, maxDuration } from "../route";
+import { GET, POST, maxDuration } from "../route";
 import { reportCheckins } from "~/server/paid-probe/checkins";
 import { runPaidProbe, type PaidProbeRun } from "~/server/paid-probe/steps";
 
@@ -12,7 +12,7 @@ jest.mock("~/app/actions/config", () => ({ getServerShortsApiUrl: () => "https:/
 jest.mock("~/server/paid-probe/steps", () => ({ runPaidProbe: jest.fn() }));
 jest.mock("~/server/paid-probe/checkins", () => ({ reportCheckins: jest.fn(async () => "disabled") }));
 
-const ENV_KEYS = ["INTERNAL_SERVICE_SECRET", "PAID_PROBE_TOKEN", "PAID_PROBE_BASE_URL", "VERCEL_ENV"] as const;
+const ENV_KEYS = ["INTERNAL_SERVICE_SECRET", "PAID_PROBE_TOKEN", "PAID_PROBE_BASE_URL", "VERCEL_ENV", "CRON_SECRET"] as const;
 const savedEnv: Record<string, string | undefined> = {};
 const CALLED_ON = "https://shorted.com.au/api/internal/paid-probe";
 
@@ -49,6 +49,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   process.env.INTERNAL_SERVICE_SECRET = "internal-secret";
   process.env.PAID_PROBE_TOKEN = "probe-token";
+  process.env.CRON_SECRET = "cron-secret";
   delete process.env.PAID_PROBE_BASE_URL;
   delete process.env.VERCEL_ENV;
   jest.mocked(runPaidProbe).mockResolvedValue(run(true));
@@ -155,5 +156,30 @@ describe("POST /api/internal/paid-probe", () => {
     jest.mocked(reportCheckins).mockResolvedValueOnce("partial");
     const body = (await (await POST(request({ authorization: "Bearer probe-token" }))).json()) as { checkins: string };
     expect(body.checkins).toBe("partial");
+  });
+});
+
+describe("GET /api/internal/paid-probe (Vercel Cron)", () => {
+  it("runs for the cron secret and answers with the report", async () => {
+    const res = await GET(request({ authorization: "Bearer cron-secret" }));
+    expect(res.status).toBe(200);
+    expect(runPaidProbe).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses the probe token and the internal secret: GET is the cron door only", async () => {
+    expect((await GET(request({ authorization: "Bearer probe-token" }))).status).toBe(401);
+    expect((await GET(request({ "x-internal-secret": "internal-secret" }))).status).toBe(401);
+    expect(runPaidProbe).not.toHaveBeenCalled();
+  });
+
+  it("refuses everything when CRON_SECRET is unset", async () => {
+    delete process.env.CRON_SECRET;
+    expect((await GET(request({ authorization: "Bearer " }))).status).toBe(401);
+    expect((await GET(request({ authorization: "Bearer undefined" }))).status).toBe(401);
+    expect(runPaidProbe).not.toHaveBeenCalled();
+  });
+
+  it("does not open POST to the cron secret", async () => {
+    expect((await POST(request({ authorization: "Bearer cron-secret" }))).status).toBe(401);
   });
 });

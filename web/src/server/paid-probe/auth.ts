@@ -23,6 +23,19 @@ export function isAuthorizedProbeRequest(
 }
 
 /**
+ * The scheduled run: Vercel Cron calls GET with `Authorization: Bearer
+ * $CRON_SECRET`. This is the door the probe normally runs through, so no
+ * credential has to live in Telesis — Telesis validates the run through the
+ * per-step check-ins (a failed or missed run alerts), not by calling us.
+ */
+export function isAuthorizedCronRequest(
+  request: NextRequest,
+  env: ProbeEnv,
+): boolean {
+  return bearerMatches(request, env.CRON_SECRET);
+}
+
+/**
  * Constant-time Bearer check. An unset or blank expected token disables this
  * door outright, and a blank presented token never matches. The comparison
  * hashes both sides first so a length difference neither throws nor leaks.
