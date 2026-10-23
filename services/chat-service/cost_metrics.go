@@ -171,5 +171,7 @@ func mustMarshalLogEvent(event map[string]any) string {
 	if err != nil {
 		return `{"type":"instrumentation_error","error_name":"json_marshal_failed"}`
 	}
-	return string(data)
+	// Events carry error text, and that text can name a provider URL. Scrub the
+	// encoded line, where an escaped ampersand is what the key pattern must match.
+	return redactSecrets(string(data))
 }

@@ -62,9 +62,12 @@ type Citation struct {
 
 // NewLLMClient creates a new LLM client.
 func NewLLMClient(ctx context.Context, apiKey, model string, maxOutputTokens int32, toolExecutor *ToolExecutor) (*LLMClient, error) {
+	// The key is registered before any request can fail, so every error the
+	// client produces from here on is scrubbed of it.
+	registerSecrets(apiKey)
 	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
-		return nil, fmt.Errorf("create genai client: %w", err)
+		return nil, providerError("create genai client", err)
 	}
 
 	return &LLMClient{
@@ -102,7 +105,7 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 	resp, err := cs.SendMessage(ctx, genai.Text(userMessage))
 	if err != nil {
 		recordGeminiRequest(ctx, lc.model, "initial", "error", GeminiUsage{})
-		return nil, fmt.Errorf("send message: %w", err)
+		return nil, providerError("send message", err)
 	}
 	initialUsage := geminiUsageFromResponse(resp)
 	recordGeminiRequest(ctx, lc.model, "initial", "success", initialUsage)
@@ -131,7 +134,7 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 			status := "success"
 			if execErr != nil {
 				status = "error"
-				result = fmt.Sprintf("Error: %s", execErr.Error())
+				result = "Error: " + redactSecrets(execErr.Error())
 			}
 			recordToolCall(ctx, fc.Name, len([]byte(result)), status)
 
@@ -157,7 +160,7 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 		resp, err = cs.SendMessage(ctx, funcResponses...)
 		if err != nil {
 			recordGeminiRequest(ctx, lc.model, "tool_response", "error", GeminiUsage{})
-			return nil, fmt.Errorf("send function response: %w", err)
+			return nil, providerError("send function response", err)
 		}
 		toolUsage := geminiUsageFromResponse(resp)
 		recordGeminiRequest(ctx, lc.model, "tool_response", "success", toolUsage)
@@ -199,7 +202,7 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 		}
 		if err != nil {
 			recordGeminiRequest(ctx, lc.model, "initial", "error", initialUsage)
-			return nil, &turnError{ModelReached: modelReached, err: fmt.Errorf("stream next: %w", err)}
+			return nil, &turnError{ModelReached: modelReached, err: providerError("stream next", err)}
 		}
 		modelReached = true
 		if usage := geminiUsageFromResponse(resp); usage.hasTokens() {
@@ -255,7 +258,7 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 			status := "success"
 			if execErr != nil {
 				status = "error"
-				result = fmt.Sprintf("Error: %s", execErr.Error())
+				result = "Error: " + redactSecrets(execErr.Error())
 			}
 			recordToolCall(ctx, fc.Name, len([]byte(result)), status)
 
@@ -286,7 +289,7 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 			if err != nil {
 				recordGeminiRequest(ctx, lc.model, "tool_response", "error", toolUsage)
 				// Tool rounds run only after the model has answered the first call.
-				return nil, &turnError{ModelReached: true, err: fmt.Errorf("stream function response: %w", err)}
+				return nil, &turnError{ModelReached: true, err: providerError("stream function response", err)}
 			}
 			if usage := geminiUsageFromResponse(resp); usage.hasTokens() {
 				toolUsage = usage

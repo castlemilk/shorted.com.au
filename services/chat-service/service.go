@@ -5,7 +5,6 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -172,7 +171,7 @@ func (h *ChatServiceHandler) SendMessage(
 	if msg.ConversationId != "" {
 		conv, err = h.store.GetConversation(ctx, msg.ConversationId)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, fmt.Errorf("get conversation: %w", err))
+			return internalFailure("get conversation", err)
 		}
 		if conv == nil {
 			return connect.NewError(connect.CodeNotFound, fmt.Errorf("conversation not found"))
@@ -203,7 +202,7 @@ func (h *ChatServiceHandler) SendMessage(
 		}
 		conv, err = h.store.CreateConversation(ctx, userID, title, msg.ContextStockCode)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, fmt.Errorf("create conversation: %w", err))
+			return internalFailure("create conversation", err)
 		}
 	}
 	completion.ConversationID = conv.ID
@@ -211,14 +210,14 @@ func (h *ChatServiceHandler) SendMessage(
 	// Store user message
 	_, err = h.store.AddMessage(ctx, conv.ID, "user", msg.Message, nil, nil)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("store user message: %w", err))
+		return internalFailure("store user message", err)
 	}
 	recordChatStorageWrite(ctx, "user")
 
 	// Get conversation history
 	history, err := h.store.GetRecentMessages(ctx, conv.ID, h.historyLimit)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("get history: %w", err))
+		return internalFailure("get history", err)
 	}
 
 	// Remove the just-added user message from history (it will be sent as the current message)
@@ -244,10 +243,9 @@ func (h *ChatServiceHandler) SendMessage(
 	llmResp, err := h.llmClient.ChatStream(ctx, systemPrompt, history, msg.Message, onChunk)
 	reachedModel = err == nil || modelAnswered(err)
 	if err != nil {
-		log.Printf("LLM error: %v", err)
 		recordChatExperienceEvent("send_message", "error", "llm_error")
 		h.keepPartialReply(ctx, conv.ID, fullContent)
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("chat error: %w", err))
+		return modelFailure(err)
 	}
 	completion.InputTokens, completion.OutputTokens = completionTokens(llmResp.Usage)
 	completion.ToolCalls = len(llmResp.ToolCalls)
@@ -264,11 +262,11 @@ func (h *ChatServiceHandler) SendMessage(
 	// Store assistant message
 	_, err = h.store.AddMessage(ctx, conv.ID, "assistant", fullContent, toolCallsJSON, citationsJSON)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("store assistant message: %w", err))
+		return internalFailure("store assistant message", err)
 	}
 	recordChatStorageWrite(ctx, "assistant")
 	if pruned, pruneErr := h.store.PruneMessages(ctx, conv.ID, h.maxMessagesPerConv); pruneErr != nil {
-		log.Printf("chat prune failed for conversation %s: %v", conv.ID, pruneErr)
+		logRedacted("chat prune failed for conversation %s: %v", conv.ID, pruneErr)
 	} else {
 		recordChatMessagesPruned(ctx, pruned)
 	}
@@ -302,7 +300,7 @@ func (h *ChatServiceHandler) SendMessage(
 		ToolCalls:      protoToolCalls,
 		Citations:      protoCitations,
 	}); err != nil {
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("send response: %w", err))
+		return internalFailure("send response", err)
 	}
 
 	return nil
@@ -319,12 +317,12 @@ func (h *ChatServiceHandler) keepPartialReply(ctx context.Context, conversationI
 	writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), usageWriteTimeout)
 	defer cancel()
 	if _, err := h.store.AddMessage(writeCtx, conversationID, "assistant", content, nil, nil); err != nil {
-		log.Printf("chat: keep partial reply for conversation %s: %v", conversationID, err)
+		logRedacted("chat: keep partial reply for conversation %s: %v", conversationID, err)
 		return
 	}
 	recordChatStorageWrite(writeCtx, "assistant")
 	if _, err := h.store.PruneMessages(writeCtx, conversationID, h.maxMessagesPerConv); err != nil {
-		log.Printf("chat prune failed for conversation %s: %v", conversationID, err)
+		logRedacted("chat prune failed for conversation %s: %v", conversationID, err)
 	}
 }
 
@@ -343,7 +341,7 @@ func (h *ChatServiceHandler) GetConversationHistory(
 
 	conv, err := h.store.GetConversation(ctx, req.Msg.ConversationId)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, internalFailure("get conversation history", err)
 	}
 	if conv == nil {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("conversation not found"))
@@ -354,7 +352,7 @@ func (h *ChatServiceHandler) GetConversationHistory(
 
 	messages, err := h.store.GetMessages(ctx, req.Msg.ConversationId, h.maxMessagesPerConv)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, internalFailure("get messages", err)
 	}
 
 	var protoMsgs []*chatv1.ChatMessage
@@ -422,7 +420,7 @@ func (h *ChatServiceHandler) ListConversations(
 
 	convs, err := h.store.ListConversations(ctx, userID, limit)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, internalFailure("list conversations", err)
 	}
 
 	var protoConvs []*chatv1.ConversationSummary
@@ -456,7 +454,7 @@ func (h *ChatServiceHandler) DeleteConversation(
 	}
 
 	if err := h.store.DeleteConversation(ctx, req.Msg.ConversationId, userID); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, internalFailure("delete conversation", err)
 	}
 
 	return connect.NewResponse(&chatv1.DeleteConversationResponse{
