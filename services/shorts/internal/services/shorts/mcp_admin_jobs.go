@@ -23,6 +23,10 @@ type adminMCPSource struct {
 	// may be nil; the tools then name the source as unavailable.
 	people shortsstore.PeopleStore
 	users  firebaseUsersReader
+	// billing backs the billing audit (mcp_admin_billing.go); web reaches the
+	// Stripe-facing and probe routes of the web app. Either may be nil.
+	billing shortsstore.BillingStore
+	web     *adminWebClient
 }
 
 var _ mcp.AdminOperator = (*adminMCPSource)(nil)
