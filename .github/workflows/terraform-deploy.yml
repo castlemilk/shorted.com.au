@@ -16,7 +16,7 @@ on:
         default: false
 
 env:
-  NODE_VERSION: "24"
+  NODE_VERSION: "24.22.1"
   GO_VERSION: "1.26"
   PYTHON_VERSION: "3.11"
   GOWORK: "off"
@@ -1289,8 +1289,13 @@ jobs:
       - name: Set up Node for production deployment
         uses: actions/setup-node@v5
         with:
-          # Retain the verified Vercel upload pin from the retired preview workflow.
-          node-version: "24.8.0"
+          # Keep the actual build/upload process on the reviewed security patch.
+          node-version: "24.22.1"
+
+      - name: Verify production build Node patch
+        run: |
+          node --test scripts/tests/verify-build-node.test.mjs
+          node scripts/verify-build-node.mjs
 
       - name: Build and upload production deployment
         id: vercel-deploy
@@ -1526,7 +1531,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          node-version: "24.22.1"
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
@@ -1583,3 +1588,4 @@ jobs:
           echo "🧪 Running integration tests (local testcontainers)..."
           cd services
           make test-integration-ci
+
