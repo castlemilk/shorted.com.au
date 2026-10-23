@@ -388,6 +388,10 @@ jobs:
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # The chat service has its own Gemini key (rotated 2026-10-24 after the
+          # chat-service logged the shared key in provider-error URLs). Falls back
+          # to the shared key when the secret is unset.
+          GEMINI_API_KEY_CHAT: ${{ secrets.GEMINI_API_KEY_CHAT }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
           # CREATE ONLY. This job has no GitHub environment, so it sees the
@@ -407,7 +411,7 @@ jobs:
           ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
 
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_CHAT" "$GEMINI_API_KEY"
+          ensure_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
           ensure_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
           ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
@@ -570,6 +574,10 @@ jobs:
           ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # The chat service has its own Gemini key (rotated 2026-10-24 after the
+          # chat-service logged the shared key in provider-error URLs). Falls back
+          # to the shared key when the secret is unset.
+          GEMINI_API_KEY_CHAT: ${{ secrets.GEMINI_API_KEY_CHAT }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           DATABASE_URL_DEV: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
@@ -588,7 +596,7 @@ jobs:
 
           # Core secrets
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_CHAT" "$GEMINI_API_KEY"
+          ensure_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
           ensure_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
           ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"

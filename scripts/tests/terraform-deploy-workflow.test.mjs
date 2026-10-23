@@ -387,3 +387,20 @@ test("a pull request plan cannot cancel or block main's plan and apply", () => {
   const planRun = jobs["terraform-plan"].steps.find((s) => s.id === "plan").run;
   assert.match(planRun, /-lock=\$\{\{ github\.event_name == 'pull_request' && 'false' \|\| 'true' \}\}/);
 });
+
+// 2026-10-24: the chat service's Gemini key was rotated away from the shared
+// GEMINI_API_KEY (the old chat-service logged the shared key in provider-error
+// URLs). Every deploy re-syncs GEMINI_API_KEY_CHAT, so the sync must prefer the
+// chat key's own GitHub secret, or the next deploy silently reverts the rotation.
+test("the chat service's Gemini key is synced from its own secret, not the shared key", () => {
+  const syncs = workflowSource.match(/ensure_secret "GEMINI_API_KEY_CHAT" "[^"]+"/g) ?? [];
+  assert.equal(syncs.length, 2, "expected the plan and apply jobs to sync GEMINI_API_KEY_CHAT");
+  for (const sync of syncs) {
+    assert.equal(sync, 'ensure_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"');
+  }
+  for (const jobName of ["terraform-plan", "terraform-apply"]) {
+    const job = parse(workflowSource).jobs[jobName];
+    const exposes = job.steps.some((s) => s.env?.GEMINI_API_KEY_CHAT === "${{ secrets.GEMINI_API_KEY_CHAT }}");
+    assert.ok(exposes, `${jobName} must expose secrets.GEMINI_API_KEY_CHAT to the sync step`);
+  }
+});
