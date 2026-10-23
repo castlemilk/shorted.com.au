@@ -41,10 +41,14 @@ func telesisFake(t *testing.T, monitors string, runs map[string]string) *jobmoni
 	return jobmonitor.NewCollector(jobmonitor.Config{Telesis: jobmonitor.TelesisConfig{BaseURL: srv.URL, Token: "upk_test", OrgID: "org-1"}})
 }
 
+// paidFeatureMonitorsJSON: chat has checked in (armed); entitlement is paused;
+// gates is live but has never checked in, so it is not armed even though it is
+// not paused. The shorted-news monitor is not a paid-feature one and must not show.
 const paidFeatureMonitorsJSON = `{"monitors":[
-  {"id":"m-chat","name":"paid-feature: chat","status":"CRON_MONITOR_STATUS_FAILING","paused":false,"lastRunAt":"2026-10-23T10:00:00Z","nextExpectedAt":"2026-10-23T11:00:00Z"},
-  {"id":"m-ent","name":"paid-feature: entitlement","status":"CRON_MONITOR_STATUS_HEALTHY","paused":true},
-  {"id":"m-news","name":"shorted-news","status":"CRON_MONITOR_STATUS_HEALTHY","paused":false}
+  {"id":"m-chat","name":"paid-feature: chat","status":"CRON_MONITOR_STATUS_FAILING","paused":false,"armed":true,"lastRunAt":"2026-10-23T10:00:00Z","nextExpectedAt":"2026-10-23T11:00:00Z"},
+  {"id":"m-ent","name":"paid-feature: entitlement","status":"CRON_MONITOR_STATUS_HEALTHY","paused":true,"armed":false},
+  {"id":"m-gates","name":"paid-feature: gates","status":"CRON_MONITOR_STATUS_WAITING","paused":false,"armed":false},
+  {"id":"m-news","name":"shorted-news","status":"CRON_MONITOR_STATUS_HEALTHY","paused":false,"armed":true}
  ],"pageInfo":{}}`
 
 const chatRunsJSON = `{"runs":[{"runId":"chat-2","status":"CRON_RUN_STATUS_FAILED","startedAt":"2026-10-23T10:00:00Z","durationMs":"1200","terminalReason":"gemini timeout"}]}`
@@ -57,10 +61,15 @@ func TestPaidFeatureStatusReadsEachFeatureThroughTelesis(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !out.Configured || len(out.Features) != 2 {
-		t.Fatalf("configured %v, features %+v; want two paid-feature monitors and nothing else", out.Configured, out.Features)
+	if !out.Configured || len(out.Features) != 3 {
+		t.Fatalf("configured %v, features %+v; want three paid-feature monitors and nothing else", out.Configured, out.Features)
 	}
-	chat, ent := out.Features[0], out.Features[1]
+	chat, ent, gates := out.Features[0], out.Features[1], out.Features[2]
+	// gates is not paused, yet it has never checked in: it is not armed. The old
+	// rule (armed = not paused) said it was, and would alert on a run it never made.
+	if gates.Feature != "gates" || gates.Armed || gates.Paused {
+		t.Errorf("gates = %+v: an unpaused monitor that has never checked in is not armed", gates)
+	}
 	if chat.Feature != "chat" || chat.Status != "failing" || !chat.Armed || chat.Paused {
 		t.Errorf("chat = %+v", chat)
 	}

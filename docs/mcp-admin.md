@@ -141,8 +141,9 @@ for match what they can use, and do the paid features work right now?
 
 `paid_feature_status` (`jobs:read`) reads the Telesis cron monitors the probe
 reports to, one per feature: `paid-feature: entitlement`, `chat`, `api_token`,
-`gates` and `all`. `armed` means the monitor expects runs (it is not paused), so
-a missed run alerts. `configured: false` means Telesis is not set up on this
+`gates` and `all`. `armed` is Telesis' own flag: it is true only after the monitor's first
+check-in. An armed monitor alerts when a run is missed; an unarmed one has not
+reported yet, so a missed run cannot alert. `configured: false` means Telesis is not set up on this
 deployment; that is not an error. The Telesis setup is in "Jobs on the omega
 cluster" above.
 

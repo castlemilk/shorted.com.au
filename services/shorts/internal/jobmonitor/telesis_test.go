@@ -56,6 +56,27 @@ func TestTelesisClientListsMonitorsAcrossPages(t *testing.T) {
 	}
 }
 
+// Telesis' armed flag is read as Telesis reports it, not derived from paused: a
+// live monitor that has never checked in is not armed.
+func TestTelesisClientReadsArmedAsTelesisReportsIt(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"monitors":[
+			{"id":"m1","name":"paid-feature: chat","status":"CRON_MONITOR_STATUS_HEALTHY","paused":false,"armed":true},
+			{"id":"m2","name":"paid-feature: gates","status":"CRON_MONITOR_STATUS_WAITING","paused":false,"armed":false},
+			{"id":"m3","name":"paid-feature: all"}],"pageInfo":{}}`)
+	}))
+	defer srv.Close()
+
+	c := newTelesisClient(TelesisConfig{BaseURL: srv.URL, Token: testTelesisToken, OrgID: "org-1"})
+	got, err := c.ListCronMonitors(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 || !got[0].Armed || got[1].Armed || got[1].Paused || got[2].Armed {
+		t.Fatalf("monitors = %+v, want armed as reported (chat armed; gates unpaused but not armed; an absent flag is false)", got)
+	}
+}
+
 // protojson writes int64 as a quoted string; a bare number must decode too.
 func TestTelesisClientDecodesRuns(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

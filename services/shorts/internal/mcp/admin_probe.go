@@ -51,7 +51,7 @@ type PaidFeature struct {
 	Feature        string           `json:"feature" jsonschema:"The monitor name after 'paid-feature: ', e.g. entitlement, chat, api_token, gates, all."`
 	Status         string           `json:"status" jsonschema:"Telesis monitor status: waiting | healthy | running | late | failing | paused."`
 	Paused         bool             `json:"paused"`
-	Armed          bool             `json:"armed" jsonschema:"True when the monitor expects runs (it is not paused), so a missed run alerts."`
+	Armed          bool             `json:"armed" jsonschema:"Telesis' armed flag: true only after the monitor's first check-in. An armed monitor alerts on a missed run; an unarmed one has not reported yet, so a missed run cannot alert."`
 	LastRunAt      string           `json:"lastRunAt,omitempty"`
 	NextExpectedAt string           `json:"nextExpectedAt,omitempty"`
 	RecentRuns     []PaidFeatureRun `json:"recentRuns" jsonschema:"The newest runs, newest first. Null when this feature's run history could not be read (see sources)."`

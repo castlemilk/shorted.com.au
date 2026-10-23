@@ -111,6 +111,7 @@ type telesisMonitor struct {
 	Name           string `json:"name"`
 	Status         string `json:"status"`
 	Paused         bool   `json:"paused"`
+	Armed          bool   `json:"armed"`
 	LastRunAt      string `json:"lastRunAt"`
 	NextExpectedAt string `json:"nextExpectedAt"`
 }
@@ -167,7 +168,7 @@ func (c *telesisClient) ListCronMonitors(ctx context.Context) ([]CronMonitor, er
 		for _, m := range resp.Monitors {
 			out = append(out, CronMonitor{
 				ID: m.ID, Name: m.Name, Status: enumSuffix(m.Status, "CRON_MONITOR_STATUS_"),
-				Paused: m.Paused, LastRunAt: m.LastRunAt, NextExpectedAt: m.NextExpectedAt,
+				Paused: m.Paused, Armed: m.Armed, LastRunAt: m.LastRunAt, NextExpectedAt: m.NextExpectedAt,
 			})
 		}
 		if !resp.PageInfo.HasNextPage || resp.PageInfo.NextPageToken == "" {

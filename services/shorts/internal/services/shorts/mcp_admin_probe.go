@@ -59,7 +59,7 @@ func (a *adminMCPSource) PaidFeatureStatus(ctx context.Context) (*mcp.PaidFeatur
 			Feature:        strings.TrimPrefix(h.Monitor.Name, mcp.PaidFeatureMonitorPrefix),
 			Status:         h.Monitor.Status,
 			Paused:         h.Monitor.Paused,
-			Armed:          !h.Monitor.Paused,
+			Armed:          h.Monitor.Armed,
 			LastRunAt:      h.Monitor.LastRunAt,
 			NextExpectedAt: h.Monitor.NextExpectedAt,
 		}
