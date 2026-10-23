@@ -33,6 +33,11 @@ const HOP_BY_HOP_HEADERS = new Set([
   "x-user-id",
   "x-user-email",
   "x-internal-secret",
+  // Vercel's deployment-protection bypass is a credential. A caller that sends
+  // it to this route (the paid-feature probe does, to its own deployment) must
+  // not have it passed on to the chat service, which is not that deployment.
+  "x-vercel-protection-bypass",
+  "x-vercel-set-bypass-cookie",
 ]);
 
 const DEFAULT_SENDS_PER_MINUTE = 4;

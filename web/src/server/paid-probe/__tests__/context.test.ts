@@ -28,6 +28,8 @@ const CALLED_ON = "https://shorted.com.au/api/internal/paid-probe";
 const PRODUCTION = { VERCEL_ENV: "production" };
 const VERCEL_HOST = "shorted-com-abc.vercel.app";
 const DEPLOYMENT = `https://${VERCEL_HOST}`;
+/** Bare DNS names, digits and mixed case included: all must be accepted. */
+const VERCEL_HOSTS = [VERCEL_HOST, "Shorted-Com-ABC.Vercel.App", "shorted-2130706433.vercel.app", "a1.b2.c3"];
 const VERCEL_BYPASS_VALUE = "vercel-bypass-value";
 
 describe("probeFetch", () => {
@@ -106,6 +108,29 @@ describe("deploymentOrigin", () => {
 
   it("is undefined when VERCEL_URL is unset", () => {
     expect(deploymentOrigin({})).toBeUndefined();
+  });
+
+  it("is undefined for an IP literal, a numeric shorthand or a single label, which are not DNS names", () => {
+    for (const value of [
+      "127.0.0.1",
+      "169.254.169.254",
+      "1.2.3",
+      "2130706433",
+      "0x7f.1",
+      "0x7f.0.0.1",
+      "a.0x7f",
+      "localhost",
+    ]) {
+      expect({ value, origin: deploymentOrigin({ VERCEL_URL: value }) }).toEqual({ value, origin: undefined });
+    }
+  });
+
+  it("returns only an origin the URL parser reproduces exactly, so the stored value and a request to it always agree", () => {
+    expect(VERCEL_HOSTS.every((value) => deploymentOrigin({ VERCEL_URL: value }) !== undefined)).toBe(true);
+    for (const value of ["2130706433", "0x7f.1", "1.2.3", "127.0.0.1", ...VERCEL_HOSTS]) {
+      const origin = deploymentOrigin({ VERCEL_URL: value });
+      if (origin !== undefined) expect({ value, parsed: new URL(origin).origin }).toEqual({ value, parsed: origin });
+    }
   });
 
   it("is undefined for anything but a bare hostname: scheme, path, '@', port, empty, whitespace, odd labels", () => {

@@ -146,13 +146,31 @@ export function resolveProbeOrigin(requestUrl: string, env: ProbeEnv): Trust<str
 
 /**
  * The deployment's own origin from VERCEL_URL, or undefined when it is unset or
- * is not a bare hostname. Vercel sets it to the deployment's own host, so the
+ * is not a bare DNS hostname. Vercel sets it to the deployment's own host, so the
  * value needs no scheme, path, port or credentials. Anything else is not used.
  */
 export function deploymentOrigin(env: ProbeEnv): string | undefined {
   const host = env.VERCEL_URL;
   if (typeof host !== "string" || !BARE_HOSTNAME.test(host)) return undefined;
-  return `https://${host.toLowerCase()}`;
+  const lower = host.toLowerCase();
+  return isDnsName(lower) ? `https://${lower}` : undefined;
+}
+
+/**
+ * A DNS name, not an IP literal or a numeric shorthand. A name needs two or more
+ * labels, and its last label is never all digits or 0x-hex (that is how the URL
+ * parser reads an IPv4 address). The parser must also hand the name back
+ * unchanged, so the origin stored here is the origin a request to it reaches.
+ */
+function isDnsName(host: string): boolean {
+  const labels = host.split(".");
+  if (labels.length < 2) return false;
+  if (/^(?:\d+|0x[0-9a-f]*)$/.test(labels[labels.length - 1] ?? "")) return false;
+  try {
+    return new URL(`https://${host}`).hostname === host;
+  } catch {
+    return false;
+  }
 }
 
 /**
