@@ -56,11 +56,15 @@ func (c *adminWebClient) route(name string) string {
 	return strings.TrimSuffix(c.checkURL, "/admin-check") + "/" + name
 }
 
-// webCustomerView is the web app's answer to {"action":"customer"}.
+// webCustomerView is the web app's answer to {"action":"customer"}. An email that
+// names more than one Stripe customer is answered with no customer, ambiguous set,
+// and the ids it matched, so each can be read by id.
 type webCustomerView struct {
 	Customer      *webCustomer      `json:"customer"`
 	Subscriptions []webSubscription `json:"subscriptions"`
 	LatestInvoice *webInvoice       `json:"latestInvoice"`
+	Ambiguous     bool              `json:"ambiguous"`
+	CustomerIDs   []string          `json:"customerIds"`
 }
 
 type webCustomer struct {

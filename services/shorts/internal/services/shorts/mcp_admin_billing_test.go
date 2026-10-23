@@ -117,6 +117,15 @@ type billingWeb struct {
 	probeBody     string
 	seenSecrets   []string
 	actions       []string
+	// ambiguous answers an email with the web's ambiguous shape: no customer and the
+	// ids it matched. Keyed by the email exactly as it arrives.
+	ambiguous map[string][]string
+	// failCustomer is a customer id whose read fails with 500.
+	failCustomer string
+	// emailsSeen is every email the billing route was asked with, exactly as sent.
+	emailsSeen []string
+	// customerReads counts the by-id reads.
+	customerReads int
 }
 
 func (w *billingWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
@@ -137,6 +146,20 @@ func (w *billingWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		if req.Action == "alive" {
 			_ = json.NewEncoder(rw).Encode(w.alive)
 			return
+		}
+		if req.Email != "" {
+			w.emailsSeen = append(w.emailsSeen, req.Email)
+			if ids, ok := w.ambiguous[req.Email]; ok {
+				_ = json.NewEncoder(rw).Encode(webCustomerView{Ambiguous: true, CustomerIDs: ids})
+				return
+			}
+		}
+		if req.CustomerID != "" {
+			w.customerReads++
+			if req.CustomerID == w.failCustomer {
+				rw.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		}
 		key := "email:" + req.Email
 		if req.CustomerID != "" {
@@ -653,5 +676,95 @@ func TestPayingRowCarriesTheProductsVerdict(t *testing.T) {
 	granted := payingRow(shortsstore.AdminSubscription{UserID: "uid-granted", Status: "canceled", Tier: "free"}, now)
 	if !granted.Entitled || granted.EntitlementReason != "internal_grant" {
 		t.Fatalf("granted row = %+v", granted)
+	}
+}
+
+// An email that names several Stripe customers is read customer by customer, and
+// the Stripe source says the answer is partial. Each matched customer is compared
+// with its own row, so a second customer with no row is still found.
+func TestAmbiguousEmailReadsEveryMatchedCustomerAndSaysSo(t *testing.T) {
+	f := billingHealthyFixture()
+	periodEnd := billingClock().Add(20 * 24 * time.Hour)
+	f.web.ambiguous = map[string][]string{"ada@example.com": {"cus_A", "cus_B"}}
+	f.web.customers["id:cus_B"] = webCustomerView{
+		Customer:      &webCustomer{ID: "cus_B"},
+		Subscriptions: []webSubscription{{ID: "sub_B", Status: "active", Tier: "premium", CurrentPeriodEnd: billingRFC(periodEnd), MetadataUserID: "uid-b"}},
+	}
+	out, err := f.source(t).CheckSubscription(context.Background(), mcp.CheckSubscriptionInput{Email: "ada@example.com", EmailAsTyped: "ada@example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Stripe) != 2 {
+		t.Fatalf("stripe = %+v, want both matched customers read", out.Stripe)
+	}
+	if got := sourceStatus(out.Sources, sourceStripe); got != "partial" {
+		t.Fatalf("stripe source = %s, want partial", got)
+	}
+	if !hasNote(out.Notes, "matches 2 Stripe customers") {
+		t.Fatalf("notes = %v, want the ambiguity named", out.Notes)
+	}
+	// The second customer has a live subscription and no row: found, not hidden.
+	if len(out.Drift) != 1 || out.Drift[0].Kind != kindPaidWithoutMirror {
+		t.Fatalf("drift = %+v, want the second customer paid without mirror", out.Drift)
+	}
+}
+
+// The admin's email goes to Stripe exactly as typed. The mirror and the account
+// are read with the normalised form.
+func TestStripeIsAskedWithTheEmailAsTyped(t *testing.T) {
+	f := billingHealthyFixture()
+	f.web.customers["email:Ada@Example.COM"] = billingAdaCustomer(billingClock().Add(20 * 24 * time.Hour))
+	src := f.source(t)
+	out, err := src.CheckSubscription(context.Background(), mcp.CheckSubscriptionInput{Email: "ada@example.com", EmailAsTyped: "Ada@Example.COM"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.web.emailsSeen) == 0 || f.web.emailsSeen[0] != "Ada@Example.COM" {
+		t.Fatalf("web was asked with %v, want the email as typed", f.web.emailsSeen)
+	}
+	if out.Email != "ada@example.com" {
+		t.Fatalf("output email = %q, want the normalised form", out.Email)
+	}
+}
+
+// A customer the ambiguous email matched that cannot be read is an unavailable
+// Stripe source, not a partial one: the answer is then not known at all.
+func TestAmbiguousCustomerReadFailureIsUnavailable(t *testing.T) {
+	f := billingHealthyFixture()
+	f.web.ambiguous = map[string][]string{"ada@example.com": {"cus_A", "cus_broken"}}
+	f.web.failCustomer = "cus_broken"
+	out, err := f.source(t).CheckSubscription(context.Background(), mcp.CheckSubscriptionInput{Email: "ada@example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := sourceStatus(out.Sources, sourceStripe); got != "unavailable" {
+		t.Fatalf("stripe source = %s, want unavailable", got)
+	}
+}
+
+// An ambiguous email is read for at most billingMaxAmbiguousCustomers customers. The
+// rest are named, and the answer stays partial.
+func TestAmbiguousEmailIsCappedAndSaysSo(t *testing.T) {
+	f := billingHealthyFixture()
+	var ids []string
+	for i := 0; i < billingMaxAmbiguousCustomers+2; i++ {
+		id := fmt.Sprintf("cus_many_%02d", i)
+		ids = append(ids, id)
+		f.web.customers["id:"+id] = webCustomerView{Customer: &webCustomer{ID: id}}
+	}
+	f.web.ambiguous = map[string][]string{"ada@example.com": ids}
+	out, err := f.source(t).CheckSubscription(context.Background(), mcp.CheckSubscriptionInput{Email: "ada@example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The subject's own row customer is read by id too, so the reads are the cap plus one.
+	if f.web.customerReads != billingMaxAmbiguousCustomers+1 {
+		t.Fatalf("customer reads = %d, want the cap of %d plus the row's own customer", f.web.customerReads, billingMaxAmbiguousCustomers)
+	}
+	if got := sourceStatus(out.Sources, sourceStripe); got != "partial" {
+		t.Fatalf("stripe source = %s, want partial", got)
+	}
+	if !hasNote(out.Notes, "2 more matched customer(s) were not read") {
+		t.Fatalf("notes = %v, want the unread count named", out.Notes)
 	}
 }

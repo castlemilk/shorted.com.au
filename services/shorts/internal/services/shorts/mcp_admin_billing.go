@@ -69,6 +69,9 @@ func (a *adminMCPSource) CheckSubscription(ctx context.Context, in mcp.CheckSubs
 		Notes:      []string{},
 	}
 	uid, email := in.UserID, in.Email
+	// Stripe is asked with the email as typed. A row-derived email keeps the case the
+	// row holds, since that is what Stripe recorded.
+	stripeEmail := in.EmailAsTyped
 
 	// 1. The mirror, under the keys given. A user id alone learns its email from its
 	// own row, and the account lookup is by email.
@@ -76,6 +79,10 @@ func (a *adminMCPSource) CheckSubscription(ctx context.Context, in mcp.CheckSubs
 	rows, truncated, mirrorErr := a.billingRows(ctx, uid, email)
 	if mirrorErr == nil && email == "" && len(rows) > 0 {
 		email = strings.ToLower(rows[0].UserEmail)
+		stripeEmail = rows[0].UserEmail
+	}
+	if stripeEmail == "" {
+		stripeEmail = email
 	}
 
 	// 2. The account by email. Its uid completes the key when only the email was given.
@@ -95,7 +102,15 @@ func (a *adminMCPSource) CheckSubscription(ctx context.Context, in mcp.CheckSubs
 	}
 
 	// 3. Stripe, for the customers the rows and the email name.
-	views, stripeErr := a.stripeCustomerViews(ctx, email, distinctCustomerIDs(rows))
+	read, stripeErr := a.stripeCustomerViews(ctx, stripeEmail, distinctCustomerIDs(rows))
+	views := read.views
+	if read.ambiguous {
+		note := "The email matches " + strconv.Itoa(read.matched) + " Stripe customers. Each one read is compared with its row, but the Stripe answer is partial: the subject may hold more than one customer."
+		if read.unread > 0 {
+			note += " " + strconv.Itoa(read.unread) + " more matched customer(s) were not read (the cap is " + strconv.Itoa(billingMaxAmbiguousCustomers) + ")."
+		}
+		out.Notes = append(out.Notes, note)
+	}
 
 	// 4. The row that holds each customer Stripe found, however it is keyed. A
 	// customer's row under another email or user id is the one drift compares with.
@@ -175,7 +190,7 @@ func (a *adminMCPSource) CheckSubscription(ctx context.Context, in mcp.CheckSubs
 	}
 	out.Usage = usage
 
-	out.Sources = append(out.Sources, accountSource(accountErr), mirrorSource(mirrorErr, truncated), stripeSource(stripeErr, views))
+	out.Sources = append(out.Sources, accountSource(accountErr), mirrorSource(mirrorErr, truncated), stripeSource(stripeErr, read))
 	out.Sources = append(out.Sources, usageSources...)
 	return out, nil
 }
@@ -322,25 +337,46 @@ func (a *adminMCPSource) accountFor(ctx context.Context, email string) (*firebas
 	return u, nil
 }
 
-// stripeCustomerViews reads every Stripe customer the subject can be matched
-// to: each distinct customer id on its mirror rows, and the customer with its
-// email. A customer found twice is read once. One failed read fails the whole
-// set, so no Stripe-dependent check runs on partial data.
-func (a *adminMCPSource) stripeCustomerViews(ctx context.Context, email string, customerIDs []string) ([]stripeCustomerView, error) {
+// billingMaxAmbiguousCustomers bounds how many of the customers an ambiguous email
+// matches are read. Past it the answer stays partial, and the note says how many
+// were left out.
+const billingMaxAmbiguousCustomers = 10
+
+// stripeRead is what the Stripe side returned for one subject.
+type stripeRead struct {
+	views []stripeCustomerView
+	// ambiguous is set when the email named more than one Stripe customer. The
+	// answer is then partial: the subject may hold more than one customer.
+	ambiguous bool
+	// matched is how many customers the email named, when it was ambiguous.
+	matched int
+	// unread is how many of those were beyond the cap and were not read.
+	unread int
+}
+
+// stripeCustomerViews reads every Stripe customer the subject matches: each distinct
+// customer id on its mirror rows, and the customer or customers the email names. An
+// email that names several customers is answered by the web with no customer and
+// the ids it matched; each id is then read in turn, up to the cap. One failed read
+// fails the whole set, so no Stripe-dependent check runs on partial data.
+//
+// email is what Stripe is asked with: the admin's email as typed, which the web app
+// retries in lower case itself.
+func (a *adminMCPSource) stripeCustomerViews(ctx context.Context, email string, customerIDs []string) (stripeRead, error) {
+	var read stripeRead
 	if a.web == nil {
-		return nil, errWebUnavailable
+		return read, errWebUnavailable
 	}
 	if email == "" && len(customerIDs) == 0 {
-		return nil, errNothingToLookUp
+		return read, errNothingToLookUp
 	}
-	var views []stripeCustomerView
 	seen := map[string]bool{}
 	add := func(v *webCustomerView, lookedUpBy string) {
 		if v == nil || v.Customer == nil || seen[v.Customer.ID] {
 			return
 		}
 		seen[v.Customer.ID] = true
-		views = append(views, stripeCustomerView{
+		read.views = append(read.views, stripeCustomerView{
 			customerID: v.Customer.ID, lookedUpBy: lookedUpBy, created: v.Customer.Created,
 			subs: v.Subscriptions, invoice: v.LatestInvoice,
 		})
@@ -349,7 +385,7 @@ func (a *adminMCPSource) stripeCustomerViews(ctx context.Context, email string, 
 		v, err := a.web.customer(ctx, webBillingRequest{Action: "customer", CustomerID: id})
 		if err != nil {
 			log.Warnf("admin billing: stripe by customer: %v", err)
-			return nil, errStripeUnavailable
+			return read, errStripeUnavailable
 		}
 		add(v, "customer id")
 	}
@@ -357,11 +393,32 @@ func (a *adminMCPSource) stripeCustomerViews(ctx context.Context, email string, 
 		v, err := a.web.customer(ctx, webBillingRequest{Action: "customer", Email: email})
 		if err != nil {
 			log.Warnf("admin billing: stripe by email: %v", err)
-			return nil, errStripeUnavailable
+			return read, errStripeUnavailable
 		}
-		add(v, "email")
+		if !v.Ambiguous {
+			add(v, "email")
+			return read, nil
+		}
+		read.ambiguous = true
+		read.matched = len(v.CustomerIDs)
+		ids := v.CustomerIDs
+		if len(ids) > billingMaxAmbiguousCustomers {
+			read.unread = len(ids) - billingMaxAmbiguousCustomers
+			ids = ids[:billingMaxAmbiguousCustomers]
+		}
+		for _, id := range ids {
+			if seen[id] {
+				continue
+			}
+			cv, err := a.web.customer(ctx, webBillingRequest{Action: "customer", CustomerID: id})
+			if err != nil {
+				log.Warnf("admin billing: stripe by ambiguous customer: %v", err)
+				return read, errStripeUnavailable
+			}
+			add(cv, "email (matches several customers)")
+		}
 	}
-	return views, nil
+	return read, nil
 }
 
 // aliveSubscriptions reads every live Stripe subscription through the web app.
@@ -475,7 +532,7 @@ func mirrorSource(err error, truncated bool) mcp.JobSource {
 	return mcp.JobSource{Name: sourceSubscriptions, Status: "available", Detail: detail}
 }
 
-func stripeSource(err error, views []stripeCustomerView) mcp.JobSource {
+func stripeSource(err error, read stripeRead) mcp.JobSource {
 	switch {
 	case errors.Is(err, errWebUnavailable):
 		return mcp.JobSource{Name: sourceStripe, Status: "unavailable", Detail: errWebUnavailable.Error()}
@@ -484,7 +541,10 @@ func stripeSource(err error, views []stripeCustomerView) mcp.JobSource {
 	case err != nil:
 		return mcp.JobSource{Name: sourceStripe, Status: "unavailable", Detail: "the web app did not answer the billing read"}
 	}
-	return mcp.JobSource{Name: sourceStripe, Status: "available", Detail: "the live customer and subscriptions, read through the web app; " + strconv.Itoa(len(views)) + " customer(s) match"}
+	if read.ambiguous {
+		return mcp.JobSource{Name: sourceStripe, Status: "partial", Detail: "the email matches " + strconv.Itoa(read.matched) + " Stripe customers; " + strconv.Itoa(len(read.views)) + " were read, so the answer covers what is listed and may not cover every customer of this subject"}
+	}
+	return mcp.JobSource{Name: sourceStripe, Status: "available", Detail: "the live customer and subscriptions, read through the web app; " + strconv.Itoa(len(read.views)) + " customer(s) match"}
 }
 
 // --- output shaping ----------------------------------------------------------

@@ -74,6 +74,10 @@ func TestCheckSubscriptionTakesExactlyOneKey(t *testing.T) {
 	if strings.Contains(ok, `"isError":true`) || lastBilling.check.Email != "ada@example.com" || lastBilling.check.UserID != "" {
 		t.Fatalf("email input = %+v, body %s", lastBilling.check, ok)
 	}
+	// Stripe is asked with the email as typed (trimmed, not case-folded).
+	if lastBilling.check.EmailAsTyped != "Ada@Example.COM" {
+		t.Fatalf("EmailAsTyped = %q, want the email as typed", lastBilling.check.EmailAsTyped)
+	}
 
 	lastBilling.check = CheckSubscriptionInput{}
 	ok = peopleCall(t, nil, `{"name":"check_subscription","arguments":{"userId":"uid-1"}}`)

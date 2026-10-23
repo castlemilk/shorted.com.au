@@ -39,6 +39,10 @@ type AdminBillingReader interface {
 type CheckSubscriptionInput struct {
 	Email  string `json:"email,omitempty" jsonschema:"The account's email address (case-insensitive). Give exactly one of email or userId."`
 	UserID string `json:"userId,omitempty" jsonschema:"The Firebase user id. Give exactly one of email or userId."`
+	// EmailAsTyped is the email as the administrator wrote it: trimmed, not
+	// case-folded. Stripe is asked with it, and the web app retries in lower case
+	// itself. It is never part of the tool's schema.
+	EmailAsTyped string `json:"-"`
 }
 
 // CheckSubscriptionOutput sets what the subscriber is entitled to against what
@@ -241,6 +245,7 @@ func checkSubscriptionTool() AdminTool {
 			if (email == "") == (uid == "") {
 				return nil, fmt.Errorf("give exactly one of email or userId")
 			}
+			typed := email
 			var err error
 			if email != "" {
 				if email, err = normaliseEmail(email); err != nil {
@@ -252,7 +257,7 @@ func checkSubscriptionTool() AdminTool {
 					return nil, err
 				}
 			}
-			return r.CheckSubscription(ctx, CheckSubscriptionInput{Email: email, UserID: uid})
+			return r.CheckSubscription(ctx, CheckSubscriptionInput{Email: email, EmailAsTyped: typed, UserID: uid})
 		})
 }
 
