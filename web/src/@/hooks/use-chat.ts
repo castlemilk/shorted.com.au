@@ -154,7 +154,7 @@ export function useChat(options: UseChatOptions = {}) {
   const sendMessage = useCallback(
     async (content: string) => {
       const trimmedContent = content.trim();
-      if (!trimmedContent || generationInFlight) return;
+      if (!trimmedContent || generationInFlight || isLoadingHistory) return;
 
       setSendError(null);
       setHistoryError(null);
@@ -181,6 +181,7 @@ export function useChat(options: UseChatOptions = {}) {
       clearError,
       conversationId,
       generationInFlight,
+      isLoadingHistory,
       options.contextStockCode,
       sendAIMessage,
     ],
@@ -193,7 +194,7 @@ export function useChat(options: UseChatOptions = {}) {
    * service reuses the stored question instead of storing it a second time.
    */
   const retry = useCallback(async () => {
-    if (generationInFlight || uiMessages.length === 0) return;
+    if (generationInFlight || isLoadingHistory || uiMessages.length === 0) return;
 
     setSendError(null);
     clearError();
@@ -215,6 +216,7 @@ export function useChat(options: UseChatOptions = {}) {
     clearError,
     conversationId,
     generationInFlight,
+    isLoadingHistory,
     options.contextStockCode,
     regenerate,
     uiMessages.length,
@@ -360,6 +362,7 @@ export function useChat(options: UseChatOptions = {}) {
     messages,
     status,
     isLoading,
+    isLoadingHistory,
     error,
     historyError,
     conversationId,

@@ -8,6 +8,8 @@ import {
 interface QuickActionsProps {
   onSelect: (question: string) => void;
   stockCode?: string;
+  /** Held while the thread is busy with something other than a reply, such as a conversation opening. */
+  disabled?: boolean;
 }
 
 const defaultQuestions = [
@@ -17,7 +19,7 @@ const defaultQuestions = [
   "What's the market news today?",
 ];
 
-export function QuickActions({ onSelect, stockCode }: QuickActionsProps) {
+export function QuickActions({ onSelect, stockCode, disabled = false }: QuickActionsProps) {
   const questions = stockCode
     ? [
         `What's the current short position on ${stockCode}?`,
@@ -36,6 +38,7 @@ export function QuickActions({ onSelect, stockCode }: QuickActionsProps) {
             key={question}
             suggestion={question}
             onClick={onSelect}
+            disabled={disabled}
           />
         ))}
       </Suggestions>

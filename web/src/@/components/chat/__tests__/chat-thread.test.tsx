@@ -58,6 +58,23 @@ function message(overrides: Partial<ChatMessage>): ChatMessage {
   };
 }
 
+describe("ChatThread while a conversation opens", () => {
+  it("holds the suggestions until the conversation is open", () => {
+    const { rerender, props } = renderThread({ messages: [], loadingHistory: true });
+    const suggestions = screen.getAllByRole("button").filter((button) =>
+      button.textContent?.includes("?"),
+    );
+    expect(suggestions.length).toBeGreaterThan(0);
+    suggestions.forEach((button) => expect(button).toBeDisabled());
+
+    rerender(<ChatThread {...props} loadingHistory={false} />);
+    screen
+      .getAllByRole("button")
+      .filter((button) => button.textContent?.includes("?"))
+      .forEach((button) => expect(button).toBeEnabled());
+  });
+});
+
 describe("ChatThread follows a request it sends", () => {
   it("brings the newest turn into view when a request is submitted, after the reader scrolled up", () => {
     const { rerender, props } = renderThread({

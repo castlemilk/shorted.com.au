@@ -38,6 +38,8 @@ interface ChatThreadProps {
   /** Offered for a refused send while a conversation is open. See ChatErrorNotice. */
   onNewChat?: () => void;
   onSuggest: (question: string) => void;
+  /** A conversation is opening. Its suggestions are held until it is open. */
+  loadingHistory?: boolean;
   stockCode?: string;
   variant: "page" | "sheet";
   className?: string;
@@ -56,6 +58,7 @@ export function ChatThread({
   onRetry,
   onNewChat,
   onSuggest,
+  loadingHistory = false,
   stockCode,
   variant,
   className,
@@ -81,7 +84,12 @@ export function ChatThread({
         className={variant === "page" ? "p-4 md:p-6" : "p-4"}
       >
         {messages.length === 0 ? (
-          <EmptyThread variant={variant} stockCode={stockCode} onSuggest={onSuggest} />
+          <EmptyThread
+            variant={variant}
+            stockCode={stockCode}
+            onSuggest={onSuggest}
+            loadingHistory={loadingHistory}
+          />
         ) : (
           messages.map((message, index) => (
             <ChatMessageBubble
@@ -150,10 +158,12 @@ function EmptyThread({
   variant,
   stockCode,
   onSuggest,
+  loadingHistory,
 }: {
   variant: "page" | "sheet";
   stockCode?: string;
   onSuggest: (question: string) => void;
+  loadingHistory: boolean;
 }) {
   if (variant === "page") {
     return (
@@ -164,7 +174,7 @@ function EmptyThread({
           Get insights about short positions, stocks, director trades, peer
           comparisons, and market trends.
         </p>
-        <QuickActions onSelect={onSuggest} stockCode={stockCode} />
+        <QuickActions onSelect={onSuggest} stockCode={stockCode} disabled={loadingHistory} />
       </div>
     );
   }
@@ -177,7 +187,7 @@ function EmptyThread({
         Get insights about short positions, stocks, and market trends
       </p>
       <div className="mt-4 w-full">
-        <QuickActions onSelect={onSuggest} stockCode={stockCode} />
+        <QuickActions onSelect={onSuggest} stockCode={stockCode} disabled={loadingHistory} />
       </div>
     </div>
   );

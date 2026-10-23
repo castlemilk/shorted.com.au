@@ -158,6 +158,40 @@ describe("useChat switching the thread while a reply streams", () => {
     expect(result.current.conversationId).toBe("conv-b");
   });
 
+  it("does not send or retry while a conversation is still loading", async () => {
+    let resolveHistory!: (value: unknown) => void;
+    mockGetHistory.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveHistory = resolve;
+        }),
+    );
+    state = aiState({ messages: [{ id: "m-1", role: "user", parts: [{ type: "text", text: "Q" }] }] });
+    const { result } = renderHook(() => useChat({ userId: "user-1" }));
+
+    let load!: Promise<void>;
+    await act(async () => {
+      load = result.current.loadConversation("conv-a");
+    });
+    expect(result.current.isLoadingHistory).toBe(true);
+
+    await act(async () => {
+      await result.current.sendMessage("a suggestion clicked during the load");
+      await result.current.retry();
+    });
+    expect(state.sendMessage).not.toHaveBeenCalled();
+    expect(state.regenerate).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveHistory({ messages: [] });
+      await load;
+    });
+    await act(async () => {
+      await result.current.sendMessage("now it is open");
+    });
+    expect(state.sendMessage).toHaveBeenCalledTimes(1);
+  });
+
   it("New chat cancels a history load still pending, so it does not reopen the old conversation", async () => {
     let resolveA!: (value: unknown) => void;
     mockGetHistory.mockImplementation(

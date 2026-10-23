@@ -18,6 +18,7 @@ export function ChatPageContent() {
     messages,
     status,
     isLoading,
+    isLoadingHistory,
     error,
     historyError,
     conversationId,
@@ -74,6 +75,7 @@ export function ChatPageContent() {
           onRetry={() => void retry()}
           onNewChat={conversationId ? clearChat : undefined}
           onSuggest={(question) => void sendMessage(question)}
+          loadingHistory={isLoadingHistory}
           variant="page"
         />
 

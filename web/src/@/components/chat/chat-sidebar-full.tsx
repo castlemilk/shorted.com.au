@@ -40,6 +40,7 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
     messages,
     status,
     isLoading,
+    isLoadingHistory,
     error,
     historyError,
     conversationId,
@@ -168,6 +169,7 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
                 onRetry={() => void retry()}
                 onNewChat={conversationId ? handleNewChat : undefined}
                 onSuggest={(question) => void sendMessage(question)}
+                loadingHistory={isLoadingHistory}
                 stockCode={stockCode}
                 variant="sheet"
               />
