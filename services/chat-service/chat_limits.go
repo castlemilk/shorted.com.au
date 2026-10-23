@@ -40,7 +40,9 @@ const (
 )
 
 // Ledger outcomes. A send is pending while its turn runs, then ends ok, error
-// or canceled. A send the limiter refused is limited, and never counts.
+// or canceled once the model has answered. A send the limiter refused is
+// limited, and a turn that failed before the model answered is
+// failed_before_model. Neither counts.
 const (
 	usageOutcomePending  = "pending"
 	usageOutcomeOK       = "ok"
