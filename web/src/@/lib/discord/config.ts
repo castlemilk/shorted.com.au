@@ -15,9 +15,10 @@ import app from "~/config/discord-app.json";
  *   DISCORD_PUBLIC_KEY        another app's public key
  *   DISCORD_ACTIVITY_ENABLED  "true" / "false"
  *
- * `activity` turns on the "Interactive" button. Leave it false until the app
- * has Activities enabled and its URL mapping set (docs/discord-bot.md):
- * Discord rejects a launch for an app without them.
+ * `activity` turns on the "Interactive" button. It is on for the production
+ * app. For any other app, keep it false until that app has Activities enabled
+ * and its URL mapping set (docs/discord-bot.md, "The Activity"): Discord
+ * rejects a launch for an app without them.
  */
 
 export interface DiscordAppConfig {

@@ -6,7 +6,9 @@ import {
   type ReadoutDelta,
   type ReadoutEntry,
   type ReadoutModel,
+  type ReadoutVolume,
 } from "./chart-readout";
+import { chartTheme } from "./chart-theme";
 
 // Market direction and nothing else (DESIGN.md, the Semantic Quarantine Rule):
 // the two hexes the floating measure card has always used.
@@ -129,6 +131,53 @@ function EntryView({
   );
 }
 
+/**
+ * What the grey bars are, for anyone who wonders: the strip's Vol reading
+ * carries it as a title, and the hover card names the row in full.
+ */
+export const VOLUME_EXPLAINER =
+  "Volume: shares traded on the ASX in the session. The grey bars at the foot of the chart, on a scale of their own.";
+
+/** "123.45B", the widest volume `formatVolume` prints ("999.9M" is six). */
+const VOLUME_VALUE_CH = 7;
+
+/**
+ * The volume swatch: the bars' own colour, at a strength that reads at 8px. A
+ * square, where a series has a dot, because the bars are not a series.
+ */
+export function VolumeSwatch() {
+  return (
+    <span
+      aria-hidden="true"
+      className="h-2 w-2 shrink-0 rounded-[1px]"
+      style={{ background: chartTheme.volume, opacity: 0.6 }}
+    />
+  );
+}
+
+function VolumeView({ volume, roomy }: { volume: ReadoutVolume; roomy: boolean }) {
+  return (
+    <span
+      data-readout-volume
+      title={VOLUME_EXPLAINER}
+      className="flex shrink-0 items-center gap-x-1"
+    >
+      <VolumeSwatch />
+      <span className="text-muted-foreground">Vol</span>
+      <span
+        data-readout-volume-value
+        className="text-foreground"
+        style={roomy ? { minWidth: `${VOLUME_VALUE_CH}ch` } : undefined}
+      >
+        {volume.value ?? NOT_AVAILABLE}
+      </span>
+      {volume.dateNote && (
+        <span className="text-muted-foreground">· {volume.dateNote}</span>
+      )}
+    </span>
+  );
+}
+
 function PinnedChip({ onRelease }: { onRelease: () => void }) {
   return (
     <span data-readout-chip className="ml-auto inline-flex shrink-0 items-center gap-x-0.5">
@@ -194,6 +243,8 @@ export interface ChartReadoutStripProps {
  * pinned or measured ones. From 640px wide it is one row. Below that it is a
  * headline row, with the Pinned chip at its right, and then one row for each
  * series, so a label is never short of room and one entry never moves another.
+ * The session's volume, where the chart draws it, follows the series on one row
+ * and the headline on a phone, so it never adds a row.
  *
  * Its height is given, from the chart's width and number of series, and is never
  * read back from the DOM, and it holds nothing that could move the plot: no
@@ -220,6 +271,7 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
   );
   const heldRows = rows - model.entries.length;
   const measuring = model.state === "measure";
+  const volume = !measuring && model.volume ? model.volume : null;
   // Open, high, low and close of the price point shown, wide charts only.
   const ohlc =
     width >= READOUT_OHLC_MIN_WIDTH
@@ -267,6 +319,7 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
                 valueChars={valueChars?.[e.id]}
               />
             ))}
+            {volume && <VolumeView volume={volume} roomy />}
           </div>
           {ohlc && (
             <span data-readout-ohlc className="shrink-0 text-muted-foreground">
@@ -281,6 +334,7 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
               which is room for the release button's 24px target. */}
           <Row height={Math.max(0, height - READOUT_LINE_H * rows)}>
             {headline}
+            {volume && <VolumeView volume={volume} roomy={false} />}
             {chip}
           </Row>
           <div data-readout-entries>
@@ -309,12 +363,16 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
 
 /**
  * The sentence a screen reader gets when a reading is pinned, built from the
- * same model the strip shows: "Pinned 6 Oct 2026: Price $43.21, Short % 3.20%".
- * A value on another day says so, as the strip does.
+ * same model the strip shows: "Pinned 6 Oct 2026: Price $43.21, Short % 3.20%,
+ * Volume 1.2M". A value on another day says so, as the strip does.
  */
 export function pinnedAnnouncement(model: ReadoutModel): string {
   const parts = model.entries
     .filter((e) => e.value !== null)
     .map((e) => `${e.label} ${e.value}${e.dateNote ? ` on ${e.dateNote}` : ""}`);
+  const v = model.volume;
+  if (v?.value) {
+    parts.push(`Volume ${v.value}${v.dateNote ? ` on ${v.dateNote}` : ""}`);
+  }
   return `Pinned ${model.headline}${parts.length ? `: ${parts.join(", ")}` : ""}`;
 }
