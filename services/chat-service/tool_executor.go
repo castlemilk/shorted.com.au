@@ -63,8 +63,24 @@ func (te *ToolExecutor) Execute(ctx context.Context, toolName string, args map[s
 		return "", err
 	}
 
-	if request, ok := call.request.(*shortsv1alpha1.GetEconomicSeriesRequest); ok {
+	// Each response is shaped to what the model needs before the budget applies. Cutting
+	// the raw body would drop the fields that come last, such as market cap or the
+	// weekly movers.
+	switch request := call.request.(type) {
+	case *shortsv1alpha1.GetEconomicSeriesRequest:
 		return summarizeEconomicSeries(respBody, int(request.GetMaxObservations()))
+	case *shortsv1alpha1.GetStockDetailsRequest:
+		result, err := summarizeStockDetails(respBody)
+		if err != nil {
+			return "", err
+		}
+		return truncateToolResult(result), nil
+	case *shortsv1alpha1.GetWeeklyReportRequest:
+		result, err := summarizeWeeklyReport(respBody)
+		if err != nil {
+			return "", err
+		}
+		return truncateToolResultTo(result, maxWeeklyReportBytes), nil
 	}
 	return truncateToolResult(string(respBody)), nil
 }
@@ -92,8 +108,13 @@ func (te *ToolExecutor) latestReportSlug(ctx context.Context, reportType string)
 
 // truncateToolResult cuts a result that would exceed the LLM context budget.
 func truncateToolResult(result string) string {
-	if len(result) > maxToolResultBytes {
-		return result[:maxToolResultBytes] + "...(truncated)"
+	return truncateToolResultTo(result, maxToolResultBytes)
+}
+
+// truncateToolResultTo cuts a result longer than limit bytes and marks the cut.
+func truncateToolResultTo(result string, limit int) string {
+	if len(result) > limit {
+		return result[:limit] + "...(truncated)"
 	}
 	return result
 }

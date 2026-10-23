@@ -43,8 +43,8 @@ var toolContractCases = []toolContractCase{
 		service:  legacyShortsService,
 		method:   "GetStockData",
 		request:  &shortsv1alpha1.GetStockDataRequest{},
-		want:     map[string]interface{}{"product_code": "BHP", "period": "3M"},
-		wireKeys: []string{"period", "productCode"},
+		want:     map[string]interface{}{"product_code": "BHP", "period": "3M", "max_points": 40},
+		wireKeys: []string{"maxPoints", "period", "productCode"},
 	},
 	{
 		name:     "query_short_positions without period omits it",
@@ -53,28 +53,30 @@ var toolContractCases = []toolContractCase{
 		service:  legacyShortsService,
 		method:   "GetStockData",
 		request:  &shortsv1alpha1.GetStockDataRequest{},
-		want:     map[string]interface{}{"product_code": "CBA"},
-		wireKeys: []string{"productCode"},
+		want:     map[string]interface{}{"product_code": "CBA", "max_points": 40},
+		wireKeys: []string{"maxPoints", "productCode"},
 	},
 	{
-		name:     "get_top_shorts",
+		// The period is not declared for this tool, so a period a model sends must not
+		// reach the request: the summary query ignores it.
+		name:     "get_top_shorts is summary only and ignores period",
 		tool:     "get_top_shorts",
 		args:     map[string]interface{}{"limit": 5.0, "period": "1m"},
 		service:  legacyShortsService,
 		method:   "GetTopShorts",
 		request:  &shortsv1alpha1.GetTopShortsRequest{},
-		want:     map[string]interface{}{"period": "1M", "limit": 5},
-		wireKeys: []string{"limit", "period"},
+		want:     map[string]interface{}{"summary_only": true, "limit": 5},
+		wireKeys: []string{"limit", "summaryOnly"},
 	},
 	{
-		name:     "get_top_shorts defaults to 10 over 3M",
+		name:     "get_top_shorts defaults to 10 in summary mode",
 		tool:     "get_top_shorts",
 		args:     map[string]interface{}{},
 		service:  legacyShortsService,
 		method:   "GetTopShorts",
 		request:  &shortsv1alpha1.GetTopShortsRequest{},
-		want:     map[string]interface{}{"period": "3M", "limit": 10},
-		wireKeys: []string{"limit", "period"},
+		want:     map[string]interface{}{"summary_only": true, "limit": 10},
+		wireKeys: []string{"limit", "summaryOnly"},
 	},
 	{
 		name:     "get_stock_details",
@@ -127,6 +129,28 @@ var toolContractCases = []toolContractCase{
 		wireKeys: []string{"limit"},
 	},
 	{
+		// The server caps news at 100 and the builder at 50; an over-cap request is
+		// clamped here, not sent to the API as is.
+		name:     "get_news caps limit at 50 on the stock route",
+		tool:     "get_news",
+		args:     map[string]interface{}{"stock_code": "BHP", "limit": 500.0},
+		service:  legacyShortsService,
+		method:   "GetStockNews",
+		request:  &shortsv1alpha1.GetStockNewsRequest{},
+		want:     map[string]interface{}{"stock_code": "BHP", "limit": 50},
+		wireKeys: []string{"limit", "stockCode"},
+	},
+	{
+		name:     "get_news caps limit at 50 on the market route",
+		tool:     "get_news",
+		args:     map[string]interface{}{"limit": 500.0},
+		service:  legacyShortsService,
+		method:   "GetMarketNews",
+		request:  &shortsv1alpha1.GetMarketNewsRequest{},
+		want:     map[string]interface{}{"limit": 50},
+		wireKeys: []string{"limit"},
+	},
+	{
 		name:     "get_director_trades",
 		tool:     "get_director_trades",
 		args:     map[string]interface{}{"stock_code": "CBA", "limit": 5},
@@ -144,6 +168,18 @@ var toolContractCases = []toolContractCase{
 		method:   "GetPeerComparison",
 		request:  &shortsv1alpha1.GetPeerComparisonRequest{},
 		want:     map[string]interface{}{"stock_code": "BHP", "limit": 5},
+		wireKeys: []string{"limit", "stockCode"},
+	},
+	{
+		// The server rejects a limit above 20 with invalid_argument, so the builder
+		// must clamp it.
+		name:     "get_peer_comparison caps limit at 20",
+		tool:     "get_peer_comparison",
+		args:     map[string]interface{}{"stock_code": "BHP", "limit": 25.0},
+		service:  legacyShortsService,
+		method:   "GetPeerComparison",
+		request:  &shortsv1alpha1.GetPeerComparisonRequest{},
+		want:     map[string]interface{}{"stock_code": "BHP", "limit": 20},
 		wireKeys: []string{"limit", "stockCode"},
 	},
 	// get_weekly_report without a week makes two calls (the latest slug is looked up
@@ -326,6 +362,66 @@ func TestToolContractCoversEveryRegisteredTool(t *testing.T) {
 
 	if _, err := buildToolCall("no_such_tool", nil); err == nil || !strings.Contains(err.Error(), "unknown tool") {
 		t.Errorf("unregistered tool error = %v, want unknown tool", err)
+	}
+}
+
+// sampleParameterValues returns two different values for one declared parameter. A
+// builder that ignores the parameter produces the same request for both.
+func sampleParameterValues(name string, p ToolParameter) (interface{}, interface{}) {
+	switch {
+	case p.Type == "array":
+		return []interface{}{"rates.cash_rate_target.aus"}, []interface{}{"cpi.annual_change.all_groups.aus"}
+	case p.Type == "integer":
+		return 3.0, 7.0
+	case len(p.Enum) > 0:
+		return p.Enum[0], p.Enum[len(p.Enum)-1]
+	}
+	switch name {
+	case "stock_code":
+		return "BHP", "CBA"
+	case "week":
+		return "2026-W08", "2026-W09"
+	case "article_id":
+		return "a1", "a2"
+	default:
+		return "commonwealth bank", "westpac"
+	}
+}
+
+// withArg returns a copy of args with one more argument set.
+func withArg(args map[string]interface{}, name string, value interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(args)+1)
+	for k, v := range args {
+		out[k] = v
+	}
+	out[name] = value
+	return out
+}
+
+// TestEveryDeclaredParameterChangesTheRequest fails when a parameter declared in
+// tools.go does not reach the request. Each parameter is set to two values with the
+// other required arguments fixed, and the built request must differ. This catches a
+// builder that reads the wrong key, drops the value, or ignores the parameter.
+func TestEveryDeclaredParameterChangesTheRequest(t *testing.T) {
+	for _, def := range GetToolDefinitions() {
+		base := make(map[string]interface{}, len(def.Required))
+		for _, name := range def.Required {
+			first, _ := sampleParameterValues(name, def.Parameters[name])
+			base[name] = first
+		}
+		for name, param := range def.Parameters {
+			t.Run(def.Name+" "+name, func(t *testing.T) {
+				first, second := sampleParameterValues(name, param)
+				a, errA := buildToolCall(def.Name, withArg(base, name, first))
+				b, errB := buildToolCall(def.Name, withArg(base, name, second))
+				if errA != nil || errB != nil {
+					t.Fatalf("build errors: %v, %v", errA, errB)
+				}
+				if a.service == b.service && a.method == b.method && proto.Equal(a.request, b.request) {
+					t.Errorf("parameter %q does not change the request: both calls send %s/%s %v", name, a.service, a.method, a.request)
+				}
+			})
+		}
 	}
 }
 

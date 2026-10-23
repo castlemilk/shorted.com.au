@@ -20,7 +20,7 @@ func GetToolDefinitions() []ToolDefinition {
 	return []ToolDefinition{
 		{
 			Name:        "query_short_positions",
-			Description: "Get short position time series data for a specific stock over a time period. Returns daily short interest percentages.",
+			Description: "Get short position time series data for a specific stock over a time period. Returns short interest percentages over time, at most 40 points, always including the first and the latest.",
 			Parameters: map[string]ToolParameter{
 				"stock_code": {Type: "string", Description: "ASX stock code (e.g., 'BHP', 'CBA')"},
 				"period":     {Type: "string", Description: "Time period for data", Enum: []string{"1m", "3m", "6m", "1y", "2y", "5y", "max"}},
@@ -29,15 +29,14 @@ func GetToolDefinitions() []ToolDefinition {
 		},
 		{
 			Name:        "get_top_shorts",
-			Description: "Get the top N most shorted stocks on the ASX, sorted by short interest percentage.",
+			Description: "Get the top N most shorted stocks on the ASX, ranked by current short interest percentage. Returns each stock's code, name, industry and latest short position. For how a stock's short interest has moved over time, use query_short_positions.",
 			Parameters: map[string]ToolParameter{
-				"limit":  {Type: "integer", Description: "Number of stocks to return (default 10, max 50)"},
-				"period": {Type: "string", Description: "Time period for trend data", Enum: []string{"1m", "3m", "6m", "1y", "max"}},
+				"limit": {Type: "integer", Description: "Number of stocks to return (default 10, max 50)"},
 			},
 		},
 		{
 			Name:        "get_stock_details",
-			Description: "Get detailed information about a specific stock including company name, industry, market cap, and current short position.",
+			Description: "Get a stock's profile: company name, industry, market cap, valuation ratios (P/E, EPS, dividend yield, 52-week range), company summary, risk factors and key people. For short-position history use query_short_positions.",
 			Parameters: map[string]ToolParameter{
 				"stock_code": {Type: "string", Description: "ASX stock code"},
 			},

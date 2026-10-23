@@ -78,11 +78,18 @@ func shortsCall(method string, request proto.Message) toolCall {
 	return toolCall{service: legacyShortsService, method: method, request: request}
 }
 
+// shortPositionMaxPoints caps the series query_short_positions asks for. Points come
+// back oldest first and the result is cut at maxToolResultBytes, so an uncapped
+// 3M or longer series loses its newest observations. The server thins to this many
+// points and always keeps the first and the latest, which fits the budget.
+const shortPositionMaxPoints int32 = 40
+
 func buildQueryShortPositions(args map[string]interface{}) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetStockDataRequest{
 		ProductCode: r.stockCode("stock_code", true),
 		Period:      r.upper("period", ""),
+		MaxPoints:   shortPositionMaxPoints,
 	}
 	if r.err != nil {
 		return toolCall{}, r.err
@@ -90,11 +97,15 @@ func buildQueryShortPositions(args map[string]interface{}) (toolCall, error) {
 	return shortsCall("GetStockData", request), nil
 }
 
+// buildGetTopShorts asks for summary rows: each stock's code, name, industry and
+// latest short position. The full response carries every stock's time series and
+// the result budget cuts it after about two stocks. The summary query does not read
+// a period, so the tool takes none; trend data comes from query_short_positions.
 func buildGetTopShorts(args map[string]interface{}) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetTopShortsRequest{
-		Period: r.upper("period", "3M"),
-		Limit:  r.integer("limit", 10, 50),
+		Limit:       r.integer("limit", 10, 50),
+		SummaryOnly: true,
 	}
 	if r.err != nil {
 		return toolCall{}, r.err

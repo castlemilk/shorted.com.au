@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -25,6 +26,14 @@ type liveToolCase struct {
 	// evidence lists substrings of the result. Any one of them is proof of real data.
 	// protojson omits empty fields, so a non-empty value shows up as "key":"...".
 	evidence []string
+	// allOf lists substrings the result must all contain: the fields the model relies on.
+	allOf []string
+	// mustFit requires whole JSON that the result budget did not cut. A cut result drops
+	// the end of the response, which is where some fields sit.
+	mustFit bool
+	// minRows requires at least minRows occurrences of rowKey, one per returned row.
+	minRows int
+	rowKey  string
 }
 
 var liveToolCases = []liveToolCase{
@@ -33,18 +42,24 @@ var liveToolCases = []liveToolCase{
 		tool:     "query_short_positions",
 		args:     map[string]interface{}{"stock_code": "BHP", "period": "3m"},
 		evidence: []string{`"points":[`},
+		mustFit:  true,
 	},
 	{
 		name:     "get_top_shorts",
 		tool:     "get_top_shorts",
-		args:     map[string]interface{}{"limit": 5.0, "period": "1m"},
+		args:     map[string]interface{}{"limit": 10.0},
 		evidence: []string{`"timeSeries":[`},
+		mustFit:  true,
+		minRows:  10,
+		rowKey:   `"productCode":"`,
 	},
 	{
 		name:     "get_stock_details BHP",
 		tool:     "get_stock_details",
 		args:     map[string]interface{}{"stock_code": "BHP"},
 		evidence: []string{`"companyName":"`},
+		allOf:    []string{`"marketCap":`, `"companyName":"`},
+		mustFit:  true,
 	},
 	{
 		name:     "search_stocks",
@@ -81,6 +96,8 @@ var liveToolCases = []liveToolCase{
 		tool:     "get_weekly_report",
 		args:     map[string]interface{}{},
 		evidence: []string{`"weekSlug":"`},
+		allOf:    []string{`"fallers":[`, `"industryBreakdown":[`, `"narrative":{`},
+		mustFit:  true,
 	},
 	{
 		name:     "get_related_news BHP",
@@ -150,6 +167,24 @@ func TestChatToolsLiveReadOnly(t *testing.T) {
 		}
 		if !hasData {
 			t.Errorf("%s: result has none of %q: %.200s", tc.name, tc.evidence, result)
+		}
+		for _, want := range tc.allOf {
+			if !strings.Contains(result, want) {
+				t.Errorf("%s: result lacks %s", tc.name, want)
+			}
+		}
+		if tc.mustFit {
+			if strings.HasSuffix(result, "...(truncated)") {
+				t.Errorf("%s: result was cut at the budget, so the model does not see its end", tc.name)
+			}
+			if !json.Valid([]byte(result)) {
+				t.Errorf("%s: result is not valid JSON: %.200s", tc.name, result)
+			}
+		}
+		if tc.minRows > 0 {
+			if rows := strings.Count(result, tc.rowKey); rows < tc.minRows {
+				t.Errorf("%s: %d rows of %s, want at least %d", tc.name, rows, tc.rowKey, tc.minRows)
+			}
 		}
 	}
 }
