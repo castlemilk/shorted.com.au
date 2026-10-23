@@ -34,10 +34,10 @@ func activeRow(tier string) *shortsstore.APISubscription {
 	return storeRow("active", tier, nil)
 }
 
-// periodEndedRow is active by status but three days past its period end, the
-// shape a lost cancellation or renewal webhook leaves behind.
+// periodEndedRow is active by status but four days past its period end, beyond
+// the grace, the shape a lost cancellation or renewal webhook leaves behind.
 func periodEndedRow(tier string) *shortsstore.APISubscription {
-	return storeRow("active", tier, pgTimestamp(time.Now().Add(-72*time.Hour)))
+	return storeRow("active", tier, pgTimestamp(time.Now().Add(-96*time.Hour)))
 }
 
 // pgTimestamp renders t the way PostgreSQL's text form does for a timestamptz.
@@ -160,23 +160,48 @@ func TestResolveEntitlement(t *testing.T) {
 			want:   denied("unpaid_tier", "stripe"),
 		},
 		{
-			// The grace is inclusive at its edge: exactly 24 hours past is still entitled.
+			// The grace is inclusive at its edge: exactly 72 hours past is still entitled.
 			name:   "period ended exactly at the grace edge",
 			userID: "user_1",
-			sub:    storeRow("active", "premium", at(-24*time.Hour)),
+			sub:    storeRow("active", "premium", at(-72*time.Hour)),
 			want:   entitled("premium"),
 		},
 		{
-			name:   "period ended 23 hours ago is inside the grace",
+			// A one-to-three day webhook outage must not revoke a paying customer.
+			name:   "period ended 71 hours ago is inside the grace",
 			userID: "user_1",
-			sub:    storeRow("active", "premium", at(-23*time.Hour)),
+			sub:    storeRow("active", "premium", at(-71*time.Hour)),
 			want:   entitled("premium"),
 		},
 		{
-			name:   "period ended 25 hours ago is past the grace",
+			name:   "period ended 73 hours ago is past the grace",
 			userID: "user_1",
-			sub:    storeRow("active", "premium", at(-25*time.Hour)),
+			sub:    storeRow("active", "premium", at(-73*time.Hour)),
 			want:   denied("period_ended", "stripe"),
+		},
+		{
+			name:   "status and tier are matched case and padding insensitively",
+			userID: "user_1",
+			sub:    storeRow(" Trialing ", "  PRO ", nil),
+			want:   entitled("pro"),
+		},
+		{
+			name:   "hand-written Premium tier is paid and reported lowercase",
+			userID: "user_1",
+			sub:    storeRow("Active", "Premium", nil),
+			want:   entitled("premium"),
+		},
+		{
+			name:   "canceled in capitals is still reported as the status",
+			userID: "user_1",
+			sub:    storeRow("CANCELED", "premium", nil),
+			want:   denied("status_canceled", "stripe"),
+		},
+		{
+			name:   "Free in capitals is an unpaid tier",
+			userID: "user_1",
+			sub:    storeRow("active", "FREE", nil),
+			want:   denied("unpaid_tier", "stripe"),
 		},
 		{
 			// An unparseable period end is unknown, not expired. See ResolveEntitlement.
@@ -224,17 +249,61 @@ func TestResolveEntitlementReadsEveryStoreTimestampLayout(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			inside := now.Add(-23 * time.Hour).In(tc.loc).Format(tc.layout)
-			past := now.Add(-25 * time.Hour).In(tc.loc).Format(tc.layout)
+			inside := now.Add(-71 * time.Hour).In(tc.loc).Format(tc.layout)
+			past := now.Add(-73 * time.Hour).In(tc.loc).Format(tc.layout)
 
 			got := ResolveEntitlement("user_1", storeRow("active", "premium", &inside), now)
-			assert.True(t, got.Entitled, "period ended 23h ago, rendered %q, should be inside the grace", inside)
+			assert.True(t, got.Entitled, "period ended 71h ago, rendered %q, should be inside the grace", inside)
 
 			got = ResolveEntitlement("user_1", storeRow("active", "premium", &past), now)
-			assert.Equal(t, "period_ended", got.Reason, "period ended 25h ago, rendered %q", past)
+			assert.Equal(t, "period_ended", got.Reason, "period ended 73h ago, rendered %q", past)
 			assert.False(t, got.Entitled)
 		})
 	}
+}
+
+func TestResolveEntitlementUnpaidGrantIsNotEntitlement(t *testing.T) {
+	// INTERNAL_TIER=free is a documented option. A grant on an unpaid tier sets the
+	// rate-limit tier and nothing more, so paid features stay off.
+	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
+	unpaid := Entitlement{Tier: "free", Reason: "internal_grant_unpaid_tier", Source: "internal"}
+
+	tests := []struct {
+		name string
+		tier string
+		sub  *shortsstore.APISubscription
+		want Entitlement
+	}{
+		{"no row", "free", nil, unpaid},
+		{"over a paid row, which the grant decides", "free", activeRow("premium"), unpaid},
+		{"padded and capitalised", " Free ", nil, unpaid},
+		{"paid grant, padded and capitalised", " Premium ", nil,
+			Entitlement{Entitled: true, Tier: "premium", Reason: "internal_grant", Source: "internal"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(InternalTierUsersEnv, "grant_user")
+			t.Setenv(InternalTierEnv, tc.tier)
+
+			got := ResolveEntitlement("grant_user", tc.sub, now)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestSubscriptionTierUnpaidGrantSkipsTheStore(t *testing.T) {
+	// The rate-limit tier of an unpaid grant is the granted tier, and it needs no row.
+	t.Setenv(InternalTierUsersEnv, "grant_user")
+	t.Setenv(InternalTierEnv, "free")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	srv := newTestServer(t, mocks.NewMockShortsStore(ctrl))
+
+	tier, err := srv.subscriptionTier("grant_user")
+	require.NoError(t, err)
+	assert.Equal(t, "free", tier)
 }
 
 func TestSubscriptionTierFollowsTheEntitlementRule(t *testing.T) {
@@ -310,8 +379,11 @@ func TestGetMySubscription_InternalGrantReportsActiveOnGrantedTier(t *testing.T)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// No row and no store read: the grant is the whole answer.
-	srv := newTestServer(t, mocks.NewMockShortsStore(ctrl))
+	// The grant is the whole answer for entitlement. The store is read best-effort for
+	// the portal ids, and this user has none.
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	expectSubscriptionRow(mockStore, nil)
+	srv := newTestServer(t, mockStore)
 
 	resp, err := srv.GetMySubscription(subscriptionContext("user_1"), connect.NewRequest(&shortsv1alpha1.GetMySubscriptionRequest{}))
 	require.NoError(t, err)
@@ -323,12 +395,93 @@ func TestGetMySubscription_InternalGrantReportsActiveOnGrantedTier(t *testing.T)
 	assert.False(t, resp.Msg.CancelAtPeriodEnd)
 }
 
+func TestGetMySubscription_InternalGrantKeepsThePortalIds(t *testing.T) {
+	// A grant user who also pays through Stripe must still reach the billing portal,
+	// which is keyed on the Stripe ids of the row.
+	t.Setenv(InternalTierUsersEnv, "user_1")
+	t.Setenv(InternalTierEnv, "enterprise")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	periodEnd := time.Now().Add(30 * 24 * time.Hour).Truncate(time.Second)
+	row := storeRow("active", "premium", pgTimestamp(periodEnd))
+	row.CancelAtPeriodEnd = true
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	expectSubscriptionRow(mockStore, row)
+	srv := newTestServer(t, mockStore)
+
+	resp, err := srv.GetMySubscription(subscriptionContext("user_1"), connect.NewRequest(&shortsv1alpha1.GetMySubscriptionRequest{}))
+	require.NoError(t, err)
+	assert.True(t, resp.Msg.HasSubscription)
+	assert.Equal(t, shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE, resp.Msg.Status)
+	assert.Equal(t, shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_ENTERPRISE, resp.Msg.Tier)
+	assert.Equal(t, "cus_1", resp.Msg.StripeCustomerId)
+	assert.True(t, resp.Msg.CancelAtPeriodEnd)
+	require.NotNil(t, resp.Msg.CurrentPeriodEnd)
+	assert.True(t, periodEnd.Equal(resp.Msg.CurrentPeriodEnd.AsTime()))
+}
+
+func TestGetMySubscription_InternalGrantSurvivesStoreError(t *testing.T) {
+	// The grant decides entitlement, so a failed row read costs only the portal ids.
+	// It must not fail the RPC.
+	t.Setenv(InternalTierUsersEnv, "user_1")
+	t.Setenv(InternalTierEnv, "enterprise")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().GetAPISubscription("user_1").Return(nil, errors.New("connection refused"))
+	srv := newTestServer(t, mockStore)
+
+	resp, err := srv.GetMySubscription(subscriptionContext("user_1"), connect.NewRequest(&shortsv1alpha1.GetMySubscriptionRequest{}))
+	require.NoError(t, err)
+	assert.Equal(t, shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE, resp.Msg.Status)
+	assert.Equal(t, shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_ENTERPRISE, resp.Msg.Tier)
+	assert.Empty(t, resp.Msg.StripeCustomerId)
+}
+
+func TestGetMySubscription_UnpaidGrantIsInactiveOnItsTier(t *testing.T) {
+	// INTERNAL_TIER=free is a documented option. It must not read as an active
+	// subscription, but the portal ids of a paying row still come through.
+	t.Setenv(InternalTierUsersEnv, "user_1")
+	t.Setenv(InternalTierEnv, "free")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	expectSubscriptionRow(mockStore, storeRow("active", "premium", nil))
+	srv := newTestServer(t, mockStore)
+
+	resp, err := srv.GetMySubscription(subscriptionContext("user_1"), connect.NewRequest(&shortsv1alpha1.GetMySubscriptionRequest{}))
+	require.NoError(t, err)
+	assert.True(t, resp.Msg.HasSubscription)
+	assert.Equal(t, shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE, resp.Msg.Status)
+	assert.Equal(t, shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_FREE, resp.Msg.Tier)
+	assert.Equal(t, "cus_1", resp.Msg.StripeCustomerId)
+}
+
+func TestGetMySubscription_NormalisesARowWrittenByHand(t *testing.T) {
+	t.Setenv(InternalTierUsersEnv, "")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	expectSubscriptionRow(mockStore, storeRow(" Active ", "Premium", nil))
+	srv := newTestServer(t, mockStore)
+
+	resp, err := srv.GetMySubscription(subscriptionContext("user_1"), connect.NewRequest(&shortsv1alpha1.GetMySubscriptionRequest{}))
+	require.NoError(t, err)
+	assert.Equal(t, shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE, resp.Msg.Status)
+	assert.Equal(t, shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM, resp.Msg.Tier)
+}
+
 func TestGetMySubscription_PeriodEndedActiveRowDoesNotReportActive(t *testing.T) {
 	t.Setenv(InternalTierUsersEnv, "")
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	periodEnd := time.Now().Add(-72 * time.Hour).Truncate(time.Second)
+	periodEnd := time.Now().Add(-96 * time.Hour).Truncate(time.Second)
 	row := storeRow("active", "premium", pgTimestamp(periodEnd))
 	row.CancelAtPeriodEnd = true
 

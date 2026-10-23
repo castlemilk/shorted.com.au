@@ -132,6 +132,28 @@ func TestCreateAlertMonitor_InternalGrantNeedsNoRow(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestCreateAlertMonitor_UnpaidInternalGrantIsDenied(t *testing.T) {
+	// INTERNAL_TIER=free sets a rate-limit tier, not alert entitlement. No monitor is
+	// written, and the store is never read for it (no expectations are set).
+	t.Setenv(InternalTierUsersEnv, "user_1")
+	t.Setenv(InternalTierEnv, "free")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	srv := newTestServer(t, mocks.NewMockShortsStore(ctrl))
+	_, err := srv.CreateAlertMonitor(userContext(""), connect.NewRequest(&shortsv1alpha1.CreateAlertMonitorRequest{
+		Scope:        shortsv1alpha1.AlertMonitorScope_ALERT_MONITOR_SCOPE_STOCK,
+		Target:       "BHP",
+		Condition:    shortsv1alpha1.AlertMonitorCondition_ALERT_MONITOR_CONDITION_SHORT_INTEREST_ABOVE,
+		Threshold:    5,
+		HasThreshold: true,
+		Cadence:      shortsv1alpha1.AlertMonitorCadence_ALERT_MONITOR_CADENCE_DAILY,
+	}))
+
+	require.Error(t, err)
+	assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
+}
+
 func TestCreateAlertMonitor_StoreErrorIsNotAGrant(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

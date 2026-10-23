@@ -146,38 +146,50 @@ func (s *ShortsServer) GetMySubscription(
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get subscription"))
 	}
 
+	if ent.Source == "internal" {
+		// A grant decides entitlement without the store, but the same customer may
+		// also pay through Stripe, and the billing portal (cancel, change card) is
+		// reached through the Stripe ids on that row. Read it best-effort: a store
+		// failure costs the portal link, never the grant.
+		row, rowErr := s.store.GetAPISubscription(userClaims.UserID)
+		if rowErr != nil {
+			s.logger.Warnf("Failed to read Stripe row for granted user %s: %v", userClaims.UserID, rowErr)
+		} else {
+			sub = row
+		}
+	}
+
 	// Build response
 	resp := &shortsv1alpha1.GetMySubscriptionResponse{}
 
 	switch {
 	case ent.Source == "internal":
-		// An operator grant is an active subscription on the granted tier. There is
-		// no Stripe row behind it, so there are no ids and no period end.
+		// A grant is a subscription on the granted tier. It is ACTIVE only when it is
+		// entitled: an unpaid grant reads INACTIVE, for the same reason a row does.
 		resp.HasSubscription = true
-		resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE
+		resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE
+		if ent.Entitled {
+			resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE
+		}
 		resp.Tier = mapStringToTier(ent.Tier)
+		if sub != nil {
+			applyStripeRow(resp, sub)
+		}
 	case sub != nil:
 		resp.HasSubscription = true
-		resp.Status = mapStringToStatus(sub.Status)
+		status := normaliseRowValue(sub.Status)
+		resp.Status = mapStringToStatus(status)
 		// A row that reads active or trialing but is not entitled (its period ended,
 		// or its tier is not a paid one) must not come back as active, because the
 		// web treats active as premium. It is INACTIVE rather than CANCELED: a failed
 		// renewal and a lost webhook look the same from here, so we cannot say the
 		// customer cancelled, and INACTIVE is what the web already shows for anyone
 		// without an active subscription.
-		if !ent.Entitled && (sub.Status == "active" || sub.Status == "trialing") {
+		if !ent.Entitled && (status == "active" || status == "trialing") {
 			resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE
 		}
-		resp.Tier = mapStringToTier(sub.Tier)
-		resp.CancelAtPeriodEnd = sub.CancelAtPeriodEnd
-		resp.StripeCustomerId = sub.StripeCustomerID
-
-		// Parse period end if available
-		if sub.CurrentPeriodEnd != nil {
-			if t, ok := parseStoreTimestamp(*sub.CurrentPeriodEnd); ok {
-				resp.CurrentPeriodEnd = timestamppb.New(t)
-			}
-		}
+		resp.Tier = mapStringToTier(normaliseRowValue(sub.Tier))
+		applyStripeRow(resp, sub)
 	default:
 		// No subscription means free tier
 		resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE
@@ -185,6 +197,19 @@ func (s *ShortsServer) GetMySubscription(
 	}
 
 	return connect.NewResponse(resp), nil
+}
+
+// applyStripeRow copies the Stripe fields of a row onto the response. These are
+// the ids and period the billing portal and the renewal date are read from.
+func applyStripeRow(resp *shortsv1alpha1.GetMySubscriptionResponse, sub *shortsstore.APISubscription) {
+	resp.CancelAtPeriodEnd = sub.CancelAtPeriodEnd
+	resp.StripeCustomerId = sub.StripeCustomerID
+
+	if sub.CurrentPeriodEnd != nil {
+		if t, ok := parseStoreTimestamp(*sub.CurrentPeriodEnd); ok {
+			resp.CurrentPeriodEnd = timestamppb.New(t)
+		}
+	}
 }
 
 // Helper functions for mapping between protobuf enums and strings

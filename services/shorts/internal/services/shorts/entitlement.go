@@ -1,6 +1,7 @@
 package shorts
 
 import (
+	"strings"
 	"time"
 
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
@@ -16,7 +17,7 @@ import (
 type Entitlement struct {
 	Entitled bool
 	Tier     string // effective tier: the paid tier when entitled, "free" otherwise
-	Reason   string // machine-readable: internal_grant | active | no_subscription | status_<status> | unpaid_tier | period_ended
+	Reason   string // machine-readable: internal_grant | internal_grant_unpaid_tier | active | no_subscription | status_<status> | unpaid_tier | period_ended
 	Source   string // "internal" | "stripe" | "none"
 }
 
@@ -32,28 +33,38 @@ var paidTiers = map[string]struct{}{
 // periodEndGrace is how long past current_period_end a row still counts as entitled.
 //
 // Stripe moves the period forward at renewal, and the webhook carrying the new
-// period can arrive late. Without a grace, every paying user would lose paid access
-// at each renewal boundary until that webhook landed. A renewal webhook that never
-// lands is healed by the daily reconcile, so the grace only has to cover ordinary
-// delivery delay.
-const periodEndGrace = 24 * time.Hour
+// period can arrive late. Stripe redelivers a webhook it could not deliver for
+// about three days, so a shorter grace would revoke paying customers during an
+// ordinary one-to-three-day outage of our endpoint, before Stripe had the chance
+// to redeliver. Anything lost beyond that window is healed by the daily Stripe
+// reconcile.
+const periodEndGrace = 72 * time.Hour
 
 // ResolveEntitlement decides a user's entitlement from their internal grant and
 // their store row (sub is nil when there is none).
 //
-// The grant is checked first and wins even over a canceled row, so an operator's
-// grant does not depend on what Stripe last said about the account.
+// A grant is checked first and wins even over a canceled row, so an operator's
+// grant does not depend on what Stripe last said about the account. A grant on an
+// unpaid tier (INTERNAL_TIER=free) is an explicit tier decision and stands over a
+// paid row too. It is not entitlement: the paid features stay off, and the tier
+// still sets the rate-limit tier.
 func ResolveEntitlement(userID string, sub *shortsstore.APISubscription, now time.Time) Entitlement {
-	if tier, ok := InternalTierFor(userID); ok {
+	if granted, ok := InternalTierFor(userID); ok {
+		tier := normaliseRowValue(granted)
+		if _, paid := paidTiers[tier]; !paid {
+			return Entitlement{Tier: tier, Reason: "internal_grant_unpaid_tier", Source: "internal"}
+		}
 		return Entitlement{Entitled: true, Tier: tier, Reason: "internal_grant", Source: "internal"}
 	}
 	if sub == nil {
 		return Entitlement{Tier: "free", Reason: "no_subscription", Source: "none"}
 	}
-	if sub.Status != "active" && sub.Status != "trialing" {
-		return Entitlement{Tier: "free", Reason: "status_" + sub.Status, Source: "stripe"}
+	status := normaliseRowValue(sub.Status)
+	if status != "active" && status != "trialing" {
+		return Entitlement{Tier: "free", Reason: "status_" + status, Source: "stripe"}
 	}
-	if _, ok := paidTiers[sub.Tier]; !ok {
+	tier := normaliseRowValue(sub.Tier)
+	if _, ok := paidTiers[tier]; !ok {
 		return Entitlement{Tier: "free", Reason: "unpaid_tier", Source: "stripe"}
 	}
 	// An unparseable period end is unknown, not expired. Revoking a paying user
@@ -64,21 +75,26 @@ func ResolveEntitlement(userID string, sub *shortsstore.APISubscription, now tim
 			return Entitlement{Tier: "free", Reason: "period_ended", Source: "stripe"}
 		}
 	}
-	return Entitlement{Entitled: true, Tier: sub.Tier, Reason: "active", Source: "stripe"}
+	return Entitlement{Entitled: true, Tier: tier, Reason: "active", Source: "stripe"}
 }
 
-// loadEntitlement reads the user's row and resolves the entitlement from it. The
-// row is returned too, because GetMySubscription reports the real Stripe fields
-// and not only the verdict.
+// normaliseRowValue folds the case and padding out of a status or tier. The
+// store's own writers produce lowercase values, but rows written by hand have
+// carried "Premium" or " active ", and the alerts gate that this replaced
+// lower-cased its tier, so the rule does the same.
+func normaliseRowValue(v string) string {
+	return strings.ToLower(strings.TrimSpace(v))
+}
+
+// loadEntitlement resolves the entitlement, and reads the store only when no grant
+// decides it. It returns the row it read, or nil for a grant.
 //
-// The grant is checked before the store is read, so a granted user does not need
-// a row and a Stripe webhook cannot clobber the grant (see InternalTierFor). A
+// A grant is decided before the store is read, so the entitlement never depends on
+// the database and a Stripe webhook cannot clobber it (see InternalTierFor). A
 // store error is returned, never masked by a grant: a database outage must
 // surface, not quietly promote every allowlisted caller.
 func (s *ShortsServer) loadEntitlement(userID string, now time.Time) (*shortsstore.APISubscription, Entitlement, error) {
 	if _, ok := InternalTierFor(userID); ok {
-		// ResolveEntitlement returns the grant itself. This check only keeps the
-		// store out of the grant path.
 		return nil, ResolveEntitlement(userID, nil, now), nil
 	}
 	sub, err := s.store.GetAPISubscription(userID)
