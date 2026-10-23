@@ -12,7 +12,15 @@ jest.mock("~/app/actions/config", () => ({ getServerShortsApiUrl: () => "https:/
 jest.mock("~/server/paid-probe/steps", () => ({ runPaidProbe: jest.fn() }));
 jest.mock("~/server/paid-probe/checkins", () => ({ reportCheckins: jest.fn(async () => "disabled") }));
 
-const ENV_KEYS = ["INTERNAL_SERVICE_SECRET", "PAID_PROBE_TOKEN", "PAID_PROBE_BASE_URL", "VERCEL_ENV", "CRON_SECRET"] as const;
+const ENV_KEYS = [
+  "INTERNAL_SERVICE_SECRET",
+  "PAID_PROBE_TOKEN",
+  "PAID_PROBE_BASE_URL",
+  "VERCEL_ENV",
+  "VERCEL_URL",
+  "VERCEL_AUTOMATION_BYPASS_SECRET",
+  "CRON_SECRET",
+] as const;
 const savedEnv: Record<string, string | undefined> = {};
 const CALLED_ON = "https://shorted.com.au/api/internal/paid-probe";
 
@@ -52,6 +60,8 @@ beforeEach(() => {
   process.env.CRON_SECRET = "cron-secret";
   delete process.env.PAID_PROBE_BASE_URL;
   delete process.env.VERCEL_ENV;
+  delete process.env.VERCEL_URL;
+  delete process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
   jest.mocked(runPaidProbe).mockResolvedValue(run(true));
 });
 
@@ -142,6 +152,17 @@ describe("POST /api/internal/paid-probe", () => {
     const ctx = jest.mocked(runPaidProbe).mock.calls[0]![0];
     expect(ctx.origin).toEqual({ trusted: true, value: "https://preview.example.test" });
     expect(ctx.shortsApiUrl).toBe("https://shorts.test");
+  });
+
+  it("probes the deployment itself on Vercel, not the apex the request arrived on", async () => {
+    process.env.VERCEL_URL = "shorted-com-abc.vercel.app";
+    process.env.VERCEL_AUTOMATION_BYPASS_SECRET = "vercel-bypass-value";
+    await POST(request({ authorization: "Bearer probe-token" }));
+
+    const ctx = jest.mocked(runPaidProbe).mock.calls[0]![0];
+    expect(ctx.origin).toEqual({ trusted: true, value: "https://shorted-com-abc.vercel.app" });
+    expect(ctx.deploymentOrigin).toBe("https://shorted-com-abc.vercel.app");
+    expect(ctx.secrets).toContain("vercel-bypass-value");
   });
 
   it("hands an untrusted origin to the steps, so a production Host header cannot pick the cookie's destination", async () => {

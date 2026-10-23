@@ -29,6 +29,12 @@ export interface ProbeContext {
   /** Origin of the app under test. Chat and gate requests go here, and only here. */
   origin: Trust<string>;
   /**
+   * The deployment's own origin (VERCEL_URL), when the platform gives one. A step
+   * whose origin is this one says "via deployment" in its detail, so the edge was
+   * not in the path. Absent outside Vercel.
+   */
+  deploymentOrigin?: string;
+  /**
    * Origin of the public API paying customers call (api.shorted.com.au by default).
    * The authenticated api_token read goes here, through the Cloudflare edge worker.
    */
@@ -37,7 +43,11 @@ export interface ProbeContext {
   shortsApiUrl: string;
   /** INTERNAL_SERVICE_SECRET, or "" when unset (the steps then fail closed). */
   internalSecret: string;
-  /** The probe's own fetch: plain UA, no-store, never a bypass secret. */
+  /**
+   * The probe's own fetch: plain UA and no-store. The one credential it may add
+   * is Vercel's deployment-protection bypass, and only for the deployment origin
+   * (see withDeploymentBypass).
+   */
   fetch: typeof fetch;
   /** Mints the probe session cookie. Throws when NEXTAUTH_SECRET is unset. */
   sessionCookie: () => Promise<ProbeCookie>;
