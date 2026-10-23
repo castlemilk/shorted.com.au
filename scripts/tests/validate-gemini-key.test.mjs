@@ -611,3 +611,48 @@ test("runs on a runner with no jq and no python3, using only the tools it names"
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// A curl shim on PATH records what the validator hands curl. The key must arrive
+// only in the header text on stdin, never as a curl argument, where ps, /proc and
+// execve audit logs can read it. The validator's own ps test sees only bash.
+test("curl receives the key only in the header on stdin, never as an argument", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "validate-gemini-curlshim-"));
+  const realCurl = spawnSync("/bin/sh", ["-c", "command -v curl"], { encoding: "utf8" }).stdout.trim();
+  const stub = await startStub(() => ({ status: 200, json: TEXT_REPLY }));
+  try {
+    writeFileSync(
+      join(dir, "curl"),
+      `#!/bin/bash\nprintf '%s\\n' "$@" > "${dir}/argv"\ntee "${dir}/stdin" | "${realCurl}" "$@"\n`,
+      { mode: 0o755 },
+    );
+    const result = await runValidator([FAKE_KEY], {
+      baseUrl: stub.baseUrl,
+      env: { PATH: `${dir}:${process.env.PATH}` },
+    });
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    const argv = readFileSync(join(dir, "argv"), "utf8");
+    assert.ok(!argv.includes(FAKE_KEY), "the key must not be a curl argument");
+    assert.match(readFileSync(join(dir, "stdin"), "utf8"), new RegExp(`^x-goog-api-key: ${FAKE_KEY}$`, "m"));
+    assert.equal(stub.requests[0].key, FAKE_KEY);
+  } finally {
+    await stub.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// The loopback test stub is plain http, which curl would hand to an http_proxy in
+// cleartext. The validator passes --noproxy for that URL, so a proxy on the runner
+// never sees the key. A dead proxy proves it: through the proxy the call would fail.
+test("a runner http_proxy is bypassed for the loopback stub", async () => {
+  const stub = await startStub(() => ({ status: 200, json: TEXT_REPLY }));
+  try {
+    const result = await runValidator([FAKE_KEY], {
+      baseUrl: stub.baseUrl,
+      env: { http_proxy: "http://127.0.0.1:9", HTTP_PROXY: "http://127.0.0.1:9", all_proxy: "http://127.0.0.1:9" },
+    });
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    assert.equal(stub.requests.length, 1);
+  } finally {
+    await stub.close();
+  }
+});

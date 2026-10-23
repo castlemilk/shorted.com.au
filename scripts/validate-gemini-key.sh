@@ -34,8 +34,9 @@
 # Overrides: MODEL is the second argument, then GEMINI_VALIDATE_MODEL, then
 # gemini-2.5-flash (the chat-service default in services/chat-service/config.go).
 # GEMINI_VALIDATE_BASE_URL and GEMINI_VALIDATE_RETRY_DELAY_SEC exist for the
-# tests. The base URL may point only at a loopback address, so a stray variable
-# cannot send the key to another host.
+# tests. The base URL may point only at a loopback address, and that request is
+# made with --noproxy so an http_proxy on the runner cannot relay the key in
+# cleartext. The default https URL keeps any proxy, which can only tunnel TLS.
 
 # Turn xtrace off before anything else, so `bash -x`, SHELLOPTS=xtrace and a
 # BASH_ENV that sets -x never print the key. The redirect hides this line's own trace.
@@ -77,9 +78,13 @@ if [ -z "$KEY" ]; then
 fi
 
 BASE_URL="${GEMINI_VALIDATE_BASE_URL:-$DEFAULT_BASE_URL}"
-if [ "$BASE_URL" != "$DEFAULT_BASE_URL" ] && ! [[ "$BASE_URL" =~ $LOOPBACK_RE ]]; then
-  echo "validate-gemini-key.sh: GEMINI_VALIDATE_BASE_URL may only point at a loopback stub" >&2
-  exit 1
+NOPROXY=()
+if [ "$BASE_URL" != "$DEFAULT_BASE_URL" ]; then
+  if ! [[ "$BASE_URL" =~ $LOOPBACK_RE ]]; then
+    echo "validate-gemini-key.sh: GEMINI_VALIDATE_BASE_URL may only point at a loopback stub" >&2
+    exit 1
+  fi
+  NOPROXY=(--noproxy '*')
 fi
 
 MODEL="${2:-${GEMINI_VALIDATE_MODEL:-$DEFAULT_MODEL}}"
@@ -149,7 +154,7 @@ while :; do
   # -q must be the first curl argument. It stops curl reading any .curlrc or curlrc,
   # which could otherwise add a trace that carries the key.
   code=$(printf 'x-goog-api-key: %s\n' "$KEY" | curl -q -sS -o "$BODY" -w '%{http_code}' \
-    --connect-timeout 5 --max-time 20 \
+    ${NOPROXY[@]+"${NOPROXY[@]}"} --connect-timeout 5 --max-time 20 \
     -H @- -H 'Content-Type: application/json' \
     --data-binary @"$REQ" "$URL" 2>"$CURL_ERR")
   curl_rc=$?
