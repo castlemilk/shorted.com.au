@@ -2,10 +2,12 @@
 import { PAID_PROBE_USER_AGENT } from "../constants";
 import {
   buildProbeContext,
+  deploymentOrigin,
   isProductionEnv,
   probeFetch,
   resolveProbeOrigin,
   resolvePublicApiOrigin,
+  VERCEL_BYPASS_HEADER,
 } from "../context";
 import { ProbeFailure } from "../types";
 
@@ -19,10 +21,14 @@ const BYPASS_ENV = {
   SHORTED_SSR_BYPASS_SECRET: "ssr-bypass-value",
   SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET: "testing-bypass-value",
   TF_VAR_rate_limit_testing_bypass_secret: "testing-bypass-value",
+  VERCEL_AUTOMATION_BYPASS_SECRET: "vercel-bypass-value",
 };
 
 const CALLED_ON = "https://shorted.com.au/api/internal/paid-probe";
 const PRODUCTION = { VERCEL_ENV: "production" };
+const VERCEL_HOST = "shorted-com-abc.vercel.app";
+const DEPLOYMENT = `https://${VERCEL_HOST}`;
+const VERCEL_BYPASS_VALUE = "vercel-bypass-value";
 
 describe("probeFetch", () => {
   afterEach(() => {
@@ -54,6 +60,7 @@ describe("probeFetch", () => {
     const headers = (spy.mock.calls[0]![1] as RequestInit).headers as Headers;
     expect(headers.has("x-shorted-ssr-bypass")).toBe(false);
     expect(headers.has("x-shorted-testing-bypass")).toBe(false);
+    expect(headers.has(VERCEL_BYPASS_HEADER)).toBe(false);
     expect(headers.get("user-agent")).toBe(PAID_PROBE_USER_AGENT);
   });
 });
@@ -88,6 +95,156 @@ describe("buildProbeContext", () => {
       name: "__Secure-next-auth.session-token",
       value: "jwe-value",
     });
+  });
+});
+
+describe("deploymentOrigin", () => {
+  it("is the deployment's https origin, lower-cased, for a bare hostname", () => {
+    expect(deploymentOrigin({ VERCEL_URL: VERCEL_HOST })).toBe(DEPLOYMENT);
+    expect(deploymentOrigin({ VERCEL_URL: "Shorted-Com-ABC.Vercel.App" })).toBe(DEPLOYMENT);
+  });
+
+  it("is undefined when VERCEL_URL is unset", () => {
+    expect(deploymentOrigin({})).toBeUndefined();
+  });
+
+  it("is undefined for anything but a bare hostname: scheme, path, '@', port, empty, whitespace, odd labels", () => {
+    for (const value of [
+      "https://shorted-com-abc.vercel.app",
+      "shorted-com-abc.vercel.app/api",
+      "user@shorted-com-abc.vercel.app",
+      "shorted-com-abc.vercel.app:443",
+      "shorted-com-abc.vercel.app?x=1",
+      "shorted-com-abc.vercel.app.",
+      " shorted-com-abc.vercel.app",
+      "-bad.vercel.app",
+      "a..b.vercel.app",
+      "",
+    ]) {
+      expect({ value, origin: deploymentOrigin({ VERCEL_URL: value }) }).toEqual({ value, origin: undefined });
+    }
+  });
+});
+
+describe("resolveProbeOrigin on Vercel", () => {
+  it("uses the deployment's own origin ahead of the request's, which is the apex Cloudflare challenges", () => {
+    expect(resolveProbeOrigin(CALLED_ON, { ...PRODUCTION, VERCEL_URL: VERCEL_HOST })).toEqual({
+      trusted: true,
+      value: DEPLOYMENT,
+    });
+  });
+
+  it("does not let the Host header choose: the platform's deployment wins even for a request from an unknown host", () => {
+    expect(resolveProbeOrigin("https://evil.example/x", { ...PRODUCTION, VERCEL_URL: VERCEL_HOST })).toEqual({
+      trusted: true,
+      value: DEPLOYMENT,
+    });
+  });
+
+  it("ranks PAID_PROBE_BASE_URL first, and an unusable one fails rather than falling back to the deployment", () => {
+    expect(
+      resolveProbeOrigin(CALLED_ON, {
+        ...PRODUCTION,
+        VERCEL_URL: VERCEL_HOST,
+        PAID_PROBE_BASE_URL: "https://preview.example.test/some/path",
+      }),
+    ).toEqual({ trusted: true, value: "https://preview.example.test" });
+    expect(
+      resolveProbeOrigin(CALLED_ON, { ...PRODUCTION, VERCEL_URL: VERCEL_HOST, PAID_PROBE_BASE_URL: "not a url" }),
+    ).toEqual({ trusted: false, reason: "untrusted base URL" });
+  });
+
+  it("does not use a malformed VERCEL_URL: the request's origin applies, under its usual rules", () => {
+    for (const value of [
+      "https://shorted-com-abc.vercel.app",
+      "shorted-com-abc.vercel.app/api",
+      "user@shorted-com-abc.vercel.app",
+      "shorted-com-abc.vercel.app:443",
+      "",
+    ]) {
+      expect(resolveProbeOrigin(CALLED_ON, { ...PRODUCTION, VERCEL_URL: value })).toEqual({
+        trusted: true,
+        value: "https://shorted.com.au",
+      });
+      expect(resolveProbeOrigin("https://evil.example/x", { ...PRODUCTION, VERCEL_URL: value })).toEqual({
+        trusted: false,
+        reason: "untrusted base URL",
+      });
+    }
+  });
+});
+
+describe("the Vercel deployment bypass", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function vercelContext(env: Record<string, string> = {}) {
+    return buildProbeContext(
+      { VERCEL_URL: VERCEL_HOST, VERCEL_AUTOMATION_BYPASS_SECRET: VERCEL_BYPASS_VALUE, ...env },
+      { requestUrl: CALLED_ON, shortsApiUrl: "https://shorts.test" },
+    );
+  }
+
+  function sentHeaders(spy: jest.SpyInstance, index: number): Headers {
+    return (spy.mock.calls[index]![1] as RequestInit).headers as Headers;
+  }
+
+  it("builds the context on the deployment, and names that origin for the steps", () => {
+    const ctx = vercelContext();
+    expect(ctx.origin).toEqual({ trusted: true, value: DEPLOYMENT });
+    expect(ctx.deploymentOrigin).toBe(DEPLOYMENT);
+  });
+
+  it("sends the bypass header to the deployment origin, and to no other host", async () => {
+    const spy = jest.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+    const ctx = vercelContext();
+
+    await ctx.fetch(`${DEPLOYMENT}/api/chat`, { method: "POST" });
+    await ctx.fetch(new URL(`${DEPLOYMENT}/api/stripe/checkout`), { method: "POST" });
+    await ctx.fetch("https://shorted.com.au/api/chat", { method: "POST" });
+    await ctx.fetch("https://api.shorted.com.au/shorts.v1alpha1.ShortedStocksService/GetStock", { method: "POST" });
+    await ctx.fetch(`https://${VERCEL_HOST}.evil.example/api/chat`, { method: "POST" });
+
+    expect(sentHeaders(spy, 0).get(VERCEL_BYPASS_HEADER)).toBe(VERCEL_BYPASS_VALUE);
+    expect(sentHeaders(spy, 1).get(VERCEL_BYPASS_HEADER)).toBe(VERCEL_BYPASS_VALUE);
+    expect(sentHeaders(spy, 2).has(VERCEL_BYPASS_HEADER)).toBe(false);
+    expect(sentHeaders(spy, 3).has(VERCEL_BYPASS_HEADER)).toBe(false);
+    expect(sentHeaders(spy, 4).has(VERCEL_BYPASS_HEADER)).toBe(false);
+  });
+
+  it("sends no bypass header on the deployment when the secret is unset or blank", async () => {
+    const spy = jest.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+
+    for (const env of [{ VERCEL_URL: VERCEL_HOST }, { VERCEL_URL: VERCEL_HOST, VERCEL_AUTOMATION_BYPASS_SECRET: "   " }]) {
+      const ctx = buildProbeContext(env, { requestUrl: CALLED_ON, shortsApiUrl: "https://shorts.test" });
+      await ctx.fetch(`${DEPLOYMENT}/api/chat`, { method: "POST" });
+    }
+
+    expect(spy.mock.calls).toHaveLength(2);
+    expect(sentHeaders(spy, 0).has(VERCEL_BYPASS_HEADER)).toBe(false);
+    expect(sentHeaders(spy, 1).has(VERCEL_BYPASS_HEADER)).toBe(false);
+  });
+
+  it("sends no bypass header when no deployment is known, even with the secret set", async () => {
+    const spy = jest.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+    const ctx = buildProbeContext(
+      { VERCEL_AUTOMATION_BYPASS_SECRET: VERCEL_BYPASS_VALUE },
+      { requestUrl: CALLED_ON, shortsApiUrl: "https://shorts.test" },
+    );
+
+    await ctx.fetch(CALLED_ON, { method: "POST" });
+
+    expect(sentHeaders(spy, 0).has(VERCEL_BYPASS_HEADER)).toBe(false);
+  });
+
+  it("adds the bypass value to the scrub list, and adds nothing for a blank one", () => {
+    expect(vercelContext().secrets).toContain(VERCEL_BYPASS_VALUE);
+    const blank = buildProbeContext(
+      { VERCEL_AUTOMATION_BYPASS_SECRET: "   " },
+      { requestUrl: CALLED_ON, shortsApiUrl: "https://shorts.test" },
+    );
+    expect(blank.secrets).toEqual([]);
   });
 });
 

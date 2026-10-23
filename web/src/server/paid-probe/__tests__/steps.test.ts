@@ -129,7 +129,7 @@ describe("runPaidProbe", () => {
     expect(run.steps.map((step) => step.name)).toEqual(["entitlement", "chat", "api_token", "gates"]);
     expect(run.steps.every((step) => step.ok)).toBe(true);
     expect(byName(run, "entitlement").detail).toBe("status=active tier=enterprise");
-    expect(byName(run, "chat").detail).toBe("tools=query_short_positions; conversation deleted");
+    expect(byName(run, "chat").detail).toBe("via shorted.com.au: tools=query_short_positions; conversation deleted");
     expect(byName(run, "api_token").detail).toBe("GetStock 200 via the public API, monthly limit 50000");
     expect(byName(run, "gates").detail).toContain("both 401");
   });
@@ -216,7 +216,7 @@ describe("scrubbing", () => {
       context(fakeFetch({ chat: () => sseResponse(withCookieInError) })),
     );
 
-    expect(byName(run, "chat").detail).toBe("stream error: boom [redacted]");
+    expect(byName(run, "chat").detail).toBe("via shorted.com.au: stream error: boom [redacted]");
     expect(JSON.stringify(run)).not.toContain(COOKIE_VALUE);
   });
 
@@ -252,7 +252,7 @@ describe("chat step", () => {
       "chat",
     );
     expect(step.ok).toBe(false);
-    expect(step.detail).toBe("stream error: Chat is temporarily unavailable.");
+    expect(step.detail).toBe("via shorted.com.au: stream error: Chat is temporarily unavailable.");
   });
 
   it("fails on a non-200, quoting only the JSON error message", async () => {
@@ -260,7 +260,7 @@ describe("chat step", () => {
       await runPaidProbe(context(fakeFetch({ chat: () => json(403, { error: "Premium subscription required" }) }))),
       "chat",
     );
-    expect(step.detail).toBe("HTTP 403: Premium subscription required");
+    expect(step.detail).toBe("via shorted.com.au: HTTP 403: Premium subscription required");
   });
 
   it("never echoes an HTML error page", async () => {
@@ -269,7 +269,7 @@ describe("chat step", () => {
       await runPaidProbe(context(fakeFetch({ chat: () => new Response(html, { status: 502 }) }))),
       "chat",
     );
-    expect(step.detail).toBe("HTTP 502");
+    expect(step.detail).toBe("via shorted.com.au: HTTP 502");
     expect(step.detail).not.toContain("Cloudflare");
   });
 
@@ -285,7 +285,7 @@ describe("chat step", () => {
 
     const step = byName(await runPaidProbe(context(fakeFetch({ chat: () => sseResponse(noTools) }))), "chat");
     expect(step.ok).toBe(false);
-    expect(step.detail).toBe("no tool calls");
+    expect(step.detail).toBe("via shorted.com.au: no tool calls");
   });
 
   it("treats a failed conversation delete as a warning, not a failure", async () => {
@@ -294,7 +294,7 @@ describe("chat step", () => {
       "chat",
     );
     expect(step.ok).toBe(true);
-    expect(step.detail).toBe("tools=query_short_positions; cleanup warning: HTTP 500");
+    expect(step.detail).toBe("via shorted.com.au: tools=query_short_positions; cleanup warning: HTTP 500");
   });
 
   it("sends the probe cookie, the app origin and the fixed question", async () => {
@@ -320,7 +320,7 @@ describe("chat step", () => {
         },
       }),
     );
-    expect(byName(run, "chat").detail).toBe("NEXTAUTH_SECRET is not configured");
+    expect(byName(run, "chat").detail).toBe("via shorted.com.au: NEXTAUTH_SECRET is not configured");
     expect(callsTo(fetchImpl, "/api/chat").filter(([, init]) => (init?.headers as Record<string, string>).cookie !== undefined)).toHaveLength(0);
   });
 
@@ -332,7 +332,7 @@ describe("chat step", () => {
     const step = byName(await runPaidProbe(context(fetchImpl)), "chat");
 
     expect(step.ok).toBe(false);
-    expect(step.detail).toBe("timed out after 35s");
+    expect(step.detail).toBe("via shorted.com.au: timed out after 35s");
     const deletes = callsTo(fetchImpl, "DeleteConversation");
     expect(deletes).toHaveLength(1);
     expect(JSON.parse(String((deletes[0]![1] as RequestInit).body))).toEqual({ conversationId: "conv-probe-part" });
@@ -348,7 +348,7 @@ describe("chat step", () => {
     const step = byName(await runPaidProbe(context(fetchImpl)), "chat");
 
     expect(step.ok).toBe(false);
-    expect(step.detail).toBe("timed out after 35s");
+    expect(step.detail).toBe("via shorted.com.au: timed out after 35s");
     expect(callsTo(fetchImpl, "DeleteConversation")).toHaveLength(0);
   });
 
@@ -364,7 +364,7 @@ describe("chat step", () => {
 
     const step = byName(await runPaidProbe(context(fetchImpl)), "chat");
 
-    expect(step.detail).toBe("stream error: Chat is temporarily unavailable.");
+    expect(step.detail).toBe("via shorted.com.au: stream error: Chat is temporarily unavailable.");
     const deletes = callsTo(fetchImpl, "DeleteConversation");
     expect(JSON.parse(String((deletes[0]![1] as RequestInit).body))).toEqual({ conversationId: "conv-error-part" });
   });
@@ -502,7 +502,7 @@ describe("gates step", () => {
       "gates",
     );
     expect(step.ok).toBe(false);
-    expect(step.detail).toBe("/api/chat answered 307, want 401");
+    expect(step.detail).toBe("via shorted.com.au: /api/chat answered 307, want 401");
   });
 
   it("fails when the checkout route answers 200 to an anonymous caller", async () => {
@@ -511,7 +511,7 @@ describe("gates step", () => {
       "gates",
     );
     expect(step.ok).toBe(false);
-    expect(step.detail).toBe("/api/stripe/checkout answered 200, want 401");
+    expect(step.detail).toBe("via shorted.com.au: /api/stripe/checkout answered 200, want 401");
   });
 
   it("sends the anonymous gate a real user message and no cookie", async () => {
@@ -538,6 +538,70 @@ describe("gates step", () => {
 
     expect(step.detail).toBe("untrusted base URL");
     expect(fetchImpl.mock.calls.some(([url]) => String(url).startsWith("https://shorted.com.au"))).toBe(false);
+  });
+});
+
+describe("the origin the app steps called", () => {
+  const DEPLOYMENT = "https://shorted-com-abc.vercel.app";
+
+  it("labels a step's detail 'via deployment' with the host, when the deployment is what was probed", async () => {
+    const run = await runPaidProbe(
+      context(fakeFetch(), { origin: { trusted: true, value: DEPLOYMENT }, deploymentOrigin: DEPLOYMENT }),
+    );
+
+    expect(byName(run, "chat").detail).toBe(
+      "via deployment shorted-com-abc.vercel.app: tools=query_short_positions; conversation deleted",
+    );
+    expect(byName(run, "gates").detail).toBe(
+      "via deployment shorted-com-abc.vercel.app: anonymous /api/chat and /api/stripe/checkout both 401",
+    );
+    // The public API step does not touch the app, so it is not labelled.
+    expect(byName(run, "api_token").detail).toBe("GetStock 200 via the public API, monthly limit 50000");
+  });
+
+  it("labels the apex when the probe went to shorted.com.au, even with a deployment known", async () => {
+    const run = await runPaidProbe(context(fakeFetch(), { deploymentOrigin: DEPLOYMENT }));
+
+    expect(byName(run, "gates").detail.startsWith("via shorted.com.au: ")).toBe(true);
+  });
+
+  it("fails a deployment answer with the deployment named, so the edge is shown to be out of the path", async () => {
+    const run = await runPaidProbe(
+      context(fakeFetch({ chat: () => json(403, { error: "Premium subscription required" }) }), {
+        origin: { trusted: true, value: DEPLOYMENT },
+        deploymentOrigin: DEPLOYMENT,
+      }),
+    );
+
+    expect(byName(run, "chat").detail).toBe(
+      "via deployment shorted-com-abc.vercel.app: HTTP 403: Premium subscription required",
+    );
+  });
+
+  it("sends every app call with the Origin it called, so the same-origin check sees its own origin", async () => {
+    const fetchImpl = fakeFetch();
+    await runPaidProbe(context(fetchImpl, { origin: { trusted: true, value: DEPLOYMENT }, deploymentOrigin: DEPLOYMENT }));
+
+    // The chat turn, the anonymous chat gate, the anonymous checkout gate and the conversation delete.
+    const appCalls = fetchImpl.mock.calls.filter(([url]) => String(url).startsWith(`${DEPLOYMENT}/`));
+    expect(appCalls).toHaveLength(4);
+    for (const [url, init] of appCalls) {
+      const headers = (init as RequestInit).headers as Record<string, string>;
+      expect(headers.origin).toBe(DEPLOYMENT);
+      expect(String(url).startsWith(headers.origin!)).toBe(true);
+    }
+  });
+
+  it("scrubs the bypass secret when an app error echoes it", async () => {
+    const fetchImpl = fakeFetch({ chat: () => json(500, { error: "upstream echoed bypass-value" }) });
+
+    const step = byName(
+      await runPaidProbe(context(fetchImpl, { secrets: ["internal-secret", "bypass-value"] })),
+      "chat",
+    );
+
+    expect(step.detail).toBe("via shorted.com.au: HTTP 500: upstream echoed [redacted]");
+    expect(JSON.stringify(step)).not.toContain("bypass-value");
   });
 });
 

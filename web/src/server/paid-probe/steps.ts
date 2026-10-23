@@ -62,15 +62,20 @@ export interface PaidProbeRun {
 interface StepDefinition {
   name: ProbeStepName;
   budgetMs: number;
+  /**
+   * The step calls the app under test (ctx.origin). Its detail then says which
+   * origin was probed, so a failure read in Telesis shows whether the edge was in the path.
+   */
+  appOrigin?: true;
   /** Resolves with a detail on success; throws (ideally ProbeFailure) on failure. */
   run: (ctx: ProbeContext, signal: AbortSignal) => Promise<string>;
 }
 
 const STEPS: readonly StepDefinition[] = [
   { name: "entitlement", budgetMs: PROBE_STEP_BUDGETS.entitlement, run: checkEntitlement },
-  { name: "chat", budgetMs: PROBE_STEP_BUDGETS.chat, run: checkChat },
+  { name: "chat", budgetMs: PROBE_STEP_BUDGETS.chat, appOrigin: true, run: checkChat },
   { name: "api_token", budgetMs: PROBE_STEP_BUDGETS.api_token, run: checkApiToken },
-  { name: "gates", budgetMs: PROBE_STEP_BUDGETS.gates, run: checkGates },
+  { name: "gates", budgetMs: PROBE_STEP_BUDGETS.gates, appOrigin: true, run: checkGates },
 ];
 
 const DETAIL_MAX_CHARS = 300;
@@ -106,12 +111,24 @@ async function runStep(step: StepDefinition, ctx: ProbeContext): Promise<ProbeSt
   } catch (err) {
     detail = describeFailure(err, signal, step.budgetMs);
   }
+  const via = step.appOrigin ? viaOrigin(ctx) : undefined;
   return {
     name: step.name,
     ok,
     durationMs: ctx.now() - started,
-    detail: clip(scrub(detail, ctx.secrets), DETAIL_MAX_CHARS),
+    detail: clip(scrub(via ? `${via}: ${detail}` : detail, ctx.secrets), DETAIL_MAX_CHARS),
   };
+}
+
+/**
+ * Which origin an app step probed, host only: "via deployment <host>" when that is
+ * the deployment itself, otherwise "via <host>". Nothing for an untrusted origin,
+ * because the step's own reason ("untrusted base URL") already says why it did not run.
+ */
+function viaOrigin(ctx: ProbeContext): string | undefined {
+  if (!ctx.origin.trusted) return undefined;
+  const host = new URL(ctx.origin.value).host;
+  return ctx.origin.value === ctx.deploymentOrigin ? `via deployment ${host}` : `via ${host}`;
 }
 
 function describeFailure(err: unknown, signal: AbortSignal, budgetMs: number): string {
@@ -286,7 +303,9 @@ async function checkApiToken(ctx: ProbeContext, signal: AbortSignal): Promise<st
  */
 async function checkGates(ctx: ProbeContext, signal: AbortSignal): Promise<string> {
   const origin = requireTrusted(ctx.origin);
-  const headers = { "content-type": "application/json" };
+  // The Origin is the origin called, as the chat call's is. Both routes decide an
+  // anonymous caller at auth, before any origin check, so the 401 does not depend on it.
+  const headers = { "content-type": "application/json", origin };
   // The chat body carries a real user message on purpose. /api/chat answers
   // 400 for a message-less body before it reaches the auth check, so an empty
   // body would pass for the wrong reason.

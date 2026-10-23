@@ -9,6 +9,16 @@ import { ProbeFailure, type ProbeContext, type ProbeEnv, type Trust } from "./ty
 const UNTRUSTED_BASE_URL = "untrusted base URL";
 const UNTRUSTED_PUBLIC_API_URL = "untrusted public API URL";
 
+/** Vercel's deployment-protection bypass header. warm-cache sends the same one. */
+export const VERCEL_BYPASS_HEADER = "x-vercel-protection-bypass";
+
+/**
+ * A bare DNS hostname: dot-separated labels of letters, digits and hyphens. No
+ * scheme, path, query, port, credentials or whitespace, and no trailing dot.
+ */
+const BARE_HOSTNAME =
+  /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i;
+
 /**
  * The probe's fetch. It sets the probe UA and the no-store cache mode, and
  * nothing else.
@@ -28,6 +38,33 @@ export function probeFetch(base: typeof fetch = fetch): typeof fetch {
   };
 }
 
+/**
+ * Adds Vercel's deployment-protection bypass to requests for the deployment's own
+ * origin, and to no other request. The probe calls the deployment directly
+ * because the apex is challenged by Cloudflare, and a protected deployment needs
+ * this header to answer. Matching on the origin, not on the caller, is what keeps
+ * the secret from reaching the apex or the public API. Every probe call sets
+ * redirect: "manual", so the header cannot follow a redirect elsewhere.
+ */
+export function withDeploymentBypass(
+  base: typeof fetch,
+  deployment: string | undefined,
+  secret: string | undefined,
+): typeof fetch {
+  if (!deployment || !secret) return base;
+  return (input, init) => {
+    if (parseOrigin(requestHref(input))?.origin !== deployment) return base(input, init);
+    const headers = new Headers(init?.headers);
+    headers.set(VERCEL_BYPASS_HEADER, secret);
+    return base(input, { ...init, headers });
+  };
+}
+
+function requestHref(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  return input instanceof URL ? input.href : input.url;
+}
+
 /** Build the real context. Tests build their own; nothing else should. */
 export function buildProbeContext(
   env: ProbeEnv,
@@ -36,15 +73,24 @@ export function buildProbeContext(
 ): ProbeContext {
   // Values are used raw, the same way the Go API compares the internal secret
   // against its own environment. Trimming here would make a correct value fail.
-  const secrets = [env.INTERNAL_SERVICE_SECRET, env.NEXTAUTH_SECRET, env.PAID_PROBE_TOKEN].filter(
-    (value): value is string => typeof value === "string" && value.trim() !== "",
-  );
+  // The Vercel bypass joins the list, so it is scrubbed from every detail too.
+  const secrets = [
+    env.INTERNAL_SERVICE_SECRET,
+    env.NEXTAUTH_SECRET,
+    env.PAID_PROBE_TOKEN,
+    env.VERCEL_AUTOMATION_BYPASS_SECRET,
+  ].filter((value): value is string => typeof value === "string" && value.trim() !== "");
+  const deployment = deploymentOrigin(env);
+  const bypassSecret = env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim()
+    ? env.VERCEL_AUTOMATION_BYPASS_SECRET
+    : undefined;
   return {
     origin: resolveProbeOrigin(target.requestUrl, env),
+    deploymentOrigin: deployment,
     publicApiOrigin: resolvePublicApiOrigin(env),
     shortsApiUrl: target.shortsApiUrl,
     internalSecret: env.INTERNAL_SERVICE_SECRET ?? "",
-    fetch: probeFetch(),
+    fetch: withDeploymentBypass(probeFetch(), deployment, bypassSecret),
     sessionCookie: async () => {
       const secret = env.NEXTAUTH_SECRET;
       if (!secret) throw new ProbeFailure("NEXTAUTH_SECRET is not configured");
@@ -69,10 +115,15 @@ export function isProductionEnv(env: ProbeEnv): boolean {
  * anything a caller can shape.
  *
  * - PAID_PROBE_BASE_URL, when set, is the operator's word. If it is unusable it
- *   fails; it does not fall back to the request.
- * - Without it, the origin is the one the probe was called on. In production
- *   that origin is trusted only when it is one of the known app hosts, because
- *   the Host header is not ours to choose.
+ *   fails; it does not fall back to anything else.
+ * - On Vercel, the deployment's own URL (VERCEL_URL) is next. Cloudflare's bot
+ *   challenge answers Vercel's egress on the apex with a 403 "Just a moment..."
+ *   page, so a probe that calls shorted.com.au never reaches the app (2026-10-23).
+ *   The deployment URL is the app itself. The platform sets VERCEL_URL and a
+ *   caller cannot, so the Host header plays no part. A malformed value is not used.
+ * - Otherwise, the origin the probe was called on. In production that origin is
+ *   trusted only when it is one of the known app hosts, because the Host header
+ *   is not ours to choose.
  * - Plain http is allowed only under NODE_ENV=development.
  */
 export function resolveProbeOrigin(requestUrl: string, env: ProbeEnv): Trust<string> {
@@ -80,14 +131,28 @@ export function resolveProbeOrigin(requestUrl: string, env: ProbeEnv): Trust<str
   const configuredText = env.PAID_PROBE_BASE_URL?.trim();
   const configured = parseOrigin(configuredText);
   if (configuredText && !configured) return untrusted;
-
-  const candidate = configured ?? parseOrigin(requestUrl);
-  if (!candidate || !transportAllowed(candidate, env)) return untrusted;
-
-  if (!configured && isProductionEnv(env) && !productionOrigins(env).has(candidate.origin)) {
-    return untrusted;
+  if (configured) {
+    return transportAllowed(configured, env) ? { trusted: true, value: configured.origin } : untrusted;
   }
+
+  const deployment = deploymentOrigin(env);
+  if (deployment) return { trusted: true, value: deployment };
+
+  const candidate = parseOrigin(requestUrl);
+  if (!candidate || !transportAllowed(candidate, env)) return untrusted;
+  if (isProductionEnv(env) && !productionOrigins(env).has(candidate.origin)) return untrusted;
   return { trusted: true, value: candidate.origin };
+}
+
+/**
+ * The deployment's own origin from VERCEL_URL, or undefined when it is unset or
+ * is not a bare hostname. Vercel sets it to the deployment's own host, so the
+ * value needs no scheme, path, port or credentials. Anything else is not used.
+ */
+export function deploymentOrigin(env: ProbeEnv): string | undefined {
+  const host = env.VERCEL_URL;
+  if (typeof host !== "string" || !BARE_HOSTNAME.test(host)) return undefined;
+  return `https://${host.toLowerCase()}`;
 }
 
 /**
