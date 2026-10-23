@@ -1,6 +1,9 @@
 "use client";
 
-import { Button } from "~/@/components/ui/button";
+import {
+  Suggestion,
+  Suggestions,
+} from "~/@/components/ai-elements/suggestion";
 
 interface QuickActionsProps {
   onSelect: (question: string) => void;
@@ -26,22 +29,16 @@ export function QuickActions({ onSelect, stockCode }: QuickActionsProps) {
 
   return (
     <div className="space-y-2 p-4">
-      <p className="text-xs text-muted-foreground font-medium">
-        Try asking:
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {questions.map((q) => (
-          <Button
-            key={q}
-            variant="outline"
-            size="sm"
-            className="text-xs h-auto py-1.5 px-3 whitespace-normal text-left"
-            onClick={() => onSelect(q)}
-          >
-            {q}
-          </Button>
+      <p className="text-xs font-medium text-muted-foreground">Try asking:</p>
+      <Suggestions>
+        {questions.map((question) => (
+          <Suggestion
+            key={question}
+            suggestion={question}
+            onClick={onSelect}
+          />
         ))}
-      </div>
+      </Suggestions>
     </div>
   );
 }
