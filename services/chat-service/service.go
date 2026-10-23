@@ -195,12 +195,8 @@ func (h *ChatServiceHandler) SendMessage(
 	}()
 
 	if conv == nil {
-		// Create new conversation with first message as title
-		title := msg.Message
-		if len(title) > 100 {
-			title = title[:100] + "..."
-		}
-		conv, err = h.store.CreateConversation(ctx, userID, title, msg.ContextStockCode)
+		// Create a new conversation, named after its first message.
+		conv, err = h.store.CreateConversation(ctx, userID, conversationTitle(msg.Message), msg.ContextStockCode)
 		if err != nil {
 			return internalFailure("create conversation", err)
 		}
@@ -339,6 +335,21 @@ func (h *ChatServiceHandler) replaceFailedReply(ctx context.Context, conversatio
 		}
 	}
 	return stored, nil
+}
+
+// conversationTitleRunes is how many characters of its first message name a
+// new conversation.
+const conversationTitleRunes = 100
+
+// conversationTitle names a conversation after its first message. It cuts on
+// characters, not bytes. A byte cut can split a multi-byte character, Postgres
+// rejects the invalid UTF-8 that leaves, and the send failed with no reply.
+func conversationTitle(message string) string {
+	runes := []rune(message)
+	if len(runes) <= conversationTitleRunes {
+		return message
+	}
+	return string(runes[:conversationTitleRunes]) + "..."
 }
 
 // retryTail reads the last stored messages, in chronological order, against the
