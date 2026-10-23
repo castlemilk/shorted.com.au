@@ -389,27 +389,32 @@ describe("chat RPC proxy", () => {
   });
 
   describe("error contract for non-2xx chat service answers", () => {
-    it("rebuilds the chat service's plain-text 401 into the unauthenticated contract, without its text", async () => {
-      fetchMock.mockResolvedValueOnce(
-        new Response("unauthorized", {
-          status: 401,
-          headers: { "content-type": "text/plain" },
-        }),
-      );
+    it("rebuilds the chat service's plain-text 401 into unavailable, never a session end, without its text", async () => {
+      const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+      try {
+        fetchMock.mockResolvedValueOnce(
+          new Response("unauthorized", {
+            status: 401,
+            headers: { "content-type": "text/plain" },
+          }),
+        );
 
-      const response = await POST(requestFor("GetConversationHistory"), {
-        params: { method: "GetConversationHistory" },
-      });
+        const response = await POST(requestFor("GetConversationHistory"), {
+          params: { method: "GetConversationHistory" },
+        });
 
-      expect(response.status).toBe(401);
-      expect(response.headers.get("content-type")).toContain("application/json");
-      const body = await response.json();
-      expect(body).toMatchObject({
-        error: "Authentication required",
-        code: "unauthenticated",
-        message: expect.any(String),
-      });
-      expect(JSON.stringify(body)).not.toContain("unauthorized");
+        expect(response.status).toBe(503);
+        expect(response.headers.get("content-type")).toContain("application/json");
+        const body = await response.json();
+        expect(body).toMatchObject({
+          error: "Chat unavailable",
+          code: "unavailable",
+          message: expect.any(String),
+        });
+        expect(JSON.stringify(body)).not.toContain("unauthorized");
+      } finally {
+        consoleError.mockRestore();
+      }
     });
 
     it("maps a Connect resource_exhausted into rate_limited, with the limit from its header", async () => {

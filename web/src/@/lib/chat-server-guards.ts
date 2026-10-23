@@ -625,12 +625,26 @@ function contractBody(code: ChatErrorCode): ChatErrorBody {
   }
 }
 
+/**
+ * The chat service answers Unauthenticated only for the server-to-server
+ * credential (X-Internal-Secret) and the user header this module sets. It sets
+ * both after it has verified a signed-in caller, so an Unauthenticated that
+ * reaches here is a misconfigured deploy, not a session that ended. It is
+ * unavailable to the client, and an error to the operator.
+ */
+function serviceCredentialRejected(): ChatErrorCode {
+  console.error(
+    "chat: the chat service rejected this server's credentials (Unauthenticated). Check INTERNAL_SERVICE_SECRET on both services.",
+  );
+  return "unavailable";
+}
+
 function contractCodeForConnectCode(code: number | undefined): ChatErrorCode {
   switch (code) {
     case CONNECT_RESOURCE_EXHAUSTED:
       return "rate_limited";
     case CONNECT_UNAUTHENTICATED:
-      return "unauthenticated";
+      return serviceCredentialRejected();
     case CONNECT_INVALID_ARGUMENT:
     case CONNECT_NOT_FOUND:
     case CONNECT_PERMISSION_DENIED:
@@ -654,14 +668,14 @@ function contractCodeForConnectName(
     case "resource_exhausted":
       return "rate_limited";
     case "unauthenticated":
-      return "unauthenticated";
+      return serviceCredentialRejected();
     case "invalid_argument":
     case "not_found":
     case "permission_denied":
     case "out_of_range":
       return "invalid_request";
     case undefined:
-      if (httpStatus === 401) return "unauthenticated";
+      if (httpStatus === 401) return serviceCredentialRejected();
       if (httpStatus === 429) return "rate_limited";
       if (httpStatus >= 400 && httpStatus < 500) return "invalid_request";
       return "unavailable";

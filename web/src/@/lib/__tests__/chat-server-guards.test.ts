@@ -205,10 +205,17 @@ describe("chat-server-guards", () => {
       ).not.toHaveProperty("limitKind");
     });
 
-    it("maps unauthenticated to the unauthenticated contract", () => {
-      expect(chatErrorFromUpstreamError(connectLike(16, "x"))).toMatchObject({
-        code: "unauthenticated",
-      });
+    it("maps an upstream Unauthenticated to unavailable, and logs it for the operator", () => {
+      const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+      try {
+        expect(chatErrorFromUpstreamError(connectLike(16, "x"))).toMatchObject({
+          code: "unavailable",
+          message: "Chat is temporarily unavailable.",
+        });
+        expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("INTERNAL_SERVICE_SECRET"));
+      } finally {
+        consoleError.mockRestore();
+      }
     });
 
     it.each([
@@ -276,6 +283,28 @@ describe("chat-server-guards", () => {
       await expect(response.json()).resolves.toMatchObject({
         code: "unavailable",
       });
+    });
+
+    it("answers a service-credential Unauthenticated as unavailable, never as a session end", async () => {
+      const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+      try {
+        const json = await chatErrorResponseFromUpstream(
+          new Response(JSON.stringify({ code: "unauthenticated", message: "x" }), {
+            status: 401,
+          }),
+        );
+        expect(json.status).toBe(503);
+        await expect(json.json()).resolves.toMatchObject({ code: "unavailable" });
+
+        const plain = await chatErrorResponseFromUpstream(
+          new Response("unauthorized", { status: 401 }),
+        );
+        expect(plain.status).toBe(503);
+        await expect(plain.json()).resolves.toMatchObject({ code: "unavailable" });
+        expect(consoleError).toHaveBeenCalledTimes(2);
+      } finally {
+        consoleError.mockRestore();
+      }
     });
 
     it("falls back to the HTTP status when the body is plain text", async () => {
