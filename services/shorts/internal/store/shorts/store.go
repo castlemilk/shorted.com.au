@@ -363,6 +363,9 @@ type APISubscriptionUpdate struct {
 	CurrentPeriodStart *string
 	CurrentPeriodEnd   *string
 	CancelAtPeriodEnd  *bool
+	// StripeSubscriptionID is the subscription the row's state describes. Nil or
+	// empty leaves the row's id as it is: a blank id never replaces a real one.
+	StripeSubscriptionID *string
 }
 
 // ErrAlertMonitorExists is returned when a user already has the same active monitor.

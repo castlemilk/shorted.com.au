@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -193,5 +194,53 @@ func TestBillingReadsAgainstPostgres(t *testing.T) {
 		none, err := store.APIUsageByMonth(ctx, nil)
 		require.NoError(t, err)
 		require.Empty(t, none)
+	})
+}
+
+// A Stripe event names the subscription the web resolved as the customer's best
+// one, and the row must follow it. Before this write existed the id stayed at
+// whatever the first checkout recorded, so a row could keep naming an ended
+// subscription while its state came from the customer's current one.
+func TestUpdateAPISubscriptionByCustomerWritesTheSubscriptionID(t *testing.T) {
+	s := apiSubscriptionsTestStore(t)
+	require.NoError(t, s.UpsertAPISubscription(&APISubscription{
+		UserID: "uid_a", UserEmail: "a@example.com", StripeCustomerID: "cus_a", StripeSubscriptionID: "sub_old",
+		Status: "canceled", Tier: "premium",
+	}))
+	require.NoError(t, s.UpsertAPISubscription(&APISubscription{
+		UserID: "uid_b", UserEmail: "b@example.com", StripeCustomerID: "cus_b", StripeSubscriptionID: "sub_b",
+		Status: "active", Tier: "premium",
+	}))
+
+	subscriptionIDOf := func(customer string) string {
+		t.Helper()
+		sub, err := s.GetAPISubscriptionByCustomer(customer)
+		require.NoError(t, err)
+		require.NotNil(t, sub)
+		return sub.StripeSubscriptionID
+	}
+
+	t.Run("a given id replaces the stale one, and the state comes with it", func(t *testing.T) {
+		active := "active"
+		require.NoError(t, s.UpdateAPISubscriptionByCustomer("cus_a", &APISubscriptionUpdate{
+			Status: &active, StripeSubscriptionID: strPtr("sub_new"),
+		}))
+		assert.Equal(t, "sub_new", subscriptionIDOf("cus_a"))
+		a, err := s.GetAPISubscriptionByCustomer("cus_a")
+		require.NoError(t, err)
+		assert.Equal(t, "active", a.Status)
+	})
+
+	t.Run("nil and blank leave the id alone", func(t *testing.T) {
+		require.NoError(t, s.UpdateAPISubscriptionByCustomer("cus_a", &APISubscriptionUpdate{StripeSubscriptionID: nil}))
+		assert.Equal(t, "sub_new", subscriptionIDOf("cus_a"))
+		require.NoError(t, s.UpdateAPISubscriptionByCustomer("cus_a", &APISubscriptionUpdate{StripeSubscriptionID: strPtr("")}))
+		assert.Equal(t, "sub_new", subscriptionIDOf("cus_a"), "a blank id must never replace a real one")
+	})
+
+	t.Run("it reaches the customer's row and no other", func(t *testing.T) {
+		require.NoError(t, s.UpdateAPISubscriptionByCustomer("cus_a", &APISubscriptionUpdate{StripeSubscriptionID: strPtr("sub_newer")}))
+		assert.Equal(t, "sub_newer", subscriptionIDOf("cus_a"))
+		assert.Equal(t, "sub_b", subscriptionIDOf("cus_b"))
 	})
 }

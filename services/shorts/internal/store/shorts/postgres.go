@@ -3439,6 +3439,14 @@ func (s *postgresStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string,
 		args = append(args, *update.CancelAtPeriodEnd)
 		argNum++
 	}
+	// The row names the subscription its state describes. Without this write the
+	// id stays whatever the first checkout put there, and a row can keep naming a
+	// subscription that has ended while its state follows the customer's current one.
+	if update.StripeSubscriptionID != nil && *update.StripeSubscriptionID != "" {
+		setParts = append(setParts, fmt.Sprintf("stripe_subscription_id = $%d", argNum))
+		args = append(args, *update.StripeSubscriptionID)
+		argNum++
+	}
 
 	// Add customer ID as the last argument
 	args = append(args, stripeCustomerID)
