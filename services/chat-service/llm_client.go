@@ -200,10 +200,29 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 	recordGeminiRequest(ctx, lc.model, "initial", "success", initialUsage)
 	totalUsage.Add(initialUsage)
 
-	// Process tool calls in a loop (max 5 rounds)
-	for round := 0; round < 5 && len(pendingFuncCalls) > 0; round++ {
+	// Rounds 0 to maxToolRounds-1 run tools. The round after them runs none:
+	// every call still pending is answered with a notice, and the model is asked
+	// for text with function calling off. A turn therefore never ends on a
+	// request the model made and never got an answer to, and never ends without
+	// text while the model still had calls to make.
+	for round := 0; len(pendingFuncCalls) > 0; round++ {
+		hasBudget := roundHasBudget(round)
+		model.ToolConfig = toolConfigFor(hasBudget)
+
+		calls := pendingFuncCalls
+		pendingFuncCalls = nil
+		decisions := planToolCalls(len(calls), hasBudget)
+
 		var funcResponses []genai.Part
-		for _, fc := range pendingFuncCalls {
+		for i, fc := range calls {
+			if decisions[i] != toolCallExecute {
+				funcResponses = append(funcResponses, genai.FunctionResponse{
+					Name:     fc.Name,
+					Response: toolCallNotice(decisions[i]),
+				})
+				continue
+			}
+
 			args := make(map[string]any)
 			for k, v := range fc.Args {
 				args[k] = v
@@ -233,7 +252,6 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 				Response: resultMap,
 			})
 		}
-		pendingFuncCalls = nil
 
 		// Send function responses back to the model, stream the result
 		nextIter := cs.SendMessageStream(ctx, funcResponses...)
@@ -264,12 +282,84 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 		}
 		recordGeminiRequest(ctx, lc.model, "tool_response", "success", toolUsage)
 		totalUsage.Add(toolUsage)
+
+		// Without budget there is no round left to run calls in, so anything
+		// the model requested in this response is dropped rather than looped on.
+		if !hasBudget {
+			break
+		}
 	}
 
 	return &LLMResponse{
 		ToolCalls: allToolCalls,
 		Usage:     totalUsage,
 	}, nil
+}
+
+// maxToolRounds is how many rounds of tool calls one turn may run.
+const maxToolRounds = 5
+
+// maxToolCallsPerRound caps the calls one model response may make. The model
+// can ask for many at once, and each one is a database-backed tool call.
+const maxToolCallsPerRound = 4
+
+// roundHasBudget reports whether a zero-based round may still run tools.
+func roundHasBudget(round int) bool {
+	return round < maxToolRounds
+}
+
+// toolCallDecision says what happens to one call a model response requested.
+type toolCallDecision int
+
+const (
+	toolCallExecute toolCallDecision = iota
+	// toolCallOverCap: the response asked for more calls than one round runs.
+	toolCallOverCap
+	// toolCallNoBudget: the turn has no tool rounds left.
+	toolCallNoBudget
+)
+
+// planToolCalls decides, for each of the n calls one response requested,
+// whether it runs. Calls past the cap, or in a round without budget, are not
+// run, but each still gets a response, because Gemini rejects a history with an
+// unanswered call.
+func planToolCalls(n int, roundHasBudget bool) []toolCallDecision {
+	decisions := make([]toolCallDecision, n)
+	for i := range decisions {
+		switch {
+		case !roundHasBudget:
+			decisions[i] = toolCallNoBudget
+		case i >= maxToolCallsPerRound:
+			decisions[i] = toolCallOverCap
+		default:
+			decisions[i] = toolCallExecute
+		}
+	}
+	return decisions
+}
+
+// toolCallNotice is the function response for a call that did not run. The
+// wording is for the model, which reads it and answers the user.
+func toolCallNotice(d toolCallDecision) map[string]any {
+	if d == toolCallOverCap {
+		return map[string]any{"error": fmt.Sprintf(
+			"Only %d tool calls run per reply, so this call did not run. If it is still needed, ask for it in a later message.",
+			maxToolCallsPerRound,
+		)}
+	}
+	return map[string]any{"error": "The tool budget for this reply is spent, so this call did not run. Answer from the data already retrieved, and say plainly what is missing."}
+}
+
+// toolConfigFor returns the function calling config for a round. A round with
+// no budget carries NONE, so the model must answer in text. The model is a
+// pointer, so the next request reads whatever is set here.
+func toolConfigFor(roundHasBudget bool) *genai.ToolConfig {
+	if roundHasBudget {
+		return nil
+	}
+	return &genai.ToolConfig{
+		FunctionCallingConfig: &genai.FunctionCallingConfig{Mode: genai.FunctionCallingNone},
+	}
 }
 
 // buildGeminiTools converts our tool definitions to Gemini format.
