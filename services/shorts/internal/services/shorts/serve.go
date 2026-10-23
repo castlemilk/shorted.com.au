@@ -142,28 +142,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// Create auth interceptor with subscription lookup
 	authOpts := AuthInterceptorOptions{
 		TokenService: s.tokenService,
-		SubscriptionLookup: func(userID string) (string, error) {
-			// Internal grants win, and are checked BEFORE the store so they do not
-			// depend on an api_subscriptions row existing and cannot be overwritten
-			// by a Stripe webhook. See internal_tier.go for why this is keyed on
-			// user id rather than the existing adminEmails list: an OAuth access
-			// token carries neither roles nor email.
-			if tier, ok := InternalTierFor(userID); ok {
-				return tier, nil
-			}
-			sub, err := s.store.GetAPISubscription(userID)
-			if err != nil {
-				return "", err
-			}
-			if sub == nil {
-				return "free", nil // No subscription = free tier
-			}
-			// Only return tier for active/trialing subscriptions
-			if sub.Status == "active" || sub.Status == "trialing" {
-				return sub.Tier, nil
-			}
-			return "free", nil // Inactive subscription = free tier
-		},
+		// The rate-limit tier follows the one entitlement rule; see subscriptionTier.
+		SubscriptionLookup: s.subscriptionTier,
 	}
 	interceptorList = append(interceptorList, NewAuthInterceptorWithOptions(authOpts))
 

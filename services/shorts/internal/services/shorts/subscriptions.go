@@ -138,20 +138,36 @@ func (s *ShortsServer) GetMySubscription(
 
 	s.logger.Debugf("Getting subscription for user %s", userClaims.Email)
 
-	// Look up subscription
-	sub, err := s.store.GetAPISubscription(userClaims.UserID)
+	// Look up the entitlement with the same rule that gates paid features, so this
+	// response cannot disagree with them.
+	sub, ent, err := s.loadEntitlement(userClaims.UserID, time.Now())
 	if err != nil {
 		s.logger.Errorf("Failed to get subscription for user %s: %v", userClaims.UserID, err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get subscription"))
 	}
 
 	// Build response
-	resp := &shortsv1alpha1.GetMySubscriptionResponse{
-		HasSubscription: sub != nil,
-	}
+	resp := &shortsv1alpha1.GetMySubscriptionResponse{}
 
-	if sub != nil {
+	switch {
+	case ent.Source == "internal":
+		// An operator grant is an active subscription on the granted tier. There is
+		// no Stripe row behind it, so there are no ids and no period end.
+		resp.HasSubscription = true
+		resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE
+		resp.Tier = mapStringToTier(ent.Tier)
+	case sub != nil:
+		resp.HasSubscription = true
 		resp.Status = mapStringToStatus(sub.Status)
+		// A row that reads active or trialing but is not entitled (its period ended,
+		// or its tier is not a paid one) must not come back as active, because the
+		// web treats active as premium. It is INACTIVE rather than CANCELED: a failed
+		// renewal and a lost webhook look the same from here, so we cannot say the
+		// customer cancelled, and INACTIVE is what the web already shows for anyone
+		// without an active subscription.
+		if !ent.Entitled && (sub.Status == "active" || sub.Status == "trialing") {
+			resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE
+		}
 		resp.Tier = mapStringToTier(sub.Tier)
 		resp.CancelAtPeriodEnd = sub.CancelAtPeriodEnd
 		resp.StripeCustomerId = sub.StripeCustomerID
@@ -162,7 +178,7 @@ func (s *ShortsServer) GetMySubscription(
 				resp.CurrentPeriodEnd = timestamppb.New(t)
 			}
 		}
-	} else {
+	default:
 		// No subscription means free tier
 		resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE
 		resp.Tier = shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_FREE
