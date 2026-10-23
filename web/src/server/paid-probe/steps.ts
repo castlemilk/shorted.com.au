@@ -1,6 +1,8 @@
 import { hasValidChatEntitlement } from "@/lib/chat-server-guards";
 
 import {
+  CHAT_TURN_BUDGET_MS,
+  CHECKIN_BUDGET_MS,
   PAID_API_MONTHLY_LIMIT_MIN,
   PAID_PROBE_QUESTION,
   STEP_BUDGET_MS,
@@ -26,6 +28,22 @@ export const PROBE_STEP_NAMES: readonly ProbeStepName[] = [
   "gates",
 ];
 
+/**
+ * Each step's budget, keyed by name. probeWorstCaseMs() sums this table, so a
+ * step cannot be left out of the total.
+ */
+export const PROBE_STEP_BUDGETS: Readonly<Record<ProbeStepName, number>> = {
+  entitlement: STEP_BUDGET_MS.entitlement,
+  chat: STEP_BUDGET_MS.chat,
+  api_token: STEP_BUDGET_MS.apiToken,
+  gates: STEP_BUDGET_MS.gates,
+};
+
+/** Every step at its full budget, then the check-ins: the longest a run can take. */
+export function probeWorstCaseMs(): number {
+  return PROBE_STEP_NAMES.reduce((total, name) => total + PROBE_STEP_BUDGETS[name], 0) + CHECKIN_BUDGET_MS;
+}
+
 export interface ProbeStepResult {
   name: ProbeStepName;
   ok: boolean;
@@ -49,10 +67,10 @@ interface StepDefinition {
 }
 
 const STEPS: readonly StepDefinition[] = [
-  { name: "entitlement", budgetMs: STEP_BUDGET_MS.entitlement, run: checkEntitlement },
-  { name: "chat", budgetMs: STEP_BUDGET_MS.chat, run: checkChat },
-  { name: "api_token", budgetMs: STEP_BUDGET_MS.apiToken, run: checkApiToken },
-  { name: "gates", budgetMs: STEP_BUDGET_MS.gates, run: checkGates },
+  { name: "entitlement", budgetMs: PROBE_STEP_BUDGETS.entitlement, run: checkEntitlement },
+  { name: "chat", budgetMs: PROBE_STEP_BUDGETS.chat, run: checkChat },
+  { name: "api_token", budgetMs: PROBE_STEP_BUDGETS.api_token, run: checkApiToken },
+  { name: "gates", budgetMs: PROBE_STEP_BUDGETS.gates, run: checkGates },
 ];
 
 const DETAIL_MAX_CHARS = 300;
@@ -138,43 +156,53 @@ async function checkEntitlement(ctx: ProbeContext, signal: AbortSignal): Promise
  * chat-service's own tool error reports: on 2026-10-23 every tool failure
  * arrived inside an HTTP 200 chat response, which is why nothing alerted.
  *
+ * The step is budgeted as a whole: the turn (request and stream) gets
+ * CHAT_TURN_BUDGET_MS, and the conversation cleanup has the rest of the step.
+ *
  * The conversation is removed whatever the outcome, including a timed-out turn:
  * its id is read from the stream as it arrives, not after it finishes.
  */
-async function checkChat(ctx: ProbeContext, signal: AbortSignal): Promise<string> {
+async function checkChat(ctx: ProbeContext): Promise<string> {
   // Trust is settled before anything is sent: an untrusted origin gets no cookie and no request.
   const origin = requireTrusted(ctx.origin);
   const cookie = await ctx.sessionCookie();
   remember(ctx, cookie.value);
 
-  const res = await ctx.fetch(`${origin}/api/chat`, {
-    method: "POST",
-    redirect: "manual",
-    signal,
-    headers: {
-      "content-type": "application/json",
-      accept: "text/event-stream",
-      origin,
-      cookie: cookieHeader(cookie),
-    },
-    body: JSON.stringify(chatRequestBody()),
-  });
-  if (res.status !== 200) {
-    throw new ProbeFailure(`HTTP ${res.status}${await errorSuffix(res)}`);
-  }
-
+  // The turn has its own timer, shorter than the step's, so the step's signal
+  // could never fire first. The cleanup below also has its own timer.
+  const turn = AbortSignal.timeout(CHAT_TURN_BUDGET_MS);
   const parser = new ChatStreamParser();
-  let readFailure: unknown = null;
+  let failure: unknown = null;
   try {
+    const res = await ctx.fetch(`${origin}/api/chat`, {
+      method: "POST",
+      redirect: "manual",
+      signal: turn,
+      headers: {
+        "content-type": "application/json",
+        accept: "text/event-stream",
+        origin,
+        cookie: cookieHeader(cookie),
+      },
+      body: JSON.stringify(chatRequestBody()),
+    });
+    if (res.status !== 200) {
+      throw new ProbeFailure(`HTTP ${res.status}${await errorSuffix(res)}`);
+    }
     await consumeChatStream(res.body, parser);
   } catch (err) {
-    readFailure = err;
+    failure = err;
   }
 
-  // Cleanup before judging, and before rethrowing a read failure, so neither a
-  // failed assertion nor a timeout leaves the conversation behind.
+  // Cleanup before judging, and before rethrowing a failure, so neither a failed
+  // assertion nor a timeout leaves the conversation behind.
   const cleanup = await cleanUpConversation(ctx, origin, cookie, parser.knownConversationId());
-  if (readFailure !== null) throw readFailure;
+  if (failure !== null) {
+    // The turn's own limit is the one that fired, so name that, not the step's.
+    throw isTimeout(failure, turn)
+      ? new ProbeFailure(`timed out after ${CHAT_TURN_BUDGET_MS / 1000}s`)
+      : failure;
+  }
 
   const stream = parser.snapshot();
   if (stream.errors.length > 0) {

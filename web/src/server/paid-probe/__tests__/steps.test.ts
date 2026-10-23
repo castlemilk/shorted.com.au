@@ -2,9 +2,23 @@
 import type { SubscriptionInfo } from "~/app/actions/subscription";
 import { extractLatestUserText, type ShortedChatUIMessage } from "@/hooks/chat-ui-message-adapter";
 
-import { PAID_API_MONTHLY_LIMIT_MIN, PAID_PROBE_QUESTION } from "../constants";
+import {
+  CHAT_TURN_BUDGET_MS,
+  CHECKIN_BUDGET_MS,
+  PAID_API_MONTHLY_LIMIT_MIN,
+  PAID_PROBE_QUESTION,
+  PROBE_WORST_CASE_CEILING_MS,
+  STEP_BUDGET_MS,
+} from "../constants";
 import { getMySubscription, mintApiToken } from "../shorts-client";
-import { chatRequestBody, runPaidProbe, type PaidProbeRun } from "../steps";
+import {
+  chatRequestBody,
+  PROBE_STEP_BUDGETS,
+  PROBE_STEP_NAMES,
+  probeWorstCaseMs,
+  runPaidProbe,
+  type PaidProbeRun,
+} from "../steps";
 import { ProbeFailure, type ProbeContext } from "../types";
 import { cutOffStream, fixture, json, sseResponse, streamOf } from "./helpers";
 
@@ -318,10 +332,24 @@ describe("chat step", () => {
     const step = byName(await runPaidProbe(context(fetchImpl)), "chat");
 
     expect(step.ok).toBe(false);
-    expect(step.detail).toBe("timed out after 60s");
+    expect(step.detail).toBe("timed out after 35s");
     const deletes = callsTo(fetchImpl, "DeleteConversation");
     expect(deletes).toHaveLength(1);
     expect(JSON.parse(String((deletes[0]![1] as RequestInit).body))).toEqual({ conversationId: "conv-probe-part" });
+  });
+
+  it("reports a timeout before any stream arrives as the turn's limit, with nothing to delete", async () => {
+    const fetchImpl = fakeFetch({
+      chat: () => {
+        throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+      },
+    });
+
+    const step = byName(await runPaidProbe(context(fetchImpl)), "chat");
+
+    expect(step.ok).toBe(false);
+    expect(step.detail).toBe("timed out after 35s");
+    expect(callsTo(fetchImpl, "DeleteConversation")).toHaveLength(0);
   });
 
   it("deletes the conversation of a turn that ended in an error chunk after its id was streamed", async () => {
@@ -516,6 +544,27 @@ describe("gates step", () => {
 describe("chatRequestBody", () => {
   it("is the shape the app's own reader expects", () => {
     expect(extractLatestUserText(chatRequestBody().messages as ShortedChatUIMessage[])).toBe(PAID_PROBE_QUESTION);
+  });
+});
+
+describe("time budget", () => {
+  it("the worst case, every step at its budget and then the check-ins, stays under the admin tool's 75s ceiling", () => {
+    expect(PROBE_WORST_CASE_CEILING_MS).toBe(75_000);
+    expect(probeWorstCaseMs()).toBeLessThanOrEqual(PROBE_WORST_CASE_CEILING_MS);
+  });
+
+  it("is the documented 72s: 8 + 40 + 10 + 8 for the steps, then 6 for the check-ins", () => {
+    expect(PROBE_STEP_BUDGETS).toEqual({ entitlement: 8_000, chat: 40_000, api_token: 10_000, gates: 8_000 });
+    expect(CHECKIN_BUDGET_MS).toBe(6_000);
+    expect(probeWorstCaseMs()).toBe(72_000);
+  });
+
+  it("counts every step, so the total cannot quietly leave one out", () => {
+    expect(Object.keys(PROBE_STEP_BUDGETS).sort()).toEqual([...PROBE_STEP_NAMES].sort());
+  });
+
+  it("gives the chat turn and its cleanup together exactly the chat step's budget", () => {
+    expect(CHAT_TURN_BUDGET_MS + STEP_BUDGET_MS.chatCleanup).toBe(STEP_BUDGET_MS.chat);
   });
 });
 

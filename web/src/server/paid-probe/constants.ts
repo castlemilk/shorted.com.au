@@ -25,18 +25,32 @@ export const PAID_PROBE_QUESTION =
   "What is the latest reported short position in BHP? Answer in one sentence.";
 
 /**
- * Per-step budgets in milliseconds. The route's maxDuration is 120s, so the
- * worst case must fit under it: entitlement 10 + chat 60 (+ 5 cleanup) +
- * api_token 15 + gates 10 = 100s, then the check-ins, which run in parallel
- * under an 8s timeout each.
+ * Per-step budgets in milliseconds. The admin MCP tool that starts a run is
+ * bounded by a 90s stream lifetime, so the worst case (every step at its budget,
+ * then the check-ins) must stay under PROBE_WORST_CASE_CEILING_MS, 75s. That is
+ * 8 + 40 + 10 + 8 + 6 = 72s. The route's maxDuration (120s) is headroom above
+ * it, not budget.
+ *
+ * chat is the whole chat step. Its turn (request and stream) gets
+ * CHAT_TURN_BUDGET_MS and the conversation cleanup gets chatCleanup, so the step
+ * cannot run past its budget. steps.test.ts sums these numbers and asserts the ceiling.
  */
 export const STEP_BUDGET_MS = {
-  entitlement: 10_000,
-  chat: 60_000,
+  entitlement: 8_000,
+  chat: 40_000,
   chatCleanup: 5_000,
-  apiToken: 15_000,
-  gates: 10_000,
+  apiToken: 10_000,
+  gates: 8_000,
 } as const;
+
+/** The chat step's share for the turn itself: the answer request and its stream. */
+export const CHAT_TURN_BUDGET_MS = STEP_BUDGET_MS.chat - STEP_BUDGET_MS.chatCleanup;
+
+/** Every check-in is posted in parallel, so the whole group shares one timeout. */
+export const CHECKIN_BUDGET_MS = 6_000;
+
+/** The longest a run may take. The admin MCP tool's 90s stream lifetime leaves this headroom. */
+export const PROBE_WORST_CASE_CEILING_MS = 75_000;
 
 /**
  * The smallest MONTHLY API quota a paid tier gets (pro and premium 10,000,

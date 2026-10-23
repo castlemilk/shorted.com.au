@@ -1,4 +1,4 @@
-import { PAID_PROBE_USER_AGENT } from "./constants";
+import { CHECKIN_BUDGET_MS, PAID_PROBE_USER_AGENT } from "./constants";
 import type { PaidProbeRun, ProbeStepName } from "./steps";
 import { errorName, type ProbeEnv } from "./types";
 
@@ -22,7 +22,6 @@ export type CheckinStatus = "disabled" | "sent" | "partial";
 /** The only host a private check-in URL may point at. A wrong host would receive the credential. */
 export const TELESIS_CHECKIN_HOST = "api.telesis.dev";
 const TELESIS_CHECKIN_PATH_PREFIX = "/v1/cron/";
-const CHECKIN_TIMEOUT_MS = 8_000;
 const TERMINAL_REASON_MAX_BYTES = 1024;
 
 let warnedInvalidConfig = false;
@@ -133,7 +132,7 @@ async function post(
       method: "POST",
       redirect: "manual",
       cache: "no-store",
-      signal: AbortSignal.timeout(CHECKIN_TIMEOUT_MS),
+      signal: AbortSignal.timeout(CHECKIN_BUDGET_MS),
       headers: {
         "content-type": "application/json",
         "user-agent": PAID_PROBE_USER_AGENT,

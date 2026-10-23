@@ -1,6 +1,7 @@
 /** @jest-environment node */
 import type { NextRequest } from "next/server";
 
+import { PROBE_WORST_CASE_CEILING_MS } from "~/server/paid-probe/constants";
 import { POST, maxDuration } from "../route";
 import { reportCheckins } from "~/server/paid-probe/checkins";
 import { runPaidProbe, type PaidProbeRun } from "~/server/paid-probe/steps";
@@ -63,6 +64,10 @@ afterAll(() => {
 describe("POST /api/internal/paid-probe", () => {
   it("exports the 120s budget that scripts/verify-vercel-function-limits.mjs checks in the built output", () => {
     expect(maxDuration).toBe(120);
+  });
+
+  it("keeps maxDuration as headroom above the 75s worst case, not as the budget", () => {
+    expect(maxDuration * 1000).toBeGreaterThan(PROBE_WORST_CASE_CEILING_MS);
   });
 
   it("refuses a caller with no credential, without running anything", async () => {

@@ -17,7 +17,9 @@ import { runPaidProbe } from "~/server/paid-probe/steps";
  * Callers: Telesis with PAID_PROBE_TOKEN as a Bearer token, or the shorts API
  * with INTERNAL_SERVICE_SECRET. Nothing else reaches it.
  *
- * maxDuration is the export below. The built value is checked in CI by
+ * The probe's own worst case is 72s (probeWorstCaseMs in steps.ts). It sits inside
+ * the 75s ceiling of the admin tool that starts a run. maxDuration below is
+ * headroom above that, not the budget. The built value is checked in CI by
  * scripts/verify-vercel-function-limits.mjs (EXPECTED_LIMITS), so a build that
  * drops it fails the deploy.
  */
