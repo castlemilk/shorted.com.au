@@ -144,7 +144,8 @@ type BillingDriftFinding struct {
 type SubscriberUsage struct {
 	Chat      *ChatUsageSummary  `json:"chat" jsonschema:"Null when the chat tables could not be read."`
 	ChatSends *ChatSendsSummary  `json:"chatSends" jsonschema:"Chat sends by outcome from chat_usage_events. Null when that ledger is not in this database or could not be read; see sources."`
-	API       []APIUsageMonthRow `json:"api" jsonschema:"Metered API requests for the last three UTC months. Null when the quota table could not be read."`
+	API       []APIUsageMonthRow `json:"api" jsonschema:"Metered requests under user:<uid>, the API-token and signed-in browser identity, for the last three UTC months. Unlimited tiers are not metered, so a zero here is no metering, not no use. Null when the quota table could not be read."`
+	MCP       []APIUsageMonthRow `json:"mcp" jsonschema:"Metered requests under oauth:<uid>, the MCP connector identity, for the last three UTC months. Unlimited tiers are not metered. Null when the quota table could not be read."`
 }
 
 // ChatUsageSummary is the user's chat history.

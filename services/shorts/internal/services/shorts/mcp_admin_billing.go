@@ -484,8 +484,20 @@ func (a *adminMCPSource) subscriberUsage(ctx context.Context, ids []string, now 
 		log.Warnf("admin billing: api usage: %v", err)
 		sources = append(sources, mcp.JobSource{Name: sourceAPIUsage, Status: "unavailable", Detail: "the metered request counts could not be read"})
 	} else {
-		usage.API = apiUsageMonths(now, months)
-		sources = append(sources, mcp.JobSource{Name: sourceAPIUsage, Status: "available", Detail: "metered requests per UTC month from the rate limiter's count; not a billing ledger, and may lag a few minutes"})
+		// user:<uid> is the API-token and signed-in browser identity; oauth:<uid> is the
+		// MCP connector's. They are reported apart, because they are different callers.
+		var user, mcp_ []shortsstore.APIUsageMonth
+		for _, m := range months {
+			switch {
+			case strings.HasPrefix(m.Identifier, "user:"):
+				user = append(user, m)
+			case strings.HasPrefix(m.Identifier, "oauth:"):
+				mcp_ = append(mcp_, m)
+			}
+		}
+		usage.API = apiUsageMonths(now, user)
+		usage.MCP = apiUsageMonths(now, mcp_)
+		sources = append(sources, mcp.JobSource{Name: sourceAPIUsage, Status: "available", Detail: "metered requests per UTC month from the rate limiter's count, for user:<uid> (API and signed-in browser calls) and oauth:<uid> (MCP); not a billing ledger, and may lag a few minutes"})
 	}
 	return usage, sources
 }

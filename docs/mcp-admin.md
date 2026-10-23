@@ -132,9 +132,11 @@ for match what they can use, and do the paid features work right now?
   count only the user's own messages. Sends by outcome come from
   `chat_usage_events` (migration 000145, the send-limits ledger). That ledger is
   on the chat-limits branch and is not in every database: where it is absent the
-  output says "not in this database", and sends are unknown, not zero. API
-  requests come from `api_usage_monthly`: the rate limiter's count, not a billing
-  ledger.
+  output says "not in this database", and sends are unknown, not zero. Metered requests come from `api_usage_monthly`, which the rate limiter
+  writes. `user:<uid>` is the API-token and signed-in browser identity, and
+  `oauth:<uid>` is the MCP connector's; the two are reported apart. Unlimited
+  tiers are not metered, so a zero there is no metering, not no use. It is the
+  rate limiter's count, not a billing ledger.
 - **`list_billing_exceptions` counts every kind it checked, zero included.** A
   kind missing from `counts` was not checked, and `notes` says why. A live Stripe
   list that was cut at its limit does not run `entitled_without_stripe`.

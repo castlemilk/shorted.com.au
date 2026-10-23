@@ -294,3 +294,35 @@ func TestBillingRowsByCustomerAndNullStatusAgainstPostgres(t *testing.T) {
 		assert.True(t, byUser[0].StatusNull, "the same row read by user id is NULL too")
 	})
 }
+
+// The quota table keeps the API-token and signed-in browser identity (user:<uid>)
+// and the MCP connector identity (oauth:<uid>) as separate rows. Both come back for
+// a user, each under its own identifier, and nobody else's rows do.
+func TestAPIUsageSplitsUserAndOAuthAgainstPostgres(t *testing.T) {
+	s := apiSubscriptionsTestStore(t)
+	ctx := context.Background()
+	migration, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "migrations", "000112_add_api_usage_monthly.up.sql"))
+	require.NoError(t, err)
+	_, err = s.db.Exec(ctx, string(migration))
+	require.NoError(t, err)
+
+	now := time.Now().UTC()
+	thisMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+	_, err = s.db.Exec(ctx, `INSERT INTO api_usage_monthly (identifier, period_month, request_count) VALUES
+		('user:uid_a', $1::date, 7),
+		('oauth:uid_a', $1::date, 11),
+		('oauth:uid_a', (date_trunc('month', now() AT TIME ZONE 'UTC') - interval '1 month')::date, 4),
+		('oauth:uid_other', $1::date, 500)`, thisMonth)
+	require.NoError(t, err)
+
+	months, err := s.APIUsageByMonth(ctx, []string{"uid_a"})
+	require.NoError(t, err)
+	got := map[string]int64{}
+	for _, m := range months {
+		got[m.Identifier+"@"+m.Month.Format("2006-01")] += m.Requests
+	}
+	assert.Equal(t, int64(7), got["user:uid_a@"+now.Format("2006-01")])
+	assert.Equal(t, int64(11), got["oauth:uid_a@"+now.Format("2006-01")])
+	assert.Equal(t, int64(4), got["oauth:uid_a@"+now.AddDate(0, -1, 0).Format("2006-01")])
+	assert.Len(t, got, 3, "another user's identifier must not come back: %v", got)
+}

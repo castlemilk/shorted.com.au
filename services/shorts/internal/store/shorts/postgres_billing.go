@@ -111,11 +111,12 @@ type ChatUsageEvents struct {
 	OutputTokensLast30 int64
 }
 
-// APIUsageMonth is the metered request count of one UTC month, summed over the
-// user's identifiers.
+// APIUsageMonth is the metered request count of one UTC month under one identifier:
+// "user:<uid>" (API-token and signed-in browser calls) or "oauth:<uid>" (MCP OAuth).
 type APIUsageMonth struct {
-	Month    time.Time
-	Requests int64
+	Identifier string
+	Month      time.Time
+	Requests   int64
 }
 
 // billingSubscriptionColumns reads status WITHOUT a COALESCE: a NULL status must
@@ -281,9 +282,9 @@ func (s *postgresStore) ChatUsageEvents(ctx context.Context, userIDs []string) (
 }
 
 func (s *postgresStore) APIUsageByMonth(ctx context.Context, userIDs []string) ([]APIUsageMonth, error) {
-	identifiers := make([]string, 0, len(userIDs))
+	identifiers := make([]string, 0, 2*len(userIDs))
 	for _, id := range userIDs {
-		identifiers = append(identifiers, "user:"+id)
+		identifiers = append(identifiers, "user:"+id, "oauth:"+id)
 	}
 	if len(identifiers) == 0 {
 		return nil, nil
@@ -293,12 +294,12 @@ func (s *postgresStore) APIUsageByMonth(ctx context.Context, userIDs []string) (
 	// api_usage_monthly is keyed by "user:<uid>" and one row per identifier and
 	// month (migration 000112); period_month is the first day of a UTC month.
 	rows, err := s.db.Query(ctx, `
-		SELECT period_month, SUM(request_count)::bigint
+		SELECT identifier, period_month, SUM(request_count)::bigint
 		FROM api_usage_monthly
 		WHERE identifier = ANY($1::text[])
 		  AND period_month >= (date_trunc('month', now() AT TIME ZONE 'UTC') - interval '2 months')::date
-		GROUP BY period_month
-		ORDER BY period_month DESC`, identifiers)
+		GROUP BY identifier, period_month
+		ORDER BY period_month DESC, identifier`, identifiers)
 	if err != nil {
 		return nil, relationMissing(err)
 	}
@@ -306,7 +307,7 @@ func (s *postgresStore) APIUsageByMonth(ctx context.Context, userIDs []string) (
 	out := []APIUsageMonth{}
 	for rows.Next() {
 		var m APIUsageMonth
-		if err := rows.Scan(&m.Month, &m.Requests); err != nil {
+		if err := rows.Scan(&m.Identifier, &m.Month, &m.Requests); err != nil {
 			return nil, err
 		}
 		out = append(out, m)

@@ -74,11 +74,18 @@ func (f *billingStore) BillingSubscriptionsByCustomers(_ context.Context, custom
 	return out, nil
 }
 
+// An unset chat read is an empty history, as the store returns for a user with none.
 func (f *billingStore) ChatUsage(context.Context, []string) (*shortsstore.ChatUsage, error) {
+	if f.chat == nil && f.chatErr == nil {
+		return &shortsstore.ChatUsage{}, nil
+	}
 	return f.chat, f.chatErr
 }
 
 func (f *billingStore) ChatUsageEvents(context.Context, []string) (*shortsstore.ChatUsageEvents, error) {
+	if f.events == nil && f.eventsErr == nil {
+		return &shortsstore.ChatUsageEvents{SendsByOutcome: map[string]int{}}, nil
+	}
 	return f.events, f.eventsErr
 }
 
@@ -243,7 +250,7 @@ func billingHealthyFixture() billingFixture {
 			rows:   []shortsstore.BillingSubscription{billingAdaRow()},
 			chat:   &shortsstore.ChatUsage{Conversations: 2, UserMessagesLast30Days: 5, LastUserMessageAt: &chatLast},
 			events: &shortsstore.ChatUsageEvents{SendsByOutcome: map[string]int{"ok": 3, "limited": 1}, InputTokensLast30: 100, OutputTokensLast30: 200},
-			months: []shortsstore.APIUsageMonth{{Month: monthStart, Requests: 42}},
+			months: []shortsstore.APIUsageMonth{{Identifier: "user:uid-a", Month: monthStart, Requests: 42}},
 		},
 		accounts: billingAccounts{byEmail: map[string]*firebaseUser{"ada@example.com": billingAda()}},
 		web: &billingWeb{customers: map[string]webCustomerView{
@@ -766,5 +773,31 @@ func TestAmbiguousEmailIsCappedAndSaysSo(t *testing.T) {
 	}
 	if !hasNote(out.Notes, "2 more matched customer(s) were not read") {
 		t.Fatalf("notes = %v, want the unread count named", out.Notes)
+	}
+}
+
+// The user identity and the MCP identity are reported apart, because they are
+// different callers; a month with no row for one is zero requests recorded.
+func TestSubscriberUsageReportsUserAndMCPApart(t *testing.T) {
+	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
+	october := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	september := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	store := &billingStore{months: []shortsstore.APIUsageMonth{
+		{Identifier: "user:uid-a", Month: october, Requests: 42},
+		{Identifier: "oauth:uid-a", Month: october, Requests: 9},
+		{Identifier: "oauth:uid-a", Month: september, Requests: 4},
+		{Identifier: "some:other", Month: october, Requests: 1000},
+	}}
+	src := billingFixture{store: store, web: &billingWeb{}}.source(t)
+	usage, sources := src.subscriberUsage(context.Background(), []string{"uid-a"}, now)
+
+	if len(usage.API) != 3 || usage.API[0].Month != "2026-10" || usage.API[0].Requests != 42 || usage.API[1].Requests != 0 {
+		t.Fatalf("api = %+v, want user:<uid> alone: 42 this month", usage.API)
+	}
+	if len(usage.MCP) != 3 || usage.MCP[0].Requests != 9 || usage.MCP[1].Month != "2026-09" || usage.MCP[1].Requests != 4 {
+		t.Fatalf("mcp = %+v, want oauth:<uid> alone: 9 this month, 4 last", usage.MCP)
+	}
+	if got := sourceStatus(sources, sourceAPIUsage); got != "available" {
+		t.Fatalf("api usage source = %s, want available", got)
 	}
 }
