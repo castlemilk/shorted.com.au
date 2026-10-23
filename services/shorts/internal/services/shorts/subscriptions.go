@@ -3,6 +3,7 @@ package shorts
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -108,6 +109,13 @@ func (s *ShortsServer) HandleStripeSubscriptionUpdated(
 
 		// Map cancel at period end
 		update.CancelAtPeriodEnd = &req.Msg.CancelAtPeriodEnd
+	}
+
+	// The subscription the web resolved as this customer's best one. The row's
+	// state is the customer's, but the id says which subscription that state is
+	// read from, so it has to follow the same choice.
+	if id := strings.TrimSpace(req.Msg.StripeSubscriptionId); id != "" {
+		update.StripeSubscriptionID = &id
 	}
 
 	// Perform the update

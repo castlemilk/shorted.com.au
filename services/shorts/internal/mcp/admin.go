@@ -60,12 +60,13 @@ const (
 	ScopeNewsPublish = "news:publish"
 	// ScopeJobsRun covers run_picks_job and picks_job_status: starting an
 	// on-demand execution of a data job the server chooses, with arguments the
-	// server builds.
+	// server builds. It also covers run_paid_probe, which starts one probe run.
 	ScopeJobsRun = "jobs:run"
 	// ScopeJobsRead observes the fleet without permission to start jobs.
 	ScopeJobsRead = "jobs:read"
 	// ScopeUsersRead reads personal data: signed-up accounts, paying
-	// subscribers and the mailing list (admin_people.go). Its own scope, not
+	// subscribers, the mailing list (admin_people.go) and the billing audit of
+	// one subscriber or of all of them (admin_billing.go). Its own scope, not
 	// part of jobs:read, so a monitoring-only connection never carries it.
 	ScopeUsersRead = "users:read"
 )
@@ -180,12 +181,14 @@ func hasAnyScope(granted, wanted []string) bool {
 }
 
 // AdminOperator is the slice of the job monitor the admin tools drive. Narrow
-// on purpose: writes are limited to publishing and picks; AdminReader exposes
-// operational observations without granting any additional write capability.
-// In particular it is NOT the fleet-wide RunJob.
+// on purpose: writes are limited to publishing, picks and the paid-feature
+// probe; AdminReader exposes operational observations without granting any
+// additional write capability. In particular it is NOT the fleet-wide RunJob.
 type AdminOperator interface {
 	AdminReader
 	AdminPeopleReader
+	AdminBillingReader
+	AdminProbeOperator
 	RunPublish(ctx context.Context, req jobmonitor.PublishRequest) (*jobmonitor.PublishRun, error)
 	PublishResult(ctx context.Context, executionName string) (*jobmonitor.PublishStatus, error)
 	RunPicks(ctx context.Context, req jobmonitor.PicksRequest) (*jobmonitor.PicksRun, error)
@@ -206,7 +209,8 @@ type AdminTool struct {
 func AdminRegistry() []AdminTool {
 	return []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool(),
 		listAsyncJobsTool(), listJobExecutionsTool(), getJobExecutionTool(), listEnrichmentJobsTool(), searchJobMentionsTool(),
-		peopleOverviewTool(), listUsersTool(), listPayingUsersTool(), listMailingListTool(), lookupPersonTool()}
+		peopleOverviewTool(), listUsersTool(), listPayingUsersTool(), listMailingListTool(), lookupPersonTool(),
+		checkSubscriptionTool(), billingExceptionsTool(), paidFeatureStatusTool(), runPaidProbeTool()}
 }
 
 // NewAdminServer builds the admin MCP server with operational tools, its app,

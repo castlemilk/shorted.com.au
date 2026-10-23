@@ -40,10 +40,14 @@ const (
 // CronMonitor is a Telesis cron monitor. Statuses are lower case without the
 // enum prefix; times are RFC3339 or "".
 type CronMonitor struct {
-	ID             string
-	Name           string
-	Status         string // waiting | healthy | running | late | failing | paused
-	Paused         bool
+	ID     string
+	Name   string
+	Status string // waiting | healthy | running | late | failing | paused
+	Paused bool
+	// Armed is Telesis' own flag: true only after the monitor's first check-in. A
+	// monitor that is not paused but has never reported is not armed, so a missed
+	// run cannot alert yet.
+	Armed          bool
 	LastRunAt      string
 	NextExpectedAt string
 }
