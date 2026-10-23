@@ -147,3 +147,25 @@ func GetToolDefinitions() []ToolDefinition {
 		},
 	}
 }
+
+// answerWithoutDataTool is the tool a model calls when a reply needs no data. It
+// is not a data tool: it makes no Shorts API call and is never shown to the
+// person as a tool call. It exists so the first model call of a turn can be
+// forced to choose a tool without forcing a data lookup for every message.
+const answerWithoutDataTool = "answer_without_data"
+
+// answerWithoutDataResult is the fixed result of answer_without_data. Executing
+// the tool returns it at once, with no request.
+const answerWithoutDataResult = `{"status":"ok","note":"No data was fetched. Answer from general knowledge of the concept or of how Shorted works, and state no figure about a stock, the market, an economic series or a person."}`
+
+// answerWithoutDataDefinition declares answer_without_data to the model. It is
+// kept apart from GetToolDefinitions, which lists the data tools that map to API
+// calls and are checked against those calls by the contract tests.
+func answerWithoutDataDefinition() ToolDefinition {
+	return ToolDefinition{
+		Name: answerWithoutDataTool,
+		Description: "Call this ONLY when the reply needs no data: a greeting, a definition, an explanation of a " +
+			"concept, or how to use Shorted. NEVER call it when the reply will contain any figure about a stock, " +
+			"the market, an economic series or a person. For those, call the data tool that returns the figure.",
+	}
+}

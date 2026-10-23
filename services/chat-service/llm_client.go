@@ -136,13 +136,7 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 				status = "error"
 				result = "Error: " + redactSecrets(execErr.Error())
 			}
-			recordToolCall(ctx, fc.Name, len([]byte(result)), status)
-
-			allToolCalls = append(allToolCalls, ToolCallRecord{
-				Name:   fc.Name,
-				Args:   args,
-				Result: result,
-			})
+			allToolCalls = recordToolRun(ctx, allToolCalls, fc.Name, args, result, status)
 
 			// Parse result as JSON for the function response
 			var resultMap map[string]any
@@ -181,6 +175,10 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 // Tool call rounds execute synchronously between streaming segments.
 func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, history []Message, userMessage string, onChunk func(text string)) (*LLMResponse, error) {
 	model := lc.newModel(systemPrompt)
+	// The first call of a turn must choose a tool: a data tool, or
+	// answer_without_data to declare that no data is needed (see toolConfigForCall).
+	// It cannot open with text.
+	model.ToolConfig = toolConfigForCall(true, true)
 
 	cs := model.StartChat()
 	cs.History = buildGeminiHistory(history)
@@ -232,11 +230,11 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 	// text while the model still had calls to make.
 	for round := 0; len(pendingFuncCalls) > 0; round++ {
 		hasBudget := roundHasBudget(round)
-		model.ToolConfig = toolConfigFor(hasBudget)
+		model.ToolConfig = toolConfigForCall(false, hasBudget)
 
 		calls := pendingFuncCalls
 		pendingFuncCalls = nil
-		decisions := planToolCalls(len(calls), hasBudget)
+		decisions := planRoundCalls(calls, hasBudget)
 
 		var funcResponses []genai.Part
 		for i, fc := range calls {
@@ -260,13 +258,7 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 				status = "error"
 				result = "Error: " + redactSecrets(execErr.Error())
 			}
-			recordToolCall(ctx, fc.Name, len([]byte(result)), status)
-
-			allToolCalls = append(allToolCalls, ToolCallRecord{
-				Name:   fc.Name,
-				Args:   args,
-				Result: result,
-			})
+			allToolCalls = recordToolRun(ctx, allToolCalls, fc.Name, args, result, status)
 
 			var resultMap map[string]any
 			if json.Unmarshal([]byte(result), &resultMap) != nil {
@@ -388,9 +380,72 @@ func toolConfigFor(roundHasBudget bool) *genai.ToolConfig {
 	}
 }
 
+// toolConfigForCall returns the function calling config for one model call of a
+// turn. The first call must pick a tool (ANY): a data tool, or answer_without_data
+// when the reply needs no data. ANY forces the choice, not the grounding. A figure
+// can still follow answer_without_data, and the eval reads that as a no-data
+// choice (noDataChosen). Later calls follow toolConfigFor, so the model may answer
+// in text while the budget lasts.
+func toolConfigForCall(firstCall, roundHasBudget bool) *genai.ToolConfig {
+	if firstCall {
+		return &genai.ToolConfig{
+			FunctionCallingConfig: &genai.FunctionCallingConfig{Mode: genai.FunctionCallingAny},
+		}
+	}
+	return toolConfigFor(roundHasBudget)
+}
+
+// isDataTool reports whether a call is a data tool. answer_without_data is not:
+// it reads nothing from the API, so it does not count toward the per-round cap,
+// the reply's tool calls or the tool-call metrics.
+func isDataTool(name string) bool {
+	return name != answerWithoutDataTool
+}
+
+// planRoundCalls decides, for each call one model response requested, whether it
+// runs. answer_without_data always runs, because it is instant and makes no
+// request, so it takes no cap slot and no budget. The data calls are planned by
+// planToolCalls.
+func planRoundCalls(calls []*genai.FunctionCall, roundHasBudget bool) []toolCallDecision {
+	dataCalls := 0
+	for _, fc := range calls {
+		if isDataTool(fc.Name) {
+			dataCalls++
+		}
+	}
+	dataDecisions := planToolCalls(dataCalls, roundHasBudget)
+
+	decisions := make([]toolCallDecision, len(calls))
+	next := 0
+	for i, fc := range calls {
+		if !isDataTool(fc.Name) {
+			decisions[i] = toolCallExecute
+			continue
+		}
+		decisions[i] = dataDecisions[next]
+		next++
+	}
+	return decisions
+}
+
+// recordToolRun keeps an executed data call in the reply's tool calls and counts
+// it in the tool-call metrics, and returns the updated records. answer_without_data
+// is neither, so the web never shows it as a tool card.
+func recordToolRun(ctx context.Context, calls []ToolCallRecord, name string, args map[string]any, result, status string) []ToolCallRecord {
+	if !isDataTool(name) {
+		return calls
+	}
+	recordToolCall(ctx, name, len([]byte(result)), status)
+	return append(calls, ToolCallRecord{
+		Name:   name,
+		Args:   args,
+		Result: result,
+	})
+}
+
 // buildGeminiTools converts our tool definitions to Gemini format.
 func buildGeminiTools() []*genai.Tool {
-	defs := GetToolDefinitions()
+	defs := append(GetToolDefinitions(), answerWithoutDataDefinition())
 	var funcDecls []*genai.FunctionDeclaration
 
 	for _, def := range defs {
@@ -418,14 +473,21 @@ func buildGeminiTools() []*genai.Tool {
 			props[name] = schema
 		}
 
-		funcDecls = append(funcDecls, &genai.FunctionDeclaration{
-			Name:        def.Name,
-			Description: def.Description,
-			Parameters: &genai.Schema{
+		// A tool with no parameters declares none. An object schema with no
+		// properties is not a valid declaration.
+		var parameters *genai.Schema
+		if len(def.Parameters) > 0 {
+			parameters = &genai.Schema{
 				Type:       genai.TypeObject,
 				Properties: props,
 				Required:   def.Required,
-			},
+			}
+		}
+
+		funcDecls = append(funcDecls, &genai.FunctionDeclaration{
+			Name:        def.Name,
+			Description: def.Description,
+			Parameters:  parameters,
 		})
 	}
 
