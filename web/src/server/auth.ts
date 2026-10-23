@@ -89,9 +89,14 @@ export const authOptions = {
         if (idToken) {
           try {
             const decoded = await adminAuth.verifyIdToken(idToken);
+            // Only the verified token's email counts. The credentials email is
+            // client-supplied, and a token with no email claim (an anonymous
+            // account) would otherwise take any address the caller chose. Checkout
+            // reuses the Stripe customer found by session email, and the
+            // subscription upsert then removes another user's row for that customer.
             const user: CredentialsUser = {
               id: decoded.uid,
-              email: decoded.email ?? email ?? null,
+              email: decoded.email ?? null,
               name: (decoded.name as string) ?? null,
               image: decoded.picture ?? null,
               // The admin decision rests on this. Without it an unverified

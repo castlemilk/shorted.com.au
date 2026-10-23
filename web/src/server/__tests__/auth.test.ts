@@ -61,6 +61,28 @@ describe("authorize: Firebase ID token", () => {
     });
   });
 
+  it("never takes the session email from the client-supplied credentials", async () => {
+    // An anonymous account's token has no email claim. The caller then chooses an
+    // address in the credentials. That address must not become the session email.
+    mockVerifyIdToken.mockResolvedValue({ uid: "uid-anon" });
+
+    const user = await provider.authorize({
+      idToken: "t",
+      email: "victim@x.example",
+    });
+    expect(user).toMatchObject({
+      id: "uid-anon",
+      email: null,
+      emailVerified: false,
+    });
+
+    const token = await jwt(
+      {} as JWT,
+      user as unknown as Record<string, unknown>,
+    );
+    expect(token.email).toBeFalsy();
+  });
+
   it("treats an unverified or unstated email as unverified", async () => {
     for (const claims of [{ email_verified: false }, {}]) {
       mockVerifyIdToken.mockResolvedValue({

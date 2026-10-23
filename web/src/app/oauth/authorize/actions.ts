@@ -192,10 +192,14 @@ export async function approveAuthorization(
       description: "Sign in before approving access.",
     };
   }
-  // The admin MCP server (/mcp/admin) is for administrators only. The API
-  // refuses to ticket it for anyone else regardless; checking here too turns
-  // that refusal into a clear message instead of a generic error.
-  if (isAdminResource(request.resource) && !isAdminEmail(session?.user?.email)) {
+  // The admin MCP server (/mcp/admin) is for verified administrators only. The API
+  // refuses to ticket it for anyone else regardless; checking here too turns that
+  // refusal into a clear message instead of a generic error. An allowlisted address
+  // alone is not enough: an unverified account can be registered under it. This is
+  // the rule isAdmin() applies, read from the session already in hand.
+  const verifiedAdmin =
+    isAdminEmail(session?.user?.email) && session?.user?.emailVerified === true;
+  if (isAdminResource(request.resource) && !verifiedAdmin) {
     return {
       ok: false,
       error: "access_denied",
