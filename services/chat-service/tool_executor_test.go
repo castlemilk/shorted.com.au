@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 )
 
@@ -159,7 +160,7 @@ func TestCallServiceRPCPostsToRequestedServiceAndMethod(t *testing.T) {
 		context.Background(),
 		"EconomyService",
 		"GetEconomicSeries",
-		map[string]interface{}{"seriesKeys": []string{"rates.cash_rate_target.aus"}},
+		&shortsv1alpha1.GetEconomicSeriesRequest{SeriesKeys: []string{"rates.cash_rate_target.aus"}},
 	)
 	if err != nil {
 		t.Fatalf("callServiceRPC() error = %v", err)
