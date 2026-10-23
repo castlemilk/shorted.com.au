@@ -27,9 +27,6 @@
   ],
   "fluid": true,
   "functions": {
-    "src/app/api/stripe/reconcile/route.ts": {
-      "maxDuration": 60
-    },
     "src/app/**/*": {
       "maxDuration": 15
     }

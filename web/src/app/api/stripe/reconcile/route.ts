@@ -4,22 +4,29 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "~/lib/stripe";
 import {
+  idOf,
   isLiveStripeStatus,
-  syncSubscriptionFromStripe,
+  syncCustomerFromStripe,
 } from "~/lib/billing-sync";
+import { notifyOperator } from "~/@/lib/operator-notify";
 
 /**
  * GET /api/stripe/reconcile — daily Vercel cron.
  *
  * Heals a lost webhook. Stripe stops retrying a failed delivery after about
  * three days, and the mirror then stays wrong until a later event for that
- * subscription happens to arrive. This re-reads every live subscription and every
- * one that ended in the last seven days, and writes Stripe's current state.
+ * customer happens to arrive. This finds every customer with a live subscription
+ * or one that ended in the last seven days, and writes each customer's current
+ * state once.
  *
  * Authorised by `Authorization: Bearer $CRON_SECRET` and nothing else. The
  * cache-warm helper is deliberately not reused: it allows every request when
  * CACHE_WARM_SECRET is unset, and it accepts a secret in the query string. This
  * route writes subscription state and calls Stripe, so it fails closed.
+ *
+ * A run that fails a customer, truncates its listing or cannot list at all
+ * notifies the operator with counts only. Without that alert a cron that fails
+ * every night is indistinguishable from one that has nothing to do.
  */
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -28,7 +35,7 @@ export const maxDuration = 60;
 /** Stripe lists newest first. Past this many, the run reports `truncated`. */
 const MAX_EXAMINED = 500;
 const RECENTLY_ENDED_MS = 7 * 24 * 60 * 60 * 1000;
-/** Bounded so 500 syncs stay inside the function's 60s budget. */
+/** Bounded so the customer syncs stay inside the function's 60s budget. */
 const SYNC_CONCURRENCY = 5;
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -38,7 +45,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   try {
     const now = Date.now();
-    const candidates: string[] = [];
+    const customerIds = new Set<string>();
     let examined = 0;
     let truncated = false;
 
@@ -52,41 +59,97 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
       examined += 1;
       if (needsReconcile(subscription, now)) {
-        candidates.push(subscription.id);
+        const customerId = idOf(subscription.customer);
+        if (customerId) customerIds.add(customerId);
       }
     }
 
+    // One sync per customer. A customer with two subscriptions is written from
+    // its best one, so syncing each subscription would race them for the row.
+    const customers = [...customerIds];
     let synced = 0;
     let failed = 0;
-    for (let start = 0; start < candidates.length; start += SYNC_CONCURRENCY) {
-      const batch = candidates.slice(start, start + SYNC_CONCURRENCY);
+    for (let start = 0; start < customers.length; start += SYNC_CONCURRENCY) {
+      const batch = customers.slice(start, start + SYNC_CONCURRENCY);
       const outcomes = await Promise.allSettled(
-        batch.map((id) => syncSubscriptionFromStripe(id)),
+        batch.map((customerId) => syncCustomerFromStripe(customerId)),
       );
       outcomes.forEach((outcome, index) => {
         if (outcome.status === "fulfilled") {
-          synced += 1;
+          if (outcome.value) synced += 1;
           return;
         }
         failed += 1;
         const message =
           outcome.reason instanceof Error ? outcome.reason.message : "unknown";
-        console.error(`[stripe-reconcile] sync failed for ${batch[index]}: ${message}`);
+        console.error(
+          `[stripe-reconcile] sync failed for ${batch[index]}: ${message}`,
+        );
+      });
+    }
+
+    if (failed > 0 || truncated) {
+      await notifyReconcileProblem({
+        examined,
+        customers: customers.length,
+        synced,
+        failed,
+        truncated,
       });
     }
 
     return NextResponse.json(
-      { examined, synced, failed, truncated },
+      { examined, customers: customers.length, synced, failed, truncated },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown";
     console.error(`[stripe-reconcile] run failed: ${message}`);
+    await notifyOperator({
+      subject: "Shorted Stripe reconcile: run failed",
+      text: [
+        "The daily Stripe reconcile could not list subscriptions, so this run synced nothing.",
+        "The error is in the Vercel function log for /api/stripe/reconcile.",
+        "",
+        "— shorted.com.au",
+      ].join("\n"),
+    });
     return NextResponse.json(
       { error: "reconcile failed" },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
+}
+
+/** Counts only. The customer ids that failed are in the function log. */
+async function notifyReconcileProblem(counts: {
+  examined: number;
+  customers: number;
+  synced: number;
+  failed: number;
+  truncated: boolean;
+}): Promise<void> {
+  const problems = [
+    counts.failed > 0 ? `${counts.failed} failed` : null,
+    counts.truncated ? "list truncated" : null,
+  ].filter(Boolean);
+  await notifyOperator({
+    subject: `Shorted Stripe reconcile: ${problems.join(", ")}`,
+    text: [
+      "The daily Stripe reconcile finished with problems. Counts only; no customer details are included.",
+      "",
+      `Subscriptions examined: ${counts.examined}`,
+      `Customers found:        ${counts.customers}`,
+      `Customers synced:       ${counts.synced}`,
+      `Customers failed:       ${counts.failed}`,
+      `Listing truncated:      ${counts.truncated ? "yes" : "no"}`,
+      "",
+      "Failed customers are logged as [stripe-reconcile] in the Vercel function log.",
+      "A truncated listing means some customers were not examined at all.",
+      "",
+      "— shorted.com.au",
+    ].join("\n"),
+  });
 }
 
 function needsReconcile(subscription: Stripe.Subscription, now: number): boolean {

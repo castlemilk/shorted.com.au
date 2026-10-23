@@ -259,8 +259,15 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
-  const customerId = idOf(invoice.customer) ?? "(none)";
+  // Sync first, notify second. Stripe retries a failed delivery, and a 500 from
+  // the sync means the retry runs this whole handler again. Notifying first
+  // would email the operator once per retry.
+  const subscriptionId = await resolveSubscriptionIdForInvoice(invoice);
+  if (subscriptionId) {
+    await syncSubscriptionFromStripe(subscriptionId);
+  }
 
+  const customerId = idOf(invoice.customer) ?? "(none)";
   await notifyOperator({
     subject: `Shorted payment FAILED: ${invoice.customer_email ?? customerId}`,
     text: [
@@ -280,11 +287,4 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
       .filter(Boolean)
       .join("\n"),
   });
-
-  // The status comes from Stripe, not from this event. A failed invoice alone
-  // does not decide access.
-  const subscriptionId = await resolveSubscriptionIdForInvoice(invoice);
-  if (subscriptionId) {
-    await syncSubscriptionFromStripe(subscriptionId);
-  }
 }

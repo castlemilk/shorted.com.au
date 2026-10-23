@@ -331,35 +331,42 @@ describe("POST /api/internal/billing", () => {
     expect((result.body as { subscriptions: unknown[] }).subscriptions).toHaveLength(500);
   });
 
-  it("re-syncs each of a customer's subscriptions and returns the summaries", async () => {
-    // The Stripe SDK's list is both awaitable (`.data`) and async-iterable.
-    const subscriptions = [SUBSCRIPTION, { ...SUBSCRIPTION, id: "sub_old" }];
-    stripeMock.subscriptions.list.mockImplementation(() => ({
-      data: subscriptions,
-      async *[Symbol.asyncIterator]() {
-        for (const item of subscriptions) yield item;
-      },
-    }));
-    stripeMock.subscriptions.retrieve.mockImplementation(async (id: string) => ({
-      ...SUBSCRIPTION,
-      id,
-      status: id === "sub_old" ? "canceled" : "active",
-    }));
+  it("re-syncs the customer once, from its best subscription", async () => {
+    // Two subscriptions on one customer: the active one must be the single write.
+    const active = { ...SUBSCRIPTION, id: "sub_1", status: "active", created: CREATED + 100 };
+    const ended = { ...SUBSCRIPTION, id: "sub_old", status: "canceled", created: CREATED };
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [ended, active],
+      has_more: false,
+    });
 
     const result = await call({ action: "reconcile", customerId: "cus_1" });
 
     expect(result.status).toBe(200);
-    // The ended subscription is represented by the customer's live one, so
-    // syncing it cannot flip the customer to canceled.
     expect(result.body).toMatchObject({
       customerId: "cus_1",
-      subscriptions: [
-        { subscriptionId: "sub_1", status: "active", tier: "premium", ensuredRow: true },
-        { subscriptionId: "sub_1", status: "active", tier: "premium", ensuredRow: true },
-      ],
+      subscription: {
+        subscriptionId: "sub_1",
+        status: "active",
+        tier: "premium",
+        ensuredRow: true,
+      },
     });
-    expect(goClient.handleStripeSubscriptionUpdated).toHaveBeenCalledTimes(2);
+    expect(goClient.handleStripeSubscriptionUpdated).toHaveBeenCalledTimes(1);
+    expect(goClient.handleStripeSubscriptionUpdated).toHaveBeenCalledWith(
+      expect.objectContaining({ stripeSubscriptionId: "sub_1", isDeleted: false }),
+    );
     expect(JSON.stringify(result.body)).not.toContain("jane@example.test");
+  });
+
+  it("returns a null subscription and writes nothing for a customer with none", async () => {
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [], has_more: false });
+
+    const result = await call({ action: "reconcile", customerId: "cus_1" });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ customerId: "cus_1", subscription: null });
+    expect(goClient.handleStripeSubscriptionUpdated).not.toHaveBeenCalled();
   });
 
   it("reports a Stripe failure as 503 without the underlying message", async () => {

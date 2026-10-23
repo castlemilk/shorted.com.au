@@ -3,6 +3,7 @@ import path from "node:path";
 import type { NextRequest } from "next/server";
 import { GET, maxDuration } from "../route";
 import { stripe } from "~/lib/stripe";
+import { notifyOperator } from "~/@/lib/operator-notify";
 
 jest.mock("~/lib/stripe", () => ({
   stripe: {
@@ -27,21 +28,35 @@ jest.mock("~/app/actions/config", () => ({
   serverFetchWithUserAgent: jest.fn(),
 }));
 
+jest.mock("~/@/lib/operator-notify", () => ({
+  notifyOperator: jest.fn(async () => true),
+}));
+
 const stripeMock = stripe as unknown as {
   subscriptions: { retrieve: jest.Mock; list: jest.Mock };
 };
 const goClient = (jest.requireMock("@connectrpc/connect") as {
   goClient: { handleStripeSubscriptionUpdated: jest.Mock };
 }).goClient;
+const notifyMock = notifyOperator as jest.Mock;
 
 const NOW_SECONDS = Math.floor(Date.now() / 1000);
 const DAY = 24 * 60 * 60;
 
-function subscription(id: string, status: string, endedDaysAgo: number | null = null) {
+type FakeSubscription = ReturnType<typeof subscription>;
+
+/** A subscription, owned by `customer` (default: its own customer). */
+function subscription(
+  id: string,
+  status: string,
+  options: { customer?: string; endedDaysAgo?: number | null; created?: number } = {},
+) {
+  const endedDaysAgo = options.endedDaysAgo ?? null;
   return {
     id,
-    customer: `cus_${id}`,
+    customer: options.customer ?? `cus_${id}`,
     status,
+    created: options.created ?? NOW_SECONDS - 60 * DAY,
     cancel_at_period_end: false,
     ended_at: endedDaysAgo === null ? null : NOW_SECONDS - endedDaysAgo * DAY,
     canceled_at: null,
@@ -58,16 +73,35 @@ function subscription(id: string, status: string, endedDaysAgo: number | null = 
   };
 }
 
-/** Lists the account's subscriptions; a per-customer lookup returns none. */
-function listAll(all: unknown[]) {
+/**
+ * The account's subscriptions. The top-level list is iterated by the cron; the
+ * per-customer list is what each customer sync reads. `failingCustomers` makes
+ * that per-customer read throw.
+ */
+function listAccount(all: FakeSubscription[], failingCustomers: string[] = []) {
   stripeMock.subscriptions.list.mockImplementation((params: { customer?: string }) => {
-    if (params.customer) return Promise.resolve({ data: [] });
+    if (params.customer) {
+      if (failingCustomers.includes(params.customer)) {
+        return Promise.reject(new Error("stripe timeout for customer"));
+      }
+      return Promise.resolve({
+        data: all.filter((candidate) => candidate.customer === params.customer),
+        has_more: false,
+      });
+    }
     return {
       async *[Symbol.asyncIterator]() {
         for (const item of all) yield item;
       },
     };
   });
+}
+
+/** The customers the run wrote, in the order they were written. */
+function writtenCustomers(): string[] {
+  return goClient.handleStripeSubscriptionUpdated.mock.calls.map(
+    (call) => (call[0] as { stripeCustomerId: string }).stripeCustomerId,
+  );
 }
 
 // A plain object with real Headers: NextRequest's init drops headers under jsdom.
@@ -87,6 +121,7 @@ describe("GET /api/stripe/reconcile", () => {
       CRON_SECRET: "cron-secret",
       STRIPE_PREMIUM_PRICE_ID: "price_premium",
     };
+    notifyMock.mockResolvedValue(true);
   });
 
   afterAll(() => {
@@ -102,7 +137,7 @@ describe("GET /api/stripe/reconcile", () => {
 
     expect(response.status).toBe(401);
     expect(stripeMock.subscriptions.list).not.toHaveBeenCalled();
-    expect(stripeMock.subscriptions.retrieve).not.toHaveBeenCalled();
+    expect(notifyMock).not.toHaveBeenCalled();
   });
 
   it("fails closed when CRON_SECRET is unset, even with a bearer header", async () => {
@@ -114,70 +149,143 @@ describe("GET /api/stripe/reconcile", () => {
     expect(stripeMock.subscriptions.list).not.toHaveBeenCalled();
   });
 
-  it("syncs live subscriptions and recently ended ones, and skips older ended ones", async () => {
-    const all = [
+  it("syncs customers with a live or recently ended subscription, and skips older ones", async () => {
+    listAccount([
       subscription("active", "active"),
       subscription("trial", "trialing"),
       subscription("pastdue", "past_due"),
       subscription("unpaid", "unpaid"),
-      subscription("recent_cancel", "canceled", 2),
-      subscription("recent_expired", "incomplete_expired", 1),
-      subscription("old_cancel", "canceled", 30),
+      subscription("recent_cancel", "canceled", { endedDaysAgo: 2 }),
+      subscription("recent_expired", "incomplete_expired", { endedDaysAgo: 1 }),
+      subscription("old_cancel", "canceled", { endedDaysAgo: 30 }),
       subscription("paused", "paused"),
-    ];
-    listAll(all);
-    stripeMock.subscriptions.retrieve.mockImplementation(async (id: string) =>
-      all.find((candidate) => candidate.id === id),
-    );
+    ]);
 
     const response = await GET(request("Bearer cron-secret"));
-    const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ examined: 8, synced: 6, failed: 0, truncated: false });
-    const synced = stripeMock.subscriptions.retrieve.mock.calls.map((call) => call[0]).sort();
-    expect(synced).toEqual(
-      ["active", "pastdue", "recent_cancel", "recent_expired", "trial", "unpaid"].sort(),
+    await expect(response.json()).resolves.toEqual({
+      examined: 8,
+      customers: 6,
+      synced: 6,
+      failed: 0,
+      truncated: false,
+    });
+    expect(writtenCustomers().sort()).toEqual(
+      [
+        "cus_active",
+        "cus_pastdue",
+        "cus_recent_cancel",
+        "cus_recent_expired",
+        "cus_trial",
+        "cus_unpaid",
+      ].sort(),
     );
-    expect(goClient.handleStripeSubscriptionUpdated).toHaveBeenCalledTimes(6);
+    expect(notifyMock).not.toHaveBeenCalled();
   });
 
-  it("counts a failed sync and keeps going", async () => {
-    const all = [subscription("good", "active"), subscription("bad", "active")];
-    listAll(all);
-    stripeMock.subscriptions.retrieve.mockImplementation(async (id: string) => {
-      if (id === "bad") throw new Error("stripe timeout");
-      return all.find((candidate) => candidate.id === id);
+  it("writes each customer once, from its best subscription, when it has several", async () => {
+    // Two live subscriptions on one customer. Syncing each in turn would let
+    // the last one written decide the row, so the cron writes the customer once.
+    listAccount([
+      subscription("unpaid_sub", "unpaid", { customer: "cus_1", created: NOW_SECONDS - 5 * DAY }),
+      subscription("active_sub", "active", { customer: "cus_1", created: NOW_SECONDS - 60 * DAY }),
+    ]);
+
+    const response = await GET(request("Bearer cron-secret"));
+
+    await expect(response.json()).resolves.toMatchObject({
+      examined: 2,
+      customers: 1,
+      synced: 1,
+      failed: 0,
     });
+    expect(goClient.handleStripeSubscriptionUpdated).toHaveBeenCalledTimes(1);
+    expect(goClient.handleStripeSubscriptionUpdated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stripeCustomerId: "cus_1",
+        stripeSubscriptionId: "active_sub",
+        status: 1,
+      }),
+    );
+  });
+
+  it("counts a failed customer, keeps going, and alerts the operator with counts only", async () => {
+    listAccount(
+      [subscription("good", "active"), subscription("bad", "active")],
+      ["cus_bad"],
+    );
 
     const response = await GET(request("Bearer cron-secret"));
 
     await expect(response.json()).resolves.toEqual({
       examined: 2,
+      customers: 2,
       synced: 1,
       failed: 1,
       truncated: false,
     });
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+    const alert = notifyMock.mock.calls[0]?.[0] as { subject: string; text: string };
+    expect(alert.subject).toBe("Shorted Stripe reconcile: 1 failed");
+    expect(alert.text).toContain("Customers failed:       1");
+    expect(alert.text).toContain("Listing truncated:      no");
+    // Counts only: no customer ids, no addresses.
+    expect(alert.text).not.toContain("cus_");
+    expect(alert.text).not.toContain("@example.test");
   });
 
-  it("stops at 500 examined and reports the run as truncated", async () => {
-    const all = Array.from({ length: 501 }, (_, index) =>
-      subscription(`old_${index}`, "canceled", 400),
+  it("stops at 500 examined, reports the run as truncated, and alerts the operator", async () => {
+    listAccount(
+      Array.from({ length: 501 }, (_, index) =>
+        subscription(`old_${index}`, "canceled", { endedDaysAgo: 400 }),
+      ),
     );
-    listAll(all);
 
     const response = await GET(request("Bearer cron-secret"));
 
     await expect(response.json()).resolves.toEqual({
       examined: 500,
+      customers: 0,
       synced: 0,
       failed: 0,
       truncated: true,
     });
-    expect(stripeMock.subscriptions.retrieve).not.toHaveBeenCalled();
+    expect(goClient.handleStripeSubscriptionUpdated).not.toHaveBeenCalled();
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+    expect((notifyMock.mock.calls[0]?.[0] as { subject: string }).subject).toBe(
+      "Shorted Stripe reconcile: list truncated",
+    );
   });
 
-  it("reports a Stripe listing failure as 503 without leaking detail", async () => {
+  it("alerts the operator with the failure and counts when both a customer and the listing truncate", async () => {
+    listAccount(
+      [
+        subscription("bad", "active"),
+        ...Array.from({ length: 500 }, (_, index) =>
+          subscription(`old_${index}`, "canceled", { endedDaysAgo: 400 }),
+        ),
+      ],
+      ["cus_bad"],
+    );
+
+    await GET(request("Bearer cron-secret"));
+
+    expect((notifyMock.mock.calls[0]?.[0] as { subject: string }).subject).toBe(
+      "Shorted Stripe reconcile: 1 failed, list truncated",
+    );
+  });
+
+  it("does not alert on a clean run", async () => {
+    listAccount([subscription("active", "active")]);
+
+    const response = await GET(request("Bearer cron-secret"));
+
+    expect(response.status).toBe(200);
+    expect(notifyMock).not.toHaveBeenCalled();
+  });
+
+  it("reports a listing failure as 503, alerts the operator, and does not leak the detail", async () => {
     stripeMock.subscriptions.list.mockImplementation(() => {
       throw new Error("secret internal detail");
     });
@@ -186,35 +294,30 @@ describe("GET /api/stripe/reconcile", () => {
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({ error: "reconcile failed" });
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+    const alert = notifyMock.mock.calls[0]?.[0] as { subject: string; text: string };
+    expect(alert.subject).toBe("Shorted Stripe reconcile: run failed");
+    expect(alert.text).not.toContain("secret internal detail");
   });
 });
 
 describe("reconcile deployment config", () => {
   const vercelJson = JSON.parse(
     fs.readFileSync(path.resolve(__dirname, "../../../../../../vercel.json"), "utf8"),
-  ) as {
-    crons: Array<{ path: string; schedule: string }>;
-    functions: Record<string, { maxDuration: number }>;
-  };
+  ) as { crons: Array<{ path: string; schedule: string }> };
+  const rootVercelJson = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, "../../../../../../../vercel.json"), "utf8"),
+  ) as { crons: Array<{ path: string; schedule: string }> };
 
-  it("is scheduled daily", () => {
+  it("is scheduled daily in both the web and the root cron lists", () => {
     expect(vercelJson.crons).toContainEqual({
       path: "/api/stripe/reconcile",
       schedule: "40 18 * * *",
     });
+    expect(rootVercelJson.crons).toEqual(vercelJson.crons);
   });
 
-  it("declares its own function budget ahead of the catch-all, which would otherwise win", () => {
-    // Vercel applies the first functions key whose glob matches, in object order.
-    const keys = Object.keys(vercelJson.functions);
-    const own = keys.indexOf("src/app/api/stripe/reconcile/route.ts");
-    const catchAll = keys.indexOf("src/app/**/*");
-    expect(own).toBeGreaterThanOrEqual(0);
-    expect(catchAll).toBeGreaterThan(own);
-    expect(vercelJson.functions[keys[own]!]).toEqual({ maxDuration: 60 });
-  });
-
-  it("exports the same budget from the route", () => {
+  it("exports the 60s budget the function-limit verifier pins", () => {
     expect(maxDuration).toBe(60);
   });
 });

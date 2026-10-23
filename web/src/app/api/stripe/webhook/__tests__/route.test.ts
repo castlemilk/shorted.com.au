@@ -87,6 +87,11 @@ function deliver(type: string, object: unknown) {
   return POST({ text: async () => "{}" } as unknown as NextRequest);
 }
 
+function lastUpdate(): Record<string, unknown> {
+  const calls = goClient.handleStripeSubscriptionUpdated.mock.calls;
+  return calls[calls.length - 1]?.[0] as Record<string, unknown>;
+}
+
 function updates(): Record<string, unknown>[] {
   return goClient.handleStripeSubscriptionUpdated.mock.calls.map(
     (call) => call[0] as Record<string, unknown>,
@@ -270,13 +275,70 @@ describe("POST /api/stripe/webhook", () => {
     expect(stripeMock.subscriptions.retrieve).not.toHaveBeenCalled();
   });
 
+  describe("customer-level state", () => {
+    it("writes the customer's active subscription when an unpaid sibling's update arrives", async () => {
+      const unpaid = subscription({ id: "sub_unpaid", status: "unpaid", created: 200 });
+      const active = subscription({ id: "sub_active", status: "active", created: 100 });
+      stripeMock.subscriptions.retrieve.mockResolvedValue(unpaid);
+      stripeMock.subscriptions.list.mockResolvedValue({
+        data: [unpaid, active],
+        has_more: false,
+      });
+
+      const response = await deliver("customer.subscription.updated", unpaid);
+
+      expect(response.status).toBe(200);
+      expect(lastUpdate()).toMatchObject({
+        stripeSubscriptionId: "sub_active",
+        status: SubscriptionStatus.ACTIVE,
+        isDeleted: false,
+      });
+    });
+  });
+
+  describe("payment failure notification", () => {
+    const failedInvoice = {
+      id: "in_9",
+      customer: "cus_1",
+      customer_email: "buyer@example.test",
+      amount_due: 400,
+      currency: "aud",
+      parent: { subscription_details: { subscription: "sub_1" } },
+    };
+
+    it("notifies only after the sync has succeeded", async () => {
+      stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: "past_due" }));
+
+      await deliver("invoice.payment_failed", failedInvoice);
+
+      const syncOrder = goClient.handleStripeSubscriptionUpdated.mock.invocationCallOrder[0] ?? 0;
+      const notifyOrder = notifyMock.mock.invocationCallOrder[0] ?? 0;
+      expect(notifyMock).toHaveBeenCalledTimes(1);
+      expect(syncOrder).toBeLessThan(notifyOrder);
+    });
+
+    it("does not notify when the sync fails, so Stripe's retry notifies exactly once", async () => {
+      stripeMock.subscriptions.retrieve.mockRejectedValueOnce(new Error("stripe timeout"));
+
+      const failedAttempt = await deliver("invoice.payment_failed", failedInvoice);
+      expect(failedAttempt.status).toBe(500);
+      expect(notifyMock).not.toHaveBeenCalled();
+
+      // The retry succeeds: one notification, sent after the state is written.
+      stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: "past_due" }));
+      const retry = await deliver("invoice.payment_failed", failedInvoice);
+      expect(retry.status).toBe(200);
+      expect(notifyMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("delivery order", () => {
     it("keeps a customer canceled when a retried active update arrives after the deletion", async () => {
       // Stripe's current state is canceled. Both deliveries describe the
       // subscription by id, so both re-read it and both write canceled.
-      stripeMock.subscriptions.retrieve.mockResolvedValue(
-        subscription({ status: "canceled", ended_at: PERIOD_END }),
-      );
+      const canceled = subscription({ status: "canceled", ended_at: PERIOD_END });
+      stripeMock.subscriptions.retrieve.mockResolvedValue(canceled);
+      stripeMock.subscriptions.list.mockResolvedValue({ data: [canceled], has_more: false });
 
       await deliver("customer.subscription.deleted", subscription({ status: "canceled" }));
       // Stripe retries the failed updated event; its payload still says active.

@@ -7,7 +7,7 @@ import {
   isoFromUnix,
   nonEmpty,
   planForPrice,
-  syncSubscriptionFromStripe,
+  syncCustomerFromStripe,
 } from "~/lib/billing-sync";
 import { hasInternalSecret } from "~/server/internal-secret";
 
@@ -16,7 +16,7 @@ import { hasInternalSecret } from "~/server/internal-secret";
  *
  *   { "action": "customer", "email" | "customerId" } → customer, subscriptions, latest invoice
  *   { "action": "alive" }                             → every live subscription (capped)
- *   { "action": "reconcile", "customerId" }           → re-sync that customer from Stripe
+ *   { "action": "reconcile", "customerId" }           → re-sync that customer once, from its best subscription
  *
  * Server-to-server only (INTERNAL_SERVICE_SECRET). Only this app holds a Stripe
  * key, and the API has already checked that the caller is an administrator.
@@ -136,16 +136,10 @@ async function reconcileAction(body: Record<string, unknown>): Promise<NextRespo
     return NextResponse.json({ error: "customerId is required" }, { status: 400 });
   }
 
-  const results = [];
-  for await (const subscription of stripe.subscriptions.list({
-    customer: customerId,
-    status: "all",
-    limit: 100,
-  })) {
-    if (results.length === LIST_CAP) break;
-    results.push(await syncSubscriptionFromStripe(subscription.id));
-  }
-  return NextResponse.json({ customerId, subscriptions: results }, { headers: NO_STORE });
+  // One write for the customer, from the subscription that represents it. Syncing
+  // each subscription in turn would let the last one written decide.
+  const subscription = await syncCustomerFromStripe(customerId);
+  return NextResponse.json({ customerId, subscription }, { headers: NO_STORE });
 }
 
 /** A deleted customer is treated as absent, not as an error. */

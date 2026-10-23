@@ -7,8 +7,11 @@ import {
 import {
   idOf,
   isLiveStripeStatus,
+  listCustomerSubscriptions,
+  pickBestSubscription,
   planForPrice,
   resolveSubscriptionIdForInvoice,
+  syncCustomerFromStripe,
   syncSubscriptionFromStripe,
 } from "~/lib/billing-sync";
 
@@ -62,6 +65,7 @@ function subscription(overrides: Record<string, unknown> = {}): Stripe.Subscript
   return {
     id: "sub_1",
     object: "subscription",
+    created: 1_700_000_000,
     customer: "cus_1",
     status: "active",
     cancel_at_period_end: false,
@@ -247,7 +251,7 @@ describe("syncSubscriptionFromStripe", () => {
     expect(stripeMock.subscriptions.list).toHaveBeenCalledWith({
       customer: "cus_1",
       status: "all",
-      limit: 10,
+      limit: 100,
     });
     expect(lastUpdate()).toMatchObject({
       stripeSubscriptionId: "sub_new",
@@ -302,6 +306,267 @@ describe("syncSubscriptionFromStripe", () => {
 
     await expect(syncSubscriptionFromStripe("sub_1")).rejects.toThrow("stripe down");
     expect(goClient.handleStripeSubscriptionUpdated).not.toHaveBeenCalled();
+  });
+});
+
+
+/** Two subscriptions on one customer, as they stand in Stripe. */
+const ACTIVE_SIBLING = subscription({
+  id: "sub_active",
+  status: "active",
+  created: 100,
+  metadata: { userId: "user-1", userEmail: "buyer@example.test" },
+});
+const UNPAID_SIBLING = subscription({
+  id: "sub_unpaid",
+  status: "unpaid",
+  created: 200,
+  metadata: { userId: "user-1", userEmail: "buyer@example.test" },
+});
+
+describe("pickBestSubscription", () => {
+  const at = (id: string, status: string, created: number) =>
+    subscription({ id, status, created });
+
+  it("ranks active over trialing over past_due over unpaid, whatever the order", () => {
+    const pool = [
+      at("unpaid", "unpaid", 500),
+      at("past_due", "past_due", 400),
+      at("trialing", "trialing", 300),
+      at("active", "active", 100),
+    ];
+    expect(pickBestSubscription(pool)?.id).toBe("active");
+    expect(pickBestSubscription([...pool].reverse())?.id).toBe("active");
+    expect(pickBestSubscription(pool.slice(0, 2))?.id).toBe("past_due");
+  });
+
+  it("prefers the newest live subscription within the same rank", () => {
+    const pick = pickBestSubscription([at("old_active", "active", 100), at("new_active", "active", 200)]);
+    expect(pick?.id).toBe("new_active");
+  });
+
+  it("falls back to the newest ended subscription when nothing is live", () => {
+    const pick = pickBestSubscription([
+      at("old_cancel", "canceled", 100),
+      at("new_cancel", "canceled", 300),
+      at("incomplete", "incomplete", 200),
+    ]);
+    expect(pick?.id).toBe("new_cancel");
+  });
+
+  it("returns undefined for no subscriptions", () => {
+    expect(pickBestSubscription([])).toBeUndefined();
+  });
+});
+
+describe("customer-level resolution", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...originalEnv, STRIPE_PREMIUM_PRICE_ID: "price_premium" };
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [] });
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  function listsCustomer(subscriptions: Stripe.Subscription[]) {
+    stripeMock.subscriptions.list.mockImplementation(async (params: { customer?: string }) => ({
+      data: subscriptions.filter((candidate) => candidate.customer === params.customer),
+      has_more: false,
+    }));
+  }
+
+  function retrieves(byId: Record<string, Stripe.Subscription>) {
+    stripeMock.subscriptions.retrieve.mockImplementation(async (id: string) => byId[id]);
+  }
+
+  it.each([
+    ["the unpaid sibling listed first", [UNPAID_SIBLING, ACTIVE_SIBLING]],
+    ["the active sibling listed first", [ACTIVE_SIBLING, UNPAID_SIBLING]],
+  ])("writes the active sibling when %s", async (_label, listed) => {
+    listsCustomer(listed);
+    retrieves({ sub_active: ACTIVE_SIBLING, sub_unpaid: UNPAID_SIBLING });
+
+    await syncSubscriptionFromStripe("sub_active");
+
+    expect(lastUpdate()).toMatchObject({
+      stripeSubscriptionId: "sub_active",
+      status: PROTO.ACTIVE,
+      isDeleted: false,
+    });
+  });
+
+  it("writes the active sibling when the event names the unpaid one", async () => {
+    listsCustomer([UNPAID_SIBLING, ACTIVE_SIBLING]);
+    retrieves({ sub_active: ACTIVE_SIBLING, sub_unpaid: UNPAID_SIBLING });
+
+    const result = await syncSubscriptionFromStripe("sub_unpaid");
+
+    expect(lastUpdate()).toMatchObject({
+      stripeSubscriptionId: "sub_active",
+      status: PROTO.ACTIVE,
+    });
+    expect(result).toMatchObject({ subscriptionId: "sub_active", status: "active" });
+  });
+
+  it("keeps the customer active across both delivery orders of the two siblings", async () => {
+    listsCustomer([UNPAID_SIBLING, ACTIVE_SIBLING]);
+    retrieves({ sub_active: ACTIVE_SIBLING, sub_unpaid: UNPAID_SIBLING });
+
+    await syncSubscriptionFromStripe("sub_unpaid");
+    await syncSubscriptionFromStripe("sub_active");
+    await syncSubscriptionFromStripe("sub_unpaid");
+
+    const written = goClient.handleStripeSubscriptionUpdated.mock.calls.map(
+      (call) => call[0] as Record<string, unknown>,
+    );
+    expect(written).toHaveLength(3);
+    for (const write of written) {
+      expect(write).toMatchObject({ stripeSubscriptionId: "sub_active", status: PROTO.ACTIVE });
+    }
+  });
+
+  it("writes the best subscription once for a customer, from a customer-only sync", async () => {
+    listsCustomer([UNPAID_SIBLING, ACTIVE_SIBLING]);
+
+    const result = await syncCustomerFromStripe("cus_1");
+
+    expect(goClient.handleStripeSubscriptionUpdated).toHaveBeenCalledTimes(1);
+    expect(lastUpdate()).toMatchObject({ stripeSubscriptionId: "sub_active", status: PROTO.ACTIVE });
+    expect(result).toMatchObject({ subscriptionId: "sub_active", status: "active", ensuredRow: true });
+  });
+
+  it("returns null and writes nothing for a customer with no subscriptions", async () => {
+    listsCustomer([]);
+
+    await expect(syncCustomerFromStripe("cus_1")).resolves.toBeNull();
+    expect(goClient.handleStripeSubscriptionUpdated).not.toHaveBeenCalled();
+    expect(goClient.handleStripeCheckoutCompleted).not.toHaveBeenCalled();
+  });
+});
+
+describe("identity follows the subscription that is written", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...originalEnv, STRIPE_PREMIUM_PRICE_ID: "price_premium" };
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [] });
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it("does not apply the requested subscription's hint to a sibling that wins, and skips step 1 when the winner has no identity", async () => {
+    // The event names an unpaid subscription and carries a checkout hint for
+    // that subscription's user. The winning active sibling has no metadata, so
+    // its row must not be linked to the hint's user.
+    const unpaidWithHint = subscription({
+      id: "sub_unpaid",
+      status: "unpaid",
+      created: 200,
+      metadata: {},
+    });
+    const activeWithoutMetadata = subscription({
+      id: "sub_active",
+      status: "active",
+      created: 100,
+      metadata: {},
+    });
+    stripeMock.subscriptions.retrieve.mockResolvedValue(unpaidWithHint);
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [unpaidWithHint, activeWithoutMetadata],
+      has_more: false,
+    });
+
+    const result = await syncSubscriptionFromStripe("sub_unpaid", {
+      userId: "hint-user",
+      userEmail: "hint@example.test",
+    });
+
+    expect(goClient.handleStripeCheckoutCompleted).not.toHaveBeenCalled();
+    expect(lastUpdate()).toMatchObject({
+      stripeSubscriptionId: "sub_active",
+      status: PROTO.ACTIVE,
+    });
+    expect(result).toMatchObject({ subscriptionId: "sub_active", ensuredRow: false });
+  });
+
+  it("links the row to the winner's own user, not the requested subscription's hint", async () => {
+    const unpaidForAnotherUser = subscription({
+      id: "sub_unpaid",
+      status: "unpaid",
+      created: 200,
+      metadata: { userId: "user-unpaid", userEmail: "unpaid@example.test" },
+    });
+    const activeForThisUser = subscription({
+      id: "sub_active",
+      status: "active",
+      created: 100,
+      metadata: { userId: "user-active", userEmail: "active@example.test" },
+    });
+    stripeMock.subscriptions.retrieve.mockResolvedValue(unpaidForAnotherUser);
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [unpaidForAnotherUser, activeForThisUser],
+      has_more: false,
+    });
+
+    await syncSubscriptionFromStripe("sub_unpaid", {
+      userId: "hint-user",
+      userEmail: "hint@example.test",
+    });
+
+    expect(goClient.handleStripeCheckoutCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-active",
+        userEmail: "active@example.test",
+        stripeSubscriptionId: "sub_active",
+      }),
+    );
+    expect(JSON.stringify(goClient.handleStripeCheckoutCompleted.mock.calls)).not.toContain("hint-user");
+  });
+
+  it("still applies the hint when the requested subscription is the one written", async () => {
+    const requested = subscription({ id: "sub_only", metadata: {} });
+    stripeMock.subscriptions.retrieve.mockResolvedValue(requested);
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [requested], has_more: false });
+
+    await syncSubscriptionFromStripe("sub_only", {
+      userId: "hint-user",
+      userEmail: "hint@example.test",
+    });
+
+    expect(goClient.handleStripeCheckoutCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "hint-user", stripeSubscriptionId: "sub_only" }),
+    );
+  });
+});
+
+describe("listCustomerSubscriptions", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("reads every page, continuing after the last id", async () => {
+    const first = subscription({ id: "sub_a" });
+    const second = subscription({ id: "sub_b" });
+    stripeMock.subscriptions.list
+      .mockResolvedValueOnce({ data: [first], has_more: true })
+      .mockResolvedValueOnce({ data: [second], has_more: false });
+
+    const all = await listCustomerSubscriptions("cus_1");
+
+    expect(all.map((candidate) => candidate.id)).toEqual(["sub_a", "sub_b"]);
+    expect(stripeMock.subscriptions.list).toHaveBeenLastCalledWith({
+      customer: "cus_1",
+      status: "all",
+      limit: 100,
+      starting_after: "sub_a",
+    });
   });
 });
 

@@ -15,23 +15,31 @@ import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
 /**
  * Stripe -> Shorted subscription sync.
  *
- * Every webhook delivery, and every reconcile, is reduced to one question: which
- * subscription changed? The answer is re-read from Stripe and Stripe's CURRENT
- * state is written. The event payload is never applied as a diff, so delivery
- * order and retries stop mattering. Applied as they arrived, payloads were wrong
- * in both directions: a retried customer.subscription.updated (active) landing
- * after customer.subscription.deleted re-granted Premium, and a late
- * invoice.payment_failed marked a paying customer past_due.
+ * Every webhook delivery, and every reconcile, is reduced to one question: what
+ * is this customer's state right now? The answer is re-read from Stripe and
+ * Stripe's CURRENT state is written. The event payload is never applied as a
+ * diff, so delivery order and retries stop mattering. Applied as they arrived,
+ * payloads were wrong in both directions: a retried customer.subscription.updated
+ * (active) landing after customer.subscription.deleted re-granted Premium, and a
+ * late invoice.payment_failed marked a paying customer past_due.
+ *
+ * The unit is the CUSTOMER. The backend row is keyed by customer, so one customer
+ * has one answer, and that answer cannot depend on which of its subscriptions an
+ * event named. Every sync lists the customer's subscriptions and writes the best
+ * one: live beats ended (active, then trialing, past_due, unpaid), and within a
+ * rank the newest wins. So an ended subscription's event writes its live sibling,
+ * and an unpaid subscription's event does not demote an active one.
+ *
+ * Identity follows the subscription that is written. A hint (checkout session
+ * metadata, the event's own metadata) describes the subscription the event named,
+ * so it is used only when that subscription is the one that wins. Otherwise an
+ * unrelated sibling's user would be written onto this customer's row.
  *
  * The two writes are safe to run together. The checkout RPC upserts the row by
  * user id, which is what creates it when subscription.created beat
  * checkout.session.completed. It runs only for live subscriptions, so it cannot
  * resurrect a canceled one. The update RPC then always lands the true status and
  * period, keyed by customer.
- *
- * A customer with a live subscription is represented by it, even when the event
- * is about an ended sibling (canceled, then resubscribed). The row is keyed by
- * customer, so writing the ended one would flip a paying customer to canceled.
  */
 
 // Internal auth for the webhook/reconcile -> backend calls. Header names are
@@ -72,6 +80,12 @@ const LIVE_STRIPE_STATUSES: ReadonlySet<string> = new Set([
 export function isLiveStripeStatus(status: string): boolean {
   return LIVE_STRIPE_STATUSES.has(status);
 }
+
+/**
+ * Preference order among live subscriptions. Anything not listed is ended and
+ * ranks after all of these.
+ */
+const LIVE_RANK: readonly string[] = ["active", "trialing", "past_due", "unpaid"];
 
 /** Stripe status -> the enum the backend stores, and the name we report. */
 const STATUS_MAP: Record<string, { proto: SubscriptionStatus; name: string }> = {
@@ -135,6 +149,7 @@ export interface SubscriptionSyncHint {
 }
 
 export interface SubscriptionSyncResult {
+  /** The subscription that was written, which is the customer's best one. */
   subscriptionId: string;
   status: string;
   tier: "premium" | "free";
@@ -142,15 +157,79 @@ export interface SubscriptionSyncResult {
   cancelAtPeriodEnd: boolean;
   /**
    * True when this sync created or linked the Shorted row. False when the
-   * subscription carried no user identity, so only an existing row can be
-   * updated.
+   * written subscription carried no user identity, so only an existing row can
+   * be updated.
    */
   ensuredRow: boolean;
 }
 
 /**
- * Read a subscription from Stripe and write its current state to the backend.
- * Throws when a write fails, so the webhook returns 500 and Stripe retries.
+ * The subscription that represents a customer: the best live one, else the
+ * newest ended one. Live ranks by LIVE_RANK; among equal ranks the newest wins.
+ */
+export function pickBestSubscription(
+  subscriptions: readonly Stripe.Subscription[],
+): Stripe.Subscription | undefined {
+  let best: Stripe.Subscription | undefined;
+  for (const candidate of subscriptions) {
+    if (!best) {
+      best = candidate;
+      continue;
+    }
+    const byRank = rankOf(candidate.status) - rankOf(best.status);
+    if (byRank < 0 || (byRank === 0 && candidate.created > best.created)) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+function rankOf(status: string): number {
+  const index = LIVE_RANK.indexOf(status);
+  return index === -1 ? LIVE_RANK.length : index;
+}
+
+/**
+ * Every subscription a customer has, newest first, read page by page up to a
+ * cap. A customer with a long history still gets its live subscriptions ranked;
+ * past the cap the ranking covers the newest that were read, which is far beyond
+ * any history this business produces.
+ */
+const CUSTOMER_SUBSCRIPTION_CAP = 500;
+
+export async function listCustomerSubscriptions(
+  customerId: string,
+): Promise<Stripe.Subscription[]> {
+  let page = await stripe.subscriptions.list({
+    customer: customerId,
+    status: "all",
+    limit: 100,
+  });
+  const all = [...page.data];
+  while (page.has_more && all.length < CUSTOMER_SUBSCRIPTION_CAP) {
+    const last = all[all.length - 1];
+    if (!last) break;
+    page = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "all",
+      limit: 100,
+      starting_after: last.id,
+    });
+    all.push(...page.data);
+  }
+  if (page.has_more) {
+    console.warn(
+      `[billing-sync] customer has more than ${CUSTOMER_SUBSCRIPTION_CAP} subscriptions; ranking covers the newest ${all.length}`,
+    );
+  }
+  return all;
+}
+
+/**
+ * Sync from a subscription event. The subscription named by the event is read
+ * from Stripe, then the customer's best subscription is written, which may be a
+ * sibling of the one named. Throws when Stripe or the backend fails, so the
+ * webhook returns 500 and Stripe retries.
  */
 export async function syncSubscriptionFromStripe(
   subscriptionId: string,
@@ -162,10 +241,38 @@ export async function syncSubscriptionFromStripe(
     throw new Error(`Stripe subscription ${subscriptionId} has no customer`);
   }
 
-  const subscription = isLiveStripeStatus(requested.status)
-    ? requested
-    : ((await liveSubscriptionFor(customerId)) ?? requested);
+  const siblings = await listCustomerSubscriptions(customerId);
+  const chosen = pickBestSubscription(siblings) ?? requested;
+  // The hint describes the requested subscription. It is used only when that
+  // subscription is the one being written.
+  const identity = chosen.id === requested.id ? hint : {};
+  return writeSubscriptionState(customerId, chosen, identity);
+}
 
+/**
+ * Sync a customer that has no event to name, such as the daily reconcile or an
+ * operator's re-sync. Writes the customer's best subscription, using only that
+ * subscription's own metadata for identity. Returns null when the customer has
+ * no subscriptions, which leaves the row as it is.
+ */
+export async function syncCustomerFromStripe(
+  customerId: string,
+): Promise<SubscriptionSyncResult | null> {
+  const chosen = pickBestSubscription(await listCustomerSubscriptions(customerId));
+  if (!chosen) return null;
+  return writeSubscriptionState(customerId, chosen, {});
+}
+
+/**
+ * Write one subscription's current state to the backend. Step 1 links the row
+ * to the subscription, but only when it is live and carries an identity. Step 2
+ * always writes the status and period.
+ */
+async function writeSubscriptionState(
+  customerId: string,
+  subscription: Stripe.Subscription,
+  hint: SubscriptionSyncHint,
+): Promise<SubscriptionSyncResult> {
   const status = STATUS_MAP[subscription.status] ?? UNKNOWN_STATUS;
   const isDeleted = subscription.status === "canceled";
   const item = subscription.items.data[0];
@@ -231,20 +338,6 @@ export async function syncSubscriptionFromStripe(
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
     ensuredRow,
   };
-}
-
-/**
- * The customer's newest live subscription, if any. Stripe lists newest first.
- */
-async function liveSubscriptionFor(
-  customerId: string,
-): Promise<Stripe.Subscription | null> {
-  const list = await stripe.subscriptions.list({
-    customer: customerId,
-    status: "all",
-    limit: 10,
-  });
-  return list.data.find((candidate) => isLiveStripeStatus(candidate.status)) ?? null;
 }
 
 /**
