@@ -65,12 +65,11 @@ var internalOnlyMethods = func() map[string]bool {
 		}
 	}
 	// The register review console. required_role="admin" in the proto is not
-	// sufficient on its own: the admin role is auto-granted from an email
-	// allowlist below, so a user who reaches that allowlist by any means could
-	// otherwise call these directly. A decision here writes a curated_alias,
-	// which the public gate then lets publish a live company link against a
-	// named politician — so it is gated on the internal secret as well, and the
-	// only caller that holds it is the web tier's own requireAdmin() actions.
+	// sufficient on its own: a user credential that carries the admin role could
+	// otherwise call these directly. A decision here writes a curated_alias, which
+	// the public gate then lets publish a live company link against a named
+	// politician — so it is gated on the internal secret as well, and the only
+	// caller that holds it is the web tier's own requireAdmin() actions.
 	for _, method := range []string{
 		"ListSecurityQueue", "SearchListings", "DecideSecurityCandidate",
 		"UndoSecurityDecision", "GetCoverageStats",
@@ -79,6 +78,20 @@ var internalOnlyMethods = func() map[string]bool {
 	}
 	return m
 }()
+
+// adminEmails is the one allowlist of accounts that may hold the "admin" role on
+// the Connect API. Only the Firebase ID-token path reads it, and only for a token
+// Firebase reports as email-verified (see rolesForFirebaseClaims). MintToken keeps
+// no list of its own: it trusts the role the interceptor granted.
+//
+// e2e-test@shorted.com.au is deliberately absent. No automated test calls an admin
+// RPC as that account: the web E2E suite reaches admin pages through the web tier,
+// which asserts the role itself. An e2e account holding admin on the production API
+// is the exposure this list should not carry.
+var adminEmails = []string{
+	"ben.ebsworth@gmail.com",
+	"ben@shorted.com.au",
+}
 
 // SubscriptionLookup is a function that looks up a user's subscription tier by user ID.
 // Returns the tier (e.g., "free", "pro", "enterprise") or empty string if not found.
@@ -202,23 +215,12 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 						}
 					}
 
-					// Auto-grant admin to specific emails
-					adminEmails := []string{
-						"e2e-test@shorted.com.au",
-						"ben.ebsworth@gmail.com",
-						"ben@shorted.com.au",
-					}
-					isAdmin := false
-					for _, adminEmail := range adminEmails {
-						if userEmail == adminEmail {
-							if !hasRoleInList(roles, "admin") {
-								roles = append(roles, "admin")
-							}
-							isAdmin = true
-							break
-						}
-					}
-
+					// Roles come from x-user-roles and nowhere else. This is the only way an
+					// internal caller obtains "admin": the web tier asserts it after its own
+					// verified-admin check (requireAdmin / isAdmin), and the shared
+					// INTERNAL_SERVICE_SECRET is what makes that header trustworthy. Deriving
+					// admin from x-user-email would not be: that header carries the address
+					// alone, not whether the address was verified.
 					normalizedClaims := &Claims{
 						UserID: userID,
 						Email:  userEmail,
@@ -234,7 +236,7 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 							otelmetric.WithAttributes(attribute.String("method", "internal")),
 						)
 					}
-					log.Debugf("Internal auth: user=%s, roles=%v, tier=%s, isAdmin=%v", userEmail, roles, normalizedClaims.Tier, isAdmin)
+					log.Debugf("Internal auth: user=%s, roles=%v, tier=%s", userEmail, roles, normalizedClaims.Tier)
 					ctx = context.WithValue(ctx, userKey, normalizedClaims)
 
 					// Check role requirement
@@ -334,37 +336,14 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 				if authErr == nil {
 					fbToken, verifyErr := firebaseClient.VerifyIDToken(ctx, tokenString)
 					if verifyErr == nil {
-						// Token is a valid Firebase ID token
-						// Start with api-user role for all authenticated users
-						roles := []string{"api-user"}
+						// Token is a valid Firebase ID token. Roles, including admin, come from
+						// rolesForFirebaseClaims so the verified-email rule is tested without a live
+						// Firebase token.
+						roles := rolesForFirebaseClaims(fbToken.Claims)
 
-						// Check for custom roles from Firebase claims
-						if r, ok := fbToken.Claims["roles"].([]interface{}); ok {
-							for _, role := range r {
-								if rs, ok := role.(string); ok {
-									if rs != "api-user" { // Don't duplicate api-user
-										roles = append(roles, rs)
-									}
-								}
-							}
-						}
-
-						// Auto-grant admin to specific emails
 						email := ""
 						if e, ok := fbToken.Claims["email"].(string); ok {
 							email = e
-							adminEmails := []string{
-								"ben.ebsworth@gmail.com",
-								"ben@shorted.com.au",
-								"e2e-test@shorted.com.au",
-							}
-							for _, adminEmail := range adminEmails {
-								if email == adminEmail && !hasRoleInList(roles, "admin") {
-									roles = append(roles, "admin")
-									log.Infof("Auto-granted admin role to %s", email)
-									break
-								}
-							}
 						}
 
 						normalizedClaims := &Claims{
@@ -437,6 +416,51 @@ func hasRole(claims *Claims, role string) bool {
 func hasRoleInList(roles []string, role string) bool {
 	for _, r := range roles {
 		if r == role {
+			return true
+		}
+	}
+	return false
+}
+
+// rolesForFirebaseClaims returns the roles a verified Firebase ID token holds.
+// Every authenticated user gets api-user, and the custom "roles" claim is carried
+// over. Firebase sets that claim server-side, so a user cannot write it. admin is
+// added only when the email is on adminEmails AND Firebase reports it verified.
+//
+// The verified check is the point. Email/password sign-up accepts any address
+// without proof of ownership, so an unverified account registered under an admin's
+// address before that admin signs up would otherwise inherit admin on this API and
+// could mint a 30-day admin token. The web tier's admin-check applies the same rule
+// to a uid.
+func rolesForFirebaseClaims(claims map[string]interface{}) []string {
+	roles := []string{"api-user"}
+	if r, ok := claims["roles"].([]interface{}); ok {
+		for _, role := range r {
+			if rs, ok := role.(string); ok && rs != "api-user" {
+				roles = append(roles, rs)
+			}
+		}
+	}
+
+	email, _ := claims["email"].(string)
+	// A string "true" is not verified: only Firebase's boolean claim counts.
+	verified, _ := claims["email_verified"].(bool)
+	if verified && isAdminEmail(email) && !hasRoleInList(roles, "admin") {
+		roles = append(roles, "admin")
+		log.Infof("Granted admin role to verified account %s", email)
+	}
+	return roles
+}
+
+// isAdminEmail reports whether email is on adminEmails. Case and surrounding space
+// are ignored, matching the web tier's isAdminEmail.
+func isAdminEmail(email string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(email))
+	if normalized == "" {
+		return false
+	}
+	for _, adminEmail := range adminEmails {
+		if normalized == adminEmail {
 			return true
 		}
 	}

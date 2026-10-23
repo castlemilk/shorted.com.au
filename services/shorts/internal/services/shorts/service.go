@@ -439,48 +439,34 @@ func (s *ShortsServer) MintToken(ctx context.Context, req *connect.Request[short
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("user not authenticated"))
 	}
 
-	// Check subscription status
-	subscription, err := s.store.GetAPISubscription(userClaims.UserID)
-	if err != nil {
-		s.logger.Errorf("failed to check subscription for %s: %v", userClaims.Email, err)
-		// Continue with free tier if DB check fails
-	}
+	// The interceptor resolved this caller's tier on this request through the one
+	// entitlement rule every RPC uses (internal grants, then the subscription store),
+	// so it is not looked up again here. Every path that reaches this RPC makes that
+	// lookup. If the lookup failed, the tier is whatever the credential carried: empty
+	// for Firebase, internal and service-account callers, which is denied below, or the
+	// tier an API token was minted with.
+	tier := userClaims.Tier
+	paid := tier != "" && tier != "free"
 
-	// Determine subscription tier
-	tier := "free"
-	if subscription != nil && (subscription.Status == "active" || subscription.Status == "trialing") {
-		tier = subscription.Tier
-	}
-
-	// Admin emails can always mint tokens (for testing/development)
-	adminEmails := []string{
-		"ben.ebsworth@gmail.com",
-		"ben@shorted.com.au",
-		"e2e-test@shorted.com.au",
-	}
-
-	isAdmin := false
-	for _, adminEmail := range adminEmails {
-		if userClaims.Email == adminEmail {
-			isAdmin = true
-			break
-		}
-	}
+	// Admin is the role the interceptor granted: a verified Firebase email on the
+	// admin allowlist, or the role the web tier asserted for an internal call. The
+	// email is not consulted here, so an address alone grants nothing.
+	isAdmin := hasRole(userClaims, "admin")
 
 	// Non-admin users without active subscription cannot mint tokens
-	if !isAdmin && tier == "free" {
+	if !isAdmin && !paid {
 		s.logger.Warnf("User %s attempted to mint token without active subscription", userClaims.Email)
 		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("active subscription required to generate API tokens"))
 	}
 
 	// Determine roles for the API token
 	// All authenticated users get "api-user" role (can access public APIs)
-	// Specific emails get "admin" role (can access admin endpoints)
+	// Admins also get "admin" role (can access admin endpoints)
 	roles := []string{"api-user"}
 	if isAdmin {
 		roles = append(roles, "admin")
 		// Admins get pro tier by default if they don't have a subscription
-		if tier == "free" {
+		if !paid {
 			tier = "pro"
 		}
 	}
