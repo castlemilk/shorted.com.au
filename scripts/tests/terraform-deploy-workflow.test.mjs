@@ -368,3 +368,22 @@ test("a failed push is a warning that names the image, after every other image i
   assert.match(readFileSync(logPath, "utf8"), /docker push -q registry\.example\/shorted\/take-writer:latest/);
   rmSync(logPath, { force: true });
 });
+
+// 2026-10-23: PR plans shared main's tfstate-<env> concurrency group. A group
+// keeps one pending job and a newer pending job cancels it, so every PR push
+// during a main deploy cancelled main's pending plan and, with it,
+// terraform-apply. Main shipped Vercel only and the API stayed on an old build.
+test("a pull request plan cannot cancel or block main's plan and apply", () => {
+  const jobs = parse(workflowSource).jobs;
+  const planGroup = jobs["terraform-plan"].concurrency.group;
+  const applyGroup = jobs["terraform-apply"].concurrency.group;
+
+  assert.match(planGroup, /github\.event_name == 'pull_request'/);
+  assert.match(planGroup, /tfplan-pr-\{0\}', github\.event\.pull_request\.number/);
+  assert.match(planGroup, /format\('tfstate-\{0\}', needs\.determine-environment\.outputs\.environment\)/);
+  assert.equal(jobs["terraform-plan"].concurrency["cancel-in-progress"], false);
+  assert.match(applyGroup, /^tfstate-\$\{\{ needs\.determine-environment\.outputs\.environment \}\}$/);
+
+  const planRun = jobs["terraform-plan"].steps.find((s) => s.id === "plan").run;
+  assert.match(planRun, /-lock=\$\{\{ github\.event_name == 'pull_request' && 'false' \|\| 'true' \}\}/);
+});
