@@ -37,9 +37,12 @@ import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
  *
  * The two writes are safe to run together. The checkout RPC upserts the row by
  * user id, which is what creates it when subscription.created beat
- * checkout.session.completed. It runs only for live subscriptions, so it cannot
- * resurrect a canceled one. The update RPC then always lands the true status and
- * period, keyed by customer.
+ * checkout.session.completed, and it also repoints that user's row to the
+ * customer it is given. So it runs only for an active or trialing subscription.
+ * A past_due or unpaid subscription on a second customer that carries the same
+ * user id would otherwise move a paying user's row onto a customer that is not
+ * paying. The update RPC then always lands the true status and period, keyed by
+ * customer, and it changes only a row that already belongs to that customer.
  */
 
 // Internal auth for the webhook/reconcile -> backend calls. Header names are
@@ -79,6 +82,20 @@ const LIVE_STRIPE_STATUSES: ReadonlySet<string> = new Set([
 
 export function isLiveStripeStatus(status: string): boolean {
   return LIVE_STRIPE_STATUSES.has(status);
+}
+
+/**
+ * Stripe statuses that entitle the customer. Only these may create a Shorted row
+ * or repoint one to a customer (step 1 of a sync). A past_due or unpaid
+ * subscription still writes its state by customer, but it never claims a user.
+ */
+const ENTITLING_STRIPE_STATUSES: ReadonlySet<string> = new Set([
+  "active",
+  "trialing",
+]);
+
+export function isEntitlingStripeStatus(status: string): boolean {
+  return ENTITLING_STRIPE_STATUSES.has(status);
 }
 
 /**
@@ -157,8 +174,8 @@ export interface SubscriptionSyncResult {
   cancelAtPeriodEnd: boolean;
   /**
    * True when this sync created or linked the Shorted row. False when the
-   * written subscription carried no user identity, so only an existing row can
-   * be updated.
+   * written subscription is not entitling (past_due, unpaid, ended) or carries
+   * no user identity, so only an existing row for its customer is updated.
    */
   ensuredRow: boolean;
 }
@@ -265,8 +282,8 @@ export async function syncCustomerFromStripe(
 
 /**
  * Write one subscription's current state to the backend. Step 1 links the row
- * to the subscription, but only when it is live and carries an identity. Step 2
- * always writes the status and period.
+ * to the subscription, but only when it is entitling (active or trialing) and
+ * carries an identity. Step 2 always writes the status and period, by customer.
  */
 async function writeSubscriptionState(
   customerId: string,
@@ -287,10 +304,11 @@ async function writeSubscriptionState(
     );
   }
 
-  // Step 1: create or link the Shorted row. Live only, so a canceled
-  // subscription is never written back to active here.
+  // Step 1: create or link the Shorted row. Entitling only, so a past_due or
+  // unpaid subscription can never create or repoint a row, and a canceled one is
+  // never written back to active here.
   let ensuredRow = false;
-  if (isLiveStripeStatus(subscription.status) && userId && userEmail) {
+  if (isEntitlingStripeStatus(subscription.status) && userId && userEmail) {
     await retryWithBackoff(
       async () => {
         return await client.handleStripeCheckoutCompleted({

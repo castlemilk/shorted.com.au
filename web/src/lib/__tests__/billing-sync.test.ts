@@ -153,19 +153,31 @@ describe("syncSubscriptionFromStripe", () => {
     });
   });
 
-  it.each([
-    ["trialing", PROTO.TRIALING, "trialing"],
-    ["past_due", PROTO.PAST_DUE, "past_due"],
-    ["unpaid", PROTO.PAST_DUE, "past_due"],
-  ])("maps %s to a live status and ensures the row", async (stripeStatus, proto, name) => {
-    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: stripeStatus }));
+  it("maps trialing to a live status and ensures the row", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: "trialing" }));
 
     const result = await syncSubscriptionFromStripe("sub_1");
 
     expect(goClient.handleStripeCheckoutCompleted).toHaveBeenCalledTimes(1);
-    expect(lastUpdate()).toMatchObject({ status: proto, isDeleted: false });
-    expect(result.status).toBe(name);
-    expect(result.ensuredRow).toBe(true);
+    expect(lastUpdate()).toMatchObject({ status: PROTO.TRIALING, isDeleted: false });
+    expect(result).toMatchObject({ status: "trialing", ensuredRow: true });
+  });
+
+  it.each([
+    ["past_due", PROTO.PAST_DUE],
+    ["unpaid", PROTO.PAST_DUE],
+  ])("writes %s by customer and never links a row to it", async (stripeStatus, proto) => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: stripeStatus }));
+
+    const result = await syncSubscriptionFromStripe("sub_1");
+
+    expect(goClient.handleStripeCheckoutCompleted).not.toHaveBeenCalled();
+    expect(lastUpdate()).toMatchObject({
+      stripeCustomerId: "cus_1",
+      status: proto,
+      isDeleted: false,
+    });
+    expect(result).toMatchObject({ ensuredRow: false });
   });
 
   it.each(["incomplete", "incomplete_expired", "paused"])(
@@ -445,6 +457,102 @@ describe("customer-level resolution", () => {
     await expect(syncCustomerFromStripe("cus_1")).resolves.toBeNull();
     expect(goClient.handleStripeSubscriptionUpdated).not.toHaveBeenCalled();
     expect(goClient.handleStripeCheckoutCompleted).not.toHaveBeenCalled();
+  });
+});
+
+describe("a past_due or unpaid subscription never claims a user", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...originalEnv, STRIPE_PREMIUM_PRICE_ID: "price_premium" };
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  // The same user pays on C1 and also has an old unpaid subscription on C2 that
+  // carries the same metadata.userId. The Go upsert repoints a user's row to the
+  // customer it is given, so an entitling write for C2 would move the paying row.
+  const ACTIVE_ON_C1 = subscription({
+    id: "sub_c1_active",
+    customer: "cus_c1",
+    status: "active",
+    created: 300,
+    metadata: { userId: "user-1", userEmail: "buyer@example.test" },
+  });
+  const UNPAID_ON_C2 = subscription({
+    id: "sub_c2_unpaid",
+    customer: "cus_c2",
+    status: "unpaid",
+    created: 100,
+    metadata: { userId: "user-1", userEmail: "buyer@example.test" },
+  });
+
+  function listsBothCustomers() {
+    stripeMock.subscriptions.list.mockImplementation(async (params: { customer?: string }) => ({
+      data: [ACTIVE_ON_C1, UNPAID_ON_C2].filter((candidate) => candidate.customer === params.customer),
+      has_more: false,
+    }));
+    stripeMock.subscriptions.retrieve.mockImplementation(async (id: string) =>
+      [ACTIVE_ON_C1, UNPAID_ON_C2].find((candidate) => candidate.id === id),
+    );
+  }
+
+  it("runs no step 1 for C2 when a sync of C2's unpaid subscription arrives, and only its by-customer step 2", async () => {
+    listsBothCustomers();
+
+    const result = await syncSubscriptionFromStripe("sub_c2_unpaid");
+
+    expect(goClient.handleStripeCheckoutCompleted).not.toHaveBeenCalled();
+    expect(goClient.handleStripeSubscriptionUpdated).toHaveBeenCalledTimes(1);
+    expect(lastUpdate()).toMatchObject({
+      stripeCustomerId: "cus_c2",
+      stripeSubscriptionId: "sub_c2_unpaid",
+      status: PROTO.PAST_DUE,
+    });
+    expect(result).toMatchObject({ ensuredRow: false });
+  });
+
+  it("keeps the user on C1 in either sync order, because C2 never repoints the row", async () => {
+    listsBothCustomers();
+
+    await syncCustomerFromStripe("cus_c2");
+    await syncCustomerFromStripe("cus_c1");
+    await syncCustomerFromStripe("cus_c2");
+
+    const linked = goClient.handleStripeCheckoutCompleted.mock.calls.map(
+      (call) => call[0] as { stripeCustomerId: string; userId: string },
+    );
+    expect(linked).toEqual([
+      expect.objectContaining({ stripeCustomerId: "cus_c1", userId: "user-1" }),
+    ]);
+    // The last by-customer write for C2 is past_due, and it touches only C2's row.
+    const writes = goClient.handleStripeSubscriptionUpdated.mock.calls.map(
+      (call) => call[0] as { stripeCustomerId: string; status: number },
+    );
+    expect(writes.filter((write) => write.stripeCustomerId === "cus_c2")).toEqual([
+      expect.objectContaining({ status: PROTO.PAST_DUE }),
+      expect.objectContaining({ status: PROTO.PAST_DUE }),
+    ]);
+  });
+
+  it("does not link a row from a past_due event that names a subscription with the user's metadata", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(
+      subscription({
+        id: "sub_only",
+        customer: "cus_only",
+        status: "past_due",
+        metadata: { userId: "user-1", userEmail: "buyer@example.test" },
+      }),
+    );
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [], has_more: false });
+
+    await syncSubscriptionFromStripe("sub_only");
+
+    expect(goClient.handleStripeCheckoutCompleted).not.toHaveBeenCalled();
+    expect(goClient.handleStripeSubscriptionUpdated).toHaveBeenCalledTimes(1);
   });
 });
 
