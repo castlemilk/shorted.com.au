@@ -239,8 +239,10 @@ func TestMirrorStatusMapsTheWebhooksOwnVocabulary(t *testing.T) {
 
 func TestBillingExceptionsSweepsEveryKindOnce(t *testing.T) {
 	now := billingNow
-	periodEnded := now.Add(-2 * 24 * time.Hour)
-	withinGrace := now.Add(-time.Hour)
+	// The grace is the product's own (periodEndGrace), so the fixtures sit either
+	// side of it rather than at a copied number.
+	periodEnded := now.Add(-(periodEndGrace + 24*time.Hour))
+	withinGrace := now.Add(-periodEndGrace / 2)
 	// liveWith is the live Stripe list for the rows, each at the given status.
 	liveWith := func(status string, rows ...shortsstore.BillingSubscription) []webAliveSubscription {
 		var out []webAliveSubscription
@@ -266,7 +268,7 @@ func TestBillingExceptionsSweepsEveryKindOnce(t *testing.T) {
 			rowsOf:  []string{kindPastDue},
 		},
 		{
-			name:    "period ended more than 24 hours ago",
+			name:    "period ended beyond the grace",
 			rows:    []shortsstore.BillingSubscription{billingRow(billingNow, "uid-a", "a@example.com", "active", withPeriodEnd(&periodEnded))},
 			aliveOK: true,
 			rowsOf:  []string{kindPeriodEnded},

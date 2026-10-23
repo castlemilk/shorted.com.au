@@ -14,6 +14,7 @@ package shorts
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -322,7 +323,7 @@ func billingExceptions(in exceptionInput) exceptionResult {
 			add(kindPastDue, r.UserEmail, r.UserID, "payment failed; the row is past_due and grants no paid access")
 		}
 		if v.Reason == "period_ended" {
-			add(kindPeriodEnded, r.UserEmail, r.UserID, "the row is "+r.Status+" but its period ended more than 24 hours ago; Stripe has not renewed it on this row")
+			add(kindPeriodEnded, r.UserEmail, r.UserID, "the row is "+r.Status+" but its period ended more than "+strconv.Itoa(int(periodEndGrace.Hours()))+" hours ago; Stripe has not renewed it on this row")
 		}
 		if v.Reason == "unpaid_tier" {
 			add(kindUnpaidTier, r.UserEmail, r.UserID, "the row is "+r.Status+" on tier "+r.Tier+", which carries no paid features")

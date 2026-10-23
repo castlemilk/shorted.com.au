@@ -349,7 +349,7 @@ func TestCheckSubscriptionWithoutTheMirrorIsUnknownUnlessGranted(t *testing.T) {
 // shown as ended here, whatever the status says.
 func TestCheckSubscriptionReportsTheProductsVerdict(t *testing.T) {
 	f := billingHealthyFixture()
-	ended := billingClock().Add(-3 * 24 * time.Hour)
+	ended := billingClock().Add(-(periodEndGrace + 24*time.Hour))
 	f.store.rows[0].CurrentPeriodEnd = billingRFC(ended)
 	f.web.customers["email:ada@example.com"] = billingAdaCustomer(ended)
 	f.web.customers["id:cus_A"] = billingAdaCustomer(ended)
@@ -608,7 +608,7 @@ func TestBillingStoreComesOnlyFromPostgres(t *testing.T) {
 func TestPayingRowCarriesTheProductsVerdict(t *testing.T) {
 	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
 	end := now.Add(10 * 24 * time.Hour)
-	ended := now.Add(-3 * 24 * time.Hour)
+	ended := now.Add(-(periodEndGrace + 24*time.Hour))
 	cases := []struct {
 		name   string
 		row    shortsstore.AdminSubscription
