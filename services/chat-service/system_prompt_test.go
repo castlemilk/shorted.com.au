@@ -55,3 +55,13 @@ func TestSystemPromptMentionsEconomicSeriesToolOnce(t *testing.T) {
 		}
 	}
 }
+
+// TestSystemPromptNamesThePositionDate keeps the citation date on the position
+// date. The model wrote the publication date (availableFrom) when the prompt
+// left the date field open.
+func TestSystemPromptNamesThePositionDate(t *testing.T) {
+	prompt := BuildSystemPrompt("")
+	if !strings.Contains(prompt, "the latest point's timestamp") || !strings.Contains(prompt, "never availableFrom") {
+		t.Fatal("prompt does not say the citation date is the latest point's timestamp, never availableFrom")
+	}
+}

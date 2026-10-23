@@ -37,7 +37,10 @@ package main
 // The stated figure is the first percentage in the reply (short-position
 // questions) or the first ASX-style ticker (most-shorted questions); a company
 // name or an industry is correct when the reply contains the ground-truth text.
-// A short-position figure is correct within 0.05 percentage points. A ticker
+// A short-position figure is correct within 0.05 percentage points. Every date a
+// short-position reply states must be the position date, the latest point's
+// timestamp; a reply that states the publication date (availableFrom) is counted
+// in datesWrong, though its figure grade does not change. A ticker
 // must match exactly. Non-data runs pass when the reply is non-empty; a tool call
 // on them is recorded but is not a failure. A reply that states 4.2% for a stock
 // whose ground truth is not 4.2% counts as a prompt-example echo, the defect the
@@ -134,11 +137,14 @@ const evalResultBytes = 400
 
 // evalTruth is the ground truth, fetched from the public API before any turn runs.
 type evalTruth struct {
-	ShortPct    map[string]float64 `json:"shortPct"`
-	TopCode     string             `json:"topCode"`
-	TopPct      float64            `json:"topPct"`
-	CompanyName map[string]string  `json:"companyName"`
-	Industry    map[string]string  `json:"industry"`
+	ShortPct map[string]float64 `json:"shortPct"`
+	// ShortDate is the position date of each ShortPct figure: the latest point's
+	// timestamp as YYYY-MM-DD. It is not availableFrom, the publication date.
+	ShortDate   map[string]string `json:"shortDate"`
+	TopCode     string            `json:"topCode"`
+	TopPct      float64           `json:"topPct"`
+	CompanyName map[string]string `json:"companyName"`
+	Industry    map[string]string `json:"industry"`
 }
 
 const evalUserAgent = "shorted-chat-eval/1.0 (+https://shorted.com.au)"
@@ -192,7 +198,7 @@ func (a *evalAPI) call(ctx context.Context, method string, body map[string]any, 
 // most-shorted name from GetTopShorts in summary mode; names and industries from
 // GetStockDetails.
 func fetchEvalTruth(ctx context.Context, api *evalAPI, qs []evalQuestion) (*evalTruth, error) {
-	truth := &evalTruth{ShortPct: map[string]float64{}, CompanyName: map[string]string{}, Industry: map[string]string{}}
+	truth := &evalTruth{ShortPct: map[string]float64{}, ShortDate: map[string]string{}, CompanyName: map[string]string{}, Industry: map[string]string{}}
 	needTop, needPct, needDetails := false, map[string]bool{}, map[string]bool{}
 	for _, q := range qs {
 		switch q.Kind {
@@ -207,7 +213,8 @@ func fetchEvalTruth(ctx context.Context, api *evalAPI, qs []evalQuestion) (*eval
 
 	for _, code := range sortedKeys(needPct) {
 		var resp struct {
-			LatestShortPosition *float64 `json:"latestShortPosition"`
+			LatestShortPosition *float64    `json:"latestShortPosition"`
+			Points              []evalPoint `json:"points"`
 		}
 		if err := api.call(ctx, "GetStockData", map[string]any{"productCode": code, "maxPoints": 40}, &resp); err != nil {
 			return nil, err
@@ -215,7 +222,12 @@ func fetchEvalTruth(ctx context.Context, api *evalAPI, qs []evalQuestion) (*eval
 		if resp.LatestShortPosition == nil {
 			return nil, fmt.Errorf("GetStockData %s: no latestShortPosition", code)
 		}
+		date, err := evalPositionDate(resp.Points)
+		if err != nil {
+			return nil, fmt.Errorf("GetStockData %s: %w", code, err)
+		}
 		truth.ShortPct[code] = *resp.LatestShortPosition
+		truth.ShortDate[code] = date
 	}
 
 	if needTop {
@@ -289,6 +301,11 @@ type evalRun struct {
 	Correct bool `json:"correct"`
 	// Answered: a non-empty reply came back without error.
 	Answered bool `json:"answered"`
+	// DatesStated are the calendar dates a short-position reply states (see evalStatedDates).
+	DatesStated []string `json:"datesStated,omitempty"`
+	// DateWrong: a date the reply states is not the position date, the newest point's
+	// timestamp. The figure can still be right. The publication date is the usual error.
+	DateWrong bool `json:"dateWrong"`
 	// PromptExampleEchoed: the reply states 4.2% from the system prompt's example.
 	PromptExampleEchoed bool   `json:"promptExampleEchoed"`
 	FirstTextMs         int64  `json:"firstTextMs"`
@@ -389,6 +406,83 @@ func firstEvalTicker(reply string) (string, bool) {
 	return "", false
 }
 
+// evalPoint is the part of a short-position point the eval reads.
+type evalPoint struct {
+	Timestamp string `json:"timestamp"`
+}
+
+// evalPositionDate is the date of the newest point, as YYYY-MM-DD, kept as the
+// API wrote it. Points come oldest first, but the newest is taken by time.
+func evalPositionDate(points []evalPoint) (string, error) {
+	var latest time.Time
+	for _, p := range points {
+		at, err := time.Parse(time.RFC3339Nano, p.Timestamp)
+		if err != nil {
+			return "", fmt.Errorf("point timestamp %q: %w", p.Timestamp, err)
+		}
+		if at.After(latest) {
+			latest = at
+		}
+	}
+	if latest.IsZero() {
+		return "", fmt.Errorf("no dated points")
+	}
+	return latest.Format(time.DateOnly), nil
+}
+
+// evalMonthNames is the alternation of month names a reply may write in full or
+// as the usual three-letter abbreviation.
+const evalMonthNames = `January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec`
+
+var (
+	evalISODateRE      = regexp.MustCompile(`\b(\d{4})-(\d{2})-(\d{2})\b`)
+	evalDayMonthYearRE = regexp.MustCompile(`(?i)\b(\d{1,2})(?:st|nd|rd|th)?\s+(` + evalMonthNames + `)\.?,?\s+(\d{4})\b`)
+	evalMonthDayYearRE = regexp.MustCompile(`(?i)\b(` + evalMonthNames + `)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b`)
+	evalSlashDateRE    = regexp.MustCompile(`\b(\d{1,2})/(\d{1,2})/(\d{4})\b`)
+)
+
+// evalMonthNumbers maps a lower-case three-letter month to its number.
+var evalMonthNumbers = map[string]int{
+	"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+	"jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+// evalStatedDates returns each calendar date a reply states, as YYYY-MM-DD, in no
+// particular order. A day and month without a year is not a date here, and a day
+// that does not exist, such as 31 June, is not one either.
+func evalStatedDates(reply string) []string {
+	var dates []string
+	add := func(year, month, day int) {
+		d := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		// time.Date rolls an impossible day into the next month, so the parts
+		// must come back unchanged for the date to count.
+		if d.Year() == year && int(d.Month()) == month && d.Day() == day {
+			dates = append(dates, d.Format(time.DateOnly))
+		}
+	}
+	number := func(s string) int {
+		n, _ := strconv.Atoi(s)
+		return n
+	}
+	month := func(name string) int {
+		return evalMonthNumbers[strings.ToLower(name[:3])]
+	}
+	for _, m := range evalISODateRE.FindAllStringSubmatch(reply, -1) {
+		add(number(m[1]), number(m[2]), number(m[3]))
+	}
+	for _, m := range evalDayMonthYearRE.FindAllStringSubmatch(reply, -1) {
+		add(number(m[3]), month(m[2]), number(m[1]))
+	}
+	for _, m := range evalMonthDayYearRE.FindAllStringSubmatch(reply, -1) {
+		add(number(m[3]), month(m[1]), number(m[2]))
+	}
+	// Australian order: day, then month.
+	for _, m := range evalSlashDateRE.FindAllStringSubmatch(reply, -1) {
+		add(number(m[3]), number(m[2]), number(m[1]))
+	}
+	return dates
+}
+
 // scoreEvalRun grades one turn against the ground truth.
 func scoreEvalRun(q evalQuestion, truth *evalTruth, turn evalTurn, run *evalRun) {
 	for _, tc := range turn.toolCalls {
@@ -432,6 +526,17 @@ func scoreEvalRun(q evalQuestion, truth *evalTruth, turn evalTurn, run *evalRun)
 		if math.Abs(want-4.2) > 0.05 {
 			run.PromptExampleEchoed = evalEchoRE.MatchString(turn.reply)
 		}
+		// Every date the reply states must be the position date. The figure can be
+		// right while the date is the publication date (availableFrom), which the
+		// figure check does not see.
+		if date := truth.ShortDate[q.Code]; date != "" {
+			run.DatesStated = evalStatedDates(turn.reply)
+			for _, stated := range run.DatesStated {
+				if stated != date {
+					run.DateWrong = true
+				}
+			}
+		}
 	case evalTopCode:
 		run.Truth = truth.TopCode
 		if code, ok := firstEvalTicker(turn.reply); ok {
@@ -466,6 +571,8 @@ type evalSummary struct {
 	CorrectWithoutTool    int                         `json:"correctWithoutTool"`
 	ExpectedToolAnswers   int                         `json:"expectedToolAnswers"`
 	PromptExampleEchoes   int                         `json:"promptExampleEchoes"`
+	DatesStated           int                         `json:"datesStated"`
+	DatesWrong            int                         `json:"datesWrong"`
 	NonDataRuns           int                         `json:"nonDataRuns"`
 	NonDataOK             int                         `json:"nonDataOK"`
 	NonDataToolCalls      int                         `json:"nonDataToolCalls"`
@@ -537,6 +644,12 @@ func summarizeEvalRuns(runs []evalRun) evalSummary {
 		}
 		if r.PromptExampleEchoed {
 			s.PromptExampleEchoes++
+		}
+		if len(r.DatesStated) > 0 {
+			s.DatesStated++
+		}
+		if r.DateWrong {
+			s.DatesWrong++
 		}
 	}
 	if s.DataAnswered > 0 {
@@ -666,6 +779,7 @@ func TestChatGroundingEval(t *testing.T) {
 	t.Logf("SUMMARY grounded=%d/%d (%.1f%%) correct=%d/%d (%.1f%%) correctWithoutTool=%d expectedToolAnswers=%d",
 		s.Grounded, s.DataAnswered, 100*s.GroundedRate, s.Correct, s.DataAnswered, 100*s.CorrectRate, s.CorrectWithoutTool, s.ExpectedToolAnswers)
 	t.Logf("SUMMARY promptExampleEchoes=%d nonDataOK=%d/%d nonDataToolCalls=%d", s.PromptExampleEchoes, s.NonDataOK, s.NonDataRuns, s.NonDataToolCalls)
+	t.Logf("SUMMARY datesStated=%d datesWrong=%d (a wrong date is one that is not the latest point's timestamp)", s.DatesStated, s.DatesWrong)
 	t.Logf("SUMMARY medianFirstTextMs=%d (data %d) medianTotalMs=%d", s.MedianFirstTextMs, s.MedianFirstTextMsData, s.MedianTotalMs)
 	kinds := make([]string, 0, len(s.ByKind))
 	for k := range s.ByKind {

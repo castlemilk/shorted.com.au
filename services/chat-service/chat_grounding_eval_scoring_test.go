@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"testing"
 
 	chatv1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/chat/v1"
@@ -209,5 +210,75 @@ func TestTruncateEvalTextKeepsRunes(t *testing.T) {
 	}
 	if got := truncateEvalText("abcdef", 3); got != "abc...(truncated)" {
 		t.Errorf("truncate = %q", got)
+	}
+}
+
+func TestEvalStatedDatesReadsTheDateForms(t *testing.T) {
+	cases := []struct {
+		reply string
+		want  []string
+	}{
+		{"BHP is 1.61% shorted as of 2026-10-19.", []string{"2026-10-19"}},
+		{"BHP is 1.61% shorted as of 19 October 2026", []string{"2026-10-19"}},
+		{"BHP is 1.61% shorted as of October 19, 2026", []string{"2026-10-19"}},
+		{"as of 19th Oct 2026", []string{"2026-10-19"}},
+		{"as of 3 Sept. 2026", []string{"2026-09-03"}},
+		{"as of 19/10/2026", []string{"2026-10-19"}},
+		{"as of 19 October with no year", nil},
+		{"T+4 delay, 1.61% as of 2026-13-45", nil},
+		{"published on 31 June 2026", nil},
+		{"no date at all, just 1.61% and T+4", nil},
+	}
+	for _, c := range cases {
+		if got := evalStatedDates(c.reply); !slices.Equal(got, c.want) {
+			t.Errorf("evalStatedDates(%q) = %v, want %v", c.reply, got, c.want)
+		}
+	}
+}
+
+func TestEvalPositionDateTakesTheNewestPoint(t *testing.T) {
+	points := []evalPoint{
+		{Timestamp: "2026-10-12T00:00:00Z"},
+		{Timestamp: "2026-10-19T00:00:00Z"},
+		{Timestamp: "2026-10-16T00:00:00Z"},
+	}
+	if got, err := evalPositionDate(points); err != nil || got != "2026-10-19" {
+		t.Errorf("evalPositionDate = %q, %v; want 2026-10-19", got, err)
+	}
+	if _, err := evalPositionDate(nil); err == nil {
+		t.Error("evalPositionDate with no points should fail, not return a date")
+	}
+	if _, err := evalPositionDate([]evalPoint{{Timestamp: "19/10/2026"}}); err == nil {
+		t.Error("evalPositionDate should reject a timestamp it cannot parse")
+	}
+}
+
+func TestEvalFlagsAStatedDateThatIsNotThePositionDate(t *testing.T) {
+	truth := &evalTruth{
+		ShortPct:  map[string]float64{"BHP": 1.61},
+		ShortDate: map[string]string{"BHP": "2026-10-19"},
+	}
+	q := evalQuestion{ID: "bhp", Kind: evalShortPct, Code: "BHP"}
+
+	// The figure is right; the date is the publication date, availableFrom.
+	if run := scoreOne(t, q, truth, "BHP is 1.61% shorted as of October 23, 2026", "query_short_positions"); !run.Correct || !run.DateWrong {
+		t.Errorf("right figure with the publication date should be correct and date-wrong: %+v", run)
+	}
+	if run := scoreOne(t, q, truth, "BHP is 1.61% shorted as of 19 October 2026", "query_short_positions"); !run.Correct || run.DateWrong || len(run.DatesStated) != 1 {
+		t.Errorf("right figure with the position date should be correct and date-right: %+v", run)
+	}
+	if run := scoreOne(t, q, truth, "BHP is 1.61% shorted", "query_short_positions"); !run.Correct || run.DateWrong || len(run.DatesStated) != 0 {
+		t.Errorf("a reply with no date should not be date-wrong: %+v", run)
+	}
+}
+
+func TestEvalSummaryCountsStatedAndWrongDates(t *testing.T) {
+	runs := []evalRun{
+		{Kind: string(evalShortPct), DatesStated: []string{"2026-10-19"}},
+		{Kind: string(evalShortPct), DatesStated: []string{"2026-10-23"}, DateWrong: true},
+		{Kind: string(evalShortPct)},
+	}
+	if s := summarizeEvalRuns(runs); s.DatesStated != 2 || s.DatesWrong != 1 {
+		t.Errorf("DatesStated = %d, DatesWrong = %d; want 2 and 1", s.DatesStated, s.DatesWrong)
 	}
 }
