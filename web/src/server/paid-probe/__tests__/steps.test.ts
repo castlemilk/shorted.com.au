@@ -302,16 +302,24 @@ describe("chat step", () => {
     expect(step.detail).toBe("via shorted.com.au: tools=query_short_positions; conversation deleted");
   });
 
-  it("still reports a delete as done when its answer body cannot be read", async () => {
-    // The 2xx is the delete. A body that fails to decode must not turn it into a warning.
+  it("reports a delete as done, and names an answer body that cannot be decoded", async () => {
+    // The 2xx is the delete, so the step passes. Undici resolves fetch for a body it
+    // cannot decode and fails on the read, so that failure is named here; a proxy that
+    // copies a Content-Encoding onto a decoded body shows up in this detail.
+    const cause = Object.assign(new Error(`incorrect header check at https://shorted.com.au/?t=${COOKIE_VALUE}`), {
+      code: "Z_DATA_ERROR",
+    });
     const unreadable = {
       ok: true,
       status: 200,
-      text: () => Promise.reject(new TypeError("terminated")),
+      text: () => Promise.reject(Object.assign(new TypeError("terminated"), { cause })),
     } as unknown as Response;
     const step = byName(await runPaidProbe(context(fakeFetch({ deleteConversation: () => unreadable }))), "chat");
     expect(step.ok).toBe(true);
-    expect(step.detail).toBe("via shorted.com.au: tools=query_short_positions; conversation deleted");
+    expect(step.detail).toBe(
+      "via shorted.com.au: tools=query_short_positions; conversation deleted; answer unreadable: TypeError (Z_DATA_ERROR)",
+    );
+    expect(step.detail).not.toContain(COOKIE_VALUE);
   });
 
   it("names the status and the reason a refused delete gives", async () => {
@@ -326,11 +334,12 @@ describe("chat step", () => {
     );
   });
 
-  it("names the error and the code of its cause, never a message", async () => {
-    const cause = Object.assign(new Error(`incorrect header check at https://shorted.com.au/?t=${COOKIE_VALUE}`), {
-      code: "Z_DATA_ERROR",
+  it("names the error and the code of its cause when the delete throws, never a message", async () => {
+    // Fetch rejects with a cause that carries a connect code, such as a refused socket.
+    const cause = Object.assign(new Error(`connect failed at https://shorted.com.au/?t=${COOKIE_VALUE}`), {
+      code: "ECONNREFUSED",
     });
-    const broken = Object.assign(new TypeError(`terminated ${COOKIE_VALUE}`), { cause });
+    const broken = Object.assign(new TypeError(`fetch failed ${COOKIE_VALUE}`), { cause });
     const step = byName(
       await runPaidProbe(
         context(
@@ -345,7 +354,7 @@ describe("chat step", () => {
     );
     expect(step.ok).toBe(true);
     expect(step.detail).toBe(
-      "via shorted.com.au: tools=query_short_positions; cleanup warning: TypeError (Z_DATA_ERROR)",
+      "via shorted.com.au: tools=query_short_positions; cleanup warning: TypeError (ECONNREFUSED)",
     );
     expect(step.detail).not.toContain(COOKIE_VALUE);
   });

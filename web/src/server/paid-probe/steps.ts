@@ -370,10 +370,15 @@ async function cleanUpConversation(
       body: JSON.stringify({ conversationId }),
     });
     if (res.ok) {
-      // The 2xx is the delete. The body is read only to release the connection, so
-      // a failure to read it cannot turn a delete that happened into a warning.
-      await res.text().catch(() => "");
-      return "conversation deleted";
+      // The 2xx is the delete, so the step still passes. The body is read to free
+      // the connection, but a read failure is reported: undici resolves fetch for a
+      // body it cannot decode and throws only here, so this is where a bad
+      // Content-Encoding would surface.
+      const unread = await res.text().then(
+        () => "",
+        (err: unknown) => `; answer unreadable: ${failureCause(err)}`,
+      );
+      return `conversation deleted${unread}`;
     }
     return `cleanup warning: HTTP ${res.status}${await errorSuffix(res)}`;
   } catch (err) {
