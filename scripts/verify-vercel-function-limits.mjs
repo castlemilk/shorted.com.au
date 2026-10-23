@@ -14,6 +14,7 @@ export const EXPECTED_LIMITS = {
   'price-drops': 60,
   'price-drops.rsc': 60,
   'api/stripe/reconcile': 60,
+  'api/internal/billing': 30,
 };
 
 async function* builtFunctions(directory, prefix = '') {

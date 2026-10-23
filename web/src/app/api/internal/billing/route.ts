@@ -28,6 +28,9 @@ import { hasInternalSecret } from "~/server/internal-secret";
  */
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+// The Go caller gives up after 20s. The 15s catch-all would cut a slow lookup
+// before the caller does, so this route carries its own budget.
+export const maxDuration = 30;
 
 const NO_STORE = { "Cache-Control": "no-store" };
 const LIST_CAP = 500;
@@ -67,25 +70,47 @@ async function customerAction(body: Record<string, unknown>): Promise<NextRespon
     return NextResponse.json({ error: "email or customerId is required" }, { status: 400 });
   }
 
-  const matches = await stripe.customers.list({ email, limit: 3 });
+  const matches = await customersForEmail(email);
   // Two customers under one address is a data problem, not something to pick
   // between. Report the ids and leave the decision to the operator.
-  if (matches.data.length > 1) {
+  if (matches.length > 1) {
     return NextResponse.json(
       {
         customer: null,
         subscriptions: [],
         latestInvoice: null,
         ambiguous: true,
-        customerIds: matches.data.map((customer) => customer.id),
+        customerIds: matches.map((customer) => customer.id),
       },
       { headers: NO_STORE },
     );
   }
   return NextResponse.json(
-    await describeCustomer(matches.data[0] ?? null),
+    await describeCustomer(matches[0] ?? null),
     { headers: NO_STORE },
   );
+}
+
+/**
+ * Customers whose Stripe email matches the address as given, or in lowercase.
+ *
+ * Stripe's email filter is case-sensitive, and checkout stores the session email
+ * exactly as the sign-in provider returned it. So the address as given is
+ * searched, and so is its lowercase form when the two differ. Both are read and
+ * merged by customer id, and not only the second when the first is empty. A
+ * customer that differs from another only by case is a second customer, and
+ * reporting one of two would hide the ambiguity this route exists to surface.
+ */
+async function customersForEmail(email: string): Promise<Stripe.Customer[]> {
+  const addresses = [...new Set([email, email.toLowerCase()])];
+  const lists = await Promise.all(
+    addresses.map((address) => stripe.customers.list({ email: address, limit: 3 })),
+  );
+  const byId = new Map<string, Stripe.Customer>();
+  for (const list of lists) {
+    for (const customer of list.data) byId.set(customer.id, customer);
+  }
+  return [...byId.values()];
 }
 
 async function aliveAction(): Promise<NextResponse> {
