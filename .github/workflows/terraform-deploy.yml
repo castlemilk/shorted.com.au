@@ -740,6 +740,13 @@ jobs:
           # announcements job is writing (11:00 UTC). It is allowlisted rather
           # than hand-applied because the API's ownership reads and the
           # `shorted ownership` job both need the tables before the image swap.
+          # 000145 creates chat_usage_events, the per-send ledger the chat
+          # service counts against for its authoritative limits. Every
+          # statement is IF NOT EXISTS and it touches no rows, so a replay is a
+          # no-op. It is allowlisted because chat-service writes the table from
+          # the moment its new image serves, and this step runs before
+          # `terraform apply` swaps that image. It stays above 000138, so the
+          # Data API lockdown on every deploy covers it too.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -751,6 +758,7 @@ jobs:
               -f /migrations/000085_extend_source_method_check.up.sql \
               -f /migrations/000112_add_api_usage_monthly.up.sql \
               -f /migrations/000116_add_oauth_clients.up.sql \
+              -f /migrations/000145_add_chat_usage_events.up.sql \
               -f /migrations/000117_add_index_prices.up.sql \
               -f /migrations/000118_add_industry_history.up.sql \
               -f /migrations/000119_add_price_backfill_attempts.up.sql \
