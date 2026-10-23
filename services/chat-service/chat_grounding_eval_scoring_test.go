@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	chatv1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/chat/v1"
@@ -280,5 +282,80 @@ func TestEvalSummaryCountsStatedAndWrongDates(t *testing.T) {
 	}
 	if s := summarizeEvalRuns(runs); s.DatesStated != 2 || s.DatesWrong != 1 {
 		t.Errorf("DatesStated = %d, DatesWrong = %d; want 2 and 1", s.DatesStated, s.DatesWrong)
+	}
+}
+
+func TestEvalMarksADataReplyWithNoDataCallAsNoDataChosen(t *testing.T) {
+	truth := &evalTruth{ShortPct: map[string]float64{"BHP": 1.61}}
+	q := evalQuestion{ID: "bhp", Kind: evalShortPct, Code: "BHP"}
+
+	// A figure with no data tool call: the first call must have been answer_without_data.
+	if run := scoreOne(t, q, truth, "BHP is 0.72% shorted"); !run.NoDataChosen || run.ToolCalled {
+		t.Errorf("a figure with no data tool call should be noDataChosen: %+v", run)
+	}
+	if run := scoreOne(t, q, truth, "BHP is 1.61% shorted", "query_short_positions"); run.NoDataChosen {
+		t.Errorf("a grounded reply is not noDataChosen: %+v", run)
+	}
+	if run := scoreOne(t, q, truth, "   "); run.NoDataChosen {
+		t.Errorf("an empty reply is not a data answer, so not noDataChosen: %+v", run)
+	}
+	if run := scoreOne(t, evalQuestion{ID: "hi", Kind: evalNonData}, &evalTruth{}, "Hello! How can I help?"); run.NoDataChosen {
+		t.Errorf("a non-data reply is never noDataChosen: %+v", run)
+	}
+
+	run := evalRun{ID: q.ID, Kind: string(q.Kind)}
+	scoreEvalRun(q, truth, evalTurn{reply: "BHP is 0.72% shorted", err: errors.New("stream next")}, &run)
+	if run.NoDataChosen {
+		t.Errorf("an errored turn is not a data answer, so not noDataChosen: %+v", run)
+	}
+}
+
+func TestEvalSummaryCountsNoDataChosenOnDataAnswers(t *testing.T) {
+	runs := []evalRun{
+		{Kind: string(evalShortPct), Answered: true, NoDataChosen: true},
+		{Kind: string(evalShortPct), Answered: true, ToolCalled: true},
+	}
+	if s := summarizeEvalRuns(runs); s.NoDataChosen != 1 || s.Grounded != 1 {
+		t.Errorf("NoDataChosen = %d, Grounded = %d; want 1 and 1", s.NoDataChosen, s.Grounded)
+	}
+}
+
+func TestEvalGateFailsARunWhoseTurnsErrored(t *testing.T) {
+	// One answered turn that is correct and grounded, and 59 provider errors. The
+	// rates over the answered turns are 1.000, so only the error count can fail the run.
+	runs := []evalRun{{Kind: string(evalShortPct), Answered: true, Correct: true, ToolCalled: true}}
+	for i := 0; i < 59; i++ {
+		runs = append(runs, evalRun{Kind: string(evalShortPct), Error: "stream next: invalid character ']' looking for beginning of value"})
+	}
+	s := summarizeEvalRuns(runs)
+	if s.CorrectRate != 1 || s.GroundedRate != 1 {
+		t.Fatalf("rates over the answered turns = %.3f and %.3f, want 1 and 1", s.CorrectRate, s.GroundedRate)
+	}
+
+	failures := evalGateFailures(s, 0.95, 0.95)
+	if len(failures) != 1 || !strings.Contains(failures[0], "59 of 60 data turns errored") {
+		t.Errorf("gate failures = %v, want one failure naming the 59 errored turns", failures)
+	}
+	if failures := evalGateFailures(s, 0, 0); failures != nil {
+		t.Errorf("with no gate set there should be no failures, got %v", failures)
+	}
+}
+
+func TestEvalGatePassesACleanRunAndFailsALowRate(t *testing.T) {
+	clean := summarizeEvalRuns([]evalRun{
+		{Kind: string(evalShortPct), Answered: true, Correct: true, ToolCalled: true},
+		{Kind: string(evalShortPct), Answered: true, Correct: true, ToolCalled: true},
+	})
+	if failures := evalGateFailures(clean, 0.95, 0.95); failures != nil {
+		t.Errorf("a clean run at 1.000 should pass both gates, got %v", failures)
+	}
+
+	low := summarizeEvalRuns([]evalRun{
+		{Kind: string(evalShortPct), Answered: true, Correct: true, ToolCalled: true},
+		{Kind: string(evalShortPct), Answered: true, Correct: false},
+	})
+	failures := evalGateFailures(low, 0.95, 0)
+	if len(failures) != 1 || !strings.Contains(failures[0], "correct rate 0.500 is below CHAT_EVAL_MIN_CORRECT 0.950") {
+		t.Errorf("gate failures = %v, want one correct-rate failure", failures)
 	}
 }

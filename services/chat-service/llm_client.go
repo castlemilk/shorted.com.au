@@ -175,8 +175,9 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 // Tool call rounds execute synchronously between streaming segments.
 func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, history []Message, userMessage string, onChunk func(text string)) (*LLMResponse, error) {
 	model := lc.newModel(systemPrompt)
-	// The first call of a turn must choose a tool, so the model cannot answer
-	// from memory before it has looked (see toolConfigForCall).
+	// The first call of a turn must choose a tool: a data tool, or
+	// answer_without_data to declare that no data is needed (see toolConfigForCall).
+	// It cannot open with text.
 	model.ToolConfig = toolConfigForCall(true, true)
 
 	cs := model.StartChat()
@@ -380,9 +381,11 @@ func toolConfigFor(roundHasBudget bool) *genai.ToolConfig {
 }
 
 // toolConfigForCall returns the function calling config for one model call of a
-// turn. The first call must choose a tool (ANY), so the model cannot answer a
-// question from memory before it has looked. Later calls follow toolConfigFor,
-// so the model may answer in text while the budget lasts.
+// turn. The first call must pick a tool (ANY): a data tool, or answer_without_data
+// when the reply needs no data. ANY forces the choice, not the grounding. A figure
+// can still follow answer_without_data, and the eval reads that as a no-data
+// choice (noDataChosen). Later calls follow toolConfigFor, so the model may answer
+// in text while the budget lasts.
 func toolConfigForCall(firstCall, roundHasBudget bool) *genai.ToolConfig {
 	if firstCall {
 		return &genai.ToolConfig{

@@ -25,6 +25,9 @@ package main
 //	CHAT_EVAL_MIN_CORRECT     optional gate, e.g. 0.95: fail when the correct rate is below it
 //	CHAT_EVAL_MIN_GROUNDED    optional gate, e.g. 0.95: fail when the grounded rate is below it
 //
+// With either gate set, any errored data turn also fails the run, because the
+// rates leave errored turns out.
+//
 // Build the service with the Go version the image builds with (services/Dockerfile,
 // golang:1.26.0). On Go 1.27.2 the SDK's stream reader (generative-ai-go v0.20.1 via
 // gax-go's ProtoJSONStream) failed on every complete Gemini reply with
@@ -34,9 +37,12 @@ package main
 //	GOTOOLCHAIN=go1.26.0 GOWORK=off go build -o chat-service-bin ./chat-service
 //
 // Scoring. A data run is grounded when the reply's turn called at least one tool.
-// The stated figure is the first percentage in the reply (short-position
-// questions) or the first ASX-style ticker (most-shorted questions); a company
-// name or an industry is correct when the reply contains the ground-truth text.
+// answer_without_data is left out of the tool calls, so a data reply with no data
+// tool call is counted as noDataChosen: under the forced first call, that reply
+// began with answer_without_data (see evalRun.NoDataChosen). The stated figure is
+// the first percentage in the reply (short-position questions) or the first
+// ASX-style ticker (most-shorted questions); a company name or an industry is
+// correct when the reply contains the ground-truth text.
 // A short-position figure is correct within 0.05 percentage points. Every date a
 // short-position reply states must be the position date, the latest point's
 // timestamp; a reply that states the publication date (availableFrom) is counted
@@ -45,6 +51,10 @@ package main
 // on them is recorded but is not a failure. A reply that states 4.2% for a stock
 // whose ground truth is not 4.2% counts as a prompt-example echo, the defect the
 // system prompt once taught the model.
+//
+// Limits. Each turn is sent on a new conversation with no history, and only d07
+// carries a stock page context. A rate from this harness describes fresh
+// conversations, not prod turns that may have history or a context.
 
 import (
 	"bytes"
@@ -301,6 +311,12 @@ type evalRun struct {
 	Correct bool `json:"correct"`
 	// Answered: a non-empty reply came back without error.
 	Answered bool `json:"answered"`
+	// NoDataChosen: a data question got a non-empty reply with no data tool call. The
+	// first call of a turn must be a function call (FunctionCallingAny, see
+	// toolConfigForCall). It is either a data tool, which would set ToolCalled, or
+	// answer_without_data, which toolCalls leave out. So the first call was
+	// answer_without_data. This holds only for a build with the forced first call.
+	NoDataChosen bool `json:"noDataChosen"`
 	// DatesStated are the calendar dates a short-position reply states (see evalStatedDates).
 	DatesStated []string `json:"datesStated,omitempty"`
 	// DateWrong: a date the reply states is not the position date, the newest point's
@@ -506,6 +522,7 @@ func scoreEvalRun(q evalQuestion, truth *evalTruth, turn evalTurn, run *evalRun)
 		return
 	}
 	run.Answered = strings.TrimSpace(turn.reply) != ""
+	run.NoDataChosen = q.Kind != evalNonData && run.Answered && !run.ToolCalled
 	if q.Kind == evalNonData {
 		run.Correct = run.Answered
 		return
@@ -570,6 +587,7 @@ type evalSummary struct {
 	CorrectRate           float64                     `json:"correctFigureRate"`
 	CorrectWithoutTool    int                         `json:"correctWithoutTool"`
 	ExpectedToolAnswers   int                         `json:"expectedToolAnswers"`
+	NoDataChosen          int                         `json:"noDataChosen"`
 	PromptExampleEchoes   int                         `json:"promptExampleEchoes"`
 	DatesStated           int                         `json:"datesStated"`
 	DatesWrong            int                         `json:"datesWrong"`
@@ -634,6 +652,9 @@ func summarizeEvalRuns(runs []evalRun) evalSummary {
 		}
 		if r.ExpectedToolCalled {
 			s.ExpectedToolAnswers++
+		}
+		if r.NoDataChosen {
+			s.NoDataChosen++
 		}
 		if r.Correct {
 			s.Correct++
@@ -778,6 +799,7 @@ func TestChatGroundingEval(t *testing.T) {
 	t.Logf("SUMMARY runs=%d dataRuns=%d answered=%d errors=%d", s.Runs, s.DataRuns, s.DataAnswered, s.DataErrors)
 	t.Logf("SUMMARY grounded=%d/%d (%.1f%%) correct=%d/%d (%.1f%%) correctWithoutTool=%d expectedToolAnswers=%d",
 		s.Grounded, s.DataAnswered, 100*s.GroundedRate, s.Correct, s.DataAnswered, 100*s.CorrectRate, s.CorrectWithoutTool, s.ExpectedToolAnswers)
+	t.Logf("SUMMARY noDataChosen=%d (data answers with no data tool call: answer_without_data was the first call, and toolCalls leave it out)", s.NoDataChosen)
 	t.Logf("SUMMARY promptExampleEchoes=%d nonDataOK=%d/%d nonDataToolCalls=%d", s.PromptExampleEchoes, s.NonDataOK, s.NonDataRuns, s.NonDataToolCalls)
 	t.Logf("SUMMARY datesStated=%d datesWrong=%d (a wrong date is one that is not the latest point's timestamp)", s.DatesStated, s.DatesWrong)
 	t.Logf("SUMMARY medianFirstTextMs=%d (data %d) medianTotalMs=%d", s.MedianFirstTextMs, s.MedianFirstTextMsData, s.MedianTotalMs)
@@ -807,12 +829,34 @@ func TestChatGroundingEval(t *testing.T) {
 		t.Logf("wrote %s", path)
 	}
 
-	if min := evalEnvFloat(t, "CHAT_EVAL_MIN_CORRECT"); min > 0 && s.CorrectRate < min {
-		t.Errorf("correct rate %.3f is below CHAT_EVAL_MIN_CORRECT %.3f", s.CorrectRate, min)
+	minCorrect := evalEnvFloat(t, "CHAT_EVAL_MIN_CORRECT")
+	minGrounded := evalEnvFloat(t, "CHAT_EVAL_MIN_GROUNDED")
+	for _, failure := range evalGateFailures(s, minCorrect, minGrounded) {
+		t.Error(failure)
 	}
-	if min := evalEnvFloat(t, "CHAT_EVAL_MIN_GROUNDED"); min > 0 && s.GroundedRate < min {
-		t.Errorf("grounded rate %.3f is below CHAT_EVAL_MIN_GROUNDED %.3f", s.GroundedRate, min)
+}
+
+// evalGateFailures lists why a run fails its gates, and is empty when it passes.
+// The rates count only the data turns that answered, so with a gate set any
+// errored data turn fails the run by itself. Otherwise a run in which almost every
+// turn errored would pass the rate gates.
+func evalGateFailures(s evalSummary, minCorrect, minGrounded float64) []string {
+	if minCorrect <= 0 && minGrounded <= 0 {
+		return nil
 	}
+	var failures []string
+	if s.DataErrors > 0 {
+		failures = append(failures, fmt.Sprintf(
+			"%d of %d data turns errored, so the rates describe only the rest: check the error text before reading any rate",
+			s.DataErrors, s.DataRuns))
+	}
+	if minCorrect > 0 && s.CorrectRate < minCorrect {
+		failures = append(failures, fmt.Sprintf("correct rate %.3f is below CHAT_EVAL_MIN_CORRECT %.3f", s.CorrectRate, minCorrect))
+	}
+	if minGrounded > 0 && s.GroundedRate < minGrounded {
+		failures = append(failures, fmt.Sprintf("grounded rate %.3f is below CHAT_EVAL_MIN_GROUNDED %.3f", s.GroundedRate, minGrounded))
+	}
+	return failures
 }
 
 // truncateEvalText cuts s to at most limit bytes without splitting a rune.
