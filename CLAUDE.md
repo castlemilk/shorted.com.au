@@ -1334,8 +1334,13 @@ for administrators, connected once as a claude.ai custom connector:
 `publish_news_article` / `news_publish_status` (scope `news:publish`) and
 `run_picks_job` / `picks_job_status` (scope `jobs:run`, starts `shorted picks
 -mode fundamentals|filings|refresh|all` via a `run.developer` grant on that one
-job, argv built server-side from the enum in `jobmonitor/picks.go`), the
-`jobs:read` fleet tools, and the `users:read` personal-data tools
+job, argv built server-side from the enum in `jobmonitor/picks.go`), the alerts
+smoke test (`run_alerts_smoke_test`, `find_alert_crossing`, `alerts_status`,
+`alerts_smoke_result`, `delete_alert_monitor`: the caller's own account only;
+the replay is `shorted-alerts-replay` with the argv from
+`jobmonitor/alerts_replay.go`, and the monitor rule is shared with the web
+handlers through `services/shorts/internal/services/shorts/alerts_core.go`),
+the `jobs:read` fleet tools, and the `users:read` personal-data tools
 (`people_overview`, `list_users`, `list_paying_users`, `list_mailing_list`,
 `lookup_person`: Firebase accounts via the web app's `/api/internal/admin-users`,
 `api_subscriptions`, the `subscriptions` mailing list; minimal fields, every

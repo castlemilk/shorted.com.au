@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
-	"time"
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -43,60 +41,10 @@ func (s *ShortsServer) CreateAlertMonitor(
 	if !ok {
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("user not authenticated"))
 	}
-	// Alerts follow the same entitlement rule as the rate-limit tier and the
-	// subscription RPC, read from the store rather than from the claims, so a
-	// stale or missing tier on the claims cannot decide it.
-	_, ent, err := s.loadEntitlement(userClaims.UserID, time.Now())
+	monitor, err := s.alertsCore().createMonitor(ctx, userClaims.UserID, alertEmailFor(userClaims), req.Msg)
 	if err != nil {
-		s.logger.Errorf("failed to check subscription for user %s: %v", userClaims.UserID, err)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to check subscription"))
+		return nil, alertsConnectError(err)
 	}
-	if !ent.Entitled {
-		return nil, connect.NewError(connect.CodePermissionDenied, errors.New(alertsNeedPremium))
-	}
-
-	input, err := validateCreateAlertMonitor(userClaims, req.Msg)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	// A target the evaluator can never match saves a monitor that silently never
-	// fires. Refuse it here, and store an industry under its canonical spelling so
-	// that "materials" and "Materials" are one monitor.
-	switch input.Scope {
-	case "industry":
-		canonical, found, err := s.store.CanonicalIndustry(input.Target)
-		if err != nil {
-			s.logger.Errorf("failed to resolve industry %q: %v", input.Target, err)
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to check industry"))
-		}
-		if !found {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errUnknownIndustry)
-		}
-		input.Target = canonical
-	case "stock":
-		known, err := s.store.StockCodeKnown(input.Target)
-		if err != nil {
-			s.logger.Errorf("failed to check stock code %q: %v", input.Target, err)
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to check stock code"))
-		}
-		if !known {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errUnknownASXCode)
-		}
-	}
-
-	monitor, err := s.store.CreateAlertMonitor(input)
-	if err != nil {
-		if errors.Is(err, shortsstore.ErrAlertMonitorExists) {
-			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("monitor already exists"))
-		}
-		if errors.Is(err, shortsstore.ErrAlertMonitorLimit) {
-			return nil, connect.NewError(connect.CodeResourceExhausted, errAlertMonitorCreateLimit)
-		}
-		s.logger.Errorf("failed to create alert monitor for user %s: %v", userClaims.UserID, err)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to save monitor"))
-	}
-
 	return connect.NewResponse(&shortsv1alpha1.CreateAlertMonitorResponse{
 		Monitor: alertMonitorToProto(monitor),
 	}), nil
@@ -122,21 +70,9 @@ func (s *ShortsServer) ListAlertMonitors(
 	// The alerts page calls this on every visit, so a verified address reaches monitors
 	// created before it was verified. Best effort: a failed refresh is logged, and the
 	// list still loads.
-	if email := alertEmailFor(userClaims); email != "" {
-		if err := s.store.RefreshAlertMonitorEmail(userClaims.UserID, email); err != nil {
-			s.logger.Errorf("failed to refresh alert email for user %s: %v", userClaims.UserID, err)
-		}
-	}
-
-	monitors, total, err := s.store.ListAlertMonitors(userClaims.UserID, limit, offset)
+	monitors, total, checked, err := s.alertsCore().listMonitors(ctx, userClaims.UserID, alertEmailFor(userClaims), limit, offset)
 	if err != nil {
-		s.logger.Errorf("failed to list alert monitors for user %s: %v", userClaims.UserID, err)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to load monitors"))
-	}
-	checked, err := s.store.AlertCheckedThrough()
-	if err != nil {
-		s.logger.Errorf("failed to read alert evaluator state: %v", err)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to load monitors"))
+		return nil, alertsConnectError(err)
 	}
 
 	resp := &shortsv1alpha1.ListAlertMonitorsResponse{
@@ -206,29 +142,9 @@ func (s *ShortsServer) UpdateAlertMonitorStatus(
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	if status == alertevents.MonitorStatusActive {
-		_, ent, err := s.loadEntitlement(userClaims.UserID, time.Now())
-		if err != nil {
-			s.logger.Errorf("failed to check subscription for user %s: %v", userClaims.UserID, err)
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to check subscription"))
-		}
-		if !ent.Entitled {
-			return nil, connect.NewError(connect.CodePermissionDenied, errors.New(alertsNeedPremium))
-		}
-	}
-
-	monitor, err := s.store.UpdateAlertMonitorStatus(userClaims.UserID, req.Msg.Id, status, alertEmailFor(userClaims))
+	monitor, err := s.alertsCore().setMonitorStatus(ctx, userClaims.UserID, alertEmailFor(userClaims), req.Msg.Id, status)
 	if err != nil {
-		switch {
-		case errors.Is(err, shortsstore.ErrAlertMonitorNotFound):
-			return nil, connect.NewError(connect.CodeNotFound, errAlertMonitorNotFound)
-		case errors.Is(err, shortsstore.ErrAlertMonitorExists):
-			return nil, connect.NewError(connect.CodeAlreadyExists, errAlertMonitorDuplicate)
-		case errors.Is(err, shortsstore.ErrAlertMonitorLimit):
-			return nil, connect.NewError(connect.CodeResourceExhausted, errAlertMonitorResumeLimit)
-		}
-		s.logger.Errorf("failed to update alert monitor %s for user %s: %v", req.Msg.Id, userClaims.UserID, err)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update monitor"))
+		return nil, alertsConnectError(err)
 	}
 
 	return connect.NewResponse(&shortsv1alpha1.UpdateAlertMonitorStatusResponse{
@@ -249,14 +165,31 @@ func (s *ShortsServer) DeleteAlertMonitor(
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid monitor id"))
 	}
 
-	if err := s.store.DeleteAlertMonitor(userClaims.UserID, req.Msg.Id); err != nil {
-		if errors.Is(err, shortsstore.ErrAlertMonitorNotFound) {
-			return nil, connect.NewError(connect.CodeNotFound, errAlertMonitorNotFound)
-		}
-		s.logger.Errorf("failed to delete alert monitor %s for user %s: %v", req.Msg.Id, userClaims.UserID, err)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete monitor"))
+	if err := s.alertsCore().deleteMonitor(ctx, userClaims.UserID, req.Msg.Id); err != nil {
+		return nil, alertsConnectError(err)
 	}
 	return connect.NewResponse(&shortsv1alpha1.DeleteAlertMonitorResponse{}), nil
+}
+
+// alertsConnectError maps a refusal of the shared rule to its Connect code. The
+// message is the refusal's own, so the wire contract does not change.
+func alertsConnectError(err error) error {
+	var code connect.Code
+	switch kindOf(err) {
+	case alertsKindPermission:
+		code = connect.CodePermissionDenied
+	case alertsKindInvalid:
+		code = connect.CodeInvalidArgument
+	case alertsKindNotFound:
+		code = connect.CodeNotFound
+	case alertsKindExists:
+		code = connect.CodeAlreadyExists
+	case alertsKindLimit:
+		code = connect.CodeResourceExhausted
+	default:
+		code = connect.CodeInternal
+	}
+	return connect.NewError(code, err)
 }
 
 // PauseAlertMonitorByToken pauses the monitor named by the signed token in an
@@ -318,51 +251,6 @@ var (
 	//nolint:staticcheck // ST1005: user-facing copy, quoted verbatim by the API contract
 	errAlertMonitorResumeLimit = fmt.Errorf("You already have %d active alerts. Pause or delete one before resuming this one.", shortsstore.MaxActiveAlertMonitors)
 )
-
-func validateCreateAlertMonitor(claims *Claims, msg *shortsv1alpha1.CreateAlertMonitorRequest) (shortsstore.CreateAlertMonitorInput, error) {
-	scope, err := alertMonitorScopeToStore(msg.Scope)
-	if err != nil {
-		return shortsstore.CreateAlertMonitorInput{}, err
-	}
-	condition, err := alertMonitorConditionToStore(msg.Condition)
-	if err != nil {
-		return shortsstore.CreateAlertMonitorInput{}, err
-	}
-	cadence, err := alertMonitorCadenceToStore(msg.Cadence)
-	if err != nil {
-		return shortsstore.CreateAlertMonitorInput{}, err
-	}
-
-	target := normalizeAlertTarget(scope, msg.Target)
-	if target == "" {
-		return shortsstore.CreateAlertMonitorInput{}, fmt.Errorf("target is required")
-	}
-	if scope == "stock" && condition == "new_top_ten_entry" {
-		return shortsstore.CreateAlertMonitorInput{}, fmt.Errorf("top-ten entry monitors are industry alerts")
-	}
-
-	var threshold *float64
-	if condition != "new_top_ten_entry" {
-		if !msg.HasThreshold {
-			return shortsstore.CreateAlertMonitorInput{}, fmt.Errorf("threshold is required")
-		}
-		if math.IsNaN(msg.Threshold) || math.IsInf(msg.Threshold, 0) || msg.Threshold <= 0 || msg.Threshold > 100 {
-			return shortsstore.CreateAlertMonitorInput{}, fmt.Errorf("threshold must be greater than 0 and at most 100")
-		}
-		value := msg.Threshold
-		threshold = &value
-	}
-
-	return shortsstore.CreateAlertMonitorInput{
-		UserID:    claims.UserID,
-		UserEmail: alertEmailFor(claims),
-		Scope:     scope,
-		Target:    target,
-		Condition: condition,
-		Threshold: threshold,
-		Cadence:   cadence,
-	}, nil
-}
 
 // isAlertMonitorID reports whether id has the form of a monitor id, which the
 // database mints as a UUID. Anything else cannot name a monitor.

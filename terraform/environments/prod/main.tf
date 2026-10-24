@@ -885,6 +885,70 @@ module "shorted_job_picks" {
   ]
 }
 
+# Alerts replay — the admin MCP server's run_alerts_smoke_test tool
+# (services/shorts/internal/jobmonitor/alerts_replay.go).
+#
+# This is deliberately NOT the scheduled CronJob shorted-alerts
+# (deploy/kubernetes/jobs, vkeNative): that one is the schedule, and its Telesis
+# monitor must count only real runs. This job exists only to be overridden. The
+# argv is built server-side (-date, -user, -canary off) and the shorts-api SA
+# holds run.developer on this job alone (shorts_api_alerts_replay below).
+#
+# Its DEPLOYED args are a dry run, so an execution with no overrides (a console
+# "Execute") evaluates and sends nothing. ALERTS_DRY_RUN=false is what lets an
+# override send: the override's argv has no -dry-run, so the env default applies.
+#
+# No check-in or reporter wiring: a Cloud Run job reaches Telesis only through the
+# reporter's watch list (vke_reporter_watched_jobs), and this job is not on it, so
+# a replay can never be counted as a run of the shorted-alerts monitor.
+module "shorted_job_alerts_replay" {
+  source = "../../modules/shorted-job"
+
+  name        = "shorted-alerts-replay"
+  description = "Short-interest alert replay for one owner and one report date (admin smoke test only, never scheduled)"
+  project_id  = var.project_id
+  region      = var.region
+  environment = "production"
+  image_url   = var.shorted_jobs_image
+
+  args     = ["alerts", "-dry-run"]
+  schedule = ""
+
+  env = {
+    ENVIRONMENT    = "production"
+    ALERTS_DRY_RUN = "false"
+    # The live run is fenced to one owner's one day (config.go: ALERTS_REPLAY_ONLY).
+    # The scheduled CronJob shorted-alerts does NOT set it, and must not.
+    ALERTS_REPLAY_ONLY = "true"
+    PUBLIC_SITE_URL    = "https://shorted.com.au"
+    # The Cloud Run ORIGIN for the entitlement lookup (see the chart's shorted-alerts
+    # comment): a lookup through the public hostname lands in the anonymous bucket.
+    SHORTS_API_URL  = module.shorts_api.service_url
+    ALERTS_FROM     = "Shorted Alerts <alerts@shorted.com.au>"
+    ALERTS_REPLY_TO = "support@shorted.com.au"
+  }
+
+  secret_env = {
+    DATABASE_URL            = "DATABASE_URL"
+    RESEND_API_KEY          = "RESEND_API_KEY"
+    INTERNAL_SERVICE_SECRET = "INTERNAL_SERVICE_SECRET"
+    UNSUBSCRIBE_SECRET      = "UNSUBSCRIBE_SECRET"
+  }
+
+  # One replay evaluates one date for one owner, which is seconds of work. The
+  # chart's scheduled run gets 900s for a whole evaluation. max_retries = 0: a
+  # retry would re-send mail the claim already recorded; the admin re-runs it.
+  timeout_seconds = 900
+  max_retries     = 0
+  cpu             = "1"
+  memory          = "512Mi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
 # `shorted ownership` — who holds ASX stocks (/ownership and the stock page's
 # Company tab). Daily, after shorted-announcements (11:00 UTC) has stored the
 # day's substantial holding notice headlines: registry, APRA + ASX fund
@@ -1420,6 +1484,19 @@ resource "google_cloud_run_v2_job_iam_member" "shorts_api_picks_overrides" {
   project  = var.project_id
   location = var.region
   name     = module.shorted_job_picks.job_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.shorts_api.service_account_email}"
+}
+
+# Alerts replay — the admin MCP server's run_alerts_smoke_test tool. Same pairing
+# as the picks grant above: run.developer (runWithOverrides) on this ONE job, and an
+# argv jobmonitor/alerts_replay.go builds from a validated date and the verified
+# token's uid. The job is not in local.admin_runnable_jobs: "Run now" has nothing
+# useful to do with it, and its deployed args are a dry run.
+resource "google_cloud_run_v2_job_iam_member" "shorts_api_alerts_replay" {
+  project  = var.project_id
+  location = var.region
+  name     = module.shorted_job_alerts_replay.job_name
   role     = "roles/run.developer"
   member   = "serviceAccount:${module.shorts_api.service_account_email}"
 }

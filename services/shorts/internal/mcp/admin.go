@@ -146,7 +146,9 @@ func RequireAdmin(check AdminCheck) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			info := auth.TokenInfoFromContext(r.Context())
-			if check == nil || info == nil || strings.TrimSpace(info.UserID) == "" {
+			// A uid with surrounding space is refused, not trimmed: the tools act on the
+			// trimmed value, so a padded uid would be checked as one account and used as another.
+			if check == nil || info == nil || strings.TrimSpace(info.UserID) == "" || info.UserID != strings.TrimSpace(info.UserID) {
 				http.Error(w, "forbidden: administrator access required", http.StatusForbidden)
 				return
 			}
@@ -189,6 +191,7 @@ type AdminOperator interface {
 	AdminPeopleReader
 	AdminBillingReader
 	AdminProbeOperator
+	AdminAlertsOperator
 	RunPublish(ctx context.Context, req jobmonitor.PublishRequest) (*jobmonitor.PublishRun, error)
 	PublishResult(ctx context.Context, executionName string) (*jobmonitor.PublishStatus, error)
 	RunPicks(ctx context.Context, req jobmonitor.PicksRequest) (*jobmonitor.PicksRun, error)
@@ -207,10 +210,11 @@ type AdminTool struct {
 
 // AdminRegistry is every tool on the admin server.
 func AdminRegistry() []AdminTool {
-	return []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool(),
+	tools := []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool(),
 		listAsyncJobsTool(), listJobExecutionsTool(), getJobExecutionTool(), listEnrichmentJobsTool(), searchJobMentionsTool(),
 		peopleOverviewTool(), listUsersTool(), listPayingUsersTool(), listMailingListTool(), lookupPersonTool(),
 		checkSubscriptionTool(), billingExceptionsTool(), paidFeatureStatusTool(), runPaidProbeTool()}
+	return append(tools, alertsAdminTools()...)
 }
 
 // NewAdminServer builds the admin MCP server with operational tools, its app,

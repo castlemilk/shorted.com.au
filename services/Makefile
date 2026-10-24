@@ -778,7 +778,7 @@ backfill.historical-test: ## Test backfill with limited stocks (usage: make back
 test-alerts-e2e: test-integration-images
 	@set -e; \
 	GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
-		go test -count=1 -tags=integration,testcontainers -run Alert ./shorts/internal/store/shorts/; \
+		go test -count=1 -tags=integration,testcontainers -run 'Alert|ReportWindow' ./shorts/internal/store/shorts/; \
 	cd jobs && GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run TestAlertsE2E ./internal/jobs/alerts/
 
