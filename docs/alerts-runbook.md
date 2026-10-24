@@ -185,6 +185,8 @@ That leaves two causes:
 
 - The same row's body changed between attempts: a new `user_email`, sender, reply-to, site URL or
   `UNSUBSCRIBE_SECRET` between a send and its retry.
+- A template or toolchain change between an attempt and its retry. The HTML, text or chart bytes of
+  the same row can differ after a deploy, and Resend compares the body, so the retry is refused.
 - Another sender used the key. Find it in Resend's dashboard.
 
 Keys built from a bare id (before #765) collided with test runs. Prod's first run reused
@@ -193,12 +195,17 @@ Keys built from a bare id (before #765) collided with test runs. Prod's first ru
 What happens next depends on which email failed:
 
 - **The canary.** The run returns its claims, so the next run sends that mail once its canary passes.
-- **A customer email.** It is marked `failed` and never retried. Once the cause is fixed, put it back
-  within the 48-hour expiry. Resend refused the original, so this cannot send twice:
+- **A customer email.** It is marked `failed` and never retried. A 409 does not prove the first attempt
+  was not accepted: the send may have succeeded and only its reply been lost. Before requeueing, check
+  Resend's dashboard for this event's key (`alert-event-<id>-<created_at µs>`) or for the recipient and
+  subject around the event's send time. Requeue only if no email was delivered. Then put the row back
+  within the 48-hour expiry:
 
   ```sql
+  -- Only the ids you checked in Resend's dashboard.
   UPDATE alert_events SET email_status = 'pending', last_error = NULL, updated_at = now()
-   WHERE email_status = 'failed' AND last_error LIKE '%invalid_idempotent_request%'
+   WHERE id IN (101, 102)
+     AND email_status = 'failed' AND last_error LIKE '%invalid_idempotent_request%'
      AND created_at > now() - interval '47 hours';
   ```
 
