@@ -23,7 +23,7 @@ if (!dir || !existsSync(dir)) {
   process.exit(2);
 }
 
-const designs = ['pls', 'glc', 'bhp', 'industry', 'canary'];
+const designs = ['pls', 'short11', 'short14', 'glc', 'bhp', 'industry', 'canary'];
 const widths = [640, 390];
 const schemes = ['light', 'dark'];
 

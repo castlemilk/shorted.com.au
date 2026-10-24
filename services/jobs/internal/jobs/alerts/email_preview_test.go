@@ -97,10 +97,20 @@ func previewCases(histFile string) ([]previewCase, error) {
 	// BHP is cut to its first report window ending 14 October, whether real or not.
 	bhp = truncateAt(bhp, "2026-10-14")
 
+	// Short histories: the last readings of PLS, so the x labels of an eleven- and a
+	// fourteen-reading chart can be checked by eye.
+	short := func(n int) []alertevents.Point { return pls[len(pls)-n:] }
+
 	return []previewCase{
 		{name: "pls", code: "PLS", company: "Pilbara Minerals", threshold: 13.2,
 			compared: "2026-10-15", report: "2026-10-16", prev: 13.08, latest: 13.26,
 			history: pls, shares: 2.14e8, onIssue: 1.63e9, rank: 4, ranked: 640},
+		{name: "short11", code: "PLS", company: "Pilbara Minerals", threshold: 13.2,
+			compared: "2026-10-15", report: "2026-10-16", prev: 13.08, latest: 13.26,
+			history: short(11), shares: 2.14e8, onIssue: 1.63e9},
+		{name: "short14", code: "PLS", company: "Pilbara Minerals", threshold: 13.2,
+			compared: "2026-10-15", report: "2026-10-16", prev: 13.08, latest: 13.26,
+			history: short(14), shares: 2.14e8, onIssue: 1.63e9},
 		{name: "glc", code: "GLC", company: "Glencore", threshold: 10,
 			compared: "2026-10-15", report: "2026-10-16", prev: 6.99, latest: 12.15,
 			history: glc, shares: 1.24e9, onIssue: 12.1e9},

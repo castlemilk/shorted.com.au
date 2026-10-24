@@ -245,15 +245,6 @@ func historyIsShort(m Message) bool {
 	return st != nil && len(st.History) > 0 && len(st.History) < 20
 }
 
-// firstHistoryDate is the first reading's report date, or the report date when there
-// is no history.
-func firstHistoryDate(m Message) Date {
-	if st := m.Payload.Stock; st != nil && len(st.History) > 0 {
-		return Date(st.History[0].D)
-	}
-	return m.ReportDate
-}
-
 // joinNonEmpty joins the non-empty parts with sep.
 func joinNonEmpty(sep string, parts ...string) string {
 	var out []string
@@ -304,15 +295,6 @@ func dateRange(a, b Date) string {
 		return at.Format("2 Jan") + " – " + bt.Format("2 Jan 2006")
 	}
 	return at.Format("2 Jan 2006") + " – " + bt.Format("2 Jan 2006")
-}
-
-// dayMonthYear formats a report date as "14 Oct 2026".
-func dayMonthYear(d Date) string {
-	t, err := d.Day()
-	if err != nil {
-		return string(d)
-	}
-	return t.Format("2 Jan 2006")
 }
 
 // statsOf is the stats grid's cells, in order. A cell whose figure is missing is
