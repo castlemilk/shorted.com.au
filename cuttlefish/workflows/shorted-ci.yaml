@@ -18,7 +18,7 @@ spec:
     # Go lint (golangci-lint v2)
     # GOWORK=off to avoid local replace directives that break in CI
     - id: go-lint
-      image: golangci/golangci-lint:v2.11
+      image: golangci/golangci-lint:v2.15.0
       env:
         - name: GOWORK
           value: "off"
