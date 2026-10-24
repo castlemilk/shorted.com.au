@@ -147,7 +147,7 @@ export function ChatDataTable<Row>({
         <div
           aria-hidden="true"
           data-testid="chat-table-more"
-          className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-md bg-gradient-to-l from-background to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 w-4 rounded-r-md bg-gradient-to-l from-background to-transparent"
         />
       )}
     </div>

@@ -322,9 +322,11 @@ function DirectorCell({ row }: { row: DirectorTradeRow }) {
   ]
     .filter(Boolean)
     .join(" · ");
+  // The cell is capped in width, so a long trade type ("Option exercise") wraps under the
+  // date instead of pushing the figures off the sidebar's width.
   return (
-    <span className="block">
-      <span className="block max-w-[9rem] truncate" title={row.director}>
+    <span className="block max-w-[7.5rem]">
+      <span className="block truncate" title={row.director}>
         {row.director}
       </span>
       <span className="block text-[11px] font-normal text-muted-foreground">
@@ -366,7 +368,7 @@ function StockCell({
       </span>
       {name && (
         <span
-          className="block max-w-[9rem] truncate text-[11px] font-normal text-muted-foreground"
+          className="block max-w-[7rem] truncate text-[11px] font-normal text-muted-foreground"
           title={name}
         >
           {name}
