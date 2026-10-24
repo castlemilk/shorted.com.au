@@ -46,7 +46,7 @@ func layoutText(data []byte, maxPages int) (text string, err error) {
 	}
 	if bytes.Contains(data, []byte("/Encrypt")) {
 		var out bytes.Buffer
-		if derr := api.Decrypt(bytes.NewReader(data), &out, model.NewDefaultConfiguration()); derr == nil {
+		if derr := api.Decrypt(context.Background(), bytes.NewReader(data), &out, model.NewDefaultConfiguration()); derr == nil {
 			data = out.Bytes()
 		}
 	}

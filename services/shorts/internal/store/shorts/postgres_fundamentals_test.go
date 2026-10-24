@@ -13,6 +13,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -69,6 +70,7 @@ func (r *fakeRows) Err() error                                   { return nil }
 func (r *fakeRows) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
 func (r *fakeRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
 func (r *fakeRows) RawValues() [][]byte                          { return nil }
+func (r *fakeRows) TypeMap() *pgtype.Map { return pgtype.NewMap() }
 func (r *fakeRows) Conn() *pgx.Conn                              { return nil }
 func (r *fakeRows) Values() ([]any, error)                       { return r.rows[r.i-1], nil }
 func (r *fakeRows) Scan(dest ...any) error                       { return assignRow(r.rows[r.i-1], dest) }

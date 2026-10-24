@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -537,6 +538,7 @@ func (r *scriptedRows) FieldDescriptions() []pgconn.FieldDescription { return ni
 func (r *scriptedRows) Next() bool                                   { r.i++; return r.i <= len(r.vals) }
 func (r *scriptedRows) Values() ([]any, error)                       { return r.vals[r.i-1], nil }
 func (r *scriptedRows) RawValues() [][]byte                          { return nil }
+func (r *scriptedRows) TypeMap() *pgtype.Map { return pgtype.NewMap() }
 func (r *scriptedRows) Conn() *pgx.Conn                              { return nil }
 func (r *scriptedRows) Scan(dest ...any) error {
 	row := r.vals[r.i-1]
