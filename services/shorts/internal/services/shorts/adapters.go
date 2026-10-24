@@ -180,6 +180,34 @@ func (s *StoreAdapter) ListAlertMonitors(userID string, limit, offset int32) ([]
 	return s.store.ListAlertMonitors(userID, limit, offset)
 }
 
+func (s *StoreAdapter) UpdateAlertMonitorStatus(userID, monitorID, status, userEmail string) (*shorts.AlertMonitor, error) {
+	return s.store.UpdateAlertMonitorStatus(userID, monitorID, status, userEmail)
+}
+
+func (s *StoreAdapter) DeleteAlertMonitor(userID, monitorID string) error {
+	return s.store.DeleteAlertMonitor(userID, monitorID)
+}
+
+func (s *StoreAdapter) PauseAlertMonitorByID(monitorID string) (*shorts.AlertMonitor, bool, error) {
+	return s.store.PauseAlertMonitorByID(monitorID)
+}
+
+func (s *StoreAdapter) ListAlertEvents(userID, monitorID string, limit, offset int32) ([]*shorts.AlertEvent, int32, error) {
+	return s.store.ListAlertEvents(userID, monitorID, limit, offset)
+}
+
+func (s *StoreAdapter) CanonicalIndustry(target string) (string, bool, error) {
+	return s.store.CanonicalIndustry(target)
+}
+
+func (s *StoreAdapter) StockCodeKnown(code string) (bool, error) {
+	return s.store.StockCodeKnown(code)
+}
+
+func (s *StoreAdapter) AlertCheckedThrough() (string, error) {
+	return s.store.AlertCheckedThrough()
+}
+
 func (s *StoreAdapter) GetWeeklyReport(weekSlug string) (*shorts.WeeklyReport, error) {
 	return s.store.GetWeeklyReport(weekSlug)
 }

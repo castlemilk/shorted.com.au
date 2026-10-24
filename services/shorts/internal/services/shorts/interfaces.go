@@ -63,6 +63,13 @@ type ShortsStore interface {
 	UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *shortsstore.APISubscriptionUpdate) error
 	CreateAlertMonitor(input shortsstore.CreateAlertMonitorInput) (*shortsstore.AlertMonitor, error)
 	ListAlertMonitors(userID string, limit, offset int32) ([]*shortsstore.AlertMonitor, int32, error)
+	UpdateAlertMonitorStatus(userID, monitorID, status, userEmail string) (*shortsstore.AlertMonitor, error)
+	DeleteAlertMonitor(userID, monitorID string) error
+	PauseAlertMonitorByID(monitorID string) (*shortsstore.AlertMonitor, bool, error)
+	ListAlertEvents(userID, monitorID string, limit, offset int32) ([]*shortsstore.AlertEvent, int32, error)
+	CanonicalIndustry(target string) (string, bool, error)
+	StockCodeKnown(code string) (bool, error)
+	AlertCheckedThrough() (string, error)
 
 	// Weekly report methods
 	GetWeeklyReport(weekSlug string) (*shortsstore.WeeklyReport, error)
