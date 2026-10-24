@@ -456,6 +456,17 @@ describe("rich tables: what a row shows and how it fills the width", () => {
     expect(screen.getByText("Change is shown for the top 7 only.")).toBeInTheDocument();
   });
 
+  it.each([270, 320, 720])("keeps each change and short figure on one line at %ipx", (px) => {
+    atWidth(px);
+    render(<TopShortsTable view={parseTopShorts(fixture("get_top_shorts-10.json"))!} />);
+
+    // A wrapped figure, or its date, turns the change column into four lines of text.
+    const change = screen.getAllByText(/ pp$/)[0]!;
+    expect(change.closest(".whitespace-nowrap")).not.toBeNull();
+    expect(screen.getAllByText(/^since /)[0]!.className).toContain("block");
+    expect(screen.getByText("15.93%").className).toContain("whitespace-nowrap");
+  });
+
   it("lets a company name take the width the figures leave below the full width", () => {
     atWidth(223);
     render(<TopShortsTable view={parseTopShorts(fixture("get_top_shorts-10.json"))!} />);

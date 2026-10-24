@@ -110,7 +110,11 @@ const TOP_SHORT_COLUMNS: readonly ChatDataTableColumn<TopShortRow>[] = [
     header: "Short",
     numeric: true,
     cell: (row) =>
-      row.latest === undefined ? <Dash /> : formatPercent(row.latest),
+      row.latest === undefined ? (
+        <Dash />
+      ) : (
+        <span className="whitespace-nowrap">{formatPercent(row.latest)}</span>
+      ),
   },
   {
     id: "change",
@@ -154,8 +158,10 @@ function changeCell(points: Reading[]): ReactNode {
   // The colour follows the figure as it is shown. A move under half a hundredth of a
   // point prints as "0.00 pp", and that reads as no change, not as a rise or a fall.
   const shown = Number(delta.toFixed(2));
+  // A figure and its date each stay on one line. A wrapped "+2.82 / pp" makes the column four
+  // lines tall, and the name, not the figures, is the text that gives way.
   return (
-    <span className="block">
+    <span className="block whitespace-nowrap">
       <span
         className={cn(
           "font-medium",
