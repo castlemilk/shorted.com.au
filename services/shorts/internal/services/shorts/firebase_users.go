@@ -12,10 +12,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -54,6 +56,8 @@ type firebaseUsersReader interface {
 	Summary(ctx context.Context) (*firebaseUserSummary, error)
 	List(ctx context.Context, query, sort string, limit, offset int) (*firebaseUserPage, error)
 	Lookup(ctx context.Context, email string) (*firebaseUser, error)
+	// LookupUID returns the account with this uid, or nil when there is none.
+	LookupUID(ctx context.Context, uid string) (*firebaseUser, error)
 }
 
 type firebaseUsersClient struct {
@@ -95,7 +99,7 @@ func (c *firebaseUsersClient) call(ctx context.Context, body map[string]any, out
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("admin users: HTTP %d", resp.StatusCode)
+		return &adminUsersStatusError{status: resp.StatusCode}
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(out); err != nil {
 		return fmt.Errorf("admin users: malformed response")
@@ -130,4 +134,73 @@ func (c *firebaseUsersClient) Lookup(ctx context.Context, email string) (*fireba
 		return nil, err
 	}
 	return out.User, nil
+}
+
+// adminUsersStatusError is a non-200 answer from the web endpoint. It is typed so
+// a caller can tell an endpoint that does not know a request (400) from one that
+// is down.
+type adminUsersStatusError struct{ status int }
+
+func (e *adminUsersStatusError) Error() string {
+	return fmt.Sprintf("admin users: HTTP %d", e.status)
+}
+
+// firebaseUIDPattern is Firebase's uid shape, as the web route checks it.
+var firebaseUIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+
+// errAccountLookupNotDeployed is the answer while the web app is still rolling out
+// the uid form of lookup. The API deploys first, so for a few minutes the route
+// answers 400 to a uid lookup. Nothing is cached, so the next call after the
+// rollout succeeds.
+var errAccountLookupNotDeployed = errors.New("the web app does not answer uid lookups yet: its deploy is still rolling out. Retry in a few minutes")
+
+// LookupUID returns the account with this uid, or nil when there is none. The uid
+// is checked against Firebase's shape before anything is sent.
+func (c *firebaseUsersClient) LookupUID(ctx context.Context, uid string) (*firebaseUser, error) {
+	if !firebaseUIDPattern.MatchString(uid) {
+		return nil, errors.New("the account id is not a Firebase uid")
+	}
+	var out struct {
+		User *firebaseUser `json:"user"`
+	}
+	if err := c.call(ctx, map[string]any{"action": "lookup", "uid": uid}, &out); err != nil {
+		var status *adminUsersStatusError
+		if errors.As(err, &status) && status.status == http.StatusBadRequest {
+			return nil, errAccountLookupNotDeployed
+		}
+		return nil, err
+	}
+	return out.User, nil
+}
+
+// verifiedAccountEmail is the one rule for the address an alert may be mailed to,
+// for an account read by uid. It returns the account's email only when the account
+// is enabled and Firebase says the address is verified: the rule the public alerts
+// path applies to its verified token claims (alertEmailFor). The admin smoke test
+// uses it now; the public alerts:write tools will reuse it.
+//
+// A nil reader (no INTERNAL_SERVICE_SECRET on this deployment) gives the refusal
+// the smoke test has always given: nothing is read, so nothing is sent.
+func verifiedAccountEmail(ctx context.Context, users firebaseUsersReader, uid string) (string, error) {
+	if users == nil {
+		return "", errAdminAlertsEmail
+	}
+	account, err := users.LookupUID(ctx, uid)
+	if err != nil {
+		return "", err
+	}
+	if account == nil {
+		return "", errors.New("no account exists for this administrator, so no alert can be sent to it")
+	}
+	if account.Disabled {
+		return "", errors.New("this account is disabled, so no alert can be sent to it")
+	}
+	if !account.EmailVerified {
+		return "", errors.New("the address on this account is not verified, so no alert can be sent to it. Verify it, then retry")
+	}
+	email := strings.TrimSpace(account.Email)
+	if email == "" || !strings.Contains(email, "@") {
+		return "", errors.New("this account has no email address on file, so no alert can be sent to it")
+	}
+	return email, nil
 }
