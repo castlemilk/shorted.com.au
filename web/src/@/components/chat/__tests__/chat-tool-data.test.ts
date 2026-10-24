@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import {
   MAX_ECONOMIC_SERIES,
+  MAX_TABLE_ROWS,
   parseDirectorTrades,
   parseEconomicSeries,
   parsePeers,
@@ -251,6 +252,39 @@ describe("parseDirectorTrades (recorded)", () => {
     );
     expect(view!.trades[0]).toMatchObject({ director: "A", tradeType: "sell", shares: 100 });
     expect(view!.notShown).toBe(36);
+  });
+
+  it("counts the trades the budget dropped, from the tool's omittedTrades", () => {
+    // The shape of a result over the budget: the total is the rows the API returned, which
+    // is the rows sent (1) plus the rows the budget dropped (14).
+    const view = parseDirectorTrades(
+      JSON.stringify({
+        totalCount: 15,
+        omittedTrades: 14,
+        trades: [{ directorName: "A", tradeType: "buy", tradeDate: "2026-09-01" }],
+      }),
+    );
+    expect(view!.trades).toHaveLength(1);
+    expect(view!.notShown).toBe(14);
+  });
+
+  it("draws the budget-trimmed fifty-row answer and counts the eight it left out", () => {
+    const view = parseDirectorTrades(fixture("get_director_trades-bhp-50.json"));
+
+    expect(view).not.toBeNull();
+    expect(view!.trades).toHaveLength(36);
+    expect(view!.notShown).toBe(8);
+    expect(view!.trades[1]).toMatchObject({ director: "Mark Vassella", shares: 2675 });
+  });
+
+  it("counts rows past the table's cap as not shown", () => {
+    const rows = Array.from({ length: MAX_TABLE_ROWS + 5 }, (_, i) => ({
+      directorName: `Director ${i}`,
+      tradeType: "buy",
+    }));
+    const view = parseDirectorTrades(JSON.stringify({ trades: rows }));
+    expect(view!.trades).toHaveLength(MAX_TABLE_ROWS);
+    expect(view!.notShown).toBe(5);
   });
 
   it("ignores a share count that is not a whole number string", () => {

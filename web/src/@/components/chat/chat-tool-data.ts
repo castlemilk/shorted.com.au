@@ -98,7 +98,7 @@ export interface DirectorTradeRow {
 
 export interface DirectorTradesView {
   trades: DirectorTradeRow[];
-  /** Trades the store holds beyond the rows the tool sent. */
+  /** Trades the tool counted but did not draw: dropped to fit the budget, or past the table's cap. */
   notShown: number;
 }
 
@@ -357,10 +357,16 @@ export function parseDirectorTrades(result: string): DirectorTradesView | null {
     });
   });
 
+  // Trades the tool did not send: the rows it dropped to fit the budget (omittedTrades)
+  // and the trades the API counted beyond the rows sent (totalCount). Both count the
+  // same trades when the budget cut, so the larger is the count, not their sum. Rows
+  // past the table's cap are counted as well.
   const total = nonNegativeInt(root.totalCount) ?? 0;
+  const omitted = nonNegativeInt(root.omittedTrades) ?? 0;
+  const pastCap = Math.max(0, sent.length - MAX_TABLE_ROWS);
   return {
     trades,
-    notShown: Math.max(0, total - sent.length),
+    notShown: Math.max(omitted, total - sent.length) + pastCap,
   };
 }
 

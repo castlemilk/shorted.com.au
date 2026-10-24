@@ -447,6 +447,64 @@ func thinSparkline(points []*stocksv1alpha1.TimeSeriesPoint, limit int) []*stock
 	return thinned
 }
 
+// directorTradesResult is the trade list get_director_trades returns to the model, in
+// the API's order, newest first. TotalCount is the number of trades the API returned.
+// OmittedTrades counts the trades dropped to keep the answer within the budget, so the
+// table can say how many it did not draw.
+type directorTradesResult struct {
+	Trades        []directorTradeRow `json:"trades,omitempty"`
+	TotalCount    int32              `json:"totalCount,omitempty"`
+	OmittedTrades int                `json:"omittedTrades,omitempty"`
+}
+
+// directorTradeRow is one trade. The stock code and the trade id are left out: every
+// row is the stock the caller asked for, and the model does not cite ids.
+type directorTradeRow struct {
+	DirectorName    string  `json:"directorName,omitempty"`
+	TradeType       string  `json:"tradeType,omitempty"`
+	TradeDate       string  `json:"tradeDate,omitempty"`
+	SharesTraded    int64   `json:"sharesTraded,omitempty"`
+	PricePerShare   float64 `json:"pricePerShare,omitempty"`
+	TotalValue      float64 `json:"totalValue,omitempty"`
+	AnnouncementURL string  `json:"announcementUrl,omitempty"`
+}
+
+// summarizeDirectorTrades decodes a GetDirectorTrades response into the trade list the chat
+// table draws. Rows are kept in the API's order. When the answer is over the budget, the
+// trailing trades are dropped and OmittedTrades counts them, so the output is always valid
+// JSON within maxToolResultBytes and the table names the trades it did not draw.
+func summarizeDirectorTrades(respBody []byte) (string, error) {
+	var response shortsv1alpha1.GetDirectorTradesResponse
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(respBody, &response); err != nil {
+		return "", fmt.Errorf("decode GetDirectorTrades response: %w", err)
+	}
+
+	result := directorTradesResult{TotalCount: response.GetTotalCount()}
+	for _, trade := range response.GetTrades() {
+		result.Trades = append(result.Trades, directorTradeRow{
+			DirectorName:    trade.GetDirectorName(),
+			TradeType:       trade.GetTradeType(),
+			TradeDate:       trade.GetTradeDate(),
+			SharesTraded:    trade.GetSharesTraded(),
+			PricePerShare:   trade.GetPricePerShare(),
+			TotalValue:      trade.GetTotalValue(),
+			AnnouncementURL: trade.GetAnnouncementUrl(),
+		})
+	}
+
+	for {
+		resultBytes, err := json.Marshal(result)
+		if err != nil {
+			return "", fmt.Errorf("marshal GetDirectorTrades result: %w", err)
+		}
+		if len(resultBytes) <= maxToolResultBytes || len(result.Trades) == 0 {
+			return string(resultBytes), nil
+		}
+		result.Trades = result.Trades[:len(result.Trades)-1]
+		result.OmittedTrades++
+	}
+}
+
 // marshalProtoJSON encodes a message in the API's JSON names. protojson adds random
 // spacing, so the output is compacted to one stable form.
 func marshalProtoJSON(msg proto.Message) (string, error) {

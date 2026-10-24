@@ -794,3 +794,131 @@ func TestTopShortsDropsRowsOnlyWhenEvenBareRowsDoNotFit(t *testing.T) {
 		t.Errorf("first row has %d points, want its sparkline kept", len(out.TimeSeries[0].Points))
 	}
 }
+
+// directorTradesBody returns a GetDirectorTrades response of count trades, newest first.
+// Each carries the announcement link the API sends, so the rows are as long as real ones.
+func directorTradesBody(t *testing.T, count int) []byte {
+	t.Helper()
+	start := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
+	response := &shortsv1alpha1.GetDirectorTradesResponse{TotalCount: int32(count)}
+	for i := 0; i < count; i++ {
+		response.Trades = append(response.Trades, &shortsv1alpha1.DirectorTrade{
+			Id:              fmt.Sprintf("0c005e50-0a28-45ba-963d-a6e4aace2d%02d", i),
+			StockCode:       "BHP",
+			DirectorName:    fmt.Sprintf("Director Name %02d", i),
+			TradeType:       "buy",
+			SharesTraded:    int64(1000 + i),
+			PricePerShare:   60.5,
+			TotalValue:      float64(60500 + i),
+			TradeDate:       start.AddDate(0, 0, -i).Format("2006-01-02"),
+			AnnouncementUrl: "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03139368",
+		})
+	}
+	body, err := protojson.Marshal(response)
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+	return body
+}
+
+// directorTradesOutput is a get_director_trades result as the model and the chat table read it.
+type directorTradesOutput struct {
+	Trades []struct {
+		DirectorName    string `json:"directorName"`
+		TradeType       string `json:"tradeType"`
+		TradeDate       string `json:"tradeDate"`
+		SharesTraded    int64  `json:"sharesTraded"`
+		AnnouncementURL string `json:"announcementUrl"`
+	} `json:"trades"`
+	TotalCount    int `json:"totalCount"`
+	OmittedTrades int `json:"omittedTrades"`
+}
+
+// decodeDirectorTrades fails unless result is valid JSON within the budget, and returns it
+// decoded.
+func decodeDirectorTrades(t *testing.T, result string) directorTradesOutput {
+	t.Helper()
+	if len(result) > maxToolResultBytes {
+		t.Fatalf("result is %d bytes, over the %d byte budget", len(result), maxToolResultBytes)
+	}
+	if !json.Valid([]byte(result)) {
+		t.Fatalf("result is not valid JSON: %.200s", result)
+	}
+	var out directorTradesOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	return out
+}
+
+// TestDirectorTradesKeepsEveryTradeThatFits: ten trades are well under the budget. None is
+// dropped, the rows keep the API's order, and the shaped row carries the fields the table
+// draws and not the per-row stock code or id.
+func TestDirectorTradesKeepsEveryTradeThatFits(t *testing.T) {
+	result, err := summarizeDirectorTrades(directorTradesBody(t, 10))
+	if err != nil {
+		t.Fatalf("summarizeDirectorTrades() error = %v", err)
+	}
+	out := decodeDirectorTrades(t, result)
+	if len(out.Trades) != 10 || out.OmittedTrades != 0 || out.TotalCount != 10 {
+		t.Fatalf("trades = %d, omitted = %d, totalCount = %d; want 10, 0 and 10", len(out.Trades), out.OmittedTrades, out.TotalCount)
+	}
+	for i, trade := range out.Trades {
+		if want := fmt.Sprintf("Director Name %02d", i); trade.DirectorName != want {
+			t.Errorf("trade %d = %s, want %s: trades must stay in the API's order", i, trade.DirectorName, want)
+		}
+	}
+	first := out.Trades[0]
+	if first.SharesTraded != 1000 || first.TradeType != "buy" || first.TradeDate != "2026-09-30" {
+		t.Errorf("first trade = %+v, want its shares, type and date", first)
+	}
+	if strings.Contains(result, "stockCode") || strings.Contains(result, `"id"`) {
+		t.Errorf("result carries a per-row stock code or id, which the table does not draw: %.200s", result)
+	}
+}
+
+// TestDirectorTradesDropsTrailingTradesOverTheBudget: at the tool's 50-row limit the answer
+// is over the budget. The trailing trades go, the rest keep the API's order, and
+// omittedTrades counts them. totalCount is still the number the API returned.
+func TestDirectorTradesDropsTrailingTradesOverTheBudget(t *testing.T) {
+	body := directorTradesBody(t, 50)
+	if len(body) <= maxToolResultBytes {
+		t.Fatalf("fixture is %d bytes, want it over the budget so the test means something", len(body))
+	}
+
+	result, err := summarizeDirectorTrades(body)
+	if err != nil {
+		t.Fatalf("summarizeDirectorTrades() error = %v", err)
+	}
+	out := decodeDirectorTrades(t, result)
+	if out.OmittedTrades == 0 {
+		t.Fatalf("no trades omitted, so the fixture does not exercise the drop")
+	}
+	if len(out.Trades)+out.OmittedTrades != 50 {
+		t.Errorf("kept %d trades and omitted %d, want 50 in all", len(out.Trades), out.OmittedTrades)
+	}
+	if out.TotalCount != 50 {
+		t.Errorf("totalCount = %d, want the 50 the API returned", out.TotalCount)
+	}
+	// A row is about 220 bytes, so a budget of 8000 bytes keeps a few dozen trades.
+	if len(out.Trades) < 25 {
+		t.Errorf("kept %d trades, want at least 25 of the 50 to fit the budget", len(out.Trades))
+	}
+	for i, trade := range out.Trades {
+		if want := fmt.Sprintf("Director Name %02d", i); trade.DirectorName != want {
+			t.Errorf("trade %d = %s, want %s: trades must stay in the API's order", i, trade.DirectorName, want)
+		}
+	}
+}
+
+// TestDirectorTradesEmptyAnswerIsAnEmptyObject: the documented empty answer. No trades and no
+// count is the same {} the tool returned before the budget.
+func TestDirectorTradesEmptyAnswerIsAnEmptyObject(t *testing.T) {
+	result, err := summarizeDirectorTrades([]byte("{}"))
+	if err != nil {
+		t.Fatalf("summarizeDirectorTrades() error = %v", err)
+	}
+	if result != "{}" {
+		t.Errorf("result = %s, want {}", result)
+	}
+}

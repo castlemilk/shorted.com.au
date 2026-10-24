@@ -27,6 +27,8 @@ var captureToolFixtures = []captureToolFixture{
 	{file: "query_short_positions-glc-3m.json", tool: "query_short_positions", args: map[string]interface{}{"stock_code": "GLC", "period": "3m"}},
 	{file: "get_peer_comparison-bhp.json", tool: "get_peer_comparison", args: map[string]interface{}{"stock_code": "BHP"}},
 	{file: "get_director_trades-bhp.json", tool: "get_director_trades", args: map[string]interface{}{"stock_code": "BHP", "limit": 10.0}},
+	// At the tool's 50-row limit BHP has 44 trades, more than the budget holds: the answer the table must trim.
+	{file: "get_director_trades-bhp-50.json", tool: "get_director_trades", args: map[string]interface{}{"stock_code": "BHP", "limit": 50.0}},
 	// GLC has no director trades on the ASX feed: the empty answer the table must handle.
 	{file: "get_director_trades-glc-none.json", tool: "get_director_trades", args: map[string]interface{}{"stock_code": "GLC", "limit": 10.0}},
 	{file: "get_stock_details-bhp.json", tool: "get_stock_details", args: map[string]interface{}{"stock_code": "BHP"}},
@@ -39,6 +41,7 @@ var captureToolFixtures = []captureToolFixture{
 // It is skipped unless CHAT_TOOLS_CAPTURE_FIXTURES names an existing output directory.
 // Requests are spaced 1.5s apart, under the anonymous edge limit. CHAT_TOOLS_LIVE_API_URL
 // overrides https://api.shorted.com.au, as it does for TestChatToolsLiveReadOnly.
+// CHAT_TOOLS_CAPTURE_ONLY, a comma-separated list of file names, records only those cases.
 //
 //	CHAT_TOOLS_CAPTURE_FIXTURES=/abs/path/web/src/@/components/chat/__fixtures__/tool-results \
 //	  GOWORK=off go test -count=1 -run TestCaptureToolResultFixtures ./chat-service/
@@ -54,12 +57,13 @@ func TestCaptureToolResultFixtures(t *testing.T) {
 	if base == "" {
 		base = "https://api.shorted.com.au"
 	}
+	cases := selectCaptureCases(t, os.Getenv("CHAT_TOOLS_CAPTURE_ONLY"))
 
 	executor := NewToolExecutor(base)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	for i, tc := range captureToolFixtures {
+	for i, tc := range cases {
 		if i > 0 {
 			time.Sleep(1500 * time.Millisecond)
 		}
@@ -80,4 +84,32 @@ func TestCaptureToolResultFixtures(t *testing.T) {
 		}
 		t.Logf("%-42s bytes=%d", tc.file, len(result))
 	}
+}
+
+// selectCaptureCases returns every capture case, or only the ones named in only, a
+// comma-separated list of fixture file names. Naming one tool's files re-records just
+// those, so the other fixtures keep the values they were recorded with. An unknown name
+// fails the test rather than being skipped.
+func selectCaptureCases(t *testing.T, only string) []captureToolFixture {
+	t.Helper()
+	wanted := map[string]bool{}
+	for _, name := range strings.Split(only, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			wanted[name] = true
+		}
+	}
+	if len(wanted) == 0 {
+		return captureToolFixtures
+	}
+	var cases []captureToolFixture
+	for _, tc := range captureToolFixtures {
+		if wanted[tc.file] {
+			cases = append(cases, tc)
+			delete(wanted, tc.file)
+		}
+	}
+	for name := range wanted {
+		t.Fatalf("CHAT_TOOLS_CAPTURE_ONLY names %q, which is not a capture case", name)
+	}
+	return cases
 }
