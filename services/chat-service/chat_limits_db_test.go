@@ -9,10 +9,9 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/google/generative-ai-go/genai"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"google.golang.org/api/option"
 
 	chatv1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/chat/v1"
 )
@@ -317,14 +316,10 @@ func TestRefusedBeforeAnswerIsNotCounted(t *testing.T) {
 	store := NewConversationStore(pool)
 
 	// Port 1 refuses connections, so the first request fails before any response.
-	gemini, err := genai.NewClient(ctx,
-		option.WithAPIKey("test-key"),
-		option.WithEndpoint("http://127.0.0.1:1"),
-	)
+	provider, err := newGeminiProviderAt(ctx, "test-key", "http://127.0.0.1:1")
 	if err != nil {
-		t.Fatalf("genai.NewClient() error = %v", err)
+		t.Fatalf("newGeminiProviderAt() error = %v", err)
 	}
-	t.Cleanup(func() { _ = gemini.Close() })
 
 	user := "refused-test-" + uuid.NewString()
 	t.Cleanup(func() {
@@ -332,7 +327,7 @@ func TestRefusedBeforeAnswerIsNotCounted(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_conversations WHERE user_id = $1`, user)
 	})
 
-	handler := NewChatServiceHandler(store, llmClientOverGemini(gemini, "gemini-test", nil), nil)
+	handler := NewChatServiceHandler(store, newLLMClient(provider, "gemini-test", 0, nil), nil)
 	client := newWireTestServer(t, handler)
 
 	req := connect.NewRequest(&chatv1.SendMessageRequest{Message: "hello"})

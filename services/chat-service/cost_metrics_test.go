@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/genai"
 )
 
 func captureLogEvent(t *testing.T, fn func()) map[string]any {
@@ -42,20 +42,20 @@ func captureLogEvent(t *testing.T, fn func()) map[string]any {
 }
 
 func TestTokenUsageFromResponseHandlesNilMetadata(t *testing.T) {
-	usage := geminiUsageFromResponse(nil)
+	usage := genaiUsage(nil)
 	if usage != (TokenUsage{}) {
 		t.Fatalf("nil response usage = %+v, want zero value", usage)
 	}
 
-	usage = geminiUsageFromResponse(&genai.GenerateContentResponse{})
+	usage = genaiUsage(&genai.GenerateContentResponse{})
 	if usage != (TokenUsage{}) {
 		t.Fatalf("nil metadata usage = %+v, want zero value", usage)
 	}
 }
 
 func TestTokenUsageTracksBillablePromptTokens(t *testing.T) {
-	usage := geminiUsageFromResponse(&genai.GenerateContentResponse{
-		UsageMetadata: &genai.UsageMetadata{
+	usage := genaiUsage(&genai.GenerateContentResponse{
+		UsageMetadata: &genai.GenerateContentResponseUsageMetadata{
 			PromptTokenCount:        120,
 			CachedContentTokenCount: 35,
 			CandidatesTokenCount:    40,

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/genai"
 )
 
 func TestEconomicSeriesToolDeclarationAndGeminiSchema(t *testing.T) {
