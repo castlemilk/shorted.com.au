@@ -136,7 +136,7 @@ func checkServiceHealth() bool {
 }
 
 func waitForService(maxAttempts int) bool {
-	for i := 0; i < maxAttempts; i++ {
+	for range maxAttempts {
 		if checkServiceHealth() {
 			return true
 		}
@@ -263,7 +263,7 @@ func TestGetTopShortsLoadTest(t *testing.T) {
 	}
 	config := getConfig()
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"period": "1m",
 		"limit":  10,
 		"offset": 0,
@@ -317,7 +317,7 @@ func TestGetStockLoadTest(t *testing.T) {
 
 	for _, stockCode := range stockCodes {
 		t.Run(fmt.Sprintf("Stock_%s", stockCode), func(t *testing.T) {
-			payload := map[string]interface{}{
+			payload := map[string]any{
 				"productCode": stockCode,
 			}
 			body, _ := json.Marshal(payload)
@@ -347,7 +347,7 @@ func TestGetStockDataLoadTest(t *testing.T) {
 
 	for _, period := range periods {
 		t.Run(fmt.Sprintf("Period_%s", period), func(t *testing.T) {
-			payload := map[string]interface{}{
+			payload := map[string]any{
 				"productCode": "CBA",
 				"period":      period,
 			}
@@ -374,7 +374,7 @@ func TestGetIndustryTreeMapLoadTest(t *testing.T) {
 	}
 	config := getConfig()
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"period":   "1m",
 		"limit":    10,
 		"viewMode": "CURRENT_CHANGE",
@@ -421,7 +421,7 @@ func runConcurrentUserScenario(t *testing.T, config TestConfig, userCount int, d
 
 	t.Logf("Starting %d concurrent users for %v", userCount, duration)
 
-	for i := 0; i < userCount; i++ {
+	for i := range userCount {
 		wg.Add(1)
 		go func(userID int) {
 			defer wg.Done()
@@ -485,26 +485,26 @@ func runConcurrentUserScenario(t *testing.T, config TestConfig, userCount int, d
 
 // Helper functions for API calls
 func callGetTopShorts(client *http.Client, config TestConfig) (time.Duration, error) {
-	payload := map[string]interface{}{"period": "1m", "limit": 10, "offset": 0}
+	payload := map[string]any{"period": "1m", "limit": 10, "offset": 0}
 	return makeRequest(client, config.BaseURL+"/shorts.v1alpha1.ShortedStocksService/GetTopShorts", payload)
 }
 
 func callGetStock(client *http.Client, config TestConfig, productCode string) (time.Duration, error) {
-	payload := map[string]interface{}{"productCode": productCode}
+	payload := map[string]any{"productCode": productCode}
 	return makeRequest(client, config.BaseURL+"/shorts.v1alpha1.ShortedStocksService/GetStock", payload)
 }
 
 func callGetStockData(client *http.Client, config TestConfig, productCode, period string) (time.Duration, error) {
-	payload := map[string]interface{}{"productCode": productCode, "period": period}
+	payload := map[string]any{"productCode": productCode, "period": period}
 	return makeRequest(client, config.BaseURL+"/shorts.v1alpha1.ShortedStocksService/GetStockData", payload)
 }
 
 func callGetIndustryTreeMap(client *http.Client, config TestConfig) (time.Duration, error) {
-	payload := map[string]interface{}{"period": "1m", "limit": 10, "viewMode": "CURRENT_CHANGE"}
+	payload := map[string]any{"period": "1m", "limit": 10, "viewMode": "CURRENT_CHANGE"}
 	return makeRequest(client, config.BaseURL+"/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap", payload)
 }
 
-func makeRequest(client *http.Client, url string, payload interface{}) (time.Duration, error) {
+func makeRequest(client *http.Client, url string, payload any) (time.Duration, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return 0, err
@@ -615,7 +615,7 @@ func TestDatabaseConnectionPoolUnderLoad(t *testing.T) {
 	config := getConfig()
 
 	// Test with high concurrency to stress connection pool
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"period": "1m",
 		"limit":  10,
 		"offset": 0,
@@ -654,7 +654,7 @@ func TestSustainedLoad(t *testing.T) {
 
 	config := getConfig()
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"period": "1m",
 		"limit":  10,
 		"offset": 0,

@@ -61,7 +61,7 @@ type yahooChartResponse struct {
 				} `json:"adjclose"`
 			} `json:"indicators"`
 		} `json:"result"`
-		Error interface{} `json:"error"`
+		Error any `json:"error"`
 	} `json:"chart"`
 }
 
