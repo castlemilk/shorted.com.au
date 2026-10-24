@@ -198,8 +198,8 @@ func buildStock(m Message, hasChart bool) stockView {
 		}
 	}
 	v.NameLine = joinNonEmpty(" · ", name, industry)
-	v.Logo = logo
-	v.HasLogo = logo != ""
+	v.Logo = usableLogo(logo)
+	v.HasLogo = v.Logo != ""
 
 	v.Previous = dashIfNil(m.Previous)
 	v.Latest = dashIfNil(m.Latest)
@@ -379,7 +379,8 @@ func buildTable(m Message, more int, moreURL string) tableView {
 		cs = cs[:emailTableRows]
 	}
 	for _, c := range cs {
-		r := tableRow{Code: c.Code, Name: c.Name, Logo: c.LogoURL, HasLogo: c.LogoURL != ""}
+		logo := usableLogo(c.LogoURL)
+		r := tableRow{Code: c.Code, Name: c.Name, Logo: logo, HasLogo: logo != ""}
 		latest := c.Latest
 		if m.Condition == alertevents.ConditionNewTopTenEntry {
 			r.Cells = []cell{

@@ -137,13 +137,13 @@ func (s store) loadRows(ctx context.Context, oldest, newest Date) (map[Date]map[
 }
 
 // loadCompanies reads each code's name, industry and logo. The sector column is
-// absent from prod's company-metadata, so it is not read. The icon is preferred to
-// the full logo: both columns exist in prod, and the icon is the small variant the
-// email shows.
+// absent from prod's company-metadata, so it is not read. The logo is the icon column
+// only: the full logo is a wordmark, which is not shown in a square. The sector column
+// is absent in prod, so it is not read either.
 func (s store) loadCompanies(ctx context.Context) (map[string]CompanyInfo, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT stock_code, COALESCE(company_name, ''), COALESCE(industry, ''),
-		       COALESCE(logo_icon_gcs_url, ''), COALESCE(logo_gcs_url, '')
+		       COALESCE(logo_icon_gcs_url, '')
 		  FROM "company-metadata"`)
 	if err != nil {
 		return nil, fmt.Errorf("read company metadata: %w", err)
@@ -151,15 +151,12 @@ func (s store) loadCompanies(ctx context.Context) (map[string]CompanyInfo, error
 	defer rows.Close()
 	out := map[string]CompanyInfo{}
 	for rows.Next() {
-		var code, icon, logo string
+		var code, icon string
 		var info CompanyInfo
-		if err := rows.Scan(&code, &info.Name, &info.Industry, &icon, &logo); err != nil {
+		if err := rows.Scan(&code, &info.Name, &info.Industry, &icon); err != nil {
 			return nil, fmt.Errorf("scan company: %w", err)
 		}
-		info.LogoURL = icon
-		if info.LogoURL == "" {
-			info.LogoURL = logo
-		}
+		info.LogoURL = usableLogo(icon)
 		out[code] = info
 	}
 	return out, rows.Err()

@@ -1085,7 +1085,7 @@ func codesIn(p alertevents.Payload) string {
 func TestAlertsE2EStockDetail(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
-	mustExec(t, e.pool, `UPDATE "company-metadata" SET logo_icon_gcs_url = 'https://logos.test/AAA_icon.png', logo_gcs_url = 'https://logos.test/AAA.png' WHERE stock_code = 'AAA'`)
+	mustExec(t, e.pool, `UPDATE "company-metadata" SET logo_icon_gcs_url = 'https://logos.test/AAA_icon.PNG?v=2', logo_gcs_url = 'https://logos.test/AAA-wordmark.png' WHERE stock_code = 'AAA'`)
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
 	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
 
@@ -1109,7 +1109,7 @@ func TestAlertsE2EStockDetail(t *testing.T) {
 		t.Fatalf("the stock event must carry its detail: %s", raw)
 	}
 	st := p.Stock
-	if st.Name != "Aaa Resources Ltd" || st.Industry != "Materials" || st.LogoURL != "https://logos.test/AAA_icon.png" {
+	if st.Name != "Aaa Resources Ltd" || st.Industry != "Materials" || st.LogoURL != "https://logos.test/AAA_icon.PNG?v=2" {
 		t.Fatalf("identity = %+v; the icon must be preferred", st)
 	}
 	if st.SharesShort == nil || *st.SharesShort != 1240000000 || st.SharesOnIssue == nil || *st.SharesOnIssue != 12100000000 {
@@ -1126,7 +1126,7 @@ func TestAlertsE2EStockDetail(t *testing.T) {
 	if st.Change20 != nil {
 		t.Fatalf("a short history has no 20-report change, got %v", *st.Change20)
 	}
-	if len(p.Companies) != 1 || p.Companies[0].LogoURL != "https://logos.test/AAA_icon.png" {
+	if len(p.Companies) != 1 || p.Companies[0].LogoURL != "https://logos.test/AAA_icon.PNG?v=2" {
 		t.Fatalf("the company must carry its logo too: %+v", p.Companies)
 	}
 
@@ -1194,4 +1194,30 @@ func TestAlertsE2ENonFiniteHistory(t *testing.T) {
 	nonFiniteRun(t, func(e *e2e) {
 		mustExec(e.t, e.pool, `UPDATE shorts SET "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" = 'NaN'::float8 WHERE "PRODUCT_CODE" = 'AAA' AND "DATE" = '2026-10-12'`)
 	})
+}
+
+// A company with only a wordmark on file, and no icon, is drawn as a monogram: the
+// wordmark column is never read, so its URL never reaches the payload.
+func TestAlertsE2EWordmarkOnlyIsAMonogram(t *testing.T) {
+	e := newE2E(t)
+	e.seedBase()
+	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
+	mustExec(t, e.pool, `UPDATE "company-metadata" SET logo_gcs_url = 'https://logos.test/AAA-wordmark.png' WHERE stock_code = 'AAA'`)
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.day("2026-10-12", baseDay0())
+	e.day("2026-10-13", baseDay0())
+	e.wantExit(e.run(), 0, "bootstrap")
+	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
+	e.wantExit(e.run(), 0, "first crossing")
+	var raw []byte
+	if err := e.pool.QueryRow(e.ctx, `SELECT payload FROM alert_events WHERE monitor_id = 'm1' AND report_date = '2026-10-14'`).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var p alertevents.Payload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Companies[0].LogoURL != "" || (p.Stock != nil && p.Stock.LogoURL != "") {
+		t.Fatalf("a wordmark-only company must carry no logo: %+v", p.Companies[0])
+	}
 }
