@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"maps"
+	"strings"
+	"time"
 )
 
 // turnError is what a turn returns when it fails. ModelReached says whether the
@@ -28,12 +30,18 @@ func modelAnswered(err error) bool {
 	return errors.As(err, &te) && te.ModelReached
 }
 
-// LLMResponse represents a response from the LLM.
+// LLMResponse represents a response from the LLM. Provider, Model and Route name
+// the model that answered: Route is "env_default" or "fallback".
 type LLMResponse struct {
-	Content   string
-	ToolCalls []ToolCallRecord
-	Citations []Citation
-	Usage     TokenUsage
+	Content            string
+	ToolCalls          []ToolCallRecord
+	Citations          []Citation
+	Usage              TokenUsage
+	Provider           string
+	Model              string
+	Route              string
+	FirstCallViolation bool  // the first call and its retry both chose no tool
+	EstCostMicroUSD    int64 // the estimated cost of every call that succeeded
 }
 
 // ToolCallRecord records a tool call made during the conversation.
@@ -49,40 +57,88 @@ type Citation struct {
 	Text   string `json:"text"`
 }
 
-// turnMeta names the provider and model a turn runs on, for its metrics.
+// turnMeta names the provider and model a turn runs on, and what the model
+// costs, for its metrics.
 type turnMeta struct {
 	Provider string
 	Model    string
+	Pricing  Pricing
+	Start    time.Time // the turn's start, which decides off-peak pricing
+}
+
+// firstCallNudge is the sentence the verify policy adds to the system prompt. A
+// retry after a first call that chose no tool adds it too.
+const firstCallNudge = "Before you answer, call a tool: a data tool, or answer_without_data when no data is needed."
+
+// turnSpec is one turn as the engine runs it. The engine opens a session for the
+// first call and another for a retry, so it holds the provider, not a session.
+type turnSpec struct {
+	provider ChatProvider
+	cfg      SessionConfig // cfg.System is the base prompt
+	userText string
+	// forcedFirstCall says the model honours a required choice, so its first call
+	// must call a tool. Otherwise the verify policy applies: the first call is
+	// Auto, and the prompt carries the nudge.
+	forcedFirstCall bool
+	meta            turnMeta
+}
+
+// turnTally is the usage and cost of the calls that succeeded.
+type turnTally struct {
+	usage TokenUsage
+	cost  int64
 }
 
 // TurnEngine runs one chat turn over a model session: the tool rounds, their
-// budgets, the answers to refused calls, and the usage. It makes no provider
-// call itself, so the same rules apply to every provider.
+// budgets, the answers to refused calls, the first-call check and the usage. It
+// makes no provider call itself, so the same rules apply to every provider.
 type TurnEngine struct {
 	tools *ToolExecutor
 }
 
-// run plays one turn. The first call sends the user's text and must choose a
-// tool. Each later call answers every call of the previous reply, and offers
-// tools only while the round has budget. Text is passed to onChunk as it streams.
-func (e *TurnEngine) run(ctx context.Context, session ModelSession, meta turnMeta, userText string, onChunk func(text string)) (*LLMResponse, error) {
-	emit := func(ev ModelEvent) {
-		if ev.Kind == EventTextDelta && ev.Text != "" {
-			onChunk(ev.Text)
+// run plays one turn. Its first call must choose a tool. A first reply with no
+// tool call is retried once on a fresh session with the nudge; if the retry also
+// calls no tool, its text is the answer and the turn is marked. Each later call
+// answers every call of the previous reply, and offers tools only while the round
+// has budget. Text reaches onChunk once it is known to be the answer.
+func (e *TurnEngine) run(ctx context.Context, spec turnSpec, onChunk func(text string)) (*LLMResponse, error) {
+	var tally turnTally
+	var allToolCalls []ToolCallRecord
+
+	system := spec.cfg.System
+	if !spec.forcedFirstCall {
+		system = withNudge(system)
+	}
+	session, reply, held, err := e.sendFirst(ctx, spec, system, &tally)
+	if err != nil {
+		return nil, err
+	}
+
+	violation := false
+	if len(reply.ToolCalls) == 0 {
+		recordFirstCallViolation(ctx, spec.meta.Provider, spec.meta.Model)
+		session, reply, held, err = e.sendFirst(ctx, spec, withNudge(spec.cfg.System), &tally)
+		if err != nil {
+			return nil, err
+		}
+		if len(reply.ToolCalls) == 0 {
+			violation = true
+			for _, text := range held {
+				onChunk(text)
+			}
+			return &LLMResponse{
+				Content:            strings.Join(held, ""),
+				Usage:              tally.usage,
+				EstCostMicroUSD:    tally.cost,
+				FirstCallViolation: true,
+			}, nil
 		}
 	}
-
-	var allToolCalls []ToolCallRecord
-	var totalUsage TokenUsage
-
-	// First call: a data tool, or answer_without_data when no data is needed.
-	reply, err := session.Send(ctx, SendInput{UserText: userText}, choiceForCall(true, true), emit)
-	if err != nil {
-		recordModelRequest(ctx, meta.Provider, meta.Model, "initial", "error", reply.Usage, 0)
-		return nil, &turnError{ModelReached: providerReached(err), err: err}
+	// The first call chose a tool. Text it wrote before the call is a preamble,
+	// and it is shown here, as it was before first-call text was held back.
+	for _, text := range held {
+		onChunk(text)
 	}
-	recordModelRequest(ctx, meta.Provider, meta.Model, "initial", "success", reply.Usage, 0)
-	totalUsage.Add(reply.Usage)
 	pending := reply.ToolCalls
 
 	// Rounds 0 to maxToolRounds-1 run tools. The round after them runs none:
@@ -121,13 +177,14 @@ func (e *TurnEngine) run(ctx context.Context, session ModelSession, meta turnMet
 
 		// Send the results, and stream the answer. Tool rounds run only after the
 		// model has answered the first call, so a failure here always counts.
-		reply, err := session.Send(ctx, SendInput{ToolResults: results}, choice, emit)
+		reply, err := session.Send(ctx, SendInput{ToolResults: results}, choice, e.emitter(onChunk))
+		cost := EstimateCostMicroUSD(spec.meta.Pricing, reply.Usage, spec.meta.Start)
 		if err != nil {
-			recordModelRequest(ctx, meta.Provider, meta.Model, "tool_response", "error", reply.Usage, 0)
+			recordModelRequest(ctx, spec.meta.Provider, spec.meta.Model, "tool_response", "error", reply.Usage, cost)
 			return nil, &turnError{ModelReached: true, err: err}
 		}
-		recordModelRequest(ctx, meta.Provider, meta.Model, "tool_response", "success", reply.Usage, 0)
-		totalUsage.Add(reply.Usage)
+		recordModelRequest(ctx, spec.meta.Provider, spec.meta.Model, "tool_response", "success", reply.Usage, cost)
+		tally.add(reply.Usage, cost)
 		pending = reply.ToolCalls
 
 		// Without budget there is no round left to run calls in, so anything
@@ -138,9 +195,65 @@ func (e *TurnEngine) run(ctx context.Context, session ModelSession, meta turnMet
 	}
 
 	return &LLMResponse{
-		ToolCalls: allToolCalls,
-		Usage:     totalUsage,
+		ToolCalls:          allToolCalls,
+		Usage:              tally.usage,
+		EstCostMicroUSD:    tally.cost,
+		FirstCallViolation: violation,
 	}, nil
+}
+
+// sendFirst opens a session with the given system prompt and makes its first call.
+// The call's text deltas are returned in order, not emitted: the caller decides
+// whether they are the answer.
+func (e *TurnEngine) sendFirst(ctx context.Context, spec turnSpec, system string, tally *turnTally) (ModelSession, ModelReply, []string, error) {
+	cfg := spec.cfg
+	cfg.System = system
+	session, err := spec.provider.NewSession(cfg)
+	if err != nil {
+		return nil, ModelReply{}, nil, providerError("start session", err)
+	}
+
+	choice := ToolChoiceAuto
+	if spec.forcedFirstCall {
+		choice = ToolChoiceRequired
+	}
+	var held []string
+	reply, err := session.Send(ctx, SendInput{UserText: spec.userText}, choice, func(ev ModelEvent) {
+		if ev.Kind == EventTextDelta && ev.Text != "" {
+			held = append(held, ev.Text)
+		}
+	})
+	cost := EstimateCostMicroUSD(spec.meta.Pricing, reply.Usage, spec.meta.Start)
+	if err != nil {
+		recordModelRequest(ctx, spec.meta.Provider, spec.meta.Model, "initial", "error", reply.Usage, cost)
+		return nil, ModelReply{}, nil, &turnError{ModelReached: providerReached(err), err: err}
+	}
+	recordModelRequest(ctx, spec.meta.Provider, spec.meta.Model, "initial", "success", reply.Usage, cost)
+	tally.add(reply.Usage, cost)
+	return session, reply, held, nil
+}
+
+// emitter passes text deltas to onChunk.
+func (e *TurnEngine) emitter(onChunk func(string)) func(ModelEvent) {
+	return func(ev ModelEvent) {
+		if ev.Kind == EventTextDelta && ev.Text != "" {
+			onChunk(ev.Text)
+		}
+	}
+}
+
+// add counts one successful call into the turn.
+func (t *turnTally) add(usage TokenUsage, cost int64) {
+	t.usage.Add(usage)
+	t.cost += cost
+}
+
+// withNudge returns the system prompt with the first-call sentence appended.
+func withNudge(system string) string {
+	if system == "" {
+		return firstCallNudge
+	}
+	return system + "\n\n" + firstCallNudge
 }
 
 // maxToolRounds is how many rounds of tool calls one turn may run.
@@ -179,6 +292,8 @@ const (
 	toolCallOverCap
 	// toolCallNoBudget: the turn has no tool rounds left.
 	toolCallNoBudget
+	// toolCallBadArgs: the call's argument JSON did not parse, so it did not run.
+	toolCallBadArgs
 )
 
 // planToolCalls decides, for each of the n calls one response requested,
@@ -209,6 +324,9 @@ func toolCallNotice(d toolCallDecision) map[string]any {
 			maxToolCallsPerRound,
 		)}
 	}
+	if d == toolCallBadArgs {
+		return map[string]any{"error": "The arguments for this call were not valid JSON, so it did not run. Call it again with valid JSON arguments."}
+	}
 	return map[string]any{"error": "The tool budget for this reply is spent, so this call did not run. Answer from the data already retrieved, and say plainly what is missing."}
 }
 
@@ -223,6 +341,10 @@ func isDataTool(name string) bool {
 // runs. answer_without_data always runs, because it is instant and makes no
 // request, so it takes no cap slot and no budget. The data calls are planned by
 // planToolCalls.
+//
+// A data call whose arguments did not parse still takes its cap slot, and gets
+// the bad-arguments notice in place of a run. answer_without_data reads no
+// arguments, so it always runs.
 func planRoundCalls(calls []ToolCall, roundHasBudget bool) []toolCallDecision {
 	dataCalls := 0
 	for _, call := range calls {
@@ -240,6 +362,9 @@ func planRoundCalls(calls []ToolCall, roundHasBudget bool) []toolCallDecision {
 			continue
 		}
 		decisions[i] = dataDecisions[next]
+		if decisions[i] == toolCallExecute && call.ArgsError != "" {
+			decisions[i] = toolCallBadArgs
+		}
 		next++
 	}
 	return decisions

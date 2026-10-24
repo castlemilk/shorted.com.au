@@ -560,7 +560,10 @@ func TestGeminiNeverEmitsThoughtText(t *testing.T) {
 
 // Stored history with an empty message sends no empty part: the API rejects one.
 func TestGeminiHistorySkipsEmptyMessages(t *testing.T) {
-	replies := [][]string{{`{"candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]},"index":0}]}`}}
+	// A text-only first reply is a first-call violation, so the engine retries once
+	// on a fresh session. The script answers both calls; the test reads the first.
+	text := []string{`{"candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]},"index":0}]}`}
+	replies := [][]string{text, text}
 	rec := &wireRecorder{}
 	gemini := newWireGemini(t, rec, replies)
 	toolAPI := newWireToolAPI(t, rec)

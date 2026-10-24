@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 )
 
 // LLMClient is the chat model: one provider, one model and the turn engine that
@@ -11,6 +12,10 @@ type LLMClient struct {
 	engine          *TurnEngine
 	model           string
 	maxOutputTokens int32
+	// forcedFirstCall and pricing describe the model. The facade is used by the
+	// tests; newLLMClient assumes a forced model with no price.
+	forcedFirstCall bool
+	pricing         Pricing
 }
 
 // NewLLMClient creates the chat model client for the Gemini provider.
@@ -29,6 +34,7 @@ func newLLMClient(provider ChatProvider, model string, maxOutputTokens int32, to
 		engine:          &TurnEngine{tools: toolExecutor},
 		model:           model,
 		maxOutputTokens: maxOutputTokens,
+		forcedFirstCall: true,
 	}
 }
 
@@ -40,15 +46,17 @@ func (lc *LLMClient) Close() {
 // ChatStream sends a message and streams text chunks via the onChunk callback.
 // Tool call rounds execute synchronously between streaming segments.
 func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, history []Message, userMessage string, onChunk func(text string)) (*LLMResponse, error) {
-	session, err := lc.provider.NewSession(SessionConfig{
-		Model:           lc.model,
-		System:          systemPrompt,
-		History:         history,
-		Tools:           chatToolDefinitions(),
-		MaxOutputTokens: lc.maxOutputTokens,
-	})
-	if err != nil {
-		return nil, providerError("start session", err)
-	}
-	return lc.engine.run(ctx, session, turnMeta{Provider: lc.provider.Name(), Model: lc.model}, userMessage, onChunk)
+	return lc.engine.run(ctx, turnSpec{
+		provider: lc.provider,
+		cfg: SessionConfig{
+			Model:           lc.model,
+			System:          systemPrompt,
+			History:         history,
+			Tools:           chatToolDefinitions(),
+			MaxOutputTokens: lc.maxOutputTokens,
+		},
+		userText:        userMessage,
+		forcedFirstCall: lc.forcedFirstCall,
+		meta:            turnMeta{Provider: lc.provider.Name(), Model: lc.model, Pricing: lc.pricing, Start: time.Now()},
+	}, onChunk)
 }

@@ -108,6 +108,28 @@ func recordTokenCount(ctx context.Context, baseAttrs []attribute.KeyValue, token
 	shortedotel.AITokensTotal.Add(ctx, value, otelmetric.WithAttributes(attrs...))
 }
 
+// recordFirstCallViolation counts a first reply that chose no tool. The eval gate
+// requires zero of these on data turns.
+func recordFirstCallViolation(ctx context.Context, provider, model string) {
+	attrs := []attribute.KeyValue{
+		attribute.String("provider", provider),
+		attribute.String("model", model),
+	}
+	if shortedotel.AIFirstCallViolationsTotal != nil {
+		shortedotel.AIFirstCallViolationsTotal.Add(ctx, 1, otelmetric.WithAttributes(attrs...))
+	}
+	log.Printf(
+		"%s",
+		mustMarshalLogEvent(map[string]any{
+			"type":       "cost_event",
+			"event_type": "chat_first_call_violation",
+			"feature":    "chat",
+			"provider":   provider,
+			"model":      model,
+		}),
+	)
+}
+
 func recordToolCall(ctx context.Context, toolName string, resultBytes int, status string) {
 	attrs := []attribute.KeyValue{
 		attribute.String("feature", "chat"),
