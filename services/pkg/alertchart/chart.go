@@ -1,12 +1,13 @@
 // Package alertchart renders the short-position chart an alert email carries
-// inline. It is pure Go, so the PNG is the same bytes on every host: the paths
-// come from golang.org/x/image/vector and the labels from IBM Plex Mono, which is
-// embedded rather than read from the system.
+// inline. The paths come from golang.org/x/image/vector and the labels from IBM Plex
+// Mono, which is embedded rather than read from the system, so no font on the host
+// is involved.
 //
 // The canvas is 2x the size it is shown at (960x480 for 480x240 on a phone, and
 // 552 wide on a desktop), so the labels stay legible when the email shrinks. There
 // are two palettes: Render draws the light card, RenderDark draws the dark room.
-// Both are deterministic: the same Spec always produces the same bytes.
+// Both are deterministic for a given build and architecture; prod renders on
+// linux/amd64.
 //
 // The font files in fonts/ are IBM Plex Mono from
 // https://github.com/google/fonts/tree/main/ofl/ibmplexmono, licensed under the
@@ -215,17 +216,8 @@ func render(s Spec, pal palette) ([]byte, error) {
 	// X labels. A long history is labelled with month names at each month boundary,
 	// so a tick never carries a year. A short history is labelled with each reading's
 	// own day, thinned to at most five.
-	if short {
-		for _, i := range shortLabelIndexes(n) {
-			cv.drawCentered(faces.axis, pal.axis, dates[i].Format("2 Jan"), ax.x(i), Height-20)
-		}
-	} else {
-		for i := 1; i < n; i++ {
-			if dates[i].Year() == dates[i-1].Year() && dates[i].Month() == dates[i-1].Month() {
-				continue
-			}
-			cv.drawCentered(faces.axis, pal.axis, dates[i].Month().String()[:3], ax.x(i), Height-20)
-		}
+	for _, l := range axisLabels(dates, short, ax, faces.axis) {
+		cv.drawCentered(faces.axis, pal.axis, l.text, l.x, labelBaseline)
 	}
 
 	// The area under the line, then the line.
@@ -300,21 +292,85 @@ func render(s Spec, pal palette) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// shortLabelIndexes picks at most five readings to label in a short history: the
-// first, evenly spaced, and always the last, so the report's day is named.
-func shortLabelIndexes(n int) []int {
-	step := 1
-	if n-1 > 4 {
-		step = (n - 1 + 3) / 4
+// labelBaseline is where the x-axis labels sit, and minLabelGap the clear space the
+// layout keeps between two of them: 16px at 2x, which is 8px on the shown image.
+const (
+	labelBaseline = Height - 20
+	minLabelGap   = 16
+)
+
+// axisLabel is one x-axis label: its text, its centre and the box its ink occupies.
+type axisLabel struct {
+	text string
+	x    float64
+	box  box
+}
+
+// axisLabels returns the x-axis labels for a chart, in order, with no two boxes
+// closer than minLabelGap. A long history labels each month boundary with the month
+// name, so no tick carries a year. A short history labels each reading's own day,
+// and always keeps the first and the last reading, so the range is named at both
+// ends. Intermediate labels that would crowd a neighbour are dropped.
+func axisLabels(dates []time.Time, short bool, ax axis, f font.Face) []axisLabel {
+	var cands []axisLabel
+	if short {
+		for i := range dates {
+			cands = append(cands, newAxisLabel(dates[i].Format("2 Jan"), ax.x(i), f))
+		}
+		return selectLabels(cands, true)
 	}
-	var out []int
-	for i := 0; i < n; i += step {
-		out = append(out, i)
+	for i := 1; i < len(dates); i++ {
+		if dates[i].Year() == dates[i-1].Year() && dates[i].Month() == dates[i-1].Month() {
+			continue
+		}
+		cands = append(cands, newAxisLabel(dates[i].Month().String()[:3], ax.x(i), f))
 	}
-	if out[len(out)-1] != n-1 {
-		out = append(out, n-1)
+	return selectLabels(cands, false)
+}
+
+// newAxisLabel measures a label centred on x, and records the box it occupies.
+// The box spans from the top of the capitals to a little below the baseline.
+func newAxisLabel(text string, x float64, f font.Face) axisLabel {
+	w := measureFace(f, text)
+	return axisLabel{
+		text: text,
+		x:    x,
+		box:  box{x0: x - w/2, y0: labelBaseline - axisSize, x1: x + w/2, y1: labelBaseline + axisSize/4},
 	}
-	return out
+}
+
+// selectLabels keeps the first candidate, then each later one that clears the last kept
+// label by minLabelGap. With keepLast, the final candidate is always kept when it fits:
+// earlier kept labels are dropped from the end until it does, and the first label is
+// never dropped. Candidates are in ascending x, so every pair kept is clear.
+func selectLabels(cands []axisLabel, keepLast bool) []axisLabel {
+	if len(cands) == 0 {
+		return nil
+	}
+	last := len(cands) - 1
+	kept := []axisLabel{cands[0]}
+	for i := 1; i < len(cands); i++ {
+		if keepLast && i == last {
+			break
+		}
+		if clearOf(kept[len(kept)-1], cands[i]) {
+			kept = append(kept, cands[i])
+		}
+	}
+	if keepLast && last > 0 {
+		for len(kept) > 1 && !clearOf(kept[len(kept)-1], cands[last]) {
+			kept = kept[:len(kept)-1]
+		}
+		if clearOf(kept[len(kept)-1], cands[last]) {
+			kept = append(kept, cands[last])
+		}
+	}
+	return kept
+}
+
+// clearOf reports whether label b, to the right of a, clears it by minLabelGap.
+func clearOf(a, b axisLabel) bool {
+	return b.box.x0-a.box.x1 >= minLabelGap
 }
 
 // canvas is the image a chart is drawn on. Shapes are painted one colour at a
@@ -346,7 +402,9 @@ func (cv *canvas) marker(p pt, r, ring float64, c, bg color.RGBA) {
 }
 
 // measure is the advance width of s in pixels.
-func (cv *canvas) measure(f font.Face, s string) float64 {
+func (cv *canvas) measure(f font.Face, s string) float64 { return measureFace(f, s) }
+
+func measureFace(f font.Face, s string) float64 {
 	d := &font.Drawer{Face: f}
 	return float64(d.MeasureString(s)) / 64
 }
@@ -388,13 +446,13 @@ type axis struct {
 
 func (a axis) x(i int) float64 {
 	if a.short {
-		return plotLeft + (float64(i)+0.5)*float64(plotW)/float64(a.n)
+		return plotLeft + float64((float64(i)+0.5)*float64(plotW)/float64(a.n))
 	}
-	return plotLeft + float64(i)*float64(plotW)/float64(a.n-1)
+	return plotLeft + float64(float64(i)*float64(plotW)/float64(a.n-1))
 }
 
 func (a axis) y(v float64) float64 {
-	return baselineY - v/a.top*float64(plotH)
+	return baselineY - float64(v/a.top*float64(plotH))
 }
 
 var niceMultiples = []float64{1, 2, 2.5, 5, 10}
@@ -452,7 +510,7 @@ func addCircle(r *vector.Rasterizer, c pt, rad float64) {
 	ps := make([]pt, n)
 	for i := range ps {
 		a := 2 * math.Pi * float64(i) / n
-		ps[i] = pt{c.x + rad*math.Cos(a), c.y + rad*math.Sin(a)}
+		ps[i] = pt{c.x + float64(rad*math.Cos(a)), c.y + float64(rad*math.Sin(a))}
 	}
 	addPoly(r, ps)
 }
@@ -466,7 +524,7 @@ func addPoly(r *vector.Rasterizer, ps []pt) {
 	area := 0.0
 	for i := range cw {
 		j := (i + 1) % len(cw)
-		area += cw[i].x*cw[j].y - cw[j].x*cw[i].y
+		area += float64(cw[i].x*cw[j].y) - float64(cw[j].x*cw[i].y)
 	}
 	if area < 0 {
 		for i, j := 0, len(cw)-1; i < j; i, j = i+1, j-1 {
@@ -491,7 +549,7 @@ func addStroke(r *vector.Rasterizer, ps []pt, width float64) {
 		if l == 0 {
 			continue
 		}
-		nx, ny := -dy/l*hw, dx/l*hw
+		nx, ny := float64(-dy/l*hw), float64(dx/l*hw)
 		addPoly(r, []pt{
 			{a.x + nx, a.y + ny}, {b.x + nx, b.y + ny},
 			{b.x - nx, b.y - ny}, {a.x - nx, a.y - ny},
@@ -541,7 +599,7 @@ func sampleLine(ps []pt) []pt {
 		n := int(math.Max(1, math.Ceil(math.Hypot(b.x-a.x, b.y-a.y)/2)))
 		for k := 0; k <= n; k++ {
 			t := float64(k) / float64(n)
-			out = append(out, pt{a.x + (b.x-a.x)*t, a.y + (b.y-a.y)*t})
+			out = append(out, pt{a.x + float64((b.x-a.x)*t), a.y + float64((b.y-a.y)*t)})
 		}
 	}
 	return out
