@@ -1589,15 +1589,18 @@ Operator runbook (before-merge steps, prod smoke test, troubleshooting):
   second Cloud Run path would be a second way to send customer email.
 - **Dry run is the default.** `ALERTS_DRY_RUN` unset means dry. Only `false` writes.
   The CronJob sets it.
-- **The newest ASIC sync must have completed.** A failed, partial or unfinished sync
+- **The newest ASIC sync must have completed.** The gate reads only the ASIC recorder's
+  `sync_status` rows (`environment` and `hostname` set); the market-data price sweep shares
+  the table and is ignored. A failed, partial or unfinished sync
   can leave its last report part-written. Every unevaluated date is held (exit 10)
   until a completed sync lands. A running sync under two hours old makes the run wait
   (exit 0).
 - **Token domain separation.** Alert tokens are `alert-monitor:<id>` signed with
   `UNSUBSCRIBE_SECRET`, so a newsletter link fails on the alert endpoint and an alert
   link fails on the newsletter endpoint. Tokens never expire (the Spam Act needs at least
-  30 days). Rotating the secret breaks every link, so re-run `sync-secrets.sh` after a
-  rotation: the API reads `latest`, but the job keeps its own copy.
+  30 days). Rotating the secret breaks every link until two things are done: re-run
+  `sync-secrets.sh` (the job keeps its own copy), and roll a new shorts API revision
+  (Cloud Run resolves `latest` only when a revision starts).
 - **Entitlement is the API's rule, pinned.** The job treats `ACTIVE` and `TRIALING` as
   entitled. `subscriptions_entitlement_contract_test.go` fails if the API's
   `ResolveEntitlement` disagrees. A customer who is not entitled gets
@@ -1607,8 +1610,15 @@ Operator runbook (before-merge steps, prod smoke test, troubleshooting):
 - **One owner's failed lookup holds only that owner.** An API-wide failure stops the
   run before commit. An owner's own failure leaves their events `awaiting_entitlement`,
   re-checked each run and expired after 48h.
-- **Only a verified address is emailed.** `web/src/app/actions/alerts.ts` sends
-  `x-user-email` only when the session's `emailVerified` is true.
+- **Only a verified address is emailed, enforced in the API.** `Claims.EmailVerified` is set
+  by the interceptor only: from Firebase's `email_verified` claim, or from the web's explicit
+  `x-user-email-verified: true` on the alerts transport. Other web callers send `x-user-email`
+  for their own reasons, so the address alone proves nothing. A bespoke API token is never
+  verified. An unverified address is stored as NULL. The alerts list refreshes stored addresses
+  to the verified one on each visit.
+- **Active monitors are capped at 50 per user** (`shortsstore.MaxActiveAlertMonitors`). The cap
+  is checked in the insert and the resume statement. Paused monitors do not count, and pausing
+  is never refused.
 
 ## Known Issues & Gotchas
 

@@ -7,7 +7,9 @@ covers the design. This runbook covers operating it.
 
 ## What a run does, in order
 
-1. Waits (exit 0) while an ASIC sync is running (`sync_status` running, under 2 hours old).
+1. Waits (exit 0) while an ASIC sync is running (`sync_status` running, under 2 hours old). Only
+   rows the ASIC recorder wrote count: it sets `environment` and `hostname`, and the market-data
+   price sweep sets neither, so a price sweep never holds or releases a report.
 2. Holds every unevaluated report date (exit 10) while the **latest** sync did not
    complete (`failed`, `partial`, or `running` for over 2 hours). A failed or cancelled
    sync can leave its last report part-written, so the job waits for a completed sync.
@@ -38,7 +40,7 @@ alerts: dates=[...] weekly=... monitors=N candidates=N events=N sent=N retrying=
   evaluates nothing, so no backlog of old alerts goes out. Its line reads
   `dates=[] ... canary=ok exit=0`. The `bootstrap:` line before it confirms the watermarks.
 - `note="held YYYY-MM-DD"`: the job is holding that date. A line before it says why: an
-  incomplete report (a short row count) or the latest sync not completing.
+  incomplete report (a short row count) or the latest ASIC sync not completing.
 - `dry run: nothing written, nothing sent`: `ALERTS_DRY_RUN` is not `false`. The CronJob
   sets it; a hand run with nothing set is dry.
 
@@ -113,7 +115,7 @@ account you control, on a report date that is known to have crossed a level.
 ## Troubleshooting
 
 **A date is held, and the log says `report ... is held: the latest ASIC sync did not complete`.**
-Look at the latest `sync_status` row. Once a sync completes, the next run
+Look at the latest ASIC `sync_status` row (the one with `environment` and `hostname` set). Once a sync completes, the next run
 evaluates the held dates. Do not hand-edit the watermark. A sync that stays failed holds
 alerts, and that is the intended outcome: it pages until the sync is fixed.
 
@@ -124,9 +126,11 @@ and are re-checked on every run. They expire after 48 hours. Nobody else is held
 **`alert one-click pause failed: invalid` in the web logs, or `pause link round trip` in the job.**
 The one-click pause path does not verify. The usual cause is that `UNSUBSCRIBE_SECRET` was
 rotated in Secret Manager and the job's copy was not refreshed. The canary fails on the
-round trip, and no customer mail goes out until it verifies. Fix: after rotating a secret,
-re-run `CONFIRM=prod deploy/kubernetes/jobs/scripts/sync-secrets.sh`, then the API picks up
-the new value. The API reads `latest`, and the job reads its copy from `shorted-jobs-env`.
+round trip, and no customer mail goes out until it verifies. Fix: rotating a secret takes two
+steps. Re-run `CONFIRM=prod deploy/kubernetes/jobs/scripts/sync-secrets.sh` so the job reads the new
+value from `shorted-jobs-env`, and roll a new shorts API revision (re-run `terraform-deploy`, or force
+one). Cloud Run resolves `latest` only when a revision starts, so until a new revision rolls out the
+API still holds the old value. Links already sent stop working when the secret rotates.
 
 **Customer reports no email.** Check, in order: the monitor's status (paused alerts do not
 send); whether the owner has a verified address (an unverified sign-up's monitors are recorded
@@ -153,4 +157,8 @@ rest `pending` and exits 10. Both resume on the next run.
   the internal secret matches and the user agent is `shorted-alerts/`. An owner at their quota
   does not stop their own alert.
 - Rotating `UNSUBSCRIBE_SECRET` invalidates newsletter and alert links alike. Rotate it in
-  Secret Manager, then re-run `sync-secrets.sh`.
+  Secret Manager, re-run `sync-secrets.sh`, and roll a new shorts API revision. The API reads
+  `latest` only when a revision starts.
+- The job's `INTERNAL_SERVICE_SECRET` is an admin-grade credential, not a database one. It
+  passes the admin middleware on `/api/admin/*`, including the broadcast send. Treat a leak of
+  `shorted-jobs-env` as a leak of the newsletter sender and of the API's internal identity.

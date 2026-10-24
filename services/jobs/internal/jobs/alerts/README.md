@@ -24,7 +24,7 @@ runbook, which covers the prod smoke test, is `docs/alerts-runbook.md`.
 
 ## Readiness and holds
 
-- A sync in progress (`sync_status` running, under two hours old) makes the run exit 0 and
+- A sync in progress (an ASIC `sync_status` row running, under two hours old) makes the run exit 0 and
   wait.
 - The newest sync must have **completed**. A failed, partial, or unfinished sync can leave its
   last report part-written, so every unevaluated date is held (exit 10) until a completed sync
@@ -47,16 +47,23 @@ runbook, which covers the prod smoke test, is `docs/alerts-runbook.md`.
 
 ## Side effects
 
-- **The job holds `INTERNAL_SERVICE_SECRET`.** That secret opens the shorts API's internal-auth
-  path. The blast radius is the same as the `DATABASE_URL` this namespace already holds.
+- **The job holds `INTERNAL_SERVICE_SECRET`, and that is far more than `DATABASE_URL`.** On its
+  own, the secret passes the admin middleware for every `/api/admin/*` HTTP endpoint, including
+  the broadcast send that emails every newsletter subscriber. It also lets a caller act as any
+  user on the Connect methods, with admin granted through `x-user-roles`. The same namespace
+  holds `RESEND_API_KEY`, so a leaked `shorted-jobs-env` Secret can send arbitrary mail from
+  shorted.com.au. Narrowing this is a follow-up: a credential the internal branch accepts only
+  for `BillingService.GetMySubscription`, and a Resend key limited to sending on shorted.com.au.
 - **Entitlement is the API's rule, not a copy of it.** The job maps `ACTIVE` and `TRIALING` to
   entitled (`entitlement.go`). The contract test
   `services/shorts/internal/services/shorts/subscriptions_entitlement_contract_test.go` fails if
   the API's `ResolveEntitlement` stops agreeing.
-- **Rotating `UNSUBSCRIBE_SECRET` invalidates alert and newsletter links alike.** The API reads
-  the secret's `latest` version, but the job keeps the copy `sync-secrets.sh` wrote. After a
-  rotation, re-run `CONFIRM=prod deploy/kubernetes/jobs/scripts/sync-secrets.sh`, or the canary's
-  pause round trip fails and customer mail is held.
+- **Rotating `UNSUBSCRIBE_SECRET` invalidates alert and newsletter links alike, and takes two
+  steps.** Cloud Run resolves a `latest` secret only when a revision starts, so the shorts API keeps
+  the old value until a new revision rolls out. The job reads its copy from `shorted-jobs-env`,
+  which `sync-secrets.sh` writes. Rotate, re-run `CONFIRM=prod deploy/kubernetes/jobs/scripts/sync-secrets.sh`,
+  and roll a new API revision (re-run `terraform-deploy`, or force one). Until both are done, the
+  canary's pause round trip fails and customer mail is held. Links already sent stop working.
 
 ## Tests
 
