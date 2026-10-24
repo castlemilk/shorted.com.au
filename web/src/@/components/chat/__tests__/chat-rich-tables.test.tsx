@@ -111,6 +111,51 @@ describe("TopShortsTable (recorded)", () => {
   });
 });
 
+/** A most-shorted answer for one stock, with two readings a week apart. */
+function twoReadings(first: number, last: number): string {
+  return JSON.stringify({
+    timeSeries: [
+      {
+        productCode: "AAA",
+        name: "Aaa Ltd",
+        latestShortPosition: last,
+        points: [
+          { timestamp: "2026-10-01T00:00:00Z", shortPosition: first },
+          { timestamp: "2026-10-08T00:00:00Z", shortPosition: last },
+        ],
+      },
+    ],
+  });
+}
+
+describe("TopShortsTable change colour", () => {
+  it("colours a move too small to print as neutral, the same as no change", async () => {
+    render(<TopShortsTable view={parseTopShorts(twoReadings(10, 10.004))!} />);
+
+    const change = screen.getByText("0.00 pp");
+    expect(change.className).toContain("text-muted-foreground");
+    expect(change.className).not.toContain("text-red-700");
+    expect(change.className).not.toContain("text-emerald-700");
+    await screen.findByRole("group", { name: /AAA short interest/ });
+  });
+
+  it("colours a small fall neutral too, since it prints as 0.00 pp", async () => {
+    render(<TopShortsTable view={parseTopShorts(twoReadings(10.004, 10))!} />);
+
+    const change = screen.getByText("0.00 pp");
+    expect(change.className).toContain("text-muted-foreground");
+    await screen.findByRole("group", { name: /AAA short interest/ });
+  });
+
+  it("colours a move that prints as a rise red, with its sign", async () => {
+    render(<TopShortsTable view={parseTopShorts(twoReadings(10, 10.006))!} />);
+
+    const change = screen.getByText("+0.01 pp");
+    expect(change.className).toContain("text-red-700");
+    await screen.findByRole("group", { name: /AAA short interest/ });
+  });
+});
+
 describe("PeersTable (recorded)", () => {
   it("captions the peers with the subject and its industry, and lists the subject first", () => {
     const view = parsePeers(fixture("get_peer_comparison-bhp.json"))!;

@@ -121,14 +121,17 @@ function changeCell(points: Reading[]): ReactNode {
   const last = points[points.length - 1];
   if (points.length < 2 || !first || !last) return <Dash />;
   const delta = last.v - first.v;
+  // The colour follows the figure as it is shown. A move under half a hundredth of a
+  // point prints as "0.00 pp", and that reads as no change, not as a rise or a fall.
+  const shown = Number(delta.toFixed(2));
   return (
     <span className="block">
       <span
         className={cn(
           "font-medium",
-          delta > 0 && "text-red-700 dark:text-red-400",
-          delta < 0 && "text-emerald-700 dark:text-emerald-400",
-          delta === 0 && "text-muted-foreground",
+          shown > 0 && "text-red-700 dark:text-red-400",
+          shown < 0 && "text-emerald-700 dark:text-emerald-400",
+          shown === 0 && "text-muted-foreground",
         )}
       >
         {formatPointsChange(delta)}
