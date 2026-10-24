@@ -344,11 +344,70 @@ describe("the admin (write) scope", () => {
       },
     });
     expect(screen.queryByText(/Read-only/)).not.toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent(/personal data/i);
+    // The personal-data notice is shown alongside the write-scope fallback when no write scope is present.
+    expect(screen.getAllByRole("alert").map((n) => n.textContent).join(" ")).toMatch(/personal data/i);
   });
 
   it("keeps the read-only promise for read scopes", () => {
     renderScreen();
     expect(screen.getByText(/Read-only/)).toBeInTheDocument();
+  });
+});
+
+describe("the alerts (alerts:write) scope", () => {
+  const alertsDetails = (scopes: { scope: string; description: string }[]) => ({
+    ...(described.ok ? described.details : ({} as never)),
+    scope: scopes.map((s) => s.scope).join(" "),
+    scopes,
+  });
+
+  it("describes what the app can do to the user's alerts, not the admin write warning", () => {
+    renderScreen({
+      described: {
+        ok: true,
+        details: alertsDetails([
+          { scope: "shorts:read", description: "Read short positions" },
+          { scope: "alerts:write", description: "Create, pause and delete own alerts" },
+        ]),
+      },
+    });
+    // No admin warning, and no "change the live site" or "spend money" copy.
+    expect(screen.queryByText(/change the live site/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/spend money/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Administrators only/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // The accurate copy: what it lets the app do, Premium, and nothing spent.
+    const note = screen.getByText(/Lets this app create, pause, resume and delete/i);
+    expect(note).toHaveTextContent(/your short-interest alerts/i);
+    expect(note).toHaveTextContent(/needs a Premium subscription/i);
+    expect(note).toHaveTextContent(/Nothing is spent/i);
+  });
+
+  it("keeps the admin write warning for an admin write scope", () => {
+    renderScreen({
+      described: {
+        ok: true,
+        details: alertsDetails([{ scope: "jobs:run", description: "Start runs" }]),
+      },
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/write access/i);
+    expect(screen.getByRole("alert")).toHaveTextContent(/Administrators only/i);
+  });
+});
+
+describe("writeScopeNote", () => {
+  it("picks the note by the scopes a grant carries", async () => {
+    const { writeScopeNote } = await import("../consent-screen");
+    const { render: renderNote } = await import("@testing-library/react");
+    const text = (scopes: string[]) => {
+      const { container, unmount } = renderNote(<>{writeScopeNote(scopes)}</>);
+      const out = container.textContent ?? "";
+      unmount();
+      return out;
+    };
+    expect(text(["shorts:read"])).toMatch(/Read-only/);
+    expect(text(["shorts:read", "alerts:write"])).toMatch(/Nothing is spent/);
+    expect(text(["alerts:write", "jobs:run"])).toMatch(/write access/);
+    expect(text(["users:read"])).toMatch(/personal data/);
   });
 });
