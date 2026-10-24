@@ -24,7 +24,7 @@ func TestGeminiProtoJSONStreamDecodesFullArray(t *testing.T) {
 		io.NopCloser(strings.NewReader(body)),
 		new(status.Status).ProtoReflect().Type(),
 	)
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	var got []string
 	for {

@@ -154,7 +154,7 @@ func seedNonFiniteFloats(t *testing.T, src *fakeDataSource, value float64) int {
 		method := source.Method(i)
 		mt := method.Type()
 		// Every DataSource method is func(context.Context, *connect.Request[T]).
-		if mt.NumIn() != 2 || mt.NumOut() != 2 || mt.In(1).Kind() != reflect.Ptr {
+		if mt.NumIn() != 2 || mt.NumOut() != 2 || mt.In(1).Kind() != reflect.Pointer {
 			continue
 		}
 

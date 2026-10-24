@@ -154,7 +154,7 @@ func TestHousingToolOutputsCarryOnlyAllowlistedFields(t *testing.T) {
 // JSON field names. Recursion is what makes the allowlist structural: a field
 // added to a nested row type is caught as surely as one added to the top level.
 func jsonFieldNames(t reflect.Type, seen map[reflect.Type]bool) []string {
-	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Slice {
+	for t.Kind() == reflect.Pointer || t.Kind() == reflect.Slice {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct || seen[t] {

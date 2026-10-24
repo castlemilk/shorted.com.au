@@ -637,8 +637,6 @@ func main() {
 
 		// Add OTel tracing to pgx queries
 		config.ConnConfig.Tracer = otelpgx.NewTracer(
-			otelpgx.WithTrimSQLInSpanName(),
-			otelpgx.WithDisableQuerySpanNamePrefix(),
 			otelpgx.WithDisableSQLStatementInAttributes(),
 		)
 
