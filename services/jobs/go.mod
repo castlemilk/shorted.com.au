@@ -8,6 +8,7 @@ replace github.com/castlemilk/shorted.com.au/services => ../
 
 require (
 	cloud.google.com/go/storage v1.64.0
+	connectrpc.com/connect v1.19.2
 	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/castlemilk/shorted.com.au/services v0.0.0-00010101000000-000000000000
 	github.com/google/generative-ai-go v0.20.1
@@ -39,7 +40,6 @@ require (
 	cloud.google.com/go/iam v1.11.0 // indirect
 	cloud.google.com/go/longrunning v1.2.0 // indirect
 	cloud.google.com/go/monitoring v1.29.0 // indirect
-	connectrpc.com/connect v1.19.2 // indirect
 	connectrpc.com/otelconnect v0.9.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.32.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.57.0 // indirect

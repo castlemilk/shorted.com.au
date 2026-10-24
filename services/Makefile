@@ -761,6 +761,23 @@ backfill.historical-test: ## Test backfill with limited stocks (usage: make back
 		cd market-data-sync && go run ./cmd/historical-backfill -years=$(or $(YEARS),2) -limit=$(or $(LIMIT),10) \
 	'
 
+# Alerts evaluator end-to-end suite (services/jobs/internal/jobs/alerts). It runs the
+# real 000074 and 000147 migrations against a throwaway postgres:15 container, which
+# the trap removes on every exit path. The official image logs "ready to accept
+# connections" twice: once for the init server and once for the real one. Waiting for
+# the second line means the host connection is not refused during the init window.
+.PHONY: test-alerts-e2e
+test-alerts-e2e:
+	@set -e; \
+	name=alerts-e2e-$$$$; \
+	trap 'docker rm -f $$name >/dev/null 2>&1 || true' EXIT; \
+	docker run -d --name $$name -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=alertse2e \
+		-p 127.0.0.1::5432 postgres:15-alpine >/dev/null; \
+	until [ "$$(docker logs $$name 2>&1 | grep -c 'ready to accept connections')" -ge 2 ]; do sleep 1; done; \
+	port=$$(docker port $$name 5432/tcp | head -1 | sed 's/.*://'); \
+	cd jobs && GOWORK=off ALERTS_TEST_DATABASE_URL="postgres://postgres@127.0.0.1:$$port/alertse2e?sslmode=disable" \
+		go test -count=1 -run TestAlertsE2E ./internal/jobs/alerts/
+
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench
 .PHONY: test-stack-up test-stack-down test-stack-status test-stack-logs
@@ -842,6 +859,7 @@ test-integration-ci: test-integration-images
 	@echo ""
 	@echo "Running market-data integration tests (with testcontainers)..."
 	@cd market-data && go test -v -count=1 -tags=integration -timeout=10m ./...
+	@$(MAKE) test-alerts-e2e
 
 # New integration test targets using testcontainers
 test.integration.local:

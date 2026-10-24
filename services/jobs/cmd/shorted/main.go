@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/alerts"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/announcements"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/cronreporter"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/discovery"
@@ -45,6 +46,7 @@ import (
 // jobs is the registry of everything this binary can run.
 func jobs() *runner.Registry {
 	return runner.NewRegistry(
+		alerts.Job(),
 		announcements.Job(),
 		cronreporter.Job(),
 		discovery.Job(),
