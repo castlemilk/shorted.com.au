@@ -165,7 +165,6 @@ func streakWeeks(deltas []float64, change float64) int {
 	}
 	count := 0
 	for _, d := range slices.Backward(deltas) {
-
 		if d*dir > 0 && math.Abs(d) >= streakMinDelta {
 			count++
 		} else {

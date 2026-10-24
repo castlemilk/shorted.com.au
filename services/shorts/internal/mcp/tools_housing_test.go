@@ -164,7 +164,6 @@ func jsonFieldNames(t reflect.Type, seen map[reflect.Type]bool) []string {
 
 	var out []string
 	for f := range t.Fields() {
-		f := f
 		tag, _, _ := strings.Cut(f.Tag.Get("json"), ",")
 		if tag == "" || tag == "-" {
 			continue

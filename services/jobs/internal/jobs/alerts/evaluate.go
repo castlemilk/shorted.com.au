@@ -328,7 +328,6 @@ func (p *Plan) planWeekly(state State, snap *Snapshot) {
 		cand = cand[:1]
 	}
 	for _, i := range slices.Backward(cand) {
-
 		ev := WeekEval{Date: ws[i].last}
 		if i+1 < len(ws) {
 			ev.Prev = ws[i+1].last
