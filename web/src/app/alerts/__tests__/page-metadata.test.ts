@@ -8,6 +8,9 @@ import { describe, expect, it } from "@jest/globals";
  */
 
 jest.mock("~/app/actions/alerts", () => ({ createAlertMonitor: jest.fn() }));
+jest.mock("~/app/actions/industry/getIndustryData", () => ({
+  getIndustryData: jest.fn(async () => []),
+}));
 
 import { metadata } from "../page";
 

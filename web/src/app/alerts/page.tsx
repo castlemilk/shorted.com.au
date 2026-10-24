@@ -1,5 +1,7 @@
 import { type Metadata } from "next";
 import { siteConfig } from "~/@/config/site";
+import { industryLabel } from "~/@/lib/industry-placeholder";
+import { getIndustryData } from "~/app/actions/industry/getIndustryData";
 import { AlertsContent } from "./alerts-content";
 
 // An account tool, not a landing page: the monitor builder sits behind the
@@ -16,7 +18,26 @@ export const metadata: Metadata = {
   alternates: { canonical: `${siteConfig.url}/alerts` },
 };
 
-export default function AlertsPage({
+/**
+ * Industry names for the builder's datalist. The feed is cached, and a failed
+ * read leaves the list empty rather than failing the page: the server checks
+ * the industry on save either way.
+ */
+async function loadIndustryNames(): Promise<string[]> {
+  try {
+    const industries = await getIndustryData();
+    const names = new Set<string>();
+    for (const industry of industries) {
+      const name = industryLabel(industry.name);
+      if (name) names.add(name);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  } catch {
+    return [];
+  }
+}
+
+export default async function AlertsPage({
   searchParams,
 }: {
   searchParams?: { industry?: string | string[] };
@@ -24,6 +45,9 @@ export default function AlertsPage({
   const industry = Array.isArray(searchParams?.industry)
     ? searchParams.industry[0]
     : searchParams?.industry;
+  const industryNames = await loadIndustryNames();
 
-  return <AlertsContent initialIndustry={industry} />;
+  return (
+    <AlertsContent initialIndustry={industry} industryNames={industryNames} />
+  );
 }
