@@ -64,14 +64,22 @@ const BareProtectedResourceMetadataPath = "/.well-known/oauth-protected-resource
 const ClockSkew = 60 * time.Second
 
 // Scopes is the scope vocabulary this resource server understands, published
-// in the protected-resource metadata.
+// in the protected-resource metadata. alerts:write is the ONE write scope on this
+// server: it unlocks the signed-in user's own alert tools (alerts_write.go) and
+// nothing else. Every other scope here is read-only.
 //
 // offline_access is deliberately absent. Refresh-token issuance is a property
 // of the authorization server's token lifetime, not a requirement of this
 // resource; RFC 9728 §2 says a resource server advertises what it requires,
 // and listing it here would push clients into asking for refresh tokens they
 // have no need of.
-var Scopes = []string{"shorts:read", "housing:read", "economy:read", "politics:read"}
+var Scopes = []string{"shorts:read", "housing:read", "economy:read", "politics:read", ScopeAlertsWrite}
+
+// DefaultScopes is what an authorization request that names no scope is granted.
+// It excludes alerts:write: a client must ask for it by name, so a connector that
+// only ever asked for the default is never handed a write scope, and the consent
+// screen shows exactly what was asked.
+var DefaultScopes = []string{"shorts:read", "housing:read", "economy:read", "politics:read"}
 
 // ResourceURI returns the RFC 8707 resource identifier for an API origin.
 //

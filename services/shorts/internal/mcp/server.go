@@ -80,6 +80,30 @@ func HandlerWithLifetime(src DataSource, lifetime time.Duration) http.Handler {
 	}, &sdk.StreamableHTTPOptions{Stateless: true}))
 }
 
+// HandlerWithAlerts is the public handler with the signed-in user's own alert tools
+// behind alerts:write (alerts_write.go). Two servers are built once: base, which is
+// exactly what Handler serves, and scoped, which adds the alert tools. Each request
+// is answered by scoped only when its VERIFIED token carries alerts:write. Anything
+// else, anonymous included, gets base, so its tools/list is unchanged and an alert
+// tool called by name is an unknown tool.
+//
+// Stateless stays true for both: the choice is made per request from the token, and
+// no session state is kept.
+func HandlerWithAlerts(src DataSource, alerts AlertsWriteOperator) http.Handler {
+	base := NewServer(src)
+	scoped := base
+	if alerts != nil && src != nil {
+		scoped = NewServer(src)
+		registerAlertsWrite(scoped, alerts)
+	}
+	return boundStreamLifetime(StreamLifetime, sdk.NewStreamableHTTPHandler(func(r *http.Request) *sdk.Server {
+		if hasAlertsWrite(r) {
+			return scoped
+		}
+		return base
+	}, &sdk.StreamableHTTPOptions{Stateless: true}))
+}
+
 // StreamLifetime bounds how long ONE /mcp request may stay open.
 //
 // It exists because MCP requests are not all request/response calls. A

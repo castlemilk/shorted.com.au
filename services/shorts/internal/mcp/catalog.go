@@ -78,7 +78,10 @@ type CatalogAuthentication struct {
 	// AuthorizationServerMetadata is the RFC 8414 document: where the human is
 	// sent, where the code is exchanged, and that S256 is the only PKCE method.
 	AuthorizationServerMetadata string `json:"authorizationServerMetadata,omitempty"`
-	// Scopes is the vocabulary a client may request. Every one is read-only.
+	// Scopes is the vocabulary a client may request. Every one is read-only except
+	// alerts:write, which unlocks the signed-in user's own alert tools. Those tools
+	// are not in the catalog's tool list: a token without the scope never sees them,
+	// and an anonymous catalog must not advertise tools it cannot call.
 	Scopes []string `json:"scopes,omitempty"`
 	// RateLimits states what authenticating actually buys, in the same numbers
 	// services/pkg/ratelimit enforces. Advertising a ceiling we do not enforce
