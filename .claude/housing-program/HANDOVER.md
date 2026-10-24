@@ -421,7 +421,7 @@ NSW's.
 `golangci-lint` ran in **no** CI job and nothing ran `go test` over the main
 `services` module. New `go-quality.yml` runs both, **on PRs as well as pushes**
 (`run-tests` is `if: github.event_name != 'pull_request'`, so it gates the deploy,
-not the PR). Pinned to golangci-lint v2.10.1 so CI and `make lint-backend` agree.
+not the PR). Pinned to golangci-lint v2.15.0 so CI and `make lint-backend` agree.
 
 **Landmine for whoever touches it:** `services/go.work` has
 `replace github.com/skunkworq/stealth => ../../stealth`, a sibling checkout that
