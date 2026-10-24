@@ -42,7 +42,7 @@ const ChatSparkline = dynamic(
     loading: () => (
       <span
         aria-hidden="true"
-        className="inline-block h-7 w-24 animate-pulse rounded bg-muted/40"
+        className="inline-block h-7 w-24 motion-safe:animate-pulse rounded bg-muted/40"
       />
     ),
   },

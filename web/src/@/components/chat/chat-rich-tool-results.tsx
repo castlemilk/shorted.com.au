@@ -58,7 +58,7 @@ const ChatLineChart = dynamic(
     loading: () => (
       <div
         aria-hidden="true"
-        className="h-[180px] w-full animate-pulse rounded-md bg-muted/40"
+        className="h-[180px] w-full motion-safe:animate-pulse rounded-md bg-muted/40"
       />
     ),
   },
