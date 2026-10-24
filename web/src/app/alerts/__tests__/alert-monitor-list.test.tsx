@@ -21,7 +21,16 @@ jest.mock("~/app/actions/alerts", () => ({
 }));
 
 const SIGNED_IN = {
-  data: { user: { id: "u1", email: "trader@example.com" } },
+  data: {
+    user: { id: "u1", email: "trader@example.com", emailVerified: true },
+  },
+  status: "authenticated",
+};
+
+const UNVERIFIED = {
+  data: {
+    user: { id: "u1", email: "trader@example.com", emailVerified: false },
+  },
   status: "authenticated",
 };
 
@@ -139,6 +148,16 @@ describe("AlertMonitorList", () => {
     expect(note).toHaveTextContent("Alerts are emailed to trader@example.com.");
     expect(note).toHaveTextContent("four trading days");
     expect(note).toHaveTextContent("active Premium subscription");
+  });
+
+  it("says an unverified address is not emailed, and where to fix it", async () => {
+    mockUseSession.mockReturnValue(UNVERIFIED);
+    renderList();
+
+    const note = await screen.findByText(/receive alert emails/);
+    expect(note).toHaveTextContent("Verify trader@example.com to receive alert emails.");
+    expect(note).toHaveTextContent("sign out and back in");
+    expect(screen.queryByText(/Alerts are emailed to/)).toBeNull();
   });
 
   it("pauses an active monitor and refreshes the list", async () => {

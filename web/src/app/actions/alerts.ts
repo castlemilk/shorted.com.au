@@ -77,6 +77,18 @@ export type UpdateAlertMonitorStatusResult =
 
 export type DeleteAlertMonitorResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * The address the API may email alerts to. Only a verified address is sent: an
+ * unverified sign-up keeps its monitors recorded but never emailed, because a
+ * mistyped address would otherwise receive mail it never asked for.
+ */
+function deliverableEmail(
+  session: { user?: { email?: string | null; emailVerified?: boolean } } | null,
+): string {
+  if (session?.user?.emailVerified !== true) return "";
+  return session.user.email ?? "";
+}
+
 function createAuthTransport(userId: string, userEmail: string) {
   return createConnectTransport({
     fetch: serverFetchWithUserAgent,
@@ -119,7 +131,7 @@ export async function createAlertMonitor(
   try {
     const transport = createAuthTransport(
       session.user.id,
-      session.user.email ?? "",
+      deliverableEmail(session),
     );
     const client = createClient(AlertsService, transport);
     const response = await client.createAlertMonitor({
@@ -173,7 +185,7 @@ export async function listAlertMonitors(): Promise<ListAlertMonitorsResult> {
   try {
     const client = createClient(
       AlertsService,
-      createAuthTransport(session.user.id, session.user.email ?? ""),
+      createAuthTransport(session.user.id, deliverableEmail(session)),
     );
     const response = await client.listAlertMonitors({ limit: 50, offset: 0 });
     return {
@@ -204,7 +216,7 @@ export async function listAlertEvents(
   try {
     const client = createClient(
       AlertsService,
-      createAuthTransport(session.user.id, session.user.email ?? ""),
+      createAuthTransport(session.user.id, deliverableEmail(session)),
     );
     const response = await client.listAlertEvents({
       limit,
@@ -240,7 +252,7 @@ export async function setAlertMonitorStatus(
   try {
     const client = createClient(
       AlertsService,
-      createAuthTransport(session.user.id, session.user.email ?? ""),
+      createAuthTransport(session.user.id, deliverableEmail(session)),
     );
     const response = await client.updateAlertMonitorStatus({
       id: id.trim(),
@@ -270,7 +282,7 @@ export async function deleteAlertMonitor(
   try {
     const client = createClient(
       AlertsService,
-      createAuthTransport(session.user.id, session.user.email ?? ""),
+      createAuthTransport(session.user.id, deliverableEmail(session)),
     );
     await client.deleteAlertMonitor({ id: id.trim() });
     return { ok: true };

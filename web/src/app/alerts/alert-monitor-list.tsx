@@ -39,10 +39,18 @@ const DELETE_FAILED = "Could not delete the monitor. Try again shortly.";
 export function AlertDeliveryNote() {
   const { data: session } = useSession();
   const email = session?.user?.email;
+  const verified = session?.user?.emailVerified === true;
 
   return (
     <p className="text-sm leading-6 text-muted-foreground">
-      {email ? (
+      {email && !verified ? (
+        <>
+          Verify{" "}
+          <span className="font-medium text-foreground">{email}</span> to
+          receive alert emails. Until it is verified, alerts are recorded here
+          but not emailed. After you verify, sign out and back in.
+        </>
+      ) : email ? (
         <>
           Alerts are emailed to{" "}
           <span className="font-medium text-foreground">{email}</span>.
