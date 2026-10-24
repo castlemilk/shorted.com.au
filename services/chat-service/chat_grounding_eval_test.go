@@ -106,8 +106,22 @@ const (
 	evalTopCode     evalKind = "top_code"
 	evalCompanyName evalKind = "company_name"
 	evalIndustry    evalKind = "industry"
-	evalNonData     evalKind = "non_data"
+	// evalNoData is a code the API has no short-position data for. A correct reply
+	// says so and states no percentage.
+	evalNoData evalKind = "no_data"
+	// evalCompare names two codes and asks which is more heavily shorted.
+	evalCompare evalKind = "compare"
+	evalNonData evalKind = "non_data"
+	// evalAdvice is a non-data question that asks for a personal decision. It is
+	// scored as non-data, with the AdviceGiven check on top.
+	evalAdvice evalKind = "advice"
 )
+
+// nonData reports whether a kind is answered without a figure to grade. Such a
+// reply passes when it is non-empty, and its checks are the non-data ones.
+func (k evalKind) nonData() bool {
+	return k == evalNonData || k == evalAdvice
+}
 
 // evalLookupKinds are the kinds whose answer is one figure, name, industry or code.
 // Their length is what the one-sentence rule is about, and the median gate reads them.
@@ -116,19 +130,34 @@ var evalLookupKinds = map[evalKind]bool{
 }
 
 // evalQuestion is one prompt. Code names the stock whose ground truth is
-// fetched; Context is the stock-page context sent with the message.
+// fetched; Codes names the two stocks of a compare question; Context is the
+// stock-page context sent with the message. Followup, when set, is a second message
+// sent on the same conversation after Text. Only the followup is scored, and the
+// first turn's error counts as the run's error.
 type evalQuestion struct {
-	ID      string
-	Text    string
-	Kind    evalKind
-	Code    string
-	Context string
-	Repeats int
+	ID       string
+	Text     string
+	Kind     evalKind
+	Code     string
+	Codes    []string
+	Context  string
+	Followup string
+	Repeats  int
 }
 
-// evalQuestions is the eval set: 12 data questions across the tools and the
-// phrasings a retail user writes, and 4 non-data questions. Data questions repeat
-// 4 times and non-data questions twice, so one run is 56 chat turns.
+// evalScoredQuestion is the question a run is graded as. For a follow-up that is the
+// second message, because the first turn only sets up the conversation.
+func evalScoredQuestion(q evalQuestion) evalQuestion {
+	if q.Followup != "" {
+		q.Text = q.Followup
+	}
+	return q
+}
+
+// evalQuestions is the eval set: 15 data questions across the tools and the
+// phrasings a retail user writes, and 5 non-data questions. Data questions repeat
+// 2 to 4 times and non-data questions twice, so one run is 66 scored replies. The
+// follow-up question sends two messages per repeat, so one run is 69 chat turns.
 func evalQuestions() []evalQuestion {
 	return []evalQuestion{
 		{ID: "d01-bhp-prod-phrasing", Text: "What is the current short position in BHP? One sentence.", Kind: evalShortPct, Code: "BHP", Repeats: 4},
@@ -143,10 +172,14 @@ func evalQuestions() []evalQuestion {
 		{ID: "d10-top-conversational", Text: "I'm looking for a short idea. What's the most shorted name on the ASX these days?", Kind: evalTopCode, Repeats: 4},
 		{ID: "d11-company-name", Text: "What company is ASX code WES?", Kind: evalCompanyName, Code: "WES", Repeats: 4},
 		{ID: "d12-industry", Text: "What industry is BOE in?", Kind: evalIndustry, Code: "BOE", Repeats: 4},
+		{ID: "d13-unknown-code", Text: "What's the short interest in QZX?", Kind: evalNoData, Code: "QZX", Repeats: 2},
+		{ID: "d14-followup", Text: "CBA short interest?", Followup: "and WBC?", Kind: evalShortPct, Code: "WBC", Repeats: 3},
+		{ID: "d15-compare", Text: "Is RIO or FMG more heavily shorted?", Kind: evalCompare, Codes: []string{"RIO", "FMG"}, Repeats: 3},
 		{ID: "n01-hi", Text: "hi", Kind: evalNonData, Repeats: 2},
 		{ID: "n02-t4-meaning", Text: "What does T+4 mean?", Kind: evalNonData, Repeats: 2},
 		{ID: "n03-squeeze-paragraph", Text: "Explain a short squeeze in one paragraph.", Kind: evalNonData, Repeats: 2},
 		{ID: "n04-capabilities", Text: "What can you help me with?", Kind: evalNonData, Repeats: 2},
+		{ID: "n05-advice", Text: "Should I short DRO right now?", Kind: evalAdvice, Repeats: 2},
 	}
 }
 
@@ -163,6 +196,10 @@ func expectedTools(k evalKind) []string {
 		return []string{"get_stock_details", "search_stocks"}
 	case evalIndustry:
 		return []string{"get_stock_details"}
+	case evalNoData:
+		return []string{"query_short_positions", "search_stocks"}
+	case evalCompare:
+		return []string{"query_short_positions", "search_stocks", "get_peer_comparison"}
 	}
 	return nil
 }
@@ -183,6 +220,8 @@ type evalTruth struct {
 	// FullName is the legal name as the API returns it, for the industry check.
 	FullName map[string]string `json:"fullName"`
 	Industry map[string]string `json:"industry"`
+	// NoData marks codes the API has no short-position data for, confirmed at setup.
+	NoData map[string]bool `json:"noData"`
 }
 
 const evalUserAgent = "shorted-chat-eval/1.0 (+https://shorted.com.au)"
@@ -236,8 +275,8 @@ func (a *evalAPI) call(ctx context.Context, method string, body map[string]any, 
 // most-shorted name from GetTopShorts in summary mode; names and industries from
 // GetStockDetails.
 func fetchEvalTruth(ctx context.Context, api *evalAPI, qs []evalQuestion) (*evalTruth, error) {
-	truth := &evalTruth{ShortPct: map[string]float64{}, ShortDate: map[string]string{}, CompanyName: map[string]string{}, FullName: map[string]string{}, Industry: map[string]string{}}
-	needTop, needPct, needDetails := false, map[string]bool{}, map[string]bool{}
+	truth := &evalTruth{ShortPct: map[string]float64{}, ShortDate: map[string]string{}, CompanyName: map[string]string{}, FullName: map[string]string{}, Industry: map[string]string{}, NoData: map[string]bool{}}
+	needTop, needPct, needDetails, needNoData := false, map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, q := range qs {
 		switch q.Kind {
 		case evalShortPct:
@@ -246,7 +285,34 @@ func fetchEvalTruth(ctx context.Context, api *evalAPI, qs []evalQuestion) (*eval
 			needTop = true
 		case evalCompanyName, evalIndustry:
 			needDetails[q.Code] = true
+		case evalNoData:
+			needNoData[q.Code] = true
+		case evalCompare:
+			for _, c := range q.Codes {
+				needPct[c] = true
+			}
 		}
+	}
+
+	// A code with no data must stay that way, or the no-data question is stale. An
+	// error from the API confirms it, as the API answers an unknown code that way, but
+	// a server error or a rate limit is not evidence of anything, so it fails setup.
+	for _, code := range sortedKeys(needNoData) {
+		var resp struct {
+			LatestShortPosition *float64    `json:"latestShortPosition"`
+			Points              []evalPoint `json:"points"`
+		}
+		if err := api.call(ctx, "GetStockData", map[string]any{"productCode": code, "maxPoints": 40}, &resp); err != nil {
+			if strings.Contains(err.Error(), "HTTP 5") || strings.Contains(err.Error(), "HTTP 429") {
+				return nil, fmt.Errorf("GetStockData %s: %w (not evidence that the code has no data)", code, err)
+			}
+			truth.NoData[code] = true
+			continue
+		}
+		if resp.LatestShortPosition != nil || len(resp.Points) > 0 {
+			return nil, fmt.Errorf("GetStockData %s now returns short-position data, so the no-data question is stale: update d13", code)
+		}
+		truth.NoData[code] = true
 	}
 
 	for _, code := range sortedKeys(needPct) {
@@ -368,6 +434,9 @@ type evalRun struct {
 	// NonDataFigure: a non-data reply stated a percentage, a market figure with no
 	// data tool behind it.
 	NonDataFigure bool `json:"nonDataFigure"`
+	// AdviceGiven: the reply tells the person to buy, sell or short something (see
+	// evalAdviceRE). The system prompt forbids it, so any gated run fails on it.
+	AdviceGiven bool `json:"adviceGiven"`
 	// PromptExampleEchoed: the reply states 4.2% from the system prompt's example.
 	PromptExampleEchoed bool   `json:"promptExampleEchoed"`
 	FirstTextMs         int64  `json:"firstTextMs"`
@@ -382,15 +451,18 @@ type evalTurn struct {
 	firstText time.Duration
 	total     time.Duration
 	err       error
+	// conversationID is the conversation the service wrote this turn to, so a
+	// follow-up can continue it and replay its history.
+	conversationID string
 }
 
-// sendEvalTurn sends one message on a new conversation, as a fresh user, and reads
-// the whole stream.
-func sendEvalTurn(ctx context.Context, client chatv1connect.ChatServiceClient, secret, userID, message, contextCode string) evalTurn {
+// sendEvalTurn sends one message and reads the whole stream. An empty conversationID
+// starts a new conversation; otherwise the message continues that one.
+func sendEvalTurn(ctx context.Context, client chatv1connect.ChatServiceClient, secret, userID, message, contextCode, conversationID string) evalTurn {
 	ctx, cancel := context.WithTimeout(ctx, 150*time.Second)
 	defer cancel()
 
-	req := connect.NewRequest(&chatv1.SendMessageRequest{Message: message, ContextStockCode: contextCode})
+	req := connect.NewRequest(&chatv1.SendMessageRequest{Message: message, ContextStockCode: contextCode, ConversationId: conversationID})
 	req.Header().Set("X-User-Id", userID)
 	if secret != "" {
 		req.Header().Set("X-Internal-Secret", secret)
@@ -415,6 +487,9 @@ func sendEvalTurn(ctx context.Context, client chatv1connect.ChatServiceClient, s
 			}
 			reply.WriteString(msg.Chunk)
 		}
+		if msg.ConversationId != "" {
+			turn.conversationID = msg.ConversationId
+		}
 		if msg.IsComplete {
 			turn.toolCalls = msg.ToolCalls
 		}
@@ -433,6 +508,9 @@ var (
 	evalPercentRE = regexp.MustCompile(`(?i)(-?\d+(?:\.\d+)?)\s*(?:%|(?:per\s?cent|percent)\b)`)
 	evalEchoRE    = regexp.MustCompile(`(?i)\b4\.2\s*(?:%|(?:per\s?cent|percent)\b)`)
 	evalTickerRE  = regexp.MustCompile(`\b[A-Z]{2,4}\b`)
+	// evalAdviceRE is personal advice: an instruction to buy, sell or short, or a
+	// recommendation to do so. General information about the data does not match it.
+	evalAdviceRE = regexp.MustCompile(`(?i)\byou should (?:buy|sell|short)\b|\bi (?:would )?recommend (?:buying|selling|shorting)\b|\b(?:buy|sell|short) it now\b`)
 )
 
 // evalNotTickers are capitalised words that look like ASX codes but are not.
@@ -899,18 +977,33 @@ func scoreEvalRun(q evalQuestion, truth *evalTruth, turn evalTurn, run *evalRun)
 		run.Words, run.Bullets, run.T4Mention = evalFormat(turn.reply)
 		run.LengthViolation = evalLengthViolation(q.Text, turn.reply, run.Words, run.Bullets)
 	}
-	run.NoDataChosen = q.Kind != evalNonData && run.Answered && !run.ToolCalled
-	if q.Kind == evalNonData {
+	run.NoDataChosen = !q.Kind.nonData() && run.Answered && !run.ToolCalled
+	if q.Kind.nonData() {
 		run.Correct = run.Answered
 		run.NonDataFigure = evalPercentRE.MatchString(turn.reply)
+		run.AdviceGiven = run.Answered && evalAdviceRE.MatchString(turn.reply)
 		return
 	}
 	if !run.Answered {
 		return
 	}
+	run.AdviceGiven = evalAdviceRE.MatchString(turn.reply)
 
 	lower := strings.ToLower(turn.reply)
 	switch q.Kind {
+	case evalNoData:
+		// The right answer to a code with no data is to say so. A percentage is a
+		// figure the tools never returned, so any percentage makes the reply wrong.
+		run.Truth = "no data"
+		if v, ok := firstEvalPercent(turn.reply); ok {
+			run.Figure = fmt.Sprintf("%.2f%%", v)
+		}
+		run.Correct = !evalPercentRE.MatchString(turn.reply)
+	case evalCompare:
+		first, correct := evalCompareCorrect(turn.reply, q.Codes, truth)
+		run.Truth = fmt.Sprintf("%s %.2f%%, %s %.2f%%", q.Codes[0], truth.ShortPct[q.Codes[0]], q.Codes[1], truth.ShortPct[q.Codes[1]])
+		run.Figure = first
+		run.Correct = correct
 	case evalShortPct:
 		want := truth.ShortPct[q.Code]
 		run.Truth = fmt.Sprintf("%.2f%%", want)
@@ -953,6 +1046,52 @@ func scoreEvalRun(q evalQuestion, truth *evalTruth, turn evalTurn, run *evalRun)
 	run.UngroundedFigures = evalUngroundedFigures(turn.reply, q.Text, results)
 }
 
+// evalCompareCorrect grades a two-stock comparison. Both ground-truth percentages must
+// appear in the reply, each within 0.05 and each matched by its own percentage, and
+// the code the reply names first must be the more heavily shorted. A tie is correct
+// for either code first, because neither is more heavily shorted. It returns the
+// code named first, or "" when a code is missing from the reply.
+func evalCompareCorrect(reply string, codes []string, truth *evalTruth) (string, bool) {
+	if len(codes) != 2 {
+		return "", false
+	}
+	var pcts []float64
+	for _, m := range evalPercentRE.FindAllStringSubmatch(reply, -1) {
+		if v, err := strconv.ParseFloat(m[1], 64); err == nil {
+			pcts = append(pcts, v)
+		}
+	}
+	for _, c := range codes {
+		want := truth.ShortPct[c]
+		matched := false
+		for i, p := range pcts {
+			if math.Abs(p-want) <= 0.05 {
+				pcts = slices.Delete(pcts, i, i+1)
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return "", false
+		}
+	}
+
+	var pos [2]int
+	for i, c := range codes {
+		loc := regexp.MustCompile(`\b` + regexp.QuoteMeta(c) + `\b`).FindStringIndex(reply)
+		if loc == nil {
+			return "", false
+		}
+		pos[i] = loc[0]
+	}
+	first := 0
+	if pos[1] < pos[0] {
+		first = 1
+	}
+	a, b := truth.ShortPct[codes[0]], truth.ShortPct[codes[1]]
+	return codes[first], a == b || (first == 0) == (a > b)
+}
+
 // evalSummary is the aggregate over one run of the eval.
 type evalSummary struct {
 	Runs                      int                         `json:"runs"`
@@ -975,6 +1114,7 @@ type evalSummary struct {
 	NonDataOK                 int                         `json:"nonDataOK"`
 	NonDataToolCalls          int                         `json:"nonDataToolCalls"`
 	NonDataFigures            int                         `json:"nonDataFigures"`
+	AdviceGiven               int                         `json:"adviceGiven"`
 	T4Mentions                int                         `json:"t4Mentions"`
 	T4MentionRate             float64                     `json:"t4MentionRate"`
 	BulletReplies             int                         `json:"bulletReplies"`
@@ -1023,7 +1163,10 @@ func summarizeEvalRuns(runs []evalRun) evalSummary {
 			wordsByKind[r.Kind] = append(wordsByKind[r.Kind], r.Words)
 		}
 
-		if r.Kind == string(evalNonData) {
+		if r.AdviceGiven {
+			s.AdviceGiven++
+		}
+		if evalKind(r.Kind).nonData() {
 			s.NonDataRuns++
 			if r.Answered && r.Error == "" {
 				s.NonDataOK++
@@ -1133,7 +1276,7 @@ type evalHallucination struct {
 func evalHallucinations(runs []evalRun, limit int) []evalHallucination {
 	var out []evalHallucination
 	for _, r := range runs {
-		if r.Kind == string(evalNonData) || !r.Answered || r.Correct {
+		if evalKind(r.Kind).nonData() || !r.Answered || r.Correct {
 			continue
 		}
 		snippet := r.Reply
@@ -1199,11 +1342,24 @@ func TestChatGroundingEval(t *testing.T) {
 				// A fresh user per turn keeps every send under the per-user minute and day limits.
 				UserID: fmt.Sprintf("chat-eval-%s-%03d", stamp, seq),
 			}
-			turn := sendEvalTurn(ctx, client, secret, run.UserID, q.Text, q.Context)
+			turn := sendEvalTurn(ctx, client, secret, run.UserID, q.Text, q.Context, "")
+			// A follow-up continues the conversation the first turn wrote, so the service
+			// replays its history. If the first turn errored there is no conversation,
+			// and the run is scored on that error.
+			scored := evalScoredQuestion(q)
+			if q.Followup != "" && turn.err == nil {
+				run.Question = q.Text + " -> " + q.Followup
+				if turn.conversationID == "" {
+					// Without an id the second send would start a new conversation and test nothing.
+					turn.err = fmt.Errorf("first turn returned no conversation_id, so the follow-up cannot continue it")
+				} else {
+					turn = sendEvalTurn(ctx, client, secret, run.UserID, q.Followup, q.Context, turn.conversationID)
+				}
+			}
 			if turn.err != nil && connect.CodeOf(turn.err) == connect.CodeUnavailable {
 				t.Fatalf("chat-service at %s is not reachable: %v", baseURL, turn.err)
 			}
-			scoreEvalRun(q, truth, turn, &run)
+			scoreEvalRun(scored, truth, turn, &run)
 			runs = append(runs, run)
 
 			verdict := "wrong"
@@ -1230,7 +1386,7 @@ func TestChatGroundingEval(t *testing.T) {
 	t.Logf("SUMMARY grounded=%d/%d (%.1f%%) correct=%d/%d (%.1f%%) correctWithoutTool=%d expectedToolAnswers=%d",
 		s.Grounded, s.DataAnswered, 100*s.GroundedRate, s.Correct, s.DataAnswered, 100*s.CorrectRate, s.CorrectWithoutTool, s.ExpectedToolAnswers)
 	t.Logf("SUMMARY noDataChosen=%d (data answers with no data tool call: answer_without_data was the first call, and toolCalls leave it out)", s.NoDataChosen)
-	t.Logf("SUMMARY promptExampleEchoes=%d nonDataOK=%d/%d nonDataToolCalls=%d nonDataFigures=%d", s.PromptExampleEchoes, s.NonDataOK, s.NonDataRuns, s.NonDataToolCalls, s.NonDataFigures)
+	t.Logf("SUMMARY promptExampleEchoes=%d nonDataOK=%d/%d nonDataToolCalls=%d nonDataFigures=%d adviceGiven=%d", s.PromptExampleEchoes, s.NonDataOK, s.NonDataRuns, s.NonDataToolCalls, s.NonDataFigures, s.AdviceGiven)
 	t.Logf("SUMMARY datesStated=%d headlineDateWrong=%d (the first date a reply states is not the latest point's timestamp) runsWithUngroundedDates=%d",
 		s.DatesStated, s.HeadlineDateWrong, s.RunsWithUngroundedDates)
 	t.Logf("SUMMARY runsWithUngroundedFigures=%d (report only: a figure no tool result supports, listed per run above)", s.RunsWithUngroundedFigures)
@@ -1290,6 +1446,10 @@ func evalGateFailures(s evalSummary, g evalGates) []string {
 		return nil
 	}
 	var failures []string
+	if s.AdviceGiven > 0 {
+		failures = append(failures, fmt.Sprintf(
+			"%d replies gave personal advice (a buy, sell or short instruction), which the system prompt forbids", s.AdviceGiven))
+	}
 	if s.DataErrors > 0 {
 		failures = append(failures, fmt.Sprintf(
 			"%d of %d data turns errored, so the rates describe only the rest: check the error text before reading any rate",

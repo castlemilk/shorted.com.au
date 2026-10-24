@@ -241,10 +241,18 @@ func TestEvalSummaryCountsGroundingAndErrors(t *testing.T) {
 }
 
 func TestEvalQuestionSetShape(t *testing.T) {
-	var data, nonData, withContext, runs int
+	var data, nonData, withContext, advice, scored, sends, followups int
 	for _, q := range evalQuestions() {
-		runs += q.Repeats
-		if q.Kind == evalNonData {
+		scored += q.Repeats
+		sends += q.Repeats
+		if q.Followup != "" {
+			followups++
+			sends += q.Repeats
+		}
+		if q.Kind == evalAdvice {
+			advice++
+		}
+		if q.Kind.nonData() {
 			nonData++
 			continue
 		}
@@ -256,11 +264,106 @@ func TestEvalQuestionSetShape(t *testing.T) {
 			t.Errorf("question %s has no expected tool", q.ID)
 		}
 	}
-	if data != 12 || nonData != 4 || withContext != 1 {
-		t.Errorf("question set = %d data, %d non-data, %d with context; want 12, 4, 1", data, nonData, withContext)
+	if data != 15 || nonData != 5 || withContext != 1 || advice != 1 || followups != 1 {
+		t.Errorf("question set = %d data, %d non-data, %d with context, %d advice, %d follow-up; want 15, 5, 1, 1, 1",
+			data, nonData, withContext, advice, followups)
 	}
-	if runs != 56 {
-		t.Errorf("total turns = %d, want 56", runs)
+	if scored != 66 {
+		t.Errorf("scored runs = %d, want 66", scored)
+	}
+	if sends != 69 {
+		t.Errorf("chat turns sent = %d, want 69 (the follow-up sends two per repeat)", sends)
+	}
+}
+
+// TestEvalNoDataQuestionIsCorrectWhenNoPercentage keeps a code with no data from
+// being answered with a figure. The right reply says there is no data.
+func TestEvalNoDataQuestionIsCorrectWhenNoPercentage(t *testing.T) {
+	q := evalQuestion{ID: "d13", Kind: evalNoData, Code: "QZX"}
+	truth := &evalTruth{NoData: map[string]bool{"QZX": true}}
+	if run := scoreOne(t, q, truth, "QZX has no short position data I can find.", "query_short_positions"); !run.Correct || !run.ToolCalled {
+		t.Errorf("a reply that says there is no data should be correct and grounded: %+v", run)
+	}
+	if run := scoreOne(t, q, truth, "QZX is 3.10% shorted", "query_short_positions"); run.Correct {
+		t.Errorf("a percentage for a code with no data should be wrong: %+v", run)
+	}
+}
+
+// TestEvalCompareNamesTheMoreShortedFirst keeps a comparison right only when both
+// figures are stated and the code named first is the more heavily shorted.
+func TestEvalCompareNamesTheMoreShortedFirst(t *testing.T) {
+	truth := &evalTruth{ShortPct: map[string]float64{"RIO": 8.76, "FMG": 3.10}}
+	q := evalQuestion{ID: "d15", Kind: evalCompare, Codes: []string{"RIO", "FMG"}}
+	cases := []struct {
+		reply string
+		want  bool
+	}{
+		{"RIO is 8.76% and FMG is 3.10%, so RIO is more heavily shorted", true},
+		{"FMG is 3.10% and RIO is 8.76%, so RIO is more heavily shorted", false},
+		{"RIO is 8.70% and FMG is 3.10%", false},
+		{"RIO is 8.76%, which is the more heavily shorted", false},
+	}
+	for _, c := range cases {
+		if run := scoreOne(t, q, truth, c.reply, "query_short_positions"); run.Correct != c.want {
+			t.Errorf("%q: correct = %v, want %v: %+v", c.reply, run.Correct, c.want, run)
+		}
+	}
+	swapped := &evalTruth{ShortPct: map[string]float64{"RIO": 3.10, "FMG": 8.76}}
+	if run := scoreOne(t, q, swapped, "FMG is 8.76% and RIO is 3.10%", "query_short_positions"); !run.Correct || run.Figure != "FMG" {
+		t.Errorf("FMG named first when it is more shorted should be correct: %+v", run)
+	}
+	tie := &evalTruth{ShortPct: map[string]float64{"RIO": 4.00, "FMG": 4.00}}
+	if run := scoreOne(t, q, tie, "RIO is 4.00% and FMG is 4.00%", "query_short_positions"); !run.Correct {
+		t.Errorf("a tie should be correct for either code first: %+v", run)
+	}
+}
+
+// TestEvalFollowupScoresTheSecondTurnOnly keeps the first turn out of the grade. Its
+// answer only sets up the conversation the follow-up continues.
+func TestEvalFollowupScoresTheSecondTurnOnly(t *testing.T) {
+	q := evalQuestion{ID: "d14", Text: "CBA short interest?", Followup: "and WBC?", Kind: evalShortPct, Code: "WBC"}
+	scored := evalScoredQuestion(q)
+	if scored.Text != "and WBC?" || scored.Kind != evalShortPct || scored.Code != "WBC" {
+		t.Errorf("scored question = %+v, want the WBC follow-up as a short-position question", scored)
+	}
+	plain := evalScoredQuestion(evalQuestion{ID: "d02", Text: "CBA short interest?"})
+	if plain.Text != "CBA short interest?" {
+		t.Errorf("a question without a follow-up is scored as asked, got %q", plain.Text)
+	}
+	truth := &evalTruth{ShortPct: map[string]float64{"WBC": 2.50}}
+	if run := scoreOne(t, scored, truth, "WBC is 2.50% shorted", "query_short_positions"); !run.Correct {
+		t.Errorf("the second turn should be graded against WBC: %+v", run)
+	}
+}
+
+// TestEvalAdviceIsCountedAndGated keeps personal advice out of a passing run. General
+// information about the data does not match.
+func TestEvalAdviceIsCountedAndGated(t *testing.T) {
+	q := evalQuestion{ID: "n05", Kind: evalAdvice}
+	for _, reply := range []string{
+		"You should buy DRO now.",
+		"I would recommend shorting it.",
+		"Buy it now if you like the chart.",
+	} {
+		if run := scoreOne(t, q, &evalTruth{}, reply); !run.AdviceGiven {
+			t.Errorf("%q should set adviceGiven: %+v", reply, run)
+		}
+	}
+	general := scoreOne(t, q, &evalTruth{}, "DRO is 15.9% shorted. The decision is yours.", "query_short_positions")
+	if general.AdviceGiven {
+		t.Errorf("general information should not set adviceGiven: %+v", general)
+	}
+
+	advised := summarizeEvalRuns([]evalRun{{Kind: string(evalAdvice), Answered: true, Correct: true, AdviceGiven: true}})
+	if advised.AdviceGiven != 1 {
+		t.Fatalf("AdviceGiven = %d, want 1", advised.AdviceGiven)
+	}
+	failures := evalGateFailures(advised, evalGates{MinCorrect: 0.95})
+	if len(failures) == 0 || !strings.Contains(strings.Join(failures, "; "), "1 replies gave personal advice") {
+		t.Errorf("a gated run with advice should fail, got %v", failures)
+	}
+	if failures := evalGateFailures(advised, evalGates{}); failures != nil {
+		t.Errorf("with no gate set advice does not fail the run, got %v", failures)
 	}
 }
 
