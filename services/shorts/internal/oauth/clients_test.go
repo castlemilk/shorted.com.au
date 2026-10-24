@@ -729,3 +729,78 @@ func TestIsCIMDClientID(t *testing.T) {
 		}
 	}
 }
+
+// The MCP TypeScript SDK (Claude Code) validates the registration response and
+// refused `"client_uri": ""`: every URL-valued field it receives must parse. A
+// client that sends no client_uri (Claude Code's shape: a loopback redirect, no
+// client_uri, no scope) must get a response with no client_uri key at all.
+func TestRegistrationOmitsMetadataTheClientDidNotSend(t *testing.T) {
+	h := newRegistrationHandler(t, newFakeClientStore(), nil)
+	rec := register(t, h, "203.0.113.9", map[string]any{
+		"client_name":                "Claude Code (shorted-admin)",
+		"redirect_uris":              []string{"http://localhost:51763/callback"},
+		"grant_types":                []string{"authorization_code", "refresh_token"},
+		"response_types":             []string{"code"},
+		"token_endpoint_auth_method": "none",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decoding: %v", err)
+	}
+	for _, k := range []string{"client_uri", "scope"} {
+		if v, ok := resp[k]; ok {
+			t.Errorf("response carries %s = %q; a field the client did not send must be omitted", k, v)
+		}
+	}
+	if resp["client_name"] != "Claude Code (shorted-admin)" {
+		t.Errorf("client_name = %v", resp["client_name"])
+	}
+}
+
+// client_uri is cosmetic, so an unusable one is dropped rather than refused, and
+// a usable one is stored and echoed back unchanged.
+func TestRegistrationKeepsOnlyAnAbsoluteHTTPClientURI(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"https://claude.com", "https://claude.com"},
+		{"http://localhost:3000/app", "http://localhost:3000/app"},
+		{"not a url", ""},
+		{"/relative/path", ""},
+		{"javascript:alert(1)", ""},
+		{"ftp://example.com", ""},
+		{"https://", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			store := newFakeClientStore()
+			h := newRegistrationHandler(t, store, nil)
+			rec := register(t, h, "203.0.113.9", map[string]any{
+				"client_name":   "Client",
+				"client_uri":    tc.in,
+				"redirect_uris": []string{"https://claude.ai/api/mcp/auth_callback"},
+			})
+			if rec.Code != http.StatusCreated {
+				t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+			}
+			var resp map[string]any
+			if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("decoding: %v", err)
+			}
+			got, present := resp["client_uri"]
+			switch {
+			case tc.want == "" && present:
+				t.Fatalf("client_uri %q echoed back as %v; it must be dropped", tc.in, got)
+			case tc.want != "" && got != tc.want:
+				t.Fatalf("client_uri = %v, want %q", got, tc.want)
+			}
+			saved := store.savedRegistrations()
+			if len(saved) != 1 || saved[0].ClientURI != tc.want {
+				t.Fatalf("stored registrations = %+v, want one with client_uri %q", saved, tc.want)
+			}
+		})
+	}
+}
