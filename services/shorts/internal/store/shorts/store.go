@@ -114,6 +114,14 @@ type Store interface {
 	UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *APISubscriptionUpdate) error
 	CreateAlertMonitor(input CreateAlertMonitorInput) (*AlertMonitor, error)
 	ListAlertMonitors(userID string, limit, offset int32) ([]*AlertMonitor, int32, error)
+	UpdateAlertMonitorStatus(userID, monitorID, status, userEmail string) (*AlertMonitor, error)
+	RefreshAlertMonitorEmail(userID, userEmail string) error
+	DeleteAlertMonitor(userID, monitorID string) error
+	PauseAlertMonitorByID(monitorID string) (*AlertMonitor, bool, error)
+	ListAlertEvents(userID, monitorID string, limit, offset int32) ([]*AlertEvent, int32, error)
+	CanonicalIndustry(target string) (string, bool, error)
+	StockCodeKnown(code string) (bool, error)
+	AlertCheckedThrough() (string, error)
 
 	// Weekly report methods
 	GetWeeklyReport(weekSlug string) (*WeeklyReport, error)
@@ -371,6 +379,20 @@ type APISubscriptionUpdate struct {
 // ErrAlertMonitorExists is returned when a user already has the same active monitor.
 var ErrAlertMonitorExists = errors.New("alert monitor already exists")
 
+// MaxActiveAlertMonitors caps the active monitors one user may hold. Every active
+// monitor sends its own email, so the cap bounds one account's share of the shared
+// send budget and of its own inbox. Paused monitors do not count.
+const MaxActiveAlertMonitors = 50
+
+// ErrAlertMonitorLimit is returned when creating or resuming a monitor would take the
+// user past MaxActiveAlertMonitors.
+var ErrAlertMonitorLimit = errors.New("alert monitor limit reached")
+
+// ErrAlertMonitorNotFound is returned when no monitor has the id for this user. A
+// monitor that belongs to someone else is reported the same way, so its existence
+// is not revealed.
+var ErrAlertMonitorNotFound = errors.New("alert monitor not found")
+
 // AlertMonitor represents a persisted short-interest monitor.
 type AlertMonitor struct {
 	ID        string
@@ -384,6 +406,30 @@ type AlertMonitor struct {
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+
+	// The newest alert event, read with the list. Nil when the monitor has never
+	// fired, and on rows read without the event join.
+	LastEventReportDate  *string
+	LastEventEmailStatus *string
+	LastEventAt          *time.Time
+}
+
+// AlertEvent is one alert a monitor fired: a row of alert_events.
+type AlertEvent struct {
+	ID             int64
+	MonitorID      string
+	Scope          string
+	Target         string
+	Condition      string
+	Threshold      *float64
+	Cadence        string
+	ReportDate     string // YYYY-MM-DD
+	ComparedToDate string // YYYY-MM-DD
+	// Payload is the JSON services/pkg/alertevents.Payload the evaluator wrote.
+	Payload     []byte
+	EmailStatus string
+	SentAt      *time.Time
+	CreatedAt   time.Time
 }
 
 // CreateAlertMonitorInput contains validated alert monitor fields.

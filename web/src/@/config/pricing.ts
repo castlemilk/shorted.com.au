@@ -40,7 +40,7 @@ export const PLANS = {
       "Everything in Free",
       "AI Chat assistant",
       "Market Pulse dashboard",
-      "Price & position alerts",
+      "Short-position alerts by email",
       "Advanced dashboard widgets",
       "Priority support",
     ],

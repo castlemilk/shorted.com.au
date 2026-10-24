@@ -165,6 +165,8 @@ function readField(request, field) {
       return request.host;
     case "http.request.uri.path":
       return request.path;
+    case "http.request.method":
+      return request.method ?? "GET";
     case "http.request.uri.query":
       // Cloudflare's field is the query string without its leading "?".
       return request.query ?? "";
@@ -328,6 +330,43 @@ test("app API skip still covers the RPC paths it always did", () => {
       assert.equal(appApiSkips({ host, path }), true, path);
     }
   }
+});
+
+// The one-click unsubscribe routes (RFC 8058). Mail providers POST them from
+// their servers, so SBFM must not challenge the POST. Only the POST is skipped:
+// the routes act on POST alone, and a link scanner's GET keeps the challenge.
+test("app API skip covers the one-click unsubscribe routes on POST", () => {
+  for (const path of ["/api/alerts/unsubscribe", "/api/unsubscribe"]) {
+    for (const host of FRONTEND_HOSTS) {
+      assert.equal(appApiSkips({ host, path, method: "POST" }), true, path);
+    }
+  }
+});
+
+test("app API skip leaves the one-click unsubscribe routes challenged on GET", () => {
+  for (const path of ["/api/alerts/unsubscribe", "/api/unsubscribe"]) {
+    for (const host of FRONTEND_HOSTS) {
+      assert.equal(appApiSkips({ host, path, method: "GET" }), false, path);
+    }
+  }
+});
+
+test("app API skip does not cover lookalikes of the unsubscribe routes", () => {
+  for (const path of [
+    "/api/alerts/unsubscribe/extra",
+    "/api/alerts/unsubscribex",
+    "/api/unsubscribe/extra",
+    "/api/unsubscribex",
+    "/unsubscribe",
+  ]) {
+    for (const host of FRONTEND_HOSTS) {
+      assert.equal(appApiSkips({ host, path, method: "POST" }), false, path);
+    }
+  }
+  assert.equal(
+    appApiSkips({ host: "evil.example.com", path: "/api/unsubscribe", method: "POST" }),
+    false,
+  );
 });
 
 test("app API skip does not cover lookalikes of the Discord path", () => {

@@ -22,6 +22,7 @@ func TestCreateAlertMonitor_SavesPremiumStockMonitor(t *testing.T) {
 
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	expectSubscriptionRow(mockStore, activeRow("premium"))
+	mockStore.EXPECT().StockCodeKnown("BHP").Return(true, nil)
 	now := time.Now().UTC()
 	mockStore.EXPECT().
 		CreateAlertMonitor(gomock.Any()).
@@ -116,6 +117,7 @@ func TestCreateAlertMonitor_InternalGrantNeedsNoRow(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().StockCodeKnown("BHP").Return(true, nil)
 	mockStore.EXPECT().
 		CreateAlertMonitor(gomock.Any()).
 		Return(&shortsstore.AlertMonitor{ID: "alert_1", UserID: "user_1", Status: "active"}, nil)
@@ -199,6 +201,7 @@ func TestCreateAlertMonitor_MapsDuplicateToAlreadyExists(t *testing.T) {
 
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	expectSubscriptionRow(mockStore, activeRow("premium"))
+	mockStore.EXPECT().CanonicalIndustry("Materials").Return("Materials", true, nil)
 	mockStore.EXPECT().
 		CreateAlertMonitor(gomock.Any()).
 		Return(nil, shortsstore.ErrAlertMonitorExists)
@@ -221,6 +224,7 @@ func TestListAlertMonitors_DefaultsLimitAndMapsRows(t *testing.T) {
 
 	now := time.Now().UTC()
 	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().RefreshAlertMonitorEmail("user_1", "ben@shorted.com.au").Return(nil)
 	mockStore.EXPECT().
 		ListAlertMonitors("user_1", int32(20), int32(0)).
 		Return([]*shortsstore.AlertMonitor{
@@ -237,11 +241,14 @@ func TestListAlertMonitors_DefaultsLimitAndMapsRows(t *testing.T) {
 			},
 		}, int32(1), nil)
 
+	mockStore.EXPECT().AlertCheckedThrough().Return("2026-10-22", nil)
+
 	srv := newTestServer(t, mockStore)
 	resp, err := srv.ListAlertMonitors(premiumUserContext(), connect.NewRequest(&shortsv1alpha1.ListAlertMonitorsRequest{}))
 
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), resp.Msg.TotalCount)
+	assert.Equal(t, "2026-10-22", resp.Msg.CheckedThroughReportDate)
 	require.Len(t, resp.Msg.Monitors, 1)
 	assert.Equal(t, "Materials", resp.Msg.Monitors[0].Target)
 	assert.Equal(t, shortsv1alpha1.AlertMonitorCondition_ALERT_MONITOR_CONDITION_NEW_TOP_TEN_ENTRY, resp.Msg.Monitors[0].Condition)
@@ -251,7 +258,18 @@ func premiumUserContext() context.Context {
 	return userContext("premium")
 }
 
+// userContext is a signed-in user whose address is verified, the normal case.
 func userContext(tier string) context.Context {
+	return context.WithValue(context.Background(), userKey, &Claims{
+		UserID:        "user_1",
+		Email:         "ben@shorted.com.au",
+		EmailVerified: true,
+		Tier:          tier,
+	})
+}
+
+// unverifiedUserContext is the same user before the address is verified.
+func unverifiedUserContext(tier string) context.Context {
 	return context.WithValue(context.Background(), userKey, &Claims{
 		UserID: "user_1",
 		Email:  "ben@shorted.com.au",

@@ -789,6 +789,12 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
       # servers POST every interaction there as an automated client that SBFM
       # would challenge, and the route answers 401 to anything not signed with
       # the app's Ed25519 key (security-skip-expression.test.mjs).
+      #
+      # The two one-click unsubscribe routes (RFC 8058) are the same case: Gmail
+      # and Yahoo POST List-Unsubscribe from their servers with no JavaScript, so
+      # a managed challenge would stop the unsubscribe without telling anyone.
+      # Both are POST-only, so the skip is pinned to that method: a link
+      # scanner's GET gets no skip, and neither route acts on a GET.
       action      = "skip"
       expression  = <<-EOT
         (
@@ -807,6 +813,8 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
               or starts_with(http.request.uri.path, "/api/algolia/")
               or starts_with(http.request.uri.path, "/api/revalidate")
               or starts_with(http.request.uri.path, "/api/discord/")
+              or (http.request.uri.path eq "/api/alerts/unsubscribe" and http.request.method eq "POST")
+              or (http.request.uri.path eq "/api/unsubscribe" and http.request.method eq "POST")
             )
           )
         )

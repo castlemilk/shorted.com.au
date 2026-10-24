@@ -77,6 +77,13 @@ type UserClaims interface {
 	GetIsBrowserAuth() bool
 }
 
+// ExemptClaims is implemented by claims whose caller is trusted to be unmetered.
+// Only the internal-auth path sets it, and only for a verified platform caller. An
+// exempt request skips the limiter entirely.
+type ExemptClaims interface {
+	GetRateLimitExempt() bool
+}
+
 // UserClaimsContextKey is the context key for user claims
 // This should match the key used by the auth interceptor
 type UserClaimsContextKey string
@@ -89,6 +96,11 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 			// If rate limiting is disabled, skip
 			if !cfg.Enabled {
+				return next(ctx, req)
+			}
+
+			// A verified platform caller is not a customer's quota. See ExemptClaims.
+			if c, ok := ctx.Value(userClaimsKey).(ExemptClaims); ok && c.GetRateLimitExempt() {
 				return next(ctx, req)
 			}
 

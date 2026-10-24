@@ -35,7 +35,7 @@ function SuccessContent() {
               </li>
               <li className="flex items-center gap-2">
                 <Bell className="h-4 w-4 text-lime-700 dark:text-lime-300" />
-                Price &amp; position alerts
+                Short-position alerts by email
               </li>
               <li className="flex items-center gap-2">
                 <LayoutDashboard className="h-4 w-4 text-lime-700 dark:text-lime-300" />

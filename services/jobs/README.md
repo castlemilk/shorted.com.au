@@ -60,6 +60,7 @@ services/jobs/
 | `news` | `services/news-aggregator` | yes — `shorted-news`, 1 job + 5 schedules (cutover 2; all 5 old schedulers paused) |
 | `ownership` | — (new job, ownership map) | `shorted-ownership` in `terraform/environments/prod/main.tf`: `-mode all -limit 3000` daily 12:45 UTC. See "ownership" |
 | `picks` | — (new job, stock picker) | `shorted-picks` in `terraform/environments/prod/main.tf`: `-mode refresh` weekdays 13:30 UTC + `-mode all` daily 15:00 UTC. See "picks" |
+| `alerts` | — (new job, short-interest alerts) | VKE-native CronJob `shorted-alerts` (`deploy/kubernetes/jobs/chart/values.yaml`, no Cloud Run twin): hourly on weekdays at :55 UTC. See `internal/jobs/alerts/README.md` and `docs/alerts-runbook.md` |
 | `director-trades` | `services/report-extractor/extract_director_trades.py` | **not yet** — ported (Phase 3), no Terraform change; `director-trade-extractor` still runs the Python image |
 | `report-extract concurrent` | `services/report-extractor/extract_reports_concurrent.py` | **not yet** — ported (Phase 3); `financial-report-extractor` still runs the Python image, which has since moved ahead of the port (see "Phase 3 port notes") |
 | `report-extract sequential` | `services/report-extractor/extract.py` | no — laptop-only CLI |

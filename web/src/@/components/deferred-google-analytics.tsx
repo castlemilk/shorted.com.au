@@ -12,6 +12,18 @@ declare global {
 }
 
 /**
+ * The page's URL without the one-click `t` credential. The alert and newsletter
+ * unsubscribe links carry a signed token in `t`, and a working token must never reach
+ * a third party. Every other parameter, including UTM tags, is kept, because GA reads
+ * campaign attribution from the landing URL.
+ */
+export function pageLocationWithoutToken(): string {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("t");
+  return url.toString();
+}
+
+/**
  * Idle-deferred GA4 loader.
  *
  * Replaces @next/third-parties' <GoogleAnalytics>, which injects the 152KB-gz
@@ -45,8 +57,9 @@ export function DeferredGoogleAnalytics({ gaId }: { gaId: string }) {
     } as NonNullable<Window["gtag"]>;
     window.gtag = gtag;
     window.gtag("js", new Date());
-    // send_page_view stays on: the initial page_view fires when gtag.js boots.
-    window.gtag("config", gaId);
+    // send_page_view stays on: the initial page_view fires when gtag.js boots, and
+    // it reports the page without the one-click unsubscribe token.
+    window.gtag("config", gaId, { page_location: pageLocationWithoutToken() });
 
     const inject = () => {
       const s = document.createElement("script");

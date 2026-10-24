@@ -105,6 +105,13 @@ const (
 	// AuthMethodInternal is the shared internal service secret, asserted by the web
 	// tier, webhooks and other trusted services.
 	AuthMethodInternal = "internal"
+
+	// alertsJobUserAgentPrefix marks the alerts evaluator (`shorted alerts`). Its
+	// entitlement lookups are the platform's own reads, made under the internal
+	// secret, so they are exempt from the owner's per-user rate limit. An owner at
+	// their quota must not stop their own alert email. The marker grants nothing on
+	// its own: the internal secret must match before it is read.
+	alertsJobUserAgentPrefix = "shorted-alerts/"
 	// AuthMethodServiceAccount is a Google service-account identity token.
 	AuthMethodServiceAccount = "service_account"
 )
@@ -258,6 +265,10 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 				userID := req.Header().Get("x-user-id")
 				userEmail := req.Header().Get("x-user-email")
 				userRolesHeader := req.Header().Get("x-user-roles")
+				// Only the alerts transport sends x-user-email-verified, and only when the
+				// session's address is verified. Other web callers send x-user-email for
+				// their own reasons, so the address alone never proves verification.
+				emailVerified := strings.EqualFold(strings.TrimSpace(req.Header().Get("x-user-email-verified")), "true")
 
 				if userID != "" {
 					// Start with api-user role by default
@@ -281,10 +292,15 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 					// admin from x-user-email would not be: that header carries the address
 					// alone, not whether the address was verified.
 					normalizedClaims := &Claims{
-						UserID:     userID,
-						Email:      userEmail,
-						Roles:      roles,
-						AuthMethod: AuthMethodInternal,
+						UserID:        userID,
+						Email:         userEmail,
+						EmailVerified: emailVerified,
+						Roles:         roles,
+						AuthMethod:    AuthMethodInternal,
+						// The alerts evaluator's entitlement lookups are the platform's own
+						// reads, not the customer's API use, so they are not metered against
+						// the owner's quota. See alertsJobUserAgentPrefix.
+						RateLimitExempt: strings.HasPrefix(req.Header().Get("User-Agent"), alertsJobUserAgentPrefix),
 					}
 
 					// Look up subscription tier
@@ -413,6 +429,7 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 						normalizedClaims := &Claims{
 							UserID:        fbToken.UID,
 							Email:         email,
+							EmailVerified: emailVerifiedFromFirebaseClaims(fbToken.Claims),
 							Roles:         roles,
 							AuthMethod:    AuthMethodFirebase,
 							IsBrowserAuth: true, // Firebase auth = browser access
@@ -516,6 +533,14 @@ func rolesForFirebaseClaims(claims map[string]interface{}) []string {
 		log.Infof("Granted admin role to verified account %s", email)
 	}
 	return roles
+}
+
+// emailVerifiedFromFirebaseClaims reports whether a verified Firebase ID token
+// proves the address in its email claim. Only Firebase's boolean claim counts, the
+// same strictness as rolesForFirebaseClaims: a string "true" does not.
+func emailVerifiedFromFirebaseClaims(claims map[string]interface{}) bool {
+	verified, _ := claims["email_verified"].(bool)
+	return verified
 }
 
 // isAdminEmail reports whether email is on adminEmails. Case and surrounding space

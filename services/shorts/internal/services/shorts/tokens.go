@@ -27,6 +27,17 @@ type Claims struct {
 	// credential carried and must not back a grant such as minting a token. Set by
 	// the interceptor and never serialized.
 	TierResolved bool `json:"-"`
+	// RateLimitExempt is true for a verified internal call from the alerts evaluator
+	// (see alertsJobUserAgentPrefix). Set only by the internal-auth branch, never
+	// read from a token, and it skips the per-user rate limit.
+	RateLimitExempt bool `json:"-"`
+	// EmailVerified is true only when Email is an address its owner has proved they
+	// control. The interceptor sets it from the credential that vouches for the
+	// address: a verified Firebase email_verified claim, or the web tier's explicit
+	// x-user-email-verified assertion. It is never read from a token (json:"-"), so a
+	// bespoke API token that carries an address cannot claim it is verified. Alert
+	// email reads it, so an unverified address is never stored or emailed.
+	EmailVerified bool `json:"-"`
 	// Scope is the OAuth 2.0 granted scope set, space-delimited per RFC 6749
 	// §3.3. Empty on every token this service mints today — the tokens minted
 	// through MintTokenWithTier are whole-API credentials, not scoped grants.
@@ -47,6 +58,12 @@ func (c *Claims) GetTier() string {
 // GetIsBrowserAuth returns true if this is browser-based auth (Firebase)
 func (c *Claims) GetIsBrowserAuth() bool {
 	return c.IsBrowserAuth
+}
+
+// GetRateLimitExempt implements ratelimit.ExemptClaims. Only the internal-auth path
+// sets it, for the alerts evaluator's own calls.
+func (c *Claims) GetRateLimitExempt() bool {
+	return c.RateLimitExempt
 }
 
 type TokenService struct {
