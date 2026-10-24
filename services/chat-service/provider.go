@@ -22,6 +22,14 @@ type SessionConfig struct {
 	History         []Message        // stored user/assistant text
 	Tools           []ToolDefinition // data tools plus answer_without_data
 	MaxOutputTokens int32
+	Params          ModelParams
+}
+
+// ModelParams is the closed set of knobs an admin may set. Nothing free-form
+// reaches a request body.
+type ModelParams struct {
+	Temperature    *float64 // nil = provider default (today: unset)
+	OpenRouterOnly []string // openrouter only; slugs matching ^[a-z0-9-]{1,40}$
 }
 
 // ModelSession is one turn's conversation. Each Send is exactly one model call.

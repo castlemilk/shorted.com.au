@@ -1,0 +1,361 @@
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "earlier question"
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "parts": [
+        {
+          "text": "earlier answer"
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "parts": [
+        {
+          "text": "Who is shorting BHP?"
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "parts": [
+        {
+          "functionCall": {
+            "args": {
+              "query": "BHP"
+            },
+            "name": "search_stocks"
+          },
+          "thoughtSignature": "c2lnLTE="
+        },
+        {
+          "functionCall": {
+            "args": {
+              "query": "CBA"
+            },
+            "name": "search_stocks"
+          }
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "parts": [
+        {
+          "functionResponse": {
+            "name": "search_stocks",
+            "response": {
+              "stocks": [
+                {
+                  "productCode": "BHP"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "functionResponse": {
+            "name": "search_stocks",
+            "response": {
+              "stocks": [
+                {
+                  "productCode": "CBA"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "generationConfig": {
+    "candidateCount": 1,
+    "maxOutputTokens": 1024
+  },
+  "systemInstruction": {
+    "parts": [
+      {
+        "text": "system prompt for the wire test"
+      }
+    ],
+    "role": "user"
+  },
+  "tools": [
+    {
+      "functionDeclarations": [
+        {
+          "description": "Get short position time series data for a specific stock over a time period. Returns short interest percentages over time, at most 40 points, always including the first and the latest.",
+          "name": "query_short_positions",
+          "parameters": {
+            "properties": {
+              "period": {
+                "description": "Time period for data",
+                "enum": [
+                  "1m",
+                  "3m",
+                  "6m",
+                  "1y",
+                  "2y",
+                  "5y",
+                  "max"
+                ],
+                "type": "STRING"
+              },
+              "stock_code": {
+                "description": "ASX stock code (e.g., 'BHP', 'CBA')",
+                "type": "STRING"
+              }
+            },
+            "required": [
+              "stock_code"
+            ],
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Get the top N most shorted stocks on the ASX, ranked by current short interest percentage. Returns each stock's code, name and latest short position, with a sparkline of its short interest over the last 3 months (up to 8 points, the first and the latest always included) for the highest-ranked stocks. When the answer is long, lower-ranked stocks come without a sparkline. Stocks are left out only if even the bare rows do not fit, and omittedStocks says how many. For the full daily history of one stock, use query_short_positions.",
+          "name": "get_top_shorts",
+          "parameters": {
+            "properties": {
+              "limit": {
+                "description": "Number of stocks to return (default 10, max 50)",
+                "type": "INTEGER"
+              }
+            },
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Get a stock's profile: company name, industry, market cap, valuation ratios (P/E, EPS, dividend yield, 52-week range), company summary, risk factors and key people. For short-position history use query_short_positions.",
+          "name": "get_stock_details",
+          "parameters": {
+            "properties": {
+              "stock_code": {
+                "description": "ASX stock code",
+                "type": "STRING"
+              }
+            },
+            "required": [
+              "stock_code"
+            ],
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Search for stocks by company name or stock code. Useful when the user mentions a company name and you need to find the stock code.",
+          "name": "search_stocks",
+          "parameters": {
+            "properties": {
+              "limit": {
+                "description": "Maximum results to return (default 5)",
+                "type": "INTEGER"
+              },
+              "query": {
+                "description": "Search query (company name or partial stock code)",
+                "type": "STRING"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Get recent news articles for a specific stock or the broader market.",
+          "name": "get_news",
+          "parameters": {
+            "properties": {
+              "limit": {
+                "description": "Number of articles to return (default 5)",
+                "type": "INTEGER"
+              },
+              "stock_code": {
+                "description": "ASX stock code (omit for market-wide news)",
+                "type": "STRING"
+              }
+            },
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Get recent director (insider) trades for a specific stock. Shows buys, sells, and option exercises by company directors.",
+          "name": "get_director_trades",
+          "parameters": {
+            "properties": {
+              "limit": {
+                "description": "Number of trades to return (default 10)",
+                "type": "INTEGER"
+              },
+              "stock_code": {
+                "description": "ASX stock code",
+                "type": "STRING"
+              }
+            },
+            "required": [
+              "stock_code"
+            ],
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Compare a stock with its industry peers. Returns short interest, market cap, P/E ratio, and dividend yield for peer companies.",
+          "name": "get_peer_comparison",
+          "parameters": {
+            "properties": {
+              "limit": {
+                "description": "Number of peers to return (default 5)",
+                "type": "INTEGER"
+              },
+              "stock_code": {
+                "description": "ASX stock code",
+                "type": "STRING"
+              }
+            },
+            "required": [
+              "stock_code"
+            ],
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Get the latest weekly short selling analysis report with market trends, biggest movers, and sector analysis.",
+          "name": "get_weekly_report",
+          "parameters": {
+            "properties": {
+              "week": {
+                "description": "Week slug in YYYY-WNN format (e.g., '2026-W08'). Omit for the latest report.",
+                "type": "STRING"
+              }
+            },
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Find news articles semantically related to a stock (cross-outlet, by meaning). Uses vector similarity to surface thematically relevant coverage beyond simple keyword matching.",
+          "name": "get_related_news",
+          "parameters": {
+            "properties": {
+              "article_id": {
+                "description": "Optional id of an article from an earlier get_news or get_related_news result, to find news related to that article instead of the stock's latest one. Omit it to relate to the stock's latest article.",
+                "type": "STRING"
+              },
+              "limit": {
+                "description": "Number of related articles to return (default 5)",
+                "type": "INTEGER"
+              },
+              "stock_code": {
+                "description": "ASX stock code (e.g., 'BHP', 'CBA')",
+                "type": "STRING"
+              }
+            },
+            "required": [
+              "stock_code"
+            ],
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Get a stock's key people (directors/executives and their OTHER ASX board seats) and narrative-similar companies. Useful for mapping corporate networks and finding structurally similar peers.",
+          "name": "get_stock_graph",
+          "parameters": {
+            "properties": {
+              "limit": {
+                "description": "Number of results to return (default 10)",
+                "type": "INTEGER"
+              },
+              "stock_code": {
+                "description": "ASX stock code",
+                "type": "STRING"
+              }
+            },
+            "required": [
+              "stock_code"
+            ],
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Get a merged chronological timeline of a stock's events: announcements, director trades, price-sensitive news, and short-position spikes. Good for understanding what drove recent moves.",
+          "name": "get_event_timeline",
+          "parameters": {
+            "properties": {
+              "days_back": {
+                "description": "How many calendar days back to include (default 90)",
+                "type": "INTEGER"
+              },
+              "limit": {
+                "description": "Maximum number of events to return (default 20)",
+                "type": "INTEGER"
+              },
+              "stock_code": {
+                "description": "ASX stock code",
+                "type": "STRING"
+              }
+            },
+            "required": [
+              "stock_code"
+            ],
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Get a stock's risk and reputation signals — adverse items (court cases, sanctions, regulatory actions, complaints, safety incidents) and positive items (awards, favourable press), each with a severity rating, its date and, where known, the publisher's domain. Use when the user asks about a company's risks, controversies, legal issues, or reputation.",
+          "name": "get_stock_signals",
+          "parameters": {
+            "properties": {
+              "limit": {
+                "description": "Max signals per polarity to fetch (default 10, max 50). At most 10 of each polarity reach the answer; omittedAdverse and omittedPositive count the rest.",
+                "type": "INTEGER"
+              },
+              "stock_code": {
+                "description": "ASX stock code",
+                "type": "STRING"
+              }
+            },
+            "required": [
+              "stock_code"
+            ],
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Get Australian macroeconomic and market series. Key families: rates.cash_rate_target.aus; cpi.annual_change.all_groups.aus; cpi.index.all_groups.aus; labour.unemployment_rate.total.{state}.seasadj; labour.job_vacancies.{state}; wages.wpi_yoy.{state}; wages.real_wpi_yoy.{state}; commodities.price_index.bulk.aus; credit.growth_yoy.housing.aus.seasadj; markets.short_interest_wavg.{state}; markets.short_interest_avg.{industry}.aus; trade.balance.total.{state}; spending.household.total.{state}.seasadj; lending.new_commitments.investor.{state}.seasadj; business.gross_operating_profit.{industry}.aus.seasadj; construction.work_done.total.{state}.seasadj; crime.victims.{offence}.{state}; crime.victims_rate_100k.{offence}.{state}. State values: lowercase nsw/vic/qld/sa/wa/tas/nt/act. Business industry values (ANZSIC divisions): mining, manufacturing, retail-trade. Market industry values (GICS): materials, energy, banks. Offence values: homicide, assault, sexual-assault, robbery, unlawful-entry, motor-vehicle-theft, other-theft.",
+          "name": "get_economic_series",
+          "parameters": {
+            "properties": {
+              "limit": {
+                "description": "Observations per series (default 12, max 60)",
+                "type": "INTEGER"
+              },
+              "series_keys": {
+                "description": "Series keys to fetch (required, max 10)",
+                "items": {
+                  "type": "STRING"
+                },
+                "type": "ARRAY"
+              }
+            },
+            "required": [
+              "series_keys"
+            ],
+            "type": "OBJECT"
+          }
+        },
+        {
+          "description": "Call this ONLY when the reply needs no data: a greeting, a definition, an explanation of a concept, or how to use Shorted. NEVER call it when the reply will contain any figure about a stock, the market, an economic series or a person. For those, call the data tool that returns the figure.",
+          "name": "answer_without_data"
+        }
+      ]
+    }
+  ]
+}
+

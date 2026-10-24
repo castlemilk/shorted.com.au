@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/google/generative-ai-go/genai"
-	"google.golang.org/api/option"
 )
 
 // testKey is the configured Gemini key in these tests. leakedURL is the shape of
@@ -124,31 +122,29 @@ func TestRegisteredSecretIsRedactedInItsURLEncodedForm(t *testing.T) {
 }
 
 // TestGeminiErrorNeverCarriesTheKey runs the real SDK against a port that refuses
-// connections. The SDK puts the key in the request URL, so its error carries the
-// key exactly as a provider error would. The error that leaves the package, and
-// the line it is logged as, must carry neither the key nor its URL.
+// connections. The error that leaves the package, and the line it is logged as,
+// must carry no trace of the key. The URL redaction itself is covered by the
+// tests above, since a key in a query string is what that rule removes.
 func TestGeminiErrorNeverCarriesTheKey(t *testing.T) {
 	registerSecrets(testKey)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	gemini, err := genai.NewClient(ctx,
-		option.WithAPIKey(testKey),
-		option.WithEndpoint("http://127.0.0.1:1"),
-	)
+	provider, err := newGeminiProviderAt(ctx, testKey, "http://127.0.0.1:1")
 	if err != nil {
-		t.Fatalf("genai.NewClient() error = %v", err)
+		t.Fatalf("newGeminiProviderAt() error = %v", err)
 	}
-	t.Cleanup(func() { _ = gemini.Close() })
-
-	lc := llmClientOverGemini(gemini, "gemini-test", nil)
+	lc := newLLMClient(provider, "gemini-test", 0, nil)
 	_, err = lc.ChatStream(ctx, "system", nil, "hello", func(string) {})
 	if err == nil {
 		t.Fatal("ChatStream() error = nil, want the refused connection")
 	}
 
 	assertNoKey(t, "ChatStream error", err.Error())
-	if !strings.Contains(err.Error(), redactedMarker) {
-		t.Fatalf("the error named no URL, so this test proves nothing: %q", err)
+	// genai sends the key in a header, so the error no longer carries a URL with
+	// the key in it. The test still needs the error to name the endpoint, or it
+	// proves nothing.
+	if !strings.Contains(err.Error(), "127.0.0.1:1") {
+		t.Fatalf("the error named no endpoint, so this test proves nothing: %q", err)
 	}
 
 	logged := captureRawLog(t, func() { logRedacted("LLM error: %v", err) })
