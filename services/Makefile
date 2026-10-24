@@ -763,32 +763,22 @@ backfill.historical-test: ## Test backfill with limited stocks (usage: make back
 
 # Alerts evaluator end-to-end suite (services/jobs/internal/jobs/alerts) and the
 # shorts API's alert store tests (services/shorts/internal/store/shorts, -tags=integration).
-# Both run against one throwaway postgres:15 container, which the trap removes on every
-# exit path. The jobs suite runs the real 000074 and 000147 migrations. The API store
-# tests build and drop their own databases on that server, and need CGO disabled here. The official image logs "ready to accept
-# connections" twice: once for the init server and once for the real one. Waiting for
-# the second line means the host connection is not refused during the init window.
+# ALERTS_E2E_TESTCONTAINERS=1 has each test binary start one postgres:15-alpine
+# container through testcontainers, the mechanism test-integration-ci uses, and remove
+# it on exit. Those runners use the host's Docker daemon, so a port published on
+# 127.0.0.1 inside the runner is not reachable; this target therefore never connects
+# to 127.0.0.1. To run against a server you started, set ALERTS_TEST_DATABASE_URL
+# (jobs) or SHORTS_TEST_POSTGRES_URL (store) instead of the opt-in.
 #
-# The wait is capped at 90 seconds, and a container that stops running fails at once.
-# An unbounded wait would hold the deploy gate until the job timeout.
+# The image is prefetched with retries first, as test-integration-ci does. CGO is off:
+# testcontainers pulls in gopsutil, whose cgo init crashes a macOS test binary before
+# any test runs.
 .PHONY: test-alerts-e2e
-test-alerts-e2e:
+test-alerts-e2e: test-integration-images
 	@set -e; \
-	name=alerts-e2e-$$$$; \
-	trap 'docker rm -f $$name >/dev/null 2>&1 || true' EXIT; \
-	docker run -d --name $$name -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=alertse2e \
-		-p 127.0.0.1::5432 postgres:15-alpine >/dev/null; \
-	ready=0; i=0; \
-	while [ $$i -lt 90 ]; do \
-		if [ "$$(docker inspect -f '{{.State.Running}}' $$name 2>/dev/null)" != "true" ]; then break; fi; \
-		if [ "$$(docker logs $$name 2>&1 | grep -c 'ready to accept connections')" -ge 2 ]; then ready=1; break; fi; \
-		sleep 1; i=$$((i+1)); \
-	done; \
-	if [ $$ready -ne 1 ]; then echo "alerts e2e: postgres did not become ready:"; docker logs $$name 2>&1 | tail -n 40; exit 1; fi; \
-	port=$$(docker port $$name 5432/tcp | head -1 | sed 's/.*://'); \
-	GOWORK=off CGO_ENABLED=0 SHORTS_TEST_POSTGRES_URL="postgres://postgres@127.0.0.1:$$port/postgres?sslmode=disable" \
+	GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
 		go test -count=1 -tags=integration -run Alert ./shorts/internal/store/shorts/; \
-	cd jobs && GOWORK=off ALERTS_TEST_DATABASE_URL="postgres://postgres@127.0.0.1:$$port/alertse2e?sslmode=disable" \
+	cd jobs && GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
 		go test -count=1 -run TestAlertsE2E ./internal/jobs/alerts/
 
 # Test commands

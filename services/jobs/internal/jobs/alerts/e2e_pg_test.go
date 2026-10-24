@@ -28,6 +28,7 @@ import (
 
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 	"github.com/castlemilk/shorted.com.au/services/pkg/alertevents"
+	"github.com/castlemilk/shorted.com.au/services/pkg/testpostgres"
 	"github.com/castlemilk/shorted.com.au/services/pkg/unsubscribe"
 )
 
@@ -201,9 +202,12 @@ type e2e struct {
 // points the environment at them.
 func newE2E(t *testing.T) *e2e {
 	t.Helper()
-	base := os.Getenv("ALERTS_TEST_DATABASE_URL")
+	base, err := testpostgres.Admin("ALERTS_TEST_DATABASE_URL", "ALERTS_E2E_TESTCONTAINERS")
+	if err != nil {
+		t.Fatalf("start the alerts PostgreSQL container: %v", err)
+	}
 	if base == "" {
-		t.Skip("ALERTS_TEST_DATABASE_URL is not set; the alerts end-to-end suite runs in CI and under make test-alerts-e2e")
+		t.Skip("neither ALERTS_TEST_DATABASE_URL nor ALERTS_E2E_TESTCONTAINERS=1 is set; the alerts end-to-end suite runs in CI and under make test-alerts-e2e")
 	}
 	refuseSharedDSN(t, base)
 	ctx := context.Background()

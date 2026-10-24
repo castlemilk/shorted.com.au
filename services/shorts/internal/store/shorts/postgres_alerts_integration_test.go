@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/testpostgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,12 +43,14 @@ CREATE TABLE shorts (
 // tables. Migration 000147 is applied twice, which is the replay the deploy runs
 // on every release, so the test also proves the second run is a no-op.
 // SHORTS_TEST_POSTGRES_URL names a disposable server, as for the other real-Postgres
-// tests, and the test skips without it.
+// tests. Without it, ALERTS_E2E_TESTCONTAINERS=1 starts one in a container (CI), and
+// the test skips when neither is set.
 func alertsTestStore(t *testing.T) *postgresStore {
 	t.Helper()
-	adminURL := os.Getenv("SHORTS_TEST_POSTGRES_URL")
+	adminURL, err := testpostgres.Admin("SHORTS_TEST_POSTGRES_URL", "ALERTS_E2E_TESTCONTAINERS")
+	require.NoError(t, err, "start the alerts PostgreSQL container")
 	if adminURL == "" {
-		t.Skip("SHORTS_TEST_POSTGRES_URL not set; skipping the real-Postgres alert store tests")
+		t.Skip("neither SHORTS_TEST_POSTGRES_URL nor ALERTS_E2E_TESTCONTAINERS=1 is set; skipping the real-Postgres alert store tests")
 	}
 	for _, shared := range []string{"supabase", "pooler", ":6543"} {
 		if strings.Contains(adminURL, shared) {
@@ -59,7 +62,7 @@ func alertsTestStore(t *testing.T) *postgresStore {
 	t.Cleanup(cleanup)
 
 	ctx := context.Background()
-	_, err := pool.Exec(ctx, alertsTestBaseSchema)
+	_, err = pool.Exec(ctx, alertsTestBaseSchema)
 	require.NoError(t, err)
 	for _, file := range []string{
 		"000074_add_alert_monitors.up.sql",
