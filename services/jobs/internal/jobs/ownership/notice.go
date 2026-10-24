@@ -486,9 +486,6 @@ var (
 	nzLastRe      = regexp.MustCompile(`(?i)For last disclosure,?\s*-?\s*\(a\)\s*total number held in class\s*:?\s*([0-9,]+)\s*\(b\)\s*total in class\s*:?\s*([0-9,]+)\s*\(c\)\s*total percentage held in class\s*:?\s*([0-9]+(?:\.[0-9]+)?)\s*%`)
 )
 
-//go:fix inline
-func ptrF(v float64) *float64 { return new(v) }
-
 // minNoticeText is the least text a notice with a text layer has: a scan's
 // only text is the ASX watermark, which normalisation removes.
 const minNoticeText = 200

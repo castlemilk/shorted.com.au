@@ -97,9 +97,6 @@ func newJob(name, cron string, start *time.Time, conds ...kjobCondition) kjob {
 	return j
 }
 
-//go:fix inline
-func ptr[T any](v T) *T { return new(v) }
-
 func testReporter(k *fakeCluster, s *fakeSender, urls map[string]string) *reporter {
 	r := newReporter(k, s, staticURLs(urls), config{
 		interval: 30 * time.Second, maxReportAge: 3 * time.Hour, logTailLines: 40, heartbeatInterval: 5 * time.Minute,

@@ -17,9 +17,6 @@ import (
 
 var now = time.Date(2026, 10, 11, 7, 40, 0, 0, time.UTC)
 
-//go:fix inline
-func ptr[T any](v T) *T { return new(v) }
-
 func mustJSON(t *testing.T, v any) []byte {
 	t.Helper()
 	b, err := json.Marshal(v)

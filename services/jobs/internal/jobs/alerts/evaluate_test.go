@@ -9,9 +9,6 @@ import (
 
 // Shorthand for building fixtures. Dates are listed newest first, as the window is.
 
-//go:fix inline
-func fp(v float64) *float64 { return new(v) }
-
 func mon(scope, target, condition, cadence string, threshold *float64) Monitor {
 	return Monitor{
 		ID: scope + "-" + target + "-" + condition + "-" + cadence, UserID: "u1", Email: "owner@example.com",
@@ -89,7 +86,7 @@ func TestStockAboveCrossing(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			snap := snapOf(dates, stockRows(dates, "BHP", tc.values), nil)
-			m := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, fp(5))
+			m := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, new(float64(5)))
 			got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1))
 			if (len(got) == 1) != tc.fires {
 				t.Fatalf("fired=%v, want %v (%+v)", len(got) == 1, tc.fires, got)
@@ -116,7 +113,7 @@ func TestStockRisesRule(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			snap := snapOf(dates, stockRows(dates, "BHP", tc.values), nil)
-			m := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestRises, alertevents.CadenceDaily, fp(1))
+			m := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestRises, alertevents.CadenceDaily, new(float64(1)))
 			got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1))
 			if (len(got) == 1) != tc.fires {
 				t.Fatalf("fired=%v, want %v", len(got) == 1, tc.fires)
@@ -129,7 +126,7 @@ func TestPreviousReadingComesFromLookback(t *testing.T) {
 	dates := []Date{d0, d1, d2, d3, d4, d5, d6}
 	// Absent at the previous two reports, present three reports back at 4.00.
 	snap := snapOf(dates, stockRows(dates, "BHP", []float64{5.20, -1, -1, 4.00, 3.00, 3.00, 3.00}), nil)
-	m := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, fp(5))
+	m := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, new(float64(5)))
 	got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1))
 	if len(got) != 1 || *got[0].Previous != 4.00 {
 		t.Fatalf("want previous 4.00 from three reports back, got %+v", got)
@@ -140,7 +137,7 @@ func TestNoPreviousWithinFiveReportsDoesNotFire(t *testing.T) {
 	dates := []Date{d0, d1, d2, d3, d4, d5, d6}
 	// Present only six reports back, which is outside the five-date lookback.
 	snap := snapOf(dates, stockRows(dates, "BHP", []float64{5.20, -1, -1, -1, -1, -1, 4.00}), nil)
-	m := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, fp(5))
+	m := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, new(float64(5)))
 	if got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1)); len(got) != 0 {
 		t.Fatalf("a reading beyond the lookback must not fire: %+v", got)
 	}
@@ -149,7 +146,7 @@ func TestNoPreviousWithinFiveReportsDoesNotFire(t *testing.T) {
 func TestCodeAbsentAtLatestDoesNotFire(t *testing.T) {
 	dates := []Date{d0, d1}
 	snap := snapOf(dates, stockRows(dates, "BHP", []float64{-1, 6.00}), nil)
-	m := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, fp(5))
+	m := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, new(float64(5)))
 	if got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1)); len(got) != 0 {
 		t.Fatalf("a code absent at the latest report cannot fire: %+v", got)
 	}
@@ -174,7 +171,7 @@ func TestIndustryAboveAndRisesEvaluateConstituents(t *testing.T) {
 	meta := materialsMeta("AAA", "BBB", "EEE", "FFF", "ZZZ", "GGG")
 	snap := snapOf(dates, rows, meta)
 
-	above := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, fp(5))
+	above := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, new(float64(5)))
 	got := Evaluate([]Monitor{above}, snap, dailyPlan(d0, d1))
 	if len(got) != 1 {
 		t.Fatalf("want one event, got %d", len(got))
@@ -189,7 +186,7 @@ func TestIndustryAboveAndRisesEvaluateConstituents(t *testing.T) {
 		t.Fatalf("companies_total = %d", got[0].Payload.CompaniesTotal)
 	}
 
-	rises := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionShortInterestRises, alertevents.CadenceDaily, fp(1))
+	rises := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionShortInterestRises, alertevents.CadenceDaily, new(float64(1)))
 	got = Evaluate([]Monitor{rises}, snap, dailyPlan(d0, d1))
 	if want := []string{"GGG"}; !reflect.DeepEqual(codesOf(got), want) {
 		t.Fatalf("risers = %v, want %v (FFF falls, ZZZ has no previous reading, GGG rises 1.50)", codesOf(got), want)
@@ -203,7 +200,7 @@ func TestIndustryRisesSortedByChange(t *testing.T) {
 		d1: {"AAA": 4.00, "BBB": 5.00},
 	}
 	snap := snapOf(dates, rows, materialsMeta("AAA", "BBB"))
-	m := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionShortInterestRises, alertevents.CadenceDaily, fp(1))
+	m := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionShortInterestRises, alertevents.CadenceDaily, new(float64(1)))
 	got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1))
 	if want := []string{"BBB", "AAA"}; !reflect.DeepEqual(codesOf(got), want) {
 		t.Fatalf("order = %v, want %v (change 4.00 before 2.00)", codesOf(got), want)
@@ -226,16 +223,16 @@ func TestIndustrySlugMatchingAndPlaceholders(t *testing.T) {
 	}
 	snap := snapOf(dates, rows, meta)
 
-	hc := mon(alertevents.ScopeIndustry, "health care equipment services", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, fp(5))
+	hc := mon(alertevents.ScopeIndustry, "health care equipment services", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, new(float64(5)))
 	if got := codesOf(Evaluate([]Monitor{hc}, snap, dailyPlan(d0, d1))); !reflect.DeepEqual(got, []string{"AAA"}) {
 		t.Fatalf("slug match = %v, want [AAA]", got)
 	}
 	// Placeholder industries never match, even a target spelled the same way.
-	other := mon(alertevents.ScopeIndustry, "Other", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, fp(5))
+	other := mon(alertevents.ScopeIndustry, "Other", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, new(float64(5)))
 	if got := Evaluate([]Monitor{other}, snap, dailyPlan(d0, d1)); len(got) != 0 {
 		t.Fatalf("a placeholder target must never fire: %+v", got)
 	}
-	na := mon(alertevents.ScopeIndustry, "Not Applic", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, fp(5))
+	na := mon(alertevents.ScopeIndustry, "Not Applic", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, new(float64(5)))
 	if got := Evaluate([]Monitor{na}, snap, dailyPlan(d0, d1)); len(got) != 0 {
 		t.Fatalf("Not Applic must never match: %+v", got)
 	}
@@ -491,8 +488,8 @@ func TestWeeklyMonitorEvaluatesOnlyWeeklyPlan(t *testing.T) {
 	dates := []Date{d0, d1, d5}
 	rows := map[Date]map[string]float64{d0: {"BHP": 6.0}, d1: {"BHP": 4.0}, d5: {"BHP": 4.0}}
 	snap := snapOf(dates, rows, nil)
-	daily := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, fp(5))
-	weekly := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceWeekly, fp(5))
+	daily := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, new(float64(5)))
+	weekly := mon(alertevents.ScopeStock, "BHP", alertevents.ConditionShortInterestAbove, alertevents.CadenceWeekly, new(float64(5)))
 	plan := Plan{Weekly: []WeekEval{{Date: d0, Prev: d5}}}
 	got := Evaluate([]Monitor{daily, weekly}, snap, plan)
 	if len(got) != 1 || got[0].Monitor.Cadence != alertevents.CadenceWeekly {
@@ -535,7 +532,7 @@ func TestPayloadStoresFiftyButCountsAll(t *testing.T) {
 		rows[d1][code] = 1.0
 	}
 	snap := snapOf(dates, rows, meta)
-	m := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, fp(5))
+	m := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionShortInterestAbove, alertevents.CadenceDaily, new(float64(5)))
 	got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1))
 	if got[0].Payload.CompaniesTotal != 60 || len(got[0].Payload.Companies) != storedCompanies {
 		t.Fatalf("total=%d stored=%d", got[0].Payload.CompaniesTotal, len(got[0].Payload.Companies))

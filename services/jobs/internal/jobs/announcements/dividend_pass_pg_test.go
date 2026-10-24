@@ -334,9 +334,6 @@ func TestConfirmedEstimateUpsertAgainstPostgres(t *testing.T) {
 	}
 }
 
-//go:fix inline
-func ptrTo[T any](v T) *T { return new(v) }
-
 // An estimated_only notice is read again once its due date has passed and an
 // extraction of its listing code with a dividend and a period end has been
 // made since its attempt; a detail with no due date never is. GMG's: its

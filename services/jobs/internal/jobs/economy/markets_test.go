@@ -145,11 +145,6 @@ func TestExposureMVStalenessWarning(t *testing.T) {
 	}
 }
 
-//go:fix inline
-func timePtr(value time.Time) *time.Time {
-	return new(value)
-}
-
 func TestPriceReturnIndexSeriesDef(t *testing.T) {
 	def, ok := priceReturnIndexSeriesDef("wa")
 	if !ok {
@@ -381,11 +376,6 @@ func TestConsecutiveStockPriceReturnsBreaksChainOnGap(t *testing.T) {
 	}
 }
 
-//go:fix inline
-func pricePtr(value float64) *float64 {
-	return new(value)
-}
-
 func TestConsecutiveStockPriceReturnsUsesOnePriceColumnPerPair(t *testing.T) {
 	jan := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	feb := time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC)
@@ -400,7 +390,7 @@ func TestConsecutiveStockPriceReturnsUsesOnePriceColumnPerPair(t *testing.T) {
 		{
 			name:       "adjusted both",
 			firstClose: 100, secondClose: 110,
-			firstAdj: pricePtr(50), secondAdj: pricePtr(60),
+			firstAdj: new(float64(50)), secondAdj: new(float64(60)),
 			wantReturn: 0.20,
 		},
 		{
@@ -411,13 +401,13 @@ func TestConsecutiveStockPriceReturnsUsesOnePriceColumnPerPair(t *testing.T) {
 		{
 			name:       "adjusted to raw falls back to raw pair",
 			firstClose: 100, secondClose: 120,
-			firstAdj:   pricePtr(50),
+			firstAdj:   new(float64(50)),
 			wantReturn: 0.20,
 		},
 		{
 			name:       "raw to adjusted falls back to raw pair",
 			firstClose: 100, secondClose: 80,
-			secondAdj:  pricePtr(40),
+			secondAdj:  new(float64(40)),
 			wantReturn: -0.20,
 		},
 	}
@@ -510,7 +500,7 @@ func TestPriceReturnPipelineNeutralizesRawShareConsolidationWithAdjustedClose(t 
 				Region:         "wa",
 				Period:         period,
 				Close:          close,
-				AdjustedClose:  pricePtr(10),
+				AdjustedClose:  new(float64(10)),
 				ExposureWeight: 1,
 				MarketCap:      1,
 			})

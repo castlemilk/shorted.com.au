@@ -32,8 +32,8 @@ func TestAlertsE2EOwnerLookupFailsClosed(t *testing.T) {
 			e.seedBase()
 			e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
 			e.billing.setStatus("u2", "SUBSCRIPTION_STATUS_ACTIVE")
-			e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
-			e.monitor("m2", "u2", u2Email, "stock", "EEE", "short_interest_above", "daily", fp(5), "")
+			e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
+			e.monitor("m2", "u2", u2Email, "stock", "EEE", "short_interest_above", "daily", new(float64(5)), "")
 			e.day("2026-10-13", baseDay0())
 			e.wantExit(e.run(), 0, "bootstrap")
 			e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
@@ -71,9 +71,9 @@ func TestAlertsE2EOwnerLookupFailsClosed(t *testing.T) {
 func TestAlertsE2EVanishedMonitorIsSkippedAndCounted(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 	base := Message{Scope: "stock", Target: "AAA", Condition: "short_interest_above", Cadence: "daily",
-		Threshold: fp(5), ReportDate: "2026-10-14", ComparedTo: "2026-10-13"}
+		Threshold: new(float64(5)), ReportDate: "2026-10-14", ComparedTo: "2026-10-13"}
 	gone := base
 	gone.Target = "EEE"
 	rows := []eventRow{
@@ -141,7 +141,7 @@ func TestAlertsE2EPauseLinkMustVerify(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 	e.day("2026-10-13", baseDay0())
 	e.wantExit(e.run(), 0, "bootstrap")
 	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
@@ -170,7 +170,7 @@ func TestAlertsE2EPauseLinkMustVerify(t *testing.T) {
 func TestAlertsE2ELegacyAwaitingRowExpires(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 	mustExec(t, e.pool, `
 		INSERT INTO alert_events (monitor_id, user_id, scope, target, condition, threshold, cadence,
 		                          report_date, compared_to_date, latest_percent, previous_percent,

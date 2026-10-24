@@ -360,8 +360,8 @@ func TestBuildFilingRowsCrossChecks(t *testing.T) {
 func TestPlanPurge(t *testing.T) {
 	rows := map[string][]PeriodRow{
 		"ABC": {
-			{PeriodType: periodHalf, PeriodEnd: date("2025-12-31"), Revenue: f64(1), Source: sourceFiling},
-			{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), NetIncome: f64(2), Source: sourceFiling},
+			{PeriodType: periodHalf, PeriodEnd: date("2025-12-31"), Revenue: new(float64(1)), Source: sourceFiling},
+			{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), NetIncome: new(float64(2)), Source: sourceFiling},
 		},
 	}
 	stored := []storedFiling{
@@ -414,7 +414,7 @@ func TestFilingSQLShape(t *testing.T) {
 	for _, m := range regexp.MustCompile(`\$(\d+)`).FindAllStringSubmatch(sql, -1) {
 		placeholders[m[1]] = true
 	}
-	row := PeriodRow{PeriodType: periodHalf, PeriodEnd: date("2025-12-31"), Currency: "AUD", Revenue: f64(1), Source: sourceFiling}
+	row := PeriodRow{PeriodType: periodHalf, PeriodEnd: date("2025-12-31"), Currency: "AUD", Revenue: new(float64(1)), Source: sourceFiling}
 	assert.Len(t, placeholders, len(filingUpsertArgs(map[string][]PeriodRow{"ABC": {row}}, time.Now())))
 
 	legacy := map[string]bool{}

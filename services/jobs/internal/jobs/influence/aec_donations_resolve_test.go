@@ -297,9 +297,6 @@ func TestResolveMPReturnIgnoreAliasSuppressesExactMatch(t *testing.T) {
 // Candidate returns: division + surname within the parliament the event elected.
 // ---------------------------------------------------------------------------
 
-//go:fix inline
-func parliamentPtr(n int) *int { return new(n) }
-
 func TestResolveCandidateReturnByDivisionAndSurname(t *testing.T) {
 	f := newAECResolveFixture(t)
 	id := f.politician("Zzyzxwell", "Peter", "peter-zzyzxwell")

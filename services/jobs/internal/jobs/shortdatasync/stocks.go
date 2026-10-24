@@ -359,9 +359,6 @@ func buildStocksReport(codes []string, files []stockFileRows, db map[string]shor
 	return rep
 }
 
-//go:fix inline
-func ptrValues(v stockValues) *stockValues { return new(v) }
-
 // floatEpsilon is the tolerance for "the same number".
 //
 // The file value is parsed from decimal text and the DB value comes back as a

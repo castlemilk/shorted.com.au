@@ -201,7 +201,7 @@ func TestSanitizeRowsAppliesStorableToEveryColumn(t *testing.T) {
 		}
 		base := func() PeriodRow {
 			r := PeriodRow{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo}
-			anchor.set(&r, f64(100))
+			anchor.set(&r, new(float64(100)))
 			return r
 		}
 		for _, v := range bad {
@@ -230,7 +230,7 @@ func TestSanitizeRowsNewColumnsAndProvenance(t *testing.T) {
 	rows := []PeriodRow{
 		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "USD", Source: sourceYahoo,
 			TotalAssets: new(108e9), TotalDebt: new(math.Inf(1)), CapitalExpenditure: new(-1e19), NetDebt: new(1e-13),
-			GrossProfit: f64(0), Revenue: f64(1), OperatingCashFlow: f64(2),
+			GrossProfit: new(float64(0)), Revenue: new(float64(1)), OperatingCashFlow: new(float64(2)),
 			FieldSources:       map[string]string{"revenue": sourceMarkit, "operating_cash_flow": fieldSourceDerivedFCFMinusCapex, "net_income": sourceMarkit},
 			Rejected:           []string{"net_income"},
 			SourceDocumentURL:  "https://www.asx.com.au/asxpdf/20260819/pdf/example.pdf",

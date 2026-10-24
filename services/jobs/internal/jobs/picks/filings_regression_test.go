@@ -44,9 +44,9 @@ func TestRegressionFiveEchoDocumentsWriteNothing(t *testing.T) {
 	vendor := map[string][]vendorRow{
 		"BHP": {vAnnual("2024-06-30", "USD", new(55.7e9), new(7.9e9), new(1.5), new(5.07e9))},
 		"CBA": {vAnnual("2024-06-30", "AUD", new(27e9), new(9.5e9), new(5.7), new(1.67e9))},
-		"DRO": {vAnnual("2024-06-30", "AUD", new(20e9), new(3e9), f64(1), new(2e9))},
+		"DRO": {vAnnual("2024-06-30", "AUD", new(20e9), new(3e9), new(float64(1)), new(2e9))},
 		"EDV": {vAnnual("2024-06-30", "AUD", new(12e9), new(0.5e9), new(0.28), new(1.79e9))},
-		"MSB": {vAnnual("2024-06-30", "AUD", new(15e9), new(2e9), f64(1), new(2e9))},
+		"MSB": {vAnnual("2024-06-30", "AUD", new(15e9), new(2e9), new(float64(1)), new(2e9))},
 	}
 	var st filingStats
 	out := buildFilingRows(docs, filingInputs{vendor: vendor}, &st)

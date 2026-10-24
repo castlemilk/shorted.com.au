@@ -15,9 +15,6 @@ import (
 	"time"
 )
 
-//go:fix inline
-func strp(s string) *string { return new(s) }
-
 func TestRowsFromSignalsMapsPayload(t *testing.T) {
 	payload := &signalsPayload{
 		Adverse: []signal{{
