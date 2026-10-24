@@ -16,7 +16,8 @@ const geminiProviderName = "gemini"
 // generative-ai-go SDK it replaced is archived, and it could not send back the
 // thought signatures Gemini 3.x needs on a stateless tool loop.
 type geminiProvider struct {
-	client *genai.Client
+	client   *genai.Client
+	timeouts streamTimeouts
 }
 
 // newGeminiProvider creates the Gemini client. The key is registered before any
@@ -37,7 +38,7 @@ func newGeminiProviderAt(ctx context.Context, apiKey, baseURL string) (*geminiPr
 	if err != nil {
 		return nil, providerError("create genai client", err)
 	}
-	return &geminiProvider{client: client}, nil
+	return &geminiProvider{client: client, timeouts: defaultStreamTimeouts()}, nil
 }
 
 func (p *geminiProvider) Name() string { return geminiProviderName }
@@ -55,6 +56,7 @@ func (p *geminiProvider) NewSession(cfg SessionConfig) (ModelSession, error) {
 		model:       cfg.Model,
 		config:      cfg,
 		transcript:  transcript,
+		timeouts:    p.timeouts,
 		providerIDs: map[string]bool{},
 	}, nil
 }
@@ -67,6 +69,7 @@ type geminiSession struct {
 	model      string
 	config     SessionConfig
 	transcript []*genai.Content
+	timeouts   streamTimeouts
 	started    bool
 	seq        int
 	// providerIDs marks the call ids Gemini itself sent. Only those are echoed
@@ -97,10 +100,13 @@ func (s *geminiSession) Send(ctx context.Context, in SendInput, choice ToolChoic
 	var reply ModelReply
 	var modelParts []*genai.Part
 	reached := false
-	for resp, err := range s.client.Models.GenerateContentStream(ctx, s.model, s.transcript, s.requestConfig(choice)) {
+	guard := newStreamGuard(ctx, s.timeouts)
+	defer guard.stop()
+	for resp, err := range s.client.Models.GenerateContentStream(guard.ctx, s.model, s.transcript, s.requestConfig(choice)) {
 		if err != nil {
-			return reply, providerFailure(ctx, op, reached, err)
+			return reply, providerFailure(ctx, guard, op, reached, err)
 		}
+		guard.touch()
 		// A refused prompt or reply is an error, as it was on the legacy SDK. The
 		// refused chunk is not counted as reached, so a block on the first chunk is a
 		// failure before the model, and text already streamed stays partial.
@@ -231,8 +237,9 @@ func blockingReason(resp *genai.GenerateContentResponse) string {
 
 // providerFailure wraps a stream error as a ProviderError. Reached says a chunk
 // arrived, so the call was billed. A 429 or a 5xx is retryable, and so is a
-// network failure before any chunk. A cancelled context is never retryable.
-func providerFailure(ctx context.Context, op string, reached bool, err error) error {
+// network failure before any chunk. A cancelled context is never retryable,
+// but a bound the guard enforced is: it is the provider's silence, not the caller's.
+func providerFailure(ctx context.Context, guard *streamGuard, op string, reached bool, err error) error {
 	pe := &ProviderError{
 		Provider: geminiProviderName,
 		Reached:  reached,
@@ -240,6 +247,9 @@ func providerFailure(ctx context.Context, op string, reached bool, err error) er
 	}
 	var apiErr genai.APIError
 	switch {
+	case guard.expired() && ctx.Err() == nil:
+		pe.Err = providerError(op, errTimedOut)
+		pe.Retryable = !reached
 	case errors.As(err, &apiErr):
 		pe.Status = apiErr.Code
 		pe.Retryable = apiErr.Code == 429 || apiErr.Code >= 500
