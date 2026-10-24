@@ -1,11 +1,14 @@
 package shorts
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -216,4 +219,41 @@ func TestUpdateAlertMonitorStatus_ResumeAtTheCapIsResourceExhausted(t *testing.T
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
 	assert.ErrorContains(t, err, "before resuming this one")
+}
+
+// An API token carries an address, and it can say that address is verified. Through
+// the real interceptor, neither makes the address verified: the bespoke branch never
+// sets EmailVerified, so an alert cannot be routed to an unverified inbox by minting a
+// token. Only the Firebase branch (its email_verified claim) or the alerts transport's
+// explicit header can.
+func TestBespokeAPITokenIsNeverEmailVerified(t *testing.T) {
+	setAdminCutover(t, time.Now().Add(-time.Hour))
+
+	// PauseAlertMonitorByToken is public and role-free, so a valid bearer token reaches
+	// the handler with its claims resolved, which is what this test reads.
+	const publicProcedure = "/shorts.v1alpha1.AlertsService/PauseAlertMonitorByToken"
+	var seen *Claims
+	srv := serveRPC(t, publicProcedure, AuthInterceptorOptions{},
+		func(ctx context.Context, _ *connect.Request[shortsv1alpha1.PauseAlertMonitorByTokenRequest]) (*connect.Response[shortsv1alpha1.PauseAlertMonitorByTokenResponse], error) {
+			seen, _ = UserFromContext(ctx)
+			return connect.NewResponse(&shortsv1alpha1.PauseAlertMonitorByTokenResponse{}), nil
+		})
+
+	token := bespokeToken(t, Claims{
+		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))},
+		UserID:           "uid-1",
+		Email:            "victim@example.com",
+		EmailVerified:    true, // a token cannot assert this; the json tag is "-"
+		Roles:            []string{"api-user"},
+	})
+	if _, err := callRPC[shortsv1alpha1.PauseAlertMonitorByTokenRequest, shortsv1alpha1.PauseAlertMonitorByTokenResponse](t, srv,
+		publicProcedure, &shortsv1alpha1.PauseAlertMonitorByTokenRequest{Token: "x"}, nil, token); err != nil {
+		t.Fatalf("public call with a valid bespoke token: %v", err)
+	}
+	if seen == nil || seen.Email != "victim@example.com" {
+		t.Fatalf("the interceptor did not resolve the bespoke token's claims: %+v", seen)
+	}
+	if seen.EmailVerified {
+		t.Fatal("a bespoke API token must never make its address verified")
+	}
 }
