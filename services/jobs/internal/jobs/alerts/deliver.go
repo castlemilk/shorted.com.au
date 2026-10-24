@@ -241,14 +241,15 @@ func verifyPauseLink(ctx context.Context, pause shortsv1alpha1connect.AlertsServ
 // toEmail assembles the Resend body for one recipient.
 func toEmail(r rendered, from, replyTo, to string) resend.Email {
 	return resend.Email{
-		From:    from,
-		To:      []string{to},
-		ReplyTo: replyTo,
-		Subject: r.Subject,
-		HTML:    r.HTML,
-		Text:    r.Text,
-		Headers: r.Headers,
-		Tags:    r.Tags,
+		From:        from,
+		To:          []string{to},
+		ReplyTo:     replyTo,
+		Subject:     r.Subject,
+		HTML:        r.HTML,
+		Text:        r.Text,
+		Headers:     r.Headers,
+		Tags:        r.Tags,
+		Attachments: r.Attachments,
 	}
 }
 

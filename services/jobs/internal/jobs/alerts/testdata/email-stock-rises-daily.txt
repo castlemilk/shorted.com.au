@@ -5,8 +5,9 @@ BHP short interest up 1.20 pts to 6.10%
 ASIC short position report for Fri 16 Oct 2026, compared with Thu 15 Oct 2026.
 ASIC publishes positions four trading days after they are held.
 
-Code    Company                    Previous    Latest    Change
-BHP     BHP Group Ltd                 4.90%     6.10%     +1.20
+Previous: 4.90% (Thu 15 Oct 2026)
+Latest:   6.10% (Fri 16 Oct 2026)
+Change:   +1.20 pts
 
 View BHP on Shorted: https://shorted.com.au/shorts/BHP?utm_source=alerts&utm_medium=email
 --

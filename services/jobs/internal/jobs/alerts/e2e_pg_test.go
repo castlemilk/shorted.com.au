@@ -1089,6 +1089,8 @@ func TestAlertsE2EStockDetail(t *testing.T) {
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
 	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
 
+	// Three readings, so the event's history is long enough for a chart.
+	e.day("2026-10-12", baseDay0())
 	e.day("2026-10-13", baseDay0())
 	e.wantExit(e.run(), 0, "bootstrap")
 	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
@@ -1126,5 +1128,31 @@ func TestAlertsE2EStockDetail(t *testing.T) {
 	}
 	if len(p.Companies) != 1 || p.Companies[0].LogoURL != "https://logos.test/AAA_icon.png" {
 		t.Fatalf("the company must carry its logo too: %+v", p.Companies)
+	}
+
+	// The email Resend received carries the chart and the brand mark inline, each
+	// under the Content-ID its HTML refers to.
+	reqs := requestsTo(e.resend.snapshot(), u1Email)
+	if len(reqs) == 0 {
+		t.Fatal("no customer email captured")
+	}
+	var body struct {
+		HTML        string `json:"html"`
+		Attachments []struct {
+			ContentID string `json:"content_id"`
+		} `json:"attachments"`
+	}
+	if err := json.Unmarshal(reqs[0].raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, a := range body.Attachments {
+		got[a.ContentID] = true
+	}
+	if !got["chart"] || !got["shorted-mark"] || len(got) != 2 {
+		t.Fatalf("attachments = %v, want the chart and the brand mark inline", got)
+	}
+	if !strings.Contains(body.HTML, `src="cid:chart"`) || !strings.Contains(body.HTML, `src="cid:shorted-mark"`) {
+		t.Fatal("the HTML must refer to both attachments by cid")
 	}
 }
