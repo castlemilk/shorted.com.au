@@ -41,19 +41,19 @@ func captureLogEvent(t *testing.T, fn func()) map[string]any {
 	return event
 }
 
-func TestGeminiUsageFromResponseHandlesNilMetadata(t *testing.T) {
+func TestTokenUsageFromResponseHandlesNilMetadata(t *testing.T) {
 	usage := geminiUsageFromResponse(nil)
-	if usage != (GeminiUsage{}) {
+	if usage != (TokenUsage{}) {
 		t.Fatalf("nil response usage = %+v, want zero value", usage)
 	}
 
 	usage = geminiUsageFromResponse(&genai.GenerateContentResponse{})
-	if usage != (GeminiUsage{}) {
+	if usage != (TokenUsage{}) {
 		t.Fatalf("nil metadata usage = %+v, want zero value", usage)
 	}
 }
 
-func TestGeminiUsageTracksBillablePromptTokens(t *testing.T) {
+func TestTokenUsageTracksBillablePromptTokens(t *testing.T) {
 	usage := geminiUsageFromResponse(&genai.GenerateContentResponse{
 		UsageMetadata: &genai.UsageMetadata{
 			PromptTokenCount:        120,
@@ -80,10 +80,10 @@ func TestGeminiUsageTracksBillablePromptTokens(t *testing.T) {
 	}
 }
 
-func TestGeminiUsageAddsMultipleModelCalls(t *testing.T) {
-	var total GeminiUsage
-	total.Add(GeminiUsage{PromptTokens: 100, CachedPromptTokens: 30, CandidateTokens: 25, TotalTokens: 125})
-	total.Add(GeminiUsage{PromptTokens: 60, CachedPromptTokens: 0, CandidateTokens: 20, TotalTokens: 80})
+func TestTokenUsageAddsMultipleModelCalls(t *testing.T) {
+	var total TokenUsage
+	total.Add(TokenUsage{PromptTokens: 100, CachedPromptTokens: 30, CandidateTokens: 25, TotalTokens: 125})
+	total.Add(TokenUsage{PromptTokens: 60, CachedPromptTokens: 0, CandidateTokens: 20, TotalTokens: 80})
 
 	if total.PromptTokens != 160 {
 		t.Fatalf("PromptTokens = %d, want 160", total.PromptTokens)
@@ -104,7 +104,7 @@ func TestGeminiUsageAddsMultipleModelCalls(t *testing.T) {
 
 func TestRecordGeminiRequestLogsStructuredCostEvent(t *testing.T) {
 	event := captureLogEvent(t, func() {
-		recordGeminiRequest(context.Background(), "gemini-2.5-flash", "initial", "success", GeminiUsage{
+		recordModelRequest(context.Background(), "gemini", "gemini-2.5-flash", "initial", "success", TokenUsage{
 			PromptTokens:       120,
 			CachedPromptTokens: 35,
 			CandidateTokens:    40,

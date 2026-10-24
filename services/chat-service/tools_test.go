@@ -62,7 +62,7 @@ func TestEconomicSeriesToolDeclarationAndGeminiSchema(t *testing.T) {
 		t.Fatalf("series_keys type = %q, want array", parameter.Type)
 	}
 
-	tools := buildGeminiTools()
+	tools := buildGeminiTools(chatToolDefinitions())
 	if len(tools) != 1 {
 		t.Fatalf("buildGeminiTools() returned %d tools, want 1 tool group", len(tools))
 	}
@@ -91,7 +91,7 @@ func TestAnswerWithoutDataIsDeclaredToTheModelButIsNotAShortsCall(t *testing.T) 
 		}
 	}
 
-	declarations := buildGeminiTools()[0].FunctionDeclarations
+	declarations := buildGeminiTools(chatToolDefinitions())[0].FunctionDeclarations
 	if len(declarations) != len(GetToolDefinitions())+1 {
 		t.Fatalf("declarations = %d, want every data tool plus %s", len(declarations), answerWithoutDataTool)
 	}

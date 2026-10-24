@@ -424,10 +424,10 @@ func TestModelAnsweredOnlyForTurnsThatReachedTheProvider(t *testing.T) {
 }
 
 func TestCompletionTokensAreNullWhenUnreported(t *testing.T) {
-	if in, out := completionTokens(GeminiUsage{}); in != nil || out != nil {
+	if in, out := completionTokens(TokenUsage{}); in != nil || out != nil {
 		t.Fatalf("completionTokens(zero) = (%v, %v), want NULL for both", in, out)
 	}
-	in, out := completionTokens(GeminiUsage{PromptTokens: 300, CandidateTokens: 90})
+	in, out := completionTokens(TokenUsage{PromptTokens: 300, CandidateTokens: 90})
 	if in == nil || *in != 300 || out == nil || *out != 90 {
 		t.Fatalf("completionTokens() = (%v, %v), want 300 and 90", in, out)
 	}

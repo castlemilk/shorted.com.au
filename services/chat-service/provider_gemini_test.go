@@ -116,11 +116,13 @@ func newWireTestClient(t *testing.T, geminiURL, toolAPIURL string) *LLMClient {
 		t.Fatalf("genai.NewClient() error = %v", err)
 	}
 	t.Cleanup(func() { _ = gemini.Close() })
-	return &LLMClient{
-		client:       gemini,
-		model:        wireModel,
-		toolExecutor: NewToolExecutor(toolAPIURL),
-	}
+	return llmClientOverGemini(gemini, wireModel, NewToolExecutor(toolAPIURL))
+}
+
+// llmClientOverGemini is the chat client over an existing Gemini SDK client. The
+// tests use it to point a real provider at a fake endpoint.
+func llmClientOverGemini(gemini *genai.Client, model string, tools *ToolExecutor) *LLMClient {
+	return newLLMClient(&geminiProvider{client: gemini}, model, 0, tools)
 }
 
 // compareGolden checks got against testdata/gemini_wire/<name>, byte for byte.
@@ -191,7 +193,50 @@ func TestGeminiWireGolden(t *testing.T) {
 	}
 	// Usage sums the usable chunk of each model call. The first call reports no
 	// cache, and the second reports 100 cached prompt tokens.
-	if got, want := resp.Usage, (GeminiUsage{PromptTokens: 380, CachedPromptTokens: 100, CandidateTokens: 21, TotalTokens: 401}); got != want {
+	if got, want := resp.Usage, (TokenUsage{PromptTokens: 380, CachedPromptTokens: 100, CandidateTokens: 21, TotalTokens: 401}); got != want {
 		t.Fatalf("usage = %+v, want %+v", got, want)
+	}
+}
+
+// The Gemini mapping: a choice becomes the SDK's function calling mode. Auto must
+// be nil, because that is the request the model received before the engine
+// existed, and an explicit AUTO would change the wire.
+func TestGeminiToolConfigMapsEachChoice(t *testing.T) {
+	if got := geminiToolConfig(ToolChoiceAuto); got != nil {
+		t.Fatalf("geminiToolConfig(Auto) = %+v, want nil", got)
+	}
+	tests := map[ToolChoice]genai.FunctionCallingMode{
+		ToolChoiceRequired: genai.FunctionCallingAny,
+		ToolChoiceNone:     genai.FunctionCallingNone,
+	}
+	for choice, wantMode := range tests {
+		got := geminiToolConfig(choice)
+		if got == nil || got.FunctionCallingConfig == nil || got.FunctionCallingConfig.Mode != wantMode {
+			t.Fatalf("geminiToolConfig(%v) = %+v, want mode %v", choice, got, wantMode)
+		}
+	}
+}
+
+// A tool with no parameters declares none, because an object schema with no
+// properties is not a valid declaration.
+func TestBuildGeminiToolsDeclaresNoParametersForAParameterlessTool(t *testing.T) {
+	tools := buildGeminiTools([]ToolDefinition{
+		{Name: "no_args", Description: "takes nothing"},
+		{
+			Name:        "one_arg",
+			Description: "takes a query",
+			Parameters:  map[string]ToolParameter{"query": {Type: "string", Description: "text"}},
+			Required:    []string{"query"},
+		},
+	})
+	decls := tools[0].FunctionDeclarations
+	if len(decls) != 2 {
+		t.Fatalf("declarations = %d, want 2", len(decls))
+	}
+	if decls[0].Parameters != nil {
+		t.Fatalf("no_args parameters = %+v, want nil", decls[0].Parameters)
+	}
+	if decls[1].Parameters == nil || decls[1].Parameters.Type != genai.TypeObject || !slices.Equal(decls[1].Parameters.Required, []string{"query"}) {
+		t.Fatalf("one_arg parameters = %+v, want an object requiring query", decls[1].Parameters)
 	}
 }

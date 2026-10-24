@@ -244,7 +244,7 @@ type sendCompletion struct {
 
 // completionTokens converts provider usage into the ledger's nullable counts.
 // An unreported count is stored as NULL, never as zero.
-func completionTokens(usage GeminiUsage) (*int64, *int64) {
+func completionTokens(usage TokenUsage) (*int64, *int64) {
 	if !usage.hasTokens() {
 		return nil, nil
 	}

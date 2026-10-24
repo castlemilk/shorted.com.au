@@ -140,7 +140,7 @@ func TestGeminiErrorNeverCarriesTheKey(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = gemini.Close() })
 
-	lc := &LLMClient{client: gemini, model: "gemini-test"}
+	lc := llmClientOverGemini(gemini, "gemini-test", nil)
 	_, err = lc.ChatStream(ctx, "system", nil, "hello", func(string) {})
 	if err == nil {
 		t.Fatal("ChatStream() error = nil, want the refused connection")

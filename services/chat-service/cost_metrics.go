@@ -6,40 +6,20 @@ import (
 	"log"
 
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
-	"github.com/google/generative-ai-go/genai"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
 
-// GeminiUsage captures bounded token accounting from Gemini UsageMetadata.
-type GeminiUsage struct {
-	PromptTokens       int64
-	CachedPromptTokens int64
-	CandidateTokens    int64
-	TotalTokens        int64
-}
-
-func geminiUsageFromResponse(resp *genai.GenerateContentResponse) GeminiUsage {
-	if resp == nil || resp.UsageMetadata == nil {
-		return GeminiUsage{}
-	}
-	return GeminiUsage{
-		PromptTokens:       int64(resp.UsageMetadata.PromptTokenCount),
-		CachedPromptTokens: int64(resp.UsageMetadata.CachedContentTokenCount),
-		CandidateTokens:    int64(resp.UsageMetadata.CandidatesTokenCount),
-		TotalTokens:        int64(resp.UsageMetadata.TotalTokenCount),
-	}
-}
-
-func (u *GeminiUsage) Add(other GeminiUsage) {
+func (u *TokenUsage) Add(other TokenUsage) {
 	u.PromptTokens += other.PromptTokens
 	u.CachedPromptTokens += other.CachedPromptTokens
 	u.CandidateTokens += other.CandidateTokens
+	u.ReasoningTokens += other.ReasoningTokens
 	u.TotalTokens += other.TotalTokens
 }
 
-func (u GeminiUsage) BillablePromptTokens() int64 {
+func (u TokenUsage) BillablePromptTokens() int64 {
 	billable := u.PromptTokens - u.CachedPromptTokens
 	if billable < 0 {
 		return 0
@@ -47,14 +27,17 @@ func (u GeminiUsage) BillablePromptTokens() int64 {
 	return billable
 }
 
-func (u GeminiUsage) hasTokens() bool {
+func (u TokenUsage) hasTokens() bool {
 	return u.PromptTokens != 0 ||
 		u.CachedPromptTokens != 0 ||
 		u.CandidateTokens != 0 ||
+		u.ReasoningTokens != 0 ||
 		u.TotalTokens != 0
 }
 
-func recordGeminiRequest(ctx context.Context, model, phase, status string, usage GeminiUsage) {
+// recordModelRequest counts one model call. A Gemini call keeps the
+// gemini_request event that the cost queries read, with the same attributes.
+func recordModelRequest(ctx context.Context, provider, model, phase, status string, usage TokenUsage) {
 	attrs := []attribute.KeyValue{
 		attribute.String("feature", "chat"),
 		attribute.String("model", model),
@@ -84,11 +67,15 @@ func recordGeminiRequest(ctx context.Context, model, phase, status string, usage
 		attribute.Int64("shorted.ai.total_tokens", usage.TotalTokens),
 	)
 
+	eventType := "llm_request"
+	if provider == geminiProviderName {
+		eventType = "gemini_request"
+	}
 	log.Printf(
 		"%s",
 		mustMarshalLogEvent(map[string]any{
 			"type":                   "cost_event",
-			"event_type":             "gemini_request",
+			"event_type":             eventType,
 			"feature":                "chat",
 			"model":                  model,
 			"phase":                  phase,
