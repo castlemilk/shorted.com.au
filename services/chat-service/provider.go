@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 )
 
@@ -140,4 +142,12 @@ func (e *ProviderError) Unwrap() error { return e.Err }
 func providerReached(err error) bool {
 	var pe *ProviderError
 	return errors.As(err, &pe) && pe.Reached
+}
+
+// endUserID is the pseudonymous caller id a provider may see: "u_" and the first
+// 24 hex digits of sha256("shorted-chat:"+uid). It is stable for a user and says
+// nothing about the uid, which never leaves the service.
+func endUserID(uid string) string {
+	sum := sha256.Sum256([]byte("shorted-chat:" + uid))
+	return "u_" + hex.EncodeToString(sum[:])[:24]
 }
