@@ -89,10 +89,10 @@ func previewHistory(n int, last string, prev, latest float64) []alertevents.Poin
 		// i counts from the oldest reading; days is newest first.
 		d := days[n-1-i]
 		var v float64
-		switch {
-		case i == n-1:
+		switch i {
+		case n - 1:
 			v = latest
-		case i == n-2:
+		case n - 2:
 			v = prev
 		default:
 			v = 3 + (prev-3)*float64(i)/float64(n-2)
