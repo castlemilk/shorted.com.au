@@ -59,7 +59,7 @@ func publicStack(t *testing.T, validator ClaimsValidator, op AlertsWriteOperator
 	t.Helper()
 	var h http.Handler
 	if alerts {
-		h = HandlerWithAlerts(&fakeDataSource{}, op)
+		h = HandlerWithAlerts(&fakeDataSource{}, op, ProtectedResourceMetadataURL(conformanceOrigin))
 	} else {
 		h = Handler(&fakeDataSource{})
 	}
@@ -126,25 +126,58 @@ func listedTools(t *testing.T, body string) map[string]map[string]any {
 
 var alertToolNames = []string{"list_my_alerts", "create_alert", "pause_alert", "resume_alert", "delete_alert", "list_my_alert_history"}
 
-// Constraint 1: anonymous and unscoped callers get the base server byte for byte.
-// The same request against the pre-change handler must produce the same bytes.
-func TestAnonymousAndUnscopedToolsListIsByteIdentical(t *testing.T) {
+// toolJSONByName decodes a tools/list response into name -> the tool's exact JSON, so a
+// test can compare one tool's bytes without caring what else the list holds.
+func toolJSONByName(t *testing.T, body string) map[string]json.RawMessage {
+	t.Helper()
+	for _, line := range strings.Split(body, "\n") {
+		if data, ok := strings.CutPrefix(line, "data: "); ok {
+			body = data
+		}
+	}
+	var env struct {
+		Result struct {
+			Tools []json.RawMessage `json:"tools"`
+		} `json:"result"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &env), body)
+	out := map[string]json.RawMessage{}
+	for _, raw := range env.Result.Tools {
+		var named struct {
+			Name string `json:"name"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &named))
+		out[named.Name] = raw
+	}
+	return out
+}
+
+// Constraint 1, as amended: an anonymous or unscoped caller's tools/list equals the old list
+// PLUS exactly one tool, manage_my_alerts. Every old tool's JSON is byte-identical, and no
+// other tool appears. A scoped caller's list does not carry the discovery tool.
+func TestAnonymousAndUnscopedToolsListIsOldPlusOneTool(t *testing.T) {
 	op := &recordingAlerts{}
 	before := publicStack(t, publicClaims("uid-a", "shorts:read"), nil, false)
 	after := publicStack(t, publicClaims("uid-a", "shorts:read"), op, true)
 
-	_, baseAnon := rpcCall(t, before, "", listToolsBody)
-	_, newAnon := rpcCall(t, after, "", listToolsBody)
-	assert.Equal(t, baseAnon, newAnon, "anonymous tools/list changed")
+	oldResp, oldBody := rpcCall(t, before, "", listToolsBody)
+	_, anonBody := rpcCall(t, after, "", listToolsBody)
+	t.Logf("anonymous tools/list wire body: %d bytes before, %d after (HTTP %d)", len(oldBody), len(anonBody), oldResp.StatusCode)
+	_, unscopedBody := rpcCall(t, after, "t", listToolsBody)
+	oldTools := toolJSONByName(t, oldBody)
 
-	_, baseRead := rpcCall(t, before, "t", listToolsBody)
-	_, newRead := rpcCall(t, after, "t", listToolsBody)
-	assert.Equal(t, baseRead, newRead, "a token without alerts:write must list exactly the base tools")
-
-	tools := listedTools(t, newAnon)
-	for _, name := range alertToolNames {
-		assert.NotContains(t, tools, name, "anonymous callers must not see %s", name)
+	for name, body := range map[string]string{"anonymous": anonBody, "unscoped": unscopedBody} {
+		got := toolJSONByName(t, body)
+		require.Contains(t, got, ManageMyAlertsTool, "%s must see the discovery tool", name)
+		assert.Len(t, got, len(oldTools)+1, "%s: exactly one tool more than the old list", name)
+		for n, raw := range oldTools {
+			assert.JSONEq(t, string(raw), string(got[n]), "%s: %s changed", name, n)
+		}
 	}
+
+	scoped := publicStack(t, publicClaims("uid-a", ScopeAlertsWrite), op, true)
+	_, scopedList := rpcCall(t, scoped, "t", listToolsBody)
+	assert.NotContains(t, toolJSONByName(t, scopedList), ManageMyAlertsTool, "a scoped caller must not see the discovery tool")
 }
 
 // Constraint 1: a verified token carrying alerts:write sees the alert tools, and only

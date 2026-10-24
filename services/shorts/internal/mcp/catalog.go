@@ -79,9 +79,11 @@ type CatalogAuthentication struct {
 	// sent, where the code is exchanged, and that S256 is the only PKCE method.
 	AuthorizationServerMetadata string `json:"authorizationServerMetadata,omitempty"`
 	// Scopes is the vocabulary a client may request. Every one is read-only except
-	// alerts:write, which unlocks the signed-in user's own alert tools. Those tools
-	// are not in the catalog's tool list: a token without the scope never sees them,
-	// and an anonymous catalog must not advertise tools it cannot call.
+	// alerts:write, which unlocks the signed-in user's own alert tools. Those six tools
+	// are not in the catalog's tool list: a token without the scope never sees them.
+	// The discovery tool manage_my_alerts IS offered to anonymous callers, but it is not
+	// in Registry() and so not in this list either; it answers with the sign-in challenge
+	// (alerts_discovery.go). The catalog lists Registry() only, by design.
 	Scopes []string `json:"scopes,omitempty"`
 	// RateLimits states what authenticating actually buys, in the same numbers
 	// services/pkg/ratelimit enforces. Advertising a ceiling we do not enforce
