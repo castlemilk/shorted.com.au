@@ -205,23 +205,33 @@ func TestEngineAnswerWithoutDataIsNotRecordedAndTakesNoSlot(t *testing.T) {
 	}
 }
 
-func TestEngineRoundFiveAnswersEveryCallWithTheNoBudgetNotice(t *testing.T) {
+func TestEngineRoundFiveAnswersEveryCallThenStops(t *testing.T) {
 	var replies []fakeReply
 	for range maxToolRounds {
 		replies = append(replies, fakeReply{calls: []ToolCall{searchCall("x", "BHP")}})
 	}
-	// The reply to round 4 asks for three more calls. Round 5 runs none of them.
+	// The reply to round 4 asks for three more calls, and round 5 runs none of
+	// them. The model then asks again in its answer to the notices. The turn must
+	// stop there and not send another request: the script has no reply left, so
+	// a further send fails the turn.
 	replies = append(replies,
 		fakeReply{calls: []ToolCall{searchCall("y", "BHP"), searchCall("z", "CBA"), searchCall("w", "WBC")}},
-		fakeReply{texts: []string{"final"}},
+		fakeReply{calls: []ToolCall{searchCall("v", "NAB")}},
 	)
-	client, session, _ := fakeClient(t, replies...)
+	client, session, executed := fakeClient(t, replies...)
 
-	if _, err := client.ChatStream(context.Background(), "system", nil, "question", noopChunk); err != nil {
-		t.Fatalf("ChatStream() error = %v", err)
+	resp, err := client.ChatStream(context.Background(), "system", nil, "question", noopChunk)
+	if err != nil {
+		t.Fatalf("ChatStream() error = %v: the turn must stop after round 5, not ask again", err)
 	}
 	if len(session.sends) != maxToolRounds+2 {
-		t.Fatalf("model calls = %d, want %d: the turn ends after the text answer", len(session.sends), maxToolRounds+2)
+		t.Fatalf("model calls = %d, want %d: first call, five rounds, then the notice round", len(session.sends), maxToolRounds+2)
+	}
+	if got := executed.Load(); got != maxToolRounds {
+		t.Fatalf("tool API calls = %d, want %d: round 5 runs nothing", got, maxToolRounds)
+	}
+	if len(resp.ToolCalls) != maxToolRounds {
+		t.Fatalf("recorded tool calls = %d, want %d", len(resp.ToolCalls), maxToolRounds)
 	}
 	last := session.sends[len(session.sends)-1]
 	if last.choice != ToolChoiceNone {
