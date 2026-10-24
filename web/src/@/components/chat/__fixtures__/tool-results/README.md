@@ -33,6 +33,15 @@ The case list is `captureToolFixtures` in
 files with today's live data. Values will change; the shapes should not. If a
 shape changes, update the parsers and these notes together.
 
+To re-record only some cases, name their files in `CHAT_TOOLS_CAPTURE_ONLY`, a
+comma-separated list. The other fixtures keep the values they were recorded with:
+
+```bash
+CHAT_TOOLS_CAPTURE_ONLY=get_director_trades-bhp.json,get_director_trades-bhp-50.json,get_director_trades-glc-none.json \
+  CHAT_TOOLS_CAPTURE_FIXTURES="$PWD/../web/src/@/components/chat/__fixtures__/tool-results" \
+  GOWORK=off go test -count=1 -v -run TestCaptureToolResultFixtures ./chat-service/
+```
+
 ## Cases
 
 | File | Tool | Arguments | Bytes | What it shows |
@@ -43,8 +52,9 @@ shape changes, update the parsers and these notes together.
 | `query_short_positions-dro-6m.json` | `query_short_positions` | `stock_code: DRO, period: 6m` | 6544 | 40 thinned points of 130 observations |
 | `query_short_positions-glc-3m.json` | `query_short_positions` | `stock_code: GLC, period: 3m` | 718 | Sparse series: 4 points, `totalObservations: 4`, no `downsampled` key |
 | `get_peer_comparison-bhp.json` | `get_peer_comparison` | `stock_code: BHP` | 1789 | `subject`, `peers` (5 rows) and `industry` |
-| `get_director_trades-bhp.json` | `get_director_trades` | `stock_code: BHP, limit: 10` | 2730 | 10 trades. Several have no share or value fields |
-| `get_director_trades-glc-none.json` | `get_director_trades` | `stock_code: GLC, limit: 10` | 2 | `{}`: no `trades` key and no `totalCount`. The empty case |
+| `get_director_trades-bhp.json` | `get_director_trades` | `stock_code: BHP, limit: 10` | 2152 | 10 trades. Several have no share or value fields |
+| `get_director_trades-bhp-50.json` | `get_director_trades` | `stock_code: BHP, limit: 50` | 7810 | The budget-trimmed answer: 36 of the 44 trades BHP has. `omittedTrades: 8` and `totalCount: 44` |
+| `get_director_trades-glc-none.json` | `get_director_trades` | `stock_code: GLC, limit: 10` | 2 | `{}`: no `trades` key, no `totalCount` and no `omittedTrades`. The empty case |
 | `get_stock_details-bhp.json` | `get_stock_details` | `stock_code: BHP` | 2004 | Profile with valuation figures (`marketCap`, `peRatio`, ...) and `keyPeople` |
 | `get_economic_series-cash-rate-cpi.json` | `get_economic_series` | `series_keys: [rates.cash_rate_target.aus, cpi.annual_change.all_groups.aus]` (default limit 12) | 1348 | Two series, 12 observations each |
 | `get_economic_series-unemployment-nsw.json` | `get_economic_series` | `series_keys: [labour.unemployment_rate.total.nsw.seasadj], limit: 24` | 1416 | One series, 24 observations |
@@ -63,10 +73,13 @@ shape changes, update the parsers and these notes together.
   `companyName`, `industry`, `shortPositionPercent`, `marketCap`, `peRatio`,
   `dividendYield`, `priceChange1m` and `logoUrl`. Some numbers may be absent.
 - **Director trades.** `trades[]` entries have `directorName`, `tradeType`
-  (`buy`, `exercise_options`, `other`), `tradeDate` and `announcementUrl`.
-  `sharesTraded` is a **string** (an int64 in protobuf JSON). `pricePerShare`
-  and `totalValue` are numbers. A row for "Unknown Director" has none of the
-  share or value fields. An empty answer is `{}`.
+  (`buy`, `exercise_options`, `other`), `tradeDate`, `announcementUrl`, and
+  `sharesTraded`, `pricePerShare` and `totalValue` where the trade has them. The
+  Go shaper drops the per-row `stockCode` and `id`, and writes `sharesTraded` as
+  a number. A row for "Unknown Director" has none of the share or value fields.
+  `totalCount` is the number the API returned. `omittedTrades` counts the trades
+  the 8000-byte budget dropped from the end, and is absent when none were. An
+  empty answer is `{}`.
 - **Stock details.** Flat object: `productCode`, `companyName`, `industry`,
   valuation figures, `summary`, `riskFactors` (strings), `keyPeople`
   (`{name, role}`). Missing fields are omitted, not null.
@@ -76,7 +89,9 @@ shape changes, update the parsers and these notes together.
 
 ## Not covered by a real capture
 
-- No fixture carries `omittedStocks`. At 50 rows the result is far under the
-  budget, so the parser needs a synthetic case (mark it as synthetic).
+- No fixture carries `omittedStocks`. At 50 rows the top-shorts result is far
+  under the budget, so that parser case needs a synthetic one (mark it as
+  synthetic). A budget-trimmed director-trades answer is real: see
+  `get_director_trades-bhp-50.json`, which carries `omittedTrades`.
 - No economic-series result has more than two series or more than 24
   observations. Tests for the series cap should use a synthetic case.
