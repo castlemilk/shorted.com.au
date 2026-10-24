@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -172,12 +173,25 @@ func (s *postgresStore) Pool() *pgxpool.Pool {
 	return s.db
 }
 
+// postgresConnString builds the connection URL through net/url so that a password
+// with '@', '/', ':' or '%' is escaped. pgx ends the userinfo at the first '@', so
+// a plain format string would split such a password.
+func postgresConnString(username, password, address, database string) string {
+	u := url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(username, password),
+		Host:   address,
+		Path:   "/" + database,
+	}
+	return u.String()
+}
+
 // newPostgresStore initializes a new store with a PostgreSQL backend.
 // Returns an error instead of panicking to allow graceful handling.
 func newPostgresStore(config Config) (Store, error) {
 	// Configure connection pool for better concurrency
-	poolConfig, err := pgxpool.ParseConfig(fmt.Sprintf("postgres://%s:%s@%s/%s",
-		config.PostgresUsername, config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
+	poolConfig, err := pgxpool.ParseConfig(postgresConnString(config.PostgresUsername,
+		config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse database config: %w", err)
 	}

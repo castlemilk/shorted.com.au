@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 )
@@ -68,7 +69,7 @@ func LoadConfig() (*Config, error) {
 		user := os.Getenv("APP_STORE_POSTGRES_USERNAME")
 		pass := os.Getenv("APP_STORE_POSTGRES_PASSWORD")
 		if addr != "" && db != "" && user != "" && pass != "" {
-			cfg.DatabaseURL = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=require", user, pass, addr, db)
+			cfg.DatabaseURL = postgresURL(user, pass, addr, db)
 		}
 	}
 
@@ -148,4 +149,18 @@ func parsePositiveIntEnv(name string) (int, error) {
 		return 0, fmt.Errorf("invalid %s: must be positive", name)
 	}
 	return v, nil
+}
+
+// postgresURL builds the chat-service database URL with net/url, so a password
+// containing '@', '/', ':' or '%' is escaped. pgx ends the userinfo at the first
+// '@', so a plain format string would split such a password. TLS is required.
+func postgresURL(user, pass, addr, db string) string {
+	u := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(user, pass),
+		Host:     addr,
+		Path:     "/" + db,
+		RawQuery: "sslmode=require",
+	}
+	return u.String()
 }
