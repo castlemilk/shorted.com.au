@@ -48,12 +48,12 @@ func TestOneReadingHasNoChart(t *testing.T) {
 func TestDarkChartMarkup(t *testing.T) {
 	r := renderFixture(t, stockWithHistory())
 	for _, want := range []string{
-		`class="light-chart"`,
+		`class="light-chart chart-img"`,
 		`class="dark-chart"`,
 		`src="cid:chart-dark"`,
 		`display:none;max-height:0;overflow:hidden;mso-hide:all;`,
 		`.light-chart { display: none !important; }`,
-		`.dark-chart { display: block !important; max-height: none !important; }`,
+		`.dark-chart { display: block !important; max-height: none !important; overflow: visible !important; }`,
 	} {
 		if !strings.Contains(r.HTML, want) {
 			t.Errorf("HTML is missing %q", want)

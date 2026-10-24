@@ -144,9 +144,6 @@ func deltaStyle(v float64) (textClass, textColor, chipClass, chipBg string) {
 	return "muted", flatText, "chip-flat", flatChip
 }
 
-// chartCaption is the caption under a long history's chart.
-const chartCaption = "Short position, % of shares on issue · ASIC daily reports · last 6 months"
-
 // renderHTML builds the HTML twin for one message.
 func renderHTML(in htmlInput) (string, error) {
 	var b bytes.Buffer
@@ -225,12 +222,14 @@ func buildStock(m Message, hasChart bool) stockView {
 		middle = "crossing " + numStr(*m.Threshold) + "%"
 	}
 	if short {
+		first := firstHistoryDate(m)
 		v.ChartAlt = fmt.Sprintf("%s short interest since first reported %s, %s on %s",
-			displayName(m), shortDay(firstHistoryDate(m)), middle, fmtDay(m.ReportDate))
-		v.ChartCaption = "Short position, % of shares on issue · ASIC daily reports · since first reported " + fmtDay(firstHistoryDate(m))
+			displayName(m), dayMonthYear(first), middle, fmtDay(m.ReportDate))
+		v.ChartCaption = "Short position, % of shares on issue · ASIC daily reports · since first reported " + dayMonthYear(first)
 	} else {
-		v.ChartAlt = fmt.Sprintf("%s short interest over the last 6 months, %s on %s", displayName(m), middle, fmtDay(m.ReportDate))
-		v.ChartCaption = chartCaption
+		span := historySpan(m)
+		v.ChartAlt = fmt.Sprintf("%s short interest %s, %s on %s", displayName(m), span, middle, fmtDay(m.ReportDate))
+		v.ChartCaption = "Short position, % of shares on issue · ASIC daily reports · " + span
 	}
 
 	v.StatRows = pairStats(statsOf(m))
@@ -262,6 +261,35 @@ func joinNonEmpty(sep string, parts ...string) string {
 		}
 	}
 	return strings.Join(out, sep)
+}
+
+// historySpan is the date range a long history covers, as the caption writes it. The
+// year appears once at the end when both ends fall in one year, and in full at each
+// end when they do not: "17 Apr – 16 Oct 2026", "17 Nov 2025 – 16 Oct 2026".
+func historySpan(m Message) string {
+	st := m.Payload.Stock
+	if st == nil || len(st.History) == 0 {
+		return "last 6 months"
+	}
+	first, last := Date(st.History[0].D), Date(st.History[len(st.History)-1].D)
+	ft, err1 := first.Day()
+	lt, err2 := last.Day()
+	if err1 != nil || err2 != nil {
+		return "last 6 months"
+	}
+	if ft.Year() == lt.Year() {
+		return ft.Format("2 Jan") + " – " + lt.Format("2 Jan 2006")
+	}
+	return ft.Format("2 Jan 2006") + " – " + lt.Format("2 Jan 2006")
+}
+
+// dayMonthYear formats a report date as "14 Oct 2026".
+func dayMonthYear(d Date) string {
+	t, err := d.Day()
+	if err != nil {
+		return string(d)
+	}
+	return t.Format("2 Jan 2006")
 }
 
 // statsOf is the stats grid's cells, in order. A cell whose figure is missing is
@@ -510,6 +538,7 @@ const alertPageHTML = `<!doctype html>
 .stat-r { padding: 14px 0 14px 14px; border-left: 1px solid #E5E1DC; }
 .stat-t { border-top: 1px solid #E5E1DC; }
 .dark-chart { display: none; max-height: 0; overflow: hidden; mso-hide: all; }
+.chart-img { box-sizing: border-box; }
 .fig-m { display: none; }
 @media only screen and (max-width: 480px) {
   .pad { padding: 20px !important; }
@@ -542,7 +571,7 @@ const alertPageHTML = `<!doctype html>
   .txt-up { color: #F87171 !important; }
   .txt-down { color: #4ADE80 !important; }
   .light-chart { display: none !important; }
-  .dark-chart { display: block !important; max-height: none !important; }
+  .dark-chart { display: block !important; max-height: none !important; overflow: visible !important; }
 }
 </style>
 </head>
@@ -610,8 +639,8 @@ const alertPageHTML = `<!doctype html>
 </td></tr>
 {{if .HasChart}}
 <tr><td style="padding-top:22px;font-family:FONT_MONO;">
-<img class="light-chart" src="cid:chart" width="552" alt="{{.ChartAlt}}" style="display:block;width:100%;max-width:552px;height:auto;border:1px solid #E5E1DC;border-radius:6px;">
-<div class="dark-chart" style="display:none;max-height:0;overflow:hidden;mso-hide:all;"><img src="cid:chart-dark" width="552" alt="{{.ChartAlt}}" style="display:block;width:100%;max-width:552px;height:auto;border:1px solid #352E27;border-radius:6px;"></div>
+<img class="light-chart chart-img" src="cid:chart" width="552" alt="{{.ChartAlt}}" style="display:block;box-sizing:border-box;width:100%;max-width:552px;height:auto;border:1px solid #E5E1DC;border-radius:6px;">
+<div class="dark-chart" style="display:none;max-height:0;overflow:hidden;mso-hide:all;"><img class="chart-img" src="cid:chart-dark" width="552" alt="{{.ChartAlt}}" style="display:block;box-sizing:border-box;width:100%;max-width:552px;height:auto;border:1px solid #352E27;border-radius:6px;"></div>
 <p class="muted" style="margin:8px 0 0 0;font-family:FONT_MONO;font-size:11px;line-height:16px;color:#72625A;">{{.ChartCaption}}</p>
 </td></tr>
 {{end}}
