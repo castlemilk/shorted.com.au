@@ -102,7 +102,16 @@ describe("dates", () => {
   });
 
   it("shows a date-only trade date as the day it names", () => {
-    expect(formatTradeDate("2026-09-11")).toBe("11 Sept 2026");
+    expect(formatTradeDate("2026-09-11")).toBe("11 Sep 2026");
+  });
+
+  it("writes September as Sep in every chat date, never Sept, and does not pad the day", () => {
+    // en-AU's own short month is "Sept"; the chat names its months from one list.
+    const september = Date.parse("2026-09-02T12:00:00Z");
+    expect(formatDay(september)).toBe("2 Sep 2026");
+    expect(formatDayMonth(september)).toBe("2 Sep");
+    expect(formatTradeDate("2026-09-02")).toBe("2 Sep 2026");
+    expect(formatDay(Date.parse("2026-10-08T12:00:00Z"))).toBe("8 Oct 2026");
   });
 
   it("shows text that does not parse as it came", () => {

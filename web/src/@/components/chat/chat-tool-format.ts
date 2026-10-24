@@ -42,28 +42,36 @@ const audCompact = new Intl.NumberFormat(LOCALE, {
   notation: "compact",
   maximumFractionDigits: 1,
 });
-const dayFormat = new Intl.DateTimeFormat(LOCALE, {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  timeZone: SYDNEY,
-});
-const dayMonthNumbers = new Intl.DateTimeFormat(LOCALE, {
-  day: "numeric",
-  month: "numeric",
-  timeZone: SYDNEY,
-});
-// en-AU writes July in full, and the other months short, so the names are fixed here.
+// en-AU writes July in full, and September as "Sept", so every chat date names its month
+// from these abbreviations, never from Intl's short month.
 const MONTH_ABBREVIATIONS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ] as const;
-const utcDayFormat = new Intl.DateTimeFormat(LOCALE, {
+// The day, month and year are read as numbers from the parts, and named above.
+const sydneyDayParts = new Intl.DateTimeFormat(LOCALE, {
   day: "numeric",
-  month: "short",
+  month: "numeric",
+  year: "numeric",
+  timeZone: SYDNEY,
+});
+const utcDayParts = new Intl.DateTimeFormat(LOCALE, {
+  day: "numeric",
+  month: "numeric",
   year: "numeric",
   timeZone: "UTC",
 });
+
+/** "9 Oct 2026", or "9 Oct" without the year, from a formatter that prints the day, month and year as numbers. */
+function shortDate(format: Intl.DateTimeFormat, t: number, withYear: boolean): string {
+  const parts = format.formatToParts(t);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((piece) => piece.type === type)?.value ?? "";
+  // en-AU pads a numeric day to two places ("08"), which a short date does not.
+  const day = Number(part("day"));
+  const head = `${day} ${MONTH_ABBREVIATIONS[Number(part("month")) - 1] ?? ""}`.trim();
+  return withYear ? `${head} ${part("year")}`.trim() : head;
+}
 
 /** "12.34%", two decimals: a short position or a percentage reading. */
 export function formatPercent(value: number): string {
@@ -203,15 +211,12 @@ export function formatRatio(value: number): string {
 
 /** "9 Oct 2026" in the Sydney calendar day. */
 export function formatDay(t: number): string {
-  return dayFormat.format(t);
+  return shortDate(sydneyDayParts, t, true);
 }
 
 /** "9 Oct" in the Sydney calendar day, for a column whose period the table already names. */
 export function formatDayMonth(t: number): string {
-  const parts = dayMonthNumbers.formatToParts(t);
-  const day = parts.find((part) => part.type === "day")?.value ?? "";
-  const month = Number(parts.find((part) => part.type === "month")?.value);
-  return `${day} ${MONTH_ABBREVIATIONS[month - 1] ?? ""}`.trim();
+  return shortDate(sydneyDayParts, t, false);
 }
 
 /**
@@ -222,10 +227,10 @@ export function formatDayMonth(t: number): string {
 export function formatTradeDate(raw: string): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     const time = Date.parse(`${raw}T00:00:00Z`);
-    return Number.isFinite(time) ? utcDayFormat.format(time) : raw;
+    return Number.isFinite(time) ? shortDate(utcDayParts, time, true) : raw;
   }
   const time = Date.parse(raw);
-  return Number.isFinite(time) ? dayFormat.format(time) : raw;
+  return Number.isFinite(time) ? shortDate(sydneyDayParts, time, true) : raw;
 }
 
 const TRADE_TYPE_LABELS = new Map<string, string>([

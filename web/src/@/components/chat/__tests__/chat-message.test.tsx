@@ -443,7 +443,7 @@ describe("ChatMessageBubble tables from tool results", () => {
     expect(figures).toHaveLength(2);
     expect(screen.getByText("Rates · Cash rate target · Australia")).toBeInTheDocument();
     expect(screen.getByText("CPI · Annual change · Australia")).toBeInTheDocument();
-    expect(screen.getByText(/^First 3\.60% on 1 Sept 2025/)).toBeInTheDocument();
+    expect(screen.getByText(/^First 3\.60% on 1 Sep 2025/)).toBeInTheDocument();
     await screen.findAllByRole("group", { name: /Rates · Cash rate target/ });
   });
 
