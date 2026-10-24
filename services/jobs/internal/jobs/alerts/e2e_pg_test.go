@@ -1156,3 +1156,42 @@ func TestAlertsE2EStockDetail(t *testing.T) {
 		t.Fatal("the HTML must refer to both attachments by cid")
 	}
 }
+
+// nonFiniteRun drives a firing stock whose data holds one non-finite value, and
+// checks the run still succeeds and the alert still goes out. The value is set by
+// the caller on a row of the fixture.
+func nonFiniteRun(t *testing.T, poison func(e *e2e)) {
+	t.Helper()
+	e := newE2E(t)
+	e.seedBase()
+	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+
+	e.day("2026-10-12", baseDay0())
+	e.day("2026-10-13", baseDay0())
+	e.wantExit(e.run(), 0, "bootstrap")
+	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
+	poison(e)
+	e.wantExit(e.run(), 0, "a non-finite value must not fail the run")
+
+	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'm1' AND report_date = '2026-10-14' AND email_status = 'sent'`); got != 1 {
+		t.Fatalf("the alert must be sent: %d sent events", got)
+	}
+	if n := len(requestsTo(e.resend.snapshot(), u1Email)); n != 1 {
+		t.Fatalf("Resend received %d emails for the owner, want 1", n)
+	}
+}
+
+// NaN shares on the firing report row: the alert goes out and its share counts are unknown.
+func TestAlertsE2ENonFiniteShares(t *testing.T) {
+	nonFiniteRun(t, func(e *e2e) {
+		mustExec(e.t, e.pool, `UPDATE shorts SET "REPORTED_SHORT_POSITIONS" = 'NaN'::float8, "TOTAL_PRODUCT_IN_ISSUE" = 'Infinity'::float8 WHERE "PRODUCT_CODE" = 'AAA' AND "DATE" = '2026-10-14'`)
+	})
+}
+
+// NaN percent in an earlier history row: the alert goes out with the other readings.
+func TestAlertsE2ENonFiniteHistory(t *testing.T) {
+	nonFiniteRun(t, func(e *e2e) {
+		mustExec(e.t, e.pool, `UPDATE shorts SET "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" = 'NaN'::float8 WHERE "PRODUCT_CODE" = 'AAA' AND "DATE" = '2026-10-12'`)
+	})
+}

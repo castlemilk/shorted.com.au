@@ -77,9 +77,13 @@ type StockDetail struct {
 	// on the report date, out of Ranked. 0 means not ranked.
 	Rank   int `json:"rank,omitempty"`
 	Ranked int `json:"ranked,omitempty"`
-	// Change20 is the latest reading minus the reading 20 report dates earlier,
-	// in points, when that reading exists.
+	// Change20 is the latest reading minus the code's own reading 20 readings back,
+	// in points, when that reading exists. The reading is not always 20 report dates
+	// back: a code reported on some days only is compared with its 20th earlier
+	// reading, which can be months away. Change20Date is that reading's report date.
 	Change20 *float64 `json:"change20,omitempty"`
+	// Change20Date is the report date of the reading Change20 is measured from.
+	Change20Date string `json:"change20_date,omitempty"`
 	// History is about six months of report dates, oldest first, at most 130.
 	History []Point `json:"history,omitempty"`
 }

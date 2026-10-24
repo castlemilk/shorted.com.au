@@ -3,6 +3,7 @@ package alerts
 import (
 	"context"
 	"log"
+	"math"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/alertevents"
 )
@@ -81,24 +82,58 @@ func stockDetailOf(snap *Snapshot, code string, info CompanyInfo, rows []history
 	if end < 0 || rows[end].date != report {
 		return nil
 	}
-	upTo := rows[:end+1]
-	last := upTo[end]
+	// A non-finite reading cannot be encoded in JSON, so it is dropped here as well as
+	// in the query. The last reading is the report's own, so a non-finite one leaves
+	// no detail at all.
+	if !finite(rows[end].pct) {
+		return nil
+	}
+	upTo := finiteReadings(rows[:end+1])
+	last := upTo[len(upTo)-1]
 
 	d := &alertevents.StockDetail{
 		Name:          info.Name,
 		Industry:      info.Industry,
 		LogoURL:       info.LogoURL,
-		SharesShort:   last.sharesShort,
-		SharesOnIssue: last.sharesOnIss,
+		SharesShort:   finitePtr(last.sharesShort),
+		SharesOnIssue: finitePtr(last.sharesOnIss),
 	}
 	d.Rank, d.Ranked = snap.marketRank(code, report)
-	if end >= changeLookback {
-		change := round2(last.pct - upTo[end-changeLookback].pct)
+	n := len(upTo) - 1
+	if n >= changeLookback {
+		ref := upTo[n-changeLookback]
+		change := round2(last.pct - ref.pct)
 		d.Change20 = &change
+		d.Change20Date = string(ref.date)
 	}
 	start := max(0, len(upTo)-historyPoints)
 	for _, r := range upTo[start:] {
 		d.History = append(d.History, alertevents.Point{D: string(r.date), P: round2(r.pct)})
 	}
 	return d
+}
+
+// finite reports whether v can be encoded in JSON and drawn.
+func finite(v float64) bool {
+	return !math.IsNaN(v) && !math.IsInf(v, 0)
+}
+
+// finiteReadings keeps the readings whose percent is finite, in order.
+func finiteReadings(rows []historyRow) []historyRow {
+	out := make([]historyRow, 0, len(rows))
+	for _, r := range rows {
+		if finite(r.pct) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// finitePtr returns v, or nil when it is absent or not finite. A share count the
+// report got wrong is unknown, never zero and never an encoding error.
+func finitePtr(v *float64) *float64 {
+	if v == nil || !finite(*v) {
+		return nil
+	}
+	return v
 }

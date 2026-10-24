@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -109,7 +110,8 @@ func (s store) loadRows(ctx context.Context, oldest, newest Date) (map[Date]map[
 		SELECT "DATE", "PRODUCT_CODE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
 		  FROM shorts
 		 WHERE "DATE" >= $1::date AND "DATE" < $2::date + 1
-		   AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL`,
+		   AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		   AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" NOT IN ('NaN'::float8, 'Infinity'::float8, '-Infinity'::float8)`,
 		string(oldest), string(newest))
 	if err != nil {
 		return nil, fmt.Errorf("read readings: %w", err)
@@ -163,6 +165,11 @@ func (s store) loadCompanies(ctx context.Context) (map[string]CompanyInfo, error
 	return out, rows.Err()
 }
 
+// Postgres float8 accepts NaN and Infinity, and encoding/json refuses them. A single
+// such row would fail the whole commit, so both reads drop non-finite readings in SQL,
+// and a non-finite share count is read as NULL: unknown, not an error. stockDetailOf
+// repeats the check for anything that gets past the query.
+
 // historyRow is one report's reading for a code, with the share counts that report
 // gave. The counts are NULL on reports that did not give them.
 type historyRow struct {
@@ -191,11 +198,13 @@ func (s store) loadStockHistory(ctx context.Context, codes []string, newest Date
 	from := day.AddDate(0, 0, -historyDays).Format(dateLayout)
 	rows, err := s.pool.Query(ctx, `
 		SELECT "PRODUCT_CODE", "DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
-		       "REPORTED_SHORT_POSITIONS", "TOTAL_PRODUCT_IN_ISSUE"
+		       CASE WHEN "REPORTED_SHORT_POSITIONS" IN ('NaN'::float8, 'Infinity'::float8, '-Infinity'::float8) THEN NULL ELSE "REPORTED_SHORT_POSITIONS" END,
+		       CASE WHEN "TOTAL_PRODUCT_IN_ISSUE" IN ('NaN'::float8, 'Infinity'::float8, '-Infinity'::float8) THEN NULL ELSE "TOTAL_PRODUCT_IN_ISSUE" END
 		  FROM shorts
 		 WHERE "PRODUCT_CODE" = ANY($1::text[])
 		   AND "DATE" >= $2::date AND "DATE" < $3::date + 1
 		   AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		   AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" NOT IN ('NaN'::float8, 'Infinity'::float8, '-Infinity'::float8)
 		 ORDER BY "PRODUCT_CODE", "DATE"`, codes, from, string(newest))
 	if err != nil {
 		return nil, fmt.Errorf("read stock history: %w", err)
@@ -375,7 +384,7 @@ func (s store) commit(ctx context.Context, planned, next State, replay bool, run
 			vanished++
 			continue
 		}
-		payload, err := json.Marshal(r.msg.Payload)
+		payload, err := encodePayload(r.msg.Payload)
 		if err != nil {
 			return false, 0, 0, fmt.Errorf("encode payload: %w", err)
 		}
@@ -407,6 +416,19 @@ func (s store) commit(ctx context.Context, planned, next State, replay bool, run
 		return false, 0, 0, fmt.Errorf("commit: %w", err)
 	}
 	return true, inserted, vanished, nil
+}
+
+// encodePayload encodes an event's payload. The stock detail is optional, so a
+// payload that will not encode is retried without it: one bad detail must not fail
+// the commit for every owner in the run. The event goes out without the detail.
+func encodePayload(p alertevents.Payload) ([]byte, error) {
+	b, err := json.Marshal(p)
+	if err == nil || p.Stock == nil {
+		return b, err
+	}
+	log.Printf("alerts: stock detail would not encode, event committed without it: %v", err)
+	p.Stock = nil
+	return json.Marshal(p)
 }
 
 // lockMonitors takes a share lock on every monitor the rows name, and returns the
