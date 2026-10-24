@@ -86,12 +86,14 @@ func (te *ToolExecutor) Execute(ctx context.Context, toolName string, args map[s
 			return "", err
 		}
 		return truncateToolResultTo(result, maxWeeklyReportBytes), nil
-	// The next two budget their own rows or items, so their output is valid JSON under
+	// The next three budget their own rows or items, so their output is valid JSON under
 	// maxToolResultBytes and is not cut here.
 	case *shortsv1alpha1.GetTopShortsRequest:
 		return summarizeTopShorts(respBody)
 	case *shortsv1alpha1.GetStockSignalsRequest:
 		return summarizeStockSignals(respBody)
+	case *shortsv1alpha1.GetDirectorTradesRequest:
+		return summarizeDirectorTrades(respBody)
 	}
 	return truncateToolResult(string(respBody)), nil
 }

@@ -65,3 +65,35 @@ func TestSystemPromptNamesThePositionDate(t *testing.T) {
 		t.Fatal("prompt does not say the citation date is the latest point's timestamp, never availableFrom")
 	}
 }
+
+// TestSystemPromptSaysTableAndChartResultsAreShown keeps the reply short where the
+// person already has the rows. Tool results for short positions, top shorts, peers,
+// director trades and economic series are drawn as a table or chart under the reply,
+// so the model names the takeaways and cites figures instead of listing every row.
+// The bullet names no tool: the economic-series tool is named once, in its own bullet.
+func TestSystemPromptSaysTableAndChartResultsAreShown(t *testing.T) {
+	prompt := BuildSystemPrompt("")
+
+	var shownLine string
+	for _, line := range strings.Split(prompt, "\n") {
+		if strings.Contains(line, "shown to the person as an interactive table or chart") {
+			shownLine = line
+			break
+		}
+	}
+	if !strings.HasPrefix(shownLine, "-") {
+		t.Fatalf("table and chart guidance = %q, want a prompt bullet", shownLine)
+	}
+	for _, phrase := range []string{"one to three sentences", "still cite the figures"} {
+		if !strings.Contains(shownLine, phrase) {
+			t.Errorf("table and chart guidance missing %q: %s", phrase, shownLine)
+		}
+	}
+	// The grounding rule and the citation form stay as they were.
+	if !strings.Contains(prompt, "must come from a tool result in this conversation") {
+		t.Fatal("grounding rule was weakened")
+	}
+	if !strings.Contains(prompt, "Always cite specific data points when answering") {
+		t.Fatal("citation rule was weakened")
+	}
+}

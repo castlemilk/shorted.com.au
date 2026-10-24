@@ -1,3 +1,5 @@
+import { readFileSync } from "fs";
+import { join } from "path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ChatMessageBubble } from "../chat-message";
 import type { ChatMessage } from "~/@/hooks/use-chat";
@@ -68,7 +70,7 @@ describe("ChatMessageBubble rich tool rendering", () => {
     expect(screen.queryByText(/"productCode"/)).not.toBeInTheDocument();
   });
 
-  it("renders short-position time series tool output as a compact chart", () => {
+  it("renders short-position time series tool output as a compact chart", async () => {
     render(
       <ChatMessageBubble
         message={assistantMessage({
@@ -100,6 +102,10 @@ describe("ChatMessageBubble rich tool rendering", () => {
     expect(screen.getByText("PLS short interest")).toBeInTheDocument();
     expect(screen.getByText("8.90% latest")).toBeInTheDocument();
     expect(screen.queryByText(/"shortPosition"/)).not.toBeInTheDocument();
+    // The interactive chart is loaded on demand: wait for it, so the load finishes inside the test.
+    expect(
+      await screen.findByRole("group", { name: /PLS short interest/ }),
+    ).toBeInTheDocument();
   });
 
   it("opens a rich result by default, inside the tool", () => {
@@ -120,6 +126,33 @@ describe("ChatMessageBubble rich tool rendering", () => {
     const trigger = screen.getByRole("button", { name: /Stock details/ });
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("chat-stock-card")).toBeInTheDocument();
+  });
+
+  it("keeps the message when a timestamp is outside the Date range, and draws no chart", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          content: "The short position fell.",
+          toolCalls: [
+            {
+              toolName: "query_short_positions",
+              arguments: JSON.stringify({ stock_code: "BHP", period: "1m" }),
+              result: JSON.stringify({
+                productCode: "BHP",
+                points: [
+                  { timestamp: { seconds: 1e17 }, shortPosition: 1.2 },
+                  { timestamp: "2026-10-01T00:00:00Z", shortPosition: 1.5 },
+                ],
+              }),
+            },
+          ],
+        })}
+      />,
+    );
+
+    // The out-of-range reading is dropped, and one reading left is not a line.
+    expect(screen.queryByTestId("chat-short-chart")).not.toBeInTheDocument();
+    expect(screen.getByText("The short position fell.")).toBeInTheDocument();
   });
 });
 
@@ -355,5 +388,126 @@ describe("ChatMessageBubble streaming state", () => {
 
     expect(screen.getByText("Half an answer")).toBeInTheDocument();
     expect(container.querySelector("span.inline-block.h-4")).toBeNull();
+  });
+});
+
+/** A recorded result string, exactly as the chat service returned it. */
+function recorded(name: string): string {
+  return readFileSync(
+    join(__dirname, "..", "__fixtures__", "tool-results", name),
+    "utf8",
+  );
+}
+
+describe("ChatMessageBubble tables from tool results", () => {
+  it("renders the most-shorted answer as a table, open by default", async () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_top_shorts",
+              arguments: JSON.stringify({ limit: 10 }),
+              result: recorded("get_top_shorts-10.json"),
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Top shorts/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByRole("table", { name: "Most shorted ASX stocks" })).toBeInTheDocument();
+    expect(screen.queryByText(/"productCode"/)).not.toBeInTheDocument();
+    await screen.findAllByRole("group", { name: /short interest/ });
+  });
+
+  it("draws each economic series as its own interactive chart", async () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_economic_series",
+              arguments: JSON.stringify({ series_keys: ["rates.cash_rate_target.aus"] }),
+              result: recorded("get_economic_series-cash-rate-cpi.json"),
+            },
+          ],
+        })}
+      />,
+    );
+
+    const figures = screen.getAllByTestId("chat-economic-chart");
+    expect(figures).toHaveLength(2);
+    expect(screen.getByText("Rates · Cash rate target · Australia")).toBeInTheDocument();
+    expect(screen.getByText("CPI · Annual change · Australia")).toBeInTheDocument();
+    expect(screen.getByText(/^First 3\.60% on 1 Sep 2025/)).toBeInTheDocument();
+    await screen.findAllByRole("group", { name: /Rates · Cash rate target/ });
+  });
+
+  it("renders the empty director-trades answer as a sentence", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_director_trades",
+              arguments: JSON.stringify({ stock_code: "GLC" }),
+              result: recorded("get_director_trades-glc-none.json"),
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("No director trades reported for GLC.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Director trades/ })).toBeInTheDocument();
+  });
+
+  it("shows a failed call as a failure, not as an empty table", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_top_shorts",
+              arguments: "{}",
+              result: JSON.stringify({ error: "no trades for that code" }),
+            },
+          ],
+        })}
+      />,
+    );
+
+    // A failed call is not drawn, so it starts collapsed: open it to read what it says.
+    fireEvent.click(screen.getByRole("button", { name: /Top shorts/ }));
+
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByText("no trades for that code")).toBeInTheDocument();
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+  });
+
+  it("keeps the raw text for a result it cannot read", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_peer_comparison",
+              arguments: "{}",
+              result: JSON.stringify({ peers: "not a list" }),
+            },
+          ],
+        })}
+      />,
+    );
+
+    // Not drawn, so it starts collapsed; open it to read the raw text.
+    fireEvent.click(screen.getByRole("button", { name: /Peer comparison/ }));
+
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByText(/"peers":"not a list"/)).toBeInTheDocument();
   });
 });

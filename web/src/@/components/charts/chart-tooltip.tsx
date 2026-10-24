@@ -243,12 +243,15 @@ export function TooltipContent({
   leftAxis,
   rightAxis,
   volume = null,
+  formatDate = formatReadoutDate,
 }: {
   hover: HoverState;
   leftAxis?: AxisSpec;
   rightAxis?: AxisSpec;
   /** The session's volume (`volumeReading`); null leaves the row out. */
   volume?: ReadoutVolume | null;
+  /** The date's text. The stock chart's own format by default; the chat names months its own way. */
+  formatDate?: (t: number) => string;
 }) {
   // The same formatter as the strip and the measure card (spec D5, Dates), so
   // one chart prints one date one way, whoever's browser it is in. And the same
@@ -258,7 +261,7 @@ export function TooltipContent({
   // sessions that is a weekend the ASX did not trade, or the day before the
   // price on the card. It is only the date of a reading with no point at all.
   const dateT = hover.entries[0]?.point.t ?? hover.t;
-  const dateLabel = useMemo(() => formatReadoutDate(dateT), [dateT]);
+  const dateLabel = useMemo(() => formatDate(dateT), [dateT, formatDate]);
   const fmt = (e: HoverEntry) => {
     const f =
       e.series.axis === "right" ? rightAxis?.format : leftAxis?.format;

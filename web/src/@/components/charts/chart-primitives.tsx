@@ -50,6 +50,46 @@ export const Grid = React.memo(function Grid({
   );
 });
 
+/** The estimated advance of one character of a time-axis label, in px (10px type, mixed case). */
+const TIME_LABEL_CHAR_PX = 6.5;
+/** The clear space kept between two time-axis labels. */
+const TIME_LABEL_GAP_PX = 12;
+
+/**
+ * The time ticks an axis draws. d3 asks for a count and ignores the width, so the ticks are
+ * thinned until neighbours keep a gap. The gap is 64px (48 compact). A caller whose labels
+ * are long passes `labelChars`, the longest label in characters, and the gap becomes that
+ * label's estimated width: a long label then never sits touching the next.
+ */
+export function timeTickValues(
+  xScale: TimeScale,
+  innerW: number,
+  opts: { compact?: boolean; labelChars?: number } = {},
+): Date[] {
+  const raw = xScale.ticks(opts.compact ? 3 : 5);
+  if (raw.length < 2 || innerW <= 0) return raw;
+  if (opts.labelChars !== undefined) {
+    // Each tick is kept only when it is clear of the last one kept by the label's width. The
+    // gaps are measured, not assumed even: a 31-day month is wider in px than a 28-day one.
+    const minGap = Math.ceil(opts.labelChars * TIME_LABEL_CHAR_PX + TIME_LABEL_GAP_PX);
+    const kept: Date[] = [];
+    let lastX = -Infinity;
+    for (const tick of raw) {
+      const x = xScale(tick) ?? 0;
+      if (x - lastX >= minGap) {
+        kept.push(tick);
+        lastX = x;
+      }
+    }
+    return kept;
+  }
+  // The stock chart's ticks, unchanged: the spacing is the average gap, and the step is whole ticks.
+  const minGap = opts.compact ? 48 : 64;
+  const spacing = innerW / (raw.length - 1);
+  const step = Math.max(1, Math.ceil(minGap / spacing));
+  return step === 1 ? raw : raw.filter((_, i) => i % step === 0);
+}
+
 export const Axes = React.memo(function Axes({
   xScale,
   leftScale,
@@ -59,6 +99,8 @@ export const Axes = React.memo(function Axes({
   hasRight,
   leftFormat,
   rightFormat,
+  timeFormat,
+  timeLabelChars,
   compact,
 }: {
   xScale: TimeScale;
@@ -69,26 +111,36 @@ export const Axes = React.memo(function Axes({
   hasRight: boolean;
   leftFormat?: (v: number) => string;
   rightFormat?: (v: number) => string;
+  /**
+   * The label of each time tick, given the ticks the axis draws (so a thinned axis can
+   * compare each with the one before it). Unset, the scale's own format is used.
+   */
+  timeFormat?: (value: Date, index: number, ticks: readonly Date[]) => string;
+  /** The longest time label, in characters, so the ticks are thinned to fit it. See timeTickValues. */
+  timeLabelChars?: number;
   compact?: boolean;
 }) {
   // `numTicks` is only a hint to d3: a two-month domain asked for 5 ticks gets
   // every week (9 labels), which on a phone-width plot (~330px) collide into
   // "Apr 05Apr 12Apr 19…". Thin the generated ticks so neighbouring labels
   // keep at least `minGap` px — at desktop widths nothing is dropped.
-  const xTickValues = (() => {
-    const raw = xScale.ticks(compact ? 3 : 5);
-    if (raw.length < 2 || innerW <= 0) return raw;
-    const minGap = compact ? 48 : 64;
-    const spacing = innerW / (raw.length - 1);
-    const step = Math.max(1, Math.ceil(minGap / spacing));
-    return step === 1 ? raw : raw.filter((_, i) => i % step === 0);
-  })();
+  const xTickValues = timeTickValues(xScale, innerW, { compact, labelChars: timeLabelChars });
   return (
     <g pointerEvents="none">
       <AxisBottom
         top={innerH}
         scale={xScale}
         tickValues={xTickValues}
+        tickFormat={
+          timeFormat
+            ? (value, index, values) =>
+                timeFormat(
+                  new Date(value.valueOf()),
+                  index,
+                  values.map((tick) => new Date(tick.value.valueOf())),
+                )
+            : undefined
+        }
         stroke={chartTheme.axis}
         tickStroke={chartTheme.axis}
         tickLabelProps={() => ({

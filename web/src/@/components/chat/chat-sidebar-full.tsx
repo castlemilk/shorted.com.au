@@ -14,6 +14,7 @@ import { useChat } from "~/@/hooks/use-chat";
 import { ChatInput } from "./chat-input";
 import { ChatThread } from "./chat-thread";
 import { ChatConversationList } from "./chat-conversation-list";
+import { escapeClearsReading } from "./chat-reading-escape";
 import { PremiumGate } from "~/@/components/premium/premium-gate";
 import { useSubscription } from "~/@/hooks/use-subscription";
 import { useSession } from "next-auth/react";
@@ -105,7 +106,13 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
       {/* max-w-full: the 400px floor overhangs a 375px phone by 25px, and the
           sheet is right-anchored, so the overhang clips off the LEFT edge and
           takes the back button and title with it. */}
-      <SheetContent className="w-[400px] max-w-full sm:w-[450px] flex flex-col p-0">
+      {/* Escape clears a chart's or sparkline's reading first; only a bare Escape closes the sheet. */}
+      <SheetContent
+        className="w-[400px] max-w-full sm:w-[450px] flex flex-col p-0"
+        onEscapeKeyDown={(event) => {
+          if (escapeClearsReading(event.target)) event.preventDefault();
+        }}
+      >
         {/* pr-12 reserves the corner for the sheet's own close button, which
             is absolutely positioned and otherwise lands on top of "New chat". */}
         <SheetHeader className="pl-4 pr-12 py-3 border-b flex-row items-center justify-between space-y-0">
