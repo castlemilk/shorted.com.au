@@ -131,15 +131,19 @@ func smokeInput() mcp.RunAlertsSmokeInput { return mcp.RunAlertsSmokeInput{Code:
 
 // crossingWindow is a window where ABC crossed 5 on 2026-10-21 (4.0 -> 5.5).
 func crossingWindow() shortsstore.AlertWindow {
-	return shortsstore.AlertWindow{
-		Dates: []string{"2026-10-22", "2026-10-21", "2026-10-20"},
-		Readings: map[string]map[string]float64{
-			"2026-10-22": {"ABC": 5.6, "XYZ": 1},
-			"2026-10-21": {"ABC": 5.5, "XYZ": 1},
-			"2026-10-20": {"ABC": 4.0, "XYZ": 1},
-		},
-		Names: map[string]string{"ABC": "ABC Holdings"},
+	start, _ := time.Parse("2006-01-02", "2026-10-22")
+	w := shortsstore.AlertWindow{Readings: map[string]map[string]float64{}, Names: map[string]string{"ABC": "ABC Holdings"}}
+	for i := 0; i < shortsstore.AlertWindowDates; i++ {
+		day := start.AddDate(0, 0, -i).Format("2006-01-02")
+		w.Dates = append(w.Dates, day)
+		w.Readings[day] = map[string]float64{"XYZ": 1}
 	}
+	// ABC: 5.6 on the newest date, 5.5 the day before (a crossing against 4.0, the day
+	// before that). 2026-10-22 is index 0 and 2026-10-21 is index 1.
+	w.Readings[w.Dates[0]]["ABC"] = 5.6
+	w.Readings[w.Dates[1]]["ABC"] = 5.5
+	w.Readings[w.Dates[2]]["ABC"] = 4.0
+	return w
 }
 
 func smokeSource(store *fakeAdminAlertsStore, jobs *fakeAlertJobs, entitled bool, verified string) *adminMCPSource {
@@ -259,7 +263,8 @@ func TestRunAlertsSmokeReplaysOnlyADateTheStockCrossed(t *testing.T) {
 	store := &fakeAdminAlertsStore{window: crossingWindow()}
 	jobs := &fakeAlertJobs{}
 	_, err := smokeSource(store, jobs, true, adminAddress).RunAlertsSmoke(context.Background(), adminUID, "", mcp.RunAlertsSmokeInput{Code: "ABC", Date: "2026-10-22"})
-	require.Error(t, err, "2026-10-22 is 5.5 -> 5.6, not a crossing")
+	require.Error(t, err)
+	assert.EqualError(t, err, "ABC did not cross 5 on 2026-10-22")
 	assert.Empty(t, store.created)
 	assert.Empty(t, jobs.runs)
 }

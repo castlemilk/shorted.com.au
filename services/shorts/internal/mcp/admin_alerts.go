@@ -152,7 +152,7 @@ type AlertsEvaluatorRun struct {
 // AlertsEvent is one alert event. Own is true only for the caller's monitors.
 type AlertsEvent struct {
 	ID              int64    `json:"id"`
-	MonitorID       string   `json:"monitorId" jsonschema:"An opaque monitor id. Only the caller's own ids can be used with alerts_smoke_result or delete_alert_monitor."`
+	MonitorID       string   `json:"monitorId" jsonschema:"The monitor id. Set for the caller's own events only; blank for other owners' events."`
 	Own             bool     `json:"own"`
 	Target          string   `json:"target"`
 	ReportDate      string   `json:"reportDate"`
@@ -169,7 +169,7 @@ func alertsStatusTool() AdminTool {
 	return adminScopedReadTool(ScopeJobsRead, AlertsStatusTool, "Short-interest alerts status",
 		"The alerts pipeline: monitor counts across owners by status and cadence, the caller's own monitors, the ten newest evaluator "+
 			"runs and the twenty newest alert events. Use it before and after run_alerts_smoke_test. Counts and runs are operator views; "+
-			"other owners' monitors are never listed, and their addresses and ids are never returned.",
+			"other owners' monitors are never listed. For other owners' events, the monitor id and the error text are blanked, and no address or user id is ever returned.",
 		nil, func(ctx context.Context, op AdminOperator, req *sdk.CallToolRequest, _ struct{}) (*AlertsStatusOutput, error) {
 			uid, err := requireTokenUser(req)
 			if err != nil {
@@ -275,7 +275,10 @@ type RunAlertsSmokeOutput struct {
 	EmailTo        string   `json:"emailTo" jsonschema:"The caller's verified address, masked: first letter and domain only."`
 	Execution      string   `json:"execution" jsonschema:"Pass to alerts_smoke_result with the monitor id and date."`
 	Args           []string `json:"args" jsonschema:"The job invocation the server constructed."`
-	Next           string   `json:"next"`
+	// Also says what else the replay does: it emails any other daily monitor of the
+	// caller's that crossed on Date.
+	Also string `json:"also"`
+	Next string `json:"next"`
 }
 
 func runAlertsSmokeTool() AdminTool {
@@ -288,7 +291,9 @@ func runAlertsSmokeTool() AdminTool {
 				"Premium entitlement and has a verified address. Creates (or reuses) one daily monitor for a stock that crossed a threshold, " +
 				"then replays that report date for the caller only: a real alert email goes to the caller's verified address. Starts an " +
 				"execution of the shorted-alerts-replay job; check alerts_smoke_result in one to two minutes. The monitor stays active " +
-				"afterwards, so delete it with delete_alert_monitor when the check is done.",
+				"afterwards: it emails again on future crossings until it is paused (the link in the email) or deleted with delete_alert_monitor. " +
+				"The replay also emails any other daily monitor of yours that crossed on the same report date, not only this one. " +
+				"Refuses when the monitor already has an event for that date, because a replay would send nothing and the old row would read as this run's result.",
 			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: boolPtr(false), IdempotentHint: false, OpenWorldHint: boolPtr(true)},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, in RunAlertsSmokeInput) (*sdk.CallToolResult, RunAlertsSmokeOutput, error) {
 			if denied := requireScope(req, t.Scope); denied != nil {
@@ -355,6 +360,12 @@ type AlertsSmokeEvent struct {
 	LastError     string   `json:"lastError,omitempty"`
 	Latest        *float64 `json:"latest,omitempty"`
 	Previous      *float64 `json:"previous,omitempty"`
+	// CreatedAt and RunID say when and by which evaluator run the row was written.
+	CreatedAt string `json:"createdAt" jsonschema:"When the row was written (RFC 3339)."`
+	RunID     int64  `json:"runId,omitempty" jsonschema:"The evaluator run that wrote the row, when it has one."`
+	// PredatesExecution is set when an execution was given and the row was written
+	// before that execution started: the row is an older run's, not this replay's.
+	PredatesExecution bool `json:"predatesExecution,omitempty"`
 }
 
 // AlertsReplayState is the replay execution's state.
@@ -377,6 +388,7 @@ func alertsSmokeResultTool() AdminTool {
 			if err != nil {
 				return nil, err
 			}
+			in.MonitorID = strings.TrimSpace(in.MonitorID)
 			if !isUUIDShape(in.MonitorID) {
 				return nil, errors.New("monitor_id must be a monitor id")
 			}
@@ -416,6 +428,7 @@ func deleteAlertMonitorTool() AdminTool {
 			if err != nil {
 				return toolFailure(err), DeleteAlertMonitorOutput{}, nil
 			}
+			in.MonitorID = strings.TrimSpace(in.MonitorID)
 			if !isUUIDShape(in.MonitorID) {
 				return toolFailure(errors.New("monitor_id must be a monitor id")), DeleteAlertMonitorOutput{}, nil
 			}

@@ -119,6 +119,8 @@ func scrubRunNote(note, userID string) string {
 
 // AlertsStatus reads the alerts pipeline. Each source reads on its own: one that
 // fails is named in sources and its section is left empty, never shown as healthy.
+// Another owner's event carries no monitor id and no error text: the error text can
+// name that owner's subscription status.
 func (a *adminMCPSource) AlertsStatus(ctx context.Context, userID string) (*mcp.AlertsStatusOutput, error) {
 	out := &mcp.AlertsStatusOutput{
 		ObservedAt: time.Now().UTC().Format(time.RFC3339),
@@ -189,15 +191,20 @@ func (a *adminMCPSource) AlertsStatus(ctx context.Context, userID string) (*mcp.
 		out.Sources = append(out.Sources, mcp.JobSource{Name: "alert_events", Status: "unavailable", Detail: "the alert events could not be read"})
 	} else {
 		for _, e := range events {
-			out.Events = append(out.Events, mcp.AlertsEvent{
-				ID: e.ID, MonitorID: e.MonitorID, Own: e.UserID == userID, Target: e.Target,
+			own := e.UserID == userID
+			row := mcp.AlertsEvent{
+				ID: e.ID, Own: own, Target: e.Target,
 				ReportDate: e.ReportDate, ComparedToDate: e.ComparedToDate,
 				LatestPercent: e.LatestPercent, PreviousPercent: e.PreviousPercent,
 				EmailStatus: e.EmailStatus, EmailAttempts: e.EmailAttempts, HasResendID: e.HasResendID,
-				LastError: truncateAlertText(e.LastError, alertsErrorMessageLimit),
-			})
+			}
+			if own {
+				row.MonitorID = e.MonitorID
+				row.LastError = truncateAlertText(e.LastError, alertsErrorMessageLimit)
+			}
+			out.Events = append(out.Events, row)
 		}
-		out.Sources = append(out.Sources, mcp.JobSource{Name: "alert_events", Status: "available", Detail: "the twenty newest events across owners"})
+		out.Sources = append(out.Sources, mcp.JobSource{Name: "alert_events", Status: "available", Detail: "the twenty newest events across owners; monitor ids and error text are the caller's own only"})
 	}
 	return out, nil
 }
@@ -241,11 +248,19 @@ func (a *adminMCPSource) FindAlertCrossing(ctx context.Context, in mcp.FindAlert
 	return out, nil
 }
 
+// alsoEmailsNote is the one line every smoke-test result carries: the replay is not
+// limited to the smoke monitor.
+const alsoEmailsNote = "The replay also emails any other daily monitor of yours that crossed on the same report date. Check alerts_status for them before the mail arrives."
+
 // RunAlertsSmoke is the smoke test's whole path, in the order that refuses cheapest
-// first: the caller's entitlement, the caller's verified address, the crossing, the
-// caller's monitor (reused when identical, created through alertsCore otherwise),
-// and the replay for the caller alone.
+// first: the caller's uid shape, entitlement, verified address, the crossing, the
+// caller's monitor, the existing-event check, and the replay for the caller alone.
+// Nothing is replayed unless every step before it passed.
 func (a *adminMCPSource) RunAlertsSmoke(ctx context.Context, userID, actor string, in mcp.RunAlertsSmokeInput) (*mcp.RunAlertsSmokeOutput, error) {
+	// The owner id is checked before anything can be created under it.
+	if _, err := jobmonitor.NormalizeAlertsUserID(userID); err != nil {
+		return nil, errors.New("the administrator's account id is not a Firebase uid, so nothing was created")
+	}
 	search, err := mcp.NormaliseAlertsSearch(in.Code, in.Threshold, in.Condition)
 	if err != nil {
 		return nil, err
@@ -297,6 +312,17 @@ func (a *adminMCPSource) RunAlertsSmoke(ctx context.Context, userID, actor strin
 		return nil, err
 	}
 
+	// A replay's insert does nothing when the monitor already has an event for the
+	// date. The job would then send nothing, and the old row would read as this run's
+	// result. Refuse before the job runs.
+	owned, existing, err := a.alerts.AdminAlertEventsOnDate(ctx, userID, monitor.ID, crossing.ReportDate)
+	if err != nil {
+		return nil, errors.New("the monitor's existing events could not be read, so nothing was replayed")
+	}
+	if owned && len(existing) > 0 {
+		return nil, existingEventRefusal(monitor.ID, crossing.ReportDate, existing[0])
+	}
+
 	run, err := a.alertJobs.RunAlertsReplay(ctx, jobmonitor.AlertsReplayRequest{Date: crossing.ReportDate, UserID: userID, Actor: actor})
 	if err != nil {
 		return nil, alertsReplayError(err, monitor.ID)
@@ -316,8 +342,16 @@ func (a *adminMCPSource) RunAlertsSmoke(ctx context.Context, userID, actor strin
 		EmailTo:        mcp.MaskAlertEmail(email),
 		Execution:      run.ExecutionName,
 		Args:           run.Args,
+		Also:           alsoEmailsNote,
 		Next:           "call alerts_smoke_result with monitor_id, date and execution in one to two minutes",
 	}, nil
+}
+
+// existingEventRefusal says why a replay was not started, and what to do next.
+func existingEventRefusal(monitorID, date string, e shortsstore.AdminAlertEvent) error {
+	return fmt.Errorf("monitor %s already has an alert event for %s (status %s, written %s, run %d), so a replay would send nothing and that row would read as this run's result. "+
+		"Nothing was started. Pick another date with find_alert_crossing, or delete the monitor with delete_alert_monitor and run the smoke test again",
+		monitorID, date, e.EmailStatus, e.CreatedAt.UTC().Format(time.RFC3339), e.RunID)
 }
 
 // ensureSmokeMonitor finds the caller's identical active daily monitor, or creates
@@ -392,8 +426,10 @@ func (a *adminMCPSource) AlertsSmokeResult(ctx context.Context, userID string, i
 		out.Events = append(out.Events, mcp.AlertsSmokeEvent{
 			EmailStatus: e.EmailStatus, EmailAttempts: e.EmailAttempts, HasResendID: e.HasResendID,
 			LastError: truncateAlertText(e.LastError, alertsErrorMessageLimit), Latest: e.LatestPercent, Previous: e.PreviousPercent,
+			CreatedAt: e.CreatedAt.UTC().Format(time.RFC3339), RunID: e.RunID,
 		})
 	}
+	stale := false
 	if in.Execution != "" {
 		if a.alertJobs == nil {
 			return nil, errors.New("job execution is not configured in this deployment")
@@ -407,16 +443,29 @@ func (a *adminMCPSource) AlertsSmokeResult(ctx context.Context, userID string, i
 		}
 		out.Replay = &mcp.AlertsReplayState{ExecutionName: st.ExecutionName, Status: st.Status, StartedAt: st.StartedAt,
 			CompletedAt: st.CompletedAt, LogURI: st.LogUri, Message: st.Message}
+		// A row written before this replay started belongs to an older run. Compare
+		// against the execution's start; an unreadable start proves nothing either way.
+		if started, perr := time.Parse(time.RFC3339Nano, st.StartedAt); perr == nil {
+			for i := range events {
+				if events[i].CreatedAt.Before(started) {
+					out.Events[i].PredatesExecution = true
+					stale = true
+				}
+			}
+		}
 	}
 	out.Next = smokeResultNext(out.Events)
+	if stale {
+		out.Next += " This row was written before this replay started, so it is not this replay's result."
+	}
 	return out, nil
 }
 
 // smokeResultNext says what the events mean, in one line.
 func smokeResultNext(events []mcp.AlertsSmokeEvent) string {
 	if len(events) == 0 {
-		return "No event for this monitor on this date yet. A replay takes a minute or two; if its execution has succeeded and this is still empty, " +
-			"the evaluator held the date or the stock did not cross for this monitor."
+		return "No event for this monitor on this date. If the replay's execution has succeeded and this is still empty, the monitor did not fire on " +
+			"that date: the stock did not cross for it, or the date was not replayable (the smoke test skips incomplete dates and the oldest end of the window)."
 	}
 	switch status := events[0].EmailStatus; status {
 	case alertevents.StatusPending, alertevents.StatusSending, alertevents.StatusAwaitingEntitlement:
@@ -435,4 +484,25 @@ func (a *adminMCPSource) DeleteOwnAlertMonitor(ctx context.Context, userID, moni
 		return err
 	}
 	return core.deleteMonitor(ctx, userID, monitorID)
+}
+
+// newAdminMCPSource builds the admin MCP operator for this server. serve.go mounts
+// it, and the wiring test builds it the same way, so a field left out here is a
+// failing test rather than a silently unconfigured tool.
+func newAdminMCPSource(s *ShortsServer, firebaseUsers firebaseUsersReader) *adminMCPSource {
+	return &adminMCPSource{
+		Collector: s.jobsCollector,
+		server:    s,
+		people:    s.peopleStore,
+		users:     firebaseUsers,
+		billing:   billingStoreFrom(s.peopleStore),
+		web:       newAdminWebClientFromEnv(),
+		alerts:    alertsAdminStoreFrom(s.store),
+		alertJobs: s.jobsCollector,
+		entitled:  s.alertsCore().entitled,
+		logger:    s.logger,
+		verifiedEmail: func(ctx context.Context, uid string) (string, error) {
+			return verifiedAccountEmail(ctx, firebaseUsers, uid)
+		},
+	}
 }

@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -101,22 +104,58 @@ func TestAlertsToolsRequireTheirOwnScope(t *testing.T) {
 	}
 }
 
-// The owner is the verified token's uid. An input that names another owner is not
-// read as one: the operator only ever sees the token's uid.
+// The owner is the verified token's uid. Every alerts tool is driven with valid
+// input only, so each call reaches the operator, and every owner the operator sees is
+// the token's. The assertions cover the calls that happened: a loop over nothing
+// proves nothing.
 func TestAlertsOwnerIsAlwaysTheTokenUser(t *testing.T) {
 	pub := &fakePublisher{}
 	srv := adminStack(t, stubClaims{claims: adminClaims()}, onlyAdmin("uid-admin"), pub)
-	call := alertsCall(1, RunAlertsSmokeTool, `{"code":"ABC","user_id":"uid-victim","uid":"uid-victim"}`)
-	adminCall(t, srv, "t", call)
-	adminCall(t, srv, "t", alertsCall(2, DeleteAlertMonitorTool, `{"monitor_id":"`+alertsMonitorID+`","user_id":"uid-victim"}`))
+	calls := []string{
+		alertsCall(1, RunAlertsSmokeTool, `{"code":"ABC"}`),
+		alertsCall(2, DeleteAlertMonitorTool, `{"monitor_id":"`+alertsMonitorID+`"}`),
+		alertsCall(3, AlertsStatusTool, `{}`),
+		alertsCall(4, AlertsSmokeResultTool, `{"monitor_id":"`+alertsMonitorID+`","date":"2026-10-21"}`),
+	}
+	for _, call := range calls {
+		resp, body := adminCall(t, srv, "t", call)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.NotContains(t, body, `"isError":true`, "a valid call must reach the operator: %s", body)
+	}
+	require.Len(t, pub.uidSeen, len(calls), "every call must reach the operator")
 	for _, uid := range pub.uidSeen {
-		if uid != "uid-admin" {
-			t.Fatalf("the operator acted for %q, not the token's user", uid)
-		}
+		assert.Equal(t, "uid-admin", uid, "the operator acted for a user other than the token's")
 	}
-	if pub.actorSeen != "" && pub.actorSeen != "oauth:uid-admin" {
-		t.Fatalf("actor = %q", pub.actorSeen)
+}
+
+// An input that names another owner is refused by the schema before the operator runs.
+// The tool takes no owner field, so nothing can be sent that the operator would read.
+func TestAlertsRefusesAnOwnerFieldInTheInput(t *testing.T) {
+	for _, call := range []string{
+		alertsCall(1, RunAlertsSmokeTool, `{"code":"ABC","user_id":"uid-victim"}`),
+		alertsCall(2, RunAlertsSmokeTool, `{"code":"ABC","uid":"uid-victim"}`),
+		alertsCall(3, DeleteAlertMonitorTool, `{"monitor_id":"`+alertsMonitorID+`","user_id":"uid-victim"}`),
+		alertsCall(4, AlertsStatusTool, `{"user_id":"uid-victim"}`),
+	} {
+		pub := &fakePublisher{}
+		srv := adminStack(t, stubClaims{claims: adminClaims()}, onlyAdmin("uid-admin"), pub)
+		resp, body := adminCall(t, srv, "t", call)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Contains(t, body, `"isError":true`, "an owner field must be refused: %s", body)
+		assert.Empty(t, pub.uidSeen, "a refused call must not reach the operator")
 	}
+}
+
+// Ids are trimmed before they are validated, and the trimmed value is what the operator
+// receives, so the validated value and the used value are the same.
+func TestAlertsIdsAreTrimmedBeforeTheyAreUsed(t *testing.T) {
+	pub := &fakePublisher{}
+	srv := adminStack(t, stubClaims{claims: adminClaims()}, onlyAdmin("uid-admin"), pub)
+	padded := "  " + alertsMonitorID + " "
+	adminCall(t, srv, "t", alertsCall(1, AlertsSmokeResultTool, `{"monitor_id":"`+padded+`","date":"2026-10-21"}`))
+	assert.Equal(t, alertsMonitorID, pub.resultIn.MonitorID, "the operator must receive the trimmed id")
+	adminCall(t, srv, "t", alertsCall(2, DeleteAlertMonitorTool, `{"monitor_id":"`+padded+`"}`))
+	assert.Equal(t, alertsMonitorID, pub.deleteID, "delete must use the trimmed id")
 }
 
 // Input is checked before the operator is asked: a bad date, a missing code for a
@@ -279,5 +318,20 @@ func TestMaskAlertEmailShowsOnlyTheFirstLetterAndDomain(t *testing.T) {
 		if got := MaskAlertEmail(in); got != want {
 			t.Errorf("MaskAlertEmail(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// A token whose uid carries surrounding space is refused. The check would accept it
+// (this one accepts everything), so the refusal can only come from the padding.
+func TestRequireAdminRefusesAPaddedUID(t *testing.T) {
+	accept := func(context.Context, string) (bool, error) { return true, nil }
+	for _, uid := range []string{" uid-admin", "uid-admin ", "uid-admin\n"} {
+		claims := adminClaims()
+		claims.UserID = uid
+		pub := &fakePublisher{}
+		srv := adminStack(t, stubClaims{claims: claims}, accept, pub)
+		resp, _ := adminCall(t, srv, "t", alertsCall(1, AlertsStatusTool, `{}`))
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode, "uid %q", uid)
+		assert.Empty(t, pub.uidSeen, "uid %q reached the operator", uid)
 	}
 }

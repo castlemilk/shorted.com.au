@@ -146,7 +146,9 @@ func RequireAdmin(check AdminCheck) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			info := auth.TokenInfoFromContext(r.Context())
-			if check == nil || info == nil || strings.TrimSpace(info.UserID) == "" {
+			// A uid with surrounding space is refused, not trimmed: the tools act on the
+			// trimmed value, so a padded uid would be checked as one account and used as another.
+			if check == nil || info == nil || strings.TrimSpace(info.UserID) == "" || info.UserID != strings.TrimSpace(info.UserID) {
 				http.Error(w, "forbidden: administrator access required", http.StatusForbidden)
 				return
 			}
