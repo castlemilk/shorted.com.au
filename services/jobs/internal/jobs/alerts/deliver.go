@@ -105,6 +105,7 @@ func deliver(ctx context.Context, st store, client *resend.Client, env settings,
 		}
 	}
 
+	charts := newChartMemo()
 	var tick <-chan time.Time
 	if o.rps > 0 {
 		t := time.NewTicker(time.Duration(float64(time.Second) / o.rps))
@@ -135,7 +136,7 @@ func deliver(ctx context.Context, st store, client *resend.Client, env settings,
 			continue
 		}
 
-		r, err := renderMessage(env.siteURL, env.unsubscribeSecret, c.monitorID, c.msg)
+		r, err := renderMessageCharts(charts, env.siteURL, env.unsubscribeSecret, c.monitorID, c.msg)
 		if err != nil {
 			if err := st.markFailed(ctx, c.id, "render: "+err.Error()); err != nil {
 				return stats, err

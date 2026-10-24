@@ -2,9 +2,11 @@ package alerts
 
 import (
 	"bytes"
+	"crypto/sha256"
 	_ "embed"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -151,6 +153,14 @@ func canaryHistory(n int, last string, end float64) []alertevents.Point {
 // for one alert. site is the public origin, secret is UNSUBSCRIBE_SECRET, and
 // monitorID is the monitor whose one-click pause link goes in the email.
 func renderMessage(site, secret, monitorID string, m Message) (rendered, error) {
+	return renderMessageCharts(nil, site, secret, monitorID, m)
+}
+
+// renderMessageCharts is renderMessage with a chart memo. A delivery pass passes its
+// memo, so owners of the same stock share one rendered chart. A nil memo renders
+// every chart afresh. The bytes are the same either way: the memo is keyed by the
+// whole chart spec.
+func renderMessageCharts(charts *chartMemo, site, secret, monitorID string, m Message) (rendered, error) {
 	site = strings.TrimRight(site, "/")
 	token := unsubscribe.AlertMonitorToken(monitorID, secret)
 	pauseURL := site + "/alerts/unsubscribe?t=" + token
@@ -170,7 +180,7 @@ func renderMessage(site, secret, monitorID string, m Message) (rendered, error) 
 	}
 
 	atts := []resend.Attachment{inline("shorted-mark.png", markCID, shortedMarkPNG)}
-	light, dark := chartFor(m)
+	light, dark := charts.get(m)
 	if light != nil {
 		atts = append(atts, inline("short-interest-chart.png", chartCID, light))
 		atts = append(atts, inline("short-interest-chart-dark.png", chartDarkCID, dark))
@@ -220,12 +230,23 @@ func inline(filename, id string, data []byte) resend.Attachment {
 	}
 }
 
-// chartFor draws a stock's short-position chart from its stored history, in the
-// light and the dark palette. It returns nils when there is nothing to draw: an
-// industry alert, an event with no stock detail, or fewer than two readings. A
-// render error also yields nils, so a chart fault never stops the alert itself, and
-// the same error recurs on every retry.
+// testChartHook, when set, runs before each chart is drawn. Only tests set it: a
+// panic injected here shows that a renderer fault costs the chart, not the email.
+var testChartHook func(alertchart.Spec)
+
+// chartFor draws a stock's short-position chart from its stored history, in the light
+// and the dark palette. It returns nils when there is nothing to draw: an industry
+// alert, an event with no stock detail, or fewer than two readings. A render error,
+// or a panic in the renderer, also yields nils, so a chart fault never stops the
+// alert itself. The same fault recurs on every retry, which is why the email goes
+// out without the chart rather than not at all.
 func chartFor(m Message) (light, dark []byte) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("alerts: chart for %s not drawn, the email goes without it: %v", m.Target, r)
+			light, dark = nil, nil
+		}
+	}()
 	if m.Scope != alertevents.ScopeStock || m.Payload.Stock == nil {
 		return nil, nil
 	}
@@ -241,6 +262,9 @@ func chartFor(m Message) (light, dark []byte) {
 	if m.Condition == alertevents.ConditionShortInterestAbove && m.Threshold != nil {
 		spec.Threshold = m.Threshold
 	}
+	if testChartHook != nil {
+		testChartHook(spec)
+	}
 	light, err := alertchart.Render(spec)
 	if err != nil {
 		return nil, nil
@@ -250,6 +274,51 @@ func chartFor(m Message) (light, dark []byte) {
 		return nil, nil
 	}
 	return light, dark
+}
+
+// chartMemo holds the charts one delivery pass has drawn, so many owners of one stock
+// share a render. The key is the whole chart spec: the code, both report dates, the
+// threshold when the condition uses one, and every point of the history. A nil memo
+// draws every chart.
+type chartMemo struct {
+	drawn map[[32]byte][2][]byte
+}
+
+func newChartMemo() *chartMemo {
+	return &chartMemo{drawn: map[[32]byte][2][]byte{}}
+}
+
+// get returns the charts for m, drawing them on the first request for their spec. A
+// spec with no chart is not memoised, so a fault is retried for the next owner.
+func (c *chartMemo) get(m Message) (light, dark []byte) {
+	if c == nil {
+		return chartFor(m)
+	}
+	key := chartKey(m)
+	if pair, ok := c.drawn[key]; ok {
+		return pair[0], pair[1]
+	}
+	light, dark = chartFor(m)
+	if light != nil {
+		c.drawn[key] = [2][]byte{light, dark}
+	}
+	return light, dark
+}
+
+// chartKey hashes everything the chart is drawn from. Two messages with the same key
+// draw the same bytes.
+func chartKey(m Message) [32]byte {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s|%s|%s|%s|", m.Target, m.ReportDate, m.ComparedTo, m.Condition)
+	if m.Threshold != nil && m.Condition == alertevents.ConditionShortInterestAbove {
+		fmt.Fprintf(&b, "t=%s|", strconv.FormatFloat(*m.Threshold, 'g', -1, 64))
+	}
+	if st := m.Payload.Stock; st != nil {
+		for _, h := range st.History {
+			fmt.Fprintf(&b, "%s=%s;", h.D, strconv.FormatFloat(h.P, 'g', -1, 64))
+		}
+	}
+	return sha256.Sum256([]byte(b.String()))
 }
 
 // plainInput is what the plain-text twin needs beyond the message.
@@ -271,6 +340,9 @@ type plainInput struct {
 func plainText(m Message, in plainInput) string {
 	var text bytes.Buffer
 	text.WriteString(in.subject + "\n\n")
+	if m.Scope == alertevents.ScopeStock {
+		text.WriteString(stockHeading(m) + "\n")
+	}
 	text.WriteString(introLine(m) + "\n")
 	if scope := scopeLine(m); scope != "" {
 		text.WriteString(scope + "\n")
@@ -320,6 +392,24 @@ func plainText(m Message, in plainInput) string {
 	fmt.Fprintf(&text, "Manage your alerts: %s\n", in.manageURL)
 	fmt.Fprintf(&text, "General information only, not financial advice. Shorted · %s\n", footerContact)
 	return text.String()
+}
+
+// stockHeading names the company at the top of a stock email's text twin:
+// "GLC — Glencore (Materials)", or the code alone when nothing else is known.
+func stockHeading(m Message) string {
+	name := displayName(m)
+	industry := ""
+	if st := m.Payload.Stock; st != nil {
+		industry = st.Industry
+	}
+	heading := m.Target
+	if name != "" && name != m.Target {
+		heading += " — " + name
+	}
+	if industry != "" {
+		heading += " (" + industry + ")"
+	}
+	return heading
 }
 
 // stockPreviousDate is the report the previous reading came from. It is the

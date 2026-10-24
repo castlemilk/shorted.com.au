@@ -199,3 +199,12 @@ func luminance(hex string) float64 {
 	}
 	return 0.2126*c[0] + 0.7152*c[1] + 0.0722*c[2]
 }
+
+// The text twin names the company near the top, as the first line after the subject.
+func TestTextTwinNamesTheCompany(t *testing.T) {
+	r := renderFixture(t, stockWithHistory())
+	lines := strings.Split(r.Text, "\n")
+	if len(lines) < 3 || lines[2] != "GLC — Glencore (Materials)" {
+		t.Fatalf("the company line must follow the subject, got %q", lines[:min(3, len(lines))])
+	}
+}
