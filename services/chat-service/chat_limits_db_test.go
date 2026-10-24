@@ -332,7 +332,7 @@ func TestRefusedBeforeAnswerIsNotCounted(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_conversations WHERE user_id = $1`, user)
 	})
 
-	handler := NewChatServiceHandler(store, &LLMClient{client: gemini, model: "gemini-test"}, nil)
+	handler := NewChatServiceHandler(store, llmClientOverGemini(gemini, "gemini-test", nil), nil)
 	client := newWireTestServer(t, handler)
 
 	req := connect.NewRequest(&chatv1.SendMessageRequest{Message: "hello"})
