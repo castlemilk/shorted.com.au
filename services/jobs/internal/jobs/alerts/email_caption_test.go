@@ -36,14 +36,34 @@ func TestHistorySpanCaption(t *testing.T) {
 	}
 }
 
-// A short history drops the weekday from its caption.
-func TestShortHistoryCaptionHasNoWeekday(t *testing.T) {
+// A short history names its report count and the dates they cover, with no weekday
+// and no "since first reported": the window is 190 days, so the first reading is not
+// necessarily the code's first report.
+func TestShortHistoryCaptionNamesCountAndRange(t *testing.T) {
 	r := renderFixture(t, shortStock())
-	if !strings.Contains(r.HTML, "since first reported 14 Oct 2026") {
-		t.Fatal("the short caption must read since first reported 14 Oct 2026")
+	if !strings.Contains(r.HTML, "· 3 reports, 14–16 Oct 2026") {
+		t.Fatal("the short caption must read · 3 reports, 14–16 Oct 2026")
 	}
-	if strings.Contains(r.HTML, "since first reported Wed") {
-		t.Fatal("the short caption must not carry a weekday")
+	if strings.Contains(r.HTML, "since first reported") {
+		t.Fatal("the short caption must not claim since first reported")
+	}
+}
+
+// A single report date reads as one date, and a change of month or year reads both ends.
+func TestReportsSpanForms(t *testing.T) {
+	cases := []struct {
+		first, last Date
+		want        string
+	}{
+		{"2026-10-14", "2026-10-14", "14 Oct 2026"},
+		{"2026-10-14", "2026-10-16", "14–16 Oct 2026"},
+		{"2026-09-28", "2026-10-02", "28 Sep – 2 Oct 2026"},
+		{"2025-12-30", "2026-01-02", "30 Dec 2025 – 2 Jan 2026"},
+	}
+	for _, tc := range cases {
+		if got := dateRange(tc.first, tc.last); got != tc.want {
+			t.Errorf("dateRange(%s, %s) = %q, want %q", tc.first, tc.last, got, tc.want)
+		}
 	}
 }
 

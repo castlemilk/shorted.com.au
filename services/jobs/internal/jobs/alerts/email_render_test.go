@@ -25,10 +25,12 @@ func stockWithHistory() Message {
 	m.Payload.Companies = []alertevents.Company{{Code: "GLC", Name: "Glencore", Latest: 12.15, Previous: fpv(6.99), Change: fpv(5.16), PreviousDate: "2026-10-15"}}
 	m.Payload.CompaniesTotal = 1
 	shares, onIssue, c20 := 1.24e9, 12.1e9, 6.3
+	hist := canaryHistory(120, "2026-10-16", 12.15)
 	m.Payload.Stock = &alertevents.StockDetail{
 		Name: "Glencore", Industry: "Materials",
 		SharesShort: &shares, SharesOnIssue: &onIssue, Rank: 12, Ranked: 640, Change20: &c20,
-		History: canaryHistory(120, "2026-10-16", 12.15),
+		Change20Date: hist[len(hist)-21].D,
+		History:      hist,
 	}
 	return m
 }
@@ -131,7 +133,7 @@ func TestStatsGridOmitsMissingCells(t *testing.T) {
 	m.Payload.Stock.SharesShort = nil
 	m.Payload.Stock.Change20 = nil
 	r := renderFixture(t, m)
-	if strings.Contains(r.HTML, "SHARES SHORT") || strings.Contains(r.HTML, "20-DAY CHANGE") {
+	if strings.Contains(r.HTML, "SHARES SHORT") || strings.Contains(r.HTML, "CHANGE SINCE") {
 		t.Fatal("a missing figure must not render its cell")
 	}
 	if !strings.Contains(r.HTML, "SHARES ON ISSUE") || !strings.Contains(r.HTML, "MOST-SHORTED RANK") {
@@ -235,7 +237,7 @@ func TestTextTwinIsComplete(t *testing.T) {
 		"Shares short:      1.24B",
 		"Shares on issue:   12.1B",
 		"Most-shorted rank: #12 of 640 (Fri 16 Oct 2026)",
-		"20-day change:     +6.30 pts",
+		"Change since " + dayMonth(Date(stockWithHistory().Payload.Stock.Change20Date)) + ": +6.30 pts",
 		"ASIC publishes positions four trading days after they are held.",
 		"View GLC on Shorted:",
 		"Pause this alert:",

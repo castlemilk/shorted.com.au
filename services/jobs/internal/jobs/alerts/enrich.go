@@ -16,14 +16,25 @@ import (
 const (
 	// historyPoints caps a stock's history. Six months of trading days is about 130.
 	historyPoints = 130
-	// changeLookback is how many report dates back the 20-day change compares with.
+	// changeLookback is how many of the code's own readings back the change compares with.
 	changeLookback = 20
 )
 
-// enrich fills the logos of every candidate's companies and the stock detail of
-// each stock candidate. It is best effort: a failed history read is logged and the
-// events go out without the detail, so enrichment never fails the run.
+// enrichSource is what enrichment reads. The store is the production source; a test
+// injects one that fails, to show the events still go out.
+type enrichSource interface {
+	loadStockHistory(ctx context.Context, codes []string, newest Date) (map[string][]historyRow, error)
+	deferredCodes(ctx context.Context, day Date) (map[string]bool, error)
+}
+
+// enrich fills the logos of every candidate's companies and the stock detail of each
+// stock candidate. It is best effort: a failed read is logged and the events go out
+// without the part that read would have filled, so enrichment never fails the run.
 func (a *alertRun) enrich(ctx context.Context, cands []Candidate, snap *Snapshot, companies map[string]CompanyInfo) {
+	enrichFrom(ctx, a.st, cands, snap, companies)
+}
+
+func enrichFrom(ctx context.Context, src enrichSource, cands []Candidate, snap *Snapshot, companies map[string]CompanyInfo) {
 	for i := range cands {
 		cs := cands[i].Payload.Companies
 		for j := range cs {
@@ -49,7 +60,14 @@ func (a *alertRun) enrich(ctx context.Context, cands []Candidate, snap *Snapshot
 	if len(codes) == 0 {
 		return
 	}
-	hist, err := a.st.loadStockHistory(ctx, codes, newest)
+	// The rank leaves out the DEFERRED product lines. If that read fails, the rank
+	// counts them: a wrong rank is shown with its date, and the alert still goes out.
+	if deferred, err := src.deferredCodes(ctx, newest); err != nil {
+		log.Printf("alerts: rank without the DEFERRED exclusion: %v", err)
+	} else {
+		snap.unranked = deferred
+	}
+	hist, err := src.loadStockHistory(ctx, codes, newest)
 	if err != nil {
 		log.Printf("alerts: enrichment skipped, events go out without the stock detail: %v", err)
 		return
@@ -68,7 +86,8 @@ func (a *alertRun) enrich(ctx context.Context, cands []Candidate, snap *Snapshot
 // first. Only readings on or before report are used, so an older event is not
 // given later history. It returns nil when report has no reading for the code.
 //
-// The 20-day change compares with the code's own reading 20 of its reports earlier.
+// The change compares with the code's own reading 20 readings back, which can be
+// months earlier for a code reported on some days only. Change20Date names that day.
 // The snapshot holds only the newest 20 dates, one short of the 21 needed, so the
 // comparison is read from the history instead. The two agree for any code reported
 // on every date, which the ASIC data is for listed companies.

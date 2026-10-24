@@ -183,6 +183,28 @@ type historyRow struct {
 // dates. It is also the window that holds the 20-report comparison.
 const historyDays = 190
 
+// deferredCodes lists the codes whose product line on day is a DEFERRED settlement
+// product. The site's top-shorts view excludes those lines, so the rank does too.
+// The PRODUCT column is read here because the readings do not carry it.
+func (s store) deferredCodes(ctx context.Context, day Date) (map[string]bool, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT DISTINCT "PRODUCT_CODE" FROM shorts
+		 WHERE "DATE" = $1::date AND "PRODUCT" ILIKE '%DEFERRED%'`, string(day))
+	if err != nil {
+		return nil, fmt.Errorf("read deferred products: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, fmt.Errorf("scan deferred product: %w", err)
+		}
+		out[code] = true
+	}
+	return out, rows.Err()
+}
+
 // loadStockHistory reads each code's readings over historyDays up to and including
 // newest, in one statement. The rows are oldest first per code. The
 // idx_shorts_product_code_date index serves the code filter and the date range.

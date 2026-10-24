@@ -25,11 +25,11 @@ func TestShortHistoryGetsBothChartsAndItsCaption(t *testing.T) {
 	if !strings.Contains(r.HTML, `src="cid:chart"`) || !strings.Contains(r.HTML, `src="cid:chart-dark"`) {
 		t.Fatal("a three-reading stock must show both charts")
 	}
-	if !strings.Contains(r.HTML, "since first reported") {
-		t.Fatal("a short history must be captioned as since first reported")
+	if !strings.Contains(r.HTML, "3 reports, 14–16 Oct 2026") {
+		t.Fatal("a short history must name its report count and dates")
 	}
-	if strings.Contains(r.HTML, "last 6 months") {
-		t.Fatal("a short history must not claim six months")
+	if strings.Contains(r.HTML, "last 6 months") || strings.Contains(r.HTML, "since first reported") {
+		t.Fatal("a short history must not claim six months or since first reported")
 	}
 }
 

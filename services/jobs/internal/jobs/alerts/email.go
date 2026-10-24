@@ -92,6 +92,7 @@ func canaryMessage() Message {
 	const reportDate, comparedTo = "2026-01-02", "2026-01-01"
 	history := canaryHistory(60, reportDate, latest)
 	change20 := round2(latest - history[len(history)-21].P)
+	change20Date := history[len(history)-21].D
 	shortsOnIssue := 1.8e9
 	shortsShort := 2.4e8
 	return Message{
@@ -117,6 +118,7 @@ func canaryMessage() Message {
 				Rank:          7,
 				Ranked:        480,
 				Change20:      &change20,
+				Change20Date:  change20Date,
 				History:       history,
 			},
 		},
@@ -293,8 +295,8 @@ func plainText(m Message, in plainInput) string {
 			if st.Rank > 0 {
 				fmt.Fprintf(&text, "Most-shorted rank: #%d of %d (%s)\n", st.Rank, st.Ranked, fmtDay(m.ReportDate))
 			}
-			if st.Change20 != nil {
-				fmt.Fprintf(&text, "20-day change:     %s pts\n", signedPts(*st.Change20))
+			if st.Change20 != nil && st.Change20Date != "" {
+				fmt.Fprintf(&text, "Change since %s: %s pts\n", dayMonth(Date(st.Change20Date)), signedPts(*st.Change20))
 			}
 		}
 		text.WriteString("\n")

@@ -100,10 +100,13 @@ type Snapshot struct {
 	// means settled, so a snapshot built without the sync state evaluates as before.
 	SyncUnsettled bool
 
-	rows    map[Date]map[string]float64 // raw percent by code, per date
-	names   map[string]string
-	members map[string][]string // industry slug -> codes, sorted
-	index   map[Date]int        // position of each date in Dates
+	rows map[Date]map[string]float64 // raw percent by code, per date
+	// unranked are codes left out of the market ranking: the product lines the site's
+	// top-shorts view also excludes, such as DEFERRED SETTLEMENT.
+	unranked map[string]bool
+	names    map[string]string
+	members  map[string][]string // industry slug -> codes, sorted
+	index    map[Date]int        // position of each date in Dates
 }
 
 // NewSnapshot indexes a window of readings. rows maps each report date to the
@@ -198,18 +201,18 @@ func (s *Snapshot) ranked(slug string, d Date) []string {
 // has no positive reading that day, and the count of codes that do.
 func (s *Snapshot) marketRank(code string, d Date) (rank, ranked int) {
 	readings := s.rows[d]
-	for _, x := range readings {
-		if x > 0 {
+	for c, x := range readings {
+		if x > 0 && !s.unranked[c] {
 			ranked++
 		}
 	}
 	v, ok := readings[code]
-	if !ok || v <= 0 {
+	if !ok || v <= 0 || s.unranked[code] {
 		return 0, ranked
 	}
 	rank = 1
 	for c, x := range readings {
-		if c == code || x <= 0 {
+		if c == code || x <= 0 || s.unranked[c] {
 			continue
 		}
 		if x > v || (x == v && c < code) {

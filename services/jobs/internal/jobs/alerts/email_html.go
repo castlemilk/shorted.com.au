@@ -222,10 +222,12 @@ func buildStock(m Message, hasChart bool) stockView {
 		middle = "crossing " + numStr(*m.Threshold) + "%"
 	}
 	if short {
-		first := firstHistoryDate(m)
-		v.ChartAlt = fmt.Sprintf("%s short interest since first reported %s, %s on %s",
-			displayName(m), dayMonthYear(first), middle, fmtDay(m.ReportDate))
-		v.ChartCaption = "Short position, % of shares on issue · ASIC daily reports · since first reported " + dayMonthYear(first)
+		// A short history names how many reports it has and the dates they cover,
+		// never "since first reported": the history window is 190 days, so the first
+		// reading is not necessarily the code's first report.
+		span := reportsSpan(m)
+		v.ChartAlt = fmt.Sprintf("%s short interest over %s, %s on %s", displayName(m), span, middle, fmtDay(m.ReportDate))
+		v.ChartCaption = "Short position, % of shares on issue · ASIC daily reports · " + span
 	} else {
 		span := historySpan(m)
 		v.ChartAlt = fmt.Sprintf("%s short interest %s, %s on %s", displayName(m), span, middle, fmtDay(m.ReportDate))
@@ -263,24 +265,45 @@ func joinNonEmpty(sep string, parts ...string) string {
 	return strings.Join(out, sep)
 }
 
-// historySpan is the date range a long history covers, as the caption writes it. The
-// year appears once at the end when both ends fall in one year, and in full at each
-// end when they do not: "17 Apr – 16 Oct 2026", "17 Nov 2025 – 16 Oct 2026".
+// historySpan is the date range a long history covers, as the caption writes it:
+// "17 Apr – 16 Oct 2026", "17 Nov 2025 – 16 Oct 2026".
 func historySpan(m Message) string {
 	st := m.Payload.Stock
 	if st == nil || len(st.History) == 0 {
 		return "last 6 months"
 	}
-	first, last := Date(st.History[0].D), Date(st.History[len(st.History)-1].D)
-	ft, err1 := first.Day()
-	lt, err2 := last.Day()
+	return dateRange(Date(st.History[0].D), Date(st.History[len(st.History)-1].D))
+}
+
+// reportsSpan is a short history's count and range: "3 reports, 14–16 Oct 2026".
+func reportsSpan(m Message) string {
+	st := m.Payload.Stock
+	n := len(st.History)
+	noun := "reports"
+	if n == 1 {
+		noun = "report"
+	}
+	return fmt.Sprintf("%d %s, %s", n, noun, dateRange(Date(st.History[0].D), Date(st.History[n-1].D)))
+}
+
+// dateRange writes two report dates as a range. One date when they match, the month
+// once when they share one, the year once at the end when they share one, and the
+// full date at each end when they do not.
+func dateRange(a, b Date) string {
+	at, err1 := a.Day()
+	bt, err2 := b.Day()
 	if err1 != nil || err2 != nil {
-		return "last 6 months"
+		return string(a) + " – " + string(b)
 	}
-	if ft.Year() == lt.Year() {
-		return ft.Format("2 Jan") + " – " + lt.Format("2 Jan 2006")
+	switch {
+	case at.Equal(bt):
+		return at.Format("2 Jan 2006")
+	case at.Year() == bt.Year() && at.Month() == bt.Month():
+		return at.Format("2") + "–" + bt.Format("2 Jan 2006")
+	case at.Year() == bt.Year():
+		return at.Format("2 Jan") + " – " + bt.Format("2 Jan 2006")
 	}
-	return ft.Format("2 Jan 2006") + " – " + lt.Format("2 Jan 2006")
+	return at.Format("2 Jan 2006") + " – " + bt.Format("2 Jan 2006")
 }
 
 // dayMonthYear formats a report date as "14 Oct 2026".
@@ -315,9 +338,15 @@ func statsOf(m Message) []stat {
 			Color: inkColor,
 		})
 	}
-	if st.Change20 != nil {
+	// The change is labelled with the day it is measured from. Without that day the
+	// label would claim a span it cannot name, so the cell is left out.
+	if st.Change20 != nil && st.Change20Date != "" {
 		textClass, textColor, _, _ := deltaStyle(*st.Change20)
-		out = append(out, stat{Label: "20-DAY CHANGE", Value: signedPts(*st.Change20) + " pts", Class: textClass, Color: textColor})
+		out = append(out, stat{
+			Label: "CHANGE SINCE " + strings.ToUpper(dayMonth(Date(st.Change20Date))),
+			Value: signedPts(*st.Change20) + " pts",
+			Class: textClass, Color: textColor,
+		})
 	}
 	return out
 }

@@ -140,6 +140,7 @@ func previewStock(c previewCase) Message {
 	if n := len(c.history); n > 20 {
 		ch := round2(c.history[n-1].P - c.history[n-21].P)
 		st.Change20 = &ch
+		st.Change20Date = c.history[n-21].D
 	}
 	return Message{
 		Scope:      alertevents.ScopeStock,
