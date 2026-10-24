@@ -33,6 +33,10 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 	registerSecrets(cfg.GeminiAPIKey, cfg.InternalServiceSecret, cfg.DatabaseURL)
+	// Every provider key is registered, so no error or log line can carry one.
+	for _, key := range cfg.ProviderKeys {
+		registerSecrets(key)
+	}
 	if dsn, err := url.Parse(cfg.DatabaseURL); err == nil && dsn.User != nil {
 		if password, ok := dsn.User.Password(); ok {
 			registerSecrets(password)
@@ -83,21 +87,28 @@ func main() {
 	// Create tool executor
 	toolExecutor := NewToolExecutor(cfg.ShortsAPIURL)
 
-	// Create LLM client
-	var llmClient *LLMClient
-	if cfg.GeminiAPIKey != "" {
-		llmClient, err = NewLLMClient(ctx, cfg.GeminiAPIKey, cfg.GeminiModel, cfg.GeminiMaxOutputTokens, toolExecutor)
-		if err != nil {
-			log.Fatalf("Failed to create LLM client: %v", err)
+	// Create the model router. Without a primary model chat is not configured,
+	// which is what an unset GEMINI_API_KEY has always meant.
+	var runner turnRunner
+	router, err := NewModelRouter(ctx, cfg, toolExecutor)
+	if err != nil {
+		log.Fatalf("Failed to configure the chat model: %v", err)
+	}
+	if router != nil {
+		defer router.Close()
+		runner = router
+		fallback := "none"
+		if cfg.ChatFallbackProvider != "" {
+			fallback = cfg.ChatFallbackProvider + "/" + cfg.ChatFallbackModel
 		}
-		defer llmClient.Close()
-		log.Printf("LLM client initialized (model: %s, max_output_tokens: %d)", cfg.GeminiModel, cfg.GeminiMaxOutputTokens)
+		log.Printf("chat model initialized (primary: %s/%s, fallback: %s, max_output_tokens: %d, turn_timeout: %s)",
+			cfg.ChatProvider, cfg.ChatModel, fallback, cfg.ChatMaxOutputTokens, cfg.ChatTurnTimeout)
 	} else {
 		log.Println("WARNING: No GEMINI_API_KEY configured, chat will not work")
 	}
 
 	// Create handler
-	handler := NewChatServiceHandler(store, llmClient, cfg)
+	handler := NewChatServiceHandler(store, runner, cfg)
 
 	// Create mux with Connect-RPC handler. Health remains public for Cloud Run
 	// probes; all chat RPCs require the service-to-service secret.

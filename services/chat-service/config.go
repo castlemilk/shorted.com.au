@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"time"
 )
 
 // Config holds the service configuration.
@@ -17,10 +18,28 @@ type Config struct {
 	GeminiAPIKey          string
 	GeminiModel           string
 	GeminiMaxOutputTokens int32
-	ChatMaxInputChars     int
-	ChatHistoryLimit      int
-	MaxConversations      int
-	MaxMessagesPerConv    int
+
+	// The model routing. ChatProvider and ChatModel choose the primary; the
+	// fallback is ChatFallbackProvider and ChatFallbackModel. Defaults keep prod
+	// on Gemini with GEMINI_MODEL.
+	ChatProvider         string
+	ChatModel            string
+	ChatMaxOutputTokens  int32
+	ChatFallbackProvider string
+	ChatFallbackModel    string
+	// ChatFallbackImplicit is set when the fallback was not named in the env but
+	// follows from a non-Gemini primary. A missing key then disables it quietly.
+	ChatFallbackImplicit bool
+	ChatTurnTimeout      time.Duration
+	ChatFirstByteTimeout time.Duration
+	// ProviderKeys holds each catalog provider's key, keyed by provider name. A
+	// key is read from the environment only.
+	ProviderKeys map[string]string
+
+	ChatMaxInputChars  int
+	ChatHistoryLimit   int
+	MaxConversations   int
+	MaxMessagesPerConv int
 
 	// Send limits, enforced against chat_usage_events before the model is
 	// called. The web app's Redis buckets use the same names and defaults; they
@@ -91,6 +110,10 @@ func LoadConfig() (*Config, error) {
 		cfg.GeminiMaxOutputTokens = int32(v)
 	}
 
+	if err := loadChatRouting(cfg); err != nil {
+		return nil, err
+	}
+
 	if v, err := parsePositiveIntEnv("CHAT_MAX_INPUT_CHARS"); err != nil {
 		return nil, err
 	} else if v > 0 {
@@ -134,6 +157,86 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// loadChatRouting reads the primary and fallback model, the timeouts and the
+// provider keys. With none of the new variables set, the primary is Gemini on
+// GEMINI_MODEL, with the same output limit as before.
+func loadChatRouting(cfg *Config) error {
+	cfg.ChatProvider = "gemini"
+	if p := os.Getenv("CHAT_PROVIDER"); p != "" {
+		cfg.ChatProvider = p
+	}
+	if _, ok := lookupProvider(cfg.ChatProvider); !ok {
+		return fmt.Errorf("invalid CHAT_PROVIDER: unknown provider %q", cfg.ChatProvider)
+	}
+	cfg.ChatModel = ""
+	if cfg.ChatProvider == "gemini" {
+		cfg.ChatModel = cfg.GeminiModel
+	}
+	if m := os.Getenv("CHAT_MODEL"); m != "" {
+		cfg.ChatModel = m
+	}
+
+	cfg.ChatMaxOutputTokens = cfg.GeminiMaxOutputTokens
+	if v, err := parsePositiveIntEnv("CHAT_MAX_OUTPUT_TOKENS"); err != nil {
+		return err
+	} else if v > 0 {
+		cfg.ChatMaxOutputTokens = int32(v)
+	}
+
+	cfg.ChatFallbackProvider = os.Getenv("CHAT_FALLBACK_PROVIDER")
+	if cfg.ChatFallbackProvider == "" && cfg.ChatProvider != "gemini" {
+		cfg.ChatFallbackProvider = "gemini"
+		cfg.ChatFallbackImplicit = true
+	}
+	if cfg.ChatFallbackProvider != "" {
+		if _, ok := lookupProvider(cfg.ChatFallbackProvider); !ok {
+			return fmt.Errorf("invalid CHAT_FALLBACK_PROVIDER: unknown provider %q", cfg.ChatFallbackProvider)
+		}
+		cfg.ChatFallbackModel = ""
+		if cfg.ChatFallbackProvider == "gemini" {
+			cfg.ChatFallbackModel = cfg.GeminiModel
+		}
+		if m := os.Getenv("CHAT_FALLBACK_MODEL"); m != "" {
+			cfg.ChatFallbackModel = m
+		}
+	}
+
+	var err error
+	if cfg.ChatTurnTimeout, err = parseDurationEnv("CHAT_TURN_TIMEOUT", defaultTurnBudget); err != nil {
+		return err
+	}
+	if cfg.ChatFirstByteTimeout, err = parseDurationEnv("CHAT_PROVIDER_FIRST_BYTE_TIMEOUT", defaultFirstByteTimeout); err != nil {
+		return err
+	}
+
+	cfg.ProviderKeys = make(map[string]string)
+	for name, env := range providerKeyEnvs() {
+		if key := os.Getenv(env); key != "" {
+			cfg.ProviderKeys[name] = key
+		}
+	}
+	if cfg.GeminiAPIKey != "" {
+		cfg.ProviderKeys["gemini"] = cfg.GeminiAPIKey
+	}
+	return nil
+}
+
+// parseDurationEnv reads a positive duration, or returns def when it is unset.
+func parseDurationEnv(name string, def time.Duration) (time.Duration, error) {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return def, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %w", name, err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("invalid %s: must be positive", name)
+	}
+	return d, nil
 }
 
 func parsePositiveIntEnv(name string) (int, error) {
