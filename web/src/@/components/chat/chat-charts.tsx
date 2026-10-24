@@ -21,6 +21,7 @@ import { createPortal } from "react-dom";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { chartTheme } from "~/@/components/charts/chart-theme";
 import {
+  AXIS_MIN_MARGIN_PX,
   AXIS_NUM_TICKS,
   axisMargin,
 } from "~/@/components/charts/axis-margin";
@@ -38,14 +39,40 @@ import {
   valueAxisTicks,
   useChartScales,
 } from "~/@/components/charts/use-chart-scales";
-import { placeTooltip } from "./chat-layout";
-import { formatDay, formatPercent, type TickFormatter } from "./chat-tool-format";
+import {
+  placeLatestLabel,
+  placeTooltip,
+  readingIsInView,
+  type ViewportRect,
+} from "./chat-layout";
+import {
+  formatDay,
+  formatPercent,
+  timeTickLabel,
+  type TickFormatter,
+} from "./chat-tool-format";
 import type { Reading } from "./chat-tool-data";
 
 /** The sparkline's width in a full table. A table at the sidebar's width draws it narrower. */
 const SPARK_WIDTH = 96;
 const SPARK_HEIGHT = 28;
 const SPARK_PAD = 2;
+
+/**
+ * The rectangles that clip an element: every ancestor whose overflow crops it. A reading
+ * scrolled out of one of them is out of view, and its tooltip goes with it.
+ */
+function clippingRects(element: Element): ViewportRect[] {
+  const rects: ViewportRect[] = [];
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    const style = window.getComputedStyle(node);
+    if (/auto|scroll|hidden|clip/.test(`${style.overflowX} ${style.overflowY}`)) {
+      const rect = node.getBoundingClientRect();
+      rects.push({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom });
+    }
+  }
+  return rects;
+}
 
 /** A press that moves less than this, in px, is a tap rather than a scrub. */
 const TAP_MAX_MOVE_PX = 6;
@@ -222,20 +249,27 @@ export function ChatSparkline({
   // The tooltip is drawn in a portal, positioned in viewport coordinates. A table's
   // scroll region clips anything inside it, so a reading in the first row (under the
   // sticky header) or the last column was cut off. Its position is set before paint,
-  // and kept while the chat or the table scrolls.
+  // and kept while the chat or the table scrolls. A reading scrolled out of its table or
+  // the conversation has no tooltip: it would otherwise float over other content, away
+  // from the reading it describes.
   const anchorRef = useRef<SVGSVGElement>(null);
   const tipRef = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<{ left: number; top: number } | null>(null);
+  const [inView, setInView] = useState(true);
   const placeTip = useCallback(() => {
     const anchor = anchorRef.current;
-    const tip = tipRef.current;
-    if (!anchor || !tip) return;
+    if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
-    const next = placeTooltip(
-      { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
-      { width: tip.offsetWidth, height: tip.offsetHeight },
-      { width: window.innerWidth, height: window.innerHeight },
-    );
+    const reading = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    const visible = readingIsInView(reading, [
+      { left: 0, top: 0, right: viewport.width, bottom: viewport.height },
+      ...clippingRects(anchor),
+    ]);
+    setInView(visible);
+    const tip = tipRef.current;
+    if (!visible || !tip) return;
+    const next = placeTooltip(reading, { width: tip.offsetWidth, height: tip.offsetHeight }, viewport);
     setPlace((previous) =>
       previous && previous.left === next.left && previous.top === next.top
         ? previous
@@ -245,11 +279,13 @@ export function ChatSparkline({
   useLayoutEffect(() => {
     if (shown === null) {
       setPlace(null);
+      setInView(true);
       return;
     }
     placeTip();
-    // The tooltip's size follows the reading it shows, so it is placed again for each.
-  }, [shown, points, formatValue, placeTip]);
+    // The tooltip's size follows the reading it shows, so it is placed again for each,
+    // and again when it comes back into view (it is not rendered while out of it).
+  }, [shown, points, formatValue, placeTip, inView]);
   useEffect(() => {
     if (shown === null) return;
     // Scrolling moves the sparkline, and a scroll does not bubble, so it is listened for in the capture phase.
@@ -320,6 +356,7 @@ export function ChatSparkline({
         It never takes the pointer, so moving up to it does not end the reading.
       */}
       {readout &&
+        inView &&
         createPortal(
           <div
             ref={tipRef}
@@ -363,12 +400,18 @@ export interface ChatLineChartProps {
   points: Reading[];
   color: string;
   kind?: "line" | "area";
+  /** The whole reading, with its unit, for the tooltip and the caption. */
   formatValue: (value: number) => string;
   /**
    * Tick labels on the value axis, built from the ticks the axis prints so their decimals
    * tell adjacent ticks apart. Defaults to formatValue.
    */
   formatAxis?: TickFormatter;
+  /**
+   * The latest-value label, which sits on the plot. It carries only the unit's short
+   * symbol, so it stays short. Defaults to formatValue.
+   */
+  formatLatest?: (value: number) => string;
   /** The id of the element that describes the chart, such as its caption. */
   describedBy?: string;
 }
@@ -379,6 +422,11 @@ const FALLBACK_WIDTH = 480;
 const PLOT_TOP = 16;
 const PLOT_RIGHT = 14;
 const PLOT_BOTTOM = 22;
+/**
+ * The most of the chart's width the value axis may take. A long unit label is held to
+ * this share, so the plot is never a sliver beside its axis.
+ */
+const MAX_AXIS_SHARE = 0.4;
 
 /**
  * An interactive line (or area) chart of readings over time. It is the stock
@@ -396,6 +444,7 @@ export function ChatLineChart({
   kind = "line",
   formatValue,
   formatAxis,
+  formatLatest = formatValue,
   describedBy,
 }: ChatLineChartProps) {
   const boxRef = useRef<HTMLDivElement>(null);
@@ -424,17 +473,21 @@ export function ChatLineChart({
       top: PLOT_TOP,
       right: PLOT_RIGHT,
       bottom: PLOT_BOTTOM,
-      // The left margin fits the widest tick label, as the stock chart's does.
-      left: axisMargin(
-        valueAxisLabels({
-          series,
-          side: "left",
-          format: tickFormat,
-          numTicks: AXIS_NUM_TICKS,
-        }),
+      // The left margin fits the widest tick label, as the stock chart's does, and is held
+      // to a share of the chart: a label too long for that leaves the plot a sliver.
+      left: Math.min(
+        axisMargin(
+          valueAxisLabels({
+            series,
+            side: "left",
+            format: tickFormat,
+            numTicks: AXIS_NUM_TICKS,
+          }),
+        ),
+        Math.max(AXIS_MIN_MARGIN_PX, Math.floor(width * MAX_AXIS_SHARE)),
       ),
     }),
-    [series, tickFormat],
+    [series, tickFormat, width],
   );
   const { dateScale, leftScale, innerW, innerH } = useChartScales({
     series,
@@ -465,6 +518,18 @@ export function ChatLineChart({
   const latest = points[lastIndex]!;
   const latestX = dateScale(new Date(latest.t)) ?? 0;
   const latestY = leftScale(latest.v) ?? 0;
+  // The latest label sits above its reading, or below it where the line runs through the
+  // space above (the series' own peak). The line is taken in plot coordinates.
+  const latestText = formatLatest(latest.v);
+  const latestLabel = placeLatestLabel({
+    line: points.map((point) => ({
+      x: dateScale(new Date(point.t)) ?? 0,
+      y: leftScale(point.v) ?? 0,
+    })),
+    latest: { x: latestX, y: latestY },
+    text: latestText,
+    plotHeight: innerH,
+  });
 
   const active = shown === null ? null : (points[shown] ?? null);
   const cx = active ? (dateScale(new Date(active.t)) ?? 0) : 0;
@@ -524,6 +589,7 @@ export function ChatLineChart({
             innerH={innerH}
             hasRight={false}
             leftFormat={tickFormat}
+            timeFormat={timeTickLabel}
           />
           <SeriesPath
             series={spec}
@@ -537,11 +603,15 @@ export function ChatLineChart({
           <circle cx={latestX} cy={latestY} r={2.5} fill={color} />
           {/*
             The label is outlined in the background colour, so the line does not run
-            through its digits where the series peaks near the latest reading.
+            through its digits where the series peaks near the latest reading. Where the
+            line still runs through the space above the reading, the label sits below it
+            instead (placeLatestLabel), and it is never placed left of the plot's edge.
           */}
           <text
-            x={latestX}
-            y={latestY - 7}
+            data-testid="chat-latest-label"
+            data-placement={latestLabel.placement}
+            x={latestLabel.x}
+            y={latestLabel.y}
             textAnchor="end"
             fontSize={11}
             fontWeight={600}
@@ -551,7 +621,7 @@ export function ChatLineChart({
             strokeLinejoin="round"
             paintOrder="stroke"
           >
-            {formatValue(latest.v)}
+            {latestText}
           </text>
         </g>
       </svg>

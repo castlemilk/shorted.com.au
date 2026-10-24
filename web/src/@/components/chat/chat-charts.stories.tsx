@@ -3,6 +3,7 @@ import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { ReactNode } from "react";
 import { ChatLineChart, ChatSparkline } from "./chat-charts";
 import { getRichToolResult, RichToolResultView } from "./chat-rich-tool-results";
+import { TopShortsTable } from "./chat-rich-tables";
 import { parseShortPositions, parseTopShorts } from "./chat-tool-data";
 import { formatPercent } from "./chat-tool-format";
 import bhp1y from "./__fixtures__/tool-results/query_short_positions-bhp-1y.json";
@@ -13,6 +14,7 @@ import unemployment from "./__fixtures__/tool-results/get_economic_series-unempl
 import topShorts10 from "./__fixtures__/tool-results/get_top_shorts-10.json";
 import narrowRange from "./__fixtures__/tool-results/query_short_positions-narrow-range.json";
 import unitSeries from "./__fixtures__/tool-results/get_economic_series-units.json";
+import topShorts50 from "./__fixtures__/tool-results/get_top_shorts-50.json";
 
 // The fixtures are the recorded results, re-serialised: the components see the
 // same JSON text the chat receives.
@@ -305,5 +307,129 @@ export const SparklineAtWindowCorner: Story = {
     await expect(box.right).toBeLessThanOrEqual(window.innerWidth);
     await expect(box.top).toBeGreaterThanOrEqual(0);
     await expect(box.bottom).toBeLessThanOrEqual(window.innerHeight);
+  },
+};
+
+/**
+ * A series in a long unit at the desktop sidebar's width (276px): Singapore dollars per US
+ * dollar. The ticks print bare figures and the latest label its short form, so the unit is
+ * named once, in the subtitle, and the plot keeps most of the width. Synthetic: no recorded
+ * answer carries this unit.
+ */
+const sgdSeries = {
+  series: [
+    {
+      key: "fx.spot_rate.usd_sgd.sgp",
+      name: "Singapore",
+      unit: "sgd_per_usd",
+      frequency: "monthly",
+      observations: Array.from({ length: 24 }, (_, index) => ({
+        period: new Date(Date.UTC(2024, index, 1)).toISOString().slice(0, 10),
+        value: 1.3 + Math.sin(index / 3) * 0.03 + index * 0.002,
+      })),
+    },
+  ],
+};
+
+export const EconomicSeriesLongUnitDesktopSidebar: Story = {
+  decorators: [frame(276)],
+  render: () => (
+    <RichToolResultView
+      result={getRichToolResult(toolCall("get_economic_series", { series_keys: ["fx.spot_rate.usd_sgd.sgp"] }, sgdSeries))!}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Singapore dollars per US dollar · Monthly")).toBeInTheDocument();
+    const latest = await waitFor(() => {
+      const element = canvasElement.querySelector<SVGTextElement>('[data-testid="chat-latest-label"]');
+      if (!element) throw new Error("the chart has not drawn yet");
+      return element;
+    });
+    // The label is the figure and no words, so it is not wider than the plot it sits on.
+    await expect(latest.textContent ?? "").not.toMatch(/Singapore/);
+    const labelBox = latest.getBoundingClientRect();
+    const svg = latest.ownerSVGElement!.getBoundingClientRect();
+    await expect(labelBox.left).toBeGreaterThanOrEqual(svg.left);
+    // No tick label runs under the latest label.
+    for (const tick of canvasElement.querySelectorAll<SVGTextElement>(".visx-axis-left text")) {
+      const box = tick.getBoundingClientRect();
+      const overlaps =
+        box.left < labelBox.right && box.right > labelBox.left && box.top < labelBox.bottom && box.bottom > labelBox.top;
+      await expect(overlaps).toBe(false);
+    }
+  },
+};
+
+/**
+ * The DRO fixture (a real six-month answer) at the sidebar's width. Its peak is the reading
+ * before the latest, and the line comes up into the latest reading from below as well. Both
+ * sides of the latest reading are crossed, so the label moves into the band over the plot,
+ * where no line can reach it, and the peak and the reading's digits are both visible.
+ */
+export const ShortPositionLatestLabelClearOfPeak: Story = {
+  decorators: [frame(280)],
+  render: () => (
+    <RichToolResultView
+      result={getRichToolResult(toolCall("query_short_positions", { stock_code: "DRO", period: "6m" }, dro6m))!}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    // The first paint lays the chart out at a fallback width. The placement is read once the
+    // measured width has replaced it, which the svg's viewBox shows.
+    const latest = await waitFor(() => {
+      const svg = canvasElement.querySelector<SVGSVGElement>("svg[viewBox]");
+      if (!svg || svg.getAttribute("viewBox")?.startsWith("0 0 480 ")) throw new Error("not measured yet");
+      const element = canvasElement.querySelector<SVGTextElement>('[data-testid="chat-latest-label"]');
+      if (!element) throw new Error("the chart has not drawn yet");
+      return element;
+    });
+    await expect(latest.getAttribute("data-placement")).toBe("top");
+    // The label is in the band over the plot, above the top of the line.
+    await expect(Number(latest.getAttribute("y"))).toBeLessThan(0);
+  },
+};
+
+/**
+ * Nearly a year of monthly readings across two calendar years, so the time axis writes the
+ * year where it changes. Without it the axis read "October, April, October" with no way to
+ * tell which October.
+ */
+export const EconomicSeriesYearAxisSidebar: Story = {
+  decorators: [frame(333)],
+  render: () => (
+    <RichToolResultView
+      result={getRichToolResult(toolCall("get_economic_series", { series_keys: unemployment.series.map((s) => s.key), limit: 24 }, unemployment))!}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const labels = await waitFor(() => {
+      const found = [...canvasElement.querySelectorAll(".visx-axis-bottom text")].map((node) => node.textContent ?? "");
+      if (found.length < 2) throw new Error("the time axis has not drawn yet");
+      return found;
+    });
+    await expect(labels.some((label) => /\b20\d\d\b/.test(label))).toBe(true);
+    await expect(labels.every((label) => !/^(January|February|March|April|May|June|July|August|September|October|November|December)$/.test(label))).toBe(true);
+  },
+};
+
+/**
+ * A focused sparkline that scrolls out of its table loses its tooltip. The tooltip would
+ * otherwise float over the sheet's other content, away from the reading it describes, until
+ * the next tap. The region is scrolled past the third row, where the reading was focused.
+ */
+export const SparklineScrolledOutOfTable: Story = {
+  decorators: [frame(720)],
+  render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const region = await canvas.findByRole("region", { name: "Most shorted ASX stocks" });
+    const spark = (await canvas.findAllByRole("group", { name: /short interest/ }))[2]!;
+    spark.focus();
+    await waitFor(() => {
+      if (!document.querySelector('[data-testid="chat-spark-tooltip"]')) throw new Error("no tooltip yet");
+    });
+    region.scrollTop = 400;
+    await waitFor(() => expect(document.querySelector('[data-testid="chat-spark-tooltip"]')).toBeNull());
   },
 };

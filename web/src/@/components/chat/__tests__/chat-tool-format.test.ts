@@ -78,8 +78,11 @@ describe("axis ticks", () => {
     expect(ticks.map(format)).toEqual(["0.0%", "2.5%", "5.0%", "7.5%", "10.0%"]);
   });
 
-  it("prints a unit on an axis the same way as on a reading", () => {
-    expect(axisFormatter("usd_per_barrel")([60, 70, 80])(70)).toBe("US$70 per barrel");
+  it("prints a unit's short symbol on an axis, never its words", () => {
+    // The subtitle names the unit once; a tick repeating "per barrel" took 40% of a narrow chart.
+    expect(axisFormatter("usd_per_barrel")([60, 70, 80])(70)).toBe("US$70");
+    expect(axisFormatter("sgd_per_usd")([1.3, 1.35, 1.4])(1.35)).toBe("1.35");
+    expect(axisFormatter("aud")([1000, 2000])(2000)).toBe("$2,000");
     expect(axisFormatter(undefined)([1, 2])(2)).toBe("2");
   });
 

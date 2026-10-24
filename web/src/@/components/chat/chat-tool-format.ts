@@ -83,8 +83,9 @@ export function formatSignedPercent(value: number): string {
 /**
  * How a series' unit reads beside its figures. `words` names the unit in a series'
  * subtitle. `prefix` sits against the figure ("$1,234.56", "US$1.09"), and `suffix` follows it,
- * spaced as written (" ML", "%"). The ids are the ones the economy importers write
- * (services/jobs/internal/jobs/economy), so a new importer adds its unit here.
+ * spaced as written (" ML", "%"). A reading (a tooltip, a caption) carries all of it.
+ * The ids are the ones the economy importers write (services/jobs/internal/jobs/economy),
+ * and a test in __tests__ fails when an importer writes one this map does not name.
  */
 interface UnitReading {
   words: string;
@@ -109,6 +110,14 @@ const UNIT_READINGS = new Map<string, UnitReading>([
   ["inr_per_usd", { words: "Indian rupees per US dollar", suffix: " rupees per US$" }],
   ["sgd_per_usd", { words: "Singapore dollars per US dollar", suffix: " Singapore dollars per US$" }],
   ["cad_per_usd", { words: "Canadian dollars per US dollar", suffix: " Canadian dollars per US$" }],
+  ["usd_per_metric_ton", { words: "US dollars per metric tonne", prefix: "US$", suffix: " per tonne" }],
+  ["usd_per_kg", { words: "US dollars per kilogram", prefix: "US$", suffix: " per kilogram" }],
+  ["usd_per_mmbtu", { words: "US dollars per million Btu", prefix: "US$", suffix: " per mmBtu" }],
+  ["usd_per_troy_oz", { words: "US dollars per troy ounce", prefix: "US$", suffix: " per troy ounce" }],
+  [
+    "usd_per_dmtu",
+    { words: "US dollars per dry metric tonne unit", prefix: "US$", suffix: " per dry metric tonne unit" },
+  ],
   ["megalitres", { words: "Megalitres", suffix: " ML" }],
   ["persons", { words: "Persons", suffix: " people" }],
   ["units", { words: "Dwelling units", suffix: " dwellings" }],
@@ -123,14 +132,34 @@ function unitReading(unit: string | undefined): UnitReading | undefined {
   return unit ? UNIT_READINGS.get(unit.trim().toLowerCase()) : undefined;
 }
 
-/** A figure with its unit's prefix and suffix. `digits` writes the absolute value. */
-function withUnit(
+/** The text that sits either side of a figure. */
+interface Affixes {
+  prefix?: string;
+  suffix?: string;
+}
+
+/** A figure with its affixes. `digits` writes the absolute value. */
+function affixed(
   value: number,
-  reading: UnitReading | undefined,
+  affixes: Affixes | undefined,
   digits: (absolute: number) => string,
 ): string {
   const sign = value < 0 ? "-" : "";
-  return `${sign}${reading?.prefix ?? ""}${digits(Math.abs(value))}${reading?.suffix ?? ""}`;
+  return `${sign}${affixes?.prefix ?? ""}${digits(Math.abs(value))}${affixes?.suffix ?? ""}`;
+}
+
+/**
+ * The short form of a unit that an axis tick or the latest-value label prints: a currency
+ * symbol before the figure, or "%" after it. Anything longer is left to the subtitle, which
+ * names the unit once. "US$78 per barrel" on every tick is what this avoids.
+ */
+function briefAffixes(unit: string | undefined): Affixes {
+  const reading = unitReading(unit);
+  if (!reading) return {};
+  return {
+    prefix: reading.prefix,
+    suffix: reading.suffix === "%" ? "%" : undefined,
+  };
 }
 
 /**
@@ -138,7 +167,8 @@ function withUnit(
  * An unknown unit adds nothing.
  */
 export function formatNumber(value: number, unit?: string): string {
-  return withUnit(value, unitReading(unit), (absolute) => plain2.format(absolute));
+  const reading = unitReading(unit);
+  return affixed(value, reading, (absolute) => plain2.format(absolute));
 }
 
 /** A whole count: shares traded, or the rows left out. */
@@ -274,17 +304,50 @@ export function valueFormatter(unit?: string): (value: number) => string {
  */
 export type TickFormatter = (ticks: readonly number[]) => (value: number) => string;
 
-/** The axis formatter for a unit: "15.92%" beside "15.93%", not "15.9%" twice. */
+/**
+ * The axis formatter for a unit: "15.92%" beside "15.93%", not "15.9%" twice. A unit
+ * prints bare figures with its short symbol ("US$70", "$1.25", "15.9%"), so a long unit
+ * such as "Singapore dollars per US$" is not repeated on every tick.
+ */
 export function axisFormatter(unit?: string): TickFormatter {
-  const reading = unitReading(unit);
+  const affixes = briefAffixes(unit);
   return (ticks) => {
     const digits = fixedDecimals(tickDecimals(ticks));
-    return (value) => withUnit(value, reading, (absolute) => digits.format(absolute));
+    return (value) => affixed(value, affixes, (absolute) => digits.format(absolute));
   };
 }
 
-/** Most decimals an axis label is given. A step finer than this is not a chart's step. */
-const MAX_AXIS_DECIMALS = 6;
+/**
+ * The latest-value label on a chart: the figure to two decimals with the unit's short
+ * symbol, never its long words. "7.00%", "US$78.25", "1.35". The tooltip and the caption
+ * print the whole reading (see valueFormatter).
+ */
+export function latestFormatter(unit?: string): (value: number) => string {
+  if (unit?.trim().toLowerCase() === "percent") return formatPercent;
+  const affixes = briefAffixes(unit);
+  return (value) => affixed(value, affixes, (absolute) => plain2.format(absolute));
+}
+
+/**
+ * The label of a time-axis tick. Months are short ("Oct", "9 Oct" for a week's tick),
+ * and the year is written on the first tick and on each tick where the year changes,
+ * so two Octobers on one axis can be told apart. The ticks are local-time midnights,
+ * as d3 generates them. `ticks` is the list the axis draws, so a thinned axis compares
+ * each tick with the one it draws before it.
+ */
+export function timeTickLabel(value: Date, index: number, ticks: readonly Date[]): string {
+  const month = MONTH_ABBREVIATIONS[value.getMonth()] ?? "";
+  const day = value.getDate();
+  const head = day === 1 ? month : `${day} ${month}`;
+  const previous = index > 0 ? ticks[index - 1] : undefined;
+  const yearChanged = !previous || previous.getFullYear() !== value.getFullYear();
+  return yearChanged ? `${head} ${value.getFullYear()}` : head;
+}
+
+/** Most decimals an axis label is given by the grid. A step needing more is printed in significant figures. */
+const MAX_AXIS_DECIMALS = 12;
+/** The most decimals any axis label is given, however fine its step (the Intl limit this code relies on). */
+const MAX_FIXED_DECIMALS = 20;
 const fixedFormats = new Map<number, Intl.NumberFormat>();
 
 /** A number format with exactly `decimals` places, kept for reuse. */
@@ -304,20 +367,31 @@ function fixedDecimals(decimals: number): Intl.NumberFormat {
  * The fewest decimals that print the step between adjacent ticks exactly. A step of
  * 0.005 needs three places, 0.25 two, 2 none. Without them adjacent ticks round to the
  * same label, as 15.92 and 15.93 both do at one decimal.
+ *
+ * The test is relative to the step's size, so a step of 2e-7 on a near-zero series needs
+ * seven places, not none. A step too fine for MAX_AXIS_DECIMALS takes the places that
+ * its own magnitude needs, so adjacent ticks still print apart.
  */
 export function tickDecimals(ticks: readonly number[]): number {
   const sorted = ticks.filter(Number.isFinite).slice().sort((a, b) => a - b);
   let step = Infinity;
   for (let i = 1; i < sorted.length; i++) {
-    const gap = sorted[i]! - sorted[i - 1]!;
-    if (gap > 1e-12 && gap < step) step = gap;
+    const a = sorted[i - 1]!;
+    const b = sorted[i]!;
+    const gap = b - a;
+    // A gap within float noise of zero is the same tick twice, not a step.
+    if (gap > Math.max(Math.abs(a), Math.abs(b), Number.MIN_VALUE) * 1e-12 && gap < step) {
+      step = gap;
+    }
   }
   if (!Number.isFinite(step)) return 0;
-  for (let decimals = 0; decimals < MAX_AXIS_DECIMALS; decimals++) {
+  for (let decimals = 0; decimals <= MAX_AXIS_DECIMALS; decimals++) {
+    // Whole in units of the step, to float noise relative to the step itself.
     const scaled = step * 10 ** decimals;
-    if (Math.abs(scaled - Math.round(scaled)) < 1e-6) return decimals;
+    if (Math.abs(scaled - Math.round(scaled)) <= 1e-9 * scaled) return decimals;
   }
-  return MAX_AXIS_DECIMALS;
+  // The step is finer than the grid's places: one more place than its order of magnitude.
+  return Math.min(MAX_FIXED_DECIMALS, Math.ceil(-Math.log10(step)) + 1);
 }
 
 /**

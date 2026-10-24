@@ -59,6 +59,7 @@ export const Axes = React.memo(function Axes({
   hasRight,
   leftFormat,
   rightFormat,
+  timeFormat,
   compact,
 }: {
   xScale: TimeScale;
@@ -69,6 +70,11 @@ export const Axes = React.memo(function Axes({
   hasRight: boolean;
   leftFormat?: (v: number) => string;
   rightFormat?: (v: number) => string;
+  /**
+   * The label of each time tick, given the ticks the axis draws (so a thinned axis can
+   * compare each with the one before it). Unset, the scale's own format is used.
+   */
+  timeFormat?: (value: Date, index: number, ticks: readonly Date[]) => string;
   compact?: boolean;
 }) {
   // `numTicks` is only a hint to d3: a two-month domain asked for 5 ticks gets
@@ -89,6 +95,16 @@ export const Axes = React.memo(function Axes({
         top={innerH}
         scale={xScale}
         tickValues={xTickValues}
+        tickFormat={
+          timeFormat
+            ? (value, index, values) =>
+                timeFormat(
+                  new Date(value.valueOf()),
+                  index,
+                  values.map((tick) => new Date(tick.value.valueOf())),
+                )
+            : undefined
+        }
         stroke={chartTheme.axis}
         tickStroke={chartTheme.axis}
         tickLabelProps={() => ({

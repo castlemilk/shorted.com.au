@@ -40,6 +40,7 @@ import {
   axisFormatter,
   formatPercent,
   formatWhole,
+  latestFormatter,
   readingSummary,
   seriesSubtitle,
   seriesTitle,
@@ -304,6 +305,7 @@ function EconomicSeriesFigure({
         color={color}
         formatValue={format}
         formatAxis={axisFormatter(series.unit)}
+        formatLatest={latestFormatter(series.unit)}
         describedBy={captionId}
       />
     </figure>
