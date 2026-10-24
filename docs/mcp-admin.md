@@ -47,10 +47,10 @@ every Claude session (including Claude Code on the web) with twenty-three tools:
 | `list_billing_exceptions` `{limit?}` | `users:read` | Billing exceptions across every subscriber, most severe first. `counts` covers every finding; `rows` is the first `limit` (default 25). |
 | `paid_feature_status` `{}` | `jobs:read` | Each paid feature's probe monitor in Telesis (`paid-feature: <feature>`): its status, whether it is armed or paused, when it last and next ran, and its five newest runs. |
 | `run_paid_probe` `{}` | `jobs:run` | Runs the paid-feature probe on the web app inside the call and returns each step. Bounded at 85 seconds. A second call while a run is in flight returns `inProgress: true` at once and starts nothing. |
-| `alerts_status` `{}` | `jobs:read` | The alerts pipeline: monitor counts across owners by status and cadence, the caller's own monitors, the ten newest evaluator runs and the twenty newest events. Other owners' rows carry no address, user id or message body. |
+| `alerts_status` `{}` | `jobs:read` | The alerts pipeline: monitor counts across owners by status and cadence, the caller's own monitors, the ten newest evaluator runs and the twenty newest events. Other owners' events carry no monitor id and no error text (the error text can name their subscription status); no address or user id is returned for anyone. |
 | `find_alert_crossing` `{code?, threshold?, condition?}` | `jobs:read` | The most recent report date on which a stock crossed a threshold (default 5, `above`), by the evaluator's rule over the last 20 report dates. Read-only. |
-| `run_alerts_smoke_test` `{code?, threshold?, condition?, date?}` | `jobs:run` | The end-to-end check on the caller's own account: creates or reuses one daily monitor, then replays one report date for the caller only. A real email goes to the caller's verified address. Refuses without Premium or a verified address. |
-| `alerts_smoke_result` `{monitor_id, date, execution?}` | `jobs:read` | What the replay did for one of the caller's monitors on one date: the event row and, with `execution`, the replay job's state. |
+| `run_alerts_smoke_test` `{code?, threshold?, condition?, date?}` | `jobs:run` | The end-to-end check on the caller's own account: creates or reuses one daily monitor, then replays one report date for the caller. The replay also emails the caller's other daily monitors that crossed on that date. A real email goes to the caller's verified address. Refuses without Premium or a verified address, and refuses a date where the monitor already has an event. |
+| `alerts_smoke_result` `{monitor_id, date, execution?}` | `jobs:read` | What the replay did for one of the caller's monitors on one date: the event row (with `createdAt`, `runId`) and, with `execution`, the job's state. A row written before that execution started is flagged `predatesExecution`. |
 | `delete_alert_monitor` `{monitor_id}` | `jobs:run` | Deletes one of the caller's own monitors and its events. Refused for any other monitor. |
 
 Only merged articles can be published — the job image bakes `content/news` in
@@ -220,8 +220,9 @@ caller's own account and nobody else's. The runbook is `docs/alerts-runbook.md`
    date (email status, whether Resend accepted it, any error) and the execution.
    A second replay of the same date sends nothing: the evaluator writes one event per
    monitor per date.
-4. `delete_alert_monitor` removes the smoke monitor when the check is done. It stays
-   active until then, so it will email on future crossings.
+4. The smoke monitor stays active after the check. It emails again on every future
+   crossing until it is paused (the one-click link in the email) or deleted. Pause
+   it from the email, then `delete_alert_monitor` removes it.
 
 **The verified address.** Step 2 reads the caller's address from the web app's
 `admin-users` route (`lookup` by `uid`), and uses it only when the account is enabled
@@ -233,9 +234,15 @@ refusal names the reason (not verified, disabled, no account, or the web app sti
 rolling out a deploy, which clears within minutes), and nothing is created.
 
 Ownership is structural. Every alerts tool acts for the verified token's uid, and
-no input names an owner. `alerts_status` shows other owners' counts and events
-without their addresses or ids, and `alerts_smoke_result` and `delete_alert_monitor`
-reach only the caller's own monitors (another owner's monitor reads as not found).
+no input names an owner (an owner field in the input is refused by the schema).
+`alerts_status` shows other owners' counts and events, but never their addresses,
+user ids, or, for their events, monitor ids and error text. `alerts_smoke_result` and
+`delete_alert_monitor` reach only the caller's own monitors (another owner's monitor
+reads as not found).
+
+The replay job is fenced. `shorted-alerts-replay` sets `ALERTS_REPLAY_ONLY=true`, so
+a live run without both `-date` and `-user` is refused by the jobs binary itself.
+The scheduled CronJob does not set it.
 
 ## Job visibility and freshness
 
@@ -371,6 +378,11 @@ Files: `services/shorts/internal/mcp/admin.go`, `internal/jobmonitor/publish.go`
 - **"the web app does not answer uid lookups yet"** — the API was deployed ahead of the
   web app (the two ship in one deploy, API first). Retry in a few minutes. Nothing is
   cached, so the next call after the rollout works.
+- **"already has an alert event for <date>"** from `run_alerts_smoke_test` — the monitor
+  has a row for that date (an earlier smoke run, or the scheduled run fired on it). A
+  replay would send nothing, and the old row would read as this run's result, so nothing
+  is started. Pick another date with `find_alert_crossing`, or delete the monitor and run
+  again.
 - **"the alerts replay is already running"** from `run_alerts_smoke_test` — a replay
   is in flight. Wait for it, then retry. The monitor it used stays in place.
 

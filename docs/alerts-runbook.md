@@ -148,7 +148,9 @@ smoke test. It is the five alerts tools, on your own account only:
 6. `delete_alert_monitor` with the `monitor_id`. The monitor stays active until you do,
    so it will email on future crossings.
 
-**Refusals:** step 2 names its reason and writes nothing. An unverified or disabled
+**Refusals:** step 2 names its reason and writes nothing. A date where the monitor
+already has an event is refused too, because a replay would send nothing; pick another
+date. An unverified or disabled
 account, or a deploy still rolling out, is refused until it is fixed. Use the fallback
 below only when the connector is unavailable.
 

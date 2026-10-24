@@ -22,7 +22,9 @@ import { hasInternalSecret } from "~/server/internal-secret";
  * Server-to-server only (INTERNAL_SERVICE_SECRET), for the same reason as
  * admin-check: accounts are Firebase Auth users and only this app holds a
  * Firebase Admin credential. The API has already checked that the caller is a
- * current administrator holding users:read; this route trusts the secret.
+ * current administrator holding users:read, or jobs:run for the smoke test. A jobs:run caller only ever
+ * looks up its own uid (run_alerts_smoke_test, to read its verified address);
+ * this route trusts the secret.
  *
  * Returns the fewest fields that say who and in what state: uid, email,
  * verified, disabled, sign-in providers and two dates. No display names,
