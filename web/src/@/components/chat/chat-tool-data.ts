@@ -79,6 +79,8 @@ export interface PeerRow {
 export interface PeersView {
   subjectCode?: string;
   industry?: string;
+  /** The stock the peers are compared with, drawn first. It has the same fields a peer has. */
+  subject?: PeerRow;
   rows: PeerRow[];
 }
 
@@ -307,31 +309,43 @@ export function parseShortPositions(
   };
 }
 
-/** The peers table: `subject` (optional) and `peers`. Null when there is no peers list. */
+/** One stock's figures from a peers answer, or undefined when it has no valid code. */
+function peerRow(record: JsonRecord | null): PeerRow | undefined {
+  const code = validCode(record?.stockCode);
+  if (!record || !code) return undefined;
+  return {
+    code,
+    name: textValue(record.companyName, 120),
+    shortPercent: finiteNumber(record.shortPositionPercent),
+    marketCap: finiteNumber(record.marketCap),
+    peRatio: finiteNumber(record.peRatio),
+    dividendYield: finiteNumber(record.dividendYield),
+    priceChange1m: finiteNumber(record.priceChange1m),
+  };
+}
+
+/**
+ * The peers table: `subject` (optional, drawn first) and `peers`. Null when there is
+ * no peers list. A peer that repeats the subject's code is left out, so the subject
+ * appears once.
+ */
 export function parsePeers(result: string): PeersView | null {
   const root = resultRecord(result);
   if (!root || !Array.isArray(root.peers)) return null;
 
-  const subject = asRecord(root.subject);
+  const subjectRecord = asRecord(root.subject);
+  const subject = peerRow(subjectRecord);
   const rows: PeerRow[] = [];
   for (const item of arrayValue(root.peers).slice(0, MAX_TABLE_ROWS)) {
-    const record = asRecord(item);
-    const code = validCode(record?.stockCode);
-    if (!record || !code) continue;
-    rows.push({
-      code,
-      name: textValue(record.companyName, 120),
-      shortPercent: finiteNumber(record.shortPositionPercent),
-      marketCap: finiteNumber(record.marketCap),
-      peRatio: finiteNumber(record.peRatio),
-      dividendYield: finiteNumber(record.dividendYield),
-      priceChange1m: finiteNumber(record.priceChange1m),
-    });
+    const row = peerRow(asRecord(item));
+    if (!row || row.code === subject?.code) continue;
+    rows.push(row);
   }
 
   return {
-    subjectCode: validCode(subject?.stockCode),
-    industry: textValue(root.industry, 80) ?? textValue(subject?.industry, 80),
+    subjectCode: subject?.code,
+    industry: textValue(root.industry, 80) ?? textValue(subjectRecord?.industry, 80),
+    subject,
     rows,
   };
 }

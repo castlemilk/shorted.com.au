@@ -13,6 +13,7 @@ import topShorts50 from "./__fixtures__/tool-results/get_top_shorts-50.json";
 import peersBhp from "./__fixtures__/tool-results/get_peer_comparison-bhp.json";
 import tradesBhp from "./__fixtures__/tool-results/get_director_trades-bhp.json";
 import tradesNone from "./__fixtures__/tool-results/get_director_trades-glc-none.json";
+import tradesBhp50 from "./__fixtures__/tool-results/get_director_trades-bhp-50.json";
 
 // The fixtures are the recorded results, re-serialised: the parsers see the same
 // JSON text the chat receives.
@@ -65,6 +66,54 @@ export const TopShortsFifty: Story = {
 export const TopShortsNarrow: Story = {
   decorators: [themed("light", 320)],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
+};
+
+/**
+ * The sidebar's real width, about 333px after the thread, bubble and tool padding. The
+ * code, company, short position and change fit; the trend scrolls sideways, and the fade
+ * on the right edge says there is more to see.
+ */
+export const TopShortsSidebarLight: Story = {
+  decorators: [themed("light", 333)],
+  render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId("chat-table-more")).toBeInTheDocument();
+  },
+};
+
+export const TopShortsSidebarDark: Story = {
+  decorators: [themed("dark", 333)],
+  render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
+};
+
+/** The director trades answer at the sidebar's width: the director, shares and value fit. */
+export const DirectorTradesSidebarLight: Story = {
+  decorators: [themed("light", 333)],
+  render: () => (
+    <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp))!} code="BHP" />
+  ),
+};
+
+export const DirectorTradesSidebarDark: Story = {
+  decorators: [themed("dark", 333)],
+  render: () => (
+    <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp))!} code="BHP" />
+  ),
+};
+
+/** The fifty-row answer the budget trimmed to thirty-six trades: the footer names the eight left out. */
+export const DirectorTradesTrimmedLight: Story = {
+  decorators: [themed("light", 333)],
+  render: () => (
+    <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp50))!} code="BHP" />
+  ),
+};
+
+/** The peers with the subject first and marked. Recorded 2026-10-24. */
+export const PeersSidebarLight: Story = {
+  decorators: [themed("light", 333)],
+  render: () => <PeersTable view={parsePeers(recorded(peersBhp))!} />,
 };
 
 /** The tool left stocks out of the answer. Synthetic: no recorded answer carries omittedStocks. */

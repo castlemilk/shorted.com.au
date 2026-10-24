@@ -1,6 +1,7 @@
 import {
   axisFormatter,
   formatDay,
+  formatDayMonth,
   formatNumber,
   formatPercent,
   formatPointsChange,
@@ -39,6 +40,10 @@ describe("number formatting", () => {
 describe("dates", () => {
   it("shows a reading's day in the Sydney calendar", () => {
     expect(formatDay(Date.parse("2026-10-19T00:00:00Z"))).toBe("19 Oct 2026");
+  });
+
+  it("shows a day and month with no year, for a column that already names the period", () => {
+    expect(formatDayMonth(Date.parse("2026-10-14T00:00:00Z"))).toBe("14 Oct");
   });
 
   it("shows a date-only trade date as the day it names", () => {

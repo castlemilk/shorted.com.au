@@ -421,7 +421,7 @@ describe("ChatMessageBubble tables from tool results", () => {
     );
     expect(screen.getByRole("table", { name: "Most shorted ASX stocks" })).toBeInTheDocument();
     expect(screen.queryByText(/"productCode"/)).not.toBeInTheDocument();
-    await screen.findAllByRole("group", { name: /short interest, last three months/ });
+    await screen.findAllByRole("group", { name: /short interest/ });
   });
 
   it("draws each economic series as its own interactive chart", async () => {

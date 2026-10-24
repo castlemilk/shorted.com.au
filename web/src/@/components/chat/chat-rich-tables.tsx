@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { seriesColor } from "~/@/components/charts/chart-theme";
 import { industryLabel } from "~/@/lib/industry-placeholder";
@@ -21,6 +22,7 @@ import type {
   TopShortsView,
 } from "./chat-tool-data";
 import {
+  formatDayMonth,
   formatMarketCap,
   formatPercent,
   formatPointsChange,
@@ -48,6 +50,10 @@ const ChatSparkline = dynamic(
   },
 );
 
+// The tables are drawn in the chat's sidebar, about 330px wide on a phone and on a
+// desktop alike. The key figures come first and sit inside that width. The rest
+// scrolls sideways, and the table says so with a fade on its right edge.
+
 /** "Most shorted" from get_top_shorts. */
 export function TopShortsTable({ view }: { view: TopShortsView }) {
   if (view.rows.length === 0) {
@@ -65,17 +71,13 @@ export function TopShortsTable({ view }: { view: TopShortsView }) {
 }
 
 const TOP_SHORT_COLUMNS: readonly ChatDataTableColumn<TopShortRow>[] = [
-  { id: "rank", header: "Rank", numeric: true, cell: (row) => row.rank },
   {
     id: "code",
-    header: "Code",
+    header: "Stock",
     rowHeader: true,
-    cell: (row) => <StockCodeLink code={row.code} />,
-  },
-  {
-    id: "name",
-    header: "Company",
-    cell: (row) => row.name ?? <Dash />,
+    cell: (row) => (
+      <StockCell code={row.code} name={row.name} rank={row.rank} />
+    ),
   },
   {
     id: "short",
@@ -86,7 +88,7 @@ const TOP_SHORT_COLUMNS: readonly ChatDataTableColumn<TopShortRow>[] = [
   },
   {
     id: "change",
-    header: "3-month change",
+    header: "Change",
     numeric: true,
     cell: (row) => changeCell(row.points),
   },
@@ -96,7 +98,8 @@ const TOP_SHORT_COLUMNS: readonly ChatDataTableColumn<TopShortRow>[] = [
     cell: (row) =>
       row.points.length >= 2 ? (
         <ChatSparkline
-          label={`${row.code} short interest, last three months`}
+          label={`${row.code} short interest`}
+          seriesLabel={row.code}
           points={row.points}
           color={seriesColor("short")}
         />
@@ -107,10 +110,11 @@ const TOP_SHORT_COLUMNS: readonly ChatDataTableColumn<TopShortRow>[] = [
 ];
 
 /**
- * How far the short position moved across the sparkline's window, in points. A
- * rise in short interest is red and a fall green: the site's convention for
- * short interest, the same as the short-interest table. The sign is in the text
- * too, so the colour is never the only cue.
+ * How far the short position moved across the sparkline's readings, in points, and
+ * the day the first of them is dated. Those readings can cover less than the three
+ * months the answer is about, so the day is shown rather than a period name. A rise
+ * in short interest is red and a fall green: the site's convention for short
+ * interest. The sign is in the text too, so the colour is never the only cue.
  */
 function changeCell(points: Reading[]): ReactNode {
   const first = points[0];
@@ -118,99 +122,116 @@ function changeCell(points: Reading[]): ReactNode {
   if (points.length < 2 || !first || !last) return <Dash />;
   const delta = last.v - first.v;
   return (
-    <span
-      className={cn(
-        "font-medium",
-        delta > 0 && "text-red-500",
-        delta < 0 && "text-emerald-500",
-        delta === 0 && "text-muted-foreground",
-      )}
-    >
-      {formatPointsChange(delta)}
+    <span className="block">
+      <span
+        className={cn(
+          "font-medium",
+          delta > 0 && "text-red-700 dark:text-red-400",
+          delta < 0 && "text-emerald-700 dark:text-emerald-400",
+          delta === 0 && "text-muted-foreground",
+        )}
+      >
+        {formatPointsChange(delta)}
+      </span>
+      <span className="block text-[10px] font-normal text-muted-foreground">
+        since {formatDayMonth(first.t)}
+      </span>
     </span>
   );
 }
 
-/** "Peer comparison" from get_peer_comparison. */
+/** "Peer comparison" from get_peer_comparison. The stock it compares is the first row. */
 export function PeersTable({ view }: { view: PeersView }) {
   const subject = view.subjectCode ?? "this stock";
   const industry = industryLabel(view.industry);
   if (view.rows.length === 0) {
     return <EmptyNote>No peers to compare with {subject}.</EmptyNote>;
   }
+  const rows = view.subject ? [view.subject, ...view.rows] : view.rows;
   return (
     <ChatDataTable
       caption={
         industry ? `Peers of ${subject} in ${industry}` : `Peers of ${subject}`
       }
-      columns={PEER_COLUMNS}
-      rows={view.rows}
+      columns={peerColumns(view.subjectCode)}
+      rows={rows}
       rowKey={(row) => row.code}
+      rowClassName={(row) =>
+        row.code === view.subjectCode ? "bg-muted/50" : undefined
+      }
     />
   );
 }
 
-const PEER_COLUMNS: readonly ChatDataTableColumn<PeerRow>[] = [
-  {
-    id: "code",
-    header: "Code",
-    rowHeader: true,
-    cell: (row) => <StockCodeLink code={row.code} />,
-  },
-  { id: "name", header: "Company", cell: (row) => row.name ?? <Dash /> },
-  {
-    id: "short",
-    header: "Short",
-    numeric: true,
-    cell: (row) =>
-      row.shortPercent === undefined ? (
-        <Dash />
-      ) : (
-        formatPercent(row.shortPercent)
+/** The peer columns. The subject's row is marked, so a reader knows which row it is. */
+function peerColumns(subjectCode?: string): readonly ChatDataTableColumn<PeerRow>[] {
+  return [
+    {
+      id: "code",
+      header: "Stock",
+      rowHeader: true,
+      cell: (row) => (
+        <StockCell
+          code={row.code}
+          name={row.name}
+          badge={row.code === subjectCode ? "This stock" : undefined}
+        />
       ),
-  },
-  {
-    id: "marketCap",
-    header: "Market cap",
-    numeric: true,
-    cell: (row) =>
-      row.marketCap === undefined ? <Dash /> : formatMarketCap(row.marketCap),
-  },
-  {
-    id: "pe",
-    header: "P/E",
-    numeric: true,
-    // A negative or zero earnings base has no meaningful P/E: a dash, not a number.
-    cell: (row) =>
-      row.peRatio !== undefined && row.peRatio > 0 ? (
-        formatRatio(row.peRatio)
-      ) : (
-        <Dash />
-      ),
-  },
-  {
-    id: "yield",
-    header: "Yield",
-    numeric: true,
-    cell: (row) =>
-      row.dividendYield === undefined || row.dividendYield < 0 ? (
-        <Dash />
-      ) : (
-        formatPercent(row.dividendYield)
-      ),
-  },
-  {
-    id: "priceChange",
-    header: "1-month price",
-    numeric: true,
-    cell: (row) =>
-      row.priceChange1m === undefined ? (
-        <Dash />
-      ) : (
-        formatSignedPercent(row.priceChange1m)
-      ),
-  },
-];
+    },
+    {
+      id: "short",
+      header: "Short",
+      numeric: true,
+      cell: (row) =>
+        row.shortPercent === undefined ? (
+          <Dash />
+        ) : (
+          formatPercent(row.shortPercent)
+        ),
+    },
+    {
+      id: "marketCap",
+      header: "Market cap",
+      numeric: true,
+      cell: (row) =>
+        row.marketCap === undefined ? <Dash /> : formatMarketCap(row.marketCap),
+    },
+    {
+      id: "pe",
+      header: "P/E",
+      numeric: true,
+      // A negative or zero earnings base has no meaningful P/E: a dash, not a number.
+      cell: (row) =>
+        row.peRatio !== undefined && row.peRatio > 0 ? (
+          formatRatio(row.peRatio)
+        ) : (
+          <Dash />
+        ),
+    },
+    {
+      id: "yield",
+      header: "Yield",
+      numeric: true,
+      cell: (row) =>
+        row.dividendYield === undefined || row.dividendYield < 0 ? (
+          <Dash />
+        ) : (
+          formatPercent(row.dividendYield)
+        ),
+    },
+    {
+      id: "priceChange",
+      header: "1-month price",
+      numeric: true,
+      cell: (row) =>
+        row.priceChange1m === undefined ? (
+          <Dash />
+        ) : (
+          formatSignedPercent(row.priceChange1m)
+        ),
+    },
+  ];
+}
 
 /** "Director trades" from get_director_trades. `code` is the stock the tool was asked about. */
 export function DirectorTradesTable({
@@ -223,7 +244,9 @@ export function DirectorTradesTable({
   if (view.trades.length === 0) {
     return (
       <EmptyNote>
-        No director trades reported{code ? ` for ${code}` : ""}.
+        {view.notShown > 0
+          ? `${formatWhole(view.notShown)} director trades were reported but cannot be shown.`
+          : `No director trades reported${code ? ` for ${code}` : ""}.`}
       </EmptyNote>
     );
   }
@@ -240,16 +263,10 @@ export function DirectorTradesTable({
 
 const TRADE_COLUMNS: readonly ChatDataTableColumn<DirectorTradeRow>[] = [
   {
-    id: "date",
-    header: "Date",
-    cell: (row) =>
-      row.tradeDate ? formatTradeDate(row.tradeDate) : <Dash />,
-  },
-  { id: "director", header: "Director", cell: (row) => row.director },
-  {
-    id: "type",
-    header: "Type",
-    cell: (row) => tradeTypeLabel(row.tradeType),
+    id: "director",
+    header: "Director",
+    rowHeader: true,
+    cell: (row) => <DirectorCell row={row} />,
   },
   {
     id: "shares",
@@ -258,18 +275,18 @@ const TRADE_COLUMNS: readonly ChatDataTableColumn<DirectorTradeRow>[] = [
     cell: (row) => (row.shares === undefined ? <Dash /> : formatWhole(row.shares)),
   },
   {
-    id: "price",
-    header: "Price",
-    numeric: true,
-    cell: (row) =>
-      row.pricePerShare === undefined ? <Dash /> : formatPrice(row.pricePerShare),
-  },
-  {
     id: "value",
     header: "Value",
     numeric: true,
     cell: (row) =>
       row.totalValue === undefined ? <Dash /> : formatDollars(row.totalValue),
+  },
+  {
+    id: "price",
+    header: "Price",
+    numeric: true,
+    cell: (row) =>
+      row.pricePerShare === undefined ? <Dash /> : formatPrice(row.pricePerShare),
   },
   {
     id: "notice",
@@ -294,15 +311,85 @@ const TRADE_COLUMNS: readonly ChatDataTableColumn<DirectorTradeRow>[] = [
   },
 ];
 
-/** A link to a stock page. The code is validated by the parser, so it is safe in a path. */
+/**
+ * A trade's director, with its date and type beneath: the three read together in
+ * a narrow column, so the figures can sit beside them.
+ */
+function DirectorCell({ row }: { row: DirectorTradeRow }) {
+  const detail = [
+    row.tradeDate ? formatTradeDate(row.tradeDate) : undefined,
+    tradeTypeLabel(row.tradeType),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <span className="block">
+      <span className="block max-w-[9rem] truncate" title={row.director}>
+        {row.director}
+      </span>
+      <span className="block text-[11px] font-normal text-muted-foreground">
+        {detail}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * A stock's code, linked to its page, with its company name beneath. A rank in front of
+ * the code keeps the answer's order. A badge names the stock a comparison is about.
+ */
+function StockCell({
+  code,
+  name,
+  rank,
+  badge,
+}: {
+  code: string;
+  name?: string;
+  rank?: number;
+  badge?: string;
+}) {
+  return (
+    <span className="block min-w-0">
+      <span className="flex items-baseline gap-1.5">
+        {rank !== undefined && (
+          <span className="tabular-nums font-normal text-muted-foreground">
+            {rank}
+          </span>
+        )}
+        <StockCodeLink code={code} />
+        {badge && (
+          <span className="rounded-sm bg-muted px-1 text-[10px] font-medium text-muted-foreground">
+            {badge}
+          </span>
+        )}
+      </span>
+      {name && (
+        <span
+          className="block max-w-[9rem] truncate text-[11px] font-normal text-muted-foreground"
+          title={name}
+        >
+          {name}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * A link to a stock page, client-side, so the chat sidebar (in the root layout) stays
+ * open and a reply still streaming keeps streaming. The code is validated by the
+ * parser, so it is safe in a path.
+ */
 function StockCodeLink({ code }: { code: string }) {
   return (
-    <a
+    <Link
       href={`/shorts/${encodeURIComponent(code)}`}
+      prefetch={false}
       className="rounded-sm font-mono text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {code}
-    </a>
+    </Link>
   );
 }
 

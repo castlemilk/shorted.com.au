@@ -49,6 +49,11 @@ const dayFormat = new Intl.DateTimeFormat(LOCALE, {
   year: "numeric",
   timeZone: SYDNEY,
 });
+const dayMonthFormat = new Intl.DateTimeFormat(LOCALE, {
+  day: "numeric",
+  month: "short",
+  timeZone: SYDNEY,
+});
 const utcDayFormat = new Intl.DateTimeFormat(LOCALE, {
   day: "numeric",
   month: "short",
@@ -110,6 +115,11 @@ export function formatRatio(value: number): string {
 /** "9 Oct 2026" in the Sydney calendar day. */
 export function formatDay(t: number): string {
   return dayFormat.format(t);
+}
+
+/** "9 Oct" in the Sydney calendar day, for a column whose period the table already names. */
+export function formatDayMonth(t: number): string {
+  return dayMonthFormat.format(t);
 }
 
 /**

@@ -236,6 +236,37 @@ describe("parsePeers (recorded)", () => {
     expect(view!.rows[0]!.marketCap).toBe(285029957632);
   });
 
+  it("reads the subject's own figures, kept apart from the peers", () => {
+    const view = parsePeers(fixture("get_peer_comparison-bhp.json"));
+
+    expect(view!.subject).toMatchObject({
+      code: "BHP",
+      shortPercent: 1.61154143,
+      marketCap: 331023450112,
+      peRatio: 24.044281,
+      priceChange1m: -6.680823260372427,
+    });
+    expect(view!.rows.map((r) => r.code)).not.toContain("BHP");
+  });
+
+  it("lists a peer that repeats the subject's code only once, as the subject", () => {
+    const view = parsePeers(
+      JSON.stringify({
+        subject: { stockCode: "BHP" },
+        peers: [{ stockCode: "BHP" }, { stockCode: "RIO" }],
+      }),
+    );
+    expect(view!.subject?.code).toBe("BHP");
+    expect(view!.rows.map((r) => r.code)).toEqual(["RIO"]);
+  });
+
+  it("has no subject row when the answer names none with a valid code", () => {
+    const view = parsePeers(JSON.stringify({ subject: { stockCode: "bad code" }, peers: [{ stockCode: "NEM" }] }));
+    expect(view!.subject).toBeUndefined();
+    expect(view!.subjectCode).toBeUndefined();
+    expect(view!.rows.map((r) => r.code)).toEqual(["NEM"]);
+  });
+
   it("drops peers with no valid code and returns null without a peers list", () => {
     const view = parsePeers(
       JSON.stringify({

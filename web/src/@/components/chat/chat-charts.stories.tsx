@@ -150,14 +150,18 @@ export const EconomicSeriesDark: Story = {
   ),
 };
 
-/** The sparkline in a table cell: a tiny line that reads its day and value on focus. */
+/**
+ * The sparkline in a table cell: a tiny line that reads its day and value on focus. The
+ * tooltip names the stock by its code, and opens above the line on its trailing edge.
+ */
 export const Sparkline: Story = {
   decorators: [themed("light", 240)],
   render: () => {
     const dro = parseTopShorts(recorded(topShorts10))!.rows[0]!;
     return (
       <ChatSparkline
-        label={`${dro.code} short interest, last three months`}
+        label={`${dro.code} short interest`}
+        seriesLabel={dro.code}
         points={dro.points}
         color="#D16A47"
       />
@@ -171,10 +175,28 @@ export const SparklineDark: Story = {
     const dro = parseTopShorts(recorded(topShorts10))!.rows[0]!;
     return (
       <ChatSparkline
-        label={`${dro.code} short interest, last three months`}
+        label={`${dro.code} short interest`}
+        seriesLabel={dro.code}
         points={dro.points}
         color="#D16A47"
       />
     );
   },
+};
+
+/**
+ * A short-position answer at a phone bubble's width. The tooltip stays inside the chart
+ * box at every reading, and the latest value is outlined so the line does not cross it.
+ */
+export const ShortPositionResultPhone: Story = {
+  decorators: [themed("light", 300)],
+  render: () => (
+    <RichToolResultView
+      result={
+        getRichToolResult(
+          toolCall("query_short_positions", { stock_code: "DRO", period: "6m" }, dro6m),
+        )!
+      }
+    />
+  ),
 };
