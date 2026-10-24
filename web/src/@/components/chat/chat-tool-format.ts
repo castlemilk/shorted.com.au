@@ -93,7 +93,7 @@ export function formatPrice(value: number): string {
 }
 
 /** A trade's value in whole dollars. */
-export function formatValue(value: number): string {
+export function formatDollars(value: number): string {
   return audWhole.format(value);
 }
 

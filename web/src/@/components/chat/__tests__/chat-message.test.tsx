@@ -1,3 +1,5 @@
+import { readFileSync } from "fs";
+import { join } from "path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ChatMessageBubble } from "../chat-message";
 import type { ChatMessage } from "~/@/hooks/use-chat";
@@ -355,5 +357,103 @@ describe("ChatMessageBubble streaming state", () => {
 
     expect(screen.getByText("Half an answer")).toBeInTheDocument();
     expect(container.querySelector("span.inline-block.h-4")).toBeNull();
+  });
+});
+
+/** A recorded result string, exactly as the chat service returned it. */
+function recorded(name: string): string {
+  return readFileSync(
+    join(__dirname, "..", "__fixtures__", "tool-results", name),
+    "utf8",
+  );
+}
+
+describe("ChatMessageBubble tables from tool results", () => {
+  it("renders the most-shorted answer as a table, open by default", async () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_top_shorts",
+              arguments: JSON.stringify({ limit: 10 }),
+              result: recorded("get_top_shorts-10.json"),
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Top shorts/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByRole("table", { name: "Most shorted ASX stocks" })).toBeInTheDocument();
+    expect(screen.queryByText(/"productCode"/)).not.toBeInTheDocument();
+    await screen.findAllByRole("group", { name: /short interest, last three months/ });
+  });
+
+  it("renders the empty director-trades answer as a sentence", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_director_trades",
+              arguments: JSON.stringify({ stock_code: "GLC" }),
+              result: recorded("get_director_trades-glc-none.json"),
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("No director trades reported for GLC.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Director trades/ })).toBeInTheDocument();
+  });
+
+  it("shows a failed call as a failure, not as an empty table", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_top_shorts",
+              arguments: "{}",
+              result: JSON.stringify({ error: "no trades for that code" }),
+            },
+          ],
+        })}
+      />,
+    );
+
+    // A failed call is not drawn, so it starts collapsed: open it to read what it says.
+    fireEvent.click(screen.getByRole("button", { name: /Top shorts/ }));
+
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByText("no trades for that code")).toBeInTheDocument();
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+  });
+
+  it("keeps the raw text for a result it cannot read", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_peer_comparison",
+              arguments: "{}",
+              result: JSON.stringify({ peers: "not a list" }),
+            },
+          ],
+        })}
+      />,
+    );
+
+    // Not drawn, so it starts collapsed; open it to read the raw text.
+    fireEvent.click(screen.getByRole("button", { name: /Peer comparison/ }));
+
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByText(/"peers":"not a list"/)).toBeInTheDocument();
   });
 });

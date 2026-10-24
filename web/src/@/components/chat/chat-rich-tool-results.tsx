@@ -12,9 +12,29 @@ import { industryLabel } from "~/@/lib/industry-placeholder";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { cn } from "~/@/lib/utils";
 import type { ChatMessage } from "~/@/hooks/use-chat";
+import {
+  DirectorTradesTable,
+  PeersTable,
+  TopShortsTable,
+} from "./chat-rich-tables";
+import {
+  arrayValue,
+  asRecord,
+  codeFromArguments,
+  numberValue,
+  parseDirectorTrades,
+  parseJSON,
+  parsePeers,
+  parseTopShorts,
+  stringValue,
+  type DirectorTradesView,
+  type JsonRecord,
+  type PeersView,
+  type TopShortsView,
+} from "./chat-tool-data";
+import { formatPercent } from "./chat-tool-format";
 
 type ToolCall = NonNullable<ChatMessage["toolCalls"]>[number];
-type JsonRecord = Record<string, unknown>;
 
 interface StockCardData {
   code: string;
@@ -37,35 +57,59 @@ interface ShortChartData {
   points: ShortPoint[];
 }
 
-/** A tool result drawn as a card or chart instead of raw JSON. */
+/** A tool result drawn as a card, a table or a chart instead of raw JSON. */
 export type RichToolResult =
   | { kind: "stock"; stock: StockCardData }
-  | { kind: "chart"; chart: ShortChartData };
+  | { kind: "chart"; chart: ShortChartData }
+  | { kind: "top-shorts"; view: TopShortsView }
+  | { kind: "peers"; view: PeersView }
+  | { kind: "director-trades"; view: DirectorTradesView; code?: string };
 
 /** The rich rendering for a tool call, or null when its output is not one we draw. */
 export function getRichToolResult(toolCall: ToolCall): RichToolResult | null {
-  if (toolCall.toolName === "get_stock_details") {
-    const stock = extractStockCard(toolCall);
-    return stock ? { kind: "stock", stock } : null;
+  switch (toolCall.toolName) {
+    case "get_stock_details": {
+      const stock = extractStockCard(toolCall);
+      return stock ? { kind: "stock", stock } : null;
+    }
+    case "query_short_positions": {
+      const chart = extractShortChart(toolCall);
+      return chart ? { kind: "chart", chart } : null;
+    }
+    case "get_top_shorts": {
+      const view = parseTopShorts(toolCall.result);
+      return view ? { kind: "top-shorts", view } : null;
+    }
+    case "get_peer_comparison": {
+      const view = parsePeers(toolCall.result);
+      return view ? { kind: "peers", view } : null;
+    }
+    case "get_director_trades": {
+      const view = parseDirectorTrades(toolCall.result);
+      return view
+        ? { kind: "director-trades", view, code: codeFromArguments(toolCall.arguments) }
+        : null;
+    }
+    default:
+      return null;
   }
-
-  if (
-    toolCall.toolName === "query_short_positions" ||
-    toolCall.toolName === "get_top_shorts"
-  ) {
-    const chart = extractShortChart(toolCall);
-    return chart ? { kind: "chart", chart } : null;
-  }
-
-  return null;
 }
 
 export function RichToolResultView({ result }: { result: RichToolResult }) {
-  return result.kind === "stock" ? (
-    <StockCard stock={result.stock} />
-  ) : (
-    <ShortInterestChart chart={result.chart} />
-  );
+  switch (result.kind) {
+    case "stock":
+      return <StockCard stock={result.stock} />;
+    case "chart":
+      return <ShortInterestChart chart={result.chart} />;
+    case "top-shorts":
+      return <TopShortsTable view={result.view} />;
+    case "peers":
+      return <PeersTable view={result.view} />;
+    case "director-trades":
+      return <DirectorTradesTable view={result.view} code={result.code} />;
+    default:
+      return null;
+  }
 }
 
 function StockCard({ stock }: { stock: StockCardData }) {
@@ -159,7 +203,7 @@ function ShortInterestChart({ chart }: { chart: ShortChartData }) {
           {chart.code} short interest
         </CardTitle>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>{formatPercent(chart.latest, 2)} latest</span>
+          <span>{formatPercent(chart.latest)} latest</span>
           {chart.name && <span>{chart.name}</span>}
         </div>
       </CardHeader>
@@ -281,6 +325,10 @@ function extractShortChart(toolCall: ToolCall): ShortChartData | null {
   };
 }
 
+function firstRecord(value: unknown): JsonRecord | null {
+  return arrayValue(value).map(asRecord).find(Boolean) ?? null;
+}
+
 function toShortPoint(value: unknown): ShortPoint | null {
   const point = asRecord(value);
   if (!point) return null;
@@ -327,52 +375,3 @@ function labelFromTimestamp(value: unknown): string | undefined {
   return undefined;
 }
 
-function parseJSON(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function asRecord(value: unknown): JsonRecord | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonRecord)
-    : null;
-}
-
-function arrayValue(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function firstRecord(value: unknown): JsonRecord | null {
-  return arrayValue(value).map(asRecord).find(Boolean) ?? null;
-}
-
-function stringValue(...values: unknown[]): string | undefined {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-  return undefined;
-}
-
-function numberValue(...values: unknown[]): number | undefined {
-  for (const value of values) {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-    if (typeof value === "string") {
-      const parsed = Number.parseFloat(value);
-      if (Number.isFinite(parsed)) {
-        return parsed;
-      }
-    }
-  }
-  return undefined;
-}
-
-function formatPercent(value: number, fractionDigits = 2): string {
-  return `${value.toFixed(fractionDigits)}%`;
-}

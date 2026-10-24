@@ -193,6 +193,9 @@ const TOOL_TITLES: Record<string, string> = {
   get_stock_details: "Stock details",
   query_short_positions: "Short positions",
   get_top_shorts: "Top shorts",
+  get_peer_comparison: "Peer comparison",
+  get_director_trades: "Director trades",
+  get_economic_series: "Economic series",
 };
 
 function toolTitle(toolName: string): string {

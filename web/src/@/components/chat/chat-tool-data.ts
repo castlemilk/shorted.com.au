@@ -83,6 +83,8 @@ export interface PeersView {
 }
 
 export interface DirectorTradeRow {
+  /** The trade's own id from the API, or its position in the answer when it has none. */
+  id: string;
   director: string;
   /** The raw tradeType: "buy", "exercise_options", "other", or whatever the API sends. */
   tradeType: string;
@@ -340,10 +342,11 @@ export function parseDirectorTrades(result: string): DirectorTradesView | null {
 
   const sent = arrayValue(root.trades);
   const trades: DirectorTradeRow[] = [];
-  for (const item of sent.slice(0, MAX_TABLE_ROWS)) {
+  sent.slice(0, MAX_TABLE_ROWS).forEach((item, index) => {
     const record = asRecord(item);
-    if (!record) continue;
+    if (!record) return;
     trades.push({
+      id: textValue(record.id, 80) ?? `trade-${index}`,
       director: textValue(record.directorName, 120) ?? "Not named",
       tradeType: textValue(record.tradeType, 40) ?? "other",
       tradeDate: textValue(record.tradeDate, 40),
@@ -352,7 +355,7 @@ export function parseDirectorTrades(result: string): DirectorTradesView | null {
       totalValue: finiteNumber(record.totalValue),
       announcementUrl: textValue(record.announcementUrl, 2000),
     });
-  }
+  });
 
   const total = nonNegativeInt(root.totalCount) ?? 0;
   return {
