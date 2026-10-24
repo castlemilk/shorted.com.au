@@ -1,5 +1,7 @@
 import fs from "fs";
 import path from "path";
+import { scaleTime } from "@visx/scale";
+import { timeTickValues } from "~/@/components/charts/chart-primitives";
 import { valueAxisTicks } from "~/@/components/charts/use-chart-scales";
 import type { ChartSeriesSpec } from "~/@/components/charts/types";
 import {
@@ -164,5 +166,42 @@ describe("economic units the importers write", () => {
   it("names every unit id an importer writes in words", () => {
     const missing = [...importerUnits()].filter((unit) => seriesSubtitle(unit) === "");
     expect(missing).toEqual([]);
+  });
+});
+
+describe("time axis at a phone's width", () => {
+  it("keeps every pair of adjacent labels apart at 300px, from a week's range to a year's", () => {
+    // A 300px phone's chat chart has a plot of about 210px, once the value axis takes its share.
+    const innerW = 210;
+    const day = 86_400_000;
+    const crowded: string[] = [];
+    for (let start = 0; start < 365; start += 5) {
+      for (const span of [7, 21, 45, 90, 365]) {
+        const from = new Date(2026, 0, 1 + start);
+        const to = new Date(from.getTime() + span * day);
+        const scale = scaleTime<number>({ domain: [from, to], range: [0, innerW] });
+        const ticks = timeTickValues(scale, innerW, { labelChars: 11 });
+        const labels = ticks.map((tick, index) => timeTickLabel(tick, index, ticks));
+        for (let i = 1; i < ticks.length; i++) {
+          const gap = (scale(ticks[i]!) ?? 0) - (scale(ticks[i - 1]!) ?? 0);
+          // Half of each label's estimated width, at 6.5px a character, is the room each takes.
+          const needed = ((labels[i - 1]!.length + labels[i]!.length) / 2) * 6.5;
+          if (gap < needed) crowded.push(`${from.toDateString()} + ${span}d: "${labels[i - 1]}" / "${labels[i]}" ${gap.toFixed(1)}px`);
+        }
+      }
+    }
+    expect(crowded).toEqual([]);
+  });
+
+  it("writes the year on the first label at 300px, where a 3 Oct 2026 label has room for 5 Oct beside it", () => {
+    const innerW = 210;
+    const from = new Date(2026, 9, 3);
+    const to = new Date(2026, 9, 24);
+    const scale = scaleTime<number>({ domain: [from, to], range: [0, innerW] });
+    const ticks = timeTickValues(scale, innerW, { labelChars: 11 });
+    const labels = ticks.map((tick, index) => timeTickLabel(tick, index, ticks));
+    // The first label carries the year, and the next label starts a clear gap after it.
+    expect(labels[0]).toMatch(/^\d{1,2} Oct 2026$/);
+    expect(ticks.length).toBeGreaterThanOrEqual(2);
   });
 });

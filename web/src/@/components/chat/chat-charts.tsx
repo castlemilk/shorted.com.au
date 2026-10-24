@@ -381,6 +381,7 @@ export function ChatSparkline({
               <TooltipContent
                 hover={readout}
                 leftAxis={{ side: "left", format: formatValue }}
+                formatDate={formatDay}
               />
             </div>
           </div>,
@@ -417,6 +418,11 @@ export interface ChatLineChartProps {
 }
 
 const CHART_HEIGHT = 180;
+/**
+ * The longest time-axis label the chat prints, "14 Sep 2026", in characters. The axis keeps
+ * neighbouring labels apart by this width, so a 300px chat chart does not print them touching.
+ */
+const TIME_LABEL_CHARS = 11;
 /** The width drawn before the box is measured (server-free tests, first paint). */
 const FALLBACK_WIDTH = 480;
 const PLOT_TOP = 16;
@@ -590,6 +596,7 @@ export function ChatLineChart({
             hasRight={false}
             leftFormat={tickFormat}
             timeFormat={timeTickLabel}
+            timeLabelChars={TIME_LABEL_CHARS}
           />
           <SeriesPath
             series={spec}
@@ -606,23 +613,28 @@ export function ChatLineChart({
             through its digits where the series peaks near the latest reading. Where the
             line still runs through the space above the reading, the label sits below it
             instead (placeLatestLabel), and it is never placed left of the plot's edge.
+            It is not drawn while a reading is on screen: the tooltip sits over the plot's
+            top, where the label can fall, and the headline figure would read beside the
+            reading's own value.
           */}
-          <text
-            data-testid="chat-latest-label"
-            data-placement={latestLabel.placement}
-            x={latestLabel.x}
-            y={latestLabel.y}
-            textAnchor="end"
-            fontSize={11}
-            fontWeight={600}
-            fill={chartTheme.tooltipFg}
-            stroke="hsl(var(--background))"
-            strokeWidth={3}
-            strokeLinejoin="round"
-            paintOrder="stroke"
-          >
-            {latestText}
-          </text>
+          {!readout && (
+            <text
+              data-testid="chat-latest-label"
+              data-placement={latestLabel.placement}
+              x={latestLabel.x}
+              y={latestLabel.y}
+              textAnchor="end"
+              fontSize={11}
+              fontWeight={600}
+              fill={chartTheme.tooltipFg}
+              stroke="hsl(var(--background))"
+              strokeWidth={3}
+              strokeLinejoin="round"
+              paintOrder="stroke"
+            >
+              {latestText}
+            </text>
+          )}
         </g>
       </svg>
       {readout && (
@@ -647,6 +659,7 @@ export function ChatLineChart({
             <TooltipContent
               hover={readout}
               leftAxis={{ side: "left", format: formatValue }}
+              formatDate={formatDay}
             />
           </div>
         </div>

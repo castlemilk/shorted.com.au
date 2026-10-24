@@ -519,6 +519,41 @@ describe("ChatLineChart tooltip and label", () => {
     expect(latest).toHaveAttribute("stroke", "hsl(var(--background))");
   });
 
+  it("hides the latest value while a reading is on screen, so the headline cannot read beside it", () => {
+    render(
+      <ChatLineChart label="DRO short interest" points={readings} color="#D16A47" formatValue={formatPercent} />,
+    );
+    const chart = screen.getByRole("group", { name: /DRO short interest/ });
+    expect(screen.getByTestId("chat-latest-label")).toHaveTextContent("7.00%");
+
+    act(() => chart.focus());
+    expect(screen.queryByTestId("chat-latest-label")).not.toBeInTheDocument();
+    fireEvent.keyDown(chart, { key: "ArrowLeft" });
+    expect(screen.queryByTestId("chat-latest-label")).not.toBeInTheDocument();
+
+    act(() => chart.blur());
+    expect(screen.getByTestId("chat-latest-label")).toHaveTextContent("7.00%");
+  });
+
+  it("names the tooltip's date in the chat's short months, not the stock chart's", () => {
+    render(
+      <ChatLineChart
+        label="DRO short interest"
+        points={[
+          { t: Date.parse("2026-09-01T00:00:00Z"), v: 5 },
+          { t: Date.parse("2026-09-08T00:00:00Z"), v: 6 },
+        ]}
+        color="#D16A47"
+        formatValue={formatPercent}
+      />,
+    );
+    const chart = screen.getByRole("group", { name: /DRO short interest/ });
+    act(() => chart.focus());
+    fireEvent.keyDown(chart, { key: "Home" });
+    expect(announced()).toBe("1 Sep 2026: 5.00%");
+    expect(screen.getByText("1 Sep 2026")).toBeInTheDocument();
+  });
+
   it("marks the chart while it shows a reading, for the sidebar's Escape handling", () => {
     render(
       <ChatLineChart label="DRO short interest" points={readings} color="#D16A47" formatValue={formatPercent} />,
