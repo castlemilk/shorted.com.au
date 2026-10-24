@@ -16,52 +16,52 @@ import (
 func TestRolesForFirebaseClaimsGrantsAdminOnlyToAVerifiedAllowlistedEmail(t *testing.T) {
 	cases := []struct {
 		name      string
-		claims    map[string]interface{}
+		claims    map[string]any
 		wantAdmin bool
 	}{
 		{
 			name:      "verified and allowlisted",
-			claims:    map[string]interface{}{"email": "ben@shorted.com.au", "email_verified": true},
+			claims:    map[string]any{"email": "ben@shorted.com.au", "email_verified": true},
 			wantAdmin: true,
 		},
 		{
 			name:      "case and surrounding space are ignored",
-			claims:    map[string]interface{}{"email": " Ben@Shorted.com.au ", "email_verified": true},
+			claims:    map[string]any{"email": " Ben@Shorted.com.au ", "email_verified": true},
 			wantAdmin: true,
 		},
 		{
 			// The defect: an unverified email/password account registered under an
 			// admin's address must not inherit the role.
 			name:      "allowlisted but unverified",
-			claims:    map[string]interface{}{"email": "ben@shorted.com.au", "email_verified": false},
+			claims:    map[string]any{"email": "ben@shorted.com.au", "email_verified": false},
 			wantAdmin: false,
 		},
 		{
 			name:      "allowlisted with no email_verified claim",
-			claims:    map[string]interface{}{"email": "ben@shorted.com.au"},
+			claims:    map[string]any{"email": "ben@shorted.com.au"},
 			wantAdmin: false,
 		},
 		{
 			// Only Firebase's boolean counts; a string "true" is not a verified token.
 			name:      "email_verified as a string",
-			claims:    map[string]interface{}{"email": "ben@shorted.com.au", "email_verified": "true"},
+			claims:    map[string]any{"email": "ben@shorted.com.au", "email_verified": "true"},
 			wantAdmin: false,
 		},
 		{
 			name:      "verified but not allowlisted",
-			claims:    map[string]interface{}{"email": "someone@example.com", "email_verified": true},
+			claims:    map[string]any{"email": "someone@example.com", "email_verified": true},
 			wantAdmin: false,
 		},
 		{
 			name:      "no email claim at all",
-			claims:    map[string]interface{}{"email_verified": true},
+			claims:    map[string]any{"email_verified": true},
 			wantAdmin: false,
 		},
 		{
 			// The e2e account was removed from the allowlist: nothing automated needs
 			// it to be an admin on the production API.
 			name:      "e2e test account is not an admin",
-			claims:    map[string]interface{}{"email": "e2e-test@shorted.com.au", "email_verified": true},
+			claims:    map[string]any{"email": "e2e-test@shorted.com.au", "email_verified": true},
 			wantAdmin: false,
 		},
 	}
@@ -80,8 +80,8 @@ func TestRolesForFirebaseClaimsGrantsAdminOnlyToAVerifiedAllowlistedEmail(t *tes
 }
 
 func TestRolesForFirebaseClaimsKeepsCustomRolesWithoutDuplicatingAPIUser(t *testing.T) {
-	roles := rolesForFirebaseClaims(map[string]interface{}{
-		"roles":          []interface{}{"api-user", "reviewer"},
+	roles := rolesForFirebaseClaims(map[string]any{
+		"roles":          []any{"api-user", "reviewer"},
 		"email":          "ben@shorted.com.au",
 		"email_verified": false,
 	})
@@ -260,10 +260,10 @@ func TestBespokeTokenKeepsAdminOnlyWhenIssuedAfterTheCutOver(t *testing.T) {
 			var seen *Claims
 			srv := adminRPC(t, AuthInterceptorOptions{}, &seen)
 			token := bespokeToken(t, Claims{
-				RegisteredClaims: jwt.RegisteredClaims{IssuedAt: tc.issuedAt},
-				UserID:           "uid-admin",
-				Email:            "ben@shorted.com.au",
-				Roles:            []string{"api-user", "admin"},
+				IssuedAt: tc.issuedAt,
+				UserID:   "uid-admin",
+				Email:    "ben@shorted.com.au",
+				Roles:    []string{"api-user", "admin"},
 			})
 			_, err := callRPC[shortsv1alpha1.GetSyncStatusRequest, shortsv1alpha1.GetSyncStatusResponse](t, srv,
 				getSyncStatusProcedure, &shortsv1alpha1.GetSyncStatusRequest{}, nil, token)

@@ -1,8 +1,10 @@
 package picks
 
 import (
+	"maps"
 	"math"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -43,12 +45,7 @@ var currencyRe = regexp.MustCompile(`^[A-Z]{3,8}$`)
 
 // isRejected reports whether a gate refused col for this period.
 func (r *PeriodRow) isRejected(col string) bool {
-	for _, c := range r.Rejected {
-		if c == col {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(r.Rejected, col)
 }
 
 // reject nulls col, names it in Rejected (once) and drops any FieldSources
@@ -102,9 +99,7 @@ func (r *PeriodRow) markSource(col, src string) {
 func (r PeriodRow) clone() PeriodRow {
 	if r.FieldSources != nil {
 		fs := make(map[string]string, len(r.FieldSources))
-		for k, v := range r.FieldSources {
-			fs[k] = v
-		}
+		maps.Copy(fs, r.FieldSources)
 		r.FieldSources = fs
 	}
 	if r.Rejected != nil {

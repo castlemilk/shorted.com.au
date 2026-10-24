@@ -28,24 +28,24 @@ import (
 func spQuality(code string, revenueYoY float64) strategies.Candidate {
 	c := spReady(code)
 	c.Close = 50
-	c.SMA200 = f64(45)
-	c.MarketCap = f64(3e9) // the screener's figure
+	c.SMA200 = new(float64(45))
+	c.MarketCap = new(3e9) // the screener's figure
 	c.Growth = &strategies.Growth{
-		RevenueYoYPct: f64(revenueYoY), EPSYoYPct: f64(12), BasisPeriodType: "ttm", RevenueBasisPeriodType: "ttm",
+		RevenueYoYPct: new(revenueYoY), EPSYoYPct: new(float64(12)), BasisPeriodType: "ttm", RevenueBasisPeriodType: "ttm",
 		LatestPeriodEnd: dayPtr("2026-06-30"), LatestAnnualPeriodEnd: dayPtr("2026-06-30"),
 		RevenueLatestPeriodEnd: dayPtr("2026-06-30"), RevenueBasisSource: "vendor", EPSBasisSource: "filing",
-		NetIncomePositive: spBool(true), Currency: "AUD", FetchedAt: dayPtr("2026-09-01"),
+		NetIncomePositive: new(true), Currency: "AUD", FetchedAt: dayPtr("2026-09-01"),
 	}
 	c.Quality = &strategies.Quality{
 		BasisPeriodType: "annual", BasisPeriodEnd: dayPtr("2026-06-30"), Currency: "AUD", BalanceCurrency: "AUD",
 		FetchedAt: dayPtr("2026-09-02"),
-		Revenue:   f64(1e9), NetIncome: f64(2e8), FreeCashFlow: f64(1.9e8), EBITDA: f64(3.5e8),
-		TotalEquity: f64(1e9), TotalAssets: f64(2e9), TotalDebt: f64(4e8), NetDebt: f64(3e8),
-		NetMarginPct: f64(20), ROEPct: f64(21), FCFMarginPct: f64(19), FCFConversion: f64(0.95), NetDebtToEBITDA: f64(0.857),
+		Revenue:   new(1e9), NetIncome: new(2e8), FreeCashFlow: new(1.9e8), EBITDA: new(3.5e8),
+		TotalEquity: new(1e9), TotalAssets: new(2e9), TotalDebt: new(4e8), NetDebt: new(3e8),
+		NetMarginPct: new(float64(20)), ROEPct: new(float64(21)), FCFMarginPct: new(float64(19)), FCFConversion: new(0.95), NetDebtToEBITDA: new(0.857),
 	}
 	c.ValuationInputs = &strategies.ValuationInputs{
-		Shares: f64(1e8), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: f64(1),
-		EPSDiluted: f64(2), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "AUD",
+		Shares: new(1e8), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: new(float64(1)),
+		EPSDiluted: new(float64(2)), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "AUD",
 	}
 	return c
 }
@@ -210,7 +210,7 @@ func TestGetStrategyPicks_ConcurrentSortedAndDefaultCallsShareTheCacheSafely(t *
 	sorts := []string{"", "revenue_yoy", "eps_yoy", "roe", "net_margin", "fcf_margin", "pe", "market_cap", "score"}
 	var wg sync.WaitGroup
 	errs := make(chan error, 64)
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -354,8 +354,8 @@ func TestPickFundamentalsProto(t *testing.T) {
 	// A growth row from before 000132: basis and period from the growth row,
 	// no provenance, no ratios.
 	old := &strategies.Candidate{Growth: &strategies.Growth{
-		RevenueYoYPct: f64(10), LatestAnnualPeriodEnd: dayPtr("2026-06-30"),
-		EPSYoYPct: f64(5), BasisPeriodType: "half", LatestPeriodEnd: dayPtr("2026-12-31"), HalfLatestPeriodEnd: dayPtr("2026-12-31"),
+		RevenueYoYPct: new(float64(10)), LatestAnnualPeriodEnd: dayPtr("2026-06-30"),
+		EPSYoYPct: new(float64(5)), BasisPeriodType: "half", LatestPeriodEnd: dayPtr("2026-12-31"), HalfLatestPeriodEnd: dayPtr("2026-12-31"),
 		Currency: "USD",
 	}}
 	f := pickFundamentalsProto(old)
@@ -368,7 +368,7 @@ func TestPickFundamentalsProto(t *testing.T) {
 	assert.Equal(t, "USD", f.Currency)
 	assert.False(t, f.HasRoePct || f.HasNetMarginPct || f.HasFcfMarginPct || f.HasNetDebtToEbitda || f.HasPeRatio)
 
-	half := &strategies.Candidate{Growth: &strategies.Growth{RevenueYoYPct: f64(10), RevenueBasisPeriodType: "half", HalfLatestPeriodEnd: dayPtr("2026-12-31")}}
+	half := &strategies.Candidate{Growth: &strategies.Growth{RevenueYoYPct: new(float64(10)), RevenueBasisPeriodType: "half", HalfLatestPeriodEnd: dayPtr("2026-12-31")}}
 	assert.Equal(t, "2026-12-31", pickFundamentalsProto(half).RevenuePeriodEnd)
 
 	noGrowthFigures := &strategies.Candidate{Growth: &strategies.Growth{}}

@@ -512,7 +512,7 @@ func sortByShortPct(companies []gapCompany) {
 
 func parseCodesFlag(codes string) map[string]bool {
 	set := make(map[string]bool)
-	for _, c := range strings.Split(codes, ",") {
+	for c := range strings.SplitSeq(codes, ",") {
 		c = strings.TrimSpace(strings.ToUpper(c))
 		if c != "" {
 			set[c] = true
@@ -530,4 +530,3 @@ func filterByCodes(companies []gapCompany, codes map[string]bool) []gapCompany {
 	}
 	return filtered
 }
-

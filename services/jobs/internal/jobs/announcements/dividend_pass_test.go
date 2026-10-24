@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // TestDividendRowsFor tests the dividend row extraction policy.
@@ -1315,6 +1316,7 @@ func (noRows) Next() bool                                   { return false }
 func (noRows) Scan(...any) error                            { return nil }
 func (noRows) Values() ([]any, error)                       { return nil, nil }
 func (noRows) RawValues() [][]byte                          { return nil }
+func (noRows) TypeMap() *pgtype.Map                         { return pgtype.NewMap() }
 func (noRows) Conn() *pgx.Conn                              { return nil }
 
 // What EstimateEvidence asks, without a database: the documents and rows of

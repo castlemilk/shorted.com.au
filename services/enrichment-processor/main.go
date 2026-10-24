@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -22,8 +23,8 @@ import (
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/enrichment"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
-	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 	"github.com/castlemilk/shorted.com.au/services/shorts"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
@@ -48,7 +49,7 @@ func findVenvPython() string {
 			return absPath
 		}
 	}
-	
+
 	// Also check current directory (when running from services/)
 	venvPath = filepath.Join(".", "enrichment-processor", "venv", "bin", "python3")
 	if _, err := os.Stat(venvPath); err == nil {
@@ -57,7 +58,7 @@ func findVenvPython() string {
 			return absPath
 		}
 	}
-	
+
 	return ""
 }
 
@@ -131,12 +132,12 @@ func main() {
 		linkedInPersonClient := enrichment.NewLinkedInPersonClient(nil)
 
 		processor := &enrichmentProcessor{
-			store:                  enrichmentStore,
-			wikipediaClient:       wikipediaClient,
-			yahooPeopleClient:     yahooPeopleClient,
-			personImageProcessor:   personImageProcessor,
-			linkedInPersonClient:   linkedInPersonClient,
-			logger:                logger,
+			store:                enrichmentStore,
+			wikipediaClient:      wikipediaClient,
+			yahooPeopleClient:    yahooPeopleClient,
+			personImageProcessor: personImageProcessor,
+			linkedInPersonClient: linkedInPersonClient,
+			logger:               logger,
 		}
 		runPeopleBackfillMain(processor, *backfillLimit, *backfillForce, *backfillAfter)
 		return
@@ -311,8 +312,8 @@ func main() {
 		exaClient:             exaClient,
 		wikipediaClient:       wikipediaClient,
 		yahooPeopleClient:     yahooPeopleClient,
-		personImageProcessor:   personImageProcessor,
-		linkedInPersonClient:   linkedInPersonClient,
+		personImageProcessor:  personImageProcessor,
+		linkedInPersonClient:  linkedInPersonClient,
 		logger:                logger,
 		timeout:               DefaultJobTimeout,
 		qualityThreshold:      DefaultQualityThreshold,
@@ -383,12 +384,12 @@ type enrichmentProcessor struct {
 	exaClient             enrichment.ExaClient
 	wikipediaClient       enrichment.WikipediaClient
 	yahooPeopleClient     enrichment.YahooPeopleClient
-	personImageProcessor   *enrichment.PersonImageProcessor
-	linkedInPersonClient   *enrichment.LinkedInPersonClient
-	linkedInPhotoClient    *enrichment.LinkedInPhotoClient
-	stealthClient          *stealthhttp.Client
-	lastScrape             time.Time
-	google429Count         int
+	personImageProcessor  *enrichment.PersonImageProcessor
+	linkedInPersonClient  *enrichment.LinkedInPersonClient
+	linkedInPhotoClient   *enrichment.LinkedInPhotoClient
+	stealthClient         *stealthhttp.Client
+	lastScrape            time.Time
+	google429Count        int
 	logger                *log.Logger
 	timeout               time.Duration
 	qualityThreshold      float64
@@ -443,7 +444,6 @@ func (p *enrichmentProcessor) notifyAlgoliaSync(stockCode string) {
 		return
 	}
 
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -475,11 +475,10 @@ func (p *enrichmentProcessor) notifyAlgoliaSync(stockCode string) {
 	}
 }
 
-
 func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode string, force bool) (err error) {
 	// Track if we've updated the job status to avoid duplicate updates
 	statusUpdated := false
-	
+
 	// Panic recovery to ensure job is always marked as failed if processing crashes
 	defer func() {
 		if r := recover(); r != nil {
@@ -681,14 +680,14 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 
 // Per-phase timeout constants — prevent any single phase from eating the whole budget
 const (
-	phaseWebsiteDiscoveryTimeout = 60 * time.Second  // Phase 0
-	phaseScrapingTimeout         = 90 * time.Second   // Phase 1: metadata scraping
-	phaseReportCrawlTimeout      = 60 * time.Second   // Phase 2: financial report crawling
-	phaseLLMEnrichTimeout        = 4 * time.Minute    // Phase 3: LLM enrichment (includes retries)
-	phaseFallbackPeopleTimeout   = 2 * time.Minute     // Phase 3a: fallback people discovery
-	phasePersonEnrichTimeout     = 90 * time.Second   // Phase 3.5: people enrichment
-	phaseLogoTimeout             = 2 * time.Minute    // Phase 4: logo discovery + processing
-	phaseQualityTimeout          = 60 * time.Second   // Phase 5: quality evaluation
+	phaseWebsiteDiscoveryTimeout = 60 * time.Second // Phase 0
+	phaseScrapingTimeout         = 90 * time.Second // Phase 1: metadata scraping
+	phaseReportCrawlTimeout      = 60 * time.Second // Phase 2: financial report crawling
+	phaseLLMEnrichTimeout        = 4 * time.Minute  // Phase 3: LLM enrichment (includes retries)
+	phaseFallbackPeopleTimeout   = 2 * time.Minute  // Phase 3a: fallback people discovery
+	phasePersonEnrichTimeout     = 90 * time.Second // Phase 3.5: people enrichment
+	phaseLogoTimeout             = 2 * time.Minute  // Phase 4: logo discovery + processing
+	phaseQualityTimeout          = 60 * time.Second // Phase 5: quality evaluation
 )
 
 // runEnrichmentPhases executes the 6 logical phases of enrichment
@@ -871,7 +870,7 @@ func (p *enrichmentProcessor) performPersonEnrichmentPhase(ctx context.Context, 
 	// This uses the metadata scraper (with Chromium fallback) to find images
 	// associated with person names on leadership/team pages.
 	var websiteImages map[string]string // lowercase name → image URL
-	website := "" // will be set from stock details
+	website := ""                       // will be set from stock details
 	if scraper, ok := p.metadataScraper.(*enrichment.MetadataScraper); ok {
 		// Get website URL from store
 		details, err := p.store.GetStockDetails(stockCode)
@@ -903,7 +902,7 @@ func (p *enrichmentProcessor) performPersonEnrichmentPhase(ctx context.Context, 
 	// Priority: company website headshot > LinkedIn (verified) > Wikipedia
 	maxPeople := min(5, len(enriched.KeyPeople))
 
-	for i := 0; i < maxPeople; i++ {
+	for i := range maxPeople {
 		person := enriched.KeyPeople[i]
 		if person == nil || person.Name == "" {
 			continue
@@ -1159,12 +1158,12 @@ func (p *enrichmentProcessor) performLogoPhase(ctx context.Context, stockCode st
 
 func (p *enrichmentProcessor) processLogo(ctx context.Context, logo *enrichment.DiscoveredLogo, stockCode string) ([]string, error) {
 	tmpDir := os.TempDir()
-	
+
 	// Handle SVG separately - render to PNG using cairosvg
 	if logo.IsSVG || logo.Format == "svg" {
 		return p.processSVGLogo(ctx, logo, stockCode, tmpDir)
 	}
-	
+
 	// 1. Save original image to a temporary file
 	inputPath := filepath.Join(tmpDir, fmt.Sprintf("%s_raw.%s", stockCode, logo.Format))
 	err := os.WriteFile(inputPath, logo.ImageData, 0644)
@@ -1194,7 +1193,7 @@ func (p *enrichmentProcessor) processLogo(ctx context.Context, logo *enrichment.
 		pythonCmd = venvPython
 		p.logger.Debugf("Using venv Python: %s", venvPython)
 	}
-	
+
 	// Find logo_processor.py script (could be in current dir or enrichment-processor/)
 	scriptPath := "logo_processor.py"
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
@@ -1203,13 +1202,13 @@ func (p *enrichmentProcessor) processLogo(ctx context.Context, logo *enrichment.
 			scriptPath = altPath
 		}
 	}
-	
+
 	// Get absolute path for script
 	absScriptPath, err := filepath.Abs(scriptPath)
 	if err != nil {
 		absScriptPath = scriptPath // Fallback to relative if abs fails
 	}
-	
+
 	// Set working directory to enrichment-processor for mobile_sam.pt lookup
 	cmdDir := filepath.Dir(absScriptPath)
 	if cmdDir == "." || cmdDir == "" {
@@ -1220,10 +1219,10 @@ func (p *enrichmentProcessor) processLogo(ctx context.Context, logo *enrichment.
 			}
 		}
 	}
-	
+
 	// Use just the filename when setting working directory
 	scriptName := filepath.Base(absScriptPath)
-	
+
 	cmd := exec.CommandContext(ctx, pythonCmd, scriptName,
 		"--input", inputPath,
 		"--output-dir", outputDir,
@@ -1231,18 +1230,18 @@ func (p *enrichmentProcessor) processLogo(ctx context.Context, logo *enrichment.
 	)
 	cmd.Dir = cmdDir
 	p.logger.Debugf("Running logo processor: python=%s, script=%s, dir=%s", pythonCmd, scriptName, cmdDir)
-	
+
 	output, err := cmd.CombinedOutput()
-	
+
 	// Log Python script output for debugging (stderr messages from logo_processor.py)
 	outputStr := string(output)
 	var jsonLines []string
 	var logLines []string
-	
+
 	if outputStr != "" {
 		// Try to extract JSON result and log separately
-		lines := strings.Split(outputStr, "\n")
-		for _, line := range lines {
+		lines := strings.SplitSeq(outputStr, "\n")
+		for line := range lines {
 			line = strings.TrimSpace(line)
 			if line == "" {
 				continue
@@ -1257,7 +1256,7 @@ func (p *enrichmentProcessor) processLogo(ctx context.Context, logo *enrichment.
 			p.logger.Infof("Logo processor stderr output:\n%s", strings.Join(logLines, "\n"))
 		}
 	}
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("logo processor failed: %v (output: %s)", err, outputStr)
 	}
@@ -1268,13 +1267,13 @@ func (p *enrichmentProcessor) processLogo(ctx context.Context, logo *enrichment.
 		OutputFiles []string `json:"output_files"`
 		HasIcon     bool     `json:"has_icon"`
 	}
-	
+
 	// Find JSON in output (might be mixed with stderr)
 	jsonOutput := strings.Join(jsonLines, "\n")
 	if jsonOutput == "" {
 		jsonOutput = outputStr
 	}
-	
+
 	if err := json.Unmarshal([]byte(jsonOutput), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse logo processor output: %w (raw output: %s)", err, outputStr)
 	}
@@ -1372,21 +1371,21 @@ func (p *enrichmentProcessor) trySVGTextRemoval(ctx context.Context, pythonCmd, 
 
 	// Parse JSON result
 	var result struct {
-		Success      bool     `json:"success"`
-		HasText      bool     `json:"has_text"`
-		TextRemoved  bool     `json:"text_removed"`
-		NumRemoved   int      `json:"num_text_elements"`
-		OutputFiles  []string `json:"output_files"`
-		IconSVGPath  string   `json:"icon_svg_path"`
-		IconPNGPath  string   `json:"icon_png_path"`
-		Error        string   `json:"error"`
+		Success     bool     `json:"success"`
+		HasText     bool     `json:"has_text"`
+		TextRemoved bool     `json:"text_removed"`
+		NumRemoved  int      `json:"num_text_elements"`
+		OutputFiles []string `json:"output_files"`
+		IconSVGPath string   `json:"icon_svg_path"`
+		IconPNGPath string   `json:"icon_png_path"`
+		Error       string   `json:"error"`
 	}
 
 	// Find JSON in output (last line should be JSON)
 	lines := strings.Split(string(output), "\n")
 	var jsonLine string
-	for i := len(lines) - 1; i >= 0; i-- {
-		line := strings.TrimSpace(lines[i])
+	for _, line := range slices.Backward(lines) {
+		line := strings.TrimSpace(line)
 		if strings.HasPrefix(line, "{") {
 			jsonLine = line
 			break
@@ -1492,8 +1491,8 @@ func (p *enrichmentProcessor) processSVGWithRasterFallback(ctx context.Context, 
 
 	lines := strings.Split(string(output), "\n")
 	var jsonLine string
-	for i := len(lines) - 1; i >= 0; i-- {
-		line := strings.TrimSpace(lines[i])
+	for _, line := range slices.Backward(lines) {
+		line := strings.TrimSpace(line)
 		if strings.HasPrefix(line, "{") {
 			jsonLine = line
 			break
@@ -1552,8 +1551,8 @@ func (p *enrichmentProcessor) uploadLogosToGCS(ctx context.Context, filePaths []
 	bucket := client.Bucket(p.gcsBucket)
 	var mainLogoURL string
 	var iconLogoURL string
-	var svgLogoURL string      // Full SVG URL
-	var iconSVGURL string      // Icon-only SVG URL
+	var svgLogoURL string // Full SVG URL
+	var iconSVGURL string // Icon-only SVG URL
 
 	for _, path := range filePaths {
 		filename := filepath.Base(path)
@@ -1661,7 +1660,7 @@ func (p *enrichmentProcessor) uploadLogosToGCS(ctx context.Context, filePaths []
 type pubsubPushMessage struct {
 	Message struct {
 		Data        string            `json:"data"`
-		Attributes  map[string]string  `json:"attributes"`
+		Attributes  map[string]string `json:"attributes"`
 		MessageID   string            `json:"messageId"`
 		PublishTime string            `json:"publishTime"`
 	} `json:"message"`
@@ -2118,4 +2117,3 @@ func signalListener(ctx context.Context) func() error {
 		}
 	}
 }
-

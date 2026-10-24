@@ -184,7 +184,7 @@ func harvestDetail(lm map[string]any, source string) detailRecord {
 	}
 	if lat, ok := firstFloat(geoMaps, "latitude", "lat"); ok {
 		if lng, ok2 := firstFloat(geoMaps, "longitude", "lng", "lon", "long"); ok2 && lat <= -9 && lat >= -45 && lng >= 110 && lng <= 156 {
-			rec.Lat, rec.Lng = f64p(lat), f64p(lng)
+			rec.Lat, rec.Lng = new(lat), new(lng)
 			raw["latitude"], raw["longitude"] = lat, lng
 		}
 	}
@@ -278,22 +278,22 @@ func parseSqm(s string) (float64, bool) {
 // or a propertySizes.{land,building}.{value,displayValue} sub-object.
 func harvestSqm(maps []map[string]any, kind string) *float64 {
 	if f, ok := firstFloat(maps, kind+"sizesqm", kind+"area", kind+"size", kind+"areasqm"); ok && f > 0 {
-		return f64p(f)
+		return new(f)
 	}
 	if s := firstStr(maps, kind+"sizedisplay", kind+"size", kind+"area", kind+"sizedescription"); s != "" {
 		if v, ok := parseSqm(s); ok {
-			return f64p(v)
+			return new(v)
 		}
 	}
 	for _, m := range maps {
 		if ps := childMap(m, "propertysizes", "sizes", "landdetails"); ps != nil {
 			if km := childMap(ps, kind); km != nil {
 				if f, ok := firstFloat([]map[string]any{km}, "value", "size", "sizeinsqm", "sqm"); ok && f > 0 {
-					return f64p(f)
+					return new(f)
 				}
 				if s := getStr(km, "displayvalue", "display", "label", "text"); s != "" {
 					if v, ok := parseSqm(s); ok {
-						return f64p(v)
+						return new(v)
 					}
 				}
 			}

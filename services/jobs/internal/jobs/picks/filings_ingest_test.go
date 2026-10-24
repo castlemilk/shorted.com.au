@@ -264,8 +264,8 @@ func TestBuildFilingRowsMergesAndGuards(t *testing.T) {
 	vendor := map[string][]vendorRow{
 		// Yahoo dates this company's year 29 June (a 52/53-week year).
 		"ABC": {
-			vAnnual("2025-06-29", "AUD", f64(99e6), f64(8e6), f64(0.04), f64(200e6)),
-			vAnnual("2024-06-30", "AUD", f64(90e6), f64(7e6), f64(0.035), f64(200e6)),
+			vAnnual("2025-06-29", "AUD", new(99e6), new(8e6), new(0.04), new(200e6)),
+			vAnnual("2024-06-30", "AUD", new(90e6), new(7e6), new(0.035), new(200e6)),
 		},
 	}
 	var st filingStats
@@ -330,9 +330,9 @@ func TestBuildFilingRowsCrossChecks(t *testing.T) {
 		{Code: "BHP", URL: "c", Title: "Appendix 4D", ReportDate: date("2026-02-20"), Metrics: metricsJSON(t, usd)},
 	}
 	vendor := map[string][]vendorRow{
-		"XYZ": {vAnnual("2025-06-30", "AUD", f64(90e6), f64(4e6), f64(0.02), f64(200e6))},
-		"TWO": {vAnnual("2025-06-30", "AUD", f64(80e6), nil, nil, nil)},
-		"BHP": {vAnnual("2025-06-30", "USD", f64(51e9), f64(9e9), f64(1.8), f64(5e9))},
+		"XYZ": {vAnnual("2025-06-30", "AUD", new(90e6), new(4e6), new(0.02), new(200e6))},
+		"TWO": {vAnnual("2025-06-30", "AUD", new(80e6), nil, nil, nil)},
+		"BHP": {vAnnual("2025-06-30", "USD", new(51e9), new(9e9), new(1.8), new(5e9))},
 	}
 	var st filingStats
 	out := buildFilingRows(exts, filingInputs{vendor: vendor}, &st)
@@ -360,8 +360,8 @@ func TestBuildFilingRowsCrossChecks(t *testing.T) {
 func TestPlanPurge(t *testing.T) {
 	rows := map[string][]PeriodRow{
 		"ABC": {
-			{PeriodType: periodHalf, PeriodEnd: date("2025-12-31"), Revenue: f64(1), Source: sourceFiling},
-			{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), NetIncome: f64(2), Source: sourceFiling},
+			{PeriodType: periodHalf, PeriodEnd: date("2025-12-31"), Revenue: new(float64(1)), Source: sourceFiling},
+			{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), NetIncome: new(float64(2)), Source: sourceFiling},
 		},
 	}
 	stored := []storedFiling{
@@ -414,7 +414,7 @@ func TestFilingSQLShape(t *testing.T) {
 	for _, m := range regexp.MustCompile(`\$(\d+)`).FindAllStringSubmatch(sql, -1) {
 		placeholders[m[1]] = true
 	}
-	row := PeriodRow{PeriodType: periodHalf, PeriodEnd: date("2025-12-31"), Currency: "AUD", Revenue: f64(1), Source: sourceFiling}
+	row := PeriodRow{PeriodType: periodHalf, PeriodEnd: date("2025-12-31"), Currency: "AUD", Revenue: new(float64(1)), Source: sourceFiling}
 	assert.Len(t, placeholders, len(filingUpsertArgs(map[string][]PeriodRow{"ABC": {row}}, time.Now())))
 
 	legacy := map[string]bool{}
@@ -428,7 +428,7 @@ func TestRunFilingsDryRunWritesNothing(t *testing.T) {
 	st := newFilingFake([]filingExtraction{{
 		Code: "ABC", URL: "u", Title: "Appendix 4D", ReportDate: date("2026-02-20"),
 		Metrics: `{"revenue": {"source_text": "Revenue up 20% to $60.0 million", "value_millions": "60", "period": "H1 FY2026"}}`,
-	}}, map[string][]vendorRow{"ABC": {vAnnual("2025-06-30", "AUD", f64(100e6), nil, nil, nil)}})
+	}}, map[string][]vendorRow{"ABC": {vAnnual("2025-06-30", "AUD", new(100e6), nil, nil, nil)}})
 	st.stored = []storedFiling{{Key: filingRowKey{"BHP", periodHalf, date("2025-12-31")}, Source: sourceFiling}}
 	logs := &logRecorder{}
 	stats, err := runFilings(context.Background(), st, true, logs.logf)
@@ -452,7 +452,7 @@ func TestRunFilingsDryRunWritesNothing(t *testing.T) {
 func TestRunFilingsRefusals(t *testing.T) {
 	good := []filingExtraction{{Code: "ABC", URL: "u", Title: "Appendix 4D", ReportDate: date("2026-02-20"),
 		Metrics: `{"revenue": {"source_text": "Revenue $60.0 million", "value_millions": "60", "period": "H1 FY2026"}}`}}
-	vendor := map[string][]vendorRow{"ABC": {vAnnual("2025-06-30", "AUD", f64(100e6), nil, nil, nil)}}
+	vendor := map[string][]vendorRow{"ABC": {vAnnual("2025-06-30", "AUD", new(100e6), nil, nil, nil)}}
 	stored := []storedFiling{
 		{Key: filingRowKey{"ABC", periodHalf, date("2025-12-31")}, Source: sourceFiling},
 		{Key: filingRowKey{"CBA", periodHalf, date("2025-12-31")}, Source: sourceFiling},

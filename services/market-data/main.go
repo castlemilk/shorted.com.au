@@ -62,10 +62,7 @@ func applyMarketDataPoolConfig(config *pgxpool.Config) {
 		maxConns = 3
 	}
 
-	minConns := envInt("MARKET_DATA_DB_MIN_CONNS", 0)
-	if minConns < 0 {
-		minConns = 0
-	}
+	minConns := max(envInt("MARKET_DATA_DB_MIN_CONNS", 0), 0)
 	if minConns > maxConns {
 		minConns = maxConns
 	}
@@ -697,7 +694,7 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		status := map[string]interface{}{
+		status := map[string]any{
 			"status": "healthy",
 		}
 

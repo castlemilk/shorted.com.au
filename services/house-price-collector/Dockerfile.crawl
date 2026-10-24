@@ -46,7 +46,7 @@
 #     via the VIC official tier; same PAT/bind pattern as ../Dockerfile) ---
 FROM scratch AS stealth
 
-FROM --platform=$BUILDPLATFORM golang:1.26.0 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.2 AS builder
 ARG TARGETOS TARGETARCH
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -94,7 +94,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #     and reports "please install the driver (vX) first" — i.e. it looks exactly
 #     like a missing driver even though one is present at a different version.
 ENV PLAYWRIGHT_DRIVER_PATH=/opt/ms-playwright-go
-RUN curl -fsSL https://go.dev/dl/go1.26.0.linux-amd64.tar.gz | tar -C /usr/local -xz \
+RUN curl -fsSL https://go.dev/dl/go1.27.2.linux-amd64.tar.gz | tar -C /usr/local -xz \
     && /usr/local/go/bin/go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6100.0 install \
     && rm -rf /usr/local/go /root/go /root/.cache/go-build
 # NOTE: contrary to what this file used to claim, a bare `playwright install`

@@ -155,7 +155,7 @@ func normalizeNoticeText(text string) string {
 	s := watermarkRe.ReplaceAllString(mapped, " ")
 	s = wsRe.ReplaceAllString(s, " ")
 	s = joinSplitGroups(s)
-	for i := 0; i < 6; i++ {
+	for range 6 {
 		joined := spacedCommaRe.ReplaceAllString(s, "$1,$2")
 		if joined == s {
 			break
@@ -486,8 +486,6 @@ var (
 	nzLastRe      = regexp.MustCompile(`(?i)For last disclosure,?\s*-?\s*\(a\)\s*total number held in class\s*:?\s*([0-9,]+)\s*\(b\)\s*total in class\s*:?\s*([0-9,]+)\s*\(c\)\s*total percentage held in class\s*:?\s*([0-9]+(?:\.[0-9]+)?)\s*%`)
 )
 
-func ptrF(v float64) *float64 { return &v }
-
 // minNoticeText is the least text a notice with a text layer has: a scan's
 // only text is the ASX watermark, which normalisation removes.
 const minNoticeText = 200
@@ -556,7 +554,7 @@ func parseSubstantialNotice(text, headline string) (Notice, Outcome, string) {
 		if best.pct < 4.95 {
 			return n, outcomeImplausible, "initial notice under 5%: " + strconv.FormatFloat(best.pct, 'f', -1, 64)
 		}
-		n.PresentPct, n.PresentVotes = ptrF(best.pct), best.votes
+		n.PresentPct, n.PresentVotes = new(best.pct), best.votes
 	case Form604:
 		if len(tokens) < 2 {
 			return n, outcomeNoVotingPower, "change notice without a previous and present pair"
@@ -579,8 +577,8 @@ func parseSubstantialNotice(text, headline string) (Notice, Outcome, string) {
 		if prev.pct < 4.95 {
 			return n, outcomeImplausible, "change notice whose previous voting power is under 5%: " + strconv.FormatFloat(prev.pct, 'f', -1, 64)
 		}
-		n.PreviousPct, n.PreviousVotes = ptrF(prev.pct), prev.votes
-		n.PresentPct, n.PresentVotes = ptrF(cur.pct), cur.votes
+		n.PreviousPct, n.PreviousVotes = new(prev.pct), prev.votes
+		n.PresentPct, n.PresentVotes = new(cur.pct), cur.votes
 		// A holder who fell below 5% gives a 605; one who used a 604 to say
 		// so has still ceased to be substantial.
 		if cur.pct < 4.95 {

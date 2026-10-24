@@ -65,7 +65,7 @@ func (s *ShortsServer) GetDividendHistory(ctx context.Context, req *connect.Requ
 
 	cacheKey := s.cache.GetDividendHistoryKey(req.Msg.StockCode, req.Msg.Years)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		dividends, totalCount, err := s.store.GetDividendHistory(req.Msg.StockCode, req.Msg.Years)
 		if err != nil {
 			return nil, err

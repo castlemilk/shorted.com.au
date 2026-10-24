@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -130,10 +131,7 @@ func postgresPoolSettingsFromEnv() postgresPoolSettings {
 		maxConns = 3
 	}
 
-	minConns := envInt("SHORTS_DB_MIN_CONNS", 0)
-	if minConns < 0 {
-		minConns = 0
-	}
+	minConns := max(envInt("SHORTS_DB_MIN_CONNS", 0), 0)
 	if minConns > maxConns {
 		minConns = maxConns
 	}
@@ -175,12 +173,25 @@ func (s *postgresStore) Pool() *pgxpool.Pool {
 	return s.db
 }
 
+// postgresConnString builds the connection URL through net/url so that a password
+// with '@', '/', ':' or '%' is escaped. pgx ends the userinfo at the first '@', so
+// a plain format string would split such a password.
+func postgresConnString(username, password, address, database string) string {
+	u := url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(username, password),
+		Host:   address,
+		Path:   "/" + database,
+	}
+	return u.String()
+}
+
 // newPostgresStore initializes a new store with a PostgreSQL backend.
 // Returns an error instead of panicking to allow graceful handling.
 func newPostgresStore(config Config) (Store, error) {
 	// Configure connection pool for better concurrency
-	poolConfig, err := pgxpool.ParseConfig(fmt.Sprintf("postgres://%s:%s@%s/%s",
-		config.PostgresUsername, config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
+	poolConfig, err := pgxpool.ParseConfig(postgresConnString(config.PostgresUsername,
+		config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse database config: %w", err)
 	}
@@ -241,7 +252,7 @@ func buildStockDetailsQuery(ctx context.Context, db *pgxpool.Pool) (string, erro
 
 // QueryRowContext executes a query that returns at most one row.
 // It wraps the underlying pgxpool.Pool.QueryRow.
-func (s *postgresStore) QueryRowContext(ctx context.Context, query string, args ...interface{}) Row {
+func (s *postgresStore) QueryRowContext(ctx context.Context, query string, args ...any) Row {
 	return s.db.QueryRow(ctx, query, args...)
 }
 
@@ -395,7 +406,7 @@ func (s *postgresStore) GetStockData(q StockDataQuery) (*stocksv1alpha1.TimeSeri
 	// after one specific span no longer has to pull MAX and throw most of it
 	// away.
 	var where string
-	args := []interface{}{q.ProductCode}
+	args := []any{q.ProductCode}
 	switch {
 	case q.From != "":
 		where = ` AND "DATE" >= $2::timestamp`
@@ -543,7 +554,7 @@ func thinTimeSeries(points []*stocksv1alpha1.TimeSeriesPoint, max int) []*stocks
 	out := make([]*stocksv1alpha1.TimeSeriesPoint, 0, max)
 	// Spread max picks across the index range inclusive of both ends.
 	step := float64(len(points)-1) / float64(max-1)
-	for i := 0; i < max; i++ {
+	for i := range max {
 		out = append(out, points[int(math.Round(float64(i)*step))])
 	}
 	return out
@@ -686,7 +697,7 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 
 	// Parse key_metrics and merge with financial_statements info
 	if !isEmptyJSON(keyMetricsJSON) {
-		var keyMetrics map[string]interface{}
+		var keyMetrics map[string]any
 		if err := json.Unmarshal(keyMetricsJSON, &keyMetrics); err == nil {
 			// If no financial_statements, create a minimal one with just info
 			if fs == nil {
@@ -1093,14 +1104,14 @@ func isEmptyJSON(data []byte) bool {
 
 // mergeKeyMetricsToInfo merges key_metrics JSONB data with existing financial_statements.info
 // This allows us to use key_metrics data from the daily sync when financial_statements.info is empty
-func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1alpha1.FinancialStatementsInfo) *stocksv1alpha1.FinancialStatementsInfo {
+func mergeKeyMetricsToInfo(keyMetrics map[string]any, existing *stocksv1alpha1.FinancialStatementsInfo) *stocksv1alpha1.FinancialStatementsInfo {
 	// Initialize info if it doesn't exist
 	if existing == nil {
 		existing = &stocksv1alpha1.FinancialStatementsInfo{}
 	}
 
 	// Helper to safely convert interface{} to float64, returning 0 if invalid or zero
-	toFloat64 := func(v interface{}) float64 {
+	toFloat64 := func(v any) float64 {
 		if v == nil {
 			return 0
 		}
@@ -1129,7 +1140,7 @@ func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1
 	}
 
 	// Helper to safely convert interface{} to int64, returning 0 if invalid or zero
-	toInt64 := func(v interface{}) int64 {
+	toInt64 := func(v any) int64 {
 		if v == nil {
 			return 0
 		}
@@ -1158,7 +1169,7 @@ func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1
 	}
 
 	// Helper to safely convert interface{} to string, returning "" if invalid or zero-like
-	toString := func(v interface{}) string {
+	toString := func(v any) string {
 		if v == nil {
 			return ""
 		}
@@ -1258,7 +1269,7 @@ func (s *postgresStore) StockExists(stockCode string) (bool, error) {
 }
 
 // UpdateKeyMetrics updates the key_metrics column for a stock
-func (s *postgresStore) UpdateKeyMetrics(stockCode string, metrics map[string]interface{}) error {
+func (s *postgresStore) UpdateKeyMetrics(stockCode string, metrics map[string]any) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -1505,7 +1516,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 	// A date's universe is ~740 rows, so reading it whole and paginating after
 	// the filter costs almost nothing and makes the count and the page describe
 	// the same set.
-	queryArgs := []interface{}{dateStart, dateEnd}
+	queryArgs := []any{dateStart, dateEnd}
 	if !ordinaryOnly {
 		query += ` LIMIT $3 OFFSET $4`
 		queryArgs = append(queryArgs, limit, offset)
@@ -1561,10 +1572,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 	if ordinaryOnly {
 		// The count must describe what the caller can actually page through.
 		totalCount = len(stocks)
-		start := int(offset)
-		if start > len(stocks) {
-			start = len(stocks)
-		}
+		start := min(int(offset), len(stocks))
 		end := len(stocks)
 		if limit > 0 && start+int(limit) < end {
 			end = start + int(limit)
@@ -1586,13 +1594,13 @@ func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, s
 	// total DB execution time (~1.5-2s/call); the MV serves it in ~1ms. Falls
 	// back to the raw DISTINCT query if the MV doesn't exist yet.
 	var datesQuery string
-	var args []interface{}
+	var args []any
 	if before != "" {
 		datesQuery = `SELECT date FROM mv_available_dates WHERE date < $1::date ORDER BY date DESC LIMIT $2`
-		args = []interface{}{before, limit}
+		args = []any{before, limit}
 	} else {
 		datesQuery = `SELECT date FROM mv_available_dates ORDER BY date DESC LIMIT $1`
-		args = []interface{}{limit}
+		args = []any{limit}
 	}
 
 	rows, err := s.db.Query(ctx, datesQuery, args...)
@@ -1605,14 +1613,14 @@ func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, s
 				WHERE "DATE" < $1::timestamp
 				ORDER BY date DESC
 				LIMIT $2`
-			args = []interface{}{before + " 00:00:00", limit}
+			args = []any{before + " 00:00:00", limit}
 		} else {
 			datesQuery = `
 				SELECT DISTINCT "DATE"::date as date
 				FROM shorts
 				ORDER BY date DESC
 				LIMIT $1`
-			args = []interface{}{limit}
+			args = []any{limit}
 		}
 		rows, err = s.db.Query(ctx, datesQuery, args...)
 		if err != nil {
@@ -1717,7 +1725,7 @@ func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha
 		WHERE 1=1
 	`
 
-	var args []interface{}
+	var args []any
 	argIndex := 1
 
 	// Filter by environment if specified
@@ -1996,7 +2004,7 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 	if !json.Valid(dataJSON) {
 		return "", fmt.Errorf("enrichment data produced invalid JSON (not valid per json.Valid): %s", string(dataJSON))
 	}
-	var testData interface{}
+	var testData any
 	if err := json.Unmarshal(dataJSON, &testData); err != nil {
 		return "", fmt.Errorf("enrichment data produced invalid JSON: %w (JSON: %s)", err, string(dataJSON))
 	}
@@ -2018,7 +2026,7 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 	if !json.Valid(qualityJSON) {
 		return "", fmt.Errorf("quality score produced invalid JSON (not valid per json.Valid): %s", string(qualityJSON))
 	}
-	var testQuality interface{}
+	var testQuality any
 	if err := json.Unmarshal(qualityJSON, &testQuality); err != nil {
 		return "", fmt.Errorf("quality score produced invalid JSON: %w (JSON: %s)", err, string(qualityJSON))
 	}
@@ -2893,7 +2901,7 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 	now := time.Now()
 
 	var query string
-	var args []interface{}
+	var args []any
 
 	switch status {
 	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_PROCESSING:
@@ -2902,7 +2910,7 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 			SET status = $1, started_at = $2
 			WHERE job_id = $3::uuid
 		`
-		args = []interface{}{dbStatus, now, jobID}
+		args = []any{dbStatus, now, jobID}
 	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_COMPLETED:
 		// Handle enrichment_id - use NULL if empty, otherwise cast to UUID
 		if enrichmentID != nil && *enrichmentID != "" {
@@ -2911,14 +2919,14 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 				SET status = $1, completed_at = $2, enrichment_id = $3::uuid
 				WHERE job_id = $4::uuid
 			`
-			args = []interface{}{dbStatus, now, *enrichmentID, jobID}
+			args = []any{dbStatus, now, *enrichmentID, jobID}
 		} else {
 			query = `
 				UPDATE "enrichment-jobs"
 				SET status = $1, completed_at = $2
 				WHERE job_id = $3::uuid
 			`
-			args = []interface{}{dbStatus, now, jobID}
+			args = []any{dbStatus, now, jobID}
 		}
 	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED:
 		query = `
@@ -2930,20 +2938,20 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 		if errorMsg != nil {
 			errMsg = *errorMsg
 		}
-		args = []interface{}{dbStatus, now, errMsg, jobID}
+		args = []any{dbStatus, now, errMsg, jobID}
 	default:
 		query = `
 			UPDATE "enrichment-jobs"
 			SET status = $1
 			WHERE job_id = $2::uuid
 		`
-		args = []interface{}{dbStatus, jobID}
+		args = []any{dbStatus, jobID}
 	}
 
 	var lastErr error
 	backoff := initialBackoff
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for attempt := range maxRetries {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 		_, err := s.db.Exec(ctx, query, args...)
@@ -2960,10 +2968,7 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 		if attempt < maxRetries-1 {
 			// Exponential backoff with jitter
 			time.Sleep(backoff)
-			backoff = time.Duration(float64(backoff) * 2.0)
-			if backoff > maxBackoff {
-				backoff = maxBackoff
-			}
+			backoff = min(time.Duration(float64(backoff)*2.0), maxBackoff)
 
 			log.Warnf("Failed to update enrichment job %s status to %s (attempt %d/%d), retrying: %v",
 				jobID, dbStatus, attempt+1, maxRetries, err)
@@ -3003,7 +3008,7 @@ func (s *postgresStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1
 		FROM "enrichment-jobs"
 	`
 	whereClause := ""
-	args := []interface{}{limit, offset}
+	args := []any{limit, offset}
 	argIdx := 3
 
 	if status != nil {
@@ -3086,7 +3091,7 @@ func (s *postgresStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1
 	// whereClause references $3, and reusing it here (with a single bound arg)
 	// would error "there is no parameter $3" and silently zero the total.
 	countQuery := `SELECT COUNT(*) FROM "enrichment-jobs"`
-	var countArgs []interface{}
+	var countArgs []any
 	if status != nil {
 		countQuery += " WHERE status = $1"
 		countArgs = append(countArgs, enrichmentJobStatusToDB(*status))
@@ -3411,7 +3416,7 @@ func (s *postgresStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string,
 
 	// Build dynamic update query based on which fields are set
 	setParts := []string{"updated_at = CURRENT_TIMESTAMP"}
-	args := []interface{}{}
+	args := []any{}
 	argNum := 1
 
 	if update.Status != nil {

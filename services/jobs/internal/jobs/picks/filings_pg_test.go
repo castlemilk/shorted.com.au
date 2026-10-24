@@ -182,19 +182,19 @@ func f132Rows() map[string][]PeriodRow {
 	d := func(s string) *time.Time { x := date(s); return &x }
 	return map[string][]PeriodRow{
 		"ZZA": {
-			{PeriodType: periodHalf, PeriodEnd: date("2024-12-31"), FiscalYear: &fy25, Currency: "AUD", Revenue: f64(45e6), Source: sourceFiling,
+			{PeriodType: periodHalf, PeriodEnd: date("2024-12-31"), FiscalYear: &fy25, Currency: "AUD", Revenue: new(45e6), Source: sourceFiling,
 				SourceDocumentURL: "u-4d-25", SourceDocumentDate: d("2025-02-20")},
-			{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), FiscalYear: &fy25, Currency: "AUD", Revenue: f64(999e6), NetIncome: f64(7e6), Source: sourceFiling,
+			{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), FiscalYear: &fy25, Currency: "AUD", Revenue: new(999e6), NetIncome: new(7e6), Source: sourceFiling,
 				SourceDocumentURL: "u-4e-25", SourceDocumentDate: d("2025-08-20")},
-			{PeriodType: periodHalf, PeriodEnd: date("2025-12-31"), FiscalYear: &fy26, Currency: "AUD", Revenue: f64(60e6), EPSBasic: f64(0.03), Source: sourceFiling,
+			{PeriodType: periodHalf, PeriodEnd: date("2025-12-31"), FiscalYear: &fy26, Currency: "AUD", Revenue: new(60e6), EPSBasic: new(0.03), Source: sourceFiling,
 				SourceDocumentURL: "u-4d-26", SourceDocumentDate: d("2026-02-20")},
 		},
 		"ZZB": {
-			{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), FiscalYear: &fy25, Currency: "AUD", NetIncome: f64(7e6), Source: sourceFiling,
+			{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), FiscalYear: &fy25, Currency: "AUD", NetIncome: new(7e6), Source: sourceFiling,
 				SourceDocumentURL: "u-zzb", SourceDocumentDate: d("2025-08-20")},
 		},
 		"ZZC": {
-			{PeriodType: periodAnnual, PeriodEnd: date("2024-06-30"), FiscalYear: &fy24, Currency: "AUD", NetIncome: f64(1.1e6), Source: sourceFiling,
+			{PeriodType: periodAnnual, PeriodEnd: date("2024-06-30"), FiscalYear: &fy24, Currency: "AUD", NetIncome: new(1.1e6), Source: sourceFiling,
 				SourceDocumentURL: "u-4e-24b", SourceDocumentDate: d("2024-08-23")},
 		},
 	}
@@ -324,7 +324,7 @@ func TestFilingRebuildRollsBackAgainstPostgres(t *testing.T) {
 	f132Seed(t, pool)
 	rows := f132Rows()
 	// A value the table CHECK refuses fails the upsert, the LAST statement.
-	rows["ZZA"][2].Revenue = f64(1e19)
+	rows["ZZA"][2].Revenue = new(1e19)
 	_, err := st.RebuildFilings(ctx, filingRebuild{Rows: rows, FetchedAt: time.Now()})
 	require.Error(t, err)
 	_, ok := f132Read(t, pool, "ZZE", periodHalf, "2024-12-31")

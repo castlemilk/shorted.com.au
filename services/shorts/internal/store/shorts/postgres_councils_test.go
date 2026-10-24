@@ -3,14 +3,13 @@ package shorts
 import (
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
-
-func fp(v float64) *float64 { return &v }
 
 // The council queries answer to three rules: council facts stay council-level,
 // NULL is never 0, and crawl data is read only as aggregates. Each assertion
@@ -115,26 +114,26 @@ func TestCouncilQueryShapes(t *testing.T) {
 
 func TestDeriveCouncilRates(t *testing.T) {
 	r := &CouncilSummaryRow{Population: 100_000, FagYear: "2025-26", HouseMedianPeriod: "2023-24", ApprovalsThrough: "2026-07"}
-	deriveCouncilRates(r, fp(50), fp(5_000_000), fp(900_000), fp(1_200), 12)
+	deriveCouncilRates(r, new(float64(50)), new(float64(5_000_000)), new(float64(900_000)), new(float64(1_200)), 12)
 	if *r.DensityPerSqkm != 2000 || *r.FagPerResident != 50 || *r.ApprovalsPer1000 != 12 || *r.HouseMedian != 900_000 {
 		t.Fatalf("rates: %+v", r)
 	}
 
 	// A partial approvals window is not "the last 12 months".
 	r = &CouncilSummaryRow{Population: 100_000, ApprovalsThrough: "2026-07"}
-	deriveCouncilRates(r, nil, nil, nil, fp(1_200), 11)
+	deriveCouncilRates(r, nil, nil, nil, new(float64(1_200)), 11)
 	if r.ApprovalsPer1000 != nil || r.ApprovalsThrough != "" {
 		t.Errorf("11 months published as a 12-month rate: %+v", r)
 	}
 	// No ERP: nothing per resident, nothing per km2 — never a 0.
 	r = &CouncilSummaryRow{FagYear: "2025-26"}
-	deriveCouncilRates(r, fp(50), fp(5_000_000), nil, fp(10), 12)
+	deriveCouncilRates(r, new(float64(50)), new(float64(5_000_000)), nil, new(float64(10)), 12)
 	if r.DensityPerSqkm != nil || r.FagPerResident != nil || r.ApprovalsPer1000 != nil || r.FagYear != "" {
 		t.Errorf("rates without population: %+v", r)
 	}
 	// A median without its period is not published.
 	r = &CouncilSummaryRow{Population: 1}
-	deriveCouncilRates(r, nil, nil, fp(900_000), nil, 0)
+	deriveCouncilRates(r, nil, nil, new(float64(900_000)), nil, 0)
 	if r.HouseMedian != nil {
 		t.Errorf("undated council median: %+v", r)
 	}
@@ -148,11 +147,11 @@ func TestAggregateCouncilDropsFloorsAtTheCouncilAndNamesOnlyClearingSuburbs(t *t
 	// cuts each and one with 3 give a council of 7, of which only the 3 is named.
 	agg := aggregateCouncilDrops(&councilDrops{
 		AsOf:  asOf,
-		Total: CouncilDropSuburbRow{Dropped: 7, Tracked: 100, MedianDropPct: fp(0.04), DataThrough: &through},
+		Total: CouncilDropSuburbRow{Dropped: 7, Tracked: 100, MedianDropPct: new(0.04), DataThrough: &through},
 		Suburbs: []CouncilDropSuburbRow{
 			{SALCode: "1", Dropped: 2, Tracked: 40},
 			{SALCode: "2", Dropped: 2, Tracked: 50},
-			{SALCode: "3", Dropped: 3, Tracked: 10, MedianDropPct: fp(0.05)},
+			{SALCode: "3", Dropped: 3, Tracked: 10, MedianDropPct: new(0.05)},
 		},
 	})
 	if agg == nil || agg.Dropped != 7 || agg.Tracked != 100 || agg.DroppedShare != 0.07 || agg.SuburbsTracked != 3 {
@@ -204,12 +203,12 @@ func TestAggregateCouncilDropsFloorsAtTheCouncilAndNamesOnlyClearingSuburbs(t *t
 func TestRollupCouncilSuburbs(t *testing.T) {
 	period := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
 	suburbs := []CouncilSuburbRow{
-		{SALCode: "1", Population: 1000, Share: 1, Dominant: true, VGMedian: fp(1_000_000), VGMedianPeriod: &period, BushfireSharePct: fp(10)},
-		{SALCode: "2", Population: 3000, Share: 1, Dominant: true, VGMedian: fp(2_000_000), VGMedianPeriod: &period, BushfireSharePct: fp(0)},
-		{SALCode: "3", Population: 1000, Share: 1, Dominant: true, VGMedian: fp(3_000_000), VGMedianPeriod: &period},
+		{SALCode: "1", Population: 1000, Share: 1, Dominant: true, VGMedian: new(float64(1_000_000)), VGMedianPeriod: &period, BushfireSharePct: new(float64(10))},
+		{SALCode: "2", Population: 3000, Share: 1, Dominant: true, VGMedian: new(float64(2_000_000)), VGMedianPeriod: &period, BushfireSharePct: new(float64(0))},
+		{SALCode: "3", Population: 1000, Share: 1, Dominant: true, VGMedian: new(float64(3_000_000)), VGMedianPeriod: &period},
 		// A straddler with 10% of its people here: weighted by 1,000 x 0.1, and
 		// its (high) median stays out of the council's price rollup.
-		{SALCode: "4", Population: 1000, Share: 0.1, Dominant: false, VGMedian: fp(9_000_000), VGMedianPeriod: &period, BushfireSharePct: fp(100)},
+		{SALCode: "4", Population: 1000, Share: 0.1, Dominant: false, VGMedian: new(float64(9_000_000)), VGMedianPeriod: &period, BushfireSharePct: new(float64(100))},
 	}
 	r := rollupCouncilSuburbs(suburbs)
 	if r.MemberSuburbs != 4 || r.DominantSuburbs != 3 {
@@ -265,12 +264,7 @@ func TestLgaCrossStateEmbedded(t *testing.T) {
 		t.Fatalf("embedded cross-border adjacency has %d councils", len(lgaCrossState))
 	}
 	has := func(m map[string][]string, a, b string) bool {
-		for _, x := range m[a] {
-			if x == b {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(m[a], b)
 	}
 	// Albury (NSW) <-> Wodonga (VIC), across the Murray: a cross-border pair,
 	// never a same-state one.

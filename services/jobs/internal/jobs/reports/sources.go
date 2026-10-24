@@ -284,7 +284,7 @@ func TypePriority(t string) int {
 // ParseCodes turns a comma-separated -codes value into an upper-cased set.
 func ParseCodes(codes string) map[string]bool {
 	set := make(map[string]bool)
-	for _, c := range strings.Split(codes, ",") {
+	for c := range strings.SplitSeq(codes, ",") {
 		c = strings.TrimSpace(strings.ToUpper(c))
 		if c != "" {
 			set[c] = true
@@ -297,7 +297,7 @@ func ParseCodes(codes string) map[string]bool {
 // (for `= ANY($1)` predicates).
 func CodeList(codes string) []string {
 	var out []string
-	for _, c := range strings.Split(codes, ",") {
+	for c := range strings.SplitSeq(codes, ",") {
 		c = strings.TrimSpace(c)
 		if c != "" {
 			out = append(out, strings.ToUpper(c))

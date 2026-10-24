@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"testing"
 	"time"
 
@@ -52,13 +53,13 @@ func TestClaimsEmailVerifiedIsNeverReadFromAToken(t *testing.T) {
 func TestEmailVerifiedFromFirebaseClaims(t *testing.T) {
 	cases := []struct {
 		name   string
-		claims map[string]interface{}
+		claims map[string]any
 		want   bool
 	}{
-		{"verified boolean", map[string]interface{}{"email_verified": true}, true},
-		{"unverified boolean", map[string]interface{}{"email_verified": false}, false},
-		{"string true is not verified", map[string]interface{}{"email_verified": "true"}, false},
-		{"claim absent", map[string]interface{}{}, false},
+		{"verified boolean", map[string]any{"email_verified": true}, true},
+		{"unverified boolean", map[string]any{"email_verified": false}, false},
+		{"string true is not verified", map[string]any{"email_verified": "true"}, false},
+		{"claim absent", map[string]any{}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -90,9 +91,7 @@ func TestInternalCallerIsEmailVerifiedOnlyWhenTheWebAssertsIt(t *testing.T) {
 				"x-user-email":      "owner@example.com",
 				"x-user-roles":      "admin",
 			}
-			for k, v := range tc.extra {
-				headers[k] = v
-			}
+			maps.Copy(headers, tc.extra)
 			_, err := callRPC[shortsv1alpha1.GetSyncStatusRequest, shortsv1alpha1.GetSyncStatusResponse](t, srv,
 				getSyncStatusProcedure, &shortsv1alpha1.GetSyncStatusRequest{}, headers, "")
 			require.NoError(t, err)
@@ -240,11 +239,11 @@ func TestBespokeAPITokenIsNeverEmailVerified(t *testing.T) {
 		})
 
 	token := bespokeToken(t, Claims{
-		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))},
-		UserID:           "uid-1",
-		Email:            "victim@example.com",
-		EmailVerified:    true, // a token cannot assert this; the json tag is "-"
-		Roles:            []string{"api-user"},
+		ExpiresAt:     jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		UserID:        "uid-1",
+		Email:         "victim@example.com",
+		EmailVerified: true, // a token cannot assert this; the json tag is "-"
+		Roles:         []string{"api-user"},
 	})
 	if _, err := callRPC[shortsv1alpha1.PauseAlertMonitorByTokenRequest, shortsv1alpha1.PauseAlertMonitorByTokenResponse](t, srv,
 		publicProcedure, &shortsv1alpha1.PauseAlertMonitorByTokenRequest{Token: "x"}, nil, token); err != nil {

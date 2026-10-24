@@ -71,8 +71,6 @@ func epochOf(t *testing.T, s string) int64 {
 	return parsed.Unix()
 }
 
-func strPtr(s string) *string { return &s }
-
 func TestUpsertAPISubscriptionAgainstPostgres(t *testing.T) {
 	s := apiSubscriptionsTestStore(t)
 	const periodStart = "2026-10-01 00:00:00+00"
@@ -82,7 +80,7 @@ func TestUpsertAPISubscriptionAgainstPostgres(t *testing.T) {
 		// The first write carries the periods, as a full read of Stripe does.
 		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
 			UserID: "uid_keep", UserEmail: "keep@example.com", StripeCustomerID: "cus_keep", StripeSubscriptionID: "sub_keep",
-			Status: "active", Tier: "premium", CurrentPeriodStart: strPtr(periodStart), CurrentPeriodEnd: strPtr(periodEnd),
+			Status: "active", Tier: "premium", CurrentPeriodStart: new(periodStart), CurrentPeriodEnd: new(periodEnd),
 		}))
 
 		// The checkout write carries no periods. It must not null them out, and the
@@ -108,13 +106,13 @@ func TestUpsertAPISubscriptionAgainstPostgres(t *testing.T) {
 	t.Run("a write with a period replaces that period and keeps the other", func(t *testing.T) {
 		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
 			UserID: "uid_replace", UserEmail: "replace@example.com", StripeCustomerID: "cus_replace", StripeSubscriptionID: "sub_replace",
-			Status: "active", Tier: "premium", CurrentPeriodStart: strPtr(periodStart), CurrentPeriodEnd: strPtr(periodEnd),
+			Status: "active", Tier: "premium", CurrentPeriodStart: new(periodStart), CurrentPeriodEnd: new(periodEnd),
 		}))
 
 		const renewedEnd = "2026-12-01 00:00:00+00"
 		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
 			UserID: "uid_replace", UserEmail: "replace@example.com", StripeCustomerID: "cus_replace", StripeSubscriptionID: "sub_replace",
-			Status: "active", Tier: "premium", CurrentPeriodEnd: strPtr(renewedEnd),
+			Status: "active", Tier: "premium", CurrentPeriodEnd: new(renewedEnd),
 		}))
 
 		start := periodEpoch(t, s, "uid_replace", "current_period_start")
@@ -140,7 +138,7 @@ func TestUpsertAPISubscriptionAgainstPostgres(t *testing.T) {
 		// new uid. The new subscription id is what makes this a re-point.
 		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
 			UserID: "uid_first", UserEmail: "first@example.com", StripeCustomerID: "cus_shared", StripeSubscriptionID: "sub_first",
-			Status: "active", Tier: "premium", CurrentPeriodStart: strPtr(periodStart), CurrentPeriodEnd: strPtr(periodEnd),
+			Status: "active", Tier: "premium", CurrentPeriodStart: new(periodStart), CurrentPeriodEnd: new(periodEnd),
 		}))
 
 		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
@@ -209,7 +207,7 @@ func TestUpsertAPISubscriptionAgainstPostgres(t *testing.T) {
 		// subscription still carries the old uid.
 		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
 			UserID: "uid_new", UserEmail: "new@example.com", StripeCustomerID: "cus_repoint", StripeSubscriptionID: "sub_repoint",
-			Status: "active", Tier: "premium", CurrentPeriodStart: strPtr(periodStart), CurrentPeriodEnd: strPtr(periodEnd),
+			Status: "active", Tier: "premium", CurrentPeriodStart: new(periodStart), CurrentPeriodEnd: new(periodEnd),
 		}))
 
 		require.NoError(t, s.UpsertAPISubscription(&APISubscription{
@@ -231,7 +229,7 @@ func TestUpsertAPISubscriptionAgainstPostgres(t *testing.T) {
 		const renewedEnd = "2026-12-01 00:00:00+00"
 		renewed := "active"
 		require.NoError(t, s.UpdateAPISubscriptionByCustomer("cus_repoint", &APISubscriptionUpdate{
-			Status: &renewed, CurrentPeriodEnd: strPtr(renewedEnd),
+			Status: &renewed, CurrentPeriodEnd: new(renewedEnd),
 		}))
 		assert.Equal(t, epochOf(t, renewedEnd), *periodEpoch(t, s, "uid_new", "current_period_end"))
 	})
@@ -253,7 +251,7 @@ func TestUpdateAPISubscriptionByCustomerAgainstPostgres(t *testing.T) {
 		cancel := true
 		const end = "2026-11-01 00:00:00+00"
 		require.NoError(t, s.UpdateAPISubscriptionByCustomer("cus_a", &APISubscriptionUpdate{
-			Status: &canceled, CancelAtPeriodEnd: &cancel, CurrentPeriodEnd: strPtr(end),
+			Status: &canceled, CancelAtPeriodEnd: &cancel, CurrentPeriodEnd: new(end),
 		}))
 
 		a, err := s.GetAPISubscriptionByCustomer("cus_a")

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/iterator"
@@ -115,7 +116,7 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 	totalUsage.Add(initialUsage)
 
 	// Process tool calls in a loop (max 5 rounds to prevent infinite loops)
-	for round := 0; round < 5; round++ {
+	for range 5 {
 		funcCalls := extractFunctionCalls(resp)
 		if len(funcCalls) == 0 {
 			break
@@ -125,9 +126,7 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 		var funcResponses []genai.Part
 		for _, fc := range funcCalls {
 			args := make(map[string]any)
-			for k, v := range fc.Args {
-				args[k] = v
-			}
+			maps.Copy(args, fc.Args)
 
 			log.Printf("Executing tool: %s with args: %v", fc.Name, args)
 			result, execErr := lc.toolExecutor.Execute(ctx, fc.Name, args)
@@ -247,9 +246,7 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 			}
 
 			args := make(map[string]any)
-			for k, v := range fc.Args {
-				args[k] = v
-			}
+			maps.Copy(args, fc.Args)
 
 			log.Printf("Executing tool: %s with args: %v", fc.Name, args)
 			result, execErr := lc.toolExecutor.Execute(ctx, fc.Name, args)

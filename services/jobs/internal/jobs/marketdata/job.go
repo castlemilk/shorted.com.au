@@ -188,10 +188,7 @@ func buildDBPoolConfig(cfg *config.Config) (*pgxpool.Config, error) {
 	if maxConns < 1 {
 		maxConns = 3
 	}
-	minConns := cfg.DBMinConns
-	if minConns < 0 {
-		minConns = 0
-	}
+	minConns := max(cfg.DBMinConns, 0)
 	if minConns > maxConns {
 		minConns = maxConns
 	}

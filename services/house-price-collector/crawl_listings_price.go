@@ -88,17 +88,17 @@ func parseAUPrice(display string) (low, high *float64, kind string) {
 	// A genuine numeric range: two+ figures AND a range separator.
 	if len(nums) >= 2 && containsAny(s, rangeSeparators) {
 		lo, hi := minMaxFloat(nums)
-		return f64p(lo), f64p(hi), priceRangeLow
+		return new(lo), new(hi), priceRangeLow
 	}
 
 	n := nums[0]
 	switch {
 	case containsAny(s, offersOverMarkers):
-		return f64p(n), nil, priceOffersOver
+		return new(n), nil, priceOffersOver
 	case containsAny(s, upToMarkers):
-		return nil, f64p(n), priceRangeHigh
+		return nil, new(n), priceRangeHigh
 	default:
-		return f64p(n), nil, priceFixed
+		return new(n), nil, priceFixed
 	}
 }
 
@@ -145,5 +145,3 @@ func minMaxFloat(vs []float64) (min, max float64) {
 	}
 	return min, max
 }
-
-func f64p(v float64) *float64 { return &v }

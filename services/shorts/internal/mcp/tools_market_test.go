@@ -103,7 +103,7 @@ func TestListTopShortsReportsANilBodyRatherThanZeroes(t *testing.T) {
 
 func TestGetIndustryTreemapProjectsAndCaps(t *testing.T) {
 	stocks := make([]*stocksv1alpha1.TreemapShortPosition, 0, 300)
-	for i := 0; i < 300; i++ {
+	for range 300 {
 		stocks = append(stocks, &stocksv1alpha1.TreemapShortPosition{
 			Industry: "Materials", ProductCode: "AAA", ShortPosition: 1.5,
 		})

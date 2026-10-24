@@ -17,7 +17,7 @@ var _ = runLobbyistsMode
 // register export carries leading tabs/spaces on client names).
 func fixtureRows(s string) [][]string {
 	var rows [][]string
-	for _, line := range strings.Split(strings.Trim(s, "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.Trim(s, "\n"), "\n") {
 		rows = append(rows, strings.Split(line, "|"))
 	}
 	return rows

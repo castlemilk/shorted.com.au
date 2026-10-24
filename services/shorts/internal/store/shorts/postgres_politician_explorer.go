@@ -188,7 +188,7 @@ func scanPoliticianSummary(scan func(dest ...any) error) (*PoliticianSummaryRow,
 
 func politicianSummaryFromRollup(politician *PoliticianRow, rollup *politicianRollupScanRow) *PoliticianSummaryRow {
 	items := make([]*RegisterItemCountRow, 0, 14)
-	for i := 0; i < 14; i++ {
+	for i := range 14 {
 		itemNo := int32(i + 1)
 		items = append(items, &RegisterItemCountRow{
 			ItemNo: itemNo, ItemLabel: registerItemLabel(itemNo),

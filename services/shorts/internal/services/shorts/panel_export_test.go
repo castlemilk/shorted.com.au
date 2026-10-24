@@ -250,7 +250,7 @@ func TestPanelExportCarriesAvailableFrom(t *testing.T) {
 	panelServer(t, store).PanelExportHandler()(rec, req)
 
 	var first panelJSON
-	line := strings.Split(strings.TrimSpace(rec.Body.String()), "\n")[0]
+	line, _, _ := strings.Cut(strings.TrimSpace(rec.Body.String()), "\n")
 	if err := json.Unmarshal([]byte(line), &first); err != nil {
 		t.Fatalf("not valid JSON: %v", err)
 	}

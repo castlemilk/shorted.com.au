@@ -197,11 +197,11 @@ type companyReports struct {
 }
 
 func getCompaniesWithUnsyncedReports(ctx context.Context, db *pgxpool.Pool) ([]companyReports, error) {
-	var args []interface{}
+	var args []any
 	whereClause := ""
 	if *flagCodes != "" {
 		var codes []string
-		for _, c := range strings.Split(*flagCodes, ",") {
+		for c := range strings.SplitSeq(*flagCodes, ",") {
 			c = strings.TrimSpace(c)
 			if c != "" {
 				codes = append(codes, strings.ToUpper(c))

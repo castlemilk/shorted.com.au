@@ -34,9 +34,9 @@ func TestListCouncils_NormalizesStateBeforeStoreAndCache(t *testing.T) {
 	store := mocks.NewMockShortsStore(ctrl)
 	store.EXPECT().ListCouncils("VIC").Return([]*shortsstore.CouncilSummaryRow{{
 		LgaCode: "27350", Slug: "yarra", DisplayName: "Yarra", Kind: "council", StateCode: "VIC",
-		Population: 101356, ErpYear: 2025, PopGrowthPct: f64(1.234567),
-		DensityPerSqkm: f64(5197.743589), FloodSharePct: f64(12.3456), PriceDropShare: f64(0.041666),
-		HouseMedian: f64(1_500_000), HouseMedianPeriod: "2023-24",
+		Population: 101356, ErpYear: 2025, PopGrowthPct: new(1.234567),
+		DensityPerSqkm: new(5197.743589), FloodSharePct: new(12.3456), PriceDropShare: new(0.041666),
+		HouseMedian: new(float64(1_500_000)), HouseMedianPeriod: "2023-24",
 	}}, nil).Times(1)
 	srv := newTestServer(t, store)
 	for _, state := range []string{" vic ", "VIC", "Vic"} {
@@ -132,8 +132,8 @@ func TestGetCouncilProfile_MapsEveryBlock(t *testing.T) {
 		LgaName: "Canterbury-Bankstown", AreaSqkm: 110.2, FagAud: 13_757_751, FagYear: "2025-26", FactsAsOf: &asOf,
 		Facts: shortsstore.SuburbCouncilRow{
 			Slug: "canterbury-bankstown", DisplayName: "Canterbury-Bankstown", Kind: "council", ErpYear: 2025,
-			PopGrowthPct: f64(1.05), Website: "https://www.cbcity.nsw.gov.au/", WikidataQID: "Q24070750",
-			DominantShare: f64(0.5), HouseMedian: f64(1_399_999), HouseMedianPeriod: "2023-24",
+			PopGrowthPct: new(1.05), Website: "https://www.cbcity.nsw.gov.au/", WikidataQID: "Q24070750",
+			DominantShare: new(0.5), HouseMedian: new(float64(1_399_999)), HouseMedianPeriod: "2023-24",
 		},
 		Summary: &shortsstore.CouncilSummaryRow{LgaCode: "11570", Slug: "canterbury-bankstown", Population: 389687, ErpYear: 2025},
 		Series: []shortsstore.CouncilSeriesRow{
@@ -144,13 +144,13 @@ func TestGetCouncilProfile_MapsEveryBlock(t *testing.T) {
 		},
 		Suburbs: []shortsstore.CouncilSuburbRow{
 			{SALCode: "12166", SALName: "Kingsgrove", Population: 14000, Share: 0.4946, Dominant: true,
-				VGMedian: f64(1_900_000), VGMedianPeriod: &period, BushfireSharePct: f64(0)},
+				VGMedian: new(float64(1_900_000)), VGMedianPeriod: &period, BushfireSharePct: new(float64(0))},
 			{SALCode: "99999", SALName: "Unpriced", Population: 10, Share: 0.07, Dominant: false,
-				VGMedian: f64(1), VGMedianPeriod: nil},
+				VGMedian: new(float64(1)), VGMedianPeriod: nil},
 		},
-		Rollup:       shortsstore.CouncilRollupRow{MemberSuburbs: 2, DominantSuburbs: 1, BushfireSharePct: f64(5.19327), BushfireCoveredSuburbs: 41},
+		Rollup:       shortsstore.CouncilRollupRow{MemberSuburbs: 2, DominantSuburbs: 1, BushfireSharePct: new(5.19327), BushfireCoveredSuburbs: 41},
 		FederalSeats: []shortsstore.CouncilRepresentativeRow{{Name: "Watson", PopulationShare: 0.6, SuburbCount: 12}},
-		PriceDrops: &shortsstore.CouncilPriceDropsRow{Dropped: 7, Tracked: 100, DroppedShare: 0.07, MedianDropPct: f64(0.04123),
+		PriceDrops: &shortsstore.CouncilPriceDropsRow{Dropped: 7, Tracked: 100, DroppedShare: 0.07, MedianDropPct: new(0.04123),
 			Suburbs: []shortsstore.CouncilDropSuburbRow{{SALCode: "12166", SALName: "Kingsgrove", Dropped: 4, Tracked: 30}}},
 		Neighbours: []shortsstore.CouncilNeighbourRow{{LgaCode: "12930", Slug: "georges-river", DisplayName: "Georges River", SharesBorder: true, SharedSuburbs: 3}},
 	}
@@ -253,11 +253,11 @@ func TestCouncilRPCs_HonourTheDropListingsKillSwitch(t *testing.T) {
 	store := mocks.NewMockShortsStore(ctrl)
 	store.EXPECT().ListCouncils("NSW").Return([]*shortsstore.CouncilSummaryRow{
 		{LgaCode: "11570", Slug: "canterbury-bankstown", Kind: "council", StateCode: "NSW",
-			PriceDropShare: f64(0.07), PriceDropsAsOf: &asOf, PriceDropsDataThrough: &through},
+			PriceDropShare: new(0.07), PriceDropsAsOf: &asOf, PriceDropsDataThrough: &through},
 		{LgaCode: "12930", Slug: "georges-river", Kind: "council", StateCode: "NSW"},
 	}, nil).Times(1)
 	store.EXPECT().GetCouncilProfile("NSW", "canterbury-bankstown").Return(&shortsstore.CouncilProfileRow{
-		Summary: &shortsstore.CouncilSummaryRow{LgaCode: "11570", Slug: "canterbury-bankstown", PriceDropShare: f64(0.07)},
+		Summary: &shortsstore.CouncilSummaryRow{LgaCode: "11570", Slug: "canterbury-bankstown", PriceDropShare: new(0.07)},
 		PriceDrops: &shortsstore.CouncilPriceDropsRow{Dropped: 7, Tracked: 100, DroppedShare: 0.07, AsOf: asOf, DataThrough: &through,
 			Suburbs: []shortsstore.CouncilDropSuburbRow{{SALCode: "12166", SALName: "Kingsgrove", Dropped: 4, Tracked: 30}}},
 	}, nil).Times(1)
@@ -313,11 +313,11 @@ func TestCouncilRPCs_HonourTheDropListingsKillSwitch(t *testing.T) {
 // A remote council's density is well under 1/km², and one decimal published it
 // as 0 (Unincorporated NSW: 975 residents over 93,209 km²).
 func TestCouncilSummary_SparseDensityIsNeverRoundedToZero(t *testing.T) {
-	sparse := councilSummaryProto(&shortsstore.CouncilSummaryRow{LgaCode: "19499", DensityPerSqkm: f64(975.0 / 93209.0)})
+	sparse := councilSummaryProto(&shortsstore.CouncilSummaryRow{LgaCode: "19499", DensityPerSqkm: new(975.0 / 93209.0)})
 	if got := sparse.GetDensityPerSqkm(); got <= 0 || got > 0.011 {
 		t.Errorf("sparse density %v: must survive as a small positive number", got)
 	}
-	dense := councilSummaryProto(&shortsstore.CouncilSummaryRow{LgaCode: "11570", DensityPerSqkm: f64(5197.743589)})
+	dense := councilSummaryProto(&shortsstore.CouncilSummaryRow{LgaCode: "11570", DensityPerSqkm: new(5197.743589)})
 	if got := dense.GetDensityPerSqkm(); got != 5197.7 {
 		t.Errorf("dense density %v: want one decimal", got)
 	}

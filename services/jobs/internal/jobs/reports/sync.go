@@ -204,7 +204,7 @@ type companyReports struct {
 }
 
 func getCompaniesWithUnsyncedReports(ctx context.Context, db *pgxpool.Pool, codesFlag string) ([]companyReports, error) {
-	var args []interface{}
+	var args []any
 	whereClause := ""
 	if codesFlag != "" {
 		args = append(args, CodeList(codesFlag))

@@ -27,8 +27,9 @@ func panel(n, active int, rate float64) []suburbDay {
 // only condition under which a pooled ratio and an equal-weighted mean diverge.
 //
 // 115 small suburbs at 10%, then 385 large ones at 30%:
-//   equal-weighted mean = (115*0.10 + 385*0.30) / 500          = 0.254
-//   pooled ratio        = (115*4 + 385*120) / (115*40 + 385*400) = 0.29420...
+//
+//	equal-weighted mean = (115*0.10 + 385*0.30) / 500          = 0.254
+//	pooled ratio        = (115*4 + 385*120) / (115*40 + 385*400) = 0.29420...
 //
 // The pooled ratio is dragged toward the large cohort because it weights by
 // listing volume. That is exactly how our crawl catalog growing 115 -> 500
@@ -353,7 +354,7 @@ func TestSuburbDaysCountsAddressKeysFirst(t *testing.T) {
 // as its "median" — the public suburb series leaked 1,794 such rows. The rate
 // stays: it is a count ratio, not a listing's price.
 func TestSuburbPointWithholdsMedianBelowTheKFloor(t *testing.T) {
-	for dropped := 0; dropped < indexMedianKFloor; dropped++ {
+	for dropped := range indexMedianKFloor {
 		got := suburbPoint(suburbDay{salCode: "x", active: 40, dropped: dropped, medianDropPct: 0.061})
 		if got.MedianDropPct != nil {
 			t.Fatalf("dropped=%d: MedianDropPct = %v, want nil (withheld)", dropped, *got.MedianDropPct)

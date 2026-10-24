@@ -3,6 +3,7 @@ package cronreporter
 import (
 	"context"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -35,12 +36,8 @@ func (f *fakeCluster) ListJobs(context.Context, string) ([]kjob, error) {
 		// Reflect previously written annotations, like the apiserver would.
 		cp := j
 		cp.Metadata.Annotations = map[string]string{}
-		for k, v := range j.Metadata.Annotations {
-			cp.Metadata.Annotations[k] = v
-		}
-		for k, v := range f.annotations[j.Metadata.Name] {
-			cp.Metadata.Annotations[k] = v
-		}
+		maps.Copy(cp.Metadata.Annotations, j.Metadata.Annotations)
+		maps.Copy(cp.Metadata.Annotations, f.annotations[j.Metadata.Name])
 		out[i] = cp
 	}
 	return out, nil
@@ -55,9 +52,7 @@ func (f *fakeCluster) AnnotateJob(_ context.Context, name string, ann map[string
 	if f.annotations[name] == nil {
 		f.annotations[name] = map[string]string{}
 	}
-	for k, v := range ann {
-		f.annotations[name][k] = v
-	}
+	maps.Copy(f.annotations[name], ann)
 	return nil
 }
 
@@ -102,8 +97,6 @@ func newJob(name, cron string, start *time.Time, conds ...kjobCondition) kjob {
 	return j
 }
 
-func ptr[T any](v T) *T { return &v }
-
 func testReporter(k *fakeCluster, s *fakeSender, urls map[string]string) *reporter {
 	r := newReporter(k, s, staticURLs(urls), config{
 		interval: 30 * time.Second, maxReportAge: 3 * time.Hour, logTailLines: 40, heartbeatInterval: 5 * time.Minute,
@@ -115,7 +108,7 @@ func testReporter(k *fakeCluster, s *fakeSender, urls map[string]string) *report
 const url1 = "https://api.telesis.dev/v1/cron/tok1"
 
 func TestStartIsSentOnceThenCompleteWithDuration(t *testing.T) {
-	k := &fakeCluster{jobs: []kjob{newJob("news-123", "shorted-news", ptr(t0))}}
+	k := &fakeCluster{jobs: []kjob{newJob("news-123", "shorted-news", new(t0))}}
 	s := &fakeSender{}
 	r := testReporter(k, s, map[string]string{"shorted-news": url1})
 
@@ -128,7 +121,7 @@ func TestStartIsSentOnceThenCompleteWithDuration(t *testing.T) {
 		t.Fatalf("start check-in identity wrong: %+v", s.sent[0].c)
 	}
 
-	k.jobs[0].Status.CompletionTime = ptr(t0.Add(90 * time.Second))
+	k.jobs[0].Status.CompletionTime = new(t0.Add(90 * time.Second))
 	k.jobs[0].Status.Conditions = []kjobCondition{{Type: "Complete", Status: "True", LastTransitionTime: t0.Add(90 * time.Second)}}
 	r.tick(context.Background())
 	r.tick(context.Background())
@@ -146,7 +139,7 @@ func TestStartIsSentOnceThenCompleteWithDuration(t *testing.T) {
 }
 
 func TestFailureCarriesExitCodeReasonAndRedactedLogs(t *testing.T) {
-	j := newJob("fre-1", "financial-report-extractor", ptr(t0),
+	j := newJob("fre-1", "financial-report-extractor", new(t0),
 		kjobCondition{Type: "FailureTarget", Status: "True"},
 		kjobCondition{Type: "Failed", Status: "True", Reason: "BackoffLimitExceeded", Message: "Job has reached the specified backoff limit", LastTransitionTime: t0.Add(5 * time.Minute)},
 	)
@@ -195,7 +188,7 @@ func TestFailureCarriesExitCodeReasonAndRedactedLogs(t *testing.T) {
 }
 
 func TestFailureTargetAloneIsNotTerminal(t *testing.T) {
-	j := newJob("x-1", "x", ptr(t0), kjobCondition{Type: "FailureTarget", Status: "True"})
+	j := newJob("x-1", "x", new(t0), kjobCondition{Type: "FailureTarget", Status: "True"})
 	k := &fakeCluster{jobs: []kjob{j}}
 	s := &fakeSender{}
 	testReporter(k, s, map[string]string{"x": url1}).tick(context.Background())
@@ -205,7 +198,7 @@ func TestFailureTargetAloneIsNotTerminal(t *testing.T) {
 }
 
 func TestStaleTerminalRunsAreMarkedNotReported(t *testing.T) {
-	j := newJob("old-1", "x", ptr(t0.Add(-10*time.Hour)),
+	j := newJob("old-1", "x", new(t0.Add(-10*time.Hour)),
 		kjobCondition{Type: "Complete", Status: "True", LastTransitionTime: t0.Add(-9 * time.Hour)})
 	k := &fakeCluster{jobs: []kjob{j}}
 	s := &fakeSender{}
@@ -219,8 +212,8 @@ func TestStaleTerminalRunsAreMarkedNotReported(t *testing.T) {
 }
 
 func TestMissingURLMarksOnlyTerminalRuns(t *testing.T) {
-	running := newJob("a-1", "unregistered", ptr(t0))
-	done := newJob("a-0", "unregistered", ptr(t0),
+	running := newJob("a-1", "unregistered", new(t0))
+	done := newJob("a-0", "unregistered", new(t0),
 		kjobCondition{Type: "Complete", Status: "True", LastTransitionTime: t0.Add(time.Minute)})
 	k := &fakeCluster{jobs: []kjob{running, done}}
 	s := &fakeSender{}
@@ -237,7 +230,7 @@ func TestMissingURLMarksOnlyTerminalRuns(t *testing.T) {
 }
 
 func TestTransientErrorRetriesPermanentErrorIsRecorded(t *testing.T) {
-	j := newJob("n-1", "x", ptr(t0), kjobCondition{Type: "Complete", Status: "True", LastTransitionTime: t0.Add(time.Minute)})
+	j := newJob("n-1", "x", new(t0), kjobCondition{Type: "Complete", Status: "True", LastTransitionTime: t0.Add(time.Minute)})
 
 	k := &fakeCluster{jobs: []kjob{j}}
 	s := &fakeSender{err: errors.New("dial tcp: i/o timeout")}

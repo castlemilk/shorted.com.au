@@ -65,7 +65,7 @@ func electoratesDir() string {
 	return filepath.Join(filepath.Dir(censusGeoDir()), "electorates")
 }
 
-func readJSONFile(path string, v interface{}) error {
+func readJSONFile(path string, v any) error {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", path, err)

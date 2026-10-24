@@ -124,7 +124,7 @@ func TestCheckSendsInternalHeadersAndCachesPerRun(t *testing.T) {
 	}}
 	c := newEntitlementChecker(startBilling(t, stub), stubSecret)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		e, err := c.check(context.Background(), "u-paid")
 		if err != nil || !e.Entitled {
 			t.Fatalf("check %d: %+v %v", i, e, err)

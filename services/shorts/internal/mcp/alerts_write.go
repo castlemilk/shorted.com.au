@@ -233,7 +233,7 @@ func alertsWriteTool[I, O any](name, title, description string, ann *sdk.ToolAnn
 }
 
 func readAnnotations() *sdk.ToolAnnotations {
-	return &sdk.ToolAnnotations{ReadOnlyHint: true, DestructiveHint: boolPtr(false), IdempotentHint: true, OpenWorldHint: boolPtr(false)}
+	return &sdk.ToolAnnotations{ReadOnlyHint: true, DestructiveHint: new(false), IdempotentHint: true, OpenWorldHint: new(false)}
 }
 
 func listMyAlertsTool() AlertsWriteTool {
@@ -257,7 +257,7 @@ func createAlertTool() AlertsWriteTool {
 	return alertsWriteTool("create_alert", "Create an alert",
 		"Create a short-interest alert for a stock or an industry, emailed to your verified address. Needs an active Premium subscription, "+
 			"and at most 50 active alerts per account. Pause or delete it with pause_alert or delete_alert.",
-		&sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: boolPtr(false), IdempotentHint: false, OpenWorldHint: boolPtr(false)},
+		&sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false), IdempotentHint: false, OpenWorldHint: new(false)},
 		func(ctx context.Context, op AlertsWriteOperator, uid string, in CreateAlertInput) (*AlertsOwnMonitor, string, error) {
 			m, err := op.CreateAlert(ctx, uid, in)
 			if err != nil {
@@ -270,7 +270,7 @@ func createAlertTool() AlertsWriteTool {
 func pauseAlertTool() AlertsWriteTool {
 	return alertsWriteTool("pause_alert", "Pause an alert",
 		"Pause one of your alerts so it stops emailing. Works without a subscription. Idempotent.",
-		&sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: boolPtr(false), IdempotentHint: true, OpenWorldHint: boolPtr(false)},
+		&sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false), IdempotentHint: true, OpenWorldHint: new(false)},
 		func(ctx context.Context, op AlertsWriteOperator, uid string, in AlertIDInput) (*AlertStateOutput, string, error) {
 			id, err := normaliseAlertID(in.MonitorID)
 			if err != nil {
@@ -287,7 +287,7 @@ func pauseAlertTool() AlertsWriteTool {
 func resumeAlertTool() AlertsWriteTool {
 	return alertsWriteTool("resume_alert", "Resume an alert",
 		"Resume one of your paused alerts. Needs an active Premium subscription. Idempotent.",
-		&sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: boolPtr(false), IdempotentHint: true, OpenWorldHint: boolPtr(false)},
+		&sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false), IdempotentHint: true, OpenWorldHint: new(false)},
 		func(ctx context.Context, op AlertsWriteOperator, uid string, in AlertIDInput) (*AlertStateOutput, string, error) {
 			id, err := normaliseAlertID(in.MonitorID)
 			if err != nil {
@@ -304,7 +304,7 @@ func resumeAlertTool() AlertsWriteTool {
 func deleteAlertTool() AlertsWriteTool {
 	return alertsWriteTool("delete_alert", "Delete an alert",
 		"Delete one of your alerts and its history. Other accounts' alerts are never reachable. Destructive: the alert cannot be restored.",
-		&sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: boolPtr(true), IdempotentHint: false, OpenWorldHint: boolPtr(false)},
+		&sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true), IdempotentHint: false, OpenWorldHint: new(false)},
 		func(ctx context.Context, op AlertsWriteOperator, uid string, in AlertIDInput) (*DeleteAlertOutput, string, error) {
 			id, err := normaliseAlertID(in.MonitorID)
 			if err != nil {

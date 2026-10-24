@@ -23,12 +23,12 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.26"
+  GO_VERSION: "1.27"
   # Pin the linter. golangci-lint v2 reads the `version: "2"` config in
   # services/.golangci.yaml; a v1 binary silently ignores it and reports a
   # different issue set, which would make this gate mean something different
   # from `make lint-backend` on a developer's machine.
-  GOLANGCI_VERSION: "v2.10.1"
+  GOLANGCI_VERSION: "v2.15.0"
 
 concurrency:
   group: go-quality-${{ github.ref }}

@@ -159,7 +159,7 @@ func TestSubcommandsDoNotBypassThePoolBuilder(t *testing.T) {
 		// pgxpool.New(...) takes a URL and applies no exec mode.
 		// pgxpool.NewWithConfig(...) takes a config we control, so it is fine.
 		body := string(src)
-		for _, line := range strings.Split(body, "\n") {
+		for line := range strings.SplitSeq(body, "\n") {
 			if strings.Contains(line, "pgxpool.New(") {
 				offenders = append(offenders, name+": "+strings.TrimSpace(line))
 			}

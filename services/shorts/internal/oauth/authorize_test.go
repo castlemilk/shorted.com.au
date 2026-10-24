@@ -3,10 +3,10 @@ package oauth
 import (
 	"context"
 	"crypto/sha256"
-	"fmt"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -550,7 +550,7 @@ func TestGrantCodesAreUnpredictableAndDistinct(t *testing.T) {
 	store := defaultStore()
 	h := newTestHandler(t, &fakeIdentity{userID: "uid-1"}, store)
 	seen := map[string]bool{}
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		// One approval buys exactly one code, so each iteration needs its own.
 		ticket := fmt.Sprintf("consent-ticket-%d", i)
 		seedTicket(store, ticket, nil)

@@ -297,13 +297,11 @@ func TestResolveMPReturnIgnoreAliasSuppressesExactMatch(t *testing.T) {
 // Candidate returns: division + surname within the parliament the event elected.
 // ---------------------------------------------------------------------------
 
-func parliamentPtr(n int) *int { return &n }
-
 func TestResolveCandidateReturnByDivisionAndSurname(t *testing.T) {
 	f := newAECResolveFixture(t)
 	id := f.politician("Zzyzxwell", "Peter", "peter-zzyzxwell")
 	f.term(id, 47, "Fictionia", "Liberal Party of Australia")
-	f.candidateReturn("2022 Federal election", parliamentPtr(47), "Candidate",
+	f.candidateReturn("2022 Federal election", new(47), "Candidate",
 		"ZZYZXWELL, Peter Craig", "Fictionia", "Liberal Party of Australia")
 
 	counts := f.resolve()
@@ -323,7 +321,7 @@ func TestResolveCandidateReturnWithholdsWhenTheSeatWasNotHeld(t *testing.T) {
 	id := f.politician("Zzyzxwell", "Peter", "peter-zzyzxwell")
 	f.term(id, 47, "Fictionia", "Liberal Party of Australia")
 	// Same person, next election, but no 48th-parliament term.
-	f.candidateReturn("2025 Federal Election", parliamentPtr(48), "Candidate",
+	f.candidateReturn("2025 Federal Election", new(48), "Candidate",
 		"ZZYZXWELL, Peter Craig", "Fictionia", "Liberal Party of Australia")
 
 	counts := f.resolve()
@@ -362,7 +360,7 @@ func TestResolveCandidateReturnWithholdsSenateGroup(t *testing.T) {
 	f := newAECResolveFixture(t)
 	id := f.politician("Zzyzxwell", "Sam", "sam-zzyzxwell")
 	f.term(id, 48, "Fictionia", "Australian Labor Party")
-	f.candidateReturn("2025 Federal Election", parliamentPtr(48), "Senate Group",
+	f.candidateReturn("2025 Federal Election", new(48), "Senate Group",
 		"ZZYZXWELL, Sam", "Victoria", "Australian Labor Party")
 
 	f.resolve()
@@ -384,7 +382,7 @@ func TestResolveCandidateReturnWithholdsOnAmbiguity(t *testing.T) {
 	b := f.politician("Zzyzxwell", "Julie", "julie-zzyzxwell-2")
 	f.term(a, 48, "Fictionia", "Australian Labor Party")
 	f.term(b, 48, "Fictionia", "Australian Labor Party")
-	f.candidateReturn("2025 Federal Election", parliamentPtr(48), "Candidate",
+	f.candidateReturn("2025 Federal Election", new(48), "Candidate",
 		"ZZYZXWELL, Julie Ann", "Fictionia", "Australian Labor Party")
 
 	counts := f.resolve()
@@ -407,7 +405,7 @@ func TestResolveCandidateReturnAttributesADifferentPersonSeparately(t *testing.T
 	f := newAECResolveFixture(t)
 	id := f.politician("Zzyzxwell", "Julie", "julie-zzyzxwell")
 	f.term(id, 48, "Fictionia", "Australian Labor Party")
-	f.candidateReturn("2025 Federal Election", parliamentPtr(48), "Candidate",
+	f.candidateReturn("2025 Federal Election", new(48), "Candidate",
 		"ZZYZXWELL, Bartholomew", "Fictionia", "Liberal Party of Australia (Victorian Division)")
 
 	counts := f.resolve()
@@ -460,13 +458,13 @@ func TestResolveCandidateReturnWithholdsALosingNamesake(t *testing.T) {
 	}
 
 	// Verbatim from AllElectionsData, including the branch-name party labels.
-	f.candidateReturn("2025 Federal Election", parliamentPtr(48), "Candidate",
+	f.candidateReturn("2025 Federal Election", new(48), "Candidate",
 		"RISHWORTH, James Philip", "Kingston", "Liberal Party of Australia (S.A. Division)")
-	f.candidateReturn("2025 Federal Election", parliamentPtr(48), "Candidate",
+	f.candidateReturn("2025 Federal Election", new(48), "Candidate",
 		"RISHWORTH, Amanda Louise", "Kingston", "Australian Labor Party (South Australian Branch)")
-	f.candidateReturn("2025 Federal Election", parliamentPtr(48), "Candidate",
+	f.candidateReturn("2025 Federal Election", new(48), "Candidate",
 		"LE, Nguyen-Tu", "Fowler", "Australian Labor Party (N.S.W. Branch)")
-	f.candidateReturn("2025 Federal Election", parliamentPtr(48), "Candidate",
+	f.candidateReturn("2025 Federal Election", new(48), "Candidate",
 		"LE, Dai Trang", "Fowler", "Independent")
 
 	counts := f.resolve()
@@ -498,7 +496,7 @@ func TestResolveCandidateReturnAcceptsAGivenNameRecordedAsAMiddleName(t *testing
 	f := newAECResolveFixture(t)
 	id := f.politician("Zzyzxwell", "Milton", "milton-zzyzxwell")
 	f.term(id, 47, "Fictionia", "Australian Labor Party")
-	f.candidateReturn("2022 Federal election", parliamentPtr(47), "Candidate",
+	f.candidateReturn("2022 Federal election", new(47), "Candidate",
 		"ZZYZXWELL, Dugald Milton", "Fictionia", "Australian Labor Party (Victorian Branch)")
 
 	f.resolve()
@@ -514,7 +512,7 @@ func TestResolveCandidateReturnWithholdsADiminutive(t *testing.T) {
 	f := newAECResolveFixture(t)
 	id := f.politician("Zzyzxwell", "Tony", "tony-zzyzxwell")
 	f.term(id, 47, "Fictionia", "Liberal")
-	f.candidateReturn("2022 Federal election", parliamentPtr(47), "Candidate",
+	f.candidateReturn("2022 Federal election", new(47), "Candidate",
 		"ZZYZXWELL, Anthony John", "Fictionia", "Liberal Party of Australia (Victorian Division)")
 
 	f.resolve()
@@ -540,7 +538,7 @@ func TestResolveCandidateReturnToleratesABranchNameAgainstAFederalParty(t *testi
 	f := newAECResolveFixture(t)
 	id := f.politician("Zzyzxwell", "Peter", "peter-zzyzxwell")
 	f.term(id, 47, "Fictionia", "Liberal")
-	f.candidateReturn("2022 Federal election", parliamentPtr(47), "Candidate",
+	f.candidateReturn("2022 Federal election", new(47), "Candidate",
 		"ZZYZXWELL, Peter Craig", "Fictionia", "Liberal Party of Australia (S.A. Division)")
 
 	f.resolve()
@@ -563,7 +561,7 @@ func tiebreakerFixture(t *testing.T) *aecResolveFixture {
 	b := f.politician("Zzyzxwell", "Robin", "robin-zzyzxwell-2")
 	f.term(a, 48, "Fictionia", "Australian Labor Party")
 	f.term(b, 48, "Fictionia", "")
-	f.candidateReturn("2025 Federal Election", parliamentPtr(48), "Candidate",
+	f.candidateReturn("2025 Federal Election", new(48), "Candidate",
 		"ZZYZXWELL, Robin", "Fictionia", "Australian Labor Party")
 	return f
 }
@@ -675,7 +673,7 @@ func TestDeletingAPoliticianDegradesTheirReturnsInsteadOfFailing(t *testing.T) {
 	f := newAECResolveFixture(t)
 	id := f.politician("Zzyzxwell", "Peter", "peter-zzyzxwell")
 	f.term(id, 47, "Fictionia", "Liberal")
-	f.candidateReturn("2022 Federal election", parliamentPtr(47), "Candidate",
+	f.candidateReturn("2022 Federal election", new(47), "Candidate",
 		"ZZYZXWELL, Peter Craig", "Fictionia", "Liberal Party of Australia (Victorian Division)")
 	f.mpReturn("Mr Peter Zzyzxwell MP")
 

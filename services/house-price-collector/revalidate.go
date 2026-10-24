@@ -114,8 +114,7 @@ func revalidateAfterCrawlWrite(reason string) {
 // of this path already did this via platform.PingRevalidate; the collector did
 // not, and the collector is the copy production runs.
 func redactURLError(err error) error {
-	var uerr *url.Error
-	if errors.As(err, &uerr) {
+	if uerr, ok := errors.AsType[*url.Error](err); ok {
 		return fmt.Errorf("%s [url redacted]: %w", uerr.Op, uerr.Err)
 	}
 	return err

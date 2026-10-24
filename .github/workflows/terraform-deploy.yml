@@ -17,7 +17,7 @@ on:
 
 env:
   NODE_VERSION: "24.22.1"
-  GO_VERSION: "1.26"
+  GO_VERSION: "1.27"
   PYTHON_VERSION: "3.11"
   GOWORK: "off"
   GOPRIVATE: github.com/skunkworq/*
@@ -981,7 +981,7 @@ jobs:
                 -e STEALTH_PAT="${STEALTH_PAT:-}" \
                 -v "${PWD}/services:/app" \
                 -w /app \
-                golang:1.26.0 \
+                golang:1.27.2 \
                 sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode '"$mode"; then
                 echo "influence-collector -mode $mode: ok"
               else

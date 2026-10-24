@@ -10,11 +10,11 @@ func TestValuate(t *testing.T) {
 	asOf := *d("2026-09-25")
 	audInputs := func() *ValuationInputs {
 		return &ValuationInputs{
-			Shares: f(1e9), SharesPeriodEnd: d("2026-06-30"), MedianK: f(1.0),
-			EPSDiluted: f(0.5), EPSBasic: f(0.52), EPSPeriodEnd: d("2026-06-30"), EPSCurrency: "AUD",
+			Shares: new(1e9), SharesPeriodEnd: d("2026-06-30"), MedianK: new(1.0),
+			EPSDiluted: new(0.5), EPSBasic: new(0.52), EPSPeriodEnd: d("2026-06-30"), EPSCurrency: "AUD",
 		}
 	}
-	audEquity := &Quality{TotalEquity: f(4e9), BalanceCurrency: "AUD", Currency: "AUD"}
+	audEquity := &Quality{TotalEquity: new(4e9), BalanceCurrency: "AUD", Currency: "AUD"}
 
 	near := func(t *testing.T, name string, got *float64, want float64) {
 		t.Helper()
@@ -45,7 +45,7 @@ func TestValuate(t *testing.T) {
 	t.Run("a USD reporter has a market cap but no P/E or P/B", func(t *testing.T) {
 		in := audInputs()
 		in.EPSCurrency = "USD"
-		v := Valuate(45, asOf, in, &Quality{TotalEquity: f(4e10), BalanceCurrency: "USD"})
+		v := Valuate(45, asOf, in, &Quality{TotalEquity: new(4e10), BalanceCurrency: "USD"})
 		near(t, "market cap", v.MarketCap, 4.5e10)
 		if v.PERatio != nil || v.PriceToBook != nil || v.Note != ValuationNoteNonAUD {
 			t.Errorf("%+v", v)
@@ -62,7 +62,7 @@ func TestValuate(t *testing.T) {
 	})
 	t.Run("a CDI listing is not valued", func(t *testing.T) {
 		in := audInputs()
-		in.MedianK = f(10.1) // RMD: ten CDIs per share
+		in.MedianK = new(10.1) // RMD: ten CDIs per share
 		v := Valuate(40, asOf, in, audEquity)
 		if v.HasAny() || v.Note != ValuationNoteListedUnit || v.PriceAsOf == nil {
 			t.Errorf("%+v", v)
@@ -71,14 +71,14 @@ func TestValuate(t *testing.T) {
 	t.Run("median k at the bounds is one share", func(t *testing.T) {
 		for _, k := range []float64{0.8, 1.25} {
 			in := audInputs()
-			in.MedianK = f(k)
+			in.MedianK = new(k)
 			if v := Valuate(10, asOf, in, nil); v.MarketCap == nil {
 				t.Errorf("k=%v must value", k)
 			}
 		}
 		for _, k := range []float64{0.79, 1.26, math.NaN()} {
 			in := audInputs()
-			in.MedianK = f(k)
+			in.MedianK = new(k)
 			if v := Valuate(10, asOf, in, nil); v.HasAny() {
 				t.Errorf("k=%v must not value", k)
 			}
@@ -106,7 +106,7 @@ func TestValuate(t *testing.T) {
 		if v.HasAny() || v.Note != ValuationNoteNoShares {
 			t.Errorf("one year between the bands: %+v", v)
 		}
-		c := Candidate{Valuation: v, MarketCap: f(1.1e9)}
+		c := Candidate{Valuation: v, MarketCap: new(1.1e9)}
 		if got := c.ResolvedMarketCap(); got == nil || *got != 1.1e9 {
 			t.Errorf("the screener's market cap must stand in for a recent issuer: %v", got)
 		}
@@ -125,7 +125,7 @@ func TestValuate(t *testing.T) {
 		if v.HasAny() || v.Note != ValuationNoteListedUnit {
 			t.Errorf("a k far from 1: %+v", v)
 		}
-		c = Candidate{Valuation: v, MarketCap: f(1.1e9)}
+		c = Candidate{Valuation: v, MarketCap: new(1.1e9)}
 		if got := c.ResolvedMarketCap(); got != nil {
 			t.Errorf("a listed-unit stock borrows no market cap: %v", *got)
 		}
@@ -138,11 +138,11 @@ func TestValuate(t *testing.T) {
 	})
 	t.Run("a median decides over the per-period flags", func(t *testing.T) {
 		in := audInputs()
-		in.MedianK, in.KPeriods, in.KConsistent, in.KFarFromOne = f(1.0), 3, false, true
+		in.MedianK, in.KPeriods, in.KConsistent, in.KFarFromOne = new(1.0), 3, false, true
 		if v := Valuate(10, asOf, in, nil); v.MarketCap == nil || v.Note != "" {
 			t.Errorf("median 1.0 with one outlier year: %+v", v)
 		}
-		in.MedianK = f(0.775)
+		in.MedianK = new(0.775)
 		if v := Valuate(10, asOf, in, nil); v.HasAny() || v.Note != ValuationNoteListedUnit {
 			t.Errorf("a median outside [0.8, 1.25]: %+v", v)
 		}
@@ -169,18 +169,18 @@ func TestValuate(t *testing.T) {
 	})
 	t.Run("a loss has no P/E and needs no note", func(t *testing.T) {
 		in := audInputs()
-		in.EPSDiluted = f(-0.1)
+		in.EPSDiluted = new(-0.1)
 		v := Valuate(10, asOf, in, nil)
 		if v.PERatio != nil || v.Note != "" || v.MarketCap == nil {
 			t.Errorf("%+v", v)
 		}
-		in.EPSDiluted = f(0)
+		in.EPSDiluted = new(float64(0))
 		if v := Valuate(10, asOf, in, nil); v.PERatio != nil {
 			t.Error("zero EPS has no P/E")
 		}
 	})
 	t.Run("negative equity has no P/B", func(t *testing.T) {
-		v := Valuate(10, asOf, audInputs(), &Quality{TotalEquity: f(-1e6), BalanceCurrency: "AUD"})
+		v := Valuate(10, asOf, audInputs(), &Quality{TotalEquity: new(-1e6), BalanceCurrency: "AUD"})
 		if v.PriceToBook != nil || v.MarketCap == nil {
 			t.Errorf("%+v", v)
 		}

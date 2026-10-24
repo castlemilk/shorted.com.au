@@ -395,8 +395,7 @@ func (a *alertRun) entitlements(ctx context.Context, cands []Candidate) (map[str
 // lookupCode names a lookup failure for the log and the error. It never carries the
 // message, which could name an account.
 func lookupCode(err error) string {
-	var ce *connect.Error
-	if errors.As(err, &ce) {
+	if ce, ok := errors.AsType[*connect.Error](err); ok {
 		return ce.Code().String()
 	}
 	return "error"

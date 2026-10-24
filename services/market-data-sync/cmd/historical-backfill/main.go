@@ -30,7 +30,7 @@ func main() {
 		// 0 disables the skip entirely and restores pre-#595 behaviour.
 		unavailableRetryDays = flag.Int("unavailable-retry-days", 30,
 			"skip codes a provider already had nothing for, until this many days have passed (0 = never skip)")
-		symbol       = flag.String("symbol", "", "Process only this specific stock symbol (e.g., DMP). If provided, ignores other filters.")
+		symbol = flag.String("symbol", "", "Process only this specific stock symbol (e.g., DMP). If provided, ignores other filters.")
 	)
 	flag.Parse()
 

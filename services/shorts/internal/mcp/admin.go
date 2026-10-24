@@ -263,8 +263,6 @@ func adminActor(req *sdk.CallToolRequest) string {
 	return "oauth:unknown"
 }
 
-func boolPtr(b bool) *bool { return &b }
-
 // requireScope is the per-tool half of the scope check. A token without the
 // tool's scope gets a tool-level error that says which scope is missing and
 // how to get it, so an agent (and the person behind it) can act on it — a
@@ -310,9 +308,9 @@ func publishNewsArticleTool() AdminTool {
 				"Only merged articles can be published; re-publishing an already-live article updates its content in place.",
 			Annotations: &sdk.ToolAnnotations{
 				ReadOnlyHint:    false,
-				DestructiveHint: boolPtr(false),
+				DestructiveHint: new(false),
 				IdempotentHint:  true,
-				OpenWorldHint:   boolPtr(false),
+				OpenWorldHint:   new(false),
 			},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, in PublishNewsArticleInput) (*sdk.CallToolResult, PublishNewsArticleOutput, error) {
 			if denied := requireScope(req, t.Scope); denied != nil {
@@ -360,7 +358,7 @@ func newsPublishStatusTool() AdminTool {
 			Name:        t.Name,
 			Title:       "Check a news publish run",
 			Description: "Report whether a publish_news_article run is still running, succeeded or failed, with its log link and failure reason.",
-			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: boolPtr(false)},
+			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: new(false)},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, in NewsPublishStatusInput) (*sdk.CallToolResult, NewsPublishStatusOutput, error) {
 			if denied := requireScope(req, t.Scope); denied != nil {
 				return denied, NewsPublishStatusOutput{}, nil
@@ -435,9 +433,9 @@ func runPicksJobTool() AdminTool {
 				"Poll picks_job_status with the returned execution_name.",
 			Annotations: &sdk.ToolAnnotations{
 				ReadOnlyHint:    false,
-				DestructiveHint: boolPtr(false),
+				DestructiveHint: new(false),
 				IdempotentHint:  false,
-				OpenWorldHint:   boolPtr(true), // fundamentals and all reach Yahoo / Markit
+				OpenWorldHint:   new(true), // fundamentals and all reach Yahoo / Markit
 			},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, in RunPicksJobInput) (*sdk.CallToolResult, RunPicksJobOutput, error) {
 			if denied := requireScope(req, t.Scope); denied != nil {
@@ -482,7 +480,7 @@ func picksJobStatusTool() AdminTool {
 			Name:        t.Name,
 			Title:       "Check a stock picker data run",
 			Description: "Report whether a run_picks_job execution is still running, succeeded or failed, with its log link and failure reason.",
-			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: boolPtr(false)},
+			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: new(false)},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, in PicksJobStatusInput) (*sdk.CallToolResult, PicksJobStatusOutput, error) {
 			if denied := requireScope(req, t.Scope); denied != nil {
 				return denied, PicksJobStatusOutput{}, nil

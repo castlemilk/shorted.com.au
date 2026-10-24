@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS stealth
-FROM --platform=$BUILDPLATFORM golang:1.26.0
+FROM --platform=$BUILDPLATFORM golang:1.27.2
 ARG TARGETOS TARGETARCH as build
 WORKDIR /helloworld
 # Copy dependencies list

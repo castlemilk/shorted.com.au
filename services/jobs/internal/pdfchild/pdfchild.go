@@ -203,7 +203,7 @@ func residentBytes(path string) (int64, bool) {
 	if err != nil {
 		return 0, false
 	}
-	for _, line := range strings.Split(string(b), "\n") {
+	for line := range strings.SplitSeq(string(b), "\n") {
 		if rest, ok := strings.CutPrefix(line, "VmRSS:"); ok {
 			f := strings.Fields(rest)
 			if len(f) == 0 {

@@ -81,7 +81,7 @@ func withRecent(now time.Time, ago time.Duration) func(*shortsstore.BillingSubsc
 // created a day before billingNow unless the test overrides it.
 func stripeSub(id, status string, end time.Time) webSubscription {
 	created := billingNow.Add(-24 * time.Hour)
-	return webSubscription{ID: id, Status: status, Tier: "premium", Interval: "month", Amount: ptrInt64(2900), Currency: "aud",
+	return webSubscription{ID: id, Status: status, Tier: "premium", Interval: "month", Amount: new(int64(2900)), Currency: "aud",
 		CurrentPeriodEnd: billingRFC(end), CurrentPeriodStart: billingRFC(end.AddDate(0, -1, 0)), Created: billingRFC(created)}
 }
 
@@ -221,14 +221,14 @@ func TestBillingDriftFindsEachDisagreement(t *testing.T) {
 		},
 		{
 			name:     "period ends more than an hour apart",
-			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-a", "a@example.com", "active", withPeriodEnd(ptrTime(periodEnd.Add(3*time.Hour))))},
+			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-a", "a@example.com", "active", withPeriodEnd(new(periodEnd.Add(3*time.Hour))))},
 			views:    []stripeCustomerView{stripeView("cus_uid-a", stripeSub("sub_uid-a", "active", periodEnd))},
 			stripeOK: true,
 			want:     []string{kindPeriodEndMismatch},
 		},
 		{
 			name:     "period ends within the hour are the same",
-			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-a", "a@example.com", "active", withPeriodEnd(ptrTime(periodEnd.Add(30*time.Minute))))},
+			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-a", "a@example.com", "active", withPeriodEnd(new(periodEnd.Add(30*time.Minute))))},
 			views:    []stripeCustomerView{stripeView("cus_uid-a", stripeSub("sub_uid-a", "active", periodEnd))},
 			stripeOK: true,
 			want:     []string{},
@@ -610,10 +610,6 @@ func TestBestAliveByCustomerRanksWithinACustomer(t *testing.T) {
 		t.Fatalf("best = %+v", got)
 	}
 }
-
-func ptrTime(t time.Time) *time.Time { return &t }
-
-func ptrInt64(v int64) *int64 { return &v }
 
 // withMetadata is a Stripe subscription that records the user id it was bought for.
 func withMetadata(s webSubscription, uid string) webSubscription {

@@ -19,10 +19,10 @@ var cidRef = regexp.MustCompile(`cid:([A-Za-z0-9_.\-]+)`)
 func stockWithHistory() Message {
 	m := emailFixtures()["stock-above-daily"]
 	m.Target = "GLC"
-	m.Threshold = fpv(10)
-	m.Previous, m.Latest = fpv(6.99), fpv(12.15)
+	m.Threshold = new(float64(10))
+	m.Previous, m.Latest = new(float64(6.99)), new(float64(12.15))
 	m.ReportDate, m.ComparedTo = "2026-10-16", "2026-10-15"
-	m.Payload.Companies = []alertevents.Company{{Code: "GLC", Name: "Glencore", Latest: 12.15, Previous: fpv(6.99), Change: fpv(5.16), PreviousDate: "2026-10-15"}}
+	m.Payload.Companies = []alertevents.Company{{Code: "GLC", Name: "Glencore", Latest: 12.15, Previous: new(float64(6.99)), Change: new(float64(5.16)), PreviousDate: "2026-10-15"}}
 	m.Payload.CompaniesTotal = 1
 	shares, onIssue, c20 := 1.24e9, 12.1e9, 6.3
 	hist := canaryHistory(120, "2026-10-16", 12.15)
@@ -177,7 +177,7 @@ func TestIndustryHTMLStaysUnder60KB(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		cs = append(cs, alertevents.Company{
 			Code: fmt.Sprintf("C%02d", i), Name: strings.Repeat("Very Long Mining & Exploration Holdings ", 3),
-			Latest: 6.12, Previous: fpv(5.01), Change: fpv(1.11), LogoURL: "https://storage.googleapis.com/shorted-company-logos/logos/x_icon.png",
+			Latest: 6.12, Previous: new(float64(5.01)), Change: new(float64(1.11)), LogoURL: "https://storage.googleapis.com/shorted-company-logos/logos/x_icon.png",
 		})
 	}
 	m.Payload = payload(cs)

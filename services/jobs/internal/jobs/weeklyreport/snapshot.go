@@ -3,6 +3,7 @@ package weeklyreport
 import (
 	"context"
 	"math"
+	"slices"
 	"sort"
 	"time"
 )
@@ -163,8 +164,7 @@ func streakWeeks(deltas []float64, change float64) int {
 		dir = -1.0
 	}
 	count := 0
-	for i := len(deltas) - 1; i >= 0; i-- {
-		d := deltas[i]
+	for _, d := range slices.Backward(deltas) {
 		if d*dir > 0 && math.Abs(d) >= streakMinDelta {
 			count++
 		} else {

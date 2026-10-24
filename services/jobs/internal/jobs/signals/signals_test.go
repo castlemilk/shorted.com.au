@@ -15,21 +15,19 @@ import (
 	"time"
 )
 
-func strp(s string) *string { return &s }
-
 func TestRowsFromSignalsMapsPayload(t *testing.T) {
 	payload := &signalsPayload{
 		Adverse: []signal{{
 			Headline:   "  Federal Court fines former execs  ",
-			Kind:       strp("court"),
-			Detail:     strp("money-laundering risk findings"),
-			Date:       strp("2025-03-01"),
-			Severity:   strp("high"),
+			Kind:       new("court"),
+			Detail:     new("money-laundering risk findings"),
+			Date:       new("2025-03-01"),
+			Severity:   new("high"),
 			Citations:  json.RawMessage(`[{"url":"https://example.com/a"}]`),
 			Confidence: func() *float64 { v := 0.82; return &v }(),
 		}},
 		Positive: []signal{
-			{Headline: "Named employer of the year", Kind: strp("award")},
+			{Headline: "Named employer of the year", Kind: new("award")},
 			{Headline: "   "}, // blank after trim: dropped (headline is NOT NULL + hashed)
 		},
 	}
@@ -173,9 +171,9 @@ func TestInsertSignalsSQLBindsEveryValue(t *testing.T) {
 
 func TestDedupeByHashKeepsLast(t *testing.T) {
 	rows := []signalRow{
-		{ContentHash: "a", Detail: strp("first")},
+		{ContentHash: "a", Detail: new("first")},
 		{ContentHash: "b"},
-		{ContentHash: "a", Detail: strp("second")},
+		{ContentHash: "a", Detail: new("second")},
 	}
 	got := dedupeByHash(rows)
 	if len(got) != 2 {
@@ -354,10 +352,10 @@ func (s *fakeStore) Store(_ context.Context, code string, rows []signalRow) erro
 
 func payloadWith(adverse, positive int) *signalsPayload {
 	p := &signalsPayload{}
-	for i := 0; i < adverse; i++ {
+	for i := range adverse {
 		p.Adverse = append(p.Adverse, signal{Headline: fmt.Sprintf("adverse %d", i)})
 	}
-	for i := 0; i < positive; i++ {
+	for i := range positive {
 		p.Positive = append(p.Positive, signal{Headline: fmt.Sprintf("positive %d", i)})
 	}
 	return p
@@ -416,7 +414,7 @@ func TestSweepDryRunWritesNothing(t *testing.T) {
 
 func TestSweepStopsOnCancellation(t *testing.T) {
 	var stocks []stock
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		stocks = append(stocks, stock{Code: fmt.Sprintf("S%02d", i), CompanyName: fmt.Sprintf("Co %d", i)})
 	}
 	res := &fakeResolver{byName: map[string]*signalsPayload{}}

@@ -139,7 +139,7 @@ func TestFilingEPSSign(t *testing.T) {
 func TestGate8FlippedPairNoLongerPasses(t *testing.T) {
 	vendor := map[string][]vendorRow{"TRN": {
 		// FY25: a loss of $3.1m on 367m shares.
-		vAnnual("2025-06-30", "AUD", f64(400e6), f64(-3.1e6), f64(-0.0084), f64(367e6)),
+		vAnnual("2025-06-30", "AUD", new(400e6), new(-3.1e6), new(-0.0084), new(367e6)),
 	}}
 	doc := func(m map[string]any) []filingExtraction {
 		return []filingExtraction{{Code: "TRN", URL: "u-4d", Title: "Appendix 4D and Half Year Financial Report", ReportDate: date("2026-02-20"), Metrics: metricsJSON(t, m)}}
@@ -164,7 +164,7 @@ func TestGate8FlippedPairNoLongerPasses(t *testing.T) {
 		"net_profit": entry("source_text", "Net loss after tax attributable to members of $12.3 million, compared with a net profit of $5.0 million in the prior corresponding period", "value_millions", "12.3", "period", "H1 FY2026", "alignment", "match_exact"),
 		"eps":        entry("source_text", "Basic loss per share 3.4 cents (pcp: earnings per share 1.4 cents)", "value_cents", "3.4", "period", "H1 FY2026", "alignment", "match_exact"),
 	}), filingInputs{vendor: map[string][]vendorRow{"TRN": {
-		vAnnual("2025-06-30", "AUD", f64(400e6), f64(5e6), f64(0.0138), f64(362e6)),
+		vAnnual("2025-06-30", "AUD", new(400e6), new(5e6), new(0.0138), new(362e6)),
 	}}}, &st)
 	require.Len(t, out["TRN"], 1)
 	r = out["TRN"][0]

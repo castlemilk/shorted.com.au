@@ -52,7 +52,7 @@ func (s *ShortsServer) GetTopShorts(ctx context.Context, req *connect.Request[sh
 	}
 	cacheKey := s.cache.GetTopShortsKey(req.Msg.Period+summaryTag, req.Msg.Limit, req.Msg.Offset)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		s.logger.Debugf("cache miss for GetTopShorts, fetching from database")
 
 		result, offset, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit(), req.Msg.Offset, req.Msg.SummaryOnly, req.Msg.ProductCodes...)
@@ -88,7 +88,7 @@ func (s *ShortsServer) GetStock(ctx context.Context, req *connect.Request[shorts
 	// Check cache first
 	cacheKey := s.cache.GetStockKey(req.Msg.ProductCode)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		return s.store.GetStock(req.Msg.ProductCode)
 	})
 
@@ -113,7 +113,7 @@ func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[sh
 	cacheKey := s.cache.GetStockDataKey(req.Msg.ProductCode, req.Msg.Period,
 		req.Msg.From, req.Msg.To, req.Msg.FullResolution, req.Msg.MaxPoints, req.Msg.AsOf)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		s.logger.Debugf("cache miss for GetStockData, fetching from database: product_code=%s, period=%s",
 			req.Msg.ProductCode, req.Msg.Period)
 		return s.store.GetStockData(shortsstore.StockDataQuery{
@@ -149,7 +149,7 @@ func (s *ShortsServer) GetStockDetails(ctx context.Context, req *connect.Request
 	// Check cache first
 	cacheKey := s.cache.GetStockDetailsKey(req.Msg.ProductCode)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		s.logger.Debugf("cache miss for GetStockDetails, fetching from database: product_code=%s", req.Msg.ProductCode)
 		return s.store.GetStockDetails(req.Msg.ProductCode)
 	})
@@ -175,7 +175,7 @@ func (s *ShortsServer) GetIndustryTreeMap(ctx context.Context, req *connect.Requ
 	// Check cache first
 	cacheKey := s.cache.GetIndustryTreeMapKey(req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		s.logger.Debugf("cache miss for GetIndustryTreeMap, fetching from database: limit=%d, period=%s, viewMode=%s",
 			req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
 		return s.store.GetIndustryTreeMap(req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
@@ -204,7 +204,7 @@ func (s *ShortsServer) GetMarketByDate(ctx context.Context, req *connect.Request
 
 	cacheKey := s.cache.GetMarketByDateKey(req.Msg.Date, req.Msg.Limit, req.Msg.Offset, req.Msg.IncludeZeroShortPositions, req.Msg.OrdinaryOnly)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		stocks, totalCount, err := s.store.GetMarketByDate(req.Msg.Date, req.Msg.Limit, req.Msg.Offset, req.Msg.IncludeZeroShortPositions, req.Msg.OrdinaryOnly)
 		if err != nil {
 			return nil, err
@@ -251,7 +251,7 @@ func (s *ShortsServer) GetAvailableDates(ctx context.Context, req *connect.Reque
 
 	cacheKey := s.cache.GetAvailableDatesKey(req.Msg.Limit, req.Msg.Before)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		dates, earliest, latest, totalCount, err := s.store.GetAvailableDates(int(req.Msg.Limit), req.Msg.Before)
 		if err != nil {
 			return nil, err
@@ -295,7 +295,7 @@ func (s *ShortsServer) SearchStocks(ctx context.Context, req *connect.Request[sh
 	// Check cache first
 	cacheKey := s.cache.GetSearchStocksKey(req.Msg.Query, req.Msg.Limit)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		// Try Algolia first if configured
 		if s.config.AlgoliaAppID != "" && s.config.AlgoliaSearchKey != "" {
 			s.logger.Debugf("searching via Algolia: query='%s'", req.Msg.Query)
@@ -345,7 +345,7 @@ func (s *ShortsServer) searchAlgolia(query string, limit int32) ([]*stocksv1alph
 	algoliaURL := fmt.Sprintf("https://%s-dsn.algolia.net/1/indexes/%s/query",
 		s.config.AlgoliaAppID, indexName)
 
-	reqBody := map[string]interface{}{
+	reqBody := map[string]any{
 		"query":       query,
 		"hitsPerPage": limit,
 	}

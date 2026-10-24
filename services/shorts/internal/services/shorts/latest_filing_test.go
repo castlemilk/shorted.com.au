@@ -14,7 +14,7 @@ import (
 func filingCandidate(title, reportDate string, confidence float64, meta extractiontrust.DocumentMeta) shortsstore.FilingCandidateRow {
 	return shortsstore.FilingCandidateRow{
 		ReportURL: "https://www.asx.com.au/" + reportDate + ".pdf", Title: title, ReportDate: dayPtr(reportDate),
-		Digest: "Summary of " + title, DigestConfidence: f64(confidence), DocumentMeta: meta,
+		Digest: "Summary of " + title, DigestConfidence: new(confidence), DocumentMeta: meta,
 	}
 }
 

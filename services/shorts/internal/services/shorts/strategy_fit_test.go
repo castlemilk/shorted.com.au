@@ -18,8 +18,8 @@ import (
 
 func TestPriceFeaturesProto_MapsPresentFieldsAndFlagsAbsentOnes(t *testing.T) {
 	c := spReady("RDY") // base 8..9.5 over 30 sessions, breakout 2026-09-24, no SMAs
-	c.SMA200 = f64(7.25)
-	c.High52w = f64(10.4)
+	c.SMA200 = new(7.25)
+	c.High52w = new(10.4)
 
 	pf := priceFeaturesProto(&c)
 	require.NotNil(t, pf)
@@ -73,21 +73,21 @@ func TestPriceFeaturesProto_ReadsEveryFieldFromItsOwnSource(t *testing.T) {
 		AsOf:              spDate("2026-09-25"),
 		Close:             12.5,
 		SessionsAvailable: 252,
-		SMA50:             f64(1.5),
-		SMA150:            f64(2.5),
-		SMA200:            f64(3.5),
-		SMA200_1mAgo:      f64(4.5),
-		High52w:           f64(5.5),
-		Low52w:            f64(6.5),
-		BaseHigh:          f64(7.5),
-		BaseLow:           f64(8.5),
-		BaseDepthPct:      f64(9.5),
-		BaseLengthDays:    spInt32(21),
-		BreakoutRecent:    spBool(true),
+		SMA50:             new(1.5),
+		SMA150:            new(2.5),
+		SMA200:            new(3.5),
+		SMA200_1mAgo:      new(4.5),
+		High52w:           new(5.5),
+		Low52w:            new(6.5),
+		BaseHigh:          new(7.5),
+		BaseLow:           new(8.5),
+		BaseDepthPct:      new(9.5),
+		BaseLengthDays:    new(int32(21)),
+		BreakoutRecent:    new(true),
 		BreakoutDate:      &breakout,
-		RS3mPct:           f64(10.5),
-		RS6mPct:           f64(11.5),
-		VolumeRatio50d:    f64(13.5),
+		RS3mPct:           new(10.5),
+		RS6mPct:           new(11.5),
+		VolumeRatio50d:    new(13.5),
 	}
 
 	want := &shortsv1alpha1.PriceFeatures{
@@ -132,9 +132,9 @@ func TestPriceFeaturesProto_AMeasuredZeroIsPresentAndAZeroDateIsEmpty(t *testing
 	c := strategies.Candidate{
 		StockCode:      "FLAT",
 		Close:          2,
-		BaseDepthPct:   f64(0), // a flat base is measured, not missing
-		BaseLengthDays: spInt32(0),
-		BreakoutRecent: spBool(false),
+		BaseDepthPct:   new(float64(0)), // a flat base is measured, not missing
+		BaseLengthDays: new(int32(0)),
+		BreakoutRecent: new(false),
 		BreakoutDate:   &zeroDay,
 	}
 

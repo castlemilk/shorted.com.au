@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -16,8 +17,8 @@ import (
 // LogoCandidate represents a potential logo found on a website
 type LogoCandidate struct {
 	URL         string  `json:"url"`
-	Format      string  `json:"format"`       // "svg", "png", "jpeg", "gif", "webp"
-	Source      string  `json:"source"`       // "inline_svg", "img_tag", "og_image", "favicon", "brand_page", "css_background"
+	Format      string  `json:"format"` // "svg", "png", "jpeg", "gif", "webp"
+	Source      string  `json:"source"` // "inline_svg", "img_tag", "og_image", "favicon", "brand_page", "css_background"
 	Score       float64 `json:"score"`
 	Width       int     `json:"width"`
 	Height      int     `json:"height"`
@@ -559,12 +560,7 @@ func parseSizes(sizes string) (width, height int) {
 }
 
 func containsURL(urls []string, target string) bool {
-	for _, u := range urls {
-		if u == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(urls, target)
 }
 
 func sortCandidatesByScore(candidates []LogoCandidate) {
@@ -600,4 +596,3 @@ func FilterByFormat(candidates []LogoCandidate, format string) []LogoCandidate {
 	}
 	return filtered
 }
-

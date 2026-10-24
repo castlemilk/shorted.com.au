@@ -55,7 +55,7 @@ func TestMemoryCache(t *testing.T) {
 
 		// GetOrSet should return cached value without calling compute function
 		computeCalled := false
-		value, err := cache.GetOrSet("key1", func() (interface{}, error) {
+		value, err := cache.GetOrSet("key1", func() (any, error) {
 			computeCalled = true
 			return "computed_value", nil
 		})
@@ -70,7 +70,7 @@ func TestMemoryCache(t *testing.T) {
 
 		// GetOrSet should call compute function and cache result
 		computeCalled := false
-		value, err := cache.GetOrSet("key1", func() (interface{}, error) {
+		value, err := cache.GetOrSet("key1", func() (any, error) {
 			computeCalled = true
 			return "computed_value", nil
 		})
@@ -81,7 +81,7 @@ func TestMemoryCache(t *testing.T) {
 
 		// Subsequent call should return cached value
 		computeCalled = false
-		value, err = cache.GetOrSet("key1", func() (interface{}, error) {
+		value, err = cache.GetOrSet("key1", func() (any, error) {
 			computeCalled = true
 			return "new_computed_value", nil
 		})
@@ -95,7 +95,7 @@ func TestMemoryCache(t *testing.T) {
 		cache := NewMemoryCache(time.Minute)
 
 		// GetOrSet should return error from compute function
-		value, err := cache.GetOrSet("key1", func() (interface{}, error) {
+		value, err := cache.GetOrSet("key1", func() (any, error) {
 			return nil, assert.AnError
 		})
 

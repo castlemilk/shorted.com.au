@@ -76,4 +76,3 @@ func sameHostOrSubdomain(root *url.URL, candidate string) bool {
 	}
 	return strings.HasSuffix(candHost, "."+rootHost) || strings.HasSuffix(rootHost, "."+candHost)
 }
-

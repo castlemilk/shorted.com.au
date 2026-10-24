@@ -32,9 +32,9 @@ func TestGetStockFundamentals_Without000132IsTodaysResponse(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "BHP", "", int32(40)).Return([]shortsstore.FundamentalsPeriodRow{
-		{StockCode: "BHP", PeriodType: "annual", PeriodEnd: spDate("2026-06-30"), Currency: "USD", Revenue: f64(5.5e10), Source: "yahoo-timeseries"},
+		{StockCode: "BHP", PeriodType: "annual", PeriodEnd: spDate("2026-06-30"), Currency: "USD", Revenue: new(5.5e10), Source: "yahoo-timeseries"},
 	}, nil)
-	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{BasisPeriodType: "annual", RevenueYoYPct: f64(3)}, nil)
+	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{BasisPeriodType: "annual", RevenueYoYPct: new(float64(3))}, nil)
 	mockStore.EXPECT().GetFundamentalsExtras(gomock.Any(), "BHP").Return(nil, nil)
 	mockStore.EXPECT().GetLatestFilingInputs(gomock.Any(), "BHP").Return(nil, nil)
 	mockStore.EXPECT().GetFundamentalsCoverage(gomock.Any(), "BHP").Return(&shortsstore.FundamentalsCoverageRow{
@@ -66,21 +66,21 @@ func TestGetStockFundamentals_MapsEveryNewField(t *testing.T) {
 	fy := int32(2026)
 	period := shortsstore.FundamentalsPeriodRow{
 		StockCode: "CSL", PeriodType: "annual", PeriodEnd: spDate("2026-06-30"), FiscalYear: &fy, Currency: "AUD",
-		Revenue: f64(1.5e10), NetIncome: f64(3e9), EPSBasic: f64(6.2), EPSDiluted: f64(6.1),
-		OperatingCashFlow: f64(4e9), FreeCashFlow: f64(3.2e9), SharesOutstanding: f64(4.8e8),
+		Revenue: new(1.5e10), NetIncome: new(3e9), EPSBasic: new(6.2), EPSDiluted: new(6.1),
+		OperatingCashFlow: new(4e9), FreeCashFlow: new(3.2e9), SharesOutstanding: new(4.8e8),
 		Source: "yahoo-timeseries", SourceFetchedAt: spDate("2026-09-01"),
-		GrossProfit: f64(8e9), OperatingIncome: f64(4.1e9), EBITDA: f64(5e9), NormalizedEBITDA: f64(5.1e9), EBIT: f64(4.2e9),
-		InterestExpense: f64(3e8), PretaxIncome: f64(3.9e9), TaxProvision: f64(9e8), NetInterestIncome: f64(-3e8),
-		CapitalExpenditure: f64(-8e8), DividendsPaid: f64(-1.3e9), ShareBuybacks: f64(0),
-		TotalAssets: f64(4e10), TotalLiabilities: f64(2e10), TotalEquity: f64(2e10), CashAndEquivalents: f64(1.5e9),
-		TotalDebt: f64(1e10), CapitalLeaseObligations: f64(1e9), NetDebt: f64(7.5e9), CurrentAssets: f64(9e9), CurrentLiabilities: f64(5e9),
+		GrossProfit: new(8e9), OperatingIncome: new(4.1e9), EBITDA: new(5e9), NormalizedEBITDA: new(5.1e9), EBIT: new(4.2e9),
+		InterestExpense: new(3e8), PretaxIncome: new(3.9e9), TaxProvision: new(9e8), NetInterestIncome: new(-3e8),
+		CapitalExpenditure: new(-8e8), DividendsPaid: new(-1.3e9), ShareBuybacks: new(float64(0)),
+		TotalAssets: new(4e10), TotalLiabilities: new(2e10), TotalEquity: new(2e10), CashAndEquivalents: new(1.5e9),
+		TotalDebt: new(1e10), CapitalLeaseObligations: new(1e9), NetDebt: new(7.5e9), CurrentAssets: new(9e9), CurrentLiabilities: new(5e9),
 		FieldSources:       map[string]string{"operating_cash_flow": "derived:fcf-minus-capex"},
 		SourceDocumentURL:  "https://www.asx.com.au/csl-4e.pdf",
 		SourceDocumentDate: dayPtr("2026-08-19"),
 	}
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "CSL", "", int32(40)).Return([]shortsstore.FundamentalsPeriodRow{period}, nil)
 	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "CSL").Return(&strategies.Growth{
-		BasisPeriodType: "ttm", RevenueBasisPeriodType: "ttm", RevenueYoYPct: f64(8), FetchedAt: dayPtr("2026-09-01"),
+		BasisPeriodType: "ttm", RevenueBasisPeriodType: "ttm", RevenueYoYPct: new(float64(8)), FetchedAt: dayPtr("2026-09-01"),
 	}, nil)
 	mockStore.EXPECT().GetFundamentalsExtras(gomock.Any(), "CSL").Return(&shortsstore.FundamentalsExtras{
 		StockCode: "CSL", HasGrowthRow: true, RevenueBasisSource: "filing", EPSBasisSource: "vendor",
@@ -89,21 +89,21 @@ func TestGetStockFundamentals_MapsEveryNewField(t *testing.T) {
 			BasisPeriodType: "annual", BasisPeriodEnd: dayPtr("2026-06-30"), Currency: "AUD", Source: "yahoo-timeseries",
 			OperatingCashFlowDerived: true, BalancePeriodEnd: dayPtr("2026-06-30"), BalanceCurrency: "AUD",
 			BalanceLagMonths: func() *int32 { v := int32(0); return &v }(),
-			TotalEquity:      f64(2e10), GrossMarginPct: f64(53.3), OperatingMarginPct: f64(27.3), NetMarginPct: f64(20),
-			FCFMarginPct: f64(21.3), FCFConversion: f64(1.07), ROEPct: f64(15.2), ROAPct: f64(7.6), NetDebt: f64(7.5e9),
-			NetDebtToEBITDA: f64(1.47), NetDebtToEquity: f64(0.375), CurrentRatio: f64(1.8), InterestCover: f64(13.7), PayoutRatioPct: f64(43.3),
+			TotalEquity:      new(2e10), GrossMarginPct: new(53.3), OperatingMarginPct: new(27.3), NetMarginPct: new(float64(20)),
+			FCFMarginPct: new(21.3), FCFConversion: new(1.07), ROEPct: new(15.2), ROAPct: new(7.6), NetDebt: new(7.5e9),
+			NetDebtToEBITDA: new(1.47), NetDebtToEquity: new(0.375), CurrentRatio: new(1.8), InterestCover: new(13.7), PayoutRatioPct: new(43.3),
 		},
 		Valuation: strategies.ValuationInputs{
-			Shares: f64(4.8e8), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: f64(1.0),
-			EPSDiluted: f64(6.1), EPSBasic: f64(6.2), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "AUD",
+			Shares: new(4.8e8), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: new(1.0),
+			EPSDiluted: new(6.1), EPSBasic: new(6.2), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "AUD",
 		},
-		Close: f64(250), PriceAsOf: dayPtr("2026-09-25"), Industry: "Pharmaceuticals, Biotechnology & Life Sciences",
+		Close: new(float64(250)), PriceAsOf: dayPtr("2026-09-25"), Industry: "Pharmaceuticals, Biotechnology & Life Sciences",
 	}, nil)
 	mockStore.EXPECT().GetLatestFilingInputs(gomock.Any(), "CSL").Return(&shortsstore.LatestFilingInputs{
 		NewestFlowPeriodEnd: dayPtr("2026-06-30"), LatestAnnualPeriodEnd: dayPtr("2026-06-30"), CompanyName: "CSL LIMITED",
 		Candidates: []shortsstore.FilingCandidateRow{{
 			ReportURL: "https://www.asx.com.au/csl-4e.pdf", Title: "Appendix 4E and Annual Report", ReportDate: dayPtr("2026-08-19"),
-			Digest: "CSL grew plasma collections.", DigestConfidence: f64(0.82),
+			Digest: "CSL grew plasma collections.", DigestConfidence: new(0.82),
 			DocumentMeta: extractiontrust.DocumentMeta{Entity: "CSL Limited", PeriodEnd: "2026-06-30", PeriodType: "annual", ReportKind: "appendix_4e"},
 		}},
 	}, nil)
@@ -219,16 +219,16 @@ func TestFundamentalsQualityProto_WithholdsNotMeaningfulRatiosForABank(t *testin
 	e := &shortsstore.FundamentalsExtras{
 		Industry: "Banks",
 		Quality: &strategies.Quality{
-			Currency: "AUD", BalanceCurrency: "AUD", TotalEquity: f64(8e10),
-			GrossMarginPct: f64(1), OperatingMarginPct: f64(2), FCFMarginPct: f64(3), FCFConversion: f64(4),
-			NetDebt: f64(5), NetDebtToEBITDA: f64(6), NetDebtToEquity: f64(7), CurrentRatio: f64(8), InterestCover: f64(9),
-			ROEPct: f64(13.1), ROAPct: f64(0.8), NetMarginPct: f64(38), PayoutRatioPct: f64(80),
+			Currency: "AUD", BalanceCurrency: "AUD", TotalEquity: new(8e10),
+			GrossMarginPct: new(float64(1)), OperatingMarginPct: new(float64(2)), FCFMarginPct: new(float64(3)), FCFConversion: new(float64(4)),
+			NetDebt: new(float64(5)), NetDebtToEBITDA: new(float64(6)), NetDebtToEquity: new(float64(7)), CurrentRatio: new(float64(8)), InterestCover: new(float64(9)),
+			ROEPct: new(13.1), ROAPct: new(0.8), NetMarginPct: new(float64(38)), PayoutRatioPct: new(float64(80)),
 		},
 		Valuation: strategies.ValuationInputs{
-			Shares: f64(1.67e9), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: f64(1),
-			EPSDiluted: f64(6.0), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "AUD",
+			Shares: new(1.67e9), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: new(float64(1)),
+			EPSDiluted: new(6.0), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "AUD",
 		},
-		Close: f64(160), PriceAsOf: dayPtr("2026-09-25"),
+		Close: new(float64(160)), PriceAsOf: dayPtr("2026-09-25"),
 	}
 	q := fundamentalsQualityProto(e)
 	require.NotNil(t, q)
@@ -247,10 +247,10 @@ func TestFundamentalsQualityProto_ValuationOnlyAndNothing(t *testing.T) {
 	usd := &shortsstore.FundamentalsExtras{
 		Industry: "Materials",
 		Valuation: strategies.ValuationInputs{
-			Shares: f64(5.07e9), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: f64(1),
-			EPSDiluted: f64(2.2), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "USD",
+			Shares: new(5.07e9), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: new(float64(1)),
+			EPSDiluted: new(2.2), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "USD",
 		},
-		Close: f64(45), PriceAsOf: dayPtr("2026-09-25"),
+		Close: new(float64(45)), PriceAsOf: dayPtr("2026-09-25"),
 	}
 	q := fundamentalsQualityProto(usd)
 	require.NotNil(t, q, "a market cap alone is worth returning")

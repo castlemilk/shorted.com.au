@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -64,11 +65,8 @@ func (f *billingStore) BillingSubscriptionsByCustomers(_ context.Context, custom
 	}
 	var out []shortsstore.BillingSubscription
 	for _, r := range f.rows {
-		for _, id := range customerIDs {
-			if r.StripeCustomerID == id {
-				out = append(out, r)
-				break
-			}
+		if slices.Contains(customerIDs, r.StripeCustomerID) {
+			out = append(out, r)
 		}
 	}
 	return out, nil
@@ -245,7 +243,7 @@ func billingAdaCustomer(periodEnd time.Time) webCustomerView {
 	return webCustomerView{
 		Customer: &webCustomer{ID: "cus_A", Created: &created},
 		Subscriptions: []webSubscription{{
-			ID: "sub_A", Status: "active", Tier: "premium", PriceID: "price_A", Amount: ptrInt64(2900), Currency: "aud",
+			ID: "sub_A", Status: "active", Tier: "premium", PriceID: "price_A", Amount: new(int64(2900)), Currency: "aud",
 			Interval: "month", CurrentPeriodEnd: billingRFC(periodEnd), Created: &created, MetadataUserID: "uid-a",
 		}},
 		LatestInvoice: &webInvoice{Status: "paid", AmountPaid: 2900, Currency: "aud", Created: &created, PaidAt: &created},
@@ -554,7 +552,7 @@ func sourceDetail(sources []mcp.JobSource, name string) string {
 func TestBillingExceptionsSweepsTheWholeMirror(t *testing.T) {
 	store := &billingStore{rows: []shortsstore.BillingSubscription{
 		billingAdaRow(),
-		{UserID: "uid-b", UserEmail: "bob@example.com", StripeCustomerID: "cus_B", StripeSubscriptionID: "sub_B", Status: "past_due", Tier: "premium", CurrentPeriodEnd: billingRFC(billingClock().Add(3 * 24 * time.Hour)), UpdatedAt: ptrTime(billingClock().Add(-24 * time.Hour))},
+		{UserID: "uid-b", UserEmail: "bob@example.com", StripeCustomerID: "cus_B", StripeSubscriptionID: "sub_B", Status: "past_due", Tier: "premium", CurrentPeriodEnd: billingRFC(billingClock().Add(3 * 24 * time.Hour)), UpdatedAt: new(billingClock().Add(-24 * time.Hour))},
 	}}
 	web := &billingWeb{alive: webAliveList{Subscriptions: []webAliveSubscription{
 		{CustomerID: "cus_A", SubscriptionID: "sub_A", Status: "active", Tier: "premium", Email: "ada@example.com", MetadataUserID: "uid-a"},
@@ -579,7 +577,7 @@ func TestBillingExceptionsSweepsTheWholeMirror(t *testing.T) {
 
 func TestBillingExceptionsLimitsRowsButNotCounts(t *testing.T) {
 	var rows []shortsstore.BillingSubscription
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		rows = append(rows, billingRow(billingClock(), fmt.Sprintf("uid-%d", i), fmt.Sprintf("p%d@example.com", i), "past_due"))
 	}
 	src := billingFixture{store: &billingStore{rows: rows}, web: &billingWeb{alive: webAliveList{}}}.source(t)
@@ -766,7 +764,7 @@ func TestAmbiguousCustomerReadFailureIsUnavailable(t *testing.T) {
 func TestAmbiguousEmailIsCappedAndSaysSo(t *testing.T) {
 	f := billingHealthyFixture()
 	var ids []string
-	for i := 0; i < billingMaxAmbiguousCustomers+2; i++ {
+	for i := range billingMaxAmbiguousCustomers + 2 {
 		id := fmt.Sprintf("cus_many_%02d", i)
 		ids = append(ids, id)
 		f.web.customers["id:"+id] = webCustomerView{Customer: &webCustomer{ID: id}}
@@ -822,7 +820,7 @@ func TestStripeAmountIsNullableAndOmittedWhenUnknown(t *testing.T) {
 	f.web.customers["id:cus_A"] = webCustomerView{
 		Customer: &webCustomer{ID: "cus_A"},
 		Subscriptions: []webSubscription{
-			{ID: "sub_priced", Status: "active", Tier: "premium", Amount: ptrInt64(2900), Currency: "aud", CurrentPeriodEnd: billingRFC(periodEnd)},
+			{ID: "sub_priced", Status: "active", Tier: "premium", Amount: new(int64(2900)), Currency: "aud", CurrentPeriodEnd: billingRFC(periodEnd)},
 			{ID: "sub_unpriced", Status: "canceled", Tier: "premium", Amount: nil, CurrentPeriodEnd: billingRFC(periodEnd)},
 		},
 	}

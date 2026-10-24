@@ -20,7 +20,7 @@ func petroleumFixture(t *testing.T) *excelize.File {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := [][]interface{}{
+	rows := [][]any{
 		{"Month", "Percentage indigenous: Total input (%)", "Total input (ML)", "Automotive gasoline (ML)", "Diesel oil (ML)", "Jet fuel (ML)"},
 		{"Apr 2026", "14.7", "1,285.6", 469.5, 900.2, 210.0},
 		{"May 2026", "15.7", "1,380.5", 448.6, 910.7, "n.a."},
@@ -111,7 +111,7 @@ func TestParsePetroleumSheetStateColumn(t *testing.T) {
 	if _, err := f.NewSheet(sheet); err != nil {
 		t.Fatal(err)
 	}
-	rows := [][]interface{}{
+	rows := [][]any{
 		{"State", "Month", "Diesel oil: total", "Automotive gasoline: total (ML)"},
 		{"NSW", "Apr 2026", 361.9, 510.2},
 		{"NSW", "May 2026", 362.8, "n.p."},

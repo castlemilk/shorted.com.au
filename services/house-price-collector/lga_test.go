@@ -1,6 +1,7 @@
 package main
 
 import (
+	"maps"
 	"math"
 	"path/filepath"
 	"strings"
@@ -134,9 +135,7 @@ func copyTaken(in map[string]map[string]string) map[string]map[string]string {
 	out := map[string]map[string]string{}
 	for s, m := range in {
 		out[s] = map[string]string{}
-		for k, v := range m {
-			out[s][k] = v
-		}
+		maps.Copy(out[s], m)
 	}
 	return out
 }

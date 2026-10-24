@@ -33,18 +33,18 @@ func TestStockDetailsKeepsMarketCapWhenTheStatementsAreLarge(t *testing.T) {
 			Info:    &stocksv1alpha1.FinancialStatementsInfo{MarketCap: 331023450112, PeRatio: 24.04, Eps: 2.71},
 		},
 	}
-	for i := 0; i < 60; i++ {
+	for range 60 {
 		details.FinancialReports = append(details.FinancialReports, &stocksv1alpha1.FinancialReport{
 			Url:   "https://example.test/report",
 			Title: strings.Repeat("Annual report and results ", 12),
 		})
 	}
-	for i := 0; i < 200; i++ {
+	for range 200 {
 		details.IndustryHistory = append(details.IndustryHistory, &stocksv1alpha1.IndustryObservation{
 			Industry: "Materials", ObservedFrom: "2026-09-01", Source: "seed",
 		})
 	}
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		details.KeyPeople = append(details.KeyPeople, &stocksv1alpha1.CompanyPerson{
 			Name: fmt.Sprintf("Person-%02d", i), Role: "Director",
 		})
@@ -61,7 +61,7 @@ func TestStockDetailsKeepsMarketCapWhenTheStatementsAreLarge(t *testing.T) {
 	executor := newTestToolExecutor(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(body)
 	}))
-	result, err := executor.Execute(context.Background(), "get_stock_details", map[string]interface{}{"stock_code": "bhp"})
+	result, err := executor.Execute(context.Background(), "get_stock_details", map[string]any{"stock_code": "bhp"})
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
@@ -116,7 +116,7 @@ func TestWeeklyReportKeepsMoversAndSectorsWithinBudget(t *testing.T) {
 		MarketStats: &shortsv1alpha1.WeeklyMarketStats{TotalStocksShorted: 694, AvgShortPct: 1.57},
 	}
 	history := []float64{12.1, 12.4, 13.0, 13.4}
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		report.TopShorted = append(report.TopShorted, &shortsv1alpha1.WeeklyReportStock{
 			Rank: int32(i + 1), Code: fmt.Sprintf("T%d", i), ShortPct: 10, History: history, LogoUrl: "https://example.test/logo.png",
 		})
@@ -127,22 +127,22 @@ func TestWeeklyReportKeepsMoversAndSectorsWithinBudget(t *testing.T) {
 			Code: fmt.Sprintf("F%d", i), Change: -1, History: history, LogoUrl: "https://example.test/logo.png",
 		})
 	}
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		report.IndustryBreakdown = append(report.IndustryBreakdown, &shortsv1alpha1.WeeklyIndustryStat{
 			Industry: fmt.Sprintf("Industry-%02d", i), AvgShortPct: 2, StockCount: 10,
 		})
 	}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		report.Citations = append(report.Citations, &shortsv1alpha1.WeeklyReportCitation{
 			Id: fmt.Sprintf("ref-%d", i+1), Source: "ASIC", Date: "2026-10-19", Url: "https://example.test/source", Type: "asic_data",
 		})
 	}
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		report.TrendInsights = append(report.TrendInsights, &shortsv1alpha1.WeeklyReportTrendInsight{
 			Code: fmt.Sprintf("TI%d", i), KeyAnnouncements: []string{strings.Repeat("announcement ", 30)},
 		})
 	}
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		report.Faqs = append(report.Faqs, &shortsv1alpha1.WeeklyReportFAQ{Question: "question?", Answer: strings.Repeat("answer ", 25)})
 	}
 
@@ -157,7 +157,7 @@ func TestWeeklyReportKeepsMoversAndSectorsWithinBudget(t *testing.T) {
 	executor := newTestToolExecutor(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(body)
 	}))
-	result, err := executor.Execute(context.Background(), "get_weekly_report", map[string]interface{}{"week": "2026-W43"})
+	result, err := executor.Execute(context.Background(), "get_weekly_report", map[string]any{"week": "2026-W43"})
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
@@ -292,7 +292,7 @@ func TestStockSignalsFitTheBudgetAtLiveSize(t *testing.T) {
 	}
 
 	executor := newTestToolExecutor(replyWith(body))
-	result, err := executor.Execute(context.Background(), "get_stock_signals", map[string]interface{}{"stock_code": "CBA", "limit": 10.0})
+	result, err := executor.Execute(context.Background(), "get_stock_signals", map[string]any{"stock_code": "CBA", "limit": 10.0})
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
@@ -322,7 +322,7 @@ func TestStockSignalsFitTheBudgetAtLiveSize(t *testing.T) {
 // drops positive items. It keeps every adverse item, ordered by severity and then newest.
 func TestStockSignalsKeepsAdverseFirstWhenTheBudgetIsTight(t *testing.T) {
 	response := &shortsv1alpha1.GetStockSignalsResponse{}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		severity := "medium"
 		if i%2 == 0 {
 			severity = "high"
@@ -336,7 +336,7 @@ func TestStockSignalsKeepsAdverseFirstWhenTheBudgetIsTight(t *testing.T) {
 			Severity:  severity,
 		})
 	}
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		response.Positive = append(response.Positive, &shortsv1alpha1.StockSignal{
 			Polarity:  "positive",
 			Kind:      "press",
@@ -389,7 +389,7 @@ func TestStockSignalsKeepsAdverseFirstWhenTheBudgetIsTight(t *testing.T) {
 // omitted count, and the empty answer. A count of zero is left out of the JSON.
 func TestStockSignalsCapsEachPolarityAndCountsTheRest(t *testing.T) {
 	response := &shortsv1alpha1.GetStockSignalsResponse{}
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		response.Positive = append(response.Positive, &shortsv1alpha1.StockSignal{
 			Polarity:  "positive",
 			Kind:      "award",
@@ -517,7 +517,7 @@ func TestStockSignalsCapDropsUndatedFirst(t *testing.T) {
 	response.Positive = append(response.Positive, &shortsv1alpha1.StockSignal{
 		Polarity: "positive", Headline: "Undated", EventDate: "Unknown",
 	})
-	for i := 0; i < maxSignalsPerPolarity; i++ {
+	for i := range maxSignalsPerPolarity {
 		response.Positive = append(response.Positive, &shortsv1alpha1.StockSignal{
 			Polarity: "positive", Headline: fmt.Sprintf("Dated %02d", i), EventDate: fmt.Sprintf("2025-%02d-01", i+1),
 		})
@@ -569,7 +569,7 @@ func TestTopShortsSparklineFitsTheBudgetAtLiveSize(t *testing.T) {
 	}
 
 	executor := newTestToolExecutor(replyWith(body))
-	result, err := executor.Execute(context.Background(), "get_top_shorts", map[string]interface{}{"limit": 10.0})
+	result, err := executor.Execute(context.Background(), "get_top_shorts", map[string]any{"limit": 10.0})
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
@@ -661,13 +661,13 @@ func topShortsBody(t *testing.T, rows int, name string) []byte {
 	t.Helper()
 	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	response := &shortsv1alpha1.GetTopShortsResponse{}
-	for i := 0; i < rows; i++ {
+	for i := range rows {
 		series := &stocksv1alpha1.TimeSeriesData{
 			ProductCode:         fmt.Sprintf("T%02d", i),
 			Name:                name,
 			LatestShortPosition: float64(rows - i),
 		}
-		for d := 0; d < 60; d++ {
+		for d := range 60 {
 			series.Points = append(series.Points, &stocksv1alpha1.TimeSeriesPoint{
 				Timestamp:     timestamppb.New(start.AddDate(0, 0, d)),
 				ShortPosition: float64(i) + float64(d)/100,
@@ -801,7 +801,7 @@ func directorTradesBody(t *testing.T, count int) []byte {
 	t.Helper()
 	start := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
 	response := &shortsv1alpha1.GetDirectorTradesResponse{TotalCount: int32(count)}
-	for i := 0; i < count; i++ {
+	for i := range count {
 		response.Trades = append(response.Trades, &shortsv1alpha1.DirectorTrade{
 			Id:              fmt.Sprintf("0c005e50-0a28-45ba-963d-a6e4aace2d%02d", i),
 			StockCode:       "BHP",

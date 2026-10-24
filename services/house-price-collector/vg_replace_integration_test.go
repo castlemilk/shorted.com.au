@@ -131,7 +131,7 @@ func TestReplaceObservations_PrunesOnlyTheAuthoritativeYears_Integration(t *test
 	}
 
 	// ...then a realistic year, where the stale rows are a small share.
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		region := fmt.Sprintf("SUBURB:NSW-FILLER%02d", i)
 		if _, err := pool.Exec(ctx, `INSERT INTO house_price_regions VALUES ($1)`, region); err != nil {
 			t.Fatal(err)

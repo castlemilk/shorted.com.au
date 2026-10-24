@@ -48,7 +48,7 @@ func registerManageMyAlerts(server *sdk.Server) {
 		Name:        ManageMyAlertsTool,
 		Title:       "Manage my alerts",
 		Description: manageMyAlertsDescription,
-		Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, DestructiveHint: boolPtr(false), IdempotentHint: true, OpenWorldHint: boolPtr(false)},
+		Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, DestructiveHint: new(false), IdempotentHint: true, OpenWorldHint: new(false)},
 	}, func(context.Context, *sdk.CallToolRequest, struct{}) (*sdk.CallToolResult, struct{}, error) {
 		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: manageMyAlertsFallback}}}, struct{}{}, nil
 	})

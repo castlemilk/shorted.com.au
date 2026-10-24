@@ -21,7 +21,7 @@ func main() {
 	if bucketName == "" {
 		bucketName = "shorted-data" // Default bucket
 	}
-	
+
 	downloadDir := os.Getenv("DOWNLOAD_DIR")
 	if downloadDir == "" {
 		downloadDir = "/tmp/asx-downloads"

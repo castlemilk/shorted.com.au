@@ -108,7 +108,7 @@ func TestMinuteMapIsCappedAndEvicts(t *testing.T) {
 	clock, _ := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
 	ml := newMinuteLimiter(time.Minute, 50, clock)
 
-	for i := 0; i < 500; i++ {
+	for i := range 500 {
 		res := ml.check(fmt.Sprintf("ip:10.0.0.%d", i), 30)
 		require.True(t, res.allowed, "a full table fails OPEN; the edge ceiling still applies")
 	}
@@ -120,7 +120,7 @@ func TestMinuteSweepDropsExpiredWindows(t *testing.T) {
 	clock, advance := fixedClock(time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC))
 	ml := newMinuteLimiter(time.Minute, 1000, clock)
 
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		ml.check(fmt.Sprintf("ip:10.0.0.%d", i), 30)
 	}
 	require.Equal(t, 20, ml.size())
@@ -142,12 +142,10 @@ func TestMinuteLimiterConcurrency(t *testing.T) {
 		mu      sync.Mutex
 		allowed int
 	)
-	for g := 0; g < goroutines; g++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutines {
+		wg.Go(func() {
 			local := 0
-			for i := 0; i < perGoroutine; i++ {
+			for range perGoroutine {
 				if ml.check("user:hot", 500).allowed {
 					local++
 				}
@@ -155,7 +153,7 @@ func TestMinuteLimiterConcurrency(t *testing.T) {
 			mu.Lock()
 			allowed += local
 			mu.Unlock()
-		}()
+		})
 	}
 	wg.Wait()
 

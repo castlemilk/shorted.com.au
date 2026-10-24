@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -54,7 +55,7 @@ func (s *ShortsServer) GetStockFundamentals(ctx context.Context, req *connect.Re
 	s.logger.Debugf("stock fundamentals: stock_code=%s period_type=%s limit=%d", code, periodType, limit)
 
 	fillCtx := context.WithoutCancel(ctx)
-	cached, err := s.cache.GetOrSet(s.cache.GetStockFundamentalsKey(code, periodType, limit), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.GetStockFundamentalsKey(code, periodType, limit), func() (any, error) {
 		in := fundamentalsInputs{code: code}
 		var err error
 		if in.periods, err = s.store.GetStockFundamentals(fillCtx, code, periodType, limit); err != nil {
@@ -177,9 +178,7 @@ func fundamentalsPeriodProto(p shortsstore.FundamentalsPeriodRow) *shortsv1alpha
 
 	if len(p.FieldSources) > 0 {
 		fp.FieldSources = make(map[string]string, len(p.FieldSources))
-		for k, v := range p.FieldSources {
-			fp.FieldSources[k] = v
-		}
+		maps.Copy(fp.FieldSources, p.FieldSources)
 	}
 	return fp
 }

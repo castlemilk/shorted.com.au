@@ -294,7 +294,7 @@ func runAlertsSmokeTool() AdminTool {
 				"afterwards: it emails again on future crossings until it is paused (the link in the email) or deleted with delete_alert_monitor. " +
 				"The replay also emails any other daily monitor of yours that crossed on the same report date, not only this one. " +
 				"Refuses when the monitor already has an event for that date, because a replay would send nothing and the old row would read as this run's result.",
-			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: boolPtr(false), IdempotentHint: false, OpenWorldHint: boolPtr(true)},
+			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false), IdempotentHint: false, OpenWorldHint: new(true)},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, in RunAlertsSmokeInput) (*sdk.CallToolResult, RunAlertsSmokeOutput, error) {
 			if denied := requireScope(req, t.Scope); denied != nil {
 				return denied, RunAlertsSmokeOutput{}, nil
@@ -419,7 +419,7 @@ func deleteAlertMonitorTool() AdminTool {
 			Name:        t.Name,
 			Title:       "Delete one of your alert monitors",
 			Description: "Delete one of the caller's own alert monitors and its events. Refused for a monitor the caller does not own. Use it to clear the monitor a smoke test created.",
-			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: boolPtr(true), IdempotentHint: false, OpenWorldHint: boolPtr(false)},
+			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(true), IdempotentHint: false, OpenWorldHint: new(false)},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, in DeleteAlertMonitorInput) (*sdk.CallToolResult, DeleteAlertMonitorOutput, error) {
 			if denied := requireScope(req, t.Scope); denied != nil {
 				return denied, DeleteAlertMonitorOutput{}, nil

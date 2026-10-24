@@ -325,12 +325,12 @@ func (f *cdpFetcher) screenshot(ctx context.Context, url string) ([]byte, error)
 		}
 		if _, err := page.Goto(url, playwright.PageGotoOptions{
 			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-			Timeout:   playwright.Float(gotoTimeout),
+			Timeout:   new(gotoTimeout),
 		}); err != nil {
 			r.err = fmt.Errorf("trace screenshot goto %s: %w", url, err)
 			return
 		}
-		r.png, r.err = page.Screenshot(playwright.PageScreenshotOptions{FullPage: playwright.Bool(false)})
+		r.png, r.err = page.Screenshot(playwright.PageScreenshotOptions{FullPage: new(false)})
 		if r.err != nil {
 			r.err = fmt.Errorf("trace screenshot capture: %w", r.err)
 		}

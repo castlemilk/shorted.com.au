@@ -50,8 +50,7 @@ func (e *e2e) runAlerts(bin string, args ...string) int {
 	if err == nil {
 		return 0
 	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		return exitErr.ExitCode()
 	}
 	e.t.Fatalf("run shorted alerts: %v", err)
@@ -110,24 +109,24 @@ func TestAlertsE2EEveryCombinationBinary(t *testing.T) {
 	e.billing.setStatus("u2", "SUBSCRIPTION_STATUS_INACTIVE")
 
 	// Entitled owner u1. a1 to a5 fire on 14 Oct, one per scope x condition.
-	e.monitor("a1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
-	e.monitor("a2", "u1", u1Email, "stock", "BBB", "short_interest_rises", "daily", fp(0.5), "")
-	e.monitor("a3", "u1", u1Email, "industry", "Materials", "short_interest_above", "daily", fp(5), "")
-	e.monitor("a4", "u1", u1Email, "industry", "Materials", "short_interest_rises", "daily", fp(0.4), "")
+	e.monitor("a1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
+	e.monitor("a2", "u1", u1Email, "stock", "BBB", "short_interest_rises", "daily", new(0.5), "")
+	e.monitor("a3", "u1", u1Email, "industry", "Materials", "short_interest_above", "daily", new(float64(5)), "")
+	e.monitor("a4", "u1", u1Email, "industry", "Materials", "short_interest_rises", "daily", new(0.4), "")
 	e.monitor("a5", "u1", u1Email, "industry", "Materials", "new_top_ten_entry", "daily", nil, "")
 	// The quiet monitors, one or more per scope x condition, with the reason each stays silent.
-	e.monitor("b1", "u1", u1Email, "stock", "DDD", "short_interest_above", "daily", fp(5), "")         // 5.00 on both dates: equal is not a crossing
-	e.monitor("b2", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(6), "")         // crosses 5, never reaches 6
-	e.monitor("b3", "u1", u1Email, "stock", "BBB", "short_interest_above", "daily", fp(5), "")         // already above at both dates
-	e.monitor("b4", "u1", u1Email, "stock", "DDD", "short_interest_rises", "daily", fp(0.5), "")       // no move
-	e.monitor("b5", "u1", u1Email, "stock", "G2", "short_interest_rises", "daily", fp(0.5), "")        // falls by 1.00
-	e.monitor("b6", "u1", u1Email, "stock", "EEE", "short_interest_rises", "daily", fp(0.5), "")       // moves by 0.01
-	e.monitor("b7", "u1", u1Email, "industry", "Energy", "short_interest_above", "daily", fp(5), "")   // no company crosses
-	e.monitor("b8", "u1", u1Email, "industry", "Energy", "short_interest_rises", "daily", fp(0.4), "") // no company rises 0.4
-	e.monitor("b9", "u1", u1Email, "industry", "Energy", "new_top_ten_entry", "daily", nil, "")        // three companies, nobody new
-	e.monitor("c1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "paused")
+	e.monitor("b1", "u1", u1Email, "stock", "DDD", "short_interest_above", "daily", new(float64(5)), "")       // 5.00 on both dates: equal is not a crossing
+	e.monitor("b2", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(6)), "")       // crosses 5, never reaches 6
+	e.monitor("b3", "u1", u1Email, "stock", "BBB", "short_interest_above", "daily", new(float64(5)), "")       // already above at both dates
+	e.monitor("b4", "u1", u1Email, "stock", "DDD", "short_interest_rises", "daily", new(0.5), "")              // no move
+	e.monitor("b5", "u1", u1Email, "stock", "G2", "short_interest_rises", "daily", new(0.5), "")               // falls by 1.00
+	e.monitor("b6", "u1", u1Email, "stock", "EEE", "short_interest_rises", "daily", new(0.5), "")              // moves by 0.01
+	e.monitor("b7", "u1", u1Email, "industry", "Energy", "short_interest_above", "daily", new(float64(5)), "") // no company crosses
+	e.monitor("b8", "u1", u1Email, "industry", "Energy", "short_interest_rises", "daily", new(0.4), "")        // no company rises 0.4
+	e.monitor("b9", "u1", u1Email, "industry", "Energy", "new_top_ten_entry", "daily", nil, "")                // three companies, nobody new
+	e.monitor("c1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "paused")
 	// Free owner u2. The firing monitor is recorded as skipped and never emailed.
-	e.monitor("d1", "u2", u2Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("d1", "u2", u2Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 
 	// Bootstrap on 13 Oct evaluates nothing and sends exactly the canary.
 	// CCC's earlier reading sits below the top ten, so CCC has two readings and enters

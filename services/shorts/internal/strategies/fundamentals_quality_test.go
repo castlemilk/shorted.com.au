@@ -39,17 +39,17 @@ func TestIsFinancial(t *testing.T) {
 	}{
 		{"bank by industry", nil, "Banks", true},
 		{"insurer by industry, any case and spacing", nil, "  INSURANCE ", true},
-		{"a miner", &Quality{OperatingIncome: f(1), EBITDA: f(2)}, "Materials", false},
+		{"a miner", &Quality{OperatingIncome: new(float64(1)), EBITDA: new(float64(2))}, "Materials", false},
 		{"statement shape alone", &Quality{StatementIsFinancial: true}, "Software & Services", true},
 		{"financial services without a quality row", nil, "Financial Services", false},
-		{"financial services, a lender by debt", &Quality{TotalDebt: f(50), TotalAssets: f(100)}, "Financial Services", true},
-		{"financial services, just under the debt test", &Quality{TotalDebt: f(49.9), TotalAssets: f(100)}, "Financial Services", false},
-		{"financial services, a lender by net interest income", &Quality{NetInterestIncome: f(26), Revenue: f(100)}, "Financial Services", true},
-		{"financial services, net interest income at exactly a quarter", &Quality{NetInterestIncome: f(25), Revenue: f(100)}, "Financial Services", false},
-		{"pre-2023 group name", &Quality{TotalDebt: f(60), TotalAssets: f(100)}, "Diversified Financials", true},
-		{"an exchange or fund manager is not a lender", &Quality{TotalDebt: f(5), TotalAssets: f(100), NetInterestIncome: f(-1), Revenue: f(100)}, "Financial Services", false},
-		{"net interest income never classifies outside financials", &Quality{NetInterestIncome: f(90), Revenue: f(100)}, "Capital Goods", false},
-		{"no assets figure is not a lender", &Quality{TotalDebt: f(50)}, "Financial Services", false},
+		{"financial services, a lender by debt", &Quality{TotalDebt: new(float64(50)), TotalAssets: new(float64(100))}, "Financial Services", true},
+		{"financial services, just under the debt test", &Quality{TotalDebt: new(49.9), TotalAssets: new(float64(100))}, "Financial Services", false},
+		{"financial services, a lender by net interest income", &Quality{NetInterestIncome: new(float64(26)), Revenue: new(float64(100))}, "Financial Services", true},
+		{"financial services, net interest income at exactly a quarter", &Quality{NetInterestIncome: new(float64(25)), Revenue: new(float64(100))}, "Financial Services", false},
+		{"pre-2023 group name", &Quality{TotalDebt: new(float64(60)), TotalAssets: new(float64(100))}, "Diversified Financials", true},
+		{"an exchange or fund manager is not a lender", &Quality{TotalDebt: new(float64(5)), TotalAssets: new(float64(100)), NetInterestIncome: new(float64(-1)), Revenue: new(float64(100))}, "Financial Services", false},
+		{"net interest income never classifies outside financials", &Quality{NetInterestIncome: new(float64(90)), Revenue: new(float64(100))}, "Capital Goods", false},
+		{"no assets figure is not a lender", &Quality{TotalDebt: new(float64(50))}, "Financial Services", false},
 	}
 	for _, tc := range cases {
 		if got := IsFinancial(tc.q, tc.industry); got != tc.want {
@@ -74,10 +74,10 @@ func TestIsProperty(t *testing.T) {
 func TestApplyQualityRulesWithholdsOnlyTheListForFinancials(t *testing.T) {
 	full := func() *Quality {
 		return &Quality{
-			Revenue: f(100), NetIncome: f(20), TotalDebt: f(900), TotalAssets: f(1000), CashAndEquivalents: f(10),
-			GrossMarginPct: f(1), OperatingMarginPct: f(2), NetMarginPct: f(20), FCFMarginPct: f(3), FCFConversion: f(4),
-			ROEPct: f(12), ROAPct: f(1), NetDebt: f(5), NetDebtToEBITDA: f(6), NetDebtToEquity: f(7),
-			CurrentRatio: f(8), InterestCover: f(9), PayoutRatioPct: f(70),
+			Revenue: new(float64(100)), NetIncome: new(float64(20)), TotalDebt: new(float64(900)), TotalAssets: new(float64(1000)), CashAndEquivalents: new(float64(10)),
+			GrossMarginPct: new(float64(1)), OperatingMarginPct: new(float64(2)), NetMarginPct: new(float64(20)), FCFMarginPct: new(float64(3)), FCFConversion: new(float64(4)),
+			ROEPct: new(float64(12)), ROAPct: new(float64(1)), NetDebt: new(float64(5)), NetDebtToEBITDA: new(float64(6)), NetDebtToEquity: new(float64(7)),
+			CurrentRatio: new(float64(8)), InterestCover: new(float64(9)), PayoutRatioPct: new(float64(70)),
 		}
 	}
 	bank := full()
@@ -131,9 +131,9 @@ func TestApplyQualityRulesWithholdsOnlyTheListForFinancials(t *testing.T) {
 func TestApplyQualityRulesComputesROEForAFinancialTheViewWithheld(t *testing.T) {
 	cba := func() *Quality { // the view's row: roe_pct NULL, everything to compute it present
 		return &Quality{
-			Revenue: f(27e9), NetIncome: f(10e9), NetMarginPct: f(37),
-			TotalEquity: f(78e9), TotalEquityPrior: f(75e9), TotalAssets: f(1.3e12), TotalAssetsPrior: f(1.25e12),
-			ROAPct: f(10.0 / 1275 * 100),
+			Revenue: new(27e9), NetIncome: new(10e9), NetMarginPct: new(float64(37)),
+			TotalEquity: new(78e9), TotalEquityPrior: new(75e9), TotalAssets: new(1.3e12), TotalAssetsPrior: new(1.25e12),
+			ROAPct: new(10.0 / 1275 * 100),
 		}
 	}
 	want := 10e9 / ((78e9 + 75e9) / 2) * 100 // 13.07%
@@ -169,7 +169,7 @@ func TestApplyQualityRulesComputesROEForAFinancialTheViewWithheld(t *testing.T) 
 
 	// A ratio the view did compute is never replaced.
 	kept := cba()
-	kept.ROEPct = f(11)
+	kept.ROEPct = new(float64(11))
 	ApplyQualityRules(kept, "Banks")
 	if *kept.ROEPct != 11 {
 		t.Errorf("the view's ROE was overwritten: %v", *kept.ROEPct)
@@ -180,9 +180,9 @@ func TestApplyQualityRulesComputesROEForAFinancialTheViewWithheld(t *testing.T) 
 		"no prior equity":   func(q *Quality) { q.TotalEquityPrior = nil },
 		"no equity":         func(q *Quality) { q.TotalEquity = nil },
 		"no net income":     func(q *Quality) { q.NetIncome = nil },
-		"zero prior equity": func(q *Quality) { q.TotalEquityPrior = f(0) },
-		"negative equity":   func(q *Quality) { q.TotalEquity = f(-1e9) },
-		"non-finite income": func(q *Quality) { q.NetIncome = f(math.Inf(1)) },
+		"zero prior equity": func(q *Quality) { q.TotalEquityPrior = new(float64(0)) },
+		"negative equity":   func(q *Quality) { q.TotalEquity = new(-1e9) },
+		"non-finite income": func(q *Quality) { q.NetIncome = new(math.Inf(1)) },
 	} {
 		q := cba()
 		mutate(q)
@@ -194,7 +194,7 @@ func TestApplyQualityRulesComputesROEForAFinancialTheViewWithheld(t *testing.T) 
 
 	// A loss is a negative return, not an unknown one.
 	loss := cba()
-	loss.NetIncome = f(-1.53e9)
+	loss.NetIncome = new(-1.53e9)
 	ApplyQualityRules(loss, "Insurance")
 	if loss.ROEPct == nil || math.Abs(*loss.ROEPct-(-2)) > 1e-9 {
 		t.Errorf("an insurer's loss: ROE %v, want -2", loss.ROEPct)
@@ -206,8 +206,8 @@ func TestApplyQualityRulesComputesROEForAFinancialTheViewWithheld(t *testing.T) 
 func TestBankROEReachesTheRuleAndTheSort(t *testing.T) {
 	bankQuality := func(ni float64) *Quality {
 		return &Quality{
-			Revenue: f(27e9), NetIncome: f(ni), NetMarginPct: f(ni / 27e9 * 100),
-			TotalEquity: f(78e9), TotalEquityPrior: f(75e9), TotalAssets: f(1.3e12), TotalAssetsPrior: f(1.25e12),
+			Revenue: new(27e9), NetIncome: new(ni), NetMarginPct: new(ni / 27e9 * 100),
+			TotalEquity: new(78e9), TotalEquityPrior: new(75e9), TotalAssets: new(1.3e12), TotalAssetsPrior: new(1.25e12),
 			BasisPeriodType: "annual", BasisPeriodEnd: d("2026-06-30"),
 		}
 	}

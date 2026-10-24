@@ -55,8 +55,8 @@ func TestNonRasterLogosDrawTheMonogram(t *testing.T) {
 
 	ind := emailFixtures()["industry-above-daily"]
 	ind.Payload = payload([]alertevents.Company{
-		{Code: "AAA", Name: "Aaa", Latest: 6, Previous: fpv(5), Change: fpv(1), LogoURL: "https://logos.test/AAA.svg"},
-		{Code: "BBB", Name: "Bbb", Latest: 6, Previous: fpv(5), Change: fpv(1), LogoURL: "https://logos.test/BBB.webp"},
+		{Code: "AAA", Name: "Aaa", Latest: 6, Previous: new(float64(5)), Change: new(float64(1)), LogoURL: "https://logos.test/AAA.svg"},
+		{Code: "BBB", Name: "Bbb", Latest: 6, Previous: new(float64(5)), Change: new(float64(1)), LogoURL: "https://logos.test/BBB.webp"},
 	})
 	r := renderFixture(t, ind)
 	if strings.Contains(r.HTML, `src="https://logos.test`) {

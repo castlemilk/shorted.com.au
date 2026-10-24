@@ -87,15 +87,15 @@ func (s *Syncer) syncAny(ctx context.Context, records []any) (int, error) {
 	}
 
 	// Build batch request
-	requests := make([]map[string]interface{}, len(records))
+	requests := make([]map[string]any, len(records))
 	for i, r := range records {
-		requests[i] = map[string]interface{}{
+		requests[i] = map[string]any{
 			"action": "updateObject",
 			"body":   r,
 		}
 	}
 
-	body := map[string]interface{}{"requests": requests}
+	body := map[string]any{"requests": requests}
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
 		return 0, fmt.Errorf("failed to marshal batch request: %w", err)
@@ -158,10 +158,7 @@ func (s *Syncer) SyncInBatches(ctx context.Context, records []StockRecord, batch
 
 	totalSynced := 0
 	for i := 0; i < len(records); i += batchSize {
-		end := i + batchSize
-		if end > len(records) {
-			end = len(records)
-		}
+		end := min(i+batchSize, len(records))
 
 		batch := records[i:end]
 		count, err := s.SyncBatchWithRetry(ctx, batch, 3)
@@ -188,10 +185,7 @@ func (s *Syncer) SyncAnyInBatches(ctx context.Context, records []any, batchSize 
 
 	totalSynced := 0
 	for i := 0; i < len(records); i += batchSize {
-		end := i + batchSize
-		if end > len(records) {
-			end = len(records)
-		}
+		end := min(i+batchSize, len(records))
 
 		var count int
 		var err error

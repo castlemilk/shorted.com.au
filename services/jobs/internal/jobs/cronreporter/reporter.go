@@ -39,6 +39,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -510,9 +511,7 @@ func (r *reporter) healthHandler() http.Handler {
 		healthy := last > 0 && age <= 4*r.cfg.interval
 		r.mu.Lock()
 		stats := make(map[string]int, len(r.stats))
-		for k, v := range r.stats {
-			stats[k] = v
-		}
+		maps.Copy(stats, r.stats)
 		r.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		if !healthy {

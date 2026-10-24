@@ -104,10 +104,10 @@ func TestHousingToolOutputsCarryOnlyAllowlistedFields(t *testing.T) {
 		name string
 		typ  reflect.Type
 	}{
-		{"GetHousingOverviewOutput", reflect.TypeOf(GetHousingOverviewOutput{})},
-		{"GetHousePriceSeriesOutput", reflect.TypeOf(GetHousePriceSeriesOutput{})},
-		{"GetSuburbProfileOutput", reflect.TypeOf(GetSuburbProfileOutput{})},
-		{"ListSuburbPriceDropsOutput", reflect.TypeOf(ListSuburbPriceDropsOutput{})},
+		{"GetHousingOverviewOutput", reflect.TypeFor[GetHousingOverviewOutput]()},
+		{"GetHousePriceSeriesOutput", reflect.TypeFor[GetHousePriceSeriesOutput]()},
+		{"GetSuburbProfileOutput", reflect.TypeFor[GetSuburbProfileOutput]()},
+		{"ListSuburbPriceDropsOutput", reflect.TypeFor[ListSuburbPriceDropsOutput]()},
 	}
 
 	for _, c := range cases {
@@ -154,7 +154,7 @@ func TestHousingToolOutputsCarryOnlyAllowlistedFields(t *testing.T) {
 // JSON field names. Recursion is what makes the allowlist structural: a field
 // added to a nested row type is caught as surely as one added to the top level.
 func jsonFieldNames(t reflect.Type, seen map[reflect.Type]bool) []string {
-	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Slice {
+	for t.Kind() == reflect.Pointer || t.Kind() == reflect.Slice {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct || seen[t] {
@@ -163,9 +163,8 @@ func jsonFieldNames(t reflect.Type, seen map[reflect.Type]bool) []string {
 	seen[t] = true
 
 	var out []string
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		tag := strings.Split(f.Tag.Get("json"), ",")[0]
+	for f := range t.Fields() {
+		tag, _, _ := strings.Cut(f.Tag.Get("json"), ",")
 		if tag == "" || tag == "-" {
 			continue
 		}
@@ -326,7 +325,7 @@ func TestGetHousePriceSeriesRequiresRegionAndMeasure(t *testing.T) {
 func TestGetHousePriceSeriesDownsamplesLongSeries(t *testing.T) {
 	pts := make([]*shortsv1alpha1.HousePricePoint, 0, 600)
 	base := time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
-	for i := 0; i < 600; i++ {
+	for i := range 600 {
 		pts = append(pts, &shortsv1alpha1.HousePricePoint{
 			Period: timestamppb.New(base.AddDate(0, 3*i, 0)), Value: float64(i),
 		})

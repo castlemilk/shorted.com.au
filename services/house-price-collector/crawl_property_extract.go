@@ -148,7 +148,7 @@ func walkForProperty(v any, scan *propertyScan, depth int) {
 		if scan.lat == nil {
 			if pm := childMap(lm, "propertymap", "map", "property_location"); pm != nil {
 				if lat, lng, ok := firstAUGeo(pm, 0); ok {
-					scan.lat, scan.lng = f64p(lat), f64p(lng)
+					scan.lat, scan.lng = new(lat), new(lng)
 				}
 			}
 		}
@@ -225,15 +225,15 @@ func harvestProperty(best map[string]any, scan *propertyScan) propertyProfile {
 	if best != nil {
 		maps := gatherMaps(best)
 		if lo, ok := firstFloat(maps, avmLowKeys...); ok && lo > 0 {
-			p.EstimateLow = f64p(lo)
+			p.EstimateLow = new(lo)
 			raw["estimate_low"] = lo
 		}
 		if mid, ok := firstFloat(maps, avmMidKeys...); ok && mid > 0 {
-			p.EstimateMid = f64p(mid)
+			p.EstimateMid = new(mid)
 			raw["estimate_mid"] = mid
 		}
 		if hi, ok := firstFloat(maps, avmHighKeys...); ok && hi > 0 {
-			p.EstimateHigh = f64p(hi)
+			p.EstimateHigh = new(hi)
 			raw["estimate_high"] = hi
 		}
 		if c := cleanText(strings.ToLower(firstStr(maps, avmConfKeys...))); c != "" {
@@ -250,11 +250,11 @@ func harvestProperty(best map[string]any, scan *propertyScan) propertyProfile {
 			raw["car_spaces"] = *p.CarSpaces
 		}
 		if v, ok := firstFloat(maps, landKeys...); ok && v > 0 {
-			p.LandSizeSqm = f64p(v)
+			p.LandSizeSqm = new(v)
 			raw["land_size_sqm"] = v
 		}
 		if v, ok := firstFloat(maps, floorKeys...); ok && v > 0 {
-			p.BuildingSizeSqm = f64p(v)
+			p.BuildingSizeSqm = new(v)
 			raw["building_size_sqm"] = v
 		}
 		if v := harvestYearBuilt(maps); v != nil {
@@ -324,7 +324,7 @@ func eventsToSales(events []map[string]any) []saleRecord {
 			sr.Type = cleanText(getStr(b, "text", "label"))
 		}
 		if pr, ok := parseDollarNumber(getStr(e, "titlev2", "title")); ok {
-			sr.Price = f64p(pr)
+			sr.Price = new(pr)
 		}
 		details := getStr(e, "details", "subtitle")
 		sr.Date = parseEventDate(details)

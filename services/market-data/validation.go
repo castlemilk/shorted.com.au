@@ -165,7 +165,7 @@ func NormalizeStockCodes(codes []string) []string {
 }
 
 // SetDefaultValues sets default values for request parameters
-func SetDefaultValues(req interface{}) {
+func SetDefaultValues(req any) {
 	switch r := req.(type) {
 	case *marketdatav1.GetHistoricalPricesRequest:
 		r.StockCode = NormalizeStockCode(r.StockCode)

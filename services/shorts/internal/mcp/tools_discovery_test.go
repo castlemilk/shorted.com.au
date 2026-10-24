@@ -789,7 +789,7 @@ func TestListStrategiesHandlesEmptyErrorsAndNilBodies(t *testing.T) {
 // The schema description is the only place a model learns the ids before it
 // has called list_strategies, so it must name every one the registry holds.
 func TestGetStrategyPicksSchemaNamesEveryStrategyID(t *testing.T) {
-	field, ok := reflect.TypeOf(GetStrategyPicksInput{}).FieldByName("StrategyID")
+	field, ok := reflect.TypeFor[GetStrategyPicksInput]().FieldByName("StrategyID")
 	if !ok {
 		t.Fatal("no StrategyID field")
 	}
@@ -870,7 +870,7 @@ func TestGetStrategyPicksNormalisesAndClampsTheRequest(t *testing.T) {
 // guesses one, so it must name every key the evaluator accepts; and every key
 // it names must be accepted.
 func TestGetStrategyPicksSchemaNamesEverySortKey(t *testing.T) {
-	field, ok := reflect.TypeOf(GetStrategyPicksInput{}).FieldByName("SortBy")
+	field, ok := reflect.TypeFor[GetStrategyPicksInput]().FieldByName("SortBy")
 	if !ok {
 		t.Fatal("no SortBy field")
 	}
@@ -1066,7 +1066,7 @@ func TestGetStrategyPicksPresenceFlagsDecideCloseRSAndShortPct(t *testing.T) {
 func TestGetStrategyPicksSpendsEvidenceInRankOrderAndSaysWhenItRunsOut(t *testing.T) {
 	long := strings.Repeat("A long evidence sentence about a rule that failed. ", 6)
 	picks := make([]*shortsv1alpha1.StrategyPick, 0, maxStrategyPicksLimit)
-	for i := 0; i < maxStrategyPicksLimit; i++ {
+	for i := range maxStrategyPicksLimit {
 		picks = append(picks, &shortsv1alpha1.StrategyPick{
 			Rank: int32(i + 1), StockCode: "ABC", Status: "watch",
 			Rules: []*shortsv1alpha1.RuleResult{

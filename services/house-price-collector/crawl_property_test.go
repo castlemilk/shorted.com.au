@@ -508,12 +508,12 @@ func TestIsProfileNotFound(t *testing.T) {
 
 func TestPreviewProperty(t *testing.T) {
 	p := propertyProfile{
-		EstimateLow:        f64p(1200000),
-		EstimateMid:        f64p(1350000),
-		EstimateHigh:       f64p(1500000),
+		EstimateLow:        new(float64(1200000)),
+		EstimateMid:        new(float64(1350000)),
+		EstimateHigh:       new(float64(1500000)),
 		EstimateConfidence: "high",
 		PropertyType:       "house",
-		Bedrooms:           int16p(4),
+		Bedrooms:           new(int16(4)),
 		SalesHistory:       []saleRecord{{Date: "2024-03-06"}, {Date: "2015-02-02"}},
 	}
 	got := previewProperty(p)

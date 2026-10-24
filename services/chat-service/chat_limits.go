@@ -156,10 +156,7 @@ func evaluateSendLimits(c sendCounts, l chatSendLimits, now time.Time) (limitExc
 		// Round up, so a client that waits exactly this long is never told to
 		// retry while the window is still full. Reset and retry are derived
 		// from the same number so they cannot disagree.
-		retry := int(math.Ceil(reset.Sub(now).Seconds()))
-		if retry < 1 {
-			retry = 1
-		}
+		retry := max(int(math.Ceil(reset.Sub(now).Seconds())), 1)
 		return limitExceeded{
 			Kind:              w.kind,
 			Limit:             w.limit,
@@ -323,7 +320,7 @@ func (h *ChatServiceHandler) admitSend(ctx context.Context, userID string) (*sen
 	rejectCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), usageWriteTimeout)
 	defer cancel()
 	var rejectErr error
-	for attempt := 0; attempt < rejectAttempts; attempt++ {
+	for range rejectAttempts {
 		if rejectErr = h.ledger.RejectSend(rejectCtx, id); rejectErr == nil {
 			break
 		}

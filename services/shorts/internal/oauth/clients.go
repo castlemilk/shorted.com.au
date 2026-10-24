@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -450,15 +451,13 @@ func (d clientMetadataDocument) toRegistration(clientID string) (*ClientRegistra
 	grants := normaliseGrantTypes(d.GrantTypes, false)
 	name := truncate(d.ClientName, maxClientNameLen)
 	return &ClientRegistration{
-		Client: Client{
-			ClientID:     clientID,
-			ClientName:   name,
-			RedirectURIs: redirects,
-			GrantTypes:   grants,
-			Scope:        filterScope(d.Scope),
-		},
-		ClientURI: truncate(d.ClientURI, maxRedirectURILen),
-		Source:    SourceCIMD,
+		ClientID:     clientID,
+		ClientName:   name,
+		RedirectURIs: redirects,
+		GrantTypes:   grants,
+		Scope:        filterScope(d.Scope),
+		ClientURI:    truncate(d.ClientURI, maxRedirectURILen),
+		Source:       SourceCIMD,
 	}, nil
 }
 
@@ -765,16 +764,14 @@ func (h *registrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 
 	reg := ClientRegistration{
-		Client: Client{
-			ClientID:     clientID,
-			ClientName:   truncate(req.ClientName, maxClientNameLen),
-			RedirectURIs: redirects,
-			GrantTypes:   grants,
-			Scope:        filterScope(req.Scope),
-		},
-		ClientURI: registrableClientURI(req.ClientURI),
-		Source:    SourceDCR,
-		IssuedAt:  h.now(),
+		ClientID:     clientID,
+		ClientName:   truncate(req.ClientName, maxClientNameLen),
+		RedirectURIs: redirects,
+		GrantTypes:   grants,
+		Scope:        filterScope(req.Scope),
+		ClientURI:    registrableClientURI(req.ClientURI),
+		Source:       SourceDCR,
+		IssuedAt:     h.now(),
 	}
 	if err := h.store.SaveClient(r.Context(), reg); err != nil {
 		log.Errorf("oauth register: storing client: %v", err)
@@ -936,8 +933,8 @@ func retryAfterSeconds(stamps []time.Time, now time.Time, window time.Duration) 
 func requestIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		parts := strings.Split(xff, ",")
-		for i := len(parts) - 1; i >= 0; i-- {
-			if ip := strings.TrimSpace(parts[i]); ip != "" {
+		for _, part := range slices.Backward(parts) {
+			if ip := strings.TrimSpace(part); ip != "" {
 				return ip
 			}
 		}
@@ -1128,7 +1125,7 @@ func filterScope(scope string) string {
 	}
 	kept := make([]string, 0, len(published))
 	seen := map[string]bool{}
-	for _, s := range strings.Fields(scope) {
+	for s := range strings.FieldsSeq(scope) {
 		if published[s] && !seen[s] {
 			seen[s] = true
 			kept = append(kept, s)

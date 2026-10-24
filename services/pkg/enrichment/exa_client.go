@@ -77,7 +77,7 @@ func NewExaClient(apiKey string) (ExaClient, error) {
 }
 
 // doSearch performs a search request against the Exa API
-func (c *exaClient) doSearch(ctx context.Context, reqBody map[string]interface{}) (*ExaSearchResult, error) {
+func (c *exaClient) doSearch(ctx context.Context, reqBody map[string]any) (*ExaSearchResult, error) {
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
@@ -124,14 +124,14 @@ func (c *exaClient) SearchPeople(ctx context.Context, companyName, personName, r
 		query = fmt.Sprintf("%s at %s", query, companyName)
 	}
 
-	reqBody := map[string]interface{}{
+	reqBody := map[string]any{
 		"query":          query,
 		"category":       "people",
 		"num_results":    5,
 		"text":           true,
 		"use_autoprompt": false,
-		"contents": map[string]interface{}{
-			"text": map[string]interface{}{
+		"contents": map[string]any{
+			"text": map[string]any{
 				"max_characters": 1000,
 			},
 		},
@@ -151,14 +151,14 @@ func (c *exaClient) SearchCompanyPeople(ctx context.Context, companyName, stockC
 		query = fmt.Sprintf("%s %s", query, stockCode)
 	}
 
-	reqBody := map[string]interface{}{
+	reqBody := map[string]any{
 		"query":          query,
 		"category":       "company",
 		"num_results":    3,
 		"text":           true,
 		"use_autoprompt": false,
-		"contents": map[string]interface{}{
-			"text": map[string]interface{}{
+		"contents": map[string]any{
+			"text": map[string]any{
 				"max_characters": 2000,
 			},
 		},

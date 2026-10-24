@@ -96,7 +96,7 @@ func normalizeHousingParams(raw housingParams, rules housingParamRules) (housing
 	return normalized, nil
 }
 
-func (s *ShortsServer) getHousingCached(cacheable bool, key string, compute func() (interface{}, error)) (interface{}, error) {
+func (s *ShortsServer) getHousingCached(cacheable bool, key string, compute func() (any, error)) (any, error) {
 	if !cacheable {
 		return compute()
 	}
@@ -113,7 +113,7 @@ func (s *ShortsServer) GetHousingOverview(ctx context.Context, req *connect.Requ
 	regionType := params.regionType
 
 	cacheKey := s.cache.GetHousingOverviewKey(regionType)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.GetHousingOverview(regionType)
 		if err != nil {
 			return nil, err
@@ -163,7 +163,7 @@ func (s *ShortsServer) GetHousePriceSeries(ctx context.Context, req *connect.Req
 	}
 
 	cacheKey := s.cache.GetHousePriceSeriesKey(params.regionCode, params.measure, params.dwellingType)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		res, err := s.store.GetHousePriceSeries(params.regionCode, params.measure, params.dwellingType)
 		if err != nil {
 			return nil, err
@@ -204,7 +204,7 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodeInvalidArgument, paramErr)
 	}
 	cacheKey := s.cache.GetStateSuburbsKey(params.stateCode, params.query, params.limit)
-	cached, err := s.getHousingCached(params.query == "", cacheKey, func() (interface{}, error) {
+	cached, err := s.getHousingCached(params.query == "", cacheKey, func() (any, error) {
 		rows, err := s.store.ListStateSuburbs(params.stateCode, params.query, params.limit)
 		if err != nil {
 			return nil, err
@@ -293,7 +293,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("sal_code is required"))
 	}
 	cacheKey := s.cache.GetSuburbProfileKey(params.salCode)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		p, err := s.store.GetSuburbProfile(params.salCode)
 		if err != nil {
 			return nil, err
@@ -475,7 +475,7 @@ func (s *ShortsServer) ListHousingRegions(ctx context.Context, req *connect.Requ
 	}
 
 	cacheKey := s.cache.GetHousingRegionsKey(params.regionType, params.stateCode, params.query, params.limit)
-	cached, err := s.getHousingCached(params.query == "", cacheKey, func() (interface{}, error) {
+	cached, err := s.getHousingCached(params.query == "", cacheKey, func() (any, error) {
 		rows, err := s.store.GetHousingRegions(params.regionType, params.stateCode, params.query, params.limit)
 		if err != nil {
 			return nil, err
@@ -572,7 +572,7 @@ func (s *ShortsServer) ListSuburbPriceDrops(ctx context.Context, req *connect.Re
 		return connect.NewResponse(&shortsv1alpha1.ListSuburbPriceDropsResponse{}), nil
 	}
 	cacheKey := s.cache.GetSuburbPriceDropsKey(params.stateCode, params.sort, params.limit)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.ListSuburbPriceDrops(params.stateCode, params.sort, params.limit)
 		if err != nil {
 			return nil, err
@@ -666,7 +666,7 @@ func (s *ShortsServer) ListSuburbDropListings(ctx context.Context, req *connect.
 		return connect.NewResponse(&shortsv1alpha1.ListSuburbDropListingsResponse{}), nil
 	}
 	cacheKey := s.cache.GetSuburbDropListingsKey(params.salCode, params.regionCode, params.windowDays, params.limit)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.ListSuburbDropListings(params.salCode, params.regionCode, params.windowDays, params.limit)
 		if err != nil {
 			return nil, err
@@ -709,7 +709,7 @@ func (s *ShortsServer) GetPropertyHistory(ctx context.Context, req *connect.Requ
 		return connect.NewResponse(&shortsv1alpha1.GetPropertyHistoryResponse{}), nil
 	}
 	cacheKey := s.cache.GetPropertyHistoryKey(params.addressKey)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		res, err := s.store.GetPropertyHistory(params.addressKey)
 		if err != nil {
 			return nil, err
@@ -853,7 +853,7 @@ func (s *ShortsServer) ListAddressPriceDrops(ctx context.Context, req *connect.R
 		return connect.NewResponse(&shortsv1alpha1.ListAddressPriceDropsResponse{}), nil
 	}
 	cacheKey := s.cache.GetAddressPriceDropsKey(params.stateCode, params.sort, params.windowDays, params.limit)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.ListAddressPriceDrops(params.stateCode, params.sort, params.windowDays, params.limit)
 		if err != nil {
 			return nil, err
@@ -898,7 +898,7 @@ func (s *ShortsServer) GetPriceDropsOverview(ctx context.Context, req *connect.R
 		return connect.NewResponse(&shortsv1alpha1.GetPriceDropsOverviewResponse{Withheld: true}), nil
 	}
 	cacheKey := s.cache.GetPriceDropsOverviewKey()
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.GetPriceDropsOverview()
 		if err != nil {
 			return nil, err
@@ -957,7 +957,7 @@ func (s *ShortsServer) ListAgencyPriceStats(ctx context.Context, req *connect.Re
 		return connect.NewResponse(&shortsv1alpha1.ListAgencyPriceStatsResponse{}), nil
 	}
 	cacheKey := s.cache.GetAgencyPriceStatsKey(params.stateCode, params.sort, params.limit)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.ListAgencyPriceStats(params.stateCode, params.sort, params.limit)
 		if err != nil {
 			return nil, err
@@ -1104,7 +1104,7 @@ func (s *ShortsServer) GetDropIndexSeries(ctx context.Context, req *connect.Requ
 	}
 
 	cacheKey := s.cache.GetDropIndexSeriesKey(p.grain, p.grainKey, p.from, p.to)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.GetDropIndexSeries(p.grain, p.grainKey, p.from, p.to)
 		if err != nil {
 			return nil, err

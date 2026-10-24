@@ -72,7 +72,7 @@ func runMCP(ctx context.Context, _ *pgxpool.Pool) {
 			return mcp.NewToolResultError("statuses is required (e.g. 'pending,in_progress')"), nil
 		}
 		var statuses []string
-		for _, p := range strings.Split(statusesStr, ",") {
+		for p := range strings.SplitSeq(statusesStr, ",") {
 			if p = strings.TrimSpace(p); p != "" {
 				statuses = append(statuses, p)
 			}
@@ -114,10 +114,7 @@ func runMCP(ctx context.Context, _ *pgxpool.Pool) {
 		}
 		total := 0
 		for i := 0; i < len(jobs); i += 40 {
-			end := i + 40
-			if end > len(jobs) {
-				end = len(jobs)
-			}
+			end := min(i+40, len(jobs))
 			n, err := client.enqueue(ctx, jobs[i:end])
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("crawl_enqueue (after %d enqueued): %v", total, err)), nil

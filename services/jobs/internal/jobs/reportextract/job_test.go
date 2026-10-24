@@ -432,7 +432,7 @@ func TestLastRunesAndFormatFloatPtr(t *testing.T) {
 	if got := formatFloatPtr(nil); got != "None" {
 		t.Errorf("nil float must render as Python's None, got %q", got)
 	}
-	if got := formatFloatPtr(ptr(1250.5)); got != "1250.5" {
+	if got := formatFloatPtr(new(1250.5)); got != "1250.5" {
 		t.Errorf("formatFloatPtr = %q", got)
 	}
 }

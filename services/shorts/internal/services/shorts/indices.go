@@ -15,7 +15,7 @@ func (s *ShortsServer) ListIndices(
 	ctx context.Context,
 	req *connect.Request[shortsv1alpha1.ListIndicesRequest],
 ) (*connect.Response[shortsv1alpha1.ListIndicesResponse], error) {
-	cached, err := s.cache.GetOrSet(s.cache.GetIndicesKey(), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.GetIndicesKey(), func() (any, error) {
 		indices, err := s.store.ListIndices()
 		if err != nil {
 			return nil, err
@@ -52,7 +52,7 @@ func (s *ShortsServer) GetIndexSeries(
 	}
 
 	cacheKey := s.cache.GetIndexSeriesKey(code, period, req.Msg.From, req.Msg.To, req.Msg.MaxPoints)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		return s.store.GetIndexSeries(shortsstore.IndexSeriesQuery{
 			IndexCode: code,
 			Period:    period,

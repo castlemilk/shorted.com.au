@@ -159,7 +159,7 @@ func (c *telesisClient) ListCronMonitors(ctx context.Context) ([]CronMonitor, er
 	token := ""
 	// A page cap keeps a misbehaving cursor from looping forever; 20 pages of
 	// 100 is far past one service's monitors.
-	for page := 0; page < 20; page++ {
+	for range 20 {
 		var resp response
 		req := request{OrgID: c.cfg.OrgID, ServiceID: c.cfg.ServiceID, Page: telesisPage{PageSize: 100, PageToken: token}}
 		if err := c.call(ctx, "CronMonitorService/ListCronMonitors", req, &resp); err != nil {

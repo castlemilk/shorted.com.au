@@ -128,17 +128,11 @@ func insertAECRows(
 		return nil
 	}
 	perRow := len(columns)
-	chunk := 60000 / perRow
-	if chunk < 1 {
-		chunk = 1
-	}
+	chunk := max(60000/perRow, 1)
 
 	prefix := "INSERT INTO " + table + " (" + strings.Join(columns, ", ") + ") VALUES "
 	for start := 0; start < rowCount; start += chunk {
-		end := start + chunk
-		if end > rowCount {
-			end = rowCount
-		}
+		end := min(start+chunk, rowCount)
 		var sb strings.Builder
 		sb.WriteString(prefix)
 		args := make([]any, 0, (end-start)*perRow)
@@ -147,7 +141,7 @@ func insertAECRows(
 				sb.WriteByte(',')
 			}
 			sb.WriteByte('(')
-			for c := 0; c < perRow; c++ {
+			for c := range perRow {
 				if c > 0 {
 					sb.WriteByte(',')
 				}

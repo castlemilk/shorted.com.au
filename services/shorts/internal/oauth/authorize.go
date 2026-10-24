@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -578,10 +579,8 @@ func sameScopeSet(a, b string) bool {
 // use this would have to already be running code on the victim's computer, at
 // which point the redirect URI is not what is protecting them.
 func matchRedirectURI(registered []string, presented string) bool {
-	for _, r := range registered {
-		if r == presented {
-			return true
-		}
+	if slices.Contains(registered, presented) {
+		return true
 	}
 	// Parsed only if the exact pass failed, so the common path does no work
 	// and a malformed presented URI cannot reach the parser via the fast path.
@@ -671,12 +670,7 @@ func buildRedirect(redirectURI, code, state, issuer string) (string, error) {
 }
 
 func containsString(haystack []string, needle string) bool {
-	for _, v := range haystack {
-		if v == needle {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(haystack, needle)
 }
 
 // writeOAuthError emits the RFC 6749 §5.2 error shape.

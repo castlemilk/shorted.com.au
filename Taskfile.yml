@@ -482,8 +482,8 @@ tasks:
 
       The linter must be v2: services/.golangci.yaml is `version: "2"`, and a v1
       binary silently ignores it and reports a DIFFERENT issue set. CI pins
-      v2.10.1. Note Makefile's Linux install path still fetches v1.61.0, so a
-      Linux dev can get a different answer than CI.
+      v2.15.0 (built with Go 1.27). The Makefile Linux install fallback pins the
+      same version, so a Linux dev gets the same answer as CI.
     cmds:
       - make lint-backend
       - make lint-frontend

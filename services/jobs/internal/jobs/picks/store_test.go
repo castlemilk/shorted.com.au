@@ -456,9 +456,9 @@ func TestVendorUpsertRulesAgainstPostgres(t *testing.T) {
 
 	// Rules 3 and 4: nothing supplied for those fields this run.
 	fy24 := yr("2024-06-30")
-	fy24.FreeCashFlow = f64(5)
-	ttm := PeriodRow{PeriodType: periodTTM, PeriodEnd: date("2024-12-31"), EPSBasic: f64(0.55)}
-	snap := PeriodRow{PeriodType: periodQuarter, PeriodEnd: date("2024-12-31"), SharesOutstanding: f64(7.5)}
+	fy24.FreeCashFlow = new(float64(5))
+	ttm := PeriodRow{PeriodType: periodTTM, PeriodEnd: date("2024-12-31"), EPSBasic: new(0.55)}
+	snap := PeriodRow{PeriodType: periodQuarter, PeriodEnd: date("2024-12-31"), SharesOutstanding: new(7.5)}
 	up("ZZV1", fy24, ttm, snap)
 	r, ok := readSF(t, pool, "ZZV1", periodAnnual, "2024-06-30")
 	require.True(t, ok)
@@ -477,7 +477,7 @@ func TestVendorUpsertRulesAgainstPostgres(t *testing.T) {
 
 	// Rule 1: the vendor supplies it (with this run's marker, or none).
 	fy24 = yr("2024-06-30")
-	fy24.Revenue, fy24.NetIncome = f64(95), f64(11)
+	fy24.Revenue, fy24.NetIncome = new(float64(95)), new(float64(11))
 	fy24.FieldSources = map[string]string{"net_income": sourceMarkit}
 	up("ZZV1", fy24)
 	r, _ = readSF(t, pool, "ZZV1", periodAnnual, "2024-06-30")
@@ -487,8 +487,8 @@ func TestVendorUpsertRulesAgainstPostgres(t *testing.T) {
 
 	// Rule 2: a Rejected field is NULL, over a kept marker and over TTM history.
 	fy24 = yr("2024-06-30")
-	fy24.EPSBasic, fy24.Rejected = f64(1), []string{"net_income", "free_cash_flow"}
-	ttm = PeriodRow{PeriodType: periodTTM, PeriodEnd: date("2024-12-31"), EPSBasic: f64(0.55), Rejected: []string{"revenue"}}
+	fy24.EPSBasic, fy24.Rejected = new(float64(1)), []string{"net_income", "free_cash_flow"}
+	ttm = PeriodRow{PeriodType: periodTTM, PeriodEnd: date("2024-12-31"), EPSBasic: new(0.55), Rejected: []string{"revenue"}}
 	up("ZZV1", fy24, ttm)
 	r, _ = readSF(t, pool, "ZZV1", periodAnnual, "2024-06-30")
 	assert.Nil(t, r.vals["net_income"])
@@ -503,7 +503,7 @@ func TestVendorUpsertRulesAgainstPostgres(t *testing.T) {
 		VALUES ('ZZV1', 'annual', '2023-06-30', 'AUD', 'asx-filing-extraction', 10, 1, 0.1, 'https://www.asx.com.au/x.pdf', '2023-08-20')`)
 	before, _ := readSF(t, pool, "ZZV1", periodAnnual, "2023-06-30")
 	fy23 := yr("2023-06-30")
-	fy23.EPSBasic, fy23.TotalAssets = f64(0.11), f64(5)
+	fy23.EPSBasic, fy23.TotalAssets = new(0.11), new(float64(5))
 	up("ZZV1", fy23)
 	r, _ = readSF(t, pool, "ZZV1", periodAnnual, "2023-06-30")
 	assert.Equal(t, sourceFiling, r.source, "no revenue or net income supplied: the filing row is untouched")
@@ -512,7 +512,7 @@ func TestVendorUpsertRulesAgainstPostgres(t *testing.T) {
 	assert.Equal(t, before.updatedAt, r.updatedAt)
 
 	fy23 = yr("2023-06-30")
-	fy23.Revenue, fy23.TotalAssets = f64(10.2), f64(5)
+	fy23.Revenue, fy23.TotalAssets = new(10.2), new(float64(5))
 	up("ZZV1", fy23)
 	r, _ = readSF(t, pool, "ZZV1", periodAnnual, "2023-06-30")
 	assert.Equal(t, sourceYahoo, r.source, "revenue supplied: the vendor takes the row over")
@@ -523,7 +523,7 @@ func TestVendorUpsertRulesAgainstPostgres(t *testing.T) {
 	require.NotNil(t, r.docURL)
 	assert.Equal(t, "https://www.asx.com.au/x.pdf", *r.docURL, "and the document they came from")
 
-	fy23.NetIncome, fy23.EPSBasic = f64(1.1), f64(0.12)
+	fy23.NetIncome, fy23.EPSBasic = new(1.1), new(0.12)
 	up("ZZV1", fy23)
 	r, _ = readSF(t, pool, "ZZV1", periodAnnual, "2023-06-30")
 	assert.Empty(t, r.fs)
@@ -533,7 +533,7 @@ func TestVendorUpsertRulesAgainstPostgres(t *testing.T) {
 	pgExec(t, pool, `INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, source, revenue, net_income, field_sources)
 		VALUES ('ZZV1', 'annual', '2022-06-30', 'AUD', 'yahoo-timeseries', 5, 1, '{"net_income":"markit-key-statistics"}')`)
 	fy22 := yr("2022-06-30")
-	fy22.Currency, fy22.Revenue = "USD", f64(4)
+	fy22.Currency, fy22.Revenue = "USD", new(float64(4))
 	up("ZZV1", fy22)
 	r, _ = readSF(t, pool, "ZZV1", periodAnnual, "2022-06-30")
 	assert.Equal(t, "USD", r.currency)
@@ -544,7 +544,7 @@ func TestVendorUpsertRulesAgainstPostgres(t *testing.T) {
 	// A Markit row never takes over a Yahoo row.
 	pgExec(t, pool, `INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, source, revenue)
 		VALUES ('ZZV1', 'annual', '2021-06-30', 'AUD', 'yahoo-timeseries', 3)`)
-	up("ZZV1", PeriodRow{PeriodType: periodAnnual, PeriodEnd: date("2021-06-30"), Source: sourceMarkit, Revenue: f64(999)})
+	up("ZZV1", PeriodRow{PeriodType: periodAnnual, PeriodEnd: date("2021-06-30"), Source: sourceMarkit, Revenue: new(float64(999))})
 	r, _ = readSF(t, pool, "ZZV1", periodAnnual, "2021-06-30")
 	assert.Equal(t, sourceYahoo, r.source)
 	assert.Equal(t, 3.0, r.v(t, "revenue"))
@@ -560,7 +560,7 @@ func TestVendorUpsertRulesAgainstPostgres(t *testing.T) {
 		('ZZV2', 'annual', '2026-06-10', 'AUD', 'markit-key-statistics', 1),
 		('ZZV3', 'annual', '2026-06-28', 'AUD', 'markit-key-statistics', 1)`)
 	fy26 := yr("2026-06-30")
-	fy26.Revenue = f64(2)
+	fy26.Revenue = new(float64(2))
 	up("ZZV2", fy26)
 	_, ok = readSF(t, pool, "ZZV2", periodAnnual, "2026-06-28")
 	assert.False(t, ok, "the same fiscal year is never stored twice")
@@ -675,9 +675,9 @@ func TestVendorWithout000132AgainstPostgres(t *testing.T) {
 	pgExec(t, pool, `INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, source, revenue, net_income)
 		VALUES ('ZZL1', 'annual', '2025-06-30', 'AUD', 'yahoo-timeseries', 5351000, 3270000)`)
 	rows := []PeriodRow{
-		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceYahoo, EPSBasic: f64(0.39),
-			TotalAssets: f64(1), Rejected: []string{"revenue", "net_income", "total_assets"}},
-		{PeriodType: periodQuarter, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceYahoo, TotalEquity: f64(7)},
+		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceYahoo, EPSBasic: new(0.39),
+			TotalAssets: new(float64(1)), Rejected: []string{"revenue", "net_income", "total_assets"}},
+		{PeriodType: periodQuarter, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceYahoo, TotalEquity: new(float64(7))},
 	}
 	require.NoError(t, st.UpsertPeriods(ctx, "ZZL1", rows, time.Now()))
 	var rev, ni, eps *float64
@@ -690,7 +690,7 @@ func TestVendorWithout000132AgainstPostgres(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM stock_fundamentals WHERE period_type = 'quarter'`).Scan(&quarters))
 	assert.Zero(t, quarters, "a snapshot carries only 000132 columns: not written without them")
 
-	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "ZZL1", At: time.Now(), Success: true, Outcome: outcomeLoaded, PeriodsLoaded: 1, Measured: true, MedianK: f64(1)}))
+	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "ZZL1", At: time.Now(), Success: true, Outcome: outcomeLoaded, PeriodsLoaded: 1, Measured: true, MedianK: new(float64(1))}))
 	states, err := st.SyncStates(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, outcomeLoaded, states["ZZL1"].LastOutcome)
@@ -706,7 +706,7 @@ func TestVendorWithout000132AgainstPostgres(t *testing.T) {
 	st.fundExtended, st.syncExtended = true, true
 	st.schemaMu.Unlock()
 	require.NoError(t, st.UpsertPeriods(ctx, "ZZL2", []PeriodRow{
-		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceYahoo, Revenue: f64(9)},
+		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceYahoo, Revenue: new(float64(9))},
 	}, time.Now()))
 	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "ZZL2", At: time.Now(), Success: true, Outcome: outcomeLoaded}))
 	fund, syncExt, _ = st.schema(ctx)
@@ -736,7 +736,7 @@ func TestVendorFiscalYearAcrossDatesAgainstPostgres(t *testing.T) {
 		('ZZP1', 'annual', '2026-06-28', 'AUD', 'markit-key-statistics', 938763000, 95590000),
 		('ZZP2', 'annual', '2026-06-28', 'AUD', 'markit-key-statistics', 938763000, 95590000)`)
 	require.NoError(t, st.UpsertPeriods(ctx, "ZZP1", []PeriodRow{
-		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, EPSBasic: f64(0.8632)},
+		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, EPSBasic: new(0.8632)},
 	}, now))
 	r, ok := readSF(t, pool, "ZZP1", periodAnnual, "2026-06-28")
 	require.True(t, ok, "an EPS-only Yahoo row does not prune the year's only revenue and net income")
@@ -749,15 +749,15 @@ func TestVendorFiscalYearAcrossDatesAgainstPostgres(t *testing.T) {
 	// Once the Yahoo row carries the year's figures (the next run Markit
 	// answers, mergeFallback fills them), the Markit row goes.
 	require.NoError(t, st.UpsertPeriods(ctx, "ZZP1", []PeriodRow{
-		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, EPSBasic: f64(0.8632),
-			Revenue: f64(938763000), FieldSources: map[string]string{"revenue": sourceMarkit}},
+		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, EPSBasic: new(0.8632),
+			Revenue: new(float64(938763000)), FieldSources: map[string]string{"revenue": sourceMarkit}},
 	}, now))
 	_, ok = readSF(t, pool, "ZZP1", periodAnnual, "2026-06-28")
 	assert.False(t, ok, "pruned: the fiscal year is stored once")
 	// Net income alone is enough, as the Yahoo row then carries a figure the
 	// Markit row held.
 	require.NoError(t, st.UpsertPeriods(ctx, "ZZP2", []PeriodRow{
-		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, NetIncome: f64(95590000)},
+		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, NetIncome: new(float64(95590000))},
 	}, now))
 	_, ok = readSF(t, pool, "ZZP2", periodAnnual, "2026-06-28")
 	assert.False(t, ok)
@@ -773,7 +773,7 @@ func TestVendorFiscalYearAcrossDatesAgainstPostgres(t *testing.T) {
 		('ZZM1', 'annual', '2022-06-30', 'AUD', 'asx-filing-extraction', 600000000, 60000000, NULL, '{}'),
 		('ZZM1', 'annual', '2021-06-30', 'AUD', 'yahoo-timeseries', NULL, NULL, 0.41, '{}')`)
 	markit := func(end string, rev float64) PeriodRow {
-		return PeriodRow{PeriodType: periodAnnual, PeriodEnd: date(end), Currency: "AUD", Source: sourceMarkit, Revenue: f64(rev), NetIncome: f64(rev / 10)}
+		return PeriodRow{PeriodType: periodAnnual, PeriodEnd: date(end), Currency: "AUD", Source: sourceMarkit, Revenue: new(rev), NetIncome: new(rev / 10)}
 	}
 	require.NoError(t, st.UpsertPeriods(ctx, "ZZM1", []PeriodRow{
 		markit("2021-07-04", 500000000), // beside an EPS-only Yahoo year: the only revenue for FY21
@@ -800,7 +800,7 @@ func TestVendorFiscalYearAcrossDatesAgainstPostgres(t *testing.T) {
 	// folds a Markit year into the Yahoo row within a week, but the statement
 	// must not rely on that).
 	require.NoError(t, st.UpsertPeriods(ctx, "ZZM2", []PeriodRow{
-		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, Revenue: f64(10)},
+		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, Revenue: new(float64(10))},
 		markit("2026-06-28", 11),
 	}, now))
 	assert.Equal(t, 1, count("ZZM2"))

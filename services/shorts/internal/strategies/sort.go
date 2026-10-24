@@ -1,5 +1,7 @@
 package strategies
 
+import "slices"
+
 import "sort"
 
 // GetStrategyPicks orderings (sort_by; plan fundamentals-coverage.md §5.2).
@@ -22,12 +24,7 @@ func SortKeys() []string { return append([]string(nil), sortKeys...) }
 
 // ValidSortBy reports whether s is a sort_by value (exact, lower case).
 func ValidSortBy(s string) bool {
-	for _, k := range sortKeys {
-		if s == k {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(sortKeys, s)
 }
 
 // Growth figures outside this range sort after every measured figure and

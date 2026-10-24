@@ -28,11 +28,11 @@ func TestShortsServiceWithSeededData(t *testing.T) {
 
 		// Seed comprehensive test data
 		testDate := time.Now().Truncate(24 * time.Hour)
-		
+
 		// Get test data for multiple stocks
 		stockCodes := []string{"CBA", "BHP", "CSL", "WBC", "NAB"}
 		shortsData, metadata, _ := testdata.GetMultipleStocksTestData(stockCodes, testDate.AddDate(0, 0, -30), 30)
-		
+
 		// Seed the database
 		require.NoError(t, seeder.SeedCompanyMetadata(ctx, metadata))
 		require.NoError(t, seeder.SeedShorts(ctx, shortsData))
@@ -60,7 +60,7 @@ func TestShortsServiceWithSeededData(t *testing.T) {
 
 		// Test against external service
 		t.Logf("Testing against service at: %s", apiURL)
-		
+
 		// Wait for service to be ready
 		if !waitForServiceHealth(apiURL, 10*time.Second) {
 			t.Skipf("Service not available at %s", apiURL)
@@ -98,7 +98,7 @@ func TestShortsServiceWithSeededData(t *testing.T) {
 // waitForServiceHealth checks if a service is healthy
 func waitForServiceHealth(baseURL string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
-	
+
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(baseURL + "/health")
 		if err == nil && resp.StatusCode == 200 {
@@ -110,14 +110,13 @@ func waitForServiceHealth(baseURL string, timeout time.Duration) bool {
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
-	
+
 	return false
 }
 
-
 func testGetTopShortsWithData(t *testing.T, ctx context.Context, client shortsv1alpha1connect.ShortedStocksServiceClient) {
 	req := connect.NewRequest(&shortsv1alpha1.GetTopShortsRequest{
-		Period: "1M",  // Request 1 month to get enough data points (30 days seeded)
+		Period: "1M", // Request 1 month to get enough data points (30 days seeded)
 		Limit:  5,
 		Offset: 0,
 	})
@@ -166,7 +165,7 @@ func testGetStockWithData(t *testing.T, ctx context.Context, client shortsv1alph
 func testGetStockDataWithData(t *testing.T, ctx context.Context, client shortsv1alpha1connect.ShortedStocksServiceClient, productCode string) {
 	req := connect.NewRequest(&shortsv1alpha1.GetStockDataRequest{
 		ProductCode: productCode,
-		Period:      "1M",  // Request 1 month to match seeded data range
+		Period:      "1M", // Request 1 month to match seeded data range
 	})
 
 	resp, err := client.GetStockData(ctx, req)

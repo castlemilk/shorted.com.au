@@ -415,7 +415,7 @@ func TestPauseAlertMonitorByToken_PausesWithoutASession(t *testing.T) {
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	mockStore.EXPECT().PauseAlertMonitorByID(alertTestMonitorID).Return(&shortsstore.AlertMonitor{
 		ID: alertTestMonitorID, Scope: "stock", Target: "BHP", Condition: "short_interest_above",
-		Threshold: floatPtr(5), Cadence: "daily", Status: "paused",
+		Threshold: new(float64(5)), Cadence: "daily", Status: "paused",
 	}, false, nil)
 
 	srv := tokenServer(t, mockStore, alertTestSecret)
@@ -510,7 +510,7 @@ func TestListAlertMonitors_ReportsLastEventAndCheckedThrough(t *testing.T) {
 	mockStore.EXPECT().RefreshAlertMonitorEmail("user_1", "ben@shorted.com.au").Return(nil)
 	mockStore.EXPECT().ListAlertMonitors("user_1", int32(20), int32(0)).Return([]*shortsstore.AlertMonitor{
 		{ID: alertTestMonitorID, UserID: "user_1", Scope: "stock", Target: "BHP", Condition: "short_interest_above",
-			Threshold: floatPtr(5), Cadence: "daily", Status: "active", CreatedAt: lastAt, UpdatedAt: lastAt,
+			Threshold: new(float64(5)), Cadence: "daily", Status: "active", CreatedAt: lastAt, UpdatedAt: lastAt,
 			LastEventReportDate: &lastReport, LastEventEmailStatus: &lastStatus, LastEventAt: &lastAt},
 	}, int32(1), nil)
 	mockStore.EXPECT().AlertCheckedThrough().Return("2026-10-16", nil)
@@ -535,7 +535,7 @@ func TestListAlertMonitors_NeverFiredHasNoEventFields(t *testing.T) {
 	mockStore.EXPECT().RefreshAlertMonitorEmail("user_1", "ben@shorted.com.au").Return(nil)
 	mockStore.EXPECT().ListAlertMonitors("user_1", int32(20), int32(0)).Return([]*shortsstore.AlertMonitor{
 		{ID: alertTestMonitorID, UserID: "user_1", Scope: "stock", Target: "BHP", Condition: "short_interest_above",
-			Threshold: floatPtr(5), Cadence: "daily", Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			Threshold: new(float64(5)), Cadence: "daily", Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()},
 	}, int32(1), nil)
 	mockStore.EXPECT().AlertCheckedThrough().Return("", nil)
 
@@ -550,8 +550,6 @@ func TestListAlertMonitors_NeverFiredHasNoEventFields(t *testing.T) {
 }
 
 // --- helpers ---------------------------------------------------------------
-
-func floatPtr(v float64) *float64 { return &v }
 
 // tokenNewsletter is a valid newsletter token: the right secret, no alert prefix.
 func tokenNewsletter(secret string) string {

@@ -85,7 +85,7 @@ func (s *ShortsServer) PanelExportHandler() http.HandlerFunc {
 
 		var codes []string
 		if raw := strings.TrimSpace(q.Get("codes")); raw != "" {
-			for _, c := range strings.Split(raw, ",") {
+			for c := range strings.SplitSeq(raw, ",") {
 				if c = strings.ToUpper(strings.TrimSpace(c)); c != "" {
 					codes = append(codes, c)
 				}

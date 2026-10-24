@@ -87,7 +87,7 @@ func realisticSource() *fakeDataSource {
 
 	// 20 stocks (default limit), summary_only shape.
 	ts := make([]*stocksv1alpha1.TimeSeriesData, 0, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		ts = append(ts, &stocksv1alpha1.TimeSeriesData{
 			ProductCode: fmt.Sprintf("PL%d", i%10), Name: "PILBARA MINERALS LIMITED",
 			Industry: "Metals & Mining", LatestShortPosition: 19.4 - float64(i)/3,
@@ -97,7 +97,7 @@ func realisticSource() *fakeDataSource {
 
 	// The cap: 150 rows.
 	rows := make([]*stocksv1alpha1.TreemapShortPosition, 0, 200)
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		rows = append(rows, &stocksv1alpha1.TreemapShortPosition{
 			Industry: "Metals & Mining", ProductCode: fmt.Sprintf("AB%d", i%10), ShortPosition: 4.321,
 		})
@@ -110,7 +110,7 @@ func realisticSource() *fakeDataSource {
 
 	// 25 stocks (default limit).
 	snap := make([]*stocksv1alpha1.Stock, 0, 25)
-	for i := 0; i < 25; i++ {
+	for i := range 25 {
 		snap = append(snap, &stocksv1alpha1.Stock{
 			ProductCode: fmt.Sprintf("XY%d", i%10), Name: "SOME AUSTRALIAN COMPANY LIMITED",
 			Industry: "Consumer Discretionary", PercentageShorted: 12.34,
@@ -124,7 +124,7 @@ func realisticSource() *fakeDataSource {
 
 	// 20 candidates (default limit).
 	bg := make([]*shortsv1alpha1.BattlegroundStock, 0, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		bg = append(bg, &shortsv1alpha1.BattlegroundStock{
 			StockCode: fmt.Sprintf("SQ%d", i%10), CompanyName: "PILBARA MINERALS LIMITED",
 			Industry: "Metals & Mining", ShortPct: 19.4321, ShortPctChange_4W: 2.1234,
@@ -140,7 +140,7 @@ func realisticSource() *fakeDataSource {
 	// no caller receives and leave the real one unbudgeted.
 	pts := make([]*stocksv1alpha1.TimeSeriesPoint, 0, 2500)
 	base := time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC)
-	for i := 0; i < 2500; i++ {
+	for i := range 2500 {
 		pts = append(pts, &stocksv1alpha1.TimeSeriesPoint{
 			Timestamp: timestamppb.New(base.AddDate(0, 0, i)), ShortPosition: 12.345678,
 			ReportedShortPositions: 637_919_240.5, TotalProductInIssue: 5_084_182_500.75,
@@ -154,7 +154,7 @@ func realisticSource() *fakeDataSource {
 	// The same worst case for prices: a MAX window of daily sessions, thinned
 	// to the default cap (maxPricePoints).
 	prices := make([]*shortsv1alpha1.StockPricePoint, 0, 2500)
-	for i := 0; i < 2500; i++ {
+	for i := range 2500 {
 		prices = append(prices, &shortsv1alpha1.StockPricePoint{
 			Date: base.AddDate(0, 0, i).Format("2006-01-02"),
 			Open: 41.234567, High: 42.345678, Low: 40.123456,
@@ -190,7 +190,7 @@ func realisticSource() *fakeDataSource {
 
 	// 20 trades (default limit).
 	trades := make([]*shortsv1alpha1.DirectorTrade, 0, 20)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		trades = append(trades, &shortsv1alpha1.DirectorTrade{
 			StockCode: "BHP", DirectorName: "Alexandra Fitzgerald", TradeType: "buy",
 			SharesTraded: 12_000, PricePerShare: 44.10, TotalValue: 529_200,
@@ -202,7 +202,7 @@ func realisticSource() *fakeDataSource {
 
 	// 5 peers (default limit).
 	peers := make([]*shortsv1alpha1.PeerStock, 0, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		peers = append(peers, &shortsv1alpha1.PeerStock{
 			StockCode: fmt.Sprintf("PR%d", i), CompanyName: "IGO LIMITED", Industry: "Metals & Mining",
 			ShortPositionPercent: 9.2345, MarketCap: 4_123_456_789, PeRatio: 18.23,
@@ -257,11 +257,11 @@ func realisticOwnershipSource(src *fakeDataSource) {
 		}
 	}
 	holders := make([]*shortsv1alpha1.SubstantialHolding, 0, maxOwnershipHolders+10)
-	for i := 0; i < maxOwnershipHolders+10; i++ {
+	for i := range maxOwnershipHolders + 10 {
 		holders = append(holders, holding(i))
 	}
 	funds := make([]*shortsv1alpha1.FundHolding, 0, 40)
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		funds = append(funds, fund(i))
 	}
 	kinds := []*shortsv1alpha1.KindShare{}
@@ -282,11 +282,11 @@ func realisticOwnershipSource(src *fakeDataSource) {
 	}
 
 	positions := make([]*shortsv1alpha1.SubstantialHolding, 0, 119)
-	for i := 0; i < 119; i++ {
+	for i := range 119 {
 		positions = append(positions, holding(i))
 	}
 	instFunds := make([]*shortsv1alpha1.FundHolding, 0, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		instFunds = append(instFunds, fund(i))
 	}
 	src.institution = &shortsv1alpha1.GetInstitutionResponse{
@@ -349,7 +349,7 @@ func realisticStrategySource(src *fakeDataSource) {
 	evidence := "Close A$12.34, 150-day A$13.45, 200-day A$14.56: close is not above the 150-day; " +
 		"150-day is not above the 200-day, and the 200-day has fallen for a month"
 	picks := make([]*shortsv1alpha1.StrategyPick, 0, maxStrategyPicksLimit)
-	for i := 0; i < maxStrategyPicksLimit; i++ {
+	for i := range maxStrategyPicksLimit {
 		rules := make([]*shortsv1alpha1.RuleResult, 0, len(widest.Rules))
 		for j, r := range widest.Rules {
 			status := "fail"
@@ -385,7 +385,7 @@ func realisticStrategySource(src *fakeDataSource) {
 	// handler's own cap is what is measured.
 	periods := make([]*shortsv1alpha1.FundamentalsPeriod, 0, maxFundamentalsLimit+16)
 	types := []string{"annual", "half", "ttm"}
-	for i := 0; i < maxFundamentalsLimit+16; i++ {
+	for i := range maxFundamentalsLimit + 16 {
 		periods = append(periods, fullFundamentalsPeriod(types[i%3], fmt.Sprintf("20%02d-06-30", 26-i/3), int32(2026-i/3)))
 	}
 	src.fundamentals = &shortsv1alpha1.GetStockFundamentalsResponse{
@@ -527,7 +527,7 @@ func realisticBriefingSource(src *fakeDataSource) {
 
 	// 15 dividends (worst case: exceeds 12-cap)
 	divs := make([]*shortsv1alpha1.DividendRecord, 0, 15)
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		divs = append(divs, &shortsv1alpha1.DividendRecord{
 			ExDate:             fmt.Sprintf("2026-%02d-15", 1+i%12),
 			PaymentDate:        fmt.Sprintf("2026-%02d-28", 1+i%12),
@@ -542,7 +542,7 @@ func realisticBriefingSource(src *fakeDataSource) {
 	citationBase := strings.Repeat("A", 300)
 
 	adverseSignals := make([]*shortsv1alpha1.StockSignal, 0, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		date := time.Date(2026, 10, 15-i*2, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
 		adverseSignals = append(adverseSignals, &shortsv1alpha1.StockSignal{
 			EventDate: date,
@@ -553,7 +553,7 @@ func realisticBriefingSource(src *fakeDataSource) {
 	}
 
 	positiveSignals := make([]*shortsv1alpha1.StockSignal, 0, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		date := time.Date(2026, 10, 10-i*2, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
 		positiveSignals = append(positiveSignals, &shortsv1alpha1.StockSignal{
 			EventDate: date,
@@ -602,13 +602,13 @@ func realisticPoliticsSource(src *fakeDataSource) {
 	}
 
 	people := make([]*shortsv1alpha1.Politician, 0, maxPoliticianSearchLimit)
-	for i := 0; i < maxPoliticianSearchLimit; i++ {
+	for i := range maxPoliticianSearchLimit {
 		people = append(people, person(i))
 	}
 	src.listPoliticians = &shortsv1alpha1.ListPoliticiansResponse{Politicians: people, Total: 319}
 
 	interests := make([]*shortsv1alpha1.DeclaredInterest, 0, maxRegisterInterests+20)
-	for i := 0; i < maxRegisterInterests+20; i++ {
+	for range maxRegisterInterests + 20 {
 		interests = append(interests, interest())
 	}
 	src.politician = &shortsv1alpha1.GetPoliticianResponse{
@@ -618,7 +618,7 @@ func realisticPoliticsSource(src *fakeDataSource) {
 	}
 
 	declarations := make([]*shortsv1alpha1.StockPoliticianInterest, 0, maxStockDeclarations+10)
-	for i := 0; i < maxStockDeclarations+10; i++ {
+	for i := range maxStockDeclarations + 10 {
 		declarations = append(declarations, &shortsv1alpha1.StockPoliticianInterest{
 			Politician: person(i), Interest: interest(),
 		})
@@ -651,16 +651,16 @@ func realisticEconomySource(src *fakeDataSource) {
 	}
 
 	catalogue := make([]*shortsv1alpha1.EconomicSeriesInfo, 0, maxEconomySeriesListLimit)
-	for i := 0; i < maxEconomySeriesListLimit; i++ {
+	for i := range maxEconomySeriesListLimit {
 		catalogue = append(catalogue, info(fmt.Sprintf("trade.merchandise_exports_value.lng.wa.seasadj.%d", i)))
 	}
 	src.economicSeriesList = &shortsv1alpha1.ListEconomicSeriesResponse{Series: catalogue}
 
 	base := time.Date(1976, 1, 31, 0, 0, 0, 0, time.UTC)
 	series := make([]*shortsv1alpha1.EconomicSeriesData, 0, maxEconomySeriesPerCall)
-	for s := 0; s < maxEconomySeriesPerCall; s++ {
+	for s := range maxEconomySeriesPerCall {
 		obs := make([]*shortsv1alpha1.EconomicObservation, 0, 600)
-		for i := 0; i < 600; i++ {
+		for i := range 600 {
 			obs = append(obs, &shortsv1alpha1.EconomicObservation{
 				Period: timestamppb.New(base.AddDate(0, i, 0)), Value: 12_345_678.9123,
 			})
@@ -690,7 +690,7 @@ func realisticEconomySource(src *fakeDataSource) {
 func realisticHousingSource(src *fakeDataSource) {
 	period := timestamppb.New(time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC))
 	metrics := make([]*shortsv1alpha1.HousingMetric, 0, 80)
-	for i := 0; i < 80; i++ {
+	for range 80 {
 		metrics = append(metrics, &shortsv1alpha1.HousingMetric{
 			RegionCode: "1GSYD", RegionName: "Greater Sydney", RegionType: "gccsa",
 			StateCode: "NSW", Measure: "mean_price", DwellingType: "established_house",
@@ -702,7 +702,7 @@ func realisticHousingSource(src *fakeDataSource) {
 
 	pts := make([]*shortsv1alpha1.HousePricePoint, 0, 400)
 	base := time.Date(1926, 3, 31, 0, 0, 0, 0, time.UTC)
-	for i := 0; i < 400; i++ {
+	for i := range 400 {
 		pts = append(pts, &shortsv1alpha1.HousePricePoint{
 			Period: timestamppb.New(base.AddDate(0, 3*i, 0)),
 			Value:  1_234_567.89, IsPreliminary: i == 399,
@@ -749,7 +749,7 @@ func realisticHousingSource(src *fakeDataSource) {
 	}
 
 	drops := make([]*shortsv1alpha1.SuburbPriceDrop, 0, 50)
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		drops = append(drops, &shortsv1alpha1.SuburbPriceDrop{
 			RegionCode: "SUBURB:VIC-RICHMOND", SalCode: "SAL21234", SalName: "Richmond",
 			StateCode: "VIC", Postcode: "3121", DroppedListingCount: 12,
@@ -768,7 +768,7 @@ func realisticHousingSource(src *fakeDataSource) {
 func realisticDiscoverySource(src *fakeDataSource) {
 	// 10 matches (default limit).
 	matches := make([]*stocksv1alpha1.Stock, 0, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		matches = append(matches, &stocksv1alpha1.Stock{
 			ProductCode: fmt.Sprintf("MN%d", i), Name: "PILBARA MINERALS LIMITED",
 			Industry: "Metals & Mining", PercentageShorted: 19.4321,
@@ -779,7 +779,7 @@ func realisticDiscoverySource(src *fakeDataSource) {
 
 	// 20 screened rows (default limit).
 	screened := make([]*shortsv1alpha1.ScreenerStock, 0, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		screened = append(screened, &shortsv1alpha1.ScreenerStock{
 			StockCode: fmt.Sprintf("SC%d", i), CompanyName: "PILBARA MINERALS LIMITED",
 			Industry: "Metals & Mining", ShortPct: 19.4321, ShortPctChange_4W: 2.1234,
@@ -797,7 +797,7 @@ func realisticDiscoverySource(src *fakeDataSource) {
 	// 10 articles (default limit), every summary over the truncation limit.
 	longSummary := strings.Repeat("Lithium spodumene prices firmed again in the September quarter. ", 40)
 	articles := make([]*shortsv1alpha1.NewsArticle, 0, 10)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		articles = append(articles, &shortsv1alpha1.NewsArticle{
 			Id: "1f2e3d4c-5b6a-7980-1234-567890abcdef", StockCode: "PLS", Source: "stockhead",
 			Headline:  "Pilbara Minerals lifts FY27 guidance as spodumene prices firm",
@@ -820,7 +820,7 @@ func realisticDiscoverySource(src *fakeDataSource) {
 	// 18,672 bytes against real data.
 	longStandfirst := strings.Repeat("Short interest across the ASX rose for a third straight week. ", 100)
 	reports := make([]*shortsv1alpha1.ReportListItem, 0, 12)
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		reports = append(reports, &shortsv1alpha1.ReportListItem{
 			Slug: fmt.Sprintf("2026-W%02d", i+10), ReportType: "weekly",
 			Headline: "Lithium shorts build for a third straight week",
@@ -837,7 +837,7 @@ func realisticDiscoverySource(src *fakeDataSource) {
 	// repeated section over its cap.
 	longSection := strings.Repeat("Short interest across the resources sector rose again this week. ", 100)
 	topShorted := make([]*shortsv1alpha1.WeeklyReportStock, 0, 40)
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		topShorted = append(topShorted, &shortsv1alpha1.WeeklyReportStock{
 			Rank: int32(i + 1), Code: fmt.Sprintf("TS%d", i%10), Name: "PILBARA MINERALS LIMITED",
 			ShortPct: 19.4321, WowChange: 1.2345, DaysToCover: 6.2345, IsNewEntrant: i%3 == 0,
@@ -846,7 +846,7 @@ func realisticDiscoverySource(src *fakeDataSource) {
 		})
 	}
 	movers := make([]*shortsv1alpha1.WeeklyReportMover, 0, 30)
-	for i := 0; i < 30; i++ {
+	for i := range 30 {
 		movers = append(movers, &shortsv1alpha1.WeeklyReportMover{
 			Code: fmt.Sprintf("MV%d", i%10), Name: "PALADIN ENERGY LTD", CurrentPct: 12.3456,
 			PreviousPct: 10.1234, Change: 2.2222, DaysToCover: 4.5678, ZScore: 1.9876,
@@ -855,14 +855,14 @@ func realisticDiscoverySource(src *fakeDataSource) {
 		})
 	}
 	industries := make([]*shortsv1alpha1.WeeklyIndustryStat, 0, 25)
-	for i := 0; i < 25; i++ {
+	for range 25 {
 		industries = append(industries, &shortsv1alpha1.WeeklyIndustryStat{
 			Industry: "Consumer Discretionary", AvgShortPct: 3.2345, WowChange: 0.1234,
 			StockCount: 87, TopStockCode: "JBH", TopStockPct: 9.8765,
 		})
 	}
 	citations := make([]*shortsv1alpha1.WeeklyReportCitation, 0, 25)
-	for i := 0; i < 25; i++ {
+	for i := range 25 {
 		citations = append(citations, &shortsv1alpha1.WeeklyReportCitation{
 			Id: fmt.Sprintf("ref-%d", i), Source: "Pilbara Minerals H1 FY2026 Results",
 			Date: "2026-02-20", Url: "https://www.asx.com.au/asxpdf/20260220/pdf/06abcdefghij.pdf",
@@ -870,7 +870,7 @@ func realisticDiscoverySource(src *fakeDataSource) {
 		})
 	}
 	faqs := make([]*shortsv1alpha1.WeeklyReportFAQ, 0, 8)
-	for i := 0; i < 8; i++ {
+	for range 8 {
 		faqs = append(faqs, &shortsv1alpha1.WeeklyReportFAQ{
 			Question: "What does a rising short position mean?", Answer: longSection,
 		})

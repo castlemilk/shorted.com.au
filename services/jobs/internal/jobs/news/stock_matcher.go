@@ -93,10 +93,10 @@ func (m *StockMatcher) Match(headline string) string {
 		}
 	}
 
-	words := strings.Fields(headline)
+	words := strings.FieldsSeq(headline)
 
 	// First pass: look for ticker tokens in the original (case-preserved) headline
-	for _, word := range words {
+	for word := range words {
 		clean := strings.Trim(word, "()[]{}:;,.'\"!?")
 		// "$BHP" cashtag — strict ticker prefix always counts
 		if strings.HasPrefix(clean, "$") && len(clean) >= 4 && len(clean) <= 6 {

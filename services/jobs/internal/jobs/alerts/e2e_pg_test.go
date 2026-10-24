@@ -522,15 +522,15 @@ func TestAlertsE2ELifecycle(t *testing.T) {
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
 	e.billing.setStatus("u2", "SUBSCRIPTION_STATUS_CANCELED")
 
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
-	e.monitor("m2", "u1", u1Email, "stock", "BBB", "short_interest_rises", "daily", fp(0.5), "")
-	e.monitor("m3", "u1", u1Email, "industry", "Materials", "short_interest_above", "daily", fp(5), "")
-	e.monitor("m4", "u1", u1Email, "industry", "Materials", "short_interest_rises", "daily", fp(0.4), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
+	e.monitor("m2", "u1", u1Email, "stock", "BBB", "short_interest_rises", "daily", new(0.5), "")
+	e.monitor("m3", "u1", u1Email, "industry", "Materials", "short_interest_above", "daily", new(float64(5)), "")
+	e.monitor("m4", "u1", u1Email, "industry", "Materials", "short_interest_rises", "daily", new(0.4), "")
 	e.monitor("m5", "u1", u1Email, "industry", "Materials", "new_top_ten_entry", "daily", nil, "")
-	e.monitor("m6", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "paused")
-	e.monitor("m7", "u1", u1Email, "stock", "AAA", "short_interest_above", "weekly", fp(5), "")
-	e.monitor("m8", "u2", u2Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
-	e.monitor("m9", "u3", "", "stock", "BBB", "short_interest_rises", "daily", fp(0.5), "")
+	e.monitor("m6", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "paused")
+	e.monitor("m7", "u1", u1Email, "stock", "AAA", "short_interest_above", "weekly", new(float64(5)), "")
+	e.monitor("m8", "u2", u2Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
+	e.monitor("m9", "u3", "", "stock", "BBB", "short_interest_rises", "daily", new(0.5), "")
 
 	// Case 1: the bootstrap evaluates nothing, sends exactly one canary, and sets
 	// the watermark to the newest report.
@@ -669,7 +669,7 @@ func TestAlertsE2ECanaryRejected(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 
 	e.day("2026-10-13", baseDay0())
 	e.wantExit(e.run(), 0, "bootstrap")
@@ -692,7 +692,7 @@ func TestAlertsE2EBillingUnavailable(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 
 	e.day("2026-10-13", baseDay0())
 	e.wantExit(e.run(), 0, "bootstrap")
@@ -719,7 +719,7 @@ func TestAlertsE2ESyncGate(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 	e.day("2026-10-13", baseDay0())
 	e.wantExit(e.run(), 0, "bootstrap")
 	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
@@ -764,7 +764,7 @@ func TestAlertsE2EPriceSweepIsNotTheASICSync(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 	e.day("2026-10-13", baseDay0())
 	e.syncRow("asic", "completed", "3 hours")
 	e.wantExit(e.run(), 0, "bootstrap")
@@ -805,7 +805,7 @@ func TestAlertsE2ECompleteness(t *testing.T) {
 	e.seedBase()
 	full := func() map[string]float64 {
 		rows := map[string]float64{}
-		for i := 0; i < 30; i++ {
+		for i := range 30 {
 			rows[fmt.Sprintf("X%02d", i)] = 1
 		}
 		return rows
@@ -828,7 +828,7 @@ func TestAlertsE2EWeekly(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m7", "u1", u1Email, "stock", "AAA", "short_interest_above", "weekly", fp(5), "")
+	e.monitor("m7", "u1", u1Email, "stock", "AAA", "short_interest_above", "weekly", new(float64(5)), "")
 
 	e.day("2026-10-09", map[string]float64{"AAA": 4.80})
 	e.wantExit(e.run(), 0, "bootstrap")
@@ -863,7 +863,7 @@ func TestAlertsE2EUnsubscribe(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 
 	e.day("2026-10-13", baseDay0())
 	e.wantExit(e.run(), 0, "bootstrap")
@@ -897,7 +897,7 @@ func TestAlertsE2EReplay(t *testing.T) {
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
 	e.billing.setStatus("u2", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 
 	e.day("2026-10-13", baseDay0())
 	e.wantExit(e.run(), 0, "bootstrap")
@@ -905,8 +905,8 @@ func TestAlertsE2EReplay(t *testing.T) {
 	e.wantExit(e.run(), 0, "first crossing")
 
 	// Monitors created after the first evaluation would fire on 14 October if it ran again.
-	e.monitor("m3", "u1", u1Email, "stock", "BBB", "short_interest_rises", "daily", fp(0.5), "")
-	e.monitor("m4", "u2", u2Email, "stock", "BBB", "short_interest_rises", "daily", fp(0.5), "")
+	e.monitor("m3", "u1", u1Email, "stock", "BBB", "short_interest_rises", "daily", new(0.5), "")
+	e.monitor("m4", "u2", u2Email, "stock", "BBB", "short_interest_rises", "daily", new(0.5), "")
 
 	e.wantExit(e.run("-date", "2026-10-14", "-user", "u1"), 0, "replay for one owner")
 	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'm3'`); got != 1 {
@@ -925,7 +925,7 @@ func TestAlertsE2EDryRun(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 	e.day("2026-10-13", baseDay0())
 	e.wantExit(e.run(), 0, "bootstrap")
 	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
@@ -954,7 +954,7 @@ func TestAlertsE2EDryRunHoldExitsZero(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 	e.day("2026-10-13", baseDay0())
 	e.syncRow("asic", "completed", "3 hours")
 	e.wantExit(e.run(), 0, "bootstrap")
@@ -977,7 +977,7 @@ func TestAlertsE2EExpiredPending(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 	e.day("2026-10-13", baseDay0())
 	e.wantExit(e.run(), 0, "bootstrap")
 
@@ -1001,8 +1001,8 @@ func TestAlertsE2EExpiredPending(t *testing.T) {
 func seedTwoOwnerEvents(e *e2e) {
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
-	e.monitor("m3", "u1", u1Email, "industry", "Materials", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
+	e.monitor("m3", "u1", u1Email, "industry", "Materials", "short_interest_above", "daily", new(float64(5)), "")
 	e.day("2026-10-13", baseDay0())
 	e.wantExit(e.run(), 0, "bootstrap")
 	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
@@ -1087,7 +1087,7 @@ func TestAlertsE2EStockDetail(t *testing.T) {
 	e.seedBase()
 	mustExec(t, e.pool, `UPDATE "company-metadata" SET logo_icon_gcs_url = 'https://logos.test/AAA_icon.PNG?v=2', logo_gcs_url = 'https://logos.test/AAA-wordmark.png' WHERE stock_code = 'AAA'`)
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 
 	// Three readings, so the event's history is long enough for a chart.
 	e.day("2026-10-12", baseDay0())
@@ -1165,7 +1165,7 @@ func nonFiniteRun(t *testing.T, poison func(e *e2e)) {
 	e := newE2E(t)
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 
 	e.day("2026-10-12", baseDay0())
 	e.day("2026-10-13", baseDay0())
@@ -1203,7 +1203,7 @@ func TestAlertsE2EWordmarkOnlyIsAMonogram(t *testing.T) {
 	e.seedBase()
 	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
 	mustExec(t, e.pool, `UPDATE "company-metadata" SET logo_gcs_url = 'https://logos.test/AAA-wordmark.png' WHERE stock_code = 'AAA'`)
-	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
 	e.day("2026-10-12", baseDay0())
 	e.day("2026-10-13", baseDay0())
 	e.wantExit(e.run(), 0, "bootstrap")

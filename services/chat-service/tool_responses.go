@@ -439,7 +439,7 @@ func thinSparkline(points []*stocksv1alpha1.TimeSeriesPoint, limit int) []*stock
 		return points
 	}
 	thinned := make([]*stocksv1alpha1.TimeSeriesPoint, 0, limit)
-	for k := 0; k < limit; k++ {
+	for k := range limit {
 		// k=0 is index 0 and k=limit-1 is index n-1. The step is above one index, so
 		// the indices are strictly increasing and never repeat.
 		thinned = append(thinned, points[k*(n-1)/(limit-1)])

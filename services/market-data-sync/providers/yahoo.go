@@ -45,9 +45,9 @@ func (p *YahooFinanceProvider) FetchHistoricalData(ctx context.Context, symbol s
 	for iter.Next() {
 		hasData = true
 		b := iter.Bar()
-		
+
 		t := time.Unix(int64(b.Timestamp), 0)
-		
+
 		open, _ := b.Open.Float64()
 		high, _ := b.High.Float64()
 		low, _ := b.Low.Float64()

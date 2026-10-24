@@ -56,7 +56,7 @@ func modeSwitchCases(t *testing.T, src string) map[string]string {
 		if i+1 < len(locs) {
 			bodyEnd = locs[i+1][0]
 		}
-		for _, label := range strings.Split(labels, ",") {
+		for label := range strings.SplitSeq(labels, ",") {
 			out[strings.Trim(strings.TrimSpace(label), `"`)] = body[bodyStart:bodyEnd]
 		}
 	}

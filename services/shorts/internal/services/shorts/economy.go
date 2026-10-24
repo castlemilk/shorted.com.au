@@ -22,7 +22,7 @@ func (s *ShortsServer) ListEconomicSeries(ctx context.Context, req *connect.Requ
 	// cache key and the query. If these two ever disagree the gate leaks.
 	includeInternal := callerMaySeeInternalSeries(ctx)
 	cacheKey := s.cache.ListEconomicSeriesKey(m.Topic, m.Metric, m.RegionType, m.RegionCode, m.Product, m.Limit, includeInternal)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.ListEconomicSeries(m.Topic, m.Metric, m.RegionType, m.RegionCode, m.Product, m.Limit, includeInternal)
 		if err != nil {
 			return nil, err
@@ -63,7 +63,7 @@ func (s *ShortsServer) GetEconomicSeries(ctx context.Context, req *connect.Reque
 
 	maxObservations := m.MaxObservations
 	cacheKey := s.cache.GetEconomicSeriesKey(keys, startKey, maxObservations, includeInternal)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.GetEconomicSeries(keys, start, maxObservations, includeInternal)
 		if err != nil {
 			return nil, err
@@ -116,7 +116,7 @@ func (s *ShortsServer) ListSeriesCorrelations(ctx context.Context, req *connect.
 	}
 
 	cacheKey := s.cache.ListSeriesCorrelationsKey(baseSeriesKey, windowMonths, m.MinAbsR, limit, includeInternal)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.ListSeriesCorrelations(baseSeriesKey, windowMonths, m.MinAbsR, limit, includeInternal)
 		if err != nil {
 			return nil, err

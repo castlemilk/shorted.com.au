@@ -117,7 +117,7 @@ var scopeDescriptions = map[string]string{
 // is closed, and anything outside it was already refused upstream.
 func DescribeScopes(scope string) []ScopeDescription {
 	granted := make(map[string]bool)
-	for _, s := range strings.Fields(scope) {
+	for s := range strings.FieldsSeq(scope) {
 		granted[s] = true
 	}
 	out := make([]ScopeDescription, 0, len(granted))

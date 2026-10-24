@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,9 +89,7 @@ func (tw *telemetryWriter) emit(typ string, fields map[string]any) {
 		"type":   typ,
 		"run_id": tw.id,
 	}
-	for k, v := range fields {
-		ev[k] = v
-	}
+	maps.Copy(ev, fields)
 	b, err := json.Marshal(ev)
 	if err != nil {
 		return
@@ -145,9 +144,7 @@ func (tw *telemetryWriter) suburbDone(suburb, source string, listings, events in
 // caller has, so the UI can show WHY a suburb came back empty.
 func (tw *telemetryWriter) failure(suburb, source, reason string, debug map[string]any) {
 	m := map[string]any{"suburb": suburb, "source": source, "reason": reason}
-	for k, v := range debug {
-		m[k] = v
-	}
+	maps.Copy(m, debug)
 	tw.emit("error", m)
 }
 

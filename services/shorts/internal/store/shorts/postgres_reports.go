@@ -48,7 +48,7 @@ func (s *postgresStore) ListReports(reportType string, limit int) ([]*ReportList
 		FROM weekly_reports
 		WHERE published_at IS NOT NULL
 	`
-	args := []interface{}{}
+	args := []any{}
 	if pattern, ok := reportSlugPatterns[reportType]; ok {
 		query += ` AND week_slug ~ $1`
 		args = append(args, pattern)

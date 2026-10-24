@@ -747,7 +747,7 @@ func splitCodes(codes string) []string {
 		return nil
 	}
 	var out []string
-	for _, c := range strings.Split(codes, ",") {
+	for c := range strings.SplitSeq(codes, ",") {
 		if c = strings.TrimSpace(c); c != "" {
 			out = append(out, strings.ToUpper(c))
 		}

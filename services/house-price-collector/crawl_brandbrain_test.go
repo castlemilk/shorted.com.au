@@ -205,9 +205,9 @@ func TestBrandbrainMediansPayload_DropsAmbiguousCanonicalMedian(t *testing.T) {
 
 func TestBrandbrain_ExtractRealEstate_SkipsEmptyProjection(t *testing.T) {
 	originalClient := brandbrainHTTPClient
-	var calls int32
+	var calls atomic.Int32
 	brandbrainHTTPClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		atomic.AddInt32(&calls, 1)
+		calls.Add(1)
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       io.NopCloser(strings.NewReader(bondiExtractJSON())),
@@ -218,7 +218,7 @@ func TestBrandbrain_ExtractRealEstate_SkipsEmptyProjection(t *testing.T) {
 	if _, err := extractRealEstate(context.Background(), "http://brandbrain.test/extract", "<html><body>no aggregate scripts</body></html>", bondi.reaURL(), "Bondi", "NSW"); err == nil || !strings.Contains(err.Error(), "aggregate projection is empty") {
 		t.Fatalf("extractRealEstate error = %v, want empty-projection error", err)
 	}
-	if got := atomic.LoadInt32(&calls); got != 0 {
+	if got := calls.Load(); got != 0 {
 		t.Fatalf("empty projection made %d HTTP call(s), want 0", got)
 	}
 }
@@ -364,9 +364,9 @@ func TestBrandbrain_ExtractRealEstate_RetriesOn5xx(t *testing.T) {
 	brandbrainBackoffs = []time.Duration{1 * time.Millisecond, 1 * time.Millisecond, 1 * time.Millisecond}
 	defer func() { brandbrainBackoffs = orig }()
 
-	var calls int32
+	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		n := atomic.AddInt32(&calls, 1)
+		n := calls.Add(1)
 		if n == 1 {
 			http.Error(w, "upstream overloaded", http.StatusBadGateway) // 502 first
 			return
@@ -380,7 +380,7 @@ func TestBrandbrain_ExtractRealEstate_RetriesOn5xx(t *testing.T) {
 	if err != nil {
 		t.Fatalf("extractRealEstate should succeed after a 502 retry: %v", err)
 	}
-	if got := atomic.LoadInt32(&calls); got != 2 {
+	if got := calls.Load(); got != 2 {
 		t.Errorf("expected 2 calls (502 then 200), got %d", got)
 	}
 	if len(x.Listings) != 1 || x.Listings[0].MedianHousePrice != bondiHouseMedian {
@@ -393,9 +393,9 @@ func TestBrandbrain_ExtractRealEstate_GivesUpAfterAll5xx(t *testing.T) {
 	brandbrainBackoffs = []time.Duration{1 * time.Millisecond, 1 * time.Millisecond, 1 * time.Millisecond}
 	defer func() { brandbrainBackoffs = orig }()
 
-	var calls int32
+	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		atomic.AddInt32(&calls, 1)
+		calls.Add(1)
 		http.Error(w, "still down", http.StatusServiceUnavailable)
 	}))
 	defer srv.Close()
@@ -403,7 +403,7 @@ func TestBrandbrain_ExtractRealEstate_GivesUpAfterAll5xx(t *testing.T) {
 	if _, err := extractRealEstate(context.Background(), srv.URL, bondiProjectionHTML, bondi.reaURL(), "Bondi", "NSW"); err == nil {
 		t.Fatal("expected error after exhausting retries on persistent 5xx")
 	}
-	if got := atomic.LoadInt32(&calls); got != int32(len(brandbrainBackoffs)) {
+	if got := calls.Load(); got != int32(len(brandbrainBackoffs)) {
 		t.Errorf("expected %d attempts, got %d", len(brandbrainBackoffs), got)
 	}
 }

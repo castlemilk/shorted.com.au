@@ -21,7 +21,7 @@ func TestHealthCheckEndpoint(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		status := map[string]interface{}{
+		status := map[string]any{
 			"status":   "healthy",
 			"database": "not_configured",
 		}
@@ -40,7 +40,7 @@ func TestHealthCheckEndpoint(t *testing.T) {
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
 	// Parse response
-	var response map[string]interface{}
+	var response map[string]any
 	err := json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
 
@@ -61,7 +61,7 @@ func TestHealthCheckAlwaysSucceeds(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		status := map[string]interface{}{
+		status := map[string]any{
 			"status": "healthy",
 		}
 
@@ -131,7 +131,7 @@ func TestServerStartsWithoutDatabase(t *testing.T) {
 }
 
 // Helper function to test config parsing
-func parseConfigGracefully(dbURL string) (interface{}, error) {
+func parseConfigGracefully(dbURL string) (any, error) {
 	// This simulates the graceful error handling we added
 	// In real code, this would be in main()
 	if dbURL == "" {
@@ -159,7 +159,7 @@ func TestHealthCheckFormat(t *testing.T) {
 	mux.ServeHTTP(w, req)
 
 	// Verify it's valid JSON
-	var response map[string]interface{}
+	var response map[string]any
 	err := json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err, "Health check must return valid JSON")
 

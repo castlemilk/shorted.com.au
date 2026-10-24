@@ -256,10 +256,7 @@ func (c *YearlyDataCollector) buildYearlyExtraContext(snapshots []QuarterSnapsho
 			// Top 3 stocks that month
 			if len(r.TopShorted) > 0 {
 				sb.WriteString("Top 3: ")
-				limit := 3
-				if len(r.TopShorted) < limit {
-					limit = len(r.TopShorted)
-				}
+				limit := min(len(r.TopShorted), 3)
 				for i := 0; i < limit; i++ {
 					if i > 0 {
 						sb.WriteString(", ")

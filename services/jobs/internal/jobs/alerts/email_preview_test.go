@@ -164,7 +164,7 @@ func previewStock(c previewCase) Message {
 		Previous:   &prev,
 		Payload: alertevents.Payload{
 			Companies: []alertevents.Company{{
-				Code: c.code, Name: c.company, Latest: latest, Previous: &prev, Change: fpv(round2(latest - prev)),
+				Code: c.code, Name: c.company, Latest: latest, Previous: &prev, Change: new(round2(latest - prev)),
 				PreviousDate: c.compared,
 			}},
 			CompaniesTotal: 1,
@@ -212,18 +212,18 @@ func previewIndustry() Message {
 		Target:     "Materials",
 		Condition:  alertevents.ConditionShortInterestAbove,
 		Cadence:    alertevents.CadenceDaily,
-		Threshold:  fpv(5),
+		Threshold:  new(float64(5)),
 		ReportDate: "2026-10-16",
 		ComparedTo: "2026-10-15",
 	}
 	// Only BHP has a logo in this preview, from the real icon path; the rest show the
 	// monogram, as they do when a company has no logo on file.
 	m.Payload = payload([]alertevents.Company{
-		{Code: "AAA", Name: "Aaa & Co <Holdings>", Latest: 5.92, Previous: fpv(4.80), Change: fpv(1.12)},
-		{Code: "BHP", Name: "BHP Group Ltd", Latest: 5.60, Previous: fpv(4.40), Change: fpv(1.20),
+		{Code: "AAA", Name: "Aaa & Co <Holdings>", Latest: 5.92, Previous: new(float64(4.80)), Change: new(float64(1.12))},
+		{Code: "BHP", Name: "BHP Group Ltd", Latest: 5.60, Previous: new(float64(4.40)), Change: new(float64(1.20)),
 			LogoURL: "https://storage.googleapis.com/shorted-company-logos/logos/BHP_icon.png"},
-		{Code: "LTR", Name: "Lithium Texas", Latest: 5.40, Previous: fpv(4.10), Change: fpv(1.30), PreviousDate: "2026-10-14"},
-		{Code: "EEE", Name: "Eee Resources Ltd", Latest: 5.10, Previous: fpv(4.99), Change: fpv(0.11)},
+		{Code: "LTR", Name: "Lithium Texas", Latest: 5.40, Previous: new(float64(4.10)), Change: new(float64(1.30)), PreviousDate: "2026-10-14"},
+		{Code: "EEE", Name: "Eee Resources Ltd", Latest: 5.10, Previous: new(float64(4.99)), Change: new(float64(0.11))},
 	})
 	return m
 }

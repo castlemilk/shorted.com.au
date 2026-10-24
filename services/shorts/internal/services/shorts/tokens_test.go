@@ -53,15 +53,13 @@ func mintLegacyTokenWithoutAudience(t *testing.T, secret string) string {
 	t.Helper()
 	now := time.Now()
 	claims := Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(now),
-			Issuer:    "shorted-api",
-		},
-		UserID: "legacy-user",
-		Email:  "legacy@example.com",
-		Roles:  []string{"user"},
-		Tier:   "free",
+		ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+		IssuedAt:  jwt.NewNumericDate(now),
+		Issuer:    "shorted-api",
+		UserID:    "legacy-user",
+		Email:     "legacy@example.com",
+		Roles:     []string{"user"},
+		Tier:      "free",
 	}
 	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
 	if err != nil {
@@ -130,14 +128,12 @@ func TestValidateBearerTokenMapsIdentityScopesAndExpiry(t *testing.T) {
 	svc := NewTokenService(testSecret, testAudience()...)
 	now := time.Now()
 	claims := Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(now),
-			Issuer:    "shorted-api",
-			Audience:  jwt.ClaimStrings(testAudience()),
-		},
-		UserID: "user-7",
-		Scope:  "shorts:read housing:read",
+		ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+		IssuedAt:  jwt.NewNumericDate(now),
+		Issuer:    "shorted-api",
+		Audience:  jwt.ClaimStrings(testAudience()),
+		UserID:    "user-7",
+		Scope:     "shorts:read housing:read",
 	}
 	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
 	if err != nil {
@@ -237,13 +233,11 @@ func signedWithAudience(t *testing.T, aud jwt.ClaimStrings, userID string) strin
 	t.Helper()
 	now := time.Now()
 	claims := Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(now),
-			Issuer:    "shorted-api",
-			Audience:  aud,
-		},
-		UserID: userID,
+		ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+		IssuedAt:  jwt.NewNumericDate(now),
+		Issuer:    "shorted-api",
+		Audience:  aud,
+		UserID:    userID,
 	}
 	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
 	if err != nil {
@@ -300,11 +294,9 @@ func TestValidateIdentityTokenRejectsAnotherDeploymentsToken(t *testing.T) {
 func TestValidateIdentityTokenRejectsAForgedSignature(t *testing.T) {
 	svc := NewTokenService(testSecret, testAudience()...)
 	forged, err := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-			Audience:  mcpAudienceOnly(),
-		},
-		UserID: "attacker",
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		Audience:  mcpAudienceOnly(),
+		UserID:    "attacker",
 	}).SignedString([]byte("not-the-secret"))
 	if err != nil {
 		t.Fatalf("signing: %v", err)

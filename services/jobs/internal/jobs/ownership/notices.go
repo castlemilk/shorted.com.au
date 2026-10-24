@@ -384,10 +384,8 @@ func (p *noticePass) run(ctx context.Context, limit int, since string) (noticePa
 	work := make(chan pendingNotice)
 	var wg sync.WaitGroup
 	workers := max(p.workers, 1)
-	for w := 0; w < workers; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range workers {
+		wg.Go(func() {
 			for n := range work {
 				handle(n)
 				if p.delay <= 0 {
@@ -401,7 +399,7 @@ func (p *noticePass) run(ctx context.Context, limit int, since string) (noticePa
 					return
 				}
 			}
-		}()
+		})
 	}
 	go func() {
 		defer close(work)

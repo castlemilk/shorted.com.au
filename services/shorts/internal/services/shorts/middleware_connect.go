@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -276,8 +277,8 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 
 					// Parse roles from header if provided
 					if userRolesHeader != "" {
-						headerRoles := strings.Split(userRolesHeader, ",")
-						for _, role := range headerRoles {
+						headerRoles := strings.SplitSeq(userRolesHeader, ",")
+						for role := range headerRoles {
 							role = strings.TrimSpace(role)
 							if role != "" && role != "api-user" {
 								roles = append(roles, role)
@@ -488,21 +489,11 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 }
 
 func hasRole(claims *Claims, role string) bool {
-	for _, r := range claims.Roles {
-		if r == role {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(claims.Roles, role)
 }
 
 func hasRoleInList(roles []string, role string) bool {
-	for _, r := range roles {
-		if r == role {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(roles, role)
 }
 
 // rolesForFirebaseClaims returns the roles a verified Firebase ID token holds.
@@ -515,9 +506,9 @@ func hasRoleInList(roles []string, role string) bool {
 // address before that admin signs up would otherwise inherit admin on this API and
 // could mint a 30-day admin token. The web tier's admin-check applies the same rule
 // to a uid.
-func rolesForFirebaseClaims(claims map[string]interface{}) []string {
+func rolesForFirebaseClaims(claims map[string]any) []string {
 	roles := []string{"api-user"}
-	if r, ok := claims["roles"].([]interface{}); ok {
+	if r, ok := claims["roles"].([]any); ok {
 		for _, role := range r {
 			if rs, ok := role.(string); ok && rs != "api-user" {
 				roles = append(roles, rs)
@@ -538,7 +529,7 @@ func rolesForFirebaseClaims(claims map[string]interface{}) []string {
 // emailVerifiedFromFirebaseClaims reports whether a verified Firebase ID token
 // proves the address in its email claim. Only Firebase's boolean claim counts, the
 // same strictness as rolesForFirebaseClaims: a string "true" does not.
-func emailVerifiedFromFirebaseClaims(claims map[string]interface{}) bool {
+func emailVerifiedFromFirebaseClaims(claims map[string]any) bool {
 	verified, _ := claims["email_verified"].(bool)
 	return verified
 }
@@ -550,12 +541,7 @@ func isAdminEmail(email string) bool {
 	if normalized == "" {
 		return false
 	}
-	for _, adminEmail := range adminEmails {
-		if normalized == adminEmail {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(adminEmails, normalized)
 }
 
 // UserFromContext retrieves user claims from the context.

@@ -1138,7 +1138,7 @@ func TestGetStockFundamentalsSummaryNamesTheLatestStatementPeriod(t *testing.T) 
 // handler's full window and keeps the first `limit` statement periods.
 func TestGetStockFundamentalsDefaultLeavesOutBalanceSnapshots(t *testing.T) {
 	var periods []*shortsv1alpha1.FundamentalsPeriod
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		periods = append(periods,
 			&shortsv1alpha1.FundamentalsPeriod{PeriodType: "quarter", PeriodEnd: fmt.Sprintf("2026-%02d-30", 9-i), Currency: "AUD"},
 			&shortsv1alpha1.FundamentalsPeriod{PeriodType: "ttm", PeriodEnd: fmt.Sprintf("202%d-06-30", 6-i), Currency: "AUD", Revenue: 1e9, HasRevenue: true},

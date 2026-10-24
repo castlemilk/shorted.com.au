@@ -110,9 +110,9 @@ func runPaidProbeTool() AdminTool {
 				"returns at once and starts nothing. Results also land in paid_feature_status when the run reports to Telesis.",
 			Annotations: &sdk.ToolAnnotations{
 				ReadOnlyHint:    false,
-				DestructiveHint: boolPtr(false),
+				DestructiveHint: new(false),
 				IdempotentHint:  false,
-				OpenWorldHint:   boolPtr(true), // the probe calls live feature endpoints
+				OpenWorldHint:   new(true), // the probe calls live feature endpoints
 			},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, _ struct{}) (*sdk.CallToolResult, PaidProbeOutput, error) {
 			if denied := requireScope(req, t.Scope); denied != nil {

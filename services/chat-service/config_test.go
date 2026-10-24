@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
 
 func TestLoadConfigDefaultsCostGuardrails(t *testing.T) {
 	t.Setenv("PORT", "")
@@ -131,5 +136,26 @@ func TestLoadConfigRejectsInvalidSendLimits(t *testing.T) {
 				t.Fatalf("LoadConfig() error = nil, want invalid %s error", name)
 			}
 		})
+	}
+}
+
+func TestPostgresURLKeepsSpecialCharacterPassword(t *testing.T) {
+	const pass = `p@ss/w:rd%41 "x"`
+	raw := postgresURL("chat_user", pass, "db.example.com:5432", "shorts")
+	cfg, err := pgxpool.ParseConfig(raw)
+	if err != nil {
+		t.Fatalf("ParseConfig(%q): %v", raw, err)
+	}
+	if cfg.ConnConfig.Password != pass {
+		t.Fatalf("password = %q, want %q", cfg.ConnConfig.Password, pass)
+	}
+	if cfg.ConnConfig.User != "chat_user" || cfg.ConnConfig.Database != "shorts" {
+		t.Fatalf("user = %q database = %q", cfg.ConnConfig.User, cfg.ConnConfig.Database)
+	}
+	if cfg.ConnConfig.Host != "db.example.com" || cfg.ConnConfig.Port != 5432 {
+		t.Fatalf("host = %q port = %d", cfg.ConnConfig.Host, cfg.ConnConfig.Port)
+	}
+	if !strings.HasSuffix(raw, "?sslmode=require") {
+		t.Fatalf("URL lost sslmode=require: %q", raw)
 	}
 }

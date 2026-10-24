@@ -29,31 +29,31 @@ func setupBenchmark() error {
 	if dbURL == "" {
 		return fmt.Errorf("DATABASE_URL environment variable is required for benchmark tests")
 	}
-	
+
 	var err error
 	testDB, err = sql.Open("postgres", dbURL)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	
+
 	if err = testDB.Ping(); err != nil {
 		return fmt.Errorf("failed to ping database: %w", err)
 	}
-	
+
 	// Initialize store
 	storeConfig := shortsstore.Config{
 		StorageBackend:   shortsstore.StorageBackend("postgres"),
 		PostgresAddress:  "localhost:5432",
-		PostgresUsername: "admin", 
+		PostgresUsername: "admin",
 		PostgresPassword: "password",
 		PostgresDatabase: "shorts",
 	}
-	
+
 	testStore, err = shortsstore.NewStore(storeConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create store: %v", err)
 	}
-	
+
 	// Initialize server (this would normally be done with proper config)
 	ctx := context.Background()
 	serverConfig := shorts.Config{
@@ -63,7 +63,7 @@ func setupBenchmark() error {
 	if err != nil {
 		return fmt.Errorf("failed to create server: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -80,11 +80,11 @@ func BenchmarkGetTopShorts(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	// Test different period configurations
 	periods := []string{"1w", "1m", "3m", "6m", "1y"}
 	limits := []int32{5, 10, 25, 50}
-	
+
 	for _, period := range periods {
 		for _, limit := range limits {
 			b.Run(fmt.Sprintf("Period_%s_Limit_%d", period, limit), func(b *testing.B) {
@@ -95,10 +95,10 @@ func BenchmarkGetTopShorts(b *testing.B) {
 						Offset: 0,
 					},
 				}
-				
+
 				b.ResetTimer()
 				b.ReportAllocs()
-				
+
 				for i := 0; i < b.N; i++ {
 					ctx := context.Background()
 					_, err := testServer.GetTopShorts(ctx, req)
@@ -117,7 +117,7 @@ func BenchmarkGetTopShortsParallel(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	req := &connect.Request[shortsv1alpha1.GetTopShortsRequest]{
 		Msg: &shortsv1alpha1.GetTopShortsRequest{
 			Period: "1m",
@@ -125,10 +125,10 @@ func BenchmarkGetTopShortsParallel(b *testing.B) {
 			Offset: 0,
 		},
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			ctx := context.Background()
@@ -146,10 +146,10 @@ func BenchmarkGetStock(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	// Test with common stock codes
 	stockCodes := []string{"CBA", "BHP", "ANZ", "WBC", "NAB", "CSL", "WOW", "TLS", "RIO", "WES"}
-	
+
 	for _, stockCode := range stockCodes {
 		b.Run(fmt.Sprintf("Stock_%s", stockCode), func(b *testing.B) {
 			req := &connect.Request[shortsv1alpha1.GetStockRequest]{
@@ -157,10 +157,10 @@ func BenchmarkGetStock(b *testing.B) {
 					ProductCode: stockCode,
 				},
 			}
-			
+
 			b.ResetTimer()
 			b.ReportAllocs()
-			
+
 			for i := 0; i < b.N; i++ {
 				ctx := context.Background()
 				_, err := testServer.GetStock(ctx, req)
@@ -178,23 +178,23 @@ func BenchmarkGetStockParallel(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	stockCodes := []string{"CBA", "BHP", "ANZ", "WBC", "NAB"}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			// Random stock selection for more realistic load
 			stockCode := stockCodes[rand.Intn(len(stockCodes))]
-			
+
 			req := &connect.Request[shortsv1alpha1.GetStockRequest]{
 				Msg: &shortsv1alpha1.GetStockRequest{
 					ProductCode: stockCode,
 				},
 			}
-			
+
 			ctx := context.Background()
 			_, err := testServer.GetStock(ctx, req)
 			if err != nil {
@@ -210,10 +210,10 @@ func BenchmarkGetStockData(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	periods := []string{"1w", "1m", "3m", "6m", "1y"}
 	stockCode := "CBA" // Use a consistent stock for benchmarking
-	
+
 	for _, period := range periods {
 		b.Run(fmt.Sprintf("Period_%s", period), func(b *testing.B) {
 			req := &connect.Request[shortsv1alpha1.GetStockDataRequest]{
@@ -222,10 +222,10 @@ func BenchmarkGetStockData(b *testing.B) {
 					Period:      period,
 				},
 			}
-			
+
 			b.ResetTimer()
 			b.ReportAllocs()
-			
+
 			for i := 0; i < b.N; i++ {
 				ctx := context.Background()
 				_, err := testServer.GetStockData(ctx, req)
@@ -243,26 +243,26 @@ func BenchmarkGetStockDataParallel(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	periods := []string{"1w", "1m", "3m", "6m"}
 	stockCodes := []string{"CBA", "BHP", "ANZ", "WBC"}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			// Random selection for realistic load patterns
 			period := periods[rand.Intn(len(periods))]
 			stockCode := stockCodes[rand.Intn(len(stockCodes))]
-			
+
 			req := &connect.Request[shortsv1alpha1.GetStockDataRequest]{
 				Msg: &shortsv1alpha1.GetStockDataRequest{
 					ProductCode: stockCode,
 					Period:      period,
 				},
 			}
-			
+
 			ctx := context.Background()
 			_, err := testServer.GetStockData(ctx, req)
 			if err != nil {
@@ -278,9 +278,9 @@ func BenchmarkGetStockDetails(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	stockCodes := []string{"CBA", "BHP", "ANZ", "WBC", "NAB"}
-	
+
 	for _, stockCode := range stockCodes {
 		b.Run(fmt.Sprintf("Stock_%s", stockCode), func(b *testing.B) {
 			req := &connect.Request[shortsv1alpha1.GetStockDetailsRequest]{
@@ -288,10 +288,10 @@ func BenchmarkGetStockDetails(b *testing.B) {
 					ProductCode: stockCode,
 				},
 			}
-			
+
 			b.ResetTimer()
 			b.ReportAllocs()
-			
+
 			for i := 0; i < b.N; i++ {
 				ctx := context.Background()
 				_, err := testServer.GetStockDetails(ctx, req)
@@ -309,14 +309,14 @@ func BenchmarkGetIndustryTreeMap(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	periods := []string{"1m", "3m", "6m"}
 	limits := []int32{5, 10, 15, 20}
 	viewModes := []shortsv1alpha1.ViewMode{
 		shortsv1alpha1.ViewMode_CURRENT_CHANGE,
 		shortsv1alpha1.ViewMode_PERCENTAGE_CHANGE,
 	}
-	
+
 	for _, period := range periods {
 		for _, limit := range limits {
 			for _, viewMode := range viewModes {
@@ -328,10 +328,10 @@ func BenchmarkGetIndustryTreeMap(b *testing.B) {
 							ViewMode: viewMode,
 						},
 					}
-					
+
 					b.ResetTimer()
 					b.ReportAllocs()
-					
+
 					for i := 0; i < b.N; i++ {
 						ctx := context.Background()
 						_, err := testServer.GetIndustryTreeMap(ctx, req)
@@ -351,7 +351,7 @@ func BenchmarkDatabaseQueries(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	b.Run("GetTopShorts_Query", func(b *testing.B) {
 		query := `
 			SELECT product_code, product_name 
@@ -360,17 +360,17 @@ func BenchmarkDatabaseQueries(b *testing.B) {
 			ORDER BY reported_short_positions_percent_of_issued_shares DESC 
 			LIMIT 10
 		`
-		
+
 		b.ResetTimer()
 		b.ReportAllocs()
-		
+
 		for i := 0; i < b.N; i++ {
 			rows, err := testDB.Query(query)
 			if err != nil {
 				b.Errorf("Query failed: %v", err)
 				continue
 			}
-			
+
 			// Consume all rows to ensure full query execution
 			count := 0
 			for rows.Next() {
@@ -383,7 +383,7 @@ func BenchmarkDatabaseQueries(b *testing.B) {
 			rows.Close()
 		}
 	})
-	
+
 	b.Run("GetStock_Query", func(b *testing.B) {
 		query := `
 			SELECT product_code, product_name, 
@@ -394,19 +394,19 @@ func BenchmarkDatabaseQueries(b *testing.B) {
 			ORDER BY date DESC 
 			LIMIT 1
 		`
-		
+
 		stockCode := "CBA"
-		
+
 		b.ResetTimer()
 		b.ReportAllocs()
-		
+
 		for i := 0; i < b.N; i++ {
 			rows, err := testDB.Query(query, stockCode)
 			if err != nil {
 				b.Errorf("Query failed: %v", err)
 				continue
 			}
-			
+
 			for rows.Next() {
 				var productCode, productName string
 				var percent float64
@@ -426,7 +426,7 @@ func BenchmarkMemoryUsage(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	b.Run("LargeResult_GetTopShorts", func(b *testing.B) {
 		req := &connect.Request[shortsv1alpha1.GetTopShortsRequest]{
 			Msg: &shortsv1alpha1.GetTopShortsRequest{
@@ -435,10 +435,10 @@ func BenchmarkMemoryUsage(b *testing.B) {
 				Offset: 0,
 			},
 		}
-		
+
 		b.ResetTimer()
 		b.ReportAllocs()
-		
+
 		for i := 0; i < b.N; i++ {
 			ctx := context.Background()
 			resp, err := testServer.GetTopShorts(ctx, req)
@@ -446,14 +446,14 @@ func BenchmarkMemoryUsage(b *testing.B) {
 				b.Errorf("GetTopShorts failed: %v", err)
 				continue
 			}
-			
+
 			// Access response data to ensure it's fully loaded
 			if resp.Msg != nil && len(resp.Msg.TimeSeries) > 0 {
 				_ = resp.Msg.TimeSeries[0].ProductCode
 			}
 		}
 	})
-	
+
 	b.Run("HistoricalData_GetStockData", func(b *testing.B) {
 		req := &connect.Request[shortsv1alpha1.GetStockDataRequest]{
 			Msg: &shortsv1alpha1.GetStockDataRequest{
@@ -461,10 +461,10 @@ func BenchmarkMemoryUsage(b *testing.B) {
 				Period:      "5y", // Large time range
 			},
 		}
-		
+
 		b.ResetTimer()
 		b.ReportAllocs()
-		
+
 		for i := 0; i < b.N; i++ {
 			ctx := context.Background()
 			resp, err := testServer.GetStockData(ctx, req)
@@ -472,7 +472,7 @@ func BenchmarkMemoryUsage(b *testing.B) {
 				b.Errorf("GetStockData failed: %v", err)
 				continue
 			}
-			
+
 			// Access response data
 			if resp.Msg != nil && len(resp.Msg.Points) > 0 {
 				_ = resp.Msg.Points[0].Timestamp
@@ -487,7 +487,7 @@ func BenchmarkCacheEffectiveness(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	req := &connect.Request[shortsv1alpha1.GetTopShortsRequest]{
 		Msg: &shortsv1alpha1.GetTopShortsRequest{
 			Period: "1m",
@@ -495,14 +495,14 @@ func BenchmarkCacheEffectiveness(b *testing.B) {
 			Offset: 0,
 		},
 	}
-	
+
 	// First call to warm up cache
 	ctx := context.Background()
 	testServer.GetTopShorts(ctx, req)
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	// Subsequent calls should hit cache
 	for i := 0; i < b.N; i++ {
 		_, err := testServer.GetTopShorts(ctx, req)
@@ -518,17 +518,17 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	stockCodes := []string{"CBA", "BHP", "ANZ", "WBC", "NAB"}
-	
+
 	b.Run("MixedEndpoints", func(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
-		
+
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
 				ctx := context.Background()
-				
+
 				// Simulate mixed workload
 				switch rand.Intn(4) {
 				case 0:
@@ -540,7 +540,7 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 						},
 					}
 					testServer.GetTopShorts(ctx, req)
-					
+
 				case 1:
 					stockCode := stockCodes[rand.Intn(len(stockCodes))]
 					req := &connect.Request[shortsv1alpha1.GetStockRequest]{
@@ -549,7 +549,7 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 						},
 					}
 					testServer.GetStock(ctx, req)
-					
+
 				case 2:
 					stockCode := stockCodes[rand.Intn(len(stockCodes))]
 					req := &connect.Request[shortsv1alpha1.GetStockDataRequest]{
@@ -559,7 +559,7 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 						},
 					}
 					testServer.GetStockData(ctx, req)
-					
+
 				case 3:
 					req := &connect.Request[shortsv1alpha1.GetIndustryTreeMapRequest]{
 						Msg: &shortsv1alpha1.GetIndustryTreeMapRequest{
@@ -581,13 +581,13 @@ func BenchmarkDatabaseConnectionPool(b *testing.B) {
 		b.Fatalf("Failed to setup benchmark: %v", err)
 	}
 	defer teardownBenchmark()
-	
+
 	// Simple query to test connection acquisition/release
 	query := "SELECT COUNT(*) FROM shorts"
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			var count int

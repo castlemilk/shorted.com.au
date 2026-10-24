@@ -87,32 +87,32 @@ func TestCheckpoint_Progress(t *testing.T) {
 
 func TestCheckpoint_PriorityProgress(t *testing.T) {
 	tests := []struct {
-		name             string
-		priorityTotal    int
-		priorityProc     int
-		wantCompleted    bool
-		wantPercentDone  float64
+		name            string
+		priorityTotal   int
+		priorityProc    int
+		wantCompleted   bool
+		wantPercentDone float64
 	}{
 		{
-			name:             "no priority stocks",
-			priorityTotal:    0,
-			priorityProc:     0,
-			wantCompleted:    false,
-			wantPercentDone:  0,
+			name:            "no priority stocks",
+			priorityTotal:   0,
+			priorityProc:    0,
+			wantCompleted:   false,
+			wantPercentDone: 0,
 		},
 		{
-			name:             "priority half done",
-			priorityTotal:    10,
-			priorityProc:     5,
-			wantCompleted:    false,
-			wantPercentDone:  50,
+			name:            "priority half done",
+			priorityTotal:   10,
+			priorityProc:    5,
+			wantCompleted:   false,
+			wantPercentDone: 50,
 		},
 		{
-			name:             "priority complete",
-			priorityTotal:    10,
-			priorityProc:     10,
-			wantCompleted:    true,
-			wantPercentDone:  100,
+			name:            "priority complete",
+			priorityTotal:   10,
+			priorityProc:    10,
+			wantCompleted:   true,
+			wantPercentDone: 100,
 		},
 	}
 

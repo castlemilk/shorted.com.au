@@ -19,6 +19,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const reconcileHeader = "Product,Product Code,Reported Short Positions,Total Product in Issue,% of Total Product in Issue Reported as Short Positions\r\n"
@@ -40,8 +41,6 @@ func fileRow(i int) (short, issue, pct float64) {
 	return float64(1000 * (i + 1)), 1000000, float64(i+1) / 10
 }
 
-func ptr(f float64) *float64 { return &f }
-
 // fakeReconcileStore is an in-memory shorts table: date → code AS STORED → row.
 type fakeReconcileStore struct {
 	rows    map[string]map[string]storedRow
@@ -58,7 +57,7 @@ func newFakeReconcileStore() *fakeReconcileStore {
 func (f *fakeReconcileStore) holds(date string, codes ...string) {
 	for i, c := range codes {
 		s, issue, pct := fileRow(i)
-		f.put(date, storedRow{Code: c, Short: ptr(s), Issue: ptr(issue), Pct: ptr(pct)})
+		f.put(date, storedRow{Code: c, Short: new(s), Issue: new(issue), Pct: new(pct)})
 	}
 }
 
@@ -97,8 +96,8 @@ func (f *fakeReconcileStore) UpsertRows(ctx context.Context, rows []shortsRow) (
 	f.upserts = append(f.upserts, rows)
 	for _, r := range rows {
 		f.put(r.Date.Format("2006-01-02"), storedRow{
-			Code: r.ProductCode, Short: ptr(r.ReportedShortPositions),
-			Issue: ptr(r.TotalProductInIssue), Pct: ptr(r.Percent),
+			Code: r.ProductCode, Short: new(r.ReportedShortPositions),
+			Issue: new(r.TotalProductInIssue), Pct: new(r.Percent),
 		})
 	}
 	return len(rows), nil
@@ -190,7 +189,7 @@ func TestCurrentFilesTakesTheNewestVersionOnce(t *testing.T) {
 func longIndex(n int) ([]asicFile, time.Time) {
 	start := utcDay(2010, 6, 16)
 	var out []asicFile
-	for i := 0; i < n; i++ {
+	for i := range n {
 		out = append([]asicFile{{Date: yyyymmdd(start.AddDate(0, 0, i)), Version: "001"}}, out...)
 	}
 	return out, start.AddDate(0, 0, n-1)
@@ -204,7 +203,7 @@ func TestReconcileRotationCoversTheWholeArchive(t *testing.T) {
 	index, upTo := longIndex(4116)
 	const k = 28
 	seen := map[int]int{}
-	for day := 0; day < k; day++ {
+	for day := range k {
 		got, _ := reconcileSelection(index, config{reconcileRotation: k}, upTo, utcDay(2026, 9, 26).AddDate(0, 0, day))
 		if n := len(got); n < 4116/k || n > 4116/k+1 {
 			t.Fatalf("day %d checked %d dates, want ~%d", day, n, 4116/k)
@@ -287,16 +286,16 @@ func TestDiffDateClassifiesEveryCase(t *testing.T) {
 		{Date: d0, ProductCode: "SAM", ReportedShortPositions: 1, TotalProductInIssue: 2, Percent: 50},                        // identical
 	}
 	have := map[string]storedRow{
-		"BPT": {Code: "BPT", Short: ptr(119385515), Issue: ptr(2281333656), Pct: ptr(5.23314574)},
-		"ULP": {Code: "ULP", Short: ptr(1), Issue: ptr(3), Pct: ptr(math.Nextafter(33.33333333, 100))},
-		"NUL": {Code: "NUL", Short: ptr(5), Issue: ptr(50), Pct: nil},
-		"NAN": {Code: "NAN", Short: ptr(5), Issue: ptr(50), Pct: ptr(math.NaN())},
-		"WBT": {Code: "WBT ", Short: ptr(8), Issue: ptr(70), Pct: ptr(11.4)},
-		"SAM": {Code: "SAM", Short: ptr(1), Issue: ptr(2), Pct: ptr(50)},
-		"OLD": {Code: "OLD", Short: ptr(1), Issue: ptr(2), Pct: ptr(50)}, // not in the current file
+		"BPT": {Code: "BPT", Short: new(float64(119385515)), Issue: new(float64(2281333656)), Pct: new(5.23314574)},
+		"ULP": {Code: "ULP", Short: new(float64(1)), Issue: new(float64(3)), Pct: new(math.Nextafter(33.33333333, 100))},
+		"NUL": {Code: "NUL", Short: new(float64(5)), Issue: new(float64(50)), Pct: nil},
+		"NAN": {Code: "NAN", Short: new(float64(5)), Issue: new(float64(50)), Pct: new(math.NaN())},
+		"WBT": {Code: "WBT ", Short: new(float64(8)), Issue: new(float64(70)), Pct: new(11.4)},
+		"SAM": {Code: "SAM", Short: new(float64(1)), Issue: new(float64(2)), Pct: new(float64(50))},
+		"OLD": {Code: "OLD", Short: new(float64(1)), Issue: new(float64(2)), Pct: new(float64(50))}, // not in the current file
 		// Listed by the file with a "-" percentage (total in issue 0), which
 		// parseFileListing drops from the rows but keeps in the listing.
-		"SP1": {Code: "SP1", Short: ptr(1473939), Issue: ptr(0), Pct: nil},
+		"SP1": {Code: "SP1", Short: new(float64(1473939)), Issue: new(float64(0)), Pct: nil},
 	}
 	listed := map[string]struct{}{"SP1": {}}
 	for _, r := range file {
@@ -335,7 +334,7 @@ func TestReconcileWritesMissingAndChangedRows(t *testing.T) {
 	store.holds("2026-02-03", "BHP", "CBA")               // partial: PLS, WBT missing
 	store.holds("2026-02-04", "BHP", "CBA", "PLS", "WBT") // complete
 	store.holds("2025-08-11", "BHP", "BPT")               // BPT then corrected below
-	store.put("2025-08-11", storedRow{Code: "BPT", Short: ptr(999), Issue: ptr(1000000), Pct: ptr(0.0999)})
+	store.put("2025-08-11", storedRow{Code: "BPT", Short: new(float64(999)), Issue: new(float64(1000000)), Pct: new(0.0999)})
 	// 2026-04-09: nothing at all.
 
 	bodies := map[int][]byte{
@@ -374,7 +373,7 @@ func TestReconcileWritesMissingAndChangedRows(t *testing.T) {
 // numbers: the table held version 001, ASIC now publishes 002.
 func TestReconcileAppliesAsicCorrection(t *testing.T) {
 	store := newFakeReconcileStore()
-	store.put("2025-08-11", storedRow{Code: "BPT", Short: ptr(119385515), Issue: ptr(2281333656), Pct: ptr(5.23314574)})
+	store.put("2025-08-11", storedRow{Code: "BPT", Short: new(float64(119385515)), Issue: new(float64(2281333656)), Pct: new(5.23314574)})
 	v002 := []byte(reconcileHeader + "BEACH ENERGY LIMITED ORDINARY,BPT,72962562,2281333656,3.1982416\r\n")
 	window := []asicFile{{Date: 20250811, Version: "002"}}
 	rep, err := reconcileFiles(context.Background(), store, fetchFrom(map[int][]byte{20250811: v002}, nil), window, false)
@@ -416,8 +415,8 @@ func TestReconcileMissingRowsKeepTheFileValues(t *testing.T) {
 // is left alone — upserting the trimmed code would add a second row.
 func TestReconcileNeverDuplicatesAPaddedCode(t *testing.T) {
 	store := newFakeReconcileStore()
-	store.put("2021-11-04", storedRow{Code: "WBT ", Short: ptr(1000), Issue: ptr(1000000), Pct: ptr(0.1)})
-	store.put("2021-11-05", storedRow{Code: "WBT ", Short: ptr(1), Issue: ptr(2), Pct: ptr(50)})
+	store.put("2021-11-04", storedRow{Code: "WBT ", Short: new(float64(1000)), Issue: new(float64(1000000)), Pct: new(0.1)})
+	store.put("2021-11-05", storedRow{Code: "WBT ", Short: new(float64(1)), Issue: new(float64(2)), Pct: new(float64(50))})
 	bodies := map[int][]byte{20211104: asicCSV("WBT "), 20211105: asicCSV("WBT ")}
 	rep, err := reconcileFiles(context.Background(), store, fetchFrom(bodies, nil), files(20211104, 20211105), false)
 	if err != nil {
@@ -440,8 +439,8 @@ func TestReconcileNeverDuplicatesAPaddedCode(t *testing.T) {
 func TestReconcileKeepsRowsTheFileListsWithoutAPercentage(t *testing.T) {
 	store := newFakeReconcileStore()
 	store.holds("2023-02-06", "BHP")
-	store.put("2023-02-06", storedRow{Code: "SP1", Short: ptr(1473939), Issue: ptr(0), Pct: nil})
-	store.put("2023-02-06", storedRow{Code: "OLD", Short: ptr(1), Issue: ptr(2), Pct: ptr(50)})
+	store.put("2023-02-06", storedRow{Code: "SP1", Short: new(float64(1473939)), Issue: new(float64(0)), Pct: nil})
+	store.put("2023-02-06", storedRow{Code: "OLD", Short: new(float64(1)), Issue: new(float64(2)), Pct: new(float64(50))})
 	body := append(asicCSV("BHP"), []byte("SOUTHERN X PAYMENTS ORDINARY,SP1,1473939,0,-\r\n")...)
 
 	rep, err := reconcileFiles(context.Background(), store, fetchFrom(map[int][]byte{20230206: body}, nil), files(20230206), false)
@@ -537,6 +536,7 @@ func (r *scriptedRows) FieldDescriptions() []pgconn.FieldDescription { return ni
 func (r *scriptedRows) Next() bool                                   { r.i++; return r.i <= len(r.vals) }
 func (r *scriptedRows) Values() ([]any, error)                       { return r.vals[r.i-1], nil }
 func (r *scriptedRows) RawValues() [][]byte                          { return nil }
+func (r *scriptedRows) TypeMap() *pgtype.Map                         { return pgtype.NewMap() }
 func (r *scriptedRows) Conn() *pgx.Conn                              { return nil }
 func (r *scriptedRows) Scan(dest ...any) error {
 	row := r.vals[r.i-1]
@@ -565,9 +565,9 @@ func (q *queryDB) Query(_ context.Context, sql string, args ...any) (pgx.Rows, e
 // row — the one an upsert touches — is the one compared.
 func TestRowsOnDateTrimsAndPrefersTheExactCode(t *testing.T) {
 	db := &queryDB{rows: [][]any{
-		{"WBT ", ptr(1), ptr(2), ptr(3)},
-		{"WBT", ptr(4), ptr(5), ptr(6)},
-		{"1PG ", ptr(7), ptr(8), (*float64)(nil)},
+		{"WBT ", new(float64(1)), new(float64(2)), new(float64(3))},
+		{"WBT", new(float64(4)), new(float64(5)), new(float64(6))},
+		{"1PG ", new(float64(7)), new(float64(8)), (*float64)(nil)},
 	}}
 	got, err := (&pgStore{db: db}).RowsOnDate(context.Background(), time.Date(2021, 11, 4, 13, 0, 0, 0, time.UTC))
 	if err != nil {
@@ -687,7 +687,7 @@ func TestReconcileReportListsEveryDate(t *testing.T) {
 	store := newFakeReconcileStore()
 	bodies := map[int][]byte{}
 	var window []asicFile
-	for i := 0; i < 30; i++ {
+	for i := range 30 {
 		d := yyyymmdd(utcDay(2026, 1, 1).AddDate(0, 0, i))
 		bodies[d] = asicCSV("BHP")
 		window = append(window, asicFile{Date: d, Version: "001"})
@@ -745,7 +745,7 @@ func TestReconcileReportListsEveryDate(t *testing.T) {
 // scheduled run names extra rows, so it must show a padded code and a NULL as
 // what they are.
 func TestExtraRowStringShowsPaddingAndNulls(t *testing.T) {
-	got := extraRow{Code: "WBT ", Short: ptr(1500), Issue: ptr(3000000), Pct: nil}.String()
+	got := extraRow{Code: "WBT ", Short: new(float64(1500)), Issue: new(float64(3000000)), Pct: nil}.String()
 	if got != `"WBT " 1500/3000000/NULL%` {
 		t.Fatalf("String() = %s", got)
 	}

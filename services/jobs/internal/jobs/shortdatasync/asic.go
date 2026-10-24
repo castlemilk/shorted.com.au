@@ -263,8 +263,7 @@ func parseFileListing(fileName string, body []byte) ([]shortsRow, map[string]str
 				break
 			}
 			// A malformed line is dropped, like the Python's per-row except.
-			var pe *csv.ParseError
-			if errors.As(err, &pe) {
+			if _, ok := errors.AsType[*csv.ParseError](err); ok {
 				continue
 			}
 			return rows, listed, err

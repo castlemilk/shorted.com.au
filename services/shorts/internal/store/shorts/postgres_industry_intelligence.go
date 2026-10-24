@@ -76,7 +76,7 @@ type IndustryIntelligenceRecordRow struct {
 }
 
 // intelligenceFilter builds the shared WHERE clause conditionally: the old
-// ($1 = '' OR col = $1) OR-guards forced generic plans that could not use the
+// (the empty-string OR col = $1) guards forced generic plans that could not use the
 // (industry, signal_kind, as_of DESC) index when a filter was present.
 type intelligenceFilter struct {
 	clause string

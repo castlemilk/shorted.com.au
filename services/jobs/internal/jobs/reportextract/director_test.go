@@ -14,16 +14,16 @@ func TestNumOrNil(t *testing.T) {
 		want *float64
 	}{
 		{"nil", nil, nil},
-		{"float", 1234.5, ptr(1234.5)},
-		{"numeric zero stays zero", 0.0, ptr(0)},
-		{"dollar string", "$1,234.50", ptr(1234.50)},
-		{"negative string", "-500", ptr(-500)},
+		{"float", 1234.5, new(1234.5)},
+		{"numeric zero stays zero", 0.0, new(float64(0))},
+		{"dollar string", "$1,234.50", new(1234.50)},
+		{"negative string", "-500", new(float64(-500))},
 		{"Nil string", "Nil", nil},
 		{"zero string", "0", nil},
 		{"empty string", "", nil},
 		{"unparseable string", "..-.-", nil},
-		{"bool true", true, ptr(1)},
-		{"bool false", false, ptr(0)},
+		{"bool true", true, new(float64(1))},
+		{"bool false", false, new(float64(0))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestDeriveTrade(t *testing.T) {
 				"nature_of_change": "On-market purchase", "date_of_change": "2025-07-01",
 			},
 			want: &derivedTrade{DirectorName: "Ann Lee", TradeType: "buy", SharesTraded: 1000,
-				TotalValue: ptr(12500), PricePerShare: ptr(12.5), TradeDate: strPtr("2025-07-01"), Confidence: 0.9},
+				TotalValue: new(float64(12500)), PricePerShare: new(12.5), TradeDate: new("2025-07-01"), Confidence: 0.9},
 		},
 		{
 			name: "disposal",
@@ -149,7 +149,7 @@ func TestDeriveTrade(t *testing.T) {
 				"number_disposed": 250.0, "consideration_aud": 1000.0, "nature_of_change": "On-market sale",
 			},
 			want: &derivedTrade{DirectorName: "Bo Ng", TradeType: "sell", SharesTraded: 250,
-				TotalValue: ptr(1000), PricePerShare: ptr(4), Confidence: 0.8},
+				TotalValue: new(float64(1000)), PricePerShare: new(float64(4)), Confidence: 0.8},
 		},
 		{
 			name: "vesting reclassifies to exercise_options",
@@ -174,7 +174,7 @@ func TestDeriveTrade(t *testing.T) {
 				"consideration_aud": 900.0, "nature_of_change": "Annual confirmation",
 			},
 			want: &derivedTrade{DirectorName: "Ed Wu", TradeType: "buy", SharesTraded: 0,
-				TotalValue: ptr(900), Confidence: 0.55},
+				TotalValue: new(float64(900)), Confidence: 0.55},
 		},
 		{
 			name: "acquired ties with disposed and both are zero → buy 0",
@@ -330,9 +330,6 @@ func TestDirectorPromptAndConstants(t *testing.T) {
 		}
 	}
 }
-
-func ptr(f float64) *float64  { return &f }
-func strPtr(s string) *string { return &s }
 
 func assertFloatPtr(t *testing.T, name string, got, want *float64) {
 	t.Helper()

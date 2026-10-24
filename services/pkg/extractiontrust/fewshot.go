@@ -1,6 +1,7 @@
 package extractiontrust
 
 import (
+	"maps"
 	"regexp"
 	"strings"
 )
@@ -256,9 +257,7 @@ func (ex Example) clone() Example {
 	out.Extractions = make([]Extraction, len(ex.Extractions))
 	for i, e := range ex.Extractions {
 		attrs := make(map[string]string, len(e.Attributes))
-		for k, v := range e.Attributes {
-			attrs[k] = v
-		}
+		maps.Copy(attrs, e.Attributes)
 		e.Attributes = attrs
 		out.Extractions[i] = e
 	}

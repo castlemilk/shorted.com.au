@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -135,21 +136,19 @@ type mintRequest struct {
 func (s *TokenService) mint(req mintRequest) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(req.TTL)),
-			IssuedAt:  jwt.NewNumericDate(now),
-			Issuer:    "shorted-api",
-			// RFC 8707 resource binding. Absent before this existed, which is
-			// exactly why the MCP verifier treats an absent audience as a
-			// refusal and the Connect API does not check it at all — see
-			// mcp.NewTokenVerifier for the full seam.
-			Audience: jwt.ClaimStrings(req.Audience),
-		},
-		UserID: req.UserID,
-		Email:  req.Email,
-		Roles:  req.Roles,
-		Tier:   req.Tier,
-		Scope:  req.Scope,
+		ExpiresAt: jwt.NewNumericDate(now.Add(req.TTL)),
+		IssuedAt:  jwt.NewNumericDate(now),
+		Issuer:    "shorted-api",
+		// RFC 8707 resource binding. Absent before this existed, which is
+		// exactly why the MCP verifier treats an absent audience as a
+		// refusal and the Connect API does not check it at all — see
+		// mcp.NewTokenVerifier for the full seam.
+		Audience: jwt.ClaimStrings(req.Audience),
+		UserID:   req.UserID,
+		Email:    req.Email,
+		Roles:    req.Roles,
+		Tier:     req.Tier,
+		Scope:    req.Scope,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -209,7 +208,7 @@ const ClockLeeway = 60 * time.Second
 
 // ValidateToken parses and validates a JWT.
 func (s *TokenService) ValidateToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -264,10 +263,8 @@ func (s *TokenService) ValidateConnectToken(tokenString string) (*Claims, error)
 		return claims, nil
 	}
 	// audience[0] is the API origin — see TokenAudience.
-	for _, a := range audience {
-		if a == s.audience[0] {
-			return claims, nil
-		}
+	if slices.Contains(audience, s.audience[0]) {
+		return claims, nil
 	}
 	return nil, fmt.Errorf("token audience %v does not include the Connect API (%s)", []string(audience), s.audience[0])
 }
@@ -313,10 +310,8 @@ func (s *TokenService) ValidateIdentityToken(tokenString string) (*Claims, error
 		return claims, nil
 	}
 	for _, a := range audience {
-		for _, ours := range s.audience {
-			if a == ours {
-				return claims, nil
-			}
+		if slices.Contains(s.audience, a) {
+			return claims, nil
 		}
 	}
 	return nil, fmt.Errorf("token audience %v names no surface of this deployment", []string(audience))

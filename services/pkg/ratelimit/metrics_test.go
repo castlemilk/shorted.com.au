@@ -517,7 +517,7 @@ func TestMinuteCapReachedIsCountedEveryTimeEvenWhenTheLogIsThrottled(t *testing.
 	l := newMinuteLimiter(time.Minute, 2, func() time.Time { return base })
 
 	l.mu.Lock()
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		l.capReachedLocked(base) // same instant: the log throttles, the metric must not
 	}
 	l.mu.Unlock()
@@ -570,7 +570,7 @@ func TestMinuteLeastRecentEvictionIsCounted(t *testing.T) {
 	now := base
 	l := newMinuteLimiter(time.Minute, 10, func() time.Time { return now })
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		l.check(fmt.Sprintf("ip:%d", i), 100)
 		now = now.Add(time.Millisecond)
 	}
@@ -641,12 +641,12 @@ func TestInstrumentationAddsNoRequestPathIO(t *testing.T) {
 	cfg.SkipAnonymousMonthly = false
 	l := newTestLimiter(t, cfg, tripwire, clock)
 
-	for i := 0; i < 2000; i++ {
+	for i := range 2000 {
 		r, err := l.Check(context.Background(), fmt.Sprintf("user:u%d", i%50), "free", false)
 		require.NoError(t, err)
 		recordCheck(context.Background(), r)
 	}
-	for i := 0; i < 500; i++ {
+	for i := range 500 {
 		r, err := l.Check(context.Background(), fmt.Sprintf("ip:10.0.0.%d", i%64), "anonymous", false)
 		require.NoError(t, err)
 		recordCheck(context.Background(), r)

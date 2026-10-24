@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -73,10 +73,9 @@ func classifyFreshness(rows []suburbFreshness, cfg freshnessConfig, now time.Tim
 			r.NeverCrawled++
 			continue
 		}
-		age := now.Sub(*f.LastCrawled)
-		if age < 0 {
-			age = 0 // clock skew: a future last_seen_at is treated as "just now"
-		}
+		age := max(now.Sub(*f.LastCrawled),
+			// clock skew: a future last_seen_at is treated as "just now"
+			0)
 		if age > cfg.ttl {
 			r.StaleOverTTL++
 		}
@@ -90,7 +89,7 @@ func classifyFreshness(rows []suburbFreshness, cfg freshnessConfig, now time.Tim
 	if r.Covered == 0 {
 		return r
 	}
-	sort.Slice(ages, func(i, j int) bool { return ages[i] < ages[j] })
+	slices.Sort(ages)
 	r.FreshestAge = ages[0]
 	r.OldestAge = ages[len(ages)-1]
 	r.MedianAge = ages[len(ages)/2]

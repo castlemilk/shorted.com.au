@@ -14,9 +14,9 @@ import (
 // rather than losing the call — the fix for the observed "TLS handshake timeout"
 // dropping a completed suburb's counts.
 func TestBrandbrainClient_RetriesTransient(t *testing.T) {
-	var calls int32
+	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if atomic.AddInt32(&calls, 1) < 3 {
+		if calls.Add(1) < 3 {
 			w.WriteHeader(http.StatusBadGateway) // 502 twice
 			return
 		}
@@ -29,7 +29,7 @@ func TestBrandbrainClient_RetriesTransient(t *testing.T) {
 	if err := c.do(context.Background(), http.MethodPost, "/x", nil, nil); err != nil {
 		t.Fatalf("expected success after retrying past the 502s, got %v", err)
 	}
-	if n := atomic.LoadInt32(&calls); n != 3 {
+	if n := calls.Load(); n != 3 {
 		t.Fatalf("expected 3 attempts (2 x 502 + 1 x 200), got %d", n)
 	}
 }
@@ -38,9 +38,9 @@ func TestBrandbrainClient_RetriesTransient(t *testing.T) {
 // isn't a refreshable 401) is NOT retried — retrying a bad request is pointless
 // and would mask the real error.
 func TestBrandbrainClient_NoRetryOn4xx(t *testing.T) {
-	var calls int32
+	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		atomic.AddInt32(&calls, 1)
+		calls.Add(1)
 		w.WriteHeader(http.StatusBadRequest) // 400
 	}))
 	defer srv.Close()
@@ -49,7 +49,7 @@ func TestBrandbrainClient_NoRetryOn4xx(t *testing.T) {
 	if err := c.do(context.Background(), http.MethodPost, "/x", nil, nil); err == nil {
 		t.Fatal("expected an error on a 400")
 	}
-	if n := atomic.LoadInt32(&calls); n != 1 {
+	if n := calls.Load(); n != 1 {
 		t.Fatalf("a 4xx must not be retried, got %d attempts", n)
 	}
 }

@@ -37,7 +37,7 @@ func TestParseDividendNotice(t *testing.T) {
 						Type:       "ordinary",
 						Amount:     2.70,
 						Estimated:  false,
-						FrankedPct: floatPtr(100),
+						FrankedPct: new(float64(100)),
 					},
 				},
 			},
@@ -62,7 +62,7 @@ func TestParseDividendNotice(t *testing.T) {
 						Type:       "ordinary",
 						Amount:     2.70,
 						Estimated:  false,
-						FrankedPct: floatPtr(100),
+						FrankedPct: new(float64(100)),
 					},
 				},
 			},
@@ -87,7 +87,7 @@ func TestParseDividendNotice(t *testing.T) {
 						Type:       "ordinary",
 						Amount:     1.3393,
 						Estimated:  false,
-						FrankedPct: floatPtr(100),
+						FrankedPct: new(float64(100)),
 					},
 				},
 			},
@@ -112,7 +112,7 @@ func TestParseDividendNotice(t *testing.T) {
 						Type:       "ordinary",
 						Amount:     0.99,
 						Estimated:  false,
-						FrankedPct: floatPtr(100),
+						FrankedPct: new(float64(100)),
 					},
 				},
 			},
@@ -131,13 +131,13 @@ func TestParseDividendNotice(t *testing.T) {
 				PaymentDate:      "2026-09-23",
 				Currency:         "USD",
 				Total:            0.99,
-				AUDEquivalent:    floatPtr(1.37988710),
+				AUDEquivalent:    new(1.37988710),
 				Parts: []DividendPart{
 					{
 						Type:       "ordinary",
 						Amount:     0.99,
 						Estimated:  false,
-						FrankedPct: floatPtr(100),
+						FrankedPct: new(float64(100)),
 					},
 				},
 			},
@@ -162,13 +162,13 @@ func TestParseDividendNotice(t *testing.T) {
 						Type:       "ordinary",
 						Amount:     0.52,
 						Estimated:  false,
-						FrankedPct: floatPtr(100),
+						FrankedPct: new(float64(100)),
 					},
 					{
 						Type:       "special",
 						Amount:     0.10,
 						Estimated:  false,
-						FrankedPct: floatPtr(100),
+						FrankedPct: new(float64(100)),
 					},
 				},
 			},
@@ -192,14 +192,14 @@ func TestParseDividendNotice(t *testing.T) {
 				PaymentDate:      "2026-09-30",
 				Currency:         "NZD",
 				Total:            0.20,
-				AUDEquivalent:    floatPtr(0.16064),
+				AUDEquivalent:    new(0.16064),
 				Supplementary:    0.03,
 				Parts: []DividendPart{
 					{
 						Type:       "ordinary",
 						Amount:     0.17,
 						Estimated:  false,
-						FrankedPct: floatPtr(0),
+						FrankedPct: new(float64(0)),
 					},
 				},
 			},
@@ -218,14 +218,14 @@ func TestParseDividendNotice(t *testing.T) {
 				PaymentDate:      "2026-10-02",
 				Currency:         "NZD",
 				Total:            0.08705882,
-				AUDEquivalent:    floatPtr(0.07022128),
+				AUDEquivalent:    new(0.07022128),
 				Supplementary:    0.00705882,
 				Parts: []DividendPart{
 					{
 						Type:       "ordinary",
 						Amount:     0.08,
 						Estimated:  false,
-						FrankedPct: floatPtr(0),
+						FrankedPct: new(float64(0)),
 					},
 				},
 			},
@@ -244,14 +244,14 @@ func TestParseDividendNotice(t *testing.T) {
 				PaymentDate:      "2026-10-02",
 				Currency:         "NZD",
 				Total:            0.07941176,
-				AUDEquivalent:    floatPtr(0.06411308),
+				AUDEquivalent:    new(0.06411308),
 				Supplementary:    0.01191176,
 				Parts: []DividendPart{
 					{
 						Type:       "ordinary",
 						Amount:     0.0675,
 						Estimated:  false,
-						FrankedPct: floatPtr(0),
+						FrankedPct: new(float64(0)),
 					},
 				},
 			},
@@ -271,10 +271,10 @@ func TestParseDividendNotice(t *testing.T) {
 				PaymentDate:      "2026-07-03",
 				Currency:         "NZD",
 				Total:            0.025,
-				AUDEquivalent:    floatPtr(0.0201525),
+				AUDEquivalent:    new(0.0201525),
 				Supplementary:    0.00441176,
 				Parts: []DividendPart{
-					{Type: "ordinary", Amount: 0.025, Estimated: false, FrankedPct: floatPtr(0)},
+					{Type: "ordinary", Amount: 0.025, Estimated: false, FrankedPct: new(float64(0))},
 				},
 			},
 		},
@@ -296,7 +296,7 @@ func TestParseDividendNotice(t *testing.T) {
 				Total:            0.01625,
 				ActualDue:        "2026-08-26",
 				Parts: []DividendPart{
-					{Type: "ordinary", Amount: 0.01625, Estimated: false, FrankedPct: floatPtr(0)},
+					{Type: "ordinary", Amount: 0.01625, Estimated: false, FrankedPct: new(float64(0))},
 				},
 			},
 		},
@@ -319,7 +319,7 @@ func TestParseDividendNotice(t *testing.T) {
 				Total:            0.031,
 				ActualDue:        "2026-08-14",
 				Parts: []DividendPart{
-					{Type: "ordinary", Amount: 0.031, Estimated: false, FrankedPct: floatPtr(25)},
+					{Type: "ordinary", Amount: 0.031, Estimated: false, FrankedPct: new(float64(25))},
 				},
 			},
 		},
@@ -341,7 +341,7 @@ func TestParseDividendNotice(t *testing.T) {
 				Total:            0.21,
 				Scrip:            0.11,
 				Parts: []DividendPart{
-					{Type: "ordinary", Amount: 0.10, Estimated: false, FrankedPct: floatPtr(100)},
+					{Type: "ordinary", Amount: 0.10, Estimated: false, FrankedPct: new(float64(100))},
 				},
 			},
 		},
@@ -419,7 +419,7 @@ func TestParseDividendNotice(t *testing.T) {
 						Type:       "ordinary",
 						Amount:     1.00,
 						Estimated:  false,
-						FrankedPct: floatPtr(60), // 100 - 40 from 3A.5
+						FrankedPct: new(float64(60)), // 100 - 40 from 3A.5
 					},
 				},
 			},
@@ -618,8 +618,4 @@ AUD 1.00000000
 			}
 		})
 	}
-}
-
-func floatPtr(f float64) *float64 {
-	return &f
 }

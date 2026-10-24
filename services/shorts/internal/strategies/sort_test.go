@@ -40,7 +40,7 @@ func TestSortKeysAreTheClosedSet(t *testing.T) {
 
 func TestSortPicksByGrowthPutsOutOfRangeAfterMeasuredAndUnknownLast(t *testing.T) {
 	rev := func(v float64) func(c *Candidate) {
-		return func(c *Candidate) { c.Growth = &Growth{RevenueYoYPct: f(v)} }
+		return func(c *Candidate) { c.Growth = &Growth{RevenueYoYPct: new(v)} }
 	}
 	picks := []Pick{
 		pickWith("UNK", 1, nil),                                         // no growth row
@@ -69,16 +69,16 @@ func TestSortPicksByGrowthPutsOutOfRangeAfterMeasuredAndUnknownLast(t *testing.T
 }
 
 func TestSortPicksByPEIsAscendingAndByMarketCapUsesTheResolvedValue(t *testing.T) {
-	pe := func(v float64) func(c *Candidate) { return func(c *Candidate) { c.Valuation.PERatio = f(v) } }
+	pe := func(v float64) func(c *Candidate) { return func(c *Candidate) { c.Valuation.PERatio = new(v) } }
 	picks := []Pick{pickWith("DEAR", 1, pe(40)), pickWith("NONE", 2, nil), pickWith("CHEAP", 3, pe(8)), pickWith("MID", 4, pe(15))}
 	if got := sortedCodes(SortPicks(picks, SortPE)); !reflect.DeepEqual(got, []string{"CHEAP", "MID", "DEAR", "NONE"}) {
 		t.Errorf("pe order = %v", got)
 	}
 
 	caps := []Pick{
-		pickWith("SCR", 1, func(c *Candidate) { c.MarketCap = f(5e9) }),                                  // screener only
-		pickWith("OWN", 2, func(c *Candidate) { c.MarketCap = f(1e12); c.Valuation.MarketCap = f(1e9) }), // our own wins
-		pickWith("BIG", 3, func(c *Candidate) { c.Valuation.MarketCap = f(9e10) }),
+		pickWith("SCR", 1, func(c *Candidate) { c.MarketCap = new(5e9) }),                                    // screener only
+		pickWith("OWN", 2, func(c *Candidate) { c.MarketCap = new(1e12); c.Valuation.MarketCap = new(1e9) }), // our own wins
+		pickWith("BIG", 3, func(c *Candidate) { c.Valuation.MarketCap = new(9e10) }),
 		pickWith("NIL", 4, nil),
 	}
 	if got := sortedCodes(SortPicks(caps, SortMarketCap)); !reflect.DeepEqual(got, []string{"BIG", "SCR", "OWN", "NIL"}) {
@@ -89,11 +89,11 @@ func TestSortPicksByPEIsAscendingAndByMarketCapUsesTheResolvedValue(t *testing.T
 func TestSortPicksByQualityRatiosReadsTheDecidedRow(t *testing.T) {
 	q := func(roe, fcf float64) func(c *Candidate) {
 		return func(c *Candidate) {
-			c.Quality = &Quality{ROEPct: f(roe), FCFMarginPct: f(fcf), NetMarginPct: f(roe / 2)}
+			c.Quality = &Quality{ROEPct: new(roe), FCFMarginPct: new(fcf), NetMarginPct: new(roe / 2)}
 		}
 	}
 	bank := pickWith("BANK", 1, func(c *Candidate) {
-		c.Quality = &Quality{ROEPct: f(30), FCFMarginPct: f(90)}
+		c.Quality = &Quality{ROEPct: new(float64(30)), FCFMarginPct: new(float64(90))}
 		ApplyQualityRules(c.Quality, "Banks")
 	})
 	picks := []Pick{bank, pickWith("LOW", 2, q(5, 5)), pickWith("HIGH", 3, q(25, 20))}

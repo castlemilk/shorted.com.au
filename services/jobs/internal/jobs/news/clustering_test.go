@@ -70,10 +70,7 @@ func TestSameStoryMarketOverlapRatios(t *testing.T) {
 		sa := sh(tc.a)
 		sb := sh(tc.b)
 		shared := shingleOverlap(sa, sb)
-		smaller := len(sa)
-		if len(sb) < smaller {
-			smaller = len(sb)
-		}
+		smaller := min(len(sb), len(sa))
 		ratio := float64(shared) / float64(smaller)
 		got := sameStoryMarket(sa, sb, 3)
 		t.Logf("[%s] |A|=%d |B|=%d shared=%d smaller=%d ratio=%.3f clustered=%v (want=%v)",

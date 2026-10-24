@@ -297,14 +297,14 @@ func buildStocksReport(codes []string, files []stockFileRows, db map[string]shor
 				Code:       r.ProductCode,
 				Date:       r.Date.Format("2006-01-02"),
 				File:       f.File,
-				FileValues: ptrValues(valuesOf(r)),
+				FileValues: new(valuesOf(r)),
 			}
 			cur, exists := db[key]
 			if !exists {
 				obs.Status = statusNew
 				obs.WouldInsert = true
 			} else {
-				obs.DBValues = ptrValues(valuesOf(cur))
+				obs.DBValues = new(valuesOf(cur))
 				obs.WouldUpdate = true
 				obs.ChangedFields = changedFields(cur, r)
 				if len(obs.ChangedFields) == 0 {
@@ -335,7 +335,7 @@ func buildStocksReport(codes []string, files []stockFileRows, db map[string]shor
 				Date:      date,
 				File:      f.File,
 				Status:    statusMissingFromFile,
-				DBValues:  ptrValues(valuesOf(cur)),
+				DBValues:  new(valuesOf(cur)),
 				WouldSkip: true,
 			})
 		}
@@ -358,8 +358,6 @@ func buildStocksReport(codes []string, files []stockFileRows, db map[string]shor
 	}
 	return rep
 }
-
-func ptrValues(v stockValues) *stockValues { return &v }
 
 // floatEpsilon is the tolerance for "the same number".
 //

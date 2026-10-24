@@ -211,10 +211,8 @@ func TestParallelSendsCannotExceedTheMinuteLimit(t *testing.T) {
 	var admitted atomic.Int64
 	var wg sync.WaitGroup
 	start := make(chan struct{})
-	for i := 0; i < 20; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 20 {
+		wg.Go(func() {
 			<-start
 			id, counts, err := store.AdmitSend(ctx, user)
 			if err != nil {
@@ -228,7 +226,7 @@ func TestParallelSendsCannotExceedTheMinuteLimit(t *testing.T) {
 				return
 			}
 			admitted.Add(1)
-		}()
+		})
 	}
 	close(start)
 	wg.Wait()

@@ -80,8 +80,8 @@ func TestGICSSectorRefusesToGuess(t *testing.T) {
 	// saying so.
 	for _, unknown := range []string{
 		"",
-		"Banks ",         // trailing space — a near-miss must not match
-		"banks",          // case differs
+		"Banks ",                 // trailing space — a near-miss must not match
+		"banks",                  // case differs
 		"Diversified Financials", // the pre-2023 name for Financial Services
 		"Retailing",              // pre-2023, superseded by the two Distribution & Retail groups
 		"Something New",
