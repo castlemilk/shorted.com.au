@@ -1161,6 +1161,12 @@ interests, ownership. **LIVE on prod**, streamable HTTP, 32 read-only data tools
 `delete_alert`, `list_my_alert_history`) for the signed-in user's own alerts, served ONLY to a
 token carrying `alerts:write` (`services/shorts/internal/mcp/alerts_write.go`,
 `HandlerWithAlerts`). The one write scope, and the one exception to the read-only rule below.
+Anonymous and unscoped callers also see ONE discovery tool, `manage_my_alerts`
+(`alerts_discovery.go`), which does nothing itself: calling it returns the sign-in challenge
+(401 `resource_metadata` + `scope="alerts:write"` for an anonymous caller; 403
+`insufficient_scope` for a signed-in caller without the scope), before any tool runs. Scoped
+callers do not see it. The challenge is a status code, not a tool result, because a client starts
+its OAuth flow on the status.
 Go SDK (`modelcontextprotocol/go-sdk`), served by the shorts API.
 
 **The product promise, and the constraint every change here answers to:** a user

@@ -140,10 +140,17 @@ family.
 
 ## Your alerts (`alerts:write`)
 
-Signed-in users can manage their own short-interest alerts from here. The alert
-tools appear only for a connection whose token carries `alerts:write`. Anonymous
-callers and read-only connections never see them, and calling one by name without
-the scope fails.
+Signed-in users can manage their own short-interest alerts from here. Alerts are
+for **Premium** subscribers. The alert tools appear only for a connection whose
+token carries `alerts:write`. Anonymous callers and read-only connections never see
+them, and calling one by name without the scope fails.
+
+How an anonymous or read-only client finds them: the list shows one extra tool,
+`manage_my_alerts`. It takes no input and does nothing itself. Calling it starts
+sign-in: the server answers with an authorization challenge (HTTP 401 for an
+anonymous connection, 403 `insufficient_scope` for one that lacks the scope), and
+your client opens the Shorted sign-in page. Once you approve `alerts:write`, the
+six alert tools replace it.
 
 - `list_my_alerts`: your alerts, newest first, with status and last delivery.
 - `create_alert`: a stock or industry alert, emailed to your verified address. Needs
