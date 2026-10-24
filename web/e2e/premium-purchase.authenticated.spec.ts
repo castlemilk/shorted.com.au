@@ -30,7 +30,7 @@ test.describe("Premium Purchase Flow", () => {
     await expect(page.getByText("$4")).toBeVisible();
     await expect(page.getByText("AI Chat assistant")).toBeVisible();
     await expect(page.getByText("Market Pulse dashboard")).toBeVisible();
-    await expect(page.getByText("Price & position alerts")).toBeVisible();
+    await expect(page.getByText("Short-position alerts by email")).toBeVisible();
     await expect(page.getByText("Advanced dashboard widgets")).toBeVisible();
   });
 

@@ -257,7 +257,7 @@ export default function DiscordDocsPage() {
           <h3>Can it watch a stock and tell me when it changes?</h3>
           <p>
             Not in Discord yet. The site has{" "}
-            <Link href="/alerts">price and short position alerts</Link>.
+            <Link href="/alerts">short position alerts</Link>.
           </p>
         </article>
       </div>
