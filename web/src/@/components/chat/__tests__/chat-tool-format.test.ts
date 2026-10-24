@@ -1,5 +1,6 @@
 import {
   axisFormatter,
+  formatCompactDollars,
   formatDay,
   formatDayMonth,
   formatNumber,
@@ -10,6 +11,7 @@ import {
   seriesSubtitle,
   seriesTitle,
   shortPositionSummary,
+  tickDecimals,
   tradeTypeLabel,
   valueFormatter,
 } from "../chat-tool-format";
@@ -26,14 +28,64 @@ describe("number formatting", () => {
     expect(formatPointsChange(-0.4)).toMatch(/^[-−]0\.40 pp$/);
   });
 
-  it("shows a percentage reading with its unit, and any other unit after the number", () => {
-    expect(formatNumber(4.35, "percent")).toBe("4.35");
-    expect(formatNumber(1234.5, "AUD million")).toBe("1,234.5 AUD million");
+  it("reads a unit as its words, prefix or suffix, never as the raw id", () => {
+    expect(formatNumber(1234.5, "aud")).toBe("$1,234.5");
+    expect(formatNumber(1.09, "usd_per_eur")).toBe("US$1.09 per euro");
+    expect(formatNumber(412.5, "megalitres")).toBe("412.5 ML");
+    expect(formatNumber(-2.5, "usd_millions")).toBe("-US$2.5 million");
+    expect(formatNumber(101.2, "index")).toBe("101.2");
   });
 
-  it("uses one decimal on a percentage axis", () => {
-    expect(axisFormatter("percent")(12.34)).toBe("12.3%");
+  it("drops a unit it does not know, rather than printing its id", () => {
+    expect(formatNumber(1234.5, "AUD million")).toBe("1,234.5");
+    expect(formatNumber(7, "widgets_per_frob")).toBe("7");
+    expect(formatNumber(7, "constructor")).toBe("7");
+    expect(valueFormatter("widgets_per_frob")(7)).toBe("7");
+  });
+
+  it("shows a percentage reading to two decimals", () => {
     expect(valueFormatter("percent")(12.34)).toBe("12.34%");
+  });
+});
+
+describe("axis ticks", () => {
+  it("gives a whole-step axis no decimals, and a tenth step one", () => {
+    expect(tickDecimals([0, 2, 4, 6])).toBe(0);
+    expect(tickDecimals([10, 10.5, 11])).toBe(1);
+    expect(tickDecimals([0.25, 0.5, 0.75])).toBe(2);
+  });
+
+  it("gives a step of a half-hundredth the three places that print it", () => {
+    expect(tickDecimals([15.92, 15.925, 15.93, 15.935, 15.94])).toBe(3);
+  });
+
+  it("ignores ticks that are not numbers and a single tick", () => {
+    expect(tickDecimals([NaN, 3])).toBe(0);
+    expect(tickDecimals([3])).toBe(0);
+  });
+
+  it("prints adjacent percentage ticks apart, on a narrow range", () => {
+    // Ticks a hundredth of a point apart: one decimal printed 15.9% twice.
+    const ticks = [15.92, 15.93, 15.94];
+    const labels = ticks.map(axisFormatter("percent")(ticks));
+    expect(labels).toEqual(["15.92%", "15.93%", "15.94%"]);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("gives every tick of a coarse axis the same decimals, for a column that lines up", () => {
+    const ticks = [0, 2.5, 5, 7.5, 10];
+    const format = axisFormatter("percent")(ticks);
+    expect(ticks.map(format)).toEqual(["0.0%", "2.5%", "5.0%", "7.5%", "10.0%"]);
+  });
+
+  it("prints a unit on an axis the same way as on a reading", () => {
+    expect(axisFormatter("usd_per_barrel")([60, 70, 80])(70)).toBe("US$70 per barrel");
+    expect(axisFormatter(undefined)([1, 2])(2)).toBe("2");
+  });
+
+  it("formats compact dollars for a narrow column", () => {
+    expect(formatCompactDollars(1_234_000)).toBe("$1.2M");
+    expect(formatCompactDollars(950)).toBe("$950");
   });
 });
 
@@ -80,7 +132,12 @@ describe("labels", () => {
 
   it("subtitles a series by unit and frequency", () => {
     expect(seriesSubtitle("percent", "monthly")).toBe("Percent · Monthly");
+    expect(seriesSubtitle("usd_per_barrel", "monthly")).toBe("US dollars per barrel · Monthly");
     expect(seriesSubtitle(undefined, undefined)).toBe("");
+  });
+
+  it("leaves an unknown unit out of the subtitle, not its raw id", () => {
+    expect(seriesSubtitle("widgets_per_frob", "annual")).toBe("Annual");
   });
 });
 

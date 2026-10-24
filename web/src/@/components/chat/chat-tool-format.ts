@@ -14,7 +14,6 @@ const percent2 = new Intl.NumberFormat(LOCALE, {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
-const percent1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
 const signedPoints = new Intl.NumberFormat(LOCALE, {
   signDisplay: "exceptZero",
   minimumFractionDigits: 2,
@@ -49,11 +48,16 @@ const dayFormat = new Intl.DateTimeFormat(LOCALE, {
   year: "numeric",
   timeZone: SYDNEY,
 });
-const dayMonthFormat = new Intl.DateTimeFormat(LOCALE, {
+const dayMonthNumbers = new Intl.DateTimeFormat(LOCALE, {
   day: "numeric",
-  month: "short",
+  month: "numeric",
   timeZone: SYDNEY,
 });
+// en-AU writes July in full, and the other months short, so the names are fixed here.
+const MONTH_ABBREVIATIONS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+] as const;
 const utcDayFormat = new Intl.DateTimeFormat(LOCALE, {
   day: "numeric",
   month: "short",
@@ -66,11 +70,6 @@ export function formatPercent(value: number): string {
   return `${percent2.format(value)}%`;
 }
 
-/** "12.3%", one decimal: an axis tick. */
-export function formatAxisPercent(value: number): string {
-  return `${percent1.format(value)}%`;
-}
-
 /** A change in percentage points, signed: "+1.23 pp", "-0.40 pp". */
 export function formatPointsChange(value: number): string {
   return `${signedPoints.format(value)} pp`;
@@ -81,10 +80,65 @@ export function formatSignedPercent(value: number): string {
   return `${signedPoints.format(value)}%`;
 }
 
-/** A plain number to two decimals, with a unit after it when the unit is not a percentage. */
+/**
+ * How a series' unit reads beside its figures. `words` names the unit in a series'
+ * subtitle. `prefix` sits against the figure ("$1,234.56", "US$1.09"), and `suffix` follows it,
+ * spaced as written (" ML", "%"). The ids are the ones the economy importers write
+ * (services/jobs/internal/jobs/economy), so a new importer adds its unit here.
+ */
+interface UnitReading {
+  words: string;
+  prefix?: string;
+  suffix?: string;
+}
+
+const UNIT_READINGS = new Map<string, UnitReading>([
+  ["index", { words: "Index" }],
+  ["percent", { words: "Percent", suffix: "%" }],
+  ["aud", { words: "Australian dollars", prefix: "$" }],
+  ["usd", { words: "US dollars", prefix: "US$" }],
+  ["usd_millions", { words: "US dollars, millions", prefix: "US$", suffix: " million" }],
+  ["usd_billions", { words: "US dollars, billions", prefix: "US$", suffix: " billion" }],
+  ["usd_per_barrel", { words: "US dollars per barrel", prefix: "US$", suffix: " per barrel" }],
+  ["usd_per_eur", { words: "US dollars per euro", prefix: "US$", suffix: " per euro" }],
+  ["usd_per_gbp", { words: "US dollars per pound", prefix: "US$", suffix: " per pound" }],
+  ["usd_per_nzd", { words: "US dollars per NZ dollar", prefix: "US$", suffix: " per NZ dollar" }],
+  ["cny_per_usd", { words: "Chinese yuan per US dollar", suffix: " yuan per US$" }],
+  ["jpy_per_usd", { words: "Japanese yen per US dollar", suffix: " yen per US$" }],
+  ["krw_per_usd", { words: "Korean won per US dollar", suffix: " won per US$" }],
+  ["inr_per_usd", { words: "Indian rupees per US dollar", suffix: " rupees per US$" }],
+  ["sgd_per_usd", { words: "Singapore dollars per US dollar", suffix: " Singapore dollars per US$" }],
+  ["cad_per_usd", { words: "Canadian dollars per US dollar", suffix: " Canadian dollars per US$" }],
+  ["megalitres", { words: "Megalitres", suffix: " ML" }],
+  ["persons", { words: "Persons", suffix: " people" }],
+  ["units", { words: "Dwelling units", suffix: " dwellings" }],
+  ["rate_per_100k", { words: "Rate per 100,000 people", suffix: " per 100,000" }],
+]);
+
+/**
+ * The reading for a unit id, or undefined. An id the chat does not know reads with no
+ * unit at all: the raw id is never printed beside a figure.
+ */
+function unitReading(unit: string | undefined): UnitReading | undefined {
+  return unit ? UNIT_READINGS.get(unit.trim().toLowerCase()) : undefined;
+}
+
+/** A figure with its unit's prefix and suffix. `digits` writes the absolute value. */
+function withUnit(
+  value: number,
+  reading: UnitReading | undefined,
+  digits: (absolute: number) => string,
+): string {
+  const sign = value < 0 ? "-" : "";
+  return `${sign}${reading?.prefix ?? ""}${digits(Math.abs(value))}${reading?.suffix ?? ""}`;
+}
+
+/**
+ * A figure to two decimals, with its unit: "$1,234.56", "15.20%", "US$1.09 per euro".
+ * An unknown unit adds nothing.
+ */
 export function formatNumber(value: number, unit?: string): string {
-  const number = plain2.format(value);
-  return unit && unit !== "percent" ? `${number} ${unit}` : number;
+  return withUnit(value, unitReading(unit), (absolute) => plain2.format(absolute));
 }
 
 /** A whole count: shares traded, or the rows left out. */
@@ -102,8 +156,13 @@ export function formatDollars(value: number): string {
   return audWhole.format(value);
 }
 
-/** A market capitalisation, abbreviated: "A$331B". */
+/** A market capitalisation, abbreviated: "$331B" (en-AU writes the Australian dollar as "$"). */
 export function formatMarketCap(value: number): string {
+  return audCompact.format(value);
+}
+
+/** A dollar amount, abbreviated to fit a narrow column: "$1.2M", "$950". */
+export function formatCompactDollars(value: number): string {
   return audCompact.format(value);
 }
 
@@ -119,7 +178,10 @@ export function formatDay(t: number): string {
 
 /** "9 Oct" in the Sydney calendar day, for a column whose period the table already names. */
 export function formatDayMonth(t: number): string {
-  return dayMonthFormat.format(t);
+  const parts = dayMonthNumbers.formatToParts(t);
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  return `${day} ${MONTH_ABBREVIATIONS[month - 1] ?? ""}`.trim();
 }
 
 /**
@@ -136,38 +198,38 @@ export function formatTradeDate(raw: string): string {
   return Number.isFinite(time) ? dayFormat.format(time) : raw;
 }
 
-const TRADE_TYPE_LABELS: Readonly<Record<string, string>> = {
-  buy: "Buy",
-  sell: "Sell",
-  exercise_options: "Option exercise",
-  other: "Other",
-};
+const TRADE_TYPE_LABELS = new Map<string, string>([
+  ["buy", "Buy"],
+  ["sell", "Sell"],
+  ["exercise_options", "Option exercise"],
+  ["other", "Other"],
+]);
 
 /** The reader's word for a trade type. An unknown type reads as sentence-cased text. */
 export function tradeTypeLabel(tradeType: string): string {
-  return TRADE_TYPE_LABELS[tradeType] ?? sentence(tradeType);
+  return TRADE_TYPE_LABELS.get(tradeType) ?? sentence(tradeType);
 }
 
-const FAMILY_LABELS: Readonly<Record<string, string>> = {
-  rates: "Rates",
-  cpi: "CPI",
-  labour: "Labour",
-  wages: "Wages",
-  commodities: "Commodities",
-  credit: "Credit",
-  markets: "Markets",
-  trade: "Trade",
-  spending: "Spending",
-  lending: "Lending",
-  business: "Business",
-  construction: "Construction",
-  crime: "Crime",
-  gdp: "GDP",
-  petroleum: "Petroleum",
-  population: "Population",
-  approvals: "Approvals",
-  retail: "Retail",
-};
+const FAMILY_LABELS = new Map<string, string>([
+  ["rates", "Rates"],
+  ["cpi", "CPI"],
+  ["labour", "Labour"],
+  ["wages", "Wages"],
+  ["commodities", "Commodities"],
+  ["credit", "Credit"],
+  ["markets", "Markets"],
+  ["trade", "Trade"],
+  ["spending", "Spending"],
+  ["lending", "Lending"],
+  ["business", "Business"],
+  ["construction", "Construction"],
+  ["crime", "Crime"],
+  ["gdp", "GDP"],
+  ["petroleum", "Petroleum"],
+  ["population", "Population"],
+  ["approvals", "Approvals"],
+  ["retail", "Retail"],
+]);
 
 /** Upper-cases the first letter and turns underscores into spaces. */
 export function sentence(text: string): string {
@@ -183,29 +245,79 @@ export function sentence(text: string): string {
  */
 export function seriesTitle(key: string, name?: string): string {
   const [family = "", metric = ""] = key.split(".");
-  const head = FAMILY_LABELS[family] ?? sentence(family);
+  const head = FAMILY_LABELS.get(family) ?? sentence(family);
   return [head, metric ? sentence(metric) : "", name ?? ""]
     .filter(Boolean)
     .join(" · ");
 }
 
-/** The unit and frequency of a series, read as words: "Percent · Monthly". */
+/**
+ * The unit and frequency of a series, read as words: "Percent · Monthly". A unit the
+ * chat does not know is left out of the subtitle rather than printed as its id.
+ */
 export function seriesSubtitle(unit?: string, frequency?: string): string {
-  return [unit ? sentence(unit) : "", frequency ? sentence(frequency) : ""]
+  return [unitReading(unit)?.words ?? "", frequency ? sentence(frequency) : ""]
     .filter(Boolean)
     .join(" · ");
 }
 
 /** The formatter for a series' readings: a percentage, or a number with its unit. */
 export function valueFormatter(unit?: string): (value: number) => string {
-  if (unit === "percent") return formatPercent;
+  if (unit?.trim().toLowerCase() === "percent") return formatPercent;
   return (value) => formatNumber(value, unit);
 }
 
-/** The formatter for a series' axis ticks: percentage ticks carry one decimal. */
-export function axisFormatter(unit?: string): (value: number) => string {
-  if (unit === "percent") return formatAxisPercent;
-  return (value) => plain2.format(value);
+/**
+ * A formatter for an axis's tick labels, built from the ticks the axis prints. The
+ * decimals follow the tick step (see tickDecimals), so two adjacent ticks never print
+ * the same label. A reading is formatted by valueFormatter, not this.
+ */
+export type TickFormatter = (ticks: readonly number[]) => (value: number) => string;
+
+/** The axis formatter for a unit: "15.92%" beside "15.93%", not "15.9%" twice. */
+export function axisFormatter(unit?: string): TickFormatter {
+  const reading = unitReading(unit);
+  return (ticks) => {
+    const digits = fixedDecimals(tickDecimals(ticks));
+    return (value) => withUnit(value, reading, (absolute) => digits.format(absolute));
+  };
+}
+
+/** Most decimals an axis label is given. A step finer than this is not a chart's step. */
+const MAX_AXIS_DECIMALS = 6;
+const fixedFormats = new Map<number, Intl.NumberFormat>();
+
+/** A number format with exactly `decimals` places, kept for reuse. */
+function fixedDecimals(decimals: number): Intl.NumberFormat {
+  let format = fixedFormats.get(decimals);
+  if (!format) {
+    format = new Intl.NumberFormat(LOCALE, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    fixedFormats.set(decimals, format);
+  }
+  return format;
+}
+
+/**
+ * The fewest decimals that print the step between adjacent ticks exactly. A step of
+ * 0.005 needs three places, 0.25 two, 2 none. Without them adjacent ticks round to the
+ * same label, as 15.92 and 15.93 both do at one decimal.
+ */
+export function tickDecimals(ticks: readonly number[]): number {
+  const sorted = ticks.filter(Number.isFinite).slice().sort((a, b) => a - b);
+  let step = Infinity;
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = sorted[i]! - sorted[i - 1]!;
+    if (gap > 1e-12 && gap < step) step = gap;
+  }
+  if (!Number.isFinite(step)) return 0;
+  for (let decimals = 0; decimals < MAX_AXIS_DECIMALS; decimals++) {
+    const scaled = step * 10 ** decimals;
+    if (Math.abs(scaled - Math.round(scaled)) < 1e-6) return decimals;
+  }
+  return MAX_AXIS_DECIMALS;
 }
 
 /**

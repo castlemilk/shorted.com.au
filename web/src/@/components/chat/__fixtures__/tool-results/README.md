@@ -59,6 +59,14 @@ CHAT_TOOLS_CAPTURE_ONLY=get_director_trades-bhp.json,get_director_trades-bhp-50.
 | `get_economic_series-cash-rate-cpi.json` | `get_economic_series` | `series_keys: [rates.cash_rate_target.aus, cpi.annual_change.all_groups.aus]` (default limit 12) | 1348 | Two series, 12 observations each |
 | `get_economic_series-unemployment-nsw.json` | `get_economic_series` | `series_keys: [labour.unemployment_rate.total.nsw.seasadj], limit: 24` | 1416 | One series, 24 observations |
 
+Two cases are **synthetic**, not captured from the API. They cover shapes no live answer
+has, and each is written by hand from the same format. They are not in the capture test:
+
+| File | Synthetic because | What it shows |
+|---|---|---|
+| `query_short_positions-narrow-range.json` | The live series moves by whole tenths of a point, never by a hundredth | `CTX`: ten readings between 15.92 and 15.94, so the chart's axis ticks are a few thousandths apart |
+| `get_economic_series-units.json` | The recorded answers carry only percentages | Four series in the units the importers write (`usd_per_barrel`, `units`, `persons`) and one the chat does not know (`widgets_per_frob`), which must read with no unit |
+
 ## Shape facts the parsers rely on
 
 - **Top shorts.** Top-level `timeSeries` only. Rows have `productCode`,
@@ -95,3 +103,5 @@ CHAT_TOOLS_CAPTURE_ONLY=get_director_trades-bhp.json,get_director_trades-bhp-50.
   `get_director_trades-bhp-50.json`, which carries `omittedTrades`.
 - No economic-series result has more than two series or more than 24
   observations. Tests for the series cap should use a synthetic case.
+- No live answer has a short-position range under a tenth of a point, or an
+  economic unit other than `percent`. The two synthetic cases above cover them.

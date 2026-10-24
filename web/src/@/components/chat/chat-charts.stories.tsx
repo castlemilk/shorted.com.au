@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { ReactNode } from "react";
 import { ChatLineChart, ChatSparkline } from "./chat-charts";
 import { getRichToolResult, RichToolResultView } from "./chat-rich-tool-results";
@@ -11,6 +11,8 @@ import glc3m from "./__fixtures__/tool-results/query_short_positions-glc-3m.json
 import economic from "./__fixtures__/tool-results/get_economic_series-cash-rate-cpi.json";
 import unemployment from "./__fixtures__/tool-results/get_economic_series-unemployment-nsw.json";
 import topShorts10 from "./__fixtures__/tool-results/get_top_shorts-10.json";
+import narrowRange from "./__fixtures__/tool-results/query_short_positions-narrow-range.json";
+import unitSeries from "./__fixtures__/tool-results/get_economic_series-units.json";
 
 // The fixtures are the recorded results, re-serialised: the components see the
 // same JSON text the chat receives.
@@ -199,4 +201,109 @@ export const ShortPositionResultPhone: Story = {
       }
     />
   ),
+};
+
+/** The chat's frame at an exact width: a sidebar's bubble is about 333px wide. */
+function frame(width: number) {
+  return function FrameStory(Story: () => ReactNode) {
+    return (
+      <div className="bg-background p-0 text-foreground" style={{ width }}>
+        <Story />
+      </div>
+    );
+  };
+}
+
+/**
+ * A short position that moved only a hundredth of a point in ten days, drawn at the
+ * sidebar's width. Its axis ticks are a few thousandths apart, so they print to three
+ * places: no two ticks share a label. Synthetic: no recorded answer has so narrow a range.
+ */
+export const ShortPositionNarrowRange: Story = {
+  decorators: [frame(333)],
+  render: () => (
+    <RichToolResultView
+      result={
+        getRichToolResult(toolCall("query_short_positions", { stock_code: "CTX", period: "3m" }, narrowRange))!
+      }
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    // The chart loads on demand, so its tick labels are awaited rather than read at once.
+    const labels = await waitFor(() => {
+      const found = [...canvasElement.querySelectorAll(".visx-axis-left text")].map(
+        (node) => node.textContent ?? "",
+      );
+      if (found.length < 3) throw new Error("the chart's axis has not drawn yet");
+      return found;
+    });
+    await expect(new Set(labels).size).toBe(labels.length);
+  },
+};
+
+/**
+ * Economic series in the units the importers write, at the sidebar's width. Each unit
+ * reads as its words in the subtitle and beside the figures, and a unit the chat does
+ * not know is left out, never printed as its id. Synthetic: the recorded answers carry
+ * only percentages.
+ */
+export const EconomicSeriesUnitsSidebar: Story = {
+  decorators: [frame(333)],
+  render: () => (
+    <RichToolResultView
+      result={
+        getRichToolResult(
+          toolCall(
+            "get_economic_series",
+            { series_keys: unitSeries.series.map((series) => series.key) },
+            unitSeries,
+          ),
+        )!
+      }
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("US dollars per barrel · Monthly")).toBeInTheDocument();
+    await expect(canvas.getByText("Dwelling units · Monthly")).toBeInTheDocument();
+    await expect(canvas.queryByText(/_per_|_usd/)).toBeNull();
+    await expect(canvas.queryByText(/widgets_per_frob/)).toBeNull();
+  },
+};
+
+/**
+ * A sparkline in the window's top-right corner. Its tooltip is drawn in a portal and held
+ * inside the window, so the reading is whole where the table's own scroll region would
+ * have cut it off.
+ */
+export const SparklineAtWindowCorner: Story = {
+  decorators: [
+    (Story) => (
+      <div style={{ position: "fixed", top: 0, right: 0, width: 96 }} className="bg-background">
+        <Story />
+      </div>
+    ),
+  ],
+  render: () => {
+    const dro = parseTopShorts(recorded(topShorts10))!.rows[0]!;
+    return (
+      <ChatSparkline label={`${dro.code} short interest`} seriesLabel={dro.code} points={dro.points} color="#D16A47" />
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const spark = canvas.getByRole("group");
+    spark.focus();
+    // Focus sets the reading, and the tooltip is placed after the render it causes.
+    const tip = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>('[data-testid="chat-spark-tooltip"]');
+      if (!element) throw new Error("no tooltip yet");
+      return element;
+    });
+    const box = tip.getBoundingClientRect();
+    await expect(box.left).toBeGreaterThanOrEqual(0);
+    await expect(box.right).toBeLessThanOrEqual(window.innerWidth);
+    await expect(box.top).toBeGreaterThanOrEqual(0);
+    await expect(box.bottom).toBeLessThanOrEqual(window.innerHeight);
+  },
 };

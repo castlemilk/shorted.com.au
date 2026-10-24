@@ -187,21 +187,23 @@ describe("ChatSparkline tooltip in a table cell", () => {
     );
     act(() => screen.getByRole("group").focus());
 
-    const tip = container.querySelector(".pointer-events-none") as HTMLElement;
+    const tip = screen.getByTestId("chat-spark-tooltip");
     expect(tip).toHaveTextContent("DRO");
     expect(tip).toHaveTextContent("7.00%");
     expect(tip.textContent).not.toMatch(/last three months/);
   });
 
-  it("opens above the sparkline, on its trailing edge, and never takes the pointer", () => {
+  it("is drawn in a portal on the page, not inside the table cell that clips it", () => {
     const { container } = render(
       <ChatSparkline label="Spark" points={readings} color="#D16A47" />,
     );
     act(() => screen.getByRole("group").focus());
 
-    const tip = container.querySelector(".pointer-events-none") as HTMLElement;
-    expect(tip.className).toContain("bottom-full");
-    expect(tip.className).toContain("right-0");
+    const tip = screen.getByTestId("chat-spark-tooltip");
+    expect(container.contains(tip)).toBe(false);
+    expect(tip.parentElement).toBe(document.body);
+    expect(tip.className).toContain("fixed");
+    expect(tip.className).toContain("pointer-events-none");
   });
 
   it("marks the group while it shows a reading, for the sidebar's Escape handling", () => {
@@ -214,6 +216,80 @@ describe("ChatSparkline tooltip in a table cell", () => {
 
     fireEvent.keyDown(spark, { key: "Escape" });
     expect(spark).not.toHaveAttribute("data-reading-active");
+  });
+});
+
+/**
+ * jsdom has no layout, so the geometry the tooltip is placed by is given. The sparkline's
+ * svg reports `anchor`, and the tooltip reports its own size, which is the same for every
+ * reading here.
+ */
+function givenGeometry(anchor: { left: number; top: number; right: number; bottom: number }) {
+  const real = Element.prototype.getBoundingClientRect;
+  jest.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+    if (this instanceof SVGSVGElement) {
+      return { ...anchor, x: anchor.left, y: anchor.top, width: anchor.right - anchor.left, height: anchor.bottom - anchor.top, toJSON: () => ({}) } as DOMRect;
+    }
+    return real.call(this);
+  });
+  const sizes = { width: 200, height: 40 };
+  jest.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(() => sizes.width);
+  jest.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => sizes.height);
+}
+
+describe("ChatSparkline tooltip placement", () => {
+  const originalWidth = window.innerWidth;
+  const originalHeight = window.innerHeight;
+
+  beforeEach(() => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 320 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 600 });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });
+  });
+
+  it("opens below a reading in the first row, which sits under the sticky header", () => {
+    // 20px from the top: there is no room above it for a 40px tooltip, so it opens below.
+    givenGeometry({ left: 200, top: 20, right: 296, bottom: 48 });
+    render(<ChatSparkline label="Spark" points={readings} color="#D16A47" />);
+    act(() => screen.getByRole("group").focus());
+
+    const tip = screen.getByTestId("chat-spark-tooltip");
+    expect(tip.style.top).toBe("54px");
+  });
+
+  it("keeps the tooltip inside the window for a reading in the last column", () => {
+    // The tooltip's trailing edge meets the reading's, so at 318px it would run off the
+    // right edge by 190px. It is held 8px inside the window instead.
+    givenGeometry({ left: 222, top: 300, right: 318, bottom: 328 });
+    render(<ChatSparkline label="Spark" points={readings} color="#D16A47" />);
+    act(() => screen.getByRole("group").focus());
+
+    const tip = screen.getByTestId("chat-spark-tooltip");
+    expect(tip.style.left).toBe("112px");
+    expect(parseFloat(tip.style.left) + 200).toBeLessThanOrEqual(320 - 8);
+  });
+
+  it("opens above a reading with room above it, and clamps a trailing edge that would run off the left", () => {
+    // A 200px tooltip on its reading's trailing edge (156px) would start at -44px. It is
+    // held to the 8px margin instead, and it still sits above the reading.
+    givenGeometry({ left: 60, top: 300, right: 156, bottom: 328 });
+    render(<ChatSparkline label="Spark" points={readings} color="#D16A47" />);
+    act(() => screen.getByRole("group").focus());
+
+    const tip = screen.getByTestId("chat-spark-tooltip");
+    expect(tip.style.top).toBe("254px");
+    expect(tip.style.left).toBe("8px");
+  });
+
+  it("is hidden until it has been placed, so it never shows at the page's corner", () => {
+    render(<ChatSparkline label="Spark" points={readings} color="#D16A47" />);
+    act(() => screen.getByRole("group").focus());
+    expect(screen.getByTestId("chat-spark-tooltip").style.visibility).not.toBe("hidden");
   });
 });
 

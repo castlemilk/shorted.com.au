@@ -6,6 +6,7 @@
 // sidebar loads on every page.
 
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -16,6 +17,7 @@ import {
   type PointerEvent,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { chartTheme } from "~/@/components/charts/chart-theme";
 import {
@@ -33,11 +35,14 @@ import { nearest } from "~/@/components/charts/nearest";
 import type { ChartSeriesSpec } from "~/@/components/charts/types";
 import {
   valueAxisLabels,
+  valueAxisTicks,
   useChartScales,
 } from "~/@/components/charts/use-chart-scales";
-import { formatDay, formatPercent } from "./chat-tool-format";
+import { placeTooltip } from "./chat-layout";
+import { formatDay, formatPercent, type TickFormatter } from "./chat-tool-format";
 import type { Reading } from "./chat-tool-data";
 
+/** The sparkline's width in a full table. A table at the sidebar's width draws it narrower. */
 const SPARK_WIDTH = 96;
 const SPARK_HEIGHT = 28;
 const SPARK_PAD = 2;
@@ -157,6 +162,8 @@ export interface ChatSparklineProps {
   points: Reading[];
   color: string;
   formatValue?: (value: number) => string;
+  /** The width in px. A table on a narrow sidebar draws a narrower line. */
+  width?: number;
 }
 
 /**
@@ -171,6 +178,7 @@ export function ChatSparkline({
   points,
   color,
   formatValue = formatPercent,
+  width = SPARK_WIDTH,
 }: ChatSparklineProps) {
   const gradientId = `chat-spark-${useId()}`;
 
@@ -190,14 +198,14 @@ export function ChatSparkline({
     return {
       x: scaleTime<number>({
         domain: [new Date(first.t), new Date(last.t)],
-        range: [SPARK_PAD, SPARK_WIDTH - SPARK_PAD],
+        range: [SPARK_PAD, width - SPARK_PAD],
       }),
       y: scaleLinear<number>({
         domain: [low - pad, high + pad],
         range: [SPARK_HEIGHT - SPARK_PAD, SPARK_PAD],
       }),
     };
-  }, [points]);
+  }, [points, width]);
 
   const { shown, handlers } = useReadingPointer(points, (clientX, boxLeft) => {
     if (!scales) return null;
@@ -210,6 +218,48 @@ export function ChatSparkline({
     () => ({ id: label, label: tooltipName, color, axis: "left", kind: "line", points }),
     [label, tooltipName, color, points],
   );
+
+  // The tooltip is drawn in a portal, positioned in viewport coordinates. A table's
+  // scroll region clips anything inside it, so a reading in the first row (under the
+  // sticky header) or the last column was cut off. Its position is set before paint,
+  // and kept while the chat or the table scrolls.
+  const anchorRef = useRef<SVGSVGElement>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<{ left: number; top: number } | null>(null);
+  const placeTip = useCallback(() => {
+    const anchor = anchorRef.current;
+    const tip = tipRef.current;
+    if (!anchor || !tip) return;
+    const rect = anchor.getBoundingClientRect();
+    const next = placeTooltip(
+      { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+      { width: tip.offsetWidth, height: tip.offsetHeight },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
+    setPlace((previous) =>
+      previous && previous.left === next.left && previous.top === next.top
+        ? previous
+        : { left: next.left, top: next.top },
+    );
+  }, []);
+  useLayoutEffect(() => {
+    if (shown === null) {
+      setPlace(null);
+      return;
+    }
+    placeTip();
+    // The tooltip's size follows the reading it shows, so it is placed again for each.
+  }, [shown, points, formatValue, placeTip]);
+  useEffect(() => {
+    if (shown === null) return;
+    // Scrolling moves the sparkline, and a scroll does not bubble, so it is listened for in the capture phase.
+    window.addEventListener("scroll", placeTip, true);
+    window.addEventListener("resize", placeTip);
+    return () => {
+      window.removeEventListener("scroll", placeTip, true);
+      window.removeEventListener("resize", placeTip);
+    };
+  }, [shown, placeTip]);
 
   if (!scales || points.length < 2) return null;
 
@@ -245,9 +295,10 @@ export function ChatSparkline({
       className="relative inline-block rounded-sm align-middle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <svg
-        width={SPARK_WIDTH}
+        ref={anchorRef}
+        width={width}
         height={SPARK_HEIGHT}
-        viewBox={`0 0 ${SPARK_WIDTH} ${SPARK_HEIGHT}`}
+        viewBox={`0 0 ${width} ${SPARK_HEIGHT}`}
         aria-hidden="true"
         focusable="false"
         className="block overflow-visible"
@@ -263,32 +314,41 @@ export function ChatSparkline({
         )}
       </svg>
       {/*
-        The tooltip opens above the sparkline and aligns to its trailing edge. A table
-        cell sits at the end of a scroll region, so one that opened to the right or
-        below was clipped there. It never takes the pointer, so moving up to it does
-        not end the reading.
+        The tooltip opens above the sparkline on its trailing edge, or below it where
+        there is no room above (a row under the sticky header). It is drawn in a portal
+        and placed in viewport coordinates, so the table's scroll region cannot clip it.
+        It never takes the pointer, so moving up to it does not end the reading.
       */}
-      {readout && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute bottom-full right-0 z-20 mb-1 whitespace-nowrap"
-        >
+      {readout &&
+        createPortal(
           <div
+            ref={tipRef}
+            aria-hidden="true"
+            data-testid="chat-spark-tooltip"
+            className="pointer-events-none fixed z-[60] w-max whitespace-nowrap"
             style={{
-              background: "hsl(var(--popover))",
-              border: "1px solid hsl(var(--border))",
-              borderRadius: 8,
-              padding: "6px 8px",
-              boxShadow: "0 4px 12px hsl(var(--foreground) / 0.1)",
+              left: place?.left ?? 0,
+              top: place?.top ?? 0,
+              visibility: place ? undefined : "hidden",
             }}
           >
-            <TooltipContent
-              hover={readout}
-              leftAxis={{ side: "left", format: formatValue }}
-            />
-          </div>
-        </div>
-      )}
+            <div
+              style={{
+                background: "hsl(var(--popover))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 8,
+                padding: "6px 8px",
+                boxShadow: "0 4px 12px hsl(var(--foreground) / 0.1)",
+              }}
+            >
+              <TooltipContent
+                hover={readout}
+                leftAxis={{ side: "left", format: formatValue }}
+              />
+            </div>
+          </div>,
+          document.body,
+        )}
       <span className="sr-only" aria-live="polite">
         {active ? `${formatDay(active.t)}, ${formatValue(active.v)}` : ""}
       </span>
@@ -304,8 +364,11 @@ export interface ChatLineChartProps {
   color: string;
   kind?: "line" | "area";
   formatValue: (value: number) => string;
-  /** Tick labels on the value axis. Defaults to formatValue. */
-  formatAxis?: (value: number) => string;
+  /**
+   * Tick labels on the value axis, built from the ticks the axis prints so their decimals
+   * tell adjacent ticks apart. Defaults to formatValue.
+   */
+  formatAxis?: TickFormatter;
   /** The id of the element that describes the chart, such as its caption. */
   describedBy?: string;
 }
@@ -346,7 +409,16 @@ export function ChatLineChart({
     [label, color, kind, points],
   );
   const series = useMemo(() => [spec], [spec]);
-  const tickFormat = formatAxis ?? formatValue;
+  // The ticks come from the data alone, before the margin is known, so the formatter's
+  // decimals are fixed by them. The margin then fits the labels those decimals print.
+  const ticks = useMemo(
+    () => valueAxisTicks({ series, side: "left", numTicks: AXIS_NUM_TICKS }),
+    [series],
+  );
+  const tickFormat = useMemo(
+    () => (formatAxis ? formatAxis(ticks) : formatValue),
+    [formatAxis, ticks, formatValue],
+  );
   const margin = useMemo(
     () => ({
       top: PLOT_TOP,
