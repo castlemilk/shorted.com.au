@@ -5,12 +5,34 @@
 // therefore never part of the eager chat bundle, which the root layout's chat
 // sidebar loads on every page.
 
-import { useId, useMemo, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type RefObject,
+} from "react";
 import { scaleLinear, scaleTime } from "@visx/scale";
-import { SeriesPath } from "~/@/components/charts/chart-primitives";
+import { chartTheme } from "~/@/components/charts/chart-theme";
+import {
+  AXIS_NUM_TICKS,
+  axisMargin,
+} from "~/@/components/charts/axis-margin";
+import {
+  Axes,
+  Crosshair,
+  Grid,
+  SeriesPath,
+} from "~/@/components/charts/chart-primitives";
 import { stepIndex, TooltipContent, type HoverState } from "~/@/components/charts/chart-tooltip";
 import { nearest } from "~/@/components/charts/nearest";
 import type { ChartSeriesSpec } from "~/@/components/charts/types";
+import {
+  valueAxisLabels,
+  useChartScales,
+} from "~/@/components/charts/use-chart-scales";
 import { formatDay, formatPercent } from "./chat-tool-format";
 import type { Reading } from "./chat-tool-data";
 
@@ -151,6 +173,211 @@ export function ChatSparkline({
     </div>
   );
   /* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */
+}
+
+export interface ChatLineChartProps {
+  /** Names the chart for a screen reader, and the series in its tooltip. */
+  label: string;
+  points: Reading[];
+  color: string;
+  kind?: "line" | "area";
+  formatValue: (value: number) => string;
+  /** Tick labels on the value axis. Defaults to formatValue. */
+  formatAxis?: (value: number) => string;
+  /** The id of the element that describes the chart, such as its caption. */
+  describedBy?: string;
+}
+
+const CHART_HEIGHT = 180;
+/** The width drawn before the box is measured (server-free tests, first paint). */
+const FALLBACK_WIDTH = 480;
+const PLOT_TOP = 16;
+const PLOT_RIGHT = 14;
+const PLOT_BOTTOM = 22;
+
+/**
+ * An interactive line (or area) chart of readings over time. It is the stock
+ * page's chart primitives, scales and tooltip at a fixed height. The pointer
+ * reads the nearest reading; the keyboard does too, with the arrow keys, Home
+ * and End, and Escape to clear. A screen reader hears each reading through a
+ * live region, and the caption (`describedBy`) gives the summary. Nothing
+ * animates, so there is no motion to reduce.
+ */
+export function ChatLineChart({
+  label,
+  points,
+  color,
+  kind = "line",
+  formatValue,
+  formatAxis,
+  describedBy,
+}: ChatLineChartProps) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const measured = useMeasuredWidth(boxRef);
+  const width = measured > 0 ? measured : FALLBACK_WIDTH;
+  const height = CHART_HEIGHT;
+  const gradientId = `chat-line-${useId()}`;
+  const [index, setIndex] = useState<number | null>(null);
+
+  const spec = useMemo<ChartSeriesSpec>(
+    () => ({ id: label, label, color, axis: "left", kind, points }),
+    [label, color, kind, points],
+  );
+  const series = useMemo(() => [spec], [spec]);
+  const tickFormat = formatAxis ?? formatValue;
+  const margin = useMemo(
+    () => ({
+      top: PLOT_TOP,
+      right: PLOT_RIGHT,
+      bottom: PLOT_BOTTOM,
+      // The left margin fits the widest tick label, as the stock chart's does.
+      left: axisMargin(
+        valueAxisLabels({
+          series,
+          side: "left",
+          format: tickFormat,
+          numTicks: AXIS_NUM_TICKS,
+        }),
+      ),
+    }),
+    [series, tickFormat],
+  );
+  const { dateScale, leftScale, innerW, innerH } = useChartScales({
+    series,
+    width,
+    height,
+    margin,
+  });
+
+  if (points.length < 2) return null;
+
+  const lastIndex = points.length - 1;
+  const latest = points[lastIndex]!;
+  const latestX = dateScale(new Date(latest.t)) ?? 0;
+  const latestY = leftScale(latest.v) ?? 0;
+
+  const active = index === null ? null : (points[index] ?? null);
+  const cx = active ? (dateScale(new Date(active.t)) ?? 0) : 0;
+  const cy = active ? (leftScale(active.v) ?? 0) : 0;
+  const hover: HoverState | null = active
+    ? { cx, cy, t: active.t, entries: [{ series: spec, point: active }] }
+    : null;
+  // The tooltip sits on the side of the crosshair that has room for it.
+  const tipOnRight = cx > innerW / 2;
+
+  const readingAt = (clientX: number, boxLeft: number): number | null => {
+    const near = nearest(points, dateScale.invert(clientX - boxLeft - margin.left).getTime());
+    return near ? points.indexOf(near) : null;
+  };
+
+  return (
+    // A keyboard-driven chart: the arrow keys step through the readings, so the
+    // group takes a tab stop and key handlers (the stock chart does the same).
+    /* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */
+    <div
+      ref={boxRef}
+      role="group"
+      aria-roledescription="interactive chart"
+      aria-label={`${label}. Use the left and right arrow keys to read each point.`}
+      aria-describedby={describedBy}
+      tabIndex={0}
+      onPointerMove={(event) =>
+        setIndex(readingAt(event.clientX, event.currentTarget.getBoundingClientRect().left))
+      }
+      onPointerLeave={() => setIndex(null)}
+      onFocus={() => setIndex(lastIndex)}
+      onBlur={() => setIndex(null)}
+      onKeyDown={(event) => stepReading(event, points, index, setIndex)}
+      className="relative w-full rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="block h-auto w-full overflow-visible"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <g transform={`translate(${margin.left}, ${margin.top})`}>
+          <Grid yScale={leftScale} width={innerW} />
+          <Axes
+            xScale={dateScale}
+            leftScale={leftScale}
+            rightScale={leftScale}
+            innerW={innerW}
+            innerH={innerH}
+            hasRight={false}
+            leftFormat={tickFormat}
+          />
+          <SeriesPath
+            series={spec}
+            xScale={dateScale}
+            yScale={leftScale}
+            gradientId={gradientId}
+          />
+          {active && (
+            <Crosshair x={cx} dots={[{ y: cy, color }]} innerH={innerH} />
+          )}
+          <circle cx={latestX} cy={latestY} r={2.5} fill={color} />
+          <text
+            x={latestX}
+            y={latestY - 7}
+            textAnchor="end"
+            fontSize={11}
+            fontWeight={600}
+            fill={chartTheme.tooltipFg}
+          >
+            {formatValue(latest.v)}
+          </text>
+        </g>
+      </svg>
+      {hover && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1 z-20"
+          style={
+            tipOnRight
+              ? { right: width - (margin.left + cx) + 8 }
+              : { left: margin.left + cx + 8 }
+          }
+        >
+          <div
+            style={{
+              background: "hsl(var(--popover))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: 8,
+              padding: "6px 8px",
+              boxShadow: "0 4px 12px hsl(var(--foreground) / 0.1)",
+              maxWidth: 200,
+            }}
+          >
+            <TooltipContent
+              hover={hover}
+              leftAxis={{ side: "left", format: formatValue }}
+            />
+          </div>
+        </div>
+      )}
+      <span className="sr-only" aria-live="polite">
+        {active ? `${formatDay(active.t)}: ${formatValue(active.v)}` : ""}
+      </span>
+    </div>
+    /* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */
+  );
+}
+
+/** The rendered width of an element, kept current as it resizes. 0 until it is measured. */
+function useMeasuredWidth(ref: RefObject<HTMLElement>): number {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const read = () => setWidth(element.clientWidth);
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(read);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
+  return width;
 }
 
 /**

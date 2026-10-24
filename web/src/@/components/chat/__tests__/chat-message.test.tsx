@@ -70,7 +70,7 @@ describe("ChatMessageBubble rich tool rendering", () => {
     expect(screen.queryByText(/"productCode"/)).not.toBeInTheDocument();
   });
 
-  it("renders short-position time series tool output as a compact chart", () => {
+  it("renders short-position time series tool output as a compact chart", async () => {
     render(
       <ChatMessageBubble
         message={assistantMessage({
@@ -102,6 +102,10 @@ describe("ChatMessageBubble rich tool rendering", () => {
     expect(screen.getByText("PLS short interest")).toBeInTheDocument();
     expect(screen.getByText("8.90% latest")).toBeInTheDocument();
     expect(screen.queryByText(/"shortPosition"/)).not.toBeInTheDocument();
+    // The interactive chart is loaded on demand: wait for it, so the load finishes inside the test.
+    expect(
+      await screen.findByRole("group", { name: /PLS short interest/ }),
+    ).toBeInTheDocument();
   });
 
   it("opens a rich result by default, inside the tool", () => {
@@ -391,6 +395,29 @@ describe("ChatMessageBubble tables from tool results", () => {
     expect(screen.getByRole("table", { name: "Most shorted ASX stocks" })).toBeInTheDocument();
     expect(screen.queryByText(/"productCode"/)).not.toBeInTheDocument();
     await screen.findAllByRole("group", { name: /short interest, last three months/ });
+  });
+
+  it("draws each economic series as its own interactive chart", async () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          toolCalls: [
+            {
+              toolName: "get_economic_series",
+              arguments: JSON.stringify({ series_keys: ["rates.cash_rate_target.aus"] }),
+              result: recorded("get_economic_series-cash-rate-cpi.json"),
+            },
+          ],
+        })}
+      />,
+    );
+
+    const figures = screen.getAllByTestId("chat-economic-chart");
+    expect(figures).toHaveLength(2);
+    expect(screen.getByText("Rates · Cash rate target · Australia")).toBeInTheDocument();
+    expect(screen.getByText("CPI · Annual change · Australia")).toBeInTheDocument();
+    expect(screen.getByText(/^First 3\.60% on 1 Sept 2025/)).toBeInTheDocument();
+    await screen.findAllByRole("group", { name: /Rates · Cash rate target/ });
   });
 
   it("renders the empty director-trades answer as a sentence", () => {
