@@ -269,7 +269,8 @@ export function ChatLineChart({
   useLayoutEffect(() => {
     const measured = tipRef.current?.offsetWidth ?? 0;
     if (measured !== tipWidth) setTipWidth(measured);
-  });
+    // The tooltip's text is the reading it shows, so its width changes with the index.
+  }, [index, points, formatValue, tipWidth]);
 
   if (points.length < 2) return null;
 
