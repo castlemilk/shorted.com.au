@@ -206,60 +206,15 @@ func (s store) canaryDue(ctx context.Context) (bool, error) {
 	return due, err
 }
 
-// hasDeliveryWork reports rows still waiting on Resend or on an entitlement
-// lookup, including a claim a crash left behind.
+// hasDeliveryWork reports rows still waiting on Resend, including a claim a crash
+// left behind.
 func (s store) hasDeliveryWork(ctx context.Context) (bool, error) {
 	var work bool
 	err := s.pool.QueryRow(ctx, `
 		SELECT EXISTS (SELECT 1 FROM alert_events
-		                WHERE email_status IN ('pending', 'awaiting_entitlement')
+		                WHERE email_status = 'pending'
 		                   OR (email_status = 'sending' AND send_claimed_at < now() - interval '15 minutes'))`).Scan(&work)
 	return work, err
-}
-
-// awaitingOwners lists the owners with events waiting on an entitlement lookup.
-func (s store) awaitingOwners(ctx context.Context) ([]string, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT DISTINCT user_id FROM alert_events
-		 WHERE email_status = 'awaiting_entitlement'
-		 ORDER BY user_id LIMIT 500`)
-	if err != nil {
-		return nil, fmt.Errorf("read owners awaiting entitlement: %w", err)
-	}
-	defer rows.Close()
-	var out []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("scan owner: %w", err)
-		}
-		out = append(out, id)
-	}
-	return out, rows.Err()
-}
-
-// resolveOwner moves one owner's awaiting events once the lookup has answered. An
-// entitled owner's events become pending and go out in the delivery pass. An
-// unentitled owner's become skipped_unentitled, with the status the API reported.
-func (s store) resolveOwner(ctx context.Context, userID string, e entitlement) (int64, error) {
-	tag, err := s.pool.Exec(ctx, `
-		UPDATE alert_events
-		   SET email_status = CASE WHEN $2::boolean THEN 'pending' ELSE 'skipped_unentitled' END,
-		       last_error = CASE WHEN $2::boolean THEN NULL ELSE 'entitlement: status=' || $3::text END,
-		       updated_at = now()
-		 WHERE email_status = 'awaiting_entitlement' AND user_id = $1`,
-		userID, e.Entitled, e.Status)
-	if err != nil {
-		return 0, fmt.Errorf("resolve entitlement: %w", err)
-	}
-	return tag.RowsAffected(), nil
-}
-
-// countAwaiting counts events still waiting on an entitlement lookup.
-func (s store) countAwaiting(ctx context.Context) (int, error) {
-	var n int
-	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM alert_events WHERE email_status = 'awaiting_entitlement'`).Scan(&n)
-	return n, err
 }
 
 // insertRun opens a run row. Its id is the canary's idempotency key.
@@ -320,10 +275,16 @@ type eventRow struct {
 // commit writes one run's events and, unless it is a replay, its watermarks, in
 // one transaction. planned is the state the run read. If another run has moved the
 // watermarks since, nothing is written and applied is false.
-func (s store) commit(ctx context.Context, planned, next State, replay bool, runID int64, rows []eventRow) (applied bool, inserted int, err error) {
+//
+// A monitor deleted after the run read it is not an error. Its row is skipped and
+// counted in vanished, and the rest of the run commits. The monitors the rows name
+// are share-locked first, so a delete cannot commit between the check and the insert:
+// the delete waits for this transaction, and the foreign key cannot fail on a row that
+// the lock kept.
+func (s store) commit(ctx context.Context, planned, next State, replay bool, runID int64, rows []eventRow) (applied bool, inserted, vanished int, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return false, 0, fmt.Errorf("begin commit: %w", err)
+		return false, 0, 0, fmt.Errorf("begin commit: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
@@ -333,17 +294,25 @@ func (s store) commit(ctx context.Context, planned, next State, replay bool, run
 			SELECT COALESCE(daily_through::text, ''), COALESCE(weekly_through::text, '')
 			  FROM alert_evaluator_state WHERE id = 1 FOR UPDATE`).Scan(&daily, &weekly)
 		if err != nil {
-			return false, 0, fmt.Errorf("lock evaluator state: %w", err)
+			return false, 0, 0, fmt.Errorf("lock evaluator state: %w", err)
 		}
 		if Date(daily) != planned.DailyThrough || Date(weekly) != planned.WeeklyThrough {
-			return false, 0, nil
+			return false, 0, 0, nil
 		}
 	}
 
+	present, err := lockMonitors(ctx, tx, rows)
+	if err != nil {
+		return false, 0, 0, err
+	}
 	for _, r := range rows {
+		if !present[r.monitorID] {
+			vanished++
+			continue
+		}
 		payload, err := json.Marshal(r.msg.Payload)
 		if err != nil {
-			return false, 0, fmt.Errorf("encode payload: %w", err)
+			return false, 0, 0, fmt.Errorf("encode payload: %w", err)
 		}
 		tag, err := tx.Exec(ctx, `
 			INSERT INTO alert_events
@@ -356,7 +325,7 @@ func (s store) commit(ctx context.Context, planned, next State, replay bool, run
 			string(r.msg.ReportDate), string(r.msg.ComparedTo), r.msg.Latest, r.msg.Previous,
 			string(payload), r.status, r.lastError, runID)
 		if err != nil {
-			return false, 0, fmt.Errorf("insert alert event: %w", err)
+			return false, 0, 0, fmt.Errorf("insert alert event: %w", err)
 		}
 		inserted += int(tag.RowsAffected())
 	}
@@ -366,13 +335,47 @@ func (s store) commit(ctx context.Context, planned, next State, replay bool, run
 			UPDATE alert_evaluator_state
 			   SET daily_through = NULLIF($1, '')::date, weekly_through = NULLIF($2, '')::date, updated_at = now()
 			 WHERE id = 1`, string(next.DailyThrough), string(next.WeeklyThrough)); err != nil {
-			return false, 0, fmt.Errorf("advance watermarks: %w", err)
+			return false, 0, 0, fmt.Errorf("advance watermarks: %w", err)
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return false, 0, fmt.Errorf("commit: %w", err)
+		return false, 0, 0, fmt.Errorf("commit: %w", err)
 	}
-	return true, inserted, nil
+	return true, inserted, vanished, nil
+}
+
+// lockMonitors takes a share lock on every monitor the rows name, and returns the
+// ids that still exist. The lock is held until the commit ends, so a monitor found
+// here is still there when its events are inserted.
+func lockMonitors(ctx context.Context, tx pgx.Tx, rows []eventRow) (map[string]bool, error) {
+	seen := map[string]bool{}
+	var ids []string
+	for _, r := range rows {
+		if !seen[r.monitorID] {
+			seen[r.monitorID] = true
+			ids = append(ids, r.monitorID)
+		}
+	}
+	present := make(map[string]bool, len(ids))
+	if len(ids) == 0 {
+		return present, nil
+	}
+	found, err := tx.Query(ctx, `SELECT id FROM alert_monitors WHERE id = ANY($1::text[]) FOR KEY SHARE`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("lock alert monitors: %w", err)
+	}
+	defer found.Close()
+	for found.Next() {
+		var id string
+		if err := found.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan alert monitor: %w", err)
+		}
+		present[id] = true
+	}
+	if err := found.Err(); err != nil {
+		return nil, fmt.Errorf("iterate alert monitors: %w", err)
+	}
+	return present, nil
 }
 
 // recoverStale puts back or gives up on rows a crashed run left in 'sending'. A
@@ -396,16 +399,13 @@ func (s store) recoverStale(ctx context.Context) error {
 	return nil
 }
 
-// expirePending fails a row that waited 48 hours, whether for Resend or for an
-// entitlement lookup. An alert that old is stale, so it is never sent.
+// expirePending fails a row that waited 48 hours for Resend. An alert that old is
+// stale, so it is never sent.
 func (s store) expirePending(ctx context.Context) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE alert_events
-		   SET email_status = 'failed',
-		       last_error = CASE WHEN email_status = 'awaiting_entitlement'
-		                         THEN 'expired: entitlement lookup never succeeded' ELSE 'expired' END,
-		       updated_at = now()
-		 WHERE email_status IN ('pending', 'awaiting_entitlement') AND created_at < now() - interval '48 hours'`)
+		   SET email_status = 'failed', last_error = 'expired', updated_at = now()
+		 WHERE email_status = 'pending' AND created_at < now() - interval '48 hours'`)
 	return err
 }
 

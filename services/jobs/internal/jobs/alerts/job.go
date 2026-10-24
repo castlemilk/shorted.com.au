@@ -117,21 +117,21 @@ type summary struct {
 	monitors          int
 	candidates        int
 	events            int
+	vanished          int
 	sent              int
 	retrying          int
 	failed            int
 	skippedUnentitled int
 	skippedNoEmail    int
-	awaiting          int
 	canary            string
 	exit              int
 	note              string
 }
 
 func (s summary) line() string {
-	out := fmt.Sprintf("alerts: dates=[%s] weekly=%s monitors=%d candidates=%d events=%d sent=%d retrying=%d failed=%d skipped_unentitled=%d skipped_no_email=%d awaiting=%d canary=%s exit=%d",
-		joinDates(s.dates), dateLabel(s.weekly), s.monitors, s.candidates, s.events, s.sent, s.retrying, s.failed,
-		s.skippedUnentitled, s.skippedNoEmail, s.awaiting, s.canary, s.exit)
+	out := fmt.Sprintf("alerts: dates=[%s] weekly=%s monitors=%d candidates=%d events=%d vanished=%d sent=%d retrying=%d failed=%d skipped_unentitled=%d skipped_no_email=%d canary=%s exit=%d",
+		joinDates(s.dates), dateLabel(s.weekly), s.monitors, s.candidates, s.events, s.vanished, s.sent, s.retrying, s.failed,
+		s.skippedUnentitled, s.skippedNoEmail, s.canary, s.exit)
 	if s.note != "" {
 		out += fmt.Sprintf(" note=%q", s.note)
 	}
@@ -231,7 +231,7 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 	}
 	sum.dates = dailyDates(plan)
 	sum.weekly = weeklyLast(plan)
-	sum.note = planNote(plan, a.opts)
+	sum.note = logNote(plan, a.opts)
 	if plan.Bootstrap {
 		log.Printf("alerts: bootstrap: watermarks set daily_through=%s weekly_through=%s; nothing evaluated, nothing sent",
 			dateLabel(plan.Next.DailyThrough), dateLabel(plan.Next.WeeklyThrough))
@@ -264,14 +264,20 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 	cands := Evaluate(monitors, snap, plan)
 	sum.monitors, sum.candidates = len(monitors), len(cands)
 
-	// Phase 10: entitlement, once per owner with an email.
-	owners, err := a.entitlements(ctx, cands)
+	// Phase 10: entitlement, once per owner with an email. Every answer must be
+	// definitive. A lookup that errors fails the run here, before anything is
+	// committed, so no event is ever written as unentitled or waiting on a lookup.
+	ents, err := a.entitlements(ctx, cands)
 	if err != nil {
-		return sum, err
+		if !a.opts.dryRun {
+			return sum, fmt.Errorf("%w: nothing was committed, the next run retries", err)
+		}
+		log.Printf("alerts: dry run: %v; candidates show entitled=unchecked", err)
+		ents = nil
 	}
 
 	if a.opts.dryRun {
-		a.logCandidates(cands, owners)
+		a.logCandidates(cands, ents)
 		sum.events = len(cands)
 		sum.canary = dryCanaryWord(a.opts.canary, due)
 		// A dry run always exits 0. A hold it would have reported is logged, not
@@ -283,6 +289,13 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 		return sum, nil
 	}
 
+	// Decide every row before the run row exists, so a refusal writes nothing.
+	rows, unentitled, noEmail, err := decideRows(cands, ents)
+	if err != nil {
+		return sum, err
+	}
+	sum.skippedUnentitled, sum.skippedNoEmail = unentitled, noEmail
+
 	// Phase 8: the run row. Its id is the canary's idempotency key.
 	runID, err = a.st.insertRun(ctx, a.getenv("CLOUD_RUN_EXECUTION"), planNote(plan, a.opts), dailyDates(plan), weeklyLast(plan))
 	if err != nil {
@@ -290,13 +303,11 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 	}
 
 	// Phase 11: commit the events and the watermarks in one transaction.
-	rows, unentitled, noEmail, _ := decideRows(cands, owners)
-	sum.skippedUnentitled, sum.skippedNoEmail = unentitled, noEmail
-	applied, inserted, err := a.st.commit(ctx, state, plan.Next, replay, runID, rows)
+	applied, inserted, vanished, err := a.st.commit(ctx, state, plan.Next, replay, runID, rows)
 	if err != nil {
 		return sum, err
 	}
-	sum.events = inserted
+	sum.events, sum.vanished = inserted, vanished
 	res = runResult{
 		MonitorsEvaluated: len(monitors),
 		EventsCreated:     inserted,
@@ -310,15 +321,9 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 		}
 		return sum, nil
 	}
-
-	// Phase 10b: owners whose lookup failed, this run or an earlier one. Their
-	// events are re-checked here, before any send, so an entitled owner's alert
-	// goes out as soon as the lookup works. A transport-wide failure stops the run.
-	remaining, err := a.resolveAwaiting(ctx)
-	if err != nil {
-		return sum, err
+	if vanished > 0 {
+		log.Printf("alerts: %d event(s) skipped: their monitor was deleted after the run read it", vanished)
 	}
-	sum.awaiting = remaining
 
 	// Phase 12: delivery.
 	client := &resend.Client{APIKey: a.env.resendAPIKey, BaseURL: a.env.resendAPIURL}
@@ -333,7 +338,6 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 		runID:       runID,
 		pauseClient: pauseClient,
 	})
-	dlv.awaiting = remaining
 	sum.sent, sum.retrying, sum.failed, sum.canary = dlv.sent, dlv.retrying, dlv.failed, dlv.canary
 	res.EmailsSent, res.EmailsRetrying, res.EmailsFailed, res.CanaryResendID = dlv.sent, dlv.retrying, dlv.failed, dlv.canaryID
 	if err != nil {
@@ -356,104 +360,33 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 	return sum, nil
 }
 
-// ownerState is what the entitlement phase learned: each owner's answer, and the
-// owners whose own lookup failed. Only a transport-wide failure fails the run, so
-// one owner's error holds only that owner's events.
-type ownerState struct {
-	ents    map[string]entitlement
-	failed  map[string]string // owner -> the lookup's error code
-	checked bool              // false when no lookup ran (a dry run without the API)
-}
-
-func newOwnerState() ownerState {
-	return ownerState{ents: map[string]entitlement{}, failed: map[string]string{}}
-}
-
-// entitlements returns the entitlement of each owner with an email. A dry run
-// without the API settings, or whose transport-wide lookup fails, reports
-// unchecked and goes on. A live run fails on a transport-wide lookup error, before
-// anything is committed, so the watermarks stay and the next run retries.
-func (a *alertRun) entitlements(ctx context.Context, cands []Candidate) (ownerState, error) {
-	st := newOwnerState()
-	if a.env.shortsAPIURL == "" || a.env.internalSecret == "" {
-		log.Printf("alerts: entitlement=unchecked (SHORTS_API_URL or INTERNAL_SERVICE_SECRET is unset)")
-		return st, nil
-	}
+// entitlements asks the shorts API for the entitlement of each owner with a candidate
+// and an address. An answer counts only when the lookup succeeds. Any error, whether
+// the whole API is unreachable or one owner's answer failed, fails the run, so no
+// event is committed as unentitled or waiting because a lookup did not answer. The
+// error names the lookup's code, never the owner. Nothing is committed, the
+// watermarks stay, and the next run retries.
+func (a *alertRun) entitlements(ctx context.Context, cands []Candidate) (map[string]entitlement, error) {
+	ents := map[string]entitlement{}
 	checker := newEntitlementChecker(a.env.shortsAPIURL, a.env.internalSecret)
 	for _, c := range cands {
 		uid := c.Monitor.UserID
 		if c.Monitor.Email == "" {
 			continue
 		}
-		if _, ok := st.ents[uid]; ok {
-			continue
-		}
-		if _, ok := st.failed[uid]; ok {
+		if _, ok := ents[uid]; ok {
 			continue
 		}
 		e, err := checker.check(ctx, uid)
-		if err == nil {
-			st.ents[uid] = e
-			continue
+		if err != nil {
+			return nil, fmt.Errorf("entitlement lookup failed (%s)", lookupCode(err))
 		}
-		if transportWide(err) {
-			if a.opts.dryRun {
-				log.Printf("alerts: entitlement=unchecked: the shorts API lookup failed (%s)", lookupCode(err))
-				return newOwnerState(), nil
-			}
-			return ownerState{}, fmt.Errorf("entitlement lookup failed: %w", err)
-		}
-		st.failed[uid] = lookupCode(err)
-		log.Printf("alerts: entitlement lookup failed for one owner (%s); their alerts wait for the next run", lookupCode(err))
+		ents[uid] = e
 	}
-	st.checked = true
-	return st, nil
+	return ents, nil
 }
 
-// resolveAwaiting re-checks the owners whose events are awaiting a lookup. It
-// returns how many events are still awaiting. A transport-wide failure is returned,
-// and the run stops before delivery.
-func (a *alertRun) resolveAwaiting(ctx context.Context) (int, error) {
-	owners, err := a.st.awaitingOwners(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if len(owners) > 0 {
-		checker := newEntitlementChecker(a.env.shortsAPIURL, a.env.internalSecret)
-		for _, uid := range owners {
-			e, err := checker.check(ctx, uid)
-			if err != nil {
-				if transportWide(err) {
-					return 0, fmt.Errorf("entitlement lookup failed: %w", err)
-				}
-				log.Printf("alerts: entitlement lookup still failing for one owner (%s)", lookupCode(err))
-				continue
-			}
-			if _, err := a.st.resolveOwner(ctx, uid, e); err != nil {
-				return 0, err
-			}
-		}
-	}
-	return a.st.countAwaiting(ctx)
-}
-
-// transportWide reports a lookup failure about the whole API rather than one owner:
-// it is unreachable, timed out, or refuses the job's credential. Any other answer,
-// such as quota, a missing account or a server error for that account, is about
-// that owner alone.
-func transportWide(err error) bool {
-	var ce *connect.Error
-	if !errors.As(err, &ce) {
-		return true
-	}
-	switch ce.Code() {
-	case connect.CodeUnavailable, connect.CodeDeadlineExceeded, connect.CodeUnauthenticated, connect.CodeCanceled:
-		return true
-	}
-	return false
-}
-
-// lookupCode names a lookup failure for the log and the row. It never carries the
+// lookupCode names a lookup failure for the log and the error. It never carries the
 // message, which could name an account.
 func lookupCode(err error) string {
 	var ce *connect.Error
@@ -464,10 +397,11 @@ func lookupCode(err error) string {
 }
 
 // decideRows turns candidates into the rows a commit inserts. A candidate with no
-// email is skipped_no_email. An owner whose own lookup failed is awaiting_entitlement,
-// to be re-checked. One whose owner is not entitled is skipped_unentitled. Everything
-// else is pending for delivery.
-func decideRows(cands []Candidate, owners ownerState) (rows []eventRow, unentitled, noEmail, awaiting int) {
+// address is skipped_no_email. An owner who is not entitled is skipped_unentitled.
+// Everything else is pending for delivery. entitlements fails the run before this
+// point unless every owner with an address has an answer, so a missing answer is a
+// refusal here, not a row that is sent.
+func decideRows(cands []Candidate, ents map[string]entitlement) (rows []eventRow, unentitled, noEmail int, err error) {
 	for _, c := range cands {
 		uid := c.Monitor.UserID
 		row := eventRow{
@@ -476,40 +410,39 @@ func decideRows(cands []Candidate, owners ownerState) (rows []eventRow, unentitl
 			msg:       messageOf(c),
 			status:    alertevents.StatusPending,
 		}
-		code, lookupFailed := owners.failed[uid]
-		switch {
-		case c.Monitor.Email == "":
+		if c.Monitor.Email == "" {
 			row.status = alertevents.StatusSkippedNoEmail
 			noEmail++
-		case owners.checked && lookupFailed:
-			row.status = alertevents.StatusAwaitingEntitlement
-			row.lastError = "entitlement: lookup failed (" + code + ")"
-			awaiting++
-		case owners.checked && !owners.ents[uid].Entitled:
-			row.status = alertevents.StatusSkippedUnentitled
-			row.lastError = "entitlement: status=" + owners.ents[uid].Status
-			unentitled++
+		} else {
+			e, ok := ents[uid]
+			if !ok {
+				return nil, 0, 0, errors.New("no entitlement answer for an owner with an address: refusing to decide their alerts")
+			}
+			if !e.Entitled {
+				row.status = alertevents.StatusSkippedUnentitled
+				row.lastError = "entitlement: status=" + e.Status
+				unentitled++
+			}
 		}
 		rows = append(rows, row)
 	}
-	return rows, unentitled, noEmail, awaiting
+	return rows, unentitled, noEmail, nil
 }
 
 // logCandidates prints a dry run's candidates. Addresses and bodies are never
 // printed. The subject carries only a ticker and figures, and the user id appears
-// only under -verbose.
-func (a *alertRun) logCandidates(cands []Candidate, owners ownerState) {
+// only under -verbose. entitled is "unchecked" when the lookup did not answer.
+func (a *alertRun) logCandidates(cands []Candidate, ents map[string]entitlement) {
 	for _, c := range cands {
 		uid := c.Monitor.UserID
 		entitled := "unchecked"
+		e, answered := ents[uid]
 		switch {
 		case c.Monitor.Email == "":
 			entitled = "no-email"
-		case owners.checked && owners.failed[uid] != "":
-			entitled = "lookup-failed"
-		case owners.checked && owners.ents[uid].Entitled:
+		case answered && e.Entitled:
 			entitled = "yes"
-		case owners.checked:
+		case answered:
 			entitled = "no"
 		}
 		line := fmt.Sprintf("alerts: candidate monitor=%s scope=%s condition=%s target=%s report=%s compared=%s latest=%s previous=%s entitled=%s subject=%q",
@@ -522,7 +455,7 @@ func (a *alertRun) logCandidates(cands []Candidate, owners ownerState) {
 	}
 }
 
-// exitCode is 10 when the run needs a human: a held date, an email that is still
+// exitCode is 10 when// exitCode is 10 when the run needs a human: a held date, an email that is still
 // retrying or has failed, or Resend's quota spent.
 func exitCode(plan Plan, dlv deliveryStats) int {
 	if degradedReason(plan, dlv) != "" {
@@ -541,9 +474,6 @@ func degradedReason(plan Plan, dlv deliveryStats) string {
 			parts = append(parts, fmt.Sprintf("report %s is incomplete, so evaluation stopped before it", plan.Held))
 		}
 	}
-	if dlv.awaiting > 0 {
-		parts = append(parts, fmt.Sprintf("%d alert(s) waiting on an entitlement lookup", dlv.awaiting))
-	}
 	if dlv.retrying > 0 || dlv.failed > 0 {
 		parts = append(parts, fmt.Sprintf("%d email(s) retrying, %d failed", dlv.retrying, dlv.failed))
 	}
@@ -553,13 +483,28 @@ func degradedReason(plan Plan, dlv deliveryStats) string {
 	return strings.Join(parts, "; ")
 }
 
-// planNote is the run row's note: what kind of run this was.
+// planNote is the run row's note: what kind of run this was. The row is the
+// operator's record, so it names the owner of a replay.
 func planNote(plan Plan, opts options) string {
+	return noteOf(plan, opts, true)
+}
+
+// logNote is planNote for the summary line, which is logged. It names a replay's owner
+// only under -verbose, so the user id of an account never reaches the log by default.
+func logNote(plan Plan, opts options) string {
+	return noteOf(plan, opts, opts.verbose)
+}
+
+func noteOf(plan Plan, opts options, withOwner bool) string {
 	var parts []string
 	if opts.date != "" {
 		owner := "all"
-		if opts.user != "" {
+		switch {
+		case opts.user == "":
+		case withOwner:
 			owner = opts.user
+		default:
+			owner = "one"
 		}
 		parts = append(parts, fmt.Sprintf("replay %s user=%s", opts.date, owner))
 	}

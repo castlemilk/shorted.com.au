@@ -16,24 +16,26 @@ covers the design. This runbook covers operating it.
 3. Plans the new daily dates and the new complete weeks, then evaluates every active
    monitor against them. A date with under half the rows of the report before it is held.
 4. Commits the `alert_events` rows and the watermarks in one transaction.
-5. Resolves owners whose entitlement lookup failed on an earlier run (`awaiting_entitlement`).
-6. Sends the canary when mail is about to go out, or once a day. The canary checks that
-   Resend accepts mail and that the one-click pause link verifies end to end.
+5. Sends the canary when mail is about to go out, or at least every 20 hours. The canary
+   checks that Resend accepts mail and that the one-click pause link verifies end to end.
 7. Sends the queued customer emails, one per event, rate-limited.
 
 The exit codes are 0 (success, nothing to do, a sync in progress, a bootstrap, or a dry
-run), 1 (configuration, database, a transport-wide entitlement failure, a canary that is
+run), 1 (configuration, database, an entitlement lookup that did not answer, a canary that is
 rejected or whose pause link does not verify, or a Resend credential failure) and 10
-(DEGRADED: a held date, an email still retrying or failed, alerts awaiting an entitlement
-lookup, or Resend's quota spent). Telesis pages on any non-zero exit.
+(DEGRADED: a held date, an email still retrying or failed, or Resend's quota spent). Telesis
+pages on any non-zero exit.
 
 ## Reading the log
 
 The summary line ends each run:
 
 ```
-alerts: dates=[...] weekly=... monitors=N candidates=N events=N sent=N retrying=N failed=N
-  skipped_unentitled=N skipped_no_email=N awaiting=N canary=ok|skipped|failed exit=N [note="..."]
+alerts: dates=[...] weekly=... monitors=N candidates=N events=N vanished=N sent=N retrying=N failed=N
+  skipped_unentitled=N skipped_no_email=N canary=ok|skipped|failed exit=N [note="..."]
+
+`vanished` counts events whose monitor was deleted after the run read it. Those rows are
+skipped, and the rest of the run commits. A deleted monitor never fails a run.
 ```
 
 - `note="bootstrap"`: the first run only. It sets the watermarks to the newest data and
@@ -119,9 +121,13 @@ Look at the latest ASIC `sync_status` row (the one with `environment` and `hostn
 evaluates the held dates. Do not hand-edit the watermark. A sync that stays failed holds
 alerts, and that is the intended outcome: it pages until the sync is fixed.
 
-**`N alert(s) waiting on an entitlement lookup`.** One owner's lookup failed for that owner alone,
-such as a per-user error from the shorts API. Their events wait as `awaiting_entitlement`
-and are re-checked on every run. They expire after 48 hours. Nobody else is held back.
+**`entitlement lookup failed (CODE): nothing was committed, the next run retries`.** The shorts
+API did not give a definitive answer for an owner, whether the whole API was down or that one
+owner's lookup errored (`resource_exhausted`, `not_found`, `permission_denied`, `internal`, and
+so on). No event is written, the watermarks stay, no email goes out, and the run exits 1. Nothing
+is ever committed as unentitled or waiting because a lookup failed. Look up the code in the log
+and in the API's logs for the owner's request. Once the lookup answers, the next run evaluates
+the same dates. A lookup that keeps failing pages Telesis until it is fixed, by design.
 
 **`alert one-click pause failed: invalid` in the web logs, or `pause link round trip` in the job.**
 The one-click pause path does not verify. The usual cause is that `UNSUBSCRIBE_SECRET` was
@@ -156,6 +162,9 @@ rest `pending` and exits 10. Both resume on the next run.
 - The job's entitlement lookups are exempt from the owner's per-user rate limit, only when
   the internal secret matches and the user agent is `shorted-alerts/`. An owner at their quota
   does not stop their own alert.
+- `SHORTS_API_URL` and `INTERNAL_SERVICE_SECRET` are required for every run, dry runs included.
+  `SHORTS_API_URL` is validated after trimming: an empty value, `/`, a relative path or a URL
+  without a host fails at startup. A run never evaluates entitlement against no origin.
 - Rotating `UNSUBSCRIBE_SECRET` invalidates newsletter and alert links alike. Rotate it in
   Secret Manager, re-run `sync-secrets.sh`, and roll a new shorts API revision. The API reads
   `latest` only when a revision starts.

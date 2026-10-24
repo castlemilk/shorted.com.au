@@ -11,13 +11,14 @@ runbook, which covers the prod smoke test, is `docs/alerts-runbook.md`.
 
 ## Modes
 
-- **Dry run is the default.** A hand run with nothing set writes nothing and sends
-  nothing. The CronJob sets `ALERTS_DRY_RUN=false`. Only that, or `-dry-run=false`,
-  writes.
+- **Dry run is the default.** A hand run writes nothing and sends nothing. The CronJob
+  sets `ALERTS_DRY_RUN=false`. Only that, or `-dry-run=false`, writes. A hand run still needs
+  `SHORTS_API_URL` and `INTERNAL_SERVICE_SECRET`, because it asks the shorts API for each
+  owner's entitlement, and it fails at startup without them.
 - **Replay**: `-date YYYY-MM-DD [-user UID]` evaluates daily monitors for one report
   date. It never moves a watermark. It is the prod smoke test's tool (see the runbook).
 - **Canary**: `-canary auto` (the default) sends a canary to `ALERTS_CANARY_TO`
-  (`delivered@resend.dev`) once a day, and also before any customer mail in a run. The
+  (`delivered@resend.dev`) at least every 20 hours, and also before any customer mail in a run. The
   canary also checks the one-click pause path: its token must reach the API and come back
   NotFound. A rejected canary, or a pause link that does not verify, stops the run with exit 1
   before a customer email goes out.
@@ -39,11 +40,13 @@ runbook, which covers the prod smoke test, is `docs/alerts-runbook.md`.
   internal-auth path. It is **exempt** from the owner's per-user rate limit: the API exempts the
   call only when the internal secret matches and the user agent is `shorted-alerts/`. An owner
   at their monthly quota does not stop their own alert.
-- A lookup failure about the whole API (unavailable, timed out, unauthenticated) fails the run
-  before anything is committed. The watermarks stay, and the next run retries.
-- A failure about one owner (`resource_exhausted`, `not_found`, `permission_denied`, and so on)
-  holds only that owner's events. They wait as `awaiting_entitlement`, and every run re-checks
-  them before the send. They expire after 48 hours. Nobody else is held back.
+- **An answer counts only when the lookup succeeds.** `ACTIVE` and `TRIALING` are entitled.
+  Any other successful answer (no subscription, `CANCELED`, `INACTIVE`, and so on) is not
+  entitled, and its events are `skipped_unentitled`. Any error fails the run before anything is
+  committed, whether the whole API is unreachable or one owner's lookup errored
+  (`resource_exhausted`, `not_found`, `permission_denied`, `internal`, and so on). No event is
+  written, the watermarks stay, no email goes out, and the run exits 1. The next run retries the
+  same dates. Nothing is committed as "unentitled" or "waiting" because a lookup failed.
 
 ## Side effects
 
@@ -65,6 +68,14 @@ runbook, which covers the prod smoke test, is `docs/alerts-runbook.md`.
   and roll a new API revision (re-run `terraform-deploy`, or force one). Until both are done, the
   canary's pause round trip fails and customer mail is held. Links already sent stop working.
 
+## The summary line
+
+Each run ends with one line: `alerts: dates=[...] weekly=... monitors=N candidates=N events=N
+vanished=N sent=N retrying=N failed=N skipped_unentitled=N skipped_no_email=N canary=... exit=N`.
+`vanished` counts events whose monitor was deleted after the run read it: they are skipped, and
+the rest of the run commits. A replay names its owner in the log only under `-verbose`; the run
+row keeps the owner for the operator's record. Addresses, tokens and bodies are never logged.
+
 ## Tests
 
 - `GOWORK=off go test ./internal/jobs/alerts/` from `services/jobs` runs the unit tests
@@ -72,10 +83,11 @@ runbook, which covers the prod smoke test, is `docs/alerts-runbook.md`.
 - The end-to-end suites run `run()` against a real Postgres, the real 000074 and 000147
   migrations, a Resend stub, and a BillingService and AlertsService stub. They are skipped
   without `ALERTS_TEST_DATABASE_URL`. `make test-alerts-e2e` in `services/` starts a throwaway
-  `postgres:15-alpine` for them, and the deploy gate runs it as its own step.
+  `postgres:15-alpine` for them, runs the shorts API's alert store integration tests against the
+  same server, and the deploy gate runs it as its own step.
   - `e2e_pg_test.go` covers the lifecycle and every hold.
-  - `e2e_hardening_pg_test.go` covers an owner's failed lookup, a weekly week beside a held
-    day, and a pause link that does not verify.
+  - `e2e_hardening_pg_test.go` covers every failed lookup (the run fails closed), a monitor
+    deleted after the read, a weekly week beside a held day, and a pause link that does not verify.
   - `e2e_binary_pg_test.go` runs the real binary with its real flags and exit codes.
 - To update the email goldens after an intended wording change:
   `go test ./internal/jobs/alerts/ -run TestEmailGoldens -args -update`.

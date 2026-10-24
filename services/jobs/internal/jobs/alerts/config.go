@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -52,8 +53,27 @@ var writeRequired = []string{
 	"RESEND_API_KEY",
 	"PUBLIC_SITE_URL",
 	"UNSUBSCRIBE_SECRET",
+}
+
+// readRequired are needed by every run, a dry run included. The entitlement lookup
+// decides which candidates are emailed, so a run must never start without the shorts
+// API it asks. A missing origin is refused here, never run as "unchecked".
+var readRequired = []string{
 	"SHORTS_API_URL",
 	"INTERNAL_SERVICE_SECRET",
+}
+
+// shortsOrigin validates the shorts API origin the entitlement lookup calls. It is
+// trimmed first, so a value of only whitespace or "/" is empty and is refused, and it
+// must then be an absolute http or https URL with a host. The error names the
+// requirement and never the value.
+func shortsOrigin(raw string) (string, error) {
+	origin := strings.TrimRight(strings.TrimSpace(raw), "/")
+	u, err := url.Parse(origin)
+	if origin == "" || err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+		return "", errors.New("SHORTS_API_URL must be an absolute http or https URL with a host: the shorts API's Cloud Run origin")
+	}
+	return origin, nil
 }
 
 // parseOptions reads the flags. The dry-run default is the global -dry-run, or
@@ -116,7 +136,6 @@ func loadSettings(dryRun bool, getenv func(string) string) (settings, error) {
 		rps:               2,
 		siteURL:           strings.TrimRight(firstNonEmpty(getenv("PUBLIC_SITE_URL"), "https://shorted.com.au"), "/"),
 		unsubscribeSecret: getenv("UNSUBSCRIBE_SECRET"),
-		shortsAPIURL:      strings.TrimRight(getenv("SHORTS_API_URL"), "/"),
 		internalSecret:    getenv("INTERNAL_SERVICE_SECRET"),
 	}
 	if raw := strings.TrimSpace(getenv("ALERTS_RESEND_RPS")); raw != "" {
@@ -126,18 +145,34 @@ func loadSettings(dryRun bool, getenv func(string) string) (settings, error) {
 		}
 		s.rps = v
 	}
+	// Every missing name is reported at once, never a value. A name that is set is
+	// then checked for its shape: the origin must be a real one.
+	missing := unsetNames(readRequired, getenv)
+	what := "missing required environment"
 	if !dryRun {
-		var missing []string
-		for _, name := range writeRequired {
-			if strings.TrimSpace(getenv(name)) == "" {
-				missing = append(missing, name)
-			}
-		}
-		if len(missing) > 0 {
-			return settings{}, fmt.Errorf("missing required environment for a live run: %s", strings.Join(missing, ", "))
+		missing = append(missing, unsetNames(writeRequired, getenv)...)
+		what += " for a live run"
+	}
+	if len(missing) > 0 {
+		return settings{}, fmt.Errorf("%s: %s", what, strings.Join(missing, ", "))
+	}
+	origin, err := shortsOrigin(getenv("SHORTS_API_URL"))
+	if err != nil {
+		return settings{}, err
+	}
+	s.shortsAPIURL = origin
+	return s, nil
+}
+
+// unsetNames lists the variables that are empty. It names them, never their values.
+func unsetNames(names []string, getenv func(string) string) []string {
+	var missing []string
+	for _, name := range names {
+		if strings.TrimSpace(getenv(name)) == "" {
+			missing = append(missing, name)
 		}
 	}
-	return s, nil
+	return missing
 }
 
 func firstNonEmpty(values ...string) string {

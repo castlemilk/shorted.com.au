@@ -100,55 +100,35 @@ func TestUnsettledSyncHoldsEveryFreshDate(t *testing.T) {
 	}
 }
 
-// The job's classification of a lookup failure: an answer about the whole API or
-// the job's own credential stops the run; an answer about one owner does not.
-func TestTransportWideSeparatesTheAPIFromOneOwner(t *testing.T) {
-	cases := []struct {
-		code connect.Code
-		want bool
-	}{
-		{connect.CodeUnavailable, true},
-		{connect.CodeDeadlineExceeded, true},
-		{connect.CodeUnauthenticated, true},
-		{connect.CodeCanceled, true},
-		{connect.CodeResourceExhausted, false},
-		{connect.CodePermissionDenied, false},
-		{connect.CodeNotFound, false},
-		{connect.CodeInternal, false},
+// A failed lookup is named by its connect code, never by its message, which could name
+// an account.
+func TestLookupCodeNamesTheCodeNotTheMessage(t *testing.T) {
+	if got := lookupCode(connect.NewError(connect.CodeResourceExhausted, errors.New("1000 requests per month for user u1"))); got != "resource_exhausted" {
+		t.Fatalf("lookupCode = %q, want resource_exhausted", got)
 	}
-	for _, tc := range cases {
-		err := connect.NewError(tc.code, errors.New("x"))
-		if got := transportWide(err); got != tc.want {
-			t.Fatalf("transportWide(%v) = %v, want %v", tc.code, got, tc.want)
-		}
-	}
-	if !transportWide(errors.New("connection reset")) {
-		t.Fatal("a non-RPC error is a transport failure")
-	}
-	if got := lookupCode(connect.NewError(connect.CodeResourceExhausted, errors.New("1000 requests per month"))); got != "resource_exhausted" {
-		t.Fatalf("lookupCode = %q", got)
+	if got := lookupCode(errors.New("connection reset by peer")); got != "error" {
+		t.Fatalf("a non-RPC failure reads as %q, want error", got)
 	}
 }
 
-// One owner's failed lookup holds only that owner's events, which wait as awaiting.
-// Every other owner's events are decided as usual.
-func TestDecideRowsHoldsOnlyTheFailedOwner(t *testing.T) {
+// decideRows is the last gate before a commit. Every owner with an address must have
+// an answer; without one the run refuses, and it never sends or commits unentitled.
+func TestDecideRowsRefusesAnOwnerWithNoAnswer(t *testing.T) {
 	cands := []Candidate{
 		{Monitor: Monitor{ID: "m1", UserID: "u1", Email: "a@example.com"}},
-		{Monitor: Monitor{ID: "m2", UserID: "u2", Email: "b@example.com"}},
 		{Monitor: Monitor{ID: "m3", UserID: "u3", Email: "c@example.com"}},
 		{Monitor: Monitor{ID: "m4", UserID: "u4", Email: ""}},
 	}
-	owners := newOwnerState()
-	owners.checked = true
-	owners.ents["u1"] = entitlement{Entitled: true, Status: "ACTIVE"}
-	owners.ents["u3"] = entitlement{Entitled: false, Status: "CANCELED"}
-	owners.failed["u2"] = "resource_exhausted"
-
-	rows, unentitled, noEmail, awaiting := decideRows(cands, owners)
+	ents := map[string]entitlement{
+		"u1": {Entitled: true, Status: "ACTIVE"},
+		"u3": {Entitled: false, Status: "CANCELED"},
+	}
+	rows, unentitled, noEmail, err := decideRows(cands, ents)
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := map[string]string{
 		"m1": alertevents.StatusPending,
-		"m2": alertevents.StatusAwaitingEntitlement,
 		"m3": alertevents.StatusSkippedUnentitled,
 		"m4": alertevents.StatusSkippedNoEmail,
 	}
@@ -157,11 +137,16 @@ func TestDecideRowsHoldsOnlyTheFailedOwner(t *testing.T) {
 			t.Fatalf("%s status = %s, want %s", r.monitorID, r.status, want[r.monitorID])
 		}
 	}
-	if unentitled != 1 || noEmail != 1 || awaiting != 1 {
-		t.Fatalf("counts unentitled=%d noEmail=%d awaiting=%d, want 1 1 1", unentitled, noEmail, awaiting)
+	if unentitled != 1 || noEmail != 1 {
+		t.Fatalf("counts unentitled=%d noEmail=%d, want 1 1", unentitled, noEmail)
 	}
-	if !strings.Contains(rows[1].lastError, "resource_exhausted") {
-		t.Fatalf("the awaiting row should name the lookup code, got %q", rows[1].lastError)
+	if !strings.Contains(rows[1].lastError, "CANCELED") {
+		t.Fatalf("the unentitled row should name the status, got %q", rows[1].lastError)
+	}
+
+	cands = append(cands, Candidate{Monitor: Monitor{ID: "m2", UserID: "u2", Email: "b@example.com"}})
+	if _, _, _, err := decideRows(cands, ents); err == nil {
+		t.Fatal("an owner with an address and no answer must refuse, never decide")
 	}
 }
 

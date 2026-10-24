@@ -8,45 +8,92 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/alertevents"
 )
 
-// TestAlertsE2EOwnerLookupIsolated: one owner's lookup fails for that owner alone.
-// Their alert waits as awaiting_entitlement. Everyone else's is emailed, and the
-// watermark moves, so the failure holds no other customer back. When the lookup
-// recovers, the next run sends the waiting alert.
-func TestAlertsE2EOwnerLookupIsolated(t *testing.T) {
+// TestAlertsE2EOwnerLookupFailsClosed: an entitlement lookup that gives no definitive
+// answer fails the run before anything is committed, whichever way it failed and whether
+// the whole API or one owner's answer did. No event is written, the watermark stays, and
+// no customer mail goes out, not even the other owner's. Once the lookup answers, the
+// next run evaluates the same date and sends each alert exactly once.
+func TestAlertsE2EOwnerLookupFailsClosed(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		code connect.Code
+	}{
+		{"per-owner quota", connect.CodeResourceExhausted},
+		{"no account", connect.CodeNotFound},
+		{"refused for one owner", connect.CodePermissionDenied},
+		{"server error for one owner", connect.CodeInternal},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newE2E(t)
+			e.seedBase()
+			e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
+			e.billing.setStatus("u2", "SUBSCRIPTION_STATUS_ACTIVE")
+			e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+			e.monitor("m2", "u2", u2Email, "stock", "EEE", "short_interest_above", "daily", fp(5), "")
+			e.day("2026-10-13", baseDay0())
+			e.wantExit(e.run(), 0, "bootstrap")
+			e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
+
+			e.billing.failFor("u2", tc.code)
+			e.wantExit(e.run(), 1, "one owner's lookup gave no answer")
+			if d, _ := e.watermarks(); d != "2026-10-13" {
+				t.Fatalf("a failed lookup must not move the watermark, got %s", d)
+			}
+			if got := e.count(`SELECT count(*) FROM alert_events`); got != 0 {
+				t.Fatalf("a failed lookup must commit no event, wrote %d", got)
+			}
+			if got := len(requestsTo(e.resend.snapshot(), u1Email)) + len(requestsTo(e.resend.snapshot(), u2Email)); got != 0 {
+				t.Fatalf("no customer mail may go out past a failed lookup, got %d", got)
+			}
+
+			e.billing.clearFail("u2")
+			e.wantExit(e.run(), 0, "the next run, with the lookup answering")
+			if got := len(requestsTo(e.resend.snapshot(), u1Email)); got != 1 {
+				t.Fatalf("u1 must be emailed once the lookup answers, got %d", got)
+			}
+			if got := len(requestsTo(e.resend.snapshot(), u2Email)); got != 1 {
+				t.Fatalf("u2 must be emailed once the lookup answers, got %d", got)
+			}
+			if got := e.count(`SELECT count(*) FROM alert_events WHERE email_status = 'sent'`); got != 2 {
+				t.Fatalf("both alerts must be sent exactly once, sent = %d", got)
+			}
+		})
+	}
+}
+
+// TestAlertsE2EVanishedMonitorIsSkippedAndCounted: a monitor deleted after the run read
+// it must not fail the run for everyone. The commit skips its row, counts it as vanished,
+// and commits every other row and the watermark as usual.
+func TestAlertsE2EVanishedMonitorIsSkippedAndCounted(t *testing.T) {
 	e := newE2E(t)
 	e.seedBase()
-	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
-	e.billing.setStatus("u2", "SUBSCRIPTION_STATUS_ACTIVE")
 	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
-	e.monitor("m2", "u2", u2Email, "stock", "EEE", "short_interest_above", "daily", fp(5), "")
-	e.day("2026-10-13", baseDay0())
-	e.wantExit(e.run(), 0, "bootstrap")
-	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
-
-	e.billing.failFor("u2", connect.CodeResourceExhausted)
-	e.wantExit(e.run(), 10, "u2's lookup fails, for u2 alone")
-	if d, _ := e.watermarks(); d != "2026-10-14" {
-		t.Fatalf("one owner's lookup must not hold the watermark, got %s", d)
-	}
-	if got := len(requestsTo(e.resend.snapshot(), u1Email)); got != 1 {
-		t.Fatalf("u1 must be emailed, got %d requests", got)
-	}
-	if got := len(requestsTo(e.resend.snapshot(), u2Email)); got != 0 {
-		t.Fatalf("u2 must not be emailed before the lookup works, got %d", got)
-	}
-	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'm2' AND email_status = 'awaiting_entitlement'`); got != 1 {
-		t.Fatalf("u2's alert must wait for its lookup, awaiting = %d", got)
+	base := Message{Scope: "stock", Target: "AAA", Condition: "short_interest_above", Cadence: "daily",
+		Threshold: fp(5), ReportDate: "2026-10-14", ComparedTo: "2026-10-13"}
+	gone := base
+	gone.Target = "EEE"
+	rows := []eventRow{
+		{monitorID: "m1", userID: "u1", msg: base, status: alertevents.StatusPending},
+		{monitorID: "deleted-after-the-read", userID: "u9", msg: gone, status: alertevents.StatusPending},
 	}
 
-	e.billing.clearFail("u2")
-	e.wantExit(e.run(), 0, "the next run resolves the waiting alert")
-	if got := len(requestsTo(e.resend.snapshot(), u2Email)); got != 1 {
-		t.Fatalf("u2's waiting alert must be sent once the lookup works, got %d", got)
+	st := store{pool: e.pool}
+	applied, inserted, vanished, err := st.commit(e.ctx, State{}, State{}, true, 0, rows)
+	if err != nil {
+		t.Fatalf("a vanished monitor must not fail the commit: %v", err)
 	}
-	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'm2' AND email_status = 'sent'`); got != 1 {
-		t.Fatalf("u2's alert must be sent, sent = %d", got)
+	if !applied || inserted != 1 || vanished != 1 {
+		t.Fatalf("applied=%v inserted=%d vanished=%d, want true 1 1", applied, inserted, vanished)
+	}
+	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'm1'`); got != 1 {
+		t.Fatalf("the live monitor's event must commit, events = %d", got)
+	}
+	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'deleted-after-the-read'`); got != 0 {
+		t.Fatalf("the vanished monitor's event must not be written, events = %d", got)
 	}
 }
 

@@ -107,8 +107,47 @@ func env(values map[string]string) func(string) string {
 }
 
 func TestDryRunNeedsNoWriteSettings(t *testing.T) {
-	if _, err := loadSettings(true, env(nil)); err != nil {
+	// A dry run still asks the shorts API, so it needs the origin and the secret, but
+	// none of the write settings.
+	if _, err := loadSettings(true, env(map[string]string{
+		"SHORTS_API_URL":          "https://shorts-api.example.run",
+		"INTERNAL_SERVICE_SECRET": "internal",
+	})); err != nil {
 		t.Fatalf("a dry run needs no write settings: %v", err)
+	}
+	_, err := loadSettings(true, env(nil))
+	if err == nil || !strings.Contains(err.Error(), "SHORTS_API_URL") || strings.Contains(err.Error(), "RESEND_API_KEY") {
+		t.Fatalf("a dry run must name only the read settings it lacks, got %v", err)
+	}
+}
+
+// SHORTS_API_URL is validated after trimming. A value that trims to nothing, such as "/",
+// must fail at startup, so the entitlement lookup can never run against no origin.
+func TestShortsAPIURLMustBeAnAbsoluteOrigin(t *testing.T) {
+	for _, raw := range []string{"", "   ", "/", " / ", "shorts-api.example.run", "/api", "ftp://shorts-api.example.run", "https://", "http://:8080"} {
+		_, err := loadSettings(true, env(map[string]string{
+			"SHORTS_API_URL":          raw,
+			"INTERNAL_SERVICE_SECRET": "internal",
+		}))
+		if err == nil || !strings.Contains(err.Error(), "SHORTS_API_URL") {
+			t.Fatalf("SHORTS_API_URL %q must fail at startup, got %v", raw, err)
+		}
+	}
+	for raw, want := range map[string]string{
+		"https://shorts-api.example.run":     "https://shorts-api.example.run",
+		"  https://shorts-api.example.run/ ": "https://shorts-api.example.run",
+		"http://127.0.0.1:9091":              "http://127.0.0.1:9091",
+	} {
+		s, err := loadSettings(true, env(map[string]string{
+			"SHORTS_API_URL":          raw,
+			"INTERNAL_SERVICE_SECRET": "internal",
+		}))
+		if err != nil {
+			t.Fatalf("SHORTS_API_URL %q: %v", raw, err)
+		}
+		if s.shortsAPIURL != want {
+			t.Fatalf("SHORTS_API_URL %q normalised to %q, want %q", raw, s.shortsAPIURL, want)
+		}
 	}
 }
 

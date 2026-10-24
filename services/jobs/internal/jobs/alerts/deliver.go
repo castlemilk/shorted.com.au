@@ -48,11 +48,10 @@ type deliveryStats struct {
 	canary        string // ok, failed or skipped
 	canaryID      string
 	quota         bool // Resend's quota ran out; the rest were returned to pending
-	awaiting      int  // events still waiting on an entitlement lookup
 }
 
 // wantCanary decides whether this pass sends the canary. auto sends one when mail
-// is about to go out, and otherwise once a day. always sends every pass, and off
+// is about to go out, and otherwise at least every 20 hours. always sends every pass, and off
 // never does.
 func wantCanary(mode string, claimed int, due bool) bool {
 	switch mode {
