@@ -78,10 +78,10 @@ func (e *TurnEngine) run(ctx context.Context, session ModelSession, meta turnMet
 	// First call: a data tool, or answer_without_data when no data is needed.
 	reply, err := session.Send(ctx, SendInput{UserText: userText}, choiceForCall(true, true), emit)
 	if err != nil {
-		recordModelRequest(ctx, meta.Provider, meta.Model, "initial", "error", reply.Usage)
+		recordModelRequest(ctx, meta.Provider, meta.Model, "initial", "error", reply.Usage, 0)
 		return nil, &turnError{ModelReached: providerReached(err), err: err}
 	}
-	recordModelRequest(ctx, meta.Provider, meta.Model, "initial", "success", reply.Usage)
+	recordModelRequest(ctx, meta.Provider, meta.Model, "initial", "success", reply.Usage, 0)
 	totalUsage.Add(reply.Usage)
 	pending := reply.ToolCalls
 
@@ -123,10 +123,10 @@ func (e *TurnEngine) run(ctx context.Context, session ModelSession, meta turnMet
 		// model has answered the first call, so a failure here always counts.
 		reply, err := session.Send(ctx, SendInput{ToolResults: results}, choice, emit)
 		if err != nil {
-			recordModelRequest(ctx, meta.Provider, meta.Model, "tool_response", "error", reply.Usage)
+			recordModelRequest(ctx, meta.Provider, meta.Model, "tool_response", "error", reply.Usage, 0)
 			return nil, &turnError{ModelReached: true, err: err}
 		}
-		recordModelRequest(ctx, meta.Provider, meta.Model, "tool_response", "success", reply.Usage)
+		recordModelRequest(ctx, meta.Provider, meta.Model, "tool_response", "success", reply.Usage, 0)
 		totalUsage.Add(reply.Usage)
 		pending = reply.ToolCalls
 

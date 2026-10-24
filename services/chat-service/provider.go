@@ -23,6 +23,9 @@ type SessionConfig struct {
 	Tools           []ToolDefinition // data tools plus answer_without_data
 	MaxOutputTokens int32
 	Params          ModelParams
+	// EndUser is a pseudonymous id for the caller: "u_" plus a hash of the uid.
+	// It goes to providers that take an end-user field, never a raw uid.
+	EndUser string
 }
 
 // ModelParams is the closed set of knobs an admin may set. Nothing free-form
@@ -61,9 +64,10 @@ const (
 
 // ToolCall is one function call the model asked for.
 type ToolCall struct {
-	ID   string // provider id, or "call_<seq>" when the provider has none
-	Name string
-	Args map[string]any
+	ID        string // provider id, or "call_<seq>" when the provider has none
+	Name      string
+	Args      map[string]any // nil when ArgsError is set
+	ArgsError string         // the model's argument JSON did not parse
 }
 
 // ToolResult answers one ToolCall. JSON is the exact text the model reads.
@@ -86,20 +90,36 @@ type ModelEvent struct {
 	Text string
 }
 
+// FinishReason says why a model call stopped, in provider-neutral terms.
+type FinishReason string
+
+const (
+	FinishStop      FinishReason = "stop"
+	FinishToolCalls FinishReason = "tool_calls"
+	FinishLength    FinishReason = "length"
+	FinishFiltered  FinishReason = "content_filter"
+	FinishOther     FinishReason = "other"
+)
+
 // ModelReply is everything one model call produced.
 type ModelReply struct {
 	Text      string     // all text this call produced (already emitted as deltas)
 	ToolCalls []ToolCall // complete, in model order
 	Usage     TokenUsage
+	Finish    FinishReason
 }
 
 // TokenUsage is the bounded token accounting of one or more model calls.
+// CandidateTokens is the visible output; ReasoningTokens is billed as output too.
 type TokenUsage struct {
 	PromptTokens       int64
 	CachedPromptTokens int64
 	CandidateTokens    int64
 	ReasoningTokens    int64
 	TotalTokens        int64
+	// ReportedCostUSD is the cost the provider billed for the call (OpenRouter
+	// usage.cost). Nil when the provider reports none.
+	ReportedCostUSD *float64
 }
 
 // ProviderError is the only error type a Send returns. Err is already redacted.

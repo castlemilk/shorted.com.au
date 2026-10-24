@@ -17,6 +17,12 @@ func (u *TokenUsage) Add(other TokenUsage) {
 	u.CandidateTokens += other.CandidateTokens
 	u.ReasoningTokens += other.ReasoningTokens
 	u.TotalTokens += other.TotalTokens
+	if other.ReportedCostUSD != nil {
+		if u.ReportedCostUSD == nil {
+			u.ReportedCostUSD = new(float64)
+		}
+		*u.ReportedCostUSD += *other.ReportedCostUSD
+	}
 }
 
 func (u TokenUsage) BillablePromptTokens() int64 {
@@ -36,8 +42,10 @@ func (u TokenUsage) hasTokens() bool {
 }
 
 // recordModelRequest counts one model call. A Gemini call keeps the
-// gemini_request event that the cost queries read, with the same attributes.
-func recordModelRequest(ctx context.Context, provider, model, phase, status string, usage TokenUsage) {
+// gemini_request event that the cost queries read, with the same attributes;
+// every other provider logs llm_request. Both carry the provider and the
+// estimated cost in micro-USD.
+func recordModelRequest(ctx context.Context, provider, model, phase, status string, usage TokenUsage, estCostMicroUSD int64) {
 	attrs := []attribute.KeyValue{
 		attribute.String("feature", "chat"),
 		attribute.String("model", model),
@@ -85,6 +93,8 @@ func recordModelRequest(ctx context.Context, provider, model, phase, status stri
 			"billable_prompt_tokens": usage.BillablePromptTokens(),
 			"candidate_tokens":       usage.CandidateTokens,
 			"total_tokens":           usage.TotalTokens,
+			"provider":               provider,
+			"est_cost_micro_usd":     estCostMicroUSD,
 		}),
 	)
 }
