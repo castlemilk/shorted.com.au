@@ -167,6 +167,29 @@ kubectl -n shorted-jobs patch application shorted-jobs --type merge \
 This stops the CronJobs only. Cloud Scheduler stays paused for cut-over jobs,
 so run them on Cloud Run from `/admin` until one of the two is resumed.
 
+## VKE-native jobs (no Cloud Run twin)
+
+A job that has never run on Cloud Run has no Cloud Run job, no Cloud Scheduler
+trigger and no entry in `local.jobs_on_vke`. `shorted-alerts` is the first. To
+add one:
+
+1. Add the CronJob under `jobs:` in `chart/values.yaml` with **no** `cloudRun:`
+   key.
+2. Add its name to the top-level `vkeNative:` list, and to `enabled:` to make it
+   live.
+3. `chart/tests/render.sh` reads `vkeNative`. It skips the Terraform schedule
+   grep for these names and checks that each one renders a CronJob with no
+   `cloudRun`. `scripts/tests/vke-jobs-cutover.test.mjs` exempts them from the
+   pause-wiring checks and asserts that they have no Cloud Scheduler pause, no
+   quoted name in `main.tf` and no `cloudRun` block.
+4. Register its Telesis monitor with `scripts/register-monitors.py`, as for any
+   CronJob.
+
+Not done yet: `/admin` (`list_async_jobs`) cannot see these jobs, because
+`cluster.go` maps only paused Cloud Scheduler triggers to monitors. Until it can,
+read their state with `kubectl -n shorted-jobs get cronjob` and the Telesis
+monitor.
+
 ## Operating
 
 ```bash
