@@ -297,6 +297,7 @@ func (w wiredPublicStore) CanonicalIndustry(t string) (string, bool, error) {
 }
 func (w wiredPublicStore) StockCodeKnown(c string) (bool, error) { return w.f.StockCodeKnown(c) }
 func (w wiredPublicStore) AlertCheckedThrough() (string, error)  { return w.f.AlertCheckedThrough() }
+
 // GetAPISubscription answers the entitlement lookup the shared rule makes: an active Premium row.
 func (w wiredPublicStore) GetAPISubscription(userID string) (*shortsstore.APISubscription, error) {
 	return activeRow("premium"), nil

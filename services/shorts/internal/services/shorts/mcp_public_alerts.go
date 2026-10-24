@@ -288,8 +288,15 @@ func publicAddressError(err error) error {
 	case strings.Contains(msg, "admin users") || strings.Contains(msg, "HTTP ") ||
 		strings.Contains(msg, "not deployed") || strings.Contains(msg, "still rolling out") ||
 		strings.Contains(msg, "web app") || strings.Contains(msg, "INTERNAL_SERVICE_SECRET"):
-		return errors.New(publicAccountService)
+		return publicMessage(publicAccountService)
 	default:
-		return errors.New(publicAddressUnverified)
+		return publicMessage(publicAddressUnverified)
 	}
 }
+
+// publicMessage is an error whose text a public caller reads as written. It is
+// a sentence, so it starts with a capital letter, which is why it is not built
+// with errors.New (staticcheck ST1005 holds Go error strings to lower case).
+type publicMessage string
+
+func (m publicMessage) Error() string { return string(m) }
