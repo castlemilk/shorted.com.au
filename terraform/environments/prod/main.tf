@@ -915,9 +915,12 @@ module "shorted_job_alerts_replay" {
   schedule = ""
 
   env = {
-    ENVIRONMENT     = "production"
-    ALERTS_DRY_RUN  = "false"
-    PUBLIC_SITE_URL = "https://shorted.com.au"
+    ENVIRONMENT    = "production"
+    ALERTS_DRY_RUN = "false"
+    # The live run is fenced to one owner's one day (config.go: ALERTS_REPLAY_ONLY).
+    # The scheduled CronJob shorted-alerts does NOT set it, and must not.
+    ALERTS_REPLAY_ONLY = "true"
+    PUBLIC_SITE_URL    = "https://shorted.com.au"
     # The Cloud Run ORIGIN for the entitlement lookup (see the chart's shorted-alerts
     # comment): a lookup through the public hostname lands in the anonymous bucket.
     SHORTS_API_URL  = module.shorts_api.service_url

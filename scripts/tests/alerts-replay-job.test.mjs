@@ -36,6 +36,16 @@ test("the job is never scheduled and never on the reporter's watch list", () => 
   assert.match(vkeValues, /^vkeNative:\s*\n\s+-\s+shorted-alerts\s*$/m);
 });
 
+test("the replay job is fenced to one owner's one day; the scheduled CronJob is not", () => {
+  // The jobs binary refuses a live run without -date and -user when this is set
+  // (services/jobs/internal/jobs/alerts/config.go). Only the replay job sets it.
+  assert.match(job, /ALERTS_REPLAY_ONLY\s+=\s+"true"/);
+  const cronBlock = vkeValues.slice(vkeValues.indexOf("\n  shorted-alerts:"));
+  const cron = cronBlock.slice(0, cronBlock.indexOf("\n  shorted-", 5) > 0 ? cronBlock.indexOf("\n  shorted-", 5) : cronBlock.length);
+  assert.ok(cron.includes("args: [\"alerts\"]"), "the CronJob block was not found");
+  assert.doesNotMatch(cron, /ALERTS_REPLAY_ONLY/, "the scheduled sweep must not be fenced");
+});
+
 test("the deployed args are a dry run, so a bare execution sends no mail", () => {
   assert.match(job, /args\s+=\s+\["alerts", "-dry-run"\]/);
   // The live setting is the environment, and it is only reached by an override
