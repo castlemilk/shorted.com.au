@@ -84,6 +84,45 @@ describe("ChatDataTable semantics", () => {
   });
 });
 
+describe("ChatDataTable long tables", () => {
+  const many: Row[] = Array.from({ length: 12 }, (_, i) => ({
+    id: `r${i}`,
+    name: `Row ${i}`,
+    value: i,
+  }));
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("makes its scrolling region the containing block of the screen-reader text in its cells", () => {
+    render(<ChatDataTable caption="Twelve things" columns={columns} rows={many} rowKey={(r) => r.id} />);
+    expect(screen.getByRole("region", { name: "Twelve things" }).className).toContain("relative");
+  });
+
+  it("fades the foot of a long table and says so while more of it lies below, and not once it is in view", () => {
+    // jsdom has no layout: a 600px table in a 300px window, scrolled to the top.
+    let scrolled = 0;
+    jest.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(600);
+    jest.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(300);
+    jest.spyOn(Element.prototype, "scrollTop", "get").mockImplementation(() => scrolled);
+
+    render(<ChatDataTable caption="Twelve things" columns={columns} rows={many} rowKey={(r) => r.id} />);
+    expect(screen.getByTestId("chat-table-more-below")).toBeInTheDocument();
+    expect(screen.getByText("Scroll to see more rows.")).toBeInTheDocument();
+
+    scrolled = 300;
+    fireEvent.scroll(screen.getByRole("region", { name: "Twelve things" }));
+    expect(screen.queryByTestId("chat-table-more-below")).not.toBeInTheDocument();
+    expect(screen.queryByText("Scroll to see more rows.")).not.toBeInTheDocument();
+  });
+
+  it("shows no foot fade for a table that fits its window", () => {
+    render(<ChatDataTable caption="Two things" columns={columns} rows={rows} rowKey={(r) => r.id} />);
+    expect(screen.queryByTestId("chat-table-more-below")).not.toBeInTheDocument();
+  });
+});
+
 describe("ChatDataTable fit and scrolling", () => {
   const many: Row[] = Array.from({ length: 12 }, (_, i) => ({
     id: `r${i}`,

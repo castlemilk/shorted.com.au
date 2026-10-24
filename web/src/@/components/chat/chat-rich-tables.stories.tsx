@@ -40,6 +40,22 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/**
+ * A table's screen-reader text is absolutely positioned, and it must be positioned
+ * against the scroll region. Positioned against the wrapper around the region, it
+ * widens the page's scrollable area, and the conversation scrolls into the empty
+ * space below a long table. Each such text's offset parent must sit inside the region.
+ */
+async function expectHiddenTextInRegion(canvasElement: HTMLElement, regionName: string) {
+  const canvas = within(canvasElement);
+  const region = await canvas.findByRole("region", { name: regionName });
+  const hidden = region.querySelectorAll<HTMLElement>(".sr-only");
+  expect(hidden.length).toBeGreaterThan(0);
+  for (const element of hidden) {
+    expect(region.contains(element.offsetParent)).toBe(true);
+  }
+}
+
 /** The most-shorted answer with 10 rows and a sparkline on each. Recorded 2026-10-24. */
 export const TopShortsLight: Story = {
   decorators: [themed("light", 720)],
@@ -56,10 +72,19 @@ export const TopShortsDark: Story = {
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
 };
 
-/** Fifty rows: the budget cleared the sparklines below the top seven, so those rows read as dashes. */
+/**
+ * Fifty rows: the budget cleared the sparklines below the top seven, so those rows read
+ * as dashes. The window holds the table to a scrolling region, and the region names the
+ * rest with a fade at its foot.
+ */
 export const TopShortsFifty: Story = {
   decorators: [themed("light", 720)],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
+  play: async ({ canvasElement }) => {
+    await expectHiddenTextInRegion(canvasElement, "Most shorted ASX stocks");
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByTestId("chat-table-more-below")).toBeInTheDocument();
+  },
 };
 
 /** A phone-width bubble: the table scrolls sideways inside the bubble, not the page. */
@@ -78,7 +103,8 @@ export const TopShortsSidebarLight: Story = {
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByTestId("chat-table-more")).toBeInTheDocument();
+    // The fade is measured after mount (and again once the sparklines load), so it is awaited.
+    await expect(await canvas.findByTestId("chat-table-more")).toBeInTheDocument();
   },
 };
 
@@ -102,12 +128,19 @@ export const DirectorTradesSidebarDark: Story = {
   ),
 };
 
-/** The fifty-row answer the budget trimmed to thirty-six trades: the footer names the eight left out. */
+/**
+ * The fifty-row answer the budget trimmed to thirty-six trades: the footer names the
+ * eight left out. Every row's Notice link carries screen-reader text, which must stay
+ * inside the scrolling region rather than widen the conversation.
+ */
 export const DirectorTradesTrimmedLight: Story = {
   decorators: [themed("light", 333)],
   render: () => (
     <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp50))!} code="BHP" />
   ),
+  play: async ({ canvasElement }) => {
+    await expectHiddenTextInRegion(canvasElement, "Director trades in BHP");
+  },
 };
 
 /** The peers with the subject first and marked. Recorded 2026-10-24. */
