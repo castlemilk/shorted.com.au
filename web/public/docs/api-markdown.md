@@ -172,6 +172,26 @@ curl -A 'my-app/1.0' \
 curl -A 'my-app/1.0' 'https://api.shorted.com.au/v1/panel?from=VALUE&to=VALUE'
 ```
 
+### shorts.v1alpha1.AlertsService
+
+#### `POST /shorts.v1alpha1.AlertsService/PauseAlertMonitorByToken`
+
+Pause the monitor named by a signed email token (one-click unsubscribe). No session.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `token` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.AlertsService/PauseAlertMonitorByToken' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 ### shorts.v1alpha1.EconomyService
 
 #### `POST /shorts.v1alpha1.EconomyService/GetEconomicSeries`
