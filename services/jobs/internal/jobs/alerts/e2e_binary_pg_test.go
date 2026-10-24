@@ -216,7 +216,7 @@ func TestAlertsE2EEveryCombinationBinary(t *testing.T) {
 	}
 
 	// The unsubscribe link in a1's email names a1 and only a1.
-	a1Key := fmt.Sprintf("alert-event-%d", fired["a1"].id)
+	a1Key := idempotencyKey("event", fired["a1"].id, fired["a1"].createdAt)
 	var a1Mail *resendReq
 	for _, r := range e.resend.snapshot() {
 		if r.key == a1Key {

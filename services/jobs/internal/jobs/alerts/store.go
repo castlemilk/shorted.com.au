@@ -217,18 +217,21 @@ func (s store) hasDeliveryWork(ctx context.Context) (bool, error) {
 	return work, err
 }
 
-// insertRun opens a run row. Its id is the canary's idempotency key.
-func (s store) insertRun(ctx context.Context, execution, note string, daily []Date, weekly Date) (int64, error) {
+// insertRun opens a run row. Its id and start time make the canary's idempotency key.
+func (s store) insertRun(ctx context.Context, execution, note string, daily []Date, weekly Date) (int64, time.Time, error) {
 	var dates []string
 	for _, d := range daily {
 		dates = append(dates, string(d))
 	}
-	var id int64
+	var (
+		id      int64
+		started time.Time
+	)
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO alert_evaluator_runs (execution, note, daily_dates, weekly_report_date)
 		VALUES (NULLIF($1, ''), NULLIF($2, ''), $3::date[], NULLIF($4, '')::date)
-		RETURNING id`, execution, note, dates, string(weekly)).Scan(&id)
-	return id, err
+		RETURNING id, started_at`, execution, note, dates, string(weekly)).Scan(&id, &started)
+	return id, started, err
 }
 
 // runResult is what a finished run records.
@@ -423,6 +426,7 @@ type claimed struct {
 	attempts  int
 	email     string // the monitor's user_email now
 	monStatus string // the monitor's status now; "" when the monitor is gone
+	createdAt time.Time
 }
 
 // claim takes up to max pending rows in one statement. SKIP LOCKED keeps two
@@ -442,7 +446,7 @@ func (s store) claim(ctx context.Context, max int, userID string) ([]claimed, er
 		  RETURNING *)
 		SELECT t.id, t.monitor_id, t.user_id, t.scope, t.target, t.condition, t.threshold, t.cadence,
 		       t.report_date::text, t.compared_to_date::text, t.latest_percent, t.previous_percent,
-		       t.payload, t.email_attempts, COALESCE(m.user_email, ''), COALESCE(m.status, '')
+		       t.payload, t.email_attempts, COALESCE(m.user_email, ''), COALESCE(m.status, ''), t.created_at
 		  FROM taken t
 		  LEFT JOIN alert_monitors m ON m.id = t.monitor_id
 		 ORDER BY t.id`, max, userID)
@@ -460,7 +464,7 @@ func (s store) claim(ctx context.Context, max int, userID string) ([]claimed, er
 		)
 		if err := rows.Scan(&c.id, &c.monitorID, &c.userID, &c.msg.Scope, &c.msg.Target, &c.msg.Condition,
 			&c.msg.Threshold, &c.msg.Cadence, &report, &compare, &c.msg.Latest, &c.msg.Previous,
-			&payload, &c.attempts, &c.email, &c.monStatus); err != nil {
+			&payload, &c.attempts, &c.email, &c.monStatus, &c.createdAt); err != nil {
 			return nil, fmt.Errorf("scan claim: %w", err)
 		}
 		c.msg.ReportDate, c.msg.ComparedTo = Date(report), Date(compare)

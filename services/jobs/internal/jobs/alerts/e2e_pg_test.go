@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -441,13 +442,14 @@ type evRow struct {
 	reportDate string
 	comparedTo string
 	payload    alertevents.Payload
+	createdAt  time.Time
 }
 
 func (e *e2e) events(where string, args ...any) []evRow {
 	e.t.Helper()
 	rows, err := e.pool.Query(e.ctx, `
 		SELECT id, monitor_id, email_status, email_attempts, COALESCE(last_error, ''), COALESCE(resend_id, ''),
-		       report_date::text, compared_to_date::text, payload
+		       report_date::text, compared_to_date::text, payload, created_at
 		  FROM alert_events `+where+` ORDER BY id`, args...)
 	if err != nil {
 		e.t.Fatalf("query events: %v", err)
@@ -459,7 +461,7 @@ func (e *e2e) events(where string, args ...any) []evRow {
 			r       evRow
 			payload []byte
 		)
-		if err := rows.Scan(&r.id, &r.monitorID, &r.status, &r.attempts, &r.lastError, &r.resendID, &r.reportDate, &r.comparedTo, &payload); err != nil {
+		if err := rows.Scan(&r.id, &r.monitorID, &r.status, &r.attempts, &r.lastError, &r.resendID, &r.reportDate, &r.comparedTo, &payload, &r.createdAt); err != nil {
 			e.t.Fatal(err)
 		}
 		if err := json.Unmarshal(payload, &r.payload); err != nil {
@@ -624,7 +626,7 @@ func TestAlertsE2ELifecycle(t *testing.T) {
 	m1Event := e.events(`WHERE monitor_id = 'm1' AND report_date = '2026-10-14'`)[0]
 	mustExec(t, e.pool, `UPDATE alert_events SET email_status = 'sending', send_claimed_at = now() - interval '45 minutes', sent_at = NULL, resend_id = NULL WHERE id = $1`, m1Event.id)
 	e.wantExit(e.run(), 0, "stuck send")
-	key := fmt.Sprintf("alert-event-%d", m1Event.id)
+	key := idempotencyKey("event", m1Event.id, m1Event.createdAt)
 	if got := e.resend.acceptedFor(key); got != 1 {
 		t.Fatalf("a retried send was delivered %d times", got)
 	}

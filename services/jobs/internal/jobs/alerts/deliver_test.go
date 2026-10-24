@@ -3,6 +3,7 @@ package alerts
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/resend"
 )
@@ -63,5 +64,27 @@ func TestDegradedReasonCoversEveryNotSentCase(t *testing.T) {
 	}
 	if exitCode(Plan{}, deliveryStats{}) != 0 || exitCode(Plan{}, deliveryStats{failed: 1}) != exitDegraded {
 		t.Fatal("exit codes drifted")
+	}
+}
+
+// TestIdempotencyKeyIsStablePerRowAndUniqueAcrossDatabases pins the two properties
+// Resend's account-wide 24-hour key window needs. A retry of one row must reuse its
+// key, so a crash after the send is deduplicated. Row 1 of another database, such as
+// a test run on the same Resend account, must not, or Resend refuses the real email
+// with 409 invalid_idempotent_request.
+func TestIdempotencyKeyIsStablePerRowAndUniqueAcrossDatabases(t *testing.T) {
+	created := time.Date(2026, 10, 24, 9, 46, 26, 123456000, time.UTC)
+	key := idempotencyKey("event", 1, created)
+	if want := "alert-event-1-1792835186123456"; key != want {
+		t.Fatalf("key = %q, want %q", key, want)
+	}
+	if again := idempotencyKey("event", 1, created.In(time.FixedZone("AEST", 10*3600))); again != key {
+		t.Fatalf("the same instant in another zone gave %q, want %q", again, key)
+	}
+	if other := idempotencyKey("event", 1, created.Add(time.Microsecond)); other == key {
+		t.Fatalf("row 1 of another database reused key %q", key)
+	}
+	if canary := idempotencyKey("canary", 1, created); canary == key {
+		t.Fatalf("a canary and an event share key %q", key)
 	}
 }

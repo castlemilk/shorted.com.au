@@ -148,6 +148,14 @@ account you control, on a report date that is known to have crossed a level.
 
 ## Troubleshooting
 
+**`canary=failed` with `resend: permanent (status 409, invalid_idempotent_request)`.**
+Resend refused an idempotency key it had seen in the last 24 hours with a different body.
+Keys are account-wide, and the account also sends from test databases and other products.
+Every key is `alert-<kind>-<row id>-<row created_at in µs>`: the canary uses the run row, and a customer email uses its event row.
+A collision therefore means two keys built from a bare id, as before this fix (prod's first run reused
+`alert-canary-1` from a test run that morning), or a sender outside this job. Find the other sender in
+Resend's dashboard under the same key. The run held customer mail, so the next run sends it once its canary passes.
+
 **A date is held, and the log says `report ... is held: the latest ASIC sync did not complete`.**
 Look at the latest ASIC `sync_status` row (the one with `environment` and `hostname` set). Once a sync completes, the next run
 evaluates the held dates. Do not hand-edit the watermark. A sync that stays failed holds
