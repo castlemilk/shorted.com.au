@@ -43,14 +43,25 @@ type Tag struct {
 
 // Email is the body of POST /emails.
 type Email struct {
-	From    string            `json:"from"`
-	To      []string          `json:"to"`
-	ReplyTo string            `json:"reply_to,omitempty"`
-	Subject string            `json:"subject"`
-	HTML    string            `json:"html"`
-	Text    string            `json:"text"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Tags    []Tag             `json:"tags,omitempty"`
+	From        string            `json:"from"`
+	To          []string          `json:"to"`
+	ReplyTo     string            `json:"reply_to,omitempty"`
+	Subject     string            `json:"subject"`
+	HTML        string            `json:"html"`
+	Text        string            `json:"text"`
+	Headers     map[string]string `json:"headers,omitempty"`
+	Tags        []Tag             `json:"tags,omitempty"`
+	Attachments []Attachment      `json:"attachments,omitempty"`
+}
+
+// Attachment is one file on an email. Content is the file's bytes, base64
+// encoded. A ContentID makes the file inline: the HTML refers to it as
+// <img src="cid:ID">, and Resend embeds it instead of listing it as a download.
+type Attachment struct {
+	Filename    string `json:"filename"`
+	Content     string `json:"content"`
+	ContentType string `json:"content_type,omitempty"`
+	ContentID   string `json:"content_id,omitempty"`
 }
 
 // Kind classifies a failed send. What the caller does next depends on it.

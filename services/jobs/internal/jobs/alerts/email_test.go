@@ -281,8 +281,9 @@ func TestLookbackFiguresAreLabelledWithTheirOwnDate(t *testing.T) {
 	if !strings.Contains(r.Text, "compared with Thu 15 Oct 2026") {
 		t.Fatalf("the intro must still name the compared report:\n%s", r.Text)
 	}
-	if !strings.Contains(r.HTML, "4.10% (Wed 14 Oct 2026)") {
-		t.Fatal("the HTML twin must carry the same label")
+	// The HTML sets the short date on its own line under the figure.
+	if !strings.Contains(r.HTML, "4.10%") || !strings.Contains(r.HTML, ">14 Oct<") {
+		t.Fatal("the HTML twin must carry the figure and its own short report date")
 	}
 }
 

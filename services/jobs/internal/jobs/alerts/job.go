@@ -290,6 +290,10 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 		return sum, nil
 	}
 
+	// Phase 9b: the detail each event carries. It is stored with the event, so it is
+	// decided before any row is, and it never fails the run.
+	a.enrich(ctx, cands, snap, companies)
+
 	// Decide every row before the run row exists, so a refusal writes nothing.
 	rows, unentitled, noEmail, err := decideRows(cands, ents)
 	if err != nil {

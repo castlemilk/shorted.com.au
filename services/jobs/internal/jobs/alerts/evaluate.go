@@ -81,10 +81,12 @@ type Monitor struct {
 	CreatedAt time.Time
 }
 
-// CompanyInfo is the metadata the evaluator needs for one code.
+// CompanyInfo is the metadata the evaluator needs for one code. LogoURL is the
+// icon when there is one, else the full logo, and empty when neither exists.
 type CompanyInfo struct {
 	Name     string
 	Industry string
+	LogoURL  string
 }
 
 // Snapshot is the report window the planner and the evaluator read: the newest
@@ -98,10 +100,13 @@ type Snapshot struct {
 	// means settled, so a snapshot built without the sync state evaluates as before.
 	SyncUnsettled bool
 
-	rows    map[Date]map[string]float64 // raw percent by code, per date
-	names   map[string]string
-	members map[string][]string // industry slug -> codes, sorted
-	index   map[Date]int        // position of each date in Dates
+	rows map[Date]map[string]float64 // raw percent by code, per date
+	// unranked are codes left out of the market ranking: the product lines the site's
+	// top-shorts view also excludes, such as DEFERRED SETTLEMENT.
+	unranked map[string]bool
+	names    map[string]string
+	members  map[string][]string // industry slug -> codes, sorted
+	index    map[Date]int        // position of each date in Dates
 }
 
 // NewSnapshot indexes a window of readings. rows maps each report date to the
@@ -189,6 +194,32 @@ func (s *Snapshot) ranked(slug string, d Date) []string {
 		out = append(out, e.code)
 	}
 	return out
+}
+
+// marketRank is code's place by short percent among every code with a positive
+// reading on d, ties broken by code as ranked does. It returns rank 0 when the code
+// has no positive reading that day, and the count of codes that do.
+func (s *Snapshot) marketRank(code string, d Date) (rank, ranked int) {
+	readings := s.rows[d]
+	for c, x := range readings {
+		if x > 0 && !s.unranked[c] {
+			ranked++
+		}
+	}
+	v, ok := readings[code]
+	if !ok || v <= 0 || s.unranked[code] {
+		return 0, ranked
+	}
+	rank = 1
+	for c, x := range readings {
+		if c == code || x <= 0 || s.unranked[c] {
+			continue
+		}
+		if x > v || (x == v && c < code) {
+			rank++
+		}
+	}
+	return rank, ranked
 }
 
 // topTen is the industry's ranked set on d: the first ten of ranked.

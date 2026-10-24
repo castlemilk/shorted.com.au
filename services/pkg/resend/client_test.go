@@ -258,3 +258,25 @@ func TestParseRetryAfter(t *testing.T) {
 		t.Fatal("Retry-After parsing drifted")
 	}
 }
+
+// Inline attachments use Resend's documented shape: content base64, and a
+// content_id that the HTML references as cid:. An email without attachments
+// carries no attachments key at all.
+func TestEmailAttachmentJSONShape(t *testing.T) {
+	e := Email{
+		From: "a@example.test", To: []string{"b@example.test"}, Subject: "s", HTML: "<img src=\"cid:chart\">", Text: "t",
+		Attachments: []Attachment{{Filename: "chart.png", Content: "aGk=", ContentType: "image/png", ContentID: "chart"}},
+	}
+	got, err := json.Marshal(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `"attachments":[{"filename":"chart.png","content":"aGk=","content_type":"image/png","content_id":"chart"}]`
+	if !strings.Contains(string(got), want) {
+		t.Fatalf("attachment JSON = %s, want it to contain %s", got, want)
+	}
+	plain, _ := json.Marshal(Email{From: "a", To: []string{"b"}, Subject: "s", HTML: "h", Text: "t"})
+	if strings.Contains(string(plain), "attachments") {
+		t.Fatalf("an email without attachments must omit the key: %s", plain)
+	}
+}
