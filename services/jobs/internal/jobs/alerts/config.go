@@ -121,6 +121,12 @@ func parseOptions(args []string, g runner.Globals, out io.Writer) (options, erro
 	if o.user != "" && o.date == "" {
 		return options{}, errors.New("-user needs -date: a replay is for one day and one owner")
 	}
+	// ALERTS_REPLAY_ONLY is set on the admin replay job (shorted-alerts-replay). That
+	// job exists only to replay one owner's day, so a live run without both flags is
+	// refused: no argument mix can make it the scheduled sweep. A dry run is unaffected.
+	if !o.dryRun && platform.GetEnvBool("ALERTS_REPLAY_ONLY", false) && (o.date == "" || o.user == "") {
+		return options{}, errors.New("ALERTS_REPLAY_ONLY is set: a live run needs -date and -user together, one owner's one day")
+	}
 	return o, nil
 }
 

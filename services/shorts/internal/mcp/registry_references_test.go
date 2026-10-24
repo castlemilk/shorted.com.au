@@ -160,10 +160,16 @@ func dedupe(in []string) []string {
 // another tool already serves.
 func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	// One bounded mention tool and the market entrypoint metadata add 2 KiB.
+	//
+	// 99 KiB still holds. The anonymous list measures 100,395 bytes with the discovery tool
+	// manage_my_alerts (about 0.5 KiB of it), against 99,833 before it, so the ceiling is
+	// unchanged. Headroom is 981 bytes: the next tool that adds more than that needs a
+	// deliberate look at this number, not a silent raise.
 	const budget = 99 * 1024
 
 	ctx := context.Background()
-	server := NewServer(&fakeDataSource{})
+	// The list an anonymous session pays for: the base server, including the discovery tool.
+	server := anonymousServer(&fakeDataSource{}, &recordingAlerts{})
 
 	clientTransport, serverTransport := sdk.NewInMemoryTransports()
 	serverSession, err := server.Connect(ctx, serverTransport, nil)

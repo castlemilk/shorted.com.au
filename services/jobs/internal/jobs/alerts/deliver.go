@@ -34,6 +34,7 @@ type deliverOpts struct {
 	rps        float64
 	userID     string // a replay's owner, or "" for every owner
 	runID      int64
+	runStarted time.Time
 	// pauseClient proves the one-click pause path before a canary goes out.
 	pauseClient shortsv1alpha1connect.AlertsServiceClient
 }
@@ -48,6 +49,17 @@ type deliveryStats struct {
 	canary        string // ok, failed or skipped
 	canaryID      string
 	quota         bool // Resend's quota ran out; the rest were returned to pending
+}
+
+// idempotencyKey names one email to Resend. Resend holds a key for 24 hours across
+// the whole account, and that account also sends from test databases and other
+// products, so a bare row id is not unique: prod's first run reused
+// "alert-canary-1" from a test run earlier that day, and Resend refused it with
+// 409 invalid_idempotent_request. The row's creation time, read back from the
+// database on every attempt, keeps the key the same for a retry of one row and
+// different between databases.
+func idempotencyKey(kind string, id int64, created time.Time) string {
+	return fmt.Sprintf("alert-%s-%d-%d", kind, id, created.UnixMicro())
 }
 
 // wantCanary decides whether this pass sends the canary. auto sends one when mail
@@ -81,7 +93,7 @@ func deliver(ctx context.Context, st store, client *resend.Client, env settings,
 	stats.claimed = len(rows)
 
 	if wantCanary(o.canaryMode, len(rows), o.canaryDue) {
-		if err := sendCanary(ctx, st, client, env, o.pauseClient, o.runID, &stats); err != nil {
+		if err := sendCanary(ctx, st, client, env, o.pauseClient, o.runID, o.runStarted, &stats); err != nil {
 			ids := make([]int64, 0, len(rows))
 			for _, c := range rows {
 				ids = append(ids, c.id)
@@ -93,6 +105,7 @@ func deliver(ctx context.Context, st store, client *resend.Client, env settings,
 		}
 	}
 
+	charts := newChartMemo()
 	var tick <-chan time.Time
 	if o.rps > 0 {
 		t := time.NewTicker(time.Duration(float64(time.Second) / o.rps))
@@ -123,7 +136,7 @@ func deliver(ctx context.Context, st store, client *resend.Client, env settings,
 			continue
 		}
 
-		r, err := renderMessage(env.siteURL, env.unsubscribeSecret, c.monitorID, c.msg)
+		r, err := renderMessageCharts(charts, env.siteURL, env.unsubscribeSecret, c.monitorID, c.msg)
 		if err != nil {
 			if err := st.markFailed(ctx, c.id, "render: "+err.Error()); err != nil {
 				return stats, err
@@ -132,7 +145,7 @@ func deliver(ctx context.Context, st store, client *resend.Client, env settings,
 			continue
 		}
 		email := toEmail(r, env.from, env.replyTo, c.email)
-		resendID, sendErr := client.Send(ctx, email, fmt.Sprintf("alert-event-%d", c.id))
+		resendID, sendErr := client.Send(ctx, email, idempotencyKey("event", c.id, c.createdAt))
 		if sendErr == nil {
 			if err := st.markSent(ctx, c.id, resendID); err != nil {
 				return stats, err
@@ -184,7 +197,7 @@ func deliver(ctx context.Context, st store, client *resend.Client, env settings,
 // sendCanary sends the fixed stock-above fixture through the same template, key,
 // sender and headers as a customer email. A success is recorded as the day's
 // proof. The key is per run, so a retry of the same run does not send twice.
-func sendCanary(ctx context.Context, st store, client *resend.Client, env settings, pause shortsv1alpha1connect.AlertsServiceClient, runID int64, stats *deliveryStats) error {
+func sendCanary(ctx context.Context, st store, client *resend.Client, env settings, pause shortsv1alpha1connect.AlertsServiceClient, runID int64, runStarted time.Time, stats *deliveryStats) error {
 	if err := verifyPauseLink(ctx, pause, env.unsubscribeSecret); err != nil {
 		stats.canary = "failed"
 		return err
@@ -194,7 +207,7 @@ func sendCanary(ctx context.Context, st store, client *resend.Client, env settin
 		stats.canary = "failed"
 		return err
 	}
-	id, err := client.Send(ctx, toEmail(r, env.from, env.replyTo, env.canaryTo), fmt.Sprintf("alert-canary-%d", runID))
+	id, err := client.Send(ctx, toEmail(r, env.from, env.replyTo, env.canaryTo), idempotencyKey("canary", runID, runStarted))
 	if err != nil {
 		stats.canary = "failed"
 		return err
@@ -229,14 +242,15 @@ func verifyPauseLink(ctx context.Context, pause shortsv1alpha1connect.AlertsServ
 // toEmail assembles the Resend body for one recipient.
 func toEmail(r rendered, from, replyTo, to string) resend.Email {
 	return resend.Email{
-		From:    from,
-		To:      []string{to},
-		ReplyTo: replyTo,
-		Subject: r.Subject,
-		HTML:    r.HTML,
-		Text:    r.Text,
-		Headers: r.Headers,
-		Tags:    r.Tags,
+		From:        from,
+		To:          []string{to},
+		ReplyTo:     replyTo,
+		Subject:     r.Subject,
+		HTML:        r.HTML,
+		Text:        r.Text,
+		Headers:     r.Headers,
+		Tags:        r.Tags,
+		Attachments: r.Attachments,
 	}
 }
 

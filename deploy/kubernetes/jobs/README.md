@@ -48,6 +48,7 @@ These stay on Cloud Run, because something other than a clock starts them:
 | `shorts-data-sync` validation runs | `GET /api/admin/jobs/validate-sync` |
 | `shorted-price-sync` catch-ups / re-fetches | `.github/workflows/price-sync.yml` |
 | `shorted-picks` other modes | admin MCP `run_picks_job` |
+| `shorted-alerts-replay` (Cloud Run, not on the cluster) | admin MCP `run_alerts_smoke_test` (argv override: `alerts -date D -user UID -canary off`, fenced by `ALERTS_REPLAY_ONLY`) |
 | any job, "Run now" | `/admin` Jobs page |
 
 The Cloud Run jobs are **not deleted** when a schedule moves. Only their Cloud

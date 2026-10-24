@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import type { JWT } from "next-auth/jwt";
 import type { AdapterUser } from "next-auth/adapters";
 import { adminAuth } from "@/lib/firebase-admin";
+import { parseAdminEmails } from "./admin-emails";
 import {
   e2eTestEmail,
   e2eTestPassword,
@@ -201,9 +202,7 @@ export const authOptions = {
       // also needs the provider to have verified the email. Sessions minted
       // before emailVerified existed have no flag and are not admin until the
       // holder signs in again.
-      const adminEmails = (process.env.ADMIN_EMAILS ?? "")
-        .split(",")
-        .map((e) => e.trim());
+      const adminEmails = parseAdminEmails(process.env.ADMIN_EMAILS);
 
       // The E2E test identity is an admin only in a development or test runtime. It
       // never takes admin through the allowlist, so ADMIN_EMAILS cannot grant it
@@ -214,7 +213,7 @@ export const authOptions = {
         isTestUser ||
         (token.emailVerified === true &&
           !isE2eTestEmail(token.email) &&
-          adminEmails.includes(token.email ?? ""));
+          adminEmails.includes((token.email ?? "").trim().toLowerCase()));
 
       return token;
     },

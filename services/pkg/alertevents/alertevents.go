@@ -59,6 +59,40 @@ type Payload struct {
 	Companies      []Company `json:"companies"`
 	CompaniesTotal int       `json:"companies_total"`
 	Note           string    `json:"note,omitempty"`
+	// Stock is the detail the stock-scope email shows around the figures. It is
+	// set when the evaluator enriches a stock event and is absent on older rows.
+	Stock *StockDetail `json:"stock,omitempty"`
+}
+
+// StockDetail is the context an alert email shows beside one stock's figures:
+// its identity, its position in the short-interest ranking, and its recent
+// history. Every field is optional, so an email omits what the row lacks.
+type StockDetail struct {
+	Name          string   `json:"name,omitempty"`
+	Industry      string   `json:"industry,omitempty"`
+	LogoURL       string   `json:"logo_url,omitempty"`
+	SharesShort   *float64 `json:"shares_short,omitempty"`
+	SharesOnIssue *float64 `json:"shares_on_issue,omitempty"`
+	// Rank is the stock's place by short percent among every code with a reading
+	// on the report date, out of Ranked. 0 means not ranked.
+	Rank   int `json:"rank,omitempty"`
+	Ranked int `json:"ranked,omitempty"`
+	// Change20 is the latest reading minus the code's own reading 20 readings back,
+	// in points, when that reading exists. The reading is not always 20 report dates
+	// back: a code reported on some days only is compared with its 20th earlier
+	// reading, which can be months away. Change20Date is that reading's report date.
+	Change20 *float64 `json:"change20,omitempty"`
+	// Change20Date is the report date of the reading Change20 is measured from.
+	Change20Date string `json:"change20_date,omitempty"`
+	// History is about six months of report dates, oldest first, at most 130.
+	History []Point `json:"history,omitempty"`
+}
+
+// Point is one reading in StockDetail.History: a report date and the short
+// percent to two decimal places.
+type Point struct {
+	D string  `json:"d"`
+	P float64 `json:"p"`
 }
 
 // Company is one company an event fired on. Previous and Change are nil when the
@@ -79,4 +113,7 @@ type Company struct {
 	Rank         int      `json:"rank"`
 	PreviousRank int      `json:"previous_rank"`
 	PreviousDate string   `json:"previous_date,omitempty"`
+	// LogoURL is the company's logo, when the metadata has one. Empty means the
+	// email draws a monogram instead.
+	LogoURL string `json:"logo_url,omitempty"`
 }

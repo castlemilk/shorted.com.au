@@ -769,7 +769,7 @@ func (h *registrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		RedirectURIs: redirects,
 		GrantTypes:   grants,
 		Scope:        filterScope(req.Scope),
-		ClientURI:    truncate(req.ClientURI, maxRedirectURILen),
+		ClientURI:    registrableClientURI(req.ClientURI),
 		Source:       SourceDCR,
 		IssuedAt:     h.now(),
 	}
@@ -779,13 +779,9 @@ func (h *registrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	resp := map[string]any{
 		"client_id":           reg.ClientID,
 		"client_id_issued_at": reg.IssuedAt.Unix(),
-		"client_name":         reg.ClientName,
-		"client_uri":          reg.ClientURI,
 		"redirect_uris":       reg.RedirectURIs,
 		"grant_types":         reg.GrantTypes,
 		"response_types":      []string{"code"},
@@ -793,8 +789,40 @@ func (h *registrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		// confidential clients, so there is nothing to leak and nothing to
 		// rotate. PKCE is what stands in for client authentication.
 		"token_endpoint_auth_method": "none",
-		"scope":                      reg.Scope,
-	})
+	}
+	// RFC 7591 §3.2.1 returns the metadata that was registered, so a field the
+	// client did not send is left out rather than sent empty. Clients validate
+	// this body: the MCP TypeScript SDK (Claude Code) requires client_uri, when
+	// present, to parse as a URL, and refused `"client_uri": ""` outright, so
+	// the connector could never finish its OAuth flow.
+	for k, v := range map[string]string{
+		"client_name": reg.ClientName,
+		"client_uri":  reg.ClientURI,
+		"scope":       reg.Scope,
+	} {
+		if v != "" {
+			resp[k] = v
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// registrableClientURI keeps client_uri only when it is an absolute http(s) URL.
+// It is informational metadata that nothing here renders, so an unusable value
+// is dropped rather than refused: echoing it back would make the registration
+// response fail the client's own validation.
+func registrableClientURI(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || len(raw) > maxRedirectURILen {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return ""
+	}
+	return raw
 }
 
 // ---------------------------------------------------------------------------
@@ -1081,8 +1109,9 @@ func normaliseGrantTypes(requested []string, strict bool) []string {
 //
 // An empty result is stored empty, which the grant handler reads as "no
 // declared subset" and answers with the published read vocabulary — the same
-// treatment as a client that sent no scope at all. That is not a widening:
-// every published scope is read-only against the single MCP resource.
+// treatment as a client that sent no scope at all. That is not a widening: the
+// empty answer is the resource's default scopes, and the write scope alerts:write
+// is never one of those (mcp.DefaultScopes), so an empty registration cannot grant it.
 func filterScope(scope string) string {
 	// Every scope of every resource: a client registering for the admin
 	// resource declares news:publish, and dropping it would leave the client

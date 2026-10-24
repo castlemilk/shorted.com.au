@@ -6,12 +6,10 @@
 
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { parseAdminEmails } from "./admin-emails";
 import { isDevOrTestRuntime, isE2eTestEmail } from "./e2e-identity";
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
-  .split(",")
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
+const ADMIN_EMAILS = parseAdminEmails(process.env.ADMIN_EMAILS);
 
 /**
  * Whether an email is on the ADMIN_EMAILS allowlist. The single definition of

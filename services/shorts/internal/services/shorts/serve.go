@@ -239,10 +239,13 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		// client discover the authorization server at all.
 		ratelimit.WithRejection(mcp.RateLimitRejection(mcp.ProtectedResourceMetadataURL(apiBaseURL))),
 	)
+	// One Firebase account reader for the MCP servers. Nil without INTERNAL_SERVICE_SECRET:
+	// the public alerts tools then refuse create and resume (see mcp_public_alerts.go).
+	firebaseUsers := newFirebaseUsersClientFromEnv()
 	mcpHandler := mcp.OptionalBearerToken(
 		mcp.NewTokenVerifier(s.tokenService, mcp.ResourceURI(apiBaseURL)),
 		mcp.BearerTokenOptions(apiBaseURL),
-	)(mcpRateLimit(mcp.Handler(s)))
+	)(mcp.WithChallengeScope(mcp.BatchGuard(mcpRateLimit(mcp.HandlerWithAlerts(s, newPublicAlertsSource(s, firebaseUsers), mcp.ProtectedResourceMetadataURL(apiBaseURL))))))
 	// Both paths: the SDK's streamable transport uses the bare path, and
 	// clients sometimes append a trailing segment.
 	mux.Handle("/mcp", mcpHandler)
@@ -273,10 +276,13 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		adminEntitlement = adminChecker.IsAdmin
 		adminCheck = adminChecker.IsAdmin
 	}
+	// One Firebase reader for the admin MCP server. Nil without INTERNAL_SERVICE_SECRET,
+	// which keeps the smoke test's refusal. The verified-address rule is
+	// verifiedAccountEmail (firebase_users.go), kept for reuse by the public alerts tools.
 	adminMCPHandler := mcpauth.RequireBearerToken(
 		mcp.NewTokenVerifier(s.tokenService, mcp.AdminResourceURI(apiBaseURL)),
 		mcp.AdminBearerTokenOptions(apiBaseURL),
-	)(mcp.RequireAdmin(adminCheck)(mcp.AdminHandler(&adminMCPSource{Collector: s.jobsCollector, server: s, people: s.peopleStore, users: newFirebaseUsersClientFromEnv(), billing: billingStoreFrom(s.peopleStore), web: newAdminWebClientFromEnv()})))
+	)(mcp.RequireAdmin(adminCheck)(mcp.AdminHandler(newAdminMCPSource(s, firebaseUsers))))
 	mcp.RegisterIconHandlers(mux)
 	mux.Handle("/mcp/admin", adminMCPHandler)
 	mux.Handle("/mcp/admin/", adminMCPHandler)

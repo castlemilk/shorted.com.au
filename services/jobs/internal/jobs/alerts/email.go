@@ -2,12 +2,17 @@ package alerts
 
 import (
 	"bytes"
+	"crypto/sha256"
+	_ "embed"
+	"encoding/base64"
 	"fmt"
-	"html/template"
+	"log"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/alertchart"
 	"github.com/castlemilk/shorted.com.au/services/pkg/alertevents"
 	"github.com/castlemilk/shorted.com.au/services/pkg/industry"
 	"github.com/castlemilk/shorted.com.au/services/pkg/resend"
@@ -16,7 +21,9 @@ import (
 
 // The email is built from the event row, not from the monitor's current state, so
 // a re-render of the same event produces the same bytes. Resend deduplicates a
-// retry by Idempotency-Key only when the body matches, so this matters.
+// retry by Idempotency-Key only when the body matches, so this matters. The chart
+// is drawn from the stored history with no clock or randomness, so it is stable
+// too.
 
 const (
 	utmQuery = "utm_source=alerts&utm_medium=email"
@@ -26,7 +33,18 @@ const (
 	canaryMonitorID = "00000000-0000-0000-0000-000000000000"
 	// footerContact is the sender's support address shown in the footer.
 	footerContact = "support@shorted.com.au"
+
+	// markCID and chartCID are the Content-IDs the HTML refers to as cid:.
+	markCID      = "shorted-mark"
+	chartCID     = "chart"
+	chartDarkCID = "chart-dark"
 )
+
+// shortedMarkPNG is the brand mark the header shows, 76x64 (2x of 38x32), drawn
+// from web/public/logo.png.
+//
+//go:embed assets/shorted-mark.png
+var shortedMarkPNG []byte
 
 // Message is one alert, as the event row records it.
 type Message struct {
@@ -44,11 +62,12 @@ type Message struct {
 
 // rendered is one email in the shape Resend takes it, before the addresses.
 type rendered struct {
-	Subject string
-	Text    string
-	HTML    string
-	Headers map[string]string
-	Tags    []resend.Tag
+	Subject     string
+	Text        string
+	HTML        string
+	Headers     map[string]string
+	Tags        []resend.Tag
+	Attachments []resend.Attachment
 }
 
 // messageOf turns an evaluated candidate into the Message the email is built from.
@@ -67,18 +86,25 @@ func messageOf(c Candidate) Message {
 	}
 }
 
-// canaryMessage is the fixed stock-above fixture the canary sends through
-// the same template. It is a test ticker, so no recipient reads it as a real alert.
+// canaryMessage is the fixed stock-above fixture the canary sends through the same
+// template, chart and attachments. It is a test ticker, so no recipient reads it as
+// a real alert. Its history is generated from a fixed formula, never at random.
 func canaryMessage() Message {
 	prev, latest, change, thr := 4.80, 5.42, 0.62, 5.0
+	const reportDate, comparedTo = "2026-01-02", "2026-01-01"
+	history := canaryHistory(60, reportDate, latest)
+	change20 := round2(latest - history[len(history)-21].P)
+	change20Date := history[len(history)-21].D
+	shortsOnIssue := 1.8e9
+	shortsShort := 2.4e8
 	return Message{
 		Scope:      alertevents.ScopeStock,
 		Target:     "TEST",
 		Condition:  alertevents.ConditionShortInterestAbove,
 		Cadence:    alertevents.CadenceDaily,
 		Threshold:  &thr,
-		ReportDate: "2026-01-02",
-		ComparedTo: "2026-01-01",
+		ReportDate: reportDate,
+		ComparedTo: comparedTo,
 		Latest:     &latest,
 		Previous:   &prev,
 		Payload: alertevents.Payload{
@@ -86,23 +112,61 @@ func canaryMessage() Message {
 				Code: "TEST", Name: "Canary delivery check", Latest: latest, Previous: &prev, Change: &change,
 			}},
 			CompaniesTotal: 1,
+			Stock: &alertevents.StockDetail{
+				Name:          "Canary delivery check",
+				Industry:      "Testing",
+				SharesShort:   &shortsShort,
+				SharesOnIssue: &shortsOnIssue,
+				Rank:          7,
+				Ranked:        480,
+				Change20:      &change20,
+				Change20Date:  change20Date,
+				History:       history,
+			},
 		},
 	}
 }
 
-// renderMessage builds the subject, both bodies and the headers for one alert.
-// site is the public origin, secret is UNSUBSCRIBE_SECRET, and monitorID is the
-// monitor whose one-click pause link goes in the email.
+// canaryHistory returns n weekday readings ending on last, oldest first. They climb
+// from 4.00 to end on the given latest value. Weekends are skipped, so the spacing
+// matches report dates.
+func canaryHistory(n int, last string, end float64) []alertevents.Point {
+	day, _ := time.Parse(dateLayout, last)
+	days := make([]time.Time, 0, n)
+	for d := day; len(days) < n; d = d.AddDate(0, 0, -1) {
+		if wd := d.Weekday(); wd == time.Saturday || wd == time.Sunday {
+			continue
+		}
+		days = append(days, d)
+	}
+	out := make([]alertevents.Point, n)
+	for i := range out {
+		// days is newest first; i indexes from the oldest.
+		d := days[n-1-i]
+		v := 4.0 + (end-4.0)*float64(i)/float64(n-1)
+		out[i] = alertevents.Point{D: d.Format(dateLayout), P: round2(v)}
+	}
+	return out
+}
+
+// renderMessage builds the subject, both bodies, the headers and the attachments
+// for one alert. site is the public origin, secret is UNSUBSCRIBE_SECRET, and
+// monitorID is the monitor whose one-click pause link goes in the email.
 func renderMessage(site, secret, monitorID string, m Message) (rendered, error) {
+	return renderMessageCharts(nil, site, secret, monitorID, m)
+}
+
+// renderMessageCharts is renderMessage with a chart memo. A delivery pass passes its
+// memo, so owners of the same stock share one rendered chart. A nil memo renders
+// every chart afresh. The bytes are the same either way: the memo is keyed by the
+// whole chart spec.
+func renderMessageCharts(charts *chartMemo, site, secret, monitorID string, m Message) (rendered, error) {
 	site = strings.TrimRight(site, "/")
 	token := unsubscribe.AlertMonitorToken(monitorID, secret)
 	pauseURL := site + "/alerts/unsubscribe?t=" + token
 	oneClickURL := site + "/api/alerts/unsubscribe?t=" + token
 	manageURL := site + "/alerts"
-	summary := summaryLine(m)
 	subject := subjectLine(m)
-	intro := introLine(m)
-	scope := scopeLine(m)
 
 	headers, rows, more := tableOf(m)
 	moreURL := industryURL(site, m)
@@ -110,55 +174,40 @@ func renderMessage(site, secret, monitorID string, m Message) (rendered, error) 
 	if m.Scope == alertevents.ScopeStock {
 		viewURL = site + "/shorts/" + m.Target + "?" + utmQuery
 		viewLabel = "View " + m.Target + " on Shorted"
+	} else {
+		viewURL = moreURL
+		viewLabel = "View " + m.Target + " on Shorted"
 	}
 
-	var text bytes.Buffer
-	text.WriteString(subject + "\n\n")
-	text.WriteString(intro + "\n")
-	if scope != "" {
-		text.WriteString(scope + "\n")
+	atts := []resend.Attachment{inline("shorted-mark.png", markCID, shortedMarkPNG)}
+	light, dark := charts.get(m)
+	if light != nil {
+		atts = append(atts, inline("short-interest-chart.png", chartCID, light))
+		atts = append(atts, inline("short-interest-chart-dark.png", chartDarkCID, dark))
 	}
-	text.WriteString("ASIC publishes positions four trading days after they are held.\n\n")
-	text.WriteString(textRow(headers, textWidths(m)) + "\n")
-	for _, r := range rows {
-		text.WriteString(textRow(r, textWidths(m)) + "\n")
-	}
-	if more > 0 {
-		fmt.Fprintf(&text, "… and %d more: %s\n", more, moreURL)
-	}
-	if viewURL != "" {
-		fmt.Fprintf(&text, "\n%s: %s\n", viewLabel, viewURL)
-	}
-	text.WriteString("--\n")
-	fmt.Fprintf(&text, "You set up this alert on Shorted: %s.\n", summary)
-	fmt.Fprintf(&text, "Pause this alert: %s\n", pauseURL)
-	fmt.Fprintf(&text, "Manage your alerts: %s\n", manageURL)
-	fmt.Fprintf(&text, "General information only, not financial advice. Shorted · %s\n", footerContact)
 
-	var htmlBody bytes.Buffer
-	data := htmlData{
-		Headline:  subject,
-		Intro:     intro,
-		ScopeNote: scope,
-		Headers:   headers,
-		Rows:      rows,
-		MoreCount: more,
-		MoreURL:   moreURL,
-		ViewURL:   viewURL,
-		ViewLabel: viewLabel,
-		Summary:   summary,
-		PauseURL:  pauseURL,
-		ManageURL: manageURL,
-		Footer:    footerContact,
-	}
-	if err := alertTemplate.Execute(&htmlBody, data); err != nil {
+	htmlBody, err := renderHTML(htmlInput{
+		msg:       m,
+		subject:   subject,
+		headers:   headers,
+		rows:      rows,
+		more:      more,
+		moreURL:   moreURL,
+		viewURL:   viewURL,
+		viewLabel: viewLabel,
+		summary:   summaryLine(m),
+		pauseURL:  pauseURL,
+		manageURL: manageURL,
+		hasChart:  light != nil,
+	})
+	if err != nil {
 		return rendered{}, fmt.Errorf("render alert html: %w", err)
 	}
 
 	return rendered{
 		Subject: subject,
-		Text:    text.String(),
-		HTML:    htmlBody.String(),
+		Text:    plainText(m, plainInput{subject: subject, headers: headers, rows: rows, more: more, moreURL: moreURL, viewURL: viewURL, viewLabel: viewLabel, summary: summaryLine(m), pauseURL: pauseURL, manageURL: manageURL}),
+		HTML:    htmlBody,
 		Headers: map[string]string{
 			"List-Unsubscribe":      "<" + oneClickURL + ">",
 			"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -167,7 +216,223 @@ func renderMessage(site, secret, monitorID string, m Message) (rendered, error) 
 			{Name: "category", Value: "alert"},
 			{Name: "cadence", Value: m.Cadence},
 		},
+		Attachments: atts,
 	}, nil
+}
+
+// inline is a PNG attached for embedding: the HTML refers to it as cid:<id>.
+func inline(filename, id string, data []byte) resend.Attachment {
+	return resend.Attachment{
+		Filename:    filename,
+		Content:     base64.StdEncoding.EncodeToString(data),
+		ContentType: "image/png",
+		ContentID:   id,
+	}
+}
+
+// testChartHook, when set, runs before each chart is drawn. Only tests set it: a
+// panic injected here shows that a renderer fault costs the chart, not the email.
+var testChartHook func(alertchart.Spec)
+
+// chartFor draws a stock's short-position chart from its stored history, in the light
+// and the dark palette. It returns nils when there is nothing to draw: an industry
+// alert, an event with no stock detail, or fewer than two readings. A render error,
+// or a panic in the renderer, also yields nils, so a chart fault never stops the
+// alert itself. The same fault recurs on every retry, which is why the email goes
+// out without the chart rather than not at all.
+func chartFor(m Message) (light, dark []byte) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("alerts: chart for %s not drawn, the email goes without it: %v", m.Target, r)
+			light, dark = nil, nil
+		}
+	}()
+	if m.Scope != alertevents.ScopeStock || m.Payload.Stock == nil {
+		return nil, nil
+	}
+	hist := m.Payload.Stock.History
+	if len(hist) < alertchart.MinPoints {
+		return nil, nil
+	}
+	pts := make([]alertchart.Point, 0, len(hist))
+	for _, h := range hist {
+		pts = append(pts, alertchart.Point{Date: h.D, Value: h.P})
+	}
+	spec := alertchart.Spec{Points: pts, ReportDate: string(m.ReportDate), ComparedTo: string(m.ComparedTo)}
+	if m.Condition == alertevents.ConditionShortInterestAbove && m.Threshold != nil {
+		spec.Threshold = m.Threshold
+	}
+	if testChartHook != nil {
+		testChartHook(spec)
+	}
+	light, err := alertchart.Render(spec)
+	if err != nil {
+		return nil, nil
+	}
+	dark, err = alertchart.RenderDark(spec)
+	if err != nil {
+		return nil, nil
+	}
+	return light, dark
+}
+
+// chartMemo holds the charts one delivery pass has drawn, so many owners of one stock
+// share a render. The key is the whole chart spec: the code, both report dates, the
+// threshold when the condition uses one, and every point of the history. A nil memo
+// draws every chart.
+type chartMemo struct {
+	drawn map[[32]byte][2][]byte
+}
+
+func newChartMemo() *chartMemo {
+	return &chartMemo{drawn: map[[32]byte][2][]byte{}}
+}
+
+// get returns the charts for m, drawing them on the first request for their spec. A
+// spec with no chart is not memoised, so a fault is retried for the next owner.
+func (c *chartMemo) get(m Message) (light, dark []byte) {
+	if c == nil {
+		return chartFor(m)
+	}
+	key := chartKey(m)
+	if pair, ok := c.drawn[key]; ok {
+		return pair[0], pair[1]
+	}
+	light, dark = chartFor(m)
+	if light != nil {
+		c.drawn[key] = [2][]byte{light, dark}
+	}
+	return light, dark
+}
+
+// chartKey hashes everything the chart is drawn from. Two messages with the same key
+// draw the same bytes.
+func chartKey(m Message) [32]byte {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s|%s|%s|%s|", m.Target, m.ReportDate, m.ComparedTo, m.Condition)
+	if m.Threshold != nil && m.Condition == alertevents.ConditionShortInterestAbove {
+		fmt.Fprintf(&b, "t=%s|", strconv.FormatFloat(*m.Threshold, 'g', -1, 64))
+	}
+	if st := m.Payload.Stock; st != nil {
+		for _, h := range st.History {
+			fmt.Fprintf(&b, "%s=%s;", h.D, strconv.FormatFloat(h.P, 'g', -1, 64))
+		}
+	}
+	return sha256.Sum256([]byte(b.String()))
+}
+
+// plainInput is what the plain-text twin needs beyond the message.
+type plainInput struct {
+	subject   string
+	headers   []string
+	rows      [][]string
+	more      int
+	moreURL   string
+	viewURL   string
+	viewLabel string
+	summary   string
+	pauseURL  string
+	manageURL string
+}
+
+// plainText is the plain-text twin: the subject, the figures, the stats when there
+// are any, the table for an industry, the provenance, the view link and the footer.
+func plainText(m Message, in plainInput) string {
+	var text bytes.Buffer
+	text.WriteString(in.subject + "\n\n")
+	if m.Scope == alertevents.ScopeStock {
+		text.WriteString(stockHeading(m) + "\n")
+	}
+	text.WriteString(introLine(m) + "\n")
+	if scope := scopeLine(m); scope != "" {
+		text.WriteString(scope + "\n")
+	}
+	text.WriteString("ASIC publishes positions four trading days after they are held.\n")
+
+	if m.Scope == alertevents.ScopeStock {
+		text.WriteString("\n")
+		prevDate := stockPreviousDate(m)
+		fmt.Fprintf(&text, "Previous: %s (%s)\n", pct(m.Previous), fmtDay(prevDate))
+		fmt.Fprintf(&text, "Latest:   %s (%s)\n", pct(m.Latest), fmtDay(m.ReportDate))
+		if ch := stockChange(m); ch != nil {
+			fmt.Fprintf(&text, "Change:   %s pts\n", signedPts(*ch))
+		}
+		if st := m.Payload.Stock; st != nil {
+			if st.SharesShort != nil {
+				fmt.Fprintf(&text, "Shares short:      %s\n", compactShares(*st.SharesShort))
+			}
+			if st.SharesOnIssue != nil {
+				fmt.Fprintf(&text, "Shares on issue:   %s\n", compactShares(*st.SharesOnIssue))
+			}
+			if st.Rank > 0 {
+				fmt.Fprintf(&text, "Most-shorted rank: #%d of %d (%s)\n", st.Rank, st.Ranked, fmtDay(m.ReportDate))
+			}
+			if st.Change20 != nil && st.Change20Date != "" {
+				fmt.Fprintf(&text, "Change since %s: %s pts\n", dayMonth(Date(st.Change20Date)), signedPts(*st.Change20))
+			}
+		}
+		text.WriteString("\n")
+	} else {
+		text.WriteString("\n")
+		text.WriteString(textRow(in.headers, textWidths(m)) + "\n")
+		for _, r := range in.rows {
+			text.WriteString(textRow(r, textWidths(m)) + "\n")
+		}
+		if in.more > 0 {
+			fmt.Fprintf(&text, "… and %d more: %s\n", in.more, in.moreURL)
+		}
+		text.WriteString("\n")
+	}
+	if in.viewURL != "" {
+		fmt.Fprintf(&text, "%s: %s\n", in.viewLabel, in.viewURL)
+	}
+	text.WriteString("--\n")
+	fmt.Fprintf(&text, "You set up this alert on Shorted: %s.\n", in.summary)
+	fmt.Fprintf(&text, "Pause this alert: %s\n", in.pauseURL)
+	fmt.Fprintf(&text, "Manage your alerts: %s\n", in.manageURL)
+	fmt.Fprintf(&text, "General information only, not financial advice. Shorted · %s\n", footerContact)
+	return text.String()
+}
+
+// stockHeading names the company at the top of a stock email's text twin:
+// "GLC — Glencore (Materials)", or the code alone when nothing else is known.
+func stockHeading(m Message) string {
+	name := displayName(m)
+	industry := ""
+	if st := m.Payload.Stock; st != nil {
+		industry = st.Industry
+	}
+	heading := m.Target
+	if name != "" && name != m.Target {
+		heading += " — " + name
+	}
+	if industry != "" {
+		heading += " (" + industry + ")"
+	}
+	return heading
+}
+
+// stockPreviousDate is the report the previous reading came from. It is the
+// compared report unless the company's own record says it was an earlier one.
+func stockPreviousDate(m Message) Date {
+	if len(m.Payload.Companies) > 0 && m.Payload.Companies[0].PreviousDate != "" {
+		return Date(m.Payload.Companies[0].PreviousDate)
+	}
+	return m.ComparedTo
+}
+
+// stockChange is latest minus previous in points, or nil when either is missing.
+func stockChange(m Message) *float64 {
+	if m.Latest == nil || m.Previous == nil {
+		return nil
+	}
+	c := round2(*m.Latest - *m.Previous)
+	return &c
+}
+
+// signedPts formats a change in points with its sign: +5.16, -0.40.
+func signedPts(v float64) string {
+	return fmt.Sprintf("%+.2f", v)
 }
 
 // subjectLine is the email subject. Weekly alerts are prefixed "Weekly: ". Figures
@@ -402,40 +667,3 @@ func joinCodes(m Message) string {
 	}
 	return strings.Join(codes, ", ")
 }
-
-// htmlData is what the HTML twin renders. Every string is escaped by html/template,
-// so a company name with "&" or "<" is shown as written.
-type htmlData struct {
-	Headline  string
-	Intro     string
-	ScopeNote string
-	Headers   []string
-	Rows      [][]string
-	MoreCount int
-	MoreURL   string
-	ViewURL   string
-	ViewLabel string
-	Summary   string
-	PauseURL  string
-	ManageURL string
-	Footer    string
-}
-
-var alertTemplate = template.Must(template.New("alert").Parse(`<!doctype html>
-<html><body style="margin:0;padding:16px;font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff">
-<h2 style="font-size:18px;margin:0 0 12px">{{.Headline}}</h2>
-<p style="margin:0 0 4px">{{.Intro}}</p>
-{{if .ScopeNote}}<p style="margin:0 0 4px">{{.ScopeNote}}</p>
-{{end}}
-<p style="margin:0 0 16px;color:#555">ASIC publishes positions four trading days after they are held.</p>
-<table style="border-collapse:collapse;width:100%;font-size:14px">
-<thead><tr>{{range .Headers}}<th style="text-align:left;border-bottom:1px solid #ccc;padding:6px 8px">{{.}}</th>{{end}}</tr></thead>
-<tbody>{{range .Rows}}<tr>{{range .}}<td style="padding:6px 8px;border-bottom:1px solid #eee">{{.}}</td>{{end}}</tr>{{end}}</tbody>
-</table>
-{{if .MoreCount}}<p style="margin:12px 0">… and {{.MoreCount}} more: <a href="{{.MoreURL}}">{{.MoreURL}}</a></p>{{end}}
-{{if .ViewURL}}<p style="margin:12px 0"><a href="{{.ViewURL}}">{{.ViewLabel}}</a></p>{{end}}
-<hr style="border:none;border-top:1px solid #eee;margin:20px 0">
-<p style="margin:0 0 8px;color:#555;font-size:12px">You set up this alert on Shorted: {{.Summary}}.</p>
-<p style="margin:0 0 8px;font-size:12px"><a href="{{.PauseURL}}">Pause this alert</a> · <a href="{{.ManageURL}}">Manage your alerts</a></p>
-<p style="margin:0;color:#555;font-size:12px">General information only, not financial advice. Shorted · {{.Footer}}</p>
-</body></html>`))

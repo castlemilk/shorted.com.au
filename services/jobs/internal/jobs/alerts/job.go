@@ -143,8 +143,9 @@ func (s summary) line() string {
 func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 	sum.canary = "skipped"
 	var (
-		runID int64
-		res   runResult
+		runID      int64
+		runStarted time.Time
+		res        runResult
 	)
 	defer func() {
 		if err != nil {
@@ -289,6 +290,10 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 		return sum, nil
 	}
 
+	// Phase 9b: the detail each event carries. It is stored with the event, so it is
+	// decided before any row is, and it never fails the run.
+	a.enrich(ctx, cands, snap, companies)
+
 	// Decide every row before the run row exists, so a refusal writes nothing.
 	rows, unentitled, noEmail, err := decideRows(cands, ents)
 	if err != nil {
@@ -296,8 +301,8 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 	}
 	sum.skippedUnentitled, sum.skippedNoEmail = unentitled, noEmail
 
-	// Phase 8: the run row. Its id is the canary's idempotency key.
-	runID, err = a.st.insertRun(ctx, a.getenv("CLOUD_RUN_EXECUTION"), planNote(plan, a.opts), dailyDates(plan), weeklyLast(plan))
+	// Phase 8: the run row. Its id and start time make the canary's idempotency key.
+	runID, runStarted, err = a.st.insertRun(ctx, a.getenv("CLOUD_RUN_EXECUTION"), planNote(plan, a.opts), dailyDates(plan), weeklyLast(plan))
 	if err != nil {
 		return sum, err
 	}
@@ -336,6 +341,7 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 		rps:         a.env.rps,
 		userID:      a.opts.user,
 		runID:       runID,
+		runStarted:  runStarted,
 		pauseClient: pauseClient,
 	})
 	sum.sent, sum.retrying, sum.failed, sum.canary = dlv.sent, dlv.retrying, dlv.failed, dlv.canary

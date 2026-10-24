@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -319,12 +320,16 @@ CREATE TABLE shorts (
   "DATE" timestamp NOT NULL,
   "PRODUCT_CODE" text NOT NULL,
   "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" double precision,
+  "REPORTED_SHORT_POSITIONS" double precision,
+  "TOTAL_PRODUCT_IN_ISSUE" double precision,
   PRIMARY KEY ("DATE", "PRODUCT_CODE")
 );
 CREATE TABLE "company-metadata" (
   stock_code text PRIMARY KEY,
   company_name text,
-  industry text
+  industry text,
+  logo_icon_gcs_url text,
+  logo_gcs_url text
 );
 CREATE TABLE sync_status (
   id serial PRIMARY KEY,
@@ -441,13 +446,14 @@ type evRow struct {
 	reportDate string
 	comparedTo string
 	payload    alertevents.Payload
+	createdAt  time.Time
 }
 
 func (e *e2e) events(where string, args ...any) []evRow {
 	e.t.Helper()
 	rows, err := e.pool.Query(e.ctx, `
 		SELECT id, monitor_id, email_status, email_attempts, COALESCE(last_error, ''), COALESCE(resend_id, ''),
-		       report_date::text, compared_to_date::text, payload
+		       report_date::text, compared_to_date::text, payload, created_at
 		  FROM alert_events `+where+` ORDER BY id`, args...)
 	if err != nil {
 		e.t.Fatalf("query events: %v", err)
@@ -459,7 +465,7 @@ func (e *e2e) events(where string, args ...any) []evRow {
 			r       evRow
 			payload []byte
 		)
-		if err := rows.Scan(&r.id, &r.monitorID, &r.status, &r.attempts, &r.lastError, &r.resendID, &r.reportDate, &r.comparedTo, &payload); err != nil {
+		if err := rows.Scan(&r.id, &r.monitorID, &r.status, &r.attempts, &r.lastError, &r.resendID, &r.reportDate, &r.comparedTo, &payload, &r.createdAt); err != nil {
 			e.t.Fatal(err)
 		}
 		if err := json.Unmarshal(payload, &r.payload); err != nil {
@@ -624,9 +630,18 @@ func TestAlertsE2ELifecycle(t *testing.T) {
 	m1Event := e.events(`WHERE monitor_id = 'm1' AND report_date = '2026-10-14'`)[0]
 	mustExec(t, e.pool, `UPDATE alert_events SET email_status = 'sending', send_claimed_at = now() - interval '45 minutes', sent_at = NULL, resend_id = NULL WHERE id = $1`, m1Event.id)
 	e.wantExit(e.run(), 0, "stuck send")
-	key := fmt.Sprintf("alert-event-%d", m1Event.id)
+	key := idempotencyKey("event", m1Event.id, m1Event.createdAt)
 	if got := e.resend.acceptedFor(key); got != 1 {
 		t.Fatalf("a retried send was delivered %d times", got)
+	}
+	// The count above is 1 from the first send whether or not the retry reused
+	// the key, so also check that the retry sent no second key for this event.
+	// A requeue that touched created_at would mail the customer twice.
+	prefix := fmt.Sprintf("alert-event-%d-", m1Event.id)
+	for _, r := range e.resend.snapshot() {
+		if strings.HasPrefix(r.key, prefix) && r.key != key {
+			t.Fatalf("event %d was sent under a second key %q (first %q)", m1Event.id, r.key, key)
+		}
 	}
 	e.wantStatus(m1Event.id, "sent")
 
@@ -1062,4 +1077,147 @@ func codesIn(p alertevents.Payload) string {
 		codes = append(codes, c.Code)
 	}
 	return strings.Join(codes, ",")
+}
+
+// TestAlertsE2EStockDetail: a stock event stores the detail the email shows, so a
+// retry renders the same bytes. The logo is the icon, the rank counts every code
+// with a reading that day, and the history stops at the report date.
+func TestAlertsE2EStockDetail(t *testing.T) {
+	e := newE2E(t)
+	e.seedBase()
+	mustExec(t, e.pool, `UPDATE "company-metadata" SET logo_icon_gcs_url = 'https://logos.test/AAA_icon.PNG?v=2', logo_gcs_url = 'https://logos.test/AAA-wordmark.png' WHERE stock_code = 'AAA'`)
+	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
+
+	// Three readings, so the event's history is long enough for a chart.
+	e.day("2026-10-12", baseDay0())
+	e.day("2026-10-13", baseDay0())
+	e.wantExit(e.run(), 0, "bootstrap")
+	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
+	mustExec(t, e.pool, `UPDATE shorts SET "REPORTED_SHORT_POSITIONS" = 1240000000, "TOTAL_PRODUCT_IN_ISSUE" = 12100000000 WHERE "PRODUCT_CODE" = 'AAA' AND "DATE" = '2026-10-14'`)
+	e.wantExit(e.run(), 0, "first crossing")
+
+	var raw []byte
+	if err := e.pool.QueryRow(e.ctx, `SELECT payload FROM alert_events WHERE monitor_id = 'm1' AND report_date = '2026-10-14'`).Scan(&raw); err != nil {
+		t.Fatalf("read event payload: %v", err)
+	}
+	var p alertevents.Payload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Stock == nil {
+		t.Fatalf("the stock event must carry its detail: %s", raw)
+	}
+	st := p.Stock
+	if st.Name != "Aaa Resources Ltd" || st.Industry != "Materials" || st.LogoURL != "https://logos.test/AAA_icon.PNG?v=2" {
+		t.Fatalf("identity = %+v; the icon must be preferred", st)
+	}
+	if st.SharesShort == nil || *st.SharesShort != 1240000000 || st.SharesOnIssue == nil || *st.SharesOnIssue != 12100000000 {
+		t.Fatalf("share counts = %v / %v", st.SharesShort, st.SharesOnIssue)
+	}
+	// materialsDay(5.20, ...) puts AAA behind BBB (6.50) and CCC (7.00) among the
+	// 13 codes with readings that day.
+	if st.Rank != 3 || st.Ranked != 13 {
+		t.Fatalf("rank = %d of %d, want 3 of 13", st.Rank, st.Ranked)
+	}
+	if len(st.History) == 0 || st.History[len(st.History)-1].D != "2026-10-14" {
+		t.Fatalf("history must end at the report date: %+v", st.History)
+	}
+	if st.Change20 != nil {
+		t.Fatalf("a short history has no 20-report change, got %v", *st.Change20)
+	}
+	if len(p.Companies) != 1 || p.Companies[0].LogoURL != "https://logos.test/AAA_icon.PNG?v=2" {
+		t.Fatalf("the company must carry its logo too: %+v", p.Companies)
+	}
+
+	// The email Resend received carries the chart and the brand mark inline, each
+	// under the Content-ID its HTML refers to.
+	reqs := requestsTo(e.resend.snapshot(), u1Email)
+	if len(reqs) == 0 {
+		t.Fatal("no customer email captured")
+	}
+	var body struct {
+		HTML        string `json:"html"`
+		Attachments []struct {
+			ContentID string `json:"content_id"`
+		} `json:"attachments"`
+	}
+	if err := json.Unmarshal(reqs[0].raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, a := range body.Attachments {
+		got[a.ContentID] = true
+	}
+	if !got["chart"] || !got["chart-dark"] || !got["shorted-mark"] || len(got) != 3 {
+		t.Fatalf("attachments = %v, want the light and dark charts and the brand mark inline", got)
+	}
+	if !strings.Contains(body.HTML, `src="cid:chart"`) || !strings.Contains(body.HTML, `src="cid:chart-dark"`) || !strings.Contains(body.HTML, `src="cid:shorted-mark"`) {
+		t.Fatal("the HTML must refer to both attachments by cid")
+	}
+}
+
+// nonFiniteRun drives a firing stock whose data holds one non-finite value, and
+// checks the run still succeeds and the alert still goes out. The value is set by
+// the caller on a row of the fixture.
+func nonFiniteRun(t *testing.T, poison func(e *e2e)) {
+	t.Helper()
+	e := newE2E(t)
+	e.seedBase()
+	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
+
+	e.day("2026-10-12", baseDay0())
+	e.day("2026-10-13", baseDay0())
+	e.wantExit(e.run(), 0, "bootstrap")
+	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
+	poison(e)
+	e.wantExit(e.run(), 0, "a non-finite value must not fail the run")
+
+	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'm1' AND report_date = '2026-10-14' AND email_status = 'sent'`); got != 1 {
+		t.Fatalf("the alert must be sent: %d sent events", got)
+	}
+	if n := len(requestsTo(e.resend.snapshot(), u1Email)); n != 1 {
+		t.Fatalf("Resend received %d emails for the owner, want 1", n)
+	}
+}
+
+// NaN shares on the firing report row: the alert goes out and its share counts are unknown.
+func TestAlertsE2ENonFiniteShares(t *testing.T) {
+	nonFiniteRun(t, func(e *e2e) {
+		mustExec(e.t, e.pool, `UPDATE shorts SET "REPORTED_SHORT_POSITIONS" = 'NaN'::float8, "TOTAL_PRODUCT_IN_ISSUE" = 'Infinity'::float8 WHERE "PRODUCT_CODE" = 'AAA' AND "DATE" = '2026-10-14'`)
+	})
+}
+
+// NaN percent in an earlier history row: the alert goes out with the other readings.
+func TestAlertsE2ENonFiniteHistory(t *testing.T) {
+	nonFiniteRun(t, func(e *e2e) {
+		mustExec(e.t, e.pool, `UPDATE shorts SET "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" = 'NaN'::float8 WHERE "PRODUCT_CODE" = 'AAA' AND "DATE" = '2026-10-12'`)
+	})
+}
+
+// A company with only a wordmark on file, and no icon, is drawn as a monogram: the
+// wordmark column is never read, so its URL never reaches the payload.
+func TestAlertsE2EWordmarkOnlyIsAMonogram(t *testing.T) {
+	e := newE2E(t)
+	e.seedBase()
+	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
+	mustExec(t, e.pool, `UPDATE "company-metadata" SET logo_gcs_url = 'https://logos.test/AAA-wordmark.png' WHERE stock_code = 'AAA'`)
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
+	e.day("2026-10-12", baseDay0())
+	e.day("2026-10-13", baseDay0())
+	e.wantExit(e.run(), 0, "bootstrap")
+	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
+	e.wantExit(e.run(), 0, "first crossing")
+	var raw []byte
+	if err := e.pool.QueryRow(e.ctx, `SELECT payload FROM alert_events WHERE monitor_id = 'm1' AND report_date = '2026-10-14'`).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var p alertevents.Payload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Companies[0].LogoURL != "" || (p.Stock != nil && p.Stock.LogoURL != "") {
+		t.Fatalf("a wordmark-only company must carry no logo: %+v", p.Companies[0])
+	}
 }

@@ -129,10 +129,39 @@ run. Without step 2 the reporter logs `no check-in URL ... NOT monitored`.
 This is the check that alerts work end to end. It sends one real alert, to a test
 account you control, on a report date that is known to have crossed a level.
 
-1. On a Premium account, create a stock monitor in `/alerts` for a code that crossed a level on
-   a known recent report date `D`.
-2. Replay that date for this user only. `kubectl create job --from` cannot override args, so
-   render the Job, patch its args and apply it:
+### Through the admin MCP server (the path to use)
+
+Connect the Shorted admin connector (`docs/mcp-admin.md`) and ask Claude to run the
+smoke test. It is the five alerts tools, on your own account only:
+
+1. `find_alert_crossing` returns a stock and a report date `D` it crossed on (the
+   evaluator's rule, last 20 report dates). Give `code` and `date` to pick one.
+2. `run_alerts_smoke_test` creates or reuses one daily monitor for that stock, then
+   replays `D` for your account alone. It refuses without an active Premium
+   subscription and without a verified address, before it writes anything. The mail
+   goes to your verified address; the reply shows it masked.
+3. `alerts_smoke_result` with the returned `monitor_id`, `date` and `execution`, one
+   to two minutes later. Look for `sent` with `hasResendId: true`.
+4. Open the email and check the figures, the links and the headers. Click "Pause this
+   alert" and check that `/alerts` shows Paused.
+5. Check that `/alerts` "Recent alerts" shows "Emailed".
+6. `delete_alert_monitor` with the `monitor_id`. The monitor stays active until you do,
+   so it will email on future crossings.
+
+**Refusals:** step 2 names its reason and writes nothing. A date where the monitor
+already has an event is refused too, because a replay would send nothing; pick another
+date. An unverified or disabled
+account, or a deploy still rolling out, is refused until it is fixed. Use the fallback
+below only when the connector is unavailable.
+
+### Fallback: the cluster, by hand
+
+Use this when the admin connector is not available. `kubectl create job --from` cannot
+override args, so render the Job, patch its args and apply it:
+
+1. On a Premium account, create a stock monitor in `/alerts` for a code that crossed a
+   level on a known recent report date `D`.
+2. Replay that date for this user only:
 
    ```bash
    kubectl -n shorted-jobs create job alerts-replay-$(date +%s) --from=cronjob/shorted-alerts --dry-run=client -o yaml \
@@ -147,6 +176,38 @@ account you control, on a report date that is known to have crossed a level.
 6. Delete the test monitor.
 
 ## Troubleshooting
+
+**`resend: permanent (status 409, invalid_idempotent_request)`.**
+Resend refused a key it had already seen in the last 24 hours with a different body.
+Keys are account-wide, and the same account also sends from test databases and from other products.
+A key is `alert-canary-<run id>-<run started_at in µs>` or `alert-event-<event id>-<event created_at in µs>`.
+That leaves two causes:
+
+- The same row's body changed between attempts: a new `user_email`, sender, reply-to, site URL or
+  `UNSUBSCRIBE_SECRET` between a send and its retry.
+- A template or toolchain change between an attempt and its retry. The HTML, text or chart bytes of
+  the same row can differ after a deploy, and Resend compares the body, so the retry is refused.
+- Another sender used the key. Find it in Resend's dashboard.
+
+Keys built from a bare id (before #765) collided with test runs. Prod's first run reused
+`alert-canary-1` from a test canary sent that morning.
+
+What happens next depends on which email failed:
+
+- **The canary.** The run returns its claims, so the next run sends that mail once its canary passes.
+- **A customer email.** It is marked `failed` and never retried. A 409 does not prove the first attempt
+  was not accepted: the send may have succeeded and only its reply been lost. Before requeueing, check
+  Resend's dashboard for this event's key (`alert-event-<id>-<created_at µs>`) or for the recipient and
+  subject around the event's send time. Requeue only if no email was delivered. Then put the row back
+  within the 48-hour expiry:
+
+  ```sql
+  -- Only the ids you checked in Resend's dashboard.
+  UPDATE alert_events SET email_status = 'pending', last_error = NULL, updated_at = now()
+   WHERE id IN (101, 102)
+     AND email_status = 'failed' AND last_error LIKE '%invalid_idempotent_request%'
+     AND created_at > now() - interval '47 hours';
+  ```
 
 **A date is held, and the log says `report ... is held: the latest ASIC sync did not complete`.**
 Look at the latest ASIC `sync_status` row (the one with `environment` and `hostname` set). Once a sync completes, the next run

@@ -112,6 +112,18 @@ func (f billingAccounts) Lookup(_ context.Context, email string) (*firebaseUser,
 	return f.byEmail[email], nil
 }
 
+func (f billingAccounts) LookupUID(_ context.Context, uid string) (*firebaseUser, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	for _, u := range f.byEmail {
+		if u != nil && u.UID == uid {
+			return u, nil
+		}
+	}
+	return nil, nil
+}
+
 // billingWeb is the web app's billing and probe routes. It is served over HTTP
 // so the real client is what the tests exercise.
 type billingWeb struct {

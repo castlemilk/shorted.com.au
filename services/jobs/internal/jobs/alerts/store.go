@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -109,7 +110,8 @@ func (s store) loadRows(ctx context.Context, oldest, newest Date) (map[Date]map[
 		SELECT "DATE", "PRODUCT_CODE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
 		  FROM shorts
 		 WHERE "DATE" >= $1::date AND "DATE" < $2::date + 1
-		   AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL`,
+		   AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		   AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" NOT IN ('NaN'::float8, 'Infinity'::float8, '-Infinity'::float8)`,
 		string(oldest), string(newest))
 	if err != nil {
 		return nil, fmt.Errorf("read readings: %w", err)
@@ -134,22 +136,110 @@ func (s store) loadRows(ctx context.Context, oldest, newest Date) (map[Date]map[
 	return out, rows.Err()
 }
 
-// loadCompanies reads each code's name and industry. The sector column is absent
-// from prod's company-metadata, so it is not read.
+// loadCompanies reads each code's name, industry and logo. The sector column is
+// absent from prod's company-metadata, so it is not read. The logo is the icon column
+// only: the full logo is a wordmark, which is not shown in a square. The sector column
+// is absent in prod, so it is not read either.
 func (s store) loadCompanies(ctx context.Context) (map[string]CompanyInfo, error) {
-	rows, err := s.pool.Query(ctx, `SELECT stock_code, COALESCE(company_name, ''), COALESCE(industry, '') FROM "company-metadata"`)
+	rows, err := s.pool.Query(ctx, `
+		SELECT stock_code, COALESCE(company_name, ''), COALESCE(industry, ''),
+		       COALESCE(logo_icon_gcs_url, '')
+		  FROM "company-metadata"`)
 	if err != nil {
 		return nil, fmt.Errorf("read company metadata: %w", err)
 	}
 	defer rows.Close()
 	out := map[string]CompanyInfo{}
 	for rows.Next() {
-		var code string
+		var code, icon string
 		var info CompanyInfo
-		if err := rows.Scan(&code, &info.Name, &info.Industry); err != nil {
+		if err := rows.Scan(&code, &info.Name, &info.Industry, &icon); err != nil {
 			return nil, fmt.Errorf("scan company: %w", err)
 		}
+		info.LogoURL = usableLogo(icon)
 		out[code] = info
+	}
+	return out, rows.Err()
+}
+
+// Postgres float8 accepts NaN and Infinity, and encoding/json refuses them. A single
+// such row would fail the whole commit, so both reads drop non-finite readings in SQL,
+// and a non-finite share count is read as NULL: unknown, not an error. stockDetailOf
+// repeats the check for anything that gets past the query.
+
+// historyRow is one report's reading for a code, with the share counts that report
+// gave. The counts are NULL on reports that did not give them.
+type historyRow struct {
+	date        Date
+	pct         float64
+	sharesShort *float64
+	sharesOnIss *float64
+}
+
+// historyDays is the calendar span a stock's history reads: about six months of report
+// dates. It is also the window that holds the 20-report comparison.
+const historyDays = 190
+
+// deferredCodes lists the codes whose product line on day is a DEFERRED settlement
+// product. The site's top-shorts view excludes those lines, so the rank does too.
+// The PRODUCT column is read here because the readings do not carry it.
+func (s store) deferredCodes(ctx context.Context, day Date) (map[string]bool, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT DISTINCT "PRODUCT_CODE" FROM shorts
+		 WHERE "DATE" = $1::date AND "PRODUCT" ILIKE '%DEFERRED%'`, string(day))
+	if err != nil {
+		return nil, fmt.Errorf("read deferred products: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, fmt.Errorf("scan deferred product: %w", err)
+		}
+		out[code] = true
+	}
+	return out, rows.Err()
+}
+
+// loadStockHistory reads each code's readings over historyDays up to and including
+// newest, in one statement. The rows are oldest first per code. The
+// idx_shorts_product_code_date index serves the code filter and the date range.
+func (s store) loadStockHistory(ctx context.Context, codes []string, newest Date) (map[string][]historyRow, error) {
+	out := map[string][]historyRow{}
+	if len(codes) == 0 {
+		return out, nil
+	}
+	day, err := newest.Day()
+	if err != nil {
+		return nil, fmt.Errorf("history: report date: %w", err)
+	}
+	from := day.AddDate(0, 0, -historyDays).Format(dateLayout)
+	rows, err := s.pool.Query(ctx, `
+		SELECT "PRODUCT_CODE", "DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
+		       CASE WHEN "REPORTED_SHORT_POSITIONS" IN ('NaN'::float8, 'Infinity'::float8, '-Infinity'::float8) THEN NULL ELSE "REPORTED_SHORT_POSITIONS" END,
+		       CASE WHEN "TOTAL_PRODUCT_IN_ISSUE" IN ('NaN'::float8, 'Infinity'::float8, '-Infinity'::float8) THEN NULL ELSE "TOTAL_PRODUCT_IN_ISSUE" END
+		  FROM shorts
+		 WHERE "PRODUCT_CODE" = ANY($1::text[])
+		   AND "DATE" >= $2::date AND "DATE" < $3::date + 1
+		   AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		   AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" NOT IN ('NaN'::float8, 'Infinity'::float8, '-Infinity'::float8)
+		 ORDER BY "PRODUCT_CODE", "DATE"`, codes, from, string(newest))
+	if err != nil {
+		return nil, fmt.Errorf("read stock history: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			code string
+			t    time.Time
+			h    historyRow
+		)
+		if err := rows.Scan(&code, &t, &h.pct, &h.sharesShort, &h.sharesOnIss); err != nil {
+			return nil, fmt.Errorf("scan stock history: %w", err)
+		}
+		h.date = dateOf(t)
+		out[code] = append(out[code], h)
 	}
 	return out, rows.Err()
 }
@@ -217,18 +307,21 @@ func (s store) hasDeliveryWork(ctx context.Context) (bool, error) {
 	return work, err
 }
 
-// insertRun opens a run row. Its id is the canary's idempotency key.
-func (s store) insertRun(ctx context.Context, execution, note string, daily []Date, weekly Date) (int64, error) {
+// insertRun opens a run row. Its id and start time make the canary's idempotency key.
+func (s store) insertRun(ctx context.Context, execution, note string, daily []Date, weekly Date) (int64, time.Time, error) {
 	var dates []string
 	for _, d := range daily {
 		dates = append(dates, string(d))
 	}
-	var id int64
+	var (
+		id      int64
+		started time.Time
+	)
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO alert_evaluator_runs (execution, note, daily_dates, weekly_report_date)
 		VALUES (NULLIF($1, ''), NULLIF($2, ''), $3::date[], NULLIF($4, '')::date)
-		RETURNING id`, execution, note, dates, string(weekly)).Scan(&id)
-	return id, err
+		RETURNING id, started_at`, execution, note, dates, string(weekly)).Scan(&id, &started)
+	return id, started, err
 }
 
 // runResult is what a finished run records.
@@ -310,7 +403,7 @@ func (s store) commit(ctx context.Context, planned, next State, replay bool, run
 			vanished++
 			continue
 		}
-		payload, err := json.Marshal(r.msg.Payload)
+		payload, err := encodePayload(r.msg.Payload)
 		if err != nil {
 			return false, 0, 0, fmt.Errorf("encode payload: %w", err)
 		}
@@ -342,6 +435,19 @@ func (s store) commit(ctx context.Context, planned, next State, replay bool, run
 		return false, 0, 0, fmt.Errorf("commit: %w", err)
 	}
 	return true, inserted, vanished, nil
+}
+
+// encodePayload encodes an event's payload. The stock detail is optional, so a
+// payload that will not encode is retried without it: one bad detail must not fail
+// the commit for every owner in the run. The event goes out without the detail.
+func encodePayload(p alertevents.Payload) ([]byte, error) {
+	b, err := json.Marshal(p)
+	if err == nil || p.Stock == nil {
+		return b, err
+	}
+	log.Printf("alerts: stock detail would not encode, event committed without it: %v", err)
+	p.Stock = nil
+	return json.Marshal(p)
 }
 
 // lockMonitors takes a share lock on every monitor the rows name, and returns the
@@ -423,6 +529,7 @@ type claimed struct {
 	attempts  int
 	email     string // the monitor's user_email now
 	monStatus string // the monitor's status now; "" when the monitor is gone
+	createdAt time.Time
 }
 
 // claim takes up to max pending rows in one statement. SKIP LOCKED keeps two
@@ -442,7 +549,7 @@ func (s store) claim(ctx context.Context, max int, userID string) ([]claimed, er
 		  RETURNING *)
 		SELECT t.id, t.monitor_id, t.user_id, t.scope, t.target, t.condition, t.threshold, t.cadence,
 		       t.report_date::text, t.compared_to_date::text, t.latest_percent, t.previous_percent,
-		       t.payload, t.email_attempts, COALESCE(m.user_email, ''), COALESCE(m.status, '')
+		       t.payload, t.email_attempts, COALESCE(m.user_email, ''), COALESCE(m.status, ''), t.created_at
 		  FROM taken t
 		  LEFT JOIN alert_monitors m ON m.id = t.monitor_id
 		 ORDER BY t.id`, max, userID)
@@ -460,7 +567,7 @@ func (s store) claim(ctx context.Context, max int, userID string) ([]claimed, er
 		)
 		if err := rows.Scan(&c.id, &c.monitorID, &c.userID, &c.msg.Scope, &c.msg.Target, &c.msg.Condition,
 			&c.msg.Threshold, &c.msg.Cadence, &report, &compare, &c.msg.Latest, &c.msg.Previous,
-			&payload, &c.attempts, &c.email, &c.monStatus); err != nil {
+			&payload, &c.attempts, &c.email, &c.monStatus, &c.createdAt); err != nil {
 			return nil, fmt.Errorf("scan claim: %w", err)
 		}
 		c.msg.ReportDate, c.msg.ComparedTo = Date(report), Date(compare)
