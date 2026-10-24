@@ -528,4 +528,40 @@ describe("chat RPC proxy", () => {
       expect(await response.text()).toBe(stream);
     });
   });
+
+  describe("the answer it passes on", () => {
+    // Node's fetch decodes a gzip answer before the proxy reads it, so the body
+    // handed on is plain JSON. The headers must describe that body, not the
+    // compressed bytes the chat service sent. route-wire.test.ts shows the failure
+    // over a socket; these pin the two halves of the fix.
+    it("asks the chat service for an uncompressed answer, whatever the browser accepts", async () => {
+      await POST(requestFor("ListConversations", { "accept-encoding": "gzip, deflate, br" }), {
+        params: { method: "ListConversations" },
+      });
+
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(new Headers(init.headers).get("accept-encoding")).toBe("identity");
+    });
+
+    it("drops Content-Encoding from an answer it passes on, so the caller does not decode it twice", async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response('{"conversations":[]}', {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "content-encoding": "gzip",
+          },
+        }),
+      );
+
+      const response = await POST(requestFor("ListConversations"), {
+        params: { method: "ListConversations" },
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-encoding")).toBeNull();
+      expect(response.headers.get("content-type")).toBe("application/json");
+      expect(await response.text()).toBe('{"conversations":[]}');
+    });
+  });
 });
