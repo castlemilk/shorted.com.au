@@ -42,11 +42,17 @@ import {
  */
 const AlertMonitorList = dynamic(
   () => import("./alert-monitor-list").then((mod) => mod.AlertMonitorList),
-  { ssr: false, loading: () => <ListPlaceholder label="Loading your alerts" /> },
+  {
+    ssr: false,
+    loading: () => <ListPlaceholder label="Loading your alerts" />,
+  },
 );
 const AlertEventsList = dynamic(
   () => import("./alert-events-list").then((mod) => mod.AlertEventsList),
-  { ssr: false, loading: () => <ListPlaceholder label="Loading recent alerts" /> },
+  {
+    ssr: false,
+    loading: () => <ListPlaceholder label="Loading recent alerts" />,
+  },
 );
 
 function ListPlaceholder({ label }: { label: string }) {

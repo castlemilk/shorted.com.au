@@ -269,7 +269,10 @@ describe("alert server actions", () => {
   describe("createAlertMonitor", () => {
     it("explains the active-alert cap rather than a generic failure", async () => {
       mockClient.createAlertMonitor.mockRejectedValueOnce(
-        new ConnectError("You already have 50 active alerts.", Code.ResourceExhausted),
+        new ConnectError(
+          "You already have 50 active alerts.",
+          Code.ResourceExhausted,
+        ),
       );
 
       expect(
@@ -436,7 +439,10 @@ describe("alertErrorMessage", () => {
 
   it("explains a resume refused by the active-alert cap", () => {
     expect(
-      alertErrorMessage(new ConnectError("x", Code.ResourceExhausted), "fallback"),
+      alertErrorMessage(
+        new ConnectError("x", Code.ResourceExhausted),
+        "fallback",
+      ),
     ).toBe(
       "You already have the most active alerts allowed. Pause or delete one before resuming this one.",
     );

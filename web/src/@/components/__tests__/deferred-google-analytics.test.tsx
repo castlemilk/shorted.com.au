@@ -34,14 +34,19 @@ describe("DeferredGoogleAnalytics", () => {
   });
 
   it("keeps the one-click unsubscribe token out of the initial page view", () => {
-    window.history.replaceState({}, "", "/alerts/unsubscribe?t=secret-token&utm_source=mail");
+    window.history.replaceState(
+      {},
+      "",
+      "/alerts/unsubscribe?t=secret-token&utm_source=mail",
+    );
     try {
       render(<DeferredGoogleAnalytics gaId="G-TEST123" />);
       const config = window.dataLayer![1] as ArrayLike<unknown>;
       expect(config[0]).toBe("config");
       // The token is gone; the campaign tag that GA attributes from is kept.
       expect(config[2]).toEqual({
-        page_location: "https://shorted.com.au/alerts/unsubscribe?utm_source=mail",
+        page_location:
+          "https://shorted.com.au/alerts/unsubscribe?utm_source=mail",
       });
     } finally {
       window.history.replaceState({}, "", "/");
