@@ -204,7 +204,7 @@ describe("DirectorTradesTable (recorded)", () => {
 
     const table = screen.getByRole("table", { name: "Director trades in BHP" });
     const row = within(table).getByRole("rowheader", { name: /Mark Vassella/ }).closest("tr")!;
-    expect(within(row).getByText(/11 Sept 2026 · Buy/)).toBeInTheDocument();
+    expect(within(row).getByText(/11 Sep 2026 · Buy/)).toBeInTheDocument();
     expect(within(row).getByText("2,675")).toBeInTheDocument();
     expect(within(row).getByText("$60.50")).toBeInTheDocument();
     expect(within(row).getByRole("link", { name: /Notice/ })).toHaveAttribute(
@@ -338,14 +338,46 @@ describe("rich tables at each width", () => {
     expect(screen.getByRole("columnheader", { name: "1-month price" })).toBeInTheDocument();
   });
 
-  it("abbreviates a director's value below the /chat page's width, and keeps the notice", () => {
+  it("abbreviates a director's value below the /chat page's width, and drops the Notice column", () => {
     atWidth(223);
     render(<DirectorTradesTable view={parseDirectorTrades(fixture("get_director_trades-bhp.json"))!} code="BHP" />);
 
     expect(screen.getByRole("columnheader", { name: "Value" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Notice" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Notice" })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Shares" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Notice/ }).length).toBeGreaterThan(0);
+    expect(screen.getByText("$161.8K")).toBeInTheDocument();
+  });
+
+  it("makes the director's name the notice link below the full width, with the same safe href", () => {
+    atWidth(223);
+    render(<DirectorTradesTable view={parseDirectorTrades(fixture("get_director_trades-bhp.json"))!} code="BHP" />);
+
+    const link = screen.getByRole("link", { name: /Mark Vassella.*opens in a new tab/ });
+    expect(link).toHaveAttribute("href", expect.stringMatching(/^https:\/\/www\.asx\.com\.au\//));
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("shows a trade's share count where the feed gave no value, below the standard width", () => {
+    atWidth(223);
+    const view = parseDirectorTrades(
+      JSON.stringify({
+        trades: [{ directorName: "Ann Lee", tradeType: "buy", tradeDate: "2026-10-01", sharesTraded: 29756 }],
+      }),
+    )!;
+    render(<DirectorTradesTable view={view} code="BHP" />);
+
+    expect(screen.getByText("29,756 shares")).toBeInTheDocument();
+    expect(screen.queryByText("Not available")).not.toBeInTheDocument();
+  });
+
+  it("keeps the share count in its own column from the standard width, with the value beside it", () => {
+    atWidth(331);
+    render(<DirectorTradesTable view={parseDirectorTrades(fixture("get_director_trades-bhp.json"))!} code="BHP" />);
+
+    expect(screen.getByRole("columnheader", { name: "Shares" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Notice" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/ shares$/)).not.toBeInTheDocument();
   });
 
   it("draws the price and every figure at the /chat page's width", () => {
@@ -416,6 +448,23 @@ describe("rich tables: what a row shows and how it fills the width", () => {
     expect(screen.getByText("Change and trend are shown for the top 7 only.")).toBeInTheDocument();
   });
 
+  it("names only the change below the standard width, where the trend is not drawn", () => {
+    atWidth(223);
+    render(<TopShortsTable view={parseTopShorts(fixture("get_top_shorts-50.json"))!} />);
+
+    expect(screen.queryByRole("columnheader", { name: "Trend" })).not.toBeInTheDocument();
+    expect(screen.getByText("Change is shown for the top 7 only.")).toBeInTheDocument();
+  });
+
+  it("lets a company name take the width the figures leave below the full width", () => {
+    atWidth(223);
+    render(<TopShortsTable view={parseTopShorts(fixture("get_top_shorts-10.json"))!} />);
+
+    const name = screen.getAllByTitle(/^Droneshield$/)[0]!;
+    expect(name.className).not.toContain("max-w-");
+    expect(name.className).toContain("truncate");
+  });
+
   it("says nothing of the sort when every row has its readings", () => {
     const view = parseTopShorts(fixture("get_top_shorts-10.json"))!;
     render(<TopShortsTable view={view} />);
@@ -430,11 +479,12 @@ describe("rich tables: what a row shows and how it fills the width", () => {
     expect(header.className).toContain("max-w-0");
   });
 
-  it("keeps a trade's date and type on one truncated line beneath the name", () => {
+  it("lets a trade's date and type wrap beneath the name, rather than cut the type short", () => {
     const view = parseDirectorTrades(fixture("get_director_trades-bhp.json"))!;
     render(<DirectorTradesTable view={view} code="BHP" />);
     const detail = screen.getAllByRole("rowheader")[0]!.querySelector(".text-\\[11px\\]")!;
-    expect(detail.className).toContain("truncate");
+    expect(detail.className).not.toContain("truncate");
+    expect(detail.className).toContain("break-words");
     expect(detail.textContent).toMatch(/ · /);
   });
 

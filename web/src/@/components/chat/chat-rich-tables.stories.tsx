@@ -187,7 +187,10 @@ export const TopShortsSidebarDark: Story = {
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
 };
 
-/** The director trades answer at the sidebar's width: the director, shares, value and notice fit. */
+/**
+ * The director trades answer at the sidebar's width: the director, shares and value fit. The
+ * notice is the director's link, since the Notice column is not drawn below the full width.
+ */
 export const DirectorTradesSidebarLight: Story = {
   decorators: [tableAt("light", 333)],
   render: () => (
@@ -205,7 +208,10 @@ export const DirectorTradesSidebarDark: Story = {
   ),
 };
 
-/** On a phone the director trades table keeps the director, the value and the notice. */
+/**
+ * On a phone the director trades table keeps the director and the value. The director's name
+ * is the notice's link, and a trade with no value shows its share count.
+ */
 export const DirectorTradesPhoneLight: Story = {
   decorators: [tableAt("light", 223)],
   render: () => (
@@ -215,6 +221,8 @@ export const DirectorTradesPhoneLight: Story = {
     await expectFitsWithoutScroll(canvasElement, "Director trades in BHP", false);
     const canvas = within(canvasElement);
     await expect(canvas.queryByRole("columnheader", { name: "Shares" })).toBeNull();
+    await expect(canvas.queryByRole("columnheader", { name: "Notice" })).toBeNull();
+    await expect(canvas.getAllByRole("link", { name: /opens in a new tab/ }).length).toBeGreaterThan(0);
   },
 };
 
@@ -367,7 +375,8 @@ export const TopShortsDesktopSidebarLight: Story = {
   play: async ({ canvasElement }) => {
     await expectFitsWithoutScroll(canvasElement, "Most shorted ASX stocks", false);
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Change and trend are shown for the top 7 only.")).toBeInTheDocument();
+    // The trend is not drawn at this width, so the footnote names the change alone.
+    await expect(canvas.getByText("Change is shown for the top 7 only.")).toBeInTheDocument();
     await expect(canvas.queryByRole("columnheader", { name: "Trend" })).toBeNull();
   },
 };

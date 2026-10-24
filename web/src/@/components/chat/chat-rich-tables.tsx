@@ -12,7 +12,7 @@ import {
   Dash,
   type ChatDataTableColumn,
 } from "./chat-data-table";
-import type { TableTier } from "./chat-layout";
+import { tierAtLeast, type TableTier } from "./chat-layout";
 import type {
   DirectorTradeRow,
   DirectorTradesView,
@@ -71,13 +71,16 @@ export function TopShortsTable({ view }: { view: TopShortsView }) {
   }
   // The budget keeps the sparklines of the highest rows and clears the rest, so their change
   // and trend are blank. The footnote says which rows have them, rather than leaving a dash.
+  // It names only the columns the table draws: the trend is not drawn below the standard tier.
   const withReadings = view.rows.filter((row) => row.points.length >= 2).length;
-  const footnote =
-    withReadings < view.rows.length
-      ? withReadings === 0
-        ? "Change and trend are not shown for these stocks."
-        : `Change and trend are shown for the top ${formatWhole(withReadings)} only.`
-      : undefined;
+  const footnote = (tier: TableTier) => {
+    if (withReadings >= view.rows.length) return undefined;
+    const names = tierAtLeast(tier, "standard") ? "Change and trend" : "Change";
+    const verb = names === "Change" ? "is" : "are";
+    return withReadings === 0
+      ? `${names} ${verb} not shown for these stocks.`
+      : `${names} ${verb} shown for the top ${formatWhole(withReadings)} only.`;
+  };
   return (
     <ChatDataTable
       caption="Most shorted ASX stocks"
@@ -95,8 +98,11 @@ const TOP_SHORT_COLUMNS: readonly ChatDataTableColumn<TopShortRow>[] = [
     id: "code",
     header: "Stock",
     rowHeader: true,
+    // The name is the one text here that can be long, so the stock takes the room the other
+    // columns leave, and its name is cut only where it does not fit.
+    fill: true,
     cell: (row, tier) => (
-      <StockCell code={row.code} name={row.name} rank={row.rank} tier={tier} />
+      <StockCell code={row.code} name={row.name} rank={row.rank} tier={tier} fill />
     ),
   },
   {
@@ -309,7 +315,7 @@ const TRADE_COLUMNS: readonly ChatDataTableColumn<DirectorTradeRow>[] = [
     rowHeader: true,
     // The name identifies the row, so it takes the room the figures leave.
     fill: true,
-    cell: (row) => <DirectorCell row={row} />,
+    cell: (row, tier) => <DirectorCell row={row} tier={tier} />,
   },
   {
     id: "shares",
@@ -323,14 +329,19 @@ const TRADE_COLUMNS: readonly ChatDataTableColumn<DirectorTradeRow>[] = [
     header: "Value",
     numeric: true,
     // Below the full tier a value is abbreviated ($1.2M), which keeps the sidebar's width.
-    cell: (row, tier) =>
-      row.totalValue === undefined ? (
-        <Dash />
-      ) : tier === "full" ? (
-        formatDollars(row.totalValue)
-      ) : (
-        formatCompactDollars(row.totalValue)
-      ),
+    cell: (row, tier) => {
+      if (row.totalValue !== undefined) {
+        return tier === "full"
+          ? formatDollars(row.totalValue)
+          : formatCompactDollars(row.totalValue);
+      }
+      // The compact table has no Shares column, so a trade the feed priced with no value
+      // shows its share count here rather than a dash.
+      if (tier === "compact" && row.shares !== undefined) {
+        return `${formatWhole(row.shares)} shares`;
+      }
+      return <Dash />;
+    },
   },
   {
     id: "price",
@@ -343,6 +354,9 @@ const TRADE_COLUMNS: readonly ChatDataTableColumn<DirectorTradeRow>[] = [
   {
     id: "notice",
     header: "Notice",
+    // Below the full tier the director's name is the notice's link (DirectorCell), so the
+    // column is drawn only where there is room for it beside the rest.
+    minTier: "full",
     // The announcement link is data from the API: a link only when it is http(s).
     cell: (row) => {
       const href = safeExternalHref(row.announcementUrl);
@@ -365,20 +379,34 @@ const TRADE_COLUMNS: readonly ChatDataTableColumn<DirectorTradeRow>[] = [
 
 /**
  * A trade's director, with its date and type beneath. The director's name is the first
- * line and takes the column's width; the date and the type share the second line, which
- * truncates rather than wrapping, so every row is two lines tall and never three or four.
- * The full text of each is in its title.
+ * line and takes the column's width, and truncates only when it does not fit. The date and
+ * the type wrap onto as many lines as they need, so a type is never cut short ("Optio…").
+ * Below the full tier the name is the notice's link, since the Notice column is not drawn
+ * there; it keeps the same safe-URL check and the same "opens in a new tab" text.
  */
-function DirectorCell({ row }: { row: DirectorTradeRow }) {
+function DirectorCell({ row, tier }: { row: DirectorTradeRow; tier: TableTier }) {
   const date = row.tradeDate ? formatTradeDate(row.tradeDate) : undefined;
   const detail = date ? `${date} · ${tradeTypeLabel(row.tradeType)}` : tradeTypeLabel(row.tradeType);
+  const href = tier === "full" ? undefined : safeExternalHref(row.announcementUrl);
   return (
     <span className="block max-w-full">
       <span className="block truncate" title={row.director}>
-        {row.director}
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+          >
+            {row.director}
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        ) : (
+          row.director
+        )}
       </span>
       <span
-        className="block truncate text-[11px] font-normal text-muted-foreground"
+        className="block break-words text-[11px] font-normal text-muted-foreground"
         title={detail}
       >
         {detail}
@@ -387,7 +415,10 @@ function DirectorCell({ row }: { row: DirectorTradeRow }) {
   );
 }
 
-/** The widest a company name is drawn, by tier. A longer name is truncated, with its full text in the title. */
+/**
+ * The widest a company name is drawn, by tier, in a column that does not fill the table. A
+ * longer name is truncated, with its full text in the title. A filling column takes no cap.
+ */
 const NAME_WIDTH: Readonly<Record<TableTier, string>> = {
   compact: "max-w-[4.25rem]",
   standard: "max-w-[5rem]",
@@ -396,9 +427,9 @@ const NAME_WIDTH: Readonly<Record<TableTier, string>> = {
 
 /**
  * A stock's code, linked to its page, with its company name beneath. A rank in front of
- * the code keeps the answer's order. A badge names the stock a comparison is about. The
- * name is capped narrower at the compact and standard tiers, so the code and the
- * figures beside it keep their room.
+ * the code keeps the answer's order. A badge names the stock a comparison is about. In a
+ * column that fills the table (`fill`) the name takes the room left over; elsewhere it is
+ * capped by tier, so the code and the figures beside it keep their room.
  */
 function StockCell({
   code,
@@ -406,12 +437,14 @@ function StockCell({
   rank,
   badge,
   tier,
+  fill = false,
 }: {
   code: string;
   name?: string;
   rank?: number;
   badge?: string;
   tier: TableTier;
+  fill?: boolean;
 }) {
   return (
     <span className="block min-w-0">
@@ -437,7 +470,7 @@ function StockCell({
         <span
           className={cn(
             "block truncate text-[11px] font-normal text-muted-foreground",
-            NAME_WIDTH[tier],
+            !fill && NAME_WIDTH[tier],
           )}
           title={name}
         >

@@ -46,8 +46,11 @@ export interface ChatDataTableProps<Row> {
   rowClassName?: (row: Row) => string | undefined;
   /** Rows the tool reported but did not send. Named in the footer when above zero. */
   notShown?: number;
-  /** A note under the table, such as which rows its figures cover. Omitted when empty. */
-  footnote?: string;
+  /**
+   * A note under the table, such as which rows its figures cover. It is given the tier the
+   * table is drawn at, since the columns it names depend on it. Omitted when it returns nothing.
+   */
+  footnote?: (tier: TableTier) => string | undefined;
 }
 
 /**
@@ -98,6 +101,7 @@ export function ChatDataTable<Row>({
   // table fits that, and a classic scrollbar (which the region's client width leaves out)
   // would otherwise leave a table just over the tier's floor scrolling sideways.
   const tier = tableTierFor(width);
+  const note = footnote?.(tier);
   const shown = useMemo(
     () => columns.filter((column) => tierAtLeast(tier, column.minTier)),
     [columns, tier],
@@ -280,9 +284,7 @@ export function ChatDataTable<Row>({
           />
         )}
       </div>
-      {footnote && (
-        <p className="mt-1 text-[11px] text-muted-foreground">{footnote}</p>
-      )}
+      {note && <p className="mt-1 text-[11px] text-muted-foreground">{note}</p>}
       {overflow.below && (
         <p className="mt-1 text-[11px] text-muted-foreground">Scroll to see more rows.</p>
       )}
