@@ -102,6 +102,8 @@ type tableRow struct {
 // cell is one figure in a table row.
 type cell struct {
 	Text, Class, Color string
+	// Sub is a smaller line under the figure, such as the date of a lookback reading.
+	Sub string
 }
 
 // Colours for direction. A rise in short interest is red, as the site's tables show
@@ -280,7 +282,10 @@ func buildTable(m Message, more int, moreURL string) tableView {
 			}
 		} else {
 			latest := c.Latest
-			prev := datedFigure(pct(c.Previous), c.PreviousDate, m.ComparedTo)
+			prevSub := ""
+			if c.PreviousDate != "" && Date(c.PreviousDate) != m.ComparedTo {
+				prevSub = fmtDay(Date(c.PreviousDate))
+			}
 			textClass, textColor := "muted", flatText
 			text := "-"
 			if c.Change != nil {
@@ -288,7 +293,7 @@ func buildTable(m Message, more int, moreURL string) tableView {
 				text = signed(c.Change)
 			}
 			r.Cells = []cell{
-				{Text: prev, Class: "muted", Color: mutedColor},
+				{Text: pct(c.Previous), Sub: prevSub, Class: "muted", Color: mutedColor},
 				{Text: pct(&latest), Class: "ink", Color: inkColor},
 				{Text: text, Class: textClass, Color: textColor},
 			}
@@ -456,7 +461,7 @@ const alertPageHTML = `<!doctype html>
   .muted { color: #A39A75 !important; }
   .accent { color: #FFAC4D !important; }
   .hair { border-color: #352E27 !important; }
-  .stat-r { border-left-color: #352E27 !important; }
+  .stat-r { border-left-color: #352E27 !important; border-top-color: #352E27 !important; }
   .stat-t { border-top-color: #352E27 !important; }
   .tile { background-color: #1C1915 !important; }
   .btn { background-color: #FFAC4D !important; }
@@ -549,11 +554,11 @@ const alertPageHTML = `<!doctype html>
 <tr>{{range .Headers}}<th align="{{if .Right}}right{{else}}left{{end}}" class="muted" style="padding:0 0 8px 0;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:400;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">{{.Text}}</th>{{end}}</tr>
 {{range .Rows}}<tr>
 <td valign="middle" width="20" style="width:20px;padding:10px 10px 10px 0;border-top:1px solid #E5E1DC;" class="hair">{{if .HasLogo}}<img src="{{.Logo}}" width="20" height="20" alt="{{.Code}}" style="display:block;width:20px;height:20px;border-radius:4px;border:0;">{{else}}<table role="presentation" width="20" height="20" cellpadding="0" cellspacing="0" border="0" class="tile" style="width:20px;height:20px;background-color:#F2F0ED;border-radius:4px;"><tr><td align="center" valign="middle" class="accent" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:9px;line-height:20px;color:#9E5210;">{{.Code}}</td></tr></table>{{end}}</td>
-<td valign="middle" style="padding:10px 12px 10px 0;border-top:1px solid #E5E1DC;max-width:0;" class="hair">
+<td valign="middle" width="42%" style="width:42%;padding:10px 12px 10px 0;border-top:1px solid #E5E1DC;max-width:0;" class="hair">
 <div class="ink" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:13px;line-height:18px;color:#483932;">{{.Code}}</div>
 {{if .Name}}<div class="muted" style="font-size:12px;line-height:16px;color:#72625A;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">{{.Name}}</div>{{end}}
 </td>
-{{range .Cells}}<td align="right" valign="middle" class="{{.Class}}" style="padding:10px 0 10px 12px;border-top:1px solid #E5E1DC;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:13px;line-height:18px;white-space:nowrap;color:{{.Color}};" >{{.Text}}</td>{{end}}
+{{range .Cells}}<td align="right" valign="middle" class="{{.Class}} hair" style="padding:10px 0 10px 12px;border-top:1px solid #E5E1DC;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:13px;line-height:18px;color:{{.Color}};" >{{.Text}}{{if .Sub}}<div class="muted" style="font-size:11px;line-height:14px;color:#72625A;">{{.Sub}}</div>{{end}}</td>{{end}}
 </tr>
 {{end}}
 </table>
