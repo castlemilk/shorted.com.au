@@ -16,6 +16,16 @@ import (
 // mobile tweaks and the dark mode, which a client that ignores it simply loses.
 // Every dynamic string goes through html/template, so a company name with "&" or
 // "<" is shown as written and cannot break the markup.
+//
+// Type is mono throughout, as the brand has it, with the serif reserved for the
+// headline. Every text colour is checked to 4.5:1 on its background in both modes.
+
+// Font stacks. The mono stack is set on every text element, because a client that
+// drops the body style would otherwise fall back to a serif.
+const (
+	monoStack  = "'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace"
+	serifStack = "Newsreader, Georgia, 'Times New Roman', serif"
+)
 
 // htmlInput is what the HTML twin is built from: the message and the parts of the
 // plain-text build it shares.
@@ -56,21 +66,24 @@ type htmlPage struct {
 
 // stockView is the stock card's company row, figures, chart and stats.
 type stockView struct {
-	Code, Name, Industry string
-	Logo                 string
-	HasLogo              bool
-	Previous, Latest     string
-	PreviousDate         string
-	LatestDate           string
-	HasChange            bool
-	Change               string
-	ChangeClass          string
-	ChangeColor          string
-	ChangeBg             string
-	HasChart             bool
-	ChartAlt             string
-	ChartCaption         string
-	StatRows             [][]stat
+	Code     string
+	NameLine string // "Glencore · Materials", or whichever of the two is known
+	Logo     string
+	HasLogo  bool
+	Previous string
+	Latest   string
+	// PreviousDate and LatestDate are the short day labels under the figures.
+	PreviousDate string
+	LatestDate   string
+	HasChange    bool
+	Change       string
+	ChangeClass  string
+	ChangeColor  string
+	ChangeBg     string
+	HasChart     bool
+	ChartAlt     string
+	ChartCaption string
+	StatRows     [][]stat
 }
 
 // stat is one cell of the stats grid. An empty Label is a blank cell that keeps
@@ -99,21 +112,22 @@ type tableRow struct {
 	Cells            []cell
 }
 
-// cell is one figure in a table row.
+// cell is one figure in a table row. Sub is a smaller line under the figure, used
+// for the short date of a lookback reading.
 type cell struct {
-	Text, Class, Color string
-	// Sub is a smaller line under the figure, such as the date of a lookback reading.
-	Sub string
+	Text, Class, Color, Sub string
 }
 
 // Colours for direction. A rise in short interest is red, as the site's tables show
-// it; a fall is green. A zero change is neutral.
+// it; a fall is green. A zero change is neutral. The rise red is darker than the
+// site's signal red, because the signal red is 3.3:1 on its chip and 4.5:1 is the
+// floor. Both the light and dark pairs are checked to that floor.
 const (
-	riseText   = "#EF4444"
+	riseText   = "#B91C1C" // 5.7:1 on riseChip
 	riseChip   = "#FDECEC"
-	fallText   = "#15803D"
+	fallText   = "#15803D" // 4.5:1 on fallChip
 	fallChip   = "#E9F7EE"
-	flatText   = "#72625A"
+	flatText   = "#72625A" // 5.7:1 on the card
 	flatChip   = "#F2F0ED"
 	inkColor   = "#483932"
 	mutedColor = "#72625A"
@@ -130,6 +144,7 @@ func deltaStyle(v float64) (textClass, textColor, chipClass, chipBg string) {
 	return "muted", flatText, "chip-flat", flatChip
 }
 
+// chartCaption is the caption under a long history's chart.
 const chartCaption = "Short position, % of shares on issue · ASIC daily reports · last 6 months"
 
 // renderHTML builds the HTML twin for one message.
@@ -172,21 +187,22 @@ func buildPage(in htmlInput) htmlPage {
 
 func buildStock(m Message, hasChart bool) stockView {
 	v := stockView{Code: m.Target}
-	var st *alertevents.StockDetail
-	if m.Payload.Stock != nil {
-		st = m.Payload.Stock
-		v.Name, v.Industry, v.Logo = st.Name, st.Industry, st.LogoURL
+	var name, industry, logo string
+	if st := m.Payload.Stock; st != nil {
+		name, industry, logo = st.Name, st.Industry, st.LogoURL
 	}
 	if len(m.Payload.Companies) > 0 {
 		c := m.Payload.Companies[0]
-		if v.Name == "" {
-			v.Name = c.Name
+		if name == "" {
+			name = c.Name
 		}
-		if v.Logo == "" {
-			v.Logo = c.LogoURL
+		if logo == "" {
+			logo = c.LogoURL
 		}
 	}
-	v.HasLogo = v.Logo != ""
+	v.NameLine = joinNonEmpty(" · ", name, industry)
+	v.Logo = logo
+	v.HasLogo = logo != ""
 
 	v.Previous = dashIfNil(m.Previous)
 	v.Latest = dashIfNil(m.Latest)
@@ -203,16 +219,49 @@ func buildStock(m Message, hasChart bool) stockView {
 	}
 
 	v.HasChart = hasChart
-	name := displayName(m)
+	short := historyIsShort(m)
 	middle := "ending at " + pct(m.Latest)
 	if m.Condition == alertevents.ConditionShortInterestAbove && m.Threshold != nil {
 		middle = "crossing " + numStr(*m.Threshold) + "%"
 	}
-	v.ChartAlt = fmt.Sprintf("%s short interest over the last 6 months, %s on %s", name, middle, fmtDay(m.ReportDate))
-	v.ChartCaption = chartCaption
+	if short {
+		v.ChartAlt = fmt.Sprintf("%s short interest since first reported %s, %s on %s",
+			displayName(m), shortDay(firstHistoryDate(m)), middle, fmtDay(m.ReportDate))
+		v.ChartCaption = "Short position, % of shares on issue · ASIC daily reports · since first reported " + fmtDay(firstHistoryDate(m))
+	} else {
+		v.ChartAlt = fmt.Sprintf("%s short interest over the last 6 months, %s on %s", displayName(m), middle, fmtDay(m.ReportDate))
+		v.ChartCaption = chartCaption
+	}
 
 	v.StatRows = pairStats(statsOf(m))
 	return v
+}
+
+// historyIsShort is true when the stored history has fewer than twenty readings, the
+// case the chart draws with a dot on every day.
+func historyIsShort(m Message) bool {
+	st := m.Payload.Stock
+	return st != nil && len(st.History) > 0 && len(st.History) < 20
+}
+
+// firstHistoryDate is the first reading's report date, or the report date when there
+// is no history.
+func firstHistoryDate(m Message) Date {
+	if st := m.Payload.Stock; st != nil && len(st.History) > 0 {
+		return Date(st.History[0].D)
+	}
+	return m.ReportDate
+}
+
+// joinNonEmpty joins the non-empty parts with sep.
+func joinNonEmpty(sep string, parts ...string) string {
+	var out []string
+	for _, p := range parts {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return strings.Join(out, sep)
 }
 
 // statsOf is the stats grid's cells, in order. A cell whose figure is missing is
@@ -246,7 +295,7 @@ func statsOf(m Message) []stat {
 }
 
 // pairStats lays the cells out two to a row, padding an odd last row with a blank
-// cell so the columns stay aligned.
+// cell so the columns stay aligned. The grid keeps two columns on a phone too.
 func pairStats(cells []stat) [][]stat {
 	var rows [][]stat
 	for i := 0; i < len(cells); i += 2 {
@@ -274,17 +323,18 @@ func buildTable(m Message, more int, moreURL string) tableView {
 	}
 	for _, c := range cs {
 		r := tableRow{Code: c.Code, Name: c.Name, Logo: c.LogoURL, HasLogo: c.LogoURL != ""}
+		latest := c.Latest
 		if m.Condition == alertevents.ConditionNewTopTenEntry {
-			latest := c.Latest
 			r.Cells = []cell{
 				{Text: pct(&latest), Class: "ink", Color: inkColor},
 				{Text: rankOf(c.PreviousRank) + " → " + rankOf(c.Rank), Class: "muted", Color: mutedColor},
 			}
 		} else {
-			latest := c.Latest
-			prevSub := ""
+			// A lookback reading carries its own report's short date under it, so the
+			// figure is never read as the compared report's.
+			sub := ""
 			if c.PreviousDate != "" && Date(c.PreviousDate) != m.ComparedTo {
-				prevSub = fmtDay(Date(c.PreviousDate))
+				sub = dayMonth(Date(c.PreviousDate))
 			}
 			textClass, textColor := "muted", flatText
 			text := "-"
@@ -293,7 +343,7 @@ func buildTable(m Message, more int, moreURL string) tableView {
 				text = signed(c.Change)
 			}
 			r.Cells = []cell{
-				{Text: pct(c.Previous), Sub: prevSub, Class: "muted", Color: mutedColor},
+				{Text: pct(c.Previous), Sub: sub, Class: "muted", Color: mutedColor},
 				{Text: pct(&latest), Class: "ink", Color: inkColor},
 				{Text: text, Class: textClass, Color: textColor},
 			}
@@ -374,7 +424,7 @@ func industryEyebrow(m Message) string {
 	if m.Threshold != nil {
 		return fmt.Sprintf("%s · %d %s CROSSED %s%%", label, n, plural, numStr(*m.Threshold))
 	}
-	return label + " · " + fmt.Sprint(n) + " " + plural
+	return label + " · " + strconv.Itoa(n) + " " + plural
 }
 
 func dashIfNil(v *float64) string {
@@ -391,6 +441,15 @@ func shortDay(d Date) string {
 		return string(d)
 	}
 	return t.Format("Mon 2 Jan")
+}
+
+// dayMonth formats a report date as day and month only: "14 Oct".
+func dayMonth(d Date) string {
+	t, err := d.Day()
+	if err != nil {
+		return string(d)
+	}
+	return t.Format("2 Jan")
 }
 
 // compactShares formats a share count with three significant figures and a K, M or
@@ -432,8 +491,11 @@ func sigDecimals(a float64) int {
 
 // alertPage is the template both scopes share. Its section for a scope is set only
 // when that scope has data, and the stock chart is omitted when there is no chart.
-var alertPage = template.Must(template.New("alert").Parse(alertPageHTML))
+var alertPage = template.Must(template.New("alert").Parse(
+	strings.NewReplacer("FONT_MONO", monoStack, "SERIF_STACK", serifStack).Replace(alertPageHTML)))
 
+// alertPageHTML is the email. FONT_MONO is replaced with monoStack when the template
+// is parsed, so each element names the mono stack without repeating it by hand.
 const alertPageHTML = `<!doctype html>
 <html lang="en-AU">
 <head>
@@ -444,15 +506,23 @@ const alertPageHTML = `<!doctype html>
 <meta name="supported-color-schemes" content="light dark">
 <title>{{.Title}}</title>
 <style>
-.stat-l { padding: 14px 18px 14px 0; }
-.stat-r { padding: 14px 0 14px 18px; border-left: 1px solid #E5E1DC; }
+.stat-l { padding: 14px 14px 14px 0; }
+.stat-r { padding: 14px 0 14px 14px; border-left: 1px solid #E5E1DC; }
 .stat-t { border-top: 1px solid #E5E1DC; }
+.dark-chart { display: none; max-height: 0; overflow: hidden; mso-hide: all; }
+.fig-m { display: none; }
 @media only screen and (max-width: 480px) {
   .pad { padding: 20px !important; }
   .fluid { width: 100% !important; }
-  .fig { display: block !important; width: 100% !important; padding: 0 0 14px 0 !important; }
-  .stat-l, .stat-r { display: block !important; width: 100% !important; padding: 12px 0 !important; border-left: 0 !important; }
-  .stat-r { border-top: 1px solid #E5E1DC !important; }
+  .fig-a, .fig-b { width: 50% !important; }
+  .fig-c { display: none !important; }
+  .fig-m { display: table-row !important; }
+  .stat-l { padding: 12px 10px 12px 0 !important; }
+  .stat-r { padding: 12px 0 12px 10px !important; }
+  .stat-val { font-size: 15px !important; }
+  .cta-tbl { width: 100% !important; }
+  .cta-cell { width: 100% !important; padding: 0 !important; }
+  .cta-link { display: block !important; width: 100% !important; text-align: center !important; box-sizing: border-box; }
 }
 @media (prefers-color-scheme: dark) {
   .bg { background-color: #0D0D0D !important; }
@@ -467,118 +537,124 @@ const alertPageHTML = `<!doctype html>
   .btn { background-color: #FFAC4D !important; }
   .btn-text { color: #0D0D0D !important; }
   .chip-up { background-color: #3B1616 !important; color: #F87171 !important; }
-  .chip-down { background-color: #12301D !important; color: #4ADE80 !important; }
+  .chip-down { background-color: #123222 !important; color: #4ADE80 !important; }
   .chip-flat { background-color: #1C1915 !important; color: #A39A75 !important; }
   .txt-up { color: #F87171 !important; }
   .txt-down { color: #4ADE80 !important; }
-  .chart { border-color: #352E27 !important; }
+  .light-chart { display: none !important; }
+  .dark-chart { display: block !important; max-height: none !important; }
 }
 </style>
 </head>
-<body class="bg" style="margin:0;padding:0;background-color:#F9F8F5;">
+<body class="bg" style="margin:0;padding:0;background-color:#F9F8F5;font-family:FONT_MONO;">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:#F9F8F5;mso-hide:all;">{{.Preheader}}</div>
 <table role="presentation" class="bg" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F9F8F5;">
-<tr><td align="center" style="padding:24px 12px;">
+<tr><td align="center" style="padding:24px 12px;font-family:FONT_MONO;">
 <table role="presentation" class="fluid" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
-<tr><td style="padding:0 0 18px 0;">
+<tr><td style="padding:0 0 18px 0;font-family:FONT_MONO;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td align="left" valign="middle">
+<td align="left" valign="middle" style="font-family:FONT_MONO;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td valign="middle"><img src="cid:shorted-mark" width="38" height="32" alt="Shorted" style="display:block;border:0;width:38px;height:32px;"></td>
-<td valign="middle" class="ink" style="padding-left:10px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:18px;line-height:32px;color:#483932;">Shorted</td>
+<td valign="middle" style="font-family:FONT_MONO;"><img src="cid:shorted-mark" width="38" height="32" alt="Shorted" style="display:block;border:0;width:38px;height:32px;"></td>
+<td valign="middle" class="ink" style="padding-left:10px;font-family:FONT_MONO;font-weight:600;font-size:18px;line-height:32px;color:#483932;">Shorted</td>
 </tr></table>
 </td>
-<td align="right" valign="middle" class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.16em;text-transform:uppercase;color:#72625A;">Short interest alert</td>
+<td align="right" valign="middle" class="muted" style="font-family:FONT_MONO;font-size:11px;line-height:16px;letter-spacing:0.16em;text-transform:uppercase;color:#72625A;">Short interest alert</td>
 </tr></table>
 </td></tr>
-<tr><td class="card pad" style="background-color:#FDFDFC;border:1px solid #E5E1DC;border-radius:6px;padding:28px;">
+<tr><td class="card pad" style="background-color:#FDFDFC;border:1px solid #E5E1DC;border-radius:6px;padding:28px;font-family:FONT_MONO;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 {{with .Stock}}
-<tr><td>
+<tr><td style="font-family:FONT_MONO;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td valign="middle" width="40" style="width:40px;">
-{{if .HasLogo}}<img src="{{.Logo}}" width="40" height="40" alt="{{.Code}}" style="display:block;width:40px;height:40px;border-radius:6px;border:1px solid #E5E1DC;">{{else}}<table role="presentation" width="40" height="40" cellpadding="0" cellspacing="0" border="0" class="tile" style="width:40px;height:40px;background-color:#F2F0ED;border-radius:6px;"><tr><td align="center" valign="middle" class="accent" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:13px;line-height:40px;color:#9E5210;">{{.Code}}</td></tr></table>{{end}}
+<td valign="middle" width="40" style="width:40px;font-family:FONT_MONO;">
+{{if .HasLogo}}<img src="{{.Logo}}" width="40" height="40" alt="{{.Code}}" style="display:block;width:40px;height:40px;border-radius:6px;border:1px solid #E5E1DC;">{{else}}<table role="presentation" width="40" height="40" cellpadding="0" cellspacing="0" border="0" class="tile" style="width:40px;height:40px;background-color:#F2F0ED;border-radius:6px;"><tr><td align="center" valign="middle" class="accent" style="font-family:FONT_MONO;font-weight:600;font-size:13px;line-height:40px;color:#9E5210;">{{.Code}}</td></tr></table>{{end}}
 </td>
-<td valign="middle" style="padding-left:14px;">
-<div class="ink" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:16px;line-height:22px;color:#483932;">{{.Code}}</div>
-{{if .Name}}<div class="muted" style="font-size:13px;line-height:18px;color:#72625A;">{{.Name}}</div>{{end}}
-{{if .Industry}}<div class="muted" style="font-size:13px;line-height:18px;color:#72625A;">{{.Industry}}</div>{{end}}
+<td valign="middle" style="padding-left:14px;font-family:FONT_MONO;">
+<div class="ink" style="font-family:FONT_MONO;font-weight:600;font-size:16px;line-height:24px;color:#483932;">{{.Code}}</div>
+{{if .NameLine}}<div class="muted" style="font-family:FONT_MONO;font-size:13px;line-height:20px;color:#72625A;">{{.NameLine}}</div>{{end}}
 </td>
 </tr></table>
 </td></tr>
 {{end}}
-<tr><td style="padding-top:{{if .Stock}}20{{else}}0{{end}}px;">
-<div class="accent" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.16em;text-transform:uppercase;color:#9E5210;">{{.Eyebrow}}</div>
+<tr><td style="padding-top:{{if .Stock}}20{{else}}0{{end}}px;font-family:FONT_MONO;">
+<div class="accent" style="font-family:FONT_MONO;font-size:11px;line-height:16px;letter-spacing:0.16em;text-transform:uppercase;color:#9E5210;">{{.Eyebrow}}</div>
 </td></tr>
-<tr><td style="padding-top:8px;">
-<h1 class="ink" style="margin:0;font-family:Newsreader, Georgia, 'Times New Roman', serif;font-size:26px;line-height:1.25;font-weight:700;color:#483932;">{{.Headline}}</h1>
+<tr><td style="font-family:FONT_MONO;padding-top:8px;">
+<h1 class="ink" style="margin:0;font-family:SERIF_STACK;font-size:26px;line-height:1.25;font-weight:700;color:#483932;">{{.Headline}}</h1>
 </td></tr>
-{{if .ScopeNote}}<tr><td style="padding-top:10px;font-size:14px;line-height:20px;color:#72625A;" class="muted">{{.ScopeNote}}</td></tr>{{end}}
+{{if .ScopeNote}}<tr><td class="muted" style="padding-top:10px;font-family:FONT_MONO;font-size:13px;line-height:20px;color:#72625A;">{{.ScopeNote}}</td></tr>{{end}}
 {{with .Stock}}
-<tr><td style="padding-top:22px;">
+<tr><td style="padding-top:22px;font-family:FONT_MONO;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="fig" width="34%" valign="top" style="width:34%;padding-right:12px;">
-<div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">Previous</div>
-<div class="ink" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:22px;line-height:30px;color:#483932;">{{.Previous}}</div>
-<div class="muted" style="font-size:12px;line-height:18px;color:#72625A;">{{.PreviousDate}}</div>
+<td class="fig fig-a" width="34%" valign="top" style="width:34%;padding-right:12px;font-family:FONT_MONO;">
+<div class="muted" style="font-family:FONT_MONO;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">Previous</div>
+<div class="ink stat-val" style="font-family:FONT_MONO;font-size:22px;line-height:30px;color:#483932;">{{.Previous}}</div>
+<div class="muted" style="font-family:FONT_MONO;font-size:12px;line-height:18px;color:#72625A;">{{.PreviousDate}}</div>
 </td>
-<td class="fig" width="34%" valign="top" style="width:34%;padding-right:12px;">
-<div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">Latest</div>
-<div class="ink" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:30px;line-height:36px;color:#483932;">{{.Latest}}</div>
-<div class="muted" style="font-size:12px;line-height:18px;color:#72625A;">{{.LatestDate}}</div>
+<td class="fig fig-b" width="34%" valign="top" style="width:34%;padding-right:12px;font-family:FONT_MONO;">
+<div class="muted" style="font-family:FONT_MONO;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">Latest</div>
+<div class="ink" style="font-family:FONT_MONO;font-weight:600;font-size:30px;line-height:36px;color:#483932;">{{.Latest}}</div>
+<div class="muted" style="font-family:FONT_MONO;font-size:12px;line-height:18px;color:#72625A;">{{.LatestDate}}</div>
 </td>
-<td class="fig" width="32%" valign="top" style="width:32%;">
-<div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">Change</div>
-{{if .HasChange}}<span class="{{.ChangeClass}}" style="display:inline-block;margin-top:6px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:15px;line-height:22px;padding:3px 10px;border-radius:4px;color:{{.ChangeColor}};background-color:{{.ChangeBg}};">{{.Change}}</span>{{end}}
+<td class="fig fig-c" width="32%" valign="top" style="width:32%;font-family:FONT_MONO;">
+<div class="muted" style="font-family:FONT_MONO;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">Change</div>
+{{if .HasChange}}<span class="{{.ChangeClass}}" style="display:inline-block;margin-top:6px;font-family:FONT_MONO;font-weight:600;font-size:15px;line-height:22px;padding:3px 10px;border-radius:4px;color:{{.ChangeColor}};background-color:{{.ChangeBg}};">{{.Change}}</span>{{end}}
 </td>
-</tr></table>
+</tr>
+<tr class="fig-m"><td colspan="2" style="padding-top:16px;font-family:FONT_MONO;">
+<div class="muted" style="font-family:FONT_MONO;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">Change</div>
+{{if .HasChange}}<span class="{{.ChangeClass}}" style="display:inline-block;margin-top:6px;font-family:FONT_MONO;font-weight:600;font-size:15px;line-height:22px;padding:3px 10px;border-radius:4px;color:{{.ChangeColor}};background-color:{{.ChangeBg}};">{{.Change}}</span>{{end}}
+</td></tr>
+</table>
 </td></tr>
 {{if .HasChart}}
-<tr><td style="padding-top:22px;">
-<img src="cid:chart" width="552" alt="{{.ChartAlt}}" class="chart" style="display:block;width:100%;max-width:552px;height:auto;border:1px solid #E5E1DC;border-radius:6px;">
-<div class="muted" style="padding-top:8px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;color:#72625A;">{{.ChartCaption}}</div>
+<tr><td style="padding-top:22px;font-family:FONT_MONO;">
+<img class="light-chart" src="cid:chart" width="552" alt="{{.ChartAlt}}" style="display:block;width:100%;max-width:552px;height:auto;border:1px solid #E5E1DC;border-radius:6px;">
+<div class="dark-chart" style="display:none;max-height:0;overflow:hidden;mso-hide:all;"><img src="cid:chart-dark" width="552" alt="{{.ChartAlt}}" style="display:block;width:100%;max-width:552px;height:auto;border:1px solid #352E27;border-radius:6px;"></div>
+<p class="muted" style="margin:8px 0 0 0;font-family:FONT_MONO;font-size:11px;line-height:16px;color:#72625A;">{{.ChartCaption}}</p>
 </td></tr>
 {{end}}
 {{if .StatRows}}
-<tr><td style="padding-top:22px;">
+<tr><td style="padding-top:22px;font-family:FONT_MONO;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-{{range $i, $row := .StatRows}}<tr>{{range $j, $c := $row}}<td class="stat-{{if $j}}r{{else}}l{{end}}{{if $i}} stat-t{{end}}" width="50%" valign="top" style="width:50%;">{{if $c.Label}}<div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">{{$c.Label}}</div><div class="{{$c.Class}}" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:16px;line-height:24px;color:{{$c.Color}};">{{$c.Value}}</div>{{if $c.Sub}}<div class="muted" style="font-size:12px;line-height:18px;color:#72625A;">{{$c.Sub}}</div>{{end}}{{end}}</td>{{end}}</tr>
+{{range $i, $row := .StatRows}}<tr>{{range $j, $c := $row}}<td class="stat-{{if $j}}r{{else}}l{{end}}{{if $i}} stat-t{{end}}" width="50%" valign="top" style="width:50%;font-family:FONT_MONO;">{{if $c.Label}}<div class="muted" style="font-family:FONT_MONO;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">{{$c.Label}}</div><div class="{{$c.Class}} stat-val" style="font-family:FONT_MONO;font-size:16px;line-height:24px;color:{{$c.Color}};">{{$c.Value}}</div>{{if $c.Sub}}<div class="muted" style="font-family:FONT_MONO;font-size:12px;line-height:18px;color:#72625A;">{{$c.Sub}}</div>{{end}}{{end}}</td>{{end}}</tr>
 {{end}}
 </table>
 </td></tr>
 {{end}}
 {{end}}
 {{with .Table}}
-<tr><td style="padding-top:20px;">
+<tr><td style="padding-top:20px;font-family:FONT_MONO;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-<tr>{{range .Headers}}<th align="{{if .Right}}right{{else}}left{{end}}" class="muted" style="padding:0 0 8px 0;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:400;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">{{.Text}}</th>{{end}}</tr>
+<tr>{{range .Headers}}<th align="{{if .Right}}right{{else}}left{{end}}" class="muted" style="padding:0 0 8px 0;font-family:FONT_MONO;font-weight:400;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">{{.Text}}</th>{{end}}</tr>
 {{range .Rows}}<tr>
-<td valign="middle" width="20" style="width:20px;padding:10px 10px 10px 0;border-top:1px solid #E5E1DC;" class="hair">{{if .HasLogo}}<img src="{{.Logo}}" width="20" height="20" alt="{{.Code}}" style="display:block;width:20px;height:20px;border-radius:4px;border:0;">{{else}}<table role="presentation" width="20" height="20" cellpadding="0" cellspacing="0" border="0" class="tile" style="width:20px;height:20px;background-color:#F2F0ED;border-radius:4px;"><tr><td align="center" valign="middle" class="accent" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:9px;line-height:20px;color:#9E5210;">{{.Code}}</td></tr></table>{{end}}</td>
-<td valign="middle" width="42%" style="width:42%;padding:10px 12px 10px 0;border-top:1px solid #E5E1DC;max-width:0;" class="hair">
-<div class="ink" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:13px;line-height:18px;color:#483932;">{{.Code}}</div>
-{{if .Name}}<div class="muted" style="font-size:12px;line-height:16px;color:#72625A;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">{{.Name}}</div>{{end}}
+<td valign="middle" width="20" style="width:20px;padding:10px 10px 10px 0;border-top:1px solid #E5E1DC;font-family:FONT_MONO;" class="hair">{{if .HasLogo}}<img src="{{.Logo}}" width="20" height="20" alt="{{.Code}}" style="display:block;width:20px;height:20px;border-radius:4px;border:0;">{{else}}<table role="presentation" width="20" height="20" cellpadding="0" cellspacing="0" border="0" class="tile" style="width:20px;height:20px;background-color:#F2F0ED;border-radius:4px;"><tr><td align="center" valign="middle" class="accent" style="font-family:FONT_MONO;font-weight:600;font-size:9px;line-height:20px;color:#9E5210;">{{.Code}}</td></tr></table>{{end}}</td>
+<td valign="middle" width="42%" style="width:42%;padding:10px 12px 10px 0;border-top:1px solid #E5E1DC;max-width:0;font-family:FONT_MONO;" class="hair">
+<div class="ink" style="font-family:FONT_MONO;font-weight:600;font-size:13px;line-height:18px;color:#483932;">{{.Code}}</div>
+{{if .Name}}<div class="muted" style="font-family:FONT_MONO;font-size:12px;line-height:16px;color:#72625A;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">{{.Name}}</div>{{end}}
 </td>
-{{range .Cells}}<td align="right" valign="middle" class="{{.Class}} hair" style="padding:10px 0 10px 12px;border-top:1px solid #E5E1DC;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:13px;line-height:18px;color:{{.Color}};" >{{.Text}}{{if .Sub}}<div class="muted" style="font-size:11px;line-height:14px;color:#72625A;">{{.Sub}}</div>{{end}}</td>{{end}}
+{{range .Cells}}<td align="right" valign="middle" class="{{.Class}} hair" style="padding:10px 0 10px 12px;border-top:1px solid #E5E1DC;font-family:FONT_MONO;font-size:13px;line-height:18px;color:{{.Color}};">{{.Text}}{{if .Sub}}<div class="muted" style="font-family:FONT_MONO;font-size:11px;line-height:14px;color:#72625A;">{{.Sub}}</div>{{end}}</td>{{end}}
 </tr>
 {{end}}
 </table>
-{{if .HasMore}}<p class="muted" style="margin:14px 0 0 0;font-size:13px;line-height:20px;color:#72625A;">… and {{.More}} more on <a href="{{.MoreURL}}" class="accent" style="color:#9E5210;">Shorted</a></p>{{end}}
+{{if .HasMore}}<p class="muted" style="margin:14px 0 0 0;font-family:FONT_MONO;font-size:13px;line-height:20px;color:#72625A;">… and {{.More}} more on <a href="{{.MoreURL}}" class="accent" style="color:#9E5210;font-family:FONT_MONO;">Shorted</a></p>{{end}}
 </td></tr>
 {{end}}
-<tr><td style="padding-top:26px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="btn" align="center" bgcolor="#9E5210" style="background-color:#9E5210;border-radius:4px;height:44px;padding:0 22px;">
-<a href="{{.ViewURL}}" class="btn-text" style="display:inline-block;height:44px;line-height:44px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:14px;color:#F9F8F5;text-decoration:none;">{{.ViewLabel}} →</a>
+<tr><td style="padding-top:26px;font-family:FONT_MONO;">
+<table role="presentation" class="cta-tbl" cellpadding="0" cellspacing="0" border="0" style="width:auto;"><tr>
+<td class="btn cta-cell" align="center" bgcolor="#9E5210" style="background-color:#9E5210;border-radius:4px;height:44px;padding:0 22px;font-family:FONT_MONO;">
+<a href="{{.ViewURL}}" class="btn-text cta-link" style="display:inline-block;height:44px;line-height:44px;font-family:FONT_MONO;font-weight:600;font-size:14px;color:#F9F8F5;text-decoration:none;">{{.ViewLabel}} →</a>
 </td>
 </tr></table>
 </td></tr>
-<tr><td style="padding-top:22px;font-size:12px;line-height:18px;color:#72625A;" class="muted">{{.Provenance}}</td></tr>
+<tr><td class="muted" style="padding-top:22px;font-family:FONT_MONO;font-size:12px;line-height:18px;color:#72625A;">{{.Provenance}}</td></tr>
 </table>
 </td></tr>
-<tr><td class="muted" style="padding:18px 4px 0 4px;font-size:12px;line-height:18px;color:#72625A;">
-<p style="margin:0 0 6px 0;">You set up this alert on Shorted: {{.Summary}}.</p>
-<p style="margin:0 0 6px 0;"><a href="{{.PauseURL}}" class="accent" style="color:#9E5210;">Pause this alert</a> · <a href="{{.ManageURL}}" class="accent" style="color:#9E5210;">Manage your alerts</a></p>
-<p style="margin:0;">General information only, not financial advice. Shorted · {{.Footer}}</p>
+<tr><td class="muted" style="padding:18px 4px 0 4px;font-family:FONT_MONO;font-size:12px;line-height:18px;color:#72625A;">
+<p class="muted" style="margin:0 0 6px 0;font-family:FONT_MONO;font-size:12px;line-height:18px;color:#72625A;">You set up this alert on Shorted: {{.Summary}}.</p>
+<p class="muted" style="margin:0 0 6px 0;font-family:FONT_MONO;font-size:12px;line-height:18px;color:#72625A;"><a href="{{.PauseURL}}" class="accent" style="color:#9E5210;font-family:FONT_MONO;">Pause this alert</a> · <a href="{{.ManageURL}}" class="accent" style="color:#9E5210;font-family:FONT_MONO;">Manage your alerts</a></p>
+<p class="muted" style="margin:0;font-family:FONT_MONO;font-size:12px;line-height:18px;color:#72625A;">General information only, not financial advice. Shorted · {{.Footer}}</p>
 </td></tr>
 </table>
 </td></tr></table>

@@ -1149,10 +1149,10 @@ func TestAlertsE2EStockDetail(t *testing.T) {
 	for _, a := range body.Attachments {
 		got[a.ContentID] = true
 	}
-	if !got["chart"] || !got["shorted-mark"] || len(got) != 2 {
-		t.Fatalf("attachments = %v, want the chart and the brand mark inline", got)
+	if !got["chart"] || !got["chart-dark"] || !got["shorted-mark"] || len(got) != 3 {
+		t.Fatalf("attachments = %v, want the light and dark charts and the brand mark inline", got)
 	}
-	if !strings.Contains(body.HTML, `src="cid:chart"`) || !strings.Contains(body.HTML, `src="cid:shorted-mark"`) {
+	if !strings.Contains(body.HTML, `src="cid:chart"`) || !strings.Contains(body.HTML, `src="cid:chart-dark"`) || !strings.Contains(body.HTML, `src="cid:shorted-mark"`) {
 		t.Fatal("the HTML must refer to both attachments by cid")
 	}
 }

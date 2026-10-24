@@ -33,8 +33,9 @@ const (
 	footerContact = "support@shorted.com.au"
 
 	// markCID and chartCID are the Content-IDs the HTML refers to as cid:.
-	markCID  = "shorted-mark"
-	chartCID = "chart"
+	markCID      = "shorted-mark"
+	chartCID     = "chart"
+	chartDarkCID = "chart-dark"
 )
 
 // shortedMarkPNG is the brand mark the header shows, 76x64 (2x of 38x32), drawn
@@ -167,9 +168,10 @@ func renderMessage(site, secret, monitorID string, m Message) (rendered, error) 
 	}
 
 	atts := []resend.Attachment{inline("shorted-mark.png", markCID, shortedMarkPNG)}
-	chart := chartFor(m)
-	if chart != nil {
-		atts = append(atts, inline("short-interest-chart.png", chartCID, chart))
+	light, dark := chartFor(m)
+	if light != nil {
+		atts = append(atts, inline("short-interest-chart.png", chartCID, light))
+		atts = append(atts, inline("short-interest-chart-dark.png", chartDarkCID, dark))
 	}
 
 	htmlBody, err := renderHTML(htmlInput{
@@ -184,7 +186,7 @@ func renderMessage(site, secret, monitorID string, m Message) (rendered, error) 
 		summary:   summaryLine(m),
 		pauseURL:  pauseURL,
 		manageURL: manageURL,
-		hasChart:  chart != nil,
+		hasChart:  light != nil,
 	})
 	if err != nil {
 		return rendered{}, fmt.Errorf("render alert html: %w", err)
@@ -216,17 +218,18 @@ func inline(filename, id string, data []byte) resend.Attachment {
 	}
 }
 
-// chartFor draws a stock's short-position chart from its stored history. It returns
-// nil when there is nothing to draw: an industry alert, an event with no stock
-// detail, or fewer than three readings. A render error also yields nil, so a chart
-// fault never stops the alert itself, and the same error recurs on every retry.
-func chartFor(m Message) []byte {
+// chartFor draws a stock's short-position chart from its stored history, in the
+// light and the dark palette. It returns nils when there is nothing to draw: an
+// industry alert, an event with no stock detail, or fewer than two readings. A
+// render error also yields nils, so a chart fault never stops the alert itself, and
+// the same error recurs on every retry.
+func chartFor(m Message) (light, dark []byte) {
 	if m.Scope != alertevents.ScopeStock || m.Payload.Stock == nil {
-		return nil
+		return nil, nil
 	}
 	hist := m.Payload.Stock.History
 	if len(hist) < alertchart.MinPoints {
-		return nil
+		return nil, nil
 	}
 	pts := make([]alertchart.Point, 0, len(hist))
 	for _, h := range hist {
@@ -236,11 +239,15 @@ func chartFor(m Message) []byte {
 	if m.Condition == alertevents.ConditionShortInterestAbove && m.Threshold != nil {
 		spec.Threshold = m.Threshold
 	}
-	png, err := alertchart.Render(spec)
+	light, err := alertchart.Render(spec)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
-	return png
+	dark, err = alertchart.RenderDark(spec)
+	if err != nil {
+		return nil, nil
+	}
+	return light, dark
 }
 
 // plainInput is what the plain-text twin needs beyond the message.

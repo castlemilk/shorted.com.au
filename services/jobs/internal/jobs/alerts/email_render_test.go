@@ -38,6 +38,7 @@ func stockWithHistory() Message {
 func allFixtures() map[string]Message {
 	out := emailFixtures()
 	out["stock-with-history"] = stockWithHistory()
+	out["stock-short-history"] = shortStock()
 	out["canary"] = canaryMessage()
 	return out
 }
@@ -208,8 +209,8 @@ func TestOldPayloadWithoutStockStillRenders(t *testing.T) {
 // attachments and cid references are exercised on every run.
 func TestCanaryExercisesTheChartAndStats(t *testing.T) {
 	r := renderFixture(t, canaryMessage())
-	if len(r.Attachments) != 2 {
-		t.Fatalf("the canary must carry the mark and the chart, got %d attachments", len(r.Attachments))
+	if len(r.Attachments) != 3 {
+		t.Fatalf("the canary must carry the mark and both charts, got %d attachments", len(r.Attachments))
 	}
 	if !strings.Contains(r.HTML, "SHARES SHORT") || !strings.Contains(r.HTML, "Canary delivery check") {
 		t.Fatal("the canary must render the stats and its name")
