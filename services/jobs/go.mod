@@ -42,9 +42,11 @@ require (
 	cloud.google.com/go/monitoring v1.29.0 // indirect
 	connectrpc.com/otelconnect v0.9.0 // indirect
 	dario.cat/mergo v1.0.0 // indirect
+	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.32.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.57.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.57.0 // indirect
+	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
@@ -55,6 +57,7 @@ require (
 	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
+	github.com/containerd/containerd v1.7.18 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cpuguy83/dockercfg v0.3.1 // indirect
@@ -72,6 +75,7 @@ require (
 	github.com/go-json-experiment/json v0.0.0-20250725192818-e39067aee2d2 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
@@ -90,6 +94,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/mattn/go-sqlite3 v1.14.34 // indirect
@@ -104,6 +109,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/refraction-networking/utls v1.8.2 // indirect
 	github.com/richardlehane/mscfb v1.0.7 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect
@@ -116,8 +122,10 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.33.0 // indirect
 	github.com/tiendc/go-deepcopy v1.7.2 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
+	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/xuri/efp v0.0.1 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
+	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.43.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.68.0 // indirect
