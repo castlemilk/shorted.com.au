@@ -240,6 +240,16 @@ describe("jwt and session callbacks: admin needs a verified email", () => {
     expect(legacy.isAdmin).toBe(false);
   });
 
+  it("reads an allowlist with a literal escaped-newline suffix, case-insensitively", async () => {
+    process.env.ADMIN_EMAILS = "ben.ebsworth@gmail.com,ben@shorted.com.au\\n";
+    const token = await jwt({} as JWT, {
+      id: "uid-3",
+      email: "Ben@Shorted.com.au",
+      emailVerified: true,
+    });
+    expect(token.isAdmin).toBe(true);
+  });
+
   it("keeps the non-production E2E test user as admin", async () => {
     const token = await jwt({ email: "e2e-test@shorted.com.au" } as JWT);
     expect(token.isAdmin).toBe(true);

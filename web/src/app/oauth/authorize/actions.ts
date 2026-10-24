@@ -202,7 +202,9 @@ export async function approveAuthorization(
       ok: false,
       error: "access_denied",
       description:
-        "Only Shorted administrators can connect the admin (publishing, data jobs) server.",
+        "Only Shorted administrators can connect the admin (publishing, data jobs) server. " +
+        "If you are one, sign out of shorted.com.au and sign back in, then try again: " +
+        "a session from before the verified-email check does not carry the flag it reads.",
     };
   }
 
