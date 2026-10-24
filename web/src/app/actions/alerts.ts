@@ -27,6 +27,8 @@ const SIGN_IN_TO_MANAGE = "Sign in to manage your alerts.";
 const LIST_FAILED = "Could not load your alerts. Try again shortly.";
 const UPDATE_FAILED = "Could not update the monitor. Try again shortly.";
 const DELETE_FAILED = "Could not delete the monitor. Try again shortly.";
+const CREATE_LIMIT_REACHED =
+  "You already have the most active alerts allowed. Pause or delete one to add another.";
 
 export type AlertMonitorScopeInput = "industry" | "stock";
 export type AlertMonitorConditionInput =
@@ -89,6 +91,12 @@ function deliverableEmail(
   return session.user.email ?? "";
 }
 
+/**
+ * The internal transport for one signed-in user. userEmail is "" unless the address
+ * is verified (deliverableEmail), and x-user-email-verified says so explicitly: the
+ * API stores and emails an address only when this header is "true". Other web
+ * callers send x-user-email for their own reasons and never this header.
+ */
 function createAuthTransport(userId: string, userEmail: string) {
   return createConnectTransport({
     fetch: serverFetchWithUserAgent,
@@ -98,6 +106,10 @@ function createAuthTransport(userId: string, userEmail: string) {
         req.header.set("x-internal-secret", INTERNAL_SECRET);
         req.header.set("x-user-id", userId);
         req.header.set("x-user-email", userEmail);
+        req.header.set(
+          "x-user-email-verified",
+          userEmail !== "" ? "true" : "false",
+        );
         return await next(req);
       },
     ],
@@ -325,6 +337,9 @@ function mapCreateMonitorError(error: unknown): string {
     }
     if (error.code === Code.InvalidArgument) {
       return error.rawMessage || "Check the alert settings and try again.";
+    }
+    if (error.code === Code.ResourceExhausted) {
+      return CREATE_LIMIT_REACHED;
     }
   }
 

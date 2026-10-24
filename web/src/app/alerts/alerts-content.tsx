@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -22,8 +23,6 @@ import { Button } from "~/@/components/ui/button";
 import { cn } from "~/@/lib/utils";
 import { pageTitle } from "~/@/lib/typography";
 import { createAlertMonitor } from "~/app/actions/alerts";
-import { AlertEventsList } from "./alert-events-list";
-import { AlertMonitorList } from "./alert-monitor-list";
 import {
   ALERT_EVENTS_QUERY_KEY,
   ALERT_MONITORS_QUERY_KEY,
@@ -34,6 +33,29 @@ import {
   type AlertCondition,
   type AlertScope,
 } from "./alert-model";
+
+/**
+ * The monitor and event lists load after the builder. Each needs the account session
+ * and the dialogs that confirm a delete, and each only fetches once the page is up,
+ * so the first load stays on the builder. The alerts page is an account tool, not an
+ * indexed page, so the lists do not render on the server.
+ */
+const AlertMonitorList = dynamic(
+  () => import("./alert-monitor-list").then((mod) => mod.AlertMonitorList),
+  { ssr: false, loading: () => <ListPlaceholder label="Loading your alerts" /> },
+);
+const AlertEventsList = dynamic(
+  () => import("./alert-events-list").then((mod) => mod.AlertEventsList),
+  { ssr: false, loading: () => <ListPlaceholder label="Loading recent alerts" /> },
+);
+
+function ListPlaceholder({ label }: { label: string }) {
+  return (
+    <p className="text-sm text-muted-foreground" role="status">
+      {label}…
+    </p>
+  );
+}
 
 type AlertDraft = {
   id?: string;

@@ -148,6 +148,8 @@ export function alertErrorMessage(error: unknown, fallback: string): string {
         return "Upgrade to Premium to resume alerts.";
       case Code.Unauthenticated:
         return "Sign in to manage your alerts.";
+      case Code.ResourceExhausted:
+        return "You already have the most active alerts allowed. Pause or delete one before resuming this one.";
     }
   }
   return fallback;

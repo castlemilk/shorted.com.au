@@ -23,8 +23,19 @@ jest.mock("@connectrpc/connect", () => {
   return { ...actual, createClient: () => mockClient };
 });
 
+// The transport's options are captured, so a test can run its interceptors and
+// read the headers the API receives.
+const mockTransportOptions: {
+  current?: { interceptors?: Array<(next: unknown) => unknown> };
+} = {};
+
 jest.mock("@connectrpc/connect-web", () => ({
-  createConnectTransport: () => ({}),
+  createConnectTransport: (options: {
+    interceptors?: Array<(next: unknown) => unknown>;
+  }) => {
+    mockTransportOptions.current = options;
+    return {};
+  },
 }));
 
 jest.mock("~/server/auth", () => ({ auth: jest.fn() }));
@@ -256,6 +267,26 @@ describe("alert server actions", () => {
   });
 
   describe("createAlertMonitor", () => {
+    it("explains the active-alert cap rather than a generic failure", async () => {
+      mockClient.createAlertMonitor.mockRejectedValueOnce(
+        new ConnectError("You already have 50 active alerts.", Code.ResourceExhausted),
+      );
+
+      expect(
+        await createAlertMonitor({
+          scope: "stock",
+          target: "BHP",
+          condition: "short-interest-above",
+          threshold: "5",
+          cadence: "Daily",
+        }),
+      ).toEqual({
+        ok: false,
+        error:
+          "You already have the most active alerts allowed. Pause or delete one to add another.",
+      });
+    });
+
     it("shows the server's reason for an unknown ASX code", async () => {
       mockClient.createAlertMonitor.mockRejectedValueOnce(
         new ConnectError("Unknown ASX code", Code.InvalidArgument),
@@ -271,6 +302,58 @@ describe("alert server actions", () => {
         }),
       ).toEqual({ ok: false, error: "Unknown ASX code" });
     });
+  });
+});
+
+/** Runs the transport's interceptors over an empty request and returns its headers. */
+async function headersSentToTheAPI(): Promise<Record<string, string>> {
+  const values: Record<string, string> = {};
+  const req = {
+    header: {
+      set(name: string, value: string) {
+        values[name] = value;
+      },
+    },
+  };
+  const interceptors = mockTransportOptions.current?.interceptors ?? [];
+  const finalNext = async (r: unknown) => r;
+  const chain = interceptors.reduceRight<(r: unknown) => unknown>(
+    (next, interceptor) => interceptor(next) as (r: unknown) => unknown,
+    finalNext,
+  );
+  await chain(req);
+  return values;
+}
+
+describe("the internal transport's verification header", () => {
+  it("asserts a verified address to the API", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "u1", email: "trader@example.com", emailVerified: true },
+    });
+    mockClient.listAlertMonitors.mockResolvedValueOnce({
+      monitors: [],
+      checkedThroughReportDate: "",
+    });
+
+    await listAlertMonitors();
+    const headers = await headersSentToTheAPI();
+    expect(headers["x-user-email"]).toBe("trader@example.com");
+    expect(headers["x-user-email-verified"]).toBe("true");
+  });
+
+  it("never sends an unverified address as verified", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "u1", email: "trader@example.com", emailVerified: false },
+    });
+    mockClient.listAlertMonitors.mockResolvedValueOnce({
+      monitors: [],
+      checkedThroughReportDate: "",
+    });
+
+    await listAlertMonitors();
+    const headers = await headersSentToTheAPI();
+    expect(headers["x-user-email"]).toBe("");
+    expect(headers["x-user-email-verified"]).toBe("false");
   });
 });
 
@@ -349,6 +432,14 @@ describe("alertErrorMessage", () => {
     expect(
       alertErrorMessage(new ConnectError("x", Code.AlreadyExists), "fallback"),
     ).toBe("An identical monitor is already active.");
+  });
+
+  it("explains a resume refused by the active-alert cap", () => {
+    expect(
+      alertErrorMessage(new ConnectError("x", Code.ResourceExhausted), "fallback"),
+    ).toBe(
+      "You already have the most active alerts allowed. Pause or delete one before resuming this one.",
+    );
   });
 });
 
