@@ -101,6 +101,12 @@ func (s *geminiSession) Send(ctx context.Context, in SendInput, choice ToolChoic
 		if err != nil {
 			return reply, providerFailure(ctx, op, reached, err)
 		}
+		// A refused prompt or reply is an error, as it was on the legacy SDK. The
+		// refused chunk is not counted as reached, so a block on the first chunk is a
+		// failure before the model, and text already streamed stays partial.
+		if reason := blockingReason(resp); reason != "" {
+			return reply, &ProviderError{Provider: geminiProviderName, Reached: reached, Err: providerError(op, fmt.Errorf("the model refused the reply: %s", reason))}
+		}
 		reached = true
 		if usage := genaiUsage(resp); usage.hasTokens() {
 			reply.Usage = usage
@@ -114,8 +120,16 @@ func (s *geminiSession) Send(ctx context.Context, in SendInput, choice ToolChoic
 			}
 			modelParts = appendStreamedPart(modelParts, part)
 		}
+		// A chunk that carries a function call streams no text, as the P1 adapter
+		// does, so text such as "Let me check." never joins the answer.
+		hasCall := false
 		for _, part := range resp.Candidates[0].Content.Parts {
-			if part == nil || part.Thought {
+			if part != nil && part.FunctionCall != nil {
+				hasCall = true
+			}
+		}
+		for _, part := range resp.Candidates[0].Content.Parts {
+			if part == nil || part.Thought || hasCall {
 				continue
 			}
 			if part.Text != "" {
@@ -192,6 +206,27 @@ func appendStreamedPart(parts []*genai.Part, part *genai.Part) []*genai.Part {
 		}
 	}
 	return append(parts, part)
+}
+
+// blockingFinishReasons refuse a reply. The legacy SDK returned an error for each;
+// genai returns the chunk, so the adapter has to refuse it.
+var blockingFinishReasons = map[genai.FinishReason]bool{
+	genai.FinishReasonSafety:            true,
+	genai.FinishReasonRecitation:        true,
+	genai.FinishReasonBlocklist:         true,
+	genai.FinishReasonProhibitedContent: true,
+	genai.FinishReasonSPII:              true,
+}
+
+// blockingReason names why a chunk refuses the reply, or returns "" when it does not.
+func blockingReason(resp *genai.GenerateContentResponse) string {
+	if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
+		return "prompt " + string(resp.PromptFeedback.BlockReason)
+	}
+	if len(resp.Candidates) > 0 && blockingFinishReasons[resp.Candidates[0].FinishReason] {
+		return string(resp.Candidates[0].FinishReason)
+	}
+	return ""
 }
 
 // providerFailure wraps a stream error as a ProviderError. Reached says a chunk
@@ -294,6 +329,11 @@ func buildGeminiTools(defs []ToolDefinition) []*genai.Tool {
 func buildGeminiHistory(messages []Message) []*genai.Content {
 	var history []*genai.Content
 	for _, msg := range messages {
+		// An empty message is a part with no text, which the API rejects, so the
+		// turn would fail for the rest of the conversation.
+		if msg.Content == "" {
+			continue
+		}
 		var role genai.Role
 		switch msg.Role {
 		case "user":

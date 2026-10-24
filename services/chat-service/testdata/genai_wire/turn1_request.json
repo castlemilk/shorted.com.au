@@ -26,7 +26,8 @@
     }
   ],
   "generationConfig": {
-    "candidateCount": 1
+    "candidateCount": 1,
+    "maxOutputTokens": 1024
   },
   "systemInstruction": {
     "parts": [
