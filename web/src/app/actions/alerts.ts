@@ -3,13 +3,30 @@
 import { Code, ConnectError, createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 
-import { AlertMonitorCadence, AlertMonitorCondition, AlertMonitorScope } from "~/gen/shorts/v1alpha1/alerts_pb";
+import type { AlertEventView, AlertMonitorView } from "~/app/alerts/alert-model";
+import {
+  AlertMonitorCadence,
+  AlertMonitorCondition,
+  AlertMonitorScope,
+  AlertMonitorStatus,
+} from "~/gen/shorts/v1alpha1/alerts_pb";
 import { AlertsService } from "~/gen/shorts/v1alpha1/alerts_pb";
 import { auth } from "~/server/auth";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
+import {
+  alertErrorMessage,
+  eventToView,
+  monitorToView,
+  timestampToIso,
+} from "./alert-mapping";
 
 const INTERNAL_SECRET =
   process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
+
+const SIGN_IN_TO_MANAGE = "Sign in to manage your alerts.";
+const LIST_FAILED = "Could not load your alerts. Try again shortly.";
+const UPDATE_FAILED = "Could not update the monitor. Try again shortly.";
+const DELETE_FAILED = "Could not delete the monitor. Try again shortly.";
 
 export type AlertMonitorScopeInput = "industry" | "stock";
 export type AlertMonitorConditionInput =
@@ -40,6 +57,25 @@ export type CreateAlertMonitorResult =
       };
     }
   | { ok: false; error: string };
+
+export type ListAlertMonitorsResult =
+  | {
+      ok: true;
+      monitors: AlertMonitorView[];
+      /** YYYY-MM-DD of the latest report the evaluator checked; null before its first run. */
+      checkedThroughReportDate: string | null;
+    }
+  | { ok: false; error: string };
+
+export type ListAlertEventsResult =
+  | { ok: true; events: AlertEventView[]; totalCount: number }
+  | { ok: false; error: string };
+
+export type UpdateAlertMonitorStatusResult =
+  | { ok: true; monitor: AlertMonitorView }
+  | { ok: false; error: string };
+
+export type DeleteAlertMonitorResult = { ok: true } | { ok: false; error: string };
 
 function createAuthTransport(userId: string, userEmail: string) {
   return createConnectTransport({
@@ -127,6 +163,122 @@ export async function createAlertMonitor(
   }
 }
 
+/** The signed-in user's monitors, with the last trigger for each. */
+export async function listAlertMonitors(): Promise<ListAlertMonitorsResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false, error: SIGN_IN_TO_MANAGE };
+  }
+
+  try {
+    const client = createClient(
+      AlertsService,
+      createAuthTransport(session.user.id, session.user.email ?? ""),
+    );
+    const response = await client.listAlertMonitors({ limit: 50, offset: 0 });
+    return {
+      ok: true,
+      monitors: response.monitors.map(monitorToView),
+      checkedThroughReportDate: response.checkedThroughReportDate || null,
+    };
+  } catch (error) {
+    return { ok: false, error: alertErrorMessage(error, LIST_FAILED) };
+  }
+}
+
+/** Recent alert events for the signed-in user, newest report first. */
+export async function listAlertEvents(
+  input: { limit?: number; monitorId?: string } = {},
+): Promise<ListAlertEventsResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false, error: SIGN_IN_TO_MANAGE };
+  }
+
+  const requested =
+    typeof input.limit === "number" && Number.isFinite(input.limit)
+      ? Math.trunc(input.limit)
+      : 20;
+  const limit = Math.min(Math.max(requested, 1), 100);
+
+  try {
+    const client = createClient(
+      AlertsService,
+      createAuthTransport(session.user.id, session.user.email ?? ""),
+    );
+    const response = await client.listAlertEvents({
+      limit,
+      offset: 0,
+      monitorId: input.monitorId ?? "",
+    });
+    return {
+      ok: true,
+      events: response.events.map(eventToView),
+      totalCount: response.totalCount,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: alertErrorMessage(error, "Could not load recent alerts. Try again shortly."),
+    };
+  }
+}
+
+/**
+ * Pause or resume one of the signed-in user's monitors. Pausing never needs
+ * Premium; resuming does, and the server answers PermissionDenied without it.
+ */
+export async function setAlertMonitorStatus(
+  id: string,
+  status: "active" | "paused",
+): Promise<UpdateAlertMonitorStatusResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false, error: SIGN_IN_TO_MANAGE };
+  }
+
+  try {
+    const client = createClient(
+      AlertsService,
+      createAuthTransport(session.user.id, session.user.email ?? ""),
+    );
+    const response = await client.updateAlertMonitorStatus({
+      id: id.trim(),
+      status:
+        status === "paused"
+          ? AlertMonitorStatus.PAUSED
+          : AlertMonitorStatus.ACTIVE,
+    });
+    if (!response.monitor) {
+      return { ok: false, error: UPDATE_FAILED };
+    }
+    return { ok: true, monitor: monitorToView(response.monitor) };
+  } catch (error) {
+    return { ok: false, error: alertErrorMessage(error, UPDATE_FAILED) };
+  }
+}
+
+/** Delete one of the signed-in user's monitors and its event history. */
+export async function deleteAlertMonitor(
+  id: string,
+): Promise<DeleteAlertMonitorResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false, error: SIGN_IN_TO_MANAGE };
+  }
+
+  try {
+    const client = createClient(
+      AlertsService,
+      createAuthTransport(session.user.id, session.user.email ?? ""),
+    );
+    await client.deleteAlertMonitor({ id: id.trim() });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: alertErrorMessage(error, DELETE_FAILED) };
+  }
+}
+
 function normalizeTarget(
   scope: AlertMonitorScopeInput,
   target: string,
@@ -148,17 +300,6 @@ function mapCondition(
   }
 }
 
-function timestampToIso(
-  timestamp: { seconds: bigint | number | string; nanos?: number } | undefined,
-): string | null {
-  if (!timestamp) return null;
-  const seconds = Number(timestamp.seconds);
-  if (!Number.isFinite(seconds)) return null;
-  return new Date(
-    seconds * 1000 + Math.floor((timestamp.nanos ?? 0) / 1_000_000),
-  ).toISOString();
-}
-
 function mapCreateMonitorError(error: unknown): string {
   if (error instanceof ConnectError) {
     if (error.code === Code.PermissionDenied) {
@@ -171,7 +312,7 @@ function mapCreateMonitorError(error: unknown): string {
       return "Sign in to save alerts.";
     }
     if (error.code === Code.InvalidArgument) {
-      return error.message || "Check the alert settings and try again.";
+      return error.rawMessage || "Check the alert settings and try again.";
     }
   }
 

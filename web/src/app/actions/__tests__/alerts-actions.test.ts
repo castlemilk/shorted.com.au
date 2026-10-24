@@ -1,0 +1,362 @@
+import { Code, ConnectError } from "@connectrpc/connect";
+
+import {
+  AlertDeliveryStatus,
+  AlertMonitorCadence,
+  AlertMonitorCondition,
+  AlertMonitorScope,
+  AlertMonitorStatus,
+} from "~/gen/shorts/v1alpha1/alerts_pb";
+import { auth } from "~/server/auth";
+
+const mockClient = {
+  createAlertMonitor: jest.fn(),
+  listAlertMonitors: jest.fn(),
+  listAlertEvents: jest.fn(),
+  updateAlertMonitorStatus: jest.fn(),
+  deleteAlertMonitor: jest.fn(),
+  pauseAlertMonitorByToken: jest.fn(),
+};
+
+jest.mock("@connectrpc/connect", () => {
+  const actual = jest.requireActual("@connectrpc/connect");
+  return { ...actual, createClient: () => mockClient };
+});
+
+jest.mock("@connectrpc/connect-web", () => ({
+  createConnectTransport: () => ({}),
+}));
+
+jest.mock("~/server/auth", () => ({ auth: jest.fn() }));
+
+jest.mock("../config", () => ({
+  SHORTS_API_URL: "https://api.test",
+  serverFetchWithUserAgent: jest.fn(),
+}));
+
+import {
+  createAlertMonitor,
+  deleteAlertMonitor,
+  listAlertEvents,
+  listAlertMonitors,
+  setAlertMonitorStatus,
+} from "../alerts";
+import { pauseAlertByToken } from "../alert-unsubscribe";
+import { alertErrorMessage, monitorToView } from "../alert-mapping";
+
+const mockAuth = auth as unknown as jest.Mock;
+const SIGNED_IN = { user: { id: "u1", email: "trader@example.com" } };
+
+function protoMonitor(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "m1",
+    scope: AlertMonitorScope.STOCK,
+    target: "BHP",
+    condition: AlertMonitorCondition.SHORT_INTEREST_ABOVE,
+    threshold: 5,
+    hasThreshold: true,
+    cadence: AlertMonitorCadence.DAILY,
+    status: AlertMonitorStatus.ACTIVE,
+    createdAt: { seconds: 1760572800, nanos: 0 },
+    updatedAt: undefined,
+    lastEventReportDate: "2026-10-16",
+    lastDeliveryStatus: AlertDeliveryStatus.SENT,
+    lastEventAt: undefined,
+    ...overrides,
+  };
+}
+
+describe("alert server actions", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuth.mockResolvedValue(SIGNED_IN);
+  });
+
+  describe("when signed out", () => {
+    beforeEach(() => {
+      mockAuth.mockResolvedValue(null);
+    });
+
+    it("refuses the list, events, status and delete calls without calling the API", async () => {
+      expect(await listAlertMonitors()).toEqual({
+        ok: false,
+        error: "Sign in to manage your alerts.",
+      });
+      expect(await listAlertEvents()).toMatchObject({ ok: false });
+      expect(await setAlertMonitorStatus("m1", "paused")).toMatchObject({
+        ok: false,
+      });
+      expect(await deleteAlertMonitor("m1")).toMatchObject({ ok: false });
+      expect(mockClient.listAlertMonitors).not.toHaveBeenCalled();
+      expect(mockClient.updateAlertMonitorStatus).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("listAlertMonitors", () => {
+    it("maps the enums and the last trigger for each monitor", async () => {
+      const createdIso = new Date(1760572800 * 1000).toISOString();
+      mockClient.listAlertMonitors.mockResolvedValueOnce({
+        monitors: [
+          protoMonitor(),
+          protoMonitor({
+            id: "m2",
+            target: "Materials",
+            scope: AlertMonitorScope.INDUSTRY,
+            condition: AlertMonitorCondition.NEW_TOP_TEN_ENTRY,
+            hasThreshold: false,
+            cadence: AlertMonitorCadence.WEEKLY,
+            status: AlertMonitorStatus.PAUSED,
+            lastEventReportDate: "",
+            lastDeliveryStatus: AlertDeliveryStatus.UNSPECIFIED,
+          }),
+        ],
+        checkedThroughReportDate: "2026-10-16",
+      });
+
+      const result = await listAlertMonitors();
+
+      expect(result).toEqual({
+        ok: true,
+        checkedThroughReportDate: "2026-10-16",
+        monitors: [
+          {
+            id: "m1",
+            scope: "stock",
+            target: "BHP",
+            condition: "short-interest-above",
+            threshold: 5,
+            cadence: "Daily",
+            status: "active",
+            createdAt: createdIso,
+            lastEventReportDate: "2026-10-16",
+            lastDeliveryState: "sent",
+            lastEventAt: null,
+          },
+          {
+            id: "m2",
+            scope: "industry",
+            target: "Materials",
+            condition: "new-top-ten-entry",
+            threshold: null,
+            cadence: "Weekly",
+            status: "paused",
+            createdAt: createdIso,
+            lastEventReportDate: null,
+            lastDeliveryState: null,
+            lastEventAt: null,
+          },
+        ],
+      });
+    });
+
+    it("returns a null check date before the evaluator's first run", async () => {
+      mockClient.listAlertMonitors.mockResolvedValueOnce({
+        monitors: [],
+        checkedThroughReportDate: "",
+      });
+
+      const result = await listAlertMonitors();
+
+      expect(result).toMatchObject({ ok: true, checkedThroughReportDate: null });
+    });
+  });
+
+  describe("listAlertEvents", () => {
+    it("defaults to twenty events and clamps the limit to one hundred", async () => {
+      mockClient.listAlertEvents.mockResolvedValue({
+        events: [],
+        totalCount: 0,
+      });
+
+      await listAlertEvents();
+      expect(mockClient.listAlertEvents).toHaveBeenLastCalledWith({
+        limit: 20,
+        offset: 0,
+        monitorId: "",
+      });
+
+      await listAlertEvents({ limit: 500, monitorId: "m1" });
+      expect(mockClient.listAlertEvents).toHaveBeenLastCalledWith({
+        limit: 100,
+        offset: 0,
+        monitorId: "m1",
+      });
+
+      await listAlertEvents({ limit: 0 });
+      expect(mockClient.listAlertEvents).toHaveBeenLastCalledWith({
+        limit: 1,
+        offset: 0,
+        monitorId: "",
+      });
+    });
+  });
+
+  describe("setAlertMonitorStatus", () => {
+    it("sends the status enum and returns the monitor", async () => {
+      mockClient.updateAlertMonitorStatus.mockResolvedValueOnce({
+        monitor: protoMonitor({ status: AlertMonitorStatus.PAUSED }),
+      });
+
+      const result = await setAlertMonitorStatus(" m1 ", "paused");
+
+      expect(mockClient.updateAlertMonitorStatus).toHaveBeenCalledWith({
+        id: "m1",
+        status: AlertMonitorStatus.PAUSED,
+      });
+      expect(result).toMatchObject({
+        ok: true,
+        monitor: { id: "m1", status: "paused" },
+      });
+    });
+
+    it("turns a Premium refusal into the upgrade message", async () => {
+      mockClient.updateAlertMonitorStatus.mockRejectedValueOnce(
+        new ConnectError(
+          "alerts require an active Premium subscription",
+          Code.PermissionDenied,
+        ),
+      );
+
+      expect(await setAlertMonitorStatus("m1", "active")).toEqual({
+        ok: false,
+        error: "Upgrade to Premium to resume alerts.",
+      });
+    });
+
+    it("says a missing monitor no longer exists", async () => {
+      mockClient.updateAlertMonitorStatus.mockRejectedValueOnce(
+        new ConnectError("not found", Code.NotFound),
+      );
+
+      expect(await setAlertMonitorStatus("m1", "paused")).toEqual({
+        ok: false,
+        error: "That monitor no longer exists.",
+      });
+    });
+  });
+
+  describe("deleteAlertMonitor", () => {
+    it("deletes and reports success", async () => {
+      mockClient.deleteAlertMonitor.mockResolvedValueOnce({});
+
+      expect(await deleteAlertMonitor("m1")).toEqual({ ok: true });
+      expect(mockClient.deleteAlertMonitor).toHaveBeenCalledWith({ id: "m1" });
+    });
+
+    it("hides the server message on an unexpected failure", async () => {
+      mockClient.deleteAlertMonitor.mockRejectedValueOnce(
+        new ConnectError("pq: connection refused", Code.Internal),
+      );
+
+      expect(await deleteAlertMonitor("m1")).toEqual({
+        ok: false,
+        error: "Could not delete the monitor. Try again shortly.",
+      });
+    });
+  });
+
+  describe("createAlertMonitor", () => {
+    it("shows the server's reason for an unknown ASX code", async () => {
+      mockClient.createAlertMonitor.mockRejectedValueOnce(
+        new ConnectError("Unknown ASX code", Code.InvalidArgument),
+      );
+
+      expect(
+        await createAlertMonitor({
+          scope: "stock",
+          target: "zzz",
+          condition: "short-interest-above",
+          threshold: "5",
+          cadence: "Daily",
+        }),
+      ).toEqual({ ok: false, error: "Unknown ASX code" });
+    });
+  });
+});
+
+describe("pauseAlertByToken", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("refuses an empty token without calling the API", async () => {
+    expect(await pauseAlertByToken("   ")).toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+    expect(mockClient.pauseAlertMonitorByToken).not.toHaveBeenCalled();
+  });
+
+  it("pauses and returns the monitor for the confirmation page", async () => {
+    mockClient.pauseAlertMonitorByToken.mockResolvedValueOnce({
+      alreadyPaused: false,
+      scope: AlertMonitorScope.STOCK,
+      target: "BHP",
+      condition: AlertMonitorCondition.SHORT_INTEREST_RISES,
+      threshold: 1.5,
+      hasThreshold: true,
+      cadence: AlertMonitorCadence.WEEKLY,
+    });
+
+    expect(await pauseAlertByToken(" signed-token ")).toEqual({
+      ok: true,
+      alreadyPaused: false,
+      monitor: {
+        scope: "stock",
+        target: "BHP",
+        condition: "short-interest-rises",
+        threshold: 1.5,
+        cadence: "Weekly",
+      },
+    });
+    expect(mockClient.pauseAlertMonitorByToken).toHaveBeenCalledWith({
+      token: "signed-token",
+    });
+  });
+
+  it("reports a rejected token as invalid", async () => {
+    mockClient.pauseAlertMonitorByToken.mockRejectedValueOnce(
+      new ConnectError("invalid token", Code.InvalidArgument),
+    );
+
+    expect(await pauseAlertByToken("forged")).toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+  });
+
+  it("reports an unconfigured or failing service as unavailable", async () => {
+    mockClient.pauseAlertMonitorByToken.mockRejectedValueOnce(
+      new ConnectError("unsubscribe not configured", Code.Internal),
+    );
+
+    expect(await pauseAlertByToken("signed-token")).toEqual({
+      ok: false,
+      reason: "unavailable",
+    });
+  });
+});
+
+describe("alertErrorMessage", () => {
+  it("uses the fallback for codes the management calls do not name", () => {
+    expect(
+      alertErrorMessage(new ConnectError("boom", Code.Internal), "fallback"),
+    ).toBe("fallback");
+    expect(alertErrorMessage(new Error("plain"), "fallback")).toBe("fallback");
+  });
+
+  it("names an identical active monitor", () => {
+    expect(
+      alertErrorMessage(new ConnectError("x", Code.AlreadyExists), "fallback"),
+    ).toBe("An identical monitor is already active.");
+  });
+});
+
+describe("monitorToView", () => {
+  it("keeps a missing threshold null rather than zero", () => {
+    expect(
+      monitorToView(protoMonitor({ hasThreshold: false, threshold: 0 }) as never)
+        .threshold,
+    ).toBeNull();
+  });
+});
