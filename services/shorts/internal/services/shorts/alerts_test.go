@@ -224,6 +224,7 @@ func TestListAlertMonitors_DefaultsLimitAndMapsRows(t *testing.T) {
 
 	now := time.Now().UTC()
 	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().RefreshAlertMonitorEmail("user_1", "ben@shorted.com.au").Return(nil)
 	mockStore.EXPECT().
 		ListAlertMonitors("user_1", int32(20), int32(0)).
 		Return([]*shortsstore.AlertMonitor{
@@ -257,7 +258,18 @@ func premiumUserContext() context.Context {
 	return userContext("premium")
 }
 
+// userContext is a signed-in user whose address is verified, the normal case.
 func userContext(tier string) context.Context {
+	return context.WithValue(context.Background(), userKey, &Claims{
+		UserID:        "user_1",
+		Email:         "ben@shorted.com.au",
+		EmailVerified: true,
+		Tier:          tier,
+	})
+}
+
+// unverifiedUserContext is the same user before the address is verified.
+func unverifiedUserContext(tier string) context.Context {
 	return context.WithValue(context.Background(), userKey, &Claims{
 		UserID: "user_1",
 		Email:  "ben@shorted.com.au",

@@ -507,6 +507,7 @@ func TestListAlertMonitors_ReportsLastEventAndCheckedThrough(t *testing.T) {
 	lastStatus := "skipped_unentitled"
 	lastAt := time.Date(2026, 10, 16, 1, 0, 0, 0, time.UTC)
 	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().RefreshAlertMonitorEmail("user_1", "ben@shorted.com.au").Return(nil)
 	mockStore.EXPECT().ListAlertMonitors("user_1", int32(20), int32(0)).Return([]*shortsstore.AlertMonitor{
 		{ID: alertTestMonitorID, UserID: "user_1", Scope: "stock", Target: "BHP", Condition: "short_interest_above",
 			Threshold: floatPtr(5), Cadence: "daily", Status: "active", CreatedAt: lastAt, UpdatedAt: lastAt,
@@ -531,6 +532,7 @@ func TestListAlertMonitors_NeverFiredHasNoEventFields(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockStore.EXPECT().RefreshAlertMonitorEmail("user_1", "ben@shorted.com.au").Return(nil)
 	mockStore.EXPECT().ListAlertMonitors("user_1", int32(20), int32(0)).Return([]*shortsstore.AlertMonitor{
 		{ID: alertTestMonitorID, UserID: "user_1", Scope: "stock", Target: "BHP", Condition: "short_interest_above",
 			Threshold: floatPtr(5), Cadence: "daily", Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()},

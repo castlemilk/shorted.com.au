@@ -4,6 +4,7 @@ package shorts
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -339,4 +340,102 @@ func TestAlertCheckedThroughIsEmptyUntilTheFirstRun(t *testing.T) {
 	through, err = s.AlertCheckedThrough()
 	require.NoError(t, err)
 	assert.Equal(t, "", through, "a state row with no daily date reads as not yet checked")
+}
+
+// The cap is checked inside the insert and the resume statement. Paused monitors do
+// not count, and another user is never affected.
+func TestActiveAlertMonitorsAreCapped(t *testing.T) {
+	s := alertsTestStore(t)
+	var firstID string
+	for i := 0; i < MaxActiveAlertMonitors; i++ {
+		m := alertsTestMonitor(t, s, "capuser", fmt.Sprintf("C%02d", i))
+		if i == 0 {
+			firstID = m.ID
+		}
+	}
+
+	threshold := 5.0
+	_, err := s.CreateAlertMonitor(CreateAlertMonitorInput{
+		UserID: "capuser", UserEmail: "capuser@example.com", Scope: "stock", Target: "OVER",
+		Condition: "short_interest_above", Threshold: &threshold, Cadence: "daily",
+	})
+	require.ErrorIs(t, err, ErrAlertMonitorLimit, "the cap+1 monitor must be refused")
+
+	// Another user has their own allowance.
+	alertsTestMonitor(t, s, "otheruser", "BHP")
+
+	// Pausing one frees a slot, and the paused monitor is not counted.
+	_, err = s.UpdateAlertMonitorStatus("capuser", firstID, "paused", "")
+	require.NoError(t, err)
+	_, err = s.CreateAlertMonitor(CreateAlertMonitorInput{
+		UserID: "capuser", UserEmail: "capuser@example.com", Scope: "stock", Target: "OVER",
+		Condition: "short_interest_above", Threshold: &threshold, Cadence: "daily",
+	})
+	require.NoError(t, err, "a paused monitor frees its slot")
+}
+
+// Resuming a paused monitor is refused at the cap. Pausing, and resuming a monitor that
+// is already active, are not, so the cap never strands a customer's existing alerts.
+func TestResumeAtTheAlertCapIsRefusedButPauseAndNoOpResumeAreNot(t *testing.T) {
+	s := alertsTestStore(t)
+	var paused string
+	for i := 0; i < MaxActiveAlertMonitors; i++ {
+		m := alertsTestMonitor(t, s, "capuser", fmt.Sprintf("R%02d", i))
+		if i == 0 {
+			paused = m.ID
+		}
+	}
+	var active string
+	_, err := s.UpdateAlertMonitorStatus("capuser", paused, "paused", "")
+	require.NoError(t, err)
+	// Every other monitor is active, so the cap is reached again with the new one.
+	threshold := 5.0
+	created, err := s.CreateAlertMonitor(CreateAlertMonitorInput{
+		UserID: "capuser", UserEmail: "capuser@example.com", Scope: "stock", Target: "NEW",
+		Condition: "short_interest_above", Threshold: &threshold, Cadence: "daily",
+	})
+	require.NoError(t, err)
+	active = created.ID
+
+	_, err = s.UpdateAlertMonitorStatus("capuser", paused, "active", "")
+	require.ErrorIs(t, err, ErrAlertMonitorLimit, "resuming past the cap is refused")
+
+	_, err = s.UpdateAlertMonitorStatus("capuser", active, "active", "")
+	require.NoError(t, err, "an already-active monitor resumes as a no-op even at the cap")
+
+	_, err = s.UpdateAlertMonitorStatus("capuser", active, "paused", "")
+	require.NoError(t, err, "pausing is never refused")
+
+	_, err = s.UpdateAlertMonitorStatus("capuser", "00000000-0000-0000-0000-000000000000", "active", "")
+	require.ErrorIs(t, err, ErrAlertMonitorNotFound, "a monitor that is not the user's is not found, even at the cap")
+}
+
+// A monitor created before the address was verified is stored with no address. The
+// refresh points that user's monitors at the verified address, and touches no one else.
+func TestRefreshAlertMonitorEmailReachesOnlyStaleRowsOfTheUser(t *testing.T) {
+	s := alertsTestStore(t)
+	threshold := 5.0
+	unverified, err := s.CreateAlertMonitor(CreateAlertMonitorInput{
+		UserID: "u1", UserEmail: "", Scope: "stock", Target: "AAA",
+		Condition: "short_interest_above", Threshold: &threshold, Cadence: "daily",
+	})
+	require.NoError(t, err)
+	require.Empty(t, unverified.UserEmail, "an unverified address is stored as NULL")
+	other := alertsTestMonitor(t, s, "u2", "BBB")
+
+	require.NoError(t, s.RefreshAlertMonitorEmail("u1", "u1@verified.example"))
+	monitors, _, err := s.ListAlertMonitors("u1", 10, 0)
+	require.NoError(t, err)
+	require.Len(t, monitors, 1)
+	assert.Equal(t, "u1@verified.example", monitors[0].UserEmail)
+
+	untouched, _, err := s.ListAlertMonitors("u2", 10, 0)
+	require.NoError(t, err)
+	require.Len(t, untouched, 1)
+	assert.Equal(t, other.UserEmail, untouched[0].UserEmail, "another user's monitors are not refreshed")
+
+	require.NoError(t, s.RefreshAlertMonitorEmail("u1", ""), "an empty address changes nothing")
+	monitors, _, err = s.ListAlertMonitors("u1", 10, 0)
+	require.NoError(t, err)
+	assert.Equal(t, "u1@verified.example", monitors[0].UserEmail)
 }

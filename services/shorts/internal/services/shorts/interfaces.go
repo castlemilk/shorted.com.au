@@ -64,6 +64,7 @@ type ShortsStore interface {
 	CreateAlertMonitor(input shortsstore.CreateAlertMonitorInput) (*shortsstore.AlertMonitor, error)
 	ListAlertMonitors(userID string, limit, offset int32) ([]*shortsstore.AlertMonitor, int32, error)
 	UpdateAlertMonitorStatus(userID, monitorID, status, userEmail string) (*shortsstore.AlertMonitor, error)
+	RefreshAlertMonitorEmail(userID, userEmail string) error
 	DeleteAlertMonitor(userID, monitorID string) error
 	PauseAlertMonitorByID(monitorID string) (*shortsstore.AlertMonitor, bool, error)
 	ListAlertEvents(userID, monitorID string, limit, offset int32) ([]*shortsstore.AlertEvent, int32, error)

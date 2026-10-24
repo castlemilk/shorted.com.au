@@ -184,6 +184,10 @@ func (s *StoreAdapter) UpdateAlertMonitorStatus(userID, monitorID, status, userE
 	return s.store.UpdateAlertMonitorStatus(userID, monitorID, status, userEmail)
 }
 
+func (s *StoreAdapter) RefreshAlertMonitorEmail(userID, userEmail string) error {
+	return s.store.RefreshAlertMonitorEmail(userID, userEmail)
+}
+
 func (s *StoreAdapter) DeleteAlertMonitor(userID, monitorID string) error {
 	return s.store.DeleteAlertMonitor(userID, monitorID)
 }

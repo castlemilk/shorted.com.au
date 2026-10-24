@@ -1902,6 +1902,20 @@ func (mr *MockShortsStoreMockRecorder) QueryRowContext(ctx, query any, args ...a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryRowContext", reflect.TypeOf((*MockShortsStore)(nil).QueryRowContext), varargs...)
 }
 
+// RefreshAlertMonitorEmail mocks base method.
+func (m *MockShortsStore) RefreshAlertMonitorEmail(userID, userEmail string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RefreshAlertMonitorEmail", userID, userEmail)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RefreshAlertMonitorEmail indicates an expected call of RefreshAlertMonitorEmail.
+func (mr *MockShortsStoreMockRecorder) RefreshAlertMonitorEmail(userID, userEmail any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefreshAlertMonitorEmail", reflect.TypeOf((*MockShortsStore)(nil).RefreshAlertMonitorEmail), userID, userEmail)
+}
+
 // ReviewEnrichment mocks base method.
 func (m *MockShortsStore) ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error {
 	m.ctrl.T.Helper()

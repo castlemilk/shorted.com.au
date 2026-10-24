@@ -26,7 +26,10 @@ const alertMonitorColumns = `
 	created_at,
 	updated_at`
 
-// CreateAlertMonitor persists a user-owned short-interest alert monitor.
+// CreateAlertMonitor persists a user-owned short-interest alert monitor. The cap is
+// checked in the same statement as the insert, so two creates racing at the cap can
+// overshoot it by at most the number of requests in flight. It answers
+// ErrAlertMonitorLimit when the user already holds MaxActiveAlertMonitors.
 func (s *postgresStore) CreateAlertMonitor(input CreateAlertMonitorInput) (*AlertMonitor, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -41,7 +44,8 @@ func (s *postgresStore) CreateAlertMonitor(input CreateAlertMonitorInput) (*Aler
 			threshold,
 			cadence
 		)
-		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7)
+		SELECT $1::text, NULLIF($2::text, ''), $3::text, $4::text, $5::text, $6::double precision, $7::text
+		WHERE (SELECT count(*) FROM alert_monitors WHERE user_id = $1::text AND status = 'active') < $8::bigint
 		RETURNING ` + alertMonitorColumns
 
 	monitor, err := scanAlertMonitor(s.db.QueryRow(
@@ -54,8 +58,12 @@ func (s *postgresStore) CreateAlertMonitor(input CreateAlertMonitorInput) (*Aler
 		input.Condition,
 		input.Threshold,
 		input.Cadence,
+		int64(MaxActiveAlertMonitors),
 	))
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrAlertMonitorLimit
+		}
 		if isAlertMonitorUniqueViolation(err) {
 			return nil, ErrAlertMonitorExists
 		}
@@ -63,6 +71,26 @@ func (s *postgresStore) CreateAlertMonitor(input CreateAlertMonitorInput) (*Aler
 	}
 
 	return monitor, nil
+}
+
+// RefreshAlertMonitorEmail points every one of the user's monitors at the address the
+// user has verified. The alerts page calls it on each visit, so a monitor created
+// before the address was verified starts emailing without being recreated. Rows that
+// already hold the address are not written. An empty address changes nothing.
+func (s *postgresStore) RefreshAlertMonitorEmail(userID, userEmail string) error {
+	if userEmail == "" {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if _, err := s.db.Exec(ctx, `
+		UPDATE alert_monitors
+		   SET user_email = $2
+		 WHERE user_id = $1 AND user_email IS DISTINCT FROM $2`, userID, userEmail); err != nil {
+		return fmt.Errorf("failed to refresh alert monitor email: %w", err)
+	}
+	return nil
 }
 
 // ListAlertMonitors returns the current user's monitors ordered newest first, each
@@ -133,23 +161,36 @@ func (s *postgresStore) ListAlertMonitors(userID string, limit, offset int32) ([
 }
 
 // UpdateAlertMonitorStatus sets a monitor to active or paused. It answers
-// ErrAlertMonitorNotFound when the monitor is not the user's, and
-// ErrAlertMonitorExists when resuming it would duplicate an active monitor. A
-// non-empty userEmail replaces the stored address, so a changed address takes
-// effect on the next alert.
+// ErrAlertMonitorNotFound when the monitor is not the user's, ErrAlertMonitorExists
+// when resuming it would duplicate an active monitor, and ErrAlertMonitorLimit when
+// resuming it would take the user past MaxActiveAlertMonitors. A non-empty userEmail
+// replaces the stored address, so a changed address takes effect on the next alert.
 func (s *postgresStore) UpdateAlertMonitorStatus(userID, monitorID, status, userEmail string) (*AlertMonitor, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	monitor, err := scanAlertMonitor(s.db.QueryRow(ctx, `
-		UPDATE alert_monitors
+		UPDATE alert_monitors AS m
 		SET status = $3,
-		    user_email = COALESCE(NULLIF($4, ''), user_email)
-		WHERE id = $2 AND user_id = $1
-		RETURNING `+alertMonitorColumns, userID, monitorID, status, userEmail))
+		    user_email = COALESCE(NULLIF($4, ''), m.user_email)
+		WHERE m.id = $2 AND m.user_id = $1
+		  AND ($3 <> 'active' OR m.status = 'active' OR (
+		        SELECT count(*) FROM alert_monitors AS o
+		         WHERE o.user_id = $1 AND o.status = 'active') < $5::bigint)
+		RETURNING `+alertMonitorColumns, userID, monitorID, status, userEmail, int64(MaxActiveAlertMonitors)))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrAlertMonitorNotFound
+			// No row is either a monitor that is not the user's, or a resume refused by
+			// the cap. Tell them apart so the caller can say which.
+			var exists bool
+			if qerr := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM alert_monitors WHERE id = $2 AND user_id = $1)`,
+				userID, monitorID).Scan(&exists); qerr != nil {
+				return nil, fmt.Errorf("failed to check alert monitor: %w", qerr)
+			}
+			if !exists {
+				return nil, ErrAlertMonitorNotFound
+			}
+			return nil, ErrAlertMonitorLimit
 		}
 		if isAlertMonitorUniqueViolation(err) {
 			return nil, ErrAlertMonitorExists

@@ -22,6 +22,18 @@ import (
 // alertsNeedPremium is the message for every refusal that is about entitlement.
 const alertsNeedPremium = "alerts require an active Premium subscription"
 
+// alertEmailFor is the address an alert is emailed to, or "" when the owner's address
+// is not verified. An unverified sign-up address is never stored, because a mistyped
+// address would receive mail its owner never asked for. The web tier applies the same
+// rule to its own calls; this is the API's own enforcement, so a Firebase token, a
+// minted API token or a direct call cannot route alerts to an unverified address.
+func alertEmailFor(claims *Claims) string {
+	if claims == nil || !claims.EmailVerified {
+		return ""
+	}
+	return claims.Email
+}
+
 // CreateAlertMonitor saves a premium short-interest monitor for the current user.
 func (s *ShortsServer) CreateAlertMonitor(
 	ctx context.Context,
@@ -78,6 +90,9 @@ func (s *ShortsServer) CreateAlertMonitor(
 		if errors.Is(err, shortsstore.ErrAlertMonitorExists) {
 			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("monitor already exists"))
 		}
+		if errors.Is(err, shortsstore.ErrAlertMonitorLimit) {
+			return nil, connect.NewError(connect.CodeResourceExhausted, errAlertMonitorCreateLimit)
+		}
 		s.logger.Errorf("failed to create alert monitor for user %s: %v", userClaims.UserID, err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to save monitor"))
 	}
@@ -102,6 +117,15 @@ func (s *ShortsServer) ListAlertMonitors(
 	offset := req.Msg.Offset
 	if offset < 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("offset must be non-negative"))
+	}
+
+	// The alerts page calls this on every visit, so a verified address reaches monitors
+	// created before it was verified. Best effort: a failed refresh is logged, and the
+	// list still loads.
+	if email := alertEmailFor(userClaims); email != "" {
+		if err := s.store.RefreshAlertMonitorEmail(userClaims.UserID, email); err != nil {
+			s.logger.Errorf("failed to refresh alert email for user %s: %v", userClaims.UserID, err)
+		}
 	}
 
 	monitors, total, err := s.store.ListAlertMonitors(userClaims.UserID, limit, offset)
@@ -193,13 +217,15 @@ func (s *ShortsServer) UpdateAlertMonitorStatus(
 		}
 	}
 
-	monitor, err := s.store.UpdateAlertMonitorStatus(userClaims.UserID, req.Msg.Id, status, userClaims.Email)
+	monitor, err := s.store.UpdateAlertMonitorStatus(userClaims.UserID, req.Msg.Id, status, alertEmailFor(userClaims))
 	if err != nil {
 		switch {
 		case errors.Is(err, shortsstore.ErrAlertMonitorNotFound):
 			return nil, connect.NewError(connect.CodeNotFound, errAlertMonitorNotFound)
 		case errors.Is(err, shortsstore.ErrAlertMonitorExists):
 			return nil, connect.NewError(connect.CodeAlreadyExists, errAlertMonitorDuplicate)
+		case errors.Is(err, shortsstore.ErrAlertMonitorLimit):
+			return nil, connect.NewError(connect.CodeResourceExhausted, errAlertMonitorResumeLimit)
 		}
 		s.logger.Errorf("failed to update alert monitor %s for user %s: %v", req.Msg.Id, userClaims.UserID, err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update monitor"))
@@ -287,6 +313,10 @@ var (
 	errUnknownIndustry = errors.New("Unknown industry: choose one listed on Industry Intelligence")
 	//nolint:staticcheck // ST1005: user-facing copy, quoted verbatim by the API contract
 	errUnknownASXCode = errors.New("Unknown ASX code")
+	//nolint:staticcheck // ST1005: user-facing copy, quoted verbatim by the API contract
+	errAlertMonitorCreateLimit = fmt.Errorf("You already have %d active alerts. Pause or delete one to add another.", shortsstore.MaxActiveAlertMonitors)
+	//nolint:staticcheck // ST1005: user-facing copy, quoted verbatim by the API contract
+	errAlertMonitorResumeLimit = fmt.Errorf("You already have %d active alerts. Pause or delete one before resuming this one.", shortsstore.MaxActiveAlertMonitors)
 )
 
 func validateCreateAlertMonitor(claims *Claims, msg *shortsv1alpha1.CreateAlertMonitorRequest) (shortsstore.CreateAlertMonitorInput, error) {
@@ -325,7 +355,7 @@ func validateCreateAlertMonitor(claims *Claims, msg *shortsv1alpha1.CreateAlertM
 
 	return shortsstore.CreateAlertMonitorInput{
 		UserID:    claims.UserID,
-		UserEmail: claims.Email,
+		UserEmail: alertEmailFor(claims),
 		Scope:     scope,
 		Target:    target,
 		Condition: condition,
