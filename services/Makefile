@@ -763,12 +763,13 @@ backfill.historical-test: ## Test backfill with limited stocks (usage: make back
 
 # Alerts evaluator end-to-end suite (services/jobs/internal/jobs/alerts) and the
 # shorts API's alert store tests (services/shorts/internal/store/shorts, -tags=integration).
-# ALERTS_E2E_TESTCONTAINERS=1 has each test binary start one postgres:15-alpine
-# container through testcontainers, the mechanism test-integration-ci uses, and remove
-# it on exit. Those runners use the host's Docker daemon, so a port published on
-# 127.0.0.1 inside the runner is not reachable; this target therefore never connects
-# to 127.0.0.1. To run against a server you started, set ALERTS_TEST_DATABASE_URL
-# (jobs) or SHORTS_TEST_POSTGRES_URL (store) instead of the opt-in.
+# ALERTS_E2E_TESTCONTAINERS=1 with -tags=testcontainers has each test binary start one
+# postgres:15-alpine container through testcontainers, the mechanism test-integration-ci
+# uses, and remove it on exit. The tag keeps testcontainers out of a plain go test.
+# Those runners use the host's Docker daemon, so a port published on 127.0.0.1 inside
+# the runner is not reachable; this target therefore never connects to 127.0.0.1. To
+# run against a server you started, set ALERTS_TEST_DATABASE_URL (jobs) or
+# SHORTS_TEST_POSTGRES_URL (store) instead of the opt-in.
 #
 # The image is prefetched with retries first, as test-integration-ci does. CGO is off:
 # testcontainers pulls in gopsutil, whose cgo init crashes a macOS test binary before
@@ -777,9 +778,9 @@ backfill.historical-test: ## Test backfill with limited stocks (usage: make back
 test-alerts-e2e: test-integration-images
 	@set -e; \
 	GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
-		go test -count=1 -tags=integration -run Alert ./shorts/internal/store/shorts/; \
+		go test -count=1 -tags=integration,testcontainers -run Alert ./shorts/internal/store/shorts/; \
 	cd jobs && GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
-		go test -count=1 -run TestAlertsE2E ./internal/jobs/alerts/
+		go test -count=1 -tags=testcontainers -run TestAlertsE2E ./internal/jobs/alerts/
 
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench
