@@ -3,6 +3,19 @@ import { ChatLineChart, ChatSparkline } from "../chat-charts";
 import { formatPercent } from "../chat-tool-format";
 import type { Reading } from "../chat-tool-data";
 
+// jsdom has no PointerEvent. A MouseEvent carries the coordinates, and the pointer type
+// rides along, which is all the charts read from a pointer event.
+class PointerEventShim extends MouseEvent {
+  readonly pointerType: string;
+  constructor(type: string, init: MouseEventInit & { pointerType?: string } = {}) {
+    super(type, init);
+    this.pointerType = init.pointerType ?? "mouse";
+  }
+}
+if (typeof window.PointerEvent === "undefined") {
+  Object.defineProperty(window, "PointerEvent", { configurable: true, value: PointerEventShim });
+}
+
 /** Five readings on the first of successive weeks, so the day of each is clear. */
 const readings: Reading[] = [
   { t: Date.parse("2026-10-01T00:00:00Z"), v: 5 },
@@ -201,6 +214,179 @@ describe("ChatSparkline tooltip in a table cell", () => {
 
     fireEvent.keyDown(spark, { key: "Escape" });
     expect(spark).not.toHaveAttribute("data-reading-active");
+  });
+});
+
+/**
+ * The x, in the chart's own pixels, of reading `index`. The readings are a week apart,
+ * so they are evenly spaced across the plot, which starts at the translated group.
+ */
+function chartX(container: HTMLElement, index: number): number {
+  const plot = container.querySelector('g[transform^="translate("]')!;
+  const left = Number(/translate\(([\d.]+)/.exec(plot.getAttribute("transform") ?? "")![1]);
+  const innerW = Number(container.querySelector('circle[r="2.5"]')!.getAttribute("cx"));
+  return left + (index * innerW) / (readings.length - 1);
+}
+
+/** The x of reading `index` in a sparkline: its scale runs from 2px to 94px across 96px. */
+const sparkX = (index: number) => 2 + (index * 92) / (readings.length - 1);
+
+describe("ChatLineChart pointer and focus", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function renderLineChart() {
+    const rendered = render(
+      <ChatLineChart
+        label="DRO short interest"
+        points={readings}
+        color="#D16A47"
+        kind="area"
+        formatValue={formatPercent}
+      />,
+    );
+    const chart = screen.getByRole("group", { name: /DRO short interest/ });
+    return { ...rendered, chart };
+  }
+
+  it("lets a vertical swipe scroll the page, so the chart takes only the horizontal drag", () => {
+    const { chart } = renderLineChart();
+    expect(chart.style.touchAction).toBe("pan-y");
+  });
+
+  it("keeps the point a mouse hovers when focus arrives, as a press's focus does", () => {
+    const { container, chart } = renderLineChart();
+    fireEvent.pointerMove(chart, { clientX: chartX(container, 0), pointerType: "mouse" });
+    expect(announced()).toBe("1 Oct 2026: 5.00%");
+
+    act(() => chart.focus());
+    expect(announced()).toBe("1 Oct 2026: 5.00%");
+  });
+
+  it("reads the point a mouse clicks, keeps it after the pointer leaves, and steps on from it", () => {
+    const { container, chart } = renderLineChart();
+    fireEvent.pointerDown(chart, { clientX: chartX(container, 1), pointerType: "mouse" });
+    expect(announced()).toBe("8 Oct 2026: 2.00%");
+
+    act(() => chart.focus());
+    fireEvent.pointerUp(chart, { clientX: chartX(container, 1), pointerType: "mouse" });
+    fireEvent.pointerLeave(chart, { pointerType: "mouse" });
+    expect(announced()).toBe("8 Oct 2026: 2.00%");
+
+    fireEvent.keyDown(chart, { key: "ArrowRight" });
+    expect(announced()).toBe("15 Oct 2026: 9.00%");
+  });
+
+  it("ends a mouse press released outside the chart, so moving on does not pin each reading passed", () => {
+    const { container, chart } = renderLineChart();
+    fireEvent.pointerDown(chart, { clientX: chartX(container, 0), pointerType: "mouse" });
+    // The button came up outside the chart, so no pointerup reaches it: the next move has no button down.
+    fireEvent.pointerMove(chart, { clientX: chartX(container, 3), pointerType: "mouse", buttons: 0 });
+    expect(announced()).toBe("22 Oct 2026: 4.00%");
+
+    fireEvent.pointerLeave(chart, { pointerType: "mouse" });
+    expect(announced()).toBe("1 Oct 2026: 5.00%");
+  });
+
+  it("reads the point a touch lands on, not the latest, and keeps it when the finger lifts", () => {
+    const { container, chart } = renderLineChart();
+    fireEvent.pointerDown(chart, { clientX: chartX(container, 2), pointerType: "touch" });
+    expect(announced()).toBe("15 Oct 2026: 9.00%");
+
+    fireEvent.pointerUp(chart, { clientX: chartX(container, 2), pointerType: "touch" });
+    // A touch's pointerleave arrives after its pointerup, and must not clear the pin.
+    fireEvent.pointerLeave(chart, { pointerType: "touch" });
+    expect(announced()).toBe("15 Oct 2026: 9.00%");
+  });
+
+  it("releases a pinned touch reading on a tap on the same point", () => {
+    const { container, chart } = renderLineChart();
+    fireEvent.pointerDown(chart, { clientX: chartX(container, 2), pointerType: "touch" });
+    fireEvent.pointerUp(chart, { clientX: chartX(container, 2), pointerType: "touch" });
+    expect(announced()).toBe("15 Oct 2026: 9.00%");
+
+    fireEvent.pointerDown(chart, { clientX: chartX(container, 2), pointerType: "touch" });
+    fireEvent.pointerUp(chart, { clientX: chartX(container, 2), pointerType: "touch" });
+    expect(announced()).toBe("");
+  });
+
+  it("scrubs a touch across the readings, and pins the one it lifts on", () => {
+    const { container, chart } = renderLineChart();
+    fireEvent.pointerDown(chart, { clientX: chartX(container, 0), pointerType: "touch" });
+    expect(announced()).toBe("1 Oct 2026: 5.00%");
+
+    fireEvent.pointerMove(chart, { clientX: chartX(container, 3), pointerType: "touch" });
+    expect(announced()).toBe("22 Oct 2026: 4.00%");
+
+    fireEvent.pointerMove(chart, { clientX: chartX(container, 4), pointerType: "touch" });
+    fireEvent.pointerUp(chart, { clientX: chartX(container, 4), pointerType: "touch" });
+    expect(announced()).toBe("29 Oct 2026: 7.00%");
+  });
+
+  it("returns to the reading it had when the browser takes a touch for a page scroll", () => {
+    const { container, chart } = renderLineChart();
+    fireEvent.pointerDown(chart, { clientX: chartX(container, 1), pointerType: "touch" });
+    fireEvent.pointerUp(chart, { clientX: chartX(container, 1), pointerType: "touch" });
+    expect(announced()).toBe("8 Oct 2026: 2.00%");
+
+    fireEvent.pointerDown(chart, { clientX: chartX(container, 3), pointerType: "touch" });
+    expect(announced()).toBe("22 Oct 2026: 4.00%");
+
+    fireEvent.pointerCancel(chart, { pointerType: "touch" });
+    expect(announced()).toBe("8 Oct 2026: 2.00%");
+  });
+
+  it("sizes the tooltip to its text, and holds it clear of the crosshair at the right edge", () => {
+    jest.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(300);
+    jest.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(200);
+    const { container, chart } = renderLineChart();
+
+    // Focus starts at the latest reading, the rightmost point: the tooltip flips to its left.
+    act(() => chart.focus());
+    const tip = container.querySelector(".pointer-events-none") as HTMLElement;
+    expect(tip.className).toContain("w-max");
+
+    const plotLeft = Number(
+      /translate\(([\d.]+)/.exec(container.querySelector('g[transform^="translate("]')!.getAttribute("transform") ?? "")![1],
+    );
+    const crosshair = plotLeft + Number(container.querySelector('line[stroke-dasharray="3,3"]')!.getAttribute("x1"));
+    const tipLeft = parseFloat(tip.style.left);
+    expect(tipLeft + 200 <= crosshair || tipLeft >= crosshair).toBe(true);
+  });
+});
+
+describe("ChatSparkline pointer", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function renderSparkline() {
+    render(
+      <ChatSparkline label="DRO short interest" seriesLabel="DRO" points={readings} color="#D16A47" />,
+    );
+    return screen.getByRole("group", { name: /DRO short interest/ });
+  }
+
+  it("reads the point a tap lands on, and keeps it when the finger lifts", () => {
+    const spark = renderSparkline();
+    fireEvent.pointerDown(spark, { clientX: sparkX(1), pointerType: "touch" });
+    expect(announced()).toBe("8 Oct 2026, 2.00%");
+
+    fireEvent.pointerUp(spark, { clientX: sparkX(1), pointerType: "touch" });
+    fireEvent.pointerLeave(spark, { pointerType: "touch" });
+    expect(announced()).toBe("8 Oct 2026, 2.00%");
+  });
+
+  it("keeps the point a mouse hovers when focus arrives", () => {
+    const spark = renderSparkline();
+    fireEvent.pointerMove(spark, { clientX: sparkX(0), pointerType: "mouse" });
+    act(() => spark.focus());
+    expect(announced()).toBe("1 Oct 2026, 5.00%");
+  });
+
+  it("lets a vertical swipe scroll the page, as the chart does", () => {
+    expect(renderSparkline().style.touchAction).toBe("pan-y");
   });
 });
 

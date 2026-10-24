@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type PointerEvent,
   type RefObject,
 } from "react";
 import { scaleLinear, scaleTime } from "@visx/scale";
@@ -41,6 +42,113 @@ const SPARK_WIDTH = 96;
 const SPARK_HEIGHT = 28;
 const SPARK_PAD = 2;
 
+/** A press that moves less than this, in px, is a tap rather than a scrub. */
+const TAP_MAX_MOVE_PX = 6;
+
+/** Maps a pointer's x (and the box's left edge) to the index of the reading nearest it. */
+type IndexAt = (clientX: number, boxLeft: number) => number | null;
+
+interface Press {
+  startX: number;
+  moved: boolean;
+  /** What was pinned before the press. A press the browser turns into a scroll goes back to it. */
+  pinnedBefore: number | null;
+  /** The press landed on the reading already pinned, so a tap on it releases the pin. */
+  onPinned: boolean;
+}
+
+/**
+ * The reading a chart or sparkline shows, and the handlers that set it. Both charts
+ * use it, so a pointer and a keyboard behave the same on each.
+ *
+ * There are two sources. A hover (a mouse or a pen) follows the pointer and clears
+ * when the pointer leaves. A pin is set by a press and stays: a touch scrubs and lifts
+ * to pin (`touch-action: pan-y` leaves a vertical swipe to the page), a tap on the
+ * pinned reading releases it, and a press the browser turns into a scroll goes back to
+ * what was pinned before. The reading on screen is the hover if there is one, else the pin.
+ *
+ * Focus shows the latest reading unless a press has already pinned one, so the reading
+ * a click or tap made survives the focus that follows it. The arrow keys step from the
+ * reading on screen, and Escape and blur clear both sources.
+ */
+function useReadingPointer(points: Reading[], indexAt: IndexAt) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [pinned, setPinned] = useState<number | null>(null);
+  const press = useRef<Press | null>(null);
+  const shown = hover ?? pinned;
+  const lastIndex = points.length - 1;
+
+  const handlers = {
+    onPointerDown: (event: PointerEvent<HTMLElement>) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const index = indexAt(event.clientX, event.currentTarget.getBoundingClientRect().left);
+      if (index === null) return;
+      press.current = {
+        startX: event.clientX,
+        moved: false,
+        pinnedBefore: pinned,
+        onPinned: pinned === index,
+      };
+      setPinned(index);
+    },
+    onPointerMove: (event: PointerEvent<HTMLElement>) => {
+      const index = indexAt(event.clientX, event.currentTarget.getBoundingClientRect().left);
+      // A mouse that moves with no button down let go of its press elsewhere, and no
+      // pointerup reaches the chart for it, so the press is over.
+      if (event.pointerType === "mouse" && event.buttons === 0) press.current = null;
+      const current = press.current;
+      if (current) {
+        if (Math.abs(event.clientX - current.startX) >= TAP_MAX_MOVE_PX) current.moved = true;
+        if (index !== null) setPinned(index);
+      }
+      // A touch has no hover: the reading it shows is the pin its scrub sets.
+      if (event.pointerType !== "touch") setHover(index);
+    },
+    onPointerUp: () => {
+      const current = press.current;
+      press.current = null;
+      if (current && !current.moved && current.onPinned) setPinned(null);
+    },
+    onPointerCancel: () => {
+      // The browser took the press for a scroll: the reading it had pinned goes back.
+      const current = press.current;
+      press.current = null;
+      if (current) setPinned(current.pinnedBefore);
+    },
+    onPointerLeave: (event: PointerEvent<HTMLElement>) => {
+      // A touch's pointerleave arrives after its pointerup, so it must not clear the pin.
+      if (event.pointerType !== "touch") setHover(null);
+    },
+    onFocus: () => {
+      setPinned((current) => current ?? lastIndex);
+    },
+    onBlur: () => {
+      press.current = null;
+      setHover(null);
+      setPinned(null);
+    },
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (event.key === "Escape") {
+        if (shown === null) return;
+        event.preventDefault();
+        setHover(null);
+        setPinned(null);
+        return;
+      }
+      const from = points[shown ?? lastIndex]?.t ?? null;
+      const next = stepIndex(points, event.key, from);
+      if (next === null) return;
+      event.preventDefault();
+      // The step is the reading that is read out, so a hover still on screen gives way to it.
+      setHover(null);
+      setPinned(next);
+    },
+  };
+
+  return { shown, handlers };
+}
+
 export interface ChatSparklineProps {
   /** Names the sparkline for a screen reader, e.g. "DRO short interest". */
   label: string;
@@ -52,9 +160,10 @@ export interface ChatSparklineProps {
 }
 
 /**
- * A tiny line of one stock's recent readings, for a table cell. Hover or focus
- * shows the reading under the pointer or the cursor: its day and value. Focused,
- * the arrow keys step through the readings and Escape clears the reading.
+ * A tiny line of one stock's recent readings, for a table cell. A hover, or a tap,
+ * shows the reading under the pointer: its day and value. Focus shows the latest
+ * reading. Focused, the arrow keys step through the readings and Escape clears the
+ * reading.
  */
 export function ChatSparkline({
   label,
@@ -64,7 +173,6 @@ export function ChatSparkline({
   formatValue = formatPercent,
 }: ChatSparklineProps) {
   const gradientId = `chat-spark-${useId()}`;
-  const [index, setIndex] = useState<number | null>(null);
 
   const scales = useMemo(() => {
     const first = points[0];
@@ -91,6 +199,12 @@ export function ChatSparkline({
     };
   }, [points]);
 
+  const { shown, handlers } = useReadingPointer(points, (clientX, boxLeft) => {
+    if (!scales) return null;
+    const near = nearest(points, scales.x.invert(clientX - boxLeft).getTime());
+    return near ? points.indexOf(near) : null;
+  });
+
   const tooltipName = seriesLabel ?? label;
   const spec = useMemo<ChartSeriesSpec>(
     () => ({ id: label, label: tooltipName, color, axis: "left", kind: "line", points }),
@@ -99,8 +213,8 @@ export function ChatSparkline({
 
   if (!scales || points.length < 2) return null;
 
-  const active = index === null ? null : (points[index] ?? null);
-  const hover: HoverState | null = active
+  const active = shown === null ? null : (points[shown] ?? null);
+  const readout: HoverState | null = active
     ? {
         cx: scales.x(new Date(active.t)) ?? 0,
         cy: scales.y(active.v) ?? 0,
@@ -108,11 +222,6 @@ export function ChatSparkline({
         entries: [{ series: spec, point: active }],
       }
     : null;
-
-  const readingAt = (x: number): number | null => {
-    const near = nearest(points, scales.x.invert(x).getTime());
-    return near ? points.indexOf(near) : null;
-  };
 
   // A keyboard-driven readout: the arrow keys step through the readings, so the
   // group takes a tab stop and key handlers (the stock chart does the same).
@@ -124,14 +233,15 @@ export function ChatSparkline({
       aria-label={`${label}. ${points.length} readings. Arrow keys step through them.`}
       data-reading-active={active ? "true" : undefined}
       tabIndex={0}
-      onPointerMove={(event) => {
-        const rect = event.currentTarget.getBoundingClientRect();
-        setIndex(readingAt(event.clientX - rect.left));
-      }}
-      onPointerLeave={() => setIndex(null)}
-      onFocus={() => setIndex(points.length - 1)}
-      onBlur={() => setIndex(null)}
-      onKeyDown={(event) => stepReading(event, points, index, setIndex)}
+      style={{ touchAction: "pan-y" }}
+      onPointerDown={handlers.onPointerDown}
+      onPointerMove={handlers.onPointerMove}
+      onPointerUp={handlers.onPointerUp}
+      onPointerCancel={handlers.onPointerCancel}
+      onPointerLeave={handlers.onPointerLeave}
+      onFocus={handlers.onFocus}
+      onBlur={handlers.onBlur}
+      onKeyDown={handlers.onKeyDown}
       className="relative inline-block rounded-sm align-middle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <svg
@@ -148,8 +258,8 @@ export function ChatSparkline({
           yScale={scales.y}
           gradientId={gradientId}
         />
-        {hover && (
-          <circle cx={hover.cx} cy={hover.cy} r={2} fill={color} />
+        {readout && (
+          <circle cx={readout.cx} cy={readout.cy} r={2} fill={color} />
         )}
       </svg>
       {/*
@@ -158,7 +268,7 @@ export function ChatSparkline({
         below was clipped there. It never takes the pointer, so moving up to it does
         not end the reading.
       */}
-      {hover && (
+      {readout && (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute bottom-full right-0 z-20 mb-1 whitespace-nowrap"
@@ -173,7 +283,7 @@ export function ChatSparkline({
             }}
           >
             <TooltipContent
-              hover={hover}
+              hover={readout}
               leftAxis={{ side: "left", format: formatValue }}
             />
           </div>
@@ -209,10 +319,11 @@ const PLOT_BOTTOM = 22;
 
 /**
  * An interactive line (or area) chart of readings over time. It is the stock
- * page's chart primitives, scales and tooltip at a fixed height. The pointer
- * reads the nearest reading; the keyboard does too, with the arrow keys, Home
- * and End, and Escape to clear. A screen reader hears each reading through a
- * live region, and the caption (`describedBy`) gives the summary. Nothing
+ * page's chart primitives, scales and tooltip at a fixed height. The pointer reads
+ * the nearest reading: a hover follows it, and a tap or press pins the reading
+ * under it (a touch scrubs, and lifts to pin). The keyboard reads too, with the
+ * arrow keys, Home and End, and Escape to clear. A screen reader hears each reading
+ * through a live region, and the caption (`describedBy`) gives the summary. Nothing
  * animates, so there is no motion to reduce.
  */
 export function ChatLineChart({
@@ -229,7 +340,6 @@ export function ChatLineChart({
   const width = measured > 0 ? measured : FALLBACK_WIDTH;
   const height = CHART_HEIGHT;
   const gradientId = `chat-line-${useId()}`;
-  const [index, setIndex] = useState<number | null>(null);
 
   const spec = useMemo<ChartSeriesSpec>(
     () => ({ id: label, label, color, axis: "left", kind, points }),
@@ -261,6 +371,11 @@ export function ChatLineChart({
     margin,
   });
 
+  const { shown, handlers } = useReadingPointer(points, (clientX, boxLeft) => {
+    const near = nearest(points, dateScale.invert(clientX - boxLeft - margin.left).getTime());
+    return near ? points.indexOf(near) : null;
+  });
+
   // The tooltip's own width, measured after each render (the setter bails out when the
   // width is unchanged), so it can be held inside the box. A fixed guess is wrong at a
   // phone-width bubble, where the tooltip is wider than the room on either side.
@@ -269,8 +384,8 @@ export function ChatLineChart({
   useLayoutEffect(() => {
     const measured = tipRef.current?.offsetWidth ?? 0;
     if (measured !== tipWidth) setTipWidth(measured);
-    // The tooltip's text is the reading it shows, so its width changes with the index.
-  }, [index, points, formatValue, tipWidth]);
+    // The tooltip's text is the reading it shows, so its width changes with the reading.
+  }, [shown, points, formatValue, tipWidth]);
 
   if (points.length < 2) return null;
 
@@ -279,10 +394,10 @@ export function ChatLineChart({
   const latestX = dateScale(new Date(latest.t)) ?? 0;
   const latestY = leftScale(latest.v) ?? 0;
 
-  const active = index === null ? null : (points[index] ?? null);
+  const active = shown === null ? null : (points[shown] ?? null);
   const cx = active ? (dateScale(new Date(active.t)) ?? 0) : 0;
   const cy = active ? (leftScale(active.v) ?? 0) : 0;
-  const hover: HoverState | null = active
+  const readout: HoverState | null = active
     ? { cx, cy, t: active.t, entries: [{ series: spec, point: active }] }
     : null;
   // The tooltip sits to the right of the crosshair, or to its left when the right side
@@ -298,11 +413,6 @@ export function ChatLineChart({
     ),
   );
 
-  const readingAt = (clientX: number, boxLeft: number): number | null => {
-    const near = nearest(points, dateScale.invert(clientX - boxLeft - margin.left).getTime());
-    return near ? points.indexOf(near) : null;
-  };
-
   return (
     // A keyboard-driven chart: the arrow keys step through the readings, so the
     // group takes a tab stop and key handlers (the stock chart does the same).
@@ -315,13 +425,15 @@ export function ChatLineChart({
       aria-describedby={describedBy}
       data-reading-active={active ? "true" : undefined}
       tabIndex={0}
-      onPointerMove={(event) =>
-        setIndex(readingAt(event.clientX, event.currentTarget.getBoundingClientRect().left))
-      }
-      onPointerLeave={() => setIndex(null)}
-      onFocus={() => setIndex(lastIndex)}
-      onBlur={() => setIndex(null)}
-      onKeyDown={(event) => stepReading(event, points, index, setIndex)}
+      style={{ touchAction: "pan-y" }}
+      onPointerDown={handlers.onPointerDown}
+      onPointerMove={handlers.onPointerMove}
+      onPointerUp={handlers.onPointerUp}
+      onPointerCancel={handlers.onPointerCancel}
+      onPointerLeave={handlers.onPointerLeave}
+      onFocus={handlers.onFocus}
+      onBlur={handlers.onBlur}
+      onKeyDown={handlers.onKeyDown}
       className="relative w-full rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <svg
@@ -371,11 +483,13 @@ export function ChatLineChart({
           </text>
         </g>
       </svg>
-      {hover && (
+      {readout && (
         <div
           ref={tipRef}
           aria-hidden="true"
-          className="pointer-events-none absolute top-1 z-20"
+          // w-max sizes the tooltip to its text, not to the room left of its `left`: a
+          // shrink-to-fit width would wrap it at the right edge, where focus starts.
+          className="pointer-events-none absolute top-1 z-20 w-max"
           style={{ left: tipLeft }}
         >
           <div
@@ -389,7 +503,7 @@ export function ChatLineChart({
             }}
           >
             <TooltipContent
-              hover={hover}
+              hover={readout}
               leftAxis={{ side: "left", format: formatValue }}
             />
           </div>
@@ -417,29 +531,4 @@ function useMeasuredWidth(ref: RefObject<HTMLElement>): number {
     return () => observer.disconnect();
   }, [ref]);
   return width;
-}
-
-/**
- * Keyboard stepping for a reading chart: ArrowLeft and ArrowRight move one reading
- * (from the one on screen, else the latest), Home and End jump to the ends, and
- * Escape clears the reading. Chords are left to the browser, Alt+Left above all.
- */
-function stepReading(
-  event: KeyboardEvent<HTMLElement>,
-  points: Reading[],
-  index: number | null,
-  setIndex: (next: number | null) => void,
-) {
-  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-  if (event.key === "Escape") {
-    if (index === null) return;
-    event.preventDefault();
-    setIndex(null);
-    return;
-  }
-  const from = points[index ?? points.length - 1]?.t ?? null;
-  const next = stepIndex(points, event.key, from);
-  if (next === null) return;
-  event.preventDefault();
-  setIndex(next);
 }
