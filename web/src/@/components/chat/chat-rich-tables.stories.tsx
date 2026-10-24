@@ -355,3 +355,110 @@ export const GenericTable: Story = {
     );
   },
 };
+
+/**
+ * The desktop sidebar's real table width: 276px (see chat-layout.ts). The most-shorted
+ * table draws its compact columns, the stock, the short position and the change, all in
+ * view without a sideways scroll, and says which rows have a change and a trend.
+ */
+export const TopShortsDesktopSidebarLight: Story = {
+  decorators: [tableAt("light", 276)],
+  render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
+  play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Most shorted ASX stocks", false);
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Change and trend are shown for the top 7 only.")).toBeInTheDocument();
+    await expect(canvas.queryByRole("columnheader", { name: "Trend" })).toBeNull();
+  },
+};
+
+/**
+ * The same table at 263px: the desktop sidebar with a classic scrollbar taking its 13-15px.
+ * Every column is still in view without a sideways scroll.
+ */
+export const TopShortsDesktopClassicScrollbar: Story = {
+  decorators: [tableAt("light", 263)],
+  render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
+  play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Most shorted ASX stocks", false);
+  },
+};
+
+/**
+ * The fifty-row table at 330px, the narrowest the standard columns are drawn at. A long
+ * table takes a scrollbar gutter, so the tier is chosen from the width the table has, and
+ * the trend fits beside the figures without a sideways scroll.
+ */
+export const TopShortsFiftyStandardWidth: Story = {
+  // The frame is 332px: the table's region is 2px narrower, for its border, and is 330px.
+  decorators: [tableAt("light", 332)],
+  render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
+  play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Most shorted ASX stocks", true);
+  },
+};
+
+/**
+ * The director's name is the row's identity, so at the desktop sidebar's width it takes the
+ * room the figures leave: "Mark Vassella" and "Michelle Hinchliffe" are whole. The date and
+ * the trade type share a single line beneath, so no row grows to three or four lines.
+ */
+export const DirectorTradesDesktopSidebarLight: Story = {
+  decorators: [tableAt("light", 276)],
+  render: () => (
+    <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp50))!} code="BHP" />
+  ),
+  play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Director trades in BHP", false);
+    const canvas = within(canvasElement);
+    // Each name is checked wherever the fixture repeats it: none is cut short.
+    for (const name of ["Mark Vassella", "Michelle Hinchliffe"]) {
+      for (const cell of await canvas.findAllByText(name)) {
+        await expect(cell.scrollWidth).toBeLessThanOrEqual(cell.clientWidth);
+      }
+    }
+  },
+};
+
+/**
+ * The subject of a peer comparison has a visible mark at the desktop sidebar's width, where
+ * the "This stock" badge is screen-reader only: a primary bar on its first cell.
+ */
+export const PeersDesktopSidebarLight: Story = {
+  decorators: [tableAt("light", 276)],
+  render: () => <PeersTable view={parsePeers(recorded(peersBhp))!} />,
+  play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Peers of BHP in Materials", false);
+    const canvas = within(canvasElement);
+    const subject = (await canvas.findByRole("rowheader", { name: /BHP/ })).closest("tr")!;
+    await expect(subject.className).toContain("bg-primary/10");
+    const header = subject.querySelector("th")!;
+    await expect(getComputedStyle(header).boxShadow).not.toBe("none");
+    await expect(within(subject).getByText("This stock", { selector: ".sr-only" })).toBeInTheDocument();
+  },
+};
+
+/**
+ * A focused link near the foot of a long table is scrolled clear of the fade on the foot,
+ * not left under it. The region is scrolled so the link (the ninth row) sits in the bottom
+ * 10px, where the fade covers it. Focusing the link brings it up above the fade.
+ */
+export const TopShortsFocusAboveFade: Story = {
+  decorators: [tableAt("light", 333)],
+  render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const region = await canvas.findByRole("region", { name: "Most shorted ASX stocks" });
+    const code = topShorts50.timeSeries[8]!.productCode;
+    const link = await canvas.findByRole("link", { name: code });
+    const regionBottom = () => region.getBoundingClientRect().bottom;
+    const linkBottom = () => link.getBoundingClientRect().bottom;
+
+    region.scrollTop += linkBottom() - regionBottom() + 10;
+    await waitFor(() => expect(linkBottom()).toBeGreaterThan(regionBottom() - 24));
+
+    link.focus();
+    // The fade covers the foot's bottom 24px, so a focused link ends above that line.
+    await waitFor(() => expect(linkBottom()).toBeLessThanOrEqual(regionBottom() - 24 + 1));
+  },
+};

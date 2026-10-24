@@ -27,6 +27,11 @@ export interface ChatDataTableColumn<Row> {
    * width. A table at a narrower width leaves the column out, rather than scroll it.
    */
   minTier?: TableTier;
+  /**
+   * The column takes the width the other columns leave, and its cells truncate rather than
+   * widen the table. Used for a name, which is the one text that can be as long as it likes.
+   */
+  fill?: boolean;
   /** The cell. `tier` is the tier the table is drawn at, so a cell can size itself to it. */
   cell: (row: Row, tier: TableTier) => ReactNode;
 }
@@ -41,6 +46,8 @@ export interface ChatDataTableProps<Row> {
   rowClassName?: (row: Row) => string | undefined;
   /** Rows the tool reported but did not send. Named in the footer when above zero. */
   notShown?: number;
+  /** A note under the table, such as which rows its figures cover. Omitted when empty. */
+  footnote?: string;
 }
 
 /**
@@ -48,6 +55,11 @@ export interface ChatDataTableProps<Row> {
  * and scrolls down as well as across, so a 50-row answer does not fill the chat.
  */
 const FULL_HEIGHT_ROWS = 10;
+/**
+ * The height of the fade on a long table's foot (h-6). A row focused near the foot is
+ * scrolled clear of it, so the fade does not cover its link or its focus ring.
+ */
+const FOOT_FADE_PX = 24;
 
 /**
  * A table of tool results for the chat. Semantic markup throughout: a caption,
@@ -70,24 +82,34 @@ export function ChatDataTable<Row>({
   rowKey,
   rowClassName,
   notShown = 0,
+  footnote,
 }: ChatDataTableProps<Row>) {
-  const frame = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLTableSectionElement>(null);
   const [overflow, setOverflow] = useState({ right: false, below: false });
   const [width, setWidth] = useState(0);
   const [headHeight, setHeadHeight] = useState(0);
+  // A long table scrolls down, and its window takes a gutter for the scrollbar, so the
+  // width the table is drawn to is the same whether or not the scrollbar shows.
+  const gutter = rows.length > FULL_HEIGHT_ROWS;
 
   // The tier is read before paint, so the columns do not flash in and out, and it is
-  // read again as the bubble resizes.
+  // read again as the bubble resizes. It is the scroll region's own client width: the
+  // table fits that, and a classic scrollbar (which the region's client width leaves out)
+  // would otherwise leave a table just over the tier's floor scrolling sideways.
   const tier = tableTierFor(width);
   const shown = useMemo(
     () => columns.filter((column) => tierAtLeast(tier, column.minTier)),
     [columns, tier],
   );
+  // A fill column's width is a share of the table, and a table that takes a minimum width
+  // from its content would make that share unbounded (Chromium draws it a million pixels
+  // wide). So a table with a fill column is drawn to the width its region has, and its
+  // fill column truncates rather than widening it.
+  const filled = shown.some((column) => column.fill);
 
   useLayoutEffect(() => {
-    const element = frame.current;
+    const element = scroller.current;
     if (!element) return;
     const read = () => setWidth(element.clientWidth);
     read();
@@ -133,7 +155,7 @@ export function ChatDataTable<Row>({
   }, [measure, rows, shown]);
 
   return (
-    <div ref={frame} className="w-full">
+    <div className="w-full">
       <div className="relative w-full">
         <div
           ref={scroller}
@@ -141,8 +163,14 @@ export function ChatDataTable<Row>({
           aria-label={caption}
           onScroll={measure}
           // Focus scrolls a row to the edge of the region. This stops it short of the
-          // sticky header, which covers the top of the region.
-          style={{ scrollPaddingTop: headHeight || undefined }}
+          // sticky header, which covers the top of the region, and short of the fade on
+          // the foot while more of the table lies below, so a focused row is never under
+          // either.
+          style={{
+            scrollPaddingTop: headHeight || undefined,
+            scrollPaddingBottom: overflow.below ? FOOT_FADE_PX : undefined,
+            scrollbarGutter: gutter ? "stable" : undefined,
+          }}
           // A scrollable region must be focusable to be scrolled from the keyboard
           // (WAI-ARIA APG, "scrollable region must have keyboard access").
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
@@ -164,7 +192,7 @@ export function ChatDataTable<Row>({
           <table
             className={cn(
               "w-full border-separate border-spacing-0 text-xs",
-              tier !== "compact" && "min-w-max",
+              tier !== "compact" && !filled && "min-w-max",
             )}
           >
             <caption className="caption-top px-2 py-2 text-left text-xs font-medium text-foreground">
@@ -205,7 +233,7 @@ export function ChatDataTable<Row>({
                   style={{ scrollMarginTop: headHeight || undefined }}
                 >
                   {shown.map((column) => {
-                    const className = cellClass(column.numeric, tier);
+                    const className = cellClass(column.numeric, tier, column.fill);
                     return column.rowHeader ? (
                       <th
                         key={column.id}
@@ -252,6 +280,9 @@ export function ChatDataTable<Row>({
           />
         )}
       </div>
+      {footnote && (
+        <p className="mt-1 text-[11px] text-muted-foreground">{footnote}</p>
+      )}
       {overflow.below && (
         <p className="mt-1 text-[11px] text-muted-foreground">Scroll to see more rows.</p>
       )}
@@ -259,12 +290,20 @@ export function ChatDataTable<Row>({
   );
 }
 
-function cellClass(numeric: boolean | undefined, tier: TableTier): string {
+function cellClass(
+  numeric: boolean | undefined,
+  tier: TableTier,
+  fill: boolean | undefined,
+): string {
   return cn(
     "border-b border-border/50 py-1.5 align-middle",
     // The compact table is the narrowest, so its cells give up a little of their padding.
     tier === "compact" ? "px-1.5" : "px-2",
     numeric ? "text-right tabular-nums" : "text-left",
+    // A fill column takes the table's leftover width, and its text is cut off inside it. A
+    // zero max width is what lets the column shrink below its text (the cell's content
+    // truncates), so the figures beside it keep their room.
+    fill && "w-full max-w-0",
   );
 }
 

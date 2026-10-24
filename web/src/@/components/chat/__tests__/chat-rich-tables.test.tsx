@@ -316,7 +316,7 @@ describe("rich tables at each width", () => {
     render(<PeersTable view={parsePeers(fixture("get_peer_comparison-bhp.json"))!} />);
 
     const subject = rowFor("BHP");
-    expect(subject.className).toContain("bg-muted/50");
+    expect(subject.className).toContain("bg-primary/10");
     expect(within(subject).getByText("This stock", { selector: ".sr-only" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "P/E" })).not.toBeInTheDocument();
   });
@@ -406,5 +406,43 @@ describe("the change colours", () => {
     const rgb = hexToRgb(hex);
     expect(contrast(rgb, darkBackground)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(rgb, darkMuted)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("rich tables: what a row shows and how it fills the width", () => {
+  it("says which rows have a change and a trend, when the budget cleared the rest", () => {
+    const view = parseTopShorts(fixture("get_top_shorts-50.json"))!;
+    render(<TopShortsTable view={view} />);
+    expect(screen.getByText("Change and trend are shown for the top 7 only.")).toBeInTheDocument();
+  });
+
+  it("says nothing of the sort when every row has its readings", () => {
+    const view = parseTopShorts(fixture("get_top_shorts-10.json"))!;
+    render(<TopShortsTable view={view} />);
+    expect(screen.queryByText(/Change and trend are/)).not.toBeInTheDocument();
+  });
+
+  it("lets a director's name take the width the figures leave", () => {
+    const view = parseDirectorTrades(fixture("get_director_trades-bhp.json"))!;
+    render(<DirectorTradesTable view={view} code="BHP" />);
+    const header = screen.getAllByRole("rowheader")[0]!;
+    expect(header.className).toContain("w-full");
+    expect(header.className).toContain("max-w-0");
+  });
+
+  it("keeps a trade's date and type on one truncated line beneath the name", () => {
+    const view = parseDirectorTrades(fixture("get_director_trades-bhp.json"))!;
+    render(<DirectorTradesTable view={view} code="BHP" />);
+    const detail = screen.getAllByRole("rowheader")[0]!.querySelector(".text-\\[11px\\]")!;
+    expect(detail.className).toContain("truncate");
+    expect(detail.textContent).toMatch(/ · /);
+  });
+
+  it("marks the subject of a peer comparison with a bar on its first cell, not only a tint", () => {
+    const view = parsePeers(fixture("get_peer_comparison-bhp.json"))!;
+    render(<PeersTable view={view} />);
+    const subject = screen.getByRole("rowheader", { name: /BHP/ }).closest("tr")!;
+    expect(subject.className).toContain("[&>th:first-child]:shadow-");
+    expect(subject.className).toContain("font-semibold");
   });
 });

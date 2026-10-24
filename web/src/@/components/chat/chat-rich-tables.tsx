@@ -53,11 +53,11 @@ const ChatSparkline = dynamic(
   },
 );
 
-// The tables are drawn in the chat's sidebar (about 333px on a desktop, 220 to 290px on a
-// phone) and on the /chat page (about 620px). Each column says the narrowest tier it is
-// drawn at (`minTier`). At the narrowest tier the figures a reader needs come first and
+// The tables are drawn in the chat's sidebar (about 276px on a desktop, 223 to 270px on a
+// phone) and on the /chat page (about 620 to 720px). Each column says the narrowest tier it
+// is drawn at (`minTier`). At the narrowest tier the figures a reader needs come first and
 // sit inside the sidebar's width; a wider table adds the rest, so nothing is cut off or
-// scrolled out of sight at the sidebar's width. See chat-layout.ts for the tiers.
+// scrolled out of sight at the sidebar's width. See chat-layout.ts for the widths and tiers.
 
 /** A sparkline's width: a full table draws the 96px line, a standard table a 64px one. */
 function sparkWidth(tier: TableTier): number {
@@ -69,6 +69,15 @@ export function TopShortsTable({ view }: { view: TopShortsView }) {
   if (view.rows.length === 0 && view.notShown === 0) {
     return <EmptyNote>No stocks to show.</EmptyNote>;
   }
+  // The budget keeps the sparklines of the highest rows and clears the rest, so their change
+  // and trend are blank. The footnote says which rows have them, rather than leaving a dash.
+  const withReadings = view.rows.filter((row) => row.points.length >= 2).length;
+  const footnote =
+    withReadings < view.rows.length
+      ? withReadings === 0
+        ? "Change and trend are not shown for these stocks."
+        : `Change and trend are shown for the top ${formatWhole(withReadings)} only.`
+      : undefined;
   return (
     <ChatDataTable
       caption="Most shorted ASX stocks"
@@ -76,6 +85,7 @@ export function TopShortsTable({ view }: { view: TopShortsView }) {
       rows={view.rows}
       rowKey={(row) => `${row.rank}-${row.code}`}
       notShown={view.notShown}
+      footnote={footnote}
     />
   );
 }
@@ -174,11 +184,20 @@ export function PeersTable({ view }: { view: PeersView }) {
       rows={rows}
       rowKey={(row) => row.code}
       rowClassName={(row) =>
-        row.code === view.subjectCode ? "bg-muted/50" : undefined
+        row.code === view.subjectCode ? SUBJECT_ROW : undefined
       }
     />
   );
 }
+
+/**
+ * The subject's row at every width. The tint is faint against the background (its contrast
+ * is near 1:1), so the row also has a primary bar on its first cell and a bold code (the
+ * StockCodeLink inherits the weight). The compact table has no room for the "This stock"
+ * badge, so a screen reader hears it and the sighted reader sees the bar.
+ */
+const SUBJECT_ROW =
+  "bg-primary/10 font-semibold [&>th:first-child]:shadow-[inset_3px_0_0_0_hsl(var(--primary))]";
 
 /** The peer columns. The subject's row is marked, so a reader knows which row it is. */
 function peerColumns(subjectCode?: string): readonly ChatDataTableColumn<PeerRow>[] {
@@ -288,7 +307,9 @@ const TRADE_COLUMNS: readonly ChatDataTableColumn<DirectorTradeRow>[] = [
     id: "director",
     header: "Director",
     rowHeader: true,
-    cell: (row, tier) => <DirectorCell row={row} tier={tier} />,
+    // The name identifies the row, so it takes the room the figures leave.
+    fill: true,
+    cell: (row) => <DirectorCell row={row} />,
   },
   {
     id: "shares",
@@ -343,25 +364,23 @@ const TRADE_COLUMNS: readonly ChatDataTableColumn<DirectorTradeRow>[] = [
 ];
 
 /**
- * A trade's director, with its date and type beneath: the three read together in
- * a narrow column, so the figures can sit beside them. The name is capped narrower
- * below the full tier, so the sidebar's table keeps its figures and notice in view.
+ * A trade's director, with its date and type beneath. The director's name is the first
+ * line and takes the column's width; the date and the type share the second line, which
+ * truncates rather than wrapping, so every row is two lines tall and never three or four.
+ * The full text of each is in its title.
  */
-function DirectorCell({ row, tier }: { row: DirectorTradeRow; tier: TableTier }) {
-  const detail = [
-    row.tradeDate ? formatTradeDate(row.tradeDate) : undefined,
-    tradeTypeLabel(row.tradeType),
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  // The cell is capped in width, so a long trade type ("Option exercise") wraps under the
-  // date instead of pushing the figures off the sidebar's width.
+function DirectorCell({ row }: { row: DirectorTradeRow }) {
+  const date = row.tradeDate ? formatTradeDate(row.tradeDate) : undefined;
+  const detail = date ? `${date} · ${tradeTypeLabel(row.tradeType)}` : tradeTypeLabel(row.tradeType);
   return (
-    <span className={cn("block", DIRECTOR_WIDTH[tier])}>
+    <span className="block max-w-full">
       <span className="block truncate" title={row.director}>
         {row.director}
       </span>
-      <span className="block text-[11px] font-normal text-muted-foreground">
+      <span
+        className="block truncate text-[11px] font-normal text-muted-foreground"
+        title={detail}
+      >
         {detail}
       </span>
     </span>
@@ -373,13 +392,6 @@ const NAME_WIDTH: Readonly<Record<TableTier, string>> = {
   compact: "max-w-[4.25rem]",
   standard: "max-w-[5rem]",
   full: "max-w-[7rem]",
-};
-
-/** The widest a director's name is drawn, by tier. */
-const DIRECTOR_WIDTH: Readonly<Record<TableTier, string>> = {
-  compact: "max-w-[4.5rem]",
-  standard: "max-w-[5rem]",
-  full: "max-w-[7.5rem]",
 };
 
 /**
@@ -412,8 +424,8 @@ function StockCell({
         <StockCodeLink code={code} />
         {badge &&
           (tier === "compact" ? (
-            // The compact table has no room for the badge beside the code. The row's
-            // highlight stays, and a screen reader still hears which stock it is.
+            // The compact table has no room for the badge beside the code. The row's bar and
+            // bold code mark it, and a screen reader still hears which stock it is.
             <span className="sr-only">{badge}</span>
           ) : (
             <span className="rounded-sm bg-muted px-1 text-[10px] font-medium text-muted-foreground">
