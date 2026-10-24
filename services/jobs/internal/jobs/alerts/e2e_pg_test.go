@@ -517,14 +517,14 @@ func TestAlertsE2ELifecycle(t *testing.T) {
 	e.billing.setStatus("u2", "SUBSCRIPTION_STATUS_CANCELED")
 
 	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
-	e.monitor("m2", "u1", u1Email, "stock", "BBB", "short_interest_rises", "daily", fp(0.5), "")
+	e.monitor("m2", "u1", u1Email, "stock", "BBB", "short_interest_rises", "daily", new(0.5), "")
 	e.monitor("m3", "u1", u1Email, "industry", "Materials", "short_interest_above", "daily", fp(5), "")
-	e.monitor("m4", "u1", u1Email, "industry", "Materials", "short_interest_rises", "daily", fp(0.4), "")
+	e.monitor("m4", "u1", u1Email, "industry", "Materials", "short_interest_rises", "daily", new(0.4), "")
 	e.monitor("m5", "u1", u1Email, "industry", "Materials", "new_top_ten_entry", "daily", nil, "")
 	e.monitor("m6", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "paused")
 	e.monitor("m7", "u1", u1Email, "stock", "AAA", "short_interest_above", "weekly", fp(5), "")
 	e.monitor("m8", "u2", u2Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
-	e.monitor("m9", "u3", "", "stock", "BBB", "short_interest_rises", "daily", fp(0.5), "")
+	e.monitor("m9", "u3", "", "stock", "BBB", "short_interest_rises", "daily", new(0.5), "")
 
 	// Case 1: the bootstrap evaluates nothing, sends exactly one canary, and sets
 	// the watermark to the newest report.
@@ -790,7 +790,7 @@ func TestAlertsE2ECompleteness(t *testing.T) {
 	e.seedBase()
 	full := func() map[string]float64 {
 		rows := map[string]float64{}
-		for i := 0; i < 30; i++ {
+		for i := range 30 {
 			rows[fmt.Sprintf("X%02d", i)] = 1
 		}
 		return rows
@@ -890,8 +890,8 @@ func TestAlertsE2EReplay(t *testing.T) {
 	e.wantExit(e.run(), 0, "first crossing")
 
 	// Monitors created after the first evaluation would fire on 14 October if it ran again.
-	e.monitor("m3", "u1", u1Email, "stock", "BBB", "short_interest_rises", "daily", fp(0.5), "")
-	e.monitor("m4", "u2", u2Email, "stock", "BBB", "short_interest_rises", "daily", fp(0.5), "")
+	e.monitor("m3", "u1", u1Email, "stock", "BBB", "short_interest_rises", "daily", new(0.5), "")
+	e.monitor("m4", "u2", u2Email, "stock", "BBB", "short_interest_rises", "daily", new(0.5), "")
 
 	e.wantExit(e.run("-date", "2026-10-14", "-user", "u1"), 0, "replay for one owner")
 	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'm3'`); got != 1 {

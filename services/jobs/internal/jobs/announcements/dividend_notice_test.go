@@ -131,7 +131,7 @@ func TestParseDividendNotice(t *testing.T) {
 				PaymentDate:      "2026-09-23",
 				Currency:         "USD",
 				Total:            0.99,
-				AUDEquivalent:    floatPtr(1.37988710),
+				AUDEquivalent:    new(1.37988710),
 				Parts: []DividendPart{
 					{
 						Type:       "ordinary",
@@ -192,7 +192,7 @@ func TestParseDividendNotice(t *testing.T) {
 				PaymentDate:      "2026-09-30",
 				Currency:         "NZD",
 				Total:            0.20,
-				AUDEquivalent:    floatPtr(0.16064),
+				AUDEquivalent:    new(0.16064),
 				Supplementary:    0.03,
 				Parts: []DividendPart{
 					{
@@ -218,7 +218,7 @@ func TestParseDividendNotice(t *testing.T) {
 				PaymentDate:      "2026-10-02",
 				Currency:         "NZD",
 				Total:            0.08705882,
-				AUDEquivalent:    floatPtr(0.07022128),
+				AUDEquivalent:    new(0.07022128),
 				Supplementary:    0.00705882,
 				Parts: []DividendPart{
 					{
@@ -244,7 +244,7 @@ func TestParseDividendNotice(t *testing.T) {
 				PaymentDate:      "2026-10-02",
 				Currency:         "NZD",
 				Total:            0.07941176,
-				AUDEquivalent:    floatPtr(0.06411308),
+				AUDEquivalent:    new(0.06411308),
 				Supplementary:    0.01191176,
 				Parts: []DividendPart{
 					{
@@ -271,7 +271,7 @@ func TestParseDividendNotice(t *testing.T) {
 				PaymentDate:      "2026-07-03",
 				Currency:         "NZD",
 				Total:            0.025,
-				AUDEquivalent:    floatPtr(0.0201525),
+				AUDEquivalent:    new(0.0201525),
 				Supplementary:    0.00441176,
 				Parts: []DividendPart{
 					{Type: "ordinary", Amount: 0.025, Estimated: false, FrankedPct: floatPtr(0)},
@@ -620,6 +620,7 @@ AUD 1.00000000
 	}
 }
 
+//go:fix inline
 func floatPtr(f float64) *float64 {
-	return &f
+	return new(f)
 }

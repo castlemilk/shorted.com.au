@@ -94,11 +94,11 @@ func TestTidyHolderNameAndKey(t *testing.T) {
 
 func TestVotesConsistent(t *testing.T) {
 	// 62,856,312 votes at 5.045% implies 1.246bn shares.
-	if ok, _ := votesConsistent(i64(62856312), f64(5.045), 1.246e9); !ok {
+	if ok, _ := votesConsistent(i64(62856312), new(5.045), 1.246e9); !ok {
 		t.Error("a consistent notice was refused")
 	}
 	// A mis-split cell: 79 votes at 6.72%.
-	if ok, why := votesConsistent(i64(79000), f64(6.72), 650e6); ok {
+	if ok, why := votesConsistent(i64(79000), new(6.72), 650e6); ok {
 		t.Error("an inconsistent notice was accepted")
 	} else if !strings.Contains(why, "on issue") {
 		t.Errorf("detail %q", why)

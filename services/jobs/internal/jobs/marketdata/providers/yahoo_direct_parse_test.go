@@ -30,8 +30,11 @@ type bar struct {
 	vol                  *int64
 }
 
-func f(v float64) *float64 { return &v }
-func n(v int64) *int64     { return &v }
+//go:fix inline
+func f(v float64) *float64 { return new(v) }
+
+//go:fix inline
+func n(v int64) *int64 { return new(v) }
 
 func chartJSON(bars ...bar) []byte {
 	var doc yahooChartResponse
@@ -80,7 +83,7 @@ func chartJSON(bars ...bar) []byte {
 
 // full is a complete bar for a session whose open is at ts.
 func full(ts time.Time, closePrice float64) bar {
-	return bar{ts: ts, open: f(closePrice - 1), high: f(closePrice + 1), low: f(closePrice - 2), cls: f(closePrice), adj: f(closePrice), vol: n(1000)}
+	return bar{ts: ts, open: new(closePrice - 1), high: new(closePrice + 1), low: new(closePrice - 2), cls: new(closePrice), adj: new(closePrice), vol: n(1000)}
 }
 
 func TestSessionDateIsTheSydneyDate(t *testing.T) {

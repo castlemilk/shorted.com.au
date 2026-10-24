@@ -77,11 +77,11 @@ func TestSyncer_SyncBatch_Success(t *testing.T) {
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		// Parse request body
-		var body map[string]interface{}
+		var body map[string]any
 		err := json.NewDecoder(r.Body).Decode(&body)
 		require.NoError(t, err)
 
-		requests, ok := body["requests"].([]interface{})
+		requests, ok := body["requests"].([]any)
 		require.True(t, ok)
 		assert.Len(t, requests, 2)
 

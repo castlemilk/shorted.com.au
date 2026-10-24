@@ -95,8 +95,7 @@ func PingRevalidate(req RevalidateRequest) {
 // now rides in a header, but retaining URL redaction avoids leaking other query
 // inputs or deployment host details.
 func redactURLError(err error) error {
-	var uerr *url.Error
-	if errors.As(err, &uerr) {
+	if uerr, ok := errors.AsType[*url.Error](err); ok {
 		return fmt.Errorf("%s [url redacted]: %w", uerr.Op, uerr.Err)
 	}
 	return err

@@ -21,7 +21,8 @@ const (
 	testMonID  = "mon-42"
 )
 
-func fpv(v float64) *float64 { return &v }
+//go:fix inline
+func fpv(v float64) *float64 { return new(v) }
 
 // fixtures: the same events the golden files were rendered from.
 func emailFixtures() map[string]Message {
@@ -33,34 +34,34 @@ func emailFixtures() map[string]Message {
 	}
 	stockAbove := mk(alertevents.ScopeStock, alertevents.ConditionShortInterestAbove, cad)
 	stockAbove.Target, stockAbove.Threshold = "BHP", fpv(5)
-	stockAbove.Latest, stockAbove.Previous = fpv(5.42), fpv(4.80)
-	stockAbove.Payload = payload([]alertevents.Company{{Code: "BHP", Name: "BHP Group Ltd", Latest: 5.42, Previous: fpv(4.80), Change: fpv(0.62)}})
+	stockAbove.Latest, stockAbove.Previous = new(5.42), new(4.80)
+	stockAbove.Payload = payload([]alertevents.Company{{Code: "BHP", Name: "BHP Group Ltd", Latest: 5.42, Previous: new(4.80), Change: new(0.62)}})
 
 	stockRises := mk(alertevents.ScopeStock, alertevents.ConditionShortInterestRises, cad)
 	stockRises.Target, stockRises.Threshold = "BHP", fpv(1)
-	stockRises.Latest, stockRises.Previous = fpv(6.10), fpv(4.90)
-	stockRises.Payload = payload([]alertevents.Company{{Code: "BHP", Name: "BHP Group Ltd", Latest: 6.10, Previous: fpv(4.90), Change: fpv(1.20)}})
+	stockRises.Latest, stockRises.Previous = new(6.10), new(4.90)
+	stockRises.Payload = payload([]alertevents.Company{{Code: "BHP", Name: "BHP Group Ltd", Latest: 6.10, Previous: new(4.90), Change: new(1.20)}})
 
 	industryAbove := mk(alertevents.ScopeIndustry, alertevents.ConditionShortInterestAbove, cad)
 	industryAbove.Target, industryAbove.Threshold = "Materials", fpv(5)
 	industryAbove.Payload = payload([]alertevents.Company{
-		{Code: "AAA", Name: "Aaa & Co <Holdings>", Latest: 5.92, Previous: fpv(4.80), Change: fpv(1.12)},
-		{Code: "EEE", Name: "Eee Resources Ltd", Latest: 5.10, Previous: fpv(4.99), Change: fpv(0.11)},
-		{Code: "LTR", Name: "Lithium Texas", Latest: 5.00, Previous: fpv(4.10), Change: fpv(0.90)},
+		{Code: "AAA", Name: "Aaa & Co <Holdings>", Latest: 5.92, Previous: new(4.80), Change: new(1.12)},
+		{Code: "EEE", Name: "Eee Resources Ltd", Latest: 5.10, Previous: new(4.99), Change: new(0.11)},
+		{Code: "LTR", Name: "Lithium Texas", Latest: 5.00, Previous: new(4.10), Change: new(0.90)},
 	})
 
 	industryRises := mk(alertevents.ScopeIndustry, alertevents.ConditionShortInterestRises, cad)
 	industryRises.Target, industryRises.Threshold = "Materials", fpv(1)
 	industryRises.Payload = payload([]alertevents.Company{
-		{Code: "BBB", Name: "Bbb Metals", Latest: 9.00, Previous: fpv(5.00), Change: fpv(4.00)},
-		{Code: "AAA", Name: "Aaa Mining", Latest: 6.00, Previous: fpv(4.00), Change: fpv(2.00)},
+		{Code: "BBB", Name: "Bbb Metals", Latest: 9.00, Previous: new(5.00), Change: new(4.00)},
+		{Code: "AAA", Name: "Aaa Mining", Latest: 6.00, Previous: new(4.00), Change: new(2.00)},
 	})
 
 	topTen := mk(alertevents.ScopeIndustry, alertevents.ConditionNewTopTenEntry, cad)
 	topTen.Target = "Materials"
 	topTen.Payload = payload([]alertevents.Company{
-		{Code: "LTR", Name: "Lithium Texas", Latest: 7.20, Previous: fpv(3.10), Change: fpv(4.10), Rank: 4, PreviousRank: 0},
-		{Code: "PLS", Name: "Pilbara Minerals", Latest: 6.80, Previous: fpv(6.00), Change: fpv(0.80), Rank: 7, PreviousRank: 12},
+		{Code: "LTR", Name: "Lithium Texas", Latest: 7.20, Previous: new(3.10), Change: new(4.10), Rank: 4, PreviousRank: 0},
+		{Code: "PLS", Name: "Pilbara Minerals", Latest: 6.80, Previous: new(6.00), Change: new(0.80), Rank: 7, PreviousRank: 12},
 	})
 
 	out := map[string]Message{}
@@ -167,7 +168,7 @@ func TestHTMLTwinEscapesCompanyNames(t *testing.T) {
 func TestTableTruncatesAtTwentyFiveAndCountsTheRest(t *testing.T) {
 	m := emailFixtures()["industry-above-daily"]
 	var cs []alertevents.Company
-	for i := 0; i < 30; i++ {
+	for i := range 30 {
 		cs = append(cs, alertevents.Company{Code: fmt.Sprintf("C%02d", i), Name: "Co", Latest: 6, Previous: fpv(1), Change: fpv(5)})
 	}
 	m.Payload = payload(cs)
@@ -186,7 +187,7 @@ func TestTableTruncatesAtTwentyFiveAndCountsTheRest(t *testing.T) {
 func TestTruncationCountsStoredAndUnstoredCompanies(t *testing.T) {
 	m := emailFixtures()["industry-above-daily"]
 	var cs []alertevents.Company
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		cs = append(cs, alertevents.Company{Code: fmt.Sprintf("C%02d", i), Name: "Co", Latest: 6, Previous: fpv(1), Change: fpv(5)})
 	}
 	m.Payload = alertevents.Payload{Companies: cs, CompaniesTotal: 60}
@@ -262,8 +263,8 @@ func TestLookbackFiguresAreLabelledWithTheirOwnDate(t *testing.T) {
 		ComparedTo: "2026-10-15",
 		Payload: alertevents.Payload{
 			Companies: []alertevents.Company{
-				{Code: "LTR", Name: "Lithium Texas", Latest: 5.4, Previous: fpv(4.1), Change: fpv(1.3), PreviousDate: "2026-10-14"},
-				{Code: "PLS", Name: "Pilbara", Latest: 5.6, Previous: fpv(4.4), Change: fpv(1.2), PreviousDate: "2026-10-15"},
+				{Code: "LTR", Name: "Lithium Texas", Latest: 5.4, Previous: new(4.1), Change: new(1.3), PreviousDate: "2026-10-14"},
+				{Code: "PLS", Name: "Pilbara", Latest: 5.6, Previous: new(4.4), Change: new(1.2), PreviousDate: "2026-10-15"},
 			},
 			CompaniesTotal: 2,
 		},
@@ -319,7 +320,7 @@ func TestIndustryEmailsSayEveryCompanyWasChecked(t *testing.T) {
 	}
 
 	stock := Message{Scope: alertevents.ScopeStock, Target: "BHP", Condition: alertevents.ConditionShortInterestAbove, Cadence: alertevents.CadenceDaily,
-		Threshold: fpv(5), ReportDate: "2026-10-16", ComparedTo: "2026-10-15", Latest: fpv(5.4), Previous: fpv(4.8),
+		Threshold: fpv(5), ReportDate: "2026-10-16", ComparedTo: "2026-10-15", Latest: new(5.4), Previous: new(4.8),
 		Payload: alertevents.Payload{Companies: []alertevents.Company{{Code: "BHP", Latest: 5.4}}, CompaniesTotal: 1}}
 	r, err := renderMessage("https://shorted.com.au", "secret", "m1", stock)
 	if err != nil {

@@ -83,7 +83,7 @@ func (c *entitlementChecker) check(ctx context.Context, userID string) (entitlem
 		resp *connect.Response[shortsv1alpha1.GetMySubscriptionResponse]
 		err  error
 	)
-	for attempt := 0; attempt < 2; attempt++ {
+	for attempt := range 2 {
 		req := connect.NewRequest(&shortsv1alpha1.GetMySubscriptionRequest{})
 		req.Header().Set("x-internal-secret", c.secret)
 		req.Header().Set("x-user-id", userID)

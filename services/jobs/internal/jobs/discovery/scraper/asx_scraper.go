@@ -65,7 +65,7 @@ func (s *ASXScraper) DownloadCSV(ctx context.Context) (string, error) {
 
 	// Launch browser
 	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(true),
+		Headless: new(true),
 		Args: []string{
 			"--no-sandbox",
 			"--disable-setuid-sandbox",
@@ -81,7 +81,7 @@ func (s *ASXScraper) DownloadCSV(ctx context.Context) (string, error) {
 	// `context` as in the standalone service — that shadowed the context
 	// package and blocked any use of context.* below it.
 	browserCtx, err := browser.NewContext(playwright.BrowserNewContextOptions{
-		AcceptDownloads: playwright.Bool(true),
+		AcceptDownloads: new(true),
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create browser context: %w", err)
@@ -179,7 +179,7 @@ func (s *ASXScraper) DownloadCSV(ctx context.Context) (string, error) {
 		// selector flow is a behaviour change this port deliberately does not make.
 		if err := page.Click(selector, playwright.PageClickOptions{
 			Timeout: playwright.Float(30000),
-			Force:   playwright.Bool(true), // Force click even if element is not actionable
+			Force:   new(true), // Force click even if element is not actionable
 		}); err != nil {
 			return "", fmt.Errorf("failed to click download button: %w", err)
 		}

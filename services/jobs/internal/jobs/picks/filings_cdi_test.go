@@ -19,8 +19,8 @@ import (
 // testdata/yahoo_full_RMD.json; k is about 10.0).
 func rmdVendor(medianK *float64) []vendorRow {
 	rows := []vendorRow{
-		vAnnual("2024-06-30", "USD", f64(4685.3e6), f64(1020.6e6), f64(0.694), f64(146.9e6)),
-		vAnnual("2025-06-30", "USD", f64(5146.3e6), f64(1400.7e6), f64(0.955), f64(146.4e6)),
+		vAnnual("2024-06-30", "USD", new(4685.3e6), new(1020.6e6), new(0.694), new(146.9e6)),
+		vAnnual("2025-06-30", "USD", new(5146.3e6), new(1400.7e6), new(0.955), new(146.4e6)),
 	}
 	for i := range rows {
 		rows[i].MedianK = medianK
@@ -51,7 +51,7 @@ func TestGate8WithholdsFilingEPSForACDIListing(t *testing.T) {
 		medianK *float64
 	}{
 		{"no median_k: the vendor rows' own k is about 10", nil},
-		{"median_k about 10", f64(10.02)},
+		{"median_k about 10", new(10.02)},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			var st filingStats
@@ -76,8 +76,8 @@ func TestGate8WithholdsFilingEPSForACDIListing(t *testing.T) {
 func TestGate8ListedUnitFollowsMedianK(t *testing.T) {
 	ordinary := func(medianK *float64) []vendorRow {
 		rows := []vendorRow{
-			vAnnual("2024-06-30", "USD", f64(4685.3e6), f64(1020.6e6), f64(6.947), f64(146.9e6)),
-			vAnnual("2025-06-30", "USD", f64(5146.3e6), f64(1400.7e6), f64(9.568), f64(146.4e6)),
+			vAnnual("2024-06-30", "USD", new(4685.3e6), new(1020.6e6), new(6.947), new(146.9e6)),
+			vAnnual("2025-06-30", "USD", new(5146.3e6), new(1400.7e6), new(9.568), new(146.4e6)),
 		}
 		for i := range rows {
 			rows[i].MedianK = medianK
@@ -90,9 +90,9 @@ func TestGate8ListedUnitFollowsMedianK(t *testing.T) {
 		kept    bool
 	}{
 		{"no median_k, k = 1", nil, true},
-		{"median_k 1.0", f64(1.0), true},
-		{"median_k at the band's edge", f64(1.25), true},
-		{"median_k outside the band decides over the rows", f64(1.3), false},
+		{"median_k 1.0", new(1.0), true},
+		{"median_k at the band's edge", new(1.25), true},
+		{"median_k outside the band decides over the rows", new(1.3), false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			var st filingStats
@@ -118,32 +118,32 @@ func TestVendorEPSPerShare(t *testing.T) {
 	// One out-of-band period is enough without a median (the vendor's EPS
 	// basis is not settled).
 	mixed := []vendorRow{
-		vAnnual("2024-06-30", "AUD", f64(100e6), f64(10e6), f64(0.10), f64(100e6)),
-		vAnnual("2025-06-30", "AUD", f64(100e6), f64(10e6), f64(0.02), f64(100e6)),
+		vAnnual("2024-06-30", "AUD", new(100e6), new(10e6), new(0.10), new(100e6)),
+		vAnnual("2025-06-30", "AUD", new(100e6), new(10e6), new(0.02), new(100e6)),
 	}
 	ok, note := vendorEPSPerShare(mixed)
 	assert.False(t, ok)
 	assert.Contains(t, note, "2025-06-30")
 
 	// A TTM period counts, on the annual share count at its end.
-	ttm := vTTM("2025-06-30", "AUD", f64(100e6), f64(0.01))
-	ttm.NetIncome = f64(10e6)
-	ok, _ = vendorEPSPerShare([]vendorRow{vAnnual("2025-06-30", "AUD", f64(100e6), nil, nil, f64(100e6)), ttm})
+	ttm := vTTM("2025-06-30", "AUD", new(100e6), new(0.01))
+	ttm.NetIncome = new(10e6)
+	ok, _ = vendorEPSPerShare([]vendorRow{vAnnual("2025-06-30", "AUD", new(100e6), nil, nil, new(100e6)), ttm})
 	assert.False(t, ok, "TTM k = 10e6 / (0.01 x 100e6) = 10")
 
 	// A filing-filled EPS is not vendor evidence.
-	filled := vAnnual("2025-06-30", "AUD", f64(100e6), f64(10e6), f64(0.01), f64(100e6))
+	filled := vAnnual("2025-06-30", "AUD", new(100e6), new(10e6), new(0.01), new(100e6))
 	filled.FieldSources = map[string]string{"eps_basic": sourceFiling}
 	ok, _ = vendorEPSPerShare([]vendorRow{filled})
 	assert.True(t, ok)
 
 	// No computable k: no evidence either way.
-	ok, _ = vendorEPSPerShare([]vendorRow{vAnnual("2025-06-30", "AUD", f64(100e6), nil, f64(0.1), f64(100e6))})
+	ok, _ = vendorEPSPerShare([]vendorRow{vAnnual("2025-06-30", "AUD", new(100e6), nil, new(0.1), new(100e6))})
 	assert.True(t, ok)
 
 	// A persisted median_k decides.
-	ok, _ = vendorEPSPerShare(rmdVendor(f64(1.0)))
+	ok, _ = vendorEPSPerShare(rmdVendor(new(1.0)))
 	assert.True(t, ok, "median_k in band wins over the rows")
-	ok, _ = vendorEPSPerShare(rmdVendor(f64(0.79)))
+	ok, _ = vendorEPSPerShare(rmdVendor(new(0.79)))
 	assert.False(t, ok)
 }

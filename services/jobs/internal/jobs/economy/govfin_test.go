@@ -17,7 +17,7 @@ func govfinFixtureSheet(t *testing.T, f *excelize.File, sheet string) {
 	if _, err := f.NewSheet(sheet); err != nil {
 		t.Fatal(err)
 	}
-	rows := [][]interface{}{
+	rows := [][]any{
 		{"            Australian Bureau of Statistics"},
 		{"Government Finance Statistics, Australia - Mar 2026"},
 		{"Released at 11.30am (Canberra time) 2 June 2026"},
@@ -122,7 +122,7 @@ func TestParseGovFinSheetMissingOptionalDetails(t *testing.T) {
 	if _, err := f.NewSheet(sheet); err != nil {
 		t.Fatal(err)
 	}
-	rows := [][]interface{}{
+	rows := [][]any{
 		{"", "Mar Qtr 2026"},
 		{"", "$m"},
 		{"GFS Revenue"},
@@ -156,7 +156,7 @@ func TestParseGovFinSheetFuzzyDetailsAndRevenueScope(t *testing.T) {
 	if _, err := f.NewSheet(sheet); err != nil {
 		t.Fatal(err)
 	}
-	rows := [][]interface{}{
+	rows := [][]any{
 		{"", "Mar Qtr 2026"},
 		{"", "$m"},
 		{"GFS Revenue"},
@@ -210,7 +210,7 @@ func TestParseGovFinSheetInterestSingleComponentAndIgnoresIncome(t *testing.T) {
 			if _, err := f.NewSheet(sheet); err != nil {
 				t.Fatal(err)
 			}
-			rows := [][]interface{}{
+			rows := [][]any{
 				{"", "Mar Qtr 2026"},
 				{"", "$m"},
 				{"GFS Revenue"},
@@ -257,7 +257,7 @@ func TestParseGovFinSheetSuppression(t *testing.T) {
 	if _, err := f.NewSheet(sheet); err != nil {
 		t.Fatal(err)
 	}
-	rows := [][]interface{}{
+	rows := [][]any{
 		{"Table 9. Western Australia Total State and Local, Operating Statement - General Government"},
 		{""},
 		{"", "Dec Qtr 2025", "Mar Qtr 2026"},
@@ -300,7 +300,7 @@ func TestParseGovFinSheetMetricDrift(t *testing.T) {
 	if _, err := f.NewSheet(sheet); err != nil {
 		t.Fatal(err)
 	}
-	rows := [][]interface{}{
+	rows := [][]any{
 		{"", "Mar Qtr 2026"},
 		{"", "$m"},
 		{"Total GFS operating revenue", "31398"}, // renamed — no longer matches
@@ -327,7 +327,7 @@ func TestParseGovFinSheetUnitDrift(t *testing.T) {
 	if _, err := f.NewSheet(sheet); err != nil {
 		t.Fatal(err)
 	}
-	rows := [][]interface{}{
+	rows := [][]any{
 		{"", "Mar Qtr 2026"},
 		{"", "$b"}, // billions, not millions — must fail loudly
 		{"Total GFS revenue", "31.4"},

@@ -87,8 +87,8 @@ func (s *NewsStore) StoreArticles(ctx context.Context, articles []*NewsArticleRa
 			relevanceScore = 0.9
 		}
 
-		var imageURL interface{}
-		var imagePulledAt interface{}
+		var imageURL any
+		var imagePulledAt any
 		if a.ImageURL != "" {
 			imageURL = a.ImageURL
 			imagePulledAt = time.Now()

@@ -124,9 +124,9 @@ func TestExposureMVStalenessWarning(t *testing.T) {
 		wantWarning bool
 	}{
 		{name: "pre-migration null is silent", refreshedAt: nil, wantWarning: false},
-		{name: "fresh", refreshedAt: timePtr(now.AddDate(0, 0, -10)), wantWarning: false},
-		{name: "exactly 45 days is not older", refreshedAt: timePtr(now.Add(-45 * 24 * time.Hour)), wantWarning: false},
-		{name: "older than 45 days warns", refreshedAt: timePtr(now.Add(-45*24*time.Hour - time.Second)), wantWarning: true},
+		{name: "fresh", refreshedAt: new(now.AddDate(0, 0, -10)), wantWarning: false},
+		{name: "exactly 45 days is not older", refreshedAt: new(now.Add(-45 * 24 * time.Hour)), wantWarning: false},
+		{name: "older than 45 days warns", refreshedAt: new(now.Add(-45*24*time.Hour - time.Second)), wantWarning: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -145,8 +145,9 @@ func TestExposureMVStalenessWarning(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func timePtr(value time.Time) *time.Time {
-	return &value
+	return new(value)
 }
 
 func TestPriceReturnIndexSeriesDef(t *testing.T) {
@@ -380,8 +381,9 @@ func TestConsecutiveStockPriceReturnsBreaksChainOnGap(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func pricePtr(value float64) *float64 {
-	return &value
+	return new(value)
 }
 
 func TestConsecutiveStockPriceReturnsUsesOnePriceColumnPerPair(t *testing.T) {
@@ -496,7 +498,7 @@ func TestPriceReturnPipelineNeutralizesRawShareConsolidationWithAdjustedClose(t 
 		time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC),
 	}
 	var rows []monthlyPriceExposureRow
-	for stock := 0; stock < 5; stock++ {
+	for stock := range 5 {
 		code := string(rune('A' + stock))
 		for monthIndex, period := range months {
 			close := 10.0

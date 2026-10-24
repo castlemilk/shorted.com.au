@@ -125,7 +125,7 @@ func TestRunningStartsOnceQueuedNotAtAllOldIgnored(t *testing.T) {
 	old := ex(t, `{"name":"x/executions/j-old","createTime":"2026-09-29T01:00:00Z","startTime":"2026-09-29T01:00:00Z","completionTime":"2026-09-29T01:05:00Z","succeededCount":1,"taskCount":1,"template":{"containers":[{}]}}`)
 	s := &fakeSender{}
 	w := watcherFor(m, &fakeLister{execs: map[string][]execution{"r/j": {running, queued, old}}}, s)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		_ = w.reconcile(context.Background())
 	}
 	if len(s.sent) != 1 || s.sent[0].c.State != stateStart || s.sent[0].c.RunID != "j-run" {

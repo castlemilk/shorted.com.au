@@ -180,7 +180,7 @@ func parseSyncFlags(globalDryRun bool, defaultBudget string, args []string) (msy
 		}
 		opts.From = t
 	}
-	for _, c := range strings.Split(*codes, ",") {
+	for c := range strings.SplitSeq(*codes, ",") {
 		if c = strings.ToUpper(strings.TrimSpace(c)); c != "" {
 			if !stockCodePattern.MatchString(c) {
 				return opts, fmt.Errorf("-codes: %q is not an ASX code", c)

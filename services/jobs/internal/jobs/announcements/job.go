@@ -82,19 +82,19 @@ type config struct {
 // only via sync/atomic so the worker pool can share one instance safely.
 // (int64 fields are kept first so they stay 8-byte aligned for atomic ops.)
 type crawlStats struct {
-	processed      int64
-	reports        int64
-	reportsUpdated int64
-	errors         int64
-	announcements  int64
+	processed      atomic.Int64
+	reports        atomic.Int64
+	reportsUpdated atomic.Int64
+	errors         atomic.Int64
+	announcements  atomic.Int64
 	annScanned     int64
 	annSkipped     int64
 	annStored      int64
 	newsScanned    int64
 	newsSkipped    int64
 	newsStored     int64
-	dirTrades      int64
-	dividends      int64
+	dirTrades      atomic.Int64
+	dividends      atomic.Int64
 }
 
 // record folds a per-stock store result into the shared cross-worker tallies.
@@ -193,10 +193,7 @@ func Run(ctx context.Context, args []string) error {
 	// Size the pool to cover the worker fan-out (each worker does several short
 	// INSERT/UPDATEs per stock); otherwise a 3-conn pool serializes DB writes and
 	// negates the parallelism. Safe against the Supabase transaction pooler.
-	numWorkers := cfg.workers
-	if numWorkers < 1 {
-		numWorkers = 1
-	}
+	numWorkers := max(cfg.workers, 1)
 
 	db, err := platform.ConnectFromEnv(ctx, platform.WithMaxConns(int32(numWorkers+2)))
 	if err != nil {
@@ -222,7 +219,7 @@ func Run(ctx context.Context, args []string) error {
 
 	// Parse years
 	var years []string
-	for _, y := range strings.Split(cfg.years, ",") {
+	for y := range strings.SplitSeq(cfg.years, ",") {
 		y = strings.TrimSpace(y)
 		if y != "" {
 			years = append(years, y)
@@ -239,7 +236,7 @@ func Run(ctx context.Context, args []string) error {
 	stats := &crawlStats{}
 	crawlErr := crawlAll(ctx, db, client, cfg, numWorkers, codes, years, stats)
 	log.Printf("Crawl finished: %d stocks processed, %d errors | %s",
-		atomic.LoadInt64(&stats.processed), atomic.LoadInt64(&stats.errors), memoryUse())
+		stats.processed.Load(), stats.errors.Load(), memoryUse())
 
 	// Dividends come from the notices' PDFs, after the crawl has stored the day's
 	// announcements; the headline never carries the amount.
@@ -255,7 +252,7 @@ func Run(ctx context.Context, args []string) error {
 				log.Printf("dividend notice pass error: %v", passErr)
 			}
 		}
-		atomic.AddInt64(&stats.dividends, int64(res.Rows))
+		stats.dividends.Add(int64(res.Rows))
 		log.Printf("Dividend notices: selected %d, parsed %d (%d rows), outcomes %v | %s", res.Selected, res.Parsed, res.Rows, res.Outcomes, memoryUse())
 	}
 
@@ -263,9 +260,9 @@ func Run(ctx context.Context, args []string) error {
 	// runs (the JSONB merge is idempotent once a stock's report URLs are known).
 	// The real work is the announcements/news/dir-trades/dividends written below.
 	log.Printf("Done! Processed: %d, Reports found: %d (financial_reports updated: %d), Announcements: %d (stored: %d), News: %d, Director trades: %d, Dividends: %d, Errors: %d",
-		atomic.LoadInt64(&stats.processed), atomic.LoadInt64(&stats.reports), atomic.LoadInt64(&stats.reportsUpdated),
-		atomic.LoadInt64(&stats.announcements), atomic.LoadInt64(&stats.annStored), atomic.LoadInt64(&stats.newsStored),
-		atomic.LoadInt64(&stats.dirTrades), atomic.LoadInt64(&stats.dividends), atomic.LoadInt64(&stats.errors))
+		stats.processed.Load(), stats.reports.Load(), stats.reportsUpdated.Load(),
+		stats.announcements.Load(), atomic.LoadInt64(&stats.annStored), atomic.LoadInt64(&stats.newsStored),
+		stats.dirTrades.Load(), stats.dividends.Load(), stats.errors.Load())
 
 	// Write-path efficiency: the crawl re-reads the full announcement history
 	// every run, so "skipped" should dominate. If inserted ~= scanned on a
@@ -280,7 +277,7 @@ func Run(ctx context.Context, args []string) error {
 
 	// Record sync metrics
 	shortedotel.SyncDuration.Record(ctx, time.Since(syncStart).Seconds(), syncAttrs)
-	shortedotel.SyncRecordsProcessed.Add(ctx, atomic.LoadInt64(&stats.processed), syncAttrs)
+	shortedotel.SyncRecordsProcessed.Add(ctx, stats.processed.Load(), syncAttrs)
 	shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
 		attribute.String("sync_job", "asx-announcement-crawler"),
 		attribute.String("status", "success"),
@@ -316,7 +313,7 @@ func crawlAll(ctx context.Context, db *pgxpool.Pool, shared *stealthhttp.Client,
 		return nil
 	})
 
-	for w := 0; w < numWorkers; w++ {
+	for range numWorkers {
 		g.Go(func() error {
 			wClient, werr := stealthhttp.New(stealthhttp.WithTimeout(30 * time.Second))
 			if werr != nil {
@@ -344,8 +341,8 @@ func crawlOne(ctx context.Context, db *pgxpool.Pool, client *stealthhttp.Client,
 		log.Printf("Progress: %d/%d stocks | ann stored: %d, news: %d, dir-trades: %d, dividends: %d, reports: %d, errors: %d | %s",
 			n, len(codes),
 			atomic.LoadInt64(&stats.annStored), atomic.LoadInt64(&stats.newsStored),
-			atomic.LoadInt64(&stats.dirTrades), atomic.LoadInt64(&stats.dividends),
-			atomic.LoadInt64(&stats.reports), atomic.LoadInt64(&stats.errors), memoryUse())
+			stats.dirTrades.Load(), stats.dividends.Load(),
+			stats.reports.Load(), stats.errors.Load(), memoryUse())
 	}
 
 	reports, allAnns, err := crawlStockAnnouncementsFull(ctx, client, code, years, cfg.verbose)
@@ -356,15 +353,15 @@ func crawlOne(ctx context.Context, db *pgxpool.Pool, client *stealthhttp.Client,
 		if cfg.verbose {
 			log.Printf("  ERROR %s: %v", code, err)
 		}
-		atomic.AddInt64(&stats.errors, 1)
+		stats.errors.Add(1)
 		return nil
 	}
 
-	atomic.AddInt64(&stats.processed, 1)
+	stats.processed.Add(1)
 
 	// Store all announcements to asx_announcements table
 	if cfg.allAnnouncements && len(allAnns) > 0 {
-		atomic.AddInt64(&stats.announcements, int64(len(allAnns)))
+		stats.announcements.Add(int64(len(allAnns)))
 		if !cfg.dryRun {
 			counts, err := storeAnnouncements(ctx, db, code, allAnns, cfg.verbose)
 			if err != nil {
@@ -401,7 +398,7 @@ func crawlOne(ctx context.Context, db *pgxpool.Pool, client *stealthhttp.Client,
 			if err != nil {
 				log.Printf("  ERROR storing director trades for %s: %v", code, err)
 			} else {
-				atomic.AddInt64(&stats.dirTrades, int64(stored))
+				stats.dirTrades.Add(int64(stored))
 			}
 		}
 	}
@@ -410,7 +407,7 @@ func crawlOne(ctx context.Context, db *pgxpool.Pool, client *stealthhttp.Client,
 		return politeDelay(ctx, cfg.delay)
 	}
 
-	atomic.AddInt64(&stats.reports, int64(len(reports)))
+	stats.reports.Add(int64(len(reports)))
 
 	if cfg.dryRun {
 		log.Printf("  %s: found %d financial reports", code, len(reports))
@@ -424,11 +421,11 @@ func crawlOne(ctx context.Context, db *pgxpool.Pool, client *stealthhttp.Client,
 	updated, err := mergeAndUpdateReports(ctx, db, code, reports, cfg.verbose)
 	if err != nil {
 		log.Printf("  ERROR updating %s: %v", code, err)
-		atomic.AddInt64(&stats.errors, 1)
+		stats.errors.Add(1)
 		return nil
 	}
 	if updated {
-		atomic.AddInt64(&stats.reportsUpdated, 1)
+		stats.reportsUpdated.Add(1)
 	}
 
 	return politeDelay(ctx, cfg.delay)
@@ -443,7 +440,7 @@ func memoryUse() string {
 	runtime.ReadMemStats(&m)
 	rss := "rss n/a"
 	if b, err := os.ReadFile("/proc/self/status"); err == nil {
-		for _, line := range strings.Split(string(b), "\n") {
+		for line := range strings.SplitSeq(string(b), "\n") {
 			if rest, ok := strings.CutPrefix(line, "VmRSS:"); ok {
 				if f := strings.Fields(rest); len(f) > 0 {
 					if kb, err := strconv.ParseInt(f[0], 10, 64); err == nil {
@@ -477,7 +474,7 @@ func politeDelay(ctx context.Context, delay time.Duration) error {
 func getStockCodes(ctx context.Context, db *pgxpool.Pool, flagCodes string) ([]string, error) {
 	if flagCodes != "" {
 		var codes []string
-		for _, c := range strings.Split(flagCodes, ",") {
+		for c := range strings.SplitSeq(flagCodes, ",") {
 			c = strings.TrimSpace(c)
 			if c != "" {
 				codes = append(codes, strings.ToUpper(c))

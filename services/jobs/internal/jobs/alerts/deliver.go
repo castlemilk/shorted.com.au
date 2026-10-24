@@ -252,8 +252,7 @@ func idsFrom(rows []claimed, i int) []int64 {
 // describeSendError is the log form of a send error. It holds the kind and status,
 // never a recipient address or a response body.
 func describeSendError(err error) string {
-	var se *resend.SendError
-	if errors.As(err, &se) {
+	if se, ok := errors.AsType[*resend.SendError](err); ok {
 		return se.Error()
 	}
 	return "send failed"

@@ -14,9 +14,9 @@ func TestNumOrNil(t *testing.T) {
 		want *float64
 	}{
 		{"nil", nil, nil},
-		{"float", 1234.5, ptr(1234.5)},
+		{"float", 1234.5, new(1234.5)},
 		{"numeric zero stays zero", 0.0, ptr(0)},
-		{"dollar string", "$1,234.50", ptr(1234.50)},
+		{"dollar string", "$1,234.50", new(1234.50)},
 		{"negative string", "-500", ptr(-500)},
 		{"Nil string", "Nil", nil},
 		{"zero string", "0", nil},
@@ -140,7 +140,7 @@ func TestDeriveTrade(t *testing.T) {
 				"nature_of_change": "On-market purchase", "date_of_change": "2025-07-01",
 			},
 			want: &derivedTrade{DirectorName: "Ann Lee", TradeType: "buy", SharesTraded: 1000,
-				TotalValue: ptr(12500), PricePerShare: ptr(12.5), TradeDate: strPtr("2025-07-01"), Confidence: 0.9},
+				TotalValue: ptr(12500), PricePerShare: new(12.5), TradeDate: new("2025-07-01"), Confidence: 0.9},
 		},
 		{
 			name: "disposal",
@@ -331,8 +331,11 @@ func TestDirectorPromptAndConstants(t *testing.T) {
 	}
 }
 
-func ptr(f float64) *float64  { return &f }
-func strPtr(s string) *string { return &s }
+//go:fix inline
+func ptr(f float64) *float64 { return new(f) }
+
+//go:fix inline
+func strPtr(s string) *string { return new(s) }
 
 func assertFloatPtr(t *testing.T, name string, got, want *float64) {
 	t.Helper()

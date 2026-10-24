@@ -9,7 +9,8 @@ import (
 
 // Shorthand for building fixtures. Dates are listed newest first, as the window is.
 
-func fp(v float64) *float64 { return &v }
+//go:fix inline
+func fp(v float64) *float64 { return new(v) }
 
 func mon(scope, target, condition, cadence string, threshold *float64) Monitor {
 	return Monitor{
@@ -414,7 +415,7 @@ func TestPlanRunBootstrapEvaluatesNothing(t *testing.T) {
 // codesN builds n distinct codes with readings, for the completeness guard.
 func codesN(n int) map[string]float64 {
 	out := map[string]float64{}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		out["C"+pad2(i)] = 1
 	}
 	return out
@@ -527,7 +528,7 @@ func TestPayloadStoresFiftyButCountsAll(t *testing.T) {
 	dates := []Date{d0, d1}
 	rows := map[Date]map[string]float64{d0: {}, d1: {}}
 	meta := map[string]CompanyInfo{}
-	for i := 0; i < 60; i++ {
+	for i := range 60 {
 		code := "X" + pad2(i)
 		meta[code] = CompanyInfo{Name: code, Industry: "Materials"}
 		rows[d0][code] = 6.0

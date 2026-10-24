@@ -86,8 +86,7 @@ func (e *Embedder) embedOne(ctx context.Context, text string) ([]float32, error)
 // isRetryableEmbedErr reports whether a Gemini error is transient (rate limit or
 // 5xx) and worth retrying.
 func isRetryableEmbedErr(err error) bool {
-	var gerr *googleapi.Error
-	if errors.As(err, &gerr) {
+	if gerr, ok := errors.AsType[*googleapi.Error](err); ok {
 		return gerr.Code == 429 || gerr.Code >= 500
 	}
 	return false
@@ -200,10 +199,7 @@ func EmbedBackfill(ctx context.Context, db *pgxpool.Pool, embedder *Embedder, op
 	// the model's per-request batch cap (the candidate set can be > one batch).
 	written := 0
 	for start := 0; start < len(ids); start += embedBatchSize {
-		end := start + embedBatchSize
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(start+embedBatchSize, len(ids))
 		batchIDs, batchTexts := ids[start:end], texts[start:end]
 
 		vectors, err := embedder.EmbedBatch(ctx, batchTexts)

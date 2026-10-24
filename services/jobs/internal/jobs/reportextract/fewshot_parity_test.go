@@ -139,8 +139,8 @@ func pyExamplesBlock(src string) string {
 	if end := strings.Index(rest, "\n]"); end >= 0 {
 		return rest[:end+2]
 	}
-	if end := strings.Index(rest, "\n\n\n"); end >= 0 {
-		return rest[:end]
+	if before, _, ok := strings.Cut(rest, "\n\n\n"); ok {
+		return before
 	}
 	return rest
 }
@@ -201,10 +201,7 @@ type parityError string
 func (e parityError) Error() string { return string(e) }
 
 func errNotLiteral(block string, p int) error {
-	end := p + 40
-	if end > len(block) {
-		end = len(block)
-	}
+	end := min(p+40, len(block))
 	return parityError("extraction_text is not a string literal near " + strconv.Quote(block[p:end]))
 }
 

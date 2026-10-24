@@ -82,7 +82,7 @@ func BackfillImages(ctx context.Context, db *pgxpool.Pool, opts BackfillImagesOp
 	query := `SELECT id::text, url, source
 		FROM news_articles
 		WHERE image_url IS NULL`
-	args := []interface{}{}
+	args := []any{}
 	argIdx := 1
 	if len(opts.Sources) > 0 {
 		query += fmt.Sprintf(" AND source = ANY($%d)", argIdx)

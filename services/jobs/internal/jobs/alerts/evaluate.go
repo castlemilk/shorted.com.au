@@ -3,6 +3,7 @@ package alerts
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"time"
 
@@ -264,8 +265,8 @@ func PlanReplay(snap *Snapshot, day Date) (Plan, error) {
 func (p *Plan) planDaily(state State, snap *Snapshot) {
 	// Fresh dates, oldest first.
 	var fresh []int
-	for i := len(snap.Dates) - 1; i >= 0; i-- {
-		if state.DailyThrough != "" && snap.Dates[i] <= state.DailyThrough {
+	for i, v := range slices.Backward(snap.Dates) {
+		if state.DailyThrough != "" && v <= state.DailyThrough {
 			continue
 		}
 		fresh = append(fresh, i)
@@ -326,8 +327,8 @@ func (p *Plan) planWeekly(state State, snap *Snapshot) {
 		p.WeeklySkipped = len(cand) - 1
 		cand = cand[:1]
 	}
-	for k := len(cand) - 1; k >= 0; k-- {
-		i := cand[k]
+	for _, i := range slices.Backward(cand) {
+
 		ev := WeekEval{Date: ws[i].last}
 		if i+1 < len(ws) {
 			ev.Prev = ws[i+1].last
@@ -628,12 +629,7 @@ func (s *Snapshot) topTenEntrants(slug string, latestDate Date, prevIdx int) []a
 
 // inTopTen reports whether code is among the industry's top ten on d.
 func (s *Snapshot) inTopTen(slug string, d Date, code string) bool {
-	for _, c := range s.topTen(slug, d) {
-		if c == code {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s.topTen(slug, d), code)
 }
 
 // rankOn is code's place in the industry's full ranking on d, or 0 when it has no

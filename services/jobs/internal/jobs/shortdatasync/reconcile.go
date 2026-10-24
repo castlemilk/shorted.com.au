@@ -221,10 +221,7 @@ func reconcileSelection(index []asicFile, cfg config, upTo, today time.Time) ([]
 	}
 
 	pick := make(map[int]struct{}, cfg.reconcileDays+len(all)/28+1)
-	recent := cfg.reconcileDays
-	if recent > len(all) {
-		recent = len(all)
-	}
+	recent := min(cfg.reconcileDays, len(all))
 	for _, f := range all[len(all)-recent:] {
 		pick[f.Date] = struct{}{}
 	}

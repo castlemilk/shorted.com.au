@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func f64(v float64) *float64 { return &v }
+//go:fix inline
+func f64(v float64) *float64 { return new(v) }
 
 func TestStorableMatchesTheTableCheck(t *testing.T) {
 	// Mirrors stock_fundamentals_finite_check in 000129: zero, or finite with
@@ -25,9 +26,9 @@ func TestStorableMatchesTheTableCheck(t *testing.T) {
 func TestSanitizeRowsRejectsNonFiniteBeforeWrite(t *testing.T) {
 	rows := []PeriodRow{
 		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceYahoo,
-			Revenue: f64(math.Inf(1)), NetIncome: f64(5), EPSDiluted: f64(math.NaN())},
+			Revenue: new(math.Inf(1)), NetIncome: f64(5), EPSDiluted: new(math.NaN())},
 		{PeriodType: periodAnnual, PeriodEnd: date("2024-06-30"), Currency: "AUD", Source: sourceYahoo,
-			Revenue: f64(math.NaN())}, // nothing survives but the mask
+			Revenue: new(math.NaN())}, // nothing survives but the mask
 		{PeriodType: periodHalf, PeriodEnd: date("2024-12-31"), Currency: "AUD", Source: sourceYahoo, Revenue: f64(1)},
 		{PeriodType: periodTTM, PeriodEnd: date("2024-12-31"), Currency: "", Source: sourceYahoo, Revenue: f64(1)},
 		{PeriodType: periodTTM, PeriodEnd: time.Time{}, Currency: "AUD", Source: sourceYahoo, Revenue: f64(1)},
@@ -132,7 +133,7 @@ func annual(end string, cur string) PeriodRow {
 
 func TestGateFXConverted(t *testing.T) {
 	rows := []PeriodRow{annual("2026-03-31", "AUD"), annual("2025-03-31", "AUD")}
-	rows[0].Revenue, rows[0].EPSBasic, rows[0].SharesOutstanding = f64(2295764676.451), f64(0.85), f64(170569000)
+	rows[0].Revenue, rows[0].EPSBasic, rows[0].SharesOutstanding = new(2295764676.451), new(0.85), f64(170569000)
 	rows[1].Revenue, rows[1].TotalAssets = f64(1910806979), f64(4056018720)
 	out, rep := applyVendorGates(rows)
 	assert.True(t, rep.fxConverted, "one fractional monetary value marks the code (XRO)")
@@ -151,11 +152,11 @@ func TestGateFXConverted(t *testing.T) {
 	assert.Equal(t, 2295764676.451, *rows[0].Revenue, "the input is not mutated")
 
 	noise := []PeriodRow{annual("2026-06-30", "USD")}
-	noise[0].TotalAssets, noise[0].TotalEquity = f64(38021999999.9999), f64(14797000000.0001)
+	noise[0].TotalAssets, noise[0].TotalEquity = new(38021999999.9999), new(14797000000.0001)
 	_, rep = applyVendorGates(noise)
 	assert.False(t, rep.fxConverted, "1e-4 is Yahoo's float noise (CSL, FMG), under the 0.001 tolerance")
 	eps := []PeriodRow{annual("2026-06-30", "USD")}
-	eps[0].EPSBasic, eps[0].Revenue = f64(1.936), f64(58760000000)
+	eps[0].EPSBasic, eps[0].Revenue = new(1.936), f64(58760000000)
 	_, rep = applyVendorGates(eps)
 	assert.False(t, rep.fxConverted, "a fractional EPS is normal")
 }
@@ -164,8 +165,8 @@ func TestGateStrayTTM(t *testing.T) {
 	rows := []PeriodRow{
 		annual("2026-06-30", "AUD"),
 		{PeriodType: periodTTM, PeriodEnd: date("2022-06-30"), Currency: "AUD", Source: sourceYahoo, NetIncome: f64(40855000)},
-		{PeriodType: periodTTM, PeriodEnd: date("2024-12-31"), Currency: "AUD", Source: sourceYahoo, EPSBasic: f64(-0.02)},
-		{PeriodType: periodTTM, PeriodEnd: date("2024-12-29"), Currency: "AUD", Source: sourceYahoo, EPSBasic: f64(-0.02)},
+		{PeriodType: periodTTM, PeriodEnd: date("2024-12-31"), Currency: "AUD", Source: sourceYahoo, EPSBasic: new(-0.02)},
+		{PeriodType: periodTTM, PeriodEnd: date("2024-12-29"), Currency: "AUD", Source: sourceYahoo, EPSBasic: new(-0.02)},
 	}
 	rows[0].Revenue = f64(639136000)
 	out, rep := applyVendorGates(rows)
@@ -181,7 +182,7 @@ func TestGateStrayTTM(t *testing.T) {
 
 func TestGateSignRules(t *testing.T) {
 	r := annual("2026-06-30", "AUD")
-	r.EPSBasic, r.EPSDiluted = f64(0.8506), f64(-0.1584)
+	r.EPSBasic, r.EPSDiluted = new(0.8506), new(-0.1584)
 	r.CapitalExpenditure, r.DividendsPaid, r.ShareBuybacks = f64(5), f64(0), f64(-3)
 	r.Revenue = f64(100)
 	out, rep := applyVendorGates([]PeriodRow{r})
@@ -222,7 +223,7 @@ func TestGateNonPositiveAssets(t *testing.T) {
 func TestGateScaleBreak(t *testing.T) {
 	mk := func(end string, rev float64) PeriodRow {
 		r := annual(end, "AUD")
-		r.Revenue, r.NetIncome, r.EPSBasic = f64(rev), f64(rev/10), f64(0.4)
+		r.Revenue, r.NetIncome, r.EPSBasic = new(rev), new(rev/10), new(0.4)
 		return r
 	}
 	rows := []PeriodRow{mk("2023-06-30", 10212000000), mk("2024-06-30", 13673000000), mk("2025-06-30", 5351000), mk("2026-06-30", 16115000000)}
@@ -243,7 +244,7 @@ func TestGateScaleBreak(t *testing.T) {
 	assert.Zero(t, rep.counts[gateScaleBreak], "a sign change is not a scale slip")
 	bb := []PeriodRow{mk("2024-06-30", 100e6), mk("2025-06-30", 100e6), mk("2026-06-30", 100e6)}
 	bb[0].ShareBuybacks, bb[1].ShareBuybacks, bb[2].ShareBuybacks = f64(-11192000), f64(-5000), f64(-9662000)
-	bb[0].NetIncome, bb[1].NetIncome, bb[2].NetIncome = f64(100e6), f64(1e6), f64(120e6)
+	bb[0].NetIncome, bb[1].NetIncome, bb[2].NetIncome = new(100e6), new(1e6), new(120e6)
 	_, rep = applyVendorGates(bb)
 	assert.Zero(t, rep.counts[gateScaleBreak], "buybacks and a breakeven profit are not level lines")
 }
@@ -251,7 +252,7 @@ func TestGateScaleBreak(t *testing.T) {
 func TestGateIdentity(t *testing.T) {
 	mk := func(end string, ni, eps, shares float64) PeriodRow {
 		r := annual(end, "USD")
-		r.NetIncome, r.EPSBasic, r.SharesOutstanding, r.Revenue = f64(ni), f64(eps), f64(shares), f64(1e9)
+		r.NetIncome, r.EPSBasic, r.SharesOutstanding, r.Revenue = new(ni), new(eps), new(shares), new(1e9)
 		return r
 	}
 	// RMD: a CDI listing, k ~10 every year: nothing is an outlier.
@@ -305,7 +306,7 @@ func TestGateIdentity(t *testing.T) {
 func TestMergeFallback(t *testing.T) {
 	yahoo := []PeriodRow{
 		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceYahoo, Revenue: f64(10)},
-		{PeriodType: periodTTM, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, EPSDiluted: f64(0.1)},
+		{PeriodType: periodTTM, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, EPSDiluted: new(0.1)},
 	}
 	markit := []PeriodRow{
 		{PeriodType: periodAnnual, PeriodEnd: date("2024-06-30"), Currency: "AUD", Source: sourceMarkit, Revenue: f64(8)},
@@ -347,9 +348,9 @@ func TestCopyTTMAtFYE(t *testing.T) {
 	a := annual("2026-06-30", "AUD")
 	a.Revenue, a.NetIncome, a.Rejected = f64(639136000), f64(92552000), []string{"free_cash_flow"}
 	ttm := PeriodRow{PeriodType: periodTTM, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo,
-		Revenue: f64(1), EPSBasic: f64(0.031), EPSDiluted: f64(0.031), FreeCashFlow: f64(47871000),
+		Revenue: f64(1), EPSBasic: new(0.031), EPSDiluted: new(0.031), FreeCashFlow: f64(47871000),
 		CapitalExpenditure: f64(-134041000), TotalAssets: f64(5)}
-	half := PeriodRow{PeriodType: periodTTM, PeriodEnd: date("2025-12-31"), Currency: "AUD", Source: sourceYahoo, EPSBasic: f64(-0.14)}
+	half := PeriodRow{PeriodType: periodTTM, PeriodEnd: date("2025-12-31"), Currency: "AUD", Source: sourceYahoo, EPSBasic: new(-0.14)}
 	rows := []PeriodRow{a, ttm, half}
 	copyTTMAtFYE(rows)
 	got := rows[0]
@@ -424,7 +425,7 @@ func TestNeedsFallback(t *testing.T) {
 	assert.False(t, needsFallback([]PeriodRow{full("2025-12-31"), ttm("2026-06-30")}, nil, now))
 
 	epsOnly := annual("2025-06-30", "AUD")
-	epsOnly.EPSBasic = f64(1.352)
+	epsOnly.EPSBasic = new(1.352)
 	assert.True(t, needsFallback([]PeriodRow{full("2024-06-30"), epsOnly}, nil, now), "MAQ: the latest annual is EPS-only")
 	maskedLatest := annual("2026-06-30", "AUD")
 	maskedLatest.EPSBasic, maskedLatest.Rejected = f64(1), []string{"revenue", "net_income"}

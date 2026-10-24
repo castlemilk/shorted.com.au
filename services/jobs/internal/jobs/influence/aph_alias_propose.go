@@ -133,7 +133,7 @@ func loadListings(ctx context.Context, pool *pgxpool.Pool) ([]listing, error) {
 // tokens splits a normalised name into the words worth indexing.
 func tokens(s string) []string {
 	var out []string
-	for _, w := range strings.Fields(s) {
+	for w := range strings.FieldsSeq(s) {
 		if len(w) >= 3 {
 			out = append(out, w)
 		}

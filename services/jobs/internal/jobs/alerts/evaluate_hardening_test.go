@@ -15,7 +15,7 @@ import (
 // against.
 func fullDay(n int) map[string]float64 {
 	rows := make(map[string]float64, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		rows[fmt.Sprintf("X%02d", i)] = 1
 	}
 	return rows
