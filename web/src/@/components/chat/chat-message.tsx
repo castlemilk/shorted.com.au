@@ -20,6 +20,7 @@ import { type ChatMessage } from "~/@/hooks/use-chat";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { cn } from "~/@/lib/utils";
 import { ChatMarkdown } from "./chat-markdown";
+import { RichToolBoundary } from "./chat-tool-boundary";
 import { getRichToolResult, RichToolResultView } from "./chat-rich-tool-results";
 
 type ToolCallData = NonNullable<ChatMessage["toolCalls"]>[number];
@@ -143,7 +144,11 @@ function ToolCallDetail({ toolCall }: { toolCall: ToolCallData }) {
       />
       <ToolContent>
         {rich ? (
-          <RichToolResultView result={rich} />
+          <RichToolBoundary
+            fallback={<RawToolDetail toolCall={toolCall} failure={failure} />}
+          >
+            <RichToolResultView result={rich} />
+          </RichToolBoundary>
         ) : (
           <RawToolDetail toolCall={toolCall} failure={failure} />
         )}

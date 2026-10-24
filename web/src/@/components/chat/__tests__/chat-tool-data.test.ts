@@ -187,6 +187,40 @@ describe("parseShortPositions (recorded)", () => {
   it("does not parse an error result", () => {
     expect(parseShortPositions(JSON.stringify({ error: "x" }), "{}")).toBeNull();
   });
+
+  it("drops a protobuf timestamp outside the Date range instead of keeping it", () => {
+    // Intl throws on a time a Date cannot hold, so the reading must not reach a formatter.
+    const view = parseShortPositions(
+      JSON.stringify({
+        productCode: "BHP",
+        points: [
+          { timestamp: { seconds: 1e17 }, shortPosition: 1.2 },
+          { timestamp: "2026-10-01T00:00:00Z", shortPosition: 1.5 },
+          { timestamp: { seconds: 1767225600 }, shortPosition: 1.6 },
+        ],
+      }),
+      "{}",
+    );
+    expect(view!.points.map((p) => p.t)).toEqual([
+      Date.parse("2026-01-01T00:00:00Z"),
+      Date.parse("2026-10-01T00:00:00Z"),
+    ]);
+  });
+
+  it("returns null when every timestamp is outside the Date range", () => {
+    expect(
+      parseShortPositions(
+        JSON.stringify({
+          productCode: "BHP",
+          points: [
+            { timestamp: { seconds: 1e17 }, shortPosition: 1.2 },
+            { timestamp: { seconds: -1e17 }, shortPosition: 1.5 },
+          ],
+        }),
+        "{}",
+      ),
+    ).toBeNull();
+  });
 });
 
 describe("parsePeers (recorded)", () => {

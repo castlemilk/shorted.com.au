@@ -127,6 +127,33 @@ describe("ChatMessageBubble rich tool rendering", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("chat-stock-card")).toBeInTheDocument();
   });
+
+  it("keeps the message when a timestamp is outside the Date range, and draws no chart", () => {
+    render(
+      <ChatMessageBubble
+        message={assistantMessage({
+          content: "The short position fell.",
+          toolCalls: [
+            {
+              toolName: "query_short_positions",
+              arguments: JSON.stringify({ stock_code: "BHP", period: "1m" }),
+              result: JSON.stringify({
+                productCode: "BHP",
+                points: [
+                  { timestamp: { seconds: 1e17 }, shortPosition: 1.2 },
+                  { timestamp: "2026-10-01T00:00:00Z", shortPosition: 1.5 },
+                ],
+              }),
+            },
+          ],
+        })}
+      />,
+    );
+
+    // The out-of-range reading is dropped, and one reading left is not a line.
+    expect(screen.queryByTestId("chat-short-chart")).not.toBeInTheDocument();
+    expect(screen.getByText("The short position fell.")).toBeInTheDocument();
+  });
 });
 
 /**

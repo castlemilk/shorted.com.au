@@ -205,19 +205,25 @@ export function resultRecord(result: string): JsonRecord | null {
 
 /**
  * The timestamp a reading is dated by: an ISO string, a date-only string, or
- * protobuf's {seconds}. Undefined when it is none of these.
+ * protobuf's {seconds}. Undefined when it is none of these, or when it is outside
+ * the range a Date holds: Intl throws on those, and a throw would take the message
+ * with it.
  */
 function timeValue(value: unknown): number | undefined {
   if (typeof value === "string") {
-    const time = Date.parse(value);
-    return Number.isFinite(time) ? time : undefined;
+    return dateInRange(Date.parse(value));
   }
   const record = asRecord(value);
   if (record) {
     const seconds = finiteNumber(record.seconds);
-    return seconds === undefined ? undefined : seconds * 1000;
+    return seconds === undefined ? undefined : dateInRange(seconds * 1000);
   }
   return undefined;
+}
+
+/** `t` (epoch milliseconds) when a Date holds it, which is within ±8.64e15, else undefined. */
+function dateInRange(t: number): number | undefined {
+  return Number.isFinite(new Date(t).getTime()) ? t : undefined;
 }
 
 /** Readings from a list of {timestamp|period|date, value}, ascending by time. Bad items are skipped. */
