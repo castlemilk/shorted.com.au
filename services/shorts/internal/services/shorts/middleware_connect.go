@@ -105,6 +105,13 @@ const (
 	// AuthMethodInternal is the shared internal service secret, asserted by the web
 	// tier, webhooks and other trusted services.
 	AuthMethodInternal = "internal"
+
+	// alertsJobUserAgentPrefix marks the alerts evaluator (`shorted alerts`). Its
+	// entitlement lookups are the platform's own reads, made under the internal
+	// secret, so they are exempt from the owner's per-user rate limit. An owner at
+	// their quota must not stop their own alert email. The marker grants nothing on
+	// its own: the internal secret must match before it is read.
+	alertsJobUserAgentPrefix = "shorted-alerts/"
 	// AuthMethodServiceAccount is a Google service-account identity token.
 	AuthMethodServiceAccount = "service_account"
 )
@@ -285,6 +292,10 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 						Email:      userEmail,
 						Roles:      roles,
 						AuthMethod: AuthMethodInternal,
+						// The alerts evaluator's entitlement lookups are the platform's own
+						// reads, not the customer's API use, so they are not metered against
+						// the owner's quota. See alertsJobUserAgentPrefix.
+						RateLimitExempt: strings.HasPrefix(req.Header().Get("User-Agent"), alertsJobUserAgentPrefix),
 					}
 
 					// Look up subscription tier

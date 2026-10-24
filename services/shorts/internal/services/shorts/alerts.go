@@ -248,6 +248,9 @@ func (s *ShortsServer) PauseAlertMonitorByToken(
 	}
 	monitorID, ok := unsubscribe.ParseAlertMonitorToken(req.Msg.Token, s.unsubscribeSecret)
 	if !ok {
+		// Logged without the token. A spike here means one-click pauses are failing,
+		// for example after UNSUBSCRIBE_SECRET was rotated and a job kept the old copy.
+		s.logger.Warnf("alert pause: token rejected (malformed, wrong secret, or not an alert token)")
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid token"))
 	}
 
@@ -539,7 +542,7 @@ func alertMonitorStatusFromStore(status string) shortsv1alpha1.AlertMonitorStatu
 // evaluator's claim bookkeeping.
 func alertDeliveryStatusFromStore(status string) shortsv1alpha1.AlertDeliveryStatus {
 	switch status {
-	case alertevents.StatusPending, alertevents.StatusSending:
+	case alertevents.StatusPending, alertevents.StatusSending, alertevents.StatusAwaitingEntitlement:
 		return shortsv1alpha1.AlertDeliveryStatus_ALERT_DELIVERY_STATUS_PENDING
 	case alertevents.StatusSent:
 		return shortsv1alpha1.AlertDeliveryStatus_ALERT_DELIVERY_STATUS_SENT
