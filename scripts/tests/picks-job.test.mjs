@@ -39,9 +39,11 @@ test("the override grant is run.developer on THIS job only, and the job stays in
   assert.match(grant, /role\s+=\s+"roles\/run\.developer"/);
   assert.match(grant, /module\.shorts_api\.service_account_email/);
 
-  // Exactly three jobs carry the override role: validation, publish, picks.
+  // Exactly four jobs carry the override role: validation, publish, picks and the
+  // alerts replay (scripts/tests/alerts-replay-job.test.mjs). A fifth needs its own
+  // server-side argv builder.
   const developerGrants = prodMain.match(/role\s+=\s+"roles\/run\.developer"/g) ?? [];
-  assert.equal(developerGrants.length, 3, "a fourth run.developer grant needs its own server-side argv builder");
+  assert.equal(developerGrants.length, 4, "a fifth run.developer grant needs its own server-side argv builder");
 
   const runnable = prodMain.slice(prodMain.indexOf("admin_runnable_jobs = {"));
   const runnableMap = runnable.slice(0, runnable.indexOf("\n  }\n"));

@@ -100,6 +100,13 @@ var catalog = map[string]catalogEntry{
 	},
 
 	// --- Operator-invoked (no schedule) ----------------------------------------
+	// Admin smoke test only: an override run of the alerts evaluator for one owner
+	// and one report date. Its deployed args are a dry run, and it is never scheduled.
+	"shorted-alerts-replay": {
+		DisplayName: "Alerts Replay",
+		Category:    "Alerts",
+		Note:        "`shorted alerts -date D -user UID -canary off` — run via the admin MCP run_alerts_smoke_test; deployed args are a dry run, never scheduled",
+	},
 	"shorted-news-publish": {
 		DisplayName: "News Publish",
 		Category:    "News",
