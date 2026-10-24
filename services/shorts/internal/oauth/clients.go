@@ -772,7 +772,7 @@ func (h *registrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			GrantTypes:   grants,
 			Scope:        filterScope(req.Scope),
 		},
-		ClientURI: truncate(req.ClientURI, maxRedirectURILen),
+		ClientURI: registrableClientURI(req.ClientURI),
 		Source:    SourceDCR,
 		IssuedAt:  h.now(),
 	}
@@ -782,13 +782,9 @@ func (h *registrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	resp := map[string]any{
 		"client_id":           reg.ClientID,
 		"client_id_issued_at": reg.IssuedAt.Unix(),
-		"client_name":         reg.ClientName,
-		"client_uri":          reg.ClientURI,
 		"redirect_uris":       reg.RedirectURIs,
 		"grant_types":         reg.GrantTypes,
 		"response_types":      []string{"code"},
@@ -796,8 +792,40 @@ func (h *registrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		// confidential clients, so there is nothing to leak and nothing to
 		// rotate. PKCE is what stands in for client authentication.
 		"token_endpoint_auth_method": "none",
-		"scope":                      reg.Scope,
-	})
+	}
+	// RFC 7591 §3.2.1 returns the metadata that was registered, so a field the
+	// client did not send is left out rather than sent empty. Clients validate
+	// this body: the MCP TypeScript SDK (Claude Code) requires client_uri, when
+	// present, to parse as a URL, and refused `"client_uri": ""` outright, so
+	// the connector could never finish its OAuth flow.
+	for k, v := range map[string]string{
+		"client_name": reg.ClientName,
+		"client_uri":  reg.ClientURI,
+		"scope":       reg.Scope,
+	} {
+		if v != "" {
+			resp[k] = v
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// registrableClientURI keeps client_uri only when it is an absolute http(s) URL.
+// It is informational metadata that nothing here renders, so an unusable value
+// is dropped rather than refused: echoing it back would make the registration
+// response fail the client's own validation.
+func registrableClientURI(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || len(raw) > maxRedirectURILen {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return ""
+	}
+	return raw
 }
 
 // ---------------------------------------------------------------------------
