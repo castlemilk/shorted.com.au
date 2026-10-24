@@ -15,9 +15,11 @@ const (
 	StatusSkippedUnentitled = "skipped_unentitled"
 	StatusSkippedNoEmail    = "skipped_no_email"
 	StatusSkippedPaused     = "skipped_paused"
-	// StatusAwaitingEntitlement holds an event whose owner's entitlement lookup
-	// failed for that owner alone. The evaluator re-checks it on each run and moves
-	// it to pending or skipped_unentitled. It is never sent as it stands.
+	// StatusAwaitingEntitlement is retired. The evaluator no longer writes it: an
+	// entitlement lookup that does not give a definitive answer fails the whole run
+	// before anything is committed, so no event waits on a lookup. The value stays
+	// in the table's CHECK list and in this package, so the migration is unchanged
+	// and the API still maps it.
 	StatusAwaitingEntitlement = "awaiting_entitlement"
 )
 
@@ -63,6 +65,11 @@ type Payload struct {
 // company has no earlier reading (a new listing, or long absent from the
 // reports). Rank and PreviousRank are 1-based positions in the industry's top
 // ten, and 0 means not ranked.
+//
+// PreviousDate is the report date the Previous reading and PreviousRank were taken
+// on. It is the event's compared-to date unless the company was absent from that
+// report and its last reading came from earlier in the lookback window, so a
+// reader can always tell which report a figure belongs to.
 type Company struct {
 	Code         string   `json:"code"`
 	Name         string   `json:"name"`
@@ -71,4 +78,5 @@ type Company struct {
 	Change       *float64 `json:"change"`
 	Rank         int      `json:"rank"`
 	PreviousRank int      `json:"previous_rank"`
+	PreviousDate string   `json:"previous_date,omitempty"`
 }
