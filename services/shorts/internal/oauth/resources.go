@@ -25,6 +25,7 @@ package oauth
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
@@ -35,9 +36,13 @@ import (
 type Entitlement func(ctx context.Context, userID string) (bool, error)
 
 type grantableResource struct {
-	uri      string
-	scopes   []string // published order
-	vocab    map[string]bool
+	uri    string
+	scopes []string // published order
+	vocab  map[string]bool
+	// defaults is what a request that names no scope is granted, when it is set.
+	// nil means the whole vocabulary (the admin resource). The public resource sets
+	// it to mcp.DefaultScopes, which leaves out the write scope alerts:write.
+	defaults []string
 	entitled Entitlement
 }
 
@@ -56,7 +61,9 @@ func newGrantableResource(uri string, scopes []string, entitled Entitlement) gra
 // none, there is no way to decide who may hold it, so it is simply not
 // grantable (fail closed), and the AS behaves exactly as it did before.
 func grantableResources(issuer string, admin Entitlement) []grantableResource {
-	resources := []grantableResource{newGrantableResource(mcp.ResourceURI(issuer), mcp.Scopes, nil)}
+	public := newGrantableResource(mcp.ResourceURI(issuer), mcp.Scopes, nil)
+	public.defaults = append([]string(nil), mcp.DefaultScopes...)
+	resources := []grantableResource{public}
 	if admin != nil {
 		resources = append(resources, newGrantableResource(mcp.AdminResourceURI(issuer), mcp.AdminScopes, admin))
 	}
@@ -98,4 +105,12 @@ func (r *grantableResource) entitledTo(ctx context.Context, userID string) (bool
 func allScopes() []string {
 	out := append([]string(nil), mcp.Scopes...)
 	return append(out, mcp.AdminScopes...)
+}
+
+// isDefault reports whether an empty request is granted scope s on this resource.
+func (r *grantableResource) isDefault(s string) bool {
+	if r.defaults == nil {
+		return true
+	}
+	return slices.Contains(r.defaults, s)
 }

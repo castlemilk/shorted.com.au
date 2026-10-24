@@ -308,31 +308,7 @@ export function ConsentScreen({
                 this connection yourself.
               </p>
             ) : null}
-            {details.scopes.every((line) => line.scope.endsWith(":read")) ? (
-              details.scopes.some(
-                (line) => line.scope === "users:read",
-              ) ? null : (
-                <p className="text-xs text-muted-foreground">
-                  Read-only. It cannot change anything in your account, and this
-                  does not grant access to your billing or API keys.
-                </p>
-              )
-            ) : (
-              // A write scope (news:publish or jobs:run, on the admin server).
-              // The read-only promise above would be false here, so it is
-              // replaced rather than kept alongside a caveat. The list above
-              // says exactly which actions; this says what kind of thing they
-              // are.
-              <p
-                role="alert"
-                className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-900 dark:text-amber-200"
-              >
-                This grants <strong>write access</strong>: the actions listed
-                above change the live site and its data, and some spend money
-                (image generation, upstream data pulls). Administrators only.
-                Approve only if you started this connection yourself.
-              </p>
-            )}
+            {writeScopeNote(details.scopes.map((line) => line.scope))}
           </section>
 
           {/* Where the credential goes. Verbatim, unshortened, and never a
@@ -406,6 +382,60 @@ export function ConsentScreen({
  * detect from here, so the link and the explanation sit behind the redirect: if
  * it works nobody reads this, and if it does not, nobody is stranded.
  */
+/**
+ * The note under the scope list for the write scopes a grant carries. The admin
+ * warning is for the admin server's write scopes only; alerts:write is the signed-in
+ * user's own alerts, and its copy says what it can and cannot do, without the
+ * admin's "spend money" caveat.
+ */
+export function writeScopeNote(scopes: string[]): React.ReactNode {
+  if (scopes.includes("users:read")) {
+    // users:read is read-only but reaches other people's data. Shown alongside whichever
+    // note follows, so it is rendered here and the caller does not need to know.
+    return (
+      <p
+        role="alert"
+        className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-900 dark:text-amber-200"
+      >
+        This grants access to <strong>personal data</strong> about Shorted&apos;s
+        users: account emails, subscriptions and the mailing list. Administrators
+        only. Approve only if you started this connection yourself.
+      </p>
+    );
+  }
+  if (scopes.every((scope) => scope.endsWith(":read"))) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Read-only. It cannot change anything in your account, and this does not grant
+        access to your billing or API keys.
+      </p>
+    );
+  }
+  if (scopes.every((scope) => scope.endsWith(":read") || scope === "alerts:write")) {
+    // alerts:write is the only public write scope. Its copy is accurate for what the tools do:
+    // they change the user's own alerts, read their history, and need Premium to create or resume.
+    return (
+      <p className="text-xs text-muted-foreground">
+        Lets this app create, pause, resume and delete <strong>your</strong> short-interest
+        alerts, and read your alert history. Creating or resuming an alert needs a Premium
+        subscription. Nothing is spent, and it cannot change your billing or API keys.
+      </p>
+    );
+  }
+  // An admin write scope (news:publish or jobs:run): the list above names the actions,
+  // and this says they change the live site.
+  return (
+    <p
+      role="alert"
+      className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-900 dark:text-amber-200"
+    >
+      This grants <strong>write access</strong>: the actions listed above change the live
+      site and its data, and some spend money (image generation, upstream data pulls).
+      Administrators only. Approve only if you started this connection yourself.
+    </p>
+  );
+}
+
 function HandoffFallback({
   url,
   clientLabel,

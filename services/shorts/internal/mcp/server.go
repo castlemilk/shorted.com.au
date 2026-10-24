@@ -80,6 +80,51 @@ func HandlerWithLifetime(src DataSource, lifetime time.Duration) http.Handler {
 	}, &sdk.StreamableHTTPOptions{Stateless: true}))
 }
 
+// anonymousServer is the server an anonymous or unscoped caller gets: NewServer, plus the
+// discovery tool when alerts are configured. The payload budget measures this server, since
+// it is the list every anonymous session pays for.
+func anonymousServer(src DataSource, alerts AlertsWriteOperator) *sdk.Server {
+	server := NewServer(src)
+	if alerts != nil && src != nil {
+		registerManageMyAlerts(server)
+	}
+	return server
+}
+
+// HandlerWithAlerts is the public handler with the signed-in user's own alert tools
+// behind alerts:write (alerts_write.go). Up to three servers are built once:
+//
+//   - base, what an anonymous or unscoped caller gets. It is what Handler serves, plus
+//     the discovery tool manage_my_alerts when alerts are configured (alerts_discovery.go).
+//   - scoped, for a request whose VERIFIED token carries alerts:write: the six alert tools
+//     and no discovery tool.
+//
+// The choice is made per request from the token, so Stateless stays true and no session
+// state is kept. Calling manage_my_alerts from a caller without the scope is answered
+// with the HTTP challenge before any tool runs. resourceMetadataURL is the RFC 9728
+// document the challenge points at. An empty alerts operator means no alert surface at
+// all: no discovery tool, no challenge, and base is exactly Handler's server.
+func HandlerWithAlerts(src DataSource, alerts AlertsWriteOperator, resourceMetadataURL string) http.Handler {
+	discovery := alerts != nil && src != nil
+	base := anonymousServer(src, alerts)
+	scoped := base
+	if discovery {
+		scoped = NewServer(src)
+		registerAlertsWrite(scoped, alerts)
+	}
+	streamable := sdk.NewStreamableHTTPHandler(func(r *http.Request) *sdk.Server {
+		if hasAlertsWrite(r) && discovery {
+			return scoped
+		}
+		return base
+	}, &sdk.StreamableHTTPOptions{Stateless: true})
+	var h http.Handler = streamable
+	if discovery {
+		h = alertsChallenge(resourceMetadataURL, streamable)
+	}
+	return boundStreamLifetime(StreamLifetime, h)
+}
+
 // StreamLifetime bounds how long ONE /mcp request may stay open.
 //
 // It exists because MCP requests are not all request/response calls. A

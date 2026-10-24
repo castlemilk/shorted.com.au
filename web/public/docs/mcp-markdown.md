@@ -19,7 +19,8 @@ it will discover the flow, open a browser once, and come back authorised.
 
 ## What it covers
 
-Thirty-two read-only tools across five domains:
+Thirty-two read-only data tools across five domains (the six alert tools below are
+separate, behind their own scope):
 
 - **Market and stocks** — ASIC short positions for ASX-listed securities,
   rankings, industry treemaps, squeeze candidates, price and short-interest
@@ -131,8 +132,42 @@ nothing to configure — point a client at the URL and it does the rest:
 5. It exchanges the code at `/oauth/token` with PKCE (S256 only).
 
 Scopes, all read-only: `shorts:read`, `housing:read`, `economy:read`,
-`politics:read`. Access tokens last an hour; refresh tokens rotate on every use,
-and reusing a rotated one revokes the whole family.
+`politics:read`. A request that names no scope is granted those four. The fifth,
+`alerts:write`, is the one write scope and is never granted by default: a client
+must ask for it by name (see "Your alerts" below). Access tokens last an hour;
+refresh tokens rotate on every use, and reusing a rotated one revokes the whole
+family.
+
+## Your alerts (`alerts:write`)
+
+Signed-in users can manage their own short-interest alerts from here. Alerts are
+for **Premium** subscribers. The alert tools appear only for a connection whose
+token carries `alerts:write`. Anonymous callers and read-only connections never see
+them, and calling one by name without the scope fails.
+
+How an anonymous or read-only client finds them: the list shows one extra tool,
+`manage_my_alerts`. It takes no input and does nothing itself. Calling it starts
+sign-in: the server answers with an authorization challenge (HTTP 401 for an
+anonymous connection, 403 `insufficient_scope` for one that lacks the scope), and
+your client opens the Shorted sign-in page. Once you approve `alerts:write`, the
+six alert tools replace it.
+
+- `list_my_alerts`: your alerts, newest first, with status and last delivery.
+- `create_alert`: a stock or industry alert, emailed to your verified address. Needs
+  an active Premium subscription, and at most 50 active alerts per account.
+- `pause_alert` and `resume_alert`: pausing needs no subscription, so you can always
+  stop one. Resuming needs Premium.
+- `delete_alert`: removes an alert and its history. It cannot be undone.
+- `list_my_alert_history`: the reports your alerts fired on, the stocks that moved,
+  and whether the email was sent.
+
+Every alert action applies the same rules as the alerts page on shorted.com.au: the
+same validation, the same limit of 50 active alerts, and the same Premium rule for
+creating and resuming. One difference: the page can save an alert before your email
+is verified, but these tools refuse to create one without a verified address, because
+an alert is only ever emailed to a verified address. Each action counts as one call
+against your usage limit. You act only on your own alerts; the tools take no account
+identifier.
 
 ## Access, limits and caveats
 
@@ -147,7 +182,8 @@ loop is not. On HTTP 429, honour `Retry-After`.
 **Per-caller tier quotas are not currently applied.** When they are, they will
 be the [API tier](https://shorted.com.au/pricing) numbers, counted **per tool
 call** — the handshake, `tools/list`, `resources/list` and `prompts/list` free,
-and a JSON-RPC batch charged for each call it carries:
+and a JSON-RPC batch charged for each call it carries. A batch may carry at most 20
+tool calls; a larger one is refused with a 400 and none of its calls run:
 
 | | Per minute | Per month |
 |---|---|---|
@@ -170,8 +206,8 @@ every session: `get_stock_prices` (open, high, low, close, adjusted close,
 volume) and `get_stock_history` (short percent, short positions, shares on
 issue).
 
-**Everything is read-only.** There are no write or mutating tools, and none are
-planned.
+**The data tools are read-only.** The only write capability is your own alerts,
+behind `alerts:write` as described above.
 
 **Short-interest data is T+4.** ASIC publishes with a four trading-day delay, so
 the most recent figure any tool returns is already several days old. It is also
