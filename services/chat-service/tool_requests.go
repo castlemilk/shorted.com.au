@@ -97,15 +97,19 @@ func buildQueryShortPositions(args map[string]interface{}) (toolCall, error) {
 	return shortsCall("GetStockData", request), nil
 }
 
-// buildGetTopShorts asks for summary rows: each stock's code, name, industry and
-// latest short position. The full response carries every stock's time series and
-// the result budget cuts it after about two stocks. The summary query does not read
-// a period, so the tool takes none; trend data comes from query_short_positions.
+// topShortsPeriod is the window of each stock's sparkline: the 3-month window the
+// site's top-shorts list draws. The tool takes no period, so one a model sends is
+// ignored.
+const topShortsPeriod = "3M"
+
+// buildGetTopShorts asks for each stock's code, name, latest short position and its
+// sparkline. The summary query has no points, which left the chat card nothing to
+// draw. The sparkline is thinned and the rows are budgeted by summarizeTopShorts.
 func buildGetTopShorts(args map[string]interface{}) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetTopShortsRequest{
-		Limit:       r.integer("limit", 10, 50),
-		SummaryOnly: true,
+		Period: topShortsPeriod,
+		Limit:  r.integer("limit", 10, 50),
 	}
 	if r.err != nil {
 		return toolCall{}, r.err

@@ -54,6 +54,17 @@ var liveToolCases = []liveToolCase{
 		rowKey:   `"productCode":"`,
 	},
 	{
+		// limit 50 is the size the sparkline budget used to cut to 13 rows. Every stock
+		// must come back, the lower ones without a sparkline.
+		name:     "get_top_shorts 50",
+		tool:     "get_top_shorts",
+		args:     map[string]interface{}{"limit": 50.0},
+		evidence: []string{`"timeSeries":[`},
+		mustFit:  true,
+		minRows:  50,
+		rowKey:   `"productCode":"`,
+	},
+	{
 		name:     "get_stock_details BHP",
 		tool:     "get_stock_details",
 		args:     map[string]interface{}{"stock_code": "BHP"},
@@ -104,6 +115,7 @@ var liveToolCases = []liveToolCase{
 		tool:     "get_related_news",
 		args:     map[string]interface{}{"stock_code": "BHP", "limit": 3.0},
 		evidence: []string{`"articles":[`},
+		mustFit:  true,
 	},
 	{
 		name:     "get_stock_graph BHP",
@@ -118,10 +130,13 @@ var liveToolCases = []liveToolCase{
 		evidence: []string{`"events":[`},
 	},
 	{
+		// limit 10 is the size whose raw response, 32.9 KB, the budget used to cut. The
+		// shaper writes an empty list as [], so the evidence is the opening of an item.
 		name:     "get_stock_signals CBA",
 		tool:     "get_stock_signals",
-		args:     map[string]interface{}{"stock_code": "CBA", "limit": 5.0},
-		evidence: []string{`"adverse":[`, `"positive":[`},
+		args:     map[string]interface{}{"stock_code": "CBA", "limit": 10.0},
+		evidence: []string{`"adverse":[{`, `"positive":[{`},
+		mustFit:  true,
 	},
 	{
 		name:     "get_economic_series cash rate",
