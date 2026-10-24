@@ -148,6 +148,31 @@ account you control, on a report date that is known to have crossed a level.
 
 ## Troubleshooting
 
+**`resend: permanent (status 409, invalid_idempotent_request)`.**
+Resend refused a key it had already seen in the last 24 hours with a different body.
+Keys are account-wide, and the same account also sends from test databases and from other products.
+A key is `alert-canary-<run id>-<run started_at in µs>` or `alert-event-<event id>-<event created_at in µs>`.
+That leaves two causes:
+
+- The same row's body changed between attempts: a new `user_email`, sender, reply-to, site URL or
+  `UNSUBSCRIBE_SECRET` between a send and its retry.
+- Another sender used the key. Find it in Resend's dashboard.
+
+Keys built from a bare id (before #765) collided with test runs. Prod's first run reused
+`alert-canary-1` from a test canary sent that morning.
+
+What happens next depends on which email failed:
+
+- **The canary.** The run returns its claims, so the next run sends that mail once its canary passes.
+- **A customer email.** It is marked `failed` and never retried. Once the cause is fixed, put it back
+  within the 48-hour expiry. Resend refused the original, so this cannot send twice:
+
+  ```sql
+  UPDATE alert_events SET email_status = 'pending', last_error = NULL, updated_at = now()
+   WHERE email_status = 'failed' AND last_error LIKE '%invalid_idempotent_request%'
+     AND created_at > now() - interval '47 hours';
+  ```
+
 **A date is held, and the log says `report ... is held: the latest ASIC sync did not complete`.**
 Look at the latest ASIC `sync_status` row (the one with `environment` and `hostname` set). Once a sync completes, the next run
 evaluates the held dates. Do not hand-edit the watermark. A sync that stays failed holds
