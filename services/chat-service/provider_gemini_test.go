@@ -376,6 +376,40 @@ func TestGeminiTextBesideAFunctionCallIsNotStreamed(t *testing.T) {
 	}
 }
 
+// An empty stored message is not sent. The API rejects an empty text part, so
+// one blank assistant reply would break every later turn of the conversation.
+func TestGeminiHistorySkipsEmptyMessages(t *testing.T) {
+	replies := [][]string{{`{"candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]},"index":0}]}`}}
+	rec := &wireRecorder{}
+	gemini := newWireGemini(t, rec, replies)
+	toolAPI := newWireToolAPI(t, rec)
+	client := newWireTestClient(t, gemini.URL, toolAPI.URL)
+
+	history := []Message{
+		{Role: "user", Content: "first"},
+		{Role: "assistant", Content: ""},
+		{Role: "user", Content: "second"},
+	}
+	if _, err := client.ChatStream(context.Background(), "s", history, "now", func(string) {}); err != nil {
+		t.Fatalf("ChatStream() error = %v", err)
+	}
+
+	req := parseWireRequest(t, rec.geminiBody[0])
+	var texts []string
+	for _, c := range req.Contents {
+		for _, part := range c.Parts {
+			text, ok := part["text"].(string)
+			if !ok || text == "" {
+				t.Fatalf("content %+v carries an empty part, which the API rejects", c)
+			}
+			texts = append(texts, text)
+		}
+	}
+	if want := []string{"first", "second", "now"}; !slices.Equal(texts, want) {
+		t.Fatalf("texts sent = %q, want %q", texts, want)
+	}
+}
+
 // A failure before any chunk is not reached: the request was refused, and it is
 // not billed. A failure after a chunk arrived is reached.
 func TestGeminiReachedFollowsWhetherAChunkArrived(t *testing.T) {

@@ -191,6 +191,11 @@ func buildGeminiTools(defs []ToolDefinition) []*genai.Tool {
 func buildGeminiHistory(messages []Message) []*genai.Content {
 	var history []*genai.Content
 	for _, msg := range messages {
+		// An empty message is a part with no text, which the API rejects, so the
+		// turn would fail for the rest of the conversation.
+		if msg.Content == "" {
+			continue
+		}
 		var role string
 		switch msg.Role {
 		case "user":
