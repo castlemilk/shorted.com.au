@@ -8,6 +8,7 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -43,6 +44,8 @@ const SPARK_PAD = 2;
 export interface ChatSparklineProps {
   /** Names the sparkline for a screen reader, e.g. "DRO short interest". */
   label: string;
+  /** The name the tooltip gives the series. Short, since a table cell holds it. Defaults to label. */
+  seriesLabel?: string;
   points: Reading[];
   color: string;
   formatValue?: (value: number) => string;
@@ -55,6 +58,7 @@ export interface ChatSparklineProps {
  */
 export function ChatSparkline({
   label,
+  seriesLabel,
   points,
   color,
   formatValue = formatPercent,
@@ -87,9 +91,10 @@ export function ChatSparkline({
     };
   }, [points]);
 
+  const tooltipName = seriesLabel ?? label;
   const spec = useMemo<ChartSeriesSpec>(
-    () => ({ id: label, label, color, axis: "left", kind: "line", points }),
-    [label, color, points],
+    () => ({ id: label, label: tooltipName, color, axis: "left", kind: "line", points }),
+    [label, tooltipName, color, points],
   );
 
   if (!scales || points.length < 2) return null;
@@ -117,6 +122,7 @@ export function ChatSparkline({
       role="group"
       aria-roledescription="sparkline"
       aria-label={`${label}. ${points.length} readings. Arrow keys step through them.`}
+      data-reading-active={active ? "true" : undefined}
       tabIndex={0}
       onPointerMove={(event) => {
         const rect = event.currentTarget.getBoundingClientRect();
@@ -146,10 +152,16 @@ export function ChatSparkline({
           <circle cx={hover.cx} cy={hover.cy} r={2} fill={color} />
         )}
       </svg>
+      {/*
+        The tooltip opens above the sparkline and aligns to its trailing edge. A table
+        cell sits at the end of a scroll region, so one that opened to the right or
+        below was clipped there. It never takes the pointer, so moving up to it does
+        not end the reading.
+      */}
       {hover && (
         <div
           aria-hidden="true"
-          className="absolute left-0 top-full z-20 mt-1 whitespace-nowrap"
+          className="pointer-events-none absolute bottom-full right-0 z-20 mb-1 whitespace-nowrap"
         >
           <div
             style={{
@@ -249,6 +261,16 @@ export function ChatLineChart({
     margin,
   });
 
+  // The tooltip's own width, measured after each render (the setter bails out when the
+  // width is unchanged), so it can be held inside the box. A fixed guess is wrong at a
+  // phone-width bubble, where the tooltip is wider than the room on either side.
+  const tipRef = useRef<HTMLDivElement>(null);
+  const [tipWidth, setTipWidth] = useState(0);
+  useLayoutEffect(() => {
+    const measured = tipRef.current?.offsetWidth ?? 0;
+    if (measured !== tipWidth) setTipWidth(measured);
+  });
+
   if (points.length < 2) return null;
 
   const lastIndex = points.length - 1;
@@ -262,8 +284,18 @@ export function ChatLineChart({
   const hover: HoverState | null = active
     ? { cx, cy, t: active.t, entries: [{ series: spec, point: active }] }
     : null;
-  // The tooltip sits on the side of the crosshair that has room for it.
-  const tipOnRight = cx > innerW / 2;
+  // The tooltip sits to the right of the crosshair, or to its left when the right side
+  // has no room, and never crosses either edge of the box.
+  const TIP_GAP = 8;
+  const anchorX = margin.left + cx;
+  const tipOnRight = anchorX + TIP_GAP + tipWidth <= width;
+  const tipLeft = Math.max(
+    0,
+    Math.min(
+      tipOnRight ? anchorX + TIP_GAP : anchorX - TIP_GAP - tipWidth,
+      width - tipWidth,
+    ),
+  );
 
   const readingAt = (clientX: number, boxLeft: number): number | null => {
     const near = nearest(points, dateScale.invert(clientX - boxLeft - margin.left).getTime());
@@ -280,6 +312,7 @@ export function ChatLineChart({
       aria-roledescription="interactive chart"
       aria-label={`${label}. Use the left and right arrow keys to read each point.`}
       aria-describedby={describedBy}
+      data-reading-active={active ? "true" : undefined}
       tabIndex={0}
       onPointerMove={(event) =>
         setIndex(readingAt(event.clientX, event.currentTarget.getBoundingClientRect().left))
@@ -317,6 +350,10 @@ export function ChatLineChart({
             <Crosshair x={cx} dots={[{ y: cy, color }]} innerH={innerH} />
           )}
           <circle cx={latestX} cy={latestY} r={2.5} fill={color} />
+          {/*
+            The label is outlined in the background colour, so the line does not run
+            through its digits where the series peaks near the latest reading.
+          */}
           <text
             x={latestX}
             y={latestY - 7}
@@ -324,6 +361,10 @@ export function ChatLineChart({
             fontSize={11}
             fontWeight={600}
             fill={chartTheme.tooltipFg}
+            stroke="hsl(var(--background))"
+            strokeWidth={3}
+            strokeLinejoin="round"
+            paintOrder="stroke"
           >
             {formatValue(latest.v)}
           </text>
@@ -331,13 +372,10 @@ export function ChatLineChart({
       </svg>
       {hover && (
         <div
+          ref={tipRef}
           aria-hidden="true"
           className="pointer-events-none absolute top-1 z-20"
-          style={
-            tipOnRight
-              ? { right: width - (margin.left + cx) + 8 }
-              : { left: margin.left + cx + 8 }
-          }
+          style={{ left: tipLeft }}
         >
           <div
             style={{
@@ -346,7 +384,7 @@ export function ChatLineChart({
               borderRadius: 8,
               padding: "6px 8px",
               boxShadow: "0 4px 12px hsl(var(--foreground) / 0.1)",
-              maxWidth: 200,
+              maxWidth: Math.min(200, width),
             }}
           >
             <TooltipContent

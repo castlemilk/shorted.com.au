@@ -161,3 +161,110 @@ describe("ChatSparkline", () => {
     expect(container).toBeEmptyDOMElement();
   });
 });
+
+describe("ChatSparkline tooltip in a table cell", () => {
+  it("names the series by its short label, so the tooltip stays narrow", () => {
+    const { container } = render(
+      <ChatSparkline
+        label="DRO short interest, last three months"
+        seriesLabel="DRO"
+        points={readings}
+        color="#D16A47"
+      />,
+    );
+    act(() => screen.getByRole("group").focus());
+
+    const tip = container.querySelector(".pointer-events-none") as HTMLElement;
+    expect(tip).toHaveTextContent("DRO");
+    expect(tip).toHaveTextContent("7.00%");
+    expect(tip.textContent).not.toMatch(/last three months/);
+  });
+
+  it("opens above the sparkline, on its trailing edge, and never takes the pointer", () => {
+    const { container } = render(
+      <ChatSparkline label="Spark" points={readings} color="#D16A47" />,
+    );
+    act(() => screen.getByRole("group").focus());
+
+    const tip = container.querySelector(".pointer-events-none") as HTMLElement;
+    expect(tip.className).toContain("bottom-full");
+    expect(tip.className).toContain("right-0");
+  });
+
+  it("marks the group while it shows a reading, for the sidebar's Escape handling", () => {
+    render(<ChatSparkline label="Spark" points={readings} color="#D16A47" />);
+    const spark = screen.getByRole("group");
+    expect(spark).not.toHaveAttribute("data-reading-active");
+
+    act(() => spark.focus());
+    expect(spark).toHaveAttribute("data-reading-active", "true");
+
+    fireEvent.keyDown(spark, { key: "Escape" });
+    expect(spark).not.toHaveAttribute("data-reading-active");
+  });
+});
+
+describe("ChatLineChart tooltip and label", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("keeps the tooltip inside a phone-width box, at the middle and at the ends", () => {
+    // jsdom has no layout. Give the box a 300px width and the tooltip 200px, as a phone bubble has.
+    jest.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(300);
+    jest.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(200);
+    const { container } = render(
+      <ChatLineChart
+        label="DRO short interest"
+        points={readings}
+        color="#D16A47"
+        kind="area"
+        formatValue={formatPercent}
+      />,
+    );
+    const chart = screen.getByRole("group", { name: /DRO short interest/ });
+    const tipLeft = () =>
+      parseFloat((container.querySelector(".pointer-events-none") as HTMLElement).style.left);
+
+    // The middle reading is where the old fixed side clipped the tooltip off the box.
+    act(() => chart.focus());
+    fireEvent.keyDown(chart, { key: "Home" });
+    fireEvent.keyDown(chart, { key: "ArrowRight" });
+    fireEvent.keyDown(chart, { key: "ArrowRight" });
+    expect(tipLeft()).toBeGreaterThanOrEqual(0);
+    expect(tipLeft() + 200).toBeLessThanOrEqual(300);
+
+    fireEvent.keyDown(chart, { key: "End" });
+    expect(tipLeft()).toBeGreaterThanOrEqual(0);
+    expect(tipLeft() + 200).toBeLessThanOrEqual(300);
+
+    fireEvent.keyDown(chart, { key: "Home" });
+    expect(tipLeft()).toBeGreaterThanOrEqual(0);
+    expect(tipLeft() + 200).toBeLessThanOrEqual(300);
+  });
+
+  it("outlines the latest value, so the line does not run through its digits", () => {
+    const { container } = render(
+      <ChatLineChart
+        label="DRO short interest"
+        points={readings}
+        color="#D16A47"
+        formatValue={formatPercent}
+      />,
+    );
+    const latest = container.querySelector('text[paint-order="stroke"]');
+    expect(latest).toHaveTextContent("7.00%");
+    expect(latest).toHaveAttribute("stroke", "hsl(var(--background))");
+  });
+
+  it("marks the chart while it shows a reading, for the sidebar's Escape handling", () => {
+    render(
+      <ChatLineChart label="DRO short interest" points={readings} color="#D16A47" formatValue={formatPercent} />,
+    );
+    const chart = screen.getByRole("group", { name: /DRO short interest/ });
+    expect(chart).not.toHaveAttribute("data-reading-active");
+
+    act(() => chart.focus());
+    expect(chart).toHaveAttribute("data-reading-active", "true");
+  });
+});
