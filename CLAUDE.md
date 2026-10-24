@@ -85,7 +85,7 @@ Shorted.com.au is a platform for tracking short selling positions in the Austral
 | ---------------- | ---- | -------------------------------- | ---------------------------------------------- |
 | Frontend         | 3020 | `web/`                           | Next.js app with dashboard, stock pages        |
 | Shorts API       | 9091 | `services/shorts/`               | Main API for short position data               |
-| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 32 read-only tools + OAuth 2.1 (same process as the Shorts API) |
+| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 32 read-only tools, plus the signed-in user's six alert tools behind `alerts:write`; OAuth 2.1 (same process as the Shorts API) |
 | Market Data      | 8090 | `services/market-data/`          | Historical stock prices                        |
 | Chat Service     | -    | `services/chat-service/`         | AI chat with Gemini LLM + 8 API tools          |
 | News Aggregator  | -    | `services/news-aggregator/`      | RSS news aggregation + Gemini sentiment        |
@@ -1156,7 +1156,11 @@ must never fire from a deploy). `make register-photos` / `register-index`.
 
 `https://api.shorted.com.au/mcp` — read-only Model Context Protocol access to
 everything above: short positions, stocks, housing, economy, the register of
-interests, ownership. **LIVE on prod**, streamable HTTP, 32 tools, 3 resources, 3 prompts.
+interests, ownership. **LIVE on prod**, streamable HTTP, 32 read-only data tools, 3 resources,
+3 prompts. Plus six alert tools (`list_my_alerts`, `create_alert`, `pause_alert`, `resume_alert`,
+`delete_alert`, `list_my_alert_history`) for the signed-in user's own alerts, served ONLY to a
+token carrying `alerts:write` (`services/shorts/internal/mcp/alerts_write.go`,
+`HandlerWithAlerts`). The one write scope, and the one exception to the read-only rule below.
 Go SDK (`modelcontextprotocol/go-sdk`), served by the shorts API.
 
 **The product promise, and the constraint every change here answers to:** a user
@@ -1198,7 +1202,9 @@ Next.js contributes only the consent screen.
   lives 30 days and the Firebase client session does not, so a properly
   signed-in user often cannot produce one. Requiring it fails real users,
   silently and only for some of them. It is an optional cross-check.
-- **Tier is not a scope.** Every scope is read-only and names a data domain
+- **Tier is not a scope.** Every scope is read-only except `alerts:write`, which
+  is the one write scope and names the signed-in user's own alerts, not a plan. Every
+  other scope names a data domain
   (`shorts:read`, `housing:read`, `economy:read`, `politics:read`). Expressing a
   plan as a scope would send a paying customer through a pointless
   re-authorisation to fix a quota problem.
@@ -1346,8 +1352,16 @@ the `jobs:read` fleet tools, and the `users:read` personal-data tools
 `api_subscriptions`, the `subscriptions` mailing list; minimal fields, every
 call logged with its actor). It is a
 separate OAuth resource with its own scope vocabulary (`oauth/resources.go`) —
-never add a write tool or a non-`:read` scope to the public server or
-`mcp.Scopes`. Admin scopes name actions and are checked PER TOOL; the HTTP
+on the public server, the read-only rule has ONE exception: `alerts:write`
+(`mcp.Scopes`), which unlocks the signed-in user's own alert tools. Constraints that
+keep it safe, each tested: those tools are NOT in `Registry()`, and a
+second prebuilt server lists them only to a request whose VERIFIED token carries the
+scope (`HandlerWithAlerts`; `Stateless: true` stays on, the choice is per request);
+anonymous and unscoped `tools/list` stay byte-identical; the owner is the verified
+token's uid and no tool takes one; every write goes through `alerts_core.go`; and a
+token gets the scope only when it asks for it by name, never by default
+(`mcp.DefaultScopes`). Any other write tool or non-`:read` scope still needs its own
+decision, documented the same way. Admin scopes stay separate. Admin scopes name actions and are checked PER TOOL; the HTTP
 layer requires at least one, never all, so adding a scope does not log an
 existing connector out (a token minted before the scope gets a tool error
 naming it). Admin = verified email on the web app's `ADMIN_EMAILS`, resolved

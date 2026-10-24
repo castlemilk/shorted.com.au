@@ -19,7 +19,8 @@ it will discover the flow, open a browser once, and come back authorised.
 
 ## What it covers
 
-Thirty-two read-only tools across five domains:
+Thirty-two read-only data tools across five domains (the six alert tools below are
+separate, behind their own scope):
 
 - **Market and stocks** — ASIC short positions for ASX-listed securities,
   rankings, industry treemaps, squeeze candidates, price and short-interest
@@ -131,8 +132,31 @@ nothing to configure — point a client at the URL and it does the rest:
 5. It exchanges the code at `/oauth/token` with PKCE (S256 only).
 
 Scopes, all read-only: `shorts:read`, `housing:read`, `economy:read`,
-`politics:read`. Access tokens last an hour; refresh tokens rotate on every use,
-and reusing a rotated one revokes the whole family.
+`politics:read`. A request that names no scope is granted those four. The fifth,
+`alerts:write`, is the one write scope and is never granted by default: a client
+must ask for it by name (see "Your alerts" below). Access tokens last an hour;
+refresh tokens rotate on every use, and reusing a rotated one revokes the whole
+family.
+
+## Your alerts (`alerts:write`)
+
+Signed-in users can manage their own short-interest alerts from here. The alert
+tools appear only for a connection whose token carries `alerts:write`. Anonymous
+callers and read-only connections never see them, and calling one by name without
+the scope fails.
+
+- `list_my_alerts`: your alerts, newest first, with status and last delivery.
+- `create_alert`: a stock or industry alert, emailed to your verified address. Needs
+  an active Premium subscription, and at most 50 active alerts per account.
+- `pause_alert` and `resume_alert`: pausing needs no subscription, so you can always
+  stop one. Resuming needs Premium.
+- `delete_alert`: removes an alert and its history. It cannot be undone.
+- `list_my_alert_history`: the reports your alerts fired on, the stocks that moved,
+  and whether the email was sent.
+
+Every alert action follows the same rules as the alerts page on shorted.com.au,
+and each one counts as one call against your usage limit. You act only on your own
+alerts; the tools take no account identifier.
 
 ## Access, limits and caveats
 
@@ -170,8 +194,8 @@ every session: `get_stock_prices` (open, high, low, close, adjusted close,
 volume) and `get_stock_history` (short percent, short positions, shares on
 issue).
 
-**Everything is read-only.** There are no write or mutating tools, and none are
-planned.
+**The data tools are read-only.** The only write capability is your own alerts,
+behind `alerts:write` as described above.
 
 **Short-interest data is T+4.** ASIC publishes with a four trading-day delay, so
 the most recent figure any tool returns is already several days old. It is also
