@@ -20,7 +20,8 @@ package mcp
 //
 // The tools call the operator, never a Connect RPC, so the interceptor chain does
 // not run for them. That is why the public visibility guard does not cover them;
-// TestAlertsWriteToolsReachOnlyTheirOperator pins that they reach nothing else.
+// TestAlertsWriteToolsReachOnlyTheirOperator (alerts_write_test.go) pins that the
+// tools reach nothing but the operator, by reading this file's source.
 
 import (
 	"context"

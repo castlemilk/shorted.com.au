@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 )
 
 // CodeTTL is how long an authorization code lives.
@@ -449,7 +451,8 @@ func (h *grantHandler) checkEntitled(w http.ResponseWriter, r *http.Request, tar
 
 // normaliseScope validates the requested scope set against the RESOURCE's
 // published vocabulary AND against the client's registered scope, returning the
-// space-delimited grant.
+// space-delimited grant. One exception to the registration: alerts:write, which a
+// client may name even when its registration does not list it (see below).
 //
 // An empty request gets the client's registered scope, or the resource's default
 // scopes when the client registered none. Only a request that names a scope gets
@@ -487,6 +490,13 @@ func normaliseScope(target *grantableResource, requested, registered string) (st
 		return strings.Join(granted, " "), true
 	}
 	for _, s := range fields {
+		// alerts:write is user-consented: the consent ticket binds it, and the consent
+		// screen shows it. So a client whose registration was copied from an older
+		// scopes_supported list can still step up to it. Every other scope must be
+		// registered, and the default above never grants it.
+		if s == mcp.ScopeAlertsWrite && vocabulary[s] {
+			continue
+		}
 		if !allowed[s] {
 			return "", false
 		}

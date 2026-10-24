@@ -37,7 +37,7 @@ func TestManageMyAlertsIsListedWithTheRightShape(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &tool))
 	assert.Contains(t, tool.Description, "Premium subscribers")
 	assert.Contains(t, tool.Description, "Call this to sign in")
-	assert.Contains(t, tool.Description, "create_alert, list_my_alerts, pause_alert, resume_alert and delete_alert")
+	assert.Contains(t, tool.Description, "create_alert, list_my_alerts, pause_alert, resume_alert, delete_alert and list_my_alert_history")
 	assert.NotContains(t, strings.ToLower(tool.Description), "pro ", "the plan is Premium, not Pro")
 	assert.Equal(t, "object", tool.InputSchema.Type)
 	assert.Empty(t, tool.InputSchema.Properties, "the input schema is an empty object")
@@ -143,15 +143,18 @@ func TestMalformedBodyIsNotChallenged(t *testing.T) {
 	}
 }
 
-// A body over MaxRequestBytes is not read in full. It passes to the server, where the
-// discovery tool answers with its fallback text. That path takes no action, so it is safe
-// to take a text answer there rather than a challenge.
+// A body over MaxRequestBytes is not parsed. The guard passes it through, the limiter charges
+// it the ceiling (MaxBatchCost units, see TestAnOversizedBodyIsChargedTheCeiling), and the
+// SDK receives the WHOLE body. The discovery tool then answers with its fallback text, which
+// takes no action, so the answer is text rather than a challenge. The test checks the body
+// arrives complete: a truncated body would parse as a malformed request.
 func TestOversizedBodyReachesTheFallbackNotAChallenge(t *testing.T) {
 	srv := publicStack(t, publicClaims("uid-a", "shorts:read"), &recordingAlerts{}, true)
 	pad := strings.Repeat("x", MaxRequestBytes)
 	body := `{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"manage_my_alerts","arguments":{},"pad":"` + pad + `"}}`
 	resp, text := rpcCall(t, srv, "", body)
 	assert.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
+	assert.NotContains(t, text, "malformed payload", "the whole body must reach the SDK, not a truncated prefix")
 	assert.Contains(t, text, "Sign in to a Shorted account")
 }
 

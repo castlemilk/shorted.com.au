@@ -104,7 +104,7 @@ var scopeDescriptions = map[string]string{
 	"economy:read":  "Read Australian economic series and state economic data",
 	"politics:read": "Read federal politicians' declared registers of interests",
 	// Public resource, write scope: granted only when asked for by name, never by default.
-	"alerts:write": "Create, pause and delete own short-interest alerts; creating one needs Premium",
+	"alerts:write": "Create, pause, resume and delete own short-interest alerts, and read their history; creating or resuming one needs Premium",
 	// Admin resource (/mcp/admin) only — grantable to administrators alone.
 	"news:publish": "Publish merged articles to shorted.com.au/news, including generating their images",
 	"jobs:read":    "View asynchronous jobs, execution history, queue status and operational errors",

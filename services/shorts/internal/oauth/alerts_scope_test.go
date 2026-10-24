@@ -25,7 +25,14 @@ func TestAlertsWriteIsGrantedOnlyWhenAskedFor(t *testing.T) {
 		{"naming the write scope grants it", "alerts:write", "", "alerts:write", true},
 		{"naming it alongside reads grants both", "shorts:read alerts:write", "", "shorts:read alerts:write", true},
 		{"a registration with the write scope does not widen an empty request", "", "shorts:read alerts:write", "shorts:read", true},
-		{"a client that did not register the write scope cannot ask for it", "alerts:write", "shorts:read", "", false},
+		// Finding 3: a client registered with read scopes only steps up to the write scope,
+		// because the consent ticket binds it and the consent screen shows it.
+		{"a read-only registration can still step up to alerts:write", "alerts:write", "shorts:read", "alerts:write", true},
+		{"step-up keeps a registered read scope too", "shorts:read alerts:write", "shorts:read", "shorts:read alerts:write", true},
+		// Every other scope must be registered, and an admin or unknown scope is never granted here.
+		{"an unregistered read scope is still refused", "politics:read", "shorts:read", "", false},
+		{"an unknown scope is refused", "alerts:delete", "shorts:read alerts:write", "", false},
+		{"an admin scope is refused on the public resource", "jobs:run", "shorts:read alerts:write", "", false},
 	}
 	for _, c := range cases {
 		got, ok := normaliseScope(public, c.requested, c.registered)
@@ -41,7 +48,7 @@ func TestConsentDescribesAlertsWrite(t *testing.T) {
 	lines := DescribeScopes("shorts:read alerts:write")
 	require.Len(t, lines, 2)
 	assert.Equal(t, "alerts:write", lines[1].Scope)
-	assert.Equal(t, "Create, pause and delete own short-interest alerts; creating one needs Premium", lines[1].Description)
+	assert.Equal(t, "Create, pause, resume and delete own short-interest alerts, and read their history; creating or resuming one needs Premium", lines[1].Description)
 	for _, l := range DescribeScopes("shorts:read") {
 		assert.NotEqual(t, "alerts:write", l.Scope)
 	}

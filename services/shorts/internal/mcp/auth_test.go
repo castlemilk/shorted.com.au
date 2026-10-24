@@ -280,10 +280,15 @@ func TestProtectedResourceMetadata(t *testing.T) {
 	if len(md.BearerMethodsSupported) != 1 || md.BearerMethodsSupported[0] != "header" {
 		t.Errorf("BearerMethodsSupported = %v, want [header]", md.BearerMethodsSupported)
 	}
-	for _, scope := range Scopes {
+	// The resource advertises the read scopes. A spec client requests every entry here when a
+	// challenge names no scope, so the write scope must not be listed (finding 2).
+	for _, scope := range DefaultScopes {
 		if !contains(md.ScopesSupported, scope) {
 			t.Errorf("ScopesSupported missing %q", scope)
 		}
+	}
+	if contains(md.ScopesSupported, ScopeAlertsWrite) {
+		t.Errorf("ScopesSupported lists %q: a spec client would request it on every sign-in", ScopeAlertsWrite)
 	}
 	// A resource server advertises what it REQUIRES. offline_access is a
 	// property of the authorization server's token lifetime, not of this

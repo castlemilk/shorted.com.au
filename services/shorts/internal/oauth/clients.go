@@ -1084,8 +1084,9 @@ func normaliseGrantTypes(requested []string, strict bool) []string {
 //
 // An empty result is stored empty, which the grant handler reads as "no
 // declared subset" and answers with the published read vocabulary — the same
-// treatment as a client that sent no scope at all. That is not a widening:
-// every published scope is read-only against the single MCP resource.
+// treatment as a client that sent no scope at all. That is not a widening: the
+// empty answer is the resource's default scopes, and the write scope alerts:write
+// is never one of those (mcp.DefaultScopes), so an empty registration cannot grant it.
 func filterScope(scope string) string {
 	// Every scope of every resource: a client registering for the admin
 	// resource declares news:publish, and dropping it would leave the client

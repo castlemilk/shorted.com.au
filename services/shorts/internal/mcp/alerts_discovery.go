@@ -34,7 +34,7 @@ const ManageMyAlertsTool = "manage_my_alerts"
 // plan the site shows (Premium, as alertsNeedPremium says) and says what to do next.
 const manageMyAlertsDescription = "Short-interest alerts (email when a stock's short position crosses a level) are for Premium subscribers. " +
 	"Call this to sign in; your client will open Shorted login, and then create_alert, list_my_alerts, pause_alert, " +
-	"resume_alert and delete_alert become available."
+	"resume_alert, delete_alert and list_my_alert_history become available."
 
 // manageMyAlertsFallback is what the tool answers if a call ever reaches its handler
 // instead of the challenge (the oversized-body path below). It takes no action.
