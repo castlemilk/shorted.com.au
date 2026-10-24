@@ -25,7 +25,7 @@ sends you to the Shorted consent screen, you sign in with your normal account
 and approve **jobs:read**, **news:publish**, **jobs:run** and **users:read**.
 For a monitoring-only client, request only `jobs:read`; leave out `users:read`
 unless the client needs personal data. The connector then appears in
-every Claude session (including Claude Code on the web) with eighteen tools:
+every Claude session (including Claude Code on the web) with twenty-three tools:
 
 | Tool | Scope | What it does |
 |---|---|---|
@@ -47,6 +47,11 @@ every Claude session (including Claude Code on the web) with eighteen tools:
 | `list_billing_exceptions` `{limit?}` | `users:read` | Billing exceptions across every subscriber, most severe first. `counts` covers every finding; `rows` is the first `limit` (default 25). |
 | `paid_feature_status` `{}` | `jobs:read` | Each paid feature's probe monitor in Telesis (`paid-feature: <feature>`): its status, whether it is armed or paused, when it last and next ran, and its five newest runs. |
 | `run_paid_probe` `{}` | `jobs:run` | Runs the paid-feature probe on the web app inside the call and returns each step. Bounded at 85 seconds. A second call while a run is in flight returns `inProgress: true` at once and starts nothing. |
+| `alerts_status` `{}` | `jobs:read` | The alerts pipeline: monitor counts across owners by status and cadence, the caller's own monitors, the ten newest evaluator runs and the twenty newest events. Other owners' rows carry no address, user id or message body. |
+| `find_alert_crossing` `{code?, threshold?, condition?}` | `jobs:read` | The most recent report date on which a stock crossed a threshold (default 5, `above`), by the evaluator's rule over the last 20 report dates. Read-only. |
+| `run_alerts_smoke_test` `{code?, threshold?, condition?, date?}` | `jobs:run` | The end-to-end check on the caller's own account: creates or reuses one daily monitor, then replays one report date for the caller only. A real email goes to the caller's verified address. Refuses without Premium or a verified address. |
+| `alerts_smoke_result` `{monitor_id, date, execution?}` | `jobs:read` | What the replay did for one of the caller's monitors on one date: the event row and, with `execution`, the replay job's state. |
+| `delete_alert_monitor` `{monitor_id}` | `jobs:run` | Deletes one of the caller's own monitors and its events. Refused for any other monitor. |
 
 Only merged articles can be published — the job image bakes `content/news` in
 at build time, and the tool takes a slug, never a body. Likewise the picks tool
@@ -191,6 +196,46 @@ feature as a subscriber would and returns every step with the call.
   "a probe run is already in progress", and starts nothing. It does not queue.
   The guard is released when the run ends or the call is cancelled.
 
+## Alerts smoke test (the alert tools)
+
+The short-interest alerts pipeline is checked end to end from Claude, on the
+caller's own account and nobody else's. The runbook is `docs/alerts-runbook.md`
+"Prod smoke test"; the flow is:
+
+1. `find_alert_crossing` picks a stock and a report date it crossed on, by the
+   evaluator's own rule: the previous reading below the threshold and the latest
+   at or above it, both to two decimal places, against the report before it, over
+   the last 20 report dates. It is the same window `shorted alerts` reads, so a
+   date outside it cannot be replayed. `below` is refused: the evaluator has no
+   below rule, so a below search would report crossings no alert sends.
+2. `run_alerts_smoke_test` checks, in this order, before it writes anything: the
+   caller's Premium entitlement (the same rule the paid features use; the evaluator
+   skips an account without it), and the caller's **verified** address. It then
+   reuses an identical active daily monitor or creates one through the same rule
+   the web app uses (`services/shorts/internal/services/shorts/alerts_core.go`),
+   and starts `shorted-alerts-replay` with the argv `alerts -date <D> -user <uid>
+   -canary off`, built here from the date and the verified token's uid and never
+   from tool input. The reply masks the address (`b***@shorted.com.au`).
+3. `alerts_smoke_result` (after one to two minutes) reads the event row on that
+   date (email status, whether Resend accepted it, any error) and the execution.
+   A second replay of the same date sends nothing: the evaluator writes one event per
+   monitor per date.
+4. `delete_alert_monitor` removes the smoke monitor when the check is done. It stays
+   active until then, so it will email on future crossings.
+
+**Not yet working: the verified address.** Step 2 refuses today. The admin check
+(`POST /api/internal/admin-check`) returns only `{admin: boolean}`, and an admin
+token carries only a uid, so this server has no source for the caller's verified
+address. Nothing is created in that case. The fix is for the web app's admin check
+to return the verified email with the admin answer, which is a contract change in
+`web/src/app/api/internal/admin-check`; wire it into `adminMCPSource.verifiedEmail`
+(`services/shorts/internal/services/shorts/mcp_admin_alerts.go`).
+
+Ownership is structural. Every alerts tool acts for the verified token's uid, and
+no input names an owner. `alerts_status` shows other owners' counts and events
+without their addresses or ids, and `alerts_smoke_result` and `delete_alert_monitor`
+reach only the caller's own monitors (another owner's monitor reads as not found).
+
 ## Job visibility and freshness
 
 - Cloud Run Jobs are discovered across `JOBS_RUN_REGIONS` (defaults include
@@ -305,9 +350,10 @@ the Vercel origin, because Cloudflare challenges non-browser POSTs to the apex).
 - **Override runs are two-halved.** Every write tool runs a Cloud Run Job with
   argument overrides, which needs `roles/run.developer` — granted per job, to
   exactly the jobs with a server-side argv builder (`shorts-data-sync`,
-  `shorted-news-publish`, `shorted-picks`; `scripts/tests/picks-job.test.mjs`
-  counts them). The argv is never caller text: a slug matched against a pattern,
-  a mode matched against an enum.
+  `shorted-news-publish`, `shorted-picks`, `shorted-alerts-replay`;
+  `scripts/tests/picks-job.test.mjs` counts them). The argv is never caller text:
+  a slug matched against a pattern, a mode matched against an enum, a date and a
+  verified uid for the alerts replay.
 - **Separate registry.** The admin tools are not in `mcp.Registry()`, so the
   public catalog, read-only annotations and payload budgets are untouched.
 
@@ -316,6 +362,13 @@ Files: `services/shorts/internal/mcp/admin.go`, `internal/jobmonitor/publish.go`
 `internal/services/shorts/admin_check.go`, `web/src/app/api/internal/admin-check/`.
 
 ## Failure modes
+
+- **"cannot read your verified address, so nothing was created"** from
+  `run_alerts_smoke_test` — expected until the admin check returns the verified
+  address (see "Alerts smoke test" above). Nothing was written.
+- **"the alerts replay is already running"** from `run_alerts_smoke_test` — a replay
+  is in flight. Wait for it, then retry. The monitor it used stays in place.
+
 
 - **"forbidden: administrator access required"** on every call — the admin
   check is failing (web endpoint unreachable, `INTERNAL_SERVICE_SECRET`
