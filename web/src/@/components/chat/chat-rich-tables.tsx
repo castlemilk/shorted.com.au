@@ -12,6 +12,7 @@ import {
   Dash,
   type ChatDataTableColumn,
 } from "./chat-data-table";
+import type { TableTier } from "./chat-layout";
 import type {
   DirectorTradeRow,
   DirectorTradesView,
@@ -22,6 +23,7 @@ import type {
   TopShortsView,
 } from "./chat-tool-data";
 import {
+  formatCompactDollars,
   formatDayMonth,
   formatMarketCap,
   formatPercent,
@@ -35,8 +37,9 @@ import {
   tradeTypeLabel,
 } from "./chat-tool-format";
 
-// The sparkline is a chart, so it is loaded on first use and never in the eager
-// chat bundle. Its placeholder keeps the cell's size, so the row does not jump.
+// The sparkline is a chart, so it is loaded on first use and never in the eager chat
+// bundle. Its placeholder keeps the cell's size, so the row does not jump. The placeholder is
+// the standard tier's 64px, the widest a sparkline is drawn beside the sidebar's figures.
 const ChatSparkline = dynamic(
   () => import("./chat-charts").then((m) => m.ChatSparkline),
   {
@@ -44,19 +47,26 @@ const ChatSparkline = dynamic(
     loading: () => (
       <span
         aria-hidden="true"
-        className="inline-block h-7 w-24 motion-safe:animate-pulse rounded bg-muted/40"
+        className="inline-block h-7 w-16 motion-safe:animate-pulse rounded bg-muted/40"
       />
     ),
   },
 );
 
-// The tables are drawn in the chat's sidebar, about 330px wide on a phone and on a
-// desktop alike. The key figures come first and sit inside that width. The rest
-// scrolls sideways, and the table says so with a fade on its right edge.
+// The tables are drawn in the chat's sidebar (about 333px on a desktop, 220 to 290px on a
+// phone) and on the /chat page (about 620px). Each column says the narrowest tier it is
+// drawn at (`minTier`). At the narrowest tier the figures a reader needs come first and
+// sit inside the sidebar's width; a wider table adds the rest, so nothing is cut off or
+// scrolled out of sight at the sidebar's width. See chat-layout.ts for the tiers.
+
+/** A sparkline's width: a full table draws the 96px line, a standard table a 64px one. */
+function sparkWidth(tier: TableTier): number {
+  return tier === "full" ? 96 : 64;
+}
 
 /** "Most shorted" from get_top_shorts. */
 export function TopShortsTable({ view }: { view: TopShortsView }) {
-  if (view.rows.length === 0) {
+  if (view.rows.length === 0 && view.notShown === 0) {
     return <EmptyNote>No stocks to show.</EmptyNote>;
   }
   return (
@@ -75,8 +85,8 @@ const TOP_SHORT_COLUMNS: readonly ChatDataTableColumn<TopShortRow>[] = [
     id: "code",
     header: "Stock",
     rowHeader: true,
-    cell: (row) => (
-      <StockCell code={row.code} name={row.name} rank={row.rank} />
+    cell: (row, tier) => (
+      <StockCell code={row.code} name={row.name} rank={row.rank} tier={tier} />
     ),
   },
   {
@@ -95,13 +105,17 @@ const TOP_SHORT_COLUMNS: readonly ChatDataTableColumn<TopShortRow>[] = [
   {
     id: "trend",
     header: "Trend",
-    cell: (row) =>
+    // The trend is the widest column. The sidebar's table has no room for it beside the
+    // figures, so it is drawn from the standard tier up.
+    minTier: "standard",
+    cell: (row, tier) =>
       row.points.length >= 2 ? (
         <ChatSparkline
           label={`${row.code} short interest`}
           seriesLabel={row.code}
           points={row.points}
           color={seriesColor("short")}
+          width={sparkWidth(tier)}
         />
       ) : (
         <Dash />
@@ -173,11 +187,12 @@ function peerColumns(subjectCode?: string): readonly ChatDataTableColumn<PeerRow
       id: "code",
       header: "Stock",
       rowHeader: true,
-      cell: (row) => (
+      cell: (row, tier) => (
         <StockCell
           code={row.code}
           name={row.name}
           badge={row.code === subjectCode ? "This stock" : undefined}
+          tier={tier}
         />
       ),
     },
@@ -195,6 +210,7 @@ function peerColumns(subjectCode?: string): readonly ChatDataTableColumn<PeerRow
     {
       id: "marketCap",
       header: "Market cap",
+      compactHeader: "Mkt cap",
       numeric: true,
       cell: (row) =>
         row.marketCap === undefined ? <Dash /> : formatMarketCap(row.marketCap),
@@ -203,6 +219,7 @@ function peerColumns(subjectCode?: string): readonly ChatDataTableColumn<PeerRow
       id: "pe",
       header: "P/E",
       numeric: true,
+      minTier: "standard",
       // A negative or zero earnings base has no meaningful P/E: a dash, not a number.
       cell: (row) =>
         row.peRatio !== undefined && row.peRatio > 0 ? (
@@ -215,6 +232,7 @@ function peerColumns(subjectCode?: string): readonly ChatDataTableColumn<PeerRow
       id: "yield",
       header: "Yield",
       numeric: true,
+      minTier: "full",
       cell: (row) =>
         row.dividendYield === undefined || row.dividendYield < 0 ? (
           <Dash />
@@ -226,6 +244,7 @@ function peerColumns(subjectCode?: string): readonly ChatDataTableColumn<PeerRow
       id: "priceChange",
       header: "1-month price",
       numeric: true,
+      minTier: "full",
       cell: (row) =>
         row.priceChange1m === undefined ? (
           <Dash />
@@ -244,12 +263,12 @@ export function DirectorTradesTable({
   view: DirectorTradesView;
   code?: string;
 }) {
-  if (view.trades.length === 0) {
+  // A budget that left out every trade still leaves a count. The table says so in its
+  // footer rather than in place of a table, as the chat's prompt describes it.
+  if (view.trades.length === 0 && view.notShown === 0) {
     return (
       <EmptyNote>
-        {view.notShown > 0
-          ? `${formatWhole(view.notShown)} director trades were reported but cannot be shown.`
-          : `No director trades reported${code ? ` for ${code}` : ""}.`}
+        No director trades reported{code ? ` for ${code}` : ""}.
       </EmptyNote>
     );
   }
@@ -269,25 +288,34 @@ const TRADE_COLUMNS: readonly ChatDataTableColumn<DirectorTradeRow>[] = [
     id: "director",
     header: "Director",
     rowHeader: true,
-    cell: (row) => <DirectorCell row={row} />,
+    cell: (row, tier) => <DirectorCell row={row} tier={tier} />,
   },
   {
     id: "shares",
     header: "Shares",
     numeric: true,
+    minTier: "standard",
     cell: (row) => (row.shares === undefined ? <Dash /> : formatWhole(row.shares)),
   },
   {
     id: "value",
     header: "Value",
     numeric: true,
-    cell: (row) =>
-      row.totalValue === undefined ? <Dash /> : formatDollars(row.totalValue),
+    // Below the full tier a value is abbreviated ($1.2M), which keeps the sidebar's width.
+    cell: (row, tier) =>
+      row.totalValue === undefined ? (
+        <Dash />
+      ) : tier === "full" ? (
+        formatDollars(row.totalValue)
+      ) : (
+        formatCompactDollars(row.totalValue)
+      ),
   },
   {
     id: "price",
     header: "Price",
     numeric: true,
+    minTier: "full",
     cell: (row) =>
       row.pricePerShare === undefined ? <Dash /> : formatPrice(row.pricePerShare),
   },
@@ -316,9 +344,10 @@ const TRADE_COLUMNS: readonly ChatDataTableColumn<DirectorTradeRow>[] = [
 
 /**
  * A trade's director, with its date and type beneath: the three read together in
- * a narrow column, so the figures can sit beside them.
+ * a narrow column, so the figures can sit beside them. The name is capped narrower
+ * below the full tier, so the sidebar's table keeps its figures and notice in view.
  */
-function DirectorCell({ row }: { row: DirectorTradeRow }) {
+function DirectorCell({ row, tier }: { row: DirectorTradeRow; tier: TableTier }) {
   const detail = [
     row.tradeDate ? formatTradeDate(row.tradeDate) : undefined,
     tradeTypeLabel(row.tradeType),
@@ -328,7 +357,7 @@ function DirectorCell({ row }: { row: DirectorTradeRow }) {
   // The cell is capped in width, so a long trade type ("Option exercise") wraps under the
   // date instead of pushing the figures off the sidebar's width.
   return (
-    <span className="block max-w-[7.5rem]">
+    <span className={cn("block", DIRECTOR_WIDTH[tier])}>
       <span className="block truncate" title={row.director}>
         {row.director}
       </span>
@@ -339,20 +368,38 @@ function DirectorCell({ row }: { row: DirectorTradeRow }) {
   );
 }
 
+/** The widest a company name is drawn, by tier. A longer name is truncated, with its full text in the title. */
+const NAME_WIDTH: Readonly<Record<TableTier, string>> = {
+  compact: "max-w-[4.25rem]",
+  standard: "max-w-[5rem]",
+  full: "max-w-[7rem]",
+};
+
+/** The widest a director's name is drawn, by tier. */
+const DIRECTOR_WIDTH: Readonly<Record<TableTier, string>> = {
+  compact: "max-w-[4.5rem]",
+  standard: "max-w-[5rem]",
+  full: "max-w-[7.5rem]",
+};
+
 /**
  * A stock's code, linked to its page, with its company name beneath. A rank in front of
- * the code keeps the answer's order. A badge names the stock a comparison is about.
+ * the code keeps the answer's order. A badge names the stock a comparison is about. The
+ * name is capped narrower at the compact and standard tiers, so the code and the
+ * figures beside it keep their room.
  */
 function StockCell({
   code,
   name,
   rank,
   badge,
+  tier,
 }: {
   code: string;
   name?: string;
   rank?: number;
   badge?: string;
+  tier: TableTier;
 }) {
   return (
     <span className="block min-w-0">
@@ -363,15 +410,23 @@ function StockCell({
           </span>
         )}
         <StockCodeLink code={code} />
-        {badge && (
-          <span className="rounded-sm bg-muted px-1 text-[10px] font-medium text-muted-foreground">
-            {badge}
-          </span>
-        )}
+        {badge &&
+          (tier === "compact" ? (
+            // The compact table has no room for the badge beside the code. The row's
+            // highlight stays, and a screen reader still hears which stock it is.
+            <span className="sr-only">{badge}</span>
+          ) : (
+            <span className="rounded-sm bg-muted px-1 text-[10px] font-medium text-muted-foreground">
+              {badge}
+            </span>
+          ))}
       </span>
       {name && (
         <span
-          className="block max-w-[7rem] truncate text-[11px] font-normal text-muted-foreground"
+          className={cn(
+            "block truncate text-[11px] font-normal text-muted-foreground",
+            NAME_WIDTH[tier],
+          )}
           title={name}
         >
           {name}

@@ -232,11 +232,20 @@ describe("DirectorTradesTable (recorded)", () => {
     expect(screen.getByText("8 more not shown")).toBeInTheDocument();
   });
 
-  it("says how many trades were reported when the budget left none to draw", () => {
+  it("keeps the table when the budget left none to draw, and counts them in its footer", () => {
+    // The chat's prompt tells the model these answers are shown as a table, so one is drawn.
     const view = parseDirectorTrades(JSON.stringify({ totalCount: 3, omittedTrades: 3 }))!;
     render(<DirectorTradesTable view={view} code="BHP" />);
 
-    expect(screen.getByText("3 director trades were reported but cannot be shown.")).toBeInTheDocument();
+    const table = screen.getByRole("table", { name: "Director trades in BHP" });
+    expect(within(table).getByRole("columnheader", { name: "Director" })).toBeInTheDocument();
+    expect(within(table).queryAllByRole("rowheader")).toHaveLength(0);
+    expect(screen.getByText("3 more not shown")).toBeInTheDocument();
+  });
+
+  it("does not draw an empty table for an answer with no trades and no count", () => {
+    render(<DirectorTradesTable view={parseDirectorTrades("{\"trades\":[]}")!} code="BHP" />);
+    expect(screen.getByText("No director trades reported for BHP.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
@@ -257,5 +266,145 @@ describe("DirectorTradesTable (recorded)", () => {
     render(<DirectorTradesTable view={view} code="BHP" />);
 
     expect(screen.queryByRole("link", { name: /Notice/ })).not.toBeInTheDocument();
+  });
+});
+
+/** The table's width, as a browser lays it out: the sidebar's, a phone's or the /chat page's. */
+function atWidth(px: number) {
+  return jest.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(px);
+}
+
+describe("rich tables at each width", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("keeps the most-shorted figures at a phone's width and draws the trend from the sidebar up", async () => {
+    atWidth(223);
+    const view = parseTopShorts(fixture("get_top_shorts-10.json"))!;
+    const { unmount } = render(<TopShortsTable view={view} />);
+
+    expect(screen.getByRole("columnheader", { name: "Stock" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Short" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Change" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Trend" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /short interest/ })).not.toBeInTheDocument();
+    unmount();
+  });
+
+  it("draws the most-shorted trend at the sidebar's width, at 64px", async () => {
+    atWidth(331);
+    const view = parseTopShorts(fixture("get_top_shorts-10.json"))!;
+    render(<TopShortsTable view={view} />);
+
+    expect(screen.getByRole("columnheader", { name: "Trend" })).toBeInTheDocument();
+    const spark = await screen.findByRole("group", { name: /DRO short interest/ });
+    expect(spark.querySelector("svg")).toHaveAttribute("width", "64");
+  });
+
+  it("draws the most-shorted trend at the /chat page's width, at 96px", async () => {
+    atWidth(620);
+    const view = parseTopShorts(fixture("get_top_shorts-10.json"))!;
+    render(<TopShortsTable view={view} />);
+
+    const spark = await screen.findByRole("group", { name: /DRO short interest/ });
+    expect(spark.querySelector("svg")).toHaveAttribute("width", "96");
+  });
+
+  it("marks the subject of a peer comparison by its row, and names it to a screen reader at a phone's width", () => {
+    atWidth(223);
+    render(<PeersTable view={parsePeers(fixture("get_peer_comparison-bhp.json"))!} />);
+
+    const subject = rowFor("BHP");
+    expect(subject.className).toContain("bg-muted/50");
+    expect(within(subject).getByText("This stock", { selector: ".sr-only" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "P/E" })).not.toBeInTheDocument();
+  });
+
+  it("shows the subject's badge, and the P/E, at the sidebar's width", () => {
+    atWidth(331);
+    render(<PeersTable view={parsePeers(fixture("get_peer_comparison-bhp.json"))!} />);
+
+    expect(screen.getByText("This stock")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "P/E" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Yield" })).not.toBeInTheDocument();
+  });
+
+  it("draws every peer column at the /chat page's width", () => {
+    atWidth(620);
+    render(<PeersTable view={parsePeers(fixture("get_peer_comparison-bhp.json"))!} />);
+
+    expect(screen.getByRole("columnheader", { name: "Yield" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "1-month price" })).toBeInTheDocument();
+  });
+
+  it("abbreviates a director's value below the /chat page's width, and keeps the notice", () => {
+    atWidth(223);
+    render(<DirectorTradesTable view={parseDirectorTrades(fixture("get_director_trades-bhp.json"))!} code="BHP" />);
+
+    expect(screen.getByRole("columnheader", { name: "Value" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Notice" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Shares" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Notice/ }).length).toBeGreaterThan(0);
+  });
+
+  it("draws the price and every figure at the /chat page's width", () => {
+    atWidth(620);
+    render(<DirectorTradesTable view={parseDirectorTrades(fixture("get_director_trades-bhp.json"))!} code="BHP" />);
+
+    expect(screen.getByRole("columnheader", { name: "Price" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Shares" })).toBeInTheDocument();
+  });
+});
+
+describe("the change colours", () => {
+  // The tokens behind the table's background and the site's muted text, in light and dark.
+  // The colours are the Tailwind palette values the classes resolve to.
+  function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+    const sat = s / 100;
+    const light = l / 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const a = sat * Math.min(light, 1 - light);
+    const f = (n: number) =>
+      light - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [f(0), f(8), f(4)].map((x) => Math.round(x * 255)) as [number, number, number];
+  }
+  function hexToRgb(hex: string): [number, number, number] {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function luminance([r, g, b]: [number, number, number]): number {
+    const [lr, lg, lb] = [r, g, b].map((v) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * lr! + 0.7152 * lg! + 0.0722 * lb!;
+  }
+  function contrast(a: [number, number, number], b: [number, number, number]): number {
+    const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+    return (light + 0.05) / (dark + 0.05);
+  }
+
+  const lightBackground = hslToRgb(40, 25, 97); // --background, and the table's bg-background/60 over it
+  const lightMuted = hslToRgb(40, 15, 94); // --muted
+  const darkBackground = hslToRgb(0, 0, 5);
+  const darkMuted = hslToRgb(0, 0, 12);
+
+  it.each([
+    ["text-red-700", "#b91c1c", lightBackground, lightMuted],
+    ["text-emerald-700", "#047857", lightBackground, lightMuted],
+  ])("keeps %s at 4.5:1 or better on the light table", (_name, hex, background, muted) => {
+    const rgb = hexToRgb(hex);
+    expect(contrast(rgb, background)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(rgb, muted)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each([
+    ["dark:text-red-400", "#f87171"],
+    ["dark:text-emerald-400", "#34d399"],
+  ])("keeps %s at 4.5:1 or better on the dark table", (_name, hex) => {
+    const rgb = hexToRgb(hex);
+    expect(contrast(rgb, darkBackground)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(rgb, darkMuted)).toBeGreaterThanOrEqual(4.5);
   });
 });

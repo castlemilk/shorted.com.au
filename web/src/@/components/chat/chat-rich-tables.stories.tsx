@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, within } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 import type { ReactNode } from "react";
 import { ChatDataTable, type ChatDataTableColumn } from "./chat-data-table";
 import { DirectorTradesTable, PeersTable, TopShortsTable } from "./chat-rich-tables";
@@ -19,18 +19,33 @@ import tradesBhp50 from "./__fixtures__/tool-results/get_director_trades-bhp-50.
 // JSON text the chat receives.
 const recorded = (value: unknown) => JSON.stringify(value);
 
-/** Light is the default page; dark is the `.dark` theme the app applies. */
-function themed(theme: "light" | "dark", width: number) {
-  return function ThemedStory(Story: () => ReactNode) {
+/**
+ * The table at an exact width, with no padding around it. The widths are the ones the
+ * table is drawn at: 223px on a 320px phone's bubble, 270px on a 375px phone, 333px in
+ * the desktop sidebar, and 620px on the /chat page. The table's region is 2px narrower
+ * (its border), so a fit is measured inside that.
+ */
+function tableAt(theme: "light" | "dark", width: number) {
+  return function TableFrame(Story: () => ReactNode) {
     return (
       <div className={theme === "dark" ? "dark" : undefined}>
-        <div className="bg-background p-4 text-foreground" style={{ width }}>
+        <div
+          className="bg-background p-0 text-foreground"
+          style={{ width, fontFamily: APP_FONT }}
+        >
           <Story />
         </div>
       </div>
     );
   };
 }
+
+/**
+ * The app sets its text in IBM Plex Mono, a monospace face, and the table's widths are
+ * the widths of that text. Storybook does not load the app's font variable, so the frame
+ * sets the same face's stack: Plex Mono's advance is 0.6em, the same as Menlo's and Monaco's.
+ */
+const APP_FONT = '"IBM Plex Mono", ui-monospace, Menlo, Monaco, monospace';
 
 const meta = {
   title: "Chat/Tool tables",
@@ -56,9 +71,26 @@ async function expectHiddenTextInRegion(canvasElement: HTMLElement, regionName: 
   }
 }
 
+/**
+ * The table fits its region at this width: no sideways scroll, so every column that the
+ * width draws is in view, and no fade says otherwise. The sparklines load on demand, and
+ * their widths count, so the check waits for them when the table draws any.
+ */
+async function expectFitsWithoutScroll(
+  canvasElement: HTMLElement,
+  regionName: string,
+  sparklines: boolean,
+) {
+  const canvas = within(canvasElement);
+  const region = await canvas.findByRole("region", { name: regionName });
+  if (sparklines) await canvas.findAllByRole("group", { name: /short interest/ });
+  expect(region.scrollWidth).toBeLessThanOrEqual(region.clientWidth);
+  expect(canvas.queryByTestId("chat-table-more")).toBeNull();
+}
+
 /** The most-shorted answer with 10 rows and a sparkline on each. Recorded 2026-10-24. */
 export const TopShortsLight: Story = {
-  decorators: [themed("light", 720)],
+  decorators: [tableAt("light", 720)],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -68,7 +100,7 @@ export const TopShortsLight: Story = {
 };
 
 export const TopShortsDark: Story = {
-  decorators: [themed("dark", 720)],
+  decorators: [tableAt("dark", 720)],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
 };
 
@@ -78,7 +110,7 @@ export const TopShortsDark: Story = {
  * rest with a fade at its foot.
  */
 export const TopShortsFifty: Story = {
-  decorators: [themed("light", 720)],
+  decorators: [tableAt("light", 720)],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
   play: async ({ canvasElement }) => {
     await expectHiddenTextInRegion(canvasElement, "Most shorted ASX stocks");
@@ -87,45 +119,103 @@ export const TopShortsFifty: Story = {
   },
 };
 
-/** A phone-width bubble: the table scrolls sideways inside the bubble, not the page. */
-export const TopShortsNarrow: Story = {
-  decorators: [themed("light", 320)],
-  render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
+/**
+ * A row can be inside a scroll region and still under its sticky header: the browser sees it
+ * as visible, and does not scroll it. The region is scrolled so the row's link sits 10px below
+ * the region's top edge, where the header covers it. Focusing the link must bring it clear of
+ * the header, not leave it under it.
+ */
+export const TopShortsFocusUnderHeader: Story = {
+  decorators: [tableAt("light", 333)],
+  render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const region = await canvas.findByRole("region", { name: "Most shorted ASX stocks" });
+    const code = topShorts50.timeSeries[6]!.productCode;
+    const link = await canvas.findByRole("link", { name: code });
+    const header = canvas.getByRole("columnheader", { name: "Stock" });
+    const headerBottom = () => header.getBoundingClientRect().bottom;
+    const offsetInRegion = () => link.getBoundingClientRect().top - region.getBoundingClientRect().top;
+
+    region.scrollTop += offsetInRegion() - 10;
+    await waitFor(() => expect(offsetInRegion()).toBeLessThan(headerBottom() - region.getBoundingClientRect().top));
+
+    link.focus();
+    await waitFor(() => expect(link.getBoundingClientRect().top).toBeGreaterThanOrEqual(headerBottom() - 1));
+  },
 };
 
 /**
- * The sidebar's real width, about 333px after the thread, bubble and tool padding. The
- * code, company, short position and change fit; the trend scrolls sideways, and the fade
- * on the right edge says there is more to see.
+ * A phone-width bubble (about 223px on a 320px phone): the essentials, the stock, the
+ * short position and the change, fit without a sideways scroll. The trend, a sparkline,
+ * is left out at this width, rather than cut off.
  */
-export const TopShortsSidebarLight: Story = {
-  decorators: [themed("light", 333)],
+export const TopShortsSmallPhone: Story = {
+  decorators: [tableAt("light", 223)],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
   play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Most shorted ASX stocks", false);
     const canvas = within(canvasElement);
-    // The fade is measured after mount (and again once the sparklines load), so it is awaited.
-    await expect(await canvas.findByTestId("chat-table-more")).toBeInTheDocument();
+    await expect(canvas.queryByRole("columnheader", { name: "Trend" })).toBeNull();
+  },
+};
+
+/** A 375px phone's bubble, about 270px: the same essentials, with the figures' room to breathe. */
+export const TopShortsPhoneLight: Story = {
+  decorators: [tableAt("light", 270)],
+  render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
+  play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Most shorted ASX stocks", false);
+  },
+};
+
+/**
+ * The sidebar's real width: about 333px after the thread, bubble and tool padding. The
+ * standard table shows the code, company, short position, change and a 64px trend, and
+ * all of it fits without a sideways scroll.
+ */
+export const TopShortsSidebarLight: Story = {
+  decorators: [tableAt("light", 333)],
+  render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
+  play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Most shorted ASX stocks", true);
   },
 };
 
 export const TopShortsSidebarDark: Story = {
-  decorators: [themed("dark", 333)],
+  decorators: [tableAt("dark", 333)],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts10))!} />,
 };
 
-/** The director trades answer at the sidebar's width: the director, shares and value fit. */
+/** The director trades answer at the sidebar's width: the director, shares, value and notice fit. */
 export const DirectorTradesSidebarLight: Story = {
-  decorators: [themed("light", 333)],
+  decorators: [tableAt("light", 333)],
+  render: () => (
+    <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp))!} code="BHP" />
+  ),
+  play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Director trades in BHP", false);
+  },
+};
+
+export const DirectorTradesSidebarDark: Story = {
+  decorators: [tableAt("dark", 333)],
   render: () => (
     <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp))!} code="BHP" />
   ),
 };
 
-export const DirectorTradesSidebarDark: Story = {
-  decorators: [themed("dark", 333)],
+/** On a phone the director trades table keeps the director, the value and the notice. */
+export const DirectorTradesPhoneLight: Story = {
+  decorators: [tableAt("light", 223)],
   render: () => (
     <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp))!} code="BHP" />
   ),
+  play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Director trades in BHP", false);
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole("columnheader", { name: "Shares" })).toBeNull();
+  },
 };
 
 /**
@@ -134,7 +224,7 @@ export const DirectorTradesSidebarDark: Story = {
  * inside the scrolling region rather than widen the conversation.
  */
 export const DirectorTradesTrimmedLight: Story = {
-  decorators: [themed("light", 333)],
+  decorators: [tableAt("light", 333)],
   render: () => (
     <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp50))!} code="BHP" />
   ),
@@ -143,15 +233,49 @@ export const DirectorTradesTrimmedLight: Story = {
   },
 };
 
-/** The peers with the subject first and marked. Recorded 2026-10-24. */
+/**
+ * A synthetic answer whose budget left out every trade: 44 reported, none sent. The
+ * table keeps its header and names the 44 in its footer, as the chat's prompt describes
+ * a table for these results. Synthetic: no recorded answer has this shape.
+ */
+export const DirectorTradesAllTrimmed: Story = {
+  decorators: [tableAt("light", 333)],
+  render: () => (
+    <DirectorTradesTable
+      view={parseDirectorTrades(recorded({ trades: [], totalCount: 44, omittedTrades: 44 }))!}
+      code="BHP"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("table", { name: "Director trades in BHP" })).toBeInTheDocument();
+    await expect(canvas.getByText("44 more not shown")).toBeInTheDocument();
+  },
+};
+
+/** The peers with the subject first and marked, at the sidebar's width. Recorded 2026-10-24. */
 export const PeersSidebarLight: Story = {
-  decorators: [themed("light", 333)],
+  decorators: [tableAt("light", 333)],
   render: () => <PeersTable view={parsePeers(recorded(peersBhp))!} />,
+  play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Peers of BHP in Materials", false);
+  },
+};
+
+/** The peers at a phone's bubble: the stock, its short position and market cap fit. */
+export const PeersPhoneLight: Story = {
+  decorators: [tableAt("light", 223)],
+  render: () => <PeersTable view={parsePeers(recorded(peersBhp))!} />,
+  play: async ({ canvasElement }) => {
+    await expectFitsWithoutScroll(canvasElement, "Peers of BHP in Materials", false);
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole("columnheader", { name: "1-month price" })).toBeNull();
+  },
 };
 
 /** The tool left stocks out of the answer. Synthetic: no recorded answer carries omittedStocks. */
 export const TopShortsOmitted: Story = {
-  decorators: [themed("light", 720)],
+  decorators: [tableAt("light", 720)],
   render: () => (
     <TopShortsTable
       view={
@@ -166,29 +290,32 @@ export const TopShortsOmitted: Story = {
   ),
 };
 
+/** The full peers table on the /chat page, with the one-month price column. */
 export const PeersLight: Story = {
-  decorators: [themed("light", 720)],
+  decorators: [tableAt("light", 720)],
   render: () => <PeersTable view={parsePeers(recorded(peersBhp))!} />,
 };
 
 export const PeersDark: Story = {
-  decorators: [themed("dark", 720)],
+  decorators: [tableAt("dark", 720)],
   render: () => <PeersTable view={parsePeers(recorded(peersBhp))!} />,
 };
 
+/** The director trades on the /chat page: every column, the price included. */
 export const DirectorTradesLight: Story = {
-  decorators: [themed("light", 720)],
+  decorators: [tableAt("light", 720)],
   render: () => (
     <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp))!} code="BHP" />
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("table", { name: "Director trades in BHP" })).toBeInTheDocument();
+    await expect(canvas.getByRole("columnheader", { name: "Price" })).toBeInTheDocument();
   },
 };
 
 export const DirectorTradesDark: Story = {
-  decorators: [themed("dark", 720)],
+  decorators: [tableAt("dark", 720)],
   render: () => (
     <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp))!} code="BHP" />
   ),
@@ -196,7 +323,7 @@ export const DirectorTradesDark: Story = {
 
 /** The documented empty answer, {}: a sentence, not a table. */
 export const DirectorTradesEmpty: Story = {
-  decorators: [themed("light", 720)],
+  decorators: [tableAt("light", 720)],
   render: () => (
     <DirectorTradesTable view={parseDirectorTrades(recorded(tradesNone))!} code="GLC" />
   ),
@@ -204,7 +331,7 @@ export const DirectorTradesEmpty: Story = {
 
 /** The table on its own, for the semantics a reader relies on. */
 export const GenericTable: Story = {
-  decorators: [themed("light", 480)],
+  decorators: [tableAt("light", 480)],
   render: () => {
     interface Pair {
       name: string;

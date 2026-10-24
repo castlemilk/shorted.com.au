@@ -175,3 +175,111 @@ describe("ChatDataTable fit and scrolling", () => {
     expect(screen.getByRole("rowheader", { name: "Beta" }).closest("tr")).not.toHaveClass("bg-muted/50");
   });
 });
+
+describe("ChatDataTable width tiers", () => {
+  interface Wide {
+    id: string;
+    name: string;
+    short: string;
+  }
+  const wideRows: Wide[] = [{ id: "a", name: "Alpha", short: "12.50%" }];
+  const wideColumns: ChatDataTableColumn<Wide>[] = [
+    { id: "name", header: "Name", rowHeader: true, cell: (row) => row.name },
+    {
+      id: "short",
+      header: "Short position",
+      compactHeader: "Short",
+      numeric: true,
+      cell: (row, tier) => `${row.short} ${tier}`,
+    },
+    {
+      id: "trend",
+      header: "Trend",
+      minTier: "standard",
+      cell: () => "trend",
+    },
+  ];
+
+  /** Gives every table the width a region of that many px would have, as a browser lays it out. */
+  function atWidth(px: number) {
+    return jest.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(px);
+  }
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("leaves out the columns that start at a wider tier, at the sidebar's width", () => {
+    atWidth(300);
+    render(<ChatDataTable caption="Tiers" columns={wideColumns} rows={wideRows} rowKey={(r) => r.id} />);
+
+    expect(screen.queryByRole("columnheader", { name: /Trend/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Short position" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Short position" }).textContent).toBe("Short");
+  });
+
+  it("draws every column at the /chat page's width", () => {
+    atWidth(620);
+    render(<ChatDataTable caption="Tiers" columns={wideColumns} rows={wideRows} rowKey={(r) => r.id} />);
+
+    expect(screen.getByRole("columnheader", { name: "Trend" })).toBeInTheDocument();
+  });
+
+  it("draws every column when the width is not measured", () => {
+    atWidth(0);
+    render(<ChatDataTable caption="Tiers" columns={wideColumns} rows={wideRows} rowKey={(r) => r.id} />);
+
+    expect(screen.getByRole("columnheader", { name: "Trend" })).toBeInTheDocument();
+  });
+
+  it("hands each cell the tier the table is drawn at", () => {
+    atWidth(300);
+    render(<ChatDataTable caption="Tiers" columns={wideColumns} rows={wideRows} rowKey={(r) => r.id} />);
+
+    expect(screen.getByRole("cell", { name: "12.50% compact" })).toBeInTheDocument();
+  });
+
+  it("shows a compact header short, and keeps the full name for a screen reader", () => {
+    atWidth(300);
+    render(<ChatDataTable caption="Tiers" columns={wideColumns} rows={wideRows} rowKey={(r) => r.id} />);
+
+    const header = screen.getByRole("columnheader", { name: "Short position" });
+    expect(header.querySelector("abbr")).toHaveAttribute("title", "Short position");
+    expect(header.querySelector("abbr")).toHaveTextContent("Short");
+  });
+
+  it("keeps the full header at the wider tiers", () => {
+    atWidth(620);
+    render(<ChatDataTable caption="Tiers" columns={wideColumns} rows={wideRows} rowKey={(r) => r.id} />);
+
+    expect(screen.getByRole("columnheader", { name: "Short position" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "12.50% full" })).toBeInTheDocument();
+  });
+});
+
+describe("ChatDataTable keeps a focused row clear of the sticky header", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("stops the scroll region short of the header, and each row's scroll margin clears it too", () => {
+    // The header is 28px tall here. Its height is read from the header element.
+    jest.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.tagName === "THEAD" ? 28 : 0;
+    });
+    render(<ChatDataTable caption="Two things" columns={columns} rows={rows} rowKey={(r) => r.id} />);
+
+    const region = screen.getByRole("region", { name: "Two things" });
+    expect(region.style.scrollPaddingTop).toBe("28px");
+    for (const row of within(screen.getByRole("table")).getAllByRole("row").slice(1)) {
+      expect(row.style.scrollMarginTop).toBe("28px");
+    }
+  });
+
+  it("sets no offset before the header is measured", () => {
+    render(<ChatDataTable caption="Two things" columns={columns} rows={rows} rowKey={(r) => r.id} />);
+
+    const region = screen.getByRole("region", { name: "Two things" });
+    expect(region.style.scrollPaddingTop).toBe("");
+  });
+});
