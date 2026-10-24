@@ -130,7 +130,9 @@ func TestAlertsE2EEveryCombinationBinary(t *testing.T) {
 	e.monitor("d1", "u2", u2Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
 
 	// Bootstrap on 13 Oct evaluates nothing and sends exactly the canary.
-	e.day("2026-10-13", comboDay(4.80, 6.00, 0, 4.99, 5.00, 7.00, false))
+	// CCC's earlier reading sits below the top ten, so CCC has two readings and enters
+	// on 14 Oct. Its move also crosses 5% and rises, so a3 and a4 list it first.
+	e.day("2026-10-13", comboDay(4.80, 6.00, 0.10, 4.99, 5.00, 7.00, true))
 	e.wantExit(e.runAlerts(bin), 0, "bootstrap")
 	if d, _ := e.watermarks(); d != "2026-10-13" {
 		t.Fatalf("bootstrap daily watermark = %s", d)
@@ -158,11 +160,11 @@ func TestAlertsE2EEveryCombinationBinary(t *testing.T) {
 	if ev := fired["d1"]; ev.status != "skipped_unentitled" || ev.lastError != "entitlement: status=INACTIVE" {
 		t.Fatalf("the free owner's event = status %s error %q", ev.status, ev.lastError)
 	}
-	if got := codesIn(fired["a3"].payload); got != "AAA,EEE" {
-		t.Fatalf("industry above crossers = %s, want AAA,EEE", got)
+	if got := codesIn(fired["a3"].payload); got != "CCC,AAA,EEE" {
+		t.Fatalf("industry above crossers = %s, want CCC,AAA,EEE by latest reading", got)
 	}
-	if got := codesIn(fired["a4"].payload); got != "BBB,AAA" {
-		t.Fatalf("industry rises = %s, want BBB,AAA by change", got)
+	if got := codesIn(fired["a4"].payload); got != "CCC,BBB,AAA" {
+		t.Fatalf("industry rises = %s, want CCC,BBB,AAA by change", got)
 	}
 	if got := codesIn(fired["a5"].payload); got != "CCC" {
 		t.Fatalf("top ten entrants = %s, want CCC", got)
@@ -179,8 +181,8 @@ func TestAlertsE2EEveryCombinationBinary(t *testing.T) {
 	wantSubjects := []string{
 		"AAA short interest crossed 5% (now 5.20%)",
 		"BBB short interest up 0.50 pts to 6.50%",
-		"Materials: 2 companies crossed 5% short interest",
-		"Materials: 2 companies' short interest rose 0.4+ pts",
+		"Materials: 3 companies crossed 5% short interest",
+		"Materials: 3 companies' short interest rose 0.4+ pts",
 		"Materials: CCC entered the top 10 most shorted",
 	}
 	var gotSubjects []string

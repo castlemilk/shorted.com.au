@@ -3,6 +3,7 @@ package alerts
 import (
 	"flag"
 	"fmt"
+	"html"
 	"os"
 	"path/filepath"
 	"strings"
@@ -244,5 +245,87 @@ func TestCanaryFixtureIsTheTestTicker(t *testing.T) {
 	}
 	if !strings.HasPrefix(r.Subject, "TEST short interest crossed") {
 		t.Fatalf("canary subject = %q", r.Subject)
+	}
+}
+
+// A figure that came from an earlier report than the compared one carries that report's
+// date. The intro still names the compared report, so the lookback reading is never
+// attributed to it.
+func TestLookbackFiguresAreLabelledWithTheirOwnDate(t *testing.T) {
+	m := Message{
+		Scope:      alertevents.ScopeIndustry,
+		Target:     "Materials",
+		Condition:  alertevents.ConditionShortInterestAbove,
+		Cadence:    alertevents.CadenceDaily,
+		Threshold:  fpv(5),
+		ReportDate: "2026-10-16",
+		ComparedTo: "2026-10-15",
+		Payload: alertevents.Payload{
+			Companies: []alertevents.Company{
+				{Code: "LTR", Name: "Lithium Texas", Latest: 5.4, Previous: fpv(4.1), Change: fpv(1.3), PreviousDate: "2026-10-14"},
+				{Code: "PLS", Name: "Pilbara", Latest: 5.6, Previous: fpv(4.4), Change: fpv(1.2), PreviousDate: "2026-10-15"},
+			},
+			CompaniesTotal: 2,
+		},
+	}
+	r, err := renderMessage("https://shorted.com.au", "secret", "m1", m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(r.Text, "4.10% (Wed 14 Oct 2026)") {
+		t.Fatalf("the lookback figure must carry its own report date:\n%s", r.Text)
+	}
+	if strings.Contains(r.Text, "4.40% (") {
+		t.Fatalf("a figure from the compared report needs no date of its own:\n%s", r.Text)
+	}
+	if !strings.Contains(r.Text, "compared with Thu 15 Oct 2026") {
+		t.Fatalf("the intro must still name the compared report:\n%s", r.Text)
+	}
+	if !strings.Contains(r.HTML, "4.10% (Wed 14 Oct 2026)") {
+		t.Fatal("the HTML twin must carry the same label")
+	}
+}
+
+// An industry alert says that every company was checked, and that the email lists those
+// that triggered. A stock alert watches one code, so it has no such line.
+func TestIndustryEmailsSayEveryCompanyWasChecked(t *testing.T) {
+	for _, tc := range []struct {
+		condition string
+		want      string
+	}{
+		{alertevents.ConditionShortInterestAbove, "Every company in Materials was checked. This lists each one that crossed 5% short interest."},
+		{alertevents.ConditionShortInterestRises, "Every company in Materials was checked. This lists each one whose short interest rose by at least 1 pts."},
+		{alertevents.ConditionNewTopTenEntry, "Every company in Materials was ranked. This lists each one that entered the industry's top ten."},
+	} {
+		m := Message{Scope: alertevents.ScopeIndustry, Target: "Materials", Condition: tc.condition, Cadence: alertevents.CadenceDaily,
+			Threshold: fpv(5), ReportDate: "2026-10-16", ComparedTo: "2026-10-15",
+			Payload: alertevents.Payload{Companies: []alertevents.Company{{Code: "AAA", Latest: 6}}, CompaniesTotal: 1}}
+		if tc.condition == alertevents.ConditionShortInterestRises {
+			m.Threshold = fpv(1)
+		}
+		if tc.condition == alertevents.ConditionNewTopTenEntry {
+			m.Threshold = nil
+		}
+		r, err := renderMessage("https://shorted.com.au", "secret", "m1", m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(r.Text, tc.want) {
+			t.Fatalf("%s: text must say every company was checked (want %q):\n%s", tc.condition, tc.want, r.Text)
+		}
+		if !strings.Contains(r.HTML, html.EscapeString(tc.want)) {
+			t.Fatalf("%s: HTML must say every company was checked", tc.condition)
+		}
+	}
+
+	stock := Message{Scope: alertevents.ScopeStock, Target: "BHP", Condition: alertevents.ConditionShortInterestAbove, Cadence: alertevents.CadenceDaily,
+		Threshold: fpv(5), ReportDate: "2026-10-16", ComparedTo: "2026-10-15", Latest: fpv(5.4), Previous: fpv(4.8),
+		Payload: alertevents.Payload{Companies: []alertevents.Company{{Code: "BHP", Latest: 5.4}}, CompaniesTotal: 1}}
+	r, err := renderMessage("https://shorted.com.au", "secret", "m1", stock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(r.Text, "Every company") {
+		t.Fatal("a stock alert watches one code and must not say every company was checked")
 	}
 }

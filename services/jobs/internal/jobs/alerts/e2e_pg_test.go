@@ -524,7 +524,11 @@ func TestAlertsE2ELifecycle(t *testing.T) {
 
 	// Case 1: the bootstrap evaluates nothing, sends exactly one canary, and sets
 	// the watermark to the newest report.
-	e.day("2026-10-13", baseDay0())
+	// CCC has an earlier reading below the top ten, so it has two readings and can
+	// enter the top ten on 14 Oct. A code with a single reading never fires.
+	bootstrap := baseDay0()
+	bootstrap["CCC"] = 0.10
+	e.day("2026-10-13", bootstrap)
 	e.wantExit(e.run(), 0, "bootstrap")
 	if d, _ := e.watermarks(); d != "2026-10-13" {
 		t.Fatalf("bootstrap daily watermark = %s", d)
@@ -563,11 +567,12 @@ func TestAlertsE2ELifecycle(t *testing.T) {
 	if _, ok := byMonitor["m7"]; ok {
 		t.Fatal("a weekly monitor must not fire on a daily evaluation")
 	}
-	if got := codesIn(byMonitor["m3"].payload); got != "AAA,EEE" {
-		t.Fatalf("industry above crossers = %s, want AAA,EEE", got)
+	// CCC crosses 5% and rises on 14 Oct, and every company in the industry is checked.
+	if got := codesIn(byMonitor["m3"].payload); got != "CCC,AAA,EEE" {
+		t.Fatalf("industry above crossers = %s, want CCC,AAA,EEE (by latest reading)", got)
 	}
-	if got := codesIn(byMonitor["m4"].payload); got != "BBB,AAA" {
-		t.Fatalf("industry rises = %s, want BBB,AAA (by change)", got)
+	if got := codesIn(byMonitor["m4"].payload); got != "CCC,BBB,AAA" {
+		t.Fatalf("industry rises = %s, want CCC,BBB,AAA (by change)", got)
 	}
 	if got := codesIn(byMonitor["m5"].payload); got != "CCC" {
 		t.Fatalf("top ten entrants = %s, want CCC", got)

@@ -67,7 +67,7 @@ func messageOf(c Candidate) Message {
 	}
 }
 
-// canaryMessage is the fixed stock-above fixture the daily canary sends through
+// canaryMessage is the fixed stock-above fixture the canary sends through
 // the same template. It is a test ticker, so no recipient reads it as a real alert.
 func canaryMessage() Message {
 	prev, latest, change, thr := 4.80, 5.42, 0.62, 5.0
@@ -102,6 +102,7 @@ func renderMessage(site, secret, monitorID string, m Message) (rendered, error) 
 	summary := summaryLine(m)
 	subject := subjectLine(m)
 	intro := introLine(m)
+	scope := scopeLine(m)
 
 	headers, rows, more := tableOf(m)
 	moreURL := industryURL(site, m)
@@ -114,6 +115,9 @@ func renderMessage(site, secret, monitorID string, m Message) (rendered, error) 
 	var text bytes.Buffer
 	text.WriteString(subject + "\n\n")
 	text.WriteString(intro + "\n")
+	if scope != "" {
+		text.WriteString(scope + "\n")
+	}
 	text.WriteString("ASIC publishes positions four trading days after they are held.\n\n")
 	text.WriteString(textRow(headers, textWidths(m)) + "\n")
 	for _, r := range rows {
@@ -135,6 +139,7 @@ func renderMessage(site, secret, monitorID string, m Message) (rendered, error) 
 	data := htmlData{
 		Headline:  subject,
 		Intro:     intro,
+		ScopeNote: scope,
 		Headers:   headers,
 		Rows:      rows,
 		MoreCount: more,
@@ -211,8 +216,14 @@ func subjectLine(m Message) string {
 func summaryLine(m Message) string {
 	switch m.Condition {
 	case alertevents.ConditionShortInterestAbove:
+		if m.Scope == alertevents.ScopeIndustry {
+			return fmt.Sprintf("%s - any company's short interest above %s%% - %s", m.Target, numStr(*m.Threshold), m.Cadence)
+		}
 		return fmt.Sprintf("%s - short interest above %s%% - %s", m.Target, numStr(*m.Threshold), m.Cadence)
 	case alertevents.ConditionShortInterestRises:
+		if m.Scope == alertevents.ScopeIndustry {
+			return fmt.Sprintf("%s - any company's short interest rises by %s pts - %s", m.Target, numStr(*m.Threshold), m.Cadence)
+		}
 		return fmt.Sprintf("%s - short interest rises by %s pts - %s", m.Target, numStr(*m.Threshold), m.Cadence)
 	default:
 		return fmt.Sprintf("%s - new top-ten entry - %s", m.Target, m.Cadence)
@@ -226,6 +237,35 @@ func introLine(m Message) string {
 			fmtDay(m.ReportDate), fmtDay(m.ComparedTo))
 	}
 	return fmt.Sprintf("ASIC short position report for %s, compared with %s.", fmtDay(m.ReportDate), fmtDay(m.ComparedTo))
+}
+
+// scopeLine says what an industry alert checked. Every company in the industry is
+// evaluated, and the email lists the ones that triggered, so the reader is never
+// left to guess whether one company or the whole industry was watched. A stock
+// alert watches one code, so it needs no such line.
+func scopeLine(m Message) string {
+	if m.Scope != alertevents.ScopeIndustry {
+		return ""
+	}
+	switch m.Condition {
+	case alertevents.ConditionShortInterestAbove:
+		return fmt.Sprintf("Every company in %s was checked. This lists each one that crossed %s%% short interest.", m.Target, numStr(*m.Threshold))
+	case alertevents.ConditionShortInterestRises:
+		return fmt.Sprintf("Every company in %s was checked. This lists each one whose short interest rose by at least %s pts.", m.Target, numStr(*m.Threshold))
+	case alertevents.ConditionNewTopTenEntry:
+		return fmt.Sprintf("Every company in %s was ranked. This lists each one that entered the industry's top ten.", m.Target)
+	}
+	return ""
+}
+
+// datedFigure labels a figure with its own report date when that report is not the
+// one the email compares with. A lookback reading was taken on an earlier report,
+// and printing it without its date would read as the compared report's figure.
+func datedFigure(text, figureDate string, compared Date) string {
+	if figureDate == "" || Date(figureDate) == compared {
+		return text
+	}
+	return fmt.Sprintf("%s (%s)", text, fmtDay(Date(figureDate)))
 }
 
 // fmtDay formats a report date as "Fri 16 Oct 2026".
@@ -253,13 +293,13 @@ func tableOf(m Message) (headers []string, rows [][]string, more int) {
 	if m.Condition == alertevents.ConditionNewTopTenEntry {
 		headers = []string{"Code", "Company", "Rank before", "Rank now", "Latest"}
 		for _, c := range cs {
-			rows = append(rows, []string{c.Code, c.Name, rankOf(c.PreviousRank), rankOf(c.Rank), pct(&c.Latest)})
+			rows = append(rows, []string{c.Code, c.Name, datedFigure(rankOf(c.PreviousRank), c.PreviousDate, m.ComparedTo), rankOf(c.Rank), pct(&c.Latest)})
 		}
 	} else {
 		headers = []string{"Code", "Company", "Previous", "Latest", "Change"}
 		for _, c := range cs {
 			latest := c.Latest
-			rows = append(rows, []string{c.Code, c.Name, pct(c.Previous), pct(&latest), signed(c.Change)})
+			rows = append(rows, []string{c.Code, c.Name, datedFigure(pct(c.Previous), c.PreviousDate, m.ComparedTo), pct(&latest), signed(c.Change)})
 		}
 	}
 	if len(rows) > emailTableRows {
@@ -368,6 +408,7 @@ func joinCodes(m Message) string {
 type htmlData struct {
 	Headline  string
 	Intro     string
+	ScopeNote string
 	Headers   []string
 	Rows      [][]string
 	MoreCount int
@@ -384,6 +425,8 @@ var alertTemplate = template.Must(template.New("alert").Parse(`<!doctype html>
 <html><body style="margin:0;padding:16px;font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff">
 <h2 style="font-size:18px;margin:0 0 12px">{{.Headline}}</h2>
 <p style="margin:0 0 4px">{{.Intro}}</p>
+{{if .ScopeNote}}<p style="margin:0 0 4px">{{.ScopeNote}}</p>
+{{end}}
 <p style="margin:0 0 16px;color:#555">ASIC publishes positions four trading days after they are held.</p>
 <table style="border-collapse:collapse;width:100%;font-size:14px">
 <thead><tr>{{range .Headers}}<th style="text-align:left;border-bottom:1px solid #ccc;padding:6px 8px">{{.}}</th>{{end}}</tr></thead>

@@ -147,17 +147,19 @@ func (s *Snapshot) nameOf(code string) string {
 	return code
 }
 
-// previous is the most recent reading of code in the lookback window that starts
-// at index from (newest first). A daily comparison starts at the previous report,
-// so the window is the five dates before the one being evaluated. A weekly
-// comparison starts at the previous week's last report, so that day is included.
-func (s *Snapshot) previous(code string, from int) (float64, bool) {
+// previousAt is the most recent reading of code in the lookback window that starts
+// at index from (newest first), and the report date it was taken on. A daily
+// comparison starts at the previous report, so the window is the five dates before
+// the one being evaluated. A weekly comparison starts at the previous week's last
+// report, so that day is included. A code absent from the first report of the
+// window is read from the next one that has it, and the date says which.
+func (s *Snapshot) previousAt(code string, from int) (value float64, date Date, ok bool) {
 	for i := from; i < len(s.Dates) && i < from+lookbackDates; i++ {
-		if v, ok := s.rows[s.Dates[i]][code]; ok {
-			return v, true
+		if v, found := s.rows[s.Dates[i]][code]; found {
+			return v, s.Dates[i], true
 		}
 	}
-	return 0, false
+	return 0, "", false
 }
 
 // ranked is the industry's full ranked list on d: every code with a positive
@@ -457,26 +459,28 @@ func Evaluate(monitors []Monitor, snap *Snapshot, plan Plan) []Candidate {
 
 // move is one code's reading across the two compared dates, rounded.
 type move struct {
-	code     string
-	name     string
-	latest   float64
-	previous float64
-	change   float64
+	code         string
+	name         string
+	latest       float64
+	previous     float64
+	previousDate Date // the report the previous reading was taken on
+	change       float64
 }
 
 // move reads code at latest and at its previous reading in the window that starts
-// at prevIdx. It returns false when either reading is missing.
+// at prevIdx. It returns false when either reading is missing: a code needs two
+// readings to move at all.
 func (s *Snapshot) move(code string, latestDate Date, prevIdx int) (move, bool) {
 	cur, ok := s.rows[latestDate][code]
 	if !ok {
 		return move{}, false
 	}
-	prev, ok := s.previous(code, prevIdx)
+	prev, prevDate, ok := s.previousAt(code, prevIdx)
 	if !ok {
 		return move{}, false
 	}
 	l, p := round2(cur), round2(prev)
-	return move{code: code, name: s.nameOf(code), latest: l, previous: p, change: round2(l - p)}, true
+	return move{code: code, name: s.nameOf(code), latest: l, previous: p, previousDate: prevDate, change: round2(l - p)}, true
 }
 
 // satisfies applies a stock-scope rule to one move. Crossing is upward only:
@@ -503,6 +507,7 @@ func (m move) company(rank, previousRank int) alertevents.Company {
 		Change:       &change,
 		Rank:         rank,
 		PreviousRank: previousRank,
+		PreviousDate: string(m.previousDate),
 	}
 }
 
@@ -535,7 +540,7 @@ func evaluateAt(m Monitor, snap *Snapshot, latestDate, prevDate Date) (Candidate
 		}
 		slug := industry.Slug(m.Target)
 		if m.Condition == alertevents.ConditionNewTopTenEntry {
-			companies := snap.topTenEntrants(slug, latestDate, prevDate)
+			companies := snap.topTenEntrants(slug, latestDate, prevIdx)
 			if len(companies) == 0 {
 				return Candidate{}, false
 			}
@@ -581,42 +586,65 @@ func sortMoves(moves []move, condition string) {
 	})
 }
 
-// topTenEntrants returns the codes in the industry's top ten on latestDate that
-// were not in its top ten on prevDate, in rank order. A code with no reading on
-// prevDate is an entrant. PreviousRank is the code's place in the full ranking on
-// prevDate, so a company ranked 11th or lower the day before reads as 11 or lower,
-// and 0 only when it had no positive reading that day.
-func (s *Snapshot) topTenEntrants(slug string, latestDate, prevDate Date) []alertevents.Company {
-	x := s.topTen(slug, latestDate)
-	inTopTenBefore := map[string]bool{}
-	for _, code := range s.topTen(slug, prevDate) {
-		inTopTenBefore[code] = true
-	}
-	rankBefore := map[string]int{}
-	for i, code := range s.ranked(slug, prevDate) {
-		rankBefore[code] = i + 1
-	}
+// topTenEntrants returns the codes that entered the industry's top ten on latestDate,
+// in rank order. prevIdx is the index of the compared report.
+//
+// A code is an entrant when it is in the top ten on latestDate and was not in it on
+// its most recent earlier reading. That reading is taken from the same lookback
+// window the stock rules use, so a code missing from the compared report is judged
+// by the report before it that has it: if it was in the top ten there, it did not
+// enter. A code with no reading in the window has only one reading, and a company
+// needs two readings before it can fire, so it is not an entrant.
+//
+// PreviousRank is the code's place in the full ranking on that earlier reading, so a
+// company ranked 11th or lower then reads as 11 or lower. It is 0 only when the code
+// had no positive reading that day. PreviousDate names the report it was taken on.
+func (s *Snapshot) topTenEntrants(slug string, latestDate Date, prevIdx int) []alertevents.Company {
 	var out []alertevents.Company
-	for i, code := range x {
-		if inTopTenBefore[code] {
+	for i, code := range s.topTen(slug, latestDate) {
+		prev, prevDay, ok := s.previousAt(code, prevIdx)
+		if !ok {
+			continue
+		}
+		if s.inTopTen(slug, prevDay, code) {
 			continue
 		}
 		latest := round2(s.rows[latestDate][code])
-		c := alertevents.Company{
+		p := round2(prev)
+		ch := round2(latest - p)
+		out = append(out, alertevents.Company{
 			Code:         code,
 			Name:         s.nameOf(code),
 			Latest:       latest,
+			Previous:     &p,
+			Change:       &ch,
 			Rank:         i + 1,
-			PreviousRank: rankBefore[code],
-		}
-		if prev, ok := s.rows[prevDate][code]; ok {
-			p := round2(prev)
-			ch := round2(latest - p)
-			c.Previous, c.Change = &p, &ch
-		}
-		out = append(out, c)
+			PreviousRank: s.rankOn(slug, prevDay, code),
+			PreviousDate: string(prevDay),
+		})
 	}
 	return out
+}
+
+// inTopTen reports whether code is among the industry's top ten on d.
+func (s *Snapshot) inTopTen(slug string, d Date, code string) bool {
+	for _, c := range s.topTen(slug, d) {
+		if c == code {
+			return true
+		}
+	}
+	return false
+}
+
+// rankOn is code's place in the industry's full ranking on d, or 0 when it has no
+// positive reading that day.
+func (s *Snapshot) rankOn(slug string, d Date, code string) int {
+	for i, c := range s.ranked(slug, d) {
+		if c == code {
+			return i + 1
+		}
+	}
+	return 0
 }
 
 // payload stores up to storedCompanies companies and the full count.

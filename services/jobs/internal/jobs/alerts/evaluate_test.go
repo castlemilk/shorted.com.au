@@ -257,6 +257,8 @@ func TestTopTenEntrantAndRanks(t *testing.T) {
 		cur[code] = float64(11 - i)
 	}
 	meta["F11"] = CompanyInfo{Name: "F11", Industry: "Materials"}
+	// F11 was ranked eleventh on the compared report: a second reading, outside the top ten.
+	prev["F11"] = 0.5
 	snap := snapOf(dates, map[Date]map[string]float64{d0: cur, d1: prev}, meta)
 
 	m := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionNewTopTenEntry, alertevents.CadenceDaily, nil)
@@ -265,22 +267,38 @@ func TestTopTenEntrantAndRanks(t *testing.T) {
 		t.Fatalf("want one event, got %+v", got)
 	}
 	cs := got[0].Payload.Companies
-	if len(cs) != 1 || cs[0].Code != "F11" || cs[0].Rank != 1 || cs[0].PreviousRank != 0 || cs[0].Previous != nil {
-		t.Fatalf("entrant = %+v, want F11 rank 1, not ranked before, no previous reading", cs)
+	if len(cs) != 1 || cs[0].Code != "F11" || cs[0].Rank != 1 || cs[0].PreviousRank != 11 || cs[0].Previous == nil || *cs[0].Previous != 0.5 {
+		t.Fatalf("entrant = %+v, want F11 rank 1, eleventh before, previous 0.5", cs)
+	}
+	if cs[0].PreviousDate != string(d1) {
+		t.Fatalf("previous date = %q, want %q", cs[0].PreviousDate, d1)
 	}
 }
 
 func TestTopTenTieBrokenByCode(t *testing.T) {
+	// On d0, AAA, MMM and ZZZ tie at 8.0 and are the top three, ties by code ascending.
+	// On d1, MMM and nine fillers hold the top ten, and AAA and ZZZ sit outside it at
+	// 0.5, so each has a second reading and is an entrant. MMM was already in the top ten.
 	dates := []Date{d0, d1}
 	rows := map[Date]map[string]float64{
-		d0: {"ZZZ": 8.0, "AAA": 8.0, "MMM": 8.0},
-		d1: {"MMM": 8.0},
+		d0: {"AAA": 8.0, "MMM": 8.0, "ZZZ": 8.0},
+		d1: {"MMM": 35.0, "AAA": 0.5, "ZZZ": 0.5},
 	}
-	snap := snapOf(dates, rows, materialsMeta("AAA", "MMM", "ZZZ"))
+	for i := 1; i <= 7; i++ {
+		rows[d0]["F"+pad2(i)] = float64(8-i) - 0.5
+	}
+	for i := 1; i <= 9; i++ {
+		rows[d1]["F"+pad2(i)] = float64(31 - i)
+	}
+	meta := materialsMeta("AAA", "MMM", "ZZZ")
+	for i := 1; i <= 9; i++ {
+		meta["F"+pad2(i)] = CompanyInfo{Name: "F" + pad2(i), Industry: "Materials"}
+	}
+	snap := snapOf(dates, rows, meta)
 	m := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionNewTopTenEntry, alertevents.CadenceDaily, nil)
 	got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1))
 	if len(got) != 1 {
-		t.Fatalf("want one event")
+		t.Fatalf("want one event, got %+v", got)
 	}
 	var codes []string
 	for _, c := range got[0].Payload.Companies {
@@ -297,6 +315,8 @@ func TestTopTenTieBrokenByCode(t *testing.T) {
 }
 
 func TestTopTenSmallIndustryRanksEveryCompany(t *testing.T) {
+	// CCC is new to the reports on d0 and has no earlier reading, so it has one reading
+	// and cannot enter. AAA and BBB were already in the three-company top ten.
 	dates := []Date{d0, d1}
 	rows := map[Date]map[string]float64{
 		d0: {"AAA": 3.0, "BBB": 2.0, "CCC": 1.0},
@@ -304,12 +324,21 @@ func TestTopTenSmallIndustryRanksEveryCompany(t *testing.T) {
 	}
 	snap := snapOf(dates, rows, materialsMeta("AAA", "BBB", "CCC"))
 	m := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionNewTopTenEntry, alertevents.CadenceDaily, nil)
-	got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1))
-	if len(got) != 1 || len(got[0].Payload.Companies) != 1 || got[0].Payload.Companies[0].Code != "CCC" {
-		t.Fatalf("CCC enters a three-company industry: %+v", got)
+	if got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1)); len(got) != 0 {
+		t.Fatalf("CCC has one reading and must not enter: %+v", got)
 	}
-	if got[0].Payload.Companies[0].Rank != 3 {
-		t.Fatalf("CCC rank = %d, want 3", got[0].Payload.Companies[0].Rank)
+
+	// Given a second reading from before, CCC was ranked third in a three-company
+	// industry, so it was in the top ten and is still not an entrant.
+	dates = []Date{d0, d1, d2}
+	rows = map[Date]map[string]float64{
+		d0: {"AAA": 3.0, "BBB": 2.0, "CCC": 1.0},
+		d1: {"AAA": 3.0, "BBB": 2.0},
+		d2: {"AAA": 3.0, "BBB": 2.0, "CCC": 1.0},
+	}
+	snap = snapOf(dates, rows, materialsMeta("AAA", "BBB", "CCC"))
+	if got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1)); len(got) != 0 {
+		t.Fatalf("CCC was in the top ten on %s, so it is not an entrant: %+v", d2, got)
 	}
 }
 
@@ -528,5 +557,101 @@ func TestMondayOfAndLastTradingDay(t *testing.T) {
 	g, _ := Date("2026-04-03").Day()
 	if got := lastTradingDay(mondayOf(g)); got != "2026-04-02" {
 		t.Fatalf("Good Friday week last trading day = %s, want 2026-04-02", got)
+	}
+}
+
+// topTenFixture is an industry of ten codes F01..F10 (F01 highest) plus any extra
+// codes, with the readings for each report date. It returns the snapshot.
+func topTenFixture(t *testing.T, dates []Date, rows map[Date]map[string]float64, extra ...string) *Snapshot {
+	t.Helper()
+	meta := map[string]CompanyInfo{}
+	for i := 1; i <= 10; i++ {
+		meta["F"+pad2(i)] = CompanyInfo{Name: "F" + pad2(i), Industry: "Materials"}
+	}
+	for _, code := range extra {
+		meta[code] = CompanyInfo{Name: code, Industry: "Materials"}
+	}
+	return snapOf(dates, rows, meta)
+}
+
+// A code missing from the compared report is judged by the most recent earlier report
+// that has it, as the stock rules are. Here X was in the top ten two reports back and
+// is absent from the report before that, so X did not enter the top ten. Before the
+// fix it was an entrant, because only the immediately previous file was read.
+func TestTopTenEntrantReadsTheLookbackNotOnlyThePreviousFile(t *testing.T) {
+	dates := []Date{d0, d1, d2}
+	d2rows := map[string]float64{"X": 20.0}
+	for i := 1; i <= 9; i++ {
+		d2rows["F"+pad2(i)] = float64(20 - i)
+	}
+	d2rows["F10"] = 10.5
+	d1rows := map[string]float64{} // the compared report: X is absent, the ten are ranked
+	for i := 1; i <= 10; i++ {
+		d1rows["F"+pad2(i)] = float64(20 - i)
+	}
+	d0rows := map[string]float64{"X": 15.0}
+	for i := 1; i <= 9; i++ {
+		d0rows["F"+pad2(i)] = float64(20 - i)
+	}
+	snap := topTenFixture(t, dates, map[Date]map[string]float64{d0: d0rows, d1: d1rows, d2: d2rows}, "X")
+	m := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionNewTopTenEntry, alertevents.CadenceDaily, nil)
+	if got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1)); len(got) != 0 {
+		t.Fatalf("X was in the top ten on %s, so it is not an entrant; got %+v", d2, got)
+	}
+}
+
+// A code with only one reading cannot fire a company condition: a new listing that
+// enters the top ten is not an entrant until it has a second reading.
+func TestTopTenEntrantNeedsTwoReadings(t *testing.T) {
+	dates := []Date{d0, d1}
+	d1rows := map[string]float64{}
+	for i := 1; i <= 10; i++ {
+		d1rows["F"+pad2(i)] = float64(20 - i)
+	}
+	d0rows := map[string]float64{"NEW": 30.0}
+	for i := 1; i <= 9; i++ {
+		d0rows["F"+pad2(i)] = float64(20 - i)
+	}
+	snap := topTenFixture(t, dates, map[Date]map[string]float64{d0: d0rows, d1: d1rows}, "NEW")
+	m := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionNewTopTenEntry, alertevents.CadenceDaily, nil)
+	if got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1)); len(got) != 0 {
+		t.Fatalf("a code with no earlier reading must not fire, got %+v", got)
+	}
+}
+
+// A code that entered from outside the top ten is labelled with the report its previous
+// reading and rank came from. It was absent on the compared report and read on d2.
+func TestTopTenEntrantPreviousFigureCarriesItsOwnDate(t *testing.T) {
+	dates := []Date{d0, d1, d2}
+	d2rows := map[string]float64{"K": 2.0}
+	for i := 1; i <= 10; i++ {
+		d2rows["F"+pad2(i)] = float64(20 - i)
+	}
+	d1rows := map[string]float64{} // K is absent, the ten are ranked
+	for i := 1; i <= 10; i++ {
+		d1rows["F"+pad2(i)] = float64(20 - i)
+	}
+	d0rows := map[string]float64{"K": 25.0}
+	for i := 1; i <= 9; i++ {
+		d0rows["F"+pad2(i)] = float64(20 - i)
+	}
+	snap := topTenFixture(t, dates, map[Date]map[string]float64{d0: d0rows, d1: d1rows, d2: d2rows}, "K")
+	m := mon(alertevents.ScopeIndustry, "Materials", alertevents.ConditionNewTopTenEntry, alertevents.CadenceDaily, nil)
+	got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1))
+	if len(got) != 1 || len(got[0].Payload.Companies) != 1 {
+		t.Fatalf("K enters the top ten, want one entrant: %+v", got)
+	}
+	c := got[0].Payload.Companies[0]
+	if c.Code != "K" || c.Rank != 1 {
+		t.Fatalf("entrant = %+v, want K at rank 1", c)
+	}
+	if c.PreviousDate != string(d2) {
+		t.Fatalf("previous date = %q, want %q: the reading came from %s, not the compared report", c.PreviousDate, d2, d2)
+	}
+	if c.Previous == nil || *c.Previous != 2 || c.PreviousRank != 11 {
+		t.Fatalf("previous = %v rank %d, want 2 and rank 11 on %s", c.Previous, c.PreviousRank, d2)
+	}
+	if got[0].ComparedTo != d1 {
+		t.Fatalf("the event still compares with %s, got %s", d1, got[0].ComparedTo)
 	}
 }
