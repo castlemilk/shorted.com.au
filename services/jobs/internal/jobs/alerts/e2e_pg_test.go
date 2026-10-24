@@ -630,6 +630,15 @@ func TestAlertsE2ELifecycle(t *testing.T) {
 	if got := e.resend.acceptedFor(key); got != 1 {
 		t.Fatalf("a retried send was delivered %d times", got)
 	}
+	// The count above is 1 from the first send whether or not the retry reused
+	// the key, so also check that the retry sent no second key for this event.
+	// A requeue that touched created_at would mail the customer twice.
+	prefix := fmt.Sprintf("alert-event-%d-", m1Event.id)
+	for _, r := range e.resend.snapshot() {
+		if strings.HasPrefix(r.key, prefix) && r.key != key {
+			t.Fatalf("event %d was sent under a second key %q (first %q)", m1Event.id, r.key, key)
+		}
+	}
 	e.wantStatus(m1Event.id, "sent")
 
 	// Case 5: a retryable failure. The first request to the owner fails once, the
