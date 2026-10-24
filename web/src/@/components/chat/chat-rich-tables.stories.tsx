@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, waitFor, within } from "storybook/test";
 import type { ReactNode } from "react";
+import { cn } from "~/@/lib/utils";
 import { ChatDataTable, type ChatDataTableColumn } from "./chat-data-table";
 import { DirectorTradesTable, PeersTable, TopShortsTable } from "./chat-rich-tables";
 import {
@@ -25,13 +26,39 @@ const recorded = (value: unknown) => JSON.stringify(value);
  * the desktop sidebar, and 620px on the /chat page. The table's region is 2px narrower
  * (its border), so a fit is measured inside that.
  */
-function tableAt(theme: "light" | "dark", width: number) {
+/** The classic scrollbar a long table is given in a story: 15px, the width Linux Chromium draws. */
+const STORY_SCROLLBAR_PX = 15;
+
+/**
+ * A story's frame. `width` is the table's usable width, what the story is about: the frame
+ * is widened by the scrollbar's width when `classicScrollbar` is set, so the table's
+ * region keeps that usable width. A long table (over ten rows) reserves a scrollbar gutter,
+ * and macOS hides classic scrollbars while Linux draws them, so an unforced frame drew a
+ * different tier on each platform. `::-webkit-scrollbar` makes Chromium draw a classic
+ * scrollbar of the stated width on every OS; the `scrollbar-width` line keeps Firefox and
+ * Safari on their own default rather than a thin or hidden one.
+ */
+function tableAt(
+  theme: "light" | "dark",
+  width: number,
+  { classicScrollbar = false }: { classicScrollbar?: boolean } = {},
+) {
+  const frame = classicScrollbar ? width + STORY_SCROLLBAR_PX : width;
   return function TableFrame(Story: () => ReactNode) {
     return (
       <div className={theme === "dark" ? "dark" : undefined}>
+        {classicScrollbar && (
+          <style>{`
+            .chat-story-classic-scrollbar, .chat-story-classic-scrollbar * { scrollbar-width: auto; }
+            .chat-story-classic-scrollbar ::-webkit-scrollbar { width: ${STORY_SCROLLBAR_PX}px; height: ${STORY_SCROLLBAR_PX}px; }
+          `}</style>
+        )}
         <div
-          className="bg-background p-0 text-foreground"
-          style={{ width, fontFamily: APP_FONT }}
+          className={cn(
+            "bg-background p-0 text-foreground",
+            classicScrollbar && "chat-story-classic-scrollbar",
+          )}
+          style={{ width: frame, fontFamily: APP_FONT }}
         >
           <Story />
         </div>
@@ -83,9 +110,14 @@ async function expectFitsWithoutScroll(
 ) {
   const canvas = within(canvasElement);
   const region = await canvas.findByRole("region", { name: regionName });
-  if (sparklines) await canvas.findAllByRole("group", { name: /short interest/ });
-  expect(region.scrollWidth).toBeLessThanOrEqual(region.clientWidth);
-  expect(canvas.queryByTestId("chat-table-more")).toBeNull();
+  // A slow runner draws the sparklines late, after the tier that draws them is chosen, so the
+  // wait for them is longer than the default.
+  if (sparklines) await canvas.findAllByRole("group", { name: /short interest/ }, { timeout: 5000 });
+  // The widths and the fade are read once the layout has settled, not at the first paint.
+  await waitFor(() => {
+    expect(region.scrollWidth).toBeLessThanOrEqual(region.clientWidth);
+    expect(canvas.queryByTestId("chat-table-more")).toBeNull();
+  });
 }
 
 /** The most-shorted answer with 10 rows and a sparkline on each. Recorded 2026-10-24. */
@@ -110,7 +142,7 @@ export const TopShortsDark: Story = {
  * rest with a fade at its foot.
  */
 export const TopShortsFifty: Story = {
-  decorators: [tableAt("light", 720)],
+  decorators: [tableAt("light", 720, { classicScrollbar: true })],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
   play: async ({ canvasElement }) => {
     await expectHiddenTextInRegion(canvasElement, "Most shorted ASX stocks");
@@ -126,7 +158,7 @@ export const TopShortsFifty: Story = {
  * the header, not leave it under it.
  */
 export const TopShortsFocusUnderHeader: Story = {
-  decorators: [tableAt("light", 333)],
+  decorators: [tableAt("light", 333, { classicScrollbar: true })],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -232,7 +264,7 @@ export const DirectorTradesPhoneLight: Story = {
  * inside the scrolling region rather than widen the conversation.
  */
 export const DirectorTradesTrimmedLight: Story = {
-  decorators: [tableAt("light", 333)],
+  decorators: [tableAt("light", 333, { classicScrollbar: true })],
   render: () => (
     <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp50))!} code="BHP" />
   ),
@@ -370,7 +402,7 @@ export const GenericTable: Story = {
  * view without a sideways scroll, and says which rows have a change and a trend.
  */
 export const TopShortsDesktopSidebarLight: Story = {
-  decorators: [tableAt("light", 276)],
+  decorators: [tableAt("light", 276, { classicScrollbar: true })],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
   play: async ({ canvasElement }) => {
     await expectFitsWithoutScroll(canvasElement, "Most shorted ASX stocks", false);
@@ -386,7 +418,7 @@ export const TopShortsDesktopSidebarLight: Story = {
  * Every column is still in view without a sideways scroll.
  */
 export const TopShortsDesktopClassicScrollbar: Story = {
-  decorators: [tableAt("light", 263)],
+  decorators: [tableAt("light", 263, { classicScrollbar: true })],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
   play: async ({ canvasElement }) => {
     await expectFitsWithoutScroll(canvasElement, "Most shorted ASX stocks", false);
@@ -399,8 +431,9 @@ export const TopShortsDesktopClassicScrollbar: Story = {
  * the trend fits beside the figures without a sideways scroll.
  */
 export const TopShortsFiftyStandardWidth: Story = {
-  // The frame is 332px: the table's region is 2px narrower, for its border, and is 330px.
-  decorators: [tableAt("light", 332)],
+  // The table's usable width is 330px: the frame is 332px less the scrollbar's 15px, plus the
+  // scrollbar the frame is widened by. The region's 1px border on each side is in the 332.
+  decorators: [tableAt("light", 332, { classicScrollbar: true })],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
   play: async ({ canvasElement }) => {
     await expectFitsWithoutScroll(canvasElement, "Most shorted ASX stocks", true);
@@ -413,7 +446,7 @@ export const TopShortsFiftyStandardWidth: Story = {
  * the trade type share a single line beneath, so no row grows to three or four lines.
  */
 export const DirectorTradesDesktopSidebarLight: Story = {
-  decorators: [tableAt("light", 276)],
+  decorators: [tableAt("light", 276, { classicScrollbar: true })],
   render: () => (
     <DirectorTradesTable view={parseDirectorTrades(recorded(tradesBhp50))!} code="BHP" />
   ),
@@ -453,7 +486,7 @@ export const PeersDesktopSidebarLight: Story = {
  * 10px, where the fade covers it. Focusing the link brings it up above the fade.
  */
 export const TopShortsFocusAboveFade: Story = {
-  decorators: [tableAt("light", 333)],
+  decorators: [tableAt("light", 333, { classicScrollbar: true })],
   render: () => <TopShortsTable view={parseTopShorts(recorded(topShorts50))!} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
