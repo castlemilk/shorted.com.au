@@ -97,6 +97,7 @@ func publicSource(store *publicFakeStore, premium bool, email string, emailErr e
 			}
 			return email, nil
 		},
+		upgradeURL: defaultUpgradeURL,
 	}
 }
 
@@ -110,7 +111,8 @@ func TestPublicCreateRefusesWithoutAVerifiedAddress(t *testing.T) {
 	src := publicSource(store, true, "", errors.New("this account has no email address on file"))
 	_, err := src.CreateAlert(context.Background(), "uid-a", bhpAbove)
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "none was created")
+	// Finding 6: the caller sees the public verify message, never the internal reason.
+	assert.Equal(t, publicAddressUnverified, err.Error())
 	assert.Empty(t, store.created)
 }
 
@@ -120,7 +122,7 @@ func TestPublicCreateNeedsPremiumLikeTheWebAPI(t *testing.T) {
 	src := publicSource(store, false, "ben@example.test", nil)
 	_, err := src.CreateAlert(context.Background(), "uid-a", bhpAbove)
 	require.Error(t, err)
-	assert.EqualError(t, err, alertsNeedPremium)
+	assert.EqualError(t, err, alertsNeedPremium+". Upgrade at "+defaultUpgradeURL)
 	assert.Empty(t, store.created)
 }
 
@@ -188,7 +190,7 @@ func TestPublicResumeNeedsPremium(t *testing.T) {
 
 	lapsed := publicSource(store, false, "", nil)
 	_, err = lapsed.SetAlertPaused(context.Background(), "uid-a", created.ID, false)
-	assert.EqualError(t, err, alertsNeedPremium)
+	assert.EqualError(t, err, alertsNeedPremium+". Upgrade at "+defaultUpgradeURL)
 	assert.NotContains(t, strings.Join(store.statusWrites, ","), ":active:", "a refused resume writes nothing")
 }
 

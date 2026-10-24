@@ -133,17 +133,27 @@ func validateAlertMonitorInput(userID, verifiedEmail string, msg *shortsv1alpha1
 	}, nil
 }
 
+// requirePremium is the entitlement check create and resume share. It is a method of the
+// core so a caller can run it BEFORE any other work (the public path reads the caller's
+// address only after it passes), and so the refusal is the same wherever it is asked.
+func (c alertsCore) requirePremium(userID string) error {
+	entitled, err := c.entitled(userID)
+	if err != nil {
+		c.logger.Errorf("failed to check subscription for user %s: %v", userID, err)
+		return alertsFail(alertsKindInternal, errors.New("failed to check subscription"))
+	}
+	if !entitled {
+		return alertsFail(alertsKindPermission, errors.New(alertsNeedPremium))
+	}
+	return nil
+}
+
 // createMonitor saves a premium monitor for userID. Order matters and is pinned by
 // the handler tests: entitlement, then the request shape, then the target, then the
 // store. A refused create writes nothing.
 func (c alertsCore) createMonitor(_ context.Context, userID, verifiedEmail string, msg *shortsv1alpha1.CreateAlertMonitorRequest) (*shortsstore.AlertMonitor, error) {
-	entitled, err := c.entitled(userID)
-	if err != nil {
-		c.logger.Errorf("failed to check subscription for user %s: %v", userID, err)
-		return nil, alertsFail(alertsKindInternal, errors.New("failed to check subscription"))
-	}
-	if !entitled {
-		return nil, alertsFail(alertsKindPermission, errors.New(alertsNeedPremium))
+	if err := c.requirePremium(userID); err != nil {
+		return nil, err
 	}
 
 	input, err := validateAlertMonitorInput(userID, verifiedEmail, msg)
@@ -218,13 +228,8 @@ func (c alertsCore) listMonitors(_ context.Context, userID, verifiedEmail string
 // Premium. status is the store's form (alertevents.MonitorStatus*).
 func (c alertsCore) setMonitorStatus(_ context.Context, userID, verifiedEmail, monitorID, status string) (*shortsstore.AlertMonitor, error) {
 	if status == alertevents.MonitorStatusActive {
-		entitled, err := c.entitled(userID)
-		if err != nil {
-			c.logger.Errorf("failed to check subscription for user %s: %v", userID, err)
-			return nil, alertsFail(alertsKindInternal, errors.New("failed to check subscription"))
-		}
-		if !entitled {
-			return nil, alertsFail(alertsKindPermission, errors.New(alertsNeedPremium))
+		if err := c.requirePremium(userID); err != nil {
+			return nil, err
 		}
 	}
 

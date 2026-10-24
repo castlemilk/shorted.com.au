@@ -20,10 +20,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/alertevents"
+	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
@@ -37,6 +39,10 @@ type publicAlertsSource struct {
 	core          alertsCore
 	store         ShortsStore
 	verifiedEmail func(ctx context.Context, userID string) (string, error)
+	// upgradeURL is named in the Premium refusal. It is the configured rate-limit upgrade URL
+	// (RATE_LIMIT_UPGRADE_URL, default https://shorted.com.au/pricing), the same one the rate limiter
+	// names to a caller at its quota.
+	upgradeURL string
 }
 
 var _ mcp.AlertsWriteOperator = (*publicAlertsSource)(nil)
@@ -46,8 +52,9 @@ var _ mcp.AlertsWriteOperator = (*publicAlertsSource)(nil)
 // reads and pause and delete still work.
 func newPublicAlertsSource(s *ShortsServer, users firebaseUsersReader) *publicAlertsSource {
 	return &publicAlertsSource{
-		core:  s.alertsCore(),
-		store: s.store,
+		core:       s.alertsCore(),
+		store:      s.store,
+		upgradeURL: upgradeURLOrDefault(s.config.RateLimitConfig.UpgradeURL),
 		verifiedEmail: func(ctx context.Context, uid string) (string, error) {
 			return verifiedAccountEmail(ctx, users, uid)
 		},
@@ -102,23 +109,32 @@ func (a *publicAlertsSource) ListMyAlerts(ctx context.Context, userID string, li
 	return out, nil
 }
 
+// CreateAlert runs in the same order as the web create: the request's shape, then the
+// Premium check, then the caller's verified address, then the monitor. An account without
+// Premium never reaches the address lookup.
 func (a *publicAlertsSource) CreateAlert(ctx context.Context, userID string, in mcp.CreateAlertInput) (*mcp.AlertsOwnMonitor, error) {
 	msg, err := createRequestFromTool(in)
 	if err != nil {
 		return nil, err
 	}
-	email, err := a.verifiedEmail(ctx, userID)
+	if err := a.core.requirePremium(userID); err != nil {
+		return nil, a.premiumRefusal(err)
+	}
+	email, err := a.addressFor(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("an alert is emailed to your verified address, so none was created: %w", err)
+		return nil, err
 	}
 	monitor, err := a.core.createMonitor(ctx, userID, email, msg)
 	if err != nil {
-		return nil, err
+		return nil, a.premiumRefusal(err)
 	}
 	row := ownMonitorView(monitor)
 	return &row, nil
 }
 
+// SetAlertPaused pauses without a subscription, and resumes with one. A resume checks
+// Premium before it reads the address, like create. The address on a resume is best effort:
+// an unreadable one leaves the stored address as it is, as the web handler does.
 func (a *publicAlertsSource) SetAlertPaused(ctx context.Context, userID, monitorID string, paused bool) (*mcp.AlertsOwnMonitor, error) {
 	var (
 		status = alertevents.MonitorStatusPaused
@@ -126,7 +142,9 @@ func (a *publicAlertsSource) SetAlertPaused(ctx context.Context, userID, monitor
 	)
 	if !paused {
 		status = alertevents.MonitorStatusActive
-		// Best effort: an unreadable or unverified address leaves the stored one as it is.
+		if err := a.core.requirePremium(userID); err != nil {
+			return nil, a.premiumRefusal(err)
+		}
 		if e, err := a.verifiedEmail(ctx, userID); err == nil {
 			email = e
 		}
@@ -137,6 +155,25 @@ func (a *publicAlertsSource) SetAlertPaused(ctx context.Context, userID, monitor
 	}
 	row := ownMonitorView(monitor)
 	return &row, nil
+}
+
+// addressFor reads the caller's verified address for a create. The failure the caller sees
+// is the public one: it names the account, never the deployment (publicAddressError).
+func (a *publicAlertsSource) addressFor(ctx context.Context, userID string) (string, error) {
+	email, err := a.verifiedEmail(ctx, userID)
+	if err != nil {
+		return "", publicAddressError(err)
+	}
+	return email, nil
+}
+
+// premiumRefusal adds the upgrade URL to the Premium refusal, so the caller can act on it.
+// Any other error passes through unchanged.
+func (a *publicAlertsSource) premiumRefusal(err error) error {
+	if err == nil || kindOf(err) != alertsKindPermission {
+		return err
+	}
+	return fmt.Errorf("%s. Upgrade at %s", alertsNeedPremium, a.upgradeURL)
 }
 
 func (a *publicAlertsSource) DeleteAlert(ctx context.Context, userID, monitorID string) error {
@@ -215,4 +252,44 @@ func createRequestFromTool(in mcp.CreateAlertInput) (*shortsv1alpha1.CreateAlert
 		msg.HasThreshold = true
 	}
 	return msg, nil
+}
+
+// defaultUpgradeURL is the pricing page, the same default the rate-limit config uses.
+const defaultUpgradeURL = "https://shorted.com.au/pricing"
+
+// upgradeURLOrDefault returns the configured upgrade URL, or the pricing page when none is set.
+func upgradeURLOrDefault(configured string) string {
+	if strings.TrimSpace(configured) == "" {
+		return defaultUpgradeURL
+	}
+	return configured
+}
+
+// Public wording for an address that cannot be used. A caller reads these; they name the
+// account, never the deployment, the admin path, or any URL.
+const (
+	//nolint:staticcheck // ST1005: user-facing copy, shown verbatim to the caller
+	publicAddressUnverified = "We couldn't confirm a verified email on your Shorted account; verify it at shorted.com.au and try again"
+	//nolint:staticcheck // ST1005: user-facing copy, shown verbatim to the caller
+	publicAccountService = "Couldn't reach the account service; try again shortly"
+)
+
+// publicAddressError maps a verified-address failure to the public wording, and logs the detail
+// server-side. The detail may name an internal setting or an endpoint, so it stays in the log.
+// The rule's own refusals (not verified, disabled, no address, no account) all read as the verify
+// message, because the caller can act only on that.
+func publicAddressError(err error) error {
+	if err == nil {
+		return nil
+	}
+	log.Warnf("public alerts: verified address unavailable: %v", err)
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "admin users") || strings.Contains(msg, "HTTP ") ||
+		strings.Contains(msg, "not deployed") || strings.Contains(msg, "still rolling out") ||
+		strings.Contains(msg, "web app") || strings.Contains(msg, "INTERNAL_SERVICE_SECRET"):
+		return errors.New(publicAccountService)
+	default:
+		return errors.New(publicAddressUnverified)
+	}
 }
