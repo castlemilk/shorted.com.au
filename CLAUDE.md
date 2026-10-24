@@ -1363,7 +1363,7 @@ on the public server, the read-only rule has ONE exception: `alerts:write`
 keep it safe, each tested: those tools are NOT in `Registry()`, and a
 second prebuilt server lists them only to a request whose VERIFIED token carries the
 scope (`HandlerWithAlerts`; `Stateless: true` stays on, the choice is per request);
-anonymous and unscoped `tools/list` stay byte-identical; the owner is the verified
+anonymous and unscoped `tools/list` are the old list plus `manage_my_alerts`, and nothing else changes; the owner is the verified
 token's uid and no tool takes one; every write goes through `alerts_core.go`; and a
 token gets the scope only when it asks for it by name, never by default
 (`mcp.DefaultScopes`). Any other write tool or non-`:read` scope still needs its own

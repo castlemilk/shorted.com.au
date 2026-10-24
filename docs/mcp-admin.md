@@ -79,6 +79,10 @@ approve it (an empty scope request is granted the whole admin vocabulary).
 **This connector exposes only admin tools; it is not a superset of
 the public server.** A research client — one that needs short positions,
 
+strategy picks, fundamentals, housing, economy or the register of interests —
+must also connect the public URL, `https://api.shorted.com.au/mcp`, as its own
+connector.
+
 Signed-in users' own alerts are a different connection and a different scope. The
 public `/mcp` server offers six alert tools (`list_my_alerts`, `create_alert`,
 `pause_alert`, `resume_alert`, `delete_alert`, `list_my_alert_history`) only to a token
@@ -86,9 +90,6 @@ carrying `alerts:write`, which is never granted by default. They act on the call
 account and never on another owner's. The admin tools here, including the smoke test
 (`run_alerts_smoke_test`), stay on this connector and this scope vocabulary. See
 `web/public/docs/mcp-markdown.md`, "Your alerts", and CLAUDE.md, "MCP server".
-strategy picks, fundamentals, housing, economy or the register of interests —
-must also connect the public URL, `https://api.shorted.com.au/mcp`, as its own
-connector.
 
 ## Users, paying users and the mailing list (`users:read`)
 
