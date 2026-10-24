@@ -59,8 +59,8 @@ func TestRenderDecodesAtTheCanvasSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("output is not a PNG: %v", err)
 	}
-	if b := img.Bounds(); b.Dx() != 1104 || b.Dy() != 440 {
-		t.Fatalf("size = %dx%d, want 1104x440", b.Dx(), b.Dy())
+	if b := img.Bounds(); b.Dx() != 960 || b.Dy() != 480 {
+		t.Fatalf("size = %dx%d, want 960x480", b.Dx(), b.Dy())
 	}
 }
 
@@ -88,8 +88,9 @@ func TestRenderWithoutThresholdOrComparedPoint(t *testing.T) {
 	}
 }
 
+// A single reading has no line and skips the chart. Two readings draw.
 func TestRenderEmptyAndShortSeriesReturnTheSentinel(t *testing.T) {
-	for _, n := range []int{0, 1, 2} {
+	for _, n := range []int{0, 1} {
 		pts := series(n, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), 1, 2)
 		_, err := Render(Spec{Points: pts, ReportDate: "x"})
 		if !errors.Is(err, ErrTooFewPoints) {
@@ -166,4 +167,66 @@ func ExampleRender() {
 	b, err := Render(Spec{Points: pts, Threshold: f64(10), ReportDate: "2026-10-16", ComparedTo: "2026-10-15"})
 	fmt.Println(err, len(b) > 0)
 	// Output: <nil> true
+}
+
+// Two readings, as a stock reported on only its first two days, still get a chart.
+func TestTwoReadingsDraw(t *testing.T) {
+	pts := []Point{{"2026-10-15", 6.99}, {"2026-10-16", 12.15}}
+	if _, err := Render(Spec{Points: pts, Threshold: f64(10), ReportDate: "2026-10-16", ComparedTo: "2026-10-15"}); err != nil {
+		t.Fatalf("two readings must render: %v", err)
+	}
+}
+
+// The short history (under twenty readings) spreads its dots across the plot and
+// labels each reading's own day, so it must render differently from a long one.
+func TestShortHistoryRendersDifferently(t *testing.T) {
+	short := glencoreFrom(3)
+	a, err := Render(short)
+	if err != nil {
+		t.Fatal(err)
+	}
+	long := glencoreFrom(40)
+	b, err := Render(long)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(a, b) {
+		t.Fatal("a three-reading chart must not look like a long one")
+	}
+}
+
+// The dark room draws the same chart in its own palette: deterministic, the same
+// size, and not the light bytes.
+func TestDarkRenderIsDeterministicAndDistinct(t *testing.T) {
+	spec := glencore(120)
+	a, err := RenderDark(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := RenderDark(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(a, b) {
+		t.Fatal("two dark renders differ")
+	}
+	light, err := Render(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(a, light) {
+		t.Fatal("the dark chart must differ from the light one")
+	}
+	img, err := png.Decode(bytes.NewReader(a))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b := img.Bounds(); b.Dx() != 960 || b.Dy() != 480 {
+		t.Fatalf("dark size = %dx%d", b.Dx(), b.Dy())
+	}
+}
+
+func glencoreFrom(n int) Spec {
+	pts := series(n, time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC), 5.83, 12.15)
+	return Spec{Points: pts, Threshold: f64(10), ReportDate: pts[n-1].Date, ComparedTo: pts[n-2].Date}
 }

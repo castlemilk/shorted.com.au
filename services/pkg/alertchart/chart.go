@@ -3,9 +3,10 @@
 // come from golang.org/x/image/vector and the labels from IBM Plex Mono, which is
 // embedded rather than read from the system.
 //
-// The canvas is 2x the size it is shown at (1104x440 for 552x220), so the email
-// stays sharp on high-density screens. Render is deterministic: the same Spec
-// always produces the same bytes.
+// The canvas is 2x the size it is shown at (960x480 for 480x240 on a phone, and
+// 552 wide on a desktop), so the labels stay legible when the email shrinks. There
+// are two palettes: Render draws the light card, RenderDark draws the dark room.
+// Both are deterministic: the same Spec always produces the same bytes.
 //
 // The font files in fonts/ are IBM Plex Mono from
 // https://github.com/google/fonts/tree/main/ofl/ibmplexmono, licensed under the
@@ -41,41 +42,76 @@ var semiboldTTF []byte
 
 // Canvas and plot geometry, in pixels at 2x.
 const (
-	Width      = 1104
-	Height     = 440
-	plotLeft   = 92
-	plotRight  = 36
-	plotTop    = 44
-	plotBottom = 60
+	Width      = 960
+	Height     = 480
+	plotLeft   = 124
+	plotRight  = 40
+	plotTop    = 56
+	plotBottom = 76
 	plotW      = Width - plotLeft - plotRight
 	plotH      = Height - plotTop - plotBottom
 	baselineY  = Height - plotBottom
 	rightX     = Width - plotRight
 )
 
-// MinPoints is the fewest readings a chart draws. Fewer than this and a line
-// says nothing, so Render returns ErrTooFewPoints and the email skips the chart.
-const MinPoints = 3
+// MinPoints is the fewest readings a chart draws. Two readings make a line, and
+// that is enough for a stock that has only just been reported. A single reading
+// has no line, so Render returns ErrTooFewPoints and the email skips the chart.
+const MinPoints = 2
+
+// shortHistory is the reading count under which every reading gets a dot and its
+// own date label. Fewer readings than this are spread across the plot instead of
+// running edge to edge, so a dot is never on the frame.
+const shortHistory = 20
 
 // ErrTooFewPoints is returned for a series shorter than MinPoints.
-var ErrTooFewPoints = errors.New("alertchart: at least three points are needed")
+var ErrTooFewPoints = errors.New("alertchart: at least two points are needed")
 
-// Palette: the brand tokens from DESIGN.md, as the chart uses them.
-var (
-	colPaper     = color.RGBA{0xFD, 0xFD, 0xFC, 0xFF}
-	colGrid      = color.RGBA{0xED, 0xE9, 0xE4, 0xFF}
-	colMuted     = color.RGBA{0x72, 0x62, 0x5A, 0xFF}
-	colInk       = color.RGBA{0x48, 0x39, 0x32, 0xFF}
-	colRust      = color.RGBA{0xD1, 0x6A, 0x47, 0xFF}
-	colRustFill  = color.NRGBA{0xD1, 0x6A, 0x47, 36} // about 14% alpha
-	colBurntAmbr = color.RGBA{0x9E, 0x52, 0x10, 0xFF}
-)
+// palette is one colour scheme. Ring is always the canvas colour, so a marker reads
+// as cut out of the background.
+type palette struct {
+	bg       color.RGBA
+	grid     color.RGBA
+	axis     color.RGBA // axis labels
+	line     color.RGBA
+	fill     color.NRGBA // the area under the line
+	alert    color.RGBA  // the threshold line and its label
+	ink      color.RGBA  // the latest value label
+	marker   color.RGBA  // the report-date marker
+	compared color.RGBA  // the compared-date marker
+}
+
+// lightPalette is the brand palette from DESIGN.md, on the paper card.
+var lightPalette = palette{
+	bg:       color.RGBA{0xFD, 0xFD, 0xFC, 0xFF},
+	grid:     color.RGBA{0xED, 0xE9, 0xE4, 0xFF},
+	axis:     color.RGBA{0x72, 0x62, 0x5A, 0xFF},
+	line:     color.RGBA{0xD1, 0x6A, 0x47, 0xFF},
+	fill:     color.NRGBA{0xD1, 0x6A, 0x47, 36}, // about 14% alpha
+	alert:    color.RGBA{0x9E, 0x52, 0x10, 0xFF},
+	ink:      color.RGBA{0x48, 0x39, 0x32, 0xFF},
+	marker:   color.RGBA{0x9E, 0x52, 0x10, 0xFF},
+	compared: color.RGBA{0x72, 0x62, 0x5A, 0xFF},
+}
+
+// darkPalette is the dark-room palette, on lifted black.
+var darkPalette = palette{
+	bg:       color.RGBA{0x12, 0x12, 0x12, 0xFF},
+	grid:     color.RGBA{0x2A, 0x24, 0x1F, 0xFF},
+	axis:     color.RGBA{0xA3, 0x9A, 0x75, 0xFF},
+	line:     color.RGBA{0xE1, 0x7E, 0x51, 0xFF},
+	fill:     color.NRGBA{0xE1, 0x7E, 0x51, 46}, // about 18% alpha
+	alert:    color.RGBA{0xFF, 0xAC, 0x4D, 0xFF},
+	ink:      color.RGBA{0xE8, 0xDE, 0xB5, 0xFF},
+	marker:   color.RGBA{0xFF, 0xAC, 0x4D, 0xFF},
+	compared: color.RGBA{0xA3, 0x9A, 0x75, 0xFF},
+}
 
 // Text sizes, in pixels at 2x.
 const (
-	axisSize    = 22
-	thresholdSz = 20
-	valueSize   = 26
+	axisSize      = 28
+	thresholdSize = 24
+	valueSize     = 34
 )
 
 // Point is one report date's reading. Date is YYYY-MM-DD and Value is the short
@@ -117,7 +153,7 @@ var loadFaces = sync.OnceValues(func() (faceSet, error) {
 	if fs.axis, err = mk(reg, axisSize); err != nil {
 		return faceSet{}, err
 	}
-	if fs.threshold, err = mk(reg, thresholdSz); err != nil {
+	if fs.threshold, err = mk(reg, thresholdSize); err != nil {
 		return faceSet{}, err
 	}
 	if fs.value, err = mk(semi, valueSize); err != nil {
@@ -126,17 +162,25 @@ var loadFaces = sync.OnceValues(func() (faceSet, error) {
 	return fs, nil
 })
 
-// Render draws the chart as a PNG. Every date is validated before anything is
-// drawn, so a malformed row fails the render rather than drawing a wrong axis.
-func Render(s Spec) ([]byte, error) {
-	if len(s.Points) < MinPoints {
+// Render draws the light-card chart as a PNG.
+func Render(s Spec) ([]byte, error) { return render(s, lightPalette) }
+
+// RenderDark draws the same chart in the dark-room palette, for a dark email client.
+func RenderDark(s Spec) ([]byte, error) { return render(s, darkPalette) }
+
+func render(s Spec, pal palette) ([]byte, error) {
+	n := len(s.Points)
+	if n < MinPoints {
 		return nil, ErrTooFewPoints
 	}
+	dates := make([]time.Time, n)
 	maxVal := 0.0
 	for i, p := range s.Points {
-		if _, err := time.Parse("2006-01-02", p.Date); err != nil {
+		t, err := time.Parse(dateLayout, p.Date)
+		if err != nil {
 			return nil, fmt.Errorf("alertchart: point %d: bad date %q: %w", i, p.Date, err)
 		}
+		dates[i] = t
 		maxVal = math.Max(maxVal, p.Value)
 	}
 	if s.Threshold != nil {
@@ -148,69 +192,79 @@ func Render(s Spec) ([]byte, error) {
 	}
 
 	step, top := niceAxis(maxVal * 1.15)
-	ax := axis{top: top, n: len(s.Points)}
-	cv := newCanvas()
+	short := n < shortHistory
+	ax := axis{top: top, n: n, short: short}
+	cv := newCanvas(pal.bg)
+
+	ri, ci := indexOf(s.Points, s.ReportDate), indexOf(s.Points, s.ComparedTo)
+	if ri < 0 {
+		ri = n - 1
+	}
 
 	// Gridlines, each with its value. The 0 line is the baseline.
 	intervals := int(math.Ceil(top/step - 1e-9))
 	for k := 0; k <= intervals; k++ {
 		v := roundTo(float64(k)*step, 6)
-		y := float64(ax.y(v))
-		cv.paint(colGrid, func(r *vector.Rasterizer) {
+		y := ax.y(v)
+		cv.paint(pal.grid, func(r *vector.Rasterizer) {
 			addRect(r, plotLeft, y-1, rightX, y+1)
 		})
-		cv.drawRight(faces.axis, colMuted, strconv.FormatFloat(v, 'f', -1, 64)+"%", plotLeft-14, int(y)+8)
+		cv.drawRight(faces.axis, pal.axis, strconv.FormatFloat(v, 'f', -1, 64)+"%", plotLeft-16, y+10)
 	}
 
-	// Month ticks at each month boundary. The first tick and each January carry
-	// the year, so the reader always knows which year they are reading.
-	firstTick := true
-	for i := 1; i < len(s.Points); i++ {
-		cur, _ := time.Parse("2006-01-02", s.Points[i].Date)
-		prev, _ := time.Parse("2006-01-02", s.Points[i-1].Date)
-		if cur.Year() == prev.Year() && cur.Month() == prev.Month() {
-			continue
+	// X labels. A long history is labelled with month names at each month boundary,
+	// so a tick never carries a year. A short history is labelled with each reading's
+	// own day, thinned to at most five.
+	if short {
+		for _, i := range shortLabelIndexes(n) {
+			cv.drawCentered(faces.axis, pal.axis, dates[i].Format("2 Jan"), ax.x(i), Height-20)
 		}
-		label := cur.Month().String()[:3]
-		if firstTick || cur.Month() == time.January {
-			label += " " + cur.Format("06")
+	} else {
+		for i := 1; i < n; i++ {
+			if dates[i].Year() == dates[i-1].Year() && dates[i].Month() == dates[i-1].Month() {
+				continue
+			}
+			cv.drawCentered(faces.axis, pal.axis, dates[i].Month().String()[:3], ax.x(i), Height-20)
 		}
-		firstTick = false
-		cv.drawCentered(faces.axis, colMuted, label, int(ax.x(i)), Height-18)
 	}
 
 	// The area under the line, then the line.
-	pts := make([]pt, len(s.Points))
+	pts := make([]pt, n)
 	for i, p := range s.Points {
 		pts[i] = pt{ax.x(i), ax.y(p.Value)}
 	}
-	area := make([]pt, 0, len(pts)+2)
+	area := make([]pt, 0, n+2)
 	area = append(area, pt{pts[0].x, baselineY})
 	area = append(area, pts...)
-	area = append(area, pt{pts[len(pts)-1].x, baselineY})
-	cv.paint(colRustFill, func(r *vector.Rasterizer) { addPoly(r, area) })
-	cv.paint(colRust, func(r *vector.Rasterizer) { addStroke(r, pts, 4) })
+	area = append(area, pt{pts[n-1].x, baselineY})
+	cv.paint(pal.fill, func(r *vector.Rasterizer) { addPoly(r, area) })
+	cv.paint(pal.line, func(r *vector.Rasterizer) { addStroke(r, pts, 5) })
+
+	// Short history: a dot on every reading but the report's, which gets its own marker.
+	if short {
+		for i, p := range pts {
+			if i != ri {
+				cv.marker(p, 7, 3, pal.line, pal.bg)
+			}
+		}
+	}
 
 	// The latest value sits above and to the left of its marker, kept on the canvas.
-	// It is placed first, because the threshold label must keep clear of it.
-	ri, ci := indexOf(s.Points, s.ReportDate), indexOf(s.Points, s.ComparedTo)
-	if ri < 0 {
-		ri = len(pts) - 1
-	}
+	// It is placed before the threshold label, which must keep clear of it.
 	label := fmt.Sprintf("%.2f%%", s.Points[ri].Value)
 	lw := cv.measure(faces.value, label)
-	lx := math.Max(8, math.Min(float64(pts[ri].x)-18-lw, float64(Width-8)-lw))
-	ly := math.Max(30, float64(pts[ri].y)-22)
-	latest := box{lx, ly - 20, lx + lw, ly + 6}
+	lx := math.Max(8, math.Min(pts[ri].x-22-lw, float64(Width-8)-lw))
+	ly := math.Max(44, pts[ri].y-26)
+	latest := box{lx, ly - 26, lx + lw, ly + 8}
 
-	// The threshold: a dashed line, and its label on a paper backing. The label
-	// goes at the right end above the line, as the design asks. Where the series
-	// crosses that spot it tries the other corners, so the label never hides data.
+	// The threshold: a dashed line, and its label on a paper backing. The label goes
+	// at the right end above the line, as the design asks. Where the series crosses
+	// that spot it tries the other corners, so the label never hides data.
 	if s.Threshold != nil {
-		ty := float64(ax.y(*s.Threshold))
-		cv.paint(colBurntAmbr, func(r *vector.Rasterizer) {
-			for x := float64(plotLeft); x < rightX; x += 22 {
-				addRect(r, x, ty-1.5, math.Min(x+12, rightX), ty+1.5)
+		ty := ax.y(*s.Threshold)
+		cv.paint(pal.alert, func(r *vector.Rasterizer) {
+			for x := float64(plotLeft); x < rightX; x += 26 {
+				addRect(r, x, ty-1.5, math.Min(x+14, rightX), ty+1.5)
 			}
 		})
 		text := numStr(*s.Threshold) + "% ALERT LEVEL"
@@ -220,26 +274,47 @@ func Render(s Spec) ([]byte, error) {
 			markers = append(markers, pts[ci])
 		}
 		x, baseline := placeThreshold(w, ty, pts, latest, markers)
-		bb := box{x - 6, baseline - 14 - 6, x + w + 6, baseline + 6}
-		cv.paint(colPaper, func(r *vector.Rasterizer) {
+		bb := box{x - 8, baseline - 17 - 8, x + w + 8, baseline + 8}
+		cv.paint(pal.bg, func(r *vector.Rasterizer) {
 			addRect(r, bb.x0, bb.y0, bb.x1, bb.y1)
 		})
-		cv.drawText(faces.threshold, colBurntAmbr, text, x, baseline)
+		cv.drawText(faces.threshold, pal.alert, text, x, baseline)
 	}
 
-	// Markers: the compared report first, then the report on top of it.
-	if ci >= 0 {
-		cv.marker(pts[ci], 6, 3, colMuted)
+	// Markers: in a long history the compared report's small marker, then the
+	// report's large one on top. The short history already has a dot on each reading.
+	if !short && ci >= 0 {
+		cv.marker(pts[ci], 7, 3, pal.compared, pal.bg)
 	}
-	cv.marker(pts[ri], 9, 4, colBurntAmbr)
+	cv.marker(pts[ri], 11, 4, pal.marker, pal.bg)
 
-	cv.drawText(faces.value, colInk, label, lx, ly)
+	cv.drawText(faces.value, pal.ink, label, lx, ly)
 
+	// Best compression keeps both charts small enough for the email's size budget. The
+	// encoder is deterministic at any level, so the bytes stay stable.
 	var buf bytes.Buffer
-	if err := png.Encode(&buf, cv.img); err != nil {
+	enc := png.Encoder{CompressionLevel: png.BestCompression}
+	if err := enc.Encode(&buf, cv.img); err != nil {
 		return nil, fmt.Errorf("alertchart: encode png: %w", err)
 	}
 	return buf.Bytes(), nil
+}
+
+// shortLabelIndexes picks at most five readings to label in a short history: the
+// first, evenly spaced, and always the last, so the report's day is named.
+func shortLabelIndexes(n int) []int {
+	step := 1
+	if n-1 > 4 {
+		step = (n - 1 + 3) / 4
+	}
+	var out []int
+	for i := 0; i < n; i += step {
+		out = append(out, i)
+	}
+	if out[len(out)-1] != n-1 {
+		out = append(out, n-1)
+	}
+	return out
 }
 
 // canvas is the image a chart is drawn on. Shapes are painted one colour at a
@@ -250,9 +325,9 @@ type canvas struct {
 	layer *vector.Rasterizer
 }
 
-func newCanvas() *canvas {
+func newCanvas(bg color.RGBA) *canvas {
 	img := image.NewRGBA(image.Rect(0, 0, Width, Height))
-	draw.Draw(img, img.Bounds(), image.NewUniform(colPaper), image.Point{}, draw.Src)
+	draw.Draw(img, img.Bounds(), image.NewUniform(bg), image.Point{}, draw.Src)
 	return &canvas{img: img, layer: vector.NewRasterizer(Width, Height)}
 }
 
@@ -263,9 +338,10 @@ func (cv *canvas) paint(c color.Color, build func(*vector.Rasterizer)) {
 	cv.layer.Draw(cv.img, cv.img.Bounds(), image.NewUniform(c), image.Point{})
 }
 
-// marker draws a filled circle of radius r with a paper ring of width ring.
-func (cv *canvas) marker(p pt, r, ring float64, c color.RGBA) {
-	cv.paint(colPaper, func(l *vector.Rasterizer) { addCircle(l, p, r+ring) })
+// marker draws a filled circle of radius r with a ring of width ring in the canvas
+// colour, so it reads as cut out of the line.
+func (cv *canvas) marker(p pt, r, ring float64, c, bg color.RGBA) {
+	cv.paint(bg, func(l *vector.Rasterizer) { addCircle(l, p, r+ring) })
 	cv.paint(c, func(l *vector.Rasterizer) { addCircle(l, p, r) })
 }
 
@@ -290,92 +366,30 @@ func (cv *canvas) drawText(f font.Face, c color.RGBA, s string, x, baseline floa
 }
 
 // drawRight sets s so that it ends at right.
-func (cv *canvas) drawRight(f font.Face, c color.RGBA, s string, right float64, baseline int) {
-	cv.drawText(f, c, s, right-cv.measure(f, s), float64(baseline))
+func (cv *canvas) drawRight(f font.Face, c color.RGBA, s string, right, baseline float64) {
+	cv.drawText(f, c, s, right-cv.measure(f, s), baseline)
 }
 
 // drawCentered sets s so that it is centred on center.
-func (cv *canvas) drawCentered(f font.Face, c color.RGBA, s string, center int, baseline int) {
-	cv.drawText(f, c, s, float64(center)-cv.measure(f, s)/2, float64(baseline))
+func (cv *canvas) drawCentered(f font.Face, c color.RGBA, s string, center, baseline float64) {
+	cv.drawText(f, c, s, center-cv.measure(f, s)/2, baseline)
 }
 
 type pt struct{ x, y float64 }
 
-// box is an axis-aligned rectangle in canvas pixels.
-type box struct{ x0, y0, x1, y1 float64 }
-
-// placeThreshold returns the left edge and baseline of the threshold label of
-// width w, sitting on the alert level at ty. It tries the right end above the line
-// first, then the left end above, then the right and left below. The first spot
-// clear of the series, the latest value and the markers wins. When none is clear
-// it keeps the first.
-func placeThreshold(w, ty float64, series []pt, latest box, markers []pt) (x, baseline float64) {
-	const (
-		pad    = 6  // clearance around the label and the series line
-		radius = 14 // a marker's disc, with its ring
-	)
-	candidates := [][2]float64{
-		{float64(rightX-8) - w, ty - 12},
-		{float64(plotLeft + 8), ty - 12},
-		{float64(rightX-8) - w, ty + 26},
-		{float64(plotLeft + 8), ty + 26},
-	}
-	samples := sampleLine(series)
-	for _, c := range candidates {
-		b := box{c[0] - 6, c[1] - 14 - 6, c[0] + w + 6, c[1] + 6}
-		if !b.hits(latest, pad) && !anyPointIn(samples, b, pad) && !anyCircleHits(markers, b, radius) {
-			return c[0], c[1]
-		}
-	}
-	return candidates[0][0], candidates[0][1]
-}
-
-// sampleLine returns points along the polyline roughly every two pixels, so a
-// box test cannot step over a thin line between two readings.
-func sampleLine(ps []pt) []pt {
-	var out []pt
-	for i := 0; i+1 < len(ps); i++ {
-		a, b := ps[i], ps[i+1]
-		n := int(math.Max(1, math.Ceil(math.Hypot(b.x-a.x, b.y-a.y)/2)))
-		for k := 0; k <= n; k++ {
-			t := float64(k) / float64(n)
-			out = append(out, pt{a.x + (b.x-a.x)*t, a.y + (b.y-a.y)*t})
-		}
-	}
-	return out
-}
-
-func (b box) hits(o box, pad float64) bool {
-	return b.x0 < o.x1+pad && o.x0 < b.x1+pad && b.y0 < o.y1+pad && o.y0 < b.y1+pad
-}
-
-func anyPointIn(ps []pt, b box, pad float64) bool {
-	for _, p := range ps {
-		if p.x >= b.x0-pad && p.x <= b.x1+pad && p.y >= b.y0-pad && p.y <= b.y1+pad {
-			return true
-		}
-	}
-	return false
-}
-
-func anyCircleHits(cs []pt, b box, r float64) bool {
-	for _, c := range cs {
-		nx := math.Max(b.x0, math.Min(c.x, b.x1))
-		ny := math.Max(b.y0, math.Min(c.y, b.y1))
-		if math.Hypot(c.x-nx, c.y-ny) < r {
-			return true
-		}
-	}
-	return false
-}
-
-// axis maps data to canvas pixels.
+// axis maps data to canvas pixels. A long history runs edge to edge. A short one
+// is spread across the plot, with half a step of padding at each end, so the first
+// and last dots are not on the frame.
 type axis struct {
-	top float64
-	n   int
+	top   float64
+	n     int
+	short bool
 }
 
 func (a axis) x(i int) float64 {
+	if a.short {
+		return plotLeft + (float64(i)+0.5)*float64(plotW)/float64(a.n)
+	}
 	return plotLeft + float64(i)*float64(plotW)/float64(a.n-1)
 }
 
@@ -386,8 +400,8 @@ func (a axis) y(v float64) float64 {
 var niceMultiples = []float64{1, 2, 2.5, 5, 10}
 
 // niceAxis picks the step and the top of the value axis for a maximum. Every step
-// is 1, 2, 2.5 or 5 times a power of ten: the one that gives about four or five
-// gridlines is chosen, and the top is rounded up to a whole number of steps.
+// is 1, 2, 2.5 or 5 times a power of ten. The one that gives about four or five
+// intervals is chosen, and the top is rounded up to a whole number of steps.
 func niceAxis(maxVal float64) (step, top float64) {
 	if maxVal <= 0 {
 		maxVal = 1
@@ -487,3 +501,75 @@ func addStroke(r *vector.Rasterizer, ps []pt, width float64) {
 		addCircle(r, p, hw)
 	}
 }
+
+// box is an axis-aligned rectangle in canvas pixels.
+type box struct{ x0, y0, x1, y1 float64 }
+
+// placeThreshold returns the left edge and baseline of the threshold label of
+// width w, sitting on the alert level at ty. It tries the right end above the line
+// first, then the left end above, then the right and left below. The first spot
+// clear of the series, the latest value and the markers wins. When none is clear
+// it keeps the first.
+func placeThreshold(w, ty float64, series []pt, latest box, markers []pt) (x, baseline float64) {
+	const (
+		pad    = 8  // clearance around the label and the series line
+		radius = 16 // a marker's disc, with its ring
+		half   = 8  // the label's backing, above and below its baseline
+	)
+	candidates := [][2]float64{
+		{float64(rightX-8) - w, ty - 14},
+		{float64(plotLeft + 8), ty - 14},
+		{float64(rightX-8) - w, ty + 30},
+		{float64(plotLeft + 8), ty + 30},
+	}
+	samples := sampleLine(series)
+	for _, c := range candidates {
+		b := box{c[0] - 8, c[1] - 17 - half, c[0] + w + 8, c[1] + half}
+		if !b.hits(latest, pad) && !anyPointIn(samples, b, pad) && !anyCircleHits(markers, b, radius) {
+			return c[0], c[1]
+		}
+	}
+	return candidates[0][0], candidates[0][1]
+}
+
+// sampleLine returns points along the polyline roughly every two pixels, so a
+// box test cannot step over a thin line between two readings.
+func sampleLine(ps []pt) []pt {
+	var out []pt
+	for i := 0; i+1 < len(ps); i++ {
+		a, b := ps[i], ps[i+1]
+		n := int(math.Max(1, math.Ceil(math.Hypot(b.x-a.x, b.y-a.y)/2)))
+		for k := 0; k <= n; k++ {
+			t := float64(k) / float64(n)
+			out = append(out, pt{a.x + (b.x-a.x)*t, a.y + (b.y-a.y)*t})
+		}
+	}
+	return out
+}
+
+func (b box) hits(o box, pad float64) bool {
+	return b.x0 < o.x1+pad && o.x0 < b.x1+pad && b.y0 < o.y1+pad && o.y0 < b.y1+pad
+}
+
+func anyPointIn(ps []pt, b box, pad float64) bool {
+	for _, p := range ps {
+		if p.x >= b.x0-pad && p.x <= b.x1+pad && p.y >= b.y0-pad && p.y <= b.y1+pad {
+			return true
+		}
+	}
+	return false
+}
+
+func anyCircleHits(cs []pt, b box, r float64) bool {
+	for _, c := range cs {
+		nx := math.Max(b.x0, math.Min(c.x, b.x1))
+		ny := math.Max(b.y0, math.Min(c.y, b.y1))
+		if math.Hypot(c.x-nx, c.y-ny) < r {
+			return true
+		}
+	}
+	return false
+}
+
+// dateLayout is the report date format the spec uses.
+const dateLayout = "2006-01-02"
