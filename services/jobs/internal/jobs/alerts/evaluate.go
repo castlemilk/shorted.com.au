@@ -81,10 +81,12 @@ type Monitor struct {
 	CreatedAt time.Time
 }
 
-// CompanyInfo is the metadata the evaluator needs for one code.
+// CompanyInfo is the metadata the evaluator needs for one code. LogoURL is the
+// icon when there is one, else the full logo, and empty when neither exists.
 type CompanyInfo struct {
 	Name     string
 	Industry string
+	LogoURL  string
 }
 
 // Snapshot is the report window the planner and the evaluator read: the newest
@@ -189,6 +191,32 @@ func (s *Snapshot) ranked(slug string, d Date) []string {
 		out = append(out, e.code)
 	}
 	return out
+}
+
+// marketRank is code's place by short percent among every code with a positive
+// reading on d, ties broken by code as ranked does. It returns rank 0 when the code
+// has no positive reading that day, and the count of codes that do.
+func (s *Snapshot) marketRank(code string, d Date) (rank, ranked int) {
+	readings := s.rows[d]
+	for _, x := range readings {
+		if x > 0 {
+			ranked++
+		}
+	}
+	v, ok := readings[code]
+	if !ok || v <= 0 {
+		return 0, ranked
+	}
+	rank = 1
+	for c, x := range readings {
+		if c == code || x <= 0 {
+			continue
+		}
+		if x > v || (x == v && c < code) {
+			rank++
+		}
+	}
+	return rank, ranked
 }
 
 // topTen is the industry's ranked set on d: the first ten of ranked.

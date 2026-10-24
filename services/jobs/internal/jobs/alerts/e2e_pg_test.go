@@ -320,12 +320,16 @@ CREATE TABLE shorts (
   "DATE" timestamp NOT NULL,
   "PRODUCT_CODE" text NOT NULL,
   "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" double precision,
+  "REPORTED_SHORT_POSITIONS" double precision,
+  "TOTAL_PRODUCT_IN_ISSUE" double precision,
   PRIMARY KEY ("DATE", "PRODUCT_CODE")
 );
 CREATE TABLE "company-metadata" (
   stock_code text PRIMARY KEY,
   company_name text,
-  industry text
+  industry text,
+  logo_icon_gcs_url text,
+  logo_gcs_url text
 );
 CREATE TABLE sync_status (
   id serial PRIMARY KEY,
@@ -1073,4 +1077,54 @@ func codesIn(p alertevents.Payload) string {
 		codes = append(codes, c.Code)
 	}
 	return strings.Join(codes, ",")
+}
+
+// TestAlertsE2EStockDetail: a stock event stores the detail the email shows, so a
+// retry renders the same bytes. The logo is the icon, the rank counts every code
+// with a reading that day, and the history stops at the report date.
+func TestAlertsE2EStockDetail(t *testing.T) {
+	e := newE2E(t)
+	e.seedBase()
+	mustExec(t, e.pool, `UPDATE "company-metadata" SET logo_icon_gcs_url = 'https://logos.test/AAA_icon.png', logo_gcs_url = 'https://logos.test/AAA.png' WHERE stock_code = 'AAA'`)
+	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+
+	e.day("2026-10-13", baseDay0())
+	e.wantExit(e.run(), 0, "bootstrap")
+	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
+	mustExec(t, e.pool, `UPDATE shorts SET "REPORTED_SHORT_POSITIONS" = 1240000000, "TOTAL_PRODUCT_IN_ISSUE" = 12100000000 WHERE "PRODUCT_CODE" = 'AAA' AND "DATE" = '2026-10-14'`)
+	e.wantExit(e.run(), 0, "first crossing")
+
+	var raw []byte
+	if err := e.pool.QueryRow(e.ctx, `SELECT payload FROM alert_events WHERE monitor_id = 'm1' AND report_date = '2026-10-14'`).Scan(&raw); err != nil {
+		t.Fatalf("read event payload: %v", err)
+	}
+	var p alertevents.Payload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Stock == nil {
+		t.Fatalf("the stock event must carry its detail: %s", raw)
+	}
+	st := p.Stock
+	if st.Name != "Aaa Resources Ltd" || st.Industry != "Materials" || st.LogoURL != "https://logos.test/AAA_icon.png" {
+		t.Fatalf("identity = %+v; the icon must be preferred", st)
+	}
+	if st.SharesShort == nil || *st.SharesShort != 1240000000 || st.SharesOnIssue == nil || *st.SharesOnIssue != 12100000000 {
+		t.Fatalf("share counts = %v / %v", st.SharesShort, st.SharesOnIssue)
+	}
+	// materialsDay(5.20, ...) puts AAA behind BBB (6.50) and CCC (7.00) among the
+	// 13 codes with readings that day.
+	if st.Rank != 3 || st.Ranked != 13 {
+		t.Fatalf("rank = %d of %d, want 3 of 13", st.Rank, st.Ranked)
+	}
+	if len(st.History) == 0 || st.History[len(st.History)-1].D != "2026-10-14" {
+		t.Fatalf("history must end at the report date: %+v", st.History)
+	}
+	if st.Change20 != nil {
+		t.Fatalf("a short history has no 20-report change, got %v", *st.Change20)
+	}
+	if len(p.Companies) != 1 || p.Companies[0].LogoURL != "https://logos.test/AAA_icon.png" {
+		t.Fatalf("the company must carry its logo too: %+v", p.Companies)
+	}
 }

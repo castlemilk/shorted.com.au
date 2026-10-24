@@ -134,22 +134,84 @@ func (s store) loadRows(ctx context.Context, oldest, newest Date) (map[Date]map[
 	return out, rows.Err()
 }
 
-// loadCompanies reads each code's name and industry. The sector column is absent
-// from prod's company-metadata, so it is not read.
+// loadCompanies reads each code's name, industry and logo. The sector column is
+// absent from prod's company-metadata, so it is not read. The icon is preferred to
+// the full logo: both columns exist in prod, and the icon is the small variant the
+// email shows.
 func (s store) loadCompanies(ctx context.Context) (map[string]CompanyInfo, error) {
-	rows, err := s.pool.Query(ctx, `SELECT stock_code, COALESCE(company_name, ''), COALESCE(industry, '') FROM "company-metadata"`)
+	rows, err := s.pool.Query(ctx, `
+		SELECT stock_code, COALESCE(company_name, ''), COALESCE(industry, ''),
+		       COALESCE(logo_icon_gcs_url, ''), COALESCE(logo_gcs_url, '')
+		  FROM "company-metadata"`)
 	if err != nil {
 		return nil, fmt.Errorf("read company metadata: %w", err)
 	}
 	defer rows.Close()
 	out := map[string]CompanyInfo{}
 	for rows.Next() {
-		var code string
+		var code, icon, logo string
 		var info CompanyInfo
-		if err := rows.Scan(&code, &info.Name, &info.Industry); err != nil {
+		if err := rows.Scan(&code, &info.Name, &info.Industry, &icon, &logo); err != nil {
 			return nil, fmt.Errorf("scan company: %w", err)
 		}
+		info.LogoURL = icon
+		if info.LogoURL == "" {
+			info.LogoURL = logo
+		}
 		out[code] = info
+	}
+	return out, rows.Err()
+}
+
+// historyRow is one report's reading for a code, with the share counts that report
+// gave. The counts are NULL on reports that did not give them.
+type historyRow struct {
+	date        Date
+	pct         float64
+	sharesShort *float64
+	sharesOnIss *float64
+}
+
+// historyDays is the calendar span a stock's history reads: about six months of report
+// dates. It is also the window that holds the 20-report comparison.
+const historyDays = 190
+
+// loadStockHistory reads each code's readings over historyDays up to and including
+// newest, in one statement. The rows are oldest first per code. The
+// idx_shorts_product_code_date index serves the code filter and the date range.
+func (s store) loadStockHistory(ctx context.Context, codes []string, newest Date) (map[string][]historyRow, error) {
+	out := map[string][]historyRow{}
+	if len(codes) == 0 {
+		return out, nil
+	}
+	day, err := newest.Day()
+	if err != nil {
+		return nil, fmt.Errorf("history: report date: %w", err)
+	}
+	from := day.AddDate(0, 0, -historyDays).Format(dateLayout)
+	rows, err := s.pool.Query(ctx, `
+		SELECT "PRODUCT_CODE", "DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
+		       "REPORTED_SHORT_POSITIONS", "TOTAL_PRODUCT_IN_ISSUE"
+		  FROM shorts
+		 WHERE "PRODUCT_CODE" = ANY($1::text[])
+		   AND "DATE" >= $2::date AND "DATE" < $3::date + 1
+		   AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		 ORDER BY "PRODUCT_CODE", "DATE"`, codes, from, string(newest))
+	if err != nil {
+		return nil, fmt.Errorf("read stock history: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			code string
+			t    time.Time
+			h    historyRow
+		)
+		if err := rows.Scan(&code, &t, &h.pct, &h.sharesShort, &h.sharesOnIss); err != nil {
+			return nil, fmt.Errorf("scan stock history: %w", err)
+		}
+		h.date = dateOf(t)
+		out[code] = append(out[code], h)
 	}
 	return out, rows.Err()
 }
