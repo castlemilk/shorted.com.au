@@ -190,6 +190,24 @@ Not done yet: `/admin` (`list_async_jobs`) cannot see these jobs, because
 read their state with `kubectl -n shorted-jobs get cronjob` and the Telesis
 monitor.
 
+### Adding secretEnv keys to a VKE-native job (before merge)
+
+`sync-secrets.sh` derives the keys from the rendered chart, and it writes
+`shorted-jobs-env` only when it is run. A job whose `secretEnv` names a key the
+Secret does not hold fails with `CreateContainerConfigError`, and the next hourly
+run fails with it too. So when the PR adds a `secretEnv` key, run the sync from the
+PR branch **before** merge:
+
+```bash
+export KUBECONFIG=~/projects/paprika/terraform/omega.kubeconfig
+deploy/kubernetes/jobs/scripts/sync-secrets.sh               # plan: the new keys listed, none MISSING
+CONFIRM=prod deploy/kubernetes/jobs/scripts/sync-secrets.sh  # writes the Secret (other jobs unaffected)
+```
+
+The same goes for a rotated secret. Re-run the sync after rotating a value in
+Secret Manager, or the job keeps the copy it was given. The alerts runbook
+(`docs/alerts-runbook.md`) has the full sequence for `shorted-alerts`.
+
 ## Operating
 
 ```bash

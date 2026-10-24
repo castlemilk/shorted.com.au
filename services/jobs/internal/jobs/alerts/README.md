@@ -6,7 +6,8 @@ monitor, checks the owner's entitlement, and emails entitled owners through Rese
 
 Runs as the VKE CronJob `shorted-alerts` (`deploy/kubernetes/jobs/chart/values.yaml`),
 hourly on weekdays at :55 UTC. It is VKE-native, with no Cloud Run twin. The
-Telesis monitor is registered with `scripts/register-monitors.py`.
+Telesis monitor is registered with `scripts/register-monitors.py`. The operator
+runbook, which covers the prod smoke test, is `docs/alerts-runbook.md`.
 
 ## Modes
 
@@ -14,31 +15,60 @@ Telesis monitor is registered with `scripts/register-monitors.py`.
   nothing. The CronJob sets `ALERTS_DRY_RUN=false`. Only that, or `-dry-run=false`,
   writes.
 - **Replay**: `-date YYYY-MM-DD [-user UID]` evaluates daily monitors for one report
-  date. It never moves a watermark. The smoke test in the alerts runbook uses it.
+  date. It never moves a watermark. It is the prod smoke test's tool (see the runbook).
 - **Canary**: `-canary auto` (the default) sends a canary to `ALERTS_CANARY_TO`
-  (`delivered@resend.dev`) once a day, and also before any customer mail in a run.
-  A rejected canary stops the run with exit 1 before a customer email goes out.
+  (`delivered@resend.dev`) once a day, and also before any customer mail in a run. The
+  canary also checks the one-click pause path: its token must reach the API and come back
+  NotFound. A rejected canary, or a pause link that does not verify, stops the run with exit 1
+  before a customer email goes out.
+
+## Readiness and holds
+
+- A sync in progress (`sync_status` running, under two hours old) makes the run exit 0 and
+  wait.
+- The newest sync must have **completed**. A failed, partial, or unfinished sync can leave its
+  last report part-written, so every unevaluated date is held (exit 10) until a completed sync
+  lands. The job does not evaluate a half-written date.
+- A date with under half the rows of the report before it is held the same way.
+- A weekly comparison never reads a held date. A week is compared once, by ISO week, even when a
+  late report lands in it.
+
+## Owners and lookups
+
+- The entitlement lookup is one `GetMySubscription` call per owner per run, through the API's
+  internal-auth path. It is **exempt** from the owner's per-user rate limit: the API exempts the
+  call only when the internal secret matches and the user agent is `shorted-alerts/`. An owner
+  at their monthly quota does not stop their own alert.
+- A lookup failure about the whole API (unavailable, timed out, unauthenticated) fails the run
+  before anything is committed. The watermarks stay, and the next run retries.
+- A failure about one owner (`resource_exhausted`, `not_found`, `permission_denied`, and so on)
+  holds only that owner's events. They wait as `awaiting_entitlement`, and every run re-checks
+  them before the send. They expire after 48 hours. Nobody else is held back.
 
 ## Side effects
 
-- **Entitlement lookups are metered.** Each owner with an email costs one
-  `GetMySubscription` call per evaluated date, through the API's internal-auth path,
-  so it counts against that user's API quota (about 22 a month for a daily monitor).
-- **The job holds `INTERNAL_SERVICE_SECRET`.** That secret opens the shorts API's
-  internal-auth path. The blast radius is the same as the `DATABASE_URL` this
-  namespace already holds.
-- **Entitlement is the API's rule, not a copy of it.** The job maps `ACTIVE` and
-  `TRIALING` to entitled (`entitlement.go`). The contract test
-  `services/shorts/internal/services/shorts/subscriptions_entitlement_contract_test.go`
-  fails if the API's `ResolveEntitlement` stops agreeing.
+- **The job holds `INTERNAL_SERVICE_SECRET`.** That secret opens the shorts API's internal-auth
+  path. The blast radius is the same as the `DATABASE_URL` this namespace already holds.
+- **Entitlement is the API's rule, not a copy of it.** The job maps `ACTIVE` and `TRIALING` to
+  entitled (`entitlement.go`). The contract test
+  `services/shorts/internal/services/shorts/subscriptions_entitlement_contract_test.go` fails if
+  the API's `ResolveEntitlement` stops agreeing.
+- **Rotating `UNSUBSCRIBE_SECRET` invalidates alert and newsletter links alike.** The API reads
+  the secret's `latest` version, but the job keeps the copy `sync-secrets.sh` wrote. After a
+  rotation, re-run `CONFIRM=prod deploy/kubernetes/jobs/scripts/sync-secrets.sh`, or the canary's
+  pause round trip fails and customer mail is held.
 
 ## Tests
 
-- `GOWORK=off go test ./internal/jobs/alerts/` from `services/jobs` runs the unit
-  tests (evaluation, planning, email goldens, config, entitlement, delivery).
-- The end-to-end suite (`e2e_pg_test.go`) runs `run()` against a real Postgres, the
-  real 000074 and 000147 migrations, a Resend stub and a BillingService stub. It is
-  skipped without `ALERTS_TEST_DATABASE_URL`. `make test-alerts-e2e` in `services/`
-  starts a throwaway `postgres:15-alpine` for it.
+- `GOWORK=off go test ./internal/jobs/alerts/` from `services/jobs` runs the unit tests
+  (evaluation, planning, holds, email goldens, config, entitlement, delivery).
+- The end-to-end suites run `run()` against a real Postgres, the real 000074 and 000147
+  migrations, a Resend stub, and a BillingService and AlertsService stub. They are skipped
+  without `ALERTS_TEST_DATABASE_URL`. `make test-alerts-e2e` in `services/` starts a throwaway
+  `postgres:15-alpine` for them, and the deploy gate runs it as its own step.
+  - `e2e_pg_test.go` covers the lifecycle and every hold.
+  - `e2e_hardening_pg_test.go` covers an owner's failed lookup, a weekly week beside a held
+    day, and a pause link that does not verify.
+  - `e2e_binary_pg_test.go` runs the real binary with its real flags and exit codes.
 - To update the email goldens after an intended wording change:
   `go test ./internal/jobs/alerts/ -run TestEmailGoldens -args -update`.
