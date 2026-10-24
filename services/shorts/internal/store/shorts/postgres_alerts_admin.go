@@ -63,6 +63,12 @@ type AdminAlertEvent struct {
 	EmailAttempts   int
 	HasResendID     bool
 	LastError       string
+	// CreatedAt is when the row was written. A replay's insert is ON CONFLICT DO
+	// NOTHING, so a row older than the replay that found it is not that replay's.
+	CreatedAt time.Time
+	// RunID is alert_evaluator_runs.id of the run that wrote the row, 0 when the
+	// row has none.
+	RunID int64
 }
 
 // AdminAlertMonitorCounts counts every monitor by status and cadence, across owners.
@@ -125,7 +131,7 @@ func (s *postgresStore) AdminRecentAlertEvents(ctx context.Context, limit int) (
 	rows, err := s.db.Query(ctx, `
 		SELECT id, monitor_id, user_id, target, report_date::text, compared_to_date::text,
 		       latest_percent, previous_percent, email_status, email_attempts,
-		       resend_id IS NOT NULL, COALESCE(last_error, '')
+		       resend_id IS NOT NULL, COALESCE(last_error, ''), created_at, COALESCE(run_id, 0)
 		  FROM alert_events
 		 ORDER BY created_at DESC, id DESC
 		 LIMIT $1`, limit)
@@ -161,7 +167,7 @@ func (s *postgresStore) AdminAlertEventsOnDate(ctx context.Context, userID, moni
 	rows, err := s.db.Query(ctx, `
 		SELECT id, monitor_id, user_id, target, report_date::text, compared_to_date::text,
 		       latest_percent, previous_percent, email_status, email_attempts,
-		       resend_id IS NOT NULL, COALESCE(last_error, '')
+		       resend_id IS NOT NULL, COALESCE(last_error, ''), created_at, COALESCE(run_id, 0)
 		  FROM alert_events
 		 WHERE monitor_id = $1 AND report_date = $2::date
 		 ORDER BY id`, monitorID, reportDate)
@@ -184,7 +190,7 @@ func scanAdminAlertEvent(rows interface{ Scan(...any) error }) (AdminAlertEvent,
 	var e AdminAlertEvent
 	if err := rows.Scan(&e.ID, &e.MonitorID, &e.UserID, &e.Target, &e.ReportDate, &e.ComparedToDate,
 		&e.LatestPercent, &e.PreviousPercent, &e.EmailStatus, &e.EmailAttempts,
-		&e.HasResendID, &e.LastError); err != nil {
+		&e.HasResendID, &e.LastError, &e.CreatedAt, &e.RunID); err != nil {
 		return AdminAlertEvent{}, fmt.Errorf("scan alert event: %w", err)
 	}
 	return e, nil

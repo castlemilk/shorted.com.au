@@ -12,14 +12,24 @@ package shorts
 //   - Window: the 20 newest distinct report dates and every reading in them
 //     (windowDates, windowSQL and loadRows in store.go).
 //   - Compared date: the report before the evaluated one in that window
-//     (PlanReplay: snap.Dates[i+1]). A date with no earlier report is not
-//     evaluated, so the newest of the 20 is never a candidate.
-//   - Completeness: a date with fewer than half the previous date's rows is held
-//     by planDaily, so it is not a candidate either.
+//     (PlanReplay: snap.Dates[i+1]). The OLDEST of the 20 has no earlier report in
+//     the window, so it is never a candidate.
+//   - Oldest end: the window moves as new reports arrive, so a date within
+//     replayMargin positions of the oldest end is not offered, and an explicit
+//     date there is refused. Its compared date and lookback would otherwise fall
+//     off the window before the replay runs.
+//   - Completeness: a date with fewer than half the previous date's rows is
+//     skipped. The evaluator's planner holds such dates, but PlanReplay has no
+//     completeness hold, so the smoke test refuses them to keep a replay from
+//     comparing a half-written day.
 //   - Previous reading: the first report from the compared date back five dates
 //     that has the code (previousAt, lookbackDates).
 //   - Rule: short_interest_above fires on an UPWARD crossing only, on rounded
 //     readings: previous < threshold <= latest (move.satisfies).
+//   - Search without a code: candidates are the stocks whose NEWEST reading, to two
+//     places, is at or above the threshold. A stock that crossed only on an older
+//     date and has since fallen back is not a candidate. That is the search's
+//     limit, not the rule's; a code given explicitly is always checked.
 
 import (
 	"context"
@@ -129,18 +139,32 @@ func (w AlertWindow) indexOf(day string) int {
 	return -1
 }
 
-// CrossingOn reports whether code crossed the threshold on day, and why not
-// when it did not. day must be one the replay can evaluate.
+// replayMargin is how many positions the oldest report date must be from the end
+// of the window before a date is offered for replay.
+const replayMargin = 3
+
+// replayable reports whether the date at idx may be replayed: it is at least
+// replayMargin positions from the oldest end, so its compared date and lookback are
+// still in the window.
+func (w AlertWindow) replayable(idx int) bool {
+	return idx >= 0 && idx+replayMargin < len(w.Dates)
+}
+
+// CrossingOn reports whether code crossed the threshold on day, and why not when it
+// did not. day must be one the smoke test can replay.
 func (w AlertWindow) CrossingOn(code, day string, threshold float64) (AlertCrossing, error) {
 	idx := w.indexOf(day)
 	if idx < 0 {
 		return AlertCrossing{}, fmt.Errorf("%s is not one of the last %d report dates", day, AlertWindowDates)
 	}
 	if idx+1 >= len(w.Dates) {
-		return AlertCrossing{}, fmt.Errorf("%s has no earlier report to compare with", day)
+		return AlertCrossing{}, fmt.Errorf("%s is the oldest report date in the window, so it has no earlier report to compare with", day)
+	}
+	if !w.replayable(idx) {
+		return AlertCrossing{}, fmt.Errorf("%s is among the %d oldest report dates in the window, which move as new reports arrive: pick a newer date", day, replayMargin)
 	}
 	if !w.dateComplete(idx) {
-		return AlertCrossing{}, fmt.Errorf("%s is incomplete (fewer than half the rows of the report before it), so the evaluator holds it", day)
+		return AlertCrossing{}, fmt.Errorf("%s is incomplete (fewer than half the rows of the report before it), and the smoke test skips incomplete dates", day)
 	}
 	c, ok := w.crossingAt(code, idx, threshold)
 	if !ok {
@@ -149,12 +173,11 @@ func (w AlertWindow) CrossingOn(code, day string, threshold float64) (AlertCross
 	return c, nil
 }
 
-// FindShortInterestCrossing returns the most recent report date, among the ones
-// the replay can evaluate, on which a stock crossed the threshold. With a code,
-// only that code is considered. Without one, the candidates are the stocks whose
-// newest reading is at or above the threshold, ordered by that reading, so the
-// first date with any crossing yields the most heavily shorted one. ok is false
-// when no date in the window has a crossing.
+// FindShortInterestCrossing returns the most recent replayable report date on which a
+// stock crossed the threshold. With a code, only that code is considered. Without
+// one, the candidates are the stocks whose newest reading, rounded to two places, is
+// at or above the threshold, ordered by that reading. ok is false when no replayable
+// date has a crossing.
 func (w AlertWindow) FindShortInterestCrossing(code string, threshold float64) (AlertCrossing, bool) {
 	var candidates []string
 	if code != "" {
@@ -162,7 +185,7 @@ func (w AlertWindow) FindShortInterestCrossing(code string, threshold float64) (
 	} else if len(w.Dates) > 0 {
 		newest := w.Readings[w.Dates[0]]
 		for c, v := range newest {
-			if v >= threshold {
+			if roundAlertPercent(v) >= threshold {
 				candidates = append(candidates, c)
 			}
 		}
@@ -174,7 +197,7 @@ func (w AlertWindow) FindShortInterestCrossing(code string, threshold float64) (
 			return candidates[i] < candidates[j]
 		})
 	}
-	for idx := 0; idx+1 < len(w.Dates); idx++ {
+	for idx := 0; w.replayable(idx); idx++ {
 		if !w.dateComplete(idx) {
 			continue
 		}
