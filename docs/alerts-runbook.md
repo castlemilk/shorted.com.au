@@ -79,7 +79,39 @@ run. Without step 2 the reporter logs `no check-in URL ... NOT monitored`.
    kubectl -n shorted-jobs get cronjob shorted-alerts
    ```
 
-3. Run it once by hand. Expect a `bootstrap` note and `canary=ok`. If a scheduled run
+3. Clear the addresses that monitors stored before this deploy. The old code stored unverified
+   addresses, and the job emails whatever is stored. Count the
+   monitors first (read-only). `<deploy time>` is when the API revision carrying this change
+   went live (the `terraform-deploy` run that swapped the API), in UTC:
+
+   ```bash
+   # PROD_DSN is the DATABASE_URL in services/.env; the 6543 pooler is fine for reads
+   PGURL="$PROD_DSN" scripts/prod-psql.sh read-only -c "SELECT count(*) AS monitors,
+     count(*) FILTER (WHERE user_email IS NOT NULL) AS with_email,
+     count(*) FILTER (WHERE created_at < '<deploy time>') AS predate_deploy
+     FROM alert_monitors;"
+   ```
+
+   If `monitors` is 0 there is nothing to do. Otherwise write this to a file and apply it
+   before the hand run in step 4. `task db:prod:apply` runs it in one transaction on the
+   session pooler:
+
+   ```sql
+   UPDATE alert_monitors
+      SET user_email = NULL
+    WHERE created_at < '<deploy time>' AND user_email IS NOT NULL;
+   ```
+
+   ```bash
+   task db:prod:apply FILE=<that file> CONFIRM=prod
+   ```
+
+   Each owner's next verified visit to `/alerts` refills the address, because the page
+   refreshes it only from a verified session. Until then those monitors send nothing, and
+   each run counts them as `skipped_no_email`. That is intended: an unverified address must
+   not receive mail.
+
+4. Run it once by hand. Expect a `bootstrap` note and `canary=ok`. If a scheduled run
    already bootstrapped, the hand run logs `nothing to do` with no canary, so check the
    scheduled run's log, or the newest run row:
 
@@ -120,6 +152,61 @@ account you control, on a report date that is known to have crossed a level.
 Look at the latest ASIC `sync_status` row (the one with `environment` and `hostname` set). Once a sync completes, the next run
 evaluates the held dates. Do not hand-edit the watermark. A sync that stays failed holds
 alerts, and that is the intended outcome: it pages until the sync is fixed.
+
+**A date is held, and the log says `report D is incomplete, so evaluation stopped before it`.**
+The evaluator holds a daily report date whose row count is under half the count of the date
+before it (`planDaily` in `evaluate.go`: `2 * count(D) < count(previous)`). The count is the
+`shorts` rows for `D` with a non-null short percentage, so a half-written ASIC day looks exactly
+like this. The job logs `alerts: degraded: report D is incomplete, so evaluation stopped before
+it`, the summary carries `note="held D"`, and the run exits 10. Nothing after `D` is evaluated:
+later daily dates wait, and so does every week whose last report date is `D` or later. Telesis
+pages on each hourly run until `D` clears. Compare the counts (read-only):
+
+```sql
+SELECT "DATE"::date AS report_date, count(*) AS readings
+  FROM shorts
+ WHERE "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+ GROUP BY 1 ORDER BY 1 DESC LIMIT 12;
+```
+
+**Release it the normal way, with no flag and no watermark edit:** re-run the ASIC sync for `D`
+until the day has its full rows (the data-sync skill covers the ASIC sync). The next hourly run
+reads the window again, evaluates `D`, and the hold clears. Its `dates=[...]` list then includes
+`D`, and the note no longer says `held`.
+
+**Skipping `D` is not a flag.** No flag skips a date. `-date` replays one date for daily monitors
+and never moves a watermark, and `-dry-run` and `-canary` do not change the plan. A skip is a
+manual watermark move, so use it only when the owner has decided to drop those alerts, `D` cannot
+be restored, and `D` is not the newest report date. Two things must move together:
+
+- Daily: the date after `D` is compared with `D`, so skipping `D` alone would evaluate the next
+  date against partial data. Set `daily_through` to the report date after `D`, which skips both.
+- Weekly: set `weekly_through` to the last report date of `D`'s ISO week, and only once that week
+  is complete, so that week is not evaluated against the partial day.
+
+The alerts for the skipped dates are dropped for every customer and cannot be sent later. Read the
+current watermarks and the two dates first (read-only):
+
+```sql
+SELECT daily_through, weekly_through FROM alert_evaluator_state WHERE id = 1;
+SELECT "DATE"::date AS next_date FROM shorts
+ WHERE "DATE"::date > 'D'::date GROUP BY 1 ORDER BY 1 LIMIT 1;
+SELECT max("DATE")::date AS week_last FROM shorts
+ WHERE date_trunc('week', "DATE") = date_trunc('week', 'D'::timestamp);
+```
+
+Write the change as one transaction with `task db:prod:apply FILE=<file> CONFIRM=prod`:
+
+```sql
+UPDATE alert_evaluator_state
+   SET daily_through = '<next_date>', weekly_through = '<week_last>', updated_at = now()
+ WHERE id = 1;
+```
+
+Then check it with a dry run before the next live run. Patch the CronJob's args to
+`["alerts","-dry-run"]` (an explicit flag wins over `ALERTS_DRY_RUN`), as the replay example does,
+and run it. Expect no `held` note, and no date on or before `next_date` in `dates=[...]`. A line
+`alerts: dry run: a live run would be degraded` means the hold is still there.
 
 **`entitlement lookup failed (CODE): nothing was committed, the next run retries`.** The shorts
 API did not give a definitive answer for an owner, whether the whole API was down or that one
