@@ -123,6 +123,18 @@ jobs:
       - name: Integration image prefetch tests
         run: GOWORK=off go test -p=1 -timeout=30s ./scripts/prefetch-integration-images/*.go
 
+      # tidy resolves every GOOS and build tag; a build on a Mac does not. The
+      # jobs module once lacked go.sum entries that only archive_linux.go under
+      # the testcontainers tag needs, so it built on every laptop and in every
+      # PR, and failed run-tests on main, which cancelled the deploy.
+      - name: go.mod and go.sum are tidy
+        env:
+          GOWORK: off
+          GOPRIVATE: github.com/skunkworq/*
+        run: |
+          (cd services && go mod tidy -diff)
+          (cd services/jobs && go mod tidy -diff)
+
       # -short is what scripts/local-verify.sh runs, and it is what keeps this
       # job free of Docker and live network: the testcontainer and RUN_LIVE
       # suites stay in the integration job.
