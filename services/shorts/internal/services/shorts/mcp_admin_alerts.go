@@ -50,8 +50,7 @@ func alertsAdminStoreFrom(s ShortsStore) adminAlertsStore {
 // errAdminAlertsEmail is the refusal when the caller's verified address cannot be
 // read. The smoke test needs it before anything is created, so the refusal comes
 // first and nothing is changed.
-var errAdminAlertsEmail = errors.New("this server cannot read your verified address, so nothing was created: the admin check returns only admin status " +
-	"(services/shorts/internal/services/shorts/admin_check.go). The smoke test needs the verified address to create its monitor")
+var errAdminAlertsEmail = errors.New("this server cannot read your verified address, so nothing was created: the account store is not configured here (INTERNAL_SERVICE_SECRET is unset). The smoke test needs the verified address to create its monitor")
 
 // errAdminAlertsUnavailable is the answer when the alerts store or the job runner
 // is not wired on this deployment.
@@ -80,7 +79,12 @@ func (a *adminMCPSource) alertsAddressFor(ctx context.Context, userID string) (s
 		return "", errAdminAlertsEmail
 	}
 	email, err := a.verifiedEmail(ctx, userID)
-	if err != nil || !strings.Contains(email, "@") {
+	if err != nil {
+		// The reason is the refusal the caller needs: not verified, disabled, not yet
+		// deployed, or the account store was unreadable. Nothing was written.
+		return "", fmt.Errorf("the verified address could not be read, so nothing was created: %w", err)
+	}
+	if !strings.Contains(email, "@") {
 		return "", errAdminAlertsEmail
 	}
 	return email, nil

@@ -223,13 +223,14 @@ caller's own account and nobody else's. The runbook is `docs/alerts-runbook.md`
 4. `delete_alert_monitor` removes the smoke monitor when the check is done. It stays
    active until then, so it will email on future crossings.
 
-**Not yet working: the verified address.** Step 2 refuses today. The admin check
-(`POST /api/internal/admin-check`) returns only `{admin: boolean}`, and an admin
-token carries only a uid, so this server has no source for the caller's verified
-address. Nothing is created in that case. The fix is for the web app's admin check
-to return the verified email with the admin answer, which is a contract change in
-`web/src/app/api/internal/admin-check`; wire it into `adminMCPSource.verifiedEmail`
-(`services/shorts/internal/services/shorts/mcp_admin_alerts.go`).
+**The verified address.** Step 2 reads the caller's address from the web app's
+`admin-users` route (`lookup` by `uid`), and uses it only when the account is enabled
+and Firebase says the address is verified. That is the same rule the public alerts
+path applies to its verified token claims (`verifiedAccountEmail` in
+`services/shorts/internal/services/shorts/firebase_users.go`). Without
+`INTERNAL_SERVICE_SECRET` the server cannot read it and the smoke test refuses. A
+refusal names the reason (not verified, disabled, no account, or the web app still
+rolling out a deploy, which clears within minutes), and nothing is created.
 
 Ownership is structural. Every alerts tool acts for the verified token's uid, and
 no input names an owner. `alerts_status` shows other owners' counts and events
@@ -363,9 +364,13 @@ Files: `services/shorts/internal/mcp/admin.go`, `internal/jobmonitor/publish.go`
 
 ## Failure modes
 
-- **"cannot read your verified address, so nothing was created"** from
-  `run_alerts_smoke_test` — expected until the admin check returns the verified
-  address (see "Alerts smoke test" above). Nothing was written.
+- **"the verified address could not be read, so nothing was created"** from
+  `run_alerts_smoke_test` — the reason follows: the address is not verified, the account
+  is disabled or has no address, or the server has no account store
+  (`INTERNAL_SERVICE_SECRET` unset). Nothing was written.
+- **"the web app does not answer uid lookups yet"** — the API was deployed ahead of the
+  web app (the two ship in one deploy, API first). Retry in a few minutes. Nothing is
+  cached, so the next call after the rollout works.
 - **"the alerts replay is already running"** from `run_alerts_smoke_test` — a replay
   is in flight. Wait for it, then retry. The monitor it used stays in place.
 

@@ -273,11 +273,18 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		adminEntitlement = adminChecker.IsAdmin
 		adminCheck = adminChecker.IsAdmin
 	}
+	// One Firebase reader for the admin MCP server. Nil without INTERNAL_SERVICE_SECRET,
+	// which keeps the smoke test's refusal. The verified-address rule is
+	// verifiedAccountEmail (firebase_users.go), shared with the public alerts tools.
+	firebaseUsers := newFirebaseUsersClientFromEnv()
 	adminMCPHandler := mcpauth.RequireBearerToken(
 		mcp.NewTokenVerifier(s.tokenService, mcp.AdminResourceURI(apiBaseURL)),
 		mcp.AdminBearerTokenOptions(apiBaseURL),
-	)(mcp.RequireAdmin(adminCheck)(mcp.AdminHandler(&adminMCPSource{Collector: s.jobsCollector, server: s, people: s.peopleStore, users: newFirebaseUsersClientFromEnv(), billing: billingStoreFrom(s.peopleStore), web: newAdminWebClientFromEnv(),
-		alerts: alertsAdminStoreFrom(s.store), alertJobs: s.jobsCollector, entitled: s.alertsCore().entitled, logger: s.logger})))
+	)(mcp.RequireAdmin(adminCheck)(mcp.AdminHandler(&adminMCPSource{Collector: s.jobsCollector, server: s, people: s.peopleStore, users: firebaseUsers, billing: billingStoreFrom(s.peopleStore), web: newAdminWebClientFromEnv(),
+		alerts: alertsAdminStoreFrom(s.store), alertJobs: s.jobsCollector, entitled: s.alertsCore().entitled, logger: s.logger,
+		verifiedEmail: func(ctx context.Context, uid string) (string, error) {
+			return verifiedAccountEmail(ctx, firebaseUsers, uid)
+		}})))
 	mcp.RegisterIconHandlers(mux)
 	mux.Handle("/mcp/admin", adminMCPHandler)
 	mux.Handle("/mcp/admin/", adminMCPHandler)

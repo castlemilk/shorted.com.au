@@ -148,9 +148,9 @@ smoke test. It is the five alerts tools, on your own account only:
 6. `delete_alert_monitor` with the `monitor_id`. The monitor stays active until you do,
    so it will email on future crossings.
 
-**Status:** step 2 refuses until the admin check returns the caller's verified address;
-the server has no source for it today (`docs/mcp-admin.md`, "Alerts smoke test"). Until
-then, use the fallback below.
+**Refusals:** step 2 names its reason and writes nothing. An unverified or disabled
+account, or a deploy still rolling out, is refused until it is fixed. Use the fallback
+below only when the connector is unavailable.
 
 ### Fallback: the cluster, by hand
 

@@ -126,6 +126,9 @@ func (f *fakeAlertJobs) AlertsReplayResult(_ context.Context, name string) (*job
 	return &jobmonitor.ExecutionStatus{ExecutionName: name, Status: "running"}, nil
 }
 
+// smokeInput is the smoke test's input for ABC, the crossing crossingWindow holds.
+func smokeInput() mcp.RunAlertsSmokeInput { return mcp.RunAlertsSmokeInput{Code: "ABC"} }
+
 // crossingWindow is a window where ABC crossed 5 on 2026-10-21 (4.0 -> 5.5).
 func crossingWindow() shortsstore.AlertWindow {
 	return shortsstore.AlertWindow{
