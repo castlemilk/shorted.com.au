@@ -13,6 +13,7 @@ import (
 
 	"connectrpc.com/connect"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/cors"
 
@@ -59,8 +60,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to parse database URL: %v", err)
 		}
-		poolCfg.MaxConns = 5                        // Budget: shorts(25) + chat(5) + news(3) + enrichment(3) = 36 < 60
-		poolCfg.ConnConfig.DefaultQueryExecMode = 4 // pgx.QueryExecModeSimpleProtocol for Supabase
+		poolCfg.MaxConns = 5                                            // Budget: shorts(25) + chat(5) + news(3) + enrichment(3) = 36 < 60
+		poolCfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec // extended protocol with unnamed statements; no named statement cache
 
 		pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 		if err != nil {
