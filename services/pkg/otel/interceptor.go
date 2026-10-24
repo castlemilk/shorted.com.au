@@ -12,9 +12,8 @@ import (
 // It should be placed as the FIRST interceptor in the chain so that the span
 // captures the full request lifecycle including auth, rate limiting, etc.
 func OTelInterceptor() connect.Interceptor {
-	// otelconnect v0.12 omits server peer attributes by default (they are opt-in
-	// via WithServerPeerAttributes), so the old WithoutServerPeerAttributes was removed.
 	interceptor, _ := otelconnect.NewInterceptor(
+		otelconnect.WithoutServerPeerAttributes(),
 		otelconnect.WithTrustRemote(),
 	)
 	return interceptor

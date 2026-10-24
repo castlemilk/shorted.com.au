@@ -14,8 +14,8 @@ require (
 	github.com/google/generative-ai-go v0.20.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
-	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
-	github.com/mxschmitt/playwright-go v0.6201.1
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
+	github.com/mxschmitt/playwright-go v0.6100.0
 	github.com/pdfcpu/pdfcpu v0.16.3
 	github.com/piquette/finance-go v1.1.0
 	github.com/sashabaranov/go-openai v1.43.0
@@ -40,8 +40,7 @@ require (
 	cloud.google.com/go/iam v1.15.0 // indirect
 	cloud.google.com/go/longrunning v1.4.0 // indirect
 	cloud.google.com/go/monitoring v1.32.0 // indirect
-	connectrpc.com/connect/v2 v2.0.2 // indirect
-	connectrpc.com/otelconnect v0.12.0 // indirect
+	connectrpc.com/otelconnect v0.9.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20261013165250-51075c6ea6bc // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.62.0 // indirect
@@ -70,6 +69,7 @@ require (
 	github.com/envoyproxy/go-control-plane/envoy v1.40.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
 	github.com/go-json-experiment/json v0.0.0-20260820222146-c27c302e5fc3 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect

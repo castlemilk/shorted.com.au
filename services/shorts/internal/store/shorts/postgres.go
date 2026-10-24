@@ -200,6 +200,8 @@ func newPostgresStore(config Config) (Store, error) {
 	// Add OTel tracing to pgx — every Query/QueryRow/Exec gets a child span.
 	// SQL text is excluded from attributes for security; only db.operation is recorded.
 	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer(
+		otelpgx.WithTrimSQLInSpanName(),
+		otelpgx.WithDisableQuerySpanNamePrefix(),
 		otelpgx.WithDisableSQLStatementInAttributes(),
 	)
 
