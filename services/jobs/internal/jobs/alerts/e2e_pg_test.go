@@ -324,8 +324,11 @@ CREATE TABLE "company-metadata" (
 );
 CREATE TABLE sync_status (
   id serial PRIMARY KEY,
+  run_id uuid,
   status text NOT NULL,
-  started_at timestamptz NOT NULL DEFAULT now()
+  started_at timestamptz NOT NULL DEFAULT now(),
+  environment text,
+  hostname text
 );`
 
 // day inserts one report: the codes and their readings for a date.
@@ -334,6 +337,20 @@ func (e *e2e) day(date string, rows map[string]float64) {
 	for code, pct := range rows {
 		mustExec(e.t, e.pool, `INSERT INTO shorts ("DATE", "PRODUCT_CODE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") VALUES ($1::date, $2, $3)`, date, code, pct)
 	}
+}
+
+// syncRow records one sync_status row, started ago before now. An "asic" row is written
+// the way shortdatasync's recorder writes it, with environment and hostname set. A
+// "price" row is written the way the market-data sync's checkpoint writes it, with
+// neither. The alerts gate reads only the asic rows.
+func (e *e2e) syncRow(writer, status, ago string) {
+	e.t.Helper()
+	var env, host any
+	if writer == "asic" {
+		env, host = "production", "shorts-data-sync-exec"
+	}
+	mustExec(e.t, e.pool, `INSERT INTO sync_status (status, started_at, environment, hostname) VALUES ($1, now() - $2::interval, $3, $4)`,
+		status, ago, env, host)
 }
 
 // company registers a code's name and industry.
@@ -683,7 +700,7 @@ func TestAlertsE2ESyncGate(t *testing.T) {
 	e.wantExit(e.run(), 0, "bootstrap")
 	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
 
-	mustExec(t, e.pool, `INSERT INTO sync_status (status, started_at) VALUES ('running', now() - interval '10 minutes')`)
+	e.syncRow("asic", "running", "10 minutes")
 	before := e.resend.count()
 	e.wantExit(e.run(), 0, "sync in progress")
 	if e.count(`SELECT count(*) FROM alert_events`) != 0 || e.resend.count() != before {
@@ -706,12 +723,55 @@ func TestAlertsE2ESyncGate(t *testing.T) {
 	}
 
 	// A failed sync holds the same way, and a later completed sync releases it.
-	mustExec(t, e.pool, `INSERT INTO sync_status (status, started_at) VALUES ('failed', now() - interval '2 hours')`)
+	e.syncRow("asic", "failed", "2 hours")
 	e.wantExit(e.run(), 10, "held: the latest sync failed")
-	mustExec(t, e.pool, `INSERT INTO sync_status (status, started_at) VALUES ('completed', now() - interval '1 minute')`)
+	e.syncRow("asic", "completed", "1 minute")
 	e.wantExit(e.run(), 0, "a completed sync releases the hold")
 	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'm1'`); got != 1 {
 		t.Fatalf("the held report must evaluate once a sync completes, events = %d", got)
+	}
+}
+
+// TestAlertsE2EPriceSweepIsNotTheASICSync: sync_status is shared with the market-data
+// sync, which starts in the ASIC backstop's 10:00 UTC slot. Only the ASIC rows decide
+// whether report data is settled. A price sweep that is running or has failed must
+// neither hold a settled report nor release a half-written one.
+func TestAlertsE2EPriceSweepIsNotTheASICSync(t *testing.T) {
+	e := newE2E(t)
+	e.seedBase()
+	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.day("2026-10-13", baseDay0())
+	e.syncRow("asic", "completed", "3 hours")
+	e.wantExit(e.run(), 0, "bootstrap")
+
+	// A price sweep running newer than a completed ASIC sync does not hold the report.
+	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
+	e.syncRow("price", "running", "10 seconds")
+	e.wantExit(e.run(), 0, "a running price sweep does not hold a settled report")
+	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'm1'`); got != 1 {
+		t.Fatalf("a running price sweep must not block evaluation, events = %d", got)
+	}
+
+	// A failed price sweep newer than a completed ASIC sync does not hold either.
+	e.day("2026-10-15", materialsDay(5.30, 5.00, 7.00))
+	e.syncRow("price", "failed", "5 seconds")
+	e.wantExit(e.run(), 0, "a failed price sweep does not hold a settled report")
+	if d, _ := e.watermarks(); d != "2026-10-15" {
+		t.Fatalf("a failed price sweep must not hold the watermark, daily_through = %s", d)
+	}
+
+	// The reverse: a newer completed price sweep does not settle a failed ASIC sync. The
+	// ASIC backstop's last report is half-written, so it is held.
+	e.day("2026-10-16", materialsDay(5.40, 5.00, 7.00))
+	e.syncRow("asic", "failed", "4 seconds")
+	e.syncRow("price", "completed", "1 second")
+	e.wantExit(e.run(), 10, "held: the latest ASIC sync failed, whatever the price sweep did")
+	if d, _ := e.watermarks(); d != "2026-10-15" {
+		t.Fatalf("a completed price sweep must not release a held ASIC report, daily_through = %s", d)
+	}
+	if got := e.count(`SELECT count(*) FROM alert_events WHERE report_date = '2026-10-16'`); got != 0 {
+		t.Fatalf("a held report must write no events, got %d", got)
 	}
 }
 
@@ -861,6 +921,29 @@ func TestAlertsE2EDryRun(t *testing.T) {
 	}
 	if e.count(`SELECT count(*) FROM alert_evaluator_runs`) != runsBefore {
 		t.Fatal("a dry run wrote a run row")
+	}
+}
+
+// TestAlertsE2EDryRunHoldExitsZero: a dry run that would hold a date exits 0. The hold
+// is logged, not returned, and nothing is written. Only a live run is DEGRADED.
+func TestAlertsE2EDryRunHoldExitsZero(t *testing.T) {
+	e := newE2E(t)
+	e.seedBase()
+	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	e.day("2026-10-13", baseDay0())
+	e.syncRow("asic", "completed", "3 hours")
+	e.wantExit(e.run(), 0, "bootstrap")
+	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
+	e.syncRow("asic", "failed", "1 minute")
+
+	t.Setenv("ALERTS_DRY_RUN", "")
+	e.wantExit(e.run(), 0, "a dry run exits 0 even when a live run would hold the date")
+	if d, _ := e.watermarks(); d != "2026-10-13" {
+		t.Fatalf("a dry run moved the watermark: %s", d)
+	}
+	if e.count(`SELECT count(*) FROM alert_events`) != 0 {
+		t.Fatal("a dry run wrote events")
 	}
 }
 

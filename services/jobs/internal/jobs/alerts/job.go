@@ -274,7 +274,11 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 		a.logCandidates(cands, owners)
 		sum.events = len(cands)
 		sum.canary = dryCanaryWord(a.opts.canary, due)
-		sum.exit = exitCode(plan, deliveryStats{})
+		// A dry run always exits 0. A hold it would have reported is logged, not
+		// returned: an operator's hand run during a held date is not a failure.
+		if reason := degradedReason(plan, deliveryStats{}); reason != "" {
+			log.Printf("alerts: dry run: a live run would be degraded: %s", reason)
+		}
 		log.Printf("alerts: dry run: nothing written, nothing sent; canary would be %s", sum.canary)
 		return sum, nil
 	}

@@ -164,3 +164,43 @@ func TestDecideRowsHoldsOnlyTheFailedOwner(t *testing.T) {
 		t.Fatalf("the awaiting row should name the lookup code, got %q", rows[1].lastError)
 	}
 }
+
+// An entrant that was ranked 11th or lower the day before keeps that place as its
+// previous rank. Before the fix, the previous rank was read from the capped top ten,
+// so it read 0, "not ranked", and the email and the events list said so.
+func TestTopTenEntrantPreviousRankPastTen(t *testing.T) {
+	dates := []Date{d0, d1}
+	prev := map[string]float64{}
+	meta := map[string]CompanyInfo{}
+	for i := 1; i <= 10; i++ {
+		code := "F" + pad2(i)
+		prev[code] = float64(20 - i) // F01 at 19 down to F10 at 10
+		meta[code] = CompanyInfo{Name: code, Industry: "Materials"}
+	}
+	prev["KXX"] = 9.0 // eleventh the day before
+	meta["KXX"] = CompanyInfo{Name: "KXX Ltd", Industry: "Materials"}
+
+	// KXX jumps to the top. F10 drops out of the top ten, so only KXX enters.
+	cur := map[string]float64{"KXX": 30.0}
+	for i := 1; i <= 9; i++ {
+		cur["F"+pad2(i)] = float64(20 - i)
+	}
+	cur["F10"] = 9.5
+	snap := snapOf(dates, map[Date]map[string]float64{d0: cur, d1: prev}, meta)
+
+	m := mon("industry", "Materials", "new_top_ten_entry", "daily", nil)
+	got := Evaluate([]Monitor{m}, snap, dailyPlan(d0, d1))
+	if len(got) != 1 || len(got[0].Payload.Companies) != 1 {
+		t.Fatalf("want one event with one entrant, got %+v", got)
+	}
+	c := got[0].Payload.Companies[0]
+	if c.Code != "KXX" || c.Rank != 1 {
+		t.Fatalf("entrant = %+v, want KXX at rank 1", c)
+	}
+	if c.PreviousRank != 11 {
+		t.Fatalf("previous rank = %d, want 11: ranked eleventh the day before, not 0 (not ranked)", c.PreviousRank)
+	}
+	if c.Previous == nil || *c.Previous != 9 {
+		t.Fatalf("previous reading = %v, want 9", c.Previous)
+	}
+}

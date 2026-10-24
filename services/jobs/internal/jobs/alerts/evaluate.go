@@ -160,10 +160,10 @@ func (s *Snapshot) previous(code string, from int) (float64, bool) {
 	return 0, false
 }
 
-// topTen is the industry's ranked set on d: codes with a positive reading that
-// day, by raw percent descending, ties by code ascending, at most ten. Index 0 is
-// rank 1.
-func (s *Snapshot) topTen(slug string, d Date) []string {
+// ranked is the industry's full ranked list on d: every code with a positive
+// reading that day, by raw percent descending, ties by code ascending. Index 0 is
+// rank 1. It is not capped, so a code's place past the top ten is still a rank.
+func (s *Snapshot) ranked(slug string, d Date) []string {
 	type entry struct {
 		code string
 		v    float64
@@ -182,12 +182,17 @@ func (s *Snapshot) topTen(slug string, d Date) []string {
 		}
 		return list[i].code < list[j].code
 	})
-	n := min(len(list), topTenSize)
-	out := make([]string, 0, n)
-	for _, e := range list[:n] {
+	out := make([]string, 0, len(list))
+	for _, e := range list {
 		out = append(out, e.code)
 	}
 	return out
+}
+
+// topTen is the industry's ranked set on d: the first ten of ranked.
+func (s *Snapshot) topTen(slug string, d Date) []string {
+	all := s.ranked(slug, d)
+	return all[:min(len(all), topTenSize)]
 }
 
 // DailyEval is one daily report date to evaluate, against the report before it.
@@ -578,21 +583,22 @@ func sortMoves(moves []move, condition string) {
 
 // topTenEntrants returns the codes in the industry's top ten on latestDate that
 // were not in its top ten on prevDate, in rank order. A code with no reading on
-// prevDate is an entrant.
+// prevDate is an entrant. PreviousRank is the code's place in the full ranking on
+// prevDate, so a company ranked 11th or lower the day before reads as 11 or lower,
+// and 0 only when it had no positive reading that day.
 func (s *Snapshot) topTenEntrants(slug string, latestDate, prevDate Date) []alertevents.Company {
 	x := s.topTen(slug, latestDate)
-	y := s.topTen(slug, prevDate)
-	rankX := make(map[string]int, len(x))
-	for i, code := range x {
-		rankX[code] = i + 1
+	inTopTenBefore := map[string]bool{}
+	for _, code := range s.topTen(slug, prevDate) {
+		inTopTenBefore[code] = true
 	}
-	rankY := make(map[string]int, len(y))
-	for i, code := range y {
-		rankY[code] = i + 1
+	rankBefore := map[string]int{}
+	for i, code := range s.ranked(slug, prevDate) {
+		rankBefore[code] = i + 1
 	}
 	var out []alertevents.Company
-	for _, code := range x {
-		if rankY[code] != 0 {
+	for i, code := range x {
+		if inTopTenBefore[code] {
 			continue
 		}
 		latest := round2(s.rows[latestDate][code])
@@ -600,8 +606,8 @@ func (s *Snapshot) topTenEntrants(slug string, latestDate, prevDate Date) []aler
 			Code:         code,
 			Name:         s.nameOf(code),
 			Latest:       latest,
-			Rank:         rankX[code],
-			PreviousRank: rankY[code],
+			Rank:         i + 1,
+			PreviousRank: rankBefore[code],
 		}
 		if prev, ok := s.rows[prevDate][code]; ok {
 			p := round2(prev)

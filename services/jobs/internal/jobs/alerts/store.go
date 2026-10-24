@@ -46,13 +46,22 @@ func (s store) abandonStaleRuns(ctx context.Context) error {
 	return err
 }
 
+// asicSyncRow selects the sync_status rows the ASIC ingest wrote, and only those.
+// shortdatasync's insert always sets environment (defaulting to 'development') and
+// hostname (the execution id), while the market-data sync's insert sets neither.
+// The table is shared, and the price sweep runs in the same 10:00 UTC slot as the
+// ASIC backstop, so without this filter a price sweep would decide whether ASIC
+// data is settled. shortdatasync's recorder_test pins the columns its insert sets.
+const asicSyncRow = `environment IS NOT NULL AND hostname IS NOT NULL`
+
 // syncRunning reports an ASIC ingest that is writing shorts right now. Its rows
 // land one at a time, so a date is half-written until the sync finishes.
 func (s store) syncRunning(ctx context.Context) (bool, error) {
 	var busy bool
 	err := s.pool.QueryRow(ctx, `
 		SELECT EXISTS (SELECT 1 FROM sync_status
-		                WHERE status = 'running' AND started_at > now() - interval '2 hours')`).Scan(&busy)
+		                WHERE status = 'running' AND started_at > now() - interval '2 hours'
+		                  AND `+asicSyncRow+`)`).Scan(&busy)
 	return busy, err
 }
 
@@ -64,7 +73,8 @@ func (s store) syncRunning(ctx context.Context) (bool, error) {
 func (s store) latestSyncStatus(ctx context.Context) (string, error) {
 	var status string
 	err := s.pool.QueryRow(ctx, `
-		SELECT status FROM sync_status ORDER BY started_at DESC LIMIT 1`).Scan(&status)
+		SELECT status FROM sync_status WHERE `+asicSyncRow+`
+		 ORDER BY started_at DESC LIMIT 1`).Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil
 	}
