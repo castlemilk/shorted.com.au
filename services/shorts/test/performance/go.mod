@@ -1,8 +1,7 @@
 module github.com/castlemilk/shorted.com.au/services/shorts/test/performance
 
-go 1.24.6
+go 1.27.0
 
-toolchain go1.24.7
 
 require (
 	connectrpc.com/connect v1.19.0

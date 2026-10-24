@@ -1,6 +1,6 @@
 module github.com/castlemilk/shorted.com.au/services/jobs
 
-go 1.26.0
+go 1.27.0
 
 // pkg/ libs (enrichment, log, stealthhttp, otel) still live in the services
 // module during the transition — see docs/jobs-consolidation-plan.md invariants.

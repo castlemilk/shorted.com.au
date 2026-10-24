@@ -1,6 +1,6 @@
 module github.com/castlemilk/shorted.com.au/services
 
-go 1.26.0
+go 1.27.0
 
 require (
 	cloud.google.com/go/pubsub v1.50.1

@@ -1,8 +1,7 @@
 module github.com/castlemilk/shorted.com.au/test/integration
 
-go 1.24.0
+go 1.27.0
 
-toolchain go1.24.3
 
 require (
 	github.com/golang-migrate/migrate/v4 v4.19.0
