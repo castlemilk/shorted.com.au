@@ -11,6 +11,13 @@ import { hasInternalSecret } from "~/server/internal-secret";
  *   { "action": "summary" }                                  → counts
  *   { "action": "list", "query", "sort", "limit", "offset" } → one page
  *   { "action": "lookup", "email" }                          → { user | null }
+ *   { "action": "lookup", "uid" }                            → { user | null }
+ *
+ * lookup takes EXACTLY ONE of email or uid; both, or neither, is a 400. A uid is
+ * 1–128 characters of letters, digits, "_" and "-" (Firebase's uid shape). An
+ * unknown email or uid is { user: null }, never an error. The uid form exists
+ * so the admin MCP server can check a caller's verified address by the uid its
+ * token carries (services/shorts/internal/services/shorts/firebase_users.go).
  *
  * Server-to-server only (INTERNAL_SERVICE_SECRET), for the same reason as
  * admin-check: accounts are Firebase Auth users and only this app holds a
@@ -30,6 +37,9 @@ export const runtime = "nodejs";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
+// Firebase uid shape: what the admin MCP server's token carries.
+const UID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+
 const int = (v: unknown, fallback: number) =>
   Number.isInteger(v) ? (v as number) : fallback;
 
@@ -45,16 +55,44 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     if (action === "lookup") {
-      const email =
-        typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-      if (!email || email.length > 254 || !email.includes("@")) {
+      // Exactly one key. A key that is present but malformed is a 400 too, so a
+      // caller can never get a lookup it did not ask for.
+      const hasEmail = body.email !== undefined;
+      const hasUid = body.uid !== undefined;
+      if (hasEmail === hasUid) {
         return NextResponse.json(
-          { error: "email is required" },
+          { error: "give exactly one of email or uid" },
           { status: 400 },
         );
       }
       try {
-        const user = await adminAuth.getUserByEmail(email);
+        if (hasEmail) {
+          const email =
+            typeof body.email === "string"
+              ? body.email.trim().toLowerCase()
+              : "";
+          if (!email || email.length > 254 || !email.includes("@")) {
+            return NextResponse.json(
+              { error: "email is required" },
+              { status: 400 },
+            );
+          }
+          const user = await adminAuth.getUserByEmail(email);
+          return NextResponse.json(
+            { user: toAdminUser(user) },
+            { headers: NO_STORE },
+          );
+        }
+        if (!UID_PATTERN.test(typeof body.uid === "string" ? body.uid : "")) {
+          return NextResponse.json(
+            {
+              error:
+                "uid must be 1-128 characters of letters, digits, _ or -",
+            },
+            { status: 400 },
+          );
+        }
+        const user = await adminAuth.getUser(body.uid as string);
         return NextResponse.json(
           { user: toAdminUser(user) },
           { headers: NO_STORE },
