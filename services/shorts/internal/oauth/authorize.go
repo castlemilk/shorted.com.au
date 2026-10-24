@@ -451,8 +451,9 @@ func (h *grantHandler) checkEntitled(w http.ResponseWriter, r *http.Request, tar
 // published vocabulary AND against the client's registered scope, returning the
 // space-delimited grant.
 //
-// An empty request gets the client's registered scope, or the resource's whole
-// vocabulary when the client registered none.
+// An empty request gets the client's registered scope, or the resource's default
+// scopes when the client registered none. Only a request that names a scope gets
+// a write scope (alerts:write), and only if it asked for it by name.
 //
 // It is shared with the consent endpoints so the scope the human is SHOWN is
 // computed by the same code as the scope that is GRANTED. Two implementations
@@ -476,7 +477,7 @@ func normaliseScope(target *grantableResource, requested, registered string) (st
 	if len(fields) == 0 {
 		granted := make([]string, 0, len(allowed))
 		for _, s := range target.scopes { // published order, not map order
-			if allowed[s] {
+			if allowed[s] && target.isDefault(s) {
 				granted = append(granted, s)
 			}
 		}
