@@ -75,6 +75,7 @@ test("the email_status CHECK admits exactly the statuses the shared contract dec
   assert.ok(check, "email_status must carry a named CHECK");
   const states = [...check[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort();
   assert.deepEqual(states, [
+    "awaiting_entitlement",
     "failed",
     "pending",
     "sending",

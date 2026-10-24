@@ -3,8 +3,6 @@ package alerts
 import (
 	"context"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"sync"
 	"testing"
 
@@ -24,8 +22,11 @@ type stubBilling struct {
 	mu          sync.Mutex
 	status      map[string]shortsv1alpha1.SubscriptionStatus
 	unavailable int
-	calls       int
-	lastUA      string
+	// failUser answers one owner's lookups with a code, as a per-user failure does
+	// (an owner at their quota, say), until cleared.
+	failUser map[string]connect.Code
+	calls    int
+	lastUA   string
 }
 
 func (s *stubBilling) GetMySubscription(_ context.Context, req *connect.Request[shortsv1alpha1.GetMySubscriptionRequest]) (*connect.Response[shortsv1alpha1.GetMySubscriptionResponse], error) {
@@ -39,6 +40,9 @@ func (s *stubBilling) GetMySubscription(_ context.Context, req *connect.Request[
 	if s.unavailable > 0 {
 		s.unavailable--
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("unavailable"))
+	}
+	if code, ok := s.failUser[req.Header().Get("x-user-id")]; ok {
+		return nil, connect.NewError(code, errors.New("per-user failure"))
 	}
 	st, ok := s.status[req.Header().Get("x-user-id")]
 	if !ok {
@@ -59,6 +63,23 @@ func (s *stubBilling) setStatus(user, name string) {
 	s.status[user] = shortsv1alpha1.SubscriptionStatus(shortsv1alpha1.SubscriptionStatus_value[name])
 }
 
+// failFor makes every lookup for user fail with code, until clearFail.
+func (s *stubBilling) failFor(user string, code connect.Code) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.failUser == nil {
+		s.failUser = map[string]connect.Code{}
+	}
+	s.failUser[user] = code
+}
+
+// clearFail restores one owner's lookups.
+func (s *stubBilling) clearFail(user string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.failUser, user)
+}
+
 // setUnavailable makes the next n calls fail as Unavailable.
 func (s *stubBilling) setUnavailable(n int) {
 	s.mu.Lock()
@@ -68,12 +89,7 @@ func (s *stubBilling) setUnavailable(n int) {
 
 func startBilling(t *testing.T, stub *stubBilling) string {
 	t.Helper()
-	path, h := shortsv1alpha1connect.NewBillingServiceHandler(stub)
-	mux := http.NewServeMux()
-	mux.Handle(path, h)
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
-	return srv.URL
+	return startShortsAPI(t, stub, "")
 }
 
 // TestEntitledExactlyWhenActiveOrTrialing pins the job's side of the entitlement

@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS alert_events (
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT alert_events_monitor_report_unique UNIQUE (monitor_id, report_date),
     CONSTRAINT alert_events_email_status_check CHECK (email_status IN
-        ('pending', 'sending', 'sent', 'failed', 'skipped_unentitled', 'skipped_no_email', 'skipped_paused')),
+        ('pending', 'sending', 'sent', 'failed', 'skipped_unentitled', 'skipped_no_email', 'skipped_paused',
+         'awaiting_entitlement')),
     CONSTRAINT alert_events_cadence_check CHECK (cadence IN ('daily', 'weekly'))
 );
 

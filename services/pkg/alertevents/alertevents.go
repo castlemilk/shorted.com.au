@@ -15,6 +15,10 @@ const (
 	StatusSkippedUnentitled = "skipped_unentitled"
 	StatusSkippedNoEmail    = "skipped_no_email"
 	StatusSkippedPaused     = "skipped_paused"
+	// StatusAwaitingEntitlement holds an event whose owner's entitlement lookup
+	// failed for that owner alone. The evaluator re-checks it on each run and moves
+	// it to pending or skipped_unentitled. It is never sent as it stands.
+	StatusAwaitingEntitlement = "awaiting_entitlement"
 )
 
 // Statuses is every email_status the table admits.
@@ -26,6 +30,7 @@ var Statuses = []string{
 	StatusSkippedUnentitled,
 	StatusSkippedNoEmail,
 	StatusSkippedPaused,
+	StatusAwaitingEntitlement,
 }
 
 // Monitor target types, conditions and cadences, as alert_monitors stores them.

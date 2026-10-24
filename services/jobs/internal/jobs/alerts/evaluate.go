@@ -92,6 +92,11 @@ type CompanyInfo struct {
 type Snapshot struct {
 	// Dates are the distinct report dates, newest first, at most windowDates.
 	Dates []Date
+	// SyncUnsettled is true when the newest ASIC sync did not complete (failed,
+	// partial or stuck). Its last file may have been cancelled part-way, so the
+	// dates it wrote are not trusted yet and planning holds them. The zero value
+	// means settled, so a snapshot built without the sync state evaluates as before.
+	SyncUnsettled bool
 
 	rows    map[Date]map[string]float64 // raw percent by code, per date
 	names   map[string]string
@@ -211,9 +216,11 @@ type Plan struct {
 	// Weekly is ascending.
 	Weekly        []WeekEval
 	WeeklySkipped int // weeks dropped by the backlog cap
-	// Held is a daily date the completeness guard held back, or "". Evaluation
-	// stops before it, and its watermark is not advanced past it.
+	// Held is a daily date the completeness guard, or an unsettled sync, held back,
+	// or "". Evaluation stops before it, and its watermark is not advanced past it.
 	Held Date
+	// HeldBySync is true when the hold is the unsettled sync, not a short date.
+	HeldBySync bool
 	// Next is the watermark state a commit writes for this plan.
 	Next State
 }
@@ -265,6 +272,12 @@ func (p *Plan) planDaily(state State, snap *Snapshot) {
 		if i+1 < len(snap.Dates) {
 			ev.Prev = snap.Dates[i+1]
 		}
+		// An unsettled sync may have left any fresh date half-written, so none of
+		// them is evaluated until a sync completes.
+		if snap.SyncUnsettled {
+			p.Held, p.HeldBySync = ev.Date, true
+			break
+		}
 		// Completeness guard. ASIC files are about 800 rows; a half-written day
 		// would compare a few codes against a full day and fire on noise.
 		if ev.Prev != "" && 2*snap.count(ev.Date) < snap.count(ev.Prev) {
@@ -286,7 +299,15 @@ func (p *Plan) planWeekly(state State, snap *Snapshot) {
 		if !w.complete {
 			continue
 		}
-		if state.WeeklyThrough != "" && w.last <= state.WeeklyThrough {
+		// Watermarks compare weeks. A week the watermark already covers, including
+		// one whose Friday report was backfilled after it was evaluated, is done.
+		if state.WeeklyThrough != "" && !laterWeek(w.last, state.WeeklyThrough) {
+			continue
+		}
+		// A week that reaches a held daily date is not evaluated either. Its
+		// comparison would read the half-written date, and moving the watermark past
+		// the held date would skip the week for good.
+		if p.Held != "" && w.last >= p.Held {
 			continue
 		}
 		cand = append(cand, i)
@@ -356,6 +377,18 @@ func latestCompleteWeekLast(snap *Snapshot) Date {
 		}
 	}
 	return ""
+}
+
+// laterWeek reports whether report date a falls in a later ISO week than date b.
+// Weekly watermarks compare weeks, not dates: a report that lands later in an
+// already-evaluated week must not evaluate that week a second time.
+func laterWeek(a, b Date) bool {
+	ta, errA := a.Day()
+	tb, errB := b.Day()
+	if errA != nil || errB != nil {
+		return a > b
+	}
+	return mondayOf(ta).After(mondayOf(tb))
 }
 
 // mondayOf is the Monday that starts t's ISO week.

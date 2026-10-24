@@ -243,7 +243,7 @@ func newE2E(t *testing.T) *e2e {
 
 	rs := newResendStub(t)
 	billing := newStubBilling()
-	billURL := startBilling(t, billing)
+	billURL := startShortsAPI(t, billing, e2eUnsubKey)
 
 	t.Setenv("DATABASE_URL", dsn)
 	t.Setenv("RESEND_API_KEY", e2eResendKey)
@@ -693,10 +693,25 @@ func TestAlertsE2ESyncGate(t *testing.T) {
 		t.Fatalf("watermark moved during a sync: %s", d)
 	}
 
+	// Three hours on, the run is no longer "in progress", but it never finished. A
+	// killed sync can leave its last report part-written, so the report is held
+	// rather than evaluated on partial rows.
 	mustExec(t, e.pool, `UPDATE sync_status SET started_at = now() - interval '3 hours'`)
-	e.wantExit(e.run(), 0, "a stale sync row")
+	e.wantExit(e.run(), 10, "held: the unfinished sync")
+	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'm1'`); got != 0 {
+		t.Fatalf("an unfinished sync must hold its report, events = %d", got)
+	}
+	if d, _ := e.watermarks(); d != "2026-10-13" {
+		t.Fatalf("watermark moved past a held report: %s", d)
+	}
+
+	// A failed sync holds the same way, and a later completed sync releases it.
+	mustExec(t, e.pool, `INSERT INTO sync_status (status, started_at) VALUES ('failed', now() - interval '2 hours')`)
+	e.wantExit(e.run(), 10, "held: the latest sync failed")
+	mustExec(t, e.pool, `INSERT INTO sync_status (status, started_at) VALUES ('completed', now() - interval '1 minute')`)
+	e.wantExit(e.run(), 0, "a completed sync releases the hold")
 	if got := e.count(`SELECT count(*) FROM alert_events WHERE monitor_id = 'm1'`); got != 1 {
-		t.Fatalf("a sync older than two hours must not block evaluation, events = %d", got)
+		t.Fatalf("the held report must evaluate once a sync completes, events = %d", got)
 	}
 }
 

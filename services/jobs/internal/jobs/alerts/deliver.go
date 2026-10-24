@@ -6,7 +6,12 @@ import (
 	"fmt"
 	"time"
 
+	"connectrpc.com/connect"
+
+	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	"github.com/castlemilk/shorted.com.au/services/pkg/resend"
+	"github.com/castlemilk/shorted.com.au/services/pkg/unsubscribe"
 )
 
 // maxAttempts is how many sends a row gets before it is failed for good. A claim
@@ -29,6 +34,8 @@ type deliverOpts struct {
 	rps        float64
 	userID     string // a replay's owner, or "" for every owner
 	runID      int64
+	// pauseClient proves the one-click pause path before a canary goes out.
+	pauseClient shortsv1alpha1connect.AlertsServiceClient
 }
 
 // deliveryStats is what one delivery pass did.
@@ -41,6 +48,7 @@ type deliveryStats struct {
 	canary        string // ok, failed or skipped
 	canaryID      string
 	quota         bool // Resend's quota ran out; the rest were returned to pending
+	awaiting      int  // events still waiting on an entitlement lookup
 }
 
 // wantCanary decides whether this pass sends the canary. auto sends one when mail
@@ -74,7 +82,7 @@ func deliver(ctx context.Context, st store, client *resend.Client, env settings,
 	stats.claimed = len(rows)
 
 	if wantCanary(o.canaryMode, len(rows), o.canaryDue) {
-		if err := sendCanary(ctx, st, client, env, o.runID, &stats); err != nil {
+		if err := sendCanary(ctx, st, client, env, o.pauseClient, o.runID, &stats); err != nil {
 			ids := make([]int64, 0, len(rows))
 			for _, c := range rows {
 				ids = append(ids, c.id)
@@ -177,7 +185,11 @@ func deliver(ctx context.Context, st store, client *resend.Client, env settings,
 // sendCanary sends the fixed stock-above fixture through the same template, key,
 // sender and headers as a customer email. A success is recorded as the day's
 // proof. The key is per run, so a retry of the same run does not send twice.
-func sendCanary(ctx context.Context, st store, client *resend.Client, env settings, runID int64, stats *deliveryStats) error {
+func sendCanary(ctx context.Context, st store, client *resend.Client, env settings, pause shortsv1alpha1connect.AlertsServiceClient, runID int64, stats *deliveryStats) error {
+	if err := verifyPauseLink(ctx, pause, env.unsubscribeSecret); err != nil {
+		stats.canary = "failed"
+		return err
+	}
 	r, err := renderMessage(env.siteURL, env.unsubscribeSecret, canaryMonitorID, canaryMessage())
 	if err != nil {
 		stats.canary = "failed"
@@ -191,6 +203,28 @@ func sendCanary(ctx context.Context, st store, client *resend.Client, env settin
 	stats.canary = "ok"
 	stats.canaryID = id
 	return st.markCanarySent(ctx)
+}
+
+// verifyPauseLink proves the one-click pause path before customer mail goes out.
+// The canary's token names no real monitor, so the API must answer NotFound. An
+// answer of InvalidArgument means the token did not verify, which is what a rotated
+// UNSUBSCRIBE_SECRET looks like from here: the job still holds the old copy. Any
+// other answer means the path is not working either. Each fails the canary.
+func verifyPauseLink(ctx context.Context, pause shortsv1alpha1connect.AlertsServiceClient, secret string) error {
+	if pause == nil {
+		return errors.New("pause link: no API client")
+	}
+	token := unsubscribe.AlertMonitorToken(canaryMonitorID, secret)
+	_, err := pause.PauseAlertMonitorByToken(ctx, connect.NewRequest(&shortsv1alpha1.PauseAlertMonitorByTokenRequest{Token: token}))
+	if err == nil {
+		// The canary id is all zeros and is never a real monitor. An answer of
+		// success would mean something paused a monitor it should not have.
+		return errors.New("pause link: the canary monitor unexpectedly exists")
+	}
+	if connect.CodeOf(err) == connect.CodeNotFound {
+		return nil
+	}
+	return fmt.Errorf("pause link round trip: %s", connect.CodeOf(err))
 }
 
 // toEmail assembles the Resend body for one recipient.

@@ -56,6 +56,24 @@ func (s store) syncRunning(ctx context.Context) (bool, error) {
 	return busy, err
 }
 
+// latestSyncStatus is the status of the most recently started ASIC sync, or "" when
+// none has ever run. Only a completed sync proves the newest report date was
+// written in full: a sync that failed or was cancelled part-way leaves its last
+// file partly written, and the next poll starts after that date, so nothing else
+// repairs it until the 10:00 reconcile.
+func (s store) latestSyncStatus(ctx context.Context) (string, error) {
+	var status string
+	err := s.pool.QueryRow(ctx, `
+		SELECT status FROM sync_status ORDER BY started_at DESC LIMIT 1`).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read latest sync status: %w", err)
+	}
+	return status, nil
+}
+
 // reportDates returns the newest report dates, newest first.
 func (s store) reportDates(ctx context.Context) ([]Date, error) {
 	rows, err := s.pool.Query(ctx, windowSQL, windowDates)
@@ -178,15 +196,60 @@ func (s store) canaryDue(ctx context.Context) (bool, error) {
 	return due, err
 }
 
-// hasDeliveryWork reports rows still waiting on Resend, including a claim a crash
-// left behind.
+// hasDeliveryWork reports rows still waiting on Resend or on an entitlement
+// lookup, including a claim a crash left behind.
 func (s store) hasDeliveryWork(ctx context.Context) (bool, error) {
 	var work bool
 	err := s.pool.QueryRow(ctx, `
 		SELECT EXISTS (SELECT 1 FROM alert_events
-		                WHERE email_status = 'pending'
+		                WHERE email_status IN ('pending', 'awaiting_entitlement')
 		                   OR (email_status = 'sending' AND send_claimed_at < now() - interval '15 minutes'))`).Scan(&work)
 	return work, err
+}
+
+// awaitingOwners lists the owners with events waiting on an entitlement lookup.
+func (s store) awaitingOwners(ctx context.Context) ([]string, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT DISTINCT user_id FROM alert_events
+		 WHERE email_status = 'awaiting_entitlement'
+		 ORDER BY user_id LIMIT 500`)
+	if err != nil {
+		return nil, fmt.Errorf("read owners awaiting entitlement: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan owner: %w", err)
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// resolveOwner moves one owner's awaiting events once the lookup has answered. An
+// entitled owner's events become pending and go out in the delivery pass. An
+// unentitled owner's become skipped_unentitled, with the status the API reported.
+func (s store) resolveOwner(ctx context.Context, userID string, e entitlement) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE alert_events
+		   SET email_status = CASE WHEN $2::boolean THEN 'pending' ELSE 'skipped_unentitled' END,
+		       last_error = CASE WHEN $2::boolean THEN NULL ELSE 'entitlement: status=' || $3::text END,
+		       updated_at = now()
+		 WHERE email_status = 'awaiting_entitlement' AND user_id = $1`,
+		userID, e.Entitled, e.Status)
+	if err != nil {
+		return 0, fmt.Errorf("resolve entitlement: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// countAwaiting counts events still waiting on an entitlement lookup.
+func (s store) countAwaiting(ctx context.Context) (int, error) {
+	var n int
+	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM alert_events WHERE email_status = 'awaiting_entitlement'`).Scan(&n)
+	return n, err
 }
 
 // insertRun opens a run row. Its id is the canary's idempotency key.
@@ -323,12 +386,16 @@ func (s store) recoverStale(ctx context.Context) error {
 	return nil
 }
 
-// expirePending fails a row that waited 48 hours. An alert that old is stale, so
-// it is never sent.
+// expirePending fails a row that waited 48 hours, whether for Resend or for an
+// entitlement lookup. An alert that old is stale, so it is never sent.
 func (s store) expirePending(ctx context.Context) error {
 	_, err := s.pool.Exec(ctx, `
-		UPDATE alert_events SET email_status = 'failed', last_error = 'expired', updated_at = now()
-		 WHERE email_status = 'pending' AND created_at < now() - interval '48 hours'`)
+		UPDATE alert_events
+		   SET email_status = 'failed',
+		       last_error = CASE WHEN email_status = 'awaiting_entitlement'
+		                         THEN 'expired: entitlement lookup never succeeded' ELSE 'expired' END,
+		       updated_at = now()
+		 WHERE email_status IN ('pending', 'awaiting_entitlement') AND created_at < now() - interval '48 hours'`)
 	return err
 }
 

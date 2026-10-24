@@ -26,18 +26,26 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"connectrpc.com/connect"
 
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 	"github.com/castlemilk/shorted.com.au/services/pkg/alertevents"
 	"github.com/castlemilk/shorted.com.au/services/pkg/resend"
+
+	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 )
 
 // exitDegraded is the runner's code for DEGRADED.
 const exitDegraded = 10
+
+// syncCompleted is the sync_status value of a sync that finished every file.
+const syncCompleted = "completed"
 
 // Job is the registry entry for `shorted alerts`.
 func Job() runner.Job {
@@ -114,14 +122,20 @@ type summary struct {
 	failed            int
 	skippedUnentitled int
 	skippedNoEmail    int
+	awaiting          int
 	canary            string
 	exit              int
+	note              string
 }
 
 func (s summary) line() string {
-	return fmt.Sprintf("alerts: dates=[%s] weekly=%s monitors=%d candidates=%d events=%d sent=%d retrying=%d failed=%d skipped_unentitled=%d skipped_no_email=%d canary=%s exit=%d",
+	out := fmt.Sprintf("alerts: dates=[%s] weekly=%s monitors=%d candidates=%d events=%d sent=%d retrying=%d failed=%d skipped_unentitled=%d skipped_no_email=%d awaiting=%d canary=%s exit=%d",
 		joinDates(s.dates), dateLabel(s.weekly), s.monitors, s.candidates, s.events, s.sent, s.retrying, s.failed,
-		s.skippedUnentitled, s.skippedNoEmail, s.canary, s.exit)
+		s.skippedUnentitled, s.skippedNoEmail, s.awaiting, s.canary, s.exit)
+	if s.note != "" {
+		out += fmt.Sprintf(" note=%q", s.note)
+	}
+	return out
 }
 
 // execute runs the phases in order. The run row is opened only once there is work,
@@ -167,6 +181,20 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 		}
 	}
 
+	// Phase 3b: the newest sync must have completed. A failed or cancelled sync can
+	// leave its last report half-written, so planning holds the unevaluated dates
+	// until a completed sync lands. A replay is an operator's explicit request.
+	unsettled := false
+	if a.opts.date == "" {
+		status, err := a.st.latestSyncStatus(ctx)
+		if err != nil {
+			return sum, err
+		}
+		if unsettled = status != "" && status != syncCompleted; unsettled {
+			log.Printf("alerts: latest ASIC sync is %s, not %s; holding report dates until one completes", status, syncCompleted)
+		}
+	}
+
 	// Phase 4 and 5: the window, the watermarks and the data.
 	reportDates, err := a.st.reportDates(ctx)
 	if err != nil {
@@ -189,6 +217,7 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 		return sum, err
 	}
 	snap := NewSnapshot(reportDates, readings, companies)
+	snap.SyncUnsettled = unsettled
 
 	// Phase 4: the plan.
 	replay := a.opts.date != ""
@@ -202,6 +231,11 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 	}
 	sum.dates = dailyDates(plan)
 	sum.weekly = weeklyLast(plan)
+	sum.note = planNote(plan, a.opts)
+	if plan.Bootstrap {
+		log.Printf("alerts: bootstrap: watermarks set daily_through=%s weekly_through=%s; nothing evaluated, nothing sent",
+			dateLabel(plan.Next.DailyThrough), dateLabel(plan.Next.WeeklyThrough))
+	}
 
 	// Phase 7: nothing to do. A run with no plan, no pending send and no canary due
 	// writes no run row and logs one line.
@@ -231,13 +265,13 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 	sum.monitors, sum.candidates = len(monitors), len(cands)
 
 	// Phase 10: entitlement, once per owner with an email.
-	ents, checked, err := a.entitlements(ctx, cands)
+	owners, err := a.entitlements(ctx, cands)
 	if err != nil {
 		return sum, err
 	}
 
 	if a.opts.dryRun {
-		a.logCandidates(cands, ents, checked)
+		a.logCandidates(cands, owners)
 		sum.events = len(cands)
 		sum.canary = dryCanaryWord(a.opts.canary, due)
 		sum.exit = exitCode(plan, deliveryStats{})
@@ -252,7 +286,7 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 	}
 
 	// Phase 11: commit the events and the watermarks in one transaction.
-	rows, unentitled, noEmail := decideRows(cands, ents, checked)
+	rows, unentitled, noEmail, _ := decideRows(cands, owners)
 	sum.skippedUnentitled, sum.skippedNoEmail = unentitled, noEmail
 	applied, inserted, err := a.st.commit(ctx, state, plan.Next, replay, runID, rows)
 	if err != nil {
@@ -273,16 +307,29 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 		return sum, nil
 	}
 
+	// Phase 10b: owners whose lookup failed, this run or an earlier one. Their
+	// events are re-checked here, before any send, so an entitled owner's alert
+	// goes out as soon as the lookup works. A transport-wide failure stops the run.
+	remaining, err := a.resolveAwaiting(ctx)
+	if err != nil {
+		return sum, err
+	}
+	sum.awaiting = remaining
+
 	// Phase 12: delivery.
 	client := &resend.Client{APIKey: a.env.resendAPIKey, BaseURL: a.env.resendAPIURL}
+	pauseClient := shortsv1alpha1connect.NewAlertsServiceClient(
+		&http.Client{Timeout: 10 * time.Second}, a.env.shortsAPIURL)
 	dlv, err := deliver(ctx, a.st, client, a.env, deliverOpts{
-		canaryMode: a.opts.canary,
-		canaryDue:  due,
-		maxSends:   a.opts.maxSends,
-		rps:        a.env.rps,
-		userID:     a.opts.user,
-		runID:      runID,
+		canaryMode:  a.opts.canary,
+		canaryDue:   due,
+		maxSends:    a.opts.maxSends,
+		rps:         a.env.rps,
+		userID:      a.opts.user,
+		runID:       runID,
+		pauseClient: pauseClient,
 	})
+	dlv.awaiting = remaining
 	sum.sent, sum.retrying, sum.failed, sum.canary = dlv.sent, dlv.retrying, dlv.failed, dlv.canary
 	res.EmailsSent, res.EmailsRetrying, res.EmailsFailed, res.CanaryResendID = dlv.sent, dlv.retrying, dlv.failed, dlv.canaryID
 	if err != nil {
@@ -305,80 +352,167 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 	return sum, nil
 }
 
-// entitlements returns the entitlement of each owner with an email, and whether the
-// lookup ran at all. A dry run without the API settings, or whose lookup fails,
-// reports unchecked and goes on. A live run fails on a lookup error.
-func (a *alertRun) entitlements(ctx context.Context, cands []Candidate) (map[string]entitlement, bool, error) {
+// ownerState is what the entitlement phase learned: each owner's answer, and the
+// owners whose own lookup failed. Only a transport-wide failure fails the run, so
+// one owner's error holds only that owner's events.
+type ownerState struct {
+	ents    map[string]entitlement
+	failed  map[string]string // owner -> the lookup's error code
+	checked bool              // false when no lookup ran (a dry run without the API)
+}
+
+func newOwnerState() ownerState {
+	return ownerState{ents: map[string]entitlement{}, failed: map[string]string{}}
+}
+
+// entitlements returns the entitlement of each owner with an email. A dry run
+// without the API settings, or whose transport-wide lookup fails, reports
+// unchecked and goes on. A live run fails on a transport-wide lookup error, before
+// anything is committed, so the watermarks stay and the next run retries.
+func (a *alertRun) entitlements(ctx context.Context, cands []Candidate) (ownerState, error) {
+	st := newOwnerState()
 	if a.env.shortsAPIURL == "" || a.env.internalSecret == "" {
 		log.Printf("alerts: entitlement=unchecked (SHORTS_API_URL or INTERNAL_SERVICE_SECRET is unset)")
-		return nil, false, nil
+		return st, nil
 	}
-	ents := map[string]entitlement{}
 	checker := newEntitlementChecker(a.env.shortsAPIURL, a.env.internalSecret)
 	for _, c := range cands {
+		uid := c.Monitor.UserID
 		if c.Monitor.Email == "" {
 			continue
 		}
-		if _, ok := ents[c.Monitor.UserID]; ok {
+		if _, ok := st.ents[uid]; ok {
 			continue
 		}
-		e, err := checker.check(ctx, c.Monitor.UserID)
-		if err != nil {
-			if a.opts.dryRun {
-				log.Printf("alerts: entitlement=unchecked: the shorts API lookup failed")
-				return nil, false, nil
-			}
-			return nil, false, fmt.Errorf("entitlement lookup failed: %w", err)
+		if _, ok := st.failed[uid]; ok {
+			continue
 		}
-		ents[c.Monitor.UserID] = e
+		e, err := checker.check(ctx, uid)
+		if err == nil {
+			st.ents[uid] = e
+			continue
+		}
+		if transportWide(err) {
+			if a.opts.dryRun {
+				log.Printf("alerts: entitlement=unchecked: the shorts API lookup failed (%s)", lookupCode(err))
+				return newOwnerState(), nil
+			}
+			return ownerState{}, fmt.Errorf("entitlement lookup failed: %w", err)
+		}
+		st.failed[uid] = lookupCode(err)
+		log.Printf("alerts: entitlement lookup failed for one owner (%s); their alerts wait for the next run", lookupCode(err))
 	}
-	return ents, true, nil
+	st.checked = true
+	return st, nil
+}
+
+// resolveAwaiting re-checks the owners whose events are awaiting a lookup. It
+// returns how many events are still awaiting. A transport-wide failure is returned,
+// and the run stops before delivery.
+func (a *alertRun) resolveAwaiting(ctx context.Context) (int, error) {
+	owners, err := a.st.awaitingOwners(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if len(owners) > 0 {
+		checker := newEntitlementChecker(a.env.shortsAPIURL, a.env.internalSecret)
+		for _, uid := range owners {
+			e, err := checker.check(ctx, uid)
+			if err != nil {
+				if transportWide(err) {
+					return 0, fmt.Errorf("entitlement lookup failed: %w", err)
+				}
+				log.Printf("alerts: entitlement lookup still failing for one owner (%s)", lookupCode(err))
+				continue
+			}
+			if _, err := a.st.resolveOwner(ctx, uid, e); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return a.st.countAwaiting(ctx)
+}
+
+// transportWide reports a lookup failure about the whole API rather than one owner:
+// it is unreachable, timed out, or refuses the job's credential. Any other answer,
+// such as quota, a missing account or a server error for that account, is about
+// that owner alone.
+func transportWide(err error) bool {
+	var ce *connect.Error
+	if !errors.As(err, &ce) {
+		return true
+	}
+	switch ce.Code() {
+	case connect.CodeUnavailable, connect.CodeDeadlineExceeded, connect.CodeUnauthenticated, connect.CodeCanceled:
+		return true
+	}
+	return false
+}
+
+// lookupCode names a lookup failure for the log and the row. It never carries the
+// message, which could name an account.
+func lookupCode(err error) string {
+	var ce *connect.Error
+	if errors.As(err, &ce) {
+		return ce.Code().String()
+	}
+	return "error"
 }
 
 // decideRows turns candidates into the rows a commit inserts. A candidate with no
-// email is skipped_no_email. One whose owner is not entitled is skipped_unentitled.
-// Everything else is pending for delivery.
-func decideRows(cands []Candidate, ents map[string]entitlement, checked bool) (rows []eventRow, unentitled, noEmail int) {
+// email is skipped_no_email. An owner whose own lookup failed is awaiting_entitlement,
+// to be re-checked. One whose owner is not entitled is skipped_unentitled. Everything
+// else is pending for delivery.
+func decideRows(cands []Candidate, owners ownerState) (rows []eventRow, unentitled, noEmail, awaiting int) {
 	for _, c := range cands {
+		uid := c.Monitor.UserID
 		row := eventRow{
 			monitorID: c.Monitor.ID,
-			userID:    c.Monitor.UserID,
+			userID:    uid,
 			msg:       messageOf(c),
 			status:    alertevents.StatusPending,
 		}
+		code, lookupFailed := owners.failed[uid]
 		switch {
 		case c.Monitor.Email == "":
 			row.status = alertevents.StatusSkippedNoEmail
 			noEmail++
-		case checked && !ents[c.Monitor.UserID].Entitled:
+		case owners.checked && lookupFailed:
+			row.status = alertevents.StatusAwaitingEntitlement
+			row.lastError = "entitlement: lookup failed (" + code + ")"
+			awaiting++
+		case owners.checked && !owners.ents[uid].Entitled:
 			row.status = alertevents.StatusSkippedUnentitled
-			row.lastError = "entitlement: status=" + ents[c.Monitor.UserID].Status
+			row.lastError = "entitlement: status=" + owners.ents[uid].Status
 			unentitled++
 		}
 		rows = append(rows, row)
 	}
-	return rows, unentitled, noEmail
+	return rows, unentitled, noEmail, awaiting
 }
 
 // logCandidates prints a dry run's candidates. Addresses and bodies are never
 // printed. The subject carries only a ticker and figures, and the user id appears
 // only under -verbose.
-func (a *alertRun) logCandidates(cands []Candidate, ents map[string]entitlement, checked bool) {
+func (a *alertRun) logCandidates(cands []Candidate, owners ownerState) {
 	for _, c := range cands {
+		uid := c.Monitor.UserID
 		entitled := "unchecked"
 		switch {
 		case c.Monitor.Email == "":
 			entitled = "no-email"
-		case checked && ents[c.Monitor.UserID].Entitled:
+		case owners.checked && owners.failed[uid] != "":
+			entitled = "lookup-failed"
+		case owners.checked && owners.ents[uid].Entitled:
 			entitled = "yes"
-		case checked:
+		case owners.checked:
 			entitled = "no"
 		}
 		line := fmt.Sprintf("alerts: candidate monitor=%s scope=%s condition=%s target=%s report=%s compared=%s latest=%s previous=%s entitled=%s subject=%q",
 			c.Monitor.ID, c.Monitor.Scope, c.Monitor.Condition, c.Monitor.Target, c.ReportDate, c.ComparedTo,
 			pct(c.Latest), pct(c.Previous), entitled, subjectLine(messageOf(c)))
 		if a.opts.verbose {
-			line += " user=" + c.Monitor.UserID
+			line += " user=" + uid
 		}
 		log.Print(line)
 	}
@@ -397,7 +531,14 @@ func exitCode(plan Plan, dlv deliveryStats) int {
 func degradedReason(plan Plan, dlv deliveryStats) string {
 	var parts []string
 	if plan.Held != "" {
-		parts = append(parts, fmt.Sprintf("report %s is incomplete, so evaluation stopped before it", plan.Held))
+		if plan.HeldBySync {
+			parts = append(parts, fmt.Sprintf("report %s is held: the latest ASIC sync did not complete", plan.Held))
+		} else {
+			parts = append(parts, fmt.Sprintf("report %s is incomplete, so evaluation stopped before it", plan.Held))
+		}
+	}
+	if dlv.awaiting > 0 {
+		parts = append(parts, fmt.Sprintf("%d alert(s) waiting on an entitlement lookup", dlv.awaiting))
 	}
 	if dlv.retrying > 0 || dlv.failed > 0 {
 		parts = append(parts, fmt.Sprintf("%d email(s) retrying, %d failed", dlv.retrying, dlv.failed))
@@ -428,7 +569,11 @@ func planNote(plan Plan, opts options) string {
 		parts = append(parts, fmt.Sprintf("backlog: skipped %d weeks", plan.WeeklySkipped))
 	}
 	if plan.Held != "" {
-		parts = append(parts, "held "+string(plan.Held))
+		if plan.HeldBySync {
+			parts = append(parts, "held "+string(plan.Held)+" (sync not completed)")
+		} else {
+			parts = append(parts, "held "+string(plan.Held))
+		}
 	}
 	return strings.Join(parts, "; ")
 }
