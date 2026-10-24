@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -19,12 +20,7 @@ var _ oauth.TokenMinter = (*TokenService)(nil)
 func mcpResource() string { return mcp.ResourceURI(mcp.DefaultAPIBaseURL) }
 
 func containsStr(haystack []string, needle string) bool {
-	for _, v := range haystack {
-		if v == needle {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(haystack, needle)
 }
 
 // The output of Task 4 must be accepted by the verifier Task 1 built —

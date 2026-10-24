@@ -209,7 +209,7 @@ func TestGuardIsReleasedWhenTheRunEnds(t *testing.T) {
 	release := make(chan struct{})
 	close(release)
 	src := &adminMCPSource{web: blockingProbeWeb(t, started, release)}
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		out, err := src.RunPaidProbe(context.Background())
 		if err != nil || out == nil || out.InProgress || !out.OK {
 			t.Fatalf("run %d: out %+v, err %v; want a finished passing run", i, out, err)

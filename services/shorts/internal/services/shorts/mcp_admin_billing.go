@@ -508,7 +508,7 @@ func (a *adminMCPSource) subscriberUsage(ctx context.Context, ids []string, now 
 func apiUsageMonths(now time.Time, rows []shortsstore.APIUsageMonth) []mcp.APIUsageMonthRow {
 	base := time.Date(now.UTC().Year(), now.UTC().Month(), 1, 0, 0, 0, 0, time.UTC)
 	out := make([]mcp.APIUsageMonthRow, 0, billingAPIMonths)
-	for back := 0; back < billingAPIMonths; back++ {
+	for back := range billingAPIMonths {
 		month := base.AddDate(0, -back, 0)
 		var n int64
 		for _, r := range rows {

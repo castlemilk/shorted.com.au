@@ -236,11 +236,11 @@ type companyRow struct {
 }
 
 func getCompaniesWithLinks(ctx context.Context, db *pgxpool.Pool) ([]companyRow, error) {
-	var args []interface{}
+	var args []any
 	whereClause := ""
 	if *flagCodes != "" {
 		var codes []string
-		for _, c := range strings.Split(*flagCodes, ",") {
+		for c := range strings.SplitSeq(*flagCodes, ",") {
 			c = strings.TrimSpace(c)
 			if c != "" {
 				codes = append(codes, strings.ToUpper(c))
@@ -283,11 +283,11 @@ func getCompaniesWithLinks(ctx context.Context, db *pgxpool.Pool) ([]companyRow,
 
 // getCompaniesNeedingCrawl returns companies with websites but 0 financial reports.
 func getCompaniesNeedingCrawl(ctx context.Context, db *pgxpool.Pool) ([]companyRow, error) {
-	var args []interface{}
+	var args []any
 	whereClause := ""
 	if *flagCodes != "" {
 		var codes []string
-		for _, c := range strings.Split(*flagCodes, ",") {
+		for c := range strings.SplitSeq(*flagCodes, ",") {
 			c = strings.TrimSpace(c)
 			if c != "" {
 				codes = append(codes, strings.ToUpper(c))
@@ -345,7 +345,7 @@ func extractFinancialReports(website, linksRaw string) []FinancialReport {
 		trimmed := strings.Trim(linksRaw, "[] ")
 		trimmed = strings.TrimPrefix(trimmed, "'")
 		trimmed = strings.TrimSuffix(trimmed, "'")
-		for _, l := range strings.Split(trimmed, "', '") {
+		for l := range strings.SplitSeq(trimmed, "', '") {
 			l = strings.TrimSpace(l)
 			l = strings.Trim(l, "'\"")
 			l = strings.TrimSpace(l)
@@ -647,4 +647,3 @@ func sourcePriority(source string) int {
 		return 4
 	}
 }
-

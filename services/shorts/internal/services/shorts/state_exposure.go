@@ -36,7 +36,7 @@ func (s *ShortsServer) ListStateCompanies(ctx context.Context, req *connect.Requ
 	}
 
 	cacheKey := s.cache.ListStateCompaniesKey(state, limit)
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.ListStateCompanies(state, limit)
 		if err != nil {
 			return nil, err
@@ -69,7 +69,7 @@ func (s *ShortsServer) ListStateCompanies(ctx context.Context, req *connect.Requ
 // company state-exposure layer (excludes 'international').
 func (s *ShortsServer) GetStateCompanyAggregates(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStateCompanyAggregatesRequest]) (*connect.Response[shortsv1alpha1.GetStateCompanyAggregatesResponse], error) {
 	cacheKey := s.cache.GetStateCompanyAggregatesKey()
-	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.GetStateCompanyAggregates()
 		if err != nil {
 			return nil, err

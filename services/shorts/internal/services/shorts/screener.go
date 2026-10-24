@@ -22,7 +22,7 @@ func (s *ShortsServer) ScreenStocks(ctx context.Context, req *connect.Request[sh
 
 	cacheKey := s.cache.GetScreenStocksKey(req.Msg.Filters, req.Msg.SortField, req.Msg.SortDirection, req.Msg.Limit, req.Msg.Offset)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		stocks, totalCount, err := s.store.ScreenStocks(
 			req.Msg.Filters,
 			req.Msg.SortField,

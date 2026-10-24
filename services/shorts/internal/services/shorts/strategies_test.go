@@ -22,8 +22,11 @@ import (
 // compile error next to the handlers rather than at the mount.
 var _ shortsv1alpha1connect.StrategyServiceHandler = (*ShortsServer)(nil)
 
-func spBool(v bool) *bool    { return &v }
-func spInt32(v int32) *int32 { return &v }
+//go:fix inline
+func spBool(v bool) *bool { return new(v) }
+
+//go:fix inline
+func spInt32(v int32) *int32 { return new(v) }
 func spDate(s string) time.Time {
 	t, err := time.Parse("2006-01-02", s)
 	if err != nil {
@@ -34,7 +37,7 @@ func spDate(s string) time.Time {
 
 func spUptrend() strategies.Regime {
 	asOf := spDate("2026-09-25")
-	return strategies.Regime{IndexCode: "XJO", AsOf: &asOf, Close: f64(8800), SMA50: f64(8600), SMA200: f64(8200), PctOff52wHigh: f64(-1.5), Label: strategies.RegimeUptrend}
+	return strategies.Regime{IndexCode: "XJO", AsOf: &asOf, Close: f64(8800), SMA50: f64(8600), SMA200: f64(8200), PctOff52wHigh: new(-1.5), Label: strategies.RegimeUptrend}
 }
 
 // spReady passes every Zanger rule.
@@ -44,13 +47,13 @@ func spReady(code string) strategies.Candidate {
 		StockCode:       code,
 		AsOf:            spDate("2026-09-25"),
 		Close:           10,
-		PctOff52wHigh:   f64(-0.5),
-		VolumeRatio50d:  f64(2.1),
-		BaseHigh:        f64(9.5),
+		PctOff52wHigh:   new(-0.5),
+		VolumeRatio50d:  new(2.1),
+		BaseHigh:        new(9.5),
 		BaseLow:         f64(8),
-		BaseDepthPct:    f64(15.8),
+		BaseDepthPct:    new(15.8),
 		BaseLengthDays:  spInt32(30),
-		BreakoutRecent:  spBool(true),
+		BreakoutRecent:  new(true),
 		BreakoutDate:    &breakout,
 		DollarVolume20d: f64(5_000_000),
 		RS3mPct:         f64(10),
@@ -58,14 +61,14 @@ func spReady(code string) strategies.Candidate {
 		CompanyName:     code + " Ltd",
 		Industry:        "Materials",
 		LogoURL:         "https://example.test/" + code + ".png",
-		ShortPct:        f64(6.5),
-		MarketCap:       f64(1.2e9),
+		ShortPct:        new(6.5),
+		MarketCap:       new(1.2e9),
 	}
 }
 
 func spUniverse() []strategies.Candidate {
 	setup := spReady("SET")
-	setup.BreakoutRecent = spBool(false)
+	setup.BreakoutRecent = new(false)
 	setup.AsOf = spDate("2026-09-24")
 
 	watch := spReady("WAT")
@@ -83,7 +86,7 @@ func TestListStrategies_ReturnsTheRegistryAndANeutralRegime(t *testing.T) {
 	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(spUptrend(), nil).Times(1)
 
 	srv := newTestServer(t, mockStore)
-	for i := 0; i < 2; i++ { // the second call is served from cache
+	for range 2 { // the second call is served from cache
 		resp, err := srv.ListStrategies(context.Background(), connect.NewRequest(&shortsv1alpha1.ListStrategiesRequest{}))
 		require.NoError(t, err)
 
@@ -423,7 +426,7 @@ func TestMemoryCacheGetOrSetWithTTL(t *testing.T) {
 	defer c.Close()
 
 	calls := 0
-	fill := func() (interface{}, error) { calls++; return calls, nil }
+	fill := func() (any, error) { calls++; return calls, nil }
 
 	v, err := c.GetOrSetWithTTL("long", time.Hour, fill)
 	require.NoError(t, err)
@@ -437,7 +440,7 @@ func TestMemoryCacheGetOrSetWithTTL(t *testing.T) {
 	v, _ = c.GetOrSetWithTTL("short", time.Millisecond, fill)
 	assert.Equal(t, 3, v, "an expired per-entry TTL refills")
 
-	_, err = c.GetOrSetWithTTL("err", time.Hour, func() (interface{}, error) { return nil, errors.New("boom") })
+	_, err = c.GetOrSetWithTTL("err", time.Hour, func() (any, error) { return nil, errors.New("boom") })
 	require.Error(t, err)
 	_, found := c.Get("err")
 	assert.False(t, found, "errors are never cached")

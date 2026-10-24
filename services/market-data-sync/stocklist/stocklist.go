@@ -198,10 +198,10 @@ func (s *Service) parseCompaniesCSV(r io.Reader) ([]CompanyData, error) {
 
 	// Find column indices
 	indices := struct {
-		code     int
-		name     int
-		industry int
-		listing  int
+		code      int
+		name      int
+		industry  int
+		listing   int
 		marketCap int
 	}{-1, -1, -1, -1, -1}
 

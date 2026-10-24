@@ -21,7 +21,7 @@ func TestPlanToolCallsRunsAtMostTheCapPerRound(t *testing.T) {
 	if len(decisions) != 6 {
 		t.Fatalf("decisions = %d, want one per requested call (6)", len(decisions))
 	}
-	for i := 0; i < maxToolCallsPerRound; i++ {
+	for i := range maxToolCallsPerRound {
 		if decisions[i] != toolCallExecute {
 			t.Fatalf("call %d = %v, want execute", i, decisions[i])
 		}
@@ -53,7 +53,7 @@ func TestPlanToolCallsForNoCallsIsEmpty(t *testing.T) {
 }
 
 func TestRoundHasBudgetAllowsExactlyTheToolRounds(t *testing.T) {
-	for round := 0; round < maxToolRounds; round++ {
+	for round := range maxToolRounds {
 		if !roundHasBudget(round) {
 			t.Fatalf("roundHasBudget(%d) = false, want true", round)
 		}

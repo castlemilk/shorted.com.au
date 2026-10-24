@@ -156,10 +156,10 @@ func fetchWikidataMembers(ctx context.Context) ([]wikidataMember, error) {
 
 // commonsFileMeta is the licence and rendering data for one file.
 type commonsFileMeta struct {
-	ThumbURL    string
+	ThumbURL       string
 	DescriptionURL string
-	Licence     string
-	Author      string
+	Licence        string
+	Author         string
 }
 
 // fetchCommonsMeta resolves licence, author and a thumbnail for each file.

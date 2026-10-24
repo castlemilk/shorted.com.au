@@ -89,9 +89,8 @@ func registerFlags(f *flag.FlagSet) {
 }
 
 // getMap - converts struct into map, required for viper to correctly load
-func getMap(config interface{}) map[string]interface{} {
-	var inInterface map[string]interface{}
+func getMap(config any) map[string]any {
+	var inInterface map[string]any
 	_ = mapstructure.Decode(config, &inInterface)
 	return inInterface
 }
-

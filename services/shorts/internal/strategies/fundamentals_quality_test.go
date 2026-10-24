@@ -43,7 +43,7 @@ func TestIsFinancial(t *testing.T) {
 		{"statement shape alone", &Quality{StatementIsFinancial: true}, "Software & Services", true},
 		{"financial services without a quality row", nil, "Financial Services", false},
 		{"financial services, a lender by debt", &Quality{TotalDebt: f(50), TotalAssets: f(100)}, "Financial Services", true},
-		{"financial services, just under the debt test", &Quality{TotalDebt: f(49.9), TotalAssets: f(100)}, "Financial Services", false},
+		{"financial services, just under the debt test", &Quality{TotalDebt: new(49.9), TotalAssets: f(100)}, "Financial Services", false},
 		{"financial services, a lender by net interest income", &Quality{NetInterestIncome: f(26), Revenue: f(100)}, "Financial Services", true},
 		{"financial services, net interest income at exactly a quarter", &Quality{NetInterestIncome: f(25), Revenue: f(100)}, "Financial Services", false},
 		{"pre-2023 group name", &Quality{TotalDebt: f(60), TotalAssets: f(100)}, "Diversified Financials", true},
@@ -131,9 +131,9 @@ func TestApplyQualityRulesWithholdsOnlyTheListForFinancials(t *testing.T) {
 func TestApplyQualityRulesComputesROEForAFinancialTheViewWithheld(t *testing.T) {
 	cba := func() *Quality { // the view's row: roe_pct NULL, everything to compute it present
 		return &Quality{
-			Revenue: f(27e9), NetIncome: f(10e9), NetMarginPct: f(37),
-			TotalEquity: f(78e9), TotalEquityPrior: f(75e9), TotalAssets: f(1.3e12), TotalAssetsPrior: f(1.25e12),
-			ROAPct: f(10.0 / 1275 * 100),
+			Revenue: new(27e9), NetIncome: new(10e9), NetMarginPct: f(37),
+			TotalEquity: new(78e9), TotalEquityPrior: new(75e9), TotalAssets: new(1.3e12), TotalAssetsPrior: new(1.25e12),
+			ROAPct: new(10.0 / 1275 * 100),
 		}
 	}
 	want := 10e9 / ((78e9 + 75e9) / 2) * 100 // 13.07%
@@ -181,8 +181,8 @@ func TestApplyQualityRulesComputesROEForAFinancialTheViewWithheld(t *testing.T) 
 		"no equity":         func(q *Quality) { q.TotalEquity = nil },
 		"no net income":     func(q *Quality) { q.NetIncome = nil },
 		"zero prior equity": func(q *Quality) { q.TotalEquityPrior = f(0) },
-		"negative equity":   func(q *Quality) { q.TotalEquity = f(-1e9) },
-		"non-finite income": func(q *Quality) { q.NetIncome = f(math.Inf(1)) },
+		"negative equity":   func(q *Quality) { q.TotalEquity = new(-1e9) },
+		"non-finite income": func(q *Quality) { q.NetIncome = new(math.Inf(1)) },
 	} {
 		q := cba()
 		mutate(q)
@@ -194,7 +194,7 @@ func TestApplyQualityRulesComputesROEForAFinancialTheViewWithheld(t *testing.T) 
 
 	// A loss is a negative return, not an unknown one.
 	loss := cba()
-	loss.NetIncome = f(-1.53e9)
+	loss.NetIncome = new(-1.53e9)
 	ApplyQualityRules(loss, "Insurance")
 	if loss.ROEPct == nil || math.Abs(*loss.ROEPct-(-2)) > 1e-9 {
 		t.Errorf("an insurer's loss: ROE %v, want -2", loss.ROEPct)
@@ -206,8 +206,8 @@ func TestApplyQualityRulesComputesROEForAFinancialTheViewWithheld(t *testing.T) 
 func TestBankROEReachesTheRuleAndTheSort(t *testing.T) {
 	bankQuality := func(ni float64) *Quality {
 		return &Quality{
-			Revenue: f(27e9), NetIncome: f(ni), NetMarginPct: f(ni / 27e9 * 100),
-			TotalEquity: f(78e9), TotalEquityPrior: f(75e9), TotalAssets: f(1.3e12), TotalAssetsPrior: f(1.25e12),
+			Revenue: new(27e9), NetIncome: new(ni), NetMarginPct: new(ni / 27e9 * 100),
+			TotalEquity: new(78e9), TotalEquityPrior: new(75e9), TotalAssets: new(1.3e12), TotalAssetsPrior: new(1.25e12),
 			BasisPeriodType: "annual", BasisPeriodEnd: d("2026-06-30"),
 		}
 	}

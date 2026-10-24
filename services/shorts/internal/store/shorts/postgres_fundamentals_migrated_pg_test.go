@@ -795,7 +795,7 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		db.apply("000132_extend_fundamentals.up.sql")
 		assert.Equal(t, before, db.snapshot(), "a second 000132 apply changed something")
 
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			for _, f := range replay {
 				db.apply(f)
 			}

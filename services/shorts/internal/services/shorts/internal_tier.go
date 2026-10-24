@@ -43,7 +43,7 @@ func internalTierUsers() map[string]struct{} {
 		return nil
 	}
 	out := make(map[string]struct{})
-	for _, id := range strings.Split(raw, ",") {
+	for id := range strings.SplitSeq(raw, ",") {
 		if id = strings.TrimSpace(id); id != "" {
 			out[id] = struct{}{}
 		}

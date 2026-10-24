@@ -144,9 +144,9 @@ func TestApplyEnrichment_RiskFactorsEncoding(t *testing.T) {
 
 	// Create enrichment data with risk_factors as []string
 	enrichmentData := &shortsv1alpha1.EnrichmentData{
-		Tags:                []string{"energy", "oil", "gas", "exploration", "australia"},
-		EnhancedSummary:     "Enhanced summary for testing",
-		CompanyHistory:      "Company history for testing",
+		Tags:                  []string{"energy", "oil", "gas", "exploration", "australia"},
+		EnhancedSummary:       "Enhanced summary for testing",
+		CompanyHistory:        "Company history for testing",
 		CompetitiveAdvantages: "Competitive advantages for testing",
 		RiskFactors: []string{
 			"High concentration risk in the Bedout Basin and a small number of key assets, meaning exploration or development setbacks could materially impact the company's value.",
@@ -445,5 +445,3 @@ func TestGetPendingEnrichmentByStockCode(t *testing.T) {
 	assert.NoError(t, err, "Should not error")
 	assert.Nil(t, pending, "Should return nil for different stock code")
 }
-
-

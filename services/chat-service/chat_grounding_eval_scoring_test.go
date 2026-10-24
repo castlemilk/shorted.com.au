@@ -324,7 +324,7 @@ func TestEvalGateFailsARunWhoseTurnsErrored(t *testing.T) {
 	// One answered turn that is correct and grounded, and 59 provider errors. The
 	// rates over the answered turns are 1.000, so only the error count can fail the run.
 	runs := []evalRun{{Kind: string(evalShortPct), Answered: true, Correct: true, ToolCalled: true}}
-	for i := 0; i < 59; i++ {
+	for range 59 {
 		runs = append(runs, evalRun{Kind: string(evalShortPct), Error: "stream next: invalid character ']' looking for beginning of value"})
 	}
 	s := summarizeEvalRuns(runs)

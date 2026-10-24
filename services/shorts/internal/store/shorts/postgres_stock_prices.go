@@ -31,7 +31,7 @@ func (s *postgresStore) GetStockPrices(q StockPricesQuery) (*shortsv1alpha1.GetS
 	defer cancel()
 
 	var where string
-	args := []interface{}{q.ProductCode}
+	args := []any{q.ProductCode}
 	switch {
 	case q.From != "":
 		where = " AND p.date >= $2::date"
@@ -139,7 +139,7 @@ func thinPricePoints(points []*shortsv1alpha1.StockPricePoint, max int) []*short
 	}
 	out := make([]*shortsv1alpha1.StockPricePoint, 0, max)
 	step := float64(len(points)-1) / float64(max-1)
-	for i := 0; i < max; i++ {
+	for i := range max {
 		out = append(out, points[int(math.Round(float64(i)*step))])
 	}
 	return out

@@ -28,12 +28,12 @@ import (
 // that actually reached production arrived as JSON *strings*. Both shapes are
 // handled: the numeric case guards a future caller, the string case is the one
 // that has bitten.
-func sanitiseKeyMetrics(metrics map[string]interface{}) map[string]interface{} {
+func sanitiseKeyMetrics(metrics map[string]any) map[string]any {
 	if metrics == nil {
 		return nil
 	}
 
-	out := make(map[string]interface{}, len(metrics))
+	out := make(map[string]any, len(metrics))
 	for k, v := range metrics {
 		if isNonFiniteNumber(v) {
 			continue
@@ -49,7 +49,7 @@ func sanitiseKeyMetrics(metrics map[string]interface{}) map[string]interface{} {
 // Only values that ARE a number count. Prose that happens to contain the word
 // "infinity" is left alone — a description is not a measurement, and stripping
 // it would lose real content to a string match.
-func isNonFiniteNumber(v interface{}) bool {
+func isNonFiniteNumber(v any) bool {
 	switch t := v.(type) {
 	case float64:
 		return math.IsInf(t, 0) || math.IsNaN(t)

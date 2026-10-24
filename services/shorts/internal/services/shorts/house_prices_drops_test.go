@@ -96,12 +96,12 @@ func TestGetDropIndexSeries_StampsAsOfAndCapsDataThroughAtCrawlHorizon(t *testin
 	}{
 		{
 			name:  "crawl stopped before the last snapshot",
-			crawl: timePtr(time.Date(2026, 9, 15, 1, 46, 0, 0, time.UTC)),
+			crawl: new(time.Date(2026, 9, 15, 1, 46, 0, 0, time.UTC)),
 			want:  time.Date(2026, 9, 15, 1, 46, 0, 0, time.UTC),
 		},
 		{
 			name:  "crawl current",
-			crawl: timePtr(time.Date(2026, 9, 23, 2, 0, 0, 0, time.UTC)),
+			crawl: new(time.Date(2026, 9, 23, 2, 0, 0, 0, time.UTC)),
 			want:  time.Date(2026, 9, 22, 23, 59, 59, 0, time.UTC),
 		},
 		{
@@ -367,7 +367,8 @@ func TestGetSuburbProfile_ListingStatsCarryFreshness(t *testing.T) {
 	}
 }
 
-func timePtr(t time.Time) *time.Time { return &t }
+//go:fix inline
+func timePtr(t time.Time) *time.Time { return new(t) }
 
 // TestGetDropIndexSeries_FlagsAWithheldMedian: a NULL stored median (fewer than
 // 3 dropped addresses) travels as median_withheld, so no client has to infer

@@ -33,7 +33,7 @@ func TestCrawlAgentJob_CircuitOpenDefersInsteadOfBankingSuccess(t *testing.T) {
 	}
 
 	job := &agentCrawlJob{ID: "job-1", Kind: "housing", Suburb: "Unley", State: "SA", Postcode: "5061", Source: "rea", Tier: "listings"}
-	cfg := listingsConfig{crawlConfig: crawlConfig{dryRun: true}, resumeWindow: time.Hour}
+	cfg := listingsConfig{dryRun: true, resumeWindow: time.Hour}
 
 	summary, status, errMsg, wrote, retryAfter := crawlAgentJob(
 		context.Background(), nil, nil, cfg, job, resumeSet{}, cb, nil)
@@ -68,7 +68,7 @@ func TestCrawlAgentJob_ResumeWindowSkipStillSucceeds(t *testing.T) {
 	cb := newCircuitBreaker(2, 5*time.Minute, 30*time.Minute)
 
 	job := &agentCrawlJob{ID: "job-2", Kind: "housing", Suburb: "Unley", State: "SA", Postcode: "5061", Source: "rea", Tier: "listings"}
-	cfg := listingsConfig{crawlConfig: crawlConfig{dryRun: true}, resumeWindow: 24 * time.Hour}
+	cfg := listingsConfig{dryRun: true, resumeWindow: 24 * time.Hour}
 
 	target, _ := resolveCrawlTarget(job)
 	rs := resumeSet{resumeKey("rea", target.regionCode()): now.Add(-time.Minute)}

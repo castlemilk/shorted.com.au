@@ -54,7 +54,7 @@ func TestSparklineKeeps_MatchesTheOldDecimationForEverySeriesLength(t *testing.T
 		for _, n := range lengths {
 			want := referenceKeptIndexes(n, maxPoints)
 			got := 0
-			for rn := 0; rn < n; rn++ {
+			for rn := range n {
 				keeps := sparklineKeeps(rn, n, maxPoints)
 				if keeps != want[rn] {
 					t.Fatalf("maxPoints=%d n=%d rn=%d: sparklineKeeps=%v, the old decimation kept=%v", maxPoints, n, rn, keeps, want[rn])

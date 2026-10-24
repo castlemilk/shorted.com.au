@@ -10,8 +10,8 @@ import (
 
 // Checkpoint represents the current state of a sync run
 type Checkpoint struct {
-	RunID   string
-	Status  string
+	RunID  string
+	Status string
 
 	// Overall progress
 	StocksTotal      int

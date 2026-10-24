@@ -38,7 +38,7 @@ func (s *ShortsServer) ListCouncils(ctx context.Context, req *connect.Request[sh
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	cached, err := s.cache.GetOrSet(s.cache.GetCouncilsKey(params.stateCode), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.GetCouncilsKey(params.stateCode), func() (any, error) {
 		rows, err := s.store.ListCouncils(params.stateCode)
 		if err != nil {
 			return nil, err
@@ -133,7 +133,7 @@ func (s *ShortsServer) GetCouncilProfile(ctx context.Context, req *connect.Reque
 	if !ok {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("council not found"))
 	}
-	cached, err := s.cache.GetOrSet(s.cache.GetCouncilProfileKey(params.stateCode, slug), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.GetCouncilProfileKey(params.stateCode, slug), func() (any, error) {
 		row, err := s.store.GetCouncilProfile(params.stateCode, slug)
 		if err != nil {
 			return nil, err

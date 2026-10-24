@@ -21,7 +21,7 @@ func TestParseBridgeRefusesTruncatedArtifact(t *testing.T) {
 	known := map[string]bool{"A": true}
 	bridge := func(n int) map[string]suburbLGAEntry {
 		m := make(map[string]suburbLGAEntry, n)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			m[fmt.Sprintf("%05d", i)] = suburbLGAEntry{LGA: "A", Share: 1}
 		}
 		return m
@@ -37,7 +37,7 @@ func TestParseBridgeRefusesTruncatedArtifact(t *testing.T) {
 func TestMatchFAGsRefusesABrokenNameMatch(t *testing.T) {
 	idx := map[fagCouncilKey]string{}
 	var rows []FagRow
-	for i := 0; i < fagMinMatch; i++ {
+	for i := range fagMinMatch {
 		name := fmt.Sprintf("Shire of Place %d", i)
 		idx[fagCouncilKey{"NSW", normCouncil(name)}] = fmt.Sprintf("1%04d", i)
 		rows = append(rows, FagRow{"NSW", name, "2025-26", 1})
@@ -55,7 +55,7 @@ func TestWikidataFloors(t *testing.T) {
 
 	sparql := func(n int) []byte {
 		var res sparqlResults
-		for i := 0; i < n; i++ {
+		for i := range n {
 			res.Results.Bindings = append(res.Results.Bindings, map[string]struct {
 				Value string `json:"value"`
 			}{
@@ -79,7 +79,7 @@ func TestWikidataFloors(t *testing.T) {
 	}
 
 	ix := lgaIndex{kind: map[string]string{}, state: map[string]string{}, name: map[string]string{}}
-	for i := 0; i < wikidataMinCouncils; i++ {
+	for i := range wikidataMinCouncils {
 		ix.kind[code(i)] = lgaKindCouncil
 	}
 	if codes, err := wikidataWrites(snap, ix); err != nil || len(codes) != wikidataMinCouncils {

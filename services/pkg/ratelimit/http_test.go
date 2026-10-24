@@ -85,7 +85,7 @@ func TestHTTPMiddlewareAllowsThenRejects(t *testing.T) {
 	limiter := &countingLimiter{allow: 2}
 	h := NewHTTPMiddleware(limiter, enabledConfig(), byIP)(okHandler(&served))
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		if rec := do(h, request()); rec.Code != http.StatusOK {
 			t.Fatalf("request %d: status = %d", i, rec.Code)
 		}

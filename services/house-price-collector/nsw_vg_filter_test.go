@@ -61,7 +61,7 @@ func TestNSWMultiPropertyContractIsNotSixHouseSales(t *testing.T) {
 		house("4", "ST LEONARDS", 3_100_000, "AT4"),
 		house("5", "ST LEONARDS", 3_300_000, "AT5"),
 	}
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		site := house(fmt.Sprintf("9%d", i), "ST LEONARDS", 110_500_000, "AT999")
 		site.zoning = "R2" // a bundle is dropped on membership alone, whatever the zone
 		records = append(records, site)

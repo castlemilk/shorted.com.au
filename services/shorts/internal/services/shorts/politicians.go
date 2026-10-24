@@ -225,7 +225,7 @@ func (s *ShortsServer) GetParliamentOverview(
 		return connect.NewResponse(&shortsv1alpha1.GetParliamentOverviewResponse{}), nil
 	}
 
-	cached, err := s.cache.GetOrSet(s.cache.ParliamentOverviewKey(), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.ParliamentOverviewKey(), func() (any, error) {
 		row, err := s.store.GetRegisterOverview()
 		if err != nil {
 			return nil, err
@@ -268,7 +268,7 @@ func (s *ShortsServer) ListPoliticians(
 
 	cached, err := s.cache.GetOrSet(
 		s.cache.ListPoliticiansKey(chamber, state, party, query, limit, offset),
-		func() (interface{}, error) {
+		func() (any, error) {
 			rows, total, err := s.store.ListPoliticians(chamber, state, party, query, limit, offset)
 			if err != nil {
 				return nil, err
@@ -298,7 +298,7 @@ func (s *ShortsServer) GetPolitician(
 		return connect.NewResponse(&shortsv1alpha1.GetPoliticianResponse{}), nil
 	}
 
-	cached, err := s.cache.GetOrSet(s.cache.GetPoliticianKey(slug), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.GetPoliticianKey(slug), func() (any, error) {
 		row, interests, represented, err := s.store.GetPolitician(slug)
 		if err != nil {
 			return nil, err
@@ -349,7 +349,7 @@ func (s *ShortsServer) ListStockPoliticians(
 	currentOnly := req.Msg.CurrentOnly
 	cached, err := s.cache.GetOrSet(
 		s.cache.ListStockPoliticiansKey(code, currentOnly),
-		func() (interface{}, error) {
+		func() (any, error) {
 			company, people, interests, parties, err := s.store.ListStockPoliticians(code, currentOnly)
 			if err != nil {
 				return nil, err
@@ -393,7 +393,7 @@ func (s *ShortsServer) ListPoliticianStocks(
 
 	cached, err := s.cache.GetOrSet(
 		s.cache.ListPoliticianStocksKey(limit, currentOnly),
-		func() (interface{}, error) {
+		func() (any, error) {
 			rows, err := s.store.ListPoliticianStocks(limit, currentOnly)
 			if err != nil {
 				return nil, err
@@ -423,7 +423,7 @@ func (s *ShortsServer) ListSuburbPoliticians(
 		return connect.NewResponse(&shortsv1alpha1.ListSuburbPoliticiansResponse{}), nil
 	}
 
-	cached, err := s.cache.GetOrSet(s.cache.ListSuburbPoliticiansKey(salCode), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.ListSuburbPoliticiansKey(salCode), func() (any, error) {
 		suburb, state, people, interests, err := s.store.ListSuburbPoliticians(salCode)
 		if err != nil {
 			return nil, err
@@ -475,7 +475,7 @@ func (s *ShortsServer) ListStatePoliticianHoldings(
 	limit := clampLimit(req.Msg.Limit, 20, 100)
 	cached, err := s.cache.GetOrSet(
 		s.cache.ListStatePoliticianHoldingsKey(state, limit),
-		func() (interface{}, error) {
+		func() (any, error) {
 			rows, people, err := s.store.ListStatePoliticianHoldings(state, limit)
 			if err != nil {
 				return nil, err
@@ -532,7 +532,7 @@ func (s *ShortsServer) ListRegisterChanges(
 
 	cached, err := s.cache.GetOrSet(
 		s.cache.ListRegisterChangesKey(since, kind, code, slug, itemNo, party, chamber, limit, offset),
-		func() (interface{}, error) {
+		func() (any, error) {
 			rows, total, err := s.store.ListRegisterChanges(since, kind, code, slug, itemNo, party, chamber, limit, offset)
 			if err != nil {
 				return nil, err
@@ -591,7 +591,7 @@ func (s *ShortsServer) ListShortInterestOverlap(
 
 	cached, err := s.cache.GetOrSet(
 		s.cache.ListShortInterestOverlapKey(minPct, limit),
-		func() (interface{}, error) {
+		func() (any, error) {
 			rows, err := s.store.ListShortInterestOverlap(minPct, limit)
 			if err != nil {
 				return nil, err
@@ -645,7 +645,7 @@ func (s *ShortsServer) GetPoliticianAnalytics(
 
 	cached, err := s.cache.GetOrSet(
 		s.cache.GetPoliticianAnalyticsKey(topIndustries, currentOnly),
-		func() (interface{}, error) {
+		func() (any, error) {
 			a, err := s.store.GetRegisterAnalytics(topIndustries, currentOnly)
 			if err != nil {
 				return nil, err

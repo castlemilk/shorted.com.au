@@ -71,14 +71,14 @@ func normalizePersonName(name string) string {
 // -----------------------------------------------------------------------
 
 type keyPerson struct {
-	Name         string `json:"name"`
-	Role         string `json:"role"`
-	Bio          string `json:"bio"`
-	ImageURL     string `json:"image_url"`
-	ImageGCSURL  string `json:"image_gcs_url"`
-	LinkedInURL  string `json:"linkedin_url"`
-	SourceURL    string `json:"source_url"`
-	SourceType   string `json:"source_type"`
+	Name        string `json:"name"`
+	Role        string `json:"role"`
+	Bio         string `json:"bio"`
+	ImageURL    string `json:"image_url"`
+	ImageGCSURL string `json:"image_gcs_url"`
+	LinkedInURL string `json:"linkedin_url"`
+	SourceURL   string `json:"source_url"`
+	SourceType  string `json:"source_type"`
 }
 
 // -----------------------------------------------------------------------

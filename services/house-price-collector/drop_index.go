@@ -443,10 +443,7 @@ const indexBatchChunk = 100
 // suburbs goes from ~7,000 round trips to ~70.
 func writeSuburbPoints(ctx context.Context, pool *pgxpool.Pool, day time.Time, rows []suburbDay) error {
 	for start := 0; start < len(rows); start += indexBatchChunk {
-		end := start + indexBatchChunk
-		if end > len(rows) {
-			end = len(rows)
-		}
+		end := min(start+indexBatchChunk, len(rows))
 		chunk := rows[start:end]
 
 		batch := &pgx.Batch{}

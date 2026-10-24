@@ -159,7 +159,7 @@ func TestDrainWrapperMatchesTheDeferralContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	var code strings.Builder
-	for _, line := range strings.Split(string(src), "\n") {
+	for line := range strings.SplitSeq(string(src), "\n") {
 		if !strings.HasPrefix(strings.TrimSpace(line), "#") {
 			code.WriteString(line + "\n")
 		}

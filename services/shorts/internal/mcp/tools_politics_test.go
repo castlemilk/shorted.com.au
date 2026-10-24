@@ -76,9 +76,9 @@ var amountMarkers = []string{
 // explicitly permitted by the editorial standard.
 func TestPoliticianToolsPublishNoAmountOrValue(t *testing.T) {
 	types := map[string]reflect.Type{
-		"SearchPoliticiansOutput":    reflect.TypeOf(SearchPoliticiansOutput{}),
-		"GetPoliticianOutput":        reflect.TypeOf(GetPoliticianOutput{}),
-		"ListStockPoliticiansOutput": reflect.TypeOf(ListStockPoliticiansOutput{}),
+		"SearchPoliticiansOutput":    reflect.TypeFor[SearchPoliticiansOutput](),
+		"GetPoliticianOutput":        reflect.TypeFor[GetPoliticianOutput](),
+		"ListStockPoliticiansOutput": reflect.TypeFor[ListStockPoliticiansOutput](),
 	}
 	for name, typ := range types {
 		fields := jsonFieldNames(typ, map[reflect.Type]bool{})
@@ -198,7 +198,7 @@ func TestDeclaredTextIsEmittedVerbatim(t *testing.T) {
 func TestRegisterCapsDropWholeRowsAndNeverTruncateText(t *testing.T) {
 	long := strings.Repeat("Australian Foundation Investment Company Limited, ordinary shares. ", 60)
 	interests := make([]*shortsv1alpha1.DeclaredInterest, 0, maxRegisterInterests+7)
-	for i := 0; i < maxRegisterInterests+7; i++ {
+	for range maxRegisterInterests + 7 {
 		in := fixtureInterest()
 		in.DeclaredText = long
 		interests = append(interests, in)
@@ -245,9 +245,9 @@ func TestRegisterCapsDropWholeRowsAndNeverTruncateText(t *testing.T) {
 func TestPoliticianToolsEmitNoPortrait(t *testing.T) {
 	portraitMarkers := []string{"photo", "portrait", "image", "avatar", "picture", "thumbnail"}
 	types := map[string]reflect.Type{
-		"SearchPoliticiansOutput":    reflect.TypeOf(SearchPoliticiansOutput{}),
-		"GetPoliticianOutput":        reflect.TypeOf(GetPoliticianOutput{}),
-		"ListStockPoliticiansOutput": reflect.TypeOf(ListStockPoliticiansOutput{}),
+		"SearchPoliticiansOutput":    reflect.TypeFor[SearchPoliticiansOutput](),
+		"GetPoliticianOutput":        reflect.TypeFor[GetPoliticianOutput](),
+		"ListStockPoliticiansOutput": reflect.TypeFor[ListStockPoliticiansOutput](),
 	}
 	for name, typ := range types {
 		for _, field := range jsonFieldNames(typ, map[reflect.Type]bool{}) {

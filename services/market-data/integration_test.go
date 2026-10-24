@@ -117,7 +117,7 @@ func TestGetHistoricalPricesNilDatabase(t *testing.T) {
 
 	_, err := service.GetHistoricalPrices(ctx, req)
 	require.Error(t, err, "Should return error when database is nil")
-	
+
 	// Verify it's the correct error type
 	connectErr, ok := err.(*connect.Error)
 	require.True(t, ok, "Error should be a connect.Error")

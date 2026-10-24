@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 	"testing"
@@ -59,9 +60,7 @@ func openSuburbReferenceRefreshSchemaPools(t *testing.T) (*pgxpool.Pool, func(pa
 		// The collector's own protocol (connect, store.go).
 		cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 		cfg.ConnConfig.RuntimeParams["search_path"] = schema
-		for k, v := range params {
-			cfg.ConnConfig.RuntimeParams[k] = v
-		}
+		maps.Copy(cfg.ConnConfig.RuntimeParams, params)
 		pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 		if err != nil {
 			t.Fatalf("connect (schema): %v", err)

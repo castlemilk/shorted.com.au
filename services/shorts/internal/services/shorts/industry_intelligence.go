@@ -40,7 +40,7 @@ func (s *ShortsServer) GetIndustryIntelligence(ctx context.Context, req *connect
 	limit := normalizeIndustryIntelligenceLimit(req.Msg.RecordLimit)
 	cacheKey := s.cache.GetIndustryIntelligenceKey(industry, stockCode, limit)
 
-	cachedResponse, err := s.cache.GetOrSetWithTTL(cacheKey, industryIntelligenceCacheTTL, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSetWithTTL(cacheKey, industryIntelligenceCacheTTL, func() (any, error) {
 		result, err := s.store.GetIndustryIntelligence(industry, stockCode, limit)
 		if err != nil {
 			return nil, err

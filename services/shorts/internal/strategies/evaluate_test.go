@@ -16,11 +16,11 @@ func zangerReady(code string) Candidate {
 		StockCode:       code,
 		AsOf:            *d("2026-09-25"),
 		Close:           10,
-		BaseHigh:        f(9.5),
+		BaseHigh:        new(9.5),
 		BaseLow:         f(8),
-		BaseDepthPct:    f(15.8),
+		BaseDepthPct:    new(15.8),
 		BaseLengthDays:  i32(30),
-		BreakoutRecent:  b(true),
+		BreakoutRecent:  new(true),
 		BreakoutDate:    d("2026-09-24"),
 		DollarVolume20d: f(5_000_000),
 		RS3mPct:         f(10),
@@ -43,10 +43,10 @@ func qualityReady(code string) Candidate {
 		Growth:          &Growth{RevenueYoYPct: f(6), LatestAnnualPeriodEnd: d("2026-06-30")},
 		Quality: &Quality{
 			BasisPeriodType: "annual", BasisPeriodEnd: d("2026-06-30"), Currency: "AUD", BalanceCurrency: "AUD",
-			Revenue: f(1e9), NetIncome: f(2e8), FreeCashFlow: f(1.9e8), EBITDA: f(3.5e8),
-			TotalEquity: f(1e9), TotalAssets: f(2e9), TotalDebt: f(4e8), NetDebt: f(3e8),
-			NetMarginPct: f(20), ROEPct: f(21), GrossMarginPct: f(45), FCFConversion: f(0.95),
-			NetDebtToEBITDA: f(0.857), CurrentRatio: f(1.6), InterestCover: f(12),
+			Revenue: new(1e9), NetIncome: new(2e8), FreeCashFlow: new(1.9e8), EBITDA: new(3.5e8),
+			TotalEquity: new(1e9), TotalAssets: new(2e9), TotalDebt: new(4e8), NetDebt: new(3e8),
+			NetMarginPct: f(20), ROEPct: f(21), GrossMarginPct: f(45), FCFConversion: new(0.95),
+			NetDebtToEBITDA: new(0.857), CurrentRatio: new(1.6), InterestCover: f(12),
 		},
 	}
 }
@@ -93,7 +93,7 @@ func TestQuantile(t *testing.T) {
 func TestRS6mQuartileIgnoresMissingAndNonFinite(t *testing.T) {
 	cands := []Candidate{
 		{RS6mPct: f(1)}, {RS6mPct: f(2)}, {RS6mPct: f(3)}, {RS6mPct: f(4)},
-		{}, {RS6mPct: f(math.NaN())}, {RS6mPct: f(math.Inf(1))}, {RS6mPct: f(math.Inf(-1))},
+		{}, {RS6mPct: new(math.NaN())}, {RS6mPct: new(math.Inf(1))}, {RS6mPct: new(math.Inf(-1))},
 	}
 	q := computeRS6mQuartile(cands)
 	if !q.ok || q.threshold != 3.25 || q.max != 4 {
@@ -109,7 +109,7 @@ func TestEvaluateComputesTheQuartileOverTheEvaluatedUniverse(t *testing.T) {
 	s, _ := Lookup(IDMinerviniTrendTemplate)
 	var cands []Candidate
 	for i, code := range []string{"AAA", "BBB", "CCC", "DDD"} {
-		cands = append(cands, Candidate{StockCode: code, Close: 10, RS6mPct: f(float64(i + 1)), DollarVolume20d: f(1e6)})
+		cands = append(cands, Candidate{StockCode: code, Close: 10, RS6mPct: new(float64(i + 1)), DollarVolume20d: new(1e6)})
 	}
 	picks := Evaluate(s, cands, uptrend)
 	got := map[string]RuleStatus{}
@@ -203,7 +203,7 @@ func TestEvaluateZangerEndToEnd(t *testing.T) {
 	ready := zangerReady("RDY")
 
 	setup := zangerReady("SET")
-	setup.BreakoutRecent = b(false)
+	setup.BreakoutRecent = new(false)
 	setup.Close = 9.2
 
 	noFundamentals := zangerReady("NOF")
@@ -289,7 +289,7 @@ func TestEvaluateScoreBounds(t *testing.T) {
 	max := zangerReady("MAX")
 	max.BaseDepthPct = f(1)
 	max.BreakoutDate = d("2026-09-25")
-	max.DollarVolume20d = f(1e9)
+	max.DollarVolume20d = new(1e9)
 	max.RS3mPct = f(80)
 	max.Growth = &Growth{RevenueYoYPct: f(500)}
 	picks := Evaluate(z, []Candidate{max}, uptrend)
@@ -301,7 +301,7 @@ func TestEvaluateScoreBounds(t *testing.T) {
 	marginal.BaseDepthPct = f(25)
 	marginal.BreakoutDate = d("2026-09-18")
 	marginal.DollarVolume20d = f(250_000)
-	marginal.RS3mPct = f(0.0001)
+	marginal.RS3mPct = new(0.0001)
 	marginal.Growth = &Growth{RevenueYoYPct: f(25)}
 	neutral := Regime{IndexCode: "XJO", Label: RegimeNeutral}
 	picks = Evaluate(z, []Candidate{marginal}, neutral)
@@ -323,7 +323,7 @@ func TestEvaluateOrderingIsTotalAndStable(t *testing.T) {
 	strong.Growth = &Growth{RevenueYoYPct: f(95)}
 	cands = append(cands, strong)
 	weakSetup := zangerReady("AAB")
-	weakSetup.BreakoutRecent = b(false)
+	weakSetup.BreakoutRecent = new(false)
 	cands = append(cands, weakSetup)
 
 	want := []string{"ZZZ", "AAA", "BBB", "CCC", "DDD", "AAB"}
@@ -332,7 +332,7 @@ func TestEvaluateOrderingIsTotalAndStable(t *testing.T) {
 		t.Fatalf("order = %v, want %v", got, want)
 	}
 	rng := rand.New(rand.NewSource(42))
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		shuffled := append([]Candidate(nil), cands...)
 		rng.Shuffle(len(shuffled), func(a, b int) { shuffled[a], shuffled[b] = shuffled[b], shuffled[a] })
 		if got := codes(Evaluate(z, shuffled, uptrend)); !reflect.DeepEqual(got, want) {
@@ -362,7 +362,7 @@ func TestEvaluateEmptyUniverse(t *testing.T) {
 
 func TestEvaluateNonFiniteValuesNeverLeak(t *testing.T) {
 	m, _ := Lookup(IDMinerviniTrendTemplate)
-	c := Candidate{StockCode: "NAN", Close: 10, SMA50: f(math.Inf(1)), DollarVolume20d: f(1e6)}
+	c := Candidate{StockCode: "NAN", Close: 10, SMA50: new(math.Inf(1)), DollarVolume20d: new(1e6)}
 	for _, p := range Evaluate(m, []Candidate{c}, uptrend) {
 		for _, r := range p.Rules {
 			if math.IsNaN(r.Value) || math.IsInf(r.Value, 0) {
@@ -380,11 +380,11 @@ func TestEveryStrategyEvaluatesARealisticUniverse(t *testing.T) {
 	squeeze.ShortPct = f(9)
 	squeeze.DaysToCover = f(7)
 	trend := Candidate{
-		StockCode: "TRD", AsOf: *d("2026-09-25"), Close: 20, SMA50: f(18), SMA150: f(16), SMA200: f(15), SMA200_1mAgo: f(14.5),
-		Low52w: f(12), High52w: f(21), PctOff52wHigh: f(-4.8), RS6mPct: f(40), DollarVolume20d: f(3e6),
+		StockCode: "TRD", AsOf: *d("2026-09-25"), Close: 20, SMA50: f(18), SMA150: f(16), SMA200: f(15), SMA200_1mAgo: new(14.5),
+		Low52w: f(12), High52w: f(21), PctOff52wHigh: new(-4.8), RS6mPct: f(40), DollarVolume20d: new(3e6),
 		Growth: &Growth{EPSYoYPct: f(30)},
 	}
-	cands := []Candidate{zangerReady("RDY"), squeeze, trend, {StockCode: "LAG", Close: 1, RS6mPct: f(-20), DollarVolume20d: f(1e6)}, qualityReady("QLT")}
+	cands := []Candidate{zangerReady("RDY"), squeeze, trend, {StockCode: "LAG", Close: 1, RS6mPct: f(-20), DollarVolume20d: new(1e6)}, qualityReady("QLT")}
 	want := map[string]string{
 		IDZangerBreakout:         "RDY",
 		IDCANSLIM:                "TRD",
@@ -474,8 +474,8 @@ func TestPrepareCandidatesDecidesFinancialsAndValuesOnce(t *testing.T) {
 	bank := qualityReady("CBA")
 	bank.Industry = "Banks"
 	bank.ValuationInputs = &ValuationInputs{
-		Shares: f(1.7e9), SharesPeriodEnd: d("2026-06-30"), MedianK: f(1.01),
-		EPSDiluted: f(6.1), EPSPeriodEnd: d("2026-06-30"), EPSCurrency: "AUD",
+		Shares: new(1.7e9), SharesPeriodEnd: d("2026-06-30"), MedianK: new(1.01),
+		EPSDiluted: new(6.1), EPSPeriodEnd: d("2026-06-30"), EPSCurrency: "AUD",
 	}
 	miner := qualityReady("BHP")
 	none := Candidate{StockCode: "NIL", Close: 1, AsOf: *d("2026-09-25")}
@@ -507,7 +507,7 @@ func TestPrepareCandidatesDecidesFinancialsAndValuesOnce(t *testing.T) {
 		t.Error("without a share count the screener's market cap is the fallback")
 	}
 	cdi := Candidate{StockCode: "RMD", Close: 40, AsOf: *d("2026-09-25"), MarketCap: &screener,
-		ValuationInputs: &ValuationInputs{Shares: f(5.8e8), SharesPeriodEnd: d("2026-06-30"), MedianK: f(10.1)}}
+		ValuationInputs: &ValuationInputs{Shares: new(5.8e8), SharesPeriodEnd: d("2026-06-30"), MedianK: new(10.1)}}
 	cdiCands := []Candidate{cdi}
 	PrepareCandidates(cdiCands)
 	if cdiCands[0].Valuation.Note != ValuationNoteListedUnit || cdiCands[0].ResolvedMarketCap() != nil {

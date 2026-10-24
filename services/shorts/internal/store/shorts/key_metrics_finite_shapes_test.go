@@ -39,7 +39,7 @@ var postgresFloatSpellings = []string{
 func TestEverySpellingPostgresWouldAcceptIsDropped(t *testing.T) {
 	for _, spelling := range postgresFloatSpellings {
 		t.Run(strconv.Quote(spelling), func(t *testing.T) {
-			out := sanitiseKeyMetrics(map[string]interface{}{
+			out := sanitiseKeyMetrics(map[string]any{
 				"pe_ratio":   spelling,
 				"market_cap": 1234.5, // a sane sibling, to prove we drop one key not all
 			})
@@ -107,13 +107,13 @@ func TestFloat32NonFiniteValuesAreDropped(t *testing.T) {
 		"-Inf": float32(math.Inf(-1)),
 		"NaN":  float32(math.NaN()),
 	} {
-		out := sanitiseKeyMetrics(map[string]interface{}{"pe_ratio": v})
+		out := sanitiseKeyMetrics(map[string]any{"pe_ratio": v})
 		if _, present := out["pe_ratio"]; present {
 			t.Errorf("float32 %s survived", name)
 		}
 	}
 	// And a finite float32 is kept.
-	out := sanitiseKeyMetrics(map[string]interface{}{"pe_ratio": float32(12.5)})
+	out := sanitiseKeyMetrics(map[string]any{"pe_ratio": float32(12.5)})
 	if _, present := out["pe_ratio"]; !present {
 		t.Error("a finite float32 was dropped")
 	}
@@ -123,7 +123,7 @@ func TestFloat32NonFiniteValuesAreDropped(t *testing.T) {
 // infinity would lose real content to a string match — and enrichment writes
 // prose into neighbouring keys.
 func TestProseThatMentionsInfinityIsKept(t *testing.T) {
-	metrics := map[string]interface{}{
+	metrics := map[string]any{
 		"summary":     "Losses were effectively infinite this quarter.",
 		"note":        "P/E is NaN because earnings are zero.",
 		"description": "Infinity Mining Ltd is an ASX-listed explorer.",
@@ -150,7 +150,7 @@ func TestProseThatMentionsInfinityIsKept(t *testing.T) {
 // likely to be a broken float than a ticker. If a genuinely textual key ever
 // needs to hold "INF", it does not belong in key_metrics.
 func TestTheAmbiguousShortFormIsDroppedAndThatIsDeliberate(t *testing.T) {
-	out := sanitiseKeyMetrics(map[string]interface{}{"ticker": "INF"})
+	out := sanitiseKeyMetrics(map[string]any{"ticker": "INF"})
 	if _, present := out["ticker"]; present {
 		t.Error("\"INF\" survived; if this changed deliberately, update the comment above")
 	}
@@ -160,7 +160,7 @@ func TestTheAmbiguousShortFormIsDroppedAndThatIsDeliberate(t *testing.T) {
 // A guard that dropped more than it had to would quietly delete real data on
 // every write.
 func TestFiniteAndNonNumericValuesSurvive(t *testing.T) {
-	metrics := map[string]interface{}{
+	metrics := map[string]any{
 		"pe_ratio":       15.2,
 		"market_cap":     float64(1e12),
 		"zero":           0.0,
@@ -170,8 +170,8 @@ func TestFiniteAndNonNumericValuesSurvive(t *testing.T) {
 		"an_int":         42,
 		"a_bool":         true,
 		"a_nil":          nil,
-		"a_list":         []interface{}{1.0, 2.0},
-		"a_nested_map":   map[string]interface{}{"x": 1.0},
+		"a_list":         []any{1.0, 2.0},
+		"a_nested_map":   map[string]any{"x": 1.0},
 		"numeric_string": "15.2",
 	}
 	out := sanitiseKeyMetrics(metrics)
@@ -191,10 +191,10 @@ func TestFiniteAndNonNumericValuesSurvive(t *testing.T) {
 // defect. This test states the boundary so a future reader does not assume
 // recursion that is not there.
 func TestNestedValuesAreNotInspected(t *testing.T) {
-	out := sanitiseKeyMetrics(map[string]interface{}{
-		"nested": map[string]interface{}{"pe_ratio": "Infinity"},
+	out := sanitiseKeyMetrics(map[string]any{
+		"nested": map[string]any{"pe_ratio": "Infinity"},
 	})
-	nested, ok := out["nested"].(map[string]interface{})
+	nested, ok := out["nested"].(map[string]any)
 	if !ok {
 		t.Fatal("the nested map was dropped entirely")
 	}
@@ -207,7 +207,7 @@ func TestNilAndEmptyInputsAreHandled(t *testing.T) {
 	if out := sanitiseKeyMetrics(nil); out != nil {
 		t.Errorf("nil in, %v out — a nil map must stay nil so the column is untouched", out)
 	}
-	if out := sanitiseKeyMetrics(map[string]interface{}{}); len(out) != 0 {
+	if out := sanitiseKeyMetrics(map[string]any{}); len(out) != 0 {
 		t.Errorf("empty in, %v out", out)
 	}
 }
@@ -217,7 +217,7 @@ func TestNilAndEmptyInputsAreHandled(t *testing.T) {
 // call died — so a value that got past the guard would not merely be wrong, it
 // would fail the write.
 func TestWhateverSurvivesCanActuallyBeMarshalled(t *testing.T) {
-	metrics := map[string]interface{}{
+	metrics := map[string]any{
 		"pe_ratio":    math.Inf(1),
 		"eps":         math.NaN(),
 		"as_text":     "Infinity",

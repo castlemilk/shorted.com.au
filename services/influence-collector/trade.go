@@ -23,8 +23,10 @@ import (
 // helpers are local copies, the housing collector is a separate main package).
 //
 // Dataflows (verified live 2026-07-09):
-//   ABS,MERCH_EXP,1.0.0  COMMODITY_SITC.COUNTRY_DEST.STATE_ORIGIN.FREQ
-//   ABS,MERCH_IMP,1.0.0  COMMODITY_SITC.COUNTRY_ORIGIN.STATE_DEST.FREQ
+//
+//	ABS,MERCH_EXP,1.0.0  COMMODITY_SITC.COUNTRY_DEST.STATE_ORIGIN.FREQ
+//	ABS,MERCH_IMP,1.0.0  COMMODITY_SITC.COUNTRY_ORIGIN.STATE_DEST.FREQ
+//
 // We pull national totals only (COUNTRY=TOT, STATE=TOT, monthly). OBS_VALUE is
 // AUD thousands (UNIT_MULT=3) — scaled to raw AUD via the UNIT_MULT column.
 // Basis: exports FOB; imports customs value. Original terms (not seasonally

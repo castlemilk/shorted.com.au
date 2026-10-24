@@ -237,7 +237,7 @@ func (s *ASXScraper) DownloadDirect(ctx context.Context, csvURL string) (string,
 
 	filename := "asx-companies.csv"
 	outputPath := filepath.Join(s.downloadDir, filename)
-	
+
 	out, err := os.Create(outputPath)
 	if err != nil {
 		return "", err

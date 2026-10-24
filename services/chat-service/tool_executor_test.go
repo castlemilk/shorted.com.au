@@ -17,13 +17,13 @@ import (
 func TestExecuteEconomicSeriesValidatesSeriesKeys(t *testing.T) {
 	tests := []struct {
 		name string
-		args map[string]interface{}
+		args map[string]any
 		want string
 	}{
-		{name: "missing", args: map[string]interface{}{}, want: "series_keys"},
-		{name: "empty array", args: map[string]interface{}{"series_keys": []interface{}{}}, want: "series_keys"},
-		{name: "empty key", args: map[string]interface{}{"series_keys": []interface{}{"	"}}, want: "series_keys"},
-		{name: "too many", args: map[string]interface{}{"series_keys": []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"}}, want: "at most 10"},
+		{name: "missing", args: map[string]any{}, want: "series_keys"},
+		{name: "empty array", args: map[string]any{"series_keys": []any{}}, want: "series_keys"},
+		{name: "empty key", args: map[string]any{"series_keys": []any{"	"}}, want: "series_keys"},
+		{name: "too many", args: map[string]any{"series_keys": []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"}}, want: "at most 10"},
 	}
 
 	for _, test := range tests {
@@ -41,9 +41,9 @@ func TestExecuteEconomicSeriesValidatesSeriesKeys(t *testing.T) {
 }
 
 func TestExecuteEconomicSeriesPostsConnectJSONAndReturnsTrimmedSeries(t *testing.T) {
-	observations := make([]map[string]interface{}, 14)
+	observations := make([]map[string]any, 14)
 	for i := range observations {
-		observations[i] = map[string]interface{}{
+		observations[i] = map[string]any{
 			"period": fmt.Sprintf("2025-%02d-01T00:00:00Z", i+1),
 			"value":  float64(i),
 			"note":   "must not leak",
@@ -61,14 +61,14 @@ func TestExecuteEconomicSeriesPostsConnectJSONAndReturnsTrimmedSeries(t *testing
 			t.Errorf("Content-Type = %q, want application/json", got)
 		}
 
-		var request map[string]interface{}
+		var request map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
 		if len(request) != 2 {
 			t.Errorf("request body = %#v, want seriesKeys and maxObservations", request)
 		}
-		keys, ok := request["seriesKeys"].([]interface{})
+		keys, ok := request["seriesKeys"].([]any)
 		if !ok || len(keys) != 2 || keys[0] != "rates.cash_rate_target.aus" || keys[1] != "cpi.annual_change.all_groups.aus" {
 			t.Errorf("seriesKeys = %#v, want requested keys", request["seriesKeys"])
 		}
@@ -77,10 +77,10 @@ func TestExecuteEconomicSeriesPostsConnectJSONAndReturnsTrimmedSeries(t *testing
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"series": []interface{}{
-				map[string]interface{}{
-					"info": map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"series": []any{
+				map[string]any{
+					"info": map[string]any{
 						"seriesKey":     "rates.cash_rate_target.aus",
 						"regionName":    "Australia",
 						"unit":          "percent",
@@ -94,8 +94,8 @@ func TestExecuteEconomicSeriesPostsConnectJSONAndReturnsTrimmedSeries(t *testing
 		})
 	}))
 
-	result, err := executor.Execute(context.Background(), "get_economic_series", map[string]interface{}{
-		"series_keys": []interface{}{"rates.cash_rate_target.aus", "cpi.annual_change.all_groups.aus"},
+	result, err := executor.Execute(context.Background(), "get_economic_series", map[string]any{
+		"series_keys": []any{"rates.cash_rate_target.aus", "cpi.annual_change.all_groups.aus"},
 	})
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
@@ -103,11 +103,11 @@ func TestExecuteEconomicSeriesPostsConnectJSONAndReturnsTrimmedSeries(t *testing
 
 	var output struct {
 		Series []struct {
-			Key          string                   `json:"key"`
-			Name         string                   `json:"name"`
-			Unit         string                   `json:"unit"`
-			Frequency    string                   `json:"frequency"`
-			Observations []map[string]interface{} `json:"observations"`
+			Key          string           `json:"key"`
+			Name         string           `json:"name"`
+			Unit         string           `json:"unit"`
+			Frequency    string           `json:"frequency"`
+			Observations []map[string]any `json:"observations"`
 		} `json:"series"`
 	}
 	if err := json.Unmarshal([]byte(result), &output); err != nil {
@@ -135,11 +135,11 @@ func TestExecuteEconomicSeriesPostsConnectJSONAndReturnsTrimmedSeries(t *testing
 		}
 	}
 
-	var rawOutput map[string]interface{}
+	var rawOutput map[string]any
 	if err := json.Unmarshal([]byte(result), &rawOutput); err != nil {
 		t.Fatal(err)
 	}
-	rawSeries := rawOutput["series"].([]interface{})[0].(map[string]interface{})
+	rawSeries := rawOutput["series"].([]any)[0].(map[string]any)
 	if len(rawSeries) != 5 {
 		t.Errorf("series output fields = %#v, want only key, name, unit, frequency, observations", rawSeries)
 	}
@@ -190,7 +190,7 @@ func TestGetStockDetailsSendsUserAgentTheShortsAPIAccepts(t *testing.T) {
 		_, _ = w.Write([]byte(`{"stock":{}}`))
 	}))
 
-	if _, err := executor.Execute(context.Background(), "get_stock_details", map[string]interface{}{"stock_code": "BHP"}); err != nil {
+	if _, err := executor.Execute(context.Background(), "get_stock_details", map[string]any{"stock_code": "BHP"}); err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
 }
@@ -221,14 +221,14 @@ func apiScraperFilter(userAgent string) error {
 }
 
 func TestExecuteEconomicSeriesNormalizesLimit(t *testing.T) {
-	observations := make([]map[string]interface{}, 65)
+	observations := make([]map[string]any, 65)
 	for i := range observations {
-		observations[i] = map[string]interface{}{"period": fmt.Sprintf("p%02d", i), "value": i}
+		observations[i] = map[string]any{"period": fmt.Sprintf("p%02d", i), "value": i}
 	}
 
 	tests := []struct {
 		name      string
-		limit     interface{}
+		limit     any
 		wantCount int
 		wantFirst string
 	}{
@@ -238,23 +238,23 @@ func TestExecuteEconomicSeriesNormalizesLimit(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			executor := newTestToolExecutor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				var request map[string]interface{}
+				var request map[string]any
 				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 					t.Fatalf("decode request: %v", err)
 				}
 				if got := request["maxObservations"]; got != float64(test.wantCount) {
 					t.Errorf("maxObservations = %#v, want %d", got, test.wantCount)
 				}
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{
-					"series": []interface{}{map[string]interface{}{
-						"info": map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"series": []any{map[string]any{
+						"info": map[string]any{
 							"seriesKey": "cpi.annual_change.all_groups.aus", "regionName": "Australia", "unit": "percent", "frequency": "quarterly",
 						},
 						"observations": observations,
 					}},
 				})
 			}))
-			result, err := executor.Execute(context.Background(), "get_economic_series", map[string]interface{}{
+			result, err := executor.Execute(context.Background(), "get_economic_series", map[string]any{
 				"series_keys": []string{"cpi.annual_change.all_groups.aus"},
 				"limit":       test.limit,
 			})

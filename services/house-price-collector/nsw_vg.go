@@ -359,7 +359,7 @@ func parseNSWDAT(dat []byte) []nswSale {
 // parseNSWBRecords parses every well-formed B-record of one .DAT file.
 func parseNSWBRecords(dat []byte) []nswBRecord {
 	var out []nswBRecord
-	for _, line := range strings.Split(string(dat), "\n") {
+	for line := range strings.SplitSeq(string(dat), "\n") {
 		if !strings.HasPrefix(line, "B;") {
 			continue
 		}

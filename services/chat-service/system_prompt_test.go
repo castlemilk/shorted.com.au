@@ -40,7 +40,7 @@ func TestSystemPromptMentionsEconomicSeriesToolOnce(t *testing.T) {
 	}
 
 	var macroLine string
-	for _, line := range strings.Split(prompt, "\n") {
+	for line := range strings.SplitSeq(prompt, "\n") {
 		if strings.Contains(line, "get_economic_series") {
 			macroLine = line
 			break
@@ -75,7 +75,7 @@ func TestSystemPromptSaysTableAndChartResultsAreShown(t *testing.T) {
 	prompt := BuildSystemPrompt("")
 
 	var shownLine string
-	for _, line := range strings.Split(prompt, "\n") {
+	for line := range strings.SplitSeq(prompt, "\n") {
 		if strings.Contains(line, "shown to the person as an interactive table or chart") {
 			shownLine = line
 			break

@@ -226,10 +226,10 @@ func TestPartitionByTarget_SoftMissNotPoison(t *testing.T) {
 	// poison — so the poison ratio must stay 0 and the sweep must not block.
 	tgt := CrawlTarget{Suburb: "truganina", Display: "Truganina", Postcode: "3029", State: "VIC"}
 	raw := make([]RawListing, 0, 24)
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		raw = append(raw, RawListing{Postcode: "3029", Suburb: "Truganina"})
 	}
-	for i := 0; i < 8; i++ {
+	for range 8 {
 		raw = append(raw, RawListing{Postcode: "3029", Suburb: "Tarneit"})
 	}
 	matched, mismatch := partitionByTarget(raw, tgt)
@@ -306,7 +306,7 @@ func testLC() *listingsCrawler {
 func TestEventsFor(t *testing.T) {
 	lc := testLC()
 	fixed := func(v float64) RawListing {
-		return RawListing{PriceLow: f64p(v), PriceKind: priceFixed, Status: "for_sale"}
+		return RawListing{PriceLow: new(v), PriceKind: priceFixed, Status: "for_sale"}
 	}
 
 	// New listing → first_seen, no price move.
@@ -949,7 +949,8 @@ func TestMergeListing(t *testing.T) {
 	}
 }
 
-func int16p(v int16) *int16 { return &v }
+//go:fix inline
+func int16p(v int16) *int16 { return new(v) }
 
 // --- adaptive page cap by suburb size (Task 6) ---
 
@@ -996,7 +997,7 @@ func TestSweep_SoftPageCapSizesTheWalkWhenPageMetaUnusable(t *testing.T) {
 	// maxPages(5). With the Dwellings hint, it must stop at softCap(3).
 	pages := map[string]string{}
 	ids := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o"}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		pages[tiny.domainSearchURL(i+1)] = domainPageHTML(ids[i*5:i*5+5], "2026")
 	}
 	lc.fetcher = &pagedFetcher{pages: pages}

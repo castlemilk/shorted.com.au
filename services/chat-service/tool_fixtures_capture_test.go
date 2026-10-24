@@ -15,25 +15,25 @@ import (
 type captureToolFixture struct {
 	file string
 	tool string
-	args map[string]interface{}
+	args map[string]any
 }
 
 var captureToolFixtures = []captureToolFixture{
-	{file: "get_top_shorts-10.json", tool: "get_top_shorts", args: map[string]interface{}{"limit": 10.0}},
-	{file: "get_top_shorts-50.json", tool: "get_top_shorts", args: map[string]interface{}{"limit": 50.0}},
-	{file: "query_short_positions-bhp-1y.json", tool: "query_short_positions", args: map[string]interface{}{"stock_code": "BHP", "period": "1y"}},
-	{file: "query_short_positions-dro-6m.json", tool: "query_short_positions", args: map[string]interface{}{"stock_code": "DRO", "period": "6m"}},
+	{file: "get_top_shorts-10.json", tool: "get_top_shorts", args: map[string]any{"limit": 10.0}},
+	{file: "get_top_shorts-50.json", tool: "get_top_shorts", args: map[string]any{"limit": 50.0}},
+	{file: "query_short_positions-bhp-1y.json", tool: "query_short_positions", args: map[string]any{"stock_code": "BHP", "period": "1y"}},
+	{file: "query_short_positions-dro-6m.json", tool: "query_short_positions", args: map[string]any{"stock_code": "DRO", "period": "6m"}},
 	// GLC has four observations in the 3m window: a short series for the chart's edge case.
-	{file: "query_short_positions-glc-3m.json", tool: "query_short_positions", args: map[string]interface{}{"stock_code": "GLC", "period": "3m"}},
-	{file: "get_peer_comparison-bhp.json", tool: "get_peer_comparison", args: map[string]interface{}{"stock_code": "BHP"}},
-	{file: "get_director_trades-bhp.json", tool: "get_director_trades", args: map[string]interface{}{"stock_code": "BHP", "limit": 10.0}},
+	{file: "query_short_positions-glc-3m.json", tool: "query_short_positions", args: map[string]any{"stock_code": "GLC", "period": "3m"}},
+	{file: "get_peer_comparison-bhp.json", tool: "get_peer_comparison", args: map[string]any{"stock_code": "BHP"}},
+	{file: "get_director_trades-bhp.json", tool: "get_director_trades", args: map[string]any{"stock_code": "BHP", "limit": 10.0}},
 	// At the tool's 50-row limit BHP has 44 trades, more than the budget holds: the answer the table must trim.
-	{file: "get_director_trades-bhp-50.json", tool: "get_director_trades", args: map[string]interface{}{"stock_code": "BHP", "limit": 50.0}},
+	{file: "get_director_trades-bhp-50.json", tool: "get_director_trades", args: map[string]any{"stock_code": "BHP", "limit": 50.0}},
 	// GLC has no director trades on the ASX feed: the empty answer the table must handle.
-	{file: "get_director_trades-glc-none.json", tool: "get_director_trades", args: map[string]interface{}{"stock_code": "GLC", "limit": 10.0}},
-	{file: "get_stock_details-bhp.json", tool: "get_stock_details", args: map[string]interface{}{"stock_code": "BHP"}},
-	{file: "get_economic_series-cash-rate-cpi.json", tool: "get_economic_series", args: map[string]interface{}{"series_keys": []interface{}{"rates.cash_rate_target.aus", "cpi.annual_change.all_groups.aus"}}},
-	{file: "get_economic_series-unemployment-nsw.json", tool: "get_economic_series", args: map[string]interface{}{"series_keys": []interface{}{"labour.unemployment_rate.total.nsw.seasadj"}, "limit": 24.0}},
+	{file: "get_director_trades-glc-none.json", tool: "get_director_trades", args: map[string]any{"stock_code": "GLC", "limit": 10.0}},
+	{file: "get_stock_details-bhp.json", tool: "get_stock_details", args: map[string]any{"stock_code": "BHP"}},
+	{file: "get_economic_series-cash-rate-cpi.json", tool: "get_economic_series", args: map[string]any{"series_keys": []any{"rates.cash_rate_target.aus", "cpi.annual_change.all_groups.aus"}}},
+	{file: "get_economic_series-unemployment-nsw.json", tool: "get_economic_series", args: map[string]any{"series_keys": []any{"labour.unemployment_rate.total.nsw.seasadj"}, "limit": 24.0}},
 }
 
 // TestCaptureToolResultFixtures records the exact result strings the chat tools return
@@ -93,7 +93,7 @@ func TestCaptureToolResultFixtures(t *testing.T) {
 func selectCaptureCases(t *testing.T, only string) []captureToolFixture {
 	t.Helper()
 	wanted := map[string]bool{}
-	for _, name := range strings.Split(only, ",") {
+	for name := range strings.SplitSeq(only, ",") {
 		if name = strings.TrimSpace(name); name != "" {
 			wanted[name] = true
 		}

@@ -133,9 +133,9 @@ func (s *postgresStore) ScreenStocks(
 // buildScreenerConditions turns screener filters into parameterized WHERE
 // conditions and their bind args. Placeholders are $1..$len(args); the caller
 // continues numbering from len(args)+1 for LIMIT/OFFSET.
-func buildScreenerConditions(filters *shortsv1alpha1.ScreenerFilters) ([]string, []interface{}) {
+func buildScreenerConditions(filters *shortsv1alpha1.ScreenerFilters) ([]string, []any) {
 	var conditions []string
-	var args []interface{}
+	var args []any
 	if filters == nil {
 		return conditions, args
 	}
@@ -208,7 +208,7 @@ func NormalizeScreenerProductCodes(codes []string) []string {
 }
 
 // appendRangeFilter adds WHERE conditions for a RangeFilter, returning the updated arg index
-func appendRangeFilter(conditions *[]string, args *[]interface{}, argIdx int, column string, rf *shortsv1alpha1.RangeFilter) int {
+func appendRangeFilter(conditions *[]string, args *[]any, argIdx int, column string, rf *shortsv1alpha1.RangeFilter) int {
 	if rf == nil {
 		return argIdx
 	}

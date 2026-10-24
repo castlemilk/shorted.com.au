@@ -48,7 +48,7 @@ func TestWeeklyReportWithoutWeekSendsLatestSlug(t *testing.T) {
 		}
 	}))
 
-	result, err := executor.Execute(context.Background(), "get_weekly_report", map[string]interface{}{})
+	result, err := executor.Execute(context.Background(), "get_weekly_report", map[string]any{})
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
@@ -70,7 +70,7 @@ func TestWeeklyReportWithoutWeekFailsWhenNoReportIsPublished(t *testing.T) {
 		_, _ = w.Write([]byte(`{"reports":[]}`))
 	}))
 
-	_, err := executor.Execute(context.Background(), "get_weekly_report", map[string]interface{}{})
+	_, err := executor.Execute(context.Background(), "get_weekly_report", map[string]any{})
 	if err == nil || !strings.Contains(err.Error(), "no published weekly report") {
 		t.Fatalf("Execute() error = %v, want no published weekly report", err)
 	}

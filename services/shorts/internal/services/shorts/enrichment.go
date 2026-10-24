@@ -248,10 +248,7 @@ func (s *ShortsServer) ListEnrichmentJobs(ctx context.Context, req *connect.Requ
 	if limit <= 0 {
 		limit = 100
 	}
-	offset := req.Msg.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(req.Msg.Offset, 0)
 
 	var status *shortsv1alpha1.EnrichmentJobStatus
 	if req.Msg.Status != shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_UNSPECIFIED {

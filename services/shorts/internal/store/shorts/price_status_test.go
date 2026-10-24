@@ -51,10 +51,10 @@ func TestPriceStatusOnTheUniverseRow(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		date        = "2018-02-14"
-		priced      = "ZZPRC"
-		askedEmpty  = "ZZASK"
-		neverAsked  = "ZZNEV"
+		date       = "2018-02-14"
+		priced     = "ZZPRC"
+		askedEmpty = "ZZASK"
+		neverAsked = "ZZNEV"
 	)
 	codes := []string{priced, askedEmpty, neverAsked}
 	cleanup := func() {

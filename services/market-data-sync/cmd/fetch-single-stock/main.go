@@ -13,8 +13,8 @@ import (
 
 func main() {
 	var (
-		symbol  = flag.String("symbol", "", "Stock symbol to fetch (e.g., DMP)")
-		years   = flag.Int("years", 10, "Number of years of historical data")
+		symbol = flag.String("symbol", "", "Stock symbol to fetch (e.g., DMP)")
+		years  = flag.Int("years", 10, "Number of years of historical data")
 	)
 	flag.Parse()
 

@@ -37,7 +37,6 @@ func TestRegistryStructure(t *testing.T) {
 	allowedSources := map[string]bool{SourceFundamentals: true, SourcePrices: true, SourceIndex: true, SourceShorts: true}
 	seenIDs := map[string]bool{}
 	for _, s := range Registry() {
-		s := s
 		t.Run(s.ID, func(t *testing.T) {
 			if seenIDs[s.ID] {
 				t.Fatalf("duplicate strategy id %q", s.ID)

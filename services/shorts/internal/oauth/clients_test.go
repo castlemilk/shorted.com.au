@@ -325,7 +325,7 @@ func TestCIMDCachesSuccesses(t *testing.T) {
 	})
 	f := testFetcher(MetadataFetcherConfig{})
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if _, err := f.Resolve(context.Background(), srv.URL+"/client.json"); err != nil {
 			t.Fatalf("Resolve %d: %v", i, err)
 		}
@@ -343,7 +343,7 @@ func TestCIMDCachesFailures(t *testing.T) {
 	})
 	f := testFetcher(MetadataFetcherConfig{})
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		if _, err := f.Resolve(context.Background(), srv.URL+"/client.json"); err == nil {
 			t.Fatalf("Resolve %d: expected an error", i)
 		}
@@ -596,7 +596,7 @@ func TestRegistrationRateLimitsPerIP(t *testing.T) {
 	})
 	body := map[string]any{"redirect_uris": []string{"https://a.example/cb"}}
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		if rec := register(t, h, "198.51.100.7", body); rec.Code != http.StatusCreated {
 			t.Fatalf("registration %d: status %d", i, rec.Code)
 		}
@@ -623,7 +623,7 @@ func TestRegistrationCapsTotalRegistrationsPerIP(t *testing.T) {
 	})
 	body := map[string]any{"redirect_uris": []string{"https://a.example/cb"}}
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if rec := register(t, h, "198.51.100.9", body); rec.Code != http.StatusCreated {
 			t.Fatalf("registration %d: status %d", i, rec.Code)
 		}

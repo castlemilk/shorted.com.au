@@ -96,7 +96,7 @@ func (s *StoreAdapter) StockExists(stockCode string) (bool, error) {
 }
 
 // UpdateKeyMetrics wraps the store's UpdateKeyMetrics
-func (s *StoreAdapter) UpdateKeyMetrics(stockCode string, metrics map[string]interface{}) error {
+func (s *StoreAdapter) UpdateKeyMetrics(stockCode string, metrics map[string]any) error {
 	return s.store.UpdateKeyMetrics(stockCode, metrics)
 }
 
@@ -579,7 +579,7 @@ func (s *StoreAdapter) GetStateCompanyAggregates() ([]*shorts.StateCompanyAggreg
 }
 
 // QueryRowContext delegates to the underlying store's QueryRowContext.
-func (s *StoreAdapter) QueryRowContext(ctx context.Context, query string, args ...interface{}) shorts.Row {
+func (s *StoreAdapter) QueryRowContext(ctx context.Context, query string, args ...any) shorts.Row {
 	return s.store.QueryRowContext(ctx, query, args...)
 }
 
@@ -616,18 +616,18 @@ func NewLoggerAdapter() *LoggerAdapter {
 	return &LoggerAdapter{}
 }
 
-func (l *LoggerAdapter) Debugf(format string, args ...interface{}) {
+func (l *LoggerAdapter) Debugf(format string, args ...any) {
 	log.Printf("[DEBUG] "+format, args...)
 }
 
-func (l *LoggerAdapter) Infof(format string, args ...interface{}) {
+func (l *LoggerAdapter) Infof(format string, args ...any) {
 	log.Printf("[INFO] "+format, args...)
 }
 
-func (l *LoggerAdapter) Warnf(format string, args ...interface{}) {
+func (l *LoggerAdapter) Warnf(format string, args ...any) {
 	log.Printf("[WARN] "+format, args...)
 }
 
-func (l *LoggerAdapter) Errorf(format string, args ...interface{}) {
+func (l *LoggerAdapter) Errorf(format string, args ...any) {
 	log.Printf("[ERROR] "+format, args...)
 }

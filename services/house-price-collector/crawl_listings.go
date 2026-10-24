@@ -134,7 +134,7 @@ func parseListingsSources() map[string]bool {
 	}
 
 	out := map[string]bool{}
-	for _, tok := range strings.Split(raw, ",") {
+	for tok := range strings.SplitSeq(raw, ",") {
 		tok = strings.ToLower(strings.TrimSpace(tok))
 		if tok == "rea" || tok == "domain" {
 			out[tok] = true

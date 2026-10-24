@@ -3,6 +3,7 @@ package shorts
 import (
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-func fp(v float64) *float64 { return &v }
+//go:fix inline
+func fp(v float64) *float64 { return new(v) }
 
 // The council queries answer to three rules: council facts stay council-level,
 // NULL is never 0, and crawl data is read only as aggregates. Each assertion
@@ -148,11 +150,11 @@ func TestAggregateCouncilDropsFloorsAtTheCouncilAndNamesOnlyClearingSuburbs(t *t
 	// cuts each and one with 3 give a council of 7, of which only the 3 is named.
 	agg := aggregateCouncilDrops(&councilDrops{
 		AsOf:  asOf,
-		Total: CouncilDropSuburbRow{Dropped: 7, Tracked: 100, MedianDropPct: fp(0.04), DataThrough: &through},
+		Total: CouncilDropSuburbRow{Dropped: 7, Tracked: 100, MedianDropPct: new(0.04), DataThrough: &through},
 		Suburbs: []CouncilDropSuburbRow{
 			{SALCode: "1", Dropped: 2, Tracked: 40},
 			{SALCode: "2", Dropped: 2, Tracked: 50},
-			{SALCode: "3", Dropped: 3, Tracked: 10, MedianDropPct: fp(0.05)},
+			{SALCode: "3", Dropped: 3, Tracked: 10, MedianDropPct: new(0.05)},
 		},
 	})
 	if agg == nil || agg.Dropped != 7 || agg.Tracked != 100 || agg.DroppedShare != 0.07 || agg.SuburbsTracked != 3 {
@@ -265,12 +267,7 @@ func TestLgaCrossStateEmbedded(t *testing.T) {
 		t.Fatalf("embedded cross-border adjacency has %d councils", len(lgaCrossState))
 	}
 	has := func(m map[string][]string, a, b string) bool {
-		for _, x := range m[a] {
-			if x == b {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(m[a], b)
 	}
 	// Albury (NSW) <-> Wodonga (VIC), across the Murray: a cross-border pair,
 	// never a same-state one.

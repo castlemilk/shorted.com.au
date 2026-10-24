@@ -238,10 +238,7 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 // agentBackoff returns a jittered exponential backoff for retry attempt N (>=1):
 // ~0.5s, 1s, 2s, … capped at 8s, plus up to +50% jitter.
 func agentBackoff(attempt int) time.Duration {
-	base := 500 * time.Millisecond * time.Duration(int64(1)<<uint(attempt-1))
-	if base > 8*time.Second {
-		base = 8 * time.Second
-	}
+	base := min(500*time.Millisecond*time.Duration(int64(1)<<uint(attempt-1)), 8*time.Second)
 	return base + time.Duration(rand.Int63n(int64(base/2)+1))
 }
 
@@ -422,10 +419,7 @@ func runEnqueue(ctx context.Context, pool *pgxpool.Pool) error {
 	client := newBrandbrainAgentClient(acfg)
 	total := 0
 	for i := 0; i < len(jobs); i += batch {
-		end := i + batch
-		if end > len(jobs) {
-			end = len(jobs)
-		}
+		end := min(i+batch, len(jobs))
 		n, err := client.enqueue(ctx, jobs[i:end])
 		if err != nil {
 			return fmt.Errorf("batch %d-%d failed (%d already enqueued): %w", i, end, total, err)
@@ -1099,7 +1093,7 @@ func runPurge(ctx context.Context, _ *pgxpool.Pool) {
 		return
 	}
 	var statuses []string
-	for _, p := range strings.Split(envStr("PURGE_STATUSES", "pending,in_progress"), ",") {
+	for p := range strings.SplitSeq(envStr("PURGE_STATUSES", "pending,in_progress"), ",") {
 		if p = strings.TrimSpace(p); p != "" {
 			statuses = append(statuses, p)
 		}

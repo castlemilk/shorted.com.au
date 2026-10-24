@@ -37,10 +37,7 @@ func recordEnrichmentGeminiGeneration(ctx context.Context, model, phase, status 
 	if usage != nil {
 		recordEnrichmentTokenCount(ctx, attrs, "prompt", int64(usage.PromptTokenCount))
 		recordEnrichmentTokenCount(ctx, attrs, "cached_prompt", int64(usage.CachedContentTokenCount))
-		billablePrompt := int64(usage.PromptTokenCount - usage.CachedContentTokenCount)
-		if billablePrompt < 0 {
-			billablePrompt = 0
-		}
+		billablePrompt := max(int64(usage.PromptTokenCount-usage.CachedContentTokenCount), 0)
 		billablePromptTokens = billablePrompt
 		recordEnrichmentTokenCount(ctx, attrs, "billable_prompt", billablePrompt)
 		recordEnrichmentTokenCount(ctx, attrs, "candidate", int64(usage.CandidatesTokenCount))

@@ -22,7 +22,7 @@ func (s *ShortsServer) GetStockNews(ctx context.Context, req *connect.Request[sh
 
 	cacheKey := s.cache.GetStockNewsKey(req.Msg.StockCode, req.Msg.Limit, req.Msg.Source, req.Msg.Sentiment)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		articles, totalCount, err := s.store.GetStockNews(req.Msg.StockCode, req.Msg.Limit, req.Msg.Source, req.Msg.Sentiment)
 		if err != nil {
 			return nil, err
@@ -52,7 +52,7 @@ func (s *ShortsServer) GetMarketNews(ctx context.Context, req *connect.Request[s
 
 	cacheKey := s.cache.GetMarketNewsKey(req.Msg.Limit, req.Msg.Source, req.Msg.PriceSensitiveOnly)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		articles, totalCount, err := s.store.GetMarketNews(req.Msg.Limit, req.Msg.Source, req.Msg.PriceSensitiveOnly)
 		if err != nil {
 			return nil, err

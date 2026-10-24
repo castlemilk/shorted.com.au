@@ -112,10 +112,7 @@ func run() error {
 		log.Printf("Found %d records available from ASIC", len(records))
 
 		// Apply limit
-		limit := *limitRecords
-		if len(records) < limit {
-			limit = len(records)
-		}
+		limit := min(len(records), *limitRecords)
 		records = records[:limit]
 
 		// Filter out records we already have (unless force reload)
@@ -464,10 +461,7 @@ func batchUpsertRecords(pool *pgxpool.Pool, records []CSVRecord) error {
 
 	totalInserted := 0
 	for i := 0; i < len(records); i += batchSize {
-		end := i + batchSize
-		if end > len(records) {
-			end = len(records)
-		}
+		end := min(i+batchSize, len(records))
 
 		batchRecords := records[i:end]
 		log.Printf("💾 Upserting batch %d-%d of %d records...", i+1, end, len(records))
@@ -495,7 +489,7 @@ func batchUpsertRecords(pool *pgxpool.Pool, records []CSVRecord) error {
 		br := tx.SendBatch(ctx, batch)
 
 		// Process results
-		for j := 0; j < len(batchRecords); j++ {
+		for j := range batchRecords {
 			_, err := br.Exec()
 			if err != nil {
 				_ = br.Close()

@@ -42,7 +42,7 @@ func (s *ShortsServer) GetEventTimeline(ctx context.Context, req *connect.Reques
 	s.logger.Debugf("get event timeline: stock_code=%s, days_back=%d, limit=%d", req.Msg.StockCode, req.Msg.DaysBack, req.Msg.Limit)
 
 	cacheKey := s.cache.GetEventTimelineKey(req.Msg.StockCode, req.Msg.DaysBack, req.Msg.Limit)
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		rows, err := s.store.GetEventTimeline(req.Msg.StockCode, req.Msg.DaysBack, req.Msg.Limit)
 		if err != nil {
 			return nil, err

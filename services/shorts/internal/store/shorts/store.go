@@ -13,7 +13,7 @@ import (
 
 // Row is a minimal interface for scanning a single database row.
 type Row interface {
-	Scan(dest ...interface{}) error
+	Scan(dest ...any) error
 }
 
 // SyncStatusFilter defines filtering options for sync status queries
@@ -82,7 +82,7 @@ type Store interface {
 	// Key metrics sync methods
 	GetAllStockCodes() ([]string, error)
 	StockExists(stockCode string) (bool, error)
-	UpdateKeyMetrics(stockCode string, metrics map[string]interface{}) error
+	UpdateKeyMetrics(stockCode string, metrics map[string]any) error
 
 	// Enrichment (v2) review workflow methods
 	GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error)
@@ -282,7 +282,7 @@ type Store interface {
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)
 
 	// Raw query access (used for Algolia sync)
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) Row
+	QueryRowContext(ctx context.Context, query string, args ...any) Row
 }
 
 // Broadcast represents a mailing-list broadcast stored in the database.

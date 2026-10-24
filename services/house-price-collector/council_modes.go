@@ -164,7 +164,7 @@ func runBuildingApprovalsLGA(ctx context.Context, pool *pgxpool.Pool) error {
 // execBatch sends a batch of n statements on tx and surfaces the first error.
 func execBatch(ctx context.Context, tx pgx.Tx, batch *pgx.Batch, n int) error {
 	br := tx.SendBatch(ctx, batch)
-	for i := 0; i < n; i++ {
+	for range n {
 		if _, err := br.Exec(); err != nil {
 			_ = br.Close()
 			return err

@@ -20,10 +20,10 @@ func TestDefaultLogoScraper_ScrapeLogos_Dominos(t *testing.T) {
 	defer cancel()
 
 	scraper := NewLogoScraper("Domino's Pizza")
-	
+
 	websiteURL := "https://www.dominos.com.au"
 	t.Logf("Scraping logos from: %s", websiteURL)
-	
+
 	candidates, err := scraper.ScrapeLogos(ctx, websiteURL)
 	if err != nil {
 		t.Logf("ScrapeLogos returned error: %v", err)
@@ -42,7 +42,7 @@ func TestDefaultLogoScraper_ScrapeLogos_Dominos(t *testing.T) {
 	}
 
 	t.Logf("Found %d logo candidates", len(candidates))
-	
+
 	// Print top candidates
 	for i, candidate := range candidates {
 		if i >= 10 { // Only show top 10
@@ -100,11 +100,11 @@ func TestDefaultLogoScraper_ScrapeLogos_CommonPaths(t *testing.T) {
 	defer cancel()
 
 	testCases := []struct {
-		name           string
-		websiteURL     string
-		companyName    string
-		minCandidates  int
-		skipIfBlocked  bool // Skip test if we get 403/blocked
+		name          string
+		websiteURL    string
+		companyName   string
+		minCandidates int
+		skipIfBlocked bool // Skip test if we get 403/blocked
 	}{
 		{
 			name:          "GitHub (simple, unlikely to block)",
@@ -125,7 +125,7 @@ func TestDefaultLogoScraper_ScrapeLogos_CommonPaths(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			scraper := NewLogoScraper(tc.companyName)
-			
+
 			candidates, err := scraper.ScrapeLogos(ctx, tc.websiteURL)
 			if err != nil {
 				if tc.skipIfBlocked && (strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "429")) {
@@ -164,14 +164,14 @@ func TestDefaultLogoScraper_scanPage_Direct(t *testing.T) {
 	defer cancel()
 
 	scraper := NewLogoScraper("Test Company")
-	
+
 	// Test with DMP
 	testURL := "https://www.dominos.com.au"
 	if testSite := strings.TrimSpace(os.Getenv("TEST_LOGO_SITE")); testSite != "" {
 		testURL = testSite
 	}
 	t.Logf("Testing scanPage directly with: %s", testURL)
-	
+
 	candidates, brandLinks, err := scraper.scanPage(ctx, testURL, testURL)
 	if err != nil {
 		t.Logf("scanPage error: %v", err)
@@ -187,7 +187,7 @@ func TestDefaultLogoScraper_scanPage_Direct(t *testing.T) {
 	}
 
 	t.Logf("Found %d candidates, %d brand links", len(candidates), len(brandLinks))
-	
+
 	if len(candidates) == 0 {
 		t.Logf("No candidates found - this might indicate:")
 		t.Logf("  1. Website blocked the request (check error above)")
@@ -197,7 +197,7 @@ func TestDefaultLogoScraper_scanPage_Direct(t *testing.T) {
 			t.Fatalf("scanPage returned error and no candidates: %v", err)
 		}
 	}
-	
+
 	for i, candidate := range candidates {
 		if i >= 10 {
 			break
@@ -205,7 +205,7 @@ func TestDefaultLogoScraper_scanPage_Direct(t *testing.T) {
 		t.Logf("Candidate %d: URL=%s, Format=%s, Source=%s, Score=%.2f",
 			i+1, candidate.URL, candidate.Format, candidate.Source, candidate.Score)
 	}
-	
+
 	// Verify we found the DMP logo
 	if testURL == "https://www.dominos.com.au" {
 		foundLogo := false

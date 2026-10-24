@@ -104,10 +104,10 @@ func TestHousingToolOutputsCarryOnlyAllowlistedFields(t *testing.T) {
 		name string
 		typ  reflect.Type
 	}{
-		{"GetHousingOverviewOutput", reflect.TypeOf(GetHousingOverviewOutput{})},
-		{"GetHousePriceSeriesOutput", reflect.TypeOf(GetHousePriceSeriesOutput{})},
-		{"GetSuburbProfileOutput", reflect.TypeOf(GetSuburbProfileOutput{})},
-		{"ListSuburbPriceDropsOutput", reflect.TypeOf(ListSuburbPriceDropsOutput{})},
+		{"GetHousingOverviewOutput", reflect.TypeFor[GetHousingOverviewOutput]()},
+		{"GetHousePriceSeriesOutput", reflect.TypeFor[GetHousePriceSeriesOutput]()},
+		{"GetSuburbProfileOutput", reflect.TypeFor[GetSuburbProfileOutput]()},
+		{"ListSuburbPriceDropsOutput", reflect.TypeFor[ListSuburbPriceDropsOutput]()},
 	}
 
 	for _, c := range cases {
@@ -163,9 +163,9 @@ func jsonFieldNames(t reflect.Type, seen map[reflect.Type]bool) []string {
 	seen[t] = true
 
 	var out []string
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		tag := strings.Split(f.Tag.Get("json"), ",")[0]
+	for f := range t.Fields() {
+		f := f
+		tag, _, _ := strings.Cut(f.Tag.Get("json"), ",")
 		if tag == "" || tag == "-" {
 			continue
 		}
@@ -326,7 +326,7 @@ func TestGetHousePriceSeriesRequiresRegionAndMeasure(t *testing.T) {
 func TestGetHousePriceSeriesDownsamplesLongSeries(t *testing.T) {
 	pts := make([]*shortsv1alpha1.HousePricePoint, 0, 600)
 	base := time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
-	for i := 0; i < 600; i++ {
+	for i := range 600 {
 		pts = append(pts, &shortsv1alpha1.HousePricePoint{
 			Period: timestamppb.New(base.AddDate(0, 3*i, 0)), Value: float64(i),
 		})

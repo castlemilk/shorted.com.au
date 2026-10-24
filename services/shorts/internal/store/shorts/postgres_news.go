@@ -25,7 +25,7 @@ func (s *postgresStore) GetStockNews(stockCode string, limit int32, source, sent
 		) c ON n.cluster_id IS NOT NULL
 		WHERE (n.cluster_id IS NULL OR n.cluster_is_primary = TRUE)
 		AND n.stock_code = $1`
-	args := []interface{}{stockCode}
+	args := []any{stockCode}
 	argIdx := 2
 
 	if source != "" {
@@ -92,7 +92,7 @@ func (s *postgresStore) GetMarketNews(limit int32, source string, priceSensitive
 		    WHERE m.cluster_id = n.cluster_id
 		) c ON n.cluster_id IS NOT NULL
 		WHERE (n.cluster_id IS NULL OR n.cluster_is_primary = TRUE)`
-	args := []interface{}{}
+	args := []any{}
 	argIdx := 1
 
 	if source != "" {

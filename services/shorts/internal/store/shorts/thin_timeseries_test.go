@@ -11,7 +11,7 @@ import (
 func series(n int) []*stocksv1alpha1.TimeSeriesPoint {
 	base := time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC)
 	out := make([]*stocksv1alpha1.TimeSeriesPoint, 0, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		out = append(out, &stocksv1alpha1.TimeSeriesPoint{
 			Timestamp:     timestamppb.New(base.AddDate(0, 0, i)),
 			ShortPosition: float64(i),

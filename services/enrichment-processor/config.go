@@ -33,4 +33,3 @@ const (
 	// MaxLogoSizeBytes is the maximum allowed size for a logo image (10MB)
 	MaxLogoSizeBytes = 10 * 1024 * 1024
 )
-

@@ -26,8 +26,8 @@ func TestGetStockFundamentals_MapsPeriodsGrowthAndHasFlags(t *testing.T) {
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "BHP", "ttm", int32(12)).Return([]shortsstore.FundamentalsPeriodRow{
 		{
 			StockCode: "BHP", PeriodType: "ttm", PeriodEnd: spDate("2026-06-30"), FiscalYear: &fy, Currency: "USD",
-			Revenue: f64(5.5e10), NetIncome: f64(0), // a genuine zero is reported as a zero WITH its flag
-			EPSBasic: f64(1.9), EPSDiluted: nil, OperatingCashFlow: f64(2e10), FreeCashFlow: f64(-1e9), SharesOutstanding: nil,
+			Revenue: new(5.5e10), NetIncome: f64(0), // a genuine zero is reported as a zero WITH its flag
+			EPSBasic: new(1.9), EPSDiluted: nil, OperatingCashFlow: new(2e10), FreeCashFlow: new(-1e9), SharesOutstanding: nil,
 			Source: "yahoo-timeseries", SourceFetchedAt: fetched,
 		},
 		{StockCode: "BHP", PeriodType: "ttm", PeriodEnd: spDate("2025-12-31"), Currency: "USD", Source: "yahoo-timeseries"},
@@ -35,10 +35,10 @@ func TestGetStockFundamentals_MapsPeriodsGrowthAndHasFlags(t *testing.T) {
 	latest := spDate("2026-06-30")
 	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{
 		BasisPeriodType: "ttm", LatestPeriodEnd: &latest,
-		RevenueYoYPct: f64(12.5), RevenueYoYPriorPct: nil,
+		RevenueYoYPct: new(12.5), RevenueYoYPriorPct: nil,
 		EPSYoYPct: f64(-3), EPSYoYPriorPct: f64(8),
-		NetIncomePositive: spBool(true), PeriodsAvailable: 9,
-		RevenueTTM: f64(5.5e10), NetIncomeTTM: nil, EPSTTM: f64(1.9),
+		NetIncomePositive: new(true), PeriodsAvailable: 9,
+		RevenueTTM: new(5.5e10), NetIncomeTTM: nil, EPSTTM: new(1.9),
 	}, nil)
 	expectNo000132Reads(mockStore, "BHP")
 
@@ -159,7 +159,7 @@ func TestGetStockFundamentals_UnknownStockIsNotFound(t *testing.T) {
 	mockStore.EXPECT().StockExists("ZZZ").Return(false, nil).Times(2)
 
 	srv := newTestServer(t, mockStore)
-	for i := 0; i < 2; i++ { // NotFound is never cached
+	for range 2 { // NotFound is never cached
 		_, err := srv.GetStockFundamentals(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStockFundamentalsRequest{StockCode: "ZZZ", Limit: 40}))
 		require.Error(t, err)
 		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))

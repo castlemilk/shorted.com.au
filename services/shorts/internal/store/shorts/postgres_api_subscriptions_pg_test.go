@@ -71,7 +71,8 @@ func epochOf(t *testing.T, s string) int64 {
 	return parsed.Unix()
 }
 
-func strPtr(s string) *string { return &s }
+//go:fix inline
+func strPtr(s string) *string { return new(s) }
 
 func TestUpsertAPISubscriptionAgainstPostgres(t *testing.T) {
 	s := apiSubscriptionsTestStore(t)

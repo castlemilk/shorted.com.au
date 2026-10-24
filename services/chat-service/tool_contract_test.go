@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"reflect"
 	"sort"
@@ -25,12 +26,12 @@ import (
 type toolContractCase struct {
 	name     string
 	tool     string
-	args     map[string]interface{}
+	args     map[string]any
 	service  string
 	method   string
-	request  proto.Message          // zero value of the expected request type
-	want     map[string]interface{} // proto field name -> value; []string for repeated fields
-	wireKeys []string               // JSON keys of the body, exactly
+	request  proto.Message  // zero value of the expected request type
+	want     map[string]any // proto field name -> value; []string for repeated fields
+	wireKeys []string       // JSON keys of the body, exactly
 }
 
 // toolContractCases covers every tool in GetToolDefinitions. get_news has two
@@ -39,21 +40,21 @@ var toolContractCases = []toolContractCase{
 	{
 		name:     "query_short_positions",
 		tool:     "query_short_positions",
-		args:     map[string]interface{}{"stock_code": " bhp ", "period": "3m"},
+		args:     map[string]any{"stock_code": " bhp ", "period": "3m"},
 		service:  legacyShortsService,
 		method:   "GetStockData",
 		request:  &shortsv1alpha1.GetStockDataRequest{},
-		want:     map[string]interface{}{"product_code": "BHP", "period": "3M", "max_points": 40},
+		want:     map[string]any{"product_code": "BHP", "period": "3M", "max_points": 40},
 		wireKeys: []string{"maxPoints", "period", "productCode"},
 	},
 	{
 		name:     "query_short_positions without period omits it",
 		tool:     "query_short_positions",
-		args:     map[string]interface{}{"stock_code": "CBA"},
+		args:     map[string]any{"stock_code": "CBA"},
 		service:  legacyShortsService,
 		method:   "GetStockData",
 		request:  &shortsv1alpha1.GetStockDataRequest{},
-		want:     map[string]interface{}{"product_code": "CBA", "max_points": 40},
+		want:     map[string]any{"product_code": "CBA", "max_points": 40},
 		wireKeys: []string{"maxPoints", "productCode"},
 	},
 	{
@@ -61,71 +62,71 @@ var toolContractCases = []toolContractCase{
 		// reach the request: the sparkline window is fixed at 3 months.
 		name:     "get_top_shorts asks for 3M sparklines and ignores period",
 		tool:     "get_top_shorts",
-		args:     map[string]interface{}{"limit": 5.0, "period": "1m"},
+		args:     map[string]any{"limit": 5.0, "period": "1m"},
 		service:  legacyShortsService,
 		method:   "GetTopShorts",
 		request:  &shortsv1alpha1.GetTopShortsRequest{},
-		want:     map[string]interface{}{"summary_only": false, "period": "3M", "limit": 5},
+		want:     map[string]any{"summary_only": false, "period": "3M", "limit": 5},
 		wireKeys: []string{"limit", "period"},
 	},
 	{
 		name:     "get_top_shorts defaults to 10 stocks",
 		tool:     "get_top_shorts",
-		args:     map[string]interface{}{},
+		args:     map[string]any{},
 		service:  legacyShortsService,
 		method:   "GetTopShorts",
 		request:  &shortsv1alpha1.GetTopShortsRequest{},
-		want:     map[string]interface{}{"summary_only": false, "period": "3M", "limit": 10},
+		want:     map[string]any{"summary_only": false, "period": "3M", "limit": 10},
 		wireKeys: []string{"limit", "period"},
 	},
 	{
 		name:     "get_stock_details",
 		tool:     "get_stock_details",
-		args:     map[string]interface{}{"stock_code": "BHP"},
+		args:     map[string]any{"stock_code": "BHP"},
 		service:  legacyShortsService,
 		method:   "GetStockDetails",
 		request:  &shortsv1alpha1.GetStockDetailsRequest{},
-		want:     map[string]interface{}{"product_code": "BHP"},
+		want:     map[string]any{"product_code": "BHP"},
 		wireKeys: []string{"productCode"},
 	},
 	{
 		name:     "search_stocks coerces a string limit",
 		tool:     "search_stocks",
-		args:     map[string]interface{}{"query": " commonwealth bank ", "limit": "3"},
+		args:     map[string]any{"query": " commonwealth bank ", "limit": "3"},
 		service:  legacyShortsService,
 		method:   "SearchStocks",
 		request:  &shortsv1alpha1.SearchStocksRequest{},
-		want:     map[string]interface{}{"query": "commonwealth bank", "limit": 3},
+		want:     map[string]any{"query": "commonwealth bank", "limit": 3},
 		wireKeys: []string{"limit", "query"},
 	},
 	{
 		name:     "get_news with a stock code is stock news",
 		tool:     "get_news",
-		args:     map[string]interface{}{"stock_code": "BHP", "limit": 3.0},
+		args:     map[string]any{"stock_code": "BHP", "limit": 3.0},
 		service:  legacyShortsService,
 		method:   "GetStockNews",
 		request:  &shortsv1alpha1.GetStockNewsRequest{},
-		want:     map[string]interface{}{"stock_code": "BHP", "limit": 3},
+		want:     map[string]any{"stock_code": "BHP", "limit": 3},
 		wireKeys: []string{"limit", "stockCode"},
 	},
 	{
 		name:     "get_news without a stock code is market news",
 		tool:     "get_news",
-		args:     map[string]interface{}{"limit": 3.0},
+		args:     map[string]any{"limit": 3.0},
 		service:  legacyShortsService,
 		method:   "GetMarketNews",
 		request:  &shortsv1alpha1.GetMarketNewsRequest{},
-		want:     map[string]interface{}{"limit": 3},
+		want:     map[string]any{"limit": 3},
 		wireKeys: []string{"limit"},
 	},
 	{
 		name:     "get_news with a blank stock code is market news",
 		tool:     "get_news",
-		args:     map[string]interface{}{"stock_code": "   "},
+		args:     map[string]any{"stock_code": "   "},
 		service:  legacyShortsService,
 		method:   "GetMarketNews",
 		request:  &shortsv1alpha1.GetMarketNewsRequest{},
-		want:     map[string]interface{}{"limit": 5},
+		want:     map[string]any{"limit": 5},
 		wireKeys: []string{"limit"},
 	},
 	{
@@ -133,41 +134,41 @@ var toolContractCases = []toolContractCase{
 		// clamped here, not sent to the API as is.
 		name:     "get_news caps limit at 50 on the stock route",
 		tool:     "get_news",
-		args:     map[string]interface{}{"stock_code": "BHP", "limit": 500.0},
+		args:     map[string]any{"stock_code": "BHP", "limit": 500.0},
 		service:  legacyShortsService,
 		method:   "GetStockNews",
 		request:  &shortsv1alpha1.GetStockNewsRequest{},
-		want:     map[string]interface{}{"stock_code": "BHP", "limit": 50},
+		want:     map[string]any{"stock_code": "BHP", "limit": 50},
 		wireKeys: []string{"limit", "stockCode"},
 	},
 	{
 		name:     "get_news caps limit at 50 on the market route",
 		tool:     "get_news",
-		args:     map[string]interface{}{"limit": 500.0},
+		args:     map[string]any{"limit": 500.0},
 		service:  legacyShortsService,
 		method:   "GetMarketNews",
 		request:  &shortsv1alpha1.GetMarketNewsRequest{},
-		want:     map[string]interface{}{"limit": 50},
+		want:     map[string]any{"limit": 50},
 		wireKeys: []string{"limit"},
 	},
 	{
 		name:     "get_director_trades",
 		tool:     "get_director_trades",
-		args:     map[string]interface{}{"stock_code": "CBA", "limit": 5},
+		args:     map[string]any{"stock_code": "CBA", "limit": 5},
 		service:  legacyShortsService,
 		method:   "GetDirectorTrades",
 		request:  &shortsv1alpha1.GetDirectorTradesRequest{},
-		want:     map[string]interface{}{"stock_code": "CBA", "limit": 5},
+		want:     map[string]any{"stock_code": "CBA", "limit": 5},
 		wireKeys: []string{"limit", "stockCode"},
 	},
 	{
 		name:     "get_peer_comparison",
 		tool:     "get_peer_comparison",
-		args:     map[string]interface{}{"stock_code": "BHP"},
+		args:     map[string]any{"stock_code": "BHP"},
 		service:  legacyShortsService,
 		method:   "GetPeerComparison",
 		request:  &shortsv1alpha1.GetPeerComparisonRequest{},
-		want:     map[string]interface{}{"stock_code": "BHP", "limit": 5},
+		want:     map[string]any{"stock_code": "BHP", "limit": 5},
 		wireKeys: []string{"limit", "stockCode"},
 	},
 	{
@@ -175,11 +176,11 @@ var toolContractCases = []toolContractCase{
 		// must clamp it.
 		name:     "get_peer_comparison caps limit at 20",
 		tool:     "get_peer_comparison",
-		args:     map[string]interface{}{"stock_code": "BHP", "limit": 25.0},
+		args:     map[string]any{"stock_code": "BHP", "limit": 25.0},
 		service:  legacyShortsService,
 		method:   "GetPeerComparison",
 		request:  &shortsv1alpha1.GetPeerComparisonRequest{},
-		want:     map[string]interface{}{"stock_code": "BHP", "limit": 20},
+		want:     map[string]any{"stock_code": "BHP", "limit": 20},
 		wireKeys: []string{"limit", "stockCode"},
 	},
 	// get_weekly_report without a week makes two calls (the latest slug is looked up
@@ -187,21 +188,21 @@ var toolContractCases = []toolContractCase{
 	{
 		name:     "get_weekly_report normalises the week slug",
 		tool:     "get_weekly_report",
-		args:     map[string]interface{}{"week": "2026-w08"},
+		args:     map[string]any{"week": "2026-w08"},
 		service:  legacyShortsService,
 		method:   "GetWeeklyReport",
 		request:  &shortsv1alpha1.GetWeeklyReportRequest{},
-		want:     map[string]interface{}{"week_slug": "2026-W08"},
+		want:     map[string]any{"week_slug": "2026-W08"},
 		wireKeys: []string{"weekSlug"},
 	},
 	{
 		name:     "get_related_news",
 		tool:     "get_related_news",
-		args:     map[string]interface{}{"stock_code": "BHP", "article_id": "a1", "limit": 3},
+		args:     map[string]any{"stock_code": "BHP", "article_id": "a1", "limit": 3},
 		service:  legacyShortsService,
 		method:   "GetRelatedNews",
 		request:  &shortsv1alpha1.GetRelatedNewsRequest{},
-		want:     map[string]interface{}{"stock_code": "BHP", "article_id": "a1", "limit": 3},
+		want:     map[string]any{"stock_code": "BHP", "article_id": "a1", "limit": 3},
 		wireKeys: []string{"articleId", "limit", "stockCode"},
 	},
 	{
@@ -209,61 +210,61 @@ var toolContractCases = []toolContractCase{
 		// article_id reaches the wire.
 		name:     "get_related_news without article_id anchors on the stock",
 		tool:     "get_related_news",
-		args:     map[string]interface{}{"stock_code": "BHP"},
+		args:     map[string]any{"stock_code": "BHP"},
 		service:  legacyShortsService,
 		method:   "GetRelatedNews",
 		request:  &shortsv1alpha1.GetRelatedNewsRequest{},
-		want:     map[string]interface{}{"stock_code": "BHP", "limit": 5},
+		want:     map[string]any{"stock_code": "BHP", "limit": 5},
 		wireKeys: []string{"limit", "stockCode"},
 	},
 	{
 		name:     "get_stock_graph",
 		tool:     "get_stock_graph",
-		args:     map[string]interface{}{"stock_code": "BHP", "limit": 5},
+		args:     map[string]any{"stock_code": "BHP", "limit": 5},
 		service:  legacyShortsService,
 		method:   "GetStockGraph",
 		request:  &shortsv1alpha1.GetStockGraphRequest{},
-		want:     map[string]interface{}{"stock_code": "BHP", "limit": 5},
+		want:     map[string]any{"stock_code": "BHP", "limit": 5},
 		wireKeys: []string{"limit", "stockCode"},
 	},
 	{
 		name:     "get_event_timeline",
 		tool:     "get_event_timeline",
-		args:     map[string]interface{}{"stock_code": "BHP", "days_back": 30, "limit": 10},
+		args:     map[string]any{"stock_code": "BHP", "days_back": 30, "limit": 10},
 		service:  legacyShortsService,
 		method:   "GetEventTimeline",
 		request:  &shortsv1alpha1.GetEventTimelineRequest{},
-		want:     map[string]interface{}{"stock_code": "BHP", "days_back": 30, "limit": 10},
+		want:     map[string]any{"stock_code": "BHP", "days_back": 30, "limit": 10},
 		wireKeys: []string{"daysBack", "limit", "stockCode"},
 	},
 	{
 		name:     "get_event_timeline defaults",
 		tool:     "get_event_timeline",
-		args:     map[string]interface{}{"stock_code": "BHP"},
+		args:     map[string]any{"stock_code": "BHP"},
 		service:  legacyShortsService,
 		method:   "GetEventTimeline",
 		request:  &shortsv1alpha1.GetEventTimelineRequest{},
-		want:     map[string]interface{}{"stock_code": "BHP", "days_back": 90, "limit": 20},
+		want:     map[string]any{"stock_code": "BHP", "days_back": 90, "limit": 20},
 		wireKeys: []string{"daysBack", "limit", "stockCode"},
 	},
 	{
 		name:     "get_stock_signals",
 		tool:     "get_stock_signals",
-		args:     map[string]interface{}{"stock_code": "BHP", "limit": 5},
+		args:     map[string]any{"stock_code": "BHP", "limit": 5},
 		service:  legacyShortsService,
 		method:   "GetStockSignals",
 		request:  &shortsv1alpha1.GetStockSignalsRequest{},
-		want:     map[string]interface{}{"stock_code": "BHP", "limit": 5},
+		want:     map[string]any{"stock_code": "BHP", "limit": 5},
 		wireKeys: []string{"limit", "stockCode"},
 	},
 	{
 		name:     "get_economic_series",
 		tool:     "get_economic_series",
-		args:     map[string]interface{}{"series_keys": []interface{}{"rates.cash_rate_target.aus"}, "limit": 3.0},
+		args:     map[string]any{"series_keys": []any{"rates.cash_rate_target.aus"}, "limit": 3.0},
 		service:  economyService,
 		method:   "GetEconomicSeries",
 		request:  &shortsv1alpha1.GetEconomicSeriesRequest{},
-		want:     map[string]interface{}{"series_keys": []string{"rates.cash_rate_target.aus"}, "max_observations": 3},
+		want:     map[string]any{"series_keys": []string{"rates.cash_rate_target.aus"}, "max_observations": 3},
 		wireKeys: []string{"maxObservations", "seriesKeys"},
 	},
 }
@@ -379,10 +380,10 @@ func TestToolContractCoversEveryRegisteredTool(t *testing.T) {
 
 // sampleParameterValues returns two different values for one declared parameter. A
 // builder that ignores the parameter produces the same request for both.
-func sampleParameterValues(name string, p ToolParameter) (interface{}, interface{}) {
+func sampleParameterValues(name string, p ToolParameter) (any, any) {
 	switch {
 	case p.Type == "array":
-		return []interface{}{"rates.cash_rate_target.aus"}, []interface{}{"cpi.annual_change.all_groups.aus"}
+		return []any{"rates.cash_rate_target.aus"}, []any{"cpi.annual_change.all_groups.aus"}
 	case p.Type == "integer":
 		return 3.0, 7.0
 	case len(p.Enum) > 0:
@@ -401,11 +402,9 @@ func sampleParameterValues(name string, p ToolParameter) (interface{}, interface
 }
 
 // withArg returns a copy of args with one more argument set.
-func withArg(args map[string]interface{}, name string, value interface{}) map[string]interface{} {
-	out := make(map[string]interface{}, len(args)+1)
-	for k, v := range args {
-		out[k] = v
-	}
+func withArg(args map[string]any, name string, value any) map[string]any {
+	out := make(map[string]any, len(args)+1)
+	maps.Copy(out, args)
 	out[name] = value
 	return out
 }
@@ -416,7 +415,7 @@ func withArg(args map[string]interface{}, name string, value interface{}) map[st
 // builder that reads the wrong key, drops the value, or ignores the parameter.
 func TestEveryDeclaredParameterChangesTheRequest(t *testing.T) {
 	for _, def := range GetToolDefinitions() {
-		base := make(map[string]interface{}, len(def.Required))
+		base := make(map[string]any, len(def.Required))
 		for _, name := range def.Required {
 			first, _ := sampleParameterValues(name, def.Parameters[name])
 			base[name] = first
@@ -462,7 +461,7 @@ func TestBuilderReadsOnlyDeclaredArguments(t *testing.T) {
 				if err != nil {
 					t.Fatalf("buildToolCall(%s) error = %v", tc.tool, err)
 				}
-				without := make(map[string]interface{}, len(tc.args))
+				without := make(map[string]any, len(tc.args))
 				for k, v := range tc.args {
 					if k != key {
 						without[k] = v
@@ -515,7 +514,7 @@ func assertRPCTakes(t *testing.T, service, method string, input protoreflect.Mes
 // checkFieldValues fails unless each named field holds the wanted value. Scalars
 // compare by their printed form, so int32(5) matches 5. A repeated field compares
 // element by element with a []string.
-func checkFieldValues(t *testing.T, msg proto.Message, want map[string]interface{}) {
+func checkFieldValues(t *testing.T, msg proto.Message, want map[string]any) {
 	t.Helper()
 	m := msg.ProtoReflect()
 	for name, expected := range want {

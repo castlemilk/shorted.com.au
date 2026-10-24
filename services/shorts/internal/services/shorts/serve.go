@@ -515,7 +515,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		cacheKey := s.cache.GetSearchStocksKey(query, limit)
 
 		// Use cached result or fetch from Algolia/database
-		cachedResult, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		cachedResult, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 			// Try Algolia first if configured
 			if s.config.AlgoliaAppID != "" && s.config.AlgoliaSearchKey != "" {
 				logger.Debugf("searching via Algolia: query='%s'", query)
@@ -634,12 +634,12 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		} else {
 			// Parse POST body
 			var reqBody struct {
-				Query        string        `json:"query"`
-				Index        string        `json:"index"`
-				HitsPerPage  int           `json:"hitsPerPage"`
-				Filters      string        `json:"filters"`
-				FacetFilters []interface{} `json:"facetFilters"`
-				Facets       []string      `json:"facets"`
+				Query        string   `json:"query"`
+				Index        string   `json:"index"`
+				HitsPerPage  int      `json:"hitsPerPage"`
+				Filters      string   `json:"filters"`
+				FacetFilters []any    `json:"facetFilters"`
+				Facets       []string `json:"facets"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 				http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -700,7 +700,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		algoliaURL := fmt.Sprintf("https://%s-dsn.algolia.net/1/indexes/%s/query",
 			s.config.AlgoliaAppID, indexName)
 
-		algoliaReqBody := map[string]interface{}{
+		algoliaReqBody := map[string]any{
 			"query":       query,
 			"hitsPerPage": hitsPerPage,
 		}
@@ -709,7 +709,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			algoliaReqBody["filters"] = filters
 		}
 		if facetFiltersStr := r.Header.Get("X-Algolia-FacetFilters"); facetFiltersStr != "" {
-			var facetFilters []interface{}
+			var facetFilters []any
 			if json.Unmarshal([]byte(facetFiltersStr), &facetFilters) == nil {
 				algoliaReqBody["facetFilters"] = facetFilters
 			}
@@ -1134,7 +1134,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		if s.config.AlgoliaAppID == "" || s.config.AlgoliaAdminKey == "" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"synced":  false,
 				"message": "Algolia admin key not configured",
 			})
@@ -1161,7 +1161,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			logger.Errorf("Failed to sync %s to Algolia: %v", stockCode, err)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"synced":     false,
 				"stock_code": stockCode,
 				"error":      err.Error(),
@@ -1171,7 +1171,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 
 		logger.Infof("Synced %s to Algolia via internal API", stockCode)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"synced":     true,
 			"stock_code": stockCode,
 		})

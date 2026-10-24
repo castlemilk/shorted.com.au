@@ -152,17 +152,17 @@ func TestMintTokenThroughTheInterceptor(t *testing.T) {
 	}
 	issuedNow := jwt.NewNumericDate(time.Now())
 	adminToken := bespokeToken(t, Claims{
-		RegisteredClaims: jwt.RegisteredClaims{IssuedAt: issuedNow},
-		UserID:           "uid-admin",
-		Email:            "ben@shorted.com.au",
-		Roles:            []string{"api-user", "admin"},
+		IssuedAt: issuedNow,
+		UserID:   "uid-admin",
+		Email:    "ben@shorted.com.au",
+		Roles:    []string{"api-user", "admin"},
 	})
 	lapsedToken := bespokeToken(t, Claims{
-		RegisteredClaims: jwt.RegisteredClaims{IssuedAt: issuedNow},
-		UserID:           "uid-lapsed",
-		Email:            "lapsed@example.com",
-		Roles:            []string{"api-user"},
-		Tier:             "pro",
+		IssuedAt: issuedNow,
+		UserID:   "uid-lapsed",
+		Email:    "lapsed@example.com",
+		Roles:    []string{"api-user"},
+		Tier:     "pro",
 	})
 
 	cases := []struct {

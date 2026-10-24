@@ -41,7 +41,7 @@ type toolCall struct {
 // declared in tools.go; this is where they are translated into proto fields and
 // where values are normalised (codes trimmed and upper-cased, numeric limits
 // coerced to int32 within bounds).
-func buildToolCall(toolName string, args map[string]interface{}) (toolCall, error) {
+func buildToolCall(toolName string, args map[string]any) (toolCall, error) {
 	switch toolName {
 	case "query_short_positions":
 		return buildQueryShortPositions(args)
@@ -84,7 +84,7 @@ func shortsCall(method string, request proto.Message) toolCall {
 // points and always keeps the first and the latest, which fits the budget.
 const shortPositionMaxPoints int32 = 40
 
-func buildQueryShortPositions(args map[string]interface{}) (toolCall, error) {
+func buildQueryShortPositions(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetStockDataRequest{
 		ProductCode: r.stockCode("stock_code", true),
@@ -105,7 +105,7 @@ const topShortsPeriod = "3M"
 // buildGetTopShorts asks for each stock's code, name, latest short position and its
 // sparkline. The summary query has no points, which left the chat card nothing to
 // draw. The sparkline is thinned and the rows are budgeted by summarizeTopShorts.
-func buildGetTopShorts(args map[string]interface{}) (toolCall, error) {
+func buildGetTopShorts(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetTopShortsRequest{
 		Period: topShortsPeriod,
@@ -117,7 +117,7 @@ func buildGetTopShorts(args map[string]interface{}) (toolCall, error) {
 	return shortsCall("GetTopShorts", request), nil
 }
 
-func buildGetStockDetails(args map[string]interface{}) (toolCall, error) {
+func buildGetStockDetails(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetStockDetailsRequest{
 		ProductCode: r.stockCode("stock_code", true),
@@ -128,7 +128,7 @@ func buildGetStockDetails(args map[string]interface{}) (toolCall, error) {
 	return shortsCall("GetStockDetails", request), nil
 }
 
-func buildSearchStocks(args map[string]interface{}) (toolCall, error) {
+func buildSearchStocks(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.SearchStocksRequest{
 		Query: r.text("query", true),
@@ -142,7 +142,7 @@ func buildSearchStocks(args map[string]interface{}) (toolCall, error) {
 
 // buildGetNews routes on the stock code: a stock's news when one is given, the
 // market-wide feed otherwise. A blank stock_code counts as omitted.
-func buildGetNews(args map[string]interface{}) (toolCall, error) {
+func buildGetNews(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	code := r.stockCode("stock_code", false)
 	limit := r.integer("limit", 5, 50)
@@ -155,7 +155,7 @@ func buildGetNews(args map[string]interface{}) (toolCall, error) {
 	return shortsCall("GetStockNews", &shortsv1alpha1.GetStockNewsRequest{StockCode: code, Limit: limit}), nil
 }
 
-func buildGetDirectorTrades(args map[string]interface{}) (toolCall, error) {
+func buildGetDirectorTrades(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetDirectorTradesRequest{
 		StockCode: r.stockCode("stock_code", true),
@@ -167,7 +167,7 @@ func buildGetDirectorTrades(args map[string]interface{}) (toolCall, error) {
 	return shortsCall("GetDirectorTrades", request), nil
 }
 
-func buildGetPeerComparison(args map[string]interface{}) (toolCall, error) {
+func buildGetPeerComparison(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetPeerComparisonRequest{
 		StockCode: r.stockCode("stock_code", true),
@@ -181,7 +181,7 @@ func buildGetPeerComparison(args map[string]interface{}) (toolCall, error) {
 
 // buildGetWeeklyReport sends no week for the latest report. A given week is an
 // ISO week slug such as 2026-W08; the API validates the format.
-func buildGetWeeklyReport(args map[string]interface{}) (toolCall, error) {
+func buildGetWeeklyReport(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetWeeklyReportRequest{
 		WeekSlug: r.upper("week", ""),
@@ -192,7 +192,7 @@ func buildGetWeeklyReport(args map[string]interface{}) (toolCall, error) {
 	return shortsCall("GetWeeklyReport", request), nil
 }
 
-func buildGetRelatedNews(args map[string]interface{}) (toolCall, error) {
+func buildGetRelatedNews(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetRelatedNewsRequest{
 		StockCode: r.stockCode("stock_code", true),
@@ -205,7 +205,7 @@ func buildGetRelatedNews(args map[string]interface{}) (toolCall, error) {
 	return shortsCall("GetRelatedNews", request), nil
 }
 
-func buildGetStockGraph(args map[string]interface{}) (toolCall, error) {
+func buildGetStockGraph(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetStockGraphRequest{
 		StockCode: r.stockCode("stock_code", true),
@@ -217,7 +217,7 @@ func buildGetStockGraph(args map[string]interface{}) (toolCall, error) {
 	return shortsCall("GetStockGraph", request), nil
 }
 
-func buildGetEventTimeline(args map[string]interface{}) (toolCall, error) {
+func buildGetEventTimeline(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetEventTimelineRequest{
 		StockCode: r.stockCode("stock_code", true),
@@ -230,7 +230,7 @@ func buildGetEventTimeline(args map[string]interface{}) (toolCall, error) {
 	return shortsCall("GetEventTimeline", request), nil
 }
 
-func buildGetStockSignals(args map[string]interface{}) (toolCall, error) {
+func buildGetStockSignals(args map[string]any) (toolCall, error) {
 	r := argReader{args: args}
 	request := &shortsv1alpha1.GetStockSignalsRequest{
 		StockCode: r.stockCode("stock_code", true),
@@ -242,7 +242,7 @@ func buildGetStockSignals(args map[string]interface{}) (toolCall, error) {
 	return shortsCall("GetStockSignals", request), nil
 }
 
-func buildGetEconomicSeries(args map[string]interface{}) (toolCall, error) {
+func buildGetEconomicSeries(args map[string]any) (toolCall, error) {
 	seriesKeys, err := economicSeriesKeys(args["series_keys"])
 	if err != nil {
 		return toolCall{}, err
@@ -258,15 +258,15 @@ func buildGetEconomicSeries(args map[string]interface{}) (toolCall, error) {
 	return toolCall{service: economyService, method: "GetEconomicSeries", request: request}, nil
 }
 
-func economicSeriesKeys(value interface{}) ([]string, error) {
-	var rawKeys []interface{}
+func economicSeriesKeys(value any) ([]string, error) {
+	var rawKeys []any
 	switch keys := value.(type) {
 	case []string:
-		rawKeys = make([]interface{}, len(keys))
+		rawKeys = make([]any, len(keys))
 		for i := range keys {
 			rawKeys[i] = keys[i]
 		}
-	case []interface{}:
+	case []any:
 		rawKeys = keys
 	default:
 		return nil, fmt.Errorf("series_keys must be a non-empty string array")
@@ -295,11 +295,11 @@ func economicSeriesKeys(value interface{}) ([]string, error) {
 // its value. The first malformed argument is kept in err and later reads return
 // zero values, so a builder reads all its arguments and checks err once.
 type argReader struct {
-	args map[string]interface{}
+	args map[string]any
 	err  error
 }
 
-func (r *argReader) fail(format string, values ...interface{}) {
+func (r *argReader) fail(format string, values ...any) {
 	if r.err == nil {
 		r.err = fmt.Errorf(format, values...)
 	}
@@ -364,7 +364,7 @@ func (r *argReader) integer(key string, def, max int32) int32 {
 	}
 }
 
-func numberValue(value interface{}) (float64, bool) {
+func numberValue(value any) (float64, bool) {
 	switch typed := value.(type) {
 	case float64:
 		return typed, true

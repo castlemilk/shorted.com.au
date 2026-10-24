@@ -62,10 +62,10 @@ func newPlaywrightFetcher(cfg crawlConfig) (*playwrightFetcher, error) {
 	}
 
 	bctx, err := pw.Chromium.LaunchPersistentContext(cfg.profileDir, playwright.BrowserTypeLaunchPersistentContextOptions{
-		Headless:   playwright.Bool(false), // headed: the only posture Kasada/Akamai don't block from a residential IP
-		Locale:     playwright.String("en-AU"),
-		TimezoneId: playwright.String("Australia/Sydney"),
-		UserAgent:  playwright.String(crawlUserAgent),
+		Headless:   new(false), // headed: the only posture Kasada/Akamai don't block from a residential IP
+		Locale:     new("en-AU"),
+		TimezoneId: new("Australia/Sydney"),
+		UserAgent:  new(crawlUserAgent),
 		Viewport:   &playwright.Size{Width: 1440, Height: 900},
 		Args: []string{
 			// reduce the most obvious automation tells without faking a headless flag
@@ -115,7 +115,7 @@ func fetchInContext(ctx context.Context, bctx playwright.BrowserContext, cfg cra
 	}
 	if _, err := page.Goto(url, playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-		Timeout:   playwright.Float(gotoTimeout),
+		Timeout:   new(gotoTimeout),
 	}); err != nil {
 		return nil, "", fmt.Errorf("goto %s: %w", url, err)
 	}

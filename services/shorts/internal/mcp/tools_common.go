@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -169,10 +170,8 @@ func normalisePeriod(raw string) (string, error) {
 	if period == "" {
 		return defaultPeriod, nil
 	}
-	for _, valid := range validPeriods {
-		if period == valid {
-			return period, nil
-		}
+	if slices.Contains(validPeriods, period) {
+		return period, nil
 	}
 	return "", fmt.Errorf("%q is not a valid period: use one of %s", raw, periodList)
 }
@@ -346,12 +345,7 @@ func fromFloat32(v float32) float64 {
 
 // contains reports membership of a small fixed set of allowed values.
 func contains(set []string, value string) bool {
-	for _, v := range set {
-		if v == value {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(set, value)
 }
 
 // sortedKeys returns a map's keys in a stable order, so an error message that

@@ -551,7 +551,8 @@ func TestListAlertMonitors_NeverFiredHasNoEventFields(t *testing.T) {
 
 // --- helpers ---------------------------------------------------------------
 
-func floatPtr(v float64) *float64 { return &v }
+//go:fix inline
+func floatPtr(v float64) *float64 { return new(v) }
 
 // tokenNewsletter is a valid newsletter token: the right secret, no alert prefix.
 func tokenNewsletter(secret string) string {
