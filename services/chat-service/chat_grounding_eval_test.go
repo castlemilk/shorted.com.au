@@ -28,13 +28,14 @@ package main
 // With either gate set, any errored data turn also fails the run, because the
 // rates leave errored turns out.
 //
-// Build the service with the Go version the image builds with (services/Dockerfile,
-// golang:1.26.0). On Go 1.27.2 the SDK's stream reader (generative-ai-go v0.20.1 via
-// gax-go's ProtoJSONStream) failed on every complete Gemini reply with
-// "stream next: invalid character ']' looking for beginning of value", while the same
-// bytes parse on 1.26.0. Check the error count before reading any rate:
+// The service builds with Go 1.27 (the images use golang:1.27.2). Go 1.27 needs
+// gax-go >= v2.26.1: the SDK's stream reader (generative-ai-go via gax-go's
+// ProtoJSONStream) failed on every complete Gemini reply on older gax-go, with
+// "stream next: invalid character ']' looking for beginning of value".
+// TestGeminiProtoJSONStreamDecodesFullArray in gemini_stream_decode_test.go guards
+// that pin. Check the error count before reading any rate:
 //
-//	GOTOOLCHAIN=go1.26.0 GOWORK=off go build -o chat-service-bin ./chat-service
+//	GOWORK=off go build -o chat-service-bin ./chat-service
 //
 // Scoring. A data run is grounded when the reply's turn called at least one tool.
 // answer_without_data is left out of the tool calls, so a data reply with no data
