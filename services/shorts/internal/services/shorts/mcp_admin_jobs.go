@@ -31,6 +31,15 @@ type adminMCPSource struct {
 	// probing is set while a paid-feature probe run is in flight through this
 	// source. A second run is refused at once, not queued behind the first.
 	probing atomic.Bool
+	// alerts, alertJobs, entitled, verifiedEmail and logger back the alerts tools
+	// (mcp_admin_alerts.go). Nil reads as unavailable, except logger (the adapter's
+	// own) and verifiedEmail, whose nil means "no verified address source" and the
+	// smoke test refuses.
+	alerts        adminAlertsStore
+	alertJobs     adminAlertsJobs
+	entitled      func(userID string) (bool, error)
+	verifiedEmail func(ctx context.Context, userID string) (string, error)
+	logger        Logger
 }
 
 var _ mcp.AdminOperator = (*adminMCPSource)(nil)

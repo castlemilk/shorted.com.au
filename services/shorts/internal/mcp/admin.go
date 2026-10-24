@@ -189,6 +189,7 @@ type AdminOperator interface {
 	AdminPeopleReader
 	AdminBillingReader
 	AdminProbeOperator
+	AdminAlertsOperator
 	RunPublish(ctx context.Context, req jobmonitor.PublishRequest) (*jobmonitor.PublishRun, error)
 	PublishResult(ctx context.Context, executionName string) (*jobmonitor.PublishStatus, error)
 	RunPicks(ctx context.Context, req jobmonitor.PicksRequest) (*jobmonitor.PicksRun, error)
@@ -207,10 +208,11 @@ type AdminTool struct {
 
 // AdminRegistry is every tool on the admin server.
 func AdminRegistry() []AdminTool {
-	return []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool(),
+	tools := []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool(),
 		listAsyncJobsTool(), listJobExecutionsTool(), getJobExecutionTool(), listEnrichmentJobsTool(), searchJobMentionsTool(),
 		peopleOverviewTool(), listUsersTool(), listPayingUsersTool(), listMailingListTool(), lookupPersonTool(),
 		checkSubscriptionTool(), billingExceptionsTool(), paidFeatureStatusTool(), runPaidProbeTool()}
+	return append(tools, alertsAdminTools()...)
 }
 
 // NewAdminServer builds the admin MCP server with operational tools, its app,

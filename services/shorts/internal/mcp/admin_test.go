@@ -23,6 +23,7 @@ import (
 )
 
 type fakePublisher struct {
+	fakeAlertsOp
 	req    jobmonitor.PublishRequest
 	runErr error
 	exec   string
