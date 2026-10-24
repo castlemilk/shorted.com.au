@@ -23,7 +23,7 @@ if (!dir || !existsSync(dir)) {
   process.exit(2);
 }
 
-const designs = ['stock', 'stock-logo', 'industry', 'canary'];
+const designs = ['pls', 'glc', 'bhp', 'industry', 'canary'];
 const widths = [640, 390];
 const schemes = ['light', 'dark'];
 
