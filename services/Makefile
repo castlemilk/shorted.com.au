@@ -761,9 +761,11 @@ backfill.historical-test: ## Test backfill with limited stocks (usage: make back
 		cd market-data-sync && go run ./cmd/historical-backfill -years=$(or $(YEARS),2) -limit=$(or $(LIMIT),10) \
 	'
 
-# Alerts evaluator end-to-end suite (services/jobs/internal/jobs/alerts). It runs the
-# real 000074 and 000147 migrations against a throwaway postgres:15 container, which
-# the trap removes on every exit path. The official image logs "ready to accept
+# Alerts evaluator end-to-end suite (services/jobs/internal/jobs/alerts) and the
+# shorts API's alert store tests (services/shorts/internal/store/shorts, -tags=integration).
+# Both run against one throwaway postgres:15 container, which the trap removes on every
+# exit path. The jobs suite runs the real 000074 and 000147 migrations. The API store
+# tests build and drop their own databases on that server, and need CGO disabled here. The official image logs "ready to accept
 # connections" twice: once for the init server and once for the real one. Waiting for
 # the second line means the host connection is not refused during the init window.
 #
@@ -784,6 +786,8 @@ test-alerts-e2e:
 	done; \
 	if [ $$ready -ne 1 ]; then echo "alerts e2e: postgres did not become ready:"; docker logs $$name 2>&1 | tail -n 40; exit 1; fi; \
 	port=$$(docker port $$name 5432/tcp | head -1 | sed 's/.*://'); \
+	GOWORK=off CGO_ENABLED=0 SHORTS_TEST_POSTGRES_URL="postgres://postgres@127.0.0.1:$$port/postgres?sslmode=disable" \
+		go test -count=1 -tags=integration -run Alert ./shorts/internal/store/shorts/; \
 	cd jobs && GOWORK=off ALERTS_TEST_DATABASE_URL="postgres://postgres@127.0.0.1:$$port/alertse2e?sslmode=disable" \
 		go test -count=1 -run TestAlertsE2E ./internal/jobs/alerts/
 
