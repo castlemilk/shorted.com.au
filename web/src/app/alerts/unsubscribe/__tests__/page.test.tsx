@@ -96,6 +96,29 @@ describe("/alerts/unsubscribe page", () => {
     expect(screen.getByText(/support@shorted\.com\.au/)).toBeInTheDocument();
   });
 
+  it("says the alert no longer exists when its monitor was deleted", async () => {
+    mockPauseAlertByToken.mockResolvedValueOnce({
+      ok: false,
+      reason: "gone",
+    });
+    renderPage("signed-token");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pause this alert" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "That alert no longer exists",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Nothing more to do/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Something went wrong" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Try again" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("offers a retry when the service is unavailable", async () => {
     mockPauseAlertByToken.mockResolvedValueOnce({
       ok: false,

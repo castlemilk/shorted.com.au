@@ -90,7 +90,7 @@ function AlertsPreview({ industry }: { industry: string }) {
   const examples = [
     {
       label: `${industry} daily movement`,
-      detail: "Sector-level short-interest changes",
+      detail: "Any company in an industry crossing or jumping",
       icon: TrendingDown,
     },
     {
@@ -227,7 +227,7 @@ export function AlertsWorkspace({
                 active={scope === "industry"}
                 icon={<Building2 className="h-4 w-4" aria-hidden="true" />}
                 label="Industry"
-                detail="Track sector-level movement"
+                detail="Watch every company in an industry"
                 onClick={() => {
                   setScope("industry");
                   if (condition === "short-interest-above") {
@@ -294,8 +294,9 @@ export function AlertsWorkspace({
                 <option>Weekly</option>
               </select>
               <span className="mt-2 block text-xs leading-5 text-muted-foreground">
-                Daily: after each new ASIC report. Weekly: once a week, comparing
-                the week&apos;s last report with the previous week&apos;s.
+                Daily: after each new ASIC report. Weekly: once a week,
+                comparing the week&apos;s last report with the previous
+                week&apos;s.
               </span>
             </label>
           </div>
@@ -495,9 +496,7 @@ export function AlertsContent({
             >
               Alerts
             </Badge>
-            <h1 className={pageTitle}>
-              Short-interest monitors
-            </h1>
+            <h1 className={pageTitle}>Short-interest monitors</h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground text-pretty md:text-base">
               Create industry or stock alerts for short-interest thresholds,
               sharp moves between reports, and new entries to an industry's top

@@ -46,6 +46,50 @@ describe("buildMonitorSummary", () => {
     ).toBe("Health Care Equipment - new top-ten entry - daily");
   });
 
+  it("says any company for an industry threshold, as the email summary does", () => {
+    expect(
+      buildMonitorSummary({
+        target: "Materials",
+        scope: "industry",
+        condition: "short-interest-above",
+        threshold: 5,
+        cadence: "Daily",
+      }),
+    ).toBe("Materials - any company's short interest above 5% - daily");
+    expect(
+      buildMonitorSummary({
+        target: "Materials",
+        scope: "industry",
+        condition: "short-interest-rises",
+        threshold: "1.5",
+        cadence: "Weekly",
+      }),
+    ).toBe(
+      "Materials - any company's short interest rises by 1.5 pts - weekly",
+    );
+  });
+
+  it("keeps the stock wording for a stock scope and the top-ten wording for industries", () => {
+    expect(
+      buildMonitorSummary({
+        target: "BHP",
+        scope: "stock",
+        condition: "short-interest-above",
+        threshold: 5,
+        cadence: "Daily",
+      }),
+    ).toBe("BHP - short interest above 5% - daily");
+    expect(
+      buildMonitorSummary({
+        target: "Materials",
+        scope: "industry",
+        condition: "new-top-ten-entry",
+        threshold: null,
+        cadence: "Daily",
+      }),
+    ).toBe("Materials - new top-ten entry - daily");
+  });
+
   it("prints a half-typed threshold as typed", () => {
     expect(
       buildMonitorSummary({

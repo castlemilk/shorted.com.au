@@ -39,7 +39,11 @@ export type PauseAlertByTokenResult =
         cadence: AlertCadence;
       };
     }
-  | { ok: false; reason: "invalid" | "unavailable" };
+  /**
+   * "invalid": the token does not verify. "gone": it verifies, but the monitor was
+   * deleted, so there is nothing left to pause. "unavailable": the service failed.
+   */
+  | { ok: false; reason: "invalid" | "gone" | "unavailable" };
 
 const browserUA: Interceptor = (next) => (req) => {
   req.header.set(
@@ -79,6 +83,9 @@ export async function pauseAlertByToken(
   } catch (error) {
     if (error instanceof ConnectError && error.code === Code.InvalidArgument) {
       return { ok: false, reason: "invalid" };
+    }
+    if (error instanceof ConnectError && error.code === Code.NotFound) {
+      return { ok: false, reason: "gone" };
     }
     return { ok: false, reason: "unavailable" };
   }

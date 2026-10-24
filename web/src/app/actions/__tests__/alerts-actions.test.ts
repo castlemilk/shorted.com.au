@@ -168,7 +168,10 @@ describe("alert server actions", () => {
 
       const result = await listAlertMonitors();
 
-      expect(result).toMatchObject({ ok: true, checkedThroughReportDate: null });
+      expect(result).toMatchObject({
+        ok: true,
+        checkedThroughReportDate: null,
+      });
     });
   });
 
@@ -411,6 +414,17 @@ describe("pauseAlertByToken", () => {
     });
   });
 
+  it("reports a valid token whose monitor was deleted as gone, not as a failure", async () => {
+    mockClient.pauseAlertMonitorByToken.mockRejectedValueOnce(
+      new ConnectError("alert monitor not found", Code.NotFound),
+    );
+
+    expect(await pauseAlertByToken("signed-token")).toEqual({
+      ok: false,
+      reason: "gone",
+    });
+  });
+
   it("reports an unconfigured or failing service as unavailable", async () => {
     mockClient.pauseAlertMonitorByToken.mockRejectedValueOnce(
       new ConnectError("unsubscribe not configured", Code.Internal),
@@ -452,8 +466,9 @@ describe("alertErrorMessage", () => {
 describe("monitorToView", () => {
   it("keeps a missing threshold null rather than zero", () => {
     expect(
-      monitorToView(protoMonitor({ hasThreshold: false, threshold: 0 }) as never)
-        .threshold,
+      monitorToView(
+        protoMonitor({ hasThreshold: false, threshold: 0 }) as never,
+      ).threshold,
     ).toBeNull();
   });
 });

@@ -15,6 +15,7 @@ type ViewState =
   | { kind: "paused"; summary: string }
   | { kind: "already-paused"; summary: string }
   | { kind: "invalid" }
+  | { kind: "gone" }
   | { kind: "error" };
 
 const SUPPORT_EMAIL = "support@shorted.com.au";
@@ -41,13 +42,18 @@ export function AlertUnsubscribeConfirm({ token }: { token: string }) {
 
     if (!result.ok) {
       setState(
-        result.reason === "invalid" ? { kind: "invalid" } : { kind: "error" },
+        result.reason === "invalid"
+          ? { kind: "invalid" }
+          : result.reason === "gone"
+            ? { kind: "gone" }
+            : { kind: "error" },
       );
       return;
     }
 
     const summary = buildMonitorSummary({
       target: result.monitor.target,
+      scope: result.monitor.scope,
       condition: result.monitor.condition,
       threshold: result.monitor.threshold,
       cadence: result.monitor.cadence,
@@ -106,6 +112,23 @@ export function AlertUnsubscribeConfirm({ token }: { token: string }) {
           </h1>
           <p className="mt-4 text-muted-foreground">
             {state.summary}. Nothing changed. You can resume it any time at{" "}
+            <Link href="/alerts" className="text-primary hover:underline">
+              /alerts
+            </Link>
+            .
+          </p>
+        </>
+      );
+
+    case "gone":
+      return (
+        <>
+          <h1 className="text-2xl font-bold text-foreground">
+            That alert no longer exists
+          </h1>
+          <p className="mt-4 text-muted-foreground">
+            Nothing more to do. It was deleted, so no more emails will be sent
+            for it. You can manage your other alerts at{" "}
             <Link href="/alerts" className="text-primary hover:underline">
               /alerts
             </Link>

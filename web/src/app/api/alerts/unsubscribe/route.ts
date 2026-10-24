@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
   } else {
     try {
       const result = await pauseAlertByToken(token);
-      if (!result.ok) {
+      // "gone" is not a failure: the monitor was deleted, so no more mail will go.
+      if (!result.ok && result.reason !== "gone") {
         console.warn(`alert one-click pause failed: ${result.reason}`);
       }
     } catch (error) {

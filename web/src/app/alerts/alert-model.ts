@@ -114,21 +114,35 @@ export function formatThreshold(
 
 /**
  * The one-line description of a monitor, e.g. "BHP - short interest above 5% -
- * daily". A string threshold is printed as typed, so a half-typed builder value
- * still reads back.
+ * daily". An industry monitor says "any company", because every company in the
+ * industry is checked and the email lists each one that triggered:
+ * "Materials - any company's short interest above 5% - daily". A string threshold
+ * is printed as typed, so a half-typed builder value still reads back.
+ *
+ * The evaluator's email subject and summary mirror this wording
+ * (services/jobs/internal/jobs/alerts/email.go, summaryLine); change both together.
  */
 export function buildMonitorSummary(spec: {
   target: string;
+  scope?: AlertScope;
   condition: AlertCondition;
   threshold: number | string | null;
   cadence: AlertCadence;
 }): string {
-  const label = conditionLabel[spec.condition].toLowerCase();
   const threshold =
     spec.condition !== "new-top-ten-entry" && spec.threshold !== null
       ? ` ${formatThreshold(spec.threshold, spec.condition)}`
       : "";
-  return `${spec.target} - ${label}${threshold} - ${spec.cadence.toLowerCase()}`;
+  const cadence = spec.cadence.toLowerCase();
+  if (spec.scope === "industry" && spec.condition !== "new-top-ten-entry") {
+    const verb =
+      spec.condition === "short-interest-above"
+        ? "short interest above"
+        : "short interest rises by";
+    return `${spec.target} - any company's ${verb}${threshold} - ${cadence}`;
+  }
+  const label = conditionLabel[spec.condition].toLowerCase();
+  return `${spec.target} - ${label}${threshold} - ${cadence}`;
 }
 
 const reportDateFormat = new Intl.DateTimeFormat("en-AU", {
