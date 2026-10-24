@@ -245,7 +245,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mcpHandler := mcp.OptionalBearerToken(
 		mcp.NewTokenVerifier(s.tokenService, mcp.ResourceURI(apiBaseURL)),
 		mcp.BearerTokenOptions(apiBaseURL),
-	)(mcpRateLimit(mcp.HandlerWithAlerts(s, newPublicAlertsSource(s, firebaseUsers), mcp.ProtectedResourceMetadataURL(apiBaseURL))))
+	)(mcp.WithChallengeScope(mcp.BatchGuard(mcpRateLimit(mcp.HandlerWithAlerts(s, newPublicAlertsSource(s, firebaseUsers), mcp.ProtectedResourceMetadataURL(apiBaseURL))))))
 	// Both paths: the SDK's streamable transport uses the bare path, and
 	// clients sometimes append a trailing segment.
 	mux.Handle("/mcp", mcpHandler)

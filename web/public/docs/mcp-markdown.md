@@ -161,9 +161,13 @@ six alert tools replace it.
 - `list_my_alert_history`: the reports your alerts fired on, the stocks that moved,
   and whether the email was sent.
 
-Every alert action follows the same rules as the alerts page on shorted.com.au,
-and each one counts as one call against your usage limit. You act only on your own
-alerts; the tools take no account identifier.
+Every alert action applies the same rules as the alerts page on shorted.com.au: the
+same validation, the same limit of 50 active alerts, and the same Premium rule for
+creating and resuming. One difference: the page can save an alert before your email
+is verified, but these tools refuse to create one without a verified address, because
+an alert is only ever emailed to a verified address. Each action counts as one call
+against your usage limit. You act only on your own alerts; the tools take no account
+identifier.
 
 ## Access, limits and caveats
 
@@ -178,7 +182,8 @@ loop is not. On HTTP 429, honour `Retry-After`.
 **Per-caller tier quotas are not currently applied.** When they are, they will
 be the [API tier](https://shorted.com.au/pricing) numbers, counted **per tool
 call** — the handshake, `tools/list`, `resources/list` and `prompts/list` free,
-and a JSON-RPC batch charged for each call it carries:
+and a JSON-RPC batch charged for each call it carries. A batch may carry at most 20
+tool calls; a larger one is refused with a 400 and none of its calls run:
 
 | | Per minute | Per month |
 |---|---|---|

@@ -93,14 +93,17 @@ func TestAnOversizedBodyIsChargedTheCeiling(t *testing.T) {
 	}
 }
 
-func TestAnEnormousBatchIsCapped(t *testing.T) {
-	entries := make([]string, MaxBatchCost+20)
+// The cost of a batch is its real number of tool calls, not a capped number. The guard in
+// front (TestBatchGuardRefusesAnOversizedBatch) is what keeps any batch from being large.
+func TestABatchIsChargedItsRealCallCount(t *testing.T) {
+	const calls = 300
+	entries := make([]string, calls)
 	for i := range entries {
 		entries[i] = `{"method":"tools/call"}`
 	}
 	body := "[" + strings.Join(entries, ",") + "]"
-	if got := RateLimitCost(jsonRPCRequest(body)); got != MaxBatchCost {
-		t.Errorf("cost = %d, want the cap %d", got, MaxBatchCost)
+	if got := RateLimitCost(jsonRPCRequest(body)); got != calls {
+		t.Errorf("cost = %d, want the real count %d", got, calls)
 	}
 }
 

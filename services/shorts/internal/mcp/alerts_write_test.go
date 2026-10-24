@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 )
 
 // recordingAlerts is an AlertsWriteOperator that records every call, so a test can
@@ -63,7 +66,20 @@ func publicStack(t *testing.T, validator ClaimsValidator, op AlertsWriteOperator
 	} else {
 		h = Handler(&fakeDataSource{})
 	}
-	mounted := OptionalBearerToken(NewTokenVerifier(validator, ResourceURI(conformanceOrigin)), BearerTokenOptions(conformanceOrigin))(h)
+	// The same composition serve.go mounts: the challenge scope wrapper, the optional bearer
+	// middleware, BatchGuard, then the rate limiter (cost and identity as in production), then
+	// the handler. The
+	// allowance is generous, so these tests exercise the path, not the limit.
+	cfg := ratelimit.DefaultConfig()
+	cfg.Enabled = true
+	limiter := ratelimit.NewAppLimiter(cfg, memUsageStore{})
+	t.Cleanup(func() { _ = limiter.Close() })
+	limited := ratelimit.NewHTTPMiddleware(limiter, cfg,
+		RateLimitIdentity(nil),
+		ratelimit.WithCost(RateLimitCost),
+		ratelimit.WithRejection(RateLimitRejection(ProtectedResourceMetadataURL(conformanceOrigin))),
+	)(h)
+	mounted := WithChallengeScope(OptionalBearerToken(NewTokenVerifier(validator, ResourceURI(conformanceOrigin)), BearerTokenOptions(conformanceOrigin))(BatchGuard(limited)))
 	srv := httptest.NewServer(mounted)
 	t.Cleanup(srv.Close)
 	return srv
@@ -315,5 +331,16 @@ func TestAlertsWriteIsPublishedButNotDefault(t *testing.T) {
 	assert.False(t, slices.Contains(DefaultScopes, ScopeAlertsWrite))
 	for _, s := range DefaultScopes {
 		assert.True(t, slices.Contains(Scopes, s), "default scope %s must be published", s)
+	}
+}
+
+// The alert tools call the operator, never a Connect RPC or the store. This reads the tools'
+// source and checks it names no RPC client and no store, so the public visibility guard's
+// blind spot (the interceptor chain does not run for these calls) stays a known, bounded one.
+func TestAlertsWriteToolsReachOnlyTheirOperator(t *testing.T) {
+	src, err := os.ReadFile("alerts_write.go")
+	require.NoError(t, err)
+	for _, forbidden := range []string{"connect.NewRequest", "shortsv1alpha1connect", "ShortsServer", "store.", "ratelimit."} {
+		assert.NotContains(t, string(src), forbidden, "the alert tools must not reach %s", forbidden)
 	}
 }
