@@ -766,6 +766,9 @@ backfill.historical-test: ## Test backfill with limited stocks (usage: make back
 # the trap removes on every exit path. The official image logs "ready to accept
 # connections" twice: once for the init server and once for the real one. Waiting for
 # the second line means the host connection is not refused during the init window.
+#
+# The wait is capped at 90 seconds, and a container that stops running fails at once.
+# An unbounded wait would hold the deploy gate until the job timeout.
 .PHONY: test-alerts-e2e
 test-alerts-e2e:
 	@set -e; \
@@ -773,7 +776,13 @@ test-alerts-e2e:
 	trap 'docker rm -f $$name >/dev/null 2>&1 || true' EXIT; \
 	docker run -d --name $$name -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=alertse2e \
 		-p 127.0.0.1::5432 postgres:15-alpine >/dev/null; \
-	until [ "$$(docker logs $$name 2>&1 | grep -c 'ready to accept connections')" -ge 2 ]; do sleep 1; done; \
+	ready=0; i=0; \
+	while [ $$i -lt 90 ]; do \
+		if [ "$$(docker inspect -f '{{.State.Running}}' $$name 2>/dev/null)" != "true" ]; then break; fi; \
+		if [ "$$(docker logs $$name 2>&1 | grep -c 'ready to accept connections')" -ge 2 ]; then ready=1; break; fi; \
+		sleep 1; i=$$((i+1)); \
+	done; \
+	if [ $$ready -ne 1 ]; then echo "alerts e2e: postgres did not become ready:"; docker logs $$name 2>&1 | tail -n 40; exit 1; fi; \
 	port=$$(docker port $$name 5432/tcp | head -1 | sed 's/.*://'); \
 	cd jobs && GOWORK=off ALERTS_TEST_DATABASE_URL="postgres://postgres@127.0.0.1:$$port/alertse2e?sslmode=disable" \
 		go test -count=1 -run TestAlertsE2E ./internal/jobs/alerts/
@@ -859,7 +868,6 @@ test-integration-ci: test-integration-images
 	@echo ""
 	@echo "Running market-data integration tests (with testcontainers)..."
 	@cd market-data && go test -v -count=1 -tags=integration -timeout=10m ./...
-	@$(MAKE) test-alerts-e2e
 
 # New integration test targets using testcontainers
 test.integration.local:
