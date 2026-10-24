@@ -57,22 +57,22 @@ func TestEveryTriggerRuleGradesItsFail(t *testing.T) {
 	}
 
 	env := &evalEnv{rs6m: quartile{threshold: 20, max: 60, ok: true}}
-	rs := Candidate{RS6mPct: f(10)}
+	rs := Candidate{RS6mPct: new(float64(10))}
 	if p := ruleRSLeader(&rs, env).Proximity; math.Abs(p-0.5) > 1e-6 {
 		t.Errorf("10 points under the cut-off: proximity %v, want 0.5", p)
 	}
 
-	q := Candidate{Close: 95, SMA200: f(100)}
+	q := Candidate{Close: 95, SMA200: new(float64(100))}
 	if p := ruleAboveSMA200(&q, nil).Proximity; math.Abs(p-0.5) > 1e-6 {
 		t.Errorf("5%% under the 200-day: proximity %v, want 0.5", p)
 	}
 
 	// A pass carries no proximity, and a rule that is never a trigger grades
 	// nothing on a fail.
-	if out := ruleAboveSMA200(&Candidate{Close: 105, SMA200: f(100)}, nil); out.Status != RulePass || out.Proximity != 0 {
+	if out := ruleAboveSMA200(&Candidate{Close: 105, SMA200: new(float64(100))}, nil); out.Status != RulePass || out.Proximity != 0 {
 		t.Errorf("a pass has no proximity: %+v", out)
 	}
-	if out := ruleLiquidity(&Candidate{DollarVolume20d: f(249_000)}, nil); out.Proximity != 0 {
+	if out := ruleLiquidity(&Candidate{DollarVolume20d: new(float64(249_000))}, nil); out.Proximity != 0 {
 		t.Errorf("liquidity is never graded: %+v", out)
 	}
 }

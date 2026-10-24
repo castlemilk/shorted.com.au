@@ -532,9 +532,6 @@ func TestExpandedCensusRealDataPack(t *testing.T) {
 	}
 }
 
-//go:fix inline
-func intPtr(v int) *int { return new(v) }
-
 // The culture block had no population floor: 97 localities of 3-17 residents
 // published a top-religion share above 100%. Below the derived-rate floor every
 // culture share AND both labels are withheld; at or above it nothing changes.

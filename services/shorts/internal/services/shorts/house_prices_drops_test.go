@@ -367,9 +367,6 @@ func TestGetSuburbProfile_ListingStatsCarryFreshness(t *testing.T) {
 	}
 }
 
-//go:fix inline
-func timePtr(t time.Time) *time.Time { return new(t) }
-
 // TestGetDropIndexSeries_FlagsAWithheldMedian: a NULL stored median (fewer than
 // 3 dropped addresses) travels as median_withheld, so no client has to infer
 // "withheld" from a 0 that looks like a measurement.

@@ -346,9 +346,9 @@ func TestCaveatsWithCoverage(t *testing.T) {
 
 func TestCoverageCountIsPerStrategy(t *testing.T) {
 	cands := []Candidate{
-		{Growth: &Growth{RevenueYoYPct: f(3)}},                  // growth figure, no quality row
-		{Growth: &Growth{}, Quality: &Quality{}},                // quality row, no growth figure
-		{Quality: &Quality{}, Growth: &Growth{EPSYoYPct: f(1)}}, // both
+		{Growth: &Growth{RevenueYoYPct: new(float64(3))}},                  // growth figure, no quality row
+		{Growth: &Growth{}, Quality: &Quality{}},                           // quality row, no growth figure
+		{Quality: &Quality{}, Growth: &Growth{EPSYoYPct: new(float64(1))}}, // both
 		{},
 	}
 	z, _ := Lookup(IDZangerBreakout)

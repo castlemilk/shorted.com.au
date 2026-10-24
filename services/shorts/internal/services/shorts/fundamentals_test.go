@@ -26,7 +26,7 @@ func TestGetStockFundamentals_MapsPeriodsGrowthAndHasFlags(t *testing.T) {
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "BHP", "ttm", int32(12)).Return([]shortsstore.FundamentalsPeriodRow{
 		{
 			StockCode: "BHP", PeriodType: "ttm", PeriodEnd: spDate("2026-06-30"), FiscalYear: &fy, Currency: "USD",
-			Revenue: new(5.5e10), NetIncome: f64(0), // a genuine zero is reported as a zero WITH its flag
+			Revenue: new(5.5e10), NetIncome: new(float64(0)), // a genuine zero is reported as a zero WITH its flag
 			EPSBasic: new(1.9), EPSDiluted: nil, OperatingCashFlow: new(2e10), FreeCashFlow: new(-1e9), SharesOutstanding: nil,
 			Source: "yahoo-timeseries", SourceFetchedAt: fetched,
 		},
@@ -36,7 +36,7 @@ func TestGetStockFundamentals_MapsPeriodsGrowthAndHasFlags(t *testing.T) {
 	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{
 		BasisPeriodType: "ttm", LatestPeriodEnd: &latest,
 		RevenueYoYPct: new(12.5), RevenueYoYPriorPct: nil,
-		EPSYoYPct: f64(-3), EPSYoYPriorPct: f64(8),
+		EPSYoYPct: new(float64(-3)), EPSYoYPriorPct: new(float64(8)),
 		NetIncomePositive: new(true), PeriodsAvailable: 9,
 		RevenueTTM: new(5.5e10), NetIncomeTTM: nil, EPSTTM: new(1.9),
 	}, nil)
@@ -215,8 +215,8 @@ func TestGetStockFundamentals_MapsTheHalfBasis(t *testing.T) {
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "WTC", "", int32(12)).Return(nil, nil)
 	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "WTC").Return(&strategies.Growth{
 		BasisPeriodType: "half", RevenueBasisPeriodType: "half", LatestPeriodEnd: &half, HalfLatestPeriodEnd: &half,
-		RevenueYoYPct: f64(22), EPSYoYPct: f64(31),
-		RevenueHalfYoYPct: f64(22), NetIncomeHalfYoYPct: f64(18), EPSHalfYoYPct: f64(31),
+		RevenueYoYPct: new(float64(22)), EPSYoYPct: new(float64(31)),
+		RevenueHalfYoYPct: new(float64(22)), NetIncomeHalfYoYPct: new(float64(18)), EPSHalfYoYPct: new(float64(31)),
 	}, nil)
 	expectNo000132Reads(mockStore, "WTC")
 

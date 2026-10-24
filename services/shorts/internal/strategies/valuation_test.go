@@ -174,7 +174,7 @@ func TestValuate(t *testing.T) {
 		if v.PERatio != nil || v.Note != "" || v.MarketCap == nil {
 			t.Errorf("%+v", v)
 		}
-		in.EPSDiluted = f(0)
+		in.EPSDiluted = new(float64(0))
 		if v := Valuate(10, asOf, in, nil); v.PERatio != nil {
 			t.Error("zero EPS has no P/E")
 		}

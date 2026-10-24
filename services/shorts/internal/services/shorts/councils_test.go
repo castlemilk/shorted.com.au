@@ -36,7 +36,7 @@ func TestListCouncils_NormalizesStateBeforeStoreAndCache(t *testing.T) {
 		LgaCode: "27350", Slug: "yarra", DisplayName: "Yarra", Kind: "council", StateCode: "VIC",
 		Population: 101356, ErpYear: 2025, PopGrowthPct: new(1.234567),
 		DensityPerSqkm: new(5197.743589), FloodSharePct: new(12.3456), PriceDropShare: new(0.041666),
-		HouseMedian: f64(1_500_000), HouseMedianPeriod: "2023-24",
+		HouseMedian: new(float64(1_500_000)), HouseMedianPeriod: "2023-24",
 	}}, nil).Times(1)
 	srv := newTestServer(t, store)
 	for _, state := range []string{" vic ", "VIC", "Vic"} {
@@ -133,7 +133,7 @@ func TestGetCouncilProfile_MapsEveryBlock(t *testing.T) {
 		Facts: shortsstore.SuburbCouncilRow{
 			Slug: "canterbury-bankstown", DisplayName: "Canterbury-Bankstown", Kind: "council", ErpYear: 2025,
 			PopGrowthPct: new(1.05), Website: "https://www.cbcity.nsw.gov.au/", WikidataQID: "Q24070750",
-			DominantShare: new(0.5), HouseMedian: f64(1_399_999), HouseMedianPeriod: "2023-24",
+			DominantShare: new(0.5), HouseMedian: new(float64(1_399_999)), HouseMedianPeriod: "2023-24",
 		},
 		Summary: &shortsstore.CouncilSummaryRow{LgaCode: "11570", Slug: "canterbury-bankstown", Population: 389687, ErpYear: 2025},
 		Series: []shortsstore.CouncilSeriesRow{
@@ -144,9 +144,9 @@ func TestGetCouncilProfile_MapsEveryBlock(t *testing.T) {
 		},
 		Suburbs: []shortsstore.CouncilSuburbRow{
 			{SALCode: "12166", SALName: "Kingsgrove", Population: 14000, Share: 0.4946, Dominant: true,
-				VGMedian: f64(1_900_000), VGMedianPeriod: &period, BushfireSharePct: f64(0)},
+				VGMedian: new(float64(1_900_000)), VGMedianPeriod: &period, BushfireSharePct: new(float64(0))},
 			{SALCode: "99999", SALName: "Unpriced", Population: 10, Share: 0.07, Dominant: false,
-				VGMedian: f64(1), VGMedianPeriod: nil},
+				VGMedian: new(float64(1)), VGMedianPeriod: nil},
 		},
 		Rollup:       shortsstore.CouncilRollupRow{MemberSuburbs: 2, DominantSuburbs: 1, BushfireSharePct: new(5.19327), BushfireCoveredSuburbs: 41},
 		FederalSeats: []shortsstore.CouncilRepresentativeRow{{Name: "Watson", PopulationShare: 0.6, SuburbCount: 12}},

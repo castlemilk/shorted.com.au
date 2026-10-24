@@ -281,11 +281,11 @@ func TestSanitizeListing_StripsNulAndInvalidUTF8(t *testing.T) {
 }
 
 func TestClampListingPrice(t *testing.T) {
-	poison := clampListingPrice(RawListing{PriceLow: f64p(60_000_000), PriceKind: priceFixed})
+	poison := clampListingPrice(RawListing{PriceLow: new(float64(60_000_000)), PriceKind: priceFixed})
 	if poison.PriceLow != nil || poison.PriceKind != priceUnknown {
 		t.Errorf("a $60M out-of-band price should be nulled to unknown, got low=%v kind=%s", poison.PriceLow, poison.PriceKind)
 	}
-	ok := clampListingPrice(RawListing{PriceLow: f64p(1_200_000), PriceKind: priceFixed})
+	ok := clampListingPrice(RawListing{PriceLow: new(float64(1_200_000)), PriceKind: priceFixed})
 	if ok.PriceLow == nil || *ok.PriceLow != 1_200_000 {
 		t.Errorf("an in-band price should be kept, got %v", ok.PriceLow)
 	}
@@ -314,7 +314,7 @@ func TestEventsFor(t *testing.T) {
 		t.Errorf("new listing: got %v moved=%v", evs, moved)
 	}
 
-	prev := &storedListing{Price: f64p(1_200_000), PriceKind: priceFixed, Status: "for_sale", IsActive: true}
+	prev := &storedListing{Price: new(float64(1_200_000)), PriceKind: priceFixed, Status: "for_sale", IsActive: true}
 
 	// Drop past thresholds.
 	evs, moved := lc.eventsFor(prev, fixed(1_100_000))
@@ -334,16 +334,16 @@ func TestEventsFor(t *testing.T) {
 		t.Error("auction (nil price) must not produce a price move")
 	}
 	// Non-comparable kinds: range_low vs prev fixed → no phantom move.
-	if _, moved := lc.eventsFor(prev, RawListing{PriceLow: f64p(1_000_000), PriceKind: priceRangeLow, Status: "for_sale"}); moved {
+	if _, moved := lc.eventsFor(prev, RawListing{PriceLow: new(float64(1_000_000)), PriceKind: priceRangeLow, Status: "for_sale"}); moved {
 		t.Error("range_low vs prev fixed must NOT be treated as a move")
 	}
 	// Status change only (same price, for_sale → under_offer).
-	evs, _ = lc.eventsFor(prev, RawListing{PriceLow: f64p(1_200_000), PriceKind: priceFixed, Status: "under_offer"})
+	evs, _ = lc.eventsFor(prev, RawListing{PriceLow: new(float64(1_200_000)), PriceKind: priceFixed, Status: "under_offer"})
 	if !hasEvent(evs, "status_change") || hasEvent(evs, "price_drop") {
 		t.Errorf("expected status_change only, got %v", evs)
 	}
 	// Relisted (prev inactive) + a concurrent drop.
-	inactive := &storedListing{Price: f64p(1_200_000), PriceKind: priceFixed, Status: "withdrawn", IsActive: false}
+	inactive := &storedListing{Price: new(float64(1_200_000)), PriceKind: priceFixed, Status: "withdrawn", IsActive: false}
 	evs, _ = lc.eventsFor(inactive, fixed(1_100_000))
 	if !hasEvent(evs, "relisted") || !hasEvent(evs, "price_drop") {
 		t.Errorf("expected relisted + price_drop, got %v", evs)
@@ -360,12 +360,12 @@ func TestAddressPriceMove(t *testing.T) {
 	addrKey := "1-centre-road-brighton-vic-3186"
 
 	// No known prior at this address -> never fires.
-	newL := RawListing{PriceLow: f64p(1_100_000), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
+	newL := RawListing{PriceLow: new(float64(1_100_000)), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
 	if _, ok := lc.addressPriceMove(nil, newL); ok {
 		t.Error("nil addrPrior must never fire")
 	}
 
-	prior := &storedListing{Price: f64p(1_200_000), PriceKind: priceFixed, Status: "for_sale", IsActive: true}
+	prior := &storedListing{Price: new(float64(1_200_000)), PriceKind: priceFixed, Status: "for_sale", IsActive: true}
 
 	// A relisted listing_id at the SAME address, priced below the prior active
 	// listing -> price_drop, carrying the prior's price as PrevPrice.
@@ -378,26 +378,26 @@ func TestAddressPriceMove(t *testing.T) {
 	}
 
 	// Rise.
-	riseL := RawListing{PriceLow: f64p(1_350_000), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
+	riseL := RawListing{PriceLow: new(float64(1_350_000)), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
 	if e, ok := lc.addressPriceMove(prior, riseL); !ok || e.EventType != "price_rise" {
 		t.Errorf("expected price_rise, got ok=%v e=%+v", ok, e)
 	}
 
 	// Genuinely the same price (sub-threshold) -> must NOT fire (the "same
 	// listing/price" guard).
-	sameL := RawListing{PriceLow: f64p(1_199_000), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
+	sameL := RawListing{PriceLow: new(float64(1_199_000)), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
 	if _, ok := lc.addressPriceMove(prior, sameL); ok {
 		t.Error("sub-threshold move must not fire")
 	}
 
 	// Non-comparable kinds -> no phantom move.
-	rangeL := RawListing{PriceLow: f64p(1_000_000), PriceKind: priceRangeLow, Status: "for_sale", AddressKey: addrKey}
+	rangeL := RawListing{PriceLow: new(float64(1_000_000)), PriceKind: priceRangeLow, Status: "for_sale", AddressKey: addrKey}
 	if _, ok := lc.addressPriceMove(prior, rangeL); ok {
 		t.Error("non-comparable price kinds must not fire")
 	}
 
 	// A sold listing must never produce a phantom "discount".
-	soldL := RawListing{PriceLow: f64p(900_000), PriceKind: priceFixed, Status: "sold", AddressKey: addrKey}
+	soldL := RawListing{PriceLow: new(float64(900_000)), PriceKind: priceFixed, Status: "sold", AddressKey: addrKey}
 	if _, ok := lc.addressPriceMove(prior, soldL); ok {
 		t.Error("a sold listing must not fire a price move")
 	}
@@ -935,7 +935,7 @@ func TestSweep_CrossPageDedupKeepsRicherRecord(t *testing.T) {
 
 func TestMergeListing(t *testing.T) {
 	thin := RawListing{ListingID: "z", PriceDisplay: "$1.2m"}
-	rich := RawListing{ListingID: "z", PriceDisplay: "$1.2m", DisplayAddr: "1 Test St", Bedrooms: int16p(3)}
+	rich := RawListing{ListingID: "z", PriceDisplay: "$1.2m", DisplayAddr: "1 Test St", Bedrooms: new(int16(3))}
 	if got := mergeListing(thin, rich); got.Bedrooms == nil || *got.Bedrooms != 3 {
 		t.Errorf("mergeListing(thin, rich) should keep the richer incoming record, got %+v", got)
 	}
@@ -948,9 +948,6 @@ func TestMergeListing(t *testing.T) {
 		t.Errorf("a tie should keep existing, got %+v", got)
 	}
 }
-
-//go:fix inline
-func int16p(v int16) *int16 { return new(v) }
 
 // --- adaptive page cap by suburb size (Task 6) ---
 

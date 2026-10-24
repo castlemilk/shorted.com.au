@@ -22,11 +22,6 @@ import (
 // compile error next to the handlers rather than at the mount.
 var _ shortsv1alpha1connect.StrategyServiceHandler = (*ShortsServer)(nil)
 
-//go:fix inline
-func spBool(v bool) *bool { return new(v) }
-
-//go:fix inline
-func spInt32(v int32) *int32 { return new(v) }
 func spDate(s string) time.Time {
 	t, err := time.Parse("2006-01-02", s)
 	if err != nil {
@@ -37,7 +32,7 @@ func spDate(s string) time.Time {
 
 func spUptrend() strategies.Regime {
 	asOf := spDate("2026-09-25")
-	return strategies.Regime{IndexCode: "XJO", AsOf: &asOf, Close: f64(8800), SMA50: f64(8600), SMA200: f64(8200), PctOff52wHigh: new(-1.5), Label: strategies.RegimeUptrend}
+	return strategies.Regime{IndexCode: "XJO", AsOf: &asOf, Close: new(float64(8800)), SMA50: new(float64(8600)), SMA200: new(float64(8200)), PctOff52wHigh: new(-1.5), Label: strategies.RegimeUptrend}
 }
 
 // spReady passes every Zanger rule.
@@ -50,14 +45,14 @@ func spReady(code string) strategies.Candidate {
 		PctOff52wHigh:   new(-0.5),
 		VolumeRatio50d:  new(2.1),
 		BaseHigh:        new(9.5),
-		BaseLow:         f64(8),
+		BaseLow:         new(float64(8)),
 		BaseDepthPct:    new(15.8),
-		BaseLengthDays:  spInt32(30),
+		BaseLengthDays:  new(int32(30)),
 		BreakoutRecent:  new(true),
 		BreakoutDate:    &breakout,
-		DollarVolume20d: f64(5_000_000),
-		RS3mPct:         f64(10),
-		Growth:          &strategies.Growth{RevenueYoYPct: f64(40), EPSYoYPct: f64(50), BasisPeriodType: "ttm"},
+		DollarVolume20d: new(float64(5_000_000)),
+		RS3mPct:         new(float64(10)),
+		Growth:          &strategies.Growth{RevenueYoYPct: new(float64(40)), EPSYoYPct: new(float64(50)), BasisPeriodType: "ttm"},
 		CompanyName:     code + " Ltd",
 		Industry:        "Materials",
 		LogoURL:         "https://example.test/" + code + ".png",
@@ -459,9 +454,9 @@ func TestStrategyServiceIsMounted(t *testing.T) {
 // flag tells them apart, so each flag must follow the pointer, not the value.
 func TestStrategyPickProto_PresenceFlagsFollowThePointerNotTheValue(t *testing.T) {
 	known := spReady("ZRO")
-	known.RS3mPct = f64(0)   // exactly in line with XJO
-	known.ShortPct = f64(0)  // an ASIC row reporting no short position
-	known.MarketCap = f64(0) // an explicit zero is still a reported value
+	known.RS3mPct = new(float64(0))   // exactly in line with XJO
+	known.ShortPct = new(float64(0))  // an ASIC row reporting no short position
+	known.MarketCap = new(float64(0)) // an explicit zero is still a reported value
 	got := strategyPickProto(&strategies.Pick{Candidate: known})
 	assert.True(t, got.HasRs_3MPct)
 	assert.True(t, got.HasShortPct)

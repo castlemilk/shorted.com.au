@@ -8,9 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//go:fix inline
-func fptr(v float64) *float64 { return new(v) }
-
 // ownershipFixture: PLS is crowded both ways (a hedge fund and an active
 // manager long, 12% short); BHP is held by index funds and lent by a bank;
 // MIN has only a corporate holder, which "crowded" does not count.

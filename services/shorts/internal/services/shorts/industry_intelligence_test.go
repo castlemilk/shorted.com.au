@@ -24,9 +24,6 @@ func industryDate(t *testing.T, value string) time.Time {
 	return parsed
 }
 
-//go:fix inline
-func industryFloat(v float64) *float64 { return new(v) }
-
 func TestGetIndustryIntelligence_HappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -60,7 +57,7 @@ func TestGetIndustryIntelligence_HappyPath(t *testing.T) {
 					EntityABN:      "49004028077",
 					MetricKey:      "total_income",
 					MetricLabel:    "Total income",
-					MetricValue:    industryFloat(79_000_000_000),
+					MetricValue:    new(float64(79_000_000_000)),
 					Unit:           "AUD",
 					PeriodStart:    &periodStart,
 					PeriodEnd:      &periodEnd,

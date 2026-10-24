@@ -143,13 +143,13 @@ func fakeCandidateRow(code string) []any {
 	var row candidateRow
 	row.c.StockCode = code
 	row.asOf = tp("2026-09-25")
-	row.closePx = fp(45)
-	row.c.SMA200 = fp(40)
+	row.closePx = new(float64(45))
+	row.c.SMA200 = new(float64(40))
 	row.c.DollarVolume20d = new(5e7)
 	row.c.Industry = "Materials"
 	row.hasGrowth = true
 	row.g.BasisPeriodType = "ttm"
-	row.g.RevenueYoYPct = fp(12)
+	row.g.RevenueYoYPct = new(float64(12))
 	row.g.Currency = "USD"
 	return rowFrom(row.targets())
 }
@@ -324,7 +324,7 @@ func TestListStrategyCandidatesMergesExtras(t *testing.T) {
 	er.q.BasisPeriodType = "annual"
 	er.q.Currency = "USD"
 	er.q.ROEPct = new(22.5)
-	er.q.NetMarginPct = fp(20)
+	er.q.NetMarginPct = new(float64(20))
 	er.q.StatementIsFinancial = false
 	lag := int32(0)
 	er.q.BalanceLagMonths = &lag

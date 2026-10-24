@@ -93,7 +93,7 @@ func TestSortPicksByQualityRatiosReadsTheDecidedRow(t *testing.T) {
 		}
 	}
 	bank := pickWith("BANK", 1, func(c *Candidate) {
-		c.Quality = &Quality{ROEPct: f(30), FCFMarginPct: f(90)}
+		c.Quality = &Quality{ROEPct: new(float64(30)), FCFMarginPct: new(float64(90))}
 		ApplyQualityRules(c.Quality, "Banks")
 	})
 	picks := []Pick{bank, pickWith("LOW", 2, q(5, 5)), pickWith("HIGH", 3, q(25, 20))}

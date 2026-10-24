@@ -82,7 +82,7 @@ func TestPriceFeaturesProto_ReadsEveryFieldFromItsOwnSource(t *testing.T) {
 		BaseHigh:          new(7.5),
 		BaseLow:           new(8.5),
 		BaseDepthPct:      new(9.5),
-		BaseLengthDays:    spInt32(21),
+		BaseLengthDays:    new(int32(21)),
 		BreakoutRecent:    new(true),
 		BreakoutDate:      &breakout,
 		RS3mPct:           new(10.5),
@@ -132,8 +132,8 @@ func TestPriceFeaturesProto_AMeasuredZeroIsPresentAndAZeroDateIsEmpty(t *testing
 	c := strategies.Candidate{
 		StockCode:      "FLAT",
 		Close:          2,
-		BaseDepthPct:   f64(0), // a flat base is measured, not missing
-		BaseLengthDays: spInt32(0),
+		BaseDepthPct:   new(float64(0)), // a flat base is measured, not missing
+		BaseLengthDays: new(int32(0)),
 		BreakoutRecent: new(false),
 		BreakoutDate:   &zeroDay,
 	}

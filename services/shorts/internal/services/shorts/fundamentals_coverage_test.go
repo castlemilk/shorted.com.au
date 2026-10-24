@@ -34,7 +34,7 @@ func TestGetStockFundamentals_Without000132IsTodaysResponse(t *testing.T) {
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "BHP", "", int32(40)).Return([]shortsstore.FundamentalsPeriodRow{
 		{StockCode: "BHP", PeriodType: "annual", PeriodEnd: spDate("2026-06-30"), Currency: "USD", Revenue: new(5.5e10), Source: "yahoo-timeseries"},
 	}, nil)
-	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{BasisPeriodType: "annual", RevenueYoYPct: f64(3)}, nil)
+	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{BasisPeriodType: "annual", RevenueYoYPct: new(float64(3))}, nil)
 	mockStore.EXPECT().GetFundamentalsExtras(gomock.Any(), "BHP").Return(nil, nil)
 	mockStore.EXPECT().GetLatestFilingInputs(gomock.Any(), "BHP").Return(nil, nil)
 	mockStore.EXPECT().GetFundamentalsCoverage(gomock.Any(), "BHP").Return(&shortsstore.FundamentalsCoverageRow{
@@ -71,7 +71,7 @@ func TestGetStockFundamentals_MapsEveryNewField(t *testing.T) {
 		Source: "yahoo-timeseries", SourceFetchedAt: spDate("2026-09-01"),
 		GrossProfit: new(8e9), OperatingIncome: new(4.1e9), EBITDA: new(5e9), NormalizedEBITDA: new(5.1e9), EBIT: new(4.2e9),
 		InterestExpense: new(3e8), PretaxIncome: new(3.9e9), TaxProvision: new(9e8), NetInterestIncome: new(-3e8),
-		CapitalExpenditure: new(-8e8), DividendsPaid: new(-1.3e9), ShareBuybacks: f64(0),
+		CapitalExpenditure: new(-8e8), DividendsPaid: new(-1.3e9), ShareBuybacks: new(float64(0)),
 		TotalAssets: new(4e10), TotalLiabilities: new(2e10), TotalEquity: new(2e10), CashAndEquivalents: new(1.5e9),
 		TotalDebt: new(1e10), CapitalLeaseObligations: new(1e9), NetDebt: new(7.5e9), CurrentAssets: new(9e9), CurrentLiabilities: new(5e9),
 		FieldSources:       map[string]string{"operating_cash_flow": "derived:fcf-minus-capex"},
@@ -80,7 +80,7 @@ func TestGetStockFundamentals_MapsEveryNewField(t *testing.T) {
 	}
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "CSL", "", int32(40)).Return([]shortsstore.FundamentalsPeriodRow{period}, nil)
 	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "CSL").Return(&strategies.Growth{
-		BasisPeriodType: "ttm", RevenueBasisPeriodType: "ttm", RevenueYoYPct: f64(8), FetchedAt: dayPtr("2026-09-01"),
+		BasisPeriodType: "ttm", RevenueBasisPeriodType: "ttm", RevenueYoYPct: new(float64(8)), FetchedAt: dayPtr("2026-09-01"),
 	}, nil)
 	mockStore.EXPECT().GetFundamentalsExtras(gomock.Any(), "CSL").Return(&shortsstore.FundamentalsExtras{
 		StockCode: "CSL", HasGrowthRow: true, RevenueBasisSource: "filing", EPSBasisSource: "vendor",
@@ -89,7 +89,7 @@ func TestGetStockFundamentals_MapsEveryNewField(t *testing.T) {
 			BasisPeriodType: "annual", BasisPeriodEnd: dayPtr("2026-06-30"), Currency: "AUD", Source: "yahoo-timeseries",
 			OperatingCashFlowDerived: true, BalancePeriodEnd: dayPtr("2026-06-30"), BalanceCurrency: "AUD",
 			BalanceLagMonths: func() *int32 { v := int32(0); return &v }(),
-			TotalEquity:      new(2e10), GrossMarginPct: new(53.3), OperatingMarginPct: new(27.3), NetMarginPct: f64(20),
+			TotalEquity:      new(2e10), GrossMarginPct: new(53.3), OperatingMarginPct: new(27.3), NetMarginPct: new(float64(20)),
 			FCFMarginPct: new(21.3), FCFConversion: new(1.07), ROEPct: new(15.2), ROAPct: new(7.6), NetDebt: new(7.5e9),
 			NetDebtToEBITDA: new(1.47), NetDebtToEquity: new(0.375), CurrentRatio: new(1.8), InterestCover: new(13.7), PayoutRatioPct: new(43.3),
 		},
@@ -97,7 +97,7 @@ func TestGetStockFundamentals_MapsEveryNewField(t *testing.T) {
 			Shares: new(4.8e8), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: new(1.0),
 			EPSDiluted: new(6.1), EPSBasic: new(6.2), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "AUD",
 		},
-		Close: f64(250), PriceAsOf: dayPtr("2026-09-25"), Industry: "Pharmaceuticals, Biotechnology & Life Sciences",
+		Close: new(float64(250)), PriceAsOf: dayPtr("2026-09-25"), Industry: "Pharmaceuticals, Biotechnology & Life Sciences",
 	}, nil)
 	mockStore.EXPECT().GetLatestFilingInputs(gomock.Any(), "CSL").Return(&shortsstore.LatestFilingInputs{
 		NewestFlowPeriodEnd: dayPtr("2026-06-30"), LatestAnnualPeriodEnd: dayPtr("2026-06-30"), CompanyName: "CSL LIMITED",
@@ -220,15 +220,15 @@ func TestFundamentalsQualityProto_WithholdsNotMeaningfulRatiosForABank(t *testin
 		Industry: "Banks",
 		Quality: &strategies.Quality{
 			Currency: "AUD", BalanceCurrency: "AUD", TotalEquity: new(8e10),
-			GrossMarginPct: f64(1), OperatingMarginPct: f64(2), FCFMarginPct: f64(3), FCFConversion: f64(4),
-			NetDebt: f64(5), NetDebtToEBITDA: f64(6), NetDebtToEquity: f64(7), CurrentRatio: f64(8), InterestCover: f64(9),
-			ROEPct: new(13.1), ROAPct: new(0.8), NetMarginPct: f64(38), PayoutRatioPct: f64(80),
+			GrossMarginPct: new(float64(1)), OperatingMarginPct: new(float64(2)), FCFMarginPct: new(float64(3)), FCFConversion: new(float64(4)),
+			NetDebt: new(float64(5)), NetDebtToEBITDA: new(float64(6)), NetDebtToEquity: new(float64(7)), CurrentRatio: new(float64(8)), InterestCover: new(float64(9)),
+			ROEPct: new(13.1), ROAPct: new(0.8), NetMarginPct: new(float64(38)), PayoutRatioPct: new(float64(80)),
 		},
 		Valuation: strategies.ValuationInputs{
-			Shares: new(1.67e9), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: f64(1),
+			Shares: new(1.67e9), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: new(float64(1)),
 			EPSDiluted: new(6.0), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "AUD",
 		},
-		Close: f64(160), PriceAsOf: dayPtr("2026-09-25"),
+		Close: new(float64(160)), PriceAsOf: dayPtr("2026-09-25"),
 	}
 	q := fundamentalsQualityProto(e)
 	require.NotNil(t, q)
@@ -247,10 +247,10 @@ func TestFundamentalsQualityProto_ValuationOnlyAndNothing(t *testing.T) {
 	usd := &shortsstore.FundamentalsExtras{
 		Industry: "Materials",
 		Valuation: strategies.ValuationInputs{
-			Shares: new(5.07e9), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: f64(1),
+			Shares: new(5.07e9), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: new(float64(1)),
 			EPSDiluted: new(2.2), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "USD",
 		},
-		Close: f64(45), PriceAsOf: dayPtr("2026-09-25"),
+		Close: new(float64(45)), PriceAsOf: dayPtr("2026-09-25"),
 	}
 	q := fundamentalsQualityProto(usd)
 	require.NotNil(t, q, "a market cap alone is worth returning")

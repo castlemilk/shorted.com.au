@@ -145,6 +145,3 @@ func minMaxFloat(vs []float64) (min, max float64) {
 	}
 	return min, max
 }
-
-//go:fix inline
-func f64p(v float64) *float64 { return new(v) }

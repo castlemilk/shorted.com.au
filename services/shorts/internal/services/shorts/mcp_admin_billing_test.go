@@ -231,7 +231,7 @@ func billingAdaCustomer(periodEnd time.Time) webCustomerView {
 	return webCustomerView{
 		Customer: &webCustomer{ID: "cus_A", Created: &created},
 		Subscriptions: []webSubscription{{
-			ID: "sub_A", Status: "active", Tier: "premium", PriceID: "price_A", Amount: ptrInt64(2900), Currency: "aud",
+			ID: "sub_A", Status: "active", Tier: "premium", PriceID: "price_A", Amount: new(int64(2900)), Currency: "aud",
 			Interval: "month", CurrentPeriodEnd: billingRFC(periodEnd), Created: &created, MetadataUserID: "uid-a",
 		}},
 		LatestInvoice: &webInvoice{Status: "paid", AmountPaid: 2900, Currency: "aud", Created: &created, PaidAt: &created},
@@ -808,7 +808,7 @@ func TestStripeAmountIsNullableAndOmittedWhenUnknown(t *testing.T) {
 	f.web.customers["id:cus_A"] = webCustomerView{
 		Customer: &webCustomer{ID: "cus_A"},
 		Subscriptions: []webSubscription{
-			{ID: "sub_priced", Status: "active", Tier: "premium", Amount: ptrInt64(2900), Currency: "aud", CurrentPeriodEnd: billingRFC(periodEnd)},
+			{ID: "sub_priced", Status: "active", Tier: "premium", Amount: new(int64(2900)), Currency: "aud", CurrentPeriodEnd: billingRFC(periodEnd)},
 			{ID: "sub_unpriced", Status: "canceled", Tier: "premium", Amount: nil, CurrentPeriodEnd: billingRFC(periodEnd)},
 		},
 	}

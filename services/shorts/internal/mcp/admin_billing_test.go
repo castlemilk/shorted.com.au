@@ -9,9 +9,6 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-//go:fix inline
-func strPtr(s string) *string { return new(s) }
-
 // lastBilling records the last normalised input each billing tool handed the
 // reader. Tests run sequentially, so a package variable is enough.
 var lastBilling struct {

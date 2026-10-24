@@ -259,9 +259,6 @@ func adminActor(req *sdk.CallToolRequest) string {
 	return "oauth:unknown"
 }
 
-//go:fix inline
-func boolPtr(b bool) *bool { return new(b) }
-
 // requireScope is the per-tool half of the scope check. A token without the
 // tool's scope gets a tool-level error that says which scope is missing and
 // how to get it, so an agent (and the person behind it) can act on it — a

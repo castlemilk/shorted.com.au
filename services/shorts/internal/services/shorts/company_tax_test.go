@@ -15,9 +15,6 @@ import (
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
-//go:fix inline
-func f64(v float64) *float64 { return new(v) }
-
 func TestGetCompanyTaxProfile_HappyPathMapsYearsAndNulls(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

@@ -99,9 +99,9 @@ CREATE TABLE property_price_events (
 		status: sweepComplete,
 		listings: []RawListing{
 			{Source: "rea", ListingID: "A", ListingURL: "http://x/A", Suburb: "Testville", State: "VIC", Postcode: "3000",
-				DisplayAddr: "1 Good St", PriceLow: f64p(1_200_000), PriceKind: priceFixed, Status: "for_sale"},
+				DisplayAddr: "1 Good St", PriceLow: new(float64(1_200_000)), PriceKind: priceFixed, Status: "for_sale"},
 			{Source: "rea", ListingID: "B", ListingURL: "http://x/B", Suburb: "Testville", State: "VIC", Postcode: "3000",
-				DisplayAddr: poison, PriceLow: f64p(900_000), PriceKind: priceFixed, Status: "for_sale"},
+				DisplayAddr: poison, PriceLow: new(float64(900_000)), PriceKind: priceFixed, Status: "for_sale"},
 		},
 	}
 
