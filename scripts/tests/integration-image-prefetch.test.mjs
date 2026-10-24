@@ -35,11 +35,11 @@ exit 0
   return { result, calls: readFileSync(log, "utf8").trim().split("\n") };
 }
 
-test("prefetch precedes both suites and includes each module's Ryuk", (t) => {
+test("prefetch precedes both suites and includes the Ryuk every module resolves", (t) => {
   const { result, calls } = runMake(t);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(calls.length, 3);
-  assert.match(calls[0], /\|off\|run .*prefetch-integration-images\/main.go postgres:15-alpine postgres:15-alpine testcontainers\/ryuk:0.13.0 testcontainers\/ryuk:0.8.1$/);
+  assert.match(calls[0], /\|off\|run .*prefetch-integration-images\/main.go postgres:15-alpine postgres:15-alpine testcontainers\/ryuk:0.14.0$/);
   assert.match(calls[1], /\/test\/integration\|.*\|test /);
   assert.match(calls[2], /\/services\/market-data\|.*\|test /);
 });
@@ -59,7 +59,7 @@ for (const [failure, count] of [["prefetch", 1], ["api", 2], ["market", 3]]) {
 }
 
 test("dependency upgrades require reviewing the prefetched image pins", () => {
-  for (const [path, version] of [["test/integration/go.mod", "v0.39.0"], ["services/go.mod", "v0.33.0"]]) {
+  for (const [path, version] of [["test/integration/go.mod", "v0.44.0"], ["services/go.mod", "v0.44.0"]]) {
     const dependency = readFileSync(join(repoRoot, path), "utf8").match(/github.com\/testcontainers\/testcontainers-go (v[\d.]+)/)?.[1];
     assert.equal(dependency, version, `review Ryuk image for ${path}`);
   }

@@ -845,14 +845,15 @@ test-integration-local:
 	@cd market-data && go test -v -count=1 -tags=integration -timeout=10m ./...
 	@echo ""
 
-# Prefetch before either suite: test/integration uses testcontainers-go v0.39.0
-# (Ryuk 0.13.0), services/market-data uses v0.33.0 (Ryuk 0.8.1).
-# Keep these in step with the two go.mod files and setup_test.go images.
+# Prefetch before either suite. Every module that runs testcontainers now resolves
+# testcontainers-go v0.44.0, whose default Ryuk reaper is testcontainers/ryuk:0.14.0
+# (test/integration, and services/market-data via services/go.mod). Keep this in
+# step with those go.mod pins and the default in testcontainers' internal/config.
 .PHONY: test-integration-images
 test-integration-images:
 	@GOWORK=off go run ../scripts/prefetch-integration-images/main.go \
 		postgres:15-alpine "$${MARKET_DATA_TEST_POSTGRES_IMAGE:-postgres:15-alpine}" \
-		testcontainers/ryuk:0.13.0 testcontainers/ryuk:0.8.1
+		testcontainers/ryuk:0.14.0
 
 # Integration tests - CI (self-contained via testcontainers). Only acquisition
 # is retried; assertion failures stop make immediately, without rerunning suites.
