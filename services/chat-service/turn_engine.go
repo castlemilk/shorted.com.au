@@ -114,7 +114,6 @@ func (e *TurnEngine) run(ctx context.Context, spec turnSpec, onChunk func(text s
 		return nil, err
 	}
 
-	violation := false
 	if len(reply.ToolCalls) == 0 {
 		recordFirstCallViolation(ctx, spec.meta.Provider, spec.meta.Model)
 		session, reply, held, err = e.sendFirst(ctx, spec, withNudge(spec.cfg.System), &tally)
@@ -122,7 +121,6 @@ func (e *TurnEngine) run(ctx context.Context, spec turnSpec, onChunk func(text s
 			return nil, err
 		}
 		if len(reply.ToolCalls) == 0 {
-			violation = true
 			for _, text := range held {
 				onChunk(text)
 			}
@@ -195,10 +193,9 @@ func (e *TurnEngine) run(ctx context.Context, spec turnSpec, onChunk func(text s
 	}
 
 	return &LLMResponse{
-		ToolCalls:          allToolCalls,
-		Usage:              tally.usage,
-		EstCostMicroUSD:    tally.cost,
-		FirstCallViolation: violation,
+		ToolCalls:       allToolCalls,
+		Usage:           tally.usage,
+		EstCostMicroUSD: tally.cost,
 	}, nil
 }
 

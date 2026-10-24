@@ -81,7 +81,6 @@ const (
 
 var (
 	dialectDeepSeek = OpenAIDialect{DisableThinking: true, EndUserField: "user_id", RequiredChoice: "required"}
-	dialectOpenAI   = OpenAIDialect{EndUserField: "user", RequiredChoice: "required"}
 	dialectOpenRtr  = OpenAIDialect{EndUserField: "user", OpenRouterPrefs: true, RequiredChoice: "required"}
 	dialectPlain    = OpenAIDialect{RequiredChoice: "required"}
 )

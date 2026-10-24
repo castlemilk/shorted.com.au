@@ -31,7 +31,7 @@ func (p *sessionsProvider) NewSession(cfg SessionConfig) (ModelSession, error) {
 func (p *sessionsProvider) Close() error { return nil }
 
 // runPolicyTurn runs one turn through the engine, with a counting tool API.
-func runPolicyTurn(t *testing.T, provider ChatProvider, forced bool, pricing Pricing, onChunk func(string)) (*LLMResponse, error, *atomic.Int32) {
+func runPolicyTurn(t *testing.T, provider ChatProvider, forced bool, pricing Pricing, onChunk func(string)) (*LLMResponse, *atomic.Int32, error) {
 	t.Helper()
 	var executed atomic.Int32
 	tools := newTestToolExecutor(httpHandlerCounting(&executed))
@@ -48,7 +48,7 @@ func runPolicyTurn(t *testing.T, provider ChatProvider, forced bool, pricing Pri
 		forcedFirstCall: forced,
 		meta:            turnMeta{Provider: "fake", Model: "fake-model", Pricing: pricing, Start: time.Now()},
 	}, onChunk)
-	return resp, err, &executed
+	return resp, &executed, err
 }
 
 func collect(out *[]string) func(string) {
@@ -61,7 +61,7 @@ func TestEngineForcedFirstCallRequiresAToolAndNudgesOnlyTheRetry(t *testing.T) {
 	provider := &sessionsProvider{sessions: []*fakeSession{first, retry}}
 
 	var emitted []string
-	resp, err, _ := runPolicyTurn(t, provider, true, Pricing{}, collect(&emitted))
+	resp, _, err := runPolicyTurn(t, provider, true, Pricing{}, collect(&emitted))
 	if err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
@@ -89,7 +89,7 @@ func TestEngineVerifyPolicyFirstCallIsAutoWithTheNudgeFromTheStart(t *testing.T)
 	}}
 	provider := &sessionsProvider{sessions: []*fakeSession{session}}
 
-	resp, err, _ := runPolicyTurn(t, provider, false, Pricing{}, func(string) {})
+	resp, _, err := runPolicyTurn(t, provider, false, Pricing{}, func(string) {})
 	if err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
@@ -110,7 +110,7 @@ func TestEngineFirstCallViolationTwiceFlushesTheRetryText(t *testing.T) {
 	provider := &sessionsProvider{sessions: []*fakeSession{first, retry}}
 
 	var emitted []string
-	resp, err, executed := runPolicyTurn(t, provider, true, Pricing{}, collect(&emitted))
+	resp, executed, err := runPolicyTurn(t, provider, true, Pricing{}, collect(&emitted))
 	if err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
@@ -133,7 +133,7 @@ func TestEngineFirstCallErrorIsNotRetriedAsAViolation(t *testing.T) {
 	first := &fakeSession{replies: []fakeReply{{err: refused}}}
 	provider := &sessionsProvider{sessions: []*fakeSession{first}}
 
-	_, err, _ := runPolicyTurn(t, provider, true, Pricing{}, func(string) {})
+	_, _, err := runPolicyTurn(t, provider, true, Pricing{}, func(string) {})
 	if err == nil || modelAnswered(err) {
 		t.Fatalf("error = %v, want the refusal before any model answer", err)
 	}
@@ -148,7 +148,7 @@ func TestEngineBadArgumentsTakeASlotAndGetTheNotice(t *testing.T) {
 	session := &fakeSession{replies: []fakeReply{{calls: calls}, {texts: []string{"done"}}}}
 	provider := &sessionsProvider{sessions: []*fakeSession{session}}
 
-	_, err, executed := runPolicyTurn(t, provider, true, Pricing{}, func(string) {})
+	_, executed, err := runPolicyTurn(t, provider, true, Pricing{}, func(string) {})
 	if err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
@@ -172,7 +172,7 @@ func TestEngineAnswerWithoutDataRunsEvenWithBadArguments(t *testing.T) {
 	session := &fakeSession{replies: []fakeReply{{calls: []ToolCall{bad}}, {texts: []string{"done"}}}}
 	provider := &sessionsProvider{sessions: []*fakeSession{session}}
 
-	_, err, executed := runPolicyTurn(t, provider, true, Pricing{}, func(string) {})
+	_, executed, err := runPolicyTurn(t, provider, true, Pricing{}, func(string) {})
 	if err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
@@ -191,7 +191,7 @@ func TestEngineSumsEstimatedCostOverEveryCall(t *testing.T) {
 	}}
 	provider := &sessionsProvider{sessions: []*fakeSession{first}}
 	// Micro-USD per token: 1 for input, 2 for output.
-	resp, err, _ := runPolicyTurn(t, provider, true, Pricing{Input: 1, Output: 2}, func(string) {})
+	resp, _, err := runPolicyTurn(t, provider, true, Pricing{Input: 1, Output: 2}, func(string) {})
 	if err != nil {
 		t.Fatalf("run() error = %v", err)
 	}

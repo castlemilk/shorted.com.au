@@ -24,12 +24,6 @@ type oaRecorder struct {
 	bodies [][]byte
 }
 
-func (r *oaRecorder) count() int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return len(r.bodies)
-}
-
 // body decodes request i.
 func (r *oaRecorder) body(t *testing.T, i int) map[string]any {
 	t.Helper()
@@ -275,7 +269,8 @@ func TestDeepSeekUserIDIsPseudonymousAndNeverTheRawUID(t *testing.T) {
 }
 
 func TestEndUserIDIsStableAndDependsOnlyOnTheUID(t *testing.T) {
-	if endUserID("uid-123") != endUserID("uid-123") {
+	first, again := endUserID("uid-123"), endUserID("uid-123")
+	if first != again {
 		t.Fatal("endUserID is not stable")
 	}
 	if endUserID("uid-123") == endUserID("uid-456") {
