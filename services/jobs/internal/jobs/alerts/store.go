@@ -206,13 +206,13 @@ func (s store) canaryDue(ctx context.Context) (bool, error) {
 	return due, err
 }
 
-// hasDeliveryWork reports rows still waiting on Resend, including a claim a crash
-// left behind.
+// hasDeliveryWork reports rows still waiting on Resend, or a legacy row waiting on an
+// entitlement lookup so it can expire, including a claim a crash left behind.
 func (s store) hasDeliveryWork(ctx context.Context) (bool, error) {
 	var work bool
 	err := s.pool.QueryRow(ctx, `
 		SELECT EXISTS (SELECT 1 FROM alert_events
-		                WHERE email_status = 'pending'
+		                WHERE email_status IN ('pending', 'awaiting_entitlement')
 		                   OR (email_status = 'sending' AND send_claimed_at < now() - interval '15 minutes'))`).Scan(&work)
 	return work, err
 }
@@ -399,13 +399,18 @@ func (s store) recoverStale(ctx context.Context) error {
 	return nil
 }
 
-// expirePending fails a row that waited 48 hours for Resend. An alert that old is
-// stale, so it is never sent.
+// expirePending fails a row that waited 48 hours, whether for Resend or for an
+// entitlement lookup. An alert that old is stale, so it is never sent. The evaluator
+// no longer writes awaiting_entitlement, but a row an earlier build wrote still expires
+// here rather than waiting forever.
 func (s store) expirePending(ctx context.Context) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE alert_events
-		   SET email_status = 'failed', last_error = 'expired', updated_at = now()
-		 WHERE email_status = 'pending' AND created_at < now() - interval '48 hours'`)
+		   SET email_status = 'failed',
+		       last_error = CASE WHEN email_status = 'awaiting_entitlement'
+		                         THEN 'expired: entitlement lookup never succeeded' ELSE 'expired' END,
+		       updated_at = now()
+		 WHERE email_status IN ('pending', 'awaiting_entitlement') AND created_at < now() - interval '48 hours'`)
 	return err
 }
 

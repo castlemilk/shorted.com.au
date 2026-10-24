@@ -163,3 +163,29 @@ func TestAlertsE2EPauseLinkMustVerify(t *testing.T) {
 		t.Fatalf("the alert must be sent once the link verifies, got %d", got)
 	}
 }
+
+// TestAlertsE2ELegacyAwaitingRowExpires: the evaluator no longer writes
+// awaiting_entitlement, but a row an earlier build wrote must not wait forever. It expires
+// after 48 hours, as a pending row does, and a run with nothing else to do still expires it.
+func TestAlertsE2ELegacyAwaitingRowExpires(t *testing.T) {
+	e := newE2E(t)
+	e.seedBase()
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", fp(5), "")
+	mustExec(t, e.pool, `
+		INSERT INTO alert_events (monitor_id, user_id, scope, target, condition, threshold, cadence,
+		                          report_date, compared_to_date, latest_percent, previous_percent,
+		                          email_status, created_at)
+		VALUES ('m1', 'u1', 'stock', 'AAA', 'short_interest_above', 5, 'daily',
+		        '2026-10-14', '2026-10-13', 5.2, 4.8, 'awaiting_entitlement', now() - interval '49 hours')`)
+	st := store{pool: e.pool}
+	if err := st.expirePending(e.ctx); err != nil {
+		t.Fatal(err)
+	}
+	var status, lastErr string
+	if err := e.pool.QueryRow(e.ctx, `SELECT email_status, last_error FROM alert_events WHERE monitor_id = 'm1'`).Scan(&status, &lastErr); err != nil {
+		t.Fatal(err)
+	}
+	if status != "failed" || lastErr != "expired: entitlement lookup never succeeded" {
+		t.Fatalf("legacy awaiting row = %s %q, want failed and expired", status, lastErr)
+	}
+}
