@@ -253,6 +253,22 @@ func completionTokens(usage TokenUsage) (*int64, *int64) {
 	return &in, &out
 }
 
+// recordTurnOnLedger fills the ledger's completion from a turn's result. A failed
+// turn still bills the calls that reached the model, so their tokens are kept.
+// The ledger names the route that answered: a failed attempt is billed, but it
+// did not answer, so its model does not replace the answering one.
+func recordTurnOnLedger(c *sendCompletion, resp *LLMResponse, err error) {
+	if err != nil {
+		c.InputTokens, c.OutputTokens = completionTokens(billedBy(err).usage)
+		return
+	}
+	if resp.Model != "" {
+		c.Model = resp.Model
+	}
+	c.InputTokens, c.OutputTokens = completionTokens(resp.Usage)
+	c.ToolCalls = len(resp.ToolCalls)
+}
+
 // sendOutcome maps how a send's turn ended onto a ledger outcome. A turn that
 // never reached the model is not counted: a failure in the conversation writes,
 // or a request the provider refused before answering, costs nothing to count

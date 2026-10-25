@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"time"
 )
 
 // Config holds the service configuration.
@@ -17,10 +18,30 @@ type Config struct {
 	GeminiAPIKey          string
 	GeminiModel           string
 	GeminiMaxOutputTokens int32
-	ChatMaxInputChars     int
-	ChatHistoryLimit      int
-	MaxConversations      int
-	MaxMessagesPerConv    int
+
+	// The model routing. ChatProvider and ChatModel choose the primary; the
+	// fallback is ChatFallbackProvider and ChatFallbackModel. Defaults keep prod
+	// on Gemini with GEMINI_MODEL.
+	ChatProvider         string
+	ChatModel            string
+	ChatMaxOutputTokens  int32
+	ChatFallbackProvider string
+	ChatFallbackModel    string
+	// ChatFallbackImplicit is set when the fallback was not named in the env but
+	// follows from a non-Gemini primary. A missing key then disables it quietly.
+	ChatFallbackImplicit bool
+	// ChatTurnTimeout and ChatFirstByteTimeout are the env values. Zero means unset,
+	// and the router picks the mode's default (see turnBudgetWithFallback).
+	ChatTurnTimeout      time.Duration
+	ChatFirstByteTimeout time.Duration
+	// ProviderKeys holds each catalog provider's key, keyed by provider name. A
+	// key is read from the environment only.
+	ProviderKeys map[string]string
+
+	ChatMaxInputChars  int
+	ChatHistoryLimit   int
+	MaxConversations   int
+	MaxMessagesPerConv int
 
 	// Send limits, enforced against chat_usage_events before the model is
 	// called. The web app's Redis buckets use the same names and defaults; they
@@ -91,6 +112,10 @@ func LoadConfig() (*Config, error) {
 		cfg.GeminiMaxOutputTokens = int32(v)
 	}
 
+	if err := loadChatRouting(cfg); err != nil {
+		return nil, err
+	}
+
 	if v, err := parsePositiveIntEnv("CHAT_MAX_INPUT_CHARS"); err != nil {
 		return nil, err
 	} else if v > 0 {
@@ -134,6 +159,135 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// loadChatRouting reads the primary and fallback model, the timeouts and the
+// provider keys. With none of the new variables set, the primary is Gemini on
+// GEMINI_MODEL, with the same output limit as before.
+//
+// The turn budget and the first-byte bound depend on whether a fallback exists,
+// which the router decides, so an unset timeout stays zero here and the router
+// resolves it.
+func loadChatRouting(cfg *Config) error {
+	cfg.ChatProvider = "gemini"
+	if p := os.Getenv("CHAT_PROVIDER"); p != "" {
+		cfg.ChatProvider = p
+	}
+	primarySpec, ok := lookupProvider(cfg.ChatProvider)
+	if !ok {
+		return fmt.Errorf("invalid CHAT_PROVIDER: unknown provider %q", cfg.ChatProvider)
+	}
+	cfg.ChatModel = ""
+	if cfg.ChatProvider == "gemini" {
+		cfg.ChatModel = cfg.GeminiModel
+	}
+	if m := os.Getenv("CHAT_MODEL"); m != "" {
+		cfg.ChatModel = m
+	}
+	if err := validateRoute(cfg.Environment, primarySpec, cfg.ChatModel, "CHAT_PROVIDER", "CHAT_MODEL"); err != nil {
+		return err
+	}
+
+	cfg.ChatMaxOutputTokens = cfg.GeminiMaxOutputTokens
+	if v, err := parsePositiveIntEnv("CHAT_MAX_OUTPUT_TOKENS"); err != nil {
+		return err
+	} else if v > 0 {
+		cfg.ChatMaxOutputTokens = int32(v)
+	}
+
+	cfg.ChatFallbackProvider = os.Getenv("CHAT_FALLBACK_PROVIDER")
+	if cfg.ChatFallbackProvider == "" && cfg.ChatProvider != "gemini" {
+		cfg.ChatFallbackProvider = "gemini"
+		cfg.ChatFallbackImplicit = true
+	}
+	if cfg.ChatFallbackProvider != "" {
+		fallbackSpec, ok := lookupProvider(cfg.ChatFallbackProvider)
+		if !ok {
+			return fmt.Errorf("invalid CHAT_FALLBACK_PROVIDER: unknown provider %q", cfg.ChatFallbackProvider)
+		}
+		cfg.ChatFallbackModel = ""
+		if cfg.ChatFallbackProvider == "gemini" {
+			cfg.ChatFallbackModel = cfg.GeminiModel
+		}
+		if m := os.Getenv("CHAT_FALLBACK_MODEL"); m != "" {
+			cfg.ChatFallbackModel = m
+		}
+		if err := validateRoute(cfg.Environment, fallbackSpec, cfg.ChatFallbackModel, "CHAT_FALLBACK_PROVIDER", "CHAT_FALLBACK_MODEL"); err != nil {
+			return err
+		}
+	}
+
+	var err error
+	if cfg.ChatTurnTimeout, err = parseDurationEnv("CHAT_TURN_TIMEOUT", 0); err != nil {
+		return err
+	}
+	if cfg.ChatFirstByteTimeout, err = parseDurationEnv("CHAT_PROVIDER_FIRST_BYTE_TIMEOUT", 0); err != nil {
+		return err
+	}
+
+	cfg.ProviderKeys = make(map[string]string)
+	for name, env := range providerKeyEnvs() {
+		if key := os.Getenv(env); key != "" {
+			cfg.ProviderKeys[name] = key
+		}
+	}
+	if cfg.GeminiAPIKey != "" {
+		cfg.ProviderKeys["gemini"] = cfg.GeminiAPIKey
+	}
+	return nil
+}
+
+// validateRoute checks one route at config load. A route with no model is refused:
+// OpenRouter has no default model, so an empty one would 400 every turn and fall
+// back silently. In production it also refuses DeepSeek's direct API unless the
+// PRC privacy flag is set, a provider with no verified tool choice, and a model the
+// catalog does not list or marks test-only. Elsewhere those are allowed, so tests
+// and smoke runs can use them.
+func validateRoute(environment string, spec ProviderSpec, model, providerVar, modelVar string) error {
+	production := environment == "production"
+	if model == "" {
+		if spec.DefaultModel == "" {
+			return fmt.Errorf("%s=%s: no model is set and the catalog has no default model for %s; set %s", providerVar, spec.Name, spec.Name, modelVar)
+		}
+		model = spec.DefaultModel
+	}
+	if !production {
+		return nil
+	}
+	if spec.Name == "deepseek" && os.Getenv(chatAllowPRCHostedProviderEnv) != "true" {
+		return fmt.Errorf("%s=deepseek is refused in production: DeepSeek's first-party API is hosted in the PRC, and the privacy review the plan requires (docs/plans/chat-llm-providers.md §11.2) is not done. Route through OpenRouter pinned to US or EU hosts, or set %s=true once that review is complete", providerVar, chatAllowPRCHostedProviderEnv)
+	}
+	if spec.TestOnly {
+		return fmt.Errorf("%s=%s is test-only: no tool-choice behaviour is verified for it, so production may not route to it", providerVar, spec.Name)
+	}
+	m, known := lookupModel(spec.Name, model)
+	if !known {
+		return fmt.Errorf("%s=%s/%s is not in the chat provider catalog (providerCatalog in provider_catalog.go), and production routes only catalogued models; add it there after verifying its tool choice and price", providerVar, spec.Name, model)
+	}
+	if !m.Activatable {
+		return fmt.Errorf("%s=%s/%s is test-only (not activatable) until its gate passes, so production may not route to it", providerVar, spec.Name, model)
+	}
+	return nil
+}
+
+// chatAllowPRCHostedProviderEnv opens the direct DeepSeek API to production
+// routing. Set it only after the PRC privacy review in the plan is complete.
+const chatAllowPRCHostedProviderEnv = "CHAT_ALLOW_PRC_HOSTED_PROVIDER"
+
+// parseDurationEnv reads a positive duration, or returns def when it is unset.
+func parseDurationEnv(name string, def time.Duration) (time.Duration, error) {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return def, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %w", name, err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("invalid %s: must be positive", name)
+	}
+	return d, nil
 }
 
 func parsePositiveIntEnv(name string) (int, error) {

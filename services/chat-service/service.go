@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -21,7 +22,7 @@ import (
 // ChatServiceHandler implements the ChatService Connect-RPC interface.
 type ChatServiceHandler struct {
 	store              *ConversationStore
-	llmClient          *LLMClient
+	runner             turnRunner
 	maxInputChars      int
 	historyLimit       int
 	maxMessagesPerConv int
@@ -40,7 +41,7 @@ type ChatServiceHandler struct {
 var _ chatv1connect.ChatServiceHandler = (*ChatServiceHandler)(nil)
 
 // NewChatServiceHandler creates a new handler.
-func NewChatServiceHandler(store *ConversationStore, llmClient *LLMClient, cfg *Config) *ChatServiceHandler {
+func NewChatServiceHandler(store *ConversationStore, runner turnRunner, cfg *Config) *ChatServiceHandler {
 	if cfg == nil {
 		cfg = &Config{
 			ChatMaxInputChars:        2000,
@@ -56,7 +57,7 @@ func NewChatServiceHandler(store *ConversationStore, llmClient *LLMClient, cfg *
 	}
 	handler := &ChatServiceHandler{
 		store:              store,
-		llmClient:          llmClient,
+		runner:             runner,
 		maxInputChars:      cfg.ChatMaxInputChars,
 		historyLimit:       cfg.ChatHistoryLimit,
 		maxMessagesPerConv: cfg.MaxMessagesPerConv,
@@ -155,7 +156,7 @@ func (h *ChatServiceHandler) SendMessage(
 	if h.store == nil {
 		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("chat persistence is not configured"))
 	}
-	if h.llmClient == nil {
+	if h.runner == nil || !h.runner.Ready() {
 		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("chat model is not configured"))
 	}
 	recordChatExperienceEvent("send_message", "attempt", "")
@@ -185,7 +186,7 @@ func (h *ChatServiceHandler) SendMessage(
 	if err != nil {
 		return err
 	}
-	completion := sendCompletion{Model: h.llmClient.model}
+	completion := sendCompletion{Model: h.runner.Model()}
 	// reachedModel is set once the provider has answered. Until then a failure
 	// is a failure before the model, and does not count against the limits.
 	reachedModel := false
@@ -254,15 +255,17 @@ func (h *ChatServiceHandler) SendMessage(
 		})
 	}
 
-	llmResp, err := h.llmClient.ChatStream(ctx, systemPrompt, history, msg.Message, onChunk)
+	llmResp, err := h.runner.RunTurn(ctx, userID, TurnInput{System: systemPrompt, History: history, UserText: msg.Message}, onChunk)
 	reachedModel = err == nil || modelAnswered(err)
 	if err != nil {
 		recordChatExperienceEvent("send_message", "error", "llm_error")
 		h.keepPartialReply(ctx, conv.ID, fullContent)
+		recordTurnOnLedger(&completion, nil, err)
 		return modelFailure(err)
 	}
-	completion.InputTokens, completion.OutputTokens = completionTokens(llmResp.Usage)
-	completion.ToolCalls = len(llmResp.ToolCalls)
+	recordTurnOnLedger(&completion, llmResp, nil)
+	log.Printf("chat turn: provider=%s model=%s route=%s first_call_violation=%t est_cost_micro_usd=%d",
+		llmResp.Provider, llmResp.Model, llmResp.Route, llmResp.FirstCallViolation, llmResp.EstCostMicroUSD)
 
 	// Marshal tool calls and citations for storage
 	var toolCallsJSON, citationsJSON json.RawMessage

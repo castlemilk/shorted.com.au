@@ -1,0 +1,18 @@
+: keep-alive
+
+: keep-alive
+
+data: {"choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+
+
+: keep-alive
+data: {"choices":[{"index":0,"delta":{"content":" there"},"finish_reason":null}]}
+
+
+
+: keep-alive
+
+data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+

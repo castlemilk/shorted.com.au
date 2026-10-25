@@ -479,7 +479,9 @@ Each provider's key comes from env, and startup calls `registerSecrets(key)` for
 - `CHAT_MAX_OUTPUT_TOKENS`.
 - `CHAT_FALLBACK_*`.
 - `DEEPSEEK_API_KEY` and `OPENROUTER_API_KEY_CHAT`, plus optional keys for the other providers.
-- `CHAT_TURN_TIMEOUT` (50s) and `CHAT_PROVIDER_FIRST_BYTE_TIMEOUT` (15s).
+- `CHAT_TURN_TIMEOUT` and `CHAT_PROVIDER_FIRST_BYTE_TIMEOUT` are unset by default, and the router picks the mode's value. With a fallback they are 50s and 15s. Alone (the prod Gemini default) they are 55s and 30s. The 55s budget leaves the web proxy's 60s a margin, and a late answer beats an error when nothing else can answer.
+- `CHAT_ALLOW_PRC_HOSTED_PROVIDER` (default unset). In production, `CHAT_PROVIDER=deepseek` or `CHAT_FALLBACK_PROVIDER=deepseek` is refused unless this is `true`. DeepSeek's direct API is hosted in the PRC, so set it only once the §11.2 privacy review is done. OpenRouter routes pinned to US or EU hosts are not affected.
+- In production, the routed model must be in the catalog, activatable, and from a provider that is not test-only. Config load refuses anything else. Elsewhere those routes are allowed for tests and smoke runs.
 
 **Tests:**
 

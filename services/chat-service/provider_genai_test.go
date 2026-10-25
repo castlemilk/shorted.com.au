@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/genai"
 )
@@ -560,7 +561,10 @@ func TestGeminiNeverEmitsThoughtText(t *testing.T) {
 
 // Stored history with an empty message sends no empty part: the API rejects one.
 func TestGeminiHistorySkipsEmptyMessages(t *testing.T) {
-	replies := [][]string{{`{"candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]},"index":0}]}`}}
+	// A text-only first reply is a first-call violation, so the engine retries once
+	// on a fresh session. The script answers both calls; the test reads the first.
+	text := []string{`{"candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]},"index":0}]}`}
+	replies := [][]string{text, text}
 	rec := &wireRecorder{}
 	gemini := newWireGemini(t, rec, replies)
 	toolAPI := newWireToolAPI(t, rec)
@@ -789,5 +793,97 @@ func TestBuildGeminiToolsDeclaresNoParametersForAParameterlessTool(t *testing.T)
 	}
 	if decls[1].Parameters == nil || decls[1].Parameters.Type != genai.TypeObject || !slices.Equal(decls[1].Parameters.Required, []string{"query"}) {
 		t.Fatalf("one_arg parameters = %+v, want an object requiring query", decls[1].Parameters)
+	}
+}
+
+// A Gemini reply that streams steadily (a chunk every 60ms, each well inside the
+// 500ms idle bound) for longer than the 300ms first-byte bound must complete. The
+// stream takes about 720ms, so the first-byte bound would end it if it were not
+// re-armed. The idle bound leaves 440ms of slack per gap, so a loaded runner does
+// not cut the stream short. Without the touch that re-arms the idle bound, this
+// reply is cut off at the first-byte bound.
+func TestGeminiStreamKeepsTheIdleBoundNotTheFirstByteBound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		f, _ := w.(http.Flusher)
+		for i := range 12 {
+			finish := ""
+			if i == 11 {
+				finish = `,"finishReason":"STOP"`
+			}
+			_, _ = fmt.Fprintf(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"w%d \"}]},\"index\":0%s}]}\n\n", i, finish)
+			if f != nil {
+				f.Flush()
+			}
+			select {
+			case <-r.Context().Done():
+				return
+			case <-time.After(60 * time.Millisecond):
+			}
+		}
+	}))
+	defer srv.Close()
+
+	provider := newWireProvider(t, srv.URL)
+	provider.timeouts = streamTimeouts{FirstByte: 300 * time.Millisecond, Idle: 500 * time.Millisecond}
+	session, err := provider.NewSession(SessionConfig{Model: wireModel, System: "s", Tools: chatToolDefinitions()})
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+	var got []string
+	reply, err := session.Send(context.Background(), SendInput{UserText: "q"}, ToolChoiceAuto, func(ev ModelEvent) { got = append(got, ev.Text) })
+	if err != nil {
+		t.Fatalf("Send() error = %v after %q: a stream with a chunk every 60ms was cut off mid-reply", err, strings.Join(got, ""))
+	}
+	if !strings.HasSuffix(reply.Text, "w11 ") {
+		t.Fatalf("reply = %q, want all 12 chunks", reply.Text)
+	}
+}
+
+// The prod router path (not the test-only LLMClient) sends the same bytes the
+// golden files pin.
+func TestModelRouterGeminiWireMatchesGolden(t *testing.T) {
+	setTerraformProdEnv(t)
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	rec := &wireRecorder{}
+	gemini := newWireGemini(t, rec, wireReplies)
+	toolAPI := newWireToolAPI(t, rec)
+	r, err := NewModelRouter(context.Background(), cfg, NewToolExecutor(toolAPI.URL))
+	if err != nil || r == nil {
+		t.Fatalf("NewModelRouter() = %v, %v", r, err)
+	}
+	built := r.primary.route.Provider.(*geminiProvider)
+	wire := newWireProvider(t, gemini.URL)
+	wire.timeouts = built.timeouts
+	r.primary.route.Provider = wire
+
+	var chunks []string
+	resp, err := r.RunTurn(context.Background(), "uid-wire", TurnInput{
+		System:   "system prompt for the wire test",
+		History:  []Message{{Role: "user", Content: "earlier question"}, {Role: "assistant", Content: "earlier answer"}},
+		UserText: "Who is shorting BHP?",
+	}, func(s string) { chunks = append(chunks, s) })
+	if err != nil {
+		t.Fatalf("RunTurn() error = %v", err)
+	}
+	if len(rec.geminiBody) != 2 {
+		t.Fatalf("model calls = %d, want 2", len(rec.geminiBody))
+	}
+	for i, p := range rec.geminiPaths {
+		if want := "/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse"; p != want {
+			t.Fatalf("model call %d = %q, want %q", i+1, p, want)
+		}
+	}
+	compareGolden(t, "turn1_request.json", canonicalJSON(t, rec.geminiBody[0]))
+	compareGolden(t, "turn2_request.json", canonicalJSON(t, rec.geminiBody[1]))
+	if want := []string{"BHP is shorted ", "at 4.2%."}; !slices.Equal(chunks, want) {
+		t.Fatalf("chunks = %q, want %q", chunks, want)
+	}
+	if resp.Route != routeEnvDefault || resp.Model != "gemini-2.5-flash" || resp.Provider != "gemini" {
+		t.Fatalf("answered by %s/%s route %s", resp.Provider, resp.Model, resp.Route)
 	}
 }

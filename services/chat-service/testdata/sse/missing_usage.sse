@@ -1,0 +1,6 @@
+data: {"choices":[{"index":0,"delta":{"content":"Shorts are up."},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+

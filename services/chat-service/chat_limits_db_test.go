@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"fmt"
 	chatv1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/chat/v1"
 )
 
@@ -357,5 +358,122 @@ func TestRefusedBeforeAnswerIsNotCounted(t *testing.T) {
 	}
 	if counts.UserMinute != 1 {
 		t.Fatalf("UserMinute = %d after a refused send, want 1 (the new send only)", counts.UserMinute)
+	}
+}
+
+// A send whose primary attempt was billed before the fallback answered is ledgered
+// against the route that answered: the model is the fallback's, and the tokens are
+// the billed call plus the answer. The test is skipped unless
+// CHAT_LIMITS_TEST_DATABASE_URL is set, and it removes its own rows.
+func TestFallbackSendIsLedgeredAgainstTheModelThatAnswered(t *testing.T) {
+	dsn := os.Getenv("CHAT_LIMITS_TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("set CHAT_LIMITS_TEST_DATABASE_URL to run the ledger against Postgres")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("pgxpool.New() error = %v", err)
+	}
+	t.Cleanup(pool.Close)
+	store := NewConversationStore(pool)
+
+	// The primary's first call is billed, then its tool round is refused before any text.
+	primary := &routeProvider{name: "primary", plans: always([]fakeReply{
+		{calls: []ToolCall{searchCall("c1", "BHP")}, usage: TokenUsage{PromptTokens: 7, CandidateTokens: 3}},
+		{err: failedCall(false, true, 429)},
+	})}
+	fallback := &routeProvider{name: "fallback", plans: always([]fakeReply{
+		{calls: []ToolCall{searchCall("c1", "BHP")}},
+		{texts: []string{"ok"}, usage: TokenUsage{PromptTokens: 10, CandidateTokens: 2, TotalTokens: 12}},
+	})}
+	r, _ := routerFor(primary, fallback, 0)
+
+	user := fmt.Sprintf("ledger-fallback-%d", time.Now().UnixNano())
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_usage_events WHERE user_id = $1`, user)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_conversations WHERE user_id = $1`, user)
+	})
+	client := newWireTestServer(t, NewChatServiceHandler(store, r, nil))
+
+	req := connect.NewRequest(&chatv1.SendMessageRequest{Message: "hello"})
+	req.Header().Set("X-User-Id", user)
+	stream, err := client.SendMessage(ctx, req)
+	if err != nil {
+		t.Fatalf("SendMessage() error = %v", err)
+	}
+	for stream.Receive() {
+	}
+	if err := stream.Err(); err != nil {
+		t.Fatalf("SendMessage() stream error = %v, want the fallback's answer", err)
+	}
+
+	var model string
+	var in, out *int64
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(model,''), input_tokens, output_tokens FROM chat_usage_events WHERE user_id = $1`, user).Scan(&model, &in, &out); err != nil {
+		t.Fatalf("read the send's row: %v", err)
+	}
+	if model != "m-fallback" {
+		t.Fatalf("chat_usage_events.model = %q, want %q (the route that answered)", model, "m-fallback")
+	}
+	if in == nil || *in != 17 || out == nil || *out != 5 {
+		t.Fatalf("chat_usage_events tokens = %v/%v, want 17/5: the billed primary call plus the fallback's answer", in, out)
+	}
+}
+
+// A send whose calls were billed and whose turn then failed keeps those tokens in
+// the ledger, and its outcome counts against the limits. The primary's first call
+// was answered, its tool round was refused, and the fallback was refused too.
+func TestFailedSendKeepsItsBilledTokensInTheLedger(t *testing.T) {
+	dsn := os.Getenv("CHAT_LIMITS_TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("set CHAT_LIMITS_TEST_DATABASE_URL to run the ledger against Postgres")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("pgxpool.New() error = %v", err)
+	}
+	t.Cleanup(pool.Close)
+	store := NewConversationStore(pool)
+
+	primary := &routeProvider{name: "primary", plans: always([]fakeReply{
+		{calls: []ToolCall{searchCall("c1", "BHP")}, usage: TokenUsage{PromptTokens: 7, CandidateTokens: 3}},
+		{err: failedCall(false, true, 429)},
+	})}
+	fallback := &routeProvider{name: "fallback", plans: always([]fakeReply{{err: failedCall(false, false, 402)}})}
+	r, _ := routerFor(primary, fallback, 0)
+
+	user := fmt.Sprintf("ledger-billed-%d", time.Now().UnixNano())
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_usage_events WHERE user_id = $1`, user)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_conversations WHERE user_id = $1`, user)
+	})
+	client := newWireTestServer(t, NewChatServiceHandler(store, r, nil))
+
+	req := connect.NewRequest(&chatv1.SendMessageRequest{Message: "hello"})
+	req.Header().Set("X-User-Id", user)
+	stream, err := client.SendMessage(ctx, req)
+	if err != nil {
+		t.Fatalf("SendMessage() error = %v", err)
+	}
+	for stream.Receive() {
+	}
+	if stream.Err() == nil {
+		t.Fatal("SendMessage() succeeded, want the turn to fail")
+	}
+
+	var outcome string
+	var in, out *int64
+	if err := pool.QueryRow(ctx, `SELECT outcome, input_tokens, output_tokens FROM chat_usage_events WHERE user_id = $1`, user).Scan(&outcome, &in, &out); err != nil {
+		t.Fatalf("read the send's row: %v", err)
+	}
+	if outcome != usageOutcomeError {
+		t.Fatalf("outcome = %q, want %q: the model answered the first call, so the send counts", outcome, usageOutcomeError)
+	}
+	if in == nil || *in != 7 || out == nil || *out != 3 {
+		t.Fatalf("tokens = %v/%v, want the billed first call's 7/3", in, out)
 	}
 }

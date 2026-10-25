@@ -479,3 +479,33 @@ func toolCalls(names ...string) []ToolCall {
 	}
 	return calls
 }
+
+// Engine: a first-call violation is billed, and the nudged retry then fails before
+// the model. The turn must count as reached (it billed a call). Guards withBilled's
+// ModelReached flip, which no router test reaches.
+func TestEngineViolationThenPreModelFailureCountsAsReached(t *testing.T) {
+	p := &routeProvider{name: "primary", plans: func(n int) []fakeReply {
+		if n == 1 {
+			return []fakeReply{{texts: []string{"no tool"}, usage: TokenUsage{PromptTokens: 5, CandidateTokens: 2}}}
+		}
+		return []fakeReply{{err: failedCall(false, true, 503)}}
+	}}
+	r, _ := routerFor(p, nil, 0)
+	_, shown, err := runTurn(r)
+	if err == nil {
+		t.Fatal("RunTurn() succeeded")
+	}
+	if !modelAnswered(err) {
+		t.Fatal("a turn whose first call was billed reports failed_before_model")
+	}
+	if p.sessions() != 2 {
+		t.Fatalf("sessions = %d, want 2 (first call, nudged retry) and no same-provider re-run", p.sessions())
+	}
+	if shown != "" {
+		t.Fatalf("shown = %q, want nothing", shown)
+	}
+	var pe *ProviderError
+	if !errors.As(err, &pe) {
+		t.Fatalf("error lost its ProviderError: %v", err)
+	}
+}

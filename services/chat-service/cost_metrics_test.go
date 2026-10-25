@@ -109,7 +109,7 @@ func TestRecordGeminiRequestLogsStructuredCostEvent(t *testing.T) {
 			CachedPromptTokens: 35,
 			CandidateTokens:    40,
 			TotalTokens:        160,
-		})
+		}, 0)
 	})
 
 	if event["type"] != "cost_event" {

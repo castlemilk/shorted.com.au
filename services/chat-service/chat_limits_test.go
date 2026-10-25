@@ -640,3 +640,66 @@ func captureLogLines(t *testing.T, fn func()) []map[string]any {
 	}
 	return lines
 }
+
+// The ledger takes the model that answered. A failed attempt's model is not the
+// answering one, so a send that was answered by the fallback names the fallback.
+func TestLedgerNamesTheModelThatAnswered(t *testing.T) {
+	c := sendCompletion{Model: "m-primary"}
+	recordTurnOnLedger(&c, &LLMResponse{Model: "m-fallback"}, nil)
+	if c.Model != "m-fallback" {
+		t.Fatalf("ledger model = %q, want the answering model %q", c.Model, "m-fallback")
+	}
+}
+
+// A turn that answers with no route name keeps the model the send started with.
+func TestLedgerKeepsTheStartingModelWhenNoRouteAnswered(t *testing.T) {
+	c := sendCompletion{Model: "m-primary"}
+	recordTurnOnLedger(&c, &LLMResponse{}, nil)
+	if c.Model != "m-primary" {
+		t.Fatalf("ledger model = %q, want the starting model kept", c.Model)
+	}
+}
+
+// A failed turn keeps the tokens of the calls that reached the model, so the
+// ledger counts what was billed rather than a send that looks free.
+func TestLedgerKeepsTheBilledTokensOfAFailedTurn(t *testing.T) {
+	c := sendCompletion{Model: "m-primary"}
+	err := &turnError{ModelReached: true, err: errors.New("refused"), Billed: turnTally{usage: TokenUsage{PromptTokens: 7, CandidateTokens: 3}, calls: 1}}
+	recordTurnOnLedger(&c, nil, err)
+	if c.InputTokens == nil || *c.InputTokens != 7 || c.OutputTokens == nil || *c.OutputTokens != 3 {
+		t.Fatalf("ledger tokens = %v/%v, want the billed 7/3", c.InputTokens, c.OutputTokens)
+	}
+	if c.Model != "m-primary" {
+		t.Fatalf("ledger model = %q, want the starting model on a failed turn", c.Model)
+	}
+}
+
+// An unreported count is stored as NULL, never as zero.
+func TestLedgerStoresAnUnreportedCountAsNull(t *testing.T) {
+	c := sendCompletion{Model: "m-primary"}
+	recordTurnOnLedger(&c, &LLMResponse{}, nil)
+	if c.InputTokens != nil || c.OutputTokens != nil {
+		t.Fatalf("ledger tokens = %v/%v, want NULL for an unreported turn", c.InputTokens, c.OutputTokens)
+	}
+}
+
+// A failed turn with nothing billed has no tokens to record either.
+func TestLedgerRecordsNoTokensForAFailedTurnThatBilledNothing(t *testing.T) {
+	c := sendCompletion{Model: "m-primary"}
+	recordTurnOnLedger(&c, nil, &turnError{ModelReached: false, err: errors.New("refused before the model")})
+	if c.InputTokens != nil || c.OutputTokens != nil {
+		t.Fatalf("ledger tokens = %v/%v, want NULL", c.InputTokens, c.OutputTokens)
+	}
+}
+
+// The ledger counts the tool calls of an answered turn.
+func TestLedgerCountsTheToolCallsOfAnAnsweredTurn(t *testing.T) {
+	c := sendCompletion{Model: "m-primary"}
+	recordTurnOnLedger(&c, &LLMResponse{ToolCalls: []ToolCallRecord{{}, {}}, Usage: TokenUsage{PromptTokens: 9, CandidateTokens: 4}}, nil)
+	if c.ToolCalls != 2 {
+		t.Fatalf("ledger tool calls = %d, want 2", c.ToolCalls)
+	}
+	if c.InputTokens == nil || *c.InputTokens != 9 || c.OutputTokens == nil || *c.OutputTokens != 4 {
+		t.Fatalf("ledger tokens = %v/%v, want 9/4", c.InputTokens, c.OutputTokens)
+	}
+}

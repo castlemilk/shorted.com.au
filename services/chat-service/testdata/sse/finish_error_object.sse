@@ -1,0 +1,6 @@
+data: {"choices":[{"index":0,"delta":{"content":"Partial answer"},"finish_reason":null}]}
+
+data: {"error":{"message":"upstream provider failed mid-reply","type":"server_error"},"choices":[{"index":0,"delta":{},"finish_reason":"error"}]}
+
+data: [DONE]
+

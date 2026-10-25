@@ -1,0 +1,10 @@
+data: {"choices":[{"index":0,"delta":{"reasoning_content":"Let me think about BHP."},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{"reasoning_content":" More thought."},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{"content":"BHP is 4.2%."},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+
