@@ -266,9 +266,11 @@ func (c alertsCore) deleteMonitor(_ context.Context, userID, monitorID string) e
 func (s *ShortsServer) alertsCore() alertsCore {
 	return alertsCore{
 		store: s.store,
+		// Alerts are a premium web feature. API Access is paid, but it carries no
+		// alerts, so the gate reads the premium-feature rule, not paid access.
 		entitled: func(userID string) (bool, error) {
 			_, ent, err := s.loadEntitlement(userID, time.Now())
-			return ent.Entitled, err
+			return ent.HasPremiumFeatures(), err
 		},
 		logger: s.logger,
 	}

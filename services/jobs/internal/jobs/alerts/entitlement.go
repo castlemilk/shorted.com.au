@@ -8,6 +8,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/subscription"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 )
@@ -31,31 +32,54 @@ type entitlement struct {
 	Status string
 }
 
-// alertsPastDueGrace is the grace a past_due subscription keeps (pastDueGrace in
-// services/shorts/internal/services/shorts/entitlement.go). It is restated here
-// because this gate reads the status and the period end, not the API's decision.
-// The web's copy is web/src/lib/subscription-entitlement.ts.
-const alertsPastDueGrace = 14 * 24 * time.Hour
-
-// entitlementOf maps a GetMySubscription response to an entitlement. A user is
-// entitled when the status is ACTIVE or TRIALING, or PAST_DUE inside the grace after
-// the period end (the same rule as the API's ResolveEntitlement and the web's
-// isEntitledSubscription). A past_due row with no period end grants nothing.
+// entitlementOf maps a GetMySubscription response to the alerts entitlement. Alerts
+// are a premium web feature, so the rule is the API's premium-feature rule, applied
+// to the same fields the API returns:
+//
+//   - ACTIVE or TRIALING on a premium-feature tier (premium, pro, enterprise).
+//   - PAST_DUE on a premium-feature tier, while inside the grace from the first failed
+//     charge (past_due_since). A past_due row with no failure time has no grace.
+//
+// API Access and FREE rows never get alerts, whatever their status: they are paid API
+// access, not premium features. The grace length and the premium tiers come from
+// services/pkg/subscription, the same package the API uses.
 func entitlementOf(msg *shortsv1alpha1.GetMySubscriptionResponse) entitlement {
 	status := "NONE"
 	if msg.GetHasSubscription() {
 		status = strings.TrimPrefix(msg.GetStatus().String(), "SUBSCRIPTION_STATUS_")
 	}
+	premium := subscription.PremiumFeatureTier(protoTierName(msg.GetTier()))
 	switch msg.GetStatus() {
 	case shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE,
 		shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_TRIALING:
-		return entitlement{Entitled: true, Status: status}
+		return entitlement{Entitled: premium, Status: status}
 	case shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE:
-		if end := msg.GetCurrentPeriodEnd(); end != nil && time.Now().Before(end.AsTime().Add(alertsPastDueGrace)) {
-			return entitlement{Entitled: true, Status: status}
+		since := time.Time{}
+		if ts := msg.GetPastDueSince(); ts != nil {
+			since = ts.AsTime()
 		}
+		return entitlement{Entitled: premium && subscription.PastDueInGrace(since, time.Now()), Status: status}
 	}
 	return entitlement{Entitled: false, Status: status}
+}
+
+// protoTierName is the tier name the API stores and the rate-limit and feature rules
+// key on, for a proto tier. An unknown or unspecified tier has no name, so it is not
+// a premium tier.
+func protoTierName(t shortsv1alpha1.SubscriptionTier) string {
+	switch t {
+	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM:
+		return "premium"
+	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PRO:
+		return "pro"
+	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_ENTERPRISE:
+		return "enterprise"
+	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS:
+		return "api_access"
+	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_FREE:
+		return "free"
+	}
+	return ""
 }
 
 // entitlementChecker is a per-run cache over the billing client.

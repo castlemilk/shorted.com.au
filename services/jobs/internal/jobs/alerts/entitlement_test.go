@@ -50,7 +50,13 @@ func (s *stubBilling) GetMySubscription(_ context.Context, req *connect.Request[
 	if !ok {
 		return connect.NewResponse(&shortsv1alpha1.GetMySubscriptionResponse{}), nil
 	}
-	return connect.NewResponse(&shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: st}), nil
+	// A paying premium customer, as the API answers for a premium-feature row. The
+	// alerts gate also requires the tier, so a stub without one would read as unpaid.
+	return connect.NewResponse(&shortsv1alpha1.GetMySubscriptionResponse{
+		HasSubscription: true,
+		Status:          st,
+		Tier:            shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM,
+	}), nil
 }
 
 func newStubBilling() *stubBilling {
@@ -94,36 +100,72 @@ func startBilling(t *testing.T, stub *stubBilling) string {
 	return startShortsAPI(t, stub, "")
 }
 
-// TestEntitledExactlyWhenActiveTrialingOrInGrace pins the job's side of the entitlement
-// rule. The API's side is pinned by the contract test in services/shorts.
-func TestEntitledExactlyWhenActiveTrialingOrInGrace(t *testing.T) {
+// TestEntitledExactlyWhenPremiumAndActiveOrInGrace pins the job's side of the premium
+// feature rule. Alerts are a premium feature, so the job delivers only to premium-feature
+// tiers, and a past_due row only inside the grace from its first failed charge. The
+// API's side is pinned by the contract test in services/shorts.
+func TestEntitledExactlyWhenPremiumAndActiveOrInGrace(t *testing.T) {
+	inGrace := timestamppb.New(time.Now().Add(-1 * time.Hour))
+	pastGrace := timestamppb.New(time.Now().Add(-15 * 24 * time.Hour))
+	premium := shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM
+	apiAccess := shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS
+	free := shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_FREE
+	statusOf := func(name string) shortsv1alpha1.SubscriptionStatus {
+		return shortsv1alpha1.SubscriptionStatus(shortsv1alpha1.SubscriptionStatus_value[name])
+	}
 	cases := []struct {
 		name       string
 		resp       *shortsv1alpha1.GetMySubscriptionResponse
 		entitled   bool
 		wantStatus string
 	}{
-		{"active", &shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE}, true, "ACTIVE"},
-		{"trialing", &shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_TRIALING}, true, "TRIALING"},
-		{"past due", &shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE}, false, "PAST_DUE"},
-		{"canceled", &shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_CANCELED}, false, "CANCELED"},
-		{"inactive", &shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE}, false, "INACTIVE"},
-		{"no subscription record", &shortsv1alpha1.GetMySubscriptionResponse{}, false, "NONE"},
-		{"past due inside the grace stays entitled", &shortsv1alpha1.GetMySubscriptionResponse{
+		{"active premium", &shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: statusOf("SUBSCRIPTION_STATUS_ACTIVE"), Tier: premium}, true, "ACTIVE"},
+		{"trialing premium", &shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: statusOf("SUBSCRIPTION_STATUS_TRIALING"), Tier: premium}, true, "TRIALING"},
+		{"active API Access gets no premium alerts", &shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: statusOf("SUBSCRIPTION_STATUS_ACTIVE"), Tier: apiAccess}, false, "ACTIVE"},
+		{"active on the free tier", &shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: statusOf("SUBSCRIPTION_STATUS_ACTIVE"), Tier: free}, false, "ACTIVE"},
+		{"past due premium inside the grace from the failed charge stays entitled", &shortsv1alpha1.GetMySubscriptionResponse{
 			HasSubscription:  true,
-			Status:           shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE,
-			CurrentPeriodEnd: timestamppb.New(time.Now().Add(-13 * 24 * time.Hour)),
+			Status:           statusOf("SUBSCRIPTION_STATUS_PAST_DUE"),
+			Tier:             premium,
+			PastDueSince:     inGrace,
+			CurrentPeriodEnd: timestamppb.New(time.Now().Add(20 * 24 * time.Hour)),
 		}, true, "PAST_DUE"},
-		{"past due past the grace is not entitled", &shortsv1alpha1.GetMySubscriptionResponse{
+		{"past due premium past the grace from the failed charge is not entitled, however far the period end runs", &shortsv1alpha1.GetMySubscriptionResponse{
 			HasSubscription:  true,
-			Status:           shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE,
-			CurrentPeriodEnd: timestamppb.New(time.Now().Add(-15 * 24 * time.Hour)),
+			Status:           statusOf("SUBSCRIPTION_STATUS_PAST_DUE"),
+			Tier:             premium,
+			PastDueSince:     pastGrace,
+			CurrentPeriodEnd: timestamppb.New(time.Now().Add(20 * 24 * time.Hour)),
+		}, false, "PAST_DUE"},
+		{"past due premium with no failure time has no grace", &shortsv1alpha1.GetMySubscriptionResponse{
+			HasSubscription:  true,
+			Status:           statusOf("SUBSCRIPTION_STATUS_PAST_DUE"),
+			Tier:             premium,
+			CurrentPeriodEnd: timestamppb.New(time.Now().Add(20 * 24 * time.Hour)),
+		}, false, "PAST_DUE"},
+		{"past due API Access inside the grace gets no premium alerts", &shortsv1alpha1.GetMySubscriptionResponse{
+			HasSubscription: true,
+			Status:          statusOf("SUBSCRIPTION_STATUS_PAST_DUE"),
+			Tier:            apiAccess,
+			PastDueSince:    inGrace,
+		}, false, "PAST_DUE"},
+		{"past due on the free tier inside the grace gets nothing", &shortsv1alpha1.GetMySubscriptionResponse{
+			HasSubscription: true,
+			Status:          statusOf("SUBSCRIPTION_STATUS_PAST_DUE"),
+			Tier:            free,
+			PastDueSince:    inGrace,
 		}, false, "PAST_DUE"},
 		{"unpaid is inactive, never entitled", &shortsv1alpha1.GetMySubscriptionResponse{
-			HasSubscription:  true,
-			Status:           shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE,
-			CurrentPeriodEnd: timestamppb.New(time.Now().Add(24 * time.Hour)),
+			HasSubscription: true,
+			Status:          statusOf("SUBSCRIPTION_STATUS_INACTIVE"),
+			Tier:            premium,
 		}, false, "INACTIVE"},
+		{"canceled is never entitled", &shortsv1alpha1.GetMySubscriptionResponse{
+			HasSubscription: true,
+			Status:          statusOf("SUBSCRIPTION_STATUS_CANCELED"),
+			Tier:            premium,
+		}, false, "CANCELED"},
+		{"no subscription record", &shortsv1alpha1.GetMySubscriptionResponse{}, false, "NONE"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
