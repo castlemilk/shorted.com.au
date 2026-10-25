@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -15,6 +16,7 @@ func clearChatRoutingEnv(t *testing.T) {
 		"GEMINI_MODEL", "GEMINI_API_KEY", "GEMINI_MAX_OUTPUT_TOKENS",
 		"DEEPSEEK_API_KEY", "OPENROUTER_API_KEY_CHAT", "GROQ_API_KEY", "TOGETHER_API_KEY",
 		"MISTRAL_API_KEY", "DASHSCOPE_API_KEY", "MOONSHOT_API_KEY",
+		"ENVIRONMENT", chatAllowPRCHostedProviderEnv,
 	} {
 		t.Setenv(name, "")
 	}
@@ -37,8 +39,8 @@ func TestLoadConfigChatRoutingDefaultsStayOnGemini(t *testing.T) {
 	if cfg.ChatFallbackProvider != "" {
 		t.Fatalf("fallback = %q, want none for a Gemini primary", cfg.ChatFallbackProvider)
 	}
-	if cfg.ChatTurnTimeout != 50*time.Second || cfg.ChatFirstByteTimeout != 15*time.Second {
-		t.Fatalf("timeouts = %s and %s, want 50s and 15s", cfg.ChatTurnTimeout, cfg.ChatFirstByteTimeout)
+	if cfg.ChatTurnTimeout != 0 || cfg.ChatFirstByteTimeout != 0 {
+		t.Fatalf("timeouts = %s and %s, want unset so the router picks the no-fallback 55s and 30s", cfg.ChatTurnTimeout, cfg.ChatFirstByteTimeout)
 	}
 }
 
@@ -129,5 +131,106 @@ func TestLoadConfigOnlyCatalogKeysAreRead(t *testing.T) {
 	}
 	if cfg.ProviderKeys["gemini"] != "gem-key" || len(cfg.ProviderKeys) != 1 {
 		t.Fatalf("ProviderKeys = %v, want only gemini", cfg.ProviderKeys)
+	}
+}
+
+// CHAT_PROVIDER=openrouter with no CHAT_MODEL resolves to no model, and every
+// turn would 400 and fall back silently. Config load refuses it, for the primary
+// and for the fallback.
+func TestLoadConfigRejectsAProviderWithNoModel(t *testing.T) {
+	clearChatRoutingEnv(t)
+	t.Setenv("CHAT_PROVIDER", "openrouter")
+	t.Setenv("OPENROUTER_API_KEY_CHAT", "or-test-key")
+	if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "CHAT_MODEL") {
+		t.Fatalf("LoadConfig() error = %v, want a refusal that names CHAT_MODEL", err)
+	}
+
+	clearChatRoutingEnv(t)
+	t.Setenv("CHAT_PROVIDER", "deepseek")
+	t.Setenv("DEEPSEEK_API_KEY", "ds-test-key")
+	t.Setenv("CHAT_FALLBACK_PROVIDER", "openrouter")
+	t.Setenv("OPENROUTER_API_KEY_CHAT", "or-test-key")
+	if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "CHAT_FALLBACK_MODEL") {
+		t.Fatalf("LoadConfig() error = %v, want a refusal that names CHAT_FALLBACK_MODEL", err)
+	}
+
+	// A provider whose catalog entry has a default model needs no CHAT_MODEL.
+	clearChatRoutingEnv(t)
+	t.Setenv("CHAT_PROVIDER", "deepseek")
+	t.Setenv("DEEPSEEK_API_KEY", "ds-test-key")
+	if _, err := LoadConfig(); err != nil {
+		t.Fatalf("LoadConfig() with the catalog default model error = %v", err)
+	}
+}
+
+// DeepSeek's direct API is hosted in the PRC. In production it is refused, as the
+// primary or the fallback, unless CHAT_ALLOW_PRC_HOSTED_PROVIDER is "true". An
+// OpenRouter route pinned to US or EU hosts is not affected.
+func TestLoadConfigProductionRefusesDeepSeekDirectUnlessFlagged(t *testing.T) {
+	clearChatRoutingEnv(t)
+	t.Setenv("ENVIRONMENT", "production")
+	t.Setenv("CHAT_PROVIDER", "deepseek")
+	t.Setenv("DEEPSEEK_API_KEY", "ds-test-key")
+	_, err := LoadConfig()
+	if err == nil || !strings.Contains(err.Error(), "PRC") || !strings.Contains(err.Error(), chatAllowPRCHostedProviderEnv) {
+		t.Fatalf("LoadConfig() error = %v, want a PRC refusal that names %s", err, chatAllowPRCHostedProviderEnv)
+	}
+
+	t.Setenv(chatAllowPRCHostedProviderEnv, "true")
+	if _, err := LoadConfig(); err != nil {
+		t.Fatalf("LoadConfig() with the flag error = %v, want DeepSeek allowed", err)
+	}
+
+	t.Setenv(chatAllowPRCHostedProviderEnv, "")
+	clearChatRoutingEnv(t)
+	t.Setenv("ENVIRONMENT", "production")
+	t.Setenv("CHAT_PROVIDER", "openrouter")
+	t.Setenv("CHAT_MODEL", "deepseek/deepseek-v4-flash")
+	t.Setenv("OPENROUTER_API_KEY_CHAT", "or-test-key")
+	t.Setenv("CHAT_FALLBACK_PROVIDER", "deepseek")
+	t.Setenv("DEEPSEEK_API_KEY", "ds-test-key")
+	if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "CHAT_FALLBACK_PROVIDER=deepseek") {
+		t.Fatalf("LoadConfig() error = %v, want the fallback refused", err)
+	}
+
+	clearChatRoutingEnv(t)
+	t.Setenv("CHAT_PROVIDER", "deepseek")
+	t.Setenv("DEEPSEEK_API_KEY", "ds-test-key")
+	if _, err := LoadConfig(); err != nil {
+		t.Fatalf("development DeepSeek error = %v, want it allowed outside production", err)
+	}
+}
+
+// In production the router serves only catalogued, activatable models from
+// providers that are not test-only. Elsewhere they are allowed for tests and smoke runs.
+func TestLoadConfigProductionRefusesTestOnlyAndUncataloguedRoutes(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+		want string
+	}{
+		{"model outside the catalog", map[string]string{"GEMINI_MODEL": "gemini-2.5-pro"}, "not in the chat provider catalog"},
+		{"model marked test-only", map[string]string{"GEMINI_MODEL": "gemini-3.1-flash-lite"}, "test-only"},
+		{"provider marked test-only", map[string]string{"CHAT_PROVIDER": "groq", "CHAT_MODEL": "llama-3.3-70b", "GROQ_API_KEY": "groq-test-key"}, "test-only"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			clearChatRoutingEnv(t)
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			t.Setenv("ENVIRONMENT", "production")
+			if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("production LoadConfig() error = %v, want a refusal containing %q", err, tc.want)
+			}
+
+			clearChatRoutingEnv(t)
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			if _, err := LoadConfig(); err != nil {
+				t.Fatalf("development LoadConfig() error = %v, want it allowed outside production", err)
+			}
+		})
 	}
 }

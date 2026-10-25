@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"regexp"
+	"testing"
+)
 
 func TestCatalogDeepSeekModelIDsMatchTheAPI(t *testing.T) {
 	// The IDs GET https://api.deepseek.com/models returned on 2026-10-25.
@@ -100,5 +103,43 @@ func TestProviderKeyEnvsCoverEveryProvider(t *testing.T) {
 		if keys[p.Name] != p.KeyEnv || p.KeyEnv == "" {
 			t.Fatalf("provider %q has no key variable", p.Name)
 		}
+	}
+}
+
+// A Gemini model the catalog does not list keeps the forced first call, as the
+// Gemini adapter has always run it.
+func TestModelOrUnverifiedKeepsTheForcedChoiceForGemini(t *testing.T) {
+	m, ok := modelOrUnverified("gemini", "gemini-9-future")
+	if ok {
+		t.Fatal("an uncatalogued Gemini model reported as catalogued")
+	}
+	if !m.Caps.ForcedToolChoice || !m.Caps.NoneToolChoice || m.Price.Input != 0 {
+		t.Fatalf("uncatalogued Gemini model = %+v, want forced and none choices and no price", m)
+	}
+}
+
+// Plan §0.3: OpenRouter can silently drop tool_choice, so every OpenRouter entry
+// carries a pinned provider list, and each slug is one the wire accepts.
+func TestEveryOpenRouterEntryIsPinnedToProviders(t *testing.T) {
+	slug := regexp.MustCompile(`^[a-z0-9-]{1,40}$`)
+	seen := 0
+	for _, p := range providerCatalog {
+		if !p.Dialect.OpenRouterPrefs {
+			continue
+		}
+		for _, m := range p.Models {
+			seen++
+			if len(m.DefaultOnly) == 0 {
+				t.Errorf("%s/%s has no pinned provider list: OpenRouter may drop tool_choice without one", p.Name, m.ID)
+			}
+			for _, s := range m.DefaultOnly {
+				if !slug.MatchString(s) {
+					t.Errorf("%s/%s pins %q, which is not a valid provider slug", p.Name, m.ID, s)
+				}
+			}
+		}
+	}
+	if seen == 0 {
+		t.Fatal("no OpenRouter entries found in the catalog")
 	}
 }

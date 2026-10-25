@@ -633,3 +633,69 @@ func (c *captureProvider) NewSession(cfg SessionConfig) (ModelSession, error) {
 }
 
 func (c *captureProvider) Close() error { return nil }
+
+// newRouterFor builds the production router from a config, failing the test on error.
+func newRouterFor(t *testing.T, cfg *Config) *ModelRouter {
+	t.Helper()
+	r, err := NewModelRouter(context.Background(), cfg, nil)
+	if err != nil || r == nil {
+		t.Fatalf("NewModelRouter() = %v, %v; want a router", r, err)
+	}
+	return r
+}
+
+// The bounds follow the mode. Alone (the prod Gemini default) the first byte is 30s
+// and the turn 55s. With a fallback the first byte is 15s on both routes and the
+// turn is 50s. An env value overrides either mode.
+func TestNewModelRouterPicksTheBoundsForItsMode(t *testing.T) {
+	alone := &Config{ChatProvider: "gemini", ChatModel: "gemini-2.5-flash", ChatMaxOutputTokens: 1024,
+		ProviderKeys: map[string]string{"gemini": "gemini-test-key"}}
+	r := newRouterFor(t, alone)
+	if got := r.primary.route.Provider.(*geminiProvider).timeouts.FirstByte; got != 30*time.Second {
+		t.Fatalf("alone: first byte = %s, want 30s", got)
+	}
+	if r.budget != 55*time.Second {
+		t.Fatalf("alone: turn budget = %s, want 55s", r.budget)
+	}
+
+	withFallback := &Config{ChatProvider: "deepseek", ChatModel: "deepseek-flash", ChatMaxOutputTokens: 1024,
+		ChatFallbackProvider: "gemini", ChatFallbackModel: "gemini-2.5-flash", ChatFallbackImplicit: true,
+		ProviderKeys: map[string]string{"deepseek": "ds-test-key", "gemini": "gemini-test-key"}}
+	r = newRouterFor(t, withFallback)
+	if got := r.primary.route.Provider.(*openAICompatProvider).timeouts.FirstByte; got != 15*time.Second {
+		t.Fatalf("with fallback: primary first byte = %s, want 15s", got)
+	}
+	if got := r.fallback.route.Provider.(*geminiProvider).timeouts.FirstByte; got != 15*time.Second {
+		t.Fatalf("with fallback: fallback first byte = %s, want 15s", got)
+	}
+	if r.budget != 50*time.Second {
+		t.Fatalf("with fallback: turn budget = %s, want 50s", r.budget)
+	}
+
+	override := *withFallback
+	override.ChatFirstByteTimeout, override.ChatTurnTimeout = 12*time.Second, 45*time.Second
+	r = newRouterFor(t, &override)
+	if got := r.primary.route.Provider.(*openAICompatProvider).timeouts.FirstByte; got != 12*time.Second || r.budget != 45*time.Second {
+		t.Fatalf("with fallback and env values: first byte %s, budget %s, want 12s and 45s", got, r.budget)
+	}
+	overrideAlone := *alone
+	overrideAlone.ChatFirstByteTimeout, overrideAlone.ChatTurnTimeout = 20*time.Second, 40*time.Second
+	r = newRouterFor(t, &overrideAlone)
+	if got := r.primary.route.Provider.(*geminiProvider).timeouts.FirstByte; got != 20*time.Second || r.budget != 40*time.Second {
+		t.Fatalf("alone with env values: first byte %s, budget %s, want 20s and 40s", got, r.budget)
+	}
+}
+
+// The Gemini fallback keeps Gemini's output limit. The primary keeps CHAT_MAX_OUTPUT_TOKENS.
+func TestNewModelRouterGivesTheGeminiFallbackItsOwnOutputLimit(t *testing.T) {
+	cfg := &Config{ChatProvider: "deepseek", ChatModel: "deepseek-flash", ChatMaxOutputTokens: 512, GeminiMaxOutputTokens: 1024,
+		ChatFallbackProvider: "gemini", ChatFallbackModel: "gemini-2.5-flash", ChatFallbackImplicit: true,
+		ProviderKeys: map[string]string{"deepseek": "ds-test-key", "gemini": "gemini-test-key"}}
+	r := newRouterFor(t, cfg)
+	if r.primary.route.Ref.MaxOutputTokens != 512 {
+		t.Fatalf("primary max output = %d, want CHAT_MAX_OUTPUT_TOKENS 512", r.primary.route.Ref.MaxOutputTokens)
+	}
+	if r.fallback.route.Ref.MaxOutputTokens != 1024 {
+		t.Fatalf("fallback max output = %d, want the Gemini limit 1024", r.fallback.route.Ref.MaxOutputTokens)
+	}
+}

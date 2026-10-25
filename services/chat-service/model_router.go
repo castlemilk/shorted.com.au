@@ -41,12 +41,24 @@ const (
 	breakerCooldown  = 60 * time.Second
 )
 
-// Turn budget and the same-provider retry delay. The budget sits under the web
-// proxy's 60s, so a turn that runs out of time fails rather than being cut off.
+// The turn budget and the per-call first-byte bound depend on the mode, which the
+// router decides. The web proxy's limit is 60s, so each budget leaves a margin.
+//
+//   - With a fallback, the first-byte bound is tight (15s) because its job is to
+//     trigger the fallback. The turn is 50s: the primary's bound, the retry jitter
+//     and the fallback's own call must all fit, so a turn that runs out fails
+//     rather than being cut off by the proxy.
+//   - Alone, nothing else can answer. A late answer is worth more than an error,
+//     so the first-byte bound is 30s and the turn is 55s.
+//
+// The idle bound between chunks is the same in both modes (defaultIdleTimeout).
 const (
-	defaultTurnBudget = 50 * time.Second
-	retryJitterBase   = 300 * time.Millisecond
-	retryJitterSpread = 500 * time.Millisecond
+	turnBudgetWithFallback = 50 * time.Second
+	turnBudgetAlone        = 55 * time.Second
+	firstByteWithFallback  = 15 * time.Second
+	firstByteAlone         = 30 * time.Second
+	retryJitterBase        = 300 * time.Millisecond
+	retryJitterSpread      = 500 * time.Millisecond
 )
 
 // errBreakerOpen is the error a route reports when its breaker is open.
@@ -87,10 +99,10 @@ type routeState struct {
 	breaker *breaker
 }
 
-// newModelRouter wires the routes. A zero budget means defaultTurnBudget.
+// newModelRouter wires the routes. A zero budget means the with-fallback budget.
 func newModelRouter(primary TurnRoute, fallback *TurnRoute, tools *ToolExecutor, budget time.Duration) *ModelRouter {
 	if budget <= 0 {
-		budget = defaultTurnBudget
+		budget = turnBudgetWithFallback
 	}
 	r := &ModelRouter{
 		engine:     &TurnEngine{tools: tools},
@@ -432,7 +444,6 @@ func newRouteFor(ctx context.Context, cfg *Config, provider, model, label string
 	if err != nil {
 		return TurnRoute{}, err
 	}
-	withFirstByteTimeout(p, cfg.ChatFirstByteTimeout)
 
 	ref := ModelRef{Provider: provider, Model: model, MaxOutputTokens: maxOutput}
 	if provider == "openrouter" {
@@ -460,6 +471,9 @@ func withFirstByteTimeout(p ChatProvider, d time.Duration) {
 // NewModelRouter builds the router from the config. It returns (nil, nil) when
 // the primary is Gemini and no Gemini key is set, which is the state chat has
 // always been in without one. Any other missing key is an error.
+//
+// The bounds follow the mode: with a fallback the first byte is 15s and the turn
+// 50s, and alone they are 30s and 55s. An env value overrides either mode.
 func NewModelRouter(ctx context.Context, cfg *Config, tools *ToolExecutor) (*ModelRouter, error) {
 	primary, err := newRouteFor(ctx, cfg, cfg.ChatProvider, cfg.ChatModel, routeEnvDefault, cfg.ChatMaxOutputTokens)
 	if err != nil {
@@ -471,7 +485,12 @@ func NewModelRouter(ctx context.Context, cfg *Config, tools *ToolExecutor) (*Mod
 
 	var fallback *TurnRoute
 	if cfg.ChatFallbackProvider != "" {
-		fb, err := newRouteFor(ctx, cfg, cfg.ChatFallbackProvider, cfg.ChatFallbackModel, routeFallback, cfg.ChatMaxOutputTokens)
+		// The Gemini fallback keeps Gemini's own output limit, not the primary's.
+		fallbackMax := cfg.ChatMaxOutputTokens
+		if cfg.ChatFallbackProvider == "gemini" {
+			fallbackMax = cfg.GeminiMaxOutputTokens
+		}
+		fb, err := newRouteFor(ctx, cfg, cfg.ChatFallbackProvider, cfg.ChatFallbackModel, routeFallback, fallbackMax)
 		switch {
 		case err == nil:
 			fallback = &fb
@@ -481,5 +500,20 @@ func NewModelRouter(ctx context.Context, cfg *Config, tools *ToolExecutor) (*Mod
 			return nil, err
 		}
 	}
-	return newModelRouter(primary, fallback, tools, cfg.ChatTurnTimeout), nil
+
+	firstByte, budget := firstByteAlone, turnBudgetAlone
+	if fallback != nil {
+		firstByte, budget = firstByteWithFallback, turnBudgetWithFallback
+	}
+	if cfg.ChatFirstByteTimeout > 0 {
+		firstByte = cfg.ChatFirstByteTimeout
+	}
+	if cfg.ChatTurnTimeout > 0 {
+		budget = cfg.ChatTurnTimeout
+	}
+	withFirstByteTimeout(primary.Provider, firstByte)
+	if fallback != nil {
+		withFirstByteTimeout(fallback.Provider, firstByte)
+	}
+	return newModelRouter(primary, fallback, tools, budget), nil
 }

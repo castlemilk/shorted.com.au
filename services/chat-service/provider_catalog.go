@@ -153,6 +153,9 @@ var providerCatalog = []ProviderSpec{
 				Caps:        ModelCapabilities{ForcedToolChoice: true, NoneToolChoice: true, ParallelToolCalls: true, MaxOutputTokens: 0},
 				Price:       Pricing{Input: 0.25, CachedInput: 0.025, Output: 2.00, OffPeakFactor: 1, AsOf: catalogAsOf, SourceURL: "https://openrouter.ai/api/v1/models/openai/gpt-5-mini/endpoints"},
 				Activatable: true,
+				// The plan names no provider for this model, so the pin is OpenAI's own
+				// host. Unverified against the live endpoint list: check it before activation.
+				DefaultOnly: []string{"openai"},
 				Notes:       "Standard-tier price. The flex tier is cheaper but not used.",
 			},
 			{
@@ -161,6 +164,9 @@ var providerCatalog = []ProviderSpec{
 				Caps:        ModelCapabilities{ForcedToolChoice: false, NoneToolChoice: true, ParallelToolCalls: false},
 				Price:       Pricing{Input: 0.15, CachedInput: 0.016, Output: 0.47, OffPeakFactor: 1, AsOf: catalogAsOf, SourceURL: "https://openrouter.ai/api/v1/models/qwen/qwen3.8-flash/endpoints"},
 				Activatable: true,
+				// The plan names no provider for this model, so the pin is Alibaba, the
+				// first-party host. The slug is unverified against the live endpoint list.
+				DefaultOnly: []string{"alibaba"},
 				Notes:       "Verify policy: the first reply must call a tool, or the turn is retried with a nudge.",
 			},
 		},
@@ -199,10 +205,19 @@ func lookupModel(provider, model string) (ModelSpec, bool) {
 }
 
 // modelOrUnverified returns the catalog entry for a model, or for a model the
-// catalog does not list: no price, no forced choice, so the verify policy applies.
+// catalog does not list: no price, and the verify policy, except for Gemini. A
+// Gemini model keeps the forced first call even when the catalog lacks it, because
+// that is the policy prod has always run, and Gemini honours the choice.
 func modelOrUnverified(provider, model string) (ModelSpec, bool) {
 	if m, ok := lookupModel(provider, model); ok {
 		return m, true
+	}
+	if provider == geminiProviderName {
+		return ModelSpec{
+			ID:    model,
+			Caps:  ModelCapabilities{ForcedToolChoice: true, NoneToolChoice: true, ParallelToolCalls: true},
+			Notes: "not in the catalog: forced choice as for Gemini, no price",
+		}, false
 	}
 	return ModelSpec{ID: model, Notes: "not in the catalog: verify policy, no price"}, false
 }
