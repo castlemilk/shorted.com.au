@@ -11,6 +11,7 @@ jest.mock("~/lib/stripe", () => ({
     customers: { list: jest.fn() },
     subscriptions: { list: jest.fn(), retrieve: jest.fn() },
     checkout: { sessions: { create: jest.fn() } },
+    billingPortal: { sessions: { create: jest.fn() } },
   },
 }));
 
@@ -42,6 +43,7 @@ const stripeMock = stripe as unknown as {
   customers: { list: jest.Mock };
   subscriptions: { list: jest.Mock };
   checkout: { sessions: { create: jest.Mock } };
+  billingPortal: { sessions: { create: jest.Mock } };
 };
 const mirrorMock = getSubscriptionStatus as jest.Mock;
 
@@ -86,6 +88,9 @@ describe("POST /api/stripe/checkout with an existing subscription", () => {
     stripeMock.checkout.sessions.create.mockResolvedValue({
       url: "https://checkout.stripe.com/c/session",
     });
+    stripeMock.billingPortal.sessions.create.mockResolvedValue({
+      url: "https://billing.stripe.com/p/session/test",
+    });
     mirrorMock.mockResolvedValue(NO_MIRROR_SUBSCRIPTION);
     subscriptionsByCustomer({});
   });
@@ -95,17 +100,16 @@ describe("POST /api/stripe/checkout with an existing subscription", () => {
   });
 
   it.each(["active", "trialing", "past_due", "unpaid"])(
-    "refuses a second checkout when the customer's subscription is %s",
+    "sends a customer whose subscription is %s to the billing portal, not a second checkout",
     async (status) => {
       subscriptionsByCustomer({ cus_1: [{ id: "sub_1", status }] });
 
       const response = await send(request({ tier: "premium" }));
 
-      expect(response.status).toBe(409);
+      expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
-        error: "already_subscribed",
-        message:
-          "You already have a Shorted subscription. Manage it from your account settings.",
+        url: "https://billing.stripe.com/p/session/test",
+        outcome: "portal_plan_switch",
       });
       expect(stripeMock.subscriptions.list).toHaveBeenCalledWith(
         expect.objectContaining({ customer: "cus_1", status: "all" }),
@@ -113,6 +117,40 @@ describe("POST /api/stripe/checkout with an existing subscription", () => {
       expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
     },
   );
+
+  it("opens a subscription-update flow for the live subscription, returning to /pricing", async () => {
+    subscriptionsByCustomer({
+      cus_1: [
+        { id: "sub_old", status: "canceled" },
+        { id: "sub_live", status: "active" },
+      ],
+    });
+
+    await send(request({ tier: "premium" }));
+
+    expect(stripeMock.billingPortal.sessions.create).toHaveBeenCalledWith({
+      customer: "cus_1",
+      return_url: "https://shorted.com.au/pricing",
+      flow_data: {
+        type: "subscription_update",
+        subscription_update: { subscription: "sub_live" },
+      },
+    });
+  });
+
+  it("gives the 409 with a real next step when the portal session cannot be created", async () => {
+    subscriptionsByCustomer({ cus_1: [{ id: "sub_1", status: "active" }] });
+    stripeMock.billingPortal.sessions.create.mockRejectedValue(new Error("portal not configured"));
+
+    const response = await send(request({ tier: "premium" }));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "already_subscribed",
+      message: "You already have a Shorted subscription. Contact support to change it.",
+    });
+    expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
+  });
 
   it("creates a session when the customer's only subscriptions have ended", async () => {
     subscriptionsByCustomer({
@@ -146,7 +184,7 @@ describe("POST /api/stripe/checkout with an existing subscription", () => {
   });
 
   describe("the user's own mirror row", () => {
-    it("refuses a second checkout when the mirror's customer has a live subscription, even though the email matched no customer", async () => {
+    it("sends a customer whose mirror row says they pay to the billing portal", async () => {
       // The Stripe customer that pays is not the one this email finds, so only the
       // mirror can say the user already pays.
       stripeMock.customers.list.mockResolvedValue({ data: [] });
@@ -161,14 +199,14 @@ describe("POST /api/stripe/checkout with an existing subscription", () => {
 
       const response = await send(request({ tier: "premium" }));
 
-      expect(response.status).toBe(409);
+      expect(response.status).toBe(200);
       expect(stripeMock.subscriptions.list).toHaveBeenCalledWith(
         expect.objectContaining({ customer: "cus_mirror" }),
       );
       expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
     });
 
-    it("checks both customers when the email and the mirror name different ones, and refuses on either", async () => {
+    it("checks both customers when the email and the mirror name different ones, and sends either to the portal", async () => {
       mirrorMock.mockResolvedValue({
         ...NO_MIRROR_SUBSCRIPTION,
         stripeCustomerId: "cus_mirror",
@@ -180,7 +218,7 @@ describe("POST /api/stripe/checkout with an existing subscription", () => {
 
       const response = await send(request({ tier: "premium" }));
 
-      expect(response.status).toBe(409);
+      expect(response.status).toBe(200);
       const checked = stripeMock.subscriptions.list.mock.calls.map(
         (call) => (call[0] as { customer: string }).customer,
       );
@@ -219,7 +257,7 @@ describe("POST /api/stripe/checkout with an existing subscription", () => {
 
       const response = await send(request({ tier: "premium" }));
 
-      expect(response.status).toBe(409);
+      expect(response.status).toBe(200);
       expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
       warn.mockRestore();
     });

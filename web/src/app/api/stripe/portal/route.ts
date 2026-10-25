@@ -99,7 +99,8 @@ export async function POST(request: NextRequest) {
     // Create customer portal session
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${baseUrl}/docs/api`,
+      // No account page exists yet. /pricing is where a customer picks a plan.
+      return_url: `${baseUrl}/pricing`,
     });
 
     recordProductEvent({

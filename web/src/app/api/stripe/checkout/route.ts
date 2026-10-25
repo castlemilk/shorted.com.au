@@ -8,8 +8,69 @@ import {
   resolveCheckoutPriceId,
   validateCheckoutPriceForTier,
 } from "~/lib/stripe-plans";
-import { isLiveStripeStatus, listCustomerSubscriptions } from "~/lib/billing-sync";
+import {
+  isLiveStripeStatus,
+  listCustomerSubscriptions,
+  pickBestSubscription,
+} from "~/lib/billing-sync";
 import { getSubscriptionStatus } from "~/app/actions/subscription";
+
+/**
+ * Sends a customer who already pays to the Stripe billing portal, on a
+ * subscription-update flow for the subscription they have. The plan change then
+ * happens in Stripe's own UI, so no second subscription is ever created here.
+ *
+ * Returns the portal URL in the same `url` field a checkout session uses, so the
+ * client redirects the same way. If the portal session cannot be created the
+ * customer gets a 409 that says what to do, never a silent dead end.
+ *
+ * Needs the Stripe customer portal to allow subscription updates, a dashboard
+ * setting the repo does not manage. The PR that added this route lists it.
+ */
+async function planSwitchResponse({
+  customerId,
+  subscriptionId,
+  tier,
+}: {
+  customerId: string;
+  subscriptionId: string;
+  tier: string;
+}): Promise<NextResponse> {
+  const baseUrl = process.env.NEXTAUTH_URL ?? "https://shorted.com.au";
+  try {
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${baseUrl}/pricing`,
+      flow_data: {
+        type: "subscription_update",
+        subscription_update: { subscription: subscriptionId },
+      },
+    });
+    recordProductEvent({
+      feature: "payment",
+      action: "checkout_create",
+      status: "success",
+      properties: { tier, outcome: "portal_plan_switch" },
+    });
+    return NextResponse.json({ url: portal.url, outcome: "portal_plan_switch" });
+  } catch (error) {
+    console.error("Stripe portal plan switch failed:", error);
+    recordProductEvent({
+      feature: "payment",
+      action: "checkout_create",
+      status: "error",
+      properties: { tier, error_type: "already_subscribed" },
+    });
+    return NextResponse.json(
+      {
+        error: "already_subscribed",
+        message:
+          "You already have a Shorted subscription. Contact support to change it.",
+      },
+      { status: 409 }
+    );
+  }
+}
 
 /**
  * How long a Checkout Session stays payable. Stripe requires at least 30
@@ -141,24 +202,19 @@ export async function POST(request: NextRequest) {
     ];
     for (const existingCustomerId of existingCustomerIds) {
       // Checkout does not stop a second live subscription on its own, and a second
-      // one is a second charge the customer did not ask for. Refuse it here,
-      // before any session exists.
-      const existingSubscriptions = await listCustomerSubscriptions(existingCustomerId);
-      if (existingSubscriptions.some((subscription) => isLiveStripeStatus(subscription.status))) {
-        recordProductEvent({
-          feature: "payment",
-          action: "checkout_create",
-          status: "error",
-          properties: { tier, error_type: "already_subscribed" },
+      // one is a second charge the customer did not ask for. So a customer who
+      // already pays is never sent a new session. They are sent to the billing
+      // portal to change the plan they have.
+      const liveSubscriptions = (await listCustomerSubscriptions(existingCustomerId)).filter(
+        (subscription) => isLiveStripeStatus(subscription.status),
+      );
+      const current = pickBestSubscription(liveSubscriptions);
+      if (current) {
+        return planSwitchResponse({
+          customerId: existingCustomerId,
+          subscriptionId: current.id,
+          tier,
         });
-        return NextResponse.json(
-          {
-            error: "already_subscribed",
-            message:
-              "You already have a Shorted subscription. Manage it from your account settings.",
-          },
-          { status: 409 }
-        );
       }
     }
 
