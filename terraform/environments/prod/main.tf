@@ -1319,7 +1319,10 @@ module "shorts_api" {
   # (web/src/server/paid-probe/constants.ts) is always appended, because the probe
   # has to hold the internal tier grant to validate the paid path at all. It is
   # not a tfvar, so editing the tfvar cannot silently turn the probe red.
-  internal_tier_user_ids = join(",", compact(concat(split(",", var.internal_tier_user_ids), ["svc-paid-probe"])))
+  # The owner's own account is granted enterprise here, not through a hand-made
+  # api_subscriptions row, so the owner's access no longer depends on a row that
+  # Stripe can overwrite.
+  internal_tier_user_ids = join(",", compact(concat(split(",", var.internal_tier_user_ids), ["svc-paid-probe", "JhKP8T9HoITH07eNBs4BOidsszP2"])))
 
   scheduler_region             = "australia-southeast1"
   enable_key_metrics_scheduler = true
