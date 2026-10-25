@@ -16,6 +16,7 @@ import {
 
 import { PAID_PROBE_EMAIL, PAID_PROBE_USER_ID } from "./constants";
 import { ProbeFailure, type ProbeContext } from "./types";
+import { isEntitledSubscription } from "~/lib/subscription-entitlement";
 
 /**
  * Connect calls to the Go API as the probe identity.
@@ -94,7 +95,6 @@ export function toSubscriptionInfo(fields: MySubscriptionFields): SubscriptionIn
 
   const status = mapStatus(fields.status);
   const tier = mapTier(fields.tier);
-  const hasActiveSubscription = status === "active" || status === "trialing";
   const tierConfig = SUBSCRIPTION_TIERS[tier] ?? SUBSCRIPTION_TIERS.free;
 
   let currentPeriodEnd: Date | null = null;
@@ -105,6 +105,7 @@ export function toSubscriptionInfo(fields: MySubscriptionFields): SubscriptionIn
     );
   }
 
+  const hasActiveSubscription = isEntitledSubscription({ status, currentPeriodEnd });
   return {
     status,
     tier,

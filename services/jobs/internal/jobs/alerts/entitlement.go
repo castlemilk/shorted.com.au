@@ -31,10 +31,16 @@ type entitlement struct {
 	Status string
 }
 
+// alertsPastDueGrace is the grace a past_due subscription keeps (pastDueGrace in
+// services/shorts/internal/services/shorts/entitlement.go). It is restated here
+// because this gate reads the status and the period end, not the API's decision.
+// The web's copy is web/src/lib/subscription-entitlement.ts.
+const alertsPastDueGrace = 14 * 24 * time.Hour
+
 // entitlementOf maps a GetMySubscription response to an entitlement. A user is
-// entitled exactly when the status is ACTIVE or TRIALING. That is the same set the
-// web treats as premium (web/src/app/actions/subscription.ts), and the API reads
-// ACTIVE only when ResolveEntitlement is entitled.
+// entitled when the status is ACTIVE or TRIALING, or PAST_DUE inside the grace after
+// the period end (the same rule as the API's ResolveEntitlement and the web's
+// isEntitledSubscription). A past_due row with no period end grants nothing.
 func entitlementOf(msg *shortsv1alpha1.GetMySubscriptionResponse) entitlement {
 	status := "NONE"
 	if msg.GetHasSubscription() {
@@ -44,6 +50,10 @@ func entitlementOf(msg *shortsv1alpha1.GetMySubscriptionResponse) entitlement {
 	case shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE,
 		shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_TRIALING:
 		return entitlement{Entitled: true, Status: status}
+	case shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE:
+		if end := msg.GetCurrentPeriodEnd(); end != nil && time.Now().Before(end.AsTime().Add(alertsPastDueGrace)) {
+			return entitlement{Entitled: true, Status: status}
+		}
 	}
 	return entitlement{Entitled: false, Status: status}
 }

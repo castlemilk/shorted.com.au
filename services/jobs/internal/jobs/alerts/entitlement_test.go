@@ -5,8 +5,10 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
@@ -92,9 +94,9 @@ func startBilling(t *testing.T, stub *stubBilling) string {
 	return startShortsAPI(t, stub, "")
 }
 
-// TestEntitledExactlyWhenActiveOrTrialing pins the job's side of the entitlement
+// TestEntitledExactlyWhenActiveTrialingOrInGrace pins the job's side of the entitlement
 // rule. The API's side is pinned by the contract test in services/shorts.
-func TestEntitledExactlyWhenActiveOrTrialing(t *testing.T) {
+func TestEntitledExactlyWhenActiveTrialingOrInGrace(t *testing.T) {
 	cases := []struct {
 		name       string
 		resp       *shortsv1alpha1.GetMySubscriptionResponse
@@ -107,6 +109,21 @@ func TestEntitledExactlyWhenActiveOrTrialing(t *testing.T) {
 		{"canceled", &shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_CANCELED}, false, "CANCELED"},
 		{"inactive", &shortsv1alpha1.GetMySubscriptionResponse{HasSubscription: true, Status: shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE}, false, "INACTIVE"},
 		{"no subscription record", &shortsv1alpha1.GetMySubscriptionResponse{}, false, "NONE"},
+		{"past due inside the grace stays entitled", &shortsv1alpha1.GetMySubscriptionResponse{
+			HasSubscription:  true,
+			Status:           shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE,
+			CurrentPeriodEnd: timestamppb.New(time.Now().Add(-13 * 24 * time.Hour)),
+		}, true, "PAST_DUE"},
+		{"past due past the grace is not entitled", &shortsv1alpha1.GetMySubscriptionResponse{
+			HasSubscription:  true,
+			Status:           shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE,
+			CurrentPeriodEnd: timestamppb.New(time.Now().Add(-15 * 24 * time.Hour)),
+		}, false, "PAST_DUE"},
+		{"unpaid is inactive, never entitled", &shortsv1alpha1.GetMySubscriptionResponse{
+			HasSubscription:  true,
+			Status:           shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE,
+			CurrentPeriodEnd: timestamppb.New(time.Now().Add(24 * time.Hour)),
+		}, false, "INACTIVE"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

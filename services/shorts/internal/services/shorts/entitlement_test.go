@@ -124,10 +124,40 @@ func TestResolveEntitlement(t *testing.T) {
 			want:   denied("status_canceled", "stripe"),
 		},
 		{
-			name:   "past due",
+			name:   "past due with no period end cannot be bounded, so it grants nothing",
 			userID: "user_1",
 			sub:    storeRow("past_due", "premium", nil),
 			want:   denied("status_past_due", "stripe"),
+		},
+		{
+			name:   "past due inside the 14 day grace keeps paid access",
+			userID: "user_1",
+			sub:    storeRow("past_due", "premium", at(-13*24*time.Hour)),
+			want:   Entitlement{Entitled: true, Tier: "premium", Reason: "past_due_grace", Source: "stripe"},
+		},
+		{
+			name:   "past due inside the grace on the API Access tier keeps its access",
+			userID: "user_1",
+			sub:    storeRow("past_due", "api_access", at(-1*time.Hour)),
+			want:   Entitlement{Entitled: true, Tier: "api_access", Reason: "past_due_grace", Source: "stripe"},
+		},
+		{
+			name:   "past due past the 14 day grace ends",
+			userID: "user_1",
+			sub:    storeRow("past_due", "premium", at(-15*24*time.Hour)),
+			want:   denied("past_due_grace_ended", "stripe"),
+		},
+		{
+			name:   "past due on an unpaid tier grants nothing even inside the grace",
+			userID: "user_1",
+			sub:    storeRow("past_due", "free", at(-1*time.Hour)),
+			want:   denied("unpaid_tier", "stripe"),
+		},
+		{
+			name:   "unpaid grants nothing, even with a period end in the future",
+			userID: "user_1",
+			sub:    storeRow("unpaid", "premium", at(24*time.Hour)),
+			want:   denied("status_unpaid", "stripe"),
 		},
 		{
 			name:   "inactive",
@@ -580,4 +610,12 @@ func TestGetMySubscription_StoreErrorIsInternalNotAGrant(t *testing.T) {
 	_, err := srv.GetMySubscription(subscriptionContext("user_1"), connect.NewRequest(&shortsv1alpha1.GetMySubscriptionRequest{}))
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
+}
+
+// The API Access plan has its own tier on the wire and in the row. A mapping that
+// dropped it would write the plan as an unknown tier, which grants nothing.
+func TestAPIAccessTierRoundTrips(t *testing.T) {
+	tier := mapStringToTier("api_access")
+	assert.Equal(t, shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS, tier)
+	assert.Equal(t, "api_access", mapTierToString(tier))
 }

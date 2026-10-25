@@ -8,6 +8,7 @@ import { auth } from "~/server/auth";
 import { SUBSCRIPTION_TIERS, isPremiumTier, type SubscriptionStatus, type SubscriptionTier } from "~/lib/stripe";
 import type { CheckoutTier } from "~/lib/stripe-plans";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
+import { isEntitledSubscription } from "~/lib/subscription-entitlement";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 
 // Internal auth secret for service-to-service calls
@@ -148,7 +149,6 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
 
     const status = mapProtoStatusToString(response.status);
     const tier = mapProtoTierToString(response.tier);
-    const hasActiveSubscription = status === "active" || status === "trialing";
     const tierConfig = SUBSCRIPTION_TIERS[tier] ?? SUBSCRIPTION_TIERS.free;
 
     // Parse timestamp to Date
@@ -159,6 +159,8 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
         Math.floor((response.currentPeriodEnd.nanos ?? 0) / 1_000_000)
       );
     }
+
+    const hasActiveSubscription = isEntitledSubscription({ status, currentPeriodEnd });
 
     return {
       status,

@@ -429,7 +429,7 @@ func billingExceptions(in exceptionInput) exceptionResult {
 	for _, r := range eligible {
 		ent := billingVerdict(r.UserID, &r, in.Now)
 		if !r.StatusNull && normaliseRowValue(r.Status) == "past_due" {
-			add(kindPastDue, r.UserEmail, r.UserID, "payment failed; the row is past_due and grants no paid access")
+			add(kindPastDue, r.UserEmail, r.UserID, "payment failed; the row is past_due, and its paid access ends 14 days after the period end")
 		}
 		if ent.Reason == "period_ended" {
 			add(kindPeriodEnded, r.UserEmail, r.UserID, "the row is "+normaliseRowValue(r.Status)+" but its period ended more than the grace allows; Stripe has not renewed it on this row")

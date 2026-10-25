@@ -17,7 +17,7 @@ import (
 type Entitlement struct {
 	Entitled bool
 	Tier     string // effective tier: the paid tier when entitled, "free" otherwise
-	Reason   string // machine-readable: internal_grant | internal_grant_unpaid_tier | active | no_subscription | status_<status> | unpaid_tier | period_ended
+	Reason   string // machine-readable: internal_grant | internal_grant_unpaid_tier | active | past_due_grace | past_due_grace_ended | no_subscription | status_<status> | unpaid_tier | period_ended
 	Source   string // "internal" | "stripe" | "none"
 }
 
@@ -40,6 +40,13 @@ var paidTiers = map[string]struct{}{
 // reconcile.
 const periodEndGrace = 72 * time.Hour
 
+// pastDueGrace is how long a past_due row keeps its paid access while Stripe retries
+// the failed card. The anchor is the row's current_period_end, the one date the row
+// reliably holds: the failed invoice's own date is not stored. Stripe moves a
+// subscription to unpaid or canceled when retries run out, and the status check
+// ends the grace then, whichever comes first.
+const pastDueGrace = 14 * 24 * time.Hour
+
 // ResolveEntitlement decides a user's entitlement from their internal grant and
 // their store row (sub is nil when there is none).
 //
@@ -60,12 +67,15 @@ func ResolveEntitlement(userID string, sub *shortsstore.APISubscription, now tim
 		return Entitlement{Tier: "free", Reason: "no_subscription", Source: "none"}
 	}
 	status := normaliseRowValue(sub.Status)
-	if status != "active" && status != "trialing" {
+	if status != "active" && status != "trialing" && status != "past_due" {
 		return Entitlement{Tier: "free", Reason: "status_" + status, Source: "stripe"}
 	}
 	tier := normaliseRowValue(sub.Tier)
 	if _, ok := paidTiers[tier]; !ok {
 		return Entitlement{Tier: "free", Reason: "unpaid_tier", Source: "stripe"}
+	}
+	if status == "past_due" {
+		return pastDueEntitlement(tier, sub, now)
 	}
 	// An unparseable period end is unknown, not expired. Revoking a paying user
 	// because a timestamp failed to parse would turn a formatting change into an
@@ -76,6 +86,23 @@ func ResolveEntitlement(userID string, sub *shortsstore.APISubscription, now tim
 		}
 	}
 	return Entitlement{Entitled: true, Tier: tier, Reason: "active", Source: "stripe"}
+}
+
+// pastDueEntitlement is the grace rule for a past_due row. It needs a readable period
+// end to anchor the grace; without one the grace cannot be bounded, so the row grants
+// nothing rather than an open-ended grace.
+func pastDueEntitlement(tier string, sub *shortsstore.APISubscription, now time.Time) Entitlement {
+	if sub.CurrentPeriodEnd == nil {
+		return Entitlement{Tier: "free", Reason: "status_past_due", Source: "stripe"}
+	}
+	end, ok := parseStoreTimestamp(*sub.CurrentPeriodEnd)
+	if !ok {
+		return Entitlement{Tier: "free", Reason: "status_past_due", Source: "stripe"}
+	}
+	if now.Before(end.Add(pastDueGrace)) {
+		return Entitlement{Entitled: true, Tier: tier, Reason: "past_due_grace", Source: "stripe"}
+	}
+	return Entitlement{Tier: "free", Reason: "past_due_grace_ended", Source: "stripe"}
 }
 
 // normaliseRowValue folds the case and padding out of a status or tier. The

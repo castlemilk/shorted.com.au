@@ -34,6 +34,11 @@ func billingRow(now time.Time, uid, email, status string, mods ...func(*shortsst
 		CurrentPeriodEnd: billingRFC(now.Add(20 * 24 * time.Hour)),
 		CreatedAt:        &created, UpdatedAt: &updated,
 	}
+	// A past_due row is one whose 14-day grace is over: the drift cases were written
+	// against past_due granting nothing. A grace-period row is built with a mod.
+	if status == "past_due" {
+		r.CurrentPeriodEnd = billingRFC(now.Add(-20 * 24 * time.Hour))
+	}
 	for _, m := range mods {
 		m(&r)
 	}
@@ -202,8 +207,8 @@ func TestBillingDriftFindsEachDisagreement(t *testing.T) {
 			want:     []string{kindStatusMismatch},
 		},
 		{
-			name:     "unpaid is recorded as past_due, so past_due agrees with unpaid",
-			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-a", "a@example.com", "past_due")},
+			name:     "unpaid is recorded as inactive, so inactive agrees with unpaid",
+			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-a", "a@example.com", "inactive")},
 			views:    []stripeCustomerView{stripeView("cus_uid-a", stripeSub("sub_uid-a", "unpaid", periodEnd))},
 			stripeOK: true,
 			want:     []string{},
@@ -387,7 +392,7 @@ func TestBillingDriftNamesTheRowsItSkipped(t *testing.T) {
 func TestMirrorStatusMapsTheWebhooksOwnVocabulary(t *testing.T) {
 	for stripe, want := range map[string]string{
 		"active": "active", "trialing": "trialing", "past_due": "past_due", "canceled": "canceled",
-		"unpaid": "past_due", "incomplete": "inactive", "incomplete_expired": "inactive", "paused": "inactive",
+		"unpaid": "inactive", "incomplete": "inactive", "incomplete_expired": "inactive", "paused": "inactive",
 	} {
 		if got := mirrorStatusFor(stripe); got != want {
 			t.Errorf("mirrorStatusFor(%s) = %s, want %s", stripe, got, want)
@@ -638,8 +643,11 @@ func TestSubscriptionUserMismatchInDrift(t *testing.T) {
 			want:     []string{kindSubscriptionUserMismatch},
 		},
 		{
-			name:     "a past-due live subscription recorded for another user is a mismatch",
-			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-stale", "stale@example.com", "past_due")},
+			name: "a past-due live subscription recorded for another user is a mismatch",
+			rows: []shortsstore.BillingSubscription{billingRow(billingNow, "uid-stale", "stale@example.com", "past_due", func(r *shortsstore.BillingSubscription) {
+				// Same period end as Stripe, so only the user mismatch differs.
+				r.CurrentPeriodEnd = billingRFC(periodEnd)
+			})},
 			views:    []stripeCustomerView{stripeView("cus_uid-stale", withMetadata(stripeSub("sub_uid-stale", "past_due", periodEnd), "uid-new"))},
 			stripeOK: true,
 			want:     []string{kindSubscriptionUserMismatch},
