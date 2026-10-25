@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { POST } from "../route";
 import { stripe } from "~/lib/stripe";
-import { notifyOperator } from "~/@/lib/operator-notify";
+import { notifyOperator, sendResendEmail } from "~/@/lib/operator-notify";
 import { SubscriptionStatus } from "~/gen/shorts/v1alpha1/billing_pb";
 
 jest.mock("next/headers", () => ({
@@ -13,6 +13,7 @@ jest.mock("~/lib/stripe", () => ({
   stripe: {
     webhooks: { constructEvent: jest.fn() },
     subscriptions: { retrieve: jest.fn(), list: jest.fn() },
+    billingPortal: { sessions: { create: jest.fn() } },
   },
 }));
 
@@ -35,6 +36,7 @@ jest.mock("~/app/actions/config", () => ({
 
 jest.mock("~/@/lib/operator-notify", () => ({
   notifyOperator: jest.fn(async () => true),
+  sendResendEmail: jest.fn(async () => true),
   formatAmount: (amount: number | null | undefined, currency: string | null | undefined) =>
     amount == null ? "unknown" : `${amount / 100} ${currency ?? ""}`.trim(),
 }));
@@ -55,6 +57,9 @@ const stripeMock = stripe as unknown as {
   subscriptions: { retrieve: jest.Mock; list: jest.Mock };
 };
 const notifyMock = notifyOperator as jest.Mock;
+const resendMock = sendResendEmail as jest.Mock;
+const portalMock = (stripe as unknown as { billingPortal: { sessions: { create: jest.Mock } } })
+  .billingPortal.sessions.create;
 
 const PERIOD_END = Math.floor(Date.UTC(2026, 10, 23) / 1000);
 
@@ -380,5 +385,169 @@ describe("POST /api/stripe/webhook", () => {
       // Each delivery links the row before writing its status.
       expect(goClient.handleStripeCheckoutCompleted).toHaveBeenCalledTimes(2);
     });
+  });
+});
+
+describe("POST /api/stripe/webhook: dunning, recovery, refunds and disputes", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = {
+      ...originalEnv,
+      STRIPE_WEBHOOK_SECRET: "whsec_test",
+      STRIPE_PREMIUM_PRICE_ID: "price_premium",
+      NEXTAUTH_URL: "https://shorted.com.au",
+    };
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [] });
+    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: "past_due" }));
+    portalMock.mockResolvedValue({ url: "https://billing.stripe.com/p/session/update" });
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  const failedInvoice = (overrides: Record<string, unknown> = {}) => ({
+    id: "in_fail",
+    customer: "cus_1",
+    customer_email: "buyer@example.test",
+    amount_due: 400,
+    currency: "aud",
+    attempt_count: 1,
+    hosted_invoice_url: "https://invoice.stripe.com/i/in_fail",
+    parent: { subscription_details: { subscription: "sub_1" } },
+    ...overrides,
+  });
+
+  /** The customer-facing sends, as opposed to the operator's. */
+  const customerSends = () =>
+    resendMock.mock.calls.map((call) => call[0] as { to: string; idempotencyKey?: string; text: string });
+
+  it("emails the customer once on the first failed attempt, with a card link and the invoice link", async () => {
+    const response = await deliver("invoice.payment_failed", failedInvoice());
+
+    expect(response.status).toBe(200);
+    expect(customerSends()).toHaveLength(1);
+    expect(customerSends()[0]).toMatchObject({
+      to: "buyer@example.test",
+      idempotencyKey: "billing-payment-failed-in_fail",
+    });
+    expect(customerSends()[0].text).toContain("https://billing.stripe.com/p/session/update");
+    expect(customerSends()[0].text).toContain("https://invoice.stripe.com/i/in_fail");
+    expect(customerSends()[0].text).toContain("Your access continues");
+    expect(portalMock).toHaveBeenCalledWith(
+      expect.objectContaining({ customer: "cus_1", return_url: "https://shorted.com.au/pricing" }),
+    );
+  });
+
+  it("gives the same idempotency key on a redelivery, so Resend sends one email", async () => {
+    await deliver("invoice.payment_failed", failedInvoice());
+    await deliver("invoice.payment_failed", failedInvoice());
+
+    expect(customerSends()).toHaveLength(2);
+    expect(customerSends()[0].idempotencyKey).toBe("billing-payment-failed-in_fail");
+    expect(customerSends()[1].idempotencyKey).toBe(customerSends()[0].idempotencyKey);
+  });
+
+  it("sends no customer email for a retry, since the first attempt already told them", async () => {
+    await deliver("invoice.payment_failed", failedInvoice({ attempt_count: 2 }));
+
+    expect(customerSends()).toHaveLength(0);
+    // The operator is still told about every failed attempt.
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends no customer email when the subscription is not past_due, such as an incomplete first invoice", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: "incomplete" }));
+
+    await deliver("invoice.payment_failed", failedInvoice());
+
+    expect(customerSends()).toHaveLength(0);
+  });
+
+  it("still sends the email with the invoice link when the portal link cannot be made", async () => {
+    portalMock.mockRejectedValue(new Error("portal not configured"));
+
+    const response = await deliver("invoice.payment_failed", failedInvoice());
+
+    expect(response.status).toBe(200);
+    expect(customerSends()).toHaveLength(1);
+    expect(customerSends()[0].text).not.toContain("billing.stripe.com");
+    expect(customerSends()[0].text).toContain("https://invoice.stripe.com/i/in_fail");
+  });
+
+  it("sends no customer email, and does not fail the webhook, when the invoice has no address", async () => {
+    const response = await deliver("invoice.payment_failed", failedInvoice({ customer_email: null }));
+
+    expect(response.status).toBe(200);
+    expect(customerSends()).toHaveLength(0);
+  });
+
+  it("sends a payment-recovered note when an invoice settles after a failed attempt", async () => {
+    const response = await deliver("invoice.paid", {
+      id: "in_recovered",
+      status: "paid",
+      attempt_count: 2,
+      customer_email: "buyer@example.test",
+    });
+
+    expect(response.status).toBe(200);
+    expect(customerSends()).toEqual([
+      expect.objectContaining({
+        to: "buyer@example.test",
+        idempotencyKey: "billing-payment-recovered-in_recovered",
+      }),
+    ]);
+  });
+
+  it("sends no recovery note when the first attempt settles", async () => {
+    await deliver("invoice.paid", { id: "in_first", status: "paid", attempt_count: 1, customer_email: "buyer@example.test" });
+
+    expect(customerSends()).toHaveLength(0);
+  });
+
+  it("tells the operator about a refund, with counts and ids and no subscription change", async () => {
+    stripeMock.subscriptions.retrieve.mockClear();
+
+    const response = await deliver("charge.refunded", {
+      id: "ch_refund",
+      customer: "cus_1",
+      amount: 400,
+      amount_refunded: 400,
+      currency: "aud",
+      billing_details: { email: "buyer@example.test" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("refund"),
+        text: expect.stringContaining("ch_refund"),
+      }),
+    );
+    expect(customerSends()).toHaveLength(0);
+    expect(stripeMock.subscriptions.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("tells the operator when a dispute is created, with the evidence deadline", async () => {
+    const response = await deliver("charge.dispute.created", {
+      id: "dp_1",
+      amount: 400,
+      currency: "aud",
+      reason: "fraudulent",
+      status: "needs_response",
+      charge: "ch_disputed",
+      evidence_details: { due_by: PERIOD_END },
+    });
+
+    expect(response.status).toBe(200);
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("DISPUTED"),
+        text: expect.stringMatching(/ch_disputed[\s\S]*dp_1/),
+      }),
+    );
+    expect(customerSends()).toHaveLength(0);
   });
 });
