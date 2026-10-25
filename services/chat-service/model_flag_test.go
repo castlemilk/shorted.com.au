@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -92,8 +93,9 @@ func (c *flagClock) Advance(d time.Duration) {
 	c.t = c.t.Add(d)
 }
 
-// flagSelector builds a selector over the real SDK client, pointed at url.
-func flagSelector(t *testing.T, url string, routes map[string]*ModelRouter, timeout time.Duration) (*chatModelSelector, *flagClock) {
+// flagSelectorWith builds a selector over the real SDK client, pointed at url,
+// with every timing bound chosen by the test.
+func flagSelectorWith(t *testing.T, url string, routes map[string]*ModelRouter, timing flagTiming) (*chatModelSelector, *flagClock) {
 	t.Helper()
 	client, err := newChatModelFlagClient(&Config{
 		FlaggrAPIKey:      "fgr_test_key",
@@ -104,10 +106,17 @@ func flagSelector(t *testing.T, url string, routes map[string]*ModelRouter, time
 	if err != nil || client == nil {
 		t.Fatalf("newChatModelFlagClient() = %v, %v; want a client", client, err)
 	}
-	s := newChatModelSelector(client, "gemini:gemini-2.5-flash", "production", routes, timeout, 30*time.Second)
+	s := newChatModelSelector(client, "gemini:gemini-2.5-flash", "production", routes, timing)
 	clk := newFlagClock()
 	s.now = clk.Now
 	return s, clk
+}
+
+// flagSelector is flagSelectorWith with the turn wait set and the other bounds at
+// their defaults.
+func flagSelector(t *testing.T, url string, routes map[string]*ModelRouter, timeout time.Duration) (*chatModelSelector, *flagClock) {
+	t.Helper()
+	return flagSelectorWith(t, url, routes, flagTiming{Turn: timeout, TTL: 30 * time.Second})
 }
 
 // flaggedRoutes holds one router per id. Each is a forced-choice route whose
@@ -129,7 +138,7 @@ func testFlaggedRouter(id string) *ModelRouter {
 
 // choiceOf runs one choose call with a turn's attributes.
 func choiceOf(s *chatModelSelector, userID string) (string, string) {
-	return s.choose(context.Background(), userID, map[string]any{"retry": false})
+	return s.choose(context.Background(), userID)
 }
 
 // waitFor polls cond until it holds, failing the test after two seconds.
@@ -159,7 +168,7 @@ func TestChatModelFlagUnconfiguredMakesNoRequests(t *testing.T) {
 		}
 	}
 
-	s := newChatModelSelector(nil, "gemini:gemini-2.5-flash", "production", nil, 0, 0)
+	s := newChatModelSelector(nil, "gemini:gemini-2.5-flash", "production", nil, flagTiming{})
 	route, outcome := choiceOf(s, "uid-owner")
 	if route != "" || outcome != flagOutcomeUnconfigured {
 		t.Fatalf("choose() = %q, %q; want the default and %s", route, outcome, flagOutcomeUnconfigured)
@@ -173,7 +182,7 @@ func TestChatModelFlagHappyPathUsesTheFlaggedRoute(t *testing.T) {
 	fake := newFlaggrFake(t, answer("deepseek:deepseek-flash"))
 	s, _ := flagSelector(t, fake.srv.URL, flaggedRoutes("deepseek:deepseek-flash"), time.Second)
 
-	route, outcome := s.choose(context.Background(), "uid-owner", map[string]any{"retry": true})
+	route, outcome := s.choose(context.Background(), "uid-owner")
 	if route != "deepseek:deepseek-flash" || outcome != flagOutcomeFlag {
 		t.Fatalf("choose() = %q, %q; want the flagged route and %s", route, outcome, flagOutcomeFlag)
 	}
@@ -192,27 +201,8 @@ func TestChatModelFlagHappyPathUsesTheFlaggedRoute(t *testing.T) {
 	if ctxFields["targetingKey"] != "uid-owner" {
 		t.Fatalf("targetingKey = %v, want the user id", ctxFields["targetingKey"])
 	}
-	if ctxFields["environment"] != "production" || ctxFields["retry"] != true {
-		t.Fatalf("context = %v, want the environment and the turn's plain values", ctxFields)
-	}
-}
-
-func TestChatModelFlagOnlySendsPlainTargetingValues(t *testing.T) {
-	fake := newFlaggrFake(t, answer(""))
-	s, _ := flagSelector(t, fake.srv.URL, nil, time.Second)
-
-	s.choose(context.Background(), "uid-owner", map[string]any{
-		"context_stock_code": "BHP",
-		"retry":              false,
-		"nested":             map[string]any{"a": 1},
-	})
-
-	ctxFields, _ := fake.lastBody(t)["context"].(map[string]any)
-	if _, ok := ctxFields["nested"]; ok {
-		t.Fatalf("context = %v: a nested value must not be sent, Flaggr refuses it with a 400", ctxFields)
-	}
-	if ctxFields["context_stock_code"] != "BHP" {
-		t.Fatalf("context = %v, want the plain stock code", ctxFields)
+	if ctxFields["environment"] != "production" {
+		t.Fatalf("context = %v, want the service environment", ctxFields)
 	}
 }
 
@@ -506,7 +496,7 @@ func (panickingEvaluator) Resolve(context.Context, string, interface{}, ...flagg
 }
 
 func TestChatModelFlagPanicInTheEvaluatorReturnsTheDefault(t *testing.T) {
-	s := newChatModelSelector(panickingEvaluator{}, "gemini:gemini-2.5-flash", "production", nil, time.Second, time.Second)
+	s := newChatModelSelector(panickingEvaluator{}, "gemini:gemini-2.5-flash", "production", nil, flagTiming{Turn: time.Second, TTL: time.Second})
 
 	route, outcome := choiceOf(s, "uid-owner")
 	if route != "" || outcome != flagOutcomePanic {
@@ -536,7 +526,7 @@ func TestChatModelFlagLogsEachFailureKindOncePerMinute(t *testing.T) {
 	fails := resolveFunc(func(context.Context, string, interface{}, ...flaggr.EvalContext) (*flaggr.EvaluationDetail, error) {
 		return nil, errors.New("upstream down")
 	})
-	s := newChatModelSelector(fails, "gemini:gemini-2.5-flash", "production", nil, time.Second, time.Second)
+	s := newChatModelSelector(fails, "gemini:gemini-2.5-flash", "production", nil, flagTiming{Turn: time.Second, TTL: time.Second})
 	clk := newFlagClock()
 	s.now = clk.Now
 
@@ -577,24 +567,6 @@ func TestChatModelFlagCacheIsBoundedByLeastRecentUse(t *testing.T) {
 	}
 }
 
-func TestChatModelFlagEvaluationRunsUnderTheTimeoutContext(t *testing.T) {
-	var deadline time.Time
-	var hasDeadline bool
-	seen := resolveFunc(func(ctx context.Context, _ string, _ interface{}, _ ...flaggr.EvalContext) (*flaggr.EvaluationDetail, error) {
-		deadline, hasDeadline = ctx.Deadline()
-		return &flaggr.EvaluationDetail{Value: ""}, nil
-	})
-	s := newChatModelSelector(seen, "gemini:gemini-2.5-flash", "production", nil, 200*time.Millisecond, time.Second)
-	choiceOf(s, "uid-owner")
-
-	if !hasDeadline {
-		t.Fatal("the evaluation ran with no deadline, want the per-lookup timeout")
-	}
-	if left := time.Until(deadline); left > 200*time.Millisecond || left < 0 {
-		t.Fatalf("the evaluation deadline is %s away, want at most the 200ms timeout", left)
-	}
-}
-
 func TestChatModelFlagWaiterIsBoundedEvenIfTheEvaluatorIgnoresItsContext(t *testing.T) {
 	release := make(chan struct{})
 	releaseOnce := sync.OnceFunc(func() { close(release) })
@@ -603,7 +575,7 @@ func TestChatModelFlagWaiterIsBoundedEvenIfTheEvaluatorIgnoresItsContext(t *test
 		<-release
 		return &flaggr.EvaluationDetail{Value: "deepseek:deepseek-flash"}, nil
 	})
-	s := newChatModelSelector(stuck, "gemini:gemini-2.5-flash", "production", flaggedRoutes("deepseek:deepseek-flash"), 200*time.Millisecond, time.Second)
+	s := newChatModelSelector(stuck, "gemini:gemini-2.5-flash", "production", flaggedRoutes("deepseek:deepseek-flash"), flagTiming{Turn: 200 * time.Millisecond, TTL: time.Second})
 
 	type result struct {
 		route, outcome string
@@ -625,5 +597,230 @@ func TestChatModelFlagWaiterIsBoundedEvenIfTheEvaluatorIgnoresItsContext(t *test
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("choose() did not return: the turn waited on an evaluator that ignored its context")
+	}
+}
+
+// Stale answers are capped at MaxStale, and a failed refresh never leaves a route
+// in place. A flag change is seen once the cached answer is too old to serve.
+
+func TestChatModelFlagFallsBackToDefaultWhileFlaggrIsDownForHours(t *testing.T) {
+	fake := newFlaggrFake(t, func(w http.ResponseWriter, r *http.Request, call int32) {
+		if call == 1 {
+			answer("deepseek:deepseek-flash")(w, r, call)
+			return
+		}
+		w.WriteHeader(http.StatusServiceUnavailable) // Flaggr is down from here on
+	})
+	s, clk := flagSelector(t, fake.srv.URL, flaggedRoutes("deepseek:deepseek-flash"), time.Second)
+
+	if route, _ := choiceOf(s, "uid-owner"); route != "deepseek:deepseek-flash" {
+		t.Fatalf("first turn route = %q, want the flagged route", route)
+	}
+	var route, outcome string
+	for i := 0; i < 12; i++ { // two hours of Flaggr being down, one turn every 10 minutes
+		clk.Advance(10 * time.Minute)
+		route, outcome = choiceOf(s, "uid-owner")
+		waitFor(t, "the refresh to finish", s.flightsIdle)
+	}
+	if route != "" {
+		t.Fatalf("after 2h of Flaggr down: choose() = %q, %q; want the default model", route, outcome)
+	}
+}
+
+func TestChatModelFlagStaleRouteStopsBeingServedAtMaxStale(t *testing.T) {
+	release := make(chan struct{})
+	releaseOnce := sync.OnceFunc(func() { close(release) })
+	t.Cleanup(releaseOnce)
+	fake := newFlaggrFake(t, func(w http.ResponseWriter, r *http.Request, call int32) {
+		if call == 1 {
+			answer("deepseek:deepseek-flash")(w, r, call)
+			return
+		}
+		// A refresh that hangs, so the cached route is only ever served stale.
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	})
+	s, clk := flagSelectorWith(t, fake.srv.URL, flaggedRoutes("deepseek:deepseek-flash"), flagTiming{
+		Turn: 200 * time.Millisecond, Lookup: 10 * time.Second, TTL: 30 * time.Second, MaxStale: 5 * time.Minute,
+	})
+
+	choiceOf(s, "uid-owner")
+	clk.Advance(31 * time.Second) // past the TTL, inside max stale
+	if route, outcome := choiceOf(s, "uid-owner"); route != "deepseek:deepseek-flash" || outcome != flagOutcomeStale {
+		t.Fatalf("31s on: choose() = %q, %q; want the stale route", route, outcome)
+	}
+	clk.Advance(4 * time.Minute) // 4m31s on: still inside max stale
+	if route, outcome := choiceOf(s, "uid-owner"); route != "deepseek:deepseek-flash" || outcome != flagOutcomeStale {
+		t.Fatalf("4m31s on: choose() = %q, %q; want the stale route", route, outcome)
+	}
+	clk.Advance(time.Minute) // 5m31s on: past max stale, so the turn waits for Flaggr
+	if route, outcome := choiceOf(s, "uid-owner"); route != "" || outcome != flagOutcomeTimeout {
+		t.Fatalf("5m31s on: choose() = %q, %q; want the default and %s, not a stale route", route, outcome, flagOutcomeTimeout)
+	}
+}
+
+func TestChatModelFlagFailedRefreshGivesTheDefaultOnTheNextTurn(t *testing.T) {
+	fake := newFlaggrFake(t, func(w http.ResponseWriter, r *http.Request, call int32) {
+		if call == 1 {
+			answer("deepseek:deepseek-flash")(w, r, call)
+			return
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
+	s, clk := flagSelector(t, fake.srv.URL, flaggedRoutes("deepseek:deepseek-flash"), time.Second)
+
+	choiceOf(s, "uid-owner")
+	clk.Advance(31 * time.Second)
+	if route, outcome := choiceOf(s, "uid-owner"); route != "deepseek:deepseek-flash" || outcome != flagOutcomeStale {
+		t.Fatalf("stale turn = %q, %q; want the stale route while its refresh runs", route, outcome)
+	}
+	waitFor(t, "the failed refresh", s.flightsIdle)
+
+	if route, outcome := choiceOf(s, "uid-owner"); route != "" || outcome != flagOutcomeError {
+		t.Fatalf("turn after a failed refresh = %q, %q; want the default and %s", route, outcome, flagOutcomeError)
+	}
+}
+
+func TestChatModelFlagChangeIsSeenAfterAGapLongerThanMaxStale(t *testing.T) {
+	fake := newFlaggrFake(t, func(w http.ResponseWriter, r *http.Request, call int32) {
+		if call == 1 {
+			answer("deepseek:deepseek-flash")(w, r, call)
+			return
+		}
+		answer("default")(w, r, call) // the operator has switched this user off
+	})
+	s, clk := flagSelector(t, fake.srv.URL, flaggedRoutes("deepseek:deepseek-flash"), time.Second)
+
+	choiceOf(s, "uid-owner")
+	clk.Advance(6 * time.Hour)
+	if route, outcome := choiceOf(s, "uid-owner"); route != "" || outcome != flagOutcomeFlag {
+		t.Fatalf("6h after the flag changed: choose() = %q, %q; want the new value (default)", route, outcome)
+	}
+}
+
+// The evaluation carries only constant targeting: the user id and the environment.
+// A per-turn value is not sent, so no rule on one can split the cache.
+
+func TestChatModelFlagEvaluationCarriesOnlyConstantTargeting(t *testing.T) {
+	fake := newFlaggrFake(t, answer(""))
+	s, _ := flagSelector(t, fake.srv.URL, nil, time.Second)
+
+	choiceOf(s, "uid-owner")
+
+	ctxFields, _ := fake.lastBody(t)["context"].(map[string]any)
+	keys := make([]string, 0, len(ctxFields))
+	for k := range ctxFields {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	if strings.Join(keys, ",") != "environment,targetingKey" {
+		t.Fatalf("context keys = %v, want only environment and targetingKey", keys)
+	}
+}
+
+// A lookup that outlives the turn is still cached. The turn stops waiting at its own
+// bound, and the lookup runs on its own, longer bound.
+
+func TestChatModelFlagSlowButWorkingLookupIsCachedForTheNextTurn(t *testing.T) {
+	fake := newFlaggrFake(t, func(w http.ResponseWriter, r *http.Request, call int32) {
+		select {
+		case <-time.After(400 * time.Millisecond):
+		case <-r.Context().Done():
+			return
+		}
+		answer("deepseek:deepseek-flash")(w, r, call)
+	})
+	s, _ := flagSelectorWith(t, fake.srv.URL, flaggedRoutes("deepseek:deepseek-flash"), flagTiming{
+		Turn: 200 * time.Millisecond, Lookup: time.Second, TTL: 30 * time.Second,
+	})
+
+	start := time.Now()
+	route, outcome := choiceOf(s, "uid-owner")
+	elapsed := time.Since(start)
+	if route != "" || outcome != flagOutcomeTimeout {
+		t.Fatalf("turn 1 = %q, %q; want the default and %s", route, outcome, flagOutcomeTimeout)
+	}
+	// The target is about 200ms. The bound is generous so the test cannot flake.
+	if elapsed > 600*time.Millisecond {
+		t.Fatalf("turn 1 took %s against a 200ms turn wait", elapsed)
+	}
+
+	waitFor(t, "the slow lookup to finish", s.flightsIdle)
+	route, outcome = choiceOf(s, "uid-owner")
+	if route != "deepseek:deepseek-flash" || outcome != flagOutcomeCache {
+		t.Fatalf("turn 2 = %q, %q; want the flagged route from the cache", route, outcome)
+	}
+}
+
+func TestChatModelFlagLookupRunsUnderItsOwnDeadline(t *testing.T) {
+	var deadlineLeft time.Duration
+	var hasDeadline bool
+	stuck := resolveFunc(func(ctx context.Context, _ string, _ interface{}, _ ...flaggr.EvalContext) (*flaggr.EvaluationDetail, error) {
+		var deadline time.Time
+		deadline, hasDeadline = ctx.Deadline()
+		if hasDeadline {
+			deadlineLeft = time.Until(deadline)
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(3 * time.Second): // a guard, so a removed bound fails the test rather than hanging it
+		}
+		return &flaggr.EvaluationDetail{Value: ""}, nil
+	})
+	s := newChatModelSelector(stuck, "gemini:gemini-2.5-flash", "production", nil, flagTiming{
+		Turn: 50 * time.Millisecond, Lookup: 300 * time.Millisecond, TTL: time.Second,
+	})
+
+	choiceOf(s, "uid-owner")
+	waitFor(t, "the lookup to end at its own bound", s.flightsIdle)
+	if !hasDeadline {
+		t.Fatal("the lookup ran with no deadline, want its own lookup bound")
+	}
+	if deadlineLeft > 300*time.Millisecond || deadlineLeft < 0 {
+		t.Fatalf("the lookup deadline was %s away, want at most the 300ms lookup bound", deadlineLeft)
+	}
+}
+
+// A panic inside the selector's cache read must not leave the mutex held. The
+// selector recovers the panic, and it keeps serving turns afterwards.
+
+func TestChatModelFlagPanicInTheSelectorIsRecoveredAndTheSelectorStaysUsable(t *testing.T) {
+	fake := newFlaggrFake(t, answer("deepseek:deepseek-flash"))
+	s, _ := flagSelector(t, fake.srv.URL, flaggedRoutes("deepseek:deepseek-flash"), time.Second)
+	s.cache = nil // the next read dereferences a nil cache
+
+	// Each call runs in its own goroutine, so a deadlock fails the test rather than hanging it.
+	call := func() (string, string, bool) {
+		type answer struct{ route, outcome string }
+		done := make(chan answer, 1)
+		go func() {
+			r, o := choiceOf(s, "uid-owner")
+			done <- answer{r, o}
+		}()
+		select {
+		case a := <-done:
+			return a.route, a.outcome, true
+		case <-time.After(2 * time.Second):
+			return "", "", false
+		}
+	}
+
+	route, outcome, returned := call()
+	if !returned {
+		t.Fatal("choose() did not return after a panic: the selector's mutex was left held")
+	}
+	if route != "" || outcome != flagOutcomePanic {
+		t.Fatalf("choose() after a panic = %q, %q; want the default and %s", route, outcome, flagOutcomePanic)
+	}
+
+	s.cache = newFlagRouteCache(chatModelFlagCacheSize)
+	route, outcome, returned = call()
+	if !returned {
+		t.Fatal("choose() did not return on the call after a panic: the selector's mutex was left held")
+	}
+	if route != "" || outcome != flagOutcomeFlag {
+		t.Fatalf("choose() after the panic = %q, %q; want the flagged route's default", route, outcome)
 	}
 }

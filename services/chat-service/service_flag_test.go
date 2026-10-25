@@ -1,7 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"log"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,7 +21,7 @@ func runFlaggedTurn(t *testing.T, h *ChatServiceHandler, msg *chatv1.SendMessage
 	t.Helper()
 	var completion sendCompletion
 	var got []string
-	resp, pick, err := h.runTurn(context.Background(), "uid-owner", flagAttributes(msg),
+	resp, pick, err := h.runTurn(context.Background(), "uid-owner",
 		TurnInput{System: "system", UserText: msg.Message},
 		func(s string) { got = append(got, s) }, &completion)
 	if err != nil {
@@ -30,7 +35,7 @@ func TestSelectedRouteAnswersTheTurnAndIsTheLedgerModel(t *testing.T) {
 	defaultRouter, _ := routerFor(defaultProvider, nil, 0)
 	flagged := testFlaggedRouter("deepseek:deepseek-flash")
 	selector := newChatModelSelector(fixedFlag("deepseek:deepseek-flash"), "gemini:gemini-2.5-flash", "production",
-		map[string]*ModelRouter{"deepseek:deepseek-flash": flagged}, time.Second, time.Second)
+		map[string]*ModelRouter{"deepseek:deepseek-flash": flagged}, flagTiming{Turn: time.Second, TTL: time.Second})
 	h := NewChatServiceHandler(nil, defaultRouter, nil)
 	h.SetModelSelector(selector)
 
@@ -53,27 +58,44 @@ func TestSelectedRouteAnswersTheTurnAndIsTheLedgerModel(t *testing.T) {
 	}
 }
 
-func TestFlaggedRouteStillFallsBackToTheDefaultBeforeAnyText(t *testing.T) {
-	defaultProvider := &routeProvider{name: "gemini", plans: always(okPlan())}
-	defaultRouter, _ := routerFor(defaultProvider, nil, 0)
-	flaggedPrimary := &routeProvider{name: "deepseek", plans: always([]fakeReply{{err: failedCall(false, false, 400)}})}
-	fallback := testRoute(routeFallback, &routeProvider{name: "gemini", plans: always(okPlan())})
-	flagged := newModelRouter(testRoute(routeFlag, flaggedPrimary), &fallback, testToolExecutor(), 0)
-	selector := newChatModelSelector(fixedFlag("deepseek:deepseek-flash"), "gemini:gemini-2.5-flash", "production",
-		map[string]*ModelRouter{"deepseek:deepseek-flash": flagged}, time.Second, time.Second)
+// The flagged route is the one the registry builds for DeepSeek, pointed at a fake
+// DeepSeek endpoint that refuses the turn with a 400. Only the Gemini fallback is
+// swapped for a fake that answers, so the test shows the real route falls back.
+func TestRegistryBuiltFlaggedRouteFallsBackToGeminiBeforeAnyText(t *testing.T) {
+	refuse := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":{"message":"refused"}}`))
+	}))
+	t.Cleanup(refuse.Close)
+
+	cfg := registryConfig("development", keysFor("gemini", "deepseek"))
+	routes := buildChatModelRoutesAt(context.Background(), cfg, testToolExecutor(), "gemini:gemini-2.5-flash",
+		map[string]string{"deepseek": refuse.URL})
+	flagged := routes["deepseek:deepseek-flash"]
+	if flagged == nil {
+		t.Fatal("the registry built no deepseek:deepseek-flash route")
+	}
+	geminiFallback := &routeProvider{name: "gemini", plans: always(okPlan())}
+	flagged.fallback.route.Provider = geminiFallback
+
+	defaultRouter, _ := routerFor(&routeProvider{name: "gemini", plans: always(okPlan())}, nil, 0)
 	h := NewChatServiceHandler(nil, defaultRouter, nil)
-	h.SetModelSelector(selector)
+	h.SetModelSelector(newChatModelSelector(fixedFlag("deepseek:deepseek-flash"), "gemini:gemini-2.5-flash", "development", routes, flagTiming{}))
 
 	resp, pick, completion, got := runFlaggedTurn(t, h, &chatv1.SendMessageRequest{Message: "question"})
 
-	if resp.Route != routeFallback || resp.Provider != "gemini" {
-		t.Fatalf("answered by route %q provider %q, want the default Gemini fallback", resp.Route, resp.Provider)
-	}
 	if pick.Route != "deepseek:deepseek-flash" {
 		t.Fatalf("pick.Route = %q, want the flagged route the flag chose", pick.Route)
 	}
-	if completion.Model != "m-gemini" {
-		t.Fatalf("ledger model = %q, want the fallback that answered", completion.Model)
+	if resp.Route != routeFallback || resp.Provider != "gemini" {
+		t.Fatalf("answered by route %q provider %q, want the Gemini fallback", resp.Route, resp.Provider)
+	}
+	if geminiFallback.sessions() != 1 {
+		t.Fatalf("the Gemini fallback ran %d times, want 1", geminiFallback.sessions())
+	}
+	if completion.Model != "gemini-2.5-flash" {
+		t.Fatalf("ledger model = %q, want the fallback model that answered", completion.Model)
 	}
 	if len(got) == 0 || got[0] != "ok" {
 		t.Fatalf("text = %v, want the fallback's answer", got)
@@ -104,7 +126,7 @@ func TestFlaggedTurnRoutesDefaultWhenTheFlagIsDown(t *testing.T) {
 	down := resolveFunc(func(context.Context, string, interface{}, ...flaggr.EvalContext) (*flaggr.EvaluationDetail, error) {
 		return nil, context.DeadlineExceeded
 	})
-	selector := newChatModelSelector(down, "gemini:gemini-2.5-flash", "production", nil, time.Second, time.Second)
+	selector := newChatModelSelector(down, "gemini:gemini-2.5-flash", "production", nil, flagTiming{Turn: time.Second, TTL: time.Second})
 	h := NewChatServiceHandler(nil, defaultRouter, nil)
 	h.SetModelSelector(selector)
 
@@ -118,7 +140,7 @@ func TestFlaggedTurnRoutesDefaultWhenTheFlagIsDown(t *testing.T) {
 	}
 }
 
-func TestFailedFlaggedTurnIsLedgeredOnTheModelItTried(t *testing.T) {
+func TestFailedFlaggedTurnIsLoggedWithTheRouteTheFlagPicked(t *testing.T) {
 	defaultProvider := &routeProvider{name: "gemini", plans: always(okPlan())}
 	defaultRouter, _ := routerFor(defaultProvider, nil, 0)
 	// The flagged route and its Gemini fallback both refuse the turn before any text.
@@ -126,17 +148,25 @@ func TestFailedFlaggedTurnIsLedgeredOnTheModelItTried(t *testing.T) {
 	failingFallback := testRoute(routeFallback, &routeProvider{name: "gemini", plans: always([]fakeReply{{err: failedCall(false, false, 400)}})})
 	flagged := newModelRouter(testRoute(routeFlag, flaggedPrimary), &failingFallback, testToolExecutor(), 0)
 	selector := newChatModelSelector(fixedFlag("deepseek:deepseek-flash"), "gemini:gemini-2.5-flash", "production",
-		map[string]*ModelRouter{"deepseek:deepseek-flash": flagged}, time.Second, time.Second)
+		map[string]*ModelRouter{"deepseek:deepseek-flash": flagged}, flagTiming{Turn: time.Second, TTL: time.Second})
 	h := NewChatServiceHandler(nil, defaultRouter, nil)
 	h.SetModelSelector(selector)
 
+	var logs bytes.Buffer
+	prev := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(prev) })
+
 	var completion sendCompletion
-	_, _, err := h.runTurn(context.Background(), "uid-owner", flagAttributes(&chatv1.SendMessageRequest{Message: "q"}),
+	_, _, err := h.runTurn(context.Background(), "uid-owner",
 		TurnInput{System: "system", UserText: "q"}, func(string) {}, &completion)
 	if err == nil {
 		t.Fatal("runTurn() error = nil, want both routes to refuse")
 	}
 	if completion.Model != "m-deepseek" {
 		t.Fatalf("ledger model = %q, want the flagged model the turn tried", completion.Model)
+	}
+	if !strings.Contains(logs.String(), "chat turn failed: model=m-deepseek route=deepseek:deepseek-flash route_source=flag") {
+		t.Fatalf("failed turn log = %q, want the route the flag picked and its source", logs.String())
 	}
 }

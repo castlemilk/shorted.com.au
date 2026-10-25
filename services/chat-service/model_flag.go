@@ -24,15 +24,14 @@ const chatModelFlagKey = "chat-model"
 // answer is cached per user. Only a user's first turn in a TTL window can wait
 // on Flaggr.
 const (
-	defaultChatModelFlagTimeout = 200 * time.Millisecond
-	defaultChatModelFlagTTL     = 30 * time.Second
-	// chatModelFlagHTTPTimeout backs the SDK's own client. The per-lookup context
-	// is the real bound. This only stops a connection from being held forever.
-	chatModelFlagHTTPTimeout      = time.Second
-	chatModelFlagCacheSize        = 10000
-	chatModelFlagBreakerThreshold = 3
-	chatModelFlagBreakerCooldown  = 60 * time.Second
-	chatModelFlagLogEvery         = time.Minute
+	defaultChatModelFlagTimeout       = 200 * time.Millisecond
+	defaultChatModelFlagLookupTimeout = time.Second
+	defaultChatModelFlagTTL           = 30 * time.Second
+	defaultChatModelFlagMaxStale      = 5 * time.Minute
+	chatModelFlagCacheSize            = 10000
+	chatModelFlagBreakerThreshold     = 3
+	chatModelFlagBreakerCooldown      = 60 * time.Second
+	chatModelFlagLogEvery             = time.Minute
 )
 
 // The outcome of one turn's choice. Each turn records exactly one. They are a
@@ -63,11 +62,17 @@ func newChatModelFlagClient(cfg *Config) (flagEvaluator, error) {
 	if cfg.FlaggrAPIKey == "" || cfg.FlaggrServiceID == "" {
 		return nil, nil
 	}
+	lookup := cfg.ChatModelFlagLookupTimeout
+	if lookup <= 0 {
+		lookup = defaultChatModelFlagLookupTimeout
+	}
 	opts := []flaggr.Option{
 		flaggr.WithAPIKey(cfg.FlaggrAPIKey),
 		flaggr.WithServiceID(cfg.FlaggrServiceID),
 		flaggr.WithEnvironment(cfg.FlaggrEnvironment),
-		flaggr.WithHTTPClient(&http.Client{Timeout: chatModelFlagHTTPTimeout}),
+		// The lookup context is the real bound. This backstop sits above it, so it
+		// never cuts a lookup short, and it stops a connection being held forever.
+		flaggr.WithHTTPClient(&http.Client{Timeout: lookup + time.Second}),
 	}
 	if cfg.FlaggrAPIURL != "" {
 		opts = append(opts, flaggr.WithAPIURL(cfg.FlaggrAPIURL))
@@ -79,6 +84,14 @@ func newChatModelFlagClient(cfg *Config) (flagEvaluator, error) {
 	return client, nil
 }
 
+// flagTiming holds the bounds of a flag read. A zero field takes its default.
+type flagTiming struct {
+	Turn     time.Duration // a turn waits at most this long for its answer
+	Lookup   time.Duration // one lookup, the first turn's or a refresh, runs at most this long
+	TTL      time.Duration // an answer is used as fresh for this long
+	MaxStale time.Duration // an answer is served stale for at most this long past its TTL
+}
+
 // chatModelSelector chooses the model a turn runs on from the chat-model flag. It
 // never fails a turn. Every path that does not yield a usable route answers on
 // the env default. A flag can only choose among the routes the registry built,
@@ -86,10 +99,12 @@ func newChatModelFlagClient(cfg *Config) (flagEvaluator, error) {
 type chatModelSelector struct {
 	client      flagEvaluator
 	defaultID   string // the env default's route id, which the flag may also name
-	environment string // the service environment, sent as a targeting attribute
+	environment string // the service environment, sent as a constant targeting attribute
 	routes      map[string]*ModelRouter
-	timeout     time.Duration
+	turnWait    time.Duration
+	lookup      time.Duration
 	ttl         time.Duration
+	maxStale    time.Duration
 	now         func() time.Time
 
 	mu       sync.Mutex
@@ -101,12 +116,18 @@ type chatModelSelector struct {
 
 // newChatModelSelector builds a selector over routes. A nil client turns the
 // flag off, and every choice is then the default.
-func newChatModelSelector(client flagEvaluator, defaultID, environment string, routes map[string]*ModelRouter, timeout, ttl time.Duration) *chatModelSelector {
-	if timeout <= 0 {
-		timeout = defaultChatModelFlagTimeout
+func newChatModelSelector(client flagEvaluator, defaultID, environment string, routes map[string]*ModelRouter, timing flagTiming) *chatModelSelector {
+	if timing.Turn <= 0 {
+		timing.Turn = defaultChatModelFlagTimeout
 	}
-	if ttl <= 0 {
-		ttl = defaultChatModelFlagTTL
+	if timing.Lookup <= 0 {
+		timing.Lookup = defaultChatModelFlagLookupTimeout
+	}
+	if timing.TTL <= 0 {
+		timing.TTL = defaultChatModelFlagTTL
+	}
+	if timing.MaxStale <= 0 {
+		timing.MaxStale = defaultChatModelFlagMaxStale
 	}
 	if routes == nil {
 		routes = map[string]*ModelRouter{}
@@ -116,8 +137,10 @@ func newChatModelSelector(client flagEvaluator, defaultID, environment string, r
 		defaultID:   defaultID,
 		environment: environment,
 		routes:      routes,
-		timeout:     timeout,
-		ttl:         ttl,
+		turnWait:    timing.Turn,
+		lookup:      timing.Lookup,
+		ttl:         timing.TTL,
+		maxStale:    timing.MaxStale,
 		now:         time.Now,
 		cache:       newFlagRouteCache(chatModelFlagCacheSize),
 		inflight:    make(map[string]*flagFlight),
@@ -145,7 +168,7 @@ type flagFlight struct {
 // choose returns the route id the turn should run on ("" for the default) and
 // how the choice was made. It never returns an error and never panics, and it
 // records the outcome once.
-func (s *chatModelSelector) choose(ctx context.Context, userID string, attrs map[string]any) (route, outcome string) {
+func (s *chatModelSelector) choose(ctx context.Context, userID string) (route, outcome string) {
 	if s == nil || s.client == nil {
 		recordChatModelFlagOutcome(ctx, flagOutcomeUnconfigured)
 		return "", flagOutcomeUnconfigured
@@ -158,27 +181,27 @@ func (s *chatModelSelector) choose(ctx context.Context, userID string, attrs map
 		recordChatModelFlagOutcome(ctx, outcome)
 	}()
 
-	s.mu.Lock()
-	entry, found := s.cache.get(userID)
-	s.mu.Unlock()
-	if found && s.now().Before(entry.expires) {
+	entry, found := s.cachedEntry(userID)
+	now := s.now()
+	if found && now.Before(entry.expires) {
 		return entry.route, flagOutcomeCache
 	}
-	if found {
+	if found && now.Before(entry.staleUntil) {
 		// Stale: answer at once, and refresh in the background. The refresh has
-		// its own bounded context, not the request's, so the turn never waits.
-		s.startFlight(userID, context.Background(), attrs)
+		// its own bounded lookup, not the request's, so the turn never waits.
+		// Past maxStale an answer is no longer served, and the turn waits below.
+		s.startFlight(userID, context.Background())
 		return entry.route, flagOutcomeStale
 	}
 
-	// Nothing cached: this turn waits, bounded by the timeout. The evaluation
+	// Nothing usable cached: this turn waits, bounded by the turn wait. The lookup
 	// keeps running on the request's values but not its cancel, so a client that
 	// hangs up still leaves the answer cached for the next turn.
-	f, ok := s.startFlight(userID, context.WithoutCancel(ctx), attrs)
+	f, ok := s.startFlight(userID, context.WithoutCancel(ctx))
 	if !ok {
 		return "", flagOutcomeBreaker
 	}
-	wait, cancel := context.WithTimeout(ctx, s.timeout)
+	wait, cancel := context.WithTimeout(ctx, s.turnWait)
 	defer cancel()
 	select {
 	case <-f.done:
@@ -188,9 +211,17 @@ func (s *chatModelSelector) choose(ctx context.Context, userID string, attrs map
 	}
 }
 
+// cachedEntry reads the user's entry under the mutex. The unlock is deferred, so a
+// panic inside the cache cannot leave the mutex held and deadlock later turns.
+func (s *chatModelSelector) cachedEntry(userID string) (flagCacheEntry, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.cache.get(userID)
+}
+
 // startFlight joins the user's running evaluation, or starts one. It reports
 // false when the breaker is open and nothing is running.
-func (s *chatModelSelector) startFlight(userID string, ctx context.Context, attrs map[string]any) (*flagFlight, bool) {
+func (s *chatModelSelector) startFlight(userID string, ctx context.Context) (*flagFlight, bool) {
 	now := s.now()
 	s.mu.Lock()
 	if f, running := s.inflight[userID]; running {
@@ -209,13 +240,13 @@ func (s *chatModelSelector) startFlight(userID string, ctx context.Context, attr
 	if closed {
 		log.Printf("chat model flag: circuit closed; Flaggr is called again")
 	}
-	go s.runFlight(f, userID, ctx, attrs)
+	go s.runFlight(f, userID, ctx)
 	return f, true
 }
 
 // runFlight runs one evaluation to its end. It recovers a panic into the
 // outcome, so a bug in the evaluator never reaches the process.
-func (s *chatModelSelector) runFlight(f *flagFlight, userID string, ctx context.Context, attrs map[string]any) {
+func (s *chatModelSelector) runFlight(f *flagFlight, userID string, ctx context.Context) {
 	defer func() {
 		if r := recover(); r != nil {
 			s.logFailure(flagOutcomePanic, fmt.Sprintf("panic in the evaluator (%T)", r))
@@ -223,11 +254,12 @@ func (s *chatModelSelector) runFlight(f *flagFlight, userID string, ctx context.
 		}
 		s.finishFlight(userID, f)
 	}()
-	f.route, f.outcome, f.cacheable = s.evaluate(ctx, userID, attrs)
+	f.route, f.outcome, f.cacheable = s.evaluate(ctx, userID)
 }
 
-// finishFlight publishes a flight's result to its waiters, and caches it when
-// it is cacheable. A failure is never cached, so the next turn asks again.
+// finishFlight publishes a flight's result to its waiters. A usable answer is
+// cached with its TTL and its maximum staleness. A failed lookup evicts the user's
+// entry, so the next turn gets the default, not a route Flaggr can no longer vouch for.
 func (s *chatModelSelector) finishFlight(userID string, f *flagFlight) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -235,7 +267,10 @@ func (s *chatModelSelector) finishFlight(userID string, f *flagFlight) {
 		delete(s.inflight, userID)
 	}
 	if f.cacheable {
-		s.cache.put(flagCacheEntry{user: userID, route: f.route, expires: s.now().Add(s.ttl)})
+		now := s.now()
+		s.cache.put(flagCacheEntry{user: userID, route: f.route, expires: now.Add(s.ttl), staleUntil: now.Add(s.maxStale)})
+	} else {
+		s.cache.remove(userID)
 	}
 	close(f.done)
 }
@@ -243,10 +278,10 @@ func (s *chatModelSelector) finishFlight(userID string, f *flagFlight) {
 // evaluate asks Flaggr for the flag and classifies the answer. It reports whether
 // the answer may be cached: a usable value, or an answer from Flaggr that means
 // "default" (not found, disabled, or a value this service does not run).
-func (s *chatModelSelector) evaluate(ctx context.Context, userID string, attrs map[string]any) (route, outcome string, cacheable bool) {
-	callCtx, cancel := context.WithTimeout(ctx, s.timeout)
+func (s *chatModelSelector) evaluate(ctx context.Context, userID string) (route, outcome string, cacheable bool) {
+	callCtx, cancel := context.WithTimeout(ctx, s.lookup)
 	defer cancel()
-	evalCtx := flaggr.EvalContext{TargetingKey: userID, Attributes: s.attributes(attrs)}
+	evalCtx := flaggr.EvalContext{TargetingKey: userID, Attributes: s.attributes()}
 	detail, err := s.client.Resolve(callCtx, chatModelFlagKey, "", evalCtx)
 	if err != nil || detail == nil {
 		outcome = flagOutcomeError
@@ -290,19 +325,12 @@ const (
 	flagReasonDisabled = "DISABLED"
 )
 
-// attributes returns the targeting attributes: the service environment and the
-// turn's plain values. Anything else, such as a nested value Flaggr rejects with
-// a 400, is dropped rather than sent.
-func (s *chatModelSelector) attributes(turn map[string]any) map[string]interface{} {
-	attrs := make(map[string]interface{}, len(turn)+1)
-	for k, v := range turn {
-		switch v.(type) {
-		case string, bool, int, int32, int64, float32, float64:
-			attrs[k] = v
-		}
-	}
-	attrs["environment"] = s.environment
-	return attrs
+// attributes are the targeting attributes every evaluation sends. They are
+// constant, so one cached answer per user is correct for every turn of that user.
+// Per-turn values such as the stock code or the retry flag are not sent: a rule on
+// them would be decided by whichever turn filled the cache.
+func (s *chatModelSelector) attributes() map[string]interface{} {
+	return map[string]interface{}{"environment": s.environment}
 }
 
 // breakerFailed counts an evaluation failure, and logs the breaker opening once.
@@ -392,12 +420,13 @@ type flagRouteCache struct {
 	items map[string]*list.Element
 }
 
-// flagCacheEntry is one user's answer. A stale entry is kept, and is served
-// until a refresh replaces it or it is evicted.
+// flagCacheEntry is one user's answer. It is fresh until expires, and served stale
+// until staleUntil. Past staleUntil it is not used, and the turn waits for Flaggr.
 type flagCacheEntry struct {
-	user    string
-	route   string
-	expires time.Time
+	user       string
+	route      string
+	expires    time.Time
+	staleUntil time.Time
 }
 
 func newFlagRouteCache(max int) *flagRouteCache {
@@ -426,6 +455,14 @@ func (c *flagRouteCache) put(e flagCacheEntry) {
 		oldest := c.order.Back()
 		c.order.Remove(oldest)
 		delete(c.items, oldest.Value.(flagCacheEntry).user)
+	}
+}
+
+// remove drops a user's entry, if it has one.
+func (c *flagRouteCache) remove(user string) {
+	if el, ok := c.items[user]; ok {
+		c.order.Remove(el)
+		delete(c.items, user)
 	}
 }
 

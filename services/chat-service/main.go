@@ -124,9 +124,10 @@ func main() {
 	default:
 		flagRoutes := buildChatModelRoutes(ctx, cfg, toolExecutor, defaultRouteID)
 		defer closeChatModelRoutes(flagRoutes)
-		handler.SetModelSelector(newChatModelSelector(flagClient, defaultRouteID, cfg.Environment, flagRoutes, cfg.ChatModelFlagTimeout, cfg.ChatModelFlagTTL))
-		log.Printf("chat model flag on: default=%s flagged_routes=%v timeout=%s ttl=%s",
-			defaultRouteID, sortedRouteIDs(flagRoutes), cfg.ChatModelFlagTimeout, cfg.ChatModelFlagTTL)
+		timing := flagTiming{Turn: cfg.ChatModelFlagTimeout, Lookup: cfg.ChatModelFlagLookupTimeout, TTL: cfg.ChatModelFlagTTL, MaxStale: cfg.ChatModelFlagMaxStale}
+		handler.SetModelSelector(newChatModelSelector(flagClient, defaultRouteID, cfg.Environment, flagRoutes, timing))
+		log.Printf("chat model flag on: default=%s flagged_routes=%v turn_timeout=%s lookup_timeout=%s ttl=%s max_stale=%s",
+			defaultRouteID, sortedRouteIDs(flagRoutes), timing.Turn, timing.Lookup, timing.TTL, timing.MaxStale)
 	}
 
 	// Create mux with Connect-RPC handler. Health remains public for Cloud Run

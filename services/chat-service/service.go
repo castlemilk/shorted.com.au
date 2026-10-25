@@ -264,7 +264,7 @@ func (h *ChatServiceHandler) SendMessage(
 		})
 	}
 
-	llmResp, pick, err := h.runTurn(ctx, userID, flagAttributes(msg), TurnInput{System: systemPrompt, History: history, UserText: msg.Message}, onChunk, &completion)
+	llmResp, pick, err := h.runTurn(ctx, userID, TurnInput{System: systemPrompt, History: history, UserText: msg.Message}, onChunk, &completion)
 	reachedModel = err == nil || modelAnswered(err)
 	if err != nil {
 		recordChatExperienceEvent("send_message", "error", "llm_error")
@@ -345,26 +345,17 @@ func (p flagPick) routeForLog() string {
 	return p.Route
 }
 
-// flagAttributes are the turn's plain values for the flag's targeting. They carry
-// no email and no message text.
-func flagAttributes(msg *chatv1.SendMessageRequest) map[string]any {
-	attrs := map[string]any{"retry": msg.Retry}
-	if msg.ContextStockCode != "" {
-		attrs["context_stock_code"] = msg.ContextStockCode
-	}
-	return attrs
-}
-
 // runTurn plays one turn on the model the flag picks for this user, and records
 // the answering model on the ledger's completion. The flag can only pick a route
 // the registry built, and it never fails the turn: a choice that is not usable
 // is the default runner.
-func (h *ChatServiceHandler) runTurn(ctx context.Context, userID string, attrs map[string]any, in TurnInput, onChunk func(string), completion *sendCompletion) (*LLMResponse, flagPick, error) {
-	runner, pick := h.pickRunner(ctx, userID, attrs)
+func (h *ChatServiceHandler) runTurn(ctx context.Context, userID string, in TurnInput, onChunk func(string), completion *sendCompletion) (*LLMResponse, flagPick, error) {
+	runner, pick := h.pickRunner(ctx, userID)
 	completion.Model = runner.Model()
 	resp, err := runner.RunTurn(ctx, userID, in, onChunk)
 	if err != nil {
 		recordTurnOnLedger(completion, nil, err)
+		log.Printf("chat turn failed: model=%s route=%s route_source=%s", runner.Model(), pick.routeForLog(), pick.Source)
 		return nil, pick, err
 	}
 	recordTurnOnLedger(completion, resp, nil)
@@ -372,11 +363,11 @@ func (h *ChatServiceHandler) runTurn(ctx context.Context, userID string, attrs m
 }
 
 // pickRunner returns the runner for a turn, and how it was chosen.
-func (h *ChatServiceHandler) pickRunner(ctx context.Context, userID string, attrs map[string]any) (turnRunner, flagPick) {
+func (h *ChatServiceHandler) pickRunner(ctx context.Context, userID string) (turnRunner, flagPick) {
 	if h.models == nil {
 		return h.runner, flagPick{Source: flagOutcomeUnconfigured}
 	}
-	route, source := h.models.choose(ctx, userID, attrs)
+	route, source := h.models.choose(ctx, userID)
 	if r := h.models.routeFor(route); r != nil {
 		return r, flagPick{Route: route, Source: source}
 	}

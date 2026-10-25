@@ -45,10 +45,15 @@ type Config struct {
 	FlaggrServiceID   string
 	FlaggrEnvironment string
 	FlaggrAPIURL      string
-	// ChatModelFlagTimeout bounds one lookup on a turn's path. ChatModelFlagTTL is
-	// how long a user's answer is trusted before a background refresh.
-	ChatModelFlagTimeout time.Duration
-	ChatModelFlagTTL     time.Duration
+	// ChatModelFlagTimeout is how long a turn waits for its answer. The lookup
+	// behind it runs for ChatModelFlagLookupTimeout, so an answer that arrives
+	// after the turn has moved on is still cached for the next turn.
+	// ChatModelFlagTTL is how long an answer is used as fresh, and
+	// ChatModelFlagMaxStale is the longest an answer is served once it is past its TTL.
+	ChatModelFlagTimeout       time.Duration
+	ChatModelFlagLookupTimeout time.Duration
+	ChatModelFlagTTL           time.Duration
+	ChatModelFlagMaxStale      time.Duration
 
 	ChatMaxInputChars  int
 	ChatHistoryLimit   int
@@ -265,7 +270,9 @@ func loadChatModelFlagConfig(cfg *Config) {
 		cfg.FlaggrEnvironment = env
 	}
 	cfg.ChatModelFlagTimeout = durationEnvOrWarn("CHAT_MODEL_FLAG_TIMEOUT", defaultChatModelFlagTimeout)
+	cfg.ChatModelFlagLookupTimeout = durationEnvOrWarn("CHAT_MODEL_FLAG_LOOKUP_TIMEOUT", defaultChatModelFlagLookupTimeout)
 	cfg.ChatModelFlagTTL = durationEnvOrWarn("CHAT_MODEL_FLAG_TTL", defaultChatModelFlagTTL)
+	cfg.ChatModelFlagMaxStale = durationEnvOrWarn("CHAT_MODEL_FLAG_MAX_STALE", defaultChatModelFlagMaxStale)
 }
 
 // durationEnvOrWarn is parseDurationEnv that never fails: a bad value is logged

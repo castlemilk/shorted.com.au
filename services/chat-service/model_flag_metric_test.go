@@ -26,7 +26,7 @@ func TestChatModelFlagCountsEachTurnOnce(t *testing.T) {
 	t.Cleanup(func() { shortedotel.ChatModelFlagEvaluations = prev })
 
 	s := newChatModelSelector(fixedFlag("deepseek:deepseek-flash"), "gemini:gemini-2.5-flash", "production",
-		flaggedRoutes("deepseek:deepseek-flash"), time.Second, time.Second)
+		flaggedRoutes("deepseek:deepseek-flash"), flagTiming{Turn: time.Second, TTL: time.Second})
 	choiceOf(s, "uid-owner") // flag
 	choiceOf(s, "uid-owner") // cache
 

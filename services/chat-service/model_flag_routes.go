@@ -43,6 +43,13 @@ func routeID(provider, model string) string {
 // Building makes no network call. A route that fails to build is logged and left
 // out, never fatal.
 func buildChatModelRoutes(ctx context.Context, cfg *Config, tools *ToolExecutor, defaultID string) map[string]*ModelRouter {
+	return buildChatModelRoutesAt(ctx, cfg, tools, defaultID, nil)
+}
+
+// buildChatModelRoutesAt is buildChatModelRoutes with each provider's base URL
+// overridden by baseURLs. Tests use it to build the real routes against a fake
+// endpoint; production passes nil.
+func buildChatModelRoutesAt(ctx context.Context, cfg *Config, tools *ToolExecutor, defaultID string, baseURLs map[string]string) map[string]*ModelRouter {
 	routes := make(map[string]*ModelRouter)
 	if cfg.ProviderKeys["gemini"] == "" {
 		log.Printf("chat model flag: no flagged routes, because the Gemini fallback has no key (GEMINI_API_KEY)")
@@ -58,7 +65,7 @@ func buildChatModelRoutes(ctx context.Context, cfg *Config, tools *ToolExecutor,
 				log.Printf("chat model flag: route %s not offered: %v", id, err)
 				continue
 			}
-			r, err := newFlaggedRouter(ctx, cfg, tools, spec.Name, m.ID)
+			r, err := newFlaggedRouter(ctx, cfg, tools, spec.Name, m.ID, baseURLs)
 			if err != nil {
 				log.Printf("chat model flag: route %s not offered: %v", id, err)
 				continue
@@ -72,12 +79,12 @@ func buildChatModelRoutes(ctx context.Context, cfg *Config, tools *ToolExecutor,
 // newFlaggedRouter is a router whose primary is the flagged model and whose
 // fallback is the default Gemini model, with its own breaker. It uses the bounds
 // of a router with a fallback, and the same overrides as the default router.
-func newFlaggedRouter(ctx context.Context, cfg *Config, tools *ToolExecutor, provider, model string) (*ModelRouter, error) {
-	primary, err := newRouteFor(ctx, cfg, provider, model, routeFlag, cfg.ChatMaxOutputTokens)
+func newFlaggedRouter(ctx context.Context, cfg *Config, tools *ToolExecutor, provider, model string, baseURLs map[string]string) (*ModelRouter, error) {
+	primary, err := newRouteForAt(ctx, cfg, provider, model, routeFlag, cfg.ChatMaxOutputTokens, baseURLs[provider])
 	if err != nil {
 		return nil, err
 	}
-	fallback, err := newRouteFor(ctx, cfg, geminiProviderName, cfg.GeminiModel, routeFallback, cfg.GeminiMaxOutputTokens)
+	fallback, err := newRouteForAt(ctx, cfg, geminiProviderName, cfg.GeminiModel, routeFallback, cfg.GeminiMaxOutputTokens, baseURLs[geminiProviderName])
 	if err != nil {
 		_ = primary.Provider.Close()
 		return nil, fmt.Errorf("gemini fallback: %w", err)
