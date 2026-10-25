@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       );
     }
-    const ownCustomerId = mirror.stripeCustomerId || null;
+    const ownCustomerId = mirror.stripeCustomerId ?? null;
 
     if (ownCustomerId) {
       const current = await bestLiveSubscription(ownCustomerId);

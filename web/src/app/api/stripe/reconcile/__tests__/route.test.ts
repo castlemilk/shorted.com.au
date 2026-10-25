@@ -8,7 +8,12 @@ import { notifyOperator } from "~/@/lib/operator-notify";
 jest.mock("~/lib/stripe", () => ({
   stripe: {
     subscriptions: { retrieve: jest.fn(), list: jest.fn() },
+    invoices: { list: jest.fn(async () => ({ data: [] })) },
   },
+}));
+
+jest.mock("~/@/lib/kv-cache", () => ({
+  acquireCacheLease: jest.fn(async () => "acquired"),
 }));
 
 jest.mock("@connectrpc/connect", () => {
