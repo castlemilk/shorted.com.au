@@ -1377,13 +1377,22 @@ jobs:
     needs: [determine-environment, validate-secrets, terraform-apply, run-tests]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
-    # Preserve the existing service-URL fallback after an infrastructure failure,
-    # while requiring the test suite and secrets to pass before web promotion.
+    # This job is gated on terraform-apply SUCCEEDING. It used to run always(),
+    # so a failed or cancelled apply still promoted the web app against the old
+    # API (0d5311ac1 added always() to keep a service-URL fallback alive after an
+    # infrastructure failure). That fallback is no longer a reason to promote:
+    # the web build must never ship ahead of, or against, an apply that did not
+    # finish. A skipped apply (terraform-plan failed, or the run is plan-only)
+    # also skips this job; a skipped job here is the intended outcome.
+    #
+    # The gcloud lookup in "Resolve Service URLs" stays as a backstop for a
+    # successful apply whose outputs came back empty. It is not a fallback for
+    # a failed apply, which this `if` now excludes.
     if: |
-      always() &&
       github.event_name != 'pull_request' &&
       needs.determine-environment.outputs.environment == 'prod' &&
       needs.validate-secrets.result == 'success' &&
+      needs.terraform-apply.result == 'success' &&
       needs.run-tests.result == 'success' &&
       github.event.inputs.plan_only != 'true'
     environment: prod
