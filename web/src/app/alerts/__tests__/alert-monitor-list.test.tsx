@@ -167,11 +167,12 @@ describe("AlertMonitorList", () => {
     expect(note).not.toHaveTextContent("sign out");
     expect(screen.queryByText(/Alerts are emailed to/)).toBeNull();
     // The page offers the way to verify, so the notice does not just say "verify".
+    // The prompt loads client-only (next/dynamic), so wait for it to appear.
     expect(
-      screen.getByRole("button", { name: "Send verification email" }),
+      await screen.findByRole("button", { name: "Send verification email" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "I've verified, refresh" }),
+      await screen.findByRole("button", { name: "I've verified, refresh" }),
     ).toBeInTheDocument();
   });
 

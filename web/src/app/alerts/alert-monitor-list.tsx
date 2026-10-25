@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 
-import { EmailVerificationPrompt } from "~/@/components/email-verification-prompt";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +35,16 @@ import {
 
 const ACTION_FAILED = "Could not update the monitor. Try again shortly.";
 const DELETE_FAILED = "Could not delete the monitor. Try again shortly.";
+
+// Loaded client-only, so the verification prompt and its code are fetched only for
+// an unverified account, not on every visit to /alerts.
+const EmailVerificationPrompt = dynamic(
+  () =>
+    import("~/@/components/email-verification-prompt").then(
+      (mod) => mod.EmailVerificationPrompt,
+    ),
+  { ssr: false, loading: () => null },
+);
 
 /** Where the email goes and when it is checked. Shown above the monitor list. */
 export function AlertDeliveryNote() {

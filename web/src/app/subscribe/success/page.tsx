@@ -1,10 +1,21 @@
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { CheckCircle, ArrowRight, Sparkles, MessageSquare, Activity, Bell, LayoutDashboard } from "lucide-react";
 import Image from "next/image";
 import { Button } from "~/@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/@/components/ui/card";
-import { EmailVerificationPrompt } from "~/@/components/email-verification-prompt";
+
+// The prompt needs the client session and the verification code, which are not
+// needed to render the success message. Loading it client-only keeps those chunks
+// out of this route's first-load JS; the prompt appears once it has loaded.
+const EmailVerificationPrompt = dynamic(
+  () =>
+    import("~/@/components/email-verification-prompt").then(
+      (mod) => mod.EmailVerificationPrompt,
+    ),
+  { ssr: false, loading: () => null },
+);
 
 function SuccessContent() {
   return (
