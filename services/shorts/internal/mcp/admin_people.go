@@ -138,7 +138,7 @@ type ListUsersOutput struct {
 }
 
 type ListPayingUsersInput struct {
-	Status string `json:"status,omitempty" jsonschema:"paying (default: active or trialing), active, trialing, past_due, canceled, inactive, or all."`
+	Status string `json:"status,omitempty" jsonschema:"paying (default: active or trialing), active, trialing, past_due, unpaid, canceled, inactive, or all."`
 	Limit  int    `json:"limit,omitempty" jsonschema:"Page size 1-100, default 25."`
 	Offset int    `json:"offset,omitempty"`
 }
@@ -202,7 +202,7 @@ func normaliseQuery(q *string) error {
 }
 
 // PayingStatuses is the closed set list_paying_users accepts.
-var PayingStatuses = []string{"paying", "active", "trialing", "past_due", "canceled", "inactive", "all"}
+var PayingStatuses = []string{"paying", "active", "trialing", "past_due", "unpaid", "canceled", "inactive", "all"}
 
 // NextOffset returns the offset of the following page, or nil on the last one.
 func NextOffset(offset, rows, total int) *int {
