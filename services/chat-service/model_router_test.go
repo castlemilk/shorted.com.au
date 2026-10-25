@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -328,24 +331,206 @@ func TestRouterTracksTheCallOnlyWhenTheBreakerAllowsIt(t *testing.T) {
 	clock := &fakeTime{t: time.Unix(0, 0)}
 	b := newBreaker(clock.now)
 	for range breakerThreshold {
-		if !b.allow() {
+		ok, gen := b.allow()
+		if !ok {
 			t.Fatal("a closed breaker refused a call")
 		}
-		b.failure()
+		b.failure(gen)
 	}
-	if b.allow() {
+	if ok, _ := b.allow(); ok {
 		t.Fatal("an open breaker let a call through before the cooldown")
 	}
 	clock.advance(breakerCooldown)
-	if !b.allow() {
+	ok, probe := b.allow()
+	if !ok {
 		t.Fatal("the cooldown elapsed but the half-open probe was refused")
 	}
-	if b.allow() {
+	if ok, _ := b.allow(); ok {
 		t.Fatal("a second call got through while the probe was in flight")
 	}
-	b.release()
-	if !b.allow() {
+	b.release(probe)
+	if ok, _ := b.allow(); !ok {
 		t.Fatal("releasing the probe did not hand it back")
+	}
+}
+
+// A call admitted while the breaker was closed reports its failure after the
+// breaker opened and a probe started. That failure belongs to an earlier
+// generation, so it must not reopen the breaker or release the probe's slot.
+func TestBreakerIgnoresAFailureFromACallThatStartedBeforeTheProbe(t *testing.T) {
+	clock := &fakeTime{t: time.Unix(0, 0)}
+	b := newBreaker(clock.now)
+
+	_, slow := b.allow() // admitted while closed, still in flight
+	for range breakerThreshold {
+		ok, gen := b.allow()
+		if !ok {
+			t.Fatal("a closed breaker refused a call")
+		}
+		b.failure(gen)
+	}
+	clock.advance(breakerCooldown)
+	ok, probe := b.allow()
+	if !ok {
+		t.Fatal("the cooldown elapsed but the probe was refused")
+	}
+
+	b.failure(slow)
+
+	clock.advance(breakerCooldown + time.Second)
+	if ok, _ := b.allow(); ok {
+		t.Fatal("a stale failure released the probe: a second probe went through while the first was in flight")
+	}
+	b.success(probe)
+	if ok, _ := b.allow(); !ok {
+		t.Fatal("the probe's success did not close the breaker")
+	}
+}
+
+// Many calls race on one breaker. Each admitted call ends with exactly one of
+// success, failure or release, so no probe may be left held at the end. The test
+// runs under -race, which checks the breaker's locking.
+func TestBreakerHoldsOneProbeAtATimeUnderConcurrentCalls(t *testing.T) {
+	clock := &fakeTime{t: time.Unix(0, 0)}
+	b := newBreaker(clock.now)
+	for range breakerThreshold {
+		ok, gen := b.allow()
+		if !ok {
+			t.Fatal("a closed breaker refused a call")
+		}
+		b.failure(gen)
+	}
+	clock.advance(breakerCooldown)
+
+	var wg sync.WaitGroup
+	for i := range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 20 {
+				ok, gen := b.allow()
+				if !ok {
+					continue
+				}
+				switch i % 3 {
+				case 0:
+					b.success(gen)
+				case 1:
+					b.failure(gen)
+				default:
+					b.release(gen)
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	clock.advance(breakerCooldown + time.Second)
+	if ok, _ := b.allow(); !ok {
+		t.Fatal("a probe was left held after every call had ended")
+	}
+}
+
+// A same-provider retry is only for a call that billed nothing. Here the first
+// call was answered and the tool round is refused, so the turn has been billed,
+// and it must go to the fallback rather than run again on the primary.
+func TestRouterNeverRetriesTheSameProviderAfterAToolRoundBilled(t *testing.T) {
+	var executed atomic.Int32
+	primary := &routeProvider{name: "primary", plans: func(n int) []fakeReply {
+		if n == 1 {
+			return []fakeReply{
+				{calls: []ToolCall{searchCall("c1", "BHP")}},
+				{err: failedCall(false, true, 429)}, // the tool round's Send is refused
+			}
+		}
+		return okPlan()
+	}}
+	fallback := &routeProvider{name: "fallback", plans: always(okPlan())}
+	r := newModelRouter(testRoute(routeEnvDefault, primary), func() *TurnRoute { fb := testRoute(routeFallback, fallback); return &fb }(),
+		newTestToolExecutor(httpHandlerCounting(&executed)), 0)
+	r.retryDelay = func() time.Duration { return 0 }
+
+	if _, _, err := runTurn(r); err != nil {
+		t.Fatalf("RunTurn() error = %v", err)
+	}
+	if primary.sessions() != 1 {
+		t.Fatalf("primary sessions = %d, want 1: the turn was already billed (first call answered, %d tool runs), so it must not be re-run on the same provider", primary.sessions(), executed.Load())
+	}
+}
+
+// The first call of a failed primary attempt is billed, and it must reach the
+// answer's usage and cost, while the model that answered is the fallback.
+func TestRouterChargesTheFailedAttemptsUsageToTheAnswer(t *testing.T) {
+	primary := &routeProvider{name: "primary", plans: always([]fakeReply{
+		{calls: []ToolCall{searchCall("c1", "BHP")}, usage: TokenUsage{PromptTokens: 7, CandidateTokens: 3, TotalTokens: 10}},
+		{err: failedCall(false, true, 429)},
+	})}
+	fallback := &routeProvider{name: "fallback", plans: always([]fakeReply{
+		{calls: []ToolCall{searchCall("c1", "BHP")}},
+		{texts: []string{"ok"}, usage: TokenUsage{PromptTokens: 10, CandidateTokens: 2, TotalTokens: 12}},
+	})}
+	r, _ := routerFor(primary, fallback, 0)
+
+	resp, _, err := runTurn(r)
+	if err != nil {
+		t.Fatalf("RunTurn() error = %v", err)
+	}
+	if resp.Route != routeFallback || resp.Model != "m-fallback" {
+		t.Fatalf("answered by route %q model %q, want the fallback", resp.Route, resp.Model)
+	}
+	if resp.Usage.PromptTokens != 17 || resp.Usage.CandidateTokens != 5 || resp.Usage.TotalTokens != 22 {
+		t.Fatalf("usage = %+v, want the primary's billed call plus the fallback's answer", resp.Usage)
+	}
+}
+
+// A failed turn returns what it billed, so the ledger still counts a send whose
+// calls all failed after the model had billed them.
+func TestRouterAFailedTurnKeepsWhatItBilled(t *testing.T) {
+	primary := &routeProvider{name: "primary", plans: always([]fakeReply{
+		{calls: []ToolCall{searchCall("c1", "BHP")}, usage: TokenUsage{PromptTokens: 7, CandidateTokens: 3}},
+		{err: failedCall(false, true, 429)},
+	})}
+	r, _ := routerFor(primary, nil, 0)
+
+	_, _, err := runTurn(r)
+	if err == nil {
+		t.Fatal("RunTurn() succeeded, want the primary's failure")
+	}
+	if !modelAnswered(err) {
+		t.Fatal("a failed turn that billed a call must count as having reached the model")
+	}
+	if got := billedBy(err).usage.PromptTokens; got != 7 {
+		t.Fatalf("billed prompt tokens = %d, want the first call's 7", got)
+	}
+}
+
+// A provider that never answers fails with a timeout, which the adapter marks
+// not retryable. The router must send the turn straight to the fallback, with
+// one request to the primary and none of the queued retries.
+func TestRouterATimedOutPrimaryGoesStraightToTheFallback(t *testing.T) {
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		// Drain the body first: an HTTP/1.1 server reports a client disconnect only
+		// once the request body has been read.
+		_, _ = io.Copy(io.Discard, r.Body)
+		<-r.Context().Done() // the provider holds the request and never answers
+	}))
+	defer srv.Close()
+
+	primary := newOAProvider(t, "deepseek", srv.URL)
+	primary.timeouts = streamTimeouts{FirstByte: 50 * time.Millisecond, Idle: time.Second}
+	fallback := &routeProvider{name: "fallback", plans: always(okPlan())}
+	r := newModelRouter(testRoute(routeEnvDefault, primary), func() *TurnRoute { fb := testRoute(routeFallback, fallback); return &fb }(),
+		newTestToolExecutor(httpHandlerCounting(new(atomic.Int32))), 0)
+	r.retryDelay = func() time.Duration { return 0 }
+
+	resp, _, err := runTurn(r)
+	if err != nil || resp.Route != routeFallback {
+		t.Fatalf("turn: route %v, error %v, want the fallback's answer", resp, err)
+	}
+	if n := requests.Load(); n != 1 {
+		t.Fatalf("primary requests = %d, want 1: a timed-out call must not be retried on the same provider", n)
 	}
 }
 

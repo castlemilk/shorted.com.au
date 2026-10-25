@@ -676,7 +676,8 @@ func TestOpenAICompatNeverLeaksTheKeyInAnError(t *testing.T) {
 
 func TestOpenAICompatKeepAliveCommentsDoNotStopTheFirstByteBound(t *testing.T) {
 	// A queued request that only sends keep-alive comments must time out: a
-	// comment is not an answer.
+	// comment is not an answer. The test bounds its own context, so a regression
+	// fails in seconds with a message instead of running into the go test timeout.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -698,14 +699,23 @@ func TestOpenAICompatKeepAliveCommentsDoNotStopTheFirstByteBound(t *testing.T) {
 
 	p := newOAProvider(t, "deepseek", srv.URL)
 	p.timeouts = streamTimeouts{FirstByte: 150 * time.Millisecond, Idle: time.Second}
+	session, err := p.NewSession(oaConfig("deepseek-flash"))
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	start := time.Now()
-	_, _, err := sendOnce(t, p, oaConfig("deepseek-flash"), ToolChoiceRequired)
+	_, err = session.Send(ctx, SendInput{UserText: "question"}, ToolChoiceRequired, func(ModelEvent) {})
+	if ctx.Err() != nil {
+		t.Fatalf("the first-byte bound did not fire within 5s: keep-alive comments kept the queued call open")
+	}
 	if time.Since(start) > 3*time.Second {
 		t.Fatalf("the first-byte bound took %s to fire", time.Since(start))
 	}
 	var pe *ProviderError
-	if !errors.As(err, &pe) || !pe.Retryable || pe.Reached {
-		t.Fatalf("error = %v, want a retryable failure before any chunk", err)
+	if !errors.As(err, &pe) || pe.Retryable || pe.Reached {
+		t.Fatalf("error = %v, want a timeout before any chunk that is not retried on the same provider", err)
 	}
 	if !strings.Contains(err.Error(), "did not answer in time") {
 		t.Fatalf("error %q does not name the timeout", err)

@@ -14,9 +14,12 @@ import (
 // turnError is what a turn returns when it fails. ModelReached says whether the
 // model answered at all. A request it refuses before any response is not billed,
 // so the send must not count against the caller's limits. A failure after the
-// first response did reach the model, and counts.
+// first response did reach the model, and counts. Billed is what the calls that
+// reached the model cost, so the ledger and the turn's cost keep it even when a
+// fallback then answers.
 type turnError struct {
 	ModelReached bool
+	Billed       turnTally
 	err          error
 }
 
@@ -28,6 +31,31 @@ func (e *turnError) Unwrap() error { return e.err }
 func modelAnswered(err error) bool {
 	var te *turnError
 	return errors.As(err, &te) && te.ModelReached
+}
+
+// billedBy returns what a failed turn spent on the model, or zero when the error
+// carries no turnError.
+func billedBy(err error) turnTally {
+	var te *turnError
+	if errors.As(err, &te) {
+		return te.Billed
+	}
+	return turnTally{}
+}
+
+// withBilled adds spend to a failed turn's error. Any spend means a call reached
+// the model, so the error counts against the caller's limits.
+func withBilled(err error, spent turnTally) error {
+	if spent.calls == 0 {
+		return err
+	}
+	var te *turnError
+	if !errors.As(err, &te) {
+		return &turnError{ModelReached: true, Billed: spent, err: err}
+	}
+	total := te.Billed
+	total.merge(spent)
+	return &turnError{ModelReached: true, Billed: total, err: te.err}
 }
 
 // LLMResponse represents a response from the LLM. Provider, Model and Route name
@@ -83,10 +111,12 @@ type turnSpec struct {
 	meta            turnMeta
 }
 
-// turnTally is the usage and cost of the calls that succeeded.
+// turnTally is the usage and cost of the calls that reached the model: the ones
+// that succeeded, and any that failed after the model had billed them.
 type turnTally struct {
 	usage TokenUsage
 	cost  int64
+	calls int
 }
 
 // TurnEngine runs one chat turn over a model session: the tool rounds, their
@@ -101,22 +131,35 @@ type TurnEngine struct {
 // calls no tool, its text is the answer and the turn is marked. Each later call
 // answers every call of the previous reply, and offers tools only while the round
 // has budget. Text reaches onChunk once it is known to be the answer.
+//
+// A failed turn keeps what its calls billed, so the router can charge it to the
+// answer that follows, or to the ledger when none comes.
 func (e *TurnEngine) run(ctx context.Context, spec turnSpec, onChunk func(text string)) (*LLMResponse, error) {
 	var tally turnTally
+	resp, err := e.play(ctx, spec, onChunk, &tally)
+	if err != nil {
+		return nil, withBilled(err, tally)
+	}
+	return resp, nil
+}
+
+// play is run's body. It adds each call's usage to tally, including a failed call
+// the model billed.
+func (e *TurnEngine) play(ctx context.Context, spec turnSpec, onChunk func(text string), tally *turnTally) (*LLMResponse, error) {
 	var allToolCalls []ToolCallRecord
 
 	system := spec.cfg.System
 	if !spec.forcedFirstCall {
 		system = withNudge(system)
 	}
-	session, reply, held, err := e.sendFirst(ctx, spec, system, &tally)
+	session, reply, held, err := e.sendFirst(ctx, spec, system, tally)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(reply.ToolCalls) == 0 {
 		recordFirstCallViolation(ctx, spec.meta.Provider, spec.meta.Model)
-		session, reply, held, err = e.sendFirst(ctx, spec, withNudge(spec.cfg.System), &tally)
+		session, reply, held, err = e.sendFirst(ctx, spec, withNudge(spec.cfg.System), tally)
 		if err != nil {
 			return nil, err
 		}
@@ -179,6 +222,9 @@ func (e *TurnEngine) run(ctx context.Context, spec turnSpec, onChunk func(text s
 		cost := EstimateCostMicroUSD(spec.meta.Pricing, reply.Usage, spec.meta.Start)
 		if err != nil {
 			recordModelRequest(ctx, spec.meta.Provider, spec.meta.Model, "tool_response", "error", reply.Usage, cost)
+			if providerReached(err) {
+				tally.add(reply.Usage, cost)
+			}
 			return nil, &turnError{ModelReached: true, err: err}
 		}
 		recordModelRequest(ctx, spec.meta.Provider, spec.meta.Model, "tool_response", "success", reply.Usage, cost)
@@ -223,6 +269,9 @@ func (e *TurnEngine) sendFirst(ctx context.Context, spec turnSpec, system string
 	cost := EstimateCostMicroUSD(spec.meta.Pricing, reply.Usage, spec.meta.Start)
 	if err != nil {
 		recordModelRequest(ctx, spec.meta.Provider, spec.meta.Model, "initial", "error", reply.Usage, cost)
+		if providerReached(err) {
+			tally.add(reply.Usage, cost)
+		}
 		return nil, ModelReply{}, nil, &turnError{ModelReached: providerReached(err), err: err}
 	}
 	recordModelRequest(ctx, spec.meta.Provider, spec.meta.Model, "initial", "success", reply.Usage, cost)
@@ -239,10 +288,18 @@ func (e *TurnEngine) emitter(onChunk func(string)) func(ModelEvent) {
 	}
 }
 
-// add counts one successful call into the turn.
+// add counts one call that reached the model into the turn.
 func (t *turnTally) add(usage TokenUsage, cost int64) {
 	t.usage.Add(usage)
 	t.cost += cost
+	t.calls++
+}
+
+// merge adds another tally's spend to this one.
+func (t *turnTally) merge(other turnTally) {
+	t.usage.Add(other.usage)
+	t.cost += other.cost
+	t.calls += other.calls
 }
 
 // withNudge returns the system prompt with the first-call sentence appended.

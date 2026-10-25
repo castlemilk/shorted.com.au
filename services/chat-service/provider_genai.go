@@ -237,8 +237,9 @@ func blockingReason(resp *genai.GenerateContentResponse) string {
 
 // providerFailure wraps a stream error as a ProviderError. Reached says a chunk
 // arrived, so the call was billed. A 429 or a 5xx is retryable, and so is a
-// network failure before any chunk. A cancelled context is never retryable,
-// but a bound the guard enforced is: it is the provider's silence, not the caller's.
+// network failure before any chunk. A cancelled context is never retryable, and
+// neither is a bound the guard enforced: a timeout goes to the fallback, not back
+// to the same provider.
 func providerFailure(ctx context.Context, guard *streamGuard, op string, reached bool, err error) error {
 	pe := &ProviderError{
 		Provider: geminiProviderName,
@@ -249,7 +250,6 @@ func providerFailure(ctx context.Context, guard *streamGuard, op string, reached
 	switch {
 	case guard.expired() && ctx.Err() == nil:
 		pe.Err = providerError(op, errTimedOut)
-		pe.Retryable = !reached
 	case errors.As(err, &apiErr):
 		pe.Status = apiErr.Code
 		pe.Retryable = apiErr.Code == 429 || apiErr.Code >= 500

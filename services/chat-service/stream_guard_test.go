@@ -70,9 +70,9 @@ func TestStreamGuardCallerCancelIsNotExpiry(t *testing.T) {
 	}
 }
 
-// A Gemini endpoint that never answers must fail the call as retryable and not
-// reached: nothing was billed, and the caller may try again.
-func TestGeminiSilentEndpointTimesOutAsRetryableBeforeAnyChunk(t *testing.T) {
+// A Gemini endpoint that never answers must fail the call as a timeout that is
+// not reached and not retried on the same provider: the turn goes to the fallback.
+func TestGeminiSilentEndpointTimesOutWithoutASameProviderRetry(t *testing.T) {
 	// gone closes when the server sees the client drop the request, so the test
 	// can check that a timed-out call really lets go of its connection.
 	// The handler drains the body first: an HTTP/1.1 server reports a client
@@ -97,8 +97,8 @@ func TestGeminiSilentEndpointTimesOutAsRetryableBeforeAnyChunk(t *testing.T) {
 	if !errors.As(err, &pe) {
 		t.Fatalf("Send() error = %v, want a *ProviderError", err)
 	}
-	if pe.Reached || !pe.Retryable {
-		t.Fatalf("ProviderError{Reached:%v Retryable:%v}, want a retryable failure before any chunk", pe.Reached, pe.Retryable)
+	if pe.Reached || pe.Retryable {
+		t.Fatalf("ProviderError{Reached:%v Retryable:%v}, want a timeout before any chunk that is not retried", pe.Reached, pe.Retryable)
 	}
 	if !strings.Contains(err.Error(), "did not answer in time") {
 		t.Fatalf("error %q does not name the timeout", err)

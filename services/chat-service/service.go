@@ -260,7 +260,14 @@ func (h *ChatServiceHandler) SendMessage(
 	if err != nil {
 		recordChatExperienceEvent("send_message", "error", "llm_error")
 		h.keepPartialReply(ctx, conv.ID, fullContent)
+		// A failed turn still bills the calls that reached the model, so their tokens go to the ledger.
+		completion.InputTokens, completion.OutputTokens = completionTokens(billedBy(err).usage)
 		return modelFailure(err)
+	}
+	// The ledger names the route that answered. A failed attempt is billed, but
+	// it did not answer, so its model does not replace the answering one.
+	if llmResp.Model != "" {
+		completion.Model = llmResp.Model
 	}
 	completion.InputTokens, completion.OutputTokens = completionTokens(llmResp.Usage)
 	completion.ToolCalls = len(llmResp.ToolCalls)

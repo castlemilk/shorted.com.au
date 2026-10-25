@@ -152,9 +152,10 @@ func (r *ModelRouter) RunTurn(ctx context.Context, userID string, in TurnInput, 
 		return nil, err
 	}
 
-	// Retry the same provider once when the call never reached it: a refused
-	// connection, or a 429 or 5xx, billed nothing.
-	if pe := providerErrorOf(err); pe.Retryable && !pe.Reached {
+	// Retry the same provider once only when nothing in the turn reached the
+	// model: a refused connection, or a 429 or 5xx before the first byte, billed
+	// nothing. A timeout is not retryable, so it goes straight to the fallback.
+	if pe := providerErrorOf(err); pe.Retryable && !pe.Reached && !modelAnswered(err) {
 		if !sleepCtx(turnCtx, r.retryDelay()) {
 			return nil, err
 		}
@@ -170,12 +171,22 @@ func (r *ModelRouter) RunTurn(ctx context.Context, userID string, in TurnInput, 
 	if r.fallback == nil {
 		return nil, err
 	}
+	// The error about to be superseded may have billed calls. They are charged to
+	// the answer that follows, or to the fallback's error, so they are kept once.
+	spent := billedBy(err)
 	logFallback(r.primary.route, r.fallback.route, err)
 	resp, _, err = r.attempt(ctx, turnCtx, r.fallback, endUser, in, onChunk, false)
 	if err != nil {
-		return nil, err
+		return nil, withBilled(err, spent)
 	}
-	return annotate(resp, r.fallback.route), nil
+	return annotate(settle(resp, spent), r.fallback.route), nil
+}
+
+// settle adds the spend of failed attempts to the answer that followed them.
+func settle(resp *LLMResponse, spent turnTally) *LLMResponse {
+	resp.Usage.Add(spent.usage)
+	resp.EstCostMicroUSD += spent.cost
+	return resp
 }
 
 // fallbackAllowed says whether a failed attempt may be retried elsewhere. All
@@ -193,7 +204,7 @@ func (r *ModelRouter) fallbackAllowed(ctx, turnCtx context.Context, err error, e
 // fallback exists, the route is not called at all. With no fallback an open
 // breaker is ignored, so a single-provider deployment keeps working.
 func (r *ModelRouter) attempt(ctx, turnCtx context.Context, rs *routeState, endUser string, in TurnInput, onChunk func(string), hasFallback bool) (*LLMResponse, bool, error) {
-	allowed := rs.breaker.allow()
+	allowed, gen := rs.breaker.allow()
 	if !allowed && hasFallback {
 		return nil, false, &ProviderError{Provider: rs.route.Provider.Name(), Err: errBreakerOpen}
 	}
@@ -231,16 +242,16 @@ func (r *ModelRouter) attempt(ctx, turnCtx context.Context, rs *routeState, endU
 	}
 	switch {
 	case err == nil:
-		rs.breaker.success()
+		rs.breaker.success(gen)
 	case ctx.Err() != nil || turnCtx.Err() != nil:
 		// A cancel or an exhausted budget is not evidence about the provider.
-		rs.breaker.release()
+		rs.breaker.release(gen)
 	case providerErrorOf(err) != nil && !emitted:
-		if rs.breaker.failure() {
+		if rs.breaker.failure(gen) {
 			logBreakerOpen(rs.route)
 		}
 	default:
-		rs.breaker.release()
+		rs.breaker.release(gen)
 	}
 	return resp, emitted, err
 }
@@ -316,56 +327,76 @@ type breaker struct {
 	failures  int
 	openUntil time.Time // zero while closed
 	probing   bool      // a half-open probe is in flight
+	// gen counts the breaker's state changes: each time it opens, and each time a
+	// probe is let through. A call remembers the generation it was admitted in,
+	// and a result from an earlier generation says nothing about the present, so
+	// it is ignored. Without this a call that started before the probe could
+	// re-open the breaker while the probe was still running.
+	gen uint64
 }
 
 func newBreaker(now func() time.Time) *breaker {
 	return &breaker{now: now}
 }
 
-// allow reports whether a call may go to the route now. After the cooldown one
-// call at a time is let through as the half-open probe. A call that was allowed
-// must end in success, failure or release, or a held probe is never handed back.
-func (b *breaker) allow() bool {
+// allow reports whether a call may go to the route now, and the generation the
+// call belongs to. After the cooldown one call at a time is let through as the
+// half-open probe, which starts a new generation. A call that was allowed must
+// end in success, failure or release, or a held probe is never handed back.
+func (b *breaker) allow() (bool, uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.openUntil.IsZero() {
-		return true
+		return true, b.gen
 	}
 	if b.now().Before(b.openUntil) || b.probing {
-		return false
+		return false, b.gen
 	}
 	b.probing = true
-	return true
+	b.gen++
+	return true, b.gen
 }
 
-// success closes the breaker.
-func (b *breaker) success() {
+// success closes the breaker, unless the call belongs to an earlier generation.
+func (b *breaker) success(gen uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if gen != b.gen {
+		return
+	}
 	b.failures = 0
 	b.openUntil = time.Time{}
 	b.probing = false
 }
 
-// failure counts a failure before any text. It reports whether the breaker opened.
-func (b *breaker) failure() bool {
+// failure counts a failure before any text from a call of the current generation.
+// It reports whether the breaker opened. A failure from an earlier generation is
+// ignored.
+func (b *breaker) failure(gen uint64) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if gen != b.gen {
+		return false
+	}
 	b.failures++
 	if b.probing || b.failures >= breakerThreshold {
 		b.openUntil = b.now().Add(breakerCooldown)
 		b.probing = false
 		b.failures = 0
+		b.gen++
 		return true
 	}
 	return false
 }
 
 // release ends a call that said nothing about the route, such as a cancel. A
-// held probe is handed back.
-func (b *breaker) release() {
+// held probe is handed back, but only by the call that holds it.
+func (b *breaker) release(gen uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if gen != b.gen {
+		return
+	}
 	b.probing = false
 }
 

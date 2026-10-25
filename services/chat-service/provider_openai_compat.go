@@ -341,15 +341,15 @@ func (p *openAICompatProvider) stream(ctx context.Context, body []byte, emit fun
 	return res, nil
 }
 
-// failure wraps a transport or read error. A bound the guard enforced is the
-// provider's silence and is retryable before any chunk. A caller cancel is never
-// retryable. Anything else is retryable only before the first chunk.
+// failure wraps a transport or read error. A bound the guard enforced is not
+// retryable on the same provider: a queued request would cost another full bound
+// before the fallback. A caller cancel is never retryable. Anything else, such as
+// a refused or reset connection, is retryable only before the first chunk.
 func (p *openAICompatProvider) failure(ctx context.Context, guard *streamGuard, reached bool, err error) error {
 	pe := &ProviderError{Provider: p.spec.Name, Reached: reached}
 	switch {
 	case guard.expired() && ctx.Err() == nil:
 		pe.Err = providerError("model request", errTimedOut)
-		pe.Retryable = !reached
 	case ctx.Err() != nil:
 		pe.Err = providerError("model request", ctx.Err())
 	default:
