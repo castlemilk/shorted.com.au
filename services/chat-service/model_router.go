@@ -136,6 +136,36 @@ func (r *ModelRouter) Model() string {
 	return r.primary.route.Ref.Model
 }
 
+// RouterBounds is what the router resolved at startup: the primary's first-byte
+// and idle bounds, the turn cap, and whether a fallback is set.
+type RouterBounds struct {
+	FirstByte   time.Duration
+	Idle        time.Duration
+	Turn        time.Duration
+	HasFallback bool
+}
+
+// Bounds reports the bounds the router will enforce. They are read from the
+// providers, so a log line shows what runs, not what the config asked for.
+func (r *ModelRouter) Bounds() RouterBounds {
+	b := RouterBounds{Turn: r.budget, HasFallback: r.fallback != nil}
+	if t, ok := streamTimeoutsOf(r.primary.route.Provider); ok {
+		b.FirstByte, b.Idle = t.FirstByte, t.Idle
+	}
+	return b
+}
+
+// streamTimeoutsOf returns a provider's bounds, when it has any.
+func streamTimeoutsOf(p ChatProvider) (streamTimeouts, bool) {
+	switch v := p.(type) {
+	case *geminiProvider:
+		return v.timeouts, true
+	case *openAICompatProvider:
+		return v.timeouts, true
+	}
+	return streamTimeouts{}, false
+}
+
 // Close closes every provider the router holds.
 func (r *ModelRouter) Close() {
 	if r == nil {

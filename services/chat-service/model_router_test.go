@@ -723,3 +723,111 @@ func TestRouterChargesTheFailedAttemptsCostToTheAnswer(t *testing.T) {
 		t.Fatalf("EstCostMicroUSD = %d, want 10: the failed primary call was billed and belongs to this turn", resp.EstCostMicroUSD)
 	}
 }
+
+// End to end: the primary's filtered first call is billed (900/12), the
+// fallback answers, and the answer's usage must include the primary's tokens
+// (F1: a failed attempt's billed tokens reach the ledger).
+func TestRouterFilteredPrimaryTokensReachTheAnswer(t *testing.T) {
+	srv, _ := oaServer(t, scriptedReply{file: "finish_content_filter.sse"})
+	primary := newOAProvider(t, "deepseek", srv.URL)
+	fallback := &routeProvider{name: "fallback", plans: always(okPlan())}
+	fb := testRoute(routeFallback, fallback)
+	r := newModelRouter(testRoute(routeEnvDefault, primary), &fb, newTestToolExecutor(httpHandlerCounting(new(atomic.Int32))), 0)
+	r.retryDelay = func() time.Duration { return 0 }
+
+	resp, _, err := runTurn(r)
+	if err != nil {
+		t.Fatalf("RunTurn() error = %v", err)
+	}
+	if resp.Route != routeFallback {
+		t.Fatalf("route = %q, want the fallback", resp.Route)
+	}
+	if resp.Usage.PromptTokens < 900 {
+		t.Fatalf("answer usage = %+v, want the primary's billed 900 prompt tokens included", resp.Usage)
+	}
+}
+
+// A call admitted while the breaker was closed can finish after the breaker has
+// opened. Its success says nothing about the route now, so it must not close it.
+func TestBreakerAStaleSuccessDoesNotCloseAnOpenedBreaker(t *testing.T) {
+	clock := &fakeTime{t: time.Unix(0, 0)}
+	b := newBreaker(clock.now)
+
+	_, slow := b.allow() // admitted while closed, still in flight
+	for range breakerThreshold {
+		ok, gen := b.allow()
+		if !ok {
+			t.Fatal("a closed breaker refused a call")
+		}
+		b.failure(gen)
+	}
+	if ok, _ := b.allow(); ok {
+		t.Fatal("the breaker should be open after the failures")
+	}
+
+	b.success(slow)
+	if ok, _ := b.allow(); ok {
+		t.Fatal("a stale success closed the breaker before its cooldown ended")
+	}
+}
+
+// A call admitted before the breaker opened can release after a probe is held.
+// Its release must not hand back the probe, or a second probe goes through while
+// the first is still in flight.
+func TestBreakerAStaleReleaseDoesNotFreeAHeldProbe(t *testing.T) {
+	clock := &fakeTime{t: time.Unix(0, 0)}
+	b := newBreaker(clock.now)
+
+	_, stale := b.allow() // admitted while closed
+	for range breakerThreshold {
+		ok, gen := b.allow()
+		if !ok {
+			t.Fatal("a closed breaker refused a call")
+		}
+		b.failure(gen)
+	}
+	clock.advance(breakerCooldown)
+	ok, probe := b.allow()
+	if !ok {
+		t.Fatal("the cooldown elapsed but the probe was refused")
+	}
+
+	b.release(stale)
+	if ok, _ := b.allow(); ok {
+		t.Fatal("a stale release freed the held probe: a second probe went through")
+	}
+	b.success(probe)
+	if ok, _ := b.allow(); !ok {
+		t.Fatal("the probe's success did not close the breaker")
+	}
+}
+
+// The startup log reports the bounds the router resolved. On the prod env the
+// alone-mode bounds apply and no fallback is set.
+func TestModelRouterBoundsReportTheResolvedValuesOnProd(t *testing.T) {
+	setTerraformProdEnv(t)
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() error = %v", err)
+	}
+	r, err := NewModelRouter(context.Background(), cfg, NewToolExecutor("http://127.0.0.1:1"))
+	if err != nil || r == nil {
+		t.Fatalf("NewModelRouter() = %v, %v", r, err)
+	}
+	want := RouterBounds{FirstByte: 30 * time.Second, Idle: 20 * time.Second, Turn: 55 * time.Second, HasFallback: false}
+	if got := r.Bounds(); got != want {
+		t.Fatalf("Bounds() = %+v, want %+v", got, want)
+	}
+}
+
+// With a fallback, the first-byte bound and the turn cap are the fallback-mode
+// values, and the log reports that a fallback is set.
+func TestModelRouterBoundsReportTheFallbackMode(t *testing.T) {
+	primary := testRoute(routeEnvDefault, &geminiProvider{timeouts: streamTimeouts{FirstByte: 15 * time.Second, Idle: 20 * time.Second}})
+	fallback := testRoute(routeFallback, &routeProvider{name: "fallback", plans: always(okPlan())})
+	r := newModelRouter(primary, &fallback, newTestToolExecutor(httpHandlerCounting(new(atomic.Int32))), 0)
+	want := RouterBounds{FirstByte: 15 * time.Second, Idle: 20 * time.Second, Turn: 50 * time.Second, HasFallback: true}
+	if got := r.Bounds(); got != want {
+		t.Fatalf("Bounds() = %+v, want %+v", got, want)
+	}
+}

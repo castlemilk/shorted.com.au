@@ -101,8 +101,9 @@ func main() {
 		if cfg.ChatFallbackProvider != "" {
 			fallback = cfg.ChatFallbackProvider + "/" + cfg.ChatFallbackModel
 		}
-		log.Printf("chat model initialized (primary: %s/%s, fallback: %s, max_output_tokens: %d, turn_timeout: %s)",
-			cfg.ChatProvider, cfg.ChatModel, fallback, cfg.ChatMaxOutputTokens, cfg.ChatTurnTimeout)
+		b := router.Bounds()
+		log.Printf("chat model initialized (primary: %s/%s, fallback: %s, max_output_tokens: %d, first_byte_timeout: %s, idle_timeout: %s, turn_timeout: %s, fallback_set: %t)",
+			cfg.ChatProvider, cfg.ChatModel, fallback, cfg.ChatMaxOutputTokens, b.FirstByte, b.Idle, b.Turn, b.HasFallback)
 	} else {
 		log.Println("WARNING: No GEMINI_API_KEY configured, chat will not work")
 	}
