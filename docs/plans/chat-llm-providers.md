@@ -3,6 +3,15 @@
 Status: plan, 2026-10-24. Phases ship as separate PRs (§8). Vendor facts were
 read on 2026-10-24 and must be re-checked before any activation.
 
+> **Update, 2026-10-25: Flaggr chooses the model per user (§12).** The
+> `chat-model` flag replaces the database routing table and the admin UI for
+> model selection. Those parts are marked "superseded" below: §4's
+> `chat_model_routing` table and its reading and writing rules, the
+> `ActivateModel` and `RollbackModel` RPCs, the `activate_chat_model` and
+> `rollback_chat_model` MCP tools, the §7 routing card and activation dialog,
+> and the model-selection parts of P3a, P4 and P5. The ledger, the usage
+> columns, the eval and gate, the catalog and the usage views stay as written.
+
 ## 0. What the research established
 
 1. **DeepSeek's model lineup has changed.**
@@ -301,11 +310,16 @@ Titles are a truncation today (`conversationTitle`), not a model call, so nothin
 
 ## 4. Data model (P3a)
 
+> **Superseded for model selection by §12.** The `chat_model_routing` table and
+> its reading and writing rules below are not built, and the flag replaces them.
+> The `chat_model_configs`, `chat_model_eval_runs` and `chat_usage_events`
+> columns are kept.
+
 Number the migrations at PR time and re-check origin/main. Both are allowlisted in `terraform-deploy.yml`, after 000147 and before 000138, with comment blocks like 000145's.
 
 - **`chat_model_configs`**: id, created_at, created_by (`oauth:<uid>` | `web:<uid>`), provider, model, max_output_tokens (64–8192), temperature, params JSONB (the closed set), params_hash (sha256 of the canonical ref), fallback_provider, fallback_model. CHECKs on the provider slug and the model length.
 - **`chat_model_eval_runs`**: one row per smoke or gate run, holding the suite, ref, status (`running|passed|failed|errored`), counts (turns, data_turns, correct, grounded, errored, no_data_chosen, first_call_violations), p50/p90, tokens, est cost, failures JSONB and results JSONB (fixed prompts only). Indexed on (provider, model, params_hash, finished_at DESC).
-- **`chat_model_routing`**: an append-only snapshot log. The newest row is the live state, so the table is also the audit log. Columns: actor, action (`activate|stage|promote|rollback|reset`), stable_config_id (NULL = env default), candidate_config_id, rollout_mode (`off|users|percent`), rollout_percent, rollout_user_ids JSONB, eval_run_id, eval_bypassed, restored_from_id, reason. A CHECK ties the candidate to the rollout mode.
+- **`chat_model_routing`** (superseded by §12): an append-only snapshot log. The newest row is the live state, so the table is also the audit log. Columns: actor, action (`activate|stage|promote|rollback|reset`), stable_config_id (NULL = env default), candidate_config_id, rollout_mode (`off|users|percent`), rollout_percent, rollout_user_ids JSONB, eval_run_id, eval_bypassed, restored_from_id, reason. A CHECK ties the candidate to the rollout mode.
 - **`chat_usage_events`** gains nullable columns: provider, config_id, route, cached_input_tokens, est_cost_micro_usd, first_text_ms, total_ms, first_call_violation. They are added by one ALTER behind a `pg_attribute` guard, so a replay takes no lock on this hot table (000146's reasoning).
 
 Every statement is IF NOT EXISTS or catalog-guarded, runs under `SET LOCAL lock_timeout = '15s'`, and touches no row.
@@ -344,6 +358,8 @@ Auth works like this:
 
 RPCs: `GetModelState`, `RunModelEval` (suite smoke | gate), `ActivateModel` (stage | activate | promote), `RollbackModel` (never gated), `ListRoutingHistory`, `GetModelUsage`.
 
+Superseded by §12: `ActivateModel`, `RollbackModel` and `ListRoutingHistory`, which choose the model for real users, and the routing fields of `GetModelState`. `RunModelEval` and `GetModelUsage` stay.
+
 Activation rules:
 
 1. **Validation.**
@@ -373,10 +389,14 @@ Two edits are required:
 | `chat_model_status` | state + 24h usage + last 5 snapshots | 20s |
 | `test_chat_model` | smoke suite: 4 fixed prompts (BHP short %, most shorted, "hi", "What does T+4 mean?") | 60s |
 | `evaluate_chat_model` | gate suite, returns `eval_run_id` | 85s (under the 90s `StreamLifetime`) |
-| `activate_chat_model` | stage `preview_me` / `percent` / `all`, needs reason + expected_snapshot_id | 20s |
-| `rollback_chat_model` | to a snapshot, or reset to the env default | 20s |
+| `activate_chat_model` | superseded by §12 | 20s |
+| `rollback_chat_model` | superseded by §12 | 20s |
 
 ## 7. Admin web UI (`/admin/chat`)
+
+> **Superseded for model selection by §12.** The routing card, the Activate
+> dialog and Rollback/Reset are not needed once Flaggr chooses the model. The
+> Test, Run gate, Providers, Catalog and Records sections stay.
 
 The page is a server component that runs `requireAdmin()`, with `dynamic = "force-dynamic"` and `maxDuration = 120`. The client console uses server actions only and imports no Connect code. Each action runs `requireAdmin()` and calls chat-service at `CHAT_SERVICE_ADMIN_URL` (the run.app origin) with the internal secret and `X-Admin-Actor: web:<uid>`.
 
@@ -513,7 +533,7 @@ Each provider's key comes from env, and startup calls `registerSecrets(key)` for
   - Gate thresholds: correct ≥ 0.90 (11/12), grounded = 1.0, errored = 0, noDataChosen = 0, first-call violations on data turns = 0, p90 ≤ 20s.
   - Runs are synchronous with no background goroutines, because Cloud Run sets `cpu_idle=true`.
   - A turn unfinished at the budget counts as errored.
-- **Store and router.** `routing_store.go` with a DB test, plus the router changes for caching, rollout and validation.
+- **Store and router.** Superseded by §12: no `routing_store.go`. The flagged routes come from `buildChatModelRoutes` (`model_flag_routes.go`), and the selector is `model_flag.go`.
 - **Migrations.** The two migrations with down files, plus `.test.mjs` guards cloned from `chat_message_partial.test.mjs`, and the allowlist lines.
 - **Usage columns.** `chat_limits.go` writes the new usage columns, falling back on 42703.
 
@@ -531,7 +551,7 @@ Each provider's key comes from env, and startup calls `registerSecrets(key)` for
 
 ### P4: admin MCP tools (shorts API)
 
-- **`admin.go`:** `ScopeChatAdmin = "chat:admin"`, appended last, with `AdminChatOperator` and the five tools.
+- **`admin.go`:** `ScopeChatAdmin = "chat:admin"`, appended last, with `AdminChatOperator` and the tools. The two model-selection tools are superseded by §12.
 - **`admin_chat.go`:** handlers that check the scope first, with the bounds in §6. They log `admin <tool>: actor=…`.
 - **`mcp_admin_chat.go` (shorts):** `newChatAdminClientFromEnv()`. It needs `CHAT_SERVICE_URL` and `INTERNAL_SERVICE_SECRET`; with either missing, the tools return "not configured".
 - **`consent.go`:** the scope description, plus a test that every `AdminScopes` entry has one.
@@ -540,7 +560,7 @@ Each provider's key comes from env, and startup calls `registerSecrets(key)` for
 
 ### P5: admin web UI and paid-probe model reporting
 
-- **Pages and actions:** `web/src/app/admin/chat/page.tsx`, `chat-model-console.tsx` and `web/src/app/actions/admin/chatModels.ts`, plus a link from `/admin`, with `'admin/chat': 120` in `scripts/verify-vercel-function-limits.mjs`.
+- **Pages and actions:** `web/src/app/admin/chat/page.tsx`, `chat-model-console.tsx` and `web/src/app/actions/admin/chatModels.ts`, plus a link from `/admin`, with `'admin/chat': 120` in `scripts/verify-vercel-function-limits.mjs`. Superseded by §12 for the activation controls; the eval and usage panels stay.
 - **Probe:** `servedBy` is passed to `data-shorted-final` only for `svc-paid-probe` and admins. `checkChat` reports `model=<provider>/<model> (<route>)`, so Telesis `paid-feature: chat` shows the active model.
 
 ### P1b: chat's Gemini adapter on `google.golang.org/genai` (decided 2026-10-24, right after P1)
@@ -584,6 +604,7 @@ P1 confines it to one file, so the swap touches only that adapter.
 
 ## 9. Secrets, Terraform and deploy
 
+- **The chat-model flag (§12) secrets.** `FLAGGR_API_KEY` (the project token, `fgr_...`), `FLAGGR_SERVICE_ID` and `DEEPSEEK_API_KEY`. The workflow syncs each to Secret Manager only when its GitHub secret is set, and sets the matching Terraform input (`flaggr_api_key_secret_name`, `flaggr_service_id`, `deepseek_api_key_secret_name`). An unset value adds no env var and no grant. `validate-secrets` does not require them.
 - **Cuttlefish holds the deploy secrets.** Set them with `printf '%s' "$KEY" | cuttle secrets set DEEPSEEK_API_KEY --project shorted`, and the same for `OPENROUTER_API_KEY_CHAT`. Use a chat-only DeepSeek key with a low prepaid balance, where a 402 becomes a graceful Gemini fallback plus an alert, and an OpenRouter key with a credit limit.
 - **Add the validator `scripts/validate-openai-compatible-key.sh [-|KEY] BASE_URL MODEL`.**
   - Follow the contract of `validate-gemini-key.sh`: the key comes on stdin and never appears in argv, and `set +x` is set.
@@ -634,10 +655,74 @@ Client choices:
 
 1. **Which providers first:** a gate run on `gemini-2.5-flash-lite` (config only, about 70% cheaper), then DeepSeek direct `deepseek-flash` with thinking off. OpenRouter for experiments, pinned to endpoints that honour forced tool choice.
 2. **Data handling:** DeepSeek direct is hosted in the PRC. Admin self-preview is allowed, but percent or all rollout waits for a privacy review and a privacy-policy update. The alternative is OpenRouter with `data_collection:"deny"` / `zdr` on US endpoints.
-3. **Routing:** global, with staged rollout (self-preview, percent, all). Per-tier routing is deferred.
+   - **Decided 2026-10-25 (product owner):** prod sets `CHAT_ALLOW_PRC_HOSTED_PROVIDER=true`, so DeepSeek direct is selectable through the `chat-model` flag. It is never the default, and no user reaches it unless Flaggr targets them. The privacy review and the privacy-policy update are still open.
+3. **Routing:** superseded by §12. The model is chosen per user by the Flaggr `chat-model` flag, and the default stays the env model. Per-tier routing is deferred.
 4. **Eval-gate bypass:** only for self-preview. Percent, all and promote always need a gate passed within 7 days on the exact config. Rollback and reset are never gated.
 5. **Gate thresholds:** ≥ 11/12 correct, 12/12 grounded, 0 errored, 0 first-call violations, p90 ≤ 20s. Plus the offline 56-turn harness at 0.95 before switching provider families.
 6. **Custom model IDs:** allowed for test and smoke only. Activation is catalog-only.
 7. **Automatic fallback:** on, to env Gemini, with an alert on its rate.
 8. **Keys and spend caps:** a separate chat-only key for each provider, with a spend cap.
 9. **Showing the model to users:** no. `served_by` reaches admins and the probe only.
+
+## 12. Switching the chat model with Flaggr
+
+The model is chosen per user by the Flaggr flag `chat-model`. Code: `model_flag.go`
+(the selector), `model_flag_routes.go` (the registry) and `service.go` (`runTurn`).
+The default route is the env router, unchanged, so with no flag the service does
+exactly what it did before.
+
+**The flag.** Key `chat-model`, a string flag, in the `production` environment of
+the Flaggr service whose id is `FLAGGR_SERVICE_ID`. The value is a route id,
+`<provider>:<model>`. `""` or `"default"` means the env default, which is
+`gemini:gemini-2.5-flash` in prod. The activatable route ids are:
+
+- `gemini:gemini-2.5-flash` (the default), `gemini:gemini-2.5-flash-lite`
+- `deepseek:deepseek-flash`, `deepseek:deepseek-v4-pro`
+- `openrouter:deepseek/deepseek-v4-flash`, `openrouter:openai/gpt-5-mini`
+
+`CatalogRouteIDs()` lists them from the catalog. A route is offered only when the
+service runs it: its key is set, `validateRoute` accepts it for the environment,
+and it is activatable. The startup log `chat model flag on: default=... flagged_routes=[...]`
+lists what this deployment offers. In prod, OpenRouter's key is not wired yet, so
+its two routes are not offered. A value outside that list is a default with
+`default_unknown_route`, never an error. The flag cannot choose a route the
+deploy-time guards refuse.
+
+**Targeting.** Flaggr targets by the user id (`TargetingKey`). Before you enable it
+for anyone else, add a rule for your own uid and check the route on your own turn
+(`route=` and `route_source=flag` in the `chat turn:` log line).
+
+**Fail-open.** Every failure returns the default, and the turn is answered with no
+error. That covers an unset key or service id (no client, no call), a timeout (200ms
+per lookup, so a new user's first turn adds at most that), a transport error, a
+401, 403, 429 or 5xx, a malformed answer, `NOT_FOUND`, a disabled flag, an unknown
+or wrong-type value, and a panic. After 3 consecutive failures Flaggr is not called
+for 60s; the breaker logs once when it opens and once when it closes. Answers are cached per
+user for 30s (`CHAT_MODEL_FLAG_TTL`), and a stale answer is served while one background
+refresh runs. A flagged route that fails before any text still falls back to the Gemini
+default, through the router's usual rules.
+
+**Watch.** The counter `shorted.chat.model_flag_evaluations_total{outcome}`, with
+outcomes `flag`, `cache`, `stale` and the `default_*` reasons. A rising
+`default_timeout` or `default_breaker` means Flaggr is slow or down. A rising
+`default_error` means its answers are failing. Rate-limit warnings are on the
+`chat model flag:` log lines, at most one a minute per kind. Flaggr allows 1,000
+requests a minute from one IP, so watch `default_error` for 429s.
+
+**Operator steps to switch it on.**
+
+1. Create the Flaggr project and the `chat-model` string flag in its `production`
+   environment, with a rule for your uid. Copy the service id from its Connection
+   tab, and create a project API token (`fgr_...`).
+2. Set the GitHub secrets `FLAGGR_API_KEY` (the token), `FLAGGR_SERVICE_ID`
+   (the service id) and `DEEPSEEK_API_KEY` (a chat-only key with a low balance).
+   Cuttlefish holds the deploy values: `cuttle secrets set NAME --project shorted`.
+   The workflow syncs each to Secret Manager, and sets the Terraform inputs for you.
+   No Terraform variable needs setting by hand.
+3. Deploy. Prod already sets `CHAT_ALLOW_PRC_HOSTED_PROVIDER=true`, and the default
+   stays Gemini. Check the startup log for `chat model flag on` and the route list.
+
+**Off.** Remove the `FLAGGR_API_KEY` GitHub secret and deploy: the next plan drops its
+env var and grant, and with no key the selector makes no calls. To stop it at once,
+remove the `FLAGGR_API_KEY` env var from the Cloud Run revision, then remove the
+secret so the next deploy does not restore it.
