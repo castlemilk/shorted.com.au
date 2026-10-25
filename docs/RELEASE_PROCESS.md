@@ -168,7 +168,10 @@ Recognise one with `cuttle run diagnose <run-id>`:
   (`infrastructure: ...`), typically `micropod: exit code unavailable`,
   `micropod: create cf-attempt-…: deadline_exceeded`, or a start response that
   was lost or refused.
-- The check's outcome reads `interrupted_outcome_unknown` with no step output.
+- The attempt was interrupted with its outcome unknown and no step output. On
+  2026-10-25 this showed as `interrupted_outcome_unknown` on the check. That
+  label is not in the cuttle CLI or the Cuttlefish source, so match on the
+  shape of the diagnose output, not on the exact string.
   A step that printed output, or a failure with a real non-zero exit code, is
   a code or test failure: read its log and do not re-run it blindly.
 
