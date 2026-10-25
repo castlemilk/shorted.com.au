@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/genai"
 )
@@ -792,5 +793,49 @@ func TestBuildGeminiToolsDeclaresNoParametersForAParameterlessTool(t *testing.T)
 	}
 	if decls[1].Parameters == nil || decls[1].Parameters.Type != genai.TypeObject || !slices.Equal(decls[1].Parameters.Required, []string{"query"}) {
 		t.Fatalf("one_arg parameters = %+v, want an object requiring query", decls[1].Parameters)
+	}
+}
+
+// A Gemini reply that streams steadily (a chunk every 60ms, each inside the
+// 150ms idle bound) for longer than the 150ms first-byte bound must complete. The
+// first-byte bound ends at the first chunk; if the stream keeps arriving, only the
+// idle bound may end it. Without the touch that re-arms the idle bound, this reply
+// is cut off at the first-byte bound.
+func TestGeminiStreamKeepsTheIdleBoundNotTheFirstByteBound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		f, _ := w.(http.Flusher)
+		for i := range 8 {
+			finish := ""
+			if i == 7 {
+				finish = `,"finishReason":"STOP"`
+			}
+			fmt.Fprintf(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"w%d \"}]},\"index\":0%s}]}\n\n", i, finish)
+			if f != nil {
+				f.Flush()
+			}
+			select {
+			case <-r.Context().Done():
+				return
+			case <-time.After(60 * time.Millisecond):
+			}
+		}
+	}))
+	defer srv.Close()
+
+	provider := newWireProvider(t, srv.URL)
+	provider.timeouts = streamTimeouts{FirstByte: 150 * time.Millisecond, Idle: 150 * time.Millisecond}
+	session, err := provider.NewSession(SessionConfig{Model: wireModel, System: "s", Tools: chatToolDefinitions()})
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+	var got []string
+	reply, err := session.Send(context.Background(), SendInput{UserText: "q"}, ToolChoiceAuto, func(ev ModelEvent) { got = append(got, ev.Text) })
+	if err != nil {
+		t.Fatalf("Send() error = %v after %q: a stream with a chunk every 60ms was cut off mid-reply", err, strings.Join(got, ""))
+	}
+	if !strings.HasSuffix(reply.Text, "w7 ") {
+		t.Fatalf("reply = %q, want all 8 chunks", reply.Text)
 	}
 }
