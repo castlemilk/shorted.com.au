@@ -604,7 +604,7 @@ P1 confines it to one file, so the swap touches only that adapter.
 
 ## 9. Secrets, Terraform and deploy
 
-- **The chat-model flag (§12) secrets.** `FLAGGR_API_KEY` (the project token, `fgr_...`), `FLAGGR_SERVICE_ID` and `DEEPSEEK_API_KEY`. The workflow syncs each to Secret Manager only when its GitHub secret is set, and sets the matching Terraform input (`flaggr_api_key_secret_name`, `flaggr_service_id`, `deepseek_api_key_secret_name`). An unset value adds no env var and no grant. `validate-secrets` does not require them.
+- **The chat-model flag (§12) secrets.** `FLAGGR_API_KEY` (the project token, `fgr_...`), `FLAGGR_SERVICE_ID` and `DEEPSEEK_API_KEY`. They are read from Cuttlefish's secret store, not the GitHub repo secrets. A value counts as set only when it has content after CR, LF and whitespace are removed. A set value is synced to Secret Manager, and the matching Terraform input is passed (`flaggr_api_key_secret_name`, `flaggr_service_id`, `deepseek_api_key_secret_name`). An unset or blank value adds no env var and no grant. `validate-secrets` does not require them.
 - **Cuttlefish holds the deploy secrets.** Set them with `printf '%s' "$KEY" | cuttle secrets set DEEPSEEK_API_KEY --project shorted`, and the same for `OPENROUTER_API_KEY_CHAT`. Use a chat-only DeepSeek key with a low prepaid balance, where a 402 becomes a graceful Gemini fallback plus an alert, and an OpenRouter key with a credit limit.
 - **Add the validator `scripts/validate-openai-compatible-key.sh [-|KEY] BASE_URL MODEL`.**
   - Follow the contract of `validate-gemini-key.sh`: the key comes on stdin and never appears in argv, and `set +x` is set.
@@ -676,53 +676,85 @@ the Flaggr service whose id is `FLAGGR_SERVICE_ID`. The value is a route id,
 `<provider>:<model>`. `""` or `"default"` means the env default, which is
 `gemini:gemini-2.5-flash` in prod. The activatable route ids are:
 
-- `gemini:gemini-2.5-flash` (the default), `gemini:gemini-2.5-flash-lite`
+- `gemini:gemini-2.5-flash` (the default)
 - `deepseek:deepseek-flash`, `deepseek:deepseek-v4-pro`
 - `openrouter:deepseek/deepseek-v4-flash`, `openrouter:openai/gpt-5-mini`
 
-`CatalogRouteIDs()` lists them from the catalog. A route is offered only when the
-service runs it: its key is set, `validateRoute` accepts it for the environment,
-and it is activatable. The startup log `chat model flag on: default=... flagged_routes=[...]`
-lists what this deployment offers. In prod, OpenRouter's key is not wired yet, so
-its two routes are not offered. A value outside that list is a default with
-`default_unknown_route`, never an error. The flag cannot choose a route the
-deploy-time guards refuse.
+`gemini:gemini-2.5-flash-lite` is not activatable: Google returns 404 for it on new
+keys, so a route to it would fail every turn.
 
-**Targeting.** Flaggr targets by the user id (`TargetingKey`). Before you enable it
-for anyone else, add a rule for your own uid and check the route on your own turn
-(`route=` and `route_source=flag` in the `chat turn:` log line).
+`CatalogRouteIDs()` lists the activatable ones from the catalog. A route is offered only
+when the service runs it: its key is set, `validateRoute` accepts it for the
+environment, and it is activatable. The startup log `chat model flag on: default=...
+flagged_routes=[...]` lists what this deployment offers. In prod, OpenRouter's key is
+not wired yet, so its two routes are not offered. A value outside that list is a
+default with `default_unknown_route`, never an error. The flag cannot choose a route
+the deploy-time guards refuse.
+
+**Setup, in this order.**
+
+1. Create the flag `chat-model` as a string flag in the `production` environment.
+2. Set its **default value to `default`**. If the default is a DeepSeek route, every
+   user gets DeepSeek, and the targeting rule below does nothing to stop it.
+3. Add a targeting rule for the owner's uid only, with the route you want to test.
+   Check it on your own turn (`route=` and `route_source=flag` in the `chat turn:`
+   log line) before you widen the rule to anyone else.
+4. Copy the service id from the service's Connection tab, and create a project API
+   token (`fgr_...`).
+
+**Targeting.** Flaggr targets by the user id (`TargetingKey`) and the constant
+attribute `environment`. Per-turn values such as the stock code or the retry flag
+are not sent, so a rule cannot depend on them. The answer is cached per user, which
+is why a per-turn attribute could never be honoured consistently.
 
 **Fail-open.** Every failure returns the default, and the turn is answered with no
-error. That covers an unset key or service id (no client, no call), a timeout (200ms
-per lookup, so a new user's first turn adds at most that), a transport error, a
-401, 403, 429 or 5xx, a malformed answer, `NOT_FOUND`, a disabled flag, an unknown
-or wrong-type value, and a panic. After 3 consecutive failures Flaggr is not called
-for 60s; the breaker logs once when it opens and once when it closes. Answers are cached per
-user for 30s (`CHAT_MODEL_FLAG_TTL`), and a stale answer is served while one background
-refresh runs. A flagged route that fails before any text still falls back to the Gemini
-default, through the router's usual rules.
+error. That covers an unset key or service id (no client, no call), a turn-wait timeout
+(`CHAT_MODEL_FLAG_TIMEOUT`, 200ms), a transport error, a 401, 403, 429 or 5xx, a
+malformed answer, `NOT_FOUND`, a disabled flag, an unknown or wrong-type value, and a
+panic. A lookup runs for its own bound (`CHAT_MODEL_FLAG_LOOKUP_TIMEOUT`, 1s), so an
+answer that arrives after the turn has moved on is cached for the next turn. After
+3 consecutive failures Flaggr is not called for 60s; the breaker logs once when it opens
+and once when it closes.
+
+A cached answer is used as fresh for `CHAT_MODEL_FLAG_TTL` (30s). Past that it is
+served stale, with one background refresh, for at most `CHAT_MODEL_FLAG_MAX_STALE`
+(5m). Past the cap the turn waits for Flaggr like a first turn, so a flag change
+reaches a user within the cap. A failed refresh evicts the user's entry, so the next
+turn gets the default. A flagged route that fails before any text still falls back to
+the Gemini default, through the router's usual rules. A turn sent on by an open
+primary breaker logs a WARNING at most once a minute, not an ERROR per turn.
 
 **Watch.** The counter `shorted.chat.model_flag_evaluations_total{outcome}`, with
 outcomes `flag`, `cache`, `stale` and the `default_*` reasons. A rising
 `default_timeout` or `default_breaker` means Flaggr is slow or down. A rising
-`default_error` means its answers are failing. Rate-limit warnings are on the
-`chat model flag:` log lines, at most one a minute per kind. Flaggr allows 1,000
-requests a minute from one IP, so watch `default_error` for 429s.
+`default_error` means its answers are failing, including 429s from its 1,000
+requests a minute per IP limit. Rate-limit warnings are on the `chat model flag:` log
+lines, at most one a minute per kind. A failed turn logs `chat turn failed:` with the
+route the flag picked and its source.
 
 **Operator steps to switch it on.**
 
-1. Create the Flaggr project and the `chat-model` string flag in its `production`
-   environment, with a rule for your uid. Copy the service id from its Connection
-   tab, and create a project API token (`fgr_...`).
-2. Set the GitHub secrets `FLAGGR_API_KEY` (the token), `FLAGGR_SERVICE_ID`
-   (the service id) and `DEEPSEEK_API_KEY` (a chat-only key with a low balance).
-   Cuttlefish holds the deploy values: `cuttle secrets set NAME --project shorted`.
-   The workflow syncs each to Secret Manager, and sets the Terraform inputs for you.
-   No Terraform variable needs setting by hand.
-3. Deploy. Prod already sets `CHAT_ALLOW_PRC_HOSTED_PROVIDER=true`, and the default
-   stays Gemini. Check the startup log for `chat model flag on` and the route list.
+1. Set up the flag as above.
+2. Set the deploy secrets in Cuttlefish, not GitHub:
+   `printf '%s' "$VALUE" | cuttle secrets set FLAGGR_API_KEY --project shorted`, and the
+   same for `FLAGGR_SERVICE_ID` and `DEEPSEEK_API_KEY` (a chat-only key with a low
+   balance). Deploys read these from Cuttlefish's store. A GitHub repo secret changes
+   nothing for them.
+3. Deploy. The workflow's Resolve step sets the Terraform names, and the sync step
+   writes the values to Secret Manager. No Terraform variable needs setting by hand.
+   On the first apply that creates the grants, the `time_sleep` waits 30s so the
+   revision is not refused while they propagate. A re-run fixes an apply that still
+   fails.
+4. Prod already sets `CHAT_ALLOW_PRC_HOSTED_PROVIDER=true`, and the default stays
+   Gemini. Check the startup log for `chat model flag on` and the route list.
 
-**Off.** Remove the `FLAGGR_API_KEY` GitHub secret and deploy: the next plan drops its
-env var and grant, and with no key the selector makes no calls. To stop it at once,
-remove the `FLAGGR_API_KEY` env var from the Cloud Run revision, then remove the
-secret so the next deploy does not restore it.
+**Off.** Delete the secret from Cuttlefish, then deploy:
+
+```bash
+cuttle secrets delete FLAGGR_API_KEY --project shorted
+# and the same for any copy set with --environment production
+```
+
+The next deploy drops the env var and the grant, and with no key the selector makes no
+calls. Deleting the secret is the off switch; removing the GitHub secret changes nothing
+for deploys.
