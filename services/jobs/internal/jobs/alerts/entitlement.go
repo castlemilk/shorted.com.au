@@ -8,9 +8,9 @@ import (
 
 	"connectrpc.com/connect"
 
-	"github.com/castlemilk/shorted.com.au/services/pkg/subscription"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
+	"github.com/castlemilk/shorted.com.au/services/pkg/subscription"
 )
 
 // Entitlement is decided by the shorts API, which owns the rule (ResolveEntitlement:

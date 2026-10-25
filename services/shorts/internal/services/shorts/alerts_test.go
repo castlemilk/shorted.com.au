@@ -83,6 +83,9 @@ func TestCreateAlertMonitor_RequiresEntitlement(t *testing.T) {
 		{"free tier", activeRow("free")},
 		{"canceled", &shortsstore.APISubscription{UserID: "user_1", Status: "canceled", Tier: "premium"}},
 		{"period ended", periodEndedRow("premium")},
+		// API Access is a paid API tier. It carries no premium web features, and alerts are one.
+		{"API Access is paid but carries no premium alerts", activeRow("api_access")},
+		{"past due API Access inside the grace carries no premium alerts", pastDueRow("api_access", pgTimestamp(time.Now().Add(-time.Hour)), nil)},
 	}
 
 	for _, tc := range tests {

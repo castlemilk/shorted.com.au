@@ -273,6 +273,29 @@ func TestResolveEntitlement(t *testing.T) {
 
 // The store can hand the period end over in several renderings, and each one has
 // to land on the same side of the grace.
+// A past_due row's period end moves forward at every failed renewal, so a card that
+// keeps failing keeps a future period end. The grace must end at 14 days from the
+// first failed charge however far that period end runs.
+func TestPastDueGraceEndsWithTheFailedChargeNotTheRenewal(t *testing.T) {
+	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
+	periodEnd := pgTimestamp(now.Add(11 * 24 * time.Hour))
+	cases := []struct {
+		name         string
+		firstFailure time.Duration
+	}{
+		{"one failed renewal, 20 days ago", -20 * 24 * time.Hour},
+		{"card failing for 50 days", -50 * 24 * time.Hour},
+		{"seven failed renewals", -210 * 24 * time.Hour},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			since := pgTimestamp(now.Add(tc.firstFailure))
+			ent := ResolveEntitlement("user_1", pastDueRow("premium", since, periodEnd), now)
+			assert.False(t, ent.Entitled, "entitled (%s) past 14 days from the first failed charge", ent.Reason)
+		})
+	}
+}
+
 func TestResolveEntitlementReadsEveryStoreTimestampLayout(t *testing.T) {
 	t.Setenv(InternalTierUsersEnv, "")
 	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)

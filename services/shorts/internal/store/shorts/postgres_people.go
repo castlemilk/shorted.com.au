@@ -57,13 +57,13 @@ type MailingListCounts struct {
 // AdminSubscription is the admin view of an api_subscriptions row. No Stripe
 // ids: the admin tools do not expose them.
 type AdminSubscription struct {
-	UserID            string
-	Email             string
-	Tier              string
-	Status            string
-	CurrentPeriodEnd  *time.Time
+	UserID           string
+	Email            string
+	Tier             string
+	Status           string
+	CurrentPeriodEnd *time.Time
 	// PastDueSince starts the past-due grace (see subscription.PastDueGrace).
-	PastDueSince *time.Time
+	PastDueSince      *time.Time
 	CancelAtPeriodEnd bool
 	CreatedAt         *time.Time
 }

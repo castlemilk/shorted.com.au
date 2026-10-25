@@ -230,3 +230,36 @@ func TestCheckRejectsAWrongSecretInsteadOfGuessing(t *testing.T) {
 		t.Fatal("a rejected internal secret must fail the run, never default to entitled or unentitled")
 	}
 }
+
+// The alerts job refuses a past_due row the API refuses, on either side of the tier
+// rule. A FREE row (what an unknown Stripe price is written as) and an API Access row
+// both carry no premium alerts, however recent the failed charge.
+func TestAlertsJobRefusesPastDueRowsTheAPIRefuses(t *testing.T) {
+	recent := timestamppb.New(time.Now().Add(-1 * time.Hour))
+	for _, tier := range []shortsv1alpha1.SubscriptionTier{
+		shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_FREE,
+		shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS,
+	} {
+		got := entitlementOf(&shortsv1alpha1.GetMySubscriptionResponse{
+			HasSubscription: true,
+			Status:          shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE,
+			Tier:            tier,
+			PastDueSince:    recent,
+		})
+		if got.Entitled {
+			t.Fatalf("alerts job entitles a past_due %s row; the API refuses it", tier)
+		}
+	}
+}
+
+// An active API Access subscriber is paid for the API, not for premium alerts.
+func TestAlertsJobRefusesActiveAPIAccess(t *testing.T) {
+	got := entitlementOf(&shortsv1alpha1.GetMySubscriptionResponse{
+		HasSubscription: true,
+		Status:          shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE,
+		Tier:            shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS,
+	})
+	if got.Entitled {
+		t.Fatal("alerts job delivers premium alerts to an API Access subscriber")
+	}
+}

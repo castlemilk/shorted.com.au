@@ -41,7 +41,6 @@ var paidTiers = map[string]struct{}{
 // reconcile.
 const periodEndGrace = 72 * time.Hour
 
-
 // ResolveEntitlement decides a user's entitlement from their internal grant and
 // their store row (sub is nil when there is none).
 //
