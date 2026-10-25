@@ -16,6 +16,7 @@ require (
 	github.com/brianvoe/gofakeit/v6 v6.28.0
 	github.com/chromedp/chromedp v0.14.2
 	github.com/exaring/otelpgx v0.10.0
+	github.com/flaggr-dev/flaggr-go v0.2.0
 	github.com/go-playground/validator/v10 v10.30.5
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/generative-ai-go v0.20.1

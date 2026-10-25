@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    time = {
+      source  = "hashicorp/time"
+      version = "0.14.2"
+    }
+  }
+}
+
 /**
  * Chat Service Module
  *
@@ -14,6 +23,15 @@ locals {
     environment = var.environment
     managed_by  = "terraform"
   }
+
+  # The flag is on only with both its key and its service id, as in the service.
+  flaggr_enabled = var.flaggr_api_key_secret_name != "" && var.flaggr_service_id != ""
+
+  # Each optional secret that is named gets the chat service's read grant.
+  optional_secret_names = compact([
+    var.flaggr_api_key_secret_name,
+    var.deepseek_api_key_secret_name,
+  ])
 }
 
 # Service Account for the Cloud Run service
@@ -38,6 +56,26 @@ resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.chat_service.email}"
   project   = var.project_id
+}
+
+# Read grants for the optional secrets, one per name that is set.
+resource "google_secret_manager_secret_iam_member" "optional_secrets" {
+  for_each  = toset(local.optional_secret_names)
+  secret_id = each.value
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.chat_service.email}"
+  project   = var.project_id
+}
+
+# A new read grant takes a moment to reach Secret Manager. Cloud Run refuses a
+# revision that references a secret the service account cannot yet read, so the
+# first apply that creates a grant waits 30s before the revision. A re-run is then
+# not needed. With no optional secret the sleep is not created.
+resource "time_sleep" "optional_secret_grants" {
+  count           = length(local.optional_secret_names) > 0 ? 1 : 0
+  create_duration = "30s"
+
+  depends_on = [google_secret_manager_secret_iam_member.optional_secrets]
 }
 
 resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
@@ -169,6 +207,58 @@ resource "google_cloud_run_v2_service" "chat_service" {
         value = tostring(var.chat_max_messages_per_conversation)
       }
 
+      # Optional env vars. Each block is emitted only when its input is set, so an
+      # unset module leaves the revision exactly as it was.
+      dynamic "env" {
+        for_each = var.flaggr_api_key_secret_name != "" ? [var.flaggr_api_key_secret_name] : []
+        content {
+          name = "FLAGGR_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.flaggr_service_id != "" ? [var.flaggr_service_id] : []
+        content {
+          name  = "FLAGGR_SERVICE_ID"
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.flaggr_enabled ? [var.flaggr_environment] : []
+        content {
+          name  = "FLAGGR_ENVIRONMENT"
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.deepseek_api_key_secret_name != "" ? [var.deepseek_api_key_secret_name] : []
+        content {
+          name = "DEEPSEEK_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.allow_prc_hosted_provider ? ["true"] : []
+        content {
+          name  = "CHAT_ALLOW_PRC_HOSTED_PROVIDER"
+          value = env.value
+        }
+      }
+
       resources {
         limits = {
           cpu    = "1"
@@ -218,7 +308,9 @@ resource "google_cloud_run_v2_service" "chat_service" {
     google_secret_manager_secret_iam_member.postgres_password,
     google_secret_manager_secret_iam_member.gemini_api_key,
     google_secret_manager_secret_iam_member.internal_service_secret,
-    google_secret_manager_secret_iam_member.otel_headers
+    google_secret_manager_secret_iam_member.otel_headers,
+    google_secret_manager_secret_iam_member.optional_secrets,
+    time_sleep.optional_secret_grants,
   ]
 }
 

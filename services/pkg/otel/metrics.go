@@ -92,6 +92,9 @@ var (
 	AIToolResultBytes   otelmetric.Int64Counter
 	ChatStorageWrites   otelmetric.Int64Counter
 	ChatMessagesPruned  otelmetric.Int64Counter
+	// ChatModelFlagEvaluations counts each chat turn's model choice by outcome:
+	// a Flaggr answer, a cache or stale hit, or the default with its reason.
+	ChatModelFlagEvaluations otelmetric.Int64Counter
 )
 
 // InitCustomMetrics initializes the custom business metric instruments.
@@ -258,6 +261,11 @@ func InitCustomMetrics() {
 	ChatMessagesPruned, _ = meter.Int64Counter(
 		"shorted.chat.messages_pruned_total",
 		otelmetric.WithDescription("Total old chat messages pruned by retention guardrails"),
+	)
+
+	ChatModelFlagEvaluations, _ = meter.Int64Counter(
+		"shorted.chat.model_flag_evaluations_total",
+		otelmetric.WithDescription("Chat model flag choices per turn, by outcome"),
 	)
 }
 

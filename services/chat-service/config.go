@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"strconv"
@@ -37,6 +38,22 @@ type Config struct {
 	// ProviderKeys holds each catalog provider's key, keyed by provider name. A
 	// key is read from the environment only.
 	ProviderKeys map[string]string
+
+	// The chat-model flag. It is on only when FlaggrAPIKey and FlaggrServiceID
+	// are both set. The rest tunes it; none of them can stop startup.
+	FlaggrAPIKey      string
+	FlaggrServiceID   string
+	FlaggrEnvironment string
+	FlaggrAPIURL      string
+	// ChatModelFlagTimeout is how long a turn waits for its answer. The lookup
+	// behind it runs for ChatModelFlagLookupTimeout, so an answer that arrives
+	// after the turn has moved on is still cached for the next turn.
+	// ChatModelFlagTTL is how long an answer is used as fresh, and
+	// ChatModelFlagMaxStale is the longest an answer is served once it is past its TTL.
+	ChatModelFlagTimeout       time.Duration
+	ChatModelFlagLookupTimeout time.Duration
+	ChatModelFlagTTL           time.Duration
+	ChatModelFlagMaxStale      time.Duration
 
 	ChatMaxInputChars  int
 	ChatHistoryLimit   int
@@ -115,6 +132,7 @@ func LoadConfig() (*Config, error) {
 	if err := loadChatRouting(cfg); err != nil {
 		return nil, err
 	}
+	loadChatModelFlagConfig(cfg)
 
 	if v, err := parsePositiveIntEnv("CHAT_MAX_INPUT_CHARS"); err != nil {
 		return nil, err
@@ -235,6 +253,37 @@ func loadChatRouting(cfg *Config) error {
 		cfg.ProviderKeys["gemini"] = cfg.GeminiAPIKey
 	}
 	return nil
+}
+
+// loadChatModelFlagConfig reads the Flaggr settings. A bad duration here falls
+// back to its default with a warning: the flag is an experiment, and it must
+// never be the reason the service fails to start.
+func loadChatModelFlagConfig(cfg *Config) {
+	cfg.FlaggrAPIKey = os.Getenv("FLAGGR_API_KEY")
+	cfg.FlaggrServiceID = os.Getenv("FLAGGR_SERVICE_ID")
+	cfg.FlaggrAPIURL = os.Getenv("FLAGGR_API_URL")
+	cfg.FlaggrEnvironment = "development"
+	if cfg.Environment == "production" {
+		cfg.FlaggrEnvironment = "production"
+	}
+	if env := os.Getenv("FLAGGR_ENVIRONMENT"); env != "" {
+		cfg.FlaggrEnvironment = env
+	}
+	cfg.ChatModelFlagTimeout = durationEnvOrWarn("CHAT_MODEL_FLAG_TIMEOUT", defaultChatModelFlagTimeout)
+	cfg.ChatModelFlagLookupTimeout = durationEnvOrWarn("CHAT_MODEL_FLAG_LOOKUP_TIMEOUT", defaultChatModelFlagLookupTimeout)
+	cfg.ChatModelFlagTTL = durationEnvOrWarn("CHAT_MODEL_FLAG_TTL", defaultChatModelFlagTTL)
+	cfg.ChatModelFlagMaxStale = durationEnvOrWarn("CHAT_MODEL_FLAG_MAX_STALE", defaultChatModelFlagMaxStale)
+}
+
+// durationEnvOrWarn is parseDurationEnv that never fails: a bad value is logged
+// and replaced by the default.
+func durationEnvOrWarn(name string, def time.Duration) time.Duration {
+	d, err := parseDurationEnv(name, def)
+	if err != nil {
+		log.Printf("WARNING: %v; using %s", err, def)
+		return def
+	}
+	return d
 }
 
 // validateRoute checks one route at config load. A route with no model is refused:

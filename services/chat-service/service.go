@@ -36,9 +36,18 @@ type ChatServiceHandler struct {
 	limits chatSendLimits
 	// admitTimeout bounds admission. Zero means chatAdmitTimeout.
 	admitTimeout time.Duration
+	// models picks each turn's model from the chat-model flag. Nil means the flag
+	// is off, and every turn runs on the default runner.
+	models *chatModelSelector
 }
 
 var _ chatv1connect.ChatServiceHandler = (*ChatServiceHandler)(nil)
+
+// SetModelSelector turns on the per-user chat model flag. Without it, every turn
+// runs on the env default, as it always has.
+func (h *ChatServiceHandler) SetModelSelector(s *chatModelSelector) {
+	h.models = s
+}
 
 // NewChatServiceHandler creates a new handler.
 func NewChatServiceHandler(store *ConversationStore, runner turnRunner, cfg *Config) *ChatServiceHandler {
@@ -255,17 +264,15 @@ func (h *ChatServiceHandler) SendMessage(
 		})
 	}
 
-	llmResp, err := h.runner.RunTurn(ctx, userID, TurnInput{System: systemPrompt, History: history, UserText: msg.Message}, onChunk)
+	llmResp, pick, err := h.runTurn(ctx, userID, TurnInput{System: systemPrompt, History: history, UserText: msg.Message}, onChunk, &completion)
 	reachedModel = err == nil || modelAnswered(err)
 	if err != nil {
 		recordChatExperienceEvent("send_message", "error", "llm_error")
 		h.keepPartialReply(ctx, conv.ID, fullContent)
-		recordTurnOnLedger(&completion, nil, err)
 		return modelFailure(err)
 	}
-	recordTurnOnLedger(&completion, llmResp, nil)
-	log.Printf("chat turn: provider=%s model=%s route=%s first_call_violation=%t est_cost_micro_usd=%d",
-		llmResp.Provider, llmResp.Model, llmResp.Route, llmResp.FirstCallViolation, llmResp.EstCostMicroUSD)
+	log.Printf("chat turn: provider=%s model=%s route=%s route_source=%s route_label=%s first_call_violation=%t est_cost_micro_usd=%d",
+		llmResp.Provider, llmResp.Model, pick.routeForLog(), pick.Source, llmResp.Route, llmResp.FirstCallViolation, llmResp.EstCostMicroUSD)
 
 	// Marshal tool calls and citations for storage
 	var toolCallsJSON, citationsJSON json.RawMessage
@@ -321,6 +328,50 @@ func (h *ChatServiceHandler) SendMessage(
 	}
 
 	return nil
+}
+
+// flagPick is how a turn's model was chosen: the route id the flag named ("" for
+// the default) and the outcome, which says why.
+type flagPick struct {
+	Route  string
+	Source string
+}
+
+// routeForLog is the route id for a log line, with "default" for the env default.
+func (p flagPick) routeForLog() string {
+	if p.Route == "" {
+		return "default"
+	}
+	return p.Route
+}
+
+// runTurn plays one turn on the model the flag picks for this user, and records
+// the answering model on the ledger's completion. The flag can only pick a route
+// the registry built, and it never fails the turn: a choice that is not usable
+// is the default runner.
+func (h *ChatServiceHandler) runTurn(ctx context.Context, userID string, in TurnInput, onChunk func(string), completion *sendCompletion) (*LLMResponse, flagPick, error) {
+	runner, pick := h.pickRunner(ctx, userID)
+	completion.Model = runner.Model()
+	resp, err := runner.RunTurn(ctx, userID, in, onChunk)
+	if err != nil {
+		recordTurnOnLedger(completion, nil, err)
+		log.Printf("chat turn failed: model=%s route=%s route_source=%s", runner.Model(), pick.routeForLog(), pick.Source)
+		return nil, pick, err
+	}
+	recordTurnOnLedger(completion, resp, nil)
+	return resp, pick, nil
+}
+
+// pickRunner returns the runner for a turn, and how it was chosen.
+func (h *ChatServiceHandler) pickRunner(ctx context.Context, userID string) (turnRunner, flagPick) {
+	if h.models == nil {
+		return h.runner, flagPick{Source: flagOutcomeUnconfigured}
+	}
+	route, source := h.models.choose(ctx, userID)
+	if r := h.models.routeFor(route); r != nil {
+		return r, flagPick{Route: route, Source: source}
+	}
+	return h.runner, flagPick{Source: source}
 }
 
 // replaceFailedReply makes a retry of question idempotent. It reads the stored

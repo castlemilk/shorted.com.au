@@ -392,6 +392,10 @@ jobs:
           # chat-service logged the shared key in provider-error URLs). Falls back
           # to the shared key when the secret is unset.
           GEMINI_API_KEY_CHAT: ${{ secrets.GEMINI_API_KEY_CHAT }}
+          # Optional, read from Cuttlefish's secret store like the rest of this job's
+          # secrets (see the note below). Each is synced only when it has content.
+          FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
           # CREATE ONLY. This job has no GitHub environment, so it reads each secret's
@@ -446,6 +450,33 @@ jobs:
           ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
+          # Optional secrets are created only when they have content, the same test the
+          # Resolve step applies. Cloud Run references them by name, so a missing secret
+          # would fail the revision.
+          has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
+          if has_content "$FLAGGR_API_KEY"; then ensure_secret "FLAGGR_API_KEY" "$FLAGGR_API_KEY"; fi
+          if has_content "$DEEPSEEK_API_KEY"; then ensure_secret "DEEPSEEK_API_KEY" "$DEEPSEEK_API_KEY"; fi
+
+      - name: Resolve optional chat secrets
+        # Before the Terraform steps, so the names reach them through GITHUB_ENV. An
+        # optional secret counts as set only when it has content after CR, LF and all
+        # whitespace are removed. A blank one is unset everywhere: it is not synced to
+        # Secret Manager, and no Terraform name is passed for it.
+        env:
+          FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
+          FLAGGR_SERVICE_ID: ${{ secrets.FLAGGR_SERVICE_ID }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
+          if has_content "$FLAGGR_API_KEY"; then
+            echo "TF_VAR_flaggr_api_key_secret_name=FLAGGR_API_KEY" >> "$GITHUB_ENV"
+          fi
+          if has_content "$FLAGGR_SERVICE_ID"; then
+            echo "TF_VAR_flaggr_service_id=$(printf '%s' "$FLAGGR_SERVICE_ID" | tr -d '\r\n[:space:]')" >> "$GITHUB_ENV"
+          fi
+          if has_content "$DEEPSEEK_API_KEY"; then
+            echo "TF_VAR_deepseek_api_key_secret_name=DEEPSEEK_API_KEY" >> "$GITHUB_ENV"
+          fi
 
       - name: Terraform Plan
         id: plan
@@ -608,6 +639,10 @@ jobs:
           # chat-service logged the shared key in provider-error URLs). Falls back
           # to the shared key when the secret is unset.
           GEMINI_API_KEY_CHAT: ${{ secrets.GEMINI_API_KEY_CHAT }}
+          # Optional, read from Cuttlefish's secret store like the rest of this job's
+          # secrets (see the note below). Each is synced only when it has content.
+          FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           DATABASE_URL_DEV: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
@@ -663,6 +698,12 @@ jobs:
           ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
+          # Optional secrets are created only when they have content, the same test the
+          # Resolve step applies. Cloud Run references them by name, so a missing secret
+          # would fail the revision.
+          has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
+          if has_content "$FLAGGR_API_KEY"; then ensure_secret "FLAGGR_API_KEY" "$FLAGGR_API_KEY"; fi
+          if has_content "$DEEPSEEK_API_KEY"; then ensure_secret "DEEPSEEK_API_KEY" "$DEEPSEEK_API_KEY"; fi
           ensure_secret "ALGOLIA_APP_ID" "$ALGOLIA_APP_ID"
           ensure_secret "ALGOLIA_SEARCH_KEY" "$ALGOLIA_SEARCH_KEY"
 
@@ -1024,6 +1065,27 @@ jobs:
             ./import-existing-cloudflare.sh
           else
             echo "import script not present — skipping"
+          fi
+
+      - name: Resolve optional chat secrets
+        # Before the Terraform steps, so the names reach them through GITHUB_ENV. An
+        # optional secret counts as set only when it has content after CR, LF and all
+        # whitespace are removed. A blank one is unset everywhere: it is not synced to
+        # Secret Manager, and no Terraform name is passed for it.
+        env:
+          FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
+          FLAGGR_SERVICE_ID: ${{ secrets.FLAGGR_SERVICE_ID }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
+          if has_content "$FLAGGR_API_KEY"; then
+            echo "TF_VAR_flaggr_api_key_secret_name=FLAGGR_API_KEY" >> "$GITHUB_ENV"
+          fi
+          if has_content "$FLAGGR_SERVICE_ID"; then
+            echo "TF_VAR_flaggr_service_id=$(printf '%s' "$FLAGGR_SERVICE_ID" | tr -d '\r\n[:space:]')" >> "$GITHUB_ENV"
+          fi
+          if has_content "$DEEPSEEK_API_KEY"; then
+            echo "TF_VAR_deepseek_api_key_secret_name=DEEPSEEK_API_KEY" >> "$GITHUB_ENV"
           fi
 
       - name: Terraform Apply
