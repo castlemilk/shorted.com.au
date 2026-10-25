@@ -109,6 +109,9 @@ type ModelReply struct {
 	ToolCalls []ToolCall // complete, in model order
 	Usage     TokenUsage
 	Finish    FinishReason
+	// UsageMissing says the reply ended without a usage report, so its Usage and
+	// cost are unknown, not zero.
+	UsageMissing bool
 }
 
 // TokenUsage is the bounded token accounting of one or more model calls.

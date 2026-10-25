@@ -86,9 +86,12 @@ var (
 	AIInputCharsTotal          otelmetric.Int64Counter
 	AIToolCallsTotal           otelmetric.Int64Counter
 	AIFirstCallViolationsTotal otelmetric.Int64Counter
-	AIToolResultBytes          otelmetric.Int64Counter
-	ChatStorageWrites          otelmetric.Int64Counter
-	ChatMessagesPruned         otelmetric.Int64Counter
+	// AIUsageMissingTotal counts model replies that ended without a usage report, so
+	// their cost is unknown rather than zero.
+	AIUsageMissingTotal otelmetric.Int64Counter
+	AIToolResultBytes   otelmetric.Int64Counter
+	ChatStorageWrites   otelmetric.Int64Counter
+	ChatMessagesPruned  otelmetric.Int64Counter
 )
 
 // InitCustomMetrics initializes the custom business metric instruments.
@@ -234,6 +237,11 @@ func InitCustomMetrics() {
 	AIFirstCallViolationsTotal, _ = meter.Int64Counter(
 		"shorted.ai.first_call_violations_total",
 		otelmetric.WithDescription("Model replies whose first call chose no tool, by provider and model"),
+	)
+
+	AIUsageMissingTotal, _ = meter.Int64Counter(
+		"shorted.ai.usage_missing_total",
+		otelmetric.WithDescription("Model replies that ended without a usage report, by provider and model"),
 	)
 
 	AIToolResultBytes, _ = meter.Int64Counter(

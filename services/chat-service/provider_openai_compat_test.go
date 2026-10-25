@@ -746,3 +746,127 @@ func TestOpenAICompatIdleBoundAfterAChunkIsNotRetryable(t *testing.T) {
 		t.Fatalf("deltas = %q, want the chunk that arrived", deltas)
 	}
 }
+
+// A chunk that carries a tool call streams no text, as the Gemini adapter does. The
+// preamble in it is not shown, and the call is still kept.
+func TestOpenAICompatPreambleInAToolCallChunkIsNotShown(t *testing.T) {
+	srv, _ := oaServer(t, scriptedReply{file: "preamble_same_chunk.sse"})
+	reply, deltas, err := sendOnce(t, newOAProvider(t, "deepseek", srv.URL), oaConfig("deepseek-flash"), ToolChoiceAuto)
+	if err != nil {
+		t.Fatalf("Send() error = %v", err)
+	}
+	if len(deltas) != 0 || reply.Text != "" {
+		t.Fatalf("deltas = %q, text = %q: want no user-visible text for a round that calls a tool", deltas, reply.Text)
+	}
+	if len(reply.ToolCalls) != 1 || reply.ToolCalls[0].Name != "search_stocks" {
+		t.Fatalf("tool calls = %+v, want the search call", reply.ToolCalls)
+	}
+}
+
+// A refused reply is an error, as a Gemini SAFETY block is: it is not an answer and
+// it is not retried. It reached the model, so the call is billed.
+func TestOpenAICompatContentFilterIsARefusalNotAnAnswer(t *testing.T) {
+	srv, _ := oaServer(t, scriptedReply{file: "finish_content_filter.sse"})
+	_, _, err := sendOnce(t, newOAProvider(t, "deepseek", srv.URL), oaConfig("deepseek-flash"), ToolChoiceRequired)
+	var pe *ProviderError
+	if !errors.As(err, &pe) || pe.Retryable || !pe.Reached {
+		t.Fatalf("error = %v, want a non-retryable, reached ProviderError for a filtered reply", err)
+	}
+	if !strings.Contains(err.Error(), "filtered") {
+		t.Fatalf("error %q does not say the reply was filtered", err)
+	}
+}
+
+// A finish of "error" is a failed reply, with or without an error object. It is
+// returned as an error, never as a completed answer.
+func TestOpenAICompatFinishErrorIsAFailure(t *testing.T) {
+	for _, file := range []string{"finish_error.sse", "finish_error_object.sse"} {
+		t.Run(file, func(t *testing.T) {
+			srv, _ := oaServer(t, scriptedReply{file: file})
+			reply, _, err := sendOnce(t, newOAProvider(t, "deepseek", srv.URL), oaConfig("deepseek-flash"), ToolChoiceRequired)
+			var pe *ProviderError
+			if !errors.As(err, &pe) {
+				t.Fatalf("error = %v, want a ProviderError", err)
+			}
+			if reply.Finish == FinishStop {
+				t.Fatalf("reply finish %q: a failed reply must not read as an answer", reply.Finish)
+			}
+		})
+	}
+}
+
+// A reply with no usage report is accepted, and its cost is flagged as unknown.
+func TestOpenAICompatMissingUsageIsFlaggedNotZero(t *testing.T) {
+	srv, _ := oaServer(t, scriptedReply{file: "missing_usage.sse"})
+	reply, deltas, err := sendOnce(t, newOAProvider(t, "deepseek", srv.URL), oaConfig("deepseek-flash"), ToolChoiceRequired)
+	if err != nil {
+		t.Fatalf("Send() error = %v, want the reply accepted", err)
+	}
+	if strings.Join(deltas, "") != "Shorts are up." {
+		t.Fatalf("deltas = %q, want the answer", deltas)
+	}
+	if !reply.UsageMissing {
+		t.Fatal("UsageMissing = false, want true: a reply without usage has an unknown cost")
+	}
+
+	srv, _ = oaServer(t, scriptedReply{file: "usage_last_chunk.sse"})
+	reply, _, err = sendOnce(t, newOAProvider(t, "deepseek", srv.URL), oaConfig("deepseek-flash"), ToolChoiceRequired)
+	if err != nil || reply.UsageMissing {
+		t.Fatalf("with usage: error %v, UsageMissing %v, want no error and no flag", err, reply.UsageMissing)
+	}
+}
+
+// The request names the tools' final-round choice only where the catalog allows
+// it. A model without a none choice gets no tools at all on that round.
+func TestOpenAICompatNoneChoiceWithoutCatalogSupportOmitsTools(t *testing.T) {
+	srv, rec := oaServer(t, scriptedReply{file: "text_only.sse"})
+	if _, _, err := sendOnce(t, newOAProvider(t, "openrouter", srv.URL), oaConfig("deepseek/deepseek-v4-flash"), ToolChoiceNone); err != nil {
+		t.Fatalf("Send() error = %v", err)
+	}
+	body := rec.body(t, 0)
+	if _, ok := body["tools"]; ok {
+		t.Fatal("tools were sent on the final round, want them omitted for a model without a none choice")
+	}
+	if _, ok := body["tool_choice"]; ok {
+		t.Fatal("tool_choice was sent on the final round, want it omitted")
+	}
+}
+
+// parallel_tool_calls is sent only for a model the catalog says supports it.
+func TestOpenAICompatParallelToolCallsOnlyWhereTheCatalogSaysSo(t *testing.T) {
+	srv, rec := oaServer(t, scriptedReply{file: "text_only.sse"}, scriptedReply{file: "text_only.sse"})
+	if _, _, err := sendOnce(t, newOAProvider(t, "deepseek", srv.URL), oaConfig("deepseek-flash"), ToolChoiceRequired); err != nil {
+		t.Fatalf("deepseek Send() error = %v", err)
+	}
+	if got, ok := rec.body(t, 0)["parallel_tool_calls"]; !ok || got != true {
+		t.Fatalf("deepseek parallel_tool_calls = %v (present %v), want true", got, ok)
+	}
+	if _, _, err := sendOnce(t, newOAProvider(t, "openrouter", srv.URL), oaConfig("qwen/qwen3.8-flash"), ToolChoiceAuto); err != nil {
+		t.Fatalf("qwen Send() error = %v", err)
+	}
+	if _, ok := rec.body(t, 1)["parallel_tool_calls"]; ok {
+		t.Fatal("qwen was sent parallel_tool_calls, but the catalog does not say it supports them")
+	}
+}
+
+// The key is trimmed in the Authorization header, as it is for redaction.
+func TestOpenAICompatTrimsTheKeyInTheAuthorizationHeader(t *testing.T) {
+	var auth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth = r.Header.Get("Authorization")
+		_, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, "data: [DONE]\n\n")
+	}))
+	defer srv.Close()
+
+	spec, _ := lookupProvider("deepseek")
+	p, err := newOpenAICompatProvider(spec, srv.URL, " "+oaTestKey+"\n", nil)
+	if err != nil {
+		t.Fatalf("newOpenAICompatProvider() error = %v", err)
+	}
+	_, _, _ = sendOnce(t, p, oaConfig("deepseek-flash"), ToolChoiceRequired)
+	if auth != "Bearer "+oaTestKey {
+		t.Fatalf("Authorization = %q, want the trimmed key", auth)
+	}
+}

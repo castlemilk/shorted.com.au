@@ -1,0 +1,8 @@
+data: {"choices":[{"index":0,"delta":{"content":"The first part of a reply"},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{},"finish_reason":"content_filter"}]}
+
+data: {"choices":[],"usage":{"prompt_tokens":900,"completion_tokens":12,"total_tokens":912}}
+
+data: [DONE]
+

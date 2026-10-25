@@ -194,3 +194,26 @@ func mustMarshalLogEvent(event map[string]any) string {
 	// encoded line, where an escaped ampersand is what the key pattern must match.
 	return redactSecrets(string(data))
 }
+
+// recordUsageMissing counts a model reply that ended without a usage report. Its
+// cost is then unknown, so the estimate of zero must not be read as real.
+func recordUsageMissing(ctx context.Context, provider, model string) {
+	attrs := []attribute.KeyValue{
+		attribute.String("provider", provider),
+		attribute.String("model", model),
+	}
+	if shortedotel.AIUsageMissingTotal != nil {
+		shortedotel.AIUsageMissingTotal.Add(ctx, 1, otelmetric.WithAttributes(attrs...))
+	}
+	log.Printf(
+		"WARNING %s",
+		mustMarshalLogEvent(map[string]any{
+			"type":       "cost_event",
+			"event_type": "chat_usage_missing",
+			"severity":   "WARNING",
+			"feature":    "chat",
+			"provider":   provider,
+			"model":      model,
+		}),
+	)
+}

@@ -106,7 +106,7 @@ func (s *oaSession) Send(ctx context.Context, in SendInput, choice ToolChoice, e
 	if err != nil {
 		return ModelReply{}, &ProviderError{Provider: s.p.spec.Name, Err: providerError("encode request", err)}
 	}
-	res, err := s.p.stream(ctx, body, emit)
+	res, err := s.p.stream(ctx, s.cfg.Model, body, emit)
 	if err != nil {
 		return res.reply, err
 	}
@@ -148,9 +148,16 @@ func (s *oaSession) requestBody(choice ToolChoice) ([]byte, error) {
 		MaxTokens:     s.cfg.MaxOutputTokens,
 		Temperature:   s.cfg.Params.Temperature,
 	}
-	if len(s.cfg.Tools) > 0 {
+	caps := s.caps()
+	// A model without a none choice gets no tools at all on the final round, not a
+	// "none" it would refuse. Parallel calls are asked for only where the catalog says so.
+	if len(s.cfg.Tools) > 0 && (choice != ToolChoiceNone || caps.NoneToolChoice) {
 		req.Tools = openAITools(s.cfg.Tools)
 		req.ToolChoice = s.p.toolChoiceValue(choice)
+		if caps.ParallelToolCalls {
+			parallel := true
+			req.ParallelToolCalls = &parallel
+		}
 	}
 	if d.DisableThinking {
 		// DeepSeek thinks by default, and a thinking turn refuses a required
@@ -175,6 +182,13 @@ func (s *oaSession) requestBody(choice ToolChoice) ([]byte, error) {
 		}
 	}
 	return json.Marshal(req)
+}
+
+// caps returns the catalog capabilities of this session's model. A model the
+// catalog does not list has none, so it gets the conservative behaviour.
+func (s *oaSession) caps() ModelCapabilities {
+	m, _ := modelOrUnverified(s.p.spec.Name, s.cfg.Model)
+	return m.Caps
 }
 
 // toolChoiceValue maps a choice to the provider's wire value.
@@ -210,7 +224,7 @@ type oaRawCall struct {
 // stream sends the request and parses the event stream. Text is emitted as it
 // arrives, reasoning is kept but never emitted, and tool calls are assembled by
 // index.
-func (p *openAICompatProvider) stream(ctx context.Context, body []byte, emit func(ModelEvent)) (streamResult, error) {
+func (p *openAICompatProvider) stream(ctx context.Context, model string, body []byte, emit func(ModelEvent)) (streamResult, error) {
 	guard := newStreamGuard(ctx, p.timeouts)
 	defer guard.stop()
 
@@ -220,7 +234,9 @@ func (p *openAICompatProvider) stream(ctx context.Context, body []byte, emit fun
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	// The key is trimmed the same way it is for redaction, so a stray newline in the
+	// environment does not reach the header.
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(p.apiKey))
 	req.Header.Set("User-Agent", openAICompatUserAgent)
 
 	resp, err := p.client.Do(req)
@@ -235,6 +251,7 @@ func (p *openAICompatProvider) stream(ctx context.Context, body []byte, emit fun
 	var (
 		res        streamResult
 		text       strings.Builder
+		shown      strings.Builder // the text emitted to the person
 		reasoning  strings.Builder
 		calls      = map[int]*oaPartialCall{}
 		finish     string
@@ -271,8 +288,11 @@ func (p *openAICompatProvider) stream(ctx context.Context, body []byte, emit fun
 			usage = chunk.Usage
 		}
 		for _, c := range chunk.Choices {
-			if c.Delta.Content != "" {
-				text.WriteString(c.Delta.Content)
+			// A chunk that carries a tool call streams no text, as the Gemini adapter
+			// does: that text is a preamble such as "Let me check". The transcript keeps it.
+			text.WriteString(c.Delta.Content)
+			if c.Delta.Content != "" && len(c.Delta.ToolCalls) == 0 {
+				shown.WriteString(c.Delta.Content)
 				emit(ModelEvent{Kind: EventTextDelta, Text: c.Delta.Content})
 			}
 			reasoning.WriteString(c.Delta.ReasoningContent)
@@ -309,13 +329,29 @@ func (p *openAICompatProvider) stream(ctx context.Context, body []byte, emit fun
 		return res, &ProviderError{Provider: p.spec.Name, Reached: reached, Retryable: true,
 			Err: providerError("model stream", errors.New("the provider had insufficient resources to answer"))}
 	}
+	if finish == "content_filter" {
+		// A refused reply is not an answer, as Gemini treats a SAFETY block. The
+		// refusal is not retryable, and a fallback may run because nothing was emitted.
+		return res, &ProviderError{Provider: p.spec.Name, Reached: reached,
+			Err: providerError("model stream", errors.New("the provider filtered the reply"))}
+	}
+	if finish == "error" {
+		return res, &ProviderError{Provider: p.spec.Name, Reached: reached,
+			Err: providerError("model stream", errors.New("the provider ended the reply with an error"))}
+	}
 
 	res.text = text.String()
 	res.reasoning = reasoning.String()
-	res.reply = ModelReply{Text: res.text, Finish: mapFinishReason(finish, sawDone)}
+	res.reply = ModelReply{Text: shown.String(), Finish: mapFinishReason(finish, sawDone)}
 	if usage != nil {
 		res.reply.Usage = usage.tokenUsage()
+	} else {
+		// The cost of this reply is unknown, not zero. The flag and the counter keep
+		// a zero estimate from being read as a real one.
+		res.reply.UsageMissing = true
+		recordUsageMissing(ctx, p.spec.Name, model)
 	}
+
 	indexes := make([]int, 0, len(calls))
 	for i := range calls {
 		indexes = append(indexes, i)
@@ -434,6 +470,8 @@ type oaRequest struct {
 	UserID        string          `json:"user_id,omitempty"`
 	User          string          `json:"user,omitempty"`
 	Provider      *oaRoutingPrefs `json:"provider,omitempty"`
+	// ParallelToolCalls is set only for a model the catalog says supports it.
+	ParallelToolCalls *bool `json:"parallel_tool_calls,omitempty"`
 }
 
 type oaStreamOptions struct {
