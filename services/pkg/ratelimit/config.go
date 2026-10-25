@@ -206,6 +206,16 @@ func DefaultConfig() Config {
 				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0, // Browser: no limits
 			},
 
+			// The A$20 API Access plan. The published API table (/docs/api and the
+			// key manager) promises 120/min and 10,000/month, which is what this
+			// enforces. Browser access is unlimited, as for every paid plan.
+			// Declared after premium so the positional read in the quota-contract
+			// test keeps its order.
+			"api_access": {
+				RequestsPerMinute: 120, RequestsPerMonth: 10000, // API limits
+				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0, // Browser: no limits
+			},
+
 			// OUR OWN SERVER-SIDE RENDERING. Not a customer tier, and never
 			// sold — see the block comment above DefaultConfig.
 			//

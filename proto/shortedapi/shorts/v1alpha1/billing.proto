@@ -57,6 +57,9 @@ enum SubscriptionTier {
   SUBSCRIPTION_TIER_PRO = 2;
   SUBSCRIPTION_TIER_ENTERPRISE = 3;
   SUBSCRIPTION_TIER_PREMIUM = 4;
+  // The A$20 API Access plan: API tokens and the higher API limits. Not a
+  // premium tier, so it grants no premium web features.
+  SUBSCRIPTION_TIER_API_ACCESS = 5;
 }
 
 // Request for HandleStripeCheckoutCompleted RPC (called by webhook)

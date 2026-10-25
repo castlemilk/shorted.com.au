@@ -68,6 +68,12 @@ describe("published rate-limit table vs enforced config", () => {
 
   // Declaration order in DefaultConfig: anonymous, free, paid(pro), enterprise, ...
   const [anonymous, free, paid] = tiers;
+  // Found by name, not by position: the positional reads above would silently
+  // pick up the wrong tier if the declaration order changed.
+  const apiAccessStart = source.indexOf('"api_access": {');
+  const [apiAccess] = parseEnforcedTiers(
+    source.slice(apiAccessStart, source.indexOf("},", apiAccessStart)),
+  );
 
   it("enforces the anonymous numbers this app publishes", () => {
     expect(anonymous.apiPerMinute).toBe(30);
@@ -94,6 +100,14 @@ describe("published rate-limit table vs enforced config", () => {
     expect(paid.browserPerMonth).toBe(0);
   });
 
+  it("enforces the API Access numbers the docs and key manager publish", () => {
+    expect(apiAccessStart).toBeGreaterThan(-1);
+    expect(apiAccess.apiPerMinute).toBe(120);
+    expect(apiAccess.apiPerMonth).toBe(10000);
+    expect(apiAccess.browserPerMinute).toBe(0);
+    expect(apiAccess.browserPerMonth).toBe(0);
+  });
+
   it("never publishes a quota larger than the one enforced", () => {
     // The direction of any future drift matters more than the exact values:
     // under-promising is survivable, over-promising is a broken contract.
@@ -102,10 +116,14 @@ describe("published rate-limit table vs enforced config", () => {
       freeApiPerMonth: 1000,
       paidApiPerMonth: 10000,
       paidApiPerMinute: 120,
+      apiAccessApiPerMonth: 10000,
+      apiAccessApiPerMinute: 120,
     };
     expect(published.anonymousApiPerMonth).toBeLessThanOrEqual(anonymous.apiPerMonth);
     expect(published.freeApiPerMonth).toBeLessThanOrEqual(free.apiPerMonth);
     expect(published.paidApiPerMonth).toBeLessThanOrEqual(paid.apiPerMonth);
     expect(published.paidApiPerMinute).toBeLessThanOrEqual(paid.apiPerMinute);
+    expect(published.apiAccessApiPerMonth).toBeLessThanOrEqual(apiAccess.apiPerMonth);
+    expect(published.apiAccessApiPerMinute).toBeLessThanOrEqual(apiAccess.apiPerMinute);
   });
 });

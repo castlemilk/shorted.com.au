@@ -117,31 +117,32 @@ public final class BillingProto extends com.google.protobuf.GeneratedFile {
       "ION_STATUS_ACTIVE\020\001\022 \n\034SUBSCRIPTION_STAT" +
       "US_TRIALING\020\002\022 \n\034SUBSCRIPTION_STATUS_PAS" +
       "T_DUE\020\003\022 \n\034SUBSCRIPTION_STATUS_CANCELED\020" +
-      "\004\022 \n\034SUBSCRIPTION_STATUS_INACTIVE\020\005*\255\001\n\020" +
+      "\004\022 \n\034SUBSCRIPTION_STATUS_INACTIVE\020\005*\317\001\n\020" +
       "SubscriptionTier\022!\n\035SUBSCRIPTION_TIER_UN" +
       "SPECIFIED\020\000\022\032\n\026SUBSCRIPTION_TIER_FREE\020\001\022" +
       "\031\n\025SUBSCRIPTION_TIER_PRO\020\002\022 \n\034SUBSCRIPTI" +
       "ON_TIER_ENTERPRISE\020\003\022\035\n\031SUBSCRIPTION_TIE" +
-      "R_PREMIUM\020\0042\220\004\n\016BillingService\022X\n\tMintTo" +
-      "ken\022!.shorts.v1alpha1.MintTokenRequest\032\"" +
-      ".shorts.v1alpha1.MintTokenResponse\"\004\200\265\030\002" +
-      "\022\224\001\n\035HandleStripeCheckoutCompleted\0225.sho" +
-      "rts.v1alpha1.HandleStripeCheckoutComplet" +
-      "edRequest\0326.shorts.v1alpha1.HandleStripe" +
-      "CheckoutCompletedResponse\"\004\200\265\030\002\022\232\001\n\037Hand" +
-      "leStripeSubscriptionUpdated\0227.shorts.v1a" +
-      "lpha1.HandleStripeSubscriptionUpdatedReq" +
-      "uest\0328.shorts.v1alpha1.HandleStripeSubsc" +
-      "riptionUpdatedResponse\"\004\200\265\030\002\022p\n\021GetMySub" +
-      "scription\022).shorts.v1alpha1.GetMySubscri" +
-      "ptionRequest\032*.shorts.v1alpha1.GetMySubs" +
-      "criptionResponse\"\004\200\265\030\002B\333\001\n\023com.shorts.v1" +
-      "alpha1B\014BillingProtoP\001ZYgithub.com/castl" +
-      "emilk/shorted.com.au/services/gen/proto/" +
-      "go/shorts/v1alpha1;shortsv1alpha1\242\002\003SXX\252" +
-      "\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Sh" +
-      "orts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V1al" +
-      "pha1b\006proto3"
+      "R_PREMIUM\020\004\022 \n\034SUBSCRIPTION_TIER_API_ACC" +
+      "ESS\020\0052\220\004\n\016BillingService\022X\n\tMintToken\022!." +
+      "shorts.v1alpha1.MintTokenRequest\032\".short" +
+      "s.v1alpha1.MintTokenResponse\"\004\200\265\030\002\022\224\001\n\035H" +
+      "andleStripeCheckoutCompleted\0225.shorts.v1" +
+      "alpha1.HandleStripeCheckoutCompletedRequ" +
+      "est\0326.shorts.v1alpha1.HandleStripeChecko" +
+      "utCompletedResponse\"\004\200\265\030\002\022\232\001\n\037HandleStri" +
+      "peSubscriptionUpdated\0227.shorts.v1alpha1." +
+      "HandleStripeSubscriptionUpdatedRequest\0328" +
+      ".shorts.v1alpha1.HandleStripeSubscriptio" +
+      "nUpdatedResponse\"\004\200\265\030\002\022p\n\021GetMySubscript" +
+      "ion\022).shorts.v1alpha1.GetMySubscriptionR" +
+      "equest\032*.shorts.v1alpha1.GetMySubscripti" +
+      "onResponse\"\004\200\265\030\002B\333\001\n\023com.shorts.v1alpha1" +
+      "B\014BillingProtoP\001ZYgithub.com/castlemilk/" +
+      "shorted.com.au/services/gen/proto/go/sho" +
+      "rts/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shor" +
+      "ts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V" +
+      "1alpha1\\GPBMetadata\352\002\020Shorts::V1alpha1b\006" +
+      "proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

@@ -232,6 +232,8 @@ func mapTierToString(tier shortsv1alpha1.SubscriptionTier) string {
 		return "enterprise"
 	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM:
 		return "premium"
+	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS:
+		return "api_access"
 	default:
 		return ""
 	}
@@ -247,6 +249,8 @@ func mapStringToTier(tier string) shortsv1alpha1.SubscriptionTier {
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_ENTERPRISE
 	case "premium":
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM
+	case "api_access":
+		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS
 	default:
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_UNSPECIFIED
 	}

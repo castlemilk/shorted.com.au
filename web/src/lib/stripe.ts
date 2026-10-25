@@ -53,6 +53,15 @@ export const SUBSCRIPTION_TIERS = {
     requestsPerDay: 10000,
     features: PLANS.premium.features,
   },
+  // The A$20 API Access plan. Not premium: it grants API tokens and the API
+  // limits, not the premium web features (isPremiumTier below).
+  api_access: {
+    name: PLANS.apiAccess.name,
+    priceId: process.env.STRIPE_API_ACCESS_PRICE_ID ?? null,
+    price: PLANS.apiAccess.amountCents / 100,
+    requestsPerDay: 10000,
+    features: PLANS.apiAccess.features,
+  },
   enterprise: {
     name: "Enterprise",
     priceId: process.env.STRIPE_ENTERPRISE_PRICE_ID ?? null,

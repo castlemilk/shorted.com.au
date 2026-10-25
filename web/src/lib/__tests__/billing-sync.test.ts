@@ -4,6 +4,7 @@ import {
   SubscriptionStatus,
   SubscriptionTier,
 } from "~/gen/shorts/v1alpha1/billing_pb";
+import { notifyOperator } from "~/@/lib/operator-notify";
 import {
   idOf,
   isLiveStripeStatus,
@@ -31,6 +32,12 @@ jest.mock("@connectrpc/connect", () => {
 
 jest.mock("@connectrpc/connect-web", () => ({
   createConnectTransport: jest.fn(() => ({})),
+}));
+
+// Operator alerts are a side effect the sync must make, so each test sees them.
+jest.mock("~/@/lib/operator-notify", () => ({
+  notifyOperator: jest.fn(async () => true),
+  formatAmount: jest.fn(() => "A$4.00 AUD"),
 }));
 
 jest.mock("~/app/actions/config", () => ({
@@ -165,7 +172,6 @@ describe("syncSubscriptionFromStripe", () => {
 
   it.each([
     ["past_due", PROTO.PAST_DUE],
-    ["unpaid", PROTO.PAST_DUE],
   ])("writes %s by customer and never links a row to it", async (stripeStatus, proto) => {
     stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: stripeStatus }));
 
@@ -178,6 +184,18 @@ describe("syncSubscriptionFromStripe", () => {
       isDeleted: false,
     });
     expect(result).toMatchObject({ ensuredRow: false });
+  });
+
+  // Stripe has stopped retrying an unpaid subscription, so it grants nothing. It is
+  // stored inactive, not past_due, so the grace period cannot keep it alive.
+  it("writes unpaid as inactive, never past_due", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: "unpaid" }));
+
+    const result = await syncSubscriptionFromStripe("sub_1");
+
+    expect(goClient.handleStripeCheckoutCompleted).not.toHaveBeenCalled();
+    expect(lastUpdate()).toMatchObject({ status: PROTO.INACTIVE, isDeleted: false });
+    expect(result).toMatchObject({ status: "inactive", ensuredRow: false });
   });
 
   it.each(["incomplete", "incomplete_expired", "paused"])(
@@ -290,8 +308,8 @@ describe("syncSubscriptionFromStripe", () => {
     });
   });
 
-  it("warns on a price that is not a configured Shorted plan, and still writes premium", async () => {
-    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  it("writes a price that is not a configured Shorted plan as FREE, links no row, and tells the operator", async () => {
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
     stripeMock.subscriptions.retrieve.mockResolvedValue(
       subscription({
         items: {
@@ -306,11 +324,67 @@ describe("syncSubscriptionFromStripe", () => {
       }),
     );
 
+    const result = await syncSubscriptionFromStripe("sub_1");
+
+    // No access: never premium, never a linked row.
+    expect(goClient.handleStripeCheckoutCompleted).not.toHaveBeenCalled();
+    expect(lastUpdate()).toMatchObject({ tier: SubscriptionTier.FREE });
+    expect(result).toMatchObject({ tier: "free", ensuredRow: false });
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("price_unknown"));
+    expect(notifyOperator).toHaveBeenCalledTimes(1);
+    expect(notifyOperator).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("unknown Stripe price"),
+        text: expect.stringContaining("price_unknown"),
+      }),
+    );
+    error.mockRestore();
+  });
+
+  it("writes the API Access price as the API Access tier", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(
+      subscription({
+        items: {
+          data: [
+            {
+              current_period_start: PERIOD_START,
+              current_period_end: PERIOD_END,
+              price: { id: "price_api_access" },
+            },
+          ],
+        },
+      }),
+    );
+
+    const result = await syncSubscriptionFromStripe("sub_1");
+
+    expect(goClient.handleStripeCheckoutCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({ tier: SubscriptionTier.API_ACCESS }),
+    );
+    expect(lastUpdate()).toMatchObject({ tier: SubscriptionTier.API_ACCESS });
+    expect(result).toMatchObject({ tier: "api_access", ensuredRow: true });
+    expect(notifyOperator).not.toHaveBeenCalled();
+  });
+
+  it("writes the legacy pro price as premium", async () => {
+    process.env = { ...process.env, STRIPE_PRO_PRICE_ID: "price_legacy_pro" };
+    stripeMock.subscriptions.retrieve.mockResolvedValue(
+      subscription({
+        items: {
+          data: [
+            {
+              current_period_start: PERIOD_START,
+              current_period_end: PERIOD_END,
+              price: { id: "price_legacy_pro" },
+            },
+          ],
+        },
+      }),
+    );
+
     await syncSubscriptionFromStripe("sub_1");
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("price_unknown"));
     expect(lastUpdate()).toMatchObject({ tier: PREMIUM_TIER });
-    warn.mockRestore();
   });
 
   it("propagates a Stripe failure so the webhook returns 500", async () => {
@@ -510,7 +584,7 @@ describe("a past_due or unpaid subscription never claims a user", () => {
     expect(lastUpdate()).toMatchObject({
       stripeCustomerId: "cus_c2",
       stripeSubscriptionId: "sub_c2_unpaid",
-      status: PROTO.PAST_DUE,
+      status: PROTO.INACTIVE,
     });
     expect(result).toMatchObject({ ensuredRow: false });
   });
@@ -533,8 +607,8 @@ describe("a past_due or unpaid subscription never claims a user", () => {
       (call) => call[0] as { stripeCustomerId: string; status: number },
     );
     expect(writes.filter((write) => write.stripeCustomerId === "cus_c2")).toEqual([
-      expect.objectContaining({ status: PROTO.PAST_DUE }),
-      expect.objectContaining({ status: PROTO.PAST_DUE }),
+      expect.objectContaining({ status: PROTO.INACTIVE }),
+      expect.objectContaining({ status: PROTO.INACTIVE }),
     ]);
   });
 

@@ -35,6 +35,15 @@ public enum SubscriptionTier
    * <code>SUBSCRIPTION_TIER_PREMIUM = 4;</code>
    */
   SUBSCRIPTION_TIER_PREMIUM(4),
+  /**
+   * <pre>
+   * The A$20 API Access plan: API tokens and the higher API limits. Not a
+   * premium tier, so it grants no premium web features.
+   * </pre>
+   *
+   * <code>SUBSCRIPTION_TIER_API_ACCESS = 5;</code>
+   */
+  SUBSCRIPTION_TIER_API_ACCESS(5),
   UNRECOGNIZED(-1),
   ;
 
@@ -67,6 +76,15 @@ public enum SubscriptionTier
    * <code>SUBSCRIPTION_TIER_PREMIUM = 4;</code>
    */
   public static final int SUBSCRIPTION_TIER_PREMIUM_VALUE = 4;
+  /**
+   * <pre>
+   * The A$20 API Access plan: API tokens and the higher API limits. Not a
+   * premium tier, so it grants no premium web features.
+   * </pre>
+   *
+   * <code>SUBSCRIPTION_TIER_API_ACCESS = 5;</code>
+   */
+  public static final int SUBSCRIPTION_TIER_API_ACCESS_VALUE = 5;
 
 
   public final int getNumber() {
@@ -98,6 +116,7 @@ public enum SubscriptionTier
       case 2: return SUBSCRIPTION_TIER_PRO;
       case 3: return SUBSCRIPTION_TIER_ENTERPRISE;
       case 4: return SUBSCRIPTION_TIER_PREMIUM;
+      case 5: return SUBSCRIPTION_TIER_API_ACCESS;
       default: return null;
     }
   }

@@ -14891,6 +14891,7 @@ components:
         - SUBSCRIPTION_TIER_PRO
         - SUBSCRIPTION_TIER_ENTERPRISE
         - SUBSCRIPTION_TIER_PREMIUM
+        - SUBSCRIPTION_TIER_API_ACCESS
       description: Subscription tier enum
     shorts.v1alpha1.SubstantialHolding:
       type: object

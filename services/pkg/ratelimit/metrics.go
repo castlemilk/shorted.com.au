@@ -107,6 +107,7 @@ var knownTiers = map[string]struct{}{
 	"premium":    {},
 	"pro":        {},
 	"enterprise": {},
+	"api_access": {},
 }
 
 const (

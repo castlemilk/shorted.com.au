@@ -11,6 +11,7 @@ import { stripe } from "~/lib/stripe";
 import { CHECKOUT_PLAN_CONFIG, type CheckoutTier } from "~/lib/stripe-plans";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
+import { notifyOperator } from "~/@/lib/operator-notify";
 
 /**
  * Stripe -> Shorted subscription sync.
@@ -110,8 +111,9 @@ const STATUS_MAP: Record<string, { proto: SubscriptionStatus; name: string }> = 
   trialing: { proto: SubscriptionStatus.TRIALING, name: "trialing" },
   past_due: { proto: SubscriptionStatus.PAST_DUE, name: "past_due" },
   canceled: { proto: SubscriptionStatus.CANCELED, name: "canceled" },
-  // Unpaid is an overdue customer, so it reads as past due.
-  unpaid: { proto: SubscriptionStatus.PAST_DUE, name: "past_due" },
+  // Unpaid means Stripe has stopped retrying the invoices. The grace period covers
+  // past_due only, so unpaid is stored as inactive and grants nothing.
+  unpaid: { proto: SubscriptionStatus.INACTIVE, name: "inactive" },
   incomplete: { proto: SubscriptionStatus.INACTIVE, name: "inactive" },
   incomplete_expired: { proto: SubscriptionStatus.INACTIVE, name: "inactive" },
   paused: { proto: SubscriptionStatus.INACTIVE, name: "inactive" },
@@ -119,6 +121,21 @@ const STATUS_MAP: Record<string, { proto: SubscriptionStatus; name: string }> = 
 const UNKNOWN_STATUS = { proto: SubscriptionStatus.INACTIVE, name: "inactive" };
 
 export type ShortedPlan = "premium" | "api_access" | "unknown";
+
+/**
+ * The backend tier a Shorted plan is written as. An unknown plan has no tier that
+ * grants anything, so it is written as FREE and the operator is told.
+ */
+export function tierForPlan(plan: ShortedPlan): SubscriptionTier {
+  switch (plan) {
+    case "premium":
+      return SubscriptionTier.PREMIUM;
+    case "api_access":
+      return SubscriptionTier.API_ACCESS;
+    case "unknown":
+      return SubscriptionTier.FREE;
+  }
+}
 
 /**
  * Every price id configured for a plan, through the same env names checkout
@@ -169,7 +186,7 @@ export interface SubscriptionSyncResult {
   /** The subscription that was written, which is the customer's best one. */
   subscriptionId: string;
   status: string;
-  tier: "premium" | "free";
+  tier: "premium" | "api_access" | "free";
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   /**
@@ -298,17 +315,22 @@ async function writeSubscriptionState(
   const userEmail =
     nonEmpty(subscription.metadata?.userEmail) ?? nonEmpty(hint.userEmail);
 
-  if (!isDeleted && planForPrice(priceId) === "unknown") {
-    console.warn(
-      `[billing-sync] subscription ${subscription.id} is on a price that is not a configured Shorted plan (${priceId ?? "none"}); written as premium`,
-    );
-  }
+  // The plan decides the tier. A price that is not one of ours grants nothing:
+  // it is written as FREE, and nothing creates or links a row for it.
+  const plan = planForPrice(priceId);
+  const tier = tierForPlan(plan);
+  const unknownPlan = !isDeleted && plan === "unknown";
 
   // Step 1: create or link the Shorted row. Entitling only, so a past_due or
   // unpaid subscription can never create or repoint a row, and a canceled one is
   // never written back to active here.
   let ensuredRow = false;
-  if (isEntitlingStripeStatus(subscription.status) && userId && userEmail) {
+  if (
+    isEntitlingStripeStatus(subscription.status) &&
+    plan !== "unknown" &&
+    userId &&
+    userEmail
+  ) {
     await retryWithBackoff(
       async () => {
         return await client.handleStripeCheckoutCompleted({
@@ -316,7 +338,7 @@ async function writeSubscriptionState(
           userEmail,
           stripeCustomerId: customerId,
           stripeSubscriptionId: subscription.id,
-          tier: SubscriptionTier.PREMIUM,
+          tier,
         });
       },
       SYNC_RETRY_OPTIONS,
@@ -334,7 +356,7 @@ async function writeSubscriptionState(
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscription.id,
         status: status.proto,
-        tier: SubscriptionTier.PREMIUM,
+        tier,
         currentPeriodStart: periodStart
           ? timestampFromDate(new Date(periodStart * 1000))
           : undefined,
@@ -348,10 +370,32 @@ async function writeSubscriptionState(
     SYNC_RETRY_OPTIONS,
   );
 
+  if (unknownPlan) {
+    console.error(
+      `[billing-sync] subscription ${subscription.id} is on a price that is not a configured Shorted plan (${priceId ?? "none"}); written as free, no access granted`,
+    );
+    await notifyOperator({
+      subject: "Shorted subscription on an unknown Stripe price",
+      text: [
+        "A subscription is on a Stripe price that is not configured as a Shorted plan.",
+        "It has been written as FREE, so it grants no access, until the price is mapped.",
+        "",
+        `Subscription: ${subscription.id}`,
+        `Customer:     ${customerId}`,
+        `Price:        ${priceId ?? "(none)"}`,
+        `Status:       ${subscription.status}`,
+        "",
+        "Check STRIPE_PREMIUM_PRICE_ID, STRIPE_PRO_PRICE_ID and STRIPE_API_ACCESS_PRICE_ID.",
+        "",
+        "— shorted.com.au",
+      ].join("\n"),
+    });
+  }
+
   return {
     subscriptionId: subscription.id,
     status: status.name,
-    tier: isDeleted ? "free" : "premium",
+    tier: isDeleted || plan === "unknown" ? "free" : plan,
     currentPeriodEnd: isoFromUnix(periodEnd),
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
     ensuredRow,

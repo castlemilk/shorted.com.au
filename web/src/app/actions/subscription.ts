@@ -89,6 +89,8 @@ function mapProtoTierToString(tier: ProtoSubscriptionTier): SubscriptionTier {
       return "pro";
     case ProtoSubscriptionTier.ENTERPRISE:
       return "enterprise";
+    case ProtoSubscriptionTier.API_ACCESS:
+      return "api_access";
     case ProtoSubscriptionTier.FREE:
     default:
       return "free";

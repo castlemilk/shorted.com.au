@@ -91,6 +91,9 @@ const (
 	SubscriptionTier_SUBSCRIPTION_TIER_PRO         SubscriptionTier = 2
 	SubscriptionTier_SUBSCRIPTION_TIER_ENTERPRISE  SubscriptionTier = 3
 	SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM     SubscriptionTier = 4
+	// The A$20 API Access plan: API tokens and the higher API limits. Not a
+	// premium tier, so it grants no premium web features.
+	SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS SubscriptionTier = 5
 )
 
 // Enum value maps for SubscriptionTier.
@@ -101,6 +104,7 @@ var (
 		2: "SUBSCRIPTION_TIER_PRO",
 		3: "SUBSCRIPTION_TIER_ENTERPRISE",
 		4: "SUBSCRIPTION_TIER_PREMIUM",
+		5: "SUBSCRIPTION_TIER_API_ACCESS",
 	}
 	SubscriptionTier_value = map[string]int32{
 		"SUBSCRIPTION_TIER_UNSPECIFIED": 0,
@@ -108,6 +112,7 @@ var (
 		"SUBSCRIPTION_TIER_PRO":         2,
 		"SUBSCRIPTION_TIER_ENTERPRISE":  3,
 		"SUBSCRIPTION_TIER_PREMIUM":     4,
+		"SUBSCRIPTION_TIER_API_ACCESS":  5,
 	}
 )
 
@@ -669,13 +674,14 @@ const file_shorts_v1alpha1_billing_proto_rawDesc = "" +
 	"\x1cSUBSCRIPTION_STATUS_TRIALING\x10\x02\x12 \n" +
 	"\x1cSUBSCRIPTION_STATUS_PAST_DUE\x10\x03\x12 \n" +
 	"\x1cSUBSCRIPTION_STATUS_CANCELED\x10\x04\x12 \n" +
-	"\x1cSUBSCRIPTION_STATUS_INACTIVE\x10\x05*\xad\x01\n" +
+	"\x1cSUBSCRIPTION_STATUS_INACTIVE\x10\x05*\xcf\x01\n" +
 	"\x10SubscriptionTier\x12!\n" +
 	"\x1dSUBSCRIPTION_TIER_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16SUBSCRIPTION_TIER_FREE\x10\x01\x12\x19\n" +
 	"\x15SUBSCRIPTION_TIER_PRO\x10\x02\x12 \n" +
 	"\x1cSUBSCRIPTION_TIER_ENTERPRISE\x10\x03\x12\x1d\n" +
-	"\x19SUBSCRIPTION_TIER_PREMIUM\x10\x042\x90\x04\n" +
+	"\x19SUBSCRIPTION_TIER_PREMIUM\x10\x04\x12 \n" +
+	"\x1cSUBSCRIPTION_TIER_API_ACCESS\x10\x052\x90\x04\n" +
 	"\x0eBillingService\x12X\n" +
 	"\tMintToken\x12!.shorts.v1alpha1.MintTokenRequest\x1a\".shorts.v1alpha1.MintTokenResponse\"\x04\x80\xb5\x18\x02\x12\x94\x01\n" +
 	"\x1dHandleStripeCheckoutCompleted\x125.shorts.v1alpha1.HandleStripeCheckoutCompletedRequest\x1a6.shorts.v1alpha1.HandleStripeCheckoutCompletedResponse\"\x04\x80\xb5\x18\x02\x12\x9a\x01\n" +
