@@ -24,11 +24,13 @@ func PremiumFeatureTier(tier string) bool {
 	return false
 }
 
-// APITokenTier reports whether tier may mint API tokens. Premium is sold without API
-// access, so it is not one of them; API Access and enterprise are.
+// APITokenTier reports whether tier may mint API tokens: every paid tier. Token creation
+// is a sold benefit of Premium ("Premium subscribers can create tokens", /docs/api), so
+// Premium is included. What Premium does not get is the higher API limit, which is
+// the API Access tier's; see the rate-limit tiers in services/pkg/ratelimit/config.go.
 func APITokenTier(tier string) bool {
 	switch tier {
-	case "api_access", "enterprise":
+	case "premium", "pro", "enterprise", "api_access":
 		return true
 	}
 	return false

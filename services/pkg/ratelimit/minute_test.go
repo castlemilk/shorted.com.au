@@ -24,7 +24,9 @@ func TestPerMinuteTierLimits(t *testing.T) {
 	}{
 		{name: "anonymous api", tier: "anonymous", wantLimit: 30},
 		{name: "free api", tier: "free", wantLimit: 60},
-		{name: "premium api", tier: "premium", wantLimit: 120},
+		// Premium is sold without the API Access plan: its tokens get the free API limits.
+		{name: "premium api", tier: "premium", wantLimit: 60},
+		{name: "api access api", tier: "api_access", wantLimit: 120},
 		{name: "enterprise api", tier: "enterprise", wantLimit: 300},
 		{name: "anonymous browser", tier: "anonymous", isBrowser: true, wantLimit: 60},
 		{name: "free browser", tier: "free", isBrowser: true, wantLimit: 120},

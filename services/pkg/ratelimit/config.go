@@ -169,7 +169,8 @@ const (
 // this change is about WHERE quotas are stored, not about loosening them.
 //   - anonymous:  30 req/min,   500 req/month
 //   - free:       60 req/min,  1000 req/month
-//   - pro:       120 req/min, 10000 req/month
+//   - premium:    60 req/min,   1000 req/month (Premium is sold without the API Access plan)
+//   - api_access: 120 req/min, 10000 req/month (the API Access plan)
 //   - enterprise: 300 req/min, 50000 req/month
 //
 // Two further tiers are NOT customer tiers and are never sold: first-party
@@ -193,16 +194,21 @@ func DefaultConfig() Config {
 				RequestsPerMinute: 60, RequestsPerMonth: 1000, // API limits
 				BrowserRequestsPerMinute: 120, BrowserRequestsPerMonth: 10000, // Browser limits
 			},
+			// "pro" is the legacy name of premium, so it has premium's limits.
 			"pro": {
-				RequestsPerMinute: 120, RequestsPerMonth: 10000, // API limits (2 req/sec)
+				RequestsPerMinute: 60, RequestsPerMonth: 1000, // API limits: the free API limits
 				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0, // Browser: no limits (0 = unlimited)
 			},
 			"enterprise": {
 				RequestsPerMinute: 300, RequestsPerMonth: 50000, // API limits (5 req/sec)
 				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0, // Browser: no limits
 			},
+			// Premium is sold without the API Access plan. It can mint tokens (/docs/api:
+			// "Premium subscribers can create tokens"), and those tokens get the free API
+			// limits. The higher limits are API Access's ("Higher request limits" on
+			// /pricing). Browser access is unlimited, as it was.
 			"premium": {
-				RequestsPerMinute: 120, RequestsPerMonth: 10000, // API limits (same as pro)
+				RequestsPerMinute: 60, RequestsPerMonth: 1000, // API limits: the free API limits
 				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0, // Browser: no limits
 			},
 

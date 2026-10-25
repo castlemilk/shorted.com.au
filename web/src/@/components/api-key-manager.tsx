@@ -54,14 +54,15 @@ interface RateLimitTier {
 const RATE_LIMIT_TIERS: { api: RateLimitTier[]; browser: RateLimitTier[] } = {
   api: [
     { name: "Anonymous", perMinute: "30", perMonth: "500" },
-    { name: "Free", perMinute: "60", perMonth: "1,000" },
-    { name: "Paid", perMinute: "120", perMonth: "10,000" },
+    // Premium is sold without the API Access plan: its tokens get the free limits.
+    { name: "Free and Premium", perMinute: "60", perMonth: "1,000" },
+    { name: "API Access", perMinute: "120", perMonth: "10,000" },
     { name: "Enterprise", perMinute: "300", perMonth: "50,000" },
   ],
   browser: [
     { name: "Anonymous", perMinute: "60", perMonth: "5,000" },
     { name: "Free", perMinute: "120", perMonth: "10,000" },
-    { name: "Paid", perMinute: "Unlimited", perMonth: "Unlimited" },
+    { name: "Premium and API Access", perMinute: "Unlimited", perMonth: "Unlimited" },
   ],
 };
 

@@ -14,6 +14,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/subscription"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
@@ -446,7 +447,9 @@ func (s *ShortsServer) MintToken(ctx context.Context, req *connect.Request[short
 	// the credential carried, and an old token can carry a paid tier that has since
 	// lapsed. So a non-admin mint needs a resolved, paid tier.
 	tier := userClaims.Tier
-	paid := tier != "" && tier != "free"
+	// Every paid tier may mint: Premium is sold token creation, API Access is the
+	// higher-limit plan. The shared rule is services/pkg/subscription.APITokenTier.
+	paid := subscription.APITokenTier(tier)
 
 	// Admin is the role the interceptor granted: a verified Firebase email on the
 	// admin allowlist, or the role the web tier asserted for an internal call. The

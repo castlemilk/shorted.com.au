@@ -13,6 +13,8 @@ jest.mock("~/lib/stripe", () => ({
     enterprise: { features: ["enterprise"], requestsPerDay: -1 },
   },
   isPremiumTier: (tier: string) => tier === "premium" || tier === "pro" || tier === "enterprise",
+  canMintApiTokensForTier: (tier: string) =>
+    tier === "premium" || tier === "pro" || tier === "enterprise" || tier === "api_access",
 }));
 
 jest.mock("@/lib/retry", () => ({

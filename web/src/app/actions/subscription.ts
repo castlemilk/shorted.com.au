@@ -5,7 +5,13 @@ import { createClient } from "@connectrpc/connect";
 import { BillingService } from "~/gen/shorts/v1alpha1/billing_pb";
 import { SubscriptionStatus as ProtoSubscriptionStatus, SubscriptionTier as ProtoSubscriptionTier } from "~/gen/shorts/v1alpha1/billing_pb";
 import { auth } from "~/server/auth";
-import { SUBSCRIPTION_TIERS, isPremiumTier, type SubscriptionStatus, type SubscriptionTier } from "~/lib/stripe";
+import {
+  SUBSCRIPTION_TIERS,
+  canMintApiTokensForTier,
+  isPremiumTier,
+  type SubscriptionStatus,
+  type SubscriptionTier,
+} from "~/lib/stripe";
 import type { CheckoutTier } from "~/lib/stripe-plans";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
@@ -180,7 +186,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       tier,
       hasActiveSubscription,
       isPremium: hasActiveSubscription && isPremiumTier(tier),
-      canMintTokens: hasActiveSubscription && tier !== "free",
+      canMintTokens: hasActiveSubscription && canMintApiTokensForTier(tier),
       currentPeriodEnd,
       pastDueSince,
       cancelAtPeriodEnd: response.cancelAtPeriodEnd,

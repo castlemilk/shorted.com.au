@@ -89,3 +89,12 @@ export type SubscriptionStatus =
 export function isPremiumTier(tier: SubscriptionTier): boolean {
   return tier === "premium" || tier === "pro" || tier === "enterprise";
 }
+
+/**
+ * Returns true if the tier may mint API tokens: every paid tier. Premium is sold token
+ * creation (/docs/api: "Premium subscribers can create tokens"), so it is included;
+ * its tokens get the free API limits. Mirrors services/pkg/subscription.APITokenTier.
+ */
+export function canMintApiTokensForTier(tier: SubscriptionTier): boolean {
+  return tier === "premium" || tier === "pro" || tier === "enterprise" || tier === "api_access";
+}

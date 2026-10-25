@@ -8,6 +8,7 @@ import {
   SubscriptionTier as ProtoSubscriptionTier,
 } from "~/gen/shorts/v1alpha1/billing_pb";
 import {
+  canMintApiTokensForTier,
   isPremiumTier,
   SUBSCRIPTION_TIERS,
   type SubscriptionStatus,
@@ -118,7 +119,7 @@ export function toSubscriptionInfo(fields: MySubscriptionFields): SubscriptionIn
     tier,
     hasActiveSubscription,
     isPremium: hasActiveSubscription && isPremiumTier(tier),
-    canMintTokens: hasActiveSubscription && tier !== "free",
+    canMintTokens: hasActiveSubscription && canMintApiTokensForTier(tier),
     currentPeriodEnd,
     pastDueSince,
     cancelAtPeriodEnd: fields.cancelAtPeriodEnd ?? false,

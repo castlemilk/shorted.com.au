@@ -53,8 +53,8 @@ export const CHECKIN_BUDGET_MS = 6_000;
 export const PROBE_WORST_CASE_CEILING_MS = 75_000;
 
 /**
- * The smallest MONTHLY API quota a paid tier gets (pro and premium 10,000,
- * enterprise 50,000; free is 1,000). Checked against the
+ * The smallest MONTHLY API quota a sold API tier gets (API Access 10,000,
+ * enterprise 50,000; free and Premium are 1,000). Checked against the
  * X-RateLimit-Monthly-Limit header, which the Go API only emits for a caller
  * on a metered tier. The contract test reads DefaultConfig rather than trusting
  * this number, so the two cannot drift.
