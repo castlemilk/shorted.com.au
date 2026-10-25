@@ -46,6 +46,15 @@ func pgTimestamp(t time.Time) *string {
 	return &s
 }
 
+// pastDueRow is a past_due row whose first failed charge was at since. periodEnd
+// is the row's period end, which Stripe moves forward at every failed renewal, so
+// the grace must not read it.
+func pastDueRow(tier string, since, periodEnd *string) *shortsstore.APISubscription {
+	r := storeRow("past_due", tier, periodEnd)
+	r.PastDueSince = since
+	return r
+}
+
 // expectSubscriptionRow stubs the one store read the entitlement makes for user_1.
 func expectSubscriptionRow(mockStore *mocks.MockShortsStore, sub *shortsstore.APISubscription) {
 	mockStore.EXPECT().GetAPISubscription("user_1").Return(sub, nil)
@@ -130,22 +139,28 @@ func TestResolveEntitlement(t *testing.T) {
 			want:   denied("status_past_due", "stripe"),
 		},
 		{
-			name:   "past due inside the 14 day grace keeps paid access",
+			name:   "past due inside the 14 day grace from the failed charge keeps paid access",
 			userID: "user_1",
-			sub:    storeRow("past_due", "premium", at(-13*24*time.Hour)),
+			sub:    pastDueRow("premium", at(-13*24*time.Hour), at(20*24*time.Hour)),
 			want:   Entitlement{Entitled: true, Tier: "premium", Reason: "past_due_grace", Source: "stripe"},
 		},
 		{
-			name:   "past due inside the grace on the API Access tier keeps its access",
+			name:   "past due inside the grace on the API Access tier keeps its API access",
 			userID: "user_1",
-			sub:    storeRow("past_due", "api_access", at(-1*time.Hour)),
+			sub:    pastDueRow("api_access", at(-1*time.Hour), at(20*24*time.Hour)),
 			want:   Entitlement{Entitled: true, Tier: "api_access", Reason: "past_due_grace", Source: "stripe"},
 		},
 		{
-			name:   "past due past the 14 day grace ends",
+			name:   "past due past 14 days from the failed charge ends, even with a future period end",
 			userID: "user_1",
-			sub:    storeRow("past_due", "premium", at(-15*24*time.Hour)),
+			sub:    pastDueRow("premium", at(-15*24*time.Hour), at(20*24*time.Hour)),
 			want:   denied("past_due_grace_ended", "stripe"),
+		},
+		{
+			name:   "past due with no failure time has no grace, however far the period end runs",
+			userID: "user_1",
+			sub:    storeRow("past_due", "premium", at(20*24*time.Hour)),
+			want:   denied("status_past_due", "stripe"),
 		},
 		{
 			name:   "past due on an unpaid tier grants nothing even inside the grace",

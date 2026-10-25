@@ -7891,6 +7891,12 @@ components:
           type: string
           title: stripe_customer_id
           description: For portal access (proto string)
+        pastDueSince:
+          title: past_due_since
+          description: |-
+            When the current past-due run's first failed charge happened, for the grace
+             window. Unset unless status is PAST_DUE. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: GetMySubscriptionResponse
       additionalProperties: false
       description: Response for GetMySubscription RPC
@@ -9874,6 +9880,13 @@ components:
           type: boolean
           title: is_deleted
           description: True if subscription was deleted/canceled permanently (proto bool)
+        pastDueSince:
+          title: past_due_since
+          description: |-
+            When the first failed charge of the current past-due run happened (the open
+             invoice's finalization). Set only while status is PAST_DUE. The API starts the
+             14-day grace from it; unset means no grace. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: HandleStripeSubscriptionUpdatedRequest
       additionalProperties: false
       description: Request for HandleStripeSubscriptionUpdated RPC (called by webhook)

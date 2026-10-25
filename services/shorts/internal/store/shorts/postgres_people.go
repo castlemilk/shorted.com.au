@@ -62,6 +62,8 @@ type AdminSubscription struct {
 	Tier              string
 	Status            string
 	CurrentPeriodEnd  *time.Time
+	// PastDueSince starts the past-due grace (see subscription.PastDueGrace).
+	PastDueSince *time.Time
 	CancelAtPeriodEnd bool
 	CreatedAt         *time.Time
 }
@@ -76,11 +78,11 @@ type MailingListEntry struct {
 const peopleQueryTimeout = 10 * time.Second
 
 const adminSubscriptionColumns = `user_id, user_email, COALESCE(tier, 'free'), COALESCE(status, 'inactive'),
-	current_period_end, COALESCE(cancel_at_period_end, false), created_at`
+	current_period_end, past_due_since, COALESCE(cancel_at_period_end, false), created_at`
 
 func scanAdminSubscription(row pgx.Row) (AdminSubscription, error) {
 	var a AdminSubscription
-	err := row.Scan(&a.UserID, &a.Email, &a.Tier, &a.Status, &a.CurrentPeriodEnd, &a.CancelAtPeriodEnd, &a.CreatedAt)
+	err := row.Scan(&a.UserID, &a.Email, &a.Tier, &a.Status, &a.CurrentPeriodEnd, &a.PastDueSince, &a.CancelAtPeriodEnd, &a.CreatedAt)
 	return a, err
 }
 

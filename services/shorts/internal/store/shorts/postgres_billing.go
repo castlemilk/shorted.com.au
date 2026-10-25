@@ -76,6 +76,7 @@ type BillingSubscription struct {
 	Tier               string
 	CurrentPeriodStart *string // ::text, as GetAPISubscription reads it
 	CurrentPeriodEnd   *string // ::text, as GetAPISubscription reads it
+	PastDueSince       *string // ::text: when the current past-due run began
 	CancelAtPeriodEnd  bool
 	CreatedAt          *time.Time
 	UpdatedAt          *time.Time
@@ -92,6 +93,7 @@ func (b BillingSubscription) APISubscription() *APISubscription {
 		Tier:                 b.Tier,
 		CurrentPeriodStart:   b.CurrentPeriodStart,
 		CurrentPeriodEnd:     b.CurrentPeriodEnd,
+		PastDueSince:         b.PastDueSince,
 		CancelAtPeriodEnd:    b.CancelAtPeriodEnd,
 	}
 }
@@ -123,14 +125,14 @@ type APIUsageMonth struct {
 // reach the audit as a NULL, not as the 'inactive' a default would make it look
 // like. The tier is still defaulted, as the product itself defaults it.
 const billingSubscriptionColumns = `user_id, user_email, COALESCE(stripe_customer_id, ''), COALESCE(stripe_subscription_id, ''),
-	status, COALESCE(tier, 'free'), current_period_start::text, current_period_end::text,
+	status, COALESCE(tier, 'free'), current_period_start::text, current_period_end::text, past_due_since::text,
 	COALESCE(cancel_at_period_end, false), created_at, updated_at`
 
 func scanBillingSubscription(scan func(dest ...any) error) (BillingSubscription, error) {
 	var b BillingSubscription
 	var status *string
 	err := scan(&b.UserID, &b.UserEmail, &b.StripeCustomerID, &b.StripeSubscriptionID, &status, &b.Tier,
-		&b.CurrentPeriodStart, &b.CurrentPeriodEnd, &b.CancelAtPeriodEnd, &b.CreatedAt, &b.UpdatedAt)
+		&b.CurrentPeriodStart, &b.CurrentPeriodEnd, &b.PastDueSince, &b.CancelAtPeriodEnd, &b.CreatedAt, &b.UpdatedAt)
 	if status == nil {
 		b.StatusNull = true
 	} else {

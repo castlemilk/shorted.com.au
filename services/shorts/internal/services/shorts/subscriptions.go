@@ -84,6 +84,13 @@ func (s *ShortsServer) HandleStripeSubscriptionUpdated(
 		update.Status = &status
 	}
 
+	// The failure time of the current past-due run. Only the store decides from it,
+	// and only while the status it arrives with is past_due.
+	if req.Msg.PastDueSince != nil {
+		since := req.Msg.PastDueSince.AsTime().Format(time.RFC3339)
+		update.PastDueSince = &since
+	}
+
 	// Handle deleted subscriptions
 	if req.Msg.IsDeleted {
 		canceledStatus := "canceled"
@@ -212,6 +219,14 @@ func (s *ShortsServer) GetMySubscription(
 func applyStripeRow(resp *shortsv1alpha1.GetMySubscriptionResponse, sub *shortsstore.APISubscription) {
 	resp.CancelAtPeriodEnd = sub.CancelAtPeriodEnd
 	resp.StripeCustomerId = sub.StripeCustomerID
+
+	// The failure time starts the past-due grace. The web and the alerts job read it
+	// to decide access, so it travels with the status rather than being re-derived.
+	if sub.PastDueSince != nil {
+		if t, ok := parseStoreTimestamp(*sub.PastDueSince); ok {
+			resp.PastDueSince = timestamppb.New(t)
+		}
+	}
 
 	if sub.CurrentPeriodEnd != nil {
 		if t, ok := parseStoreTimestamp(*sub.CurrentPeriodEnd); ok {

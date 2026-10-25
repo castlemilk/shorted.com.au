@@ -13,6 +13,12 @@ import { formatAmount, notifyOperator } from "~/@/lib/operator-notify";
 import { sendPaymentFailedEmail, sendPaymentRecoveredEmail } from "~/@/lib/billing-email";
 
 /**
+ * The webhook is the one place that alerts the operator about a subscription on an
+ * unknown Stripe price. The daily reconcile does not, so it cannot repeat the alert.
+ */
+const WEBHOOK_SYNC = { alertOnUnknownPrice: true } as const;
+
+/**
  * Every subscription event is handled by re-reading the subscription from Stripe
  * (see lib/billing-sync.ts). Payloads are not applied, so out-of-order delivery
  * and retries cannot move a customer to the wrong state. Failures return 500 so
@@ -233,10 +239,11 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  const result = await syncSubscriptionFromStripe(subscriptionId, {
-    userId,
-    userEmail,
-  });
+  const result = await syncSubscriptionFromStripe(
+    subscriptionId,
+    { userId, userEmail },
+    WEBHOOK_SYNC,
+  );
 
   // Operator alert. Deliberately AFTER the sync: the customer getting what
   // they paid for matters more than us hearing about it, and notifyOperator
@@ -260,10 +267,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 }
 
 async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
-  await syncSubscriptionFromStripe(subscription.id, {
-    userId: subscription.metadata?.userId,
-    userEmail: subscription.metadata?.userEmail,
-  });
+  await syncSubscriptionFromStripe(
+    subscription.id,
+    {
+      userId: subscription.metadata?.userId,
+      userEmail: subscription.metadata?.userEmail,
+    },
+    WEBHOOK_SYNC,
+  );
 }
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
@@ -273,7 +284,7 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
     console.warn(`Invoice ${invoice.id} has no subscription; nothing to sync`);
     return;
   }
-  await syncSubscriptionFromStripe(subscriptionId);
+  await syncSubscriptionFromStripe(subscriptionId, {}, WEBHOOK_SYNC);
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
@@ -283,7 +294,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   const subscriptionId = await resolveSubscriptionIdForInvoice(invoice);
   let subscriptionStatus: string | null = null;
   if (subscriptionId) {
-    subscriptionStatus = (await syncSubscriptionFromStripe(subscriptionId)).status;
+    subscriptionStatus = (await syncSubscriptionFromStripe(subscriptionId, {}, WEBHOOK_SYNC)).status;
   }
 
   const customerId = idOf(invoice.customer) ?? "(none)";

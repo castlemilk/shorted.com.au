@@ -255,9 +255,15 @@ func adminSubscriptionAPI(r shortsstore.AdminSubscription) *shortsstore.APISubsc
 		text := r.CurrentPeriodEnd.UTC().Format(time.RFC3339Nano)
 		end = &text
 	}
+	var pastDue *string
+	if r.PastDueSince != nil {
+		text := r.PastDueSince.UTC().Format(time.RFC3339Nano)
+		pastDue = &text
+	}
 	return &shortsstore.APISubscription{
 		UserID: r.UserID, UserEmail: r.Email, Status: r.Status, Tier: r.Tier,
 		CurrentPeriodEnd: end, CancelAtPeriodEnd: r.CancelAtPeriodEnd,
+		PastDueSince: pastDue,
 	}
 }
 

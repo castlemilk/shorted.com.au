@@ -12,6 +12,8 @@ import { CHECKOUT_PLAN_CONFIG, type CheckoutTier } from "~/lib/stripe-plans";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
 import { notifyOperator } from "~/@/lib/operator-notify";
+import { acquireCacheLease } from "~/@/lib/kv-cache";
+import { randomUUID } from "node:crypto";
 
 /**
  * Stripe -> Shorted subscription sync.
@@ -268,6 +270,7 @@ export async function listCustomerSubscriptions(
 export async function syncSubscriptionFromStripe(
   subscriptionId: string,
   hint: SubscriptionSyncHint = {},
+  options: WriteOptions = {},
 ): Promise<SubscriptionSyncResult> {
   const requested = await stripe.subscriptions.retrieve(subscriptionId);
   const customerId = idOf(requested.customer);
@@ -280,7 +283,7 @@ export async function syncSubscriptionFromStripe(
   // The hint describes the requested subscription. It is used only when that
   // subscription is the one being written.
   const identity = chosen.id === requested.id ? hint : {};
-  return writeSubscriptionState(customerId, chosen, identity);
+  return writeSubscriptionState(customerId, chosen, identity, options);
 }
 
 /**
@@ -294,7 +297,7 @@ export async function syncCustomerFromStripe(
 ): Promise<SubscriptionSyncResult | null> {
   const chosen = pickBestSubscription(await listCustomerSubscriptions(customerId));
   if (!chosen) return null;
-  return writeSubscriptionState(customerId, chosen, {});
+  return writeSubscriptionState(customerId, chosen, {}, {});
 }
 
 /**
@@ -306,6 +309,7 @@ async function writeSubscriptionState(
   customerId: string,
   subscription: Stripe.Subscription,
   hint: SubscriptionSyncHint,
+  options: WriteOptions,
 ): Promise<SubscriptionSyncResult> {
   const status = STATUS_MAP[subscription.status] ?? UNKNOWN_STATUS;
   const isDeleted = subscription.status === "canceled";
@@ -346,6 +350,11 @@ async function writeSubscriptionState(
     ensuredRow = true;
   }
 
+  // The failure time of the current past-due run, read from the open invoice. Only
+  // a past_due subscription has one; the store starts the grace from it.
+  const pastDueSince =
+    subscription.status === "past_due" ? await pastDueSinceFor(subscription.id) : null;
+
   // Step 2: always write the full current state. This is the write that carries
   // the true status, so it must land even when step 1 ran.
   const periodStart = item?.current_period_start;
@@ -364,13 +373,14 @@ async function writeSubscriptionState(
           ? timestampFromDate(new Date(periodEnd * 1000))
           : undefined,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        pastDueSince: pastDueSince ? timestampFromDate(pastDueSince) : undefined,
         isDeleted,
       });
     },
     SYNC_RETRY_OPTIONS,
   );
 
-  if (unknownPlan) {
+  if (unknownPlan && options.alertOnUnknownPrice && (await claimUnknownPriceAlert(subscription.id, priceId))) {
     console.error(
       `[billing-sync] subscription ${subscription.id} is on a price that is not a configured Shorted plan (${priceId ?? "none"}); written as free, no access granted`,
     );
@@ -432,4 +442,51 @@ export async function resolveSubscriptionIdForInvoice(
     (candidate) => candidate.status !== "incomplete_expired",
   );
   return newest?.id ?? null;
+}
+
+/** Options for one subscription write. Only the webhook opts in to the operator alert. */
+export interface WriteOptions {
+  /**
+   * Alert the operator when the subscription is on a price that is not a Shorted plan.
+   * Off by default, so the daily reconcile, which sees the same subscription every day,
+   * does not repeat the alert. The webhook turns it on, and claimUnknownPriceAlert
+   * keeps it to once per subscription and price.
+   */
+  alertOnUnknownPrice?: boolean;
+}
+
+/** How long an unknown-price alert is remembered, so it is sent once per subscription and price. */
+const UNKNOWN_PRICE_ALERT_TTL_SECONDS = 365 * 24 * 60 * 60;
+
+/**
+ * True when this is the first alert for this subscription and price. Uses the KV lease
+ * (one atomic SET NX). When the store is unavailable it returns true, so a broken KV
+ * alerts rather than hides the problem.
+ */
+export async function claimUnknownPriceAlert(
+  subscriptionId: string,
+  priceId: string | null | undefined,
+): Promise<boolean> {
+  const key = `billing-unknown-price-alert:${subscriptionId}:${priceId ?? "none"}`;
+  const result = await acquireCacheLease(key, randomUUID(), UNKNOWN_PRICE_ALERT_TTL_SECONDS);
+  return result !== "busy";
+}
+
+/**
+ * The failure time of a past_due subscription's current run: the open invoice's
+ * finalization, which is when Stripe first attempts the charge. Falls back to the
+ * invoice's creation. webhooks_delivered_at is not used, because it records when
+ * Stripe sent webhooks, not when the payment failed. Null when there is no open
+ * invoice, and the store then starts the grace from now.
+ */
+export async function pastDueSinceFor(subscriptionId: string): Promise<Date | null> {
+  const invoices = await stripe.invoices.list({
+    subscription: subscriptionId,
+    status: "open",
+    limit: 1,
+  });
+  const invoice = invoices.data[0];
+  if (!invoice) return null;
+  const at = invoice.status_transitions?.finalized_at ?? invoice.created;
+  return at ? new Date(at * 1000) : null;
 }

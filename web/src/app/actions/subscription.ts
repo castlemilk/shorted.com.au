@@ -8,8 +8,8 @@ import { auth } from "~/server/auth";
 import { SUBSCRIPTION_TIERS, isPremiumTier, type SubscriptionStatus, type SubscriptionTier } from "~/lib/stripe";
 import type { CheckoutTier } from "~/lib/stripe-plans";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
-import { isEntitledSubscription } from "~/lib/subscription-entitlement";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
+import { isEntitledSubscription } from "~/lib/subscription-entitlement";
 
 // Internal auth secret for service-to-service calls
 const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
@@ -47,6 +47,8 @@ export interface SubscriptionInfo {
   isPremium: boolean;
   canMintTokens: boolean;
   currentPeriodEnd: Date | null;
+  /** When the current past-due run's first failed charge happened, or null. Starts the grace. */
+  pastDueSince: Date | null;
   cancelAtPeriodEnd: boolean;
   features: readonly string[];
   requestsPerDay: number;
@@ -58,6 +60,14 @@ export interface SubscriptionInfo {
    * including a genuine "no subscription".
    */
   lookupFailed?: boolean;
+}
+
+/** A proto Timestamp as a Date, or null when unset. */
+export function timestampToDate(
+  ts: { seconds: bigint | number; nanos?: number } | null | undefined,
+): Date | null {
+  if (!ts) return null;
+  return new Date(Number(ts.seconds) * 1000 + Math.floor((ts.nanos ?? 0) / 1_000_000));
 }
 
 /**
@@ -112,6 +122,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       isPremium: false,
       canMintTokens: false,
       currentPeriodEnd: null,
+      pastDueSince: null,
       cancelAtPeriodEnd: false,
       features: SUBSCRIPTION_TIERS.free.features,
       requestsPerDay: SUBSCRIPTION_TIERS.free.requestsPerDay,
@@ -141,6 +152,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
         isPremium: false,
         canMintTokens: false,
         currentPeriodEnd: null,
+        pastDueSince: null,
         cancelAtPeriodEnd: false,
         features: SUBSCRIPTION_TIERS.free.features,
         requestsPerDay: SUBSCRIPTION_TIERS.free.requestsPerDay,
@@ -160,7 +172,8 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       );
     }
 
-    const hasActiveSubscription = isEntitledSubscription({ status, currentPeriodEnd });
+    const pastDueSince = timestampToDate(response.pastDueSince);
+    const hasActiveSubscription = isEntitledSubscription({ status, pastDueSince });
 
     return {
       status,
@@ -169,6 +182,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       isPremium: hasActiveSubscription && isPremiumTier(tier),
       canMintTokens: hasActiveSubscription && tier !== "free",
       currentPeriodEnd,
+      pastDueSince,
       cancelAtPeriodEnd: response.cancelAtPeriodEnd,
       features: tierConfig.features,
       requestsPerDay: tierConfig.requestsPerDay,
@@ -184,6 +198,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       isPremium: false,
       canMintTokens: false,
       currentPeriodEnd: null,
+      pastDueSince: null,
       cancelAtPeriodEnd: false,
       features: SUBSCRIPTION_TIERS.free.features,
       requestsPerDay: SUBSCRIPTION_TIERS.free.requestsPerDay,

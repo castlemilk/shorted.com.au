@@ -87,6 +87,10 @@ message HandleStripeSubscriptionUpdatedRequest {
   google.protobuf.Timestamp current_period_end = 6;
   bool cancel_at_period_end = 7;
   bool is_deleted = 8;                   // True if subscription was deleted/canceled permanently
+  // When the first failed charge of the current past-due run happened (the open
+  // invoice's finalization). Set only while status is PAST_DUE. The API starts the
+  // 14-day grace from it; unset means no grace.
+  google.protobuf.Timestamp past_due_since = 9;
 }
 
 // Response for HandleStripeSubscriptionUpdated RPC
@@ -106,4 +110,7 @@ message GetMySubscriptionResponse {
   google.protobuf.Timestamp current_period_end = 4;
   bool cancel_at_period_end = 5;
   string stripe_customer_id = 6;         // For portal access
+  // When the current past-due run's first failed charge happened, for the grace
+  // window. Unset unless status is PAST_DUE.
+  google.protobuf.Timestamp past_due_since = 7;
 }

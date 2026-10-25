@@ -19,7 +19,13 @@ import {
 jest.mock("~/lib/stripe", () => ({
   stripe: {
     subscriptions: { retrieve: jest.fn(), list: jest.fn() },
+    invoices: { list: jest.fn(async () => ({ data: [] })) },
   },
+}));
+
+// The KV lease that keeps the unknown-price alert to once per subscription and price.
+jest.mock("~/@/lib/kv-cache", () => ({
+  acquireCacheLease: jest.fn(async () => "acquired"),
 }));
 
 jest.mock("@connectrpc/connect", () => {
@@ -44,6 +50,9 @@ jest.mock("~/app/actions/config", () => ({
   SHORTS_API_URL: "http://shorts.test",
   serverFetchWithUserAgent: jest.fn(),
 }));
+
+const invoiceMock = (stripe as unknown as { invoices: { list: jest.Mock } }).invoices;
+const leaseMock = jest.requireMock("~/@/lib/kv-cache").acquireCacheLease as jest.Mock;
 
 type GoClient = {
   handleStripeCheckoutCompleted: jest.Mock;
@@ -324,7 +333,7 @@ describe("syncSubscriptionFromStripe", () => {
       }),
     );
 
-    const result = await syncSubscriptionFromStripe("sub_1");
+    const result = await syncSubscriptionFromStripe("sub_1", {}, { alertOnUnknownPrice: true });
 
     // No access: never premium, never a linked row.
     expect(goClient.handleStripeCheckoutCompleted).not.toHaveBeenCalled();
@@ -864,3 +873,119 @@ describe("helpers", () => {
     expect(idOf(null)).toBeNull();
   });
 });
+
+describe("the failure time of a past_due run", () => {
+  const originalEnv = process.env;
+  const FINALIZED = Math.floor(Date.UTC(2026, 9, 3, 9, 0, 0) / 1000);
+  const CREATED = Math.floor(Date.UTC(2026, 9, 2, 9, 0, 0) / 1000);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...originalEnv, STRIPE_PREMIUM_PRICE_ID: "price_premium" };
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [] });
+    invoiceMock.list.mockResolvedValue({ data: [] });
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it("starts the grace at the open invoice's finalization, not the period end", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: "past_due" }));
+    invoiceMock.list.mockResolvedValue({
+      data: [{ id: "in_open", created: CREATED, status_transitions: { finalized_at: FINALIZED } }],
+    });
+
+    await syncSubscriptionFromStripe("sub_1");
+
+    expect(invoiceMock.list).toHaveBeenCalledWith(
+      expect.objectContaining({ subscription: "sub_1", status: "open", limit: 1 }),
+    );
+    expect(Number((lastUpdate().pastDueSince as { seconds: bigint }).seconds)).toBe(FINALIZED);
+    // The period end is still written, as the renewal date. It is not the grace anchor.
+    expect(lastUpdate()).toMatchObject({ status: PROTO.PAST_DUE });
+  });
+
+  it("falls back to the invoice's creation when it was never finalized", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: "past_due" }));
+    invoiceMock.list.mockResolvedValue({
+      data: [{ id: "in_draft", created: CREATED, status_transitions: { finalized_at: null } }],
+    });
+
+    await syncSubscriptionFromStripe("sub_1");
+
+    expect(Number((lastUpdate().pastDueSince as { seconds: bigint }).seconds)).toBe(CREATED);
+  });
+
+  it("sends no failure time when there is no open invoice, so the store starts from now", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: "past_due" }));
+    invoiceMock.list.mockResolvedValue({ data: [] });
+
+    await syncSubscriptionFromStripe("sub_1");
+
+    expect(lastUpdate().pastDueSince).toBeUndefined();
+  });
+
+  it("does not read an invoice for a subscription that is not past_due", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: "active" }));
+
+    await syncSubscriptionFromStripe("sub_1");
+
+    expect(invoiceMock.list).not.toHaveBeenCalled();
+    expect(lastUpdate().pastDueSince).toBeUndefined();
+  });
+});
+
+describe("the unknown-price operator alert", () => {
+  const originalEnv = process.env;
+  const UNKNOWN = {
+    items: {
+      data: [
+        {
+          current_period_start: PERIOD_START,
+          current_period_end: PERIOD_END,
+          price: { id: "price_unknown" },
+        },
+      ],
+    },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...originalEnv, STRIPE_PREMIUM_PRICE_ID: "price_premium" };
+    stripeMock.subscriptions.list.mockResolvedValue({ data: [] });
+    invoiceMock.list.mockResolvedValue({ data: [] });
+    jest.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it("does not alert from the daily reconcile, which sees the same subscription every day", async () => {
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [subscription(UNKNOWN)],
+    });
+
+    await syncCustomerFromStripe("cus_1");
+
+    expect(notifyOperator).not.toHaveBeenCalled();
+    expect(lastUpdate()).toMatchObject({ tier: SubscriptionTier.FREE });
+  });
+
+  it("alerts once per subscription and price, when the webhook asks", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription(UNKNOWN));
+    leaseMock.mockResolvedValueOnce("acquired").mockResolvedValueOnce("busy");
+
+    await syncSubscriptionFromStripe("sub_1", {}, { alertOnUnknownPrice: true });
+    await syncSubscriptionFromStripe("sub_1", {}, { alertOnUnknownPrice: true });
+
+    expect(leaseMock).toHaveBeenCalledWith(
+      "billing-unknown-price-alert:sub_1:price_unknown",
+      expect.any(String),
+      expect.any(Number),
+    );
+    expect(notifyOperator).toHaveBeenCalledTimes(1);
+  });
+});
+

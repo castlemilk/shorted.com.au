@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/subscription"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
@@ -40,12 +41,6 @@ var paidTiers = map[string]struct{}{
 // reconcile.
 const periodEndGrace = 72 * time.Hour
 
-// pastDueGrace is how long a past_due row keeps its paid access while Stripe retries
-// the failed card. The anchor is the row's current_period_end, the one date the row
-// reliably holds: the failed invoice's own date is not stored. Stripe moves a
-// subscription to unpaid or canceled when retries run out, and the status check
-// ends the grace then, whichever comes first.
-const pastDueGrace = 14 * 24 * time.Hour
 
 // ResolveEntitlement decides a user's entitlement from their internal grant and
 // their store row (sub is nil when there is none).
@@ -88,21 +83,30 @@ func ResolveEntitlement(userID string, sub *shortsstore.APISubscription, now tim
 	return Entitlement{Entitled: true, Tier: tier, Reason: "active", Source: "stripe"}
 }
 
-// pastDueEntitlement is the grace rule for a past_due row. It needs a readable period
-// end to anchor the grace; without one the grace cannot be bounded, so the row grants
-// nothing rather than an open-ended grace.
+// pastDueEntitlement is the grace rule for a past_due row. The grace starts at the
+// first failed charge (past_due_since), not at the period end: Stripe moves the
+// period forward at every renewal it fails, so a period-end anchor never runs out.
+// A row with no failure time has no bounded grace, so it grants nothing.
 func pastDueEntitlement(tier string, sub *shortsstore.APISubscription, now time.Time) Entitlement {
-	if sub.CurrentPeriodEnd == nil {
+	if sub.PastDueSince == nil {
 		return Entitlement{Tier: "free", Reason: "status_past_due", Source: "stripe"}
 	}
-	end, ok := parseStoreTimestamp(*sub.CurrentPeriodEnd)
+	since, ok := parseStoreTimestamp(*sub.PastDueSince)
 	if !ok {
 		return Entitlement{Tier: "free", Reason: "status_past_due", Source: "stripe"}
 	}
-	if now.Before(end.Add(pastDueGrace)) {
+	if subscription.PastDueInGrace(since, now) {
 		return Entitlement{Entitled: true, Tier: tier, Reason: "past_due_grace", Source: "stripe"}
 	}
 	return Entitlement{Tier: "free", Reason: "past_due_grace_ended", Source: "stripe"}
+}
+
+// HasPremiumFeatures reports whether the entitlement carries the premium web features
+// (AI chat, alerts). Paid access alone is not enough: API Access is entitled to the
+// API and its tokens, but not to these. Every premium-feature gate reads this, never
+// Entitled.
+func (e Entitlement) HasPremiumFeatures() bool {
+	return e.Entitled && subscription.PremiumFeatureTier(e.Tier)
 }
 
 // normaliseRowValue folds the case and padding out of a status or tier. The

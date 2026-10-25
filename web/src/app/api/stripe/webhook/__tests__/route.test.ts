@@ -13,8 +13,13 @@ jest.mock("~/lib/stripe", () => ({
   stripe: {
     webhooks: { constructEvent: jest.fn() },
     subscriptions: { retrieve: jest.fn(), list: jest.fn() },
+    invoices: { list: jest.fn(async () => ({ data: [] })) },
     billingPortal: { sessions: { create: jest.fn() } },
   },
+}));
+
+jest.mock("~/@/lib/kv-cache", () => ({
+  acquireCacheLease: jest.fn(async () => "acquired"),
 }));
 
 jest.mock("@connectrpc/connect", () => {

@@ -57,6 +57,7 @@ export interface MySubscriptionFields {
   status: ProtoSubscriptionStatus;
   tier: ProtoSubscriptionTier;
   currentPeriodEnd?: { seconds: bigint; nanos: number };
+  pastDueSince?: { seconds: bigint; nanos: number };
   cancelAtPeriodEnd?: boolean;
 }
 
@@ -105,7 +106,13 @@ export function toSubscriptionInfo(fields: MySubscriptionFields): SubscriptionIn
     );
   }
 
-  const hasActiveSubscription = isEntitledSubscription({ status, currentPeriodEnd });
+  const pastDueSince = fields.pastDueSince
+    ? new Date(
+        Number(fields.pastDueSince.seconds) * 1000 +
+          Math.floor((fields.pastDueSince.nanos ?? 0) / 1_000_000),
+      )
+    : null;
+  const hasActiveSubscription = isEntitledSubscription({ status, pastDueSince });
   return {
     status,
     tier,
@@ -113,6 +120,7 @@ export function toSubscriptionInfo(fields: MySubscriptionFields): SubscriptionIn
     isPremium: hasActiveSubscription && isPremiumTier(tier),
     canMintTokens: hasActiveSubscription && tier !== "free",
     currentPeriodEnd,
+    pastDueSince,
     cancelAtPeriodEnd: fields.cancelAtPeriodEnd ?? false,
     features: tierConfig.features,
     requestsPerDay: tierConfig.requestsPerDay,
@@ -127,6 +135,7 @@ function freeSubscription(): SubscriptionInfo {
     isPremium: false,
     canMintTokens: false,
     currentPeriodEnd: null,
+    pastDueSince: null,
     cancelAtPeriodEnd: false,
     features: SUBSCRIPTION_TIERS.free.features,
     requestsPerDay: SUBSCRIPTION_TIERS.free.requestsPerDay,
