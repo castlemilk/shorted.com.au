@@ -48,6 +48,9 @@ enum SubscriptionStatus {
   SUBSCRIPTION_STATUS_PAST_DUE = 3;
   SUBSCRIPTION_STATUS_CANCELED = 4;
   SUBSCRIPTION_STATUS_INACTIVE = 5;
+  // Stripe has stopped retrying the card. Access is paused, and the customer is told
+  // to update the card. Not in the past-due grace.
+  SUBSCRIPTION_STATUS_UNPAID = 6;
 }
 
 // Subscription tier enum

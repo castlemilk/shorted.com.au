@@ -1,10 +1,9 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { PastDueBanner } from "../past-due-banner";
-import { createPortalSession, getSubscriptionStatus } from "~/app/actions/subscription";
+import { getSubscriptionStatus } from "~/app/actions/subscription";
 
 jest.mock("~/app/actions/subscription", () => ({
   getSubscriptionStatus: jest.fn(),
-  createPortalSession: jest.fn(),
 }));
 
 // The banner's own session and route checks. Each test sets who is signed in and
@@ -23,7 +22,6 @@ jest.mock("next/navigation", () => ({
 }));
 
 const statusMock = getSubscriptionStatus as jest.Mock;
-const portalMock = createPortalSession as jest.Mock;
 
 function info(overrides: Record<string, unknown>) {
   return {
@@ -56,7 +54,7 @@ describe("PastDueBanner", () => {
     render(<PastDueBanner />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Your access continues while Stripe retries");
-    expect(screen.getByRole("button", { name: "Update your card" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Update your card" })).toHaveAttribute("href", "/billing/portal");
   });
 
   it("says access has ended for a past_due subscription past the grace", async () => {
@@ -90,18 +88,32 @@ describe("PastDueBanner", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("shows a message, and does not navigate, when the billing page cannot be opened", async () => {
+  it("links the card update to /billing/portal, which runs in the browser's own session", async () => {
     statusMock.mockResolvedValue(info({ status: "past_due", hasActiveSubscription: true }));
-    portalMock.mockResolvedValue({ url: null, error: "Portal service is not configured" });
 
     render(<PastDueBanner />);
-    const button = await screen.findByRole("button", { name: "Update your card" });
-    await act(async () => {
-      button.click();
-    });
 
-    expect(portalMock).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText("We couldn't open the billing page. Try again in a moment.")).toBeInTheDocument();
+    const link = await screen.findByRole("link", { name: "Update your card" });
+    expect(link).toHaveAttribute("href", "/billing/portal");
+  });
+
+  it("shows unpaid customers that access is paused until the card is updated, with the same link", async () => {
+    statusMock.mockResolvedValue(info({ status: "unpaid", hasActiveSubscription: false }));
+
+    render(<PastDueBanner />);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Your access is paused until you update your card.");
+    expect(screen.getByRole("link", { name: "Update your card" })).toHaveAttribute("href", "/billing/portal");
+  });
+
+  it("shows no banner for a canceled customer", async () => {
+    statusMock.mockResolvedValue(info({ status: "canceled", hasActiveSubscription: false }));
+
+    const { container } = render(<PastDueBanner />);
+
+    await waitFor(() => expect(statusMock).toHaveBeenCalled());
+    expect(container).toBeEmptyDOMElement();
   });
 
   describe("where it shows", () => {

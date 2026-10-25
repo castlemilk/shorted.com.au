@@ -3,32 +3,32 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { createPortalSession, getSubscriptionStatus } from "~/app/actions/subscription";
+import { getSubscriptionStatus } from "~/app/actions/subscription";
 import { isChromelessRoute } from "~/@/lib/chromeless-routes";
 
 /**
- * Tells a customer whose last payment failed, and links them to the Stripe billing
- * portal to update the card. Shown only for past_due, and only on a page that shows
- * chrome (see chromeless-routes.ts). The wording follows whether access continues, so
- * the banner says what the customer actually has.
+ * Tells a customer whose card was declined that they need to update it, and links to
+ * /billing/portal. That route runs in the browser's own session, so it opens the
+ * Stripe billing portal for the signed-in customer. A server-side call would carry no
+ * cookie and could not do that.
  *
- * It costs nothing for a visitor who is signed out or on a chrome-less route: it makes
- * no request. For a signed-in customer it makes one status request, and keeps the
- * answer for a few minutes in sessionStorage, so the next page view does not repeat
- * it. The cache is per browser tab, and it is only a convenience: if storage is
- * unavailable the banner simply asks again.
+ * Shown for past_due (access continues while Stripe retries, or has ended past the
+ * grace) and for unpaid (Stripe has stopped retrying, and access is paused). Only on a
+ * page that shows chrome (see chromeless-routes.ts). It makes no request for a visitor
+ * who is signed out or on a chrome-less route. For a signed-in customer it makes one
+ * status request and keeps the answer per tab for five minutes in sessionStorage. The
+ * cache is a convenience only: if storage is unavailable the banner asks again.
  *
- * Loaded client-only from the root layout (ssr: false), like the chat sidebar, so
- * the Connect-RPC imports stay out of the server render.
+ * Loaded client-only from the root layout (ssr: false), like the chat sidebar.
  */
 
-const CACHE_KEY = "shorted:past-due-banner:v1";
+const CACHE_KEY = "shorted:billing-banner:v2";
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface CachedAnswer {
   userId: string;
   at: number;
-  pastDue: boolean;
+  status: string;
   entitled: boolean;
 }
 
@@ -53,13 +53,26 @@ function writeCache(answer: CachedAnswer): void {
   }
 }
 
+/** The banner's copy for a status, or null when the status needs no banner. */
+export function bannerFor(status: string, entitled: boolean): { text: string } | null {
+  if (status === "unpaid") {
+    return { text: "Your access is paused until you update your card." };
+  }
+  if (status === "past_due") {
+    return {
+      text: entitled
+        ? "Your last payment didn't go through. Your access continues while Stripe retries the card."
+        : "Your last payment didn't go through, so your paid access has ended. Update your card to restore it.",
+    };
+  }
+  return null;
+}
+
 export function PastDueBanner() {
   const pathname = usePathname();
-  const { data: session, status } = useSession();
-  const userId = status === "authenticated" ? (session?.user?.id ?? null) : null;
-  const [state, setState] = useState<{ entitled: boolean } | null>(null);
-  const [opening, setOpening] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: session, status: sessionStatus } = useSession();
+  const userId = sessionStatus === "authenticated" ? (session?.user?.id ?? null) : null;
+  const [banner, setBanner] = useState<{ text: string } | null>(null);
   const chromeless = isChromelessRoute(pathname ?? "");
 
   useEffect(() => {
@@ -67,7 +80,7 @@ export function PastDueBanner() {
 
     const cached = readCache(userId);
     if (cached) {
-      setState(cached.pastDue ? { entitled: cached.entitled } : null);
+      setBanner(bannerFor(cached.status, cached.entitled));
       return;
     }
 
@@ -75,9 +88,8 @@ export function PastDueBanner() {
     getSubscriptionStatus()
       .then((info) => {
         if (cancelled) return;
-        const pastDue = info.status === "past_due";
-        writeCache({ userId, at: Date.now(), pastDue, entitled: info.hasActiveSubscription });
-        setState(pastDue ? { entitled: info.hasActiveSubscription } : null);
+        writeCache({ userId, at: Date.now(), status: info.status, entitled: info.hasActiveSubscription });
+        setBanner(bannerFor(info.status, info.hasActiveSubscription));
       })
       .catch(() => {
         // Best effort. A banner that cannot load must not break the page.
@@ -87,19 +99,7 @@ export function PastDueBanner() {
     };
   }, [chromeless, userId]);
 
-  if (chromeless || !state) return null;
-
-  async function openPortal() {
-    setOpening(true);
-    setError(null);
-    const result = await createPortalSession();
-    if (result.url) {
-      window.location.href = result.url;
-      return;
-    }
-    setOpening(false);
-    setError("We couldn't open the billing page. Try again in a moment.");
-  }
+  if (chromeless || !banner) return null;
 
   return (
     <div
@@ -107,22 +107,13 @@ export function PastDueBanner() {
       className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-foreground"
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p>
-          {state.entitled
-            ? "Your last payment didn't go through. Your access continues while Stripe retries the card."
-            : "Your last payment didn't go through, so your paid access has ended. Update your card to restore it."}
-        </p>
-        <div className="flex items-center gap-3">
-          {error ? <span className="text-destructive">{error}</span> : null}
-          <button
-            type="button"
-            onClick={() => void openPortal()}
-            disabled={opening}
-            className="font-medium underline underline-offset-4 disabled:opacity-60"
-          >
-            {opening ? "Opening billing…" : "Update your card"}
-          </button>
-        </div>
+        <p>{banner.text}</p>
+        <a
+          href="/billing/portal"
+          className="font-medium underline underline-offset-4"
+        >
+          Update your card
+        </a>
       </div>
     </div>
   );

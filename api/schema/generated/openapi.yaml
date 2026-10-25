@@ -14894,6 +14894,7 @@ components:
         - SUBSCRIPTION_STATUS_PAST_DUE
         - SUBSCRIPTION_STATUS_CANCELED
         - SUBSCRIPTION_STATUS_INACTIVE
+        - SUBSCRIPTION_STATUS_UNPAID
       description: Subscription status enum
     shorts.v1alpha1.SubscriptionTier:
       type: string

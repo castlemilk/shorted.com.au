@@ -149,14 +149,15 @@ func createdOf(s webSubscription) time.Time {
 	return t
 }
 
-// mirrorStatusFor maps a Stripe status to the value the webhook writes. The
-// mapping is the web's own: unpaid is recorded as inactive (Stripe has given up
-// retrying, so it grants nothing), and an incomplete or paused subscription too.
+// mirrorStatusFor maps a Stripe status to the value the webhook writes. The mapping is
+// the web's own: unpaid is recorded as unpaid (Stripe has stopped retrying, so it
+// grants nothing, and the banner asks for the card), and an incomplete or paused
+// subscription is inactive.
 func mirrorStatusFor(stripe string) string {
 	s := normaliseRowValue(stripe)
 	switch {
 	case s == "unpaid":
-		return "inactive"
+		return "unpaid"
 	case strings.HasPrefix(s, "incomplete"), s == "paused":
 		return "inactive"
 	}

@@ -33,6 +33,9 @@ const (
 	SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE    SubscriptionStatus = 3
 	SubscriptionStatus_SUBSCRIPTION_STATUS_CANCELED    SubscriptionStatus = 4
 	SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE    SubscriptionStatus = 5
+	// Stripe has stopped retrying the card. Access is paused, and the customer is told
+	// to update the card. Not in the past-due grace.
+	SubscriptionStatus_SUBSCRIPTION_STATUS_UNPAID SubscriptionStatus = 6
 )
 
 // Enum value maps for SubscriptionStatus.
@@ -44,6 +47,7 @@ var (
 		3: "SUBSCRIPTION_STATUS_PAST_DUE",
 		4: "SUBSCRIPTION_STATUS_CANCELED",
 		5: "SUBSCRIPTION_STATUS_INACTIVE",
+		6: "SUBSCRIPTION_STATUS_UNPAID",
 	}
 	SubscriptionStatus_value = map[string]int32{
 		"SUBSCRIPTION_STATUS_UNSPECIFIED": 0,
@@ -52,6 +56,7 @@ var (
 		"SUBSCRIPTION_STATUS_PAST_DUE":    3,
 		"SUBSCRIPTION_STATUS_CANCELED":    4,
 		"SUBSCRIPTION_STATUS_INACTIVE":    5,
+		"SUBSCRIPTION_STATUS_UNPAID":      6,
 	}
 )
 
@@ -690,14 +695,15 @@ const file_shorts_v1alpha1_billing_proto_rawDesc = "" +
 	"\x12current_period_end\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x10currentPeriodEnd\x12/\n" +
 	"\x14cancel_at_period_end\x18\x05 \x01(\bR\x11cancelAtPeriodEnd\x12,\n" +
 	"\x12stripe_customer_id\x18\x06 \x01(\tR\x10stripeCustomerId\x12@\n" +
-	"\x0epast_due_since\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\fpastDueSince*\xe1\x01\n" +
+	"\x0epast_due_since\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\fpastDueSince*\x81\x02\n" +
 	"\x12SubscriptionStatus\x12#\n" +
 	"\x1fSUBSCRIPTION_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aSUBSCRIPTION_STATUS_ACTIVE\x10\x01\x12 \n" +
 	"\x1cSUBSCRIPTION_STATUS_TRIALING\x10\x02\x12 \n" +
 	"\x1cSUBSCRIPTION_STATUS_PAST_DUE\x10\x03\x12 \n" +
 	"\x1cSUBSCRIPTION_STATUS_CANCELED\x10\x04\x12 \n" +
-	"\x1cSUBSCRIPTION_STATUS_INACTIVE\x10\x05*\xcf\x01\n" +
+	"\x1cSUBSCRIPTION_STATUS_INACTIVE\x10\x05\x12\x1e\n" +
+	"\x1aSUBSCRIPTION_STATUS_UNPAID\x10\x06*\xcf\x01\n" +
 	"\x10SubscriptionTier\x12!\n" +
 	"\x1dSUBSCRIPTION_TIER_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16SUBSCRIPTION_TIER_FREE\x10\x01\x12\x19\n" +

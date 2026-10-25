@@ -87,6 +87,8 @@ function mapProtoStatusToString(status: ProtoSubscriptionStatus): SubscriptionSt
       return "trialing";
     case ProtoSubscriptionStatus.PAST_DUE:
       return "past_due";
+    case ProtoSubscriptionStatus.UNPAID:
+      return "unpaid";
     case ProtoSubscriptionStatus.CANCELED:
       return "canceled";
     case ProtoSubscriptionStatus.INACTIVE:
@@ -249,30 +251,3 @@ export async function createCheckoutSession(
   }
 }
 
-/**
- * Create a customer portal session for managing subscription
- */
-export async function createPortalSession(): Promise<{ url: string | null; error?: string }> {
-  const session = await auth();
-
-  if (!session?.user?.email) {
-    return { url: null, error: "You must be signed in" };
-  }
-
-  try {
-    const baseUrl = process.env.NEXTAUTH_URL ?? "https://shorted.com.au";
-    const response = await fetch(`${baseUrl}/api/stripe/portal`, {
-      method: "POST",
-    });
-
-    const data = await response.json() as { url?: string; error?: string };
-
-    if (!response.ok) {
-      return { url: null, error: data.error ?? "Failed to create portal session" };
-    }
-
-    return { url: data.url ?? null };
-  } catch (error) {
-    return { url: null, error: "Failed to create portal session" };
-  }
-}

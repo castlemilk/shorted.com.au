@@ -283,6 +283,8 @@ func mapStatusToString(status shortsv1alpha1.SubscriptionStatus) string {
 		return "canceled"
 	case shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE:
 		return "inactive"
+	case shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNPAID:
+		return "unpaid"
 	default:
 		return ""
 	}
@@ -300,6 +302,8 @@ func mapStringToStatus(status string) shortsv1alpha1.SubscriptionStatus {
 		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_CANCELED
 	case "inactive":
 		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE
+	case "unpaid":
+		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNPAID
 	default:
 		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED
 	}

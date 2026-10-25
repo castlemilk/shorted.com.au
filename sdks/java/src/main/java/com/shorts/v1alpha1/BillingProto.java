@@ -115,37 +115,38 @@ public final class BillingProto extends com.google.protobuf.GeneratedFile {
       "nd\030\005 \001(\010R\021cancelAtPeriodEnd\022,\n\022stripe_cu" +
       "stomer_id\030\006 \001(\tR\020stripeCustomerId\022@\n\016pas" +
       "t_due_since\030\007 \001(\0132\032.google.protobuf.Time" +
-      "stampR\014pastDueSince*\341\001\n\022SubscriptionStat" +
+      "stampR\014pastDueSince*\201\002\n\022SubscriptionStat" +
       "us\022#\n\037SUBSCRIPTION_STATUS_UNSPECIFIED\020\000\022" +
       "\036\n\032SUBSCRIPTION_STATUS_ACTIVE\020\001\022 \n\034SUBSC" +
       "RIPTION_STATUS_TRIALING\020\002\022 \n\034SUBSCRIPTIO" +
       "N_STATUS_PAST_DUE\020\003\022 \n\034SUBSCRIPTION_STAT" +
       "US_CANCELED\020\004\022 \n\034SUBSCRIPTION_STATUS_INA" +
-      "CTIVE\020\005*\317\001\n\020SubscriptionTier\022!\n\035SUBSCRIP" +
-      "TION_TIER_UNSPECIFIED\020\000\022\032\n\026SUBSCRIPTION_" +
-      "TIER_FREE\020\001\022\031\n\025SUBSCRIPTION_TIER_PRO\020\002\022 " +
-      "\n\034SUBSCRIPTION_TIER_ENTERPRISE\020\003\022\035\n\031SUBS" +
-      "CRIPTION_TIER_PREMIUM\020\004\022 \n\034SUBSCRIPTION_" +
-      "TIER_API_ACCESS\020\0052\220\004\n\016BillingService\022X\n\t" +
-      "MintToken\022!.shorts.v1alpha1.MintTokenReq" +
-      "uest\032\".shorts.v1alpha1.MintTokenResponse" +
-      "\"\004\200\265\030\002\022\224\001\n\035HandleStripeCheckoutCompleted" +
-      "\0225.shorts.v1alpha1.HandleStripeCheckoutC" +
-      "ompletedRequest\0326.shorts.v1alpha1.Handle" +
-      "StripeCheckoutCompletedResponse\"\004\200\265\030\002\022\232\001" +
-      "\n\037HandleStripeSubscriptionUpdated\0227.shor" +
-      "ts.v1alpha1.HandleStripeSubscriptionUpda" +
-      "tedRequest\0328.shorts.v1alpha1.HandleStrip" +
-      "eSubscriptionUpdatedResponse\"\004\200\265\030\002\022p\n\021Ge" +
-      "tMySubscription\022).shorts.v1alpha1.GetMyS" +
-      "ubscriptionRequest\032*.shorts.v1alpha1.Get" +
-      "MySubscriptionResponse\"\004\200\265\030\002B\333\001\n\023com.sho" +
-      "rts.v1alpha1B\014BillingProtoP\001ZYgithub.com" +
-      "/castlemilk/shorted.com.au/services/gen/" +
-      "proto/go/shorts/v1alpha1;shortsv1alpha1\242" +
-      "\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha" +
-      "1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Shorts" +
-      "::V1alpha1b\006proto3"
+      "CTIVE\020\005\022\036\n\032SUBSCRIPTION_STATUS_UNPAID\020\006*" +
+      "\317\001\n\020SubscriptionTier\022!\n\035SUBSCRIPTION_TIE" +
+      "R_UNSPECIFIED\020\000\022\032\n\026SUBSCRIPTION_TIER_FRE" +
+      "E\020\001\022\031\n\025SUBSCRIPTION_TIER_PRO\020\002\022 \n\034SUBSCR" +
+      "IPTION_TIER_ENTERPRISE\020\003\022\035\n\031SUBSCRIPTION" +
+      "_TIER_PREMIUM\020\004\022 \n\034SUBSCRIPTION_TIER_API" +
+      "_ACCESS\020\0052\220\004\n\016BillingService\022X\n\tMintToke" +
+      "n\022!.shorts.v1alpha1.MintTokenRequest\032\".s" +
+      "horts.v1alpha1.MintTokenResponse\"\004\200\265\030\002\022\224" +
+      "\001\n\035HandleStripeCheckoutCompleted\0225.short" +
+      "s.v1alpha1.HandleStripeCheckoutCompleted" +
+      "Request\0326.shorts.v1alpha1.HandleStripeCh" +
+      "eckoutCompletedResponse\"\004\200\265\030\002\022\232\001\n\037Handle" +
+      "StripeSubscriptionUpdated\0227.shorts.v1alp" +
+      "ha1.HandleStripeSubscriptionUpdatedReque" +
+      "st\0328.shorts.v1alpha1.HandleStripeSubscri" +
+      "ptionUpdatedResponse\"\004\200\265\030\002\022p\n\021GetMySubsc" +
+      "ription\022).shorts.v1alpha1.GetMySubscript" +
+      "ionRequest\032*.shorts.v1alpha1.GetMySubscr" +
+      "iptionResponse\"\004\200\265\030\002B\333\001\n\023com.shorts.v1al" +
+      "pha1B\014BillingProtoP\001ZYgithub.com/castlem" +
+      "ilk/shorted.com.au/services/gen/proto/go" +
+      "/shorts/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017" +
+      "Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shor" +
+      "ts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V1alph" +
+      "a1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

@@ -151,6 +151,8 @@ function mapStatus(status: ProtoSubscriptionStatus): SubscriptionStatus {
       return "trialing";
     case ProtoSubscriptionStatus.PAST_DUE:
       return "past_due";
+    case ProtoSubscriptionStatus.UNPAID:
+      return "unpaid";
     case ProtoSubscriptionStatus.CANCELED:
       return "canceled";
     case ProtoSubscriptionStatus.INACTIVE:

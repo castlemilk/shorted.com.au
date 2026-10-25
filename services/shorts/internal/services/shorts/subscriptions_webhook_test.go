@@ -166,3 +166,14 @@ func TestGetMySubscription_PastDueCarriesTheFailureTime(t *testing.T) {
 	require.NotNil(t, resp.Msg.PastDueSince)
 	assert.True(t, resp.Msg.PastDueSince.AsTime().Equal(failed), "past_due_since = %v, want %v", resp.Msg.PastDueSince.AsTime(), failed)
 }
+
+// An unpaid subscription (Stripe has stopped retrying the card) is written and read back
+// as its own status. The banner asks for the card on it, and it is never in the grace.
+func TestUnpaidStatusRoundTripsAsItsOwnStatus(t *testing.T) {
+	if got := mapStatusToString(shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNPAID); got != "unpaid" {
+		t.Fatalf("UNPAID is written as %q, want unpaid", got)
+	}
+	if got := mapStringToStatus("unpaid"); got != shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNPAID {
+		t.Fatalf("unpaid is read as %v, want UNPAID", got)
+	}
+}

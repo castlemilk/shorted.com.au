@@ -118,4 +118,19 @@ describe("getSubscriptionStatus: the grace after a failed charge", () => {
 
     expect(info.hasActiveSubscription).toBe(false);
   });
+
+  it("reports an unpaid subscription as unpaid, so the banner can ask for the card, and grants nothing", async () => {
+    mockGetMySubscription.mockResolvedValue({
+      hasSubscription: true,
+      status: SubscriptionStatus.UNPAID,
+      tier: SubscriptionTier.PREMIUM,
+      pastDueSince: secondsAgo(1),
+    });
+
+    const info = await getSubscriptionStatus();
+
+    expect(info.status).toBe("unpaid");
+    expect(info.hasActiveSubscription).toBe(false);
+    expect(info.isPremium).toBe(false);
+  });
 });

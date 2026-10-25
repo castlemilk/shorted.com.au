@@ -207,8 +207,8 @@ func TestBillingDriftFindsEachDisagreement(t *testing.T) {
 			want:     []string{kindStatusMismatch},
 		},
 		{
-			name:     "unpaid is recorded as inactive, so inactive agrees with unpaid",
-			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-a", "a@example.com", "inactive")},
+			name:     "unpaid is recorded as unpaid, so unpaid agrees with unpaid",
+			rows:     []shortsstore.BillingSubscription{billingRow(billingNow, "uid-a", "a@example.com", "unpaid")},
 			views:    []stripeCustomerView{stripeView("cus_uid-a", stripeSub("sub_uid-a", "unpaid", periodEnd))},
 			stripeOK: true,
 			want:     []string{},
@@ -392,7 +392,7 @@ func TestBillingDriftNamesTheRowsItSkipped(t *testing.T) {
 func TestMirrorStatusMapsTheWebhooksOwnVocabulary(t *testing.T) {
 	for stripe, want := range map[string]string{
 		"active": "active", "trialing": "trialing", "past_due": "past_due", "canceled": "canceled",
-		"unpaid": "inactive", "incomplete": "inactive", "incomplete_expired": "inactive", "paused": "inactive",
+		"unpaid": "unpaid", "incomplete": "inactive", "incomplete_expired": "inactive", "paused": "inactive",
 	} {
 		if got := mirrorStatusFor(stripe); got != want {
 			t.Errorf("mirrorStatusFor(%s) = %s, want %s", stripe, got, want)
