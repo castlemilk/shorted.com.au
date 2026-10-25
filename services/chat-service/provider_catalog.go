@@ -99,9 +99,13 @@ var providerCatalog = []ProviderSpec{
 			},
 			{
 				ID: "gemini-2.5-flash-lite", Label: "Gemini 2.5 Flash-Lite",
-				Caps:        ModelCapabilities{ForcedToolChoice: true, NoneToolChoice: true, ParallelToolCalls: true, MaxOutputTokens: 65536},
-				Price:       Pricing{Input: 0.10, CachedInput: 0.01, Output: 0.40, OffPeakFactor: 1, AsOf: catalogAsOf, SourceURL: geminiPricingURL},
-				Activatable: true,
+				Caps:  ModelCapabilities{ForcedToolChoice: true, NoneToolChoice: true, ParallelToolCalls: true, MaxOutputTokens: 65536},
+				Price: Pricing{Input: 0.10, CachedInput: 0.01, Output: 0.40, OffPeakFactor: 1, AsOf: catalogAsOf, SourceURL: geminiPricingURL},
+				// Not activatable: Google returns 404 for this model on new keys, so a
+				// flagged route to it would fail every turn and fall back to the default.
+				// Re-enable only after a key that can call it has passed the gate.
+				Activatable: false,
+				Notes:       "Not activatable: Google returns 404 for this model on new keys.",
 			},
 			{
 				ID: "gemini-3.1-flash-lite", Label: "Gemini 3.1 Flash-Lite",

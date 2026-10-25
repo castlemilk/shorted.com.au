@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -829,5 +831,40 @@ func TestModelRouterBoundsReportTheFallbackMode(t *testing.T) {
 	want := RouterBounds{FirstByte: 15 * time.Second, Idle: 20 * time.Second, Turn: 50 * time.Second, HasFallback: true}
 	if got := r.Bounds(); got != want {
 		t.Fatalf("Bounds() = %+v, want %+v", got, want)
+	}
+}
+
+// A turn sent on by an open primary breaker is not a new failure, so it writes no
+// ERROR line. The breaker's own line already says the route is down, and a WARNING
+// is written at most once a minute.
+func TestRouterTurnsOnAnOpenBreakerWriteNoErrorLines(t *testing.T) {
+	primary := &routeProvider{name: "primary", plans: always([]fakeReply{{err: failedCall(false, false, 400)}})}
+	fallback := &routeProvider{name: "fallback", plans: always(okPlan())}
+	r, _ := routerFor(primary, fallback, 0)
+
+	var logs bytes.Buffer
+	prev := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(prev) })
+
+	// breakerThreshold real failures open the primary's breaker.
+	for i := 0; i < breakerThreshold; i++ {
+		if _, _, err := runTurn(r); err != nil {
+			t.Fatalf("turn %d: %v, want the fallback's answer", i+1, err)
+		}
+	}
+	if n := strings.Count(logs.String(), "chat_provider_fallback"); n != breakerThreshold {
+		t.Fatalf("fallback ERROR lines = %d before the breaker opened, want %d", n, breakerThreshold)
+	}
+	for i := 0; i < 5; i++ {
+		if _, _, err := runTurn(r); err != nil {
+			t.Fatalf("turn on an open breaker: %v, want the fallback's answer", err)
+		}
+	}
+	if n := strings.Count(logs.String(), "chat_provider_fallback"); n != breakerThreshold {
+		t.Fatalf("fallback ERROR lines = %d after 5 turns on an open breaker, want still %d", n, breakerThreshold)
+	}
+	if n := strings.Count(logs.String(), "circuit breaker is open"); n != 1 {
+		t.Fatalf("breaker-open WARNING lines = %d, want 1 a minute", n)
 	}
 }

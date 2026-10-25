@@ -16,7 +16,6 @@ func testToolExecutor() *ToolExecutor {
 func TestCatalogRouteIDsListTheActivatableModels(t *testing.T) {
 	want := []string{
 		"gemini:gemini-2.5-flash",
-		"gemini:gemini-2.5-flash-lite",
 		"deepseek:deepseek-flash",
 		"deepseek:deepseek-v4-pro",
 		"openrouter:deepseek/deepseek-v4-flash",
@@ -83,27 +82,44 @@ func TestFlaggedRoutesFollowTheConfigGuards(t *testing.T) {
 	}
 }
 
-func TestFlaggedRoutesAreOnlyRoutesConfigLoadingAccepts(t *testing.T) {
-	for _, environment := range []string{"development", "production"} {
-		t.Run(environment, func(t *testing.T) {
-			t.Setenv("CHAT_ALLOW_PRC_HOSTED_PROVIDER", "true")
-			routes := buildChatModelRoutes(context.Background(), registryConfig(environment, keysFor("gemini", "deepseek", "openrouter")), testToolExecutor(), "gemini:gemini-2.5-flash")
-			if len(routes) == 0 {
-				t.Fatal("no flagged routes were built, the check below would prove nothing")
+// The registry offers a flagged route exactly when config loading accepts it. A
+// route only validateRoute refuses (DeepSeek direct in production without the PRC
+// flag) is therefore left out, and the test fails if validateRoute is removed.
+func TestFlaggedRoutesOfferExactlyTheRoutesConfigLoadingAccepts(t *testing.T) {
+	cases := []struct{ name, environment, prc string }{
+		{"development", "development", ""},
+		{"production without the PRC flag", "production", ""},
+		{"production with the PRC flag", "production", "true"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("ENVIRONMENT", tc.environment)
+			t.Setenv("CHAT_ALLOW_PRC_HOSTED_PROVIDER", tc.prc)
+			t.Setenv("GEMINI_API_KEY", "test-gemini-key")
+			t.Setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
+			t.Setenv("OPENROUTER_API_KEY_CHAT", "test-openrouter-key")
+			t.Setenv("CHAT_PROVIDER", "")
+			t.Setenv("CHAT_MODEL", "")
+			t.Setenv("CHAT_FALLBACK_PROVIDER", "")
+			t.Setenv("CHAT_FALLBACK_MODEL", "")
+			base, err := LoadConfig()
+			if err != nil {
+				t.Fatalf("LoadConfig() = %v", err)
 			}
-			for id := range routes {
+			defaultID := routeID(base.ChatProvider, base.ChatModel)
+			routes := buildChatModelRoutes(context.Background(), base, testToolExecutor(), defaultID)
+
+			for _, id := range CatalogRouteIDs() {
+				if id == defaultID {
+					continue
+				}
 				provider, model, _ := strings.Cut(id, ":")
-				t.Setenv("ENVIRONMENT", environment)
 				t.Setenv("CHAT_PROVIDER", provider)
 				t.Setenv("CHAT_MODEL", model)
-				t.Setenv("CHAT_FALLBACK_PROVIDER", "")
-				t.Setenv("CHAT_FALLBACK_MODEL", "")
-				t.Setenv("GEMINI_API_KEY", "test-gemini-key")
-				t.Setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
-				t.Setenv("OPENROUTER_API_KEY_CHAT", "test-openrouter-key")
-				cfg := &Config{Environment: environment, GeminiModel: "gemini-2.5-flash", GeminiMaxOutputTokens: 1024}
-				if err := loadChatRouting(cfg); err != nil {
-					t.Fatalf("config loading refuses flagged route %s: %v", id, err)
+				_, loadErr := LoadConfig()
+				offered := routes[id] != nil
+				if offered != (loadErr == nil) {
+					t.Fatalf("%s: registry offers it = %t, but config loading accepts it = %t (%v)", id, offered, loadErr == nil, loadErr)
 				}
 			}
 		})
@@ -118,14 +134,28 @@ func TestFlaggedRoutesNeedAGeminiFallbackKey(t *testing.T) {
 }
 
 func TestFlaggedRoutesLeaveOutAProviderWithoutAKey(t *testing.T) {
-	routes := buildChatModelRoutes(context.Background(), registryConfig("production", keysFor("gemini")), testToolExecutor(), "gemini:gemini-2.5-flash")
+	routes := buildChatModelRoutes(context.Background(), registryConfig("development", keysFor("gemini")), testToolExecutor(), "gemini:gemini-2.5-flash")
 	for id := range routes {
 		if !strings.HasPrefix(id, "gemini:") {
 			t.Fatalf("route %s was built with no key for its provider", id)
 		}
 	}
-	if _, ok := routes["gemini:gemini-2.5-flash-lite"]; !ok {
-		t.Fatal("gemini:gemini-2.5-flash-lite is not offered, want it offered with a Gemini key")
+	if len(routes) != 0 {
+		t.Fatalf("built %d routes with only the Gemini key, want none: the catalog has no other activatable Gemini model", len(routes))
+	}
+}
+
+func TestGeminiFlashLiteIsNotActivatable(t *testing.T) {
+	m, ok := lookupModel("gemini", "gemini-2.5-flash-lite")
+	if !ok {
+		t.Fatal("gemini-2.5-flash-lite is missing from the catalog")
+	}
+	if m.Activatable {
+		t.Fatal("gemini-2.5-flash-lite is activatable, but Google returns 404 for it on new keys")
+	}
+	routes := buildChatModelRoutes(context.Background(), registryConfig("development", keysFor("gemini")), testToolExecutor(), "gemini:gemini-2.5-flash")
+	if _, built := routes["gemini:gemini-2.5-flash-lite"]; built {
+		t.Fatal("the registry offers gemini-2.5-flash-lite, want it left out")
 	}
 }
 

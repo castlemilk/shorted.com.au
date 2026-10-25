@@ -91,6 +91,9 @@ type ModelRouter struct {
 	// retryDelay is the jitter before the same-provider retry. Tests replace it.
 	retryDelay func() time.Duration
 	now        func() time.Time
+	// breakerNote limits the line a turn writes when the primary's open breaker
+	// sends it to the fallback.
+	breakerNote rateGate
 }
 
 // routeState is a route with its breaker.
@@ -216,7 +219,7 @@ func (r *ModelRouter) RunTurn(ctx context.Context, userID string, in TurnInput, 
 	// The error about to be superseded may have billed calls. They are charged to
 	// the answer that follows, or to the fallback's error, so they are kept once.
 	spent := billedBy(err)
-	logFallback(r.primary.route, r.fallback.route, err)
+	r.noteFallback(r.primary.route, r.fallback.route, err)
 	resp, _, err = r.attempt(ctx, turnCtx, r.fallback, endUser, in, onChunk, false)
 	if err != nil {
 		return nil, withBilled(err, spent)
@@ -348,6 +351,42 @@ func logFallback(from, to TurnRoute, err error) {
 	log.Printf("ERROR %s", mustMarshalLogEvent(event))
 }
 
+// breakerNoteEvery is how often a turn sent on by an open breaker is noted.
+const breakerNoteEvery = time.Minute
+
+// rateGate lets one event through per interval. It is safe for concurrent use.
+type rateGate struct {
+	mu   sync.Mutex
+	open bool
+	last time.Time
+}
+
+// allow reports whether an event at now may be logged.
+func (g *rateGate) allow(now time.Time, every time.Duration) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.open && now.Sub(g.last) < every {
+		return false
+	}
+	g.open, g.last = true, now
+	return true
+}
+
+// noteFallback writes the line for a turn sent to the fallback. A real failure of the
+// primary writes the ERROR that operators alert on. A turn the open breaker sent on
+// is not a new failure: the breaker's own line already says the route is down, so
+// it writes a WARNING at most once a minute, and no ERROR.
+func (r *ModelRouter) noteFallback(from, to TurnRoute, err error) {
+	if errors.Is(err, errBreakerOpen) {
+		if r.breakerNote.allow(r.now(), breakerNoteEvery) {
+			log.Printf("WARNING chat turn sent to fallback %s/%s: %s/%s's circuit breaker is open",
+				to.Provider.Name(), to.Ref.Model, from.Provider.Name(), from.Ref.Model)
+		}
+		return
+	}
+	logFallback(from, to, err)
+}
+
 // logBreakerOpen writes the line that a route's breaker opened.
 func logBreakerOpen(route TurnRoute) {
 	log.Printf("%s", mustMarshalLogEvent(map[string]any{
@@ -445,6 +484,12 @@ func (b *breaker) release(gen uint64) {
 // newRouteFor builds the route for one provider and model from the config. It
 // fails with errMissingKey when the provider's key is not set.
 func newRouteFor(ctx context.Context, cfg *Config, provider, model, label string, maxOutput int32) (TurnRoute, error) {
+	return newRouteForAt(ctx, cfg, provider, model, label, maxOutput, "")
+}
+
+// newRouteForAt is newRouteFor with the provider's base URL overridden. Tests use
+// it to point a real provider at a fake endpoint; an empty baseURL is production.
+func newRouteForAt(ctx context.Context, cfg *Config, provider, model, label string, maxOutput int32, baseURL string) (TurnRoute, error) {
 	spec, ok := lookupProvider(provider)
 	if !ok {
 		return TurnRoute{}, fmt.Errorf("unknown chat provider %q", provider)
@@ -465,9 +510,13 @@ func newRouteFor(ctx context.Context, cfg *Config, provider, model, label string
 	var err error
 	switch spec.Kind {
 	case kindGemini:
-		p, err = newGeminiProvider(ctx, key)
+		p, err = newGeminiProviderAt(ctx, key, baseURL)
 	case kindOpenAICompat:
-		p, err = newOpenAICompatProvider(spec, spec.BaseURL, key, nil)
+		base := spec.BaseURL
+		if baseURL != "" {
+			base = baseURL
+		}
+		p, err = newOpenAICompatProvider(spec, base, key, nil)
 	default:
 		err = fmt.Errorf("provider %q has an unknown kind %q", provider, spec.Kind)
 	}

@@ -30,10 +30,8 @@ func TestCatalogGeminiEntriesKeepTheProdKeyAndDefault(t *testing.T) {
 	if !ok || p.KeyEnv != "GEMINI_API_KEY" || p.DefaultModel != "gemini-2.5-flash" {
 		t.Fatalf("gemini provider = %+v, want GEMINI_API_KEY and gemini-2.5-flash", p)
 	}
-	for _, id := range []string{"gemini-2.5-flash", "gemini-2.5-flash-lite"} {
-		if m, ok := lookupModel("gemini", id); !ok || !m.Activatable {
-			t.Fatalf("gemini model %q missing or not activatable", id)
-		}
+	if m, ok := lookupModel("gemini", "gemini-2.5-flash"); !ok || !m.Activatable {
+		t.Fatal("gemini-2.5-flash missing or not activatable")
 	}
 }
 
