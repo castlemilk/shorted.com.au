@@ -189,6 +189,24 @@ describe("sendCheckins", () => {
 });
 
 describe("reportCheckins", () => {
+  it("reports invalid, not disabled, when the variable is set but unusable, and sends nothing", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchImpl = okFetch();
+    const status = await reportCheckins(
+      RUN_OK,
+      { TELESIS_PAID_PROBE_CHECKINS: JSON.stringify({ chta: URL_BASE }) },
+      fetchImpl as unknown as typeof fetch,
+    );
+    expect(status).toBe("invalid");
+    expect(fetchImpl).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("reports disabled for a blank variable, which is dormant rather than broken", async () => {
+    const fetchImpl = okFetch();
+    expect(await reportCheckins(RUN_OK, { TELESIS_PAID_PROBE_CHECKINS: "  " }, fetchImpl as unknown as typeof fetch)).toBe("disabled");
+  });
+
   it("reports disabled and sends nothing when the variable is unset", async () => {
     const fetchImpl = okFetch();
     const status = await reportCheckins(RUN_OK, {}, fetchImpl as unknown as typeof fetch);

@@ -7,8 +7,10 @@ import { errorName, type ProbeEnv } from "./types";
  * speaks (services/jobs/internal/jobs/cronreporter/checkin.go): POST
  * `<private url>/complete` or `/fail` with `{duration_ms, terminal_reason}`.
  *
- * The private URL is the credential, so it is never logged, and a check-in that
- * fails is a warning, never a probe failure.
+ * The private URL is the credential, so it is never logged. A check-in that is
+ * refused or unusable is NOT silent: the route answers non-200 for it (see
+ * app/api/internal/paid-probe/route.ts), so Vercel's function log shows the run
+ * as failed. A warning alone let a broken map stay quiet.
  */
 
 export type CheckinKey = ProbeStepName | "all";
@@ -17,7 +19,13 @@ export const CHECKIN_KEYS: readonly CheckinKey[] = ["entitlement", "chat", "api_
 
 export type CheckinUrls = Partial<Record<CheckinKey, string>>;
 
-export type CheckinStatus = "disabled" | "sent" | "partial";
+/**
+ * "disabled": the variable is unset, so nothing is configured to send.
+ * "invalid": the variable is set but unusable, so nothing was sent. The route
+ *   treats this as a failure, not as "disabled", so a broken map cannot go quiet.
+ * "partial": at least one POST was refused or failed.
+ */
+export type CheckinStatus = "disabled" | "invalid" | "sent" | "partial";
 
 /** The only host a private check-in URL may point at. A wrong host would receive the credential. */
 export const TELESIS_CHECKIN_HOST = "api.telesis.dev";
@@ -106,19 +114,24 @@ export async function sendCheckins(
   for (const step of run.steps) {
     const url = urls[step.name];
     if (url) {
-      posts.push(post(fetchImpl, step.name, url, step.ok, step.durationMs, step.detail));
+      posts.push(postCheckin(fetchImpl, step.name, url, step.ok, step.durationMs, step.detail));
     }
   }
   if (urls.all) {
-    posts.push(post(fetchImpl, "all", urls.all, run.ok, run.durationMs, overallReason(run)));
+    posts.push(postCheckin(fetchImpl, "all", urls.all, run.ok, run.durationMs, overallReason(run)));
   }
   const results = await Promise.all(posts);
   return results.every(Boolean) ? "sent" : "partial";
 }
 
-async function post(
+/**
+ * POST one check-in to a private Telesis cron URL: `/complete` when ok, `/fail`
+ * otherwise. Resolves to whether Telesis accepted it. Never rejects, and never
+ * logs the URL. Shared with the Stripe reconcile heartbeat.
+ */
+export async function postCheckin(
   fetchImpl: typeof fetch,
-  label: CheckinKey,
+  label: string,
   checkinURL: string,
   ok: boolean,
   durationMs: number,
@@ -144,12 +157,12 @@ async function post(
     });
     await res.text().catch(() => "");
     if (!res.ok) {
-      console.warn(`[paid-probe] check-in ${label} answered HTTP ${res.status}`);
+      console.warn(`[telesis-checkin] check-in ${label} answered HTTP ${res.status}`);
       return false;
     }
     return true;
   } catch (err) {
-    console.warn(`[paid-probe] check-in ${label} failed: ${errorName(err)}`);
+    console.warn(`[telesis-checkin] check-in ${label} failed: ${errorName(err)}`);
     return false;
   }
 }
@@ -182,7 +195,9 @@ export async function reportCheckins(
   env: ProbeEnv,
   fetchImpl: typeof fetch = fetch,
 ): Promise<CheckinStatus> {
-  const urls = parseCheckinConfig(env.TELESIS_PAID_PROBE_CHECKINS);
-  if (!urls) return "disabled";
+  const raw = env.TELESIS_PAID_PROBE_CHECKINS;
+  if (!raw?.trim()) return "disabled";
+  const urls = parseCheckinConfig(raw);
+  if (!urls) return "invalid";
   return sendCheckins(urls, run, fetchImpl);
 }

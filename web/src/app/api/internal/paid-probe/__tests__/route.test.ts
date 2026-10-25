@@ -178,6 +178,33 @@ describe("POST /api/internal/paid-probe", () => {
     const body = (await (await POST(request({ authorization: "Bearer probe-token" }))).json()) as { checkins: string };
     expect(body.checkins).toBe("partial");
   });
+
+  it("answers 502, not 200, when every step passed but Telesis refused a check-in", async () => {
+    jest.mocked(reportCheckins).mockResolvedValueOnce("partial");
+    const res = await POST(request({ authorization: "Bearer probe-token" }));
+    expect(res.status).toBe(502);
+    expect(await res.json()).toMatchObject({ ok: true, checkins: "partial" });
+  });
+
+  it("answers 502 when the check-in variable is set but unusable, so a broken map cannot stay silent", async () => {
+    jest.mocked(reportCheckins).mockResolvedValueOnce("invalid");
+    const res = await POST(request({ authorization: "Bearer probe-token" }));
+    expect(res.status).toBe(502);
+    expect(await res.json()).toMatchObject({ ok: true, checkins: "invalid" });
+  });
+
+  it("answers 200 when every check-in was accepted", async () => {
+    jest.mocked(reportCheckins).mockResolvedValueOnce("sent");
+    const res = await POST(request({ authorization: "Bearer probe-token" }));
+    expect(res.status).toBe(200);
+  });
+
+  it("keeps 503 for a failed step even when a check-in was also refused", async () => {
+    jest.mocked(runPaidProbe).mockResolvedValue(run(false));
+    jest.mocked(reportCheckins).mockResolvedValueOnce("partial");
+    const res = await POST(request({ authorization: "Bearer probe-token" }));
+    expect(res.status).toBe(503);
+  });
 });
 
 describe("GET /api/internal/paid-probe (Vercel Cron)", () => {

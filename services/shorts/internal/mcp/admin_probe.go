@@ -73,7 +73,7 @@ type PaidProbeOutput struct {
 	DurationMs int64           `json:"durationMs"`
 	Steps      []PaidProbeStep `json:"steps"`
 	Checkins   string          `json:"checkins,omitempty" jsonschema:"disabled | sent | partial: whether the run reported to the paid-feature monitors."`
-	HTTPStatus int             `json:"httpStatus" jsonschema:"200 on success, 503 when a step failed, 409 when a run was already in progress."`
+	HTTPStatus int             `json:"httpStatus" jsonschema:"200 on success, 503 when a step failed, 502 when every step passed but a Telesis check-in was refused or misconfigured, 409 when a run was already in progress."`
 }
 
 // PaidProbeStep is one check the probe made.

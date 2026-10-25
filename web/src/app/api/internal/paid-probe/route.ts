@@ -5,7 +5,7 @@ import {
   isAuthorizedCronRequest,
   isAuthorizedProbeRequest,
 } from "~/server/paid-probe/auth";
-import { reportCheckins } from "~/server/paid-probe/checkins";
+import { reportCheckins, type CheckinStatus } from "~/server/paid-probe/checkins";
 import { buildProbeContext } from "~/server/paid-probe/context";
 import { runIfIdle } from "~/server/paid-probe/run-lock";
 import { runPaidProbe } from "~/server/paid-probe/steps";
@@ -15,7 +15,9 @@ import { runPaidProbe } from "~/server/paid-probe/steps";
  *
  * Runs the paid-feature probe: entitlement, a real chat send, the API token
  * path and the anonymous gates, as the svc-paid-probe identity. 200 when every
- * step passed, 503 otherwise, with each step's result in the body.
+ * step passed and every Telesis check-in was accepted; 503 when a step failed,
+ * 502 when the steps passed but a check-in was refused or misconfigured (see
+ * statusFor). Each step's result is in the body.
  *
  * Callers: Vercel Cron (GET, every two hours, with CRON_SECRET) is the normal
  * schedule, and each run reports to its Telesis cron monitors, which alert on a
@@ -74,8 +76,19 @@ async function runProbe(request: NextRequest): Promise<NextResponse> {
       steps: run.steps,
       checkins,
     },
-    run.ok ? 200 : 503,
+    statusFor(run.ok, checkins),
   );
+}
+
+/**
+ * 200 when every step passed and every check-in was accepted (or none is
+ * configured). 503 when a step failed. 502 when the steps passed but Telesis
+ * refused a check-in or the check-in map is unusable: the monitors would then
+ * miss this run, so the cron must show it as a failure, not a success.
+ */
+function statusFor(runOk: boolean, checkins: CheckinStatus): number {
+  if (!runOk) return 503;
+  return checkins === "sent" || checkins === "disabled" ? 200 : 502;
 }
 
 function jsonResponse(body: unknown, status: number): NextResponse {

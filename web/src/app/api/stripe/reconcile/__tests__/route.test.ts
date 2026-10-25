@@ -361,6 +361,144 @@ describe("GET /api/stripe/reconcile", () => {
   });
 });
 
+describe("GET /api/stripe/reconcile Telesis check-in", () => {
+  const CHECKIN = "https://api.telesis.dev/v1/cron/reconcile-test-token";
+  const originalFetch = globalThis.fetch;
+  let fetchMock: jest.Mock;
+
+  // A plain object: only ok, status and text() are read, so no Response class is needed.
+  const acceptedResponse = async () => ({ ok: true, status: 204, text: async () => "" });
+
+  function posted(): Array<{ url: string; body: { duration_ms: number; terminal_reason: string } }> {
+    return fetchMock.mock.calls.map((call: unknown[]) => ({
+      url: String(call[0]),
+      body: JSON.parse(String((call[1] as RequestInit).body)),
+    }));
+  }
+
+  // jsdom has no AbortSignal.timeout, which the check-in sets as its timeout. Without
+  // this shim every check-in would fail before fetch and the tests would pass
+  // vacuously. The runtime (Node) has it, so the shim lives only in this block.
+  let addedTimeout = false;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    if (typeof AbortSignal.timeout !== "function") {
+      Object.defineProperty(AbortSignal, "timeout", {
+        value: () => new AbortController().signal,
+        configurable: true,
+        writable: true,
+      });
+      addedTimeout = true;
+    }
+    fetchMock = jest.fn(acceptedResponse);
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    process.env.CRON_SECRET = "cron-secret";
+    process.env.STRIPE_PREMIUM_PRICE_ID = "price_premium";
+    process.env.TELESIS_STRIPE_RECONCILE_CHECKIN = CHECKIN;
+    notifyMock.mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    delete process.env.TELESIS_STRIPE_RECONCILE_CHECKIN;
+    if (addedTimeout) {
+      delete (AbortSignal as unknown as { timeout?: unknown }).timeout;
+      addedTimeout = false;
+    }
+  });
+
+  it("checks in /complete on a clean run, with the counts in terminal_reason", async () => {
+    listAccount([subscription("active", "active")]);
+
+    await GET(request("Bearer cron-secret"));
+
+    expect(posted()).toHaveLength(1);
+    expect(posted()[0]!.url).toBe(`${CHECKIN}/complete`);
+    expect(posted()[0]!.body.terminal_reason).toBe("examined=1 customers=1 synced=1 failed=0 truncated=no");
+    expect(posted()[0]!.body.duration_ms).toBeGreaterThanOrEqual(0);
+  });
+
+  it("checks in /fail with the failure count when a customer fails", async () => {
+    listAccount([subscription("good", "active"), subscription("bad", "active")], ["cus_bad"]);
+
+    await GET(request("Bearer cron-secret"));
+
+    expect(posted()[0]!.url).toBe(`${CHECKIN}/fail`);
+    expect(posted()[0]!.body.terminal_reason).toContain("failed=1");
+  });
+
+  it("checks in /fail with truncated=yes when the listing is cut at 500", async () => {
+    listAccount(
+      Array.from({ length: 501 }, (_, index) => subscription(`old_${index}`, "canceled", { endedDaysAgo: 400 })),
+    );
+
+    await GET(request("Bearer cron-secret"));
+
+    expect(posted()[0]!.url).toBe(`${CHECKIN}/fail`);
+    expect(posted()[0]!.body.terminal_reason).toContain("truncated=yes");
+  });
+
+  it("checks in /fail when the run cannot list subscriptions at all", async () => {
+    stripeMock.subscriptions.list.mockImplementation(() => {
+      throw new Error("secret internal detail");
+    });
+
+    const response = await GET(request("Bearer cron-secret"));
+
+    expect(response.status).toBe(503);
+    expect(posted()[0]!.url).toBe(`${CHECKIN}/fail`);
+    expect(posted()[0]!.body.terminal_reason).toBe("run failed: could not list subscriptions");
+  });
+
+  it("sends nothing when the variable is unset", async () => {
+    delete process.env.TELESIS_STRIPE_RECONCILE_CHECKIN;
+    listAccount([subscription("active", "active")]);
+
+    const response = await GET(request("Bearer cron-secret"));
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a value that is not a Telesis check-in URL, sends nothing, and never logs the value", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    process.env.TELESIS_STRIPE_RECONCILE_CHECKIN = "https://evil.example/leak-token";
+    listAccount([subscription("active", "active")]);
+
+    const response = await GET(request("Bearer cron-secret"));
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).not.toHaveBeenCalled();
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).toContain("TELESIS_STRIPE_RECONCILE_CHECKIN");
+    expect(logged).not.toContain("evil.example");
+    expect(logged).not.toContain("leak-token");
+    warn.mockRestore();
+  });
+
+  it("keeps the run's answer when the check-in fails, and never logs the URL", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const log = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    // A fetch TypeError can carry the URL in its message. It must not reach a log.
+    fetchMock.mockImplementation(async (url: string) => {
+      throw new TypeError(`Failed to fetch ${url}`);
+    });
+    listAccount([subscription("active", "active")]);
+
+    const response = await GET(request("Bearer cron-secret"));
+
+    expect(response.status).toBe(200);
+    const everything = JSON.stringify([warn.mock.calls, error.mock.calls, log.mock.calls]);
+    expect(everything).not.toContain("reconcile-test-token");
+    expect(everything).toContain("check-in stripe-reconcile failed: TypeError");
+    warn.mockRestore();
+    error.mockRestore();
+    log.mockRestore();
+  });
+});
+
 describe("reconcile deployment config", () => {
   const vercelJson = JSON.parse(
     fs.readFileSync(path.resolve(__dirname, "../../../../../../vercel.json"), "utf8"),

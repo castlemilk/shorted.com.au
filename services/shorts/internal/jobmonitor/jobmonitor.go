@@ -68,6 +68,9 @@ type Trigger struct {
 	LastMessage    string `json:"lastMessage,omitempty"` // the newest run's terminal reason
 
 	clusterRuns []CronRun // newest first; read by applyClusterRow
+	// clusterOnly marks the one trigger of a CronJob with no Cloud Run twin or
+	// scheduler (see addClusterOnlyJobs). Its monitor is read even when paused.
+	clusterOnly bool
 }
 
 // RecordCount is a per-run volume metric from a job's own bookkeeping (currently
@@ -398,6 +401,10 @@ func collectWith(ctx context.Context, cfg Config, cron CronSource, authOpts ...o
 	if schedErr != nil {
 		warnings = append(warnings, fmt.Errorf("scheduler status unavailable: %w", schedErr))
 	}
+
+	// CronJobs with no Cloud Run twin and no scheduler get their row here, so the
+	// cluster read below can give them their Telesis status.
+	addClusterOnlyJobs(byName, &order)
 
 	// Jobs moved to the omega cluster: their paused triggers take their runs
 	// from Telesis. Before finalizeHealth, so health is judged on those runs.

@@ -44,7 +44,12 @@ class DesiredMonitors(unittest.TestCase):
 
     def test_heartbeat_tolerates_one_dropped_ping(self):
         hb = self.want[rm.HEARTBEAT_KEY]
-        self.assertGreaterEqual(int(hb["schedule"]["intervalSeconds"]), 2 * rm.parse_duration(VALUES["reporter"]["heartbeatInterval"]))
+        hb_seconds = rm.parse_duration(VALUES["reporter"]["heartbeatInterval"])
+        self.assertEqual(hb["schedule"], {"cronExpression": f"*/{hb_seconds // 60} * * * *", "timezone": "UTC"})
+        self.assertGreaterEqual(hb["gracePeriodSeconds"], hb_seconds)
+
+    def test_heartbeat_is_never_an_interval(self):
+        self.assertNotIn("intervalSeconds", self.want[rm.HEARTBEAT_KEY]["schedule"])
 
 
 class Drift(unittest.TestCase):
