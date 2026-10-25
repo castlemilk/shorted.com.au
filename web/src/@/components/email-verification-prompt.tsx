@@ -47,9 +47,15 @@ export function EmailVerificationPrompt({
   useEffect(() => {
     if (!unverified || checkedOnMount.current) return;
     checkedOnMount.current = true;
-    void update().then((next) => {
-      if (next?.user?.emailVerified === true) setJustVerified(true);
-    });
+    void update()
+      .then((next) => {
+        if (next?.user?.emailVerified === true) setJustVerified(true);
+      })
+      .catch(() => {
+        // A failed background check must not reject outside React or hide the
+        // explicit send/refresh controls. Never infer verification from failure.
+        setMessage("Could not check the account. Try again shortly.");
+      });
   }, [unverified, update]);
 
   if (!signedIn) return null;

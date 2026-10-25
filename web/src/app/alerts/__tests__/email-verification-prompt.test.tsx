@@ -244,3 +244,26 @@ describe("EmailVerificationPrompt opened from the success page", () => {
     expect(container.firstChild).not.toHaveClass("ring-2");
   });
 });
+
+describe("EmailVerificationPrompt automatic-check failure", () => {
+  it("keeps verification actions usable and reports a rejected initial session refresh", async () => {
+    mockUseSession.mockReturnValue(session(false));
+    mockUpdate.mockRejectedValueOnce(
+      new Error("session temporarily unavailable"),
+    );
+    render(<EmailVerificationPrompt />);
+
+    expect(
+      await screen.findByText(
+        "Could not check the account. Try again shortly.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Send verification email" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "I've verified, refresh" }),
+    ).toBeEnabled();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+});
