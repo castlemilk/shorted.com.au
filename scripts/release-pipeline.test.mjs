@@ -160,26 +160,31 @@ test("production web deploy preserves preflights, artifact promotion and test ga
   assert.match(gate, /github\.event\.inputs\.plan_only != 'true'/);
 });
 
-test("production promotion condition rejects PRs, failed checks and plan-only runs", () => {
+test("production promotion condition rejects PRs, failed checks, failed applies and plan-only runs", () => {
   const workflow = read(".github/workflows/terraform-deploy.yml");
   const job = workflow.slice(workflow.indexOf("  deploy-vercel-prod:"));
   const expression = job.match(/    if: \|\n([\s\S]*?)    environment: prod/)[1]
     .trim().replace(/\bneeds\.([\w-]+)/g, 'needs["$1"]');
   // Evaluate the actual simple GitHub condition with completed job results.
   const eligible = new Function("github", "needs", "always", `return (${expression});`);
+  // The web release ships only against infrastructure that applied: a failed,
+  // cancelled or skipped terraform-apply would promote it against the old API.
   const cases = [
-    ["main with passing tests", "push", "success", "success", false, true],
-    ["pull request", "pull_request", "success", "success", false, false],
-    ["failed tests", "push", "failure", "success", false, false],
-    ["cancelled tests", "push", "cancelled", "success", false, false],
-    ["failed secrets", "push", "success", "failure", false, false],
-    ["plan-only dispatch", "workflow_dispatch", "success", "success", true, false],
+    ["main with passing tests and a successful apply", "push", "success", "success", "success", false, true],
+    ["pull request", "pull_request", "success", "success", "success", false, false],
+    ["failed tests", "push", "failure", "success", "success", false, false],
+    ["cancelled tests", "push", "cancelled", "success", "success", false, false],
+    ["failed secrets", "push", "success", "failure", "success", false, false],
+    ["failed apply", "push", "success", "success", "failure", false, false],
+    ["cancelled apply", "push", "success", "success", "cancelled", false, false],
+    ["skipped apply", "push", "success", "success", "skipped", false, false],
+    ["plan-only dispatch", "workflow_dispatch", "success", "success", "skipped", true, false],
   ];
-  for (const [name, event, tests, secrets, planOnly, expected] of cases) {
+  for (const [name, event, tests, secrets, apply, planOnly, expected] of cases) {
     assert.equal(eligible({ event_name: event, event: { inputs: { plan_only: String(planOnly) } } }, {
       "determine-environment": { outputs: { environment: "prod" } },
       "run-tests": { result: tests }, "validate-secrets": { result: secrets },
-      "terraform-apply": { result: "failure" },
+      "terraform-apply": { result: apply },
     }, () => true), expected, name);
   }
 });
