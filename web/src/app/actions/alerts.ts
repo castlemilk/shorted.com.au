@@ -3,7 +3,10 @@
 import { Code, ConnectError, createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 
-import type { AlertEventView, AlertMonitorView } from "~/app/alerts/alert-model";
+import type {
+  AlertEventView,
+  AlertMonitorView,
+} from "~/app/alerts/alert-model";
 import {
   AlertMonitorCadence,
   AlertMonitorCondition,
@@ -49,6 +52,8 @@ export type CreateAlertMonitorInput = {
 export type CreateAlertMonitorResult =
   | {
       ok: true;
+      /** False when the saved alert will not be emailed (no verified address). */
+      emailDeliverable: boolean;
       monitor: {
         id: string;
         scope: AlertMonitorScopeInput;
@@ -78,7 +83,9 @@ export type UpdateAlertMonitorStatusResult =
   | { ok: true; monitor: AlertMonitorView }
   | { ok: false; error: string };
 
-export type DeleteAlertMonitorResult = { ok: true } | { ok: false; error: string };
+export type DeleteAlertMonitorResult =
+  | { ok: true }
+  | { ok: false; error: string };
 
 /**
  * The address the API may email alerts to. Only a verified address is sent: an
@@ -151,10 +158,10 @@ export async function createAlertMonitor(
   }
 
   try {
-    const transport = createAuthTransport(
-      session.user.id,
-      await deliverableEmail(session),
-    );
+    // The address decides whether the saved alert is emailed. Read it once, so the
+    // result can tell the form whether to say so.
+    const address = await deliverableEmail(session);
+    const transport = createAuthTransport(session.user.id, address);
     const client = createClient(AlertsService, transport);
     const response = await client.createAlertMonitor({
       scope:
@@ -177,6 +184,7 @@ export async function createAlertMonitor(
 
     return {
       ok: true,
+      emailDeliverable: address !== "",
       monitor: {
         id: response.monitor.id,
         scope: input.scope,
@@ -253,7 +261,10 @@ export async function listAlertEvents(
   } catch (error) {
     return {
       ok: false,
-      error: alertErrorMessage(error, "Could not load recent alerts. Try again shortly."),
+      error: alertErrorMessage(
+        error,
+        "Could not load recent alerts. Try again shortly.",
+      ),
     };
   }
 }

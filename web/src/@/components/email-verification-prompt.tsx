@@ -14,9 +14,12 @@ import { sendAlertVerificationEmail } from "~/app/actions/email-verification";
  */
 export function EmailVerificationPrompt({
   showIntro = false,
+  id,
 }: {
   /** Adds "Verify <address> to receive alert emails." for a page with no such sentence. */
   showIntro?: boolean;
+  /** Anchor for links such as the monitor row's "Verify now". */
+  id?: string;
 } = {}) {
   const { data: session, status, update } = useSession();
   const email = session?.user?.email ?? null;
@@ -27,6 +30,17 @@ export function EmailVerificationPrompt({
   const [message, setMessage] = useState<string | null>(null);
   const [justVerified, setJustVerified] = useState(false);
   const checkedOnMount = useRef(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [requested, setRequested] = useState(false);
+
+  // /alerts?verify=1 is where the success page sends an unverified subscriber. Bring the
+  // prompt into view and highlight it, so the user sees the way to verify at once.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("verify") !== "1")
+      return;
+    setRequested(true);
+    boxRef.current?.scrollIntoView?.({ block: "center" });
+  }, []);
 
   // A silent check when the page opens: a user who clicked the link since their last
   // visit is verified without needing to press Refresh. It runs once per mount.
@@ -97,7 +111,11 @@ export function EmailVerificationPrompt({
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-border/60 bg-background/60 p-4">
+    <div
+      ref={boxRef}
+      id={id}
+      className={`space-y-3 rounded-md border border-border/60 bg-background/60 p-4 ${requested ? "ring-2 ring-primary" : ""}`}
+    >
       {showIntro ? (
         <p className="text-sm leading-6 text-muted-foreground">
           Verify <span className="font-medium text-foreground">{email}</span> to

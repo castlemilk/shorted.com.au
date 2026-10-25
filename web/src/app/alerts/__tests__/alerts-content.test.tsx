@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactElement } from "react";
+import { useSession } from "next-auth/react";
 
 import { AlertsWorkspace, industryLabelFromSlug } from "../alerts-content";
 
@@ -18,6 +19,7 @@ type MockCreateAlertInput = {
 
 const mockCreateAlertMonitor = jest.fn(async (input: MockCreateAlertInput) => ({
   ok: true,
+  emailDeliverable: true,
   monitor: {
     id: "alert_1",
     scope: input.scope,
@@ -39,6 +41,11 @@ jest.mock("~/app/actions/alerts", () => ({
 
 // The monitor and event lists are other components on the page; the builder
 // test only needs them not to fetch.
+// The verification prompt's server action is not under test here.
+jest.mock("~/app/actions/email-verification", () => ({
+  sendAlertVerificationEmail: jest.fn(),
+}));
+
 jest.mock("../alert-monitor-list", () => ({
   AlertMonitorList: () => null,
   AlertDeliveryNote: () => null,
@@ -62,8 +69,8 @@ function renderWithQuery(ui: ReactElement) {
  * so an index into the combobox list is not stable.
  */
 function triggerSelect(): HTMLSelectElement {
-  const trigger = Array.from(document.querySelectorAll("select")).find((select) =>
-    select.querySelector('option[value="short-interest-above"]'),
+  const trigger = Array.from(document.querySelectorAll("select")).find(
+    (select) => select.querySelector('option[value="short-interest-above"]'),
   );
   if (!trigger) throw new Error("trigger select not rendered");
   return trigger;
@@ -72,10 +79,20 @@ function triggerSelect(): HTMLSelectElement {
 describe("AlertsWorkspace", () => {
   beforeEach(() => {
     mockCreateAlertMonitor.mockClear();
+    // A verified account, so the builder's existing tests see no verification prompt.
+    (useSession as unknown as jest.Mock).mockReturnValue({
+      data: {
+        user: { id: "u1", email: "trader@example.com", emailVerified: true },
+      },
+      status: "authenticated",
+      update: jest.fn().mockResolvedValue({ user: { emailVerified: true } }),
+    });
   });
 
   it("uses the industry query value as the monitor target", async () => {
-    renderWithQuery(<AlertsWorkspace initialIndustry="health-care-equipment" />);
+    renderWithQuery(
+      <AlertsWorkspace initialIndustry="health-care-equipment" />,
+    );
 
     expect(screen.getByLabelText("Industry")).toHaveValue(
       "Health Care Equipment",
@@ -176,7 +193,9 @@ describe("AlertsWorkspace", () => {
     renderWithQuery(<AlertsWorkspace />);
 
     expect(
-      screen.getByText("Notify when reported short interest crosses the threshold."),
+      screen.getByText(
+        "Notify when reported short interest crosses the threshold.",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -190,7 +209,9 @@ describe("AlertsWorkspace", () => {
     });
 
     expect(screen.getByText("pts", { selector: "span" })).toBeInTheDocument();
-    expect(screen.queryByText("%", { selector: "span" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("%", { selector: "span" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows the crossing note for above triggers only", () => {
@@ -210,7 +231,9 @@ describe("AlertsWorkspace", () => {
     renderWithQuery(<AlertsWorkspace />);
 
     expect(
-      screen.getByText(/Daily: after each new ASIC report\. Weekly: once a week/),
+      screen.getByText(
+        /Daily: after each new ASIC report\. Weekly: once a week/,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -241,3 +264,91 @@ describe("industryLabelFromSlug", () => {
   });
 });
 
+const VERIFIED = {
+  data: {
+    user: { id: "u1", email: "trader@example.com", emailVerified: true },
+  },
+  status: "authenticated",
+  update: jest.fn().mockResolvedValue({ user: { emailVerified: true } }),
+};
+const UNVERIFIED_SESSION = {
+  data: {
+    user: { id: "u1", email: "trader@example.com", emailVerified: false },
+  },
+  status: "authenticated",
+  update: jest.fn().mockResolvedValue({ user: { emailVerified: false } }),
+};
+
+describe("AlertsWorkspace verification feedback", () => {
+  beforeEach(() => {
+    mockCreateAlertMonitor.mockClear();
+    (useSession as unknown as jest.Mock).mockReturnValue(VERIFIED);
+  });
+
+  it("shows an inline warning beside save when the address is unverified, and keeps save enabled", async () => {
+    (useSession as unknown as jest.Mock).mockReturnValue(UNVERIFIED_SESSION);
+    renderWithQuery(<AlertsWorkspace />);
+
+    const note = screen.getByRole("note");
+    expect(note).toHaveTextContent(
+      "Alerts are saved but not emailed until you verify trader@example.com.",
+    );
+    // The prompt is loaded client-only, so its send action appears after a tick.
+    expect(
+      await within(note).findByRole("button", {
+        name: "Send verification email",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("ASX code"), {
+      target: { value: "bhp" },
+    });
+    expect(screen.getByRole("button", { name: /Save monitor/i })).toBeEnabled();
+  });
+
+  it("shows no warning when the address is verified", () => {
+    renderWithQuery(<AlertsWorkspace />);
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
+  it("says after a save that the alert is not emailed until the address is verified", async () => {
+    (useSession as unknown as jest.Mock).mockReturnValue(UNVERIFIED_SESSION);
+    mockCreateAlertMonitor.mockResolvedValueOnce({
+      ok: true,
+      emailDeliverable: false,
+      monitor: {
+        id: "alert_2",
+        scope: "stock",
+        target: "BHP",
+        condition: "short-interest-above",
+        threshold: 5,
+        cadence: "Daily",
+        createdAt: null,
+      },
+    } as never);
+    renderWithQuery(<AlertsWorkspace />);
+
+    fireEvent.change(screen.getByLabelText("ASX code"), {
+      target: { value: "bhp" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Save monitor/i }));
+
+    expect(
+      await screen.findByText(/Saved\. It is not emailed until you verify/),
+    ).toHaveTextContent(
+      "Saved. It is not emailed until you verify trader@example.com.",
+    );
+  });
+
+  it("gives no after-save warning when the saved alert will be emailed", async () => {
+    renderWithQuery(<AlertsWorkspace />);
+
+    fireEvent.change(screen.getByLabelText("ASX code"), {
+      target: { value: "bhp" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Save monitor/i }));
+
+    expect(await screen.findByText("Stock monitor saved")).toBeInTheDocument();
+    expect(screen.queryByText(/not emailed until you verify/)).toBeNull();
+  });
+});

@@ -221,3 +221,26 @@ describe("EmailVerificationPrompt", () => {
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
   });
 });
+
+describe("EmailVerificationPrompt opened from the success page", () => {
+  afterEach(() => {
+    window.history.pushState({}, "", "/");
+  });
+
+  it("is highlighted when the page is opened with ?verify=1", () => {
+    window.history.pushState({}, "", "/alerts?verify=1");
+    mockUseSession.mockReturnValue(session(false));
+    const { container } = render(
+      <EmailVerificationPrompt id="email-verification" />,
+    );
+    expect(container.firstChild).toHaveClass("ring-2");
+    expect(container.querySelector("#email-verification")).not.toBeNull();
+  });
+
+  it("is not highlighted on an ordinary visit", () => {
+    window.history.pushState({}, "", "/alerts");
+    mockUseSession.mockReturnValue(session(false));
+    const { container } = render(<EmailVerificationPrompt />);
+    expect(container.firstChild).not.toHaveClass("ring-2");
+  });
+});

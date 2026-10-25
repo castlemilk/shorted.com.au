@@ -1,3 +1,4 @@
+import { skippedDeliveryNotice } from "../alert-model";
 import {
   buildMonitorSummary,
   conditionHelper,
@@ -226,5 +227,47 @@ describe("company movement copy", () => {
 
   it("omits the rank for an unranked company", () => {
     expect(rankCopy(base)).toBeNull();
+  });
+});
+
+describe("skippedDeliveryNotice", () => {
+  it("names the no-email skip as an unverified address, with a verify action", () => {
+    const notice = skippedDeliveryNotice("skipped-no-email", {
+      verified: false,
+    });
+    expect(notice).toMatchObject({
+      label: "Not emailed: verify your email",
+      needsVerification: true,
+    });
+  });
+
+  it("drops the no-email skip once the address is verified, since the next alert is emailed", () => {
+    expect(
+      skippedDeliveryNotice("skipped-no-email", { verified: true }),
+    ).toBeNull();
+  });
+
+  it("explains a skip for an inactive Premium subscription, without a verify action", () => {
+    expect(
+      skippedDeliveryNotice("skipped-unentitled", { verified: false }),
+    ).toMatchObject({
+      label: "Not emailed: no active Premium",
+      needsVerification: false,
+    });
+  });
+
+  it("explains a skip for a paused monitor", () => {
+    expect(
+      skippedDeliveryNotice("skipped-paused", { verified: true }),
+    ).toMatchObject({
+      label: "Not emailed: paused",
+      needsVerification: false,
+    });
+  });
+
+  it("shows nothing for a delivery that was sent, failed, pending or unknown", () => {
+    for (const state of ["sent", "failed", "pending", null] as const) {
+      expect(skippedDeliveryNotice(state, { verified: false })).toBeNull();
+    }
   });
 });
