@@ -1337,6 +1337,9 @@ module "shorts_api" {
 
   # Unsubscribe HMAC secret for broadcast emails — provisioned in prod Secret Manager.
   unsubscribe_secret_exists = true
+  # Set by the workflow only when RESEND_WEBHOOK_SECRET is in Cuttlefish (and so synced
+  # to Secret Manager first); unset leaves the bounce webhook at 503.
+  resend_webhook_secret_exists = var.resend_webhook_secret_exists
 
   # Telesis cron monitors for the jobs on the omega cluster, read with the
   # read-role project token stored as TELESIS_API_TOKEN (docs/mcp-admin.md).
