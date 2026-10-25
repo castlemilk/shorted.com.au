@@ -77,7 +77,8 @@ func TestVerifyWebhook(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := VerifyWebhook(tc.secret, tc.h, tc.body, tc.now)
-			if !errors.Is(err, tc.wantErr) && !(tc.wantErr == nil && err == nil) {
+			// errors.Is(nil, nil) is true, so a nil wantErr needs no special case.
+			if !errors.Is(err, tc.wantErr) {
 				t.Fatalf("VerifyWebhook() = %v, want %v", err, tc.wantErr)
 			}
 		})

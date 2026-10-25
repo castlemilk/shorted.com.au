@@ -58,7 +58,7 @@ func VerifyWebhook(secret string, h http.Header, body []byte, now time.Time) err
 	}
 
 	mac := hmac.New(sha256.New, key)
-	fmt.Fprintf(mac, "%s.%s.", id, ts)
+	mac.Write([]byte(id + "." + ts + "."))
 	mac.Write(body)
 	want := mac.Sum(nil)
 
