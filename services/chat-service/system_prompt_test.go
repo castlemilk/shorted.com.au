@@ -168,3 +168,24 @@ func TestSystemPromptSizesEveryReply(t *testing.T) {
 		}
 	}
 }
+
+// TestSystemPromptLooksUpEachNamedStock keeps comparisons on the per-stock figures.
+// The model compared two stocks from the top-shorts list, where one was missing, so
+// the rule sends it to each stock's own figure and keeps top shorts for rankings.
+func TestSystemPromptLooksUpEachNamedStock(t *testing.T) {
+	line := promptLine(t, BuildSystemPrompt(""), "comparing named stocks")
+	for _, phrase := range []string{"look up each one", "cite each figure", "top shorts only for rankings"} {
+		if !strings.Contains(line, phrase) {
+			t.Errorf("comparison guidance missing %q: %s", phrase, line)
+		}
+	}
+}
+
+// TestSystemPromptOneParagraphHasNoLineBreaks pins the single-paragraph rule the
+// eval checks. A reply to "one paragraph" broke into two paragraphs without it.
+func TestSystemPromptOneParagraphHasNoLineBreaks(t *testing.T) {
+	prompt := BuildSystemPrompt("")
+	if !strings.Contains(prompt, "give exactly that: one sentence, or a single paragraph with no line breaks.") {
+		t.Fatal("prompt does not limit a one-paragraph answer to a single paragraph with no line breaks")
+	}
+}
