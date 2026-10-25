@@ -83,3 +83,23 @@ func TestBearerTokenCallWithoutOriginStaysAPIAccess(t *testing.T) {
 		t.Fatal("a bearer-token call was metered as browser access")
 	}
 }
+
+// browserClaims is a Firebase browser login with no web-on-behalf marker: the claims
+// alone say browser, and nothing says the website made the call.
+type browserClaims struct{ tier string }
+
+func (c browserClaims) GetUserID() string      { return "uid-premium" }
+func (c browserClaims) GetTier() string        { return c.tier }
+func (c browserClaims) GetIsBrowserAuth() bool { return true }
+
+// Only the claims decide whether a call bypasses the Origin check. A user-agent that
+// carries the SSR marker, with no Origin, on a Firebase browser claim that is not a
+// web-on-behalf call, is a caller with a copied marker. It is downgraded to API access.
+func TestBrowserClaimWithSSRUserAgentAndNoOriginIsDowngraded(t *testing.T) {
+	got := checkWithClaims(t, browserClaims{tier: "premium"}, map[string]string{
+		"User-Agent": "shorted-web-ssr/1.0 (+https://shorted.com.au)",
+	})
+	if got {
+		t.Fatal("a browser claim with the SSR marker and no Origin kept browser access; only the claims flag may bypass the Origin check")
+	}
+}
