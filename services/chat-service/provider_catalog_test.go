@@ -143,3 +143,31 @@ func TestEveryOpenRouterEntryIsPinnedToProviders(t *testing.T) {
 		t.Fatal("no OpenRouter entries found in the catalog")
 	}
 }
+
+// Production routes only activatable models. The qwen entry is pinned to Alibaba,
+// which is not the US or EU host the docs promise, so it stays out of production
+// until its host is reviewed.
+func TestCatalogOpenRouterQwenIsNotActivatable(t *testing.T) {
+	m, ok := lookupModel("openrouter", "qwen/qwen3.8-flash")
+	if !ok {
+		t.Fatal("qwen/qwen3.8-flash is no longer in the catalog")
+	}
+	if m.Activatable {
+		t.Fatal("qwen/qwen3.8-flash is activatable, but its host is not reviewed (docs/plans/chat-llm-providers.md §11.2)")
+	}
+}
+
+// parallel_tool_calls is off on every OpenRouter entry until a live check shows the
+// pinned endpoints honour it with require_parameters.
+func TestCatalogOpenRouterEntriesDoNotSendParallelToolCalls(t *testing.T) {
+	for _, spec := range providerCatalog {
+		if spec.Name != "openrouter" {
+			continue
+		}
+		for _, m := range spec.Models {
+			if m.Caps.ParallelToolCalls {
+				t.Fatalf("openrouter/%s has ParallelToolCalls set: it needs a live check before it is enabled", m.ID)
+			}
+		}
+	}
+}

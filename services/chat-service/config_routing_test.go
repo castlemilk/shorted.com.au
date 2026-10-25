@@ -234,3 +234,17 @@ func TestLoadConfigProductionRefusesTestOnlyAndUncataloguedRoutes(t *testing.T) 
 		})
 	}
 }
+
+// In production the Qwen route is refused at load, because its pinned host is not
+// reviewed, so no config can route turns to it.
+func TestLoadConfigProductionRefusesTheUnreviewedQwenRoute(t *testing.T) {
+	clearChatRoutingEnv(t)
+	t.Setenv("ENVIRONMENT", "production")
+	t.Setenv("CHAT_PROVIDER", "openrouter")
+	t.Setenv("CHAT_MODEL", "qwen/qwen3.8-flash")
+	t.Setenv("OPENROUTER_API_KEY_CHAT", "or-test-key")
+	_, err := LoadConfig()
+	if err == nil || !strings.Contains(err.Error(), "not activatable") {
+		t.Fatalf("LoadConfig() error = %v, want the qwen route refused as not activatable", err)
+	}
+}

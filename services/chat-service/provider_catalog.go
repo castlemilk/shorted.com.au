@@ -140,7 +140,10 @@ var providerCatalog = []ProviderSpec{
 		Models: []ModelSpec{
 			{
 				ID: "deepseek/deepseek-v4-flash", Label: "DeepSeek V4 Flash 0423 (OpenRouter)",
-				Caps: ModelCapabilities{ForcedToolChoice: true, NoneToolChoice: false, ParallelToolCalls: true},
+				// parallel_tool_calls is off on OpenRouter: with require_parameters and a pinned
+				// provider it may match no endpoint, and every turn would fall back. It needs a
+				// live check on OpenRouter before it is enabled. DeepSeek direct keeps it.
+				Caps: ModelCapabilities{ForcedToolChoice: true, NoneToolChoice: false, ParallelToolCalls: false},
 				// Priced on DeepInfra, the cheapest pinned endpoint. OpenRouter's
 				// reported cost wins when it is returned.
 				Price:       Pricing{Input: 0.09, CachedInput: 0.018, Output: 0.18, OffPeakFactor: 1, AsOf: catalogAsOf, SourceURL: "https://openrouter.ai/api/v1/models/deepseek/deepseek-v4-flash/endpoints"},
@@ -150,7 +153,10 @@ var providerCatalog = []ProviderSpec{
 			},
 			{
 				ID: "openai/gpt-5-mini", Label: "GPT-5 mini (OpenRouter)",
-				Caps:        ModelCapabilities{ForcedToolChoice: true, NoneToolChoice: true, ParallelToolCalls: true, MaxOutputTokens: 0},
+				// parallel_tool_calls is off on OpenRouter: with require_parameters and a pinned
+				// provider it may match no endpoint, and every turn would fall back. It needs a
+				// live check on OpenRouter before it is enabled. DeepSeek direct keeps it.
+				Caps:        ModelCapabilities{ForcedToolChoice: true, NoneToolChoice: true, ParallelToolCalls: false, MaxOutputTokens: 0},
 				Price:       Pricing{Input: 0.25, CachedInput: 0.025, Output: 2.00, OffPeakFactor: 1, AsOf: catalogAsOf, SourceURL: "https://openrouter.ai/api/v1/models/openai/gpt-5-mini/endpoints"},
 				Activatable: true,
 				// The plan names no provider for this model, so the pin is OpenAI's own
@@ -161,11 +167,11 @@ var providerCatalog = []ProviderSpec{
 			{
 				ID: "qwen/qwen3.8-flash", Label: "Qwen3.8 Flash (OpenRouter)",
 				// required and a named function are not honoured, so the engine verifies.
-				Caps:        ModelCapabilities{ForcedToolChoice: false, NoneToolChoice: true, ParallelToolCalls: false},
-				Price:       Pricing{Input: 0.15, CachedInput: 0.016, Output: 0.47, OffPeakFactor: 1, AsOf: catalogAsOf, SourceURL: "https://openrouter.ai/api/v1/models/qwen/qwen3.8-flash/endpoints"},
-				Activatable: true,
-				// The plan names no provider for this model, so the pin is Alibaba, the
-				// first-party host. The slug is unverified against the live endpoint list.
+				Caps:  ModelCapabilities{ForcedToolChoice: false, NoneToolChoice: true, ParallelToolCalls: false},
+				Price: Pricing{Input: 0.15, CachedInput: 0.016, Output: 0.47, OffPeakFactor: 1, AsOf: catalogAsOf, SourceURL: "https://openrouter.ai/api/v1/models/qwen/qwen3.8-flash/endpoints"},
+				// Not activatable: the plan names no provider for this model, so the pin is
+				// Alibaba, which is not the US or EU host the docs promise. host not reviewed; see §11.2.
+				Activatable: false,
 				DefaultOnly: []string{"alibaba"},
 				Notes:       "Verify policy: the first reply must call a tool, or the turn is retried with a nudge.",
 			},
