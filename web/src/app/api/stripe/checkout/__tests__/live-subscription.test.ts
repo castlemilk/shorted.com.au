@@ -178,8 +178,8 @@ describe("POST /api/stripe/checkout with an existing subscription", () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
-      error: "already_subscribed",
-      message: "You already have a Shorted subscription. Contact support to change it.",
+      error: "checkout_refused",
+      message: "Sign in with the account you subscribed with, or contact support.",
     });
     expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
     jest.restoreAllMocks();
@@ -230,8 +230,8 @@ describe("POST /api/stripe/checkout with an existing subscription", () => {
 
       expect(response.status).toBe(409);
       await expect(response.json()).resolves.toEqual({
-        error: "already_subscribed",
-        message: "You already have a Shorted subscription. Contact support to change it.",
+        error: "checkout_refused",
+        message: "Sign in with the account you subscribed with, or contact support.",
       });
       expect(stripeMock.billingPortal.sessions.create).not.toHaveBeenCalled();
       expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();

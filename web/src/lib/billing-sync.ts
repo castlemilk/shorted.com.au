@@ -12,7 +12,7 @@ import { CHECKOUT_PLAN_CONFIG, type CheckoutTier } from "~/lib/stripe-plans";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
 import { notifyOperator } from "~/@/lib/operator-notify";
-import { acquireCacheLease } from "~/@/lib/kv-cache";
+import { acquireCacheLease, releaseCacheLease } from "~/@/lib/kv-cache";
 import { randomUUID } from "node:crypto";
 
 /**
@@ -113,9 +113,10 @@ const STATUS_MAP: Record<string, { proto: SubscriptionStatus; name: string }> = 
   trialing: { proto: SubscriptionStatus.TRIALING, name: "trialing" },
   past_due: { proto: SubscriptionStatus.PAST_DUE, name: "past_due" },
   canceled: { proto: SubscriptionStatus.CANCELED, name: "canceled" },
-  // Unpaid means Stripe has stopped retrying the invoices. The grace period covers
-  // past_due only, so unpaid is stored as inactive and grants nothing.
-  unpaid: { proto: SubscriptionStatus.INACTIVE, name: "inactive" },
+  // Unpaid means Stripe has stopped retrying the card. It is its own status, so the
+  // web can ask the customer to update the card. It is not in the grace, and it grants
+  // nothing.
+  unpaid: { proto: SubscriptionStatus.UNPAID, name: "unpaid" },
   incomplete: { proto: SubscriptionStatus.INACTIVE, name: "inactive" },
   incomplete_expired: { proto: SubscriptionStatus.INACTIVE, name: "inactive" },
   paused: { proto: SubscriptionStatus.INACTIVE, name: "inactive" },
@@ -352,8 +353,21 @@ async function writeSubscriptionState(
 
   // The failure time of the current past-due run, read from the open invoice. Only
   // a past_due subscription has one; the store starts the grace from it.
-  const pastDueSince =
-    subscription.status === "past_due" ? await pastDueSinceFor(subscription.id) : null;
+  let pastDueSince: Date | null = null;
+  if (subscription.status === "past_due") {
+    try {
+      pastDueSince = await pastDueSinceFor(subscription.id);
+    } catch (error) {
+      // The status is still written. A null failure time makes the store start the
+      // run from now, which is the conservative grace: never a lapse caused by an
+      // invoice lookup, and never a dropped status update.
+      console.error(
+        `[billing-sync] could not read the open invoices of ${subscription.id}; the past-due run starts from now: ${
+          error instanceof Error ? error.message : "unknown"
+        }`,
+      );
+    }
+  }
 
   // Step 2: always write the full current state. This is the write that carries
   // the true status, so it must land even when step 1 ran.
@@ -380,11 +394,12 @@ async function writeSubscriptionState(
     SYNC_RETRY_OPTIONS,
   );
 
-  if (unknownPlan && options.alertOnUnknownPrice && (await claimUnknownPriceAlert(subscription.id, priceId))) {
+  if (unknownPlan && options.alertOnUnknownPrice) {
     console.error(
       `[billing-sync] subscription ${subscription.id} is on a price that is not a configured Shorted plan (${priceId ?? "none"}); written as free, no access granted`,
     );
-    await notifyOperator({
+    await alertUnknownPriceOnce(subscription.id, priceId, () =>
+      notifyOperator({
       subject: "Shorted subscription on an unknown Stripe price",
       text: [
         "A subscription is on a Stripe price that is not configured as a Shorted plan.",
@@ -399,7 +414,8 @@ async function writeSubscriptionState(
         "",
         "— shorted.com.au",
       ].join("\n"),
-    });
+      }),
+    );
   }
 
   return {
@@ -459,34 +475,46 @@ export interface WriteOptions {
 const UNKNOWN_PRICE_ALERT_TTL_SECONDS = 365 * 24 * 60 * 60;
 
 /**
- * True when this is the first alert for this subscription and price. Uses the KV lease
- * (one atomic SET NX). When the store is unavailable it returns true, so a broken KV
- * alerts rather than hides the problem.
+ * Sends an unknown-price alert at most once per subscription and price. The KV lease is
+ * taken first, so two syncs racing cannot both send, and it is released again when the
+ * send fails, so a failed email is retried on the next webhook rather than silenced for
+ * a year. With the store unavailable the alert is sent, so a broken KV cannot hide it.
  */
-export async function claimUnknownPriceAlert(
+export async function alertUnknownPriceOnce(
   subscriptionId: string,
   priceId: string | null | undefined,
-): Promise<boolean> {
+  send: () => Promise<boolean>,
+): Promise<void> {
   const key = `billing-unknown-price-alert:${subscriptionId}:${priceId ?? "none"}`;
-  const result = await acquireCacheLease(key, randomUUID(), UNKNOWN_PRICE_ALERT_TTL_SECONDS);
-  return result !== "busy";
+  const token = randomUUID();
+  const claim = await acquireCacheLease(key, token, UNKNOWN_PRICE_ALERT_TTL_SECONDS);
+  if (claim === "busy") return; // already alerted, by this or another sync
+  const sent = await send();
+  if (!sent && claim === "acquired") {
+    await releaseCacheLease(key, token);
+  }
 }
 
 /**
- * The failure time of a past_due subscription's current run: the open invoice's
- * finalization, which is when Stripe first attempts the charge. Falls back to the
- * invoice's creation. webhooks_delivered_at is not used, because it records when
- * Stripe sent webhooks, not when the payment failed. Null when there is no open
- * invoice, and the store then starts the grace from now.
+ * The failure time of a past_due subscription's current run: the OLDEST open invoice's
+ * finalization, which is when Stripe first attempted the charge that is still unpaid.
+ * Taking the oldest matters: a later month's open invoice would otherwise restart the
+ * grace. webhooks_delivered_at is not used, because it records when Stripe sent
+ * webhooks, not when the payment failed. Null when there is no open invoice, and the
+ * store then starts the grace from now.
  */
 export async function pastDueSinceFor(subscriptionId: string): Promise<Date | null> {
   const invoices = await stripe.invoices.list({
     subscription: subscriptionId,
     status: "open",
-    limit: 1,
+    limit: 100,
   });
-  const invoice = invoices.data[0];
-  if (!invoice) return null;
-  const at = invoice.status_transitions?.finalized_at ?? invoice.created;
-  return at ? new Date(at * 1000) : null;
+  let oldest: Date | null = null;
+  for (const invoice of invoices.data) {
+    const at = invoice.status_transitions?.finalized_at ?? invoice.created;
+    if (!at) continue;
+    const date = new Date(at * 1000);
+    if (!oldest || date < oldest) oldest = date;
+  }
+  return oldest;
 }

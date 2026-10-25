@@ -28,8 +28,13 @@ import { getSubscriptionStatus } from "~/app/actions/subscription";
  */
 
 /** The message a customer sees when they already pay and we cannot change it here. */
-const ALREADY_SUBSCRIBED_MESSAGE =
-  "You already have a Shorted subscription. Contact support to change it.";
+const CHECKOUT_REFUSED_MESSAGE =
+  "Sign in with the account you subscribed with, or contact support.";
+/**
+ * The one code for a refused checkout. It does NOT say that a subscription exists:
+ * the session email may be unverified, so anyone could otherwise ask which emails pay.
+ */
+const CHECKOUT_REFUSED_CODE = "checkout_refused";
 
 /**
  * Sends a customer who already pays to a billing-portal session for their own
@@ -93,10 +98,10 @@ async function planSwitchResponse({
       feature: "payment",
       action: "checkout_create",
       status: "error",
-      properties: { tier, error_type: "already_subscribed" },
+      properties: { tier, error_type: CHECKOUT_REFUSED_CODE },
     });
     return NextResponse.json(
-      { error: "already_subscribed", message: ALREADY_SUBSCRIBED_MESSAGE },
+      { error: CHECKOUT_REFUSED_CODE, message: CHECKOUT_REFUSED_MESSAGE },
       { status: 409 }
     );
   }
@@ -251,10 +256,10 @@ export async function POST(request: NextRequest) {
           feature: "payment",
           action: "checkout_create",
           status: "error",
-          properties: { tier, error_type: "already_subscribed" },
+          properties: { tier, error_type: CHECKOUT_REFUSED_CODE },
         });
         return NextResponse.json(
-          { error: "already_subscribed", message: ALREADY_SUBSCRIBED_MESSAGE },
+          { error: CHECKOUT_REFUSED_CODE, message: CHECKOUT_REFUSED_MESSAGE },
           { status: 409 }
         );
       }
