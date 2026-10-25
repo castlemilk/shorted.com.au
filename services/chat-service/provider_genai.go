@@ -20,14 +20,10 @@ type geminiProvider struct {
 	timeouts streamTimeouts
 }
 
-// newGeminiProvider creates the Gemini client. The key is registered before any
-// request can fail, so every error the client produces is scrubbed of it.
-func newGeminiProvider(ctx context.Context, apiKey string) (*geminiProvider, error) {
-	return newGeminiProviderAt(ctx, apiKey, "")
-}
-
-// newGeminiProviderAt is newGeminiProvider with the base URL overridden. Tests
-// use it to point the client at a fake endpoint; an empty baseURL is production.
+// newGeminiProviderAt creates the Gemini client. The key is registered before any
+// request can fail, so every error the client produces is scrubbed of it. The base
+// URL is overridden by tests to point the client at a fake endpoint; an empty
+// baseURL is production.
 func newGeminiProviderAt(ctx context.Context, apiKey, baseURL string) (*geminiProvider, error) {
 	registerSecrets(apiKey)
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
