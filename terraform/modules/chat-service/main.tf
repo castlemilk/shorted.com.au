@@ -31,6 +31,7 @@ locals {
   optional_secret_names = compact([
     var.flaggr_api_key_secret_name,
     var.deepseek_api_key_secret_name,
+    var.openrouter_api_key_secret_name,
   ])
 }
 
@@ -251,11 +252,27 @@ resource "google_cloud_run_v2_service" "chat_service" {
         }
       }
 
+      # Always emitted, so the revision states the setting. "false" keeps DeepSeek's
+      # PRC-hosted API refused in production; the code treats any value other than
+      # "true" the same way.
+      env {
+        name  = "CHAT_ALLOW_PRC_HOSTED_PROVIDER"
+        value = var.allow_prc_hosted_provider ? "true" : "false"
+      }
+
+      # OpenRouter key for the chat route, a chat-only key with its own spend cap.
+      # The config reads it as OPENROUTER_API_KEY_CHAT (provider_catalog.go). The
+      # report extractor has its own OPENROUTER_API_KEY and budget, not shared here.
       dynamic "env" {
-        for_each = var.allow_prc_hosted_provider ? ["true"] : []
+        for_each = var.openrouter_api_key_secret_name != "" ? [var.openrouter_api_key_secret_name] : []
         content {
-          name  = "CHAT_ALLOW_PRC_HOSTED_PROVIDER"
-          value = env.value
+          name = "OPENROUTER_API_KEY_CHAT"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
         }
       }
 

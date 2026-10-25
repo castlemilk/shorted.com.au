@@ -39,5 +39,33 @@ test("the deploy resolves optional chat secrets by content, before both Terrafor
 test("the validate-secrets job does not require the optional chat secrets", () => {
   const job = deployWorkflow.slice(deployWorkflow.indexOf("\n  validate-secrets:"), deployWorkflow.indexOf("\n  build-images:"));
   assert.ok(job.length > 0);
-  assert.doesNotMatch(job, /FLAGGR|DEEPSEEK/);
+  assert.doesNotMatch(job, /FLAGGR|DEEPSEEK|OPENROUTER/);
 });
+
+test("the OpenRouter chat key is an optional, dedicated secret with its own cap", () => {
+  // The config reads OPENROUTER_API_KEY_CHAT; the Secret Manager secret has the same name.
+  assert.match(mainTf, /optional_secret_names = compact\(\[[\s\S]*?var\.openrouter_api_key_secret_name[\s\S]*?\]\)/);
+  assert.match(mainTf, /name = "OPENROUTER_API_KEY_CHAT"[\s\S]*?secret\s+=\s+env\.value/);
+  assert.match(variablesTf, /variable "openrouter_api_key_secret_name"[\s\S]*?default\s+=\s+""/);
+  assert.doesNotMatch(mainTf, /OPENROUTER_API_KEY"/, "chat must not read the report extractor's OPENROUTER_API_KEY");
+});
+
+test("the production chat module states CHAT_ALLOW_PRC_HOSTED_PROVIDER on every revision", () => {
+  assert.match(mainTf, /name\s+=\s+"CHAT_ALLOW_PRC_HOSTED_PROVIDER"\s+value = var\.allow_prc_hosted_provider \? "true" : "false"/);
+});
+
+test("the deploy resolves OPENROUTER_API_KEY_CHAT by content and syncs it like DEEPSEEK_API_KEY", () => {
+  const resolveBlocks = [...deployWorkflow.matchAll(/- name: Resolve optional chat secrets[\s\S]*?(?=\n {6}- name: )/g)].map((m) => m[0]);
+  assert.equal(resolveBlocks.length, 2);
+  for (const block of resolveBlocks) {
+    assert.match(block, /TF_VAR_openrouter_api_key_secret_name=OPENROUTER_API_KEY_CHAT/);
+    assert.match(block, /has_content "\$OPENROUTER_API_KEY_CHAT"/);
+  }
+  // Both Ensure steps sync it under the same name, gated by content.
+  const ensureLine = 'if has_content "$OPENROUTER_API_KEY_CHAT"; then ensure_secret "OPENROUTER_API_KEY_CHAT" "$OPENROUTER_API_KEY_CHAT"; fi';
+  assert.equal(deployWorkflow.split(ensureLine).length - 1, 2, "plan and apply Ensure steps each sync it");
+  // The report extractor's key is never written or referenced by the deploy.
+  assert.doesNotMatch(deployWorkflow, /ensure_secret "OPENROUTER_API_KEY"/);
+  assert.doesNotMatch(deployWorkflow, /secrets\.OPENROUTER_API_KEY\b/);
+});
+
