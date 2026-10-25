@@ -280,10 +280,13 @@ func upgradeURLOrDefault(configured string) string {
 }
 
 // Public wording for an address that cannot be used. A caller reads these; they name the
-// account, never the deployment, the admin path, or any URL.
+// account, never the deployment, the admin path, or an internal URL. The unverified message
+// names the public page where the caller fixes it, written without a scheme so the leak test
+// can keep refusing any "http" in these messages.
 const (
 	//nolint:staticcheck // ST1005: user-facing copy, shown verbatim to the caller
-	publicAddressUnverified = "We couldn't confirm a verified email on your Shorted account; verify it at shorted.com.au and try again"
+	publicAddressUnverified = "Your Shorted email address isn't verified yet, so this alert was not created: alerts are emailed only to a verified address. " +
+		"Open shorted.com.au/alerts?verify=1, choose \"Send verification email\", click the link in that email, then ask again to create the alert"
 	//nolint:staticcheck // ST1005: user-facing copy, shown verbatim to the caller
 	publicAccountService = "Couldn't reach the account service; try again shortly"
 )

@@ -102,6 +102,14 @@ func TestPublicAlertErrorsNeverNameTheInternals(t *testing.T) {
 	}
 }
 
+// The unverified refusal is the one place a public caller is stuck until they act, so it
+// says the alert was not created and walks them through verifying, on the public page.
+func TestUnverifiedRefusalGuidesTheCallerToVerify(t *testing.T) {
+	for _, step := range []string{"was not created", "shorted.com.au/alerts?verify=1", "Send verification email", "click the link", "ask again"} {
+		assert.Contains(t, publicAddressUnverified, step)
+	}
+}
+
 // The infrastructure failures read as the account-service message; the account's own
 // refusals read as the verify message.
 func TestPublicAddressErrorsChooseTheRightCalmMessage(t *testing.T) {
