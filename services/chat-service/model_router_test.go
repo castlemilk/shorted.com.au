@@ -699,3 +699,27 @@ func TestNewModelRouterGivesTheGeminiFallbackItsOwnOutputLimit(t *testing.T) {
 		t.Fatalf("fallback max output = %d, want the Gemini limit 1024", r.fallback.route.Ref.MaxOutputTokens)
 	}
 }
+
+// The cost of a failed primary attempt is part of the answering turn's cost, as
+// its usage is. A price of 1 micro-USD per token makes the primary's billed call
+// cost 10 (7 prompt and 3 output tokens), and the fallback's route is free.
+func TestRouterChargesTheFailedAttemptsCostToTheAnswer(t *testing.T) {
+	primary := &routeProvider{name: "primary", plans: always([]fakeReply{
+		{calls: []ToolCall{searchCall("c1", "BHP")}, usage: TokenUsage{PromptTokens: 7, CandidateTokens: 3}},
+		{err: failedCall(false, true, 429)},
+	})}
+	fallback := &routeProvider{name: "fallback", plans: always(okPlan())}
+	primaryRoute := testRoute(routeEnvDefault, primary)
+	primaryRoute.Spec.Price = Pricing{Input: 1, Output: 1}
+	fallbackRoute := testRoute(routeFallback, fallback)
+	r := newModelRouter(primaryRoute, &fallbackRoute, newTestToolExecutor(httpHandlerCounting(new(atomic.Int32))), 0)
+	r.retryDelay = func() time.Duration { return 0 }
+
+	resp, _, err := runTurn(r)
+	if err != nil {
+		t.Fatalf("RunTurn() error = %v", err)
+	}
+	if resp.EstCostMicroUSD != 10 {
+		t.Fatalf("EstCostMicroUSD = %d, want 10: the failed primary call was billed and belongs to this turn", resp.EstCostMicroUSD)
+	}
+}
