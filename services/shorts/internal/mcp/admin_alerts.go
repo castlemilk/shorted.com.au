@@ -101,13 +101,22 @@ func MaskAlertEmail(email string) string {
 
 // AlertsStatusOutput is the alerts pipeline as an administrator sees it.
 type AlertsStatusOutput struct {
-	ObservedAt string               `json:"observedAt"`
-	Monitors   []AlertMonitorCount  `json:"monitors" jsonschema:"Monitor counts by status and cadence, across every owner. Counts only."`
-	Mine       []AlertsOwnMonitor   `json:"mine" jsonschema:"The caller's own monitors, newest first. No address or user id is returned for anyone."`
-	MineTotal  int                  `json:"mineTotal"`
-	Runs       []AlertsEvaluatorRun `json:"runs" jsonschema:"The ten newest evaluator runs, newest first."`
-	Events     []AlertsEvent        `json:"events" jsonschema:"The twenty newest alert events across owners, newest first. own says whether the caller owns the monitor. No address, user id or message body is returned for any owner."`
-	Sources    []JobSource          `json:"sources"`
+	ObservedAt string                `json:"observedAt"`
+	Monitors   []AlertMonitorCount   `json:"monitors" jsonschema:"Monitor counts by status and cadence, across every owner. Counts only."`
+	Mine       []AlertsOwnMonitor    `json:"mine" jsonschema:"The caller's own monitors, newest first. No address or user id is returned for anyone."`
+	MineTotal  int                   `json:"mineTotal"`
+	Runs       []AlertsEvaluatorRun  `json:"runs" jsonschema:"The ten newest evaluator runs, newest first."`
+	Events     []AlertsEvent         `json:"events" jsonschema:"The twenty newest alert events across owners, newest first. own says whether the caller owns the monitor. No address, user id or message body is returned for any owner."`
+	Delivery   AlertDeliveryFeedback `json:"delivery" jsonschema:"Resend feedback across owners. Counts only."`
+	Sources    []JobSource           `json:"sources"`
+}
+
+// AlertDeliveryFeedback is what Resend reported after alert emails were accepted:
+// bounced or complained deliveries, and addresses now suppressed from alerts.
+type AlertDeliveryFeedback struct {
+	Bounced    int64 `json:"bounced"`
+	Complained int64 `json:"complained"`
+	Suppressed int64 `json:"suppressed"`
 }
 
 // AlertMonitorCount is one status and cadence bucket.

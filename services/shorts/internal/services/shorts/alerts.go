@@ -464,7 +464,11 @@ func alertDeliveryStatusFromStore(status string) shortsv1alpha1.AlertDeliverySta
 		return shortsv1alpha1.AlertDeliveryStatus_ALERT_DELIVERY_STATUS_PENDING
 	case alertevents.StatusSent:
 		return shortsv1alpha1.AlertDeliveryStatus_ALERT_DELIVERY_STATUS_SENT
-	case alertevents.StatusFailed:
+	case alertevents.StatusFailed,
+		// Resend reported a hard bounce or a complaint, or the address is suppressed:
+		// the alert did not reach the customer, so the API reads it as failed. The
+		// proto has no bounced state, and the store keeps the exact status.
+		alertevents.StatusBounced, alertevents.StatusComplained, alertevents.StatusSkippedSuppressed:
 		return shortsv1alpha1.AlertDeliveryStatus_ALERT_DELIVERY_STATUS_FAILED
 	case alertevents.StatusSkippedUnentitled:
 		return shortsv1alpha1.AlertDeliveryStatus_ALERT_DELIVERY_STATUS_SKIPPED_UNENTITLED

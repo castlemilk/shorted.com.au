@@ -245,6 +245,9 @@ func newE2E(t *testing.T) *e2e {
 	applyMigration(t, pool, "000147_*.up.sql")
 	// 000147 must replay cleanly: prod re-runs the allowlist on every deploy.
 	applyMigration(t, pool, "000147_*.up.sql")
+	applyMigration(t, pool, "000148_*.up.sql")
+	// 000148 must replay cleanly too, and a replay must keep the suppression table.
+	applyMigration(t, pool, "000148_*.up.sql")
 
 	rs := newResendStub(t)
 	billing := newStubBilling()
@@ -1219,5 +1222,36 @@ func TestAlertsE2EWordmarkOnlyIsAMonogram(t *testing.T) {
 	}
 	if p.Companies[0].LogoURL != "" || (p.Stock != nil && p.Stock.LogoURL != "") {
 		t.Fatalf("a wordmark-only company must carry no logo: %+v", p.Companies[0])
+	}
+}
+
+// A monitor whose address bounced earlier fires, but its alert is never sent: the
+// row is skipped_suppressed and Resend receives nothing for that address. The
+// suppression is written the way the webhook writes it (lower-cased).
+func TestAlertsE2ESuppressedAddressIsNotSent(t *testing.T) {
+	e := newE2E(t)
+	e.seedBase()
+	e.billing.setStatus("u1", "SUBSCRIPTION_STATUS_ACTIVE")
+	e.monitor("m1", "u1", u1Email, "stock", "AAA", "short_interest_above", "daily", new(float64(5)), "")
+
+	mustExec(t, e.pool, `INSERT INTO alert_email_suppressions (email, reason, resend_email_id) VALUES ($1, 'bounced', 'em_old')`,
+		strings.ToLower(u1Email))
+
+	e.day("2026-10-13", baseDay0())
+	e.wantExit(e.run(), 0, "bootstrap")
+	e.day("2026-10-14", materialsDay(5.20, 5.00, 7.00))
+	e.wantExit(e.run(), 0, "the crossing day")
+
+	var status string
+	if err := e.pool.QueryRow(e.ctx, `SELECT email_status FROM alert_events WHERE monitor_id = 'm1' AND report_date = '2026-10-14'`).Scan(&status); err != nil {
+		t.Fatalf("m1 did not fire on 14 Oct: %v", err)
+	}
+	if status != "skipped_suppressed" {
+		t.Fatalf("m1 = %s, want skipped_suppressed", status)
+	}
+	for _, req := range e.resend.snapshot() {
+		if strings.EqualFold(req.to, u1Email) {
+			t.Fatalf("a suppressed address received an email: %+v", req)
+		}
 	}
 }

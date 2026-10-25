@@ -1782,7 +1782,7 @@ module "edge" {
   javascript_detections_enabled = false
   markdown_for_agents           = "on"
 
-  # DNS hardening — SPF (Google Workspace) + DMARC (p=none monitor) + DNSSEC
+  # DNS hardening — SPF (Google Workspace) + DMARC (p=quarantine, pct=100) + DNSSEC
   # signing. DNSSEC is not enforced until the DS record (edge_dnssec_ds_record
   # output) is published at the .com.au registrar.
   dns_security_enabled = true

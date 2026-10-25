@@ -68,6 +68,8 @@ func alertsTestStore(t *testing.T) *postgresStore {
 		"000074_add_alert_monitors.up.sql",
 		"000147_add_alert_events.up.sql",
 		"000147_add_alert_events.up.sql",
+		"000148_add_email_suppression.up.sql",
+		"000148_add_email_suppression.up.sql",
 	} {
 		sql, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "migrations", file))
 		require.NoError(t, err)

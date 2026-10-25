@@ -461,6 +461,18 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// quota diffing GetAvailableDates, and charging it more would defeat that.
 	mux.Handle(LatestPath, withCORS(s.LatestHandler()))
 
+	// Resend delivery feedback: a permanent bounce or a complaint marks the alert
+	// delivery and suppresses the address. Inert (503) until RESEND_WEBHOOK_SECRET is set.
+	mux.Handle(ResendWebhookPath, NewResendWebhookHandler(ResendWebhookConfig{
+		Secret: os.Getenv("RESEND_WEBHOOK_SECRET"),
+		Store:  resendWebhookStoreFrom(s.store),
+		Notify: ResendOperatorNotifier(os.Getenv("RESEND_API_KEY"),
+			envOr("RESEND_FROM", "Shorted <support@shorted.com.au>"),
+			envOr("RESEND_TO", "support@shorted.com.au")),
+		Infof:  log.Infof,
+		Errorf: log.Errorf,
+	}))
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if _, err := w.Write([]byte("OK")); err != nil {

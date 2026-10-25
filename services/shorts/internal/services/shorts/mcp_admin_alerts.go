@@ -147,6 +147,13 @@ func (a *adminMCPSource) AlertsStatus(ctx context.Context, userID string) (*mcp.
 		out.Sources = append(out.Sources, mcp.JobSource{Name: "alert_monitor_counts", Status: "available", Detail: "counts across every owner; no owner is named"})
 	}
 
+	if h, err := a.alerts.AdminAlertDeliveryHealth(ctx); err != nil {
+		out.Sources = append(out.Sources, mcp.JobSource{Name: "alert_delivery_feedback", Status: "unavailable", Detail: "the bounce and complaint counts could not be read"})
+	} else {
+		out.Delivery = mcp.AlertDeliveryFeedback{Bounced: h.Bounced, Complained: h.Complained, Suppressed: h.Suppressed}
+		out.Sources = append(out.Sources, mcp.JobSource{Name: "alert_delivery_feedback", Status: "available", Detail: "counts across every owner; no address is named"})
+	}
+
 	mine, total, checked, err := core.listMonitors(ctx, userID, "", 50, 0)
 	if err != nil {
 		out.Sources = append(out.Sources, mcp.JobSource{Name: "own_monitors", Status: "unavailable", Detail: "the caller's monitors could not be read"})

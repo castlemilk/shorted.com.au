@@ -899,6 +899,7 @@ jobs:
               -f /migrations/000145_add_chat_usage_events.up.sql \
               -f /migrations/000146_add_chat_message_partial.up.sql \
               -f /migrations/000147_add_alert_events.up.sql \
+              -f /migrations/000148_add_email_suppression.up.sql \
               -f /migrations/000117_add_index_prices.up.sql \
               -f /migrations/000118_add_industry_history.up.sql \
               -f /migrations/000119_add_price_backfill_attempts.up.sql \
