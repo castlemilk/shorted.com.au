@@ -32,7 +32,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
-	registerSecrets(cfg.GeminiAPIKey, cfg.InternalServiceSecret, cfg.DatabaseURL)
+	registerSecrets(cfg.GeminiAPIKey, cfg.InternalServiceSecret, cfg.DatabaseURL, cfg.FlaggrAPIKey)
 	// Every provider key is registered, so no error or log line can carry one.
 	for _, key := range cfg.ProviderKeys {
 		registerSecrets(key)
@@ -110,6 +110,24 @@ func main() {
 
 	// Create handler
 	handler := NewChatServiceHandler(store, runner, cfg)
+
+	// The chat-model flag picks a route per user. Without a Flaggr key and service
+	// id it is off: no client, no flagged route, and every turn is the default.
+	// A client that cannot be made also leaves it off, and never stops startup.
+	defaultRouteID := routeID(cfg.ChatProvider, cfg.ChatModel)
+	flagClient, flagErr := newChatModelFlagClient(cfg)
+	switch {
+	case flagErr != nil:
+		log.Printf("WARNING: chat model flag is off: %v", flagErr)
+	case flagClient == nil:
+		log.Println("chat model flag is off (FLAGGR_API_KEY or FLAGGR_SERVICE_ID is not set)")
+	default:
+		flagRoutes := buildChatModelRoutes(ctx, cfg, toolExecutor, defaultRouteID)
+		defer closeChatModelRoutes(flagRoutes)
+		handler.SetModelSelector(newChatModelSelector(flagClient, defaultRouteID, cfg.Environment, flagRoutes, cfg.ChatModelFlagTimeout, cfg.ChatModelFlagTTL))
+		log.Printf("chat model flag on: default=%s flagged_routes=%v timeout=%s ttl=%s",
+			defaultRouteID, sortedRouteIDs(flagRoutes), cfg.ChatModelFlagTimeout, cfg.ChatModelFlagTTL)
+	}
 
 	// Create mux with Connect-RPC handler. Health remains public for Cloud Run
 	// probes; all chat RPCs require the service-to-service secret.
