@@ -263,3 +263,27 @@ func TestAlertsJobRefusesActiveAPIAccess(t *testing.T) {
 		t.Fatal("alerts job delivers premium alerts to an API Access subscriber")
 	}
 }
+
+// An UNPAID subscription is one Stripe has stopped retrying. Access is paused, so no
+// premium-feature tier is entitled to alerts, however recent the failed charge or
+// far the period end runs.
+func TestAlertsJobRefusesUnpaidOnEveryPremiumTier(t *testing.T) {
+	recent := timestamppb.New(time.Now().Add(-1 * time.Hour))
+	future := timestamppb.New(time.Now().Add(20 * 24 * time.Hour))
+	for _, tier := range []shortsv1alpha1.SubscriptionTier{
+		shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM,
+		shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PRO,
+		shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_ENTERPRISE,
+	} {
+		got := entitlementOf(&shortsv1alpha1.GetMySubscriptionResponse{
+			HasSubscription:  true,
+			Status:           shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNPAID,
+			Tier:             tier,
+			PastDueSince:     recent,
+			CurrentPeriodEnd: future,
+		})
+		if got.Entitled {
+			t.Fatalf("alerts job entitles an UNPAID %s subscription; Stripe has stopped retrying, so access is paused", tier)
+		}
+	}
+}
