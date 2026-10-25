@@ -44,7 +44,7 @@ func apiSubscriptionsTestStore(t *testing.T) *postgresStore {
 	_, err := pool.Exec(ctx, apiSubscriptionsTestBaseSchema)
 	require.NoError(t, err)
 
-	for _, name := range []string{"000015_add_api_subscriptions.up.sql", "000140_add_past_due_since.up.sql"} {
+	for _, name := range []string{"000015_add_api_subscriptions.up.sql", "000149_add_past_due_since.up.sql"} {
 		migration, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "migrations", name))
 		require.NoError(t, err)
 		_, err = pool.Exec(ctx, string(migration))

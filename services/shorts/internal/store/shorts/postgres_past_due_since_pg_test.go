@@ -68,7 +68,7 @@ func TestPastDueSinceAgainstPostgres(t *testing.T) {
 	})
 
 	t.Run("a legacy past_due row with no start takes the failure time it is given", func(t *testing.T) {
-		// Rows past_due before migration 000140 have no start. The next sync of such a
+		// Rows past_due before migration 000149 have no start. The next sync of such a
 		// row must start it from the invoice, not from now.
 		_, err := s.db.Exec(t.Context(), "UPDATE api_subscriptions SET past_due_since = NULL WHERE user_id = 'uid_pd'")
 		require.NoError(t, err)

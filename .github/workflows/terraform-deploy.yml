@@ -962,6 +962,8 @@ jobs:
             # cannot get is a NOTICE, never a failed deploy).
             run_psql_session -f /migrations/000132_extend_fundamentals.up.sql
 
+            run_psql_session -f /migrations/000149_add_past_due_since.up.sql
+
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
             # tables, views, materialized views, sequences and functions there,
@@ -996,7 +998,6 @@ jobs:
             # 000131 and 000132, because of those locks. Check it (zero rows =
             # closed):
             #   task db:prod:psql -- -P pager=off -f scripts/prod-data-api-check.sql
-            run_psql_session -f /migrations/000140_add_past_due_since.up.sql
             run_psql_session -f /migrations/000138_harden_data_api_grants.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"

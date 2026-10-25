@@ -1,4 +1,4 @@
--- 000140: when a past_due subscription's first failed charge happened.
+-- 000149: when a past_due subscription's first failed charge happened.
 --
 -- The 14-day past-due grace used to be anchored on current_period_end. Stripe moves
 -- that forward at every renewal it fails, so a card that kept failing never reached
