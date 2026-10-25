@@ -466,6 +466,7 @@ jobs:
           FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
           FLAGGR_SERVICE_ID: ${{ secrets.FLAGGR_SERVICE_ID }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
           if has_content "$FLAGGR_API_KEY"; then
@@ -476,6 +477,11 @@ jobs:
           fi
           if has_content "$DEEPSEEK_API_KEY"; then
             echo "TF_VAR_deepseek_api_key_secret_name=DEEPSEEK_API_KEY" >> "$GITHUB_ENV"
+          fi
+          # The existing OPENROUTER_API_KEY secret (the report extractor's). It is read by
+          # name only: no sync step writes it, so the shared secret gets no new versions.
+          if has_content "$OPENROUTER_API_KEY"; then
+            echo "TF_VAR_openrouter_api_key_secret_name=OPENROUTER_API_KEY" >> "$GITHUB_ENV"
           fi
 
       - name: Terraform Plan
@@ -1076,6 +1082,7 @@ jobs:
           FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
           FLAGGR_SERVICE_ID: ${{ secrets.FLAGGR_SERVICE_ID }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
           if has_content "$FLAGGR_API_KEY"; then
@@ -1086,6 +1093,11 @@ jobs:
           fi
           if has_content "$DEEPSEEK_API_KEY"; then
             echo "TF_VAR_deepseek_api_key_secret_name=DEEPSEEK_API_KEY" >> "$GITHUB_ENV"
+          fi
+          # The existing OPENROUTER_API_KEY secret (the report extractor's). It is read by
+          # name only: no sync step writes it, so the shared secret gets no new versions.
+          if has_content "$OPENROUTER_API_KEY"; then
+            echo "TF_VAR_openrouter_api_key_secret_name=OPENROUTER_API_KEY" >> "$GITHUB_ENV"
           fi
 
       - name: Terraform Apply

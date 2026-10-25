@@ -89,8 +89,14 @@ variable "deepseek_api_key_secret_name" {
   default     = ""
 }
 
+variable "openrouter_api_key_secret_name" {
+  description = "Secret Manager secret holding the OpenRouter key for the chat route, exposed as OPENROUTER_API_KEY_CHAT. Empty means no OpenRouter route. Point it at the existing OPENROUTER_API_KEY secret; do not create a copy."
+  type        = string
+  default     = ""
+}
+
 variable "allow_prc_hosted_provider" {
-  description = "Set CHAT_ALLOW_PRC_HOSTED_PROVIDER, which lets production route to DeepSeek's PRC-hosted API. Off unless the privacy review is complete."
+  description = "Sets CHAT_ALLOW_PRC_HOSTED_PROVIDER to true or false. true lets production route to DeepSeek's PRC-hosted API; false keeps it refused. Set true only after the privacy review is complete."
   type        = bool
   default     = false
 }

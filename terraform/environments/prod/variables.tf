@@ -152,6 +152,12 @@ variable "deepseek_api_key_secret_name" {
   default     = ""
 }
 
+variable "openrouter_api_key_secret_name" {
+  description = "Secret Manager secret for the OpenRouter chat route (the existing OPENROUTER_API_KEY, shared with the report extractor); empty until the workflow sees OPENROUTER_API_KEY"
+  type        = string
+  default     = ""
+}
+
 # ---- Cloudflare Edge ----
 
 variable "cloudflare_global_api_key" {

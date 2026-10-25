@@ -1594,8 +1594,13 @@ module "chat_service" {
   flaggr_service_id            = var.flaggr_service_id
   flaggr_environment           = "production"
   deepseek_api_key_secret_name = var.deepseek_api_key_secret_name
-  # flag-gated: DeepSeek is only selectable, never the default; see docs/plans/chat-llm-providers.md
-  allow_prc_hosted_provider = true
+  # The chat-model route to DeepSeek is OpenRouter-hosted, pinned to DeepInfra and
+  # Azure (US), not DeepSeek's PRC-hosted API. The owner chose that route, so the
+  # direct API stays refused: CHAT_ALLOW_PRC_HOSTED_PROVIDER is "false". The
+  # DEEPSEEK_API_KEY input stays wired, but the guard keeps the direct routes
+  # inert while the flag is false. See docs/plans/chat-llm-providers.md §12.
+  openrouter_api_key_secret_name = var.openrouter_api_key_secret_name
+  allow_prc_hosted_provider      = false
 
   depends_on = [
     google_project_service.required_apis,

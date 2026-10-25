@@ -39,5 +39,25 @@ test("the deploy resolves optional chat secrets by content, before both Terrafor
 test("the validate-secrets job does not require the optional chat secrets", () => {
   const job = deployWorkflow.slice(deployWorkflow.indexOf("\n  validate-secrets:"), deployWorkflow.indexOf("\n  build-images:"));
   assert.ok(job.length > 0);
-  assert.doesNotMatch(job, /FLAGGR|DEEPSEEK/);
+  assert.doesNotMatch(job, /FLAGGR|DEEPSEEK|OPENROUTER/);
+});
+
+test("the OpenRouter chat key is an optional, shared secret read by name", () => {
+  // The config reads OPENROUTER_API_KEY_CHAT; the secret is the report extractor's OPENROUTER_API_KEY.
+  assert.match(mainTf, /optional_secret_names = compact\(\[[\s\S]*?var\.openrouter_api_key_secret_name[\s\S]*?\]\)/);
+  assert.match(mainTf, /name = "OPENROUTER_API_KEY_CHAT"[\s\S]*?secret\s+=\s+env\.value/);
+  assert.match(variablesTf, /variable "openrouter_api_key_secret_name"[\s\S]*?default\s+=\s+""/);
+});
+
+test("the production chat module states CHAT_ALLOW_PRC_HOSTED_PROVIDER on every revision", () => {
+  assert.match(mainTf, /name\s+=\s+"CHAT_ALLOW_PRC_HOSTED_PROVIDER"\s+value = var\.allow_prc_hosted_provider \? "true" : "false"/);
+});
+
+test("the deploy resolves OPENROUTER_API_KEY by content and never syncs the shared secret", () => {
+  const resolveBlocks = [...deployWorkflow.matchAll(/- name: Resolve optional chat secrets[\s\S]*?(?=\n {6}- name: )/g)].map((m) => m[0]);
+  assert.equal(resolveBlocks.length, 2);
+  for (const block of resolveBlocks) {
+    assert.match(block, /TF_VAR_openrouter_api_key_secret_name=OPENROUTER_API_KEY/);
+  }
+  assert.doesNotMatch(deployWorkflow, /ensure_secret "OPENROUTER_API_KEY"/);
 });
