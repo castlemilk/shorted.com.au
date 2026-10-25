@@ -12,6 +12,7 @@ import {
 } from "~/gen/shorts/v1alpha1/alerts_pb";
 import { AlertsService } from "~/gen/shorts/v1alpha1/alerts_pb";
 import { auth } from "~/server/auth";
+import { lookupAccountVerification } from "~/server/account-verification";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import {
   alertErrorMessage,
@@ -83,12 +84,21 @@ export type DeleteAlertMonitorResult = { ok: true } | { ok: false; error: string
  * The address the API may email alerts to. Only a verified address is sent: an
  * unverified sign-up keeps its monitors recorded but never emailed, because a
  * mistyped address would otherwise receive mail it never asked for.
+ *
+ * The session's flag is read once, at sign-in. An unverified session therefore asks
+ * Firebase now, so a user who has clicked the link is not blocked until they sign
+ * out. A failed lookup reads as unverified.
  */
-function deliverableEmail(
-  session: { user?: { email?: string | null; emailVerified?: boolean } } | null,
-): string {
-  if (session?.user?.emailVerified !== true) return "";
-  return session.user.email ?? "";
+async function deliverableEmail(
+  session: {
+    user?: { id?: string; email?: string | null; emailVerified?: boolean };
+  } | null,
+): Promise<string> {
+  if (session?.user?.emailVerified === true) return session.user.email ?? "";
+  const uid = session?.user?.id;
+  if (!uid) return "";
+  const account = await lookupAccountVerification(uid);
+  return account?.verified ? account.email : "";
 }
 
 /**
@@ -143,7 +153,7 @@ export async function createAlertMonitor(
   try {
     const transport = createAuthTransport(
       session.user.id,
-      deliverableEmail(session),
+      await deliverableEmail(session),
     );
     const client = createClient(AlertsService, transport);
     const response = await client.createAlertMonitor({
@@ -197,7 +207,7 @@ export async function listAlertMonitors(): Promise<ListAlertMonitorsResult> {
   try {
     const client = createClient(
       AlertsService,
-      createAuthTransport(session.user.id, deliverableEmail(session)),
+      createAuthTransport(session.user.id, await deliverableEmail(session)),
     );
     const response = await client.listAlertMonitors({ limit: 50, offset: 0 });
     return {
@@ -228,7 +238,7 @@ export async function listAlertEvents(
   try {
     const client = createClient(
       AlertsService,
-      createAuthTransport(session.user.id, deliverableEmail(session)),
+      createAuthTransport(session.user.id, await deliverableEmail(session)),
     );
     const response = await client.listAlertEvents({
       limit,
@@ -264,7 +274,7 @@ export async function setAlertMonitorStatus(
   try {
     const client = createClient(
       AlertsService,
-      createAuthTransport(session.user.id, deliverableEmail(session)),
+      createAuthTransport(session.user.id, await deliverableEmail(session)),
     );
     const response = await client.updateAlertMonitorStatus({
       id: id.trim(),
@@ -294,7 +304,7 @@ export async function deleteAlertMonitor(
   try {
     const client = createClient(
       AlertsService,
-      createAuthTransport(session.user.id, deliverableEmail(session)),
+      createAuthTransport(session.user.id, await deliverableEmail(session)),
     );
     await client.deleteAlertMonitor({ id: id.trim() });
     return { ok: true };

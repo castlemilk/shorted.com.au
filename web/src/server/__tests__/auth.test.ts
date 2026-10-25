@@ -2,10 +2,12 @@ import type { User } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 
 const mockVerifyIdToken = jest.fn();
+const mockGetUser = jest.fn();
 
 jest.mock("@/lib/firebase-admin", () => ({
   adminAuth: {
     verifyIdToken: (...args: unknown[]) => mockVerifyIdToken(...args),
+    getUser: (...args: unknown[]) => mockGetUser(...args),
   },
 }));
 
@@ -266,5 +268,101 @@ describe("jwt and session callbacks: admin needs a verified email", () => {
       token: { id: "uid-1", emailVerified: true, isAdmin: true } as JWT,
     });
     expect(session.user).toMatchObject({ emailVerified: true, isAdmin: true });
+  });
+});
+
+describe("jwt update trigger: the verdict is re-read from Firebase", () => {
+  beforeEach(() => {
+    mockGetUser.mockReset();
+  });
+
+  function update(token: JWT): Promise<JWT> {
+    return authOptions.callbacks.jwt({ token, trigger: "update" });
+  }
+
+  it("upgrades an unverified token once Firebase says the address is verified", async () => {
+    mockGetUser.mockResolvedValue({
+      email: "ben@shorted.com.au",
+      emailVerified: true,
+      disabled: false,
+      providerData: [{ providerId: "password" }],
+    });
+
+    const refreshed = await update({
+      id: "uid-1",
+      email: "ben@shorted.com.au",
+      emailVerified: false,
+    } as JWT);
+
+    expect(mockGetUser).toHaveBeenCalledWith("uid-1");
+    expect(refreshed.emailVerified).toBe(true);
+  });
+
+  it("stays unverified while Firebase still says the address is not verified", async () => {
+    mockGetUser.mockResolvedValue({
+      email: "ben@shorted.com.au",
+      emailVerified: false,
+      disabled: false,
+      providerData: [{ providerId: "password" }],
+    });
+
+    const refreshed = await update({
+      id: "uid-1",
+      email: "ben@shorted.com.au",
+      emailVerified: false,
+    } as JWT);
+
+    expect(refreshed.emailVerified).toBe(false);
+  });
+
+  it("stays unverified when the Firebase lookup fails", async () => {
+    mockGetUser.mockRejectedValue(
+      Object.assign(new Error("down"), { code: "app/network-error" }),
+    );
+
+    const refreshed = await update({
+      id: "uid-1",
+      email: "ben@shorted.com.au",
+      emailVerified: false,
+    } as JWT);
+
+    expect(refreshed.emailVerified).toBe(false);
+  });
+
+  it("never asks Firebase on an ordinary refresh, only on the client's update", async () => {
+    mockGetUser.mockResolvedValue({
+      email: "ben@shorted.com.au",
+      emailVerified: true,
+      disabled: false,
+      providerData: [],
+    });
+
+    await authOptions.callbacks.jwt({
+      token: {
+        id: "uid-1",
+        email: "ben@shorted.com.au",
+        emailVerified: false,
+      } as JWT,
+    });
+
+    expect(mockGetUser).not.toHaveBeenCalled();
+  });
+
+  it("does not look up an account that is already verified, and never downgrades it", async () => {
+    mockGetUser.mockResolvedValue({
+      email: "ben@shorted.com.au",
+      emailVerified: false,
+      disabled: false,
+      providerData: [],
+    });
+
+    const refreshed = await update({
+      id: "uid-1",
+      email: "ben@shorted.com.au",
+      emailVerified: true,
+    } as JWT);
+
+    expect(mockGetUser).not.toHaveBeenCalled();
+    expect(refreshed.emailVerified).toBe(true);
   });
 });
