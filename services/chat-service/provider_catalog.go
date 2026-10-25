@@ -170,8 +170,9 @@ var providerCatalog = []ProviderSpec{
 				Caps:        ModelCapabilities{ForcedToolChoice: true, NoneToolChoice: true, ParallelToolCalls: false, MaxOutputTokens: 0},
 				Price:       Pricing{Input: 0.25, CachedInput: 0.025, Output: 2.00, OffPeakFactor: 1, AsOf: catalogAsOf, SourceURL: "https://openrouter.ai/api/v1/models/openai/gpt-5-mini/endpoints"},
 				Activatable: true,
-				// The plan names no provider for this model, so the pin is OpenAI's own
-				// host. Unverified against the live endpoint list: check it before activation.
+				// Pinned to OpenAI's own host, US headquarters. OpenRouter's endpoints API
+				// (checked 2026-10-25) lists it with required and none. Azure and the flex
+				// tier are not pinned.
 				DefaultOnly: []string{"openai"},
 				Notes:       "Standard-tier price. The flex tier is cheaper but not used.",
 			},
