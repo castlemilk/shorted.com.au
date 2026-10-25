@@ -870,3 +870,17 @@ func TestOpenAICompatTrimsTheKeyInTheAuthorizationHeader(t *testing.T) {
 		t.Fatalf("Authorization = %q, want the trimmed key", auth)
 	}
 }
+
+// A content-filtered OpenAI-compatible reply still reports the usage it billed (the
+// fixture bills 900/12), but the adapter returns the error with zero usage, so
+// the engine adds a billed call with no tokens and no cost.
+func TestOpenAICompatFilteredReplyKeepsItsBilledUsage(t *testing.T) {
+	srv, _ := oaServer(t, scriptedReply{file: "finish_content_filter.sse"})
+	reply, _, err := sendOnce(t, newOAProvider(t, "deepseek", srv.URL), oaConfig("deepseek-flash"), ToolChoiceRequired)
+	if err == nil {
+		t.Fatal("Send() succeeded, want the filtered reply refused")
+	}
+	if reply.Usage.PromptTokens != 900 || reply.Usage.CandidateTokens != 12 {
+		t.Fatalf("usage on a filtered reply = %+v, want the billed 900/12 the stream reported", reply.Usage)
+	}
+}

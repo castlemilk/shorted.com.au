@@ -286,6 +286,9 @@ func (p *openAICompatProvider) stream(ctx context.Context, model string, body []
 		}
 		if chunk.Usage != nil {
 			usage = chunk.Usage
+			// Record the billed tokens now, not after the loop: every exit below,
+			// a filtered or errored reply included, must carry what was billed.
+			res.reply.Usage = usage.tokenUsage()
 		}
 		for _, c := range chunk.Choices {
 			// A chunk that carries a tool call streams no text, as the Gemini adapter
