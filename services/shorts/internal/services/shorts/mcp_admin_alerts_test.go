@@ -39,6 +39,11 @@ type fakeAdminAlertsStore struct {
 	onDateOwned    bool
 	onDateEvents   []shortsstore.AdminAlertEvent
 	checkedThrough string
+	delivery       shortsstore.AlertDeliveryHealth
+}
+
+func (f *fakeAdminAlertsStore) AdminAlertDeliveryHealth(context.Context) (shortsstore.AlertDeliveryHealth, error) {
+	return f.delivery, nil
 }
 
 func (f *fakeAdminAlertsStore) ReportWindow(context.Context) (shortsstore.AlertWindow, error) {
@@ -389,4 +394,23 @@ func TestAlertsRefusalKindsMapToTheirConnectCodes(t *testing.T) {
 		assert.Equal(t, want, connect.CodeOf(err))
 		assert.ErrorContains(t, err, "message")
 	}
+}
+
+// The delivery feedback is counts only: the status reports how many alerts bounced or
+// complained and how many addresses are suppressed, and never names an address.
+func TestAlertsStatusReportsDeliveryFeedbackAsCountsOnly(t *testing.T) {
+	store := &fakeAdminAlertsStore{
+		delivery: shortsstore.AlertDeliveryHealth{Bounced: 2, Complained: 1, Suppressed: 3},
+		monitors: []*shortsstore.AlertMonitor{{ID: smokeMonID, UserID: adminUID, UserEmail: adminAddress, Scope: "stock", Target: "ABC",
+			Condition: "short_interest_above", Cadence: "daily", Status: "active", CreatedAt: time.Now()}},
+	}
+	out, err := smokeSource(store, &fakeAlertJobs{}, true, "").AlertsStatus(context.Background(), adminUID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), out.Delivery.Bounced)
+	assert.Equal(t, int64(1), out.Delivery.Complained)
+	assert.Equal(t, int64(3), out.Delivery.Suppressed)
+
+	raw, err := json.Marshal(out)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), "@", "no address may appear in the delivery feedback")
 }

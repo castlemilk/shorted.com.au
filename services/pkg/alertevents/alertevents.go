@@ -15,6 +15,13 @@ const (
 	StatusSkippedUnentitled = "skipped_unentitled"
 	StatusSkippedNoEmail    = "skipped_no_email"
 	StatusSkippedPaused     = "skipped_paused"
+	// StatusSkippedSuppressed: the address hard-bounced or complained earlier, so the
+	// alert was not sent to it (migration 000148, alert_email_suppressions).
+	StatusSkippedSuppressed = "skipped_suppressed"
+	// StatusBounced and StatusComplained: Resend reported the sent email as a hard
+	// bounce or a spam complaint, after it was accepted.
+	StatusBounced    = "bounced"
+	StatusComplained = "complained"
 	// StatusAwaitingEntitlement is retired. The evaluator no longer writes it: an
 	// entitlement lookup that does not give a definitive answer fails the whole run
 	// before anything is committed, so no event waits on a lookup. The value stays
@@ -32,6 +39,9 @@ var Statuses = []string{
 	StatusSkippedUnentitled,
 	StatusSkippedNoEmail,
 	StatusSkippedPaused,
+	StatusSkippedSuppressed,
+	StatusBounced,
+	StatusComplained,
 	StatusAwaitingEntitlement,
 }
 

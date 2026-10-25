@@ -19,6 +19,7 @@ import (
 type AdminAlertsStore interface {
 	ReportWindow(ctx context.Context) (AlertWindow, error)
 	AdminAlertMonitorCounts(ctx context.Context) ([]AlertMonitorCount, error)
+	AdminAlertDeliveryHealth(ctx context.Context) (AlertDeliveryHealth, error)
 	AdminAlertEvaluatorRuns(ctx context.Context, limit int) ([]AdminAlertRun, error)
 	AdminRecentAlertEvents(ctx context.Context, limit int) ([]AdminAlertEvent, error)
 	AdminAlertEventsOnDate(ctx context.Context, userID, monitorID, reportDate string) (owned bool, events []AdminAlertEvent, err error)

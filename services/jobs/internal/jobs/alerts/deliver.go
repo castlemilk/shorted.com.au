@@ -10,6 +10,7 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
+	"github.com/castlemilk/shorted.com.au/services/pkg/alertevents"
 	"github.com/castlemilk/shorted.com.au/services/pkg/resend"
 	"github.com/castlemilk/shorted.com.au/services/pkg/unsubscribe"
 )
@@ -46,9 +47,11 @@ type deliveryStats struct {
 	retrying      int
 	failed        int
 	skippedPaused int
-	canary        string // ok, failed or skipped
-	canaryID      string
-	quota         bool // Resend's quota ran out; the rest were returned to pending
+	// skippedSuppressed counts alerts not sent because the address bounced or complained.
+	skippedSuppressed int
+	canary            string // ok, failed or skipped
+	canaryID          string
+	quota             bool // Resend's quota ran out; the rest were returned to pending
 }
 
 // idempotencyKey names one email to Resend. Resend holds a key for 24 hours across
@@ -133,6 +136,20 @@ func deliver(ctx context.Context, st store, client *resend.Client, env settings,
 			if err := st.markSkipped(ctx, c.id, "skipped_no_email"); err != nil {
 				return stats, err
 			}
+			continue
+		}
+		// A hard bounce or a complaint on this address (Resend webhook, migration 000148)
+		// blocks every later alert to it. Checked per send, so a bounce that arrives
+		// while the batch is running still stops the rest of that address's alerts.
+		suppressed, err := st.isSuppressed(ctx, c.email)
+		if err != nil {
+			return stats, err
+		}
+		if suppressed {
+			if err := st.markSkipped(ctx, c.id, alertevents.StatusSkippedSuppressed); err != nil {
+				return stats, err
+			}
+			stats.skippedSuppressed++
 			continue
 		}
 

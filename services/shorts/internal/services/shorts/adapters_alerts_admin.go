@@ -41,6 +41,14 @@ func (s *StoreAdapter) AdminAlertMonitorCounts(ctx context.Context) ([]shorts.Al
 	return a.AdminAlertMonitorCounts(ctx)
 }
 
+func (s *StoreAdapter) AdminAlertDeliveryHealth(ctx context.Context) (shorts.AlertDeliveryHealth, error) {
+	a, err := s.adminAlertsStoreOf()
+	if err != nil {
+		return shorts.AlertDeliveryHealth{}, err
+	}
+	return a.AdminAlertDeliveryHealth(ctx)
+}
+
 func (s *StoreAdapter) AdminAlertEvaluatorRuns(ctx context.Context, limit int) ([]shorts.AdminAlertRun, error) {
 	a, err := s.adminAlertsStoreOf()
 	if err != nil {

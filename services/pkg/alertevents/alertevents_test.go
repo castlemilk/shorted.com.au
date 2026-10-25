@@ -48,8 +48,8 @@ func TestStatusesAreDistinct(t *testing.T) {
 		}
 		seen[s] = true
 	}
-	if len(Statuses) != 8 {
-		t.Fatalf("got %d statuses, want the eight the table admits", len(Statuses))
+	if len(Statuses) != 11 {
+		t.Fatalf("got %d statuses, want the eleven the table admits (000148 adds bounced, complained, skipped_suppressed)", len(Statuses))
 	}
 }
 

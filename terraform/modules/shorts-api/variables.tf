@@ -80,6 +80,12 @@ variable "resend_to" {
   default     = "support@shorted.com.au"
 }
 
+variable "resend_webhook_secret_exists" {
+  description = "Whether the RESEND_WEBHOOK_SECRET secret exists in Secret Manager. Gates binding the secret env and its IAM grant. Unset, the Resend webhook (/webhooks/resend) answers 503 and changes nothing else."
+  type        = bool
+  default     = false
+}
+
 variable "resend_from" {
   description = "From address for new-subscriber notification emails. shorted.com.au is a Resend-verified sending domain (resend._domainkey + send.shorted.com.au SES SPF in DNS)."
   type        = string

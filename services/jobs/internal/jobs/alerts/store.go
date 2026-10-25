@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -620,9 +621,22 @@ func (s store) markSkipped(ctx context.Context, id int64, status string) error {
 	return err
 }
 
+// isSuppressed reports whether alert email to address is blocked by a bounce or a
+// complaint. The address is compared lower-cased, as the webhook stores it.
+func (s store) isSuppressed(ctx context.Context, address string) (bool, error) {
+	var ok bool
+	err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM alert_email_suppressions WHERE email = lower($1))`,
+		strings.TrimSpace(address)).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("read suppression: %w", err)
+	}
+	return ok, nil
+}
+
 func validSkipStatus(status string) bool {
 	switch status {
-	case alertevents.StatusSkippedPaused, alertevents.StatusSkippedNoEmail, alertevents.StatusSkippedUnentitled:
+	case alertevents.StatusSkippedPaused, alertevents.StatusSkippedNoEmail, alertevents.StatusSkippedUnentitled, alertevents.StatusSkippedSuppressed:
 		return true
 	}
 	return false

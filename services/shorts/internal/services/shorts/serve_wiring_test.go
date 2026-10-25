@@ -21,6 +21,9 @@ type adminViewStore struct {
 func (f adminViewStore) ReportWindow(context.Context) (shorts.AlertWindow, error) {
 	return f.window, nil
 }
+func (f adminViewStore) AdminAlertDeliveryHealth(context.Context) (shorts.AlertDeliveryHealth, error) {
+	return shorts.AlertDeliveryHealth{}, nil
+}
 func (f adminViewStore) AdminAlertMonitorCounts(context.Context) ([]shorts.AlertMonitorCount, error) {
 	return []shorts.AlertMonitorCount{{Status: "active", Cadence: "daily", Count: 4}}, nil
 }
