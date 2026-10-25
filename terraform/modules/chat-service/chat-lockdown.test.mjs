@@ -13,3 +13,31 @@ test("chat service receives the internal service secret", () => {
   assert.match(mainTf, /name\s+=\s+"INTERNAL_SERVICE_SECRET"[\s\S]*?secret\s+=\s+var\.internal_service_secret_name/);
   assert.match(mainTf, /google_secret_manager_secret_iam_member\.internal_service_secret/);
 });
+
+const deployWorkflow = readFileSync(new URL("../../../.github/workflows/terraform-deploy.yml", import.meta.url), "utf8");
+
+test("optional chat secrets are granted, waited for, then used by the revision", () => {
+  assert.match(mainTf, /resource "time_sleep" "optional_secret_grants"[\s\S]*?create_duration\s+=\s+"30s"/);
+  assert.match(mainTf, /google_secret_manager_secret_iam_member\.optional_secrets/);
+  assert.match(mainTf, /depends_on = \[[\s\S]*?time_sleep\.optional_secret_grants[\s\S]*?\]/);
+});
+
+test("the deploy resolves optional chat secrets by content, before both Terraform steps", () => {
+  const resolve = [...deployWorkflow.matchAll(/- name: Resolve optional chat secrets/g)].map((m) => m.index);
+  const plan = deployWorkflow.indexOf("- name: Terraform Plan");
+  const apply = deployWorkflow.indexOf("- name: Terraform Apply");
+  assert.equal(resolve.length, 2, "one Resolve step before the plan and one before the apply");
+  assert.ok(resolve[0] < plan, "the plan's Resolve step runs before Terraform Plan");
+  assert.ok(resolve[1] < apply, "the apply's Resolve step runs before Terraform Apply");
+  const resolveBlocks = [...deployWorkflow.matchAll(/- name: Resolve optional chat secrets[\s\S]*?(?=\n {6}- name: )/g)].map((m) => m[0]);
+  assert.equal(resolveBlocks.length, 2);
+  for (const block of resolveBlocks) {
+    assert.match(block, /tr -d '\\r\\n\[:space:\]'/, "each Resolve step judges content with CR, LF and whitespace removed");
+  }
+});
+
+test("the validate-secrets job does not require the optional chat secrets", () => {
+  const job = deployWorkflow.slice(deployWorkflow.indexOf("\n  validate-secrets:"), deployWorkflow.indexOf("\n  build-images:"));
+  assert.ok(job.length > 0);
+  assert.doesNotMatch(job, /FLAGGR|DEEPSEEK/);
+});

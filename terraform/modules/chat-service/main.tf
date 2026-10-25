@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    time = {
+      source  = "hashicorp/time"
+      version = "0.14.2"
+    }
+  }
+}
+
 /**
  * Chat Service Module
  *
@@ -56,6 +65,17 @@ resource "google_secret_manager_secret_iam_member" "optional_secrets" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.chat_service.email}"
   project   = var.project_id
+}
+
+# A new read grant takes a moment to reach Secret Manager. Cloud Run refuses a
+# revision that references a secret the service account cannot yet read, so the
+# first apply that creates a grant waits 30s before the revision. A re-run is then
+# not needed. With no optional secret the sleep is not created.
+resource "time_sleep" "optional_secret_grants" {
+  count           = length(local.optional_secret_names) > 0 ? 1 : 0
+  create_duration = "30s"
+
+  depends_on = [google_secret_manager_secret_iam_member.optional_secrets]
 }
 
 resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
@@ -290,6 +310,7 @@ resource "google_cloud_run_v2_service" "chat_service" {
     google_secret_manager_secret_iam_member.internal_service_secret,
     google_secret_manager_secret_iam_member.otel_headers,
     google_secret_manager_secret_iam_member.optional_secrets,
+    time_sleep.optional_secret_grants,
   ]
 }
 
