@@ -37,7 +37,9 @@ func (c plainClaims) GetUserID() string      { return "uid-premium" }
 func (c plainClaims) GetTier() string        { return c.tier }
 func (c plainClaims) GetIsBrowserAuth() bool { return false }
 
-const claimsKey = "test-claims"
+// testClaimsKey is the unexported context key for the claims under test. A typed key
+// keeps it from colliding with any other package's context values.
+type testClaimsKey struct{}
 
 // checkWithClaims runs one request through the limiter with the given claims and
 // headers, and returns the access class the limiter was given.
@@ -46,11 +48,11 @@ func checkWithClaims(t *testing.T, claims any, headers map[string]string) bool {
 	limiter := &recordingLimiter{}
 	cfg := DefaultConfig()
 	cfg.Enabled = true
-	interceptor := NewRateLimitInterceptor(limiter, cfg, claimsKey)
+	interceptor := NewRateLimitInterceptor(limiter, cfg, testClaimsKey{})
 	next := func(context.Context, connect.AnyRequest) (connect.AnyResponse, error) {
 		return nil, errors.New("handler reached") // the limiter's verdict is what is tested
 	}
-	ctx := context.WithValue(context.Background(), claimsKey, claims)
+	ctx := context.WithValue(context.Background(), testClaimsKey{}, claims)
 	req := connect.NewRequest(&struct{}{})
 	for k, v := range headers {
 		req.Header().Set(k, v)
