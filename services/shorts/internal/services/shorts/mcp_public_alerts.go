@@ -157,6 +157,20 @@ func (a *publicAlertsSource) SetAlertPaused(ctx context.Context, userID, monitor
 	return &row, nil
 }
 
+// unverifiedAlertsNote is the sentence a list response adds when the caller's address is not
+// verified. It names the one thing the caller can do, and where.
+const unverifiedAlertsNote = " Alerts are recorded but not emailed until your email address is verified in your Shorted account at https://shorted.com.au/alerts."
+
+// AddressNote returns the note for a list response, or "" when the caller's address is
+// verified. It uses the check create uses, so the note agrees with what a save would do. Any
+// failure reads as unverified: nothing is emailed until the lookup works, so the note stays true.
+func (a *publicAlertsSource) AddressNote(ctx context.Context, userID string) string {
+	if _, err := a.verifiedEmail(ctx, userID); err != nil {
+		return unverifiedAlertsNote
+	}
+	return ""
+}
+
 // addressFor reads the caller's verified address for a create. The failure the caller sees
 // is the public one: it names the account, never the deployment (publicAddressError).
 func (a *publicAlertsSource) addressFor(ctx context.Context, userID string) (string, error) {

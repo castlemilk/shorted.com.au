@@ -328,3 +328,32 @@ func TestPublicOperatorWiredThroughTheAdapter(t *testing.T) {
 	_, err = src.AlertHistory(context.Background(), "uid-a", "", 20, 0)
 	require.NoError(t, err)
 }
+
+// The list note reads the same verified check create uses. A failed check reads as
+// unverified, because nothing is emailed until the check works.
+func TestPublicAlertsAddressNote(t *testing.T) {
+	cases := []struct {
+		name     string
+		verified func(context.Context, string) (string, error)
+		wantNote bool
+	}{
+		{"verified address: no note", func(context.Context, string) (string, error) { return "ben@shorted.com.au", nil }, false},
+		{"unverified address: note", func(context.Context, string) (string, error) {
+			return "", errors.New("the address on this account is not verified")
+		}, true},
+		{"failed lookup: note, since nothing can be emailed", func(context.Context, string) (string, error) {
+			return "", errors.New("admin users: HTTP 503")
+		}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := &publicAlertsSource{verifiedEmail: tc.verified}
+			note := a.AddressNote(context.Background(), "uid-1")
+			if tc.wantNote {
+				assert.True(t, strings.Contains(note, "not emailed until your email address is verified"), note)
+			} else {
+				assert.Empty(t, note)
+			}
+		})
+	}
+}

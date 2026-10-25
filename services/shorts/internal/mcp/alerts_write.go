@@ -39,6 +39,14 @@ import (
 // ScopeAlertsWrite is the public scope for the signed-in user's own alerts.
 const ScopeAlertsWrite = "alerts:write"
 
+// AddressNoter is an optional extension of AlertsWriteOperator. An operator that can
+// read the caller's address state returns a sentence for the list text when the address
+// is not verified, and "" when it is. It is kept out of AlertsWriteOperator so existing
+// operators and test fakes keep compiling and get no note.
+type AddressNoter interface {
+	AddressNote(ctx context.Context, userID string) string
+}
+
 // AlertsWriteOperator is the alerts rule as the public tools see it. Every method
 // takes the verified owner id. The implementation applies the shared rule.
 type AlertsWriteOperator interface {
@@ -249,7 +257,11 @@ func listMyAlertsTool() AlertsWriteTool {
 			if err != nil {
 				return nil, "", err
 			}
-			return out, fmt.Sprintf("%d of your alerts (showing %d).", out.TotalCount, len(out.Monitors)), nil
+			text := fmt.Sprintf("%d of your alerts (showing %d).", out.TotalCount, len(out.Monitors))
+			if n, ok := op.(AddressNoter); ok {
+				text += n.AddressNote(ctx, uid)
+			}
+			return out, text, nil
 		})
 }
 

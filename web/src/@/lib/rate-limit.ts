@@ -534,6 +534,47 @@ function shouldFailClosedWithoutRedis(env: NodeJS.ProcessEnv): boolean {
   return shouldFailClosedWithoutDistributedRateLimit(env);
 }
 
+/**
+ * Consume one unit from an identity-keyed bucket, for server actions. They have no
+ * NextRequest, so rateLimit() cannot run for them. This uses the same store and the
+ * same fail-open / fail-closed policy. Give each window its own bucketName, because
+ * the counter is keyed by it.
+ */
+export async function consumeRateLimit(
+  identifier: string,
+  config: Pick<
+    RateLimitConfig,
+    "bucketName" | "authenticatedLimit" | "windowSeconds"
+  >,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<{ success: boolean; retryAfterSeconds: number }> {
+  const finalConfig: RateLimitConfig = {
+    anonymousLimit: config.authenticatedLimit,
+    ...config,
+  };
+  const failClosed = shouldFailClosedWithoutDistributedRateLimit(env);
+  const store = getRateLimitStore(env);
+  if (!store) {
+    return { success: !failClosed, retryAfterSeconds: config.windowSeconds };
+  }
+  try {
+    const result =
+      store.kind === "upstash"
+        ? await limitWithUpstash(store.client, identifier, true, finalConfig)
+        : await limitWithRedisUrl(store.client, identifier, true, finalConfig);
+    return {
+      success: result.success,
+      retryAfterSeconds: Math.max(
+        1,
+        Math.ceil((result.reset - Date.now()) / 1000),
+      ),
+    };
+  } catch (error) {
+    console.error("consumeRateLimit: store error", error);
+    return { success: !failClosed, retryAfterSeconds: config.windowSeconds };
+  }
+}
+
 export function shouldFailClosedWithoutDistributedRateLimit(
   env: RateLimitEnv,
 ): boolean {

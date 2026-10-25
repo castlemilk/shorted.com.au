@@ -216,3 +216,40 @@ export function rankCopy(company: AlertEventCompanyView): string | null {
     company.previousRank > 0 ? `#${company.previousRank}` : "not ranked";
   return `Ranked #${company.rank} (was ${was})`;
 }
+
+/**
+ * Why an alert's last email was not sent, for the monitor row. null when the last
+ * delivery was sent, failed or pending, since those are not about the account. A
+ * no-email skip stops mattering once the address is verified: the next alert is
+ * emailed, so the row says nothing then.
+ */
+export function skippedDeliveryNotice(
+  state: AlertDeliveryState | null,
+  { verified }: { verified: boolean },
+): { label: string; detail: string; needsVerification: boolean } | null {
+  switch (state) {
+    case "skipped-no-email":
+      if (verified) return null;
+      return {
+        label: "Not emailed: verify your email",
+        detail:
+          "Alerts are emailed only to a verified address. Verify yours to get them by email.",
+        needsVerification: true,
+      };
+    case "skipped-unentitled":
+      return {
+        label: "Not emailed: no active Premium",
+        detail:
+          "Alerts are recorded, but Premium is not active, so no email was sent.",
+        needsVerification: false,
+      };
+    case "skipped-paused":
+      return {
+        label: "Not emailed: paused",
+        detail: "The monitor was paused before its email was sent.",
+        needsVerification: false,
+      };
+    default:
+      return null;
+  }
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -62,6 +63,16 @@ function ListPlaceholder({ label }: { label: string }) {
     </p>
   );
 }
+
+// Client-only, so the verification code is not part of the builder's first load. It
+// renders only for an unverified account.
+const EmailVerificationPrompt = dynamic(
+  () =>
+    import("~/@/components/email-verification-prompt").then(
+      (mod) => mod.EmailVerificationPrompt,
+    ),
+  { ssr: false, loading: () => null },
+);
 
 type AlertDraft = {
   id?: string;
@@ -148,6 +159,16 @@ export function AlertsWorkspace({
   const [draft, setDraft] = useState<AlertDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savedWithoutEmail, setSavedWithoutEmail] = useState(false);
+  const { data: session, status } = useSession();
+  // The address the alert would be emailed to, when the account has one that is not yet
+  // verified. Saving still works; the warning says the alert will not be emailed yet.
+  const unverifiedEmail =
+    status === "authenticated" &&
+    session?.user?.email &&
+    session.user.emailVerified !== true
+      ? session.user.email
+      : null;
 
   const target =
     scope === "industry" ? industry.trim() : stockCode.trim().toUpperCase();
@@ -182,6 +203,7 @@ export function AlertsWorkspace({
       setSaveError(result.error);
       return;
     }
+    setSavedWithoutEmail(!result.emailDeliverable);
 
     setDraft({
       id: result.monitor.id,
@@ -378,6 +400,19 @@ export function AlertsWorkspace({
             </Button>
           </div>
 
+          {unverifiedEmail ? (
+            <div
+              role="note"
+              className="space-y-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-6"
+            >
+              <p>
+                Alerts are saved but not emailed until you verify{" "}
+                <span className="font-medium">{unverifiedEmail}</span>.
+              </p>
+              <EmailVerificationPrompt />
+            </div>
+          ) : null}
+
           {saveError ? (
             <div
               className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
@@ -406,6 +441,23 @@ export function AlertsWorkspace({
                 {buildMonitorSummary(draft)}
               </div>
             </div>
+            {savedWithoutEmail ? (
+              <div
+                role="status"
+                className="space-y-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm leading-6"
+              >
+                <p>
+                  Saved. It is not emailed until you verify{" "}
+                  {unverifiedEmail ? (
+                    <span className="font-medium">{unverifiedEmail}</span>
+                  ) : (
+                    "your email address"
+                  )}
+                  .
+                </p>
+                <EmailVerificationPrompt />
+              </div>
+            ) : null}
             <Button
               asChild
               variant="outline"

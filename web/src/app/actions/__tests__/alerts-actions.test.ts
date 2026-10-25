@@ -40,6 +40,13 @@ jest.mock("@connectrpc/connect-web", () => ({
 
 jest.mock("~/server/auth", () => ({ auth: jest.fn() }));
 
+// The session flag is read once at sign-in, so an unverified session is checked against
+// Firebase. The default is "no account", which keeps the address undeliverable.
+const mockLookupAccount = jest.fn(async (_uid: string) => null);
+jest.mock("~/server/account-verification", () => ({
+  lookupAccountVerification: (uid: string) => mockLookupAccount(uid),
+}));
+
 jest.mock("../config", () => ({
   SHORTS_API_URL: "https://api.test",
   serverFetchWithUserAgent: jest.fn(),
@@ -470,5 +477,85 @@ describe("monitorToView", () => {
         protoMonitor({ hasThreshold: false, threshold: 0 }) as never,
       ).threshold,
     ).toBeNull();
+  });
+});
+
+describe("the alert address after sign-in (Firebase is the authority)", () => {
+  beforeEach(() => {
+    mockLookupAccount.mockReset();
+    mockLookupAccount.mockResolvedValue(null);
+  });
+
+  it("delivers to an address Firebase now verifies, though the session predates it", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "u1", email: "trader@example.com", emailVerified: false },
+    });
+    mockLookupAccount.mockResolvedValue({
+      email: "trader@example.com",
+      verified: true,
+      hasPassword: true,
+    });
+    mockClient.listAlertMonitors.mockResolvedValueOnce({
+      monitors: [],
+      checkedThroughReportDate: "",
+    });
+
+    await listAlertMonitors();
+
+    expect(mockLookupAccount).toHaveBeenCalledWith("u1");
+    const headers = await headersSentToTheAPI();
+    expect(headers["x-user-email"]).toBe("trader@example.com");
+    expect(headers["x-user-email-verified"]).toBe("true");
+  });
+
+  it("keeps an address unverified while Firebase still says it is not", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "u1", email: "trader@example.com", emailVerified: false },
+    });
+    mockLookupAccount.mockResolvedValue({
+      email: "trader@example.com",
+      verified: false,
+      hasPassword: true,
+    });
+    mockClient.listAlertMonitors.mockResolvedValueOnce({
+      monitors: [],
+      checkedThroughReportDate: "",
+    });
+
+    await listAlertMonitors();
+
+    const headers = await headersSentToTheAPI();
+    expect(headers["x-user-email"]).toBe("");
+    expect(headers["x-user-email-verified"]).toBe("false");
+  });
+
+  it("keeps an address unverified when there is no usable Firebase account", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "u1", email: "trader@example.com", emailVerified: false },
+    });
+    mockLookupAccount.mockResolvedValue(null);
+    mockClient.listAlertMonitors.mockResolvedValueOnce({
+      monitors: [],
+      checkedThroughReportDate: "",
+    });
+
+    await listAlertMonitors();
+
+    const headers = await headersSentToTheAPI();
+    expect(headers["x-user-email-verified"]).toBe("false");
+  });
+
+  it("does not ask Firebase when the session is already verified", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "u1", email: "trader@example.com", emailVerified: true },
+    });
+    mockClient.listAlertMonitors.mockResolvedValueOnce({
+      monitors: [],
+      checkedThroughReportDate: "",
+    });
+
+    await listAlertMonitors();
+
+    expect(mockLookupAccount).not.toHaveBeenCalled();
   });
 });

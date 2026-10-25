@@ -4,6 +4,7 @@ import { CheckCircle, ArrowRight, Sparkles, MessageSquare, Activity, Bell, Layou
 import Image from "next/image";
 import { Button } from "~/@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/@/components/ui/card";
+import { VerifyEmailNotice } from "./verify-email-notice";
 
 function SuccessContent() {
   return (
@@ -47,6 +48,8 @@ function SuccessContent() {
               </li>
             </ul>
           </div>
+
+          <VerifyEmailNotice />
 
           <div className="flex flex-col gap-3">
             <Button asChild className="w-full">

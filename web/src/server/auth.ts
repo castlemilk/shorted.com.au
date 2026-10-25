@@ -4,6 +4,7 @@ import type { JWT } from "next-auth/jwt";
 import type { AdapterUser } from "next-auth/adapters";
 import { adminAuth } from "@/lib/firebase-admin";
 import { parseAdminEmails } from "./admin-emails";
+import { lookupAccountVerification } from "./account-verification";
 import {
   e2eTestEmail,
   e2eTestPassword,
@@ -160,9 +161,11 @@ export const authOptions = {
     async jwt({
       token,
       user,
+      trigger,
     }: {
       token: JWT;
       user?: User | AdapterUser;
+      trigger?: "signIn" | "signUp" | "update";
     }): Promise<JWT> {
       // On initial sign in, user object is provided
       if (user) {
@@ -180,6 +183,19 @@ export const authOptions = {
         // arrive without a user object, so the flag is kept on the token from here
         // on. Anything other than an explicit true reads as unverified.
         token.emailVerified = (user as CredentialsUser).emailVerified === true;
+      }
+
+      // The client asked for a refresh (useSession().update()), which is how a user
+      // who has clicked the verification link picks it up without signing out. Only
+      // an upgrade is taken, and only from Firebase's current account, never from
+      // the client's payload. A failed lookup leaves the flag as it was.
+      if (
+        trigger === "update" &&
+        token.emailVerified !== true &&
+        typeof token.id === "string"
+      ) {
+        const account = await lookupAccountVerification(token.id);
+        if (account?.verified) token.emailVerified = true;
       }
 
       // CRITICAL: Always ensure sub is set - middleware depends on this

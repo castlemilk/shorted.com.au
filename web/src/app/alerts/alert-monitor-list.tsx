@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
@@ -30,10 +31,21 @@ import {
   formatReportDate,
   lastTriggeredCopy,
   type AlertMonitorView,
+  skippedDeliveryNotice,
 } from "./alert-model";
 
 const ACTION_FAILED = "Could not update the monitor. Try again shortly.";
 const DELETE_FAILED = "Could not delete the monitor. Try again shortly.";
+
+// Loaded client-only, so the verification prompt and its code are fetched only for
+// an unverified account, not on every visit to /alerts.
+const EmailVerificationPrompt = dynamic(
+  () =>
+    import("~/@/components/email-verification-prompt").then(
+      (mod) => mod.EmailVerificationPrompt,
+    ),
+  { ssr: false, loading: () => null },
+);
 
 /** Where the email goes and when it is checked. Shown above the monitor list. */
 export function AlertDeliveryNote() {
@@ -42,27 +54,31 @@ export function AlertDeliveryNote() {
   const verified = session?.user?.emailVerified === true;
 
   return (
-    <p className="text-sm leading-6 text-muted-foreground">
+    <div className="space-y-3">
+      <p className="text-sm leading-6 text-muted-foreground">
+        {email && !verified ? (
+          <>
+            Verify <span className="font-medium text-foreground">{email}</span>{" "}
+            to receive alert emails. Until it is verified, alerts are recorded
+            here but not emailed.
+          </>
+        ) : email ? (
+          <>
+            Alerts are emailed to{" "}
+            <span className="font-medium text-foreground">{email}</span>.
+          </>
+        ) : (
+          <>Alerts are emailed to the address on your account.</>
+        )}{" "}
+        We check hourly on business days and send once per new ASIC report (ASIC
+        publishes around 11:30am Sydney time, covering positions held four
+        trading days earlier). Alerts need an active Premium subscription; while
+        it is inactive, alerts are recorded here but not emailed.
+      </p>
       {email && !verified ? (
-        <>
-          Verify{" "}
-          <span className="font-medium text-foreground">{email}</span> to
-          receive alert emails. Until it is verified, alerts are recorded here
-          but not emailed. After you verify, sign out and back in.
-        </>
-      ) : email ? (
-        <>
-          Alerts are emailed to{" "}
-          <span className="font-medium text-foreground">{email}</span>.
-        </>
-      ) : (
-        <>Alerts are emailed to the address on your account.</>
-      )}{" "}
-      We check hourly on business days and send once per new ASIC report (ASIC
-      publishes around 11:30am Sydney time, covering positions held four trading
-      days earlier). Alerts need an active Premium subscription; while it is
-      inactive, alerts are recorded here but not emailed.
-    </p>
+        <EmailVerificationPrompt id="email-verification" />
+      ) : null}
+    </div>
   );
 }
 
@@ -75,6 +91,7 @@ export function AlertDeliveryNote() {
 export function AlertMonitorList() {
   const { data: session, status } = useSession();
   const signedIn = status === "authenticated" && !!session?.user;
+  const verified = session?.user?.emailVerified === true;
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -188,6 +205,7 @@ export function AlertMonitorList() {
               key={monitor.id}
               monitor={monitor}
               busy={busyId === monitor.id}
+              verified={verified}
               onToggle={() =>
                 statusMutation.mutate({
                   id: monitor.id,
@@ -206,16 +224,20 @@ export function AlertMonitorList() {
 function MonitorRow({
   monitor,
   busy,
+  verified,
   onToggle,
   onDelete,
 }: {
   monitor: AlertMonitorView;
   busy: boolean;
+  /** Whether the account's address is verified, so a no-email skip can be explained. */
+  verified: boolean;
   onToggle: () => void;
   onDelete: () => void;
 }) {
   const active = monitor.status === "active";
   const summary = buildMonitorSummary(monitor);
+  const notice = skippedDeliveryNotice(monitor.lastDeliveryState, { verified });
 
   return (
     <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -232,10 +254,34 @@ function MonitorRow({
           >
             {active ? "Active" : "Paused"}
           </Badge>
+          {notice ? (
+            <Badge
+              variant="outline"
+              className="border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+            >
+              {notice.label}
+            </Badge>
+          ) : null}
         </div>
         <div className="mt-1 text-xs text-muted-foreground">
           {lastTriggeredCopy(monitor)}
         </div>
+        {notice ? (
+          <div className="mt-1 text-xs text-muted-foreground">
+            {notice.detail}
+            {notice.needsVerification ? (
+              <>
+                {" "}
+                <a
+                  href="#email-verification"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Verify now
+                </a>
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="flex shrink-0 gap-2">

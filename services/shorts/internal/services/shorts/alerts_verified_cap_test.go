@@ -256,3 +256,28 @@ func TestBespokeAPITokenIsNeverEmailVerified(t *testing.T) {
 		t.Fatal("a bespoke API token must never make its address verified")
 	}
 }
+
+// A user who is unverified at one list and verified at the next gets the address
+// backfilled onto the monitors they already have, with no re-creation. Each request's
+// claims decide, so nothing from the first sign-in is kept.
+func TestListAlertMonitors_BackfillsTheAddressOnceTheAccountIsVerified(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	gomock.InOrder(
+		// Unverified: the list loads and nothing is refreshed.
+		mockStore.EXPECT().ListAlertMonitors("user_1", int32(20), int32(0)).Return(nil, int32(0), nil),
+		mockStore.EXPECT().AlertCheckedThrough().Return("", nil),
+		// Verified on the next request: the refresh runs before the list.
+		mockStore.EXPECT().RefreshAlertMonitorEmail("user_1", "ben@shorted.com.au").Return(nil),
+		mockStore.EXPECT().ListAlertMonitors("user_1", int32(20), int32(0)).Return(nil, int32(0), nil),
+		mockStore.EXPECT().AlertCheckedThrough().Return("", nil),
+	)
+
+	srv := newTestServer(t, mockStore)
+	_, err := srv.ListAlertMonitors(unverifiedUserContext("premium"), connect.NewRequest(&shortsv1alpha1.ListAlertMonitorsRequest{}))
+	require.NoError(t, err)
+	_, err = srv.ListAlertMonitors(premiumUserContext(), connect.NewRequest(&shortsv1alpha1.ListAlertMonitorsRequest{}))
+	require.NoError(t, err)
+}

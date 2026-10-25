@@ -32,7 +32,13 @@ const UNVERIFIED = {
     user: { id: "u1", email: "trader@example.com", emailVerified: false },
   },
   status: "authenticated",
+  update: jest.fn().mockResolvedValue({ user: { emailVerified: false } }),
 };
+
+// The verification prompt's server action is not under test here.
+jest.mock("~/app/actions/email-verification", () => ({
+  sendAlertVerificationEmail: jest.fn(),
+}));
 
 const monitors: AlertMonitorView[] = [
   {
@@ -155,9 +161,19 @@ describe("AlertMonitorList", () => {
     renderList();
 
     const note = await screen.findByText(/receive alert emails/);
-    expect(note).toHaveTextContent("Verify trader@example.com to receive alert emails.");
-    expect(note).toHaveTextContent("sign out and back in");
+    expect(note).toHaveTextContent(
+      "Verify trader@example.com to receive alert emails.",
+    );
+    expect(note).not.toHaveTextContent("sign out");
     expect(screen.queryByText(/Alerts are emailed to/)).toBeNull();
+    // The page offers the way to verify, so the notice does not just say "verify".
+    // The prompt loads client-only (next/dynamic), so wait for it to appear.
+    expect(
+      await screen.findByRole("button", { name: "Send verification email" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "I've verified, refresh" }),
+    ).toBeInTheDocument();
   });
 
   it("pauses an active monitor and refreshes the list", async () => {
@@ -278,5 +294,74 @@ describe("AlertMonitorList", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not load your alerts. Try again shortly.",
     );
+  });
+});
+
+describe("monitor delivery badges", () => {
+  function monitorWith(
+    state: AlertMonitorView["lastDeliveryState"],
+  ): AlertMonitorView {
+    return {
+      id: "m9",
+      scope: "stock",
+      target: "CBA",
+      condition: "short-interest-above",
+      threshold: 5,
+      cadence: "Daily",
+      status: "active",
+      createdAt: null,
+      lastEventReportDate: "2026-10-16",
+      lastDeliveryState: state,
+      lastEventAt: null,
+    };
+  }
+
+  function listWith(
+    state: AlertMonitorView["lastDeliveryState"],
+    session: typeof UNVERIFIED,
+  ) {
+    jest.clearAllMocks();
+    mockUseSession.mockReturnValue(session);
+    mockList.mockResolvedValue({
+      ok: true,
+      monitors: [monitorWith(state)],
+      checkedThroughReportDate: "2026-10-16",
+    });
+    renderList();
+  }
+
+  it("badges a no-email skip for an unverified account, with a link to the verify prompt", async () => {
+    listWith("skipped-no-email", UNVERIFIED);
+    expect(
+      await screen.findByText("Not emailed: verify your email"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Verify now" })).toHaveAttribute(
+      "href",
+      "#email-verification",
+    );
+  });
+
+  it("drops the no-email badge once the account is verified", async () => {
+    listWith("skipped-no-email", SIGNED_IN);
+    await screen.findByText("CBA - short interest above 5% - daily");
+    expect(screen.queryByText("Not emailed: verify your email")).toBeNull();
+  });
+
+  it("badges an inactive Premium skip and a paused skip with their reasons", async () => {
+    listWith("skipped-unentitled", SIGNED_IN);
+    expect(
+      await screen.findByText("Not emailed: no active Premium"),
+    ).toBeInTheDocument();
+  });
+
+  it("badges a monitor paused before its email was sent", async () => {
+    listWith("skipped-paused", SIGNED_IN);
+    expect(await screen.findByText("Not emailed: paused")).toBeInTheDocument();
+  });
+
+  it("shows no badge for a sent delivery", async () => {
+    listWith("sent", SIGNED_IN);
+    await screen.findByText("CBA - short interest above 5% - daily");
+    expect(screen.queryByText(/^Not emailed/)).toBeNull();
   });
 });
