@@ -24,7 +24,12 @@ import (
 type recordingAlerts struct {
 	calls []string
 	uids  []string
+	// addressNote is what AddressNote returns: the unverified sentence, or "" when verified.
+	addressNote string
 }
+
+// AddressNote implements AddressNoter for the fake.
+func (r *recordingAlerts) AddressNote(context.Context, string) string { return r.addressNote }
 
 func (r *recordingAlerts) note(name, uid string) {
 	r.calls = append(r.calls, name)
@@ -342,5 +347,33 @@ func TestAlertsWriteToolsReachOnlyTheirOperator(t *testing.T) {
 	require.NoError(t, err)
 	for _, forbidden := range []string{"connect.NewRequest", "shortsv1alpha1connect", "ShortsServer", "store.", "ratelimit."} {
 		assert.NotContains(t, string(src), forbidden, "the alert tools must not reach %s", forbidden)
+	}
+}
+
+// The list text names the verification step only when the caller's address is not verified,
+// and the tool result carries no field for it, so the tools/list schema is unchanged.
+func TestListMyAlertsNotesUnverifiedAddressOnlyWhenUnverified(t *testing.T) {
+	const note = "not emailed until your email address is verified"
+	cases := []struct {
+		name     string
+		note     string
+		wantNote bool
+	}{
+		{"unverified address gets the note", "Alerts are recorded but not emailed until your email address is verified in your Shorted account at https://shorted.com.au/alerts.", true},
+		{"verified address gets no note", "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			op := &recordingAlerts{addressNote: tc.note}
+			srv := publicStack(t, publicClaims("uid-owner", ScopeAlertsWrite), op, true)
+			_, body := rpcCall(t, srv, "t", toolCallBody(3, "list_my_alerts", `{}`))
+			if tc.wantNote {
+				assert.Contains(t, body, note)
+				assert.Contains(t, body, "https://shorted.com.au/alerts")
+			} else {
+				assert.NotContains(t, body, note)
+			}
+			assert.Contains(t, body, "of your alerts", "the list text itself is still returned")
+		})
 	}
 }
