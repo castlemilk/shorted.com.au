@@ -153,7 +153,7 @@ variable "deepseek_api_key_secret_name" {
 }
 
 variable "openrouter_api_key_secret_name" {
-  description = "Secret Manager secret for the OpenRouter chat route (the existing OPENROUTER_API_KEY, shared with the report extractor); empty until the workflow sees OPENROUTER_API_KEY"
+  description = "Secret Manager secret for the chat-only OpenRouter key (OPENROUTER_API_KEY_CHAT, with its own spend cap); empty until the workflow sees OPENROUTER_API_KEY_CHAT"
   type        = string
   default     = ""
 }

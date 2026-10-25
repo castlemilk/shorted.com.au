@@ -260,9 +260,9 @@ resource "google_cloud_run_v2_service" "chat_service" {
         value = var.allow_prc_hosted_provider ? "true" : "false"
       }
 
-      # OpenRouter key for the chat route. The config reads it as
-      # OPENROUTER_API_KEY_CHAT (provider_catalog.go). The secret is the report
-      # extractor's existing OPENROUTER_API_KEY, shared, not a copy.
+      # OpenRouter key for the chat route, a chat-only key with its own spend cap.
+      # The config reads it as OPENROUTER_API_KEY_CHAT (provider_catalog.go). The
+      # report extractor has its own OPENROUTER_API_KEY and budget, not shared here.
       dynamic "env" {
         for_each = var.openrouter_api_key_secret_name != "" ? [var.openrouter_api_key_secret_name] : []
         content {

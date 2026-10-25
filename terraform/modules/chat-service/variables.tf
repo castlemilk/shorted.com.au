@@ -90,7 +90,7 @@ variable "deepseek_api_key_secret_name" {
 }
 
 variable "openrouter_api_key_secret_name" {
-  description = "Secret Manager secret holding the OpenRouter key for the chat route, exposed as OPENROUTER_API_KEY_CHAT. Empty means no OpenRouter route. Point it at the existing OPENROUTER_API_KEY secret; do not create a copy."
+  description = "Secret Manager secret holding the chat-only OpenRouter key, exposed as OPENROUTER_API_KEY_CHAT. Empty means no OpenRouter route. It has its own spend cap, separate from the report extractor's key."
   type        = string
   default     = ""
 }

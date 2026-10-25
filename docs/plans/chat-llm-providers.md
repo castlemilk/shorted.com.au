@@ -498,7 +498,7 @@ Each provider's key comes from env, and startup calls `registerSecrets(key)` for
 - `CHAT_MODEL` (defaults to `GEMINI_MODEL`, then `gemini-2.5-flash`).
 - `CHAT_MAX_OUTPUT_TOKENS`.
 - `CHAT_FALLBACK_*`.
-- `DEEPSEEK_API_KEY` and `OPENROUTER_API_KEY_CHAT` (Cloud Run name; the Secret Manager secret is `OPENROUTER_API_KEY`), plus optional keys for the other providers.
+- `DEEPSEEK_API_KEY` and `OPENROUTER_API_KEY_CHAT` (its own chat-only key with a $50 cap), plus optional keys for the other providers.
 - `CHAT_TURN_TIMEOUT` and `CHAT_PROVIDER_FIRST_BYTE_TIMEOUT` are unset by default, and the router picks the mode's value. With a fallback they are 50s and 15s. Alone (the prod Gemini default) they are 55s and 30s. The 55s budget leaves the web proxy's 60s a margin, and a late answer beats an error when nothing else can answer.
 - `CHAT_ALLOW_PRC_HOSTED_PROVIDER` (default unset). In production, `CHAT_PROVIDER=deepseek` or `CHAT_FALLBACK_PROVIDER=deepseek` is refused unless this is `true`. DeepSeek's direct API is hosted in the PRC, so set it only once the §11.2 privacy review is done. OpenRouter routes pinned to US or EU hosts are not affected.
 - In production, the routed model must be in the catalog, activatable, and from a provider that is not test-only. Config load refuses anything else. Elsewhere those routes are allowed for tests and smoke runs.
@@ -605,7 +605,7 @@ P1 confines it to one file, so the swap touches only that adapter.
 ## 9. Secrets, Terraform and deploy
 
 - **The chat-model flag (§12) secrets.** `FLAGGR_API_KEY` (the project token, `fgr_...`), `FLAGGR_SERVICE_ID` and `DEEPSEEK_API_KEY`. They are read from Cuttlefish's secret store, not the GitHub repo secrets. A value counts as set only when it has content after CR, LF and whitespace are removed. A set value is synced to Secret Manager, and the matching Terraform input is passed (`flaggr_api_key_secret_name`, `flaggr_service_id`, `deepseek_api_key_secret_name`). An unset or blank value adds no env var and no grant. `validate-secrets` does not require them.
-- **Cuttlefish holds the deploy secrets.** Set them with `printf '%s' "$KEY" | cuttle secrets set DEEPSEEK_API_KEY --project shorted`, and the same for `OPENROUTER_API_KEY`. The chat service reads that secret as `OPENROUTER_API_KEY_CHAT` (`terraform/modules/chat-service`), so the OpenRouter route shares the report extractor's key and its spend limit. Use a chat-only DeepSeek key with a low prepaid balance, where a 402 becomes a graceful Gemini fallback plus an alert, and an OpenRouter key with a credit limit.
+- **Cuttlefish holds the deploy secrets.** Set them with `printf '%s' "$KEY" | cuttle secrets set DEEPSEEK_API_KEY --project shorted`, and the same for `OPENROUTER_API_KEY_CHAT`. The chat OpenRouter key is its own key with its own $50 cap, separate from the report extractor's `OPENROUTER_API_KEY` in Secret Manager. The deploy syncs it to Secret Manager under the same name, and the chat service reads it as `OPENROUTER_API_KEY_CHAT`. Use a chat-only DeepSeek key with a low prepaid balance, where a 402 becomes a graceful Gemini fallback plus an alert, and an OpenRouter key with a credit limit.
 - **Add the validator `scripts/validate-openai-compatible-key.sh [-|KEY] BASE_URL MODEL`.**
   - Follow the contract of `validate-gemini-key.sh`: the key comes on stdin and never appears in argv, and `set +x` is set.
   - Exit codes: 0 ok, 2 rejected, 3 unverified, 4 empty, 1 usage.
@@ -743,6 +743,8 @@ route's `Notes` in `provider_catalog.go` lists the other endpoints that advertis
 OpenAI's own host, also US headquarters, and it is offered in prod by the same key. The
 DeepSeek direct API is refused in prod, so `deepseek:*` routes are not offered there.
 
+**Keys and caps.** Chat's OpenRouter key (`OPENROUTER_API_KEY_CHAT`) is separate from the report extractor's (`OPENROUTER_API_KEY`, Secret Manager). Each has its own spend cap, so chat spend cannot exhaust the extractor's budget, and the reverse holds too. Rotate or revoke the chat key on its own.
+
 **Switch the owner's override to OpenRouter.** Change the owner's uid override in the
 `chat-model` flag (production) from `deepseek:deepseek-flash` to
 `openrouter:deepseek/deepseek-v4-flash`. The flag cache is 30s, and at most 5m stale,
@@ -762,8 +764,8 @@ that flag back to `true` would reopen the PRC-hosted API, which the owner declin
 2. Set the deploy secrets in Cuttlefish, not GitHub:
    `printf '%s' "$VALUE" | cuttle secrets set FLAGGR_API_KEY --project shorted`, and the
    same for `FLAGGR_SERVICE_ID`, `DEEPSEEK_API_KEY` (a chat-only key with a low
-   balance) and `OPENROUTER_API_KEY` (the existing key shared with the report extractor;
-   the deploy reads only its name and never writes it). Deploys read these from Cuttlefish's store. A GitHub repo secret changes
+   balance) and `OPENROUTER_API_KEY_CHAT` (a chat-only OpenRouter key with its own $50
+   cap). Deploys read these from Cuttlefish's store. A GitHub repo secret changes
    nothing for them.
 3. Deploy. The workflow's Resolve step sets the Terraform names, and the sync step
    writes the values to Secret Manager. No Terraform variable needs setting by hand.
