@@ -282,3 +282,13 @@ test("release docs document Firebase auth validation gates", () => {
   assert.match(firebaseDocs, /NEXT_PUBLIC_FIREBASE_API_KEY_PROD/);
 });
 
+
+test("the web release passes both Stripe price ids, so a Premium price is never dropped", () => {
+  // Premium is written from STRIPE_PREMIUM_PRICE_ID (and the legacy STRIPE_PRO_PRICE_ID).
+  // A release that passes only the legacy name leaves the current Premium price unset
+  // on the web, and every checkout and sync then refuses it as unconfigured.
+  const script = read("scripts/release-web.sh");
+
+  assert.match(script, /append_endpoint_args "STRIPE_PREMIUM_PRICE_ID" "\$\{STRIPE_PREMIUM_PRICE_ID:-\}"/);
+  assert.match(script, /append_endpoint_args "STRIPE_PRO_PRICE_ID" "\$\{STRIPE_PRO_PRICE_ID:-\}"/);
+});

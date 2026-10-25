@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/subscription"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
@@ -17,7 +18,7 @@ import (
 type Entitlement struct {
 	Entitled bool
 	Tier     string // effective tier: the paid tier when entitled, "free" otherwise
-	Reason   string // machine-readable: internal_grant | internal_grant_unpaid_tier | active | no_subscription | status_<status> | unpaid_tier | period_ended
+	Reason   string // machine-readable: internal_grant | internal_grant_unpaid_tier | active | past_due_grace | past_due_grace_ended | no_subscription | status_<status> | unpaid_tier | period_ended
 	Source   string // "internal" | "stripe" | "none"
 }
 
@@ -60,12 +61,15 @@ func ResolveEntitlement(userID string, sub *shortsstore.APISubscription, now tim
 		return Entitlement{Tier: "free", Reason: "no_subscription", Source: "none"}
 	}
 	status := normaliseRowValue(sub.Status)
-	if status != "active" && status != "trialing" {
+	if status != "active" && status != "trialing" && status != "past_due" {
 		return Entitlement{Tier: "free", Reason: "status_" + status, Source: "stripe"}
 	}
 	tier := normaliseRowValue(sub.Tier)
 	if _, ok := paidTiers[tier]; !ok {
 		return Entitlement{Tier: "free", Reason: "unpaid_tier", Source: "stripe"}
+	}
+	if status == "past_due" {
+		return pastDueEntitlement(tier, sub, now)
 	}
 	// An unparseable period end is unknown, not expired. Revoking a paying user
 	// because a timestamp failed to parse would turn a formatting change into an
@@ -76,6 +80,32 @@ func ResolveEntitlement(userID string, sub *shortsstore.APISubscription, now tim
 		}
 	}
 	return Entitlement{Entitled: true, Tier: tier, Reason: "active", Source: "stripe"}
+}
+
+// pastDueEntitlement is the grace rule for a past_due row. The grace starts at the
+// first failed charge (past_due_since), not at the period end: Stripe moves the
+// period forward at every renewal it fails, so a period-end anchor never runs out.
+// A row with no failure time has no bounded grace, so it grants nothing.
+func pastDueEntitlement(tier string, sub *shortsstore.APISubscription, now time.Time) Entitlement {
+	if sub.PastDueSince == nil {
+		return Entitlement{Tier: "free", Reason: "status_past_due", Source: "stripe"}
+	}
+	since, ok := parseStoreTimestamp(*sub.PastDueSince)
+	if !ok {
+		return Entitlement{Tier: "free", Reason: "status_past_due", Source: "stripe"}
+	}
+	if subscription.PastDueInGrace(since, now) {
+		return Entitlement{Entitled: true, Tier: tier, Reason: "past_due_grace", Source: "stripe"}
+	}
+	return Entitlement{Tier: "free", Reason: "past_due_grace_ended", Source: "stripe"}
+}
+
+// HasPremiumFeatures reports whether the entitlement carries the premium web features
+// (AI chat, alerts). Paid access alone is not enough: API Access is entitled to the
+// API and its tokens, but not to these. Every premium-feature gate reads this, never
+// Entitled.
+func (e Entitlement) HasPremiumFeatures() bool {
+	return e.Entitled && subscription.PremiumFeatureTier(e.Tier)
 }
 
 // normaliseRowValue folds the case and padding out of a status or tier. The

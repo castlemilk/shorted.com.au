@@ -149,14 +149,15 @@ func createdOf(s webSubscription) time.Time {
 	return t
 }
 
-// mirrorStatusFor maps a Stripe status to the value the webhook writes. The
-// mapping is the web's own: unpaid is recorded as past_due, and an incomplete or
-// paused subscription as inactive.
+// mirrorStatusFor maps a Stripe status to the value the webhook writes. The mapping is
+// the web's own: unpaid is recorded as unpaid (Stripe has stopped retrying, so it
+// grants nothing, and the banner asks for the card), and an incomplete or paused
+// subscription is inactive.
 func mirrorStatusFor(stripe string) string {
 	s := normaliseRowValue(stripe)
 	switch {
 	case s == "unpaid":
-		return "past_due"
+		return "unpaid"
 	case strings.HasPrefix(s, "incomplete"), s == "paused":
 		return "inactive"
 	}
@@ -429,7 +430,7 @@ func billingExceptions(in exceptionInput) exceptionResult {
 	for _, r := range eligible {
 		ent := billingVerdict(r.UserID, &r, in.Now)
 		if !r.StatusNull && normaliseRowValue(r.Status) == "past_due" {
-			add(kindPastDue, r.UserEmail, r.UserID, "payment failed; the row is past_due and grants no paid access")
+			add(kindPastDue, r.UserEmail, r.UserID, "payment failed; the row is past_due, and its paid access ends 14 days after the period end")
 		}
 		if ent.Reason == "period_ended" {
 			add(kindPeriodEnded, r.UserEmail, r.UserID, "the row is "+normaliseRowValue(r.Status)+" but its period ended more than the grace allows; Stripe has not renewed it on this row")

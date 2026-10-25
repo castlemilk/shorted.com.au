@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/subscription"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
@@ -552,7 +553,7 @@ func sourceDetail(sources []mcp.JobSource, name string) string {
 func TestBillingExceptionsSweepsTheWholeMirror(t *testing.T) {
 	store := &billingStore{rows: []shortsstore.BillingSubscription{
 		billingAdaRow(),
-		{UserID: "uid-b", UserEmail: "bob@example.com", StripeCustomerID: "cus_B", StripeSubscriptionID: "sub_B", Status: "past_due", Tier: "premium", CurrentPeriodEnd: billingRFC(billingClock().Add(3 * 24 * time.Hour)), UpdatedAt: new(billingClock().Add(-24 * time.Hour))},
+		{UserID: "uid-b", UserEmail: "bob@example.com", StripeCustomerID: "cus_B", StripeSubscriptionID: "sub_B", Status: "past_due", Tier: "premium", CurrentPeriodEnd: billingRFC(billingClock().Add(-20 * 24 * time.Hour)), UpdatedAt: new(billingClock().Add(-24 * time.Hour))},
 	}}
 	web := &billingWeb{alive: webAliveList{Subscriptions: []webAliveSubscription{
 		{CustomerID: "cus_A", SubscriptionID: "sub_A", Status: "active", Tier: "premium", Email: "ada@example.com", MetadataUserID: "uid-a"},
@@ -670,6 +671,8 @@ func TestPayingRowCarriesTheProductsVerdict(t *testing.T) {
 	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
 	end := now.Add(10 * 24 * time.Hour)
 	ended := now.Add(-(periodEndGrace + 24*time.Hour))
+	failedLongAgo := now.Add(-(subscription.PastDueGrace + 24*time.Hour))
+	failedRecently := now.Add(-24 * time.Hour)
 	cases := []struct {
 		name   string
 		row    shortsstore.AdminSubscription
@@ -679,7 +682,8 @@ func TestPayingRowCarriesTheProductsVerdict(t *testing.T) {
 		{"active and in period", shortsstore.AdminSubscription{UserID: "uid-1", Status: "active", Tier: "premium", CurrentPeriodEnd: &end}, true, "active"},
 		{"period ended three days ago", shortsstore.AdminSubscription{UserID: "uid-2", Status: "active", Tier: "premium", CurrentPeriodEnd: &ended}, false, "period_ended"},
 		{"active on an unpaid tier", shortsstore.AdminSubscription{UserID: "uid-3", Status: "active", Tier: "free", CurrentPeriodEnd: &end}, false, "unpaid_tier"},
-		{"past due", shortsstore.AdminSubscription{UserID: "uid-4", Status: "past_due", Tier: "premium", CurrentPeriodEnd: &end}, false, "status_past_due"},
+		{"past due inside its 14 day grace keeps paid access", shortsstore.AdminSubscription{UserID: "uid-4", Status: "past_due", Tier: "premium", CurrentPeriodEnd: &end, PastDueSince: &failedRecently}, true, "past_due_grace"},
+		{"past due past its 14 day grace", shortsstore.AdminSubscription{UserID: "uid-5", Status: "past_due", Tier: "premium", CurrentPeriodEnd: &end, PastDueSince: &failedLongAgo}, false, "past_due_grace_ended"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

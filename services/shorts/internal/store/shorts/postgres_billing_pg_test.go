@@ -14,8 +14,8 @@ import (
 )
 
 // Real-Postgres check of the billing audit reads (postgres_billing.go). The
-// schema is the real migrations for api_subscriptions (000015), the chat tables
-// (000026) and api_usage_monthly (000112); chat_usage_events is the ledger from
+// schema is the real migrations for api_subscriptions (000015 and 000149), the chat
+// tables (000026) and api_usage_monthly (000112); chat_usage_events is the ledger from
 // the chat-limits branch (migration 000145), which this branch does not carry.
 //
 // Env-gated: it needs an admin DSN to a DISPOSABLE server, creates an isolated
@@ -53,6 +53,8 @@ func TestBillingReadsAgainstPostgres(t *testing.T) {
 	migration("000015_add_api_subscriptions.up.sql")
 	migration("000026_add_chat_tables.up.sql")
 	migration("000112_add_api_usage_monthly.up.sql")
+	// The store reads past_due_since with every subscription row (migration 000149).
+	migration("000149_add_past_due_since.up.sql")
 
 	now := time.Now().UTC()
 	// Rows are seeded by hand so every flag the audit reads is set on purpose.

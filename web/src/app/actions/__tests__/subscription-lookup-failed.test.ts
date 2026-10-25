@@ -12,6 +12,8 @@ jest.mock("~/lib/stripe", () => ({
     enterprise: { features: ["enterprise"], requestsPerDay: -1 },
   },
   isPremiumTier: (tier: string) => tier === "premium" || tier === "pro" || tier === "enterprise",
+  canMintApiTokensForTier: (tier: string) =>
+    tier === "premium" || tier === "pro" || tier === "enterprise" || tier === "api_access",
 }));
 
 // Backoff delays are not what these tests are about.
@@ -101,19 +103,19 @@ describe("createCheckoutSession error text", () => {
     global.fetch = originalFetch;
   });
 
-  it("shows the readable message, not the machine code, for an already-subscribed 409", async () => {
+  it("shows the readable refusal message, not the machine code, for a refused checkout", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 409,
       json: async () => ({
-        error: "already_subscribed",
-        message: "You already have a Shorted subscription. Manage it from your account settings.",
+        error: "checkout_refused",
+        message: "Sign in with the account you subscribed with, or contact support.",
       }),
     }) as unknown as typeof fetch;
 
     await expect(createCheckoutSession()).resolves.toEqual({
       url: null,
-      error: "You already have a Shorted subscription. Manage it from your account settings.",
+      error: "Sign in with the account you subscribed with, or contact support.",
     });
   });
 

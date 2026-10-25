@@ -15,6 +15,7 @@ function paid(overrides: Partial<SubscriptionInfo> = {}): SubscriptionInfo {
     isPremium: true,
     canMintTokens: true,
     currentPeriodEnd: null,
+    pastDueSince: null,
     cancelAtPeriodEnd: false,
     features: [],
     requestsPerDay: 10000,
@@ -27,6 +28,32 @@ const YESTERDAY = new Date(Date.now() - 24 * 60 * 60 * 1000);
 describe("hasValidChatEntitlement", () => {
   it("accepts an active premium answer", () => {
     expect(hasValidChatEntitlement(paid())).toBe(true);
+  });
+
+  it("accepts a premium customer whose card failed inside the 14 day grace", () => {
+    // The customer's banner says access continues while Stripe retries, so chat must
+    // not refuse them: the guard is what made the banner's promise false.
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    expect(
+      hasValidChatEntitlement(paid({ status: "past_due", pastDueSince: twoDaysAgo })),
+    ).toBe(true);
+  });
+
+  it("refuses a premium customer whose card failed more than 14 days ago, even if a stale answer says premium", () => {
+    const twentyDaysAgo = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
+    expect(
+      hasValidChatEntitlement(paid({ status: "past_due", pastDueSince: twentyDaysAgo })),
+    ).toBe(false);
+  });
+
+  it("refuses a past_due premium customer with no failure time", () => {
+    expect(hasValidChatEntitlement(paid({ status: "past_due", pastDueSince: null }))).toBe(false);
+  });
+
+  it("refuses unpaid, whatever its failure time", () => {
+    expect(
+      hasValidChatEntitlement(paid({ status: "unpaid", pastDueSince: YESTERDAY })),
+    ).toBe(false);
   });
 
   it("accepts a trialing answer", () => {

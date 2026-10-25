@@ -5,10 +5,18 @@ import { createClient } from "@connectrpc/connect";
 import { BillingService } from "~/gen/shorts/v1alpha1/billing_pb";
 import { SubscriptionStatus as ProtoSubscriptionStatus, SubscriptionTier as ProtoSubscriptionTier } from "~/gen/shorts/v1alpha1/billing_pb";
 import { auth } from "~/server/auth";
-import { SUBSCRIPTION_TIERS, isPremiumTier, type SubscriptionStatus, type SubscriptionTier } from "~/lib/stripe";
+import {
+  SUBSCRIPTION_TIERS,
+  canMintApiTokensForTier,
+  isPremiumTier,
+  type SubscriptionStatus,
+  type SubscriptionTier,
+} from "~/lib/stripe";
 import type { CheckoutTier } from "~/lib/stripe-plans";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
+import { isEntitledSubscription } from "~/lib/subscription-entitlement";
+import { timestampToDate } from "~/@/lib/proto-time";
 
 // Internal auth secret for service-to-service calls
 const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
@@ -46,6 +54,8 @@ export interface SubscriptionInfo {
   isPremium: boolean;
   canMintTokens: boolean;
   currentPeriodEnd: Date | null;
+  /** When the current past-due run's first failed charge happened, or null. Starts the grace. */
+  pastDueSince: Date | null;
   cancelAtPeriodEnd: boolean;
   features: readonly string[];
   requestsPerDay: number;
@@ -70,6 +80,8 @@ function mapProtoStatusToString(status: ProtoSubscriptionStatus): SubscriptionSt
       return "trialing";
     case ProtoSubscriptionStatus.PAST_DUE:
       return "past_due";
+    case ProtoSubscriptionStatus.UNPAID:
+      return "unpaid";
     case ProtoSubscriptionStatus.CANCELED:
       return "canceled";
     case ProtoSubscriptionStatus.INACTIVE:
@@ -89,6 +101,8 @@ function mapProtoTierToString(tier: ProtoSubscriptionTier): SubscriptionTier {
       return "pro";
     case ProtoSubscriptionTier.ENTERPRISE:
       return "enterprise";
+    case ProtoSubscriptionTier.API_ACCESS:
+      return "api_access";
     case ProtoSubscriptionTier.FREE:
     default:
       return "free";
@@ -109,6 +123,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       isPremium: false,
       canMintTokens: false,
       currentPeriodEnd: null,
+      pastDueSince: null,
       cancelAtPeriodEnd: false,
       features: SUBSCRIPTION_TIERS.free.features,
       requestsPerDay: SUBSCRIPTION_TIERS.free.requestsPerDay,
@@ -138,6 +153,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
         isPremium: false,
         canMintTokens: false,
         currentPeriodEnd: null,
+        pastDueSince: null,
         cancelAtPeriodEnd: false,
         features: SUBSCRIPTION_TIERS.free.features,
         requestsPerDay: SUBSCRIPTION_TIERS.free.requestsPerDay,
@@ -146,7 +162,6 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
 
     const status = mapProtoStatusToString(response.status);
     const tier = mapProtoTierToString(response.tier);
-    const hasActiveSubscription = status === "active" || status === "trialing";
     const tierConfig = SUBSCRIPTION_TIERS[tier] ?? SUBSCRIPTION_TIERS.free;
 
     // Parse timestamp to Date
@@ -158,13 +173,17 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       );
     }
 
+    const pastDueSince = timestampToDate(response.pastDueSince);
+    const hasActiveSubscription = isEntitledSubscription({ status, pastDueSince });
+
     return {
       status,
       tier,
       hasActiveSubscription,
       isPremium: hasActiveSubscription && isPremiumTier(tier),
-      canMintTokens: hasActiveSubscription && tier !== "free",
+      canMintTokens: hasActiveSubscription && canMintApiTokensForTier(tier),
       currentPeriodEnd,
+      pastDueSince,
       cancelAtPeriodEnd: response.cancelAtPeriodEnd,
       features: tierConfig.features,
       requestsPerDay: tierConfig.requestsPerDay,
@@ -180,6 +199,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       isPremium: false,
       canMintTokens: false,
       currentPeriodEnd: null,
+      pastDueSince: null,
       cancelAtPeriodEnd: false,
       features: SUBSCRIPTION_TIERS.free.features,
       requestsPerDay: SUBSCRIPTION_TIERS.free.requestsPerDay,
@@ -224,30 +244,3 @@ export async function createCheckoutSession(
   }
 }
 
-/**
- * Create a customer portal session for managing subscription
- */
-export async function createPortalSession(): Promise<{ url: string | null; error?: string }> {
-  const session = await auth();
-
-  if (!session?.user?.email) {
-    return { url: null, error: "You must be signed in" };
-  }
-
-  try {
-    const baseUrl = process.env.NEXTAUTH_URL ?? "https://shorted.com.au";
-    const response = await fetch(`${baseUrl}/api/stripe/portal`, {
-      method: "POST",
-    });
-
-    const data = await response.json() as { url?: string; error?: string };
-
-    if (!response.ok) {
-      return { url: null, error: data.error ?? "Failed to create portal session" };
-    }
-
-    return { url: data.url ?? null };
-  } catch (error) {
-    return { url: null, error: "Failed to create portal session" };
-  }
-}

@@ -177,7 +177,7 @@ export default async function ApiDocsIndex() {
                     <td className="py-3">Public endpoints only, limited</td>
                   </tr>
                   <tr className="border-b">
-                    <td className="py-3 pr-4 font-medium text-foreground">Free (signed in)</td>
+                    <td className="py-3 pr-4 font-medium text-foreground">Free and Premium (signed in)</td>
                     <td className="py-3 pr-4">60</td>
                     <td className="py-3 pr-4">1,000</td>
                     <td className="py-3">All endpoints, requires API token</td>

@@ -32,6 +32,11 @@ type Claims struct {
 	// (see alertsJobUserAgentPrefix). Set only by the internal-auth branch, never
 	// read from a token, and it skips the per-user rate limit.
 	RateLimitExempt bool `json:"-"`
+	// WebOnBehalf is true when the website, holding the internal secret and marking
+	// its request with the SSR user-agent, calls for this signed-in user. The use is
+	// the customer's website use, so it is metered as browser access (IsBrowserAuth).
+	// Set only by the internal-auth branch, never read from a token.
+	WebOnBehalf bool `json:"-"`
 	// EmailVerified is true only when Email is an address its owner has proved they
 	// control. The interceptor sets it from the credential that vouches for the
 	// address: a verified Firebase email_verified claim, or the web tier's explicit
@@ -59,6 +64,12 @@ func (c *Claims) GetTier() string {
 // GetIsBrowserAuth returns true if this is browser-based auth (Firebase)
 func (c *Claims) GetIsBrowserAuth() bool {
 	return c.IsBrowserAuth
+}
+
+// GetWebOnBehalf implements ratelimit.WebOnBehalfClaims. The website, holding the
+// internal secret, acting for this signed-in user. Set only on the internal path.
+func (c *Claims) GetWebOnBehalf() bool {
+	return c.WebOnBehalf
 }
 
 // GetRateLimitExempt implements ratelimit.ExemptClaims. Only the internal-auth path

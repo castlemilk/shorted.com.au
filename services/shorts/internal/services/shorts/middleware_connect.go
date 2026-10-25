@@ -14,6 +14,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/options/v1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	"google.golang.org/api/idtoken"
@@ -292,12 +293,21 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 					// INTERNAL_SERVICE_SECRET is what makes that header trustworthy. Deriving
 					// admin from x-user-email would not be: that header carries the address
 					// alone, not whether the address was verified.
+					// The website acting for its signed-in user is the customer's own use of
+					// the site, so it is metered as browser access, not against the API
+					// column. It is identified the way the rest of the platform identifies
+					// first-party SSR: the internal secret plus the web's SSR user-agent
+					// marker (see ratelimit.IsWebSSRUserAgent). The paid probe sends the
+					// secret without that marker, so its API metering is unchanged.
+					webOnBehalf := ratelimit.IsWebSSRUserAgent(req.Header().Get("User-Agent"))
 					normalizedClaims := &Claims{
 						UserID:        userID,
 						Email:         userEmail,
 						EmailVerified: emailVerified,
 						Roles:         roles,
 						AuthMethod:    AuthMethodInternal,
+						IsBrowserAuth: webOnBehalf,
+						WebOnBehalf:   webOnBehalf,
 						// The alerts evaluator's entitlement lookups are the platform's own
 						// reads, not the customer's API use, so they are not metered against
 						// the owner's quota. See alertsJobUserAgentPrefix.

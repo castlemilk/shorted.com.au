@@ -362,6 +362,9 @@ type APISubscription struct {
 	CurrentPeriodStart   *string
 	CurrentPeriodEnd     *string
 	CancelAtPeriodEnd    bool
+	// PastDueSince is when the current past-due run's first failed charge happened.
+	// Set only while Status is past_due; nil means no grace (see subscription.PastDueGrace).
+	PastDueSince *string
 }
 
 // APISubscriptionUpdate represents fields to update on a subscription
@@ -371,6 +374,11 @@ type APISubscriptionUpdate struct {
 	CurrentPeriodStart *string
 	CurrentPeriodEnd   *string
 	CancelAtPeriodEnd  *bool
+	// PastDueSince is the failure time to start a past-due run from. Used only when
+	// Status is set: the row keeps its existing start while it stays past_due, starts
+	// one at the first past_due write (from this value, else now), and clears it on any
+	// other status. Nil on a past_due write means "start from now".
+	PastDueSince *string
 	// StripeSubscriptionID is the subscription the row's state describes. Nil or
 	// empty leaves the row's id as it is: a blank id never replaces a real one.
 	StripeSubscriptionID *string

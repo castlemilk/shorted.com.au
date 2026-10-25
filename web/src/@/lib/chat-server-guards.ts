@@ -8,6 +8,7 @@ import {
 import { rateLimit, type RateLimitConfig } from "@/lib/rate-limit";
 import { recordProductEvent } from "@/lib/product-events";
 import { routeGroupFromPath } from "@/lib/analytics-events";
+import { isEntitledSubscription } from "~/lib/subscription-entitlement";
 import type {
   ChatErrorBody,
   ChatErrorCode,
@@ -82,10 +83,6 @@ const DEFAULT_SENDS_PER_MINUTE = 4;
 const DEFAULT_SENDS_PER_DAY = 40;
 const DEFAULT_SENDS_PER_MONTH = 600;
 const DEFAULT_READS_PER_MINUTE = 60;
-const VALID_CHAT_STATUSES = new Set<SubscriptionInfo["status"]>([
-  "active",
-  "trialing",
-]);
 const VALID_CHAT_TIERS = new Set<SubscriptionInfo["tier"]>([
   "premium",
   "pro",
@@ -213,7 +210,16 @@ export function hasValidChatEntitlement(
   if (!subscription.hasActiveSubscription || !subscription.isPremium) {
     return false;
   }
-  if (!VALID_CHAT_STATUSES.has(subscription.status)) {
+  // Chat is entitled while the subscription is, the same rule the banner and the
+  // premium checks use: active, trialing, or past_due inside the grace from the
+  // failed charge. Reading it through isEntitledSubscription keeps chat in step
+  // with isPremium and the banner, so a customer in grace is not refused here.
+  if (
+    !isEntitledSubscription({
+      status: subscription.status,
+      pastDueSince: subscription.pastDueSince,
+    })
+  ) {
     return false;
   }
   if (!VALID_CHAT_TIERS.has(subscription.tier)) {

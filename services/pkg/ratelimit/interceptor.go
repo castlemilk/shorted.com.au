@@ -51,9 +51,26 @@ const (
 //
 // An unprovable marker is deliberately NOT treated as anonymous. See
 // TierFirstPartyUnverified in config.go for the incident that settled this.
-func classifyFirstParty(userAgent, presentedSecret string) (tier string, isFirstParty bool) {
+// IsWebSSRUserAgent reports whether a User-Agent carries the web tier's SSR marker.
+// The web appends it to every request it makes to this API (middleware and
+// serverFetchWithUserAgent), so it marks the website, and only the website also
+// holds the internal secret. The same marker drives first-party classification.
+func IsWebSSRUserAgent(userAgent string) bool {
 	marker := envOrDefault(envSSRUserAgent, defaultSSRUserAgent)
-	if marker == "" || !strings.Contains(userAgent, marker) {
+	return marker != "" && strings.Contains(userAgent, marker)
+}
+
+// WebOnBehalfClaims is implemented by claims of a signed-in user's request that the
+// website made with the internal secret (its server-side calls for that user). Such a
+// call is the customer using the website, so it is metered as browser access. It has
+// no Origin header, because the website calls the API server to server, so it is
+// trusted past the Origin check that downgrades unverified browser claims.
+type WebOnBehalfClaims interface {
+	GetWebOnBehalf() bool
+}
+
+func classifyFirstParty(userAgent, presentedSecret string) (tier string, isFirstParty bool) {
+	if !IsWebSSRUserAgent(userAgent) {
 		return "", false
 	}
 	secret := os.Getenv(envSSRSecret)
@@ -113,7 +130,7 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 			// from using stolen Firebase tokens to get relaxed browser limits.
 			// Exception: if the User-Agent looks like a real browser (contains "Mozilla/"),
 			// allow browser-tier even without Origin/Referer — privacy extensions strip these.
-			if isBrowser {
+			if isBrowser && !webOnBehalf(ctx, userClaimsKey) {
 				origin := req.Header().Get("Origin")
 				if origin == "" {
 					origin = req.Header().Get("Referer")
@@ -203,6 +220,13 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 			return resp, err
 		}
 	}
+}
+
+// webOnBehalf reports whether the request is the website acting for a signed-in user
+// (see WebOnBehalfClaims). Such a request is browser access without an Origin check.
+func webOnBehalf(ctx context.Context, userClaimsKey any) bool {
+	c, ok := ctx.Value(userClaimsKey).(WebOnBehalfClaims)
+	return ok && c.GetWebOnBehalf()
 }
 
 // extractIdentifierAndTier extracts the rate limit identifier, tier, and browser flag from context/request

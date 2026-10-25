@@ -55,7 +55,7 @@ export function PricingContent() {
 
       if (response.status === 409) {
         setAlreadySubscribed(true);
-        throw new Error(data.message ?? "You already have a Shorted subscription.");
+        throw new Error(data.message ?? "Checkout is not available. Contact support.");
       }
 
       if (!response.ok) {

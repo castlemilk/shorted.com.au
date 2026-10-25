@@ -133,4 +133,37 @@ public interface HandleStripeSubscriptionUpdatedRequestOrBuilder extends
    * @return The isDeleted.
    */
   boolean getIsDeleted();
+
+  /**
+   * <pre>
+   * When the first failed charge of the current past-due run happened (the open
+   * invoice's finalization). Set only while status is PAST_DUE. The API starts the
+   * 14-day grace from it; unset means no grace.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp past_due_since = 9 [json_name = "pastDueSince"];</code>
+   * @return Whether the pastDueSince field is set.
+   */
+  boolean hasPastDueSince();
+  /**
+   * <pre>
+   * When the first failed charge of the current past-due run happened (the open
+   * invoice's finalization). Set only while status is PAST_DUE. The API starts the
+   * 14-day grace from it; unset means no grace.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp past_due_since = 9 [json_name = "pastDueSince"];</code>
+   * @return The pastDueSince.
+   */
+  com.google.protobuf.Timestamp getPastDueSince();
+  /**
+   * <pre>
+   * When the first failed charge of the current past-due run happened (the open
+   * invoice's finalization). Set only while status is PAST_DUE. The API starts the
+   * 14-day grace from it; unset means no grace.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp past_due_since = 9 [json_name = "pastDueSince"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getPastDueSinceOrBuilder();
 }

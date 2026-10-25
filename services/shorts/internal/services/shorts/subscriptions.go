@@ -84,6 +84,13 @@ func (s *ShortsServer) HandleStripeSubscriptionUpdated(
 		update.Status = &status
 	}
 
+	// The failure time of the current past-due run. Only the store decides from it,
+	// and only while the status it arrives with is past_due.
+	if req.Msg.PastDueSince != nil {
+		since := req.Msg.PastDueSince.AsTime().Format(time.RFC3339)
+		update.PastDueSince = &since
+	}
+
 	// Handle deleted subscriptions
 	if req.Msg.IsDeleted {
 		canceledStatus := "canceled"
@@ -213,6 +220,14 @@ func applyStripeRow(resp *shortsv1alpha1.GetMySubscriptionResponse, sub *shortss
 	resp.CancelAtPeriodEnd = sub.CancelAtPeriodEnd
 	resp.StripeCustomerId = sub.StripeCustomerID
 
+	// The failure time starts the past-due grace. The web and the alerts job read it
+	// to decide access, so it travels with the status rather than being re-derived.
+	if sub.PastDueSince != nil {
+		if t, ok := parseStoreTimestamp(*sub.PastDueSince); ok {
+			resp.PastDueSince = timestamppb.New(t)
+		}
+	}
+
 	if sub.CurrentPeriodEnd != nil {
 		if t, ok := parseStoreTimestamp(*sub.CurrentPeriodEnd); ok {
 			resp.CurrentPeriodEnd = timestamppb.New(t)
@@ -232,6 +247,8 @@ func mapTierToString(tier shortsv1alpha1.SubscriptionTier) string {
 		return "enterprise"
 	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM:
 		return "premium"
+	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS:
+		return "api_access"
 	default:
 		return ""
 	}
@@ -247,6 +264,8 @@ func mapStringToTier(tier string) shortsv1alpha1.SubscriptionTier {
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_ENTERPRISE
 	case "premium":
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM
+	case "api_access":
+		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS
 	default:
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_UNSPECIFIED
 	}
@@ -264,6 +283,8 @@ func mapStatusToString(status shortsv1alpha1.SubscriptionStatus) string {
 		return "canceled"
 	case shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE:
 		return "inactive"
+	case shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNPAID:
+		return "unpaid"
 	default:
 		return ""
 	}
@@ -281,6 +302,8 @@ func mapStringToStatus(status string) shortsv1alpha1.SubscriptionStatus {
 		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_CANCELED
 	case "inactive":
 		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE
+	case "unpaid":
+		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNPAID
 	default:
 		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED
 	}

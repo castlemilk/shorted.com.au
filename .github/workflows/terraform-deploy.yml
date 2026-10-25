@@ -971,6 +971,8 @@ jobs:
             # cannot get is a NOTICE, never a failed deploy).
             run_psql_session -f /migrations/000132_extend_fundamentals.up.sql
 
+            run_psql_session -f /migrations/000149_add_past_due_since.up.sql
+
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
             # tables, views, materialized views, sequences and functions there,

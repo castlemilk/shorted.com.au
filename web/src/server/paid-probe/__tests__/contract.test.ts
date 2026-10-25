@@ -20,16 +20,24 @@ function goMonthlyQuota(source: string, tier: string): number {
 }
 
 describe("paid probe contracts", () => {
-  it("PAID_API_MONTHLY_LIMIT_MIN is the paid tier floor in DefaultConfig, above free", () => {
+  it("PAID_API_MONTHLY_LIMIT_MIN is the API Access monthly quota in DefaultConfig, above free", () => {
+    // The smallest monthly API quota the product sells for a paid API tier. Premium is
+    // sold without the API Access plan, so it is not the floor.
     const go = read(path.join(REPO_ROOT, "services/pkg/ratelimit/config.go"));
-    const pro = goMonthlyQuota(go, "pro");
-    expect(PAID_API_MONTHLY_LIMIT_MIN).toBe(pro);
+    const apiAccess = goMonthlyQuota(go, "api_access");
+    expect(PAID_API_MONTHLY_LIMIT_MIN).toBe(apiAccess);
     expect(goMonthlyQuota(go, "free")).toBeLessThan(PAID_API_MONTHLY_LIMIT_MIN);
     expect(goMonthlyQuota(go, "enterprise")).toBeGreaterThanOrEqual(PAID_API_MONTHLY_LIMIT_MIN);
   });
 
   it("terraform grants the probe identity the internal tier", () => {
+    // The probe identity must be in the internal tier list, however many other ids the
+    // list holds. Checked against the list itself, not its exact contents.
     const tf = read(path.join(REPO_ROOT, "terraform/environments/prod/main.tf"));
-    expect(tf).toContain(`["${PAID_PROBE_USER_ID}"]`);
+    const grant = tf
+      .split("\n")
+      .find((line) => line.includes("internal_tier_user_ids") && line.includes("join("));
+    expect(grant).toBeDefined();
+    expect(grant).toContain(`"${PAID_PROBE_USER_ID}"`);
   });
 });

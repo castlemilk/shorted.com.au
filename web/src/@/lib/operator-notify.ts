@@ -50,14 +50,30 @@ export interface OperatorEmail {
   text: string;
 }
 
+export interface ResendMessage {
+  /** One address, or several separated by commas. */
+  to: string;
+  subject: string;
+  /** Plain text only. */
+  text: string;
+  /**
+   * Sent as Resend's Idempotency-Key. Resend holds a key for 24 hours, so a
+   * retried webhook delivers one email, not two. Name the key for the thing the
+   * email is about (for example the invoice), and keep it stable across retries.
+   */
+  idempotencyKey?: string;
+  /** Overrides the From address. Defaults to the verified support identity. */
+  from?: string;
+}
+
 /**
- * Send an operator alert. Resolves to whether the email was actually sent, so
+ * Send one email through Resend. Resolves to whether it was actually sent, so
  * callers can assert in tests; production callers ignore it.
  *
- * Never rejects.
+ * Never rejects. Dormant (false, no call) when RESEND_API_KEY is unset.
  */
-export async function notifyOperator(
-  email: OperatorEmail,
+export async function sendResendEmail(
+  message: ResendMessage,
   fetchImpl: typeof fetch = fetch,
 ): Promise<boolean> {
   try {
@@ -67,8 +83,15 @@ export async function notifyOperator(
     // NOT `??`: a var set to "" trims to "" — falsy but not nullish — and an
     // empty From is rejected by Resend, which this notifier would then swallow.
     // Blank must fall back to the verified default, so test for emptiness.
-    const from = nonEmpty(process.env.RESEND_FROM) ?? DEFAULT_FROM;
-    const to = nonEmpty(process.env.RESEND_TO) ?? DEFAULT_TO;
+    const from = nonEmpty(message.from) ?? nonEmpty(process.env.RESEND_FROM) ?? DEFAULT_FROM;
+
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    };
+    if (message.idempotencyKey) {
+      headers["Idempotency-Key"] = message.idempotencyKey;
+    }
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
@@ -76,16 +99,13 @@ export async function notifyOperator(
     try {
       const res = await fetchImpl(RESEND_ENDPOINT, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           from,
           // Resend accepts a comma-separated list; support multiple operators.
-          to: to.split(",").map((addr) => addr.trim()).filter(Boolean),
-          subject: email.subject,
-          text: email.text,
+          to: message.to.split(",").map((addr) => addr.trim()).filter(Boolean),
+          subject: message.subject,
+          text: message.text,
         }),
         signal: controller.signal,
       });
@@ -93,7 +113,7 @@ export async function notifyOperator(
       if (!res.ok) {
         // Deliberately does not log the body: a Resend error response can echo
         // request content, and these emails carry customer addresses.
-        console.warn(`notifyOperator: resend returned ${res.status}`);
+        console.warn(`sendResendEmail: resend returned ${res.status}`);
         return false;
       }
       return true;
@@ -103,10 +123,30 @@ export async function notifyOperator(
   } catch (err) {
     // Includes the abort on timeout. Swallowed on purpose — see the module doc.
     console.warn(
-      `notifyOperator: send failed: ${err instanceof Error ? err.message : "unknown"}`,
+      `sendResendEmail: send failed: ${err instanceof Error ? err.message : "unknown"}`,
     );
     return false;
   }
+}
+
+/**
+ * Send an operator alert. Resolves to whether the email was actually sent.
+ *
+ * Never rejects.
+ */
+export async function notifyOperator(
+  email: OperatorEmail,
+  fetchImpl: typeof fetch = fetch,
+): Promise<boolean> {
+  return sendResendEmail(
+    {
+      // NOT `??`: a blank RESEND_TO must fall back to the verified operator address.
+      to: nonEmpty(process.env.RESEND_TO) ?? DEFAULT_TO,
+      subject: email.subject,
+      text: email.text,
+    },
+    fetchImpl,
+  );
 }
 
 /** Format cents in a currency for an operator-facing line. e.g. "$20.00 AUD". */

@@ -25,6 +25,12 @@ import { CloudflareJsDetections } from "~/@/components/cloudflare-js-detections"
 import { JsonLd } from "~/@/components/seo/json-ld";
 
 // Client-only: uses Connect-RPC streaming which breaks SSR
+// Client-only, like the chat sidebar: it calls the billing actions.
+const PastDueBanner = dynamic(
+  () => import("~/@/components/billing/past-due-banner").then((mod) => ({ default: mod.PastDueBanner })),
+  { ssr: false },
+);
+
 const ChatSidebar = dynamic(
   () => import("~/@/components/chat/chat-sidebar").then((mod) => ({ default: mod.ChatSidebar })),
   { ssr: false },
@@ -261,6 +267,7 @@ export default function RootLayout({
             <div className="relative z-10">
               <EnvironmentBanner />
               <DevelopmentBanner />
+              <PastDueBanner />
               <ConditionalHeader />
               {children}
               <ConditionalFooter />

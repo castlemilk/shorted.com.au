@@ -87,7 +87,7 @@ public final class BillingProto extends com.google.protobuf.GeneratedFile {
       "ptionId\0225\n\004tier\030\005 \001(\0162!.shorts.v1alpha1." +
       "SubscriptionTierR\004tier\"[\n%HandleStripeCh" +
       "eckoutCompletedResponse\022\030\n\007success\030\001 \001(\010" +
-      "R\007success\022\030\n\007message\030\002 \001(\tR\007message\"\350\003\n&" +
+      "R\007success\022\030\n\007message\030\002 \001(\tR\007message\"\252\004\n&" +
       "HandleStripeSubscriptionUpdatedRequest\022," +
       "\n\022stripe_customer_id\030\001 \001(\tR\020stripeCustom" +
       "erId\0224\n\026stripe_subscription_id\030\002 \001(\tR\024st" +
@@ -100,48 +100,53 @@ public final class BillingProto extends com.google.protobuf.GeneratedFile {
       "2\032.google.protobuf.TimestampR\020currentPer" +
       "iodEnd\022/\n\024cancel_at_period_end\030\007 \001(\010R\021ca" +
       "ncelAtPeriodEnd\022\035\n\nis_deleted\030\010 \001(\010R\tisD" +
-      "eleted\"]\n\'HandleStripeSubscriptionUpdate" +
-      "dResponse\022\030\n\007success\030\001 \001(\010R\007success\022\030\n\007m" +
-      "essage\030\002 \001(\tR\007message\"\032\n\030GetMySubscripti" +
-      "onRequest\"\343\002\n\031GetMySubscriptionResponse\022" +
-      ")\n\020has_subscription\030\001 \001(\010R\017hasSubscripti" +
-      "on\022;\n\006status\030\002 \001(\0162#.shorts.v1alpha1.Sub" +
-      "scriptionStatusR\006status\0225\n\004tier\030\003 \001(\0162!." +
-      "shorts.v1alpha1.SubscriptionTierR\004tier\022H" +
-      "\n\022current_period_end\030\004 \001(\0132\032.google.prot" +
-      "obuf.TimestampR\020currentPeriodEnd\022/\n\024canc" +
-      "el_at_period_end\030\005 \001(\010R\021cancelAtPeriodEn" +
-      "d\022,\n\022stripe_customer_id\030\006 \001(\tR\020stripeCus" +
-      "tomerId*\341\001\n\022SubscriptionStatus\022#\n\037SUBSCR" +
-      "IPTION_STATUS_UNSPECIFIED\020\000\022\036\n\032SUBSCRIPT" +
-      "ION_STATUS_ACTIVE\020\001\022 \n\034SUBSCRIPTION_STAT" +
-      "US_TRIALING\020\002\022 \n\034SUBSCRIPTION_STATUS_PAS" +
-      "T_DUE\020\003\022 \n\034SUBSCRIPTION_STATUS_CANCELED\020" +
-      "\004\022 \n\034SUBSCRIPTION_STATUS_INACTIVE\020\005*\255\001\n\020" +
-      "SubscriptionTier\022!\n\035SUBSCRIPTION_TIER_UN" +
-      "SPECIFIED\020\000\022\032\n\026SUBSCRIPTION_TIER_FREE\020\001\022" +
-      "\031\n\025SUBSCRIPTION_TIER_PRO\020\002\022 \n\034SUBSCRIPTI" +
-      "ON_TIER_ENTERPRISE\020\003\022\035\n\031SUBSCRIPTION_TIE" +
-      "R_PREMIUM\020\0042\220\004\n\016BillingService\022X\n\tMintTo" +
-      "ken\022!.shorts.v1alpha1.MintTokenRequest\032\"" +
-      ".shorts.v1alpha1.MintTokenResponse\"\004\200\265\030\002" +
-      "\022\224\001\n\035HandleStripeCheckoutCompleted\0225.sho" +
-      "rts.v1alpha1.HandleStripeCheckoutComplet" +
-      "edRequest\0326.shorts.v1alpha1.HandleStripe" +
-      "CheckoutCompletedResponse\"\004\200\265\030\002\022\232\001\n\037Hand" +
-      "leStripeSubscriptionUpdated\0227.shorts.v1a" +
-      "lpha1.HandleStripeSubscriptionUpdatedReq" +
-      "uest\0328.shorts.v1alpha1.HandleStripeSubsc" +
-      "riptionUpdatedResponse\"\004\200\265\030\002\022p\n\021GetMySub" +
-      "scription\022).shorts.v1alpha1.GetMySubscri" +
-      "ptionRequest\032*.shorts.v1alpha1.GetMySubs" +
-      "criptionResponse\"\004\200\265\030\002B\333\001\n\023com.shorts.v1" +
-      "alpha1B\014BillingProtoP\001ZYgithub.com/castl" +
-      "emilk/shorted.com.au/services/gen/proto/" +
-      "go/shorts/v1alpha1;shortsv1alpha1\242\002\003SXX\252" +
-      "\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Sh" +
-      "orts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V1al" +
-      "pha1b\006proto3"
+      "eleted\022@\n\016past_due_since\030\t \001(\0132\032.google." +
+      "protobuf.TimestampR\014pastDueSince\"]\n\'Hand" +
+      "leStripeSubscriptionUpdatedResponse\022\030\n\007s" +
+      "uccess\030\001 \001(\010R\007success\022\030\n\007message\030\002 \001(\tR\007" +
+      "message\"\032\n\030GetMySubscriptionRequest\"\245\003\n\031" +
+      "GetMySubscriptionResponse\022)\n\020has_subscri" +
+      "ption\030\001 \001(\010R\017hasSubscription\022;\n\006status\030\002" +
+      " \001(\0162#.shorts.v1alpha1.SubscriptionStatu" +
+      "sR\006status\0225\n\004tier\030\003 \001(\0162!.shorts.v1alpha" +
+      "1.SubscriptionTierR\004tier\022H\n\022current_peri" +
+      "od_end\030\004 \001(\0132\032.google.protobuf.Timestamp" +
+      "R\020currentPeriodEnd\022/\n\024cancel_at_period_e" +
+      "nd\030\005 \001(\010R\021cancelAtPeriodEnd\022,\n\022stripe_cu" +
+      "stomer_id\030\006 \001(\tR\020stripeCustomerId\022@\n\016pas" +
+      "t_due_since\030\007 \001(\0132\032.google.protobuf.Time" +
+      "stampR\014pastDueSince*\201\002\n\022SubscriptionStat" +
+      "us\022#\n\037SUBSCRIPTION_STATUS_UNSPECIFIED\020\000\022" +
+      "\036\n\032SUBSCRIPTION_STATUS_ACTIVE\020\001\022 \n\034SUBSC" +
+      "RIPTION_STATUS_TRIALING\020\002\022 \n\034SUBSCRIPTIO" +
+      "N_STATUS_PAST_DUE\020\003\022 \n\034SUBSCRIPTION_STAT" +
+      "US_CANCELED\020\004\022 \n\034SUBSCRIPTION_STATUS_INA" +
+      "CTIVE\020\005\022\036\n\032SUBSCRIPTION_STATUS_UNPAID\020\006*" +
+      "\317\001\n\020SubscriptionTier\022!\n\035SUBSCRIPTION_TIE" +
+      "R_UNSPECIFIED\020\000\022\032\n\026SUBSCRIPTION_TIER_FRE" +
+      "E\020\001\022\031\n\025SUBSCRIPTION_TIER_PRO\020\002\022 \n\034SUBSCR" +
+      "IPTION_TIER_ENTERPRISE\020\003\022\035\n\031SUBSCRIPTION" +
+      "_TIER_PREMIUM\020\004\022 \n\034SUBSCRIPTION_TIER_API" +
+      "_ACCESS\020\0052\220\004\n\016BillingService\022X\n\tMintToke" +
+      "n\022!.shorts.v1alpha1.MintTokenRequest\032\".s" +
+      "horts.v1alpha1.MintTokenResponse\"\004\200\265\030\002\022\224" +
+      "\001\n\035HandleStripeCheckoutCompleted\0225.short" +
+      "s.v1alpha1.HandleStripeCheckoutCompleted" +
+      "Request\0326.shorts.v1alpha1.HandleStripeCh" +
+      "eckoutCompletedResponse\"\004\200\265\030\002\022\232\001\n\037Handle" +
+      "StripeSubscriptionUpdated\0227.shorts.v1alp" +
+      "ha1.HandleStripeSubscriptionUpdatedReque" +
+      "st\0328.shorts.v1alpha1.HandleStripeSubscri" +
+      "ptionUpdatedResponse\"\004\200\265\030\002\022p\n\021GetMySubsc" +
+      "ription\022).shorts.v1alpha1.GetMySubscript" +
+      "ionRequest\032*.shorts.v1alpha1.GetMySubscr" +
+      "iptionResponse\"\004\200\265\030\002B\333\001\n\023com.shorts.v1al" +
+      "pha1B\014BillingProtoP\001ZYgithub.com/castlem" +
+      "ilk/shorted.com.au/services/gen/proto/go" +
+      "/shorts/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017" +
+      "Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shor" +
+      "ts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V1alph" +
+      "a1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -178,7 +183,7 @@ public final class BillingProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedRequest_descriptor,
-        new java.lang.String[] { "StripeCustomerId", "StripeSubscriptionId", "Status", "Tier", "CurrentPeriodStart", "CurrentPeriodEnd", "CancelAtPeriodEnd", "IsDeleted", });
+        new java.lang.String[] { "StripeCustomerId", "StripeSubscriptionId", "Status", "Tier", "CurrentPeriodStart", "CurrentPeriodEnd", "CancelAtPeriodEnd", "IsDeleted", "PastDueSince", });
     internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedResponse_descriptor =
       getDescriptor().getMessageType(5);
     internal_static_shorts_v1alpha1_HandleStripeSubscriptionUpdatedResponse_fieldAccessorTable = new
@@ -196,7 +201,7 @@ public final class BillingProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_GetMySubscriptionResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetMySubscriptionResponse_descriptor,
-        new java.lang.String[] { "HasSubscription", "Status", "Tier", "CurrentPeriodEnd", "CancelAtPeriodEnd", "StripeCustomerId", });
+        new java.lang.String[] { "HasSubscription", "Status", "Tier", "CurrentPeriodEnd", "CancelAtPeriodEnd", "StripeCustomerId", "PastDueSince", });
     descriptor.resolveAllFeaturesImmutable();
     com.google.protobuf.TimestampProto.getDescriptor();
     com.shortedapi.options.v1.OptionsProto.getDescriptor();

@@ -98,4 +98,34 @@ public interface GetMySubscriptionResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getStripeCustomerIdBytes();
+
+  /**
+   * <pre>
+   * When the current past-due run's first failed charge happened, for the grace
+   * window. Unset unless status is PAST_DUE.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+   * @return Whether the pastDueSince field is set.
+   */
+  boolean hasPastDueSince();
+  /**
+   * <pre>
+   * When the current past-due run's first failed charge happened, for the grace
+   * window. Unset unless status is PAST_DUE.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+   * @return The pastDueSince.
+   */
+  com.google.protobuf.Timestamp getPastDueSince();
+  /**
+   * <pre>
+   * When the current past-due run's first failed charge happened, for the grace
+   * window. Unset unless status is PAST_DUE.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getPastDueSinceOrBuilder();
 }

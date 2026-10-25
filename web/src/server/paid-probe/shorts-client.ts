@@ -8,6 +8,7 @@ import {
   SubscriptionTier as ProtoSubscriptionTier,
 } from "~/gen/shorts/v1alpha1/billing_pb";
 import {
+  canMintApiTokensForTier,
   isPremiumTier,
   SUBSCRIPTION_TIERS,
   type SubscriptionStatus,
@@ -16,6 +17,7 @@ import {
 
 import { PAID_PROBE_EMAIL, PAID_PROBE_USER_ID } from "./constants";
 import { ProbeFailure, type ProbeContext } from "./types";
+import { isEntitledSubscription } from "~/lib/subscription-entitlement";
 
 /**
  * Connect calls to the Go API as the probe identity.
@@ -56,6 +58,7 @@ export interface MySubscriptionFields {
   status: ProtoSubscriptionStatus;
   tier: ProtoSubscriptionTier;
   currentPeriodEnd?: { seconds: bigint; nanos: number };
+  pastDueSince?: { seconds: bigint; nanos: number };
   cancelAtPeriodEnd?: boolean;
 }
 
@@ -94,7 +97,6 @@ export function toSubscriptionInfo(fields: MySubscriptionFields): SubscriptionIn
 
   const status = mapStatus(fields.status);
   const tier = mapTier(fields.tier);
-  const hasActiveSubscription = status === "active" || status === "trialing";
   const tierConfig = SUBSCRIPTION_TIERS[tier] ?? SUBSCRIPTION_TIERS.free;
 
   let currentPeriodEnd: Date | null = null;
@@ -105,13 +107,21 @@ export function toSubscriptionInfo(fields: MySubscriptionFields): SubscriptionIn
     );
   }
 
+  const pastDueSince = fields.pastDueSince
+    ? new Date(
+        Number(fields.pastDueSince.seconds) * 1000 +
+          Math.floor((fields.pastDueSince.nanos ?? 0) / 1_000_000),
+      )
+    : null;
+  const hasActiveSubscription = isEntitledSubscription({ status, pastDueSince });
   return {
     status,
     tier,
     hasActiveSubscription,
     isPremium: hasActiveSubscription && isPremiumTier(tier),
-    canMintTokens: hasActiveSubscription && tier !== "free",
+    canMintTokens: hasActiveSubscription && canMintApiTokensForTier(tier),
     currentPeriodEnd,
+    pastDueSince,
     cancelAtPeriodEnd: fields.cancelAtPeriodEnd ?? false,
     features: tierConfig.features,
     requestsPerDay: tierConfig.requestsPerDay,
@@ -126,6 +136,7 @@ function freeSubscription(): SubscriptionInfo {
     isPremium: false,
     canMintTokens: false,
     currentPeriodEnd: null,
+    pastDueSince: null,
     cancelAtPeriodEnd: false,
     features: SUBSCRIPTION_TIERS.free.features,
     requestsPerDay: SUBSCRIPTION_TIERS.free.requestsPerDay,
@@ -140,6 +151,8 @@ function mapStatus(status: ProtoSubscriptionStatus): SubscriptionStatus {
       return "trialing";
     case ProtoSubscriptionStatus.PAST_DUE:
       return "past_due";
+    case ProtoSubscriptionStatus.UNPAID:
+      return "unpaid";
     case ProtoSubscriptionStatus.CANCELED:
       return "canceled";
     case ProtoSubscriptionStatus.INACTIVE:
@@ -156,6 +169,8 @@ function mapTier(tier: ProtoSubscriptionTier): SubscriptionTier {
       return "pro";
     case ProtoSubscriptionTier.ENTERPRISE:
       return "enterprise";
+    case ProtoSubscriptionTier.API_ACCESS:
+      return "api_access";
     case ProtoSubscriptionTier.FREE:
     default:
       return "free";

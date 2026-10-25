@@ -10,6 +10,13 @@ import {
 } from "~/lib/billing-sync";
 import { recordProductEvent } from "~/@/lib/product-events";
 import { formatAmount, notifyOperator } from "~/@/lib/operator-notify";
+import { sendPaymentFailedEmail, sendPaymentRecoveredEmail } from "~/@/lib/billing-email";
+
+/**
+ * The webhook is the one place that alerts the operator about a subscription on an
+ * unknown Stripe price. The daily reconcile does not, so it cannot repeat the alert.
+ */
+const WEBHOOK_SYNC = { alertOnUnknownPrice: true } as const;
 
 /**
  * Every subscription event is handled by re-reading the subscription from Stripe
@@ -101,6 +108,23 @@ export async function POST(request: NextRequest) {
 
       case "invoice.payment_failed": {
         await handlePaymentFailed(event.data.object);
+        break;
+      }
+
+      // invoice.paid is the one that says an invoice is settled. A recovery note
+      // needs it, because a retry that succeeded is also a payment_succeeded.
+      case "invoice.paid": {
+        await handleInvoicePaid(event.data.object);
+        break;
+      }
+
+      case "charge.refunded": {
+        await notifyChargeRefunded(event.data.object);
+        break;
+      }
+
+      case "charge.dispute.created": {
+        await notifyDisputeCreated(event.data.object);
         break;
       }
 
@@ -215,10 +239,11 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  const result = await syncSubscriptionFromStripe(subscriptionId, {
-    userId,
-    userEmail,
-  });
+  const result = await syncSubscriptionFromStripe(
+    subscriptionId,
+    { userId, userEmail },
+    WEBHOOK_SYNC,
+  );
 
   // Operator alert. Deliberately AFTER the sync: the customer getting what
   // they paid for matters more than us hearing about it, and notifyOperator
@@ -242,10 +267,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 }
 
 async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
-  await syncSubscriptionFromStripe(subscription.id, {
-    userId: subscription.metadata?.userId,
-    userEmail: subscription.metadata?.userEmail,
-  });
+  await syncSubscriptionFromStripe(
+    subscription.id,
+    {
+      userId: subscription.metadata?.userId,
+      userEmail: subscription.metadata?.userEmail,
+    },
+    WEBHOOK_SYNC,
+  );
 }
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
@@ -255,7 +284,7 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
     console.warn(`Invoice ${invoice.id} has no subscription; nothing to sync`);
     return;
   }
-  await syncSubscriptionFromStripe(subscriptionId);
+  await syncSubscriptionFromStripe(subscriptionId, {}, WEBHOOK_SYNC);
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
@@ -263,8 +292,9 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   // the sync means the retry runs this whole handler again. Notifying first
   // would email the operator once per retry.
   const subscriptionId = await resolveSubscriptionIdForInvoice(invoice);
+  let subscriptionStatus: string | null = null;
   if (subscriptionId) {
-    await syncSubscriptionFromStripe(subscriptionId);
+    subscriptionStatus = (await syncSubscriptionFromStripe(subscriptionId, {}, WEBHOOK_SYNC)).status;
   }
 
   const customerId = idOf(invoice.customer) ?? "(none)";
@@ -286,5 +316,92 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
     ]
       .filter(Boolean)
       .join("\n"),
+  });
+
+  // The customer is told once, on the first failed attempt, and only while the
+  // subscription is past_due: a failure on an incomplete first invoice is not a
+  // lapse in access, so there is nothing to say that the email could keep true.
+  // Later retries reuse the same Resend key, so a redelivery also sends nothing.
+  if (subscriptionStatus === "past_due" && invoice.attempt_count === 1) {
+    await emailCustomerPaymentFailed(invoice);
+  }
+}
+
+async function emailCustomerPaymentFailed(invoice: Stripe.Invoice) {
+  const to = invoice.customer_email;
+  if (!to) {
+    console.warn(`Invoice ${invoice.id} failed with no customer email; no payment-failed email sent`);
+    return;
+  }
+  // A stable link, not a Stripe session URL: a portal session expires, and the email
+  // is read later. /billing/portal opens a fresh session for the signed-in customer.
+  const baseUrl = process.env.NEXTAUTH_URL ?? "https://shorted.com.au";
+  await sendPaymentFailedEmail({
+    to,
+    invoiceId: invoice.id ?? "unknown",
+    amountCents: invoice.amount_due,
+    currency: invoice.currency,
+    updatePaymentUrl: `${baseUrl}/billing/portal`,
+    invoiceUrl: invoice.hosted_invoice_url ?? null,
+  });
+}
+
+/**
+ * A payment that settled after an earlier attempt failed is a recovery. The first
+ * attempt settling is not, so it sends nothing.
+ */
+async function handleInvoicePaid(invoice: Stripe.Invoice) {
+  if (invoice.status !== "paid" || invoice.attempt_count <= 1) return;
+  const to = invoice.customer_email;
+  if (!to) return;
+  await sendPaymentRecoveredEmail({ to, invoiceId: invoice.id ?? "unknown" });
+}
+
+/**
+ * A refund needs a human decision about access, so it is an operator alert with
+ * counts and ids only. Nothing about the subscription is changed here.
+ */
+async function notifyChargeRefunded(charge: Stripe.Charge) {
+  const email = charge.billing_details?.email ?? charge.receipt_email ?? null;
+  await notifyOperator({
+    subject: `Shorted refund: ${formatAmount(charge.amount_refunded, charge.currency)}${email ? ` to ${email}` : ""}`,
+    text: [
+      "A charge was refunded in Stripe.",
+      "",
+      `Email:     ${email ?? "(unknown)"}`,
+      `Refunded:  ${formatAmount(charge.amount_refunded, charge.currency)} of ${formatAmount(charge.amount, charge.currency)}`,
+      `Customer:  ${idOf(charge.customer) ?? "(none)"}`,
+      `Charge:    ${charge.id}`,
+      "",
+      "No subscription state was changed by this event. Check whether access should end.",
+      "",
+      "— shorted.com.au",
+    ].join("\n"),
+  });
+}
+
+/**
+ * A dispute is a bank reversing a payment. It must be answered in the Stripe
+ * dashboard before the evidence deadline, so it is an operator alert.
+ */
+async function notifyDisputeCreated(dispute: Stripe.Dispute) {
+  const dueBy = dispute.evidence_details?.due_by;
+  await notifyOperator({
+    subject: `Shorted payment DISPUTED: ${formatAmount(dispute.amount, dispute.currency)}`,
+    text: [
+      "A customer has disputed a payment with their bank.",
+      "Respond in the Stripe dashboard before the evidence deadline.",
+      "",
+      `Amount:        ${formatAmount(dispute.amount, dispute.currency)}`,
+      `Reason:        ${dispute.reason ?? "(none)"}`,
+      `Status:        ${dispute.status}`,
+      `Evidence due:  ${dueBy ? new Date(dueBy * 1000).toISOString() : "(not set)"}`,
+      `Charge:        ${idOf(dispute.charge) ?? "(unknown)"}`,
+      `Dispute:       ${dispute.id}`,
+      "",
+      "No subscription state was changed by this event.",
+      "",
+      "— shorted.com.au",
+    ].join("\n"),
   });
 }

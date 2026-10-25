@@ -3223,13 +3223,13 @@ func (s *postgresStore) GetAPISubscription(userID string) (*APISubscription, err
 
 	query := `
 		SELECT user_id, user_email, COALESCE(stripe_customer_id, ''), COALESCE(stripe_subscription_id, ''),
-		       status, tier, current_period_start::text, current_period_end::text, cancel_at_period_end
+		       status, tier, current_period_start::text, current_period_end::text, past_due_since::text, cancel_at_period_end
 		FROM api_subscriptions
 		WHERE user_id = $1
 	`
 
 	var sub APISubscription
-	var periodStart, periodEnd *string
+	var periodStart, periodEnd, pastDueSince *string
 
 	err := s.db.QueryRow(ctx, query, userID).Scan(
 		&sub.UserID,
@@ -3240,6 +3240,7 @@ func (s *postgresStore) GetAPISubscription(userID string) (*APISubscription, err
 		&sub.Tier,
 		&periodStart,
 		&periodEnd,
+		&pastDueSince,
 		&sub.CancelAtPeriodEnd,
 	)
 
@@ -3253,6 +3254,7 @@ func (s *postgresStore) GetAPISubscription(userID string) (*APISubscription, err
 
 	sub.CurrentPeriodStart = periodStart
 	sub.CurrentPeriodEnd = periodEnd
+	sub.PastDueSince = pastDueSince
 	return &sub, nil
 }
 
@@ -3262,13 +3264,13 @@ func (s *postgresStore) GetAPISubscriptionByCustomer(stripeCustomerID string) (*
 
 	query := `
 		SELECT user_id, user_email, COALESCE(stripe_customer_id, ''), COALESCE(stripe_subscription_id, ''),
-		       status, tier, current_period_start::text, current_period_end::text, cancel_at_period_end
+		       status, tier, current_period_start::text, current_period_end::text, past_due_since::text, cancel_at_period_end
 		FROM api_subscriptions
 		WHERE stripe_customer_id = $1
 	`
 
 	var sub APISubscription
-	var periodStart, periodEnd *string
+	var periodStart, periodEnd, pastDueSince *string
 
 	err := s.db.QueryRow(ctx, query, stripeCustomerID).Scan(
 		&sub.UserID,
@@ -3279,6 +3281,7 @@ func (s *postgresStore) GetAPISubscriptionByCustomer(stripeCustomerID string) (*
 		&sub.Tier,
 		&periodStart,
 		&periodEnd,
+		&pastDueSince,
 		&sub.CancelAtPeriodEnd,
 	)
 
@@ -3291,6 +3294,7 @@ func (s *postgresStore) GetAPISubscriptionByCustomer(stripeCustomerID string) (*
 
 	sub.CurrentPeriodStart = periodStart
 	sub.CurrentPeriodEnd = periodEnd
+	sub.PastDueSince = pastDueSince
 	return &sub, nil
 }
 
@@ -3419,7 +3423,9 @@ func (s *postgresStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string,
 	args := []any{}
 	argNum := 1
 
+	statusArg := 0
 	if update.Status != nil {
+		statusArg = argNum
 		setParts = append(setParts, fmt.Sprintf("status = $%d", argNum))
 		args = append(args, *update.Status)
 		argNum++
@@ -3451,6 +3457,23 @@ func (s *postgresStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string,
 		setParts = append(setParts, fmt.Sprintf("stripe_subscription_id = $%d", argNum))
 		args = append(args, *update.StripeSubscriptionID)
 		argNum++
+	}
+
+	// The past-due run's start. Set in the same statement as the status, so it reads the
+	// row's OLD status: a row already past_due keeps its start, the first past_due
+	// write starts it (from the invoice's failure time, else now), and any other status
+	// clears it. A write with no status leaves it alone.
+	if statusArg > 0 {
+		pastDueArg := argNum
+		args = append(args, update.PastDueSince)
+		argNum++
+		setParts = append(setParts, fmt.Sprintf(
+			"past_due_since = CASE WHEN $%d = 'past_due' THEN "+
+				"CASE WHEN api_subscriptions.status = 'past_due' AND api_subscriptions.past_due_since IS NOT NULL "+
+				"THEN api_subscriptions.past_due_since "+
+				"ELSE COALESCE($%d::timestamptz, CURRENT_TIMESTAMP) END "+
+				"ELSE NULL END",
+			statusArg, pastDueArg))
 	}
 
 	// Add customer ID as the last argument

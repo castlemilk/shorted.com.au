@@ -23,8 +23,14 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, 500, cfg.Tiers["anonymous"].RequestsPerMonth)
 	assert.Equal(t, 60, cfg.Tiers["free"].RequestsPerMinute)
 	assert.Equal(t, 1000, cfg.Tiers["free"].RequestsPerMonth)
-	assert.Equal(t, 120, cfg.Tiers["pro"].RequestsPerMinute)
-	assert.Equal(t, 10000, cfg.Tiers["pro"].RequestsPerMonth)
+	// Premium (and its legacy pro name) is sold without the API Access plan, so its
+	// API limits are the free ones. The higher limits are API Access's.
+	assert.Equal(t, 60, cfg.Tiers["premium"].RequestsPerMinute)
+	assert.Equal(t, 1000, cfg.Tiers["premium"].RequestsPerMonth)
+	assert.Equal(t, 60, cfg.Tiers["pro"].RequestsPerMinute)
+	assert.Equal(t, 1000, cfg.Tiers["pro"].RequestsPerMonth)
+	assert.Equal(t, 120, cfg.Tiers["api_access"].RequestsPerMinute)
+	assert.Equal(t, 10000, cfg.Tiers["api_access"].RequestsPerMonth)
 	assert.Equal(t, 300, cfg.Tiers["enterprise"].RequestsPerMinute)
 	assert.Equal(t, 50000, cfg.Tiers["enterprise"].RequestsPerMonth)
 
@@ -48,6 +54,10 @@ func TestConfig_GetLimits(t *testing.T) {
 	cfg := DefaultConfig()
 
 	limits := cfg.GetLimits("pro")
+	assert.Equal(t, 60, limits.RequestsPerMinute)
+	assert.Equal(t, 1000, limits.RequestsPerMonth)
+
+	limits = cfg.GetLimits("api_access")
 	assert.Equal(t, 120, limits.RequestsPerMinute)
 	assert.Equal(t, 10000, limits.RequestsPerMonth)
 
