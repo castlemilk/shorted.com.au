@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 
+import { EmailVerificationPrompt } from "~/@/components/email-verification-prompt";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,27 +43,29 @@ export function AlertDeliveryNote() {
   const verified = session?.user?.emailVerified === true;
 
   return (
-    <p className="text-sm leading-6 text-muted-foreground">
-      {email && !verified ? (
-        <>
-          Verify{" "}
-          <span className="font-medium text-foreground">{email}</span> to
-          receive alert emails. Until it is verified, alerts are recorded here
-          but not emailed. After you verify, sign out and back in.
-        </>
-      ) : email ? (
-        <>
-          Alerts are emailed to{" "}
-          <span className="font-medium text-foreground">{email}</span>.
-        </>
-      ) : (
-        <>Alerts are emailed to the address on your account.</>
-      )}{" "}
-      We check hourly on business days and send once per new ASIC report (ASIC
-      publishes around 11:30am Sydney time, covering positions held four trading
-      days earlier). Alerts need an active Premium subscription; while it is
-      inactive, alerts are recorded here but not emailed.
-    </p>
+    <div className="space-y-3">
+      <p className="text-sm leading-6 text-muted-foreground">
+        {email && !verified ? (
+          <>
+            Verify <span className="font-medium text-foreground">{email}</span>{" "}
+            to receive alert emails. Until it is verified, alerts are recorded
+            here but not emailed.
+          </>
+        ) : email ? (
+          <>
+            Alerts are emailed to{" "}
+            <span className="font-medium text-foreground">{email}</span>.
+          </>
+        ) : (
+          <>Alerts are emailed to the address on your account.</>
+        )}{" "}
+        We check hourly on business days and send once per new ASIC report (ASIC
+        publishes around 11:30am Sydney time, covering positions held four
+        trading days earlier). Alerts need an active Premium subscription; while
+        it is inactive, alerts are recorded here but not emailed.
+      </p>
+      {email && !verified ? <EmailVerificationPrompt /> : null}
+    </div>
   );
 }
 

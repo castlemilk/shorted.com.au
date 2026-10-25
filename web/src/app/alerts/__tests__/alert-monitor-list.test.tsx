@@ -32,7 +32,13 @@ const UNVERIFIED = {
     user: { id: "u1", email: "trader@example.com", emailVerified: false },
   },
   status: "authenticated",
+  update: jest.fn().mockResolvedValue({ user: { emailVerified: false } }),
 };
+
+// The verification prompt's server action is not under test here.
+jest.mock("~/app/actions/email-verification", () => ({
+  sendAlertVerificationEmail: jest.fn(),
+}));
 
 const monitors: AlertMonitorView[] = [
   {
@@ -155,9 +161,18 @@ describe("AlertMonitorList", () => {
     renderList();
 
     const note = await screen.findByText(/receive alert emails/);
-    expect(note).toHaveTextContent("Verify trader@example.com to receive alert emails.");
-    expect(note).toHaveTextContent("sign out and back in");
+    expect(note).toHaveTextContent(
+      "Verify trader@example.com to receive alert emails.",
+    );
+    expect(note).not.toHaveTextContent("sign out");
     expect(screen.queryByText(/Alerts are emailed to/)).toBeNull();
+    // The page offers the way to verify, so the notice does not just say "verify".
+    expect(
+      screen.getByRole("button", { name: "Send verification email" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "I've verified, refresh" }),
+    ).toBeInTheDocument();
   });
 
   it("pauses an active monitor and refreshes the list", async () => {
