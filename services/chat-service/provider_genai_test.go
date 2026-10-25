@@ -811,7 +811,7 @@ func TestGeminiStreamKeepsTheIdleBoundNotTheFirstByteBound(t *testing.T) {
 			if i == 7 {
 				finish = `,"finishReason":"STOP"`
 			}
-			fmt.Fprintf(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"w%d \"}]},\"index\":0%s}]}\n\n", i, finish)
+			_, _ = fmt.Fprintf(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"w%d \"}]},\"index\":0%s}]}\n\n", i, finish)
 			if f != nil {
 				f.Flush()
 			}
