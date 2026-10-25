@@ -107,13 +107,20 @@ type telesisPageInfo struct {
 }
 
 type telesisMonitor struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	Status         string `json:"status"`
-	Paused         bool   `json:"paused"`
-	Armed          bool   `json:"armed"`
-	LastRunAt      string `json:"lastRunAt"`
-	NextExpectedAt string `json:"nextExpectedAt"`
+	ID             string          `json:"id"`
+	Name           string          `json:"name"`
+	Status         string          `json:"status"`
+	Paused         bool            `json:"paused"`
+	Armed          bool            `json:"armed"`
+	Schedule       telesisSchedule `json:"schedule"`
+	LastRunAt      string          `json:"lastRunAt"`
+	NextExpectedAt string          `json:"nextExpectedAt"`
+}
+
+// telesisSchedule carries a monitor's cadence. Only the cron form is read: an
+// interval monitor has no cron expression and reads as "" here.
+type telesisSchedule struct {
+	CronExpression string `json:"cronExpression"`
 }
 
 type telesisRun struct {
@@ -168,7 +175,8 @@ func (c *telesisClient) ListCronMonitors(ctx context.Context) ([]CronMonitor, er
 		for _, m := range resp.Monitors {
 			out = append(out, CronMonitor{
 				ID: m.ID, Name: m.Name, Status: enumSuffix(m.Status, "CRON_MONITOR_STATUS_"),
-				Paused: m.Paused, Armed: m.Armed, LastRunAt: m.LastRunAt, NextExpectedAt: m.NextExpectedAt,
+				Paused: m.Paused, Armed: m.Armed, Schedule: m.Schedule.CronExpression,
+				LastRunAt: m.LastRunAt, NextExpectedAt: m.NextExpectedAt,
 			})
 		}
 		if !resp.PageInfo.HasNextPage || resp.PageInfo.NextPageToken == "" {

@@ -9,6 +9,10 @@ import {
   syncCustomerFromStripe,
 } from "~/lib/billing-sync";
 import { notifyOperator } from "~/@/lib/operator-notify";
+import {
+  isTelesisCheckinURL,
+  postCheckin,
+} from "~/server/paid-probe/checkins";
 
 /**
  * GET /api/stripe/reconcile — daily Vercel cron.
@@ -27,6 +31,10 @@ import { notifyOperator } from "~/@/lib/operator-notify";
  * A run that fails a customer, truncates its listing or cannot list at all
  * notifies the operator with counts only. Without that alert a cron that fails
  * every night is indistinguishable from one that has nothing to do.
+ *
+ * Every run also checks in with its Telesis cron monitor (`stripe-reconcile`),
+ * carrying the same counts. A run that never fires sends nothing, so the monitor
+ * reports it missed; a run that fires with problems sends /fail.
  */
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -43,6 +51,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const startedAt = Date.now();
   try {
     const now = Date.now();
     const customerIds = new Set<string>();
@@ -98,6 +107,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       });
     }
 
+    await reportCheckin(
+      startedAt,
+      failed === 0 && !truncated,
+      `examined=${examined} customers=${customers.length} synced=${synced} failed=${failed} truncated=${truncated ? "yes" : "no"}`,
+    );
+
     return NextResponse.json(
       { examined, customers: customers.length, synced, failed, truncated },
       { headers: { "Cache-Control": "no-store" } },
@@ -105,6 +120,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown";
     console.error(`[stripe-reconcile] run failed: ${message}`);
+    await reportCheckin(startedAt, false, "run failed: could not list subscriptions");
     await notifyOperator({
       subject: "Shorted Stripe reconcile: run failed",
       text: [
@@ -119,6 +135,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
+}
+
+/**
+ * Telesis heartbeat for this run, in the paid probe's check-in protocol
+ * (`/complete` or `/fail`, `terminal_reason` carries the counts). Dormant when the
+ * variable is unset. A value that is set but is not a Telesis check-in URL is
+ * reported by name only, and nothing is sent, so the monitor reports the run missed.
+ */
+async function reportCheckin(startedAt: number, ok: boolean, reason: string): Promise<void> {
+  const raw = process.env.TELESIS_STRIPE_RECONCILE_CHECKIN?.trim();
+  if (!raw) return;
+  if (!isTelesisCheckinURL(raw)) {
+    console.warn("[stripe-reconcile] TELESIS_STRIPE_RECONCILE_CHECKIN is not a Telesis check-in URL; check-in skipped");
+    return;
+  }
+  await postCheckin(fetch, "stripe-reconcile", raw, ok, Date.now() - startedAt, reason);
 }
 
 /** Counts only. The customer ids that failed are in the function log. */

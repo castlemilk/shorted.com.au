@@ -149,6 +149,13 @@ var catalog = map[string]catalogEntry{
 		Category:    "Filings & reports",
 	},
 
+	// --- Cluster-only CronJobs: no Cloud Run twin, so they get a row from
+	// clusterOnlyJobs (cluster.go) and their status from Telesis.
+	"shorted-alerts": {
+		DisplayName: "Alerts Evaluator",
+		Category:    "Alerts",
+	},
+
 	// --- Retired: deployed + manually executable, schedulers paused ON PURPOSE --
 	// terraform/environments/prod/main.tf marks both modules SUPERSEDED and sets
 	// scheduler_paused = true (rollback = flip that flag back).
