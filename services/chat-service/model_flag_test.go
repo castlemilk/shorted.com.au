@@ -820,7 +820,7 @@ func TestChatModelFlagPanicInTheSelectorIsRecoveredAndTheSelectorStaysUsable(t *
 	if !returned {
 		t.Fatal("choose() did not return on the call after a panic: the selector's mutex was left held")
 	}
-	if route != "" || outcome != flagOutcomeFlag {
-		t.Fatalf("choose() after the panic = %q, %q; want the flagged route's default", route, outcome)
+	if route != "deepseek:deepseek-flash" || outcome != flagOutcomeFlag {
+		t.Fatalf("choose() after the panic = %q, %q; want the flagged route from Flaggr", route, outcome)
 	}
 }
