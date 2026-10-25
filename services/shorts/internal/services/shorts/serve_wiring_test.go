@@ -90,3 +90,35 @@ func TestServeWiringBuildsAWorkingAlertsOperator(t *testing.T) {
 	assert.Equal(t, "available", counts)
 	assert.Equal(t, 4, out.Monitors[0].Count)
 }
+
+// feedbackStore is a backend that records Resend feedback, standing in for Postgres.
+type feedbackStore struct {
+	shorts.Store
+	gotEmailID string
+}
+
+func (f *feedbackStore) RecordResendFeedback(_ context.Context, emailID, _, _ string, _ []string) (shorts.ResendFeedbackResult, error) {
+	f.gotEmailID = emailID
+	return shorts.ResendFeedbackResult{Deliveries: 1}, nil
+}
+
+// serve.go hands the webhook the adapter, so the feedback write must be reachable
+// through it. Without the forwarder the assertion is nil and /webhooks/resend answers
+// "store not configured" in production with the signing secret set.
+func TestResendWebhookStoreReachableThroughTheAdapter(t *testing.T) {
+	backend := &feedbackStore{}
+	w := resendWebhookStoreFrom(NewStoreAdapter(backend))
+	require.NotNil(t, w, "the adapter must expose the Resend feedback write")
+
+	res, err := w.RecordResendFeedback(context.Background(), "email-1", "bounced", "", nil)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), res.Deliveries)
+	assert.Equal(t, "email-1", backend.gotEmailID, "the forwarded write reaches the store")
+}
+
+// A backend that does not record feedback is an error that says so, not a panic.
+func TestResendFeedbackOverAStoreWithoutItSaysSo(t *testing.T) {
+	_, err := NewStoreAdapter(plainStore{}).RecordResendFeedback(context.Background(), "email-1", "bounced", "", nil)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "does not record Resend feedback")
+}
