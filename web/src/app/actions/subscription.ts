@@ -16,6 +16,7 @@ import type { CheckoutTier } from "~/lib/stripe-plans";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { isEntitledSubscription } from "~/lib/subscription-entitlement";
+import { timestampToDate } from "~/@/lib/proto-time";
 
 // Internal auth secret for service-to-service calls
 const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
@@ -66,14 +67,6 @@ export interface SubscriptionInfo {
    * including a genuine "no subscription".
    */
   lookupFailed?: boolean;
-}
-
-/** A proto Timestamp as a Date, or null when unset. */
-export function timestampToDate(
-  ts: { seconds: bigint | number; nanos?: number } | null | undefined,
-): Date | null {
-  if (!ts) return null;
-  return new Date(Number(ts.seconds) * 1000 + Math.floor((ts.nanos ?? 0) / 1_000_000));
 }
 
 /**
