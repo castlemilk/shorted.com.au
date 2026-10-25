@@ -153,7 +153,14 @@ var providerCatalog = []ProviderSpec{
 				Price:       Pricing{Input: 0.09, CachedInput: 0.018, Output: 0.18, OffPeakFactor: 1, AsOf: catalogAsOf, SourceURL: "https://openrouter.ai/api/v1/models/deepseek/deepseek-v4-flash/endpoints"},
 				Activatable: true,
 				DefaultOnly: []string{"deepinfra", "azure"},
-				Notes:       "Only DeepInfra and Azure honour required among the 15 endpoints. DeepInfra does not honour none, so the pin is what keeps this route on forced choice. It is a different model from DeepSeek direct's deepseek-flash (V4.1).",
+				// Pins checked against OpenRouter's public endpoints API on 2026-10-25, which
+				// lists 15 endpoints. Of those, DeepInfra and Azure are pinned, and both
+				// advertise required. Cloudflare and Wafer also advertise required but are
+				// not pinned. DeepInfra does not advertise none, so the pin keeps this route
+				// on forced choice. Both pins are US headquarters on OpenRouter's providers
+				// list. DeepInfra's hosting location is not published there, so it is
+				// reviewed by headquarters only.
+				Notes: "Pinned to DeepInfra and Azure (both US headquarters). They are the only endpoints this route may be served by, and every other endpoint is excluded. It is a different model from DeepSeek direct's deepseek-flash (V4.1).",
 			},
 			{
 				ID: "openai/gpt-5-mini", Label: "GPT-5 mini (OpenRouter)",
