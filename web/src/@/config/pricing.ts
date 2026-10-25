@@ -42,6 +42,7 @@ export const PLANS = {
       "Market Pulse dashboard",
       "Short-position alerts by email",
       "Advanced dashboard widgets",
+      "API tokens (standard limits)",
       "Priority support",
     ],
   },
