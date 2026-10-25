@@ -132,6 +132,26 @@ variable "chat_service_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/chat-service:latest"
 }
 
+# Chat-model flag inputs. The workflow sets each from its GitHub secret, and an
+# empty value leaves the flag off. Names are set only once the secret exists.
+variable "flaggr_api_key_secret_name" {
+  description = "Secret Manager secret for the Flaggr token; empty until FLAGGR_API_KEY is set"
+  type        = string
+  default     = ""
+}
+
+variable "flaggr_service_id" {
+  description = "Flaggr service id for the chat-model flag; empty until FLAGGR_SERVICE_ID is set"
+  type        = string
+  default     = ""
+}
+
+variable "deepseek_api_key_secret_name" {
+  description = "Secret Manager secret for the DeepSeek key; empty until DEEPSEEK_API_KEY is set"
+  type        = string
+  default     = ""
+}
+
 # ---- Cloudflare Edge ----
 
 variable "cloudflare_global_api_key" {

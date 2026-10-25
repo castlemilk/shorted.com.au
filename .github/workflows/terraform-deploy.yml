@@ -392,6 +392,10 @@ jobs:
           # chat-service logged the shared key in provider-error URLs). Falls back
           # to the shared key when the secret is unset.
           GEMINI_API_KEY_CHAT: ${{ secrets.GEMINI_API_KEY_CHAT }}
+          # Optional. The chat-model flag (Flaggr) and DeepSeek direct. Each is synced only
+          # when its GitHub secret is set, so an unset value changes nothing in the deploy.
+          FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
           # CREATE ONLY. This job has no GitHub environment, so it reads each secret's
@@ -446,6 +450,10 @@ jobs:
           ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
+          # Optional secrets are created only when set. Cloud Run references them by name,
+          # so a missing secret would fail the revision. Terraform reads the same condition.
+          if [ -n "${FLAGGR_API_KEY:-}" ]; then ensure_secret "FLAGGR_API_KEY" "$FLAGGR_API_KEY"; fi
+          if [ -n "${DEEPSEEK_API_KEY:-}" ]; then ensure_secret "DEEPSEEK_API_KEY" "$DEEPSEEK_API_KEY"; fi
 
       - name: Terraform Plan
         id: plan
@@ -457,6 +465,9 @@ jobs:
           TF_VAR_alert_recipient_email: ${{ secrets.ALERT_RECIPIENT_EMAIL }}
           TF_VAR_rate_limit_testing_bypass_secret: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
           TF_VAR_rate_limit_ssr_bypass_secret: ${{ secrets.CLOUDFLARE_SSR_BYPASS_SECRET }}
+          TF_VAR_flaggr_api_key_secret_name: ${{ secrets.FLAGGR_API_KEY && 'FLAGGR_API_KEY' || '' }}
+          TF_VAR_flaggr_service_id: ${{ secrets.FLAGGR_SERVICE_ID }}
+          TF_VAR_deepseek_api_key_secret_name: ${{ secrets.DEEPSEEK_API_KEY && 'DEEPSEEK_API_KEY' || '' }}
         run: |
           terraform plan \
             -lock=${{ github.event_name == 'pull_request' && 'false' || 'true' }} \
@@ -608,6 +619,10 @@ jobs:
           # chat-service logged the shared key in provider-error URLs). Falls back
           # to the shared key when the secret is unset.
           GEMINI_API_KEY_CHAT: ${{ secrets.GEMINI_API_KEY_CHAT }}
+          # Optional. The chat-model flag (Flaggr) and DeepSeek direct. Each is synced only
+          # when its GitHub secret is set, so an unset value changes nothing in the deploy.
+          FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           DATABASE_URL_DEV: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
@@ -663,6 +678,10 @@ jobs:
           ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
+          # Optional secrets are created only when set. Cloud Run references them by name,
+          # so a missing secret would fail the revision. Terraform reads the same condition.
+          if [ -n "${FLAGGR_API_KEY:-}" ]; then ensure_secret "FLAGGR_API_KEY" "$FLAGGR_API_KEY"; fi
+          if [ -n "${DEEPSEEK_API_KEY:-}" ]; then ensure_secret "DEEPSEEK_API_KEY" "$DEEPSEEK_API_KEY"; fi
           ensure_secret "ALGOLIA_APP_ID" "$ALGOLIA_APP_ID"
           ensure_secret "ALGOLIA_SEARCH_KEY" "$ALGOLIA_SEARCH_KEY"
 
@@ -1035,6 +1054,9 @@ jobs:
           TF_VAR_alert_recipient_email: ${{ secrets.ALERT_RECIPIENT_EMAIL }}
           TF_VAR_rate_limit_testing_bypass_secret: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
           TF_VAR_rate_limit_ssr_bypass_secret: ${{ secrets.CLOUDFLARE_SSR_BYPASS_SECRET }}
+          TF_VAR_flaggr_api_key_secret_name: ${{ secrets.FLAGGR_API_KEY && 'FLAGGR_API_KEY' || '' }}
+          TF_VAR_flaggr_service_id: ${{ secrets.FLAGGR_SERVICE_ID }}
+          TF_VAR_deepseek_api_key_secret_name: ${{ secrets.DEEPSEEK_API_KEY && 'DEEPSEEK_API_KEY' || '' }}
         run: |
           terraform apply \
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \

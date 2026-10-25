@@ -1588,6 +1588,15 @@ module "chat_service" {
   chat_history_limit                 = 20
   chat_max_messages_per_conversation = 100
 
+  # The chat-model flag (Flaggr) picks a model per user. Each input is empty until
+  # its secret exists, and the workflow sets them from the GitHub secrets.
+  flaggr_api_key_secret_name   = var.flaggr_api_key_secret_name
+  flaggr_service_id            = var.flaggr_service_id
+  flaggr_environment           = "production"
+  deepseek_api_key_secret_name = var.deepseek_api_key_secret_name
+  # flag-gated: DeepSeek is only selectable, never the default; see docs/plans/chat-llm-providers.md
+  allow_prc_hosted_provider = true
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted
