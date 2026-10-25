@@ -333,33 +333,17 @@ async function emailCustomerPaymentFailed(invoice: Stripe.Invoice) {
     console.warn(`Invoice ${invoice.id} failed with no customer email; no payment-failed email sent`);
     return;
   }
-  const customerId = idOf(invoice.customer);
+  // A stable link, not a Stripe session URL: a portal session expires, and the email
+  // is read later. /billing/portal opens a fresh session for the signed-in customer.
+  const baseUrl = process.env.NEXTAUTH_URL ?? "https://shorted.com.au";
   await sendPaymentFailedEmail({
     to,
     invoiceId: invoice.id ?? "unknown",
     amountCents: invoice.amount_due,
     currency: invoice.currency,
-    updatePaymentUrl: customerId ? await createPortalLink(customerId) : null,
+    updatePaymentUrl: `${baseUrl}/billing/portal`,
     invoiceUrl: invoice.hosted_invoice_url ?? null,
   });
-}
-
-/**
- * A fresh billing-portal link for the card update in the email. Null on any failure,
- * so the email still goes out with the invoice link.
- */
-async function createPortalLink(customerId: string): Promise<string | null> {
-  const baseUrl = process.env.NEXTAUTH_URL ?? "https://shorted.com.au";
-  try {
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${baseUrl}/pricing`,
-    });
-    return portal.url;
-  } catch (error) {
-    console.warn(`Billing portal link failed: ${error instanceof Error ? error.message : "unknown"}`);
-    return null;
-  }
 }
 
 /**

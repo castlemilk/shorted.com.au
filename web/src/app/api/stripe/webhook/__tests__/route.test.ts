@@ -429,7 +429,7 @@ describe("POST /api/stripe/webhook: dunning, recovery, refunds and disputes", ()
   const customerSends = () =>
     resendMock.mock.calls.map((call) => call[0] as { to: string; idempotencyKey?: string; text: string });
 
-  it("emails the customer once on the first failed attempt, with a card link and the invoice link", async () => {
+  it("emails the customer once on the first failed attempt, with a stable card link and the invoice link", async () => {
     const response = await deliver("invoice.payment_failed", failedInvoice());
 
     expect(response.status).toBe(200);
@@ -438,12 +438,14 @@ describe("POST /api/stripe/webhook: dunning, recovery, refunds and disputes", ()
       to: "buyer@example.test",
       idempotencyKey: "billing-payment-failed-in_fail",
     });
-    expect(customerSends()[0].text).toContain("https://billing.stripe.com/p/session/update");
+    // The card link is Shorted's own page, which opens a fresh portal session on each
+    // click. A Stripe session URL would expire before the email is read.
+    expect(customerSends()[0].text).toContain("https://shorted.com.au/billing/portal");
+    expect(customerSends()[0].text).not.toContain("billing.stripe.com");
     expect(customerSends()[0].text).toContain("https://invoice.stripe.com/i/in_fail");
     expect(customerSends()[0].text).toContain("Your access continues");
-    expect(portalMock).toHaveBeenCalledWith(
-      expect.objectContaining({ customer: "cus_1", return_url: "https://shorted.com.au/pricing" }),
-    );
+    // The email makes no Stripe call of its own.
+    expect(portalMock).not.toHaveBeenCalled();
   });
 
   it("gives the same idempotency key on a redelivery, so Resend sends one email", async () => {
@@ -463,23 +465,21 @@ describe("POST /api/stripe/webhook: dunning, recovery, refunds and disputes", ()
     expect(notifyMock).toHaveBeenCalledTimes(1);
   });
 
-  it("sends no customer email when the subscription is not past_due, such as an incomplete first invoice", async () => {
-    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status: "incomplete" }));
-
-    await deliver("invoice.payment_failed", failedInvoice());
-
-    expect(customerSends()).toHaveLength(0);
-  });
-
-  it("still sends the email with the invoice link when the portal link cannot be made", async () => {
-    portalMock.mockRejectedValue(new Error("portal not configured"));
+  // The failed-payment email tells the customer their access continues while Stripe
+  // retries. That is only true while the subscription is past_due. In any other status
+  // it would be false, so none of these may send it.
+  it.each([
+    ["active", "active"],
+    ["unpaid", "unpaid"],
+    ["canceled", "canceled"],
+    ["incomplete", "incomplete"],
+  ])("sends no customer email when the subscription is %s, not past_due", async (_label, status) => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue(subscription({ status }));
 
     const response = await deliver("invoice.payment_failed", failedInvoice());
 
     expect(response.status).toBe(200);
-    expect(customerSends()).toHaveLength(1);
-    expect(customerSends()[0].text).not.toContain("billing.stripe.com");
-    expect(customerSends()[0].text).toContain("https://invoice.stripe.com/i/in_fail");
+    expect(customerSends()).toHaveLength(0);
   });
 
   it("sends no customer email, and does not fail the webhook, when the invoice has no address", async () => {

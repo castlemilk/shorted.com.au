@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
 import { stripe } from "~/lib/stripe";
 import { auth } from "~/server/auth";
 import { rateLimit } from "~/@/lib/rate-limit";
@@ -16,16 +17,29 @@ import {
 import { getSubscriptionStatus } from "~/app/actions/subscription";
 
 /**
- * Sends a customer who already pays to the Stripe billing portal, on a
- * subscription-update flow for the subscription they have. The plan change then
- * happens in Stripe's own UI, so no second subscription is ever created here.
+ * Who a checkout may act for. The only Stripe customer this route ever opens a portal
+ * for, or reuses for a new session, is the one on the caller's OWN mirror row, which
+ * is keyed by their user id. A customer found by the session email is never used.
  *
- * Returns the portal URL in the same `url` field a checkout session uses, so the
- * client redirects the same way. If the portal session cannot be created the
- * customer gets a 409 that says what to do, never a silent dead end.
+ * The session email comes from the sign-in and may be unverified, so an email match
+ * proves nothing about who owns that Stripe customer. Acting on one would hand a
+ * stranger the billing portal of a paying customer (a portal session can cancel,
+ * re-card or read invoices). So an email match can only refuse, never grant.
+ */
+
+/** The message a customer sees when they already pay and we cannot change it here. */
+const ALREADY_SUBSCRIBED_MESSAGE =
+  "You already have a Shorted subscription. Contact support to change it.";
+
+/**
+ * Sends a customer who already pays to a billing-portal session for their own
+ * customer, the same customer /api/stripe/portal uses.
  *
- * Needs the Stripe customer portal to allow subscription updates, a dashboard
- * setting the repo does not manage. The PR that added this route lists it.
+ * It first tries a subscription-update flow for the live subscription, which lets
+ * the plan change in Stripe's UI. Stripe can refuse that flow for a past_due or
+ * unpaid subscription. So a refusal falls back to a plain portal session, where the
+ * customer can at least update the card. Only if that also fails does the customer
+ * get the contact-support 409.
  */
 async function planSwitchResponse({
   customerId,
@@ -37,10 +51,12 @@ async function planSwitchResponse({
   tier: string;
 }): Promise<NextResponse> {
   const baseUrl = process.env.NEXTAUTH_URL ?? "https://shorted.com.au";
+  const returnUrl = `${baseUrl}/pricing`;
+
   try {
     const portal = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${baseUrl}/pricing`,
+      return_url: returnUrl,
       flow_data: {
         type: "subscription_update",
         subscription_update: { subscription: subscriptionId },
@@ -54,7 +70,25 @@ async function planSwitchResponse({
     });
     return NextResponse.json({ url: portal.url, outcome: "portal_plan_switch" });
   } catch (error) {
-    console.error("Stripe portal plan switch failed:", error);
+    console.warn(
+      `[checkout] plan-switch portal refused (${error instanceof Error ? error.name : "unknown"}); falling back to a card-update portal`,
+    );
+  }
+
+  try {
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: returnUrl,
+    });
+    recordProductEvent({
+      feature: "payment",
+      action: "checkout_create",
+      status: "success",
+      properties: { tier, outcome: "portal_card_update" },
+    });
+    return NextResponse.json({ url: portal.url, outcome: "portal_card_update" });
+  } catch (error) {
+    console.error("Stripe portal session failed:", error);
     recordProductEvent({
       feature: "payment",
       action: "checkout_create",
@@ -62,14 +96,18 @@ async function planSwitchResponse({
       properties: { tier, error_type: "already_subscribed" },
     });
     return NextResponse.json(
-      {
-        error: "already_subscribed",
-        message:
-          "You already have a Shorted subscription. Contact support to change it.",
-      },
+      { error: "already_subscribed", message: ALREADY_SUBSCRIBED_MESSAGE },
       { status: 409 }
     );
   }
+}
+
+/** The subscription a portal should act on: the customer's best live one, if any. */
+async function bestLiveSubscription(customerId: string): Promise<Stripe.Subscription | undefined> {
+  const live = (await listCustomerSubscriptions(customerId)).filter((subscription) =>
+    isLiveStripeStatus(subscription.status),
+  );
+  return pickBestSubscription(live);
 }
 
 /**
@@ -166,67 +204,72 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for existing Stripe customer
-    const existingCustomers = await stripe.customers.list({
-      email: session.user.email,
-      limit: 1,
-    });
-
-    let customerId: string | undefined;
-    const firstCustomer = existingCustomers.data[0];
-    if (firstCustomer) {
-      customerId = firstCustomer.id;
-    }
-
-    // Two places can say a customer already pays: the Stripe customer matched by
-    // this email, and the customer id on the user's own mirror row. The mirror
-    // catches a customer whose Stripe email differs from the session email.
+    // The caller's own customer, from their mirror row. Without it we cannot tell a
+    // first purchase from a second one, so refuse for now rather than risk a second
+    // charge. The customer is told to try again.
     const mirror = await getSubscriptionStatus();
     if (mirror.lookupFailed) {
-      // Continue with the Stripe-side check alone. The email-matched customer
-      // above already catches almost every second subscription; the mirror only
-      // adds a customer whose Stripe email differs from the session email.
-      // Refusing here would turn every billing-backend blip into lost sales from
-      // new customers, which is the more common and costlier failure.
-      console.warn(
-        "[checkout] subscription mirror unavailable; checking Stripe customer only",
+      recordProductEvent({
+        feature: "payment",
+        action: "checkout_create",
+        status: "error",
+        properties: { tier, error_type: "subscription_lookup_failed" },
+      });
+      return NextResponse.json(
+        {
+          error: "subscription_lookup_failed",
+          message: "We couldn't confirm your subscription just now. Try again in a moment.",
+        },
+        { status: 503 }
       );
     }
+    const ownCustomerId = mirror.stripeCustomerId || null;
 
-    const existingCustomerIds = [
-      ...new Set(
-        [customerId, mirror.lookupFailed ? undefined : mirror.stripeCustomerId].filter(
-          (id): id is string => Boolean(id)
-        )
-      ),
-    ];
-    for (const existingCustomerId of existingCustomerIds) {
-      // Checkout does not stop a second live subscription on its own, and a second
-      // one is a second charge the customer did not ask for. So a customer who
-      // already pays is never sent a new session. They are sent to the billing
-      // portal to change the plan they have.
-      const liveSubscriptions = (await listCustomerSubscriptions(existingCustomerId)).filter(
-        (subscription) => isLiveStripeStatus(subscription.status),
-      );
-      const current = pickBestSubscription(liveSubscriptions);
+    if (ownCustomerId) {
+      const current = await bestLiveSubscription(ownCustomerId);
       if (current) {
         return planSwitchResponse({
-          customerId: existingCustomerId,
+          customerId: ownCustomerId,
           subscriptionId: current.id,
           tier,
         });
       }
     }
 
+    // A Stripe customer found by the session email may already pay. The caller does
+    // not own it (the email is unverified), so it is never opened or reused. It can
+    // only refuse: a live subscription there sends the caller to support.
+    const emailMatches = await stripe.customers.list({
+      email: session.user.email,
+      limit: 10,
+    });
+    for (const emailCustomer of emailMatches.data) {
+      if (emailCustomer.id === ownCustomerId) continue;
+      const live = await bestLiveSubscription(emailCustomer.id);
+      if (live) {
+        recordProductEvent({
+          feature: "payment",
+          action: "checkout_create",
+          status: "error",
+          properties: { tier, error_type: "already_subscribed" },
+        });
+        return NextResponse.json(
+          { error: "already_subscribed", message: ALREADY_SUBSCRIBED_MESSAGE },
+          { status: 409 }
+        );
+      }
+    }
+
     // Determine the base URL for redirects
     const baseUrl = process.env.NEXTAUTH_URL ?? "https://shorted.com.au";
 
-    // Create Stripe checkout session
+    // Create Stripe checkout session. It reuses only the caller's own customer. With
+    // none, Stripe takes the email for a new customer.
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
-      customer: customerId,
-      customer_email: customerId ? undefined : session.user.email,
+      customer: ownCustomerId ?? undefined,
+      customer_email: ownCustomerId ? undefined : session.user.email,
       client_reference_id: session.user.id,
       metadata: {
         userId: session.user.id,
