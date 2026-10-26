@@ -95,8 +95,9 @@ jobs:
   portal-content-provenance:
     name: Portal content provenance
     runs-on: [self-hosted, cuttlefish, linux]
-    # Cold partial checkout took 4m15s; leave time for Node setup and assertions.
-    timeout-minutes: 8
+    # Cold partial checkout took 4m15s. The pinned Vercel CLI contract test runs
+    # in this job too, and its install plus fixture server need the extra time.
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
         with:

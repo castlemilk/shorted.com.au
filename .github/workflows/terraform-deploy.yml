@@ -1444,16 +1444,30 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npm exec --yes --ignore-scripts --package=vercel@54.10.2 -- node scripts/vercel-release.mjs preflight
 
+      # Decide before any cloud lookup or build whether production still needs
+      # this commit. A production that already serves a descendant skips the
+      # rest of this job successfully. Fails closed when production cannot be read.
+      - name: Decide whether production needs this release
+        id: release-check
+        timeout-minutes: 5
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/vercel-release.mjs check-promotion
+
       - name: Authenticate to Google Cloud
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
 
       - name: Set up Cloud SDK
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         uses: google-github-actions/setup-gcloud@v3
 
       - name: Resolve Service URLs
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         id: resolve-urls
         env:
           TERRAFORM_SHORTS_URL: ${{ needs.terraform-apply.outputs.shorts-url }}
@@ -1499,6 +1513,7 @@ jobs:
       # or Vercel Dashboard because it contains special characters that break CLI parsing.
       # Environment secrets (prod) override repository secrets with same name.
       - name: Build and upload production deployment
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         id: vercel-deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -1620,6 +1635,10 @@ jobs:
           add_env_pair "MARKET_DATA_API_URL" "${MARKET_DATA_URL:-}"
 
           npm --prefix web ci
+          # Real project pull, after install. The access probe in preflight used
+          # a throwaway directory, so the link and env file first appear here.
+          npx -p vercel@54.10.2 vercel pull --yes --environment production \
+            --project shorted-com-au --scope document-analyser --non-interactive
           npm --prefix web run firebase:preflight
           npm --prefix web run stripe:preflight
 
@@ -1637,19 +1656,14 @@ jobs:
           node scripts/vercel-release.mjs record "$RUNNER_TEMP/vercel-production.json"
 
       - name: Promote Vercel deployment to production
+        id: vercel-promote
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DEPLOYMENT_ID: ${{ steps.vercel-deploy.outputs.deployment-id }}
           DEPLOYMENT_URL: ${{ steps.vercel-deploy.outputs.deployment-url }}
         run: |
           set -euo pipefail
-          if [ "$GITHUB_EVENT_NAME" = push ]; then
-            current_main_sha=$(git ls-remote https://github.com/castlemilk/shorted.com.au.git refs/heads/main | cut -f1)
-            if [ "$current_main_sha" != "$GITHUB_SHA" ]; then
-              echo "::error::A newer main commit exists; refusing stale automatic promotion."
-              exit 1
-            fi
-          fi
           node scripts/vercel-release.mjs verify-deployment
           npx -p vercel@54.10.2 vercel promote "$DEPLOYMENT_URL" \
             --scope document-analyser \
@@ -1657,10 +1671,14 @@ jobs:
             --non-interactive
 
       - name: Verify exact production web commit
+        if: ${{ !cancelled() && steps.vercel-promote.outcome == 'success' }}
+        env:
+          DEPLOYMENT_URL: ${{ steps.vercel-deploy.outputs.deployment-url }}
         run: node scripts/vercel-release.mjs verify-production
 
       - name: Revalidate ISR pages post-promote
         continue-on-error: true
+        if: ${{ !cancelled() && steps.vercel-promote.outcome == 'success' }}
         env:
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
@@ -1701,6 +1719,7 @@ jobs:
 
       - name: Prime static pages after promotion
         continue-on-error: true
+        if: ${{ !cancelled() && steps.vercel-promote.outcome == 'success' }}
         env:
           CACHE_WARM_SECRET: ${{ secrets.CACHE_WARM_SECRET }}
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
@@ -1723,10 +1742,12 @@ jobs:
       # push workflow with a guessed sleep. Failure leaves the deployed release
       # visible for investigation; it does not silently roll back production.
       - name: Install production smoke browser
+        if: ${{ success() && steps.vercel-promote.outcome == 'success' }}
         working-directory: web
         run: npx playwright install --with-deps chromium
 
       - name: Verify promoted production release
+        if: ${{ success() && steps.vercel-promote.outcome == 'success' }}
         working-directory: web
         timeout-minutes: 12
         env:
@@ -1741,6 +1762,7 @@ jobs:
           node e2e/release-smoke-ci.mjs
 
       - name: Production Deployment Summary
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         run: |
           echo "## 🚀 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

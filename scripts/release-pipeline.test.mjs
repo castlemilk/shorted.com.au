@@ -179,6 +179,8 @@ test("production promotion condition rejects PRs, failed checks, failed applies 
     ["cancelled apply", "push", "success", "success", "cancelled", false, false],
     ["skipped apply", "push", "success", "success", "skipped", false, false],
     ["plan-only dispatch", "workflow_dispatch", "success", "success", "skipped", true, false],
+    ["manual dispatch with passing tests and a successful apply", "workflow_dispatch", "success", "success", "success", false, true],
+    ["published tag release with passing tests and a successful apply", "release", "success", "success", "success", false, true],
   ];
   for (const [name, event, tests, secrets, apply, planOnly, expected] of cases) {
     assert.equal(eligible({ event_name: event, event: { inputs: { plan_only: String(planOnly) } } }, {

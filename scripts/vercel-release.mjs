@@ -3,8 +3,11 @@ import {
   appendFileSync,
   readFileSync,
   existsSync,
+  mkdtempSync,
   realpathSync,
+  rmSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
@@ -129,6 +132,61 @@ export function assertRuntime(body, sha) {
   assertSource(sha, body.gitCommitFull);
 }
 
+// The runtime check reads the deployment's own *.vercel.app URL. The apex sits
+// behind Cloudflare's managed challenge, which a CI runner cannot pass.
+export function runtimeUrl(deploymentUrl, sha) {
+  const url = new URL("/api/version", deploymentUrl);
+  url.searchParams.set("release", sha);
+  url.searchParams.set("probe", String(Date.now()));
+  return url;
+}
+
+// Re-reads on commit mismatch only: after `vercel promote` the new deployment
+// can take a moment to serve its own commit. Authorization and transport
+// failures keep their single-attempt semantics from boundedRead.
+export async function verifyRuntime(
+  deploymentUrl,
+  sha,
+  { fetcher = fetch, wait = delay, windowMs = 90_000, now = Date.now } = {},
+) {
+  const deadline = now() + windowMs;
+  let pause = 3_000;
+  for (;;) {
+    try {
+      assertRuntime(
+        await jsonRead(
+          runtimeUrl(deploymentUrl, sha),
+          { "Cache-Control": "no-cache" },
+          fetcher,
+        ),
+        sha,
+      );
+      return;
+    } catch (error) {
+      if (
+        !/Release SHA must exactly match/.test(error.message) ||
+        now() + pause > deadline
+      )
+        throw error;
+    }
+    await wait(pause);
+    pause = Math.min(pause * 2, 15_000);
+  }
+}
+
+// What production serves decides whether this release may promote. A live
+// commit that descends from this one means a newer release already shipped
+// (for example a manual re-run of an old run): skip, do not roll back.
+export function promotionDecision(liveSha, releaseSha, comparison) {
+  if (!shaPattern.test(liveSha ?? ""))
+    throw new Error(
+      "Production did not report a full commit; refusing to promote blind.",
+    );
+  if (liveSha === releaseSha) return "promote";
+  // GitHub compare: "ahead" means the head (live) descends from the base (release).
+  return comparison?.status === "ahead" ? "skip" : "promote";
+}
+
 export async function jsonRead(
   url,
   headers = {},
@@ -185,6 +243,27 @@ async function preflight() {
   if (!process.env.VERCEL_TOKEN)
     throw new Error("The existing CI VERCEL_TOKEN is unavailable.");
   const cli = pinnedCLI();
+  // The access probe runs in a throwaway directory. The pull writes a project
+  // link and an environment file; neither may exist in the source tree before
+  // npm ci, where install scripts could read them. The build pulls for real
+  // after npm ci.
+  const probe = mkdtempSync(join(tmpdir(), "vercel-probe-"));
+  try {
+    await probeAccess(cli, probe);
+    const link = JSON.parse(
+      readFileSync(join(probe, ".vercel/project.json"), "utf8"),
+    );
+    if (link.projectName !== project || !link.projectId || !link.orgId)
+      throw new Error("Vercel project link does not match Shorted production.");
+  } finally {
+    rmSync(probe, { recursive: true, force: true });
+  }
+  console.log(
+    `Production preflight passed for ${process.env.GITHUB_SHA}; Vercel CLI ${CLI_VERSION}, Node ${NODE_VERSION}.`,
+  );
+}
+
+async function probeAccess(cli, cwd) {
   await boundedRead(() => {
     // Run the Node entry point directly. Timing out an npm wrapper could leave
     // its CLI child alive while the next read attempt starts.
@@ -204,6 +283,7 @@ async function preflight() {
       ],
       {
         encoding: "utf8",
+        cwd,
         stdio: ["ignore", "pipe", "pipe"],
         timeout: 60_000,
         killSignal: "SIGKILL",
@@ -217,17 +297,69 @@ async function preflight() {
       message: `${result.stdout ?? ""}\n${result.stderr ?? ""}`,
     };
   });
-  const link = JSON.parse(readFileSync(".vercel/project.json", "utf8"));
-  if (link.projectName !== project || !link.projectId || !link.orgId)
-    throw new Error("Vercel project link does not match Shorted production.");
+}
+
+async function checkPromotion() {
+  currentSource();
+  if (!process.env.VERCEL_TOKEN)
+    throw new Error("The existing CI VERCEL_TOKEN is unavailable.");
+  const repository = process.env.GITHUB_REPOSITORY ?? "";
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repository))
+    throw new Error("GITHUB_REPOSITORY must name the repository.");
+  const listing = new URL("https://api.vercel.com/v6/deployments");
+  listing.searchParams.set("app", project);
+  listing.searchParams.set("slug", scope);
+  listing.searchParams.set("target", "production");
+  listing.searchParams.set("limit", "5");
+  const listed = await jsonRead(listing, {
+    Authorization: `Bearer ${process.env.VERCEL_TOKEN}`,
+  });
+  const current = (listed.deployments ?? []).find(
+    (deployment) =>
+      deployment.target === "production" && deployment.readyState === "READY",
+  );
+  if (!current?.url)
+    throw new Error("No READY production deployment to compare against.");
+  const live = new URL(`https://${current.url}`);
+  if (live.protocol !== "https:" || !live.hostname.endsWith(".vercel.app"))
+    throw new Error("Production deployment URL is not a canonical Vercel URL.");
+  const runtime = await jsonRead(runtimeUrl(live.origin, process.env.GITHUB_SHA), {
+    "Cache-Control": "no-cache",
+  });
+  const sha = process.env.GITHUB_SHA;
+  let comparison;
+  if (runtime.gitCommitFull && runtime.gitCommitFull !== sha) {
+    if (!shaPattern.test(runtime.gitCommitFull))
+      throw new Error(
+        "Production did not report a full commit; refusing to promote blind.",
+      );
+    comparison = await jsonRead(
+      `https://api.github.com/repos/${repository}/compare/${sha}...${runtime.gitCommitFull}`,
+      {
+        Accept: "application/vnd.github+json",
+        ...(process.env.GH_TOKEN
+          ? { Authorization: `Bearer ${process.env.GH_TOKEN}` }
+          : {}),
+      },
+    );
+  }
+  const decision = promotionDecision(runtime.gitCommitFull, sha, comparison);
+  if (process.env.GITHUB_OUTPUT)
+    appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      `promote=${decision === "promote"}\n`,
+    );
   console.log(
-    `Production preflight passed for ${process.env.GITHUB_SHA}; Vercel CLI ${CLI_VERSION}, Node ${NODE_VERSION}.`,
+    decision === "promote"
+      ? `Production serves ${runtime.gitCommitFull}; promoting ${sha}.`
+      : `Production already serves a newer descendant (${runtime.gitCommitFull}) of ${sha}; skipping promotion. This is not a failure.`,
   );
 }
 
 async function main() {
   const [operation, input] = process.argv.slice(2);
   if (operation === "preflight") return preflight();
+  if (operation === "check-promotion") return checkPromotion();
   if (operation === "record") {
     const record = deploymentRecord(JSON.parse(readFileSync(input, "utf8")));
     appendFileSync(
@@ -263,19 +395,22 @@ async function main() {
     return;
   }
   if (operation === "verify-production") {
-    assertSource(process.env.GITHUB_SHA, process.env.GITHUB_SHA);
-    const url = new URL("https://shorted.com.au/api/version");
-    url.searchParams.set("release", process.env.GITHUB_SHA);
-    url.searchParams.set("probe", String(Date.now()));
-    assertRuntime(
-      await jsonRead(url, { "Cache-Control": "no-cache" }),
-      process.env.GITHUB_SHA,
-    );
-    console.log(`Production HTTP runtime accepted ${process.env.GITHUB_SHA}.`);
+    currentSource();
+    const deploymentUrl = new URL(process.env.DEPLOYMENT_URL ?? "");
+    if (
+      deploymentUrl.protocol !== "https:" ||
+      !deploymentUrl.hostname.endsWith(".vercel.app") ||
+      deploymentUrl.origin !== process.env.DEPLOYMENT_URL
+    )
+      throw new Error("Verification needs the promoted canonical Vercel URL.");
+    await verifyRuntime(deploymentUrl.origin, process.env.GITHUB_SHA, {
+      windowMs: Number(process.env.RUNTIME_VERIFY_WINDOW_MS ?? 90_000),
+    });
+    console.log(`Production runtime accepted ${process.env.GITHUB_SHA}.`);
     return;
   }
   throw new Error(
-    "Expected preflight, record, verify-deployment or verify-production.",
+    "Expected preflight, check-promotion, record, verify-deployment or verify-production.",
   );
 }
 
