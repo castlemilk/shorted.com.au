@@ -184,9 +184,10 @@ func TestJWKSKeyRules(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ti := newTestIssuer(t)
 			clk := newClock()
-			ti.publish()
+			// The bad key is the only key published, so the rule under test is
+			// the one that rejects it (a shared kid would trip the duplicate rule).
 			ti.mu.Lock()
-			ti.keys = []map[string]any{good, bad}
+			ti.keys = []map[string]any{bad}
 			ti.mu.Unlock()
 			if _, err := NewVerifier(t.Context(), baseConfig(ti, clk)); err == nil {
 				t.Fatal("NewVerifier accepted a JWKS with a disallowed key")
@@ -273,8 +274,9 @@ func TestClaimTimeRules(t *testing.T) {
 		{"nbf within leeway", func(c jwt.MapClaims) { c["nbf"] = iat + 60; c["exp"] = iat + 660 }, true},
 		{"nbf absent", func(c jwt.MapClaims) { delete(c, "nbf") }, true},
 		{"iat missing", func(c jwt.MapClaims) { delete(c, "iat") }, false},
-		{"iat future beyond leeway", func(c jwt.MapClaims) { c["iat"], c["nbf"], c["exp"] = iat+61, iat+61, iat+661 }, false},
-		{"iat future within leeway", func(c jwt.MapClaims) { c["iat"], c["nbf"], c["exp"] = iat+60, iat+60, iat+660 }, true},
+		// nbf stays at now, so only the iat rule can reject these.
+		{"iat future beyond leeway", func(c jwt.MapClaims) { c["iat"], c["exp"] = iat+61, iat+661 }, false},
+		{"iat future within leeway", func(c jwt.MapClaims) { c["iat"], c["exp"] = iat+60, iat+660 }, true},
 		{"lifetime exactly MaxLifetime", func(c jwt.MapClaims) { c["exp"] = iat + 900 }, true},
 		{"lifetime over MaxLifetime", func(c jwt.MapClaims) { c["exp"] = iat + 901 }, false},
 		{"exp before iat", func(c jwt.MapClaims) { c["exp"] = iat - 1 }, false},
