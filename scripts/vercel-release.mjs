@@ -1,13 +1,13 @@
 import { spawnSync } from "node:child_process";
 import {
   appendFileSync,
-  readFileSync,
   existsSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
@@ -16,6 +16,8 @@ export const CLI_VERSION = "54.10.2";
 export const NODE_VERSION = "24.22.1";
 const project = "shorted-com-au";
 const scope = "document-analyser";
+const productionHost = "shorted.com.au";
+const defaultWindowMs = 90_000;
 const shaPattern = /^[a-f0-9]{40}$/;
 
 export function pinnedCLI(packageRoot) {
@@ -132,8 +134,9 @@ export function assertRuntime(body, sha) {
   assertSource(sha, body.gitCommitFull);
 }
 
-// The runtime check reads the deployment's own *.vercel.app URL. The apex sits
-// behind Cloudflare's managed challenge, which a CI runner cannot pass.
+// The runtime read targets an immutable deployment URL. It proves the built
+// commit is served by THAT deployment. Which deployment production points at
+// is a separate question, answered by the alias (productionAliasDeployment).
 export function runtimeUrl(deploymentUrl, sha) {
   const url = new URL("/api/version", deploymentUrl);
   url.searchParams.set("release", sha);
@@ -141,50 +144,10 @@ export function runtimeUrl(deploymentUrl, sha) {
   return url;
 }
 
-// Re-reads on commit mismatch only: after `vercel promote` the new deployment
-// can take a moment to serve its own commit. Authorization and transport
-// failures keep their single-attempt semantics from boundedRead.
-export async function verifyRuntime(
-  deploymentUrl,
-  sha,
-  { fetcher = fetch, wait = delay, windowMs = 90_000, now = Date.now } = {},
-) {
-  const deadline = now() + windowMs;
-  let pause = 3_000;
-  for (;;) {
-    try {
-      assertRuntime(
-        await jsonRead(
-          runtimeUrl(deploymentUrl, sha),
-          { "Cache-Control": "no-cache" },
-          fetcher,
-        ),
-        sha,
-      );
-      return;
-    } catch (error) {
-      if (
-        !/Release SHA must exactly match/.test(error.message) ||
-        now() + pause > deadline
-      )
-        throw error;
-    }
-    await wait(pause);
-    pause = Math.min(pause * 2, 15_000);
-  }
-}
-
-// What production serves decides whether this release may promote. A live
-// commit that descends from this one means a newer release already shipped
-// (for example a manual re-run of an old run): skip, do not roll back.
-export function promotionDecision(liveSha, releaseSha, comparison) {
-  if (!shaPattern.test(liveSha ?? ""))
-    throw new Error(
-      "Production did not report a full commit; refusing to promote blind.",
-    );
-  if (liveSha === releaseSha) return "promote";
-  // GitHub compare: "ahead" means the head (live) descends from the base (release).
-  return comparison?.status === "ahead" ? "skip" : "promote";
+// Strict: a value that is not a non-negative integer falls back to the default.
+export function runtimeWindowMs(value) {
+  if (value === undefined || !/^\d+$/.test(value)) return defaultWindowMs;
+  return Number(value);
 }
 
 export async function jsonRead(
@@ -235,32 +198,30 @@ function currentSource() {
   }
 }
 
-async function preflight() {
-  process.umask(0o077);
-  currentSource();
-  if (process.versions.node !== NODE_VERSION)
-    throw new Error(`Release requires Node ${NODE_VERSION}.`);
-  if (!process.env.VERCEL_TOKEN)
-    throw new Error("The existing CI VERCEL_TOKEN is unavailable.");
-  const cli = pinnedCLI();
-  // The access probe runs in a throwaway directory. The pull writes a project
-  // link and an environment file; neither may exist in the source tree before
-  // npm ci, where install scripts could read them. The build pulls for real
-  // after npm ci.
-  const probe = mkdtempSync(join(tmpdir(), "vercel-probe-"));
-  try {
-    await probeAccess(cli, probe);
-    const link = JSON.parse(
-      readFileSync(join(probe, ".vercel/project.json"), "utf8"),
-    );
-    if (link.projectName !== project || !link.projectId || !link.orgId)
-      throw new Error("Vercel project link does not match Shorted production.");
-  } finally {
-    rmSync(probe, { recursive: true, force: true });
-  }
-  console.log(
-    `Production preflight passed for ${process.env.GITHUB_SHA}; Vercel CLI ${CLI_VERSION}, Node ${NODE_VERSION}.`,
-  );
+// The link file lives in the runner's temporary directory, outside the source
+// tree. It is written by the preflight and read by the release decision and
+// the post-promotion checks. The build's own pull also writes .vercel/.
+function linkFilePath() {
+  if (!process.env.RUNNER_TEMP)
+    throw new Error("RUNNER_TEMP is required for the Vercel project link.");
+  return join(process.env.RUNNER_TEMP, "shorted-vercel-link.json");
+}
+
+export function validateLink(link) {
+  if (link.projectName !== project || !link.projectId || !link.orgId)
+    throw new Error("Vercel project link does not match Shorted production.");
+  return {
+    projectName: link.projectName,
+    projectId: link.projectId,
+    orgId: link.orgId,
+  };
+}
+
+function readLink() {
+  const path = existsSync(".vercel/project.json")
+    ? ".vercel/project.json"
+    : linkFilePath();
+  return validateLink(JSON.parse(readFileSync(path, "utf8")));
 }
 
 async function probeAccess(cli, cwd) {
@@ -299,51 +260,192 @@ async function probeAccess(cli, cwd) {
   });
 }
 
-async function checkPromotion() {
+async function preflight() {
+  process.umask(0o077);
   currentSource();
+  if (process.versions.node !== NODE_VERSION)
+    throw new Error(`Release requires Node ${NODE_VERSION}.`);
   if (!process.env.VERCEL_TOKEN)
     throw new Error("The existing CI VERCEL_TOKEN is unavailable.");
+  const cli = pinnedCLI();
+  // The access probe pulls into a throwaway directory under RUNNER_TEMP, so
+  // no link or environment file exists in the source tree before npm ci. Only
+  // the validated project link is kept, outside the repository. The build
+  // pulls for real after npm ci.
+  if (!process.env.RUNNER_TEMP)
+    throw new Error("RUNNER_TEMP is required for the Vercel access probe.");
+  const probe = mkdtempSync(join(process.env.RUNNER_TEMP, "vercel-probe-"));
+  try {
+    await probeAccess(cli, probe);
+    const link = validateLink(
+      JSON.parse(readFileSync(join(probe, ".vercel/project.json"), "utf8")),
+    );
+    writeFileSync(linkFilePath(), JSON.stringify(link), { mode: 0o600 });
+  } finally {
+    rmSync(probe, { recursive: true, force: true });
+  }
+  console.log(
+    `Production preflight passed for ${process.env.GITHUB_SHA}; Vercel CLI ${CLI_VERSION}, Node ${NODE_VERSION}.`,
+  );
+}
+
+// Production's alias is the source of truth for what the apex serves.
+export function aliasUrl(orgId) {
+  const url = new URL(`https://api.vercel.com/v4/aliases/${productionHost}`);
+  url.searchParams.set("teamId", orgId);
+  return url;
+}
+
+export function deploymentUrl(id, orgId) {
+  const url = new URL(`https://api.vercel.com/v13/deployments/${id}`);
+  url.searchParams.set("teamId", orgId);
+  return url;
+}
+
+function vercelAuth(token) {
+  return { Authorization: `Bearer ${token}` };
+}
+
+// Returns the deployment the production alias points at, after checking that
+// it belongs to this project and is a READY production deployment. Any read
+// failure throws: the caller treats it as fail closed.
+export async function productionAliasDeployment(link, token, fetcher = fetch) {
+  const alias = await jsonRead(aliasUrl(link.orgId), vercelAuth(token), fetcher);
+  if (!/^dpl_[a-zA-Z0-9]+$/.test(alias.deploymentId ?? ""))
+    throw new Error("Production alias did not name a deployment.");
+  const deployment = await jsonRead(
+    deploymentUrl(alias.deploymentId, link.orgId),
+    vercelAuth(token),
+    fetcher,
+  );
+  const url = new URL(`https://${deployment.url}`);
+  if (
+    deployment.projectId !== link.projectId ||
+    deployment.target !== "production" ||
+    deployment.readyState !== "READY" ||
+    url.protocol !== "https:" ||
+    !url.hostname.endsWith(".vercel.app")
+  )
+    throw new Error(
+      "Production alias does not point at a READY production deployment of this project.",
+    );
+  return { id: alias.deploymentId, url: url.origin };
+}
+
+export function isFullSha(value) {
+  return shaPattern.test(value ?? "");
+}
+
+// Decides from the commit production is serving.
+//  - A full commit equal to this release: promote (idempotent).
+//  - A full commit whose GitHub comparison says "ahead" (live descends from
+//    this release): skip. A newer release already shipped.
+//  - Anything else with a full commit (behind, diverged): promote.
+//  - No full commit at all (a legacy or rolled-back build that predates commit
+//    identity, or "local"): promote. The caller logs a warning. Only a failed
+//    read ever fails closed.
+export function promotionDecision(liveSha, releaseSha, comparison) {
+  if (!isFullSha(liveSha)) return "promote";
+  if (liveSha === releaseSha) return "promote";
+  if (!comparison)
+    throw new Error("A comparison is required for a different live commit.");
+  return comparison.status === "ahead" ? "skip" : "promote";
+}
+
+// Polls the alias until it points at this upload. `vercel promote` can exit 0
+// without moving the alias (no promotion in progress, a skipped promotion, or
+// a rolling release at its first stage), so the alias is the only proof.
+export async function waitForAlias(
+  link,
+  token,
+  expectedId,
+  { fetcher = fetch, wait = delay, windowMs = defaultWindowMs, now = Date.now } = {},
+) {
+  const deadline = now() + windowMs;
+  let pause = 3_000;
+  for (;;) {
+    const alias = await jsonRead(aliasUrl(link.orgId), vercelAuth(token), fetcher);
+    if (alias.deploymentId === expectedId) return;
+    if (now() + pause > deadline)
+      throw new Error(
+        "Production alias did not move to this release within the verification window.",
+      );
+    await wait(pause);
+    pause = Math.min(pause * 2, 15_000);
+  }
+}
+
+// Re-reads the deployment's /api/version on mismatch only, for propagation.
+// Authorization and transport failures keep their single-attempt semantics.
+export async function verifyRuntime(
+  deploymentOrigin,
+  sha,
+  { fetcher = fetch, wait = delay, windowMs = defaultWindowMs, now = Date.now } = {},
+) {
+  const deadline = now() + windowMs;
+  let pause = 3_000;
+  for (;;) {
+    try {
+      assertRuntime(
+        await jsonRead(
+          runtimeUrl(deploymentOrigin, sha),
+          { "Cache-Control": "no-cache" },
+          fetcher,
+        ),
+        sha,
+      );
+      return;
+    } catch (error) {
+      if (
+        !/Release SHA must exactly match/.test(error.message) ||
+        now() + pause > deadline
+      )
+        throw error;
+    }
+    await wait(pause);
+    pause = Math.min(pause * 2, 15_000);
+  }
+}
+
+async function checkPromotion({ gate }) {
+  currentSource();
+  const token = process.env.VERCEL_TOKEN;
+  if (!token) throw new Error("The existing CI VERCEL_TOKEN is unavailable.");
   const repository = process.env.GITHUB_REPOSITORY ?? "";
   if (!/^[\w.-]+\/[\w.-]+$/.test(repository))
     throw new Error("GITHUB_REPOSITORY must name the repository.");
-  const listing = new URL("https://api.vercel.com/v6/deployments");
-  listing.searchParams.set("app", project);
-  listing.searchParams.set("slug", scope);
-  listing.searchParams.set("target", "production");
-  listing.searchParams.set("limit", "5");
-  const listed = await jsonRead(listing, {
-    Authorization: `Bearer ${process.env.VERCEL_TOKEN}`,
-  });
-  const current = (listed.deployments ?? []).find(
-    (deployment) =>
-      deployment.target === "production" && deployment.readyState === "READY",
-  );
-  if (!current?.url)
-    throw new Error("No READY production deployment to compare against.");
-  const live = new URL(`https://${current.url}`);
-  if (live.protocol !== "https:" || !live.hostname.endsWith(".vercel.app"))
-    throw new Error("Production deployment URL is not a canonical Vercel URL.");
-  const runtime = await jsonRead(runtimeUrl(live.origin, process.env.GITHUB_SHA), {
+  const sha = process.env.GITHUB_SHA;
+  const link = readLink();
+  const live = await productionAliasDeployment(link, token);
+  const runtime = await jsonRead(runtimeUrl(live.url, sha), {
     "Cache-Control": "no-cache",
   });
-  const sha = process.env.GITHUB_SHA;
+  const liveSha = runtime.gitCommitFull;
   let comparison;
-  if (runtime.gitCommitFull && runtime.gitCommitFull !== sha) {
-    if (!shaPattern.test(runtime.gitCommitFull))
-      throw new Error(
-        "Production did not report a full commit; refusing to promote blind.",
-      );
+  if (!isFullSha(liveSha)) {
+    console.log(
+      `::warning::Production (${live.id}) reports no full commit identity (${liveSha ?? "missing"}); promoting without a descendant check.`,
+    );
+  } else if (liveSha !== sha) {
+    const headers = { Accept: "application/vnd.github+json" };
+    if (process.env.GH_TOKEN)
+      headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
     comparison = await jsonRead(
-      `https://api.github.com/repos/${repository}/compare/${sha}...${runtime.gitCommitFull}`,
-      {
-        Accept: "application/vnd.github+json",
-        ...(process.env.GH_TOKEN
-          ? { Authorization: `Bearer ${process.env.GH_TOKEN}` }
-          : {}),
-      },
+      `https://api.github.com/repos/${repository}/compare/${sha}...${liveSha}`,
+      headers,
     );
   }
-  const decision = promotionDecision(runtime.gitCommitFull, sha, comparison);
+  const decision = promotionDecision(liveSha, sha, comparison);
+  if (gate) {
+    if (decision === "skip") {
+      console.log(
+        `Production already serves a newer descendant (${liveSha}) of ${sha}; not promoting. This is not a failure.`,
+      );
+      process.exitCode = 2;
+      return;
+    }
+    return;
+  }
   if (process.env.GITHUB_OUTPUT)
     appendFileSync(
       process.env.GITHUB_OUTPUT,
@@ -351,15 +453,39 @@ async function checkPromotion() {
     );
   console.log(
     decision === "promote"
-      ? `Production serves ${runtime.gitCommitFull}; promoting ${sha}.`
-      : `Production already serves a newer descendant (${runtime.gitCommitFull}) of ${sha}; skipping promotion. This is not a failure.`,
+      ? `Production serves ${liveSha ?? "no full commit"}; promoting ${sha}.`
+      : `Production already serves a newer descendant (${liveSha}) of ${sha}; skipping promotion. This is not a failure.`,
+  );
+}
+
+async function verifyProduction() {
+  currentSource();
+  const token = process.env.VERCEL_TOKEN;
+  if (!token) throw new Error("The existing CI VERCEL_TOKEN is unavailable.");
+  const deployment = new URL(process.env.DEPLOYMENT_URL ?? "");
+  if (
+    !/^dpl_[a-zA-Z0-9]+$/.test(process.env.DEPLOYMENT_ID ?? "") ||
+    deployment.protocol !== "https:" ||
+    !deployment.hostname.endsWith(".vercel.app") ||
+    deployment.origin !== process.env.DEPLOYMENT_URL
+  )
+    throw new Error(
+      "Verification needs the uploaded deployment id and its canonical Vercel URL.",
+    );
+  const link = readLink();
+  const windowMs = runtimeWindowMs(process.env.RUNTIME_VERIFY_WINDOW_MS);
+  await waitForAlias(link, token, process.env.DEPLOYMENT_ID, { windowMs });
+  await verifyRuntime(deployment.origin, process.env.GITHUB_SHA, { windowMs });
+  console.log(
+    `Production alias serves ${process.env.DEPLOYMENT_ID} and its runtime reports ${process.env.GITHUB_SHA}.`,
   );
 }
 
 async function main() {
-  const [operation, input] = process.argv.slice(2);
+  const [operation, input, flag] = process.argv.slice(2);
   if (operation === "preflight") return preflight();
-  if (operation === "check-promotion") return checkPromotion();
+  if (operation === "check-promotion")
+    return checkPromotion({ gate: input === "--gate" || flag === "--gate" });
   if (operation === "record") {
     const record = deploymentRecord(JSON.parse(readFileSync(input, "utf8")));
     appendFileSync(
@@ -370,45 +496,29 @@ async function main() {
   }
   if (operation === "verify-deployment") {
     currentSource();
-    const link = JSON.parse(readFileSync(".vercel/project.json", "utf8"));
+    const link = readLink();
     const record = {
       id: process.env.DEPLOYMENT_ID,
       url: process.env.DEPLOYMENT_URL,
     };
     if (
       !/^dpl_[a-zA-Z0-9]+$/.test(record.id ?? "") ||
-      !link.orgId ||
       !process.env.VERCEL_TOKEN
     )
       throw new Error(
-        "Deployment receipt, project link or existing CI token is unavailable.",
+        "Deployment receipt or existing CI token is unavailable.",
       );
-    const url = new URL(`https://api.vercel.com/v13/deployments/${record.id}`);
-    url.searchParams.set("teamId", link.orgId);
-    const deployment = await jsonRead(url, {
-      Authorization: `Bearer ${process.env.VERCEL_TOKEN}`,
-    });
+    const deployment = await jsonRead(
+      deploymentUrl(record.id, link.orgId),
+      vercelAuth(process.env.VERCEL_TOKEN),
+    );
     assertDeployment(deployment, record, link, process.env.GITHUB_SHA);
     console.log(
       `Verified READY production deployment for ${process.env.GITHUB_SHA}.`,
     );
     return;
   }
-  if (operation === "verify-production") {
-    currentSource();
-    const deploymentUrl = new URL(process.env.DEPLOYMENT_URL ?? "");
-    if (
-      deploymentUrl.protocol !== "https:" ||
-      !deploymentUrl.hostname.endsWith(".vercel.app") ||
-      deploymentUrl.origin !== process.env.DEPLOYMENT_URL
-    )
-      throw new Error("Verification needs the promoted canonical Vercel URL.");
-    await verifyRuntime(deploymentUrl.origin, process.env.GITHUB_SHA, {
-      windowMs: Number(process.env.RUNTIME_VERIFY_WINDOW_MS ?? 90_000),
-    });
-    console.log(`Production runtime accepted ${process.env.GITHUB_SHA}.`);
-    return;
-  }
+  if (operation === "verify-production") return verifyProduction();
   throw new Error(
     "Expected preflight, check-promotion, record, verify-deployment or verify-production.",
   );
@@ -420,6 +530,6 @@ if (
 ) {
   main().catch((error) => {
     console.error(`::error::${error.message}`);
-    process.exitCode = 1;
+    process.exitCode = process.exitCode || 1;
   });
 }

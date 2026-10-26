@@ -125,6 +125,11 @@ jobs:
         with:
           node-version: "24"
 
+      # The release guard tests import the root test dependency (yaml), which
+      # only the root lockfile provides. Install scripts stay off.
+      - name: Install root test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       # cost-guardrails pins the paid-Gemini report extractor's run size,
       # workers, pages, budget and retries (contract fundamentals-coverage
       # 6.2); until it was listed here it ran in no CI job.

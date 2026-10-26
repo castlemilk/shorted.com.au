@@ -1404,6 +1404,11 @@ jobs:
     needs: [determine-environment, validate-secrets, terraform-apply, run-tests]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
+    # One production promotion at a time. Tag and dispatch runs must not race
+    # main's promotion; the decision step reads what production serves.
+    concurrency:
+      group: vercel-prod-promote
+      cancel-in-progress: false
     # This job is gated on terraform-apply SUCCEEDING. It used to run always(),
     # so a failed or cancelled apply still promoted the web app against the old
     # API (0d5311ac1 added always() to keep a service-URL fallback alive after an
@@ -1660,25 +1665,41 @@ jobs:
         if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           DEPLOYMENT_ID: ${{ steps.vercel-deploy.outputs.deployment-id }}
           DEPLOYMENT_URL: ${{ steps.vercel-deploy.outputs.deployment-url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # Re-decide immediately before promotion: production may have moved
+          # since the early decision. Exit 2 means a newer descendant is live.
+          gate=0
+          node scripts/vercel-release.mjs check-promotion --gate || gate=$?
+          if [ "$gate" -eq 2 ]; then
+            echo "Production already serves a newer descendant; not promoting."
+            exit 0
+          fi
+          [ "$gate" -eq 0 ] || exit "$gate"
           node scripts/vercel-release.mjs verify-deployment
           npx -p vercel@54.10.2 vercel promote "$DEPLOYMENT_URL" \
             --scope document-analyser \
             --yes \
             --non-interactive
+          # Downstream steps key on this, not on the step outcome: a skipped
+          # promotion is a successful step that promoted nothing.
+          echo "promoted=true" >> "$GITHUB_OUTPUT"
 
       - name: Verify exact production web commit
-        if: ${{ !cancelled() && steps.vercel-promote.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.vercel-promote.outputs.promoted == 'true' }}
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_ID: ${{ steps.vercel-deploy.outputs.deployment-id }}
           DEPLOYMENT_URL: ${{ steps.vercel-deploy.outputs.deployment-url }}
         run: node scripts/vercel-release.mjs verify-production
 
       - name: Revalidate ISR pages post-promote
         continue-on-error: true
-        if: ${{ !cancelled() && steps.vercel-promote.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.vercel-promote.outputs.promoted == 'true' }}
         env:
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
@@ -1719,7 +1740,7 @@ jobs:
 
       - name: Prime static pages after promotion
         continue-on-error: true
-        if: ${{ !cancelled() && steps.vercel-promote.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.vercel-promote.outputs.promoted == 'true' }}
         env:
           CACHE_WARM_SECRET: ${{ secrets.CACHE_WARM_SECRET }}
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
@@ -1742,12 +1763,12 @@ jobs:
       # push workflow with a guessed sleep. Failure leaves the deployed release
       # visible for investigation; it does not silently roll back production.
       - name: Install production smoke browser
-        if: ${{ success() && steps.vercel-promote.outcome == 'success' }}
+        if: ${{ success() && steps.vercel-promote.outputs.promoted == 'true' }}
         working-directory: web
         run: npx playwright install --with-deps chromium
 
       - name: Verify promoted production release
-        if: ${{ success() && steps.vercel-promote.outcome == 'success' }}
+        if: ${{ success() && steps.vercel-promote.outputs.promoted == 'true' }}
         working-directory: web
         timeout-minutes: 12
         env:
