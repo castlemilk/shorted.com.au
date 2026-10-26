@@ -5,7 +5,9 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -49,6 +51,44 @@ func (s *stopSignal) Reason() string {
 // Done is closed when a stop is requested.
 func (s *stopSignal) Done() <-chan struct{} {
 	return s.ch
+}
+
+// startParentPID is the parent PID at process start. It is captured in a package
+// variable initialiser, before the lock and the Chrome warm-up, so a later
+// reparent to launchd (PPID 1) is detected against the real starting parent.
+var startParentPID = os.Getppid()
+
+// installRoundSignals is the signal setup for one `-mode agent` round:
+//   - SIGPIPE is ignored. A process-group signal can kill `| tee` first, and then
+//     the next log write would SIGPIPE-kill the collector before it finishes or
+//     finalizes. Ignored, a write to a dead pipe returns EPIPE and the round
+//     carries on, or stops claiming on the events fd (see crawl_events.go).
+//   - SIGTERM/SIGINT feed watchSignals: the first requests a graceful stop, the
+//     second exits through forceExit.
+//
+// The returned func undoes the Notify and ends the watcher. sigs and exit are
+// injected so the tests can drive the whole path.
+func installRoundSignals(stop *stopSignal, lock *crawlLock, sigs chan os.Signal, exit func(int)) (remove func()) {
+	signal.Ignore(syscall.SIGPIPE)
+	signal.Notify(sigs, syscall.SIGTERM, os.Interrupt)
+	done := make(chan struct{})
+	go watchSignals(sigs, done, stop, forceExit(lock, exit))
+	return func() {
+		signal.Stop(sigs)
+		close(done)
+	}
+}
+
+// forceExit is the second-signal exit. It releases the lock BEFORE exiting, so an
+// immediate exit does not leave a stale lock for the next run to reclaim. A nil
+// lock (tests) skips the release.
+func forceExit(lock *crawlLock, exit func(int)) func(int) {
+	return func(code int) {
+		if lock != nil {
+			lock.release()
+		}
+		exit(code)
+	}
 }
 
 // watchSignals turns OS signals into the stop latch. The first signal requests a

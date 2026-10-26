@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -114,6 +115,10 @@ func newCrawlEventsFromEnv() *crawlEvents {
 		log.Printf("[agent] %s=%q is not a usable fd (need an integer >= 3); events disabled", crawlEventsFDEnv, raw)
 		return nil
 	}
+	// Close-on-exec, so children we exec (the detached Chrome, the playwright
+	// driver) do not inherit the events pipe. Otherwise a future -mode cycle parent
+	// never sees EOF while those children live.
+	syscall.CloseOnExec(fd)
 	return newCrawlEvents(os.NewFile(uintptr(fd), "crawl-events"))
 }
 

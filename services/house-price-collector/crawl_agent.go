@@ -10,10 +10,8 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -531,14 +529,10 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 	// immediate exit does not leave a stale lock behind.
 	stop := newStopSignal()
 	sigs := make(chan os.Signal, 2)
-	signal.Notify(sigs, syscall.SIGTERM, os.Interrupt)
-	done := make(chan struct{})
-	defer close(done)
-	defer signal.Stop(sigs)
-	go watchSignals(sigs, done, stop, func(c int) {
-		lock.release()
-		os.Exit(c)
-	})
+	// SIGPIPE is ignored so a dead `| tee` reader makes writes return EPIPE
+	// instead of killing the collector mid-round (see installRoundSignals).
+	removeSignals := installRoundSignals(stop, lock, sigs, os.Exit)
+	defer removeSignals()
 
 	cfg := loadListingsConfig()
 
@@ -686,42 +680,42 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 		pause: func(ctx context.Context, stopped <-chan struct{}) {
 			jitterSleepUntil(ctx, stopped, cfg.minDelay, cfg.maxDelay)
 		},
-		blocks: blocks,
-		events: events,
-		stop:   stop,
-		ppid:   os.Getppid,
+		blocks:    blocks,
+		events:    events,
+		stop:      stop,
+		ppid:      os.Getppid,
+		startPPID: startParentPID,
+		finalize: func(res *roundResult) {
+			// Refresh MVs + sal-link once at the end of the run (not per job) — on a
+			// DETACHED context, same reason as submit above: finalizing ALREADY-COMMITTED
+			// writes must not die with the run deadline. Observed live: the deadline fired
+			// mid-batch and took the sal-link, the MV refresh AND the revalidate ping with
+			// it. Runs on a cancelled round too: committed work is finalized before exit.
+			events.finalizeStarted()
+			finCtx, finCancel := context.WithTimeout(context.Background(), finalizeTimeout)
+			defer finCancel()
+			if _, err := linkSuburbSalCodes(finCtx, pool); err != nil {
+				log.Printf("[agent] suburb sal_code link failed: %v", err)
+			}
+			if _, err := linkListingSalCodes(finCtx, pool); err != nil {
+				log.Printf("[agent] listing sal_code link failed: %v", err)
+			}
+			if _, err := linkPriceEventSalCodes(finCtx, pool); err != nil {
+				log.Printf("[agent] price-event sal_code link failed: %v", err)
+			}
+			if err := refreshHousingMV(finCtx, pool); err != nil {
+				log.Printf("[agent] mv refresh failed: %v", err)
+				res.fatalErr = true
+				res.fatalDetail = "mv refresh failed: " + err.Error()
+			} else {
+				// Data changed (wroteAny) + MVs refreshed → bust the web tier's
+				// long-TTL housing caches, now or (under the drain wrapper) once
+				// when the drain ends. Best-effort, never fails the run.
+				revalidateAfterCrawlWrite("agent")
+			}
+		},
 	}
 	res := r.run(ctx)
-
-	// Refresh MVs + sal-link once at the end of the run (not per job) — on a
-	// DETACHED context, same reason as submit above: finalizing ALREADY-COMMITTED
-	// writes must not die with the run deadline. Observed live: the deadline fired
-	// mid-batch and took the sal-link, the MV refresh AND the revalidate ping with
-	// it, leaving fresh data invisible on /price-drops until an unrelated later run.
-	if res.wroteAny && !cfg.dryRun {
-		events.finalizeStarted()
-		finCtx, finCancel := context.WithTimeout(context.Background(), finalizeTimeout)
-		if _, err := linkSuburbSalCodes(finCtx, pool); err != nil {
-			log.Printf("[agent] suburb sal_code link failed: %v", err)
-		}
-		if _, err := linkListingSalCodes(finCtx, pool); err != nil {
-			log.Printf("[agent] listing sal_code link failed: %v", err)
-		}
-		if _, err := linkPriceEventSalCodes(finCtx, pool); err != nil {
-			log.Printf("[agent] price-event sal_code link failed: %v", err)
-		}
-		if err := refreshHousingMV(finCtx, pool); err != nil {
-			log.Printf("[agent] mv refresh failed: %v", err)
-			res.fatalErr = true
-			res.fatalDetail = "mv refresh failed: " + err.Error()
-		} else {
-			// Data changed (wroteAny) + MVs refreshed → bust the web tier's
-			// long-TTL housing caches, now or (under the drain wrapper) once
-			// when the drain ends. Best-effort, never fails the run.
-			revalidateAfterCrawlWrite("agent")
-		}
-		finCancel()
-	}
 	*final = res
 
 	// Self-report this round's health so the residential crawl shows up as a tracked
@@ -758,10 +752,7 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 	// the "processed N job(s)" count out of this exact line to decide whether to
 	// loop again — keep the "done: processed <N> job" shape stable.
 	log.Printf("[agent] done: processed %d job(s)", res.processed)
-	code := agentExitCode(res.anyRewarm, res.fatalErr, res.processed)
-	if res.cancelled && !res.fatalErr {
-		code = exitCrawlCancelled
-	}
+	code := finalExitCode(res)
 	switch code {
 	case 3:
 		log.Printf("[agent] REWARM REQUIRED: a sweep tripped the circuit breaker — re-warm the crawl Chrome profile")
@@ -808,6 +799,12 @@ type roundIO struct {
 	stop    *stopSignal
 	// ppid reports the parent PID. Nil means os.Getppid.
 	ppid func() int
+	// startPPID is the parent PID captured at process start (startParentPID).
+	// Zero means "capture from ppid when run starts", which tests use.
+	startPPID int
+	// finalize runs once after the loop when the round wrote anything, cancelled or
+	// not. Nil skips it. It is the MV refresh and sal-link step.
+	finalize func(res *roundResult)
 }
 
 // run is the work loop. Events are emitted here and in submitJob, and nowhere else
@@ -822,7 +819,10 @@ func (r roundIO) run(ctx context.Context) roundResult {
 	if ppid == nil {
 		ppid = os.Getppid
 	}
-	startPPID := ppid()
+	startPPID := r.startPPID
+	if startPPID == 0 {
+		startPPID = ppid()
+	}
 
 	for i := 0; i < r.maxJobs; i++ {
 		// Pause between suburbs BEFORE claiming, so the lease is not held through
@@ -909,6 +909,15 @@ func (r roundIO) run(ctx context.Context) roundResult {
 			break
 		}
 	}
+	// A stop can land during the last job, or during a job that then trips a
+	// blocked-sweep break. The top-of-loop check cannot see either, so latch it here.
+	if reason := stop.Reason(); reason != "" && !res.cancelled {
+		res.cancelled = true
+		res.cancelReason = reason
+	}
+	if res.wroteAny && r.finalize != nil {
+		r.finalize(&res)
+	}
 	return res
 }
 
@@ -947,6 +956,17 @@ func stopReason(stop *stopSignal, ppid func() int, startPPID int, events *crawlE
 		stop.request("event-pipe")
 	}
 	return stop.Reason()
+}
+
+// finalExitCode maps a finished round to its exit code. A cancelled round exits 10
+// ahead of 3 and 0: under the wrapper, 0 starts another round and 3 retries after
+// the cooldown, and a SIGTERM must mean neither. A fatal error (7) still wins,
+// because it is a real fault and the wrapper must see it.
+func finalExitCode(res roundResult) int {
+	if res.cancelled && !res.fatalErr {
+		return exitCrawlCancelled
+	}
+	return agentExitCode(res.anyRewarm, res.fatalErr, res.processed)
 }
 
 // agentExitCode keeps the existing re-warm signal highest priority. Any fatal

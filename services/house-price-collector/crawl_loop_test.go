@@ -237,8 +237,9 @@ func TestEPIPEStopsClaimingAfterCurrentJob(t *testing.T) {
 
 // The same EPIPE through a real pipe whose reader has closed. The write path must
 // return EPIPE and not kill the process.
+// Not parallel: a parallel test's fork inherits the read end and makes the write
+// succeed, which is the flake this was dropped for.
 func TestEPIPEFromRealClosedPipe(t *testing.T) {
-	t.Parallel()
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)

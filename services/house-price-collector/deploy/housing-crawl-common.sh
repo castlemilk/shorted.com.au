@@ -173,8 +173,14 @@ HC_LOCK_OWNED=0
 # live holder's lock.
 hc_release_lock() {
 	if [[ "$HC_LOCK_OWNED" == "1" ]]; then
-		rm -f "$HC_LOCK_DIR/pid" 2>/dev/null || true
-		rmdir "$HC_LOCK_DIR" 2>/dev/null || true
+		# Remove the lock ONLY while its pid file still names us. A lock that was
+		# reclaimed and taken over by another process is not ours to remove.
+		local cur
+		cur="$(/bin/cat "$HC_LOCK_DIR/pid" 2>/dev/null | /usr/bin/tr -dc '0-9')"
+		if [[ "$cur" == "$$" ]]; then
+			rm -f "$HC_LOCK_DIR/pid" 2>/dev/null || true
+			rmdir "$HC_LOCK_DIR" 2>/dev/null || true
+		fi
 		HC_LOCK_OWNED=0
 	fi
 }
@@ -202,6 +208,17 @@ hc_acquire_lock() {
 			exit 0
 		fi
 		# Stale (holder dead or pid file unreadable) — reclaim + retry the mkdir.
+		# Test seam: the cross-language test interleaves a second reclaimer here.
+		if declare -F hc_lock_before_reclaim >/dev/null 2>&1; then hc_lock_before_reclaim; fi
+		# Re-read the pid immediately before removing anything. If it changed since
+		# we judged it stale, another process has reclaimed and taken the lock, so
+		# this run must not remove it. Go's reclaim does the same check.
+		local again=""
+		again="$(/bin/cat "$HC_LOCK_DIR/pid" 2>/dev/null | /usr/bin/tr -dc '0-9')"
+		if [[ "$again" != "$holder" ]]; then
+			echo "$(date -u +%FT%TZ) housing-crawl lock changed during reclaim (pid '${holder:-unknown}' -> '${again:-unknown}') — skipping this run" >>"$log"
+			exit 0
+		fi
 		echo "$(date -u +%FT%TZ) reclaiming stale housing-crawl lock (holder='${holder:-unknown}' not alive)" >>"$log"
 		rm -f "$HC_LOCK_DIR/pid" 2>/dev/null || true
 		rmdir "$HC_LOCK_DIR" 2>/dev/null || true
