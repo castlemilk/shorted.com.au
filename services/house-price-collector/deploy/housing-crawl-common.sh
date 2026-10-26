@@ -173,8 +173,14 @@ HC_LOCK_OWNED=0
 # live holder's lock.
 hc_release_lock() {
 	if [[ "$HC_LOCK_OWNED" == "1" ]]; then
-		rm -f "$HC_LOCK_DIR/pid" 2>/dev/null || true
-		rmdir "$HC_LOCK_DIR" 2>/dev/null || true
+		# Remove the lock ONLY while its pid file still names us. A lock that was
+		# reclaimed and taken over by another process is not ours to remove.
+		local cur
+		cur="$(/bin/cat "$HC_LOCK_DIR/pid" 2>/dev/null | /usr/bin/tr -dc '0-9')"
+		if [[ "$cur" == "$$" ]]; then
+			rm -f "$HC_LOCK_DIR/pid" 2>/dev/null || true
+			rmdir "$HC_LOCK_DIR" 2>/dev/null || true
+		fi
 		HC_LOCK_OWNED=0
 	fi
 }
@@ -202,6 +208,17 @@ hc_acquire_lock() {
 			exit 0
 		fi
 		# Stale (holder dead or pid file unreadable) — reclaim + retry the mkdir.
+		# Test seam: the cross-language test interleaves a second reclaimer here.
+		if declare -F hc_lock_before_reclaim >/dev/null 2>&1; then hc_lock_before_reclaim; fi
+		# Re-read the pid immediately before removing anything. If it changed since
+		# we judged it stale, another process has reclaimed and taken the lock, so
+		# this run must not remove it. Go's reclaim does the same check.
+		local again=""
+		again="$(/bin/cat "$HC_LOCK_DIR/pid" 2>/dev/null | /usr/bin/tr -dc '0-9')"
+		if [[ "$again" != "$holder" ]]; then
+			echo "$(date -u +%FT%TZ) housing-crawl lock changed during reclaim (pid '${holder:-unknown}' -> '${again:-unknown}') — skipping this run" >>"$log"
+			exit 0
+		fi
 		echo "$(date -u +%FT%TZ) reclaiming stale housing-crawl lock (holder='${holder:-unknown}' not alive)" >>"$log"
 		rm -f "$HC_LOCK_DIR/pid" 2>/dev/null || true
 		rmdir "$HC_LOCK_DIR" 2>/dev/null || true
@@ -340,6 +357,21 @@ hc_drain_rounds() {
 			echo "$(date -u +%FT%TZ) drain: crawl environment broken (rc=8) — the Playwright DRIVER is missing, NOT Chrome. Re-warming will not help. Reinstall: ~/bin/house-price-collector -mode install-driver" >>"$LOG"
 			hc_alert "Housing crawl STOPPED: Playwright driver missing (rc=8). Re-warming Chrome will NOT fix it — reinstall the driver. See $LOG."
 			return 8
+			;;
+		10)
+			# A round cancelled on purpose (SIGTERM/SIGINT, or its events stream or
+			# parent went away). It finalized what it committed, so stop without
+			# retrying and without alerting: an operator stop is not a fault.
+			echo "$(date -u +%FT%TZ) drain: round cancelled (rc=10) — stopping; committed work was finalized" >>"$LOG"
+			return 10
+			;;
+		12)
+			# Another live process holds the single-drainer lock. Under this wrapper
+			# the lock is ours and the round is our child, so this means a second
+			# drainer exists. Stop and say so; do not retry against it.
+			echo "$(date -u +%FT%TZ) drain: another drainer holds the lock (rc=12) — stopping" >>"$LOG"
+			hc_alert "Housing crawl STOPPED: another drainer holds the housing-crawl lock (rc=12). See $LOG."
+			return 12
 			;;
 		0)
 			;;

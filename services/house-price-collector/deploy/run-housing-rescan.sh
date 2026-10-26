@@ -79,6 +79,8 @@ for ((pass = 1; pass <= max_passes; pass++)); do
 	4) say "pass $pass could not use Chrome (rc=4) — retrying after ${backoff}s; check the dedicated profile if this repeats" ;;
 	6) say "pass $pass completed but freshness still ALARMs (rc=6) — continuing" ;;
 	0) say "pass $pass ended cleanly but the queue is not empty — continuing" ;;
+	10) say "pass $pass was cancelled (rc=10) — stopping; not retrying"; exit 10 ;;
+	12) say "pass $pass found another drainer holding the lock (rc=12) — stopping; not retrying"; exit 12 ;;
 	*) say "pass $pass exited rc=$rc — continuing" ;;
 	esac
 

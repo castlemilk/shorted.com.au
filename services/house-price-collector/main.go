@@ -52,15 +52,22 @@ func main() {
 // 8 = the crawl ENVIRONMENT is broken (Playwright driver missing) — an
 // operator must reinstall it, no Chrome action or scheduler re-run will help;
 // and 9 = a VG rig ingest committed but held back a year's prune
-// (exitVGPruneHeldBack — thin download or a parser regression).
+// (exitVGPruneHeldBack — thin download or a parser regression); for `-mode agent`
+// 10 = cancelled (SIGTERM/SIGINT, events stream closed, or orphaned: finalized
+// first) and 12 = another live drainer holds the single-drainer lock (crawl_lock.go).
 // Keeping 8 distinct from 4 is deliberate: see crawl_env.go for the outage that
 // bought that distinction. drop-index also returns 1 on a query or write
 // failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | revalidate | all")
+	mode := flag.String("mode", "all", "version | official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | revalidate | all")
 	flag.Parse()
 
+	// version needs no environment at all: it prints the build revision as one
+	// JSON line, so dispatch it before anything else.
+	if *mode == "version" {
+		return runVersion(os.Stdout)
+	}
 	// install-driver needs no DB, no Chrome, no timeout plumbing — dispatch it
 	// before everything so a rig with a broken environment can repair itself
 	// with nothing but the binary.

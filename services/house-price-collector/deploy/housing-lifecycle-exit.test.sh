@@ -543,6 +543,53 @@ EOF
 # matters — Homebrew's go lives at /opt/homebrew/bin/go. Before the candidate
 # probe, every scheduled run logged "unknown" and the provenance feature was
 # dark. Pin it: no go on PATH, a go at a CANDIDATE location, revision logged.
+#  Exit 10 (cancelled) stops the drain at once: no retry, and the rc is kept.
+test_common_cancelled_round_stops_without_retry() {
+	local counter="$TMP_ROOT/cancel.count"
+	: >"$counter"
+	cat >"$FAKE_COLLECTOR" <<EOF
+#!/usr/bin/env bash
+case "\${2:-}" in
+agent)
+	echo x >>"$counter"
+	echo "[agent] done: processed 3 job(s)"
+	exit 10
+	;;
+*)
+	exit 0
+	;;
+esac
+EOF
+	chmod +x "$FAKE_COLLECTOR"
+	run_expect_rc 10 bash -c '
+		set -uo pipefail
+		source "$1/housing-crawl-common.sh"
+		BIN="$2"
+		LOG="$3"
+		CRAWL_DRAIN_MAX_ROUNDS=3
+		hc_drain_until_empty
+	' _ "$DIR" "$FAKE_COLLECTOR" "$TMP_ROOT/common-cancel.log" || return 1
+	if [[ "$(wc -l <"$counter" | tr -d ' ')" -ne 1 ]]; then
+		echo "FAIL: a cancelled round was retried (rounds=$(wc -l <"$counter"))" >&2
+		return 1
+	fi
+}
+
+# Exit 12 (another drainer holds the lock) stops the drain and keeps the rc.
+test_common_lock_held_round_stops_the_drain() {
+	apply_fake 12 0
+	run_expect_rc 12 bash -c '
+		set -uo pipefail
+		source "$1/housing-crawl-common.sh"
+		# hc_alert also raises a desktop notification (osascript). Keep the test silent.
+		hc_notify() { :; }
+		BIN="$2"
+		LOG="$3"
+		CRAWL_DRAIN_MAX_ROUNDS=3
+		hc_drain_until_empty
+	' _ "$DIR" "$FAKE_COLLECTOR" "$TMP_ROOT/common-held.log"
+}
+
 test_provenance_found_without_go_on_path() {
 	local candidate_dir="$TMP_ROOT/candidate-go-bin"
 	mkdir -p "$candidate_dir"
@@ -595,6 +642,8 @@ test_hc_alert_does_not_warn_when_webhook_configured || failures=$((failures + 1)
 test_hc_wait_for_agent_times_out_alerts_and_proceeds || failures=$((failures + 1))
 test_provenance_logged_at_run_start || failures=$((failures + 1))
 test_provenance_found_without_go_on_path || failures=$((failures + 1))
+test_common_cancelled_round_stops_without_retry || failures=$((failures + 1))
+test_common_lock_held_round_stops_the_drain || failures=$((failures + 1))
 
 if ((failures > 0)); then
 	echo "housing lifecycle exit regression: $failures failure(s)" >&2
