@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "brief": {
+    "topic": "",
+    "centralQuestion": "",
+    "audience": "",
+    "editorialCutoff": null,
+    "renderer": "",
+    "cuts": [],
+    "voice": {"kind": "stock", "provider": null, "authorizedScope": null},
+    "publicationAuthorized": false
+  },
+  "claims": [],
+  "claimFields": ["id", "statement", "value", "unit", "currency", "kind", "basis", "periodOrPositionDate", "sourceUrl", "sourceLocator", "publishedAt", "retrievedAt", "verificationStatus", "calculationInputs", "formula"],
+  "scenes": [],
+  "sceneFields": ["id", "purpose", "claimIds", "narration", "pronunciationNotes", "onScreenText", "visualType", "assetBrief", "motionPurpose", "motionSequence", "transition", "estimatedSeconds", "actualStart", "actualEnd", "sourceTreatment", "caveats"],
+  "assets": [],
+  "assetFields": ["id", "sceneId", "path", "sha256", "prompt", "tool", "referenceProvenance", "isIllustration", "dimensions", "crop", "version", "reviewOutcome"],
+  "gaps": [],
+  "quality": {"editorial": "not_run", "visual": "not_run", "listening": "not_run", "encodedMedia": "not_run", "deliveredBytes": "not_run", "userPlayback": "unconfirmed"}
+}
