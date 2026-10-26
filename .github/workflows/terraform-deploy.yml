@@ -1404,6 +1404,11 @@ jobs:
     needs: [determine-environment, validate-secrets, terraform-apply, run-tests]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
+    # One production promotion at a time. Tag and dispatch runs must not race
+    # main's promotion; the decision step reads what production serves.
+    concurrency:
+      group: vercel-prod-promote
+      cancel-in-progress: false
     # This job is gated on terraform-apply SUCCEEDING. It used to run always(),
     # so a failed or cancelled apply still promoted the web app against the old
     # API (0d5311ac1 added always() to keep a service-URL fallback alive after an
@@ -1427,16 +1432,47 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Set up Node for production deployment
+        uses: actions/setup-node@v5
+        with:
+          # Keep the actual build/upload process on the reviewed security patch.
+          node-version: "24.22.1"
+
+      - name: Verify production build Node patch
+        run: |
+          node --test scripts/tests/verify-build-node.test.mjs
+          node scripts/verify-build-node.mjs
+
+      - name: Preflight production Vercel access
+        timeout-minutes: 5
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npm exec --yes --ignore-scripts --package=vercel@54.10.2 -- node scripts/vercel-release.mjs preflight
+
+      # Decide before any cloud lookup or build whether production still needs
+      # this commit. A production that already serves a descendant skips the
+      # rest of this job successfully. Fails closed when production cannot be read.
+      - name: Decide whether production needs this release
+        id: release-check
+        timeout-minutes: 5
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/vercel-release.mjs check-promotion
+
       - name: Authenticate to Google Cloud
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
 
       - name: Set up Cloud SDK
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         uses: google-github-actions/setup-gcloud@v3
 
       - name: Resolve Service URLs
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         id: resolve-urls
         env:
           TERRAFORM_SHORTS_URL: ${{ needs.terraform-apply.outputs.shorts-url }}
@@ -1481,21 +1517,15 @@ jobs:
       # NOTE: AUTH_FIREBASE_PRIVATE_KEY must be set in the prod environment
       # or Vercel Dashboard because it contains special characters that break CLI parsing.
       # Environment secrets (prod) override repository secrets with same name.
-      - name: Set up Node for production deployment
-        uses: actions/setup-node@v5
-        with:
-          # Keep the actual build/upload process on the reviewed security patch.
-          node-version: "24.22.1"
-
-      - name: Verify production build Node patch
-        run: |
-          node --test scripts/tests/verify-build-node.test.mjs
-          node scripts/verify-build-node.mjs
-
       - name: Build and upload production deployment
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         id: vercel-deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SHORTED_RELEASE_SHA: ${{ github.sha }}
+          # Version identity comes from the checked-out commit. Keep the
+          # prebuild hook from rewriting tracked package.json during CI.
+          SKIP_VERSION_BUMP: "1"
           SHORTS_URL: ${{ steps.resolve-urls.outputs.shorts_url }}
           MARKET_DATA_URL: ${{ steps.resolve-urls.outputs.market_data_url }}
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
@@ -1536,6 +1566,7 @@ jobs:
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
         run: |
           set -euo pipefail
+          umask 077
 
           deploy_args=(
             --yes
@@ -1544,14 +1575,18 @@ jobs:
             --skip-domain
             --scope document-analyser
             --archive=tgz
-            --token "$VERCEL_TOKEN"
+            --non-interactive
+            --json
+            --meta "shortedCommitSha=${GITHUB_SHA}"
           )
 
           add_env_pair() {
             local name="$1"
             local value="$2"
             if [ -n "$value" ]; then
-              deploy_args+=(--env "${name}=${value}")
+              # The pinned CLI reads a bare --env NAME from this process's
+              # environment. Secret values never enter its argument vector.
+              deploy_args+=(--env "${name}")
               export "${name}=${value}"
             fi
           }
@@ -1605,6 +1640,10 @@ jobs:
           add_env_pair "MARKET_DATA_API_URL" "${MARKET_DATA_URL:-}"
 
           npm --prefix web ci
+          # Real project pull, after install. The access probe in preflight used
+          # a throwaway directory, so the link and env file first appear here.
+          npx -p vercel@54.10.2 vercel pull --yes --environment production \
+            --project shorted-com-au --scope document-analyser --non-interactive
           npm --prefix web run firebase:preflight
           npm --prefix web run stripe:preflight
 
@@ -1612,30 +1651,55 @@ jobs:
             --yes \
             --target production \
             --scope document-analyser \
-            --token "$VERCEL_TOKEN"
+            --non-interactive
 
           node scripts/verify-vercel-function-limits.mjs .vercel/output
 
-          npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-production.log
-          deployment_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-production.log | tail -n 1)"
-          if [ -z "$deployment_url" ]; then
-            echo "::error::Could not extract Vercel deployment URL"
-            exit 1
-          fi
-          echo "deployment-url=$deployment_url" >> "$GITHUB_OUTPUT"
+          # One upload attempt. An interrupted response may already have created
+          # a deployment: reconcile it before attempting another upload.
+          npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" > "$RUNNER_TEMP/vercel-production.json"
+          node scripts/vercel-release.mjs record "$RUNNER_TEMP/vercel-production.json"
 
       - name: Promote Vercel deployment to production
+        id: vercel-promote
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          DEPLOYMENT_ID: ${{ steps.vercel-deploy.outputs.deployment-id }}
           DEPLOYMENT_URL: ${{ steps.vercel-deploy.outputs.deployment-url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
+          set -euo pipefail
+          # Re-decide immediately before promotion: production may have moved
+          # since the early decision. Exit 2 means a newer descendant is live.
+          gate=0
+          node scripts/vercel-release.mjs check-promotion --gate || gate=$?
+          if [ "$gate" -eq 2 ]; then
+            echo "Production already serves a newer descendant; not promoting."
+            exit 0
+          fi
+          [ "$gate" -eq 0 ] || exit "$gate"
+          node scripts/vercel-release.mjs verify-deployment
           npx -p vercel@54.10.2 vercel promote "$DEPLOYMENT_URL" \
             --scope document-analyser \
             --yes \
-            --token "$VERCEL_TOKEN"
+            --non-interactive
+          # Downstream steps key on this, not on the step outcome: a skipped
+          # promotion is a successful step that promoted nothing.
+          echo "promoted=true" >> "$GITHUB_OUTPUT"
+
+      - name: Verify exact production web commit
+        if: ${{ !cancelled() && steps.vercel-promote.outputs.promoted == 'true' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_ID: ${{ steps.vercel-deploy.outputs.deployment-id }}
+          DEPLOYMENT_URL: ${{ steps.vercel-deploy.outputs.deployment-url }}
+        run: node scripts/vercel-release.mjs verify-production
 
       - name: Revalidate ISR pages post-promote
         continue-on-error: true
+        if: ${{ !cancelled() && steps.vercel-promote.outputs.promoted == 'true' }}
         env:
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
@@ -1676,6 +1740,7 @@ jobs:
 
       - name: Prime static pages after promotion
         continue-on-error: true
+        if: ${{ !cancelled() && steps.vercel-promote.outputs.promoted == 'true' }}
         env:
           CACHE_WARM_SECRET: ${{ secrets.CACHE_WARM_SECRET }}
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
@@ -1698,10 +1763,12 @@ jobs:
       # push workflow with a guessed sleep. Failure leaves the deployed release
       # visible for investigation; it does not silently roll back production.
       - name: Install production smoke browser
+        if: ${{ success() && steps.vercel-promote.outputs.promoted == 'true' }}
         working-directory: web
         run: npx playwright install --with-deps chromium
 
       - name: Verify promoted production release
+        if: ${{ success() && steps.vercel-promote.outputs.promoted == 'true' }}
         working-directory: web
         timeout-minutes: 12
         env:
@@ -1716,6 +1783,7 @@ jobs:
           node e2e/release-smoke-ci.mjs
 
       - name: Production Deployment Summary
+        if: ${{ success() && steps.release-check.outputs.promote == 'true' }}
         run: |
           echo "## 🚀 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

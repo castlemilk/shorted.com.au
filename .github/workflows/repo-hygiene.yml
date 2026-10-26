@@ -30,6 +30,10 @@ on:
       - "scripts/tests/shorts-container-password.test.mjs"
       - ".github/workflows/perf-budget.yml"
       - "scripts/release-pipeline.test.mjs"
+      - "scripts/vercel-release.mjs"
+      - "scripts/verify-web-release-artifact.mjs"
+      - "scripts/contract-tests/vercel-cli.mjs"
+      - "scripts/tests/vercel-release.test.mjs"
       - "scripts/bundle-budget-ci.test.mjs"
       - "scripts/tests/browser-analytics-isolation.test.mjs"
       - "scripts/tests/scoped-release-headers.test.mjs"
@@ -91,8 +95,9 @@ jobs:
   portal-content-provenance:
     name: Portal content provenance
     runs-on: [self-hosted, cuttlefish, linux]
-    # Cold partial checkout took 4m15s; leave time for Node setup and assertions.
-    timeout-minutes: 8
+    # Cold partial checkout took 4m15s. The pinned Vercel CLI contract test runs
+    # in this job too, and its install plus fixture server need the extra time.
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
         with:
@@ -120,11 +125,23 @@ jobs:
         with:
           node-version: "24"
 
+      # The release guard tests import the root test dependency (yaml), which
+      # only the root lockfile provides. Install scripts stay off.
+      - name: Install root test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       # cost-guardrails pins the paid-Gemini report extractor's run size,
       # workers, pages, budget and retries (contract fundamentals-coverage
       # 6.2); until it was listed here it ran in no CI job.
       - name: Test repository hygiene tooling
         run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs scripts/tests/shorts-container-password.test.mjs scripts/tests/integration-image-prefetch.test.mjs scripts/tests/vke-jobs-cutover.test.mjs terraform/modules/report-extractor/cost-guardrails.test.mjs scripts/release-pipeline.test.mjs scripts/bundle-budget-ci.test.mjs scripts/tests/browser-analytics-isolation.test.mjs scripts/tests/scoped-release-headers.test.mjs scripts/tests/testing-bypass-scope.test.mjs scripts/tests/stock-tab-redirects.test.mjs scripts/tests/route-kinds.test.mjs scripts/tests/stock-chart-chunks.test.mjs scripts/tests/release-page-readiness.test.mjs scripts/tests/test-db-target.test.mjs
+
+      - name: Production release guard contracts
+        run: node --test scripts/tests/vercel-release.test.mjs
+
+      - name: Pinned Vercel CLI contracts against a loopback fake API
+        timeout-minutes: 2
+        run: npm exec --yes --ignore-scripts --registry=https://registry.npmjs.org --package=vercel@54.10.2 -- node scripts/contract-tests/vercel-cli.mjs
 
       # These assert properties of migrations that prod REPLAYS on every deploy
       # from a hardcoded allowlist — most importantly that 000095 stays last, so

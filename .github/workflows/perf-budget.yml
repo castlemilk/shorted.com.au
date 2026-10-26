@@ -13,6 +13,8 @@ on:
       - "web/**"
       - "docs/perf/**"
       - ".github/workflows/perf-budget.yml"
+      - "scripts/vercel-release.mjs"
+      - "scripts/verify-web-release-artifact.mjs"
   workflow_dispatch:
 
 concurrency:
@@ -48,16 +50,27 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          node-version: "24.22.1"
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
       - name: Production build
+        id: production-build
         run: |
-          set -o pipefail
+          set -euo pipefail
+          SHORTED_RELEASE_SHA="$(git rev-parse HEAD)"
+          export SHORTED_RELEASE_SHA
+          echo "release-sha=$SHORTED_RELEASE_SHA" >> "$GITHUB_OUTPUT"
           mkdir -p perf-results
           npx next build 2>&1 | tee perf-results/build.log
+
+      - name: Verify compiled release identity and unchanged source
+        env:
+          RELEASE_SOURCE_SHA: ${{ steps.production-build.outputs.release-sha }}
+        run: |
+          node ../scripts/verify-web-release-artifact.mjs .next "$RELEASE_SOURCE_SHA"
+          git diff --exit-code
 
       # Bundle budget (blocking)
       - name: Bundle budget vs baseline

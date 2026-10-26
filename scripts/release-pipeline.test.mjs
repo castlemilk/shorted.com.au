@@ -62,7 +62,7 @@ test("CI has no PR preview workflow or dangling preview-job dependency", () => {
 test("bundle CI remains blocking without a browser or Lighthouse server", () => {
   const workflow = read(".github/workflows/perf-budget.yml");
   assert.match(workflow, /name: Bundle budget/);
-  assert.match(workflow, /set -o pipefail/);
+  assert.match(workflow, /set -(?:euo|o) pipefail/);
   assert.match(workflow, /npx next build 2>&1 \| tee perf-results\/build\.log/);
   assert.match(workflow, /node scripts\/bundle-budget\.mjs --build-log perf-results\/build\.log --compare \.\.\/docs\/perf\/bundle-baseline\.json/);
   assert.doesNotMatch(workflow, /continue-on-error|lighthouse-bench|playwright install|next start|Start production server/);
@@ -179,6 +179,8 @@ test("production promotion condition rejects PRs, failed checks, failed applies 
     ["cancelled apply", "push", "success", "success", "cancelled", false, false],
     ["skipped apply", "push", "success", "success", "skipped", false, false],
     ["plan-only dispatch", "workflow_dispatch", "success", "success", "skipped", true, false],
+    ["manual dispatch with passing tests and a successful apply", "workflow_dispatch", "success", "success", "success", false, true],
+    ["published tag release with passing tests and a successful apply", "release", "success", "success", "success", false, true],
   ];
   for (const [name, event, tests, secrets, apply, planOnly, expected] of cases) {
     assert.equal(eligible({ event_name: event, event: { inputs: { plan_only: String(planOnly) } } }, {

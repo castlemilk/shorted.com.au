@@ -9,19 +9,26 @@ interface RuntimeConfig {
   environment?: string;
 }
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const { publicRuntimeConfig }: { publicRuntimeConfig: RuntimeConfig } =
-    getConfig();
+  // next/config can be unavailable in the App Router's standalone runtime.
+  const config = getConfig() as
+    | { publicRuntimeConfig?: RuntimeConfig }
+    | undefined;
+  const publicRuntimeConfig = config?.publicRuntimeConfig;
 
-  return NextResponse.json({
-    version: publicRuntimeConfig?.version ?? "dev",
-    buildDate: publicRuntimeConfig?.buildDate ?? new Date().toISOString(),
-    gitCommit: publicRuntimeConfig?.gitCommit ?? "local",
-    gitBranch: publicRuntimeConfig?.gitBranch ?? "local",
-    environment: publicRuntimeConfig?.environment ?? "development",
-    uptime: process.uptime(),
-    nodeVersion: process.version,
-  });
+  return NextResponse.json(
+    {
+      version: publicRuntimeConfig?.version ?? "dev",
+      buildDate: publicRuntimeConfig?.buildDate ?? new Date().toISOString(),
+      gitCommit: publicRuntimeConfig?.gitCommit ?? "local",
+      gitCommitFull: process.env.NEXT_PUBLIC_RELEASE_COMMIT ?? "local",
+      gitBranch: publicRuntimeConfig?.gitBranch ?? "local",
+      environment: publicRuntimeConfig?.environment ?? "development",
+      uptime: process.uptime(),
+      nodeVersion: process.version,
+    },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }
-
