@@ -10,8 +10,10 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -498,13 +500,45 @@ func titleCaseSuburb(s string) string {
 
 // runAgent drains the brandbrain crawl queue and returns a process EXIT CODE:
 // 0 = ok / nothing to do, 3 = a sweep tripped the re-warm signal, 4 = the crawl
-// fetcher couldn't init, and 7 = fatal agent infrastructure or finalizer failure.
-func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
+// fetcher couldn't init, 7 = fatal agent infrastructure or finalizer failure,
+// 8 = the crawl environment is broken, 10 = cancelled (SIGTERM/SIGINT, the events
+// stream closed, or the process was orphaned), 12 = another live drainer holds
+// the single-drainer lock. When CRAWL_EVENTS_FD is set, every return emits exactly
+// one round_done event (see crawl_events.go).
+func runAgent(ctx context.Context, pool *pgxpool.Pool) (code int) {
+	events := newCrawlEventsFromEnv()
+	var final roundResult
+	defer func() { events.roundDone(final, code) }()
+
 	acfg := loadAgentConfig()
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
 		log.Printf("[agent] FATAL: BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required")
 		return 7
 	}
+
+	lock := newCrawlLockFromEnv()
+	return withCrawlLock(lock, func() int {
+		return runAgentRound(ctx, pool, acfg, lock, events, &final)
+	})
+}
+
+// runAgentRound is one round, run while holding the single-drainer lock. It
+// installs the signal handling, runs the Chrome preflight and fetcher setup, runs
+// the work loop (roundIO.run), then finalizes and writes the health record.
+func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lock *crawlLock, events *crawlEvents, final *roundResult) int {
+	// The first SIGTERM/SIGINT requests a graceful stop (finish the current suburb,
+	// finalize, exit 10). A second exits at once. The lock is released first so an
+	// immediate exit does not leave a stale lock behind.
+	stop := newStopSignal()
+	sigs := make(chan os.Signal, 2)
+	signal.Notify(sigs, syscall.SIGTERM, os.Interrupt)
+	done := make(chan struct{})
+	defer close(done)
+	defer signal.Stop(sigs)
+	go watchSignals(sigs, done, stop, func(c int) {
+		lock.release()
+		os.Exit(c)
+	})
 
 	cfg := loadListingsConfig()
 
@@ -627,128 +661,45 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	tel := newTelemetryWriter(loadTelemetryConfig())
 	defer tel.Close()
 
-	anyRewarm := false
-	wroteAny := false
-	done := 0
 	// Escalates only when DISTINCT suburbs block back to back (see blockTracker).
 	// CRAWL_AGENT_BLOCK_TRIP defaults to 2, preserving today's threshold; a long
 	// full-catalog pass, where isolated bad targets are expected, can raise it.
 	blocks := newBlockTracker(envInt("CRAWL_AGENT_BLOCK_TRIP", 2))
-	// Health-record accumulators for this round (see crawl_run_status.go): counts of
-	// suburbs, listings, events, and blocked sweeps, plus any fatal queue/finalizer
-	// error that prevented the round from completing its lifecycle.
-	succeeded := 0
-	totalListings := 0
-	totalEvents := 0
-	totalBlocked := 0
-	fatalErr := false
-	fatalDetail := ""
-	for i := 0; i < acfg.maxJobs; i++ {
-		// If EVERY source is circuit-open, the whole session is blocked: stop
-		// claiming (leaving those suburbs pending for the next warm run) rather
-		// than burn the queue on jobs that would crawl nothing.
-		if allOpen, rem := cb.allOpen(circuitSources, time.Now().UTC()); allOpen {
-			log.Printf("[agent] all sources circuit-open (session blocked) — stopping to protect the queue; longest backoff %s", rem.Round(time.Second))
-			anyRewarm = true
-			break
-		}
-		job, err := client.claim(ctx)
-		if err != nil {
-			log.Printf("[agent] claim error: %v", err)
-			fatalErr = true
-			fatalDetail = "claim failed: " + err.Error()
-			break
-		}
-		if job == nil {
-			// NOTE: the drain-until-empty wrapper (deploy/housing-crawl-common.sh)
-			// greps this exact "[agent] no more jobs" line to stop looping — keep
-			// the wording stable if this is ever reworded.
-			log.Printf("[agent] no more jobs")
-			break
-		}
-		if done > 0 {
-			jitterSleep(ctx, cfg.minDelay, cfg.maxDelay)
-		}
-		summary, status, errMsg, wrote, retryAfter := crawlAgentJob(ctx, pool, fetcher, cfg, job, rs, cb, tel)
-		wroteAny = wroteAny || wrote
-		// Accumulate this suburb's counts into the round totals for the health record.
-		totalListings += summary.Listings
-		totalEvents += summary.Events
-		totalBlocked += summary.BlockedSweeps
-		if status == "succeeded" {
-			succeeded++
-		}
-		if summary.NeedsRewarm {
-			anyRewarm = true
-		}
-		// A DRY run must NOT submit: submit is terminal in the queue, so a dry run
-		// reporting "succeeded" would CONSUME the pending job without persisting
-		// anything (it wouldn't re-serve to a real run until it went stale). Skip
-		// the submit — the claim's lease simply expires and the job re-pends. The
-		// rest of the loop (logging, block-detection) runs unchanged either way.
-		if !cfg.dryRun {
-			// Report on a DETACHED context (+ its own retries in do): reporting the
-			// result of ALREADY-COMPLETED work must not be killed by the crawl deadline
-			// (ctx) firing between the write and the submit — that would orphan the
-			// job in the queue and lose the counts.
-			subCtx, subCancel := context.WithTimeout(context.Background(), 45*time.Second)
-			if err := client.submit(subCtx, job.ID, status, &summary, errMsg, retryAfter); err != nil {
-				log.Printf("[agent] submit error (job=%s): %v", job.ID, err)
-				// A brandbrain that predates the deferred outcome rejects it. Rather
-				// than orphan the job in_progress until its lease expires (which
-				// burns the attempt this defer was refunding), fall back to the old
-				// behaviour for that deploy window only.
-				if status == "deferred" {
-					log.Printf("[agent] queue rejected the deferred outcome — falling back to 'failed' (deploy brandbrain first to keep the attempt refund)")
-					if err := client.submit(subCtx, job.ID, "failed", &summary, errMsg, 0); err != nil {
-						log.Printf("[agent] fallback submit error (job=%s): %v", job.ID, err)
-					}
-				}
-			}
-			subCancel()
-		}
-		dry := ""
-		if cfg.dryRun {
-			dry = " DRY(not submitted)"
-		}
-		log.Printf("[agent] job %s %s/%s → %s: listings=%d events=%d blocked=%d skipped=%d%s", job.ID, job.Suburb, job.Tier, status, summary.Listings, summary.Events, summary.BlockedSweeps, summary.SkippedRows, dry)
-		done++
 
-		// A job that wrote no events off a blocked/poisoned sweep means the browser
-		// session has gone cold — Kasada/Akamai serving stubs or poison, or an IP
-		// throttle after several heavy sweeps. The submit above marked it failed.
-		// Two such jobs in a row ⇒ the session is degraded, so STOP claiming and
-		// flag a re-warm (exit 3) instead of burning the rest of the still-PENDING
-		// queue on a session that will keep returning blocked — those un-claimed
-		// suburbs stay pending for the next warm run, and (since brandbrain PR
-		// #168) the two that already blocked auto-re-pend too while
-		// attempts<max_attempts, so a later warm run retries them for free.
-		// (Observed live: New Farm then Toowong both blocked back-to-back once
-		// the session throttled.)
-		// A job that wrote no events off a blocked sweep is either a cold session
-		// or a single bad target; blockTracker tells them apart by suburb, so one
-		// pathological suburb re-served by the queue no longer halts a healthy
-		// pass. Observed live: Hinchinbrook/rea blocked twice 41s apart and
-		// stopped a drain that had just crawled 6 suburbs cleanly, leaving 300
-		// healthy pending jobs untouched. The bad target still fails and still
-		// burns its attempts toward max_attempts, so it goes terminal on its own.
-		degraded, sameSuburb := blocks.record(job.Suburb, status == "failed" && summary.Events == 0 && summary.BlockedSweeps > 0)
-		if sameSuburb {
-			log.Printf("[agent] %s blocked again — same suburb re-served, treating as a bad target rather than a cold session; continuing", job.Suburb)
-		}
-		if degraded {
-			log.Printf("[agent] %d consecutive blocked sweeps across DIFFERENT suburbs — session degraded; stopping to re-warm before the queue is burned", blocks.consec)
-			anyRewarm = true
-			break
-		}
+	r := roundIO{
+		maxJobs: acfg.maxJobs,
+		dryRun:  cfg.dryRun,
+		claim:   client.claim,
+		allOpen: func() (bool, time.Duration) { return cb.allOpen(circuitSources, time.Now().UTC()) },
+		runJob: func(ctx context.Context, job *agentCrawlJob) (crawlJobSummary, string, string, bool, time.Duration) {
+			return crawlAgentJob(ctx, pool, fetcher, cfg, job, rs, cb, tel, events)
+		},
+		submit: func(_ context.Context, jobID, status string, summary *crawlJobSummary, errMsg string, retryAfter time.Duration) error {
+			// Report on a DETACHED context with its own deadline: reporting the result
+			// of ALREADY-COMPLETED work must not be killed by the crawl deadline firing
+			// between the write and the submit — that would orphan the job in the queue
+			// and lose the counts.
+			subCtx, subCancel := context.WithTimeout(context.Background(), 45*time.Second)
+			defer subCancel()
+			return client.submit(subCtx, jobID, status, summary, errMsg, retryAfter)
+		},
+		pause: func(ctx context.Context, stopped <-chan struct{}) {
+			jitterSleepUntil(ctx, stopped, cfg.minDelay, cfg.maxDelay)
+		},
+		blocks: blocks,
+		events: events,
+		stop:   stop,
+		ppid:   os.Getppid,
 	}
+	res := r.run(ctx)
 
 	// Refresh MVs + sal-link once at the end of the run (not per job) — on a
 	// DETACHED context, same reason as submit above: finalizing ALREADY-COMMITTED
 	// writes must not die with the run deadline. Observed live: the deadline fired
 	// mid-batch and took the sal-link, the MV refresh AND the revalidate ping with
 	// it, leaving fresh data invisible on /price-drops until an unrelated later run.
-	if wroteAny && !cfg.dryRun {
+	if res.wroteAny && !cfg.dryRun {
+		events.finalizeStarted()
 		finCtx, finCancel := context.WithTimeout(context.Background(), finalizeTimeout)
 		if _, err := linkSuburbSalCodes(finCtx, pool); err != nil {
 			log.Printf("[agent] suburb sal_code link failed: %v", err)
@@ -761,8 +712,8 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		}
 		if err := refreshHousingMV(finCtx, pool); err != nil {
 			log.Printf("[agent] mv refresh failed: %v", err)
-			fatalErr = true
-			fatalDetail = "mv refresh failed: " + err.Error()
+			res.fatalErr = true
+			res.fatalDetail = "mv refresh failed: " + err.Error()
 		} else {
 			// Data changed (wroteAny) + MVs refreshed → bust the web tier's
 			// long-TTL housing caches, now or (under the drain wrapper) once
@@ -771,16 +722,21 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 		}
 		finCancel()
 	}
+	*final = res
+
 	// Self-report this round's health so the residential crawl shows up as a tracked
 	// scheduled job in the admin dashboard (see crawl_run_status.go). Best-effort +
 	// detached; skipped for DRY runs (which never submit / persist). Rounds sharing
 	// CRAWL_RUN_ID accumulate into one row for the whole launchd run.
 	if !cfg.dryRun {
-		runStatus := deriveCrawlRunStatus(totalEvents, totalBlocked, done, anyRewarm, fatalErr)
+		runStatus := deriveCrawlRunStatus(res.events, res.blockedSweeps, res.processed, res.anyRewarm, res.fatalErr)
 		detail := fmt.Sprintf("%d/%d suburbs done, %d listings, %d events, %d blocked sweep(s)",
-			succeeded, done, totalListings, totalEvents, totalBlocked)
-		if fatalDetail != "" {
-			detail += "; " + fatalDetail
+			res.succeeded, res.processed, res.listings, res.events, res.blockedSweeps)
+		if res.fatalDetail != "" {
+			detail += "; " + res.fatalDetail
+		}
+		if res.cancelled {
+			detail += "; cancelled (" + res.cancelReason + ")"
 		}
 		writeCrawlRunStatus(crawlRunStatusRecord{
 			RunType:         runType,
@@ -788,12 +744,12 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 			RunID:           runID,
 			StartedAt:       runStart,
 			Status:          runStatus,
-			SuburbsSelected: done,
-			SuburbsDone:     succeeded,
-			ListingsTouched: totalListings,
-			EventsWritten:   totalEvents,
-			BlockedCount:    totalBlocked,
-			RewarmNeeded:    anyRewarm,
+			SuburbsSelected: res.processed,
+			SuburbsDone:     res.succeeded,
+			ListingsTouched: res.listings,
+			EventsWritten:   res.events,
+			BlockedCount:    res.blockedSweeps,
+			RewarmNeeded:    res.anyRewarm,
 			Detail:          detail,
 		}, pool)
 	}
@@ -801,15 +757,196 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) int {
 	// NOTE: the drain-until-empty wrapper (deploy/housing-crawl-common.sh) parses
 	// the "processed N job(s)" count out of this exact line to decide whether to
 	// loop again — keep the "done: processed <N> job" shape stable.
-	log.Printf("[agent] done: processed %d job(s)", done)
-	code := agentExitCode(anyRewarm, fatalErr, done)
+	log.Printf("[agent] done: processed %d job(s)", res.processed)
+	code := agentExitCode(res.anyRewarm, res.fatalErr, res.processed)
+	if res.cancelled && !res.fatalErr {
+		code = exitCrawlCancelled
+	}
 	switch code {
 	case 3:
 		log.Printf("[agent] REWARM REQUIRED: a sweep tripped the circuit breaker — re-warm the crawl Chrome profile")
 	case 7:
 		log.Printf("[agent] FATAL: agent infrastructure or finalizer failed")
+	case exitCrawlCancelled:
+		log.Printf("[agent] CANCELLED (%s): stopped early; committed work is finalized (exit %d)", res.cancelReason, code)
 	}
 	return code
+}
+
+// roundResult is what one round's work loop produced. It feeds the finalize step,
+// the health record, the round_done event and the exit code.
+type roundResult struct {
+	processed     int
+	succeeded     int
+	failed        int
+	deferred      int
+	listings      int
+	events        int
+	blockedSweeps int
+	wroteAny      bool
+	anyRewarm     bool
+	fatalErr      bool
+	fatalDetail   string
+	cancelled     bool
+	cancelReason  string
+}
+
+// roundIO is the seam around the per-round work loop. runAgentRound wires it to
+// the brandbrain client, crawlAgentJob and the circuit breaker. The tests wire
+// fakes, so the loop's stop, event and submit rules run without a database, a
+// browser or a queue.
+type roundIO struct {
+	maxJobs int
+	dryRun  bool
+	claim   func(ctx context.Context) (*agentCrawlJob, error)
+	allOpen func() (bool, time.Duration)
+	runJob  func(ctx context.Context, job *agentCrawlJob) (crawlJobSummary, string, string, bool, time.Duration)
+	submit  func(ctx context.Context, jobID, status string, summary *crawlJobSummary, errMsg string, retryAfter time.Duration) error
+	pause   func(ctx context.Context, stopped <-chan struct{})
+	blocks  *blockTracker
+	events  *crawlEvents
+	stop    *stopSignal
+	// ppid reports the parent PID. Nil means os.Getppid.
+	ppid func() int
+}
+
+// run is the work loop. Events are emitted here and in submitJob, and nowhere else
+// in the round: no timer, no ticker, no heartbeat.
+func (r roundIO) run(ctx context.Context) roundResult {
+	var res roundResult
+	stop := r.stop
+	if stop == nil {
+		stop = newStopSignal()
+	}
+	ppid := r.ppid
+	if ppid == nil {
+		ppid = os.Getppid
+	}
+	startPPID := ppid()
+
+	for i := 0; i < r.maxJobs; i++ {
+		// Pause between suburbs BEFORE claiming, so the lease is not held through
+		// the jitter, and a stop that lands during the pause is seen below before
+		// another job is taken.
+		if res.processed > 0 {
+			r.pause(ctx, stop.Done())
+		}
+		if reason := stopReason(stop, ppid, startPPID, r.events); reason != "" {
+			res.cancelled = true
+			res.cancelReason = reason
+			log.Printf("[agent] stop requested (%s) — not claiming another suburb", reason)
+			break
+		}
+		// If EVERY source is circuit-open, the whole session is blocked: stop
+		// claiming (leaving those suburbs pending for the next warm run) rather
+		// than burn the queue on jobs that would crawl nothing.
+		if allOpen, rem := r.allOpen(); allOpen {
+			log.Printf("[agent] all sources circuit-open (session blocked) — stopping to protect the queue; longest backoff %s", rem.Round(time.Second))
+			res.anyRewarm = true
+			break
+		}
+		job, err := r.claim(ctx)
+		if err != nil {
+			log.Printf("[agent] claim error: %v", err)
+			res.fatalErr = true
+			res.fatalDetail = "claim failed: " + err.Error()
+			break
+		}
+		if job == nil {
+			// NOTE: the drain-until-empty wrapper (deploy/housing-crawl-common.sh)
+			// greps this exact "[agent] no more jobs" line to stop looping — keep
+			// the wording stable if this is ever reworded.
+			log.Printf("[agent] no more jobs")
+			break
+		}
+		r.events.claim(job.ID)
+		summary, status, errMsg, wrote, retryAfter := r.runJob(ctx, job)
+		res.wroteAny = res.wroteAny || wrote
+		// Accumulate this suburb's counts into the round totals for the health record.
+		res.listings += summary.Listings
+		res.events += summary.Events
+		res.blockedSweeps += summary.BlockedSweeps
+		switch status {
+		case "succeeded":
+			res.succeeded++
+		case "deferred":
+			res.deferred++
+		default:
+			res.failed++
+		}
+		if summary.NeedsRewarm {
+			res.anyRewarm = true
+		}
+		// A DRY run must NOT submit: submit is terminal in the queue, so a dry run
+		// reporting "succeeded" would CONSUME the pending job without persisting
+		// anything (it wouldn't re-serve to a real run until it went stale). Skip
+		// the submit — the claim's lease simply expires and the job re-pends.
+		if !r.dryRun {
+			r.submitJob(ctx, job.ID, status, &summary, errMsg, retryAfter)
+		}
+		dry := ""
+		if r.dryRun {
+			dry = " DRY(not submitted)"
+		}
+		log.Printf("[agent] job %s %s/%s → %s: listings=%d events=%d blocked=%d skipped=%d%s", job.ID, job.Suburb, job.Tier, status, summary.Listings, summary.Events, summary.BlockedSweeps, summary.SkippedRows, dry)
+		res.processed++
+
+		// A job that wrote no events off a blocked/poisoned sweep means the browser
+		// session has gone cold — Kasada/Akamai serving stubs or poison, or an IP
+		// throttle after several heavy sweeps. The submit above marked it failed.
+		// Two such jobs in a row ⇒ the session is degraded, so STOP claiming and
+		// flag a re-warm (exit 3) instead of burning the rest of the still-PENDING
+		// queue on a session that will keep returning blocked. blockTracker tells a
+		// cold session apart from one pathological suburb re-served by the queue by
+		// suburb, so one bad target does not halt a healthy pass.
+		degraded, sameSuburb := r.blocks.record(job.Suburb, status == "failed" && summary.Events == 0 && summary.BlockedSweeps > 0)
+		if sameSuburb {
+			log.Printf("[agent] %s blocked again — same suburb re-served, treating as a bad target rather than a cold session; continuing", job.Suburb)
+		}
+		if degraded {
+			log.Printf("[agent] %d consecutive blocked sweeps across DIFFERENT suburbs — session degraded; stopping to re-warm before the queue is burned", r.blocks.consec)
+			res.anyRewarm = true
+			break
+		}
+	}
+	return res
+}
+
+// submitJob reports one job's outcome. A brandbrain that predates the deferred
+// outcome rejects it, and the job is then sent as "failed" for this deploy window
+// only (the attempt refund is lost, but the job is not orphaned in_progress).
+func (r roundIO) submitJob(ctx context.Context, jobID, status string, summary *crawlJobSummary, errMsg string, retryAfter time.Duration) {
+	sent := status
+	if err := r.submit(ctx, jobID, status, summary, errMsg, retryAfter); err != nil {
+		log.Printf("[agent] submit error (job=%s): %v", jobID, err)
+		if status == "deferred" {
+			log.Printf("[agent] queue rejected the deferred outcome — falling back to 'failed' (deploy brandbrain first to keep the attempt refund)")
+			if err := r.submit(ctx, jobID, "failed", summary, errMsg, 0); err != nil {
+				log.Printf("[agent] fallback submit error (job=%s): %v", jobID, err)
+			} else {
+				sent = "failed"
+			}
+		}
+	}
+	r.events.submit(jobID, sent, summary.Listings, summary.Events, summary.BlockedSweeps)
+}
+
+// stopReason returns why the loop must stop claiming, or "". A latched stop (a
+// signal, or an earlier reason) stands. A process whose parent has exited (its
+// PPID became 1 after starting with another parent) is orphaned, and a closed
+// events stream means the parent is gone. Both latch a stop here. A process that
+// started under init (PPID 1 at start, e.g. launchd) is not orphaned by that.
+func stopReason(stop *stopSignal, ppid func() int, startPPID int, events *crawlEvents) string {
+	if reason := stop.Reason(); reason != "" {
+		return reason
+	}
+	if startPPID != 1 && ppid() == 1 {
+		stop.request("orphaned")
+	}
+	if events.broken() {
+		stop.request("event-pipe")
+	}
+	return stop.Reason()
 }
 
 // agentExitCode keeps the existing re-warm signal highest priority. Any fatal
@@ -831,7 +968,7 @@ func agentExitCode(anyRewarm, fatalErr bool, _ int) int {
 // (optional — may be nil) resume snapshot loaded once for the whole -mode agent
 // run; a source within the resume window is skipped for this job (logged, never
 // silently) rather than swept again.
-func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher, cfg listingsConfig, job *agentCrawlJob, rs resumeSet, cb *crawlCircuitBreaker, tel *telemetryWriter) (crawlJobSummary, string, string, bool, time.Duration) {
+func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher, cfg listingsConfig, job *agentCrawlJob, rs resumeSet, cb *crawlCircuitBreaker, tel *telemetryWriter, ev *crawlEvents) (crawlJobSummary, string, string, bool, time.Duration) {
 	// Medians-in-agent-mode is a follow-up; the standalone `-mode crawl` path
 	// still serves the median tier. Fail such a job clearly rather than silently.
 	if strings.EqualFold(job.Tier, "medians") {
@@ -870,6 +1007,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		cooldownRea = rem
 		log.Printf("[agent] %s rea: SKIPPED — circuit open (portal blocking), backing off %s", t.Display, rem.Round(time.Second))
 	} else {
+		ev.page(job.ID, "rea")
 		reaEvents, reaErr = lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
 		if opened, cd := cb.record("rea", lc.reaBlocks > 0, runTs); opened {
 			log.Printf("[agent] rea circuit OPEN after %d consecutive blocked sweep(s) — backing off %s before probing again", cb.circuit("rea").consec, cd.Round(time.Second))
@@ -885,6 +1023,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		cooldownDomain = rem
 		log.Printf("[agent] %s domain: SKIPPED — circuit open (portal blocking), backing off %s", t.Display, rem.Round(time.Second))
 	} else {
+		ev.page(job.ID, "domain")
 		domEvents, domErr = lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
 		if opened, cd := cb.record("domain", lc.domBlocks > 0, runTs); opened {
 			log.Printf("[agent] domain circuit OPEN after %d consecutive blocked sweep(s) — backing off %s before probing again", cb.circuit("domain").consec, cd.Round(time.Second))

@@ -341,6 +341,21 @@ hc_drain_rounds() {
 			hc_alert "Housing crawl STOPPED: Playwright driver missing (rc=8). Re-warming Chrome will NOT fix it — reinstall the driver. See $LOG."
 			return 8
 			;;
+		10)
+			# A round cancelled on purpose (SIGTERM/SIGINT, or its events stream or
+			# parent went away). It finalized what it committed, so stop without
+			# retrying and without alerting: an operator stop is not a fault.
+			echo "$(date -u +%FT%TZ) drain: round cancelled (rc=10) — stopping; committed work was finalized" >>"$LOG"
+			return 10
+			;;
+		12)
+			# Another live process holds the single-drainer lock. Under this wrapper
+			# the lock is ours and the round is our child, so this means a second
+			# drainer exists. Stop and say so; do not retry against it.
+			echo "$(date -u +%FT%TZ) drain: another drainer holds the lock (rc=12) — stopping" >>"$LOG"
+			hc_alert "Housing crawl STOPPED: another drainer holds the housing-crawl lock (rc=12). See $LOG."
+			return 12
+			;;
 		0)
 			;;
 		*)

@@ -36,7 +36,7 @@ func TestCrawlAgentJob_CircuitOpenDefersInsteadOfBankingSuccess(t *testing.T) {
 	cfg := listingsConfig{dryRun: true, resumeWindow: time.Hour}
 
 	summary, status, errMsg, wrote, retryAfter := crawlAgentJob(
-		context.Background(), nil, nil, cfg, job, resumeSet{}, cb, nil)
+		context.Background(), nil, nil, cfg, job, resumeSet{}, cb, nil, nil)
 
 	if status != "deferred" {
 		t.Fatalf("status = %q, want \"deferred\" — a sweep blocked by an open circuit was never attempted and must not be banked as a terminal outcome", status)
@@ -74,7 +74,7 @@ func TestCrawlAgentJob_ResumeWindowSkipStillSucceeds(t *testing.T) {
 	rs := resumeSet{resumeKey("rea", target.regionCode()): now.Add(-time.Minute)}
 
 	_, status, _, _, retryAfter := crawlAgentJob(
-		context.Background(), nil, nil, cfg, job, rs, cb, nil)
+		context.Background(), nil, nil, cfg, job, rs, cb, nil, nil)
 
 	if status != "succeeded" {
 		t.Fatalf("status = %q, want \"succeeded\" — a source swept inside the resume window is done, not deferred", status)

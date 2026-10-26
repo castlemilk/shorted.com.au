@@ -52,7 +52,9 @@ func main() {
 // 8 = the crawl ENVIRONMENT is broken (Playwright driver missing) — an
 // operator must reinstall it, no Chrome action or scheduler re-run will help;
 // and 9 = a VG rig ingest committed but held back a year's prune
-// (exitVGPruneHeldBack — thin download or a parser regression).
+// (exitVGPruneHeldBack — thin download or a parser regression); for `-mode agent`
+// 10 = cancelled (SIGTERM/SIGINT, events stream closed, or orphaned: finalized
+// first) and 12 = another live drainer holds the single-drainer lock (crawl_lock.go).
 // Keeping 8 distinct from 4 is deliberate: see crawl_env.go for the outage that
 // bought that distinction. drop-index also returns 1 on a query or write
 // failure (see runDropIndex in drop_index.go).
