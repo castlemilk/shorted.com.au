@@ -30,7 +30,14 @@ func (t Tool) spec() *sdk.Tool {
 		Name:        t.Name,
 		Title:       t.Title,
 		Description: t.Description,
-		Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true},
+		Annotations: &sdk.ToolAnnotations{
+			ReadOnlyHint:    true,
+			DestructiveHint: new(false),
+			IdempotentHint:  true,
+			// Lookups are restricted to Shorted's published data sources;
+			// arguments never select an arbitrary external destination.
+			OpenWorldHint: new(false),
+		},
 	}
 }
 

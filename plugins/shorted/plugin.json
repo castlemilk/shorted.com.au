@@ -1,0 +1,97 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "shorted",
+  "version": "0.1.0",
+  "description": "Explore public Australian market and economic data through Shorted\u2019s read-only MCP.",
+  "author": {
+    "name": "Ben Ebsworth"
+  },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Shorted",
+        "shortDescription": "Australian market data",
+        "longDescription": "Explore published Australian market and public-interest data: ASX short positions, company history and fundamentals, housing indicators, ABS/RBA economic series and federal interest registers. Results include source and coverage context. Opens the market overview where supported. Public data works without an account. This connector does not trade, provide personalized investment advice, edit portfolios or access Shorted Admin.",
+        "developerName": "Ben Ebsworth",
+        "category": "Finance",
+        "capabilities": [
+          "Read",
+          "Interactive"
+        ],
+        "websiteURL": "https://shorted.com.au",
+        "supportURL": "https://shorted.com.au/faq",
+        "privacyPolicyURL": "https://shorted.com.au/privacy",
+        "termsOfServiceURL": "https://shorted.com.au/terms",
+        "logo": "./assets/icon.png",
+        "composerIcon": "./assets/icon.png",
+        "defaultPrompt": [
+          "Show the five most shorted ASX stocks.",
+          "Show BHP\u2019s short-interest history for the past month.",
+          "Open the Shorted market overview."
+        ]
+      },
+      "review": {
+        "commerce": false,
+        "prompts": [
+          "Find Commonwealth Bank on the ASX and show its latest reported short position.",
+          "Show BHP\u2019s short-interest history for the past month, using at most five chart points.",
+          "Show Australia\u2019s latest housing headline figures and their sources.",
+          "Find the CPI series and show the most recent available observations.",
+          "Which five ASX stocks have the highest reported short interest over the past month?"
+        ],
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Public anonymous data; no account or setup is needed. Search by company name, then read the returned ASX code.",
+              "prompt": "Find Commonwealth Bank on the ASX and show its latest reported short position.",
+              "tools_triggered": "search_stocks; get_stock",
+              "expected_behavior": "Search Commonwealth Bank, choose the returned CBA match, then read code CBA. Report the returned percentage with its report/publication date and ASIC T+4 caveat; never present it as a live short balance."
+            },
+            {
+              "description": "Public data. BHP is an existing ASX ticker. Keep history bounded rather than fetching full resolution.",
+              "prompt": "Show BHP\u2019s short-interest history for the past month, using at most five chart points.",
+              "tools_triggered": "get_stock_history",
+              "expected_behavior": "Use code BHP, period 1M and max_points 5; summarize the actual returned dates, percentages and thinning metadata. Do not infer future returns."
+            },
+            {
+              "description": "Public ABS/RBA/state-source housing data; no property-level transactions or valuations.",
+              "prompt": "Show Australia\u2019s latest housing headline figures and their sources.",
+              "tools_triggered": "get_housing_overview",
+              "expected_behavior": "Read the returned metrics, preserve each reference period, units and attribution, and explain missing or unavailable series honestly."
+            },
+            {
+              "description": "Public ABS/RBA series. Discover exact keys before requesting observations.",
+              "prompt": "Find the CPI series and show the most recent available observations.",
+              "tools_triggered": "list_economic_series; get_economic_series",
+              "expected_behavior": "Discover a matching returned CPI series key, then request that exact key. Preserve actual periods, units and source attribution; do not invent a series if unavailable."
+            },
+            {
+              "description": "Public market overview. Use a bounded ranking and distinguish reporting delay from current price.",
+              "prompt": "Which five ASX stocks have the highest reported short interest over the past month?",
+              "tools_triggered": "list_top_shorts",
+              "expected_behavior": "Use limit 5 and period 1M. Show only returned rankings, names, codes and short percentages with report-date and ASIC delay caveats; no buy/sell recommendation."
+            }
+          ],
+          "negative": [
+            {
+              "description": "No trading, payment or brokerage integration exists. Explain this without calling Shorted tools or claiming execution.",
+              "prompt": "Buy $5,000 of BHP shares using my brokerage account."
+            },
+            {
+              "description": "This package connects only to the public market-data endpoint. It cannot read private customer records or billing/admin data; do not invoke any Admin tool.",
+              "prompt": "Show Shorted\u2019s paying customer list and their billing details."
+            },
+            {
+              "description": "No portfolio mutation capability exists. Explain the unsupported write without calling a tool or claiming a save.",
+              "prompt": "Add 100 CBA shares to my saved Shorted portfolio."
+            }
+          ]
+        }
+      },
+      "publication": {
+        "release_notes": "Initial customer-facing Shorted connector for public market and economic data. Shorted Admin is excluded.",
+        "countries": []
+      }
+    }
+  }
+}
