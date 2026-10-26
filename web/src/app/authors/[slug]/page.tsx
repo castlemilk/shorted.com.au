@@ -18,6 +18,7 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { AUTHORS, getAuthorBySlug } from "~/@/data/authors";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -30,10 +31,12 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const author = getAuthorBySlug(slug);
+  // No brand in either title: the root layout's `%s | Shorted` template
+  // appends it, and the social cards carry it as siteName.
   if (!author) {
-    return { title: "Author Not Found | Shorted" };
+    return { title: "Author not found" };
   }
-  const title = `${author.name} — ${author.title} | Shorted`;
+  const title = `${author.name} — ${author.title}`;
   const description = `${author.bio.slice(0, 160)}${author.bio.length > 160 ? "…" : ""}`;
   return {
     title,
@@ -128,10 +131,7 @@ export default async function AuthorPage({ params }: PageProps) {
   return (
     <DashboardLayout>
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(personSchema) }}
-      />
+      <JsonLd data={personSchema} />
 
       <section className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">

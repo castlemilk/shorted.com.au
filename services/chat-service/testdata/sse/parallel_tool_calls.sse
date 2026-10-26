@@ -1,0 +1,12 @@
+data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"name":"query_short_positions","arguments":"{\"productCode\":"},"id":"call_1","type":"function"}]},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"name":"get_stock_details","arguments":"{\"productCode\":"},"id":"call_2","type":"function"}]},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":" \"BHP\"}"}}]},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"arguments":" \"CBA\"}"}}]},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
+
+data: [DONE]
+

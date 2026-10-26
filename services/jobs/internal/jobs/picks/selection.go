@@ -95,7 +95,7 @@ type selection struct {
 
 func (s selection) summary() string {
 	parts := make([]string, 0, groupCount+1)
-	for g := 0; g < groupCount; g++ {
+	for g := range groupCount {
 		parts = append(parts, fmt.Sprintf("%s=%d", groupNames[g], s.byGroup[g]))
 	}
 	parts = append(parts, fmt.Sprintf("skipped=%d", s.skipped), fmt.Sprintf("pre_000132=%d", s.legacy))

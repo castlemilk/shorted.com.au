@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>PLS short interest crossed 13.2% (now 13.26%)</title>
+<style>
+.stat-l { padding: 14px 14px 14px 0; }
+.stat-r { padding: 14px 0 14px 14px; border-left: 1px solid #E5E1DC; }
+.stat-t { border-top: 1px solid #E5E1DC; }
+.dark-chart { display: none; max-height: 0; overflow: hidden; mso-hide: all; }
+.chart-img { box-sizing: border-box; }
+.fig-m { display: none; }
+@media only screen and (max-width: 480px) {
+  .pad { padding: 20px !important; }
+  .fluid { width: 100% !important; }
+  .fig-a, .fig-b { width: 50% !important; }
+  .fig-c { display: none !important; }
+  .fig-m { display: table-row !important; }
+  .stat-l { padding: 12px 10px 12px 0 !important; }
+  .stat-r { padding: 12px 0 12px 10px !important; }
+  .stat-val { font-size: 15px !important; }
+  .cta-tbl { width: 100% !important; }
+  .cta-cell { width: 100% !important; padding: 0 !important; }
+  .cta-link { display: block !important; width: 100% !important; text-align: center !important; box-sizing: border-box; }
+}
+@media (prefers-color-scheme: dark) {
+  .bg { background-color: #0D0D0D !important; }
+  .card { background-color: #121212 !important; border-color: #352E27 !important; }
+  .ink { color: #E8DEB5 !important; }
+  .muted { color: #A39A75 !important; }
+  .accent { color: #FFAC4D !important; }
+  .hair { border-color: #352E27 !important; }
+  .stat-r { border-left-color: #352E27 !important; border-top-color: #352E27 !important; }
+  .stat-t { border-top-color: #352E27 !important; }
+  .tile { background-color: #1C1915 !important; }
+  .btn { background-color: #FFAC4D !important; }
+  .btn-text { color: #0D0D0D !important; }
+  .chip-up { background-color: #3B1616 !important; color: #F87171 !important; }
+  .chip-down { background-color: #123222 !important; color: #4ADE80 !important; }
+  .chip-flat { background-color: #1C1915 !important; color: #A39A75 !important; }
+  .txt-up { color: #F87171 !important; }
+  .txt-down { color: #4ADE80 !important; }
+  .light-chart { display: none !important; }
+  .dark-chart { display: block !important; max-height: none !important; overflow: visible !important; }
+}
+</style>
+</head>
+<body class="bg" style="margin:0;padding:0;background-color:#F9F8F5;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:#F9F8F5;mso-hide:all;">PLS short interest crossed 13.2%: 13.08% → 13.26% on Fri 16 Oct</div>
+<table role="presentation" class="bg" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F9F8F5;">
+<tr><td align="center" style="padding:24px 12px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<table role="presentation" class="fluid" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+<tr><td style="padding:0 0 18px 0;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td align="left" valign="middle" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td valign="middle" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;"><img src="cid:shorted-mark" width="38" height="32" alt="Shorted" style="display:block;border:0;width:38px;height:32px;"></td>
+<td valign="middle" class="ink" style="padding-left:10px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:18px;line-height:32px;color:#483932;">Shorted</td>
+</tr></table>
+</td>
+<td align="right" valign="middle" class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.16em;text-transform:uppercase;color:#72625A;">Short interest alert</td>
+</tr></table>
+</td></tr>
+<tr><td class="card pad" style="background-color:#FDFDFC;border:1px solid #E5E1DC;border-radius:6px;padding:28px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+
+<tr><td style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td valign="middle" width="40" style="width:40px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<table role="presentation" width="40" height="40" cellpadding="0" cellspacing="0" border="0" class="tile" style="width:40px;height:40px;background-color:#F2F0ED;border-radius:6px;"><tr><td align="center" valign="middle" class="accent" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:13px;line-height:40px;color:#9E5210;">PLS</td></tr></table>
+</td>
+<td valign="middle" style="padding-left:14px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<div class="ink" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:16px;line-height:24px;color:#483932;">PLS</div>
+<div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:13px;line-height:20px;color:#72625A;">Pilbara Minerals · Materials</div>
+</td>
+</tr></table>
+</td></tr>
+
+<tr><td style="padding-top:20px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<div class="accent" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.16em;text-transform:uppercase;color:#9E5210;">CROSSED 13.2% · DAILY ALERT</div>
+</td></tr>
+<tr><td style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;padding-top:8px;">
+<h1 class="ink" style="margin:0;font-family:Newsreader, Georgia, 'Times New Roman', serif;font-size:26px;line-height:1.25;font-weight:700;color:#483932;">Pilbara Minerals short interest crossed 13.2%</h1>
+</td></tr>
+
+
+<tr><td style="padding-top:22px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td class="fig fig-a" width="34%" valign="top" style="width:34%;padding-right:12px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">Previous</div>
+<div class="ink stat-val" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:22px;line-height:30px;color:#483932;">13.08%</div>
+<div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:12px;line-height:18px;color:#72625A;">Thu 15 Oct</div>
+</td>
+<td class="fig fig-b" width="34%" valign="top" style="width:34%;padding-right:12px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">Latest</div>
+<div class="ink" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:30px;line-height:36px;color:#483932;">13.26%</div>
+<div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:12px;line-height:18px;color:#72625A;">Fri 16 Oct</div>
+</td>
+<td class="fig fig-c" width="32%" valign="top" style="width:32%;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">Change</div>
+<span class="chip-up" style="display:inline-block;margin-top:6px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:15px;line-height:22px;padding:3px 10px;border-radius:4px;color:#B91C1C;background-color:#FDECEC;">&#43;0.18 pts</span>
+</td>
+</tr>
+<tr class="fig-m"><td colspan="2" style="padding-top:16px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">Change</div>
+<span class="chip-up" style="display:inline-block;margin-top:6px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:15px;line-height:22px;padding:3px 10px;border-radius:4px;color:#B91C1C;background-color:#FDECEC;">&#43;0.18 pts</span>
+</td></tr>
+</table>
+</td></tr>
+
+<tr><td style="padding-top:22px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<img class="light-chart chart-img" src="cid:chart" width="552" alt="Pilbara Minerals short interest 20 Apr – 16 Oct 2026, crossing 13.2% on Fri 16 Oct 2026" style="display:block;box-sizing:border-box;width:100%;max-width:552px;height:auto;border:1px solid #E5E1DC;border-radius:6px;">
+<div class="dark-chart" style="display:none;max-height:0;overflow:hidden;mso-hide:all;"><img class="chart-img" src="cid:chart-dark" width="552" alt="Pilbara Minerals short interest 20 Apr – 16 Oct 2026, crossing 13.2% on Fri 16 Oct 2026" style="display:block;box-sizing:border-box;width:100%;max-width:552px;height:auto;border:1px solid #352E27;border-radius:6px;"></div>
+<p class="muted" style="margin:8px 0 0 0;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;color:#72625A;">Short position, % of shares on issue · ASIC daily reports · 20 Apr – 16 Oct 2026</p>
+</td></tr>
+
+
+<tr><td style="padding-top:22px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td class="stat-l" width="50%" valign="top" style="width:50%;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;"><div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">SHARES SHORT</div><div class="ink stat-val" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:16px;line-height:24px;color:#483932;">214M</div></td><td class="stat-r" width="50%" valign="top" style="width:50%;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;"><div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">SHARES ON ISSUE</div><div class="ink stat-val" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:16px;line-height:24px;color:#483932;">1.63B</div></td></tr>
+<tr><td class="stat-l stat-t" width="50%" valign="top" style="width:50%;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;"><div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">MOST-SHORTED RANK</div><div class="ink stat-val" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:16px;line-height:24px;color:#483932;">#4 of 640</div><div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:12px;line-height:18px;color:#72625A;">on Fri 16 Oct</div></td><td class="stat-r stat-t" width="50%" valign="top" style="width:50%;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;"><div class="muted" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:11px;line-height:16px;letter-spacing:0.12em;text-transform:uppercase;color:#72625A;">CHANGE SINCE 18 SEP</div><div class="txt-up stat-val" style="font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:16px;line-height:24px;color:#B91C1C;">&#43;1.68 pts</div></td></tr>
+
+</table>
+</td></tr>
+
+
+
+<tr><td style="padding-top:26px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<table role="presentation" class="cta-tbl" cellpadding="0" cellspacing="0" border="0" style="width:auto;"><tr>
+<td class="btn cta-cell" align="center" bgcolor="#9E5210" style="background-color:#9E5210;border-radius:4px;height:44px;padding:0 22px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">
+<a href="https://shorted.com.au/shorts/PLS?utm_source=alerts&amp;utm_medium=email" class="btn-text cta-link" style="display:inline-block;height:44px;line-height:44px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-weight:600;font-size:14px;color:#F9F8F5;text-decoration:none;">View PLS on Shorted →</a>
+</td>
+</tr></table>
+</td></tr>
+<tr><td class="muted" style="padding-top:22px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:12px;line-height:18px;color:#72625A;">ASIC short position report for Fri 16 Oct 2026, compared with Thu 15 Oct 2026. ASIC publishes positions four trading days after they are held.</td></tr>
+</table>
+</td></tr>
+<tr><td class="muted" style="padding:18px 4px 0 4px;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:12px;line-height:18px;color:#72625A;">
+<p class="muted" style="margin:0 0 6px 0;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:12px;line-height:18px;color:#72625A;">You set up this alert on Shorted: PLS - short interest above 13.2% - daily.</p>
+<p class="muted" style="margin:0 0 6px 0;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:12px;line-height:18px;color:#72625A;"><a href="https://shorted.com.au/alerts/unsubscribe?t=YWxlcnQtbW9uaXRvcjptb24tNDI.n0QXAxnvDkdk5ATi-Ypnwz3aN1FQ6L3W3WUAEZ9f6Hg" class="accent" style="color:#9E5210;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">Pause this alert</a> · <a href="https://shorted.com.au/alerts" class="accent" style="color:#9E5210;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;">Manage your alerts</a></p>
+<p class="muted" style="margin:0;font-family:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;font-size:12px;line-height:18px;color:#72625A;">General information only, not financial advice. Shorted · support@shorted.com.au</p>
+</td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>

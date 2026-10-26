@@ -42,7 +42,7 @@ To reproduce, use Docker and the repository's existing Go workspace/private
 module setup, then run from `services/`:
 
 ```sh
-GOTOOLCHAIN=go1.26.7 \
+GOTOOLCHAIN=go1.27.2 \
 MARKET_DATA_TEST_POSTGRES_IMAGE=postgres:16-alpine \
 go test ./market-data -tags=integration \
   -run 'Test(GetMultipleStockPrices|ReadMultipleStockPrices)' \

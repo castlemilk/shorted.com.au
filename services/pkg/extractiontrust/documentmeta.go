@@ -86,7 +86,7 @@ NIO NOK NPR NZD OMR PAB PEN PGK PHP PKR PLN PYG QAR RON RSD RUB RWF SAR SBD SCR
 SDG SEK SGD SHP SLE SOS SRD SSP STN SVC SYP SZL THB TJS TMT TND TOP TRY TTD TWD
 TZS UAH UGX USD UYU UZS VES VND VUV WST XAF XCD XCG XOF XPF YER ZAR ZMW ZWG`
 	m := map[string]bool{}
-	for _, c := range strings.Fields(codes) {
+	for c := range strings.FieldsSeq(codes) {
 		m[c] = true
 	}
 	return m
@@ -198,7 +198,7 @@ func ValidABN(s string) bool {
 	}
 	weights := [11]int{10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19}
 	sum := 0
-	for i := 0; i < 11; i++ {
+	for i := range 11 {
 		d := int(digits[i] - '0')
 		if i == 0 {
 			d--

@@ -1,0 +1,10 @@
+data: {"type":"text-start","id":"shorted-assistant-text"}
+
+data: {"type":"text-delta","id":"shorted-assistant-text","delta":"I could not retrieve that."}
+
+data: {"type":"text-end","id":"shorted-assistant-text"}
+
+data: {"type":"data-shorted-final","id":"shorted-final","data":{"conversationId":"conv-probe-403","toolCalls":[{"toolName":"get_stock_details","arguments":"{\"stock_code\":\"BHP\"}","result":"Error: RPC GetStockDetails returned 403: {\"code\":\"permission_denied\",\"message\":\"automated access detected, ...\"}"}],"createdAt":"2026-10-23T02:00:00.000Z"}}
+
+data: [DONE]
+

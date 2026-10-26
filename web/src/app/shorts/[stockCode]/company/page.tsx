@@ -14,6 +14,7 @@ import { StockEvidencePanelClient } from "~/@/components/company/stock-evidence-
 import { StockStateExposure } from "~/@/components/economy/stock-state-exposure";
 import { cleanCompanyName } from "~/@/lib/company-name";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
+import { stockTabTitle } from "~/@/lib/seo/stock-tab-title";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { getDirectorTrades } from "~/app/actions/getDirectorTrades";
 import { getStockOwnership } from "~/app/actions/getOwnership";
@@ -55,7 +56,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return stockTabMetadata({
     code,
     tab: "company",
-    title: (company) => `${code} Company Profile: Directors, Insiders & Operations | ${company}`,
+    title: (company) => stockTabTitle(code, "Company Profile: Directors & Insiders", company),
     description: (company) =>
       `${company} (ASX:${code}) in depth: what the company does, its history and risks, director trades, declared political interests and where it operates.`,
     keywords: [`${code} company profile`, `${code} director trades`, `${code} insider trading`, `${code} key people`],

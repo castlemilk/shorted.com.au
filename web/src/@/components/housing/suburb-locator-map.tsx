@@ -7,7 +7,7 @@
 import Link from "next/link";
 
 import type { StateLocatorModel } from "@/lib/housing/suburb-geometry";
-import { STATE_NAMES, stateSlug } from "@/lib/housing/states";
+import { STATE_NAMES, suburbExplorerHref } from "@/lib/housing/states";
 
 export function SuburbLocatorMap({
   stateCode, salCode, salName, model,
@@ -58,7 +58,7 @@ export function SuburbLocatorMap({
         </p>
       )}
       <Link
-        href={`/housing/${stateSlug(stateCode)}?sal=${salCode}`}
+        href={suburbExplorerHref(stateCode, salCode)}
         className="mt-2 inline-block text-xs text-muted-foreground transition-colors hover:text-foreground"
       >
         View on the full {stateName} map →

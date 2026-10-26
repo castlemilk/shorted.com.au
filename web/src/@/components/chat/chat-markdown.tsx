@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageResponse } from "~/@/components/ai-elements/message";
+import { MessageResponse } from "~/@/components/ai-elements/message-response";
 
 interface ChatMarkdownProps {
   content: string;

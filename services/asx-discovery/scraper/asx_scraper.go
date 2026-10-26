@@ -56,7 +56,7 @@ func (s *ASXScraper) DownloadCSV(ctx context.Context) (string, error) {
 
 	// Launch browser
 	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(true),
+		Headless: new(true),
 		Args: []string{
 			"--no-sandbox",
 			"--disable-setuid-sandbox",
@@ -70,7 +70,7 @@ func (s *ASXScraper) DownloadCSV(ctx context.Context) (string, error) {
 
 	// Create browser context with download path
 	context, err := browser.NewContext(playwright.BrowserNewContextOptions{
-		AcceptDownloads: playwright.Bool(true),
+		AcceptDownloads: new(true),
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create browser context: %w", err)
@@ -155,7 +155,7 @@ func (s *ASXScraper) DownloadCSV(ctx context.Context) (string, error) {
 		log.Printf("JavaScript click failed, trying Playwright click: %v", err)
 		if err := page.Click(selector, playwright.PageClickOptions{
 			Timeout: playwright.Float(30000),
-			Force:   playwright.Bool(true), // Force click even if element is not actionable
+			Force:   new(true), // Force click even if element is not actionable
 		}); err != nil {
 			return "", fmt.Errorf("failed to click download button: %w", err)
 		}
@@ -237,7 +237,7 @@ func (s *ASXScraper) DownloadDirect(ctx context.Context, csvURL string) (string,
 
 	filename := "asx-companies.csv"
 	outputPath := filepath.Join(s.downloadDir, filename)
-	
+
 	out, err := os.Create(outputPath)
 	if err != nil {
 		return "", err

@@ -23,6 +23,7 @@ import (
 )
 
 type fakePublisher struct {
+	fakeAlertsOp
 	req    jobmonitor.PublishRequest
 	runErr error
 	exec   string
@@ -81,10 +82,8 @@ func adminClaims() *VerifiedClaims {
 
 func onlyAdmin(ids ...string) AdminCheck {
 	return func(_ context.Context, uid string) (bool, error) {
-		for _, id := range ids {
-			if id == uid {
-				return true, nil
-			}
+		if slices.Contains(ids, uid) {
+			return true, nil
 		}
 		return false, nil
 	}

@@ -10,6 +10,7 @@ import (
 	registerv1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1"
 	registerv1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1/registerv1connect"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	"github.com/castlemilk/shorted.com.au/services/pkg/unsubscribe"
 )
 
 // validate ServerServer implements productpb.ServerService
@@ -22,6 +23,11 @@ func (s *RegisterServer) Unsubscribe(ctx context.Context, req *connect.Request[r
 	}
 	id, ok := VerifyUnsubscribeToken(req.Msg.Token, s.unsubscribeSecret)
 	if !ok {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid token"))
+	}
+	// An alert link pauses one alert. It must never unsubscribe a newsletter
+	// address, so it is refused here as a plain invalid token.
+	if unsubscribe.IsAlertID(id) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid token"))
 	}
 	if err := s.store.UnsubscribeByID(id); err != nil {

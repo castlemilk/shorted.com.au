@@ -307,15 +307,15 @@ func priceMoveEvent(cfg listingsConfig, base priceEvent, priorPrice *float64, pr
 		e := base
 		e.EventType = "price_drop"
 		e.PrevPrice = priorPrice
-		e.DropAbs = f64p(delta)
-		e.DropPct = f64p(pct)
+		e.DropAbs = new(delta)
+		e.DropPct = new(pct)
 		return e, true
 	case delta <= -cfg.noiseAbs && pct <= -cfg.noisePct:
 		e := base
 		e.EventType = "price_rise"
 		e.PrevPrice = priorPrice
-		e.DropAbs = f64p(delta)
-		e.DropPct = f64p(pct)
+		e.DropAbs = new(delta)
+		e.DropPct = new(pct)
 		return e, true
 	}
 	return priceEvent{}, false

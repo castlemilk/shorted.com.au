@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 
+import { siteConfig } from "~/@/config/site";
 import StateCouncilsPage, { generateMetadata, generateStaticParams } from "./page";
 
 const listCouncils = jest.fn();
@@ -133,5 +134,27 @@ describe("state council index", () => {
 
   it("prebuilds all eight states", () => {
     expect(generateStaticParams()).toHaveLength(8);
+  });
+
+  // "Northern Territory councils: population, housing, grants and hazards" was
+  // 78 characters once the root layout appended " | Shorted" (NSW, SA and WA
+  // were 75-77). The title leads with the place and "councils", and names the
+  // state by its code where its name would take the title past 65 characters
+  // with the brand.
+  it.each([
+    ["nsw", "NSW councils: population, housing and hazards"],
+    ["vic", "Victoria councils: population, housing and hazards"],
+    ["qld", "Queensland councils: population, housing and hazards"],
+    ["sa", "SA councils: population, housing and hazards"],
+    ["wa", "WA councils: population, housing and hazards"],
+    ["tas", "Tasmania councils: population, housing and hazards"],
+    ["nt", "NT councils: population, housing and hazards"],
+    ["act", "ACT local government: the territory as one area"],
+  ])("titles the %s list %j", async (state, title) => {
+    const meta = await generateMetadata(params(state));
+    expect(meta.title).toBe(title);
+    expect(`${title} | ${siteConfig.name}`.length).toBeLessThanOrEqual(65);
+    expect(meta.openGraph?.title).toBe(title);
+    expect(meta.twitter?.title).toBe(title);
   });
 });

@@ -29,12 +29,16 @@ export function PricingContent() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set when Checkout refuses because a live subscription already exists. The
+  // fix is the billing portal, not another checkout.
+  const [alreadySubscribed, setAlreadySubscribed] = useState(false);
 
   const isLoading = authStatus === "loading" || subLoading;
 
   const handleUpgrade = async () => {
     setCheckoutLoading(true);
     setError(null);
+    setAlreadySubscribed(false);
 
     try {
       const response = await fetch("/api/stripe/checkout", {
@@ -43,7 +47,16 @@ export function PricingContent() {
         body: JSON.stringify({ tier: "premium" }),
       });
 
-      const data = (await response.json()) as { url?: string; error?: string };
+      const data = (await response.json()) as {
+        url?: string;
+        error?: string;
+        message?: string;
+      };
+
+      if (response.status === 409) {
+        setAlreadySubscribed(true);
+        throw new Error(data.message ?? "Checkout is not available. Contact support.");
+      }
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to create checkout session");
@@ -213,6 +226,23 @@ export function PricingContent() {
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 <span>{error}</span>
               </div>
+            )}
+
+            {error && alreadySubscribed && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs"
+                onClick={handleManageSubscription}
+                disabled={portalLoading}
+              >
+                {portalLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                ) : (
+                  <Settings className="h-3 w-3 mr-1" />
+                )}
+                Manage Subscription
+              </Button>
             )}
 
             <p className="text-[10px] text-center text-muted-foreground">

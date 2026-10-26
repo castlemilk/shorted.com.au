@@ -188,7 +188,7 @@ func TestGetEconomicSeriesReportsKeysThatDoNotExist(t *testing.T) {
 func TestGetEconomicSeriesDownsamplesLongRuns(t *testing.T) {
 	obs := make([]*shortsv1alpha1.EconomicObservation, 0, 600)
 	base := time.Date(1976, 1, 31, 0, 0, 0, 0, time.UTC)
-	for i := 0; i < 600; i++ {
+	for i := range 600 {
 		obs = append(obs, &shortsv1alpha1.EconomicObservation{
 			Period: timestamppb.New(base.AddDate(0, i, 0)), Value: float64(i) + 0.123456,
 		})

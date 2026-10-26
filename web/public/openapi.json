@@ -330,6 +330,37 @@
         "title": "AgencyPriceStats",
         "type": "object"
       },
+      "shorts.v1alpha1.AlertMonitorCadence": {
+        "description": "Alert delivery cadence.",
+        "enum": [
+          "ALERT_MONITOR_CADENCE_UNSPECIFIED",
+          "ALERT_MONITOR_CADENCE_DAILY",
+          "ALERT_MONITOR_CADENCE_WEEKLY"
+        ],
+        "title": "AlertMonitorCadence",
+        "type": "string"
+      },
+      "shorts.v1alpha1.AlertMonitorCondition": {
+        "description": "Alert monitor trigger condition.",
+        "enum": [
+          "ALERT_MONITOR_CONDITION_UNSPECIFIED",
+          "ALERT_MONITOR_CONDITION_SHORT_INTEREST_ABOVE",
+          "ALERT_MONITOR_CONDITION_SHORT_INTEREST_RISES",
+          "ALERT_MONITOR_CONDITION_NEW_TOP_TEN_ENTRY"
+        ],
+        "title": "AlertMonitorCondition",
+        "type": "string"
+      },
+      "shorts.v1alpha1.AlertMonitorScope": {
+        "description": "Alert monitor target type.",
+        "enum": [
+          "ALERT_MONITOR_SCOPE_UNSPECIFIED",
+          "ALERT_MONITOR_SCOPE_INDUSTRY",
+          "ALERT_MONITOR_SCOPE_STOCK"
+        ],
+        "title": "AlertMonitorScope",
+        "type": "string"
+      },
       "shorts.v1alpha1.BattlegroundStock": {
         "additionalProperties": false,
         "description": "A single stock result from the squeeze radar / battlegrounds ranking",
@@ -9507,6 +9538,63 @@
         "title": "PartyTotal",
         "type": "object"
       },
+      "shorts.v1alpha1.PauseAlertMonitorByTokenRequest": {
+        "additionalProperties": false,
+        "description": "Request for PauseAlertMonitorByToken RPC. The token is the one in an alert email.",
+        "properties": {
+          "token": {
+            "description": "(proto string)",
+            "title": "token",
+            "type": "string"
+          }
+        },
+        "title": "PauseAlertMonitorByTokenRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.PauseAlertMonitorByTokenResponse": {
+        "additionalProperties": false,
+        "description": "Response for PauseAlertMonitorByToken RPC: the monitor, for the confirmation page.",
+        "properties": {
+          "alreadyPaused": {
+            "description": "True when the monitor was already paused, so nothing changed. (proto bool)",
+            "title": "already_paused",
+            "type": "boolean"
+          },
+          "cadence": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.AlertMonitorCadence",
+            "description": "(proto shorts.v1alpha1.AlertMonitorCadence)",
+            "title": "cadence"
+          },
+          "condition": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.AlertMonitorCondition",
+            "description": "(proto shorts.v1alpha1.AlertMonitorCondition)",
+            "title": "condition"
+          },
+          "hasThreshold": {
+            "description": "(proto bool)",
+            "title": "has_threshold",
+            "type": "boolean"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.AlertMonitorScope",
+            "description": "(proto shorts.v1alpha1.AlertMonitorScope)",
+            "title": "scope"
+          },
+          "target": {
+            "description": "(proto string)",
+            "title": "target",
+            "type": "string"
+          },
+          "threshold": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "threshold",
+            "type": "number"
+          }
+        },
+        "title": "PauseAlertMonitorByTokenResponse",
+        "type": "object"
+      },
       "shorts.v1alpha1.PeerStock": {
         "additionalProperties": false,
         "description": "A peer stock for comparison",
@@ -15225,6 +15313,65 @@
           "url": "https://shorted.com.au"
         }
       ]
+    },
+    "/shorts.v1alpha1.AlertsService/PauseAlertMonitorByToken": {
+      "post": {
+        "description": "Pause the monitor named by a signed email token (one-click unsubscribe). No session.",
+        "operationId": "AlertsService_PauseAlertMonitorByToken",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.PauseAlertMonitorByTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.PauseAlertMonitorByTokenResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "PauseAlertMonitorByToken",
+        "tags": [
+          "shorts.v1alpha1.AlertsService"
+        ]
+      }
     },
     "/shorts.v1alpha1.EconomyService/GetEconomicSeries": {
       "post": {

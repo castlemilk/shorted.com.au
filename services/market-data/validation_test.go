@@ -453,7 +453,7 @@ func TestValidateDateRange(t *testing.T) {
 // Helper function to generate stock codes for testing
 func generateStockCodes(n int) []string {
 	codes := make([]string, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		// Generate valid 3-letter codes like AAA, AAB, AAC, etc.
 		codes[i] = string([]byte{
 			'A' + byte(i/676),

@@ -39,6 +39,15 @@ public enum SubscriptionStatus
    * <code>SUBSCRIPTION_STATUS_INACTIVE = 5;</code>
    */
   SUBSCRIPTION_STATUS_INACTIVE(5),
+  /**
+   * <pre>
+   * Stripe has stopped retrying the card. Access is paused, and the customer is told
+   * to update the card. Not in the past-due grace.
+   * </pre>
+   *
+   * <code>SUBSCRIPTION_STATUS_UNPAID = 6;</code>
+   */
+  SUBSCRIPTION_STATUS_UNPAID(6),
   UNRECOGNIZED(-1),
   ;
 
@@ -75,6 +84,15 @@ public enum SubscriptionStatus
    * <code>SUBSCRIPTION_STATUS_INACTIVE = 5;</code>
    */
   public static final int SUBSCRIPTION_STATUS_INACTIVE_VALUE = 5;
+  /**
+   * <pre>
+   * Stripe has stopped retrying the card. Access is paused, and the customer is told
+   * to update the card. Not in the past-due grace.
+   * </pre>
+   *
+   * <code>SUBSCRIPTION_STATUS_UNPAID = 6;</code>
+   */
+  public static final int SUBSCRIPTION_STATUS_UNPAID_VALUE = 6;
 
 
   public final int getNumber() {
@@ -107,6 +125,7 @@ public enum SubscriptionStatus
       case 3: return SUBSCRIPTION_STATUS_PAST_DUE;
       case 4: return SUBSCRIPTION_STATUS_CANCELED;
       case 5: return SUBSCRIPTION_STATUS_INACTIVE;
+      case 6: return SUBSCRIPTION_STATUS_UNPAID;
       default: return null;
     }
   }

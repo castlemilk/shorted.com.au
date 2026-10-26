@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -22,13 +23,7 @@ func TestScheduledOfficialJobsExcludeResidentialOnlyNSW(t *testing.T) {
 		}
 	}
 	for _, want := range []string{"vg_sa", "vg_vic"} {
-		found := false
-		for _, name := range names {
-			if name == want {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(names, want)
 		if !found {
 			t.Errorf("scheduled official jobs = %v; missing %q", names, want)
 		}

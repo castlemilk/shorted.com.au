@@ -111,7 +111,15 @@ test("production web deploy preserves preflights, artifact promotion and test ga
   assert.match(prodJob, /--force/);
   assert.match(prodJob, /--skip-domain/);
   assert.match(prodJob, /NPM_CONFIG_FETCH_RETRIES:\s*"5"/);
-  assert.doesNotMatch(prodJob, /Smoke release candidate preview|release-smoke-ci\.mjs|playwright install/);
+  // Preview smoke remains excluded, but the promoted release must be tested.
+  const beforePromotion = prodJob.slice(0, prodJob.indexOf("Promote Vercel deployment to production"));
+  assert.doesNotMatch(beforePromotion, /Smoke release candidate preview|release-smoke-ci\.mjs|playwright install/);
+  assert.doesNotMatch(prodJob, /Smoke release candidate preview/);
+  const smokeIndex = prodJob.indexOf("Verify promoted production release");
+  const summaryIndex = prodJob.indexOf("Production Deployment Summary");
+  assert.ok(smokeIndex > prodJob.indexOf("Promote Vercel deployment to production"));
+  assert.ok(summaryIndex > smokeIndex, "deployment success must follow release smoke");
+  assert.match(prodJob.slice(smokeIndex, summaryIndex), boundedReleaseSmokePattern);
   assert.match(prodJob, /Promote Vercel deployment to production/);
   assert.match(prodJob, /vercel promote/);
   assert.match(workflow, /check_secret "GEMINI_API_KEY"/);
@@ -120,9 +128,13 @@ test("production web deploy preserves preflights, artifact promotion and test ga
   assert.match(workflow, /NEXT_PUBLIC_FIREBASE_API_KEY:\s*\$\{\{\s*secrets\.NEXT_PUBLIC_FIREBASE_API_KEY_PROD\s*\}\}/);
   assert.doesNotMatch(workflow, /check_secret "STRIPE_API_ACCESS_PRICE_ID"/);
   assert.match(workflow, /GEMINI_API_KEY:\s*\$\{\{\s*secrets\.GEMINI_API_KEY\s*\}\}/);
-  assert.match(workflow, /ensure_secret "GEMINI_API_KEY_CHAT" "\$GEMINI_API_KEY"/);
-  assert.match(workflow, /ensure_secret "GEMINI_API_KEY_NEWS" "\$GEMINI_API_KEY"/);
-  assert.match(workflow, /ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "\$GEMINI_API_KEY"/);
+  // The chat key prefers its own secret and falls back to the shared one
+  // (terraform-deploy-workflow.test.mjs pins both jobs).
+  // Every Gemini sync goes through ensure_gemini_secret, which validates the key
+  // first (terraform-deploy-workflow.test.mjs pins both jobs).
+  assert.match(workflow, /ensure_gemini_secret "GEMINI_API_KEY_CHAT" "\$\{GEMINI_API_KEY_CHAT:-\$GEMINI_API_KEY\}"/);
+  assert.match(workflow, /ensure_gemini_secret "GEMINI_API_KEY_NEWS" "\$GEMINI_API_KEY"/);
+  assert.match(workflow, /ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "\$GEMINI_API_KEY"/);
   assert.doesNotMatch(
     workflow,
     /STRIPE_API_ACCESS_PRICE_ID[^\n]*secrets\.STRIPE_PRO_PRICE_ID/,
@@ -148,28 +160,31 @@ test("production web deploy preserves preflights, artifact promotion and test ga
   assert.match(gate, /github\.event\.inputs\.plan_only != 'true'/);
 });
 
-test("production promotion condition rejects PRs, failed checks and plan-only runs", () => {
+test("production promotion condition rejects PRs, failed checks, failed applies and plan-only runs", () => {
   const workflow = read(".github/workflows/terraform-deploy.yml");
   const job = workflow.slice(workflow.indexOf("  deploy-vercel-prod:"));
   const expression = job.match(/    if: \|\n([\s\S]*?)    environment: prod/)[1]
     .trim().replace(/\bneeds\.([\w-]+)/g, 'needs["$1"]');
   // Evaluate the actual simple GitHub condition with completed job results.
   const eligible = new Function("github", "needs", "always", `return (${expression});`);
+  // The web release ships only against infrastructure that applied: a failed,
+  // cancelled or skipped terraform-apply would promote it against the old API.
   const cases = [
-    ["main with passing tests", "push", "success", "success", false, true],
-    ["manual dispatch with passing tests", "workflow_dispatch", "success", "success", false, true],
-    ["published tag release with passing tests", "release", "success", "success", false, true],
-    ["pull request", "pull_request", "success", "success", false, false],
-    ["failed tests", "push", "failure", "success", false, false],
-    ["cancelled tests", "push", "cancelled", "success", false, false],
-    ["failed secrets", "push", "success", "failure", false, false],
-    ["plan-only dispatch", "workflow_dispatch", "success", "success", true, false],
+    ["main with passing tests and a successful apply", "push", "success", "success", "success", false, true],
+    ["pull request", "pull_request", "success", "success", "success", false, false],
+    ["failed tests", "push", "failure", "success", "success", false, false],
+    ["cancelled tests", "push", "cancelled", "success", "success", false, false],
+    ["failed secrets", "push", "success", "failure", "success", false, false],
+    ["failed apply", "push", "success", "success", "failure", false, false],
+    ["cancelled apply", "push", "success", "success", "cancelled", false, false],
+    ["skipped apply", "push", "success", "success", "skipped", false, false],
+    ["plan-only dispatch", "workflow_dispatch", "success", "success", "skipped", true, false],
   ];
-  for (const [name, event, tests, secrets, planOnly, expected] of cases) {
+  for (const [name, event, tests, secrets, apply, planOnly, expected] of cases) {
     assert.equal(eligible({ event_name: event, event: { inputs: { plan_only: String(planOnly) } } }, {
       "determine-environment": { outputs: { environment: "prod" } },
       "run-tests": { result: tests }, "validate-secrets": { result: secrets },
-      "terraform-apply": { result: "failure" },
+      "terraform-apply": { result: apply },
     }, () => true), expected, name);
   }
 });
@@ -265,4 +280,15 @@ test("release docs document Firebase auth validation gates", () => {
   assert.match(firebaseDocs, /identitytoolkit\.googleapis\.com/);
   assert.match(firebaseDocs, /x-shorted-testing-bypass/);
   assert.match(firebaseDocs, /NEXT_PUBLIC_FIREBASE_API_KEY_PROD/);
+});
+
+
+test("the web release passes both Stripe price ids, so a Premium price is never dropped", () => {
+  // Premium is written from STRIPE_PREMIUM_PRICE_ID (and the legacy STRIPE_PRO_PRICE_ID).
+  // A release that passes only the legacy name leaves the current Premium price unset
+  // on the web, and every checkout and sync then refuses it as unconfigured.
+  const script = read("scripts/release-web.sh");
+
+  assert.match(script, /append_endpoint_args "STRIPE_PREMIUM_PRICE_ID" "\$\{STRIPE_PREMIUM_PRICE_ID:-\}"/);
+  assert.match(script, /append_endpoint_args "STRIPE_PRO_PRICE_ID" "\$\{STRIPE_PRO_PRICE_ID:-\}"/);
 });

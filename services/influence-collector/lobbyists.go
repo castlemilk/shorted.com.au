@@ -122,7 +122,7 @@ var (
 
 func normalizeEntityName(s string) string {
 	s = strings.TrimSpace(entityNameNonAlnum.ReplaceAllString(strings.ToUpper(s), " "))
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		s = strings.TrimSpace(entityNameCorpSuffix.ReplaceAllString(s, ""))
 	}
 	return s
@@ -350,10 +350,7 @@ func parseLobbyistRegisterXLSX(data []byte) ([]LobbyistClientRow, error) {
 func parseLobbyistClientRows(rows [][]string) ([]LobbyistClientRow, error) {
 	headerIdx := -1
 	var headers []string
-	limit := len(rows)
-	if limit > 15 {
-		limit = 15
-	}
+	limit := min(len(rows), 15)
 	for i := 0; i < limit; i++ {
 		if columnIndex(rows[i], "Client's Name") >= 0 && columnIndex(rows[i], "Parent Organisation") >= 0 {
 			headerIdx = i
@@ -588,10 +585,7 @@ func fitsHeaderColumns(row []string) (registrantName, registrantABN, principalNa
 func parseFITSActivityRows(rows [][]string) ([]FITSArrangementRow, error) {
 	headerIdx := -1
 	var nameCol, abnCol, principalCol int
-	limit := len(rows)
-	if limit > 15 {
-		limit = 15
-	}
+	limit := min(len(rows), 15)
 	for i := 0; i < limit; i++ {
 		if reg, abn, principal, ok := fitsHeaderColumns(rows[i]); ok {
 			headerIdx, nameCol, abnCol, principalCol = i, reg, abn, principal
@@ -765,8 +759,7 @@ func firstHardRegisterError(errs ...error) error {
 		if err == nil {
 			continue
 		}
-		var unavailable *errSourceUnavailable
-		if errors.As(err, &unavailable) {
+		if _, ok := errors.AsType[*errSourceUnavailable](err); ok {
 			continue
 		}
 		return err
@@ -852,8 +845,7 @@ func runFITSRegisterSource(ctx context.Context, pool *pgxpool.Pool) error {
 // blocked by an unavailable official endpoint so observability can tell
 // "endpoint blocked/unreachable" apart from "collector bug".
 func finishRegisterRunAfterFailure(ctx context.Context, pool *pgxpool.Pool, runID, label string, err error, metadata map[string]any) {
-	var unavailable *errSourceUnavailable
-	if errors.As(err, &unavailable) {
+	if _, ok := errors.AsType[*errSourceUnavailable](err); ok {
 		metadata["source_unavailable"] = true
 	}
 	finishCollectionRunAfterFailure(ctx, pool, runID, label, err, metadata)

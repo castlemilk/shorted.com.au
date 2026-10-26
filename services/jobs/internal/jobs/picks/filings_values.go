@@ -3,6 +3,7 @@ package picks
 import (
 	"math"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -111,8 +112,8 @@ func findNumbers(text string) []textNumber {
 			continue
 		}
 		intPart := clean
-		if i := strings.IndexByte(clean, '.'); i >= 0 {
-			intPart = clean[:i]
+		if before0, _, ok := strings.Cut(clean, "."); ok {
+			intPart = before0
 		}
 		n := textNumber{value: v, digits: len(strings.TrimLeft(intPart, "0")), pos: loc[0], end: loc[1]}
 		before := strings.TrimRight(text[:loc[0]], " ")
@@ -366,12 +367,7 @@ func lastIndex(rx *regexp.Regexp, s string) int {
 }
 
 func containsKey(keys []string, k string) bool {
-	for _, x := range keys {
-		if x == k {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(keys, k)
 }
 
 // ------------------------------------------------------------------ sign

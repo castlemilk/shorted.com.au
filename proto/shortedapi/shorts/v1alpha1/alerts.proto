@@ -17,6 +17,26 @@ service AlertsService {
   rpc ListAlertMonitors (ListAlertMonitorsRequest) returns (ListAlertMonitorsResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
   }
+
+  // Recent alert events (monitors that fired) for the current user, newest report first.
+  rpc ListAlertEvents (ListAlertEventsRequest) returns (ListAlertEventsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Pause or resume one of the current user's monitors. Resuming requires Premium.
+  rpc UpdateAlertMonitorStatus (UpdateAlertMonitorStatusRequest) returns (UpdateAlertMonitorStatusResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Delete one of the current user's monitors and its event history.
+  rpc DeleteAlertMonitor (DeleteAlertMonitorRequest) returns (DeleteAlertMonitorResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Pause the monitor named by a signed email token (one-click unsubscribe). No session.
+  rpc PauseAlertMonitorByToken (PauseAlertMonitorByTokenRequest) returns (PauseAlertMonitorByTokenResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }
 
 // Alert monitor target type.
@@ -48,6 +68,21 @@ enum AlertMonitorStatus {
   ALERT_MONITOR_STATUS_PAUSED = 2;
 }
 
+// Delivery state of one alert event's email.
+enum AlertDeliveryStatus {
+  ALERT_DELIVERY_STATUS_UNSPECIFIED = 0;
+  // Queued for sending, or being sent.
+  ALERT_DELIVERY_STATUS_PENDING = 1;
+  ALERT_DELIVERY_STATUS_SENT = 2;
+  ALERT_DELIVERY_STATUS_FAILED = 3;
+  // The owner has no active Premium subscription, so no email was sent.
+  ALERT_DELIVERY_STATUS_SKIPPED_UNENTITLED = 4;
+  // The account has no email address on file.
+  ALERT_DELIVERY_STATUS_SKIPPED_NO_EMAIL = 5;
+  // The monitor was paused before the email was sent.
+  ALERT_DELIVERY_STATUS_SKIPPED_PAUSED = 6;
+}
+
 // A saved short-interest monitor owned by the current user.
 message AlertMonitor {
   string id = 1;
@@ -60,6 +95,10 @@ message AlertMonitor {
   AlertMonitorStatus status = 8;
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
+  // The newest event for this monitor, or empty when it has never fired.
+  string last_event_report_date = 11; // YYYY-MM-DD
+  AlertDeliveryStatus last_delivery_status = 12;
+  google.protobuf.Timestamp last_event_at = 13;
 }
 
 // Request for CreateAlertMonitor RPC. Uses auth context for ownership.
@@ -87,4 +126,90 @@ message ListAlertMonitorsRequest {
 message ListAlertMonitorsResponse {
   repeated AlertMonitor monitors = 1;
   int32 total_count = 2;
+  // The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+  string checked_through_report_date = 3;
+}
+
+// One company an alert event is about.
+message AlertEventCompany {
+  string product_code = 1;
+  string company_name = 2;
+  double latest_percent = 3;
+  double previous_percent = 4;
+  bool has_previous = 5;
+  double change_points = 6;
+  bool has_change = 7;
+  // 1-based rank in the industry's top ten at the report date. 0 means not ranked.
+  int32 rank = 8;
+  // Rank at the previous reading. 0 means not ranked.
+  int32 previous_rank = 9;
+}
+
+// One alert that fired: a monitor, a report date, and the companies it fired on.
+message AlertEvent {
+  string id = 1;
+  string monitor_id = 2;
+  AlertMonitorScope scope = 3;
+  string target = 4;
+  AlertMonitorCondition condition = 5;
+  double threshold = 6;
+  bool has_threshold = 7;
+  AlertMonitorCadence cadence = 8;
+  string report_date = 9;        // YYYY-MM-DD
+  string compared_to_date = 10;  // YYYY-MM-DD
+  repeated AlertEventCompany companies = 11;
+  int32 companies_total = 12;
+  AlertDeliveryStatus delivery_status = 13;
+  google.protobuf.Timestamp sent_at = 14;
+  google.protobuf.Timestamp created_at = 15;
+}
+
+// Request for ListAlertEvents RPC. Uses auth context for ownership.
+message ListAlertEventsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+  // Restrict to one of the caller's monitors. Empty means all of them.
+  string monitor_id = 3;
+}
+
+// Response for ListAlertEvents RPC.
+message ListAlertEventsResponse {
+  repeated AlertEvent events = 1;
+  int32 total_count = 2;
+}
+
+// Request for UpdateAlertMonitorStatus RPC. Uses auth context for ownership.
+message UpdateAlertMonitorStatusRequest {
+  string id = 1;
+  AlertMonitorStatus status = 2;
+}
+
+// Response for UpdateAlertMonitorStatus RPC.
+message UpdateAlertMonitorStatusResponse {
+  AlertMonitor monitor = 1;
+}
+
+// Request for DeleteAlertMonitor RPC. Uses auth context for ownership.
+message DeleteAlertMonitorRequest {
+  string id = 1;
+}
+
+// Response for DeleteAlertMonitor RPC.
+message DeleteAlertMonitorResponse {}
+
+// Request for PauseAlertMonitorByToken RPC. The token is the one in an alert email.
+message PauseAlertMonitorByTokenRequest {
+  string token = 1;
+}
+
+// Response for PauseAlertMonitorByToken RPC: the monitor, for the confirmation page.
+message PauseAlertMonitorByTokenResponse {
+  AlertMonitorScope scope = 1;
+  string target = 2;
+  AlertMonitorCondition condition = 3;
+  double threshold = 4;
+  bool has_threshold = 5;
+  AlertMonitorCadence cadence = 6;
+  // True when the monitor was already paused, so nothing changed.
+  bool already_paused = 7;
 }

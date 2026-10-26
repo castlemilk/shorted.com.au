@@ -1,4 +1,5 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import { parseOpenAPISpec } from '~/lib/openapi/parser';
 import { summarizePublicSurface } from '~/lib/openapi/public-surface';
 import Link from 'next/link';
@@ -8,6 +9,16 @@ import { ArrowRight, Book, Terminal, Shield, Lock, AlertTriangle } from 'lucide-
 import { ApiAccessSection } from '~/@/components/docs/api-access-section';
 import { WebApiSchema } from '~/@/components/seo/web-api-schema';
 import { planPricePerMonth } from "~/@/config/pricing";
+import { siteConfig } from '~/@/config/site';
+import { apiDocsMetadata } from './docs-metadata';
+
+// Without this the page served the homepage's title and description.
+export const metadata: Metadata = apiDocsMetadata({
+  title: 'API Reference — ASX Short Positions, Housing, Economy',
+  description:
+    'Reference for the Shorted public API: ASIC short positions for every ASX stock, house prices, ABS and RBA economic series and the register of interests.',
+  canonical: `${siteConfig.url}/docs/api`,
+});
 
 export default async function ApiDocsIndex() {
   const spec = await parseOpenAPISpec();
@@ -166,7 +177,7 @@ export default async function ApiDocsIndex() {
                     <td className="py-3">Public endpoints only, limited</td>
                   </tr>
                   <tr className="border-b">
-                    <td className="py-3 pr-4 font-medium text-foreground">Free (signed in)</td>
+                    <td className="py-3 pr-4 font-medium text-foreground">Free and Premium (signed in)</td>
                     <td className="py-3 pr-4">60</td>
                     <td className="py-3 pr-4">1,000</td>
                     <td className="py-3">All endpoints, requires API token</td>

@@ -37,7 +37,6 @@ func TestRegistryStructure(t *testing.T) {
 	allowedSources := map[string]bool{SourceFundamentals: true, SourcePrices: true, SourceIndex: true, SourceShorts: true}
 	seenIDs := map[string]bool{}
 	for _, s := range Registry() {
-		s := s
 		t.Run(s.ID, func(t *testing.T) {
 			if seenIDs[s.ID] {
 				t.Fatalf("duplicate strategy id %q", s.ID)
@@ -347,9 +346,9 @@ func TestCaveatsWithCoverage(t *testing.T) {
 
 func TestCoverageCountIsPerStrategy(t *testing.T) {
 	cands := []Candidate{
-		{Growth: &Growth{RevenueYoYPct: f(3)}},                  // growth figure, no quality row
-		{Growth: &Growth{}, Quality: &Quality{}},                // quality row, no growth figure
-		{Quality: &Quality{}, Growth: &Growth{EPSYoYPct: f(1)}}, // both
+		{Growth: &Growth{RevenueYoYPct: new(float64(3))}},                  // growth figure, no quality row
+		{Growth: &Growth{}, Quality: &Quality{}},                           // quality row, no growth figure
+		{Quality: &Quality{}, Growth: &Growth{EPSYoYPct: new(float64(1))}}, // both
 		{},
 	}
 	z, _ := Lookup(IDZangerBreakout)

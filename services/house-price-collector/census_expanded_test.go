@@ -107,7 +107,7 @@ func TestParseG17BAndG17C(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger, _ := expandedTestLogger()
-			got := parseG17(tt.g17BRows, tt.g17CRows, map[string]*int{"10707": intPtr(1000)}, logger)["10707"]
+			got := parseG17(tt.g17BRows, tt.g17CRows, map[string]*int{"10707": new(1000)}, logger)["10707"]
 			floatValue(t, got.pctLowPersonalIncome, tt.wantLow)
 			floatValue(t, got.pctHighPersonalIncome, tt.wantHigh)
 		})
@@ -135,7 +135,7 @@ func TestParseG36(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger, _ := expandedTestLogger()
-			got := parseG36(tt.rows, map[string]*int{"10707": intPtr(1000)}, logger)["10707"]
+			got := parseG36(tt.rows, map[string]*int{"10707": new(1000)}, logger)["10707"]
 			floatValue(t, got.pctSeparateHouse, tt.wantSeparate)
 			floatValue(t, got.pctFlatApartment, tt.wantFlat)
 		})
@@ -167,7 +167,7 @@ func TestParseG37(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger, _ := expandedTestLogger()
-			got := parseG37(tt.rows, map[string]*int{"10707": intPtr(1000)}, logger)["10707"]
+			got := parseG37(tt.rows, map[string]*int{"10707": new(1000)}, logger)["10707"]
 			floatValue(t, got.pctOwnedOutright, tt.wantOutright)
 			floatValue(t, got.pctOwnedMortgage, tt.wantMortgage)
 			floatValue(t, got.pctRented, tt.wantRented)
@@ -199,7 +199,7 @@ func TestParseG42(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger, _ := expandedTestLogger()
-			got := parseG42(tt.rows, map[string]*int{"10707": intPtr(1000)}, logger)["10707"]
+			got := parseG42(tt.rows, map[string]*int{"10707": new(1000)}, logger)["10707"]
 			floatValue(t, got.pctCoupleWithChildren, tt.wantCouple)
 			floatValue(t, got.pctLonePersonHousehold, tt.wantLone)
 		})
@@ -229,7 +229,7 @@ func TestParseG43(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger, _ := expandedTestLogger()
-			got := parseG43(tt.rows, map[string]*int{"10707": intPtr(1000)}, logger)["10707"]
+			got := parseG43(tt.rows, map[string]*int{"10707": new(1000)}, logger)["10707"]
 			floatValue(t, got.unemploymentRate, tt.wantUnemployment)
 			floatValue(t, got.labourForceParticipationRate, tt.wantParticipation)
 			floatValue(t, got.pctBachelorOrHigher, tt.wantBachelor)
@@ -244,7 +244,7 @@ func TestMissingMetricColumnLeavesOnlyThatMetricNull(t *testing.T) {
 		{"SAL10707", "25", "500", "800", "100", "50"},
 	}
 
-	got := parseG43(rows, map[string]*int{"10707": intPtr(1000)}, logger)["10707"]
+	got := parseG43(rows, map[string]*int{"10707": new(1000)}, logger)["10707"]
 	floatValue(t, got.unemploymentRate, 5)
 	floatValue(t, got.labourForceParticipationRate, 62.5)
 	if got.pctBachelorOrHigher != nil {
@@ -264,7 +264,7 @@ func TestWrongTableHeadersLeaveEveryMetricNull(t *testing.T) {
 		{"SAL10707", "600", "250", "1000"},
 	}
 
-	got := parseG36(wrongG32Rows, map[string]*int{"10707": intPtr(1000)}, logger)["10707"]
+	got := parseG36(wrongG32Rows, map[string]*int{"10707": new(1000)}, logger)["10707"]
 	assertExpandedStatsNil(t, got)
 	if text := logs.String(); !strings.Contains(text, "G36") || !strings.Contains(text, "missing header") {
 		t.Fatalf("wrong-table failure was not surfaced in logs: %q", text)
@@ -292,7 +292,7 @@ func TestG17UnionRequiresBothEntries(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			logger, logs := expandedTestLogger()
-			got := parseG17(tt.g17BRows, tt.g17CRows, map[string]*int{"10707": intPtr(1000)}, logger)["10707"]
+			got := parseG17(tt.g17BRows, tt.g17CRows, map[string]*int{"10707": new(1000)}, logger)["10707"]
 			if got.pctLowPersonalIncome != nil || got.pctHighPersonalIncome != nil {
 				t.Fatalf("missing %s must leave both income metrics nil: %+v", tt.missing, got)
 			}
@@ -314,7 +314,7 @@ func TestG17UnionRejectsCollidingNonSALHeader(t *testing.T) {
 		{"SAL10707", "1000", "50", "50", "100"},
 	}
 
-	got := parseG17(g17BRows, g17CRows, map[string]*int{"10707": intPtr(1000)}, logger)["10707"]
+	got := parseG17(g17BRows, g17CRows, map[string]*int{"10707": new(1000)}, logger)["10707"]
 	if got.pctLowPersonalIncome != nil || got.pctHighPersonalIncome != nil {
 		t.Fatalf("ambiguous shared denominator must leave both income metrics nil: %+v", got)
 	}
@@ -330,7 +330,7 @@ func TestPopulationFloorSuppressesRatesButNotDwellingCount(t *testing.T) {
 		{"SAL10707", "250", "400", "300", "1000"},
 	}
 
-	got := parseG37(rows, map[string]*int{"10707": intPtr(censusDerivedRateMinPopulation - 1)}, logger)["10707"]
+	got := parseG37(rows, map[string]*int{"10707": new(censusDerivedRateMinPopulation - 1)}, logger)["10707"]
 	if got.pctOwnedOutright != nil || got.pctOwnedMortgage != nil || got.pctRented != nil {
 		t.Fatalf("population below %d must leave derived rates nil: %+v", censusDerivedRateMinPopulation, got)
 	}
@@ -341,7 +341,7 @@ func TestPopulationFloorSuppressesRatesButNotDwellingCount(t *testing.T) {
 
 func TestExpandedRatesKeepZeroDenominatorNullAndBoundPercentages(t *testing.T) {
 	logger, _ := expandedTestLogger()
-	population := map[string]*int{"10707": intPtr(1000), "20000": intPtr(1000)}
+	population := map[string]*int{"10707": new(1000), "20000": new(1000)}
 	// SAL20000's flat count is blank, so separate-house stands alone and is
 	// bounded rather than withheld as part of an overfull group.
 	rows := [][]string{
@@ -366,7 +366,7 @@ func TestExpandedRatesKeepZeroDenominatorNullAndBoundPercentages(t *testing.T) {
 // denominator floor; the raw dwelling count is still published.
 func TestDwellingSharesNeedTheirOwnDenominatorFloor(t *testing.T) {
 	logger, _ := expandedTestLogger()
-	population := map[string]*int{"51327": intPtr(110), "10707": intPtr(1000)}
+	population := map[string]*int{"51327": new(110), "10707": new(1000)}
 	below := censusDwellingShareMinDenominator - 1
 
 	g37 := parseG37([][]string{
@@ -404,7 +404,7 @@ func TestDwellingSharesNeedTheirOwnDenominatorFloor(t *testing.T) {
 // perturbation tolerance is published as is.
 func TestOverfullShareGroupsAreWithheld(t *testing.T) {
 	logger, _ := expandedTestLogger()
-	population := map[string]*int{"10001": intPtr(1000), "10002": intPtr(1000)}
+	population := map[string]*int{"10001": new(1000), "10002": new(1000)}
 
 	g37 := parseG37([][]string{
 		{"SAL_CODE_2021", "O_OR_Total", "O_MTG_Total", "R_Tot_Total", "Total_Total"},
@@ -447,7 +447,7 @@ func TestUnemploymentNeedsALabourForceFloor(t *testing.T) {
 		{"SAL70001", "8", strconv.Itoa(censusLabourForceMinDenominator - 36), "120", "1", "1", "4"},
 		{"SAL70002", "26", strconv.Itoa(censusLabourForceMinDenominator), "140", "1", "1", "4"},
 	}
-	got := parseG43(rows, map[string]*int{"70001": intPtr(147), "70002": intPtr(188)}, logger)
+	got := parseG43(rows, map[string]*int{"70001": new(147), "70002": new(188)}, logger)
 	if got["70001"].unemploymentRate != nil {
 		t.Fatalf("unemployment on a labour force below %d must be nil, got %v", censusLabourForceMinDenominator, *got["70001"].unemploymentRate)
 	}
@@ -532,8 +532,6 @@ func TestExpandedCensusRealDataPack(t *testing.T) {
 	}
 }
 
-func intPtr(v int) *int { return &v }
-
 // The culture block had no population floor: 97 localities of 3-17 residents
 // published a top-religion share above 100%. Below the derived-rate floor every
 // culture share AND both labels are withheld; at or above it nothing changes.
@@ -550,8 +548,8 @@ func TestSubFloorCultureIsWithheld(t *testing.T) {
 	}
 
 	for name, pop := range map[string]*int{
-		"below the floor":   intPtr(censusDerivedRateMinPopulation - 1),
-		"a 17-person SAL":   intPtr(17),
+		"below the floor":   new(censusDerivedRateMinPopulation - 1),
+		"a 17-person SAL":   new(17),
 		"no G01 population": nil,
 	} {
 		row := culture(pop)
@@ -562,7 +560,7 @@ func TestSubFloorCultureIsWithheld(t *testing.T) {
 		}
 	}
 
-	row := culture(intPtr(censusDerivedRateMinPopulation))
+	row := culture(new(censusDerivedRateMinPopulation))
 	withholdSubFloorCulture(&row)
 	if row.TopReligion == nil || *row.TopReligion != "Catholic" || row.PctTopLanguage == nil || *row.PctTopLanguage != 60 {
 		t.Fatalf("at the floor the culture block must pass through, got %+v", row)
@@ -577,8 +575,8 @@ func TestAssembleCensusRowFloorsCultureOnTheIngestPath(t *testing.T) {
 	pct := func(v float64) *float64 { return &v }
 	id := suburbIdentity{salName: "Tiny Locality", stateCode: "NT"}
 	g01 := map[string]g01Row{
-		"70001": {pop: intPtr(12), bpAus: 10, bpElse: 2, langEngOnly: 4, langOther: 8},
-		"70002": {pop: intPtr(4200), bpAus: 3000, bpElse: 1200, langEngOnly: 3000, langOther: 1200},
+		"70001": {pop: new(12), bpAus: 10, bpElse: 2, langEngOnly: 4, langOther: 8},
+		"70002": {pop: new(4200), bpAus: 3000, bpElse: 1200, langEngOnly: 3000, langOther: 1200},
 	}
 	medians := map[string]g02Medians{"70001": {age: pct(41)}}
 	religion := map[string]religionStats{
@@ -586,7 +584,7 @@ func TestAssembleCensusRowFloorsCultureOnTheIngestPath(t *testing.T) {
 		"70002": {top: "Catholic", pctTop: pct(31), pctNoRel: pct(40)},
 	}
 	language := map[string]languageStats{"70001": {top: "Greek", count: 7}, "70002": {top: "Greek", count: 600}}
-	expanded := map[string]expandedCensusStats{"70001": {dwellingCount: intPtr(5)}}
+	expanded := map[string]expandedCensusStats{"70001": {dwellingCount: new(5)}}
 
 	tiny := assembleCensusRow("70001", id, g01, medians, religion, language, expanded)
 	if tiny.TopReligion != nil || tiny.PctTopReligion != nil || tiny.PctNoReligion != nil ||

@@ -45,6 +45,21 @@ func (m *MockShortsStore) EXPECT() *MockShortsStoreMockRecorder {
 	return m.recorder
 }
 
+// AlertCheckedThrough mocks base method.
+func (m *MockShortsStore) AlertCheckedThrough() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AlertCheckedThrough")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AlertCheckedThrough indicates an expected call of AlertCheckedThrough.
+func (mr *MockShortsStoreMockRecorder) AlertCheckedThrough() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AlertCheckedThrough", reflect.TypeOf((*MockShortsStore)(nil).AlertCheckedThrough))
+}
+
 // ApplyEnrichment mocks base method.
 func (m *MockShortsStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error {
 	m.ctrl.T.Helper()
@@ -57,6 +72,22 @@ func (m *MockShortsStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1
 func (mr *MockShortsStoreMockRecorder) ApplyEnrichment(stockCode, data any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyEnrichment", reflect.TypeOf((*MockShortsStore)(nil).ApplyEnrichment), stockCode, data)
+}
+
+// CanonicalIndustry mocks base method.
+func (m *MockShortsStore) CanonicalIndustry(target string) (string, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CanonicalIndustry", target)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// CanonicalIndustry indicates an expected call of CanonicalIndustry.
+func (mr *MockShortsStoreMockRecorder) CanonicalIndustry(target any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanonicalIndustry", reflect.TypeOf((*MockShortsStore)(nil).CanonicalIndustry), target)
 }
 
 // ClaimBroadcastForSending mocks base method.
@@ -162,6 +193,20 @@ func (m *MockShortsStore) DecideSecurityCandidate(candidateNorm, decision, stock
 func (mr *MockShortsStoreMockRecorder) DecideSecurityCandidate(candidateNorm, decision, stockCode, aliasKind, note, reviewer, stopwordConfirmed any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecideSecurityCandidate", reflect.TypeOf((*MockShortsStore)(nil).DecideSecurityCandidate), candidateNorm, decision, stockCode, aliasKind, note, reviewer, stopwordConfirmed)
+}
+
+// DeleteAlertMonitor mocks base method.
+func (m *MockShortsStore) DeleteAlertMonitor(userID, monitorID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteAlertMonitor", userID, monitorID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteAlertMonitor indicates an expected call of DeleteAlertMonitor.
+func (mr *MockShortsStoreMockRecorder) DeleteAlertMonitor(userID, monitorID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAlertMonitor", reflect.TypeOf((*MockShortsStore)(nil).DeleteAlertMonitor), userID, monitorID)
 }
 
 // DeleteEditorialTake mocks base method.
@@ -1293,6 +1338,22 @@ func (mr *MockShortsStoreMockRecorder) ListAgencyPriceStats(stateCode, sort, lim
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAgencyPriceStats", reflect.TypeOf((*MockShortsStore)(nil).ListAgencyPriceStats), stateCode, sort, limit)
 }
 
+// ListAlertEvents mocks base method.
+func (m *MockShortsStore) ListAlertEvents(userID, monitorID string, limit, offset int32) ([]*shorts.AlertEvent, int32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAlertEvents", userID, monitorID, limit, offset)
+	ret0, _ := ret[0].([]*shorts.AlertEvent)
+	ret1, _ := ret[1].(int32)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListAlertEvents indicates an expected call of ListAlertEvents.
+func (mr *MockShortsStoreMockRecorder) ListAlertEvents(userID, monitorID, limit, offset any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAlertEvents", reflect.TypeOf((*MockShortsStore)(nil).ListAlertEvents), userID, monitorID, limit, offset)
+}
+
 // ListAlertMonitors mocks base method.
 func (m *MockShortsStore) ListAlertMonitors(userID string, limit, offset int32) ([]*shorts.AlertMonitor, int32, error) {
 	m.ctrl.T.Helper()
@@ -1791,6 +1852,22 @@ func (mr *MockShortsStoreMockRecorder) MergePoliticians(keepSlug, mergeSlug, evi
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergePoliticians", reflect.TypeOf((*MockShortsStore)(nil).MergePoliticians), keepSlug, mergeSlug, evidence, curator)
 }
 
+// PauseAlertMonitorByID mocks base method.
+func (m *MockShortsStore) PauseAlertMonitorByID(monitorID string) (*shorts.AlertMonitor, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PauseAlertMonitorByID", monitorID)
+	ret0, _ := ret[0].(*shorts.AlertMonitor)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// PauseAlertMonitorByID indicates an expected call of PauseAlertMonitorByID.
+func (mr *MockShortsStoreMockRecorder) PauseAlertMonitorByID(monitorID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PauseAlertMonitorByID", reflect.TypeOf((*MockShortsStore)(nil).PauseAlertMonitorByID), monitorID)
+}
+
 // PublishEditorialTake mocks base method.
 func (m *MockShortsStore) PublishEditorialTake(slug string) (*shorts.EditorialTake, error) {
 	m.ctrl.T.Helper()
@@ -1823,6 +1900,20 @@ func (mr *MockShortsStoreMockRecorder) QueryRowContext(ctx, query any, args ...a
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{ctx, query}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryRowContext", reflect.TypeOf((*MockShortsStore)(nil).QueryRowContext), varargs...)
+}
+
+// RefreshAlertMonitorEmail mocks base method.
+func (m *MockShortsStore) RefreshAlertMonitorEmail(userID, userEmail string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RefreshAlertMonitorEmail", userID, userEmail)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RefreshAlertMonitorEmail indicates an expected call of RefreshAlertMonitorEmail.
+func (mr *MockShortsStoreMockRecorder) RefreshAlertMonitorEmail(userID, userEmail any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefreshAlertMonitorEmail", reflect.TypeOf((*MockShortsStore)(nil).RefreshAlertMonitorEmail), userID, userEmail)
 }
 
 // ReviewEnrichment mocks base method.
@@ -1928,6 +2019,21 @@ func (mr *MockShortsStoreMockRecorder) SetPoliticianPhoto(slug, url, licence, au
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPoliticianPhoto", reflect.TypeOf((*MockShortsStore)(nil).SetPoliticianPhoto), slug, url, licence, author, sourceURL, curator)
 }
 
+// StockCodeKnown mocks base method.
+func (m *MockShortsStore) StockCodeKnown(code string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StockCodeKnown", code)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StockCodeKnown indicates an expected call of StockCodeKnown.
+func (mr *MockShortsStoreMockRecorder) StockCodeKnown(code any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StockCodeKnown", reflect.TypeOf((*MockShortsStore)(nil).StockCodeKnown), code)
+}
+
 // StockExists mocks base method.
 func (m *MockShortsStore) StockExists(stockCode string) (bool, error) {
 	m.ctrl.T.Helper()
@@ -1984,6 +2090,21 @@ func (m *MockShortsStore) UpdateAPISubscriptionByCustomer(stripeCustomerID strin
 func (mr *MockShortsStoreMockRecorder) UpdateAPISubscriptionByCustomer(stripeCustomerID, update any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAPISubscriptionByCustomer", reflect.TypeOf((*MockShortsStore)(nil).UpdateAPISubscriptionByCustomer), stripeCustomerID, update)
+}
+
+// UpdateAlertMonitorStatus mocks base method.
+func (m *MockShortsStore) UpdateAlertMonitorStatus(userID, monitorID, status, userEmail string) (*shorts.AlertMonitor, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateAlertMonitorStatus", userID, monitorID, status, userEmail)
+	ret0, _ := ret[0].(*shorts.AlertMonitor)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateAlertMonitorStatus indicates an expected call of UpdateAlertMonitorStatus.
+func (mr *MockShortsStoreMockRecorder) UpdateAlertMonitorStatus(userID, monitorID, status, userEmail any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAlertMonitorStatus", reflect.TypeOf((*MockShortsStore)(nil).UpdateAlertMonitorStatus), userID, monitorID, status, userEmail)
 }
 
 // UpdateEditorialTake mocks base method.

@@ -30,7 +30,7 @@ import {
   SourceDocLink,
 } from "@/components/politicians/compliance";
 import { registerItem } from "@/lib/politics/register-items";
-import { stateSlug, suburbSlug } from "@/lib/housing/states";
+import { suburbHref } from "@/lib/housing/states";
 import { toDate } from "@/lib/politics/timestamp";
 import {
   RegisterHolder,
@@ -98,9 +98,16 @@ function EntityCell({ interest }: { interest: DeclaredInterest }) {
           suburbName={interest.suburbName}
           stateCode={interest.propertyState}
           salCode={interest.salCode}
+          // The suburb's canonical path (suburbHref), the URL the sitemap
+          // lists. The page resolves the SAL from the slug and ignores a query,
+          // so the ?sal= this used to append only minted a duplicate URL.
+          // suburbName is the ABS SAL name, qualifier included.
           href={
             interest.salCode && interest.suburbName && interest.propertyState
-              ? `/housing/${stateSlug(interest.propertyState)}/${suburbSlug(interest.suburbName, "")}?sal=${interest.salCode}`
+              ? suburbHref(interest.propertyState, {
+                  salName: interest.suburbName,
+                  postcode: "",
+                })
               : undefined
           }
         />

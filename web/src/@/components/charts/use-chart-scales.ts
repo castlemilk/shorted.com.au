@@ -64,6 +64,22 @@ export function valueAxisLabels(opts: {
   return getTicks(scale, numTicks).map((tick) => print(Number(tick)));
 }
 
+/**
+ * The tick values a value axis prints, from the data alone: the same scale and the same
+ * count as valueAxisLabels, so a caller that formats the ticks (for their decimals) sees
+ * the values the axis draws.
+ */
+export function valueAxisTicks(opts: {
+  series: readonly ChartSeriesSpec[];
+  side: "left" | "right";
+  hard?: [number, number];
+  numTicks: number;
+}): number[] {
+  const { series, side, hard, numTicks } = opts;
+  const scale = valueScale(valueDomain(series, side, hard), [0, 1]);
+  return getTicks(scale, numTicks).map((tick) => Number(tick));
+}
+
 /** Memoized time scale + per-axis value scales over the (decimated) render data. */
 export function useChartScales(opts: {
   series: ChartSeriesSpec[];

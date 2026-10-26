@@ -64,7 +64,7 @@ func TestREASettle_Live(t *testing.T) {
 		t.Logf("goto (non-fatal): %v", err)
 	}
 
-	for i := 0; i < 14; i++ {
+	for i := range 14 {
 		html, _ := page.Content()
 		low := strings.ToLower(html)
 		arg := strings.Contains(html, "ArgonautExchange")

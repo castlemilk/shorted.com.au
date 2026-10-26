@@ -53,6 +53,7 @@
 import Image from "next/image";
 
 import { partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 /**
  * Hosts allowlisted in next.config.mjs `images.remotePatterns`.
@@ -296,7 +297,7 @@ export function PortraitCredit({
     <p className={`text-[10px] leading-relaxed text-muted-foreground ${className ?? ""}`}>
       Portrait:{" "}
       <a
-        href={photo.photoSourceUrl}
+        href={safeExternalHref(photo.photoSourceUrl)}
         target="_blank"
         rel="noreferrer noopener"
         className="underline underline-offset-2"

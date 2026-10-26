@@ -66,6 +66,12 @@ describe("map-metrics", () => {
     expect(ECONOMY_SERIES_FORMATTERS.rate(189.8)).toBe("190");
   });
 
+  it("formats whole counts for prose, never in compact notation", () => {
+    expect(ECONOMY_SERIES_FORMATTERS.count(5075)).toBe("5,075");
+    expect(ECONOMY_SERIES_FORMATTERS.count(7_154_221.4)).toBe("7,154,221");
+    expect(ECONOMY_SERIES_FORMATTERS.number(5075)).toBe("5.1K");
+  });
+
   it("registry has 15 metrics with unique keys", () => {
     const keys = ECONOMY_MAP_METRICS.map((m) => m.key);
     expect(keys).toHaveLength(15);

@@ -14,11 +14,10 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/castlemilk/shorted.com.au/services/pkg/enrichment"
-	"github.com/skunkworq/stealth/brws/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
+	"github.com/skunkworq/stealth/brws/engine"
 )
-
 
 // runImageBackfill fetches LinkedIn profile photos for people who have LinkedIn URLs
 // but no images.
@@ -76,7 +75,7 @@ func (p *enrichmentProcessor) backfillStockImages(ctx context.Context, stock enr
 	seenURLs := make(map[string]string) // LinkedIn URL → GCS URL (for dedup)
 
 	maxPeople := min(3, len(people))
-	for i := 0; i < maxPeople; i++ {
+	for i := range maxPeople {
 		person := &people[i]
 
 		if person.LinkedInURL == "" || person.ImageGCSURL != "" {
@@ -226,10 +225,7 @@ func (p *enrichmentProcessor) scrapeLinkedInPhotoStealth(ctx context.Context, pr
 			if status == 429 {
 				p.google429Count++
 				// Exponential backoff: 5min after first 429, longer if repeated
-				backoff := time.Duration(5*p.google429Count) * time.Minute
-				if backoff > 15*time.Minute {
-					backoff = 15 * time.Minute
-				}
+				backoff := min(time.Duration(5*p.google429Count)*time.Minute, 15*time.Minute)
 				p.logger.Warnf("    Google 429 (#%d) — cooling off %s", p.google429Count, backoff.Round(time.Second))
 				select {
 				case <-time.After(backoff):
@@ -318,7 +314,7 @@ func extractLinkedInCDNPhoto(doc *goquery.Document) string {
 func extractLinkedInCDNPhotoBroad(html string) string {
 	// Split on common delimiters (quotes, whitespace, commas)
 	for _, sep := range []string{`"`, `'`, `,`, ` `} {
-		for _, part := range strings.Split(html, sep) {
+		for part := range strings.SplitSeq(html, sep) {
 			decoded := strings.ReplaceAll(part, `\u0026`, "&")
 			decoded = strings.ReplaceAll(decoded, `\u003d`, "=")
 			decoded = strings.ReplaceAll(decoded, `&amp;`, "&")

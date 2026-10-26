@@ -34,7 +34,7 @@ type ShortsStore interface {
 	// Key metrics sync methods
 	GetAllStockCodes() ([]string, error)
 	StockExists(stockCode string) (bool, error)
-	UpdateKeyMetrics(stockCode string, metrics map[string]interface{}) error
+	UpdateKeyMetrics(stockCode string, metrics map[string]any) error
 
 	// Enrichment (v2) review workflow methods
 	GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error)
@@ -63,6 +63,14 @@ type ShortsStore interface {
 	UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *shortsstore.APISubscriptionUpdate) error
 	CreateAlertMonitor(input shortsstore.CreateAlertMonitorInput) (*shortsstore.AlertMonitor, error)
 	ListAlertMonitors(userID string, limit, offset int32) ([]*shortsstore.AlertMonitor, int32, error)
+	UpdateAlertMonitorStatus(userID, monitorID, status, userEmail string) (*shortsstore.AlertMonitor, error)
+	RefreshAlertMonitorEmail(userID, userEmail string) error
+	DeleteAlertMonitor(userID, monitorID string) error
+	PauseAlertMonitorByID(monitorID string) (*shortsstore.AlertMonitor, bool, error)
+	ListAlertEvents(userID, monitorID string, limit, offset int32) ([]*shortsstore.AlertEvent, int32, error)
+	CanonicalIndustry(target string) (string, bool, error)
+	StockCodeKnown(code string) (bool, error)
+	AlertCheckedThrough() (string, error)
 
 	// Weekly report methods
 	GetWeeklyReport(weekSlug string) (*shortsstore.WeeklyReport, error)
@@ -216,17 +224,17 @@ type ShortsStore interface {
 	ListActiveSubscribers() ([]shortsstore.Subscriber, error)
 
 	// Raw query access (used for Algolia sync)
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) shortsstore.Row
+	QueryRowContext(ctx context.Context, query string, args ...any) shortsstore.Row
 }
 
 // Cache defines the interface for caching operations
 type Cache interface {
-	Get(key string) (interface{}, bool)
-	Set(key string, value interface{})
-	GetOrSet(key string, computeFn func() (interface{}, error)) (interface{}, error)
+	Get(key string) (any, bool)
+	Set(key string, value any)
+	GetOrSet(key string, computeFn func() (any, error)) (any, error)
 	// GetOrSetWithTTL is GetOrSet with a per-entry lifetime, for data that
 	// changes once a day and is expensive to recompute (the strategy picks).
-	GetOrSetWithTTL(key string, ttl time.Duration, computeFn func() (interface{}, error)) (interface{}, error)
+	GetOrSetWithTTL(key string, ttl time.Duration, computeFn func() (any, error)) (any, error)
 	Delete(key string)
 	Clear()
 	Size() int
@@ -312,8 +320,8 @@ type Cache interface {
 
 // Logger defines the interface for logging operations
 type Logger interface {
-	Debugf(format string, args ...interface{})
-	Infof(format string, args ...interface{})
-	Warnf(format string, args ...interface{})
-	Errorf(format string, args ...interface{})
+	Debugf(format string, args ...any)
+	Infof(format string, args ...any)
+	Warnf(format string, args ...any)
+	Errorf(format string, args ...any)
 }

@@ -63,15 +63,25 @@ const BareProtectedResourceMetadataPath = "/.well-known/oauth-protected-resource
 // expiry, never to a token that was never valid.
 const ClockSkew = 60 * time.Second
 
-// Scopes is the scope vocabulary this resource server understands, published
-// in the protected-resource metadata.
+// Scopes is the complete scope vocabulary of the public resource: the four read
+// scopes and the one write scope. The authorization server grants from this list.
+// The protected-resource metadata publishes DefaultScopes instead, so alerts:write is
+// not advertised as a scope a client should request. alerts:write unlocks the
+// signed-in user's own alert tools (alerts_write.go) and nothing else. Every other
+// scope here is read-only.
 //
 // offline_access is deliberately absent. Refresh-token issuance is a property
 // of the authorization server's token lifetime, not a requirement of this
 // resource; RFC 9728 §2 says a resource server advertises what it requires,
 // and listing it here would push clients into asking for refresh tokens they
 // have no need of.
-var Scopes = []string{"shorts:read", "housing:read", "economy:read", "politics:read"}
+var Scopes = []string{"shorts:read", "housing:read", "economy:read", "politics:read", ScopeAlertsWrite}
+
+// DefaultScopes is what an authorization request that names no scope is granted.
+// It excludes alerts:write: a client must ask for it by name, so a connector that
+// only ever asked for the default is never handed a write scope, and the consent
+// screen shows exactly what was asked.
+var DefaultScopes = []string{"shorts:read", "housing:read", "economy:read", "politics:read"}
 
 // ResourceURI returns the RFC 8707 resource identifier for an API origin.
 //
@@ -169,7 +179,11 @@ func NewTokenVerifier(validator ClaimsValidator, resourceURI string) auth.TokenV
 func BearerTokenOptions(apiBaseURL string) *auth.RequireBearerTokenOptions {
 	return &auth.RequireBearerTokenOptions{
 		ResourceMetadataURL: ProtectedResourceMetadataURL(apiBaseURL),
-		ClockSkew:           ClockSkew,
+		// Scopes is NOT set here. The SDK treats it as a set every token must hold
+		// (go-sdk auth/auth.go verify), so setting the read scopes would refuse a token
+		// that lacks one. The invalid-token challenge's scope= is added by the verifier
+		// wrapper (WithChallengeScope), which changes only the header.
+		ClockSkew: ClockSkew,
 	}
 }
 
@@ -215,8 +229,13 @@ func ProtectedResourceMetadata(apiBaseURL string) *oauthex.ProtectedResourceMeta
 		// same signing key, no JWKS fetch and no clock skew between two
 		// platforms — which is also why JWKSURI is absent: the tokens are
 		// HS256, symmetric, and there is no public key to publish.
-		AuthorizationServers:   []string{base},
-		ScopesSupported:        append([]string(nil), Scopes...),
+		AuthorizationServers: []string{base},
+		// The resource advertises only the read scopes. A spec client requests every
+		// entry here when a challenge names no scope, so listing alerts:write would send
+		// every ordinary sign-in for the write scope. The write scope is named by the
+		// discovery challenge alone (alerts_discovery.go), and the AS grants it when a
+		// client asks for it by name.
+		ScopesSupported:        append([]string(nil), DefaultScopes...),
 		BearerMethodsSupported: []string{"header"},
 		ResourceName:           ServerTitle,
 		ResourceDocumentation:  DocumentationURL,

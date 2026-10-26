@@ -39,4 +39,24 @@ public interface ListAlertMonitorsResponseOrBuilder extends
    * @return The totalCount.
    */
   int getTotalCount();
+
+  /**
+   * <pre>
+   * The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+   * </pre>
+   *
+   * <code>string checked_through_report_date = 3 [json_name = "checkedThroughReportDate"];</code>
+   * @return The checkedThroughReportDate.
+   */
+  java.lang.String getCheckedThroughReportDate();
+  /**
+   * <pre>
+   * The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+   * </pre>
+   *
+   * <code>string checked_through_report_date = 3 [json_name = "checkedThroughReportDate"];</code>
+   * @return The bytes for checkedThroughReportDate.
+   */
+  com.google.protobuf.ByteString
+      getCheckedThroughReportDateBytes();
 }

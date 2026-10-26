@@ -53,10 +53,10 @@ func TestGetEconomicSeries_DedupBelow50IsOK(t *testing.T) {
 
 	// 60 raw keys, only 40 unique (case/whitespace variants of the same 40).
 	raw := make([]string, 0, 60)
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		raw = append(raw, "topic.metric.aus"+strconv.Itoa(i))
 	}
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		// duplicate the first 20 with case/whitespace noise
 		raw = append(raw, "  TOPIC.METRIC.AUS"+strconv.Itoa(i)+" ")
 	}

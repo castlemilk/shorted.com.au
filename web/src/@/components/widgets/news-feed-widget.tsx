@@ -15,6 +15,7 @@ import { ExternalLink, AlertTriangle, Megaphone } from "lucide-react";
 import { useWidgetVisibility } from "~/@/hooks/use-widget-visibility";
 import { getTypedSettings } from "~/@/lib/widget-settings";
 import Link from "next/link";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 export function NewsFeedWidget({ config, sizeVariant = "standard" }: WidgetProps) {
   const { ref, hasBeenVisible } = useWidgetVisibility();
@@ -65,7 +66,7 @@ export function NewsFeedWidget({ config, sizeVariant = "standard" }: WidgetProps
         return (
           <a
             key={article.id}
-            href={article.url}
+            href={safeExternalHref(article.url)}
             target="_blank"
             rel="noopener noreferrer"
             className="block group"

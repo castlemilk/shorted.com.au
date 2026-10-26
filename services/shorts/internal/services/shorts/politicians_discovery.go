@@ -193,7 +193,7 @@ func (s *ShortsServer) GetRegisterActivity(
 
 	key := s.cache.GetRegisterActivityKey(windowDays, filter.Slug, filter.PartyAb,
 		filter.Chamber, filter.ItemNo, filter.Kind)
-	cached, err := s.cache.GetOrSet(key, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(key, func() (any, error) {
 		row, err := s.store.GetRegisterActivity(windowDays, filter)
 		if err != nil {
 			return nil, err
@@ -246,7 +246,7 @@ func (s *ShortsServer) ListDistinctiveHoldings(
 		return connect.NewResponse(&shortsv1alpha1.ListDistinctiveHoldingsResponse{}), nil
 	}
 
-	cached, err := s.cache.GetOrSet(s.cache.ListDistinctiveHoldingsKey(slug), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.ListDistinctiveHoldingsKey(slug), func() (any, error) {
 		row, err := s.store.ListDistinctiveHoldings(slug)
 		if err != nil {
 			return nil, err

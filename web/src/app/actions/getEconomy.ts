@@ -21,7 +21,7 @@ import { CACHE_KEYS, ECONOMY_TTL, getCached, setCached } from "@/lib/kv-cache";
 // then returns undefined and the placeholder gets baked for an hour. The KV
 // layer below is the resilience mechanism for any residual fetch failure
 // (e.g. the sitemap.ts "Failed to generate cache key" mode): once one regen
-// succeeds, KV serves last-good for ECONOMY_TTL regardless of fetch health.
+// succeeds, KV holds last-good for ECONOMY_TTL regardless of fetch health.
 const isrEconomyFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, { ...init, next: { revalidate: 3600 } });
 
@@ -33,48 +33,91 @@ function createEconomyClient() {
   return createClient(EconomyService, transport);
 }
 
-/** Observations for up to 50 economic series keys. */
+/**
+ * The KV last-good entry for one series request, or undefined.
+ *
+ * AN EMPTY ENTRY IS A MISS, NOT A HIT (getPoliticians.ts readCached):
+ * `fromJson` parses `{}` into a valid response with no series, and serving it
+ * would pin the empty state for the whole TTL. A parse failure means the proto
+ * changed since the entry was written, which is a miss too.
+ */
+async function readLastGoodSeries(
+  cacheKey: string,
+): Promise<GetEconomicSeriesResponse | undefined> {
+  const cached = await getCached<JsonValue>(cacheKey);
+  if (cached == null) return undefined;
+  try {
+    const parsed = fromJson(GetEconomicSeriesResponseSchema, cached);
+    return parsed.series.length > 0 ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Observations for up to 50 economic series keys: the newest
+ * `maxObservations` of each, or the API's default history when 0.
+ *
+ * The live read comes first, and its fetch is ISR-tagged, so the Next data
+ * cache answers it while its entry is fresh. KV (Upstash) is the last-good
+ * fallback, read only when that read fails or comes back empty. It used to be
+ * read first, which cost every regeneration an Upstash round trip whether or
+ * not the data cache could answer.
+ */
 export const getEconomicSeries = cache(
   withRetryAndNotFound(
     async (
       seriesKeys: string[],
+      // Annotated for withRetryAndNotFound's TArgs inference (getPoliticians.ts).
+      maxObservations: number = 0, // eslint-disable-line @typescript-eslint/no-inferrable-types
     ): Promise<GetEconomicSeriesResponse | undefined> => {
       // Build phase: skip the live fetch so a prerendered /economy route
       // doesn't make a live API call at `next build` time — ISR fills it on
       // first request. Mirrors getHousingOverview in getHousing.ts.
       if (skipForBuild()) return undefined;
 
-      // KV cache (Upstash, TTL-only) — the last-good fallback that stops a
-      // transient RPC failure during ISR regen from baking the empty-state
-      // placeholder for an hour. Cache the JSON projection (the proto carries
-      // int64 Timestamps that JSON.stringify can't serialize) and rehydrate
-      // via fromJson so observation periods keep their BigInt seconds.
+      // Keyed on the sorted key list, so logically-equal requests share one
+      // entry, and on the observation cap, so a latest-only entry is never
+      // served to a caller that asked for history.
+      const sortedKeys = [...seriesKeys].sort().join(",");
       const cacheKey = CACHE_KEYS.economicSeries(
-        [...seriesKeys].sort().join(","),
+        maxObservations > 0 ? `${sortedKeys}@${maxObservations}` : sortedKeys,
       );
-      const cached = await getCached<JsonValue>(cacheKey);
-      if (cached != null) {
-        try {
-          return fromJson(GetEconomicSeriesResponseSchema, cached);
-        } catch {
-          // Schema drift / bad entry — fall through to a live fetch.
-        }
+
+      let resp: GetEconomicSeriesResponse;
+      try {
+        resp = await createEconomyClient().getEconomicSeries({
+          seriesKeys,
+          maxObservations,
+        });
+      } catch (error) {
+        // A transient RPC failure during an ISR regen must not bake the
+        // empty-state placeholder for an hour: serve last-good when there is
+        // one. With nothing to fall back to, rethrow so withRetryAndNotFound
+        // gets its retries.
+        const lastGood = await readLastGoodSeries(cacheKey);
+        if (lastGood) return lastGood;
+        throw error;
       }
 
-      const client = createEconomyClient();
-      const resp = await client.getEconomicSeries({ seriesKeys });
       // Never cache an EMPTY response — a transient empty would pin the
-      // placeholder for the full TTL. Only cache real series.
-      if (resp.series.length > 0) {
-        try {
-          void setCached(
-            cacheKey,
-            toJson(GetEconomicSeriesResponseSchema, resp),
-            ECONOMY_TTL,
-          );
-        } catch {
-          // Serialization/caching must never break the request.
-        }
+      // placeholder for the full TTL — and prefer last-good over it.
+      if (resp.series.length === 0) {
+        return (await readLastGoodSeries(cacheKey)) ?? resp;
+      }
+
+      // Write-through: every populated live read refreshes last-good. Cache
+      // the JSON projection (the proto carries int64 Timestamps that
+      // JSON.stringify can't serialize); readLastGoodSeries rehydrates it via
+      // fromJson so observation periods keep their BigInt seconds.
+      try {
+        void setCached(
+          cacheKey,
+          toJson(GetEconomicSeriesResponseSchema, resp),
+          ECONOMY_TTL,
+        );
+      } catch {
+        // Serialization/caching must never break the request.
       }
       return resp;
     },

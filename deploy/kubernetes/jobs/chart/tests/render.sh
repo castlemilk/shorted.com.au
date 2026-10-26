@@ -57,6 +57,7 @@ declare -A want_schedule=(
   [director-trade-extractor]="30 12 * * *"
   [financial-report-extractor]="0 14 * * *"
   [asx-discovery]="0 12 * * 0"
+  [shorted-alerts]="55 * * * 1-5"
 )
 
 got_names="$(cronjobs "${tmp}/default.yaml")"
@@ -68,14 +69,44 @@ else
 fi
 
 tf_sources="$(cat "${repo_root}"/terraform/environments/prod/main.tf "${repo_root}"/terraform/modules/*/main.tf "${repo_root}"/terraform/modules/*/variables.tf)"
+# VKE-native jobs have no Cloud Scheduler trigger, so there is nothing in Terraform to match.
+native="$(yq -N '.vkeNative[]' "${chart}/values.yaml")"
 for name in "${!want_schedule[@]}"; do
   want="${want_schedule[${name}]}"
   got="$(field "${tmp}/default.yaml" "${name}" '.spec.schedule')"
   [[ "${got}" == "${want}" ]] || fail "${name}: schedule '${got}' != '${want}'"
-  grep -qF "\"${want}\"" <<<"${tf_sources}" || fail "${name}: '${want}' no longer appears in Terraform — was the Cloud Scheduler trigger changed without the CronJob?"
+  if ! grep -qxF "${name}" <<<"${native}"; then
+    grep -qF "\"${want}\"" <<<"${tf_sources}" || fail "${name}: '${want}' no longer appears in Terraform — was the Cloud Scheduler trigger changed without the CronJob?"
+  fi
   [[ "$(field "${tmp}/default.yaml" "${name}" '.spec.timeZone')" == "Etc/UTC" ]] || fail "${name}: timeZone must be Etc/UTC"
 done
 pass "schedules match the Cloud Scheduler triggers (UTC)"
+
+# --- 1b. VKE-native jobs: a CronJob with no Cloud Run twin. ----------------
+# Nothing else in this file reads them as twins, so pin what they must be here.
+while IFS= read -r name; do
+  [[ -n "${name}" ]] || continue
+  [[ -n "$(field "${tmp}/default.yaml" "${name}" '.metadata.name')" ]] || fail "${name}: vkeNative job did not render a CronJob"
+  [[ "$(yq ".jobs.\"${name}\".cloudRun" "${chart}/values.yaml")" == "null" ]] || fail "${name}: a vkeNative job must not have a cloudRun twin"
+done <<<"${native}"
+pass "every vkeNative job renders a CronJob with no Cloud Run twin"
+
+# shorted-alerts: the evaluator's contract. A dry run by default is set in the
+# chart only as ALERTS_DRY_RUN=false, so a regression here would start live sends
+# or leave the job unable to find its secrets.
+alerts=shorted-alerts
+[[ "$(field "${tmp}/default.yaml" "${alerts}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "ALERTS_DRY_RUN") | .value')" == "false" ]] \
+  || fail "shorted-alerts: ALERTS_DRY_RUN must be \"false\" in the chart"
+[[ "$(secret_key "${tmp}/default.yaml" "${alerts}" RESEND_API_KEY)" == "RESEND_API_KEY" ]] || fail "shorted-alerts: RESEND_API_KEY key"
+[[ "$(secret_key "${tmp}/default.yaml" "${alerts}" INTERNAL_SERVICE_SECRET)" == "INTERNAL_SERVICE_SECRET" ]] || fail "shorted-alerts: INTERNAL_SERVICE_SECRET key"
+[[ "$(secret_key "${tmp}/default.yaml" "${alerts}" UNSUBSCRIBE_SECRET)" == "UNSUBSCRIBE_SECRET" ]] || fail "shorted-alerts: UNSUBSCRIBE_SECRET key"
+[[ "$(field "${tmp}/default.yaml" "${alerts}" '.spec.jobTemplate.spec.backoffLimitPerIndex')" == "0" ]] || fail "shorted-alerts: backoffLimitPerIndex must be 0"
+[[ "$(field "${tmp}/default.yaml" "${alerts}" '.spec.jobTemplate.spec.template.spec.activeDeadlineSeconds')" == "900" ]] || fail "shorted-alerts: per-attempt activeDeadlineSeconds must be 900"
+shorts_url="$(field "${tmp}/default.yaml" "${alerts}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "SHORTS_API_URL") | .value')"
+[[ "${shorts_url}" == *.run.app ]] || fail "shorted-alerts: SHORTS_API_URL must be the Cloud Run origin (.run.app), not the edge"
+[[ -z "$(field "${tmp}/default.yaml" "${alerts}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
+  || fail "shorted-alerts: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
+pass "shorted-alerts: live, Resend and entitlement secrets isolated, origin URL, no WIF"
 
 # --- 2. Nothing runs by default; enabling is per job and needs suspendAll=false.
 # Exactly the jobs in `enabled` run (none while suspendAll is true).

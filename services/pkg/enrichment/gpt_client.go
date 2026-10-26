@@ -53,10 +53,7 @@ func retryableOpenAICall[T any](ctx context.Context, cfg retryConfig, operation 
 
 		// Calculate backoff with jitter
 		if attempt < cfg.maxRetries {
-			backoff := cfg.initialBackoff * time.Duration(1<<uint(attempt))
-			if backoff > cfg.maxBackoff {
-				backoff = cfg.maxBackoff
-			}
+			backoff := min(cfg.initialBackoff*time.Duration(1<<uint(attempt)), cfg.maxBackoff)
 			// Add 10-30% jitter
 			jitter := time.Duration(float64(backoff) * (0.1 + rand.Float64()*0.2))
 			backoff += jitter
@@ -251,17 +248,17 @@ IMPORTANT rules for key_people:
 	raw = extractLikelyJSON(raw)
 
 	var parsed struct {
-		Tags                  []string `json:"tags"`
-		EnhancedSummary       *string  `json:"enhanced_summary"`
-		CompanyHistory        *string  `json:"company_history"`
-		KeyPeople             []struct {
+		Tags            []string `json:"tags"`
+		EnhancedSummary *string  `json:"enhanced_summary"`
+		CompanyHistory  *string  `json:"company_history"`
+		KeyPeople       []struct {
 			Name string `json:"name"`
 			Role string `json:"role"`
 			Bio  string `json:"bio"`
 		} `json:"key_people"`
-		CompetitiveAdvantages *string  `json:"competitive_advantages"`
-		RiskFactors           []string `json:"risk_factors"`
-		RecentDevelopments    *string  `json:"recent_developments"`
+		CompetitiveAdvantages *string            `json:"competitive_advantages"`
+		RiskFactors           []string           `json:"risk_factors"`
+		RecentDevelopments    *string            `json:"recent_developments"`
 		SocialMediaLinks      map[string]*string `json:"social_media_links"`
 	}
 
@@ -270,13 +267,13 @@ IMPORTANT rules for key_people:
 	}
 
 	data := &shortsv1alpha1.EnrichmentData{
-		Tags:                parsed.Tags,
-		EnhancedSummary:     derefString(parsed.EnhancedSummary),
-		CompanyHistory:      derefString(parsed.CompanyHistory),
+		Tags:                  parsed.Tags,
+		EnhancedSummary:       derefString(parsed.EnhancedSummary),
+		CompanyHistory:        derefString(parsed.CompanyHistory),
 		CompetitiveAdvantages: derefString(parsed.CompetitiveAdvantages),
-		RiskFactors:         parsed.RiskFactors,
-		RecentDevelopments:  derefString(parsed.RecentDevelopments),
-		FinancialReports:    reports,
+		RiskFactors:           parsed.RiskFactors,
+		RecentDevelopments:    derefString(parsed.RecentDevelopments),
+		FinancialReports:      reports,
 	}
 
 	people := make([]*stocksv1alpha1.CompanyPerson, 0, len(parsed.KeyPeople))
@@ -563,7 +560,7 @@ func isValidWebsiteURL(urlStr string) bool {
 	if len(parts) != 2 || parts[1] == "" {
 		return false
 	}
-	domain := strings.Split(parts[1], "/")[0]
+	domain, _, _ := strings.Cut(parts[1], "/")
 	// Domain must have at least one dot
 	if !strings.Contains(domain, ".") {
 		return false
@@ -607,4 +604,3 @@ func extractLikelyJSON(s string) string {
 	}
 	return s
 }
-

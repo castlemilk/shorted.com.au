@@ -34,7 +34,7 @@ func (s *ShortsServer) GetStockSignals(ctx context.Context, req *connect.Request
 	s.logger.Debugf("get stock signals: stock_code=%s, limit=%d", req.Msg.StockCode, req.Msg.Limit)
 
 	cacheKey := s.cache.GetStockSignalsKey(req.Msg.StockCode, req.Msg.Limit)
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		result, err := s.store.GetStockSignals(req.Msg.StockCode, req.Msg.Limit)
 		if err != nil {
 			return nil, err

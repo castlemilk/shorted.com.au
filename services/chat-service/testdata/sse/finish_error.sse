@@ -1,0 +1,6 @@
+data: {"choices":[{"index":0,"delta":{"content":"Partial answer"},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{},"finish_reason":"error"}]}
+
+data: [DONE]
+

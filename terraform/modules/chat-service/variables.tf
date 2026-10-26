@@ -56,6 +56,51 @@ variable "gemini_secret_name" {
   default     = "GEMINI_API_KEY"
 }
 
+# The chat-model flag (Flaggr) and DeepSeek direct. Each is optional: an empty
+# value adds no env var and no IAM grant, so an unset deploy keeps the revision's
+# behaviour. The secrets must exist in Secret Manager before a name is set here,
+# because Cloud Run refuses a revision that references a missing secret.
+variable "flaggr_api_key_secret_name" {
+  description = "Secret Manager secret holding the Flaggr project token. Empty turns the flag off."
+  type        = string
+  default     = ""
+}
+
+variable "flaggr_service_id" {
+  description = "Flaggr service id that holds the chat-model flag. Empty turns the flag off."
+  type        = string
+  default     = ""
+}
+
+variable "flaggr_environment" {
+  description = "Flaggr environment the flag is evaluated in (development, staging or production)"
+  type        = string
+  default     = "production"
+
+  validation {
+    condition     = contains(["development", "staging", "production"], var.flaggr_environment)
+    error_message = "flaggr_environment must be development, staging or production."
+  }
+}
+
+variable "deepseek_api_key_secret_name" {
+  description = "Secret Manager secret holding the DeepSeek API key. Empty means no DeepSeek route."
+  type        = string
+  default     = ""
+}
+
+variable "openrouter_api_key_secret_name" {
+  description = "Secret Manager secret holding the chat-only OpenRouter key, exposed as OPENROUTER_API_KEY_CHAT. Empty means no OpenRouter route. It has its own spend cap, separate from the report extractor's key."
+  type        = string
+  default     = ""
+}
+
+variable "allow_prc_hosted_provider" {
+  description = "Sets CHAT_ALLOW_PRC_HOSTED_PROVIDER to true or false. true lets production route to DeepSeek's PRC-hosted API; false keeps it refused. Set true only after the privacy review is complete."
+  type        = bool
+  default     = false
+}
+
 variable "internal_service_secret_name" {
   description = "Secret Manager secret name containing the internal service auth secret"
   type        = string

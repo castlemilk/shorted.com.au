@@ -22,8 +22,15 @@ import { Suspense } from "react";
 import { DeferredGoogleAnalytics } from "~/@/components/deferred-google-analytics";
 import { CloudflareWebAnalytics } from "~/@/components/cloudflare-web-analytics";
 import { CloudflareJsDetections } from "~/@/components/cloudflare-js-detections";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 // Client-only: uses Connect-RPC streaming which breaks SSR
+// Client-only, like the chat sidebar: it calls the billing actions.
+const PastDueBanner = dynamic(
+  () => import("~/@/components/billing/past-due-banner").then((mod) => ({ default: mod.PastDueBanner })),
+  { ssr: false },
+);
+
 const ChatSidebar = dynamic(
   () => import("~/@/components/chat/chat-sidebar").then((mod) => ({ default: mod.ChatSidebar })),
   { ssr: false },
@@ -210,43 +217,38 @@ export default function RootLayout({
         {/* WebSite schema with Sitelinks Search Action — Google may render
             a search box directly in SERPs for shorted.com.au. The action
             target is the /search page (also added in this batch). */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              "@id": "https://shorted.com.au/#website",
-              name: "Shorted",
-              alternateName: "Shorted.com.au",
-              url: "https://shorted.com.au",
-              description:
-                "Australia's ASX short-selling data platform — ASIC short positions, sentiment, and analysis.",
-              inLanguage: "en-AU",
-              publisher: {
-                "@type": "Organization",
-                "@id": "https://shorted.com.au/#organization",
-                name: "Shorted",
-                url: "https://shorted.com.au",
-                logo: {
-                  "@type": "ImageObject",
-                  url: siteConfig.logo.url,
-                  width: siteConfig.logo.width,
-                  height: siteConfig.logo.height,
-                },
-              },
-              potentialAction: {
-                "@type": "SearchAction",
-                target: {
-                  "@type": "EntryPoint",
-                  urlTemplate:
-                    "https://shorted.com.au/search?q={search_term_string}",
-                },
-                "query-input": "required name=search_term_string",
-              },
-            }),
-          }}
-        />
+        <JsonLd data={{
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "@id": "https://shorted.com.au/#website",
+          name: "Shorted",
+          alternateName: "Shorted.com.au",
+          url: "https://shorted.com.au",
+          description:
+            "Australia's ASX short-selling data platform — ASIC short positions, sentiment, and analysis.",
+          inLanguage: "en-AU",
+          publisher: {
+            "@type": "Organization",
+            "@id": "https://shorted.com.au/#organization",
+            name: "Shorted",
+            url: "https://shorted.com.au",
+            logo: {
+              "@type": "ImageObject",
+              url: siteConfig.logo.url,
+              width: siteConfig.logo.width,
+              height: siteConfig.logo.height,
+            },
+          },
+          potentialAction: {
+            "@type": "SearchAction",
+            target: {
+              "@type": "EntryPoint",
+              urlTemplate:
+                "https://shorted.com.au/search?q={search_term_string}",
+            },
+            "query-input": "required name=search_term_string",
+          },
+        }} />
         {/* Mark HTML as loaded to prevent FOUC */}
         <script
           dangerouslySetInnerHTML={{
@@ -265,6 +267,7 @@ export default function RootLayout({
             <div className="relative z-10">
               <EnvironmentBanner />
               <DevelopmentBanner />
+              <PastDueBanner />
               <ConditionalHeader />
               {children}
               <ConditionalFooter />

@@ -10,6 +10,7 @@
  * shows, and nothing else. It is never read back from the DOM, so a reading
  * changing from one state to another cannot move the plot.
  */
+import { formatShares } from "@/lib/fundamentals/format";
 import { nearest } from "./nearest";
 import type { ChartPoint, ChartSeriesSpec } from "./types";
 
@@ -59,10 +60,28 @@ export interface ReadoutEntry {
 
 export type ReadoutState = "latest" | "hover" | "pinned" | "measure";
 
+/**
+ * The session's traded volume: the grey bars at the foot of the plot. It is not
+ * a series (it has no axis and no change), so it is read beside them, and only
+ * where the chart draws it.
+ */
+export interface ReadoutVolume {
+  /** "1.2M" shares; null when no session's volume is held. */
+  value: string | null;
+  /** "5 Oct" when this session is on another Sydney day than the headline. */
+  dateNote: string | null;
+}
+
 export interface ReadoutModel {
   state: ReadoutState;
   headline: string;
   entries: ReadoutEntry[];
+  /**
+   * The volume of the session read: the newest on screen at rest, the one under
+   * the pointer or the pin otherwise. Absent when the chart draws no volume, and
+   * in a measure, which names changes and volume has none.
+   */
+  volume?: ReadoutVolume | null;
 }
 
 /** Formats one series' value the way its axis does. */
@@ -170,6 +189,34 @@ function ohlcOf(p: ChartPoint): ReadoutEntry["ohlc"] {
   };
 }
 
+/** Shares traded, compact: "1.2M", "812.4K", "5.07B". */
+export function formatVolume(v: number): string {
+  return formatShares(v);
+}
+
+/**
+ * The volume of the session nearest `t`, dated when it falls on another Sydney
+ * day than `headlineDay`. Null when the chart draws no volume (`volume`
+ * undefined or empty), so the strip and the card leave the reading out rather
+ * than print "n/a" beside a chart without bars. `volume` must be the RAW points
+ * on screen, not the decimated ones the bars are drawn from: a decimated set can
+ * drop the very session the series' point is on.
+ */
+export function volumeReading(
+  volume: ChartPoint[] | undefined,
+  t: number | null,
+  headlineDay: string,
+): ReadoutVolume | null {
+  if (!volume?.length) return null;
+  const p = t === null ? null : nearest(volume, t);
+  if (!p || !isNum(p.v)) return { value: null, dateNote: null };
+  return {
+    value: formatVolume(p.v),
+    dateNote:
+      readoutDayKey(p.t) !== headlineDay ? formatReadoutShortDate(p.t) : null,
+  };
+}
+
 /** A series with nothing to show keeps its row, so the strip never reflows. */
 function emptyEntry(s: ChartSeriesSpec): ReadoutEntry {
   return {
@@ -197,8 +244,10 @@ export function buildLatestReadout(a: {
   zoomed: boolean;
   viewMode: "absolute" | "normalized";
   format: ReadoutFormat;
+  /** The volume on screen, raw; its newest session is read. */
+  volume?: ChartPoint[];
 }): ReadoutModel {
-  const { series, zoomed, viewMode, format } = a;
+  const { series, zoomed, viewMode, format, volume } = a;
 
   let headlineT = -Infinity;
   for (const s of series) {
@@ -230,10 +279,12 @@ export function buildLatestReadout(a: {
     };
   });
 
+  const lastVolume = volume?.[volume.length - 1];
   return {
     state: "latest",
     headline: hasPoint && !zoomed ? `Latest · ${date}` : date,
     entries,
+    volume: volumeReading(volume, lastVolume?.t ?? null, headlineDay),
   };
 }
 
@@ -247,8 +298,10 @@ export function buildPointReadout(a: {
   entries: { series: ChartSeriesSpec; point: ChartPoint }[];
   pinned: boolean;
   format: ReadoutFormat;
+  /** The volume on screen, raw; the session nearest the first entry is read. */
+  volume?: ChartPoint[];
 }): ReadoutModel {
-  const { series, entries, pinned, format } = a;
+  const { series, entries, pinned, format, volume } = a;
   const lead = entries[0];
   const leadDay = lead ? readoutDayKey(lead.point.t) : "";
 
@@ -274,6 +327,7 @@ export function buildPointReadout(a: {
     state: pinned ? "pinned" : "hover",
     headline: lead ? formatReadoutDate(lead.point.t) : "",
     entries: rows,
+    volume: volumeReading(volume, lead?.point.t ?? null, leadDay),
   };
 }
 

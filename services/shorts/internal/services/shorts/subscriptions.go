@@ -3,6 +3,7 @@ package shorts
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -83,6 +84,13 @@ func (s *ShortsServer) HandleStripeSubscriptionUpdated(
 		update.Status = &status
 	}
 
+	// The failure time of the current past-due run. Only the store decides from it,
+	// and only while the status it arrives with is past_due.
+	if req.Msg.PastDueSince != nil {
+		since := req.Msg.PastDueSince.AsTime().Format(time.RFC3339)
+		update.PastDueSince = &since
+	}
+
 	// Handle deleted subscriptions
 	if req.Msg.IsDeleted {
 		canceledStatus := "canceled"
@@ -108,6 +116,13 @@ func (s *ShortsServer) HandleStripeSubscriptionUpdated(
 
 		// Map cancel at period end
 		update.CancelAtPeriodEnd = &req.Msg.CancelAtPeriodEnd
+	}
+
+	// The subscription the web resolved as this customer's best one. The row's
+	// state is the customer's, but the id says which subscription that state is
+	// read from, so it has to follow the same choice.
+	if id := strings.TrimSpace(req.Msg.StripeSubscriptionId); id != "" {
+		update.StripeSubscriptionID = &id
 	}
 
 	// Perform the update
@@ -138,37 +153,86 @@ func (s *ShortsServer) GetMySubscription(
 
 	s.logger.Debugf("Getting subscription for user %s", userClaims.Email)
 
-	// Look up subscription
-	sub, err := s.store.GetAPISubscription(userClaims.UserID)
+	// Look up the entitlement with the same rule that gates paid features, so this
+	// response cannot disagree with them.
+	sub, ent, err := s.loadEntitlement(userClaims.UserID, time.Now())
 	if err != nil {
 		s.logger.Errorf("Failed to get subscription for user %s: %v", userClaims.UserID, err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get subscription"))
 	}
 
-	// Build response
-	resp := &shortsv1alpha1.GetMySubscriptionResponse{
-		HasSubscription: sub != nil,
+	if ent.Source == "internal" {
+		// A grant decides entitlement without the store, but the same customer may
+		// also pay through Stripe, and the billing portal (cancel, change card) is
+		// reached through the Stripe ids on that row. Read it best-effort: a store
+		// failure costs the portal link, never the grant.
+		row, rowErr := s.store.GetAPISubscription(userClaims.UserID)
+		if rowErr != nil {
+			s.logger.Warnf("Failed to read Stripe row for granted user %s: %v", userClaims.UserID, rowErr)
+		} else {
+			sub = row
+		}
 	}
 
-	if sub != nil {
-		resp.Status = mapStringToStatus(sub.Status)
-		resp.Tier = mapStringToTier(sub.Tier)
-		resp.CancelAtPeriodEnd = sub.CancelAtPeriodEnd
-		resp.StripeCustomerId = sub.StripeCustomerID
+	// Build response
+	resp := &shortsv1alpha1.GetMySubscriptionResponse{}
 
-		// Parse period end if available
-		if sub.CurrentPeriodEnd != nil {
-			if t, ok := parseStoreTimestamp(*sub.CurrentPeriodEnd); ok {
-				resp.CurrentPeriodEnd = timestamppb.New(t)
-			}
+	switch {
+	case ent.Source == "internal":
+		// A grant is a subscription on the granted tier. It is ACTIVE only when it is
+		// entitled: an unpaid grant reads INACTIVE, for the same reason a row does.
+		resp.HasSubscription = true
+		resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE
+		if ent.Entitled {
+			resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE
 		}
-	} else {
+		resp.Tier = mapStringToTier(ent.Tier)
+		if sub != nil {
+			applyStripeRow(resp, sub)
+		}
+	case sub != nil:
+		resp.HasSubscription = true
+		status := normaliseRowValue(sub.Status)
+		resp.Status = mapStringToStatus(status)
+		// A row that reads active or trialing but is not entitled (its period ended,
+		// or its tier is not a paid one) must not come back as active, because the
+		// web treats active as premium. It is INACTIVE rather than CANCELED: a failed
+		// renewal and a lost webhook look the same from here, so we cannot say the
+		// customer cancelled, and INACTIVE is what the web already shows for anyone
+		// without an active subscription.
+		if !ent.Entitled && (status == "active" || status == "trialing") {
+			resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE
+		}
+		resp.Tier = mapStringToTier(normaliseRowValue(sub.Tier))
+		applyStripeRow(resp, sub)
+	default:
 		// No subscription means free tier
 		resp.Status = shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE
 		resp.Tier = shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_FREE
 	}
 
 	return connect.NewResponse(resp), nil
+}
+
+// applyStripeRow copies the Stripe fields of a row onto the response. These are
+// the ids and period the billing portal and the renewal date are read from.
+func applyStripeRow(resp *shortsv1alpha1.GetMySubscriptionResponse, sub *shortsstore.APISubscription) {
+	resp.CancelAtPeriodEnd = sub.CancelAtPeriodEnd
+	resp.StripeCustomerId = sub.StripeCustomerID
+
+	// The failure time starts the past-due grace. The web and the alerts job read it
+	// to decide access, so it travels with the status rather than being re-derived.
+	if sub.PastDueSince != nil {
+		if t, ok := parseStoreTimestamp(*sub.PastDueSince); ok {
+			resp.PastDueSince = timestamppb.New(t)
+		}
+	}
+
+	if sub.CurrentPeriodEnd != nil {
+		if t, ok := parseStoreTimestamp(*sub.CurrentPeriodEnd); ok {
+			resp.CurrentPeriodEnd = timestamppb.New(t)
+		}
+	}
 }
 
 // Helper functions for mapping between protobuf enums and strings
@@ -183,6 +247,8 @@ func mapTierToString(tier shortsv1alpha1.SubscriptionTier) string {
 		return "enterprise"
 	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM:
 		return "premium"
+	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS:
+		return "api_access"
 	default:
 		return ""
 	}
@@ -198,6 +264,8 @@ func mapStringToTier(tier string) shortsv1alpha1.SubscriptionTier {
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_ENTERPRISE
 	case "premium":
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM
+	case "api_access":
+		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS
 	default:
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_UNSPECIFIED
 	}
@@ -215,6 +283,8 @@ func mapStatusToString(status shortsv1alpha1.SubscriptionStatus) string {
 		return "canceled"
 	case shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE:
 		return "inactive"
+	case shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNPAID:
+		return "unpaid"
 	default:
 		return ""
 	}
@@ -232,6 +302,8 @@ func mapStringToStatus(status string) shortsv1alpha1.SubscriptionStatus {
 		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_CANCELED
 	case "inactive":
 		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE
+	case "unpaid":
+		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNPAID
 	default:
 		return shortsv1alpha1.SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED
 	}

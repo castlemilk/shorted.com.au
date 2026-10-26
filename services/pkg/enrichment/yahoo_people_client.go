@@ -109,12 +109,12 @@ type quoteSummaryResponse struct {
 		Result []struct {
 			AssetProfile struct {
 				CompanyOfficers []struct {
-					Name           string `json:"name"`
-					Title          string `json:"title"`
-					Age            *int   `json:"age"`
-					YearBorn       *int   `json:"yearBorn"`
-					FiscalYear     *int   `json:"fiscalYear"`
-					TotalPay       *struct {
+					Name       string `json:"name"`
+					Title      string `json:"title"`
+					Age        *int   `json:"age"`
+					YearBorn   *int   `json:"yearBorn"`
+					FiscalYear *int   `json:"fiscalYear"`
+					TotalPay   *struct {
 						Raw int64 `json:"raw"`
 					} `json:"totalPay"`
 					ExercisedValue *struct {

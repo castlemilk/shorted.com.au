@@ -295,10 +295,7 @@ func (s *pgStore) Health(ctx context.Context) (healthReport, error) {
 // healthScore is complete/total as a percentage rounded to 1dp, with the
 // Python's max(total,1) guard against a divide-by-zero on an empty table.
 func healthScore(complete, total int) float64 {
-	denom := total
-	if denom < 1 {
-		denom = 1
-	}
+	denom := max(total, 1)
 	return round1(float64(complete) / float64(denom) * 100)
 }
 

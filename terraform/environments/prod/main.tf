@@ -885,6 +885,70 @@ module "shorted_job_picks" {
   ]
 }
 
+# Alerts replay — the admin MCP server's run_alerts_smoke_test tool
+# (services/shorts/internal/jobmonitor/alerts_replay.go).
+#
+# This is deliberately NOT the scheduled CronJob shorted-alerts
+# (deploy/kubernetes/jobs, vkeNative): that one is the schedule, and its Telesis
+# monitor must count only real runs. This job exists only to be overridden. The
+# argv is built server-side (-date, -user, -canary off) and the shorts-api SA
+# holds run.developer on this job alone (shorts_api_alerts_replay below).
+#
+# Its DEPLOYED args are a dry run, so an execution with no overrides (a console
+# "Execute") evaluates and sends nothing. ALERTS_DRY_RUN=false is what lets an
+# override send: the override's argv has no -dry-run, so the env default applies.
+#
+# No check-in or reporter wiring: a Cloud Run job reaches Telesis only through the
+# reporter's watch list (vke_reporter_watched_jobs), and this job is not on it, so
+# a replay can never be counted as a run of the shorted-alerts monitor.
+module "shorted_job_alerts_replay" {
+  source = "../../modules/shorted-job"
+
+  name        = "shorted-alerts-replay"
+  description = "Short-interest alert replay for one owner and one report date (admin smoke test only, never scheduled)"
+  project_id  = var.project_id
+  region      = var.region
+  environment = "production"
+  image_url   = var.shorted_jobs_image
+
+  args     = ["alerts", "-dry-run"]
+  schedule = ""
+
+  env = {
+    ENVIRONMENT    = "production"
+    ALERTS_DRY_RUN = "false"
+    # The live run is fenced to one owner's one day (config.go: ALERTS_REPLAY_ONLY).
+    # The scheduled CronJob shorted-alerts does NOT set it, and must not.
+    ALERTS_REPLAY_ONLY = "true"
+    PUBLIC_SITE_URL    = "https://shorted.com.au"
+    # The Cloud Run ORIGIN for the entitlement lookup (see the chart's shorted-alerts
+    # comment): a lookup through the public hostname lands in the anonymous bucket.
+    SHORTS_API_URL  = module.shorts_api.service_url
+    ALERTS_FROM     = "Shorted Alerts <alerts@shorted.com.au>"
+    ALERTS_REPLY_TO = "support@shorted.com.au"
+  }
+
+  secret_env = {
+    DATABASE_URL            = "DATABASE_URL"
+    RESEND_API_KEY          = "RESEND_API_KEY"
+    INTERNAL_SERVICE_SECRET = "INTERNAL_SERVICE_SECRET"
+    UNSUBSCRIBE_SECRET      = "UNSUBSCRIBE_SECRET"
+  }
+
+  # One replay evaluates one date for one owner, which is seconds of work. The
+  # chart's scheduled run gets 900s for a whole evaluation. max_retries = 0: a
+  # retry would re-send mail the claim already recorded; the admin re-runs it.
+  timeout_seconds = 900
+  max_retries     = 0
+  cpu             = "1"
+  memory          = "512Mi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
 # `shorted ownership` — who holds ASX stocks (/ownership and the stock page's
 # Company tab). Daily, after shorted-announcements (11:00 UTC) has stored the
 # day's substantial holding notice headlines: registry, APRA + ASX fund
@@ -1250,10 +1314,15 @@ module "shorts_api" {
   rate_limit_ssr_bypass_header_name = var.rate_limit_ssr_bypass_header_name
   rate_limit_ssr_bypass_user_agent  = var.rate_limit_ssr_bypass_user_agent
 
-  # Internal tier grants. Passed through as a variable rather than written here,
-  # so a user id is deployment configuration and revoking access is a tfvar
-  # change rather than a code change. Empty by default.
-  internal_tier_user_ids = var.internal_tier_user_ids
+  # Internal tier grants. The tfvar lists operator user ids, so revoking one is a
+  # tfvar change rather than a code change. The paid-feature probe's identity
+  # (web/src/server/paid-probe/constants.ts) is always appended, because the probe
+  # has to hold the internal tier grant to validate the paid path at all. It is
+  # not a tfvar, so editing the tfvar cannot silently turn the probe red.
+  # The owner's own account is granted enterprise here, not through a hand-made
+  # api_subscriptions row, so the owner's access no longer depends on a row that
+  # Stripe can overwrite.
+  internal_tier_user_ids = join(",", compact(concat(split(",", var.internal_tier_user_ids), ["svc-paid-probe", "JhKP8T9HoITH07eNBs4BOidsszP2"])))
 
   scheduler_region             = "australia-southeast1"
   enable_key_metrics_scheduler = true
@@ -1268,6 +1337,9 @@ module "shorts_api" {
 
   # Unsubscribe HMAC secret for broadcast emails — provisioned in prod Secret Manager.
   unsubscribe_secret_exists = true
+  # Set by the workflow only when RESEND_WEBHOOK_SECRET is in Cuttlefish (and so synced
+  # to Secret Manager first); unset leaves the bounce webhook at 503.
+  resend_webhook_secret_exists = var.resend_webhook_secret_exists
 
   # Telesis cron monitors for the jobs on the omega cluster, read with the
   # read-role project token stored as TELESIS_API_TOKEN (docs/mcp-admin.md).
@@ -1422,6 +1494,19 @@ resource "google_cloud_run_v2_job_iam_member" "shorts_api_picks_overrides" {
   member   = "serviceAccount:${module.shorts_api.service_account_email}"
 }
 
+# Alerts replay — the admin MCP server's run_alerts_smoke_test tool. Same pairing
+# as the picks grant above: run.developer (runWithOverrides) on this ONE job, and an
+# argv jobmonitor/alerts_replay.go builds from a validated date and the verified
+# token's uid. The job is not in local.admin_runnable_jobs: "Run now" has nothing
+# useful to do with it, and its deployed args are a dry run.
+resource "google_cloud_run_v2_job_iam_member" "shorts_api_alerts_replay" {
+  project  = var.project_id
+  location = var.region
+  name     = module.shorted_job_alerts_replay.job_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.shorts_api.service_account_email}"
+}
+
 # Enrichment Processor Service
 module "enrichment_processor" {
   source = "../../modules/enrichment-processor"
@@ -1508,6 +1593,20 @@ module "chat_service" {
   chat_max_input_chars               = 2000
   chat_history_limit                 = 20
   chat_max_messages_per_conversation = 100
+
+  # The chat-model flag (Flaggr) picks a model per user. Each input is empty until
+  # its secret exists, and the workflow sets them from the GitHub secrets.
+  flaggr_api_key_secret_name   = var.flaggr_api_key_secret_name
+  flaggr_service_id            = var.flaggr_service_id
+  flaggr_environment           = "production"
+  deepseek_api_key_secret_name = var.deepseek_api_key_secret_name
+  # The chat-model route to DeepSeek is OpenRouter-hosted, pinned to DeepInfra and
+  # Azure (US), not DeepSeek's PRC-hosted API. The owner chose that route, so the
+  # direct API stays refused: CHAT_ALLOW_PRC_HOSTED_PROVIDER is "false". The
+  # DEEPSEEK_API_KEY input stays wired, but the guard keeps the direct routes
+  # inert while the flag is false. See docs/plans/chat-llm-providers.md §12.
+  openrouter_api_key_secret_name = var.openrouter_api_key_secret_name
+  allow_prc_hosted_provider      = false
 
   depends_on = [
     google_project_service.required_apis,
@@ -1694,7 +1793,7 @@ module "edge" {
   javascript_detections_enabled = false
   markdown_for_agents           = "on"
 
-  # DNS hardening — SPF (Google Workspace) + DMARC (p=none monitor) + DNSSEC
+  # DNS hardening — SPF (Google Workspace) + DMARC (p=quarantine, pct=100) + DNSSEC
   # signing. DNSSEC is not enforced until the DS record (edge_dnssec_ds_record
   # output) is published at the .com.au registrar.
   dns_security_enabled = true

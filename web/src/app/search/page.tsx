@@ -27,7 +27,9 @@ export async function generateMetadata({
   const base = `${siteConfig.url}/search`;
   if (!query) {
     return {
-      title: "Search ASX Stocks | Shorted",
+      // The root layout's template appends " | Shorted"; a brand here made
+      // "Search ASX Stocks | Shorted | Shorted".
+      title: "Search ASX Stocks",
       description:
         "Search Australian Securities Exchange (ASX) stocks by code or company name. View live short positions, sentiment, and analysis.",
       alternates: { canonical: base },
@@ -35,7 +37,7 @@ export async function generateMetadata({
     };
   }
   return {
-    title: `Search "${query}" | ASX Stocks | Shorted`,
+    title: `Search "${query}" | ASX Stocks`,
     description: `Search results for "${query}" — ASX stocks matched by code or company name.`,
     alternates: { canonical: `${base}?q=${encodeURIComponent(query)}` },
     // Search-results pages are noindex by convention (Google's own guidance).

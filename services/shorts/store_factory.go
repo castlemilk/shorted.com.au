@@ -20,11 +20,11 @@ type EnrichmentStoreConfig struct {
 // NewEnrichmentStore creates an EnrichmentStore from the internal store implementation
 func NewEnrichmentStore(config EnrichmentStoreConfig) (enrichment.EnrichmentStore, error) {
 	storeConfig := shortsstore.Config{
-		StorageBackend:    shortsstore.PostgresStore,
-		PostgresAddress:   config.PostgresAddress,
-		PostgresDatabase:  config.PostgresDatabase,
-		PostgresUsername:  config.PostgresUsername,
-		PostgresPassword:  config.PostgresPassword,
+		StorageBackend:   shortsstore.PostgresStore,
+		PostgresAddress:  config.PostgresAddress,
+		PostgresDatabase: config.PostgresDatabase,
+		PostgresUsername: config.PostgresUsername,
+		PostgresPassword: config.PostgresPassword,
 	}
 
 	internalStore, err := shortsstore.NewStore(storeConfig)
@@ -204,4 +204,3 @@ type ErrStoreCreationFailed struct{}
 func (e *ErrStoreCreationFailed) Error() string {
 	return "failed to create store"
 }
-

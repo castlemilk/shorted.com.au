@@ -1,36 +1,62 @@
 "use client";
 
-import { useState } from "react";
+import { Bot, Loader2, User } from "lucide-react";
+import { Message, MessageContent } from "~/@/components/ai-elements/message";
+import {
+  Source,
+  SourcesContent,
+  SourcesTrigger,
+  Sources,
+} from "~/@/components/ai-elements/sources";
+import {
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+  type ToolStatus,
+} from "~/@/components/ai-elements/tool";
 import { type ChatMessage } from "~/@/hooks/use-chat";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { cn } from "~/@/lib/utils";
-import {
-  Bot,
-  User,
-  Wrench,
-  ChevronDown,
-  ChevronRight,
-  ExternalLink,
-  Loader2,
-} from "lucide-react";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "~/@/components/ui/collapsible";
-import { Badge } from "~/@/components/ui/badge";
 import { ChatMarkdown } from "./chat-markdown";
-import { ChatRichToolResults } from "./chat-rich-tool-results";
+import { RichToolBoundary } from "./chat-tool-boundary";
+import { getRichToolResult, RichToolResultView } from "./chat-rich-tool-results";
+
+type ToolCallData = NonNullable<ChatMessage["toolCalls"]>[number];
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
+  /**
+   * True only for the newest turn while its request is in flight. A failed
+   * request leaves its part marked "streaming", so the caret and the thinking
+   * indicator must be gated on this, not on the part alone.
+   */
+  isActive?: boolean;
 }
 
-export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
+export function ChatMessageBubble({ message, isActive = false }: ChatMessageBubbleProps) {
   const isUser = message.role === "user";
+  const streaming = isActive && message.isStreaming === true;
+  const toolCalls = message.toolCalls ?? [];
+  const citations = message.citations ?? [];
+
+  // A reply that failed before any text leaves nothing to show; the error
+  // notice under the thread says what happened.
+  if (
+    !isUser &&
+    !streaming &&
+    !message.content &&
+    toolCalls.length === 0 &&
+    citations.length === 0
+  ) {
+    return null;
+  }
 
   return (
-    <div className={cn("flex gap-3", isUser ? "flex-row-reverse" : "flex-row")}>
+    <Message from={message.role}>
       <div
+        aria-hidden="true"
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
           isUser
@@ -40,12 +66,8 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       >
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
       </div>
-      <div
-        className={cn(
-          "flex flex-col gap-1 max-w-[85%]",
-          isUser ? "items-end" : "items-start",
-        )}
-      >
+
+      <MessageContent>
         <div
           className={cn(
             "rounded-lg px-3 py-2 text-sm",
@@ -55,129 +77,167 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           )}
         >
           {isUser ? (
-            <div className="whitespace-pre-wrap break-words">
-              {message.content}
-            </div>
-          ) : message.isStreaming && !message.content ? (
+            <div className="whitespace-pre-wrap break-words">{message.content}</div>
+          ) : !message.content && streaming ? (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Loader2 aria-hidden="true" className="h-3 w-3 motion-safe:animate-spin" />
               <span>Thinking...</span>
             </div>
           ) : (
-            <ChatMarkdown content={message.content} />
+            <>
+              {message.content && <ChatMarkdown content={message.content} />}
+              {streaming && (
+                <span
+                  aria-hidden="true"
+                  className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 bg-current motion-safe:animate-pulse"
+                />
+              )}
+            </>
           )}
         </div>
 
-        <ChatRichToolResults toolCalls={message.toolCalls} />
+        {citations.length > 0 && (
+          <Sources>
+            <SourcesTrigger count={citations.length} />
+            <SourcesContent>
+              {citations.map((citation, index) => (
+                <Source
+                  key={`${citation.url}-${index}`}
+                  // A citation URL is model- or feed-supplied: a link only when http(s).
+                  href={safeExternalHref(citation.url)}
+                  title={citation.reference || citation.sourceType}
+                  subtitle={citation.reference ? citation.sourceType : undefined}
+                />
+              ))}
+            </SourcesContent>
+          </Sources>
+        )}
 
-        {/* Citations */}
-        {message.citations && message.citations.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-0.5">
-            {message.citations.map((c, i) => (
-              <Badge
-                key={i}
-                variant="secondary"
-                className="text-[10px] h-5 px-1.5 gap-1"
-              >
-                {c.sourceType}
-                {c.reference && (
-                  <span className="text-muted-foreground">{c.reference}</span>
-                )}
-                {c.url && (
-                  <a
-                    href={c.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-primary"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ExternalLink className="h-2.5 w-2.5" />
-                  </a>
-                )}
-              </Badge>
+        {toolCalls.length > 0 && (
+          <div className="flex w-full flex-col gap-1.5">
+            {toolCalls.map((toolCall, index) => (
+              <ToolCallDetail key={`${toolCall.toolName}-${index}`} toolCall={toolCall} />
             ))}
           </div>
         )}
-
-        {/* Tool calls (collapsed by default) */}
-        {message.toolCalls && message.toolCalls.length > 0 && (
-          <Collapsible>
-            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <Wrench className="h-3 w-3" />
-              {message.toolCalls.length} tool call
-              {message.toolCalls.length !== 1 ? "s" : ""}
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-1 space-y-1.5">
-              {message.toolCalls.map((tc, i) => (
-                <ToolCallDetail key={i} toolCall={tc} />
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
-        )}
-      </div>
-    </div>
+      </MessageContent>
+    </Message>
   );
 }
 
-function ToolCallDetail({
-  toolCall,
-}: {
-  toolCall: { toolName: string; arguments: string; result: string };
-}) {
-  const [expanded, setExpanded] = useState(false);
-
-  let parsedArgs: string | null = null;
-  try {
-    const parsed: unknown = JSON.parse(toolCall.arguments);
-    parsedArgs = JSON.stringify(parsed, null, 2);
-  } catch {
-    parsedArgs = toolCall.arguments;
-  }
-
-  let resultPreview = toolCall.result;
-  if (resultPreview.length > 200) {
-    resultPreview = resultPreview.slice(0, 200) + "...";
-  }
+/**
+ * One tool call. A result we can draw (a stock card, a short-interest chart)
+ * opens by default, so the answer is visible without a click; everything else
+ * starts collapsed.
+ */
+function ToolCallDetail({ toolCall }: { toolCall: ToolCallData }) {
+  const rich = getRichToolResult(toolCall);
+  const failure = toolFailure(toolCall.result);
+  const status: ToolStatus = failure ? "failed" : "completed";
 
   return (
-    <div className="rounded bg-muted/50 px-2 py-1.5 text-xs">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 w-full text-left"
-      >
-        {expanded ? (
-          <ChevronDown className="h-3 w-3 shrink-0" />
+    <Tool defaultOpen={rich !== null}>
+      <ToolHeader
+        title={toolTitle(toolCall.toolName)}
+        toolName={toolCall.toolName}
+        status={status}
+      />
+      <ToolContent>
+        {rich ? (
+          <RichToolBoundary
+            fallback={<RawToolDetail toolCall={toolCall} failure={failure} />}
+          >
+            <RichToolResultView result={rich} />
+          </RichToolBoundary>
         ) : (
-          <ChevronRight className="h-3 w-3 shrink-0" />
+          <RawToolDetail toolCall={toolCall} failure={failure} />
         )}
-        <Badge variant="outline" className="text-[10px]">
-          {toolCall.toolName}
-        </Badge>
-      </button>
-      {expanded && (
-        <div className="mt-1.5 space-y-1.5 pl-4">
-          {parsedArgs && (
-            <div>
-              <p className="text-[10px] font-medium text-muted-foreground mb-0.5">
-                Arguments
-              </p>
-              <pre className="bg-background rounded p-1.5 text-[10px] font-mono overflow-x-auto whitespace-pre-wrap">
-                {parsedArgs}
-              </pre>
-            </div>
-          )}
-          {toolCall.result && (
-            <div>
-              <p className="text-[10px] font-medium text-muted-foreground mb-0.5">
-                Result
-              </p>
-              <pre className="bg-background rounded p-1.5 text-[10px] font-mono overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
-                {resultPreview}
-              </pre>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+      </ToolContent>
+    </Tool>
   );
+}
+
+function RawToolDetail({
+  toolCall,
+  failure,
+}: {
+  toolCall: ToolCallData;
+  failure?: string;
+}) {
+  const args = prettyArguments(toolCall.arguments);
+  const preview =
+    toolCall.result.length > 200
+      ? `${toolCall.result.slice(0, 200)}...`
+      : toolCall.result;
+
+  return (
+    <>
+      {args && (
+        <ToolInput>
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background p-1.5 font-mono text-[10px]">
+            {args}
+          </pre>
+        </ToolInput>
+      )}
+      {failure ? (
+        <ToolOutput errorText={failure} />
+      ) : (
+        preview && (
+          <ToolOutput>
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background p-1.5 font-mono text-[10px]">
+              {preview}
+            </pre>
+          </ToolOutput>
+        )
+      )}
+    </>
+  );
+}
+
+const TOOL_TITLES: Record<string, string> = {
+  get_stock_details: "Stock details",
+  query_short_positions: "Short positions",
+  get_top_shorts: "Top shorts",
+  get_peer_comparison: "Peer comparison",
+  get_director_trades: "Director trades",
+  get_economic_series: "Economic series",
+};
+
+function toolTitle(toolName: string): string {
+  const title = TOOL_TITLES[toolName] as string | undefined;
+  if (title) return title;
+  const words = toolName.replace(/_/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** What the person sees for a failed tool call. The upstream text is never shown. */
+const TOOL_FAILED_MESSAGE = "This data could not be retrieved.";
+
+/**
+ * The error a tool reported in its result, if it reported one. The chat service
+ * records a failed call as plain text, "Error: " and the failure, which can
+ * carry an upstream response body, so only the fact of the failure is shown.
+ * A tool may also return an object with an `error` string.
+ */
+function toolFailure(result: string): string | undefined {
+  if (result.startsWith("Error:")) return TOOL_FAILED_MESSAGE;
+  if (!result.startsWith("{")) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(result);
+    if (typeof parsed !== "object" || parsed === null) return undefined;
+    const error = (parsed as { error?: unknown }).error;
+    if (typeof error !== "string" || !error.trim()) return undefined;
+    return error.trim().slice(0, 300);
+  } catch {
+    return undefined;
+  }
+}
+
+function prettyArguments(args: string): string | undefined {
+  if (!args.trim()) return undefined;
+  try {
+    return JSON.stringify(JSON.parse(args) as unknown, null, 2);
+  } catch {
+    return args;
+  }
 }

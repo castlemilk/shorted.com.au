@@ -9,6 +9,7 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { bailOnEmptyRender } from "~/app/actions/config";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "ASX Stock Short Interest Comparisons",
@@ -110,34 +111,29 @@ export default async function CompareIndexPage() {
     <main className="min-h-screen">
       {(pairs.length === 0) && <span hidden data-isr-shell="empty" />}
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "CollectionPage",
-            name: "ASX Stock Short Interest Comparisons",
-            url: `${siteConfig.url}/compare`,
-            description:
-              "Side-by-side short interest comparisons for ASX-listed stocks, built from ASIC short position reports.",
-            isPartOf: {
-              "@type": "WebSite",
-              name: siteConfig.name,
-              url: siteConfig.url,
-            },
-            mainEntity: {
-              "@type": "ItemList",
-              numberOfItems: pairs.length,
-              itemListElement: pairs.slice(0, 30).map((p, i) => ({
-                "@type": "ListItem",
-                position: i + 1,
-                url: `${siteConfig.url}/compare/${p.slug}`,
-                name: `${p.a} vs ${p.b}`,
-              })),
-            },
-          }),
-        }}
-      />
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "ASX Stock Short Interest Comparisons",
+        url: `${siteConfig.url}/compare`,
+        description:
+          "Side-by-side short interest comparisons for ASX-listed stocks, built from ASIC short position reports.",
+        isPartOf: {
+          "@type": "WebSite",
+          name: siteConfig.name,
+          url: siteConfig.url,
+        },
+        mainEntity: {
+          "@type": "ItemList",
+          numberOfItems: pairs.length,
+          itemListElement: pairs.slice(0, 30).map((p, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            url: `${siteConfig.url}/compare/${p.slug}`,
+            name: `${p.a} vs ${p.b}`,
+          })),
+        },
+      }} />
 
       <div className="container mx-auto max-w-4xl px-4 py-8">
         <div className="mb-4">

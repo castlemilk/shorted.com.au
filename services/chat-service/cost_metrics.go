@@ -6,40 +6,26 @@ import (
 	"log"
 
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
-	"github.com/google/generative-ai-go/genai"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
 
-// GeminiUsage captures bounded token accounting from Gemini UsageMetadata.
-type GeminiUsage struct {
-	PromptTokens       int64
-	CachedPromptTokens int64
-	CandidateTokens    int64
-	TotalTokens        int64
-}
-
-func geminiUsageFromResponse(resp *genai.GenerateContentResponse) GeminiUsage {
-	if resp == nil || resp.UsageMetadata == nil {
-		return GeminiUsage{}
-	}
-	return GeminiUsage{
-		PromptTokens:       int64(resp.UsageMetadata.PromptTokenCount),
-		CachedPromptTokens: int64(resp.UsageMetadata.CachedContentTokenCount),
-		CandidateTokens:    int64(resp.UsageMetadata.CandidatesTokenCount),
-		TotalTokens:        int64(resp.UsageMetadata.TotalTokenCount),
-	}
-}
-
-func (u *GeminiUsage) Add(other GeminiUsage) {
+func (u *TokenUsage) Add(other TokenUsage) {
 	u.PromptTokens += other.PromptTokens
 	u.CachedPromptTokens += other.CachedPromptTokens
 	u.CandidateTokens += other.CandidateTokens
+	u.ReasoningTokens += other.ReasoningTokens
 	u.TotalTokens += other.TotalTokens
+	if other.ReportedCostUSD != nil {
+		if u.ReportedCostUSD == nil {
+			u.ReportedCostUSD = new(float64)
+		}
+		*u.ReportedCostUSD += *other.ReportedCostUSD
+	}
 }
 
-func (u GeminiUsage) BillablePromptTokens() int64 {
+func (u TokenUsage) BillablePromptTokens() int64 {
 	billable := u.PromptTokens - u.CachedPromptTokens
 	if billable < 0 {
 		return 0
@@ -47,14 +33,19 @@ func (u GeminiUsage) BillablePromptTokens() int64 {
 	return billable
 }
 
-func (u GeminiUsage) hasTokens() bool {
+func (u TokenUsage) hasTokens() bool {
 	return u.PromptTokens != 0 ||
 		u.CachedPromptTokens != 0 ||
 		u.CandidateTokens != 0 ||
+		u.ReasoningTokens != 0 ||
 		u.TotalTokens != 0
 }
 
-func recordGeminiRequest(ctx context.Context, model, phase, status string, usage GeminiUsage) {
+// recordModelRequest counts one model call. A Gemini call keeps the
+// gemini_request event that the cost queries read, with the same attributes;
+// every other provider logs llm_request. Both carry the provider and the
+// estimated cost in micro-USD.
+func recordModelRequest(ctx context.Context, provider, model, phase, status string, usage TokenUsage, estCostMicroUSD int64) {
 	attrs := []attribute.KeyValue{
 		attribute.String("feature", "chat"),
 		attribute.String("model", model),
@@ -84,11 +75,15 @@ func recordGeminiRequest(ctx context.Context, model, phase, status string, usage
 		attribute.Int64("shorted.ai.total_tokens", usage.TotalTokens),
 	)
 
+	eventType := "llm_request"
+	if provider == geminiProviderName {
+		eventType = "gemini_request"
+	}
 	log.Printf(
 		"%s",
 		mustMarshalLogEvent(map[string]any{
 			"type":                   "cost_event",
-			"event_type":             "gemini_request",
+			"event_type":             eventType,
 			"feature":                "chat",
 			"model":                  model,
 			"phase":                  phase,
@@ -98,6 +93,8 @@ func recordGeminiRequest(ctx context.Context, model, phase, status string, usage
 			"billable_prompt_tokens": usage.BillablePromptTokens(),
 			"candidate_tokens":       usage.CandidateTokens,
 			"total_tokens":           usage.TotalTokens,
+			"provider":               provider,
+			"est_cost_micro_usd":     estCostMicroUSD,
 		}),
 	)
 }
@@ -109,6 +106,28 @@ func recordTokenCount(ctx context.Context, baseAttrs []attribute.KeyValue, token
 	attrs := append([]attribute.KeyValue{}, baseAttrs...)
 	attrs = append(attrs, attribute.String("token_type", tokenType))
 	shortedotel.AITokensTotal.Add(ctx, value, otelmetric.WithAttributes(attrs...))
+}
+
+// recordFirstCallViolation counts a first reply that chose no tool. The eval gate
+// requires zero of these on data turns.
+func recordFirstCallViolation(ctx context.Context, provider, model string) {
+	attrs := []attribute.KeyValue{
+		attribute.String("provider", provider),
+		attribute.String("model", model),
+	}
+	if shortedotel.AIFirstCallViolationsTotal != nil {
+		shortedotel.AIFirstCallViolationsTotal.Add(ctx, 1, otelmetric.WithAttributes(attrs...))
+	}
+	log.Printf(
+		"%s",
+		mustMarshalLogEvent(map[string]any{
+			"type":       "cost_event",
+			"event_type": "chat_first_call_violation",
+			"feature":    "chat",
+			"provider":   provider,
+			"model":      model,
+		}),
+	)
 }
 
 func recordToolCall(ctx context.Context, toolName string, resultBytes int, status string) {
@@ -171,5 +190,30 @@ func mustMarshalLogEvent(event map[string]any) string {
 	if err != nil {
 		return `{"type":"instrumentation_error","error_name":"json_marshal_failed"}`
 	}
-	return string(data)
+	// Events carry error text, and that text can name a provider URL. Scrub the
+	// encoded line, where an escaped ampersand is what the key pattern must match.
+	return redactSecrets(string(data))
+}
+
+// recordUsageMissing counts a model reply that ended without a usage report. Its
+// cost is then unknown, so the estimate of zero must not be read as real.
+func recordUsageMissing(ctx context.Context, provider, model string) {
+	attrs := []attribute.KeyValue{
+		attribute.String("provider", provider),
+		attribute.String("model", model),
+	}
+	if shortedotel.AIUsageMissingTotal != nil {
+		shortedotel.AIUsageMissingTotal.Add(ctx, 1, otelmetric.WithAttributes(attrs...))
+	}
+	log.Printf(
+		"WARNING %s",
+		mustMarshalLogEvent(map[string]any{
+			"type":       "cost_event",
+			"event_type": "chat_usage_missing",
+			"severity":   "WARNING",
+			"feature":    "chat",
+			"provider":   provider,
+			"model":      model,
+		}),
+	)
 }

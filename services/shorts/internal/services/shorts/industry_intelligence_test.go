@@ -24,8 +24,6 @@ func industryDate(t *testing.T, value string) time.Time {
 	return parsed
 }
 
-func industryFloat(v float64) *float64 { return &v }
-
 func TestGetIndustryIntelligence_HappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -59,7 +57,7 @@ func TestGetIndustryIntelligence_HappyPath(t *testing.T) {
 					EntityABN:      "49004028077",
 					MetricKey:      "total_income",
 					MetricLabel:    "Total income",
-					MetricValue:    industryFloat(79_000_000_000),
+					MetricValue:    new(float64(79_000_000_000)),
 					Unit:           "AUD",
 					PeriodStart:    &periodStart,
 					PeriodEnd:      &periodEnd,
@@ -149,7 +147,7 @@ func TestGetIndustryIntelligence_CachesForAnHour(t *testing.T) {
 
 	srv := newTestServer(t, mockStore)
 	srv.cache = NewMemoryCache(time.Nanosecond) // the cache-wide lifetime is spent at once
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		_, err := srv.GetIndustryIntelligence(context.Background(), connect.NewRequest(&shortsv1alpha1.GetIndustryIntelligenceRequest{
 			Industry: "Materials", StockCode: "bhp",
 		}))

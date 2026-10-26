@@ -10,10 +10,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 )
 
 // CodeTTL is how long an authorization code lives.
@@ -449,10 +452,12 @@ func (h *grantHandler) checkEntitled(w http.ResponseWriter, r *http.Request, tar
 
 // normaliseScope validates the requested scope set against the RESOURCE's
 // published vocabulary AND against the client's registered scope, returning the
-// space-delimited grant.
+// space-delimited grant. One exception to the registration: alerts:write, which a
+// client may name even when its registration does not list it (see below).
 //
-// An empty request gets the client's registered scope, or the resource's whole
-// vocabulary when the client registered none.
+// An empty request gets the client's registered scope, or the resource's default
+// scopes when the client registered none. Only a request that names a scope gets
+// a write scope (alerts:write), and only if it asked for it by name.
 //
 // It is shared with the consent endpoints so the scope the human is SHOWN is
 // computed by the same code as the scope that is GRANTED. Two implementations
@@ -476,7 +481,7 @@ func normaliseScope(target *grantableResource, requested, registered string) (st
 	if len(fields) == 0 {
 		granted := make([]string, 0, len(allowed))
 		for _, s := range target.scopes { // published order, not map order
-			if allowed[s] {
+			if allowed[s] && target.isDefault(s) {
 				granted = append(granted, s)
 			}
 		}
@@ -486,6 +491,13 @@ func normaliseScope(target *grantableResource, requested, registered string) (st
 		return strings.Join(granted, " "), true
 	}
 	for _, s := range fields {
+		// alerts:write is user-consented: the consent ticket binds it, and the consent
+		// screen shows it. So a client whose registration was copied from an older
+		// scopes_supported list can still step up to it. Every other scope must be
+		// registered, and the default above never grants it.
+		if s == mcp.ScopeAlertsWrite && vocabulary[s] {
+			continue
+		}
 		if !allowed[s] {
 			return "", false
 		}
@@ -567,10 +579,8 @@ func sameScopeSet(a, b string) bool {
 // use this would have to already be running code on the victim's computer, at
 // which point the redirect URI is not what is protecting them.
 func matchRedirectURI(registered []string, presented string) bool {
-	for _, r := range registered {
-		if r == presented {
-			return true
-		}
+	if slices.Contains(registered, presented) {
+		return true
 	}
 	// Parsed only if the exact pass failed, so the common path does no work
 	// and a malformed presented URI cannot reach the parser via the fast path.
@@ -660,12 +670,7 @@ func buildRedirect(redirectURI, code, state, issuer string) (string, error) {
 }
 
 func containsString(haystack []string, needle string) bool {
-	for _, v := range haystack {
-		if v == needle {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(haystack, needle)
 }
 
 // writeOAuthError emits the RFC 6749 §5.2 error shape.

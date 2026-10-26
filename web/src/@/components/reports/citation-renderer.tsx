@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReportCitation } from "~/app/actions/reports/getReportData";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 interface CitationRendererProps {
   text: string;
@@ -89,9 +90,9 @@ export function CitationFootnotes({ citations }: CitationFootnotesProps) {
             : "";
           return (
             <li key={c.id} id={c.id} className="scroll-mt-24">
-              {c.url ? (
+              {safeExternalHref(c.url) ? (
                 <a
-                  href={c.url}
+                  href={safeExternalHref(c.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"

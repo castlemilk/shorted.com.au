@@ -102,7 +102,7 @@ export RELEASE_MARKET_DATA_API_URL="https://market-data-...a.run.app"
 - `User-Agent: ... Shorted-E2E/1.0`
 - `X-Shorted-Testing-Bypass: <secret>`
 
-To create or rotate the bypass, apply the same generated value to Cloudflare Terraform and GitHub Actions:
+To create or rotate the bypass, apply the same generated value to Cloudflare Terraform and to Cuttlefish, which runs the deploy and the post-deploy smoke:
 
 ```bash
 export CLOUDFLARE_TESTING_BYPASS_SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
@@ -112,10 +112,10 @@ export TF_VAR_rate_limit_testing_bypass_secret="$CLOUDFLARE_TESTING_BYPASS_SECRE
 terraform plan
 terraform apply
 
-gh secret set CLOUDFLARE_TESTING_BYPASS_SECRET \
-  --repo castlemilk/shorted.com.au \
-  --body "$CLOUDFLARE_TESTING_BYPASS_SECRET"
+printf '%s' "$CLOUDFLARE_TESTING_BYPASS_SECRET" | cuttle secrets set CLOUDFLARE_TESTING_BYPASS_SECRET --project shorted
 ```
+
+The deploy and the post-deploy smoke run on Cuttlefish and read this secret from its project store. No GitHub repo secret is read for it. If a copy exists under a GitHub environment (`cuttle secrets set ... --environment prod`), the apply job reads that copy first, so update it too.
 
 Smoke against `https://shorted.com.au` should include that secret. Without it, Cloudflare may return 403s for browser-loaded resources during Playwright runs; smoke the emitted Vercel deployment URL when the secret is not available locally.
 
@@ -154,7 +154,40 @@ CLOUDFLARE_TESTING_BYPASS_SECRET="$CLOUDFLARE_TESTING_BYPASS_SECRET" \
 node e2e/release-smoke-ci.mjs
 ```
 
-If production smoke sees a Cloudflare challenge despite both headers, verify the live `shorted-app-api-security-skip` ruleset in phase `http_request_firewall_custom` is not using the disabled sentinel expression `http.host eq "__shorted-testing-bypass-disabled.invalid__"`. The GitHub repository secret `CLOUDFLARE_TESTING_BYPASS_SECRET` and Terraform variable `TF_VAR_rate_limit_testing_bypass_secret` must match after any rotation. Re-check this after Terraform or Cloudflare deploys, because applying Terraform without the Terraform secret variable can restore the disabled expression.
+If production smoke sees a Cloudflare challenge despite both headers, verify the live `shorted-app-api-security-skip` ruleset in phase `http_request_firewall_custom` is not using the disabled sentinel expression `http.host eq "__shorted-testing-bypass-disabled.invalid__"`. The Cuttlefish project secret `CLOUDFLARE_TESTING_BYPASS_SECRET` and Terraform variable `TF_VAR_rate_limit_testing_bypass_secret` must match after any rotation. Re-check this after Terraform or Cloudflare deploys, because applying Terraform without the Terraform secret variable can restore the disabled expression.
+
+## Re-running a failed job (infrastructure failures)
+
+CI runs on the Cuttlefish rig (`Gamma-128GB`). When the rig is saturated,
+jobs can fail before they run a single step. Those are not code failures, and
+the fix is to re-run them, not to change the code.
+
+Recognise one with `cuttle run diagnose <run-id>`:
+
+- The attempt has no step output, and the cause is an infrastructure cause
+  (`infrastructure: ...`), typically `micropod: exit code unavailable`,
+  `micropod: create cf-attempt-…: deadline_exceeded`, or a start response that
+  was lost or refused.
+- The attempt was interrupted with its outcome unknown and no step output. On
+  2026-10-25 this showed as `interrupted_outcome_unknown` on the check. That
+  label is not in the cuttle CLI or the Cuttlefish source, so match on the
+  shape of the diagnose output, not on the exact string.
+  A step that printed output, or a failure with a real non-zero exit code, is
+  a code or test failure: read its log and do not re-run it blindly.
+
+To re-run every failed job for a commit:
+
+```bash
+cuttle --project shorted gha retry <owner/repo> <sha>
+# or one check only:
+cuttle --project shorted gha retry <owner/repo> <sha> --check-run <check-run-id>
+```
+
+Each failed job is retried in place and its GitHub check goes back to in
+progress. `cuttle run retry` retries a single run instead. Before re-running a
+deploy job, check whether its earlier attempt reached `terraform-apply`. Only
+re-run `terraform-apply` when that attempt produced no step output, because a
+second apply over a partly applied one is not a safe default.
 
 ## GitHub Release
 

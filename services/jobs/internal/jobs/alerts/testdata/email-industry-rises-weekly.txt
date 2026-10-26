@@ -1,0 +1,18 @@
+Subject: Weekly: Materials: 2 companies' short interest rose 1+ pts
+
+Weekly: Materials: 2 companies' short interest rose 1+ pts
+
+Weekly comparison: the ASIC short position report for Fri 16 Oct 2026, compared with the previous week's report for Thu 15 Oct 2026.
+Every company in Materials was checked. This lists each one whose short interest rose by at least 1 pts.
+ASIC publishes positions four trading days after they are held.
+
+Code    Company                    Previous    Latest    Change
+BBB     Bbb Metals                    5.00%     9.00%     +4.00
+AAA     Aaa Mining                    4.00%     6.00%     +2.00
+
+View Materials on Shorted: https://shorted.com.au/industry/materials?utm_source=alerts&utm_medium=email
+--
+You set up this alert on Shorted: Materials - any company's short interest rises by 1 pts - weekly.
+Pause this alert: https://shorted.com.au/alerts/unsubscribe?t=YWxlcnQtbW9uaXRvcjptb24tNDI.n0QXAxnvDkdk5ATi-Ypnwz3aN1FQ6L3W3WUAEZ9f6Hg
+Manage your alerts: https://shorted.com.au/alerts
+General information only, not financial advice. Shorted · support@shorted.com.au

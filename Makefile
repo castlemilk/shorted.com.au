@@ -453,7 +453,7 @@ lint-backend-install:
 		if [ "$$(uname)" = "Darwin" ]; then \
 			brew install golangci-lint; \
 		else \
-			curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.61.0; \
+			curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v2.15.0; \
 		fi; \
 	}
 

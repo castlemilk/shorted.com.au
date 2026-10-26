@@ -51,6 +51,56 @@ public final class AlertsProto extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_ListAlertMonitorsResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_AlertEventCompany_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_AlertEventCompany_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_AlertEvent_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_AlertEvent_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListAlertEventsRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListAlertEventsRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListAlertEventsResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListAlertEventsResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_UpdateAlertMonitorStatusRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_UpdateAlertMonitorStatusRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_UpdateAlertMonitorStatusResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_UpdateAlertMonitorStatusResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_DeleteAlertMonitorRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_DeleteAlertMonitorRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_DeleteAlertMonitorResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_DeleteAlertMonitorResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_PauseAlertMonitorByTokenRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_PauseAlertMonitorByTokenRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_PauseAlertMonitorByTokenResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_PauseAlertMonitorByTokenResponse_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -62,7 +112,7 @@ public final class AlertsProto extends com.google.protobuf.GeneratedFile {
     java.lang.String[] descriptorData = {
       "\n\034shorts/v1alpha1/alerts.proto\022\017shorts.v" +
       "1alpha1\032\037google/protobuf/timestamp.proto" +
-      "\032\030options/v1/options.proto\"\354\003\n\014AlertMoni" +
+      "\032\030options/v1/options.proto\"\271\005\n\014AlertMoni" +
       "tor\022\016\n\002id\030\001 \001(\tR\002id\0228\n\005scope\030\002 \001(\0162\".sho" +
       "rts.v1alpha1.AlertMonitorScopeR\005scope\022\026\n" +
       "\006target\030\003 \001(\tR\006target\022D\n\tcondition\030\004 \001(\016" +
@@ -75,48 +125,124 @@ public final class AlertsProto extends com.google.protobuf.GeneratedFile {
       "tus\0229\n\ncreated_at\030\t \001(\0132\032.google.protobu" +
       "f.TimestampR\tcreatedAt\0229\n\nupdated_at\030\n \001" +
       "(\0132\032.google.protobuf.TimestampR\tupdatedA" +
-      "t\"\266\002\n\031CreateAlertMonitorRequest\0228\n\005scope" +
-      "\030\001 \001(\0162\".shorts.v1alpha1.AlertMonitorSco" +
-      "peR\005scope\022\026\n\006target\030\002 \001(\tR\006target\022D\n\tcon" +
-      "dition\030\003 \001(\0162&.shorts.v1alpha1.AlertMoni" +
-      "torConditionR\tcondition\022\034\n\tthreshold\030\004 \001" +
-      "(\001R\tthreshold\022#\n\rhas_threshold\030\005 \001(\010R\014ha" +
-      "sThreshold\022>\n\007cadence\030\006 \001(\0162$.shorts.v1a" +
-      "lpha1.AlertMonitorCadenceR\007cadence\"U\n\032Cr" +
-      "eateAlertMonitorResponse\0227\n\007monitor\030\001 \001(" +
-      "\0132\035.shorts.v1alpha1.AlertMonitorR\007monito" +
-      "r\"H\n\030ListAlertMonitorsRequest\022\024\n\005limit\030\001" +
-      " \001(\005R\005limit\022\026\n\006offset\030\002 \001(\005R\006offset\"w\n\031L" +
-      "istAlertMonitorsResponse\0229\n\010monitors\030\001 \003" +
-      "(\0132\035.shorts.v1alpha1.AlertMonitorR\010monit" +
-      "ors\022\037\n\013total_count\030\002 \001(\005R\ntotalCount*y\n\021" +
-      "AlertMonitorScope\022#\n\037ALERT_MONITOR_SCOPE" +
-      "_UNSPECIFIED\020\000\022 \n\034ALERT_MONITOR_SCOPE_IN" +
-      "DUSTRY\020\001\022\035\n\031ALERT_MONITOR_SCOPE_STOCK\020\002*" +
-      "\323\001\n\025AlertMonitorCondition\022\'\n#ALERT_MONIT" +
-      "OR_CONDITION_UNSPECIFIED\020\000\0220\n,ALERT_MONI" +
-      "TOR_CONDITION_SHORT_INTEREST_ABOVE\020\001\0220\n," +
-      "ALERT_MONITOR_CONDITION_SHORT_INTEREST_R" +
-      "ISES\020\002\022-\n)ALERT_MONITOR_CONDITION_NEW_TO" +
-      "P_TEN_ENTRY\020\003*\177\n\023AlertMonitorCadence\022%\n!" +
-      "ALERT_MONITOR_CADENCE_UNSPECIFIED\020\000\022\037\n\033A" +
-      "LERT_MONITOR_CADENCE_DAILY\020\001\022 \n\034ALERT_MO" +
-      "NITOR_CADENCE_WEEKLY\020\002*|\n\022AlertMonitorSt" +
-      "atus\022$\n ALERT_MONITOR_STATUS_UNSPECIFIED" +
-      "\020\000\022\037\n\033ALERT_MONITOR_STATUS_ACTIVE\020\001\022\037\n\033A" +
-      "LERT_MONITOR_STATUS_PAUSED\020\0022\366\001\n\rAlertsS" +
-      "ervice\022s\n\022CreateAlertMonitor\022*.shorts.v1" +
-      "alpha1.CreateAlertMonitorRequest\032+.short" +
-      "s.v1alpha1.CreateAlertMonitorResponse\"\004\200" +
-      "\265\030\002\022p\n\021ListAlertMonitors\022).shorts.v1alph" +
-      "a1.ListAlertMonitorsRequest\032*.shorts.v1a" +
-      "lpha1.ListAlertMonitorsResponse\"\004\200\265\030\002B\332\001" +
-      "\n\023com.shorts.v1alpha1B\013AlertsProtoP\001ZYgi" +
-      "thub.com/castlemilk/shorted.com.au/servi" +
-      "ces/gen/proto/go/shorts/v1alpha1;shortsv" +
-      "1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts" +
-      "\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352" +
-      "\002\020Shorts::V1alpha1b\006proto3"
+      "t\0223\n\026last_event_report_date\030\013 \001(\tR\023lastE" +
+      "ventReportDate\022V\n\024last_delivery_status\030\014" +
+      " \001(\0162$.shorts.v1alpha1.AlertDeliveryStat" +
+      "usR\022lastDeliveryStatus\022>\n\rlast_event_at\030" +
+      "\r \001(\0132\032.google.protobuf.TimestampR\013lastE" +
+      "ventAt\"\266\002\n\031CreateAlertMonitorRequest\0228\n\005" +
+      "scope\030\001 \001(\0162\".shorts.v1alpha1.AlertMonit" +
+      "orScopeR\005scope\022\026\n\006target\030\002 \001(\tR\006target\022D" +
+      "\n\tcondition\030\003 \001(\0162&.shorts.v1alpha1.Aler" +
+      "tMonitorConditionR\tcondition\022\034\n\tthreshol" +
+      "d\030\004 \001(\001R\tthreshold\022#\n\rhas_threshold\030\005 \001(" +
+      "\010R\014hasThreshold\022>\n\007cadence\030\006 \001(\0162$.short" +
+      "s.v1alpha1.AlertMonitorCadenceR\007cadence\"" +
+      "U\n\032CreateAlertMonitorResponse\0227\n\007monitor" +
+      "\030\001 \001(\0132\035.shorts.v1alpha1.AlertMonitorR\007m" +
+      "onitor\"H\n\030ListAlertMonitorsRequest\022\024\n\005li" +
+      "mit\030\001 \001(\005R\005limit\022\026\n\006offset\030\002 \001(\005R\006offset" +
+      "\"\266\001\n\031ListAlertMonitorsResponse\0229\n\010monito" +
+      "rs\030\001 \003(\0132\035.shorts.v1alpha1.AlertMonitorR" +
+      "\010monitors\022\037\n\013total_count\030\002 \001(\005R\ntotalCou" +
+      "nt\022=\n\033checked_through_report_date\030\003 \001(\tR" +
+      "\030checkedThroughReportDate\"\313\002\n\021AlertEvent" +
+      "Company\022!\n\014product_code\030\001 \001(\tR\013productCo" +
+      "de\022!\n\014company_name\030\002 \001(\tR\013companyName\022%\n" +
+      "\016latest_percent\030\003 \001(\001R\rlatestPercent\022)\n\020" +
+      "previous_percent\030\004 \001(\001R\017previousPercent\022" +
+      "!\n\014has_previous\030\005 \001(\010R\013hasPrevious\022#\n\rch" +
+      "ange_points\030\006 \001(\001R\014changePoints\022\035\n\nhas_c" +
+      "hange\030\007 \001(\010R\thasChange\022\022\n\004rank\030\010 \001(\005R\004ra" +
+      "nk\022#\n\rprevious_rank\030\t \001(\005R\014previousRank\"" +
+      "\313\005\n\nAlertEvent\022\016\n\002id\030\001 \001(\tR\002id\022\035\n\nmonito" +
+      "r_id\030\002 \001(\tR\tmonitorId\0228\n\005scope\030\003 \001(\0162\".s" +
+      "horts.v1alpha1.AlertMonitorScopeR\005scope\022" +
+      "\026\n\006target\030\004 \001(\tR\006target\022D\n\tcondition\030\005 \001" +
+      "(\0162&.shorts.v1alpha1.AlertMonitorConditi" +
+      "onR\tcondition\022\034\n\tthreshold\030\006 \001(\001R\tthresh" +
+      "old\022#\n\rhas_threshold\030\007 \001(\010R\014hasThreshold" +
+      "\022>\n\007cadence\030\010 \001(\0162$.shorts.v1alpha1.Aler" +
+      "tMonitorCadenceR\007cadence\022\037\n\013report_date\030" +
+      "\t \001(\tR\nreportDate\022(\n\020compared_to_date\030\n " +
+      "\001(\tR\016comparedToDate\022@\n\tcompanies\030\013 \003(\0132\"" +
+      ".shorts.v1alpha1.AlertEventCompanyR\tcomp" +
+      "anies\022\'\n\017companies_total\030\014 \001(\005R\016companie" +
+      "sTotal\022M\n\017delivery_status\030\r \001(\0162$.shorts" +
+      ".v1alpha1.AlertDeliveryStatusR\016deliveryS" +
+      "tatus\0223\n\007sent_at\030\016 \001(\0132\032.google.protobuf" +
+      ".TimestampR\006sentAt\0229\n\ncreated_at\030\017 \001(\0132\032" +
+      ".google.protobuf.TimestampR\tcreatedAt\"e\n" +
+      "\026ListAlertEventsRequest\022\024\n\005limit\030\001 \001(\005R\005" +
+      "limit\022\026\n\006offset\030\002 \001(\005R\006offset\022\035\n\nmonitor" +
+      "_id\030\003 \001(\tR\tmonitorId\"o\n\027ListAlertEventsR" +
+      "esponse\0223\n\006events\030\001 \003(\0132\033.shorts.v1alpha" +
+      "1.AlertEventR\006events\022\037\n\013total_count\030\002 \001(" +
+      "\005R\ntotalCount\"n\n\037UpdateAlertMonitorStatu" +
+      "sRequest\022\016\n\002id\030\001 \001(\tR\002id\022;\n\006status\030\002 \001(\016" +
+      "2#.shorts.v1alpha1.AlertMonitorStatusR\006s" +
+      "tatus\"[\n UpdateAlertMonitorStatusRespons" +
+      "e\0227\n\007monitor\030\001 \001(\0132\035.shorts.v1alpha1.Ale" +
+      "rtMonitorR\007monitor\"+\n\031DeleteAlertMonitor" +
+      "Request\022\016\n\002id\030\001 \001(\tR\002id\"\034\n\032DeleteAlertMo" +
+      "nitorResponse\"7\n\037PauseAlertMonitorByToke" +
+      "nRequest\022\024\n\005token\030\001 \001(\tR\005token\"\344\002\n Pause" +
+      "AlertMonitorByTokenResponse\0228\n\005scope\030\001 \001" +
+      "(\0162\".shorts.v1alpha1.AlertMonitorScopeR\005" +
+      "scope\022\026\n\006target\030\002 \001(\tR\006target\022D\n\tconditi" +
+      "on\030\003 \001(\0162&.shorts.v1alpha1.AlertMonitorC" +
+      "onditionR\tcondition\022\034\n\tthreshold\030\004 \001(\001R\t" +
+      "threshold\022#\n\rhas_threshold\030\005 \001(\010R\014hasThr" +
+      "eshold\022>\n\007cadence\030\006 \001(\0162$.shorts.v1alpha" +
+      "1.AlertMonitorCadenceR\007cadence\022%\n\016alread" +
+      "y_paused\030\007 \001(\010R\ralreadyPaused*y\n\021AlertMo" +
+      "nitorScope\022#\n\037ALERT_MONITOR_SCOPE_UNSPEC" +
+      "IFIED\020\000\022 \n\034ALERT_MONITOR_SCOPE_INDUSTRY\020" +
+      "\001\022\035\n\031ALERT_MONITOR_SCOPE_STOCK\020\002*\323\001\n\025Ale" +
+      "rtMonitorCondition\022\'\n#ALERT_MONITOR_COND" +
+      "ITION_UNSPECIFIED\020\000\0220\n,ALERT_MONITOR_CON" +
+      "DITION_SHORT_INTEREST_ABOVE\020\001\0220\n,ALERT_M" +
+      "ONITOR_CONDITION_SHORT_INTEREST_RISES\020\002\022" +
+      "-\n)ALERT_MONITOR_CONDITION_NEW_TOP_TEN_E" +
+      "NTRY\020\003*\177\n\023AlertMonitorCadence\022%\n!ALERT_M" +
+      "ONITOR_CADENCE_UNSPECIFIED\020\000\022\037\n\033ALERT_MO" +
+      "NITOR_CADENCE_DAILY\020\001\022 \n\034ALERT_MONITOR_C" +
+      "ADENCE_WEEKLY\020\002*|\n\022AlertMonitorStatus\022$\n" +
+      " ALERT_MONITOR_STATUS_UNSPECIFIED\020\000\022\037\n\033A" +
+      "LERT_MONITOR_STATUS_ACTIVE\020\001\022\037\n\033ALERT_MO" +
+      "NITOR_STATUS_PAUSED\020\002*\245\002\n\023AlertDeliveryS" +
+      "tatus\022%\n!ALERT_DELIVERY_STATUS_UNSPECIFI" +
+      "ED\020\000\022!\n\035ALERT_DELIVERY_STATUS_PENDING\020\001\022" +
+      "\036\n\032ALERT_DELIVERY_STATUS_SENT\020\002\022 \n\034ALERT" +
+      "_DELIVERY_STATUS_FAILED\020\003\022,\n(ALERT_DELIV" +
+      "ERY_STATUS_SKIPPED_UNENTITLED\020\004\022*\n&ALERT" +
+      "_DELIVERY_STATUS_SKIPPED_NO_EMAIL\020\005\022(\n$A" +
+      "LERT_DELIVERY_STATUS_SKIPPED_PAUSED\020\0062\347\005" +
+      "\n\rAlertsService\022s\n\022CreateAlertMonitor\022*." +
+      "shorts.v1alpha1.CreateAlertMonitorReques" +
+      "t\032+.shorts.v1alpha1.CreateAlertMonitorRe" +
+      "sponse\"\004\200\265\030\002\022p\n\021ListAlertMonitors\022).shor" +
+      "ts.v1alpha1.ListAlertMonitorsRequest\032*.s" +
+      "horts.v1alpha1.ListAlertMonitorsResponse" +
+      "\"\004\200\265\030\002\022j\n\017ListAlertEvents\022\'.shorts.v1alp" +
+      "ha1.ListAlertEventsRequest\032(.shorts.v1al" +
+      "pha1.ListAlertEventsResponse\"\004\200\265\030\002\022\205\001\n\030U" +
+      "pdateAlertMonitorStatus\0220.shorts.v1alpha" +
+      "1.UpdateAlertMonitorStatusRequest\0321.shor" +
+      "ts.v1alpha1.UpdateAlertMonitorStatusResp" +
+      "onse\"\004\200\265\030\002\022s\n\022DeleteAlertMonitor\022*.short" +
+      "s.v1alpha1.DeleteAlertMonitorRequest\032+.s" +
+      "horts.v1alpha1.DeleteAlertMonitorRespons" +
+      "e\"\004\200\265\030\002\022\205\001\n\030PauseAlertMonitorByToken\0220.s" +
+      "horts.v1alpha1.PauseAlertMonitorByTokenR" +
+      "equest\0321.shorts.v1alpha1.PauseAlertMonit" +
+      "orByTokenResponse\"\004\200\265\030\001B\332\001\n\023com.shorts.v" +
+      "1alpha1B\013AlertsProtoP\001ZYgithub.com/castl" +
+      "emilk/shorted.com.au/services/gen/proto/" +
+      "go/shorts/v1alpha1;shortsv1alpha1\242\002\003SXX\252" +
+      "\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Sh" +
+      "orts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V1al" +
+      "pha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -129,7 +255,7 @@ public final class AlertsProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_AlertMonitor_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_AlertMonitor_descriptor,
-        new java.lang.String[] { "Id", "Scope", "Target", "Condition", "Threshold", "HasThreshold", "Cadence", "Status", "CreatedAt", "UpdatedAt", });
+        new java.lang.String[] { "Id", "Scope", "Target", "Condition", "Threshold", "HasThreshold", "Cadence", "Status", "CreatedAt", "UpdatedAt", "LastEventReportDate", "LastDeliveryStatus", "LastEventAt", });
     internal_static_shorts_v1alpha1_CreateAlertMonitorRequest_descriptor =
       getDescriptor().getMessageType(1);
     internal_static_shorts_v1alpha1_CreateAlertMonitorRequest_fieldAccessorTable = new
@@ -153,7 +279,67 @@ public final class AlertsProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_ListAlertMonitorsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListAlertMonitorsResponse_descriptor,
-        new java.lang.String[] { "Monitors", "TotalCount", });
+        new java.lang.String[] { "Monitors", "TotalCount", "CheckedThroughReportDate", });
+    internal_static_shorts_v1alpha1_AlertEventCompany_descriptor =
+      getDescriptor().getMessageType(5);
+    internal_static_shorts_v1alpha1_AlertEventCompany_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_AlertEventCompany_descriptor,
+        new java.lang.String[] { "ProductCode", "CompanyName", "LatestPercent", "PreviousPercent", "HasPrevious", "ChangePoints", "HasChange", "Rank", "PreviousRank", });
+    internal_static_shorts_v1alpha1_AlertEvent_descriptor =
+      getDescriptor().getMessageType(6);
+    internal_static_shorts_v1alpha1_AlertEvent_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_AlertEvent_descriptor,
+        new java.lang.String[] { "Id", "MonitorId", "Scope", "Target", "Condition", "Threshold", "HasThreshold", "Cadence", "ReportDate", "ComparedToDate", "Companies", "CompaniesTotal", "DeliveryStatus", "SentAt", "CreatedAt", });
+    internal_static_shorts_v1alpha1_ListAlertEventsRequest_descriptor =
+      getDescriptor().getMessageType(7);
+    internal_static_shorts_v1alpha1_ListAlertEventsRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListAlertEventsRequest_descriptor,
+        new java.lang.String[] { "Limit", "Offset", "MonitorId", });
+    internal_static_shorts_v1alpha1_ListAlertEventsResponse_descriptor =
+      getDescriptor().getMessageType(8);
+    internal_static_shorts_v1alpha1_ListAlertEventsResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListAlertEventsResponse_descriptor,
+        new java.lang.String[] { "Events", "TotalCount", });
+    internal_static_shorts_v1alpha1_UpdateAlertMonitorStatusRequest_descriptor =
+      getDescriptor().getMessageType(9);
+    internal_static_shorts_v1alpha1_UpdateAlertMonitorStatusRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_UpdateAlertMonitorStatusRequest_descriptor,
+        new java.lang.String[] { "Id", "Status", });
+    internal_static_shorts_v1alpha1_UpdateAlertMonitorStatusResponse_descriptor =
+      getDescriptor().getMessageType(10);
+    internal_static_shorts_v1alpha1_UpdateAlertMonitorStatusResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_UpdateAlertMonitorStatusResponse_descriptor,
+        new java.lang.String[] { "Monitor", });
+    internal_static_shorts_v1alpha1_DeleteAlertMonitorRequest_descriptor =
+      getDescriptor().getMessageType(11);
+    internal_static_shorts_v1alpha1_DeleteAlertMonitorRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_DeleteAlertMonitorRequest_descriptor,
+        new java.lang.String[] { "Id", });
+    internal_static_shorts_v1alpha1_DeleteAlertMonitorResponse_descriptor =
+      getDescriptor().getMessageType(12);
+    internal_static_shorts_v1alpha1_DeleteAlertMonitorResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_DeleteAlertMonitorResponse_descriptor,
+        new java.lang.String[] { });
+    internal_static_shorts_v1alpha1_PauseAlertMonitorByTokenRequest_descriptor =
+      getDescriptor().getMessageType(13);
+    internal_static_shorts_v1alpha1_PauseAlertMonitorByTokenRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_PauseAlertMonitorByTokenRequest_descriptor,
+        new java.lang.String[] { "Token", });
+    internal_static_shorts_v1alpha1_PauseAlertMonitorByTokenResponse_descriptor =
+      getDescriptor().getMessageType(14);
+    internal_static_shorts_v1alpha1_PauseAlertMonitorByTokenResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_PauseAlertMonitorByTokenResponse_descriptor,
+        new java.lang.String[] { "Scope", "Target", "Condition", "Threshold", "HasThreshold", "Cadence", "AlreadyPaused", });
     descriptor.resolveAllFeaturesImmutable();
     com.google.protobuf.TimestampProto.getDescriptor();
     com.shortedapi.options.v1.OptionsProto.getDescriptor();

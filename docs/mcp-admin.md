@@ -2,7 +2,8 @@
 
 A separate MCP server for **administrators**, served at
 `https://api.shorted.com.au/mcp/admin`. It observes asynchronous jobs and queues,
-publishes merged news articles, and starts the stock-picks data job.
+publishes merged news articles, starts the stock-picks data job, audits
+subscribers' billing against Stripe, and runs the paid-feature probe.
 
 The public, anonymous-first research server is a separate connection:
 `https://api.shorted.com.au/mcp`. Public and admin tokens have different audiences;
@@ -24,7 +25,7 @@ sends you to the Shorted consent screen, you sign in with your normal account
 and approve **jobs:read**, **news:publish**, **jobs:run** and **users:read**.
 For a monitoring-only client, request only `jobs:read`; leave out `users:read`
 unless the client needs personal data. The connector then appears in
-every Claude session (including Claude Code on the web) with fourteen tools:
+every Claude session (including Claude Code on the web) with twenty-three tools:
 
 | Tool | Scope | What it does |
 |---|---|---|
@@ -39,9 +40,18 @@ every Claude session (including Claude Code on the web) with fourteen tools:
 | `picks_job_status` `{execution_name}` | `jobs:run` | `running` / `succeeded` / `failed`, log link, failure reason (exit 10 in the message = DEGRADED, a partial pull) |
 | `people_overview` `{}` | `users:read` | Counts: signed-up accounts (total, verified, new in 7/30 days, signed in within 30 days, by provider), paying subscriptions (active or trialing, by tier and status, cancelling, new in 30 days) and the mailing list (subscribed, unsubscribed, joined and left recently). A source that cannot be read is omitted and named in `warnings`. |
 | `list_users` `{query?, sort?, limit?, offset?}` | `users:read` | Signed-up accounts, newest first (or `sort: "last_sign_in"`): uid, email, verified, providers, dates, plan and mailing list membership. `query` is an email substring. Follow `nextOffset`. |
-| `list_paying_users` `{status?, limit?, offset?}` | `users:read` | Subscriptions from the Stripe webhook mirror: uid, email, tier, status, period end, cancelling. `status` defaults to `paying` (active or trialing); also `past_due`, `canceled`, `all`, ... |
+| `list_paying_users` `{status?, limit?, offset?}` | `users:read` | Subscriptions from the Stripe webhook mirror: uid, email, tier, status, period end, cancelling. `status` defaults to `paying` (active or trialing); also `past_due`, `canceled`, `all`, ... Each row carries `entitled` and `entitlementReason`: the product's own verdict for the row, so a paying row that grants nothing reads as such. |
 | `list_mailing_list` `{status?, query?, limit?, offset?}` | `users:read` | Mailing list addresses with join and unsubscribe dates; `status` defaults to `subscribed`. |
 | `lookup_person` `{email}` | `users:read` | One email across all three: account, subscription and mailing list entry. |
+| `check_subscription` `{email}` or `{userId}` | `users:read` | Does one subscriber's access match what they paid for: the account, every mirror row for the email or user id, the entitlement the product applies, the live Stripe customer, drift between the mirror and Stripe, and chat and API usage. Give exactly one key. A source that fails is named in `sources` and its section is `null`. |
+| `list_billing_exceptions` `{limit?}` | `users:read` | Billing exceptions across every subscriber, most severe first. `counts` covers every finding; `rows` is the first `limit` (default 25). |
+| `paid_feature_status` `{}` | `jobs:read` | Each paid feature's probe monitor in Telesis (`paid-feature: <feature>`): its status, whether it is armed or paused, when it last and next ran, and its five newest runs. |
+| `run_paid_probe` `{}` | `jobs:run` | Runs the paid-feature probe on the web app inside the call and returns each step. Bounded at 85 seconds. A second call while a run is in flight returns `inProgress: true` at once and starts nothing. |
+| `alerts_status` `{}` | `jobs:read` | The alerts pipeline: monitor counts across owners by status and cadence, the caller's own monitors, the ten newest evaluator runs and the twenty newest events. Other owners' events carry no monitor id and no error text (the error text can name their subscription status); no address or user id is returned for anyone. |
+| `find_alert_crossing` `{code?, threshold?, condition?}` | `jobs:read` | The most recent report date on which a stock crossed a threshold (default 5, `above`), by the evaluator's rule over the last 20 report dates. Read-only. |
+| `run_alerts_smoke_test` `{code?, threshold?, condition?, date?}` | `jobs:run` | The end-to-end check on the caller's own account: creates or reuses one daily monitor, then replays one report date for the caller. The replay also emails the caller's other daily monitors that crossed on that date. A real email goes to the caller's verified address. Refuses without Premium or a verified address, and refuses a date where the monitor already has an event. |
+| `alerts_smoke_result` `{monitor_id, date, execution?}` | `jobs:read` | What the replay did for one of the caller's monitors on one date: the event row (with `createdAt`, `runId`) and, with `execution`, the job's state. A row written before that execution started is flagged `predatesExecution`. |
+| `delete_alert_monitor` `{monitor_id}` | `jobs:run` | Deletes one of the caller's own monitors and its events. Refused for any other monitor. |
 
 Only merged articles can be published — the job image bakes `content/news` in
 at build time, and the tool takes a slug, never a body. Likewise the picks tool
@@ -68,9 +78,18 @@ approve it (an empty scope request is granted the whole admin vocabulary).
 
 **This connector exposes only admin tools; it is not a superset of
 the public server.** A research client — one that needs short positions,
+
 strategy picks, fundamentals, housing, economy or the register of interests —
 must also connect the public URL, `https://api.shorted.com.au/mcp`, as its own
 connector.
+
+Signed-in users' own alerts are a different connection and a different scope. The
+public `/mcp` server offers six alert tools (`list_my_alerts`, `create_alert`,
+`pause_alert`, `resume_alert`, `delete_alert`, `list_my_alert_history`) only to a token
+carrying `alerts:write`, which is never granted by default. They act on the caller's own
+account and never on another owner's. The admin tools here, including the smoke test
+(`run_alerts_smoke_test`), stay on this connector and this scope vocabulary. See
+`web/public/docs/mcp-markdown.md`, "Your alerts", and CLAUDE.md, "MCP server".
 
 ## Users, paying users and the mailing list (`users:read`)
 
@@ -94,6 +113,145 @@ id, dates, plan and status. No display names, photos, phone numbers, Stripe ids
 or unsubscribe ids. Every call is logged as `admin personal-data read:
 tool=<name> actor=oauth:<uid>` (the arguments are not logged; they can be an
 email). Reconnect the connector after deploying to approve `users:read`.
+
+## Billing audit and the paid-feature probe
+
+Two questions an administrator asks about a paying customer: does what they paid
+for match what they can use, and do the paid features work right now?
+
+- **Stripe is read live through the web app**, not from the mirror alone:
+  `POST /api/internal/billing` behind `INTERNAL_SERVICE_SECRET`, at the same
+  origin as `ADMIN_CHECK_URL`, as `admin-users` is. Without the secret, Stripe is
+  named unavailable and nothing is guessed.
+- **The verdict is the product's own.** `entitled` is `ResolveEntitlement`: the
+  operator grant, the status, the paid tier and the 72-hour period grace the paid
+  features apply. A null status is the one exception. The product cannot read
+  such a row, so it grants nothing, and the audit reports it as `null_status`.
+- **Unread is not empty.** A source that fails is named in `sources`, and its
+  section is `null`; a count is absent, not zero. An empty list means the source
+  was read and found nothing.
+- **Drift is by customer.** Stripe's subscriptions are grouped by customer, and
+  each customer's best subscription is chosen by the web's ranking: active, then
+  trialing, past_due, unpaid, then the newest ended one. That subscription is set
+  against the one row that holds the customer. The row is found by its customer
+  id, wherever it is keyed, so a row under another email still counts. Findings:
+  - `paid_without_mirror`: the worst case. An active or trialing subscription
+    whose customer has no row, or whose row grants no paid access. Money taken,
+    no access.
+  - `unpaid_without_mirror`: a past-due or unpaid customer with no row. Owed
+    money, not access.
+  - `subscription_user_mismatch`: the customer's best live subscription was
+    bought for one user id (Stripe's `metadataUserId`), and the one row that holds
+    the customer is keyed to another. The real payer has no row, and the row's user
+    holds the access. This is the case of an account deleted and recreated, or a
+    subscription stamped onto a stale row during a deploy. The detail names both
+    user ids and nothing else.
+  - `entitled_without_stripe`: access with no live subscription behind it.
+  - `stale_subscription_id`: low severity. The row does not name the customer's
+    current subscription, though its state can already be right.
+  - `status_mismatch` (the webhook's own mapping: unpaid is recorded as past_due),
+    `period_end_mismatch` (more than an hour apart), `missing_period_end`,
+    `cancel_mismatch`, `null_status`, `duplicate_email` (once per email) and
+    `email_keyed_user_id` (a legacy row keyed by an email, which no uid can match).
+- **An ambiguous email is partial.** Stripe can match one email to more than one
+  customer. Each is read and compared with its own row, up to ten; `notes` says how
+  many were left out. The Stripe source is `partial`, because the subject may hold
+  more customers than the answer shows. A matched customer that cannot be read makes
+  the source `unavailable`, never `partial`.
+- **Stripe is asked with the email as typed.** The mirror and the account are read
+  with the email in lower case. The web app retries Stripe in lower case itself.
+- **A row updated in the last 15 minutes is left out of drift**, because the
+  Stripe webhook may still be in flight. `notes` says how many were left out, and
+  the row is marked `recentlyUpdated`.
+- **Stripe ids never leave the server.** The one exception is
+  `stripeDashboardUrl`, which needs a Stripe login.
+- **Usage.** Chat counts come from `chat_conversations` and `chat_messages`, and
+  count only the user's own messages. Sends by outcome come from
+  `chat_usage_events` (migration 000145, the send-limits ledger). That ledger is
+  on the chat-limits branch and is not in every database: where it is absent the
+  output says "not in this database", and sends are unknown, not zero. Metered requests come from `api_usage_monthly`, which the rate limiter
+  writes. `user:<uid>` is the API-token and signed-in browser identity, and
+  `oauth:<uid>` is the MCP connector's; the two are reported apart. Unlimited
+  tiers are not metered, so a zero there is no metering, not no use. It is the
+  rate limiter's count, not a billing ledger.
+- **`list_billing_exceptions` counts every kind it checked, zero included.** A
+  kind missing from `counts` was not checked, and `notes` says why. A live Stripe
+  list that was cut at its limit does not run `entitled_without_stripe`.
+
+The probe reports to one Telesis cron monitor per step, named
+`paid-feature: <step>`: `entitlement`, `chat`, `api_token`, `gates` and `all`.
+The monitors must exist in the Telesis service configured by
+`TELESIS_SERVICE_ID`. `paid_feature_status` lists each one that exists, and
+says so when none does.
+
+`paid_feature_status` (`jobs:read`) reads the Telesis cron monitors the probe
+reports to, one per feature: `paid-feature: entitlement`, `chat`, `api_token`,
+`gates` and `all`. `armed` is Telesis' own flag: it is true only after the monitor's first
+check-in. An armed monitor alerts when a run is missed; an unarmed one has not
+reported yet, so a missed run cannot alert. `configured: false` means Telesis is not set up on this
+deployment; that is not an error. The Telesis setup is in "Jobs on the omega
+cluster" above.
+
+`run_paid_probe` (`jobs:run`) runs the probe on the web app
+(`POST /api/internal/paid-probe`) inside the call. The probe exercises each paid
+feature as a subscriber would and returns every step with the call.
+
+- **Bounded at 85 seconds.** The admin server bounds every request at 90 seconds,
+  and the probe's worst case on the web side is about 75, so the call is given
+  85. A run that exceeds it returns a tool error. The run may still finish on the
+  web app, so check `paid_feature_status` for its outcome.
+- **One run at a time.** The connector holds an in-flight guard. A second call
+  while a run is in flight returns `inProgress: true` at once, with the message
+  "a probe run is already in progress", and starts nothing. It does not queue.
+  The guard is released when the run ends or the call is cancelled.
+
+## Alerts smoke test (the alert tools)
+
+The short-interest alerts pipeline is checked end to end from Claude, on the
+caller's own account and nobody else's. The runbook is `docs/alerts-runbook.md`
+"Prod smoke test"; the flow is:
+
+1. `find_alert_crossing` picks a stock and a report date it crossed on, by the
+   evaluator's own rule: the previous reading below the threshold and the latest
+   at or above it, both to two decimal places, against the report before it, over
+   the last 20 report dates. It is the same window `shorted alerts` reads, so a
+   date outside it cannot be replayed. `below` is refused: the evaluator has no
+   below rule, so a below search would report crossings no alert sends.
+2. `run_alerts_smoke_test` checks, in this order, before it writes anything: the
+   caller's Premium entitlement (the same rule the paid features use; the evaluator
+   skips an account without it), and the caller's **verified** address. It then
+   reuses an identical active daily monitor or creates one through the same rule
+   the web app uses (`services/shorts/internal/services/shorts/alerts_core.go`),
+   and starts `shorted-alerts-replay` with the argv `alerts -date <D> -user <uid>
+   -canary off`, built here from the date and the verified token's uid and never
+   from tool input. The reply masks the address (`b***@shorted.com.au`).
+3. `alerts_smoke_result` (after one to two minutes) reads the event row on that
+   date (email status, whether Resend accepted it, any error) and the execution.
+   A second replay of the same date sends nothing: the evaluator writes one event per
+   monitor per date.
+4. The smoke monitor stays active after the check. It emails again on every future
+   crossing until it is paused (the one-click link in the email) or deleted. Pause
+   it from the email, then `delete_alert_monitor` removes it.
+
+**The verified address.** Step 2 reads the caller's address from the web app's
+`admin-users` route (`lookup` by `uid`), and uses it only when the account is enabled
+and Firebase says the address is verified. That is the same rule the public alerts
+path applies to its verified token claims (`verifiedAccountEmail` in
+`services/shorts/internal/services/shorts/firebase_users.go`). Without
+`INTERNAL_SERVICE_SECRET` the server cannot read it and the smoke test refuses. A
+refusal names the reason (not verified, disabled, no account, or the web app still
+rolling out a deploy, which clears within minutes), and nothing is created.
+
+Ownership is structural. Every alerts tool acts for the verified token's uid, and
+no input names an owner (an owner field in the input is refused by the schema).
+`alerts_status` shows other owners' counts and events, but never their addresses,
+user ids, or, for their events, monitor ids and error text. `alerts_smoke_result` and
+`delete_alert_monitor` reach only the caller's own monitors (another owner's monitor
+reads as not found).
+
+The replay job is fenced. `shorted-alerts-replay` sets `ALERTS_REPLAY_ONLY=true`, so
+a live run without both `-date` and `-user` is refused by the jobs binary itself.
+The scheduled CronJob does not set it.
 
 ## Job visibility and freshness
 
@@ -209,9 +367,10 @@ the Vercel origin, because Cloudflare challenges non-browser POSTs to the apex).
 - **Override runs are two-halved.** Every write tool runs a Cloud Run Job with
   argument overrides, which needs `roles/run.developer` — granted per job, to
   exactly the jobs with a server-side argv builder (`shorts-data-sync`,
-  `shorted-news-publish`, `shorted-picks`; `scripts/tests/picks-job.test.mjs`
-  counts them). The argv is never caller text: a slug matched against a pattern,
-  a mode matched against an enum.
+  `shorted-news-publish`, `shorted-picks`, `shorted-alerts-replay`;
+  `scripts/tests/picks-job.test.mjs` counts them). The argv is never caller text:
+  a slug matched against a pattern, a mode matched against an enum, a date and a
+  verified uid for the alerts replay.
 - **Separate registry.** The admin tools are not in `mcp.Registry()`, so the
   public catalog, read-only annotations and payload budgets are untouched.
 
@@ -220,6 +379,22 @@ Files: `services/shorts/internal/mcp/admin.go`, `internal/jobmonitor/publish.go`
 `internal/services/shorts/admin_check.go`, `web/src/app/api/internal/admin-check/`.
 
 ## Failure modes
+
+- **"the verified address could not be read, so nothing was created"** from
+  `run_alerts_smoke_test` — the reason follows: the address is not verified, the account
+  is disabled or has no address, or the server has no account store
+  (`INTERNAL_SERVICE_SECRET` unset). Nothing was written.
+- **"the web app does not answer uid lookups yet"** — the API was deployed ahead of the
+  web app (the two ship in one deploy, API first). Retry in a few minutes. Nothing is
+  cached, so the next call after the rollout works.
+- **"already has an alert event for <date>"** from `run_alerts_smoke_test` — the monitor
+  has a row for that date (an earlier smoke run, or the scheduled run fired on it). A
+  replay would send nothing, and the old row would read as this run's result, so nothing
+  is started. Pick another date with `find_alert_crossing`, or delete the monitor and run
+  again.
+- **"the alerts replay is already running"** from `run_alerts_smoke_test` — a replay
+  is in flight. Wait for it, then retry. The monitor it used stays in place.
+
 
 - **"forbidden: administrator access required"** on every call — the admin
   check is failing (web endpoint unreachable, `INTERNAL_SERVICE_SECRET`
@@ -230,6 +405,15 @@ Files: `services/shorts/internal/mcp/admin.go`, `internal/jobmonitor/publish.go`
   is not grantable (fail closed).
 - **"this connection was not granted the jobs:run scope"** as a tool error —
   the connector was authorised before the scope existed; reconnect it.
+- **"the web app rejected INTERNAL_SERVICE_SECRET (HTTP 401 or 403)"** from a billing
+  tool or `run_paid_probe` — the API's `INTERNAL_SERVICE_SECRET` does not match
+  the web app's. Stripe and the probe are unreadable until they match; the
+  mirror-only checks still answer.
+- **`configured: false`** from `paid_feature_status` — the Telesis token or
+  organization is unset on this deployment (see "Jobs on the omega cluster").
+- **`chat_usage_events` "not in this database"** in `check_subscription` — the
+  send-limits ledger (migration 000145) is not applied here. Chat sends are
+  unknown, not zero.
 - **"job execution is not configured in this deployment"** from `run_picks_job`
   — the API's service account lacks `run.developer` on `shorted-picks`
   (Terraform `shorts_api_picks_overrides` not applied) or the job monitor has no

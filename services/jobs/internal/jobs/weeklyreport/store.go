@@ -29,7 +29,7 @@ func appendGenerationHistory(ctx context.Context, db *pgxpool.Pool, weekSlug str
 		return nil // No existing report to archive
 	}
 
-	historyEntry := map[string]interface{}{
+	historyEntry := map[string]any{
 		"headline":      headline,
 		"quality_score": qualityScore,
 		"model":         model,
@@ -105,14 +105,14 @@ type reportColumns struct {
 	top, risers, fallers, stats string
 	// industry is an interface so it can be SQL NULL when there is nothing to
 	// store (a NULL must never clobber a previously stored breakdown).
-	industry interface{}
+	industry any
 }
 
 func marshalReportColumns(data *ReportData) (reportColumns, error) {
 	var cols reportColumns
 	for _, f := range []struct {
 		name string
-		v    interface{}
+		v    any
 		dst  *string
 	}{
 		{"top_shorted", data.TopShorted, &cols.top},
@@ -132,7 +132,7 @@ func marshalReportColumns(data *ReportData) (reportColumns, error) {
 
 // marshalIndustryBreakdown returns the industry breakdown as a JSONB arg,
 // or nil (SQL NULL) when there is nothing to store.
-func marshalIndustryBreakdown(data *ReportData) interface{} {
+func marshalIndustryBreakdown(data *ReportData) any {
 	if len(data.IndustryBreakdown) == 0 {
 		return nil
 	}
@@ -159,7 +159,7 @@ func storeReport(ctx context.Context, db *pgxpool.Pool, weekSlug string, data *R
 	}
 
 	// Citations and trend insights may be empty — they stay SQL NULL then.
-	var citationsArg, trendInsightsArg interface{}
+	var citationsArg, trendInsightsArg any
 	if len(narrative.Citations) > 0 {
 		b, err := json.Marshal(narrative.Citations)
 		if err != nil {

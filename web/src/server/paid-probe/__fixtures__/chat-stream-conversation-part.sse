@@ -1,0 +1,14 @@
+data: {"type":"text-start","id":"shorted-assistant-text"}
+
+data: {"type":"data-shorted-conversation","id":"shorted-conversation","data":{"conversationId":"conv-probe-part"}}
+
+data: {"type":"text-delta","id":"shorted-assistant-text","delta":"BHP's reported short position "}
+
+data: {"type":"text-delta","id":"shorted-assistant-text","delta":"is 1.2%."}
+
+data: {"type":"text-end","id":"shorted-assistant-text"}
+
+data: {"type":"data-shorted-final","id":"shorted-final","data":{"conversationId":"conv-probe-part","toolCalls":[{"toolName":"query_short_positions","arguments":"{\"stock_code\":\"BHP\"}","result":"{\"productCode\":\"BHP\",\"percentage\":1.2}"}],"createdAt":"2026-10-23T02:00:00.000Z"}}
+
+data: [DONE]
+

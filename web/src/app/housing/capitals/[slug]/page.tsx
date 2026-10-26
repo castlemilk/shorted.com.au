@@ -22,6 +22,7 @@ import {
   type CapitalPriceSeriesSnapshot,
 } from "~/app/actions/getCapitalPrices";
 import { CapitalPriceChart } from "../_components/capital-price-charts";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -208,10 +209,7 @@ export default async function CapitalDetailPage({ params }: PageProps) {
   return (
     <DashboardLayout>
       <BreadcrumbListSchema items={breadcrumbSchema} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(datasetSchema) }}
-      />
+      <JsonLd data={datasetSchema} />
       <div className="mx-auto max-w-6xl space-y-9 px-4 py-8 sm:py-10">
         <Breadcrumbs items={breadcrumbItems} />
 

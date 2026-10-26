@@ -1,10 +1,15 @@
 "use client";
 
-import { Button } from "~/@/components/ui/button";
+import {
+  Suggestion,
+  Suggestions,
+} from "~/@/components/ai-elements/suggestion";
 
 interface QuickActionsProps {
   onSelect: (question: string) => void;
   stockCode?: string;
+  /** Held while the thread is busy with something other than a reply, such as a conversation opening. */
+  disabled?: boolean;
 }
 
 const defaultQuestions = [
@@ -14,7 +19,7 @@ const defaultQuestions = [
   "What's the market news today?",
 ];
 
-export function QuickActions({ onSelect, stockCode }: QuickActionsProps) {
+export function QuickActions({ onSelect, stockCode, disabled = false }: QuickActionsProps) {
   const questions = stockCode
     ? [
         `What's the current short position on ${stockCode}?`,
@@ -26,22 +31,17 @@ export function QuickActions({ onSelect, stockCode }: QuickActionsProps) {
 
   return (
     <div className="space-y-2 p-4">
-      <p className="text-xs text-muted-foreground font-medium">
-        Try asking:
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {questions.map((q) => (
-          <Button
-            key={q}
-            variant="outline"
-            size="sm"
-            className="text-xs h-auto py-1.5 px-3 whitespace-normal text-left"
-            onClick={() => onSelect(q)}
-          >
-            {q}
-          </Button>
+      <p className="text-xs font-medium text-muted-foreground">Try asking:</p>
+      <Suggestions>
+        {questions.map((question) => (
+          <Suggestion
+            key={question}
+            suggestion={question}
+            onClick={onSelect}
+            disabled={disabled}
+          />
         ))}
-      </div>
+      </Suggestions>
     </div>
   );
 }

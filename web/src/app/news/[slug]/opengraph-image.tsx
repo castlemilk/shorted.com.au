@@ -3,6 +3,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getEditorialTake } from "~/app/actions/getEditorialTake";
+import { ogImageFetchUrl } from "~/@/lib/og/image-fetch";
 
 export const maxDuration = 15;
 
@@ -28,9 +29,13 @@ async function getLogo(): Promise<string> {
 // approach isn't available in OG runtime — we just fetch the PNG and
 // inline it. Fails gracefully if the network call doesn't return.
 async function getHeroBackdrop(url: string | null | undefined): Promise<string | null> {
-  if (!url) return null;
+  // A stored URL: fetched only from Cloud Storage or our own /assets/
+  // (lib/og/image-fetch.ts), where a take imported from content/news keeps
+  // its art.
+  const target = ogImageFetchUrl(url);
+  if (!target) return null;
   try {
-    const res = await fetch(url, { cache: "force-cache" });
+    const res = await fetch(target, { cache: "force-cache", redirect: "error" });
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length < 1000 || buf.length > 4_000_000) return null;

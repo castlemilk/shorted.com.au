@@ -96,7 +96,7 @@ func (s *StoreAdapter) StockExists(stockCode string) (bool, error) {
 }
 
 // UpdateKeyMetrics wraps the store's UpdateKeyMetrics
-func (s *StoreAdapter) UpdateKeyMetrics(stockCode string, metrics map[string]interface{}) error {
+func (s *StoreAdapter) UpdateKeyMetrics(stockCode string, metrics map[string]any) error {
 	return s.store.UpdateKeyMetrics(stockCode, metrics)
 }
 
@@ -178,6 +178,38 @@ func (s *StoreAdapter) CreateAlertMonitor(input shorts.CreateAlertMonitorInput) 
 
 func (s *StoreAdapter) ListAlertMonitors(userID string, limit, offset int32) ([]*shorts.AlertMonitor, int32, error) {
 	return s.store.ListAlertMonitors(userID, limit, offset)
+}
+
+func (s *StoreAdapter) UpdateAlertMonitorStatus(userID, monitorID, status, userEmail string) (*shorts.AlertMonitor, error) {
+	return s.store.UpdateAlertMonitorStatus(userID, monitorID, status, userEmail)
+}
+
+func (s *StoreAdapter) RefreshAlertMonitorEmail(userID, userEmail string) error {
+	return s.store.RefreshAlertMonitorEmail(userID, userEmail)
+}
+
+func (s *StoreAdapter) DeleteAlertMonitor(userID, monitorID string) error {
+	return s.store.DeleteAlertMonitor(userID, monitorID)
+}
+
+func (s *StoreAdapter) PauseAlertMonitorByID(monitorID string) (*shorts.AlertMonitor, bool, error) {
+	return s.store.PauseAlertMonitorByID(monitorID)
+}
+
+func (s *StoreAdapter) ListAlertEvents(userID, monitorID string, limit, offset int32) ([]*shorts.AlertEvent, int32, error) {
+	return s.store.ListAlertEvents(userID, monitorID, limit, offset)
+}
+
+func (s *StoreAdapter) CanonicalIndustry(target string) (string, bool, error) {
+	return s.store.CanonicalIndustry(target)
+}
+
+func (s *StoreAdapter) StockCodeKnown(code string) (bool, error) {
+	return s.store.StockCodeKnown(code)
+}
+
+func (s *StoreAdapter) AlertCheckedThrough() (string, error) {
+	return s.store.AlertCheckedThrough()
 }
 
 func (s *StoreAdapter) GetWeeklyReport(weekSlug string) (*shorts.WeeklyReport, error) {
@@ -547,7 +579,7 @@ func (s *StoreAdapter) GetStateCompanyAggregates() ([]*shorts.StateCompanyAggreg
 }
 
 // QueryRowContext delegates to the underlying store's QueryRowContext.
-func (s *StoreAdapter) QueryRowContext(ctx context.Context, query string, args ...interface{}) shorts.Row {
+func (s *StoreAdapter) QueryRowContext(ctx context.Context, query string, args ...any) shorts.Row {
 	return s.store.QueryRowContext(ctx, query, args...)
 }
 
@@ -584,18 +616,18 @@ func NewLoggerAdapter() *LoggerAdapter {
 	return &LoggerAdapter{}
 }
 
-func (l *LoggerAdapter) Debugf(format string, args ...interface{}) {
+func (l *LoggerAdapter) Debugf(format string, args ...any) {
 	log.Printf("[DEBUG] "+format, args...)
 }
 
-func (l *LoggerAdapter) Infof(format string, args ...interface{}) {
+func (l *LoggerAdapter) Infof(format string, args ...any) {
 	log.Printf("[INFO] "+format, args...)
 }
 
-func (l *LoggerAdapter) Warnf(format string, args ...interface{}) {
+func (l *LoggerAdapter) Warnf(format string, args ...any) {
 	log.Printf("[WARN] "+format, args...)
 }
 
-func (l *LoggerAdapter) Errorf(format string, args ...interface{}) {
+func (l *LoggerAdapter) Errorf(format string, args ...any) {
 	log.Printf("[ERROR] "+format, args...)
 }

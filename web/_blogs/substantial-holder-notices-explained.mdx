@@ -1,0 +1,235 @@
+---
+title: "Substantial Holder Notices: Why Banks File So Many"
+excerpt: "Substantial holder notices (Forms 603, 604 and 605) disclose a relevant interest in 5% or more of a company’s votes. Why banks and brokers file so many for shares they lend, borrow or hold as collateral, what DroneShield’s 38 notices show, and how to read a register without counting shares twice."
+standfirst: "A substantial holder notice does not always mean an investor has arrived. Banks and brokers also file them for shares they lend, borrow or hold as collateral, and their notices cluster on the ASX’s most shorted stocks."
+coverImage: "/assets/blog/substantial-holder-notices-explained/cover-editorial-v3.webp"
+thumbnailImage: "/assets/blog/substantial-holder-notices-explained/thumbnail-editorial-v3.webp"
+coverAlt: "A blank ivory card tilts out of a blackened-steel card frame screwed to a dark oak wall, as a second blank card with burnt-amber edges crosses over it on its way in."
+date: "2026-10-22"
+category: guides
+tags:
+  - substantial holders
+  - Form 603
+  - Form 604
+  - securities lending
+  - DroneShield
+  - ownership
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben-ebsworth.jpg"
+ogImage:
+  url: "/assets/blog/substantial-holder-notices-explained/cover-editorial-v3.webp"
+---
+
+# Substantial Holder Notices: Why Banks File So Many
+
+A substantial holder notice says that a person, with its associates, has a relevant interest in 5% or more of a listed company's votes, and a relevant interest is wider than ownership. Banks and brokers file these notices for shares they have lent out, borrowed or taken as collateral as well as shares they own, and their notices cluster where short selling is heaviest.
+
+In ASIC's short position report for 15 October 2026, 12 of the 16 companies with 10% or more of their shares reported short had a bank or broker among their current substantial holders on Shorted's records. Of the 445 with less than 1% short, 19 did, leaving out MUFG, the Japanese banking group, where its notice only repeats its own fund manager's figure. This guide explains what the notices are and who files them, quotes what the banks' notices actually say, follows DroneShield through 38 of them, and shows how to read a register without counting the same shares twice. The figures come from [Shorted's ownership data](/ownership), which reads each notice's PDF, and from the notices themselves.
+
+<GraphStat
+  title="Substantial holding notices on Shorted, late November 2025 to 20 October 2026"
+  items='[
+    {"value":"6,367","label":"notices parsed into records","hint":"2,633 more documents set aside"},
+    {"value":"1,911","label":"of them filed by banks and brokers","hint":"30% of the parsed total"},
+    {"value":"38","label":"on DroneShield","hint":"27 from JPMorgan and Citigroup"},
+    {"value":"75%","label":"of companies 10% or more short have a bank or broker substantial holder","hint":"12 of 16, ASIC report for 15 October","accent":true}
+  ]'
+/>
+
+Shorted's ownership job has read the 9,000 most recent notice documents in its ASX announcements feed, released from 26 November 2025 to 20 October 2026. It turned 6,367 into records (Forms 603, 604 and 605, plus 55 New Zealand disclosures for dual-listed companies) and set 2,633 aside rather than guess: 1,284 were scans with no text layer, 913 had a voting power it could not read unambiguously, 288 could not be tied to one company or one holder, 60 failed to download, 55 contained no Australian or New Zealand form (a covering letter filed alone, or a foreign form such as the Irish TR-1 that James Hardie forwards), and 33 contained figures that contradicted the form or the company's share count. Every count below is of parsed notices.
+
+## What a substantial holder notice is
+
+Section 671B of the [Corporations Act 2001](https://www.legislation.gov.au/C2004A00818/latest/text) requires a person to tell the company and ASX when they begin or cease to have a substantial holding, when there is "a movement of at least 1%" in their holding, and when they make a takeover bid. A substantial holding, defined in section 9, is a relevant interest, together with associates, in 5% or more of the votes attached to the company's voting shares. The 1% is measured in percentage points from the figure last disclosed: JPMorgan's DroneShield notice released on 4 August, for a change on 30 July, went from 5.15% to 6.68%, a movement of 1.53 points.
+
+The notice goes in a prescribed form, and the announcements appear on ASX under matching headlines:
+
+| Form | Title on the form | ASX headline |
+| --- | --- | --- |
+| 603 | Notice of initial substantial holder | Becoming a substantial holder |
+| 604 | Notice of change of interests of substantial holder | Change in substantial holding |
+| 605 | Notice of ceasing to be a substantial holder | Ceasing to be a substantial holder |
+
+The deadline is two business days after the holder becomes aware of the information, or 9.30 am on the next trading day if it becomes aware during a takeover bid (s671B(6)). The information must be given "even if the situation changes by the time the information is to be given", in the words of Note 2 to s671B(1).
+
+Relevant interest is the term that matters, and it is wider than ownership. Under section 608(1) a person has one if they are the holder of the securities, have power to exercise or control the exercise of a right to vote attached to them, or have power to dispose of them or control their disposal. "It does not matter how remote the relevant interest is or how it arises." Section 608(3) adds the relevant interests of any company in which the person's voting power is above 20%, or which it controls, and s671B(7) also counts interests through market traded options, derivatives that give a right to acquire the shares, and conditional agreements. ASIC's [Regulatory Guide 5](https://www.asic.gov.au/regulatory-resources/find-a-document/regulatory-guides/rg-5-relevant-interests-and-deemed-economic-interests) puts it plainly: a relevant interest "encompasses connections wider than ownership".
+
+## Who files the most
+
+<GraphRank
+  title="Substantial holder notices parsed by Shorted, by filer, late November 2025 to 20 October 2026"
+  items='[
+    {"label":"State Street","value":1117,"display":"1,117"},
+    {"label":"JPMorgan Chase","value":388,"display":"388","accent":true},
+    {"label":"UBS","value":338,"display":"338"},
+    {"label":"MUFG","value":336,"display":"336"},
+    {"label":"Citigroup","value":336,"display":"336"},
+    {"label":"Macquarie Group","value":331,"display":"331"},
+    {"label":"First Sentier Group","value":291,"display":"291"},
+    {"label":"Regal Partners","value":159,"display":"159"},
+    {"label":"Pinnacle","value":141,"display":"141"},
+    {"label":"Vanguard","value":135,"display":"135"}
+  ]'
+/>
+
+State Street's notices combine two businesses: the index funds of State Street Global Advisors, and State Street Bank and Trust Company, a custodian that lends securities. Its [Flight Centre notice released on 6 October](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03149149) lists shares held "as investment manager or trustee" beside three kinds of lending interest: lent securities, where "State Street Bank and Trust Company has lent the securities and retains a relevant interest"; collateral, held as a right "as lender, to dispose of shares transferred to secure a securities loan"; and borrowed securities it "has on-lent". Either business can move the combined figure by the point that requires a new notice: on Flight Centre, State Street went from 6.93% to 7.97% (released 6 October), to 6.95% (12 October) and to 8.11% (19 October).
+
+In the notices Shorted could read, five of the next six filers are banks or brokers. Together, banks and brokers filed 1,911 of the 6,367 parsed notices (30.0%), and three in four of theirs (1,462, or 76.5%) were Forms 603 or 605, the forms for becoming and for ceasing to be a substantial holder. Across all other filers combined, fewer than half were (2,095 of 4,456, or 47.0%): the index managers, led by State Street, came to 59.8% (809 of 1,352) and everyone else to 41.4% (1,286 of 3,104). MUFG's 336 include notices that count the interests of First Sentier, which it owns, and of Morgan Stanley, in which it has more than 20% of the votes; both also file their own.
+
+Two caveats travel with these counts. They cover only the notices Shorted could read, so a filer whose forms are scanned, or whose figures sit only in an annexure, is undercounted: BlackRock files its signed form pages as scans, so Shorted can read little but its 605s, which need no figure; they are 53 of its 56 parsed notices. And the kind "bank or broker" comes from Shorted's curated registry of each institution's dominant business, not from the notices.
+
+## Why a bank can be a substantial holder of shares it does not own
+
+<Quote>
+
+Securities lending will generally result in both the lender and the borrower having a relevant interest in the securities.
+
+</Quote>
+
+That sentence is from the key points of section D of ASIC's [Regulatory Guide 222](https://www.asic.gov.au/regulatory-resources/find-a-document/regulatory-guides/rg-222-substantial-holding-disclosure-and-tracing-requirements), issued in its current form on 30 July 2026. The borrower has a relevant interest under s608(1) once it has a legally binding commitment to borrow particular securities; the lender keeps one through its right to recall the shares, which s608(8) turns into a right to control their disposal (RG 222.60). A lender is also likely to acquire a relevant interest in securities a borrower delivers as collateral (RG 222.61). Custodians that lend their clients' shares as agent lenders, and prime brokers with a right to borrow their clients' securities, have relevant interests too (RG 222 sections E and F). Securities lending "can, but does not always, occur ahead of, or as part of, short selling activity", ASIC adds; it is also used to cover potential failed trades, for dividend-driven transactions and around corporate actions, including voting (RG 222.52).
+
+The DroneShield notices say the same thing in the filers' own words. [JPMorgan's latest](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03121550), a Form 604 for 30 July 2026 released on 4 August, puts its interest at 61,703,608 votes, or 6.68%. Section 4 of the notice divides that total by the nature of each interest, and 85.6% of it is lending: 38,176,408 shares are "Securities on Loan as Agent Lender", lent out by JPMorgan Chase Bank acting as agent, and 14,616,891 are held by JPMorgan companies "subject to an obligation to return under a securities lending agreement". Its loan schedule records the borrower as the holder of the voting rights.
+
+[Citigroup's Form 603](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03151240), released on 12 October, says it became a substantial holder on 8 October with 46,964,998 shares, or 5.0754%. Each of the four Citigroup companies holding them describes its interest in lending terms: Citibank's Sydney branch "acting as Agent Lender and as the holder of securities subject to an obligation to return under a securities lending agreement", the other three "pursuant to contracts entered into subject to an obligation to return under a securities lending agreement", two of them also through contracts "in the ordinary course of business on a stock market". Annexure A sets out the loans: voting rights held by the "Borrower", a return date that is "Unknown", and both sides able to end a loan early.
+
+A bank's notice is not always about lending. [UBS's Form 604 on Lynas](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03116464) for 16 July 2026, released on 20 July, puts UBS at 98,107,131 votes, or 9.75%, and most of that is options: 76,477,200 votes that UBS Securities Australia holds as "Beneficial Owner". Interests held as "Fund Manager" account for 18,324,473 more, and stock borrowing, lending and prime broking for 2,878,898.
+
+<GraphTable title="What two bank notices are made of, by the nature of each interest (shares of each notice rounded)">
+
+| Notice | Nature of the interest, as the notice describes it | Votes | Share of notice |
+| --- | --- | --- | --- |
+| JPMorgan on DroneShield, 30 Jul 2026, 6.68% | "Securities on Loan as Agent Lender" | 38,176,408 | 61.9% |
+| | "Holder of securities subject to an obligation to return under a securities lending agreement" | 14,616,891 | 23.7% |
+| | "Purchase and sales of securities in its capacity as Principal/Proprietary" | 7,694,668 | 12.5% |
+| | "In its capacity as investment manager or in various other related capacities" | 1,215,641 | 2.0% |
+| UBS on Lynas, 16 Jul 2026, 9.75% | Options held as "Beneficial Owner" | 76,477,200 | 78.0% |
+| | "Fund Manager with power to exercise control over voting shares" | 18,324,473 | 18.7% |
+| | Stock borrowing and lending, securities lending agreements and a prime broking agreement | 2,878,898 | 2.9% |
+| | Shares and ADRs held as "Beneficial Owner", and "Broker with power to exercise discretion over account" | 426,560 | 0.4% |
+
+</GraphTable>
+
+Shorted classes JPMorgan, Citigroup and UBS as one kind, bank or broker, and its note on that kind reads: "Mostly securities lending: shares lent to, or held as collateral from, short sellers." That is a rule of thumb about the kind, not a reading of each notice, and the UBS notice shows why the difference matters.
+
+## The in-and-out pattern: DroneShield
+
+[DroneShield](/shorts/DRO) has 38 parsed notices on record, released from 27 November 2025 to 12 October 2026, and 27 of them are from JPMorgan and Citigroup. A 39th, a "Becoming a substantial holder" released on 30 March 2026, is withheld because its voting power could not be read.
+
+JPMorgan's 18 are seven 603s, four 604s and seven 605s. Going by the date of each change, it ceased to be a substantial holder on 24 November 2025 and on 2 January, 9 January, 30 January, 2 April, 5 May and 8 May 2026, and became one again on 26 November, 7 January, 12 January, 20 March, 7 April, 7 May and 17 July. Its current 6.68% is from the 604 for 30 July. Citigroup's nine notices follow the same rhythm over five months:
+
+<GraphTable title="Every Citigroup substantial holding notice on DroneShield, May to October 2026">
+
+| Released | Form | Voting power |
+| --- | --- | --- |
+| 13 May 2026 | 603, became substantial on 11 May | 5.1197% |
+| 14 May 2026 | 605, ceased | below 5% |
+| 27 May 2026 | 603, became substantial on 25 May | 5.0006% |
+| 28 May 2026 | 605, ceased | below 5% |
+| 2 Jun 2026 | 603, became substantial on 29 May | 5.2578% |
+| 4 Jun 2026 | 605, ceased | below 5% |
+| 7 Aug 2026 | 603, became substantial on 5 Aug | 5.6853% |
+| 8 Oct 2026 | 605, ceased | below 5% |
+| 12 Oct 2026 | 603, became substantial on 8 Oct | 5.0754% |
+
+</GraphTable>
+
+The repetition is what the law asks for. A holding made up largely of loans can sit near 5% and cross it in both directions as loans open and close, and every crossing needs a notice. ASIC's guidance says a borrower that obtains a substantial holding through securities lending must give a notice "even if the holding is only temporary" (RG 222.72), and that returning lent securities or selling them on market may call for a notice of ceasing (RG 222.74).
+
+On Shorted's records DroneShield has four current substantial holders: State Street at 7.74% (a 604 for 2 September), JPMorgan at 6.68%, FMR, the parent of Fidelity, at 5.70% (a 604 for 28 August) and Citigroup at 5.0754%. ASIC's report for 15 October shows 16.40% of DroneShield's shares reported short, the highest of any ASX-listed company. The [company tab](/shorts/DRO/company) lists all four, each with a link to its notice.
+
+## Where bank notices meet short interest
+
+<GraphRank
+  title="Companies with a bank or broker substantial holder, by reported short position, ASIC report for 15 October 2026"
+  max="100"
+  items='[
+    {"label":"10% or more short (12 of 16)","value":75.0,"display":"75.0%","accent":true},
+    {"label":"5% to 10% (16 of 53)","value":30.2,"display":"30.2%"},
+    {"label":"2% to 5% (17 of 95)","value":17.9,"display":"17.9%"},
+    {"label":"1% to 2% (13 of 95)","value":13.7,"display":"13.7%"},
+    {"label":"Under 1% (19 of 445)","value":4.3,"display":"4.3%"}
+  ]'
+/>
+
+The companies are the 704 in ASIC's report for 15 October 2026 that Shorted's [most-shorted list](/top) ranks (the list leaves out ETFs and hybrids, and the page shows its top 100), and a holder counts when its latest notice leaves it substantial. MUFG counts First Sentier's interests in its own notices, so where MUFG's figure is exactly First Sentier's, it is left out. That removes 15 companies on which MUFG is the only bank or broker on record, among them Genesis Minerals, Beach Energy, AUB Group and Catapult Sports. Of the 25 most shorted, 16 have a bank or broker substantial holder; of the top ten, nine do. Across all 704, 77 do, or 10.9%.
+
+<GraphTable title="The ten most shorted ASX companies and their bank or broker substantial holders">
+
+| Rank | Company | Short, 15 Oct 2026 | Bank or broker holders on record (voting power, notice released) |
+| --- | --- | --- | --- |
+| 1 | [DroneShield (DRO)](/shorts/DRO) | 16.40% | [JPMorgan 6.68%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03121550) (4 Aug); [Citigroup 5.0754%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03151240) (12 Oct) |
+| 2 | Lotus Resources (LOT) | 15.48% | [JPMorgan 6.64%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03151954) (14 Oct) |
+| 3 | Boss Energy (BOE) | 14.68% | [JPMorgan 8.30%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03153071) (16 Oct) |
+| 4 | Zip Co (ZIP) | 13.59% | [Bank of America 5.24%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03138820) (11 Sep) |
+| 5 | PLS Group (PLS) | 13.08% | [MUFG 7.17%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03154779) (20 Oct); [Morgan Stanley 5.31%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03153564) (16 Oct) |
+| 6 | IperionX (IPX) | 12.99% | [JPMorgan 7.68%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03145725) (30 Sep) |
+| 7 | Paladin Energy (PDN) | 12.09% | [JPMorgan 6.63%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03154824) (20 Oct) |
+| 8 | Domino's Pizza Enterprises (DMP) | 11.89% | [Citigroup 8.6998%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03138109) (10 Sep) |
+| 9 | Lynas Rare Earths (LYC) | 11.73% | [UBS 9.75%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03116464) (20 Jul) |
+| 10 | WiseTech Global (WTC) | 11.08% | None on record |
+
+</GraphTable>
+
+The association fits the mechanism ASIC describes, where a lender and a borrower both hold a relevant interest in lent shares. But one day's cross-section cannot show that any particular holding is a loan, and a bank's notice can be mostly options, as UBS's Lynas notice is. Each figure in the table links to its notice and is as at that notice, and none of the notices says who sold short.
+
+## Why the figures on a register do not add up
+
+DroneShield's four current notices add to 25.20%, and ASIC's report has 16.40% of its shares reported short. The 25.20% is not a share of DroneShield owned by four investors, for three reasons.
+
+**The same shares can sit in several notices.** ASIC notes that "a number of securities lending transactions will result in a chain of people having a relevant interest in the same securities" (RG 222.62). A borrower that sells the shares on market loses its relevant interest (RG 222.63), but ASIC's relief lets the lender keep recognising its own, "even though the lender may have actual knowledge of the borrower's disposal of the securities" (the notional s608(8A) that ASIC Corporations (Securities Lending Arrangements) Instrument 2021/821 inserts; RG 222.67 and 222.68). The buyer is then the registered holder. While a borrower holds a lent parcel, it can sit in both the lender's and the borrower's notices; once the borrower sells it, it can sit in the lender's notice and on the register under the buyer's name. Example 3 in RG 222 walks one parcel through notices from the beneficial owner, the custodian that lent it and the hedge fund that borrowed it.
+
+**Groups report their members.** [MUFG's Form 603 on PLS Group](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03153610), released on 16 October, counts shares in which First Sentier has a relevant interest "as Mitsubishi UFJ Financial Group, Inc. has voting power of 100% in First Sentier Group Limited", and shares in which Morgan Stanley has one, as MUFG "has voting power of over 20% in Morgan Stanley" (s608(3)). On PLS, First Sentier (8.23%), [MUFG](/ownership/mufg) (7.17%) and Morgan Stanley (5.31%) all have current notices on record, and across Shorted's records 24 of MUFG's 38 current holdings are at exactly First Sentier's figure. Shorted's sums count a group once, at its largest figure, which on PLS is First Sentier's; that is why PLS, with two bank or broker holders on record, is missing from the Lending desks list on the [ownership page](/ownership).
+
+**The figures are not from the same day.** Each is as at its own notice's date of change, from 30 July to 8 October for DroneShield's four, and Shorted keeps a holding until a later notice changes it, so a 605 that could not be read leaves an older figure in place.
+
+Shorted's stock pages list every current holder, and their sums count each interest once where the overlap is known. Other overlaps remain, which is why Shorted's methodology says that "a sum is what the notices disclose, not a share of the company."
+
+## How to read a notice
+
+<Steps title="Reading a substantial holder notice">
+
+1. Check the form
+
+   603 means the holder became substantial, 604 that its holding moved by a percentage point or more, and 605 that it ceased. The ASX headline says the same thing.
+
+2. Identify the holder and its associates
+
+   Section 1 names the holder, often a parent "and its related bodies corporate". The associates section lists the companies whose interests are included, and a group can include companies in which it has voting power above 20%.
+
+3. Read the voting power, now and before
+
+   The votes and voting power are the notice's own figures, as at the date of the change. A 604 also gives the previous notice's figures, so the movement is the difference in percentage points.
+
+4. Read the nature of each relevant interest
+
+   This column says whether shares are held as beneficial owner, lent out as agent lender, borrowed "subject to an obligation to return under a securities lending agreement", managed for clients or held through options. Lending annexures say who holds the voting rights and whether either side can end a loan early.
+
+5. Compare the date of change with the release date
+
+   A notice reports a past date. The holder has two business days from becoming aware of the information, and ASX releases the notice after it is lodged. ASIC's short position report runs four trading days behind its position date as well.
+
+</Steps>
+
+## What changes on 4 December 2026
+
+Schedule 1 of the Treasury Laws Amendment (Strengthening Financial Systems and Other Measures) Act 2025 commences on 4 December 2026, and the July versions of RG 5 and RG 222 are written for it. Three changes matter for anyone reading these notices:
+
+- **One notice instead of three forms.** Holders must use the new Substantial Holding Notice from 4 June 2027. Until then, from 4 December, they can use transitional versions of Forms 603, 604 and 605 instead (RG 222.179 and 222.180).
+- **Cash-settled derivatives count too.** A "deemed economic interest", exposure to shares created by a derivative, physically or cash settled, is added to relevant interests when testing the 5% threshold, to the extent relevant interests do not already reflect it (RG 5.9 and 5.10). Options and other rights to acquire shares already count, under s671B(7).
+- **Offsetting short positions.** These must be disclosed where they reduce or hedge a long position arising from a derivative (RG 5.9).
+
+## Where to look it up
+
+- [The ownership page](/ownership) lists the institutions on Shorted's map, grouped by kind, with a page for each, such as [JPMorgan](/ownership/jpmorgan), [Citigroup](/ownership/citigroup), [State Street](/ownership/state-street) and [MUFG](/ownership/mufg).
+- Each stock's company tab lists its current substantial holders and links each one's latest notice: [DroneShield's](/shorts/DRO/company) shows the four above.
+- [The most-shorted list](/top) ranks companies by ASIC's latest reported short positions.
+- For background, read [what a short position is](/blog/what-are-short-positions), [what borrowing shares costs](/blog/cost-to-short-asx-stock), [who short sells on the ASX](/blog/institutional-vs-retail-short-selling) and [how to read the most-shorted list](/blog/most-shorted-asx-stocks).
+
+<Callout type="warning" title="An interest is not a view">
+
+A substantial holder notice discloses a relevant interest: who can vote or dispose of shares, as at a date. It is not a position for or against the company, and a bank's notice does not say who sold short or why. A borrower named in a lending annexure is not necessarily short: ASIC notes that lending is also used to cover potential failed trades, for dividend-driven transactions and around voting. Nothing here is a recommendation.
+
+</Callout>
+
+_This content is for informational purposes only and does not constitute financial advice. Substantial holding figures are each notice's own, as at its date of change, read by Shorted from notices released to 20 October 2026. Short-position figures are from ASIC's report for 15 October 2026, published four trading days after the position date. Always conduct your own research before making investment decisions._

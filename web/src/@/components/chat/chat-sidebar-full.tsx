@@ -1,7 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
-import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -10,25 +9,12 @@ import {
   SheetTrigger,
 } from "~/@/components/ui/sheet";
 import { Button } from "~/@/components/ui/button";
-import { MessageSquare, RotateCcw, Loader2, ArrowLeft, Lock } from "lucide-react";
+import { MessageSquare, RotateCcw, ArrowLeft, Lock } from "lucide-react";
 import { useChat } from "~/@/hooks/use-chat";
-
-// Lazy-load the message renderer: it pulls the whole streamdown markdown stack
-// (remark/rehype + KaTeX + shiki, ~280KB gz) which would otherwise ship in the
-// shared layout bundle on EVERY page. The sheet starts closed, so defer the
-// download until a message actually renders (i.e. the user opens the chat).
-const ChatMessageBubble = dynamic(
-  () => import("./chat-message").then((m) => m.ChatMessageBubble),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-8 w-2/3 animate-pulse rounded-md bg-muted/40" />
-    ),
-  }
-);
 import { ChatInput } from "./chat-input";
-import { QuickActions } from "./quick-actions";
+import { ChatThread } from "./chat-thread";
 import { ChatConversationList } from "./chat-conversation-list";
+import { escapeClearsReading } from "./chat-reading-escape";
 import { PremiumGate } from "~/@/components/premium/premium-gate";
 import { useSubscription } from "~/@/hooks/use-subscription";
 import { useSession } from "next-auth/react";
@@ -53,12 +39,16 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
 
   const {
     messages,
+    status,
     isLoading,
+    isLoadingHistory,
     error,
+    historyError,
     conversationId,
     conversations,
     isLoadingConversations,
     sendMessage,
+    retry,
     clearChat,
     stopGeneration,
     fetchConversations,
@@ -67,25 +57,18 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
   } = useChat({ contextStockCode: stockCode, userId });
 
   const { isPremium } = useSubscription();
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [isOpen, setIsOpen] = useState(initialOpen);
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+  const showChat = Boolean(session && isPremium);
 
-  // Fetch conversations when the sheet opens
+  // The list is for people who can chat. A free user who opens the sheet to see
+  // the upgrade prompt must not spend a request on it, or log its refusal.
   useEffect(() => {
-    if (isOpen && userId) {
+    if (isOpen && showChat) {
       void fetchConversations();
     }
-  }, [isOpen, userId, fetchConversations]);
-
-  const showChat = session && isPremium;
+  }, [isOpen, showChat, fetchConversations]);
 
   const handleLoadConversation = async (convId: string) => {
     await loadConversation(convId);
@@ -93,7 +76,7 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
   };
 
   const handleNewChat = () => {
-    clearChat();
+    void clearChat();
     setShowHistory(false);
   };
 
@@ -123,7 +106,13 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
       {/* max-w-full: the 400px floor overhangs a 375px phone by 25px, and the
           sheet is right-anchored, so the overhang clips off the LEFT edge and
           takes the back button and title with it. */}
-      <SheetContent className="w-[400px] max-w-full sm:w-[450px] flex flex-col p-0">
+      {/* Escape clears a chart's or sparkline's reading first; only a bare Escape closes the sheet. */}
+      <SheetContent
+        className="w-[400px] max-w-full sm:w-[450px] flex flex-col p-0"
+        onEscapeKeyDown={(event) => {
+          if (escapeClearsReading(event.target)) event.preventDefault();
+        }}
+      >
         {/* pr-12 reserves the corner for the sheet's own close button, which
             is absolutely positioned and otherwise lands on top of "New chat". */}
         <SheetHeader className="pl-4 pr-12 py-3 border-b flex-row items-center justify-between space-y-0">
@@ -180,53 +169,27 @@ export function ChatSidebarFull({ stockCode, initialOpen = false }: ChatSidebarF
             />
           ) : (
             <>
-              {/* Messages area */}
-              <div
-                ref={scrollRef}
-                className="flex-1 overflow-y-auto p-4 space-y-4"
-              >
-                {messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <MessageSquare className="h-8 w-8 text-muted-foreground mb-3" />
-                    <p className="text-sm font-medium">Ask Shorted AI</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Get insights about short positions, stocks, and market
-                      trends
-                    </p>
-                    <div className="mt-4 w-full">
-                      <QuickActions
-                        onSelect={sendMessage}
-                        stockCode={stockCode}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {messages.map((msg) => (
-                      <ChatMessageBubble key={msg.id} message={msg} />
-                    ))}
-                    {isLoading &&
-                      !messages.some((m) => m.isStreaming) && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Thinking...
-                        </div>
-                      )}
-                    {error && (
-                      <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-                        {error}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Input area */}
-              <ChatInput
-                onSend={sendMessage}
-                onStop={stopGeneration}
-                isLoading={isLoading}
+              <ChatThread
+                messages={messages}
+                status={status}
+                error={error}
+                historyError={historyError}
+                onRetry={() => void retry()}
+                onNewChat={conversationId ? handleNewChat : undefined}
+                onSuggest={(question) => void sendMessage(question)}
+                loadingHistory={isLoadingHistory}
+                stockCode={stockCode}
+                variant="sheet"
               />
+
+              <div className="border-t">
+                <ChatInput
+                  onSend={(message) => void sendMessage(message)}
+                  onStop={stopGeneration}
+                  status={status}
+                  busy={isLoadingHistory}
+                />
+              </div>
             </>
           )
         ) : (

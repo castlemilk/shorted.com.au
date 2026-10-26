@@ -6,11 +6,10 @@
 
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { parseAdminEmails } from "./admin-emails";
+import { isDevOrTestRuntime, isE2eTestEmail } from "./e2e-identity";
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
-  .split(",")
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
+const ADMIN_EMAILS = parseAdminEmails(process.env.ADMIN_EMAILS);
 
 /**
  * Whether an email is on the ADMIN_EMAILS allowlist. The single definition of
@@ -19,7 +18,11 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
  */
 export function isAdminEmail(email: string | null | undefined): boolean {
   const normalised = email?.trim().toLowerCase();
-  return !!normalised && ADMIN_EMAILS.includes(normalised);
+  if (!normalised) return false;
+  // The E2E test identity is an admin only in a development or test runtime, even
+  // when it is on ADMIN_EMAILS.
+  if (isE2eTestEmail(normalised) && !isDevOrTestRuntime()) return false;
+  return ADMIN_EMAILS.includes(normalised);
 }
 
 export interface AdminSession {
@@ -28,8 +31,14 @@ export interface AdminSession {
 }
 
 /**
- * Throws (via redirect to /signin) if the caller is not in the admin
- * allowlist. Returns the verified admin session on success.
+ * Throws (via redirect to /signin) if the caller is not an admin. Returns the
+ * admin session on success.
+ *
+ * An admin is an allowlisted address with a VERIFIED email. An email/password
+ * account can be registered under any address, so an unverified account under an
+ * admin's address must not inherit their access. This is the same rule the
+ * API's admin-check applies to a uid. A session minted before emailVerified was
+ * recorded has no flag and is refused, so its holder must sign in again.
  *
  * Call this at the top of every admin server component / server action.
  */
@@ -45,7 +54,8 @@ export async function requireAdmin(): Promise<AdminSession> {
       "ADMIN_EMAILS is not configured. Set ADMIN_EMAILS=email1,email2 in env.",
     );
   }
-  if (!ADMIN_EMAILS.includes(email)) {
+  // An unverified account is refused exactly like a non-admin.
+  if (!isAdminEmail(email) || session?.user?.emailVerified !== true) {
     redirect("/?adminDenied=1");
   }
   return {
@@ -54,8 +64,13 @@ export async function requireAdmin(): Promise<AdminSession> {
   };
 }
 
-/** Lightweight check — returns whether the current session is admin. */
+/**
+ * Lightweight check — returns whether the current session is a verified admin.
+ * Same rule as requireAdmin: the allowlisted address AND a verified email.
+ */
 export async function isAdmin(): Promise<boolean> {
   const session = await auth();
-  return isAdminEmail(session?.user?.email);
+  return (
+    isAdminEmail(session?.user?.email) && session?.user?.emailVerified === true
+  );
 }

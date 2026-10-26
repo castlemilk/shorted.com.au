@@ -14,6 +14,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ---------------------------------------------------------------- a fake database
@@ -69,6 +70,7 @@ func (r *fakeRows) Err() error                                   { return nil }
 func (r *fakeRows) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
 func (r *fakeRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
 func (r *fakeRows) RawValues() [][]byte                          { return nil }
+func (r *fakeRows) TypeMap() *pgtype.Map                         { return pgtype.NewMap() }
 func (r *fakeRows) Conn() *pgx.Conn                              { return nil }
 func (r *fakeRows) Values() ([]any, error)                       { return r.rows[r.i-1], nil }
 func (r *fakeRows) Scan(dest ...any) error                       { return assignRow(r.rows[r.i-1], dest) }
@@ -141,13 +143,13 @@ func fakeCandidateRow(code string) []any {
 	var row candidateRow
 	row.c.StockCode = code
 	row.asOf = tp("2026-09-25")
-	row.closePx = fp(45)
-	row.c.SMA200 = fp(40)
-	row.c.DollarVolume20d = fp(5e7)
+	row.closePx = new(float64(45))
+	row.c.SMA200 = new(float64(40))
+	row.c.DollarVolume20d = new(5e7)
 	row.c.Industry = "Materials"
 	row.hasGrowth = true
 	row.g.BasisPeriodType = "ttm"
-	row.g.RevenueYoYPct = fp(12)
+	row.g.RevenueYoYPct = new(float64(12))
 	row.g.Currency = "USD"
 	return rowFrom(row.targets())
 }
@@ -321,14 +323,14 @@ func TestListStrategyCandidatesMergesExtras(t *testing.T) {
 	er.hasQuality = true
 	er.q.BasisPeriodType = "annual"
 	er.q.Currency = "USD"
-	er.q.ROEPct = fp(22.5)
-	er.q.NetMarginPct = fp(20)
+	er.q.ROEPct = new(22.5)
+	er.q.NetMarginPct = new(float64(20))
 	er.q.StatementIsFinancial = false
 	lag := int32(0)
 	er.q.BalanceLagMonths = &lag
-	er.e.Valuation.Shares = fp(5.07e9)
+	er.e.Valuation.Shares = new(5.07e9)
 	er.e.Valuation.SharesPeriodEnd = tp("2026-06-30")
-	er.e.Valuation.MedianK = fp(1.0)
+	er.e.Valuation.MedianK = new(1.0)
 	er.e.Valuation.KPeriods = 4
 	er.e.Valuation.KConsistent = true
 	er.e.Valuation.EPSCurrency = "USD"
@@ -471,7 +473,7 @@ func TestMissingSchemaDetection(t *testing.T) {
 			t.Errorf("%v must not read as absent schema", err)
 		}
 	}
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		logMissingSchemaOnce("TestMethod", errors.New("column does not exist"))
 	}
 }

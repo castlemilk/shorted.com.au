@@ -42,11 +42,11 @@ func TestRegressionFiveEchoDocumentsWriteNothing(t *testing.T) {
 	// Every other gate would pass: each company has vendor context in the
 	// currency of a bare "$", and the echo's figures sit inside every band.
 	vendor := map[string][]vendorRow{
-		"BHP": {vAnnual("2024-06-30", "USD", f64(55.7e9), f64(7.9e9), f64(1.5), f64(5.07e9))},
-		"CBA": {vAnnual("2024-06-30", "AUD", f64(27e9), f64(9.5e9), f64(5.7), f64(1.67e9))},
-		"DRO": {vAnnual("2024-06-30", "AUD", f64(20e9), f64(3e9), f64(1), f64(2e9))},
-		"EDV": {vAnnual("2024-06-30", "AUD", f64(12e9), f64(0.5e9), f64(0.28), f64(1.79e9))},
-		"MSB": {vAnnual("2024-06-30", "AUD", f64(15e9), f64(2e9), f64(1), f64(2e9))},
+		"BHP": {vAnnual("2024-06-30", "USD", new(55.7e9), new(7.9e9), new(1.5), new(5.07e9))},
+		"CBA": {vAnnual("2024-06-30", "AUD", new(27e9), new(9.5e9), new(5.7), new(1.67e9))},
+		"DRO": {vAnnual("2024-06-30", "AUD", new(20e9), new(3e9), new(float64(1)), new(2e9))},
+		"EDV": {vAnnual("2024-06-30", "AUD", new(12e9), new(0.5e9), new(0.28), new(1.79e9))},
+		"MSB": {vAnnual("2024-06-30", "AUD", new(15e9), new(2e9), new(float64(1)), new(2e9))},
 	}
 	var st filingStats
 	out := buildFilingRows(docs, filingInputs{vendor: vendor}, &st)
@@ -83,7 +83,7 @@ func TestRegressionCBAComparatives(t *testing.T) {
 		}),
 	}
 	in := filingInputs{
-		vendor:   map[string][]vendorRow{"CBA": {vAnnual("2025-06-30", "AUD", f64(28e9), f64(10.1e9), f64(6.04), f64(1.67e9))}},
+		vendor:   map[string][]vendorRow{"CBA": {vAnnual("2025-06-30", "AUD", new(28e9), new(10.1e9), new(6.04), new(1.67e9))}},
 		profiles: map[string]companyProfile{"CBA": {Name: "COMMONWEALTH BANK OF AUSTRALIA", Industry: "Banks"}},
 	}
 	var st filingStats
@@ -117,7 +117,7 @@ func TestRegressionEDVChannelSales(t *testing.T) {
 			},
 		}),
 	}
-	in := filingInputs{vendor: map[string][]vendorRow{"EDV": {vAnnual("2025-06-30", "AUD", f64(12.3e9), f64(0.5e9), f64(0.28), f64(1.79e9))}}}
+	in := filingInputs{vendor: map[string][]vendorRow{"EDV": {vAnnual("2025-06-30", "AUD", new(12.3e9), new(0.5e9), new(0.28), new(1.79e9))}}}
 	var st filingStats
 	out := buildFilingRows([]filingExtraction{doc}, in, &st)
 	require.Len(t, out["EDV"], 1)
@@ -140,7 +140,7 @@ func TestRegressionBHPProfitFromOperations(t *testing.T) {
 		}}),
 	}
 	in := filingInputs{
-		vendor:   map[string][]vendorRow{"BHP": {vAnnual("2025-06-30", "USD", f64(51.3e9), nil, f64(1.78), f64(5.07e9))}},
+		vendor:   map[string][]vendorRow{"BHP": {vAnnual("2025-06-30", "USD", new(51.3e9), nil, new(1.78), new(5.07e9))}},
 		profiles: map[string]companyProfile{"BHP": {Name: "BHP GROUP LIMITED", Industry: "Materials"}},
 	}
 	var st filingStats
@@ -166,10 +166,10 @@ func TestRegressionPreTaxAndComprehensiveLossAsNetIncome(t *testing.T) {
 		doc("TSR", "The total comprehensive loss for the half-year ended 31 December 2024 was A$1,366,786", "-1.366786"),
 	}
 	vendor := map[string][]vendorRow{
-		"FLT": {vAnnual("2024-06-30", "AUD", f64(2.7e9), f64(0.3e9), f64(1.2), f64(0.22e9))},
-		"DMP": {vAnnual("2024-06-30", "AUD", f64(2.3e9), f64(0.1e9), f64(1.1), f64(0.09e9))},
-		"BMN": {vAnnual("2024-06-30", "AUD", f64(20e6), f64(-5e6), f64(-0.03), f64(0.18e9))},
-		"TSR": {vAnnual("2024-06-30", "AUD", f64(20e6), f64(-3e6), f64(-0.01), f64(0.3e9))},
+		"FLT": {vAnnual("2024-06-30", "AUD", new(2.7e9), new(0.3e9), new(1.2), new(0.22e9))},
+		"DMP": {vAnnual("2024-06-30", "AUD", new(2.3e9), new(0.1e9), new(1.1), new(0.09e9))},
+		"BMN": {vAnnual("2024-06-30", "AUD", new(20e6), new(-5e6), new(-0.03), new(0.18e9))},
+		"TSR": {vAnnual("2024-06-30", "AUD", new(20e6), new(-3e6), new(-0.01), new(0.3e9))},
 	}
 	var st filingStats
 	out := buildFilingRows(docs, filingInputs{vendor: vendor}, &st)
@@ -184,7 +184,7 @@ func TestRegressionLFTForeignDocument(t *testing.T) {
 		return filingExtraction{Code: "LFT", URL: "u-lft", Title: "Appendix 4D", ReportDate: date("2026-02-26"), DocumentMeta: meta,
 			Metrics: metricsJSON(t, map[string]any{"revenue": entry("source_text", "Revenue from ordinary activities $12.4 million", "value_millions", "12.4", "period", "H1 FY2026")})}
 	}
-	vendor := map[string][]vendorRow{"LFT": {vAnnual("2025-06-30", "AUD", f64(20e6), nil, nil, nil)}}
+	vendor := map[string][]vendorRow{"LFT": {vAnnual("2025-06-30", "AUD", new(20e6), nil, nil, nil)}}
 	foreign := `{"entity":"Winsome Resources Limited","report_kind":"appendix_4d"}`
 
 	var st filingStats
@@ -216,7 +216,7 @@ func TestRegressionDRODecemberYearEnd(t *testing.T) {
 		{Code: "DRO", URL: "u-dro-hy", Title: "Half Yearly Report and Accounts", ReportDate: date("2025-08-27"),
 			Metrics: metricsJSON(t, map[string]any{"revenue": entry("source_text", "Revenue from ordinary activities of $72.3 million", "value_millions", "72.3", "period", "1H25")})},
 	}
-	vendor := map[string][]vendorRow{"DRO": {vAnnual("2024-12-31", "AUD", f64(57.5e6), nil, nil, f64(870e6))}}
+	vendor := map[string][]vendorRow{"DRO": {vAnnual("2024-12-31", "AUD", new(57.5e6), nil, nil, new(870e6))}}
 	var st filingStats
 	out := buildFilingRows(docs, filingInputs{vendor: vendor}, &st)
 	require.Len(t, out["DRO"], 2)
@@ -245,7 +245,7 @@ func TestRegressionBare4ETableLineWithDocumentUnits(t *testing.T) {
 			Metrics: metricsJSON(t, map[string]any{"revenue": entry("source_text", "Revenue from ordinary activities 51,262 down 8%", "value_millions", "51262", "period", "FY2026", "alignment", "match_exact")})}
 	}
 	in := filingInputs{
-		vendor:   map[string][]vendorRow{"BHP": {vAnnual("2025-06-30", "USD", f64(55.7e9), nil, nil, nil)}},
+		vendor:   map[string][]vendorRow{"BHP": {vAnnual("2025-06-30", "USD", new(55.7e9), nil, nil, nil)}},
 		profiles: map[string]companyProfile{"BHP": {Name: "BHP GROUP LIMITED"}},
 	}
 	var st filingStats
@@ -270,7 +270,7 @@ func TestGateDocumentConfidenceAndKind(t *testing.T) {
 		return filingExtraction{Code: "ABC", URL: "u", Title: "Appendix 4D", ReportDate: date("2026-02-20"), DigestConfidence: conf, DocumentMeta: meta,
 			Metrics: metricsJSON(t, map[string]any{"revenue": entry("source_text", "Revenue $60.0 million", "value_millions", "60", "period", "H1 FY2026")})}
 	}
-	in := filingInputs{vendor: map[string][]vendorRow{"ABC": {vAnnual("2025-06-30", "AUD", f64(100e6), nil, nil, nil)}}}
+	in := filingInputs{vendor: map[string][]vendorRow{"ABC": {vAnnual("2025-06-30", "AUD", new(100e6), nil, nil, nil)}}}
 	var st filingStats
 	assert.Empty(t, buildFilingRows([]filingExtraction{mk(&low, "")}, in, &st))
 	assert.Equal(t, 1, st.Gates[gateLowConfidence])
@@ -293,7 +293,7 @@ func TestGateGroundingDropsUnaligned(t *testing.T) {
 			entry("source_text", "Revenue $61.0 million", "value_millions", "61", "period", "H1 FY2026", "alignment", "unaligned"),
 			entry("source_text", "Revenue $60.0 million", "value_millions", "60", "period", "H1 FY2026", "alignment", "match_greater"),
 		}})}
-	in := filingInputs{vendor: map[string][]vendorRow{"ABC": {vAnnual("2025-06-30", "AUD", f64(100e6), nil, nil, nil)}}}
+	in := filingInputs{vendor: map[string][]vendorRow{"ABC": {vAnnual("2025-06-30", "AUD", new(100e6), nil, nil, nil)}}}
 	var st filingStats
 	out := buildFilingRows([]filingExtraction{doc}, in, &st)
 	require.Len(t, out["ABC"], 1)
@@ -306,35 +306,35 @@ func TestGateGroundingDropsUnaligned(t *testing.T) {
 func TestGateVendorCurrencyFXAndMixed(t *testing.T) {
 	doc := filingExtraction{Code: "ABC", URL: "u", Title: "Appendix 4D", ReportDate: date("2026-02-20"),
 		Metrics: metricsJSON(t, map[string]any{"revenue": entry("source_text", "Revenue $60.0 million", "value_millions", "60", "period", "H1 FY2026")})}
-	fx := vAnnual("2025-06-30", "AUD", f64(100123456.37), nil, nil, nil) // a converted, fractional figure
+	fx := vAnnual("2025-06-30", "AUD", new(100123456.37), nil, nil, nil) // a converted, fractional figure
 	var st filingStats
 	assert.Empty(t, buildFilingRows([]filingExtraction{doc}, filingInputs{vendor: map[string][]vendorRow{"ABC": {fx}}}, &st))
 	assert.Equal(t, 1, st.Gates[gateVendorCurrency], "fx_converted: currency unknown")
 
-	mixed := []vendorRow{vAnnual("2025-06-30", "AUD", f64(100e6), nil, nil, nil), vAnnual("2024-06-30", "USD", f64(70e6), nil, nil, nil)}
+	mixed := []vendorRow{vAnnual("2025-06-30", "AUD", new(100e6), nil, nil, nil), vAnnual("2024-06-30", "USD", new(70e6), nil, nil, nil)}
 	st = filingStats{}
 	assert.Empty(t, buildFilingRows([]filingExtraction{doc}, filingInputs{vendor: map[string][]vendorRow{"ABC": mixed}}, &st))
 	assert.Equal(t, 1, st.Gates[gateVendorCurrency], "mixed vendor currencies: ambiguous")
 
-	epsOnly := []vendorRow{vAnnual("2025-06-30", "AUD", nil, nil, f64(0.1), f64(100e6))}
+	epsOnly := []vendorRow{vAnnual("2025-06-30", "AUD", nil, nil, new(0.1), new(100e6))}
 	st = filingStats{}
 	assert.Empty(t, buildFilingRows([]filingExtraction{doc}, filingInputs{vendor: map[string][]vendorRow{"ABC": epsOnly}}, &st))
 	assert.Equal(t, 1, st.Gates[gateVendorCurrency], "monetary fields all rejected: the label cannot be checked")
 
-	markit := vendorRow{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceMarkit, Revenue: f64(100e6)}
+	markit := vendorRow{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceMarkit, Revenue: new(100e6)}
 	st = filingStats{}
 	out := buildFilingRows([]filingExtraction{doc}, filingInputs{vendor: map[string][]vendorRow{"ABC": {fx, markit}}}, &st)
 	require.Len(t, out["ABC"], 1, "Markit's native currency is used for an fx_converted code")
 	assert.Equal(t, "AUD", out["ABC"][0].Currency)
 
-	old := []vendorRow{vAnnual("2025-06-30", "USD", f64(100e6), nil, nil, nil), vAnnual("2021-06-30", "AUD", f64(70e6), nil, nil, nil)}
+	old := []vendorRow{vAnnual("2025-06-30", "USD", new(100e6), nil, nil, nil), vAnnual("2021-06-30", "AUD", new(70e6), nil, nil, nil)}
 	c, note := resolveVendorCurrency(old)
 	assert.Equal(t, "USD", c, "a currency change years ago is history, not ambiguity")
 	assert.Empty(t, note)
 
 	// The persisted verdict (stock_fundamentals_sync.fx_converted) decides
 	// before the rows do: an integral AUD label proves nothing for XRO.
-	persisted := vAnnual("2025-06-30", "AUD", f64(100e6), nil, nil, nil)
+	persisted := vAnnual("2025-06-30", "AUD", new(100e6), nil, nil, nil)
 	persisted.FXConverted, persisted.NativeCurrency = true, "nzd"
 	c, note = resolveVendorCurrency([]vendorRow{persisted})
 	assert.Equal(t, "NZD", c, "the persisted native currency")
@@ -352,9 +352,9 @@ func TestGateVendorCurrencyFXAndMixed(t *testing.T) {
 // Gate 8: the bands and the profit / EPS checks.
 func TestGateMagnitude(t *testing.T) {
 	vc := newVendorContext([]vendorRow{
-		vAnnual("2025-06-30", "AUD", f64(100e6), f64(10e6), f64(0.10), f64(100e6)),
-		vAnnual("2024-06-30", "AUD", f64(90e6), f64(9e6), f64(0.09), f64(100e6)),
-		vTTM("2024-12-31", "AUD", f64(95e6), f64(0.095)),
+		vAnnual("2025-06-30", "AUD", new(100e6), new(10e6), new(0.10), new(100e6)),
+		vAnnual("2024-06-30", "AUD", new(90e6), new(9e6), new(0.09), new(100e6)),
+		vTTM("2024-12-31", "AUD", new(95e6), new(0.095)),
 	})
 	cases := []struct {
 		typ, end string
@@ -380,7 +380,7 @@ func TestGateMagnitude(t *testing.T) {
 	_, ok = vc.revenueBand(periodAnnual, date("2025-06-30"), "USD")
 	assert.False(t, ok, "references are same-currency only")
 
-	vendor := map[string][]vendorRow{"ABC": {vAnnual("2025-06-30", "AUD", f64(100e6), f64(10e6), f64(0.10), f64(100e6))}}
+	vendor := map[string][]vendorRow{"ABC": {vAnnual("2025-06-30", "AUD", new(100e6), new(10e6), new(0.10), new(100e6))}}
 	mk := func(m map[string]any) []filingExtraction {
 		return []filingExtraction{{Code: "ABC", URL: "u", Title: "Appendix 4D", ReportDate: date("2026-02-20"), Metrics: metricsJSON(t, m)}}
 	}
@@ -423,9 +423,9 @@ func TestGateMagnitude(t *testing.T) {
 // Gate 9: the TTM-EPS identity catches a half whose EPS is another period's.
 func TestGateTTMEPSIdentity(t *testing.T) {
 	vendor := map[string][]vendorRow{"ABC": {
-		vAnnual("2025-06-30", "AUD", f64(100e6), f64(40e6), f64(0.40), f64(100e6)),
-		vAnnual("2024-06-30", "AUD", f64(90e6), f64(35e6), f64(0.35), f64(100e6)),
-		vTTM("2025-12-31", "AUD", f64(110e6), f64(0.50)),
+		vAnnual("2025-06-30", "AUD", new(100e6), new(40e6), new(0.40), new(100e6)),
+		vAnnual("2024-06-30", "AUD", new(90e6), new(35e6), new(0.35), new(100e6)),
+		vTTM("2025-12-31", "AUD", new(110e6), new(0.50)),
 	}}
 	prior := filingExtraction{Code: "ABC", URL: "u-4d-25", Title: "Appendix 4D", ReportDate: date("2025-02-20"),
 		Metrics: metricsJSON(t, map[string]any{

@@ -49,7 +49,7 @@ func matchDedicatedPIDs(psOutput, profileDir string) []int {
 	}
 	needle := "--user-data-dir=" + profileDir
 	var pids []int
-	for _, line := range strings.Split(psOutput, "\n") {
+	for line := range strings.SplitSeq(psOutput, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -294,7 +294,7 @@ func launchDedicatedChrome(cfg chromeConfig) error {
 	}
 	_ = cmd.Process.Release()
 	// Give Chrome's native startup nav time to bind the port + clear Kasada.
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		time.Sleep(2 * time.Second)
 		if chromeReachable(cfg.cdpURL) {
 			return nil

@@ -52,10 +52,7 @@ func resolveGeminiRunBudget(limit, workers, defaultMaxItems, defaultMaxWorkers i
 	if limit <= 0 || limit > maxItems {
 		guardedLimit = maxItems
 	}
-	guardedWorkers := workers
-	if guardedWorkers < 1 {
-		guardedWorkers = 1
-	}
+	guardedWorkers := max(workers, 1)
 	if guardedWorkers > maxWorkers {
 		guardedWorkers = maxWorkers
 	}

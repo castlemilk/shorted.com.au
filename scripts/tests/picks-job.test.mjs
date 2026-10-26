@@ -11,6 +11,7 @@ const read = (p) => readFileSync(new URL(p, import.meta.url), "utf8");
 const prodMain = read("../../terraform/environments/prod/main.tf");
 const picksGo = read("../../services/shorts/internal/jobmonitor/picks.go");
 const adminGo = read("../../services/shorts/internal/mcp/admin.go");
+const authGo = read("../../services/shorts/internal/mcp/auth.go");
 const jobGo = read("../../services/jobs/internal/jobs/picks/job.go");
 
 function block(kind, name) {
@@ -38,9 +39,11 @@ test("the override grant is run.developer on THIS job only, and the job stays in
   assert.match(grant, /role\s+=\s+"roles\/run\.developer"/);
   assert.match(grant, /module\.shorts_api\.service_account_email/);
 
-  // Exactly three jobs carry the override role: validation, publish, picks.
+  // Exactly four jobs carry the override role: validation, publish, picks and the
+  // alerts replay (scripts/tests/alerts-replay-job.test.mjs). A fifth needs its own
+  // server-side argv builder.
   const developerGrants = prodMain.match(/role\s+=\s+"roles\/run\.developer"/g) ?? [];
-  assert.equal(developerGrants.length, 3, "a fourth run.developer grant needs its own server-side argv builder");
+  assert.equal(developerGrants.length, 4, "a fifth run.developer grant needs its own server-side argv builder");
 
   const runnable = prodMain.slice(prodMain.indexOf("admin_runnable_jobs = {"));
   const runnableMap = runnable.slice(0, runnable.indexOf("\n  }\n"));
@@ -57,11 +60,17 @@ test("the Go enum is exactly the modes the job's flag parser accepts", () => {
   assert.match(picksGo, /return \[\]string\{picksSubcommand, "-mode", string\(mode\)\}/);
 });
 
-test("the admin tools sit behind their own scope, and neither admin scope reads as public", () => {
+test("the admin tools sit behind their own scope, and admin scopes stay out of the public vocabulary", () => {
   assert.match(adminGo, /ScopeJobsRun\s+=\s+"jobs:run"/);
   assert.match(adminGo, /AdminTool\{Name: "run_picks_job", Scope: ScopeJobsRun\}/);
   assert.match(adminGo, /AdminTool\{Name: "picks_job_status", Scope: ScopeJobsRun\}/);
   const scopes = [...adminGo.matchAll(/Scope\w+\s+=\s+"([a-z]+:[a-z]+)"/g)].map((m) => m[1]);
   assert.ok(scopes.length >= 2);
-  for (const s of scopes) assert.doesNotMatch(s, /:read$/, `${s} would pass for a public read scope`);
+  // Read-only admin access (jobs:read, users:read) is still admin-only.
+  // The explicit vocabularies, not the :read suffix, define this boundary.
+  const publicVocabulary = /var Scopes = \[\]string\{([^}]+)\}/.exec(authGo)?.[1];
+  assert.ok(publicVocabulary, "public scope vocabulary should be declared");
+  const publicScopes = [...publicVocabulary.matchAll(/"([a-z]+:[a-z]+)"/g)].map((m) => m[1]);
+  assert.ok(publicScopes.length > 0);
+  for (const s of scopes) assert.ok(!publicScopes.includes(s), `${s} leaked into the public scope vocabulary`);
 });

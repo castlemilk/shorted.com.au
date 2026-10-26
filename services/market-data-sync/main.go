@@ -91,10 +91,7 @@ func main() {
 			if ctx.Err() != nil {
 				log.Fatalf("❌ Context cancelled during dependency init: %v", err)
 			}
-			backoff := time.Duration(attempt) * 2 * time.Second
-			if backoff > 30*time.Second {
-				backoff = 30 * time.Second
-			}
+			backoff := min(time.Duration(attempt)*2*time.Second, 30*time.Second)
 			log.Printf("⚠️ Dependency init failed (attempt %d/%d): %v — retrying in %s", attempt, maxRetries, err, backoff)
 			time.Sleep(backoff)
 		}
@@ -234,10 +231,7 @@ func buildDBPoolConfig(cfg *config.Config) (*pgxpool.Config, error) {
 	if maxConns < 1 {
 		maxConns = 3
 	}
-	minConns := cfg.DBMinConns
-	if minConns < 0 {
-		minConns = 0
-	}
+	minConns := max(cfg.DBMinConns, 0)
 	if minConns > maxConns {
 		minConns = maxConns
 	}

@@ -3,8 +3,8 @@
 /**
  * Structural guard for the sitemap index restructure (August 2026).
  *
- * /sitemap.xml is a sitemapindex over five children. The invariants that
- * matter — and that no runtime check can recover from once broken — are:
+ * /sitemap.xml is a sitemapindex over the SITEMAP_CHILDREN. The invariants
+ * that matter — and that no runtime check can recover from once broken — are:
  *
  *  1. every child produces URLs (an empty child is a silently vanished section)
  *  2. no URL appears in TWO children (duplicate <loc> across a sitemap set)
@@ -108,6 +108,33 @@ jest.mock("~/app/actions/getPoliticians", () => ({
   ],
 }));
 
+// ListInstitutions' order (current stakes, most first) and its fields: the
+// stake count and the newest notice, never the holdings files.
+const institutionsFixture = [
+  { slug: "vanguard", name: "Vanguard", substantialPositions: 88, latestNoticeDate: "2026-10-16" },
+  { slug: "argo", name: "Argo Investments", substantialPositions: 1, latestNoticeDate: "" },
+  // Holdings files only: the page indexes it, ListInstitutions cannot say so.
+  { slug: "hesta", name: "HESTA", substantialPositions: 0, latestNoticeDate: "" },
+  // Every stake ceased: an empty page, noindexed.
+  { slug: "ophir", name: "Ophir Asset Management", substantialPositions: 0, latestNoticeDate: "2025-03-02" },
+];
+const getOwnershipOverview = jest.fn();
+const listInstitutions = jest.fn();
+const getInstitution = jest.fn();
+jest.mock("~/app/actions/getOwnership", () => ({
+  getOwnershipOverview: () => getOwnershipOverview(),
+  listInstitutions: (...args: unknown[]) => listInstitutions(...args),
+  getInstitution: (slug: string) => getInstitution(slug),
+  // The institution page reads through the NotFound-aware twin.
+  getInstitutionOrNotFound: (slug: string) => getInstitution(slug),
+}));
+// The institution page's metadata is read below; its layout never renders.
+jest.mock("~/@/components/layouts/dashboard-layout", () => ({ DashboardLayout: () => null }));
+beforeEach(() => {
+  getOwnershipOverview.mockResolvedValue({ asOf: "2026-10-20", noticesParsed: 6367 });
+  listInstitutions.mockResolvedValue({ institutions: institutionsFixture, total: institutionsFixture.length });
+});
+
 jest.mock("~/lib/openapi/parser", () => ({
   parseOpenAPISpec: async () => ({
     info: { title: "t", version: "1" },
@@ -133,10 +160,12 @@ jest.mock("~/@/lib/api", () => ({
 import {
   buildCoreSitemap,
   buildHousingSitemap,
+  buildOwnershipSitemap,
   buildPoliticiansSitemap,
   buildReportsSitemap,
   buildShortsSitemap,
 } from "../sitemap-sections";
+import { generateMetadata as institutionMetadata } from "~/app/ownership/[slug]/page";
 import {
   SITEMAP_CHILDREN,
   dedupeEntries,
@@ -156,12 +185,13 @@ import { STOCK_TABS } from "~/@/lib/stocks/stock-tabs";
 type Section = { name: string; entries: Awaited<ReturnType<typeof buildCoreSitemap>> };
 
 async function buildAll(): Promise<Section[]> {
-  const [core, shorts, reports, housing, politicians] = await Promise.all([
+  const [core, shorts, reports, housing, politicians, ownership] = await Promise.all([
     buildCoreSitemap(),
     buildShortsSitemap(),
     buildReportsSitemap(),
     buildHousingSitemap(),
     buildPoliticiansSitemap(),
+    buildOwnershipSitemap(),
   ]);
   return [
     { name: "sitemap-core.xml", entries: core },
@@ -169,6 +199,7 @@ async function buildAll(): Promise<Section[]> {
     { name: "sitemap-reports.xml", entries: reports },
     { name: "sitemap-housing.xml", entries: housing },
     { name: "sitemap-politicians.xml", entries: politicians },
+    { name: "sitemap-ownership.xml", entries: ownership },
   ];
 }
 
@@ -229,6 +260,7 @@ describe("sitemap children", () => {
       ["/housing/", "sitemap-housing.xml"],
       ["/price-drops", "sitemap-housing.xml"],
       ["/politicians/", "sitemap-politicians.xml"],
+      ["/ownership", "sitemap-ownership.xml"],
     ];
 
     for (const [needle, child] of expectations) {
@@ -304,12 +336,27 @@ describe("sitemap children", () => {
     ).toBe(false);
   });
 
-  it("drops the auth-gated /developer stub and adds the API docs tree", async () => {
+  it("drops the auth-gated /developer stub and lists the API docs index and client guides", async () => {
     const all = (await buildAll()).flatMap((s) => s.entries.map((e) => e.url));
     expect(all.filter((u) => u.endsWith("/developer"))).toEqual([]);
     expect(all).toContain("https://shorted.com.au/docs/api");
-    expect(all).toContain("https://shorted.com.au/docs/api/get-top-shorts");
-    expect(all).toContain("https://shorted.com.au/docs/api/clients/python");
+    expect(
+      all.filter((u) => u.startsWith("https://shorted.com.au/docs/api/")).sort(),
+    ).toEqual(
+      ["curl", "go", "java", "javascript", "python", "typescript"].map(
+        (language) => `https://shorted.com.au/docs/api/clients/${language}`,
+      ),
+    );
+  });
+
+  // The endpoint pages are thin per-RPC stubs that the docs sidebar links from
+  // every docs page; the sitemap listed all 87 (two of them parser artefacts,
+  // /docs/api/servers--feed.xml), SEO review 2026-10-21. The parser mock above
+  // still serves endpoints, so listing them again fails here.
+  it("lists no per-endpoint API reference page", async () => {
+    const all = (await buildAll()).flatMap((s) => s.entries.map((e) => e.url));
+    expect(all).not.toContain("https://shorted.com.au/docs/api/get-top-shorts");
+    expect(all).not.toContain("https://shorted.com.au/docs/api/get-stock-data");
   });
 
   it("caps compare pairs at 80 and only pairs indexable codes", async () => {
@@ -466,6 +513,55 @@ describe("sitemap children", () => {
     }
     expect(byUrl.has("https://shorted.com.au/housing/act/council/unincorporated-act")).toBe(true);
     expect(housing.some((e) => e.url.endsWith("/council/no-usual-address"))).toBe(false);
+  });
+
+  // The institution pages were linked 145 times from /ownership and listed in
+  // no sitemap, and the empty ones were indexable (SEO review F09).
+  it("lists only the institution pages the page itself indexes, dated by their newest notice", async () => {
+    const ownership = await buildOwnershipSitemap();
+    const listed = ownership.filter((e) => e.url.includes("/ownership/"));
+    expect(listed.map((e) => e.url)).toEqual([
+      "https://shorted.com.au/ownership/vanguard",
+      "https://shorted.com.au/ownership/argo",
+    ]);
+    expect(listed[0]!.lastModified).toBe("2026-10-16T00:00:00.000Z");
+    // No notice date: listed, with no invented lastmod.
+    expect(listed[1]!.lastModified).toBeUndefined();
+    expect(listInstitutions).toHaveBeenCalledWith("", "", 200, 0);
+  });
+
+  // Strict subset, asked of the page itself rather than of the predicate the
+  // builder already applied: each listed slug's own metadata sets no robots
+  // key when GetInstitution returns only what ListInstitutions showed the
+  // sitemap (its stakes) and no holdings files at all.
+  it("lists no institution page that the page's own metadata noindexes", async () => {
+    const listed = (await buildOwnershipSitemap()).filter((e) => e.url.includes("/ownership/"));
+    expect(listed).toHaveLength(2);
+    for (const entry of listed) {
+      const inst = institutionsFixture.find((i) => entry.url.endsWith(`/ownership/${i.slug}`))!;
+      getInstitution.mockResolvedValue({
+        institution: { ...inst, kind: "index_manager", notices: 0 },
+        positions: Array.from({ length: inst.substantialPositions }, (_, n) => ({ stockCode: `S${n}` })),
+        fundHoldings: [],
+        notices: [],
+        funds: [],
+      });
+      const meta = await institutionMetadata({ params: Promise.resolve({ slug: inst.slug }) });
+      expect(meta.alternates?.canonical).toBe(entry.url);
+      expect(Object.keys(meta)).not.toContain("robots");
+    }
+  });
+
+  it("dates /ownership from the ownership data's asOf, not the ASIC date, and only in its own child", async () => {
+    const [ownership, core] = await Promise.all([buildOwnershipSitemap(), buildCoreSitemap()]);
+    expect(ownership[0]).toEqual({ url: "https://shorted.com.au/ownership", lastModified: "2026-10-20T00:00:00.000Z" });
+    expect(core.some((e) => e.url === "https://shorted.com.au/ownership")).toBe(false);
+  });
+
+  it("keeps /ownership listed, with no lastmod, while the ownership reads fail", async () => {
+    getOwnershipOverview.mockResolvedValue(undefined);
+    listInstitutions.mockResolvedValue(undefined);
+    expect(await buildOwnershipSitemap()).toEqual([{ url: "https://shorted.com.au/ownership" }]);
   });
 
   it("lists the capital-prices hub and every capital registry slug", async () => {

@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func fptr(v float64) *float64 { return &v }
-
 // ownershipFixture: PLS is crowded both ways (a hedge fund and an active
 // manager long, 12% short); BHP is held by index funds and lent by a bank;
 // MIN has only a corporate holder, which "crowded" does not count.
@@ -20,7 +18,7 @@ func ownershipFixture() *ownershipData {
 			{Slug: "perpetual", Name: "Perpetual", Kind: "active_manager"},
 			{Slug: "citigroup", Name: "Citigroup", Kind: "bank_broker"},
 			{Slug: "vanguard", Name: "Vanguard", Kind: "index_manager"},
-			{Slug: "hostplus", Name: "Hostplus", Kind: "super_fund", AUM: fptr(1.2e11), AUMAsAt: "2025-06-30"},
+			{Slug: "hostplus", Name: "Hostplus", Kind: "super_fund", AUM: new(1.2e11), AUMAsAt: "2025-06-30"},
 		},
 		holdings: []shortsstore.SubstantialHoldingRow{
 			{StockCode: "PLS", HolderKey: "regal-partners", InstitutionSlug: "regal-partners", Kind: "hedge_fund", PresentPct: 6},
@@ -33,15 +31,15 @@ func ownershipFixture() *ownershipData {
 		stats: &shortsstore.NoticeStats{Parsed: 9, Withheld: 2, LatestAnnounced: "2026-10-16",
 			PerHolder: map[string]shortsstore.HolderNoticeStats{"citigroup": {Notices: 3, LatestNotice: "2026-10-07"}}},
 		fundHoldings: []shortsstore.FundHoldingRow{
-			{InstitutionSlug: "vanguard", FundName: "VAS", SourceKind: "etf", AsAt: "2026-09-30", StockCode: "BHP", Units: fptr(100e6), Value: fptr(6e9)},
-			{InstitutionSlug: "blackrock", FundName: "IOZ", SourceKind: "etf", AsAt: "2026-10-15", StockCode: "BHP", Units: fptr(18e6), Value: fptr(1e9)},
-			{InstitutionSlug: "hostplus", FundName: "Balanced", SourceKind: "super_phd", AsAt: "2026-06-30", StockCode: "BHP", Units: fptr(26e6), Value: fptr(1.5e9)},
-			{InstitutionSlug: "hostplus", FundName: "Balanced", SourceKind: "super_phd", AsAt: "2026-06-30", StockCode: "PLS", Value: fptr(2e8)},
+			{InstitutionSlug: "vanguard", FundName: "VAS", SourceKind: "etf", AsAt: "2026-09-30", StockCode: "BHP", Units: new(100e6), Value: new(6e9)},
+			{InstitutionSlug: "blackrock", FundName: "IOZ", SourceKind: "etf", AsAt: "2026-10-15", StockCode: "BHP", Units: new(18e6), Value: new(1e9)},
+			{InstitutionSlug: "hostplus", FundName: "Balanced", SourceKind: "super_phd", AsAt: "2026-06-30", StockCode: "BHP", Units: new(26e6), Value: new(1.5e9)},
+			{InstitutionSlug: "hostplus", FundName: "Balanced", SourceKind: "super_phd", AsAt: "2026-06-30", StockCode: "PLS", Value: new(2e8)},
 		},
 		funds: []shortsstore.OwnershipFundRow{
-			{FundKey: "abn:1", Name: "Hostplus", FundType: "super_fund", InstitutionSlug: "hostplus", Size: fptr(1.2e11)},
-			{FundKey: "asx:VAS", Name: "VAS", FundType: "etf", InstitutionSlug: "vanguard", Size: fptr(2.1e10)},
-			{FundKey: "asx:AFI", Name: "AFIC", FundType: "lic", Size: fptr(8e9)},
+			{FundKey: "abn:1", Name: "Hostplus", FundType: "super_fund", InstitutionSlug: "hostplus", Size: new(1.2e11)},
+			{FundKey: "asx:VAS", Name: "VAS", FundType: "etf", InstitutionSlug: "vanguard", Size: new(2.1e10)},
+			{FundKey: "asx:AFI", Name: "AFIC", FundType: "lic", Size: new(8e9)},
 		},
 		shorts: map[string]shortsstore.ShortPosition{
 			"PLS": {Pct: 12, Issued: 3.2e9},
@@ -50,7 +48,7 @@ func ownershipFixture() *ownershipData {
 		},
 		companies: map[string]shortsstore.OwnershipCompany{
 			"PLS": {Name: "PLS Group", Industry: "Materials"},
-			"BHP": {Name: "BHP Group", Industry: "Materials", MarketCap: fptr(3e11)},
+			"BHP": {Name: "BHP Group", Industry: "Materials", MarketCap: new(3e11)},
 		},
 	}
 }

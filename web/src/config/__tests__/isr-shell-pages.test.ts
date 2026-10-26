@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
 import isrPages from "../isr-pages.json";
 import isrShellPages from "../isr-shell-pages.json";
 
@@ -172,5 +175,73 @@ describe("state, suburb, industry and editorial routes in the ISR sweep inventor
 
   it("has no duplicates in the full inventory", () => {
     expect(new Set(isrPages as string[]).size).toBe(isrPages.length);
+  });
+});
+
+// Rendered per request until 2026-10-21, so they never had a build render to
+// replace. Now static ISR, each is built once and kept for its revalidate:
+// /housing/calculators builds with the hard-coded $1,000,000 default
+// (getHousingOverview skips at build, and bailOnEmptyRender no-ops there)
+// under copy that calls it the national mean; /shorts and /battlegrounds read
+// at build, so they ship empty only when the build cannot reach the API. The
+// post-promote sweep replaces the build render on its first request.
+describe("pages moved to static ISR in the sweep inventory", () => {
+  it.each(["/housing/calculators", "/shorts", "/battlegrounds"])("lists %s", (page) => {
+    expect(new Set(isrPages as string[]).has(page)).toBe(true);
+  });
+});
+
+// A listed path containing "[" is expired as revalidatePath(pattern, "page")
+// (api/revalidate/route.ts), which matches a route by its file path: every
+// page that route renders, and nothing at all for a pattern naming no page.
+const isDynamicSegment = (segment: string) => /^\[\w+\]$/.test(segment);
+const isSwept = (path: string) =>
+  (isrPages as string[]).some((entry) => {
+    if (entry === path) return true;
+    const pattern = entry.split("/");
+    const segments = path.split("/");
+    return (
+      pattern.some(isDynamicSegment) &&
+      pattern.length === segments.length &&
+      pattern.every((segment, i) => isDynamicSegment(segment) || segment === segments[i])
+    );
+  });
+
+describe("dynamic routes in the ISR sweep inventory", () => {
+  it("names a page file for every pattern", () => {
+    const patterns = (isrPages as string[]).filter((path) => path.includes("["));
+    const appDir = join(__dirname, "..", "..", "app");
+    expect(patterns.filter((pattern) => !existsSync(join(appDir, ...pattern.split("/"), "page.tsx")))).toEqual([]);
+  });
+});
+
+// /economy/[state]/[topic] prerenders every published state/topic pair
+// (generateStaticParams maps PUBLISHED_ECONOMY_TOPIC_PAIRS, as its page test
+// pins), and each builds with no series: getEconomyTopicSnapshot skips at
+// build and bailOnEmptyRender no-ops there. So every promote shipped the 70
+// topic pages empty for their hour, though /economy and every state page link
+// them. One pattern sweeps them all, whatever the registry publishes next.
+describe("economy topic pages in the ISR sweep inventory", () => {
+  it("sweeps every published state/topic pair", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { PUBLISHED_ECONOMY_TOPIC_PAIRS } = require("~/@/lib/economy/topics") as {
+      PUBLISHED_ECONOMY_TOPIC_PAIRS: Array<{ state: string; topic: string }>;
+    };
+    expect(PUBLISHED_ECONOMY_TOPIC_PAIRS.length).toBeGreaterThan(0);
+    const unswept = PUBLISHED_ECONOMY_TOPIC_PAIRS.map(({ state, topic }) => `/economy/${state}/${topic}`).filter(
+      (path) => !isSwept(path),
+    );
+    expect(unswept).toEqual([]);
+  });
+});
+
+// The ownership hub builds with no data (getOwnershipOverview and
+// listInstitutions skip at build, and bailOnEmptyRender no-ops there), so every
+// promote shipped "Ownership data is not available yet" for its hour while
+// sitemap-ownership.xml listed the hub with a lastmod. Its empty state draws no
+// data-isr-shell marker, so it is swept, not re-primed.
+describe("the ownership hub in the ISR sweep inventory", () => {
+  it("lists /ownership", () => {
+    expect(isrPages).toContain("/ownership");
   });
 });

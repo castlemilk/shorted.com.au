@@ -1,4 +1,5 @@
 import React from "react";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 /**
  * Shared citation rendering for editorial Take bodies.
@@ -186,7 +187,7 @@ export function CitationSources({ citations }: { citations: TakeCitation[] }) {
               </span>
               <div className="min-w-0 flex-1">
                 <a
-                  href={c.url}
+                  href={safeExternalHref(c.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm font-medium text-foreground hover:text-primary"

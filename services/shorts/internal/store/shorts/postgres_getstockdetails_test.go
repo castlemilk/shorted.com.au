@@ -250,16 +250,16 @@ func getTestDatabaseURL() string {
 func createTestPool(t *testing.T, dbURL string) *pgxpool.Pool {
 	t.Helper()
 	ctx := context.Background()
-	
+
 	config, err := pgxpool.ParseConfig(dbURL)
 	require.NoError(t, err, "Failed to parse DATABASE_URL")
-	
+
 	// Use simple protocol mode to avoid prepared statement cache conflicts
 	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
-	
+
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	require.NoError(t, err, "Failed to create connection pool")
-	
+
 	return pool
 }
 
@@ -403,10 +403,10 @@ func TestGetStockDetailsKeyMetricsMerge(t *testing.T) {
 	}
 
 	testStockCode := "TEST_KEY_METRICS_MERGE"
-	
+
 	// Clean up any existing test data
 	_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
-	
+
 	// Clean up after test
 	defer func() {
 		_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
@@ -442,7 +442,7 @@ func TestGetStockDetailsKeyMetricsMerge(t *testing.T) {
 
 	store, err := newPostgresStore(config)
 	require.NoError(t, err, "Failed to create store")
-	
+
 	details, err := store.GetStockDetails(testStockCode)
 	require.NoError(t, err, "Failed to get stock details")
 	require.NotNil(t, details, "Stock details should not be nil")
@@ -488,7 +488,7 @@ func TestGetStockDetailsKeyMetricsPreserveExisting(t *testing.T) {
 	}
 
 	testStockCode := "TEST_PRESERVE_EXISTING"
-	
+
 	_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
 	defer func() {
 		_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
@@ -517,7 +517,7 @@ func TestGetStockDetailsKeyMetricsPreserveExisting(t *testing.T) {
 			financial_statements, key_metrics
 		) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
 	`
-	_, err = pool.Exec(ctx, insertQuery, testStockCode, "Test Company", "Mining", 
+	_, err = pool.Exec(ctx, insertQuery, testStockCode, "Test Company", "Mining",
 		financialStatementsJSON, keyMetricsJSON)
 	require.NoError(t, err, "Failed to insert test data")
 
@@ -535,22 +535,22 @@ func TestGetStockDetailsKeyMetricsPreserveExisting(t *testing.T) {
 	require.NotNil(t, details.FinancialStatements.Info, "Info should not be nil")
 
 	info := details.FinancialStatements.Info
-	
+
 	// key_metrics wins for market_cap (plan §5.3): the stale snapshot's
 	// 999999999 must not survive a present key_metrics value.
 	assert.Equal(t, float64(5678912345), info.MarketCap,
 		"market cap comes from key_metrics, not the stale financial_statements snapshot")
-	
+
 	// Missing fields should be filled from key_metrics
-	assert.Equal(t, float64(22.3), info.PeRatio, 
+	assert.Equal(t, float64(22.3), info.PeRatio,
 		"PE ratio should be filled from key_metrics")
-	assert.Equal(t, float64(1.15), info.Beta, 
+	assert.Equal(t, float64(1.15), info.Beta,
 		"Beta should be filled from key_metrics")
-	
+
 	// Existing string fields should be preserved
-	assert.Equal(t, "Materials", info.Sector, 
+	assert.Equal(t, "Materials", info.Sector,
 		"Existing sector should be preserved")
-	assert.Equal(t, "Gold Mining", info.Industry, 
+	assert.Equal(t, "Gold Mining", info.Industry,
 		"Existing industry should be preserved")
 }
 
@@ -576,7 +576,7 @@ func TestGetStockDetailsNoKeyMetrics(t *testing.T) {
 	}
 
 	testStockCode := "TEST_NO_KEY_METRICS"
-	
+
 	_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
 	defer func() {
 		_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
@@ -602,7 +602,7 @@ func TestGetStockDetailsNoKeyMetrics(t *testing.T) {
 	require.NoError(t, err, "Failed to create store")
 	details, err := store.GetStockDetails(testStockCode)
 	require.NoError(t, err, "Failed to get stock details")
-	
+
 	// Should not crash with NULL key_metrics
 	assert.Equal(t, testStockCode, details.ProductCode)
 	assert.Equal(t, "Test Company", details.CompanyName)

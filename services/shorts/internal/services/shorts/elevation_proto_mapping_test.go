@@ -48,12 +48,12 @@ func testProfileResponseWithElevationDescriptor(t *testing.T) protoreflect.Messa
 	messageType := descriptorpb.FieldDescriptorProto_TYPE_MESSAGE
 	optionalDouble := func(name string, number, oneofIndex int32) *descriptorpb.FieldDescriptorProto {
 		return &descriptorpb.FieldDescriptorProto{
-			Name: proto.String(name), Number: proto.Int32(number), Label: &optional,
-			Type: &doubleType, Proto3Optional: proto.Bool(true), OneofIndex: &oneofIndex,
+			Name: new(name), Number: new(number), Label: &optional,
+			Type: &doubleType, Proto3Optional: new(true), OneofIndex: &oneofIndex,
 		}
 	}
 	elevation := &descriptorpb.DescriptorProto{
-		Name: proto.String("SuburbElevation"),
+		Name: new("SuburbElevation"),
 		Field: []*descriptorpb.FieldDescriptorProto{
 			optionalDouble("elevation_min_m", 1, 0),
 			optionalDouble("elevation_median_m", 2, 1),
@@ -63,23 +63,23 @@ func testProfileResponseWithElevationDescriptor(t *testing.T) protoreflect.Messa
 			optionalDouble("land_share_below_5m", 6, 5),
 		},
 		OneofDecl: []*descriptorpb.OneofDescriptorProto{
-			{Name: proto.String("_elevation_min_m")},
-			{Name: proto.String("_elevation_median_m")},
-			{Name: proto.String("_elevation_max_m")},
-			{Name: proto.String("_land_share_below_1m")},
-			{Name: proto.String("_land_share_below_2m")},
-			{Name: proto.String("_land_share_below_5m")},
+			{Name: new("_elevation_min_m")},
+			{Name: new("_elevation_median_m")},
+			{Name: new("_elevation_max_m")},
+			{Name: new("_land_share_below_1m")},
+			{Name: new("_land_share_below_2m")},
+			{Name: new("_land_share_below_5m")},
 		},
 	}
 	response := &descriptorpb.DescriptorProto{
-		Name: proto.String("GetSuburbProfileResponse"),
+		Name: new("GetSuburbProfileResponse"),
 		Field: []*descriptorpb.FieldDescriptorProto{{
-			Name: proto.String("elevation"), Number: proto.Int32(9), Label: &optional,
-			Type: &messageType, TypeName: proto.String(".elevationtest.SuburbElevation"),
+			Name: new("elevation"), Number: proto.Int32(9), Label: &optional,
+			Type: &messageType, TypeName: new(".elevationtest.SuburbElevation"),
 		}},
 	}
 	file, err := protodesc.NewFile(&descriptorpb.FileDescriptorProto{
-		Name: proto.String("elevation_test.proto"), Package: proto.String("elevationtest"), Syntax: proto.String("proto3"),
+		Name: new("elevation_test.proto"), Package: new("elevationtest"), Syntax: new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{elevation, response},
 	}, nil)
 	if err != nil {

@@ -65,4 +65,29 @@ describe("ShortInterestSummary", () => {
     );
     expect(cardText).toContain("Over the past 30 days that figure has risen 0.42 percentage points");
   });
+
+  // ANT: 164 shares short read "has 0.00% of its shares on issue".
+  it("puts a position too small to state under 0.01%, never at 0.00%", () => {
+    const { container } = render(
+      <ShortInterestSummary
+        {...props}
+        stockCode="ANT"
+        companyName="Arcadia Minerals"
+        shortPct={0.0000205}
+        shortPositions={164}
+        deltas={{ change7d: null, change30d: null, change90d: null, peakPct: null, peakDate: null }}
+      />,
+    );
+    expect(container.textContent).toContain(
+      "Arcadia Minerals (ASX:ANT) has <0.01% of its shares on issue reported as short positions as of 2 Oct 2026, or about 164 shares.",
+    );
+    expect(container.textContent).not.toContain("0.00%");
+  });
+
+  it("says there is no reportable position for a true zero", () => {
+    const { container } = render(<ShortInterestSummary {...props} shortPct={0} shortPositions={0} />);
+    expect(container.textContent).toContain(
+      "BHP Group (ASX:BHP) has no reportable short positions as of 2 Oct 2026.",
+    );
+  });
 });

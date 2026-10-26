@@ -56,7 +56,7 @@ func TestGCSUpload_Success(t *testing.T) {
 	defer gcsClient.Close()
 
 	bucket := gcsClient.Bucket(bucketName)
-	
+
 	// Add a small delay to let fake-gcs-server process
 	time.Sleep(100 * time.Millisecond)
 

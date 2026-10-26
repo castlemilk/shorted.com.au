@@ -907,10 +907,7 @@ func logChunks(logf func(string, ...any), head string, items []string) {
 		return
 	}
 	for i := 0; i < len(items); i += listChunk {
-		j := i + listChunk
-		if j > len(items) {
-			j = len(items)
-		}
+		j := min(i+listChunk, len(items))
 		logf("picks: filings: %s [%d-%d]: %s", head, i+1, j, strings.Join(items[i:j], ", "))
 	}
 }

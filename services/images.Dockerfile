@@ -21,7 +21,7 @@
 
 FROM scratch AS stealth
 
-FROM --platform=$BUILDPLATFORM golang:1.26.0 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.2 AS builder
 ARG TARGETOS TARGETARCH
 ENV GOTOOLCHAIN=auto GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMCHECK=github.com/skunkworq/*
 WORKDIR /app

@@ -25,9 +25,12 @@ import (
 // charged the maximum batch cost rather than being parsed.
 const MaxRequestBytes = 1 << 20
 
-// MaxBatchCost caps what one HTTP request can consume, so an oversized or
-// unparseable body cannot be either free or unbounded.
-const MaxBatchCost = 50
+// MaxBatchCost is the most tool calls one HTTP request may carry. It is both the charge
+// for a body too large to parse (so an oversized body is never the cheap path) and the
+// limit BatchGuard enforces: a batch with more tools/call entries is refused with a 400
+// before the SDK sees it. Charging the real count up to a cap of 50 let a 300-call batch
+// run for 50 units; with the guard in front, 20 is the most one request can ask for.
+const MaxBatchCost = 20
 
 // TierResolver returns the subscription tier for a user id. It is the SAME
 // lookup the Connect auth interceptor performs, passed in rather than
@@ -54,9 +57,12 @@ func RateLimitCost(r *http.Request) int {
 	if r.Body == nil || r.Method != http.MethodPost {
 		return 0
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, MaxRequestBytes+1))
-	// Whatever happened, the handler still needs the bytes.
-	r.Body = io.NopCloser(bytes.NewReader(body))
+	// Peek a bounded prefix to decide, then put the WHOLE body back: the prefix followed by
+	// whatever was not read. Restoring only the prefix truncated any larger request for the
+	// handler behind it.
+	orig := r.Body
+	body, err := io.ReadAll(io.LimitReader(orig, MaxRequestBytes+1))
+	r.Body = readCloser{io.MultiReader(bytes.NewReader(body), orig), orig}
 	if err != nil {
 		return 0
 	}
@@ -94,9 +100,8 @@ func countToolCalls(body []byte) int {
 				count++
 			}
 		}
-		if count > MaxBatchCost {
-			return MaxBatchCost
-		}
+		// The real count. BatchGuard refuses a batch over MaxBatchCost calls before this runs,
+		// so the count is not capped here: a cap would make the batch the way around the limit.
 		return count
 	}
 
@@ -222,7 +227,8 @@ func rejectRateLimited(
 	if resourceMetadataURL != "" && !hasCredential(r) {
 		w.Header().Set("WWW-Authenticate", `Bearer error="insufficient_quota", `+
 			`error_description="anonymous quota exhausted; authenticate to raise it", `+
-			`resource_metadata="`+resourceMetadataURL+`"`)
+			`resource_metadata="`+resourceMetadataURL+`", `+
+			`scope="`+strings.Join(DefaultScopes, " ")+`"`)
 		status = http.StatusUnauthorized
 	}
 	w.WriteHeader(status)

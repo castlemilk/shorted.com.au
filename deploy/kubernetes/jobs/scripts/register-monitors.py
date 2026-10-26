@@ -163,15 +163,26 @@ def desired_monitors(values: dict) -> dict[str, dict]:
     reporter = values.get("reporter", {})
     if reporter.get("enabled", True):
         hb = parse_duration(reporter.get("heartbeatInterval", "5m"))
-        # Twice the ping cadence, so one dropped ping is not an incident.
+        # Expected on the ping cadence; the grace below covers one dropped ping.
         out[HEARTBEAT_KEY] = {
-            "schedule": {"intervalSeconds": str(max(600, hb * 2)), "timezone": "UTC"},
+            "schedule": {"cronExpression": heartbeat_cron(hb), "timezone": "UTC"},
             "gracePeriodSeconds": max(300, hb),
             "maxRuntimeSeconds": 0,
             "affectsServiceStatus": True,
             "displayName": "cronjob-reporter heartbeat",
         }
     return out
+
+
+def heartbeat_cron(seconds: int) -> str:
+    """Cron at the reporter's own ping cadence, not an interval.
+
+    An interval monitor's graceDeadlineAt drifts far past its last check-in in
+    Telesis (2026-10-25: about 27h for a 2h cadence), so the heartbeat is cron too.
+    """
+    if seconds % 60 or not 60 <= seconds < 3600:
+        sys.exit(f"heartbeatInterval must be whole minutes under an hour, got {seconds}s")
+    return f"*/{seconds // 60} * * * *"
 
 
 def parse_duration(s: str) -> int:

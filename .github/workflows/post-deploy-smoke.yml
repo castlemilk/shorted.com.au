@@ -1,12 +1,10 @@
-name: Post-Deploy Smoke Test
+name: Production Health Smoke Test
 
-# Runs after Vercel production deployments to catch 500 errors.
-# Triggered manually or on schedule (every 6 hours).
-# Also triggered by pushes to main (Vercel auto-deploys on push).
+# Periodic/manual health of the currently serving production release.
+# Release-specific smoke runs in terraform-deploy.yml after promotion.
+# Do not treat this independent health check as evidence for a new commit.
 
 on:
-  push:
-    branches: [main]
   schedule:
     # Every 6 hours — catch regressions from env var changes, Cloud Run redeployments, etc.
     - cron: "0 */6 * * *"
@@ -14,16 +12,10 @@ on:
 
 jobs:
   smoke-test:
-    name: Production Smoke Test
+    name: Current Production Health
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 25
-    # Wait for Vercel deploy to complete (triggered by same push)
-    # Vercel typically deploys in 3-7 minutes
     steps:
-      - name: Wait for deploy to settle
-        if: github.event_name == 'push'
-        run: sleep 300
-
       - name: Checkout
         uses: actions/checkout@v5
 
@@ -169,3 +161,4 @@ jobs:
           name: post-deploy-smoke-playwright-report
           path: web/playwright-report
           retention-days: 7
+

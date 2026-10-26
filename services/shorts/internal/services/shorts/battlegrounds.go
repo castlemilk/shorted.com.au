@@ -38,7 +38,7 @@ func (s *ShortsServer) GetBattlegroundStocks(ctx context.Context, req *connect.R
 
 	cacheKey := s.cache.GetBattlegroundStocksKey(view, limit, offset)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		stocks, totalCount, err := s.store.GetBattlegroundStocks(view, limit, offset)
 		if err != nil {
 			return nil, err

@@ -1,5 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { useId } from "react";
 import { Activity, ArrowUpRight, BarChart3, Building2 } from "lucide-react";
 import { Badge } from "~/@/components/ui/badge";
 import {
@@ -8,12 +10,60 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
+import { seriesColor } from "~/@/components/charts/chart-theme";
 import { industryLabel } from "~/@/lib/industry-placeholder";
-import { cn } from "~/@/lib/utils";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import type { ChatMessage } from "~/@/hooks/use-chat";
+import {
+  DirectorTradesTable,
+  PeersTable,
+  TopShortsTable,
+} from "./chat-rich-tables";
+import {
+  asRecord,
+  codeFromArguments,
+  numberValue,
+  parseDirectorTrades,
+  parseEconomicSeries,
+  parseJSON,
+  parsePeers,
+  parseShortPositions,
+  parseTopShorts,
+  stringValue,
+  type DirectorTradesView,
+  type EconomicSeriesResult,
+  type PeersView,
+  type ShortPositionsView,
+  type TopShortsView,
+} from "./chat-tool-data";
+import {
+  axisFormatter,
+  formatPercent,
+  formatWhole,
+  latestFormatter,
+  readingSummary,
+  seriesSubtitle,
+  seriesTitle,
+  shortPositionSummary,
+  valueFormatter,
+} from "./chat-tool-format";
 
 type ToolCall = NonNullable<ChatMessage["toolCalls"]>[number];
-type JsonRecord = Record<string, unknown>;
+
+// The interactive charts are visx, so they load on first use and never sit in
+// the eager chat bundle. The placeholder keeps the chart's height.
+const ChatLineChart = dynamic(
+  () => import("./chat-charts").then((m) => m.ChatLineChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        aria-hidden="true"
+        className="h-[180px] w-full motion-safe:animate-pulse rounded-md bg-muted/40"
+      />
+    ),
+  },
+);
 
 interface StockCardData {
   code: string;
@@ -24,57 +74,82 @@ interface StockCardData {
   shortPercent?: number;
 }
 
-interface ShortPoint {
-  label: string;
-  value: number;
-}
+/**
+ * The colours economic series draw in, in order. Red and green are kept for the
+ * direction of a number, and the short-interest rust for short interest.
+ */
+const ECONOMIC_SERIES_COLORS = [
+  seriesColor("price"),
+  seriesColor("series", 3),
+  seriesColor("series", 4),
+  seriesColor("series", 5),
+] as const;
 
-interface ShortChartData {
-  code: string;
-  name?: string;
-  latest: number;
-  points: ShortPoint[];
-}
+/** A tool result drawn as a card, a table or a chart instead of raw JSON. */
+export type RichToolResult =
+  | { kind: "stock"; stock: StockCardData }
+  | { kind: "top-shorts"; view: TopShortsView }
+  | { kind: "peers"; view: PeersView }
+  | { kind: "director-trades"; view: DirectorTradesView; code?: string }
+  | { kind: "short-positions"; view: ShortPositionsView }
+  | { kind: "economic-series"; result: EconomicSeriesResult };
 
-export function ChatRichToolResults({ toolCalls }: { toolCalls?: ToolCall[] }) {
-  if (!toolCalls?.length) return null;
-
-  const results = toolCalls
-    .map((toolCall, index) => renderRichToolResult(toolCall, index))
-    .filter(Boolean);
-
-  if (!results.length) return null;
-
-  return <div className="mt-2 grid w-full gap-2">{results}</div>;
-}
-
-function renderRichToolResult(toolCall: ToolCall, index: number) {
-  if (toolCall.toolName === "get_stock_details") {
-    const stock = extractStockCard(toolCall);
-    if (stock) {
-      return <StockCard key={`${toolCall.toolName}-${index}`} stock={stock} />;
+/** The rich rendering for a tool call, or null when its output is not one we draw. */
+export function getRichToolResult(toolCall: ToolCall): RichToolResult | null {
+  switch (toolCall.toolName) {
+    case "get_stock_details": {
+      const stock = extractStockCard(toolCall);
+      return stock ? { kind: "stock", stock } : null;
     }
-  }
-
-  if (
-    toolCall.toolName === "query_short_positions" ||
-    toolCall.toolName === "get_top_shorts"
-  ) {
-    const chart = extractShortChart(toolCall);
-    if (chart) {
-      return (
-        <ShortInterestChart
-          key={`${toolCall.toolName}-${index}`}
-          chart={chart}
-        />
-      );
+    case "query_short_positions": {
+      const view = parseShortPositions(toolCall.result, toolCall.arguments);
+      return view ? { kind: "short-positions", view } : null;
     }
+    case "get_top_shorts": {
+      const view = parseTopShorts(toolCall.result);
+      return view ? { kind: "top-shorts", view } : null;
+    }
+    case "get_peer_comparison": {
+      const view = parsePeers(toolCall.result);
+      return view ? { kind: "peers", view } : null;
+    }
+    case "get_director_trades": {
+      const view = parseDirectorTrades(toolCall.result);
+      return view
+        ? { kind: "director-trades", view, code: codeFromArguments(toolCall.arguments) }
+        : null;
+    }
+    case "get_economic_series": {
+      const result = parseEconomicSeries(toolCall.result);
+      return result ? { kind: "economic-series", result } : null;
+    }
+    default:
+      return null;
   }
+}
 
-  return null;
+export function RichToolResultView({ result }: { result: RichToolResult }) {
+  switch (result.kind) {
+    case "stock":
+      return <StockCard stock={result.stock} />;
+    case "top-shorts":
+      return <TopShortsTable view={result.view} />;
+    case "peers":
+      return <PeersTable view={result.view} />;
+    case "director-trades":
+      return <DirectorTradesTable view={result.view} code={result.code} />;
+    case "short-positions":
+      return <ShortPositionChart chart={result.view} />;
+    case "economic-series":
+      return <EconomicSeriesCharts result={result.result} />;
+    default:
+      return null;
+  }
 }
 
 function StockCard({ stock }: { stock: StockCardData }) {
+  // A tool result's website is stored company data: a link only when http(s).
+  const websiteHref = safeExternalHref(stock.website);
   return (
     <Card
       data-testid="chat-stock-card"
@@ -110,45 +185,35 @@ function StockCard({ stock }: { stock: StockCardData }) {
             {stock.summary}
           </p>
         )}
-        {stock.website && (
-          <a
-            href={stock.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
-          >
-            Company site
-            <ArrowUpRight className="h-3 w-3" />
-          </a>
-        )}
+        {stock.website &&
+          (websiteHref ? (
+            <a
+              href={websiteHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
+            >
+              Company site
+              <ArrowUpRight className="h-3 w-3" />
+            </a>
+          ) : (
+            <p className="break-all text-muted-foreground">{stock.website}</p>
+          ))}
       </CardContent>
     </Card>
   );
 }
 
-function ShortInterestChart({ chart }: { chart: ShortChartData }) {
-  const width = 320;
-  const height = 88;
-  const padding = 10;
-  const values = chart.points.map((point) => point.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const xStep =
-    chart.points.length > 1
-      ? (width - padding * 2) / (chart.points.length - 1)
-      : 0;
-  const path = chart.points
-    .map((point, index) => {
-      const x = padding + index * xStep;
-      const y =
-        height -
-        padding -
-        ((point.value - min) / range) * (height - padding * 2);
-      return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(" ");
-
+/**
+ * One stock's short position over time, as an interactive area chart. The
+ * header names the stock and its latest reading, and the caption states the
+ * readings in words (first, latest, low, high, and how many of the period's
+ * readings were shown), which a screen reader reads and the chart describes.
+ */
+function ShortPositionChart({ chart }: { chart: ShortPositionsView }) {
+  const captionId = useId();
+  const last = chart.points[chart.points.length - 1];
+  const latest = chart.latest ?? last?.v;
   return (
     <Card
       data-testid="chat-short-chart"
@@ -160,53 +225,90 @@ function ShortInterestChart({ chart }: { chart: ShortChartData }) {
           {chart.code} short interest
         </CardTitle>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>{formatPercent(chart.latest, 2)} latest</span>
+          {latest !== undefined && <span>{formatPercent(latest)} latest</span>}
           {chart.name && <span>{chart.name}</span>}
         </div>
       </CardHeader>
       <CardContent className="p-3">
-        <svg
-          aria-label={`${chart.code} short interest chart`}
-          className="h-24 w-full text-primary"
-          preserveAspectRatio="none"
-          viewBox={`0 0 ${width} ${height}`}
-        >
-          <path
-            d={path}
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="3"
+        <figure className="m-0 space-y-1.5">
+          <ChatLineChart
+            label={`${chart.code} short interest`}
+            points={chart.points}
+            color={seriesColor("short")}
+            kind="area"
+            formatValue={formatPercent}
+            formatAxis={axisFormatter("percent")}
+            describedBy={captionId}
           />
-          {chart.points.map((point, index) => {
-            const x = padding + index * xStep;
-            const y =
-              height -
-              padding -
-              ((point.value - min) / range) * (height - padding * 2);
-            return (
-              <circle
-                key={`${point.label}-${index}`}
-                className={cn(
-                  index === chart.points.length - 1 &&
-                    "fill-background stroke-primary",
-                )}
-                cx={x}
-                cy={y}
-                fill="currentColor"
-                r={index === chart.points.length - 1 ? 3.5 : 2}
-                strokeWidth="2"
-              />
-            );
-          })}
-        </svg>
-        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-          <span>{chart.points[0]?.label}</span>
-          <span>{chart.points.at(-1)?.label}</span>
-        </div>
+          <figcaption id={captionId} className="text-[11px] text-muted-foreground">
+            {shortPositionSummary(chart)}
+          </figcaption>
+        </figure>
       </CardContent>
     </Card>
+  );
+}
+
+/** Each economic series as its own interactive line chart, up to the parser's cap. */
+function EconomicSeriesCharts({ result }: { result: EconomicSeriesResult }) {
+  if (result.series.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground">No observations to chart.</p>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {result.series.map((series, index) => (
+        <EconomicSeriesFigure
+          key={`${series.key}-${index}`}
+          series={series}
+          color={ECONOMIC_SERIES_COLORS[index % ECONOMIC_SERIES_COLORS.length]!}
+        />
+      ))}
+      {result.notShown > 0 && (
+        <p className="text-[11px] text-muted-foreground">
+          {formatWhole(result.notShown)} more series not shown.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function EconomicSeriesFigure({
+  series,
+  color,
+}: {
+  series: EconomicSeriesResult["series"][number];
+  color: string;
+}) {
+  const captionId = useId();
+  const title = seriesTitle(series.key, series.name);
+  const subtitle = seriesSubtitle(series.unit, series.frequency);
+  const format = valueFormatter(series.unit);
+  return (
+    <figure
+      data-testid="chat-economic-chart"
+      className="m-0 space-y-1.5 rounded-md border border-border/70 bg-background/80 p-2.5"
+    >
+      <figcaption id={captionId} className="space-y-0.5">
+        <p className="text-xs font-medium">{title}</p>
+        {subtitle && (
+          <p className="text-[11px] text-muted-foreground">{subtitle}</p>
+        )}
+        <p className="text-[11px] text-muted-foreground">
+          {readingSummary(series.points, format)}
+        </p>
+      </figcaption>
+      <ChatLineChart
+        label={title}
+        points={series.points}
+        color={color}
+        formatValue={format}
+        formatAxis={axisFormatter(series.unit)}
+        formatLatest={latestFormatter(series.unit)}
+        describedBy={captionId}
+      />
+    </figure>
   );
 }
 
@@ -246,134 +348,4 @@ function extractStockCard(toolCall: ToolCall): StockCardData | null {
       candidate.shortPercent,
     ),
   };
-}
-
-function extractShortChart(toolCall: ToolCall): ShortChartData | null {
-  const parsed = parseJSON(toolCall.result);
-  const root = asRecord(parsed);
-  if (!root) return null;
-
-  const series =
-    firstRecord(root.timeSeries) ??
-    firstRecord(root.series) ??
-    firstRecord(root.data) ??
-    root;
-  const points = arrayValue(series.points)
-    .map((point) => toShortPoint(point))
-    .filter((point): point is ShortPoint => Boolean(point));
-
-  if (points.length < 2) return null;
-
-  const args = asRecord(parseJSON(toolCall.arguments));
-  const code = stringValue(
-    series.productCode,
-    series.stockCode,
-    args?.stock_code,
-  );
-  if (!code) return null;
-
-  return {
-    code,
-    name: stringValue(series.name, series.companyName),
-    latest:
-      numberValue(series.latestShortPosition, points.at(-1)?.value) ??
-      points.at(-1)!.value,
-    points,
-  };
-}
-
-function toShortPoint(value: unknown): ShortPoint | null {
-  const point = asRecord(value);
-  if (!point) return null;
-  const shortValue = numberValue(
-    point.shortPosition,
-    point.short_position,
-    point.percentageShorted,
-    point.shortPercent,
-  );
-  if (typeof shortValue !== "number") return null;
-
-  return {
-    label: labelFromTimestamp(point.timestamp) ?? stringValue(point.date) ?? "",
-    value: shortValue,
-  };
-}
-
-function labelFromTimestamp(value: unknown): string | undefined {
-  if (typeof value === "string") {
-    const date = new Date(value);
-    if (!Number.isNaN(date.getTime())) {
-      return date.toLocaleDateString("en-AU", {
-        day: "2-digit",
-        month: "short",
-      });
-    }
-    return value;
-  }
-
-  const record = asRecord(value);
-  if (record && typeof record.seconds === "bigint") {
-    return new Date(Number(record.seconds) * 1000).toLocaleDateString("en-AU", {
-      day: "2-digit",
-      month: "short",
-    });
-  }
-  if (record && typeof record.seconds === "number") {
-    return new Date(record.seconds * 1000).toLocaleDateString("en-AU", {
-      day: "2-digit",
-      month: "short",
-    });
-  }
-
-  return undefined;
-}
-
-function parseJSON(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function asRecord(value: unknown): JsonRecord | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonRecord)
-    : null;
-}
-
-function arrayValue(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function firstRecord(value: unknown): JsonRecord | null {
-  return arrayValue(value).map(asRecord).find(Boolean) ?? null;
-}
-
-function stringValue(...values: unknown[]): string | undefined {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-  return undefined;
-}
-
-function numberValue(...values: unknown[]): number | undefined {
-  for (const value of values) {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-    if (typeof value === "string") {
-      const parsed = Number.parseFloat(value);
-      if (Number.isFinite(parsed)) {
-        return parsed;
-      }
-    }
-  }
-  return undefined;
-}
-
-function formatPercent(value: number, fractionDigits = 2): string {
-  return `${value.toFixed(fractionDigits)}%`;
 }

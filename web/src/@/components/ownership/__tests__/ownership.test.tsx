@@ -1,20 +1,25 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type {
   GetStockOwnershipResponse,
   KindShare,
   OwnershipStock,
   SubstantialNotice,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
-import { KindBar, NoticeTable, OwnershipStockTable } from "../ownership-parts";
+import { EXTERNAL_LINK_SYMBOL_ID, ExternalLinkSymbol } from "../external-link-glyph";
+import { NoticeTable } from "../notice-table";
+import { KindBar, OwnershipStockTable } from "../ownership-parts";
+import { FileHoldingsTable, SubstantialHoldingsTable } from "../ownership-tables";
 import { StockOwnershipView } from "../stock-ownership-view";
 import {
   formLabel,
   formatPointChange,
   formatVotingPower,
   fundLabel,
+  holderHref,
   institutionHref,
   kindInfo,
 } from "~/@/lib/ownership/kinds";
+import { fileHoldingRow, noticeRow, type FileHoldingRow, type HoldingRow } from "~/@/lib/ownership/rows";
 
 const share = (kind: string, pct: number, holders = 1): KindShare =>
   ({ kind, pct, holders }) as unknown as KindShare;
@@ -96,6 +101,12 @@ describe("ownership vocabulary", () => {
     expect(institutionHref("vanguard")).toBe("/ownership/vanguard");
     expect(institutionHref("")).toBeNull();
   });
+
+  it("links a holder to its institution page, a listed holder to its stock, and nobody else", () => {
+    expect(holderHref("vanguard", "vanguard")).toBe("/ownership/vanguard");
+    expect(holderHref("", "asx:SFR")).toBe("/shorts/SFR/company");
+    expect(holderHref("", "name:wesley jon maas")).toBeNull();
+  });
 });
 
 describe("KindBar", () => {
@@ -173,6 +184,132 @@ describe("HolderName in a notice", () => {
       "/shorts/SFR/company",
     );
     expect(screen.queryByRole("link", { name: "Wesley Jon Maas" })).toBeNull();
+  });
+});
+
+// The institution page's tables ran to every row the API returns (88 stakes,
+// 100 holdings-file rows and 100 notices for Vanguard), each row drawn as
+// HTML and again as an RSC element tree, with its own copy of the lucide
+// icon: /ownership/vanguard weighed 946 KB. The islands send rows as data;
+// only the notices are bounded.
+describe("ownership table islands", () => {
+  const holdings = (n: number): HoldingRow[] =>
+    Array.from({ length: n }, (_, i) => ({
+      code: `S${String(i).padStart(2, "0")}`,
+      company: `Company ${i}`,
+      votingPower: `${(20 - i / 10).toFixed(2)}%`,
+      change: "",
+      asAt: "2026-10-14",
+      form: "Changed",
+      url: `https://www.asx.com.au/${i}.pdf`,
+    }));
+  const files = (n: number): FileHoldingRow[] =>
+    Array.from({ length: n }, (_, i) => ({
+      code: `F${String(i).padStart(2, "0")}`,
+      fund: "VAS, Vanguard Australian Shares Index ETF",
+      value: "A$1.0b",
+      ofFund: "1.00%",
+      ofShares: "0.50%",
+      asAt: "2026-10-19",
+    }));
+  const notices = (n: number) =>
+    Array.from({ length: n }, (_, i) => notice({ stockCode: `N${String(i).padStart(2, "0")}`, announcementUrl: `u${i}` }));
+  const bodyRows = (table: HTMLElement) => within(table).getAllByRole("row").slice(1);
+
+  // What an institution holds is the page's promise: no holdings table hides
+  // a row, or a stock link, behind a control.
+  it("draws every stake and holdings-file row, in the server's order, with no control", () => {
+    render(
+      <>
+        <SubstantialHoldingsTable rows={holdings(90)} holder="Vanguard" caption="Stakes" />
+        <FileHoldingsTable rows={files(100)} caption="Files" />
+      </>,
+    );
+    const stakes = screen.getByRole("table", { name: "Stakes" });
+    expect(bodyRows(stakes)).toHaveLength(90);
+    expect(within(stakes).getAllByRole("link", { name: /^S\d\d$/ }).map((a) => a.textContent)).toEqual(
+      holdings(90).map((h) => h.code),
+    );
+    expect(within(screen.getByRole("table", { name: "Files" })).getByRole("link", { name: "F99" })).toHaveAttribute(
+      "href",
+      "/shorts/F99/company",
+    );
+    expect(bodyRows(screen.getByRole("table", { name: "Files" }))).toHaveLength(100);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("draws the newest notices and holds the rest behind Show all", () => {
+    render(<NoticeTable notices={notices(30)} showHolder={false} caption="Notices" limit={25} />);
+    const table = screen.getByRole("table", { name: "Notices" });
+    expect(bodyRows(table)).toHaveLength(25);
+    expect(within(table).getAllByRole("link", { name: /^N\d\d$/ }).map((a) => a.textContent)).toEqual(
+      notices(25).map((n) => n.stockCode),
+    );
+
+    const more = screen.getByRole("button", { name: "Show all 30 notices" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(more).toHaveAttribute("aria-controls", table.querySelector("tbody")!.id);
+    fireEvent.click(more);
+    expect(bodyRows(table)).toHaveLength(30);
+    expect(within(table).getByRole("link", { name: "N29" })).toHaveAttribute("href", "/shorts/N29/company");
+    fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(bodyRows(table)).toHaveLength(25);
+  });
+
+  // GetInstitution serves a holder's newest 100 notices. "Show all 100
+  // notices" beside a holder with 1,117 on record called a capped list whole.
+  it("names the notices on record when the rows served are only the newest of them", () => {
+    render(<NoticeTable notices={notices(100)} showHolder={false} caption="Capped" limit={25} onRecord={1117} />);
+    render(<NoticeTable notices={notices(30)} showHolder={false} caption="Whole" limit={25} onRecord={30} />);
+
+    const capped = screen.getByRole("button", { name: "Show the latest 100 of 1,117 notices" });
+    expect(capped).toHaveAttribute("aria-controls", screen.getByRole("table", { name: "Capped" }).querySelector("tbody")!.id);
+    expect(screen.getByRole("button", { name: "Show all 30 notices" })).toHaveAttribute(
+      "aria-controls",
+      screen.getByRole("table", { name: "Whole" }).querySelector("tbody")!.id,
+    );
+    fireEvent.click(capped);
+    expect(bodyRows(screen.getByRole("table", { name: "Capped" }))).toHaveLength(100);
+  });
+
+  it("draws every notice, and no control, within the limit or without one", () => {
+    render(<NoticeTable notices={notices(25)} caption="Within" limit={25} />);
+    expect(bodyRows(screen.getByRole("table", { name: "Within" }))).toHaveLength(25);
+    expect(screen.queryByRole("button")).toBeNull();
+
+    render(<NoticeTable notices={notices(30)} caption="Latest" />);
+    expect(bodyRows(screen.getByRole("table", { name: "Latest" }))).toHaveLength(30);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("points every ASX link at the page's one external-link symbol, with a label", () => {
+    const { container } = render(
+      <>
+        <ExternalLinkSymbol />
+        <SubstantialHoldingsTable rows={holdings(3)} holder="Vanguard" caption="Stakes" />
+        <NoticeTable notices={[notice()]} caption="Notices" />
+      </>,
+    );
+    expect(container.querySelectorAll(`symbol#${EXTERNAL_LINK_SYMBOL_ID}`)).toHaveLength(1);
+    const asx = screen.getAllByRole("link", { name: /on ASX$/ });
+    expect(asx.map((a) => a.getAttribute("aria-label"))).toEqual([
+      "Vanguard's S00 notice on ASX",
+      "Vanguard's S01 notice on ASX",
+      "Vanguard's S02 notice on ASX",
+      "Notice for ZIP, released 2026-10-16, on ASX",
+    ]);
+    for (const a of asx) {
+      expect(a.querySelector("use")).toHaveAttribute("href", `#${EXTERNAL_LINK_SYMBOL_ID}`);
+    }
+    expect(container.querySelector("svg.lucide")).toBeNull();
+  });
+
+  it("leaves the holder out of a notice row where the table names none", () => {
+    expect(noticeRow(notice(), false)).not.toHaveProperty("holder");
+    expect(noticeRow(notice(), true).holder).toEqual({
+      name: "Australian Retirement Trust Pty Ltd",
+      href: "/ownership/australian-retirement-trust",
+    });
   });
 });
 
@@ -254,5 +391,26 @@ describe("StockOwnershipView", () => {
     const superCells = within(within(tables[1]!).getAllByRole("row")[2]!).getAllByRole("cell");
     expect(superCells[3]!.textContent).toBe("<0.01%");
     expect(screen.getByText(/index funds tracked hold/)).toBeInTheDocument();
+  });
+
+  // The institution page's holdings-file island prints rows formatted apart
+  // from this card (lib/ownership/rows.ts), so a holding can read one way here
+  // and another there: Rest's 0.00 was "<0.01%" on this card and "0.00%" on
+  // /ownership/rest.
+  it("reads each fund holding as the institution page's holdings-file rows do", () => {
+    render(<StockOwnershipView data={data} />);
+    const drawn = within(screen.getAllByRole("table")[1]!)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => {
+        const [, value, ofShares, ofFund, asAt] = within(row).getAllByRole("cell").map((c) => c.textContent);
+        return { value, ofShares, ofFund, asAt };
+      });
+    expect(drawn).toEqual(
+      data.fundHoldings.map((h) => {
+        const { value, ofShares, ofFund, asAt } = fileHoldingRow(h);
+        return { value, ofShares, ofFund, asAt };
+      }),
+    );
   });
 });

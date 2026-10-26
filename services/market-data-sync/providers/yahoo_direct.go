@@ -61,7 +61,7 @@ type yahooChartResponse struct {
 				} `json:"adjclose"`
 			} `json:"indicators"`
 		} `json:"result"`
-		Error interface{} `json:"error"`
+		Error any `json:"error"`
 	} `json:"chart"`
 }
 
@@ -100,15 +100,15 @@ func (p *YahooFinanceDirectProvider) fetchHistoricalDataSingle(ctx context.Conte
 func (p *YahooFinanceDirectProvider) fetchHistoricalDataChunked(ctx context.Context, yfTicker, symbol string, startDate, endDate time.Time) ([]PriceRecord, error) {
 	var allRecords []PriceRecord
 	currentStart := startDate
-	
+
 	// Chunk into 2-year periods (730 days)
 	chunkDays := 730
 	chunkDuration := time.Duration(chunkDays) * 24 * time.Hour
-	
+
 	totalDays := int(endDate.Sub(startDate).Hours() / 24)
 	expectedChunks := (totalDays / chunkDays) + 1
 	log.Printf("📦 Chunking %s: %d days into ~%d chunks of 2 years each", yfTicker, totalDays, expectedChunks)
-	
+
 	chunkNum := 0
 	for currentStart.Before(endDate) {
 		chunkNum++
@@ -117,27 +117,27 @@ func (p *YahooFinanceDirectProvider) fetchHistoricalDataChunked(ctx context.Cont
 		if chunkEnd.After(endDate) {
 			chunkEnd = endDate
 		}
-		
+
 		log.Printf("📦 [%d/%d] Fetching chunk %s to %s for %s", chunkNum, expectedChunks,
 			currentStart.Format("2006-01-02"), chunkEnd.Format("2006-01-02"), yfTicker)
-		
+
 		// Fetch this chunk
 		chunkRecords, err := p.fetchHistoricalDataSingle(ctx, yfTicker, symbol, currentStart, chunkEnd)
 		if err != nil {
 			// Log error but continue with next chunk
-			log.Printf("⚠️ Error fetching chunk %s to %s for %s: %v", 
+			log.Printf("⚠️ Error fetching chunk %s to %s for %s: %v",
 				currentStart.Format("2006-01-02"), chunkEnd.Format("2006-01-02"), yfTicker, err)
 			// Move to next chunk
 			currentStart = chunkEnd.AddDate(0, 0, 1)
 			continue
 		}
-		
+
 		log.Printf("✅ [%d/%d] Chunk returned %d records for %s", chunkNum, expectedChunks, len(chunkRecords), yfTicker)
 		allRecords = append(allRecords, chunkRecords...)
-		
+
 		// Move to next chunk
 		currentStart = chunkEnd.AddDate(0, 0, 1)
-		
+
 		// Rate limiting between chunks
 		select {
 		case <-ctx.Done():
@@ -145,9 +145,9 @@ func (p *YahooFinanceDirectProvider) fetchHistoricalDataChunked(ctx context.Cont
 		case <-time.After(p.GetRateLimit()):
 		}
 	}
-	
+
 	log.Printf("📊 Combined %d chunks into %d total records for %s", chunkNum, len(allRecords), yfTicker)
-	
+
 	// Remove duplicates (in case of overlap) and sort by date
 	recordsMap := make(map[string]PriceRecord)
 	for _, record := range allRecords {
@@ -156,13 +156,13 @@ func (p *YahooFinanceDirectProvider) fetchHistoricalDataChunked(ctx context.Cont
 			recordsMap[dateKey] = record
 		}
 	}
-	
+
 	// Convert back to slice and sort
 	var finalRecords []PriceRecord
 	for _, record := range recordsMap {
 		finalRecords = append(finalRecords, record)
 	}
-	
+
 	// Sort by date
 	for i := 0; i < len(finalRecords)-1; i++ {
 		for j := i + 1; j < len(finalRecords); j++ {
@@ -171,7 +171,7 @@ func (p *YahooFinanceDirectProvider) fetchHistoricalDataChunked(ctx context.Cont
 			}
 		}
 	}
-	
+
 	return finalRecords, nil
 }
 
@@ -258,12 +258,12 @@ func (p *YahooFinanceDirectProvider) makeAPIRequest(ctx context.Context, yfTicke
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	yesterday := today.AddDate(0, 0, -1)
-	
+
 	// Adjust date range: if requesting today's data but Yahoo Finance only has up to yesterday,
 	// we should accept yesterday's data as valid
 	adjustedStartDate := startDate
 	adjustedEndDate := endDate
-	
+
 	// Only adjust dates if we're requesting recent data (within last few days)
 	// For historical backfills (10 years), we don't want to adjust the range
 	daysSinceStart := int(time.Since(startDate).Hours() / 24)
@@ -280,15 +280,15 @@ func (p *YahooFinanceDirectProvider) makeAPIRequest(ctx context.Context, yfTicke
 			}
 		}
 	}
-	
+
 	// Log what Yahoo Finance returned BEFORE filtering
 	if len(timestamps) > 0 {
 		earliestReturned := time.Unix(timestamps[0], 0)
 		latestReturned := time.Unix(timestamps[len(timestamps)-1], 0)
-		log.Printf("📊 Yahoo Finance returned %d timestamps for %s: %s to %s", 
+		log.Printf("📊 Yahoo Finance returned %d timestamps for %s: %s to %s",
 			len(timestamps), yfTicker, earliestReturned.Format("2006-01-02"), latestReturned.Format("2006-01-02"))
 	}
-	
+
 	var filteredCount int
 	for i, ts := range timestamps {
 		// Filter by date range (using adjusted dates)

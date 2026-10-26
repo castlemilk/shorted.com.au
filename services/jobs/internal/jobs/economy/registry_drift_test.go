@@ -70,14 +70,14 @@ func registryKeys(t *testing.T, source string) map[string]bool {
 	}
 
 	keys := map[string]bool{}
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if !strings.HasPrefix(trimmed, "key: \"") {
 			continue
 		}
 		value := strings.TrimPrefix(trimmed, "key: \"")
-		if idx := strings.Index(value, "\""); idx >= 0 {
-			keys[value[:idx]] = true
+		if before, _, ok := strings.Cut(value, "\""); ok {
+			keys[before] = true
 		}
 	}
 	if len(keys) == 0 {

@@ -187,3 +187,61 @@ describe("CommunityThreadDetail", () => {
     ).toBeInTheDocument();
   });
 });
+
+/**
+ * A thread's sources are whatever its author typed, and the page linked each
+ * one as it came: a `javascript:` source ran in our origin when clicked
+ * (security review SEC-07). Only an http(s) source is a link now, and it is
+ * marked as user-generated.
+ */
+describe("CommunityThreadDetail sources", () => {
+  beforeEach(() => {
+    (useSession as jest.Mock).mockReturnValue({ data: null, status: "unauthenticated" });
+    global.fetch = jest.fn();
+  });
+
+  function renderWithSources(sources: { label: string; url: string }[]) {
+    return render(
+      <CommunityThreadDetail
+        thread={{
+          id: "thread-9",
+          stockCode: "BHP",
+          type: "catalyst",
+          title: "Sources under test",
+          body: "Body.",
+          score: 0,
+          commentCount: 0,
+          sourceCount: sources.length,
+          highSignal: false,
+          createdAt: new Date("2026-04-10T08:00:00Z"),
+          updatedAt: new Date("2026-04-10T08:00:00Z"),
+          lastActivityAt: new Date("2026-04-10T08:00:00Z"),
+          sources,
+        }}
+        comments={[]}
+      />,
+    );
+  }
+
+  it("links an http(s) source, nofollow and in a new tab", () => {
+    renderWithSources([{ label: "Broker note", url: "https://example.com/broker-note" }]);
+
+    const link = screen.getByRole("link", { name: "Broker note" });
+    expect(link).toHaveAttribute("href", "https://example.com/broker-note");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link.getAttribute("rel")?.split(" ")).toEqual(
+      expect.arrayContaining(["noopener", "noreferrer", "nofollow", "ugc"]),
+    );
+  });
+
+  it.each([["javascript:alert(document.cookie)"], ["  javascript:alert(1)"], ["data:text/html,<b>x</b>"], ["//evil.example/x"], ["/news/a-relative-path"]])(
+    "shows a %p source as its label, not a link",
+    (url) => {
+      const { container } = renderWithSources([{ label: "Injected", url }]);
+
+      expect(screen.getByText("Injected")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Injected" })).not.toBeInTheDocument();
+      expect(container.querySelector(`a[href="${url}"]`)).toBeNull();
+    },
+  );
+});

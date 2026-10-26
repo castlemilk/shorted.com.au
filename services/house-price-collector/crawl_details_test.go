@@ -130,7 +130,7 @@ func TestBumpResetBlock(t *testing.T) {
 func TestPreviewDetail(t *testing.T) {
 	rec := detailRecord{
 		PropertyType: "House",
-		LandSizeSqm:  f64p(610),
+		LandSizeSqm:  new(float64(610)),
 		Features:     []string{"Pool", "Study"},
 		AgencyName:   "Ray White",
 	}

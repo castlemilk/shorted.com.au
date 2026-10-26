@@ -1,6 +1,7 @@
 package strategies
 
 import (
+	"slices"
 	"strings"
 	"time"
 )
@@ -128,12 +129,7 @@ func (q *Quality) IsNotMeaningful(ratio string) bool {
 	if q == nil {
 		return false
 	}
-	for _, r := range q.NotMeaningful {
-		if r == ratio {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(q.NotMeaningful, ratio)
 }
 
 // ratioField returns the field a not-meaningful ratio name refers to.

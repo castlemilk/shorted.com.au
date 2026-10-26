@@ -632,10 +632,7 @@ func upsertCrime(ctx context.Context, pool *pgxpool.Pool, rows []CrimeStatRow) (
 	const chunkSize = 2000
 	n := 0
 	for start := 0; start < len(rows); start += chunkSize {
-		end := start + chunkSize
-		if end > len(rows) {
-			end = len(rows)
-		}
+		end := min(start+chunkSize, len(rows))
 		batch := &pgx.Batch{}
 		for _, r := range rows[start:end] {
 			batch.Queue(q, r.SalCode, r.CrimeType, r.FYEnding, r.Pooled, r.RawCount,

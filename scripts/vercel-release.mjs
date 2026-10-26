@@ -10,7 +10,7 @@ import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 
 export const CLI_VERSION = "54.10.2";
-export const NODE_VERSION = "24.8.0";
+export const NODE_VERSION = "24.22.1";
 const project = "shorted-com-au";
 const scope = "document-analyser";
 const shaPattern = /^[a-f0-9]{40}$/;

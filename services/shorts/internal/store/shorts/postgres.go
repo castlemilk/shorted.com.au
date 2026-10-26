@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -130,10 +131,7 @@ func postgresPoolSettingsFromEnv() postgresPoolSettings {
 		maxConns = 3
 	}
 
-	minConns := envInt("SHORTS_DB_MIN_CONNS", 0)
-	if minConns < 0 {
-		minConns = 0
-	}
+	minConns := max(envInt("SHORTS_DB_MIN_CONNS", 0), 0)
 	if minConns > maxConns {
 		minConns = maxConns
 	}
@@ -175,12 +173,25 @@ func (s *postgresStore) Pool() *pgxpool.Pool {
 	return s.db
 }
 
+// postgresConnString builds the connection URL through net/url so that a password
+// with '@', '/', ':' or '%' is escaped. pgx ends the userinfo at the first '@', so
+// a plain format string would split such a password.
+func postgresConnString(username, password, address, database string) string {
+	u := url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(username, password),
+		Host:   address,
+		Path:   "/" + database,
+	}
+	return u.String()
+}
+
 // newPostgresStore initializes a new store with a PostgreSQL backend.
 // Returns an error instead of panicking to allow graceful handling.
 func newPostgresStore(config Config) (Store, error) {
 	// Configure connection pool for better concurrency
-	poolConfig, err := pgxpool.ParseConfig(fmt.Sprintf("postgres://%s:%s@%s/%s",
-		config.PostgresUsername, config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
+	poolConfig, err := pgxpool.ParseConfig(postgresConnString(config.PostgresUsername,
+		config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse database config: %w", err)
 	}
@@ -241,7 +252,7 @@ func buildStockDetailsQuery(ctx context.Context, db *pgxpool.Pool) (string, erro
 
 // QueryRowContext executes a query that returns at most one row.
 // It wraps the underlying pgxpool.Pool.QueryRow.
-func (s *postgresStore) QueryRowContext(ctx context.Context, query string, args ...interface{}) Row {
+func (s *postgresStore) QueryRowContext(ctx context.Context, query string, args ...any) Row {
 	return s.db.QueryRow(ctx, query, args...)
 }
 
@@ -395,7 +406,7 @@ func (s *postgresStore) GetStockData(q StockDataQuery) (*stocksv1alpha1.TimeSeri
 	// after one specific span no longer has to pull MAX and throw most of it
 	// away.
 	var where string
-	args := []interface{}{q.ProductCode}
+	args := []any{q.ProductCode}
 	switch {
 	case q.From != "":
 		where = ` AND "DATE" >= $2::timestamp`
@@ -543,7 +554,7 @@ func thinTimeSeries(points []*stocksv1alpha1.TimeSeriesPoint, max int) []*stocks
 	out := make([]*stocksv1alpha1.TimeSeriesPoint, 0, max)
 	// Spread max picks across the index range inclusive of both ends.
 	step := float64(len(points)-1) / float64(max-1)
-	for i := 0; i < max; i++ {
+	for i := range max {
 		out = append(out, points[int(math.Round(float64(i)*step))])
 	}
 	return out
@@ -686,7 +697,7 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 
 	// Parse key_metrics and merge with financial_statements info
 	if !isEmptyJSON(keyMetricsJSON) {
-		var keyMetrics map[string]interface{}
+		var keyMetrics map[string]any
 		if err := json.Unmarshal(keyMetricsJSON, &keyMetrics); err == nil {
 			// If no financial_statements, create a minimal one with just info
 			if fs == nil {
@@ -1093,14 +1104,14 @@ func isEmptyJSON(data []byte) bool {
 
 // mergeKeyMetricsToInfo merges key_metrics JSONB data with existing financial_statements.info
 // This allows us to use key_metrics data from the daily sync when financial_statements.info is empty
-func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1alpha1.FinancialStatementsInfo) *stocksv1alpha1.FinancialStatementsInfo {
+func mergeKeyMetricsToInfo(keyMetrics map[string]any, existing *stocksv1alpha1.FinancialStatementsInfo) *stocksv1alpha1.FinancialStatementsInfo {
 	// Initialize info if it doesn't exist
 	if existing == nil {
 		existing = &stocksv1alpha1.FinancialStatementsInfo{}
 	}
 
 	// Helper to safely convert interface{} to float64, returning 0 if invalid or zero
-	toFloat64 := func(v interface{}) float64 {
+	toFloat64 := func(v any) float64 {
 		if v == nil {
 			return 0
 		}
@@ -1129,7 +1140,7 @@ func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1
 	}
 
 	// Helper to safely convert interface{} to int64, returning 0 if invalid or zero
-	toInt64 := func(v interface{}) int64 {
+	toInt64 := func(v any) int64 {
 		if v == nil {
 			return 0
 		}
@@ -1158,7 +1169,7 @@ func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1
 	}
 
 	// Helper to safely convert interface{} to string, returning "" if invalid or zero-like
-	toString := func(v interface{}) string {
+	toString := func(v any) string {
 		if v == nil {
 			return ""
 		}
@@ -1258,7 +1269,7 @@ func (s *postgresStore) StockExists(stockCode string) (bool, error) {
 }
 
 // UpdateKeyMetrics updates the key_metrics column for a stock
-func (s *postgresStore) UpdateKeyMetrics(stockCode string, metrics map[string]interface{}) error {
+func (s *postgresStore) UpdateKeyMetrics(stockCode string, metrics map[string]any) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -1505,7 +1516,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 	// A date's universe is ~740 rows, so reading it whole and paginating after
 	// the filter costs almost nothing and makes the count and the page describe
 	// the same set.
-	queryArgs := []interface{}{dateStart, dateEnd}
+	queryArgs := []any{dateStart, dateEnd}
 	if !ordinaryOnly {
 		query += ` LIMIT $3 OFFSET $4`
 		queryArgs = append(queryArgs, limit, offset)
@@ -1561,10 +1572,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 	if ordinaryOnly {
 		// The count must describe what the caller can actually page through.
 		totalCount = len(stocks)
-		start := int(offset)
-		if start > len(stocks) {
-			start = len(stocks)
-		}
+		start := min(int(offset), len(stocks))
 		end := len(stocks)
 		if limit > 0 && start+int(limit) < end {
 			end = start + int(limit)
@@ -1586,13 +1594,13 @@ func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, s
 	// total DB execution time (~1.5-2s/call); the MV serves it in ~1ms. Falls
 	// back to the raw DISTINCT query if the MV doesn't exist yet.
 	var datesQuery string
-	var args []interface{}
+	var args []any
 	if before != "" {
 		datesQuery = `SELECT date FROM mv_available_dates WHERE date < $1::date ORDER BY date DESC LIMIT $2`
-		args = []interface{}{before, limit}
+		args = []any{before, limit}
 	} else {
 		datesQuery = `SELECT date FROM mv_available_dates ORDER BY date DESC LIMIT $1`
-		args = []interface{}{limit}
+		args = []any{limit}
 	}
 
 	rows, err := s.db.Query(ctx, datesQuery, args...)
@@ -1605,14 +1613,14 @@ func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, s
 				WHERE "DATE" < $1::timestamp
 				ORDER BY date DESC
 				LIMIT $2`
-			args = []interface{}{before + " 00:00:00", limit}
+			args = []any{before + " 00:00:00", limit}
 		} else {
 			datesQuery = `
 				SELECT DISTINCT "DATE"::date as date
 				FROM shorts
 				ORDER BY date DESC
 				LIMIT $1`
-			args = []interface{}{limit}
+			args = []any{limit}
 		}
 		rows, err = s.db.Query(ctx, datesQuery, args...)
 		if err != nil {
@@ -1717,7 +1725,7 @@ func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha
 		WHERE 1=1
 	`
 
-	var args []interface{}
+	var args []any
 	argIndex := 1
 
 	// Filter by environment if specified
@@ -1996,7 +2004,7 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 	if !json.Valid(dataJSON) {
 		return "", fmt.Errorf("enrichment data produced invalid JSON (not valid per json.Valid): %s", string(dataJSON))
 	}
-	var testData interface{}
+	var testData any
 	if err := json.Unmarshal(dataJSON, &testData); err != nil {
 		return "", fmt.Errorf("enrichment data produced invalid JSON: %w (JSON: %s)", err, string(dataJSON))
 	}
@@ -2018,7 +2026,7 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 	if !json.Valid(qualityJSON) {
 		return "", fmt.Errorf("quality score produced invalid JSON (not valid per json.Valid): %s", string(qualityJSON))
 	}
-	var testQuality interface{}
+	var testQuality any
 	if err := json.Unmarshal(qualityJSON, &testQuality); err != nil {
 		return "", fmt.Errorf("quality score produced invalid JSON: %w (JSON: %s)", err, string(qualityJSON))
 	}
@@ -2893,7 +2901,7 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 	now := time.Now()
 
 	var query string
-	var args []interface{}
+	var args []any
 
 	switch status {
 	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_PROCESSING:
@@ -2902,7 +2910,7 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 			SET status = $1, started_at = $2
 			WHERE job_id = $3::uuid
 		`
-		args = []interface{}{dbStatus, now, jobID}
+		args = []any{dbStatus, now, jobID}
 	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_COMPLETED:
 		// Handle enrichment_id - use NULL if empty, otherwise cast to UUID
 		if enrichmentID != nil && *enrichmentID != "" {
@@ -2911,14 +2919,14 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 				SET status = $1, completed_at = $2, enrichment_id = $3::uuid
 				WHERE job_id = $4::uuid
 			`
-			args = []interface{}{dbStatus, now, *enrichmentID, jobID}
+			args = []any{dbStatus, now, *enrichmentID, jobID}
 		} else {
 			query = `
 				UPDATE "enrichment-jobs"
 				SET status = $1, completed_at = $2
 				WHERE job_id = $3::uuid
 			`
-			args = []interface{}{dbStatus, now, jobID}
+			args = []any{dbStatus, now, jobID}
 		}
 	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED:
 		query = `
@@ -2930,20 +2938,20 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 		if errorMsg != nil {
 			errMsg = *errorMsg
 		}
-		args = []interface{}{dbStatus, now, errMsg, jobID}
+		args = []any{dbStatus, now, errMsg, jobID}
 	default:
 		query = `
 			UPDATE "enrichment-jobs"
 			SET status = $1
 			WHERE job_id = $2::uuid
 		`
-		args = []interface{}{dbStatus, jobID}
+		args = []any{dbStatus, jobID}
 	}
 
 	var lastErr error
 	backoff := initialBackoff
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for attempt := range maxRetries {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 		_, err := s.db.Exec(ctx, query, args...)
@@ -2960,10 +2968,7 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 		if attempt < maxRetries-1 {
 			// Exponential backoff with jitter
 			time.Sleep(backoff)
-			backoff = time.Duration(float64(backoff) * 2.0)
-			if backoff > maxBackoff {
-				backoff = maxBackoff
-			}
+			backoff = min(time.Duration(float64(backoff)*2.0), maxBackoff)
 
 			log.Warnf("Failed to update enrichment job %s status to %s (attempt %d/%d), retrying: %v",
 				jobID, dbStatus, attempt+1, maxRetries, err)
@@ -3003,7 +3008,7 @@ func (s *postgresStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1
 		FROM "enrichment-jobs"
 	`
 	whereClause := ""
-	args := []interface{}{limit, offset}
+	args := []any{limit, offset}
 	argIdx := 3
 
 	if status != nil {
@@ -3086,7 +3091,7 @@ func (s *postgresStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1
 	// whereClause references $3, and reusing it here (with a single bound arg)
 	// would error "there is no parameter $3" and silently zero the total.
 	countQuery := `SELECT COUNT(*) FROM "enrichment-jobs"`
-	var countArgs []interface{}
+	var countArgs []any
 	if status != nil {
 		countQuery += " WHERE status = $1"
 		countArgs = append(countArgs, enrichmentJobStatusToDB(*status))
@@ -3218,13 +3223,13 @@ func (s *postgresStore) GetAPISubscription(userID string) (*APISubscription, err
 
 	query := `
 		SELECT user_id, user_email, COALESCE(stripe_customer_id, ''), COALESCE(stripe_subscription_id, ''),
-		       status, tier, current_period_start::text, current_period_end::text, cancel_at_period_end
+		       status, tier, current_period_start::text, current_period_end::text, past_due_since::text, cancel_at_period_end
 		FROM api_subscriptions
 		WHERE user_id = $1
 	`
 
 	var sub APISubscription
-	var periodStart, periodEnd *string
+	var periodStart, periodEnd, pastDueSince *string
 
 	err := s.db.QueryRow(ctx, query, userID).Scan(
 		&sub.UserID,
@@ -3235,6 +3240,7 @@ func (s *postgresStore) GetAPISubscription(userID string) (*APISubscription, err
 		&sub.Tier,
 		&periodStart,
 		&periodEnd,
+		&pastDueSince,
 		&sub.CancelAtPeriodEnd,
 	)
 
@@ -3248,6 +3254,7 @@ func (s *postgresStore) GetAPISubscription(userID string) (*APISubscription, err
 
 	sub.CurrentPeriodStart = periodStart
 	sub.CurrentPeriodEnd = periodEnd
+	sub.PastDueSince = pastDueSince
 	return &sub, nil
 }
 
@@ -3257,13 +3264,13 @@ func (s *postgresStore) GetAPISubscriptionByCustomer(stripeCustomerID string) (*
 
 	query := `
 		SELECT user_id, user_email, COALESCE(stripe_customer_id, ''), COALESCE(stripe_subscription_id, ''),
-		       status, tier, current_period_start::text, current_period_end::text, cancel_at_period_end
+		       status, tier, current_period_start::text, current_period_end::text, past_due_since::text, cancel_at_period_end
 		FROM api_subscriptions
 		WHERE stripe_customer_id = $1
 	`
 
 	var sub APISubscription
-	var periodStart, periodEnd *string
+	var periodStart, periodEnd, pastDueSince *string
 
 	err := s.db.QueryRow(ctx, query, stripeCustomerID).Scan(
 		&sub.UserID,
@@ -3274,6 +3281,7 @@ func (s *postgresStore) GetAPISubscriptionByCustomer(stripeCustomerID string) (*
 		&sub.Tier,
 		&periodStart,
 		&periodEnd,
+		&pastDueSince,
 		&sub.CancelAtPeriodEnd,
 	)
 
@@ -3286,41 +3294,101 @@ func (s *postgresStore) GetAPISubscriptionByCustomer(stripeCustomerID string) (*
 
 	sub.CurrentPeriodStart = periodStart
 	sub.CurrentPeriodEnd = periodEnd
+	sub.PastDueSince = pastDueSince
 	return &sub, nil
 }
 
+// upsertAPISubscriptionSQL writes a user's row from a read of Stripe. It runs on
+// routine events (renewals, the daily reconcile) as well as at checkout, so it
+// never NULLs a period it was not given.
+//
+// A NULL period means "not known here", not "none". The checkout write never
+// carries a period, so the period columns keep the last known value until the
+// update that follows lands the true one.
+const upsertAPISubscriptionSQL = `
+	INSERT INTO api_subscriptions (
+		user_id, user_email, stripe_customer_id, stripe_subscription_id,
+		status, tier, current_period_start, current_period_end, cancel_at_period_end
+	) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9)
+	ON CONFLICT (user_id) DO UPDATE SET
+		stripe_customer_id = EXCLUDED.stripe_customer_id,
+		stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+		status = EXCLUDED.status,
+		tier = EXCLUDED.tier,
+		current_period_start = COALESCE(EXCLUDED.current_period_start, api_subscriptions.current_period_start),
+		current_period_end = COALESCE(EXCLUDED.current_period_end, api_subscriptions.current_period_end),
+		cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+		updated_at = CURRENT_TIMESTAMP
+`
+
+// otherUserSubscriptionSQL finds the row that already holds a Stripe customer under
+// another user id. FOR UPDATE keeps it locked until the transaction ends, so a
+// concurrent event for the same customer waits instead of deciding on stale data.
+const otherUserSubscriptionSQL = `
+	SELECT user_id, COALESCE(stripe_subscription_id, '')
+	FROM api_subscriptions
+	WHERE stripe_customer_id = $1 AND user_id <> $2
+	FOR UPDATE
+`
+
+// repointSubscriptionSQL removes the row that another user holds for a customer
+// whose subscription has been replaced by a new one. Both the customer and the
+// user are named, so it can only ever remove that one row.
+const repointSubscriptionSQL = `
+	DELETE FROM api_subscriptions
+	WHERE stripe_customer_id = $1 AND user_id = $2
+`
+
+// UpsertAPISubscription writes the subscription state of a user, in one transaction.
+//
+// A customer can already hold a row under another user id. An account that is
+// deleted and recreated gets a new Firebase uid, and its checkout reuses the Stripe
+// customer its email matched. The Stripe subscription id tells the two possible
+// events apart:
+//
+//   - The subscription that row already holds, carried with older metadata (a
+//     renewal still naming the old uid). The row belongs to this subscription and
+//     is left alone. Deleting it here is how a paying customer silently loses
+//     access, so nothing is written at all.
+//   - A different subscription. A new checkout only happens once the old
+//     subscription has ended (the web refuses a second checkout while the customer
+//     has a live one), so the other row is stale. It is removed, and the upsert
+//     writes the new subscription under this user.
+//
+// A write with no subscription id cannot be told apart from the first case, so it
+// is refused rather than allowed to remove another user's row.
 func (s *postgresStore) UpsertAPISubscription(sub *APISubscription) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// First, delete any existing subscription with the same stripe_customer_id but different user_id.
-	// This handles the case where a customer ID was previously associated with a different user
-	// (e.g., during testing or account migration).
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin subscription upsert: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
 	if sub.StripeCustomerID != "" {
-		deleteQuery := `
-			DELETE FROM api_subscriptions 
-			WHERE stripe_customer_id = $1 AND user_id != $2
-		`
-		_, _ = s.db.Exec(ctx, deleteQuery, sub.StripeCustomerID, sub.UserID)
+		var otherUserID, otherSubscriptionID string
+		err = tx.QueryRow(ctx, otherUserSubscriptionSQL, sub.StripeCustomerID, sub.UserID).
+			Scan(&otherUserID, &otherSubscriptionID)
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			// No other user holds this customer, so there is nothing to re-point.
+		case err != nil:
+			return fmt.Errorf("failed to read subscription for customer: %w", err)
+		case sub.StripeSubscriptionID == "":
+			return fmt.Errorf("refusing to link customer %s to user %s without a subscription id", sub.StripeCustomerID, sub.UserID)
+		case otherSubscriptionID == sub.StripeSubscriptionID:
+			log.Infof("subscription already linked to another user; not re-pointing (subscription %s, user %s)", sub.StripeSubscriptionID, sub.UserID)
+			return nil
+		default:
+			if _, err = tx.Exec(ctx, repointSubscriptionSQL, sub.StripeCustomerID, otherUserID); err != nil {
+				return fmt.Errorf("failed to re-point subscription: %w", err)
+			}
+		}
 	}
 
-	query := `
-		INSERT INTO api_subscriptions (
-			user_id, user_email, stripe_customer_id, stripe_subscription_id,
-			status, tier, current_period_start, current_period_end, cancel_at_period_end
-		) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9)
-		ON CONFLICT (user_id) DO UPDATE SET
-			stripe_customer_id = EXCLUDED.stripe_customer_id,
-			stripe_subscription_id = EXCLUDED.stripe_subscription_id,
-			status = EXCLUDED.status,
-			tier = EXCLUDED.tier,
-			current_period_start = EXCLUDED.current_period_start,
-			current_period_end = EXCLUDED.current_period_end,
-			cancel_at_period_end = EXCLUDED.cancel_at_period_end,
-			updated_at = CURRENT_TIMESTAMP
-	`
-
-	_, err := s.db.Exec(ctx, query,
+	_, err = tx.Exec(ctx, upsertAPISubscriptionSQL,
 		sub.UserID,
 		sub.UserEmail,
 		sub.StripeCustomerID,
@@ -3331,24 +3399,33 @@ func (s *postgresStore) UpsertAPISubscription(sub *APISubscription) error {
 		sub.CurrentPeriodEnd,
 		sub.CancelAtPeriodEnd,
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to upsert subscription: %w", err)
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit subscription upsert: %w", err)
+	}
 	return nil
 }
 
+// UpdateAPISubscriptionByCustomer applies a Stripe event to the row of a customer.
+// The WHERE clause matches on stripe_customer_id, so it reaches every row of that
+// customer whatever user id it is keyed under. The schema makes that at most one
+// row, because stripe_customer_id is UNIQUE. A customer with no row is a no-op,
+// not an error (see the comment in the body).
 func (s *postgresStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *APISubscriptionUpdate) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	// Build dynamic update query based on which fields are set
 	setParts := []string{"updated_at = CURRENT_TIMESTAMP"}
-	args := []interface{}{}
+	args := []any{}
 	argNum := 1
 
+	statusArg := 0
 	if update.Status != nil {
+		statusArg = argNum
 		setParts = append(setParts, fmt.Sprintf("status = $%d", argNum))
 		args = append(args, *update.Status)
 		argNum++
@@ -3372,6 +3449,31 @@ func (s *postgresStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string,
 		setParts = append(setParts, fmt.Sprintf("cancel_at_period_end = $%d", argNum))
 		args = append(args, *update.CancelAtPeriodEnd)
 		argNum++
+	}
+	// The row names the subscription its state describes. Without this write the
+	// id stays whatever the first checkout put there, and a row can keep naming a
+	// subscription that has ended while its state follows the customer's current one.
+	if update.StripeSubscriptionID != nil && *update.StripeSubscriptionID != "" {
+		setParts = append(setParts, fmt.Sprintf("stripe_subscription_id = $%d", argNum))
+		args = append(args, *update.StripeSubscriptionID)
+		argNum++
+	}
+
+	// The past-due run's start. Set in the same statement as the status, so it reads the
+	// row's OLD status: a row already past_due keeps its start, the first past_due
+	// write starts it (from the invoice's failure time, else now), and any other status
+	// clears it. A write with no status leaves it alone.
+	if statusArg > 0 {
+		pastDueArg := argNum
+		args = append(args, update.PastDueSince)
+		argNum++
+		setParts = append(setParts, fmt.Sprintf(
+			"past_due_since = CASE WHEN $%d = 'past_due' THEN "+
+				"CASE WHEN api_subscriptions.status = 'past_due' AND api_subscriptions.past_due_since IS NOT NULL "+
+				"THEN api_subscriptions.past_due_since "+
+				"ELSE COALESCE($%d::timestamptz, CURRENT_TIMESTAMP) END "+
+				"ELSE NULL END",
+			statusArg, pastDueArg))
 	}
 
 	// Add customer ID as the last argument

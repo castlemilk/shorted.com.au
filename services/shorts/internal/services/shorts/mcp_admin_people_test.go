@@ -89,6 +89,14 @@ func (f fakeFirebaseUsers) Lookup(_ context.Context, email string) (*firebaseUse
 	return nil, nil
 }
 
+// LookupUID answers from the same accounts as Lookup, by uid.
+func (f fakeFirebaseUsers) LookupUID(_ context.Context, uid string) (*firebaseUser, error) {
+	if uid == "uid-paying" {
+		return &firebaseUser{UID: uid, Email: "paid@example.com", EmailVerified: true}, nil
+	}
+	return nil, nil
+}
+
 func TestPeopleOverviewSummarisesAndNamesFailures(t *testing.T) {
 	src := &adminMCPSource{people: &fakePeopleStore{failMailing: true}, users: fakeFirebaseUsers{}}
 	out, err := src.PeopleOverview(context.Background())

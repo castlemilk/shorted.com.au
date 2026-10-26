@@ -559,7 +559,7 @@ func (s *ShortsServer) GetOwnershipOverview(
 	if s.ownershipStore == nil {
 		return connect.NewResponse(&shortsv1alpha1.GetOwnershipOverviewResponse{}), nil
 	}
-	cached, err := s.cache.GetOrSetWithTTL(s.cache.GetOwnershipOverviewKey(), ownershipTTL, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSetWithTTL(s.cache.GetOwnershipOverviewKey(), ownershipTTL, func() (any, error) {
 		d, err := s.loadOwnership(ctx, shortsstore.OwnershipFilter{}, 30, "", true)
 		if err != nil {
 			return nil, err
@@ -588,7 +588,7 @@ func (s *ShortsServer) ListInstitutions(
 	if s.ownershipStore == nil {
 		return connect.NewResponse(&shortsv1alpha1.ListInstitutionsResponse{}), nil
 	}
-	cached, err := s.cache.GetOrSetWithTTL(s.cache.ListInstitutionsKey(kind, query, limit, offset), ownershipTTL, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSetWithTTL(s.cache.ListInstitutionsKey(kind, query, limit, offset), ownershipTTL, func() (any, error) {
 		d, err := s.loadOwnership(ctx, shortsstore.OwnershipFilter{}, 0, "", true)
 		if err != nil {
 			return nil, err
@@ -645,7 +645,7 @@ func (s *ShortsServer) GetInstitution(
 	if s.ownershipStore == nil {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("institution not found"))
 	}
-	cached, err := s.cache.GetOrSetWithTTL(s.cache.GetInstitutionKey(slug), ownershipTTL, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSetWithTTL(s.cache.GetInstitutionKey(slug), ownershipTTL, func() (any, error) {
 		d, err := s.loadOwnership(ctx, shortsstore.OwnershipFilter{HolderKey: slug, InstitutionSlug: slug}, 100, slug, false)
 		if err != nil {
 			return nil, err
@@ -726,7 +726,7 @@ func (s *ShortsServer) GetStockOwnership(
 	if s.ownershipStore == nil {
 		return connect.NewResponse(&shortsv1alpha1.GetStockOwnershipResponse{}), nil
 	}
-	cached, err := s.cache.GetOrSetWithTTL(s.cache.GetStockOwnershipKey(code), ownershipTTL, func() (interface{}, error) {
+	cached, err := s.cache.GetOrSetWithTTL(s.cache.GetStockOwnershipKey(code), ownershipTTL, func() (any, error) {
 		d, err := s.loadOwnership(ctx, shortsstore.OwnershipFilter{StockCode: code}, 100, "", false)
 		if err != nil {
 			return nil, err

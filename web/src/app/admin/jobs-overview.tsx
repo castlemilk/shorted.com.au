@@ -37,6 +37,7 @@ import {
   Play,
   Loader2,
 } from "lucide-react";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 function relative(ts: string): string {
   if (!ts) return "Never";
@@ -519,9 +520,9 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
                       {duration(job.durationSeconds)}
                     </TableCell>
                     <TableCell>
-                      {job.logUri ? (
+                      {safeExternalHref(job.logUri) ? (
                         <a
-                          href={job.logUri}
+                          href={safeExternalHref(job.logUri)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-muted-foreground hover:text-foreground"

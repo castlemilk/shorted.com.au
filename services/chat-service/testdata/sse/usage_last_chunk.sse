@@ -1,0 +1,8 @@
+data: {"choices":[{"index":0,"delta":{"content":"Shorts are up."},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: {"choices":[],"usage":{"prompt_tokens":1200,"completion_tokens":80,"total_tokens":1280,"prompt_cache_hit_tokens":1000,"prompt_cache_miss_tokens":200,"completion_tokens_details":{"reasoning_tokens":30},"cost":0.000321}}
+
+data: [DONE]
+

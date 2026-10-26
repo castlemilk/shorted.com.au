@@ -2,8 +2,8 @@
 
 A Discord app that brings Shorted into a chat: search ASX stocks as you type,
 post a stock's short interest with its chart, and redraw that chart in place
-with buttons that everyone in the channel can press. With the Activity switched
-on, an **Interactive** button opens the site's full chart inside Discord.
+with buttons that everyone in the channel can press, and an **Interactive**
+button that opens the site's full chart inside Discord (the Activity).
 
 ## Quick start
 
@@ -71,8 +71,8 @@ an empty field offers the most shorted stocks. A name typed without picking a
 suggestion still works (`/stock pilbara` charts PLS, the best match).
 
 Under every chart are two rows of buttons: the periods, then the views, an
-**Open on Shorted** link (the chart's share page) and, with the Activity on,
-**Interactive**. A press redraws the message for everyone; pressing the
+**Open on Shorted** link (the chart's share page) and **Interactive** (the
+Activity, below). A press redraws the message for everyone; pressing the
 highlighted one redraws it with the latest figures.
 
 Lookups that fail are answered privately (ephemeral), never posted to the
@@ -193,26 +193,87 @@ through a proxy, and its CSP blocks every other host. So:
   outside Discord (`/embed/discord?code=BHP&view=combined`) it is a plain chart
   page, which is how to check it in a browser.
 
-To switch it on:
+The Activity is on (`"activity": true` in `web/src/config/discord-app.json`,
+2026-10-23), so every chart message carries **Interactive**. What it takes, in
+order, for this app or a second one:
 
-1. Developer portal → **Activities → Settings**: enable Activities.
+1. Developer portal → **Activities → Settings**: enable Activities. Only the
+   portal does this: Discord's public API has no field for it, and a client
+   secret cannot edit the app at all. The public
+   `GET https://discord.com/api/v10/applications/<id>/rpc` shows it took:
+   `flags` gains `EMBEDDED` (`1 << 17`).
 2. **Activities → URL Mappings**: one mapping, prefix `/`, target
-   `shorted.com.au` (no protocol).
-3. Set `"activity": true` in `web/src/config/discord-app.json` and merge it.
-   Only then do chart messages show **Interactive**: Discord refuses a launch
-   for an app without Activities, so the button stays hidden until this is set.
-4. `task discord:register` once: enabling Activities created the Entry Point
+   `shorted.com.au` (no protocol). Unmapped,
+   `curl -s "https://<id>.discordsays.com/?frame_id=x&instance_id=y"` is
+   Discord's own page, titled "Discord Activity not available at this time";
+   mapped, it is the site's answer (a 307 to `/embed/discord` once step 3 is
+   deployed, Cloudflare's challenge before).
+3. Cloudflare lets the Activity through: Discord's proxy fetches from Discord's
+   servers, an automated client, and Super Bot Fight Mode managed-challenged
+   both the launch and `/embed/discord` (403 `cf-mitigated: challenge`,
+   2026-10-23), which inside Discord is the "Just a moment…" page. The rule
+   "Allow the Discord Activity" in `app_api_security_skip`
+   (`terraform/modules/cloudflare-edge/main.tf`) skips SBFM for `/` only when
+   it carries both `frame_id` and `instance_id`, and for `/embed/discord`; the
+   page's JS, CSS and fonts bypass SBFM by extension, and its data calls are
+   the RPC rewrites, already skipped. `security-skip-expression.test.mjs`
+   evaluates it both ways.
+4. Set `"activity": true` and merge, after step 1: Discord refuses a launch for
+   an app without Activities, so the button would fail until it is done.
+   `curl -s https://shorted.com.au/api/discord/interactions` then reports
+   `"activity": true` (a `DISCORD_ACTIVITY_ENABLED` env var on the deployment
+   would override the file).
+5. `task discord:register` once: enabling Activities created the Entry Point
    command, and registration keeps it.
-5. Press **Interactive** on a chart message and check the chart loads. The
-   Activity's requests reach the site from Discord's proxy, not from a
-   browser, and Cloudflare's Super Bot Fight Mode challenges automated
-   clients on the apex: `curl "https://shorted.com.au/?frame_id=x&instance_id=y"`
-   answers `403 cf-mitigated: challenge` (checked 2026-10-19). Only
-   `/api/discord/` and the RPC rewrites are in the skip rule. If the Activity
-   shows Cloudflare's "Just a moment…" page instead of the chart, add the
-   launch (`/` with `frame_id`), `/embed/discord` and `/_next/` to
-   `app_api_security_skip` in `terraform/modules/cloudflare-edge/main.tf`,
-   with a test in `security-skip-expression.test.mjs`.
+6. Press **Interactive** on a chart message and check the chart loads.
+
+### Proxy authentication
+
+With proxy authentication on for the app in the developer portal (on since
+2026-10-23), Discord's proxy adds three headers to what it forwards from the
+Activity: `X-Discord-Proxy-Payload` (base64 JSON with the user's context and
+`created_at` / `expires_at`), `X-Signature-Ed25519` (the application key's
+signature of those payload bytes) and `X-Signature-Timestamp` (`created_at`
+again). The key is the one in `discord-app.json`, the same key that signs
+interactions.
+
+What a valid set proves, and what it does not:
+
+- It proves the request came through Discord's proxy for this app, for the
+  user in the payload, before `expires_at`. The signature covers the payload
+  only, not the path, method or body, so a captured set can be replayed on any
+  path until it expires. Treat it as a short-lived session pass: it may say
+  who is asking, but never authorises a write on its own.
+- The rules `verifyDiscordProxyRequest` (`web/src/@/lib/discord/verify.ts`)
+  keeps: verify the signature over the payload's exact bytes BEFORE reading a
+  field; the timestamp header equals `created_at`; `expires_at` not passed;
+  `created_at` at most 60s ahead of our clock; the signature in hex or base64
+  (Discord's samples disagree), 64 bytes either way; 401 on any failure; never
+  throw.
+- Interactions use the same key and the same header names over a different
+  message (the timestamp, then the body). `verifyDiscordRequest` accepts only a
+  timestamp of digits, so a proxy payload (which starts with `{`) can never be
+  replayed as an interaction; `verify.test.ts` tries every split.
+- Never log the headers or the payload's values.
+
+**Stage 1 (now): observe.** After Discord's handshake the Activity POSTs once
+to `/api/discord/activity` (through the proxy, in the Cloudflare skip with the
+rest of `/api/discord/`). The route verifies and records a `product_event`
+(`feature: "discord"`, `action: "activity_proxy_auth"`, `event_type` one of
+`verified`, `missing`, `malformed`, `bad_signature`, `bad_payload`,
+`timestamp_mismatch`, `expired`, `not_yet_valid`), plus one
+`discord_proxy_payload_fields` line per payload shape naming its fields,
+never their values. It answers 204 (verified, or no headers) or 401 (headers
+that fail); the Activity ignores the answer.
+
+**Stage 2: require them, once the data says so.** When real launches read
+`verified` and no `missing`, the Cloudflare rule "Allow the Discord Activity"
+can also require the proxy's headers to be present (Cloudflare cannot check a
+signature, so presence only filters bots that do not send them), and anything
+that needs to know the user (state shared per `instance_id`, a saved list) can
+take it from a verified payload instead of an OAuth flow. Confirming that the
+user is in a live instance needs the activity-instances API and a bot token;
+this repo holds only a client secret.
 
 ## Troubleshooting
 

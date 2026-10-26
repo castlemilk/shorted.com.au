@@ -40,6 +40,7 @@ import {
   getReportsListStrict,
   type StockFinancialHighlight,
 } from "~/app/actions/reports/getReportData";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -143,9 +144,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title,
     description,
-    robots: noindex
-      ? { index: false, follow: true, googleBot: { index: false, follow: true } }
-      : undefined,
+    // Omitted, never undefined, when indexable: Next merges metadata with
+    // `for (key in source)`, so an own `robots: undefined` replaces the root
+    // layout's robots (and its googleBot max-image-preview / max-snippet
+    // directives) with nothing. Absent, the page inherits them.
+    ...(noindex
+      ? {
+          robots: {
+            index: false,
+            follow: true,
+            googleBot: { index: false, follow: true },
+          },
+        }
+      : {}),
     keywords: [
       "10 most shorted ASX stocks",
       "most shorted ASX stocks",
@@ -323,10 +334,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
       {/* Schema Markup */}
       <BreadcrumbListSchema items={breadcrumbsSchema} />
       {articleSchema && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
-        />
+        <JsonLd data={articleSchema} />
       )}
       {/* FAQPage schema removed — only eligible for government/healthcare sites since Aug 2023 */}
       <ItemListStructuredData

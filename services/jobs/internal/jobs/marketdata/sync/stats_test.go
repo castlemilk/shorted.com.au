@@ -52,7 +52,7 @@ func TestRunStatsSayWhereTheTimeWent(t *testing.T) {
 	s.request("yahoo", 45*time.Second, 0, errors.New("unexpected status: 429"))
 	s.request("av", 3*time.Second, 5, nil)
 	s.wait(12 * time.Second)
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		s.stock(fmt.Sprintf("S%02d", i), time.Duration(i)*time.Second, "synced")
 	}
 

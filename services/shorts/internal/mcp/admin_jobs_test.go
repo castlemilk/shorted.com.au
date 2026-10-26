@@ -71,9 +71,9 @@ func TestAdminResourceScopeAndPublicIsolation(t *testing.T) {
 		srv := adminStack(t, stubClaims{claims: c}, onlyAdmin("uid-admin"), &fakePublisher{})
 		_, body := adminCall(t, srv, "token", `{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"shorted-admin://jobs/us-central1/shorted-picks"}}`)
 		if strings.HasPrefix(body, "event:") {
-			for _, line := range strings.Split(body, "\n") {
-				if strings.HasPrefix(line, "data:") {
-					body = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			for line := range strings.SplitSeq(body, "\n") {
+				if after, ok := strings.CutPrefix(line, "data:"); ok {
+					body = strings.TrimSpace(after)
 					break
 				}
 			}

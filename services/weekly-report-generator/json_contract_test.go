@@ -13,7 +13,7 @@ import (
 //
 // logo_url is intentionally ABSENT: it is hydrated at read time, never stored.
 
-func marshalKeys(t *testing.T, v interface{}) []string {
+func marshalKeys(t *testing.T, v any) []string {
 	t.Helper()
 	b, err := json.Marshal(v)
 	if err != nil {

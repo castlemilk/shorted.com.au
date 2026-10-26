@@ -16,8 +16,8 @@ on:
         default: false
 
 env:
-  NODE_VERSION: "24"
-  GO_VERSION: "1.26"
+  NODE_VERSION: "24.22.1"
+  GO_VERSION: "1.27"
   PYTHON_VERSION: "3.11"
   GOWORK: "off"
   GOPRIVATE: github.com/skunkworq/*
@@ -345,8 +345,17 @@ jobs:
     # state lock — three failed runs on 2026-08-22 alone, each needing a
     # manual re-run. cancel-in-progress MUST stay false: cancelling a run
     # mid-terraform can strand the lock it holds.
+    #
+    # Pull requests plan in their OWN group, and without the state lock (the
+    # -lock=false below). A concurrency group holds one running and one pending
+    # job, and a newer pending job cancels the older one whatever
+    # cancel-in-progress says. Sharing tfstate-<env> meant every PR push during a
+    # main deploy cancelled main's pending plan, and with it terraform-apply:
+    # 175428743 and b4ddec8c6 (2026-10-23) shipped Vercel only, leaving the API
+    # and chat-service on the 2026-10-22 build. A PR plan is advisory and writes
+    # no state, so it neither needs the lock nor may hold up main's apply.
     concurrency:
-      group: tfstate-${{ needs.determine-environment.outputs.environment }}
+      group: ${{ github.event_name == 'pull_request' && format('tfplan-pr-{0}', github.event.pull_request.number) || format('tfstate-{0}', needs.determine-environment.outputs.environment) }}
       cancel-in-progress: false
     outputs:
       plan-output: ${{ steps.plan.outputs.stdout }}
@@ -379,30 +388,107 @@ jobs:
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # The chat service has its own Gemini key (rotated 2026-10-24 after the
+          # chat-service logged the shared key in provider-error URLs). Falls back
+          # to the shared key when the secret is unset.
+          GEMINI_API_KEY_CHAT: ${{ secrets.GEMINI_API_KEY_CHAT }}
+          # Optional, read from Cuttlefish's secret store like the rest of this job's
+          # secrets (see the note below). Each is synced only when it has content.
+          FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
+          OPENROUTER_API_KEY_CHAT: ${{ secrets.OPENROUTER_API_KEY_CHAT }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
-          # CREATE ONLY. This job has no GitHub environment, so it sees the
-          # REPO-level secrets; terraform-apply and deploy-vercel-prod run in the
-          # `prod` environment. When the two values differ, a plan job that
-          # writes versions fights the apply job: two versions per deploy and a
-          # window where the API's `latest` disagrees with the web app. The plan
-          # only needs the secrets to EXIST; the apply job owns their values.
+          # CREATE ONLY. This job has no GitHub environment, so it reads each secret's
+          # project-level copy in Cuttlefish; terraform-apply and deploy-vercel-prod run
+          # in the `prod` environment and read a `prod` copy when one is set. When the
+          # two values differ, a plan job that writes versions fights the apply job: two
+          # versions per deploy and a window where the API's `latest` disagrees with the
+          # web app. The plan only needs the secrets to EXIST; the apply job owns their values.
           ENSURE_SECRET_CREATE_ONLY: "1"
         run: |
+          # This step handles the Gemini keys, so trace stays off even under BASH_ENV or
+          # SHELLOPTS that turn xtrace on. Nothing else runs before this line.
+          { set +x; } 2>/dev/null
           # Single source of truth: scripts/ensure-secret.sh. It only adds a new
           # version when the value actually changed, comparing sha256 of the
           # trailing-newline-normalised bytes (a raw `$(...)` string compare can
           # never match a GH secret that carries a trailing newline — that bug
           # produced 1,002 INTERNAL_SERVICE_SECRET versions and led to the
           # 2026-07-26 outage; see docs/incidents/).
-          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
+          # Where these values come from: this job runs on a Cuttlefish runner, so the
+          # secrets.* it reads are injected from Cuttlefish's project secret store,
+          # not from the GitHub repo secrets. Set them with
+          # `cuttle secrets set NAME --project shorted`; updating the GitHub repo
+          # secret changes nothing for these jobs.
+          # The value goes on stdin ("-"), never as an argument: ps would show an argument
+          # for the whole of every gcloud call that ensure-secret.sh makes.
+          ensure_secret() { printf '%s' "${2:-}" | bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" -; }
+
+          # Gemini keys are checked by scripts/validate-gemini-key.sh before any
+          # write. Incident 2026-10-23 13:57: a key that passed models.list but could
+          # not generate was rolled to chat and failed every request. Incident 14:16:
+          # this sync wrote the old key back over the fix, because it read Cuttlefish's
+          # store and not the GitHub secret that had been updated. The validator cannot
+          # stop a stale key that still generates, so that copy must be updated in
+          # Cuttlefish first.
+          ensure_gemini_secret() {
+            local name="$1" value="${2:-}" out rc=0
+            # The key goes to the validator on stdin. As an argument, ps would show it for the whole call.
+            out=$(printf '%s' "$value" | bash "$GITHUB_WORKSPACE/scripts/validate-gemini-key.sh" -) || rc=$?
+            echo "$out"
+            case "$rc" in
+              0) ensure_secret "$name" "$value" ;;
+              # Exit 4: no key at all. Nothing is written, and the deploy carries on.
+              4) echo "::warning title=Gemini key not set::$name: no key to sync; Secret Manager keeps its current version" ;;
+              *) echo "::warning title=Gemini key not synced::$name: $out; Secret Manager keeps its current version" ;;
+            esac
+          }
 
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_CHAT" "$GEMINI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
+          ensure_gemini_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
+          # Optional secrets are created only when they have content, the same test the
+          # Resolve step applies. Cloud Run references them by name, so a missing secret
+          # would fail the revision.
+          has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
+          if has_content "$FLAGGR_API_KEY"; then ensure_secret "FLAGGR_API_KEY" "$FLAGGR_API_KEY"; fi
+          if has_content "$DEEPSEEK_API_KEY"; then ensure_secret "DEEPSEEK_API_KEY" "$DEEPSEEK_API_KEY"; fi
+          if has_content "$RESEND_WEBHOOK_SECRET"; then ensure_secret "RESEND_WEBHOOK_SECRET" "$RESEND_WEBHOOK_SECRET"; fi
+          if has_content "$OPENROUTER_API_KEY_CHAT"; then ensure_secret "OPENROUTER_API_KEY_CHAT" "$OPENROUTER_API_KEY_CHAT"; fi
+
+      - name: Resolve optional chat secrets
+        # Before the Terraform steps, so the names reach them through GITHUB_ENV. An
+        # optional secret counts as set only when it has content after CR, LF and all
+        # whitespace are removed. A blank one is unset everywhere: it is not synced to
+        # Secret Manager, and no Terraform name is passed for it.
+        env:
+          FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
+          FLAGGR_SERVICE_ID: ${{ secrets.FLAGGR_SERVICE_ID }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
+          OPENROUTER_API_KEY_CHAT: ${{ secrets.OPENROUTER_API_KEY_CHAT }}
+        run: |
+          has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
+          if has_content "$FLAGGR_API_KEY"; then
+            echo "TF_VAR_flaggr_api_key_secret_name=FLAGGR_API_KEY" >> "$GITHUB_ENV"
+          fi
+          if has_content "$FLAGGR_SERVICE_ID"; then
+            echo "TF_VAR_flaggr_service_id=$(printf '%s' "$FLAGGR_SERVICE_ID" | tr -d '\r\n[:space:]')" >> "$GITHUB_ENV"
+          fi
+          if has_content "$DEEPSEEK_API_KEY"; then
+            echo "TF_VAR_deepseek_api_key_secret_name=DEEPSEEK_API_KEY" >> "$GITHUB_ENV"
+          fi
+          if has_content "$RESEND_WEBHOOK_SECRET"; then
+            echo "TF_VAR_resend_webhook_secret_exists=true" >> "$GITHUB_ENV"
+          fi
+          if has_content "$OPENROUTER_API_KEY_CHAT"; then
+            echo "TF_VAR_openrouter_api_key_secret_name=OPENROUTER_API_KEY_CHAT" >> "$GITHUB_ENV"
+          fi
 
       - name: Terraform Plan
         id: plan
@@ -416,6 +502,7 @@ jobs:
           TF_VAR_rate_limit_ssr_bypass_secret: ${{ secrets.CLOUDFLARE_SSR_BYPASS_SECRET }}
         run: |
           terraform plan \
+            -lock=${{ github.event_name == 'pull_request' && 'false' || 'true' }} \
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="chat_service_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/chat-service:${{ needs.determine-environment.outputs.image-tag }}" \
@@ -560,6 +647,16 @@ jobs:
           ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # The chat service has its own Gemini key (rotated 2026-10-24 after the
+          # chat-service logged the shared key in provider-error URLs). Falls back
+          # to the shared key when the secret is unset.
+          GEMINI_API_KEY_CHAT: ${{ secrets.GEMINI_API_KEY_CHAT }}
+          # Optional, read from Cuttlefish's secret store like the rest of this job's
+          # secrets (see the note below). Each is synced only when it has content.
+          FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
+          OPENROUTER_API_KEY_CHAT: ${{ secrets.OPENROUTER_API_KEY_CHAT }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           DATABASE_URL_DEV: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
@@ -569,20 +666,60 @@ jobs:
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
+          # This step handles the Gemini keys, so trace stays off even under BASH_ENV or
+          # SHELLOPTS that turn xtrace on. Nothing else runs before this line.
+          { set +x; } 2>/dev/null
           # Only add a new version if the value has actually changed
           # ($0.06/version/month, and version bloat is what broke prod on
           # 2026-07-26). Logic lives in scripts/ensure-secret.sh: sha256 compare
           # over trailing-newline-normalised bytes, and never add a version when
           # `versions access latest` fails on an existing secret.
-          ensure_secret() { bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" "${2:-}"; }
+          # Where these values come from: this job runs on a Cuttlefish runner, so the
+          # secrets.* it reads are injected from Cuttlefish's project secret store,
+          # not from the GitHub repo secrets. Set them with
+          # `cuttle secrets set NAME --project shorted`; updating the GitHub repo
+          # secret changes nothing for these jobs. This job names a GitHub environment,
+          # so a copy set with `cuttle secrets set NAME --environment <env>` is read
+          # before the project copy of the same name.
+          # The value goes on stdin ("-"), never as an argument: ps would show an argument
+          # for the whole of every gcloud call that ensure-secret.sh makes.
+          ensure_secret() { printf '%s' "${2:-}" | bash "$GITHUB_WORKSPACE/scripts/ensure-secret.sh" "$1" -; }
+
+          # Gemini keys are checked by scripts/validate-gemini-key.sh before any
+          # write. Incident 2026-10-23 13:57: a key that passed models.list but could
+          # not generate was rolled to chat and failed every request. Incident 14:16:
+          # this sync wrote the old key back over the fix, because it read Cuttlefish's
+          # store and not the GitHub secret that had been updated. The validator cannot
+          # stop a stale key that still generates, so that copy must be updated in
+          # Cuttlefish first.
+          ensure_gemini_secret() {
+            local name="$1" value="${2:-}" out rc=0
+            # The key goes to the validator on stdin. As an argument, ps would show it for the whole call.
+            out=$(printf '%s' "$value" | bash "$GITHUB_WORKSPACE/scripts/validate-gemini-key.sh" -) || rc=$?
+            echo "$out"
+            case "$rc" in
+              0) ensure_secret "$name" "$value" ;;
+              # Exit 4: no key at all. Nothing is written, and the deploy carries on.
+              4) echo "::warning title=Gemini key not set::$name: no key to sync; Secret Manager keeps its current version" ;;
+              *) echo "::warning title=Gemini key not synced::$name: $out; Secret Manager keeps its current version" ;;
+            esac
+          }
 
           # Core secrets
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_CHAT" "$GEMINI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
-          ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_CHAT" "${GEMINI_API_KEY_CHAT:-$GEMINI_API_KEY}"
+          ensure_gemini_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
+          ensure_gemini_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
+          # Optional secrets are created only when they have content, the same test the
+          # Resolve step applies. Cloud Run references them by name, so a missing secret
+          # would fail the revision.
+          has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
+          if has_content "$FLAGGR_API_KEY"; then ensure_secret "FLAGGR_API_KEY" "$FLAGGR_API_KEY"; fi
+          if has_content "$DEEPSEEK_API_KEY"; then ensure_secret "DEEPSEEK_API_KEY" "$DEEPSEEK_API_KEY"; fi
+          if has_content "$RESEND_WEBHOOK_SECRET"; then ensure_secret "RESEND_WEBHOOK_SECRET" "$RESEND_WEBHOOK_SECRET"; fi
+          if has_content "$OPENROUTER_API_KEY_CHAT"; then ensure_secret "OPENROUTER_API_KEY_CHAT" "$OPENROUTER_API_KEY_CHAT"; fi
           ensure_secret "ALGOLIA_APP_ID" "$ALGOLIA_APP_ID"
           ensure_secret "ALGOLIA_SEARCH_KEY" "$ALGOLIA_SEARCH_KEY"
 
@@ -591,7 +728,8 @@ jobs:
           ensure_secret "ALPHA_VANTAGE_API_KEY" "$AV_KEY"
 
           # Revalidation secret (event-driven cache invalidation; must match the
-          # frontend Vercel REVALIDATION_SECRET env). Maintained from the GH secret.
+          # frontend Vercel REVALIDATION_SECRET env). Maintained in Cuttlefish's
+          # project secret store, see the note above.
           ensure_secret "REVALIDATION_SECRET" "$REVALIDATION_SECRET"
 
           # Database secrets (environment-specific)
@@ -740,6 +878,29 @@ jobs:
           # announcements job is writing (11:00 UTC). It is allowlisted rather
           # than hand-applied because the API's ownership reads and the
           # `shorted ownership` job both need the tables before the image swap.
+          # 000145 creates chat_usage_events, the per-send ledger the chat
+          # service counts against for its authoritative limits. It touches no
+          # rows, and each index is created only when the catalog lacks it, so
+          # a replay takes no lock on the table: CREATE INDEX IF NOT EXISTS
+          # would queue every chat insert behind it. It runs under lock_timeout.
+          # It is allowlisted because chat-service writes the table from the
+          # moment its new image serves, and this step runs before
+          # `terraform apply` swaps that image. It stays above 000138, so the
+          # Data API lockdown on every deploy covers it too.
+          #
+          # 000146 adds chat_messages.partial, a NOT NULL DEFAULT FALSE column that marks
+          # the partial replies a failed turn kept, so a retry removes only those. The
+          # column is added only when the catalog lacks it, so a replay takes no lock on
+          # the table. The chat service reads it, so this runs before the image swap.
+          #
+          # 000147 creates alert_events, alert_evaluator_state and alert_evaluator_runs, the
+          # delivery record and watermarks for short-interest alerts. It touches no rows, and
+          # each index is created only when the catalog lacks it, so a replay takes no lock on
+          # the tables. The first run adds the foreign key to alert_monitors, which holds 0 rows
+          # in prod, so that lock is instant. It is allowlisted because ListAlertMonitors joins
+          # alert_events and the `shorted alerts` job writes all three tables, and this step runs
+          # before `terraform apply` swaps the API image and before `bump-vke-jobs-image`
+          # promotes the chart.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -751,6 +912,10 @@ jobs:
               -f /migrations/000085_extend_source_method_check.up.sql \
               -f /migrations/000112_add_api_usage_monthly.up.sql \
               -f /migrations/000116_add_oauth_clients.up.sql \
+              -f /migrations/000145_add_chat_usage_events.up.sql \
+              -f /migrations/000146_add_chat_message_partial.up.sql \
+              -f /migrations/000147_add_alert_events.up.sql \
+              -f /migrations/000148_add_email_suppression.up.sql \
               -f /migrations/000117_add_index_prices.up.sql \
               -f /migrations/000118_add_industry_history.up.sql \
               -f /migrations/000119_add_price_backfill_attempts.up.sql \
@@ -814,6 +979,8 @@ jobs:
             # cannot get is a NOTICE, never a failed deploy).
             run_psql_session -f /migrations/000132_extend_fundamentals.up.sql
 
+            run_psql_session -f /migrations/000149_add_past_due_since.up.sql
+
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
             # tables, views, materialized views, sequences and functions there,
@@ -874,7 +1041,7 @@ jobs:
                 -e STEALTH_PAT="${STEALTH_PAT:-}" \
                 -v "${PWD}/services:/app" \
                 -w /app \
-                golang:1.26.0 \
+                golang:1.27.2 \
                 sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode '"$mode"; then
                 echo "influence-collector -mode $mode: ok"
               else
@@ -917,6 +1084,35 @@ jobs:
             ./import-existing-cloudflare.sh
           else
             echo "import script not present — skipping"
+          fi
+
+      - name: Resolve optional chat secrets
+        # Before the Terraform steps, so the names reach them through GITHUB_ENV. An
+        # optional secret counts as set only when it has content after CR, LF and all
+        # whitespace are removed. A blank one is unset everywhere: it is not synced to
+        # Secret Manager, and no Terraform name is passed for it.
+        env:
+          FLAGGR_API_KEY: ${{ secrets.FLAGGR_API_KEY }}
+          FLAGGR_SERVICE_ID: ${{ secrets.FLAGGR_SERVICE_ID }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
+          OPENROUTER_API_KEY_CHAT: ${{ secrets.OPENROUTER_API_KEY_CHAT }}
+        run: |
+          has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
+          if has_content "$FLAGGR_API_KEY"; then
+            echo "TF_VAR_flaggr_api_key_secret_name=FLAGGR_API_KEY" >> "$GITHUB_ENV"
+          fi
+          if has_content "$FLAGGR_SERVICE_ID"; then
+            echo "TF_VAR_flaggr_service_id=$(printf '%s' "$FLAGGR_SERVICE_ID" | tr -d '\r\n[:space:]')" >> "$GITHUB_ENV"
+          fi
+          if has_content "$DEEPSEEK_API_KEY"; then
+            echo "TF_VAR_deepseek_api_key_secret_name=DEEPSEEK_API_KEY" >> "$GITHUB_ENV"
+          fi
+          if has_content "$RESEND_WEBHOOK_SECRET"; then
+            echo "TF_VAR_resend_webhook_secret_exists=true" >> "$GITHUB_ENV"
+          fi
+          if has_content "$OPENROUTER_API_KEY_CHAT"; then
+            echo "TF_VAR_openrouter_api_key_secret_name=OPENROUTER_API_KEY_CHAT" >> "$GITHUB_ENV"
           fi
 
       - name: Terraform Apply
@@ -1208,13 +1404,22 @@ jobs:
     needs: [determine-environment, validate-secrets, terraform-apply, run-tests]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
-    # Preserve the existing service-URL fallback after an infrastructure failure,
-    # while requiring the test suite and secrets to pass before web promotion.
+    # This job is gated on terraform-apply SUCCEEDING. It used to run always(),
+    # so a failed or cancelled apply still promoted the web app against the old
+    # API (0d5311ac1 added always() to keep a service-URL fallback alive after an
+    # infrastructure failure). That fallback is no longer a reason to promote:
+    # the web build must never ship ahead of, or against, an apply that did not
+    # finish. A skipped apply (terraform-plan failed, or the run is plan-only)
+    # also skips this job; a skipped job here is the intended outcome.
+    #
+    # The gcloud lookup in "Resolve Service URLs" stays as a backstop for a
+    # successful apply whose outputs came back empty. It is not a fallback for
+    # a failed apply, which this `if` now excludes.
     if: |
-      always() &&
       github.event_name != 'pull_request' &&
       needs.determine-environment.outputs.environment == 'prod' &&
       needs.validate-secrets.result == 'success' &&
+      needs.terraform-apply.result == 'success' &&
       needs.run-tests.result == 'success' &&
       github.event.inputs.plan_only != 'true'
     environment: prod
@@ -1225,7 +1430,13 @@ jobs:
       - name: Set up Node for production deployment
         uses: actions/setup-node@v5
         with:
-          node-version: "24.8.0"
+          # Keep the actual build/upload process on the reviewed security patch.
+          node-version: "24.22.1"
+
+      - name: Verify production build Node patch
+        run: |
+          node --test scripts/tests/verify-build-node.test.mjs
+          node scripts/verify-build-node.mjs
 
       - name: Preflight production Vercel access
         timeout-minutes: 5
@@ -1508,6 +1719,27 @@ jobs:
           curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
             "https://shorted.com.au/api/static-pages/warm-cache?mode=repair"
 
+      # Gate the release on smoke AFTER the actual promotion, not a parallel
+      # push workflow with a guessed sleep. Failure leaves the deployed release
+      # visible for investigation; it does not silently roll back production.
+      - name: Install production smoke browser
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify promoted production release
+        working-directory: web
+        timeout-minutes: 12
+        env:
+          BASE_URL: https://shorted.com.au
+          RELEASE_API_BASE_URL: https://api.shorted.com.au
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+        run: |
+          if [ -z "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
+            echo "::error::CLOUDFLARE_TESTING_BYPASS_SECRET is required for production smoke through Cloudflare"
+            exit 1
+          fi
+          node e2e/release-smoke-ci.mjs
+
       - name: Production Deployment Summary
         run: |
           echo "## 🚀 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
@@ -1540,10 +1772,13 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          node-version: "24.22.1"
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
+      - name: Verify production smoke ordering
+        run: node --test .github/workflows/production-smoke-order.test.mjs
 
       - name: Run housing workflow contract tests
         run: node --test .github/workflows/housing-lifecycle.test.mjs
@@ -1597,3 +1832,14 @@ jobs:
           echo "🧪 Running integration tests (local testcontainers)..."
           cd services
           make test-integration-ci
+
+      # Its own step, not part of test-integration-ci: that target is the one that
+      # integration-image-prefetch.test.mjs pins to exactly three go calls, and this
+      # suite needs a postgres:15 container of its own. It still gates the deploy.
+      - name: Run alerts evaluator end-to-end suite
+        run: |
+          echo "🧪 Running the alerts evaluator end-to-end suite (postgres container)..."
+          cd services
+          make test-alerts-e2e
+
+

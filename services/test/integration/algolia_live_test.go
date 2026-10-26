@@ -213,9 +213,9 @@ func TestAlgoliaLive(t *testing.T) {
 			typo     string
 			expected string
 		}{
-			{"BPH", "BHP"},      // transposed letters
-			{"commwealth", ""},  // should find Commonwealth Bank
-			{"mning", ""},       // should find Mining stocks
+			{"BPH", "BHP"},     // transposed letters
+			{"commwealth", ""}, // should find Commonwealth Bank
+			{"mning", ""},      // should find Mining stocks
 		}
 
 		for _, tt := range typoTests {

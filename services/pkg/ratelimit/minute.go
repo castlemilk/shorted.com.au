@@ -130,10 +130,7 @@ func (l *minuteLimiter) check(identifier string, limit int) minuteResult {
 	st.lastSeen = now
 
 	resetAt := st.windowStart.Add(l.window)
-	remaining := limit - st.count
-	if remaining < 0 {
-		remaining = 0
-	}
+	remaining := max(limit-st.count, 0)
 
 	return minuteResult{
 		allowed:   st.count <= limit,

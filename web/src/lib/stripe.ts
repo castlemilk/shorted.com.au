@@ -53,6 +53,15 @@ export const SUBSCRIPTION_TIERS = {
     requestsPerDay: 10000,
     features: PLANS.premium.features,
   },
+  // The A$20 API Access plan. Not premium: it grants API tokens and the API
+  // limits, not the premium web features (isPremiumTier below).
+  api_access: {
+    name: PLANS.apiAccess.name,
+    priceId: process.env.STRIPE_API_ACCESS_PRICE_ID ?? null,
+    price: PLANS.apiAccess.amountCents / 100,
+    requestsPerDay: 10000,
+    features: PLANS.apiAccess.features,
+  },
   enterprise: {
     name: "Enterprise",
     priceId: process.env.STRIPE_ENTERPRISE_PRICE_ID ?? null,
@@ -73,10 +82,20 @@ export type SubscriptionStatus =
   | "active"
   | "canceled"
   | "past_due"
+  | "unpaid"
   | "inactive"
   | "trialing";
 
 /** Returns true if the given tier has premium-level access */
 export function isPremiumTier(tier: SubscriptionTier): boolean {
   return tier === "premium" || tier === "pro" || tier === "enterprise";
+}
+
+/**
+ * Returns true if the tier may mint API tokens: every paid tier. Premium is sold token
+ * creation (/docs/api: "Premium subscribers can create tokens"), so it is included;
+ * its tokens get the free API limits. Mirrors services/pkg/subscription.APITokenTier.
+ */
+export function canMintApiTokensForTier(tier: SubscriptionTier): boolean {
+  return tier === "premium" || tier === "pro" || tier === "enterprise" || tier === "api_access";
 }

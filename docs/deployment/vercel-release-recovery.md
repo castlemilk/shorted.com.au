@@ -1,6 +1,6 @@
 # Vercel release recovery
 
-The production web job pins Node 24.8.0 and Vercel CLI 54.10.2. Its production
+The production web job pins Node 24.22.1 (the reviewed security patch that `scripts/verify-build-node.mjs` enforces) and Vercel CLI 54.10.2. Its production
 environment pull runs before Cloud Run URL lookup, npm install and web compilation.
 Only read failures with explicit transient transport/status evidence get up to
 three attempts. Authentication challenges, authorization errors, build failures,

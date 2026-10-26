@@ -17,8 +17,6 @@ import (
 
 var now = time.Date(2026, 10, 11, 7, 40, 0, 0, time.UTC)
 
-func ptr[T any](v T) *T { return &v }
-
 func mustJSON(t *testing.T, v any) []byte {
 	t.Helper()
 	b, err := json.Marshal(v)
@@ -56,16 +54,16 @@ func TestEmptyAndUnreadable(t *testing.T) {
 		row               extractionRow
 		empty, unreadable bool
 	}{
-		{"no metrics or digest from a document with text", extractionRow{Metrics: []byte("{}"), RawTextLength: ptr(9997)}, true, false},
+		{"no metrics or digest from a document with text", extractionRow{Metrics: []byte("{}"), RawTextLength: new(9997)}, true, false},
 		{"text length unknown", extractionRow{Metrics: []byte("{}")}, true, false},
-		{"no text layer", extractionRow{Metrics: []byte("{}"), RawTextLength: ptr(40)}, false, true},
-		{"a digest with no confidence", extractionRow{Metrics: []byte("{}"), HasDigest: true, RawTextLength: ptr(9997)}, true, false},
-		{"metrics", extractionRow{Metrics: []byte(`{"revenue": {"source_text": "x"}}`), RawTextLength: ptr(9997)}, false, false},
-		{"a short document with a digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, RawTextLength: ptr(40)}, false, false},
-		{"no metrics and a digest too unsure to use", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.2), RawTextLength: ptr(11661)}, true, false},
-		{"no metrics and a digest under the latest-filing gate", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.45), RawTextLength: ptr(11661)}, true, false},
-		{"no metrics and a digest the latest filing shows", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.6), RawTextLength: ptr(11661)}, false, false},
-		{"a short document with a weak digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.2), RawTextLength: ptr(40)}, false, false},
+		{"no text layer", extractionRow{Metrics: []byte("{}"), RawTextLength: new(40)}, false, true},
+		{"a digest with no confidence", extractionRow{Metrics: []byte("{}"), HasDigest: true, RawTextLength: new(9997)}, true, false},
+		{"metrics", extractionRow{Metrics: []byte(`{"revenue": {"source_text": "x"}}`), RawTextLength: new(9997)}, false, false},
+		{"a short document with a digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, RawTextLength: new(40)}, false, false},
+		{"no metrics and a digest too unsure to use", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: new(0.2), RawTextLength: new(11661)}, true, false},
+		{"no metrics and a digest under the latest-filing gate", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: new(0.45), RawTextLength: new(11661)}, true, false},
+		{"no metrics and a digest the latest filing shows", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: new(0.6), RawTextLength: new(11661)}, false, false},
+		{"a short document with a weak digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: new(0.2), RawTextLength: new(40)}, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := isEmpty(tc.row); got != tc.empty {
@@ -85,7 +83,7 @@ func TestWithheldReasons(t *testing.T) {
 	results := "Appendix 4D and Half Year Report"
 	clean := func() extractionRow {
 		return extractionRow{
-			Title: results, CompanyName: "DroneShield Limited", HasDigest: true, DigestConfidence: ptr(0.9),
+			Title: results, CompanyName: "DroneShield Limited", HasDigest: true, DigestConfidence: new(0.9),
 			Metrics:      mustJSON(t, map[string]any{"revenue": grounded}),
 			DocumentMeta: []byte(`{"entity": "DroneShield Limited"}`),
 		}
@@ -102,9 +100,9 @@ func TestWithheldReasons(t *testing.T) {
 		{"every entry ungrounded", func(r *extractionRow) {
 			r.Metrics = mustJSON(t, map[string]any{"net_profit": unaligned})
 		}, []string{"metrics: 1 of 1 entries dropped by the trust funnel (0 few-shot echo) — none left"}},
-		{"digest under the API's gate", func(r *extractionRow) { r.DigestConfidence = ptr(0.45) },
+		{"digest under the API's gate", func(r *extractionRow) { r.DigestConfidence = new(0.45) },
 			[]string{"digest confidence 0.45 is under 0.6: the latest-filing summary skips it"}},
-		{"digest under the picks gate too", func(r *extractionRow) { r.DigestConfidence = ptr(0.2) },
+		{"digest under the picks gate too", func(r *extractionRow) { r.DigestConfidence = new(0.2) },
 			[]string{"digest confidence 0.20: the latest-filing summary (0.6) and the picks filings (0.3) skip it"}},
 		{"another entity's document", func(r *extractionRow) {
 			r.DocumentMeta = []byte(`{"entity": "Northern Star Resources Ltd"}`)
@@ -190,8 +188,8 @@ func TestUnreadResults(t *testing.T) {
 	}
 	states := map[string]extractionState{
 		"PARSED-fy": {Parsed: true, Attempts: 1},
-		"SCAN-fy":   {RawTextLength: ptr(40), Attempts: 1},
-		"EMPTY-fy":  {RawTextLength: ptr(9997), Attempts: 1, ExtractedAt: now.AddDate(0, 0, -30)},
+		"SCAN-fy":   {RawTextLength: new(40), Attempts: 1},
+		"EMPTY-fy":  {RawTextLength: new(9997), Attempts: 1, ExtractedAt: now.AddDate(0, 0, -30)},
 		"OLD-fy":    {},
 	}
 	var got []string
@@ -267,14 +265,14 @@ func fixture() *fakeSource {
 		attempts: true,
 		rows: []extractionRow{
 			{StockCode: "DRO", URL: "dro-h1", Title: "Appendix 4D and Half Year Report", Metrics: []byte("{}"),
-				RawTextLength: ptr(9997), Attempts: 1, ExtractedAt: now.AddDate(0, 0, -42), ReportDate: ptr(now.AddDate(0, 0, -46))},
-			{StockCode: "SCN", URL: "scn-fy", Title: "Annual Report", Metrics: []byte("{}"), RawTextLength: ptr(12), Attempts: 1, ExtractedAt: now},
+				RawTextLength: new(9997), Attempts: 1, ExtractedAt: now.AddDate(0, 0, -42), ReportDate: new(now.AddDate(0, 0, -46))},
+			{StockCode: "SCN", URL: "scn-fy", Title: "Annual Report", Metrics: []byte("{}"), RawTextLength: new(12), Attempts: 1, ExtractedAt: now},
 			{StockCode: "FPH", URL: "fph-date", Title: "FPH to announce half year results on 26 November 2026", Metrics: []byte("{}"),
-				HasDigest: true, DigestConfidence: ptr(0.2), RawTextLength: ptr(1944), Attempts: 1, ExtractedAt: now.AddDate(0, 0, -30)},
+				HasDigest: true, DigestConfidence: new(0.2), RawTextLength: new(1944), Attempts: 1, ExtractedAt: now.AddDate(0, 0, -30)},
 			{StockCode: "LOW", URL: "low-fy", Title: "Appendix 4E and Annual Report", Metrics: metrics, HasDigest: true,
-				DigestConfidence: ptr(0.45), RawTextLength: ptr(30000), Attempts: 1, ExtractedAt: now},
+				DigestConfidence: new(0.45), RawTextLength: new(30000), Attempts: 1, ExtractedAt: now},
 			{StockCode: "OK", URL: "ok-fy", Title: "Appendix 4E and Annual Report", Metrics: metrics, HasDigest: true,
-				DigestConfidence: ptr(0.9), RawTextLength: ptr(30000), Attempts: 1, ExtractedAt: now},
+				DigestConfidence: new(0.9), RawTextLength: new(30000), Attempts: 1, ExtractedAt: now},
 		},
 		companies: []companyRow{company("CBA", "2026-08-12", "", "180000000000"), company("OK", "2026-08-20", "", "")},
 		states:    map[string]extractionState{"OK-fy": {Parsed: true, Attempts: 1}},
@@ -449,7 +447,7 @@ func gmgEstimate() confirmedEstimateRow {
 		AttemptCode: "GMG", URL: gmgNotice, AttemptedAt: now,
 		Detail:    "1 rows; estimate confirmed by " + gmgFourE + "; actual amount due 2026-08-20",
 		StockCode: "GMG", ExDate: "2026-06-29", PeriodEnd: "2026-06-30", RecordDate: "2026-06-30", PayDate: "2026-08-26",
-		Type: "ordinary", Currency: "AUD", Amount: ptr(0.15), FrankedPct: ptr(0.0), AnnouncedOn: "2026-06-16",
+		Type: "ordinary", Currency: "AUD", Amount: new(0.15), FrankedPct: new(0.0), AnnouncedOn: "2026-06-16",
 	}
 }
 
@@ -520,7 +518,7 @@ func TestCollectAndRenderStoredEstimates(t *testing.T) {
 	replaced.StockCode, replaced.ExDate, replaced.Amount, replaced.FrankedPct = "", "", nil, nil
 	// A row its 4E no longer confirms: stored at 0.16, the 4E states 15.0c.
 	stale := gmgEstimate()
-	stale.URL, stale.Amount = "https://notice/stale", ptr(0.16)
+	stale.URL, stale.Amount = "https://notice/stale", new(0.16)
 	src.estimates = []confirmedEstimateRow{gmgEstimate(), replaced, stale}
 	src.documents = []announcements.ResultsDocument{gmgDocument(t)}
 	rep, err := collect(context.Background(), src, config{days: 90, limit: 25}, now)

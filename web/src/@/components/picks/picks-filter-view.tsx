@@ -31,14 +31,14 @@ import { PicksTable, type RuleColumn } from "./picks-table";
  * Status chips, sort chips and the ranked table for one status (null = the
  * shortlist), optionally sorted by a fundamentals figure.
  *
- * Props-only and hook-free. The page renders it directly as the <Suspense>
- * fallback with `status={null}` and no sort, so the shortlist table is in the
- * static HTML; the sort island (app/picks/[strategy]/picks-sorted-view.tsx)
- * renders the same component with the `?status=` and `?sort=` it reads and,
- * once the API has answered, the fetched rows. The chips are real links (each
- * filter and each sort is a URL), so they also work before hydration. They
- * are nofollow: every query URL serves the same static HTML under the page's
- * canonical, so following them only spends crawl budget.
+ * Props-only and hook-free. The sort island
+ * (app/picks/[strategy]/picks-sorted-view.tsx) renders it as its own
+ * <Suspense> fallback with `status={null}` and no sort, so the shortlist table
+ * is in the static HTML, and again with the `?status=` and `?sort=` it reads
+ * and, once the API has answered, the fetched rows. The chips are real links
+ * (each filter and each sort is a URL), so they also work before hydration.
+ * They are nofollow: every query URL serves the same static HTML under the
+ * page's canonical, so following them only spends crawl budget.
  *
  * `rows` is the SHORTLIST (shortlistRows, at most SHORTLIST_MAX_ROWS), not
  * every ranked row: a status filter is answered by the API, like a sort,
@@ -73,7 +73,7 @@ export interface PicksFilterViewProps {
   /**
    * Called when a reader reaches for a status or sort chip (pointer or
    * focus), so the island can start loading its fetch code before the click.
-   * Never passed by the server page.
+   * Not passed to the static fallback.
    */
   onSortIntent?: () => void;
 }

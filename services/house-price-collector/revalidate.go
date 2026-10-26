@@ -76,6 +76,36 @@ func pingRevalidate(reason string) {
 	log.Printf("[revalidate:%s] housing cache bust ok (status %d)", reason, resp.StatusCode)
 }
 
+// revalidateDeferEnv is set to 1 by the drain wrapper (hc_drain_until_empty in
+// deploy/housing-crawl-common.sh) for each `-mode agent` round it runs.
+const revalidateDeferEnv = "CRAWL_REVALIDATE_DEFER"
+
+// revalidateDeferredMarker is the STABLE log text the drain greps for in a
+// round's output to know the round wrote data and owes a cache bust. Changing it
+// breaks hc_drain_until_empty: the drain would never ping.
+const revalidateDeferredMarker = "deferred to the drain"
+
+// revalidateMode is the -mode the drain runs to send that one bust. The
+// wrapper names it literally, so renaming it alone leaves the drain calling a
+// mode the binary does not have.
+const revalidateMode = "revalidate"
+
+// revalidateAfterCrawlWrite busts the web tier's housing caches after a crawl
+// round refreshed the views over new data, unless the drain wrapper asked for
+// one bust per drain. A ping purges /price-drops, /housing and every suburb
+// page (tag housing) and flushes the whole housing KV prefix, and on Next 14 the
+// first request after a purge renders while the visitor waits. Pinging per
+// round purged them once per round, so through a drain nearly every
+// /price-drops visit was that first request: on 2026-10-21 two GETs 20 minutes
+// apart both waited 44s, Age 0.
+func revalidateAfterCrawlWrite(reason string) {
+	if os.Getenv(revalidateDeferEnv) == "1" {
+		log.Printf("[revalidate:%s] %s: it pings once for the whole drain", reason, revalidateDeferredMarker)
+		return
+	}
+	pingRevalidate(reason)
+}
+
 // redactURLError keeps endpoint details out of transport-error logs. A raw
 // *url.Error stringifies the FULL request URL, so an unwrapped transport failure
 // prints the revalidation endpoint — and any query it carries — straight into the
@@ -84,8 +114,7 @@ func pingRevalidate(reason string) {
 // of this path already did this via platform.PingRevalidate; the collector did
 // not, and the collector is the copy production runs.
 func redactURLError(err error) error {
-	var uerr *url.Error
-	if errors.As(err, &uerr) {
+	if uerr, ok := errors.AsType[*url.Error](err); ok {
 		return fmt.Errorf("%s [url redacted]: %w", uerr.Op, uerr.Err)
 	}
 	return err

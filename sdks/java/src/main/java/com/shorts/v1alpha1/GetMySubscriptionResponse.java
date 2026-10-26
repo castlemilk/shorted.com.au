@@ -207,6 +207,47 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int PAST_DUE_SINCE_FIELD_NUMBER = 7;
+  private com.google.protobuf.Timestamp pastDueSince_;
+  /**
+   * <pre>
+   * When the current past-due run's first failed charge happened, for the grace
+   * window. Unset unless status is PAST_DUE.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+   * @return Whether the pastDueSince field is set.
+   */
+  @java.lang.Override
+  public boolean hasPastDueSince() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <pre>
+   * When the current past-due run's first failed charge happened, for the grace
+   * window. Unset unless status is PAST_DUE.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+   * @return The pastDueSince.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Timestamp getPastDueSince() {
+    return pastDueSince_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : pastDueSince_;
+  }
+  /**
+   * <pre>
+   * When the current past-due run's first failed charge happened, for the grace
+   * window. Unset unless status is PAST_DUE.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.TimestampOrBuilder getPastDueSinceOrBuilder() {
+    return pastDueSince_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : pastDueSince_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -239,6 +280,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(stripeCustomerId_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 6, stripeCustomerId_);
     }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(7, getPastDueSince());
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -265,6 +309,10 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(stripeCustomerId_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(6, stripeCustomerId_);
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(7, getPastDueSince());
     }
     return size;
   }
@@ -303,6 +351,11 @@ private static final long serialVersionUID = 0L;
         != other.getCancelAtPeriodEnd()) return false;
     if (!getStripeCustomerId()
         .equals(other.getStripeCustomerId())) return false;
+    if (hasPastDueSince() != other.hasPastDueSince()) return false;
+    if (hasPastDueSince()) {
+      if (!getPastDueSince()
+          .equals(other.getPastDueSince())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -330,6 +383,10 @@ private static final long serialVersionUID = 0L;
         getCancelAtPeriodEnd());
     hash = (37 * hash) + STRIPE_CUSTOMER_ID_FIELD_NUMBER;
     hash = (53 * hash) + getStripeCustomerId().hashCode();
+    if (hasPastDueSince()) {
+      hash = (37 * hash) + PAST_DUE_SINCE_FIELD_NUMBER;
+      hash = (53 * hash) + getPastDueSince().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -465,6 +522,7 @@ private static final long serialVersionUID = 0L;
       if (com.google.protobuf.GeneratedMessage
               .alwaysUseFieldBuilders) {
         internalGetCurrentPeriodEndFieldBuilder();
+        internalGetPastDueSinceFieldBuilder();
       }
     }
     @java.lang.Override
@@ -481,6 +539,11 @@ private static final long serialVersionUID = 0L;
       }
       cancelAtPeriodEnd_ = false;
       stripeCustomerId_ = "";
+      pastDueSince_ = null;
+      if (pastDueSinceBuilder_ != null) {
+        pastDueSinceBuilder_.dispose();
+        pastDueSinceBuilder_ = null;
+      }
       return this;
     }
 
@@ -536,6 +599,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.stripeCustomerId_ = stripeCustomerId_;
       }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.pastDueSince_ = pastDueSinceBuilder_ == null
+            ? pastDueSince_
+            : pastDueSinceBuilder_.build();
+        to_bitField0_ |= 0x00000002;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -570,6 +639,9 @@ private static final long serialVersionUID = 0L;
         stripeCustomerId_ = other.stripeCustomerId_;
         bitField0_ |= 0x00000020;
         onChanged();
+      }
+      if (other.hasPastDueSince()) {
+        mergePastDueSince(other.getPastDueSince());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -629,6 +701,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000020;
               break;
             } // case 50
+            case 58: {
+              input.readMessage(
+                  internalGetPastDueSinceFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1077,6 +1156,172 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00000020;
       onChanged();
       return this;
+    }
+
+    private com.google.protobuf.Timestamp pastDueSince_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> pastDueSinceBuilder_;
+    /**
+     * <pre>
+     * When the current past-due run's first failed charge happened, for the grace
+     * window. Unset unless status is PAST_DUE.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+     * @return Whether the pastDueSince field is set.
+     */
+    public boolean hasPastDueSince() {
+      return ((bitField0_ & 0x00000040) != 0);
+    }
+    /**
+     * <pre>
+     * When the current past-due run's first failed charge happened, for the grace
+     * window. Unset unless status is PAST_DUE.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+     * @return The pastDueSince.
+     */
+    public com.google.protobuf.Timestamp getPastDueSince() {
+      if (pastDueSinceBuilder_ == null) {
+        return pastDueSince_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : pastDueSince_;
+      } else {
+        return pastDueSinceBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * When the current past-due run's first failed charge happened, for the grace
+     * window. Unset unless status is PAST_DUE.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+     */
+    public Builder setPastDueSince(com.google.protobuf.Timestamp value) {
+      if (pastDueSinceBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        pastDueSince_ = value;
+      } else {
+        pastDueSinceBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * When the current past-due run's first failed charge happened, for the grace
+     * window. Unset unless status is PAST_DUE.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+     */
+    public Builder setPastDueSince(
+        com.google.protobuf.Timestamp.Builder builderForValue) {
+      if (pastDueSinceBuilder_ == null) {
+        pastDueSince_ = builderForValue.build();
+      } else {
+        pastDueSinceBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * When the current past-due run's first failed charge happened, for the grace
+     * window. Unset unless status is PAST_DUE.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+     */
+    public Builder mergePastDueSince(com.google.protobuf.Timestamp value) {
+      if (pastDueSinceBuilder_ == null) {
+        if (((bitField0_ & 0x00000040) != 0) &&
+          pastDueSince_ != null &&
+          pastDueSince_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
+          getPastDueSinceBuilder().mergeFrom(value);
+        } else {
+          pastDueSince_ = value;
+        }
+      } else {
+        pastDueSinceBuilder_.mergeFrom(value);
+      }
+      if (pastDueSince_ != null) {
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * When the current past-due run's first failed charge happened, for the grace
+     * window. Unset unless status is PAST_DUE.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+     */
+    public Builder clearPastDueSince() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      pastDueSince_ = null;
+      if (pastDueSinceBuilder_ != null) {
+        pastDueSinceBuilder_.dispose();
+        pastDueSinceBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * When the current past-due run's first failed charge happened, for the grace
+     * window. Unset unless status is PAST_DUE.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+     */
+    public com.google.protobuf.Timestamp.Builder getPastDueSinceBuilder() {
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return internalGetPastDueSinceFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * When the current past-due run's first failed charge happened, for the grace
+     * window. Unset unless status is PAST_DUE.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+     */
+    public com.google.protobuf.TimestampOrBuilder getPastDueSinceOrBuilder() {
+      if (pastDueSinceBuilder_ != null) {
+        return pastDueSinceBuilder_.getMessageOrBuilder();
+      } else {
+        return pastDueSince_ == null ?
+            com.google.protobuf.Timestamp.getDefaultInstance() : pastDueSince_;
+      }
+    }
+    /**
+     * <pre>
+     * When the current past-due run's first failed charge happened, for the grace
+     * window. Unset unless status is PAST_DUE.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp past_due_since = 7 [json_name = "pastDueSince"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
+        internalGetPastDueSinceFieldBuilder() {
+      if (pastDueSinceBuilder_ == null) {
+        pastDueSinceBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
+                getPastDueSince(),
+                getParentForChildren(),
+                isClean());
+        pastDueSince_ = null;
+      }
+      return pastDueSinceBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetMySubscriptionResponse)

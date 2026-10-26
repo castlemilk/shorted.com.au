@@ -121,11 +121,11 @@ func runBatchProcessor(ctx context.Context, processor *enrichmentProcessor) erro
 	// Process stocks concurrently with a semaphore to limit concurrency
 	sem := semaphore.NewWeighted(int64(config.concurrency))
 	var (
-		mu         sync.Mutex
-		results    []batchResult
-		succeeded  int64
-		failed     int64
-		skipped    int64
+		mu        sync.Mutex
+		results   []batchResult
+		succeeded atomic.Int64
+		failed    atomic.Int64
+		skipped   atomic.Int64
 	)
 
 	startTime := time.Now()
@@ -168,7 +168,7 @@ func runBatchProcessor(ctx context.Context, processor *enrichmentProcessor) erro
 				logger.Infof("Skipping %s - already has an active job (id=%s, status=%s)",
 					cand.StockCode, activeJob.JobId, activeJob.Status)
 				result.status = "skipped"
-				atomic.AddInt64(&skipped, 1)
+				skipped.Add(1)
 				mu.Lock()
 				results = append(results, result)
 				mu.Unlock()
@@ -181,7 +181,7 @@ func runBatchProcessor(ctx context.Context, processor *enrichmentProcessor) erro
 				logger.Errorf("Failed to create enrichment job for %s: %v", cand.StockCode, err)
 				result.status = "failed"
 				result.err = err
-				atomic.AddInt64(&failed, 1)
+				failed.Add(1)
 				mu.Lock()
 				results = append(results, result)
 				mu.Unlock()
@@ -195,11 +195,11 @@ func runBatchProcessor(ctx context.Context, processor *enrichmentProcessor) erro
 				logger.Errorf("Failed to enrich %s (job %s): %v", cand.StockCode, jobID, err)
 				result.status = "failed"
 				result.err = err
-				atomic.AddInt64(&failed, 1)
+				failed.Add(1)
 			} else {
 				logger.Infof("Successfully enriched %s (job %s)", cand.StockCode, jobID)
 				result.status = "succeeded"
-				atomic.AddInt64(&succeeded, 1)
+				succeeded.Add(1)
 			}
 
 			mu.Lock()
@@ -219,7 +219,7 @@ func runBatchProcessor(ctx context.Context, processor *enrichmentProcessor) erro
 	logger.Infof("=== Batch Enrichment Complete ===")
 	logger.Infof("Duration: %v", elapsed.Round(time.Second))
 	logger.Infof("Batch complete: %d succeeded, %d failed, %d skipped",
-		atomic.LoadInt64(&succeeded), atomic.LoadInt64(&failed), atomic.LoadInt64(&skipped))
+		succeeded.Load(), failed.Load(), skipped.Load())
 
 	// Log failures for debugging
 	mu.Lock()

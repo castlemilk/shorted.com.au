@@ -42,13 +42,13 @@ func TestDataSourceExposesOnlyPublicMethods(t *testing.T) {
 		}
 	}
 
-	iface := reflect.TypeOf((*DataSource)(nil)).Elem()
+	iface := reflect.TypeFor[DataSource]()
 	if iface.NumMethod() == 0 {
 		t.Fatal("DataSource has no methods — this test would pass vacuously")
 	}
 
-	for i := 0; i < iface.NumMethod(); i++ {
-		name := iface.Method(i).Name
+	for method := range iface.Methods() {
+		name := method.Name
 		if len(byName[name]) == 0 {
 			t.Errorf(
 				"DataSource declares %s, which matches no VISIBILITY_PUBLIC rpc — "+
@@ -77,9 +77,9 @@ func TestDataSourceMethodsAreAllReachableFromSomeTool(t *testing.T) {
 		}
 	}
 
-	iface := reflect.TypeOf((*DataSource)(nil)).Elem()
-	for i := 0; i < iface.NumMethod(); i++ {
-		name := iface.Method(i).Name
+	iface := reflect.TypeFor[DataSource]()
+	for method := range iface.Methods() {
+		name := method.Name
 		if !declared[name] {
 			t.Errorf(
 				"DataSource declares %s but no tool declares it — remove it rather "+

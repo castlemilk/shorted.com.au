@@ -496,9 +496,9 @@ func normUnit(s string) string {
 func parseAddressParts(streetPortion string) addressParts {
 	s := strings.Join(strings.Fields(streetPortion), " ") // collapse all whitespace
 	var unit, rest string
-	if i := strings.IndexByte(s, '/'); i >= 0 {
-		unit = normUnit(s[:i])
-		rest = strings.TrimSpace(s[i+1:])
+	if before, after, ok := strings.Cut(s, "/"); ok {
+		unit = normUnit(before)
+		rest = strings.TrimSpace(after)
 	} else {
 		rest = s
 	}

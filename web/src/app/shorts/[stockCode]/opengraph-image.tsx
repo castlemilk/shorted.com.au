@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getStock } from "~/app/actions/getStock";
 import { getCompanyLogo, OgLogoChip } from "~/@/lib/og/card";
+import { shortPercentFigure } from "~/@/lib/stocks/short-percent";
 
 export const maxDuration = 15;
 
@@ -102,10 +103,9 @@ export default async function Image({
   const brand = await getCompanyLogo(stockData?.logoUrl);
 
   const companyName = stockData?.name ?? "";
-  const shortPct =
-    stockData && stockData.percentageShorted > 0
-      ? `${stockData.percentageShorted.toFixed(1)}%`
-      : "N/A";
+  // One decimal on the card, so a position under 0.05% reads "<0.1%", never
+  // "0.0%" (the page's one rule, ~/@/lib/stocks/short-percent).
+  const shortPct = shortPercentFigure(stockData?.percentageShorted, 1) ?? "N/A";
 
   return new ImageResponse(
     (

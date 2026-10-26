@@ -126,14 +126,8 @@ func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Reques
 	// the default rank order, which is only ever read below).
 	matching := strategies.SortPicks(filterPicks(eval.picks, status, req.Msg.RequireFundamentals), sortBy)
 	total := len(matching)
-	start := int(req.Msg.Offset)
-	if start > total {
-		start = total
-	}
-	end := start + limit
-	if end > total {
-		end = total
-	}
+	start := min(int(req.Msg.Offset), total)
+	end := min(start+limit, total)
 
 	u := eval.universe
 	resp := &shortsv1alpha1.GetStrategyPicksResponse{
@@ -180,7 +174,7 @@ func (s *ShortsServer) loadMarketRegime(ctx context.Context) (strategies.Regime,
 	// with concurrent callers), so it must not inherit that request's
 	// cancellation. The store applies its own timeout.
 	fillCtx := context.WithoutCancel(ctx)
-	v, err := s.cache.GetOrSetWithTTL(s.cache.GetMarketRegimeKey(strategies.DefaultIndexCode), strategyCacheTTL, func() (interface{}, error) {
+	v, err := s.cache.GetOrSetWithTTL(s.cache.GetMarketRegimeKey(strategies.DefaultIndexCode), strategyCacheTTL, func() (any, error) {
 		return s.store.GetMarketRegime(fillCtx, strategies.DefaultIndexCode)
 	})
 	if err != nil {
@@ -193,7 +187,7 @@ func (s *ShortsServer) loadMarketRegime(ctx context.Context) (strategies.Regime,
 // indexed, cached for strategyCacheTTL and shared by all strategies.
 func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUniverse, error) {
 	fillCtx := context.WithoutCancel(ctx)
-	v, err := s.cache.GetOrSetWithTTL(s.cache.GetStrategyUniverseKey(), strategyCacheTTL, func() (interface{}, error) {
+	v, err := s.cache.GetOrSetWithTTL(s.cache.GetStrategyUniverseKey(), strategyCacheTTL, func() (any, error) {
 		cands, err := s.store.ListStrategyCandidates(fillCtx)
 		if err != nil {
 			return nil, err
@@ -231,7 +225,7 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 // loadStrategyEvaluation returns one strategy's full ranked pick list,
 // evaluated once per cache fill against the universe's shared environment.
 func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st strategies.Strategy) (*strategyEvaluation, error) {
-	v, err := s.cache.GetOrSetWithTTL(s.cache.GetStrategyPicksKey(st.ID), strategyCacheTTL, func() (interface{}, error) {
+	v, err := s.cache.GetOrSetWithTTL(s.cache.GetStrategyPicksKey(st.ID), strategyCacheTTL, func() (any, error) {
 		u, err := s.loadStrategyUniverse(ctx)
 		if err != nil {
 			return nil, err

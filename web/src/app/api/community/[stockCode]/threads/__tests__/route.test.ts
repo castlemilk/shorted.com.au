@@ -193,4 +193,59 @@ describe("/api/community/[stockCode]/threads", () => {
       }),
     );
   });
+
+  // The thread page links every stored source. A source whose URL is not
+  // http(s) (a javascript: or data: "source") is dropped before it is stored
+  // (security review SEC-07); the page checks again on the way out.
+  it("stores only the sources whose URL is http(s), trimmed", async () => {
+    (auth as jest.Mock).mockResolvedValue({
+      user: { id: "user-123", name: "Test User", email: "test@example.com" },
+    });
+    (createCommunityThread as jest.Mock).mockResolvedValue({
+      id: "thread-3",
+      stockCode: "CBA",
+      type: "bull",
+      title: "Three notes",
+      body: "See the sources.",
+      score: 0,
+      commentCount: 0,
+      sourceCount: 1,
+      highSignal: false,
+      createdAt: new Date("2026-04-11T08:00:00Z"),
+      updatedAt: new Date("2026-04-11T08:00:00Z"),
+      lastActivityAt: new Date("2026-04-11T08:00:00Z"),
+      status: "published",
+    });
+
+    const request = new NextRequest(
+      "http://localhost:3020/api/community/CBA/threads",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          type: "bull",
+          title: "Three notes",
+          body: "See the sources.",
+          sources: [
+            { label: "Broker note", url: "  https://example.com/note  " },
+            { label: "Script", url: "javascript:alert(document.cookie)" },
+            { label: "Hidden script", url: " \tjavascript:alert(1)" },
+            { label: "Data", url: "data:text/html,<b>x</b>" },
+            { label: "Relative", url: "//evil.example/x" },
+            { label: "Not a string", url: 42 },
+          ],
+        }),
+      },
+    );
+
+    const response = await POST(request, {
+      params: Promise.resolve({ stockCode: "CBA" }),
+    });
+
+    expect(response?.status).toBe(201);
+    expect(createCommunityThread).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sources: [{ label: "Broker note", url: "https://example.com/note" }],
+      }),
+    );
+  });
 });

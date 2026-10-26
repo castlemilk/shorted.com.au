@@ -293,14 +293,14 @@ func TestConfirmedEstimateUpsertAgainstPostgres(t *testing.T) {
 		want     int
 	}{
 		{"no row yet", nil, nil, store.UpsertConfirmedEstimates, gmgRow("2026-06-29", "03104557", "2026-06-16"), 1},
-		{"its own row", ptrTo(gmgRow("2026-07-29", "03104557", "2026-06-16")), confirmed, store.UpsertConfirmedEstimates, gmgRow("2026-07-29", "03104557", "2026-06-16"), 1},
-		{"a confirmed estimate of an earlier day", ptrTo(gmgRow("2026-08-29", "03100001", "2026-06-01")), confirmed, store.UpsertConfirmedEstimates, gmgRow("2026-08-29", "03104557", "2026-06-16"), 1},
-		{"a confirmed estimate of the same day", ptrTo(gmgRow("2026-09-29", "03100002", "2026-06-16")), confirmed, store.UpsertConfirmedEstimates, gmgRow("2026-09-29", "03104557", "2026-06-16"), 0},
-		{"a declared row of an earlier day", ptrTo(gmgRow("2026-10-29", "03100003", "2026-06-01")), declared, store.UpsertConfirmedEstimates, gmgRow("2026-10-29", "03104557", "2026-06-16"), 0},
-		{"a declared row with no announced_on", ptrTo(gmgRow("2026-11-29", "03100004", "")), declared, store.UpsertConfirmedEstimates, gmgRow("2026-11-29", "03104557", "2026-06-16"), 0},
-		{"a declared row of a later day", ptrTo(gmgRow("2026-12-29", "03100005", "2026-07-01")), declared, store.UpsertConfirmedEstimates, gmgRow("2026-12-29", "03104557", "2026-06-16"), 0},
-		{"an update of the same day replaces a confirmed estimate", ptrTo(gmgRow("2027-01-29", "03100006", "2026-06-16")), confirmed, store.UpsertDividends, gmgRow("2027-01-29", "03104558", "2026-06-16"), 1},
-		{"an update of an earlier day does not", ptrTo(gmgRow("2027-02-26", "03100007", "2026-06-16")), confirmed, store.UpsertDividends, gmgRow("2027-02-26", "03100000", "2026-06-01"), 0},
+		{"its own row", new(gmgRow("2026-07-29", "03104557", "2026-06-16")), confirmed, store.UpsertConfirmedEstimates, gmgRow("2026-07-29", "03104557", "2026-06-16"), 1},
+		{"a confirmed estimate of an earlier day", new(gmgRow("2026-08-29", "03100001", "2026-06-01")), confirmed, store.UpsertConfirmedEstimates, gmgRow("2026-08-29", "03104557", "2026-06-16"), 1},
+		{"a confirmed estimate of the same day", new(gmgRow("2026-09-29", "03100002", "2026-06-16")), confirmed, store.UpsertConfirmedEstimates, gmgRow("2026-09-29", "03104557", "2026-06-16"), 0},
+		{"a declared row of an earlier day", new(gmgRow("2026-10-29", "03100003", "2026-06-01")), declared, store.UpsertConfirmedEstimates, gmgRow("2026-10-29", "03104557", "2026-06-16"), 0},
+		{"a declared row with no announced_on", new(gmgRow("2026-11-29", "03100004", "")), declared, store.UpsertConfirmedEstimates, gmgRow("2026-11-29", "03104557", "2026-06-16"), 0},
+		{"a declared row of a later day", new(gmgRow("2026-12-29", "03100005", "2026-07-01")), declared, store.UpsertConfirmedEstimates, gmgRow("2026-12-29", "03104557", "2026-06-16"), 0},
+		{"an update of the same day replaces a confirmed estimate", new(gmgRow("2027-01-29", "03100006", "2026-06-16")), confirmed, store.UpsertDividends, gmgRow("2027-01-29", "03104558", "2026-06-16"), 1},
+		{"an update of an earlier day does not", new(gmgRow("2027-02-26", "03100007", "2026-06-16")), confirmed, store.UpsertDividends, gmgRow("2027-02-26", "03100000", "2026-06-01"), 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.existing != nil {
@@ -333,8 +333,6 @@ func TestConfirmedEstimateUpsertAgainstPostgres(t *testing.T) {
 		})
 	}
 }
-
-func ptrTo[T any](v T) *T { return &v }
 
 // An estimated_only notice is read again once its due date has passed and an
 // extraction of its listing code with a dividend and a period end has been

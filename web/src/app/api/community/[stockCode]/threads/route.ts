@@ -16,6 +16,7 @@ import {
 } from "~/@/lib/community/public-read-fallback";
 import { moderateCommunityText } from "~/@/lib/community/moderation";
 import { auth } from "~/server/auth";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 const STOCK_CODE_PATTERN = /^[A-Z0-9]{1,4}$/;
 const THREAD_TYPES = new Set([
@@ -134,11 +135,13 @@ export async function POST(
     const type = body?.type ?? "";
     const title = body?.title?.trim() ?? "";
     const content = body?.body?.trim() ?? "";
+    // The thread page links each source, so only an http(s) URL is kept: a
+    // javascript: or data: "source" is never stored (the page checks again).
     const sources =
       body?.sources
         ?.map((source) => ({
           label: source.label?.trim() ?? "",
-          url: source.url?.trim() ?? "",
+          url: safeExternalHref(source.url) ?? "",
         }))
         .filter((source) => source.label && source.url) ?? [];
 

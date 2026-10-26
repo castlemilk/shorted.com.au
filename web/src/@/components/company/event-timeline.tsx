@@ -23,6 +23,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { cn } from "~/@/lib/utils";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 interface EventTimelineProps {
   stockCode: string;
@@ -147,7 +148,8 @@ export function EventTimeline({
             {events.map((event, idx) => {
               const config = getEventConfig(event.type);
               const Icon = config.icon;
-              const hasUrl = Boolean(event.url);
+              // A stored URL: a link only when it is http(s).
+              const eventHref = safeExternalHref(event.url);
 
               return (
                 <div key={idx} className="flex gap-4 relative">
@@ -178,9 +180,9 @@ export function EventTimeline({
                     </div>
 
                     {/* Title */}
-                    {hasUrl ? (
+                    {eventHref ? (
                       <a
-                        href={event.url}
+                        href={eventHref}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group inline-flex items-start gap-1"

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { EnrichmentService } from "~/gen/shorts/v1alpha1/enrichment_pb";
 import { requireAdmin } from "~/server/admin";
+import { internalServiceSecret } from "~/server/internal-service-secret";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
 
@@ -39,7 +40,7 @@ export async function reviewEnrichmentAction(formData: FormData) {
     baseUrl: SHORTS_API_URL,
   });
   const client = createClient(EnrichmentService, transport);
-  const internalSecret = process.env.INTERNAL_SECRET ?? "dev-internal-secret";
+  const internalSecret = internalServiceSecret();
 
   await retryWithBackoff(
     () =>
@@ -55,6 +56,9 @@ export async function reviewEnrichmentAction(formData: FormData) {
               "X-Internal-Secret": internalSecret,
               "X-User-Email": admin.email,
               "X-User-Id": admin.userId,
+              // Asserted only because requireAdmin() above just passed. The API grants
+              // admin from this header and from nothing else.
+              "X-User-Roles": "admin",
             },
         },
       ),

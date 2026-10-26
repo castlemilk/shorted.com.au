@@ -287,7 +287,7 @@ func (s *ShortsServer) GetDonationsOverview(
 	fy := normaliseFinancialYear(req.Msg.FinancialYear)
 	limit := clampDonationsLimit(req.Msg.Limit, 25, 100)
 
-	cached, err := s.cache.GetOrSet(s.cache.GetDonationsOverviewKey(fy, limit), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.GetDonationsOverviewKey(fy, limit), func() (any, error) {
 		row, err := s.store.GetDonationsOverview(fy, limit)
 		if err != nil {
 			return nil, err
@@ -372,7 +372,7 @@ func (s *ShortsServer) ListTopDonors(
 
 	cached, err := s.cache.GetOrSet(
 		s.cache.ListTopDonorsKey(fy, partyGroup, limit, offset),
-		func() (interface{}, error) {
+		func() (any, error) {
 			row, err := s.store.ListTopDonors(fy, partyGroup, limit, offset)
 			if err != nil {
 				return nil, err
@@ -425,7 +425,7 @@ func (s *ShortsServer) ListPartyFunding(
 
 	cached, err := s.cache.GetOrSet(
 		s.cache.ListPartyFundingKey(partyGroup, fy, limit),
-		func() (interface{}, error) {
+		func() (any, error) {
 			row, err := s.store.ListPartyFunding(partyGroup, fy, limit)
 			if err != nil {
 				return nil, err
@@ -483,7 +483,7 @@ func (s *ShortsServer) GetPoliticianFunding(
 		return connect.NewResponse(&shortsv1alpha1.GetPoliticianFundingResponse{}), nil
 	}
 
-	cached, err := s.cache.GetOrSet(s.cache.GetPoliticianFundingKey(slug), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.GetPoliticianFundingKey(slug), func() (any, error) {
 		row, err := s.store.GetPoliticianFunding(slug)
 		if err != nil {
 			return nil, err

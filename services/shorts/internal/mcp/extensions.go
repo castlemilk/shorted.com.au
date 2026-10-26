@@ -120,7 +120,7 @@ func jsonResource(uri string, value any) (*sdk.ReadResourceResult, error) {
 	if strings.HasPrefix(uri, "shorted-admin:") {
 		cacheScope = "private"
 	}
-	return &sdk.ReadResourceResult{Cacheable: sdk.Cacheable{CacheScope: cacheScope}, Contents: []*sdk.ResourceContents{{URI: uri, MIMEType: "application/json", Text: string(raw)}}}, nil
+	return &sdk.ReadResourceResult{CacheScope: cacheScope, Contents: []*sdk.ResourceContents{{URI: uri, MIMEType: "application/json", Text: string(raw)}}}, nil
 }
 func jobResourceURI(j jobmonitor.JobStatus) string {
 	region := j.Region

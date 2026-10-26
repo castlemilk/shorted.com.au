@@ -13,7 +13,7 @@ import (
 
 // Row is a minimal interface for scanning a single database row.
 type Row interface {
-	Scan(dest ...interface{}) error
+	Scan(dest ...any) error
 }
 
 // SyncStatusFilter defines filtering options for sync status queries
@@ -82,7 +82,7 @@ type Store interface {
 	// Key metrics sync methods
 	GetAllStockCodes() ([]string, error)
 	StockExists(stockCode string) (bool, error)
-	UpdateKeyMetrics(stockCode string, metrics map[string]interface{}) error
+	UpdateKeyMetrics(stockCode string, metrics map[string]any) error
 
 	// Enrichment (v2) review workflow methods
 	GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error)
@@ -114,6 +114,14 @@ type Store interface {
 	UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *APISubscriptionUpdate) error
 	CreateAlertMonitor(input CreateAlertMonitorInput) (*AlertMonitor, error)
 	ListAlertMonitors(userID string, limit, offset int32) ([]*AlertMonitor, int32, error)
+	UpdateAlertMonitorStatus(userID, monitorID, status, userEmail string) (*AlertMonitor, error)
+	RefreshAlertMonitorEmail(userID, userEmail string) error
+	DeleteAlertMonitor(userID, monitorID string) error
+	PauseAlertMonitorByID(monitorID string) (*AlertMonitor, bool, error)
+	ListAlertEvents(userID, monitorID string, limit, offset int32) ([]*AlertEvent, int32, error)
+	CanonicalIndustry(target string) (string, bool, error)
+	StockCodeKnown(code string) (bool, error)
+	AlertCheckedThrough() (string, error)
 
 	// Weekly report methods
 	GetWeeklyReport(weekSlug string) (*WeeklyReport, error)
@@ -274,7 +282,7 @@ type Store interface {
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)
 
 	// Raw query access (used for Algolia sync)
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) Row
+	QueryRowContext(ctx context.Context, query string, args ...any) Row
 }
 
 // Broadcast represents a mailing-list broadcast stored in the database.
@@ -354,6 +362,9 @@ type APISubscription struct {
 	CurrentPeriodStart   *string
 	CurrentPeriodEnd     *string
 	CancelAtPeriodEnd    bool
+	// PastDueSince is when the current past-due run's first failed charge happened.
+	// Set only while Status is past_due; nil means no grace (see subscription.PastDueGrace).
+	PastDueSince *string
 }
 
 // APISubscriptionUpdate represents fields to update on a subscription
@@ -363,10 +374,32 @@ type APISubscriptionUpdate struct {
 	CurrentPeriodStart *string
 	CurrentPeriodEnd   *string
 	CancelAtPeriodEnd  *bool
+	// PastDueSince is the failure time to start a past-due run from. Used only when
+	// Status is set: the row keeps its existing start while it stays past_due, starts
+	// one at the first past_due write (from this value, else now), and clears it on any
+	// other status. Nil on a past_due write means "start from now".
+	PastDueSince *string
+	// StripeSubscriptionID is the subscription the row's state describes. Nil or
+	// empty leaves the row's id as it is: a blank id never replaces a real one.
+	StripeSubscriptionID *string
 }
 
 // ErrAlertMonitorExists is returned when a user already has the same active monitor.
 var ErrAlertMonitorExists = errors.New("alert monitor already exists")
+
+// MaxActiveAlertMonitors caps the active monitors one user may hold. Every active
+// monitor sends its own email, so the cap bounds one account's share of the shared
+// send budget and of its own inbox. Paused monitors do not count.
+const MaxActiveAlertMonitors = 50
+
+// ErrAlertMonitorLimit is returned when creating or resuming a monitor would take the
+// user past MaxActiveAlertMonitors.
+var ErrAlertMonitorLimit = errors.New("alert monitor limit reached")
+
+// ErrAlertMonitorNotFound is returned when no monitor has the id for this user. A
+// monitor that belongs to someone else is reported the same way, so its existence
+// is not revealed.
+var ErrAlertMonitorNotFound = errors.New("alert monitor not found")
 
 // AlertMonitor represents a persisted short-interest monitor.
 type AlertMonitor struct {
@@ -381,6 +414,30 @@ type AlertMonitor struct {
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+
+	// The newest alert event, read with the list. Nil when the monitor has never
+	// fired, and on rows read without the event join.
+	LastEventReportDate  *string
+	LastEventEmailStatus *string
+	LastEventAt          *time.Time
+}
+
+// AlertEvent is one alert a monitor fired: a row of alert_events.
+type AlertEvent struct {
+	ID             int64
+	MonitorID      string
+	Scope          string
+	Target         string
+	Condition      string
+	Threshold      *float64
+	Cadence        string
+	ReportDate     string // YYYY-MM-DD
+	ComparedToDate string // YYYY-MM-DD
+	// Payload is the JSON services/pkg/alertevents.Payload the evaluator wrote.
+	Payload     []byte
+	EmailStatus string
+	SentAt      *time.Time
+	CreatedAt   time.Time
 }
 
 // CreateAlertMonitorInput contains validated alert monitor fields.

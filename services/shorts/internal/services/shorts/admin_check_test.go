@@ -45,7 +45,7 @@ func TestAdminCheckerCachesAndExpires(t *testing.T) {
 		calls.Add(1)
 		_, _ = w.Write([]byte(answer))
 	})
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		if ok, _ := c.IsAdmin(context.Background(), "uid-1"); !ok {
 			t.Fatal("want admin")
 		}

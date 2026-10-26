@@ -3,7 +3,8 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { EnrichmentService } from "~/gen/shorts/v1alpha1/enrichment_pb";
-import { auth } from "~/server/auth";
+import { requireAdmin } from "~/server/admin";
+import { internalServiceSecret } from "~/server/internal-service-secret";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { revalidatePath } from "next/cache";
 import { retryWithBackoff } from "@/lib/retry";
@@ -15,10 +16,9 @@ const RETRY_OPTIONS = {
 };
 
 export async function triggerEnrichmentAction(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.email || !session?.user?.isAdmin) {
-    throw new Error("Unauthorized: Admin access required");
-  }
+  // Gate in-action. Server actions are addressable by action-id, so the
+  // session flag a caller checks in the UI is not authorization on its own.
+  const admin = await requireAdmin();
 
   const stockCode = formData.get("stockCode") as string;
   const force = formData.get("force") === "true";
@@ -33,7 +33,7 @@ export async function triggerEnrichmentAction(formData: FormData) {
   });
   const client = createClient(EnrichmentService, transport);
 
-  const internalSecret = process.env.INTERNAL_SECRET ?? "dev-internal-secret";
+  const internalSecret = internalServiceSecret();
 
   try {
     const resp = await retryWithBackoff(
@@ -46,8 +46,10 @@ export async function triggerEnrichmentAction(formData: FormData) {
           {
             headers: {
               "X-Internal-Secret": internalSecret,
-              "X-User-Email": session.user.email ?? "",
-              "X-User-Id": session.user.id,
+              "X-User-Email": admin.email,
+              "X-User-Id": admin.userId,
+              // Asserted only because requireAdmin() above just passed.
+              "X-User-Roles": "admin",
             },
           },
         ),

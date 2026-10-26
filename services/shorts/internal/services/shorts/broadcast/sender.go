@@ -46,7 +46,7 @@ func Send(ctx context.Context, cfg Config, subject, title, bodyHTML, bodyText st
 	idx := 0
 	for _, n := range sizes {
 		batch := make([]resendEmail, 0, n)
-		for i := 0; i < n; i++ {
+		for range n {
 			r := recipients[idx]
 			idx++
 			tok := sign(r.ID, cfg.UnsubscribeSecret)
@@ -77,7 +77,7 @@ func postBatch(ctx context.Context, client *http.Client, apiKey string, batch []
 	if err != nil {
 		return err
 	}
-	for attempt := 0; attempt < 2; attempt++ {
+	for attempt := range 2 {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendBatchEndpoint, bytes.NewReader(body))
 		if err != nil {
 			return err
@@ -106,10 +106,7 @@ func postBatch(ctx context.Context, client *http.Client, apiKey string, batch []
 func chunk(total, size int) []int {
 	var out []int
 	for total > 0 {
-		n := size
-		if total < size {
-			n = total
-		}
+		n := min(total, size)
 		out = append(out, n)
 		total -= n
 	}

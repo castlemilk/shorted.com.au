@@ -73,10 +73,7 @@ func parseG14(rows [][]string) (map[string]religionStats, error) {
 		}
 		catholic := atoiCell(cell(row, c["Christianity_Catholic_P"]))
 		anglican := atoiCell(cell(row, c["Christianity_Anglican_P"]))
-		othChristian := atoiCell(cell(row, c["Christianity_Tot_P"])) - catholic - anglican
-		if othChristian < 0 {
-			othChristian = 0
-		}
+		othChristian := max(atoiCell(cell(row, c["Christianity_Tot_P"]))-catholic-anglican, 0)
 		noRel := atoiCell(cell(row, c["SB_OSB_NRA_NR_P"]))
 		totP := atoiCell(cell(row, c["Tot_P"]))
 		cats := []struct {

@@ -123,9 +123,34 @@ describe("SuburbPriceDropsPanel links", () => {
     expect(unlinked.closest("a")).toBeNull();
     const linked = screen.getByText("parramatta").closest("a");
     expect(linked).not.toBeNull();
-    expect(linked!.getAttribute("href")).toContain("sal=12345");
-    for (const a of screen.getAllByRole("link")) {
-      expect(a.getAttribute("href")).not.toMatch(/[?&]sal=(&|$)/);
+    expect(linked!.getAttribute("href")).toBe("/housing/nsw/parramatta");
+  });
+
+  // A board row's postcode is the crawl region's, which the SAL feed does not
+  // carry, so "-2150" made every link redirect, and for an ABS-qualified name
+  // it 404'd: /housing/nsw/abbotsford-nsw-2046 did on 2026-10-21, while
+  // /housing/nsw/abbotsford-nsw answered 200. Links are the canonical path.
+  it("links each suburb by its canonical path: no query, no crawl postcode", async () => {
+    listSuburbPriceDropsClient.mockResolvedValue({
+      suburbs: [
+        row({ regionCode: "SUBURB:NSW-2150-PARRAMATTA" }),
+        row({ regionCode: "SUBURB:NSW-2046-ABBOTSFORD", salCode: "10003", salName: "Abbotsford (NSW)", postcode: "2046" }),
+        row({ regionCode: "SUBURB:VIC-3350-ASCOT", salCode: "20073", salName: "Ascot (Ballarat - Vic.)", stateCode: "VIC", postcode: "3350" }),
+        row({ regionCode: "SUBURB:VIC-3551-ASCOT", salCode: "20074", salName: "Ascot (Greater Bendigo - Vic.)", stateCode: "VIC", postcode: "3551" }),
+      ],
+    });
+    renderPanel();
+    await screen.findByText("parramatta");
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual([
+      "/housing/nsw/parramatta",
+      "/housing/nsw/abbotsford-nsw",
+      "/housing/vic/ascot-ballarat-vic",
+      "/housing/vic/ascot-greater-bendigo-vic",
+    ]);
+    for (const href of hrefs) {
+      expect(href).not.toContain("?");
+      expect(href).not.toMatch(/-\d{4}$/);
     }
   });
 });

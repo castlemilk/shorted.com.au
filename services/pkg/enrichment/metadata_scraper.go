@@ -15,30 +15,30 @@ import (
 type ScrapedMetadata struct {
 	// Leadership/Board information
 	LeadershipPages []LeadershipPage `json:"leadership_pages"`
-	
+
 	// About/Company information pages
 	AboutPages []AboutPage `json:"about_pages"`
-	
+
 	// Key links found on the website
 	KeyLinks []KeyLink `json:"key_links"`
-	
+
 	// Raw text content from important pages (for LLM context)
 	ContextText string `json:"context_text"`
 }
 
 // LeadershipPage contains information about leadership/board pages
 type LeadershipPage struct {
-	URL         string   `json:"url"`
-	Title       string   `json:"title"`
-	People      []Person `json:"people"`
-	Content     string   `json:"content"` // Cleaned text content
+	URL     string   `json:"url"`
+	Title   string   `json:"title"`
+	People  []Person `json:"people"`
+	Content string   `json:"content"` // Cleaned text content
 }
 
 // AboutPage contains information about company/about pages
 type AboutPage struct {
-	URL        string `json:"url"`
-	Title      string `json:"title"`
-	Content    string `json:"content"` // Extracted text content
+	URL     string `json:"url"`
+	Title   string `json:"title"`
+	Content string `json:"content"` // Extracted text content
 }
 
 // Person represents a key person found on leadership pages
@@ -70,8 +70,8 @@ type PersonImage struct {
 }
 
 type MetadataScraper struct {
-	client         *stealthhttp.Client
-	useChromium    bool // whether to fall back to Chromium for JS-rendered sites
+	client      *stealthhttp.Client
+	useChromium bool // whether to fall back to Chromium for JS-rendered sites
 }
 
 // NewMetadataScraper creates a MetadataScraper with a default stealth client (15s timeout).
@@ -112,8 +112,8 @@ func (s *MetadataScraper) ScrapeMetadata(ctx context.Context, website, companyNa
 
 	metadata := &ScrapedMetadata{
 		LeadershipPages: []LeadershipPage{},
-		AboutPages:       []AboutPage{},
-		KeyLinks:         []KeyLink{},
+		AboutPages:      []AboutPage{},
+		KeyLinks:        []KeyLink{},
 	}
 
 	// Build seed URLs for common patterns
@@ -775,11 +775,11 @@ func categorizeLink(url, text string) string {
 	textLower := strings.ToLower(text)
 
 	categories := map[string][]string{
-		"investors":    {"investor", "shareholder", "asx", "announcement", "report", "presentation"},
+		"investors":      {"investor", "shareholder", "asx", "announcement", "report", "presentation"},
 		"sustainability": {"sustainability", "esg", "environment", "social", "governance"},
-		"news":         {"news", "media", "press", "announcement"},
-		"about":        {"about", "company", "history", "values"},
-		"leadership":   {"leadership", "board", "director", "management", "team"},
+		"news":           {"news", "media", "press", "announcement"},
+		"about":          {"about", "company", "history", "values"},
+		"leadership":     {"leadership", "board", "director", "management", "team"},
 	}
 
 	for category, keywords := range categories {
@@ -917,5 +917,3 @@ func parseImgDimension(sel *goquery.Selection, attr string) int {
 
 // Note: normalizeWebsiteURL, resolveURL, normalizeURL, and sameHost are defined in report_crawler.go
 // We import them implicitly by being in the same package
-
-

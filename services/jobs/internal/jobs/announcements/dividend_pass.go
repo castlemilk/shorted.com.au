@@ -235,7 +235,7 @@ func runDividendNoticePass(
 	limit, workers int,
 	delay time.Duration,
 	dryRun bool,
-	logf func(string, ...interface{}),
+	logf func(string, ...any),
 ) (dividendPassResult, error) {
 	if workers < 1 {
 		workers = 1
@@ -363,9 +363,7 @@ func runDividendNoticePass(
 	}
 
 	for w := 0; w < workers; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for n := range workCh {
 				handle(n)
 				if delay <= 0 {
@@ -379,7 +377,7 @@ func runDividendNoticePass(
 					return
 				}
 			}
-		}()
+		})
 	}
 
 	// Feed work

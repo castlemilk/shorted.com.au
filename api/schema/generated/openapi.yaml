@@ -269,6 +269,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.CreateAlertMonitorResponse'
+  /shorts.v1alpha1.AlertsService/DeleteAlertMonitor:
+    post:
+      tags:
+        - shorts.v1alpha1.AlertsService
+      summary: DeleteAlertMonitor
+      description: Delete one of the current user's monitors and its event history.
+      operationId: AlertsService_DeleteAlertMonitor
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.DeleteAlertMonitorRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.DeleteAlertMonitorResponse'
+  /shorts.v1alpha1.AlertsService/ListAlertEvents:
+    post:
+      tags:
+        - shorts.v1alpha1.AlertsService
+      summary: ListAlertEvents
+      description: Recent alert events (monitors that fired) for the current user, newest report first.
+      operationId: AlertsService_ListAlertEvents
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListAlertEventsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListAlertEventsResponse'
   /shorts.v1alpha1.AlertsService/ListAlertMonitors:
     post:
       tags:
@@ -305,6 +377,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.ListAlertMonitorsResponse'
+  /shorts.v1alpha1.AlertsService/PauseAlertMonitorByToken:
+    post:
+      tags:
+        - shorts.v1alpha1.AlertsService
+      summary: PauseAlertMonitorByToken
+      description: Pause the monitor named by a signed email token (one-click unsubscribe). No session.
+      operationId: AlertsService_PauseAlertMonitorByToken
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.PauseAlertMonitorByTokenRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.PauseAlertMonitorByTokenResponse'
+  /shorts.v1alpha1.AlertsService/UpdateAlertMonitorStatus:
+    post:
+      tags:
+        - shorts.v1alpha1.AlertsService
+      summary: UpdateAlertMonitorStatus
+      description: Pause or resume one of the current user's monitors. Resuming requires Premium.
+      operationId: AlertsService_UpdateAlertMonitorStatus
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.UpdateAlertMonitorStatusRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.UpdateAlertMonitorStatusResponse'
   /shorts.v1alpha1.BillingService/GetMySubscription:
     post:
       tags:
@@ -4037,6 +4181,135 @@ components:
         One agency's aggregate footprint across its tracked listings. agency
          identity is per-portal (REA company id / Domain advertiser id) — the same
          real-world agency may appear once per portal.
+    shorts.v1alpha1.AlertDeliveryStatus:
+      type: string
+      title: AlertDeliveryStatus
+      enum:
+        - ALERT_DELIVERY_STATUS_UNSPECIFIED
+        - ALERT_DELIVERY_STATUS_PENDING
+        - ALERT_DELIVERY_STATUS_SENT
+        - ALERT_DELIVERY_STATUS_FAILED
+        - ALERT_DELIVERY_STATUS_SKIPPED_UNENTITLED
+        - ALERT_DELIVERY_STATUS_SKIPPED_NO_EMAIL
+        - ALERT_DELIVERY_STATUS_SKIPPED_PAUSED
+      description: Delivery state of one alert event's email.
+    shorts.v1alpha1.AlertEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: (proto string)
+        monitorId:
+          type: string
+          title: monitor_id
+          description: (proto string)
+        scope:
+          title: scope
+          description: (proto shorts.v1alpha1.AlertMonitorScope)
+          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorScope'
+        target:
+          type: string
+          title: target
+          description: (proto string)
+        condition:
+          title: condition
+          description: (proto shorts.v1alpha1.AlertMonitorCondition)
+          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorCondition'
+        threshold:
+          type: number
+          title: threshold
+          format: double
+          description: (proto double)
+        hasThreshold:
+          type: boolean
+          title: has_threshold
+          description: (proto bool)
+        cadence:
+          title: cadence
+          description: (proto shorts.v1alpha1.AlertMonitorCadence)
+          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorCadence'
+        reportDate:
+          type: string
+          title: report_date
+          description: YYYY-MM-DD (proto string)
+        comparedToDate:
+          type: string
+          title: compared_to_date
+          description: YYYY-MM-DD (proto string)
+        companies:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.AlertEventCompany'
+          title: companies
+          description: (proto shorts.v1alpha1.AlertEventCompany)
+        companiesTotal:
+          type: integer
+          title: companies_total
+          format: int32
+          description: (proto int32)
+        deliveryStatus:
+          title: delivery_status
+          description: (proto shorts.v1alpha1.AlertDeliveryStatus)
+          $ref: '#/components/schemas/shorts.v1alpha1.AlertDeliveryStatus'
+        sentAt:
+          title: sent_at
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        createdAt:
+          title: created_at
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+      title: AlertEvent
+      additionalProperties: false
+      description: 'One alert that fired: a monitor, a report date, and the companies it fired on.'
+    shorts.v1alpha1.AlertEventCompany:
+      type: object
+      properties:
+        productCode:
+          type: string
+          title: product_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        latestPercent:
+          type: number
+          title: latest_percent
+          format: double
+          description: (proto double)
+        previousPercent:
+          type: number
+          title: previous_percent
+          format: double
+          description: (proto double)
+        hasPrevious:
+          type: boolean
+          title: has_previous
+          description: (proto bool)
+        changePoints:
+          type: number
+          title: change_points
+          format: double
+          description: (proto double)
+        hasChange:
+          type: boolean
+          title: has_change
+          description: (proto bool)
+        rank:
+          type: integer
+          title: rank
+          format: int32
+          description: 1-based rank in the industry's top ten at the report date. 0 means not ranked. (proto int32)
+        previousRank:
+          type: integer
+          title: previous_rank
+          format: int32
+          description: Rank at the previous reading. 0 means not ranked. (proto int32)
+      title: AlertEventCompany
+      additionalProperties: false
+      description: One company an alert event is about.
     shorts.v1alpha1.AlertMonitor:
       type: object
       properties:
@@ -4079,6 +4352,18 @@ components:
           $ref: '#/components/schemas/google.protobuf.Timestamp'
         updatedAt:
           title: updated_at
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        lastEventReportDate:
+          type: string
+          title: last_event_report_date
+          description: The newest event for this monitor, or empty when it has never fired. YYYY-MM-DD (proto string)
+        lastDeliveryStatus:
+          title: last_delivery_status
+          description: (proto shorts.v1alpha1.AlertDeliveryStatus)
+          $ref: '#/components/schemas/shorts.v1alpha1.AlertDeliveryStatus'
+        lastEventAt:
+          title: last_event_at
           description: (proto google.protobuf.Timestamp)
           $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: AlertMonitor
@@ -5303,6 +5588,21 @@ components:
          "now" against a dated-only baseline would report every company as growing by
          its undated population, and an abs() ordering would then rank the list by
          that artefact.
+    shorts.v1alpha1.DeleteAlertMonitorRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: (proto string)
+      title: DeleteAlertMonitorRequest
+      additionalProperties: false
+      description: Request for DeleteAlertMonitor RPC. Uses auth context for ownership.
+    shorts.v1alpha1.DeleteAlertMonitorResponse:
+      type: object
+      title: DeleteAlertMonitorResponse
+      additionalProperties: false
+      description: Response for DeleteAlertMonitor RPC.
     shorts.v1alpha1.DeleteEditorialTakeRequest:
       type: object
       properties:
@@ -7591,6 +7891,12 @@ components:
           type: string
           title: stripe_customer_id
           description: For portal access (proto string)
+        pastDueSince:
+          title: past_due_since
+          description: |-
+            When the current past-due run's first failed charge happened, for the grace
+             window. Unset unless status is PAST_DUE. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: GetMySubscriptionResponse
       additionalProperties: false
       description: Response for GetMySubscription RPC
@@ -9574,6 +9880,13 @@ components:
           type: boolean
           title: is_deleted
           description: True if subscription was deleted/canceled permanently (proto bool)
+        pastDueSince:
+          title: past_due_since
+          description: |-
+            When the first failed charge of the current past-due run happened (the open
+             invoice's finalization). Set only while status is PAST_DUE. The API starts the
+             14-day grace from it; unset means no grace. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: HandleStripeSubscriptionUpdatedRequest
       additionalProperties: false
       description: Request for HandleStripeSubscriptionUpdated RPC (called by webhook)
@@ -10407,6 +10720,43 @@ components:
           description: (proto shorts.v1alpha1.AgencyPriceStats)
       title: ListAgencyPriceStatsResponse
       additionalProperties: false
+    shorts.v1alpha1.ListAlertEventsRequest:
+      type: object
+      properties:
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: (proto int32)
+        offset:
+          type: integer
+          title: offset
+          format: int32
+          description: (proto int32)
+        monitorId:
+          type: string
+          title: monitor_id
+          description: Restrict to one of the caller's monitors. Empty means all of them. (proto string)
+      title: ListAlertEventsRequest
+      additionalProperties: false
+      description: Request for ListAlertEvents RPC. Uses auth context for ownership.
+    shorts.v1alpha1.ListAlertEventsResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.AlertEvent'
+          title: events
+          description: (proto shorts.v1alpha1.AlertEvent)
+        totalCount:
+          type: integer
+          title: total_count
+          format: int32
+          description: (proto int32)
+      title: ListAlertEventsResponse
+      additionalProperties: false
+      description: Response for ListAlertEvents RPC.
     shorts.v1alpha1.ListAlertMonitorsRequest:
       type: object
       properties:
@@ -10437,6 +10787,10 @@ components:
           title: total_count
           format: int32
           description: (proto int32)
+        checkedThroughReportDate:
+          type: string
+          title: checked_through_report_date
+          description: The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run. (proto string)
       title: ListAlertMonitorsResponse
       additionalProperties: false
       description: Response for ListAlertMonitors RPC.
@@ -12177,6 +12531,51 @@ components:
           description: (proto int32)
       title: PartyTotal
       additionalProperties: false
+    shorts.v1alpha1.PauseAlertMonitorByTokenRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          title: token
+          description: (proto string)
+      title: PauseAlertMonitorByTokenRequest
+      additionalProperties: false
+      description: Request for PauseAlertMonitorByToken RPC. The token is the one in an alert email.
+    shorts.v1alpha1.PauseAlertMonitorByTokenResponse:
+      type: object
+      properties:
+        scope:
+          title: scope
+          description: (proto shorts.v1alpha1.AlertMonitorScope)
+          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorScope'
+        target:
+          type: string
+          title: target
+          description: (proto string)
+        condition:
+          title: condition
+          description: (proto shorts.v1alpha1.AlertMonitorCondition)
+          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorCondition'
+        threshold:
+          type: number
+          title: threshold
+          format: double
+          description: (proto double)
+        hasThreshold:
+          type: boolean
+          title: has_threshold
+          description: (proto bool)
+        cadence:
+          title: cadence
+          description: (proto shorts.v1alpha1.AlertMonitorCadence)
+          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorCadence'
+        alreadyPaused:
+          type: boolean
+          title: already_paused
+          description: True when the monitor was already paused, so nothing changed. (proto bool)
+      title: PauseAlertMonitorByTokenResponse
+      additionalProperties: false
+      description: 'Response for PauseAlertMonitorByToken RPC: the monitor, for the confirmation page.'
     shorts.v1alpha1.PeerStock:
       type: object
       properties:
@@ -14495,6 +14894,7 @@ components:
         - SUBSCRIPTION_STATUS_PAST_DUE
         - SUBSCRIPTION_STATUS_CANCELED
         - SUBSCRIPTION_STATUS_INACTIVE
+        - SUBSCRIPTION_STATUS_UNPAID
       description: Subscription status enum
     shorts.v1alpha1.SubscriptionTier:
       type: string
@@ -14505,6 +14905,7 @@ components:
         - SUBSCRIPTION_TIER_PRO
         - SUBSCRIPTION_TIER_ENTERPRISE
         - SUBSCRIPTION_TIER_PREMIUM
+        - SUBSCRIPTION_TIER_API_ACCESS
       description: Subscription tier enum
     shorts.v1alpha1.SubstantialHolding:
       type: object
@@ -16008,6 +16409,30 @@ components:
          donor_name is VERBATIM as lodged — the source is unnormalised and one entity
          can appear under several spellings. donor_name_norm is the key those spellings
          were grouped by, published so a reader can see exactly what was combined.
+    shorts.v1alpha1.UpdateAlertMonitorStatusRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: (proto string)
+        status:
+          title: status
+          description: (proto shorts.v1alpha1.AlertMonitorStatus)
+          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitorStatus'
+      title: UpdateAlertMonitorStatusRequest
+      additionalProperties: false
+      description: Request for UpdateAlertMonitorStatus RPC. Uses auth context for ownership.
+    shorts.v1alpha1.UpdateAlertMonitorStatusResponse:
+      type: object
+      properties:
+        monitor:
+          title: monitor
+          description: (proto shorts.v1alpha1.AlertMonitor)
+          $ref: '#/components/schemas/shorts.v1alpha1.AlertMonitor'
+      title: UpdateAlertMonitorStatusResponse
+      additionalProperties: false
+      description: Response for UpdateAlertMonitorStatus RPC.
     shorts.v1alpha1.UpdateEditorialTakeRequest:
       type: object
       properties:

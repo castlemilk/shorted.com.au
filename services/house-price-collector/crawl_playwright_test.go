@@ -33,7 +33,7 @@ type fakeFetcher struct {
 	blockOn  map[string]bool   // url-substring -> return a block error
 	errorOn  map[string]bool   // url-substring -> return a transient error
 	calls    []string
-	closed   int32
+	closed   atomic.Int32
 	fetchDur time.Duration // optional artificial latency
 }
 
@@ -65,7 +65,7 @@ func (f *fakeFetcher) fetch(ctx context.Context, url string) ([]byte, string, er
 	return []byte("<html><body>no data</body></html>"), url, nil
 }
 
-func (f *fakeFetcher) Close() { atomic.AddInt32(&f.closed, 1) }
+func (f *fakeFetcher) Close() { f.closed.Add(1) }
 
 // newTestCrawler wires a crawler with a fake fetcher, a Sydney baseline (so the
 // capital-band gate is active) and fast pacing for tests.
@@ -338,9 +338,9 @@ func TestCrawlSource_BrandbrainErrorSkips(t *testing.T) {
 
 func TestCrawlSource_EmptyProjectionSkipsBrandbrain(t *testing.T) {
 	originalClient := brandbrainHTTPClient
-	var hits int32
+	var hits atomic.Int32
 	brandbrainHTTPClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		atomic.AddInt32(&hits, 1)
+		hits.Add(1)
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Header:     http.Header{"Content-Type": []string{"application/json"}},
@@ -363,7 +363,7 @@ func TestCrawlSource_EmptyProjectionSkipsBrandbrain(t *testing.T) {
 	if len(obs) != 0 {
 		t.Fatalf("empty projection produced observations: %+v", obs)
 	}
-	if got := atomic.LoadInt32(&hits); got != 0 {
+	if got := hits.Load(); got != 0 {
 		t.Fatalf("empty projection made %d brandbrain request(s), want 0", got)
 	}
 	if cr.stats.rejected != 1 {

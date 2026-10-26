@@ -75,10 +75,7 @@ func EmbedCompanySummaries(ctx context.Context, db *pgxpool.Pool, embedder *Embe
 	// Process in chunks matching embedBatchSize so the concurrency fan-out
 	// stays bounded the same way as EmbedBackfill.
 	for start := 0; start < len(codes); start += embedBatchSize {
-		end := start + embedBatchSize
-		if end > len(codes) {
-			end = len(codes)
-		}
+		end := min(start+embedBatchSize, len(codes))
 		batchCodes := codes[start:end]
 		batchTexts := texts[start:end]
 

@@ -34,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AlertTriangle, ExternalLink, Loader2, ShieldCheck } from "lucide-react";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 /** How often the report is polled once a run has been accepted. */
 const POLL_INTERVAL_MS = 10_000;
@@ -282,9 +283,9 @@ export function SyncValidationPanel() {
               {phase.logTail.join("\n")}
             </pre>
           )}
-          {phase.logUri && (
+          {safeExternalHref(phase.logUri) && (
             <a
-              href={phase.logUri}
+              href={safeExternalHref(phase.logUri)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
@@ -440,9 +441,9 @@ function ValidationReportView({
       <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
         <span className="font-mono">{execution}</span>
         <RawJsonLink summary={summary} />
-        {logUri && (
+        {safeExternalHref(logUri) && (
           <a
-            href={logUri}
+            href={safeExternalHref(logUri)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 hover:text-foreground"

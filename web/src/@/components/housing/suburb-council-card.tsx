@@ -6,6 +6,7 @@ import type { LgaInfo, LgaOverlap } from "~/gen/shorts/v1alpha1/housing_pb";
 import { councilHref, fmtCouncilShare } from "@/lib/housing/council";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { HousingIcon } from "./housing-icon";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 const fmtMoney = (v: number) => `$${Math.round(v).toLocaleString()}`;
 const fmtAUD = (v: number) =>
@@ -120,7 +121,7 @@ export function SuburbCouncilCard({
           ) : null}
           {c.website ? (
             <Row label="Website">
-              <a href={c.website} rel="noopener noreferrer" target="_blank" className="underline-offset-2 hover:underline">
+              <a href={safeExternalHref(c.website)} rel="noopener noreferrer" target="_blank" className="underline-offset-2 hover:underline">
                 {websiteLabel(c.website)}
               </a>
             </Row>

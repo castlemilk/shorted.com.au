@@ -22,7 +22,7 @@ type GCSClient struct {
 // NewGCSClient creates a new GCSClient instance
 func NewGCSClient(ctx context.Context, bucketName string) (*GCSClient, error) {
 	var opts []option.ClientOption
-	
+
 	// Check for credentials file in environment (if not using emulator)
 	if os.Getenv("STORAGE_EMULATOR_HOST") == "" {
 		if credsPath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); credsPath != "" {
@@ -31,12 +31,12 @@ func NewGCSClient(ctx context.Context, bucketName string) (*GCSClient, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve credentials path: %w", err)
 			}
-			
+
 			// Verify file exists
 			if _, err := os.Stat(absPath); os.IsNotExist(err) {
 				return nil, fmt.Errorf("credentials file not found: %s", absPath)
 			}
-			
+
 			// Use WithCredentialsFile with absolute path
 			// This should work without conflicts if the path is absolute
 			opts = append(opts, option.WithCredentialsFile(absPath))
@@ -92,14 +92,14 @@ func (g *GCSClient) UploadCSV(ctx context.Context, filePath string) error {
 func (g *GCSClient) uploadObject(ctx context.Context, data io.Reader, objectName string) error {
 	bucket := g.client.Bucket(g.bucketName)
 	obj := bucket.Object(objectName)
-	
+
 	w := obj.NewWriter(ctx)
 	w.ContentType = "text/csv"
-	
+
 	if _, err := io.Copy(w, data); err != nil {
 		return fmt.Errorf("failed to copy data: %w", err)
 	}
-	
+
 	if err := w.Close(); err != nil {
 		return fmt.Errorf("failed to close writer for %s: %w", objectName, err)
 	}

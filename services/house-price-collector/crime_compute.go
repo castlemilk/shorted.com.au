@@ -315,7 +315,7 @@ func rankByGroup(n int, group func(int) (string, crimeType, int), val func(int) 
 		fy    int
 	}
 	members := map[gk][]int{}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		state, ct, fy := group(i)
 		members[gk{state, ct, fy}] = append(members[gk{state, ct, fy}], i)
 	}

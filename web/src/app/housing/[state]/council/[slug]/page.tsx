@@ -20,6 +20,8 @@ import { eyebrow, pageTitle } from "~/@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getCouncilProfile, listCouncils } from "~/app/actions/getHousing";
 import { NotFoundError } from "~/app/actions/withRetry";
+import { councilPageTitle } from "../council-titles";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const revalidate = 86400;
 
@@ -61,7 +63,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const s = profile.summary;
   const url = `${SITE}${councilPath(code, s.slug)}`;
   const place = `${s.displayName}, ${STATE_NAMES[code]}`;
-  const title = `${place}: council profile, population, housing and hazards`;
+  const title = councilPageTitle(s, code);
   const description = [
     s.population > 0 ? `${fmtInt(s.population)} residents (ABS estimated resident population ${s.erpYear})` : "",
     s.councilHouseMedian !== undefined && s.councilHouseMedianPeriod ? "council-wide house median" : "",
@@ -128,7 +130,7 @@ export default async function CouncilPage({ params }: PageProps) {
           { name: s.displayName, url: pageUrl },
         ]}
       />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(councilJsonLd(profile, code)) }} />
+      <JsonLd data={councilJsonLd(profile, code)} />
       <div className="mx-auto max-w-6xl space-y-9 px-4 py-8 sm:py-10">
         <Breadcrumbs items={crumbs} />
 

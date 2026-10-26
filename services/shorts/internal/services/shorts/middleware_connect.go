@@ -4,14 +4,17 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	firebase "firebase.google.com/go"
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/options/v1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	"google.golang.org/api/idtoken"
@@ -65,12 +68,11 @@ var internalOnlyMethods = func() map[string]bool {
 		}
 	}
 	// The register review console. required_role="admin" in the proto is not
-	// sufficient on its own: the admin role is auto-granted from an email
-	// allowlist below, so a user who reaches that allowlist by any means could
-	// otherwise call these directly. A decision here writes a curated_alias,
-	// which the public gate then lets publish a live company link against a
-	// named politician — so it is gated on the internal secret as well, and the
-	// only caller that holds it is the web tier's own requireAdmin() actions.
+	// sufficient on its own: a user credential that carries the admin role could
+	// otherwise call these directly. A decision here writes a curated_alias, which
+	// the public gate then lets publish a live company link against a named
+	// politician — so it is gated on the internal secret as well, and the only
+	// caller that holds it is the web tier's own requireAdmin() actions.
 	for _, method := range []string{
 		"ListSecurityQueue", "SearchListings", "DecideSecurityCandidate",
 		"UndoSecurityDecision", "GetCoverageStats",
@@ -79,6 +81,84 @@ var internalOnlyMethods = func() map[string]bool {
 	}
 	return m
 }()
+
+// adminEmails is the one allowlist of accounts that may hold the "admin" role on
+// the Connect API. Only the Firebase ID-token path reads it, and only for a token
+// Firebase reports as email-verified (see rolesForFirebaseClaims). MintToken keeps
+// no list of its own: it trusts the role the interceptor granted.
+//
+// e2e-test@shorted.com.au is deliberately absent. No automated test calls an admin
+// RPC as that account: the web E2E suite reaches admin pages through the web tier,
+// which asserts the role itself. An e2e account holding admin on the production API
+// is the exposure this list should not carry.
+var adminEmails = []string{
+	"ben.ebsworth@gmail.com",
+	"ben@shorted.com.au",
+}
+
+// The auth methods the interceptor records on Claims.AuthMethod.
+const (
+	// AuthMethodToken is a bespoke whole-API token minted by MintToken. The
+	// identity-only path accepts the same tokens on public methods and records
+	// this method too.
+	AuthMethodToken = "token"
+	// AuthMethodFirebase is a Firebase ID token presented by a browser.
+	AuthMethodFirebase = "firebase"
+	// AuthMethodInternal is the shared internal service secret, asserted by the web
+	// tier, webhooks and other trusted services.
+	AuthMethodInternal = "internal"
+
+	// alertsJobUserAgentPrefix marks the alerts evaluator (`shorted alerts`). Its
+	// entitlement lookups are the platform's own reads, made under the internal
+	// secret, so they are exempt from the owner's per-user rate limit. An owner at
+	// their quota must not stop their own alert email. The marker grants nothing on
+	// its own: the internal secret must match before it is read.
+	alertsJobUserAgentPrefix = "shorted-alerts/"
+	// AuthMethodServiceAccount is a Google service-account identity token.
+	AuthMethodServiceAccount = "service_account"
+)
+
+// adminTokenNotBefore is the earliest issue time at which a bespoke API token may
+// carry the admin role.
+//
+// WHY A CUT-OVER AND NOT A REVOCATION. Before the verified-email fix, MintToken issued
+// 30-day admin tokens to anyone holding an operator email, and MintToken renewed them.
+// Those tokens cannot be revoked. They are stateless HS256 JWTs, and the signing secret
+// is shared with every paying customer's token, so rotating it would log out every
+// subscriber. Honouring the admin claim only on tokens issued after this instant
+// withdraws admin from the old ones wherever they are presented. Everything else they
+// carry (api-user, tier) keeps working. It is a var only because time.Time cannot be a
+// constant, and tests move it.
+var adminTokenNotBefore = time.Date(2026, 10, 24, 0, 0, 0, 0, time.UTC)
+
+// bespokeTokenClaims marks claims as verified from a bespoke API token and withdraws
+// the admin role when the token was issued before adminTokenNotBefore. Every path
+// that accepts such a token calls it before the claims reach a handler.
+func bespokeTokenClaims(claims *Claims) *Claims {
+	claims.AuthMethod = AuthMethodToken
+	if hasRoleInList(claims.Roles, "admin") && !issuedOnOrAfter(claims, adminTokenNotBefore) {
+		log.Infof("Dropped admin role from API token for user %s: issued before the admin cut-over", claims.UserID)
+		claims.Roles = withoutRole(claims.Roles, "admin")
+	}
+	return claims
+}
+
+// issuedOnOrAfter reports whether the token carries an issue time at or after t. A
+// token with no iat counts as older than any cut-over, so it fails closed.
+func issuedOnOrAfter(claims *Claims, t time.Time) bool {
+	return claims.IssuedAt != nil && !claims.IssuedAt.Before(t)
+}
+
+// withoutRole returns roles with every occurrence of role removed.
+func withoutRole(roles []string, role string) []string {
+	out := make([]string, 0, len(roles))
+	for _, r := range roles {
+		if r != role {
+			out = append(out, r)
+		}
+	}
+	return out
+}
 
 // SubscriptionLookup is a function that looks up a user's subscription tier by user ID.
 // Returns the tier (e.g., "free", "pro", "enterprise") or empty string if not found.
@@ -109,6 +189,7 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 			log.Debugf("Failed to lookup subscription for user %s: %v", claims.UserID, err)
 			return
 		}
+		claims.TierResolved = true
 		if tier != "" {
 			claims.Tier = tier
 			log.Debugf("Set tier=%s for user %s", tier, claims.UserID)
@@ -186,6 +267,10 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 				userID := req.Header().Get("x-user-id")
 				userEmail := req.Header().Get("x-user-email")
 				userRolesHeader := req.Header().Get("x-user-roles")
+				// Only the alerts transport sends x-user-email-verified, and only when the
+				// session's address is verified. Other web callers send x-user-email for
+				// their own reasons, so the address alone never proves verification.
+				emailVerified := strings.EqualFold(strings.TrimSpace(req.Header().Get("x-user-email-verified")), "true")
 
 				if userID != "" {
 					// Start with api-user role by default
@@ -193,8 +278,8 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 
 					// Parse roles from header if provided
 					if userRolesHeader != "" {
-						headerRoles := strings.Split(userRolesHeader, ",")
-						for _, role := range headerRoles {
+						headerRoles := strings.SplitSeq(userRolesHeader, ",")
+						for role := range headerRoles {
 							role = strings.TrimSpace(role)
 							if role != "" && role != "api-user" {
 								roles = append(roles, role)
@@ -202,27 +287,31 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 						}
 					}
 
-					// Auto-grant admin to specific emails
-					adminEmails := []string{
-						"e2e-test@shorted.com.au",
-						"ben.ebsworth@gmail.com",
-						"ben@shorted.com.au",
-					}
-					isAdmin := false
-					for _, adminEmail := range adminEmails {
-						if userEmail == adminEmail {
-							if !hasRoleInList(roles, "admin") {
-								roles = append(roles, "admin")
-							}
-							isAdmin = true
-							break
-						}
-					}
-
+					// Roles come from x-user-roles and nowhere else. This is the only way an
+					// internal caller obtains "admin": the web tier asserts it after its own
+					// verified-admin check (requireAdmin / isAdmin), and the shared
+					// INTERNAL_SERVICE_SECRET is what makes that header trustworthy. Deriving
+					// admin from x-user-email would not be: that header carries the address
+					// alone, not whether the address was verified.
+					// The website acting for its signed-in user is the customer's own use of
+					// the site, so it is metered as browser access, not against the API
+					// column. It is identified the way the rest of the platform identifies
+					// first-party SSR: the internal secret plus the web's SSR user-agent
+					// marker (see ratelimit.IsWebSSRUserAgent). The paid probe sends the
+					// secret without that marker, so its API metering is unchanged.
+					webOnBehalf := ratelimit.IsWebSSRUserAgent(req.Header().Get("User-Agent"))
 					normalizedClaims := &Claims{
-						UserID: userID,
-						Email:  userEmail,
-						Roles:  roles,
+						UserID:        userID,
+						Email:         userEmail,
+						EmailVerified: emailVerified,
+						Roles:         roles,
+						AuthMethod:    AuthMethodInternal,
+						IsBrowserAuth: webOnBehalf,
+						WebOnBehalf:   webOnBehalf,
+						// The alerts evaluator's entitlement lookups are the platform's own
+						// reads, not the customer's API use, so they are not metered against
+						// the owner's quota. See alertsJobUserAgentPrefix.
+						RateLimitExempt: strings.HasPrefix(req.Header().Get("User-Agent"), alertsJobUserAgentPrefix),
 					}
 
 					// Look up subscription tier
@@ -234,7 +323,7 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 							otelmetric.WithAttributes(attribute.String("method", "internal")),
 						)
 					}
-					log.Debugf("Internal auth: user=%s, roles=%v, tier=%s, isAdmin=%v", userEmail, roles, normalizedClaims.Tier, isAdmin)
+					log.Debugf("Internal auth: user=%s, roles=%v, tier=%s", userEmail, roles, normalizedClaims.Tier)
 					ctx = context.WithValue(ctx, userKey, normalizedClaims)
 
 					// Check role requirement
@@ -279,6 +368,7 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 				if hdr := req.Header().Get("Authorization"); hdr != "" {
 					tok := strings.TrimPrefix(hdr, "Bearer ")
 					if idClaims, idErr := opts.TokenService.ValidateIdentityToken(tok); idErr == nil {
+						bespokeTokenClaims(idClaims)
 						lookupTier(idClaims)
 						ctx = context.WithValue(ctx, userKey, idClaims)
 						authMethod = "token-identity"
@@ -315,6 +405,9 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 						otelmetric.WithAttributes(attribute.String("method", "token")),
 					)
 				}
+				// Record that this is a bespoke token and withdraw admin from one issued before
+				// the cut-over. See adminTokenNotBefore.
+				bespokeTokenClaims(claims)
 				// Always re-resolve tier from the subscription store — never trust the
 				// tier embedded in the (30-day, non-revocable) token. A canceled or
 				// downgraded subscription then loses paid limits immediately instead of
@@ -334,43 +427,22 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 				if authErr == nil {
 					fbToken, verifyErr := firebaseClient.VerifyIDToken(ctx, tokenString)
 					if verifyErr == nil {
-						// Token is a valid Firebase ID token
-						// Start with api-user role for all authenticated users
-						roles := []string{"api-user"}
+						// Token is a valid Firebase ID token. Roles, including admin, come from
+						// rolesForFirebaseClaims so the verified-email rule is tested without a live
+						// Firebase token.
+						roles := rolesForFirebaseClaims(fbToken.Claims)
 
-						// Check for custom roles from Firebase claims
-						if r, ok := fbToken.Claims["roles"].([]interface{}); ok {
-							for _, role := range r {
-								if rs, ok := role.(string); ok {
-									if rs != "api-user" { // Don't duplicate api-user
-										roles = append(roles, rs)
-									}
-								}
-							}
-						}
-
-						// Auto-grant admin to specific emails
 						email := ""
 						if e, ok := fbToken.Claims["email"].(string); ok {
 							email = e
-							adminEmails := []string{
-								"ben.ebsworth@gmail.com",
-								"ben@shorted.com.au",
-								"e2e-test@shorted.com.au",
-							}
-							for _, adminEmail := range adminEmails {
-								if email == adminEmail && !hasRoleInList(roles, "admin") {
-									roles = append(roles, "admin")
-									log.Infof("Auto-granted admin role to %s", email)
-									break
-								}
-							}
 						}
 
 						normalizedClaims := &Claims{
 							UserID:        fbToken.UID,
 							Email:         email,
+							EmailVerified: emailVerifiedFromFirebaseClaims(fbToken.Claims),
 							Roles:         roles,
+							AuthMethod:    AuthMethodFirebase,
 							IsBrowserAuth: true, // Firebase auth = browser access
 						}
 
@@ -405,9 +477,10 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 					email = e
 				}
 				normalizedClaims := &Claims{
-					UserID: payload.Subject,
-					Email:  email,
-					Roles:  []string{},
+					UserID:     payload.Subject,
+					Email:      email,
+					Roles:      []string{},
+					AuthMethod: AuthMethodServiceAccount,
 				}
 
 				// Look up subscription tier (service accounts typically don't have subscriptions)
@@ -426,21 +499,59 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 }
 
 func hasRole(claims *Claims, role string) bool {
-	for _, r := range claims.Roles {
-		if r == role {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(claims.Roles, role)
 }
 
 func hasRoleInList(roles []string, role string) bool {
-	for _, r := range roles {
-		if r == role {
-			return true
+	return slices.Contains(roles, role)
+}
+
+// rolesForFirebaseClaims returns the roles a verified Firebase ID token holds.
+// Every authenticated user gets api-user, and the custom "roles" claim is carried
+// over. Firebase sets that claim server-side, so a user cannot write it. admin is
+// added only when the email is on adminEmails AND Firebase reports it verified.
+//
+// The verified check is the point. Email/password sign-up accepts any address
+// without proof of ownership, so an unverified account registered under an admin's
+// address before that admin signs up would otherwise inherit admin on this API and
+// could mint a 30-day admin token. The web tier's admin-check applies the same rule
+// to a uid.
+func rolesForFirebaseClaims(claims map[string]any) []string {
+	roles := []string{"api-user"}
+	if r, ok := claims["roles"].([]any); ok {
+		for _, role := range r {
+			if rs, ok := role.(string); ok && rs != "api-user" {
+				roles = append(roles, rs)
+			}
 		}
 	}
-	return false
+
+	email, _ := claims["email"].(string)
+	// A string "true" is not verified: only Firebase's boolean claim counts.
+	verified, _ := claims["email_verified"].(bool)
+	if verified && isAdminEmail(email) && !hasRoleInList(roles, "admin") {
+		roles = append(roles, "admin")
+		log.Infof("Granted admin role to verified account %s", email)
+	}
+	return roles
+}
+
+// emailVerifiedFromFirebaseClaims reports whether a verified Firebase ID token
+// proves the address in its email claim. Only Firebase's boolean claim counts, the
+// same strictness as rolesForFirebaseClaims: a string "true" does not.
+func emailVerifiedFromFirebaseClaims(claims map[string]any) bool {
+	verified, _ := claims["email_verified"].(bool)
+	return verified
+}
+
+// isAdminEmail reports whether email is on adminEmails. Case and surrounding space
+// are ignored, matching the web tier's isAdminEmail.
+func isAdminEmail(email string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(email))
+	if normalized == "" {
+		return false
+	}
+	return slices.Contains(adminEmails, normalized)
 }
 
 // UserFromContext retrieves user claims from the context.

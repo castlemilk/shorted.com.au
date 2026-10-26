@@ -155,12 +155,12 @@ func columnsTestSnake(s string) string {
 // column's accessor reads and writes its OWN field (a copy-paste slip in a
 // field func would silently file one line under another's name).
 func TestFundamentalsColumnAccessorsPointAtTheirOwnField(t *testing.T) {
-	floatPtr := reflect.TypeOf((*float64)(nil))
-	typ := reflect.TypeOf(PeriodRow{})
+	floatPtr := reflect.TypeFor[*float64]()
+	typ := reflect.TypeFor[PeriodRow]()
 	var fields []string
-	for i := 0; i < typ.NumField(); i++ {
-		if typ.Field(i).Type == floatPtr {
-			fields = append(fields, typ.Field(i).Name)
+	for field := range typ.Fields() {
+		if field.Type == floatPtr {
+			fields = append(fields, field.Name)
 		}
 	}
 	require.Len(t, fields, len(fundamentalsColumns), "every value field is a column and every column a field")
@@ -201,12 +201,12 @@ func TestSanitizeRowsAppliesStorableToEveryColumn(t *testing.T) {
 		}
 		base := func() PeriodRow {
 			r := PeriodRow{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo}
-			anchor.set(&r, f64(100))
+			anchor.set(&r, new(float64(100)))
 			return r
 		}
 		for _, v := range bad {
 			r := base()
-			c.set(&r, f64(v))
+			c.set(&r, new(v))
 			out, rejected := sanitizeRows([]PeriodRow{r})
 			assert.Equal(t, 1, rejected, "%s=%v is counted", c.name, v)
 			require.Len(t, out, 1, "%s=%v: the row survives on its other value", c.name, v)
@@ -215,7 +215,7 @@ func TestSanitizeRowsAppliesStorableToEveryColumn(t *testing.T) {
 		}
 		for _, v := range good {
 			r := base()
-			c.set(&r, f64(v))
+			c.set(&r, new(v))
 			out, rejected := sanitizeRows([]PeriodRow{r})
 			assert.Zero(t, rejected, "%s=%v", c.name, v)
 			require.Len(t, out, 1)
@@ -229,8 +229,8 @@ func TestSanitizeRowsNewColumnsAndProvenance(t *testing.T) {
 	doc := date("2026-08-19")
 	rows := []PeriodRow{
 		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "USD", Source: sourceYahoo,
-			TotalAssets: f64(108e9), TotalDebt: f64(math.Inf(1)), CapitalExpenditure: f64(-1e19), NetDebt: f64(1e-13),
-			GrossProfit: f64(0), Revenue: f64(1), OperatingCashFlow: f64(2),
+			TotalAssets: new(108e9), TotalDebt: new(math.Inf(1)), CapitalExpenditure: new(-1e19), NetDebt: new(1e-13),
+			GrossProfit: new(float64(0)), Revenue: new(float64(1)), OperatingCashFlow: new(float64(2)),
 			FieldSources:       map[string]string{"revenue": sourceMarkit, "operating_cash_flow": fieldSourceDerivedFCFMinusCapex, "net_income": sourceMarkit},
 			Rejected:           []string{"net_income"},
 			SourceDocumentURL:  "https://www.asx.com.au/asxpdf/20260819/pdf/example.pdf",
@@ -238,7 +238,7 @@ func TestSanitizeRowsNewColumnsAndProvenance(t *testing.T) {
 		// Only a new column, and it is not storable: the row survives as a
 		// mask, so the stored value is nulled rather than kept.
 		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "USD", Source: sourceYahoo,
-			TotalEquity: f64(math.NaN())},
+			TotalEquity: new(math.NaN())},
 	}
 	out, rejected := sanitizeRows(rows)
 	assert.Equal(t, 4, rejected, "Inf total_debt, -1e19 capex, 1e-13 net_debt, NaN total_equity")

@@ -282,12 +282,12 @@ func TestRunFundamentalsFallbackFillsYahooLag(t *testing.T) {
 	// SKS-style lag: Yahoo's annual stops at FY25 while its TTM reaches Jun-26;
 	// Markit already has FY26.
 	yahooRows := []PeriodRow{
-		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceYahoo, Revenue: f64(100), NetIncome: f64(10)},
-		{PeriodType: periodTTM, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, EPSDiluted: f64(0.05)},
+		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceYahoo, Revenue: new(float64(100)), NetIncome: new(float64(10))},
+		{PeriodType: periodTTM, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, EPSDiluted: new(0.05)},
 	}
 	markitRows := []PeriodRow{
-		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceMarkit, Revenue: f64(101)},
-		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceMarkit, Revenue: f64(140), NetIncome: f64(20)},
+		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "AUD", Source: sourceMarkit, Revenue: new(float64(101))},
+		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceMarkit, Revenue: new(float64(140)), NetIncome: new(float64(20))},
 	}
 	st := &fakeStore{universe: []string{"SKS"}, states: map[string]syncState{}}
 	yahoo := &fakeFetcher{name: sourceYahoo, rows: map[string][]PeriodRow{"SKS": yahooRows}}
@@ -312,7 +312,7 @@ func TestRunFundamentalsFallbackFillsYahooLag(t *testing.T) {
 func TestRunFundamentalsNonFiniteNeverReachesTheStore(t *testing.T) {
 	st := &fakeStore{universe: []string{"XYZ"}, states: map[string]syncState{}}
 	inf := []PeriodRow{{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo,
-		Revenue: f64(1e300), NetIncome: f64(5)}}
+		Revenue: new(1e300), NetIncome: new(float64(5))}}
 	yahoo := &fakeFetcher{name: sourceYahoo, rows: map[string][]PeriodRow{"XYZ": inf}}
 	stats, err := runFundamentals(context.Background(), testConfig(st, yahoo, nil))
 	require.NoError(t, err)

@@ -16,6 +16,7 @@ import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { siteConfig } from "~/@/config/site";
 import { isEligibleTopShortsInstrument } from "~/@/lib/top-shorts-filter";
 import { isCachedShortsDataStale } from "~/@/lib/cache-freshness";
+import { toTopRows, type TopRow } from "./top-rows";
 
 /**
  * Serialized time series point for caching
@@ -38,7 +39,8 @@ export interface SerializedTimeSeriesData {
 }
 
 /**
- * Mover cards only use summary fields; table sparklines keep the full series.
+ * Mover cards only use summary fields. The cached series keep every point; the
+ * table gets them projected (toTopRows).
  */
 export type SerializedMoverSummary = Pick<
   SerializedTimeSeriesData,
@@ -299,12 +301,27 @@ export async function getTopPageData(
   return pageData;
 }
 
+/** What the /top island holds for a period: its table rows and mover cards. */
+export interface TopPeriodData {
+  rows: TopRow[];
+  movers: SerializedMoversData;
+}
+
 /**
  * Client-callable version for period changes.
- * Uses the same caching mechanism.
+ * Uses the same caching mechanism, and answers with the projected rows the
+ * page hands the island, not the cached series.
+ *
+ * Next 14.2 derives an action's ID from this file's absolute path and the
+ * export name alone (sha1, empty salt), so builds made at the same path share
+ * it (every Vercel remote build runs in /vercel/path0). A tab loaded before a
+ * deploy, or from the build a rollback replaced, then calls the other build's
+ * function under that ID. A new reply shape therefore takes a new name: this
+ * one replaced getTopPageDataForPeriod, which answered with TopPageData.
  */
-export async function getTopPageDataForPeriod(
+export async function getTopRowsForPeriod(
   period: TimePeriod
-): Promise<TopPageData> {
-  return getTopPageData(period, 100);
+): Promise<TopPeriodData> {
+  const { timeSeries, movers } = await getTopPageData(period, 100);
+  return { rows: toTopRows(timeSeries), movers };
 }

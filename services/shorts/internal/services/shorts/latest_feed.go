@@ -118,7 +118,7 @@ func etagMatches(ifNoneMatch, etag string) bool {
 	if ifNoneMatch == "*" {
 		return true
 	}
-	for _, candidate := range strings.Split(ifNoneMatch, ",") {
+	for candidate := range strings.SplitSeq(ifNoneMatch, ",") {
 		if strings.TrimPrefix(strings.TrimSpace(candidate), "W/") == etag {
 			return true
 		}

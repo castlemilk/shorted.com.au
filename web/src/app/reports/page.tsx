@@ -18,6 +18,7 @@ import {
   type ReportListEntry,
 } from "~/app/actions/reports/getReportData";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "ASX Short Selling Reports — Weekly & Monthly",
@@ -376,10 +377,7 @@ export default async function ReportsIndexPage() {
 
   return (
     <DashboardLayout>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
-      />
+      <JsonLd data={itemList} />
       <BreadcrumbListSchema items={breadcrumbs} />
       <LLMMeta
         title="ASX Short Selling Reports - Weekly & Monthly Analysis"

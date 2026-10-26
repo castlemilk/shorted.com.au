@@ -344,6 +344,29 @@ func TestAddressPriceDropsQuery_ComparesOnlyTheSameAdvertChain(t *testing.T) {
 	}
 }
 
+// TestAddressPriceDropsQuery_CountsListingsPerBoardRow: num_listings is one
+// index probe per board row. As a CTE joined back to best, the planner costed
+// best at one row (prod EXPLAIN, 2026-10-21) and put the count inside a nested
+// loop that re-aggregated every board address once per board row. That is
+// quadratic in the board: the RPC failed at its 10s deadline on every call,
+// and /price-drops waited 44s for it.
+func TestAddressPriceDropsQuery_CountsListingsPerBoardRow(t *testing.T) {
+	q := addressPriceDropsQuery
+	for _, want := range []string{
+		"CROSS JOIN LATERAL (",
+		"WHERE pl.address_key = b.address_key",
+		// Lets the planner use the partial index on address_key <> ''.
+		"AND pl.address_key <> ''",
+	} {
+		if !strings.Contains(q, want) {
+			t.Errorf("addressPriceDropsQuery missing %q", want)
+		}
+	}
+	if strings.Contains(q, "JOIN best b ON") || strings.Contains(q, "nlist") {
+		t.Error("the listing count must not be a CTE joined back to best")
+	}
+}
+
 // TestDropsQueries_OrderByEndsOnAUniqueKey: every ranking the drops surfaces
 // serve ends on the row's unique key, so ties at a board's cut-off can no
 // longer reorder between instances and cache fills (a 5-way tie sat at rank

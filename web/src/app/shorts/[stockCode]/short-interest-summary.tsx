@@ -1,3 +1,4 @@
+import { shortPercentFigure } from "~/@/lib/stocks/short-percent";
 import {
   getDailyShortSeries,
   reportDate,
@@ -152,12 +153,14 @@ export function ShortInterestSummary({
       ? new Intl.NumberFormat("en-AU").format(Math.round(shortPositions))
       : null;
 
-  const lead =
-    shortPct > 0
-      ? `${companyName} (ASX:${stockCode}) has ${shortPct.toFixed(2)}% of its shares on issue reported as short positions ${asOfClause}${
-          positions ? `, or about ${positions} shares` : ""
-        }.`
-      : `${companyName} (ASX:${stockCode}) has no reportable short positions ${asOfClause}.`;
+  // "<0.01%" for a position too small to state, never "0.00%" (the page's
+  // one rule, ~/@/lib/stocks/short-percent).
+  const figure = shortPercentFigure(shortPct);
+  const lead = figure
+    ? `${companyName} (ASX:${stockCode}) has ${figure} of its shares on issue reported as short positions ${asOfClause}${
+        positions ? `, or about ${positions} shares` : ""
+      }.`
+    : `${companyName} (ASX:${stockCode}) has no reportable short positions ${asOfClause}.`;
 
   // Sentence 2 — recent direction. Prefer the 30-day window (the one the
   // query cluster asks about); fall back to 7-day, then 90-day.

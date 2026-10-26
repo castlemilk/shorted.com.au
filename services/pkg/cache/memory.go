@@ -12,7 +12,7 @@ import (
 
 // CacheEntry represents a cached value with expiration
 type CacheEntry struct {
-	Value     interface{}
+	Value     any
 	ExpiresAt time.Time
 }
 
@@ -50,7 +50,7 @@ func (c *MemoryCache) Close() {
 }
 
 // GenerateKey creates a cache key from the given parameters using SHA-256
-func (c *MemoryCache) GenerateKey(prefix string, params ...interface{}) string {
+func (c *MemoryCache) GenerateKey(prefix string, params ...any) string {
 	data, err := json.Marshal(params)
 	if err != nil {
 		// Fallback to a simple string representation if JSON marshal fails
@@ -61,7 +61,7 @@ func (c *MemoryCache) GenerateKey(prefix string, params ...interface{}) string {
 }
 
 // Get retrieves a value from the cache
-func (c *MemoryCache) Get(key string) (interface{}, bool) {
+func (c *MemoryCache) Get(key string) (any, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -74,7 +74,7 @@ func (c *MemoryCache) Get(key string) (interface{}, bool) {
 }
 
 // Set stores a value in the cache
-func (c *MemoryCache) Set(key string, value interface{}) {
+func (c *MemoryCache) Set(key string, value any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -87,7 +87,7 @@ func (c *MemoryCache) Set(key string, value interface{}) {
 // GetOrSet retrieves a value from cache or computes it using the provided function.
 // Uses singleflight to deduplicate concurrent computations for the same key,
 // preventing thundering herd problems under burst traffic.
-func (c *MemoryCache) GetOrSet(key string, computeFn func() (interface{}, error)) (interface{}, error) {
+func (c *MemoryCache) GetOrSet(key string, computeFn func() (any, error)) (any, error) {
 	// Try to get from cache first
 	if value, found := c.Get(key); found {
 		return value, nil
@@ -96,7 +96,7 @@ func (c *MemoryCache) GetOrSet(key string, computeFn func() (interface{}, error)
 	// Use singleflight to ensure only one goroutine computes the value
 	// for a given key at a time. Other concurrent callers will wait and
 	// share the result.
-	value, err, _ := c.sf.Do(key, func() (interface{}, error) {
+	value, err, _ := c.sf.Do(key, func() (any, error) {
 		// Double-check cache inside singleflight (another goroutine may
 		// have populated it while we were waiting)
 		if v, found := c.Get(key); found {

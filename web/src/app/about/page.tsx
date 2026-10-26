@@ -5,6 +5,7 @@ import { CompanySection } from "./company-section";
 import { type AboutPageStatistics } from "~/lib/statistics";
 import { siteConfig } from "~/@/config/site";
 import { EnhancedOrganizationSchema } from "~/@/components/seo/enhanced-structured-data";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const TITLE = "About Shorted — Company, Founder & ASX Short Data Platform";
 const DESCRIPTION =
@@ -118,10 +119,7 @@ export default async function Page() {
   return (
     <>
       <EnhancedOrganizationSchema />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutPageSchema) }}
-      />
+      <JsonLd data={aboutPageSchema} />
       <AboutClient
         initialStatistics={statistics}
         companySection={<CompanySection />}

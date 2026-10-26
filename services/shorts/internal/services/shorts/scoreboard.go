@@ -37,7 +37,7 @@ func (s *ShortsServer) GetShortCampaignScoreboard(ctx context.Context, req *conn
 
 	cacheKey := s.cache.GetShortCampaignScoreboardKey(industry, limit, offset)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		campaigns, totalCount, stats, err := s.store.GetShortCampaignScoreboard(industry, limit, offset)
 		if err != nil {
 			return nil, err

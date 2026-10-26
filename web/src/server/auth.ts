@@ -3,12 +3,18 @@ import Credentials from "next-auth/providers/credentials";
 import type { JWT } from "next-auth/jwt";
 import type { AdapterUser } from "next-auth/adapters";
 import { adminAuth } from "@/lib/firebase-admin";
+import { parseAdminEmails } from "./admin-emails";
+import { lookupAccountVerification } from "./account-verification";
+import {
+  e2eTestEmail,
+  e2eTestPassword,
+  isDevOrTestRuntime,
+  isE2eTestEmail,
+} from "~/server/e2e-identity";
 
-// E2E Test User - only enabled in non-production environments
-// This allows Playwright tests to authenticate without OAuth
+// E2E test user. Its email and password come from e2e-identity.ts, which gives the
+// hard-coded password only to a development or test runtime.
 const E2E_TEST_USER = {
-  email: process.env.E2E_TEST_EMAIL ?? "e2e-test@shorted.com.au",
-  password: process.env.E2E_TEST_PASSWORD ?? "E2ETestPassword123!",
   id: "e2e-test-user",
   name: "E2E Test User",
 };
@@ -27,6 +33,7 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       isAdmin?: boolean;
+      emailVerified?: boolean;
     };
   }
 }
@@ -35,8 +42,16 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     isAdmin?: boolean;
+    emailVerified?: boolean;
   }
 }
+
+/**
+ * The Credentials provider's user. authorize() adds the verification flag here
+ * rather than augmenting next-auth's User: AdapterUser extends User with
+ * `emailVerified: Date | null`, and widening User would conflict with it.
+ */
+type CredentialsUser = User & { emailVerified?: boolean };
 
 /**
  * Options for NextAuth.js used to configure adapters, providers, callbacks, etc.
@@ -80,12 +95,21 @@ export const authOptions = {
         if (idToken) {
           try {
             const decoded = await adminAuth.verifyIdToken(idToken);
-            return {
+            // Only the verified token's email counts. The credentials email is
+            // client-supplied, and a token with no email claim (an anonymous
+            // account) would otherwise take any address the caller chose. Checkout
+            // reuses the Stripe customer found by session email, and the
+            // subscription upsert then removes another user's row for that customer.
+            const user: CredentialsUser = {
               id: decoded.uid,
-              email: decoded.email ?? email ?? null,
+              email: decoded.email ?? null,
               name: (decoded.name as string) ?? null,
               image: decoded.picture ?? null,
+              // The admin decision rests on this. Without it an unverified
+              // email/password account could claim an admin's address.
+              emailVerified: decoded.email_verified === true,
             };
+            return user;
           } catch (error) {
             console.error("[Auth] Firebase ID token verification failed:", error);
             return null;
@@ -109,19 +133,23 @@ export const authOptions = {
           console.log("[Auth] E2E fallback check:", { email, allowE2E });
         }
 
+        const e2ePassword = e2eTestPassword();
         if (
           allowE2E &&
-          email === E2E_TEST_USER.email &&
-          password === E2E_TEST_USER.password
+          e2ePassword !== undefined &&
+          email === e2eTestEmail() &&
+          password === e2ePassword
         ) {
           if (process.env.NODE_ENV === "development") {
             console.log("[Auth] E2E test user authenticated successfully");
           }
-          return {
+          const user: CredentialsUser = {
             id: E2E_TEST_USER.id,
-            email: E2E_TEST_USER.email,
+            email: e2eTestEmail(),
             name: E2E_TEST_USER.name,
+            emailVerified: true,
           };
+          return user;
         }
 
         return null;
@@ -133,9 +161,11 @@ export const authOptions = {
     async jwt({
       token,
       user,
+      trigger,
     }: {
       token: JWT;
       user?: User | AdapterUser;
+      trigger?: "signIn" | "signUp" | "update";
     }): Promise<JWT> {
       // On initial sign in, user object is provided
       if (user) {
@@ -149,6 +179,23 @@ export const authOptions = {
         if (!token.sub) {
           token.sub = user.id ?? user.email ?? "unknown";
         }
+        // Only sign-in carries the provider's verdict, set by authorize(). Refreshes
+        // arrive without a user object, so the flag is kept on the token from here
+        // on. Anything other than an explicit true reads as unverified.
+        token.emailVerified = (user as CredentialsUser).emailVerified === true;
+      }
+
+      // The client asked for a refresh (useSession().update()), which is how a user
+      // who has clicked the verification link picks it up without signing out. Only
+      // an upgrade is taken, and only from Firebase's current account, never from
+      // the client's payload. A failed lookup leaves the flag as it was.
+      if (
+        trigger === "update" &&
+        token.emailVerified !== true &&
+        typeof token.id === "string"
+      ) {
+        const account = await lookupAccountVerification(token.id);
+        if (account?.verified) token.emailVerified = true;
       }
 
       // CRITICAL: Always ensure sub is set - middleware depends on this
@@ -166,16 +213,23 @@ export const authOptions = {
         token.id = token.email;
       }
 
-      // Admin check
-      const adminEmails = (process.env.ADMIN_EMAILS ?? "")
-        .split(",")
-        .map((e) => e.trim());
+      // Admin check. An allowlisted address is not enough on its own: an
+      // email/password account can be registered under any address, so admin
+      // also needs the provider to have verified the email. Sessions minted
+      // before emailVerified existed have no flag and are not admin until the
+      // holder signs in again.
+      const adminEmails = parseAdminEmails(process.env.ADMIN_EMAILS);
 
-      // In non-production, allow E2E test user to be admin
+      // The E2E test identity is an admin only in a development or test runtime. It
+      // never takes admin through the allowlist, so ADMIN_EMAILS cannot grant it
+      // anywhere else.
       const isTestUser =
-        process.env.NODE_ENV !== "production" &&
-        token.email === E2E_TEST_USER.email;
-      token.isAdmin = isTestUser || adminEmails.includes(token.email ?? "");
+        isDevOrTestRuntime() && isE2eTestEmail(token.email);
+      token.isAdmin =
+        isTestUser ||
+        (token.emailVerified === true &&
+          !isE2eTestEmail(token.email) &&
+          adminEmails.includes((token.email ?? "").trim().toLowerCase()));
 
       return token;
     },
@@ -194,6 +248,7 @@ export const authOptions = {
         session.user.id =
           token.id ?? token.sub ?? session.user.email ?? "unknown";
         session.user.isAdmin = token.isAdmin;
+        session.user.emailVerified = token.emailVerified === true;
       }
       return session;
     },

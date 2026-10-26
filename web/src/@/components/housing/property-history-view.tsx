@@ -7,6 +7,7 @@ import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { ArticleSeriesChart, type SeriesPoint } from "@/components/news/mdx/article-series-chart";
 import { HousingIcon } from "./housing-icon";
 import { PropertyValuationCard } from "./property-valuation-card";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 export interface PropertyHistoryViewProps {
   addressKey: string;
@@ -237,9 +238,9 @@ function CurrentListingCard({ listing }: { listing: PropertyListingSnapshotLike 
             </p>
           ) : null}
         </div>
-        {listing.listingUrl ? (
+        {safeExternalHref(listing.listingUrl) ? (
           <a
-            href={listing.listingUrl}
+            href={safeExternalHref(listing.listingUrl)}
             target="_blank"
             rel="noopener noreferrer nofollow"
             className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"

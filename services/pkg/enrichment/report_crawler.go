@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/PuerkitoBio/goquery"
+	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
 

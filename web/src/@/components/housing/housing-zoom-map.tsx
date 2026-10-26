@@ -314,7 +314,7 @@ function ZoomInner({
                     onPointerMove={(e) => setHover({ kind: "suburb", name: suburb.nameById.get(bf.id) ?? bf.id, price: v ?? 0, x: e.clientX, y: e.clientY })}
                     onClick={() => {
                       const s = suburb.byCode.get(bf.id);
-                      if (s && focusedState) router.push(suburbHref(focusedState, { salName: s.salName, salCode: s.salCode, postcode: s.postcode }));
+                      if (s && focusedState) router.push(suburbHref(focusedState, s));
                     }}
                   />
                 );

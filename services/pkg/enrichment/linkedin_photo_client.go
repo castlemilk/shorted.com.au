@@ -26,7 +26,10 @@ type LinkedInPhotoClient struct {
 	loggedIn    bool
 	lastCall    time.Time
 	callDelay   time.Duration
-	logger      interface{ Infof(string, ...any); Warnf(string, ...any) }
+	logger      interface {
+		Infof(string, ...any)
+		Warnf(string, ...any)
+	}
 }
 
 // LinkedInPhotoLogger is the minimal logger interface for the photo client.
@@ -167,7 +170,7 @@ func (c *LinkedInPhotoClient) Login(ctx context.Context) error {
 		c.logger.Infof("LinkedIn verification challenge detected. Complete it in the browser window...")
 		c.logger.Infof("Waiting up to 120 seconds for challenge completion...")
 
-		for i := 0; i < 60; i++ {
+		for range 60 {
 			time.Sleep(2 * time.Second)
 			if err := chromedp.Run(c.ctx, chromedp.Location(&currentURL)); err != nil {
 				continue

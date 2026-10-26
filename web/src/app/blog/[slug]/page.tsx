@@ -24,6 +24,17 @@ import "prismjs/themes/prism-tomorrow.css";
 
 export const revalidate = 3600; // Revalidate hourly — blog posts change infrequently
 
+// On-demand ISR, the stock pages' rule: a dynamic segment is statically
+// optimised only when generateStaticParams EXISTS. Without it every post
+// rendered per request (`private, no-store`, measured 2026-10-21) and the
+// revalidate above was inert. Empty, so the build renders nothing and each
+// post generates on its first request. The render is ISR-safe: it reads the
+// post from _blogs on disk, and every MDX island is client-only.
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ slug: string }> {
+  return [];
+}
+
 interface Params {
   params: {
     slug: string;

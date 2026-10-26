@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -256,8 +257,9 @@ func TestThePublishedQuotasMatchWhatTheLimiterEnforces(t *testing.T) {
 	}
 }
 
-// Tier is NOT a scope. Every scope here is read-only and grants a data domain;
-// none names a plan. Expressing a plan as a scope would send a paying customer
+// Tier is NOT a scope. Every scope here is read-only and grants a data domain
+// (alerts:write, the one exception, grants the signed-in user's own alerts); none
+// names a plan. Expressing a plan as a scope would send a paying customer
 // through a pointless re-authorisation to fix a quota problem.
 func TestNoScopeEncodesASubscriptionTier(t *testing.T) {
 	for _, scope := range Scopes {
@@ -265,6 +267,11 @@ func TestNoScopeEncodesASubscriptionTier(t *testing.T) {
 			if strings.Contains(scope, tier) {
 				t.Errorf("scope %q names the %q tier — tier is not a scope", scope, tier)
 			}
+		}
+		// alerts:write is the one write scope: the signed-in user's own alerts. No other
+		// write scope may appear, so this exception is named, not implied.
+		if scope == ScopeAlertsWrite {
+			continue
 		}
 		if !strings.HasSuffix(scope, ":read") {
 			t.Errorf("scope %q is not read-only", scope)
@@ -311,5 +318,19 @@ func TestTheCatalogSaysWhetherTheQuotasAreActuallyEnforced(t *testing.T) {
 	}
 	if strings.Contains(on.RateLimits.Description, "NOT currently enforced") {
 		t.Errorf("an enforcing deployment disclaims: %q", on.RateLimits.Description)
+	}
+}
+
+// The published vocabulary carries the one write scope, and the catalog's tool list
+// stays the read-only registry: the alert tools are offered per token, not published.
+func TestCatalogPublishesTheWriteScopeAndNoAlertTools(t *testing.T) {
+	cat := BuildCatalogFor(context.Background(), nil, CatalogOptions{APIBaseURL: testCatalogOrigin})
+	if !slices.Contains(cat.Authentication.Scopes, ScopeAlertsWrite) {
+		t.Fatalf("catalog scopes %v lack %s", cat.Authentication.Scopes, ScopeAlertsWrite)
+	}
+	for _, tool := range cat.Tools {
+		if slices.Contains(alertToolNames, tool.Name) {
+			t.Fatalf("alert tool %s is in the anonymous catalog", tool.Name)
+		}
 	}
 }

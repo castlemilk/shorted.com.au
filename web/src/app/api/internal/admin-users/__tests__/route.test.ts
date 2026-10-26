@@ -5,11 +5,13 @@ import { page, summarise, type AdminUser } from "~/server/admin-users";
 
 const listUsersMock = jest.fn();
 const getUserByEmailMock = jest.fn();
+const getUserMock = jest.fn();
 
 jest.mock("~/@/lib/firebase-admin", () => ({
   adminAuth: {
     listUsers: (...args: unknown[]) => listUsersMock(...args),
     getUserByEmail: (...args: unknown[]) => getUserByEmailMock(...args),
+    getUser: (...args: unknown[]) => getUserMock(...args),
   },
 }));
 
@@ -108,6 +110,69 @@ describe("POST /api/internal/admin-users", () => {
       await POST(request({ action: "lookup", email: "x@example.test" }))
     ).json();
     expect(body.user).toBeNull();
+  });
+
+  it("looks up one uid with the same shape as an email, and answers null for an unknown one", async () => {
+    getUserMock.mockResolvedValueOnce(record("uid_A-9"));
+    let res = await POST(request({ action: "lookup", uid: "uid_A-9" }));
+    let body = await res.json();
+    expect(res.status).toBe(200);
+    expect(getUserMock).toHaveBeenCalledWith("uid_A-9");
+    expect(getUserByEmailMock).not.toHaveBeenCalled();
+    expect(body.user).toEqual({
+      uid: "uid_A-9",
+      email: "uid_A-9@example.test",
+      emailVerified: true,
+      disabled: false,
+      providers: ["google.com"],
+      createdAt: "2026-10-01T00:00:00.000Z",
+      lastSignInAt: "2026-10-14T00:00:00.000Z",
+    });
+    expect(JSON.stringify(body)).not.toContain("Should Not Leak");
+
+    getUserMock.mockRejectedValueOnce({ code: "auth/user-not-found" });
+    res = await POST(request({ action: "lookup", uid: "gone" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ user: null });
+  });
+
+  it("takes exactly one of email or uid", async () => {
+    for (const body of [
+      { action: "lookup" },
+      { action: "lookup", email: "a@example.test", uid: "a" },
+      { action: "lookup", email: null, uid: "a" },
+      { action: "lookup", email: "", uid: "a" },
+    ]) {
+      expect((await POST(request(body))).status).toBe(400);
+    }
+    expect(getUserMock).not.toHaveBeenCalled();
+    expect(getUserByEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a malformed uid before Firebase is asked", async () => {
+    for (const uid of [
+      "",
+      " uid",
+      "uid ",
+      "a/b",
+      "a.b",
+      "a@b",
+      "uid;drop",
+      "x".repeat(129),
+      42,
+      null,
+      ["uid"],
+    ]) {
+      const res = await POST(request({ action: "lookup", uid }));
+      expect(res.status).toBe(400);
+    }
+    expect(getUserMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts a uid of exactly 128 characters", async () => {
+    getUserMock.mockResolvedValueOnce(record("u".repeat(128)));
+    const res = await POST(request({ action: "lookup", uid: "u".repeat(128) }));
+    expect(res.status).toBe(200);
   });
 
   it("reports a Firebase failure as 503, and bad input as 400", async () => {

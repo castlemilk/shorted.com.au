@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import {
@@ -20,10 +20,14 @@ import type { PickStatus } from "~/@/lib/strategies/types";
  * (docs/plans/fundamentals-coverage.md §7.2).
  *
  * It reads the query string with useSearchParams, which suspends on a static
- * page, so the page MUST mount it under a real <Suspense> boundary whose
- * fallback is <PicksFilterView status={null}>: that fallback is what lands in
- * the ISR HTML. Reading searchParams in the server page instead would
- * silently force the route dynamic and throw the ISR away.
+ * page, so the reader sits under the island's own <Suspense> boundary whose
+ * fallback is <PicksFilterView status={null}> drawn from the same props: that
+ * fallback is what lands in the ISR HTML. The boundary used to be the page's,
+ * and a server-rendered fallback is serialised into the RSC payload as an
+ * element tree (364 KB for 40 rows, measured 2026-10-21) beside the rows the
+ * island already carries, only to be replaced on hydration. Reading
+ * searchParams in the server page instead would silently force the route
+ * dynamic and throw the ISR away.
  *
  * With no status and no sort (or ?sort=score) it renders the server's
  * shortlist as the page always did, with no request. With either it asks the
@@ -69,8 +73,17 @@ function loadSortFetch() {
 
 export function PicksSortedView({
   strategyId,
-  ...props
+  ...shortlist
 }: PicksSortedViewProps) {
+  return (
+    <Suspense fallback={<PicksFilterView {...shortlist} status={null} />}>
+      <QueryPicksView {...shortlist} strategyId={strategyId} />
+    </Suspense>
+  );
+}
+
+/** The view ?status= and ?sort= ask for; on a static page the fallback above. */
+function QueryPicksView({ strategyId, ...props }: PicksSortedViewProps) {
   const searchParams = useSearchParams();
   const status = parsePickStatus(searchParams?.get("status"));
   const sort = parsePickSort(searchParams?.get("sort"));

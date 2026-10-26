@@ -33,7 +33,7 @@ func (s *ShortsServer) GetRelatedNews(ctx context.Context, req *connect.Request[
 	s.logger.Debugf("get related news: stock_code=%s, article_id=%s, limit=%d", req.Msg.StockCode, req.Msg.ArticleId, req.Msg.Limit)
 
 	cacheKey := s.cache.GetRelatedNewsKey(req.Msg.StockCode, req.Msg.ArticleId, req.Msg.Limit)
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		articles, err := s.store.GetRelatedNews(req.Msg.StockCode, req.Msg.ArticleId, req.Msg.Limit)
 		if err != nil {
 			return nil, err

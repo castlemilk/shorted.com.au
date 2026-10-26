@@ -112,6 +112,18 @@ const (
 	// ShortedStocksServiceListAlertMonitorsProcedure is the fully-qualified name of the
 	// ShortedStocksService's ListAlertMonitors RPC.
 	ShortedStocksServiceListAlertMonitorsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListAlertMonitors"
+	// ShortedStocksServiceListAlertEventsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListAlertEvents RPC.
+	ShortedStocksServiceListAlertEventsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListAlertEvents"
+	// ShortedStocksServiceUpdateAlertMonitorStatusProcedure is the fully-qualified name of the
+	// ShortedStocksService's UpdateAlertMonitorStatus RPC.
+	ShortedStocksServiceUpdateAlertMonitorStatusProcedure = "/shorts.v1alpha1.ShortedStocksService/UpdateAlertMonitorStatus"
+	// ShortedStocksServiceDeleteAlertMonitorProcedure is the fully-qualified name of the
+	// ShortedStocksService's DeleteAlertMonitor RPC.
+	ShortedStocksServiceDeleteAlertMonitorProcedure = "/shorts.v1alpha1.ShortedStocksService/DeleteAlertMonitor"
+	// ShortedStocksServicePauseAlertMonitorByTokenProcedure is the fully-qualified name of the
+	// ShortedStocksService's PauseAlertMonitorByToken RPC.
+	ShortedStocksServicePauseAlertMonitorByTokenProcedure = "/shorts.v1alpha1.ShortedStocksService/PauseAlertMonitorByToken"
 	// ShortedStocksServiceGetWeeklyReportProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetWeeklyReport RPC.
 	ShortedStocksServiceGetWeeklyReportProcedure = "/shorts.v1alpha1.ShortedStocksService/GetWeeklyReport"
@@ -371,6 +383,10 @@ var (
 	shortedStocksServiceGetMySubscriptionMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMySubscription")
 	shortedStocksServiceCreateAlertMonitorMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("CreateAlertMonitor")
 	shortedStocksServiceListAlertMonitorsMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAlertMonitors")
+	shortedStocksServiceListAlertEventsMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAlertEvents")
+	shortedStocksServiceUpdateAlertMonitorStatusMethodDescriptor        = shortedStocksServiceServiceDescriptor.Methods().ByName("UpdateAlertMonitorStatus")
+	shortedStocksServiceDeleteAlertMonitorMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("DeleteAlertMonitor")
+	shortedStocksServicePauseAlertMonitorByTokenMethodDescriptor        = shortedStocksServiceServiceDescriptor.Methods().ByName("PauseAlertMonitorByToken")
 	shortedStocksServiceGetWeeklyReportMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetWeeklyReport")
 	shortedStocksServiceListReportsMethodDescriptor                     = shortedStocksServiceServiceDescriptor.Methods().ByName("ListReports")
 	shortedStocksServiceGetStockFinancialHighlightsMethodDescriptor     = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockFinancialHighlights")
@@ -504,6 +520,14 @@ type ShortedStocksServiceClient interface {
 	CreateAlertMonitor(context.Context, *connect.Request[v1alpha1.CreateAlertMonitorRequest]) (*connect.Response[v1alpha1.CreateAlertMonitorResponse], error)
 	// List short-interest alert monitors for the current user.
 	ListAlertMonitors(context.Context, *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error)
+	// Recent alert events (monitors that fired) for the current user, newest report first.
+	ListAlertEvents(context.Context, *connect.Request[v1alpha1.ListAlertEventsRequest]) (*connect.Response[v1alpha1.ListAlertEventsResponse], error)
+	// Pause or resume one of the current user's monitors. Resuming requires Premium.
+	UpdateAlertMonitorStatus(context.Context, *connect.Request[v1alpha1.UpdateAlertMonitorStatusRequest]) (*connect.Response[v1alpha1.UpdateAlertMonitorStatusResponse], error)
+	// Delete one of the current user's monitors and its event history.
+	DeleteAlertMonitor(context.Context, *connect.Request[v1alpha1.DeleteAlertMonitorRequest]) (*connect.Response[v1alpha1.DeleteAlertMonitorResponse], error)
+	// Pause the monitor named by a signed email token (one-click unsubscribe). No session.
+	PauseAlertMonitorByToken(context.Context, *connect.Request[v1alpha1.PauseAlertMonitorByTokenRequest]) (*connect.Response[v1alpha1.PauseAlertMonitorByTokenResponse], error)
 	// Get a weekly short report with narrative analysis
 	GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error)
 	// List published short selling reports (weekly, monthly, yearly)
@@ -824,6 +848,30 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			httpClient,
 			baseURL+ShortedStocksServiceListAlertMonitorsProcedure,
 			connect.WithSchema(shortedStocksServiceListAlertMonitorsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listAlertEvents: connect.NewClient[v1alpha1.ListAlertEventsRequest, v1alpha1.ListAlertEventsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListAlertEventsProcedure,
+			connect.WithSchema(shortedStocksServiceListAlertEventsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateAlertMonitorStatus: connect.NewClient[v1alpha1.UpdateAlertMonitorStatusRequest, v1alpha1.UpdateAlertMonitorStatusResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceUpdateAlertMonitorStatusProcedure,
+			connect.WithSchema(shortedStocksServiceUpdateAlertMonitorStatusMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteAlertMonitor: connect.NewClient[v1alpha1.DeleteAlertMonitorRequest, v1alpha1.DeleteAlertMonitorResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceDeleteAlertMonitorProcedure,
+			connect.WithSchema(shortedStocksServiceDeleteAlertMonitorMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		pauseAlertMonitorByToken: connect.NewClient[v1alpha1.PauseAlertMonitorByTokenRequest, v1alpha1.PauseAlertMonitorByTokenResponse](
+			httpClient,
+			baseURL+ShortedStocksServicePauseAlertMonitorByTokenProcedure,
+			connect.WithSchema(shortedStocksServicePauseAlertMonitorByTokenMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getWeeklyReport: connect.NewClient[v1alpha1.GetWeeklyReportRequest, v1alpha1.GetWeeklyReportResponse](
@@ -1313,6 +1361,10 @@ type shortedStocksServiceClient struct {
 	getMySubscription               *connect.Client[v1alpha1.GetMySubscriptionRequest, v1alpha1.GetMySubscriptionResponse]
 	createAlertMonitor              *connect.Client[v1alpha1.CreateAlertMonitorRequest, v1alpha1.CreateAlertMonitorResponse]
 	listAlertMonitors               *connect.Client[v1alpha1.ListAlertMonitorsRequest, v1alpha1.ListAlertMonitorsResponse]
+	listAlertEvents                 *connect.Client[v1alpha1.ListAlertEventsRequest, v1alpha1.ListAlertEventsResponse]
+	updateAlertMonitorStatus        *connect.Client[v1alpha1.UpdateAlertMonitorStatusRequest, v1alpha1.UpdateAlertMonitorStatusResponse]
+	deleteAlertMonitor              *connect.Client[v1alpha1.DeleteAlertMonitorRequest, v1alpha1.DeleteAlertMonitorResponse]
+	pauseAlertMonitorByToken        *connect.Client[v1alpha1.PauseAlertMonitorByTokenRequest, v1alpha1.PauseAlertMonitorByTokenResponse]
 	getWeeklyReport                 *connect.Client[v1alpha1.GetWeeklyReportRequest, v1alpha1.GetWeeklyReportResponse]
 	listReports                     *connect.Client[v1alpha1.ListReportsRequest, v1alpha1.ListReportsResponse]
 	getStockFinancialHighlights     *connect.Client[v1alpha1.GetStockFinancialHighlightsRequest, v1alpha1.GetStockFinancialHighlightsResponse]
@@ -1521,6 +1573,26 @@ func (c *shortedStocksServiceClient) CreateAlertMonitor(ctx context.Context, req
 // ListAlertMonitors calls shorts.v1alpha1.ShortedStocksService.ListAlertMonitors.
 func (c *shortedStocksServiceClient) ListAlertMonitors(ctx context.Context, req *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error) {
 	return c.listAlertMonitors.CallUnary(ctx, req)
+}
+
+// ListAlertEvents calls shorts.v1alpha1.ShortedStocksService.ListAlertEvents.
+func (c *shortedStocksServiceClient) ListAlertEvents(ctx context.Context, req *connect.Request[v1alpha1.ListAlertEventsRequest]) (*connect.Response[v1alpha1.ListAlertEventsResponse], error) {
+	return c.listAlertEvents.CallUnary(ctx, req)
+}
+
+// UpdateAlertMonitorStatus calls shorts.v1alpha1.ShortedStocksService.UpdateAlertMonitorStatus.
+func (c *shortedStocksServiceClient) UpdateAlertMonitorStatus(ctx context.Context, req *connect.Request[v1alpha1.UpdateAlertMonitorStatusRequest]) (*connect.Response[v1alpha1.UpdateAlertMonitorStatusResponse], error) {
+	return c.updateAlertMonitorStatus.CallUnary(ctx, req)
+}
+
+// DeleteAlertMonitor calls shorts.v1alpha1.ShortedStocksService.DeleteAlertMonitor.
+func (c *shortedStocksServiceClient) DeleteAlertMonitor(ctx context.Context, req *connect.Request[v1alpha1.DeleteAlertMonitorRequest]) (*connect.Response[v1alpha1.DeleteAlertMonitorResponse], error) {
+	return c.deleteAlertMonitor.CallUnary(ctx, req)
+}
+
+// PauseAlertMonitorByToken calls shorts.v1alpha1.ShortedStocksService.PauseAlertMonitorByToken.
+func (c *shortedStocksServiceClient) PauseAlertMonitorByToken(ctx context.Context, req *connect.Request[v1alpha1.PauseAlertMonitorByTokenRequest]) (*connect.Response[v1alpha1.PauseAlertMonitorByTokenResponse], error) {
+	return c.pauseAlertMonitorByToken.CallUnary(ctx, req)
 }
 
 // GetWeeklyReport calls shorts.v1alpha1.ShortedStocksService.GetWeeklyReport.
@@ -1962,6 +2034,14 @@ type ShortedStocksServiceHandler interface {
 	CreateAlertMonitor(context.Context, *connect.Request[v1alpha1.CreateAlertMonitorRequest]) (*connect.Response[v1alpha1.CreateAlertMonitorResponse], error)
 	// List short-interest alert monitors for the current user.
 	ListAlertMonitors(context.Context, *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error)
+	// Recent alert events (monitors that fired) for the current user, newest report first.
+	ListAlertEvents(context.Context, *connect.Request[v1alpha1.ListAlertEventsRequest]) (*connect.Response[v1alpha1.ListAlertEventsResponse], error)
+	// Pause or resume one of the current user's monitors. Resuming requires Premium.
+	UpdateAlertMonitorStatus(context.Context, *connect.Request[v1alpha1.UpdateAlertMonitorStatusRequest]) (*connect.Response[v1alpha1.UpdateAlertMonitorStatusResponse], error)
+	// Delete one of the current user's monitors and its event history.
+	DeleteAlertMonitor(context.Context, *connect.Request[v1alpha1.DeleteAlertMonitorRequest]) (*connect.Response[v1alpha1.DeleteAlertMonitorResponse], error)
+	// Pause the monitor named by a signed email token (one-click unsubscribe). No session.
+	PauseAlertMonitorByToken(context.Context, *connect.Request[v1alpha1.PauseAlertMonitorByTokenRequest]) (*connect.Response[v1alpha1.PauseAlertMonitorByTokenResponse], error)
 	// Get a weekly short report with narrative analysis
 	GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error)
 	// List published short selling reports (weekly, monthly, yearly)
@@ -2278,6 +2358,30 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		ShortedStocksServiceListAlertMonitorsProcedure,
 		svc.ListAlertMonitors,
 		connect.WithSchema(shortedStocksServiceListAlertMonitorsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListAlertEventsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListAlertEventsProcedure,
+		svc.ListAlertEvents,
+		connect.WithSchema(shortedStocksServiceListAlertEventsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceUpdateAlertMonitorStatusHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceUpdateAlertMonitorStatusProcedure,
+		svc.UpdateAlertMonitorStatus,
+		connect.WithSchema(shortedStocksServiceUpdateAlertMonitorStatusMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceDeleteAlertMonitorHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceDeleteAlertMonitorProcedure,
+		svc.DeleteAlertMonitor,
+		connect.WithSchema(shortedStocksServiceDeleteAlertMonitorMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServicePauseAlertMonitorByTokenHandler := connect.NewUnaryHandler(
+		ShortedStocksServicePauseAlertMonitorByTokenProcedure,
+		svc.PauseAlertMonitorByToken,
+		connect.WithSchema(shortedStocksServicePauseAlertMonitorByTokenMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetWeeklyReportHandler := connect.NewUnaryHandler(
@@ -2790,6 +2894,14 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceCreateAlertMonitorHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListAlertMonitorsProcedure:
 			shortedStocksServiceListAlertMonitorsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListAlertEventsProcedure:
+			shortedStocksServiceListAlertEventsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceUpdateAlertMonitorStatusProcedure:
+			shortedStocksServiceUpdateAlertMonitorStatusHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceDeleteAlertMonitorProcedure:
+			shortedStocksServiceDeleteAlertMonitorHandler.ServeHTTP(w, r)
+		case ShortedStocksServicePauseAlertMonitorByTokenProcedure:
+			shortedStocksServicePauseAlertMonitorByTokenHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetWeeklyReportProcedure:
 			shortedStocksServiceGetWeeklyReportHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListReportsProcedure:
@@ -3053,6 +3165,22 @@ func (UnimplementedShortedStocksServiceHandler) CreateAlertMonitor(context.Conte
 
 func (UnimplementedShortedStocksServiceHandler) ListAlertMonitors(context.Context, *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListAlertMonitors is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListAlertEvents(context.Context, *connect.Request[v1alpha1.ListAlertEventsRequest]) (*connect.Response[v1alpha1.ListAlertEventsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListAlertEvents is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) UpdateAlertMonitorStatus(context.Context, *connect.Request[v1alpha1.UpdateAlertMonitorStatusRequest]) (*connect.Response[v1alpha1.UpdateAlertMonitorStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.UpdateAlertMonitorStatus is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) DeleteAlertMonitor(context.Context, *connect.Request[v1alpha1.DeleteAlertMonitorRequest]) (*connect.Response[v1alpha1.DeleteAlertMonitorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.DeleteAlertMonitor is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) PauseAlertMonitorByToken(context.Context, *connect.Request[v1alpha1.PauseAlertMonitorByTokenRequest]) (*connect.Response[v1alpha1.PauseAlertMonitorByTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.PauseAlertMonitorByToken is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error) {

@@ -4,6 +4,8 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { BillingService } from "~/gen/shorts/v1alpha1/billing_pb";
 import { auth } from "~/server/auth";
+import { isAdmin } from "~/server/admin";
+import { internalServiceSecret } from "~/server/internal-service-secret";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { recordProductEvent } from "~/@/lib/product-events";
 
@@ -39,16 +41,12 @@ export async function mintApiTokenAction() {
   const client = createClient(BillingService, transport);
 
   try {
-    const internalSecret =
-      process.env.INTERNAL_SERVICE_SECRET ??
-      (process.env.NODE_ENV === "development"
-        ? "dev-internal-secret"
-        : undefined);
-    if (!internalSecret) {
-      throw new Error(
-        "INTERNAL_SERVICE_SECRET not configured for production",
-      );
-    }
+    const internalSecret = internalServiceSecret();
+
+    // The API mints an admin token only when the admin role arrives on this call,
+    // and the web tier asserts it only for a verified admin. An admin-looking email
+    // on the session is not enough.
+    const asAdmin = await isAdmin();
 
     const response = await client.mintToken(
       {},
@@ -57,6 +55,7 @@ export async function mintApiTokenAction() {
           "X-Internal-Secret": internalSecret,
           "X-User-Id": session.user.id,
           "X-User-Email": session.user.email ?? "",
+          ...(asAdmin ? { "X-User-Roles": "admin" } : {}),
         },
       },
     );

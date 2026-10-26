@@ -15,8 +15,6 @@ import (
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
-func f64(v float64) *float64 { return &v }
-
 func TestGetCompanyTaxProfile_HappyPathMapsYearsAndNulls(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -30,7 +28,7 @@ func TestGetCompanyTaxProfile_HappyPathMapsYearsAndNulls(t *testing.T) {
 			ABN:        "49004028077",
 			Years: []shortsstore.CompanyTaxYearRow{
 				// Year with full data.
-				{IncomeYear: 2023, TotalIncome: 8.5e10, TaxableIncome: f64(4.2e10), TaxPayable: f64(1.2e10)},
+				{IncomeYear: 2023, TotalIncome: 8.5e10, TaxableIncome: new(4.2e10), TaxPayable: new(1.2e10)},
 				// Year with NULL taxable income + NULL tax payable (meaningful, not zero).
 				{IncomeYear: 2024, TotalIncome: 7.9e10, TaxableIncome: nil, TaxPayable: nil},
 			},

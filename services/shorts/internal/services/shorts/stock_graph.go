@@ -35,7 +35,7 @@ func (s *ShortsServer) GetStockGraph(ctx context.Context, req *connect.Request[s
 	s.logger.Debugf("get stock graph: stock_code=%s, limit=%d", req.Msg.StockCode, req.Msg.Limit)
 
 	cacheKey := s.cache.GetStockGraphKey(req.Msg.StockCode, req.Msg.Limit)
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		result, err := s.store.GetStockGraph(req.Msg.StockCode, req.Msg.Limit)
 		if err != nil {
 			return nil, err

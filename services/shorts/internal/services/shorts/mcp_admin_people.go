@@ -227,17 +227,43 @@ func (a *adminMCPSource) ListPayingUsers(ctx context.Context, in mcp.ListPayingU
 		return nil, errors.New("subscriptions could not be read")
 	}
 	out := &mcp.ListPayingUsersOutput{Subscriptions: make([]mcp.PayingUserRow, 0, len(rows)), Total: total}
+	now := time.Now()
 	for _, r := range rows {
-		out.Subscriptions = append(out.Subscriptions, payingRow(r))
+		out.Subscriptions = append(out.Subscriptions, payingRow(r, now))
 	}
 	out.NextOffset = mcp.NextOffset(in.Offset, len(rows), total)
 	return out, nil
 }
 
-func payingRow(r shortsstore.AdminSubscription) mcp.PayingUserRow {
+// payingRow renders a subscription row. The entitlement is the product's own
+// verdict for the row at now, so the list cannot disagree with the features.
+func payingRow(r shortsstore.AdminSubscription, now time.Time) mcp.PayingUserRow {
+	ent := ResolveEntitlement(r.UserID, adminSubscriptionAPI(r), now)
 	return mcp.PayingUserRow{
 		UserID: r.UserID, Email: r.Email, Tier: r.Tier, Status: r.Status,
 		CurrentPeriodEnd: rfc3339(r.CurrentPeriodEnd), CancelAtPeriodEnd: r.CancelAtPeriodEnd, CreatedAt: rfc3339(r.CreatedAt),
+		Entitled: ent.Entitled, EntitlementReason: ent.Reason,
+	}
+}
+
+// adminSubscriptionAPI is the row in the shape ResolveEntitlement reads. The
+// period end goes back as RFC3339 with its fraction, which parseStoreTimestamp
+// accepts, so the verdict is the same one the product reaches.
+func adminSubscriptionAPI(r shortsstore.AdminSubscription) *shortsstore.APISubscription {
+	var end *string
+	if r.CurrentPeriodEnd != nil {
+		text := r.CurrentPeriodEnd.UTC().Format(time.RFC3339Nano)
+		end = &text
+	}
+	var pastDue *string
+	if r.PastDueSince != nil {
+		text := r.PastDueSince.UTC().Format(time.RFC3339Nano)
+		pastDue = &text
+	}
+	return &shortsstore.APISubscription{
+		UserID: r.UserID, UserEmail: r.Email, Status: r.Status, Tier: r.Tier,
+		CurrentPeriodEnd: end, CancelAtPeriodEnd: r.CancelAtPeriodEnd,
+		PastDueSince: pastDue,
 	}
 }
 
@@ -320,7 +346,7 @@ func (a *adminMCPSource) LookupPerson(ctx context.Context, in mcp.LookupPersonIn
 		log.Warnf("admin lookup_person: subscriptions: %v", sErr)
 		out.Warnings = append(out.Warnings, "Subscriptions could not be read; subscription is unknown.")
 	} else if sub != nil {
-		row := payingRow(*sub)
+		row := payingRow(*sub, time.Now())
 		out.Subscription = &row
 		if out.Account != nil {
 			out.Account.Plan = planLabel(*sub)

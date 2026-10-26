@@ -2,9 +2,10 @@ import {
   ECONOMY_TOPICS,
   ECONOMY_TOPIC_SLUGS,
   PUBLISHED_ECONOMY_TOPIC_PAIRS,
+  economyTopicHeadlineKey,
   getEconomyTopic,
 } from "../topics";
-import { STATE_SLUGS } from "../map-metrics";
+import { ECONOMY_SERIES_FORMATTERS, STATE_SLUGS } from "../map-metrics";
 
 const EXPECTED_TOPICS = [
   "approvals",
@@ -70,6 +71,26 @@ describe("economy topic registry", () => {
     });
 
     expect(new Set(ledes).size).toBe(ledes.length);
+  });
+
+  it("quotes one series of the topic's own family on the state page", () => {
+    for (const { state, topic } of PUBLISHED_ECONOMY_TOPIC_PAIRS) {
+      const key = economyTopicHeadlineKey(ECONOMY_TOPICS[topic], state);
+      // series_key is topic.metric[.product].region[.adjustment].
+      expect(key.startsWith(`${topic}.`)).toBe(true);
+      expect(key.split(".")).toContain(state);
+      expect(key).not.toMatch(/[{}]/);
+    }
+    for (const slug of ECONOMY_TOPIC_SLUGS) {
+      const { format, sentenceTemplate } = ECONOMY_TOPICS[slug].headline;
+      expect(typeof ECONOMY_SERIES_FORMATTERS[format]).toBe("function");
+      expect(sentenceTemplate).toContain("{value}");
+      expect(sentenceTemplate).toContain("{period}");
+      expect(sentenceTemplate).toMatch(/\.$/);
+    }
+    expect(economyTopicHeadlineKey(ECONOMY_TOPICS.labour, "vic")).toBe(
+      "labour.unemployment_rate.total.vic.seasadj",
+    );
   });
 
   it("keeps every registry record JSON-serializable", () => {

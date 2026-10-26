@@ -132,6 +132,38 @@ variable "chat_service_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/chat-service:latest"
 }
 
+# Chat-model flag inputs. The workflow sets each from its GitHub secret, and an
+# empty value leaves the flag off. Names are set only once the secret exists.
+variable "flaggr_api_key_secret_name" {
+  description = "Secret Manager secret for the Flaggr token; empty until FLAGGR_API_KEY is set"
+  type        = string
+  default     = ""
+}
+
+variable "flaggr_service_id" {
+  description = "Flaggr service id for the chat-model flag; empty until FLAGGR_SERVICE_ID is set"
+  type        = string
+  default     = ""
+}
+
+variable "deepseek_api_key_secret_name" {
+  description = "Secret Manager secret for the DeepSeek key; empty until DEEPSEEK_API_KEY is set"
+  type        = string
+  default     = ""
+}
+
+variable "resend_webhook_secret_exists" {
+  description = "True once RESEND_WEBHOOK_SECRET is in Cuttlefish; the workflow syncs it to Secret Manager and sets this. False keeps /webhooks/resend at 503"
+  type        = bool
+  default     = false
+}
+
+variable "openrouter_api_key_secret_name" {
+  description = "Secret Manager secret for the chat-only OpenRouter key (OPENROUTER_API_KEY_CHAT, with its own spend cap); empty until the workflow sees OPENROUTER_API_KEY_CHAT"
+  type        = string
+  default     = ""
+}
+
 # ---- Cloudflare Edge ----
 
 variable "cloudflare_global_api_key" {

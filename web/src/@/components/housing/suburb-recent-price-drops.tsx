@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { listSuburbDropListingsClient } from "~/app/actions/client/getHousingClient";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { HousingIcon } from "./housing-icon";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 /**
  * Recently price-reduced for-sale listings for this suburb, deep-linking OUT to
@@ -56,7 +57,7 @@ export function RecentPriceDrops({
                 </Link>
               ) : (
                 <a
-                  href={l.listingUrl}
+                  href={safeExternalHref(l.listingUrl)}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
                   className="block truncate text-sm text-foreground underline-offset-2 hover:underline"

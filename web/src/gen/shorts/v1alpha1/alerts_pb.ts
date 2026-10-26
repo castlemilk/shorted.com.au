@@ -13,7 +13,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/alerts.proto.
  */
 export const file_shorts_v1alpha1_alerts: GenFile = /*@__PURE__*/
-  fileDesc("ChxzaG9ydHMvdjFhbHBoYTEvYWxlcnRzLnByb3RvEg9zaG9ydHMudjFhbHBoYTEijgMKDEFsZXJ0TW9uaXRvchIKCgJpZBgBIAEoCRIxCgVzY29wZRgCIAEoDjIiLnNob3J0cy52MWFscGhhMS5BbGVydE1vbml0b3JTY29wZRIOCgZ0YXJnZXQYAyABKAkSOQoJY29uZGl0aW9uGAQgASgOMiYuc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvckNvbmRpdGlvbhIRCgl0aHJlc2hvbGQYBSABKAESFQoNaGFzX3RocmVzaG9sZBgGIAEoCBI1CgdjYWRlbmNlGAcgASgOMiQuc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvckNhZGVuY2USMwoGc3RhdHVzGAggASgOMiMuc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvclN0YXR1cxIuCgpjcmVhdGVkX2F0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCL6AQoZQ3JlYXRlQWxlcnRNb25pdG9yUmVxdWVzdBIxCgVzY29wZRgBIAEoDjIiLnNob3J0cy52MWFscGhhMS5BbGVydE1vbml0b3JTY29wZRIOCgZ0YXJnZXQYAiABKAkSOQoJY29uZGl0aW9uGAMgASgOMiYuc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvckNvbmRpdGlvbhIRCgl0aHJlc2hvbGQYBCABKAESFQoNaGFzX3RocmVzaG9sZBgFIAEoCBI1CgdjYWRlbmNlGAYgASgOMiQuc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvckNhZGVuY2UiTAoaQ3JlYXRlQWxlcnRNb25pdG9yUmVzcG9uc2USLgoHbW9uaXRvchgBIAEoCzIdLnNob3J0cy52MWFscGhhMS5BbGVydE1vbml0b3IiOQoYTGlzdEFsZXJ0TW9uaXRvcnNSZXF1ZXN0Eg0KBWxpbWl0GAEgASgFEg4KBm9mZnNldBgCIAEoBSJhChlMaXN0QWxlcnRNb25pdG9yc1Jlc3BvbnNlEi8KCG1vbml0b3JzGAEgAygLMh0uc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvchITCgt0b3RhbF9jb3VudBgCIAEoBSp5ChFBbGVydE1vbml0b3JTY29wZRIjCh9BTEVSVF9NT05JVE9SX1NDT1BFX1VOU1BFQ0lGSUVEEAASIAocQUxFUlRfTU9OSVRPUl9TQ09QRV9JTkRVU1RSWRABEh0KGUFMRVJUX01PTklUT1JfU0NPUEVfU1RPQ0sQAirTAQoVQWxlcnRNb25pdG9yQ29uZGl0aW9uEicKI0FMRVJUX01PTklUT1JfQ09ORElUSU9OX1VOU1BFQ0lGSUVEEAASMAosQUxFUlRfTU9OSVRPUl9DT05ESVRJT05fU0hPUlRfSU5URVJFU1RfQUJPVkUQARIwCixBTEVSVF9NT05JVE9SX0NPTkRJVElPTl9TSE9SVF9JTlRFUkVTVF9SSVNFUxACEi0KKUFMRVJUX01PTklUT1JfQ09ORElUSU9OX05FV19UT1BfVEVOX0VOVFJZEAMqfwoTQWxlcnRNb25pdG9yQ2FkZW5jZRIlCiFBTEVSVF9NT05JVE9SX0NBREVOQ0VfVU5TUEVDSUZJRUQQABIfChtBTEVSVF9NT05JVE9SX0NBREVOQ0VfREFJTFkQARIgChxBTEVSVF9NT05JVE9SX0NBREVOQ0VfV0VFS0xZEAIqfAoSQWxlcnRNb25pdG9yU3RhdHVzEiQKIEFMRVJUX01PTklUT1JfU1RBVFVTX1VOU1BFQ0lGSUVEEAASHwobQUxFUlRfTU9OSVRPUl9TVEFUVVNfQUNUSVZFEAESHwobQUxFUlRfTU9OSVRPUl9TVEFUVVNfUEFVU0VEEAIy9gEKDUFsZXJ0c1NlcnZpY2UScwoSQ3JlYXRlQWxlcnRNb25pdG9yEiouc2hvcnRzLnYxYWxwaGExLkNyZWF0ZUFsZXJ0TW9uaXRvclJlcXVlc3QaKy5zaG9ydHMudjFhbHBoYTEuQ3JlYXRlQWxlcnRNb25pdG9yUmVzcG9uc2UiBIC1GAIScAoRTGlzdEFsZXJ0TW9uaXRvcnMSKS5zaG9ydHMudjFhbHBoYTEuTGlzdEFsZXJ0TW9uaXRvcnNSZXF1ZXN0Giouc2hvcnRzLnYxYWxwaGExLkxpc3RBbGVydE1vbml0b3JzUmVzcG9uc2UiBIC1GAJC2gEKE2NvbS5zaG9ydHMudjFhbHBoYTFCC0FsZXJ0c1Byb3RvUAFaWWdpdGh1Yi5jb20vY2FzdGxlbWlsay9zaG9ydGVkLmNvbS5hdS9zZXJ2aWNlcy9nZW4vcHJvdG8vZ28vc2hvcnRzL3YxYWxwaGExO3Nob3J0c3YxYWxwaGExogIDU1hYqgIPU2hvcnRzLlYxYWxwaGExygIPU2hvcnRzXFYxYWxwaGEx4gIbU2hvcnRzXFYxYWxwaGExXEdQQk1ldGFkYXRh6gIQU2hvcnRzOjpWMWFscGhhMWIGcHJvdG8z", [file_google_protobuf_timestamp, file_options_v1_options]);
+  fileDesc("ChxzaG9ydHMvdjFhbHBoYTEvYWxlcnRzLnByb3RvEg9zaG9ydHMudjFhbHBoYTEipQQKDEFsZXJ0TW9uaXRvchIKCgJpZBgBIAEoCRIxCgVzY29wZRgCIAEoDjIiLnNob3J0cy52MWFscGhhMS5BbGVydE1vbml0b3JTY29wZRIOCgZ0YXJnZXQYAyABKAkSOQoJY29uZGl0aW9uGAQgASgOMiYuc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvckNvbmRpdGlvbhIRCgl0aHJlc2hvbGQYBSABKAESFQoNaGFzX3RocmVzaG9sZBgGIAEoCBI1CgdjYWRlbmNlGAcgASgOMiQuc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvckNhZGVuY2USMwoGc3RhdHVzGAggASgOMiMuc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvclN0YXR1cxIuCgpjcmVhdGVkX2F0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIeChZsYXN0X2V2ZW50X3JlcG9ydF9kYXRlGAsgASgJEkIKFGxhc3RfZGVsaXZlcnlfc3RhdHVzGAwgASgOMiQuc2hvcnRzLnYxYWxwaGExLkFsZXJ0RGVsaXZlcnlTdGF0dXMSMQoNbGFzdF9ldmVudF9hdBgNIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAi+gEKGUNyZWF0ZUFsZXJ0TW9uaXRvclJlcXVlc3QSMQoFc2NvcGUYASABKA4yIi5zaG9ydHMudjFhbHBoYTEuQWxlcnRNb25pdG9yU2NvcGUSDgoGdGFyZ2V0GAIgASgJEjkKCWNvbmRpdGlvbhgDIAEoDjImLnNob3J0cy52MWFscGhhMS5BbGVydE1vbml0b3JDb25kaXRpb24SEQoJdGhyZXNob2xkGAQgASgBEhUKDWhhc190aHJlc2hvbGQYBSABKAgSNQoHY2FkZW5jZRgGIAEoDjIkLnNob3J0cy52MWFscGhhMS5BbGVydE1vbml0b3JDYWRlbmNlIkwKGkNyZWF0ZUFsZXJ0TW9uaXRvclJlc3BvbnNlEi4KB21vbml0b3IYASABKAsyHS5zaG9ydHMudjFhbHBoYTEuQWxlcnRNb25pdG9yIjkKGExpc3RBbGVydE1vbml0b3JzUmVxdWVzdBINCgVsaW1pdBgBIAEoBRIOCgZvZmZzZXQYAiABKAUihgEKGUxpc3RBbGVydE1vbml0b3JzUmVzcG9uc2USLwoIbW9uaXRvcnMYASADKAsyHS5zaG9ydHMudjFhbHBoYTEuQWxlcnRNb25pdG9yEhMKC3RvdGFsX2NvdW50GAIgASgFEiMKG2NoZWNrZWRfdGhyb3VnaF9yZXBvcnRfZGF0ZRgDIAEoCSLXAQoRQWxlcnRFdmVudENvbXBhbnkSFAoMcHJvZHVjdF9jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIWCg5sYXRlc3RfcGVyY2VudBgDIAEoARIYChBwcmV2aW91c19wZXJjZW50GAQgASgBEhQKDGhhc19wcmV2aW91cxgFIAEoCBIVCg1jaGFuZ2VfcG9pbnRzGAYgASgBEhIKCmhhc19jaGFuZ2UYByABKAgSDAoEcmFuaxgIIAEoBRIVCg1wcmV2aW91c19yYW5rGAkgASgFIqYECgpBbGVydEV2ZW50EgoKAmlkGAEgASgJEhIKCm1vbml0b3JfaWQYAiABKAkSMQoFc2NvcGUYAyABKA4yIi5zaG9ydHMudjFhbHBoYTEuQWxlcnRNb25pdG9yU2NvcGUSDgoGdGFyZ2V0GAQgASgJEjkKCWNvbmRpdGlvbhgFIAEoDjImLnNob3J0cy52MWFscGhhMS5BbGVydE1vbml0b3JDb25kaXRpb24SEQoJdGhyZXNob2xkGAYgASgBEhUKDWhhc190aHJlc2hvbGQYByABKAgSNQoHY2FkZW5jZRgIIAEoDjIkLnNob3J0cy52MWFscGhhMS5BbGVydE1vbml0b3JDYWRlbmNlEhMKC3JlcG9ydF9kYXRlGAkgASgJEhgKEGNvbXBhcmVkX3RvX2RhdGUYCiABKAkSNQoJY29tcGFuaWVzGAsgAygLMiIuc2hvcnRzLnYxYWxwaGExLkFsZXJ0RXZlbnRDb21wYW55EhcKD2NvbXBhbmllc190b3RhbBgMIAEoBRI9Cg9kZWxpdmVyeV9zdGF0dXMYDSABKA4yJC5zaG9ydHMudjFhbHBoYTEuQWxlcnREZWxpdmVyeVN0YXR1cxIrCgdzZW50X2F0GA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpjcmVhdGVkX2F0GA8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJLChZMaXN0QWxlcnRFdmVudHNSZXF1ZXN0Eg0KBWxpbWl0GAEgASgFEg4KBm9mZnNldBgCIAEoBRISCgptb25pdG9yX2lkGAMgASgJIlsKF0xpc3RBbGVydEV2ZW50c1Jlc3BvbnNlEisKBmV2ZW50cxgBIAMoCzIbLnNob3J0cy52MWFscGhhMS5BbGVydEV2ZW50EhMKC3RvdGFsX2NvdW50GAIgASgFImIKH1VwZGF0ZUFsZXJ0TW9uaXRvclN0YXR1c1JlcXVlc3QSCgoCaWQYASABKAkSMwoGc3RhdHVzGAIgASgOMiMuc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvclN0YXR1cyJSCiBVcGRhdGVBbGVydE1vbml0b3JTdGF0dXNSZXNwb25zZRIuCgdtb25pdG9yGAEgASgLMh0uc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvciInChlEZWxldGVBbGVydE1vbml0b3JSZXF1ZXN0EgoKAmlkGAEgASgJIhwKGkRlbGV0ZUFsZXJ0TW9uaXRvclJlc3BvbnNlIjAKH1BhdXNlQWxlcnRNb25pdG9yQnlUb2tlblJlcXVlc3QSDQoFdG9rZW4YASABKAkimQIKIFBhdXNlQWxlcnRNb25pdG9yQnlUb2tlblJlc3BvbnNlEjEKBXNjb3BlGAEgASgOMiIuc2hvcnRzLnYxYWxwaGExLkFsZXJ0TW9uaXRvclNjb3BlEg4KBnRhcmdldBgCIAEoCRI5Cgljb25kaXRpb24YAyABKA4yJi5zaG9ydHMudjFhbHBoYTEuQWxlcnRNb25pdG9yQ29uZGl0aW9uEhEKCXRocmVzaG9sZBgEIAEoARIVCg1oYXNfdGhyZXNob2xkGAUgASgIEjUKB2NhZGVuY2UYBiABKA4yJC5zaG9ydHMudjFhbHBoYTEuQWxlcnRNb25pdG9yQ2FkZW5jZRIWCg5hbHJlYWR5X3BhdXNlZBgHIAEoCCp5ChFBbGVydE1vbml0b3JTY29wZRIjCh9BTEVSVF9NT05JVE9SX1NDT1BFX1VOU1BFQ0lGSUVEEAASIAocQUxFUlRfTU9OSVRPUl9TQ09QRV9JTkRVU1RSWRABEh0KGUFMRVJUX01PTklUT1JfU0NPUEVfU1RPQ0sQAirTAQoVQWxlcnRNb25pdG9yQ29uZGl0aW9uEicKI0FMRVJUX01PTklUT1JfQ09ORElUSU9OX1VOU1BFQ0lGSUVEEAASMAosQUxFUlRfTU9OSVRPUl9DT05ESVRJT05fU0hPUlRfSU5URVJFU1RfQUJPVkUQARIwCixBTEVSVF9NT05JVE9SX0NPTkRJVElPTl9TSE9SVF9JTlRFUkVTVF9SSVNFUxACEi0KKUFMRVJUX01PTklUT1JfQ09ORElUSU9OX05FV19UT1BfVEVOX0VOVFJZEAMqfwoTQWxlcnRNb25pdG9yQ2FkZW5jZRIlCiFBTEVSVF9NT05JVE9SX0NBREVOQ0VfVU5TUEVDSUZJRUQQABIfChtBTEVSVF9NT05JVE9SX0NBREVOQ0VfREFJTFkQARIgChxBTEVSVF9NT05JVE9SX0NBREVOQ0VfV0VFS0xZEAIqfAoSQWxlcnRNb25pdG9yU3RhdHVzEiQKIEFMRVJUX01PTklUT1JfU1RBVFVTX1VOU1BFQ0lGSUVEEAASHwobQUxFUlRfTU9OSVRPUl9TVEFUVVNfQUNUSVZFEAESHwobQUxFUlRfTU9OSVRPUl9TVEFUVVNfUEFVU0VEEAIqpQIKE0FsZXJ0RGVsaXZlcnlTdGF0dXMSJQohQUxFUlRfREVMSVZFUllfU1RBVFVTX1VOU1BFQ0lGSUVEEAASIQodQUxFUlRfREVMSVZFUllfU1RBVFVTX1BFTkRJTkcQARIeChpBTEVSVF9ERUxJVkVSWV9TVEFUVVNfU0VOVBACEiAKHEFMRVJUX0RFTElWRVJZX1NUQVRVU19GQUlMRUQQAxIsCihBTEVSVF9ERUxJVkVSWV9TVEFUVVNfU0tJUFBFRF9VTkVOVElUTEVEEAQSKgomQUxFUlRfREVMSVZFUllfU1RBVFVTX1NLSVBQRURfTk9fRU1BSUwQBRIoCiRBTEVSVF9ERUxJVkVSWV9TVEFUVVNfU0tJUFBFRF9QQVVTRUQQBjLnBQoNQWxlcnRzU2VydmljZRJzChJDcmVhdGVBbGVydE1vbml0b3ISKi5zaG9ydHMudjFhbHBoYTEuQ3JlYXRlQWxlcnRNb25pdG9yUmVxdWVzdBorLnNob3J0cy52MWFscGhhMS5DcmVhdGVBbGVydE1vbml0b3JSZXNwb25zZSIEgLUYAhJwChFMaXN0QWxlcnRNb25pdG9ycxIpLnNob3J0cy52MWFscGhhMS5MaXN0QWxlcnRNb25pdG9yc1JlcXVlc3QaKi5zaG9ydHMudjFhbHBoYTEuTGlzdEFsZXJ0TW9uaXRvcnNSZXNwb25zZSIEgLUYAhJqCg9MaXN0QWxlcnRFdmVudHMSJy5zaG9ydHMudjFhbHBoYTEuTGlzdEFsZXJ0RXZlbnRzUmVxdWVzdBooLnNob3J0cy52MWFscGhhMS5MaXN0QWxlcnRFdmVudHNSZXNwb25zZSIEgLUYAhKFAQoYVXBkYXRlQWxlcnRNb25pdG9yU3RhdHVzEjAuc2hvcnRzLnYxYWxwaGExLlVwZGF0ZUFsZXJ0TW9uaXRvclN0YXR1c1JlcXVlc3QaMS5zaG9ydHMudjFhbHBoYTEuVXBkYXRlQWxlcnRNb25pdG9yU3RhdHVzUmVzcG9uc2UiBIC1GAIScwoSRGVsZXRlQWxlcnRNb25pdG9yEiouc2hvcnRzLnYxYWxwaGExLkRlbGV0ZUFsZXJ0TW9uaXRvclJlcXVlc3QaKy5zaG9ydHMudjFhbHBoYTEuRGVsZXRlQWxlcnRNb25pdG9yUmVzcG9uc2UiBIC1GAIShQEKGFBhdXNlQWxlcnRNb25pdG9yQnlUb2tlbhIwLnNob3J0cy52MWFscGhhMS5QYXVzZUFsZXJ0TW9uaXRvckJ5VG9rZW5SZXF1ZXN0GjEuc2hvcnRzLnYxYWxwaGExLlBhdXNlQWxlcnRNb25pdG9yQnlUb2tlblJlc3BvbnNlIgSAtRgBQtoBChNjb20uc2hvcnRzLnYxYWxwaGExQgtBbGVydHNQcm90b1ABWllnaXRodWIuY29tL2Nhc3RsZW1pbGsvc2hvcnRlZC5jb20uYXUvc2VydmljZXMvZ2VuL3Byb3RvL2dvL3Nob3J0cy92MWFscGhhMTtzaG9ydHN2MWFscGhhMaICA1NYWKoCD1Nob3J0cy5WMWFscGhhMcoCD1Nob3J0c1xWMWFscGhhMeICG1Nob3J0c1xWMWFscGhhMVxHUEJNZXRhZGF0YeoCEFNob3J0czo6VjFhbHBoYTFiBnByb3RvMw", [file_google_protobuf_timestamp, file_options_v1_options]);
 
 /**
  * A saved short-interest monitor owned by the current user.
@@ -70,6 +70,25 @@ export type AlertMonitor = Message<"shorts.v1alpha1.AlertMonitor"> & {
    * @generated from field: google.protobuf.Timestamp updated_at = 10;
    */
   updatedAt?: Timestamp;
+
+  /**
+   * The newest event for this monitor, or empty when it has never fired.
+   *
+   * YYYY-MM-DD
+   *
+   * @generated from field: string last_event_report_date = 11;
+   */
+  lastEventReportDate: string;
+
+  /**
+   * @generated from field: shorts.v1alpha1.AlertDeliveryStatus last_delivery_status = 12;
+   */
+  lastDeliveryStatus: AlertDeliveryStatus;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp last_event_at = 13;
+   */
+  lastEventAt?: Timestamp;
 };
 
 /**
@@ -181,6 +200,13 @@ export type ListAlertMonitorsResponse = Message<"shorts.v1alpha1.ListAlertMonito
    * @generated from field: int32 total_count = 2;
    */
   totalCount: number;
+
+  /**
+   * The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+   *
+   * @generated from field: string checked_through_report_date = 3;
+   */
+  checkedThroughReportDate: string;
 };
 
 /**
@@ -189,6 +215,364 @@ export type ListAlertMonitorsResponse = Message<"shorts.v1alpha1.ListAlertMonito
  */
 export const ListAlertMonitorsResponseSchema: GenMessage<ListAlertMonitorsResponse> = /*@__PURE__*/
   messageDesc(file_shorts_v1alpha1_alerts, 4);
+
+/**
+ * One company an alert event is about.
+ *
+ * @generated from message shorts.v1alpha1.AlertEventCompany
+ */
+export type AlertEventCompany = Message<"shorts.v1alpha1.AlertEventCompany"> & {
+  /**
+   * @generated from field: string product_code = 1;
+   */
+  productCode: string;
+
+  /**
+   * @generated from field: string company_name = 2;
+   */
+  companyName: string;
+
+  /**
+   * @generated from field: double latest_percent = 3;
+   */
+  latestPercent: number;
+
+  /**
+   * @generated from field: double previous_percent = 4;
+   */
+  previousPercent: number;
+
+  /**
+   * @generated from field: bool has_previous = 5;
+   */
+  hasPrevious: boolean;
+
+  /**
+   * @generated from field: double change_points = 6;
+   */
+  changePoints: number;
+
+  /**
+   * @generated from field: bool has_change = 7;
+   */
+  hasChange: boolean;
+
+  /**
+   * 1-based rank in the industry's top ten at the report date. 0 means not ranked.
+   *
+   * @generated from field: int32 rank = 8;
+   */
+  rank: number;
+
+  /**
+   * Rank at the previous reading. 0 means not ranked.
+   *
+   * @generated from field: int32 previous_rank = 9;
+   */
+  previousRank: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.AlertEventCompany.
+ * Use `create(AlertEventCompanySchema)` to create a new message.
+ */
+export const AlertEventCompanySchema: GenMessage<AlertEventCompany> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_alerts, 5);
+
+/**
+ * One alert that fired: a monitor, a report date, and the companies it fired on.
+ *
+ * @generated from message shorts.v1alpha1.AlertEvent
+ */
+export type AlertEvent = Message<"shorts.v1alpha1.AlertEvent"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string monitor_id = 2;
+   */
+  monitorId: string;
+
+  /**
+   * @generated from field: shorts.v1alpha1.AlertMonitorScope scope = 3;
+   */
+  scope: AlertMonitorScope;
+
+  /**
+   * @generated from field: string target = 4;
+   */
+  target: string;
+
+  /**
+   * @generated from field: shorts.v1alpha1.AlertMonitorCondition condition = 5;
+   */
+  condition: AlertMonitorCondition;
+
+  /**
+   * @generated from field: double threshold = 6;
+   */
+  threshold: number;
+
+  /**
+   * @generated from field: bool has_threshold = 7;
+   */
+  hasThreshold: boolean;
+
+  /**
+   * @generated from field: shorts.v1alpha1.AlertMonitorCadence cadence = 8;
+   */
+  cadence: AlertMonitorCadence;
+
+  /**
+   * YYYY-MM-DD
+   *
+   * @generated from field: string report_date = 9;
+   */
+  reportDate: string;
+
+  /**
+   * YYYY-MM-DD
+   *
+   * @generated from field: string compared_to_date = 10;
+   */
+  comparedToDate: string;
+
+  /**
+   * @generated from field: repeated shorts.v1alpha1.AlertEventCompany companies = 11;
+   */
+  companies: AlertEventCompany[];
+
+  /**
+   * @generated from field: int32 companies_total = 12;
+   */
+  companiesTotal: number;
+
+  /**
+   * @generated from field: shorts.v1alpha1.AlertDeliveryStatus delivery_status = 13;
+   */
+  deliveryStatus: AlertDeliveryStatus;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp sent_at = 14;
+   */
+  sentAt?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 15;
+   */
+  createdAt?: Timestamp;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.AlertEvent.
+ * Use `create(AlertEventSchema)` to create a new message.
+ */
+export const AlertEventSchema: GenMessage<AlertEvent> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_alerts, 6);
+
+/**
+ * Request for ListAlertEvents RPC. Uses auth context for ownership.
+ *
+ * @generated from message shorts.v1alpha1.ListAlertEventsRequest
+ */
+export type ListAlertEventsRequest = Message<"shorts.v1alpha1.ListAlertEventsRequest"> & {
+  /**
+   * @generated from field: int32 limit = 1;
+   */
+  limit: number;
+
+  /**
+   * @generated from field: int32 offset = 2;
+   */
+  offset: number;
+
+  /**
+   * Restrict to one of the caller's monitors. Empty means all of them.
+   *
+   * @generated from field: string monitor_id = 3;
+   */
+  monitorId: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListAlertEventsRequest.
+ * Use `create(ListAlertEventsRequestSchema)` to create a new message.
+ */
+export const ListAlertEventsRequestSchema: GenMessage<ListAlertEventsRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_alerts, 7);
+
+/**
+ * Response for ListAlertEvents RPC.
+ *
+ * @generated from message shorts.v1alpha1.ListAlertEventsResponse
+ */
+export type ListAlertEventsResponse = Message<"shorts.v1alpha1.ListAlertEventsResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.AlertEvent events = 1;
+   */
+  events: AlertEvent[];
+
+  /**
+   * @generated from field: int32 total_count = 2;
+   */
+  totalCount: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListAlertEventsResponse.
+ * Use `create(ListAlertEventsResponseSchema)` to create a new message.
+ */
+export const ListAlertEventsResponseSchema: GenMessage<ListAlertEventsResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_alerts, 8);
+
+/**
+ * Request for UpdateAlertMonitorStatus RPC. Uses auth context for ownership.
+ *
+ * @generated from message shorts.v1alpha1.UpdateAlertMonitorStatusRequest
+ */
+export type UpdateAlertMonitorStatusRequest = Message<"shorts.v1alpha1.UpdateAlertMonitorStatusRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: shorts.v1alpha1.AlertMonitorStatus status = 2;
+   */
+  status: AlertMonitorStatus;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.UpdateAlertMonitorStatusRequest.
+ * Use `create(UpdateAlertMonitorStatusRequestSchema)` to create a new message.
+ */
+export const UpdateAlertMonitorStatusRequestSchema: GenMessage<UpdateAlertMonitorStatusRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_alerts, 9);
+
+/**
+ * Response for UpdateAlertMonitorStatus RPC.
+ *
+ * @generated from message shorts.v1alpha1.UpdateAlertMonitorStatusResponse
+ */
+export type UpdateAlertMonitorStatusResponse = Message<"shorts.v1alpha1.UpdateAlertMonitorStatusResponse"> & {
+  /**
+   * @generated from field: shorts.v1alpha1.AlertMonitor monitor = 1;
+   */
+  monitor?: AlertMonitor;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.UpdateAlertMonitorStatusResponse.
+ * Use `create(UpdateAlertMonitorStatusResponseSchema)` to create a new message.
+ */
+export const UpdateAlertMonitorStatusResponseSchema: GenMessage<UpdateAlertMonitorStatusResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_alerts, 10);
+
+/**
+ * Request for DeleteAlertMonitor RPC. Uses auth context for ownership.
+ *
+ * @generated from message shorts.v1alpha1.DeleteAlertMonitorRequest
+ */
+export type DeleteAlertMonitorRequest = Message<"shorts.v1alpha1.DeleteAlertMonitorRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.DeleteAlertMonitorRequest.
+ * Use `create(DeleteAlertMonitorRequestSchema)` to create a new message.
+ */
+export const DeleteAlertMonitorRequestSchema: GenMessage<DeleteAlertMonitorRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_alerts, 11);
+
+/**
+ * Response for DeleteAlertMonitor RPC.
+ *
+ * @generated from message shorts.v1alpha1.DeleteAlertMonitorResponse
+ */
+export type DeleteAlertMonitorResponse = Message<"shorts.v1alpha1.DeleteAlertMonitorResponse"> & {
+};
+
+/**
+ * Describes the message shorts.v1alpha1.DeleteAlertMonitorResponse.
+ * Use `create(DeleteAlertMonitorResponseSchema)` to create a new message.
+ */
+export const DeleteAlertMonitorResponseSchema: GenMessage<DeleteAlertMonitorResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_alerts, 12);
+
+/**
+ * Request for PauseAlertMonitorByToken RPC. The token is the one in an alert email.
+ *
+ * @generated from message shorts.v1alpha1.PauseAlertMonitorByTokenRequest
+ */
+export type PauseAlertMonitorByTokenRequest = Message<"shorts.v1alpha1.PauseAlertMonitorByTokenRequest"> & {
+  /**
+   * @generated from field: string token = 1;
+   */
+  token: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.PauseAlertMonitorByTokenRequest.
+ * Use `create(PauseAlertMonitorByTokenRequestSchema)` to create a new message.
+ */
+export const PauseAlertMonitorByTokenRequestSchema: GenMessage<PauseAlertMonitorByTokenRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_alerts, 13);
+
+/**
+ * Response for PauseAlertMonitorByToken RPC: the monitor, for the confirmation page.
+ *
+ * @generated from message shorts.v1alpha1.PauseAlertMonitorByTokenResponse
+ */
+export type PauseAlertMonitorByTokenResponse = Message<"shorts.v1alpha1.PauseAlertMonitorByTokenResponse"> & {
+  /**
+   * @generated from field: shorts.v1alpha1.AlertMonitorScope scope = 1;
+   */
+  scope: AlertMonitorScope;
+
+  /**
+   * @generated from field: string target = 2;
+   */
+  target: string;
+
+  /**
+   * @generated from field: shorts.v1alpha1.AlertMonitorCondition condition = 3;
+   */
+  condition: AlertMonitorCondition;
+
+  /**
+   * @generated from field: double threshold = 4;
+   */
+  threshold: number;
+
+  /**
+   * @generated from field: bool has_threshold = 5;
+   */
+  hasThreshold: boolean;
+
+  /**
+   * @generated from field: shorts.v1alpha1.AlertMonitorCadence cadence = 6;
+   */
+  cadence: AlertMonitorCadence;
+
+  /**
+   * True when the monitor was already paused, so nothing changed.
+   *
+   * @generated from field: bool already_paused = 7;
+   */
+  alreadyPaused: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.PauseAlertMonitorByTokenResponse.
+ * Use `create(PauseAlertMonitorByTokenResponseSchema)` to create a new message.
+ */
+export const PauseAlertMonitorByTokenResponseSchema: GenMessage<PauseAlertMonitorByTokenResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_alerts, 14);
 
 /**
  * Alert monitor target type.
@@ -308,6 +692,62 @@ export const AlertMonitorStatusSchema: GenEnum<AlertMonitorStatus> = /*@__PURE__
   enumDesc(file_shorts_v1alpha1_alerts, 3);
 
 /**
+ * Delivery state of one alert event's email.
+ *
+ * @generated from enum shorts.v1alpha1.AlertDeliveryStatus
+ */
+export enum AlertDeliveryStatus {
+  /**
+   * @generated from enum value: ALERT_DELIVERY_STATUS_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * Queued for sending, or being sent.
+   *
+   * @generated from enum value: ALERT_DELIVERY_STATUS_PENDING = 1;
+   */
+  PENDING = 1,
+
+  /**
+   * @generated from enum value: ALERT_DELIVERY_STATUS_SENT = 2;
+   */
+  SENT = 2,
+
+  /**
+   * @generated from enum value: ALERT_DELIVERY_STATUS_FAILED = 3;
+   */
+  FAILED = 3,
+
+  /**
+   * The owner has no active Premium subscription, so no email was sent.
+   *
+   * @generated from enum value: ALERT_DELIVERY_STATUS_SKIPPED_UNENTITLED = 4;
+   */
+  SKIPPED_UNENTITLED = 4,
+
+  /**
+   * The account has no email address on file.
+   *
+   * @generated from enum value: ALERT_DELIVERY_STATUS_SKIPPED_NO_EMAIL = 5;
+   */
+  SKIPPED_NO_EMAIL = 5,
+
+  /**
+   * The monitor was paused before the email was sent.
+   *
+   * @generated from enum value: ALERT_DELIVERY_STATUS_SKIPPED_PAUSED = 6;
+   */
+  SKIPPED_PAUSED = 6,
+}
+
+/**
+ * Describes the enum shorts.v1alpha1.AlertDeliveryStatus.
+ */
+export const AlertDeliveryStatusSchema: GenEnum<AlertDeliveryStatus> = /*@__PURE__*/
+  enumDesc(file_shorts_v1alpha1_alerts, 4);
+
+/**
  * @generated from service shorts.v1alpha1.AlertsService
  */
 export const AlertsService: GenService<{
@@ -330,6 +770,46 @@ export const AlertsService: GenService<{
     methodKind: "unary";
     input: typeof ListAlertMonitorsRequestSchema;
     output: typeof ListAlertMonitorsResponseSchema;
+  },
+  /**
+   * Recent alert events (monitors that fired) for the current user, newest report first.
+   *
+   * @generated from rpc shorts.v1alpha1.AlertsService.ListAlertEvents
+   */
+  listAlertEvents: {
+    methodKind: "unary";
+    input: typeof ListAlertEventsRequestSchema;
+    output: typeof ListAlertEventsResponseSchema;
+  },
+  /**
+   * Pause or resume one of the current user's monitors. Resuming requires Premium.
+   *
+   * @generated from rpc shorts.v1alpha1.AlertsService.UpdateAlertMonitorStatus
+   */
+  updateAlertMonitorStatus: {
+    methodKind: "unary";
+    input: typeof UpdateAlertMonitorStatusRequestSchema;
+    output: typeof UpdateAlertMonitorStatusResponseSchema;
+  },
+  /**
+   * Delete one of the current user's monitors and its event history.
+   *
+   * @generated from rpc shorts.v1alpha1.AlertsService.DeleteAlertMonitor
+   */
+  deleteAlertMonitor: {
+    methodKind: "unary";
+    input: typeof DeleteAlertMonitorRequestSchema;
+    output: typeof DeleteAlertMonitorResponseSchema;
+  },
+  /**
+   * Pause the monitor named by a signed email token (one-click unsubscribe). No session.
+   *
+   * @generated from rpc shorts.v1alpha1.AlertsService.PauseAlertMonitorByToken
+   */
+  pauseAlertMonitorByToken: {
+    methodKind: "unary";
+    input: typeof PauseAlertMonitorByTokenRequestSchema;
+    output: typeof PauseAlertMonitorByTokenResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_shorts_v1alpha1_alerts, 0);

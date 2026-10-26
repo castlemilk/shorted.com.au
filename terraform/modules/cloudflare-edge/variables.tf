@@ -789,14 +789,19 @@ variable "spf_record" {
 
 variable "dmarc_record" {
   description = <<-EOT
-    DMARC policy published as a _dmarc TXT record. Default is p=none
-    (monitor only — does not affect delivery) with aggregate reports sent to
-    dmarc-reports@shorted.com.au. The rua mailbox must exist in Google
-    Workspace (a mailbox or a Group) or reports bounce. Move to p=quarantine
-    then p=reject after observing reports.
+    DMARC policy published as a _dmarc TXT record. Default is p=quarantine
+    (pct=100) with aggregate and failure reports sent to support@shorted.com.au,
+    the inbox that already receives operator billing notices.
+    Quarantine was approved once every sender on shorted.com.au was confirmed
+    aligned: Resend (alerts, broadcasts, notifications, operator notices) signs
+    DKIM with d=shorted.com.au (resend._domainkey) and its SPF covers the
+    send.shorted.com.au MAIL FROM, which is relaxed-aligned (aspf=r); Google
+    Workspace signs with google._domainkey and is authorised by the apex SPF.
+    Move to p=reject only after the quarantine aggregate
+    reports show no legitimate failures.
   EOT
   type        = string
-  default     = "v=DMARC1; p=none; rua=mailto:dmarc-reports@shorted.com.au; ruf=mailto:dmarc-reports@shorted.com.au; fo=1; adkim=r; aspf=r"
+  default     = "v=DMARC1; p=quarantine; pct=100; rua=mailto:support@shorted.com.au; ruf=mailto:support@shorted.com.au; fo=1; adkim=r; aspf=r"
 }
 
 # ---- DNSSEC ----

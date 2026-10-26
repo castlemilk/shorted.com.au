@@ -19,6 +19,7 @@ import { industryLabel } from "@/lib/industry-placeholder";
 import { AMBER_STEPS } from "@/lib/politics/analytics-palette";
 import { partyLabel } from "@/lib/politics/party-palette";
 import { sectionTitle } from "@/lib/typography";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 export interface ProfileTerm {
   parliament: number;
@@ -256,7 +257,7 @@ export function SourceDocuments({ documents }: { documents: ProfileSourceDocumen
         {documents.map((doc) => (
           <li key={doc.sourceUrl}>
             <a
-              href={doc.sourceUrl}
+              href={safeExternalHref(doc.sourceUrl)}
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground underline decoration-dotted hover:text-foreground"

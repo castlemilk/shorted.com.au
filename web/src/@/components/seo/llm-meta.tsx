@@ -1,3 +1,4 @@
+import { JsonLd } from "~/@/components/seo/json-ld";
 /**
  * LLM-specific meta tags and structured data
  * Optimizes content for AI/LLM crawlers and indexing
@@ -255,12 +256,7 @@ export function LLMMeta({
       <link rel="alternate" type="text/markdown" href="/docs/llm-context" />
 
       {/* Structured data for LLMs */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(llmStructuredData),
-        }}
-      />
+      <JsonLd data={llmStructuredData} />
 
     </>
   );

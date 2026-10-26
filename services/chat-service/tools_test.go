@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/genai"
 )
 
 func TestEconomicSeriesToolDeclarationAndGeminiSchema(t *testing.T) {
@@ -62,7 +62,7 @@ func TestEconomicSeriesToolDeclarationAndGeminiSchema(t *testing.T) {
 		t.Fatalf("series_keys type = %q, want array", parameter.Type)
 	}
 
-	tools := buildGeminiTools()
+	tools := buildGeminiTools(chatToolDefinitions())
 	if len(tools) != 1 {
 		t.Fatalf("buildGeminiTools() returned %d tools, want 1 tool group", len(tools))
 	}
@@ -80,4 +80,39 @@ func TestEconomicSeriesToolDeclarationAndGeminiSchema(t *testing.T) {
 		return
 	}
 	t.Fatal("get_economic_series Gemini declaration is missing")
+}
+
+func TestAnswerWithoutDataIsDeclaredToTheModelButIsNotAShortsCall(t *testing.T) {
+	// The contract tests require every tool in GetToolDefinitions to map to an
+	// API call. answer_without_data makes none, so it must stay out of that list.
+	for _, def := range GetToolDefinitions() {
+		if def.Name == answerWithoutDataTool {
+			t.Fatalf("%s is in GetToolDefinitions, but it makes no Shorts API call", answerWithoutDataTool)
+		}
+	}
+
+	declarations := buildGeminiTools(chatToolDefinitions())[0].FunctionDeclarations
+	if len(declarations) != len(GetToolDefinitions())+1 {
+		t.Fatalf("declarations = %d, want every data tool plus %s", len(declarations), answerWithoutDataTool)
+	}
+
+	var declaration *genai.FunctionDeclaration
+	for _, d := range declarations {
+		if d.Name == answerWithoutDataTool {
+			declaration = d
+		}
+	}
+	if declaration == nil {
+		t.Fatalf("%s is not declared to the model", answerWithoutDataTool)
+	}
+	// Gemini rejects an object schema with no properties, so a tool with no
+	// parameters must declare none.
+	if declaration.Parameters != nil {
+		t.Fatalf("parameters = %+v, want none", declaration.Parameters)
+	}
+	for _, fragment := range []string{"ONLY", "NEVER", "figure"} {
+		if !strings.Contains(declaration.Description, fragment) {
+			t.Errorf("description missing %q: %s", fragment, declaration.Description)
+		}
+	}
 }

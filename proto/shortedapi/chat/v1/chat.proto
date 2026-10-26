@@ -70,6 +70,11 @@ message SendMessageRequest {
   string conversation_id = 1;     // Empty to start new conversation
   string message = 2;             // User message text
   string context_stock_code = 3;  // Optional stock context
+  // True when the person asked again after a failed reply (Try again). The
+  // question is already stored in the conversation, so the service reuses it
+  // instead of storing it a second time, and replaces the partial reply the
+  // failed attempt left behind.
+  bool retry = 4;
 }
 
 // Response chunk for SendMessage streaming RPC

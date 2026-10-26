@@ -1,0 +1,6 @@
+data: {"choices":[{"index":0,"delta":{"content":"Let me check the data.","tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"search_stocks","arguments":"{\"query\":\"BHP\"}"}}]},"finish_reason":null}]}
+
+data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
+
+data: [DONE]
+

@@ -142,28 +142,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// Create auth interceptor with subscription lookup
 	authOpts := AuthInterceptorOptions{
 		TokenService: s.tokenService,
-		SubscriptionLookup: func(userID string) (string, error) {
-			// Internal grants win, and are checked BEFORE the store so they do not
-			// depend on an api_subscriptions row existing and cannot be overwritten
-			// by a Stripe webhook. See internal_tier.go for why this is keyed on
-			// user id rather than the existing adminEmails list: an OAuth access
-			// token carries neither roles nor email.
-			if tier, ok := InternalTierFor(userID); ok {
-				return tier, nil
-			}
-			sub, err := s.store.GetAPISubscription(userID)
-			if err != nil {
-				return "", err
-			}
-			if sub == nil {
-				return "free", nil // No subscription = free tier
-			}
-			// Only return tier for active/trialing subscriptions
-			if sub.Status == "active" || sub.Status == "trialing" {
-				return sub.Tier, nil
-			}
-			return "free", nil // Inactive subscription = free tier
-		},
+		// The rate-limit tier follows the one entitlement rule; see subscriptionTier.
+		SubscriptionLookup: s.subscriptionTier,
 	}
 	interceptorList = append(interceptorList, NewAuthInterceptorWithOptions(authOpts))
 
@@ -259,10 +239,13 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		// client discover the authorization server at all.
 		ratelimit.WithRejection(mcp.RateLimitRejection(mcp.ProtectedResourceMetadataURL(apiBaseURL))),
 	)
+	// One Firebase account reader for the MCP servers. Nil without INTERNAL_SERVICE_SECRET:
+	// the public alerts tools then refuse create and resume (see mcp_public_alerts.go).
+	firebaseUsers := newFirebaseUsersClientFromEnv()
 	mcpHandler := mcp.OptionalBearerToken(
 		mcp.NewTokenVerifier(s.tokenService, mcp.ResourceURI(apiBaseURL)),
 		mcp.BearerTokenOptions(apiBaseURL),
-	)(mcpRateLimit(mcp.Handler(s)))
+	)(mcp.WithChallengeScope(mcp.BatchGuard(mcpRateLimit(mcp.HandlerWithAlerts(s, newPublicAlertsSource(s, firebaseUsers), mcp.ProtectedResourceMetadataURL(apiBaseURL))))))
 	// Both paths: the SDK's streamable transport uses the bare path, and
 	// clients sometimes append a trailing segment.
 	mux.Handle("/mcp", mcpHandler)
@@ -293,10 +276,13 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		adminEntitlement = adminChecker.IsAdmin
 		adminCheck = adminChecker.IsAdmin
 	}
+	// One Firebase reader for the admin MCP server. Nil without INTERNAL_SERVICE_SECRET,
+	// which keeps the smoke test's refusal. The verified-address rule is
+	// verifiedAccountEmail (firebase_users.go), kept for reuse by the public alerts tools.
 	adminMCPHandler := mcpauth.RequireBearerToken(
 		mcp.NewTokenVerifier(s.tokenService, mcp.AdminResourceURI(apiBaseURL)),
 		mcp.AdminBearerTokenOptions(apiBaseURL),
-	)(mcp.RequireAdmin(adminCheck)(mcp.AdminHandler(&adminMCPSource{Collector: s.jobsCollector, server: s, people: s.peopleStore, users: newFirebaseUsersClientFromEnv()})))
+	)(mcp.RequireAdmin(adminCheck)(mcp.AdminHandler(newAdminMCPSource(s, firebaseUsers))))
 	mcp.RegisterIconHandlers(mux)
 	mux.Handle("/mcp/admin", adminMCPHandler)
 	mux.Handle("/mcp/admin/", adminMCPHandler)
@@ -475,6 +461,18 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// quota diffing GetAvailableDates, and charging it more would defeat that.
 	mux.Handle(LatestPath, withCORS(s.LatestHandler()))
 
+	// Resend delivery feedback: a permanent bounce or a complaint marks the alert
+	// delivery and suppresses the address. Inert (503) until RESEND_WEBHOOK_SECRET is set.
+	mux.Handle(ResendWebhookPath, NewResendWebhookHandler(ResendWebhookConfig{
+		Secret: os.Getenv("RESEND_WEBHOOK_SECRET"),
+		Store:  resendWebhookStoreFrom(s.store),
+		Notify: ResendOperatorNotifier(os.Getenv("RESEND_API_KEY"),
+			envOr("RESEND_FROM", "Shorted <support@shorted.com.au>"),
+			envOr("RESEND_TO", "support@shorted.com.au")),
+		Infof:  log.Infof,
+		Errorf: log.Errorf,
+	}))
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if _, err := w.Write([]byte("OK")); err != nil {
@@ -535,7 +533,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		cacheKey := s.cache.GetSearchStocksKey(query, limit)
 
 		// Use cached result or fetch from Algolia/database
-		cachedResult, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		cachedResult, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 			// Try Algolia first if configured
 			if s.config.AlgoliaAppID != "" && s.config.AlgoliaSearchKey != "" {
 				logger.Debugf("searching via Algolia: query='%s'", query)
@@ -654,12 +652,12 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		} else {
 			// Parse POST body
 			var reqBody struct {
-				Query        string        `json:"query"`
-				Index        string        `json:"index"`
-				HitsPerPage  int           `json:"hitsPerPage"`
-				Filters      string        `json:"filters"`
-				FacetFilters []interface{} `json:"facetFilters"`
-				Facets       []string      `json:"facets"`
+				Query        string   `json:"query"`
+				Index        string   `json:"index"`
+				HitsPerPage  int      `json:"hitsPerPage"`
+				Filters      string   `json:"filters"`
+				FacetFilters []any    `json:"facetFilters"`
+				Facets       []string `json:"facets"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 				http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -720,7 +718,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		algoliaURL := fmt.Sprintf("https://%s-dsn.algolia.net/1/indexes/%s/query",
 			s.config.AlgoliaAppID, indexName)
 
-		algoliaReqBody := map[string]interface{}{
+		algoliaReqBody := map[string]any{
 			"query":       query,
 			"hitsPerPage": hitsPerPage,
 		}
@@ -729,7 +727,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			algoliaReqBody["filters"] = filters
 		}
 		if facetFiltersStr := r.Header.Get("X-Algolia-FacetFilters"); facetFiltersStr != "" {
-			var facetFilters []interface{}
+			var facetFilters []any
 			if json.Unmarshal([]byte(facetFiltersStr), &facetFilters) == nil {
 				algoliaReqBody["facetFilters"] = facetFilters
 			}
@@ -1154,7 +1152,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		if s.config.AlgoliaAppID == "" || s.config.AlgoliaAdminKey == "" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"synced":  false,
 				"message": "Algolia admin key not configured",
 			})
@@ -1181,7 +1179,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			logger.Errorf("Failed to sync %s to Algolia: %v", stockCode, err)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"synced":     false,
 				"stock_code": stockCode,
 				"error":      err.Error(),
@@ -1191,7 +1189,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 
 		logger.Infof("Synced %s to Algolia via internal API", stockCode)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"synced":     true,
 			"stock_code": stockCode,
 		})

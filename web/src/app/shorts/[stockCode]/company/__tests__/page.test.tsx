@@ -119,7 +119,7 @@ describe("/shorts/[stockCode]/company", () => {
     };
     expect(input.code).toBe("BHP");
     expect(input.tab).toBe("company");
-    expect(input.title("BHP Group")).toBe("BHP Company Profile: Directors, Insiders & Operations | BHP Group");
+    expect(input.title("BHP Group")).toBe("BHP Company Profile: Directors & Insiders | BHP Group");
     expect(input.description("BHP Group")).toContain("BHP Group (ASX:BHP)");
   });
 

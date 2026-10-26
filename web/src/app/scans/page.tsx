@@ -10,10 +10,12 @@ import {
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
 import { SCANS } from "~/@/lib/scans/registry";
+import { bailOnEmptyRender } from "~/app/actions/config";
 import { getScanResults } from "~/app/actions/getScanResults";
 
 export const metadata: Metadata = {
-  title: "ASX Short Interest Scans — Rising Shorts, Covering & Squeeze Fuel",
+  // The root template adds " | Shorted": keep the whole under ~65 characters.
+  title: "ASX Short Interest Scans — Rising Shorts & Covering",
   description:
     "Daily short-selling scans over every ASX stock: rising short interest, short covering, heavily shorted names, days-to-cover extremes and squeeze setups. Official ASIC data.",
   keywords: [
@@ -51,14 +53,14 @@ export const metadata: Metadata = {
   },
 };
 
-// force-dynamic, matching /scans/[slug] for the same reason: the hub now
-// reads the ASIC data date via getScanResults(), and the backend is
-// unreachable at build time where skipForBuild() forces it to null. Under
-// ISR that would bake a date-less shell that survived until the first
-// successful revalidation. Rendering per-request always resolves a real
-// date; getScanResults()'s own 1h unstable_cache (shared with the slug
-// pages) means this adds no backend load.
-export const dynamic = "force-dynamic";
+// ISR at 15 minutes, the /statistics rule. The hub's one read is the ASIC data
+// date (getScanResults: unstable_cache over serverFetchOutsideNextCache, so a
+// regeneration is ISR-safe), and skipForBuild() makes it null in the build
+// prerender, so every deploy starts from a date-less shell; the short TTL caps
+// how long that shell is served, and the daily sync purges /scans by path. It
+// used to be force-dynamic for exactly that shell, which served the hub
+// `private, no-store` on every request (2026-10-21) for one line of copy.
+export const revalidate = 900;
 
 const breadcrumbs = [
   { name: "Home", url: siteConfig.url },
@@ -84,6 +86,8 @@ export default async function ScansIndexPage() {
   const firstSlug = scans[0]?.slug;
   const results = firstSlug ? await getScanResults(firstSlug) : null;
   const asOf = results ? formatAsOf(results.asOfDate) : "";
+  // A failed read at runtime: cache the date-less hub for a minute.
+  if (!results) await bailOnEmptyRender();
 
   return (
     <DashboardLayout>

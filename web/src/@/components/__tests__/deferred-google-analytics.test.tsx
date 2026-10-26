@@ -33,6 +33,26 @@ describe("DeferredGoogleAnalytics", () => {
     expect(entry[2]).toEqual({ page_path: "/signup", page_location: "https://shorted.com.au/signup" });
   });
 
+  it("keeps the one-click unsubscribe token out of the initial page view", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/alerts/unsubscribe?t=secret-token&utm_source=mail",
+    );
+    try {
+      render(<DeferredGoogleAnalytics gaId="G-TEST123" />);
+      const config = window.dataLayer![1] as ArrayLike<unknown>;
+      expect(config[0]).toBe("config");
+      // The token is gone; the campaign tag that GA attributes from is kept.
+      expect(config[2]).toEqual({
+        page_location:
+          "https://shorted.com.au/alerts/unsubscribe?utm_source=mail",
+      });
+    } finally {
+      window.history.replaceState({}, "", "/");
+    }
+  });
+
   it("does not create a queue or collector outside production hosts", () => {
     jest.mocked(canCollectAnalytics).mockReturnValue(false);
     render(<DeferredGoogleAnalytics gaId="G-TEST123" />);

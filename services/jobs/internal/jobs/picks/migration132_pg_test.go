@@ -273,8 +273,7 @@ func m132Num(t *testing.T, row map[string]any, key string) float64 {
 }
 
 func m132SQLState(err error) string {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		return pgErr.Code
 	}
 	return ""
@@ -438,7 +437,7 @@ func TestMigration132AgainstPostgres(t *testing.T) {
 		growthOID, qualityOID := db.oid("mv_fundamentals_growth"), db.oid("mv_fundamentals_quality")
 		var note string
 		db.scalar(&note, `SELECT obj_description('mv_fundamentals_growth'::regclass, 'pg_class')`)
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			for _, f := range m132Replay {
 				db.mustApply(f)
 			}

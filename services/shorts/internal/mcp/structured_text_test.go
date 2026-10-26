@@ -111,9 +111,9 @@ func TestAdminToolResultsCarryTheirDataAsText(t *testing.T) {
 	// The stateless transport may answer as an SSE event; the message is the
 	// data line either way.
 	payload := body
-	for _, line := range strings.Split(body, "\n") {
-		if strings.HasPrefix(line, "data: ") {
-			payload = strings.TrimPrefix(line, "data: ")
+	for line := range strings.SplitSeq(body, "\n") {
+		if after, ok := strings.CutPrefix(line, "data: "); ok {
+			payload = after
 		}
 	}
 	var msg struct {

@@ -92,7 +92,7 @@ func (p *enrichmentProcessor) backfillStockPeople(ctx context.Context, stock enr
 
 	// Step 2: For top 3 people, try LinkedIn then Wikipedia for images
 	maxPeople := min(3, len(people))
-	for i := 0; i < maxPeople; i++ {
+	for i := range maxPeople {
 		person := &people[i]
 		if person.Name == "" {
 			continue

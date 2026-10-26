@@ -1,12 +1,14 @@
 // Period selection and page decisions over the mapped fundamentals
-// (docs/plans/fundamentals-coverage.md §7.1). Pure and dependency-free (type
-// imports only), so every server card and the Overview summary read the SAME
-// "latest result", the same prior period and the same empty-state rule.
+// (docs/plans/fundamentals-coverage.md §7.1). Pure, and free of dependencies
+// but the pure URL check (type imports otherwise), so every server card and
+// the Overview summary read the SAME "latest result", the same prior period
+// and the same empty-state rule.
 
 import type {
   StockFundamentals,
   StockFundamentalsPeriod,
 } from "~/app/actions/getStockFundamentals";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 const DAY_MS = 86_400_000;
 
@@ -143,8 +145,7 @@ export function priorCorrespondingPeriod(
 
 /** An http(s) URL, or "" when the value is anything else. */
 export function safeHttpUrl(value: string | null | undefined): string {
-  const url = typeof value === "string" ? value.trim() : "";
-  return /^https?:\/\//i.test(url) ? url : "";
+  return safeExternalHref(value) ?? "";
 }
 
 export interface SourceDocument {

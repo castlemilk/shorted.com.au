@@ -24,14 +24,14 @@ var logoTracer = otel.Tracer("shorted.enrichment.logo")
 
 // DiscoveredLogo contains information about a logo discovered on a website
 type DiscoveredLogo struct {
-	SourceURL    string `json:"source_url"`
-	ImageData    []byte `json:"-"`
-	Format       string `json:"format"` // png, svg, jpg, webp
-	Width        int    `json:"width"`
-	Height       int    `json:"height"`
+	SourceURL    string  `json:"source_url"`
+	ImageData    []byte  `json:"-"`
+	Format       string  `json:"format"` // png, svg, jpg, webp
+	Width        int     `json:"width"`
+	Height       int     `json:"height"`
 	QualityScore float64 `json:"quality_score"`
-	IsSVG        bool   `json:"is_svg"`
-	SVGData      []byte `json:"-"` // Raw SVG data if format is svg
+	IsSVG        bool    `json:"is_svg"`
+	SVGData      []byte  `json:"-"` // Raw SVG data if format is svg
 }
 
 // LogoDiscoverer interface for discovering company logos
@@ -243,7 +243,7 @@ func (d *logoDiscoverer) fetchLogo(ctx context.Context, candidate LogoCandidate)
 // detectFormatFromContentType determines format from HTTP Content-Type header
 func detectFormatFromContentType(contentType string) string {
 	contentType = strings.ToLower(contentType)
-	
+
 	switch {
 	case strings.Contains(contentType, "svg"):
 		return "svg"

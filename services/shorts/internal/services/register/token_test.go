@@ -28,3 +28,13 @@ func TestUnsubscribeTokenTamperRejected(t *testing.T) {
 		t.Fatal("garbage must not verify")
 	}
 }
+
+// TestUnsubscribeTokenGoldenVector pins the wire format of a newsletter token.
+// Links already sent in broadcasts carry this shape, so it must not change when
+// the signing code moves to services/pkg/unsubscribe.
+func TestUnsubscribeTokenGoldenVector(t *testing.T) {
+	const want = "c3ViLTEyMw.kd23woUzqLIEeZDOdSd45JX5ngOjmNL0lZ4mR0TfnQk"
+	if got := SignUnsubscribeToken("sub-123", "test-secret"); got != want {
+		t.Fatalf("token drifted: got %q want %q", got, want)
+	}
+}

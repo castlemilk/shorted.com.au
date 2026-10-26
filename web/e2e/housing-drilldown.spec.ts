@@ -49,10 +49,13 @@ test("state page drills into a suburb profile with breadcrumb", async ({ page })
   await expect(map).toBeVisible({ timeout: MAP_TIMEOUT });
   expect(await map.locator("path").count()).toBeGreaterThan(100);
 
-  // drill into the first priced suburb in the list (shows a "$" value)
+  // drill into the first priced suburb in the list (shows a "$" value). A click
+  // only selects its row; a double-click opens the profile.
   const pricedItem = page.locator("button", { hasText: "$" }).first();
-  await pricedItem.click();
-  await expect(page).toHaveURL(/\/housing\/sa\/.+[?&]sal=/);
+  await pricedItem.dblclick();
+  // The suburb's canonical path, as the sitemap lists it: the page resolves the
+  // suburb from the path alone, so the link carries no ?sal=.
+  await expect(page).toHaveURL(/\/housing\/sa\/[^/?#]+$/);
   await expect(page.getByText(/Population/i)).toBeVisible({ timeout: MAP_TIMEOUT });
   await expect(page.locator('nav[aria-label="Breadcrumb"]')).toContainText("South Australia");
 });

@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/castlemilk/shorted.com.au/services/enrichment-processor/mocks"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/enrichment"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
-	"github.com/castlemilk/shorted.com.au/services/enrichment-processor/mocks"
 )
 
 // §6.5 buildPeopleOnlyWriteJSON: drops empty + placeholder names, keeps real people,
@@ -22,9 +22,9 @@ import (
 func TestBuildPeopleOnlyWriteJSON(t *testing.T) {
 	people := []*stocksv1alpha1.CompanyPerson{
 		{Name: "Jane Roe", Role: "CEO", LinkedinUrl: "https://linkedin.com/in/janeroe", SourceType: "yahoo_finance"},
-		{Name: "John Doe", Role: "CFO"},      // placeholder name → dropped
-		{Name: "  ", Role: "Director"},        // empty → dropped
-		nil,                                    // nil → skipped
+		{Name: "John Doe", Role: "CFO"}, // placeholder name → dropped
+		{Name: "  ", Role: "Director"},  // empty → dropped
+		nil,                             // nil → skipped
 		{Name: "Sam Lee", Role: "Chair"},
 	}
 

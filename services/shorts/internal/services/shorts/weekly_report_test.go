@@ -40,7 +40,7 @@ type codeSetMatcher struct {
 	want []string
 }
 
-func (m codeSetMatcher) Matches(x interface{}) bool {
+func (m codeSetMatcher) Matches(x any) bool {
 	got, ok := x.([]string)
 	if !ok || len(got) != len(m.want) {
 		return false

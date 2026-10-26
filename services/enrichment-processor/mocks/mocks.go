@@ -38,7 +38,7 @@ func (m *MockEnrichmentStore) GetStockDetails(stockCode string) (*stocksv1alpha1
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) GetStockDetails(stockCode interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) GetStockDetails(stockCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockDetails", reflect.TypeOf((*MockEnrichmentStore)(nil).GetStockDetails), stockCode)
 }
@@ -51,7 +51,7 @@ func (m *MockEnrichmentStore) GetEnrichmentJob(jobID string) (*shortsv1alpha1.En
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) GetEnrichmentJob(jobID interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) GetEnrichmentJob(jobID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnrichmentJob", reflect.TypeOf((*MockEnrichmentStore)(nil).GetEnrichmentJob), jobID)
 }
@@ -63,7 +63,7 @@ func (m *MockEnrichmentStore) UpdateEnrichmentJobStatus(jobID string, status sho
 	return ret0
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) UpdateEnrichmentJobStatus(jobID, status, enrichmentID, errorMsg interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) UpdateEnrichmentJobStatus(jobID, status, enrichmentID, errorMsg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEnrichmentJobStatus", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateEnrichmentJobStatus), jobID, status, enrichmentID, errorMsg)
 }
@@ -77,7 +77,7 @@ func (m *MockEnrichmentStore) ListEnrichmentJobs(limit, offset int32, status *sh
 	return ret0, ret1, ret2
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) ListEnrichmentJobs(limit, offset, status interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) ListEnrichmentJobs(limit, offset, status any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEnrichmentJobs", reflect.TypeOf((*MockEnrichmentStore)(nil).ListEnrichmentJobs), limit, offset, status)
 }
@@ -90,7 +90,7 @@ func (m *MockEnrichmentStore) ResetStuckJobs(stuckThresholdMinutes int) (int, er
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) ResetStuckJobs(stuckThresholdMinutes interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) ResetStuckJobs(stuckThresholdMinutes any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetStuckJobs", reflect.TypeOf((*MockEnrichmentStore)(nil).ResetStuckJobs), stuckThresholdMinutes)
 }
@@ -103,7 +103,7 @@ func (m *MockEnrichmentStore) CleanupOldCompletedJobs(keepPerStock int) (int, er
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) CleanupOldCompletedJobs(keepPerStock interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) CleanupOldCompletedJobs(keepPerStock any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupOldCompletedJobs", reflect.TypeOf((*MockEnrichmentStore)(nil).CleanupOldCompletedJobs), keepPerStock)
 }
@@ -116,7 +116,7 @@ func (m *MockEnrichmentStore) SavePendingEnrichment(enrichmentID, stockCode stri
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) SavePendingEnrichment(enrichmentID, stockCode, status, data, quality interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) SavePendingEnrichment(enrichmentID, stockCode, status, data, quality any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SavePendingEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).SavePendingEnrichment), enrichmentID, stockCode, status, data, quality)
 }
@@ -129,7 +129,7 @@ func (m *MockEnrichmentStore) GetTopStocksForEnrichment(limit int32, priority sh
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) GetTopStocksForEnrichment(limit, priority interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) GetTopStocksForEnrichment(limit, priority any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopStocksForEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).GetTopStocksForEnrichment), limit, priority)
 }
@@ -142,7 +142,7 @@ func (m *MockEnrichmentStore) CreateEnrichmentJob(stockCode string, force bool) 
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) CreateEnrichmentJob(stockCode, force interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) CreateEnrichmentJob(stockCode, force any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEnrichmentJob", reflect.TypeOf((*MockEnrichmentStore)(nil).CreateEnrichmentJob), stockCode, force)
 }
@@ -155,7 +155,7 @@ func (m *MockEnrichmentStore) GetActiveEnrichmentJobByStockCode(stockCode string
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) GetActiveEnrichmentJobByStockCode(stockCode interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) GetActiveEnrichmentJobByStockCode(stockCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveEnrichmentJobByStockCode", reflect.TypeOf((*MockEnrichmentStore)(nil).GetActiveEnrichmentJobByStockCode), stockCode)
 }
@@ -167,7 +167,7 @@ func (m *MockEnrichmentStore) ReviewEnrichment(enrichmentID string, approve bool
 	return ret0
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) ReviewEnrichment(enrichmentID, approve, reviewedBy, reviewNotes interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) ReviewEnrichment(enrichmentID, approve, reviewedBy, reviewNotes any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReviewEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).ReviewEnrichment), enrichmentID, approve, reviewedBy, reviewNotes)
 }
@@ -179,7 +179,7 @@ func (m *MockEnrichmentStore) ApplyEnrichment(stockCode string, data *shortsv1al
 	return ret0
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) ApplyEnrichment(stockCode, data interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) ApplyEnrichment(stockCode, data any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).ApplyEnrichment), stockCode, data)
 }
@@ -192,7 +192,7 @@ func (m *MockEnrichmentStore) GetPendingEnrichment(enrichmentID string) (*shorts
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) GetPendingEnrichment(enrichmentID interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) GetPendingEnrichment(enrichmentID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).GetPendingEnrichment), enrichmentID)
 }
@@ -217,7 +217,7 @@ func (m *MockEnrichmentStore) UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSU
 	return ret0
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLogoURLs", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateLogoURLs), stockCode, logoGCSURL, logoIconGCSURL)
 }
@@ -229,7 +229,7 @@ func (m *MockEnrichmentStore) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoI
 	return ret0
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLogoURLsWithSVG", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateLogoURLsWithSVG), stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat)
 }
@@ -242,7 +242,7 @@ func (m *MockEnrichmentStore) GetStocksForPeopleEnrichment(limit int) ([]enrichm
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) GetStocksForPeopleEnrichment(limit interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) GetStocksForPeopleEnrichment(limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStocksForPeopleEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).GetStocksForPeopleEnrichment), limit)
 }
@@ -255,7 +255,7 @@ func (m *MockEnrichmentStore) GetStocksForPeopleReenrichment(limit int, afterSto
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) GetStocksForPeopleReenrichment(limit, afterStockCode interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) GetStocksForPeopleReenrichment(limit, afterStockCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStocksForPeopleReenrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).GetStocksForPeopleReenrichment), limit, afterStockCode)
 }
@@ -268,7 +268,7 @@ func (m *MockEnrichmentStore) GetStocksForImageBackfill(limit int, afterStockCod
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) GetStocksForImageBackfill(limit, afterStockCode interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) GetStocksForImageBackfill(limit, afterStockCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStocksForImageBackfill", reflect.TypeOf((*MockEnrichmentStore)(nil).GetStocksForImageBackfill), limit, afterStockCode)
 }
@@ -280,7 +280,7 @@ func (m *MockEnrichmentStore) UpdateKeyPeopleEnriched(stockCode string, keyPeopl
 	return ret0
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) UpdateKeyPeopleEnriched(stockCode, keyPeopleJSON interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) UpdateKeyPeopleEnriched(stockCode, keyPeopleJSON any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKeyPeopleEnriched", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateKeyPeopleEnriched), stockCode, keyPeopleJSON)
 }
@@ -293,7 +293,7 @@ func (m *MockEnrichmentStore) UpdateKeyPeopleIfEmpty(stockCode string, keyPeople
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) UpdateKeyPeopleIfEmpty(stockCode, keyPeopleJSON interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) UpdateKeyPeopleIfEmpty(stockCode, keyPeopleJSON any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKeyPeopleIfEmpty", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateKeyPeopleIfEmpty), stockCode, keyPeopleJSON)
 }
@@ -306,7 +306,7 @@ func (m *MockEnrichmentStore) GetStocksForStateExposure(limit int) ([]enrichment
 	return ret0, ret1
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) GetStocksForStateExposure(limit interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) GetStocksForStateExposure(limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStocksForStateExposure", reflect.TypeOf((*MockEnrichmentStore)(nil).GetStocksForStateExposure), limit)
 }
@@ -318,7 +318,7 @@ func (m *MockEnrichmentStore) UpdateStateExposure(stockCode string, exposureJSON
 	return ret0
 }
 
-func (mr *MockEnrichmentStoreMockRecorder) UpdateStateExposure(stockCode, exposureJSON interface{}) *gomock.Call {
+func (mr *MockEnrichmentStoreMockRecorder) UpdateStateExposure(stockCode, exposureJSON any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStateExposure", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateStateExposure), stockCode, exposureJSON)
 }
@@ -351,7 +351,7 @@ func (m *MockGPTClient) EnrichCompany(ctx context.Context, stockCode, companyNam
 	return ret0, ret1
 }
 
-func (mr *MockGPTClientMockRecorder) EnrichCompany(ctx, stockCode, companyName, industry, website, currentSummary, reports, metadata interface{}) *gomock.Call {
+func (mr *MockGPTClientMockRecorder) EnrichCompany(ctx, stockCode, companyName, industry, website, currentSummary, reports, metadata any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnrichCompany", reflect.TypeOf((*MockGPTClient)(nil).EnrichCompany), ctx, stockCode, companyName, industry, website, currentSummary, reports, metadata)
 }
@@ -364,7 +364,7 @@ func (m *MockGPTClient) EvaluateQuality(ctx context.Context, stockCode string, d
 	return ret0, ret1
 }
 
-func (mr *MockGPTClientMockRecorder) EvaluateQuality(ctx, stockCode, data interface{}) *gomock.Call {
+func (mr *MockGPTClientMockRecorder) EvaluateQuality(ctx, stockCode, data any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EvaluateQuality", reflect.TypeOf((*MockGPTClient)(nil).EvaluateQuality), ctx, stockCode, data)
 }
@@ -377,7 +377,7 @@ func (m *MockGPTClient) DiscoverWebsite(ctx context.Context, stockCode, companyN
 	return ret0, ret1
 }
 
-func (mr *MockGPTClientMockRecorder) DiscoverWebsite(ctx, stockCode, companyName, industry interface{}) *gomock.Call {
+func (mr *MockGPTClientMockRecorder) DiscoverWebsite(ctx, stockCode, companyName, industry any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverWebsite", reflect.TypeOf((*MockGPTClient)(nil).DiscoverWebsite), ctx, stockCode, companyName, industry)
 }
@@ -390,7 +390,7 @@ func (m *MockGPTClient) ExtractPeopleFromText(ctx context.Context, stockCode, co
 	return ret0, ret1
 }
 
-func (mr *MockGPTClientMockRecorder) ExtractPeopleFromText(ctx, stockCode, companyName, rawText interface{}) *gomock.Call {
+func (mr *MockGPTClientMockRecorder) ExtractPeopleFromText(ctx, stockCode, companyName, rawText any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractPeopleFromText", reflect.TypeOf((*MockGPTClient)(nil).ExtractPeopleFromText), ctx, stockCode, companyName, rawText)
 }
@@ -423,7 +423,7 @@ func (m *MockFinancialReportCrawler) CrawlFinancialReports(ctx context.Context, 
 	return ret0, ret1
 }
 
-func (mr *MockFinancialReportCrawlerMockRecorder) CrawlFinancialReports(ctx, website interface{}) *gomock.Call {
+func (mr *MockFinancialReportCrawlerMockRecorder) CrawlFinancialReports(ctx, website any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CrawlFinancialReports", reflect.TypeOf((*MockFinancialReportCrawler)(nil).CrawlFinancialReports), ctx, website)
 }
@@ -456,7 +456,7 @@ func (m *MockCompanyMetadataScraper) ScrapeMetadata(ctx context.Context, website
 	return ret0, ret1
 }
 
-func (mr *MockCompanyMetadataScraperMockRecorder) ScrapeMetadata(ctx, website, companyName, exaClient interface{}) *gomock.Call {
+func (mr *MockCompanyMetadataScraperMockRecorder) ScrapeMetadata(ctx, website, companyName, exaClient any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScrapeMetadata", reflect.TypeOf((*MockCompanyMetadataScraper)(nil).ScrapeMetadata), ctx, website, companyName, exaClient)
 }
@@ -489,7 +489,7 @@ func (m *MockLogoDiscoverer) DiscoverLogo(ctx context.Context, website, companyN
 	return ret0, ret1
 }
 
-func (mr *MockLogoDiscovererMockRecorder) DiscoverLogo(ctx, website, companyName, stockCode interface{}) *gomock.Call {
+func (mr *MockLogoDiscovererMockRecorder) DiscoverLogo(ctx, website, companyName, stockCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverLogo", reflect.TypeOf((*MockLogoDiscoverer)(nil).DiscoverLogo), ctx, website, companyName, stockCode)
 }
@@ -522,7 +522,7 @@ func (m *MockExaClient) SearchPeople(ctx context.Context, companyName, personNam
 	return ret0, ret1
 }
 
-func (mr *MockExaClientMockRecorder) SearchPeople(ctx, companyName, personName, role interface{}) *gomock.Call {
+func (mr *MockExaClientMockRecorder) SearchPeople(ctx, companyName, personName, role any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchPeople", reflect.TypeOf((*MockExaClient)(nil).SearchPeople), ctx, companyName, personName, role)
 }
@@ -535,7 +535,7 @@ func (m *MockExaClient) SearchCompanyPeople(ctx context.Context, companyName, st
 	return ret0, ret1
 }
 
-func (mr *MockExaClientMockRecorder) SearchCompanyPeople(ctx, companyName, stockCode interface{}) *gomock.Call {
+func (mr *MockExaClientMockRecorder) SearchCompanyPeople(ctx, companyName, stockCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchCompanyPeople", reflect.TypeOf((*MockExaClient)(nil).SearchCompanyPeople), ctx, companyName, stockCode)
 }

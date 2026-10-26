@@ -47,7 +47,7 @@ func (s *postgresStore) ListEditorialTakes(limit, offset int32, stockCode string
 	query := `SELECT ` + editorialTakeColumns + `
 		 FROM editorial_takes
 		 WHERE published_at IS NOT NULL`
-	args := []interface{}{}
+	args := []any{}
 	idx := 1
 	if stockCode != "" {
 		query += fmt.Sprintf(" AND stock_code = $%d", idx)
@@ -81,7 +81,7 @@ func (s *postgresStore) ListEditorialTakes(limit, offset int32, stockCode string
 }
 
 type scannable interface {
-	Scan(dest ...interface{}) error
+	Scan(dest ...any) error
 }
 
 func scanEditorialTake(r scannable) (*EditorialTake, error) {
@@ -178,7 +178,7 @@ func (s *postgresStore) UpdateEditorialTake(slug string, f EditorialTakeUpdate) 
 	defer cancel()
 
 	sets := []string{"updated_at = NOW()"}
-	args := []interface{}{}
+	args := []any{}
 	idx := 1
 	if f.BodyMD != nil {
 		sets = append(sets, fmt.Sprintf("body_md = $%d, word_count = $%d", idx, idx+1))

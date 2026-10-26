@@ -3,14 +3,18 @@ package jobmonitor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 const testTelesisToken = "upk_0123456789abcdef"
+
+var errTestBoom = errors.New("telesis boom")
 
 func TestTelesisClientListsMonitorsAcrossPages(t *testing.T) {
 	var bodies []map[string]any
@@ -49,6 +53,27 @@ func TestTelesisClientListsMonitorsAcrossPages(t *testing.T) {
 	}
 	if page := bodies[1]["page"].(map[string]any); page["pageToken"] != "100" || page["pageSize"] != float64(100) {
 		t.Errorf("second page = %v, want the returned token", page)
+	}
+}
+
+// Telesis' armed flag is read as Telesis reports it, not derived from paused: a
+// live monitor that has never checked in is not armed.
+func TestTelesisClientReadsArmedAsTelesisReportsIt(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"monitors":[
+			{"id":"m1","name":"paid-feature: chat","status":"CRON_MONITOR_STATUS_HEALTHY","paused":false,"armed":true},
+			{"id":"m2","name":"paid-feature: gates","status":"CRON_MONITOR_STATUS_WAITING","paused":false,"armed":false},
+			{"id":"m3","name":"paid-feature: all"}],"pageInfo":{}}`)
+	}))
+	defer srv.Close()
+
+	c := newTelesisClient(TelesisConfig{BaseURL: srv.URL, Token: testTelesisToken, OrgID: "org-1"})
+	got, err := c.ListCronMonitors(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 || !got[0].Armed || got[1].Armed || got[1].Paused || got[2].Armed {
+		t.Fatalf("monitors = %+v, want armed as reported (chat armed; gates unpaused but not armed; an absent flag is false)", got)
 	}
 }
 
@@ -112,5 +137,59 @@ func TestTelesisIsOptional(t *testing.T) {
 	c := NewCollector(Config{Telesis: TelesisConfigFromEnv()})
 	if state, _ := c.ClusterMonitoring(); state != "available" || c.cron == nil {
 		t.Errorf("state = %s, want a configured Telesis source", state)
+	}
+}
+
+// The paid-feature monitors are read by name prefix: other monitors in the same
+// Telesis service (the scheduled jobs) must not leak into the paid-feature view,
+// each feature gets its own run history, and a run history that fails is named
+// on its entry rather than emptied.
+func TestCronMonitorsNamedFiltersByPrefixAndKeepsRunFailures(t *testing.T) {
+	src := &fakeCronSource{
+		monitors: []CronMonitor{
+			{ID: "m-news", Name: "shorted-news", Status: "healthy"},
+			{ID: "m-chat", Name: "paid-feature: chat", Status: "failing", LastRunAt: ago(time.Hour)},
+			{ID: "m-ent", Name: "paid-feature: entitlement", Status: "healthy", Paused: true},
+		},
+		runs: map[string][]CronRun{
+			"m-chat": {{RunID: "chat-2", Status: "failed", TerminalReason: "gemini timeout"}},
+		},
+		runErr: map[string]error{"m-ent": errTestBoom},
+	}
+	c := NewCollector(Config{})
+	c.cron = src
+
+	got, err := c.CronMonitorsNamed(context.Background(), "paid-feature: ", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Monitor.Name != "paid-feature: chat" || got[1].Monitor.Name != "paid-feature: entitlement" {
+		t.Fatalf("monitors = %+v, want the two paid-feature monitors sorted by name", got)
+	}
+	if got[0].Runs[0].TerminalReason != "gemini timeout" || got[0].RunsErr != nil {
+		t.Errorf("chat history = %+v", got[0])
+	}
+	if got[1].RunsErr == nil || len(got[1].Runs) != 0 || !got[1].Monitor.Paused {
+		t.Errorf("entitlement history = %+v, want its run failure kept on the entry", got[1])
+	}
+	for _, limit := range src.runLimits {
+		if limit != 5 {
+			t.Errorf("run limit = %d, want 5", limit)
+		}
+	}
+}
+
+func TestCronMonitorsNamedReportsUnconfiguredAndListFailures(t *testing.T) {
+	if _, err := NewCollector(Config{}).CronMonitorsNamed(context.Background(), "paid-feature: ", 5); !errors.Is(err, ErrCronUnconfigured) {
+		t.Fatalf("err = %v, want ErrCronUnconfigured", err)
+	}
+	if _, err := (*Collector)(nil).CronMonitorsNamed(context.Background(), "paid-feature: ", 5); !errors.Is(err, ErrCronUnconfigured) {
+		t.Fatalf("nil collector err = %v, want ErrCronUnconfigured", err)
+	}
+
+	c := NewCollector(Config{})
+	c.cron = &fakeCronSource{listErr: errTestBoom}
+	if _, err := c.CronMonitorsNamed(context.Background(), "paid-feature: ", 5); err == nil || !errors.Is(err, errTestBoom) {
+		t.Fatalf("err = %v, want the monitor list failure", err)
 	}
 }

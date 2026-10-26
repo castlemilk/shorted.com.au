@@ -51,10 +51,14 @@ func TestCollectPaginatesJobsExecutionsAndSchedules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(jobs) != 2 {
+	// shorted-news and asx-discovery, plus the cluster-only shorted-alerts row.
+	if len(jobs) != 3 {
 		t.Fatalf("jobs=%+v calls=%v", jobs, calls)
 	}
 	for _, j := range jobs {
+		if j.Name == "shorted-alerts" {
+			continue // cluster-only: it has no Cloud Run executions to inspect
+		}
 		if len(j.RunningExecutions) != 2 || j.RunningExecution == "" {
 			t.Fatalf("older active executions omitted: %+v", j)
 		}
@@ -71,13 +75,13 @@ func TestCollectExposesPartialFailureAndCacheKeepsWarning(t *testing.T) {
 		return nil, errors.New("unavailable")
 	})}
 	jobs, err := collect(context.Background(), Config{ProjectID: "proj", RunRegions: []string{"us-central1"}, SchedulerRegion: "us-central1"}, option.WithHTTPClient(client))
-	if err == nil || len(jobs) != 1 || jobs[0].Message == "" {
+	if err == nil || len(jobs) != 2 || jobs[0].Message == "" {
 		t.Fatalf("partial result=%+v err=%v", jobs, err)
 	}
 	c, _ := seeded(t, jobs)
 	c.cachedErr = err
 	got, cachedErr := c.Collect(context.Background())
-	if cachedErr == nil || len(got) != 1 {
+	if cachedErr == nil || len(got) != 2 {
 		t.Fatal("cached partial result lost warning")
 	}
 }

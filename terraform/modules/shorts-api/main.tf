@@ -123,6 +123,18 @@ resource "google_secret_manager_secret_iam_member" "resend_api_key" {
   project   = var.project_id
 }
 
+# Grant access to the Resend webhook signing secret (RESEND_WEBHOOK_SECRET). Optional:
+# until it is provisioned the /webhooks/resend endpoint answers 503 and nothing else
+# changes. Provision it with `cuttle secrets set RESEND_WEBHOOK_SECRET --project shorted`,
+# then set resend_webhook_secret_exists = true in environments/prod.
+resource "google_secret_manager_secret_iam_member" "resend_webhook_secret" {
+  count     = var.resend_webhook_secret_exists ? 1 : 0
+  secret_id = "RESEND_WEBHOOK_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Grant access to the unsubscribe HMAC secret used to verify unsubscribe links in
 # broadcast emails. Gated so apply is safe before the secret is provisioned.
 resource "google_secret_manager_secret_iam_member" "unsubscribe_secret" {
@@ -442,6 +454,21 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       env {
         name  = "RESEND_FROM"
         value = var.resend_from
+      }
+
+      # Resend webhook signing secret. Gated on resend_webhook_secret_exists: unset
+      # means the webhook refuses every event with 503.
+      dynamic "env" {
+        for_each = var.resend_webhook_secret_exists ? [1] : []
+        content {
+          name = "RESEND_WEBHOOK_SECRET"
+          value_source {
+            secret_key_ref {
+              secret  = "RESEND_WEBHOOK_SECRET"
+              version = "latest"
+            }
+          }
+        }
       }
 
       # Broadcast unsubscribe HMAC secret. Gated on unsubscribe_secret_exists so

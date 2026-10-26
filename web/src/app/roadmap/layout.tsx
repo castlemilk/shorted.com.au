@@ -2,7 +2,9 @@ import { type Metadata } from "next";
 import { siteConfig } from "~/@/config/site";
 
 export const metadata: Metadata = {
-  title: "Product Roadmap | Shorted Feature Development",
+  // No brand: the root layout's `%s | Shorted` template appends it (this
+  // rendered "Product Roadmap | Shorted Feature Development | Shorted").
+  title: "Product Roadmap: Shipped and Planned Features",
   description:
     "Explore the Shorted product roadmap, including completed free tools, Premium investor workflows, API Access, and planned monetisation features.",
   keywords: [

@@ -7,7 +7,7 @@
  * generate: housing was 62% of it, so the ASX cluster (the pages that actually
  * change every day with the ASIC sync) had no independent recrawl signal, and
  * a single slow housing RPC delayed the whole document. It is now a
- * sitemapindex over five children (see SITEMAP_CHILDREN in ./sitemap-xml), and
+ * sitemapindex over six children (see SITEMAP_CHILDREN in ./sitemap-xml), and
  * each child fetches ONLY the data its own section needs.
  *
  * RENDERING SEMANTICS — DO NOT "OPTIMISE" THIS TO ISR
@@ -31,7 +31,8 @@
  *   - ASIC-derived pages (stocks, /top, /statistics, /scans, /industry,
  *     /directory, /market, /screener, insider-trading) -> latestDataDate.
  *   - Pages with their own real date (market snapshots, reports, blog posts,
- *     editorial takes, priced suburbs) -> THAT date.
+ *     editorial takes, priced suburbs, institutions' latest notices) -> THAT
+ *     date; /ownership -> the newest notice read (the ownership data's asOf).
  *   - Hub pages over a collection -> newest member's date.
  *   - Everything else (static marketing, economy, politicians, unpriced
  *     suburbs, calculators, /price-drops) -> NO lastmod. Omitting is valid and
@@ -76,6 +77,7 @@ import { industryLabel } from "~/@/lib/industry-placeholder";
 import { createSlug } from "~/@/lib/industry-slug";
 import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
 import { isSuburbSitemapEligible } from "~/@/lib/seo/suburb-indexability";
+import { institutionIsIndexable } from "~/@/lib/ownership/indexability";
 import { newestLastMod, type SitemapEntry } from "~/@/lib/seo/sitemap-xml";
 import { timestampToDate } from "~/@/lib/housing/drops-freshness";
 
@@ -335,7 +337,7 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     // fetch, and stamping the ASIC date on them would be a fabricated signal.
     { url: `${baseUrl}/picks` },
     ...STRATEGY_SLUGS.map((slug) => ({ url: `${baseUrl}/picks/${slug}` })),
-    { url: `${baseUrl}/ownership`, lastModified: latestDataDate },
+    // /ownership lives in the ownership child, dated from its own data.
     // Open data hub + press kit — both citation surfaces we point journalists at.
     { url: `${baseUrl}/data`, lastModified: latestDataDate },
     { url: `${baseUrl}/press` },
@@ -451,27 +453,20 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     ...getAllAuthorSlugs().map((slug) => ({ url: `${baseUrl}/authors/${slug}` })),
   ];
 
-  // Documentation for LLMs and developers. The /docs/api tree generates real
-  // static pages (generateStaticParams over the OpenAPI spec + the client
-  // guides) but had never been submitted. The spec is read from disk, which is
-  // only present at build time on Vercel — a runtime miss yields an empty
-  // endpoint list, which is fine: the index + client guides still ship.
-  let apiEndpointIds: string[] = [];
-  try {
-    const { parseOpenAPISpec } = await import("~/lib/openapi/parser");
-    const spec = await parseOpenAPISpec();
-    apiEndpointIds = spec.endpoints.map((e) => e.id);
-  } catch (error) {
-    console.error("Failed to parse OpenAPI spec for sitemap:", error);
-  }
-
+  // Documentation for LLMs and developers: the /docs/api index and the client
+  // guides. The per-endpoint pages (/docs/api/<method>--<path>, one per spec
+  // operation) are deliberately NOT listed. They are reference stubs titled by
+  // RPC name ("GetInstitution — Ownership API"); each names its own canonical,
+  // and the sidebar on every docs page links all of them, so crawlers find them
+  // without the sitemap. Listing them put 87 thin URLs in sitemap-core
+  // (SEO review 2026-10-21), two of them parser artefacts
+  // (/docs/api/servers--feed.xml).
   const docRoutes: SitemapEntry[] = [
     { url: `${baseUrl}/docs/llm-context` },
     { url: `${baseUrl}/docs/llm-context-raw` },
     { url: `${baseUrl}/docs/api-reference` },
     { url: `${baseUrl}/docs/api` },
     { url: `${baseUrl}/docs/discord` },
-    ...apiEndpointIds.map((id) => ({ url: `${baseUrl}/docs/api/${id}` })),
     ...API_CLIENT_LANGUAGES.map((language) => ({
       url: `${baseUrl}/docs/api/clients/${language}`,
     })),
@@ -848,8 +843,8 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
         (perStateEntries.get(slug) ?? []).map((s) => s.lastModified),
       ),
     })),
-    // Clean canonical URLs (the page resolves the SAL from the slug; ?sal= is
-    // only a fast-path).
+    // Clean canonical URLs, the form suburbHref links everywhere: the page
+    // resolves the SAL from the slug alone and ignores any query.
     ...allSuburbUrls.map((s) => ({
       url: `${baseUrl}/housing/${s.state}/${s.suburb}`,
       lastModified: s.lastModified,
@@ -921,5 +916,51 @@ export async function buildPoliticiansSitemap(): Promise<SitemapEntry[]> {
     // feature is published, so the hubs stay and the sitemap does not silently
     // shrink because the API blipped.
     return politicianHubs;
+  }
+}
+
+/* ------------------------------------------------------------- ownership -- */
+
+/** A notice date ("2026-10-20") as a lastmod; anything else is no signal. */
+function noticeDateLastMod(date: string | undefined): string | undefined {
+  return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T00:00:00.000Z` : undefined;
+}
+
+/**
+ * /ownership and the institution pages the page itself indexes.
+ *
+ * The SAME predicate as the page's robots tag (institutionIsIndexable),
+ * applied to what ListInstitutions carries: the stake count, not the holdings
+ * files, so only institutions with a current substantial holding are listed
+ * and every one of them is indexable (lib/ownership/indexability.ts). The
+ * list is ordered by current stakes, most first, so the 200 it returns hold
+ * every institution with a stake while fewer than 200 have one (56 of 145 on
+ * 2026-10-21). It is the hub's own call, so it shares the hub's cache.
+ *
+ * lastmod: an institution's newest notice read; the hub's is the ownership
+ * data's asOf (the newest notice read anywhere), which it used to borrow from
+ * the ASIC short-position date. A failed read leaves the hub listed and bare:
+ * an outage is not a takedown, and no date is better than a borrowed one.
+ */
+export async function buildOwnershipSitemap(): Promise<SitemapEntry[]> {
+  const hub: SitemapEntry = { url: `${baseUrl}/ownership` };
+  if (skipForBuild()) return [hub];
+
+  try {
+    const { getOwnershipOverview, listInstitutions } = await import("~/app/actions/getOwnership");
+    const [overview, directory] = await Promise.all([
+      getOwnershipOverview(),
+      listInstitutions("", "", 200, 0),
+    ]);
+    const institutions: SitemapEntry[] = (directory?.institutions ?? [])
+      .filter((inst) => inst.slug && institutionIsIndexable(inst))
+      .map((inst) => ({
+        url: `${baseUrl}/ownership/${inst.slug}`,
+        lastModified: noticeDateLastMod(inst.latestNoticeDate),
+      }));
+    return [{ ...hub, lastModified: noticeDateLastMod(overview?.asOf) }, ...institutions];
+  } catch (error) {
+    console.error("Failed to fetch ownership institutions for sitemap:", error);
+    return [hub];
   }
 }

@@ -103,6 +103,8 @@ var scopeDescriptions = map[string]string{
 	"housing:read":  "Read Australian house prices, suburb statistics and price drops",
 	"economy:read":  "Read Australian economic series and state economic data",
 	"politics:read": "Read federal politicians' declared registers of interests",
+	// Public resource, write scope: granted only when asked for by name, never by default.
+	"alerts:write": "Create, pause, resume and delete own short-interest alerts, and read their history; creating or resuming one needs Premium",
 	// Admin resource (/mcp/admin) only — grantable to administrators alone.
 	"news:publish": "Publish merged articles to shorted.com.au/news, including generating their images",
 	"jobs:read":    "View asynchronous jobs, execution history, queue status and operational errors",
@@ -115,7 +117,7 @@ var scopeDescriptions = map[string]string{
 // is closed, and anything outside it was already refused upstream.
 func DescribeScopes(scope string) []ScopeDescription {
 	granted := make(map[string]bool)
-	for _, s := range strings.Fields(scope) {
+	for s := range strings.FieldsSeq(scope) {
 		granted[s] = true
 	}
 	out := make([]ScopeDescription, 0, len(granted))

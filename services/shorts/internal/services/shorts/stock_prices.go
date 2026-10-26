@@ -31,7 +31,7 @@ func (s *ShortsServer) GetStockPrices(
 	cacheKey := s.cache.GetStockPricesKey(req.Msg.ProductCode, req.Msg.Period,
 		req.Msg.From, req.Msg.To, req.Msg.MaxPoints)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		return s.store.GetStockPrices(shortsstore.StockPricesQuery{
 			ProductCode: req.Msg.ProductCode,
 			Period:      req.Msg.Period,

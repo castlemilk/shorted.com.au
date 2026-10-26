@@ -33,6 +33,9 @@ const (
 	SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE    SubscriptionStatus = 3
 	SubscriptionStatus_SUBSCRIPTION_STATUS_CANCELED    SubscriptionStatus = 4
 	SubscriptionStatus_SUBSCRIPTION_STATUS_INACTIVE    SubscriptionStatus = 5
+	// Stripe has stopped retrying the card. Access is paused, and the customer is told
+	// to update the card. Not in the past-due grace.
+	SubscriptionStatus_SUBSCRIPTION_STATUS_UNPAID SubscriptionStatus = 6
 )
 
 // Enum value maps for SubscriptionStatus.
@@ -44,6 +47,7 @@ var (
 		3: "SUBSCRIPTION_STATUS_PAST_DUE",
 		4: "SUBSCRIPTION_STATUS_CANCELED",
 		5: "SUBSCRIPTION_STATUS_INACTIVE",
+		6: "SUBSCRIPTION_STATUS_UNPAID",
 	}
 	SubscriptionStatus_value = map[string]int32{
 		"SUBSCRIPTION_STATUS_UNSPECIFIED": 0,
@@ -52,6 +56,7 @@ var (
 		"SUBSCRIPTION_STATUS_PAST_DUE":    3,
 		"SUBSCRIPTION_STATUS_CANCELED":    4,
 		"SUBSCRIPTION_STATUS_INACTIVE":    5,
+		"SUBSCRIPTION_STATUS_UNPAID":      6,
 	}
 )
 
@@ -91,6 +96,9 @@ const (
 	SubscriptionTier_SUBSCRIPTION_TIER_PRO         SubscriptionTier = 2
 	SubscriptionTier_SUBSCRIPTION_TIER_ENTERPRISE  SubscriptionTier = 3
 	SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM     SubscriptionTier = 4
+	// The A$20 API Access plan: API tokens and the higher API limits. Not a
+	// premium tier, so it grants no premium web features.
+	SubscriptionTier_SUBSCRIPTION_TIER_API_ACCESS SubscriptionTier = 5
 )
 
 // Enum value maps for SubscriptionTier.
@@ -101,6 +109,7 @@ var (
 		2: "SUBSCRIPTION_TIER_PRO",
 		3: "SUBSCRIPTION_TIER_ENTERPRISE",
 		4: "SUBSCRIPTION_TIER_PREMIUM",
+		5: "SUBSCRIPTION_TIER_API_ACCESS",
 	}
 	SubscriptionTier_value = map[string]int32{
 		"SUBSCRIPTION_TIER_UNSPECIFIED": 0,
@@ -108,6 +117,7 @@ var (
 		"SUBSCRIPTION_TIER_PRO":         2,
 		"SUBSCRIPTION_TIER_ENTERPRISE":  3,
 		"SUBSCRIPTION_TIER_PREMIUM":     4,
+		"SUBSCRIPTION_TIER_API_ACCESS":  5,
 	}
 )
 
@@ -359,8 +369,12 @@ type HandleStripeSubscriptionUpdatedRequest struct {
 	CurrentPeriodEnd     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=current_period_end,json=currentPeriodEnd,proto3" json:"current_period_end,omitempty"`
 	CancelAtPeriodEnd    bool                   `protobuf:"varint,7,opt,name=cancel_at_period_end,json=cancelAtPeriodEnd,proto3" json:"cancel_at_period_end,omitempty"`
 	IsDeleted            bool                   `protobuf:"varint,8,opt,name=is_deleted,json=isDeleted,proto3" json:"is_deleted,omitempty"` // True if subscription was deleted/canceled permanently
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// When the first failed charge of the current past-due run happened (the open
+	// invoice's finalization). Set only while status is PAST_DUE. The API starts the
+	// 14-day grace from it; unset means no grace.
+	PastDueSince  *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=past_due_since,json=pastDueSince,proto3" json:"past_due_since,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *HandleStripeSubscriptionUpdatedRequest) Reset() {
@@ -447,6 +461,13 @@ func (x *HandleStripeSubscriptionUpdatedRequest) GetIsDeleted() bool {
 		return x.IsDeleted
 	}
 	return false
+}
+
+func (x *HandleStripeSubscriptionUpdatedRequest) GetPastDueSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PastDueSince
+	}
+	return nil
 }
 
 // Response for HandleStripeSubscriptionUpdated RPC
@@ -548,8 +569,11 @@ type GetMySubscriptionResponse struct {
 	CurrentPeriodEnd  *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=current_period_end,json=currentPeriodEnd,proto3" json:"current_period_end,omitempty"`
 	CancelAtPeriodEnd bool                   `protobuf:"varint,5,opt,name=cancel_at_period_end,json=cancelAtPeriodEnd,proto3" json:"cancel_at_period_end,omitempty"`
 	StripeCustomerId  string                 `protobuf:"bytes,6,opt,name=stripe_customer_id,json=stripeCustomerId,proto3" json:"stripe_customer_id,omitempty"` // For portal access
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// When the current past-due run's first failed charge happened, for the grace
+	// window. Unset unless status is PAST_DUE.
+	PastDueSince  *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=past_due_since,json=pastDueSince,proto3" json:"past_due_since,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetMySubscriptionResponse) Reset() {
@@ -624,6 +648,13 @@ func (x *GetMySubscriptionResponse) GetStripeCustomerId() string {
 	return ""
 }
 
+func (x *GetMySubscriptionResponse) GetPastDueSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PastDueSince
+	}
+	return nil
+}
+
 var File_shorts_v1alpha1_billing_proto protoreflect.FileDescriptor
 
 const file_shorts_v1alpha1_billing_proto_rawDesc = "" +
@@ -641,7 +672,7 @@ const file_shorts_v1alpha1_billing_proto_rawDesc = "" +
 	"\x04tier\x18\x05 \x01(\x0e2!.shorts.v1alpha1.SubscriptionTierR\x04tier\"[\n" +
 	"%HandleStripeCheckoutCompletedResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xe8\x03\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xaa\x04\n" +
 	"&HandleStripeSubscriptionUpdatedRequest\x12,\n" +
 	"\x12stripe_customer_id\x18\x01 \x01(\tR\x10stripeCustomerId\x124\n" +
 	"\x16stripe_subscription_id\x18\x02 \x01(\tR\x14stripeSubscriptionId\x12;\n" +
@@ -651,31 +682,35 @@ const file_shorts_v1alpha1_billing_proto_rawDesc = "" +
 	"\x12current_period_end\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x10currentPeriodEnd\x12/\n" +
 	"\x14cancel_at_period_end\x18\a \x01(\bR\x11cancelAtPeriodEnd\x12\x1d\n" +
 	"\n" +
-	"is_deleted\x18\b \x01(\bR\tisDeleted\"]\n" +
+	"is_deleted\x18\b \x01(\bR\tisDeleted\x12@\n" +
+	"\x0epast_due_since\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\fpastDueSince\"]\n" +
 	"'HandleStripeSubscriptionUpdatedResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"\x1a\n" +
-	"\x18GetMySubscriptionRequest\"\xe3\x02\n" +
+	"\x18GetMySubscriptionRequest\"\xa5\x03\n" +
 	"\x19GetMySubscriptionResponse\x12)\n" +
 	"\x10has_subscription\x18\x01 \x01(\bR\x0fhasSubscription\x12;\n" +
 	"\x06status\x18\x02 \x01(\x0e2#.shorts.v1alpha1.SubscriptionStatusR\x06status\x125\n" +
 	"\x04tier\x18\x03 \x01(\x0e2!.shorts.v1alpha1.SubscriptionTierR\x04tier\x12H\n" +
 	"\x12current_period_end\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x10currentPeriodEnd\x12/\n" +
 	"\x14cancel_at_period_end\x18\x05 \x01(\bR\x11cancelAtPeriodEnd\x12,\n" +
-	"\x12stripe_customer_id\x18\x06 \x01(\tR\x10stripeCustomerId*\xe1\x01\n" +
+	"\x12stripe_customer_id\x18\x06 \x01(\tR\x10stripeCustomerId\x12@\n" +
+	"\x0epast_due_since\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\fpastDueSince*\x81\x02\n" +
 	"\x12SubscriptionStatus\x12#\n" +
 	"\x1fSUBSCRIPTION_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aSUBSCRIPTION_STATUS_ACTIVE\x10\x01\x12 \n" +
 	"\x1cSUBSCRIPTION_STATUS_TRIALING\x10\x02\x12 \n" +
 	"\x1cSUBSCRIPTION_STATUS_PAST_DUE\x10\x03\x12 \n" +
 	"\x1cSUBSCRIPTION_STATUS_CANCELED\x10\x04\x12 \n" +
-	"\x1cSUBSCRIPTION_STATUS_INACTIVE\x10\x05*\xad\x01\n" +
+	"\x1cSUBSCRIPTION_STATUS_INACTIVE\x10\x05\x12\x1e\n" +
+	"\x1aSUBSCRIPTION_STATUS_UNPAID\x10\x06*\xcf\x01\n" +
 	"\x10SubscriptionTier\x12!\n" +
 	"\x1dSUBSCRIPTION_TIER_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16SUBSCRIPTION_TIER_FREE\x10\x01\x12\x19\n" +
 	"\x15SUBSCRIPTION_TIER_PRO\x10\x02\x12 \n" +
 	"\x1cSUBSCRIPTION_TIER_ENTERPRISE\x10\x03\x12\x1d\n" +
-	"\x19SUBSCRIPTION_TIER_PREMIUM\x10\x042\x90\x04\n" +
+	"\x19SUBSCRIPTION_TIER_PREMIUM\x10\x04\x12 \n" +
+	"\x1cSUBSCRIPTION_TIER_API_ACCESS\x10\x052\x90\x04\n" +
 	"\x0eBillingService\x12X\n" +
 	"\tMintToken\x12!.shorts.v1alpha1.MintTokenRequest\x1a\".shorts.v1alpha1.MintTokenResponse\"\x04\x80\xb5\x18\x02\x12\x94\x01\n" +
 	"\x1dHandleStripeCheckoutCompleted\x125.shorts.v1alpha1.HandleStripeCheckoutCompletedRequest\x1a6.shorts.v1alpha1.HandleStripeCheckoutCompletedResponse\"\x04\x80\xb5\x18\x02\x12\x9a\x01\n" +
@@ -716,22 +751,24 @@ var file_shorts_v1alpha1_billing_proto_depIdxs = []int32{
 	1,  // 2: shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest.tier:type_name -> shorts.v1alpha1.SubscriptionTier
 	10, // 3: shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest.current_period_start:type_name -> google.protobuf.Timestamp
 	10, // 4: shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest.current_period_end:type_name -> google.protobuf.Timestamp
-	0,  // 5: shorts.v1alpha1.GetMySubscriptionResponse.status:type_name -> shorts.v1alpha1.SubscriptionStatus
-	1,  // 6: shorts.v1alpha1.GetMySubscriptionResponse.tier:type_name -> shorts.v1alpha1.SubscriptionTier
-	10, // 7: shorts.v1alpha1.GetMySubscriptionResponse.current_period_end:type_name -> google.protobuf.Timestamp
-	2,  // 8: shorts.v1alpha1.BillingService.MintToken:input_type -> shorts.v1alpha1.MintTokenRequest
-	4,  // 9: shorts.v1alpha1.BillingService.HandleStripeCheckoutCompleted:input_type -> shorts.v1alpha1.HandleStripeCheckoutCompletedRequest
-	6,  // 10: shorts.v1alpha1.BillingService.HandleStripeSubscriptionUpdated:input_type -> shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest
-	8,  // 11: shorts.v1alpha1.BillingService.GetMySubscription:input_type -> shorts.v1alpha1.GetMySubscriptionRequest
-	3,  // 12: shorts.v1alpha1.BillingService.MintToken:output_type -> shorts.v1alpha1.MintTokenResponse
-	5,  // 13: shorts.v1alpha1.BillingService.HandleStripeCheckoutCompleted:output_type -> shorts.v1alpha1.HandleStripeCheckoutCompletedResponse
-	7,  // 14: shorts.v1alpha1.BillingService.HandleStripeSubscriptionUpdated:output_type -> shorts.v1alpha1.HandleStripeSubscriptionUpdatedResponse
-	9,  // 15: shorts.v1alpha1.BillingService.GetMySubscription:output_type -> shorts.v1alpha1.GetMySubscriptionResponse
-	12, // [12:16] is the sub-list for method output_type
-	8,  // [8:12] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	10, // 5: shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest.past_due_since:type_name -> google.protobuf.Timestamp
+	0,  // 6: shorts.v1alpha1.GetMySubscriptionResponse.status:type_name -> shorts.v1alpha1.SubscriptionStatus
+	1,  // 7: shorts.v1alpha1.GetMySubscriptionResponse.tier:type_name -> shorts.v1alpha1.SubscriptionTier
+	10, // 8: shorts.v1alpha1.GetMySubscriptionResponse.current_period_end:type_name -> google.protobuf.Timestamp
+	10, // 9: shorts.v1alpha1.GetMySubscriptionResponse.past_due_since:type_name -> google.protobuf.Timestamp
+	2,  // 10: shorts.v1alpha1.BillingService.MintToken:input_type -> shorts.v1alpha1.MintTokenRequest
+	4,  // 11: shorts.v1alpha1.BillingService.HandleStripeCheckoutCompleted:input_type -> shorts.v1alpha1.HandleStripeCheckoutCompletedRequest
+	6,  // 12: shorts.v1alpha1.BillingService.HandleStripeSubscriptionUpdated:input_type -> shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest
+	8,  // 13: shorts.v1alpha1.BillingService.GetMySubscription:input_type -> shorts.v1alpha1.GetMySubscriptionRequest
+	3,  // 14: shorts.v1alpha1.BillingService.MintToken:output_type -> shorts.v1alpha1.MintTokenResponse
+	5,  // 15: shorts.v1alpha1.BillingService.HandleStripeCheckoutCompleted:output_type -> shorts.v1alpha1.HandleStripeCheckoutCompletedResponse
+	7,  // 16: shorts.v1alpha1.BillingService.HandleStripeSubscriptionUpdated:output_type -> shorts.v1alpha1.HandleStripeSubscriptionUpdatedResponse
+	9,  // 17: shorts.v1alpha1.BillingService.GetMySubscription:output_type -> shorts.v1alpha1.GetMySubscriptionResponse
+	14, // [14:18] is the sub-list for method output_type
+	10, // [10:14] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_billing_proto_init() }

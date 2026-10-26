@@ -13,7 +13,7 @@ import (
 
 // CacheEntry represents a cached value with expiration
 type CacheEntry struct {
-	Value     interface{}
+	Value     any
 	ExpiresAt time.Time
 }
 
@@ -51,7 +51,7 @@ func (c *MemoryCache) Close() {
 }
 
 // generateKey creates a cache key from the given parameters using SHA-256
-func (c *MemoryCache) generateKey(prefix string, params ...interface{}) string {
+func (c *MemoryCache) generateKey(prefix string, params ...any) string {
 	data, err := json.Marshal(params)
 	if err != nil {
 		// Fallback to a simple string representation if JSON marshal fails
@@ -62,7 +62,7 @@ func (c *MemoryCache) generateKey(prefix string, params ...interface{}) string {
 }
 
 // Get retrieves a value from the cache
-func (c *MemoryCache) Get(key string) (interface{}, bool) {
+func (c *MemoryCache) Get(key string) (any, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -75,13 +75,13 @@ func (c *MemoryCache) Get(key string) (interface{}, bool) {
 }
 
 // Set stores a value in the cache
-func (c *MemoryCache) Set(key string, value interface{}) {
+func (c *MemoryCache) Set(key string, value any) {
 	c.setWithTTL(key, value, c.maxAge)
 }
 
 // setWithTTL stores a value that expires after ttl instead of the cache-wide
 // max age. A non-positive ttl falls back to the max age.
-func (c *MemoryCache) setWithTTL(key string, value interface{}, ttl time.Duration) {
+func (c *MemoryCache) setWithTTL(key string, value any, ttl time.Duration) {
 	if ttl <= 0 {
 		ttl = c.maxAge
 	}
@@ -97,13 +97,13 @@ func (c *MemoryCache) setWithTTL(key string, value interface{}, ttl time.Duratio
 // GetOrSet retrieves a value from cache or computes it using the provided function.
 // Uses singleflight to deduplicate concurrent computations for the same key,
 // preventing thundering herd problems under burst traffic.
-func (c *MemoryCache) GetOrSet(key string, computeFn func() (interface{}, error)) (interface{}, error) {
+func (c *MemoryCache) GetOrSet(key string, computeFn func() (any, error)) (any, error) {
 	return c.GetOrSetWithTTL(key, c.maxAge, computeFn)
 }
 
 // GetOrSetWithTTL is GetOrSet with a per-entry lifetime. Same singleflight
 // deduplication; errors are never cached.
-func (c *MemoryCache) GetOrSetWithTTL(key string, ttl time.Duration, computeFn func() (interface{}, error)) (interface{}, error) {
+func (c *MemoryCache) GetOrSetWithTTL(key string, ttl time.Duration, computeFn func() (any, error)) (any, error) {
 	// Try to get from cache first
 	if value, found := c.Get(key); found {
 		return value, nil
@@ -112,7 +112,7 @@ func (c *MemoryCache) GetOrSetWithTTL(key string, ttl time.Duration, computeFn f
 	// Use singleflight to ensure only one goroutine computes the value
 	// for a given key at a time. Other concurrent callers will wait and
 	// share the result.
-	value, err, _ := c.sf.Do(key, func() (interface{}, error) {
+	value, err, _ := c.sf.Do(key, func() (any, error) {
 		// Double-check cache inside singleflight (another goroutine may
 		// have populated it while we were waiting)
 		if v, found := c.Get(key); found {

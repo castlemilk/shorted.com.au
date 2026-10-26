@@ -13,7 +13,10 @@ export const chartTheme = {
   tooltipBg: "hsl(var(--popover))",
   tooltipFg: "hsl(var(--popover-foreground))",
   volume: "hsl(var(--muted-foreground))",
-  volumeOpacity: 0.18,
+  // Volume is a bar per session, thinner than the area it replaced, so a touch
+  // stronger to read as much; the bar under a reading stronger again.
+  volumeOpacity: 0.26,
+  volumeActiveOpacity: 0.6,
 } as const;
 
 const SERIES_PALETTE = [

@@ -3,13 +3,36 @@
 import { Code, ConnectError, createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 
-import { AlertMonitorCadence, AlertMonitorCondition, AlertMonitorScope } from "~/gen/shorts/v1alpha1/alerts_pb";
+import type {
+  AlertEventView,
+  AlertMonitorView,
+} from "~/app/alerts/alert-model";
+import {
+  AlertMonitorCadence,
+  AlertMonitorCondition,
+  AlertMonitorScope,
+  AlertMonitorStatus,
+} from "~/gen/shorts/v1alpha1/alerts_pb";
 import { AlertsService } from "~/gen/shorts/v1alpha1/alerts_pb";
 import { auth } from "~/server/auth";
+import { lookupAccountVerification } from "~/server/account-verification";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
+import {
+  alertErrorMessage,
+  eventToView,
+  monitorToView,
+  timestampToIso,
+} from "./alert-mapping";
 
 const INTERNAL_SECRET =
   process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
+
+const SIGN_IN_TO_MANAGE = "Sign in to manage your alerts.";
+const LIST_FAILED = "Could not load your alerts. Try again shortly.";
+const UPDATE_FAILED = "Could not update the monitor. Try again shortly.";
+const DELETE_FAILED = "Could not delete the monitor. Try again shortly.";
+const CREATE_LIMIT_REACHED =
+  "You already have the most active alerts allowed. Pause or delete one to add another.";
 
 export type AlertMonitorScopeInput = "industry" | "stock";
 export type AlertMonitorConditionInput =
@@ -29,6 +52,8 @@ export type CreateAlertMonitorInput = {
 export type CreateAlertMonitorResult =
   | {
       ok: true;
+      /** False when the saved alert will not be emailed (no verified address). */
+      emailDeliverable: boolean;
       monitor: {
         id: string;
         scope: AlertMonitorScopeInput;
@@ -41,6 +66,54 @@ export type CreateAlertMonitorResult =
     }
   | { ok: false; error: string };
 
+export type ListAlertMonitorsResult =
+  | {
+      ok: true;
+      monitors: AlertMonitorView[];
+      /** YYYY-MM-DD of the latest report the evaluator checked; null before its first run. */
+      checkedThroughReportDate: string | null;
+    }
+  | { ok: false; error: string };
+
+export type ListAlertEventsResult =
+  | { ok: true; events: AlertEventView[]; totalCount: number }
+  | { ok: false; error: string };
+
+export type UpdateAlertMonitorStatusResult =
+  | { ok: true; monitor: AlertMonitorView }
+  | { ok: false; error: string };
+
+export type DeleteAlertMonitorResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/**
+ * The address the API may email alerts to. Only a verified address is sent: an
+ * unverified sign-up keeps its monitors recorded but never emailed, because a
+ * mistyped address would otherwise receive mail it never asked for.
+ *
+ * The session's flag is read once, at sign-in. An unverified session therefore asks
+ * Firebase now, so a user who has clicked the link is not blocked until they sign
+ * out. A failed lookup reads as unverified.
+ */
+async function deliverableEmail(
+  session: {
+    user?: { id?: string; email?: string | null; emailVerified?: boolean };
+  } | null,
+): Promise<string> {
+  if (session?.user?.emailVerified === true) return session.user.email ?? "";
+  const uid = session?.user?.id;
+  if (!uid) return "";
+  const account = await lookupAccountVerification(uid);
+  return account?.verified ? account.email : "";
+}
+
+/**
+ * The internal transport for one signed-in user. userEmail is "" unless the address
+ * is verified (deliverableEmail), and x-user-email-verified says so explicitly: the
+ * API stores and emails an address only when this header is "true". Other web
+ * callers send x-user-email for their own reasons and never this header.
+ */
 function createAuthTransport(userId: string, userEmail: string) {
   return createConnectTransport({
     fetch: serverFetchWithUserAgent,
@@ -50,6 +123,10 @@ function createAuthTransport(userId: string, userEmail: string) {
         req.header.set("x-internal-secret", INTERNAL_SECRET);
         req.header.set("x-user-id", userId);
         req.header.set("x-user-email", userEmail);
+        req.header.set(
+          "x-user-email-verified",
+          userEmail !== "" ? "true" : "false",
+        );
         return await next(req);
       },
     ],
@@ -81,10 +158,10 @@ export async function createAlertMonitor(
   }
 
   try {
-    const transport = createAuthTransport(
-      session.user.id,
-      session.user.email ?? "",
-    );
+    // The address decides whether the saved alert is emailed. Read it once, so the
+    // result can tell the form whether to say so.
+    const address = await deliverableEmail(session);
+    const transport = createAuthTransport(session.user.id, address);
     const client = createClient(AlertsService, transport);
     const response = await client.createAlertMonitor({
       scope:
@@ -107,6 +184,7 @@ export async function createAlertMonitor(
 
     return {
       ok: true,
+      emailDeliverable: address !== "",
       monitor: {
         id: response.monitor.id,
         scope: input.scope,
@@ -124,6 +202,125 @@ export async function createAlertMonitor(
       ok: false,
       error: mapCreateMonitorError(error),
     };
+  }
+}
+
+/** The signed-in user's monitors, with the last trigger for each. */
+export async function listAlertMonitors(): Promise<ListAlertMonitorsResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false, error: SIGN_IN_TO_MANAGE };
+  }
+
+  try {
+    const client = createClient(
+      AlertsService,
+      createAuthTransport(session.user.id, await deliverableEmail(session)),
+    );
+    const response = await client.listAlertMonitors({ limit: 50, offset: 0 });
+    return {
+      ok: true,
+      monitors: response.monitors.map(monitorToView),
+      checkedThroughReportDate: response.checkedThroughReportDate || null,
+    };
+  } catch (error) {
+    return { ok: false, error: alertErrorMessage(error, LIST_FAILED) };
+  }
+}
+
+/** Recent alert events for the signed-in user, newest report first. */
+export async function listAlertEvents(
+  input: { limit?: number; monitorId?: string } = {},
+): Promise<ListAlertEventsResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false, error: SIGN_IN_TO_MANAGE };
+  }
+
+  const requested =
+    typeof input.limit === "number" && Number.isFinite(input.limit)
+      ? Math.trunc(input.limit)
+      : 20;
+  const limit = Math.min(Math.max(requested, 1), 100);
+
+  try {
+    const client = createClient(
+      AlertsService,
+      createAuthTransport(session.user.id, await deliverableEmail(session)),
+    );
+    const response = await client.listAlertEvents({
+      limit,
+      offset: 0,
+      monitorId: input.monitorId ?? "",
+    });
+    return {
+      ok: true,
+      events: response.events.map(eventToView),
+      totalCount: response.totalCount,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: alertErrorMessage(
+        error,
+        "Could not load recent alerts. Try again shortly.",
+      ),
+    };
+  }
+}
+
+/**
+ * Pause or resume one of the signed-in user's monitors. Pausing never needs
+ * Premium; resuming does, and the server answers PermissionDenied without it.
+ */
+export async function setAlertMonitorStatus(
+  id: string,
+  status: "active" | "paused",
+): Promise<UpdateAlertMonitorStatusResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false, error: SIGN_IN_TO_MANAGE };
+  }
+
+  try {
+    const client = createClient(
+      AlertsService,
+      createAuthTransport(session.user.id, await deliverableEmail(session)),
+    );
+    const response = await client.updateAlertMonitorStatus({
+      id: id.trim(),
+      status:
+        status === "paused"
+          ? AlertMonitorStatus.PAUSED
+          : AlertMonitorStatus.ACTIVE,
+    });
+    if (!response.monitor) {
+      return { ok: false, error: UPDATE_FAILED };
+    }
+    return { ok: true, monitor: monitorToView(response.monitor) };
+  } catch (error) {
+    return { ok: false, error: alertErrorMessage(error, UPDATE_FAILED) };
+  }
+}
+
+/** Delete one of the signed-in user's monitors and its event history. */
+export async function deleteAlertMonitor(
+  id: string,
+): Promise<DeleteAlertMonitorResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false, error: SIGN_IN_TO_MANAGE };
+  }
+
+  try {
+    const client = createClient(
+      AlertsService,
+      createAuthTransport(session.user.id, await deliverableEmail(session)),
+    );
+    await client.deleteAlertMonitor({ id: id.trim() });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: alertErrorMessage(error, DELETE_FAILED) };
   }
 }
 
@@ -148,17 +345,6 @@ function mapCondition(
   }
 }
 
-function timestampToIso(
-  timestamp: { seconds: bigint | number | string; nanos?: number } | undefined,
-): string | null {
-  if (!timestamp) return null;
-  const seconds = Number(timestamp.seconds);
-  if (!Number.isFinite(seconds)) return null;
-  return new Date(
-    seconds * 1000 + Math.floor((timestamp.nanos ?? 0) / 1_000_000),
-  ).toISOString();
-}
-
 function mapCreateMonitorError(error: unknown): string {
   if (error instanceof ConnectError) {
     if (error.code === Code.PermissionDenied) {
@@ -171,7 +357,10 @@ function mapCreateMonitorError(error: unknown): string {
       return "Sign in to save alerts.";
     }
     if (error.code === Code.InvalidArgument) {
-      return error.message || "Check the alert settings and try again.";
+      return error.rawMessage || "Check the alert settings and try again.";
+    }
+    if (error.code === Code.ResourceExhausted) {
+      return CREATE_LIMIT_REACHED;
     }
   }
 

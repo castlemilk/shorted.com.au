@@ -7,7 +7,7 @@ import (
 )
 
 // setRow writes values starting at column A of the given 1-based row.
-func setRow(t *testing.T, f *excelize.File, sheet string, row int, vals ...interface{}) {
+func setRow(t *testing.T, f *excelize.File, sheet string, row int, vals ...any) {
 	t.Helper()
 	cell, _ := excelize.CoordinatesToCellName(1, row)
 	if err := f.SetSheetRow(sheet, cell, &vals); err != nil {

@@ -128,7 +128,7 @@ RELEASE_API_BASE_URL=https://api.shorted.com.au \
 npx playwright test e2e/release-smoke.spec.ts --project=chromium --reporter=line
 ```
 
-CI must store the same value as the GitHub secret `CLOUDFLARE_TESTING_BYPASS_SECRET`. If requests with both headers are still challenged, inspect the Cloudflare ruleset `shorted-app-api-security-skip` in phase `http_request_firewall_custom`; the bypass is effectively disabled if the expression contains `http.host eq "__shorted-testing-bypass-disabled.invalid__"`. Re-check this after Terraform or Cloudflare deploys, because applying Terraform without `TF_VAR_rate_limit_testing_bypass_secret` can restore the disabled expression.
+The deploy and post-deploy smoke run on Cuttlefish, so Cuttlefish must hold the same value as `CLOUDFLARE_TESTING_BYPASS_SECRET` (`cuttle secrets set CLOUDFLARE_TESTING_BYPASS_SECRET --project shorted`). A GitHub repo secret of that name is not read. If requests with both headers are still challenged, inspect the Cloudflare ruleset `shorted-app-api-security-skip` in phase `http_request_firewall_custom`; the bypass is effectively disabled if the expression contains `http.host eq "__shorted-testing-bypass-disabled.invalid__"`. Re-check this after Terraform or Cloudflare deploys, because applying Terraform without `TF_VAR_rate_limit_testing_bypass_secret` can restore the disabled expression.
 
 Relevant Terraform inputs:
 

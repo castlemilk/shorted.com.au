@@ -1,5 +1,6 @@
 import React from "react";
 import { siteConfig } from "../../config/site";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 /**
  * Enhanced structured data for richer Google search results
@@ -23,6 +24,10 @@ interface EnhancedStructuredDataProps {
      */
     url?: string;
     datePublished?: string;
+    /**
+     * The date the data runs to (the latest ASIC report it carries). Omitted
+     * from the JSON-LD when absent: the render time is not a data date.
+     */
     dateModified?: string;
   };
 }
@@ -57,10 +62,7 @@ export function FAQStructuredData({ faqs }: { faqs: FAQItem[] }) {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }
 
@@ -76,8 +78,11 @@ export function DatasetStructuredData({
 
   const pageUrl = datasetInfo.url ?? siteConfig.url;
   const datePublished = datasetInfo.datePublished ?? DATASET_PUBLISHED_ISO;
-  // dateModified is the data date. Never let it precede datePublished.
-  const dateModified = datasetInfo.dateModified ?? new Date().toISOString();
+  // dateModified is the data date, and only the caller knows it. It used to
+  // fall back to `new Date()`, which told Google the homepage's data was
+  // modified at render time (2026-10-21T00:34:49Z against data that ran to
+  // 2026-10-15). Without a date (undefined or "") the field is left out.
+  const dateModified = datasetInfo.dateModified;
 
   const schema = {
     "@context": "https://schema.org",
@@ -85,11 +90,12 @@ export function DatasetStructuredData({
     name: datasetInfo.name,
     description: datasetInfo.description,
     url: pageUrl,
+    // Never let datePublished follow dateModified.
     datePublished:
-      new Date(dateModified) < new Date(datePublished)
+      dateModified && new Date(dateModified) < new Date(datePublished)
         ? dateModified
         : datePublished,
-    dateModified,
+    ...(dateModified ? { dateModified } : {}),
     publisher: {
       "@type": "Organization",
       name: siteConfig.name,
@@ -132,10 +138,7 @@ export function DatasetStructuredData({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }
 
@@ -191,10 +194,7 @@ export function ItemListStructuredData({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }
 
@@ -265,10 +265,7 @@ export function EnhancedOrganizationSchema() {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }
 
@@ -294,10 +291,7 @@ export function BreadcrumbListSchema({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }
 
@@ -344,9 +338,6 @@ export function EnhancedWebSiteSchema() {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <JsonLd data={schema} />
   );
 }

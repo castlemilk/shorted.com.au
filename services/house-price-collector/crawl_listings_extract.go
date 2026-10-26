@@ -324,7 +324,7 @@ func harvestListing(lm map[string]any, source string) (RawListing, bool) {
 	l.Bathrooms = firstInt16(featMaps, 0, 60, "bathrooms", "baths", "bath", "numbathrooms")
 	l.CarSpaces = firstInt16(featMaps, 0, 60, "carspaces", "parking", "carspots", "car", "numcarspaces")
 	if v, ok := firstFloat(featMaps, "landsize", "landarea", "propertysize", "landsizesqm"); ok && v > 0 {
-		l.LandSizeSqm = f64p(v)
+		l.LandSizeSqm = new(v)
 	}
 
 	// Property type — top-level, a propertyTypes array, or under features
@@ -348,7 +348,7 @@ func harvestListing(lm map[string]any, source string) (RawListing, bool) {
 	lat, latOK := firstFloat(geoMaps, "latitude", "lat")
 	lng, lngOK := firstFloat(geoMaps, "longitude", "lng", "lon", "long")
 	if latOK && lngOK && lat <= -9 && lat >= -45 && lng >= 110 && lng <= 156 {
-		l.Lat, l.Lng = f64p(lat), f64p(lng)
+		l.Lat, l.Lng = new(lat), new(lng)
 	}
 
 	// Price.
@@ -440,7 +440,7 @@ func harvestPrice(lm map[string]any) (display string, low, high *float64, kind s
 			display = getStr(pm, "display", "displayprice", "label", "text")
 			if display == "" {
 				if v, ok := firstFloat([]map[string]any{pm}, "value", "amount", "from", "displayprice"); ok && v > 0 {
-					low = f64p(v)
+					low = new(v)
 					return numericDisplay(v), low, nil, priceFixed
 				}
 			}
@@ -455,7 +455,7 @@ func harvestPrice(lm map[string]any) (display string, low, high *float64, kind s
 	if display == "" {
 		// Last resort: a numeric top-level "price".
 		if v, ok := firstFloat([]map[string]any{lm}, "price", "pricefrom"); ok && v > 0 {
-			return numericDisplay(v), f64p(v), nil, priceFixed
+			return numericDisplay(v), new(v), nil, priceFixed
 		}
 		return "", nil, nil, priceUnknown
 	}

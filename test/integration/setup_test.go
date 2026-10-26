@@ -56,7 +56,7 @@ func TestMain(m *testing.M) {
 		fmt.Printf("❌ Failed to get host: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	port, err := postgresContainer.MappedPort(ctx, "5432")
 	if err != nil {
 		fmt.Printf("❌ Failed to get port: %v\n", err)
@@ -154,7 +154,7 @@ func startShortsService() error {
 	// Wait for service to be ready by checking health endpoint
 	fmt.Printf("  Waiting for service to be ready on port %s...\n", shortsServicePort)
 	client := &http.Client{Timeout: 2 * time.Second}
-	for i := 0; i < 60; i++ {
+	for range 60 {
 		resp, err := client.Get(fmt.Sprintf("http://localhost:%s/health", shortsServicePort))
 		if err == nil && resp != nil {
 			resp.Body.Close()
@@ -246,7 +246,7 @@ func initializeSchemaWithMigrate(ctx context.Context, container *postgres.Postgr
 
 	// Path to migrations directory
 	migrationsPath := "file://../../services/migrations"
-	
+
 	// Create migrate instance
 	m, err := migrate.New(migrationsPath, connStr)
 	if err != nil {

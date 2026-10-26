@@ -26,6 +26,8 @@ export interface StreamChatFromUpstreamOptions {
   conversationId: string;
   message: string;
   contextStockCode: string;
+  /** The person asked again after a failed reply (see SendMessageRequest.retry). */
+  retry?: boolean;
   userID: string;
   userEmail: string;
   internalSecret: string;
@@ -39,6 +41,7 @@ interface ChatServiceClient {
       conversationId: string;
       message: string;
       contextStockCode: string;
+      retry: boolean;
     },
     options: { signal?: AbortSignal },
   ): AsyncIterable<UpstreamChatChunk>;
@@ -72,6 +75,7 @@ export async function* streamChatFromUpstream(
       conversationId: options.conversationId,
       message: options.message,
       contextStockCode: options.contextStockCode,
+      retry: options.retry === true,
     },
     { signal: options.signal },
   )) {

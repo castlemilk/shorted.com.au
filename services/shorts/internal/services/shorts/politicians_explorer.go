@@ -238,7 +238,7 @@ func (s *ShortsServer) GetRegisterExplorer(
 	if !registerEnabled() {
 		return connect.NewResponse(&shortsv1alpha1.GetRegisterExplorerResponse{}), nil
 	}
-	cached, err := s.cache.GetOrSet(s.cache.GetRegisterExplorerKey(), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.GetRegisterExplorerKey(), func() (any, error) {
 		row, err := s.store.GetRegisterExplorer()
 		if err != nil {
 			return nil, err
@@ -310,7 +310,7 @@ func (s *ShortsServer) ListPoliticianSummaries(
 
 	cached, err := s.cache.GetOrSet(
 		s.cache.ListPoliticianSummariesKey(chamber, state, party, itemNo, query, sortKey, limit, offset),
-		func() (interface{}, error) {
+		func() (any, error) {
 			rows, total, err := s.store.ListPoliticianSummaries(chamber, state, party, itemNo, query, sortKey, limit, offset)
 			if err != nil {
 				return nil, err
@@ -355,7 +355,7 @@ func (s *ShortsServer) GetPoliticianExplorerProfile(
 		return connect.NewResponse(&shortsv1alpha1.GetPoliticianExplorerProfileResponse{}), nil
 	}
 	topIndustries := clampLimit(req.Msg.TopIndustries, 5, 20)
-	cached, err := s.cache.GetOrSet(s.cache.GetPoliticianExplorerProfileKey(slug, topIndustries), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.GetPoliticianExplorerProfileKey(slug, topIndustries), func() (any, error) {
 		row, err := s.store.GetPoliticianExplorerProfile(slug, topIndustries)
 		if err != nil {
 			return nil, err
@@ -396,7 +396,7 @@ func (s *ShortsServer) ComparePoliticians(
 	if !registerEnabled() {
 		return connect.NewResponse(&shortsv1alpha1.ComparePoliticiansResponse{}), nil
 	}
-	cached, err := s.cache.GetOrSet(s.cache.ComparePoliticiansKey(slugA, slugB), func() (interface{}, error) {
+	cached, err := s.cache.GetOrSet(s.cache.ComparePoliticiansKey(slugA, slugB), func() (any, error) {
 		row, err := s.store.ComparePoliticians(slugA, slugB)
 		if err != nil {
 			return nil, err

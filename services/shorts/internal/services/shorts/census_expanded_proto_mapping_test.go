@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -47,16 +46,16 @@ func dynamicExpandedCensusMessage(t *testing.T) protoreflect.Message {
 	fields := make([]*descriptorpb.FieldDescriptorProto, 0, len(names))
 	for i, name := range names {
 		fields = append(fields, &descriptorpb.FieldDescriptorProto{
-			Name: proto.String(name), Number: proto.Int32(int32(i + 1)),
+			Name: new(name), Number: new(int32(i + 1)),
 			Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 			Type:  descriptorpb.FieldDescriptorProto_TYPE_DOUBLE.Enum(),
 		})
 	}
 	file, err := protodesc.NewFile(&descriptorpb.FileDescriptorProto{
-		Name: proto.String("census_expanded_test.proto"), Package: proto.String("censustest"),
-		Syntax: proto.String("proto3"),
+		Name: new("census_expanded_test.proto"), Package: new("censustest"),
+		Syntax: new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("SuburbDemographics"), Field: fields,
+			Name: new("SuburbDemographics"), Field: fields,
 		}},
 	}, nil)
 	if err != nil {

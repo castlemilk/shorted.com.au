@@ -53,7 +53,7 @@ func TestHealthReportsDegradedWhenQuotaWritesAreFailing(t *testing.T) {
 	l, _ := healthLimiter(t, store)
 
 	// Drive enough traffic to force flush attempts and trip the breaker.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		for j := 0; j < l.config.MonthlyFlushThreshold+1; j++ {
 			if _, err := l.Check(context.Background(), "user:a", "free", false); err != nil {
 				t.Fatalf("the limiter surfaced an error to the caller: %v", err)
@@ -81,7 +81,7 @@ func TestADegradedQuotaStoreNeverRejectsACaller(t *testing.T) {
 	store.applyErr = errors.New("down")
 	l, _ := healthLimiter(t, store)
 
-	for i := 0; i < 500; i++ {
+	for i := range 500 {
 		r, err := l.Check(context.Background(), "user:a", "free", false)
 		if err != nil {
 			t.Fatalf("request %d errored: %v", i, err)
@@ -99,7 +99,7 @@ func TestHealthClearsOnceWritesSucceedAgain(t *testing.T) {
 	store.applyErr = errors.New("down")
 	l, advance := healthLimiter(t, store)
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		for j := 0; j < l.config.MonthlyFlushThreshold+1; j++ {
 			_, _ = l.Check(context.Background(), "user:a", "free", false)
 		}
@@ -130,7 +130,7 @@ func TestReadingHealthDoesNotDisturbTheBreaker(t *testing.T) {
 	store.applyErr = errors.New("down")
 	l, _ := healthLimiter(t, store)
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		for j := 0; j < l.config.MonthlyFlushThreshold+1; j++ {
 			_, _ = l.Check(context.Background(), "user:a", "free", false)
 		}
@@ -141,7 +141,7 @@ func TestReadingHealthDoesNotDisturbTheBreaker(t *testing.T) {
 	before := len(store.applyCalls)
 	store.mu.Unlock()
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		_ = l.Health()
 	}
 

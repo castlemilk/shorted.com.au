@@ -49,15 +49,16 @@ function skipExpressionForDescription(descriptionPrefix) {
 
 // ---------------------------------------------------------------------------
 // A deliberately tiny evaluator for the Cloudflare rules-language subset used
-// by this rule: parentheses, `and`/`or`, `<field> eq "<literal>"` and
-// `starts_with(<field>, "<literal>")`. Anything outside that subset throws,
-// so the test can never quietly "pass" on an expression it does not understand.
+// by these rules: parentheses, `and`/`or`, `<field> eq "<literal>"`,
+// `<field> contains "<literal>"` and `starts_with(<field>, "<literal>")`.
+// Anything outside that subset throws, so the test can never quietly "pass" on
+// an expression it does not understand.
 // ---------------------------------------------------------------------------
 
 function tokenize(expression) {
   const tokens = [];
   const pattern =
-    /\(|\)|,|\band\b|\bor\b|starts_with|\beq\b|"((?:[^"\\]|\\.)*)"|[A-Za-z_][A-Za-z0-9_.]*/g;
+    /\(|\)|,|\band\b|\bor\b|starts_with|\beq\b|\bcontains\b|"((?:[^"\\]|\\.)*)"|[A-Za-z_][A-Za-z0-9_.]*/g;
   let match;
   let consumed = 0;
   let cursor = 0;
@@ -115,12 +116,19 @@ function parse(tokens) {
       return (request) => String(readField(request, field.value)).startsWith(literal.value);
     }
 
-    // `<field> eq "<literal>"`
+    // `<field> eq "<literal>"` or `<field> contains "<literal>"`
     const field = next();
     assert.equal(field.type, "symbol", `expected a field, got ${field.value}`);
-    expect("eq");
+    const operator = next();
+    assert.ok(
+      operator && (operator.value === "eq" || operator.value === "contains"),
+      `expected eq or contains, got ${operator?.value}`,
+    );
     const literal = next();
-    assert.equal(literal.type, "string", "eq needs a string literal");
+    assert.equal(literal.type, "string", `${operator.value} needs a string literal`);
+    if (operator.value === "contains") {
+      return (request) => String(readField(request, field.value)).includes(literal.value);
+    }
     return (request) => readField(request, field.value) === literal.value;
   }
 
@@ -157,6 +165,11 @@ function readField(request, field) {
       return request.host;
     case "http.request.uri.path":
       return request.path;
+    case "http.request.method":
+      return request.method ?? "GET";
+    case "http.request.uri.query":
+      // Cloudflare's field is the query string without its leading "?".
+      return request.query ?? "";
     default:
       throw new Error(`unsupported field: ${field}`);
   }
@@ -300,6 +313,12 @@ test("app API skip covers the Discord interactions endpoint on both frontend hos
   }
 });
 
+test("app API skip covers the Activity's proxy-auth check, which Discord's proxy forwards", () => {
+  for (const host of FRONTEND_HOSTS) {
+    assert.equal(appApiSkips({ host, path: "/api/discord/activity" }), true);
+  }
+});
+
 test("app API skip still covers the RPC paths it always did", () => {
   for (const path of [
     "/shorts.v1alpha1.StockService/GetStock",
@@ -313,6 +332,43 @@ test("app API skip still covers the RPC paths it always did", () => {
   }
 });
 
+// The one-click unsubscribe routes (RFC 8058). Mail providers POST them from
+// their servers, so SBFM must not challenge the POST. Only the POST is skipped:
+// the routes act on POST alone, and a link scanner's GET keeps the challenge.
+test("app API skip covers the one-click unsubscribe routes on POST", () => {
+  for (const path of ["/api/alerts/unsubscribe", "/api/unsubscribe"]) {
+    for (const host of FRONTEND_HOSTS) {
+      assert.equal(appApiSkips({ host, path, method: "POST" }), true, path);
+    }
+  }
+});
+
+test("app API skip leaves the one-click unsubscribe routes challenged on GET", () => {
+  for (const path of ["/api/alerts/unsubscribe", "/api/unsubscribe"]) {
+    for (const host of FRONTEND_HOSTS) {
+      assert.equal(appApiSkips({ host, path, method: "GET" }), false, path);
+    }
+  }
+});
+
+test("app API skip does not cover lookalikes of the unsubscribe routes", () => {
+  for (const path of [
+    "/api/alerts/unsubscribe/extra",
+    "/api/alerts/unsubscribex",
+    "/api/unsubscribe/extra",
+    "/api/unsubscribex",
+    "/unsubscribe",
+  ]) {
+    for (const host of FRONTEND_HOSTS) {
+      assert.equal(appApiSkips({ host, path, method: "POST" }), false, path);
+    }
+  }
+  assert.equal(
+    appApiSkips({ host: "evil.example.com", path: "/api/unsubscribe", method: "POST" }),
+    false,
+  );
+});
+
 test("app API skip does not cover lookalikes of the Discord path", () => {
   for (const path of ["/api/discord", "/api/discordx/interactions", "/discord/interactions"]) {
     for (const host of FRONTEND_HOSTS) {
@@ -323,4 +379,78 @@ test("app API skip does not cover lookalikes of the Discord path", () => {
     appApiSkips({ host: "evil.example.com", path: "/api/discord/interactions" }),
     false,
   );
+});
+
+// ---------------------------------------------------------------------------
+// The Discord Activity. Discord's proxy fetches it from its own servers, an
+// automated client, so without this rule the Activity is Cloudflare's
+// "Just a moment..." page (both paths answered 403 cf-mitigated: challenge,
+// 2026-10-23). It opens two documents and no more: the homepage only when it
+// carries Discord's launch parameters, and the Activity page.
+// ---------------------------------------------------------------------------
+
+const activitySkips = compile(
+  skipExpressionForDescription("Allow the Discord Activity"),
+);
+
+// What Discord sends: the mapping's root with its launch parameters.
+const LAUNCH_QUERY =
+  "instance_id=i-1234-gc-5678&location_id=gc-1&launch_id=99&referrer_id=1&custom_id=activity%3ABHP%3Acombined%3A6m&frame_id=abc123&platform=desktop";
+
+test("Activity skip covers Discord's launch of the homepage on both frontend hosts", () => {
+  for (const host of FRONTEND_HOSTS) {
+    assert.equal(activitySkips({ host, path: "/", query: LAUNCH_QUERY }), true);
+    assert.equal(
+      activitySkips({ host, path: "/", query: "frame_id=x&instance_id=y" }),
+      true,
+    );
+  }
+});
+
+test("Activity skip covers the Activity page, with or without a query", () => {
+  for (const host of FRONTEND_HOSTS) {
+    assert.equal(activitySkips({ host, path: "/embed/discord" }), true);
+    assert.equal(
+      activitySkips({ host, path: "/embed/discord", query: LAUNCH_QUERY }),
+      true,
+    );
+  }
+});
+
+test("Activity skip leaves the homepage challenged without BOTH launch parameters", () => {
+  for (const query of ["", "frame_id=x", "instance_id=y", "utm_source=discord"]) {
+    for (const host of FRONTEND_HOSTS) {
+      assert.equal(activitySkips({ host, path: "/", query }), false, `/?${query}`);
+    }
+  }
+});
+
+test("Activity skip opens no other page, whatever its query", () => {
+  for (const path of [
+    "/shorts/BHP",
+    "/embed/chart",
+    "/embed/discordx",
+    "/embed/discord/extra",
+    "/embed",
+    "/admin/jobs",
+  ]) {
+    for (const host of FRONTEND_HOSTS) {
+      assert.equal(activitySkips({ host, path, query: LAUNCH_QUERY }), false, path);
+    }
+  }
+  for (const host of ["api.shorted.com.au", "evil.example.com"]) {
+    assert.equal(activitySkips({ host, path: "/embed/discord" }), false, host);
+    assert.equal(activitySkips({ host, path: "/", query: LAUNCH_QUERY }), false, host);
+  }
+});
+
+test("the Activity skip only drops bot/security checks, never WAF or rate limiting", () => {
+  const descriptionIndex = mainTf.indexOf(`description = "Allow the Discord Activity`);
+  const ruleEnd = mainTf.indexOf("\n    },", descriptionIndex);
+  const actionParameters = mainTf.slice(descriptionIndex, ruleEnd);
+
+  assert.match(actionParameters, /phases\s+=\s+\["http_request_sbfm"\]/);
+  assert.match(actionParameters, /products\s+=\s+\["bic",\s*"securityLevel"\]/);
+  assert.doesNotMatch(actionParameters, /http_ratelimit/);
+  assert.doesNotMatch(actionParameters, /http_request_firewall_managed/);
 });

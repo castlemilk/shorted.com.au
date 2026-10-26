@@ -43,8 +43,8 @@ func crimeFixtureYearHeaderThrough(lastYear int) []string {
 	return header
 }
 
-func crimeFixtureOffenceRowThrough(lastYear int, label string, valueForYear func(int) interface{}) []interface{} {
-	row := []interface{}{label}
+func crimeFixtureOffenceRowThrough(lastYear int, label string, valueForYear func(int) any) []any {
+	row := []any{label}
 	for year := 1993; year <= lastYear; year++ {
 		row = append(row, valueForYear(year))
 	}
@@ -62,11 +62,11 @@ func crimeFixtureWorkbookThrough(t *testing.T, lastYear int) *excelize.File {
 		t.Fatal(err)
 	}
 	header := crimeFixtureYearHeaderThrough(lastYear)
-	headerRow := make([]interface{}, len(header))
+	headerRow := make([]any, len(header))
 	for i, cell := range header {
 		headerRow[i] = cell
 	}
-	rows := [][]interface{}{
+	rows := [][]any{
 		{fmt.Sprintf("This table shows Victims from %d - %d, by states and territories by number.", lastYear-1, lastYear)},
 		{"Australian Bureau of Statistics"},
 		{fmt.Sprintf("Table 9 Victims, Selected offences by states and territories, 1993 to %d", lastYear)},
@@ -76,25 +76,25 @@ func crimeFixtureWorkbookThrough(t *testing.T, lastYear int) *excelize.File {
 	}
 	for _, state := range crimeFixtureStates {
 		rows = append(rows,
-			[]interface{}{"", state.name},
-			crimeFixtureOffenceRowThrough(lastYear, "Homicide and related offences(h)", func(year int) interface{} {
+			[]any{"", state.name},
+			crimeFixtureOffenceRowThrough(lastYear, "Homicide and related offences(h)", func(year int) any {
 				if year == lastYear {
 					return "240"
 				}
 				return "250"
 			}),
-			crimeFixtureOffenceRowThrough(lastYear, "Murder", func(int) interface{} { return "140" }), // subrow: skipped and counted
-			crimeFixtureOffenceRowThrough(lastYear, "Assault(i)(x)", func(year int) interface{} {
+			crimeFixtureOffenceRowThrough(lastYear, "Murder", func(int) any { return "140" }), // subrow: skipped and counted
+			crimeFixtureOffenceRowThrough(lastYear, "Assault(i)(x)", func(year int) any {
 				if year == 1993 {
 					return "np"
 				}
 				return "65,000"
 			}),
-			crimeFixtureOffenceRowThrough(lastYear, "Sexual assault(p)", func(int) interface{} { return "3,000" }),
-			crimeFixtureOffenceRowThrough(lastYear, "Robbery", func(int) interface{} { return "1,000" }),
-			crimeFixtureOffenceRowThrough(lastYear, "Unlawful entry with intent(l)(s)", func(int) interface{} { return "20,000" }),
-			crimeFixtureOffenceRowThrough(lastYear, "Motor vehicle theft", func(int) interface{} { return "8,000" }),
-			crimeFixtureOffenceRowThrough(lastYear, "Other theft(m)", func(year int) interface{} {
+			crimeFixtureOffenceRowThrough(lastYear, "Sexual assault(p)", func(int) any { return "3,000" }),
+			crimeFixtureOffenceRowThrough(lastYear, "Robbery", func(int) any { return "1,000" }),
+			crimeFixtureOffenceRowThrough(lastYear, "Unlawful entry with intent(l)(s)", func(int) any { return "20,000" }),
+			crimeFixtureOffenceRowThrough(lastYear, "Motor vehicle theft", func(int) any { return "8,000" }),
+			crimeFixtureOffenceRowThrough(lastYear, "Other theft(m)", func(year int) any {
 				if year == 1994 {
 					return ""
 				}
@@ -113,7 +113,7 @@ func crimeFixtureWorkbookThrough(t *testing.T, lastYear int) *excelize.File {
 	if _, err := f.NewSheet("Table 10"); err != nil {
 		t.Fatal(err)
 	}
-	distractor := []interface{}{"Homicide and related offences", "999999"}
+	distractor := []any{"Homicide and related offences", "999999"}
 	if err := f.SetSheetRow("Table 10", "A1", &distractor); err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +346,7 @@ func TestParseCrimeWorkbookRejectsDuplicateMappedOffenceWithinState(t *testing.T
 func TestParseCrimeWorkbookRejectsInvalidVictimValues(t *testing.T) {
 	tests := []struct {
 		name  string
-		value interface{}
+		value any
 	}{
 		{"NaN", math.NaN()},
 		{"positive infinity", math.Inf(1)},

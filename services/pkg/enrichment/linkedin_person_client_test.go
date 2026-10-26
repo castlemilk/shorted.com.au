@@ -71,8 +71,8 @@ func TestVerifyEmployment(t *testing.T) {
 			want:        true,
 		},
 		{
-			name: "nil result",
-			result: nil,
+			name:        "nil result",
+			result:      nil,
 			companyName: "BHP",
 			stockCode:   "BHP",
 			want:        false,

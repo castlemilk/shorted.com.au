@@ -7,12 +7,18 @@ export const EXPECTED_LIMITS = {
   'api/about/warm-cache': 15,
   'api/homepage/warm-cache': 15,
   'api/market-data/multiple-quotes': 60,
+  // A tool-heavy chat turn outlives the 15s catch-all. The route declares this
+  // with its own `export const maxDuration`, so the built artifact must carry 60.
+  'api/chat': 60,
   'api/static-pages/warm-cache': 150,
   'api/pages/warm-cache': 300,
   'opengraph-image': 15,
   'industry/[slug]/twitter-image': 15,
   'price-drops': 60,
   'price-drops.rsc': 60,
+  'api/stripe/reconcile': 60,
+  'api/internal/billing': 30,
+  'api/internal/paid-probe': 120,
 };
 
 async function* builtFunctions(directory, prefix = '') {

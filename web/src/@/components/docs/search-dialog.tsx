@@ -6,19 +6,19 @@ import {
   Dialog,
   DialogContent,
 } from '~/@/components/ui/dialog';
-import type { ParsedEndpoint } from '~/lib/openapi/types';
+import type { ApiSearchEndpoint } from './api-nav';
 import { Search } from 'lucide-react';
 import { cn } from '~/@/lib/utils';
 
 interface SearchDialogProps {
-  endpoints: ParsedEndpoint[];
+  endpoints: ApiSearchEndpoint[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export function SearchDialog({ endpoints, open, onOpenChange }: SearchDialogProps) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<ParsedEndpoint[]>([]);
+  const [results, setResults] = useState<ApiSearchEndpoint[]>([]);
   const router = useRouter();
 
   useEffect(() => {

@@ -702,7 +702,7 @@ func validVerifier(v string) bool {
 // fails later somewhere unrelated.
 func narrowScope(granted, requested string) (string, bool) {
 	have := make(map[string]bool)
-	for _, s := range strings.Fields(granted) {
+	for s := range strings.FieldsSeq(granted) {
 		have[s] = true
 	}
 	fields := strings.Fields(requested)

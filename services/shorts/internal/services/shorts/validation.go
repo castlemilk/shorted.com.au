@@ -291,7 +291,7 @@ func NormalizeStockCode(code string) string {
 }
 
 // SetDefaultValues sets default values for request parameters if not provided
-func SetDefaultValues(req interface{}) {
+func SetDefaultValues(req any) {
 	switch r := req.(type) {
 	case *shortsv1alpha1.GetTopShortsRequest:
 		if r.Period == "" {

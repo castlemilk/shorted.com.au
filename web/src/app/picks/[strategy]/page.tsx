@@ -1,7 +1,6 @@
 import { type Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
 
 import { cn } from "~/@/lib/utils";
 import { eyebrow, pageTitle, sectionTitle } from "~/@/lib/typography";
@@ -15,7 +14,6 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { RegimeBanner } from "~/@/components/picks/regime-banner";
 import { PicksProvenance } from "~/@/components/picks/picks-provenance";
-import { PicksFilterView } from "~/@/components/picks/picks-filter-view";
 import { RuleLegend, type RuleColumn } from "~/@/components/picks/picks-table";
 import {
   StrategyArtBand,
@@ -51,7 +49,7 @@ interface PageProps {
 //
 // No searchParams are read here: reading them silently forces dynamic
 // rendering and throws the ISR away. ?status= and ?sort= are read client-side
-// by PicksSortedView under a real <Suspense> boundary.
+// by PicksSortedView, under the <Suspense> boundary it owns.
 //
 // NOTE: no loading.tsx on this route, so notFound() yields a real HTTP 404.
 export const revalidate = 3600;
@@ -123,10 +121,10 @@ export default async function StrategyPicksPage({ params }: PageProps) {
   }));
   const pageUrl = `${siteConfig.url}/picks/${seo.slug}`;
   const strategyName = firstNonEmpty(strategy?.name, seo.label);
-  // The shortlist is what the HTML, the Suspense fallback's RSC tree and the
-  // island's props all carry, so it is bounded (SHORTLIST_MAX_ROWS) and the
-  // island gets the status counts over every ranked row instead of the rows
-  // themselves: a status chip fetches its full list, as a sort chip does.
+  // The shortlist is what the HTML and the island's props carry, so it is
+  // bounded (SHORTLIST_MAX_ROWS) and the island gets the status counts over
+  // every ranked row instead of the rows themselves: a status chip fetches
+  // its full list, as a sort chip does.
   const shortlist = shortlistRows(rows);
   const counts = countByStatus(rows, data?.totalCount ?? 0);
   const listRows = shortlist.slice(0, ITEM_LIST_LIMIT);
@@ -241,12 +239,12 @@ export default async function StrategyPicksPage({ params }: PageProps) {
                 </h2>
                 <RuleLegend rules={rules} />
               </div>
-              {/* The fallback IS the server-rendered shortlist: useSearchParams
-                  suspends on a static page, so what crawlers and first paint
-                  get is this boundary's fallback, not the island. */}
-              <Suspense fallback={<PicksFilterView {...filterProps} status={null} />}>
-                <PicksSortedView {...filterProps} strategyId={seo.slug} />
-              </Suspense>
+              {/* What crawlers and first paint get is the island's Suspense
+                  fallback, the shortlist drawn from these props:
+                  useSearchParams suspends on a static page. No boundary here:
+                  a server-side fallback is serialised into the RSC payload as
+                  a second copy of every row. */}
+              <PicksSortedView {...filterProps} strategyId={seo.slug} />
               <p className="text-xs text-muted-foreground">
                 Pivot is the top of the base: the breakout level, and the exit
                 if the price closes back below it. Growth compares the latest

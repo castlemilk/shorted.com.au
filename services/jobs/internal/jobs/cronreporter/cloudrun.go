@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -454,8 +455,6 @@ func (w *cloudRunWatcher) status() map[string]any {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	st := make(map[string]int, len(w.stats))
-	for k, v := range w.stats {
-		st[k] = v
-	}
+	maps.Copy(st, w.stats)
 	return map[string]any{"monitors": len(w.cfg.Monitors), "schedulers": len(w.cfg.Schedulers), "last_error": w.lastErr, "checkins_since_boot": st}
 }

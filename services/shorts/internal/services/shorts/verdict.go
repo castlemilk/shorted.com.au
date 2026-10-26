@@ -43,7 +43,7 @@ func (s *ShortsServer) GetStockVerdict(ctx context.Context, req *connect.Request
 
 	cacheKey := s.cache.GetStockVerdictKey(productCode)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		inputs, err := s.store.GetStockVerdictInputs(productCode)
 		if err != nil {
 			return nil, err

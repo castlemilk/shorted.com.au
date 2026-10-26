@@ -23,7 +23,14 @@ test('verifies built ordinary and long-running warmers without emitting private 
   assert.equal(results.find(r => r.route === '/api/static-pages/warm-cache').maxDuration, 150);
   assert.equal(results.find(r => r.route === '/api/pages/warm-cache').maxDuration, 300);
   assert.equal(results.find(r => r.route === '/api/market-data/multiple-quotes').maxDuration, 60);
+  assert.equal(results.find(r => r.route === '/api/internal/paid-probe').maxDuration, 120);
+  assert.equal(results.find(r => r.route === '/api/chat').maxDuration, 60);
   assert.equal(JSON.stringify(results).includes('never-print-me'), false);
+});
+
+test('rejects the chat route falling back to the 15s catch-all and truncating a tool-heavy turn', async (t) => {
+  const root = await fixture(t, { 'api/chat': { maxDuration: 15 } });
+  await assert.rejects(verifyFunctionLimits(root), /api\/chat: expected Node.js maxDuration 60s/);
 });
 
 test('rejects a Fluid default accidentally replacing the prior ordinary route limit', async (t) => {

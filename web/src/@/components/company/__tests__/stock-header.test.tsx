@@ -198,9 +198,16 @@ describe("StockHeader readout", () => {
     expect(value).toHaveClass("font-mono", "text-2xl", "font-bold", "tabular-nums");
   });
 
-  it("rounds a tiny percentage to 0.00%, never to a bare 0 or a dash", async () => {
+  it("puts a tiny percentage under 0.01%, never at 0.00%, a bare 0 or a dash", async () => {
     await renderHeader(props({ stock: { ...BHP, percentageShorted: 0.004 } as Stock }));
-    expect(figuresOf("Short interest")[0]).toHaveTextContent("0.00%");
+    expect(figuresOf("Short interest")[0]).toHaveTextContent(/^<0\.01%$/);
+  });
+
+  // ANT, 164 shares short, read "0.00%", a measured zero for a reported
+  // position (the page's one rule, ~/@/lib/stocks/short-percent).
+  it("never prints a reported position as 0.00%", async () => {
+    await renderHeader(props({ stock: { ...BHP, percentageShorted: 0.0000205 } as Stock }));
+    expect(figuresOf("Short interest")[0]).toHaveTextContent(/^<0\.01%$/);
   });
 
   it("formats the reported shorts and the shares on issue", async () => {

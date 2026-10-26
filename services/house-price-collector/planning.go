@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -277,12 +278,7 @@ func (row PlanningRow) validate() error {
 }
 
 func isZoneFamily(family string) bool {
-	for _, f := range zoneFamilies {
-		if f == family {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(zoneFamilies, family)
 }
 
 func ingestPlanning() ([]PlanningRow, error) {

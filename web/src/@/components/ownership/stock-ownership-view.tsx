@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "~/@/components/ui/table";
 import { formatAmount, formatPct } from "~/@/lib/fundamentals/format";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import {
   formLabel,
   formatFundWeight,
@@ -90,15 +91,17 @@ export function StockOwnershipView({ data }: { data: GetStockOwnershipResponse }
                   </TableCell>
                   <TableCell className="whitespace-nowrap tabular-nums">{h.eventDate || h.announcedOn}</TableCell>
                   <TableCell>
-                    <a
-                      href={h.announcementUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hit-target inline-flex text-muted-foreground hover:text-primary"
-                      aria-label={`${h.holderName || "Holder"}'s notice on ASX`}
-                    >
-                      <ExternalLink className="h-4 w-4" aria-hidden />
-                    </a>
+                    {safeExternalHref(h.announcementUrl) ? (
+                      <a
+                        href={safeExternalHref(h.announcementUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hit-target inline-flex text-muted-foreground hover:text-primary"
+                        aria-label={`${h.holderName || "Holder"}'s notice on ASX`}
+                      >
+                        <ExternalLink className="h-4 w-4" aria-hidden />
+                      </a>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}

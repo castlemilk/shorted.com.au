@@ -235,7 +235,7 @@ func TestUndefinedTableDetectionIsTheOnlyEmptyPath(t *testing.T) {
 		}
 	}
 	// Logging once per method must not panic when called repeatedly.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		logMissingRelationOnce("TestMethod", errors.New("relation does not exist"))
 	}
 }

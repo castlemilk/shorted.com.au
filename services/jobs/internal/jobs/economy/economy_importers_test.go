@@ -181,7 +181,6 @@ func assertSDMXRowError(t *testing.T, err error, parser string, csvRow int) {
 	}
 }
 
-
 // Every importer registered in jobs() must be reachable from `-mode all`, or it
 // is dispatchable by hand and never actually collected in production.
 //

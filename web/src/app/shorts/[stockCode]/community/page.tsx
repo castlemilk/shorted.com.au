@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { CommunityTab } from "~/@/components/company/community/community-tab";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
+import { stockTabTitle } from "~/@/lib/seo/stock-tab-title";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 
@@ -25,7 +26,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return stockTabMetadata({
     code,
     tab: "community",
-    title: (company) => `${code} Community Discussion | ${company}`,
+    title: (company) => stockTabTitle(code, "Community Discussion", company),
     description: (company) => `Research threads and pulse on ${company} (ASX:${code}) from the Shorted community.`,
     forceNoindex: true,
   });

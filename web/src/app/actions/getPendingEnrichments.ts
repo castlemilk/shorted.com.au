@@ -4,6 +4,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { EnrichmentService } from "~/gen/shorts/v1alpha1/enrichment_pb";
 import { requireAdmin } from "~/server/admin";
+import { internalServiceSecret } from "~/server/internal-service-secret";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
 
@@ -23,7 +24,7 @@ export async function getPendingEnrichments(limit = 100, offset = 0) {
   });
   const client = createClient(EnrichmentService, transport);
 
-  const internalSecret = process.env.INTERNAL_SECRET ?? "dev-internal-secret";
+  const internalSecret = internalServiceSecret();
 
   const resp = await retryWithBackoff(
     () =>
@@ -34,6 +35,9 @@ export async function getPendingEnrichments(limit = 100, offset = 0) {
             "X-Internal-Secret": internalSecret,
             "X-User-Email": admin.email,
             "X-User-Id": admin.userId,
+            // Asserted only because requireAdmin() above just passed. The API grants
+            // admin from this header and from nothing else.
+            "X-User-Roles": "admin",
           },
         },
       ),

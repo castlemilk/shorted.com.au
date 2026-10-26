@@ -39,13 +39,29 @@ const (
 	// AlertsServiceListAlertMonitorsProcedure is the fully-qualified name of the AlertsService's
 	// ListAlertMonitors RPC.
 	AlertsServiceListAlertMonitorsProcedure = "/shorts.v1alpha1.AlertsService/ListAlertMonitors"
+	// AlertsServiceListAlertEventsProcedure is the fully-qualified name of the AlertsService's
+	// ListAlertEvents RPC.
+	AlertsServiceListAlertEventsProcedure = "/shorts.v1alpha1.AlertsService/ListAlertEvents"
+	// AlertsServiceUpdateAlertMonitorStatusProcedure is the fully-qualified name of the AlertsService's
+	// UpdateAlertMonitorStatus RPC.
+	AlertsServiceUpdateAlertMonitorStatusProcedure = "/shorts.v1alpha1.AlertsService/UpdateAlertMonitorStatus"
+	// AlertsServiceDeleteAlertMonitorProcedure is the fully-qualified name of the AlertsService's
+	// DeleteAlertMonitor RPC.
+	AlertsServiceDeleteAlertMonitorProcedure = "/shorts.v1alpha1.AlertsService/DeleteAlertMonitor"
+	// AlertsServicePauseAlertMonitorByTokenProcedure is the fully-qualified name of the AlertsService's
+	// PauseAlertMonitorByToken RPC.
+	AlertsServicePauseAlertMonitorByTokenProcedure = "/shorts.v1alpha1.AlertsService/PauseAlertMonitorByToken"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	alertsServiceServiceDescriptor                  = v1alpha1.File_shorts_v1alpha1_alerts_proto.Services().ByName("AlertsService")
-	alertsServiceCreateAlertMonitorMethodDescriptor = alertsServiceServiceDescriptor.Methods().ByName("CreateAlertMonitor")
-	alertsServiceListAlertMonitorsMethodDescriptor  = alertsServiceServiceDescriptor.Methods().ByName("ListAlertMonitors")
+	alertsServiceServiceDescriptor                        = v1alpha1.File_shorts_v1alpha1_alerts_proto.Services().ByName("AlertsService")
+	alertsServiceCreateAlertMonitorMethodDescriptor       = alertsServiceServiceDescriptor.Methods().ByName("CreateAlertMonitor")
+	alertsServiceListAlertMonitorsMethodDescriptor        = alertsServiceServiceDescriptor.Methods().ByName("ListAlertMonitors")
+	alertsServiceListAlertEventsMethodDescriptor          = alertsServiceServiceDescriptor.Methods().ByName("ListAlertEvents")
+	alertsServiceUpdateAlertMonitorStatusMethodDescriptor = alertsServiceServiceDescriptor.Methods().ByName("UpdateAlertMonitorStatus")
+	alertsServiceDeleteAlertMonitorMethodDescriptor       = alertsServiceServiceDescriptor.Methods().ByName("DeleteAlertMonitor")
+	alertsServicePauseAlertMonitorByTokenMethodDescriptor = alertsServiceServiceDescriptor.Methods().ByName("PauseAlertMonitorByToken")
 )
 
 // AlertsServiceClient is a client for the shorts.v1alpha1.AlertsService service.
@@ -54,6 +70,14 @@ type AlertsServiceClient interface {
 	CreateAlertMonitor(context.Context, *connect.Request[v1alpha1.CreateAlertMonitorRequest]) (*connect.Response[v1alpha1.CreateAlertMonitorResponse], error)
 	// List short-interest alert monitors for the current user.
 	ListAlertMonitors(context.Context, *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error)
+	// Recent alert events (monitors that fired) for the current user, newest report first.
+	ListAlertEvents(context.Context, *connect.Request[v1alpha1.ListAlertEventsRequest]) (*connect.Response[v1alpha1.ListAlertEventsResponse], error)
+	// Pause or resume one of the current user's monitors. Resuming requires Premium.
+	UpdateAlertMonitorStatus(context.Context, *connect.Request[v1alpha1.UpdateAlertMonitorStatusRequest]) (*connect.Response[v1alpha1.UpdateAlertMonitorStatusResponse], error)
+	// Delete one of the current user's monitors and its event history.
+	DeleteAlertMonitor(context.Context, *connect.Request[v1alpha1.DeleteAlertMonitorRequest]) (*connect.Response[v1alpha1.DeleteAlertMonitorResponse], error)
+	// Pause the monitor named by a signed email token (one-click unsubscribe). No session.
+	PauseAlertMonitorByToken(context.Context, *connect.Request[v1alpha1.PauseAlertMonitorByTokenRequest]) (*connect.Response[v1alpha1.PauseAlertMonitorByTokenResponse], error)
 }
 
 // NewAlertsServiceClient constructs a client for the shorts.v1alpha1.AlertsService service. By
@@ -78,13 +102,41 @@ func NewAlertsServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(alertsServiceListAlertMonitorsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listAlertEvents: connect.NewClient[v1alpha1.ListAlertEventsRequest, v1alpha1.ListAlertEventsResponse](
+			httpClient,
+			baseURL+AlertsServiceListAlertEventsProcedure,
+			connect.WithSchema(alertsServiceListAlertEventsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateAlertMonitorStatus: connect.NewClient[v1alpha1.UpdateAlertMonitorStatusRequest, v1alpha1.UpdateAlertMonitorStatusResponse](
+			httpClient,
+			baseURL+AlertsServiceUpdateAlertMonitorStatusProcedure,
+			connect.WithSchema(alertsServiceUpdateAlertMonitorStatusMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteAlertMonitor: connect.NewClient[v1alpha1.DeleteAlertMonitorRequest, v1alpha1.DeleteAlertMonitorResponse](
+			httpClient,
+			baseURL+AlertsServiceDeleteAlertMonitorProcedure,
+			connect.WithSchema(alertsServiceDeleteAlertMonitorMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		pauseAlertMonitorByToken: connect.NewClient[v1alpha1.PauseAlertMonitorByTokenRequest, v1alpha1.PauseAlertMonitorByTokenResponse](
+			httpClient,
+			baseURL+AlertsServicePauseAlertMonitorByTokenProcedure,
+			connect.WithSchema(alertsServicePauseAlertMonitorByTokenMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // alertsServiceClient implements AlertsServiceClient.
 type alertsServiceClient struct {
-	createAlertMonitor *connect.Client[v1alpha1.CreateAlertMonitorRequest, v1alpha1.CreateAlertMonitorResponse]
-	listAlertMonitors  *connect.Client[v1alpha1.ListAlertMonitorsRequest, v1alpha1.ListAlertMonitorsResponse]
+	createAlertMonitor       *connect.Client[v1alpha1.CreateAlertMonitorRequest, v1alpha1.CreateAlertMonitorResponse]
+	listAlertMonitors        *connect.Client[v1alpha1.ListAlertMonitorsRequest, v1alpha1.ListAlertMonitorsResponse]
+	listAlertEvents          *connect.Client[v1alpha1.ListAlertEventsRequest, v1alpha1.ListAlertEventsResponse]
+	updateAlertMonitorStatus *connect.Client[v1alpha1.UpdateAlertMonitorStatusRequest, v1alpha1.UpdateAlertMonitorStatusResponse]
+	deleteAlertMonitor       *connect.Client[v1alpha1.DeleteAlertMonitorRequest, v1alpha1.DeleteAlertMonitorResponse]
+	pauseAlertMonitorByToken *connect.Client[v1alpha1.PauseAlertMonitorByTokenRequest, v1alpha1.PauseAlertMonitorByTokenResponse]
 }
 
 // CreateAlertMonitor calls shorts.v1alpha1.AlertsService.CreateAlertMonitor.
@@ -97,12 +149,40 @@ func (c *alertsServiceClient) ListAlertMonitors(ctx context.Context, req *connec
 	return c.listAlertMonitors.CallUnary(ctx, req)
 }
 
+// ListAlertEvents calls shorts.v1alpha1.AlertsService.ListAlertEvents.
+func (c *alertsServiceClient) ListAlertEvents(ctx context.Context, req *connect.Request[v1alpha1.ListAlertEventsRequest]) (*connect.Response[v1alpha1.ListAlertEventsResponse], error) {
+	return c.listAlertEvents.CallUnary(ctx, req)
+}
+
+// UpdateAlertMonitorStatus calls shorts.v1alpha1.AlertsService.UpdateAlertMonitorStatus.
+func (c *alertsServiceClient) UpdateAlertMonitorStatus(ctx context.Context, req *connect.Request[v1alpha1.UpdateAlertMonitorStatusRequest]) (*connect.Response[v1alpha1.UpdateAlertMonitorStatusResponse], error) {
+	return c.updateAlertMonitorStatus.CallUnary(ctx, req)
+}
+
+// DeleteAlertMonitor calls shorts.v1alpha1.AlertsService.DeleteAlertMonitor.
+func (c *alertsServiceClient) DeleteAlertMonitor(ctx context.Context, req *connect.Request[v1alpha1.DeleteAlertMonitorRequest]) (*connect.Response[v1alpha1.DeleteAlertMonitorResponse], error) {
+	return c.deleteAlertMonitor.CallUnary(ctx, req)
+}
+
+// PauseAlertMonitorByToken calls shorts.v1alpha1.AlertsService.PauseAlertMonitorByToken.
+func (c *alertsServiceClient) PauseAlertMonitorByToken(ctx context.Context, req *connect.Request[v1alpha1.PauseAlertMonitorByTokenRequest]) (*connect.Response[v1alpha1.PauseAlertMonitorByTokenResponse], error) {
+	return c.pauseAlertMonitorByToken.CallUnary(ctx, req)
+}
+
 // AlertsServiceHandler is an implementation of the shorts.v1alpha1.AlertsService service.
 type AlertsServiceHandler interface {
 	// Create a premium short-interest alert monitor for the current user.
 	CreateAlertMonitor(context.Context, *connect.Request[v1alpha1.CreateAlertMonitorRequest]) (*connect.Response[v1alpha1.CreateAlertMonitorResponse], error)
 	// List short-interest alert monitors for the current user.
 	ListAlertMonitors(context.Context, *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error)
+	// Recent alert events (monitors that fired) for the current user, newest report first.
+	ListAlertEvents(context.Context, *connect.Request[v1alpha1.ListAlertEventsRequest]) (*connect.Response[v1alpha1.ListAlertEventsResponse], error)
+	// Pause or resume one of the current user's monitors. Resuming requires Premium.
+	UpdateAlertMonitorStatus(context.Context, *connect.Request[v1alpha1.UpdateAlertMonitorStatusRequest]) (*connect.Response[v1alpha1.UpdateAlertMonitorStatusResponse], error)
+	// Delete one of the current user's monitors and its event history.
+	DeleteAlertMonitor(context.Context, *connect.Request[v1alpha1.DeleteAlertMonitorRequest]) (*connect.Response[v1alpha1.DeleteAlertMonitorResponse], error)
+	// Pause the monitor named by a signed email token (one-click unsubscribe). No session.
+	PauseAlertMonitorByToken(context.Context, *connect.Request[v1alpha1.PauseAlertMonitorByTokenRequest]) (*connect.Response[v1alpha1.PauseAlertMonitorByTokenResponse], error)
 }
 
 // NewAlertsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -123,12 +203,44 @@ func NewAlertsServiceHandler(svc AlertsServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(alertsServiceListAlertMonitorsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	alertsServiceListAlertEventsHandler := connect.NewUnaryHandler(
+		AlertsServiceListAlertEventsProcedure,
+		svc.ListAlertEvents,
+		connect.WithSchema(alertsServiceListAlertEventsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	alertsServiceUpdateAlertMonitorStatusHandler := connect.NewUnaryHandler(
+		AlertsServiceUpdateAlertMonitorStatusProcedure,
+		svc.UpdateAlertMonitorStatus,
+		connect.WithSchema(alertsServiceUpdateAlertMonitorStatusMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	alertsServiceDeleteAlertMonitorHandler := connect.NewUnaryHandler(
+		AlertsServiceDeleteAlertMonitorProcedure,
+		svc.DeleteAlertMonitor,
+		connect.WithSchema(alertsServiceDeleteAlertMonitorMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	alertsServicePauseAlertMonitorByTokenHandler := connect.NewUnaryHandler(
+		AlertsServicePauseAlertMonitorByTokenProcedure,
+		svc.PauseAlertMonitorByToken,
+		connect.WithSchema(alertsServicePauseAlertMonitorByTokenMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.AlertsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AlertsServiceCreateAlertMonitorProcedure:
 			alertsServiceCreateAlertMonitorHandler.ServeHTTP(w, r)
 		case AlertsServiceListAlertMonitorsProcedure:
 			alertsServiceListAlertMonitorsHandler.ServeHTTP(w, r)
+		case AlertsServiceListAlertEventsProcedure:
+			alertsServiceListAlertEventsHandler.ServeHTTP(w, r)
+		case AlertsServiceUpdateAlertMonitorStatusProcedure:
+			alertsServiceUpdateAlertMonitorStatusHandler.ServeHTTP(w, r)
+		case AlertsServiceDeleteAlertMonitorProcedure:
+			alertsServiceDeleteAlertMonitorHandler.ServeHTTP(w, r)
+		case AlertsServicePauseAlertMonitorByTokenProcedure:
+			alertsServicePauseAlertMonitorByTokenHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -144,4 +256,20 @@ func (UnimplementedAlertsServiceHandler) CreateAlertMonitor(context.Context, *co
 
 func (UnimplementedAlertsServiceHandler) ListAlertMonitors(context.Context, *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.AlertsService.ListAlertMonitors is not implemented"))
+}
+
+func (UnimplementedAlertsServiceHandler) ListAlertEvents(context.Context, *connect.Request[v1alpha1.ListAlertEventsRequest]) (*connect.Response[v1alpha1.ListAlertEventsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.AlertsService.ListAlertEvents is not implemented"))
+}
+
+func (UnimplementedAlertsServiceHandler) UpdateAlertMonitorStatus(context.Context, *connect.Request[v1alpha1.UpdateAlertMonitorStatusRequest]) (*connect.Response[v1alpha1.UpdateAlertMonitorStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.AlertsService.UpdateAlertMonitorStatus is not implemented"))
+}
+
+func (UnimplementedAlertsServiceHandler) DeleteAlertMonitor(context.Context, *connect.Request[v1alpha1.DeleteAlertMonitorRequest]) (*connect.Response[v1alpha1.DeleteAlertMonitorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.AlertsService.DeleteAlertMonitor is not implemented"))
+}
+
+func (UnimplementedAlertsServiceHandler) PauseAlertMonitorByToken(context.Context, *connect.Request[v1alpha1.PauseAlertMonitorByTokenRequest]) (*connect.Response[v1alpha1.PauseAlertMonitorByTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.AlertsService.PauseAlertMonitorByToken is not implemented"))
 }

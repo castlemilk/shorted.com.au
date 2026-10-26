@@ -122,6 +122,8 @@ const PROTECTED_ROUTES = [
   "/admin",
   "/developer",
   "/chat",
+  // The billing link in the failed-payment email. A signed-out click signs in first.
+  "/billing",
 ];
 
 // Protected API/RPC routes should return API-shaped 401 responses, not signin redirects.
@@ -295,6 +297,7 @@ export const config = {
     "/developer",
     "/chat",
     "/chat/:path*",
+    "/billing/:path*",
     /*
      * Stock pages: case-canonicalization redirect only (public, no auth)
      */

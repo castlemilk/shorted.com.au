@@ -428,7 +428,7 @@ func (s *Server) handleDetectGaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := map[string]interface{}{
+	response := map[string]any{
 		"stock_code":   symbol,
 		"min_gap_days": minGapDays,
 		"gaps_found":   len(gaps),
@@ -478,7 +478,7 @@ func (s *Server) handleRepairGaps(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(gaps) == 0 {
-		response := map[string]interface{}{
+		response := map[string]any{
 			"stock_code":       symbol,
 			"status":           "no_gaps",
 			"message":          "No gaps found to repair",
@@ -496,7 +496,7 @@ func (s *Server) handleRepairGaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := map[string]interface{}{
+	response := map[string]any{
 		"stock_code":       symbol,
 		"status":           "repaired",
 		"gaps_found":       len(gaps),
@@ -578,7 +578,7 @@ func (s *Server) handleDetectAllGaps(w http.ResponseWriter, r *http.Request) {
 		totalGaps += len(gaps)
 	}
 
-	response := map[string]interface{}{
+	response := map[string]any{
 		"min_gap_days":     minGapDays,
 		"stocks_with_gaps": len(allGaps),
 		"total_gaps":       totalGaps,

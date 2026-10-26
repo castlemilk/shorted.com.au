@@ -113,7 +113,7 @@ func ClusterNews(ctx context.Context, db *pgxpool.Pool, opts ClusterNewsOpts) er
 		isMarket := key == "_MARKET"
 		// Within each stock-code bucket, compare each pair within the
 		// time window for shingle overlap.
-		for i := 0; i < len(group); i++ {
+		for i := range group {
 			a := group[i]
 			for j := i + 1; j < len(group); j++ {
 				b := group[j]
@@ -277,10 +277,7 @@ func sameStoryMarket(a, b map[string]struct{}, minOverlap int) bool {
 	if shared < minOverlap {
 		return false
 	}
-	smaller := len(a)
-	if len(b) < smaller {
-		smaller = len(b)
-	}
+	smaller := min(len(b), len(a))
 	if smaller == 0 {
 		return false
 	}

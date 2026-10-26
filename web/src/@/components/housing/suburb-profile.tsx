@@ -348,7 +348,7 @@ export function SuburbProfile({
               <p className="mb-2 text-[11px] text-muted-foreground">Closest demographic &amp; amenity profile, nationally.</p>
               <div className="flex flex-col">
                 {data.similar.map((n) => (
-                  <Link key={n.salCode} href={suburbHref(n.stateCode, { salName: n.salName, salCode: n.salCode, postcode: "" })}
+                  <Link key={n.salCode} href={suburbHref(n.stateCode, { salName: n.salName, postcode: "" })}
                     className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground">
                     <span className="truncate">
                       {n.salName} <span className="text-[10px] uppercase text-muted-foreground">{n.stateCode}</span>

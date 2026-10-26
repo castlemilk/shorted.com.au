@@ -284,7 +284,12 @@ jobs:
           version: 1.47.2
           setup_only: true
 
+      # buf generate pulls remote plugins from the BSR. Anonymous pulls share
+      # the runner's rate limit and fail with "too many requests", which the
+      # drift test reports as a toolchain failure. The buf CLI reads BUF_TOKEN
+      # from the environment, so an authenticated pull is the fix.
       - name: Regenerate and diff
         env:
           GOPRIVATE: github.com/skunkworq/*
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
         run: node --test scripts/tests/openapi-drift.test.mjs

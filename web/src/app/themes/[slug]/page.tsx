@@ -19,6 +19,7 @@ import { createSlug } from "~/@/lib/industry-slug";
 import { getThemeSnapshot, type ThemeStats } from "~/app/actions/getThemeData";
 import { getStockHeadlines, type StockHeadline } from "~/app/actions/getStockNews";
 import { bailOnEmptyRender } from "~/app/actions/config";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -328,7 +329,7 @@ export default async function ThemePage({ params }: PageProps) {
               {news.map((item) => (
                 <li key={`${item.code}-${item.id || item.url}`} className="px-4 py-2.5">
                   <a
-                    href={item.url}
+                    href={safeExternalHref(item.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm leading-snug hover:text-primary hover:underline"

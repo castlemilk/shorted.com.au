@@ -226,21 +226,91 @@ func (AlertMonitorStatus) EnumDescriptor() ([]byte, []int) {
 	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{3}
 }
 
+// Delivery state of one alert event's email.
+type AlertDeliveryStatus int32
+
+const (
+	AlertDeliveryStatus_ALERT_DELIVERY_STATUS_UNSPECIFIED AlertDeliveryStatus = 0
+	// Queued for sending, or being sent.
+	AlertDeliveryStatus_ALERT_DELIVERY_STATUS_PENDING AlertDeliveryStatus = 1
+	AlertDeliveryStatus_ALERT_DELIVERY_STATUS_SENT    AlertDeliveryStatus = 2
+	AlertDeliveryStatus_ALERT_DELIVERY_STATUS_FAILED  AlertDeliveryStatus = 3
+	// The owner has no active Premium subscription, so no email was sent.
+	AlertDeliveryStatus_ALERT_DELIVERY_STATUS_SKIPPED_UNENTITLED AlertDeliveryStatus = 4
+	// The account has no email address on file.
+	AlertDeliveryStatus_ALERT_DELIVERY_STATUS_SKIPPED_NO_EMAIL AlertDeliveryStatus = 5
+	// The monitor was paused before the email was sent.
+	AlertDeliveryStatus_ALERT_DELIVERY_STATUS_SKIPPED_PAUSED AlertDeliveryStatus = 6
+)
+
+// Enum value maps for AlertDeliveryStatus.
+var (
+	AlertDeliveryStatus_name = map[int32]string{
+		0: "ALERT_DELIVERY_STATUS_UNSPECIFIED",
+		1: "ALERT_DELIVERY_STATUS_PENDING",
+		2: "ALERT_DELIVERY_STATUS_SENT",
+		3: "ALERT_DELIVERY_STATUS_FAILED",
+		4: "ALERT_DELIVERY_STATUS_SKIPPED_UNENTITLED",
+		5: "ALERT_DELIVERY_STATUS_SKIPPED_NO_EMAIL",
+		6: "ALERT_DELIVERY_STATUS_SKIPPED_PAUSED",
+	}
+	AlertDeliveryStatus_value = map[string]int32{
+		"ALERT_DELIVERY_STATUS_UNSPECIFIED":        0,
+		"ALERT_DELIVERY_STATUS_PENDING":            1,
+		"ALERT_DELIVERY_STATUS_SENT":               2,
+		"ALERT_DELIVERY_STATUS_FAILED":             3,
+		"ALERT_DELIVERY_STATUS_SKIPPED_UNENTITLED": 4,
+		"ALERT_DELIVERY_STATUS_SKIPPED_NO_EMAIL":   5,
+		"ALERT_DELIVERY_STATUS_SKIPPED_PAUSED":     6,
+	}
+)
+
+func (x AlertDeliveryStatus) Enum() *AlertDeliveryStatus {
+	p := new(AlertDeliveryStatus)
+	*p = x
+	return p
+}
+
+func (x AlertDeliveryStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AlertDeliveryStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_shorts_v1alpha1_alerts_proto_enumTypes[4].Descriptor()
+}
+
+func (AlertDeliveryStatus) Type() protoreflect.EnumType {
+	return &file_shorts_v1alpha1_alerts_proto_enumTypes[4]
+}
+
+func (x AlertDeliveryStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AlertDeliveryStatus.Descriptor instead.
+func (AlertDeliveryStatus) EnumDescriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{4}
+}
+
 // A saved short-interest monitor owned by the current user.
 type AlertMonitor struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Scope         AlertMonitorScope      `protobuf:"varint,2,opt,name=scope,proto3,enum=shorts.v1alpha1.AlertMonitorScope" json:"scope,omitempty"`
-	Target        string                 `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"`
-	Condition     AlertMonitorCondition  `protobuf:"varint,4,opt,name=condition,proto3,enum=shorts.v1alpha1.AlertMonitorCondition" json:"condition,omitempty"`
-	Threshold     float64                `protobuf:"fixed64,5,opt,name=threshold,proto3" json:"threshold,omitempty"`
-	HasThreshold  bool                   `protobuf:"varint,6,opt,name=has_threshold,json=hasThreshold,proto3" json:"has_threshold,omitempty"`
-	Cadence       AlertMonitorCadence    `protobuf:"varint,7,opt,name=cadence,proto3,enum=shorts.v1alpha1.AlertMonitorCadence" json:"cadence,omitempty"`
-	Status        AlertMonitorStatus     `protobuf:"varint,8,opt,name=status,proto3,enum=shorts.v1alpha1.AlertMonitorStatus" json:"status,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Scope        AlertMonitorScope      `protobuf:"varint,2,opt,name=scope,proto3,enum=shorts.v1alpha1.AlertMonitorScope" json:"scope,omitempty"`
+	Target       string                 `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"`
+	Condition    AlertMonitorCondition  `protobuf:"varint,4,opt,name=condition,proto3,enum=shorts.v1alpha1.AlertMonitorCondition" json:"condition,omitempty"`
+	Threshold    float64                `protobuf:"fixed64,5,opt,name=threshold,proto3" json:"threshold,omitempty"`
+	HasThreshold bool                   `protobuf:"varint,6,opt,name=has_threshold,json=hasThreshold,proto3" json:"has_threshold,omitempty"`
+	Cadence      AlertMonitorCadence    `protobuf:"varint,7,opt,name=cadence,proto3,enum=shorts.v1alpha1.AlertMonitorCadence" json:"cadence,omitempty"`
+	Status       AlertMonitorStatus     `protobuf:"varint,8,opt,name=status,proto3,enum=shorts.v1alpha1.AlertMonitorStatus" json:"status,omitempty"`
+	CreatedAt    *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt    *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// The newest event for this monitor, or empty when it has never fired.
+	LastEventReportDate string                 `protobuf:"bytes,11,opt,name=last_event_report_date,json=lastEventReportDate,proto3" json:"last_event_report_date,omitempty"` // YYYY-MM-DD
+	LastDeliveryStatus  AlertDeliveryStatus    `protobuf:"varint,12,opt,name=last_delivery_status,json=lastDeliveryStatus,proto3,enum=shorts.v1alpha1.AlertDeliveryStatus" json:"last_delivery_status,omitempty"`
+	LastEventAt         *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=last_event_at,json=lastEventAt,proto3" json:"last_event_at,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *AlertMonitor) Reset() {
@@ -339,6 +409,27 @@ func (x *AlertMonitor) GetCreatedAt() *timestamppb.Timestamp {
 func (x *AlertMonitor) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *AlertMonitor) GetLastEventReportDate() string {
+	if x != nil {
+		return x.LastEventReportDate
+	}
+	return ""
+}
+
+func (x *AlertMonitor) GetLastDeliveryStatus() AlertDeliveryStatus {
+	if x != nil {
+		return x.LastDeliveryStatus
+	}
+	return AlertDeliveryStatus_ALERT_DELIVERY_STATUS_UNSPECIFIED
+}
+
+func (x *AlertMonitor) GetLastEventAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastEventAt
 	}
 	return nil
 }
@@ -528,11 +619,13 @@ func (x *ListAlertMonitorsRequest) GetOffset() int32 {
 
 // Response for ListAlertMonitors RPC.
 type ListAlertMonitorsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Monitors      []*AlertMonitor        `protobuf:"bytes,1,rep,name=monitors,proto3" json:"monitors,omitempty"`
-	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Monitors   []*AlertMonitor        `protobuf:"bytes,1,rep,name=monitors,proto3" json:"monitors,omitempty"`
+	TotalCount int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+	CheckedThroughReportDate string `protobuf:"bytes,3,opt,name=checked_through_report_date,json=checkedThroughReportDate,proto3" json:"checked_through_report_date,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *ListAlertMonitorsResponse) Reset() {
@@ -579,11 +672,720 @@ func (x *ListAlertMonitorsResponse) GetTotalCount() int32 {
 	return 0
 }
 
+func (x *ListAlertMonitorsResponse) GetCheckedThroughReportDate() string {
+	if x != nil {
+		return x.CheckedThroughReportDate
+	}
+	return ""
+}
+
+// One company an alert event is about.
+type AlertEventCompany struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ProductCode     string                 `protobuf:"bytes,1,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"`
+	CompanyName     string                 `protobuf:"bytes,2,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	LatestPercent   float64                `protobuf:"fixed64,3,opt,name=latest_percent,json=latestPercent,proto3" json:"latest_percent,omitempty"`
+	PreviousPercent float64                `protobuf:"fixed64,4,opt,name=previous_percent,json=previousPercent,proto3" json:"previous_percent,omitempty"`
+	HasPrevious     bool                   `protobuf:"varint,5,opt,name=has_previous,json=hasPrevious,proto3" json:"has_previous,omitempty"`
+	ChangePoints    float64                `protobuf:"fixed64,6,opt,name=change_points,json=changePoints,proto3" json:"change_points,omitempty"`
+	HasChange       bool                   `protobuf:"varint,7,opt,name=has_change,json=hasChange,proto3" json:"has_change,omitempty"`
+	// 1-based rank in the industry's top ten at the report date. 0 means not ranked.
+	Rank int32 `protobuf:"varint,8,opt,name=rank,proto3" json:"rank,omitempty"`
+	// Rank at the previous reading. 0 means not ranked.
+	PreviousRank  int32 `protobuf:"varint,9,opt,name=previous_rank,json=previousRank,proto3" json:"previous_rank,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AlertEventCompany) Reset() {
+	*x = AlertEventCompany{}
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AlertEventCompany) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AlertEventCompany) ProtoMessage() {}
+
+func (x *AlertEventCompany) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AlertEventCompany.ProtoReflect.Descriptor instead.
+func (*AlertEventCompany) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *AlertEventCompany) GetProductCode() string {
+	if x != nil {
+		return x.ProductCode
+	}
+	return ""
+}
+
+func (x *AlertEventCompany) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *AlertEventCompany) GetLatestPercent() float64 {
+	if x != nil {
+		return x.LatestPercent
+	}
+	return 0
+}
+
+func (x *AlertEventCompany) GetPreviousPercent() float64 {
+	if x != nil {
+		return x.PreviousPercent
+	}
+	return 0
+}
+
+func (x *AlertEventCompany) GetHasPrevious() bool {
+	if x != nil {
+		return x.HasPrevious
+	}
+	return false
+}
+
+func (x *AlertEventCompany) GetChangePoints() float64 {
+	if x != nil {
+		return x.ChangePoints
+	}
+	return 0
+}
+
+func (x *AlertEventCompany) GetHasChange() bool {
+	if x != nil {
+		return x.HasChange
+	}
+	return false
+}
+
+func (x *AlertEventCompany) GetRank() int32 {
+	if x != nil {
+		return x.Rank
+	}
+	return 0
+}
+
+func (x *AlertEventCompany) GetPreviousRank() int32 {
+	if x != nil {
+		return x.PreviousRank
+	}
+	return 0
+}
+
+// One alert that fired: a monitor, a report date, and the companies it fired on.
+type AlertEvent struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	MonitorId      string                 `protobuf:"bytes,2,opt,name=monitor_id,json=monitorId,proto3" json:"monitor_id,omitempty"`
+	Scope          AlertMonitorScope      `protobuf:"varint,3,opt,name=scope,proto3,enum=shorts.v1alpha1.AlertMonitorScope" json:"scope,omitempty"`
+	Target         string                 `protobuf:"bytes,4,opt,name=target,proto3" json:"target,omitempty"`
+	Condition      AlertMonitorCondition  `protobuf:"varint,5,opt,name=condition,proto3,enum=shorts.v1alpha1.AlertMonitorCondition" json:"condition,omitempty"`
+	Threshold      float64                `protobuf:"fixed64,6,opt,name=threshold,proto3" json:"threshold,omitempty"`
+	HasThreshold   bool                   `protobuf:"varint,7,opt,name=has_threshold,json=hasThreshold,proto3" json:"has_threshold,omitempty"`
+	Cadence        AlertMonitorCadence    `protobuf:"varint,8,opt,name=cadence,proto3,enum=shorts.v1alpha1.AlertMonitorCadence" json:"cadence,omitempty"`
+	ReportDate     string                 `protobuf:"bytes,9,opt,name=report_date,json=reportDate,proto3" json:"report_date,omitempty"`                // YYYY-MM-DD
+	ComparedToDate string                 `protobuf:"bytes,10,opt,name=compared_to_date,json=comparedToDate,proto3" json:"compared_to_date,omitempty"` // YYYY-MM-DD
+	Companies      []*AlertEventCompany   `protobuf:"bytes,11,rep,name=companies,proto3" json:"companies,omitempty"`
+	CompaniesTotal int32                  `protobuf:"varint,12,opt,name=companies_total,json=companiesTotal,proto3" json:"companies_total,omitempty"`
+	DeliveryStatus AlertDeliveryStatus    `protobuf:"varint,13,opt,name=delivery_status,json=deliveryStatus,proto3,enum=shorts.v1alpha1.AlertDeliveryStatus" json:"delivery_status,omitempty"`
+	SentAt         *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
+	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *AlertEvent) Reset() {
+	*x = AlertEvent{}
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AlertEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AlertEvent) ProtoMessage() {}
+
+func (x *AlertEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AlertEvent.ProtoReflect.Descriptor instead.
+func (*AlertEvent) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *AlertEvent) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *AlertEvent) GetMonitorId() string {
+	if x != nil {
+		return x.MonitorId
+	}
+	return ""
+}
+
+func (x *AlertEvent) GetScope() AlertMonitorScope {
+	if x != nil {
+		return x.Scope
+	}
+	return AlertMonitorScope_ALERT_MONITOR_SCOPE_UNSPECIFIED
+}
+
+func (x *AlertEvent) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *AlertEvent) GetCondition() AlertMonitorCondition {
+	if x != nil {
+		return x.Condition
+	}
+	return AlertMonitorCondition_ALERT_MONITOR_CONDITION_UNSPECIFIED
+}
+
+func (x *AlertEvent) GetThreshold() float64 {
+	if x != nil {
+		return x.Threshold
+	}
+	return 0
+}
+
+func (x *AlertEvent) GetHasThreshold() bool {
+	if x != nil {
+		return x.HasThreshold
+	}
+	return false
+}
+
+func (x *AlertEvent) GetCadence() AlertMonitorCadence {
+	if x != nil {
+		return x.Cadence
+	}
+	return AlertMonitorCadence_ALERT_MONITOR_CADENCE_UNSPECIFIED
+}
+
+func (x *AlertEvent) GetReportDate() string {
+	if x != nil {
+		return x.ReportDate
+	}
+	return ""
+}
+
+func (x *AlertEvent) GetComparedToDate() string {
+	if x != nil {
+		return x.ComparedToDate
+	}
+	return ""
+}
+
+func (x *AlertEvent) GetCompanies() []*AlertEventCompany {
+	if x != nil {
+		return x.Companies
+	}
+	return nil
+}
+
+func (x *AlertEvent) GetCompaniesTotal() int32 {
+	if x != nil {
+		return x.CompaniesTotal
+	}
+	return 0
+}
+
+func (x *AlertEvent) GetDeliveryStatus() AlertDeliveryStatus {
+	if x != nil {
+		return x.DeliveryStatus
+	}
+	return AlertDeliveryStatus_ALERT_DELIVERY_STATUS_UNSPECIFIED
+}
+
+func (x *AlertEvent) GetSentAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SentAt
+	}
+	return nil
+}
+
+func (x *AlertEvent) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+// Request for ListAlertEvents RPC. Uses auth context for ownership.
+type ListAlertEventsRequest struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Limit  int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset int32                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	// Restrict to one of the caller's monitors. Empty means all of them.
+	MonitorId     string `protobuf:"bytes,3,opt,name=monitor_id,json=monitorId,proto3" json:"monitor_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAlertEventsRequest) Reset() {
+	*x = ListAlertEventsRequest{}
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAlertEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAlertEventsRequest) ProtoMessage() {}
+
+func (x *ListAlertEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAlertEventsRequest.ProtoReflect.Descriptor instead.
+func (*ListAlertEventsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ListAlertEventsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListAlertEventsRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *ListAlertEventsRequest) GetMonitorId() string {
+	if x != nil {
+		return x.MonitorId
+	}
+	return ""
+}
+
+// Response for ListAlertEvents RPC.
+type ListAlertEventsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Events        []*AlertEvent          `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAlertEventsResponse) Reset() {
+	*x = ListAlertEventsResponse{}
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAlertEventsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAlertEventsResponse) ProtoMessage() {}
+
+func (x *ListAlertEventsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAlertEventsResponse.ProtoReflect.Descriptor instead.
+func (*ListAlertEventsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ListAlertEventsResponse) GetEvents() []*AlertEvent {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *ListAlertEventsResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+// Request for UpdateAlertMonitorStatus RPC. Uses auth context for ownership.
+type UpdateAlertMonitorStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Status        AlertMonitorStatus     `protobuf:"varint,2,opt,name=status,proto3,enum=shorts.v1alpha1.AlertMonitorStatus" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateAlertMonitorStatusRequest) Reset() {
+	*x = UpdateAlertMonitorStatusRequest{}
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateAlertMonitorStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateAlertMonitorStatusRequest) ProtoMessage() {}
+
+func (x *UpdateAlertMonitorStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateAlertMonitorStatusRequest.ProtoReflect.Descriptor instead.
+func (*UpdateAlertMonitorStatusRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *UpdateAlertMonitorStatusRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateAlertMonitorStatusRequest) GetStatus() AlertMonitorStatus {
+	if x != nil {
+		return x.Status
+	}
+	return AlertMonitorStatus_ALERT_MONITOR_STATUS_UNSPECIFIED
+}
+
+// Response for UpdateAlertMonitorStatus RPC.
+type UpdateAlertMonitorStatusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Monitor       *AlertMonitor          `protobuf:"bytes,1,opt,name=monitor,proto3" json:"monitor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateAlertMonitorStatusResponse) Reset() {
+	*x = UpdateAlertMonitorStatusResponse{}
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateAlertMonitorStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateAlertMonitorStatusResponse) ProtoMessage() {}
+
+func (x *UpdateAlertMonitorStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateAlertMonitorStatusResponse.ProtoReflect.Descriptor instead.
+func (*UpdateAlertMonitorStatusResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *UpdateAlertMonitorStatusResponse) GetMonitor() *AlertMonitor {
+	if x != nil {
+		return x.Monitor
+	}
+	return nil
+}
+
+// Request for DeleteAlertMonitor RPC. Uses auth context for ownership.
+type DeleteAlertMonitorRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteAlertMonitorRequest) Reset() {
+	*x = DeleteAlertMonitorRequest{}
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteAlertMonitorRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteAlertMonitorRequest) ProtoMessage() {}
+
+func (x *DeleteAlertMonitorRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteAlertMonitorRequest.ProtoReflect.Descriptor instead.
+func (*DeleteAlertMonitorRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *DeleteAlertMonitorRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+// Response for DeleteAlertMonitor RPC.
+type DeleteAlertMonitorResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteAlertMonitorResponse) Reset() {
+	*x = DeleteAlertMonitorResponse{}
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteAlertMonitorResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteAlertMonitorResponse) ProtoMessage() {}
+
+func (x *DeleteAlertMonitorResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteAlertMonitorResponse.ProtoReflect.Descriptor instead.
+func (*DeleteAlertMonitorResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{12}
+}
+
+// Request for PauseAlertMonitorByToken RPC. The token is the one in an alert email.
+type PauseAlertMonitorByTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PauseAlertMonitorByTokenRequest) Reset() {
+	*x = PauseAlertMonitorByTokenRequest{}
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PauseAlertMonitorByTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PauseAlertMonitorByTokenRequest) ProtoMessage() {}
+
+func (x *PauseAlertMonitorByTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PauseAlertMonitorByTokenRequest.ProtoReflect.Descriptor instead.
+func (*PauseAlertMonitorByTokenRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *PauseAlertMonitorByTokenRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+// Response for PauseAlertMonitorByToken RPC: the monitor, for the confirmation page.
+type PauseAlertMonitorByTokenResponse struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Scope        AlertMonitorScope      `protobuf:"varint,1,opt,name=scope,proto3,enum=shorts.v1alpha1.AlertMonitorScope" json:"scope,omitempty"`
+	Target       string                 `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	Condition    AlertMonitorCondition  `protobuf:"varint,3,opt,name=condition,proto3,enum=shorts.v1alpha1.AlertMonitorCondition" json:"condition,omitempty"`
+	Threshold    float64                `protobuf:"fixed64,4,opt,name=threshold,proto3" json:"threshold,omitempty"`
+	HasThreshold bool                   `protobuf:"varint,5,opt,name=has_threshold,json=hasThreshold,proto3" json:"has_threshold,omitempty"`
+	Cadence      AlertMonitorCadence    `protobuf:"varint,6,opt,name=cadence,proto3,enum=shorts.v1alpha1.AlertMonitorCadence" json:"cadence,omitempty"`
+	// True when the monitor was already paused, so nothing changed.
+	AlreadyPaused bool `protobuf:"varint,7,opt,name=already_paused,json=alreadyPaused,proto3" json:"already_paused,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PauseAlertMonitorByTokenResponse) Reset() {
+	*x = PauseAlertMonitorByTokenResponse{}
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PauseAlertMonitorByTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PauseAlertMonitorByTokenResponse) ProtoMessage() {}
+
+func (x *PauseAlertMonitorByTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_alerts_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PauseAlertMonitorByTokenResponse.ProtoReflect.Descriptor instead.
+func (*PauseAlertMonitorByTokenResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_alerts_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *PauseAlertMonitorByTokenResponse) GetScope() AlertMonitorScope {
+	if x != nil {
+		return x.Scope
+	}
+	return AlertMonitorScope_ALERT_MONITOR_SCOPE_UNSPECIFIED
+}
+
+func (x *PauseAlertMonitorByTokenResponse) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *PauseAlertMonitorByTokenResponse) GetCondition() AlertMonitorCondition {
+	if x != nil {
+		return x.Condition
+	}
+	return AlertMonitorCondition_ALERT_MONITOR_CONDITION_UNSPECIFIED
+}
+
+func (x *PauseAlertMonitorByTokenResponse) GetThreshold() float64 {
+	if x != nil {
+		return x.Threshold
+	}
+	return 0
+}
+
+func (x *PauseAlertMonitorByTokenResponse) GetHasThreshold() bool {
+	if x != nil {
+		return x.HasThreshold
+	}
+	return false
+}
+
+func (x *PauseAlertMonitorByTokenResponse) GetCadence() AlertMonitorCadence {
+	if x != nil {
+		return x.Cadence
+	}
+	return AlertMonitorCadence_ALERT_MONITOR_CADENCE_UNSPECIFIED
+}
+
+func (x *PauseAlertMonitorByTokenResponse) GetAlreadyPaused() bool {
+	if x != nil {
+		return x.AlreadyPaused
+	}
+	return false
+}
+
 var File_shorts_v1alpha1_alerts_proto protoreflect.FileDescriptor
 
 const file_shorts_v1alpha1_alerts_proto_rawDesc = "" +
 	"\n" +
-	"\x1cshorts/v1alpha1/alerts.proto\x12\x0fshorts.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18options/v1/options.proto\"\xec\x03\n" +
+	"\x1cshorts/v1alpha1/alerts.proto\x12\x0fshorts.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18options/v1/options.proto\"\xb9\x05\n" +
 	"\fAlertMonitor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x128\n" +
 	"\x05scope\x18\x02 \x01(\x0e2\".shorts.v1alpha1.AlertMonitorScopeR\x05scope\x12\x16\n" +
@@ -597,7 +1399,10 @@ const file_shorts_v1alpha1_alerts_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xb6\x02\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x123\n" +
+	"\x16last_event_report_date\x18\v \x01(\tR\x13lastEventReportDate\x12V\n" +
+	"\x14last_delivery_status\x18\f \x01(\x0e2$.shorts.v1alpha1.AlertDeliveryStatusR\x12lastDeliveryStatus\x12>\n" +
+	"\rlast_event_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\vlastEventAt\"\xb6\x02\n" +
 	"\x19CreateAlertMonitorRequest\x128\n" +
 	"\x05scope\x18\x01 \x01(\x0e2\".shorts.v1alpha1.AlertMonitorScopeR\x05scope\x12\x16\n" +
 	"\x06target\x18\x02 \x01(\tR\x06target\x12D\n" +
@@ -609,11 +1414,71 @@ const file_shorts_v1alpha1_alerts_proto_rawDesc = "" +
 	"\amonitor\x18\x01 \x01(\v2\x1d.shorts.v1alpha1.AlertMonitorR\amonitor\"H\n" +
 	"\x18ListAlertMonitorsRequest\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x02 \x01(\x05R\x06offset\"w\n" +
+	"\x06offset\x18\x02 \x01(\x05R\x06offset\"\xb6\x01\n" +
 	"\x19ListAlertMonitorsResponse\x129\n" +
 	"\bmonitors\x18\x01 \x03(\v2\x1d.shorts.v1alpha1.AlertMonitorR\bmonitors\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount*y\n" +
+	"totalCount\x12=\n" +
+	"\x1bchecked_through_report_date\x18\x03 \x01(\tR\x18checkedThroughReportDate\"\xcb\x02\n" +
+	"\x11AlertEventCompany\x12!\n" +
+	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12!\n" +
+	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12%\n" +
+	"\x0elatest_percent\x18\x03 \x01(\x01R\rlatestPercent\x12)\n" +
+	"\x10previous_percent\x18\x04 \x01(\x01R\x0fpreviousPercent\x12!\n" +
+	"\fhas_previous\x18\x05 \x01(\bR\vhasPrevious\x12#\n" +
+	"\rchange_points\x18\x06 \x01(\x01R\fchangePoints\x12\x1d\n" +
+	"\n" +
+	"has_change\x18\a \x01(\bR\thasChange\x12\x12\n" +
+	"\x04rank\x18\b \x01(\x05R\x04rank\x12#\n" +
+	"\rprevious_rank\x18\t \x01(\x05R\fpreviousRank\"\xcb\x05\n" +
+	"\n" +
+	"AlertEvent\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"monitor_id\x18\x02 \x01(\tR\tmonitorId\x128\n" +
+	"\x05scope\x18\x03 \x01(\x0e2\".shorts.v1alpha1.AlertMonitorScopeR\x05scope\x12\x16\n" +
+	"\x06target\x18\x04 \x01(\tR\x06target\x12D\n" +
+	"\tcondition\x18\x05 \x01(\x0e2&.shorts.v1alpha1.AlertMonitorConditionR\tcondition\x12\x1c\n" +
+	"\tthreshold\x18\x06 \x01(\x01R\tthreshold\x12#\n" +
+	"\rhas_threshold\x18\a \x01(\bR\fhasThreshold\x12>\n" +
+	"\acadence\x18\b \x01(\x0e2$.shorts.v1alpha1.AlertMonitorCadenceR\acadence\x12\x1f\n" +
+	"\vreport_date\x18\t \x01(\tR\n" +
+	"reportDate\x12(\n" +
+	"\x10compared_to_date\x18\n" +
+	" \x01(\tR\x0ecomparedToDate\x12@\n" +
+	"\tcompanies\x18\v \x03(\v2\".shorts.v1alpha1.AlertEventCompanyR\tcompanies\x12'\n" +
+	"\x0fcompanies_total\x18\f \x01(\x05R\x0ecompaniesTotal\x12M\n" +
+	"\x0fdelivery_status\x18\r \x01(\x0e2$.shorts.v1alpha1.AlertDeliveryStatusR\x0edeliveryStatus\x123\n" +
+	"\asent_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\x06sentAt\x129\n" +
+	"\n" +
+	"created_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"e\n" +
+	"\x16ListAlertEventsRequest\x12\x14\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x02 \x01(\x05R\x06offset\x12\x1d\n" +
+	"\n" +
+	"monitor_id\x18\x03 \x01(\tR\tmonitorId\"o\n" +
+	"\x17ListAlertEventsResponse\x123\n" +
+	"\x06events\x18\x01 \x03(\v2\x1b.shorts.v1alpha1.AlertEventR\x06events\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x05R\n" +
+	"totalCount\"n\n" +
+	"\x1fUpdateAlertMonitorStatusRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12;\n" +
+	"\x06status\x18\x02 \x01(\x0e2#.shorts.v1alpha1.AlertMonitorStatusR\x06status\"[\n" +
+	" UpdateAlertMonitorStatusResponse\x127\n" +
+	"\amonitor\x18\x01 \x01(\v2\x1d.shorts.v1alpha1.AlertMonitorR\amonitor\"+\n" +
+	"\x19DeleteAlertMonitorRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x1c\n" +
+	"\x1aDeleteAlertMonitorResponse\"7\n" +
+	"\x1fPauseAlertMonitorByTokenRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\xe4\x02\n" +
+	" PauseAlertMonitorByTokenResponse\x128\n" +
+	"\x05scope\x18\x01 \x01(\x0e2\".shorts.v1alpha1.AlertMonitorScopeR\x05scope\x12\x16\n" +
+	"\x06target\x18\x02 \x01(\tR\x06target\x12D\n" +
+	"\tcondition\x18\x03 \x01(\x0e2&.shorts.v1alpha1.AlertMonitorConditionR\tcondition\x12\x1c\n" +
+	"\tthreshold\x18\x04 \x01(\x01R\tthreshold\x12#\n" +
+	"\rhas_threshold\x18\x05 \x01(\bR\fhasThreshold\x12>\n" +
+	"\acadence\x18\x06 \x01(\x0e2$.shorts.v1alpha1.AlertMonitorCadenceR\acadence\x12%\n" +
+	"\x0ealready_paused\x18\a \x01(\bR\ralreadyPaused*y\n" +
 	"\x11AlertMonitorScope\x12#\n" +
 	"\x1fALERT_MONITOR_SCOPE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cALERT_MONITOR_SCOPE_INDUSTRY\x10\x01\x12\x1d\n" +
@@ -630,10 +1495,22 @@ const file_shorts_v1alpha1_alerts_proto_rawDesc = "" +
 	"\x12AlertMonitorStatus\x12$\n" +
 	" ALERT_MONITOR_STATUS_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bALERT_MONITOR_STATUS_ACTIVE\x10\x01\x12\x1f\n" +
-	"\x1bALERT_MONITOR_STATUS_PAUSED\x10\x022\xf6\x01\n" +
+	"\x1bALERT_MONITOR_STATUS_PAUSED\x10\x02*\xa5\x02\n" +
+	"\x13AlertDeliveryStatus\x12%\n" +
+	"!ALERT_DELIVERY_STATUS_UNSPECIFIED\x10\x00\x12!\n" +
+	"\x1dALERT_DELIVERY_STATUS_PENDING\x10\x01\x12\x1e\n" +
+	"\x1aALERT_DELIVERY_STATUS_SENT\x10\x02\x12 \n" +
+	"\x1cALERT_DELIVERY_STATUS_FAILED\x10\x03\x12,\n" +
+	"(ALERT_DELIVERY_STATUS_SKIPPED_UNENTITLED\x10\x04\x12*\n" +
+	"&ALERT_DELIVERY_STATUS_SKIPPED_NO_EMAIL\x10\x05\x12(\n" +
+	"$ALERT_DELIVERY_STATUS_SKIPPED_PAUSED\x10\x062\xe7\x05\n" +
 	"\rAlertsService\x12s\n" +
 	"\x12CreateAlertMonitor\x12*.shorts.v1alpha1.CreateAlertMonitorRequest\x1a+.shorts.v1alpha1.CreateAlertMonitorResponse\"\x04\x80\xb5\x18\x02\x12p\n" +
-	"\x11ListAlertMonitors\x12).shorts.v1alpha1.ListAlertMonitorsRequest\x1a*.shorts.v1alpha1.ListAlertMonitorsResponse\"\x04\x80\xb5\x18\x02B\xda\x01\n" +
+	"\x11ListAlertMonitors\x12).shorts.v1alpha1.ListAlertMonitorsRequest\x1a*.shorts.v1alpha1.ListAlertMonitorsResponse\"\x04\x80\xb5\x18\x02\x12j\n" +
+	"\x0fListAlertEvents\x12'.shorts.v1alpha1.ListAlertEventsRequest\x1a(.shorts.v1alpha1.ListAlertEventsResponse\"\x04\x80\xb5\x18\x02\x12\x85\x01\n" +
+	"\x18UpdateAlertMonitorStatus\x120.shorts.v1alpha1.UpdateAlertMonitorStatusRequest\x1a1.shorts.v1alpha1.UpdateAlertMonitorStatusResponse\"\x04\x80\xb5\x18\x02\x12s\n" +
+	"\x12DeleteAlertMonitor\x12*.shorts.v1alpha1.DeleteAlertMonitorRequest\x1a+.shorts.v1alpha1.DeleteAlertMonitorResponse\"\x04\x80\xb5\x18\x02\x12\x85\x01\n" +
+	"\x18PauseAlertMonitorByToken\x120.shorts.v1alpha1.PauseAlertMonitorByTokenRequest\x1a1.shorts.v1alpha1.PauseAlertMonitorByTokenResponse\"\x04\x80\xb5\x18\x01B\xda\x01\n" +
 	"\x13com.shorts.v1alpha1B\vAlertsProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
@@ -648,41 +1525,75 @@ func file_shorts_v1alpha1_alerts_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_alerts_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_alerts_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_shorts_v1alpha1_alerts_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_shorts_v1alpha1_alerts_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_shorts_v1alpha1_alerts_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_shorts_v1alpha1_alerts_proto_goTypes = []any{
-	(AlertMonitorScope)(0),             // 0: shorts.v1alpha1.AlertMonitorScope
-	(AlertMonitorCondition)(0),         // 1: shorts.v1alpha1.AlertMonitorCondition
-	(AlertMonitorCadence)(0),           // 2: shorts.v1alpha1.AlertMonitorCadence
-	(AlertMonitorStatus)(0),            // 3: shorts.v1alpha1.AlertMonitorStatus
-	(*AlertMonitor)(nil),               // 4: shorts.v1alpha1.AlertMonitor
-	(*CreateAlertMonitorRequest)(nil),  // 5: shorts.v1alpha1.CreateAlertMonitorRequest
-	(*CreateAlertMonitorResponse)(nil), // 6: shorts.v1alpha1.CreateAlertMonitorResponse
-	(*ListAlertMonitorsRequest)(nil),   // 7: shorts.v1alpha1.ListAlertMonitorsRequest
-	(*ListAlertMonitorsResponse)(nil),  // 8: shorts.v1alpha1.ListAlertMonitorsResponse
-	(*timestamppb.Timestamp)(nil),      // 9: google.protobuf.Timestamp
+	(AlertMonitorScope)(0),                   // 0: shorts.v1alpha1.AlertMonitorScope
+	(AlertMonitorCondition)(0),               // 1: shorts.v1alpha1.AlertMonitorCondition
+	(AlertMonitorCadence)(0),                 // 2: shorts.v1alpha1.AlertMonitorCadence
+	(AlertMonitorStatus)(0),                  // 3: shorts.v1alpha1.AlertMonitorStatus
+	(AlertDeliveryStatus)(0),                 // 4: shorts.v1alpha1.AlertDeliveryStatus
+	(*AlertMonitor)(nil),                     // 5: shorts.v1alpha1.AlertMonitor
+	(*CreateAlertMonitorRequest)(nil),        // 6: shorts.v1alpha1.CreateAlertMonitorRequest
+	(*CreateAlertMonitorResponse)(nil),       // 7: shorts.v1alpha1.CreateAlertMonitorResponse
+	(*ListAlertMonitorsRequest)(nil),         // 8: shorts.v1alpha1.ListAlertMonitorsRequest
+	(*ListAlertMonitorsResponse)(nil),        // 9: shorts.v1alpha1.ListAlertMonitorsResponse
+	(*AlertEventCompany)(nil),                // 10: shorts.v1alpha1.AlertEventCompany
+	(*AlertEvent)(nil),                       // 11: shorts.v1alpha1.AlertEvent
+	(*ListAlertEventsRequest)(nil),           // 12: shorts.v1alpha1.ListAlertEventsRequest
+	(*ListAlertEventsResponse)(nil),          // 13: shorts.v1alpha1.ListAlertEventsResponse
+	(*UpdateAlertMonitorStatusRequest)(nil),  // 14: shorts.v1alpha1.UpdateAlertMonitorStatusRequest
+	(*UpdateAlertMonitorStatusResponse)(nil), // 15: shorts.v1alpha1.UpdateAlertMonitorStatusResponse
+	(*DeleteAlertMonitorRequest)(nil),        // 16: shorts.v1alpha1.DeleteAlertMonitorRequest
+	(*DeleteAlertMonitorResponse)(nil),       // 17: shorts.v1alpha1.DeleteAlertMonitorResponse
+	(*PauseAlertMonitorByTokenRequest)(nil),  // 18: shorts.v1alpha1.PauseAlertMonitorByTokenRequest
+	(*PauseAlertMonitorByTokenResponse)(nil), // 19: shorts.v1alpha1.PauseAlertMonitorByTokenResponse
+	(*timestamppb.Timestamp)(nil),            // 20: google.protobuf.Timestamp
 }
 var file_shorts_v1alpha1_alerts_proto_depIdxs = []int32{
 	0,  // 0: shorts.v1alpha1.AlertMonitor.scope:type_name -> shorts.v1alpha1.AlertMonitorScope
 	1,  // 1: shorts.v1alpha1.AlertMonitor.condition:type_name -> shorts.v1alpha1.AlertMonitorCondition
 	2,  // 2: shorts.v1alpha1.AlertMonitor.cadence:type_name -> shorts.v1alpha1.AlertMonitorCadence
 	3,  // 3: shorts.v1alpha1.AlertMonitor.status:type_name -> shorts.v1alpha1.AlertMonitorStatus
-	9,  // 4: shorts.v1alpha1.AlertMonitor.created_at:type_name -> google.protobuf.Timestamp
-	9,  // 5: shorts.v1alpha1.AlertMonitor.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 6: shorts.v1alpha1.CreateAlertMonitorRequest.scope:type_name -> shorts.v1alpha1.AlertMonitorScope
-	1,  // 7: shorts.v1alpha1.CreateAlertMonitorRequest.condition:type_name -> shorts.v1alpha1.AlertMonitorCondition
-	2,  // 8: shorts.v1alpha1.CreateAlertMonitorRequest.cadence:type_name -> shorts.v1alpha1.AlertMonitorCadence
-	4,  // 9: shorts.v1alpha1.CreateAlertMonitorResponse.monitor:type_name -> shorts.v1alpha1.AlertMonitor
-	4,  // 10: shorts.v1alpha1.ListAlertMonitorsResponse.monitors:type_name -> shorts.v1alpha1.AlertMonitor
-	5,  // 11: shorts.v1alpha1.AlertsService.CreateAlertMonitor:input_type -> shorts.v1alpha1.CreateAlertMonitorRequest
-	7,  // 12: shorts.v1alpha1.AlertsService.ListAlertMonitors:input_type -> shorts.v1alpha1.ListAlertMonitorsRequest
-	6,  // 13: shorts.v1alpha1.AlertsService.CreateAlertMonitor:output_type -> shorts.v1alpha1.CreateAlertMonitorResponse
-	8,  // 14: shorts.v1alpha1.AlertsService.ListAlertMonitors:output_type -> shorts.v1alpha1.ListAlertMonitorsResponse
-	13, // [13:15] is the sub-list for method output_type
-	11, // [11:13] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	20, // 4: shorts.v1alpha1.AlertMonitor.created_at:type_name -> google.protobuf.Timestamp
+	20, // 5: shorts.v1alpha1.AlertMonitor.updated_at:type_name -> google.protobuf.Timestamp
+	4,  // 6: shorts.v1alpha1.AlertMonitor.last_delivery_status:type_name -> shorts.v1alpha1.AlertDeliveryStatus
+	20, // 7: shorts.v1alpha1.AlertMonitor.last_event_at:type_name -> google.protobuf.Timestamp
+	0,  // 8: shorts.v1alpha1.CreateAlertMonitorRequest.scope:type_name -> shorts.v1alpha1.AlertMonitorScope
+	1,  // 9: shorts.v1alpha1.CreateAlertMonitorRequest.condition:type_name -> shorts.v1alpha1.AlertMonitorCondition
+	2,  // 10: shorts.v1alpha1.CreateAlertMonitorRequest.cadence:type_name -> shorts.v1alpha1.AlertMonitorCadence
+	5,  // 11: shorts.v1alpha1.CreateAlertMonitorResponse.monitor:type_name -> shorts.v1alpha1.AlertMonitor
+	5,  // 12: shorts.v1alpha1.ListAlertMonitorsResponse.monitors:type_name -> shorts.v1alpha1.AlertMonitor
+	0,  // 13: shorts.v1alpha1.AlertEvent.scope:type_name -> shorts.v1alpha1.AlertMonitorScope
+	1,  // 14: shorts.v1alpha1.AlertEvent.condition:type_name -> shorts.v1alpha1.AlertMonitorCondition
+	2,  // 15: shorts.v1alpha1.AlertEvent.cadence:type_name -> shorts.v1alpha1.AlertMonitorCadence
+	10, // 16: shorts.v1alpha1.AlertEvent.companies:type_name -> shorts.v1alpha1.AlertEventCompany
+	4,  // 17: shorts.v1alpha1.AlertEvent.delivery_status:type_name -> shorts.v1alpha1.AlertDeliveryStatus
+	20, // 18: shorts.v1alpha1.AlertEvent.sent_at:type_name -> google.protobuf.Timestamp
+	20, // 19: shorts.v1alpha1.AlertEvent.created_at:type_name -> google.protobuf.Timestamp
+	11, // 20: shorts.v1alpha1.ListAlertEventsResponse.events:type_name -> shorts.v1alpha1.AlertEvent
+	3,  // 21: shorts.v1alpha1.UpdateAlertMonitorStatusRequest.status:type_name -> shorts.v1alpha1.AlertMonitorStatus
+	5,  // 22: shorts.v1alpha1.UpdateAlertMonitorStatusResponse.monitor:type_name -> shorts.v1alpha1.AlertMonitor
+	0,  // 23: shorts.v1alpha1.PauseAlertMonitorByTokenResponse.scope:type_name -> shorts.v1alpha1.AlertMonitorScope
+	1,  // 24: shorts.v1alpha1.PauseAlertMonitorByTokenResponse.condition:type_name -> shorts.v1alpha1.AlertMonitorCondition
+	2,  // 25: shorts.v1alpha1.PauseAlertMonitorByTokenResponse.cadence:type_name -> shorts.v1alpha1.AlertMonitorCadence
+	6,  // 26: shorts.v1alpha1.AlertsService.CreateAlertMonitor:input_type -> shorts.v1alpha1.CreateAlertMonitorRequest
+	8,  // 27: shorts.v1alpha1.AlertsService.ListAlertMonitors:input_type -> shorts.v1alpha1.ListAlertMonitorsRequest
+	12, // 28: shorts.v1alpha1.AlertsService.ListAlertEvents:input_type -> shorts.v1alpha1.ListAlertEventsRequest
+	14, // 29: shorts.v1alpha1.AlertsService.UpdateAlertMonitorStatus:input_type -> shorts.v1alpha1.UpdateAlertMonitorStatusRequest
+	16, // 30: shorts.v1alpha1.AlertsService.DeleteAlertMonitor:input_type -> shorts.v1alpha1.DeleteAlertMonitorRequest
+	18, // 31: shorts.v1alpha1.AlertsService.PauseAlertMonitorByToken:input_type -> shorts.v1alpha1.PauseAlertMonitorByTokenRequest
+	7,  // 32: shorts.v1alpha1.AlertsService.CreateAlertMonitor:output_type -> shorts.v1alpha1.CreateAlertMonitorResponse
+	9,  // 33: shorts.v1alpha1.AlertsService.ListAlertMonitors:output_type -> shorts.v1alpha1.ListAlertMonitorsResponse
+	13, // 34: shorts.v1alpha1.AlertsService.ListAlertEvents:output_type -> shorts.v1alpha1.ListAlertEventsResponse
+	15, // 35: shorts.v1alpha1.AlertsService.UpdateAlertMonitorStatus:output_type -> shorts.v1alpha1.UpdateAlertMonitorStatusResponse
+	17, // 36: shorts.v1alpha1.AlertsService.DeleteAlertMonitor:output_type -> shorts.v1alpha1.DeleteAlertMonitorResponse
+	19, // 37: shorts.v1alpha1.AlertsService.PauseAlertMonitorByToken:output_type -> shorts.v1alpha1.PauseAlertMonitorByTokenResponse
+	32, // [32:38] is the sub-list for method output_type
+	26, // [26:32] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_alerts_proto_init() }
@@ -695,8 +1606,8 @@ func file_shorts_v1alpha1_alerts_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_alerts_proto_rawDesc), len(file_shorts_v1alpha1_alerts_proto_rawDesc)),
-			NumEnums:      4,
-			NumMessages:   5,
+			NumEnums:      5,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

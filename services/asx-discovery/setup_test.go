@@ -49,9 +49,9 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatalf("❌ Failed to get GCS mapped port: %v", err)
 	}
-	
+
 	gcsEndpoint = fmt.Sprintf("http://%s:%s", host, port.Port())
-	
+
 	// Set emulator host for both the setup and the tests
 	os.Setenv("STORAGE_EMULATOR_HOST", gcsEndpoint)
 

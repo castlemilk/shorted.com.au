@@ -8,6 +8,7 @@
 import {
   STATE_NAMES,
   STATE_SLUGS,
+  type EconomySeriesDisplayFormat,
   type StateSlug,
 } from "@/lib/economy/map-metrics";
 
@@ -25,6 +26,19 @@ export const ECONOMY_TOPIC_SLUGS = [
 
 export type EconomyTopicSlug = (typeof ECONOMY_TOPIC_SLUGS)[number];
 
+/**
+ * The one series a state page quotes for a topic, as a plain sentence.
+ * `seriesKeyTemplate` takes {stateSlug}; `sentenceTemplate` takes {value} and
+ * {period}, filled from the newest observation. `format` names an
+ * ECONOMY_SERIES_FORMATTERS entry, so the record stays serializable. Every
+ * key is one of the series the topic page itself charts.
+ */
+export interface EconomyTopicHeadline {
+  seriesKeyTemplate: string;
+  format: EconomySeriesDisplayFormat;
+  sentenceTemplate: string;
+}
+
 export interface EconomyTopicDefinition {
   topic: EconomyTopicSlug;
   slug: EconomyTopicSlug;
@@ -34,6 +48,7 @@ export interface EconomyTopicDefinition {
   descriptionTemplate: string;
   keywordTemplates: string[];
   explainer: string;
+  headline: EconomyTopicHeadline;
   seriesCountByState: Record<StateSlug, number>;
   ledes: Partial<Record<StateSlug, string>>;
 }
@@ -87,6 +102,11 @@ export const ECONOMY_TOPICS: Record<
     ],
     explainer:
       "Building approvals count dwellings authorised through state and territory approval systems before construction begins. The Australian Bureau of Statistics publishes the Building Approvals collection each month, drawing on permits reported by councils and other approving authorities. This topic keeps the available original state total and population-adjusted series together, so the headline count can be read beside a measure that is more comparable across differently sized jurisdictions. Monthly figures can move sharply when a large apartment project is approved. Recent periods may also be revised when authorities submit late records, classifications change, an approval is amended or updated population estimates affect the derived rate. An approval is an administrative decision, not proof that work has started, finance has settled or a completed home will reach the market. It is therefore neither a construction-completions measure nor a forecast of housing supply, prices or investment returns.",
+    headline: {
+      seriesKeyTemplate: "approvals.dwelling_units.total.{stateSlug}",
+      format: "count",
+      sentenceTemplate: "Dwelling approvals totalled {value} in {period}.",
+    },
     seriesCountByState: uniformSeriesCounts(2),
     ledes: {
       nsw: "New South Wales approvals combine Australia's largest dwelling pipeline with substantial month-to-month project effects. Read the total beside the population-adjusted series to separate scale from approval intensity.",
@@ -115,6 +135,12 @@ export const ECONOMY_TOPICS: Record<
     ],
     explainer:
       "Business indicators describe selected parts of firms' recorded activity rather than a single measure of business health. The Australian Bureau of Statistics publishes the underlying business collections, generally on a quarterly timetable, using survey and administrative inputs that are aggregated for each jurisdiction. This page keeps the two available state series together and prints each series' own unit, frequency and adjustment because the measures should not be assumed to be interchangeable. Initial estimates can be revised when businesses provide updated returns, administrative records are refreshed, seasonal patterns are recalculated or benchmark information becomes available. Movements may also reflect industry composition and the concentration of large employers within a state. These indicators do not directly measure every small business, profitability for a particular company, confidence, insolvency risk or the value of listed shares. They describe published historical aggregates and are not a forecast, investment signal or assessment of an individual firm's prospects.",
+    headline: {
+      seriesKeyTemplate: "business.sales.total.{stateSlug}.seasadj",
+      format: "aud",
+      sentenceTemplate:
+        "Business sales were {value} in {period} (current prices, seasonally adjusted).",
+    },
     seriesCountByState: uniformSeriesCounts(2),
     ledes: {
       nsw: "New South Wales has the country's broadest mix of corporate and small-business activity, which can pull its two indicators in different directions. This page keeps both official series visible rather than reducing that mix to one headline.",
@@ -143,6 +169,12 @@ export const ECONOMY_TOPICS: Record<
     ],
     explainer:
       "Construction work done estimates the value of building and engineering activity completed during a period, regardless of when a project was approved or will finish. The Australian Bureau of Statistics publishes the state and territory estimates quarterly from its construction activity collections. The three series on these pages keep the available components together, with their own units and adjustment status, because residential building, non-residential work and engineering activity can follow different paths. Current-quarter estimates may be revised as survey responses arrive, project values are updated and seasonal factors are re-estimated; larger national-accounts benchmarking revisions can also alter history. Values can be expressed in current prices or volume terms, so the unit shown beside each chart matters. Work done is not the number of workers, the count of projects, an approval pipeline or company revenue. It records estimated completed activity and does not predict future construction, property supply or listed-company performance.",
+    headline: {
+      seriesKeyTemplate: "construction.work_done.total.{stateSlug}.seasadj",
+      format: "aud",
+      sentenceTemplate:
+        "Construction work done was {value} in {period} (chain volume, seasonally adjusted).",
+    },
     seriesCountByState: uniformSeriesCounts(3),
     ledes: {
       nsw: "New South Wales construction combines major transport works, commercial building and a large residential sector. The three component histories show which part of that broad workload is shaping the latest state result.",
@@ -171,6 +203,13 @@ export const ECONOMY_TOPICS: Record<
     ],
     explainer:
       "State final demand measures spending within a state or territory by households, governments and businesses, including investment, but excluding international and interstate trade. The Australian Bureau of Statistics publishes it quarterly in the Australian National Accounts, with chain-volume estimates designed to show changes after removing direct price effects. This topic brings the total and per-capita state series together. State final demand is a proxy for domestic state activity, not a state-level gross domestic product flow: the ABS does not publish a quarterly state GDP flow. It can rise while export-facing production weakens, or fall while net exports support broader output. National-accounts estimates are revised as source data improves, seasonal factors are re-estimated and annual supply-use or state accounts benchmarks are incorporated. Per-capita results also depend on population estimates. The series describe recorded demand; they are not a measure of household welfare, a forecast or advice about markets or policy.",
+    headline: {
+      seriesKeyTemplate:
+        "gdp.state_final_demand_chain_volume.total.{stateSlug}.seasadj",
+      format: "aud",
+      sentenceTemplate:
+        "State final demand was {value} in {period} (chain volume, seasonally adjusted).",
+    },
     seriesCountByState: uniformSeriesCounts(2),
     ledes: {
       nsw: "New South Wales state final demand captures spending and investment inside the country's largest state economy while leaving trade outside the measure. The total and per-person series distinguish aggregate scale from demand relative to population.",
@@ -199,6 +238,12 @@ export const ECONOMY_TOPICS: Record<
     ],
     explainer:
       "Labour Force statistics estimate how many people are employed, unemployed and participating in the labour market, using the Australian Bureau of Statistics monthly household survey. A person is unemployed only when they are without work, available to start and actively looking; the unemployment rate divides that estimate by the labour force, not by the whole population. Each published drill-down combines three monthly seasonally adjusted Labour Force measures with quarterly original job vacancies from the separate ABS Job Vacancies survey, and the page labels those differences explicitly. Survey estimates carry sampling error and can move as population benchmarks, seasonal factors and incoming responses are revised. Monthly changes can be noisy even when rounded rates look precise. Employment counts people rather than jobs, participation does not measure hours or pay, and vacancies are unfilled jobs rather than hiring. These historical estimates do not forecast recessions, wages or an individual's employment prospects.",
+    headline: {
+      seriesKeyTemplate: "labour.unemployment_rate.total.{stateSlug}.seasadj",
+      format: "percent",
+      sentenceTemplate:
+        "The unemployment rate was {value} in {period} (seasonally adjusted).",
+    },
     seriesCountByState: labourSeriesCounts,
     ledes: {
       nsw: "New South Wales labour data covers the country's largest workforce and can still move unevenly from month to month. Three seasonally adjusted monthly measures sit beside original quarterly vacancies, preserving both the unemployment context and the different collection cadence.",
@@ -225,6 +270,13 @@ export const ECONOMY_TOPICS: Record<
     ],
     explainer:
       "Lending indicators record new housing-finance commitments reported by banks and other lenders during a period. The Australian Bureau of Statistics publishes these state series quarterly from lender-supplied administrative data, with state attribution based on the information attached to each commitment. The two series keep owner-occupier and investor lending side by side so a change in one borrower group is not mistaken for a change across all finance. Figures can be revised when lenders correct or reclassify submissions and when seasonal adjustment is updated; unusually large commitments or policy deadlines can also affect a quarter. A commitment is not necessarily cash already advanced, and these flows are different from the outstanding stock of credit, mortgage balances, applications that never proceed or property transaction counts. Values do not describe loan quality, affordability or future arrears. They are historical aggregates, not a forecast of housing prices, interest rates or lender and borrower outcomes.",
+    headline: {
+      seriesKeyTemplate:
+        "lending.new_commitments.owner_occupier.{stateSlug}.seasadj",
+      format: "aud",
+      sentenceTemplate:
+        "New owner-occupier housing loan commitments were {value} in {period} (seasonally adjusted).",
+    },
     seriesCountByState: uniformSeriesCounts(2),
     ledes: {
       nsw: "New South Wales accounts for a large share of Australian housing finance, but borrower categories need not move together. The two commitment series show where the latest quarterly change sits within that split.",
@@ -253,6 +305,12 @@ export const ECONOMY_TOPICS: Record<
     ],
     explainer:
       "Estimated resident population is the Australian Bureau of Statistics' official measure of people who usually live in each state or territory. Quarterly updates start from the Census population base and add natural increase, net overseas migration and net interstate migration, which are shown as the wider four-series family on these pages. The newest estimates are preliminary because births, deaths and migration records arrive on different schedules. They are revised as registration data matures, traveller and administrative information is updated, and after each Census through rebasing and intercensal adjustments. Component estimates may therefore change even when the broad population direction does not. Estimated resident population is not a live headcount, a count of citizens, a measure of housing demand or a statement about infrastructure capacity. Migration components are net flows, so they conceal larger movements in both directions. The series describe past demographic change and do not forecast future population, rents, employment or public-service needs.",
+    headline: {
+      seriesKeyTemplate: "population.erp.total.{stateSlug}",
+      format: "count",
+      sentenceTemplate:
+        "The estimated resident population was {value} in {period}.",
+    },
     seriesCountByState: uniformSeriesCounts(4),
     ledes: {
       nsw: "New South Wales population change combines natural increase with large overseas and interstate migration flows. The four component series show which part of that demographic equation is driving the latest estimate.",
@@ -281,6 +339,12 @@ export const ECONOMY_TOPICS: Record<
     ],
     explainer:
       "The Monthly Household Spending Indicator estimates household expenditure using aggregated bank transactions and other administrative data assembled by the Australian Bureau of Statistics. State results are published monthly, and this topic groups the total, per-capita and annual-growth views so users can separate scale, population effects and rate of change. Coverage and methods differ from both Retail Trade and the quarterly household consumption measure in the National Accounts. The indicator includes selected services as well as goods, but it does not capture every payment method or every category of household outlay. Recent observations can be revised when data providers refresh transactions, classifications are refined, seasonal factors change or updated population estimates affect per-capita values. Nominal spending can also rise because prices increased rather than households bought more. These series describe recorded expenditure patterns; they do not measure wellbeing, savings, debt stress or future consumer demand, and they are not a forecast or financial advice.",
+    headline: {
+      seriesKeyTemplate: "spending.household.total.{stateSlug}.seasadj",
+      format: "aud",
+      sentenceTemplate:
+        "Household spending was {value} in {period} (current prices, seasonally adjusted).",
+    },
     seriesCountByState: uniformSeriesCounts(3),
     ledes: {
       nsw: "New South Wales household spending reflects both a large population and substantial differences across goods and services. Total, per-capita and growth series provide three distinct ways to read the latest monthly result.",
@@ -309,6 +373,12 @@ export const ECONOMY_TOPICS: Record<
     ],
     explainer:
       "The Wage Price Index measures changes in the price employers pay for a fixed basket of jobs, holding job quality and quantity as constant as practical. The Australian Bureau of Statistics publishes it quarterly from a survey of employee jobs, with state series covering the index, annual growth and a derived real annual growth measure. These state series are original and not seasonally adjusted, a status printed beside every chart. The employee-job sample and expenditure weights are periodically updated, while published history can change if the ABS corrects source data or methods and if the derived real measure receives revised inflation inputs. The index is designed to remove compositional shifts, so it is not average earnings, household income, take-home pay or the wage received by a typical worker. It excludes changes caused solely by workers moving between differently paid jobs. These historical price measures do not forecast inflation, employment, interest rates or an individual's next pay decision.",
+    headline: {
+      seriesKeyTemplate: "wages.wpi_yoy.{stateSlug}",
+      format: "percent",
+      sentenceTemplate:
+        "Annual wage growth was {value} in {period} (Wage Price Index).",
+    },
     seriesCountByState: uniformSeriesCounts(3),
     ledes: {
       nsw: "New South Wales wage growth spans a large and diverse employee-job market. The index level and its quarterly and annual changes show the same price movement at three useful horizons.",
@@ -356,6 +426,14 @@ function resolveStateTemplate(template: string, state: StateSlug): string {
     .replaceAll("{stateLower}", name.toLowerCase())
     .replaceAll("{stateSlug}", state)
     .replaceAll("{state}", name);
+}
+
+/** The series key a state page quotes for this topic. */
+export function economyTopicHeadlineKey(
+  definition: EconomyTopicDefinition,
+  state: StateSlug,
+): string {
+  return resolveStateTemplate(definition.headline.seriesKeyTemplate, state);
 }
 
 export function economyTopicCopyForState(

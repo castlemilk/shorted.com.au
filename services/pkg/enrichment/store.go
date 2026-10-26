@@ -25,11 +25,11 @@ type StateExposureCandidate struct {
 
 // EnrichmentStats holds enrichment coverage statistics
 type EnrichmentStats struct {
-	TotalStocks    int     `json:"total_stocks"`
-	Enriched       int     `json:"enriched"`
-	PendingReview  int     `json:"pending_review"`
-	Failed         int     `json:"failed"`
-	Unenriched     int     `json:"unenriched"`
+	TotalStocks     int     `json:"total_stocks"`
+	Enriched        int     `json:"enriched"`
+	PendingReview   int     `json:"pending_review"`
+	Failed          int     `json:"failed"`
+	Unenriched      int     `json:"unenriched"`
 	CoveragePercent float64 `json:"coverage_percent"`
 }
 

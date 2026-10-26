@@ -108,55 +108,55 @@ public final class ChatProto extends com.google.protobuf.GeneratedFile {
       "\030\002 \001(\tR\targuments\022\026\n\006result\030\003 \001(\tR\006resul" +
       "t\"[\n\010Citation\022\037\n\013source_type\030\001 \001(\tR\nsour" +
       "ceType\022\034\n\treference\030\002 \001(\tR\treference\022\020\n\003" +
-      "url\030\003 \001(\tR\003url\"\205\001\n\022SendMessageRequest\022\'\n" +
+      "url\030\003 \001(\tR\003url\"\233\001\n\022SendMessageRequest\022\'\n" +
       "\017conversation_id\030\001 \001(\tR\016conversationId\022\030" +
       "\n\007message\030\002 \001(\tR\007message\022,\n\022context_stoc" +
-      "k_code\030\003 \001(\tR\020contextStockCode\"\330\001\n\023SendM" +
-      "essageResponse\022\'\n\017conversation_id\030\001 \001(\tR" +
-      "\016conversationId\022\024\n\005chunk\030\002 \001(\tR\005chunk\022\037\n" +
-      "\013is_complete\030\003 \001(\010R\nisComplete\0220\n\ntool_c" +
-      "alls\030\004 \003(\0132\021.chat.v1.ToolCallR\ttoolCalls" +
-      "\022/\n\tcitations\030\005 \003(\0132\021.chat.v1.CitationR\t" +
-      "citations\"H\n\035GetConversationHistoryReque" +
-      "st\022\'\n\017conversation_id\030\001 \001(\tR\016conversatio" +
-      "nId\"\277\001\n\036GetConversationHistoryResponse\022\'" +
-      "\n\017conversation_id\030\001 \001(\tR\016conversationId\022" +
-      "\024\n\005title\030\002 \001(\tR\005title\022,\n\022context_stock_c" +
-      "ode\030\003 \001(\tR\020contextStockCode\0220\n\010messages\030" +
-      "\004 \003(\0132\024.chat.v1.ChatMessageR\010messages\"H\n" +
-      "\030ListConversationsRequest\022\024\n\005limit\030\001 \001(\005" +
-      "R\005limit\022\026\n\006offset\030\002 \001(\005R\006offset\"\204\002\n\023Conv" +
-      "ersationSummary\022\016\n\002id\030\001 \001(\tR\002id\022\024\n\005title" +
-      "\030\002 \001(\tR\005title\022,\n\022context_stock_code\030\003 \001(" +
-      "\tR\020contextStockCode\0229\n\ncreated_at\030\004 \001(\0132" +
-      "\032.google.protobuf.TimestampR\tcreatedAt\0229" +
-      "\n\nupdated_at\030\005 \001(\0132\032.google.protobuf.Tim" +
-      "estampR\tupdatedAt\022#\n\rmessage_count\030\006 \001(\005" +
-      "R\014messageCount\"\200\001\n\031ListConversationsResp" +
-      "onse\022B\n\rconversations\030\001 \003(\0132\034.chat.v1.Co" +
-      "nversationSummaryR\rconversations\022\037\n\013tota" +
-      "l_count\030\002 \001(\005R\ntotalCount\"D\n\031DeleteConve" +
-      "rsationRequest\022\'\n\017conversation_id\030\001 \001(\tR" +
-      "\016conversationId\"6\n\032DeleteConversationRes" +
-      "ponse\022\030\n\007success\030\001 \001(\010R\007success*w\n\013Messa" +
-      "geRole\022\034\n\030MESSAGE_ROLE_UNSPECIFIED\020\000\022\025\n\021" +
-      "MESSAGE_ROLE_USER\020\001\022\032\n\026MESSAGE_ROLE_ASSI" +
-      "STANT\020\002\022\027\n\023MESSAGE_ROLE_SYSTEM\020\0032\227\003\n\013Cha" +
-      "tService\022P\n\013SendMessage\022\033.chat.v1.SendMe" +
-      "ssageRequest\032\034.chat.v1.SendMessageRespon" +
-      "se\"\004\200\265\030\0020\001\022o\n\026GetConversationHistory\022&.c" +
-      "hat.v1.GetConversationHistoryRequest\032\'.c" +
-      "hat.v1.GetConversationHistoryResponse\"\004\200" +
-      "\265\030\002\022`\n\021ListConversations\022!.chat.v1.ListC" +
-      "onversationsRequest\032\".chat.v1.ListConver" +
-      "sationsResponse\"\004\200\265\030\002\022c\n\022DeleteConversat" +
-      "ion\022\".chat.v1.DeleteConversationRequest\032" +
-      "#.chat.v1.DeleteConversationResponse\"\004\200\265" +
-      "\030\002B\240\001\n\013com.chat.v1B\tChatProtoP\001ZIgithub." +
-      "com/castlemilk/shorted.com.au/services/g" +
-      "en/proto/go/chat/v1;chatv1\242\002\003CXX\252\002\007Chat." +
-      "V1\312\002\007Chat\\V1\342\002\023Chat\\V1\\GPBMetadata\352\002\010Cha" +
-      "t::V1b\006proto3"
+      "k_code\030\003 \001(\tR\020contextStockCode\022\024\n\005retry\030" +
+      "\004 \001(\010R\005retry\"\330\001\n\023SendMessageResponse\022\'\n\017" +
+      "conversation_id\030\001 \001(\tR\016conversationId\022\024\n" +
+      "\005chunk\030\002 \001(\tR\005chunk\022\037\n\013is_complete\030\003 \001(\010" +
+      "R\nisComplete\0220\n\ntool_calls\030\004 \003(\0132\021.chat." +
+      "v1.ToolCallR\ttoolCalls\022/\n\tcitations\030\005 \003(" +
+      "\0132\021.chat.v1.CitationR\tcitations\"H\n\035GetCo" +
+      "nversationHistoryRequest\022\'\n\017conversation" +
+      "_id\030\001 \001(\tR\016conversationId\"\277\001\n\036GetConvers" +
+      "ationHistoryResponse\022\'\n\017conversation_id\030" +
+      "\001 \001(\tR\016conversationId\022\024\n\005title\030\002 \001(\tR\005ti" +
+      "tle\022,\n\022context_stock_code\030\003 \001(\tR\020context" +
+      "StockCode\0220\n\010messages\030\004 \003(\0132\024.chat.v1.Ch" +
+      "atMessageR\010messages\"H\n\030ListConversations" +
+      "Request\022\024\n\005limit\030\001 \001(\005R\005limit\022\026\n\006offset\030" +
+      "\002 \001(\005R\006offset\"\204\002\n\023ConversationSummary\022\016\n" +
+      "\002id\030\001 \001(\tR\002id\022\024\n\005title\030\002 \001(\tR\005title\022,\n\022c" +
+      "ontext_stock_code\030\003 \001(\tR\020contextStockCod" +
+      "e\0229\n\ncreated_at\030\004 \001(\0132\032.google.protobuf." +
+      "TimestampR\tcreatedAt\0229\n\nupdated_at\030\005 \001(\013" +
+      "2\032.google.protobuf.TimestampR\tupdatedAt\022" +
+      "#\n\rmessage_count\030\006 \001(\005R\014messageCount\"\200\001\n" +
+      "\031ListConversationsResponse\022B\n\rconversati" +
+      "ons\030\001 \003(\0132\034.chat.v1.ConversationSummaryR" +
+      "\rconversations\022\037\n\013total_count\030\002 \001(\005R\ntot" +
+      "alCount\"D\n\031DeleteConversationRequest\022\'\n\017" +
+      "conversation_id\030\001 \001(\tR\016conversationId\"6\n" +
+      "\032DeleteConversationResponse\022\030\n\007success\030\001" +
+      " \001(\010R\007success*w\n\013MessageRole\022\034\n\030MESSAGE_" +
+      "ROLE_UNSPECIFIED\020\000\022\025\n\021MESSAGE_ROLE_USER\020" +
+      "\001\022\032\n\026MESSAGE_ROLE_ASSISTANT\020\002\022\027\n\023MESSAGE" +
+      "_ROLE_SYSTEM\020\0032\227\003\n\013ChatService\022P\n\013SendMe" +
+      "ssage\022\033.chat.v1.SendMessageRequest\032\034.cha" +
+      "t.v1.SendMessageResponse\"\004\200\265\030\0020\001\022o\n\026GetC" +
+      "onversationHistory\022&.chat.v1.GetConversa" +
+      "tionHistoryRequest\032\'.chat.v1.GetConversa" +
+      "tionHistoryResponse\"\004\200\265\030\002\022`\n\021ListConvers" +
+      "ations\022!.chat.v1.ListConversationsReques" +
+      "t\032\".chat.v1.ListConversationsResponse\"\004\200" +
+      "\265\030\002\022c\n\022DeleteConversation\022\".chat.v1.Dele" +
+      "teConversationRequest\032#.chat.v1.DeleteCo" +
+      "nversationResponse\"\004\200\265\030\002B\240\001\n\013com.chat.v1" +
+      "B\tChatProtoP\001ZIgithub.com/castlemilk/sho" +
+      "rted.com.au/services/gen/proto/go/chat/v" +
+      "1;chatv1\242\002\003CXX\252\002\007Chat.V1\312\002\007Chat\\V1\342\002\023Cha" +
+      "t\\V1\\GPBMetadata\352\002\010Chat::V1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -187,7 +187,7 @@ public final class ChatProto extends com.google.protobuf.GeneratedFile {
     internal_static_chat_v1_SendMessageRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_chat_v1_SendMessageRequest_descriptor,
-        new java.lang.String[] { "ConversationId", "Message", "ContextStockCode", });
+        new java.lang.String[] { "ConversationId", "Message", "ContextStockCode", "Retry", });
     internal_static_chat_v1_SendMessageResponse_descriptor =
       getDescriptor().getMessageType(4);
     internal_static_chat_v1_SendMessageResponse_fieldAccessorTable = new

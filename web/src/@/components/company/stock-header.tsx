@@ -7,6 +7,7 @@ import { Skeleton } from "~/@/components/ui/skeleton";
 import { cleanCompanyName } from "~/@/lib/company-name";
 import { industryLabel } from "~/@/lib/industry-placeholder";
 import { formatAsOfDate } from "~/@/lib/stocks/as-of-date";
+import { shortPercentFigure } from "~/@/lib/stocks/short-percent";
 import { formatNumber } from "~/@/lib/utils";
 import { type Stock, type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
 
@@ -143,7 +144,9 @@ export function StockHeader({
         <div className="row-span-2">
           <dt className={LABEL}>Short interest</dt>
           <dd className="font-mono text-2xl font-bold leading-none tabular-nums">
-            {(stock.percentageShorted ?? 0).toFixed(2)}%
+            {/* "<0.01%" for a position too small to state; "0.00%" only for
+                a true zero (an absent field is one: protojson drops a zero). */}
+            {shortPercentFigure(stock.percentageShorted) ?? "0.00%"}
           </dd>
           {change ? (
             <dd

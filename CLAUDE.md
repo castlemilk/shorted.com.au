@@ -85,7 +85,7 @@ Shorted.com.au is a platform for tracking short selling positions in the Austral
 | ---------------- | ---- | -------------------------------- | ---------------------------------------------- |
 | Frontend         | 3020 | `web/`                           | Next.js app with dashboard, stock pages        |
 | Shorts API       | 9091 | `services/shorts/`               | Main API for short position data               |
-| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 32 read-only tools + OAuth 2.1 (same process as the Shorts API) |
+| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 32 read-only tools, plus the signed-in user's six alert tools behind `alerts:write`; OAuth 2.1 (same process as the Shorts API) |
 | Market Data      | 8090 | `services/market-data/`          | Historical stock prices                        |
 | Chat Service     | -    | `services/chat-service/`         | AI chat with Gemini LLM + 8 API tools          |
 | News Aggregator  | -    | `services/news-aggregator/`      | RSS news aggregation + Gemini sentiment        |
@@ -797,6 +797,16 @@ view or an axis changes, so a zoom whose widest label is a character shorter
 does not move the plot 5px under the pointer. With no right axis the right keeps 28px (the time axis' last label
 hangs half its width past the plot), and a compact chart its 32px and 12px.
 
+Volume (the Price and Combined views, wider than 500px) is a grey bar per
+session in the bottom 28% of the plot on a scale of its own, all ONE path
+(`volume-bars.ts`). It is read, never left unlabelled: the strip's `Vol` entry
+follows the series on one row and sits in the headline row on a phone (it adds
+no row, so the strip's height rule stands), the card has a Volume row, the bar
+under a reading is highlighted, and a measure leaves it out. A reading takes
+volume from the RAW points on screen, never the decimated bars. The brush band
+draws the one series spanning the most time (`brushOverviewPoints`): merged, a
+$4 price and a 9% short position alternated day by day into a grey comb.
+
 The sign-in banner renders on the Overview only, after the About card, as one
 44px line. Under `html.anon`, `critical-css.ts` reserves its `.login-slot` at
 46px (the line plus the wrapper's 2px border) with a 1rem margin, so the slot
@@ -1010,7 +1020,7 @@ official-ingest jobs, 27 housing migrations (000053–000092). The
 | `docs/feature/housing/README.md` | Current state + dated prod numbers, the five rules that shape every change, surfaces, known-open items |
 | `docs/feature/housing/data-sources.md` | Every source + licence, mandatory fetch posture, and what is ruled OUT (and why) |
 | `docs/feature/housing/data-model.md` | Tables, MVs, migration map, and where each guard is actually enforced (DB vs code) |
-| `docs/feature/housing/pipeline.md` | The 37 collector modes, the 16 official jobs, run order, timeouts, exit-code contract |
+| `docs/feature/housing/pipeline.md` | The 38 collector modes, the 16 official jobs, run order, timeouts, exit-code contract |
 | `docs/feature/housing/operations.md` | Runbook: prod DDL, rig crawl recovery, revalidation, takedown, credentials |
 | `docs/feature/housing/architecture.md` | Decision/incident record + extension recipes — read before touching crawl classification or caching |
 
@@ -1146,7 +1156,17 @@ must never fire from a deploy). `make register-photos` / `register-index`.
 
 `https://api.shorted.com.au/mcp` — read-only Model Context Protocol access to
 everything above: short positions, stocks, housing, economy, the register of
-interests, ownership. **LIVE on prod**, streamable HTTP, 32 tools, 3 resources, 3 prompts.
+interests, ownership. **LIVE on prod**, streamable HTTP, 32 read-only data tools, 3 resources,
+3 prompts. Plus six alert tools (`list_my_alerts`, `create_alert`, `pause_alert`, `resume_alert`,
+`delete_alert`, `list_my_alert_history`) for the signed-in user's own alerts, served ONLY to a
+token carrying `alerts:write` (`services/shorts/internal/mcp/alerts_write.go`,
+`HandlerWithAlerts`). The one write scope, and the one exception to the read-only rule below.
+Anonymous and unscoped callers also see ONE discovery tool, `manage_my_alerts`
+(`alerts_discovery.go`), which does nothing itself: calling it returns the sign-in challenge
+(401 `resource_metadata` + `scope="alerts:write"` for an anonymous caller; 403
+`insufficient_scope` for a signed-in caller without the scope), before any tool runs. Scoped
+callers do not see it. The challenge is a status code, not a tool result, because a client starts
+its OAuth flow on the status.
 Go SDK (`modelcontextprotocol/go-sdk`), served by the shorts API.
 
 **The product promise, and the constraint every change here answers to:** a user
@@ -1188,7 +1208,9 @@ Next.js contributes only the consent screen.
   lives 30 days and the Firebase client session does not, so a properly
   signed-in user often cannot produce one. Requiring it fails real users,
   silently and only for some of them. It is an optional cross-check.
-- **Tier is not a scope.** Every scope is read-only and names a data domain
+- **Tier is not a scope.** Every scope is read-only except `alerts:write`, which
+  is the one write scope and names the signed-in user's own alerts, not a plan. Every
+  other scope names a data domain
   (`shorts:read`, `housing:read`, `economy:read`, `politics:read`). Expressing a
   plan as a scope would send a paying customer through a pointless
   re-authorisation to fix a quota problem.
@@ -1324,15 +1346,28 @@ for administrators, connected once as a claude.ai custom connector:
 `publish_news_article` / `news_publish_status` (scope `news:publish`) and
 `run_picks_job` / `picks_job_status` (scope `jobs:run`, starts `shorted picks
 -mode fundamentals|filings|refresh|all` via a `run.developer` grant on that one
-job, argv built server-side from the enum in `jobmonitor/picks.go`), the
-`jobs:read` fleet tools, and the `users:read` personal-data tools
+job, argv built server-side from the enum in `jobmonitor/picks.go`), the alerts
+smoke test (`run_alerts_smoke_test`, `find_alert_crossing`, `alerts_status`,
+`alerts_smoke_result`, `delete_alert_monitor`: the caller's own account only;
+the replay is `shorted-alerts-replay` with the argv from
+`jobmonitor/alerts_replay.go`, and the monitor rule is shared with the web
+handlers through `services/shorts/internal/services/shorts/alerts_core.go`),
+the `jobs:read` fleet tools, and the `users:read` personal-data tools
 (`people_overview`, `list_users`, `list_paying_users`, `list_mailing_list`,
 `lookup_person`: Firebase accounts via the web app's `/api/internal/admin-users`,
 `api_subscriptions`, the `subscriptions` mailing list; minimal fields, every
 call logged with its actor). It is a
 separate OAuth resource with its own scope vocabulary (`oauth/resources.go`) —
-never add a write tool or a non-`:read` scope to the public server or
-`mcp.Scopes`. Admin scopes name actions and are checked PER TOOL; the HTTP
+on the public server, the read-only rule has ONE exception: `alerts:write`
+(`mcp.Scopes`), which unlocks the signed-in user's own alert tools. Constraints that
+keep it safe, each tested: those tools are NOT in `Registry()`, and a
+second prebuilt server lists them only to a request whose VERIFIED token carries the
+scope (`HandlerWithAlerts`; `Stateless: true` stays on, the choice is per request);
+anonymous and unscoped `tools/list` are the old list plus `manage_my_alerts`, and nothing else changes; the owner is the verified
+token's uid and no tool takes one; every write goes through `alerts_core.go`; and a
+token gets the scope only when it asks for it by name, never by default
+(`mcp.DefaultScopes`). Any other write tool or non-`:read` scope still needs its own
+decision, documented the same way. Admin scopes stay separate. Admin scopes name actions and are checked PER TOOL; the HTTP
 layer requires at least one, never all, so adding a scope does not log an
 existing connector out (a token minted before the scope gets a tool error
 naming it). Admin = verified email on the web app's `ADMIN_EMAILS`, resolved
@@ -1453,9 +1488,9 @@ autocomplete keystroke and button press to `/api/discord/interactions`
 signed with the app's Ed25519 key, and it deploys with the web app. Commands:
 `/stock`, `/chart`, `/search`, `/top`, `/help`. A chart message is the
 `/chart/<CODE>/image` card plus two rows of buttons (period, view) that redraw
-it in place; with `"activity": true` an **Interactive** button opens
-`StockChartEmbed` inside Discord as an Activity (`/embed/discord`). Runbook and
-onboarding: `docs/discord-bot.md`.
+it in place, and an **Interactive** button (`"activity": true`, on since
+2026-10-23) that opens `StockChartEmbed` inside Discord as an Activity
+(`/embed/discord`). Runbook and onboarding: `docs/discord-bot.md`.
 
 | Piece | Where |
 |---|---|
@@ -1476,7 +1511,23 @@ onboarding: `docs/discord-bot.md`.
   requests to `/embed/discord` (frameable). Inside it only same-origin requests
   work, so it uses relative rewrites and opens links through the SDK.
 - **`/api/discord/` is in the Cloudflare SBFM skip** (Discord is an automated
-  client); the signature check is what keeps the route closed.
+  client); the signature check is what keeps the route closed. So is the
+  Activity: Discord's proxy fetches it from Discord's servers, and SBFM served
+  it "Just a moment…". Its rule ("Allow the Discord Activity") opens
+  `/embed/discord` and `/` ONLY with both `frame_id` and `instance_id`; keep
+  the homepage itself challenged.
+- **Activities and the URL mapping exist only in the developer portal** (no
+  API field; the env's credential is a client secret, which cannot edit the
+  app). `"activity": true` on an app without them shows a button that fails.
+- **Proxy auth headers are a session pass, not request signing.** The proxy's
+  `X-Discord-Proxy-Payload` signature covers the payload only (not path, method
+  or body), so a valid set replays on any path until `expires_at`. Verify with
+  `verifyDiscordProxyRequest` (signature over the exact bytes FIRST, then the
+  times), never log the headers, and never let them authorise a write alone.
+  Interactions share the key and the header names: `verifyDiscordRequest`
+  accepts only a digits timestamp, which keeps the two messages apart.
+  `/api/discord/activity` only observes today (docs/discord-bot.md, "Proxy
+  authentication").
 - `@vercel/functions` stays on 1.x: 3.x drags in an OIDC chain and moved
   next-auth's `jose`.
 
@@ -1547,6 +1598,52 @@ GitHub Actions workflow at `.github/workflows/twitter-bot.yml` exists but is **m
 - **Cloudflare API rate limit**: rapid bursts to `api.shorted.com.au` trigger the Cloudflare edge `http_ratelimit` rule before origin. For trusted E2E/load tests, use the Terraform-managed bypass: set `TF_VAR_rate_limit_testing_bypass_secret`, apply `terraform/environments/prod`, then send both `User-Agent: Shorted-E2E/1.0` and `X-Shorted-Testing-Bypass: <secret>`. Never make this UA-only; the rule must require both UA and secret header.
 - **Refresh token rotation**: every X API call mints a new token. Local cron handles this automatically (writes to `.env`). CI needs a PAT-based persistence step (documented in OPERATIONS.md §2.2).
 - **Edge worker hot-cache bug** (fixed in PR #139): if the bot returns the same stock's data for every productCode, the Cloudflare worker's hot cache key may have regressed — verify `buildHotCacheKey` in `services/edge-worker/worker.js` is hashing the POST body.
+
+## Short-interest alerts (`shorted alerts`)
+
+Monitors a customer creates on `/alerts` are evaluated by `shorted alerts`, a VKE
+CronJob (`shorted-alerts`, hourly on weekdays at :55 UTC). It emails entitled owners
+through Resend, one email per event, each with a signed one-click pause link. Code:
+`services/jobs/internal/jobs/alerts/`. Shared contract: `services/pkg/alertevents`.
+Operator runbook (before-merge steps, prod smoke test, troubleshooting):
+`docs/alerts-runbook.md`.
+
+- **VKE-native, no Cloud Run twin.** The job is in `vkeNative:` in
+  `deploy/kubernetes/jobs/chart/values.yaml`. It has no `cloudRun:` mapping, and it is
+  exempt from the twin checks in `render.sh` and `vke-jobs-cutover.test.mjs`. A
+  second Cloud Run path would be a second way to send customer email.
+- **Dry run is the default.** `ALERTS_DRY_RUN` unset means dry. Only `false` writes.
+  The CronJob sets it.
+- **The newest ASIC sync must have completed.** The gate reads only the ASIC recorder's
+  `sync_status` rows (`environment` and `hostname` set); the market-data price sweep shares
+  the table and is ignored. A failed, partial or unfinished sync
+  can leave its last report part-written. Every unevaluated date is held (exit 10)
+  until a completed sync lands. A running sync under two hours old makes the run wait
+  (exit 0).
+- **Token domain separation.** Alert tokens are `alert-monitor:<id>` signed with
+  `UNSUBSCRIBE_SECRET`, so a newsletter link fails on the alert endpoint and an alert
+  link fails on the newsletter endpoint. Tokens never expire (the Spam Act needs at least
+  30 days). Rotating the secret breaks every link until two things are done: re-run
+  `sync-secrets.sh` (the job keeps its own copy), and roll a new shorts API revision
+  (Cloud Run resolves `latest` only when a revision starts).
+- **Entitlement is the API's rule, pinned.** The job treats `ACTIVE` and `TRIALING` as
+  entitled. `subscriptions_entitlement_contract_test.go` fails if the API's
+  `ResolveEntitlement` disagrees. A customer who is not entitled gets
+  `skipped_unentitled`, never an email.
+- **`SHORTS_API_URL` is the Cloud Run origin**, not `api.shorted.com.au`. A per-user
+  lookup through Cloudflare lands in the anonymous 10/10s bucket.
+- **One owner's failed lookup holds only that owner.** An API-wide failure stops the
+  run before commit. An owner's own failure leaves their events `awaiting_entitlement`,
+  re-checked each run and expired after 48h.
+- **Only a verified address is emailed, enforced in the API.** `Claims.EmailVerified` is set
+  by the interceptor only: from Firebase's `email_verified` claim, or from the web's explicit
+  `x-user-email-verified: true` on the alerts transport. Other web callers send `x-user-email`
+  for their own reasons, so the address alone proves nothing. A bespoke API token is never
+  verified. An unverified address is stored as NULL. The alerts list refreshes stored addresses
+  to the verified one on each visit.
+- **Active monitors are capped at 50 per user** (`shortsstore.MaxActiveAlertMonitors`). The cap
+  is checked in the insert and the resume statement. Paused monitors do not count, and pausing
+  is never refused.
 
 ## Known Issues & Gotchas
 
@@ -1783,6 +1880,9 @@ cd services && go test -v ./test/integration/...
 - **Region**: `australia-southeast2`
 - **Artifact Registry**: `australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted`
 - **Database**: Supabase (production), Docker PostgreSQL (development)
+- **Gemini and bypass deploy secrets live in Cuttlefish, not GitHub**: the deploy jobs run on Cuttlefish runners and read `secrets.GEMINI_API_KEY*` and `secrets.CLOUDFLARE_*_BYPASS_SECRET` from its project store, so a GitHub repo secret of that name changes nothing for them. Set a value with `printf '%s' "$VALUE" | cuttle secrets set NAME --project shorted` (stdin; `--value` lands in shell history), after `cuttle login --project shorted`. A copy set with `--environment <env>` is read before the project copy by any job that names that environment, so check for one. The one GitHub-hosted reader is `rate-limit-sentinel.yml` (`ubuntu-latest`), which reads the GitHub repo copy of `CLOUDFLARE_SSR_BYPASS_SECRET`.
+- **Gemini keys are validated before they sync**: `scripts/validate-gemini-key.sh` makes a real generation call and only a key that answers is written. A failing key leaves a warning and Secret Manager keeps its current version. A key with whitespace or a line break is refused before any request. `models.list` alone proves nothing.
+- **A Gemini rotation touches every copy**: Cuttlefish (`GEMINI_API_KEY`; `SHORTED_GEMINI_API_KEY` holds the same key), Secret Manager (`GEMINI_API_KEY`, `_CHAT`, `_NEWS`, `_REPORT_EXTRACTOR`; the deploy writes the last three), and the VKE jobs (`deploy/kubernetes/jobs/scripts/sync-secrets.sh`, `CONFIRM=prod` to write). Change Cuttlefish first. A stale key that still generates passes the validator. `GEMINI_API_KEY_CHAT` in Cuttlefish is optional and unset today: while it is unset, every deploy writes the shared `GEMINI_API_KEY` into Secret Manager's `GEMINI_API_KEY_CHAT`, so a chat-only key needs `cuttle secrets set GEMINI_API_KEY_CHAT --project shorted` as well, or the next deploy replaces it.
 
 ### Terraform
 
@@ -2057,7 +2157,7 @@ full skip and therefore stays fail-closed.
 
 Corollaries that keep it that way:
 - CI-side `vercel build` steps must be handed `SHORTED_SSR_BYPASS_SECRET`
-  explicitly (from GH secret `CLOUDFLARE_SSR_BYPASS_SECRET`) — export-only,
+  explicitly (from the Cuttlefish secret `CLOUDFLARE_SSR_BYPASS_SECRET`) — export-only,
   never as `--env`, which would downgrade the sensitive Vercel var.
 - `SHORTS_SERVICE_ENDPOINT` must reach every build, or `getServerShortsApiUrl()`
   falls back to the **public** host and the whole prerender crosses Cloudflare
@@ -2303,8 +2403,10 @@ These three values are also delivered to the **edge worker** (as
 worker's per-minute buckets exempt the same traffic the zone rule exempts. An
 unset secret disables the bypass in both places identically.
 
-CI passes it as `TF_VAR_rate_limit_ssr_bypass_secret` from the GitHub Actions
-secret `CLOUDFLARE_SSR_BYPASS_SECRET` (terraform-deploy.yml plan + apply).
+The deploy passes it as `TF_VAR_rate_limit_ssr_bypass_secret` from the Cuttlefish
+project secret `CLOUDFLARE_SSR_BYPASS_SECRET` (terraform-deploy.yml plan + apply).
+The GitHub repo copy of the same name feeds only `rate-limit-sentinel.yml`, which
+probes with it on a GitHub-hosted runner.
 
 Web side: `web/src/app/actions/config.ts` attaches
 `X-Shorted-Ssr-Bypass: $SHORTED_SSR_BYPASS_SECRET` in
@@ -2314,10 +2416,14 @@ configured `SHORTS_SERVICE_ENDPOINT`/`SHORTS_API_URL`/`SHORTED_EDGE_API_URL`
 host). It is **never** `NEXT_PUBLIC_*` and must never reach a client bundle or
 a third-party host.
 
-Mint + rotate (all three must be updated together — Cloudflare rule, CI, Vercel):
+Mint + rotate (all four must be updated together — Cloudflare rule, the Cuttlefish
+copy the deploy reads, the GitHub copy the sentinel reads, Vercel):
 ```bash
 SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
-gh secret set CLOUDFLARE_SSR_BYPASS_SECRET --repo <owner>/shorted --body "$SECRET"
+# The Cuttlefish copy is the one the deploy reads. Updating only the GitHub copy
+# leaves the deploy on the old value.
+printf '%s' "$SECRET" | cuttle secrets set CLOUDFLARE_SSR_BYPASS_SECRET --project shorted
+printf '%s' "$SECRET" | gh secret set CLOUDFLARE_SSR_BYPASS_SECRET --repo castlemilk/shorted.com.au
 printf '%s' "$SECRET" | vercel env add SHORTED_SSR_BYPASS_SECRET production
 # then re-run terraform-deploy (or: cd terraform/environments/prod &&
 # TF_VAR_rate_limit_ssr_bypass_secret="$SECRET" terraform apply)

@@ -37,7 +37,7 @@ func TestChecksumIsOrderIndependentAndDataSensitive(t *testing.T) {
 func TestChecksumIsStableAcrossRuns(t *testing.T) {
 	rows := sampleRows()
 	first := checksumRows(rows)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		if got := checksumRows(rows); got != first {
 			t.Fatalf("checksum drifted between runs: %s vs %s", got, first)
 		}

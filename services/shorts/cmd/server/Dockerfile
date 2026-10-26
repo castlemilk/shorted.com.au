@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS stealth
 # Step 1: Build the application in a full Go environment
-FROM --platform=$BUILDPLATFORM golang:1.26.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine AS builder
 
 # Install git.
 # Git is required for fetching the dependencies.

@@ -145,6 +145,16 @@ export async function listSuburbDropListingsClient(
   }
 }
 
+/**
+ * One attempt, as the server seed makes (listAddressPriceDrops in
+ * actions/getHousing.ts). This read's failure mode is slow, not flaky: on
+ * 2026-10-21 it failed `internal` at the store's 10 s deadline on every call,
+ * and `internal` is retryable, so each board visit ran four 10 s queries plus
+ * 3.5 s of backoff. Another attempt asks the same slow query again; a reload
+ * or a filter change is the retry.
+ */
+const ADDRESS_DROPS_RETRY_OPTIONS = { ...RETRY_OPTIONS, maxRetries: 0 };
+
 /** Browser-side per-address price-drop ranking (deep-links to /housing/property/[addressKey]; flag-gated server-side). */
 export async function listAddressPriceDropsClient(
   stateCode = "",
@@ -159,7 +169,9 @@ export async function listAddressPriceDropsClient(
   const client = createClient(HousingService, transport);
   try {
     const result = await retryWithBackoff(
-      () => client.listAddressPriceDrops({ stateCode, windowDays, limit, sort }), RETRY_OPTIONS);
+      () => client.listAddressPriceDrops({ stateCode, windowDays, limit, sort }),
+      ADDRESS_DROPS_RETRY_OPTIONS,
+    );
     setSessionCached(cacheKey, result);
     return result;
   } catch {

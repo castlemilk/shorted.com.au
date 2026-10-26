@@ -127,7 +127,7 @@ func TestRankMoversZScoreExcludesCurrentWeekFromBaseline(t *testing.T) {
 	// z = 5.0/0.15 = 33.33. With the contaminated baseline this would have
 	// been capped near sqrt(n-1) ≈ 3.5.
 	history := make([]float64, 0, 14)
-	for i := 0; i < 13; i++ {
+	for range 13 {
 		history = append(history, 2.0)
 	}
 	history = append(history, 7.0)
@@ -302,7 +302,7 @@ func TestRankMoversOrdersBySignificance(t *testing.T) {
 func TestRankMoversLimitsAndZScore(t *testing.T) {
 	t.Parallel()
 	var cands []moverCandidate
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		cands = append(cands, moverCandidate{
 			Code:        string(rune('A'+i)) + "AA",
 			CurrentPct:  5.0 + float64(i),
@@ -346,7 +346,7 @@ func TestRankMoversLimitsAndZScore(t *testing.T) {
 func TestBuildTopStocksNewEntrants(t *testing.T) {
 	t.Parallel()
 	var current, previous []stockRow
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		code := string(rune('A'+i)) + "AA"
 		current = append(current, stockRow{Code: code, Name: code, ShortPct: 20.0 - float64(i)})
 	}
@@ -505,9 +505,9 @@ func TestComputeIndustryBreakdownCap(t *testing.T) {
 	t.Parallel()
 	industryByCode := make(map[string]string)
 	var current []stockRow
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		ind := string(rune('A'+i)) + "-industry"
-		for j := 0; j < 3; j++ {
+		for j := range 3 {
 			code := string(rune('A'+i)) + string(rune('A'+j)) + "X"
 			industryByCode[code] = ind
 			current = append(current, stockRow{Code: code, ShortPct: float64(i) + 1})

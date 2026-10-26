@@ -100,6 +100,13 @@ var catalog = map[string]catalogEntry{
 	},
 
 	// --- Operator-invoked (no schedule) ----------------------------------------
+	// Admin smoke test only: an override run of the alerts evaluator for one owner
+	// and one report date. Its deployed args are a dry run, and it is never scheduled.
+	"shorted-alerts-replay": {
+		DisplayName: "Alerts Replay",
+		Category:    "Alerts",
+		Note:        "`shorted alerts -date D -user UID -canary off` — run via the admin MCP run_alerts_smoke_test; deployed args are a dry run, never scheduled",
+	},
 	"shorted-news-publish": {
 		DisplayName: "News Publish",
 		Category:    "News",
@@ -140,6 +147,13 @@ var catalog = map[string]catalogEntry{
 	"financial-report-extractor": {
 		DisplayName: "Financial Report Extractor",
 		Category:    "Filings & reports",
+	},
+
+	// --- Cluster-only CronJobs: no Cloud Run twin, so they get a row from
+	// clusterOnlyJobs (cluster.go) and their status from Telesis.
+	"shorted-alerts": {
+		DisplayName: "Alerts Evaluator",
+		Category:    "Alerts",
 	},
 
 	// --- Retired: deployed + manually executable, schedulers paused ON PURPOSE --

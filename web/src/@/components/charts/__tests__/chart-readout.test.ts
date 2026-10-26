@@ -11,6 +11,7 @@ import {
   readoutStripHeight,
   resolveReadoutMode,
   seriesDelta,
+  volumeReading,
   widestValueChars,
   type ReadoutFormat,
 } from "../chart-readout";
@@ -800,5 +801,84 @@ describe("resolveReadoutMode", () => {
     for (const seriesCount of [1, 2, 6]) {
       expect(resolveReadoutMode({ ...wide, seriesCount })).toBe("strip"); // 160
     }
+  });
+});
+
+describe("the session's volume", () => {
+  // Price and its volume come from the same rows: one per session, Mon to Fri.
+  const price = priceSeries(pts([5, 39], [6, 40], [9, 42]));
+  const short = shortSeries(pts([1, 3.0], [5, 3.21]));
+  const volume = pts([5, 812_400], [6, 1_240_000], [9, 5_074_000_000]);
+
+  describe("volumeReading", () => {
+    it("is the session nearest the time, compact", () => {
+      expect(volumeReading(volume, oct(6), readoutDayKey(oct(6)))).toEqual({
+        value: "1.2M",
+        dateNote: null,
+      });
+      expect(volumeReading(volume, oct(9), readoutDayKey(oct(9)))?.value).toBe("5.07B");
+      expect(volumeReading(volume, oct(5), readoutDayKey(oct(5)))?.value).toBe("812.4K");
+    });
+
+    it("dates a session on another day than the headline", () => {
+      expect(volumeReading(volume, oct(9), readoutDayKey(oct(10)))?.dateNote).toBe(
+        formatReadoutShortDate(oct(9)),
+      );
+    });
+
+    it("is absent, not n/a, when the chart draws no volume", () => {
+      expect(volumeReading(undefined, oct(5), "")).toBeNull();
+      expect(volumeReading([], oct(5), "")).toBeNull();
+    });
+
+    it("is n/a when there is volume but no reading to place it", () => {
+      expect(volumeReading(volume, null, "")).toEqual({ value: null, dateNote: null });
+    });
+  });
+
+  it("at rest is the newest session's on screen", () => {
+    const m = buildLatestReadout({
+      series: [price, short],
+      zoomed: false,
+      viewMode: "absolute",
+      format,
+      volume,
+    });
+    expect(m.volume).toEqual({ value: "5.07B", dateNote: null });
+  });
+
+  it("at rest is dated when the volume ends before the headline", () => {
+    const m = buildLatestReadout({
+      series: [price, short],
+      zoomed: false,
+      viewMode: "absolute",
+      format,
+      volume: volume.slice(0, 2),
+    });
+    expect(m.volume?.dateNote).toBe(formatReadoutShortDate(oct(6)));
+  });
+
+  it("under a pointer or a pin is the session of the first entry", () => {
+    const m = buildPointReadout({
+      series: [price, short],
+      entries: [
+        { series: price, point: price.points[1]! },
+        { series: short, point: short.points[1]! },
+      ],
+      pinned: true,
+      format,
+      volume,
+    });
+    expect(m.volume).toEqual({ value: "1.2M", dateNote: null });
+  });
+
+  it("is left out when the chart draws none, and in a measure", () => {
+    expect(
+      buildLatestReadout({ series: [price], zoomed: false, viewMode: "absolute", format })
+        .volume,
+    ).toBeNull();
+    expect(buildMeasureReadout({ series: [price], ta: oct(5), tb: oct(9) }).volume).toBe(
+      undefined,
+    );
   });
 });

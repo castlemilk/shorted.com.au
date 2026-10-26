@@ -48,6 +48,7 @@ These stay on Cloud Run, because something other than a clock starts them:
 | `shorts-data-sync` validation runs | `GET /api/admin/jobs/validate-sync` |
 | `shorted-price-sync` catch-ups / re-fetches | `.github/workflows/price-sync.yml` |
 | `shorted-picks` other modes | admin MCP `run_picks_job` |
+| `shorted-alerts-replay` (Cloud Run, not on the cluster) | admin MCP `run_alerts_smoke_test` (argv override: `alerts -date D -user UID -canary off`, fenced by `ALERTS_REPLAY_ONLY`) |
 | any job, "Run now" | `/admin` Jobs page |
 
 The Cloud Run jobs are **not deleted** when a schedule moves. Only their Cloud
@@ -166,6 +167,47 @@ kubectl -n shorted-jobs patch application shorted-jobs --type merge \
 
 This stops the CronJobs only. Cloud Scheduler stays paused for cut-over jobs,
 so run them on Cloud Run from `/admin` until one of the two is resumed.
+
+## VKE-native jobs (no Cloud Run twin)
+
+A job that has never run on Cloud Run has no Cloud Run job, no Cloud Scheduler
+trigger and no entry in `local.jobs_on_vke`. `shorted-alerts` is the first. To
+add one:
+
+1. Add the CronJob under `jobs:` in `chart/values.yaml` with **no** `cloudRun:`
+   key.
+2. Add its name to the top-level `vkeNative:` list, and to `enabled:` to make it
+   live.
+3. `chart/tests/render.sh` reads `vkeNative`. It skips the Terraform schedule
+   grep for these names and checks that each one renders a CronJob with no
+   `cloudRun`. `scripts/tests/vke-jobs-cutover.test.mjs` exempts them from the
+   pause-wiring checks and asserts that they have no Cloud Scheduler pause, no
+   quoted name in `main.tf` and no `cloudRun` block.
+4. Register its Telesis monitor with `scripts/register-monitors.py`, as for any
+   CronJob.
+
+Not done yet: `/admin` (`list_async_jobs`) cannot see these jobs, because
+`cluster.go` maps only paused Cloud Scheduler triggers to monitors. Until it can,
+read their state with `kubectl -n shorted-jobs get cronjob` and the Telesis
+monitor.
+
+### Adding secretEnv keys to a VKE-native job (before merge)
+
+`sync-secrets.sh` derives the keys from the rendered chart, and it writes
+`shorted-jobs-env` only when it is run. A job whose `secretEnv` names a key the
+Secret does not hold fails with `CreateContainerConfigError`, and the next hourly
+run fails with it too. So when the PR adds a `secretEnv` key, run the sync from the
+PR branch **before** merge:
+
+```bash
+export KUBECONFIG=~/projects/paprika/terraform/omega.kubeconfig
+deploy/kubernetes/jobs/scripts/sync-secrets.sh               # plan: the new keys listed, none MISSING
+CONFIRM=prod deploy/kubernetes/jobs/scripts/sync-secrets.sh  # writes the Secret (other jobs unaffected)
+```
+
+The same goes for a rotated secret. Re-run the sync after rotating a value in
+Secret Manager, or the job keeps the copy it was given. The alerts runbook
+(`docs/alerts-runbook.md`) has the full sequence for `shorted-alerts`.
 
 ## Operating
 

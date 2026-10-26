@@ -15,7 +15,7 @@ import {
   YoutubeIcon,
   RefreshCwIcon,
 } from "lucide-react";
-import Link from "next/link";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { Separator } from "./separator";
 import { Skeleton } from "./skeleton";
 
@@ -39,19 +39,28 @@ export function CompanyInfoView({
   stockDetails: StockDetails;
 }) {
   const isEnriched = stockDetails.enrichmentStatus === "completed";
-  const socialLinks = stockDetails.socialMediaLinks;
+  // The website and social links are scraped or model-written: only an
+  // http(s) URL becomes a link. Another website is shown as text, another
+  // social link is left out (the icon alone means nothing).
+  const website = stockDetails.website?.trim() ?? "";
+  const websiteHref = safeExternalHref(website);
+  // The host for a link ("bhp.com"), the value itself for text.
+  const websiteLabel = websiteHref
+    ? websiteHref.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]
+    : website;
+  const socialLinks =
+    isEnriched && stockDetails.socialMediaLinks
+      ? {
+          linkedin: safeExternalHref(stockDetails.socialMediaLinks.linkedin),
+          twitter: safeExternalHref(stockDetails.socialMediaLinks.twitter),
+          facebook: safeExternalHref(stockDetails.socialMediaLinks.facebook),
+          youtube: safeExternalHref(stockDetails.socialMediaLinks.youtube),
+        }
+      : undefined;
 
-  // Proto3 string fields default to "" (never null/undefined), so `??`
-  // chaining would stop at the first empty string — use `||`.
-  const hasSocialLinks =
-    isEnriched &&
-    Boolean(
-      socialLinks &&
-        (socialLinks.linkedin ||
-          socialLinks.twitter ||
-          socialLinks.facebook ||
-          socialLinks.youtube),
-    );
+  const hasSocialLinks = Boolean(
+    socialLinks && Object.values(socialLinks).some(Boolean),
+  );
   // Industry intentionally excluded: it already shows as a badge in the
   // page header (StockHeader).
   const hasAnyData = Boolean(
@@ -102,18 +111,18 @@ export function CompanyInfoView({
                   </p>
                 </div>
                 <span className="flex items-center p-1.5 text-xs">
-                  <Link
-                    href={stockDetails.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline font-medium"
-                  >
-                    {
-                      stockDetails.website
-                        .replace(/^https?:\/\/(www\.)?/, "")
-                        .split("/")[0]
-                    }
-                  </Link>
+                  {websiteHref ? (
+                    <a
+                      href={websiteHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline font-medium"
+                    >
+                      {websiteLabel}
+                    </a>
+                  ) : (
+                    <span className="font-medium">{websiteLabel}</span>
+                  )}
                 </span>
               </div>
               <Separator className="opacity-50" />
@@ -143,7 +152,7 @@ export function CompanyInfoView({
           )}
 
           {/* Social Media Links - Only show if enriched */}
-          {hasSocialLinks && socialLinks && (
+          {socialLinks && hasSocialLinks && (
             <>
               <div className="py-2">
                 <p className="uppercase font-semibold text-[10px] text-muted-foreground mb-1 px-1.5">
@@ -152,7 +161,7 @@ export function CompanyInfoView({
                 {/* p-2.5 anchors: ~36px hit areas around the 16px icons */}
                 <div className="flex gap-1">
                   {socialLinks.linkedin && (
-                    <Link
+                    <a
                       href={socialLinks.linkedin}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -161,10 +170,10 @@ export function CompanyInfoView({
                       title="LinkedIn"
                     >
                       <LinkedinIcon size={16} aria-hidden />
-                    </Link>
+                    </a>
                   )}
                   {socialLinks.twitter && (
-                    <Link
+                    <a
                       href={socialLinks.twitter}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -173,10 +182,10 @@ export function CompanyInfoView({
                       title="Twitter"
                     >
                       <TwitterIcon size={16} aria-hidden />
-                    </Link>
+                    </a>
                   )}
                   {socialLinks.facebook && (
-                    <Link
+                    <a
                       href={socialLinks.facebook}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -185,10 +194,10 @@ export function CompanyInfoView({
                       title="Facebook"
                     >
                       <FacebookIcon size={16} aria-hidden />
-                    </Link>
+                    </a>
                   )}
                   {socialLinks.youtube && (
-                    <Link
+                    <a
                       href={socialLinks.youtube}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -197,7 +206,7 @@ export function CompanyInfoView({
                       title="YouTube"
                     >
                       <YoutubeIcon size={16} aria-hidden />
-                    </Link>
+                    </a>
                   )}
                 </div>
               </div>

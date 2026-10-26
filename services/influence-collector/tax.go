@@ -25,7 +25,7 @@ type TaxRow struct {
 }
 
 var (
-	abnDigits = regexp.MustCompile(`\D`)          // strip everything non-digit
+	abnDigits = regexp.MustCompile(`\D`)              // strip everything non-digit
 	yearRe    = regexp.MustCompile(`(\d{4})-\d{2,4}`) // "2023-24" → start year 2023
 )
 
@@ -140,10 +140,7 @@ func selectDataSheet(f *excelize.File) (string, [][]string, error) {
 // findHeader scans the first rows for the header (a row with an "ABN" column and a
 // "total income" column) and returns its index plus the resolved column map.
 func findHeader(rows [][]string) (int, taxColumns, error) {
-	limit := len(rows)
-	if limit > 20 {
-		limit = 20
-	}
+	limit := min(len(rows), 20)
 	for i := 0; i < limit; i++ {
 		cols := taxColumns{name: -1, abn: -1, totalIncome: -1, taxableIncome: -1, taxPayable: -1}
 		for j, raw := range rows[i] {

@@ -1,0 +1,19 @@
+Subject: Materials: 3 companies crossed 5% short interest
+
+Materials: 3 companies crossed 5% short interest
+
+ASIC short position report for Fri 16 Oct 2026, compared with Thu 15 Oct 2026.
+Every company in Materials was checked. This lists each one that crossed 5% short interest.
+ASIC publishes positions four trading days after they are held.
+
+Code    Company                    Previous    Latest    Change
+AAA     Aaa & Co <Holdings>           4.80%     5.92%     +1.12
+EEE     Eee Resources Ltd             4.99%     5.10%     +0.11
+LTR     Lithium Texas                 4.10%     5.00%     +0.90
+
+View Materials on Shorted: https://shorted.com.au/industry/materials?utm_source=alerts&utm_medium=email
+--
+You set up this alert on Shorted: Materials - any company's short interest above 5% - daily.
+Pause this alert: https://shorted.com.au/alerts/unsubscribe?t=YWxlcnQtbW9uaXRvcjptb24tNDI.n0QXAxnvDkdk5ATi-Ypnwz3aN1FQ6L3W3WUAEZ9f6Hg
+Manage your alerts: https://shorted.com.au/alerts
+General information only, not financial advice. Shorted · support@shorted.com.au

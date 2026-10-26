@@ -59,7 +59,7 @@ func TestRegistrationLimiterAllowsUpToTheHourlyCap(t *testing.T) {
 	c := newClock()
 	l := newTestLimiter(3, 100, c)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if _, ok := l.allow("203.0.113.1"); !ok {
 			t.Fatalf("attempt %d was refused inside the cap", i+1)
 		}
@@ -101,7 +101,7 @@ func TestTheDailyCapAppliesBeyondTheHourly(t *testing.T) {
 	// caller is the daily window.
 	l := newTestLimiter(100, 5, c)
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		c.advance(90 * time.Minute) // outrun the hourly window every time
 		if _, ok := l.allow("203.0.113.1"); !ok {
 			t.Fatalf("attempt %d refused while under the daily cap", i+1)
@@ -159,7 +159,7 @@ func TestAFullTableRefusesNewAddressesRatherThanOpeningUp(t *testing.T) {
 	l := newTestLimiter(100, 100, c)
 
 	// Fill it. Every entry is recent, so the prune cannot reclaim anything.
-	for i := 0; i < maxRegistrationIPs; i++ {
+	for i := range maxRegistrationIPs {
 		l.seen[ipForIndex(i)] = []time.Time{c.now()}
 	}
 
@@ -185,7 +185,7 @@ func TestAFullTableOfSTALEEntriesIsReclaimed(t *testing.T) {
 	c := newClock()
 	l := newTestLimiter(100, 100, c)
 
-	for i := 0; i < maxRegistrationIPs; i++ {
+	for i := range maxRegistrationIPs {
 		l.seen[ipForIndex(i)] = []time.Time{c.now()}
 	}
 	// Everything ages out of the 24h window.
@@ -211,11 +211,11 @@ func TestTheLimiterIsSafeUnderConcurrency(t *testing.T) {
 	l := newTestLimiter(1000, 1000, c)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			for j := 0; j < 10; j++ {
+			for range 10 {
 				l.allow(ipForIndex(i % 8))
 			}
 		}(i)

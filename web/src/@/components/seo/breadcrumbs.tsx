@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronRight, Home } from "lucide-react";
 import { Fragment } from "react";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 interface BreadcrumbItem {
   label: string;
@@ -89,11 +90,6 @@ export function BreadcrumbStructuredData({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(structuredData),
-      }}
-    />
+    <JsonLd data={structuredData} />
   );
 }

@@ -50,7 +50,7 @@ func TestMain(m *testing.M) {
 	}
 
 	fmt.Println("🚀 Setting up performance test environment (this may take a minute)...")
-	
+
 	// Start PostgreSQL container
 	fmt.Println("  📦 Starting PostgreSQL container...")
 	var err error
@@ -136,7 +136,7 @@ func checkServiceHealth() bool {
 }
 
 func waitForService(maxAttempts int) bool {
-	for i := 0; i < maxAttempts; i++ {
+	for range maxAttempts {
 		if checkServiceHealth() {
 			return true
 		}
@@ -165,7 +165,7 @@ type TestConfig struct {
 
 // PerformanceMetrics holds results from performance tests
 type PerformanceMetrics struct {
-	TestName        string        `json:"test_name"`
+	TestName       string        `json:"test_name"`
 	Rate           uint64        `json:"requests_per_second"`
 	Duration       time.Duration `json:"duration"`
 	TotalRequests  uint64        `json:"total_requests"`
@@ -182,11 +182,11 @@ type PerformanceMetrics struct {
 
 // EndpointTest represents a single endpoint test configuration
 type EndpointTest struct {
-	Name     string
-	Method   string
-	Path     string
-	Body     []byte
-	Headers  map[string]string
+	Name    string
+	Method  string
+	Path    string
+	Body    []byte
+	Headers map[string]string
 }
 
 func getConfig() TestConfig {
@@ -194,7 +194,7 @@ func getConfig() TestConfig {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
-	
+
 	return TestConfig{
 		BaseURL: baseURL,
 	}
@@ -206,18 +206,18 @@ func createVegetaTargeter(config TestConfig, test EndpointTest) vegeta.Targeter 
 		tgt.Method = test.Method
 		tgt.URL = config.BaseURL + test.Path
 		tgt.Body = test.Body
-		
+
 		// Set default headers
 		if tgt.Header == nil {
 			tgt.Header = make(http.Header)
 		}
 		tgt.Header.Set("Content-Type", contentType)
-		
+
 		// Add custom headers
 		for k, v := range test.Headers {
 			tgt.Header.Set(k, v)
 		}
-		
+
 		return nil
 	}
 }
@@ -226,19 +226,19 @@ func createVegetaTargeter(config TestConfig, test EndpointTest) vegeta.Targeter 
 func runVegetaAttack(t *testing.T, config TestConfig, test EndpointTest, rate uint64, duration time.Duration) PerformanceMetrics {
 	targeter := createVegetaTargeter(config, test)
 	attacker := vegeta.NewAttacker()
-	
+
 	t.Logf("Starting attack on %s: %d RPS for %v", test.Name, rate, duration)
-	
+
 	var metrics vegeta.Metrics
 	for res := range attacker.Attack(targeter, vegeta.Rate{Freq: int(rate), Per: time.Second}, duration, test.Name) {
 		metrics.Add(res)
 	}
 	metrics.Close()
-	
+
 	// Calculate throughput in MB/s
 	totalBytes := float64(metrics.BytesIn.Total + metrics.BytesOut.Total)
 	throughputMBps := (totalBytes / (1024 * 1024)) / duration.Seconds()
-	
+
 	return PerformanceMetrics{
 		TestName:       test.Name,
 		Rate:           rate,
@@ -262,21 +262,21 @@ func TestGetTopShortsLoadTest(t *testing.T) {
 		t.Skip("Service not available, skipping load test")
 	}
 	config := getConfig()
-	
-	payload := map[string]interface{}{
+
+	payload := map[string]any{
 		"period": "1m",
 		"limit":  10,
 		"offset": 0,
 	}
 	body, _ := json.Marshal(payload)
-	
+
 	test := EndpointTest{
 		Name:   "GetTopShorts",
 		Method: "POST",
 		Path:   "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
 		Body:   body,
 	}
-	
+
 	testScenarios := []struct {
 		name     string
 		rate     uint64
@@ -287,20 +287,20 @@ func TestGetTopShortsLoadTest(t *testing.T) {
 		{"Heavy Load", 100, 60 * time.Second},
 		{"Spike Test", 200, 30 * time.Second},
 	}
-	
+
 	var allMetrics []PerformanceMetrics
-	
+
 	for _, scenario := range testScenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			metrics := runVegetaAttack(t, config, test, scenario.rate, scenario.duration)
 			allMetrics = append(allMetrics, metrics)
-			
+
 			// Log and assert performance expectations
 			logMetrics(t, metrics)
 			assertPerformanceThresholds(t, metrics, scenario.name)
 		})
 	}
-	
+
 	// Save results
 	saveResults(t, "GetTopShorts", allMetrics)
 }
@@ -311,24 +311,24 @@ func TestGetStockLoadTest(t *testing.T) {
 		t.Skip("Service not available, skipping load test")
 	}
 	config := getConfig()
-	
+
 	// Test with different stock codes
 	stockCodes := []string{"CBA", "BHP", "ANZ", "WBC", "NAB"}
-	
+
 	for _, stockCode := range stockCodes {
 		t.Run(fmt.Sprintf("Stock_%s", stockCode), func(t *testing.T) {
-			payload := map[string]interface{}{
+			payload := map[string]any{
 				"productCode": stockCode,
 			}
 			body, _ := json.Marshal(payload)
-			
+
 			test := EndpointTest{
 				Name:   fmt.Sprintf("GetStock_%s", stockCode),
 				Method: "POST",
 				Path:   "/shorts.v1alpha1.ShortedStocksService/GetStock",
 				Body:   body,
 			}
-			
+
 			metrics := runVegetaAttack(t, config, test, 50, 30*time.Second)
 			logMetrics(t, metrics)
 			assertPerformanceThresholds(t, metrics, "GetStock")
@@ -342,24 +342,24 @@ func TestGetStockDataLoadTest(t *testing.T) {
 		t.Skip("Service not available, skipping load test")
 	}
 	config := getConfig()
-	
+
 	periods := []string{"1w", "1m", "3m", "6m", "1y"}
-	
+
 	for _, period := range periods {
 		t.Run(fmt.Sprintf("Period_%s", period), func(t *testing.T) {
-			payload := map[string]interface{}{
+			payload := map[string]any{
 				"productCode": "CBA",
 				"period":      period,
 			}
 			body, _ := json.Marshal(payload)
-			
+
 			test := EndpointTest{
 				Name:   fmt.Sprintf("GetStockData_%s", period),
 				Method: "POST",
 				Path:   "/shorts.v1alpha1.ShortedStocksService/GetStockData",
 				Body:   body,
 			}
-			
+
 			metrics := runVegetaAttack(t, config, test, 25, 30*time.Second)
 			logMetrics(t, metrics)
 			assertPerformanceThresholds(t, metrics, "GetStockData")
@@ -373,21 +373,21 @@ func TestGetIndustryTreeMapLoadTest(t *testing.T) {
 		t.Skip("Service not available, skipping load test")
 	}
 	config := getConfig()
-	
-	payload := map[string]interface{}{
-		"period":    "1m",
-		"limit":     10,
-		"viewMode":  "CURRENT_CHANGE",
+
+	payload := map[string]any{
+		"period":   "1m",
+		"limit":    10,
+		"viewMode": "CURRENT_CHANGE",
 	}
 	body, _ := json.Marshal(payload)
-	
+
 	test := EndpointTest{
 		Name:   "GetIndustryTreeMap",
 		Method: "POST",
 		Path:   "/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap",
 		Body:   body,
 	}
-	
+
 	metrics := runVegetaAttack(t, config, test, 20, 45*time.Second)
 	logMetrics(t, metrics)
 	assertPerformanceThresholds(t, metrics, "GetIndustryTreeMap")
@@ -400,7 +400,7 @@ func TestConcurrentUsersScenario(t *testing.T) {
 	}
 	config := getConfig()
 	userCounts := []int{10, 50, 100, 200}
-	
+
 	for _, userCount := range userCounts {
 		t.Run(fmt.Sprintf("%d_Users", userCount), func(t *testing.T) {
 			runConcurrentUserScenario(t, config, userCount, 2*time.Minute)
@@ -412,21 +412,21 @@ func TestConcurrentUsersScenario(t *testing.T) {
 func runConcurrentUserScenario(t *testing.T, config TestConfig, userCount int, duration time.Duration) {
 	ctx, cancel := context.WithTimeout(context.Background(), duration)
 	defer cancel()
-	
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	totalRequests := 0
 	totalErrors := 0
 	var totalLatency time.Duration
-	
+
 	t.Logf("Starting %d concurrent users for %v", userCount, duration)
-	
-	for i := 0; i < userCount; i++ {
+
+	for i := range userCount {
 		wg.Add(1)
 		go func(userID int) {
 			defer wg.Done()
 			client := &http.Client{Timeout: 30 * time.Second}
-			
+
 			for {
 				select {
 				case <-ctx.Done():
@@ -439,11 +439,11 @@ func runConcurrentUserScenario(t *testing.T, config TestConfig, userCount int, d
 						func() (time.Duration, error) { return callGetStockData(client, config, "BHP", "1m") },
 						func() (time.Duration, error) { return callGetIndustryTreeMap(client, config) },
 					}
-					
+
 					// Random endpoint selection with weighted probability
 					endpointIdx := userID % len(endpoints)
 					latency, err := endpoints[endpointIdx]()
-					
+
 					mu.Lock()
 					totalRequests++
 					if err != nil {
@@ -452,28 +452,28 @@ func runConcurrentUserScenario(t *testing.T, config TestConfig, userCount int, d
 					}
 					totalLatency += latency
 					mu.Unlock()
-					
+
 					// Think time between requests (1-3 seconds)
 					time.Sleep(time.Duration(1000+userID%2000) * time.Millisecond)
 				}
 			}
 		}(i)
 	}
-	
+
 	wg.Wait()
-	
+
 	// Calculate and log results
 	avgLatency := totalLatency / time.Duration(totalRequests)
 	errorRate := float64(totalErrors) / float64(totalRequests) * 100
 	rps := float64(totalRequests) / duration.Seconds()
-	
+
 	t.Logf("Concurrent Users Test Results:")
 	t.Logf("  Users: %d", userCount)
 	t.Logf("  Total Requests: %d", totalRequests)
 	t.Logf("  Error Rate: %.2f%%", errorRate)
 	t.Logf("  Average Latency: %v", avgLatency)
 	t.Logf("  Requests/sec: %.2f", rps)
-	
+
 	// Assert performance expectations
 	if errorRate > 5.0 {
 		t.Errorf("Error rate too high: %.2f%% (expected < 5%%)", errorRate)
@@ -485,44 +485,44 @@ func runConcurrentUserScenario(t *testing.T, config TestConfig, userCount int, d
 
 // Helper functions for API calls
 func callGetTopShorts(client *http.Client, config TestConfig) (time.Duration, error) {
-	payload := map[string]interface{}{"period": "1m", "limit": 10, "offset": 0}
+	payload := map[string]any{"period": "1m", "limit": 10, "offset": 0}
 	return makeRequest(client, config.BaseURL+"/shorts.v1alpha1.ShortedStocksService/GetTopShorts", payload)
 }
 
 func callGetStock(client *http.Client, config TestConfig, productCode string) (time.Duration, error) {
-	payload := map[string]interface{}{"productCode": productCode}
+	payload := map[string]any{"productCode": productCode}
 	return makeRequest(client, config.BaseURL+"/shorts.v1alpha1.ShortedStocksService/GetStock", payload)
 }
 
 func callGetStockData(client *http.Client, config TestConfig, productCode, period string) (time.Duration, error) {
-	payload := map[string]interface{}{"productCode": productCode, "period": period}
+	payload := map[string]any{"productCode": productCode, "period": period}
 	return makeRequest(client, config.BaseURL+"/shorts.v1alpha1.ShortedStocksService/GetStockData", payload)
 }
 
 func callGetIndustryTreeMap(client *http.Client, config TestConfig) (time.Duration, error) {
-	payload := map[string]interface{}{"period": "1m", "limit": 10, "viewMode": "CURRENT_CHANGE"}
+	payload := map[string]any{"period": "1m", "limit": 10, "viewMode": "CURRENT_CHANGE"}
 	return makeRequest(client, config.BaseURL+"/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap", payload)
 }
 
-func makeRequest(client *http.Client, url string, payload interface{}) (time.Duration, error) {
+func makeRequest(client *http.Client, url string, payload any) (time.Duration, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return 0, err
 	}
-	
+
 	start := time.Now()
 	resp, err := client.Post(url, contentType, bytes.NewBuffer(body))
 	latency := time.Since(start)
-	
+
 	if err != nil {
 		return latency, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode >= 400 {
 		return latency, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
-	
+
 	return latency, nil
 }
 
@@ -547,7 +547,7 @@ func assertPerformanceThresholds(t *testing.T, metrics PerformanceMetrics, testT
 	var maxP95Latency time.Duration
 	var minSuccessRate float64
 	var maxErrorRate float64
-	
+
 	switch testType {
 	case "GetTopShorts", "Light Load":
 		maxP95Latency = 500 * time.Millisecond
@@ -574,16 +574,16 @@ func assertPerformanceThresholds(t *testing.T, metrics PerformanceMetrics, testT
 		minSuccessRate = 98.0
 		maxErrorRate = 2.0
 	}
-	
+
 	// Assert thresholds
 	if metrics.P95Latency > maxP95Latency {
 		t.Errorf("P95 latency too high: %v (expected < %v)", metrics.P95Latency, maxP95Latency)
 	}
-	
+
 	if metrics.Success < minSuccessRate {
 		t.Errorf("Success rate too low: %.2f%% (expected >= %.2f%%)", metrics.Success, minSuccessRate)
 	}
-	
+
 	if metrics.ErrorRate > maxErrorRate {
 		t.Errorf("Error rate too high: %.2f%% (expected <= %.2f%%)", metrics.ErrorRate, maxErrorRate)
 	}
@@ -592,18 +592,18 @@ func assertPerformanceThresholds(t *testing.T, metrics PerformanceMetrics, testT
 // saveResults saves performance metrics to file
 func saveResults(t *testing.T, testName string, metrics []PerformanceMetrics) {
 	filename := fmt.Sprintf("performance_results_%s_%s.json", testName, time.Now().Format("2006-01-02_15-04-05"))
-	
+
 	data, err := json.MarshalIndent(metrics, "", "  ")
 	if err != nil {
 		t.Logf("Failed to marshal results: %v", err)
 		return
 	}
-	
+
 	if err := os.WriteFile(filename, data, 0644); err != nil {
 		t.Logf("Failed to save results to %s: %v", filename, err)
 		return
 	}
-	
+
 	t.Logf("Performance results saved to %s", filename)
 }
 
@@ -613,31 +613,31 @@ func TestDatabaseConnectionPoolUnderLoad(t *testing.T) {
 		t.Skip("Service not available, skipping load test")
 	}
 	config := getConfig()
-	
+
 	// Test with high concurrency to stress connection pool
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"period": "1m",
 		"limit":  10,
 		"offset": 0,
 	}
 	body, _ := json.Marshal(payload)
-	
+
 	test := EndpointTest{
 		Name:   "GetTopShorts_HighConcurrency",
 		Method: "POST",
 		Path:   "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
 		Body:   body,
 	}
-	
+
 	// Run with very high concurrency to test connection pool limits
 	metrics := runVegetaAttack(t, config, test, 300, 45*time.Second)
 	logMetrics(t, metrics)
-	
+
 	// Connection pool should handle high load gracefully
 	if metrics.ErrorRate > 10.0 {
 		t.Errorf("High error rate indicates connection pool issues: %.2f%%", metrics.ErrorRate)
 	}
-	
+
 	if metrics.P99Latency > 5*time.Second {
 		t.Errorf("P99 latency too high, possible connection pool bottleneck: %v", metrics.P99Latency)
 	}
@@ -651,36 +651,36 @@ func TestSustainedLoad(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping sustained load test in short mode")
 	}
-	
+
 	config := getConfig()
-	
-	payload := map[string]interface{}{
+
+	payload := map[string]any{
 		"period": "1m",
 		"limit":  10,
 		"offset": 0,
 	}
 	body, _ := json.Marshal(payload)
-	
+
 	test := EndpointTest{
 		Name:   "GetTopShorts_Sustained",
 		Method: "POST",
 		Path:   "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
 		Body:   body,
 	}
-	
+
 	// 15-minute sustained load test
 	metrics := runVegetaAttack(t, config, test, 50, 15*time.Minute)
 	logMetrics(t, metrics)
-	
+
 	// For sustained load, we expect stable performance
 	if metrics.ErrorRate > 2.0 {
 		t.Errorf("Error rate too high for sustained load: %.2f%%", metrics.ErrorRate)
 	}
-	
+
 	if metrics.P95Latency > 1*time.Second {
 		t.Errorf("P95 latency degraded over sustained load: %v", metrics.P95Latency)
 	}
-	
+
 	// Save sustained load results separately
 	saveResults(t, "SustainedLoad", []PerformanceMetrics{metrics})
 }

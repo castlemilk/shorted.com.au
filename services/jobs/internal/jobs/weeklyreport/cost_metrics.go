@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"maps"
 	"os"
 	"strings"
 	"sync"
@@ -48,12 +49,8 @@ var (
 func loadPriceTable() map[string]modelPrice {
 	priceTableOnce.Do(func() {
 		priceTable = map[string]modelPrice{}
-		for model, p := range defaultPriceTable {
-			priceTable[model] = p
-		}
-		for model, p := range parsePriceTable(os.Getenv("LLM_PRICE_TABLE_JSON")) {
-			priceTable[model] = p
-		}
+		maps.Copy(priceTable, defaultPriceTable)
+		maps.Copy(priceTable, parsePriceTable(os.Getenv("LLM_PRICE_TABLE_JSON")))
 	})
 	return priceTable
 }

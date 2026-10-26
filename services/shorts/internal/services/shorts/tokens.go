@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -17,6 +18,32 @@ type Claims struct {
 	Roles         []string `json:"roles"`
 	Tier          string   `json:"tier,omitempty"`            // Subscription tier: free, pro, enterprise
 	IsBrowserAuth bool     `json:"is_browser_auth,omitempty"` // True if authenticated via Firebase (browser)
+	// AuthMethod records how the interceptor verified this request's credential: one
+	// of the AuthMethod* constants in middleware_connect.go. The interceptor sets it
+	// after verification and it is never read from a token (json:"-"), so a token
+	// cannot claim a method for itself.
+	AuthMethod string `json:"-"`
+	// TierResolved is true only when the subscription lookup for this request
+	// succeeded, so Tier is the store's answer. When false, Tier is whatever the
+	// credential carried and must not back a grant such as minting a token. Set by
+	// the interceptor and never serialized.
+	TierResolved bool `json:"-"`
+	// RateLimitExempt is true for a verified internal call from the alerts evaluator
+	// (see alertsJobUserAgentPrefix). Set only by the internal-auth branch, never
+	// read from a token, and it skips the per-user rate limit.
+	RateLimitExempt bool `json:"-"`
+	// WebOnBehalf is true when the website, holding the internal secret and marking
+	// its request with the SSR user-agent, calls for this signed-in user. The use is
+	// the customer's website use, so it is metered as browser access (IsBrowserAuth).
+	// Set only by the internal-auth branch, never read from a token.
+	WebOnBehalf bool `json:"-"`
+	// EmailVerified is true only when Email is an address its owner has proved they
+	// control. The interceptor sets it from the credential that vouches for the
+	// address: a verified Firebase email_verified claim, or the web tier's explicit
+	// x-user-email-verified assertion. It is never read from a token (json:"-"), so a
+	// bespoke API token that carries an address cannot claim it is verified. Alert
+	// email reads it, so an unverified address is never stored or emailed.
+	EmailVerified bool `json:"-"`
 	// Scope is the OAuth 2.0 granted scope set, space-delimited per RFC 6749
 	// §3.3. Empty on every token this service mints today — the tokens minted
 	// through MintTokenWithTier are whole-API credentials, not scoped grants.
@@ -37,6 +64,18 @@ func (c *Claims) GetTier() string {
 // GetIsBrowserAuth returns true if this is browser-based auth (Firebase)
 func (c *Claims) GetIsBrowserAuth() bool {
 	return c.IsBrowserAuth
+}
+
+// GetWebOnBehalf implements ratelimit.WebOnBehalfClaims. The website, holding the
+// internal secret, acting for this signed-in user. Set only on the internal path.
+func (c *Claims) GetWebOnBehalf() bool {
+	return c.WebOnBehalf
+}
+
+// GetRateLimitExempt implements ratelimit.ExemptClaims. Only the internal-auth path
+// sets it, for the alerts evaluator's own calls.
+func (c *Claims) GetRateLimitExempt() bool {
+	return c.RateLimitExempt
 }
 
 type TokenService struct {
@@ -108,21 +147,19 @@ type mintRequest struct {
 func (s *TokenService) mint(req mintRequest) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(req.TTL)),
-			IssuedAt:  jwt.NewNumericDate(now),
-			Issuer:    "shorted-api",
-			// RFC 8707 resource binding. Absent before this existed, which is
-			// exactly why the MCP verifier treats an absent audience as a
-			// refusal and the Connect API does not check it at all — see
-			// mcp.NewTokenVerifier for the full seam.
-			Audience: jwt.ClaimStrings(req.Audience),
-		},
-		UserID: req.UserID,
-		Email:  req.Email,
-		Roles:  req.Roles,
-		Tier:   req.Tier,
-		Scope:  req.Scope,
+		ExpiresAt: jwt.NewNumericDate(now.Add(req.TTL)),
+		IssuedAt:  jwt.NewNumericDate(now),
+		Issuer:    "shorted-api",
+		// RFC 8707 resource binding. Absent before this existed, which is
+		// exactly why the MCP verifier treats an absent audience as a
+		// refusal and the Connect API does not check it at all — see
+		// mcp.NewTokenVerifier for the full seam.
+		Audience: jwt.ClaimStrings(req.Audience),
+		UserID:   req.UserID,
+		Email:    req.Email,
+		Roles:    req.Roles,
+		Tier:     req.Tier,
+		Scope:    req.Scope,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -182,7 +219,7 @@ const ClockLeeway = 60 * time.Second
 
 // ValidateToken parses and validates a JWT.
 func (s *TokenService) ValidateToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -237,10 +274,8 @@ func (s *TokenService) ValidateConnectToken(tokenString string) (*Claims, error)
 		return claims, nil
 	}
 	// audience[0] is the API origin — see TokenAudience.
-	for _, a := range audience {
-		if a == s.audience[0] {
-			return claims, nil
-		}
+	if slices.Contains(audience, s.audience[0]) {
+		return claims, nil
 	}
 	return nil, fmt.Errorf("token audience %v does not include the Connect API (%s)", []string(audience), s.audience[0])
 }
@@ -286,10 +321,8 @@ func (s *TokenService) ValidateIdentityToken(tokenString string) (*Claims, error
 		return claims, nil
 	}
 	for _, a := range audience {
-		for _, ours := range s.audience {
-			if a == ours {
-				return claims, nil
-			}
+		if slices.Contains(s.audience, a) {
+			return claims, nil
 		}
 	}
 	return nil, fmt.Errorf("token audience %v names no surface of this deployment", []string(audience))

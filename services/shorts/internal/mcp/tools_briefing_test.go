@@ -128,7 +128,7 @@ func TestGetStockBriefingDividendsCapped(t *testing.T) {
 	ctx := context.Background()
 	// Create more than 12 dividends
 	dividends := []*shortsv1alpha1.DividendRecord{}
-	for i := 0; i < 15; i++ {
+	for range 15 {
 		dividends = append(dividends, &shortsv1alpha1.DividendRecord{
 			ExDate:             "2024-01-01",
 			AmountPerShare:     0.50,
@@ -215,7 +215,7 @@ func TestGetStockBriefingSignalsCapped(t *testing.T) {
 	// Create 15 adverse + 15 positive = 30 total
 	adverse := []*shortsv1alpha1.StockSignal{}
 	positive := []*shortsv1alpha1.StockSignal{}
-	for i := 0; i < 15; i++ {
+	for range 15 {
 		adverse = append(adverse, &shortsv1alpha1.StockSignal{
 			Polarity: "adverse",
 			Kind:     "court",

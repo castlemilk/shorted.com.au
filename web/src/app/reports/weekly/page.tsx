@@ -14,6 +14,7 @@ import {
 } from "~/app/actions/reports/getReportData";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { WEEKLY_ARCHIVE_LIMIT } from "~/@/components/reports/week-navigation";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 /**
  * /reports/weekly — the weekly series archive.
@@ -247,10 +248,7 @@ export default async function WeeklyReportsIndexPage() {
 
   return (
     <DashboardLayout>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }}
-      />
+      <JsonLd data={collectionSchema} />
       <BreadcrumbListSchema items={breadcrumbs} />
 
       <div className="space-y-8">

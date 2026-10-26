@@ -40,15 +40,15 @@ func TestDatabaseSetup(t *testing.T) {
 
 		// Seed test data
 		seeder := container.GetSeeder()
-		
+
 		// Generate test data for today
 		today := time.Now().Truncate(24 * time.Hour)
 		shorts, metadata := testdata.GetTopShortsTestData(10, today)
-		
+
 		// Insert test data
 		err = seeder.SeedShorts(ctx, shorts)
 		require.NoError(t, err, "Should be able to seed shorts data")
-		
+
 		err = seeder.SeedCompanyMetadata(ctx, metadata)
 		require.NoError(t, err, "Should be able to seed company metadata")
 
@@ -79,7 +79,7 @@ func TestDatabaseOperations(t *testing.T) {
 		// Seed the data
 		err := seeder.SeedCompanyMetadata(ctx, []testdata.CompanyMetadata{metadata})
 		require.NoError(t, err)
-		
+
 		err = seeder.SeedShorts(ctx, shorts)
 		require.NoError(t, err)
 
@@ -139,7 +139,7 @@ func TestShortsServiceIntegration(t *testing.T) {
 		testDate := time.Now().Truncate(24 * time.Hour)
 		stockCodes := []string{"CBA", "BHP", "CSL", "WBC", "NAB"}
 		shorts, metadata, _ := testdata.GetMultipleStocksTestData(stockCodes, testDate.AddDate(0, 0, -30), 30)
-		
+
 		// Seed the database
 		require.NoError(t, seeder.SeedCompanyMetadata(ctx, metadata))
 		require.NoError(t, seeder.SeedShorts(ctx, shorts))
@@ -189,7 +189,7 @@ func TestShortsServiceIntegration(t *testing.T) {
 			// Full service tests are in TestShortsServiceWithSeededData
 			t.Log("No SHORTS_API_URL set - database setup verified, skipping API tests")
 			t.Log("Use TestShortsServiceWithSeededData for full service integration tests")
-			
+
 			// Verify data was seeded
 			var count int
 			err := container.DB.QueryRow(ctx, "SELECT COUNT(*) FROM shorts").Scan(&count)
@@ -417,10 +417,10 @@ func TestDataConsistency(t *testing.T) {
 		testDate := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
 		stockCodes := []string{"CBA", "BHP", "CSL"}
 		shorts, metadata, _ := testdata.GetMultipleStocksTestData(stockCodes, testDate, 5)
-		
+
 		err := seeder.SeedCompanyMetadata(ctx, metadata)
 		require.NoError(t, err)
-		
+
 		err = seeder.SeedShorts(ctx, shorts)
 		require.NoError(t, err)
 
@@ -466,10 +466,10 @@ func TestPerformance(t *testing.T) {
 		testDate := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
 		stockCodes := testdata.GetSampleStocks()
 		shorts, metadata, _ := testdata.GetMultipleStocksTestData(stockCodes, testDate, 1)
-		
+
 		err := seeder.SeedCompanyMetadata(ctx, metadata)
 		require.NoError(t, err)
-		
+
 		err = seeder.SeedShorts(ctx, shorts)
 		require.NoError(t, err)
 
@@ -522,10 +522,10 @@ func TestCleanup(t *testing.T) {
 		seeder := container.GetSeeder()
 		testDate := time.Now().Truncate(24 * time.Hour)
 		shorts, metadata := testdata.GetTopShortsTestData(5, testDate)
-		
+
 		err = seeder.SeedCompanyMetadata(ctx, metadata)
 		require.NoError(t, err)
-		
+
 		err = seeder.SeedShorts(ctx, shorts)
 		require.NoError(t, err)
 

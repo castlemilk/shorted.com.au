@@ -82,7 +82,7 @@ func adminReadTool[I, O any](name, title, description string, meta sdk.Meta, han
 func adminScopedReadTool[I, O any](scope, name, title, description string, meta sdk.Meta, handler func(context.Context, AdminOperator, *sdk.CallToolRequest, I) (O, error)) AdminTool {
 	t := AdminTool{Name: name, Scope: scope}
 	t.register = func(server *sdk.Server, reader AdminOperator) {
-		spec := &sdk.Tool{Name: name, Title: title, Description: description, Meta: meta, Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, DestructiveHint: boolPtr(false), IdempotentHint: true, OpenWorldHint: boolPtr(false)}}
+		spec := &sdk.Tool{Name: name, Title: title, Description: description, Meta: meta, Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, DestructiveHint: new(false), IdempotentHint: true, OpenWorldHint: new(false)}}
 		if name == "list_async_jobs" {
 			spec.Icons = entrypointIcons()
 		}

@@ -21,6 +21,7 @@ import { FEATURED } from "~/@/components/news/masthead/featured";
 import { LeadStory } from "~/@/components/news/masthead/lead-story";
 import { StoryStack } from "~/@/components/news/masthead/story-stack";
 import { WireList } from "~/@/components/news/masthead/wire-list";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   // Root layout applies `%s | Shorted` template — don't include the suffix here.
@@ -289,10 +290,7 @@ export default async function NewsIndexPage() {
   return (
     <DashboardLayout>
       <BreadcrumbStructuredData items={breadcrumbItems} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
-      />
+      <JsonLd data={itemList} />
       <LLMMeta
         title="ASX News & Sentiment Hub"
         description="Latest news on Australian stocks with AI-classified sentiment, aggregated from multiple Australian financial publications."

@@ -321,7 +321,7 @@ describe("/shorts/[stockCode]/strategy", () => {
     expect(input.code).toBe("BHP");
     expect(input.tab).toBe("strategy");
     expect(input.title("BHP Group")).toBe(
-      "BHP Strategy Fit: Breakout, CANSLIM & Trend Rules | BHP Group",
+      "BHP Strategy Fit: Breakout, CANSLIM & Trend | BHP Group",
     );
     expect(input.description("BHP Group")).toContain("BHP Group (ASX:BHP)");
     expect(input.keywords).toEqual([

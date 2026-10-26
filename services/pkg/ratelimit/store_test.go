@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,6 +35,7 @@ func (r *stubRows) CommandTag() pgconn.CommandTag                { return pgconn
 func (r *stubRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
 func (r *stubRows) Values() ([]any, error)                       { return nil, nil }
 func (r *stubRows) RawValues() [][]byte                          { return nil }
+func (r *stubRows) TypeMap() *pgtype.Map                         { return pgtype.NewMap() }
 func (r *stubRows) Conn() *pgx.Conn                              { return nil }
 
 func (r *stubRows) Next() bool {

@@ -28,7 +28,8 @@ export const revalidate = 3600;
 const PRESS_EMAIL = "ben@shorted.com.au";
 
 export const metadata: Metadata = {
-  title: "Press & Media Kit — Shorted.com.au",
+  // No brand: the root layout's `%s | Shorted` template appends it.
+  title: "Press & Media Kit",
   description:
     "Media resources for journalists covering ASX short selling: how to cite our data, what you may republish, logo downloads, embeddable charts, and media contact.",
   alternates: { canonical: `${siteConfig.url}/press` },

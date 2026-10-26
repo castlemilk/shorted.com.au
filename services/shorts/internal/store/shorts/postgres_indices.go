@@ -87,7 +87,7 @@ func (s *postgresStore) GetIndexSeries(q IndexSeriesQuery) (*shortsv1alpha1.GetI
 	requestedFrom, requestedTo := q.From, q.To
 
 	var where string
-	args := []interface{}{code}
+	args := []any{code}
 	switch {
 	case q.From != "":
 		where = " AND date >= $2::date"
@@ -202,7 +202,7 @@ func thinIndexPoints(points []*shortsv1alpha1.IndexPoint, max int) []*shortsv1al
 	}
 	out := make([]*shortsv1alpha1.IndexPoint, 0, max)
 	step := float64(len(points)-1) / float64(max-1)
-	for i := 0; i < max; i++ {
+	for i := range max {
 		out = append(out, points[int(math.Round(float64(i)*step))])
 	}
 	return out

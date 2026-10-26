@@ -70,7 +70,7 @@ func (s *postgresStore) StreamPanel(ctx context.Context, q PanelQuery, fn func(P
 		       "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
 		FROM shorts
 		WHERE "DATE" >= $1::timestamp AND "DATE" <= $2::timestamp` + shortFilter
-	args := []interface{}{q.From + " 00:00:00", q.To + " 23:59:59"}
+	args := []any{q.From + " 00:00:00", q.To + " 23:59:59"}
 
 	if len(q.ProductCodes) > 0 {
 		query += ` AND "PRODUCT_CODE" = ANY($3)`

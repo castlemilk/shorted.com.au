@@ -19,6 +19,7 @@ import { SentimentBadge } from "~/@/components/ui/sentiment-badge";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { formatRelativeTime } from "~/@/lib/relative-time";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { AlertTriangle, Newspaper, RefreshCw } from "lucide-react";
 
 function newsClient() {
@@ -92,9 +93,11 @@ export function NewsFeedRow({ article }: { article: NewsArticle }) {
       ? `Also covered by ${article.syndicatedSources.join(", ")}`
       : undefined;
 
+  // A scraped URL that is not http(s) leaves the card without an href: it is
+  // shown, not linked.
   return (
     <a
-      href={article.url}
+      href={safeExternalHref(article.url)}
       target="_blank"
       rel="noopener noreferrer"
       className="group -mx-2 flex gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50"
@@ -172,9 +175,11 @@ export function RelatedNewsRow({
   article: NewsArticle;
   anchorStockCode?: string;
 }) {
+  // A scraped URL that is not http(s) leaves the card without an href: it is
+  // shown, not linked.
   return (
     <a
-      href={article.url}
+      href={safeExternalHref(article.url)}
       target="_blank"
       rel="noopener noreferrer"
       className="group -mx-2 block rounded-lg p-2 transition-colors hover:bg-muted/50"

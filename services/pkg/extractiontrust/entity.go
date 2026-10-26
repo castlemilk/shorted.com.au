@@ -87,10 +87,7 @@ func EntityMatches(entity, companyName string) bool {
 			}
 		}
 	}
-	smaller := len(a)
-	if len(b) < smaller {
-		smaller = len(b)
-	}
+	smaller := min(len(b), len(a))
 	return distinctive && shared*2 > smaller
 }
 

@@ -23,12 +23,12 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.26"
+  GO_VERSION: "1.27"
   # Pin the linter. golangci-lint v2 reads the `version: "2"` config in
   # services/.golangci.yaml; a v1 binary silently ignores it and reports a
   # different issue set, which would make this gate mean something different
   # from `make lint-backend` on a developer's machine.
-  GOLANGCI_VERSION: "v2.10.1"
+  GOLANGCI_VERSION: "v2.15.0"
 
 concurrency:
   group: go-quality-${{ github.ref }}
@@ -122,6 +122,18 @@ jobs:
       # tests fake Docker, so they need no daemon or registry.
       - name: Integration image prefetch tests
         run: GOWORK=off go test -p=1 -timeout=30s ./scripts/prefetch-integration-images/*.go
+
+      # tidy resolves every GOOS and build tag; a build on a Mac does not. The
+      # jobs module once lacked go.sum entries that only archive_linux.go under
+      # the testcontainers tag needs, so it built on every laptop and in every
+      # PR, and failed run-tests on main, which cancelled the deploy.
+      - name: go.mod and go.sum are tidy
+        env:
+          GOWORK: off
+          GOPRIVATE: github.com/skunkworq/*
+        run: |
+          (cd services && go mod tidy -diff)
+          (cd services/jobs && go mod tidy -diff)
 
       # -short is what scripts/local-verify.sh runs, and it is what keeps this
       # job free of Docker and live network: the testcontainer and RUN_LIVE

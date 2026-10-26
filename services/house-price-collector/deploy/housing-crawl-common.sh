@@ -214,8 +214,9 @@ hc_acquire_lock() {
 # hc_drain_until_empty loops `-mode agent` until the brandbrain queue is drained, so
 # ONE scheduled invocation clears the whole enqueue instead of leaving ~cap jobs
 # behind (each `-mode agent` run only claims up to CRAWL_AGENT_MAX_JOBS, default 20,
-# then self-warms Chrome + refreshes the housing MVs + pings revalidate). Bounded by
-# CRAWL_DRAIN_MAX_ROUNDS (default 30). Round-terminating signals, in order:
+# then self-warms Chrome + refreshes the housing MVs, and leaves its revalidate ping
+# to the drain, below). Bounded by CRAWL_DRAIN_MAX_ROUNDS (default 30).
+# Round-terminating signals, in order:
 #   rc 3  -> a sweep tripped the re-warm circuit. COOL DOWN and retry in the same
 #            invocation (CRAWL_REWARM_COOLDOWN_SEC, CRAWL_REWARM_MAX_RETRIES);
 #            only return 3 once that budget is spent. Handing a re-warm back to
@@ -231,7 +232,45 @@ hc_acquire_lock() {
 # Parses the collector's own STABLE log lines "[agent] no more jobs" and
 # "[agent] done: processed N job(s)" (see runAgent in crawl_agent.go, which carries
 # a comment pinning that contract).
+#
+# Cache revalidation is once per DRAIN, not once per round. A round that wrote
+# data used to ping /api/revalidate itself, and one ping purges /price-drops,
+# /housing and every suburb page and flushes the whole housing KV prefix. A drain
+# of N rounds purged them N times, so nearly every visit during a drain was the
+# first request after a purge, which renders while the visitor waits (2026-10-21:
+# /price-drops, two GETs 20 minutes apart, both 44s at Age 0). Each round now runs
+# with CRAWL_REVALIDATE_DEFER=1 and logs "deferred to the drain" instead
+# (revalidateAfterCrawlWrite in revalidate.go). The drain runs `-mode revalidate`
+# once when it ends, whichever way it ends, and at most once per
+# CRAWL_REVALIDATE_INTERVAL_SEC (default 3600) while a long drain runs. The ping
+# is best-effort: it never changes the drain's return code.
 hc_drain_until_empty() {
+	local revalidate_due=0 revalidated_at rc
+	revalidated_at="$(date +%s)"
+	hc_drain_rounds
+	rc=$?
+	if ((revalidate_due)); then
+		hc_drain_revalidate
+	fi
+	return "$rc"
+}
+
+# hc_drain_revalidate sends the drain's one cache bust (see hc_drain_until_empty)
+# and resets the state it shares with hc_drain_rounds.
+hc_drain_revalidate() {
+	local revalidate_rc=0
+	echo "$(date -u +%FT%TZ) drain: revalidating the housing caches for the rounds that deferred" >>"$LOG"
+	"$BIN" -mode revalidate >>"$LOG" 2>&1 || revalidate_rc=$?
+	if ((revalidate_rc != 0)); then
+		echo "$(date -u +%FT%TZ) drain: revalidate exited $revalidate_rc (best-effort; the drain result is unchanged)" >>"$LOG"
+	fi
+	revalidate_due=0
+	revalidated_at="$(date +%s)"
+}
+
+# hc_drain_rounds is the round loop behind hc_drain_until_empty, which owns the
+# contract documented there.
+hc_drain_rounds() {
 	local max_rounds="${CRAWL_DRAIN_MAX_ROUNDS:-30}"
 	# A re-warm is a routine Kasada outcome, not a fault, and the collector
 	# self-warms at the start of every `-mode agent` round — so the only thing a
@@ -262,12 +301,20 @@ hc_drain_until_empty() {
 	while ((round < max_rounds)); do
 		round=$((round + 1))
 		: >"$capture_file"
-		"$BIN" -mode agent 2>&1 | /usr/bin/tee -a "$LOG" "$capture_file" >/dev/null
+		CRAWL_REVALIDATE_DEFER=1 "$BIN" -mode agent 2>&1 | /usr/bin/tee -a "$LOG" "$capture_file" >/dev/null
 		rc=${PIPESTATUS[0]}
 		out="$(/bin/cat "$capture_file")"
 		processed="$(printf '%s\n' "$out" | /usr/bin/sed -n 's/.*done: processed \([0-9][0-9]*\) job.*/\1/p' | tail -1)"
 		processed="${processed:-0}"
 		echo "$(date -u +%FT%TZ) drain round $round/$max_rounds: rc=$rc processed=$processed" >>"$LOG"
+		# Before the rc dispatch below, so a round that wrote data and then
+		# ended the drain (a re-warm, a dead Chrome) still gets its ping.
+		if printf '%s\n' "$out" | /usr/bin/grep -q "deferred to the drain"; then
+			revalidate_due=1
+		fi
+		if ((revalidate_due)) && (($(date +%s) - revalidated_at >= ${CRAWL_REVALIDATE_INTERVAL_SEC:-3600})); then
+			hc_drain_revalidate
+		fi
 		case "$rc" in
 		3)
 			if ((rewarms >= rewarm_budget)); then

@@ -15,7 +15,7 @@
 import Link from "next/link";
 
 import { HousingBreadcrumb } from "./housing-breadcrumb";
-import { STATE_NAMES, stateSlug, suburbHref } from "@/lib/housing/states";
+import { STATE_NAMES, suburbExplorerHref, suburbHref } from "@/lib/housing/states";
 import type { SuburbContext } from "@/lib/housing/suburb-stats";
 
 export type ContextNeighbour = {
@@ -78,7 +78,7 @@ export function SuburbContextBar({
       </div>
 
       <Link
-        href={`/housing/${stateSlug(stateCode)}?sal=${salCode}`}
+        href={suburbExplorerHref(stateCode, salCode)}
         aria-label={`View ${suburbName.toLowerCase()} on the ${stateName} map`}
         className="hit-target-touch inline-flex shrink-0 items-center whitespace-nowrap text-[11px] text-primary transition-colors hover:text-foreground"
       >

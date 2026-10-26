@@ -1,8 +1,11 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { parseOpenAPISpec, getEndpoint, getApiBaseUrl } from '~/lib/openapi/parser';
 import { EndpointContent } from '~/@/components/docs/endpoint-content';
 import { CodePanel } from '~/@/components/docs/code-panel';
+import { siteConfig } from '~/@/config/site';
+import { apiDocsMetadata, descriptionSnippet, endpointTitle } from '../docs-metadata';
 
 interface EndpointPageProps {
   params: {
@@ -24,9 +27,11 @@ export default async function EndpointPage({ params }: EndpointPageProps) {
     return notFound();
   }
 
-  // The host the published samples target comes from the generated spec
-  // (`servers[0].url`), so the docs cannot drift from the document.
-  const baseUrl = await getApiBaseUrl();
+  // The host the published samples target comes from the generated spec, so
+  // the docs cannot drift from the document: the endpoint's own `servers`
+  // when its path declares one (/api/search/stocks and /feed.xml are served by
+  // the web app, not the API host), else the document's `servers[0].url`.
+  const baseUrl = endpoint.servers?.[0]?.url ?? (await getApiBaseUrl());
 
   return (
     <div className="xl:grid xl:grid-cols-[1fr_400px] gap-0">
@@ -46,14 +51,17 @@ export default async function EndpointPage({ params }: EndpointPageProps) {
   );
 }
 
-export async function generateMetadata({ params }: EndpointPageProps) {
+export async function generateMetadata({ params }: EndpointPageProps): Promise<Metadata> {
   const endpoint = await getEndpoint(params.endpoint);
   if (!endpoint) return {};
 
-  return {
-    title: `${endpoint.summary ?? endpoint.path} | Shorted API Documentation`,
-    description: endpoint.description ?? `Documentation for the ${endpoint.path} API endpoint.`,
-  };
+  return apiDocsMetadata({
+    title: endpointTitle(endpoint),
+    description:
+      descriptionSnippet(endpoint.description ?? '') ||
+      `Documentation for the ${endpoint.path} API endpoint.`,
+    canonical: `${siteConfig.url}/docs/api/${endpoint.id}`,
+  });
 }
 
 

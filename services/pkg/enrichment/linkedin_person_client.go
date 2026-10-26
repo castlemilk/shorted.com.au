@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -242,10 +243,7 @@ func (c *LinkedInPersonClient) findViaSearchAndScrape(ctx context.Context, perso
 	candidates = c.searchDDGForLinkedIn(ctx, nil, query, nameParts)
 
 	// Scrape top candidates (limit to 2 to conserve LinkedIn rate limit budget)
-	limit := 2
-	if len(candidates) < limit {
-		limit = len(candidates)
-	}
+	limit := min(len(candidates), 2)
 	for i := 0; i < limit; i++ {
 		result := c.scrapeAndVerifyCandidate(ctx, nil, candidates[i], personName, companyName, stockCode, true)
 		if result != nil {
@@ -334,7 +332,7 @@ func (c *LinkedInPersonClient) findViaSearchAndScrape(ctx context.Context, perso
 func slugPrefixToName(slug, originalName string) string {
 	nameLower := strings.ToLower(originalName)
 	var parts []string
-	for _, word := range strings.Fields(nameLower) {
+	for word := range strings.FieldsSeq(nameLower) {
 		var cleaned strings.Builder
 		for _, r := range word {
 			if r >= 'a' && r <= 'z' {
@@ -360,15 +358,15 @@ func slugPrefixToName(slug, originalName string) string {
 func simplifyRole(role string) string {
 	role = strings.TrimSpace(strings.ToLower(role))
 	abbrevs := map[string]string{
-		"chief executive officer":   "CEO",
-		"managing director":         "managing director",
-		"chief financial officer":   "CFO",
-		"chief operating officer":   "COO",
-		"chief technology officer":  "CTO",
-		"chairman":                  "chairman",
-		"executive chairman":        "chairman",
-		"non-executive chairman":    "chairman",
-		"founder":                   "founder",
+		"chief executive officer":  "CEO",
+		"managing director":        "managing director",
+		"chief financial officer":  "CFO",
+		"chief operating officer":  "COO",
+		"chief technology officer": "CTO",
+		"chairman":                 "chairman",
+		"executive chairman":       "chairman",
+		"non-executive chairman":   "chairman",
+		"founder":                  "founder",
 	}
 	for full, abbr := range abbrevs {
 		if strings.Contains(role, full) {
@@ -826,18 +824,16 @@ func IsPlaceholderName(name string) bool {
 	nameLower := strings.ToLower(name)
 
 	// Exact placeholder names
-	for _, placeholder := range []string{
+	if slices.Contains([]string{
 		"john doe", "jane doe", "john smith", "jane smith",
 		"n/a", "tbd", "unknown", "not available", "vacant",
-	} {
-		if nameLower == placeholder {
-			return true
-		}
+	}, nameLower) {
+		return true
 	}
 
 	// Clean the name to get alpha-only words
 	var words []string
-	for _, word := range strings.Fields(nameLower) {
+	for word := range strings.FieldsSeq(nameLower) {
 		var cleaned strings.Builder
 		for _, r := range word {
 			if r >= 'a' && r <= 'z' {
@@ -870,13 +866,7 @@ func IsPlaceholderName(name string) bool {
 	// If name ends with common company suffixes, it's likely a company name
 	companySuffixes := []string{"group", "limited", "ltd", "inc", "pty", "corp", "corporation", "holdings"}
 	lastWord := words[len(words)-1]
-	for _, suffix := range companySuffixes {
-		if lastWord == suffix {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(companySuffixes, lastWord)
 }
 
 // generateLinkedInSlugs constructs plausible LinkedIn URL slugs for a person
@@ -912,7 +902,7 @@ func generateLinkedInSlugs(name string) []string {
 
 	// Clean to alpha-only parts
 	var parts []string
-	for _, word := range strings.Fields(stripped) {
+	for word := range strings.FieldsSeq(stripped) {
 		var cleaned strings.Builder
 		for _, r := range word {
 			if r >= 'a' && r <= 'z' {
@@ -937,7 +927,7 @@ func generateLinkedInSlugs(name string) []string {
 	}
 	cleanedLower = strings.TrimSpace(cleanedLower)
 	var cleanParts []string
-	for _, word := range strings.Fields(cleanedLower) {
+	for word := range strings.FieldsSeq(cleanedLower) {
 		var cleaned strings.Builder
 		for _, r := range word {
 			if r >= 'a' && r <= 'z' {
@@ -964,8 +954,8 @@ func generateLinkedInSlugs(name string) []string {
 		}
 	}
 
-	add("dr" + concat)       // drandrewforrest
-	add("dr-" + hyphen)      // dr-andrew-forrest
+	add("dr" + concat)  // drandrewforrest
+	add("dr-" + hyphen) // dr-andrew-forrest
 
 	return slugs
 }
@@ -977,7 +967,7 @@ func personNameToLinkedInProfileSlug(name string) string {
 	}
 	name = strings.ToLower(name)
 	var parts []string
-	for _, word := range strings.Fields(name) {
+	for word := range strings.FieldsSeq(name) {
 		var cleaned strings.Builder
 		for _, r := range word {
 			if r >= 'a' && r <= 'z' {

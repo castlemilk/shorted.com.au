@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache";
 
 import { RegisterReviewService } from "~/gen/registerreview/v1/register_review_pb";
 import { requireAdmin } from "~/server/admin";
+import { internalServiceSecret } from "~/server/internal-service-secret";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "../config";
 
 async function crmClient() {
@@ -24,10 +25,13 @@ async function crmClient() {
   return {
     client: createClient(RegisterReviewService, transport),
     headers: {
-      "X-Internal-Secret": process.env.INTERNAL_SECRET ?? "dev-internal-secret",
+      "X-Internal-Secret": internalServiceSecret(),
       // curated_by / merged_by are read from this header server-side.
       "X-User-Email": admin.email,
       "X-User-Id": admin.userId,
+      // Asserted only because requireAdmin() above just passed. The API grants
+      // admin from this header and from nothing else.
+      "X-User-Roles": "admin",
     },
   };
 }

@@ -1,4 +1,4 @@
-import { splitSalName, suburbHref, suburbSlug, titleCaseName } from "./states";
+import { splitSalName, suburbExplorerHref, suburbHref, suburbSlug, titleCaseName } from "./states";
 
 describe("suburb names", () => {
   test("ABS names are never re-cased", () => {
@@ -57,8 +57,35 @@ describe("suburb slugs are unchanged by the name fix", () => {
     expect(suburbSlug(name, postcode)).toBe(slug);
   });
 
-  test("the href keeps the load-bearing ?sal=", () => {
-    expect(suburbHref("QLD", { salName: "Paddington (Qld)", postcode: "", salCode: "32250" }))
-      .toBe("/housing/qld/paddington-qld?sal=32250");
+});
+
+// Internal links must be the URL the sitemap lists and the page canonicalises
+// to. The page resolves the suburb from the path alone, so `?sal=` only minted a
+// duplicate URL (111 such links on the pages probed 2026-10-21), and no SAL row
+// carries a postcode (0 of 15,345 in prod), so a postcode slug only redirected.
+describe("suburbHref is the canonical path", () => {
+  test.each([
+    ["VIC", "Altona North", "/housing/vic/altona-north"],
+    ["QLD", "Paddington (Qld)", "/housing/qld/paddington-qld"],
+    // A name that repeats inside one state: ABS qualifies each with its LGA,
+    // and that qualifier is what keeps the two slugs apart.
+    ["VIC", "Ascot (Ballarat - Vic.)", "/housing/vic/ascot-ballarat-vic"],
+    ["VIC", "Ascot (Greater Bendigo - Vic.)", "/housing/vic/ascot-greater-bendigo-vic"],
+    ["ACT", "O'Connor (ACT)", "/housing/act/o-connor-act"],
+  ])("%s %s → %s", (state, salName, href) => {
+    const got = suburbHref(state, { salName, postcode: "" });
+    expect(got).toBe(href);
+    expect(got).not.toContain("?");
+    expect(got).not.toMatch(/-\d{4}$/);
+  });
+
+  test("a feed postcode stays in the slug, exactly as the sitemap mints it", () => {
+    expect(suburbHref("VIC", { salName: "St Kilda East", postcode: "3183" }))
+      .toBe(`/housing/vic/${suburbSlug("St Kilda East", "3183")}`);
+  });
+
+  test("the explorer deep link is the only href that carries ?sal=", () => {
+    expect(suburbExplorerHref("QLD", "32250")).toBe("/housing/qld?sal=32250");
+    expect(suburbExplorerHref("NSW", "12345", "zoning")).toBe("/housing/nsw?sal=12345&overlays=zoning");
   });
 });

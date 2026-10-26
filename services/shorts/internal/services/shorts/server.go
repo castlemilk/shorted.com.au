@@ -66,6 +66,9 @@ type ShortsServer struct {
 	// promises all of them. It satisfies Store and TokenStore as well, so the
 	// grant and token handlers take the same value.
 	oauthStore oauth.AuthorizationServerStore
+	// unsubscribeSecret signs and verifies one-click links: newsletter unsubscribe
+	// and alert pause. Empty means those endpoints refuse to act.
+	unsubscribeSecret string
 }
 
 // New creates instance of the Server
@@ -168,18 +171,19 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	}
 
 	return &ShortsServer{
-		config:         cfg,
-		store:          store,
-		cache:          cache,
-		logger:         logger,
-		registerServer: registerServer,
-		tokenService:   tokenService,
-		pubSubClient:   pubSubClient,
-		rateLimiter:    rateLimiter,
-		httpClient:     &http.Client{Timeout: 10 * time.Second},
-		jobsCollector:  jobmonitor.NewCollector(jobmonitor.ConfigFromEnv()),
-		oauthStore:     oauthStore,
-		peopleStore:    peopleStore,
-		ownershipStore: ownershipStore,
+		config:            cfg,
+		store:             store,
+		cache:             cache,
+		logger:            logger,
+		registerServer:    registerServer,
+		unsubscribeSecret: os.Getenv("UNSUBSCRIBE_SECRET"),
+		tokenService:      tokenService,
+		pubSubClient:      pubSubClient,
+		rateLimiter:       rateLimiter,
+		httpClient:        &http.Client{Timeout: 10 * time.Second},
+		jobsCollector:     jobmonitor.NewCollector(jobmonitor.ConfigFromEnv()),
+		oauthStore:        oauthStore,
+		peopleStore:       peopleStore,
+		ownershipStore:    ownershipStore,
 	}, nil
 }

@@ -424,6 +424,26 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
   }
 
+  // Recent alert events (monitors that fired) for the current user, newest report first.
+  rpc ListAlertEvents (ListAlertEventsRequest) returns (ListAlertEventsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Pause or resume one of the current user's monitors. Resuming requires Premium.
+  rpc UpdateAlertMonitorStatus (UpdateAlertMonitorStatusRequest) returns (UpdateAlertMonitorStatusResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Delete one of the current user's monitors and its event history.
+  rpc DeleteAlertMonitor (DeleteAlertMonitorRequest) returns (DeleteAlertMonitorResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Pause the monitor named by a signed email token (one-click unsubscribe). No session.
+  rpc PauseAlertMonitorByToken (PauseAlertMonitorByTokenRequest) returns (PauseAlertMonitorByTokenResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
   // Get a weekly short report with narrative analysis
   rpc GetWeeklyReport (GetWeeklyReportRequest) returns (GetWeeklyReportResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;

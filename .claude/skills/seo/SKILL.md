@@ -74,21 +74,62 @@ Each item is a defect that has shipped before.
 - **`robots: undefined`.** Next 14.2 merges with `for (key in source)`, so an
   own `robots` key holding undefined wipes the root's googleBot directives.
   Omit the key when indexable (`stock-tab-metadata.ts`, stock `page.tsx`).
+  It was still on 6,655 sitemap URLs on 2026-10-21 (suburbs, politicians,
+  reports, insider pages); `app/__tests__/robots-undefined.test.ts` now fails
+  any page or layout whose `robots` can be undefined.
 - **Indexability and the sitemap must agree.** `lib/seo/stock-indexability.ts`
   is the one gate for stock pages and the sitemap is a strict subset of it.
   Never list a URL the page noindexes.
 - **Titles.** The root template appends ` | Shorted`; a page whose title
   already carries the brand must use `title: { absolute }` or it renders
   "... | Shorted | Shorted". Keep the visible title under about 60
-  characters. Stock titles come from `lib/seo/stock-page-title.ts`.
+  characters before the template (65 rendered), query first. Stock titles
+  come from `lib/seo/stock-page-title.ts`, the tabs' from
+  `lib/seo/stock-tab-title.ts`. `app/__tests__/title-brand.test.ts` fails a
+  page or layout title that carries the brand, and `title-length.test.ts`
+  pins one page of each template.
 - **Live claims on stale data.** A stock missing from ASIC's report for more
   than 90 days (`isStaleShortDate`, `lib/stocks/as-of-date.ts`) keeps its
   page but its snippet drops the %, the 30-day move and "Updated daily". Any
   new "as of" or "updated" claim must come from the data's own date, never
-  `new Date()`.
+  `new Date()`. Structured data too: `DatasetStructuredData` omits
+  `dateModified` when the caller passes no date (it stamped the render time
+  on `/`, `/data` and `/battlegrounds` until 2026-10-21), so pass the data's
+  date (`app/__tests__/home-dataset-date.test.tsx`).
+- **Stale codes in aggregates.** `mv_screener_data` keeps each code's last
+  ASIC row however old, so a count or a "4-week move" over the screener took
+  in codes last reported in 2011-2023 (CSJ, 2012, led `/statistics`' risers
+  on 2026-10-21). `/statistics` counts only codes in the latest ASIC report
+  (`app/actions/getShortStatistics.ts`, pinned by its test). `/screener`,
+  `/scans`, `/battlegrounds` and the MCP `screen_stocks` tool read the
+  unbounded view until its `latest_shorts` is bounded.
+- **JSON-LD.** Write structured data through `<JsonLd data={...} />`
+  (`components/seo/json-ld.tsx`). It escapes `<`, `>` and `&`, so a stored
+  value cannot close the script, which a bare `JSON.stringify` in
+  `dangerouslySetInnerHTML` allows. `app/__tests__/json-ld-escaping.test.ts`
+  fails any other `application/ld+json` script.
 - **ISR killers.** Reading `searchParams`, `cookies()` or `headers()` in a
   server page makes it dynamic. Read query state client-side. See the stock
-  page landmines in CLAUDE.md.
+  page landmines in CLAUDE.md. Four more, all found on 2026-10-21. A page is
+  ISR when its second GET answers `HIT` with `public, max-age=0,
+  must-revalidate`.
+  - On a dynamic route `revalidate` does nothing without
+    `generateStaticParams`: every blog post, take, compare pair and insider
+    page (about 940 sitemap URLs) rendered per request, `private, no-store`.
+    Add an empty one with `dynamicParams = true`
+    (`app/__tests__/isr-static-params.test.ts`).
+  - `dynamic = "force-dynamic"` beside `revalidate` wins (`/shorts`);
+    `app/__tests__/isr-hubs.test.ts` fails the pair anywhere.
+  - A Connect POST with no `next` lifetime goes `no-store` at runtime and
+    throws inside a regeneration, so Next discards the render:
+    `/battlegrounds` sat `STALE` with a frozen `age`.
+    `app/actions/__tests__/serverApiSurface.test.ts` walks every static
+    route's imports for one.
+  - ISR caches what a regeneration renders, a `notFound()` or an empty list
+    from a failed read included, for the whole revalidate. Make a page fail
+    closed before making it ISR: 404 only on NotFound, and throw on a failed
+    read (`loadStockOrFail`) or cap the render with `bailOnEmptyRender`
+    (`app/__tests__/isr-degraded-render.test.ts`).
 - **Junk URL fan-out.** Links carrying per-page query strings (sign-in
   `callbackUrl`, filters) multiply crawlable URLs. Noindex the target and
   `rel="nofollow"` the link; do not `Disallow` in robots.txt, which strands
@@ -97,8 +138,10 @@ Each item is a defect that has shipped before.
   open: news cards link `/shorts/<CODE>` for every tagged code, and a company
   that has never appeared in ASIC's short report has no stock page (404). 214
   codes tagged in the last 30 days of news had no page on 2026-10-15
-  (ANT and WC1 reached the homepage). Fixing it is a product call: render a
-  company page without short data, or only link codes that have one.
+  (ANT and WC1 reached the homepage), and 217 of 2,151 on 2026-10-21, when
+  the `/politicians` most-declared table also linked ERL, a 404. Fixing it is
+  a product call: render a company page without short data, or only link
+  codes that have one.
 - **Thin programmatic sections.** `/compare/*` (123 pages, 4 clicks in 28
   days) and `/glossary/*` (67 pages, 2 clicks, entries of 130-150 words) on
   2026-10-15. Prefer noindexing or merging over adding more pages of a type
@@ -114,6 +157,11 @@ Each item is a defect that has shipped before.
 - **Slow pages.** The crawl's `slow-response` list (over about 1.5s). Rarely
   visited ISR pages are slow on a cache miss, and crawlers mostly hit cold
   pages. Hand real performance work to `perf-optimization`.
+- **Fixed-size images.** `next/image` with a fixed width and height plus
+  `sizes` lists all 16 widths, 16w to 3840w: a 20 px logo carried 2 KB of
+  `srcSet`, and `/reports/weekly` 747 KB. Drop `sizes` for a 1x/2x pair; a
+  `fill` image gets a fixed width and height instead
+  (`components/reports/__tests__/stock-logo-img.test.tsx`).
 
 ## 3. Fix
 

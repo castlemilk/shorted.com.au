@@ -150,3 +150,22 @@ func TestRecorderFailWritesOnCancelledContext(t *testing.T) {
 		t.Fatalf("unexpected fail write: %q %+v", db.calls[0].SQL, db.calls[0].Args)
 	}
 }
+
+// TestInsertRunSQLSetsEnvironmentAndHostname pins the contract the alerts evaluator
+// relies on. Its readiness gate reads only sync_status rows that carry environment
+// and hostname (services/jobs/internal/jobs/alerts asicSyncRow), because the price
+// sweep's insert leaves both NULL. If this insert stops writing either column, the
+// gate would silently ignore every ASIC run.
+func TestInsertRunSQLSetsEnvironmentAndHostname(t *testing.T) {
+	head := insertRunSQL
+	cols := head[:strings.Index(head, ") VALUES")]
+	for _, col := range []string{"environment", "hostname"} {
+		if !strings.Contains(cols, col) {
+			t.Fatalf("insertRunSQL column list must include %q for the alerts gate: %s", col, cols)
+		}
+	}
+	vals := head[strings.Index(head, ") VALUES"):]
+	if !strings.Contains(vals, "$2, $3") {
+		t.Fatalf("environment and hostname must be bound, not literal NULL: %s", vals)
+	}
+}

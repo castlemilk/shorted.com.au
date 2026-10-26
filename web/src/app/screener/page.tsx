@@ -5,6 +5,7 @@ import { siteConfig } from "~/@/config/site";
 import { pageTitle } from "~/@/lib/typography";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { ScreenerFallback } from "./screener-fallback";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 const ScreenerPageClient = dynamic(
   () =>
@@ -176,10 +177,7 @@ export default function ScreenerPage() {
   return (
     <main className="min-h-[calc(100vh-4rem)]">
       <BreadcrumbListSchema items={breadcrumbs} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(webApplicationSchema) }}
-      />
+      <JsonLd data={webApplicationSchema} />
       <div className="container mx-auto px-4 pt-6 pb-2 max-w-7xl">
         <h1 className={pageTitle}>
           ASX Short Interest Screener

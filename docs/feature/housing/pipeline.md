@@ -1,11 +1,12 @@
 # Pipeline
 
 Every mode is `house-price-collector -mode <name>`, implemented in
-`services/house-price-collector/`. **37 modes** — every value the `-mode` flag
+`services/house-price-collector/`. **38 modes** — every value the `-mode` flag
 lists in `main.go`, `all` included (recounted 2026-09-24 on the integration of
-the council, planning and price-drops streams; the switch also accepts an
-undocumented `abs` alias for `official`). Earlier counts in these docs ("22",
-"27") and the monolith's "7 modes" / CLAUDE.md's "11" are stale. The table
+the council, planning and price-drops streams, plus the drain's `revalidate`
+on 2026-10-21; the switch also accepts an undocumented `abs` alias for
+`official`). Earlier counts in these docs ("22", "27", "37") and the monolith's
+"7 modes" / CLAUDE.md's "11" are stale. The table
 below lists the ingest modes; `vg-nsw`, `vg-vic`, `seifa`, `elevation`,
 `property-resolve`, `mcp`, `drop-index` and `all` have no row of their own;
 they are only mentioned in the trigger table above and the sections below.
@@ -55,6 +56,7 @@ migration 000056 after census" step in older docs is superseded.
 |---|---|---|
 | `official` (alias `abs`) | `house_price_regions`, `house_prices`, run cursors | 16 jobs (below) + `refresh` |
 | `refresh` | sal_code links, 6 housing MVs, revalidate ping | Detached context — a crawl deadline firing must not kill the refresh of committed data |
+| `revalidate` | — (web cache bust only) | The drain's one ping for the `agent` rounds that deferred theirs (`hc_drain_until_empty`, see "Once per drain" below). Needs no DB: dispatched before the `DATABASE_URL` check. Best-effort like every ping, so it always exits 0 and the drain keeps its own code |
 | `census` | `suburb_demographics` | Needs `CENSUS_DATAPACK_PATH` + `CENSUS_GEO_DIR` (ABS GCP SAL zip + boundary TopoJSON) |
 | `electorates` | `suburb_demographics` federal columns | Needs `ELECTORATES_DIR` (precomputed `web/public/geo/electorates/*.json`) |
 | `banners` | `suburb_demographics.banner_*` | From committed `suburb-archetypes.json` (`ARCHETYPES_FILE`) — no crawl |
@@ -71,7 +73,7 @@ migration 000056 after census" step in older docs is superseded.
 | `planning` | `suburb_planning` | From the artifact EMBEDDED in the binary (`data/suburb-planning.json`, `//go:embed`; `PLANNING_FILE` overrides), built offline by `web/scripts/geo/planning/` (zoning families, heritage, NSW standards). No fetch. `validate()` rejects shares outside 0–100, families that don't sum to coverage, and any value for a state with no source. Cursor `suburb_planning` |
 | `crime` | `suburb_crime_stats` + MV refresh | Yearly, operator-run, `CRIME_DRY_RUN` default true; BOCSAR 436MB + ABS CVS/ERP |
 | `enqueue` | brandbrain `crawl_jobs` queue | `CRAWL_ENQUEUE_SELECTION=all\|delta` (default all), `_SOURCE` default `split` (separate REA/Domain jobs), `_BATCH` 40 |
-| `agent` | `property_listings`, `property_price_events`, counts-only summary → brandbrain | Queue drainer. `BRANDBRAIN_AGENT_URL` required; token auto-refreshes on 401 |
+| `agent` | `property_listings`, `property_price_events`, counts-only summary → brandbrain | Queue drainer. `BRANDBRAIN_AGENT_URL` required; token auto-refreshes on 401. A round that wrote data pings revalidate itself, except under the drain's `CRAWL_REVALIDATE_DEFER=1`, where it logs `deferred to the drain` and leaves the ping to `revalidate` |
 | `listings` | Same tables, catalog-driven (no queue) | Legacy whole-catalog sweep; self-refreshes MVs internally |
 | `details` | `property_listing_details`, delist events | Per-listing detail pages; closes the per-portal SRP gap. Its `house_price_ingest_runs` cursor is named `listing_details` — that is the cursor, not the table |
 | `property` | `property_valuations` | property.com.au per-address AVM enrichment of the existing address corpus. **Known-open:** serving these per-address values contradicts migration 000088's research-only posture — fix in flight |
@@ -257,6 +259,18 @@ write and the ping must not kill the cache bust) and **no-ops silently** when
 `REVALIDATION_URL`/`REVALIDATION_SECRET` are unset — pages then self-heal on
 the ISR TTL. Rigs read both from `~/.shorted-housing-crawl.env`; the Cloud Run
 job from Terraform (`manage_revalidation_secret`).
+
+**Once per drain, not once per round.** One ping purges `/price-drops`,
+`/housing` and every suburb and state page (tag `housing`) and flushes the
+whole housing KV prefix, and on Next 14 the first request after a purge renders
+while the visitor waits. Pinging per `-mode agent` round made nearly every visit
+during a drain that first request (2026-10-21: `/price-drops`, two GETs 20
+minutes apart, both 44s at Age 0). `hc_drain_until_empty` now runs each round
+with `CRAWL_REVALIDATE_DEFER=1`; a round that wrote data logs `deferred to the
+drain` instead of pinging, and the drain runs `-mode revalidate` once when it
+ends (whatever its exit code, which it keeps), and at most once per
+`CRAWL_REVALIDATE_INTERVAL_SEC` (default 3600) during a long drain. A single
+`-mode agent` run outside the drain still pings itself.
 
 ## Rig wrappers (launchd)
 

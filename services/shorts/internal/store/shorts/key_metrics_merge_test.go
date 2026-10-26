@@ -12,7 +12,7 @@ import (
 func TestMergeKeyMetricsToInfo_EmptyInputs(t *testing.T) {
 	tests := []struct {
 		name           string
-		keyMetrics     map[string]interface{}
+		keyMetrics     map[string]any
 		existingInfo   *stocksv1alpha1.FinancialStatementsInfo
 		expectedResult *stocksv1alpha1.FinancialStatementsInfo
 	}{
@@ -24,7 +24,7 @@ func TestMergeKeyMetricsToInfo_EmptyInputs(t *testing.T) {
 		},
 		{
 			name:           "empty keyMetrics, nil info",
-			keyMetrics:     map[string]interface{}{},
+			keyMetrics:     map[string]any{},
 			existingInfo:   nil,
 			expectedResult: &stocksv1alpha1.FinancialStatementsInfo{},
 		},
@@ -52,7 +52,7 @@ func TestMergeKeyMetricsToInfo_EmptyInputs(t *testing.T) {
 
 // TestMergeKeyMetricsToInfo_AllFields tests merging all supported fields
 func TestMergeKeyMetricsToInfo_AllFields(t *testing.T) {
-	keyMetrics := map[string]interface{}{
+	keyMetrics := map[string]any{
 		"market_cap":          float64(267812405248),
 		"current_price":       float64(125.50),
 		"pe_ratio":            float64(18.5),
@@ -87,7 +87,7 @@ func TestMergeKeyMetricsToInfo_AllFields(t *testing.T) {
 // TestMergeKeyMetricsToInfo_PreserveExisting: the snapshot survives where
 // key_metrics has nothing, and for the fields key_metrics does not own.
 func TestMergeKeyMetricsToInfo_PreserveExisting(t *testing.T) {
-	keyMetrics := map[string]interface{}{
+	keyMetrics := map[string]any{
 		"market_cap":    float64(100000000),
 		"pe_ratio":      float64(10.0),
 		"sector":        "NewSector",
@@ -115,7 +115,7 @@ func TestMergeKeyMetricsToInfo_PreserveExisting(t *testing.T) {
 // yield, beta and the 52-week range (BHP read A$220bn on "Key metrics" and
 // A$331bn on Peers).
 func TestMergeKeyMetricsToInfo_KeyMetricsWinForMarketFields(t *testing.T) {
-	keyMetrics := map[string]interface{}{
+	keyMetrics := map[string]any{
 		"market_cap":          float64(331e9),
 		"pe_ratio":            float64(18.2),
 		"eps":                 float64(2.31),
@@ -145,9 +145,9 @@ func TestMergeKeyMetricsToInfo_KeyMetricsWinForMarketFields(t *testing.T) {
 
 	// A zero, missing, malformed or non-finite key_metrics value never
 	// replaces the snapshot.
-	for _, bad := range []interface{}{nil, float64(0), "not a number", "NaN", "Inf"} {
+	for _, bad := range []any{nil, float64(0), "not a number", "NaN", "Inf"} {
 		info := &stocksv1alpha1.FinancialStatementsInfo{MarketCap: 220e9}
-		got := mergeKeyMetricsToInfo(map[string]interface{}{"market_cap": bad}, info)
+		got := mergeKeyMetricsToInfo(map[string]any{"market_cap": bad}, info)
 		assert.Equal(t, float64(220e9), got.MarketCap, "key_metrics value %v must not replace the snapshot", bad)
 	}
 }
@@ -156,7 +156,7 @@ func TestMergeKeyMetricsToInfo_KeyMetricsWinForMarketFields(t *testing.T) {
 func TestMergeKeyMetricsToInfo_TypeConversions(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    interface{}
+		input    any
 		expected float64
 	}{
 		{"float64", float64(123.45), 123.45},
@@ -167,7 +167,7 @@ func TestMergeKeyMetricsToInfo_TypeConversions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			keyMetrics := map[string]interface{}{
+			keyMetrics := map[string]any{
 				"market_cap": tt.input,
 			}
 
@@ -179,7 +179,7 @@ func TestMergeKeyMetricsToInfo_TypeConversions(t *testing.T) {
 
 // TestMergeKeyMetricsToInfo_NullValues tests handling of nil values
 func TestMergeKeyMetricsToInfo_NullValues(t *testing.T) {
-	keyMetrics := map[string]interface{}{
+	keyMetrics := map[string]any{
 		"market_cap": nil,
 		"pe_ratio":   float64(15.5),
 		"sector":     nil,
@@ -195,7 +195,7 @@ func TestMergeKeyMetricsToInfo_NullValues(t *testing.T) {
 
 // TestMergeKeyMetricsToInfo_PartialData tests merging with partial data
 func TestMergeKeyMetricsToInfo_PartialData(t *testing.T) {
-	keyMetrics := map[string]interface{}{
+	keyMetrics := map[string]any{
 		"market_cap": float64(1000000),
 		"pe_ratio":   float64(12.5),
 		// Other fields missing
@@ -214,7 +214,7 @@ func TestMergeKeyMetricsToInfo_PartialData(t *testing.T) {
 
 // TestMergeKeyMetricsToInfo_InvalidTypes tests handling of invalid type values
 func TestMergeKeyMetricsToInfo_InvalidTypes(t *testing.T) {
-	keyMetrics := map[string]interface{}{
+	keyMetrics := map[string]any{
 		"market_cap": "not_a_number", // Invalid type
 		"pe_ratio":   float64(15.5),  // Valid
 		"sector":     12345,          // Invalid type for string
@@ -231,7 +231,7 @@ func TestMergeKeyMetricsToInfo_InvalidTypes(t *testing.T) {
 // TestMergeKeyMetricsToInfo_RealWorldExample tests a realistic scenario
 func TestMergeKeyMetricsToInfo_RealWorldExample(t *testing.T) {
 	// Simulate key_metrics from daily sync (has current market data)
-	keyMetrics := map[string]interface{}{
+	keyMetrics := map[string]any{
 		"market_cap":          float64(5678912345),
 		"pe_ratio":            float64(22.3),
 		"eps":                 float64(4.50),
@@ -261,7 +261,7 @@ func TestMergeKeyMetricsToInfo_RealWorldExample(t *testing.T) {
 // TestMergeKeyMetricsToInfo_EVNScenario tests the specific EVN scenario mentioned
 func TestMergeKeyMetricsToInfo_EVNScenario(t *testing.T) {
 	// Simulate EVN stock with only key_metrics (no financial_statements)
-	keyMetrics := map[string]interface{}{
+	keyMetrics := map[string]any{
 		"market_cap": float64(5678912345),
 		"pe_ratio":   float64(22.3),
 		"beta":       float64(1.05),

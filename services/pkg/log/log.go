@@ -45,27 +45,27 @@ func LevelFunc(code codes.Code) zapcore.Level {
 	return zapcore.ErrorLevel
 }
 
-func Infof(template string, args ...interface{}) {
+func Infof(template string, args ...any) {
 	zap.S().Infof(template, args...)
 }
 
-func Warnf(template string, args ...interface{}) {
+func Warnf(template string, args ...any) {
 	zap.S().Warnf(template, args...)
 }
 
 // Fatalf uses fmt.Sprintf to construct and log a message at fatal level.
-func Fatalf(template string, args ...interface{}) {
+func Fatalf(template string, args ...any) {
 	zap.S().Fatalf(template, args...)
 }
 
-func Errorf(template string, args ...interface{}) {
+func Errorf(template string, args ...any) {
 	zap.S().Errorf(template, args...)
 }
 
-func Debugf(template string, args ...interface{}) {
+func Debugf(template string, args ...any) {
 	zap.S().Debugf(template, args...)
 }
 
-func Fatal(msg interface{}) {
+func Fatal(msg any) {
 	zap.S().Fatal(msg)
 }

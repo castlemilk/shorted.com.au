@@ -3,6 +3,7 @@ package reportextract
 import (
 	"context"
 	"log"
+	"maps"
 	"os"
 	"strconv"
 	"unicode/utf8"
@@ -180,9 +181,7 @@ func extractionsToMetrics(extractions []extraction) map[string]any {
 	metrics := map[string]any{}
 	for _, ext := range extractions {
 		entry := map[string]any{"source_text": ext.Text}
-		for k, v := range ext.Attributes {
-			entry[k] = v
-		}
+		maps.Copy(entry, ext.Attributes)
 		// Provenance as STRING attributes, exactly as extract.py stores them
 		// (contract 6.1): the trust funnel reads "alignment", and the three
 		// keys are stripped before any prompt or API response.

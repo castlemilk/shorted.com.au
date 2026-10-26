@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/castlemilk/shorted.com.au/services/enrichment-processor/mocks"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/enrichment"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
-	"github.com/castlemilk/shorted.com.au/services/enrichment-processor/mocks"
 )
 
 func TestEnrichmentProcessor_ProcessJob_FullFlow(t *testing.T) {
@@ -49,11 +49,11 @@ func TestEnrichmentProcessor_ProcessJob_FullFlow(t *testing.T) {
 
 	// Mock stock details
 	stockDetails := &stocksv1alpha1.StockDetails{
-		ProductCode:    stockCode,
-		CompanyName:  "Domino's Pizza",
-		Industry:     "Food & Beverages",
-		Website:      "https://www.dominos.com.au",
-		Summary:      "Test summary",
+		ProductCode:      stockCode,
+		CompanyName:      "Domino's Pizza",
+		Industry:         "Food & Beverages",
+		Website:          "https://www.dominos.com.au",
+		Summary:          "Test summary",
 		EnrichmentStatus: "pending",
 	}
 
@@ -98,7 +98,7 @@ func TestEnrichmentProcessor_ProcessJob_FullFlow(t *testing.T) {
 		Width:        256,
 		Height:       256,
 		QualityScore: 0.9,
-		SVGData:       []byte("<svg>...</svg>"),
+		SVGData:      []byte("<svg>...</svg>"),
 	}
 
 	// Setup expectations - Phase 1: Update job status to processing
@@ -204,7 +204,7 @@ func TestEnrichmentProcessor_ProcessJob_AlreadyEnriched_WithoutForce(t *testing.
 	force := false
 
 	stockDetails := &stocksv1alpha1.StockDetails{
-		ProductCode:       stockCode,
+		ProductCode:      stockCode,
 		EnrichmentStatus: "completed", // Already enriched
 	}
 
@@ -256,10 +256,10 @@ func TestEnrichmentProcessor_ProcessJob_AlreadyEnriched_WithForce(t *testing.T) 
 	force := true // Force re-enrichment
 
 	stockDetails := &stocksv1alpha1.StockDetails{
-		ProductCode:       stockCode,
+		ProductCode:      stockCode,
 		EnrichmentStatus: "completed", // Already enriched, but force=true
-		CompanyName:     "Domino's Pizza",
-		Website:         "https://www.dominos.com.au",
+		CompanyName:      "Domino's Pizza",
+		Website:          "https://www.dominos.com.au",
 	}
 
 	mockStore.EXPECT().
@@ -325,9 +325,9 @@ func TestEnrichmentProcessor_ProcessJob_MetadataScrapingFailure(t *testing.T) {
 	stockCode := "DMP"
 
 	stockDetails := &stocksv1alpha1.StockDetails{
-		ProductCode:    stockCode,
-		CompanyName:  "Domino's Pizza",
-		Website:      "https://www.dominos.com.au",
+		ProductCode:      stockCode,
+		CompanyName:      "Domino's Pizza",
+		Website:          "https://www.dominos.com.au",
 		EnrichmentStatus: "pending",
 	}
 
@@ -397,9 +397,9 @@ func TestEnrichmentProcessor_ProcessJob_LogoDiscovery_Success(t *testing.T) {
 	stockCode := "DMP"
 
 	stockDetails := &stocksv1alpha1.StockDetails{
-		ProductCode:    stockCode,
-		CompanyName:  "Domino's Pizza",
-		Website:      "https://www.dominos.com.au",
+		ProductCode:      stockCode,
+		CompanyName:      "Domino's Pizza",
+		Website:          "https://www.dominos.com.au",
 		EnrichmentStatus: "pending",
 	}
 
@@ -407,7 +407,7 @@ func TestEnrichmentProcessor_ProcessJob_LogoDiscovery_Success(t *testing.T) {
 		SourceURL:    "https://www.dominos.com.au/logo.svg",
 		Format:       "svg",
 		QualityScore: 0.9,
-		SVGData:       []byte("<svg>...</svg>"),
+		SVGData:      []byte("<svg>...</svg>"),
 	}
 
 	mockStore.EXPECT().
@@ -482,9 +482,9 @@ func TestEnrichmentProcessor_ProcessJob_LogoDiscovery_Failure(t *testing.T) {
 	stockCode := "DMP"
 
 	stockDetails := &stocksv1alpha1.StockDetails{
-		ProductCode:    stockCode,
-		CompanyName:  "Domino's Pizza",
-		Website:      "https://www.dominos.com.au",
+		ProductCode:      stockCode,
+		CompanyName:      "Domino's Pizza",
+		Website:          "https://www.dominos.com.au",
 		EnrichmentStatus: "pending",
 	}
 
@@ -543,12 +543,12 @@ func TestEnrichmentProcessor_ProcessJob_QualityBelowThreshold(t *testing.T) {
 	logger := log.NewLogger()
 
 	processor := &enrichmentProcessor{
-		store:           mockStore,
-		gptClient:       mockGPTClient,
-		reportCrawler:   mockReportCrawler,
-		metadataScraper: mockMetadataScraper,
-		logger:          logger,
-		timeout:         10 * time.Minute,
+		store:            mockStore,
+		gptClient:        mockGPTClient,
+		reportCrawler:    mockReportCrawler,
+		metadataScraper:  mockMetadataScraper,
+		logger:           logger,
+		timeout:          10 * time.Minute,
 		qualityThreshold: 0.7,
 	}
 
@@ -556,9 +556,9 @@ func TestEnrichmentProcessor_ProcessJob_QualityBelowThreshold(t *testing.T) {
 	stockCode := "DMP"
 
 	stockDetails := &stocksv1alpha1.StockDetails{
-		ProductCode:    stockCode,
-		CompanyName:  "Domino's Pizza",
-		Website:      "https://www.dominos.com.au",
+		ProductCode:      stockCode,
+		CompanyName:      "Domino's Pizza",
+		Website:          "https://www.dominos.com.au",
 		EnrichmentStatus: "pending",
 	}
 
@@ -640,9 +640,9 @@ func TestEnrichmentProcessor_ProcessJob_LLMEnrichmentFailure(t *testing.T) {
 	stockCode := "DMP"
 
 	stockDetails := &stocksv1alpha1.StockDetails{
-		ProductCode:    stockCode,
-		CompanyName:  "Domino's Pizza",
-		Website:      "https://www.dominos.com.au",
+		ProductCode:      stockCode,
+		CompanyName:      "Domino's Pizza",
+		Website:          "https://www.dominos.com.au",
 		EnrichmentStatus: "pending",
 	}
 
@@ -824,9 +824,9 @@ func TestEnrichmentProcessor_ProcessJob_NilLogoDiscoverer(t *testing.T) {
 	stockCode := "DMP"
 
 	stockDetails := &stocksv1alpha1.StockDetails{
-		ProductCode:    stockCode,
-		CompanyName:  "Domino's Pizza",
-		Website:      "https://www.dominos.com.au",
+		ProductCode:      stockCode,
+		CompanyName:      "Domino's Pizza",
+		Website:          "https://www.dominos.com.au",
 		EnrichmentStatus: "pending",
 	}
 
@@ -870,4 +870,3 @@ func TestEnrichmentProcessor_ProcessJob_NilLogoDiscoverer(t *testing.T) {
 	// Should succeed - Phase 4 is optional
 	require.NoError(t, err)
 }
-

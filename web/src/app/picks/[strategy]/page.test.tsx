@@ -1,6 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
+import { isValidElement, Suspense, type ReactElement, type ReactNode } from "react";
+import { renderToString } from "react-dom/server";
 
 import StrategyPicksPage, { generateStaticParams } from "./page";
+import { PicksSortedView } from "./picks-sorted-view";
+import { PicksFilterView } from "~/@/components/picks/picks-filter-view";
 import { STRATEGY_SLUGS, getStrategy } from "~/@/lib/strategies/registry";
 import { mapPick, type StrategyPickInput } from "~/@/lib/strategies/map";
 import { SHORTLIST_MAX_ROWS } from "~/@/lib/strategies/shortlist";
@@ -12,6 +16,8 @@ const notFound = jest.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
 });
 let searchParams = new URLSearchParams("");
+/** A static prerender: useSearchParams throws Next's bailout to client rendering. */
+let prerender = false;
 
 // The scene's canvas loads through next/dynamic, whose resolution in jsdom
 // is an un-acted state update: the still is what these tests look at.
@@ -20,7 +26,15 @@ jest.mock("~/@/components/picks/strategy-scene-lazy", () => ({
 }));
 jest.mock("next/navigation", () => ({
   notFound: () => notFound(),
-  useSearchParams: () => searchParams,
+  useSearchParams: () => {
+    if (prerender) {
+      throw Object.assign(
+        new Error("Bail out to client-side rendering: useSearchParams()"),
+        { digest: "BAILOUT_TO_CLIENT_SIDE_RENDERING" },
+      );
+    }
+    return searchParams;
+  },
 }));
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   DashboardLayout: ({ children }: { children: React.ReactNode }) => (
@@ -32,7 +46,10 @@ jest.mock("~/@/components/seo/breadcrumbs", () => ({
 }));
 jest.mock("~/@/components/seo/enhanced-structured-data", () => ({
   BreadcrumbListSchema: () => null,
-  DatasetStructuredData: () => null,
+  // The real one: the Dataset's dateModified is pinned below.
+  DatasetStructuredData: jest.requireActual<
+    typeof import("~/@/components/seo/enhanced-structured-data")
+  >("~/@/components/seo/enhanced-structured-data").DatasetStructuredData,
   ItemListStructuredData: ({ items }: { items: unknown[] }) => (
     <div data-testid="itemlist">{items.length}</div>
   ),
@@ -46,6 +63,22 @@ jest.mock("~/app/actions/getStrategyPicks", () => ({
 
 const params = (strategy: string) => Promise.resolve({ strategy });
 
+/**
+ * Every element the page itself creates, through every prop that holds one: a
+ * Suspense fallback is a prop, and it is serialised into the RSC payload like
+ * children are. Components are not called, so the walk stops at the island.
+ */
+function elementsOf(node: ReactNode): ReactElement[] {
+  if (Array.isArray(node)) return node.flatMap(elementsOf);
+  if (!isValidElement(node)) return [];
+  return [
+    node,
+    ...Object.values(node.props as Record<string, unknown>).flatMap((value) =>
+      elementsOf(value as ReactNode),
+    ),
+  ];
+}
+
 function rowFor(code: string): HTMLElement {
   const link = screen.getByRole("link", { name: code });
   const row = link.closest("tr");
@@ -57,6 +90,7 @@ describe("StrategyPicksPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     searchParams = new URLSearchParams("");
+    prerender = false;
     getStrategyPicks.mockResolvedValue(PICKS);
   });
 
@@ -66,6 +100,24 @@ describe("StrategyPicksPage", () => {
     );
     expect(STRATEGY_SLUGS).toHaveLength(5);
     expect(generateStaticParams()).toContainEqual({ strategy: "quality-compounders" });
+  });
+
+  // DatasetStructuredData leaves dateModified out without a date (it used to
+  // stamp the render time), so each caller must hand it the data's own.
+  it("dates its Dataset from the picks' as-of date, and leaves it out without one", async () => {
+    const dataset = (container: HTMLElement) =>
+      Array.from(container.querySelectorAll('script[type="application/ld+json"]'))
+        .map((script) => JSON.parse(script.innerHTML) as Record<string, unknown>)
+        .find((json) => json["@type"] === "Dataset");
+
+    const dated = render(await StrategyPicksPage({ params: params("zanger-breakout") }));
+    expect(dataset(dated.container)).toMatchObject({ dateModified: PICKS.asOf });
+    dated.unmount();
+
+    getStrategyPicks.mockResolvedValue({ ...PICKS, asOf: "" });
+    const undated = render(await StrategyPicksPage({ params: params("zanger-breakout") }));
+    expect(dataset(undated.container)).toBeDefined();
+    expect(dataset(undated.container)).not.toHaveProperty("dateModified");
   });
 
   it("404s an unknown strategy without calling the API", async () => {
@@ -295,6 +347,48 @@ describe("StrategyPicksPage", () => {
     expect(within(nav).getByRole("link", { name: /^Triggered/ })).toHaveTextContent("Triggered60");
     expect(within(nav).getByRole("link", { name: /^Watch/ })).toHaveTextContent("Watch40+");
     expect(screen.getByTestId("itemlist")).toHaveTextContent("15");
+  });
+
+  // Measured 2026-10-21 on /picks/minervini-trend-template: the page's own
+  // <Suspense fallback={<PicksFilterView />}> serialised the fallback's
+  // element tree into the RSC payload, 364 KB for 40 rows, beside the same
+  // rows as the island's props, only to be replaced on hydration. The island
+  // owns the boundary and draws the fallback from its props.
+  it("hands the island the shortlist once, as props, and serialises no fallback", async () => {
+    const elements = elementsOf(
+      await StrategyPicksPage({ params: params("zanger-breakout") }),
+    );
+
+    expect(elements.filter((element) => element.type === Suspense)).toHaveLength(0);
+    expect(elements.filter((element) => element.type === PicksFilterView)).toHaveLength(0);
+    const islands = elements.filter((element) => element.type === PicksSortedView);
+    expect(islands).toHaveLength(1);
+    const props = islands[0]!.props as { rows: Array<{ code: string }>; strategyId: string };
+    expect(props.rows.map((row) => row.code)).toEqual(["BHP", "PLS", "LTR"]);
+    expect(props.strategyId).toBe("zanger-breakout");
+  });
+
+  // What the ISR HTML carries: useSearchParams bails out to client rendering
+  // on a static page, so crawlers and first paint get the island's fallback,
+  // which must be the whole shortlist.
+  it("prerenders the shortlist as the island's fallback when the query string bails out", async () => {
+    prerender = true;
+    const page = await StrategyPicksPage({ params: params("zanger-breakout") });
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const html = renderToString(page);
+    error.mockRestore();
+
+    expect(html).toContain("<!--$!-->");
+    const host = document.createElement("div");
+    host.innerHTML = html;
+    const table = host.querySelector("table")!;
+    expect(
+      [...table.querySelectorAll("tbody tr")].map(
+        (row) => row.querySelector('a[href^="/shorts/"]')?.textContent,
+      ),
+    ).toEqual(["BHP", "PLS", "LTR"]);
+    expect(host.querySelector('nav[aria-label="Filter picks by status"]')).not.toBeNull();
+    expect(html).toContain("Showing 3 of 3 ranked stocks.");
   });
 
   it("renders the copy-only shell and bails the render when the read fails", async () => {

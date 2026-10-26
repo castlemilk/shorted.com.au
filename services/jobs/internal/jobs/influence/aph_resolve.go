@@ -666,7 +666,7 @@ func selfGlossedAcronym(raw, code string) bool {
 		return false
 	}
 	var initials strings.Builder
-	for _, word := range strings.Fields(raw[:open]) {
+	for word := range strings.FieldsSeq(raw[:open]) {
 		cleaned := strings.Map(func(r rune) rune {
 			if ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z') {
 				return r

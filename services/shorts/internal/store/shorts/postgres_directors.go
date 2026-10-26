@@ -16,7 +16,7 @@ func (s *postgresStore) GetDirectorTrades(stockCode string, limit int32) ([]*Dir
 		WHERE stock_code = $1
 		ORDER BY trade_date DESC`
 
-	args := []interface{}{stockCode}
+	args := []any{stockCode}
 	if limit > 0 {
 		query += " LIMIT $2"
 		args = append(args, limit)

@@ -16,6 +16,12 @@ import Image from "next/image";
  * - SVGs and unknown hosts render as a plain <img>: next/image THROWS at
  *   render for un-allowlisted hosts and rejects SVG without
  *   dangerouslyAllowSVG, so both degrade to "unoptimized", never a crash.
+ *
+ * No `sizes`. With a fixed width and height next/image emits a 1x/2x pair
+ * (32w and 48w for a 20px chip); `sizes` switches it to every configured
+ * width, 16 candidates up to 3840w and ~2KB of srcset per tag. The browser
+ * fetched the same 32/48px files either way, and /reports/weekly carried
+ * 747KB of srcset.
  */
 
 const OPTIMIZED_HOSTS = new Set([
@@ -48,7 +54,6 @@ export function StockLogoImg({ src, px }: { src: string; px: number }) {
         alt=""
         width={px}
         height={px}
-        sizes={`${px}px`}
         quality={75}
         loading="lazy"
         onError={() => setFailed(true)}

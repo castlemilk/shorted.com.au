@@ -58,6 +58,14 @@ enabled:
   - shorted-news-resolve-googlenews
   - shorted-news-digest
   - shorted-economy
+  - shorted-alerts
+
+# Jobs that exist ONLY on the cluster: no Cloud Run twin, no Cloud Scheduler
+# trigger, so no `cloudRun` mapping and no local.jobs_on_vke entry. Their schedule
+# is not in Terraform. render.sh and vke-jobs-cutover.test.mjs exempt exactly these
+# names from the twin checks and pin that they have no twin.
+vkeNative:
+  - shorted-alerts
 
 # Google Workload Identity Federation for the jobs that write to GCS. Keyless:
 # a projected Kubernetes token is exchanged for a short-lived token of the SAME
@@ -603,3 +611,31 @@ jobs:
       GCS_BUCKET_NAME: shorted-short-selling-data-prod
     # Writes asx-stocks/latest.csv to gs://shorted-short-selling-data-prod.
     gcpServiceAccount: asx-discovery@rosy-clover-477102-t5.iam.gserviceaccount.com
+
+  # services/jobs/internal/jobs/alerts — short-interest alert evaluator. VKE-native
+  # (vkeNative): no Cloud Run twin. Hourly on weekdays at :55 UTC. ASIC data lands
+  # ~00:35/01:35 UTC (poll at 11:32/11:37/11:47 Sydney), with a late tail to 05:15
+  # UTC and the 10:00 UTC backstop. A run with no new report date is one SELECT and
+  # exits 0, so the schedule costs nothing and bounds latency to under an hour
+  # wherever the data lands. maxRetries 0: the next hourly run is the retry, and a
+  # Kubernetes retry after partial sends would only re-hit Resend.
+  shorted-alerts:
+    image: jobs
+    args: ["alerts"]
+    schedule: "55 * * * 1-5"
+    timeoutSeconds: 900
+    maxRetries: 0
+    profiles: [db]
+    env:
+      ALERTS_DRY_RUN: "false"
+      PUBLIC_SITE_URL: https://shorted.com.au
+      # The Cloud Run ORIGIN (the edge worker's SHORTS_ORIGIN), not
+      # api.shorted.com.au: per-user entitlement lookups through Cloudflare
+      # land in the 10/10s anonymous bucket.
+      SHORTS_API_URL: https://shorts-uiekqxovma-km.a.run.app
+      ALERTS_FROM: "Shorted Alerts <alerts@shorted.com.au>"
+      ALERTS_REPLY_TO: support@shorted.com.au
+    secretEnv:
+      RESEND_API_KEY: RESEND_API_KEY
+      INTERNAL_SERVICE_SECRET: INTERNAL_SERVICE_SECRET
+      UNSUBSCRIBE_SECRET: UNSUBSCRIBE_SECRET

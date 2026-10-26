@@ -46,6 +46,32 @@ function chartEnabled() {
   return [...block[1].matchAll(/^\s+-\s+["']?([^"'\s#]+)/gm)].map((x) => x[1]);
 }
 
+/** Top-level `vkeNative:` — the jobs that exist only on the cluster (block or flow form). */
+function chartVkeNative() {
+  const flow = values.match(/^vkeNative:\s*\[([^\]]*)\]/m);
+  if (flow) {
+    return flow[1]
+      .split(",")
+      .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+      .filter(Boolean);
+  }
+  const block = values.match(/^vkeNative:\s*\n((?:\s+-\s+.*\n?)*)/m);
+  if (!block) return [];
+  return [...block[1].matchAll(/^\s+-\s+["']?([^"'\s#]+)/gm)].map((x) => x[1]);
+}
+
+/** The lines of one job's entry under `jobs:`, up to the next job or top-level key. */
+function chartJobBlock(name) {
+  const start = values.search(new RegExp(`^ {2}${name}:\\s*$`, "m"));
+  assert.ok(start >= 0, `job "${name}" not found under jobs:`);
+  const out = [];
+  for (const line of values.slice(start).split("\n").slice(1)) {
+    if (/^\S/.test(line) || /^ {2}[a-z0-9][a-z0-9-]*:\s*$/.test(line)) break;
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
 function chartSuspendAll() {
   const m = values.match(/^suspendAll:\s*(true|false)/m);
   assert.ok(m, "top-level `suspendAll:` not found in values.yaml");
@@ -68,11 +94,12 @@ function chartJobs() {
 
 const sorted = (xs) => [...xs].sort();
 
-test("the Terraform pause list and the chart's enabled list are the same set", () => {
+test("the Terraform pause list and the chart's enabled list are the same set, less the VKE-native jobs", () => {
+  const native = new Set(chartVkeNative());
   assert.deepEqual(
     sorted(tfJobsOnVke()),
-    sorted(chartEnabled()),
-    "local.jobs_on_vke (pauses Cloud Scheduler) and values.yaml `enabled` (unsuspends the CronJob) must match exactly",
+    sorted(chartEnabled().filter((n) => !native.has(n))),
+    "local.jobs_on_vke (pauses Cloud Scheduler) and values.yaml `enabled` (unsuspends the CronJob) must match, except VKE-native jobs, which have no Cloud Scheduler trigger",
   );
 });
 
@@ -92,11 +119,13 @@ test("every cut-over name is a CronJob the chart defines", () => {
   }
 });
 
-test("every CronJob has exactly one Cloud Scheduler pause wired to it", () => {
+test("every Cloud Run-backed CronJob has exactly one Cloud Scheduler pause wired to it", () => {
   const referenced = [...mainTf.matchAll(/contains\(local\.jobs_on_vke,\s*"([^"]+)"\)/g)].map((m) => m[1]);
   const jobs = chartJobs();
+  const native = new Set(chartVkeNative());
   assert.ok(jobs.length >= 21, `expected the full job set in values.yaml, found ${jobs.length}`);
   for (const name of jobs) {
+    if (native.has(name)) continue;
     const n = referenced.filter((r) => r === name).length;
     assert.equal(n, 1, `CronJob "${name}" has ${n} contains(local.jobs_on_vke, "${name}") in main.tf — its Cloud Scheduler trigger could never be paused (0) or is ambiguous (>1)`);
   }
@@ -121,6 +150,21 @@ test("the parsers read the forms the runbook documents", () => {
   assert.ok(chartJobs().includes("shorts-data-sync"));
   assert.ok(/^\s*jobs_on_vke\s*=/m.test(mainTf));
   assert.ok(/^enabled:/m.test(values));
+  assert.ok(chartVkeNative().includes("shorted-alerts"), "vkeNative parser lost shorted-alerts");
+});
+
+test("a VKE-native job has no Cloud Run twin", () => {
+  const native = chartVkeNative();
+  assert.ok(native.length >= 1, "vkeNative must list at least one job");
+  const jobs = new Set(chartJobs());
+  const pausesOn = (name) => mainTf.split(`contains(local.jobs_on_vke, "${name}")`).length - 1;
+  for (const name of native) {
+    assert.ok(jobs.has(name), `vkeNative "${name}" is not a job in values.yaml`);
+    assert.ok(!tfJobsOnVke().includes(name), `vkeNative "${name}" must not be listed in local.jobs_on_vke`);
+    assert.equal(pausesOn(name), 0, `vkeNative "${name}" must have no Cloud Scheduler pause in main.tf`);
+    assert.ok(!mainTf.includes(`"${name}"`), `vkeNative "${name}" appears quoted in main.tf: it has a Cloud Run twin`);
+    assert.doesNotMatch(chartJobBlock(name), /^ {4}cloudRun:/m, `vkeNative "${name}" must not carry a cloudRun mapping`);
+  }
 });
 
 

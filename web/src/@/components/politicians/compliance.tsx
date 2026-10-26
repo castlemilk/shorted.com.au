@@ -30,6 +30,7 @@ import { HOLDER_ICON, registerItemIcon } from "@/lib/politics/register-item-icon
 import { PoliticsIcon } from "@/components/politicians/politics-icon";
 import { PartyMark } from "@/components/politicians/party-mark";
 import { RegisterHolder } from "~/gen/shorts/v1alpha1/politicians_pb";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 /** Exact holder copy. Locked by test — never paraphrase these. */
 const HOLDER_COPY: Record<number, { label: string; title: string }> = {
@@ -193,11 +194,13 @@ export function registerDocLabel(sourceUrl?: string): string {
  * of text selection.
  */
 export function SourceDocLink({ sourceUrl }: { sourceUrl?: string }) {
-  if (!sourceUrl) return null;
-  const label = registerDocLabel(sourceUrl);
+  // A stored URL: one that is not http(s) counts as missing.
+  const href = safeExternalHref(sourceUrl);
+  if (!href) return null;
+  const label = registerDocLabel(href);
   return (
     <a
-      href={sourceUrl}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       title="Open the original register PDF on aph.gov.au to check this entry"
@@ -276,10 +279,10 @@ export function SourceLine({
       Register of Members&rsquo; Interests / Register of Senators&rsquo; Interests, Parliament of
       Australia
       {asAt ? <> — as at {formatAsAt(asAt)}</> : null}.{" "}
-      {pdfUrl ? (
+      {safeExternalHref(pdfUrl) ? (
         <>
           <a
-            href={pdfUrl}
+            href={safeExternalHref(pdfUrl)}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-foreground underline decoration-dotted"

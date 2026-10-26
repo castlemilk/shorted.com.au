@@ -101,7 +101,9 @@ type UserRow struct {
 	OnMailingList *bool    `json:"onMailingList,omitempty" jsonschema:"Whether the account's email is subscribed to the mailing list. Omitted when the list could not be read."`
 }
 
-// PayingUserRow is one api_subscriptions row.
+// PayingUserRow is one api_subscriptions row. Entitled and EntitlementReason
+// are the verdict the product applies to the row (ResolveEntitlement), so a
+// paying row that grants nothing reads as such rather than as paying.
 type PayingUserRow struct {
 	UserID            string `json:"userId"`
 	Email             string `json:"email"`
@@ -110,6 +112,8 @@ type PayingUserRow struct {
 	CurrentPeriodEnd  string `json:"currentPeriodEnd,omitempty"`
 	CancelAtPeriodEnd bool   `json:"cancelAtPeriodEnd,omitempty"`
 	CreatedAt         string `json:"createdAt,omitempty"`
+	Entitled          bool   `json:"entitled" jsonschema:"Whether the product grants this row paid features right now."`
+	EntitlementReason string `json:"entitlementReason" jsonschema:"ResolveEntitlement's reason: active | period_ended | unpaid_tier | status_<status> | internal_grant | no_subscription."`
 }
 
 // MailingListRow is one mailing list address.
@@ -134,7 +138,7 @@ type ListUsersOutput struct {
 }
 
 type ListPayingUsersInput struct {
-	Status string `json:"status,omitempty" jsonschema:"paying (default: active or trialing), active, trialing, past_due, canceled, inactive, or all."`
+	Status string `json:"status,omitempty" jsonschema:"paying (default: active or trialing), active, trialing, past_due, unpaid, canceled, inactive, or all."`
 	Limit  int    `json:"limit,omitempty" jsonschema:"Page size 1-100, default 25."`
 	Offset int    `json:"offset,omitempty"`
 }
@@ -198,7 +202,7 @@ func normaliseQuery(q *string) error {
 }
 
 // PayingStatuses is the closed set list_paying_users accepts.
-var PayingStatuses = []string{"paying", "active", "trialing", "past_due", "canceled", "inactive", "all"}
+var PayingStatuses = []string{"paying", "active", "trialing", "past_due", "unpaid", "canceled", "inactive", "all"}
 
 // NextOffset returns the offset of the following page, or nil on the last one.
 func NextOffset(offset, rows, total int) *int {

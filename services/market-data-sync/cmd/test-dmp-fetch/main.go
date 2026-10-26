@@ -46,17 +46,17 @@ func main() {
 
 	log.Printf("✅ Fetched %d records", len(records))
 	if len(records) > 0 {
-		log.Printf("   Date range: %s to %s", 
-			records[0].Date.Format("2006-01-02"), 
+		log.Printf("   Date range: %s to %s",
+			records[0].Date.Format("2006-01-02"),
 			records[len(records)-1].Date.Format("2006-01-02"))
-		
+
 		// Check for daily vs monthly pattern
 		if len(records) > 10 {
 			log.Printf("\n📊 Sample dates (first 10):")
 			for i := 0; i < 10 && i < len(records); i++ {
 				log.Printf("   %s", records[i].Date.Format("2006-01-02"))
 			}
-			
+
 			// Check gap pattern
 			if len(records) > 1 {
 				firstGap := records[1].Date.Sub(records[0].Date).Hours() / 24

@@ -10,9 +10,13 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { DatasetStructuredData } from "~/@/components/seo/enhanced-structured-data";
+import { latestAsicDataDate } from "~/@/components/home/asic-data-freshness";
+import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "ASX Short Selling Datasets | Open Data Hub | Shorted",
+  // No brand: the root layout's `%s | Shorted` template appends it.
+  title: "ASX Short Selling Datasets: Open Data Hub",
   description:
     "Download every ASIC short position, 2010 → today. Open ASX short selling datasets with programmatic API endpoints and Dataset schema for Google Dataset Search. Free for research, journalism, and analysis.",
   keywords: [
@@ -231,18 +235,20 @@ function buildDatasetSchema(d: DatasetEntry) {
   };
 }
 
-export default function DataHubPage() {
+export default async function DataHubPage() {
   const breadcrumbItems = [{ label: "Data", href: "/data" }];
+  // The Dataset's dateModified is the ASIC report date the data runs to. The
+  // homepage's top-shorts read carries it, and the same arguments share its KV
+  // and fetch-cache entries, so this costs no extra backend call. Without a
+  // date the field is omitted rather than stamped with the render time.
+  const topShorts = await getTopShortsData("3m", 10, 0).catch(() => undefined);
+  const dataAsOf = latestAsicDataDate(topShorts?.timeSeries);
 
   return (
     <DashboardLayout>
       <BreadcrumbStructuredData items={breadcrumbItems} />
       {DATASETS.map((d) => (
-        <script
-          key={d.slug}
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildDatasetSchema(d)) }}
-        />
+        <JsonLd key={d.slug} data={buildDatasetSchema(d)} />
       ))}
       <DatasetStructuredData
         datasetInfo={{
@@ -250,6 +256,7 @@ export default function DataHubPage() {
           description:
             "Every ASIC-reported short position on the Australian Securities Exchange from June 2010 to today, aggregated and republished by Shorted.com.au for research, journalism, and analysis.",
           url: `${siteConfig.url}/data`,
+          dateModified: dataAsOf?.toISOString(),
         }}
       />
       <LLMMeta

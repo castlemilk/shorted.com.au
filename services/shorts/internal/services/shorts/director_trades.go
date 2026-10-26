@@ -20,7 +20,7 @@ func (s *ShortsServer) GetDirectorTrades(ctx context.Context, req *connect.Reque
 
 	cacheKey := s.cache.GetDirectorTradesKey(req.Msg.StockCode, req.Msg.Limit)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		trades, totalCount, err := s.store.GetDirectorTrades(req.Msg.StockCode, req.Msg.Limit)
 		if err != nil {
 			return nil, err

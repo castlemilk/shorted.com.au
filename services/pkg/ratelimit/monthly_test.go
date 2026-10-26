@@ -19,8 +19,8 @@ import (
 func structFieldNames(v any) []string {
 	t := reflect.TypeOf(v)
 	names := make([]string, 0, t.NumField())
-	for i := 0; i < t.NumField(); i++ {
-		names = append(names, t.Field(i).Name)
+	for field := range t.Fields() {
+		names = append(names, field.Name)
 	}
 	return names
 }
@@ -142,7 +142,7 @@ func fixedClock(at time.Time) (func() time.Time, func(d time.Duration)) {
 func checkN(t *testing.T, l *AppLimiter, n int, id, tier string, browser bool) []*Result {
 	t.Helper()
 	out := make([]*Result, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		r, err := l.Check(context.Background(), id, tier, browser)
 		require.NoError(t, err)
 		out = append(out, r)
@@ -305,7 +305,7 @@ func TestFailOpenWhileStoreIsDown(t *testing.T) {
 	l := newTestLimiter(t, cfg, store, clock)
 
 	// Well past a 5/month quota, with the database refusing everything.
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		r, err := l.Check(context.Background(), "user:a", "free", false)
 		require.NoError(t, err, "Check must never surface a transport error")
 		l.Flush(context.Background())
@@ -631,18 +631,16 @@ func TestConcurrentChecksAreAccountedExactly(t *testing.T) {
 	const goroutines, perGoroutine = 16, 100
 
 	var wg sync.WaitGroup
-	for g := 0; g < goroutines; g++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < perGoroutine; i++ {
+	for range goroutines {
+		wg.Go(func() {
+			for range perGoroutine {
 				_, err := l.Check(context.Background(), "user:hot", "free", false)
 				if err != nil {
 					t.Error(err)
 					return
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -662,9 +660,7 @@ func TestConcurrentCheckAndFlush(t *testing.T) {
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-stop:
@@ -674,13 +670,13 @@ func TestConcurrentCheckAndFlush(t *testing.T) {
 				l.refresh(context.Background())
 			}
 		}
-	}()
+	})
 
-	for g := 0; g < 8; g++ {
+	for g := range 8 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			for i := 0; i < 200; i++ {
+			for range 200 {
 				_, _ = l.Check(context.Background(), "user:hot", "free", false)
 			}
 		}(g)

@@ -40,10 +40,16 @@ const (
 // CronMonitor is a Telesis cron monitor. Statuses are lower case without the
 // enum prefix; times are RFC3339 or "".
 type CronMonitor struct {
-	ID             string
-	Name           string
-	Status         string // waiting | healthy | running | late | failing | paused
-	Paused         bool
+	ID     string
+	Name   string
+	Status string // waiting | healthy | running | late | failing | paused
+	Paused bool
+	// Schedule is the monitor's cron expression (UTC). "" for an interval monitor.
+	Schedule string
+	// Armed is Telesis' own flag: true only after the monitor's first check-in. A
+	// monitor that is not paused but has never reported is not armed, so a missed
+	// run cannot alert yet.
+	Armed          bool
 	LastRunAt      string
 	NextExpectedAt string
 }
@@ -94,10 +100,13 @@ func applyClusterRuns(ctx context.Context, byName map[string]*JobStatus, src Cro
 			continue
 		}
 		for i := range st.Triggers {
-			if st.Triggers[i].State != "PAUSED" {
+			t := &st.Triggers[i]
+			// A cluster-only job has no scheduler trigger to be paused, so its own
+			// trigger is the one to read, whether or not its monitor is paused.
+			if t.State != "PAUSED" && !t.clusterOnly {
 				continue
 			}
-			if m, ok := monitorForTrigger(byMonitorName, st.Triggers[i].Name); ok && !m.Paused {
+			if m, ok := monitorForTrigger(byMonitorName, t.Name); ok && (t.clusterOnly || !m.Paused) {
 				matches = append(matches, match{st: st, trigger: i, monitor: m})
 			}
 		}
@@ -150,6 +159,45 @@ func applyClusterRuns(ctx context.Context, byName map[string]*JobStatus, src Cro
 	return errors.Join(errs...)
 }
 
+// clusterNote is the operator context on every cluster-run row.
+const clusterNote = "Runs on the omega Kubernetes cluster; run status from Telesis cron monitors."
+
+// clusterOnlyJobs are CronJobs with no Cloud Run twin and no Cloud Scheduler
+// trigger, so no Cloud Run or Scheduler read ever makes a row for them. They are
+// the chart's vkeNative list (deploy/kubernetes/jobs/chart/values.yaml), and
+// TestClusterOnlyJobsMatchChart keeps the two in step.
+var clusterOnlyJobs = []string{"shorted-alerts"}
+
+// addClusterOnlyJobs gives each cluster-only job a row, unless a Cloud Run job or
+// a scheduler already produced one. The row's single trigger is a CLUSTER trigger
+// named after the job, which is the name its Telesis monitor carries, so
+// applyClusterRuns can read the runs. With no monitor the row reads as never run:
+// it is not paused, and it is not treated as overdue.
+func addClusterOnlyJobs(byName map[string]*JobStatus, order *[]string) {
+	for _, name := range clusterOnlyJobs {
+		if _, ok := byName[name]; ok {
+			continue
+		}
+		st := &JobStatus{
+			Name:          name,
+			Type:          "job",
+			LastRunStatus: "never",
+			Health:        HealthUnknown,
+			Triggers: []Trigger{{
+				Name:        name,
+				State:       clusterTriggerState,
+				Runner:      clusterRunner,
+				LastStatus:  "never",
+				clusterOnly: true,
+			}},
+		}
+		decorate(st)
+		st.Note = joinNote(st.Note, clusterNote)
+		byName[name] = st
+		*order = append(*order, name)
+	}
+}
+
 // monitorForTrigger finds the monitor for a Cloud Scheduler trigger: the
 // CronJob is named either exactly as the trigger or as the trigger less
 // "-schedule".
@@ -170,6 +218,10 @@ func applyClusterTrigger(t *Trigger, m CronMonitor, runs []CronRun) {
 	}
 	t.State = clusterTriggerState
 	t.Runner = clusterRunner
+	if t.Schedule == "" && m.Schedule != "" {
+		t.Schedule = m.Schedule
+		t.ScheduleHuman = humanizeCron(m.Schedule)
+	}
 	t.MonitorStatus = m.Status
 	t.NextExpectedAt = m.NextExpectedAt
 	t.clusterRuns = runs
@@ -277,7 +329,7 @@ func applyClusterRow(st *JobStatus) {
 			st.Message = clusterFailure(newestTrigger, newest.TerminalReason)
 		}
 	}
-	st.Note = joinNote(st.Note, "Runs on the omega Kubernetes cluster; run status from Telesis cron monitors.")
+	st.Note = joinNote(st.Note, clusterNote)
 }
 
 // escalateClusterTriggers judges each CLUSTER trigger on its own runs, after

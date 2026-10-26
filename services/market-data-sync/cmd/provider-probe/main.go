@@ -68,7 +68,7 @@ func main() {
 		provider.Name(), start.Format("2006-01-02"), end.Format("2006-01-02"))
 
 	var recovered, empty, errored int
-	for _, raw := range strings.Split(*codes, ",") {
+	for raw := range strings.SplitSeq(*codes, ",") {
 		code := strings.ToUpper(strings.TrimSpace(raw))
 		if code == "" {
 			continue

@@ -38,6 +38,8 @@ private static final long serialVersionUID = 0L;
     condition_ = 0;
     cadence_ = 0;
     status_ = 0;
+    lastEventReportDate_ = "";
+    lastDeliveryStatus_ = 0;
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -283,6 +285,97 @@ private static final long serialVersionUID = 0L;
     return updatedAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : updatedAt_;
   }
 
+  public static final int LAST_EVENT_REPORT_DATE_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object lastEventReportDate_ = "";
+  /**
+   * <pre>
+   * The newest event for this monitor, or empty when it has never fired.
+   * </pre>
+   *
+   * <code>string last_event_report_date = 11 [json_name = "lastEventReportDate"];</code>
+   * @return The lastEventReportDate.
+   */
+  @java.lang.Override
+  public java.lang.String getLastEventReportDate() {
+    java.lang.Object ref = lastEventReportDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      lastEventReportDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The newest event for this monitor, or empty when it has never fired.
+   * </pre>
+   *
+   * <code>string last_event_report_date = 11 [json_name = "lastEventReportDate"];</code>
+   * @return The bytes for lastEventReportDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getLastEventReportDateBytes() {
+    java.lang.Object ref = lastEventReportDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      lastEventReportDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int LAST_DELIVERY_STATUS_FIELD_NUMBER = 12;
+  private int lastDeliveryStatus_ = 0;
+  /**
+   * <code>.shorts.v1alpha1.AlertDeliveryStatus last_delivery_status = 12 [json_name = "lastDeliveryStatus"];</code>
+   * @return The enum numeric value on the wire for lastDeliveryStatus.
+   */
+  @java.lang.Override public int getLastDeliveryStatusValue() {
+    return lastDeliveryStatus_;
+  }
+  /**
+   * <code>.shorts.v1alpha1.AlertDeliveryStatus last_delivery_status = 12 [json_name = "lastDeliveryStatus"];</code>
+   * @return The lastDeliveryStatus.
+   */
+  @java.lang.Override public com.shorts.v1alpha1.AlertDeliveryStatus getLastDeliveryStatus() {
+    com.shorts.v1alpha1.AlertDeliveryStatus result = com.shorts.v1alpha1.AlertDeliveryStatus.forNumber(lastDeliveryStatus_);
+    return result == null ? com.shorts.v1alpha1.AlertDeliveryStatus.UNRECOGNIZED : result;
+  }
+
+  public static final int LAST_EVENT_AT_FIELD_NUMBER = 13;
+  private com.google.protobuf.Timestamp lastEventAt_;
+  /**
+   * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+   * @return Whether the lastEventAt field is set.
+   */
+  @java.lang.Override
+  public boolean hasLastEventAt() {
+    return ((bitField0_ & 0x00000004) != 0);
+  }
+  /**
+   * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+   * @return The lastEventAt.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Timestamp getLastEventAt() {
+    return lastEventAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : lastEventAt_;
+  }
+  /**
+   * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.TimestampOrBuilder getLastEventAtOrBuilder() {
+    return lastEventAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : lastEventAt_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -327,6 +420,15 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000002) != 0)) {
       output.writeMessage(10, getUpdatedAt());
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(lastEventReportDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, lastEventReportDate_);
+    }
+    if (lastDeliveryStatus_ != com.shorts.v1alpha1.AlertDeliveryStatus.ALERT_DELIVERY_STATUS_UNSPECIFIED.getNumber()) {
+      output.writeEnum(12, lastDeliveryStatus_);
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      output.writeMessage(13, getLastEventAt());
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -368,6 +470,17 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000002) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(10, getUpdatedAt());
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(lastEventReportDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, lastEventReportDate_);
+    }
+    if (lastDeliveryStatus_ != com.shorts.v1alpha1.AlertDeliveryStatus.ALERT_DELIVERY_STATUS_UNSPECIFIED.getNumber()) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeEnumSize(12, lastDeliveryStatus_);
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(13, getLastEventAt());
     }
     return size;
   }
@@ -416,6 +529,14 @@ private static final long serialVersionUID = 0L;
       if (!getUpdatedAt()
           .equals(other.getUpdatedAt())) return false;
     }
+    if (!getLastEventReportDate()
+        .equals(other.getLastEventReportDate())) return false;
+    if (lastDeliveryStatus_ != other.lastDeliveryStatus_) return false;
+    if (hasLastEventAt() != other.hasLastEventAt()) return false;
+    if (hasLastEventAt()) {
+      if (!getLastEventAt()
+          .equals(other.getLastEventAt())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -452,6 +573,14 @@ private static final long serialVersionUID = 0L;
     if (hasUpdatedAt()) {
       hash = (37 * hash) + UPDATED_AT_FIELD_NUMBER;
       hash = (53 * hash) + getUpdatedAt().hashCode();
+    }
+    hash = (37 * hash) + LAST_EVENT_REPORT_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getLastEventReportDate().hashCode();
+    hash = (37 * hash) + LAST_DELIVERY_STATUS_FIELD_NUMBER;
+    hash = (53 * hash) + lastDeliveryStatus_;
+    if (hasLastEventAt()) {
+      hash = (37 * hash) + LAST_EVENT_AT_FIELD_NUMBER;
+      hash = (53 * hash) + getLastEventAt().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -589,6 +718,7 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
         internalGetCreatedAtFieldBuilder();
         internalGetUpdatedAtFieldBuilder();
+        internalGetLastEventAtFieldBuilder();
       }
     }
     @java.lang.Override
@@ -612,6 +742,13 @@ private static final long serialVersionUID = 0L;
       if (updatedAtBuilder_ != null) {
         updatedAtBuilder_.dispose();
         updatedAtBuilder_ = null;
+      }
+      lastEventReportDate_ = "";
+      lastDeliveryStatus_ = 0;
+      lastEventAt_ = null;
+      if (lastEventAtBuilder_ != null) {
+        lastEventAtBuilder_.dispose();
+        lastEventAtBuilder_ = null;
       }
       return this;
     }
@@ -683,6 +820,18 @@ private static final long serialVersionUID = 0L;
             : updatedAtBuilder_.build();
         to_bitField0_ |= 0x00000002;
       }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.lastEventReportDate_ = lastEventReportDate_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.lastDeliveryStatus_ = lastDeliveryStatus_;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.lastEventAt_ = lastEventAtBuilder_ == null
+            ? lastEventAt_
+            : lastEventAtBuilder_.build();
+        to_bitField0_ |= 0x00000004;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -731,6 +880,17 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasUpdatedAt()) {
         mergeUpdatedAt(other.getUpdatedAt());
+      }
+      if (!other.getLastEventReportDate().isEmpty()) {
+        lastEventReportDate_ = other.lastEventReportDate_;
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      if (other.lastDeliveryStatus_ != 0) {
+        setLastDeliveryStatusValue(other.getLastDeliveryStatusValue());
+      }
+      if (other.hasLastEventAt()) {
+        mergeLastEventAt(other.getLastEventAt());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -812,6 +972,23 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000200;
               break;
             } // case 82
+            case 90: {
+              lastEventReportDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
+            case 96: {
+              lastDeliveryStatus_ = input.readEnum();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 96
+            case 106: {
+              input.readMessage(
+                  internalGetLastEventAtFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 106
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1485,6 +1662,271 @@ private static final long serialVersionUID = 0L;
         updatedAt_ = null;
       }
       return updatedAtBuilder_;
+    }
+
+    private java.lang.Object lastEventReportDate_ = "";
+    /**
+     * <pre>
+     * The newest event for this monitor, or empty when it has never fired.
+     * </pre>
+     *
+     * <code>string last_event_report_date = 11 [json_name = "lastEventReportDate"];</code>
+     * @return The lastEventReportDate.
+     */
+    public java.lang.String getLastEventReportDate() {
+      java.lang.Object ref = lastEventReportDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        lastEventReportDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The newest event for this monitor, or empty when it has never fired.
+     * </pre>
+     *
+     * <code>string last_event_report_date = 11 [json_name = "lastEventReportDate"];</code>
+     * @return The bytes for lastEventReportDate.
+     */
+    public com.google.protobuf.ByteString
+        getLastEventReportDateBytes() {
+      java.lang.Object ref = lastEventReportDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        lastEventReportDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The newest event for this monitor, or empty when it has never fired.
+     * </pre>
+     *
+     * <code>string last_event_report_date = 11 [json_name = "lastEventReportDate"];</code>
+     * @param value The lastEventReportDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLastEventReportDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      lastEventReportDate_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The newest event for this monitor, or empty when it has never fired.
+     * </pre>
+     *
+     * <code>string last_event_report_date = 11 [json_name = "lastEventReportDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLastEventReportDate() {
+      lastEventReportDate_ = getDefaultInstance().getLastEventReportDate();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The newest event for this monitor, or empty when it has never fired.
+     * </pre>
+     *
+     * <code>string last_event_report_date = 11 [json_name = "lastEventReportDate"];</code>
+     * @param value The bytes for lastEventReportDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLastEventReportDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      lastEventReportDate_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private int lastDeliveryStatus_ = 0;
+    /**
+     * <code>.shorts.v1alpha1.AlertDeliveryStatus last_delivery_status = 12 [json_name = "lastDeliveryStatus"];</code>
+     * @return The enum numeric value on the wire for lastDeliveryStatus.
+     */
+    @java.lang.Override public int getLastDeliveryStatusValue() {
+      return lastDeliveryStatus_;
+    }
+    /**
+     * <code>.shorts.v1alpha1.AlertDeliveryStatus last_delivery_status = 12 [json_name = "lastDeliveryStatus"];</code>
+     * @param value The enum numeric value on the wire for lastDeliveryStatus to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLastDeliveryStatusValue(int value) {
+      lastDeliveryStatus_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.AlertDeliveryStatus last_delivery_status = 12 [json_name = "lastDeliveryStatus"];</code>
+     * @return The lastDeliveryStatus.
+     */
+    @java.lang.Override
+    public com.shorts.v1alpha1.AlertDeliveryStatus getLastDeliveryStatus() {
+      com.shorts.v1alpha1.AlertDeliveryStatus result = com.shorts.v1alpha1.AlertDeliveryStatus.forNumber(lastDeliveryStatus_);
+      return result == null ? com.shorts.v1alpha1.AlertDeliveryStatus.UNRECOGNIZED : result;
+    }
+    /**
+     * <code>.shorts.v1alpha1.AlertDeliveryStatus last_delivery_status = 12 [json_name = "lastDeliveryStatus"];</code>
+     * @param value The lastDeliveryStatus to set.
+     * @throws IllegalArgumentException if UNRECOGNIZED is provided.
+     * @return This builder for chaining.
+     */
+    public Builder setLastDeliveryStatus(com.shorts.v1alpha1.AlertDeliveryStatus value) {
+      if (value == null) { throw new NullPointerException(); }
+      bitField0_ |= 0x00000800;
+      lastDeliveryStatus_ = value.getNumber();
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.AlertDeliveryStatus last_delivery_status = 12 [json_name = "lastDeliveryStatus"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLastDeliveryStatus() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      lastDeliveryStatus_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.Timestamp lastEventAt_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> lastEventAtBuilder_;
+    /**
+     * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+     * @return Whether the lastEventAt field is set.
+     */
+    public boolean hasLastEventAt() {
+      return ((bitField0_ & 0x00001000) != 0);
+    }
+    /**
+     * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+     * @return The lastEventAt.
+     */
+    public com.google.protobuf.Timestamp getLastEventAt() {
+      if (lastEventAtBuilder_ == null) {
+        return lastEventAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : lastEventAt_;
+      } else {
+        return lastEventAtBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+     */
+    public Builder setLastEventAt(com.google.protobuf.Timestamp value) {
+      if (lastEventAtBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        lastEventAt_ = value;
+      } else {
+        lastEventAtBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+     */
+    public Builder setLastEventAt(
+        com.google.protobuf.Timestamp.Builder builderForValue) {
+      if (lastEventAtBuilder_ == null) {
+        lastEventAt_ = builderForValue.build();
+      } else {
+        lastEventAtBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+     */
+    public Builder mergeLastEventAt(com.google.protobuf.Timestamp value) {
+      if (lastEventAtBuilder_ == null) {
+        if (((bitField0_ & 0x00001000) != 0) &&
+          lastEventAt_ != null &&
+          lastEventAt_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
+          getLastEventAtBuilder().mergeFrom(value);
+        } else {
+          lastEventAt_ = value;
+        }
+      } else {
+        lastEventAtBuilder_.mergeFrom(value);
+      }
+      if (lastEventAt_ != null) {
+        bitField0_ |= 0x00001000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+     */
+    public Builder clearLastEventAt() {
+      bitField0_ = (bitField0_ & ~0x00001000);
+      lastEventAt_ = null;
+      if (lastEventAtBuilder_ != null) {
+        lastEventAtBuilder_.dispose();
+        lastEventAtBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+     */
+    public com.google.protobuf.Timestamp.Builder getLastEventAtBuilder() {
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return internalGetLastEventAtFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+     */
+    public com.google.protobuf.TimestampOrBuilder getLastEventAtOrBuilder() {
+      if (lastEventAtBuilder_ != null) {
+        return lastEventAtBuilder_.getMessageOrBuilder();
+      } else {
+        return lastEventAt_ == null ?
+            com.google.protobuf.Timestamp.getDefaultInstance() : lastEventAt_;
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
+        internalGetLastEventAtFieldBuilder() {
+      if (lastEventAtBuilder_ == null) {
+        lastEventAtBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
+                getLastEventAt(),
+                getParentForChildren(),
+                isClean());
+        lastEventAt_ = null;
+      }
+      return lastEventAtBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.AlertMonitor)

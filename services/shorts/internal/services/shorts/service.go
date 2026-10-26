@@ -14,6 +14,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/subscription"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
@@ -52,7 +53,7 @@ func (s *ShortsServer) GetTopShorts(ctx context.Context, req *connect.Request[sh
 	}
 	cacheKey := s.cache.GetTopShortsKey(req.Msg.Period+summaryTag, req.Msg.Limit, req.Msg.Offset)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		s.logger.Debugf("cache miss for GetTopShorts, fetching from database")
 
 		result, offset, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit(), req.Msg.Offset, req.Msg.SummaryOnly, req.Msg.ProductCodes...)
@@ -88,7 +89,7 @@ func (s *ShortsServer) GetStock(ctx context.Context, req *connect.Request[shorts
 	// Check cache first
 	cacheKey := s.cache.GetStockKey(req.Msg.ProductCode)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		return s.store.GetStock(req.Msg.ProductCode)
 	})
 
@@ -113,7 +114,7 @@ func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[sh
 	cacheKey := s.cache.GetStockDataKey(req.Msg.ProductCode, req.Msg.Period,
 		req.Msg.From, req.Msg.To, req.Msg.FullResolution, req.Msg.MaxPoints, req.Msg.AsOf)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		s.logger.Debugf("cache miss for GetStockData, fetching from database: product_code=%s, period=%s",
 			req.Msg.ProductCode, req.Msg.Period)
 		return s.store.GetStockData(shortsstore.StockDataQuery{
@@ -149,7 +150,7 @@ func (s *ShortsServer) GetStockDetails(ctx context.Context, req *connect.Request
 	// Check cache first
 	cacheKey := s.cache.GetStockDetailsKey(req.Msg.ProductCode)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		s.logger.Debugf("cache miss for GetStockDetails, fetching from database: product_code=%s", req.Msg.ProductCode)
 		return s.store.GetStockDetails(req.Msg.ProductCode)
 	})
@@ -175,7 +176,7 @@ func (s *ShortsServer) GetIndustryTreeMap(ctx context.Context, req *connect.Requ
 	// Check cache first
 	cacheKey := s.cache.GetIndustryTreeMapKey(req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		s.logger.Debugf("cache miss for GetIndustryTreeMap, fetching from database: limit=%d, period=%s, viewMode=%s",
 			req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
 		return s.store.GetIndustryTreeMap(req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
@@ -204,7 +205,7 @@ func (s *ShortsServer) GetMarketByDate(ctx context.Context, req *connect.Request
 
 	cacheKey := s.cache.GetMarketByDateKey(req.Msg.Date, req.Msg.Limit, req.Msg.Offset, req.Msg.IncludeZeroShortPositions, req.Msg.OrdinaryOnly)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		stocks, totalCount, err := s.store.GetMarketByDate(req.Msg.Date, req.Msg.Limit, req.Msg.Offset, req.Msg.IncludeZeroShortPositions, req.Msg.OrdinaryOnly)
 		if err != nil {
 			return nil, err
@@ -251,7 +252,7 @@ func (s *ShortsServer) GetAvailableDates(ctx context.Context, req *connect.Reque
 
 	cacheKey := s.cache.GetAvailableDatesKey(req.Msg.Limit, req.Msg.Before)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		dates, earliest, latest, totalCount, err := s.store.GetAvailableDates(int(req.Msg.Limit), req.Msg.Before)
 		if err != nil {
 			return nil, err
@@ -295,7 +296,7 @@ func (s *ShortsServer) SearchStocks(ctx context.Context, req *connect.Request[sh
 	// Check cache first
 	cacheKey := s.cache.GetSearchStocksKey(req.Msg.Query, req.Msg.Limit)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		// Try Algolia first if configured
 		if s.config.AlgoliaAppID != "" && s.config.AlgoliaSearchKey != "" {
 			s.logger.Debugf("searching via Algolia: query='%s'", req.Msg.Query)
@@ -345,7 +346,7 @@ func (s *ShortsServer) searchAlgolia(query string, limit int32) ([]*stocksv1alph
 	algoliaURL := fmt.Sprintf("https://%s-dsn.algolia.net/1/indexes/%s/query",
 		s.config.AlgoliaAppID, indexName)
 
-	reqBody := map[string]interface{}{
+	reqBody := map[string]any{
 		"query":       query,
 		"hitsPerPage": limit,
 	}
@@ -439,48 +440,46 @@ func (s *ShortsServer) MintToken(ctx context.Context, req *connect.Request[short
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("user not authenticated"))
 	}
 
-	// Check subscription status
-	subscription, err := s.store.GetAPISubscription(userClaims.UserID)
-	if err != nil {
-		s.logger.Errorf("failed to check subscription for %s: %v", userClaims.Email, err)
-		// Continue with free tier if DB check fails
-	}
+	// The interceptor resolved this caller's tier on this request through the one
+	// entitlement rule every RPC uses (internal grants, then the subscription store).
+	// It is not looked up again here. The tier only backs a grant when the lookup
+	// succeeded on this request (TierResolved). When it failed, the tier is whatever
+	// the credential carried, and an old token can carry a paid tier that has since
+	// lapsed. So a non-admin mint needs a resolved, paid tier.
+	tier := userClaims.Tier
+	// Every paid tier may mint: Premium is sold token creation, API Access is the
+	// higher-limit plan. The shared rule is services/pkg/subscription.APITokenTier.
+	paid := subscription.APITokenTier(tier)
 
-	// Determine subscription tier
-	tier := "free"
-	if subscription != nil && (subscription.Status == "active" || subscription.Status == "trialing") {
-		tier = subscription.Tier
-	}
+	// Admin is the role the interceptor granted: a verified Firebase email on the
+	// admin allowlist, or the role the web tier asserted for an internal call. The
+	// email is not consulted here, so an address alone grants nothing.
+	//
+	// A bespoke API token never renews admin. Its admin role is only ever a copy of an
+	// earlier grant, and minting from it would let that grant renew itself for 30 days
+	// at a time with no way to revoke it. A caller who holds admin only through such a
+	// token is a plain caller here.
+	isAdmin := hasRole(userClaims, "admin") && userClaims.AuthMethod != AuthMethodToken
 
-	// Admin emails can always mint tokens (for testing/development)
-	adminEmails := []string{
-		"ben.ebsworth@gmail.com",
-		"ben@shorted.com.au",
-		"e2e-test@shorted.com.au",
-	}
-
-	isAdmin := false
-	for _, adminEmail := range adminEmails {
-		if userClaims.Email == adminEmail {
-			isAdmin = true
-			break
-		}
+	if !isAdmin && !userClaims.TierResolved {
+		s.logger.Warnf("Refusing token mint for %s: subscription lookup did not resolve", userClaims.Email)
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("could not confirm your subscription; try again"))
 	}
 
 	// Non-admin users without active subscription cannot mint tokens
-	if !isAdmin && tier == "free" {
+	if !isAdmin && !paid {
 		s.logger.Warnf("User %s attempted to mint token without active subscription", userClaims.Email)
 		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("active subscription required to generate API tokens"))
 	}
 
 	// Determine roles for the API token
 	// All authenticated users get "api-user" role (can access public APIs)
-	// Specific emails get "admin" role (can access admin endpoints)
+	// Admins also get "admin" role (can access admin endpoints)
 	roles := []string{"api-user"}
 	if isAdmin {
 		roles = append(roles, "admin")
 		// Admins get pro tier by default if they don't have a subscription
-		if tier == "free" {
+		if !paid {
 			tier = "pro"
 		}
 	}

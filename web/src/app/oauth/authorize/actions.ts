@@ -3,6 +3,7 @@
 import { auth } from "~/server/auth";
 import { isAdminEmail } from "~/server/admin";
 import { getServerShortsApiUrl } from "~/app/actions/config";
+import { internalServiceSecret } from "~/server/internal-service-secret";
 
 /**
  * Server side of the OAuth consent screen.
@@ -27,12 +28,6 @@ import { getServerShortsApiUrl } from "~/app/actions/config";
  * scope or divert a redirect. This file's job is identity and intent, not
  * validation.
  */
-
-// Dev fallback matches the other internal-secret callers (runJob, getSyncStatus)
-// so a local stack works without configuration. Go refuses an unset secret in
-// production, so this fallback cannot become a production hole.
-const INTERNAL_SECRET =
-  process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
 
 /** The parameters an OAuth client puts on the authorize URL. */
 // The admin MCP server's resource identifier ends in /mcp/admin on every
@@ -79,11 +74,14 @@ interface OAuthErrorBody {
   error_description?: string;
 }
 
+// Read per call, not at import: an unset secret in production must fail the consent
+// request, not the build. internalServiceSecret() has the development-only fallback.
 function internalHeaders(): Record<string, string> {
+  const secret = internalServiceSecret();
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${INTERNAL_SECRET}`,
-    "x-internal-secret": INTERNAL_SECRET,
+    Authorization: `Bearer ${secret}`,
+    "x-internal-secret": secret,
     // api.shorted.com.au 403s curl's default UA and anything that looks like a
     // scraper; every server-side caller in this app sends a browser-ish one.
     "User-Agent": "Mozilla/5.0 (compatible; ShortedConsent)",
@@ -192,15 +190,21 @@ export async function approveAuthorization(
       description: "Sign in before approving access.",
     };
   }
-  // The admin MCP server (/mcp/admin) is for administrators only. The API
-  // refuses to ticket it for anyone else regardless; checking here too turns
-  // that refusal into a clear message instead of a generic error.
-  if (isAdminResource(request.resource) && !isAdminEmail(session?.user?.email)) {
+  // The admin MCP server (/mcp/admin) is for verified administrators only. The API
+  // refuses to ticket it for anyone else regardless; checking here too turns that
+  // refusal into a clear message instead of a generic error. An allowlisted address
+  // alone is not enough: an unverified account can be registered under it. This is
+  // the rule isAdmin() applies, read from the session already in hand.
+  const verifiedAdmin =
+    isAdminEmail(session?.user?.email) && session?.user?.emailVerified === true;
+  if (isAdminResource(request.resource) && !verifiedAdmin) {
     return {
       ok: false,
       error: "access_denied",
       description:
-        "Only Shorted administrators can connect the admin (publishing, data jobs) server.",
+        "Only Shorted administrators can connect the admin (publishing, data jobs) server. " +
+        "If you are one, sign out of shorted.com.au and sign back in, then try again: " +
+        "a session from before the verified-email check does not carry the flag it reads.",
     };
   }
 

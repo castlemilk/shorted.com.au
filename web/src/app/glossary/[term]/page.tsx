@@ -20,6 +20,7 @@ import {
   getRelatedTerms,
   getAllTermSlugs,
 } from "~/@/data/glossary-terms";
+import { JsonLd } from "~/@/components/seo/json-ld";
 
 interface PageProps {
   params: Promise<{ term: string }>;
@@ -103,10 +104,7 @@ function TermStructuredData({ term }: { term: { term: string; definition: string
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-    />
+    <JsonLd data={structuredData} />
   );
 }
 

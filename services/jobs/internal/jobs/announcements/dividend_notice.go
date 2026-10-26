@@ -96,7 +96,7 @@ func parseDividendNotice(text string) (DividendNotice, noticeOutcome, string) {
 	// Normalize: split on newline (and where fields run together), trim, drop
 	// empty lines, drop header and "For personal use only"
 	var normalized []string
-	for _, raw := range strings.Split(text, "\n") {
+	for raw := range strings.SplitSeq(text, "\n") {
 		for _, line := range unglue(strings.TrimSpace(raw)) {
 			line = strings.TrimSpace(line)
 			if line == "" {

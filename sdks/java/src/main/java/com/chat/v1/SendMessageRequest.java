@@ -196,6 +196,24 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int RETRY_FIELD_NUMBER = 4;
+  private boolean retry_ = false;
+  /**
+   * <pre>
+   * True when the person asked again after a failed reply (Try again). The
+   * question is already stored in the conversation, so the service reuses it
+   * instead of storing it a second time, and replaces the partial reply the
+   * failed attempt left behind.
+   * </pre>
+   *
+   * <code>bool retry = 4 [json_name = "retry"];</code>
+   * @return The retry.
+   */
+  @java.lang.Override
+  public boolean getRetry() {
+    return retry_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -219,6 +237,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(contextStockCode_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 3, contextStockCode_);
     }
+    if (retry_ != false) {
+      output.writeBool(4, retry_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -231,6 +252,10 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(contextStockCode_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(3, contextStockCode_);
+    }
+    if (retry_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(4, retry_);
     }
     return size;
   }
@@ -262,6 +287,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getMessage())) return false;
     if (!getContextStockCode()
         .equals(other.getContextStockCode())) return false;
+    if (getRetry()
+        != other.getRetry()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -279,6 +306,9 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getMessage().hashCode();
     hash = (37 * hash) + CONTEXT_STOCK_CODE_FIELD_NUMBER;
     hash = (53 * hash) + getContextStockCode().hashCode();
+    hash = (37 * hash) + RETRY_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getRetry());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -417,6 +447,7 @@ private static final long serialVersionUID = 0L;
       conversationId_ = "";
       message_ = "";
       contextStockCode_ = "";
+      retry_ = false;
       return this;
     }
 
@@ -459,6 +490,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000004) != 0)) {
         result.contextStockCode_ = contextStockCode_;
       }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.retry_ = retry_;
+      }
     }
 
     @java.lang.Override
@@ -487,6 +521,9 @@ private static final long serialVersionUID = 0L;
         contextStockCode_ = other.contextStockCode_;
         bitField0_ |= 0x00000004;
         onChanged();
+      }
+      if (other.getRetry() != false) {
+        setRetry(other.getRetry());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -529,6 +566,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000004;
               break;
             } // case 26
+            case 32: {
+              retry_ = input.readBool();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 32
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -818,6 +860,59 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       contextStockCode_ = value;
       bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+
+    private boolean retry_ ;
+    /**
+     * <pre>
+     * True when the person asked again after a failed reply (Try again). The
+     * question is already stored in the conversation, so the service reuses it
+     * instead of storing it a second time, and replaces the partial reply the
+     * failed attempt left behind.
+     * </pre>
+     *
+     * <code>bool retry = 4 [json_name = "retry"];</code>
+     * @return The retry.
+     */
+    @java.lang.Override
+    public boolean getRetry() {
+      return retry_;
+    }
+    /**
+     * <pre>
+     * True when the person asked again after a failed reply (Try again). The
+     * question is already stored in the conversation, so the service reuses it
+     * instead of storing it a second time, and replaces the partial reply the
+     * failed attempt left behind.
+     * </pre>
+     *
+     * <code>bool retry = 4 [json_name = "retry"];</code>
+     * @param value The retry to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRetry(boolean value) {
+
+      retry_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when the person asked again after a failed reply (Try again). The
+     * question is already stored in the conversation, so the service reuses it
+     * instead of storing it a second time, and replaces the partial reply the
+     * failed attempt left behind.
+     * </pre>
+     *
+     * <code>bool retry = 4 [json_name = "retry"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRetry() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      retry_ = false;
       onChanged();
       return this;
     }

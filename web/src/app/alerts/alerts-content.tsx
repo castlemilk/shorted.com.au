@@ -1,8 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { ReactNode } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -21,13 +24,55 @@ import { Button } from "~/@/components/ui/button";
 import { cn } from "~/@/lib/utils";
 import { pageTitle } from "~/@/lib/typography";
 import { createAlertMonitor } from "~/app/actions/alerts";
+import {
+  ALERT_EVENTS_QUERY_KEY,
+  ALERT_MONITORS_QUERY_KEY,
+  buildMonitorSummary,
+  conditionHelper,
+  thresholdUnit,
+  type AlertCadence,
+  type AlertCondition,
+  type AlertScope,
+} from "./alert-model";
 
-type AlertScope = "industry" | "stock";
-type AlertCadence = "Daily" | "Weekly";
-type AlertCondition =
-  | "short-interest-above"
-  | "short-interest-rises"
-  | "new-top-ten-entry";
+/**
+ * The monitor and event lists load after the builder. Each needs the account session
+ * and the dialogs that confirm a delete, and each only fetches once the page is up,
+ * so the first load stays on the builder. The alerts page is an account tool, not an
+ * indexed page, so the lists do not render on the server.
+ */
+const AlertMonitorList = dynamic(
+  () => import("./alert-monitor-list").then((mod) => mod.AlertMonitorList),
+  {
+    ssr: false,
+    loading: () => <ListPlaceholder label="Loading your alerts" />,
+  },
+);
+const AlertEventsList = dynamic(
+  () => import("./alert-events-list").then((mod) => mod.AlertEventsList),
+  {
+    ssr: false,
+    loading: () => <ListPlaceholder label="Loading recent alerts" />,
+  },
+);
+
+function ListPlaceholder({ label }: { label: string }) {
+  return (
+    <p className="text-sm text-muted-foreground" role="status">
+      {label}…
+    </p>
+  );
+}
+
+// Client-only, so the verification code is not part of the builder's first load. It
+// renders only for an unverified account.
+const EmailVerificationPrompt = dynamic(
+  () =>
+    import("~/@/components/email-verification-prompt").then(
+      (mod) => mod.EmailVerificationPrompt,
+    ),
+  { ssr: false, loading: () => null },
+);
 
 type AlertDraft = {
   id?: string;
@@ -38,22 +83,7 @@ type AlertDraft = {
   cadence: AlertCadence;
 };
 
-const conditionCopy: Record<AlertCondition, { label: string; helper: string }> =
-  {
-    "short-interest-above": {
-      label: "Short interest above",
-      helper: "Notify when reported short interest crosses the threshold.",
-    },
-    "short-interest-rises": {
-      label: "Short interest rises by",
-      helper:
-        "Notify when the latest reported move is at least this many points.",
-    },
-    "new-top-ten-entry": {
-      label: "New top-ten entry",
-      helper: "Notify when a company enters this industry's ranked set.",
-    },
-  };
+const INDUSTRY_DATALIST_ID = "alert-industry-options";
 
 function titleCase(value: string): string {
   return value
@@ -67,19 +97,11 @@ export function industryLabelFromSlug(slug?: string): string {
   return titleCase(slug ?? "") || "Materials";
 }
 
-function buildDraftSummary(draft: AlertDraft): string {
-  const condition = conditionCopy[draft.condition].label.toLowerCase();
-  const threshold =
-    draft.condition === "new-top-ten-entry" ? "" : ` ${draft.threshold}%`;
-
-  return `${draft.target} - ${condition}${threshold} - ${draft.cadence.toLowerCase()}`;
-}
-
 function AlertsPreview({ industry }: { industry: string }) {
   const examples = [
     {
       label: `${industry} daily movement`,
-      detail: "Sector-level short-interest changes",
+      detail: "Any company in an industry crossing or jumping",
       icon: TrendingDown,
     },
     {
@@ -116,9 +138,13 @@ function AlertsPreview({ industry }: { industry: string }) {
 
 export function AlertsWorkspace({
   initialIndustry,
+  industryNames = [],
 }: {
   initialIndustry?: string;
+  /** Industry names for the datalist. The server validates the choice anyway. */
+  industryNames?: string[];
 }) {
+  const queryClient = useQueryClient();
   const defaultIndustry = industryLabelFromSlug(initialIndustry);
   const [scope, setScope] = useState<AlertScope>(
     initialIndustry ? "industry" : "stock",
@@ -133,14 +159,23 @@ export function AlertsWorkspace({
   const [draft, setDraft] = useState<AlertDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savedWithoutEmail, setSavedWithoutEmail] = useState(false);
+  const { data: session, status } = useSession();
+  // The address the alert would be emailed to, when the account has one that is not yet
+  // verified. Saving still works; the warning says the alert will not be emailed yet.
+  const unverifiedEmail =
+    status === "authenticated" &&
+    session?.user?.email &&
+    session.user.emailVerified !== true
+      ? session.user.email
+      : null;
 
   const target =
     scope === "industry" ? industry.trim() : stockCode.trim().toUpperCase();
   const canCreate = target.length > 0;
   const summary = useMemo(
     () =>
-      buildDraftSummary({
-        scope,
+      buildMonitorSummary({
         target:
           target || (scope === "industry" ? "Selected industry" : "Ticker"),
         condition,
@@ -168,6 +203,7 @@ export function AlertsWorkspace({
       setSaveError(result.error);
       return;
     }
+    setSavedWithoutEmail(!result.emailDeliverable);
 
     setDraft({
       id: result.monitor.id,
@@ -180,6 +216,9 @@ export function AlertsWorkspace({
           : String(result.monitor.threshold),
       cadence,
     });
+    // The monitor list and the event list are other queries on this page.
+    void queryClient.invalidateQueries({ queryKey: ALERT_MONITORS_QUERY_KEY });
+    void queryClient.invalidateQueries({ queryKey: ALERT_EVENTS_QUERY_KEY });
   };
 
   return (
@@ -210,7 +249,7 @@ export function AlertsWorkspace({
                 active={scope === "industry"}
                 icon={<Building2 className="h-4 w-4" aria-hidden="true" />}
                 label="Industry"
-                detail="Track sector-level movement"
+                detail="Watch every company in an industry"
                 onClick={() => {
                   setScope("industry");
                   if (condition === "short-interest-above") {
@@ -235,14 +274,23 @@ export function AlertsWorkspace({
 
           <div className="grid gap-4 sm:grid-cols-2">
             {scope === "industry" ? (
-              <label className="block min-w-0">
-                <span className="text-sm font-medium">Industry</span>
-                <input
-                  value={industry}
-                  onChange={(event) => setIndustry(event.target.value)}
-                  className="mt-2 h-11 w-full rounded-md border border-border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
-              </label>
+              <div className="block min-w-0">
+                <label className="block min-w-0">
+                  <span className="text-sm font-medium">Industry</span>
+                  <input
+                    value={industry}
+                    list={INDUSTRY_DATALIST_ID}
+                    onChange={(event) => setIndustry(event.target.value)}
+                    autoComplete="off"
+                    className="mt-2 h-11 w-full rounded-md border border-border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </label>
+                <datalist id={INDUSTRY_DATALIST_ID}>
+                  {industryNames.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </div>
             ) : (
               <label className="block min-w-0">
                 <span className="text-sm font-medium">ASX code</span>
@@ -267,6 +315,11 @@ export function AlertsWorkspace({
                 <option>Daily</option>
                 <option>Weekly</option>
               </select>
+              <span className="mt-2 block text-xs leading-5 text-muted-foreground">
+                Daily: after each new ASIC report. Weekly: once a week,
+                comparing the week&apos;s last report with the previous
+                week&apos;s.
+              </span>
             </label>
           </div>
 
@@ -291,8 +344,14 @@ export function AlertsWorkspace({
                 ) : null}
               </select>
               <span className="mt-2 block text-xs leading-5 text-muted-foreground">
-                {conditionCopy[condition].helper}
+                {conditionHelper(scope, condition)}
               </span>
+              {condition === "short-interest-above" ? (
+                <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                  Crossing alerts fire on the next crossing, not the current
+                  level.
+                </span>
+              ) : null}
             </label>
 
             <label className="block min-w-0">
@@ -305,7 +364,9 @@ export function AlertsWorkspace({
                   disabled={condition === "new-top-ten-entry"}
                   className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none disabled:text-muted-foreground"
                 />
-                <span className="ml-2 text-xs text-muted-foreground">%</span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {thresholdUnit(condition)}
+                </span>
               </div>
             </label>
           </div>
@@ -339,6 +400,19 @@ export function AlertsWorkspace({
             </Button>
           </div>
 
+          {unverifiedEmail ? (
+            <div
+              role="note"
+              className="space-y-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-6"
+            >
+              <p>
+                Alerts are saved but not emailed until you verify{" "}
+                <span className="font-medium">{unverifiedEmail}</span>.
+              </p>
+              <EmailVerificationPrompt />
+            </div>
+          ) : null}
+
           {saveError ? (
             <div
               className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
@@ -364,9 +438,26 @@ export function AlertsWorkspace({
                 saved
               </div>
               <div className="mt-2 break-words text-sm leading-6 text-muted-foreground">
-                {buildDraftSummary(draft)}
+                {buildMonitorSummary(draft)}
               </div>
             </div>
+            {savedWithoutEmail ? (
+              <div
+                role="status"
+                className="space-y-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm leading-6"
+              >
+                <p>
+                  Saved. It is not emailed until you verify{" "}
+                  {unverifiedEmail ? (
+                    <span className="font-medium">{unverifiedEmail}</span>
+                  ) : (
+                    "your email address"
+                  )}
+                  .
+                </p>
+                <EmailVerificationPrompt />
+              </div>
+            ) : null}
             <Button
               asChild
               variant="outline"
@@ -439,8 +530,10 @@ function ScopeButton({
 
 export function AlertsContent({
   initialIndustry,
+  industryNames = [],
 }: {
   initialIndustry?: string;
+  industryNames?: string[];
 }) {
   const industry = industryLabelFromSlug(initialIndustry);
 
@@ -455,12 +548,11 @@ export function AlertsContent({
             >
               Alerts
             </Badge>
-            <h1 className={pageTitle}>
-              Short-interest monitors
-            </h1>
+            <h1 className={pageTitle}>Short-interest monitors</h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground text-pretty md:text-base">
               Create industry or stock alerts for short-interest thresholds,
-              ranked-set movement, and recurring market checks.
+              sharp moves between reports, and new entries to an industry's top
+              ten. Each one is checked against every new ASIC report.
             </p>
           </div>
           <Button asChild variant="outline" className="min-h-10 shrink-0">
@@ -478,10 +570,50 @@ export function AlertsContent({
 
       <PremiumGate
         feature="Alerts"
-        fallback={<AlertsWorkspace initialIndustry={initialIndustry} />}
+        fallback={
+          <AlertsWorkspace
+            initialIndustry={initialIndustry}
+            industryNames={industryNames}
+          />
+        }
       >
-        <AlertsWorkspace initialIndustry={initialIndustry} />
+        <AlertsWorkspace
+          initialIndustry={initialIndustry}
+          industryNames={industryNames}
+        />
       </PremiumGate>
+
+      <section
+        aria-labelledby="alert-monitors-heading"
+        className="min-w-0 rounded-lg border border-border/60 bg-card/80 p-5 shadow-amber-sm"
+      >
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
+          Your alerts
+        </p>
+        <h2
+          id="alert-monitors-heading"
+          className="mt-1 mb-4 text-2xl font-semibold tracking-tight"
+        >
+          Monitors
+        </h2>
+        <AlertMonitorList />
+      </section>
+
+      <section
+        aria-labelledby="alert-events-heading"
+        className="min-w-0 rounded-lg border border-border/60 bg-card/80 p-5 shadow-amber-sm"
+      >
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
+          Recent alerts
+        </p>
+        <h2
+          id="alert-events-heading"
+          className="mt-1 mb-4 text-2xl font-semibold tracking-tight"
+        >
+          Fired on new ASIC reports
+        </h2>
+        <AlertEventsList />
+      </section>
     </div>
   );
 }

@@ -184,7 +184,7 @@ func TestPaceSpacesRequestsToOneProvider(t *testing.T) {
 	ctx := context.Background()
 
 	start := time.Now()
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		require.NoError(t, m.pace(ctx, p))
 	}
 	assert.GreaterOrEqual(t, time.Since(start), 80*time.Millisecond, "three requests span two intervals")
@@ -340,7 +340,7 @@ func TestCloseToleranceFollowsTheStoredScale(t *testing.T) {
 func TestReportListsAreCapped(t *testing.T) {
 	t.Parallel()
 	var r RunReport
-	for i := 0; i < reportListCap+50; i++ {
+	for i := range reportListCap + 50 {
 		v := float64(i + 1)
 		d := comparePrices(fmt.Sprintf("C%03d", i),
 			[]providers.PriceRecord{{Date: mustDate("2026-09-21"), Close: 2 * v}},

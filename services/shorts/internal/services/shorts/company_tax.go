@@ -38,7 +38,7 @@ func (s *ShortsServer) GetCompanyTaxProfile(ctx context.Context, req *connect.Re
 
 	cacheKey := s.cache.GetCompanyTaxProfileKey(productCode)
 
-	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (any, error) {
 		profile, err := s.store.GetCompanyTaxProfile(productCode)
 		if err != nil {
 			return nil, err

@@ -33,6 +33,7 @@ private static final long serialVersionUID = 0L;
   }
   private ListAlertMonitorsResponse() {
     monitors_ = java.util.Collections.emptyList();
+    checkedThroughReportDate_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -105,6 +106,53 @@ private static final long serialVersionUID = 0L;
     return totalCount_;
   }
 
+  public static final int CHECKED_THROUGH_REPORT_DATE_FIELD_NUMBER = 3;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object checkedThroughReportDate_ = "";
+  /**
+   * <pre>
+   * The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+   * </pre>
+   *
+   * <code>string checked_through_report_date = 3 [json_name = "checkedThroughReportDate"];</code>
+   * @return The checkedThroughReportDate.
+   */
+  @java.lang.Override
+  public java.lang.String getCheckedThroughReportDate() {
+    java.lang.Object ref = checkedThroughReportDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      checkedThroughReportDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+   * </pre>
+   *
+   * <code>string checked_through_report_date = 3 [json_name = "checkedThroughReportDate"];</code>
+   * @return The bytes for checkedThroughReportDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getCheckedThroughReportDateBytes() {
+    java.lang.Object ref = checkedThroughReportDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      checkedThroughReportDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -125,6 +173,9 @@ private static final long serialVersionUID = 0L;
     if (totalCount_ != 0) {
       output.writeInt32(2, totalCount_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(checkedThroughReportDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 3, checkedThroughReportDate_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -141,6 +192,9 @@ private static final long serialVersionUID = 0L;
     if (totalCount_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(2, totalCount_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(checkedThroughReportDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(3, checkedThroughReportDate_);
     }
     return size;
   }
@@ -170,6 +224,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getMonitorsList())) return false;
     if (getTotalCount()
         != other.getTotalCount()) return false;
+    if (!getCheckedThroughReportDate()
+        .equals(other.getCheckedThroughReportDate())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -187,6 +243,8 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + TOTAL_COUNT_FIELD_NUMBER;
     hash = (53 * hash) + getTotalCount();
+    hash = (37 * hash) + CHECKED_THROUGH_REPORT_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getCheckedThroughReportDate().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -330,6 +388,7 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00000001);
       totalCount_ = 0;
+      checkedThroughReportDate_ = "";
       return this;
     }
 
@@ -379,6 +438,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000002) != 0)) {
         result.totalCount_ = totalCount_;
       }
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.checkedThroughReportDate_ = checkedThroughReportDate_;
+      }
     }
 
     @java.lang.Override
@@ -421,6 +483,11 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getTotalCount() != 0) {
         setTotalCount(other.getTotalCount());
+      }
+      if (!other.getCheckedThroughReportDate().isEmpty()) {
+        checkedThroughReportDate_ = other.checkedThroughReportDate_;
+        bitField0_ |= 0x00000004;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -466,6 +533,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 16
+            case 26: {
+              checkedThroughReportDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000004;
+              break;
+            } // case 26
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -751,6 +823,98 @@ private static final long serialVersionUID = 0L;
     public Builder clearTotalCount() {
       bitField0_ = (bitField0_ & ~0x00000002);
       totalCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object checkedThroughReportDate_ = "";
+    /**
+     * <pre>
+     * The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+     * </pre>
+     *
+     * <code>string checked_through_report_date = 3 [json_name = "checkedThroughReportDate"];</code>
+     * @return The checkedThroughReportDate.
+     */
+    public java.lang.String getCheckedThroughReportDate() {
+      java.lang.Object ref = checkedThroughReportDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        checkedThroughReportDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+     * </pre>
+     *
+     * <code>string checked_through_report_date = 3 [json_name = "checkedThroughReportDate"];</code>
+     * @return The bytes for checkedThroughReportDate.
+     */
+    public com.google.protobuf.ByteString
+        getCheckedThroughReportDateBytes() {
+      java.lang.Object ref = checkedThroughReportDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        checkedThroughReportDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+     * </pre>
+     *
+     * <code>string checked_through_report_date = 3 [json_name = "checkedThroughReportDate"];</code>
+     * @param value The checkedThroughReportDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCheckedThroughReportDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkedThroughReportDate_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+     * </pre>
+     *
+     * <code>string checked_through_report_date = 3 [json_name = "checkedThroughReportDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCheckedThroughReportDate() {
+      checkedThroughReportDate_ = getDefaultInstance().getCheckedThroughReportDate();
+      bitField0_ = (bitField0_ & ~0x00000004);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The latest report the evaluator has checked, YYYY-MM-DD. Empty before its first run.
+     * </pre>
+     *
+     * <code>string checked_through_report_date = 3 [json_name = "checkedThroughReportDate"];</code>
+     * @param value The bytes for checkedThroughReportDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCheckedThroughReportDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      checkedThroughReportDate_ = value;
+      bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }

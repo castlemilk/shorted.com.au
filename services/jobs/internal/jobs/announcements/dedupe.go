@@ -98,10 +98,7 @@ func chunkAnnouncements(announcements []ASXAnnouncement, size int) [][]ASXAnnoun
 	}
 	var chunks [][]ASXAnnouncement
 	for start := 0; start < len(announcements); start += size {
-		end := start + size
-		if end > len(announcements) {
-			end = len(announcements)
-		}
+		end := min(start+size, len(announcements))
 		chunks = append(chunks, announcements[start:end])
 	}
 	return chunks

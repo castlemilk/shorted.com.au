@@ -3,7 +3,6 @@ package shorts
 import (
 	"testing"
 
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -61,15 +60,15 @@ func testSuburbSummaryWithSeifaDescriptor(t *testing.T) protoreflect.MessageDesc
 	messageType := descriptorpb.FieldDescriptorProto_TYPE_MESSAGE
 	field := func(name string, number int32, fieldType descriptorpb.FieldDescriptorProto_Type, typeName string) *descriptorpb.FieldDescriptorProto {
 		f := &descriptorpb.FieldDescriptorProto{
-			Name: proto.String(name), Number: proto.Int32(number), Label: &optional, Type: &fieldType,
+			Name: new(name), Number: new(number), Label: &optional, Type: &fieldType,
 		}
 		if typeName != "" {
-			f.TypeName = proto.String(typeName)
+			f.TypeName = new(typeName)
 		}
 		return f
 	}
 	index := &descriptorpb.DescriptorProto{
-		Name: proto.String("SuburbSeifaIndex"),
+		Name: new("SuburbSeifaIndex"),
 		Field: []*descriptorpb.FieldDescriptorProto{
 			field("score", 1, int32Type, ""),
 			field("decile_aus", 2, int32Type, ""),
@@ -77,7 +76,7 @@ func testSuburbSummaryWithSeifaDescriptor(t *testing.T) protoreflect.MessageDesc
 		},
 	}
 	seifa := &descriptorpb.DescriptorProto{
-		Name: proto.String("SuburbSeifa"),
+		Name: new("SuburbSeifa"),
 		Field: []*descriptorpb.FieldDescriptorProto{
 			field("irsd", 1, messageType, ".seifatest.SuburbSeifaIndex"),
 			field("irsad", 2, messageType, ".seifatest.SuburbSeifaIndex"),
@@ -86,13 +85,13 @@ func testSuburbSummaryWithSeifaDescriptor(t *testing.T) protoreflect.MessageDesc
 		},
 	}
 	summary := &descriptorpb.DescriptorProto{
-		Name: proto.String("SuburbSummary"),
+		Name: new("SuburbSummary"),
 		Field: []*descriptorpb.FieldDescriptorProto{
 			field("seifa", 32, messageType, ".seifatest.SuburbSeifa"),
 		},
 	}
 	file, err := protodesc.NewFile(&descriptorpb.FileDescriptorProto{
-		Name: proto.String("seifa_test.proto"), Package: proto.String("seifatest"), Syntax: proto.String("proto3"),
+		Name: new("seifa_test.proto"), Package: new("seifatest"), Syntax: new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{index, seifa, summary},
 	}, nil)
 	if err != nil {

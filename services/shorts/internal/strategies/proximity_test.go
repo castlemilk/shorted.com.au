@@ -25,10 +25,10 @@ func TestProximityMapsTheGapOntoTheUnitInterval(t *testing.T) {
 
 func TestEveryTriggerRuleGradesItsFail(t *testing.T) {
 	near := zangerReady("NEAR")
-	near.BreakoutRecent = b(false)
+	near.BreakoutRecent = new(false)
 	near.Close = 9.405 // 1% under the 9.5 pivot
 	far := zangerReady("FAR")
-	far.BreakoutRecent = b(false)
+	far.BreakoutRecent = new(false)
 	far.Close = 8.55 // 10% under
 	if p := ruleBreakout(&near, nil).Proximity; math.Abs(p-0.9) > 1e-6 {
 		t.Errorf("breakout 1%% under the pivot: proximity %v, want 0.9", p)
@@ -37,42 +37,42 @@ func TestEveryTriggerRuleGradesItsFail(t *testing.T) {
 		t.Errorf("breakout 10%% under the pivot: proximity %v, want 0", p)
 	}
 	above := zangerReady("ABV")
-	above.BreakoutRecent = b(false)
+	above.BreakoutRecent = new(false)
 	above.Close = 9.6 // above the pivot, but not on 1.5x volume
 	if out := ruleBreakout(&above, nil); out.Status != RuleFail || out.Proximity != 1 {
 		t.Errorf("a close over the pivot without the volume fails at the line: %+v", out)
 	}
-	noPivot := Candidate{StockCode: "NOP", Close: 5, BreakoutRecent: b(false)}
+	noPivot := Candidate{StockCode: "NOP", Close: 5, BreakoutRecent: new(false)}
 	if out := ruleBreakout(&noPivot, nil); out.Proximity != 0 {
 		t.Errorf("no pivot, no proximity: %+v", out)
 	}
 
-	c := Candidate{Close: 10, PctOff52wHigh: f(-12.5)}
+	c := Candidate{Close: 10, PctOff52wHigh: new(-12.5)}
 	if p := ruleNearHigh(&c, nil).Proximity; math.Abs(p-0.5) > 1e-6 {
 		t.Errorf("12.5%% off the high is half way to CAN SLIM's 5%% line: %v", p)
 	}
-	c.PctOff52wHigh = f(-37.5)
+	c.PctOff52wHigh = new(-37.5)
 	if p := ruleOffHigh(&c, nil).Proximity; math.Abs(p-0.5) > 1e-6 {
 		t.Errorf("37.5%% off the high is half way to Minervini's 25%% line: %v", p)
 	}
 
 	env := &evalEnv{rs6m: quartile{threshold: 20, max: 60, ok: true}}
-	rs := Candidate{RS6mPct: f(10)}
+	rs := Candidate{RS6mPct: new(float64(10))}
 	if p := ruleRSLeader(&rs, env).Proximity; math.Abs(p-0.5) > 1e-6 {
 		t.Errorf("10 points under the cut-off: proximity %v, want 0.5", p)
 	}
 
-	q := Candidate{Close: 95, SMA200: f(100)}
+	q := Candidate{Close: 95, SMA200: new(float64(100))}
 	if p := ruleAboveSMA200(&q, nil).Proximity; math.Abs(p-0.5) > 1e-6 {
 		t.Errorf("5%% under the 200-day: proximity %v, want 0.5", p)
 	}
 
 	// A pass carries no proximity, and a rule that is never a trigger grades
 	// nothing on a fail.
-	if out := ruleAboveSMA200(&Candidate{Close: 105, SMA200: f(100)}, nil); out.Status != RulePass || out.Proximity != 0 {
+	if out := ruleAboveSMA200(&Candidate{Close: 105, SMA200: new(float64(100))}, nil); out.Status != RulePass || out.Proximity != 0 {
 		t.Errorf("a pass has no proximity: %+v", out)
 	}
-	if out := ruleLiquidity(&Candidate{DollarVolume20d: f(249_000)}, nil); out.Proximity != 0 {
+	if out := ruleLiquidity(&Candidate{DollarVolume20d: new(float64(249_000))}, nil); out.Proximity != 0 {
 		t.Errorf("liquidity is never graded: %+v", out)
 	}
 }
@@ -80,10 +80,10 @@ func TestEveryTriggerRuleGradesItsFail(t *testing.T) {
 func TestSetupsRankByTriggerProximity(t *testing.T) {
 	z, _ := Lookup(IDZangerBreakout)
 	near := zangerReady("NEAR")
-	near.BreakoutRecent = b(false)
+	near.BreakoutRecent = new(false)
 	near.Close = 9.4
 	far := zangerReady("FAR")
-	far.BreakoutRecent = b(false)
+	far.BreakoutRecent = new(false)
 	far.Close = 8.6
 	picks := Evaluate(z, []Candidate{far, near}, uptrend)
 	if got := codes(picks); strings.Join(got, ",") != "NEAR,FAR" {
@@ -113,7 +113,7 @@ func TestTriggerCreditNeverOutranksAPassAndNeverTouchesATriggeredStock(t *testin
 	passed.BreakoutDate = d("2026-09-18")
 	passed.Close = 9.5
 	atLine := zangerReady("LIN")
-	atLine.BreakoutRecent = b(false)
+	atLine.BreakoutRecent = new(false)
 	atLine.Close = 9.5
 	picks := Evaluate(z, []Candidate{atLine, passed}, uptrend)
 	if got := codes(picks); strings.Join(got, ",") != "PAS,LIN" {

@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -128,10 +129,8 @@ func newPriceDBWith(t *testing.T, migrations []string) *pgxpool.Pool {
 // for the codes in empty, which have no sessions at all.
 func pricedByCode(empty ...string) func(string, time.Time, time.Time) ([]providers.PriceRecord, error) {
 	return func(symbol string, from, to time.Time) ([]providers.PriceRecord, error) {
-		for _, e := range empty {
-			if e == symbol {
-				return nil, providers.NewNoDataError(symbol, "no sessions")
-			}
+		if slices.Contains(empty, symbol) {
+			return nil, providers.NewNoDataError(symbol, "no sessions")
 		}
 		price := map[string]float64{"BHP": 43.45, "NEW": 1.5}[symbol]
 		var out []providers.PriceRecord
@@ -566,7 +565,7 @@ func TestSweepStopsWhenTheUpstreamRefuses(t *testing.T) {
 	ctx := context.Background()
 
 	var codes []string
-	for i := 0; i < maxConsecutiveFailures+10; i++ {
+	for i := range maxConsecutiveFailures + 10 {
 		codes = append(codes, fmt.Sprintf("C%03d", i))
 	}
 	provider := &fakeProvider{name: "yahoo", fn: refused}
@@ -598,7 +597,7 @@ func TestSweepStopsOnItsBudget(t *testing.T) {
 	ctx := context.Background()
 
 	var codes []string
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		codes = append(codes, fmt.Sprintf("B%03d", i))
 	}
 	const perStock = 20 * time.Millisecond
@@ -646,7 +645,7 @@ func TestFailureTrackerBlocksAfterThreeStrikes(t *testing.T) {
 	ctx := context.Background()
 	ft := NewFailureTracker(pool)
 
-	for i := 0; i < MaxConsecutiveFailures; i++ {
+	for i := range MaxConsecutiveFailures {
 		assert.False(t, ft.IsBlocked(ctx, "DEAD"), "not blocked after %d strikes", i)
 		ft.RecordFailure(ctx, "DEAD", "no data")
 	}

@@ -69,7 +69,7 @@ func TestMarketDataSync_FullCycle(t *testing.T) {
 // Mock Data Provider for testing
 type mockDataProvider struct{}
 
-func (m *mockDataProvider) Name() string { return "Mock Provider" }
+func (m *mockDataProvider) Name() string                { return "Mock Provider" }
 func (m *mockDataProvider) GetRateLimit() time.Duration { return 0 }
 func (m *mockDataProvider) FetchHistoricalData(ctx context.Context, symbol string, startDate, endDate time.Time) ([]providers.PriceRecord, error) {
 	return []providers.PriceRecord{

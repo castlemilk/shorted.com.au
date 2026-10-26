@@ -9,6 +9,7 @@ import type { FinancialReport } from "~/@/types/company-metadata";
 import { formatDate } from "~/@/lib/fundamentals/format";
 import { cn } from "~/@/lib/utils";
 import { FileText, ExternalLink } from "lucide-react";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 // The company's own filings on the Financials tab
 // (docs/plans/fundamentals-coverage.md §7.1, item 4): newest first,
@@ -33,8 +34,7 @@ const MAX_REPORTS = 10;
 function getReportHref(report: FinancialReport): string | null {
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: proto defaults to "" which must be treated as falsy
   const url = report.gcs_url || report.url;
-  if (!url || !/^https?:\/\//i.test(url.trim())) return null;
-  return url.trim();
+  return safeExternalHref(url) ?? null;
 }
 
 function comparable(value: string | null | undefined): string {

@@ -1,34 +1,20 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ExternalLink } from "lucide-react";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
-import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/@/components/ui/table";
-import {
-  KindBadge,
-  NoticeTable,
-  OwnershipMethodology,
-} from "~/@/components/ownership/ownership-parts";
-import { formatAmount, formatPct } from "~/@/lib/fundamentals/format";
-import {
-  formLabel,
-  formatFundWeight,
-  formatPointChange,
-  formatVotingPower,
-  fundLabel,
-  kindInfo,
-} from "~/@/lib/ownership/kinds";
-import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
+import { BreadcrumbStructuredData, Breadcrumbs } from "~/@/components/seo/breadcrumbs";
+import { ExternalLinkGlyph, ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
+import { NoticeTable } from "~/@/components/ownership/notice-table";
+import { KindBadge, OwnershipMethodology } from "~/@/components/ownership/ownership-parts";
+import { FileHoldingsTable, SubstantialHoldingsTable } from "~/@/components/ownership/ownership-tables";
+import { formatAmount } from "~/@/lib/fundamentals/format";
+import { institutionIsIndexable } from "~/@/lib/ownership/indexability";
+import { isInstitutionSlug, kindInfo } from "~/@/lib/ownership/kinds";
+import { INSTITUTION_NOTICES_SHOWN, fileHoldingRow, holdingRow } from "~/@/lib/ownership/rows";
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
-import { getInstitution } from "~/app/actions/getOwnership";
+import { getInstitutionOrNotFound } from "~/app/actions/getOwnership";
+import { NotFoundError } from "~/app/actions/withRetry";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
+import type { GetInstitutionResponse } from "~/gen/shorts/v1alpha1/ownership_pb";
 
 // On-demand ISR: rendered on first visit, cached for an hour. The empty
 // generateStaticParams keeps the segment static (the stock tabs' rule).
@@ -38,50 +24,110 @@ export function generateStaticParams(): Array<{ slug: string }> {
   return [];
 }
 
-const SLUG = /^[a-z0-9-]{2,64}$/;
-
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+const NOINDEX = {
+  index: false,
+  follow: true,
+  googleBot: { index: false, follow: true },
+} as const;
+
+// Titles stay inside Google's display width before the root template's
+// " | Shorted": the old "<name> ASX Holdings: Substantial Stakes and Fund
+// Holdings | Shorted" ran 70-85 characters. A name too long for the full form
+// (21 of the 145 on the map) keeps the head term alone.
+const TITLE_MAX = 60;
+
+function institutionTitle(name: string): string {
+  const full = `${name} ASX holdings and substantial stakes`;
+  return full.length <= TITLE_MAX ? full : `${name} ASX holdings`;
+}
+
+/**
+ * The page's one read, split by cause (loadStockOrFail's rule). Undefined for
+ * a slug the API does not know, which is a 404. A failed read THROWS: ISR
+ * caches whatever a regeneration renders, so answering it with notFound() put
+ * a 404 in place of a live institution for the hour, where a failed
+ * regeneration keeps serving the last good page. generateMetadata and the
+ * page make the same call, so React's cache reads once.
+ */
+async function readInstitutionPage(slug: string): Promise<GetInstitutionResponse | undefined> {
+  let data: GetInstitutionResponse | undefined;
+  try {
+    data = await getInstitutionOrNotFound(slug);
+  } catch (err) {
+    if (err instanceof NotFoundError) return undefined;
+    throw err;
+  }
+  if (!data) {
+    throw new Error(
+      `ownership data transiently unavailable for ${slug}; failing the ISR render instead of caching a 404`,
+    );
+  }
+  return data;
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const slug = (await params).slug;
-  const data = SLUG.test(slug) ? await getInstitution(slug) : undefined;
+  const data = isInstitutionSlug(slug) ? await readInstitutionPage(slug) : undefined;
   const inst = data?.institution;
-  if (!inst) return { title: "Institution not found", robots: { index: false } };
+  if (!inst) return { title: "Institution not found", robots: NOINDEX };
   const url = `https://shorted.com.au/ownership/${inst.slug}`;
-  const title = `${inst.name} ASX Holdings: Substantial Stakes and Fund Holdings`;
-  const description = `What ${inst.name} (${kindInfo(inst.kind).label.toLowerCase()}) holds on the ASX: ${inst.substantialPositions} current substantial holdings from its notices${
-    data.fundHoldings.length > 0 ? ", and the largest holdings in its published holdings files" : ""
-  }.`;
+  const title = institutionTitle(inst.name);
+  const stakes = inst.substantialPositions;
+  const holds = [
+    stakes > 0 ? `${stakes} current substantial holding${stakes === 1 ? "" : "s"} from its notices` : "",
+    data.fundHoldings.length > 0 ? "the largest holdings in its published holdings files" : "",
+  ].filter(Boolean);
+  const kind = kindInfo(inst.kind).label.toLowerCase();
+  const description =
+    holds.length > 0
+      ? `What ${inst.name} (${kind}) holds on the ASX: ${holds.join(", and ")}.`
+      : `${inst.name} (${kind}): no current substantial holding in an ASX company on record in its notices.`;
+  // The one predicate the ownership sitemap also applies. Indexable means NO
+  // robots key: Next merges metadata key by key, so `robots: undefined` would
+  // replace the root layout's googleBot directives with nothing.
+  const indexable = institutionIsIndexable({
+    substantialPositions: stakes,
+    fundHoldings: data.fundHoldings.length,
+  });
   return {
     title,
     description,
     alternates: { canonical: url },
+    ...(indexable ? {} : { robots: NOINDEX }),
+    // No `images` on either: the segment's opengraph-image.tsx is the card,
+    // and an explicit `images` would shadow it. `twitter` is set so its image
+    // follows the card instead of the root layout's; it replaces the root's
+    // object wholesale, so it repeats site and creator.
     openGraph: { type: "website", url, title, description, siteName: "Shorted", locale: "en_AU" },
+    twitter: { card: "summary_large_image", site: "@shorted___", creator: "@shorted___" },
   };
 }
 
 export default async function InstitutionPage({ params }: PageProps) {
   const slug = (await params).slug;
-  if (!SLUG.test(slug)) notFound();
-  const data = await getInstitution(slug);
+  if (!isInstitutionSlug(slug)) notFound();
+  const data = await readInstitutionPage(slug);
   const inst = data?.institution;
   if (!data || !inst) notFound();
 
   const info = kindInfo(inst.kind);
   const etfs = data.funds.filter((f) => f.fundType === "etf");
   const superFunds = data.funds.filter((f) => f.fundType === "super_fund");
+  const crumbs = [
+    { label: "Ownership", href: "/ownership" },
+    { label: inst.name, href: `/ownership/${inst.slug}` },
+  ];
 
   return (
     <DashboardLayout fullWidth>
+      <BreadcrumbStructuredData items={crumbs} />
       <div className="mx-auto w-full max-w-[100rem] space-y-10">
-        <Breadcrumbs
-          items={[
-            { label: "Ownership", href: "/ownership" },
-            { label: inst.name, href: `/ownership/${inst.slug}` },
-          ]}
-        />
+        <ExternalLinkSymbol />
+        <Breadcrumbs items={crumbs} />
         <header className="space-y-1.5">
           <div className="flex flex-wrap items-baseline gap-x-3">
             <h1 className={pageTitle}>{inst.name}</h1>
@@ -89,16 +135,16 @@ export default async function InstitutionPage({ params }: PageProps) {
           </div>
           <p className={lede}>
             {inst.description || info.note}
-            {inst.website ? (
+            {safeExternalHref(inst.website) ? (
               <>
                 {" "}
                 <a
-                  href={inst.website}
+                  href={safeExternalHref(inst.website)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
                 >
-                  Website <ExternalLink className="h-3 w-3" aria-hidden />
+                  Website <ExternalLinkGlyph className="h-3 w-3" />
                 </a>
               </>
             ) : null}
@@ -145,56 +191,11 @@ export default async function InstitutionPage({ params }: PageProps) {
               company.
             </p>
           ) : (
-            <Table>
-              <caption className="sr-only">{inst.name}&apos;s current substantial holdings</caption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Stock</TableHead>
-                  <TableHead className="text-right">Voting power</TableHead>
-                  <TableHead className="text-right">Change</TableHead>
-                  <TableHead>As at</TableHead>
-                  <TableHead className="hidden md:table-cell">Notice</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Document</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.positions.map((p) => (
-                  <TableRow key={p.stockCode}>
-                    <TableCell>
-                      <Link
-                        href={stockTabHref(p.stockCode, "company")}
-                        prefetch={false}
-                        className="font-semibold text-primary underline-offset-4 hover:underline"
-                      >
-                        {p.stockCode}
-                      </Link>
-                      {p.companyName ? (
-                        <span className="ml-2 hidden text-xs text-muted-foreground sm:inline">{p.companyName}</span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatVotingPower(p.votingPowerPct)}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {p.hasPrevious ? formatPointChange(p.previousPct, p.votingPowerPct) : ""}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap tabular-nums">{p.eventDate || p.announcedOn}</TableCell>
-                    <TableCell className="hidden md:table-cell">{formLabel(p.form, false)}</TableCell>
-                    <TableCell>
-                      <a
-                        href={p.announcementUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hit-target inline-flex text-muted-foreground hover:text-primary"
-                        aria-label={`${inst.name}'s ${p.stockCode} notice on ASX`}
-                      >
-                        <ExternalLink className="h-4 w-4" aria-hidden />
-                      </a>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <SubstantialHoldingsTable
+              rows={data.positions.map(holdingRow)}
+              holder={inst.name}
+              caption={`${inst.name}'s current substantial holdings`}
+            />
           )}
         </section>
 
@@ -207,47 +208,10 @@ export default async function InstitutionPage({ params }: PageProps) {
               The largest ASX holdings, by value, in the latest holdings files {inst.name} publishes
               {inst.kind === "super_fund" ? " (one investment option, not the whole fund)" : ""}.
             </p>
-            <Table>
-              <caption className="sr-only">{inst.name}&apos;s largest disclosed ASX holdings</caption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Stock</TableHead>
-                  <TableHead>Fund</TableHead>
-                  <TableHead className="text-right">Value</TableHead>
-                  <TableHead className="text-right">Of fund</TableHead>
-                  <TableHead className="text-right">Of shares</TableHead>
-                  <TableHead>As at</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.fundHoldings.map((h) => (
-                  <TableRow key={`${h.fundName}|${h.stockCode}`}>
-                    <TableCell>
-                      <Link
-                        href={stockTabHref(h.stockCode, "company")}
-                        prefetch={false}
-                        className="font-semibold text-primary underline-offset-4 hover:underline"
-                      >
-                        {h.stockCode}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="max-w-64 truncate text-xs text-muted-foreground">
-                      {fundLabel(h.fundCode, h.fundName)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {h.hasValue ? formatAmount(h.valueAud, "AUD") : "n/a"}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatFundWeight(h.weightPct, h.hasWeight, h.hasValue ? h.valueAud : null)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {h.hasPctOfIssued ? formatPct(h.pctOfIssued, { digits: 2 }) : "n/a"}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap tabular-nums">{h.asAt}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <FileHoldingsTable
+              rows={data.fundHoldings.map(fileHoldingRow)}
+              caption={`${inst.name}'s largest disclosed ASX holdings`}
+            />
           </section>
         ) : null}
 
@@ -276,7 +240,13 @@ export default async function InstitutionPage({ params }: PageProps) {
           <h2 id="history" className={sectionTitle}>
             Notices
           </h2>
-          <NoticeTable notices={data.notices} showHolder={false} caption={`${inst.name}'s substantial holding notices`} />
+          <NoticeTable
+            notices={data.notices}
+            showHolder={false}
+            caption={`${inst.name}'s substantial holding notices`}
+            limit={INSTITUTION_NOTICES_SHOWN}
+            onRecord={inst.notices}
+          />
         </section>
 
         <section className="space-y-2" aria-label="Method">

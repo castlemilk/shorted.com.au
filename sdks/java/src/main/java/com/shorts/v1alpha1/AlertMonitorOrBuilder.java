@@ -119,4 +119,50 @@ public interface AlertMonitorOrBuilder extends
    * <code>.google.protobuf.Timestamp updated_at = 10 [json_name = "updatedAt"];</code>
    */
   com.google.protobuf.TimestampOrBuilder getUpdatedAtOrBuilder();
+
+  /**
+   * <pre>
+   * The newest event for this monitor, or empty when it has never fired.
+   * </pre>
+   *
+   * <code>string last_event_report_date = 11 [json_name = "lastEventReportDate"];</code>
+   * @return The lastEventReportDate.
+   */
+  java.lang.String getLastEventReportDate();
+  /**
+   * <pre>
+   * The newest event for this monitor, or empty when it has never fired.
+   * </pre>
+   *
+   * <code>string last_event_report_date = 11 [json_name = "lastEventReportDate"];</code>
+   * @return The bytes for lastEventReportDate.
+   */
+  com.google.protobuf.ByteString
+      getLastEventReportDateBytes();
+
+  /**
+   * <code>.shorts.v1alpha1.AlertDeliveryStatus last_delivery_status = 12 [json_name = "lastDeliveryStatus"];</code>
+   * @return The enum numeric value on the wire for lastDeliveryStatus.
+   */
+  int getLastDeliveryStatusValue();
+  /**
+   * <code>.shorts.v1alpha1.AlertDeliveryStatus last_delivery_status = 12 [json_name = "lastDeliveryStatus"];</code>
+   * @return The lastDeliveryStatus.
+   */
+  com.shorts.v1alpha1.AlertDeliveryStatus getLastDeliveryStatus();
+
+  /**
+   * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+   * @return Whether the lastEventAt field is set.
+   */
+  boolean hasLastEventAt();
+  /**
+   * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+   * @return The lastEventAt.
+   */
+  com.google.protobuf.Timestamp getLastEventAt();
+  /**
+   * <code>.google.protobuf.Timestamp last_event_at = 13 [json_name = "lastEventAt"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getLastEventAtOrBuilder();
 }

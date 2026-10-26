@@ -162,7 +162,7 @@ func (s *ShortsServer) syncSingleStock(ctx context.Context, stockCode string, fo
 }
 
 // fetchKeyMetricsFromYahoo fetches key metrics from Yahoo Finance using a Python script.
-func fetchKeyMetricsFromYahoo(stockCode string) (map[string]interface{}, error) {
+func fetchKeyMetricsFromYahoo(stockCode string) (map[string]any, error) {
 	scriptPaths := []string{
 		"./scripts/fetch_key_metrics.py",
 		"./shorts/scripts/fetch_key_metrics.py",
@@ -174,7 +174,7 @@ func fetchKeyMetricsFromYahoo(stockCode string) (map[string]interface{}, error) 
 		cmd = exec.Command("python3", path, stockCode)
 		output, err := cmd.CombinedOutput()
 		if err == nil {
-			var result map[string]interface{}
+			var result map[string]any
 			if err := json.Unmarshal(output, &result); err != nil {
 				return nil, fmt.Errorf("failed to parse Python script output: %w", err)
 			}
@@ -192,7 +192,7 @@ func fetchKeyMetricsFromYahoo(stockCode string) (map[string]interface{}, error) 
 }
 
 // getFloat64 safely extracts a float64 from a map
-func getFloat64(m map[string]interface{}, key string) float64 {
+func getFloat64(m map[string]any, key string) float64 {
 	if v, ok := m[key]; ok {
 		if f, ok := v.(float64); ok {
 			return f
