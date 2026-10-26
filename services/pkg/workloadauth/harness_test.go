@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -114,20 +115,22 @@ func validClaims(issuer string, now time.Time) jwt.MapClaims {
 }
 
 // testIssuer is an httptest TLS server serving discovery and JWKS, with knobs
-// for outages, rotation, cache headers and malformed documents.
+// for outages, rotation, cache headers, malformed documents and redirects.
 type testIssuer struct {
 	srv    *httptest.Server
 	issuer string // srv.URL + "/workload"
 
-	mu           sync.Mutex
-	keys         []map[string]any
-	cacheControl string // "" means no header
-	down         bool
-	discoveryDoc map[string]any // nil means the correct document
-	jwksURIOver  string         // non-empty overrides jwks_uri
-	jwksBody     []byte         // non-nil overrides the JWKS body
-	jwksHits     int
-	block        chan struct{} // non-nil: JWKS handler waits on it
+	mu             sync.Mutex
+	keys           []map[string]any
+	cacheControl   string // "" means no header
+	down           bool
+	discoveryDoc   map[string]any // nil means the correct document
+	jwksURIOver    string         // non-empty overrides jwks_uri in discovery
+	discoveryRedir string         // non-empty: discovery answers 302 to this
+	jwksBody       []byte         // non-nil overrides the JWKS body
+	jwksRedirect   string         // non-empty: JWKS answers 302 to this
+	jwksHits       int
+	block          chan struct{} // non-nil: the JWKS handler waits on it
 }
 
 func newTestIssuer(t *testing.T) *testIssuer {
@@ -136,16 +139,20 @@ func newTestIssuer(t *testing.T) *testIssuer {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/workload/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
 		ti.mu.Lock()
-		down, doc, over := ti.down, ti.discoveryDoc, ti.jwksURIOver
+		down, doc, over, redir := ti.down, ti.discoveryDoc, ti.jwksURIOver, ti.discoveryRedir
 		ti.mu.Unlock()
 		if down {
 			http.Error(w, "down", http.StatusServiceUnavailable)
 			return
 		}
+		if redir != "" {
+			http.Redirect(w, r, redir, http.StatusFound)
+			return
+		}
 		if doc == nil {
 			jwks := over
 			if jwks == "" {
-				jwks = ti.srv.URL + "/workload/jwks.json"
+				jwks = ti.issuer + "/jwks.json"
 			}
 			doc = map[string]any{"issuer": ti.issuer, "jwks_uri": jwks}
 		}
@@ -154,7 +161,7 @@ func newTestIssuer(t *testing.T) *testIssuer {
 	mux.HandleFunc("/workload/jwks.json", func(w http.ResponseWriter, r *http.Request) {
 		ti.mu.Lock()
 		ti.jwksHits++
-		down, body, cc, blk := ti.down, ti.jwksBody, ti.cacheControl, ti.block
+		down, body, cc, blk, redir := ti.down, ti.jwksBody, ti.cacheControl, ti.block, ti.jwksRedirect
 		keys := append([]map[string]any(nil), ti.keys...)
 		ti.mu.Unlock()
 		if blk != nil {
@@ -162,6 +169,10 @@ func newTestIssuer(t *testing.T) *testIssuer {
 		}
 		if down {
 			http.Error(w, "down", http.StatusServiceUnavailable)
+			return
+		}
+		if redir != "" {
+			http.Redirect(w, r, redir, http.StatusFound)
 			return
 		}
 		if cc != "" {
@@ -177,7 +188,29 @@ func newTestIssuer(t *testing.T) *testIssuer {
 	ti.srv = httptest.NewTLSServer(mux)
 	t.Cleanup(ti.srv.Close)
 	ti.issuer = ti.srv.URL + "/workload"
+	trustServers(t, ti.srv)
 	return ti
+}
+
+// trustedTransport returns a transport that trusts the given TLS test servers.
+func trustedTransport(srvs ...*httptest.Server) *http.Transport {
+	pool := x509.NewCertPool()
+	for _, s := range srvs {
+		pool.AddCert(s.Certificate())
+	}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.TLSClientConfig = &tls.Config{RootCAs: pool}
+	return tr
+}
+
+// trustServers makes the default fetch client trust the given test servers,
+// so NewVerifier's default client path runs for real. Tests are not parallel,
+// and the previous hook is restored at cleanup.
+func trustServers(t *testing.T, srvs ...*httptest.Server) {
+	t.Helper()
+	prev := defaultTransport
+	defaultTransport = trustedTransport(srvs...)
+	t.Cleanup(func() { defaultTransport = prev })
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -206,19 +239,20 @@ func (ti *testIssuer) hits() int {
 	return ti.jwksHits
 }
 
-// baseConfig is a Config that trusts this issuer and the injected clock.
+// baseConfig is a Config that trusts this issuer and the injected clock. It
+// leaves HTTPClient nil, so the default client path is exercised.
 func baseConfig(ti *testIssuer, clk *fakeClock) Config {
 	return Config{
 		Issuer:        ti.issuer,
 		Audience:      testAud,
 		Org:           testOrg,
 		AllowSubjects: []string{testSub},
-		HTTPClient:    ti.srv.Client(),
 		Now:           clk.Now,
 	}
 }
 
-// startVerifier publishes signers, then builds a Verifier against ti.
+// startVerifier builds a Verifier, publishes signers and waits for the first
+// fetch, so tests start from a loaded cache.
 func startVerifier(t *testing.T, ti *testIssuer, clk *fakeClock, cfg Config, signers ...*signer) *Verifier {
 	t.Helper()
 	ti.publish(signers...)
@@ -226,7 +260,51 @@ func startVerifier(t *testing.T, ti *testIssuer, clk *fakeClock, cfg Config, sig
 	if err != nil {
 		t.Fatalf("NewVerifier: %v", err)
 	}
+	if err := v.Ready(t.Context()); err != nil {
+		t.Fatalf("Ready: %v", err)
+	}
 	return v
+}
+
+// waitFor polls cond until it holds, failing after a few seconds. It is for
+// background refreshes, which finish after the call that started them.
+func waitFor(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s", what)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// waitForSuccess waits until a fetch has completed at the clock's current time.
+func waitForSuccess(t *testing.T, v *Verifier, clk *fakeClock) {
+	t.Helper()
+	waitFor(t, "background refresh", func() bool {
+		return v.Status().LastSuccess.Equal(clk.Now())
+	})
+}
+
+// attackerServer serves a JWKS holding attacker's key and counts the hits.
+// It is TLS when tls is true, plain HTTP otherwise.
+func attackerServer(t *testing.T, attacker *signer, tlsOn bool, hits *int, mu *sync.Mutex) *httptest.Server {
+	t.Helper()
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		*hits++
+		mu.Unlock()
+		writeJSON(w, map[string]any{"keys": []map[string]any{attacker.jwk()}})
+	})
+	var srv *httptest.Server
+	if tlsOn {
+		srv = httptest.NewTLSServer(h)
+	} else {
+		srv = httptest.NewServer(h)
+	}
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 func pemPublicKey(t *testing.T, pub *ecdsa.PublicKey) []byte {

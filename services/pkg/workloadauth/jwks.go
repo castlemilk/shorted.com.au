@@ -10,85 +10,79 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	maxDocBytes   = 1 << 20 // discovery and JWKS responses
-	fetchTimeout  = 10 * time.Second
-	minRefetch    = time.Minute // at most one JWKS fetch attempt per minute
-	defaultMaxAge = time.Hour
-	coordBytes    = 32 // P-256
+	maxDocBytes  = 1 << 20 // discovery and JWKS responses
+	fetchTimeout = 10 * time.Second
+	minRefetch   = time.Minute // at most one fetch attempt per minute
+	coordBytes   = 32          // P-256
+	// maxMaxAgeSeconds caps the issuer's max-age. A longer value would let a
+	// removed key keep verifying for days, past any revocation.
+	maxMaxAgeSeconds = 3600
+	defaultMaxAge    = time.Hour
 )
 
-// errRateLimited is internal: a refetch was skipped because one ran within
-// the last minute. The caller falls back to the cache.
+// errRateLimited means a fetch was skipped because one ran within the last minute.
 var errRateLimited = errors.New("workloadauth: jwks refetch rate limited")
 
-func defaultHTTPClient() *http.Client {
-	return &http.Client{
-		Timeout: fetchTimeout,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if req.URL.Scheme != "https" {
-				return errors.New("workloadauth: redirect to non-https URL refused")
-			}
-			if len(via) >= 3 {
-				return errors.New("workloadauth: too many redirects")
-			}
-			return nil
-		},
+// defaultTransport is the transport of the default fetch client. Nil means
+// http.DefaultTransport. Tests swap it so the default client trusts httptest
+// certificates; production never sets it.
+var defaultTransport http.RoundTripper
+
+// fetchClient returns the client for discovery and JWKS. It is always a copy,
+// so the caller's client is never changed, and it never follows a redirect:
+// a 3xx response fails the 200 check, so a redirect cannot move key discovery
+// to a host the issuer did not name.
+func fetchClient(base *http.Client) *http.Client {
+	c := &http.Client{Timeout: fetchTimeout, Transport: defaultTransport}
+	if base != nil {
+		c.Transport = base.Transport
+		if c.Transport == nil {
+			c.Transport = defaultTransport
+		}
+		if base.Timeout > 0 {
+			c.Timeout = base.Timeout
+		}
 	}
+	c.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	return c
 }
 
-// discover fetches <issuer>/.well-known/openid-configuration and returns the
-// jwks_uri. Transport failures are ErrUnavailable; a document that disagrees
-// with the config is a plain error, because it is a configuration problem and
-// not an outage.
-func (v *Verifier) discover(ctx context.Context) (string, error) {
-	body, _, err := v.get(ctx, strings.TrimSuffix(v.cfg.Issuer, "/")+"/.well-known/openid-configuration")
+// discover checks <issuer>/.well-known/openid-configuration. Its issuer must
+// equal Config.Issuer exactly and its jwks_uri must be exactly the pinned
+// <issuer>/jwks.json. A transport failure is ErrUnavailable; a document that
+// disagrees with the config is a plain error, a configuration problem and not
+// an outage.
+func (v *Verifier) discover(ctx context.Context) error {
+	body, _, err := v.get(ctx, v.cfg.Issuer+"/.well-known/openid-configuration")
 	if err != nil {
-		return "", err
+		return err
 	}
 	var doc struct {
 		Issuer  string `json:"issuer"`
 		JWKSURI string `json:"jwks_uri"`
 	}
 	if err := json.Unmarshal(body, &doc); err != nil {
-		return "", errors.New("workloadauth: discovery document is not valid JSON")
+		return errors.New("workloadauth: discovery document is not valid JSON")
 	}
 	if doc.Issuer != v.cfg.Issuer {
-		return "", errors.New("workloadauth: discovery issuer does not match Config.Issuer")
+		return errors.New("workloadauth: discovery issuer does not match Config.Issuer")
 	}
-	iu, err := url.Parse(v.cfg.Issuer)
-	if err != nil {
-		return "", errors.New("workloadauth: Config.Issuer is not a URL")
+	if doc.JWKSURI != v.pinnedJWKS {
+		return errors.New("workloadauth: discovery jwks_uri is not <issuer>/jwks.json")
 	}
-	extra := make(map[string]bool, len(v.cfg.JWKSHosts))
-	for _, h := range v.cfg.JWKSHosts {
-		extra[strings.ToLower(h)] = true
-	}
-	return validateJWKSURI(iu, doc.JWKSURI, extra)
+	return nil
 }
 
-// validateJWKSURI requires an https jwks_uri with no userinfo, on the issuer's
-// host unless the host is explicitly listed.
-func validateJWKSURI(issuer *url.URL, raw string, extraHosts map[string]bool) (string, error) {
-	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
-		return "", errors.New("workloadauth: jwks_uri must be an absolute https URL")
-	}
-	host := strings.ToLower(u.Host)
-	if host != strings.ToLower(issuer.Host) && !extraHosts[host] {
-		return "", errors.New("workloadauth: jwks_uri is on a host other than the issuer's")
-	}
-	return raw, nil
-}
-
-// get performs a GET with a deadline and a response size cap. The returned
-// error never contains response bodies.
+// get performs a GET with a deadline and a response size cap. Its errors never
+// contain response bodies.
 func (v *Verifier) get(ctx context.Context, target string) ([]byte, http.Header, error) {
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
@@ -115,9 +109,16 @@ func (v *Verifier) get(ctx context.Context, target string) ([]byte, http.Header,
 	return body, resp.Header, nil
 }
 
-// fetchJWKS fetches and parses the key set and reads max-age from Cache-Control.
-func (v *Verifier) fetchJWKS(ctx context.Context) (map[string]*ecdsa.PublicKey, time.Duration, error) {
-	body, hdr, err := v.get(ctx, v.jwksURL)
+// fetchOnce runs discovery the first time it succeeds, then fetches the JWKS.
+// It is called only from the singleflight fetch, so discovered is never raced.
+func (v *Verifier) fetchOnce(ctx context.Context) (map[string]*ecdsa.PublicKey, time.Duration, error) {
+	if !v.discovered {
+		if err := v.discover(ctx); err != nil {
+			return nil, 0, err
+		}
+		v.discovered = true
+	}
+	body, hdr, err := v.get(ctx, v.pinnedJWKS)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -126,6 +127,38 @@ func (v *Verifier) fetchJWKS(ctx context.Context) (map[string]*ecdsa.PublicKey, 
 		return nil, 0, unavailable(err.Error())
 	}
 	return keys, maxAgeFrom(hdr.Get("Cache-Control")), nil
+}
+
+// fetchIfDue performs one fetch unless an attempt ran within the last minute.
+// Every failure is recorded in the state Status reports, and logged.
+func (v *Verifier) fetchIfDue(ctx context.Context) error {
+	v.mu.Lock()
+	now := v.cfg.Now()
+	if !v.lastAttempt.IsZero() && now.Sub(v.lastAttempt) < minRefetch {
+		v.mu.Unlock()
+		return errRateLimited
+	}
+	v.lastAttempt = now
+	v.mu.Unlock()
+
+	keys, maxAge, err := v.fetchOnce(ctx)
+
+	v.mu.Lock()
+	if err != nil {
+		v.down = true
+		v.lastErr = err
+		v.lastErrAt = now
+		v.mu.Unlock()
+		v.cfg.Logger.Warn("workloadauth: identity key refresh failed", "error", err.Error())
+		return err
+	}
+	v.keys = keys
+	v.maxAge = maxAge
+	v.fetchedAt = v.cfg.Now()
+	v.down = false
+	v.lastErr = nil
+	v.mu.Unlock()
+	return nil
 }
 
 type jwkSet struct {
@@ -143,12 +176,15 @@ type jwk struct {
 }
 
 // parseJWKS accepts only EC P-256 signing keys with a kid, and ES256 if an alg
-// is given. One bad key rejects the whole set, so the cache is never partly
-// trusted from a document the issuer got wrong.
+// is given. One bad key rejects the whole set. A set with no keys is rejected
+// too, so a 200 with an empty or missing keys array cannot wipe a good cache.
 func parseJWKS(body []byte) (map[string]*ecdsa.PublicKey, error) {
 	var set jwkSet
 	if err := json.Unmarshal(body, &set); err != nil {
 		return nil, errors.New("jwks is not valid JSON")
+	}
+	if len(set.Keys) == 0 {
+		return nil, errors.New("jwks has no keys")
 	}
 	keys := make(map[string]*ecdsa.PublicKey, len(set.Keys))
 	for _, k := range set.Keys {
@@ -195,95 +231,32 @@ func jwkP256Key(xs, ys string) (*ecdsa.PublicKey, error) {
 	return pub, nil
 }
 
-// maxAgeFrom reads max-age from a Cache-Control header, defaulting to 1h when
-// absent or malformed.
+// maxAgeFrom reads max-age from Cache-Control. A missing or malformed value
+// means 1h. The value is clamped to 3600s before any multiplication, and a
+// value too large to parse is clamped too.
 func maxAgeFrom(cc string) time.Duration {
 	for _, d := range strings.Split(cc, ",") {
-		d = strings.ToLower(strings.TrimSpace(d))
-		if rest, ok := strings.CutPrefix(d, "max-age="); ok {
-			if secs, err := strconv.Atoi(rest); err == nil && secs >= 0 {
-				return time.Duration(secs) * time.Second
-			}
+		rest, ok := strings.CutPrefix(strings.ToLower(strings.TrimSpace(d)), "max-age=")
+		if !ok {
+			continue
 		}
+		if rest == "" || !allDigits(rest) {
+			return defaultMaxAge
+		}
+		n, err := strconv.ParseUint(rest, 10, 64)
+		if err != nil || n > maxMaxAgeSeconds {
+			n = maxMaxAgeSeconds // overflow or too large: clamp
+		}
+		return time.Duration(n) * time.Second
 	}
 	return defaultMaxAge
 }
 
-// refresh runs one JWKS fetch at a time. Callers that arrive while a fetch is
-// in flight share its outcome (singleflight). The fetch itself is detached from
-// the first caller's context, so one caller giving up cannot fail the others.
-func (v *Verifier) refresh(ctx context.Context) error {
-	_, err, _ := v.group.Do("jwks", func() (any, error) {
-		return nil, v.fetchIfDue(context.WithoutCancel(ctx))
-	})
-	return err
-}
-
-func (v *Verifier) fetchIfDue(ctx context.Context) error {
-	v.mu.Lock()
-	now := v.cfg.Now()
-	if !v.lastAttempt.IsZero() && now.Sub(v.lastAttempt) < minRefetch {
-		v.mu.Unlock()
-		return errRateLimited
+func allDigits(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
 	}
-	v.lastAttempt = now
-	v.mu.Unlock()
-
-	keys, maxAge, err := v.fetchJWKS(ctx)
-
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	if err != nil {
-		v.issuerDown = true
-		return err
-	}
-	v.keys = keys
-	v.maxAge = maxAge
-	v.fetchedAt = v.cfg.Now()
-	v.issuerDown = false
-	return nil
-}
-
-type cacheSnapshot struct {
-	keys      map[string]*ecdsa.PublicKey
-	maxAge    time.Duration
-	fetchedAt time.Time
-	down      bool
-}
-
-func (v *Verifier) snapshot() cacheSnapshot {
-	v.mu.RLock()
-	defer v.mu.RUnlock()
-	return cacheSnapshot{keys: v.keys, maxAge: v.maxAge, fetchedAt: v.fetchedAt, down: v.issuerDown}
-}
-
-// key returns the public key for kid (rule 7).
-//
-//   - Fresh cache (age < max-age): answer from it.
-//   - Otherwise try a refetch, which is rate-limited to once a minute.
-//   - If the cache is older than StaleKeysFor, fail with ErrUnavailable: never
-//     fail open.
-//   - An unknown kid is ErrUnavailable while the issuer is down, and
-//     ErrUnauthenticated otherwise.
-func (v *Verifier) key(ctx context.Context, kid string) (*ecdsa.PublicKey, error) {
-	s := v.snapshot()
-	if k, ok := s.keys[kid]; ok && v.cfg.Now().Sub(s.fetchedAt) < s.maxAge {
-		return k, nil
-	}
-
-	// Errors here are either errRateLimited (no fetch) or a failed fetch,
-	// which is already recorded in issuerDown. Both fall through to the cache.
-	_ = v.refresh(ctx)
-
-	s = v.snapshot()
-	if v.cfg.Now().Sub(s.fetchedAt) >= v.cfg.StaleKeysFor {
-		return nil, unavailable("cached keys are older than StaleKeysFor")
-	}
-	if k, ok := s.keys[kid]; ok {
-		return k, nil
-	}
-	if s.down {
-		return nil, unavailable("unknown kid while the issuer is unreachable")
-	}
-	return nil, unauth("unknown kid")
+	return true
 }
