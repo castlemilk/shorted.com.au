@@ -41,8 +41,9 @@ func ApplySweep(ctx context.Context, pool *pgxpool.Pool, sw Sweep) (Result, erro
 		return Result{}, err
 	}
 	res := Result{Applied: sw.Status}
-	if sw.Status == Blocked {
-		return res, nil // saw nothing believable — touch nothing
+	hooked := sw.Begin != nil || sw.Record != nil
+	if sw.Status == Blocked && !hooked {
+		return res, nil // saw nothing believable, and nobody asked to record it — touch nothing
 	}
 
 	listings := gateListings(sw.Target, sw.Listings)
@@ -53,11 +54,40 @@ func ApplySweep(ctx context.Context, pool *pgxpool.Pool, sw Sweep) (Result, erro
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	d := &differ{cfg: sw.Rules, res: &res}
-	events, err := d.applyTx(ctx, tx, sw, listings)
-	res.Events = events
-	if err != nil {
-		return res, err
+	// Begin runs first, inside the transaction, so anything it takes (an advisory
+	// lock, a row lock) is held for the whole sweep, and anything it reads is read
+	// under that lock. A false return means the caller has already decided the
+	// outcome (a replay): nothing is applied and nothing is written.
+	if sw.Begin != nil {
+		proceed, err := sw.Begin(ctx, tx)
+		if err != nil {
+			return res, err
+		}
+		if !proceed {
+			return res, nil
+		}
+	}
+
+	if sw.Status != Blocked {
+		d := &differ{cfg: sw.Rules, res: &res, receipt: sw.ReceiptKey}
+		events, err := d.applyTx(ctx, tx, sw, listings)
+		res.Events = events
+		if err != nil {
+			return res, err
+		}
+		// The guard sees the diff exactly as it would commit, before the commit. A
+		// refusal rolls the whole sweep back: the deferred Rollback below undoes
+		// every write, including the delists.
+		if sw.Guard != nil {
+			if err := sw.Guard(res); err != nil {
+				return res, fmt.Errorf("housingcrawl: sweep held before commit: %w", err)
+			}
+		}
+	}
+	if sw.Record != nil {
+		if err := sw.Record(ctx, tx, res); err != nil {
+			return res, fmt.Errorf("housingcrawl: record before commit: %w", err)
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return res, err
@@ -85,6 +115,9 @@ func validateSweep(sw Sweep) error {
 	}
 	if math.IsNaN(sw.Rules.NoisePct) || sw.Rules.NoisePct <= 0 {
 		return fmt.Errorf("%w: NoisePct must be > 0, got %v", ErrInvalidSweep, sw.Rules.NoisePct)
+	}
+	if sw.Rules.MinDelistInterval < 0 {
+		return fmt.Errorf("%w: MinDelistInterval must be >= 0, got %v", ErrInvalidSweep, sw.Rules.MinDelistInterval)
 	}
 	if sw.RunTS.IsZero() {
 		return fmt.Errorf("%w: RunTS is zero", ErrInvalidSweep)
@@ -114,6 +147,8 @@ func gateListings(t Target, in []RawListing) []RawListing {
 type differ struct {
 	cfg Config
 	res *Result
+	// receipt is stamped on every row written, when non-empty (Sweep.ReceiptKey).
+	receipt string
 }
 
 // applyTx runs the per-listing diffs and, on a COMPLETE sweep, the absence and
@@ -123,6 +158,16 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 	source := sw.Source
 	runTs := sw.RunTS
 	regionCode := t.RegionCode()
+
+	// The guard compares this sweep against what the region held before it wrote
+	// anything, so count the active set first. Only a guarded sweep needs it.
+	if sw.Guard != nil {
+		n, err := countActiveForRegion(ctx, tx, source, regionCode)
+		if err != nil {
+			return 0, err
+		}
+		d.res.ActiveBefore = n
+	}
 
 	seen := make(map[string]bool, len(listings))
 	events := 0
@@ -192,7 +237,8 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 
 	// Absence / delist detection — only on a COMPLETE sweep.
 	if sw.Status == Complete {
-		actives, err := activeListingsForRegion(ctx, tx, source, regionCode)
+		clock := d.cfg.MinDelistInterval > 0
+		actives, err := activeListingsForRegion(ctx, tx, source, regionCode, clock)
 		if err != nil {
 			return events, err
 		}
@@ -200,9 +246,18 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 			if seen[a.ListingID] {
 				continue
 			}
+			// At most one absence per listing per MinDelistInterval. A listing
+			// missed again inside the interval is left exactly as it is: no
+			// missed_sweeps advance, no delist, no write. The clock only counts
+			// while no sighting has happened since the last counted miss: a
+			// sighting moves last_seen_at past last_missed_at and restarts it.
+			if clock && a.LastMissedAt != nil && !a.LastSeen.After(*a.LastMissedAt) &&
+				runTs.Sub(*a.LastMissedAt) < d.cfg.MinDelistInterval {
+				continue
+			}
 			missed := a.MissedSweeps + 1
 			delist := int(missed) >= d.cfg.DelistGrace
-			if err := MarkAbsent(ctx, tx, a.PK, missed, delist); err != nil {
+			if err := markAbsentAt(ctx, tx, a.PK, missed, delist, runTs, d.receipt, clock); err != nil {
 				return events, err
 			}
 			if delist {
@@ -216,6 +271,7 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 					EventType:  "delisted",
 					PrevStatus: a.Status,
 					Status:     "withdrawn",
+					ReceiptKey: d.receipt,
 				}); err != nil {
 					return events, err
 				}
@@ -266,7 +322,7 @@ func (d *differ) diffListing(ctx context.Context, tx pgx.Tx, l RawListing, t Tar
 		lastPriceChange = &runTs
 	}
 
-	pk, err := upsertListing(ctx, tx, l, t, runTs, lastPriceChange)
+	pk, err := upsertListing(ctx, tx, l, t, runTs, lastPriceChange, d.receipt)
 	if err != nil {
 		return 0, err
 	}
@@ -280,6 +336,7 @@ func (d *differ) diffListing(ctx context.Context, tx pgx.Tx, l RawListing, t Tar
 		e.RegionCode = regionCode
 		e.AddressKey = l.AddressKey
 		e.ObservedAt = runTs
+		e.ReceiptKey = d.receipt
 		if err := InsertPriceEvent(ctx, tx, e); err != nil {
 			return events, err
 		}
@@ -300,6 +357,13 @@ func (d *differ) eventsFor(prev *storedListing, l RawListing) (evs []PriceEvent,
 		PriceDisplay: l.PriceDisplay,
 		PriceKind:    l.PriceKind,
 		Status:       l.Status,
+	}
+
+	if prev != nil {
+		d.res.Existing++
+		if largeMove(prev.Price, prev.PriceKind, cur, l.PriceKind, l.Status) {
+			d.res.LargeMoves++
+		}
 	}
 
 	if prev == nil {
@@ -377,6 +441,29 @@ func priceMoveEvent(cfg Config, base PriceEvent, priorPrice *float64, priorKind 
 		return e, true
 	}
 	return PriceEvent{}, false
+}
+
+// largeMove reports whether a fresh price differs from the stored one by more than
+// LargeMoveFraction of the stored price. It applies the same exclusions as
+// priceMoveEvent: a sold listing, an unpriced side and a non-comparable price kind
+// never count. Exactly LargeMoveFraction does not count.
+func largeMove(priorPrice *float64, priorKind string, cur *float64, curKind, status string) bool {
+	if status == "sold" || priorPrice == nil || cur == nil || *priorPrice <= 0 ||
+		!ComparableKinds(priorKind, curKind) {
+		return false
+	}
+	return math.Abs(*priorPrice-*cur) / *priorPrice > LargeMoveFraction
+}
+
+// countActiveForRegion counts the active listings for a (source, region). It is
+// the guard's baseline: the set a sweep can delist from, before the sweep wrote.
+func countActiveForRegion(ctx context.Context, tx pgx.Tx, source, regionCode string) (int, error) {
+	var n int
+	err := tx.QueryRow(ctx, `
+		SELECT count(*) FROM property_listings
+		WHERE source = $1 AND region_code = $2 AND is_active`,
+		source, regionCode).Scan(&n)
+	return n, err
 }
 
 // addressPriceMove computes a price_drop/price_rise for a brand-new listing_id

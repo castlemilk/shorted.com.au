@@ -11,6 +11,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/shorts/cmd/server/config"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/ingest"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts"
 	"golang.org/x/sync/errgroup"
 )
@@ -22,6 +23,19 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("failed to load configuration: %v", err)
+	}
+
+	// SHORTS_SERVE_MODE=ingest runs the dedicated housing crawl ingest and nothing
+	// else: its own pool, CrawlIngestService and health, with no public services. It
+	// is the same image as the public API, deployed as a separate service.
+	if os.Getenv(ingest.EnvServeMode) == ingest.ServeModeIngest {
+		sigCtx, stop := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)
+		defer stop()
+		if err := ingest.Serve(sigCtx, fmt.Sprintf(":%d", cfg.AppSpec.Port)); err != nil {
+			log.Errorf("housing ingest exited with error: %v", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	// Initialize OpenTelemetry (traces + metrics via OTLP).

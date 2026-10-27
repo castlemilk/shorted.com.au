@@ -11,8 +11,11 @@
 package housingcrawl
 
 import (
+	"context"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // RawListing is one property listing as harvested from a search-results page,
@@ -85,7 +88,18 @@ type Config struct {
 	// to be recorded.
 	NoiseAbs float64
 	NoisePct float64
+	// MinDelistInterval bounds how often a listing's absence counts toward
+	// delisting. When > 0, missed_sweeps advances at most once per listing per
+	// interval, so a re-swept job cannot speed up delisting. Zero means every
+	// COMPLETE sweep counts, as the collector has always done.
+	MinDelistInterval time.Duration
 }
+
+// LargeMoveFraction is the price move that Result.LargeMoves counts: a listing
+// already stored whose price moved by more than this fraction of its stored
+// price. It is the quarantine's "moved more than 10%" test, reported here so the
+// guard does not re-derive it.
+const LargeMoveFraction = 0.10
 
 // Sweep is one (source, suburb) sweep as the store sees it.
 type Sweep struct {
@@ -103,6 +117,30 @@ type Sweep struct {
 	// receive time on ingest.
 	RunTS time.Time
 	Rules Config
+	// ReceiptKey, when non-empty, is stamped on every listing row upserted and
+	// every price event inserted by this sweep (ingest_receipt_key). The
+	// collector leaves it empty, so those columns stay NULL, as before.
+	ReceiptKey string
+	// Guard, when non-nil, is called after the diff and before the commit, with
+	// the Result the sweep would commit. A non-nil error rolls the whole sweep
+	// back, and ApplySweep returns it wrapped. A nil Guard means no check.
+	Guard func(Result) error
+	// Begin, when non-nil, runs as the FIRST statement of the sweep's transaction,
+	// before any read or write the sweep makes. Whatever it takes (an advisory
+	// lock, a row lock) is held until the transaction ends, and whatever it reads
+	// it reads under that lock. Returning false means the caller has already
+	// decided the outcome (a replay), so ApplySweep applies nothing and returns a
+	// zero Result with no error. A non-nil error rolls back and is returned as is.
+	// A transaction pooler may run each statement on a different backend, so the
+	// lock must be a transaction-level lock, never a session lock.
+	Begin func(ctx context.Context, tx pgx.Tx) (proceed bool, err error)
+	// Record, when non-nil, runs inside the sweep's transaction after Guard and
+	// before the commit, with the Result about to be committed. It lets a caller
+	// write its own rows (the ingest receipt) atomically with the sweep: a
+	// receipt that outlived a rolled-back sweep would make a retry look applied.
+	// A non-nil error rolls the sweep back and is returned wrapped. A nil Record
+	// means no extra write.
+	Record func(ctx context.Context, tx pgx.Tx, res Result) error
 }
 
 // Result is what one ApplySweep call did. It is meaningful on error too: a
@@ -132,6 +170,16 @@ type Result struct {
 	// AddressRelistDrops and AddressRelistRises count price moves found by the
 	// address-level relist check (a new listing_id at a known address).
 	AddressRelistDrops, AddressRelistRises int
+	// Existing is the number of listings in the sweep that already had a stored
+	// snapshot. It is the denominator of the quarantine's price-move test.
+	Existing int
+	// LargeMoves is the number of those existing listings whose price moved by
+	// more than LargeMoveFraction of the stored price. Sold listings and price
+	// kinds that are not comparable are excluded, as they are for price events.
+	LargeMoves int
+	// ActiveBefore is the number of active listings in the sweep's region before
+	// the sweep wrote anything. It is counted only when a Guard is set.
+	ActiveBefore int
 }
 
 // Region is one suburb row for the listing and fact foreign keys.

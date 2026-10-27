@@ -20,6 +20,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/ingest"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/oauth"
@@ -479,6 +480,37 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			log.Errorf("Error writing response: %v", err)
 		}
 	})
+
+	// Fleet housing crawl ingest (CrawlIngestService). Mounted only when
+	// HOUSING_INGEST_ENABLED is true, and on its own handler: no CORS, no public
+	// interceptors. It is not VISIBILITY_PUBLIC and is absent from the public
+	// OpenAPI, MCP and legacy surfaces. A config error still mounts the service,
+	// which then answers Unavailable and logs why; see ingest.ConfigFromEnv.
+	ingestCfg, ingestProblem := ingest.ConfigFromEnv(os.Getenv)
+	ingest.LogStartup(ingestCfg, ingestProblem)
+	if ingestCfg.Enabled {
+		if os.Getenv(ingest.EnvServeMode) != ingest.ServeModeIngest {
+			// The dedicated ingest service is the production shape. Mounting it here puts
+			// rig traffic on the public API's process and its pool.
+			log.Warnf("%s is enabled in the public API; production runs the ingest as its own service (%s=%s)",
+				ingest.EnvEnabled, ingest.EnvServeMode, ingest.ServeModeIngest)
+		}
+		// The in-process mount has its own pool, sized by HOUSING_INGEST_DB_MAX_CONNS.
+		// It never shares the public store's pool. A failure to open it leaves the mount
+		// refusing calls, as a config problem does.
+		ingestPool, poolErr := ingest.OpenPool(ctx, os.Getenv, ingestCfg)
+		if poolErr != nil {
+			log.Errorf("housing ingest: %v", poolErr)
+		}
+		ingestSvc := ingest.New(ctx, ingest.Options{
+			Config:        ingestCfg,
+			ConfigProblem: ingestProblem,
+			Pool:          ingestPool,
+		})
+		ingestPath, ingestHandler := ingestSvc.Handler()
+		mux.Handle(ingestPath, ingestHandler)
+		mux.Handle("/health/ingest", ingest.HealthHandler(ingestSvc))
+	}
 
 	// Add stock search endpoint
 	mux.HandleFunc("/api/stocks/search", func(w http.ResponseWriter, r *http.Request) {

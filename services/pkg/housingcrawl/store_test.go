@@ -2,12 +2,13 @@ package housingcrawl
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/testpostgres"
 )
 
 // Offline shape guard for loadAddressPrior. The two exclusions are what keep a
@@ -37,9 +38,12 @@ func TestAddressPriorSQLExcludesConcurrentPortalAndOtherDwellings(t *testing.T) 
 //
 // Skips when HOUSING_TEST_DB_URL is unset, so `make test` stays offline.
 func TestLoadAddressPrior_Integration(t *testing.T) {
-	dbURL := os.Getenv("HOUSING_TEST_DB_URL")
+	dbURL, err := testpostgres.Admin("HOUSING_TEST_DB_URL", "HOUSING_TESTCONTAINERS")
+	if err != nil {
+		t.Fatalf("start the test Postgres: %v", err)
+	}
 	if dbURL == "" {
-		t.Skip("set HOUSING_TEST_DB_URL to a throwaway Postgres to run the address-prior integration test")
+		t.Skip("set HOUSING_TEST_DB_URL, or HOUSING_TESTCONTAINERS=1 with -tags=testcontainers, to run the address-prior integration test")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

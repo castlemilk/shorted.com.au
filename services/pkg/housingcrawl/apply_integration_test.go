@@ -3,12 +3,13 @@ package housingcrawl
 import (
 	"context"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/testpostgres"
 )
 
 // Integration tests for ApplySweep against a live Postgres. The offline suite has
@@ -44,6 +45,7 @@ CREATE TABLE property_listings (
   last_price_change_at TIMESTAMPTZ, source_licence TEXT NOT NULL DEFAULT 'proprietary-tos-restricted',
   content_hash TEXT NOT NULL, agency_id TEXT, agency_name TEXT, agent_names TEXT[] NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ingest_receipt_key TEXT, last_missed_at TIMESTAMPTZ,
   UNIQUE (source, listing_id),
   CONSTRAINT test_addr_len CHECK (display_address IS NULL OR char_length(display_address) <= 200));
 CREATE TABLE property_price_events (
@@ -53,18 +55,24 @@ CREATE TABLE property_price_events (
   price DOUBLE PRECISION, price_high DOUBLE PRECISION, price_display TEXT, price_kind TEXT,
   prev_price DOUBLE PRECISION, drop_abs DOUBLE PRECISION, drop_pct DOUBLE PRECISION,
   listing_status TEXT, prev_status TEXT, source_licence TEXT NOT NULL DEFAULT 'proprietary-tos-restricted',
+  ingest_receipt_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (listing_pk, event_type, observed_at));`
 
 // applyTarget is the suburb every integration sweep below is made for.
 var applyTarget = Target{Suburb: "testville", Display: "Testville", Postcode: "3000", State: "VIC"}
 
-// applyTestDB connects to HOUSING_TEST_DB_URL, recreates the schema, and seeds the
-// target's region row. It skips when the variable is unset.
+// applyTestDB connects to a throwaway Postgres, recreates the schema, and seeds the
+// target's region row. The server is HOUSING_TEST_DB_URL, or a testcontainers
+// Postgres with HOUSING_TESTCONTAINERS=1 (see testmain_test.go). It skips when
+// neither is set.
 func applyTestDB(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
-	dbURL := os.Getenv("HOUSING_TEST_DB_URL")
+	dbURL, err := testpostgres.Admin("HOUSING_TEST_DB_URL", "HOUSING_TESTCONTAINERS")
+	if err != nil {
+		t.Fatalf("start the test Postgres: %v", err)
+	}
 	if dbURL == "" {
-		t.Skip("set HOUSING_TEST_DB_URL to a throwaway Postgres to run the ApplySweep integration tests")
+		t.Skip("set HOUSING_TEST_DB_URL, or HOUSING_TESTCONTAINERS=1 with -tags=testcontainers, to run the ApplySweep integration tests")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	t.Cleanup(cancel)

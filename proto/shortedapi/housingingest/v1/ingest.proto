@@ -1,0 +1,166 @@
+syntax = "proto3";
+
+package shortedapi.housingingest.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/housingingest/v1;housingingestv1";
+
+// CrawlIngestService receives raw listing sweeps from fleet-managed housing
+// crawl rigs and applies them through services/pkg/housingcrawl.
+//
+// Deliberately NOT part of the public API: no method carries
+// VISIBILITY_PUBLIC, the service lives in its own package (never
+// shorts.v1alpha1), and the public OpenAPI, MCP catalog and legacy
+// ShortedStocksService all exclude it. It is mounted behind its own
+// interceptor chain (workload-identity auth, no user rate limits, no CORS)
+// only when HOUSING_INGEST_ENABLED=true. See
+// docs/superpowers/specs/2026-10-27-fleet-managed-housing-crawl-design.md,
+// "Ingest API".
+service CrawlIngestService {
+  // ProbeAuth verifies the caller's workload token and reports the contract
+  // this service accepts. It applies no rate limit.
+  rpc ProbeAuth(ProbeAuthRequest) returns (ProbeAuthResponse);
+
+  // PushSweep applies one (suburb, source) sweep. It is the atomic unit for
+  // delisting safety. The response carries counts only, never listing data.
+  rpc PushSweep(PushSweepRequest) returns (PushSweepResponse);
+
+  // ReportCycle records one rig cycle's outcome against crawl_run_status.
+  rpc ReportCycle(ReportCycleRequest) returns (ReportCycleResponse);
+}
+
+message ProbeAuthRequest {}
+
+message ProbeAuthResponse {
+  // subject is the verified workload subject, for example "rig:<id>".
+  string subject = 1;
+  // min_contract_version is the lowest PushSweepRequest.contract_version this
+  // service accepts. A collector below it must upgrade.
+  int32 min_contract_version = 2;
+  google.protobuf.Timestamp server_time = 3;
+}
+
+enum Source {
+  SOURCE_UNSPECIFIED = 0;
+  SOURCE_REA = 1;
+  SOURCE_DOMAIN = 2;
+}
+
+enum SweepStatus {
+  SWEEP_STATUS_UNSPECIFIED = 0;
+  // Paged to an empty or duplicate page. The only status that may delist.
+  SWEEP_STATUS_COMPLETE = 1;
+  // Real data, but the page cap was hit or a late page failed. Updates only.
+  SWEEP_STATUS_PARTIAL = 2;
+  // Nothing believable was seen. Writes nothing.
+  SWEEP_STATUS_BLOCKED = 3;
+}
+
+// Target is the suburb a sweep was made for. The server re-derives the
+// canonical target from the dispatch ledger and rejects a mismatch.
+message Target {
+  string suburb = 1;
+  string state = 2;
+  string postcode = 3;
+}
+
+// PageMeta is what the portal reported for the sweep.
+message PageMeta {
+  int32 total_results = 1;
+  int32 total_pages = 2;
+  int32 page_size = 3;
+  int32 on_target_results = 4;
+}
+
+// Listing mirrors housingcrawl.RawListing field for field. The server ignores
+// address_key (it re-derives it from the canonical target) and re-applies the
+// sanitisers and price clamp before any write.
+message Listing {
+  string source = 1;
+  string listing_id = 2;
+  string listing_url = 3;
+  string display_addr = 4;
+  string suburb = 5;
+  string state = 6;
+  string postcode = 7;
+  string address_key = 8;
+  optional double lat = 9;
+  optional double lng = 10;
+  string property_type = 11;
+  optional int32 bedrooms = 12;
+  optional int32 bathrooms = 13;
+  optional int32 car_spaces = 14;
+  optional double land_size_sqm = 15;
+  string price_display = 16;
+  optional double price_low = 17;
+  optional double price_high = 18;
+  string price_kind = 19;
+  string status = 20;
+  string agency_id = 21;
+  string agency_name = 22;
+  repeated string agent_names = 23;
+}
+
+message PushSweepRequest {
+  // idempotency_key is "<job_id>:<attempt>:<source>", where source is the
+  // lowercase portal name (rea or domain). It must match job_id, attempt and
+  // source exactly.
+  string idempotency_key = 1;
+  string job_id = 2;
+  int32 attempt = 3;
+  Target target = 4;
+  Source source = 5;
+  SweepStatus status = 6;
+  int32 pages = 7;
+  PageMeta page_meta = 8;
+  // observed_at is the rig's clock. Informational only: the server stamps
+  // every write with its own receive time.
+  google.protobuf.Timestamp observed_at = 9;
+  repeated Listing listings = 10;
+  string collector_revision = 11;
+  int32 contract_version = 12;
+  bool dry_run = 13;
+}
+
+// PushSweepResponse carries counts only. It never carries listing fields.
+message PushSweepResponse {
+  SweepStatus applied_status = 1;
+  int32 events = 2;
+  int32 listings_upserted = 3;
+  int32 delisted = 4;
+  int32 skipped_rows = 5;
+  // quarantined is true when the guard held the sweep back. The write was
+  // rolled back and the rig should not retry it.
+  bool quarantined = 6;
+  // replayed is true when the same idempotency key and body were already
+  // applied, and this response is the stored one.
+  bool replayed = 7;
+  // poisoned is true when more than 30% of the listings were hard off-target
+  // misses (wrong or absent postcode). The sweep was downgraded to BLOCKED and
+  // wrote nothing, so applied_status is BLOCKED.
+  bool poisoned = 8;
+}
+
+message CycleCounts {
+  int32 suburbs_selected = 1;
+  int32 suburbs_done = 2;
+  int32 listings_touched = 3;
+  int32 events_written = 4;
+  int32 blocked_count = 5;
+}
+
+message ReportCycleRequest {
+  // cycle_id is the rig's identifier for one cycle. It is bounded and stored
+  // as crawl_run_status.run_id.
+  string cycle_id = 1;
+  // outcome is one of: ok, blocked, partial, rewarm, error, deferred,
+  // cancelled, failed.
+  string outcome = 2;
+  int32 exit_code = 3;
+  CycleCounts counts = 4;
+}
+
+message ReportCycleResponse {
+  bool recorded = 1;
+}

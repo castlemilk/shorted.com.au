@@ -17,6 +17,15 @@ import (
 // Persistence for the listing tier. Reads/writes go through a pgx.Tx so a whole
 // suburb's diff (upserts + events + delists) commits atomically — a mid-write
 // failure can never leave a suburb half-delisted.
+//
+// Two SQL paths exist for each statement that touches the ingest columns:
+//
+//   - the LEGACY statement, byte-for-byte the one the collector has always run. It
+//     never names ingest_receipt_key or last_missed_at. A sweep with no ReceiptKey
+//     and no MinDelistInterval takes this path, so the collector does not depend
+//     on migration 000150.
+//   - the RECEIPT statement, used only when the sweep carries a ReceiptKey (the
+//     ingest), or a MinDelistInterval for last_missed_at.
 
 // storedListing is the minimal snapshot of a listing already in the DB, loaded to
 // diff against a freshly-crawled RawListing.
@@ -29,6 +38,10 @@ type storedListing struct {
 	Status       string
 	IsActive     bool
 	MissedSweeps int16
+	// LastMissedAt is when an ingest absence last counted. Loaded only on the
+	// MinDelistInterval path. LastSeen is last_seen_at, loaded on the same path.
+	LastMissedAt *time.Time
+	LastSeen     time.Time
 }
 
 // PriceEvent is one row for property_price_events.
@@ -49,6 +62,9 @@ type PriceEvent struct {
 	DropPct      *float64
 	Status       string
 	PrevStatus   string
+	// ReceiptKey, when non-empty, is stored in ingest_receipt_key. Empty is not
+	// written at all (the legacy statement), which is NULL for the collector.
+	ReceiptKey string
 }
 
 // CleanText strips NUL bytes and coerces the string to valid UTF-8. Portal JSON
@@ -183,7 +199,10 @@ func loadAddressPrior(ctx context.Context, tx pgx.Tx, addressKey, excludeListing
 // upsertListing writes the latest snapshot and returns the listing PK. On a
 // re-sighting it bumps last_seen_at, resets missed_sweeps, and (only when a price
 // move happened) advances last_price_change_at. first_seen_at is preserved.
-func upsertListing(ctx context.Context, tx pgx.Tx, r RawListing, t Target, runTs time.Time, lastPriceChange *time.Time) (int64, error) {
+//
+// receipt "" takes the legacy statement, which is the collector's. A non-empty
+// receipt stamps ingest_receipt_key.
+func upsertListing(ctx context.Context, tx pgx.Tx, r RawListing, t Target, runTs time.Time, lastPriceChange *time.Time, receipt string) (int64, error) {
 	price := CanonicalPrice(r.PriceLow, r.PriceHigh, r.PriceKind)
 	// agent_names is NOT NULL DEFAULT '{}'; a nil Go slice encodes as SQL NULL
 	// (the DEFAULT only fires when the column is omitted, not when NULL is passed),
@@ -193,7 +212,29 @@ func upsertListing(ctx context.Context, tx pgx.Tx, r RawListing, t Target, runTs
 		agentNames = []string{}
 	}
 	var pk int64
-	err := tx.QueryRow(ctx, `
+	var err error
+	if receipt == "" {
+		err = tx.QueryRow(ctx, upsertListingSQL,
+			r.Source, r.ListingID, r.AddressKey, r.ListingURL, t.RegionCode(), r.Suburb, r.State, r.Postcode,
+			r.DisplayAddr, r.Lat, r.Lng, r.PropertyType, r.Bedrooms, r.Bathrooms,
+			r.CarSpaces, r.LandSizeSqm, price, r.PriceHigh, r.PriceDisplay, r.PriceKind,
+			r.Status, runTs, lastPriceChange, listingContentHash(r), statusActive(r.Status),
+			r.AgencyID, r.AgencyName, agentNames).Scan(&pk)
+	} else {
+		err = tx.QueryRow(ctx, upsertListingReceiptSQL,
+			r.Source, r.ListingID, r.AddressKey, r.ListingURL, t.RegionCode(), r.Suburb, r.State, r.Postcode,
+			r.DisplayAddr, r.Lat, r.Lng, r.PropertyType, r.Bedrooms, r.Bathrooms,
+			r.CarSpaces, r.LandSizeSqm, price, r.PriceHigh, r.PriceDisplay, r.PriceKind,
+			r.Status, runTs, lastPriceChange, listingContentHash(r), statusActive(r.Status),
+			r.AgencyID, r.AgencyName, agentNames, receipt).Scan(&pk)
+	}
+	return pk, err
+}
+
+// upsertListingSQL is the collector's listing upsert, unchanged from before
+// migration 000150. Do not edit it to add the ingest columns: the receipt variant
+// below exists for that.
+const upsertListingSQL = `
 		INSERT INTO property_listings
 			(source, listing_id, address_key, listing_url, region_code, suburb, state_code, postcode,
 			 display_address, latitude, longitude, property_type, bedrooms, bathrooms,
@@ -229,14 +270,42 @@ func upsertListing(ctx context.Context, tx pgx.Tx, r RawListing, t Target, runTs
 			agent_names = CASE WHEN COALESCE(array_length(EXCLUDED.agent_names, 1), 0) > 0
 			                   THEN EXCLUDED.agent_names ELSE property_listings.agent_names END,
 			updated_at = now()
-		RETURNING id`,
-		r.Source, r.ListingID, r.AddressKey, r.ListingURL, t.RegionCode(), r.Suburb, r.State, r.Postcode,
-		r.DisplayAddr, r.Lat, r.Lng, r.PropertyType, r.Bedrooms, r.Bathrooms,
-		r.CarSpaces, r.LandSizeSqm, price, r.PriceHigh, r.PriceDisplay, r.PriceKind,
-		r.Status, runTs, lastPriceChange, listingContentHash(r), statusActive(r.Status),
-		r.AgencyID, r.AgencyName, agentNames).Scan(&pk)
-	return pk, err
-}
+		RETURNING id`
+
+// upsertListingReceiptSQL is upsertListingSQL plus ingest_receipt_key. The receipt
+// is always non-empty on this path, so it is written as-is.
+const upsertListingReceiptSQL = `
+		INSERT INTO property_listings
+			(source, listing_id, address_key, listing_url, region_code, suburb, state_code, postcode,
+			 display_address, latitude, longitude, property_type, bedrooms, bathrooms,
+			 car_spaces, land_size_sqm, price, price_high, price_display, price_kind,
+			 listing_status, is_active, missed_sweeps, first_seen_at, last_seen_at,
+			 last_price_change_at, content_hash, agency_id, agency_name, agent_names, updated_at,
+			 ingest_receipt_key)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
+			$25, 0, $22, $22, $23, $24, $26, $27, $28, now(), $29)
+		ON CONFLICT (source, listing_id) DO UPDATE SET
+			address_key = EXCLUDED.address_key,
+			listing_url = EXCLUDED.listing_url, region_code = EXCLUDED.region_code,
+			suburb = EXCLUDED.suburb, state_code = EXCLUDED.state_code, postcode = EXCLUDED.postcode,
+			display_address = EXCLUDED.display_address, latitude = EXCLUDED.latitude,
+			longitude = EXCLUDED.longitude, property_type = EXCLUDED.property_type,
+			bedrooms = EXCLUDED.bedrooms, bathrooms = EXCLUDED.bathrooms, car_spaces = EXCLUDED.car_spaces,
+			land_size_sqm = EXCLUDED.land_size_sqm, price_high = EXCLUDED.price_high,
+			price = CASE WHEN EXCLUDED.price_kind = 'unknown' THEN property_listings.price ELSE EXCLUDED.price END,
+			price_display = CASE WHEN EXCLUDED.price_kind = 'unknown' THEN property_listings.price_display ELSE EXCLUDED.price_display END,
+			price_kind = CASE WHEN EXCLUDED.price_kind = 'unknown' THEN property_listings.price_kind ELSE EXCLUDED.price_kind END,
+			listing_status = EXCLUDED.listing_status, is_active = EXCLUDED.is_active, missed_sweeps = 0,
+			last_seen_at = EXCLUDED.last_seen_at,
+			last_price_change_at = COALESCE(EXCLUDED.last_price_change_at, property_listings.last_price_change_at),
+			content_hash = EXCLUDED.content_hash,
+			agency_id = COALESCE(NULLIF(EXCLUDED.agency_id, ''), property_listings.agency_id),
+			agency_name = COALESCE(NULLIF(EXCLUDED.agency_name, ''), property_listings.agency_name),
+			agent_names = CASE WHEN COALESCE(array_length(EXCLUDED.agent_names, 1), 0) > 0
+			                   THEN EXCLUDED.agent_names ELSE property_listings.agent_names END,
+			updated_at = now(),
+			ingest_receipt_key = EXCLUDED.ingest_receipt_key
+		RETURNING id`
 
 // statusActive reports whether a listing status counts as on-market: sold and
 // withdrawn listings are inactive (they leave the for-sale pool + drop the
@@ -246,29 +315,55 @@ func statusActive(status string) bool {
 }
 
 // InsertPriceEvent appends one event, idempotent on (listing_pk, event_type,
-// observed_at) so a re-run of the same crawl is a perfect no-op.
+// observed_at) so a re-run of the same crawl is a perfect no-op. An event with no
+// ReceiptKey uses the legacy statement, which is the collector's.
 func InsertPriceEvent(ctx context.Context, tx pgx.Tx, ev PriceEvent) error {
-	_, err := tx.Exec(ctx, `
+	if ev.ReceiptKey == "" {
+		_, err := tx.Exec(ctx, insertPriceEventSQL,
+			ev.ListingPK, ev.Source, ev.ListingID, ev.RegionCode, ev.AddressKey, ev.ObservedAt, ev.EventType,
+			ev.Price, ev.PriceHigh, ev.PriceDisplay, ev.PriceKind, ev.PrevPrice, ev.DropAbs, ev.DropPct,
+			ev.Status, ev.PrevStatus)
+		return err
+	}
+	_, err := tx.Exec(ctx, insertPriceEventReceiptSQL,
+		ev.ListingPK, ev.Source, ev.ListingID, ev.RegionCode, ev.AddressKey, ev.ObservedAt, ev.EventType,
+		ev.Price, ev.PriceHigh, ev.PriceDisplay, ev.PriceKind, ev.PrevPrice, ev.DropAbs, ev.DropPct,
+		ev.Status, ev.PrevStatus, ev.ReceiptKey)
+	return err
+}
+
+const insertPriceEventSQL = `
 		INSERT INTO property_price_events
 			(listing_pk, source, listing_id, region_code, address_key, observed_at, event_type,
 			 price, price_high, price_display, price_kind, prev_price, drop_abs, drop_pct,
 			 listing_status, prev_status)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-		ON CONFLICT (listing_pk, event_type, observed_at) DO NOTHING`,
-		ev.ListingPK, ev.Source, ev.ListingID, ev.RegionCode, ev.AddressKey, ev.ObservedAt, ev.EventType,
-		ev.Price, ev.PriceHigh, ev.PriceDisplay, ev.PriceKind, ev.PrevPrice, ev.DropAbs, ev.DropPct,
-		ev.Status, ev.PrevStatus)
-	return err
-}
+		ON CONFLICT (listing_pk, event_type, observed_at) DO NOTHING`
+
+const insertPriceEventReceiptSQL = `
+		INSERT INTO property_price_events
+			(listing_pk, source, listing_id, region_code, address_key, observed_at, event_type,
+			 price, price_high, price_display, price_kind, prev_price, drop_abs, drop_pct,
+			 listing_status, prev_status, ingest_receipt_key)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+		ON CONFLICT (listing_pk, event_type, observed_at) DO NOTHING`
 
 // activeListingsForRegion returns the currently-active listings for a (source,
-// region) — the candidate set for absence/delist detection.
-func activeListingsForRegion(ctx context.Context, tx pgx.Tx, source, regionCode string) ([]storedListing, error) {
-	rows, err := tx.Query(ctx, `
+// region) — the candidate set for absence/delist detection. withClock also loads
+// last_missed_at and last_seen_at for the MinDelistInterval gate; the collector
+// never asks for them.
+func activeListingsForRegion(ctx context.Context, tx pgx.Tx, source, regionCode string, withClock bool) ([]storedListing, error) {
+	query := `
 		SELECT id, listing_id, address_key, listing_status, missed_sweeps
 		FROM property_listings
-		WHERE source = $1 AND region_code = $2 AND is_active`,
-		source, regionCode)
+		WHERE source = $1 AND region_code = $2 AND is_active`
+	if withClock {
+		query = `
+		SELECT id, listing_id, address_key, listing_status, missed_sweeps, last_missed_at, last_seen_at
+		FROM property_listings
+		WHERE source = $1 AND region_code = $2 AND is_active`
+	}
+	rows, err := tx.Query(ctx, query, source, regionCode)
 	if err != nil {
 		return nil, err
 	}
@@ -276,8 +371,14 @@ func activeListingsForRegion(ctx context.Context, tx pgx.Tx, source, regionCode 
 	var out []storedListing
 	for rows.Next() {
 		var s storedListing
-		if err := rows.Scan(&s.PK, &s.ListingID, &s.AddressKey, &s.Status, &s.MissedSweeps); err != nil {
-			return nil, err
+		if withClock {
+			if err := rows.Scan(&s.PK, &s.ListingID, &s.AddressKey, &s.Status, &s.MissedSweeps, &s.LastMissedAt, &s.LastSeen); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := rows.Scan(&s.PK, &s.ListingID, &s.AddressKey, &s.Status, &s.MissedSweeps); err != nil {
+				return nil, err
+			}
 		}
 		s.IsActive = true
 		out = append(out, s)
@@ -287,7 +388,7 @@ func activeListingsForRegion(ctx context.Context, tx pgx.Tx, source, regionCode 
 
 // MarkAbsent records that an active listing was not seen this COMPLETE sweep:
 // either bump its missed_sweeps counter, or (once the grace period is exhausted)
-// flip it inactive/withdrawn.
+// flip it inactive/withdrawn. This is the collector's statement, unchanged.
 func MarkAbsent(ctx context.Context, tx pgx.Tx, pk int64, missed int16, delist bool) error {
 	if delist {
 		_, err := tx.Exec(ctx, `
@@ -298,6 +399,32 @@ func MarkAbsent(ctx context.Context, tx pgx.Tx, pk int64, missed int16, delist b
 	}
 	_, err := tx.Exec(ctx, `
 		UPDATE property_listings SET missed_sweeps = $2, updated_at = now() WHERE id = $1`, pk, missed)
+	return err
+}
+
+// markAbsentAt is MarkAbsent for a sweep that carries a receipt or a
+// MinDelistInterval. It sets only the columns the sweep asked for: the receipt
+// stamp when receipt is non-empty, and last_missed_at when clock is true. With
+// neither, it is exactly MarkAbsent.
+func markAbsentAt(ctx context.Context, tx pgx.Tx, pk int64, missed int16, delist bool, at time.Time, receipt string, clock bool) error {
+	if receipt == "" && !clock {
+		return MarkAbsent(ctx, tx, pk, missed, delist)
+	}
+	args := []any{pk, missed}
+	sets := []string{"missed_sweeps = $2", "updated_at = now()"}
+	if delist {
+		sets = append(sets, "is_active = false", "listing_status = 'withdrawn'")
+	}
+	if clock {
+		args = append(args, at)
+		sets = append(sets, fmt.Sprintf("last_missed_at = $%d", len(args)))
+	}
+	if receipt != "" {
+		args = append(args, receipt)
+		sets = append(sets, fmt.Sprintf("ingest_receipt_key = $%d", len(args)))
+	}
+	query := "UPDATE property_listings SET " + strings.Join(sets, ", ") + " WHERE id = $1"
+	_, err := tx.Exec(ctx, query, args...)
 	return err
 }
 

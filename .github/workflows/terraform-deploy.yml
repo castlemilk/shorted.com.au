@@ -981,6 +981,21 @@ jobs:
 
             run_psql_session -f /migrations/000149_add_past_due_since.up.sql
 
+            # 000150 (fleet-managed housing crawl, S-ING) creates the ingest
+            # tables (crawl_dispatch, crawl_ingest_receipts, housing_ingest_rigs,
+            # crawl_ingest_quarantine) and adds three nullable columns to the
+            # listing tables. Every CREATE is IF NOT EXISTS and every ALTER is
+            # catalog-guarded, so a replay takes no lock and touches no rows. The
+            # added columns are metadata-only (no rewrite of property_listings or
+            # property_price_events). The ALTERs still take a brief ACCESS
+            # EXCLUSIVE, so the file runs under lock_timeout = '15s' on the
+            # session pooler and fails this step, before any image is swapped,
+            # rather than queue behind live crawl writes. Nothing here reads or
+            # writes a listing row. The ingest is off until HOUSING_INGEST_ENABLED
+            # is set, and the collector's own writes need the new columns, so this
+            # runs before the image swap.
+            run_psql_session -f /migrations/000150_add_crawl_ingest.up.sql
+
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
             # tables, views, materialized views, sequences and functions there,
@@ -1829,6 +1844,21 @@ jobs:
       - name: Run deployed housing collector tests
         working-directory: services
         run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./house-price-collector ./pkg/housingcrawl
+
+      # The listing store and the crawl ingest, against a real Postgres. Without
+      # HOUSING_TEST_DB_URL these tests skip, so their SQL (receipts, the guard,
+      # the MinDelistInterval gate, the 000150 migration over the listing tables)
+      # never ran in CI. testcontainers starts one postgres:15 for this test
+      # binary, the same mechanism the store's integration suites use on these
+      # runners. The testcontainers build tag keeps it out of a plain go test, and
+      # CGO is off because its gopsutil dependency crashes a macOS test binary at
+      # init when cgo is on.
+      - name: Run housing store and ingest DB tests (testcontainers Postgres)
+        working-directory: services
+        env:
+          HOUSING_TESTCONTAINERS: "1"
+          CGO_ENABLED: "0"
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test -count=1 -p 1 -tags=testcontainers ./pkg/housingcrawl ./shorts/internal/ingest
 
       - name: Run housing wrapper lifecycle tests
         run: bash services/house-price-collector/deploy/housing-lifecycle-exit.test.sh
