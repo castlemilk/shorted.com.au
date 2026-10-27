@@ -1,0 +1,144 @@
+// Package housingcrawl is the store side of the housing listing crawl: it diffs
+// one (source, suburb) sweep against the stored listings in a single
+// transaction, writes the price, status and lifecycle events, and delists only
+// on a COMPLETE sweep.
+//
+// It is shared by two callers that must run exactly the same logic: the
+// collector on the residential rig (house-price-collector), and the shorts
+// ingest service that receives the rig's raw sweeps. The package never fetches,
+// extracts or classifies a page; those stay on the rig. It must not import the
+// collector (package main), CDP, Playwright or any brandbrain client.
+package housingcrawl
+
+import (
+	"strings"
+	"time"
+)
+
+// RawListing is one property listing as harvested from a search-results page,
+// before validation. Pointer fields are nil when absent.
+type RawListing struct {
+	Source      string
+	ListingID   string
+	ListingURL  string
+	DisplayAddr string
+	Suburb      string
+	State       string
+	Postcode    string
+	// AddressKey is a stable per-physical-address identity. It is stamped by
+	// ApplySweep from the CANONICAL target suburb/state/postcode, never populated
+	// by extraction (see AddressKey).
+	AddressKey   string
+	Lat, Lng     *float64
+	PropertyType string
+	Bedrooms     *int16
+	Bathrooms    *int16
+	CarSpaces    *int16
+	LandSizeSqm  *float64
+	PriceDisplay string
+	PriceLow     *float64
+	PriceHigh    *float64
+	PriceKind    string
+	Status       string // normalized: for_sale|under_offer|sold|withdrawn
+	// Marketing agency + agents, harvested from the same search-results blob.
+	// Best-effort — empty when the portal omits them.
+	AgencyID   string
+	AgencyName string
+	AgentNames []string
+}
+
+// Target is the canonical suburb a sweep was made for. Listings are keyed to its
+// fields, never to the portal's own address fields.
+type Target struct {
+	Suburb   string // url slug: "bondi", "st-kilda"
+	Display  string // "Bondi"
+	Postcode string // "2026"
+	State    string // "NSW"
+}
+
+// RegionCode is the listing foreign-key target for the suburb.
+func (t Target) RegionCode() string {
+	return "SUBURB:" + t.State + "-" + t.Postcode + "-" + strings.ToUpper(t.Suburb)
+}
+
+// SweepStatus is how far a sweep can be trusted. Only Complete may delist.
+type SweepStatus string
+
+const (
+	// Complete: paged to an empty or duplicate page, so the whole suburb was
+	// seen and listings absent for DelistGrace sweeps may be withdrawn.
+	Complete SweepStatus = "COMPLETE"
+	// Partial: real data, but the page cap was hit or a late page failed. Update
+	// what was seen and delist nothing.
+	Partial SweepStatus = "PARTIAL"
+	// Blocked: nothing believable (block, poison or empty first page). Writes
+	// nothing.
+	Blocked SweepStatus = "BLOCKED"
+)
+
+// Config holds the diff thresholds a sweep is applied with.
+type Config struct {
+	// DelistGrace is how many consecutive COMPLETE sweeps a listing may be absent
+	// before it is withdrawn.
+	DelistGrace int
+	// NoiseAbs and NoisePct are the price-move thresholds: a move must clear both
+	// to be recorded.
+	NoiseAbs float64
+	NoisePct float64
+}
+
+// Sweep is one (source, suburb) sweep as the store sees it.
+type Sweep struct {
+	Target Target
+	// Source is the portal: "rea" or "domain".
+	Source string
+	Status SweepStatus
+	// Pages is the number of pages fetched. It is carried for the caller's
+	// accounting; the store does not read it.
+	Pages int
+	// Listings are the observed listings. ApplySweep gates them against Target
+	// and clamps their prices before any write.
+	Listings []RawListing
+	// RunTS is when the sweep ran: the rig's clock in the collector, the server's
+	// receive time on ingest.
+	RunTS time.Time
+	Rules Config
+}
+
+// Result is what one ApplySweep call did. It is meaningful on error too: a
+// transient failure returns the counts accumulated before it, as the collector's
+// run summary always has.
+type Result struct {
+	// Applied is the status the sweep was applied with. Blocked means nothing
+	// was written.
+	Applied SweepStatus
+	// Events is the number of price, status and lifecycle events written.
+	Events int
+	// Upserted is the number of listing snapshots written.
+	Upserted int
+	// Delisted is the number of listings withdrawn by this sweep.
+	Delisted int
+	// SkippedRows is the number of listings dropped on a PERMANENT per-row error.
+	// The rest of the sweep still persisted.
+	SkippedRows int
+	// NewListings counts first_seen events.
+	NewListings int
+	// Drops and Rises count price moves on a listing already tracked.
+	Drops, Rises int
+	// Relisted counts listings that came back after being inactive.
+	Relisted int
+	// StatusChanges counts status transitions that were not a relist.
+	StatusChanges int
+	// AddressRelistDrops and AddressRelistRises count price moves found by the
+	// address-level relist check (a new listing_id at a known address).
+	AddressRelistDrops, AddressRelistRises int
+}
+
+// Region is one suburb row for the listing and fact foreign keys.
+type Region struct {
+	RegionCode string
+	RegionType string // national | state | gccsa | rest_of_state | suburb | lga
+	RegionName string
+	StateCode  string
+	Postcode   string
+}

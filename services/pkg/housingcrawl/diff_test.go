@@ -1,4 +1,4 @@
-package main
+package housingcrawl
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 func TestIsPermanentRowError(t *testing.T) {
 	// Class 22 (data exception) + 23 (integrity constraint) are PERMANENT per-row
 	// errors that recur identically every crawl → skip the one listing, keep the
-	// suburb (diffSuburb's per-row SAVEPOINT).
+	// suburb (ApplySweep's per-row SAVEPOINT).
 	permanent := []string{
 		"22021", // invalid_byte_sequence_for_encoding (the NUL / bad-UTF8 case)
 		"22003", // numeric_value_out_of_range

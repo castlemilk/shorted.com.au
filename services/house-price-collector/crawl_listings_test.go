@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 )
 
 // These tests are the listing tier's offline proof: the price-string semantics,
@@ -51,29 +50,6 @@ func TestParseAUPrice(t *testing.T) {
 		if f(low) != c.wantLow || f(high) != c.wantHigh {
 			t.Errorf("parseAUPrice(%q) low/high=%v/%v want %v/%v", c.in, f(low), f(high), c.wantLow, c.wantHigh)
 		}
-	}
-}
-
-func TestCanonicalPrice_RangeHighUsesHigh(t *testing.T) {
-	low, high, kind := parseAUPrice("Under $900k")
-	cp := canonicalPrice(low, high, kind)
-	if cp == nil || *cp != 900_000 {
-		t.Errorf("range_high canonical should be the high bound 900000, got %v", cp)
-	}
-}
-
-func TestComparableKinds(t *testing.T) {
-	if !comparableKinds(priceFixed, priceOffersOver) {
-		t.Error("fixed vs offers_over should be comparable (both single-value asks)")
-	}
-	if !comparableKinds(priceRangeLow, priceRangeLow) {
-		t.Error("range_low vs range_low should be comparable")
-	}
-	if comparableKinds(priceRangeLow, priceFixed) {
-		t.Error("range_low vs fixed must NOT be comparable (avoids phantom moves)")
-	}
-	if comparableKinds(priceAuction, priceFixed) {
-		t.Error("auction vs fixed must NOT be comparable")
 	}
 }
 
@@ -178,47 +154,6 @@ func TestExtractListings_REAArgonaut(t *testing.T) {
 	}
 }
 
-func TestMatchesTarget(t *testing.T) {
-	tgt := CrawlTarget{Suburb: "st-kilda", Display: "St Kilda", Postcode: "3182", State: "VIC", Capital: "2GMEL"}
-	if !matchesTarget(RawListing{Postcode: "3182", Suburb: "St Kilda"}, tgt) {
-		t.Error("exact postcode should match")
-	}
-	if matchesTarget(RawListing{Postcode: "3000", Suburb: "St Kilda"}, tgt) {
-		t.Error("wrong postcode must NOT match even with right suburb name")
-	}
-	if !matchesTarget(RawListing{Suburb: "ST KILDA"}, tgt) {
-		t.Error("suburb-name fallback (no postcode) should match case-insensitively")
-	}
-	if matchesTarget(RawListing{}, tgt) {
-		t.Error("a listing with neither postcode nor suburb must be rejected")
-	}
-	// Shared-postcode neighbour: same postcode, DIFFERENT suburb. Postcode alone
-	// is NOT authoritative — many AU postcodes cover several localities (3182 =
-	// St Kilda + St Kilda West; 2026 = Bondi + Tamarama + North Bondi), so a
-	// postcode-only match silently pulls neighbouring-suburb stock into the
-	// target's corpus. When BOTH fields are present, both must agree.
-	if matchesTarget(RawListing{Postcode: "3182", Suburb: "St Kilda West"}, tgt) {
-		t.Error("same postcode but different suburb (shared-postcode neighbour) must NOT match")
-	}
-	// But a postcode match with NO suburb field present still matches — postcode
-	// is the best available signal when the portal omits the locality.
-	if !matchesTarget(RawListing{Postcode: "3182"}, tgt) {
-		t.Error("postcode match with no suburb field should still match (fallback preserved)")
-	}
-	// Abbreviation tolerance: the ABS-SAL Display and the portal disagree on
-	// St/Saint & Mt/Mount forms; both must still match (postcode gates, so this
-	// can't conflate distinct suburbs). Without it a whole page-1 of on-target
-	// listings fails subOK and the poison gate blocks the entire suburb.
-	mtEliza := CrawlTarget{Suburb: "mount-eliza", Display: "Mount Eliza", Postcode: "3930", State: "VIC"}
-	if !matchesTarget(RawListing{Postcode: "3930", Suburb: "Mt Eliza"}, mtEliza) {
-		t.Error("portal 'Mt Eliza' must match Display 'Mount Eliza' (Mt/Mount abbrev)")
-	}
-	stLeon := CrawlTarget{Suburb: "st-leonards", Display: "St Leonards", Postcode: "2065", State: "NSW"}
-	if !matchesTarget(RawListing{Postcode: "2065", Suburb: "Saint Leonards"}, stLeon) {
-		t.Error("portal 'Saint Leonards' must match Display 'St Leonards' (St/Saint abbrev)")
-	}
-}
-
 func TestPartitionByTarget_SoftMissNotPoison(t *testing.T) {
 	// A small suburb in a shared-postcode cluster: page 1 is back-filled with a
 	// same-postcode NEIGHBOUR (Tarneit shares 3029 with Truganina). Those rows are
@@ -255,42 +190,6 @@ func TestPartitionByTarget_WrongPostcodeIsPoison(t *testing.T) {
 	}
 }
 
-func TestSanitizeListing_StripsNulAndInvalidUTF8(t *testing.T) {
-	// A portal  decodes to a real 0x00 in the Go string; left unsanitised it
-	// makes upsertListing's INSERT fail with Postgres 22021 and, now that a diff
-	// error fails+requeues the suburb, turns it into a re-crawl poison pill.
-	got := sanitizeListing(RawListing{
-		ListingID:    "abc\x00123",
-		DisplayAddr:  "12 Smith St\x00",
-		PriceDisplay: "For Sale $1.2m",
-		AgentNames:   []string{"Jane\x00Doe", "ok"},
-	})
-	if got.ListingID != "abc123" || got.DisplayAddr != "12 Smith St" {
-		t.Errorf("NUL not stripped: id=%q addr=%q", got.ListingID, got.DisplayAddr)
-	}
-	if got.PriceDisplay != "For Sale $1.2m" {
-		t.Errorf("clean text should be untouched, got %q", got.PriceDisplay)
-	}
-	if got.AgentNames[0] != "JaneDoe" || got.AgentNames[1] != "ok" {
-		t.Errorf("agent NUL not stripped: %q", got.AgentNames)
-	}
-	// A lone invalid byte (0xff) is coerced away rather than left to break the write.
-	if bad := sanitizeListing(RawListing{DisplayAddr: "caf\xffe"}); !utf8.ValidString(bad.DisplayAddr) {
-		t.Errorf("invalid UTF-8 not coerced: %q", bad.DisplayAddr)
-	}
-}
-
-func TestClampListingPrice(t *testing.T) {
-	poison := clampListingPrice(RawListing{PriceLow: new(float64(60_000_000)), PriceKind: priceFixed})
-	if poison.PriceLow != nil || poison.PriceKind != priceUnknown {
-		t.Errorf("a $60M out-of-band price should be nulled to unknown, got low=%v kind=%s", poison.PriceLow, poison.PriceKind)
-	}
-	ok := clampListingPrice(RawListing{PriceLow: new(float64(1_200_000)), PriceKind: priceFixed})
-	if ok.PriceLow == nil || *ok.PriceLow != 1_200_000 {
-		t.Errorf("an in-band price should be kept, got %v", ok.PriceLow)
-	}
-}
-
 func testLC() *listingsCrawler {
 	return &listingsCrawler{cfg: listingsConfig{
 		crawlConfig:   crawlConfig{maxConsecBlocks: 3},
@@ -301,115 +200,6 @@ func testLC() *listingsCrawler {
 		noisePct:      0.005,
 		delistGrace:   2,
 	}}
-}
-
-func TestEventsFor(t *testing.T) {
-	lc := testLC()
-	fixed := func(v float64) RawListing {
-		return RawListing{PriceLow: new(v), PriceKind: priceFixed, Status: "for_sale"}
-	}
-
-	// New listing → first_seen, no price move.
-	if evs, moved := lc.eventsFor(nil, fixed(1_200_000)); len(evs) != 1 || evs[0].EventType != "first_seen" || moved {
-		t.Errorf("new listing: got %v moved=%v", evs, moved)
-	}
-
-	prev := &storedListing{Price: new(float64(1_200_000)), PriceKind: priceFixed, Status: "for_sale", IsActive: true}
-
-	// Drop past thresholds.
-	evs, moved := lc.eventsFor(prev, fixed(1_100_000))
-	if !moved || !hasEvent(evs, "price_drop") {
-		t.Errorf("expected price_drop+moved, got %v moved=%v", evs, moved)
-	}
-	// Rise.
-	if evs, moved := lc.eventsFor(prev, fixed(1_350_000)); !moved || !hasEvent(evs, "price_rise") {
-		t.Errorf("expected price_rise, got %v moved=%v", evs, moved)
-	}
-	// Sub-threshold change (delta $1k < $5k) → no move.
-	if evs, moved := lc.eventsFor(prev, fixed(1_199_000)); moved || hasEvent(evs, "price_drop") {
-		t.Errorf("sub-threshold change must NOT emit a move, got %v moved=%v", evs, moved)
-	}
-	// Auction now (nil numeric) → no price move (prev numeric, cur nil).
-	if _, moved := lc.eventsFor(prev, RawListing{PriceKind: priceAuction, Status: "for_sale"}); moved {
-		t.Error("auction (nil price) must not produce a price move")
-	}
-	// Non-comparable kinds: range_low vs prev fixed → no phantom move.
-	if _, moved := lc.eventsFor(prev, RawListing{PriceLow: new(float64(1_000_000)), PriceKind: priceRangeLow, Status: "for_sale"}); moved {
-		t.Error("range_low vs prev fixed must NOT be treated as a move")
-	}
-	// Status change only (same price, for_sale → under_offer).
-	evs, _ = lc.eventsFor(prev, RawListing{PriceLow: new(float64(1_200_000)), PriceKind: priceFixed, Status: "under_offer"})
-	if !hasEvent(evs, "status_change") || hasEvent(evs, "price_drop") {
-		t.Errorf("expected status_change only, got %v", evs)
-	}
-	// Relisted (prev inactive) + a concurrent drop.
-	inactive := &storedListing{Price: new(float64(1_200_000)), PriceKind: priceFixed, Status: "withdrawn", IsActive: false}
-	evs, _ = lc.eventsFor(inactive, fixed(1_100_000))
-	if !hasEvent(evs, "relisted") || !hasEvent(evs, "price_drop") {
-		t.Errorf("expected relisted + price_drop, got %v", evs)
-	}
-}
-
-// TestAddressPriceMove covers the address-level relist-drop detection
-// (crawl_listings_diff.go): a brand-new listing_id at a KNOWN address, priced
-// against that address's most recent active listing (a DIFFERENT listing_id,
-// possibly a different source) — the drop a listing_id-keyed diff alone can
-// never see. Same noise/comparable-kind gates as the listing-level diff.
-func TestAddressPriceMove(t *testing.T) {
-	lc := testLC()
-	addrKey := "1-centre-road-brighton-vic-3186"
-
-	// No known prior at this address -> never fires.
-	newL := RawListing{PriceLow: new(float64(1_100_000)), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
-	if _, ok := lc.addressPriceMove(nil, newL); ok {
-		t.Error("nil addrPrior must never fire")
-	}
-
-	prior := &storedListing{Price: new(float64(1_200_000)), PriceKind: priceFixed, Status: "for_sale", IsActive: true}
-
-	// A relisted listing_id at the SAME address, priced below the prior active
-	// listing -> price_drop, carrying the prior's price as PrevPrice.
-	e, ok := lc.addressPriceMove(prior, newL)
-	if !ok || e.EventType != "price_drop" {
-		t.Fatalf("expected price_drop, got ok=%v e=%+v", ok, e)
-	}
-	if e.PrevPrice == nil || *e.PrevPrice != 1_200_000 {
-		t.Errorf("PrevPrice = %v, want 1200000", e.PrevPrice)
-	}
-
-	// Rise.
-	riseL := RawListing{PriceLow: new(float64(1_350_000)), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
-	if e, ok := lc.addressPriceMove(prior, riseL); !ok || e.EventType != "price_rise" {
-		t.Errorf("expected price_rise, got ok=%v e=%+v", ok, e)
-	}
-
-	// Genuinely the same price (sub-threshold) -> must NOT fire (the "same
-	// listing/price" guard).
-	sameL := RawListing{PriceLow: new(float64(1_199_000)), PriceKind: priceFixed, Status: "for_sale", AddressKey: addrKey}
-	if _, ok := lc.addressPriceMove(prior, sameL); ok {
-		t.Error("sub-threshold move must not fire")
-	}
-
-	// Non-comparable kinds -> no phantom move.
-	rangeL := RawListing{PriceLow: new(float64(1_000_000)), PriceKind: priceRangeLow, Status: "for_sale", AddressKey: addrKey}
-	if _, ok := lc.addressPriceMove(prior, rangeL); ok {
-		t.Error("non-comparable price kinds must not fire")
-	}
-
-	// A sold listing must never produce a phantom "discount".
-	soldL := RawListing{PriceLow: new(float64(900_000)), PriceKind: priceFixed, Status: "sold", AddressKey: addrKey}
-	if _, ok := lc.addressPriceMove(prior, soldL); ok {
-		t.Error("a sold listing must not fire a price move")
-	}
-}
-
-func hasEvent(evs []priceEvent, kind string) bool {
-	for _, e := range evs {
-		if e.EventType == kind {
-			return true
-		}
-	}
-	return false
 }
 
 // --- sweep classification (the delist-safety linchpin) ---

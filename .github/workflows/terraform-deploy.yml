@@ -1828,7 +1828,7 @@ jobs:
 
       - name: Run deployed housing collector tests
         working-directory: services
-        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./house-price-collector
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./house-price-collector ./pkg/housingcrawl
 
       - name: Run housing wrapper lifecycle tests
         run: bash services/house-price-collector/deploy/housing-lifecycle-exit.test.sh

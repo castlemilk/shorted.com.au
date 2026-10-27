@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/housingcrawl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -50,37 +51,6 @@ func contentHash(o Observation) string {
 	h := sha1.Sum(fmt.Appendf(nil, "%s|%s|%s|%s|%s|%.4f",
 		o.RegionCode, o.Measure, o.DwellingType, o.Period.Format("2006-01-02"), o.Source, o.Value))
 	return hex.EncodeToString(h[:])
-}
-
-// upsertRegions writes the distinct regions referenced by obs (the fact table's
-// FK target), deriving each region's metadata from the first observation seen.
-func upsertRegions(ctx context.Context, pool *pgxpool.Pool, obs []Observation) error {
-	seen := map[string]Observation{}
-	for _, o := range obs {
-		if _, ok := seen[o.RegionCode]; !ok {
-			seen[o.RegionCode] = o
-		}
-	}
-	batch := &pgx.Batch{}
-	for _, o := range seen {
-		batch.Queue(`
-			INSERT INTO house_price_regions (region_code, region_type, region_name, state_code, postcode)
-			VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''))
-			ON CONFLICT (region_code) DO UPDATE SET
-				region_type = EXCLUDED.region_type,
-				region_name = EXCLUDED.region_name,
-				state_code  = COALESCE(EXCLUDED.state_code, house_price_regions.state_code),
-				postcode    = COALESCE(EXCLUDED.postcode, house_price_regions.postcode)`,
-			o.RegionCode, o.RegionType, o.RegionName, o.StateCode, o.Postcode)
-	}
-	br := pool.SendBatch(ctx, batch)
-	for range seen {
-		if _, err := br.Exec(); err != nil {
-			_ = br.Close()
-			return err
-		}
-	}
-	return br.Close()
 }
 
 // upsertObservations idempotently writes facts (UNIQUE key = region, measure,
@@ -177,16 +147,6 @@ func lockOfficialJobSource(ctx context.Context, pool *pgxpool.Pool, source strin
 	return release, nil
 }
 
-func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
-	// The function-scoped GUC cannot disarm a timeout already armed for the
-	// calling command, so the override must precede the function call. Simple
-	// protocol wraps this multi-statement command in an implicit transaction;
-	// SET LOCAL scopes the override to that transaction and expires with it.
-	_, err := pool.Exec(ctx, `SET LOCAL statement_timeout = 0;
-		SELECT refresh_housing_materialized_views()`)
-	return err
-}
-
 // refreshSuburbReferenceViews refreshes the suburb reference views of
 // migration 000139 (each SAL's latest public median, the state baselines and
 // the similar-suburbs features) that the API's suburb list, profile and
@@ -258,55 +218,6 @@ func afterSuburbReferenceIngest(ctx context.Context, pool *pgxpool.Pool, ingestE
 	}
 	return nil
 }
-
-// linkSuburbSalCodes backfills house_price_regions.sal_code for suburb regions by
-// matching the region NAME to an ABS SAL name — the same logic as migrations 000056
-// (exact) + 000068 (parenthetical-stripped fallback for ABS names like
-// "Abbotsford (NSW)"). Run every ingest so newly-added suburbs (any state)
-// self-link without a manual SQL step. Idempotent: only touches NULL sal_codes.
-//
-// The stripped pass is where one name meets several SALs: ABS parenthesises a
-// name precisely because it repeats ("Mayfield (Newcastle - NSW)", 9,760
-// people; "Mayfield (Shoalhaven - NSW)", 36). An UPDATE … FROM with several
-// matching rows applies an arbitrary one, and prod linked the VG "Mayfield"
-// series to the 36-person locality — the populous suburb then read as
-// unpriced and the locality showed Newcastle's median. The pass now takes the
-// most populous candidate (sal_code breaks a tie, so a re-run is stable):
-// suburb_demographics carries no postcode to match on, and a suburb-level
-// median exists because the place has sales, which the populous one does.
-func linkSuburbSalCodes(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
-	var total int64
-	tag, err := pool.Exec(ctx, `
-		UPDATE house_price_regions r SET sal_code = d.sal_code
-		FROM suburb_demographics d
-		WHERE r.sal_code IS NULL AND r.region_type = 'suburb' AND r.state_code = d.state_code
-		  AND upper(trim(r.region_name)) = upper(trim(d.sal_name))`)
-	if err != nil {
-		return total, fmt.Errorf("sal link (exact): %w", err)
-	}
-	total += tag.RowsAffected()
-	tag, err = pool.Exec(ctx, linkStrippedSalSQL)
-	if err != nil {
-		return total, fmt.Errorf("sal link (stripped): %w", err)
-	}
-	total += tag.RowsAffected()
-	return total, nil
-}
-
-// linkStrippedSalSQL links each still-unlinked suburb region to the MOST
-// POPULOUS SAL whose name, qualifier stripped, matches it in the same state.
-const linkStrippedSalSQL = `
-		UPDATE house_price_regions r SET sal_code = pick.sal_code
-		FROM (
-			SELECT DISTINCT ON (u.region_code) u.region_code, d.sal_code
-			FROM house_price_regions u
-			JOIN suburb_demographics d
-			  ON d.state_code = u.state_code
-			 AND upper(trim(u.region_name)) = upper(trim(regexp_replace(d.sal_name, '\s*\(.*\)\s*$', '')))
-			WHERE u.sal_code IS NULL AND u.region_type = 'suburb'
-			ORDER BY u.region_code, COALESCE(d.population, 0) DESC, d.sal_code
-		) pick
-		WHERE r.region_code = pick.region_code AND r.sal_code IS NULL`
 
 // upsertDemographics idempotently writes one row per boundary suburb (PK =
 // sal_code). Nullable *int/*float64 fields bind directly (pgx maps nil → NULL),
@@ -655,4 +566,32 @@ func upsertCrime(ctx context.Context, pool *pgxpool.Pool, rows []CrimeStatRow) (
 		}
 	}
 	return n, nil
+}
+
+// upsertRegions writes the distinct regions referenced by obs. The store is
+// housingcrawl.UpsertRegions; this converts the collector's Observations.
+func upsertRegions(ctx context.Context, pool *pgxpool.Pool, obs []Observation) error {
+	regions := make([]housingcrawl.Region, 0, len(obs))
+	for _, o := range obs {
+		regions = append(regions, housingcrawl.Region{
+			RegionCode: o.RegionCode,
+			RegionType: o.RegionType,
+			RegionName: o.RegionName,
+			StateCode:  o.StateCode,
+			Postcode:   o.Postcode,
+		})
+	}
+	return housingcrawl.UpsertRegions(ctx, pool, regions)
+}
+
+// refreshHousingMV refreshes the housing materialized views. See
+// housingcrawl.RefreshHousingMV.
+func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
+	return housingcrawl.RefreshHousingMV(ctx, pool)
+}
+
+// linkSuburbSalCodes backfills house_price_regions.sal_code for suburb regions.
+// See housingcrawl.LinkSuburbSalCodes.
+func linkSuburbSalCodes(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	return housingcrawl.LinkSuburbSalCodes(ctx, pool)
 }

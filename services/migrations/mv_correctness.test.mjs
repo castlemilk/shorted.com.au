@@ -18,9 +18,9 @@ function migration(number, direction) {
 
 function refreshHousingMVCommand(store, description) {
   const body = store.match(
-    /\bfunc\s+refreshHousingMV\b[^{]*\{([\s\S]*?)^\}/m,
+    /\bfunc\s+RefreshHousingMV\b[^{]*\{([\s\S]*?)^\}/m,
   )?.[1];
-  assert.ok(body, `${description} must define refreshHousingMV`);
+  assert.ok(body, `${description} must define RefreshHousingMV`);
   const command = body.match(
     /\bpool\.Exec\s*\(\s*ctx\s*,\s*`([\s\S]*?)`\s*\)/,
   )?.[1];
@@ -125,14 +125,14 @@ test("housing refresh timeout patterns distinguish local and session scope", asy
   }
 });
 
-test("refreshHousingMV command extraction is scoped to its pool.Exec raw literal", () => {
+test("RefreshHousingMV command extraction is scoped to its pool.Exec raw literal", () => {
   const command = refreshHousingMVCommand(
     `func unrelated(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, \`SET LOCAL statement_timeout = 0;\`)
 	return err
 }
 
-func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
+func RefreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, \`SET SESSION statement_timeout = 0;
 		SELECT refresh_housing_materialized_views()\`)
 	return err
@@ -152,8 +152,8 @@ func later(ctx context.Context, pool *pgxpool.Pool) error {
 
 // The services/jobs houseprices port was retired on 2026-09-24; the collector
 // is the only copy left.
-test("the housing collector disables caller-side timeout transaction-locally before refreshing", async (t) => {
-  for (const path of ["../house-price-collector/store.go"]) {
+test("the housing refresh disables caller-side timeout transaction-locally before refreshing", async (t) => {
+  for (const path of ["../pkg/housingcrawl/regions.go"]) {
     await t.test(path, () => {
       const store = readFileSync(new URL(path, import.meta.url), "utf8");
       const command = refreshHousingMVCommand(store, path);
