@@ -251,6 +251,14 @@ resource "google_secret_manager_secret_iam_member" "otel_headers" {
   project   = var.project_id
 }
 
+resource "google_secret_manager_secret_iam_member" "otel_metrics_headers" {
+  count     = var.otel_metrics.enabled ? 1 : 0
+  project   = var.project_id
+  secret_id = var.otel_metrics.headers_secret
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+}
+
 # Grant Pub/Sub Publisher role to shorts API service account (for publishing enrichment jobs)
 resource "google_pubsub_topic_iam_member" "enrichment_jobs_publisher" {
   topic   = "enrichment-jobs"
@@ -552,6 +560,31 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         }
       }
 
+      dynamic "env" {
+        for_each = var.otel_metrics.enabled ? {
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT               = var.otel_metrics.endpoint
+          OTEL_EXPORTER_OTLP_METRICS_PROTOCOL               = "http/protobuf"
+          OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "cumulative"
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.otel_metrics.enabled ? [var.otel_metrics.headers_secret] : []
+        content {
+          name = "OTEL_EXPORTER_OTLP_METRICS_HEADERS"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+
       # Rate limiting. Quota counters live in Postgres on the pool this service
       # already holds, so there is no storage to configure — this flag is the
       # whole switch.
@@ -658,6 +691,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
     google_secret_manager_secret_iam_member.internal_service_secret,
     google_secret_manager_secret_iam_member.token_secret,
     google_secret_manager_secret_iam_member.otel_headers,
+    google_secret_manager_secret_iam_member.otel_metrics_headers,
     google_secret_manager_secret_iam_member.news_publish_token,
     google_secret_manager_secret_version.news_publish_token,
   ]

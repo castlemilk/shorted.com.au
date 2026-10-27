@@ -42,6 +42,20 @@ own env. Returns YAML {env: {...}, secretEnv: {...}} for fromYaml.
 {{- end -}}
 {{- $env = merge (deepCopy ($profile.env | default dict)) $env -}}
 {{- $secretEnv = merge (deepCopy ($profile.secretEnv | default dict)) $secretEnv -}}
+{{- if and (eq $p "otel") ($profile.metrics | default dict).enabled -}}
+{{- $metrics := $profile.metrics -}}
+{{- if not (regexMatch "^https://[^/@?#[:space:]]+/v1/metrics$" ($metrics.endpoint | default "")) -}}
+{{- fail "profiles.otel.metrics.endpoint must be an HTTPS /v1/metrics URL without credentials or query parameters" -}}
+{{- end -}}
+{{- $key := required "profiles.otel.metrics.headersSecretKey is required" $metrics.headersSecretKey -}}
+{{- if eq $key (index ($profile.secretEnv | default dict) "OTEL_EXPORTER_OTLP_HEADERS") -}}
+{{- fail "metrics require a dedicated header Secret key; do not reuse generic Grafana OTLP credentials" -}}
+{{- end -}}
+{{- $_ := set $env "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT" $metrics.endpoint -}}
+{{- $_ := set $env "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL" "http/protobuf" -}}
+{{- $_ := set $env "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE" "cumulative" -}}
+{{- $_ := set $secretEnv "OTEL_EXPORTER_OTLP_METRICS_HEADERS" $key -}}
+{{- end -}}
 {{- end -}}
 {{- $env = merge (deepCopy ($job.env | default dict)) $env -}}
 {{- $secretEnv = merge (deepCopy ($job.secretEnv | default dict)) $secretEnv -}}

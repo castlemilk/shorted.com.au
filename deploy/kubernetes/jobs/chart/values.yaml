@@ -111,6 +111,12 @@ profiles:
     secretEnv:
       DATABASE_URL: DATABASE_URL
   otel:
+    # Enable only after this dedicated header key exists in shorted-jobs-env.
+    # Generic OTLP configuration below continues to carry traces to Grafana.
+    metrics:
+      enabled: false
+      endpoint: ""
+      headersSecretKey: TELESIS_OTLP_METRICS_HEADERS
     env:
       OTEL_EXPORTER_OTLP_ENDPOINT: https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf

@@ -57,6 +57,14 @@ resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
   project   = var.project_id
 }
 
+resource "google_secret_manager_secret_iam_member" "otel_metrics_headers" {
+  count     = var.otel_metrics.enabled ? 1 : 0
+  project   = var.project_id
+  secret_id = var.otel_metrics.headers_secret
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.weekly_report_generator.email}"
+}
+
 # Cloud Run Job (v2)
 resource "google_cloud_run_v2_job" "weekly_report_generator" {
   name     = local.service_name
@@ -136,6 +144,31 @@ resource "google_cloud_run_v2_job" "weekly_report_generator" {
           }
         }
 
+        dynamic "env" {
+          for_each = var.otel_metrics.enabled ? {
+            OTEL_EXPORTER_OTLP_METRICS_ENDPOINT               = var.otel_metrics.endpoint
+            OTEL_EXPORTER_OTLP_METRICS_PROTOCOL               = "http/protobuf"
+            OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "cumulative"
+          } : {}
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+
+        dynamic "env" {
+          for_each = var.otel_metrics.enabled ? [var.otel_metrics.headers_secret] : []
+          content {
+            name = "OTEL_EXPORTER_OTLP_METRICS_HEADERS"
+            value_source {
+              secret_key_ref {
+                secret  = env.value
+                version = "latest"
+              }
+            }
+          }
+        }
+
         resources {
           limits = {
             cpu    = "1"
@@ -150,6 +183,7 @@ resource "google_cloud_run_v2_job" "weekly_report_generator" {
     google_secret_manager_secret_iam_member.database_url,
     google_secret_manager_secret_iam_member.openai_api_key,
     google_secret_manager_secret_iam_member.otel_headers,
+    google_secret_manager_secret_iam_member.otel_metrics_headers,
   ]
 }
 

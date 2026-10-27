@@ -51,6 +51,9 @@ on:
       - "terraform/modules/**"
       # cost-guardrails.test.mjs pins prod's report_extractor limits too.
       - "terraform/environments/prod/main.tf"
+      - "terraform/environments/prod/variables.tf"
+      - "terraform/tests/metrics-routing/**"
+      - "scripts/tests/metrics-routing.test.py"
       - ".github/workflows/repo-hygiene.yml"
       # Scheduled jobs on Kubernetes: the chart, its scripts, and the guard
       # that keeps local.jobs_on_vke and the chart's `enabled` list in step.
@@ -209,31 +212,51 @@ jobs:
           sparse-checkout: |
             deploy/kubernetes/jobs
             terraform
+            scripts/tests
+            .github/workflows
 
       - uses: azure/setup-helm@v4
         with:
           version: v3.19.0
 
-      - name: Install yq
+      - name: Install yq and jq
         run: |
           set -euo pipefail
           mkdir -p "${RUNNER_TEMP}/bin"
           arch="$(uname -m)"; case "${arch}" in x86_64) arch=amd64 ;; aarch64|arm64) arch=arm64 ;; esac
           curl -fsSL -o "${RUNNER_TEMP}/bin/yq" "https://github.com/mikefarah/yq/releases/download/v4.47.2/yq_linux_${arch}"
           chmod +x "${RUNNER_TEMP}/bin/yq"
+          curl -fsSL -o "${RUNNER_TEMP}/bin/jq" "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-${arch}"
+          case "${arch}" in
+            amd64) jq_sha=020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d ;;
+            arm64) jq_sha=6bc62f25981328edd3cfcfe6fe51b073f2d7e7710d7ef7fcdac28d4e384fc3d4 ;;
+            *) echo "unsupported jq architecture: ${arch}" >&2; exit 1 ;;
+          esac
+          printf '%s  %s\n' "${jq_sha}" "${RUNNER_TEMP}/bin/jq" | sha256sum --check --status
+          chmod +x "${RUNNER_TEMP}/bin/jq"
           echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
 
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14.6"
+          terraform_wrapper: false
+
       - name: Chart render contract
         run: deploy/kubernetes/jobs/chart/tests/render.sh
 
       - name: Monitor registration tests
         run: |
-          python -m pip install --quiet pyyaml
+          python -m pip install --quiet PyYAML==6.0.3
           python -m unittest discover -s deploy/kubernetes/jobs/scripts -p 'test_*.py' -v
+
+      - name: Metrics-only routing contracts (no cloud credentials)
+        run: |
+          python scripts/tests/metrics-routing.test.py
+          python terraform/tests/metrics-routing/run.py
 
   # web/public/openapi.{json,yaml} is a generated, PUBLISHED artifact. A stale
   # one is worse than none: it reads as authoritative while documenting an API

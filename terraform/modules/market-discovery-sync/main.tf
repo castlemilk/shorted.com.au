@@ -91,6 +91,31 @@ resource "google_cloud_run_v2_job" "asx_discovery" {
           }
         }
 
+        dynamic "env" {
+          for_each = var.otel_metrics.enabled ? {
+            OTEL_EXPORTER_OTLP_METRICS_ENDPOINT               = var.otel_metrics.endpoint
+            OTEL_EXPORTER_OTLP_METRICS_PROTOCOL               = "http/protobuf"
+            OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "cumulative"
+          } : {}
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+
+        dynamic "env" {
+          for_each = var.otel_metrics.enabled ? [var.otel_metrics.headers_secret] : []
+          content {
+            name = "OTEL_EXPORTER_OTLP_METRICS_HEADERS"
+            value_source {
+              secret_key_ref {
+                secret  = env.value
+                version = "latest"
+              }
+            }
+          }
+        }
+
         resources {
           # asx-discovery drives a headless Chromium (Playwright) to scrape ASX
           # listings. At 1Gi every weekly run OOM-killed ("configured memory limit
@@ -109,6 +134,7 @@ resource "google_cloud_run_v2_job" "asx_discovery" {
   }
 
   depends_on = [
+    google_secret_manager_secret_iam_member.asx_discovery_otel_metrics_headers,
     google_secret_manager_secret_iam_member.asx_discovery_otel_headers
   ]
 }
@@ -250,6 +276,31 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
         }
       }
 
+      dynamic "env" {
+        for_each = var.otel_metrics.enabled ? {
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT               = var.otel_metrics.endpoint
+          OTEL_EXPORTER_OTLP_METRICS_PROTOCOL               = "http/protobuf"
+          OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "cumulative"
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.otel_metrics.enabled ? [var.otel_metrics.headers_secret] : []
+        content {
+          name = "OTEL_EXPORTER_OTLP_METRICS_HEADERS"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+
       resources {
         limits = {
           cpu    = "1"
@@ -304,6 +355,7 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
   depends_on = [
     google_secret_manager_secret_iam_member.market_data_sync_db,
     google_secret_manager_secret_iam_member.market_data_sync_av,
+    google_secret_manager_secret_iam_member.market_data_sync_otel_metrics_headers,
     google_secret_manager_secret_iam_member.market_data_sync_otel_headers,
     google_storage_bucket_iam_member.market_data_sync_gcs
   ]
@@ -391,4 +443,20 @@ resource "google_cloud_run_v2_service_iam_member" "market_data_sync_scheduler_in
   project  = var.project_id
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.scheduler.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "asx_discovery_otel_metrics_headers" {
+  count     = var.otel_metrics.enabled ? 1 : 0
+  project   = var.project_id
+  secret_id = var.otel_metrics.headers_secret
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.asx_discovery.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "market_data_sync_otel_metrics_headers" {
+  count     = var.otel_metrics.enabled ? 1 : 0
+  project   = var.project_id
+  secret_id = var.otel_metrics.headers_secret
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.market_data_sync.email}"
 }
