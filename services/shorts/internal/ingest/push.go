@@ -57,11 +57,17 @@ func ingestRules() housingcrawl.Config {
 // floored so that a small suburb cannot trip on one or two genuine moves:
 //
 //	(a) LargeMoves > max(PriceFraction × existing listings, QuarantineMinMoves);
-//	(b) Delisted   > max(DelistFraction × active listings before the sweep, DelistFloor).
+//	(b) Delisted   > max(MinDelists, min(DelistFraction × active listings before the
+//	    sweep, DelistCap)).
 //
 // Both are strict: a value exactly on the threshold passes. A held suburb stays held
 // until an operator releases it (crawl_ingest_quarantine_bypass) or the figures
 // change, so the floors are what keep the hold from freezing a small suburb.
+//
+// The delist trip is the one the review asked for. A small suburb (fewer than 20
+// active) used to have no protection, because the fraction is under one listing and
+// the old floor was 20: two genuinely empty COMPLETE pushes 12 hours apart withdrew
+// it. MinDelists now bounds it from below, and the cap bounds a large suburb.
 func (s *Service) quarantineCheck(r housingcrawl.Result, status pb.SweepStatus) *quarantineError {
 	stats := quarantineStats{
 		Status:       status.String(),
@@ -75,11 +81,17 @@ func (s *Service) quarantineCheck(r housingcrawl.Result, status pb.SweepStatus) 
 	if float64(r.LargeMoves) > priceFloor {
 		return &quarantineError{reason: reasonPriceMoves, stats: stats}
 	}
-	delistFloor := math.Max(s.cfg.DelistFraction*float64(r.ActiveBefore), float64(s.cfg.DelistFloor))
+	delistFloor := delistThreshold(s.cfg, r.ActiveBefore)
 	if float64(r.Delisted) > delistFloor {
 		return &quarantineError{reason: reasonDelists, stats: stats}
 	}
 	return nil
+}
+
+// delistThreshold is max(MinDelists, min(DelistFraction × active, DelistCap)). It is
+// the largest number of delists a sweep may make without being held.
+func delistThreshold(cfg Config, active int) float64 {
+	return math.Max(float64(cfg.MinDelists), math.Min(cfg.DelistFraction*float64(active), float64(cfg.DelistCap)))
 }
 
 // gateSweep applies the collector's off-target rules on the server, before anything
@@ -109,18 +121,16 @@ func gateSweep(raw []housingcrawl.RawListing, t housingcrawl.Target) (gated int,
 // effectiveStatus is the status the sweep is applied with.
 //
 //   - A poisoned sweep is BLOCKED: it writes nothing, and the response says so.
-//   - A COMPLETE sweep with no listings left after the server gate is accepted only
-//     when the portal reported zero results. Otherwise it is PARTIAL, which never
-//     delists. The count is of the GATED set: a sweep whose listings were all
-//     rejected by the gate is not an empty sweep, and it must never delist.
+//   - A sweep with zero GATED listings is BLOCKED, whatever it claimed. Nothing in it
+//     is writable, so there is nothing to apply, and BLOCKED is the one status that
+//     never closes the job. This is the collector's thin-page rule. It also covers an
+//     empty PARTIAL and a COMPLETE made only of soft misses, which used to be
+//     downgraded to PARTIAL and close the job with zero writes.
+//
+// The gated count is the one the server computed, never the request's listing count.
 func effectiveStatus(msg *pb.PushSweepRequest, gated int, poisoned bool) pb.SweepStatus {
-	if poisoned {
+	if poisoned || gated == 0 {
 		return pb.SweepStatus_SWEEP_STATUS_BLOCKED
-	}
-	if msg.Status == pb.SweepStatus_SWEEP_STATUS_COMPLETE && gated == 0 {
-		if msg.PageMeta == nil || msg.PageMeta.TotalResults != 0 {
-			return pb.SweepStatus_SWEEP_STATUS_PARTIAL
-		}
 	}
 	return msg.Status
 }
@@ -380,8 +390,16 @@ func (s *Service) pushSweep(ctx context.Context, rig string, msg *pb.PushSweepRe
 		if !st.found {
 			return false, precondition("not_dispatched")
 		}
-		if st.closed || st.expired {
-			return false, precondition("dispatch_closed")
+		// Two distinct reasons. dispatch_applied means an earlier attempt already
+		// applied this job: the job is done, and a rig may treat it as success.
+		// dispatch_expired means the job timed out before any attempt applied, which is a
+		// failure. Applied is checked first, so a job that applied and later expired still
+		// reports applied.
+		if st.closed {
+			return false, precondition("dispatch_applied")
+		}
+		if st.expired {
+			return false, precondition("dispatch_expired")
 		}
 		// A suburb nobody has crawled has no region row, and every listing for it would
 		// fail the foreign key and be skipped. The collector creates this row the same
@@ -426,7 +444,9 @@ func (s *Service) pushSweep(ctx context.Context, rig string, msg *pb.PushSweepRe
 			if err := insertReceiptTx(ctx, tx, key, rig, sum, final); err != nil {
 				return txErr(err)
 			}
-			if applied(status) {
+			// The job closes only when a gated listing was written. A sweep that applied
+			// with no writes (every row skipped) leaves the job open for a real attempt.
+			if applied(status) && r.Upserted > 0 {
 				if err := closeDispatchTx(ctx, tx, job); err != nil {
 					return txErr(err)
 				}

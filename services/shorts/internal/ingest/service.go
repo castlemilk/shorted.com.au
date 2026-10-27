@@ -101,10 +101,13 @@ func New(ctx context.Context, opts Options) *Service {
 // interceptor chain: workload-identity auth, then the 4 MiB read limit. It has no
 // CORS wrapper and none of the public API's interceptors.
 func (s *Service) Handler() (string, http.Handler) {
-	return housingingestv1connect.NewCrawlIngestServiceHandler(s,
-		connect.WithInterceptors(authInterceptor(s.verifier(), s.gate, s.problem)),
+	path, h := housingingestv1connect.NewCrawlIngestServiceHandler(s,
+		connect.WithInterceptors(requireIdentity()),
 		connect.WithReadMaxBytes(MaxRequestBytes),
 	)
+	// The middleware is outermost: authentication happens before Connect reads or
+	// decompresses the body. See requireWorkloadAuth.
+	return path, requireWorkloadAuth(s.verifier(), s.gate, s.problem, h)
 }
 
 // verifier returns the token verifier, or nil when the service cannot verify.

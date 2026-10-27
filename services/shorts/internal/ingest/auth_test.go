@@ -80,7 +80,8 @@ func TestAuth_IssuerDownWithNoCacheIsUnavailable(t *testing.T) {
 		Config: Config{
 			Enabled: true, Issuer: issuer.issuer, Audience: testAudience, Org: testIssuerOrg,
 			AllowSubjects: []string{testRig}, MinContractVersion: DefaultMinContractVersion,
-			PriceFraction: DefaultPriceFraction, DelistFraction: DefaultDelistFraction, DelistFloor: DefaultDelistFloor,
+			PriceFraction: DefaultPriceFraction, DelistFraction: DefaultDelistFraction, DelistCap: DefaultDelistCap,
+			MinDelists: DefaultMinDelists,
 		},
 		Pool: pool, Now: clock.Now, HTTPClient: issuer.client,
 	})

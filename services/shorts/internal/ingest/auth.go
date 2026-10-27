@@ -2,7 +2,9 @@ package ingest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,18 +50,6 @@ func rigFromContext(ctx context.Context) (identity, bool) {
 // inject a verifier built against an httptest issuer through the same method.
 type tokenVerifier interface {
 	Verify(ctx context.Context, raw string) (*workloadauth.Identity, error)
-}
-
-// verifyError maps a workloadauth error onto the Connect code the spec fixes:
-// ErrUnavailable is Unavailable with jwks_unavailable, and ErrUnauthenticated is
-// Unauthenticated. An unknown error is treated as Unauthenticated, never accepted.
-func verifyError(err error) error {
-	switch {
-	case errors.Is(err, workloadauth.ErrUnavailable):
-		return connect.NewError(connect.CodeUnavailable, errors.New(msgJWKSUnavailable))
-	default:
-		return connect.NewError(connect.CodeUnauthenticated, errors.New(msgUnauthenticated))
-	}
 }
 
 // bearerToken returns the bearer credential from an Authorization header, or ""
@@ -187,34 +177,81 @@ func pruneBefore(ts []time.Time, cutoff time.Time) []time.Time {
 	return ts[i:]
 }
 
-// authInterceptor verifies the bearer token, then checks the rig's enable flag. It
-// runs on every method, ProbeAuth included. Only the rate limit is per method.
+// requireWorkloadAuth is the outermost layer of the ingest. It runs BEFORE Connect
+// reads the request body. The ingest is publicly invokable on Cloud Run, so a body
+// (up to 4 MiB, gzip-decoded) must not be read or decompressed for a caller who has
+// not proved who they are. The middleware:
 //
-// A service that cannot serve (a bad config, or no verifier) answers Unavailable
-// before it reads the credential. That is fail-closed, and it tells the rig to
-// retry rather than to re-mint a token that would not help.
-func authInterceptor(v tokenVerifier, gate *rigGate, problem string) connect.UnaryInterceptorFunc {
+//   - refuses a service that cannot serve (a bad config, no verifier) with 503,
+//     before it reads the credential;
+//   - requires an Authorization: Bearer token, and verifies it with the workload
+//     verifier. A missing token is 401, a bad one is 401, an issuer outage is 503
+//     with jwks_unavailable;
+//   - checks the rig's enable flag. Disabled is 403 (permission_denied), reached only
+//     after authentication, so a forger cannot tell a disabled rig from a missing one;
+//   - attaches the verified identity to the request context. The Connect handlers
+//     read it there and never verify a second time.
+//
+// Errors are written in the Connect unary error shape, so Connect clients map them to
+// the same codes as before: the HTTP status and the {code, message} body agree.
+func requireWorkloadAuth(v tokenVerifier, gate *rigGate, problem string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if problem != "" || v == nil {
+			writeUnaryError(w, http.StatusServiceUnavailable, "unavailable", msgMisconfigured)
+			return
+		}
+		raw := bearerToken(r.Header.Get("Authorization"))
+		if raw == "" {
+			writeUnaryError(w, http.StatusUnauthorized, "unauthenticated", msgUnauthenticated)
+			return
+		}
+		id, err := v.Verify(r.Context(), raw)
+		if err != nil {
+			status, code, msg := verifyFailure(err)
+			writeUnaryError(w, status, code, msg)
+			return
+		}
+		on, err := gate.enabled(r.Context(), id.Subject)
+		if err != nil {
+			writeUnaryError(w, http.StatusServiceUnavailable, "unavailable", msgRigLookupFailed)
+			return
+		}
+		if !on {
+			writeUnaryError(w, http.StatusForbidden, "permission_denied", msgRigNotEnabled)
+			return
+		}
+		ctx := context.WithValue(r.Context(), identityKey{}, identity{Subject: id.Subject, KID: id.KID})
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// verifyFailure maps a workloadauth error onto the HTTP status and Connect code the
+// contract fixes: an issuer outage is Unavailable with jwks_unavailable, and any other
+// failure is Unauthenticated. A failure is never accepted.
+func verifyFailure(err error) (int, string, string) {
+	if errors.Is(err, workloadauth.ErrUnavailable) {
+		return http.StatusServiceUnavailable, "unavailable", msgJWKSUnavailable
+	}
+	return http.StatusUnauthorized, "unauthenticated", msgUnauthenticated
+}
+
+// writeUnaryError writes a Connect unary error: the HTTP status, and a JSON body with
+// the Connect code name and a fixed message. It is written before any body is read.
+func writeUnaryError(w http.ResponseWriter, status int, code, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "message": message})
+}
+
+// requireIdentity is the Connect interceptor. It runs after the middleware, so every
+// handler sees a verified identity. It never verifies again. A call that arrives with
+// no identity in its context is refused, never served as anonymous.
+func requireIdentity() connect.UnaryInterceptorFunc {
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			if problem != "" || v == nil {
-				return nil, connect.NewError(connect.CodeUnavailable, errors.New(msgMisconfigured))
-			}
-			raw := bearerToken(req.Header().Get("Authorization"))
-			if raw == "" {
+			if _, ok := rigFromContext(ctx); !ok {
 				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New(msgUnauthenticated))
 			}
-			id, err := v.Verify(ctx, raw)
-			if err != nil {
-				return nil, verifyError(err)
-			}
-			on, err := gate.enabled(ctx, id.Subject)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeUnavailable, errors.New(msgRigLookupFailed))
-			}
-			if !on {
-				return nil, connect.NewError(connect.CodePermissionDenied, errors.New(msgRigNotEnabled))
-			}
-			ctx = context.WithValue(ctx, identityKey{}, identity{Subject: id.Subject, KID: id.KID})
 			return next(ctx, req)
 		}
 	}

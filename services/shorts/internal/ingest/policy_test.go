@@ -24,7 +24,8 @@ func testPolicyService() *Service {
 		PriceFraction:      DefaultPriceFraction,
 		QuarantineMinMoves: DefaultQuarantineMinMoves,
 		DelistFraction:     DefaultDelistFraction,
-		DelistFloor:        DefaultDelistFloor,
+		DelistCap:          DefaultDelistCap,
+		MinDelists:         DefaultMinDelists,
 	}}
 }
 
@@ -82,6 +83,11 @@ func TestEffectiveStatusEmptyRuleUsesTheGatedSet(t *testing.T) {
 		}
 		return req
 	}
+	partial := func(total int32, listings int) *pb.PushSweepRequest {
+		r := complete(total, listings)
+		r.Status = pb.SweepStatus_SWEEP_STATUS_PARTIAL
+		return r
+	}
 	cases := []struct {
 		name     string
 		req      *pb.PushSweepRequest
@@ -89,21 +95,13 @@ func TestEffectiveStatusEmptyRuleUsesTheGatedSet(t *testing.T) {
 		poisoned bool
 		want     pb.SweepStatus
 	}{
-		{"gated sweep stays COMPLETE", complete(2, 2), 2, false, pb.SweepStatus_SWEEP_STATUS_COMPLETE},
-		{"zero gated with results is PARTIAL", complete(5, 2), 0, false, pb.SweepStatus_SWEEP_STATUS_PARTIAL},
-		{"zero gated and zero results is COMPLETE", complete(0, 0), 0, false, pb.SweepStatus_SWEEP_STATUS_COMPLETE},
-		{"zero gated with listings but zero results is COMPLETE", complete(0, 2), 0, false, pb.SweepStatus_SWEEP_STATUS_COMPLETE},
-		{"no page metadata is PARTIAL", func() *pb.PushSweepRequest {
-			r := complete(0, 0)
-			r.PageMeta = nil
-			return r
-		}(), 0, false, pb.SweepStatus_SWEEP_STATUS_PARTIAL},
-		{"poison is BLOCKED whatever the status", complete(5, 2), 0, true, pb.SweepStatus_SWEEP_STATUS_BLOCKED},
-		{"PARTIAL stays PARTIAL", func() *pb.PushSweepRequest {
-			r := complete(0, 0)
-			r.Status = pb.SweepStatus_SWEEP_STATUS_PARTIAL
-			return r
-		}(), 0, false, pb.SweepStatus_SWEEP_STATUS_PARTIAL},
+		{"gated COMPLETE stays COMPLETE", complete(2, 2), 2, false, pb.SweepStatus_SWEEP_STATUS_COMPLETE},
+		{"gated PARTIAL stays PARTIAL", partial(2, 2), 2, false, pb.SweepStatus_SWEEP_STATUS_PARTIAL},
+		{"zero gated COMPLETE with zero results is BLOCKED", complete(0, 0), 0, false, pb.SweepStatus_SWEEP_STATUS_BLOCKED},
+		{"zero gated COMPLETE with results is BLOCKED, not PARTIAL", complete(5, 2), 0, false, pb.SweepStatus_SWEEP_STATUS_BLOCKED},
+		{"zero gated PARTIAL is BLOCKED, so an empty partial never closes", partial(0, 0), 0, false, pb.SweepStatus_SWEEP_STATUS_BLOCKED},
+		{"zero gated COMPLETE of soft misses is BLOCKED", complete(0, 2), 0, false, pb.SweepStatus_SWEEP_STATUS_BLOCKED},
+		{"poison is BLOCKED whatever the status", complete(5, 2), 2, true, pb.SweepStatus_SWEEP_STATUS_BLOCKED},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -146,8 +144,13 @@ func TestQuarantinePriceThreshold(t *testing.T) {
 	}
 }
 
-// TestQuarantineDelistThreshold: a delist count must be more than max(25% of the
-// active listings before the sweep, 20).
+// TestQuarantineDelistThreshold: a sweep is held when its delists exceed
+// max(MinDelists=3, min(25% of active, DelistCap=20)). The four active counts in the
+// review each sit on a different branch of that formula:
+//   - 4 active:   25% is 1, so the minimum of 3 governs. 3 passes, 4 is held.
+//   - 12 active:  25% is 3, equal to the minimum. 3 passes, 4 is held.
+//   - 80 active:  25% is 20, exactly the cap. 20 passes, 21 is held.
+//   - 200 active: 25% is 50, so the cap of 20 governs. 20 passes, 21 is held.
 func TestQuarantineDelistThreshold(t *testing.T) {
 	s := testPolicyService()
 	cases := []struct {
@@ -156,12 +159,16 @@ func TestQuarantineDelistThreshold(t *testing.T) {
 		delisted   int
 		quarantine bool
 	}{
-		{"20 of 40 active is the 20 floor, passes", 40, 20, false},
-		{"21 of 40 active is held", 40, 21, true},
-		{"25 of 100 active is exactly 25% (above the floor of 20): passes", 100, 25, false},
-		{"26 of 100 active is held", 100, 26, true},
-		{"a small suburb delisting all 20 actives is at the floor, passes", 20, 20, false},
-		{"no actives: any delist above the floor is held", 0, 21, true},
+		{"active 4: 3 delists pass (the minimum governs)", 4, 3, false},
+		{"active 4: 4 delists are held", 4, 4, true},
+		{"active 12: 3 delists pass (25% equals the minimum)", 12, 3, false},
+		{"active 12: 4 delists are held", 12, 4, true},
+		{"active 80: 20 delists pass (25% equals the cap)", 80, 20, false},
+		{"active 80: 21 delists are held", 80, 21, true},
+		{"active 200: 20 delists pass (the cap governs)", 200, 20, false},
+		{"active 200: 21 delists are held", 200, 21, true},
+		{"no actives: 4 delists are held", 0, 4, true},
+		{"no actives: 3 delists pass", 0, 3, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -301,8 +301,8 @@ func TestPush_EmptyCompleteAcceptedOnlyWithZeroResults(t *testing.T) {
 	// The portal reports 5 results, yet the rig sent nothing: this must not delist.
 	empty := sweepReq("job-empty", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE)
 	empty.PageMeta.TotalResults = 5
-	if resp := mustPush(t, rig, empty); resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_PARTIAL {
-		t.Errorf("an empty COMPLETE with results must apply as PARTIAL, got %v", resp.AppliedStatus)
+	if resp := mustPush(t, rig, empty); resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_BLOCKED {
+		t.Errorf("an empty COMPLETE with results must be BLOCKED (zero gated), got %v", resp.AppliedStatus)
 	}
 	if n := count(t, rig, `SELECT count(*) FROM property_listings WHERE is_active AND missed_sweeps = 0`); n != 3 {
 		t.Errorf("the empty sweep must not touch the listings, %d unchanged", n)
@@ -311,15 +311,15 @@ func TestPush_EmptyCompleteAcceptedOnlyWithZeroResults(t *testing.T) {
 	// No page metadata at all is not evidence of zero results either.
 	nometa := sweepReq("job-nometa", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE)
 	nometa.PageMeta = nil
-	if resp := mustPush(t, rig, nometa); resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_PARTIAL {
-		t.Errorf("an empty COMPLETE without page metadata must be PARTIAL, got %v", resp.AppliedStatus)
+	if resp := mustPush(t, rig, nometa); resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_BLOCKED {
+		t.Errorf("an empty COMPLETE without page metadata must be BLOCKED, got %v", resp.AppliedStatus)
 	}
 
-	// Zero results is the one case an empty COMPLETE is believed. One miss is not a
-	// delist (grace is 2).
+	// Zero GATED listings is BLOCKED even with zero results reported: nothing is writable,
+	// so nothing applies, nothing delists, and the job stays open.
 	zero := sweepReq("job-zero", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE)
-	if resp := mustPush(t, rig, zero); resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_COMPLETE {
-		t.Fatalf("an empty COMPLETE with zero results is COMPLETE, got %v", resp.AppliedStatus)
+	if resp := mustPush(t, rig, zero); resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_BLOCKED {
+		t.Fatalf("an empty COMPLETE is BLOCKED, got %v", resp.AppliedStatus)
 	}
 	if n := count(t, rig, `SELECT count(*) FROM property_listings WHERE is_active`); n != 3 {
 		t.Errorf("one miss must not delist (grace 2), %d still active", n)
@@ -461,13 +461,14 @@ func TestPush_QuarantineAtTheDelistBoundary(t *testing.T) {
 			seedRig(t, pool, testRig, true)
 			seedDispatch(t, pool, "job-1", "run-1", "rea")
 
-			// 40 active listings, each already missed once: one more COMPLETE miss
-			// delists them (grace 2). The rig sees all but tc.absent of them.
-			for i := 1; i <= 40; i++ {
+			// 80 active listings, each already missed once: one more COMPLETE miss
+			// delists them (grace 2). 80 is the size where 25% of active reaches the cap of 20,
+			// so the boundary is 20 delists passing, 21 held. The rig sees all but tc.absent.
+			for i := 1; i <= 80; i++ {
 				seedListing(t, rig, fmt.Sprintf("D%02d", i), 1_000_000, 1)
 			}
 			var present []*pb.Listing
-			for i := tc.absent + 1; i <= 40; i++ {
+			for i := tc.absent + 1; i <= 80; i++ {
 				present = append(present, fixedRea(fmt.Sprintf("D%02d", i), 1_000_000))
 			}
 			resp, err := rig.push(t, sweepReq("job-1", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, present...))
@@ -479,14 +480,14 @@ func TestPush_QuarantineAtTheDelistBoundary(t *testing.T) {
 			}
 			active := count(t, rig, `SELECT count(*) FROM property_listings WHERE is_active`)
 			if tc.quarantined {
-				if active != 40 {
-					t.Errorf("a held delist must leave all 40 active, got %d", active)
+				if active != 80 {
+					t.Errorf("a held delist must leave all 80 active, got %d", active)
 				}
 				if n := count(t, rig, `SELECT count(*) FROM crawl_ingest_quarantine WHERE reason = 'delists_over_threshold'`); n != 1 {
 					t.Errorf("the held delist must be recorded, found %d", n)
 				}
-			} else if active != 40-tc.absent {
-				t.Errorf("the floor passes and delists %d: want %d active, got %d", tc.absent, 40-tc.absent, active)
+			} else if active != 80-tc.absent {
+				t.Errorf("the threshold passes and delists %d: want %d active, got %d", tc.absent, 80-tc.absent, active)
 			}
 		})
 	}

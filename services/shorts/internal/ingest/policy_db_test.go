@@ -121,7 +121,8 @@ func TestPush_PoisonBoundaryIsStrict(t *testing.T) {
 // TestPush_SoftMissOnlyEmptyCompleteDoesNotDelist: a COMPLETE sweep whose listings are
 // all same-postcode, other-suburb neighbours has no listings left after the gate, so it
 // is not an empty sweep. The rule counts the gated set, and it never delists. The
-// neighbours are soft misses, not poison, so the sweep is PARTIAL, not BLOCKED.
+// neighbours are soft misses, not poison, but they leave no gated listing, so the sweep
+// is BLOCKED: it writes nothing and never closes the job.
 func TestPush_SoftMissOnlyEmptyCompleteDoesNotDelist(t *testing.T) {
 	pool := ingestTestDB(t)
 	issuer := newIssuerFixture(t)
@@ -136,8 +137,8 @@ func TestPush_SoftMissOnlyEmptyCompleteDoesNotDelist(t *testing.T) {
 	req := sweepReq("job-1", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, neighbour("N1"), neighbour("N2"))
 	req.PageMeta.TotalResults = 5
 	resp := mustPush(t, rig, req)
-	if resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_PARTIAL || resp.Poisoned {
-		t.Errorf("a gated-empty COMPLETE with results must be PARTIAL, not poison, got %+v", resp)
+	if resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_BLOCKED || resp.Poisoned {
+		t.Errorf("a COMPLETE of only soft misses must be BLOCKED (not poison), got %+v", resp)
 	}
 	if n := activeCount(t, rig); n != 2 {
 		t.Errorf("a gated-empty sweep must delist nothing, %d of 2 active", n)
@@ -145,7 +146,7 @@ func TestPush_SoftMissOnlyEmptyCompleteDoesNotDelist(t *testing.T) {
 }
 
 // TestPush_ExpiredDispatchIsRefused: a job past its expires_at is refused with
-// dispatch_closed, and writes nothing.
+// dispatch_expired, and writes nothing.
 func TestPush_ExpiredDispatchIsRefused(t *testing.T) {
 	pool := ingestTestDB(t)
 	issuer := newIssuerFixture(t)
@@ -159,8 +160,8 @@ func TestPush_ExpiredDispatchIsRefused(t *testing.T) {
 
 	_, err := rig.push(t, sweepReq("job-1", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, fixedRea("A", 1_000_000)))
 	wantCode(t, err, connect.CodeFailedPrecondition)
-	if !strings.Contains(err.Error(), "dispatch_closed") {
-		t.Errorf("want dispatch_closed, got %v", err)
+	if !strings.Contains(err.Error(), "dispatch_expired") {
+		t.Errorf("want dispatch_expired, got %v", err)
 	}
 	if n := count(t, rig, `SELECT count(*) FROM property_listings`); n != 0 {
 		t.Errorf("an expired job must write nothing, found %d", n)
@@ -185,8 +186,8 @@ func TestPush_AppliedCompleteClosesTheJob(t *testing.T) {
 			mustPush(t, rig, sweepReq("job-1", 1, pb.Source_SOURCE_REA, status, fixedRea("A", 1_000_000)))
 			_, err := rig.push(t, sweepReq("job-1", 2, pb.Source_SOURCE_REA, status, fixedRea("B", 1_000_000)))
 			wantCode(t, err, connect.CodeFailedPrecondition)
-			if !strings.Contains(err.Error(), "dispatch_closed") {
-				t.Errorf("a second attempt after an applied %s must be dispatch_closed, got %v", name, err)
+			if !strings.Contains(err.Error(), "dispatch_applied") {
+				t.Errorf("a second attempt after an applied %s must be dispatch_applied, got %v", name, err)
 			}
 			if n := count(t, rig, `SELECT count(*) FROM property_listings WHERE listing_id = 'B'`); n != 0 {
 				t.Errorf("the refused attempt must write nothing, found %d", n)
@@ -554,4 +555,5 @@ func TestPushThroughTransactionPooler(t *testing.T) {
 		t.Skip("set HOUSING_TEST_PGBOUNCER_URL to a transaction-mode pooler to run this test")
 	}
 	identicalConcurrentPushes(t, ingestPoolAt(t, dsn, 4))
+	concurrentAttemptsOfOneJob(t, ingestPoolAt(t, dsn, 4))
 }

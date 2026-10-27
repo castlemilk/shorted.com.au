@@ -179,7 +179,16 @@ func validateEnvelope(msg *pb.PushSweepRequest, minContract int32) error {
 	if err := checkStr("collector_revision", msg.CollectorRevision, maxRevisionBytes); err != nil {
 		return err
 	}
+	// A listing_id may appear once per request. A repeated copy used to be counted as an
+	// existing listing twice over, so eight real price moves among nine stored listings
+	// could be padded below the quarantine line with copies of an unchanged listing. The
+	// request is refused whole, and nothing is written.
+	seen := make(map[string]struct{}, len(msg.Listings))
 	for i, l := range msg.Listings {
+		if _, dup := seen[l.ListingId]; dup {
+			return invalid("listings[%d].listing_id repeats an earlier listing in this request", i)
+		}
+		seen[l.ListingId] = struct{}{}
 		if err := validateListing(i, l, src); err != nil {
 			return err
 		}

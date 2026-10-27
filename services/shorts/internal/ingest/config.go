@@ -38,7 +38,8 @@ const (
 	EnvQuarantinePriceFraction  = "HOUSING_INGEST_QUARANTINE_PRICE_FRACTION"
 	EnvQuarantineMinMoves       = "HOUSING_INGEST_QUARANTINE_MIN_MOVES"
 	EnvQuarantineDelistFraction = "HOUSING_INGEST_QUARANTINE_DELIST_FRACTION"
-	EnvQuarantineDelistFloor    = "HOUSING_INGEST_QUARANTINE_DELIST_FLOOR"
+	EnvQuarantineDelistCap      = "HOUSING_INGEST_QUARANTINE_DELIST_CAP"
+	EnvQuarantineMinDelists     = "HOUSING_INGEST_QUARANTINE_MIN_DELISTS"
 	EnvDispatchTTL              = "HOUSING_INGEST_DISPATCH_TTL"
 	EnvDBMaxConns               = "HOUSING_INGEST_DB_MAX_CONNS"
 	// EnvDatabaseURL is the ingest's own database. It falls back to DATABASE_URL.
@@ -59,7 +60,8 @@ const (
 	DefaultPriceFraction            = 0.25
 	DefaultQuarantineMinMoves       = 3
 	DefaultDelistFraction           = 0.25
-	DefaultDelistFloor              = 20
+	DefaultDelistCap                = 20
+	DefaultMinDelists               = 3
 	DefaultDispatchTTL              = 72 * time.Hour
 	DefaultDBMaxConns               = 4
 )
@@ -85,10 +87,14 @@ type Config struct {
 	// existing listings moved more than 10% in one sweep.
 	PriceFraction      float64
 	QuarantineMinMoves int
-	// DelistFraction and DelistFloor form the second trip: the sweep would delist
-	// more than max(DelistFraction × active listings, DelistFloor).
+	// The second trip: a sweep that would delist more than
+	//   max(MinDelists, min(DelistFraction × active listings, DelistCap))
+	// is held. The minimum protects a small suburb from two empty COMPLETE pushes
+	// withdrawing it, and the cap stops a large suburb from ever needing more than
+	// DelistCap delists to trip.
 	DelistFraction float64
-	DelistFloor    int
+	DelistCap      int
+	MinDelists     int
 	// DispatchTTL is how long a dispatch row stays open. S-SRV's enqueue writes
 	// crawl_dispatch.expires_at = created + DispatchTTL. The ingest reads it back
 	// only through expires_at, so a job past its expiry is refused.
@@ -118,7 +124,8 @@ func ConfigFromEnv(getenv func(string) string) (Config, string) {
 		PriceFraction:      DefaultPriceFraction,
 		QuarantineMinMoves: DefaultQuarantineMinMoves,
 		DelistFraction:     DefaultDelistFraction,
-		DelistFloor:        DefaultDelistFloor,
+		DelistCap:          DefaultDelistCap,
+		MinDelists:         DefaultMinDelists,
 		DispatchTTL:        DefaultDispatchTTL,
 		DBMaxConns:         DefaultDBMaxConns,
 	}
@@ -162,12 +169,20 @@ func ConfigFromEnv(getenv func(string) string) (Config, string) {
 			problems = append(problems, EnvQuarantineDelistFraction+" must be in (0, 1]")
 		}
 	}
-	if raw := strings.TrimSpace(getenv(EnvQuarantineDelistFloor)); raw != "" {
+	if raw := strings.TrimSpace(getenv(EnvQuarantineMinDelists)); raw != "" {
 		v, err := strconv.Atoi(raw)
 		if err != nil || v < 0 {
-			problems = append(problems, EnvQuarantineDelistFloor+" must be an integer >= 0")
+			problems = append(problems, EnvQuarantineMinDelists+" must be an integer >= 0")
 		} else {
-			cfg.DelistFloor = v
+			cfg.MinDelists = v
+		}
+	}
+	if raw := strings.TrimSpace(getenv(EnvQuarantineDelistCap)); raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err != nil || v < 0 {
+			problems = append(problems, EnvQuarantineDelistCap+" must be an integer >= 0")
+		} else {
+			cfg.DelistCap = v
 		}
 	}
 	if raw := strings.TrimSpace(getenv(EnvDispatchTTL)); raw != "" {

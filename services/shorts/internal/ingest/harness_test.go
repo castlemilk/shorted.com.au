@@ -335,7 +335,8 @@ func startIngest(t *testing.T, pool *pgxpool.Pool, issuer *issuerFixture, clock 
 		PriceFraction:      DefaultPriceFraction,
 		QuarantineMinMoves: DefaultQuarantineMinMoves,
 		DelistFraction:     DefaultDelistFraction,
-		DelistFloor:        DefaultDelistFloor,
+		DelistCap:          DefaultDelistCap,
+		MinDelists:         DefaultMinDelists,
 		DispatchTTL:        DefaultDispatchTTL,
 		DBMaxConns:         DefaultDBMaxConns,
 	}

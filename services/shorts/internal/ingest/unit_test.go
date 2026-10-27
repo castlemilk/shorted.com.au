@@ -61,7 +61,7 @@ func TestConfig_EnabledWithMissingRequiredIsAProblem(t *testing.T) {
 		"no subjects":      {EnvEnabled: "true", EnvOrg: "org-shorted"},
 		"bad contract":     {EnvEnabled: "true", EnvOrg: "o", EnvAllowSubjects: "rig:a", EnvMinContractVersion: "0"},
 		"bad price frac":   {EnvEnabled: "true", EnvOrg: "o", EnvAllowSubjects: "rig:a", EnvQuarantinePriceFraction: "1.5"},
-		"bad delist floor": {EnvEnabled: "true", EnvOrg: "o", EnvAllowSubjects: "rig:a", EnvQuarantineDelistFloor: "-1"},
+		"bad delist floor": {EnvEnabled: "true", EnvOrg: "o", EnvAllowSubjects: "rig:a", EnvQuarantineDelistCap: "-1"},
 	}
 	for name, m := range cases {
 		t.Run(name, func(t *testing.T) {
