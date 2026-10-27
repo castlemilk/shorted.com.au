@@ -43,6 +43,13 @@ import (
 //	                  push_reason, parity}   CRAWL_SINK=shadow only, one per sweep
 //	shadow_circuit   {failures}   CRAWL_SINK=shadow only, once, when shadow switches off
 //	                  after shadowFailLimit consecutive dry-run failures
+//	ready            {}   the child's SIGTERM handler is installed (written first, by runAgent).
+//	                  The cycle sends its one graceful SIGTERM only after this.
+//	startup          {step: probe_auth|warm_probe, phase: start|done, outcome}   start-up work,
+//	                  written when a step begins and ends (never on a timer), so a slow start-up
+//	                  is not a silence. outcome is set on done.
+//	ingest_ok        {probe: true}   ProbeAuth accepted; ingest_error {probe: true, code}   the
+//	                  contract's ingest.probe word. Pushes never carry probe.
 //	round_done       {processed, succeeded, failed, deferred, listings, events,
 //	                  blocked_sweeps, needs_rewarm, chrome_unusable, env_broken}
 //	The -mode cycle parent (crawl_cycle.go) forwards every event above except a child's
@@ -109,6 +116,10 @@ type crawlEvents struct {
 	now    func() time.Time
 	isBad  bool
 	badErr error
+	// onBroken, when set, runs once the stream has failed (EPIPE: the reader went away). It runs
+	// under mu, so it must not call back into the writer. -mode agent uses it to stop the round
+	// at the next page, not the next suburb (batch 1 item 5).
+	onBroken func()
 }
 
 // newCrawlEvents wraps w. A nil w returns a disabled writer.
@@ -167,7 +178,92 @@ func (e *crawlEvents) emit(build func() any) {
 		e.isBad = true
 		e.badErr = err
 		log.Printf("[agent] crawl events stream closed (%v) — stopping new claims", err)
+		if e.onBroken != nil {
+			e.onBroken()
+		}
 	}
+}
+
+// readyEvent is the child's first event. It is written once its SIGTERM handler is installed
+// (runAgent), so the cycle never signals a child that has no handler yet.
+type readyEvent struct {
+	eventHeader
+}
+
+// ready writes the ready event. A nil writer is a no-op.
+func (e *crawlEvents) ready() {
+	e.emit(func() any { return readyEvent{eventHeader: e.header("ready")} })
+}
+
+// startupEvent is a start-up step's start or done: step is probe_auth or warm_probe, phase is
+// start or done, and outcome is set on done. Work-driven: it is written when the step begins and
+// ends, never on a timer.
+type startupEvent struct {
+	eventHeader
+	Step    string `json:"step"`
+	Phase   string `json:"phase"`
+	Outcome string `json:"outcome,omitempty"`
+}
+
+var startupSteps = map[string]bool{"probe_auth": true, "warm_probe": true}
+var startupPhases = map[string]bool{"start": true, "done": true}
+var startupOutcomes = map[string]bool{
+	"ok": true, "error": true, "stopped": true, "warm": true, "cold": true, "unusable": true, "env_broken": true,
+}
+
+// startup writes one start-up event. A value outside its enum is refused.
+func (e *crawlEvents) startup(step, phase, outcome string) {
+	if !startupSteps[step] || !startupPhases[phase] {
+		return
+	}
+	if !startupOutcomes[outcome] {
+		outcome = ""
+	}
+	e.emit(func() any {
+		return startupEvent{eventHeader: e.header("startup"), Step: step, Phase: phase, Outcome: outcome}
+	})
+}
+
+// warmProbeOutcome names a warm check's result for the startup event: 0 warm, 5 cold (the Kasada
+// stub), 4 unusable, 8 env_broken. Anything else is error.
+func warmProbeOutcome(rc int) string {
+	switch rc {
+	case 0:
+		return "warm"
+	case 5:
+		return "cold"
+	case 4:
+		return "unusable"
+	case exitCrawlEnvBroken:
+		return "env_broken"
+	default:
+		return "error"
+	}
+}
+
+// probeEvent is one ProbeAuth answer: ingest_ok (Probe true), or ingest_error with the
+// contract's ingest.probe code word. A probe has no job or source, so it carries neither.
+type probeEvent struct {
+	eventHeader
+	Probe bool   `json:"probe"`
+	Code  string `json:"code,omitempty"`
+}
+
+// probeResult writes ingest_ok or ingest_error for ProbeAuth. code is one of the contract's
+// ingest.probe words, and it is ignored on success.
+func (e *crawlEvents) probeResult(ok bool, code string) {
+	if ok {
+		e.emit(func() any {
+			return probeEvent{eventHeader: e.header("ingest_ok"), Probe: true}
+		})
+		return
+	}
+	if !ingestCodeWords[code] {
+		code = "other"
+	}
+	e.emit(func() any {
+		return probeEvent{eventHeader: e.header("ingest_error"), Probe: true, Code: code}
+	})
 }
 
 func (e *crawlEvents) header(event string) eventHeader {
@@ -372,7 +468,7 @@ type shadowCircuitEvent struct {
 // ingestCodeWords is the closed set of codes an ingest_error event may carry. Anything
 // else is written as "other", so no text from the server can reach the stream.
 var ingestCodeWords = map[string]bool{
-	"unavailable": true, "internal": true, "unknown": true, "deadline_exceeded": true,
+	"unavailable": true, "contract": true, "internal": true, "unknown": true, "deadline_exceeded": true,
 	"unauthenticated": true, "permission_denied": true, "resource_exhausted": true,
 	"failed_precondition": true, "already_exists": true, "invalid_argument": true,
 	"not_found": true, "unimplemented": true, "canceled": true, "token": true, "transport": true,

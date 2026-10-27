@@ -455,6 +455,7 @@ func (ir *ingestRound) probe(ctx context.Context) int {
 	if err == nil && resp.GetMinContractVersion() > housingingest.ContractVersion {
 		err = fmt.Errorf("contract_too_old: server requires contract %d, this collector sends %d",
 			resp.GetMinContractVersion(), housingingest.ContractVersion)
+		ir.events.probeResult(false, "contract")
 		if ir.mode == crawlSinkShadow {
 			ir.disableShadow("ProbeAuth: contract too old")
 			return 0
@@ -463,6 +464,7 @@ func (ir *ingestRound) probe(ctx context.Context) int {
 		return exitIngestContract
 	}
 	if err != nil {
+		ir.events.probeResult(false, probeWordFor(err))
 		if ir.mode == crawlSinkShadow {
 			ir.disableShadow("ProbeAuth failed (" + errCodeWord(err) + ")")
 			return 0
@@ -474,6 +476,7 @@ func (ir *ingestRound) probe(ctx context.Context) int {
 		ir.fail(code, err)
 		return code
 	}
+	ir.events.probeResult(true, "")
 	log.Printf("[ingest] ProbeAuth ok: contract %d accepted (min %d), subject verified", housingingest.ContractVersion, resp.GetMinContractVersion())
 	return 0
 }

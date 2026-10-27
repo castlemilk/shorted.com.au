@@ -3,30 +3,32 @@ package main
 // crawl_cycle.go is `-mode cycle` (S2): the Go twin of the bash drain
 // (deploy/housing-crawl-common.sh hc_drain_rounds) and the rig-side entry point that
 // BrandBrain's runtime spawns. It runs only with CRAWL_SINK=ingest. A cycle holds no
-// database, runs each drain round as a CHILD `-mode agent` in its own process group,
-// reads that child's events on CRAWL_EVENTS_FD, and decides what to do next from the
-// child's EVENTS and EXIT CODE. It never parses log text.
+// database. It runs each drain round as a CHILD `-mode agent` in its own process group,
+// reads the child's events on a pipe, and decides what happens next from the child's EVENTS
+// and EXIT CODE. It never parses log text.
+//
+// The output contract is docs/superpowers/specs/2026-10-27-fleet-managed-housing-crawl-design.md
+// ("Cycle output contract (schema 1)"). Its summary, its outcomes and its events are the
+// names used here. golden_contract_test.go pins them.
 //
 // Jobs:
 //
-//	drain      lock, preflight (driver, Chrome, ProbeAuth), then child rounds until the
-//	           queue is empty, a budget is spent, or a round asks for a stop.
-//	repair     lock, forced install-driver, Chrome warm, warmcheck. Exit 0, 4 or 8.
-//	preflight  NON-mutating and lock-free. Reports the lock, driver, Chrome and ingest
-//	           state, installs nothing and claims nothing. Used for heartbeat and shadow.
+//	drain      lock, preflight (driver, Chrome, ProbeAuth), then child rounds until the queue is
+//	           empty, a budget ends the run, or a round asks for a stop.
+//	repair     lock, forced install-driver, Chrome warm, warmcheck, with the wedged-Chrome
+//	           recovery when the warm check fails or stalls.
+//	preflight  NON-mutating and lock-free. It reports health in the summary and exits 0
+//	           whenever its checks ran. It claims nothing and installs nothing.
 //
-// Output contract: stdout gets exactly ONE summary JSON line when the cycle ends. Logs go
-// to stderr, and a child's stdout and stderr are passed through to the cycle's stderr. The
-// cycle's own events go to its CRAWL_EVENTS_FD (when set) as NDJSON: cycle_start,
-// preflight, round_start, round_done, cycle_done, plus every child event except the
-// child's round_done, each with a "round" number added. The child's round_done is folded
-// into the cycle's round_done, so a round has exactly one.
-//
-// ReportCycle: each child round still reports its own counts-only health row with
-// CRAWL_RUN_ID = the cycle id (the server accumulates rounds that share a run id, as the
-// bash drain's CRAWL_RUN_ID does). The cycle reports only for a round that could not
-// report for itself (a hung round, or one that exited without its round_done). See
-// reportGap.
+// Process rules (batch 1 of the review):
+//   - the cycle's own control decisions never wait on its events fd: events go through a
+//     bounded queue with one writer goroutine, and a full queue drops forwarded events and
+//     counts the drops;
+//   - a graceful stop is ONE SIGTERM, to the child PID only, and only once the child has
+//     reported "ready" (its handler is installed). The process group gets a signal only for
+//     the hung kill and for the second-signal escalation;
+//   - every preflight and repair step runs under its own timeout and under the cycle's
+//     context, so a deadline or a signal ends it at once.
 
 import (
 	"bufio"
@@ -53,132 +55,195 @@ import (
 	"syscall"
 	"time"
 
+	connectrpc "connectrpc.com/connect"
+
 	pb "github.com/castlemilk/shorted.com.au/services/gen/proto/go/housingingest/v1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/housingingest"
 )
 
-// exitCycleHung is the cycle's exit code for a round whose child emitted no event for
-// CRAWL_HUNG_AFTER. The cycle kills the child's process group and exits 11. No -mode agent
-// round returns 11, so it is the cycle's own code.
-const exitCycleHung = 11
+// cycleSchema is the output contract's schema version. Both sides refuse another value.
+const cycleSchema = 1
 
-// exitUsage is the cycle's exit code for a bad -job or -max-duration (the flag package's
-// own usage code).
-const exitUsage = 2
-
-// The cycle's jobs. -job takes exactly one of these.
+// The jobs. -job takes exactly one.
 const (
 	cycleJobDrain     = "drain"
 	cycleJobRepair    = "repair"
 	cycleJobPreflight = "preflight"
 )
 
-// Drain policy defaults. CRAWL_DRAIN_MAX_ROUNDS, CRAWL_REWARM_COOLDOWN_SEC and
-// CRAWL_REWARM_MAX_RETRIES keep the names and defaults of the bash drain.
+// The outcomes, from the contract's closed sets.
 const (
-	defaultDrainMaxRounds  = 30
-	defaultRewarmCooldown  = 900 * time.Second
-	defaultRewarmBudget    = 2
-	defaultHungAfter       = 20 * time.Minute
-	defaultHungGrace       = 60 * time.Second
-	defaultMaxDuration     = 10 * time.Hour
-	cycleSigKillWait       = 5 * time.Second
-	cycleEventDrainWait    = 5 * time.Second
-	cycleGroupPollInterval = 25 * time.Millisecond
-	// cycleChildEventsFDValue is the fd the child reads its events on. exec puts the pipe
-	// there through ExtraFiles, so it is always fd 3 in the child.
-	cycleChildEventsFDValue = "3"
+	outQueueEmpty      = "queue_empty"
+	outBudget          = "budget"
+	outNoProgress      = "no_progress"
+	outMaxRounds       = "max_rounds"
+	outCancelled       = "cancelled"
+	outLockHeld        = "lock_held"
+	outPreflightFailed = "preflight_failed"
+	outStopped         = "stopped"
+	outHung            = "hung"
+	outInternal        = "internal_error"
+	outRepaired        = "repaired"
+	outRepairFailed    = "repair_failed"
+	outChecked         = "checked"
 )
 
-// cycleIDPattern admits the IDs the cycle mints and accepts from CRAWL_CYCLE_ID. It is
-// bounded the way the events' job IDs are, and never carries free text.
+// Exit codes the cycle adds to the design table. 11 and 1 are defined in the design doc.
+const (
+	exitCycleHung     = 11
+	exitCycleInternal = 1
+)
+
+// Defaults. The bash drain's names and values are kept for the re-warm policy.
+const (
+	defaultDrainMaxRounds   = 30
+	defaultNoProgressRounds = 3
+	defaultRewarmCooldown   = 900 * time.Second
+	defaultRewarmBudget     = 2
+	defaultHungGrace        = 60 * time.Second
+	defaultMaxDuration      = 10 * time.Hour
+	defaultInstallTimeout   = 6 * time.Minute
+	defaultChromeTimeout    = 5 * time.Minute
+	defaultProbeTimeout     = 2 * time.Minute
+	// hungFloor is the least CRAWL_HUNG_AFTER ever gets. The runtime's watchdog is 30 minutes
+	// (max(last_event + 30m, cooldown_until + 5m)), so the child must go hung below that.
+	hungFloor        = 20 * time.Minute
+	cycleSigKillWait = 5 * time.Second
+	// parentCheckInterval is how often a supervising cycle checks its parent (batch 3). On darwin
+	// there is no Pdeathsig, so a dead runtime is seen as a PPID of 1 at the next check.
+	parentCheckInterval     = 1 * time.Second
+	cycleEventDrainWait     = 5 * time.Second
+	cycleGroupPollInterval  = 25 * time.Millisecond
+	cycleEventPumpCapacity  = 4096
+	cycleEventPumpCloseWait = 2 * time.Second
+	// cycleChildEventsFDValue is the fd the child reads its events on. exec puts the pipe there
+	// through ExtraFiles, so it is always fd 3 in the child.
+	cycleChildEventsFDValue = "3"
+	// cycleDriverDirRel is the driver directory the bash wrapper uses
+	// (deploy/housing-crawl-common.sh), relative to $HOME. -mode cycle defaults to it.
+	cycleDriverDirRel = ".shorted-housing-crawl/pw-driver"
+)
+
+// The contract's closed sets for lock, driver, chrome and ingest.probe.
+const (
+	lockFree          = "free"
+	lockHeldByCycle   = "held_by_cycle"
+	lockHeldElsewhere = "held_elsewhere"
+	lockUnknown       = "unknown"
+)
+
+// cycleIDPattern admits the IDs the cycle accepts from CRAWL_CYCLE_ID: bounded, no free text.
 var cycleIDPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
 
-// cycleConfig is the policy a cycle runs under. loadCycleConfig fills it from the environment; the
-// tests build it directly.
+var (
+	// errStepStopped: a signal or the deadline ended a step before it returned.
+	errStepStopped = errors.New("cycle step stopped by a signal or the deadline")
+	// errStepHung: a step outlived its timeout (the watchdog's hang).
+	errStepHung = errors.New("cycle step hung past its timeout")
+	// errStepPanicked: a step panicked. The cycle maps it to internal_error, exit 1.
+	errStepPanicked = errors.New("cycle step panicked")
+)
+
+// cycleConfig is the policy a cycle runs under. loadCycleConfig fills it from the environment.
 type cycleConfig struct {
-	job            string
-	dryRun         bool
-	maxDuration    time.Duration
-	maxRounds      int
-	rewarmCooldown time.Duration
-	rewarmBudget   int
-	hungAfter      time.Duration
-	hungGrace      time.Duration
-	lockDir        string
-	cycleID        string
-	// childArgv names the child process. Nil runs this binary as `-mode agent`. The tests
-	// point it at the test binary, which runs as a fake child (crawl_cycle_fake_test.go).
+	job              string
+	dryRun           bool
+	maxDuration      time.Duration
+	maxRounds        int
+	noProgressRounds int
+	rewarmCooldown   time.Duration
+	rewarmBudget     int
+	hungAfter        time.Duration
+	hungGrace        time.Duration
+	installTimeout   time.Duration
+	chromeTimeout    time.Duration
+	probeTimeout     time.Duration
+	lockDir          string
+	cycleID          string
+	// childArgv names the child process. Nil runs this binary as `-mode agent`. The tests point
+	// it at the test binary, which runs as a fake child (crawl_cycle_fake_test.go).
 	childArgv func() (string, []string)
 }
 
-// cycleDeps is every edge the cycle touches that the tests replace with a fake. The
-// defaults are the production functions.
+// probeResult is one ProbeAuth answer: the exit code the S-FETCH mapping gives it, and the
+// contract word for ingest.probe.
+type probeResult struct {
+	code int
+	word string
+}
+
+// chromeResult is the Chrome warm step's answer: the state word and its exit code.
+type chromeResult struct {
+	state string
+	code  int
+}
+
+// cycleDeps is every edge the cycle touches that the tests replace with a fake.
 type cycleDeps struct {
-	driverPresent   func() error                            // playwright driver runs (no install)
-	installDriver   func() int                              // runInstallDriver
-	ensureChrome    func(ctx context.Context) (string, int) // warm (launches); state, code 0/4/8
-	chromeReachable func() string                           // read-only: reachable|unreachable|not_used
-	probeIngest     func(ctx context.Context) int           // ProbeAuth; the S-FETCH exit mapping
-	warmcheck       func(ctx context.Context) int           // runWarmCheck: 0 warm, 4, 5, 8
-	reportGap       func(cycleID, outcome string, exit int) // ReportCycle for a round that could not report
+	driverPresent   func() error
+	installDriver   func() int
+	ensureChrome    func(ctx context.Context) (string, int)
+	chromeReachable func() string
+	recoverChrome   func() error
+	probeIngest     func(ctx context.Context) (int, string)
+	warmcheck       func(ctx context.Context) int
+	reportGap       func(cycleID, outcome string, exit int)
 	stdout          io.Writer
 	events          *crawlEvents
 	now             func() time.Time
 	// sigs is the injected signal channel. Nil means SIGTERM and SIGINT via signal.Notify.
 	sigs <-chan os.Signal
-	// forceExit is the second-signal exit. Nil means: release the lock, finish with
-	// outcome cancelled, and os.Exit(10).
-	forceExit func()
+	// exit ends the process after a forced (second-signal) exit. Nil means os.Exit.
+	exit func(int)
 }
 
-// lockReport is the lock state in the summary and the preflight event.
-type lockReport struct {
-	State string `json:"state"`
-	PID   int    `json:"pid"`
-}
-
-// preflightReport is the preflight block of the summary. Each check is "not_run" until it
-// runs.
-type preflightReport struct {
-	Lock   lockReport `json:"lock"`
-	Driver string     `json:"driver"`
-	Chrome string     `json:"chrome"`
-	Ingest string     `json:"ingest"`
-}
-
-// cycleCounts are the sums of the rounds' counts. Every field is a count.
+// cycleCounts is the contract's counts object. Every field is a count.
 type cycleCounts struct {
 	Claimed       int `json:"claimed"`
-	Processed     int `json:"processed"`
 	Succeeded     int `json:"succeeded"`
 	Failed        int `json:"failed"`
 	Deferred      int `json:"deferred"`
-	Listings      int `json:"listings"`
-	Events        int `json:"events"`
-	BlockedSweeps int `json:"blocked_sweeps"`
+	Blocked       int `json:"blocked"`
 	Pushed        int `json:"pushed"`
 	PushFailed    int `json:"push_failed"`
 	Quarantined   int `json:"quarantined"`
+	EventsDropped int `json:"events_dropped"`
 }
 
-// cycleCollector is the build revision, the same pair `-mode version` prints.
+// cycleCollector is the build revision, as `-mode version` reports it.
 type cycleCollector struct {
 	Revision string `json:"revision"`
 	Modified bool   `json:"modified"`
 }
 
-// cycleSummary is the one stdout line.
+// cycleEnvSummary is the summary's env object.
+type cycleEnvSummary struct {
+	Driver string `json:"driver"`
+	Chrome string `json:"chrome"`
+}
+
+// cycleIngestSummary is the summary's ingest object.
+type cycleIngestSummary struct {
+	Probe    string  `json:"probe"`
+	LastOKAt *string `json:"last_ok_at"`
+}
+
+// cycleSummary is the one stdout line. Its field order is the contract's.
 type cycleSummary struct {
-	CycleID    string          `json:"cycle_id"`
-	Job        string          `json:"job"`
-	Outcome    string          `json:"outcome"`
-	ExitCode   int             `json:"exit_code"`
-	Rounds     int             `json:"rounds"`
-	StartedAt  string          `json:"started_at"`
-	FinishedAt string          `json:"finished_at"`
-	Collector  cycleCollector  `json:"collector"`
-	Counts     cycleCounts     `json:"counts"`
-	Preflight  preflightReport `json:"preflight"`
+	Schema     int                `json:"schema"`
+	CycleID    string             `json:"cycle_id"`
+	Job        string             `json:"job"`
+	DryRun     bool               `json:"dry_run"`
+	Outcome    string             `json:"outcome"`
+	ExitCode   int                `json:"exit_code"`
+	Rounds     int                `json:"rounds"`
+	StartedAt  string             `json:"started_at"`
+	FinishedAt string             `json:"finished_at"`
+	Collector  cycleCollector     `json:"collector"`
+	Lock       string             `json:"lock"`
+	Env        cycleEnvSummary    `json:"env"`
+	Ingest     cycleIngestSummary `json:"ingest"`
+	Counts     cycleCounts        `json:"counts"`
 }
 
 // cycleRound is what one child round produced, from its events and its exit.
@@ -187,73 +252,173 @@ type cycleRound struct {
 	exit        int
 	done        bool // the child's round_done was seen
 	hung        bool
-	claimed     int
-	pushed      int
-	pushFailed  int
-	quarantined int
 	processed   int
+	claimed     int
 	succeeded   int
 	failed      int
 	deferred    int
-	listings    int
-	events      int
 	blocked     int
+	pushed      int
+	pushFailed  int
+	quarantined int
 	needsRewarm bool
 }
 
-// childRoundDone is the child's round_done, read for its counts and flags.
+// childRoundDone is the child's round_done, read for its counts.
 type childRoundDone struct {
 	Processed     int  `json:"processed"`
 	Succeeded     int  `json:"succeeded"`
 	Failed        int  `json:"failed"`
 	Deferred      int  `json:"deferred"`
-	Listings      int  `json:"listings"`
-	Events        int  `json:"events"`
 	BlockedSweeps int  `json:"blocked_sweeps"`
 	NeedsRewarm   bool `json:"needs_rewarm"`
 }
 
-// childEvent is the part of a child event the cycle reads. Anything else in the line is
-// forwarded as it is, under the same allowlist the child's writer already keeps.
-type childEvent struct {
-	Event       string `json:"event"`
-	Quarantined bool   `json:"quarantined"`
-}
-
-// roundProc is one running child: its process group, its events and its exit.
+// roundProc is one running child: its process group (pgid == pid), its events and its exit.
+// wantTerm and ready are guarded by cycleRunner.mu; termOnce makes the graceful stop once.
 type roundProc struct {
 	cmd      *exec.Cmd
-	pgid     int
+	pid      int
 	pipe     *os.File
+	pipeOnce sync.Once
 	lines    chan []byte
 	quit     chan struct{}
 	waitDone chan struct{}
+
+	ready    bool
+	wantTerm bool
+	termOnce sync.Once
 }
 
-// cycleRunner is one cycle. Its counts, preflight and child fields are guarded by mu, and the
-// signal goroutine reads them.
+// sendTerm is the graceful stop: ONE SIGTERM, to the child PID only. The group is not signalled
+// here, so the child's Playwright driver (same group) is not hit while the child finishes its
+// suburb.
+func (p *roundProc) sendTerm() {
+	p.termOnce.Do(func() { _ = syscall.Kill(p.pid, syscall.SIGTERM) })
+}
+
+// closePipe closes the read end of the child's events pipe. It runs on every path out of
+// supervise, and more than once is harmless.
+func (p *roundProc) closePipe() {
+	p.pipeOnce.Do(func() { _ = p.pipe.Close() })
+}
+
+// eventPump is the cycle's own writer. Control and forwarded events are queued without
+// blocking, and one goroutine writes them to the events fd. A full queue drops the event and
+// counts it, so a slow reader can never stall supervision.
+type eventPump struct {
+	ev      *crawlEvents
+	ch      chan func() any
+	dropped atomic.Int64
+	broken  atomic.Bool
+	done    chan struct{}
+	mu      sync.RWMutex
+	closed  bool
+}
+
+func newEventPump(ev *crawlEvents) *eventPump {
+	p := &eventPump{ev: ev, ch: make(chan func() any, cycleEventPumpCapacity), done: make(chan struct{})}
+	if ev == nil {
+		close(p.done)
+		return p
+	}
+	go p.run()
+	return p
+}
+
+// run is the single writer. After the stream breaks it keeps draining the queue without writing,
+// so offers never back up behind a dead pipe.
+func (p *eventPump) run() {
+	defer close(p.done)
+	for build := range p.ch {
+		if p.broken.Load() {
+			continue
+		}
+		p.ev.emit(build)
+		if p.ev.broken() {
+			p.broken.Store(true)
+		}
+	}
+}
+
+// offer queues one event without blocking. It reports whether the event was queued.
+func (p *eventPump) offer(build func() any) bool {
+	if p == nil || p.ev == nil {
+		return true
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.closed {
+		return false
+	}
+	select {
+	case p.ch <- build:
+		return true
+	default:
+		p.dropped.Add(1)
+		return false
+	}
+}
+
+// close stops the writer after it drains what is queued, and waits at most wait for that.
+func (p *eventPump) close(wait time.Duration) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	if !p.closed {
+		p.closed = true
+		close(p.ch)
+	}
+	p.mu.Unlock()
+	select {
+	case <-p.done:
+	case <-time.After(wait):
+	}
+}
+
+func (p *eventPump) isBroken() bool { return p != nil && p.broken.Load() }
+
+func (p *eventPump) droppedCount() int {
+	if p == nil {
+		return 0
+	}
+	return int(p.dropped.Load())
+}
+
+// cycleRunner is one cycle. Its fields are guarded by mu, except the atomics and the pump, which
+// are safe to touch from the signal goroutine.
 type cycleRunner struct {
 	cfg    cycleConfig
 	deps   cycleDeps
 	ctx    context.Context
 	cancel context.CancelFunc
 	stop   *stopSignal
-	// budgetCh is closed when -max-duration fires. budget is set just before.
-	budgetCh chan struct{}
-	budget   atomic.Bool
-	forced   atomic.Bool
-	lock     *crawlLock
+	budget atomic.Bool
+	forced atomic.Bool
+	pump   *eventPump
+	lock   *crawlLock
+	// startPPID is the cycle's parent when it started: the runtime. A PPID of 1 later means that
+	// parent has died (checkParent).
+	startPPID int
 
-	mu          sync.Mutex
-	child       *roundProc
-	lockOwned   bool
-	repairSpent bool // install-driver has run once this cycle (preflight or a round's 8)
-	rewarms     int
-	rounds      int
-	counts      cycleCounts
-	pre         preflightReport
-	started     time.Time
-	finishOnce  sync.Once
+	mu           sync.Mutex
+	child        *roundProc
+	lockOwned    bool
+	preLock      string
+	preDriver    string
+	preChrome    string
+	preProbe     string
+	repairSpent  bool
+	rewarms      int
+	noProgress   int
+	rounds       int
+	counts       cycleCounts
+	lastOK       time.Time
+	started      time.Time
+	decided      bool
+	finalOutcome string
+	finalCode    int
 }
 
 // newCycleRunner builds a runner. Nothing starts until execute.
@@ -264,39 +429,46 @@ func newCycleRunner(cfg cycleConfig, deps cycleDeps) *cycleRunner {
 	if deps.stdout == nil {
 		deps.stdout = os.Stdout
 	}
+	if deps.exit == nil {
+		deps.exit = os.Exit
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &cycleRunner{
-		cfg:      cfg,
-		deps:     deps,
-		ctx:      ctx,
-		cancel:   cancel,
-		stop:     newStopSignal(),
-		budgetCh: make(chan struct{}),
-		pre: preflightReport{
-			Lock:   lockReport{State: "not_run"},
-			Driver: "not_run",
-			Chrome: "not_run",
-			Ingest: "not_run",
-		},
+		cfg:       cfg,
+		deps:      deps,
+		ctx:       ctx,
+		cancel:    cancel,
+		stop:      newStopSignal(),
+		pump:      newEventPump(deps.events),
+		startPPID: os.Getppid(),
+		preLock:   lockUnknown,
+		preDriver: lockUnknown,
+		preChrome: lockUnknown,
+		preProbe:  "not_run",
 	}
 }
 
-// loadCycleConfig reads the cycle's policy from the environment. The -job, -dry-run and
-// -max-duration flags are set by the caller.
+// loadCycleConfig reads the cycle's policy from the environment. validateCycleEnv has already
+// refused any value it cannot use, so the defaults here only cover unset variables.
+//
+// The hung threshold is derived from the page budget, as the design doc's arithmetic shows.
 func loadCycleConfig(getenv func(string) string) cycleConfig {
 	cfg := cycleConfig{
-		maxRounds:      cycleEnvInt(getenv, "CRAWL_DRAIN_MAX_ROUNDS", defaultDrainMaxRounds),
-		rewarmCooldown: time.Duration(cycleEnvInt(getenv, "CRAWL_REWARM_COOLDOWN_SEC", int(defaultRewarmCooldown/time.Second))) * time.Second,
-		rewarmBudget:   cycleEnvInt(getenv, "CRAWL_REWARM_MAX_RETRIES", defaultRewarmBudget),
-		hungAfter:      cycleEnvDuration(getenv, "CRAWL_HUNG_AFTER", defaultHungAfter),
-		hungGrace:      cycleEnvDuration(getenv, "CRAWL_HUNG_GRACE", defaultHungGrace),
-		lockDir:        defaultCrawlLockDir(),
+		maxRounds:        cycleEnvInt(getenv, "CRAWL_DRAIN_MAX_ROUNDS", defaultDrainMaxRounds),
+		noProgressRounds: cycleEnvInt(getenv, "CRAWL_DRAIN_NO_PROGRESS_ROUNDS", defaultNoProgressRounds),
+		rewarmCooldown:   time.Duration(cycleEnvInt(getenv, "CRAWL_REWARM_COOLDOWN_SEC", int(defaultRewarmCooldown/time.Second))) * time.Second,
+		rewarmBudget:     cycleEnvInt(getenv, "CRAWL_REWARM_MAX_RETRIES", defaultRewarmBudget),
+		hungAfter:        derivedHungAfter(getenv),
+		hungGrace:        cycleEnvDuration(getenv, "CRAWL_HUNG_GRACE", defaultHungGrace),
+		installTimeout:   defaultInstallTimeout,
+		chromeTimeout:    defaultChromeTimeout,
+		probeTimeout:     defaultProbeTimeout,
+		lockDir:          defaultCrawlLockDir(),
 	}
-	if cfg.maxRounds <= 0 {
-		cfg.maxRounds = defaultDrainMaxRounds
-	}
-	if cfg.rewarmBudget < 0 {
-		cfg.rewarmBudget = 0
+	if raw := strings.TrimSpace(getenv("CRAWL_HUNG_AFTER")); raw != "" {
+		if d, err := time.ParseDuration(raw); err == nil && d > 0 {
+			cfg.hungAfter = d
+		}
 	}
 	if id := strings.TrimSpace(getenv("CRAWL_CYCLE_ID")); id != "" && cycleIDPattern.MatchString(id) {
 		cfg.cycleID = id
@@ -304,6 +476,30 @@ func loadCycleConfig(getenv func(string) string) cycleConfig {
 		cfg.cycleID = newCycleID()
 	}
 	return cfg
+}
+
+// derivedHungAfter is the child's silence limit when CRAWL_HUNG_AFTER is unset.
+//
+// The longest legitimate silence is one page's worth of work, with no event in between:
+//
+//	fetch timeout            CRAWL_FETCH_TIMEOUT_S         default 60 s
+//	+ pace, at widest        3 x CRAWL_LISTINGS_PAGE_MAX_MS  3 x 20 s = 60 s
+//	+ push, all attempts     3 x ingestCallTimeout         3 x 60 s = 180 s
+//	+ push backoff           1 s + 2 s                     = 3 s
+//	= worst single page      303 s
+//	x 2 (margin)             606 s, about 10 minutes
+//
+// The floor is 20 minutes, so the default is 20 minutes. A slower fetch config raises it.
+// The runtime's 30-minute watchdog stays above the result.
+func derivedHungAfter(getenv func(string) string) time.Duration {
+	fetch := time.Duration(cycleEnvInt(getenv, "CRAWL_FETCH_TIMEOUT_S", 60)) * time.Second
+	paceMax := time.Duration(cycleEnvInt(getenv, "CRAWL_LISTINGS_PAGE_MAX_MS", 20000)) * time.Millisecond
+	push := time.Duration(ingestMaxAttempts) * ingestCallTimeout
+	worst := fetch + time.Duration(float64(paceMax)*paceWidenFactorMax) + push + 3*time.Second
+	if 2*worst > hungFloor {
+		return 2 * worst
+	}
+	return hungFloor
 }
 
 func cycleEnvInt(getenv func(string) string, key string, def int) int {
@@ -330,6 +526,27 @@ func cycleEnvDuration(getenv func(string) string, key string, def time.Duration)
 	return d
 }
 
+// validateCycleEnv refuses a value the cycle cannot run with, so the cycle exits 8 with a clear
+// message instead of quietly using a default. Unset is fine.
+func validateCycleEnv(getenv func(string) string) error {
+	for _, key := range []string{"CRAWL_DRAIN_MAX_ROUNDS", "CRAWL_DRAIN_NO_PROGRESS_ROUNDS"} {
+		raw := strings.TrimSpace(getenv(key))
+		if raw == "" {
+			continue
+		}
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			return fmt.Errorf("%s must be a positive integer (got %q)", key, raw)
+		}
+	}
+	if raw := strings.TrimSpace(getenv("CRAWL_HUNG_AFTER")); raw != "" {
+		if d, err := time.ParseDuration(raw); err != nil || d <= 0 {
+			return fmt.Errorf("CRAWL_HUNG_AFTER must be a positive duration (got %q)", raw)
+		}
+	}
+	return nil
+}
+
 // newCycleID returns a fresh, bounded cycle id.
 func newCycleID() string {
 	var b [6]byte
@@ -348,13 +565,36 @@ func defaultChildArgv() (string, []string) {
 	return exe, []string{"-mode", "agent"}
 }
 
-// runCycleMode is the `-mode cycle` entry point. It refuses every sink but ingest with exit 8,
-// and it prints its summary line in every case, refusals included, so the caller always
-// has one line to parse.
-func runCycleMode(stdout io.Writer, job string, dryRun bool, maxDuration time.Duration, getenv func(string) string, events *crawlEvents) int {
+// cycleDefaultDriverDir is the driver directory -mode cycle uses when CRAWL_PW_DRIVER_DIR is
+// unset: the bash wrapper's own directory, never a cache a sweep can empty.
+func cycleDefaultDriverDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, cycleDriverDirRel)
+}
+
+// applyCycleDriverDefault sets CRAWL_PW_DRIVER_DIR for a cycle when the environment leaves it
+// unset. It returns the directory now in force. Only -mode cycle calls it: the other modes keep
+// the playwright default, which BrandBrain's Swift-timer path relies on.
+func applyCycleDriverDefault(getenv func(string) string, setenv func(k, v string) error) string {
+	if cur := strings.TrimSpace(getenv("CRAWL_PW_DRIVER_DIR")); cur != "" {
+		return cur
+	}
+	dir := cycleDefaultDriverDir()
+	if dir != "" {
+		_ = setenv("CRAWL_PW_DRIVER_DIR", dir)
+	}
+	return dir
+}
+
+// runCycleMode is the `-mode cycle` entry point. Every path prints the one summary line, refusals
+// and bad configuration included. dryRun is the -dry-run flag OR CRAWL_DRY_RUN=true.
+func runCycleMode(stdout io.Writer, job string, dryRunFlag bool, maxDuration time.Duration, getenv func(string) string, events *crawlEvents) int {
 	cfg := loadCycleConfig(getenv)
 	cfg.job = job
-	cfg.dryRun = dryRun
+	cfg.dryRun = resolveCycleDryRun(dryRunFlag, getenv)
 	cfg.maxDuration = maxDuration
 
 	deps := cycleDeps{
@@ -362,6 +602,7 @@ func runCycleMode(stdout io.Writer, job string, dryRun bool, maxDuration time.Du
 		installDriver:   runInstallDriver,
 		ensureChrome:    defaultEnsureChrome,
 		chromeReachable: defaultChromeReachable,
+		recoverChrome:   defaultRecoverChrome,
 		warmcheck:       func(ctx context.Context) int { return runWarmCheck(ctx, nil) },
 		stdout:          stdout,
 		events:          events,
@@ -371,59 +612,108 @@ func runCycleMode(stdout io.Writer, job string, dryRun bool, maxDuration time.Du
 	switch job {
 	case cycleJobDrain, cycleJobRepair, cycleJobPreflight:
 	default:
-		log.Printf("[cycle] -job must be drain, repair or preflight (got %q)", job)
-		c := newCycleRunner(cfg, deps)
-		c.finish("refused", exitUsage)
-		return exitUsage
+		return refuseCycle(deps, cfg, fmt.Sprintf("-job must be drain, repair or preflight (got %q)", job))
 	}
 	if maxDuration <= 0 {
-		log.Printf("[cycle] -max-duration must be positive (got %s)", maxDuration)
-		c := newCycleRunner(cfg, deps)
-		c.finish("refused", exitUsage)
-		return exitUsage
+		return refuseCycle(deps, cfg, fmt.Sprintf("-max-duration must be positive (got %s)", maxDuration))
 	}
-
-	// The cycle runs only on the ingest sink. resolveSink does the full validation (the pinned
-	// URL, no DATABASE_URL, an explicit CRAWL_DRY_RUN, no gateway, no trace); this adds the
-	// refusal of db, shadow and unset.
+	if err := validateCycleEnv(getenv); err != nil {
+		return refuseCycle(deps, cfg, err.Error())
+	}
+	// The cycle runs only on the ingest sink. resolveSink does the full validation (the pinned URL,
+	// no DATABASE_URL, an explicit CRAWL_DRY_RUN, no gateway, no trace). This adds the refusal of
+	// db, shadow and unset.
 	sink, ingestURL, refusal := resolveSink("agent", getenv)
 	if refusal != "" {
-		log.Printf("[cycle] refusing to start: %s", refusal)
-		c := newCycleRunner(cfg, deps)
-		c.finish("refused", exitSinkRefused)
-		return exitSinkRefused
+		return refuseCycle(deps, cfg, refusal)
 	}
 	if sink != crawlSinkIngest {
-		log.Printf("[cycle] refusing to start: -mode cycle runs only with %s=ingest (got %q)", crawlSinkEnv, sink)
-		c := newCycleRunner(cfg, deps)
-		c.finish("refused", exitSinkRefused)
-		return exitSinkRefused
+		return refuseCycle(deps, cfg, fmt.Sprintf("-mode cycle runs only with %s=ingest (got %q)", crawlSinkEnv, sink))
 	}
-	deps.probeIngest = func(ctx context.Context) int {
-		return probeIngestWith(ctx, ingestURL)
-	}
-	deps.reportGap = func(cycleID, outcome string, exit int) {
-		reportGapWith(cycleID, outcome, exit, ingestURL)
-	}
-	deps.events = events
+	applyCycleDriverDefault(getenv, os.Setenv)
+
+	deps.probeIngest = func(ctx context.Context) (int, string) { return probeIngestDetail(ctx, ingestURL) }
+	deps.reportGap = func(cycleID, outcome string, exit int) { reportGapWith(cycleID, outcome, exit, ingestURL) }
 	c := newCycleRunner(cfg, deps)
 	return c.execute()
 }
 
-// execute runs the job and prints the summary. It is the body the tests call with fakes.
-func (c *cycleRunner) execute() int {
-	defer c.cancel()
+// resolveCycleDryRun is the cycle's dry-run decision: the -dry-run flag, or CRAWL_DRY_RUN=true. The
+// cycle requires CRAWL_DRY_RUN to be set, and it must also read the value (batch 2 item 1): a value
+// of true is a dry run, and the child is told the same.
+func resolveCycleDryRun(flag bool, getenv func(string) string) bool {
+	return flag || strings.TrimSpace(getenv("CRAWL_DRY_RUN")) == "true"
+}
+
+// refuseCycle prints the summary for a configuration refusal. It exits 8, which is the
+// invalid-configuration code, and it names the outcome for the job.
+func refuseCycle(deps cycleDeps, cfg cycleConfig, reason string) int {
+	if cfg.cycleID == "" {
+		cfg.cycleID = newCycleID()
+	}
+	log.Printf("[cycle] refusing to start: %s", reason)
+	c := newCycleRunner(cfg, deps)
 	c.started = c.deps.now()
-	c.emit(func(h func(string) eventHeader) any {
-		return cycleStartEvent{
-			eventHeader:    h("cycle_start"),
-			CycleID:        c.cfg.cycleID,
-			Job:            c.cfg.job,
-			DryRun:         c.cfg.dryRun,
-			MaxRounds:      c.cfg.maxRounds,
-			MaxDurationSec: int64(c.cfg.maxDuration / time.Second),
+	c.emitStart()
+	return c.finalize(refusalOutcome(cfg.job), exitSinkRefused)
+}
+
+// refusalOutcome is the outcome a configuration refusal reports, per job. The repair job's
+// failure outcome is repair_failed; the drain and the preflight use preflight_failed.
+func refusalOutcome(job string) string {
+	if job == cycleJobRepair {
+		return outRepairFailed
+	}
+	return outPreflightFailed
+}
+
+// cycleFlagFailure is run when flag parsing fails. A cycle still prints its summary (exit 8).
+// Any other mode exits 2, as flag.Parse always has.
+func cycleFlagFailure(args []string, stdout io.Writer) int {
+	if !argsAreCycle(args) {
+		return 2
+	}
+	job := cycleJobDrain
+	for i, a := range args {
+		if (a == "-job" || a == "--job") && i+1 < len(args) {
+			job = args[i+1]
 		}
-	})
+		if strings.HasPrefix(a, "-job=") {
+			job = strings.TrimPrefix(a, "-job=")
+		}
+	}
+	deps := cycleDeps{stdout: stdout, events: newCrawlEventsFromEnv(), now: time.Now}
+	cfg := loadCycleConfig(os.Getenv)
+	cfg.job = job
+	return refuseCycle(deps, cfg, "invalid flags for -mode cycle")
+}
+
+// argsAreCycle reports whether the arguments select -mode cycle.
+func argsAreCycle(args []string) bool {
+	for i, a := range args {
+		if (a == "-mode" || a == "--mode") && i+1 < len(args) && args[i+1] == "cycle" {
+			return true
+		}
+		if a == "-mode=cycle" || a == "--mode=cycle" {
+			return true
+		}
+	}
+	return false
+}
+
+// execute runs the job and returns the process exit code. It prints the summary. A panic is
+// recovered: the child group is killed, and the summary says internal_error with exit 1.
+func (c *cycleRunner) execute() (code int) {
+	defer c.cancel()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[cycle] internal error (panic): %v\n%s", r, debug.Stack())
+			c.killChildGroup(syscall.SIGKILL)
+			code = c.finalize(outInternal, exitCycleInternal)
+		}
+	}()
+	c.started = c.deps.now()
+	c.emitStart()
 	log.Printf("[cycle] %s start: cycle=%s dryRun=%v maxRounds=%d maxDuration=%s hungAfter=%s", c.cfg.job, c.cfg.cycleID, c.cfg.dryRun, c.cfg.maxRounds, c.cfg.maxDuration, c.cfg.hungAfter)
 
 	sigs := c.deps.sigs
@@ -433,7 +723,7 @@ func (c *cycleRunner) execute() int {
 		defer signal.Stop(ch)
 		sigs = ch
 	}
-	// A child's EPIPE on a dead events pipe must return an error, not kill the cycle.
+	// A dead events pipe must return EPIPE, not kill the cycle.
 	signal.Ignore(syscall.SIGPIPE)
 	done := make(chan struct{})
 	defer close(done)
@@ -443,62 +733,74 @@ func (c *cycleRunner) execute() int {
 		t := time.AfterFunc(c.cfg.maxDuration, func() {
 			log.Printf("[cycle] -max-duration %s reached: no new rounds; the running round is stopped", c.cfg.maxDuration)
 			c.budget.Store(true)
-			close(c.budgetCh)
-			c.signalChild(syscall.SIGTERM)
+			c.cancel()
+			c.requestChildTerm()
 		})
 		defer t.Stop()
 	}
 
-	outcome, code := c.dispatch()
-	c.finish(outcome, code)
-	return code
+	outcome, cd := c.dispatch()
+	return c.finalize(outcome, cd)
 }
 
-// dispatch runs the job under the lock (preflight takes none).
+// emitStart writes cycle_start.
+func (c *cycleRunner) emitStart() {
+	c.emit("cycle_start", map[string]any{
+		"job":       c.cfg.job,
+		"dry_run":   c.cfg.dryRun,
+		"collector": currentCollector(),
+	})
+}
+
+// dispatch runs the job. Drain and repair take the lock; preflight takes none.
 func (c *cycleRunner) dispatch() (string, int) {
 	switch c.cfg.job {
 	case cycleJobPreflight:
 		return c.preflightJob()
 	case cycleJobRepair:
-		return c.withLock(c.repairJob)
+		return c.withLock(cycleJobRepair, c.repairJob)
 	default:
-		return c.withLock(c.drainJob)
+		return c.withLock(cycleJobDrain, c.drainJob)
 	}
 }
 
-// withLock takes the single-drainer lock (the same lockdir and pid rules as bash) and runs fn
-// under it. A held lock is exit 12 and the job does not run. A parent that holds the lock
-// passes through (crawl_lock.go's lockPassthrough).
-func (c *cycleRunner) withLock(fn func() (string, int)) (string, int) {
+// withLock takes the single-drainer lock (the lockdir and pid rules of bash) and runs fn under
+// it. The cycle must be the holder. A lock held by a live process, including the cycle's own
+// parent, is exit 12 and nothing runs (batch 1 item 6).
+func (c *cycleRunner) withLock(job string, fn func() (string, int)) (string, int) {
 	c.lock = newCrawlLock(c.cfg.lockDir)
 	outcome, holder, err := c.lock.acquire()
 	switch outcome {
 	case lockHeld:
-		c.setLock(lockReport{State: "held", PID: holder})
+		c.setPre(func() { c.preLock = lockHeldElsewhere })
 		if err != nil {
 			log.Printf("[cycle] skipped: %v — claiming nothing (exit %d)", err, exitLockHeld)
 		} else {
 			log.Printf("[cycle] skipped: lock held by pid %d (%s) — another housing crawl is draining (exit %d)", holder, c.cfg.lockDir, exitLockHeld)
 		}
-		return "lock_held", exitLockHeld
-	case lockError:
-		log.Printf("[cycle] FATAL: cannot create the housing-crawl lock at %s (%v) — exit %d", c.cfg.lockDir, err, exitAgentInfra)
-		return "failed", exitAgentInfra
+		return outLockHeld, exitLockHeld
 	case lockPassthrough:
-		c.setLock(lockReport{State: "passthrough", PID: holder})
-		log.Printf("[cycle] lock held by parent pid %d — running without taking it", holder)
-		return fn()
+		c.setPre(func() { c.preLock = lockHeldElsewhere })
+		log.Printf("[cycle] lock held by parent pid %d — the cycle must be the holder, not a passenger (exit %d)", holder, exitLockHeld)
+		return outLockHeld, exitLockHeld
+	case lockError:
+		c.setPre(func() { c.preLock = lockUnknown })
+		log.Printf("[cycle] FATAL: cannot create the housing-crawl lock at %s (%v) — exit %d", c.cfg.lockDir, err, exitAgentInfra)
+		if job == cycleJobRepair {
+			return outRepairFailed, exitAgentInfra
+		}
+		return outPreflightFailed, exitAgentInfra
 	default:
 		c.mu.Lock()
 		c.lockOwned = true
 		c.mu.Unlock()
-		c.setLock(lockReport{State: "acquired", PID: c.lock.self})
+		c.setPre(func() { c.preLock = lockHeldByCycle })
 		defer c.releaseLock()
 		return fn()
 	}
 }
 
-// releaseLock releases the lock once. The forced exit path and the normal return both call it.
+// releaseLock releases the lock once. The forced exit and the normal return both call it.
 func (c *cycleRunner) releaseLock() {
 	c.mu.Lock()
 	owned := c.lockOwned
@@ -509,132 +811,256 @@ func (c *cycleRunner) releaseLock() {
 	}
 }
 
-// inspectLock reads the lock without changing it: free, stale or held, with the holder's
-// pid only when the lock records one that is alive.
-func inspectLock(dir string) lockReport {
+// inspectLock reads the lock without changing it, and returns the contract's lock value. A
+// stale lock (a pid that is no longer alive, or an unreadable pid) is free: a drain could take it.
+func inspectLock(dir string) string {
 	if _, err := os.Stat(dir); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return lockReport{State: "free"}
+			return lockFree
 		}
-		return lockReport{State: "unknown"}
+		return lockUnknown
 	}
 	pid, ok := readPidFile(filepath.Join(dir, crawlLockPidName))
 	if !ok {
-		return lockReport{State: "stale"}
+		return lockFree
 	}
 	if pidAlive(pid) {
-		return lockReport{State: "held", PID: pid}
+		return lockHeldElsewhere
 	}
-	return lockReport{State: "stale"}
+	return lockFree
 }
 
-// drainJob is the preflight and then the round loop.
+// runStep runs one step under the cycle's context and the step's timeout. A signal or the deadline
+// ends the wait at once (errStepStopped). A step that outlives its timeout is errStepHung. The
+// step's goroutine may outlive the wait, and it dies with the process.
+func runStep[T any](c *cycleRunner, timeout time.Duration, fn func(ctx context.Context) T) (T, error) {
+	var zero T
+	ctx, cancel := context.WithTimeout(c.ctx, timeout)
+	defer cancel()
+	done := make(chan T, 1)
+	failed := make(chan any, 1)
+	go func() {
+		// A panic on this goroutine would bypass execute's recover, so it is carried back here.
+		defer func() {
+			if r := recover(); r != nil {
+				failed <- r
+			}
+		}()
+		done <- fn(ctx)
+	}()
+	select {
+	case v := <-done:
+		return v, nil
+	case r := <-failed:
+		log.Printf("[cycle] step panicked: %v\n%s", r, debug.Stack())
+		return zero, errStepPanicked
+	case <-ctx.Done():
+		if c.ctx.Err() != nil {
+			return zero, errStepStopped
+		}
+		return zero, errStepHung
+	}
+}
+
+// stopOutcome is the outcome of a stop, for a drain: a signal is cancelled (10), and the
+// deadline is budget (0).
+func (c *cycleRunner) stopOutcome() (string, int) {
+	if c.stop.Reason() == "" && c.budget.Load() {
+		return outBudget, 0
+	}
+	return outCancelled, exitCrawlCancelled
+}
+
+// drainPreflight runs the drain's checks in order: the driver (installed once if missing),
+// Chrome warm, and ProbeAuth. It returns ok=false with the failing outcome and code.
+func (c *cycleRunner) drainPreflight() (string, int, bool) {
+	code, err := c.ensureDriver()
+	if out, cd, bad := c.drainStepFailure(code, err); bad {
+		return out, cd, false
+	}
+	cr, err := runStep(c, c.cfg.chromeTimeout, func(ctx context.Context) chromeResult {
+		st, rc := c.deps.ensureChrome(ctx)
+		return chromeResult{state: st, code: rc}
+	})
+	if err == nil {
+		c.setPre(func() { c.preChrome = chromeWord(cr.state) })
+	}
+	if out, cd, bad := c.drainStepFailure(cr.code, err); bad {
+		return out, cd, false
+	}
+	code, err = c.probeStep()
+	if out, cd, bad := c.drainStepFailure(code, err); bad {
+		return out, cd, false
+	}
+	return "", 0, true
+}
+
+// drainStepFailure maps a step's code or error to the drain's outcome. It reports bad=false for
+// a step that passed.
+func (c *cycleRunner) drainStepFailure(code int, err error) (string, int, bool) {
+	switch {
+	case errors.Is(err, errStepStopped):
+		o, cd := c.stopOutcome()
+		return o, cd, true
+	case errors.Is(err, errStepHung):
+		return outHung, exitCycleHung, true
+	case errors.Is(err, errStepPanicked):
+		return outInternal, exitCycleInternal, true
+	case err != nil:
+		return outInternal, exitCycleInternal, true
+	case code != 0:
+		return outPreflightFailed, code, true
+	}
+	return "", 0, false
+}
+
+// chromeWord maps the warm step's state onto the contract's chrome value. not_used and skipped
+// are not a Chrome answer, so they are unknown.
+func chromeWord(state string) string {
+	switch state {
+	case "warm":
+		return "warm"
+	case "unusable", "env_broken":
+		return "unusable"
+	default:
+		return lockUnknown
+	}
+}
+
+// checkDriverPresent runs the driver check under the install timeout. It installs nothing and
+// creates nothing.
+func (c *cycleRunner) checkDriverPresent() (bool, error) {
+	rc, err := runStep(c, c.cfg.installTimeout, func(context.Context) int {
+		if c.deps.driverPresent() != nil {
+			return 1
+		}
+		return 0
+	})
+	return rc == 0, err
+}
+
+// ensureDriver is the drain's driver step: present is ok, missing is installed once per cycle,
+// and a second miss is exit 8.
+func (c *cycleRunner) ensureDriver() (int, error) {
+	present, err := c.checkDriverPresent()
+	if err != nil {
+		c.setPre(func() { c.preDriver = lockUnknown })
+		return 0, err
+	}
+	if present {
+		c.setPre(func() { c.preDriver = "ok" })
+		return 0, nil
+	}
+	c.mu.Lock()
+	spent := c.repairSpent
+	c.repairSpent = true
+	c.mu.Unlock()
+	if spent {
+		c.setPre(func() { c.preDriver = "missing" })
+		return exitCrawlEnvBroken, nil
+	}
+	ok, err := c.installDriverStep()
+	if err != nil {
+		c.setPre(func() { c.preDriver = lockUnknown })
+		return 0, err
+	}
+	if !ok {
+		c.setPre(func() { c.preDriver = "missing" })
+		return exitCrawlEnvBroken, nil
+	}
+	c.setPre(func() { c.preDriver = "installed" })
+	return 0, nil
+}
+
+// installDriverStep runs install-driver under its timeout, then checks that the driver runs.
+func (c *cycleRunner) installDriverStep() (bool, error) {
+	c.phase("install_driver", nil)
+	log.Printf("[cycle] installing the playwright driver (install-driver)")
+	rc, err := runStep(c, c.cfg.installTimeout, func(context.Context) int { return c.deps.installDriver() })
+	if err != nil {
+		return false, err
+	}
+	if rc != 0 {
+		return false, nil
+	}
+	return c.checkDriverPresent()
+}
+
+// probeStep runs ProbeAuth under its timeout and writes its ingest event. The code is the S-FETCH
+// mapping (13, 14, 15, 8, 7). A stalled probe is "unavailable" in the summary.
+func (c *cycleRunner) probeStep() (int, error) {
+	pr, err := runStep(c, c.cfg.probeTimeout, func(ctx context.Context) probeResult {
+		code, word := c.deps.probeIngest(ctx)
+		return probeResult{code: code, word: word}
+	})
+	if err != nil {
+		c.setPre(func() { c.preProbe = "unavailable" })
+		return 0, err
+	}
+	if pr.code == 0 {
+		c.setPre(func() { c.preProbe = "ok" })
+		c.noteOK()
+		c.emit("ingest_ok", map[string]any{"probe": true})
+		return 0, nil
+	}
+	c.setPre(func() { c.preProbe = pr.word })
+	c.emit("ingest_error", map[string]any{"probe": true, "code": pr.word})
+	return pr.code, nil
+}
+
+// drainJob is the preflight and then the rounds. A preflight failure that leaves ingest reachable
+// (4, 8 or 15) reports once at cycle level, because the runtime sees it as bash did.
 func (c *cycleRunner) drainJob() (string, int) {
-	if outcome, code := c.drainPreflight(); code != 0 {
-		return outcome, code
+	c.checkParent()
+	if c.stopRequested() {
+		return outCancelled, exitCrawlCancelled
+	}
+	c.phase("preflight", nil)
+	out, code, ok := c.drainPreflight()
+	c.emitPreflight()
+	if !ok {
+		if code == 4 || code == 8 || code == 15 {
+			c.report("failed", code)
+		}
+		return out, code
 	}
 	return c.drainRounds()
 }
 
-// drainPreflight runs the checks a drain needs before its first round: the driver (installed
-// once if missing), Chrome warm (CDP only, with the existing warm logic) and ProbeAuth. The
-// first failure ends the cycle.
-func (c *cycleRunner) drainPreflight() (string, int) {
-	defer c.emitPreflight()
-	if code := c.checkDriver(true); code != 0 {
-		return "failed", code
-	}
-	state, code := c.deps.ensureChrome(c.ctx)
-	c.setChrome(state)
-	if code != 0 {
-		return "failed", code
-	}
-	if code := c.checkIngest(); code != 0 {
-		return "failed", code
-	}
-	return "", 0
-}
-
-// checkDriver reports the driver. A missing driver is installed once per cycle when allowed,
-// and a second failure, or a failed install, is exit 8.
-func (c *cycleRunner) checkDriver(allowInstall bool) int {
-	if err := c.deps.driverPresent(); err == nil {
-		c.setDriver("ok")
-		return 0
-	} else {
-		log.Printf("[cycle] playwright driver not usable (%v)", err)
-	}
-	c.mu.Lock()
-	spent := c.repairSpent
-	if allowInstall && !spent {
-		c.repairSpent = true
-	}
-	c.mu.Unlock()
-	if !allowInstall || spent {
-		c.setDriver("missing")
-		return exitCrawlEnvBroken
-	}
-	log.Printf("[cycle] installing the playwright driver once (install-driver)")
-	if c.deps.installDriver() != 0 {
-		c.setDriver("missing")
-		return exitCrawlEnvBroken
-	}
-	if err := c.deps.driverPresent(); err != nil {
-		c.setDriver("missing")
-		return exitCrawlEnvBroken
-	}
-	c.setDriver("installed")
-	return 0
-}
-
-// checkIngest runs ProbeAuth through the S-FETCH mapping (13, 14, 15, 8, 7).
-func (c *cycleRunner) checkIngest() int {
-	code := c.deps.probeIngest(c.ctx)
-	c.setIngest(ingestWord(code))
-	return code
-}
-
-// ingestWord names an ingest exit for the summary and the preflight event.
-func ingestWord(code int) string {
-	switch code {
-	case 0:
-		return "ok"
-	case exitIngestAuthRefused:
-		return "auth_refused"
-	case exitIngestUnavailable:
-		return "unavailable"
-	case exitIngestContract:
-		return "contract"
-	case exitCrawlEnvBroken:
-		return "env_broken"
-	case exitAgentInfra:
-		return "token"
-	default:
-		return "failed"
+// checkParent is the cycle's parent check. When the runtime that spawned the cycle has died, the
+// PPID becomes 1 and the cycle behaves as on SIGTERM: the round finishes its suburb, then the cycle
+// exits 10 (the contract's "Parent death"). It runs at each round boundary and at each child event,
+// so it is driven by work, not by a timer.
+func (c *cycleRunner) checkParent() {
+	if c.startPPID != 1 && os.Getppid() == 1 {
+		log.Printf("[cycle] the runtime that spawned this cycle has exited — stopping after the current suburb")
+		c.requestStop("orphaned")
 	}
 }
 
-// drainRounds runs child rounds until a stop, a budget or the queue is empty. Its decisions are
-// on each round's exit code and events, never on log text.
+// drainRounds runs child rounds until a stop, a budget or the queue is empty. Each decision is
+// made on a round's events and exit code, never on log text.
 func (c *cycleRunner) drainRounds() (string, int) {
 	for {
+		c.checkParent()
 		if c.stop.Reason() != "" {
-			return "cancelled", exitCrawlCancelled
+			return outCancelled, exitCrawlCancelled
 		}
 		if c.budget.Load() {
-			return "budget", 0
+			return outBudget, 0
 		}
 		c.mu.Lock()
 		rounds := c.rounds
 		c.mu.Unlock()
 		if rounds >= c.cfg.maxRounds {
 			log.Printf("[cycle] hit CRAWL_DRAIN_MAX_ROUNDS=%d — stopping (the queue may still hold work)", c.cfg.maxRounds)
-			return "max_rounds", 0
+			return outMaxRounds, 0
 		}
 		if c.cfg.dryRun && rounds >= 1 {
-			// A dry round submits nothing, so the queue never drains. One round is the most a
-			// dry run can usefully say.
-			return "dry_run", 0
+			// A dry round submits nothing, so the queue never drains. One round is the most a dry
+			// run can usefully say, and max_rounds is the contract's word for that stop.
+			log.Printf("[cycle] dry run: one round, then stop")
+			return outMaxRounds, 0
 		}
 		c.mu.Lock()
 		c.rounds++
@@ -643,173 +1069,330 @@ func (c *cycleRunner) drainRounds() (string, int) {
 
 		res := c.runRound(round)
 		c.addCounts(res)
-		code := res.exit
-
-		if res.hung {
-			return "hung", exitCycleHung
-		}
-		// A stop beats the child's own normal exits. The child finishes its suburb and exits 10
-		// when signalled, and a budget stop is 0 or 10, so both are clean.
-		if c.stop.Reason() != "" && (code == 0 || code == exitCrawlCancelled) {
-			return "cancelled", exitCrawlCancelled
-		}
-		if c.budget.Load() && (code == 0 || code == exitCrawlCancelled) {
-			return "budget", 0
-		}
-
-		switch code {
-		case 0:
-			if !res.done {
-				log.Printf("[cycle] round %d exited 0 without a round_done event: protocol fault", round)
-				return "failed", 1
-			}
-			if res.claimed == 0 && res.processed == 0 {
-				return "queue_empty", 0
-			}
-			continue
-		case 3, 5:
-			// The bash drain's measured policy, carried over. A re-warm is a routine Kasada
-			// outcome, and the cooldown is what lets a retry work. The budget is what stops a
-			// blocking portal being hammered: 2 retries measured best (2026-09-11), and more
-			// retries against an open circuit only asked the blocking portal again.
-			c.mu.Lock()
-			spent := c.rewarms >= c.cfg.rewarmBudget
-			if !spent {
-				c.rewarms++
-			}
-			retry := c.rewarms
-			c.mu.Unlock()
-			if spent {
-				log.Printf("[cycle] re-warm signalled (rc=%d) and the retry budget is spent after %d retry(ies) — stopping; the next run self-warms", code, c.cfg.rewarmBudget)
-				return "rewarm", code
-			}
-			log.Printf("[cycle] re-warm signalled (rc=%d) — cooling down %s then retrying in this cycle (%d/%d)", code, c.cfg.rewarmCooldown, retry, c.cfg.rewarmBudget)
-			c.cooldown(c.cfg.rewarmCooldown)
-			continue
-		case exitCrawlEnvBroken:
-			// install-driver once, then retry the round once, then stop with 8. The repair is
-			// shared with the preflight's, so a driver a preflight already repaired is not
-			// installed twice.
-			c.mu.Lock()
-			spent := c.repairSpent
-			c.repairSpent = true
-			c.mu.Unlock()
-			if spent {
-				return "env_broken", exitCrawlEnvBroken
-			}
-			log.Printf("[cycle] round %d exited 8 (environment broken): install-driver once, then retry the round once", round)
-			if c.deps.installDriver() != 0 {
-				return "env_broken", exitCrawlEnvBroken
-			}
-			continue
-		case exitCrawlCancelled:
-			return "cancelled", exitCrawlCancelled
-		default:
-			// 4, 7, 12, 13, 14, 15 and any other code: stop with that code.
-			return "failed", code
+		if out, code, next := c.decide(res); !next {
+			return out, code
 		}
 	}
 }
 
-// cooldown waits d. A signal or the budget ends it early, and the loop's top then decides.
+// decide maps one round's result to the drain's next step. It is ordered on purpose: a
+// hang, then a pending signal, then the budget, then the child's exit code. So a stop that is
+// already pending never starts a repair or a cooldown (batch 2 item 2).
+func (c *cycleRunner) decide(res cycleRound) (string, int, bool) {
+	if res.hung {
+		return outHung, exitCycleHung, false
+	}
+	if c.stop.Reason() != "" {
+		return outCancelled, exitCrawlCancelled, false
+	}
+	code := res.exit
+	budget := c.budget.Load()
+	// At -max-duration, a clean or routine code ends the run as budget. A worse code is kept.
+	if budget && (code == 0 || code == 3 || code == 5 || code == exitCrawlCancelled) {
+		return outBudget, 0, false
+	}
+	switch code {
+	case 0:
+		if !res.done {
+			log.Printf("[cycle] round exited 0 without a round_done event: protocol fault")
+			return outInternal, exitCycleInternal, false
+		}
+		if res.claimed == 0 && res.processed == 0 {
+			return outQueueEmpty, 0, false
+		}
+		c.mu.Lock()
+		if res.succeeded == 0 {
+			c.noProgress++
+		} else {
+			c.noProgress = 0
+		}
+		streak := c.noProgress
+		c.mu.Unlock()
+		if streak >= c.cfg.noProgressRounds {
+			log.Printf("[cycle] %d consecutive rounds with no succeeded job — stopping (no_progress); the runtime alarms on it", streak)
+			return outNoProgress, 0, false
+		}
+		return "", 0, true
+	case 3, 5:
+		// The bash drain's measured policy, carried over. A re-warm is a routine Kasada outcome,
+		// and the cooldown is what lets a retry work. The budget is what stops a blocking portal
+		// being hammered: 2 retries measured best (2026-09-11), and more retries against an open
+		// circuit only asked the blocking portal again.
+		c.mu.Lock()
+		spent := c.rewarms >= c.cfg.rewarmBudget
+		if !spent {
+			c.rewarms++
+		}
+		retry := c.rewarms
+		last := c.rounds >= c.cfg.maxRounds
+		c.mu.Unlock()
+		if spent {
+			log.Printf("[cycle] re-warm signalled (rc=%d) and the retry budget is spent after %d retry(ies) — stopping", code, c.cfg.rewarmBudget)
+			return outStopped, code, false
+		}
+		log.Printf("[cycle] re-warm signalled (rc=%d) — cooling down %s then retrying (%d/%d)", code, c.cfg.rewarmCooldown, retry, c.cfg.rewarmBudget)
+		// No cooldown after the last round the cycle may run: the loop ends there anyway.
+		if !last {
+			c.cooldown(c.cfg.rewarmCooldown)
+		}
+		return "", 0, true
+	case exitCrawlEnvBroken:
+		// A pending stop or budget keeps the repair out: the stop wins. Otherwise install once, then
+		// retry the round once (the install is shared with the preflight, so a driver the preflight
+		// already repaired is not installed twice).
+		if budget {
+			return outStopped, exitCrawlEnvBroken, false
+		}
+		c.mu.Lock()
+		spent := c.repairSpent
+		c.repairSpent = true
+		c.mu.Unlock()
+		if spent {
+			return outStopped, exitCrawlEnvBroken, false
+		}
+		ok, err := c.installDriverStep()
+		if err != nil {
+			o, cd := c.stepOutcome(err)
+			return o, cd, false
+		}
+		if !ok {
+			return outStopped, exitCrawlEnvBroken, false
+		}
+		return "", 0, true
+	case exitCrawlCancelled:
+		return outCancelled, exitCrawlCancelled, false
+	case 4, 7, 12, 13, 14, 15:
+		return outStopped, code, false
+	default:
+		// A child code the table does not know: internal, exit 1 (contract: "exit 1 ... a child
+		// exit code the table doesn't know").
+		log.Printf("[cycle] round exited with code %d, which the table does not know — exit %d", code, exitCycleInternal)
+		return outInternal, exitCycleInternal, false
+	}
+}
+
+// stepOutcome maps a step error to an outcome: a stop, or a hang.
+func (c *cycleRunner) stepOutcome(err error) (string, int) {
+	if errors.Is(err, errStepHung) {
+		return outHung, exitCycleHung
+	}
+	return c.stopOutcome()
+}
+
+// cooldown waits d. A signal or the deadline ends it early.
 func (c *cycleRunner) cooldown(d time.Duration) {
 	if d <= 0 {
 		return
 	}
+	c.checkParent()
+	if c.stopRequested() {
+		return
+	}
+	until := c.deps.now().Add(d)
+	c.phase("cooldown", &until)
 	t := time.NewTimer(d)
 	defer t.Stop()
-	select {
-	case <-t.C:
-	case <-c.stop.Done():
-	case <-c.budgetCh:
-	}
-}
-
-// repairJob forces the driver install, warms Chrome and runs warmcheck. It is exit 0, 4 or 8.
-func (c *cycleRunner) repairJob() (string, int) {
-	defer c.emitPreflight()
-	if err := c.installForced(); err != nil {
-		c.setDriver("missing")
-		return "failed", exitCrawlEnvBroken
-	}
-	c.setDriver("installed")
-	state, code := c.deps.ensureChrome(c.ctx)
-	c.setChrome(state)
-	if code != 0 {
-		return "failed", code
-	}
-	if rc := c.deps.warmcheck(c.ctx); rc != 0 {
-		if rc == exitCrawlEnvBroken {
-			return "failed", exitCrawlEnvBroken
+	// The cooldown polls the parent too: a runtime that dies during a multi-hour cooldown is seen
+	// within parentCheckInterval, and the cooldown ends at once.
+	poll := time.NewTicker(parentCheckInterval)
+	defer poll.Stop()
+	for {
+		select {
+		case <-t.C:
+			return
+		case <-c.ctx.Done():
+			return
+		case <-poll.C:
+			c.checkParent()
 		}
-		return "failed", 4
 	}
-	return "ok", 0
 }
 
-// installForced runs install-driver whether or not the driver is present.
-func (c *cycleRunner) installForced() error {
-	if c.deps.installDriver() != 0 {
-		return errors.New("install-driver failed")
+// repairJob forces the driver install, warms Chrome and runs the warm check. When the check fails
+// or stalls it runs the wedged-Chrome recovery (the path rc 4 uses) and checks once more.
+func (c *cycleRunner) repairJob() (string, int) {
+	c.checkParent()
+	if c.stopRequested() {
+		return outCancelled, exitCrawlCancelled
 	}
-	return nil
+	c.phase("repair", nil)
+	defer c.emitPreflight()
+	ok, err := c.installDriverStep()
+	if err != nil {
+		return c.repairFailure(err, exitCrawlEnvBroken)
+	}
+	if !ok {
+		c.setPre(func() { c.preDriver = "missing" })
+		return outRepairFailed, exitCrawlEnvBroken
+	}
+	c.setPre(func() { c.preDriver = "installed" })
+	cr, err := runStep(c, c.cfg.chromeTimeout, func(ctx context.Context) chromeResult {
+		st, rc := c.deps.ensureChrome(ctx)
+		return chromeResult{state: st, code: rc}
+	})
+	if err != nil {
+		return c.repairFailure(err, 0)
+	}
+	c.setPre(func() { c.preChrome = chromeWord(cr.state) })
+	if cr.code != 0 {
+		return outRepairFailed, cr.code
+	}
+	return c.warmGate()
 }
 
-// preflightJob is the NON-mutating check. It takes no lock, claims nothing and installs
-// nothing. It runs every check, and the exit is the first failing check's code. A lock held by
-// someone else is reported, not failed: the legacy drainer is expected to hold it while this
-// runs in shadow.
+// warmGate is the repair's warm check and recovery.
+func (c *cycleRunner) warmGate() (string, int) {
+	rc, err := c.warmStep()
+	if err == nil && rc == 0 {
+		c.setPre(func() { c.preChrome = "warm" })
+		return outRepaired, 0
+	}
+	// A stop ends the repair. A stall (errStepHung) or a failed check is recovered below, as the
+	// contract requires (batch 1 item 10). Only an env fault is not a Chrome fault.
+	if errors.Is(err, errStepStopped) {
+		return c.repairFailure(err, 0)
+	}
+	if err == nil && rc == exitCrawlEnvBroken {
+		return outRepairFailed, exitCrawlEnvBroken
+	}
+	// The warm check failed (rc 4 or 5) or stalled. The wedged-Chrome recovery is the path rc 4
+	// uses: kill, clear the profile locks, relaunch. Then one more check.
+	log.Printf("[cycle] warm check rc=%d — running the wedged-Chrome recovery, then checking again", rc)
+	c.phase("repair", nil)
+	rr, err := runStep(c, c.cfg.chromeTimeout, func(context.Context) int {
+		if c.deps.recoverChrome() != nil {
+			return 4
+		}
+		return 0
+	})
+	if err != nil {
+		return c.repairFailure(err, 0)
+	}
+	if rr != 0 {
+		c.setPre(func() { c.preChrome = "unusable" })
+		return outRepairFailed, 4
+	}
+	rc, err = c.warmStep()
+	if err == nil && rc == 0 {
+		c.setPre(func() { c.preChrome = "warm" })
+		return outRepaired, 0
+	}
+	if err != nil {
+		return c.repairFailure(err, 0)
+	}
+	c.setPre(func() { c.preChrome = "unusable" })
+	if rc == exitCrawlEnvBroken {
+		return outRepairFailed, exitCrawlEnvBroken
+	}
+	return outRepairFailed, 4
+}
+
+// warmStep runs warmcheck under the Chrome timeout.
+func (c *cycleRunner) warmStep() (int, error) {
+	return runStep(c, c.cfg.chromeTimeout, func(ctx context.Context) int { return c.deps.warmcheck(ctx) })
+}
+
+// repairFailure maps a repair step's error to its outcome: a stop is cancelled, a hang is 11.
+func (c *cycleRunner) repairFailure(err error, code int) (string, int) {
+	switch {
+	case errors.Is(err, errStepStopped):
+		o, cd := c.stopOutcome()
+		if o == outBudget {
+			return outCancelled, exitCrawlCancelled
+		}
+		return o, cd
+	case errors.Is(err, errStepHung):
+		return outRepairFailed, exitCycleHung
+	case errors.Is(err, errStepPanicked):
+		// The repair outcome set has no internal_error; the panic is still exit 1 (flagged in the report).
+		return outInternal, exitCycleInternal
+	}
+	return outRepairFailed, code
+}
+
+// preflightJob is the NON-mutating check. It takes no lock, claims nothing and installs nothing.
+// It runs every check and reports each in the summary. Its exit is 0 whenever the checks ran, and
+// a stop is the only other exit.
 func (c *cycleRunner) preflightJob() (string, int) {
 	defer c.emitPreflight()
-	c.setLock(inspectLock(c.cfg.lockDir))
-	first := 0
-	if code := c.checkDriver(false); code != 0 {
-		first = code
+	c.setPre(func() { c.preLock = inspectLock(c.cfg.lockDir) })
+
+	present, err := c.checkDriverPresent()
+	switch {
+	case err != nil:
+		c.setPre(func() { c.preDriver = lockUnknown })
+	case present:
+		c.setPre(func() { c.preDriver = "ok" })
+	default:
+		c.setPre(func() { c.preDriver = "missing" })
 	}
-	chrome := c.deps.chromeReachable()
-	c.setChrome(chrome)
-	if chrome == "unreachable" && first == 0 {
-		first = 4
+	if errors.Is(err, errStepStopped) {
+		return outCancelled, exitCrawlCancelled
 	}
-	if code := c.checkIngest(); code != 0 && first == 0 {
-		first = code
+
+	chrome, err := runStep(c, c.cfg.chromeTimeout, func(context.Context) string { return c.deps.chromeReachable() })
+	switch {
+	case err != nil:
+		c.setPre(func() { c.preChrome = lockUnknown })
+	case chrome == "reachable":
+		c.setPre(func() { c.preChrome = "reachable" })
+	case chrome == "unreachable":
+		c.setPre(func() { c.preChrome = "unreachable" })
+	default:
+		c.setPre(func() { c.preChrome = lockUnknown })
 	}
-	if first != 0 {
-		return "failed", first
+	if errors.Is(err, errStepStopped) {
+		return outCancelled, exitCrawlCancelled
 	}
-	return "ok", 0
+
+	_, err = c.probeStep()
+	if errors.Is(err, errStepStopped) {
+		return outCancelled, exitCrawlCancelled
+	}
+	return outChecked, 0
 }
 
-// runRound spawns one child round, supervises it and reports the outcome.
+// runRound spawns one child round, supervises it and reports it. It spawns nothing once a stop
+// is pending (batch 1 item 1b).
 func (c *cycleRunner) runRound(round int) cycleRound {
-	c.emit(func(h func(string) eventHeader) any {
-		return roundStartEvent{eventHeader: h("round_start"), Round: round}
-	})
+	c.checkParent()
+	if c.stopRequested() {
+		return cycleRound{round: round, exit: exitCrawlCancelled}
+	}
+	c.phase("round", nil)
 	p, err := c.spawn(round)
 	if err != nil {
 		log.Printf("[cycle] round %d: cannot start the child (%v) — exit %d", round, err, exitAgentInfra)
-		res := cycleRound{round: round, exit: exitAgentInfra}
-		c.emitRoundDone(res)
-		return res
+		return cycleRound{round: round, exit: exitAgentInfra}
 	}
 	res := c.supervise(p, round)
 	c.mu.Lock()
 	c.child = nil
 	c.mu.Unlock()
-	if !res.done && c.deps.reportGap != nil {
-		// The child could not report for itself (it hung, or it exited without its round_done).
-		outcome := "failed"
-		if res.exit == exitCrawlCancelled {
-			outcome = "cancelled"
-		}
-		c.deps.reportGap(c.cfg.cycleID, outcome, res.exit)
+	// A child that could not report for itself is reported once, with zero counts. A child that
+	// exited because the cycle stopped it has nothing to report (batch 1 item 1d).
+	if !res.done && (res.hung || !c.stopRequested()) {
+		c.report("failed", res.exit)
 	}
-	c.emitRoundDone(res)
+	c.emitRoundDone(round, res)
 	return res
 }
 
-// spawn starts the child in its own process group, with its events on a pipe at fd 3, and its
-// stdout and stderr on the cycle's stderr.
+// report sends a zero-count gap report. A dry run sends nothing.
+func (c *cycleRunner) report(outcome string, exit int) {
+	if c.cfg.dryRun || c.deps.reportGap == nil {
+		return
+	}
+	c.deps.reportGap(c.cfg.cycleID, outcome, exit)
+}
+
+// stopRequested reports a pending signal or deadline.
+func (c *cycleRunner) stopRequested() bool {
+	return c.stop.Reason() != "" || c.budget.Load()
+}
+
+// spawn starts one child round in its own process group. Its events come back on a pipe at
+// fd 3, and its stdout and stderr go to the cycle's stderr.
 func (c *cycleRunner) spawn(round int) (*roundProc, error) {
 	argv := c.cfg.childArgv
 	if argv == nil {
@@ -836,7 +1419,7 @@ func (c *cycleRunner) spawn(round int) (*roundProc, error) {
 
 	p := &roundProc{
 		cmd:      cmd,
-		pgid:     cmd.Process.Pid,
+		pid:      cmd.Process.Pid,
 		pipe:     r,
 		lines:    make(chan []byte, 256),
 		quit:     make(chan struct{}),
@@ -850,24 +1433,20 @@ func (c *cycleRunner) spawn(round int) (*roundProc, error) {
 
 	c.mu.Lock()
 	c.child = p
+	// A stop that landed before the child was registered is delivered when the child is ready.
+	p.wantTerm = c.stopRequested()
 	c.mu.Unlock()
-	log.Printf("[cycle] round %d: child pid %d (process group %d)", round, p.pgid, p.pgid)
-	// A stop that landed between the start and the store above is forwarded now. The signal
-	// side sets the stop before it reads the child, so one of the two always sees the other.
-	if c.stop.Reason() != "" || c.budget.Load() {
-		c.signalChild(syscall.SIGTERM)
-	}
+
+	c.emit("round_start", map[string]any{"round": round, "pid": p.pid, "pgid": p.pid})
+	log.Printf("[cycle] round %d: child pid %d (process group %d)", round, p.pid, p.pid)
 	return p, nil
 }
 
-// childEnv is the cycle's own environment, with the cycle's events fd, the cycle id and the run
-// id applied. CRAWL_RUN_ID is the cycle id, so every round's health row accumulates into one
-// run. A dry run sets CRAWL_DRY_RUN=true.
+// childEnv is the cycle's environment, with the cycle's events fd, the cycle id and the run id
+// applied. CRAWL_RUN_ID is the cycle id, so the rounds accumulate into one run. CRAWL_DRY_RUN is
+// always set explicitly, to the cycle's own dry-run decision.
 func (c *cycleRunner) childEnv() []string {
-	drop := map[string]bool{crawlEventsFDEnv: true, "CRAWL_CYCLE_ID": true, "CRAWL_RUN_ID": true}
-	if c.cfg.dryRun {
-		drop["CRAWL_DRY_RUN"] = true
-	}
+	drop := map[string]bool{crawlEventsFDEnv: true, "CRAWL_CYCLE_ID": true, "CRAWL_RUN_ID": true, "CRAWL_DRY_RUN": true}
 	base := os.Environ()
 	env := make([]string, 0, len(base)+4)
 	for _, kv := range base {
@@ -877,18 +1456,19 @@ func (c *cycleRunner) childEnv() []string {
 		}
 		env = append(env, kv)
 	}
-	env = append(env,
+	dry := "false"
+	if c.cfg.dryRun {
+		dry = "true"
+	}
+	return append(env,
 		crawlEventsFDEnv+"="+cycleChildEventsFDValue,
 		"CRAWL_CYCLE_ID="+c.cfg.cycleID,
 		"CRAWL_RUN_ID="+c.cfg.cycleID,
+		"CRAWL_DRY_RUN="+dry,
 	)
-	if c.cfg.dryRun {
-		env = append(env, "CRAWL_DRY_RUN=true")
-	}
-	return env
 }
 
-// readEvents reads the child's NDJSON lines. It closes lines at EOF, or when the cycle stops
+// readEvents reads the child's NDJSON lines. It closes lines at EOF, or when supervision stops
 // reading (quit).
 func (p *roundProc) readEvents() {
 	defer close(p.lines)
@@ -908,27 +1488,35 @@ func (p *roundProc) readEvents() {
 	}
 }
 
-// supervise waits for one child and reads its events until it exits. A child that goes silent
-// for hungAfter is killed: SIGTERM to its group, then SIGKILL after hungGrace. The result says
-// which: a hung child is exit 11, and a child killed by a second signal is exit 10.
+// supervise waits for one child and reads its events until it exits. A child silent for
+// hungAfter is killed: SIGTERM to its group, then SIGKILL after hungGrace. The events are read on
+// this goroutine, but their forwarding never blocks it (see eventPump).
 func (c *cycleRunner) supervise(p *roundProc, round int) cycleRound {
-	defer close(p.quit)
 	res := cycleRound{round: round}
+	defer p.closePipe()
+	defer close(p.quit)
 	lines := p.lines
 	hung := time.NewTimer(c.cfg.hungAfter)
 	defer hung.Stop()
+	// The parent check runs on a ticker while the child is silent too: a parent that dies during a
+	// long fetch is seen within parentCheckInterval, not only at the child's next event. The ticker
+	// only checks; it never writes an event.
+	parentTick := time.NewTicker(parentCheckInterval)
+	defer parentTick.Stop()
 	for {
 		select {
+		case <-parentTick.C:
+			c.checkParent()
 		case line, ok := <-lines:
 			if !ok {
 				lines = nil
 				continue
 			}
-			c.absorb(round, line, &res)
-			if c.deps.events.broken() && c.stop.Reason() == "" {
-				log.Printf("[cycle] events stream closed — stopping new rounds")
-				c.stop.request("event-pipe")
-				c.signalChild(syscall.SIGTERM)
+			c.absorb(p, round, line, &res)
+			c.checkParent()
+			if c.pump.isBroken() {
+				log.Printf("[cycle] the cycle's events stream closed — stopping new rounds")
+				c.requestStop("event-pipe")
 			}
 			resetTimer(hung, c.cfg.hungAfter)
 		case <-p.waitDone:
@@ -960,9 +1548,6 @@ func resetTimer(t *time.Timer, d time.Duration) {
 // drainLines reads the events still buffered after the child exited. It waits at most
 // cycleEventDrainWait, because a grandchild that kept the pipe open would otherwise hold it.
 func (c *cycleRunner) drainLines(p *roundProc, round int, res *cycleRound) {
-	if p.lines == nil {
-		return
-	}
 	deadline := time.NewTimer(cycleEventDrainWait)
 	defer deadline.Stop()
 	for {
@@ -971,25 +1556,24 @@ func (c *cycleRunner) drainLines(p *roundProc, round int, res *cycleRound) {
 			if !ok {
 				return
 			}
-			c.absorb(round, line, res)
+			c.absorb(p, round, line, res)
 		case <-deadline.C:
-			_ = p.pipe.Close()
+			p.closePipe()
 			return
 		}
 	}
 }
 
-// killGroup stops a hung child's whole process group: SIGTERM, a grace period for the group to
-// empty, then SIGKILL. A member that survives SIGKILL is logged.
+// killGroup stops a hung child's whole group: SIGTERM, a grace period, then SIGKILL.
 func (c *cycleRunner) killGroup(p *roundProc) {
-	_ = syscall.Kill(-p.pgid, syscall.SIGTERM)
+	_ = syscall.Kill(-p.pid, syscall.SIGTERM)
 	if p.groupGone(c.cfg.hungGrace) {
 		return
 	}
-	log.Printf("[cycle] process group %d still running %s after SIGTERM — SIGKILL", p.pgid, c.cfg.hungGrace)
-	_ = syscall.Kill(-p.pgid, syscall.SIGKILL)
+	log.Printf("[cycle] process group %d still running %s after SIGTERM — SIGKILL", p.pid, c.cfg.hungGrace)
+	_ = syscall.Kill(-p.pid, syscall.SIGKILL)
 	if !p.groupGone(cycleSigKillWait) {
-		log.Printf("[cycle] WARNING: process group %d has members after SIGKILL", p.pgid)
+		log.Printf("[cycle] WARNING: process group %d has members after SIGKILL", p.pid)
 	}
 }
 
@@ -999,7 +1583,7 @@ func (p *roundProc) groupGone(d time.Duration) bool {
 	for {
 		select {
 		case <-p.waitDone:
-			if !groupAlive(p.pgid) {
+			if !groupAlive(p.pid) {
 				return true
 			}
 		default:
@@ -1016,8 +1600,9 @@ func groupAlive(pgid int) bool {
 	return syscall.Kill(-pgid, 0) == nil
 }
 
-// finishRound settles the child's exit code. Its own code wins, unless the cycle hung it (11) or
-// killed it on a second signal (10). A child that died to a signal the cycle did not send is 1.
+// finishRound settles the child's exit code. A hang is 11. A child killed by the cycle's second
+// signal is 10. A child that died to a signal after the cycle asked it to stop is also 10, not a
+// failure (batch 1 item 1d). A signal nobody asked for is internal.
 func (c *cycleRunner) finishRound(p *roundProc, res *cycleRound) {
 	switch {
 	case res.hung:
@@ -1025,31 +1610,44 @@ func (c *cycleRunner) finishRound(p *roundProc, res *cycleRound) {
 	case c.forced.Load():
 		res.exit = exitCrawlCancelled
 	default:
-		res.exit = exitStatus(p.cmd)
+		code, signaled := exitStatus(p.cmd)
+		switch {
+		case signaled && c.stopRequested():
+			res.exit = exitCrawlCancelled
+		case signaled:
+			res.exit = exitCycleInternal
+		default:
+			res.exit = code
+		}
 	}
 }
 
-// exitStatus is the child's exit code, or 1 when it died to a signal.
-func exitStatus(cmd *exec.Cmd) int {
+// exitStatus is the child's exit code, and whether it died to a signal.
+func exitStatus(cmd *exec.Cmd) (int, bool) {
 	st := cmd.ProcessState
 	if st == nil {
-		return 1
+		return exitCycleInternal, true
 	}
 	if st.Exited() {
-		return st.ExitCode()
+		return st.ExitCode(), false
 	}
-	return 1
+	return exitCycleInternal, true
 }
 
-// absorb reads one child event. A child's round_done is read for its counts and not forwarded.
-// Every other allowlisted event is forwarded with the round number added. Unknown names are
-// dropped, so a line the child's writer never produces cannot reach the cycle's stream.
-func (c *cycleRunner) absorb(round int, line []byte, res *cycleRound) {
-	var ev childEvent
-	if err := json.Unmarshal(line, &ev); err != nil || ev.Event == "" {
+// absorb reads one child event. The child's round_done is read for its counts and not forwarded.
+// Ready is consumed: it lets the cycle send the one graceful SIGTERM. Every allowlisted event is
+// forwarded with type, cycle_id and round added. Unknown names are dropped.
+func (c *cycleRunner) absorb(p *roundProc, round int, line []byte, res *cycleRound) {
+	var m map[string]any
+	if err := json.Unmarshal(line, &m); err != nil {
 		return
 	}
-	switch ev.Event {
+	name, _ := m["event"].(string)
+	probe, _ := m["probe"].(bool)
+	switch name {
+	case "ready":
+		c.childReady(p)
+		return
 	case "round_done":
 		var d childRoundDone
 		if err := json.Unmarshal(line, &d); err != nil {
@@ -1060,45 +1658,83 @@ func (c *cycleRunner) absorb(round int, line []byte, res *cycleRound) {
 		res.succeeded = d.Succeeded
 		res.failed = d.Failed
 		res.deferred = d.Deferred
-		res.listings = d.Listings
-		res.events = d.Events
 		res.blocked = d.BlockedSweeps
 		res.needsRewarm = d.NeedsRewarm
 		return
 	case "claim":
 		res.claimed++
 	case "ingest_ok":
-		res.pushed++
-		if ev.Quarantined {
-			res.quarantined++
+		if !probe {
+			res.pushed++
+			if q, _ := m["quarantined"].(bool); q {
+				res.quarantined++
+			}
 		}
+		c.noteOK()
 	case "ingest_error":
-		res.pushFailed++
-	case "page", "fetch", "submit", "finalize_started", "shadow", "shadow_circuit":
+		if !probe {
+			res.pushFailed++
+		}
+	case "page", "fetch", "submit", "finalize_started", "shadow", "shadow_circuit", "startup":
 	default:
 		return
 	}
-	var m map[string]any
-	if err := json.Unmarshal(line, &m); err != nil {
-		return
-	}
+	m["type"] = name
+	m["cycle_id"] = c.cfg.cycleID
 	m["round"] = round
-	c.deps.events.emit(func() any { return m })
+	c.pump.offer(func() any { return m })
 }
 
-// signalChild sends sig to the running child's process group, if one is running.
-func (c *cycleRunner) signalChild(sig syscall.Signal) {
+// childReady is the child's "my handler is installed". A stop that was asked for before it was
+// ready is delivered now, once.
+func (c *cycleRunner) childReady(p *roundProc) {
+	c.mu.Lock()
+	p.ready = true
+	want := p.wantTerm || c.stopRequested()
+	c.mu.Unlock()
+	if want {
+		p.sendTerm()
+	}
+}
+
+// requestChildTerm asks the running child to stop gracefully. It is sent now when the child is
+// ready, and when the child reports ready otherwise. It is sent at most once.
+func (c *cycleRunner) requestChildTerm() {
+	c.mu.Lock()
+	p := c.child
+	if p == nil {
+		c.mu.Unlock()
+		return
+	}
+	p.wantTerm = true
+	ready := p.ready
+	c.mu.Unlock()
+	if ready {
+		p.sendTerm()
+	}
+}
+
+// requestStop records a stop reason, cancels the cycle's own steps and asks the child to stop.
+func (c *cycleRunner) requestStop(reason string) {
+	c.stop.request(reason)
+	c.cancel()
+	c.phase("stopping", nil)
+	c.requestChildTerm()
+}
+
+// killChildGroup signals the whole group of the running child. It is used only for the hung
+// kill's escalation and for the second signal.
+func (c *cycleRunner) killChildGroup(sig syscall.Signal) {
 	c.mu.Lock()
 	p := c.child
 	c.mu.Unlock()
 	if p != nil {
-		_ = syscall.Kill(-p.pgid, sig)
+		_ = syscall.Kill(-p.pid, sig)
 	}
 }
 
-// watchSignals turns SIGTERM and SIGINT into a stop. The first forwards SIGTERM to the running
-// child, which finishes its suburb and exits 10. A second SIGKILLs the group and exits 10 at
-// once.
+// watchSignals turns SIGTERM and SIGINT into a stop. The first is a graceful stop. The second
+// SIGKILLs the child's group and finishes at once with 10.
 func (c *cycleRunner) watchSignals(sigs <-chan os.Signal, done <-chan struct{}) {
 	n := 0
 	for {
@@ -1108,67 +1744,91 @@ func (c *cycleRunner) watchSignals(sigs <-chan os.Signal, done <-chan struct{}) 
 		case sig := <-sigs:
 			n++
 			if n == 1 {
-				c.stop.request("signal")
-				log.Printf("[cycle] %v: no new rounds; the running round finishes its suburb and the cycle exits %d", sig, exitCrawlCancelled)
-				c.signalChild(syscall.SIGTERM)
+				log.Printf("[cycle] %v: no new rounds; the running round finishes its suburb, then the cycle exits %d", sig, exitCrawlCancelled)
+				c.requestStop("signal")
 				continue
 			}
 			log.Printf("[cycle] second %v: SIGKILL the round's process group and exit %d now", sig, exitCrawlCancelled)
 			c.forced.Store(true)
 			c.stop.request("signal")
-			c.signalChild(syscall.SIGKILL)
 			c.cancel()
+			c.killChildGroup(syscall.SIGKILL)
 			c.forceExit()
 			return
 		}
 	}
 }
 
-// forceExit is the second-signal exit: release the lock, print the summary and exit. The tests
-// replace it.
+// forceExit is the second-signal exit: release the lock, finish with the decided code, and exit
+// with that same code. If the main path already decided, its code is used, so the summary and the
+// process exit agree in every race.
 func (c *cycleRunner) forceExit() {
-	if c.deps.forceExit != nil {
-		c.deps.forceExit()
-		return
-	}
 	c.releaseLock()
-	c.finish("cancelled", exitCrawlCancelled)
-	os.Exit(exitCrawlCancelled)
+	code := c.finalize(outCancelled, exitCrawlCancelled)
+	c.deps.exit(code)
 }
 
-// finish prints the summary and emits cycle_done. It runs once.
-func (c *cycleRunner) finish(outcome string, code int) {
-	c.finishOnce.Do(func() {
-		c.emit(func(h func(string) eventHeader) any {
-			c.mu.Lock()
-			rounds := c.rounds
-			c.mu.Unlock()
-			return cycleDoneEvent{eventHeader: h("cycle_done"), Outcome: outcome, ExitCode: code, Rounds: rounds}
-		})
-		c.mu.Lock()
-		sum := cycleSummary{
-			CycleID:    c.cfg.cycleID,
-			Job:        c.cfg.job,
-			Outcome:    outcome,
-			ExitCode:   code,
-			Rounds:     c.rounds,
-			StartedAt:  c.started.UTC().Format(time.RFC3339Nano),
-			FinishedAt: c.deps.now().UTC().Format(time.RFC3339Nano),
-			Collector:  currentCollector(),
-			Counts:     c.counts,
-			Preflight:  c.pre,
-		}
-		c.mu.Unlock()
-		if sum.StartedAt == "0001-01-01T00:00:00Z" {
-			sum.StartedAt = sum.FinishedAt
-		}
-		b, err := json.Marshal(sum)
-		if err != nil {
-			log.Printf("[cycle] summary encode failed: %v", err)
-			return
-		}
-		_, _ = fmt.Fprintf(c.deps.stdout, "%s\n", b)
-	})
+// finalize decides the outcome and exit code once. The first caller writes cycle_done, drains the
+// events, prints the one summary line and returns the code. Later callers get the same code back.
+func (c *cycleRunner) finalize(outcome string, code int) int {
+	c.mu.Lock()
+	first := !c.decided
+	if first {
+		c.decided = true
+		c.finalOutcome = outcome
+		c.finalCode = code
+	}
+	o, cd := c.finalOutcome, c.finalCode
+	c.mu.Unlock()
+	if first {
+		c.emit("cycle_done", map[string]any{"outcome": o, "exit_code": cd})
+		c.pump.close(cycleEventPumpCloseWait)
+		c.printSummary(o, cd)
+	}
+	return cd
+}
+
+// printSummary writes the one stdout line.
+func (c *cycleRunner) printSummary(outcome string, code int) {
+	c.mu.Lock()
+	counts := c.counts
+	pre := struct{ lock, driver, chrome, probe string }{c.preLock, c.preDriver, c.preChrome, c.preProbe}
+	var last *string
+	if !c.lastOK.IsZero() {
+		s := c.lastOK.UTC().Format(time.RFC3339Nano)
+		last = &s
+	}
+	rounds := c.rounds
+	c.mu.Unlock()
+	counts.EventsDropped = c.pump.droppedCount()
+
+	finished := c.deps.now().UTC()
+	started := c.started.UTC()
+	if c.started.IsZero() {
+		started = finished
+	}
+	sum := cycleSummary{
+		Schema:     cycleSchema,
+		CycleID:    c.cfg.cycleID,
+		Job:        c.cfg.job,
+		DryRun:     c.cfg.dryRun,
+		Outcome:    outcome,
+		ExitCode:   code,
+		Rounds:     rounds,
+		StartedAt:  started.Format(time.RFC3339Nano),
+		FinishedAt: finished.Format(time.RFC3339Nano),
+		Collector:  currentCollector(),
+		Lock:       pre.lock,
+		Env:        cycleEnvSummary{Driver: pre.driver, Chrome: pre.chrome},
+		Ingest:     cycleIngestSummary{Probe: pre.probe, LastOKAt: last},
+		Counts:     counts,
+	}
+	b, err := json.Marshal(sum)
+	if err != nil {
+		log.Printf("[cycle] summary encode failed: %v", err)
+		return
+	}
+	_, _ = fmt.Fprintf(c.deps.stdout, "%s\n", b)
 }
 
 // currentCollector is the build revision `-mode version` reports.
@@ -1183,123 +1843,88 @@ func (c *cycleRunner) addCounts(r cycleRound) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.counts.Claimed += r.claimed
-	c.counts.Processed += r.processed
 	c.counts.Succeeded += r.succeeded
 	c.counts.Failed += r.failed
 	c.counts.Deferred += r.deferred
-	c.counts.Listings += r.listings
-	c.counts.Events += r.events
-	c.counts.BlockedSweeps += r.blocked
+	c.counts.Blocked += r.blocked
 	c.counts.Pushed += r.pushed
 	c.counts.PushFailed += r.pushFailed
 	c.counts.Quarantined += r.quarantined
 }
 
-// setters for the preflight block. They take mu because the signal goroutine's forced exit
-// reads it.
-func (c *cycleRunner) setLock(l lockReport) {
+// noteOK records the time of the latest accepted answer from ingest.
+func (c *cycleRunner) noteOK() {
 	c.mu.Lock()
-	c.pre.Lock = l
+	c.lastOK = c.deps.now()
 	c.mu.Unlock()
 }
 
-func (c *cycleRunner) setDriver(s string) {
+// setPre updates the preflight state under the lock.
+func (c *cycleRunner) setPre(f func()) {
 	c.mu.Lock()
-	c.pre.Driver = s
+	f()
 	c.mu.Unlock()
 }
 
-func (c *cycleRunner) setChrome(s string) {
-	c.mu.Lock()
-	c.pre.Chrome = s
-	c.mu.Unlock()
+// emit queues one cycle event. Every event carries type, ts and cycle_id.
+func (c *cycleRunner) emit(typ string, fields map[string]any) {
+	m := make(map[string]any, len(fields)+3)
+	for k, v := range fields {
+		m[k] = v
+	}
+	m["type"] = typ
+	m["cycle_id"] = c.cfg.cycleID
+	c.pump.offer(func() any {
+		m["ts"] = c.deps.now().UTC().Format(time.RFC3339Nano)
+		return m
+	})
 }
 
-func (c *cycleRunner) setIngest(s string) {
-	c.mu.Lock()
-	c.pre.Ingest = s
-	c.mu.Unlock()
-}
-
-// Cycle event payloads. Each is an ID, an enum or a count.
-
-type cycleStartEvent struct {
-	eventHeader
-	CycleID        string `json:"cycle_id"`
-	Job            string `json:"job"`
-	DryRun         bool   `json:"dry_run"`
-	MaxRounds      int    `json:"max_rounds"`
-	MaxDurationSec int64  `json:"max_duration_sec"`
-}
-
-type cyclePreflightEvent struct {
-	eventHeader
-	LockState string `json:"lock_state"`
-	Driver    string `json:"driver"`
-	Chrome    string `json:"chrome"`
-	Ingest    string `json:"ingest"`
-}
-
-type roundStartEvent struct {
-	eventHeader
-	Round int `json:"round"`
-}
-
-type cycleRoundDoneEvent struct {
-	eventHeader
-	Round         int  `json:"round"`
-	ExitCode      int  `json:"exit_code"`
-	Hung          bool `json:"hung"`
-	Claimed       int  `json:"claimed"`
-	Processed     int  `json:"processed"`
-	Succeeded     int  `json:"succeeded"`
-	Failed        int  `json:"failed"`
-	Deferred      int  `json:"deferred"`
-	Listings      int  `json:"listings"`
-	Events        int  `json:"events"`
-	BlockedSweeps int  `json:"blocked_sweeps"`
-	NeedsRewarm   bool `json:"needs_rewarm"`
-}
-
-type cycleDoneEvent struct {
-	eventHeader
-	Outcome  string `json:"outcome"`
-	ExitCode int    `json:"exit_code"`
-	Rounds   int    `json:"rounds"`
-}
-
-// emit writes one cycle event through the cycle's writer. A nil writer is a no-op.
-func (c *cycleRunner) emit(build func(h func(string) eventHeader) any) {
-	ev := c.deps.events
-	ev.emit(func() any { return build(ev.header) })
+// phase writes a phase event. until is set for a cooldown only.
+func (c *cycleRunner) phase(name string, until *time.Time) {
+	fields := map[string]any{"name": name}
+	if until != nil {
+		fields["until"] = until.UTC().Format(time.RFC3339Nano)
+	}
+	c.emit("phase", fields)
 }
 
 // emitPreflight writes the preflight event with the checks' current state.
 func (c *cycleRunner) emitPreflight() {
 	c.mu.Lock()
-	p := c.pre
+	lock, driver, chrome, probe := c.preLock, c.preDriver, c.preChrome, c.preProbe
 	c.mu.Unlock()
-	c.emit(func(h func(string) eventHeader) any {
-		return cyclePreflightEvent{eventHeader: h("preflight"), LockState: p.Lock.State, Driver: p.Driver, Chrome: p.Chrome, Ingest: p.Ingest}
+	c.emit("preflight", map[string]any{
+		"lock":   lock,
+		"env":    map[string]any{"driver": driver, "chrome": chrome},
+		"ingest": map[string]any{"probe": probe},
 	})
 }
 
-// emitRoundDone writes the cycle's round_done, which carries the child's counts.
-func (c *cycleRunner) emitRoundDone(r cycleRound) {
-	c.emit(func(h func(string) eventHeader) any {
-		return cycleRoundDoneEvent{
-			eventHeader: h("round_done"), Round: r.round, ExitCode: r.exit, Hung: r.hung,
-			Claimed: r.claimed, Processed: r.processed, Succeeded: r.succeeded, Failed: r.failed,
-			Deferred: r.deferred, Listings: r.listings, Events: r.events, BlockedSweeps: r.blocked,
-			NeedsRewarm: r.needsRewarm,
-		}
+// emitRoundDone writes the cycle's round_done for one child round.
+func (c *cycleRunner) emitRoundDone(round int, r cycleRound) {
+	c.emit("round_done", map[string]any{
+		"round":     round,
+		"exit_code": r.exit,
+		"counts": cycleCounts{
+			Claimed:       r.claimed,
+			Succeeded:     r.succeeded,
+			Failed:        r.failed,
+			Deferred:      r.deferred,
+			Blocked:       r.blocked,
+			Pushed:        r.pushed,
+			PushFailed:    r.pushFailed,
+			Quarantined:   r.quarantined,
+			EventsDropped: c.pump.droppedCount(),
+		},
 	})
 }
+
+// --- production wiring ---
 
 // defaultEnsureChrome is the production Chrome warm for a drain or repair. It uses the existing
-// warm logic (ensureChromeWarm), and only in CDP mode: a Playwright-launched or gateway round has
-// no dedicated Chrome to warm. State is one of not_used, skipped, warm, unusable (exit 4) or
-// env_broken (exit 8).
+// warm logic (ensureChromeWarm), in CDP mode only. State is one of not_used, skipped, warm,
+// unusable (exit 4) or env_broken (exit 8).
 func defaultEnsureChrome(ctx context.Context) (string, int) {
 	cfg := loadListingsConfig()
 	if selectFetcherMode(cfg.crawlConfig) != fetcherModeCDP {
@@ -1324,9 +1949,9 @@ func defaultEnsureChrome(ctx context.Context) (string, int) {
 	return "warm", 0
 }
 
-// defaultChromeReachable is the read-only Chrome check the preflight job uses. It launches nothing
-// and fetches nothing: it asks the CDP endpoint whether it answers /json/version. Warmth needs a
-// real REA fetch, which a preflight does not make, so the summary says "reachable", not "warm".
+// defaultChromeReachable is the read-only Chrome check the preflight uses. It launches nothing and
+// fetches nothing: it asks the CDP endpoint whether /json/version answers. Warmth needs a real REA
+// fetch, which a preflight does not make, so the summary says reachable, never warm.
 func defaultChromeReachable() string {
 	cfg := loadListingsConfig()
 	if selectFetcherMode(cfg.crawlConfig) != fetcherModeCDP {
@@ -1338,15 +1963,61 @@ func defaultChromeReachable() string {
 	return "unreachable"
 }
 
-// probeIngestWith runs ProbeAuth against the pinned ingest URL. It uses the S-FETCH client and
-// mapping, with no event writer, so the probe emits nothing.
-func probeIngestWith(ctx context.Context, ingestURL string) int {
-	ir := newIngestRound(crawlSinkIngest, loadAgentConfig(), ingestURL, nil)
-	return ir.probe(ctx)
+// defaultRecoverChrome is the wedged-Chrome recovery the rc 4 path uses (kill, clear the profile
+// locks, relaunch). It applies only to a CDP-driven Chrome.
+func defaultRecoverChrome() error {
+	cfg := loadListingsConfig()
+	if selectFetcherMode(cfg.crawlConfig) != fetcherModeCDP {
+		return errors.New("no dedicated Chrome to recover: not CDP mode")
+	}
+	return recoverWedgedChrome(loadChromeConfig(cfg.cdpURL))
 }
 
-// reportGapWith sends a ReportCycle for a round that could not report for itself. The counts are
-// zero, because the round's own counts never reached the server.
+// probeWordFor names an ingest probe failure with the contract's ingest.probe word. The same
+// words are the ingest_error code.
+func probeWordFor(err error) string {
+	if err == nil {
+		return "ok"
+	}
+	var te *tokenError
+	if errors.As(err, &te) {
+		return "token"
+	}
+	if strings.HasPrefix(connectMessage(err), "contract_too_old") {
+		return "contract"
+	}
+	if code, ok := errCode(err); ok {
+		switch code {
+		case connectrpc.CodeUnauthenticated:
+			return "unauthenticated"
+		case connectrpc.CodePermissionDenied:
+			return "permission_denied"
+		}
+	}
+	return "unavailable"
+}
+
+// probeIngestDetail runs ProbeAuth against the pinned ingest URL and returns the S-FETCH exit
+// code and the contract word. A contract mismatch is 15. Unimplemented or not found is 8, and its
+// probe word is unavailable (the exit code carries the environment fault).
+func probeIngestDetail(ctx context.Context, ingestURL string) (int, string) {
+	ir := newIngestRound(crawlSinkIngest, loadAgentConfig(), ingestURL, nil)
+	resp, err := ir.client.probe(ctx)
+	if err == nil && resp.GetMinContractVersion() > housingingest.ContractVersion {
+		return exitIngestContract, "contract"
+	}
+	if err != nil {
+		code := ingestRoundExit(err)
+		if code == 0 {
+			code = exitIngestUnavailable
+		}
+		return code, probeWordFor(err)
+	}
+	return 0, "ok"
+}
+
+// reportGapWith sends a ReportCycle for a round or a preflight that could not report for itself.
+// The counts are zero, because the round's own counts never reached the server.
 func reportGapWith(cycleID, outcome string, exit int, ingestURL string) {
 	ir := newIngestRound(crawlSinkIngest, loadAgentConfig(), ingestURL, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -1358,6 +2029,6 @@ func reportGapWith(cycleID, outcome string, exit int, ingestURL string) {
 		Counts:   &pb.CycleCounts{},
 	}
 	if err := ir.client.reportCycle(ctx, req); err != nil {
-		log.Printf("[cycle] ReportCycle for a round that could not report failed (best-effort): %s", errCodeWord(err))
+		log.Printf("[cycle] ReportCycle for a stalled round failed (best-effort): %s", errCodeWord(err))
 	}
 }

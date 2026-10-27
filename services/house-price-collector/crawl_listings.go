@@ -267,9 +267,13 @@ type listingsCrawler struct {
 	sink sweepSink
 	// events and jobID carry the round's event stream into the page loop: one fetch event
 	// per page, so the -mode cycle parent can tell a working child from a hung one (S2).
-	// A nil writer is a no-op, and the db path never sets them.
+	// crawlAgentJob sets them for every sink. A nil writer, or an unset CRAWL_EVENTS_FD, writes
+	// nothing, so the db path is unchanged in behaviour.
 	events *crawlEvents
 	jobID  string
+	// pageStop, when set, is asked after every page. A false answer ends the sweep at once: the
+	// events pipe broke or the parent is gone (agentPageStop, batch 1 item 5).
+	pageStop func() bool
 }
 
 // runListings returns the process exit code: 0 on success, 3 when the browser
@@ -551,6 +555,11 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		fetchMs := time.Since(fetchStart).Milliseconds()
 		pages++
 		lc.events.fetch(lc.jobID, source, page, fetchOutcomeName(outcome))
+		if lc.pageStop != nil && !lc.pageStop() {
+			status := blockedOrPartial(len(collected))
+			tw.WritePage(tracePageRecord{Page: page, URL: urlFor(page), Ms: fetchMs, Bytes: len(html), WantPages: wantPages, Outcome: "stopped", Status: status.String(), Decision: "stop-abandoned"})
+			return finish(status)
+		}
 		if outcome == outcomeBlocked {
 			*blockCounter++
 			status := blockedOrPartial(len(collected))

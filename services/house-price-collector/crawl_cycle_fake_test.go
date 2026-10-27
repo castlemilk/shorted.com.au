@@ -1,14 +1,13 @@
 package main
 
-// crawl_cycle_fake_test.go is the fake child for the -mode cycle tests. The cycle re-execs
-// the test binary; TestMain sees cycleFakeChildEnv and runs runCycleFakeChild instead of the
-// test suite. The child's behaviour per round comes from plan.json in the directory the env
-// names. Round n (0-based, counted in count) takes step n, and the last step repeats.
+// crawl_cycle_fake_test.go is the fake child for the -mode cycle tests. The cycle re-execs the test
+// binary; TestMain sees cycleFakeChildEnv and runs runCycleFakeChild instead of the test suite. The
+// child's behaviour per round comes from plan.json in the directory the env names. Round n (0-based,
+// counted by bumpFakeCount) takes step n, and the last step repeats.
 //
-// The child emits its events through the real crawlEvents writer on CRAWL_EVENTS_FD, so the
-// schema under test is the production one. It can hang, ignore or handle SIGTERM, leave a
-// grandchild in its process group, run the real withCrawlLock, and write stdout noise that must
-// never reach the cycle's stdout.
+// The fake follows runAgent's real order: the SIGTERM handler is installed, then ready is written,
+// and only then does any work happen. It writes its events through the real crawlEvents writer on
+// CRAWL_EVENTS_FD, so the schema under test is the production one.
 
 import (
 	"encoding/json"
@@ -37,14 +36,19 @@ type fakeStep struct {
 	Processed     int    `json:"processed,omitempty"`      // round_done counts
 	Succeeded     int    `json:"succeeded,omitempty"`
 	Failed        int    `json:"failed,omitempty"`
-	Exit          int    `json:"exit,omitempty"`       // exit code after round_done
+	Deferred      int    `json:"deferred,omitempty"`
+	Blocked       int    `json:"blocked,omitempty"`       // round_done blocked_sweeps
+	Exit          int    `json:"exit,omitempty"`          // exit code after round_done
+	DelayExitMs   int    `json:"delay_exit_ms,omitempty"` // pause after the work, before round_done
+	DelayReadyMs  int    `json:"delay_ready_ms,omitempty"`
 	Hang          bool   `json:"hang,omitempty"`       // go silent after the events
-	OnTerm        string `json:"on_term,omitempty"`    // "" die | "ignore" | "exit10"
-	Grandchild    string `json:"grandchild,omitempty"` // "" | "sleep" | "sh_ignore_term"
+	OnTerm        string `json:"on_term,omitempty"`    // "" (no handler: a TERM kills) | ignore | exit10 | count
+	Grandchild    string `json:"grandchild,omitempty"` // "" | sleep | sh_ignore_term
 	Noise         bool   `json:"noise,omitempty"`      // write to stdout (must not reach the cycle's stdout)
-	Lock          bool   `json:"lock,omitempty"`       // run withCrawlLock; exit 12 when refused
+	Lock          bool   `json:"lock,omitempty"`       // run withCrawlLock
 	RecordEnv     bool   `json:"record_env,omitempty"` // write the environment to env-N.txt
 	SkipRoundDone bool   `json:"skip_round_done,omitempty"`
+	Startup       bool   `json:"startup,omitempty"` // emit probe_auth start/done
 }
 
 // runCycleFakeChild is the fake child's main. It returns the exit code.
@@ -71,10 +75,21 @@ func runCycleFakeChild(dir string) int {
 		fmt.Println("NOISE-ON-STDOUT")
 		fmt.Fprintln(os.Stderr, "stderr noise")
 	}
-	if step.OnTerm == "ignore" {
-		signal.Ignore(syscall.SIGTERM)
-	}
+	// As runAgent does: a dead events reader is EPIPE, not a kill.
+	signal.Ignore(syscall.SIGPIPE)
 	ev := newCrawlEventsFromEnv()
+
+	if step.DelayReadyMs > 0 {
+		time.Sleep(time.Duration(step.DelayReadyMs) * time.Millisecond)
+	}
+	// The handler comes before ready, as in runAgent.
+	installFakeTermHandler(dir, step, ev)
+	ev.ready()
+
+	if step.Startup {
+		ev.startup("probe_auth", "start", "")
+		ev.startup("probe_auth", "done", "ok")
+	}
 	if step.Grandchild != "" {
 		spawnFakeGrandchild(dir, tag, step.Grandchild)
 	}
@@ -83,15 +98,6 @@ func runCycleFakeChild(dir string) int {
 			ev.roundDone(roundResult{}, 0)
 			return 0
 		})
-	}
-	if step.OnTerm == "exit10" {
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, syscall.SIGTERM)
-		go func() {
-			<-ch
-			ev.roundDone(roundResult{processed: step.Processed}, exitCrawlCancelled)
-			os.Exit(exitCrawlCancelled)
-		}()
 	}
 
 	job := func(i int) string { return "job-" + strconv.Itoa(i) }
@@ -114,22 +120,59 @@ func runCycleFakeChild(dir string) int {
 		time.Sleep(time.Hour)
 		return 0
 	}
+	time.Sleep(time.Duration(step.DelayExitMs) * time.Millisecond)
 	if !step.SkipRoundDone {
 		ev.roundDone(roundResult{
-			processed: step.Processed,
-			succeeded: step.Succeeded,
-			failed:    step.Failed,
-			anyRewarm: step.Exit == 3 || step.Exit == 5,
-			fatalErr:  false,
-			cancelled: step.Exit == exitCrawlCancelled,
-			roundExit: 0,
-			wroteAny:  false,
-			events:    0,
-			listings:  0,
-			deferred:  0,
+			processed:     step.Processed,
+			succeeded:     step.Succeeded,
+			failed:        step.Failed,
+			deferred:      step.Deferred,
+			blockedSweeps: step.Blocked,
+			anyRewarm:     step.Exit == 3 || step.Exit == 5,
+			cancelled:     step.Exit == exitCrawlCancelled,
 		}, step.Exit)
 	}
+	// Written after round_done, so a test can tell the round has ended (the cycle is now deciding).
+	_ = os.WriteFile(filepath.Join(dir, "done-"+tag), nil, 0o644)
 	return step.Exit
+}
+
+// installFakeTermHandler sets the child's SIGTERM behaviour from the step. Each handled TERM is
+// recorded in terms.txt, so a test can count exactly how many graceful stops the child received.
+func installFakeTermHandler(dir string, step fakeStep, ev *crawlEvents) {
+	switch step.OnTerm {
+	case "ignore":
+		signal.Ignore(syscall.SIGTERM)
+	case "exit10", "count":
+		ch := make(chan os.Signal, 4)
+		signal.Notify(ch, syscall.SIGTERM)
+		go func() {
+			<-ch
+			appendFakeTerm(dir)
+			// Keep recording every later TERM as it arrives, so a second graceful stop is counted
+			// even while this child is finishing (the sleep below does not read the channel).
+			go func() {
+				for range ch {
+					appendFakeTerm(dir)
+				}
+			}()
+			if step.OnTerm == "count" {
+				time.Sleep(800 * time.Millisecond)
+			}
+			ev.roundDone(roundResult{processed: step.Processed, cancelled: true}, exitCrawlCancelled)
+			os.Exit(exitCrawlCancelled)
+		}()
+	}
+}
+
+// appendFakeTerm records one received graceful stop.
+func appendFakeTerm(dir string) {
+	f, err := os.OpenFile(filepath.Join(dir, "terms.txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	_, _ = f.WriteString("TERM\n")
+	_ = f.Close()
 }
 
 // bumpFakeCount returns the round index for this child and advances the counter.
@@ -143,8 +186,8 @@ func bumpFakeCount(dir string) int {
 	return n
 }
 
-// spawnFakeGrandchild starts a process in the child's group that the cycle must kill with it.
-// Its pid goes to grandchild-N.pid so the test can check it is gone.
+// spawnFakeGrandchild starts a process in the child's group. Its pid goes to grandchild-N.pid, so
+// a test can check the group was not signalled, and the test cleanup kills it.
 func spawnFakeGrandchild(dir, tag, kind string) {
 	var cmd *exec.Cmd
 	switch kind {

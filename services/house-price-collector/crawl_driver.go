@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -45,6 +46,12 @@ func crawlDriverRunOptions() *playwright.RunOptions {
 // playwright.Run starts the driver process and fails when the driver is missing or out of
 // date. It does not launch a browser, and the driver is stopped again straight away.
 func checkPlaywrightDriver() error {
+	// Read-only: a missing directory is reported, never created here.
+	if dir := resolveDriverDir(); dir != "" {
+		if _, err := os.Stat(dir); err != nil {
+			return fmt.Errorf("%w: driver directory %s is absent", errPlaywrightDriverMissing, dir)
+		}
+	}
 	pw, err := playwright.Run(crawlDriverRunOptions())
 	if err != nil {
 		return err

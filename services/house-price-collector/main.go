@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -90,7 +91,15 @@ func run() int {
 	authCheck := flag.Bool("auth-check", false, "server-enqueue only: prove the ID token and BrandBrain's allowlist with a read, create no jobs, then exit")
 	job := flag.String("job", "", "cycle only: drain (rounds until the queue is empty) | repair (install-driver, warm Chrome, warmcheck) | preflight (read-only report, no lock, claims nothing)")
 	maxDuration := flag.Duration("max-duration", defaultMaxDuration, "cycle only: stop starting rounds at this deadline and stop the running round (outcome budget, exit 0)")
-	flag.Parse()
+	// Parse with ContinueOnError, so a bad flag can return instead of exiting. A -mode cycle
+	// flag error still prints its one summary line (exit 8). Other modes exit 2, as before.
+	flag.CommandLine.Init(os.Args[0], flag.ContinueOnError)
+	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return cycleFlagFailure(os.Args[1:], os.Stdout)
+	}
 
 	// version needs no environment at all: it prints the build revision as one
 	// JSON line, so dispatch it before anything else.

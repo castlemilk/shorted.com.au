@@ -16,7 +16,16 @@ func probeIngestRound(ctx context.Context, ir *ingestRound, stop *stopSignal) in
 		case <-pctx.Done():
 		}
 	}()
+	ir.events.startup("probe_auth", "start", "")
 	code := ir.probe(pctx)
+	outcome := "ok"
+	switch {
+	case stop.Reason() != "":
+		outcome = "stopped"
+	case code != 0:
+		outcome = "error"
+	}
+	ir.events.startup("probe_auth", "done", outcome)
 	if stop.Reason() != "" {
 		return exitCrawlCancelled
 	}
