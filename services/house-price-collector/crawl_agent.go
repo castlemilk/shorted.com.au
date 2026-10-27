@@ -619,7 +619,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) (code int) {
 	var final roundResult
 	defer func() { events.roundDone(final, code) }()
 
-	sink, refusal := resolveCrawlSink("agent", os.Getenv)
+	sink, ingestURL, refusal := resolveSink("agent", os.Getenv)
 	if refusal != "" {
 		log.Printf("[agent] FATAL: refusing to start: %s", refusal)
 		return exitSinkRefused
@@ -631,7 +631,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) (code int) {
 	}
 	if sink != crawlSinkDB {
 		// ProbeAuth runs inside the round, after the lock and the signal handlers.
-		ctx = withIngestRound(ctx, newIngestRound(sink, acfg, os.Getenv("SHORTED_INGEST_URL"), events))
+		ctx = withIngestRound(ctx, newIngestRound(sink, acfg, ingestURL, events))
 	}
 
 	lock := newCrawlLockFromEnv()

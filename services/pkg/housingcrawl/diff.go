@@ -122,9 +122,10 @@ func validateSweep(sw Sweep) error {
 	if sw.RunTS.IsZero() {
 		return fmt.Errorf("%w: RunTS is zero", ErrInvalidSweep)
 	}
-	for _, l := range sw.Listings {
+	for i, l := range sw.Listings {
 		if l.Source != sw.Source {
-			return fmt.Errorf("%w: listing %q has source %q, sweep is %q", ErrInvalidSweep, l.ListingID, l.Source, sw.Source)
+			// The position, never the listing ID: this text can reach a job's submit error.
+			return fmt.Errorf("%w: listing %d has source %q, sweep is %q", ErrInvalidSweep, i, l.Source, sw.Source)
 		}
 	}
 	return nil
@@ -224,7 +225,7 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 				if err := markSeenOnly(ctx, tx, source, l.ListingID, runTs); err != nil {
 					return events, err
 				}
-				log.Printf("[listings] %s %s: skipping listing %s (permanent row error, kept the rest of the suburb): %v", t.Display, source, l.ListingID, derr)
+				log.Print(rowSkipMessage(t.Display, source, derr))
 				continue
 			}
 			return events, derr // transient → fail the suburb so it re-crawls
@@ -504,6 +505,23 @@ func (d *differ) addressPriceMove(addrPrior *storedListing, l RawListing) (Price
 // drop, a deadlock/serialisation failure, ctx cancellation, or any non-Postgres
 // error) is TRANSIENT: it is propagated so the suburb fails and requeues rather
 // than silently dropping data on a blip.
+// rowSkipMessage is the log line for a listing dropped on a permanent row error. It
+// names the suburb and the SQLSTATE class only. The listing ID is not logged, and neither
+// is the driver's text, because that can carry the value that failed.
+func rowSkipMessage(suburb, source string, err error) string {
+	return fmt.Sprintf("[listings] %s %s: skipping a listing (permanent row error, SQLSTATE %s; kept the rest of the suburb)",
+		suburb, source, rowErrorCode(err))
+}
+
+// rowErrorCode is the SQLSTATE of a Postgres error, or "unknown" for anything else.
+func rowErrorCode(err error) string {
+	var pg *pgconn.PgError
+	if errors.As(err, &pg) && pg.Code != "" {
+		return pg.Code
+	}
+	return "unknown"
+}
+
 func isPermanentRowError(err error) bool {
 	var pg *pgconn.PgError
 	if !errors.As(err, &pg) {

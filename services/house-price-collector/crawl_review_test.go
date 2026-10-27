@@ -834,7 +834,7 @@ func TestIngestURLIsPinned(t *testing.T) {
 	accept := []string{
 		"https://housing-ingest-uiekqxovma-km.a.run.app",
 		"https://api.shorted.com.au",
-		"https://ingest.shorted.com.au:443/path",
+		"https://api.shorted.com.au:443/path",
 	}
 	reject := []string{
 		"http://housing-ingest-uiekqxovma-km.a.run.app",

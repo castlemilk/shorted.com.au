@@ -56,16 +56,14 @@ const shadowFailLimit = 3
 // a var so tests can shorten it. Production never changes it.
 var shadowDryRunTimeout = 15 * time.Second
 
-// ingestHost is the one shorted ingest host the rig pins. Any other host under
-// shortedDomainSuffix is accepted too.
-const (
-	ingestHost          = "housing-ingest-uiekqxovma-km.a.run.app"
-	shortedDomainSuffix = ".shorted.com.au"
-)
+// ingestHosts is the EXACT set of hosts the rig will push to. No suffix match: a suffix
+// let a zoned IPv6 literal such as [::ffff:A.B.C.D%25.shorted.com.au] through, and Go would
+// dial the literal address.
+var ingestHosts = map[string]bool{
+	"api.shorted.com.au":                     true,
+	"housing-ingest-uiekqxovma-km.a.run.app": true,
+}
 
-// testAllowLoopbackIngest opens the ingest URL check to plain-http loopback hosts. It
-// is set ONLY by _test.go files, never from the environment, because the environment is
-// the thing this check does not trust.
 var testAllowLoopbackIngest bool
 
 type crawlSinkMode string
@@ -76,10 +74,29 @@ const (
 	crawlSinkShadow crawlSinkMode = "shadow"
 )
 
+// plainHostname reports whether h is a plain DNS name: ASCII letters, digits, '.' and '-'
+// only. That excludes brackets, colons, percent signs (IPv6 zones) and every other
+// character a URL host can carry that is not a name.
+func plainHostname(h string) bool {
+	if h == "" {
+		return false
+	}
+	for i := 0; i < len(h); i++ {
+		c := h[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '.', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // validateIngestURL accepts only the pinned shorted ingest. It must be https, carry no
-// userinfo, name no port other than 443, and name a host: either the deployed service
-// or a host under .shorted.com.au. An IP literal, a lookalike such as
-// shorted.com.au.evil.com, or anything else is refused.
+// userinfo, name no port other than 443, and name a plain DNS host (plainHostname) that
+// is exactly one of ingestHosts. An IP literal of any kind, a zoned literal, a lookalike
+// such as shorted.com.au.evil.com, and any other host, including www.shorted.com.au, is
+// refused.
 func validateIngestURL(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -98,13 +115,13 @@ func validateIngestURL(raw string) error {
 	if p := u.Port(); p != "" && p != "443" {
 		return errors.New("SHORTED_INGEST_URL must not name a port")
 	}
-	if net.ParseIP(host) != nil {
-		return errors.New("SHORTED_INGEST_URL must name a host, not an IP literal")
+	if !plainHostname(host) || net.ParseIP(host) != nil {
+		return errors.New("SHORTED_INGEST_URL must name a plain DNS host")
 	}
-	if host == ingestHost || strings.HasSuffix(host, shortedDomainSuffix) {
-		return nil
+	if !ingestHosts[host] {
+		return errors.New("SHORTED_INGEST_URL host is not an allowed shorted ingest host")
 	}
-	return errors.New("SHORTED_INGEST_URL host is not a shorted host")
+	return nil
 }
 
 // loopbackCDP reports whether a CRAWL_CDP_URL names this machine. The ingest sinks run
@@ -123,9 +140,17 @@ func loopbackCDP(raw string) bool {
 	}
 }
 
-// resolveCrawlSink validates CRAWL_SINK for the mode being run. It returns the sink, or
-// a non-empty reason to refuse to start (the caller exits exitSinkRefused). Any mode
-// other than -mode agent ignores CRAWL_SINK entirely. For -mode agent the refusals are:
+// resolveCrawlSink is resolveSink without the URL, for callers that only need the verdict.
+func resolveCrawlSink(mode string, getenv func(string) string) (crawlSinkMode, string) {
+	sink, _, refusal := resolveSink(mode, getenv)
+	return sink, refusal
+}
+
+// resolveSink validates CRAWL_SINK for the mode being run. It returns the sink, the
+// validated, normalised ingest URL (whitespace trimmed), and a non-empty refusal when
+// the process must not start (the caller exits exitSinkRefused). The URL returned is the
+// only one the round may use. Any mode other than -mode agent ignores CRAWL_SINK entirely.
+// For -mode agent the refusals are:
 //   - an unknown CRAWL_SINK value;
 //   - ingest or shadow without a pinned SHORTED_INGEST_URL (validateIngestURL);
 //   - ingest with DATABASE_URL set (a rig must not dual-write), or shadow without it;
@@ -133,49 +158,56 @@ func loopbackCDP(raw string) bool {
 //     dry run, and that default must never decide what ingest does;
 //   - a gateway fetch route (CRAWL_GATEWAY_URL, CRAWL_FETCH_MODE=gateway), which sends
 //     every page through a BrandBrain gateway;
-//   - a CRAWL_CDP_URL that is not loopback.
-func resolveCrawlSink(mode string, getenv func(string) string) (crawlSinkMode, string) {
+//   - a CRAWL_CDP_URL that is not loopback;
+//   - CRAWL_TRACE or CRAWL_TRACE_DIR set to anything but false: a trace writes full portal
+//     pages and screenshots to disk.
+func resolveSink(mode string, getenv func(string) string) (crawlSinkMode, string, string) {
 	if mode != "agent" {
-		return crawlSinkDB, ""
+		return crawlSinkDB, "", ""
 	}
 	raw := strings.TrimSpace(getenv(crawlSinkEnv))
 	if raw == "" {
-		return crawlSinkDB, ""
+		return crawlSinkDB, "", ""
 	}
 	sink := crawlSinkMode(raw)
 	switch sink {
 	case crawlSinkDB:
-		return crawlSinkDB, ""
+		return crawlSinkDB, "", ""
 	case crawlSinkIngest, crawlSinkShadow:
 	default:
-		return "", fmt.Sprintf("%s must be db, ingest or shadow (got %q)", crawlSinkEnv, raw)
+		return "", "", fmt.Sprintf("%s must be db, ingest or shadow (got %q)", crawlSinkEnv, raw)
 	}
 	ingestURL := strings.TrimSpace(getenv("SHORTED_INGEST_URL"))
 	if ingestURL == "" {
-		return "", fmt.Sprintf("%s=%s needs SHORTED_INGEST_URL", crawlSinkEnv, sink)
+		return "", "", fmt.Sprintf("%s=%s needs SHORTED_INGEST_URL", crawlSinkEnv, sink)
 	}
 	if err := validateIngestURL(ingestURL); err != nil {
-		return "", fmt.Sprintf("%s=%s: %v", crawlSinkEnv, sink, err)
+		return "", "", fmt.Sprintf("%s=%s: %v", crawlSinkEnv, sink, err)
 	}
 	hasDB := strings.TrimSpace(getenv("DATABASE_URL")) != ""
 	if sink == crawlSinkIngest && hasDB {
-		return "", crawlSinkEnv + "=ingest refuses to start with DATABASE_URL set: a rig must not hold a database URL"
+		return "", "", crawlSinkEnv + "=ingest refuses to start with DATABASE_URL set: a rig must not hold a database URL"
 	}
 	if sink == crawlSinkShadow && !hasDB {
-		return "", crawlSinkEnv + "=shadow needs DATABASE_URL: the legacy diff still runs"
+		return "", "", crawlSinkEnv + "=shadow needs DATABASE_URL: the legacy diff still runs"
 	}
 	if sink == crawlSinkIngest {
 		if dry := strings.TrimSpace(getenv("CRAWL_DRY_RUN")); dry != "true" && dry != "false" {
-			return "", crawlSinkEnv + "=ingest needs CRAWL_DRY_RUN set explicitly to true or false"
+			return "", "", crawlSinkEnv + "=ingest needs CRAWL_DRY_RUN set explicitly to true or false"
 		}
 	}
 	if strings.TrimSpace(getenv("CRAWL_GATEWAY_URL")) != "" || strings.EqualFold(strings.TrimSpace(getenv("CRAWL_FETCH_MODE")), "gateway") {
-		return "", crawlSinkEnv + "=" + string(sink) + " refuses the gateway fetch route: pages would leave the rig"
+		return "", "", crawlSinkEnv + "=" + string(sink) + " refuses the gateway fetch route: pages would leave the rig"
 	}
 	if cdp := strings.TrimSpace(getenv("CRAWL_CDP_URL")); cdp != "" && !loopbackCDP(cdp) {
-		return "", crawlSinkEnv + "=" + string(sink) + " needs a loopback CRAWL_CDP_URL"
+		return "", "", crawlSinkEnv + "=" + string(sink) + " needs a loopback CRAWL_CDP_URL"
 	}
-	return sink, ""
+	for _, k := range []string{"CRAWL_TRACE", "CRAWL_TRACE_DIR"} {
+		if v := strings.TrimSpace(getenv(k)); v != "" && !strings.EqualFold(v, "false") {
+			return "", "", crawlSinkEnv + "=" + string(sink) + " refuses " + k + ": a trace writes full portal pages to disk"
+		}
+	}
+	return sink, ingestURL, ""
 }
 
 // errRoundEnded is the answer for a sweep that was not pushed because the round
