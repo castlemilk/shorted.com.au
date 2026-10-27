@@ -31,8 +31,10 @@ func TruncateRunes(s string, max int) string {
 //   - Out-of-range or non-finite numbers become nil (unknown), never zero.
 //   - Over-cap optional strings are truncated at a rune boundary. Unknown status and
 //     price-kind values become "" (unknown). Agent names are capped in count and length.
-//   - A listing whose identity is unusable is dropped: an empty or over-cap listing_id,
-//     an over-cap listing_url, or an over-cap suburb, state or postcode.
+//   - Only identity drops a listing: an empty or over-cap listing_id. Every other
+//     over-cap field is blanked (unknown) and the listing is kept. A dropped listing is
+//     read as delisted, so one long URL or a full state name must not cost a suburb its
+//     COMPLETE status.
 //   - A repeated listing_id keeps its first copy, and the rest are dropped.
 //   - Past MaxListingsPerSweep, the rest are dropped and overflow is true.
 //
@@ -68,9 +70,20 @@ func sanitizeListing(in *pb.Listing, src string) *pb.Listing {
 	if strings.TrimSpace(l.ListingId) == "" || len(l.ListingId) > MaxListingIDBytes {
 		return nil
 	}
-	if len(l.ListingUrl) > MaxURLBytes || len(l.Suburb) > MaxSuburbBytes ||
-		len(l.State) > MaxStateBytes || len(l.Postcode) > MaxPostcodeBytes {
-		return nil
+	// Non-identity fields are blanked, never a reason to drop the listing. The store
+	// stores a blank URL, state, suburb or postcode, and matches a listing on postcode and
+	// suburb, so a blank one is simply a listing that does not match (a miss, not a drop).
+	if len(l.ListingUrl) > MaxURLBytes {
+		l.ListingUrl = ""
+	}
+	if len(l.Suburb) > MaxSuburbBytes {
+		l.Suburb = ""
+	}
+	if len(l.State) > MaxStateBytes {
+		l.State = ""
+	}
+	if len(l.Postcode) > MaxPostcodeBytes {
+		l.Postcode = ""
 	}
 	l.DisplayAddr = TruncateRunes(l.DisplayAddr, MaxAddressBytes)
 	l.AddressKey = TruncateRunes(l.AddressKey, MaxAddressBytes)

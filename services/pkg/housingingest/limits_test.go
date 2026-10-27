@@ -128,10 +128,8 @@ func TestSanitizeOverCapFieldsPassTheSharedValidator(t *testing.T) {
 // Item 6: each over-cap identity field drops the listing, and the drop is counted.
 func TestSanitizeDropsAnUnusableIdentity(t *testing.T) {
 	cases := map[string]func(*pb.Listing){
-		"listing_id over cap":  func(l *pb.Listing) { l.ListingId = strings.Repeat("x", MaxListingIDBytes+1) },
-		"empty listing_id":     func(l *pb.Listing) { l.ListingId = " " },
-		"listing_url over cap": func(l *pb.Listing) { l.ListingUrl = strings.Repeat("u", MaxURLBytes+1) },
-		"suburb over cap":      func(l *pb.Listing) { l.Suburb = strings.Repeat("s", MaxSuburbBytes+1) },
+		"listing_id over cap": func(l *pb.Listing) { l.ListingId = strings.Repeat("x", MaxListingIDBytes+1) },
+		"empty listing_id":    func(l *pb.Listing) { l.ListingId = " " },
 	}
 	for name, mutate := range cases {
 		l := &pb.Listing{Source: "rea", ListingId: "ok", Suburb: "Bondi", State: "NSW", Postcode: "2026"}
@@ -215,4 +213,35 @@ func itoa(i int) string {
 		i /= 10
 	}
 	return string(b[n:])
+}
+
+// Only an over-cap listing_id drops a listing. Every other over-cap identity-ish field
+// is blanked, and the listing is kept.
+func TestSanitizeBlanksNonIdentityFields(t *testing.T) {
+	l := &pb.Listing{Source: "domain", ListingId: "keep", ListingUrl: strings.Repeat("u", MaxURLBytes+1),
+		Suburb: strings.Repeat("s", MaxSuburbBytes+1), State: "NEW SOUTH WALES", Postcode: strings.Repeat("p", MaxPostcodeBytes+1)}
+	kept, skipped, overflow := SanitizeListings([]*pb.Listing{l}, "domain")
+	if len(kept) != 1 || skipped != 0 || overflow {
+		t.Fatalf("kept=%d skipped=%d overflow=%v, want the listing kept", len(kept), skipped, overflow)
+	}
+	k := kept[0]
+	if k.ListingUrl != "" || k.Suburb != "" || k.State != "" || k.Postcode != "" {
+		t.Errorf("non-identity fields not blanked: url=%d suburb=%d state=%q postcode=%d",
+			len(k.ListingUrl), len(k.Suburb), k.State, len(k.Postcode))
+	}
+	if err := ValidateListing("", k, "domain"); err != nil {
+		t.Errorf("a blanked listing fails the shared validator: %v", err)
+	}
+	if l.ListingUrl == "" {
+		t.Error("sanitising modified the input")
+	}
+}
+
+// An over-cap listing_id is the one drop, and it is counted.
+func TestSanitizeDropsAnOverCapListingID(t *testing.T) {
+	l := &pb.Listing{Source: "domain", ListingId: strings.Repeat("i", MaxListingIDBytes+1), Suburb: "Bondi", State: "NSW", Postcode: "2026"}
+	kept, skipped, _ := SanitizeListings([]*pb.Listing{l}, "domain")
+	if len(kept) != 0 || skipped != 1 {
+		t.Fatalf("kept=%d skipped=%d, want the listing dropped and counted", len(kept), skipped)
+	}
 }

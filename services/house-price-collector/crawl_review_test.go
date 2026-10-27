@@ -1119,3 +1119,83 @@ func TestJobDispositionTableAcceptsOnlyTheDocumentedAnswers(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Probe and round helpers.
 // ---------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// Fix 1 (safety re-review): the may-apply flag belongs to one attempt.
+// -----------------------------------------------------------------------------
+
+// Attempt 1 gets three Unavailable answers, so a push may have been stored and the job
+// is submitted failed. Attempts 2 and 3 are rate-limited, which stores nothing, so both
+// must DEFER. A flag keyed by job ID alone would fail them, because BrandBrain claims the
+// same job again straight away.
+func TestMayApplyDoesNotOutliveItsAttempt(t *testing.T) {
+	unavailable := connectrpc.NewError(connectrpc.CodeUnavailable, errors.New("down"))
+	limited := connectrpc.NewError(connectrpc.CodeResourceExhausted, errors.New("rate_limited"))
+	cl := &stubCallLog{}
+	fi := &stubIngest{log: cl, pushErrs: []error{unavailable, unavailable, unavailable, limited, limited}}
+	ing := serveStubIngest(t, fi)
+	ir := newStubIngestRound(crawlSinkIngest, ing.URL, "", stubTokens("tok"), nil)
+	cb := newCircuitBreaker(3, time.Minute, time.Hour)
+	run := func(attempts int) string {
+		job := &agentCrawlJob{ID: "job-1", Kind: "housing", Suburb: "Bondi", State: "NSW", Postcode: "2026",
+			Source: "domain", Tier: "listings", Attempts: attempts}
+		ctx := withIngestRound(context.Background(), ir) // as the real round attaches it
+		_, status, _, _, _ := ir.jobRunner(nil, stubDomainFetcher(), stubListingsConfig(), resumeSet{}, cb, nil, nil)(ctx, job)
+		return status
+	}
+	if got := run(1); got != "failed" {
+		t.Fatalf("attempt 1 (503s, may be stored) = %q, want failed", got)
+	}
+	if got := run(2); got != "deferred" {
+		t.Fatalf("attempt 2 (rate-limited, stores nothing) = %q, want deferred: attempt 1's flag leaked", got)
+	}
+	if got := run(3); got != "deferred" {
+		t.Fatalf("attempt 3 (rate-limited, stores nothing) = %q, want deferred: attempt 1's flag leaked", got)
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Fix 2 (safety re-review): one unusable non-identity field never pins a suburb.
+// -----------------------------------------------------------------------------
+
+// A 2,049-byte URL blanks the URL. The listing is kept and the sweep stays COMPLETE.
+func TestOverCapURLKeepsTheSweepComplete(t *testing.T) {
+	job := &agentCrawlJob{ID: "job-u", Suburb: "Bondi", State: "NSW", Postcode: "2026", Attempts: 1}
+	l := collectorListing("L-url")
+	l.ListingUrl = strings.Repeat("u", 2049)
+	req, skipped := buildPushRequest(job, "domain", suburbSweep{listings: housingcrawlRows(l), status: sweepComplete, pages: 1}, time.Now(), "rev", false)
+	if skipped != 0 || req.GetStatus() != pb.SweepStatus_SWEEP_STATUS_COMPLETE {
+		t.Fatalf("over-cap URL: skipped=%d status=%v, want 0 and COMPLETE", skipped, req.GetStatus())
+	}
+	if len(req.GetListings()) != 1 || req.GetListings()[0].GetListingUrl() != "" {
+		t.Fatalf("over-cap URL: listings=%d url=%q, want the listing kept with the URL blanked", len(req.GetListings()), req.GetListings()[0].GetListingUrl())
+	}
+}
+
+// A full state name blanks the state. The listing is kept and the sweep stays COMPLETE.
+func TestFullStateNameKeepsTheSweepComplete(t *testing.T) {
+	job := &agentCrawlJob{ID: "job-s", Suburb: "Bondi", State: "NSW", Postcode: "2026", Attempts: 1}
+	l := collectorListing("L-state")
+	l.State = "NEW SOUTH WALES"
+	req, skipped := buildPushRequest(job, "domain", suburbSweep{listings: housingcrawlRows(l), status: sweepComplete, pages: 1}, time.Now(), "rev", false)
+	if skipped != 0 || req.GetStatus() != pb.SweepStatus_SWEEP_STATUS_COMPLETE || len(req.GetListings()) != 1 {
+		t.Fatalf("full state name: skipped=%d status=%v listings=%d, want kept and COMPLETE", skipped, req.GetStatus(), len(req.GetListings()))
+	}
+	if req.GetListings()[0].GetState() != "" {
+		t.Errorf("state = %q, want blanked", req.GetListings()[0].GetState())
+	}
+}
+
+// An over-cap listing_id is the one drop: the sweep is downgraded to PARTIAL, which never
+// delists, and the other listings still go.
+func TestOverCapListingIDDropsAndDowngradesToPartial(t *testing.T) {
+	job := &agentCrawlJob{ID: "job-i", Suburb: "Bondi", State: "NSW", Postcode: "2026", Attempts: 1}
+	good := collectorListing("L-good")
+	bad := collectorListing("")
+	bad.ListingId = strings.Repeat("i", 201)
+	rows := append(housingcrawlRows(good), housingcrawlRows(bad)...)
+	req, skipped := buildPushRequest(job, "domain", suburbSweep{listings: rows, status: sweepComplete, pages: 1}, time.Now(), "rev", false)
+	if skipped != 1 || req.GetStatus() != pb.SweepStatus_SWEEP_STATUS_PARTIAL || len(req.GetListings()) != 1 {
+		t.Fatalf("over-cap listing_id: skipped=%d status=%v listings=%d, want 1, PARTIAL, 1", skipped, req.GetStatus(), len(req.GetListings()))
+	}
+}

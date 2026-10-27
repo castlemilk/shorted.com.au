@@ -1267,7 +1267,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	// server's counts stand in for the local diff's, and a push failure is never a
 	// local diff error.
 	if pf := firstPushFailure(reaErr, domErr); pf != nil {
-		d := jobDisposition(pf, ingestRoundFrom(ctx).jobMayApply(job.ID))
+		d := jobDisposition(pf, ingestRoundFrom(ctx).jobMayApply(attemptKey(job)))
 		summary.noRetry = d.noRetry
 		summary.Detail = d.errMsg
 		if d.detail != "" {

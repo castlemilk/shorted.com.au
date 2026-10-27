@@ -383,25 +383,33 @@ func (ir *ingestRound) noteShadowResult(err error) {
 	}
 }
 
-// markMayApply records that a job had a push that may have been stored. Such a job's
+// attemptKey names one attempt of one job. The flag is per attempt: a retry claims a
+// new attempt with new idempotency keys, so an earlier attempt's stored push says
+// nothing about it. Keying by job alone once made a rate-limited attempt 2 fail after
+// attempt 1's 503.
+func attemptKey(job *agentCrawlJob) string {
+	return fmt.Sprintf("%s:%d", job.ID, job.Attempts)
+}
+
+// markMayApply records that an attempt had a push that may have been stored. Such an
 // attempt is never deferred, because its key may already be in the receipts.
-func (ir *ingestRound) markMayApply(jobID string) {
+func (ir *ingestRound) markMayApply(attempt string) {
 	ir.mu.Lock()
 	defer ir.mu.Unlock()
 	if ir.mayApply == nil {
 		ir.mayApply = map[string]bool{}
 	}
-	ir.mayApply[jobID] = true
+	ir.mayApply[attempt] = true
 }
 
-// jobMayApply reports whether a job had a push that may have been stored.
-func (ir *ingestRound) jobMayApply(jobID string) bool {
+// jobMayApply reports whether an attempt had a push that may have been stored.
+func (ir *ingestRound) jobMayApply(attempt string) bool {
 	if ir == nil {
 		return false
 	}
 	ir.mu.Lock()
 	defer ir.mu.Unlock()
-	return ir.mayApply[jobID]
+	return ir.mayApply[attempt]
 }
 
 // probe runs ProbeAuth once per process. For ingest a failure ends the round with its
@@ -479,7 +487,7 @@ func (ir *ingestRound) push(ctx context.Context, job *agentCrawlJob, source stri
 	}
 	resp, mayApply, err := ir.client.pushSweep(ctx, req)
 	if mayApply && !dry {
-		ir.markMayApply(job.ID)
+		ir.markMayApply(attemptKey(job))
 	}
 	if err != nil {
 		ir.noteIngestFailure(job.ID, source, err)
