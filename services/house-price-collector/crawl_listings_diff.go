@@ -28,6 +28,16 @@ func (lc *listingsCrawler) diffSuburb(ctx context.Context, pool *pgxpool.Pool, t
 	return res.Events, err
 }
 
+// writeSweep is the write seam for one (source, suburb) sweep. With no sink it is the
+// local diff, unchanged. A sink (ingest or shadow, crawl_sink.go) takes the sweep
+// instead, and the pool is never touched on that path.
+func (lc *listingsCrawler) writeSweep(ctx context.Context, pool *pgxpool.Pool, t CrawlTarget, source string, sweep suburbSweep, runTs time.Time) (int, error) {
+	if lc.sink == nil {
+		return lc.diffSuburb(ctx, pool, t, source, sweep, runTs)
+	}
+	return lc.sink.write(ctx, lc, t, source, sweep, runTs)
+}
+
 // lib maps the collector's sweep status onto the store's status.
 func (s sweepStatus) lib() housingcrawl.SweepStatus {
 	switch s {

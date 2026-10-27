@@ -404,7 +404,7 @@ func TestResolveViaSearch_Flow(t *testing.T) {
 	ff := &fakeFetcher{html: map[string]string{
 		"consumer-suggest": `<html><body><pre>` + syntheticSuggestJSON() + `</pre></body></html>`,
 	}}
-	cr := newTestCrawler(ff, "")
+	cr := newTestCrawler(ff)
 	caches := newPropertyResolveCaches()
 	noop := func() {}
 
@@ -428,7 +428,7 @@ func TestResolveViaSearch_Flow(t *testing.T) {
 // resolves, the traversal index pages are never fetched.
 func TestResolveProfile_SearchIsPrimary(t *testing.T) {
 	ff := &fakeFetcher{html: map[string]string{"consumer-suggest": syntheticSuggestJSON()}}
-	cr := newTestCrawler(ff, "")
+	cr := newTestCrawler(ff)
 
 	url, _, st := cr.resolveProfile(context.Background(), unitKellettsTarget, newPropertyResolveCaches(), func() {})
 	if st != resolveOK || !strings.Contains(url, "-pid-5000002/") {
@@ -445,7 +445,7 @@ func TestResolveProfile_SearchIsPrimary(t *testing.T) {
 // block (so the circuit breaker backs off) instead of silently falling to traversal.
 func TestResolveProfile_BlockShortCircuits(t *testing.T) {
 	ff := &fakeFetcher{blockOn: map[string]bool{"consumer-suggest": true}}
-	cr := newTestCrawler(ff, "")
+	cr := newTestCrawler(ff)
 	if _, _, st := cr.resolveViaSearch(context.Background(), unitKellettsTarget, newPropertyResolveCaches(), func() {}); st != resolveBlocked {
 		t.Errorf("blocked suggest fetch must yield resolveBlocked, got %v", st)
 	}
@@ -462,7 +462,7 @@ func TestResolveProfile_SearchMissTriesTraversal(t *testing.T) {
 	ff := &fakeFetcher{html: map[string]string{
 		"consumer-suggest": `{"_embedded":{"suggestions":[]}}`, // search finds nothing
 	}}
-	cr := newTestCrawler(ff, "")
+	cr := newTestCrawler(ff)
 	tgt := propertyTarget{displayAddress: "19 Example Road", suburb: "Sampleton", stateCode: "VIC", postcode: "3999"}
 	cr.resolveProfile(context.Background(), tgt, newPropertyResolveCaches(), func() {})
 

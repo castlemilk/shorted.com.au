@@ -56,6 +56,8 @@ type suburbSweep struct {
 	listings []RawListing
 	status   sweepStatus
 	pages    int
+	// meta is the portal's page-1 pagination meta (zero, OK false, when unread).
+	meta PageMeta
 }
 
 type listingsConfig struct {
@@ -239,6 +241,8 @@ type listingsStats struct {
 	// 0-event run — the agent path fails the job (re-crawl), the batch path
 	// surfaces it in the run summary.
 	diffErrors int
+	// pushed* count what the ingest server applied for this run's sweeps (crawl_sink.go).
+	pushedUpserted, pushedDelisted, pushedQuarantined int
 	// skippedRows counts individual listings dropped inside diffSuburb's per-row
 	// SAVEPOINT because they hit a PERMANENT data/constraint error
 	// (isPermanentRowError) — the rest of the suburb still persisted. A non-zero
@@ -257,6 +261,10 @@ type listingsCrawler struct {
 	// disabled writer) is a no-op. Set by -mode agent so the co-located macOS
 	// agent UI can tail extraction + failures in-flight.
 	tel *telemetryWriter
+	// sink, when set, receives each (suburb, source) sweep in place of the local
+	// diff: the ingest sink pushes it to shorted, the shadow sink also keeps the
+	// local diff. Nil is the local database diff, unchanged (crawl_sink.go).
+	sink sweepSink
 }
 
 // runListings returns the process exit code: 0 on success, 3 when the browser
@@ -403,21 +411,35 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 	if sweep.status == sweepBlocked {
 		lc.stats.blockedSweeps++
 		lc.tel.failure(t.Display, source, "blocked/poison sweep", map[string]any{"pages": sweep.pages})
-		lc.tel.suburbDone(t.Display, source, 0, 0, sweep.status.String())
+		if lc.sink == nil {
+			// A sink reaches the suburbDone below, so the event is emitted once either way.
+			lc.tel.suburbDone(t.Display, source, 0, 0, sweep.status.String())
+		}
 	}
 
-	if lc.cfg.dryRun {
+	// The dry-run lines carry listing rows, so only the local path prints them. A sink
+	// takes the dry run itself (dry_run=true, or nothing written).
+	if lc.cfg.dryRun && lc.sink == nil {
 		lc.logDryRun(t, source, sweep)
 		return 0, nil
 	}
 	if sweep.status == sweepBlocked {
-		return 0, nil
+		if lc.sink == nil {
+			return 0, nil
+		}
+		// A sink (ingest or shadow) still hears about a blocked sweep: the server
+		// must see BLOCKED with no rows, because that is how a blocked job is
+		// accounted for. Only the rows are dropped.
+		sweep.listings = nil
 	}
-	// Stream each extracted listing live (the "intelligent extraction info").
-	for i := range sweep.listings {
-		lc.tel.listing(t.Display, source, sweep.listings[i])
+	// Stream each extracted listing live (the "intelligent extraction info"). A sink
+	// keeps listing fields out of telemetry: the suburb and counts still stream.
+	if lc.sink == nil {
+		for i := range sweep.listings {
+			lc.tel.listing(t.Display, source, sweep.listings[i])
+		}
 	}
-	n, err := lc.diffSuburb(ctx, pool, t, source, sweep, runTs)
+	n, err := lc.writeSweep(ctx, pool, t, source, sweep, runTs)
 	if err != nil {
 		// A diff failure is NOT a clean 0-event run: the sweep saw real listings
 		// (len(sweep.listings) may be large) but the persist transaction rolled
@@ -501,11 +523,15 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 	consecBlocksAtEntry := *blockCounter
 	lastMismatch := 0.0
 	baseDelay := paceRange{lo: lc.cfg.pageMinDelay, hi: lc.cfg.pageMaxDelay}
+	// sweepMeta is the portal's own page-1 pagination meta, when it was read. It
+	// rides on the sweep so the ingest push can send it (crawl_sink.go).
+	sweepMeta := PageMeta{}
 
 	// finish wraps finishSweep with the trace summary write, so every return
 	// path below is guaranteed to emit summary.json when tracing is on.
 	finish := func(status sweepStatus) suburbSweep {
 		sw := finishSweep(collected, pages, status)
+		sw.meta = sweepMeta
 		tw.WriteSummary(traceSummary{Suburb: t.Display, Source: source, Pages: sw.pages, Listings: len(sw.listings), Status: status.String()})
 		return sw
 	}
@@ -558,6 +584,7 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		if page == 1 {
 			if meta := extractPageMeta(doc, source); meta.OK {
 				metaOK = true
+				sweepMeta = meta
 				totalResults = meta.TotalResults
 				onTargetResults = meta.OnTargetResults
 				if meta.OnTargetResults > 0 {

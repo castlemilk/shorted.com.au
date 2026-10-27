@@ -1,8 +1,6 @@
 package main
 
 import (
-	"strings"
-
 	"github.com/castlemilk/shorted.com.au/services/pkg/housingcrawl"
 )
 
@@ -559,14 +557,6 @@ var crawlTargets = []CrawlTarget{
 	{"greenfields", "Greenfields", "6210", "WA", "5GPER", 4112},
 	{"greenwood", "Greenwood", "6024", "WA", "5GPER", 4109},
 	{"north-perth", "North Perth", "6006", "WA", "5GPER", 4010},
-}
-
-func (t CrawlTarget) reaURL() string {
-	return "https://www.realestate.com.au/neighbourhoods/" + t.Suburb + "-" + t.Postcode + "-" + strings.ToLower(t.State)
-}
-
-func (t CrawlTarget) domainURL() string {
-	return "https://www.domain.com.au/suburb-profile/" + t.Suburb + "-" + strings.ToLower(t.State) + "-" + t.Postcode
 }
 
 // regionCode is the canonical house_price_regions key for a suburb.

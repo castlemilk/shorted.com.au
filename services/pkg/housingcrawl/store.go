@@ -286,8 +286,13 @@ const upsertListingReceiptSQL = `
 			$25, 0, $22, $22, $23, $24, $26, $27, $28, now(), $29)
 		ON CONFLICT (source, listing_id) DO UPDATE SET
 			address_key = EXCLUDED.address_key,
-			listing_url = EXCLUDED.listing_url, region_code = EXCLUDED.region_code,
-			suburb = EXCLUDED.suburb, state_code = EXCLUDED.state_code, postcode = EXCLUDED.postcode,
+			-- A blank here means the rig blanked an over-cap value: keep the stored one. Readers
+			-- filter listing_url and state_code <> '', so a blank overwrite hides the listing.
+			listing_url = COALESCE(NULLIF(EXCLUDED.listing_url, ''), property_listings.listing_url),
+			region_code = EXCLUDED.region_code,
+			suburb = COALESCE(NULLIF(EXCLUDED.suburb, ''), property_listings.suburb),
+			state_code = COALESCE(NULLIF(EXCLUDED.state_code, ''), property_listings.state_code),
+			postcode = COALESCE(NULLIF(EXCLUDED.postcode, ''), property_listings.postcode),
 			display_address = EXCLUDED.display_address, latitude = EXCLUDED.latitude,
 			longitude = EXCLUDED.longitude, property_type = EXCLUDED.property_type,
 			bedrooms = EXCLUDED.bedrooms, bathrooms = EXCLUDED.bathrooms, car_spaces = EXCLUDED.car_spaces,

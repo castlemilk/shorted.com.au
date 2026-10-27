@@ -110,4 +110,4 @@ COPY --from=builder /collector /collector
 
 # Run the collector's crawl mode. It drives the HOST Chrome over CDP
 # (CRAWL_CDP_URL); no local browser/display is launched.
-ENTRYPOINT ["/collector", "-mode", "crawl"]
+ENTRYPOINT ["/collector", "-mode", "agent"]

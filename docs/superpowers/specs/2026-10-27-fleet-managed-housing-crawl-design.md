@@ -73,7 +73,7 @@ shorted CrawlIngestService ── verify JWT · allowlist · re-derive · quaran
   4. write one summary JSON line to stdout. Logs go to stderr.
 - `-mode version` prints `{"revision","modified","source","go"}`. It needs no environment.
 - The agent and cycle modes run **without `DATABASE_URL`**.
-- **Round events** are NDJSON on `CRAWL_EVENTS_FD`: `claim`, `page`, `submit`, `ingest_ok`, `ingest_error`, `finalize_started`, `round_done`. They carry IDs and enums only. Events come only from the work loop, never from a timer.
+- **Round events** are NDJSON on `CRAWL_EVENTS_FD`: `claim`, `page`, `submit`, `ingest_ok`, `ingest_error`, `shadow`, `shadow_circuit`, `finalize_started`, `round_done`. They carry IDs, counts, enums and Connect code words only, never message text. `ingest_ok` is `{job_id, source, applied, replayed}` for each accepted push. `ingest_error` is `{job_id, source, code}` for each failed push, where `code` is a Connect code word, `token` or `transport`. `shadow` is the per-sweep parity record. `shadow_circuit` is written once, when shadow switches off after three consecutive dry-run failures. Events come only from the work loop, never from a timer.
 - **Lock:** the same lockdir as bash's `hc_acquire_lock`, so a Go holder and a bash holder exclude each other. A child of the holder may pass.
 - **SIGTERM:** finish the current suburb (including its push), then exit 10.
 
@@ -167,8 +167,10 @@ No personal data.
 
 **Refresh:**
 - The runtime re-mints when less than 3 minutes remain.
-- The collector calls the loopback `/control/v1/workload-token?audience=…` when less than 60 seconds remain, and once more on a 401.
+- The collector calls the loopback `GET /control/v1/workload-token?audience=…` when less than 60 seconds remain, and once more on a 401.
+- **Loopback response shape (the contract, matching BrandBrain's issuer):** `{"token": "<JWT>", "expires_at": "<RFC 3339>", "audience": "<audience>"}`. The collector requires `token` and `expires_at`, and it requires `audience` to equal `https://api.shorted.com.au/housing-ingest`. It also checks that the token is three base64url segments. A missing field, an audience mismatch or a malformed token ends the round with exit 7 (agent infrastructure), and the error never carries the token. Any other shape, including the older `access_token` and `expires_in` variants, is refused.
 - The loopback endpoint issues only allowlisted audiences and never logs the token.
+- Every HTTP client the collector uses refuses redirects, so a 307 never re-sends the body or the bearer. The control port is a number in 1..65535, and the control URL is always `http://127.0.0.1:<port>`.
 
 **Verification on shorted (`services/pkg/workloadauth`, golang-jwt v5):**
 - Discovery is fetched at startup, and the key set is cached per `Cache-Control`.

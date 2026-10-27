@@ -291,8 +291,8 @@ warm-up / manual rehearsal, but the scheduled launchd run does it itself.
 
 ### Queue mode (`-mode agent`) — auth via the co-located BrandBrain agent
 
-The launcher above runs the STANDALONE path (`-mode listings` / `-mode crawl`,
-each Mac crawling its own shard directly). To instead drain the shared
+The launcher above runs the STANDALONE path (`-mode listings`, each Mac crawling
+its own shard directly; `-mode crawl` is removed). To instead drain the shared
 **brandbrain crawl-jobs queue** (`api.brandbrain.dev`) so multiple Macs fan
 suburbs out via SKIP-LOCKED, run `-mode agent` / `-mode enqueue`.
 
@@ -334,6 +334,101 @@ scopes is a drop-in. Mint via `POST /api/v1/ml/auth/tokens`
 (`{scopes:["agent:crawl","agent:upload"],expires_in_hours:8760}`, needs
 `ML_TOKEN_MINT_SECRET` on the brandbrain env), or bridge with the 24h
 `POST /api/v1/agent/refresh`.
+
+### Where a queue sweep is written: `CRAWL_SINK` (`-mode agent`)
+
+`CRAWL_SINK` is read **only by `-mode agent`**. Every other mode ignores it (one log
+line says so), so a shared env file that sets it cannot break `enqueue`, `revalidate`,
+`freshness`, `property-resolve`, `warmcheck`, `install-driver`, `listings` or `purge`.
+Unset means `db`.
+
+| `CRAWL_SINK` | What a sweep does | Needs | Refuses (exit 8) |
+|---|---|---|---|
+| `db` (default) | The local diff into the database, unchanged. Gamma-64's wrappers and BrandBrain 1.33.10's bundled collector run this. | `DATABASE_URL` | never; with no `DATABASE_URL` the agent exits 8 |
+| `ingest` | PUSHES the sweep to shorted's `CrawlIngestService`. The server does the database work (upsert, diff, sal-link, MV refresh, revalidate via `crawl-finalize`). No pool is opened. | `SHORTED_INGEST_URL` (pinned, below), `CRAWL_DRY_RUN` set explicitly | `DATABASE_URL` set; an unpinned URL; `CRAWL_DRY_RUN` unset; a gateway fetch route; a non-loopback `CRAWL_CDP_URL` |
+| `shadow` | The `db` diff unchanged, plus a dry-run push of the same sweep. Parity is written to the events stream (`CRAWL_EVENTS_FD`). A shadow failure never changes the legacy job's outcome, exit code or submit. | `SHORTED_INGEST_URL` (pinned), `DATABASE_URL` | an unpinned URL; no `DATABASE_URL`; a gateway fetch route; a non-loopback `CRAWL_CDP_URL` |
+
+Any other value refuses with exit 8. `-mode crawl` is removed and exits 1.
+
+**Where listing rows, page content and the token may go.** Under `ingest` and `shadow`
+they go only to the shorted ingest, and the rig refuses the three ways they could leave
+it:
+
+- **The ingest URL is pinned.** `SHORTED_INGEST_URL` must be `https`, carry no userinfo
+  and name no port other than 443. Its host must be exactly
+  `housing-ingest-uiekqxovma-km.a.run.app`, or a host under `.shorted.com.au`. An IP
+  literal, a lookalike such as `shorted.com.au.evil.com`, or any other host exits 8.
+  Loopback http is accepted only by the test suite, never from the environment.
+- **No redirects.** Every HTTP client the collector uses refuses to follow one.
+- **Fetch routes.** `CRAWL_GATEWAY_URL` and `CRAWL_FETCH_MODE=gateway` route every page
+  through a BrandBrain gateway, so both exit 8. `CRAWL_CDP_URL` must be loopback
+  (`127.0.0.1`, `localhost` or `::1`).
+
+Under `ingest` the dry run is explicit. `CRAWL_DRY_RUN=true` pushes with `dry_run=true`
+and writes nothing. `CRAWL_DRY_RUN=false` writes. Unset exits 8. Under `ingest` and
+`shadow` no listing row is printed to stdout or stderr, and telemetry carries no
+listing events. Only counts, IDs and suburb names stream.
+
+**Environment for `ingest` (and `shadow`):**
+
+```bash
+CRAWL_SINK=ingest
+SHORTED_INGEST_URL=https://housing-ingest-uiekqxovma-km.a.run.app   # the pinned service
+CRAWL_DRY_RUN=false                                                  # required under ingest
+# BRANDBRAIN_AGENT_URL and the co-located agent's loopback control port and secret are
+# unchanged. The port must be a number in 1..65535. The token comes from
+# GET /control/v1/workload-token, with audience https://api.shorted.com.au/housing-ingest.
+# DATABASE_URL must be absent.
+```
+
+**Order and lease.** A job's pushes happen before its submit to BrandBrain, and the
+submit is counts-only. The lease is renewed every 4 minutes while the job runs, and
+before each push retry. A push is retried up to 3 times on Unavailable or a transport
+error, with the same idempotency key (`<job_id>:<attempt>:<source>`). A shadow dry run
+is one attempt, bounded by 15 seconds, so it cannot hold up the legacy write for long.
+
+**Per-job answers and `no_retry`.** Each push answer becomes the job's submit.
+BrandBrain re-pends a `failed` job while it has attempts left, so the rig marks the
+permanent answers with `no_retry: true`, which makes the failure terminal:
+
+| Answer | Job submitted as |
+|---|---|
+| `dispatch_applied` | `succeeded`, with the detail "applied by an earlier attempt" |
+| `not_dispatched`, `dispatch_expired`, `target_mismatch`, quarantined, `AlreadyExists`, `InvalidArgument`, an oversize sweep (`ResourceExhausted` that is not the rate limit) | `failed` with `no_retry` |
+| rate limited (`ResourceExhausted`, `rate_limited`), auth refused, a round that ended before the push | `deferred` 15 minutes, **only when nothing of the job may have been stored** |
+| an unknown outcome (lost answer, timeout, unavailable) | `failed` (retryable): the next claim gets a new attempt and new keys |
+
+A deferred job keeps its attempt number, because the queue refunds the attempt. So a
+deferral is only safe when no push of that attempt could have been stored. The rig never
+reuses a key that might already be in the receipts.
+
+**Exit codes added by the ingest sink** (round-level; the job that met the error is
+submitted by the table above, and the queue keeps it):
+
+| rc | Meaning |
+|---|---|
+| 13 | Ingest refused the workload token (Unauthenticated after the one re-fetch, or PermissionDenied) |
+| 14 | Ingest unavailable after three attempts |
+| 15 | Contract mismatch: `ProbeAuth`'s `min_contract_version` is above this collector's, the server answers `contract_too_old`, or three sweeps in a row are rejected as invalid (schema drift). One invalid sweep is a per-job `failed` with `no_retry` |
+| 8 | The ingest answers `Unimplemented` or `NotFound` to `ProbeAuth` or a push (a wrong URL or path) |
+| 7 | The workload token could not be minted, or failed its shape check (agent infrastructure) |
+
+A cancel (SIGTERM, exit 10) beats every one of these codes.
+
+**ProbeAuth runs after the lock.** A held lock still exits 12 before the ingest is
+contacted. A SIGTERM during the probe exits 10 promptly.
+
+**Shadow circuit.** After three consecutive shadow dry-run failures, shadow is off for the
+rest of the process. The circuit writes one log line and one `shadow_circuit` event. The
+legacy run goes on.
+
+**Events.** `ingest_ok` and `ingest_error` record each real push, with Connect code words
+only (`ingest_error`'s `code`). `shadow` is the parity record. `shadow_circuit` is the
+circuit trip. None of them carries message text.
+
+**Shadow parity is only meaningful for server-enqueued jobs.** A shadow dry run still
+checks the dispatch ledger, so a job the legacy wrapper enqueued (`-mode enqueue`) is
+answered `not_dispatched`. That is recorded as parity, not as a job error.
 
 ### Deprecated whole-catalog auto-drainer
 
