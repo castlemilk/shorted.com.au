@@ -30,9 +30,15 @@ import (
 //	page             {job_id, source: rea|domain}   one per source sweep started
 //	submit           {job_id, outcome: succeeded|failed|deferred, listings, events, blocked}
 //	finalize_started {}
+//	ingest_ok        {job_id, source, applied, replayed}   CRAWL_SINK=ingest, one per accepted push;
+//	                  applied is complete|partial|blocked
+//	ingest_error     {job_id, source, code}   one per failed push; code is a Connect code
+//	                  word, "token" or "transport". Never the server's message text
 //	shadow           {job_id, source, legacy_events, legacy_failed, dry_events,
 //	                  dry_quarantined, dry_poisoned, dry_applied, push_error,
 //	                  push_reason, parity}   CRAWL_SINK=shadow only, one per sweep
+//	shadow_circuit   {failures}   CRAWL_SINK=shadow only, once, when shadow switches off
+//	                  after shadowFailLimit consecutive dry-run failures
 //	round_done       {processed, succeeded, failed, deferred, listings, events,
 //	                  blocked_sweeps, needs_rewarm, chrome_unusable, env_broken}
 const crawlEventsFDEnv = "CRAWL_EVENTS_FD"
@@ -294,5 +300,66 @@ func (e *crawlEvents) roundDone(res roundResult, code int) {
 			ChromeUnusable: code == exitChromeUnusable,
 			EnvBroken:      code == exitCrawlEnvBroken,
 		}
+	})
+}
+
+// ingestOKEvent is one accepted ingest push. applied is complete|partial|blocked. The
+// counts stay in the job summary, so the stream carries identifiers and enums only.
+type ingestOKEvent struct {
+	eventHeader
+	JobID    string `json:"job_id"`
+	Source   string `json:"source"`
+	Applied  string `json:"applied"`
+	Replayed bool   `json:"replayed"`
+}
+
+// ingestErrorEvent is one failed ingest push, named by its code word alone.
+type ingestErrorEvent struct {
+	eventHeader
+	JobID  string `json:"job_id"`
+	Source string `json:"source"`
+	Code   string `json:"code"`
+}
+
+// shadowCircuitEvent records shadow switching off for the rest of the process.
+type shadowCircuitEvent struct {
+	eventHeader
+	Failures int `json:"failures"`
+}
+
+// ingestCodeWords is the closed set of codes an ingest_error event may carry. Anything
+// else is written as "other", so no text from the server can reach the stream.
+var ingestCodeWords = map[string]bool{
+	"unavailable": true, "internal": true, "unknown": true, "deadline_exceeded": true,
+	"unauthenticated": true, "permission_denied": true, "resource_exhausted": true,
+	"failed_precondition": true, "already_exists": true, "invalid_argument": true,
+	"not_found": true, "unimplemented": true, "canceled": true, "token": true, "transport": true,
+}
+
+// ingestOK writes one ingest_ok event. A nil writer is a no-op.
+func (e *crawlEvents) ingestOK(jobID, source, applied string, replayed bool) {
+	e.emit(func() any {
+		return ingestOKEvent{
+			eventHeader: e.header("ingest_ok"), JobID: safeJobID(jobID), Source: sourceEnum(source),
+			Applied:  enumOrEmpty(applied, map[string]bool{"complete": true, "partial": true, "blocked": true}),
+			Replayed: replayed,
+		}
+	})
+}
+
+// ingestError writes one ingest_error event.
+func (e *crawlEvents) ingestError(jobID, source, code string) {
+	if !ingestCodeWords[code] {
+		code = "other"
+	}
+	e.emit(func() any {
+		return ingestErrorEvent{eventHeader: e.header("ingest_error"), JobID: safeJobID(jobID), Source: sourceEnum(source), Code: code}
+	})
+}
+
+// shadowCircuit writes the one shadow_circuit event.
+func (e *crawlEvents) shadowCircuit(failures int) {
+	e.emit(func() any {
+		return shadowCircuitEvent{eventHeader: e.header("shadow_circuit"), Failures: failures}
 	})
 }

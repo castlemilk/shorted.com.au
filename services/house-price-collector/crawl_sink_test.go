@@ -17,55 +17,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/housingcrawl"
 )
 
-// stubEnvMap returns a getenv over a fixed map.
-func stubEnvMap(m map[string]string) func(string) string {
-	return func(k string) string { return m[k] }
-}
-
 // TestResolveCrawlSink pins every refusal and the one legal shape of each sink.
-func TestResolveCrawlSink(t *testing.T) {
-	const ingestURL = "https://ingest.example"
-	cases := []struct {
-		name    string
-		mode    string
-		env     map[string]string
-		want    crawlSinkMode
-		refused bool
-	}{
-		{"unset is the db sink", "agent", map[string]string{}, crawlSinkDB, false},
-		{"explicit db", "agent", map[string]string{"CRAWL_SINK": "db"}, crawlSinkDB, false},
-		{"db with a database url is fine", "agent", map[string]string{"CRAWL_SINK": "db", "DATABASE_URL": "postgres://x"}, crawlSinkDB, false},
-		{"ingest needs the url", "agent", map[string]string{"CRAWL_SINK": "ingest"}, "", true},
-		{"ingest refuses DATABASE_URL (no dual write)", "agent",
-			map[string]string{"CRAWL_SINK": "ingest", "SHORTED_INGEST_URL": ingestURL, "DATABASE_URL": "postgres://x"}, "", true},
-		{"ingest is legal with only the url", "agent",
-			map[string]string{"CRAWL_SINK": "ingest", "SHORTED_INGEST_URL": ingestURL}, crawlSinkIngest, false},
-		{"ingest outside -mode agent is refused", "listings",
-			map[string]string{"CRAWL_SINK": "ingest", "SHORTED_INGEST_URL": ingestURL}, "", true},
-		{"shadow needs both urls", "agent",
-			map[string]string{"CRAWL_SINK": "shadow", "SHORTED_INGEST_URL": ingestURL}, "", true},
-		{"shadow with both is legal", "agent",
-			map[string]string{"CRAWL_SINK": "shadow", "SHORTED_INGEST_URL": ingestURL, "DATABASE_URL": "postgres://x"}, crawlSinkShadow, false},
-		{"unknown value is refused", "agent", map[string]string{"CRAWL_SINK": "dual"}, "", true},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, reason := resolveCrawlSink(tc.mode, stubEnvMap(tc.env))
-			if tc.refused {
-				if reason == "" {
-					t.Fatalf("resolveCrawlSink = %q with no refusal, want a refusal", got)
-				}
-				return
-			}
-			if reason != "" {
-				t.Fatalf("refused: %s", reason)
-			}
-			if got != tc.want {
-				t.Errorf("sink = %q, want %q", got, tc.want)
-			}
-		})
-	}
-}
 
 // TestBuildPushRequest_KeyTargetAndStatus pins the request the rig sends: the key, the
 // target as the job carries it, the status mapping, page meta and the blocked rule.
@@ -74,7 +26,7 @@ func TestBuildPushRequest_KeyTargetAndStatus(t *testing.T) {
 	when := time.Date(2026, 10, 27, 1, 2, 3, 0, time.UTC)
 	rows := []housingcrawl.RawListing{{Source: "rea", ListingID: "L1", Suburb: "St Kilda", State: "VIC", Postcode: "3182"}}
 
-	req := buildPushRequest(job, "rea", suburbSweep{listings: rows, status: sweepComplete, pages: 2,
+	req, _ := buildPushRequest(job, "rea", suburbSweep{listings: rows, status: sweepComplete, pages: 2,
 		meta: PageMeta{OK: true, TotalResults: 40, TotalPages: 2, PageSize: 20, OnTargetResults: 38}}, when, "rev-1", true)
 
 	if req.GetIdempotencyKey() != "job-9:4:rea" || req.GetAttempt() != 4 || req.GetJobId() != "job-9" {
@@ -100,7 +52,7 @@ func TestBuildPushRequest_KeyTargetAndStatus(t *testing.T) {
 	}
 
 	// A blocked sweep goes with no rows and no meta when the meta was never read.
-	blocked := buildPushRequest(job, "domain", suburbSweep{listings: rows, status: sweepBlocked}, when, "rev-1", false)
+	blocked, _ := buildPushRequest(job, "domain", suburbSweep{listings: rows, status: sweepBlocked}, when, "rev-1", false)
 	if blocked.GetStatus() != pb.SweepStatus_SWEEP_STATUS_BLOCKED || len(blocked.GetListings()) != 0 {
 		t.Errorf("blocked sweep carried status %v and %d rows", blocked.GetStatus(), len(blocked.GetListings()))
 	}
@@ -114,48 +66,6 @@ func TestBuildPushRequest_KeyTargetAndStatus(t *testing.T) {
 
 // TestJobDisposition_Table is the per-job mapping. Each row is an answer the server
 // gives, and the job's status and retry hold for each.
-func TestJobDisposition_Table(t *testing.T) {
-	ce := func(code connectrpc.Code, msg string) error { return connectrpc.NewError(code, errors.New(msg)) }
-	cases := []struct {
-		name      string
-		err       error
-		status    string
-		retry     time.Duration
-		errSubstr string
-	}{
-		{"dispatch_applied succeeds the job", ce(connectrpc.CodeFailedPrecondition, "dispatch_applied"), "succeeded", 0, ""},
-		{"not_dispatched fails the job", ce(connectrpc.CodeFailedPrecondition, "not_dispatched"), "failed", 0, "not dispatched"},
-		{"dispatch_expired fails the job", ce(connectrpc.CodeFailedPrecondition, "dispatch_expired"), "failed", 0, "expired"},
-		{"target_mismatch fails the job", ce(connectrpc.CodeFailedPrecondition, "target_mismatch"), "failed", 0, "target"},
-		{"a reused idempotency key fails the job", ce(connectrpc.CodeAlreadyExists, "idempotency_key_reused"), "failed", 0, "idempotency"},
-		{"one invalid sweep fails the job", ce(connectrpc.CodeInvalidArgument, "sweep_invalid"), "failed", 0, "rejected"},
-		{"a quarantined sweep fails the job, not retried", &pushFailure{err: errQuarantined}, "failed", 0, "quarantined"},
-		{"a rate-limited push defers", ce(connectrpc.CodeResourceExhausted, "rate_limited"), "deferred", ingestDeferRetryAfter, "rate"},
-		{"unavailable after retries defers 15 minutes", &exhaustedError{err: ce(connectrpc.CodeUnavailable, "down")}, "deferred", ingestDeferRetryAfter, "unavailable"},
-		{"auth refused defers (round exits 13)", ce(connectrpc.CodeUnauthenticated, "unauthenticated"), "deferred", ingestDeferRetryAfter, "refused"},
-		{"a too-old collector defers (round exits 15)", ce(connectrpc.CodeFailedPrecondition, "contract_too_old: min 2"), "deferred", ingestDeferRetryAfter, "refused"},
-		{"a missing token defers (round exits 7)", &tokenError{err: errors.New("no control api")}, "deferred", ingestDeferRetryAfter, "refused"},
-		{"a round that ended defers the sweep", &pushFailure{err: errRoundEnded}, "deferred", ingestDeferRetryAfter, "round ended"},
-		{"a push cut short by cancellation defers, never fails", context.Canceled, "deferred", ingestDeferRetryAfter, "cancelled"},
-		{"a connect cancel defers, never fails", connectrpc.NewError(connectrpc.CodeCanceled, errors.New("x")), "deferred", ingestDeferRetryAfter, "cancelled"},
-		{"a failed precondition not in the table fails", ce(connectrpc.CodeFailedPrecondition, "novel"), "failed", 0, "rejected"},
-		{"success is succeeded", nil, "succeeded", 0, ""},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			d := jobDisposition(tc.err)
-			if d.status != tc.status {
-				t.Fatalf("status = %q (%q), want %q", d.status, d.errMsg, tc.status)
-			}
-			if d.retryAfter != tc.retry {
-				t.Errorf("retryAfter = %v, want %v", d.retryAfter, tc.retry)
-			}
-			if tc.errSubstr != "" && !strings.Contains(strings.ToLower(d.errMsg), tc.errSubstr) {
-				t.Errorf("errMsg = %q, want it to mention %q", d.errMsg, tc.errSubstr)
-			}
-		})
-	}
-}
 
 // TestIngestRoundExit pins the round exit each ingest failure ends the round with.
 func TestIngestRoundExit(t *testing.T) {

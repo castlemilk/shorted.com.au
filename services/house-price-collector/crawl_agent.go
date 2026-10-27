@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -66,6 +68,7 @@ func loadAgentConfig() agentConfig {
 func loadAgentControlAuth() (controlURL, secret string) {
 	home, _ := os.UserHomeDir()
 	port := strings.TrimSpace(os.Getenv("BRANDBRAIN_CONTROL_PORT"))
+	// The env value is not trusted to be a port: "1@evil.example" would name a host.
 	if port == "" && home != "" {
 		if b, err := os.ReadFile(filepath.Join(home, ".brandbrain", "diag-port")); err == nil {
 			port = digitsOnly(string(b))
@@ -77,10 +80,29 @@ func loadAgentControlAuth() (controlURL, secret string) {
 			secret = strings.TrimSpace(string(b))
 		}
 	}
+	port = validControlPort(port)
 	if port == "" || secret == "" {
 		return "", ""
 	}
 	return "http://127.0.0.1:" + port, secret
+}
+
+// validControlPort returns s as a canonical TCP port when it is all digits in 1..65535,
+// and "" otherwise. The control URL is then always http://127.0.0.1:<port>.
+func validControlPort(s string) string {
+	if s == "" || len(s) > 5 {
+		return ""
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return ""
+		}
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 1 || n > 65535 {
+		return ""
+	}
+	return strconv.Itoa(n)
 }
 
 // digitsOnly keeps only [0-9] (mirrors the diag-port shell read `tr -dc '0-9'`).
@@ -126,6 +148,8 @@ type crawlJobSummary struct {
 	SkippedRows   int    `json:"skipped_rows,omitempty"`
 	NeedsRewarm   bool   `json:"needs_rewarm"`
 	Detail        string `json:"detail,omitempty"`
+	// noRetry asks BrandBrain to make a failed job terminal (sent as no_retry on submit).
+	noRetry bool `json:"-"`
 }
 
 type brandbrainAgentClient struct {
@@ -140,6 +164,9 @@ type brandbrainAgentClient struct {
 	// BrandBrain allowlists). Such a client sends no X-Agent-ID and cannot refresh.
 	// Tokens are never logged.
 	idTokens oauth2.TokenSource
+	// tokMu guards token. The renewal goroutine and the push retries share this client,
+	// and a 401 rewrites the token mid-call.
+	tokMu sync.Mutex
 }
 
 // newBrandbrainIDTokenClient builds a client for the server-side jobs. Each request
@@ -148,7 +175,7 @@ type brandbrainAgentClient struct {
 func newBrandbrainIDTokenClient(baseURL string, ts oauth2.TokenSource) *brandbrainAgentClient {
 	return &brandbrainAgentClient{
 		url:      strings.TrimRight(baseURL, "/"),
-		http:     &http.Client{Timeout: 30 * time.Second},
+		http:     noRedirectHTTPClient(30 * time.Second),
 		idTokens: ts,
 	}
 }
@@ -156,7 +183,7 @@ func newBrandbrainIDTokenClient(baseURL string, ts oauth2.TokenSource) *brandbra
 func newBrandbrainAgentClient(cfg agentConfig) *brandbrainAgentClient {
 	return &brandbrainAgentClient{
 		url: cfg.brandbrainURL, token: cfg.token, agentID: cfg.agentID,
-		http:       &http.Client{Timeout: 30 * time.Second},
+		http:       noRedirectHTTPClient(30 * time.Second),
 		controlURL: cfg.controlURL, controlSecret: cfg.controlSecret,
 	}
 }
@@ -210,9 +237,14 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 			if tok, rerr := c.refreshToken(ctx); rerr != nil {
 				refreshErr = rerr
 				log.Printf("[agent] token refresh failed: %v", rerr)
-			} else if tok != "" && tok != c.token {
-				c.token = tok
-				log.Printf("[agent] access token expired — refreshed from local agent, retrying")
+			} else if tok != "" {
+				// Retry even when another goroutine already installed this token: this
+				// request went out with the bearer that is now stale. The refresh runs at
+				// most once per call, so this cannot loop.
+				if tok != c.currentToken() {
+					c.setToken(tok)
+					log.Printf("[agent] access token expired — refreshed from local agent, retrying")
+				}
 				attempt-- // a refresh retry shouldn't consume a backoff attempt
 				continue
 			}
@@ -263,6 +295,20 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 	return nil
 }
 
+// currentToken returns the bearer under the token lock.
+func (c *brandbrainAgentClient) currentToken() string {
+	c.tokMu.Lock()
+	defer c.tokMu.Unlock()
+	return c.token
+}
+
+// setToken replaces the bearer under the token lock.
+func (c *brandbrainAgentClient) setToken(tok string) {
+	c.tokMu.Lock()
+	defer c.tokMu.Unlock()
+	c.token = tok
+}
+
 // agentBackoff returns a jittered exponential backoff for retry attempt N (>=1):
 // ~0.5s, 1s, 2s, … capped at 8s, plus up to +50% jitter.
 func agentBackoff(attempt int) time.Duration {
@@ -289,7 +335,7 @@ func (c *brandbrainAgentClient) roundtrip(ctx context.Context, method, path stri
 		}
 		req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
 	} else {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set("Authorization", "Bearer "+c.currentToken())
 		req.Header.Set("X-Agent-ID", c.agentID)
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -365,6 +411,10 @@ func (c *brandbrainAgentClient) submit(ctx context.Context, jobID, status string
 	}
 	if retryAfter > 0 {
 		body["retry_after_seconds"] = retryAfter.Seconds()
+	}
+	// no_retry makes a failed job terminal in BrandBrain. An older BrandBrain ignores it.
+	if summary != nil && summary.noRetry {
+		body["no_retry"] = true
 	}
 	return c.do(ctx, http.MethodPost, "/api/v1/agent/crawl-jobs/submit", body, nil)
 }
@@ -580,12 +630,8 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) (code int) {
 		return 7
 	}
 	if sink != crawlSinkDB {
-		ir := newIngestRound(sink, acfg, os.Getenv("SHORTED_INGEST_URL"), events)
-		// ProbeAuth once per process, before any job is claimed.
-		if c := ir.probe(ctx); c != 0 {
-			return c
-		}
-		ctx = withIngestRound(ctx, ir)
+		// ProbeAuth runs inside the round, after the lock and the signal handlers.
+		ctx = withIngestRound(ctx, newIngestRound(sink, acfg, os.Getenv("SHORTED_INGEST_URL"), events))
 	}
 
 	lock := newCrawlLockFromEnv()
@@ -607,6 +653,15 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 	// instead of killing the collector mid-round (see installRoundSignals).
 	removeSignals := installRoundSignals(stop, lock, sigs, os.Exit)
 	defer removeSignals()
+
+	// ProbeAuth (ingest and shadow) runs here, after the lock is held and the signal
+	// handlers are installed. A held lock still exits 12, and a SIGTERM during the probe
+	// exits 10 with round_done (probeIngestRound).
+	if ir := ingestRoundFrom(ctx); ir != nil {
+		if code := probeIngestRound(ctx, ir, stop); code != 0 {
+			return code
+		}
+	}
 
 	cfg := loadListingsConfig()
 
@@ -1061,13 +1116,13 @@ func stopReason(stop *stopSignal, ppid func() int, startPPID int, events *crawlE
 // the cooldown, and a SIGTERM must mean neither. A fatal error (7) still wins,
 // because it is a real fault and the wrapper must see it.
 func finalExitCode(res roundResult) int {
-	// An ingest round-level failure is a real fault the scheduler must see, so it wins
-	// over everything, a cancel included.
+	// A requested cancel beats every other code: round-level ingest exits (13, 14, 15,
+	// 7) and the re-warm signal (3) included. A SIGTERM must mean no retry.
+	if res.cancelled {
+		return exitCrawlCancelled
+	}
 	if res.roundExit != 0 {
 		return res.roundExit
-	}
-	if res.cancelled && !res.fatalErr {
-		return exitCrawlCancelled
 	}
 	return agentExitCode(res.anyRewarm, res.fatalErr, res.processed)
 }
@@ -1095,7 +1150,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	// Medians-in-agent-mode is a follow-up; the standalone `-mode crawl` path
 	// still serves the median tier. Fail such a job clearly rather than silently.
 	if strings.EqualFold(job.Tier, "medians") {
-		return crawlJobSummary{Suburbs: 1, Detail: "medians tier not yet supported in agent mode"}, "failed", "medians tier not supported in agent mode (use -mode crawl)", false, 0
+		return crawlJobSummary{Suburbs: 1, Detail: "medians tier not yet supported in agent mode"}, "failed", "medians tier not supported in agent mode (the queue does not collect medians; -mode crawl was removed)", false, 0
 	}
 
 	t, _ := resolveCrawlTarget(job)
@@ -1212,8 +1267,12 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	// server's counts stand in for the local diff's, and a push failure is never a
 	// local diff error.
 	if pf := firstPushFailure(reaErr, domErr); pf != nil {
-		d := jobDisposition(pf)
+		d := jobDisposition(pf, ingestRoundFrom(ctx).jobMayApply(job.ID))
+		summary.noRetry = d.noRetry
 		summary.Detail = d.errMsg
+		if d.detail != "" {
+			summary.Detail = d.detail
+		}
 		return summary, d.status, d.errMsg, false, d.retryAfter
 	}
 	status, detail, errMsg := agentJobTerminal(summary.Events, s.blockedSweeps, s.skippedRows, firstErr(reaErr, domErr))

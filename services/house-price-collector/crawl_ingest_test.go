@@ -226,10 +226,11 @@ func (c *stubControl) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(c.status)
 		return
 	}
-	tok := fmt.Sprintf("workload-token-%d", n)
+	tok := fmt.Sprintf("eyJhbGciOi.c3R1Yg.sig%d", n)
 	_ = json.NewEncoder(w).Encode(map[string]string{
-		"access_token": tok,
-		"expires_at":   time.Now().Add(c.ttl).UTC().Format(time.RFC3339),
+		"token":      tok,
+		"expires_at": time.Now().Add(c.ttl).UTC().Format(time.RFC3339),
+		"audience":   ingestAudience,
 	})
 }
 
@@ -417,7 +418,7 @@ func TestPushSweep_RetriesThenSucceeds(t *testing.T) {
 
 	ir := newStubIngestRound(crawlSinkIngest, ingest.URL, bbSrv.URL, stubTokens("tok-retry"), nil)
 	req := &pb.PushSweepRequest{IdempotencyKey: "job-r:1:rea", JobId: "job-r", Attempt: 1, Source: pb.Source_SOURCE_REA}
-	resp, err := ir.client.pushSweep(context.Background(), req)
+	resp, _, err := ir.client.pushSweep(context.Background(), req)
 	if err != nil {
 		t.Fatalf("pushSweep after two Unavailable answers: %v", err)
 	}
@@ -448,7 +449,7 @@ func TestPushSweep_RetriesOutlastedGivesExhausted(t *testing.T) {
 	t.Cleanup(bbSrv.Close)
 
 	ir := newStubIngestRound(crawlSinkIngest, ingest.URL, bbSrv.URL, stubTokens("tok-x"), nil)
-	_, err := ir.client.pushSweep(context.Background(), &pb.PushSweepRequest{IdempotencyKey: "job-x:1:rea", JobId: "job-x", Attempt: 1})
+	_, _, err := ir.client.pushSweep(context.Background(), &pb.PushSweepRequest{IdempotencyKey: "job-x:1:rea", JobId: "job-x", Attempt: 1})
 	if err == nil {
 		t.Fatal("expected an error after three Unavailable answers")
 	}
@@ -503,7 +504,7 @@ func TestIngestAuth_RefetchesOnceOn401AndNeverLogsTheToken(t *testing.T) {
 
 	cl := &stubCallLog{}
 	fi := &stubIngest{log: cl, authErr: func(bearer string) error {
-		if bearer == "workload-token-1" {
+		if bearer == "eyJhbGciOi.c3R1Yg.sig1" {
 			return connectrpc.NewError(connectrpc.CodeUnauthenticated, errors.New("unauthenticated"))
 		}
 		return nil
@@ -521,17 +522,17 @@ func TestIngestAuth_RefetchesOnceOn401AndNeverLogsTheToken(t *testing.T) {
 		now:   time.Now,
 	}
 	ir := newStubIngestRound(crawlSinkIngest, ingest.URL, bbSrv.URL, tokens, nil)
-	_, err := ir.client.pushSweep(context.Background(), &pb.PushSweepRequest{IdempotencyKey: "job-a:1:rea", JobId: "job-a", Attempt: 1})
+	_, _, err := ir.client.pushSweep(context.Background(), &pb.PushSweepRequest{IdempotencyKey: "job-a:1:rea", JobId: "job-a", Attempt: 1})
 	if err != nil {
 		t.Fatalf("push after one refused token: %v", err)
 	}
 	if got := ctl.mintCount(); got != 2 {
 		t.Errorf("token mints = %d, want 2 (the first, then exactly one re-fetch)", got)
 	}
-	if fi.bearers[0] != "workload-token-1" || fi.bearers[len(fi.bearers)-1] != "workload-token-2" {
+	if fi.bearers[0] != "eyJhbGciOi.c3R1Yg.sig1" || fi.bearers[len(fi.bearers)-1] != "eyJhbGciOi.c3R1Yg.sig2" {
 		t.Errorf("bearers = %v, want the refused token then the re-fetched one", fi.bearers)
 	}
-	if strings.Contains(buf.String(), "workload-token-") {
+	if strings.Contains(buf.String(), "c3R1Yg") {
 		t.Errorf("the workload token reached the log:\n%s", buf.String())
 	}
 }
@@ -570,7 +571,7 @@ func TestIngestAuth_SecondRefusalIsExit13(t *testing.T) {
 
 // stubPushOnce runs one push and returns its error.
 func stubPushOnce(ir *ingestRound) error {
-	_, err := ir.client.pushSweep(context.Background(), &pb.PushSweepRequest{IdempotencyKey: "job-z:1:rea", JobId: "job-z", Attempt: 1})
+	_, _, err := ir.client.pushSweep(context.Background(), &pb.PushSweepRequest{IdempotencyKey: "job-z:1:rea", JobId: "job-z", Attempt: 1})
 	return err
 }
 
@@ -594,6 +595,7 @@ func stubURLPort(t *testing.T, raw string) string {
 func stubAgentEnv(t *testing.T, ingestURL, bbURL string, ctl *httptest.Server, secret string) {
 	t.Helper()
 	t.Setenv("CRAWL_SINK", "ingest")
+	t.Setenv("CRAWL_DRY_RUN", "false")
 	t.Setenv("SHORTED_INGEST_URL", ingestURL)
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("BRANDBRAIN_AGENT_URL", bbURL)

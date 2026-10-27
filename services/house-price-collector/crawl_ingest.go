@@ -2,13 +2,14 @@ package main
 
 // crawl_ingest.go is the rig's client for shorted's CrawlIngestService (S-FETCH). In
 // the ingest and shadow sinks (crawl_sink.go) the rig fetches and PUSHES each sweep
-// here, and BrandBrain only ever sees counts. Everything in this file is transport:
-// the workload token, the Connect calls, retries, and the mapping from a failed call
-// to the round exit code the design's table names.
+// here, and BrandBrain only ever sees counts. This file is transport: the workload
+// token, the Connect calls, retries, and the mapping from a failed call to the round
+// exit code the design's table names.
 //
 // The token is the BrandBrain-issued workload identity (design, "Workload identity").
-// The co-located BrandBrain agent mints it on its loopback control API, and the token
-// is never logged, never put in an error, and never written to an event.
+// The co-located agent mints it on its loopback control API, and the token is never
+// logged, never put in an error, and never written to an event. No HTTP client here
+// follows a redirect, so neither the body nor the bearer can be forwarded.
 
 import (
 	"context"
@@ -31,18 +32,15 @@ import (
 
 const (
 	// ingestAudience is the token audience the ingest service verifies (design:
-	// "Claims"). The loopback endpoint issues only allowlisted audiences.
+	// "Claims"). The loopback endpoint issues only this audience.
 	ingestAudience = "https://api.shorted.com.au/housing-ingest"
-	// workloadTokenPath is the co-located agent's loopback mint endpoint. BrandBrain
-	// ships it in B2; until then the client is exercised against a fake.
+	// workloadTokenPath is the co-located agent's loopback mint endpoint. Its response
+	// is the BrandBrain issuer's own shape: {"token","expires_at","audience"}.
 	workloadTokenPath = "/control/v1/workload-token"
 	// ingestTokenSkew is how much life a cached token must still have. Less than this
 	// and the next call re-fetches first (design: "collector calls loopback when less
 	// than 60 seconds remain").
 	ingestTokenSkew = 60 * time.Second
-	// ingestTokenDefaultLife is assumed when the loopback reports no expiry at all.
-	// Short, so an unknown expiry costs a re-fetch rather than a 401.
-	ingestTokenDefaultLife = 5 * time.Minute
 	// ingestMaxAttempts is the number of tries for one call (design: "retries push up
 	// to 3 times"), counting the first.
 	ingestMaxAttempts = 3
@@ -54,20 +52,39 @@ const (
 	ingestDeferRetryAfter = 15 * time.Minute
 	// ingestCallTimeout bounds one RPC. A dense sweep is at most 2,000 listings.
 	ingestCallTimeout = 60 * time.Second
+	// controlCallTimeout bounds one loopback control-API call.
+	controlCallTimeout = 15 * time.Second
+	// rateLimitedMessage is the message the server's per-rig limiter answers with
+	// (services/shorts/internal/ingest/auth.go rateLimitError). Any other
+	// ResourceExhausted is the server's body-size limit, which is permanent.
+	rateLimitedMessage = "rate_limited"
 )
 
-// The round exit codes an ingest failure ends the round with. They are the design's
-// table (rc 13, 14, 15). Exit 7 is shared with the agent's other infrastructure
-// failures, including a token the loopback could not mint.
+// The round exit codes an ingest failure ends the round with (design table: 13, 14,
+// 15). Exit 7 is shared with the agent's other infrastructure failures, including a
+// token the loopback could not mint.
 const (
 	exitIngestAuthRefused = 13
 	exitIngestUnavailable = 14
 	exitIngestContract    = 15
 )
 
-// tokenError is a workload token the loopback could not provide. It is agent
-// infrastructure (exit 7), not an answer from the ingest, so it is never retried as a
-// transient ingest failure.
+// noRedirectHTTPClient is an HTTP client that never follows a redirect. A redirected
+// request would otherwise be re-sent, with its body and bearer, to wherever the
+// Location header points (M1). The 3xx is returned as the answer and treated as a
+// failure.
+func noRedirectHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
+
+// tokenError is a workload token the loopback could not provide, or one that failed
+// its shape check. It is agent infrastructure (exit 7), not an answer from the ingest,
+// so it is never retried as a transient ingest failure.
 type tokenError struct{ err error }
 
 func (e *tokenError) Error() string { return "workload token: " + e.err.Error() }
@@ -109,10 +126,34 @@ func (s *workloadTokenSource) Token(ctx context.Context, force bool) (string, er
 	return tok, nil
 }
 
+// validWorkloadToken is the shape check: three non-empty base64url segments and no
+// other characters. It never echoes the token, so a failure carries no value.
+func validWorkloadToken(tok string) bool {
+	parts := strings.Split(tok, ".")
+	if len(parts) != 3 {
+		return false
+	}
+	for _, p := range parts {
+		if p == "" {
+			return false
+		}
+		for i := 0; i < len(p); i++ {
+			c := p[i]
+			switch {
+			case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '-', c == '_':
+			default:
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // loopbackWorkloadToken returns the fetch function for the co-located agent's loopback
 // mint endpoint. It authenticates the way refreshToken does: the control secret in
-// X-Agent-Control-Secret. Its errors carry the status and never the response body,
-// because the body is the token.
+// X-Agent-Control-Secret. The response is the BrandBrain issuer's own shape, and the
+// audience must be the one this collector pins. Errors carry the status or a fixed
+// reason, never the response body, because the body is the token.
 func loopbackWorkloadToken(client *http.Client, controlURL, secret string, now func() time.Time) func(ctx context.Context) (string, time.Time, error) {
 	return func(ctx context.Context) (string, time.Time, error) {
 		if controlURL == "" || secret == "" {
@@ -134,28 +175,28 @@ func loopbackWorkloadToken(client *http.Client, controlURL, secret string, now f
 			return "", time.Time{}, fmt.Errorf("control api: status %d", resp.StatusCode)
 		}
 		var out struct {
-			AccessToken string `json:"access_token"`
-			ExpiresAt   string `json:"expires_at"`
-			ExpiresIn   int64  `json:"expires_in"`
+			Token     string `json:"token"`
+			ExpiresAt string `json:"expires_at"`
+			Audience  string `json:"audience"`
 		}
 		if err := json.Unmarshal(rb, &out); err != nil {
 			return "", time.Time{}, errors.New("control api: response is not JSON")
 		}
-		if out.AccessToken == "" {
-			return "", time.Time{}, errors.New("control api: no access_token in response")
+		if out.Token == "" || out.ExpiresAt == "" {
+			return "", time.Time{}, errors.New("control api: response lacks token or expires_at")
 		}
-		exp := now().Add(ingestTokenDefaultLife)
-		switch {
-		case out.ExpiresAt != "":
-			t, err := time.Parse(time.RFC3339, out.ExpiresAt)
-			if err != nil {
-				return "", time.Time{}, errors.New("control api: expires_at is not RFC 3339")
-			}
-			exp = t
-		case out.ExpiresIn > 0:
-			exp = now().Add(time.Duration(out.ExpiresIn) * time.Second)
+		if !validWorkloadToken(out.Token) {
+			return "", time.Time{}, errors.New("control api: token is malformed")
 		}
-		return out.AccessToken, exp, nil
+		if out.Audience != ingestAudience {
+			return "", time.Time{}, errors.New("control api: token audience is not the pinned audience")
+		}
+		exp, err := time.Parse(time.RFC3339, out.ExpiresAt)
+		if err != nil {
+			return "", time.Time{}, errors.New("control api: expires_at is not RFC 3339")
+		}
+		_ = now
+		return out.Token, exp, nil
 	}
 }
 
@@ -171,11 +212,10 @@ type ingestClient struct {
 }
 
 // newIngestClient builds the client for the ingest service at baseURL. Requests are
-// binary protobuf with gzip, the service's wire format.
+// binary protobuf with gzip, the service's wire format, and redirects are refused.
 func newIngestClient(baseURL string, tokens *workloadTokenSource) *ingestClient {
-	hc := &http.Client{Timeout: ingestCallTimeout}
 	return &ingestClient{
-		rpc:     housingingestv1connect.NewCrawlIngestServiceClient(hc, baseURL, connectrpc.WithSendGzip()),
+		rpc:     housingingestv1connect.NewCrawlIngestServiceClient(noRedirectHTTPClient(ingestCallTimeout), baseURL, connectrpc.WithSendGzip()),
 		tokens:  tokens,
 		sleep:   sleepCtx,
 		backoff: ingestBackoff,
@@ -238,6 +278,28 @@ func transientIngestError(err error) bool {
 	return !errors.Is(err, context.Canceled)
 }
 
+// notStoredErr reports whether a server answer proves the request was NOT stored: the
+// server refused it before it could write a receipt. Only these answers let a job be
+// deferred and its attempt (and so its idempotency key) reused. Every other answer, and
+// every transport failure, leaves it open that the sweep was applied.
+func notStoredErr(err error) bool {
+	code, ok := errCode(err)
+	if !ok {
+		return false
+	}
+	switch code {
+	case connectrpc.CodeUnauthenticated, connectrpc.CodePermissionDenied, connectrpc.CodeInvalidArgument:
+		return true
+	case connectrpc.CodeResourceExhausted:
+		return connectMessage(err) == rateLimitedMessage
+	case connectrpc.CodeFailedPrecondition:
+		msg := connectMessage(err)
+		return msg == "not_dispatched" || msg == "dispatch_expired" || msg == "target_mismatch" ||
+			strings.HasPrefix(msg, "contract_too_old")
+	}
+	return false
+}
+
 // withRetry runs attempt, retrying transient failures. Before each retry it renews the
 // job's lease (jobID "" means none), so the lease survives a slow push. It returns an
 // exhaustedError once the attempts are spent. A renewal failure is logged and ignored.
@@ -250,7 +312,7 @@ func (c *ingestClient) withRetry(ctx context.Context, jobID string, attempt func
 		if n >= ingestMaxAttempts {
 			return &exhaustedError{err: err}
 		}
-		log.Printf("[ingest] attempt %d of %d failed (retrying): %v", n, ingestMaxAttempts, err)
+		log.Printf("[ingest] attempt %d of %d failed (retrying): %s", n, ingestMaxAttempts, errCodeWord(err))
 		if jobID != "" && c.renew != nil {
 			if rerr := c.renew(ctx, jobID); rerr != nil {
 				log.Printf("[ingest] lease renewal before retry failed (job=%s): %v — continuing", jobID, rerr)
@@ -260,6 +322,19 @@ func (c *ingestClient) withRetry(ctx context.Context, jobID string, attempt func
 			return serr
 		}
 	}
+}
+
+// errCodeWord names the failure for a log line without its text: a Connect code word,
+// "token" for a token failure, or "transport".
+func errCodeWord(err error) string {
+	var te *tokenError
+	if errors.As(err, &te) {
+		return "token"
+	}
+	if code, ok := errCode(err); ok {
+		return code.String()
+	}
+	return "transport"
 }
 
 // withAuth runs call with a workload token. An Unauthenticated answer re-fetches the
@@ -299,23 +374,44 @@ func (c *ingestClient) probe(ctx context.Context) (*pb.ProbeAuthResponse, error)
 	return out, err
 }
 
-// pushSweep sends one sweep. The idempotency key is the same across retries, so a
-// retry that the server already applied is replayed, not applied twice.
-func (c *ingestClient) pushSweep(ctx context.Context, req *pb.PushSweepRequest) (*pb.PushSweepResponse, error) {
+// pushSweep sends one sweep, retrying transient failures. The idempotency key is the
+// same across retries, so a retry the server already applied is replayed, not applied
+// twice. mayApply reports whether any attempt could have been stored: an answer other
+// than a proven refusal, or a transport failure after the request left.
+func (c *ingestClient) pushSweep(ctx context.Context, req *pb.PushSweepRequest) (resp *pb.PushSweepResponse, mayApply bool, err error) {
 	var out *pb.PushSweepResponse
-	err := c.withRetry(ctx, req.GetJobId(), func() error {
+	err = c.withRetry(ctx, req.GetJobId(), func() error {
 		return c.withAuth(ctx, func(bearer string) error {
 			r := connectrpc.NewRequest(req)
 			r.Header().Set("Authorization", "Bearer "+bearer)
-			resp, err := c.rpc.PushSweep(ctx, r)
-			if err != nil {
-				return err
+			got, cerr := c.rpc.PushSweep(ctx, r)
+			if cerr != nil {
+				if !notStoredErr(cerr) {
+					mayApply = true
+				}
+				return cerr
 			}
-			out = resp.Msg
+			out = got.Msg
 			return nil
 		})
 	})
-	return out, err
+	return out, mayApply, err
+}
+
+// pushSweepOnce is a single attempt with no retry and no lease renewal. A dry run uses
+// it, because a shadow dry run must never stall the legacy write for long.
+func (c *ingestClient) pushSweepOnce(ctx context.Context, req *pb.PushSweepRequest) (resp *pb.PushSweepResponse, err error) {
+	err = c.withAuth(ctx, func(bearer string) error {
+		r := connectrpc.NewRequest(req)
+		r.Header().Set("Authorization", "Bearer "+bearer)
+		got, cerr := c.rpc.PushSweep(ctx, r)
+		if cerr != nil {
+			return cerr
+		}
+		resp = got.Msg
+		return nil
+	})
+	return resp, err
 }
 
 // reportCycle sends one cycle's counts-only outcome. It replaces the rig's own
@@ -334,10 +430,11 @@ func (c *ingestClient) reportCycle(ctx context.Context, req *pb.ReportCycleReque
 // ingestRoundExit maps a failed ingest call to the round exit it ends the round with,
 // or 0 when the answer is about this job only (per-job answers are in crawl_sink.go).
 //
-//	token could not be minted        -> 7  (agent infrastructure)
-//	Unauthenticated, PermissionDenied -> 13 (auth refused; after the one re-fetch)
-//	retries exhausted (transient)     -> 14 (ingest unavailable)
-//	contract_too_old                  -> 15 (the collector is too old)
+//	token could not be minted or failed its shape check -> 7  (agent infrastructure)
+//	Unauthenticated, PermissionDenied                    -> 13 (auth refused; after the one re-fetch)
+//	retries exhausted (transient)                        -> 14 (ingest unavailable)
+//	contract_too_old                                     -> 15 (the collector is too old)
+//	Unimplemented, NotFound (wrong URL or path)          -> 8  (environment broken)
 func ingestRoundExit(err error) int {
 	if err == nil {
 		return 0
@@ -357,6 +454,8 @@ func ingestRoundExit(err error) int {
 	switch code {
 	case connectrpc.CodeUnauthenticated, connectrpc.CodePermissionDenied:
 		return exitIngestAuthRefused
+	case connectrpc.CodeUnimplemented, connectrpc.CodeNotFound:
+		return exitCrawlEnvBroken
 	case connectrpc.CodeFailedPrecondition:
 		if strings.HasPrefix(connectMessage(err), "contract_too_old") {
 			return exitIngestContract

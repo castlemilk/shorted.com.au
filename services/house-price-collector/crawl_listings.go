@@ -411,10 +411,15 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 	if sweep.status == sweepBlocked {
 		lc.stats.blockedSweeps++
 		lc.tel.failure(t.Display, source, "blocked/poison sweep", map[string]any{"pages": sweep.pages})
-		lc.tel.suburbDone(t.Display, source, 0, 0, sweep.status.String())
+		if lc.sink == nil {
+			// A sink reaches the suburbDone below, so the event is emitted once either way.
+			lc.tel.suburbDone(t.Display, source, 0, 0, sweep.status.String())
+		}
 	}
 
-	if lc.cfg.dryRun {
+	// The dry-run lines carry listing rows, so only the local path prints them. A sink
+	// takes the dry run itself (dry_run=true, or nothing written).
+	if lc.cfg.dryRun && lc.sink == nil {
 		lc.logDryRun(t, source, sweep)
 		return 0, nil
 	}
@@ -427,9 +432,12 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 		// accounted for. Only the rows are dropped.
 		sweep.listings = nil
 	}
-	// Stream each extracted listing live (the "intelligent extraction info").
-	for i := range sweep.listings {
-		lc.tel.listing(t.Display, source, sweep.listings[i])
+	// Stream each extracted listing live (the "intelligent extraction info"). A sink
+	// keeps listing fields out of telemetry: the suburb and counts still stream.
+	if lc.sink == nil {
+		for i := range sweep.listings {
+			lc.tel.listing(t.Display, source, sweep.listings[i])
+		}
 	}
 	n, err := lc.writeSweep(ctx, pool, t, source, sweep, runTs)
 	if err != nil {

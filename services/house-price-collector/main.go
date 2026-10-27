@@ -58,16 +58,20 @@ func main() {
 // S-FETCH (-mode agent, CRAWL_SINK=ingest|shadow; crawl_ingest.go, crawl_sink.go):
 // 13 = ingest auth refused (Unauthenticated after the one token re-fetch, or
 // PermissionDenied); 14 = ingest unavailable after three attempts; 15 = ingest
-// contract mismatch (ProbeAuth's min_contract_version is above ours, or the server
-// answers contract_too_old); 7 = a workload token could not be minted (agent
-// infrastructure). Each of 13, 14 and 15 ends the round after the job it arrived on is
-// submitted, and that job is deferred, so the queue keeps it. Per-job ingest answers
-// are NOT exits. They go to BrandBrain's submit: not_dispatched, dispatch_expired,
-// target_mismatch and a sweep rejected as invalid fail the job; dispatch_applied
-// succeeds it; a reused idempotency key fails it; a quarantined sweep fails it and is
-// not retried; a rate-limited push defers it. An unknown CRAWL_SINK, ingest with
-// DATABASE_URL set, or a missing SHORTED_INGEST_URL refuses to start with exit 8.
-// -mode crawl is removed and exits 1.
+// contract mismatch (ProbeAuth's min_contract_version is above ours, the server answers
+// contract_too_old, or three sweeps in a row are rejected as invalid); 8 = the endpoint
+// answers Unimplemented or NotFound; 7 = a workload token could not be minted or failed
+// its shape check. A cancel (10) beats every one of these. Each of 13, 14, 15, 8 and 7
+// ends the round after the job it arrived on is submitted. Per-job answers are NOT exits:
+// each becomes the job's submit. dispatch_applied succeeds it. not_dispatched,
+// dispatch_expired, target_mismatch, an invalid sweep, a reused idempotency key, a
+// quarantined sweep and an oversize sweep fail it with no_retry (terminal in BrandBrain).
+// A rate-limited push, an unauthenticated refusal and a round that ended before the push
+// defer it, but only when nothing of the job may have been stored; otherwise it fails
+// retryably and its next attempt gets new keys. An unknown CRAWL_SINK, ingest with
+// DATABASE_URL set, a missing or unpinned SHORTED_INGEST_URL, ingest without an explicit
+// CRAWL_DRY_RUN, or a gateway or remote-CDP fetch route refuses to start with exit 8.
+// CRAWL_SINK is read only by -mode agent. -mode crawl is removed and exits 1.
 // Keeping 8 distinct from 4 is deliberate: see crawl_env.go for the outage that
 // bought that distinction. drop-index also returns 1 on a query or write
 // failure (see runDropIndex in drop_index.go).
@@ -106,8 +110,12 @@ func run() int {
 		log.Printf("[crawl] -mode crawl is removed: it sent page content to BrandBrain. Use -mode agent (the queue, with CRAWL_SINK).")
 		return 1
 	}
-	// CRAWL_SINK picks where a -mode agent sweep is written (crawl_sink.go). A refusal
-	// is an environment fault (8), so the scheduler stops instead of retrying.
+	// CRAWL_SINK is read ONLY by -mode agent (crawl_sink.go). Other modes ignore it, and
+	// say so once, so a shared env file cannot break them. For -mode agent a refusal is
+	// an environment fault (8), so the scheduler stops instead of retrying.
+	if *mode != "agent" && os.Getenv(crawlSinkEnv) != "" {
+		log.Printf("[sink] %s is read only by -mode agent; ignored for -mode %s", crawlSinkEnv, *mode)
+	}
 	sink, sinkRefusal := resolveCrawlSink(*mode, os.Getenv)
 	if sinkRefusal != "" {
 		log.Printf("[sink] refusing to start: %s", sinkRefusal)
@@ -124,6 +132,13 @@ func run() int {
 		return runAgent(ctx, nil)
 	}
 	if dbURL == "" {
+		// -mode agent on the db sink with no database is an environment fault (8), not a
+		// crash: the scheduler stops and the operator fixes the env file. Other modes keep
+		// their behaviour.
+		if *mode == "agent" {
+			log.Printf("[agent] FATAL: DATABASE_URL is required for CRAWL_SINK=db (or set CRAWL_SINK=ingest with SHORTED_INGEST_URL)")
+			return exitSinkRefused
+		}
 		log.Fatal("DATABASE_URL is required")
 	}
 

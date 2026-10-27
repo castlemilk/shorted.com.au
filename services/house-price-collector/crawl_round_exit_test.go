@@ -120,7 +120,7 @@ func TestFinalExitCodePrecedence(t *testing.T) {
 	}{
 		{"cancelled beats rewarm", roundResult{cancelled: true, anyRewarm: true}, 10},
 		{"cancelled beats clean zero", roundResult{cancelled: true}, 10},
-		{"cancelled but fatal keeps 7", roundResult{cancelled: true, fatalErr: true}, 7},
+		{"cancelled beats a fatal round (10)", roundResult{cancelled: true, fatalErr: true}, exitCrawlCancelled},
 		{"rewarm alone is 3", roundResult{anyRewarm: true}, 3},
 		{"fatal alone is 7", roundResult{fatalErr: true}, 7},
 		{"clean is 0", roundResult{}, 0},

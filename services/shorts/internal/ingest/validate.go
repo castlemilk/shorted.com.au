@@ -3,7 +3,6 @@ package ingest
 import (
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 
@@ -15,40 +14,36 @@ import (
 
 // Limits on a PushSweep. The body cap (4 MiB) is enforced by the handler's
 // WithReadMaxBytes; these are the per-sweep and per-field caps behind it.
+// The caps live in services/pkg/housingingest, where the rig sanitises to the same values.
 const (
-	MaxListingsPerSweep = 2000
-	MaxPagesPerSweep    = 50
-	maxKeyBytes         = 300
-	maxJobIDBytes       = 128
-	maxAttempt          = 10000
-	maxSuburbBytes      = 100
-	maxStateBytes       = 10
-	maxPostcodeBytes    = 10
-	maxListingIDBytes   = 200
-	maxAddressBytes     = 300
-	maxURLBytes         = 2048
-	maxPropertyBytes    = 100
-	maxPriceTextBytes   = 200
-	maxKindBytes        = 20
-	maxStatusBytes      = 20
-	maxAgencyIDBytes    = 100
-	maxAgencyNameBytes  = 200
-	maxAgentNames       = 20
-	maxAgentNameBytes   = 200
-	maxRevisionBytes    = 100
-	maxCycleIDBytes     = 128
-	maxCountValue       = 1_000_000
-	maxBedroomsValue    = 100
-	maxLandSizeSqm      = 10_000_000
+	MaxListingsPerSweep = housingingest.MaxListingsPerSweep
+	MaxPagesPerSweep    = housingingest.MaxPagesPerSweep
+	maxKeyBytes         = housingingest.MaxKeyBytes
+	maxJobIDBytes       = housingingest.MaxJobIDBytes
+	maxAttempt          = housingingest.MaxAttempt
+	maxSuburbBytes      = housingingest.MaxSuburbBytes
+	maxStateBytes       = housingingest.MaxStateBytes
+	maxPostcodeBytes    = housingingest.MaxPostcodeBytes
+	maxListingIDBytes   = housingingest.MaxListingIDBytes
+	maxAddressBytes     = housingingest.MaxAddressBytes
+	maxURLBytes         = housingingest.MaxURLBytes
+	maxPropertyBytes    = housingingest.MaxPropertyBytes
+	maxPriceTextBytes   = housingingest.MaxPriceTextBytes
+	maxKindBytes        = housingingest.MaxKindBytes
+	maxStatusBytes      = housingingest.MaxStatusBytes
+	maxAgencyIDBytes    = housingingest.MaxAgencyIDBytes
+	maxAgencyNameBytes  = housingingest.MaxAgencyNameBytes
+	maxAgentNames       = housingingest.MaxAgentNames
+	maxAgentNameBytes   = housingingest.MaxAgentNameBytes
+	maxRevisionBytes    = housingingest.MaxRevisionBytes
+	maxCycleIDBytes     = housingingest.MaxCycleIDBytes
+	maxCountValue       = housingingest.MaxCountValue
+	maxBedroomsValue    = housingingest.MaxBedroomsValue
+	maxLandSizeSqm      = housingingest.MaxLandSizeSqm
 )
 
 // Enum vocabularies. Values are the normalized strings housingcrawl reads.
 var (
-	validListingStatus = map[string]bool{"": true, "for_sale": true, "under_offer": true, "sold": true, "withdrawn": true}
-	validPriceKind     = map[string]bool{
-		"": true, "fixed": true, "range_low": true, "range_high": true,
-		"offers_over": true, "auction": true, "poa": true, "unknown": true,
-	}
 	validCycleOutcome = map[string]bool{
 		"ok": true, "blocked": true, "partial": true, "rewarm": true,
 		"error": true, "deferred": true, "cancelled": true, "failed": true,
@@ -192,80 +187,8 @@ func validateEnvelope(msg *pb.PushSweepRequest, minContract int32) error {
 // source disagrees with the request is refused, because housingcrawl would refuse
 // the whole sweep for it.
 func validateListing(i int, l *pb.Listing, src string) error {
-	field := func(name string) string { return "listings[" + strconv.Itoa(i) + "]." + name }
-	if l.Source != src {
-		return invalid("%s must equal the request source", field("source"))
-	}
-	if err := checkRequired(field("listing_id"), l.ListingId, maxListingIDBytes); err != nil {
-		return err
-	}
-	for _, c := range []struct {
-		name string
-		v    string
-		max  int
-	}{
-		{"listing_url", l.ListingUrl, maxURLBytes},
-		{"display_addr", l.DisplayAddr, maxAddressBytes},
-		{"suburb", l.Suburb, maxSuburbBytes},
-		{"state", l.State, maxStateBytes},
-		{"postcode", l.Postcode, maxPostcodeBytes},
-		{"address_key", l.AddressKey, maxAddressBytes},
-		{"property_type", l.PropertyType, maxPropertyBytes},
-		{"price_display", l.PriceDisplay, maxPriceTextBytes},
-		{"price_kind", l.PriceKind, maxKindBytes},
-		{"agency_id", l.AgencyId, maxAgencyIDBytes},
-		{"agency_name", l.AgencyName, maxAgencyNameBytes},
-	} {
-		if err := checkStr(field(c.name), c.v, c.max); err != nil {
-			return err
-		}
-	}
-	if !validListingStatus[l.Status] {
-		return invalid("%s is not a known status", field("status"))
-	}
-	if len(l.Status) > maxStatusBytes {
-		return invalid("%s exceeds %d bytes", field("status"), maxStatusBytes)
-	}
-	if !validPriceKind[l.PriceKind] {
-		return invalid("%s is not a known price kind", field("price_kind"))
-	}
-	if len(l.AgentNames) > maxAgentNames {
-		return invalid("%s holds at most %d names", field("agent_names"), maxAgentNames)
-	}
-	for _, n := range l.AgentNames {
-		if err := checkStr(field("agent_names[]"), n, maxAgentNameBytes); err != nil {
-			return err
-		}
-	}
-	for name, v := range map[string]*float64{
-		"price_low":     l.PriceLow,
-		"price_high":    l.PriceHigh,
-		"land_size_sqm": l.LandSizeSqm,
-	} {
-		if v == nil {
-			continue
-		}
-		if math.IsNaN(*v) || math.IsInf(*v, 0) || *v < 0 {
-			return invalid("%s must be a finite, non-negative number", field(name))
-		}
-	}
-	if l.LandSizeSqm != nil && *l.LandSizeSqm > maxLandSizeSqm {
-		return invalid("%s is out of range", field("land_size_sqm"))
-	}
-	if l.Lat != nil && (math.IsNaN(*l.Lat) || *l.Lat < -90 || *l.Lat > 90) {
-		return invalid("%s is out of range", field("lat"))
-	}
-	if l.Lng != nil && (math.IsNaN(*l.Lng) || *l.Lng < -180 || *l.Lng > 180) {
-		return invalid("%s is out of range", field("lng"))
-	}
-	for name, v := range map[string]*int32{
-		"bedrooms":   l.Bedrooms,
-		"bathrooms":  l.Bathrooms,
-		"car_spaces": l.CarSpaces,
-	} {
-		if v != nil && (*v < 0 || *v > maxBedroomsValue) {
-			return invalid("%s is out of range", field(name))
-		}
+	if err := housingingest.ValidateListing("listings["+strconv.Itoa(i)+"].", l, src); err != nil {
+		return invalid("%s", err.Error())
 	}
 	return nil
 }

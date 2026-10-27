@@ -2,6 +2,10 @@ package main
 
 import "time"
 
+// The ingest URL check (validateIngestURL) refuses plain-http loopback in production. Tests
+// point the sink at an httptest server, so this file, and only this file, opens it.
+func init() { testAllowLoopbackIngest = true }
+
 // bondi is the reference suburb the listings and resume tests sweep. It lived in the
 // ExtractRealEstate test file, which S-FETCH removed; the fixture stays because the
 // listings tests key their pages to its URLs.
