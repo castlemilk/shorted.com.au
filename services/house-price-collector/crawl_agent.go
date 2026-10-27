@@ -109,6 +109,10 @@ type agentCrawlJob struct {
 	Postcode string `json:"postcode"`
 	Source   string `json:"source"`
 	Tier     string `json:"tier"`
+	// Attempts is the claim's attempt number, the third part of the ingest idempotency
+	// key (<job_id>:<attempt>:<source>). MaxAttempts is informational.
+	Attempts    int `json:"attempts"`
+	MaxAttempts int `json:"max_attempts"`
 }
 
 // crawlJobSummary is the counts-only result reported back to brandbrain. It carries
@@ -365,6 +369,12 @@ func (c *brandbrainAgentClient) submit(ctx context.Context, jobID, status string
 	return c.do(ctx, http.MethodPost, "/api/v1/agent/crawl-jobs/submit", body, nil)
 }
 
+// renew extends a claimed job's lease. The lease is 10 minutes (brandbrain), so a job
+// whose sweeps and push retries run longer must renew it.
+func (c *brandbrainAgentClient) renew(ctx context.Context, jobID string) error {
+	return c.do(ctx, http.MethodPost, "/api/v1/agent/crawl-jobs/renew", map[string]string{"job_id": jobID}, nil)
+}
+
 // crawlEnqueueInput is one suburb to enqueue on the brandbrain queue.
 type crawlEnqueueInput struct {
 	Kind     string `json:"kind"`
@@ -559,10 +569,23 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) (code int) {
 	var final roundResult
 	defer func() { events.roundDone(final, code) }()
 
+	sink, refusal := resolveCrawlSink("agent", os.Getenv)
+	if refusal != "" {
+		log.Printf("[agent] FATAL: refusing to start: %s", refusal)
+		return exitSinkRefused
+	}
 	acfg := loadAgentConfig()
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
 		log.Printf("[agent] FATAL: BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required")
 		return 7
+	}
+	if sink != crawlSinkDB {
+		ir := newIngestRound(sink, acfg, os.Getenv("SHORTED_INGEST_URL"), events)
+		// ProbeAuth once per process, before any job is claimed.
+		if c := ir.probe(ctx); c != 0 {
+			return c
+		}
+		ctx = withIngestRound(ctx, ir)
 	}
 
 	lock := newCrawlLockFromEnv()
@@ -622,10 +645,10 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 					log.Printf("[agent] self-warm failed (%v) — exiting for re-warm (exit %d)", err, rc)
 				}
 				if !cfg.dryRun {
-					writeCrawlRunStatus(crawlRunStatusRecord{
+					persistRunRecord(ctx, pool, crawlRunStatusRecord{
 						RunType: runType, Host: host, RunID: runID, StartedAt: runStart,
 						Status: "error", Detail: "self-warm failed: " + err.Error(),
-					}, pool)
+					}, rc)
 				}
 				return rc
 			}
@@ -646,10 +669,10 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 			if warmCheckInitExitCode(err) == exitCrawlEnvBroken {
 				log.Printf("[agent] %v (underlying: %v) — exiting %d for OPERATOR action", errCrawlEnvBroken, err, exitCrawlEnvBroken)
 				if !cfg.dryRun {
-					writeCrawlRunStatus(crawlRunStatusRecord{
+					persistRunRecord(ctx, pool, crawlRunStatusRecord{
 						RunType: runType, Host: host, RunID: runID, StartedAt: runStart,
 						Status: "error", Detail: "crawl environment broken: " + err.Error(),
-					}, pool)
+					}, exitCrawlEnvBroken)
 				}
 				return exitCrawlEnvBroken
 			}
@@ -664,10 +687,10 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 			if err != nil {
 				log.Printf("[agent] crawl fetcher init failed after recovery (%v) — exit 4", err)
 				if !cfg.dryRun {
-					writeCrawlRunStatus(crawlRunStatusRecord{
+					persistRunRecord(ctx, pool, crawlRunStatusRecord{
 						RunType: runType, Host: host, RunID: runID, StartedAt: runStart,
 						Status: "error", Detail: "crawl fetcher init failed: " + err.Error(),
-					}, pool)
+					}, 4)
 				}
 				return 4
 			}
@@ -684,7 +707,13 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 
 	// Checkpoint/resume (see crawl_resume.go): OFF unless
 	// CRAWL_LISTINGS_RESUME_WINDOW_H is set. Loaded once for the whole run.
-	rs, resumeErr := loadResumeSnapshot(ctx, pool, cfg.resumeWindow)
+	// The ingest sink holds no database, so there is no snapshot to read: the server's
+	// dispatch decides what is crawled. The db and shadow sinks load it as before.
+	ir := ingestRoundFrom(ctx)
+	rs, resumeErr := resumeSet{}, error(nil)
+	if ir.writesLocally() {
+		rs, resumeErr = loadResumeSnapshot(ctx, pool, cfg.resumeWindow)
+	}
 	if resumeErr != nil {
 		log.Printf("[agent] resume snapshot load failed (%v) — resume disabled for this run", resumeErr)
 	} else if cfg.resumeWindow > 0 {
@@ -716,9 +745,7 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 		dryRun:  cfg.dryRun,
 		claim:   client.claim,
 		allOpen: func() (bool, time.Duration) { return cb.allOpen(circuitSources, time.Now().UTC()) },
-		runJob: func(ctx context.Context, job *agentCrawlJob) (crawlJobSummary, string, string, bool, time.Duration) {
-			return crawlAgentJob(ctx, pool, fetcher, cfg, job, rs, cb, tel, events)
-		},
+		runJob:  ir.jobRunner(pool, fetcher, cfg, rs, cb, tel, events),
 		submit: func(_ context.Context, jobID, status string, summary *crawlJobSummary, errMsg string, retryAfter time.Duration) error {
 			// Report on a DETACHED context with its own deadline: reporting the result
 			// of ALREADY-COMPLETED work must not be killed by the crawl deadline firing
@@ -732,11 +759,17 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 			jitterSleepUntil(ctx, stopped, cfg.minDelay, cfg.maxDelay)
 		},
 		blocks:    blocks,
+		roundExit: ir.code,
 		events:    events,
 		stop:      stop,
 		ppid:      os.Getppid,
 		startPPID: startParentPID,
 		finalize: func(res *roundResult) {
+			// The ingest server runs these itself (crawl-finalize), so a rig holding no
+			// database has nothing to finalize.
+			if !ir.writesLocally() {
+				return
+			}
 			// Refresh MVs + sal-link once at the end of the run (not per job) — on a
 			// DETACHED context, same reason as submit above: finalizing ALREADY-COMMITTED
 			// writes must not die with the run deadline. Observed live: the deadline fired
@@ -769,6 +802,7 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 	res := r.run(ctx)
 	*final = res
 
+	code := finalExitCode(res)
 	// Self-report this round's health so the residential crawl shows up as a tracked
 	// scheduled job in the admin dashboard (see crawl_run_status.go). Best-effort +
 	// detached; skipped for DRY runs (which never submit / persist). Rounds sharing
@@ -783,7 +817,7 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 		if res.cancelled {
 			detail += "; cancelled (" + res.cancelReason + ")"
 		}
-		writeCrawlRunStatus(crawlRunStatusRecord{
+		persistRunRecord(ctx, pool, crawlRunStatusRecord{
 			RunType:         runType,
 			Host:            host,
 			RunID:           runID,
@@ -796,19 +830,20 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 			BlockedCount:    res.blockedSweeps,
 			RewarmNeeded:    res.anyRewarm,
 			Detail:          detail,
-		}, pool)
+		}, code)
 	}
 
 	// NOTE: the drain-until-empty wrapper (deploy/housing-crawl-common.sh) parses
 	// the "processed N job(s)" count out of this exact line to decide whether to
 	// loop again — keep the "done: processed <N> job" shape stable.
 	log.Printf("[agent] done: processed %d job(s)", res.processed)
-	code := finalExitCode(res)
 	switch code {
 	case 3:
 		log.Printf("[agent] REWARM REQUIRED: a sweep tripped the circuit breaker — re-warm the crawl Chrome profile")
 	case 7:
 		log.Printf("[agent] FATAL: agent infrastructure or finalizer failed")
+	case exitIngestAuthRefused, exitIngestUnavailable, exitIngestContract:
+		log.Printf("[agent] INGEST: round ended with exit %d (see the [ingest] lines above)", code)
 	case exitCrawlCancelled:
 		log.Printf("[agent] CANCELLED (%s): stopped early; committed work is finalized (exit %d)", res.cancelReason, code)
 	}
@@ -831,6 +866,8 @@ type roundResult struct {
 	fatalDetail   string
 	cancelled     bool
 	cancelReason  string
+	// roundExit is the round-level ingest exit (13, 14, 15 or 7), or 0.
+	roundExit int
 }
 
 // roundIO is the seam around the per-round work loop. runAgentRound wires it to
@@ -856,6 +893,9 @@ type roundIO struct {
 	// finalize runs once after the loop when the round wrote anything, cancelled or
 	// not. Nil skips it. It is the MV refresh and sal-link step.
 	finalize func(res *roundResult)
+	// roundExit reports a round-level ingest exit (13, 14, 15 or 7), or 0. A non-zero
+	// value ends the round after the job it arrived on has been submitted. Nil in tests.
+	roundExit func() int
 }
 
 // run is the work loop. Events are emitted here and in submitJob, and nowhere else
@@ -942,6 +982,13 @@ func (r roundIO) run(ctx context.Context) roundResult {
 		log.Printf("[agent] job %s %s/%s → %s: listings=%d events=%d blocked=%d skipped=%d%s", job.ID, job.Suburb, job.Tier, status, summary.Listings, summary.Events, summary.BlockedSweeps, summary.SkippedRows, dry)
 		res.processed++
 
+		if r.roundExit != nil {
+			if code := r.roundExit(); code != 0 {
+				res.roundExit = code
+				log.Printf("[agent] ingest ended the round with exit %d — not claiming another job", code)
+				break
+			}
+		}
 		// A job that wrote no events off a blocked/poisoned sweep means the browser
 		// session has gone cold — Kasada/Akamai serving stubs or poison, or an IP
 		// throttle after several heavy sweeps. The submit above marked it failed.
@@ -1014,6 +1061,11 @@ func stopReason(stop *stopSignal, ppid func() int, startPPID int, events *crawlE
 // the cooldown, and a SIGTERM must mean neither. A fatal error (7) still wins,
 // because it is a real fault and the wrapper must see it.
 func finalExitCode(res roundResult) int {
+	// An ingest round-level failure is a real fault the scheduler must see, so it wins
+	// over everything, a cancel included.
+	if res.roundExit != 0 {
+		return res.roundExit
+	}
 	if res.cancelled && !res.fatalErr {
 		return exitCrawlCancelled
 	}
@@ -1049,13 +1101,16 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	t, _ := resolveCrawlTarget(job)
 	runTs := time.Now().UTC()
 
-	if !cfg.dryRun {
+	if !cfg.dryRun && ingestRoundFrom(ctx).writesLocally() {
 		if err := upsertRegions(ctx, pool, listingRegionObs([]CrawlTarget{t})); err != nil {
 			return crawlJobSummary{Suburbs: 1, Detail: "region upsert failed"}, "failed", "region upsert: " + err.Error(), false, 0
 		}
 	}
 
 	lc := &listingsCrawler{fetcher: fetcher, cfg: cfg, tel: tel}
+	if ir := ingestRoundFrom(ctx); ir != nil {
+		lc.sink = ir.sinkFor(pool, job)
+	}
 	var reaEvents, domEvents int
 	var reaErr, domErr error
 	var skippedRea, skippedDomain bool
@@ -1153,6 +1208,14 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	// swallowed the error and returned 0) banked a silent no-data run: 0 events
 	// is indistinguishable from a clean no-change sweep, so the job was marked
 	// done and the suburb wasn't re-served until the next full enqueue.
+	// An ingest push answer decides the job by the per-job table (crawl_sink.go): the
+	// server's counts stand in for the local diff's, and a push failure is never a
+	// local diff error.
+	if pf := firstPushFailure(reaErr, domErr); pf != nil {
+		d := jobDisposition(pf)
+		summary.Detail = d.errMsg
+		return summary, d.status, d.errMsg, false, d.retryAfter
+	}
 	status, detail, errMsg := agentJobTerminal(summary.Events, s.blockedSweeps, s.skippedRows, firstErr(reaErr, domErr))
 	if status == "failed" {
 		summary.Detail = detail

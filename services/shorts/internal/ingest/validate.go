@@ -10,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 
 	pb "github.com/castlemilk/shorted.com.au/services/gen/proto/go/housingingest/v1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/housingingest"
 )
 
 // Limits on a PushSweep. The body cap (4 MiB) is enforced by the handler's
@@ -73,16 +74,7 @@ func validJobID(id string) bool {
 }
 
 // sourceName is the lowercase portal name the idempotency key and the store use.
-func sourceName(s pb.Source) string {
-	switch s {
-	case pb.Source_SOURCE_REA:
-		return "rea"
-	case pb.Source_SOURCE_DOMAIN:
-		return "domain"
-	default:
-		return ""
-	}
-}
+func sourceName(s pb.Source) string { return housingingest.SourceName(s) }
 
 // invalid is an InvalidArgument whose message names the field, never its value.
 func invalid(format string, args ...any) error {

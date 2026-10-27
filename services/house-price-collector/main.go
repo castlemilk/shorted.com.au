@@ -55,12 +55,25 @@ func main() {
 // (exitVGPruneHeldBack — thin download or a parser regression); for `-mode agent`
 // 10 = cancelled (SIGTERM/SIGINT, events stream closed, or orphaned: finalized
 // first) and 12 = another live drainer holds the single-drainer lock (crawl_lock.go).
+// S-FETCH (-mode agent, CRAWL_SINK=ingest|shadow; crawl_ingest.go, crawl_sink.go):
+// 13 = ingest auth refused (Unauthenticated after the one token re-fetch, or
+// PermissionDenied); 14 = ingest unavailable after three attempts; 15 = ingest
+// contract mismatch (ProbeAuth's min_contract_version is above ours, or the server
+// answers contract_too_old); 7 = a workload token could not be minted (agent
+// infrastructure). Each of 13, 14 and 15 ends the round after the job it arrived on is
+// submitted, and that job is deferred, so the queue keeps it. Per-job ingest answers
+// are NOT exits. They go to BrandBrain's submit: not_dispatched, dispatch_expired,
+// target_mismatch and a sweep rejected as invalid fail the job; dispatch_applied
+// succeeds it; a reused idempotency key fails it; a quarantined sweep fails it and is
+// not retried; a rate-limited push defers it. An unknown CRAWL_SINK, ingest with
+// DATABASE_URL set, or a missing SHORTED_INGEST_URL refuses to start with exit 8.
+// -mode crawl is removed and exits 1.
 // Keeping 8 distinct from 4 is deliberate: see crawl_env.go for the outage that
 // bought that distinction. drop-index also returns 1 on a query or write
 // failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "version | official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | server-enqueue | server-property-resolve | crawl-finalize | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | revalidate | all")
+	mode := flag.String("mode", "all", "version | official | vg-nsw | vg-vic | listings | details | property | property-resolve | agent | enqueue | server-enqueue | server-property-resolve | crawl-finalize | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | revalidate | all")
 	selection := flag.String("selection", "delta", "server-enqueue only: delta (demand-sized suburbs) | full (the whole catalog)")
 	dryRun := flag.Bool("dry-run", false, "server-enqueue only: select and build the jobs, log the counts, send nothing and write nothing")
 	limit := flag.Int("limit", 0, "server-enqueue only: post at most N selected targets (0 = no limit)")
@@ -86,13 +99,33 @@ func run() int {
 		return 0
 	}
 
+	// -mode crawl is removed (S-FETCH). It sent search-page HTML to BrandBrain's
+	// ExtractRealEstate, and no rig binary may do that. Refused before the environment
+	// is read, so the removal cannot depend on DATABASE_URL being set.
+	if *mode == "crawl" {
+		log.Printf("[crawl] -mode crawl is removed: it sent page content to BrandBrain. Use -mode agent (the queue, with CRAWL_SINK).")
+		return 1
+	}
+	// CRAWL_SINK picks where a -mode agent sweep is written (crawl_sink.go). A refusal
+	// is an environment fault (8), so the scheduler stops instead of retrying.
+	sink, sinkRefusal := resolveCrawlSink(*mode, os.Getenv)
+	if sinkRefusal != "" {
+		log.Printf("[sink] refusing to start: %s", sinkRefusal)
+		return exitSinkRefused
+	}
+
 	dbURL := os.Getenv("DATABASE_URL")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(collectorTimeoutMinutes(*mode))*time.Minute)
+	defer cancel()
+
+	// The ingest sink holds no database and opens no pool. runAgent gets nil, and its
+	// ingest path never dereferences it (crawl_sink.go).
+	if sink == crawlSinkIngest {
+		return runAgent(ctx, nil)
+	}
 	if dbURL == "" {
 		log.Fatal("DATABASE_URL is required")
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(collectorTimeoutMinutes(*mode))*time.Minute)
-	defer cancel()
 
 	pool, err := connect(ctx, dbURL)
 	if err != nil {
@@ -135,19 +168,6 @@ func run() int {
 		// VIC medians go stale. This mode runs the one source from a residential
 		// rig and propagates ingest/freshness/refresh failures as a non-zero exit.
 		return runVICVG(ctx, pool)
-	case "crawl":
-		// Supplementary suburb crawl — opt-in only, never part of the default
-		// scheduled run (it's slow, adversarial and licence-gated). Drives a HEADED,
-		// persistent-profile Playwright browser, so it runs ONLY on the residential
-		// cuttlefish rig under xvfb (see Dockerfile.crawl), never on Cloud Run.
-		rewarm := runCrawl(ctx, pool)
-		refreshErr := refresh(ctx, pool)
-		if rewarm {
-			return 3
-		}
-		if refreshErr != nil {
-			return 1
-		}
 	case "listings":
 		// Supplementary property-LISTING crawl — opt-in only, never part of the
 		// scheduled run. Sweeps portal search-results pages for individual for-sale

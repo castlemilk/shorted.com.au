@@ -30,6 +30,9 @@ import (
 //	page             {job_id, source: rea|domain}   one per source sweep started
 //	submit           {job_id, outcome: succeeded|failed|deferred, listings, events, blocked}
 //	finalize_started {}
+//	shadow           {job_id, source, legacy_events, legacy_failed, dry_events,
+//	                  dry_quarantined, dry_poisoned, dry_applied, push_error,
+//	                  push_reason, parity}   CRAWL_SINK=shadow only, one per sweep
 //	round_done       {processed, succeeded, failed, deferred, listings, events,
 //	                  blocked_sweeps, needs_rewarm, chrome_unusable, env_broken}
 const crawlEventsFDEnv = "CRAWL_EVENTS_FD"
@@ -193,6 +196,80 @@ func (e *crawlEvents) submit(jobID, outcome string, listings, events, blocked in
 			Listings: listings, Events: events, Blocked: blocked,
 		}
 	})
+}
+
+// shadowParity is one sweep's parity record in shadow mode. Every field is an ID, a
+// count, a boolean or an enum, and push_reason is only ever a server reason from the
+// ingest's fixed vocabulary, so no listing or suburb name can reach this stream.
+// parity is one of match, diverge, legacy_error, not_dispatched or push_error.
+type shadowParity struct {
+	JobID          string
+	Source         string
+	LegacyEvents   int
+	LegacyFailed   bool
+	DryEvents      int
+	DryQuarantined bool
+	DryPoisoned    bool
+	DryApplied     string
+	PushError      string
+	PushReason     string
+	Parity         string
+}
+
+type shadowEvent struct {
+	eventHeader
+	JobID          string `json:"job_id"`
+	Source         string `json:"source"`
+	LegacyEvents   int    `json:"legacy_events"`
+	LegacyFailed   bool   `json:"legacy_failed"`
+	DryEvents      int    `json:"dry_events"`
+	DryQuarantined bool   `json:"dry_quarantined"`
+	DryPoisoned    bool   `json:"dry_poisoned"`
+	DryApplied     string `json:"dry_applied"`
+	PushError      string `json:"push_error"`
+	PushReason     string `json:"push_reason"`
+	Parity         string `json:"parity"`
+}
+
+// shadowParity writes one parity record. A nil writer is a no-op, as for every event.
+func (e *crawlEvents) shadowParity(p shadowParity) {
+	e.emit(func() any {
+		return shadowEvent{
+			eventHeader:    e.header("shadow"),
+			JobID:          safeJobID(p.JobID),
+			Source:         sourceEnum(p.Source),
+			LegacyEvents:   p.LegacyEvents,
+			LegacyFailed:   p.LegacyFailed,
+			DryEvents:      p.DryEvents,
+			DryQuarantined: p.DryQuarantined,
+			DryPoisoned:    p.DryPoisoned,
+			DryApplied:     p.DryApplied,
+			PushError:      p.PushError,
+			PushReason:     enumOrEmpty(p.PushReason, parityReasons),
+			Parity:         enumOrEmpty(p.Parity, parityOutcomes),
+		}
+	})
+}
+
+// parityOutcomes is the closed set of parity values a shadow event may carry.
+var parityOutcomes = map[string]bool{
+	"match": true, "diverge": true, "legacy_error": true, "not_dispatched": true, "push_error": true,
+}
+
+// sourceEnum keeps a portal name only when it is one of the two known portals.
+func sourceEnum(s string) string {
+	if s == "rea" || s == "domain" {
+		return s
+	}
+	return "invalid"
+}
+
+// enumOrEmpty returns v when it is in the allowed set, and "" otherwise.
+func enumOrEmpty(v string, allowed map[string]bool) string {
+	if allowed[v] {
+		return v
+	}
+	return ""
 }
 
 func (e *crawlEvents) finalizeStarted() {

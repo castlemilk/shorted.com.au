@@ -291,8 +291,8 @@ warm-up / manual rehearsal, but the scheduled launchd run does it itself.
 
 ### Queue mode (`-mode agent`) — auth via the co-located BrandBrain agent
 
-The launcher above runs the STANDALONE path (`-mode listings` / `-mode crawl`,
-each Mac crawling its own shard directly). To instead drain the shared
+The launcher above runs the STANDALONE path (`-mode listings`, each Mac crawling
+its own shard directly; `-mode crawl` is removed). To instead drain the shared
 **brandbrain crawl-jobs queue** (`api.brandbrain.dev`) so multiple Macs fan
 suburbs out via SKIP-LOCKED, run `-mode agent` / `-mode enqueue`.
 
@@ -334,6 +334,54 @@ scopes is a drop-in. Mint via `POST /api/v1/ml/auth/tokens`
 (`{scopes:["agent:crawl","agent:upload"],expires_in_hours:8760}`, needs
 `ML_TOKEN_MINT_SECRET` on the brandbrain env), or bridge with the 24h
 `POST /api/v1/agent/refresh`.
+
+### Where a queue sweep is written: `CRAWL_SINK` (`-mode agent`)
+
+`CRAWL_SINK` selects the sink for each sweep. Unset means `db`.
+
+| `CRAWL_SINK` | What a sweep does | Needs | Refuses (exit 8) |
+|---|---|---|---|
+| `db` (default) | The local diff into the database, unchanged. Gamma-64's wrappers and BrandBrain 1.33.10's bundled collector run this. | `DATABASE_URL` | never |
+| `ingest` | PUSHES the sweep to shorted's `CrawlIngestService`. The server does the database work (upsert, diff, sal-link, MV refresh, revalidate via `crawl-finalize`). No pool is opened. | `SHORTED_INGEST_URL` | `DATABASE_URL` set (a rig must not dual-write); `-mode` other than `agent`; no URL |
+| `shadow` | The `db` diff unchanged, plus a dry-run push of the same sweep. Parity is written to the events stream (`CRAWL_EVENTS_FD`). A shadow failure never changes the legacy job's outcome, exit code or submit. | both | either URL missing |
+
+Any other value refuses with exit 8. `-mode crawl` is removed and exits 1. Nothing
+on the rig sends page content to BrandBrain.
+
+**Environment for `ingest` (and `shadow`):**
+
+```bash
+CRAWL_SINK=ingest
+SHORTED_INGEST_URL=https://<shorted ingest service>   # CrawlIngestService base URL
+# BRANDBRAIN_AGENT_URL, the co-located agent's loopback control port and secret are
+# unchanged. They mint the workload token (audience https://api.shorted.com.au/housing-ingest)
+# on GET /control/v1/workload-token. DATABASE_URL must be absent.
+```
+
+**Order and lease.** A job's pushes happen before its submit to BrandBrain, and the
+submit is counts-only. The lease is renewed every 4 minutes while the job runs, and
+before each push retry. A push is retried up to 3 times on Unavailable or a
+transport error, with the same idempotency key (`<job_id>:<attempt>:<source>`).
+
+**Exit codes added by the ingest sink** (round-level; the job that met the error is
+deferred for 15 minutes so the queue keeps it):
+
+| rc | Meaning |
+|---|---|
+| 13 | Ingest refused the workload token (Unauthenticated after the one re-fetch, or PermissionDenied) |
+| 14 | Ingest unavailable after three attempts |
+| 15 | Contract mismatch: `ProbeAuth`'s `min_contract_version` is above this collector's, or the server answers `contract_too_old` |
+| 7 | The workload token could not be minted from the co-located agent (agent infrastructure) |
+
+Per-job ingest answers are not exits. They become the job's submit: `dispatch_applied`
+succeeds it; `not_dispatched`, `dispatch_expired`, `target_mismatch`, an invalid
+sweep and a reused idempotency key fail it; a quarantined sweep fails it and is not
+retried; a rate-limited push defers it. The table is `jobDispositionTable` in
+`crawl_sink.go`.
+
+**Shadow parity is only meaningful for server-enqueued jobs.** A shadow dry run still
+checks the dispatch ledger, so a job the legacy wrapper enqueued (`-mode enqueue`)
+answers `not_dispatched`. That is recorded as parity, not an error.
 
 ### Deprecated whole-catalog auto-drainer
 

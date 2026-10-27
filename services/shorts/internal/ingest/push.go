@@ -15,6 +15,7 @@ import (
 
 	pb "github.com/castlemilk/shorted.com.au/services/gen/proto/go/housingingest/v1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/housingcrawl"
+	"github.com/castlemilk/shorted.com.au/services/pkg/housingingest"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 )
 
@@ -149,18 +150,6 @@ func bodyDigest(msg *pb.PushSweepRequest) ([]byte, error) {
 	return sum[:], nil
 }
 
-// statusLib maps the request enum onto the store's status.
-func statusLib(s pb.SweepStatus) housingcrawl.SweepStatus {
-	switch s {
-	case pb.SweepStatus_SWEEP_STATUS_COMPLETE:
-		return housingcrawl.Complete
-	case pb.SweepStatus_SWEEP_STATUS_PARTIAL:
-		return housingcrawl.Partial
-	default:
-		return housingcrawl.Blocked
-	}
-}
-
 // applied reports whether a status writes listings. Only these close a job.
 func applied(s pb.SweepStatus) bool {
 	return s == pb.SweepStatus_SWEEP_STATUS_COMPLETE || s == pb.SweepStatus_SWEEP_STATUS_PARTIAL
@@ -189,48 +178,6 @@ func targetMatches(req *pb.Target, d dispatch) bool {
 	return slug(req.Suburb) == slug(d.Suburb) &&
 		strings.EqualFold(strings.TrimSpace(req.State), strings.TrimSpace(d.State)) &&
 		strings.TrimSpace(req.Postcode) == strings.TrimSpace(d.Postcode)
-}
-
-// toRawListings converts the wire listings into the store's type. The address key is
-// left empty: housingcrawl stamps it from the canonical target.
-func toRawListings(in []*pb.Listing) []housingcrawl.RawListing {
-	out := make([]housingcrawl.RawListing, 0, len(in))
-	for _, l := range in {
-		out = append(out, housingcrawl.RawListing{
-			Source:       l.Source,
-			ListingID:    l.ListingId,
-			ListingURL:   l.ListingUrl,
-			DisplayAddr:  l.DisplayAddr,
-			Suburb:       l.Suburb,
-			State:        l.State,
-			Postcode:     l.Postcode,
-			Lat:          l.Lat,
-			Lng:          l.Lng,
-			PropertyType: l.PropertyType,
-			Bedrooms:     int16Ptr(l.Bedrooms),
-			Bathrooms:    int16Ptr(l.Bathrooms),
-			CarSpaces:    int16Ptr(l.CarSpaces),
-			LandSizeSqm:  l.LandSizeSqm,
-			PriceDisplay: l.PriceDisplay,
-			PriceLow:     l.PriceLow,
-			PriceHigh:    l.PriceHigh,
-			PriceKind:    l.PriceKind,
-			Status:       l.Status,
-			AgencyID:     l.AgencyId,
-			AgencyName:   l.AgencyName,
-			AgentNames:   append([]string(nil), l.AgentNames...),
-		})
-	}
-	return out
-}
-
-// int16Ptr narrows a validated count (0 to 100) into the store's type.
-func int16Ptr(v *int32) *int16 {
-	if v == nil {
-		return nil
-	}
-	n := int16(*v)
-	return &n
 }
 
 // responseFor builds the counts-only response. It never carries a listing field.
@@ -336,7 +283,7 @@ func (s *Service) pushSweep(ctx context.Context, rig string, msg *pb.PushSweepRe
 		return nil, precondition("target_mismatch")
 	}
 	target := canonicalTarget(d)
-	raw := toRawListings(msg.Listings)
+	raw := housingingest.ToRawListings(msg.Listings)
 	gated, poisoned := gateSweep(raw, target)
 	status := effectiveStatus(msg, gated, poisoned)
 	if poisoned {
@@ -355,7 +302,7 @@ func (s *Service) pushSweep(ctx context.Context, rig string, msg *pb.PushSweepRe
 	sw := housingcrawl.Sweep{
 		Target:     target,
 		Source:     d.Source,
-		Status:     statusLib(status),
+		Status:     housingingest.StatusLib(status),
 		Pages:      int(msg.Pages),
 		Listings:   raw,
 		RunTS:      receivedAt,

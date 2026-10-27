@@ -249,6 +249,39 @@ source-level assertion on purpose — a mode that drops its error still logs, st
 records `"error"` in `sync_status` and still exits 0, so the dispatch shape is
 the only observable difference.
 
+## Crawl sinks (`CRAWL_SINK`, `-mode agent`)
+
+Where a queue sweep is written (S-FETCH; the design is
+`docs/superpowers/specs/2026-10-27-fleet-managed-housing-crawl-design.md`).
+
+- **`db`** (default, unset): the local diff into the database, exactly as before.
+  Gamma-64's launchd wrappers and BrandBrain 1.33.10's bundled collector run this.
+- **`ingest`**: each sweep is PUSHED to `CrawlIngestService` (`SHORTED_INGEST_URL`).
+  No `DATABASE_URL`, no pool. The server runs the database work (upsert, diff, sal-link,
+  MV refresh, revalidate) through `crawl-finalize`. The rig does not load the resume
+  snapshot or run the finalize step, and it reports its round through `ReportCycle`.
+- **`shadow`**: the `db` diff plus a `dry_run=true` push of the same sweep. Parity
+  (legacy count against the server's dry-run events, quarantine, poison, or the server
+  answer) goes to the events stream as `shadow` records. A shadow failure never
+  changes the job outcome.
+
+Refusals exit 8: an unknown value; `ingest` or `shadow` outside `-mode agent`;
+`ingest` with `DATABASE_URL` set; a missing `SHORTED_INGEST_URL`; `shadow` without
+`DATABASE_URL`. `-mode crawl` is removed and exits 1.
+
+Exit codes the ingest sink adds: **13** ingest refused the token, **14** ingest
+unavailable after three attempts, **15** contract mismatch, **7** the workload token
+could not be minted. Each ends the round after the job it met is submitted, and that
+job is deferred for 15 minutes. Per-job answers (`not_dispatched`,
+`dispatch_applied`, `dispatch_expired`, `AlreadyExists`, `InvalidArgument`,
+quarantined) go to BrandBrain's submit instead. The rig reads the workload token from
+the co-located agent (`GET /control/v1/workload-token`) and renews the lease every 4
+minutes while a job runs.
+
+Per-job mapping and the parity rules: `jobDispositionTable` and `parity` in
+`services/house-price-collector/crawl_sink.go`. The wire mapping is in
+`services/pkg/housingingest`, shared with the server.
+
 ## Revalidation ping
 
 `pingRevalidate` POSTs `REVALIDATION_URL?secret=…&path=/price-drops,/housing&flush=housing`
