@@ -90,6 +90,14 @@ resource "google_secret_manager_secret_iam_member" "secrets" {
   project   = var.project_id
 }
 
+resource "google_secret_manager_secret_iam_member" "otel_metrics_headers" {
+  count     = var.otel_metrics.enabled ? 1 : 0
+  project   = var.project_id
+  secret_id = var.otel_metrics.headers_secret
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.job.email}"
+}
+
 resource "google_cloud_run_v2_job" "job" {
   name     = var.name
   location = var.region
@@ -129,6 +137,31 @@ resource "google_cloud_run_v2_job" "job" {
           }
         }
 
+        dynamic "env" {
+          for_each = var.otel_metrics.enabled ? {
+            OTEL_EXPORTER_OTLP_METRICS_ENDPOINT               = var.otel_metrics.endpoint
+            OTEL_EXPORTER_OTLP_METRICS_PROTOCOL               = "http/protobuf"
+            OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "cumulative"
+          } : {}
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+
+        dynamic "env" {
+          for_each = var.otel_metrics.enabled ? [var.otel_metrics.headers_secret] : []
+          content {
+            name = "OTEL_EXPORTER_OTLP_METRICS_HEADERS"
+            value_source {
+              secret_key_ref {
+                secret  = env.value
+                version = "latest"
+              }
+            }
+          }
+        }
+
         resources {
           limits = {
             cpu    = var.cpu
@@ -139,9 +172,16 @@ resource "google_cloud_run_v2_job" "job" {
     }
   }
 
-  depends_on = [google_secret_manager_secret_iam_member.secrets]
+  depends_on = [google_secret_manager_secret_iam_member.secrets, google_secret_manager_secret_iam_member.otel_metrics_headers]
 
   lifecycle {
+    precondition {
+      condition = !var.otel_metrics.enabled || (
+        alltrue([for name in concat(keys(var.env), keys(var.secret_env)) : !startswith(name, "OTEL_EXPORTER_OTLP_METRICS_")]) &&
+        !contains(values(var.secret_env), var.otel_metrics.headers_secret)
+      )
+      error_message = "Configure enabled metrics routing only through otel_metrics; env/secret_env must not duplicate its settings or own its dedicated header-secret grant."
+    }
     precondition {
       condition     = local.create_scheduler || length(var.schedules) == 0
       error_message = "schedules[] requires a primary `schedule`: the extra schedulers reuse the invoker SA that an empty `schedule` does not create."

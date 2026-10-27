@@ -507,6 +507,8 @@ module "housing_ingest" {
 module "shorted_job_announcements" {
   source = "../../modules/shorted-job"
 
+  otel_metrics = var.otel_metrics
+
   name             = "shorted-announcements"
   description      = "Daily crawl of ASX announcements for director trades, dividends, and news"
   project_id       = var.project_id
@@ -563,6 +565,8 @@ module "shorted_job_announcements" {
 # prices and benchmark all land together.
 module "shorted_job_index_sync" {
   source = "../../modules/shorted-job"
+
+  otel_metrics = var.otel_metrics
 
   name             = "shorted-index-sync"
   description      = "Daily benchmark index levels (XJO, XKO, XAO, XJT) into index_prices"
@@ -625,6 +629,8 @@ module "shorted_job_index_sync" {
 # us-central1 cost ~150ms apiece against the Sydney pooler.
 module "shorted_job_price_sync" {
   source = "../../modules/shorted-job"
+
+  otel_metrics = var.otel_metrics
 
   name             = "shorted-price-sync"
   description      = "Daily ASX prices into stock_prices, every listed stock, stalest first"
@@ -1029,6 +1035,8 @@ module "shorted_job_ownership" {
 module "shorted_job_weekly_report" {
   source = "../../modules/shorted-job"
 
+  otel_metrics = var.otel_metrics
+
   name             = "shorted-weekly-report"
   description      = "Weekly generation of short selling report with LLM narrative"
   project_id       = var.project_id
@@ -1085,6 +1093,8 @@ module "shorted_job_weekly_report" {
 # unchanged.
 module "shorted_job_news" {
   source = "../../modules/shorted-job"
+
+  otel_metrics = var.otel_metrics
 
   name             = "shorted-news"
   description      = "Aggregate news from RSS feeds every 4 hours"
@@ -1243,6 +1253,8 @@ module "shorted_job_news_publish" {
 module "shorted_job_signals" {
   source = "../../modules/shorted-job"
 
+  otel_metrics = var.otel_metrics
+
   name             = "shorted-signals"
   description      = "Weekly sweep of risk/reputation signals for top-shorted stocks via brandbrain"
   project_id       = var.project_id
@@ -1318,6 +1330,8 @@ module "influence_collector" {
 # Shorts API Service
 module "shorts_api" {
   source = "../../modules/shorts-api"
+
+  otel_metrics = var.otel_metrics
 
   project_id        = var.project_id
   region            = var.region
@@ -1533,6 +1547,8 @@ resource "google_cloud_run_v2_job_iam_member" "shorts_api_alerts_replay" {
 module "enrichment_processor" {
   source = "../../modules/enrichment-processor"
 
+  otel_metrics = var.otel_metrics
+
   project_id        = var.project_id
   region            = "us-central1" # Tier 1 pricing — batch job, latency irrelevant
   environment       = "production"
@@ -1559,6 +1575,8 @@ module "enrichment_processor" {
 module "weekly_report_generator" {
   source = "../../modules/weekly-report-generator"
 
+  otel_metrics = var.otel_metrics
+
   project_id           = var.project_id
   region               = var.region
   scheduler_region     = "australia-southeast1" # Cloud Scheduler only available in southeast1
@@ -1577,6 +1595,8 @@ module "weekly_report_generator" {
 module "market_data" {
   source = "../../modules/market-data"
 
+  otel_metrics = var.otel_metrics
+
   project_id    = var.project_id
   region        = var.region
   environment   = "production"
@@ -1593,6 +1613,8 @@ module "market_data" {
 # Chat Service (Connect-RPC AI chat, port 8080)
 module "chat_service" {
   source = "../../modules/chat-service"
+
+  otel_metrics = var.otel_metrics
 
   project_id                       = var.project_id
   region                           = var.region
@@ -1639,6 +1661,8 @@ module "chat_service" {
 # Market Discovery and Data Sync Jobs
 module "market_discovery_sync" {
   source = "../../modules/market-discovery-sync"
+
+  otel_metrics = var.otel_metrics
 
   project_id             = var.project_id
   region                 = "us-central1"          # Tier 1 pricing — batch job, latency irrelevant
