@@ -114,8 +114,8 @@ profiles:
     # Enable only after this dedicated header key exists in shorted-jobs-env.
     # Generic OTLP configuration below continues to carry traces to Grafana.
     metrics:
-      enabled: false
-      endpoint: ""
+      enabled: true
+      endpoint: "https://origin-vke.telesis.dev/v1/metrics"
       headersSecretKey: TELESIS_OTLP_METRICS_HEADERS
     env:
       OTEL_EXPORTER_OTLP_ENDPOINT: https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp

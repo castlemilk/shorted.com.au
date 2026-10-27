@@ -1,9 +1,10 @@
 # Optional metrics routing through Telesis
 
 Shorted can send application metrics to Telesis while keeping its existing
-Grafana trace endpoint and credentials. Routing is **disabled by default**.
-These settings prepare deployment; they do not provision the receiver, a
-credential, or start any business job.
+Grafana trace endpoint and credentials. Reusable module defaults remain disabled.
+The reviewed production profile opts in through `terraform/environments/prod/metrics-routing.auto.tfvars`
+and the jobs chart values, after the receiver and dedicated credentials are ready.
+Routing does not start any business job.
 
 ## Coverage
 
@@ -72,8 +73,8 @@ value into Terraform state; only the Secret Manager ID enters the plan.
 
 ## Cloud Run enablement
 
-After the secret and receiver are ready, set the following non-secret production
-Terraform input through the usual reviewed configuration / deployment pipeline:
+The committed `terraform/environments/prod/metrics-routing.auto.tfvars` supplies
+the following non-secret production input to the normal Terraform pipeline:
 
 ```hcl
 otel_metrics = {
@@ -113,7 +114,8 @@ read, or its value is empty. The complete Secret is buffered privately in memory
 before applying; credential bytes never reach logs, files or process arguments. Only forward the
 metrics profile overrides here; this helper reads the base `secretEnv.secretName`.
 
-Then enable the same profile through the reviewed jobs-chart configuration.
+The committed jobs-chart profile enables the same route. Keep the override file
+when invoking secret sync so its preflight includes the dedicated key.
 Paprika follows `deploy/vke-jobs`, not `main`: the normal Terraform pipeline's
 `bump-vke-jobs-image` step advances that deployment branch after apply succeeds.
 There is no automatic Kubernetes Secret synchronization in that pipeline, so

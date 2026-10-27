@@ -52,6 +52,7 @@ on:
       # cost-guardrails.test.mjs pins prod's report_extractor limits too.
       - "terraform/environments/prod/main.tf"
       - "terraform/environments/prod/variables.tf"
+      - "terraform/environments/prod/metrics-routing.auto.tfvars"
       - "terraform/tests/metrics-routing/**"
       - "scripts/tests/metrics-routing.test.py"
       - ".github/workflows/repo-hygiene.yml"
