@@ -8,6 +8,7 @@ package main
 // the doc fails here.
 
 import (
+	"encoding/json"
 	"strings"
 	"syscall"
 	"testing"
@@ -123,6 +124,48 @@ func TestEveryEventTypeIsPinnedAgainstTheDoc(t *testing.T) {
 			if !seen {
 				t.Fatalf("no %s event carried the optional field %q: the scenarios do not cover it", typ, f)
 			}
+		}
+	}
+}
+
+// The startup outcome follows the contract per step: a warm probe's outcome is warm, cold, unusable or
+// env_broken; a ProbeAuth's is ok or an ingest code word; outcome is present only on stage done.
+func TestStartupOutcomeFollowsTheContractPerStep(t *testing.T) {
+	row := contractEventRow(contractSection(t), "startup")
+	for _, w := range []string{"warm", "cold", "unusable", "env_broken"} {
+		if !strings.Contains(row, w) {
+			t.Fatalf("the contract's startup row does not name the warm word %q", w)
+		}
+	}
+	var buf lockedBuf
+	ev := newCrawlEvents(&buf)
+	ev.startup("warm_probe", "start", "warm")
+	ev.startup("warm_probe", "done", warmProbeOutcome(0))
+	ev.startup("warm_probe", "done", warmProbeOutcome(5))
+	ev.startup("warm_probe", "done", warmProbeOutcome(4))
+	ev.startup("warm_probe", "done", warmProbeOutcome(8))
+	ev.startup("warm_probe", "done", warmProbeOutcome(99))
+	ev.startup("probe_auth", "done", "unauthenticated")
+	ev.startup("probe_auth", "start", "ok")
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	want := []string{"", "warm", "cold", "unusable", "env_broken", "unusable", "unauthenticated", ""}
+	if len(lines) != len(want) {
+		t.Fatalf("startup events = %d, want %d: %q", len(lines), len(want), buf.String())
+	}
+	for i, line := range lines {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(line), &m); err != nil {
+			t.Fatalf("line %d is not JSON: %v", i, err)
+		}
+		got, has := m["outcome"].(string)
+		if want[i] == "" {
+			if has {
+				t.Fatalf("line %d carries outcome %q, but a start event or an unset outcome must not", i, got)
+			}
+			continue
+		}
+		if !has || got != want[i] {
+			t.Fatalf("line %d outcome = %q (present %v), want %q", i, got, has, want[i])
 		}
 	}
 }

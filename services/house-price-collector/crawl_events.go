@@ -214,7 +214,16 @@ func (e *crawlEvents) startup(step, stage, outcome string) {
 	if !startupSteps[step] || !startupStages[stage] {
 		return
 	}
-	if outcome != "" && !ingestCodeWords[outcome] {
+	// The contract: outcome appears only when stage is done, and its words depend on the step.
+	// probe_auth: ok or an ingest_error code word. warm_probe: warm, cold, unusable or env_broken.
+	switch {
+	case stage != "done":
+		outcome = ""
+	case step == "warm_probe":
+		if !warmProbeWords[outcome] {
+			outcome = "unusable"
+		}
+	case !ingestCodeWords[outcome]:
 		outcome = "other"
 	}
 	e.emit(func() any {
@@ -227,15 +236,20 @@ func (e *crawlEvents) startup(step, stage, outcome string) {
 func warmProbeOutcome(rc int) string {
 	switch rc {
 	case 0:
-		return "ok"
+		return "warm"
+	case 5:
+		return "cold"
 	case exitCrawlEnvBroken:
-		return "internal"
+		return "env_broken"
 	default:
-		// The contract's outcome words are ingest codes or ok. A cold or unusable Chrome is not one of
-		// them, so it reads as other. Recorded as a gap in the report.
-		return "other"
+		// 4 (unusable), and any other code the warm check returns: the contract's words for a Chrome
+		// that is not warm and not a Kasada stub are unusable.
+		return "unusable"
 	}
 }
+
+// warmProbeWords is the contract's outcome set for a warm_probe startup event.
+var warmProbeWords = map[string]bool{"warm": true, "cold": true, "unusable": true, "env_broken": true}
 
 // probeEvent is one ProbeAuth answer: ingest_ok (Probe true), or ingest_error with the
 // contract's ingest.probe code word. A probe has no job or source, so it carries neither.

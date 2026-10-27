@@ -225,6 +225,20 @@ func TestPreflightPanicIsInternalErrorExit1(t *testing.T) {
 	}
 }
 
+// A panic in the ProbeAuth step is the same internal error, in the drain and in the preflight.
+func TestProbeStepPanicIsInternalErrorExit1(t *testing.T) {
+	for _, job := range []string{cycleJobDrain, cycleJobPreflight} {
+		h := newCycleHarness(t, []fakeStep{{Exit: 0}})
+		h.cfg.job = job
+		h.deps.probeIngest = func(context.Context) (int, string) { panic("probe boom (test)") }
+		code := h.runGuarded(20 * time.Second)
+		s := h.summary()
+		if code != exitCycleInternal || s.Outcome != outInternal {
+			t.Fatalf("%s: exit=%d outcome=%q, want 1 internal_error: a panicking ProbeAuth is not a pass", job, code, s.Outcome)
+		}
+	}
+}
+
 // A panic in the driver step (the first preflight step) is the same internal error. The check is
 // per step, so each step needs its own case.
 func TestPreflightDriverPanicIsInternalErrorExit1(t *testing.T) {
