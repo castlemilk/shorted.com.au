@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/oauth2"
 )
 
 // crawl_agent.go is the `-mode agent` poller: instead of iterating a static suburb
@@ -130,6 +131,22 @@ type brandbrainAgentClient struct {
 	http          *http.Client
 	controlURL    string // loopback macOS-agent control API (optional token source)
 	controlSecret string
+	// idTokens, when set, authenticates every request with a Google-signed ID token
+	// instead of the agent bearer (the server's enqueue job, whose service account
+	// BrandBrain allowlists). Such a client sends no X-Agent-ID and cannot refresh.
+	// Tokens are never logged.
+	idTokens oauth2.TokenSource
+}
+
+// newBrandbrainIDTokenClient builds a client for the server-side jobs. Each request
+// carries a fresh Google ID token from ts. The bearer is the token's AccessToken,
+// which is the ID token for an idtoken.NewTokenSource.
+func newBrandbrainIDTokenClient(baseURL string, ts oauth2.TokenSource) *brandbrainAgentClient {
+	return &brandbrainAgentClient{
+		url:      strings.TrimRight(baseURL, "/"),
+		http:     &http.Client{Timeout: 30 * time.Second},
+		idTokens: ts,
+	}
 }
 
 func newBrandbrainAgentClient(cfg agentConfig) *brandbrainAgentClient {
@@ -212,6 +229,13 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 			"(sign the BrandBrain agent in, or mint a fresh BRANDBRAIN_AGENT_TOKEN)",
 			method, path, status, strings.TrimSpace(string(rb)), refreshErr)
 	}
+	if status == http.StatusUnauthorized && c.idTokens != nil {
+		// Terminal and operator-actionable: the job's service account is not on
+		// BrandBrain's allowlist (or its uniqueId changed). Nothing here can renew it.
+		return fmt.Errorf("brandbrain %s %s: 401 %s — the Google ID token was refused: "+
+			"check this job's service account is on BrandBrain's allowlist (email=uniqueId)",
+			method, path, strings.TrimSpace(string(rb)))
+	}
 	if status == http.StatusUnauthorized && !c.canRefresh() {
 		// Say WHY, not just what. A 401 here is terminal and operator-actionable:
 		// the static seed token is dead and this rig has no way to renew it,
@@ -253,8 +277,17 @@ func (c *brandbrainAgentClient) roundtrip(ctx context.Context, method, path stri
 	if err != nil {
 		return nil, 0, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("X-Agent-ID", c.agentID)
+	if c.idTokens != nil {
+		// The error text from the token source never carries the token itself.
+		tok, terr := c.idTokens.Token()
+		if terr != nil {
+			return nil, 0, fmt.Errorf("google id token: %w", terr)
+		}
+		req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	} else {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set("X-Agent-ID", c.agentID)
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.http.Do(req)
@@ -355,6 +388,42 @@ func (c *brandbrainAgentClient) enqueue(ctx context.Context, jobs []crawlEnqueue
 	return resp.Enqueued, nil
 }
 
+// selectEnqueueTargets returns the suburbs an enqueue run posts. delta=false is the
+// whole catalog. delta=true is demand-right-sizing (selectDeltaSuburbs), which may
+// select none. Shared by -mode enqueue (the rig's queue) and -mode server-enqueue
+// (BrandBrain through the server's ID token), so both pick the same suburbs.
+func selectEnqueueTargets(ctx context.Context, pool *pgxpool.Pool, delta bool) ([]CrawlTarget, error) {
+	if !delta {
+		return crawlTargets, nil
+	}
+	dcfg := loadDeltaConfig()
+	fresh, err := queryCatalogFreshness(ctx, pool, crawlTargets, dcfg.churnDays)
+	if err != nil {
+		return nil, fmt.Errorf("delta freshness query failed (not falling back to full enqueue): %w", err)
+	}
+	sel := selectDeltaSuburbs(fresh, dcfg, time.Now().UTC())
+	log.Printf("[enqueue] delta selection: %d/%d suburb(s) selected — %d never-crawled, %d stale (>%s), %d churny (>=%d ev/%dd); %d capped off (NOT crawled this run)",
+		len(sel.Targets), len(crawlTargets), sel.Never, sel.Stale, dcfg.ttl, sel.Churny, dcfg.churnMin, dcfg.churnDays, sel.Dropped)
+	return sel.Targets, nil
+}
+
+// buildEnqueueJobs makes one job per (suburb, source) so REA and Domain crawl, retry
+// and report independently. The queue's unique-pending index is
+// (kind, suburb, state, postcode, source, tier), so the two coexist without collision.
+// Suburb is the catalog's display name, which the ingest matches by slug.
+func buildEnqueueJobs(targets []CrawlTarget, sources []string, tier string) []crawlEnqueueInput {
+	jobs := make([]crawlEnqueueInput, 0, len(targets)*len(sources))
+	for _, t := range targets {
+		for _, src := range sources {
+			jobs = append(jobs, crawlEnqueueInput{
+				Kind: "housing", Suburb: t.Display, State: t.State, Postcode: t.Postcode,
+				Source: src, Tier: tier,
+			})
+		}
+	}
+	return jobs
+}
+
 // runEnqueue is the -mode=enqueue entry point: post the suburb catalog to the
 // brandbrain queue so pollers have work to claim. shorted stays the source of truth
 // for AU suburbs; brandbrain is a generic queue. Env: BRANDBRAIN_AGENT_URL +
@@ -377,35 +446,17 @@ func runEnqueue(ctx context.Context, pool *pgxpool.Pool) error {
 
 	// Choose the suburb set for this run. Default "all" preserves today's
 	// whole-catalog behaviour; "delta" right-sizes to demand.
-	targets := crawlTargets
-	if strings.EqualFold(strings.TrimSpace(envStr("CRAWL_ENQUEUE_SELECTION", "all")), "delta") {
-		dcfg := loadDeltaConfig()
-		fresh, err := queryCatalogFreshness(ctx, pool, crawlTargets, dcfg.churnDays)
-		if err != nil {
-			return fmt.Errorf("delta freshness query failed (not falling back to full enqueue): %w", err)
-		}
-		sel := selectDeltaSuburbs(fresh, dcfg, time.Now().UTC())
-		log.Printf("[enqueue] delta selection: %d/%d suburb(s) selected — %d never-crawled, %d stale (>%s), %d churny (>=%d ev/%dd); %d capped off (NOT crawled this run)",
-			len(sel.Targets), len(crawlTargets), sel.Never, sel.Stale, dcfg.ttl, sel.Churny, dcfg.churnMin, dcfg.churnDays, sel.Dropped)
-		if len(sel.Targets) == 0 {
-			log.Printf("[enqueue] delta: nothing stale/churny — queue left as-is (nothing to enqueue)")
-			return nil
-		}
-		targets = sel.Targets
+	delta := strings.EqualFold(strings.TrimSpace(envStr("CRAWL_ENQUEUE_SELECTION", "all")), "delta")
+	targets, err := selectEnqueueTargets(ctx, pool, delta)
+	if err != nil {
+		return err
+	}
+	if len(targets) == 0 {
+		log.Printf("[enqueue] delta: nothing stale/churny — queue left as-is (nothing to enqueue)")
+		return nil
 	}
 
-	// One job per (suburb, source) so REA and Domain crawl, retry, and report
-	// independently — the queue's unique-pending index is (kind,suburb,source,tier),
-	// so the two coexist without collision.
-	jobs := make([]crawlEnqueueInput, 0, len(targets)*len(sources))
-	for _, t := range targets {
-		for _, src := range sources {
-			jobs = append(jobs, crawlEnqueueInput{
-				Kind: "housing", Suburb: t.Display, State: t.State, Postcode: t.Postcode,
-				Source: src, Tier: tier,
-			})
-		}
-	}
+	jobs := buildEnqueueJobs(targets, sources, tier)
 
 	// POST in chunks: the backend enqueue does a per-row INSERT ... ON CONFLICT,
 	// so a whole-catalog batch (hundreds of jobs) can exceed the edge's request

@@ -85,6 +85,13 @@ output "artifact_registry_repository" {
   value       = "australia-southeast2-docker.pkg.dev/${var.project_id}/shorted"
 }
 
+# Housing crawl ingest. Rigs set SHORTED_INGEST_URL to this run.app URL. It is not on
+# api.shorted.com.au, so the public edge rate limits never see rig traffic.
+output "housing_ingest_url" {
+  description = "Public run.app URL of the housing crawl ingest service (rigs' SHORTED_INGEST_URL)"
+  value       = module.housing_ingest.service_url
+}
+
 # Cloudflare Edge Outputs
 output "cloudflare_edge_url" {
   description = "Cloudflare edge worker name"

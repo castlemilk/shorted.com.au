@@ -470,6 +470,28 @@ module "house_price_collector" {
   # housing cache busting after a crawl-driven MV refresh.
   manage_revalidation_secret = true
 
+  # S-SRV server-side crawl schedules (enqueue, finalize, freshness, property-resolve).
+  # Created PAUSED. Golden rule: nothing runs until the cutover in
+  # docs/feature/housing/operations.md "Server-side crawl jobs" flips this to false.
+  server_schedules_paused = true
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# Housing crawl ingest (S-ING, S-SRV): the CrawlIngestService that rigs push sweeps
+# to. The shorts API image, run as SHORTS_SERVE_MODE=ingest, on its own pool. It ships
+# INERT: its allowlist is empty, so it accepts no rig until a reviewed change lists one.
+module "housing_ingest" {
+  source = "../../modules/housing-ingest"
+
+  project_id  = var.project_id
+  region      = var.region
+  environment = "production"
+  image_url   = var.shorts_api_image
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted

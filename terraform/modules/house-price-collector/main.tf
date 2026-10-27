@@ -87,6 +87,24 @@ resource "google_cloud_run_v2_job" "collector" {
           }
         }
 
+        # Server-side crawl modes (S-SRV, crawl_server.go). None of these is read by the
+        # default -mode all, so they change nothing for the official ingest. The
+        # server-enqueue mode presents a Google ID token for BRANDBRAIN_IDTOKEN_AUDIENCE
+        # from this job's service account, and it writes HOUSING_INGEST_DISPATCH_TTL into
+        # crawl_dispatch.expires_at.
+        env {
+          name  = "BRANDBRAIN_AGENT_URL"
+          value = var.brandbrain_url
+        }
+        env {
+          name  = "BRANDBRAIN_IDTOKEN_AUDIENCE"
+          value = var.brandbrain_idtoken_audience
+        }
+        env {
+          name  = "HOUSING_INGEST_DISPATCH_TTL"
+          value = var.ingest_dispatch_ttl
+        }
+
         # Event-driven cache revalidation: after the official/crawl ingest
         # refreshes the housing MVs, ping the frontend to bust the cached SSR
         # pages (/price-drops, /housing). Fires only when the data changed.
@@ -253,6 +271,104 @@ resource "google_cloud_scheduler_job" "daily_drop_index" {
           args = ["-mode", "drop-index"]
         }]
         timeoutSeconds = 14400
+      }
+    }))
+  }
+
+  depends_on = [
+    google_cloud_run_v2_job.collector,
+    google_cloud_run_v2_job_iam_member.scheduler_invoker,
+    google_cloud_run_v2_job_iam_member.scheduler_developer,
+  ]
+}
+
+# ---------------------------------------------------------------------------
+# Server-side crawl jobs (fleet-managed housing crawl, S-SRV).
+#
+# These run this same job with different args, and they replace the rig's database
+# work. A rig fetches and pushes to the ingest service, and it holds no database
+# credential. Design: docs/superpowers/specs/2026-10-27-fleet-managed-housing-crawl-design.md
+#
+#   enqueue-delta     server-enqueue -selection delta    daily 10:00
+#   enqueue-full      server-enqueue -selection full     1st and 15th, 08:00
+#   crawl-finalize    crawl-finalize                     every 30 min, a no-op unless the ingest wrote
+#   freshness         freshness                          daily 18:00 (exit 6 is the alarm, unchanged)
+#   property-resolve  property-resolve, CRAWL_DRY_RUN=false   daily 21:20
+#
+# Every schedule is PAUSED while var.server_schedules_paused is true (the default).
+# Cutover runbook: docs/feature/housing/operations.md "Server-side crawl jobs".
+# Scheduler bodies use the Cloud Run v1 :run spelling (see scheduler-override-body.test.mjs).
+# ---------------------------------------------------------------------------
+locals {
+  server_crawl_schedules = {
+    enqueue-delta = {
+      description = "Server enqueue, delta selection: post demand-sized suburbs to BrandBrain and write their ledger rows (S-SRV)"
+      schedule    = "0 10 * * *"
+      args        = ["-mode", "server-enqueue", "-selection", "delta"]
+      env         = {}
+    }
+    enqueue-full = {
+      description = "Server enqueue, the whole catalog, twice a month (S-SRV)"
+      schedule    = "0 8 1,15 * *"
+      args        = ["-mode", "server-enqueue", "-selection", "full"]
+      env         = {}
+    }
+    crawl-finalize = {
+      description = "Sal links, housing MV refresh and one cache bust, only when the fleet's ingest has written since the last run (S-SRV)"
+      schedule    = "*/30 * * * *"
+      args        = ["-mode", "crawl-finalize"]
+      env         = {}
+    }
+    freshness = {
+      description = "Read-only crawl freshness check; exit 6 is the alarm (S-SRV)"
+      schedule    = "0 18 * * *"
+      args        = ["-mode", "freshness"]
+      env         = {}
+    }
+    property-resolve = {
+      description = "Bank property.com.au profile URLs from REA's public autocomplete, no browser (S-SRV). Dry-run is off for this schedule only."
+      schedule    = "20 21 * * *"
+      args        = ["-mode", "property-resolve"]
+      env         = { CRAWL_DRY_RUN = "false" }
+    }
+  }
+}
+
+resource "google_cloud_scheduler_job" "server_crawl" {
+  for_each = local.server_crawl_schedules
+
+  name             = "${local.service_name}-${each.key}"
+  description      = each.value.description
+  schedule         = each.value.schedule
+  time_zone        = "Australia/Sydney"
+  attempt_deadline = "1800s" # Cloud Scheduler's platform maximum for an HTTP target
+  region           = var.scheduler_region
+  project          = var.project_id
+  paused           = var.server_schedules_paused
+
+  retry_config {
+    retry_count          = 2
+    max_retry_duration   = "3600s"
+    min_backoff_duration = "10s"
+    max_backoff_duration = "600s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.collector.name}:run"
+
+    oauth_token {
+      service_account_email = google_service_account.scheduler_invoker.email
+    }
+
+    # The v1 Overrides message, so container_overrides and its env list, never the v2
+    # spelling. See the drop-index schedule above for the field-name history.
+    body = base64encode(jsonencode({
+      overrides = {
+        container_overrides = [{
+          args = each.value.args
+          env  = [for k, v in each.value.env : { name = k, value = v }]
+        }]
       }
     }))
   }

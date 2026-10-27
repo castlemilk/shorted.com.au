@@ -996,6 +996,13 @@ jobs:
             # runs before the image swap.
             run_psql_session -f /migrations/000150_add_crawl_ingest.up.sql
 
+            # 000151 (S-SRV) creates crawl_finalize_state, the watermark that lets
+            # the server's crawl-finalize job skip a run when the fleet's ingest has
+            # written nothing. One CREATE TABLE IF NOT EXISTS, no row touched. The
+            # job that reads it ships in the same image, so it applies before the
+            # swap, like 000150.
+            run_psql_session -f /migrations/000151_add_crawl_finalize_state.up.sql
+
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
             # tables, views, materialized views, sequences and functions there,
@@ -1858,7 +1865,7 @@ jobs:
         env:
           HOUSING_TESTCONTAINERS: "1"
           CGO_ENABLED: "0"
-        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test -count=1 -p 1 -tags=testcontainers ./pkg/housingcrawl ./shorts/internal/ingest
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test -count=1 -p 1 -tags=testcontainers ./pkg/housingcrawl ./shorts/internal/ingest ./house-price-collector
 
       - name: Run housing wrapper lifecycle tests
         run: bash services/house-price-collector/deploy/housing-lifecycle-exit.test.sh

@@ -60,7 +60,8 @@ func main() {
 // failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "version | official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | revalidate | all")
+	mode := flag.String("mode", "all", "version | official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | server-enqueue | crawl-finalize | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | revalidate | all")
+	selection := flag.String("selection", "delta", "server-enqueue only: delta (demand-sized suburbs) | full (the whole catalog)")
 	flag.Parse()
 
 	// version needs no environment at all: it prints the build revision as one
@@ -196,6 +197,17 @@ func run() int {
 			log.Printf("[enqueue] fatal: %v", err)
 			return enqueueExitCode(err)
 		}
+	case "server-enqueue":
+		// S-SRV: the server's enqueue. Posts the suburbs to BrandBrain's queue with a
+		// Google ID token from this job's service account, and writes one
+		// crawl_dispatch row per target so the ingest accepts the sweep. -selection
+		// picks delta (demand-sized, as -mode enqueue does) or full (the catalog).
+		return runServerEnqueue(ctx, pool, *selection)
+	case "crawl-finalize":
+		// S-SRV: sal-links, the housing MV refresh and one cache bust, run only when
+		// the fleet's ingest has written since the last finalize. Also prunes ingest
+		// receipts older than 14 days. See crawl_server.go.
+		return runCrawlFinalize(pool)
 	case "freshness":
 		// READ-ONLY staleness guard: report per-suburb crawl freshness across the
 		// catalog and ALARM (non-zero exit 6 + optional CRAWL_FRESHNESS_WEBHOOK POST)
