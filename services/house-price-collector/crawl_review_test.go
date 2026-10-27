@@ -1181,8 +1181,8 @@ func TestFullStateNameKeepsTheSweepComplete(t *testing.T) {
 	if skipped != 0 || req.GetStatus() != pb.SweepStatus_SWEEP_STATUS_COMPLETE || len(req.GetListings()) != 1 {
 		t.Fatalf("full state name: skipped=%d status=%v listings=%d, want kept and COMPLETE", skipped, req.GetStatus(), len(req.GetListings()))
 	}
-	if req.GetListings()[0].GetState() != "" {
-		t.Errorf("state = %q, want blanked", req.GetListings()[0].GetState())
+	if req.GetListings()[0].GetState() != job.State {
+		t.Errorf("state = %q, want the job's target state %q", req.GetListings()[0].GetState(), job.State)
 	}
 }
 
@@ -1197,5 +1197,27 @@ func TestOverCapListingIDDropsAndDowngradesToPartial(t *testing.T) {
 	req, skipped := buildPushRequest(job, "domain", suburbSweep{listings: rows, status: sweepComplete, pages: 1}, time.Now(), "rev", false)
 	if skipped != 1 || req.GetStatus() != pb.SweepStatus_SWEEP_STATUS_PARTIAL || len(req.GetListings()) != 1 {
 		t.Fatalf("over-cap listing_id: skipped=%d status=%v listings=%d, want 1, PARTIAL, 1", skipped, req.GetStatus(), len(req.GetListings()))
+	}
+}
+
+// Fix 1b: an over-cap suburb and postcode take the job's target values too, and a URL is
+// blanked (it has no target value).
+func TestOverCapTargetFieldsTakeTheJobsValues(t *testing.T) {
+	job := &agentCrawlJob{ID: "job-f", Suburb: "St Kilda", State: "VIC", Postcode: "3182", Attempts: 1}
+	l := collectorListing("L-fill")
+	l.Suburb = strings.Repeat("s", 101)
+	l.Postcode = strings.Repeat("9", 11)
+	l.ListingUrl = strings.Repeat("u", 2049)
+	req, skipped := buildPushRequest(job, "domain", suburbSweep{listings: housingcrawlRows(l), status: sweepComplete, pages: 1}, time.Now(), "rev", false)
+	if skipped != 0 || req.GetStatus() != pb.SweepStatus_SWEEP_STATUS_COMPLETE || len(req.GetListings()) != 1 {
+		t.Fatalf("skipped=%d status=%v listings=%d, want kept and COMPLETE", skipped, req.GetStatus(), len(req.GetListings()))
+	}
+	got := req.GetListings()[0]
+	// The listing's own state is within its cap, so it is kept as it was: NSW, not the job's.
+	if got.GetSuburb() != "St Kilda" || got.GetPostcode() != "3182" || got.GetState() != "NSW" {
+		t.Errorf("target fields = %q %q %q, want the job's St Kilda and 3182, and the in-cap state NSW kept", got.GetSuburb(), got.GetPostcode(), got.GetState())
+	}
+	if got.GetListingUrl() != "" {
+		t.Errorf("an over-cap URL must stay blank, got %d bytes", len(got.GetListingUrl()))
 	}
 }

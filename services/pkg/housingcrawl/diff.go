@@ -498,13 +498,6 @@ func (d *differ) addressPriceMove(addrPrior *storedListing, l RawListing) (Price
 	return e, true
 }
 
-// isPermanentRowError reports whether err is a per-ROW data problem that will
-// recur identically on every re-crawl — a bad byte / out-of-range numeric (class
-// 22 data-exception) or a constraint violation (class 23) — so ApplySweep can skip
-// the single offending listing and keep the sweep. Everything else (a connection
-// drop, a deadlock/serialisation failure, ctx cancellation, or any non-Postgres
-// error) is TRANSIENT: it is propagated so the suburb fails and requeues rather
-// than silently dropping data on a blip.
 // rowSkipMessage is the log line for a listing dropped on a permanent row error. It
 // names the suburb and the SQLSTATE class only. The listing ID is not logged, and neither
 // is the driver's text, because that can carry the value that failed.
@@ -522,6 +515,13 @@ func rowErrorCode(err error) string {
 	return "unknown"
 }
 
+// isPermanentRowError reports whether err is a per-ROW data problem that will
+// recur identically on every re-crawl — a bad byte / out-of-range numeric (class
+// 22 data-exception) or a constraint violation (class 23) — so ApplySweep can skip
+// the single offending listing and keep the sweep. Everything else (a connection
+// drop, a deadlock/serialisation failure, ctx cancellation, or any non-Postgres
+// error) is TRANSIENT: it is propagated so the suburb fails and requeues rather
+// than silently dropping data on a blip.
 func isPermanentRowError(err error) bool {
 	var pg *pgconn.PgError
 	if !errors.As(err, &pg) {

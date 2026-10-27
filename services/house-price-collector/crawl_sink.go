@@ -159,8 +159,9 @@ func resolveCrawlSink(mode string, getenv func(string) string) (crawlSinkMode, s
 //   - a gateway fetch route (CRAWL_GATEWAY_URL, CRAWL_FETCH_MODE=gateway), which sends
 //     every page through a BrandBrain gateway;
 //   - a CRAWL_CDP_URL that is not loopback;
-//   - CRAWL_TRACE or CRAWL_TRACE_DIR set to anything but false: a trace writes full portal
-//     pages and screenshots to disk.
+//   - CRAWL_TRACE or CRAWL_TRACE_DIR set to any non-empty value, including false: a trace
+//     writes full portal pages and screenshots to disk, and the loader turns tracing on for
+//     any non-empty CRAWL_TRACE_DIR.
 func resolveSink(mode string, getenv func(string) string) (crawlSinkMode, string, string) {
 	if mode != "agent" {
 		return crawlSinkDB, "", ""
@@ -723,7 +724,9 @@ func buildPushRequest(job *agentCrawlJob, source string, sweep suburbSweep, runT
 		}
 	}
 	if sweep.status != sweepBlocked {
-		kept, dropped, overflow := housingingest.SanitizeListings(housingingest.FromRawListings(sweep.listings), source)
+		listings := housingingest.FromRawListings(sweep.listings)
+		fillFromTarget(listings, job)
+		kept, dropped, overflow := housingingest.SanitizeListings(listings, source)
 		req.Listings = kept
 		skipped = dropped
 		if overflow || dropped > 0 {
@@ -932,4 +935,23 @@ func firstPushFailure(errs ...error) error {
 		}
 	}
 	return nil
+}
+
+// fillFromTarget gives an over-cap state, suburb or postcode the job's own target value,
+// before sanitising. Every listing that reaches a push has passed the target check, so the
+// target's value is the right one for it. A blank would overwrite a good stored value on
+// the server (the ingest upsert keeps the stored value for a blank, but a filled value is
+// the truth). The URL has no target equivalent, so it is still blanked.
+func fillFromTarget(listings []*pb.Listing, job *agentCrawlJob) {
+	for _, l := range listings {
+		if len(l.GetState()) > housingingest.MaxStateBytes {
+			l.State = job.State
+		}
+		if len(l.GetSuburb()) > housingingest.MaxSuburbBytes {
+			l.Suburb = job.Suburb
+		}
+		if len(l.GetPostcode()) > housingingest.MaxPostcodeBytes {
+			l.Postcode = job.Postcode
+		}
+	}
 }
