@@ -27,8 +27,6 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 	"github.com/castlemilk/shorted.com.au/services/shorts"
 	"github.com/google/uuid"
-	"go.opentelemetry.io/otel/attribute"
-	otelmetric "go.opentelemetry.io/otel/metric"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -63,6 +61,11 @@ func findVenvPython() string {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+// Return before exiting so telemetry and other deferred cleanup can finish.
+func run() int {
 	// Parse CLI flags
 	backfillPeople := flag.Bool("backfill-people", false, "Run person enrichment backfill on existing stocks")
 	backfillImages := flag.Bool("backfill-images", false, "Fetch LinkedIn profile photos for people with LinkedIn URLs but no images")
@@ -83,13 +86,7 @@ func main() {
 	if otelErr != nil {
 		log.Errorf("failed to initialize OpenTelemetry: %v", otelErr)
 	} else {
-		defer func() {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := otelShutdown(shutdownCtx); err != nil {
-				log.Errorf("error shutting down OpenTelemetry: %v", err)
-			}
-		}()
+		defer shutdownTelemetry(otelShutdown)
 	}
 
 	// Initialize store
@@ -140,14 +137,14 @@ func main() {
 			logger:               logger,
 		}
 		runPeopleBackfillMain(processor, *backfillLimit, *backfillForce, *backfillAfter)
-		return
+		return 0
 	}
 
 	// Handle --backfill-images mode (authenticated LinkedIn photo scraping)
 	if *backfillImages {
 		logger.Infof("Running in image backfill mode (limit: %d)", *backfillLimit)
 		runImageBackfillMain(enrichmentStore, logger, *backfillLimit, *backfillAfter, !*interactive)
-		return
+		return 0
 	}
 
 	// Handle --backfill-state-exposure mode (needs store + OpenAI client only)
@@ -169,7 +166,7 @@ func main() {
 			log.Fatalf("failed to create OpenAI client for state exposure backfill: %v", clientErr)
 		}
 		runStateExposureBackfillMain(enrichmentStore, stateExposureClient, logger, limit)
-		return
+		return 0
 	}
 
 	// Initialize LLM client (OpenAI or Gemini)
@@ -197,7 +194,7 @@ func main() {
 			logger.Warnf("OPENAI_API_KEY environment variable is not set - enrichment processor will not run")
 			logger.Infof("To enable enrichment, set OPENAI_API_KEY in services/.env or environment")
 			logger.Infof("Enrichment processor exiting gracefully (this is normal for local development without API keys)")
-			return
+			return 0
 		}
 		gptClient, err = enrichment.NewOpenAIGPTClient(openAIKey)
 		if err != nil {
@@ -328,26 +325,9 @@ func main() {
 	// Check if running in batch mode (one-shot batch enrichment)
 	runMode := strings.ToLower(strings.TrimSpace(os.Getenv("RUN_MODE")))
 	if runMode == "batch" {
-		logger.Infof("Running in batch mode")
-		syncAttrs := otelmetric.WithAttributes(attribute.String("sync_job", "enrichment-processor"))
-		batchStart := time.Now()
-		batchErr := runBatchProcessor(ctx, processor)
-		shortedotel.SyncDuration.Record(ctx, time.Since(batchStart).Seconds(), syncAttrs)
-		if batchErr != nil {
-			shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
-				attribute.String("sync_job", "enrichment-processor"),
-				attribute.String("status", "failure"),
-			))
-			logger.Errorf("Batch enrichment failed: %v", batchErr)
-			os.Exit(1)
-		}
-		shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
-			attribute.String("sync_job", "enrichment-processor"),
-			attribute.String("status", "success"),
-		))
-		shortedotel.SyncLastSuccess.Record(ctx, time.Now().Unix(), syncAttrs)
-		logger.Infof("Batch enrichment completed successfully")
-		return
+		return runBatchWithMetrics(ctx, logger, func(ctx context.Context) error {
+			return runBatchProcessor(ctx, processor)
+		})
 	}
 
 	// Cloud Run Service mode: HTTP-only, Pub/Sub push, scales to zero.
@@ -371,8 +351,9 @@ func main() {
 
 	if err := g.Wait(); err != nil {
 		logger.Errorf("processor terminated with error: %v", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 type enrichmentProcessor struct {
