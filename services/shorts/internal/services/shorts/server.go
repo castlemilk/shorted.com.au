@@ -69,6 +69,9 @@ type ShortsServer struct {
 	// unsubscribeSecret signs and verifies one-click links: newsletter unsubscribe
 	// and alert pause. Empty means those endpoints refuse to act.
 	unsubscribeSecret string
+	// pool is the store's Postgres pool, or nil when no Postgres store is
+	// configured. The housing ingest (CrawlIngestService) writes through it.
+	pool *pgxpool.Pool
 }
 
 // New creates instance of the Server
@@ -173,6 +176,7 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	return &ShortsServer{
 		config:            cfg,
 		store:             store,
+		pool:              pool,
 		cache:             cache,
 		logger:            logger,
 		registerServer:    registerServer,

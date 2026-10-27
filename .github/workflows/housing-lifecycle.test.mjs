@@ -263,6 +263,14 @@ test("terraform deploy workflow gates housing contracts on open pull requests", 
   );
 
   assert.match(job, /node --test \.github\/workflows\/housing-lifecycle\.test\.mjs/);
+  // The listing store and the crawl ingest must run their DB tests on every PR.
+  // Without this step they skip, and their SQL never runs in CI.
+  assert.match(job, /HOUSING_TESTCONTAINERS: "1"/, "the DB tests need a testcontainers Postgres");
+  assert.match(
+    job,
+    /go test -count=1 -p 1 -tags=testcontainers \.\/pkg\/housingcrawl \.\/shorts\/internal\/ingest/,
+    "the listing store and the ingest DB tests run in the housing job",
+  );
   assert.match(
     job,
     /working-directory:\s*services\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test \.\/house-price-collector/,

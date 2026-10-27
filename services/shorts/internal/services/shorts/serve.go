@@ -22,6 +22,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/ingest"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/oauth"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/broadcast"
@@ -479,6 +480,28 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			log.Errorf("Error writing response: %v", err)
 		}
 	})
+
+	// Fleet housing crawl ingest (CrawlIngestService). Mounted only when
+	// HOUSING_INGEST_ENABLED is true, and on its own handler: no CORS, no public
+	// interceptors. It is not VISIBILITY_PUBLIC and is absent from the public
+	// OpenAPI, MCP and legacy surfaces. A config error still mounts the service,
+	// which then answers Unavailable and logs why; see ingest.ConfigFromEnv.
+	ingestCfg, ingestProblem := ingest.ConfigFromEnv(os.Getenv)
+	ingest.LogStartup(ingestCfg, ingestProblem)
+	if ingestCfg.Enabled {
+		ingestSvc := ingest.New(ctx, ingest.Options{
+			Config:        ingestCfg,
+			ConfigProblem: ingestProblem,
+			Pool:          s.pool,
+		})
+		ingestPath, ingestHandler := ingestSvc.Handler()
+		mux.Handle(ingestPath, ingestHandler)
+		mux.HandleFunc("/health/ingest", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(ingestSvc.Health())
+		})
+	}
 
 	// Add stock search endpoint
 	mux.HandleFunc("/api/stocks/search", func(w http.ResponseWriter, r *http.Request) {

@@ -60,6 +60,7 @@ CREATE TABLE property_listings (
   last_price_change_at TIMESTAMPTZ, source_licence TEXT NOT NULL DEFAULT 'proprietary-tos-restricted',
   content_hash TEXT NOT NULL, agency_id TEXT, agency_name TEXT, agent_names TEXT[] NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ingest_receipt_key TEXT, last_missed_at TIMESTAMPTZ,
   UNIQUE (source, listing_id),
   CONSTRAINT test_addr_len CHECK (display_address IS NULL OR char_length(display_address) <= 200));
 CREATE TABLE property_price_events (
@@ -69,6 +70,7 @@ CREATE TABLE property_price_events (
   price DOUBLE PRECISION, price_high DOUBLE PRECISION, price_display TEXT, price_kind TEXT,
   prev_price DOUBLE PRECISION, drop_abs DOUBLE PRECISION, drop_pct DOUBLE PRECISION,
   listing_status TEXT, prev_status TEXT, source_licence TEXT NOT NULL DEFAULT 'proprietary-tos-restricted',
+  ingest_receipt_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (listing_pk, event_type, observed_at));`
 	if _, err := pool.Exec(ctx, schema); err != nil {
 		t.Fatalf("create schema: %v", err)
