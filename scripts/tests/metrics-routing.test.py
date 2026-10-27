@@ -29,6 +29,19 @@ def objects(values):
 
 
 class MetricsRoutingTest(unittest.TestCase):
+    def test_all_shared_sdk_cloud_run_templates_receive_metrics_routing(self):
+        production = (ROOT / "terraform/environments/prod/main.tf").read_text()
+        modules = dict(re.findall(r'^module "([^"]+)" \{\n(.*?)^\}', production, re.M | re.S))
+        standalone = {"shorts_api", "market_data", "enrichment_processor", "chat_service", "weekly_report_generator", "market_discovery_sync"}
+        # The consolidated jobs opt into OTLP explicitly. Include retained and
+        # paused templates, because manual Run-now uses those same templates.
+        jobs = {name for name, block in modules.items()
+                if 'source = "../../modules/shorted-job"' in block and "OTEL_EXPORTER_OTLP_ENDPOINT" in block}
+        self.assertEqual(jobs, {"shorted_job_announcements", "shorted_job_index_sync", "shorted_job_price_sync", "shorted_job_weekly_report", "shorted_job_news", "shorted_job_signals"})
+        for name in standalone | jobs:
+            with self.subTest(module=name):
+                self.assertRegex(modules[name], r"(?m)^\s*otel_metrics\s*=\s*var\.otel_metrics\s*$")
+
     def test_disabled_has_no_metrics_override_even_with_staged_configuration(self):
         configured = copy.deepcopy(ENABLED)
         configured["profiles"]["otel"]["metrics"]["enabled"] = False

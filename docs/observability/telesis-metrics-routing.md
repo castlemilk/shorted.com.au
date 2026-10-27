@@ -7,15 +7,34 @@ credential, or start any business job.
 
 ## Coverage
 
-The production `otel_metrics` Terraform input applies to the `shorts-api`,
-`market-data` and `enrichment-processor` Cloud Run services. Each service gets
-access only to the configured metrics header secret when enabled. Generic
+The production `otel_metrics` Terraform input covers the Cloud Run resources
+configured for the shared Go SDK, including retained and manually executable
+templates:
+
+| Deployment | Covered resources |
+| --- | --- |
+| APIs | `shorts-api`, `market-data`, `chat-service`, `enrichment-processor` |
+| Consolidated jobs | Announcements, price sync, weekly reports, index sync and news (including its extra schedules) |
+| Discovery and sync | The scheduled ASX discovery job and live market-data-sync HTTP service, including their legacy image fallback |
+| Retained templates | The paused standalone weekly report job and paused Cloud Run index/news templates |
+
+The existing consolidated Signals and index-sync templates also receive the
+optional routing input because they already declare OTLP configuration. Their
+entry points do not currently initialize the shared SDK; routing configuration
+alone is not evidence of Signals or index-sync metric emission. Python collectors
+and other workloads without the shared SDK are outside this change.
+
+Each runtime service account gets access only to the configured metrics header
+secret when enabled, and the workload waits for that grant. Generic
 `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` stay unchanged.
+The ASX discovery job is still scheduled on Cloud Run. The market-data-sync
+HTTP service remains live even though its daily sweep scheduler is paused.
 
 For Kubernetes, `profiles.otel.metrics` applies only to jobs with the `otel`
 profile. Of the eight currently enabled jobs, six have it: `shorted-news-cluster`,
 `shorted-index-sync`, `shorted-news`, `shorted-news-backfill-images`,
-`shorted-news-resolve-googlenews` and `shorted-news-digest`. Economy and alerts
+`shorted-news-resolve-googlenews` and `shorted-news-digest`. The index-sync caveat
+above applies to its Kubernetes template too. Economy and alerts
 do not currently use this profile or the shared instrumentation. Suspended jobs
 remain suspended; routing does not change images, schedules or enabled jobs.
 
@@ -66,7 +85,7 @@ otel_metrics = {
 
 This adds only four metric-specific environment settings: endpoint, HTTP/protobuf
 protocol, cumulative temporality and a Secret Manager header reference. Each
-service has a dependency on its narrowly scoped secret-access grant. Setting
+service or job has a dependency on its narrowly scoped secret-access grant. Setting
 `enabled = false` removes those overrides and the extra grant; the SDK returns
 to the existing generic Grafana route. Keep generic OTel configuration present:
 the shared SDK uses it to initialize telemetry.
@@ -117,7 +136,13 @@ metric env entries from the enabled render before comparing it again. The
 pipeline and secret-preflight tests stub external cloud commands; Terraform
 uses mock providers in temporary copies, no backend, no production state and
 no cloud credentials. The real Google provider schema is pinned to production's
-version. These tests run in Repository Hygiene's VKE jobs chart job.
+version. Mock plans cover all eight resource shapes across seven modules,
+including both discovery runtime identities and the generic jobs module. The
+tests compare every non-metrics environment entry between disabled and enabled
+plans and require the dedicated secret grant for the intended runtime account.
+A production call-site inventory guards against leaving an OTLP-enabled shared
+job on the old metrics route. These tests run in Repository Hygiene's VKE jobs
+chart job.
 
 After an authorized rollout, check the actual Cloud Run revisions and CronJob
 templates, receiver accepted/refused counts, exporter failures, queue depth and

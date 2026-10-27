@@ -93,6 +93,14 @@ resource "google_secret_manager_secret_iam_member" "otel_headers" {
   project   = var.project_id
 }
 
+resource "google_secret_manager_secret_iam_member" "otel_metrics_headers" {
+  count     = var.otel_metrics.enabled ? 1 : 0
+  project   = var.project_id
+  secret_id = var.otel_metrics.headers_secret
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.chat_service.email}"
+}
+
 # Cloud Run Service
 resource "google_cloud_run_v2_service" "chat_service" {
   name     = local.service_name
@@ -184,6 +192,31 @@ resource "google_cloud_run_v2_service" "chat_service" {
           secret_key_ref {
             secret  = "OTEL_EXPORTER_OTLP_HEADERS"
             version = "latest"
+          }
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.otel_metrics.enabled ? {
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT               = var.otel_metrics.endpoint
+          OTEL_EXPORTER_OTLP_METRICS_PROTOCOL               = "http/protobuf"
+          OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "cumulative"
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.otel_metrics.enabled ? [var.otel_metrics.headers_secret] : []
+        content {
+          name = "OTEL_EXPORTER_OTLP_METRICS_HEADERS"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
           }
         }
       }
@@ -326,6 +359,7 @@ resource "google_cloud_run_v2_service" "chat_service" {
     google_secret_manager_secret_iam_member.gemini_api_key,
     google_secret_manager_secret_iam_member.internal_service_secret,
     google_secret_manager_secret_iam_member.otel_headers,
+    google_secret_manager_secret_iam_member.otel_metrics_headers,
     google_secret_manager_secret_iam_member.optional_secrets,
     time_sleep.optional_secret_grants,
   ]
