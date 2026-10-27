@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
@@ -15,6 +16,10 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
+
+// Independent processes must not merge their cumulative counters. Keep one
+// identity across SDK reinitialization, shared by metrics and traces.
+var processInstanceID = uuid.NewString()
 
 // histogramViews returns Views that set explicit bucket boundaries for
 // duration histograms, keeping cardinality predictable.
@@ -142,6 +147,7 @@ func InitProvider(ctx context.Context, serviceName string) (func(context.Context
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			semconv.ServiceName(serviceName),
+			semconv.ServiceInstanceID(processInstanceID),
 			semconv.ServiceVersion(serviceVersion),
 			attribute.String("deployment.environment", environment),
 		),
