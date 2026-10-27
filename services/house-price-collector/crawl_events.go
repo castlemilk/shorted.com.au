@@ -28,10 +28,14 @@ import (
 //
 //	claim            {job_id}
 //	page             {job_id, source: rea|domain}   one per source sweep started
+//	fetch            {job_id, source, page, outcome: ok|blocked|error}   one per page fetch
+//	                  (S2): a dense sweep is many paced fetches, so this is the event that
+//	                  proves the child is working. The cycle's hung timer runs off it.
 //	submit           {job_id, outcome: succeeded|failed|deferred, listings, events, blocked}
 //	finalize_started {}
-//	ingest_ok        {job_id, source, applied, replayed}   CRAWL_SINK=ingest, one per accepted push;
-//	                  applied is complete|partial|blocked
+//	ingest_ok        {job_id, source, applied, replayed, quarantined}   CRAWL_SINK=ingest, one
+//	                  per accepted push; applied is complete|partial|blocked; quarantined is
+//	                  true when the server held the sweep back for review
 //	ingest_error     {job_id, source, code}   one per failed push; code is a Connect code
 //	                  word, "token" or "transport". Never the server's message text
 //	shadow           {job_id, source, legacy_events, legacy_failed, dry_events,
@@ -41,6 +45,9 @@ import (
 //	                  after shadowFailLimit consecutive dry-run failures
 //	round_done       {processed, succeeded, failed, deferred, listings, events,
 //	                  blocked_sweeps, needs_rewarm, chrome_unusable, env_broken}
+//	The -mode cycle parent (crawl_cycle.go) forwards every event above except a child's
+//	round_done, adding "round", and writes its own cycle_start, preflight, round_start,
+//	round_done and cycle_done (documented there).
 const crawlEventsFDEnv = "CRAWL_EVENTS_FD"
 
 type eventHeader struct {
@@ -190,6 +197,39 @@ func (e *crawlEvents) page(jobID, source string) {
 	})
 }
 
+// fetchEvent is one page fetch's answer. Outcome is ok, blocked or error.
+type fetchEvent struct {
+	eventHeader
+	JobID   string `json:"job_id"`
+	Source  string `json:"source"`
+	Page    int    `json:"page"`
+	Outcome string `json:"outcome"`
+}
+
+// fetch records one page fetch. Sources outside the enum are dropped, and a page
+// number outside 1..maxFetchPage is clamped so a counter can never carry text.
+func (e *crawlEvents) fetch(jobID, source string, page int, outcome string) {
+	if source != "rea" && source != "domain" {
+		return
+	}
+	if outcome != "ok" && outcome != "blocked" && outcome != "error" {
+		return
+	}
+	if page < 1 {
+		page = 1
+	}
+	if page > maxFetchPage {
+		page = maxFetchPage
+	}
+	e.emit(func() any {
+		return fetchEvent{eventHeader: e.header("fetch"), JobID: safeJobID(jobID), Source: source, Page: page, Outcome: outcome}
+	})
+}
+
+// maxFetchPage bounds the page number a fetch event carries. A sweep never walks this far
+// (see sweepSuburbSource's page cap), so the clamp only ever guards the field's shape.
+const maxFetchPage = 1000
+
 // submit records the outcome sent to the queue (the deferred-to-failed fallback
 // sends "failed"). Outcomes outside the enum are dropped.
 func (e *crawlEvents) submit(jobID, outcome string, listings, events, blocked int) {
@@ -305,12 +345,14 @@ func (e *crawlEvents) roundDone(res roundResult, code int) {
 
 // ingestOKEvent is one accepted ingest push. applied is complete|partial|blocked. The
 // counts stay in the job summary, so the stream carries identifiers and enums only.
+// quarantined is set when the server held the sweep back (it applied nothing).
 type ingestOKEvent struct {
 	eventHeader
-	JobID    string `json:"job_id"`
-	Source   string `json:"source"`
-	Applied  string `json:"applied"`
-	Replayed bool   `json:"replayed"`
+	JobID       string `json:"job_id"`
+	Source      string `json:"source"`
+	Applied     string `json:"applied"`
+	Replayed    bool   `json:"replayed"`
+	Quarantined bool   `json:"quarantined"`
 }
 
 // ingestErrorEvent is one failed ingest push, named by its code word alone.
@@ -337,12 +379,13 @@ var ingestCodeWords = map[string]bool{
 }
 
 // ingestOK writes one ingest_ok event. A nil writer is a no-op.
-func (e *crawlEvents) ingestOK(jobID, source, applied string, replayed bool) {
+func (e *crawlEvents) ingestOK(jobID, source, applied string, replayed, quarantined bool) {
 	e.emit(func() any {
 		return ingestOKEvent{
 			eventHeader: e.header("ingest_ok"), JobID: safeJobID(jobID), Source: sourceEnum(source),
-			Applied:  enumOrEmpty(applied, map[string]bool{"complete": true, "partial": true, "blocked": true}),
-			Replayed: replayed,
+			Applied:     enumOrEmpty(applied, map[string]bool{"complete": true, "partial": true, "blocked": true}),
+			Replayed:    replayed,
+			Quarantined: quarantined,
 		}
 	})
 }

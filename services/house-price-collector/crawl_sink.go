@@ -563,7 +563,7 @@ func (ir *ingestRound) noteIngestOK(jobID, source string, resp *pb.PushSweepResp
 	ir.mu.Lock()
 	ir.invalidN = 0
 	ir.mu.Unlock()
-	ir.events.ingestOK(jobID, source, appliedName(resp.GetAppliedStatus()), resp.GetReplayed())
+	ir.events.ingestOK(jobID, source, appliedName(resp.GetAppliedStatus()), resp.GetReplayed(), resp.GetQuarantined())
 }
 
 // absorb folds one applied push into the job's stats. It returns the events the sweep

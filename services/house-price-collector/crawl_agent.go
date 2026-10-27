@@ -1162,7 +1162,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		}
 	}
 
-	lc := &listingsCrawler{fetcher: fetcher, cfg: cfg, tel: tel}
+	lc := &listingsCrawler{fetcher: fetcher, cfg: cfg, tel: tel, events: ev, jobID: job.ID}
 	if ir := ingestRoundFrom(ctx); ir != nil {
 		lc.sink = ir.sinkFor(pool, job)
 	}

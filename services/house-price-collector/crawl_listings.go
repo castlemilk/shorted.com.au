@@ -265,6 +265,11 @@ type listingsCrawler struct {
 	// diff: the ingest sink pushes it to shorted, the shadow sink also keeps the
 	// local diff. Nil is the local database diff, unchanged (crawl_sink.go).
 	sink sweepSink
+	// events and jobID carry the round's event stream into the page loop: one fetch event
+	// per page, so the -mode cycle parent can tell a working child from a hung one (S2).
+	// A nil writer is a no-op, and the db path never sets them.
+	events *crawlEvents
+	jobID  string
 }
 
 // runListings returns the process exit code: 0 on success, 3 when the browser
@@ -545,6 +550,7 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		html, finalURL, outcome := fetchAndClassify(ctx, lc.fetcher, urlFor(page))
 		fetchMs := time.Since(fetchStart).Milliseconds()
 		pages++
+		lc.events.fetch(lc.jobID, source, page, fetchOutcomeName(outcome))
 		if outcome == outcomeBlocked {
 			*blockCounter++
 			status := blockedOrPartial(len(collected))
@@ -904,6 +910,18 @@ func fetchAndClassify(ctx context.Context, f htmlFetcher, url string) ([]byte, s
 		return nil, "", outcomeBlocked
 	}
 	return html, finalURL, outcomeOK
+}
+
+// fetchOutcomeName is the fetch event's enum for one page fetch.
+func fetchOutcomeName(o fetchOutcome) string {
+	switch o {
+	case outcomeBlocked:
+		return "blocked"
+	case outcomeError:
+		return "error"
+	default:
+		return "ok"
+	}
 }
 
 // paceRange is a [lo,hi] jitter window for the page-to-page delay.

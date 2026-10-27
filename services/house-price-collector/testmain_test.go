@@ -16,6 +16,11 @@ import (
 // (crawl_review_test.go) re-exec it with HPC_CHILD_ARGS, so they exercise the real main
 // path, its flag parsing and its exit codes.
 func TestMain(m *testing.M) {
+	// CYCLE_FAKE_CHILD_DIR turns the test binary into the fake -mode agent child the cycle tests
+	// spawn (crawl_cycle_fake_test.go). It runs before the test suite, so the child is never a test run.
+	if dir := os.Getenv(cycleFakeChildEnv); dir != "" {
+		os.Exit(runCycleFakeChild(dir))
+	}
 	if os.Getenv("HPC_CHILD_RUN") == "1" {
 		os.Args = append([]string{"house-price-collector"}, strings.Fields(os.Getenv("HPC_CHILD_ARGS"))...)
 		os.Exit(run())

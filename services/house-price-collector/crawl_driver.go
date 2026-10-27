@@ -41,6 +41,18 @@ func crawlDriverRunOptions() *playwright.RunOptions {
 	return opts
 }
 
+// checkPlaywrightDriver reports whether the driver runs, without installing anything.
+// playwright.Run starts the driver process and fails when the driver is missing or out of
+// date. It does not launch a browser, and the driver is stopped again straight away.
+func checkPlaywrightDriver() error {
+	pw, err := playwright.Run(crawlDriverRunOptions())
+	if err != nil {
+		return err
+	}
+	_ = pw.Stop()
+	return nil
+}
+
 // runInstallDriver implements `-mode install-driver`: install (or repair) the
 // playwright driver into the configured directory. Needs no DATABASE_URL, no
 // Chrome and no network beyond the driver download — main.go dispatches it

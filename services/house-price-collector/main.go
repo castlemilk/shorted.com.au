@@ -71,17 +71,25 @@ func main() {
 // retryably and its next attempt gets new keys. An unknown CRAWL_SINK, ingest with
 // DATABASE_URL set, a missing or unpinned SHORTED_INGEST_URL, ingest without an explicit
 // CRAWL_DRY_RUN, or a gateway or remote-CDP fetch route refuses to start with exit 8.
-// CRAWL_SINK is read only by -mode agent. -mode crawl is removed and exits 1.
+// S2 (-mode cycle, crawl_cycle.go): 11 = hung, the cycle killed a child round that emitted no
+// event for CRAWL_HUNG_AFTER (SIGTERM its process group, SIGKILL after CRAWL_HUNG_GRACE).
+// 10 = cancelled by SIGTERM/SIGINT (a second signal kills the group at once). The cycle exits 0
+// with outcome budget at -max-duration, unless a child returned something worse, and 2 for a bad
+// -job or -max-duration. Its other codes are the ones the child rounds return (see above),
+// stopped as the bash drain stopped them. A cycle refuses every sink but ingest with 8.
+// CRAWL_SINK is read only by -mode agent and -mode cycle. -mode crawl is removed and exits 1.
 // Keeping 8 distinct from 4 is deliberate: see crawl_env.go for the outage that
 // bought that distinction. drop-index also returns 1 on a query or write
 // failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "version | official | vg-nsw | vg-vic | listings | details | property | property-resolve | agent | enqueue | server-enqueue | server-property-resolve | crawl-finalize | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | revalidate | all")
+	mode := flag.String("mode", "all", "version | official | vg-nsw | vg-vic | listings | details | property | property-resolve | agent | cycle | enqueue | server-enqueue | server-property-resolve | crawl-finalize | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | revalidate | all")
 	selection := flag.String("selection", "delta", "server-enqueue only: delta (demand-sized suburbs) | full (the whole catalog)")
-	dryRun := flag.Bool("dry-run", false, "server-enqueue only: select and build the jobs, log the counts, send nothing and write nothing")
+	dryRun := flag.Bool("dry-run", false, "server-enqueue: select and build the jobs, log the counts, send nothing and write nothing. cycle: child rounds push dry (the server rolls back) and the cycle runs one round")
 	limit := flag.Int("limit", 0, "server-enqueue only: post at most N selected targets (0 = no limit)")
 	authCheck := flag.Bool("auth-check", false, "server-enqueue only: prove the ID token and BrandBrain's allowlist with a read, create no jobs, then exit")
+	job := flag.String("job", "", "cycle only: drain (rounds until the queue is empty) | repair (install-driver, warm Chrome, warmcheck) | preflight (read-only report, no lock, claims nothing)")
+	maxDuration := flag.Duration("max-duration", defaultMaxDuration, "cycle only: stop starting rounds at this deadline and stop the running round (outcome budget, exit 0)")
 	flag.Parse()
 
 	// version needs no environment at all: it prints the build revision as one
@@ -109,6 +117,12 @@ func run() int {
 	if *mode == "crawl" {
 		log.Printf("[crawl] -mode crawl is removed: it sent page content to BrandBrain. Use -mode agent (the queue, with CRAWL_SINK).")
 		return 1
+	}
+	// -mode cycle (S2) is the BrandBrain-spawned drain. It validates the ingest sink itself
+	// (crawl_cycle.go refuses db, shadow and unset with exit 8), owns its own deadline and
+	// never reads DATABASE_URL, so it is dispatched before the sink and database code below.
+	if *mode == "cycle" {
+		return runCycleMode(os.Stdout, *job, *dryRun, *maxDuration, os.Getenv, newCrawlEventsFromEnv())
 	}
 	// CRAWL_SINK is read ONLY by -mode agent (crawl_sink.go). Other modes ignore it, and
 	// say so once, so a shared env file cannot break them. For -mode agent a refusal is

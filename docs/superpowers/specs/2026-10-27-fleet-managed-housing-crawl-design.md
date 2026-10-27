@@ -66,14 +66,30 @@ shorted CrawlIngestService ── verify JWT · allowlist · re-derive · quaran
 
 ### Collector CLI (rig)
 
-- `-mode cycle -job drain|repair [-dry-run] [-max-duration 10h]` runs these steps in order:
-  1. take the lock;
-  2. preflight: driver (install it once if missing), Chrome warm, and `ProbeAuth` against ingest;
-  3. run drain rounds, each a child `-mode agent` in its own process group;
-  4. write one summary JSON line to stdout. Logs go to stderr.
+- `-mode cycle -job drain|repair|preflight [-dry-run] [-max-duration 10h]` (S2, `crawl_cycle.go`). It runs only with `CRAWL_SINK=ingest`; `db`, `shadow` and unset refuse with exit 8.
+  - **drain** runs these steps in order:
+    1. take the lock (exit 12 if held; a child of the holder passes, as in `crawl_lock.go`);
+    2. preflight: driver (install it once if missing; a second failure or a failed install is 8), Chrome warm (the existing `ensureChromeWarm`, CDP only; unusable is 4), and `ProbeAuth` against ingest (13, 14, 15, 8 or 7, the S-FETCH mapping);
+    3. run drain rounds, each a child `-mode agent` re-exec'd in its own process group, with its events on a pipe at `CRAWL_EVENTS_FD`, its stdout and stderr passed to the cycle's stderr, and `CRAWL_CYCLE_ID` and `CRAWL_RUN_ID` set to the cycle id. The round policy is decided on the child's events and exit code, never on log text:
+       - `CRAWL_DRAIN_MAX_ROUNDS` (default 30);
+       - a round with 0 claims and 0 processed is queue empty (done, 0);
+       - 3 or 5 cool down `CRAWL_REWARM_COOLDOWN_SEC` (900) and retry, at most `CRAWL_REWARM_MAX_RETRIES` (2), then stop with that code;
+       - 8 installs the driver once, retries the round once, then stops with 8;
+       - 4, 7, 12, 13, 14 and 15 stop with that code, and 10 stops with 10;
+       - 11 (hung): see below.
+    4. write one summary JSON line to stdout. Logs go to stderr.
+  - **repair** takes the lock, forces install-driver, warms Chrome and runs warmcheck. Exit 0, 4 or 8.
+  - **preflight** is NON-mutating and takes no lock. It reports the lock (`free`, `stale`, or `held` with the holder's pid only), the driver, the Chrome reachability and ProbeAuth. It claims nothing and installs nothing. Its exit is 0, or the first failing check's code (a held lock is reported and does not fail). Chrome is checked read-only: `/json/version` is asked, and no warm, launch or fetch happens, so the summary says `reachable`, not `warm`.
+  - **Hung (11):** a child that emits no event for `CRAWL_HUNG_AFTER` (default 20m) gets SIGTERM to its process group, then SIGKILL after `CRAWL_HUNG_GRACE` (default 60s). The cycle exits 11. Fetch events are emitted per page, so 20 minutes of silence means no page has been fetched.
+  - **SIGTERM/SIGINT:** the first signal is forwarded to the child group, which finishes its suburb and exits 10; the cycle exits 10. A second signal SIGKILLs the group and exits 10 at once.
+  - **`-max-duration`:** at the deadline no new round starts and the running child gets the SIGTERM above. The cycle exits 0 with outcome `budget`, unless the child returned a worse code.
+  - **Output:** stdout is exactly one summary JSON line, `{cycle_id, job, outcome, exit_code, rounds, started_at, finished_at, collector:{revision, modified}, counts:{claimed, processed, succeeded, failed, deferred, listings, events, blocked_sweeps, pushed, push_failed, quarantined}, preflight:{lock, driver, chrome, ingest}}`. IDs, enums and counts only. Stderr carries the logs.
+  - **ReportCycle:** each child round reports its own counts-only row with `run_id = cycle_id`, and the server accumulates rounds that share a run id, as the bash drain's `CRAWL_RUN_ID` does. The cycle reports once more only for a round that could not report for itself (hung, or no `round_done`), with zero counts.
+  - **Process groups:** the children are group leaders. Chrome launched by the collector runs under `Setsid`, a session of its own, so the group kill does NOT reach the warm browser. This is deliberate: the warm profile must survive a cycle. The Playwright driver and any fetcher-owned process stay in the child's group and are killed with it.
 - `-mode version` prints `{"revision","modified","source","go"}`. It needs no environment.
 - The agent and cycle modes run **without `DATABASE_URL`**.
-- **Round events** are NDJSON on `CRAWL_EVENTS_FD`: `claim`, `page`, `submit`, `ingest_ok`, `ingest_error`, `shadow`, `shadow_circuit`, `finalize_started`, `round_done`. They carry IDs, counts, enums and Connect code words only, never message text. `ingest_ok` is `{job_id, source, applied, replayed}` for each accepted push. `ingest_error` is `{job_id, source, code}` for each failed push, where `code` is a Connect code word, `token` or `transport`. `shadow` is the per-sweep parity record. `shadow_circuit` is written once, when shadow switches off after three consecutive dry-run failures. Events come only from the work loop, never from a timer.
+- **Round events** are NDJSON on `CRAWL_EVENTS_FD`: `claim`, `page`, `fetch`, `submit`, `ingest_ok`, `ingest_error`, `shadow`, `shadow_circuit`, `finalize_started`, `round_done`. They carry IDs, counts, enums and Connect code words only, never message text. `fetch` is `{job_id, source, page, outcome: ok|blocked|error}`, one per page fetch (added by S2, so a dense sweep proves the child is alive; the hung timer runs off it). `ingest_ok` is `{job_id, source, applied, replayed, quarantined}` for each accepted push; `quarantined` is true when the server held the sweep back.
+- **Cycle events** on the cycle's own `CRAWL_EVENTS_FD` (added by S2): `cycle_start {cycle_id, job, dry_run, max_rounds, max_duration_sec}`, `preflight {lock_state, driver, chrome, ingest}`, `round_start {round}`, `round_done {round, exit_code, hung, claimed, processed, succeeded, failed, deferred, listings, events, blocked_sweeps, needs_rewarm}`, `cycle_done {outcome, exit_code, rounds}`. Every child event except the child's `round_done` is forwarded with a `round` number added. Only allowlisted event names are forwarded. The cycle's events come only from its work (a child's event, a round starting or ending, a preflight step), never from a timer. `ingest_error` is `{job_id, source, code}` for each failed push, where `code` is a Connect code word, `token` or `transport`. `shadow` is the per-sweep parity record. `shadow_circuit` is written once, when shadow switches off after three consecutive dry-run failures. Events come only from the work loop, never from a timer.
 - **Lock:** the same lockdir as bash's `hc_acquire_lock`, so a Go holder and a bash holder exclude each other. A child of the holder may pass.
 - **SIGTERM:** finish the current suburb (including its push), then exit 10.
 
@@ -87,7 +103,7 @@ shorted CrawlIngestService ── verify JWT · allowlist · re-derive · quaran
 | 7 | agent infrastructure failed (including a BrandBrain mint outage) | retry at 5, 15 and 45 min, then alarm |
 | 8 | environment broken | the cycle runs install-driver once and retries once; the runtime does not retry; alarm `env_broken` |
 | 10 | cancelled | no retry |
-| 11 | hung | one retry after 30 min, then circuit |
+| 11 | hung (the cycle killed a child round that emitted no event for `CRAWL_HUNG_AFTER`) | one retry after 30 min, then circuit |
 | 12 | skipped: lock held | no retry; 3 consecutive gives `legacy_conflict` |
 | 13 | ingest auth refused | no retry; alarm `ingest_auth`; job deferred |
 | 14 | ingest unavailable | retry after 30 min, then 2 h; jobs deferred; alarm after 6 h |
