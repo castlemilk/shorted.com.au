@@ -202,8 +202,11 @@ func resolveSink(mode string, getenv func(string) string) (crawlSinkMode, string
 	if cdp := strings.TrimSpace(getenv("CRAWL_CDP_URL")); cdp != "" && !loopbackCDP(cdp) {
 		return "", "", crawlSinkEnv + "=" + string(sink) + " needs a loopback CRAWL_CDP_URL"
 	}
+	// Any non-empty value refuses, untrimmed: "false" is not an off spelling here. The loader
+	// turns tracing on for a non-empty CRAWL_TRACE_DIR and uses the value as the directory,
+	// so "false" would write ./false. A non-breaking space is non-empty too.
 	for _, k := range []string{"CRAWL_TRACE", "CRAWL_TRACE_DIR"} {
-		if v := strings.TrimSpace(getenv(k)); v != "" && !strings.EqualFold(v, "false") {
+		if v := getenv(k); v != "" {
 			return "", "", crawlSinkEnv + "=" + string(sink) + " refuses " + k + ": a trace writes full portal pages to disk"
 		}
 	}

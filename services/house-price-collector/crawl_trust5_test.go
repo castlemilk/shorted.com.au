@@ -69,7 +69,12 @@ func TestTraceRefusedUnderIngestAndShadow(t *testing.T) {
 		{"trace true", "CRAWL_TRACE", "true", true},
 		{"trace zero is still on", "CRAWL_TRACE", "0", true},
 		{"trace dir", "CRAWL_TRACE_DIR", "/tmp/trace", true},
-		{"trace off", "CRAWL_TRACE", "false", false},
+		{"trace off spelling", "CRAWL_TRACE", "false", true},
+		{"trace dir named false", "CRAWL_TRACE_DIR", "false", true},
+		{"trace dir FALSE", "CRAWL_TRACE_DIR", "FALSE", true},
+		{"trace dir padded false", "CRAWL_TRACE_DIR", " false ", true},
+		{"trace dir False with NBSP", "CRAWL_TRACE_DIR", "False ", true},
+		{"trace nbsp only", "CRAWL_TRACE", " ", true},
 	}
 	for _, sink := range []string{"ingest", "shadow"} {
 		for _, tc := range cases {
@@ -97,16 +102,42 @@ func TestTraceRefusedUnderIngestAndShadow(t *testing.T) {
 }
 
 // Item 2, the exit code: the agent refuses with 8 before it touches the network.
-func TestTraceUnderIngestExits8ThroughRunAgent(t *testing.T) {
-	t.Setenv("CRAWL_SINK", "ingest")
-	t.Setenv("SHORTED_INGEST_URL", "https://api.shorted.com.au")
-	t.Setenv("CRAWL_DRY_RUN", "false")
-	t.Setenv("CRAWL_TRACE_DIR", "/tmp/should-not-exist")
-	t.Setenv("DATABASE_URL", "")
-	if got := runAgent(context.Background(), nil); got != exitSinkRefused {
-		t.Fatalf("runAgent with a trace under ingest = %d, want %d", got, exitSinkRefused)
+// The same refusals through the real agent entry point, on both sinks. Each run must exit 8
+// and create nothing: the trace directory is a path under a temp root, so a `false` that
+// slipped through would show up there.
+func TestTraceUnderSinksExits8ThroughRunAgent(t *testing.T) {
+	values := []string{"false", "FALSE", " false ", "False ", " "}
+	for _, sink := range []string{"ingest", "shadow"} {
+		for _, v := range values {
+			t.Run(sink+"/dir="+v, func(t *testing.T) {
+				root := t.TempDir()
+				t.Setenv("CRAWL_SINK", sink)
+				t.Setenv("SHORTED_INGEST_URL", "https://api.shorted.com.au")
+				t.Setenv("CRAWL_DRY_RUN", "false")
+				t.Setenv("DATABASE_URL", "")
+				if sink == "shadow" {
+					t.Setenv("DATABASE_URL", "postgres://shadow-only")
+				}
+				t.Setenv("CRAWL_TRACE_DIR", root+"/"+v)
+				t.Setenv("CRAWL_TRACE", "")
+				if got := runAgent(context.Background(), nil); got != exitSinkRefused {
+					t.Fatalf("CRAWL_TRACE_DIR=%q under %s exited %d, want %d", v, sink, got, exitSinkRefused)
+				}
+				if entries, _ := os.ReadDir(root); len(entries) != 0 {
+					t.Fatalf("CRAWL_TRACE_DIR=%q created %d entr(ies)", v, len(entries))
+				}
+			})
+		}
 	}
-	if _, err := os.Stat("/tmp/should-not-exist"); err == nil {
-		t.Fatal("the trace directory was created")
-	}
+	t.Run("ingest/CRAWL_TRACE=false", func(t *testing.T) {
+		t.Setenv("CRAWL_SINK", "ingest")
+		t.Setenv("SHORTED_INGEST_URL", "https://api.shorted.com.au")
+		t.Setenv("CRAWL_DRY_RUN", "false")
+		t.Setenv("DATABASE_URL", "")
+		t.Setenv("CRAWL_TRACE", "false")
+		t.Setenv("CRAWL_TRACE_DIR", "")
+		if got := runAgent(context.Background(), nil); got != exitSinkRefused {
+			t.Fatalf("CRAWL_TRACE=false under ingest exited %d, want %d", got, exitSinkRefused)
+		}
+	})
 }
