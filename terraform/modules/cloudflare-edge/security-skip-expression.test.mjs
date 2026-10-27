@@ -214,6 +214,12 @@ const EXEMPT_PATHS = [
   // Documented public GET in the OpenAPI spec: filters a hardcoded in-memory
   // list, mutates nothing, and keeps its own app-layer rate limit.
   "/api/search/stocks",
+  "/privacy",
+  "/privacy/",
+  "/terms",
+  "/terms/",
+  "/faq",
+  "/faq/",
 ];
 
 for (const path of EXEMPT_PATHS) {
@@ -242,7 +248,19 @@ const STILL_CHALLENGED_PATHS = [
   "/docsecret", // guards against a `starts_with(…, "/docs")` slip
   "/.well-knownsomething", // guards against a missing trailing slash
   "/openapi.json.bak",
+  "/privacy/export",
+  "/terms-admin",
+  "/faq/api-keys",
 ];
+
+test("public listing pages exempt only GET and HEAD", () => {
+  for (const host of FRONTEND_HOSTS) {
+    for (const path of ["/privacy", "/privacy/", "/terms", "/terms/", "/faq", "/faq/"]) {
+      for (const method of ["GET", "HEAD"]) assert.equal(skips({ host, path, method }), true);
+      for (const method of ["POST", "PUT", "PATCH", "DELETE"]) assert.equal(skips({ host, path, method }), false);
+    }
+  }
+});
 
 for (const path of STILL_CHALLENGED_PATHS) {
   test(`SBFM skip does NOT cover ${path}`, () => {

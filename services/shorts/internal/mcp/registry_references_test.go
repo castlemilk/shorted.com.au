@@ -165,7 +165,10 @@ func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	// manage_my_alerts (about 0.5 KiB of it), against 99,833 before it, so the ceiling is
 	// unchanged. Headroom is 981 bytes: the next tool that adds more than that needs a
 	// deliberate look at this number, not a silent raise.
-	const budget = 99 * 1024
+	// Explicit destructiveHint/openWorldHint booleans are required by the
+	// public review importer. They take the wire catalog to 101,858 bytes;
+	// retain a tight 100 KiB ceiling without dropping data provenance.
+	const budget = 100 * 1024
 
 	ctx := context.Background()
 	// The list an anonymous session pays for: the base server, including the discovery tool.

@@ -907,12 +907,23 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
             or http.request.uri.path eq "/openapi.json"
             or http.request.uri.path eq "/openapi.yaml"
             or http.request.uri.path eq "/api/search/stocks"
+            or (
+              (http.request.method eq "GET" or http.request.method eq "HEAD")
+              and (
+                http.request.uri.path eq "/privacy"
+                or http.request.uri.path eq "/privacy/"
+                or http.request.uri.path eq "/terms"
+                or http.request.uri.path eq "/terms/"
+                or http.request.uri.path eq "/faq"
+                or http.request.uri.path eq "/faq/"
+              )
+            )
             or starts_with(http.request.uri.path, "/docs/")
             or starts_with(http.request.uri.path, "/.well-known/")
           )
         )
       EOT
-      description = "Allow non-verified feed readers, crawlers and API agents to fetch sitemap.xml, feed.xml, the OpenAPI spec, the /docs tree, /.well-known and the public stock search through SBFM, BIC, and Security Level checks"
+      description = "Allow non-verified feed readers, crawlers and API agents to fetch sitemap.xml, feed.xml, the OpenAPI spec, the /docs tree, /.well-known, public stock search and GET/HEAD privacy, terms and FAQ pages through SBFM, BIC, and Security Level checks"
       enabled     = true
       action_parameters = {
         phases   = ["http_request_sbfm"]
