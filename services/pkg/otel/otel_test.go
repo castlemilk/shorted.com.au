@@ -234,3 +234,99 @@ func TestProviderDisabledDoesNotInstallExporters(t *testing.T) {
 		t.Fatal("custom metrics must still initialize when OTLP is disabled")
 	}
 }
+
+func TestProviderRoutesMetricsSeparatelyFromTraces(t *testing.T) {
+	preserveGlobalProviders(t)
+	var metricCalls, traceCalls atomic.Int32
+	metrics := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		metricCalls.Add(1)
+		if r.URL.Path != "/v1/metrics" || r.Header.Get("Authorization") != "Bearer telesis-fixture" {
+			t.Error("metrics endpoint must receive only the metric-specific path and credential")
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		var request metricsv1.ExportMetricsServiceRequest
+		if err := proto.Unmarshal(body, &request); err != nil {
+			t.Error(err)
+			return
+		}
+		found := false
+		for _, resource := range request.ResourceMetrics {
+			for _, scope := range resource.ScopeMetrics {
+				for _, metric := range scope.Metrics {
+					if metric.Name == "test.routing.counter" {
+						found = true
+					}
+				}
+			}
+		}
+		if !found {
+			t.Error("metrics sink did not receive the metric payload")
+		}
+		w.Header().Set("Content-Type", "application/x-protobuf")
+	}))
+	defer metrics.Close()
+	traces := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		traceCalls.Add(1)
+		if r.URL.Path != "/otlp/v1/traces" || r.Header.Get("Authorization") != "Basic grafana-fixture" {
+			t.Error("trace endpoint must retain the generic path and credential")
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		var request tracev1.ExportTraceServiceRequest
+		if err := proto.Unmarshal(body, &request); err != nil {
+			t.Error(err)
+			return
+		}
+		found := false
+		for _, resource := range request.ResourceSpans {
+			for _, scope := range resource.ScopeSpans {
+				for _, span := range scope.Spans {
+					if span.Name == "test.routing.span" {
+						found = true
+					}
+				}
+			}
+		}
+		if !found {
+			t.Error("trace sink did not receive the trace payload")
+		}
+		w.Header().Set("Content-Type", "application/x-protobuf")
+	}))
+	defer traces.Close()
+	for _, signal := range []string{"", "_METRICS", "_TRACES"} {
+		for _, option := range []string{"ENDPOINT", "HEADERS", "CERTIFICATE", "CLIENT_CERTIFICATE", "CLIENT_KEY", "COMPRESSION"} {
+			t.Setenv("OTEL_EXPORTER_OTLP"+signal+"_"+option, "")
+		}
+	}
+	t.Setenv("OTEL_TRACES_SAMPLER", "always_on")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", traces.URL+"/otlp")
+	t.Setenv("OTEL_EXPORTER_OTLP_HEADERS", "Authorization=Basic grafana-fixture")
+	t.Setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", metrics.URL+"/v1/metrics")
+	t.Setenv("OTEL_EXPORTER_OTLP_METRICS_HEADERS", "Authorization=Bearer telesis-fixture")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	shutdown, err := InitProvider(ctx, "shorted-api")
+	if err != nil {
+		t.Fatal(err)
+	}
+	counter, err := otel.Meter("routing-test").Int64Counter("test.routing.counter")
+	if err != nil {
+		t.Fatal(err)
+	}
+	counter.Add(ctx, 1)
+	_, span := otel.Tracer("routing-test").Start(ctx, "test.routing.span")
+	span.End()
+	if err := shutdown(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if metricCalls.Load() != 1 || traceCalls.Load() != 1 {
+		t.Fatalf("expected one request per signal; metrics=%d traces=%d", metricCalls.Load(), traceCalls.Load())
+	}
+}
