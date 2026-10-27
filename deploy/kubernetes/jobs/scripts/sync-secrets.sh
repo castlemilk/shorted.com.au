@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+{ set +x; } 2>/dev/null
 # Copy the GCP Secret Manager secrets the jobs read into the `shorted-jobs-env`
 # Kubernetes Secret on omega. Keys are the Secret Manager ids verbatim.
 #
@@ -8,8 +9,8 @@
 #
 # The key list is derived from the rendered chart (every secretKeyRef into the
 # Secret), so it cannot drift from what the jobs actually reference. Values
-# never touch disk or stdout: they stream from gcloud into a JSON document on a
-# pipe into `kubectl apply`.
+# never touch disk or stdout: the complete JSON document stays in memory until
+# every version has been read successfully, then travels on stdin to kubectl.
 #
 # Secret Manager stays the source of truth. After rotating a secret there,
 # re-run this script; the next job run picks it up (env is read at pod start).
@@ -51,18 +52,32 @@ if [[ "${CONFIRM:-}" != "prod" ]]; then
   exit 0
 fi
 
-# Build the Secret without a value ever reaching disk, stdout or a process
-# argument list (argv is world-readable via ps): `printf` is a shell builtin, and
-# jq reads the key<TAB>base64 pairs from its stdin.
-while read -r key; do
-  value_b64="$(gcloud secrets versions access latest --secret "${key}" --project "${PROJECT_ID}" | base64 | tr -d '\n')"
-  printf '%s\t%s\n' "${key}" "${value_b64}"
-done <<<"${keys}" | jq -R -s --arg name "${secret_name}" --arg ns "${NAMESPACE}" '
+# Buffer privately before apply: a streaming `producer | jq | kubectl` can
+# apply earlier keys even when a later version read fails. Explicit checks are
+# required inside command substitution: Bash may suppress errexit there.
+if ! secret_json="$(
+  while read -r key; do
+    if ! value_b64="$(gcloud secrets versions access latest --secret "${key}" --project "${PROJECT_ID}" 2>/dev/null | base64 | tr -d '\n')"; then
+      echo "cannot read latest version of ${key}" >&2
+      exit 1
+    fi
+    if [[ -z "${value_b64}" ]]; then
+      echo "latest version of ${key} is empty" >&2
+      exit 1
+    fi
+    printf '%s\t%s\n' "${key}" "${value_b64}"
+  done <<<"${keys}" | jq -R -s --arg name "${secret_name}" --arg ns "${NAMESPACE}" '
   (split("\n") | map(select(length > 0) | split("\t") | {(.[0]): .[1]}) | add) as $data
   | {
       apiVersion: "v1", kind: "Secret", type: "Opaque",
       metadata: {name: $name, namespace: $ns, labels: {"app.kubernetes.io/part-of": "shorted", "shorted.com.au/synced-from": "gcp-secret-manager"}},
       data: $data
-    }' | kubectl apply -f -
+    }'
+)"; then
+  echo "refusing to sync an incomplete Secret; nothing was applied" >&2
+  exit 1
+fi
+# printf is a shell builtin: values reach neither argv nor an intermediate file.
+printf '%s' "${secret_json}" | kubectl apply -f -
 
 echo "==> synced $(wc -l <<<"${keys}" | tr -d ' ') keys into ${NAMESPACE}/${secret_name}"

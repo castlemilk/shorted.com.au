@@ -219,13 +219,21 @@ jobs:
         with:
           version: v3.19.0
 
-      - name: Install yq
+      - name: Install yq and jq
         run: |
           set -euo pipefail
           mkdir -p "${RUNNER_TEMP}/bin"
           arch="$(uname -m)"; case "${arch}" in x86_64) arch=amd64 ;; aarch64|arm64) arch=arm64 ;; esac
           curl -fsSL -o "${RUNNER_TEMP}/bin/yq" "https://github.com/mikefarah/yq/releases/download/v4.47.2/yq_linux_${arch}"
           chmod +x "${RUNNER_TEMP}/bin/yq"
+          curl -fsSL -o "${RUNNER_TEMP}/bin/jq" "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-${arch}"
+          case "${arch}" in
+            amd64) jq_sha=020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d ;;
+            arm64) jq_sha=6bc62f25981328edd3cfcfe6fe51b073f2d7e7710d7ef7fcdac28d4e384fc3d4 ;;
+            *) echo "unsupported jq architecture: ${arch}" >&2; exit 1 ;;
+          esac
+          printf '%s  %s\n' "${jq_sha}" "${RUNNER_TEMP}/bin/jq" | sha256sum --check --status
+          chmod +x "${RUNNER_TEMP}/bin/jq"
           echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
 
       - uses: actions/setup-python@v6

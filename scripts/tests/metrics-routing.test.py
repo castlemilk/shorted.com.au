@@ -1,4 +1,5 @@
 """Render the jobs chart without contacting a cluster or running a business job."""
+import base64
 import copy
 import json
 import os
@@ -112,6 +113,43 @@ class MetricsRoutingTest(unittest.TestCase):
             missing = subprocess.run(["bash", script, *flags], env={**env, "CONFIRM": "prod", "MISSING_KEY": "TELESIS_OTLP_METRICS_HEADERS"}, text=True, capture_output=True)
             self.assertEqual(missing.returncode, 1, missing.stderr)
             self.assertIn("refusing to sync a partial Secret", missing.stderr)
+
+
+    def test_secret_sync_never_applies_partial_or_empty_values(self):
+        # Use the real Helm/yq/jq pipeline with fake cloud endpoints. A Secret
+        # object can exist while its latest version is disabled or inaccessible.
+        expected_keys = {item["valueFrom"]["secretKeyRef"]["key"]
+                         for obj in objects(ENABLED).values() if obj["kind"] == "CronJob"
+                         for item in obj["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]["env"]
+                         if "secretKeyRef" in item.get("valueFrom", {})}
+        for fail_key, empty_key in [("", ""), ("TELESIS_OTLP_METRICS_HEADERS", ""), ("DATABASE_URL", ""), ("", "TELESIS_OTLP_METRICS_HEADERS")]:
+            with self.subTest(fail_key=fail_key, empty_key=empty_key), tempfile.TemporaryDirectory() as temporary:
+                directory = pathlib.Path(temporary)
+                for name, source in {
+                    "kubectl": '#!/usr/bin/env bash\ncase "$*" in\n "config current-context") echo fixture-omega ;;\n "apply -f -") cat > "$CAPTURE" ;;\n *) exit 91 ;;\nesac\n',
+                    "gcloud": '#!/usr/bin/env bash\ncase "$1 $2" in\n "secrets describe") exit 0 ;;\n "secrets versions")\n  [[ "$6" != "${FAIL_KEY:-}" ]] || exit 9\n  [[ "$6" != "${EMPTY_KEY:-}" ]] || exit 0\n  printf "fixture-only:%s\\n" "$6" ;;\n *) exit 92 ;;\nesac\n',
+                }.items():
+                    target = directory / name
+                    target.write_text(source)
+                    target.chmod(0o700)
+                capture = directory / "applied.json"
+                env = {"PATH": temporary + os.pathsep + os.environ["PATH"], "CONFIRM": "prod", "FAIL_KEY": fail_key, "EMPTY_KEY": empty_key, "CAPTURE": str(capture)}
+                (directory / "xtrace.sh").write_text("set -x\n")
+                env["BASH_ENV"] = str(directory / "xtrace.sh")
+                result = subprocess.run(["bash", str(ROOT / "deploy/kubernetes/jobs/scripts/sync-secrets.sh"), "--set", "profiles.otel.metrics.enabled=true", "--set-string", "profiles.otel.metrics.endpoint=" + ENDPOINT], env=env, text=True, capture_output=True)
+                self.assertNotIn("fixture-only:", result.stdout + result.stderr, "Secret values must never be logged")
+                self.assertFalse(any(base64.b64encode(("fixture-only:" + key + "\n").encode()).decode() in result.stdout + result.stderr for key in expected_keys), "Encoded Secret values must never be traced")
+                if fail_key or empty_key:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse(capture.exists(), "No Kubernetes apply may start until every latest secret value has been read")
+                else:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    document = json.loads(capture.read_text())
+                    self.assertEqual(document["metadata"]["name"], "shorted-jobs-env")
+                    self.assertEqual(document["metadata"]["namespace"], "shorted-jobs")
+                    self.assertEqual(set(document["data"]), expected_keys)
+                    for key, value in document["data"].items():
+                        self.assertEqual(base64.b64decode(value), ("fixture-only:" + key + "\n").encode())
 
 
 if __name__ == "__main__":

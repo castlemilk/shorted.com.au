@@ -89,7 +89,9 @@ the explicit Omega kubeconfig and the existing authenticated Secret Manager
 access. This is a plan by default; it renders the requested profile and checks
 that every required Secret Manager ID exists. After reviewing the context and
 key list, the existing `CONFIRM=prod` mode copies them to `shorted-jobs-env`.
-It refuses a partial import if the dedicated key is missing. Only forward the
+It refuses to apply anything if a key is missing, its latest version cannot be
+read, or its value is empty. The complete Secret is buffered privately in memory
+before applying; credential bytes never reach logs, files or process arguments. Only forward the
 metrics profile overrides here; this helper reads the base `secretEnv.secretName`.
 
 Then enable the same profile through the reviewed jobs-chart configuration.
@@ -100,7 +102,7 @@ prepare the key before enabling the profile. Do not run a CronJob manually.
 
 ## Validation
 
-Local/CI contract checks require Helm, mikefarah yq v4, Python with PyYAML and
+Local/CI contract checks require Helm, mikefarah yq v4, jq, Python with PyYAML and
 Terraform 1.14.6. The existing render script also requires Bash 4 or newer.
 
 ```sh
