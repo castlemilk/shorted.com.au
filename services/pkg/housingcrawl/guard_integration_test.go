@@ -1,10 +1,13 @@
 package housingcrawl
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Integration tests for the ingest additions to ApplySweep: the guard, the receipt
@@ -12,6 +15,14 @@ import (
 // Postgres and skip the same way as apply_integration_test.go.
 
 var errGuardRefused = errors.New("guard refused the sweep")
+
+// seedLastSeen sets a seeded listing's last_seen_at, so a test's timeline is consistent.
+func seedLastSeen(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id string, at time.Time) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `UPDATE property_listings SET last_seen_at = $2 WHERE listing_id = $1`, id, at); err != nil {
+		t.Fatalf("seed last_seen_at for %s: %v", id, err)
+	}
+}
 
 // TestGuard_RefusalRollsBackEveryWrite proves a guard error is raised before the
 // commit: the new listing, the price move and the delist are all undone.
@@ -220,6 +231,9 @@ func TestMinDelistInterval_SecondMissWithin12hDoesNotAdvance_Integration(t *test
 	ctx, pool := applyTestDB(t)
 	start := time.Date(2026, 10, 27, 0, 0, 0, 0, time.UTC)
 	seedActive(t, ctx, pool, "X", 0)
+	// The clock gate compares last_seen_at with last_missed_at, so the seed must sit on
+	// the sweep timeline, as a real sighting does, not on the wall clock.
+	seedLastSeen(t, ctx, pool, "X", start.Add(-time.Hour))
 
 	rules := testRules()
 	rules.MinDelistInterval = 12 * time.Hour
@@ -265,6 +279,7 @@ func TestMinDelistInterval_ResightClearsTheClock_Integration(t *testing.T) {
 	ctx, pool := applyTestDB(t)
 	start := time.Date(2026, 10, 27, 0, 0, 0, 0, time.UTC)
 	seedActive(t, ctx, pool, "X", 0)
+	seedLastSeen(t, ctx, pool, "X", start.Add(-time.Hour))
 
 	rules := testRules()
 	rules.MinDelistInterval = 12 * time.Hour

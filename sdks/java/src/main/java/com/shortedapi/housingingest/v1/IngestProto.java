@@ -134,46 +134,47 @@ public final class IngestProto extends com.google.protobuf.GeneratedFile {
       "v1.ListingR\010listings\022-\n\022collector_revisi" +
       "on\030\013 \001(\tR\021collectorRevision\022)\n\020contract_" +
       "version\030\014 \001(\005R\017contractVersion\022\027\n\007dry_ru" +
-      "n\030\r \001(\010R\006dryRun\"\246\002\n\021PushSweepResponse\022O\n" +
+      "n\030\r \001(\010R\006dryRun\"\302\002\n\021PushSweepResponse\022O\n" +
       "\016applied_status\030\001 \001(\0162(.shortedapi.housi" +
       "ngingest.v1.SweepStatusR\rappliedStatus\022\026" +
       "\n\006events\030\002 \001(\005R\006events\022+\n\021listings_upser" +
       "ted\030\003 \001(\005R\020listingsUpserted\022\032\n\010delisted\030" +
       "\004 \001(\005R\010delisted\022!\n\014skipped_rows\030\005 \001(\005R\013s" +
       "kippedRows\022 \n\013quarantined\030\006 \001(\010R\013quarant" +
-      "ined\022\032\n\010replayed\030\007 \001(\010R\010replayed\"\322\001\n\013Cyc" +
-      "leCounts\022)\n\020suburbs_selected\030\001 \001(\005R\017subu" +
-      "rbsSelected\022!\n\014suburbs_done\030\002 \001(\005R\013subur" +
-      "bsDone\022)\n\020listings_touched\030\003 \001(\005R\017listin" +
-      "gsTouched\022%\n\016events_written\030\004 \001(\005R\revent" +
-      "sWritten\022#\n\rblocked_count\030\005 \001(\005R\014blocked" +
-      "Count\"\250\001\n\022ReportCycleRequest\022\031\n\010cycle_id" +
-      "\030\001 \001(\tR\007cycleId\022\030\n\007outcome\030\002 \001(\tR\007outcom" +
-      "e\022\033\n\texit_code\030\003 \001(\005R\010exitCode\022@\n\006counts" +
-      "\030\004 \001(\0132(.shortedapi.housingingest.v1.Cyc" +
-      "leCountsR\006counts\"1\n\023ReportCycleResponse\022" +
-      "\032\n\010recorded\030\001 \001(\010R\010recorded*C\n\006Source\022\026\n" +
-      "\022SOURCE_UNSPECIFIED\020\000\022\016\n\nSOURCE_REA\020\001\022\021\n" +
-      "\rSOURCE_DOMAIN\020\002*z\n\013SweepStatus\022\034\n\030SWEEP" +
-      "_STATUS_UNSPECIFIED\020\000\022\031\n\025SWEEP_STATUS_CO" +
-      "MPLETE\020\001\022\030\n\024SWEEP_STATUS_PARTIAL\020\002\022\030\n\024SW" +
-      "EEP_STATUS_BLOCKED\020\0032\336\002\n\022CrawlIngestServ" +
-      "ice\022j\n\tProbeAuth\022-.shortedapi.housinging" +
-      "est.v1.ProbeAuthRequest\032..shortedapi.hou" +
-      "singingest.v1.ProbeAuthResponse\022j\n\tPushS" +
-      "weep\022-.shortedapi.housingingest.v1.PushS" +
-      "weepRequest\032..shortedapi.housingingest.v" +
-      "1.PushSweepResponse\022p\n\013ReportCycle\022/.sho" +
-      "rtedapi.housingingest.v1.ReportCycleRequ" +
-      "est\0320.shortedapi.housingingest.v1.Report" +
-      "CycleResponseB\231\002\n\037com.shortedapi.housing" +
-      "ingest.v1B\013IngestProtoP\001Z[github.com/cas" +
-      "tlemilk/shorted.com.au/services/gen/prot" +
-      "o/go/housingingest/v1;housingingestv1\242\002\003" +
-      "SHX\252\002\033Shortedapi.Housingingest.V1\312\002\033Shor" +
-      "tedapi\\Housingingest\\V1\342\002\'Shortedapi\\Hou" +
-      "singingest\\V1\\GPBMetadata\352\002\035Shortedapi::" +
-      "Housingingest::V1b\006proto3"
+      "ined\022\032\n\010replayed\030\007 \001(\010R\010replayed\022\032\n\010pois" +
+      "oned\030\010 \001(\010R\010poisoned\"\322\001\n\013CycleCounts\022)\n\020" +
+      "suburbs_selected\030\001 \001(\005R\017suburbsSelected\022" +
+      "!\n\014suburbs_done\030\002 \001(\005R\013suburbsDone\022)\n\020li" +
+      "stings_touched\030\003 \001(\005R\017listingsTouched\022%\n" +
+      "\016events_written\030\004 \001(\005R\reventsWritten\022#\n\r" +
+      "blocked_count\030\005 \001(\005R\014blockedCount\"\250\001\n\022Re" +
+      "portCycleRequest\022\031\n\010cycle_id\030\001 \001(\tR\007cycl" +
+      "eId\022\030\n\007outcome\030\002 \001(\tR\007outcome\022\033\n\texit_co" +
+      "de\030\003 \001(\005R\010exitCode\022@\n\006counts\030\004 \001(\0132(.sho" +
+      "rtedapi.housingingest.v1.CycleCountsR\006co" +
+      "unts\"1\n\023ReportCycleResponse\022\032\n\010recorded\030" +
+      "\001 \001(\010R\010recorded*C\n\006Source\022\026\n\022SOURCE_UNSP" +
+      "ECIFIED\020\000\022\016\n\nSOURCE_REA\020\001\022\021\n\rSOURCE_DOMA" +
+      "IN\020\002*z\n\013SweepStatus\022\034\n\030SWEEP_STATUS_UNSP" +
+      "ECIFIED\020\000\022\031\n\025SWEEP_STATUS_COMPLETE\020\001\022\030\n\024" +
+      "SWEEP_STATUS_PARTIAL\020\002\022\030\n\024SWEEP_STATUS_B" +
+      "LOCKED\020\0032\336\002\n\022CrawlIngestService\022j\n\tProbe" +
+      "Auth\022-.shortedapi.housingingest.v1.Probe" +
+      "AuthRequest\032..shortedapi.housingingest.v" +
+      "1.ProbeAuthResponse\022j\n\tPushSweep\022-.short" +
+      "edapi.housingingest.v1.PushSweepRequest\032" +
+      "..shortedapi.housingingest.v1.PushSweepR" +
+      "esponse\022p\n\013ReportCycle\022/.shortedapi.hous" +
+      "ingingest.v1.ReportCycleRequest\0320.shorte" +
+      "dapi.housingingest.v1.ReportCycleRespons" +
+      "eB\231\002\n\037com.shortedapi.housingingest.v1B\013I" +
+      "ngestProtoP\001Z[github.com/castlemilk/shor" +
+      "ted.com.au/services/gen/proto/go/housing" +
+      "ingest/v1;housingingestv1\242\002\003SHX\252\002\033Shorte" +
+      "dapi.Housingingest.V1\312\002\033Shortedapi\\Housi" +
+      "ngingest\\V1\342\002\'Shortedapi\\Housingingest\\V" +
+      "1\\GPBMetadata\352\002\035Shortedapi::Housinginges" +
+      "t::V1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -221,7 +222,7 @@ public final class IngestProto extends com.google.protobuf.GeneratedFile {
     internal_static_shortedapi_housingingest_v1_PushSweepResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shortedapi_housingingest_v1_PushSweepResponse_descriptor,
-        new java.lang.String[] { "AppliedStatus", "Events", "ListingsUpserted", "Delisted", "SkippedRows", "Quarantined", "Replayed", });
+        new java.lang.String[] { "AppliedStatus", "Events", "ListingsUpserted", "Delisted", "SkippedRows", "Quarantined", "Replayed", "Poisoned", });
     internal_static_shortedapi_housingingest_v1_CycleCounts_descriptor =
       getDescriptor().getMessageType(7);
     internal_static_shortedapi_housingingest_v1_CycleCounts_fieldAccessorTable = new

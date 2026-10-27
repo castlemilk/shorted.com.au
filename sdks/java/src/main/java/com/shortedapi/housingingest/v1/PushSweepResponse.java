@@ -147,6 +147,23 @@ private static final long serialVersionUID = 0L;
     return replayed_;
   }
 
+  public static final int POISONED_FIELD_NUMBER = 8;
+  private boolean poisoned_ = false;
+  /**
+   * <pre>
+   * poisoned is true when more than 30% of the listings were hard off-target
+   * misses (wrong or absent postcode). The sweep was downgraded to BLOCKED and
+   * wrote nothing, so applied_status is BLOCKED.
+   * </pre>
+   *
+   * <code>bool poisoned = 8 [json_name = "poisoned"];</code>
+   * @return The poisoned.
+   */
+  @java.lang.Override
+  public boolean getPoisoned() {
+    return poisoned_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -182,6 +199,9 @@ private static final long serialVersionUID = 0L;
     if (replayed_ != false) {
       output.writeBool(7, replayed_);
     }
+    if (poisoned_ != false) {
+      output.writeBool(8, poisoned_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -213,6 +233,10 @@ private static final long serialVersionUID = 0L;
     if (replayed_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(7, replayed_);
+    }
+    if (poisoned_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(8, poisoned_);
     }
     return size;
   }
@@ -251,6 +275,8 @@ private static final long serialVersionUID = 0L;
         != other.getQuarantined()) return false;
     if (getReplayed()
         != other.getReplayed()) return false;
+    if (getPoisoned()
+        != other.getPoisoned()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -278,6 +304,9 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + REPLAYED_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getReplayed());
+    hash = (37 * hash) + POISONED_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getPoisoned());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -420,6 +449,7 @@ private static final long serialVersionUID = 0L;
       skippedRows_ = 0;
       quarantined_ = false;
       replayed_ = false;
+      poisoned_ = false;
       return this;
     }
 
@@ -474,6 +504,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.replayed_ = replayed_;
       }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.poisoned_ = poisoned_;
+      }
     }
 
     @java.lang.Override
@@ -508,6 +541,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getReplayed() != false) {
         setReplayed(other.getReplayed());
+      }
+      if (other.getPoisoned() != false) {
+        setPoisoned(other.getPoisoned());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -570,6 +606,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 56
+            case 64: {
+              poisoned_ = input.readBool();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 64
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -857,6 +898,56 @@ private static final long serialVersionUID = 0L;
     public Builder clearReplayed() {
       bitField0_ = (bitField0_ & ~0x00000040);
       replayed_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean poisoned_ ;
+    /**
+     * <pre>
+     * poisoned is true when more than 30% of the listings were hard off-target
+     * misses (wrong or absent postcode). The sweep was downgraded to BLOCKED and
+     * wrote nothing, so applied_status is BLOCKED.
+     * </pre>
+     *
+     * <code>bool poisoned = 8 [json_name = "poisoned"];</code>
+     * @return The poisoned.
+     */
+    @java.lang.Override
+    public boolean getPoisoned() {
+      return poisoned_;
+    }
+    /**
+     * <pre>
+     * poisoned is true when more than 30% of the listings were hard off-target
+     * misses (wrong or absent postcode). The sweep was downgraded to BLOCKED and
+     * wrote nothing, so applied_status is BLOCKED.
+     * </pre>
+     *
+     * <code>bool poisoned = 8 [json_name = "poisoned"];</code>
+     * @param value The poisoned to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPoisoned(boolean value) {
+
+      poisoned_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * poisoned is true when more than 30% of the listings were hard off-target
+     * misses (wrong or absent postcode). The sweep was downgraded to BLOCKED and
+     * wrote nothing, so applied_status is BLOCKED.
+     * </pre>
+     *
+     * <code>bool poisoned = 8 [json_name = "poisoned"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPoisoned() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      poisoned_ = false;
       onChanged();
       return this;
     }

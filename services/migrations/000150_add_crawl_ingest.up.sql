@@ -4,22 +4,33 @@
 -- through services/pkg/housingcrawl. These are the tables that service reads and
 -- writes beyond the listing tables themselves:
 --
---   crawl_dispatch            the dispatch ledger. Every job a rig may push for,
---                             with its canonical target. S-SRV's enqueue fills it.
---   crawl_ingest_receipts     one row per applied push, keyed by the idempotency
---                             key, with the body hash and the response to replay.
---                             Pruned after 14 days.
---   housing_ingest_rigs       the per-rig enable flag the ingest checks on every
---                             call (cached 60s in the service).
---   crawl_ingest_quarantine   sweeps the guard held back. Reasons and counts only,
---                             never listing rows.
+--   crawl_dispatch                the dispatch ledger. Every job a rig may push
+--                                 for, with its canonical target. S-SRV's enqueue
+--                                 fills it. A job expires (expires_at) and closes
+--                                 (closed_at) on its first applied COMPLETE or
+--                                 PARTIAL receipt.
+--   crawl_ingest_receipts         one row per applied push, keyed by the
+--                                 idempotency key, with the body hash and the
+--                                 response to replay. Pruned after 14 days.
+--   housing_ingest_rigs           the per-rig enable flag the ingest checks on
+--                                 every call (cached 60s in the service).
+--   crawl_ingest_quarantine       sweeps the guard held back. Reasons and counts
+--                                 only, never listing rows.
+--   crawl_ingest_quarantine_bypass  operator release for a held suburb. See the
+--                                 note at its definition.
 --
--- and two columns on the listing tables:
+-- and three nullable columns on the listing tables:
 --
 --   property_listings.ingest_receipt_key      stamped on rows an ingest wrote, so a
 --   property_price_events.ingest_receipt_key  bad rig's writes can be reverted by key.
---   property_listings.last_missed_at          when missed_sweeps last advanced, for
+--   property_listings.last_missed_at          when an ingest absence last counted, for
 --                                             the MinDelistInterval gate.
+--
+-- THE COLLECTOR DOES NOT NEED THIS MIGRATION. The shared housingcrawl library
+-- selects and writes these columns only when a sweep carries a ReceiptKey
+-- (ingest_receipt_key) or a MinDelistInterval (last_missed_at). The collector's
+-- sweeps carry neither, so its SQL is the same statements it ran before this
+-- migration existed. A test pins that.
 --
 -- IDEMPOTENCY AND LOCKS
 --
@@ -50,6 +61,12 @@ CREATE TABLE IF NOT EXISTS crawl_dispatch (
     postcode    TEXT NOT NULL,
     source      TEXT NOT NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- The default is created_at + 72h for a row inserted now. S-SRV's enqueue sets
+    -- expires_at explicitly from HOUSING_INGEST_DISPATCH_TTL.
+    expires_at  TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '72 hours'),
+    -- Set once, by the first applied COMPLETE or PARTIAL receipt for the job.
+    -- BLOCKED never closes a job: a blocked sweep may legitimately be retried.
+    closed_at   TIMESTAMPTZ,
     CONSTRAINT crawl_dispatch_source_chk CHECK (source IN ('rea', 'domain'))
 );
 
@@ -81,6 +98,25 @@ CREATE TABLE IF NOT EXISTS crawl_ingest_quarantine (
     payload_sha256  BYTEA,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Operator release for a quarantined suburb. A row here makes the guard skip the
+-- quarantine for its (suburb, state, source) until expires_at. suburb is the catalog
+-- slug (lower case, hyphens), state is upper case and source is 'rea' or 'domain'.
+-- The operator SQL is in the PR that introduced this table. The service never
+-- deletes a row, so each release is its own audit trail. Keep expires_at short.
+CREATE TABLE IF NOT EXISTS crawl_ingest_quarantine_bypass (
+    id          BIGSERIAL PRIMARY KEY,
+    suburb      TEXT NOT NULL,
+    state       TEXT NOT NULL,
+    source      TEXT NOT NULL,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    note        TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT crawl_ingest_quarantine_bypass_source_chk CHECK (source IN ('rea', 'domain'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_crawl_ingest_quarantine_bypass_lookup
+    ON crawl_ingest_quarantine_bypass (suburb, state, source);
 
 DO $m150_listings$
 BEGIN

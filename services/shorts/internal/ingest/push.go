@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -19,8 +18,8 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 )
 
-// errDryRun is the guard's answer for a dry run. It stops the sweep before commit,
-// and the counts it produced are still returned.
+// errDryRun is what a dry run returns from its guard or record hook. It rolls the
+// sweep back, and the counts it produced are still reported.
 var errDryRun = errors.New("dry run: nothing committed")
 
 // Quarantine reasons. They go into crawl_ingest_quarantine and the warn log.
@@ -29,8 +28,12 @@ const (
 	reasonDelists    = "delists_over_threshold"
 )
 
-// quarantineError is the guard's refusal. It is wrapped by ApplySweep, so
-// errors.As finds it.
+// poisonFraction is the share of hard off-target listings (wrong or absent postcode)
+// above which a whole sweep is poison. It is the collector's rule: partitionByTarget
+// and the 0.30 page-one gate in crawl_listings.go.
+const poisonFraction = 0.30
+
+// quarantineError is the guard's refusal. ApplySweep wraps it, so errors.As finds it.
 type quarantineError struct {
 	reason string
 	stats  quarantineStats
@@ -38,9 +41,9 @@ type quarantineError struct {
 
 func (e *quarantineError) Error() string { return "quarantined: " + e.reason }
 
-// ingestRules are the diff thresholds an ingest sweep is applied with. They are the
-// collector's defaults plus the 12-hour MinDelistInterval, which the collector does
-// not use. The owner's rule is that a re-swept job cannot speed up delisting.
+// ingestRules are the diff thresholds an ingest sweep is applied with: the collector's
+// defaults plus the 12-hour MinDelistInterval, which the collector does not use. The
+// owner's rule is that a re-swept job cannot speed up delisting.
 func ingestRules() housingcrawl.Config {
 	return housingcrawl.Config{
 		DelistGrace:       2,
@@ -50,45 +53,91 @@ func ingestRules() housingcrawl.Config {
 	}
 }
 
-// quarantineCheck holds a sweep back when either trip holds:
+// quarantineCheck holds a sweep back when either trip holds, with both thresholds
+// floored so that a small suburb cannot trip on one or two genuine moves:
 //
-//	(a) more than PriceFraction of the listings that already existed moved their
-//	    price by more than 10%;
-//	(b) the sweep would delist more than max(DelistFraction × active listings in
-//	    the region before the sweep, DelistFloor).
+//	(a) LargeMoves > max(PriceFraction × existing listings, QuarantineMinMoves);
+//	(b) Delisted   > max(DelistFraction × active listings before the sweep, DelistFloor).
 //
-// Both are strict: a value exactly on the threshold passes.
-func (s *Service) quarantineCheck(r housingcrawl.Result) *quarantineError {
+// Both are strict: a value exactly on the threshold passes. A held suburb stays held
+// until an operator releases it (crawl_ingest_quarantine_bypass) or the figures
+// change, so the floors are what keep the hold from freezing a small suburb.
+func (s *Service) quarantineCheck(r housingcrawl.Result, status pb.SweepStatus) *quarantineError {
 	stats := quarantineStats{
+		Status:       status.String(),
 		Existing:     r.Existing,
 		LargeMoves:   r.LargeMoves,
 		ActiveBefore: r.ActiveBefore,
 		WouldDelist:  r.Delisted,
 		Listings:     r.Upserted,
 	}
-	if r.Existing > 0 && float64(r.LargeMoves) > s.cfg.PriceFraction*float64(r.Existing) {
+	priceFloor := math.Max(s.cfg.PriceFraction*float64(r.Existing), float64(s.cfg.QuarantineMinMoves))
+	if float64(r.LargeMoves) > priceFloor {
 		return &quarantineError{reason: reasonPriceMoves, stats: stats}
 	}
-	floor := math.Max(s.cfg.DelistFraction*float64(r.ActiveBefore), float64(s.cfg.DelistFloor))
-	if float64(r.Delisted) > floor {
+	delistFloor := math.Max(s.cfg.DelistFraction*float64(r.ActiveBefore), float64(s.cfg.DelistFloor))
+	if float64(r.Delisted) > delistFloor {
 		return &quarantineError{reason: reasonDelists, stats: stats}
 	}
 	return nil
 }
 
+// gateSweep applies the collector's off-target rules on the server, before anything
+// is written. gated counts the listings that belong to the target and would be
+// written. poisoned is true when more than poisonFraction of the listings are hard
+// misses: a wrong or absent postcode. A same-postcode, other-suburb listing is a soft
+// miss. It is neither written nor poison, because a shared-postcode cluster
+// legitimately back-fills with its neighbours (partitionByTarget).
+func gateSweep(raw []housingcrawl.RawListing, t housingcrawl.Target) (gated int, poisoned bool) {
+	if len(raw) == 0 {
+		return 0, false
+	}
+	hard := 0
+	for _, l := range raw {
+		if housingcrawl.MatchesTarget(l, t) {
+			gated++
+			continue
+		}
+		if l.Postcode != "" && l.Postcode == t.Postcode {
+			continue // soft miss
+		}
+		hard++
+	}
+	return gated, float64(hard)/float64(len(raw)) > poisonFraction
+}
+
+// effectiveStatus is the status the sweep is applied with.
+//
+//   - A poisoned sweep is BLOCKED: it writes nothing, and the response says so.
+//   - A COMPLETE sweep with no listings left after the server gate is accepted only
+//     when the portal reported zero results. Otherwise it is PARTIAL, which never
+//     delists. The count is of the GATED set: a sweep whose listings were all
+//     rejected by the gate is not an empty sweep, and it must never delist.
+func effectiveStatus(msg *pb.PushSweepRequest, gated int, poisoned bool) pb.SweepStatus {
+	if poisoned {
+		return pb.SweepStatus_SWEEP_STATUS_BLOCKED
+	}
+	if msg.Status == pb.SweepStatus_SWEEP_STATUS_COMPLETE && gated == 0 {
+		if msg.PageMeta == nil || msg.PageMeta.TotalResults != 0 {
+			return pb.SweepStatus_SWEEP_STATUS_PARTIAL
+		}
+	}
+	return msg.Status
+}
+
 // bodyDigest is the SHA-256 of the request in canonical (deterministic) protobuf
-// encoding. A replay must match it, so it covers every field, dry_run included.
+// encoding, with observed_at left out. observed_at is informational, and a retry
+// whose timestamp was re-serialised must replay rather than conflict.
 func bodyDigest(msg *pb.PushSweepRequest) ([]byte, error) {
-	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
+	canon := proto.Clone(msg).(*pb.PushSweepRequest)
+	canon.ObservedAt = nil
+	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(canon)
 	if err != nil {
 		return nil, err
 	}
 	sum := sha256.Sum256(b)
 	return sum[:], nil
 }
-
-// sourceLib maps the request enum onto the store's source string.
-func sourceLib(s pb.Source) string { return sourceName(s) }
 
 // statusLib maps the request enum onto the store's status.
 func statusLib(s pb.SweepStatus) housingcrawl.SweepStatus {
@@ -102,28 +151,23 @@ func statusLib(s pb.SweepStatus) housingcrawl.SweepStatus {
 	}
 }
 
-// effectiveStatus is the status the sweep is applied with. An empty COMPLETE sweep
-// is accepted only when the portal said it had no results. Anything else is PARTIAL,
-// which can never delist, so a rig that lost its page data cannot withdraw a suburb.
-func effectiveStatus(msg *pb.PushSweepRequest) pb.SweepStatus {
-	if msg.Status == pb.SweepStatus_SWEEP_STATUS_COMPLETE && len(msg.Listings) == 0 {
-		if msg.PageMeta == nil || msg.PageMeta.TotalResults != 0 {
-			return pb.SweepStatus_SWEEP_STATUS_PARTIAL
-		}
-	}
-	return msg.Status
+// applied reports whether a status writes listings. Only these close a job.
+func applied(s pb.SweepStatus) bool {
+	return s == pb.SweepStatus_SWEEP_STATUS_COMPLETE || s == pb.SweepStatus_SWEEP_STATUS_PARTIAL
 }
 
 // canonicalTarget builds the suburb the sweep is applied to from the dispatch row,
-// never from the request. The slug is the collector's own rule (lower case, spaces
-// to hyphens), which reproduces all 500 catalog slugs from their display names.
+// never from the request. The slug is the collector's own rule (lower case, spaces to
+// hyphens), which reproduces all 500 catalog slugs from their display names. The
+// state is upper case, as the collector's catalog stores it, so the region code
+// matches the one the collector writes.
 func canonicalTarget(d dispatch) housingcrawl.Target {
 	display := strings.TrimSpace(d.Suburb)
 	return housingcrawl.Target{
 		Suburb:   strings.ReplaceAll(strings.ToLower(display), " ", "-"),
 		Display:  display,
 		Postcode: strings.TrimSpace(d.Postcode),
-		State:    strings.TrimSpace(d.State),
+		State:    strings.ToUpper(strings.TrimSpace(d.State)),
 	}
 }
 
@@ -137,8 +181,8 @@ func targetMatches(req *pb.Target, d dispatch) bool {
 		strings.TrimSpace(req.Postcode) == strings.TrimSpace(d.Postcode)
 }
 
-// toRawListings converts the wire listings into the store's type. The address key
-// is left empty: housingcrawl stamps it from the canonical target.
+// toRawListings converts the wire listings into the store's type. The address key is
+// left empty: housingcrawl stamps it from the canonical target.
 func toRawListings(in []*pb.Listing) []housingcrawl.RawListing {
 	out := make([]housingcrawl.RawListing, 0, len(in))
 	for _, l := range in {
@@ -180,7 +224,7 @@ func int16Ptr(v *int32) *int16 {
 }
 
 // responseFor builds the counts-only response. It never carries a listing field.
-func responseFor(status pb.SweepStatus, r housingcrawl.Result, quarantined bool) *pb.PushSweepResponse {
+func responseFor(status pb.SweepStatus, r housingcrawl.Result, quarantined, poisoned bool) *pb.PushSweepResponse {
 	return &pb.PushSweepResponse{
 		AppliedStatus:    status,
 		Events:           int32(r.Events),
@@ -188,12 +232,74 @@ func responseFor(status pb.SweepStatus, r housingcrawl.Result, quarantined bool)
 		Delisted:         int32(r.Delisted),
 		SkippedRows:      int32(r.SkippedRows),
 		Quarantined:      quarantined,
+		Poisoned:         poisoned,
 	}
 }
 
-// pushSweep is the whole PushSweep: validate, check the receipt under a lock,
-// check the dispatch, apply, and record the outcome. The receipt is written in the
-// same transaction as the sweep, so a rolled-back sweep leaves no receipt behind.
+// precondition is a FailedPrecondition whose message is a fixed reason.
+func precondition(reason string) error {
+	return connect.NewError(connect.CodeFailedPrecondition, errors.New(reason))
+}
+
+// txErr keeps a connect error the sweep decided on, and maps anything else (a
+// connection, a deadlock, a context) to Unavailable, so the rig retries.
+func txErr(err error) error {
+	var ce *connect.Error
+	if errors.As(err, &ce) {
+		return err
+	}
+	log.Warnf("housing ingest: transaction failed: %v", err)
+	return unavailableDB()
+}
+
+// mapApplyError maps an error from ApplySweep onto the response code.
+func mapApplyError(err error) error {
+	var ce *connect.Error
+	if errors.As(err, &ce) {
+		return ce
+	}
+	if errors.Is(err, housingcrawl.ErrInvalidSweep) {
+		return connect.NewError(connect.CodeInvalidArgument, errors.New("sweep_invalid"))
+	}
+	log.Warnf("housing ingest: apply failed: %v", err)
+	return connect.NewError(connect.CodeUnavailable, errors.New("apply_failed"))
+}
+
+func unavailableDB() error {
+	return connect.NewError(connect.CodeUnavailable, errors.New(msgDatabaseDown))
+}
+
+// inTx runs fn in one transaction on the ingest pool. It is used for the one write
+// that happens outside a sweep: recording a quarantine, which ApplySweep has rolled
+// back by then.
+func (s *Service) inTx(ctx context.Context, fn func(pgx.Tx) error) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return txErr(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := fn(tx); err != nil {
+		return txErr(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return txErr(err)
+	}
+	return nil
+}
+
+// pushSweep is the whole PushSweep.
+//
+// Everything that decides the outcome happens inside ONE transaction, on ONE pooled
+// connection, after the key's transaction-level advisory lock is taken as its first
+// statement: the receipt is read (replay or conflict), the dispatch row is locked and
+// checked (closed, expired), the region is ensured, the sweep is applied, and the
+// receipt and the dispatch close are written. The receipts primary key is the final
+// guard. No connection is held while another is taken, so the pool cannot deadlock
+// however many pushes run at once.
+//
+// The only work outside that transaction is reads that do not decide anything (the
+// dispatch target, the quarantine bypass) and the counts bump, which runs after the
+// commit.
 func (s *Service) pushSweep(ctx context.Context, rig string, msg *pb.PushSweepRequest) (*pb.PushSweepResponse, error) {
 	receivedAt := s.now().UTC()
 	if err := validateEnvelope(msg, s.cfg.MinContractVersion); err != nil {
@@ -204,169 +310,204 @@ func (s *Service) pushSweep(ctx context.Context, rig string, msg *pb.PushSweepRe
 		return nil, connect.NewError(connect.CodeInternal, errors.New("digest_failed"))
 	}
 	key := msg.IdempotencyKey
+	job := msg.JobId
 
-	// Serialize every push with this key. The second of two identical pushes waits
-	// here, then finds the first one's receipt and replays it. The lock is a session
-	// lock on one connection, so it is released with the connection.
-	conn, err := s.pool.Acquire(ctx)
-	if err != nil {
-		return nil, unavailableDB()
-	}
-	defer conn.Release()
-	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock(hashtextextended($1, 0))`, key); err != nil {
-		return nil, unavailableDB()
-	}
-	defer func() {
-		uctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
-		_, _ = conn.Exec(uctx, `SELECT pg_advisory_unlock(hashtextextended($1, 0))`, key)
-	}()
-
-	stored, found, err := loadReceipt(ctx, conn, key)
-	if err != nil {
-		return nil, unavailableDB()
-	}
-	if found {
-		if stored.rig != rig || !bytes.Equal(stored.sha, sum) {
-			return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("idempotency_key_reused"))
-		}
-		replay := proto.Clone(stored.resp).(*pb.PushSweepResponse)
-		replay.Replayed = true
-		return replay, nil
-	}
-
-	d, found, err := loadDispatch(ctx, s.pool, msg.JobId)
+	// The dispatch target and source are immutable, so they can be read before the
+	// sweep. A job the ledger never dispatched has no receipt (a receipt needs a
+	// dispatch row), so refusing it here does not skip a replay.
+	d, found, err := loadDispatch(ctx, s.pool, job)
 	if err != nil {
 		return nil, unavailableDB()
 	}
 	if !found {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("not_dispatched"))
+		return nil, precondition("not_dispatched")
 	}
 	if !targetMatches(msg.Target, d) || sourceName(msg.Source) != d.Source {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("target_mismatch"))
+		return nil, precondition("target_mismatch")
+	}
+	target := canonicalTarget(d)
+	raw := toRawListings(msg.Listings)
+	gated, poisoned := gateSweep(raw, target)
+	status := effectiveStatus(msg, gated, poisoned)
+	if poisoned {
+		log.Warnf("housing ingest: %s from %s is poisoned (more than %.0f%% off-target): applied as BLOCKED", key, rig, poisonFraction*100)
+	}
+	bypass, err := bypassed(ctx, s.pool, target.Suburb, target.State, d.Source)
+	if err != nil {
+		return nil, unavailableDB()
 	}
 
-	status := effectiveStatus(msg)
+	var (
+		replayed *pb.PushSweepResponse
+		final    *pb.PushSweepResponse
+		dryHeld  *quarantineError
+	)
 	sw := housingcrawl.Sweep{
-		Target:     canonicalTarget(d),
-		Source:     sourceLib(msg.Source),
+		Target:     target,
+		Source:     d.Source,
 		Status:     statusLib(status),
 		Pages:      int(msg.Pages),
-		Listings:   toRawListings(msg.Listings),
+		Listings:   raw,
 		RunTS:      receivedAt,
 		Rules:      ingestRules(),
 		ReceiptKey: key,
 	}
 
-	var (
-		quarantined *quarantineError
-		final       *pb.PushSweepResponse
-	)
-	sw.Guard = func(r housingcrawl.Result) error {
-		if q := s.quarantineCheck(r); q != nil {
-			quarantined = q
-			return q
+	sw.Begin = func(ctx context.Context, tx pgx.Tx) (bool, error) {
+		// First statement of the transaction: the key's lock. Concurrent identical
+		// pushes queue here, and the second finds the first's receipt below.
+		if err := lockKeyTx(ctx, tx, key); err != nil {
+			return false, txErr(err)
 		}
-		return nil
+		if !msg.DryRun {
+			stored, ok, err := loadReceiptTx(ctx, tx, key)
+			if err != nil {
+				return false, txErr(err)
+			}
+			if ok {
+				if stored.rig != rig || !bytes.Equal(stored.sha, sum) {
+					return false, connect.NewError(connect.CodeAlreadyExists, errors.New("idempotency_key_reused"))
+				}
+				replayed = proto.Clone(stored.resp).(*pb.PushSweepResponse)
+				replayed.Replayed = true
+				return false, nil
+			}
+		}
+		st, err := lockDispatchTx(ctx, tx, job)
+		if err != nil {
+			return false, txErr(err)
+		}
+		if !st.found {
+			return false, precondition("not_dispatched")
+		}
+		if st.closed || st.expired {
+			return false, precondition("dispatch_closed")
+		}
+		// A suburb nobody has crawled has no region row, and every listing for it would
+		// fail the foreign key and be skipped. The collector creates this row the same
+		// way; the write is idempotent.
+		if err := housingcrawl.UpsertRegionTx(ctx, tx, housingcrawl.Region{
+			RegionCode: target.RegionCode(),
+			RegionType: "suburb",
+			RegionName: target.Display,
+			StateCode:  target.State,
+			Postcode:   target.Postcode,
+		}); err != nil {
+			return false, txErr(err)
+		}
+		return true, nil
 	}
+
 	if msg.DryRun {
-		// The dry run's guard always refuses, so nothing commits. It still reports
-		// whether the real sweep would have been held, and it records no receipt: a
-		// dry run must never make the real push look applied.
+		// A dry run reports the outcome it would have had and commits nothing: the
+		// guard reports whether the sweep would be held, and the record hook always
+		// refuses, so the transaction rolls back on every path.
 		sw.Guard = func(r housingcrawl.Result) error {
-			if q := s.quarantineCheck(r); q != nil {
-				quarantined = q
+			if !bypass {
+				if q := s.quarantineCheck(r, status); q != nil {
+					dryHeld = q
+				}
 			}
 			return errDryRun
 		}
+		sw.Record = func(context.Context, pgx.Tx, housingcrawl.Result) error { return errDryRun }
 	} else {
+		sw.Guard = func(r housingcrawl.Result) error {
+			if bypass {
+				return nil
+			}
+			if q := s.quarantineCheck(r, status); q != nil {
+				return q
+			}
+			return nil
+		}
 		sw.Record = func(ctx context.Context, tx pgx.Tx, r housingcrawl.Result) error {
-			final = responseFor(status, r, false)
-			return insertReceipt(ctx, tx, key, rig, sum, final)
+			final = responseFor(status, r, false, poisoned)
+			if err := insertReceiptTx(ctx, tx, key, rig, sum, final); err != nil {
+				return txErr(err)
+			}
+			if applied(status) {
+				if err := closeDispatchTx(ctx, tx, job); err != nil {
+					return txErr(err)
+				}
+			}
+			return nil
 		}
 	}
 
 	res, applyErr := housingcrawl.ApplySweep(ctx, s.pool, sw)
 
-	if msg.DryRun {
-		if applyErr != nil && !errors.Is(applyErr, errDryRun) {
-			return nil, applyError(applyErr)
-		}
-		resp := responseFor(status, res, quarantined != nil)
-		log.Infof("housing ingest: dry run %s by %s: would_quarantine=%t upserted=%d delisted=%d", key, rig, quarantined != nil, res.Upserted, res.Delisted)
-		return resp, nil
+	if replayed != nil {
+		return replayed, nil
 	}
 
-	switch {
-	case applyErr == nil && final == nil:
-		// BLOCKED: the store writes nothing and returns before its transaction, so
-		// no Record ran. The receipt is still stored, so a retry replays it.
-		resp := responseFor(status, res, false)
-		if err := s.storeReceipt(ctx, key, rig, sum, resp); err != nil {
-			return nil, unavailableDB()
+	if msg.DryRun {
+		if applyErr != nil && !errors.Is(applyErr, errDryRun) {
+			return nil, mapApplyError(applyErr)
 		}
-		s.bumpRunStatus(ctx, d.RunID, true, 0, 0, 0)
-		return resp, nil
+		log.Infof("housing ingest: dry run %s by %s: would_quarantine=%t upserted=%d delisted=%d", key, rig, dryHeld != nil, res.Upserted, res.Delisted)
+		return responseFor(status, res, dryHeld != nil, poisoned), nil
+	}
 
-	case applyErr == nil:
-		s.bumpRunStatus(ctx, d.RunID, false, res.Upserted, res.Events, 1)
+	if applyErr == nil {
+		if final == nil {
+			return nil, connect.NewError(connect.CodeInternal, errors.New("no_outcome"))
+		}
+		if status == pb.SweepStatus_SWEEP_STATUS_BLOCKED {
+			s.bumpRunStatus(ctx, d.RunID, true, 0, 0, 0)
+		} else {
+			s.bumpRunStatus(ctx, d.RunID, false, res.Upserted, res.Events, 1)
+		}
 		return final, nil
 	}
 
 	var qe *quarantineError
 	if errors.As(applyErr, &qe) {
-		resp := responseFor(status, housingcrawl.Result{}, true)
-		if err := s.storeQuarantine(ctx, key, rig, msg.JobId, sum, qe, resp); err != nil {
-			return nil, unavailableDB()
+		resp, err := s.recordQuarantine(ctx, key, rig, job, sum, qe, status, poisoned)
+		if err != nil {
+			return nil, err
 		}
 		log.Warnf("housing ingest: quarantined %s from %s: reason=%s existing=%d large_moves=%d active_before=%d would_delist=%d",
 			key, rig, qe.reason, qe.stats.Existing, qe.stats.LargeMoves, qe.stats.ActiveBefore, qe.stats.WouldDelist)
 		return resp, nil
 	}
-	return nil, applyError(applyErr)
+	return nil, mapApplyError(applyErr)
 }
 
-// applyError maps a store failure. An invalid sweep is the caller's bug
-// (InvalidArgument). Anything else is transient, so the rig retries.
-func applyError(err error) error {
-	if errors.Is(err, housingcrawl.ErrInvalidSweep) {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("sweep_invalid"))
-	}
-	log.Warnf("housing ingest: apply failed: %v", err)
-	return connect.NewError(connect.CodeUnavailable, errors.New("apply_failed"))
-}
-
-func unavailableDB() error {
-	return connect.NewError(connect.CodeUnavailable, errors.New(msgDatabaseDown))
-}
-
-// storeReceipt writes a receipt on its own transaction, for the paths that write no
-// listing data (BLOCKED, and a quarantine that has already rolled back).
-func (s *Service) storeReceipt(ctx context.Context, key, rig string, sum []byte, resp *pb.PushSweepResponse) error {
-	tx, err := s.pool.Begin(ctx)
+// recordQuarantine writes the quarantine row and the quarantined receipt in one
+// transaction, after the held sweep has rolled back. It takes the key lock again and
+// re-reads the receipt first. If an identical push got there first, its receipt is
+// replayed, so a retry never writes a second quarantine row for the same key.
+func (s *Service) recordQuarantine(ctx context.Context, key, rig, job string, sum []byte, qe *quarantineError, status pb.SweepStatus, poisoned bool) (*pb.PushSweepResponse, error) {
+	resp := responseFor(status, housingcrawl.Result{}, true, poisoned)
+	var out *pb.PushSweepResponse
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		if err := lockKeyTx(ctx, tx, key); err != nil {
+			return err
+		}
+		stored, ok, err := loadReceiptTx(ctx, tx, key)
+		if err != nil {
+			return err
+		}
+		if ok {
+			if stored.rig != rig || !bytes.Equal(stored.sha, sum) {
+				return connect.NewError(connect.CodeAlreadyExists, errors.New("idempotency_key_reused"))
+			}
+			out = proto.Clone(stored.resp).(*pb.PushSweepResponse)
+			out.Replayed = true
+			return nil
+		}
+		if err := insertQuarantineTx(ctx, tx, key, rig, job, sum, qe.reason, qe.stats); err != nil {
+			return err
+		}
+		if err := insertReceiptTx(ctx, tx, key, rig, sum, resp); err != nil {
+			return err
+		}
+		out = resp
+		return nil
+	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if err := insertReceipt(ctx, tx, key, rig, sum, resp); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
-}
-
-// storeQuarantine writes the quarantine row and the quarantined receipt together.
-// The held sweep has already rolled back, so this is the only write for it.
-func (s *Service) storeQuarantine(ctx context.Context, key, rig, job string, sum []byte, qe *quarantineError, resp *pb.PushSweepResponse) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if err := insertQuarantine(ctx, tx, key, rig, job, sum, qe.reason, qe.stats); err != nil {
-		return err
-	}
-	if err := insertReceipt(ctx, tx, key, rig, sum, resp); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	return out, nil
 }

@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -20,17 +21,20 @@ import (
 // handler's read limit before the body is decoded.
 const MaxRequestBytes = 4 << 20
 
-// pushesPerHour is the per-rig PushSweep ceiling, counted in process.
-const pushesPerHour = 120
+// callsPerHour is the per-rig ceiling on PushSweep and ReportCycle together, counted
+// in process.
+const callsPerHour = 120
 
 // Options are the service's dependencies.
 type Options struct {
 	// Config is the parsed environment, from ConfigFromEnv.
 	Config Config
 	// ConfigProblem is ConfigFromEnv's reason, or "". A non-empty problem keeps the
-	// service mounted but unable to serve: every call answers Unavailable.
+	// service mounted but unable to serve: every call answers Unavailable, and the
+	// reason goes to the startup log, never to a caller.
 	ConfigProblem string
-	// Pool is the store's database pool. Nil means the database is unavailable.
+	// Pool is the ingest's own database pool (OpenPool). Nil means the database is
+	// unavailable, and every call answers Unavailable.
 	Pool *pgxpool.Pool
 	// Now is the clock. Nil means time.Now. Tests set it.
 	Now func() time.Time
@@ -47,7 +51,8 @@ type Service struct {
 	wa      *workloadauth.Verifier
 	gate    *rigGate
 	limiter *pushLimiter
-	// problem is why the service refuses every call, or "" when it serves.
+	// problem is why the service refuses every call, or "" when it serves. It is
+	// logged at startup and reported to operators through the health status only.
 	problem string
 }
 
@@ -64,7 +69,7 @@ func New(ctx context.Context, opts Options) *Service {
 		pool:    opts.Pool,
 		now:     now,
 		gate:    newRigGate(opts.Pool, now),
-		limiter: newPushLimiter(pushesPerHour, time.Hour, now),
+		limiter: newPushLimiter(callsPerHour, time.Hour, now),
 		problem: opts.ConfigProblem,
 	}
 	if !opts.Config.Enabled || s.problem != "" {
@@ -92,9 +97,6 @@ func New(ctx context.Context, opts Options) *Service {
 	return s
 }
 
-// Problem returns why the service cannot serve, or "" when it can.
-func (s *Service) Problem() string { return s.problem }
-
 // Handler returns the path and handler to mount. The handler carries its own
 // interceptor chain: workload-identity auth, then the 4 MiB read limit. It has no
 // CORS wrapper and none of the public API's interceptors.
@@ -114,7 +116,7 @@ func (s *Service) verifier() tokenVerifier {
 }
 
 // unavailable is the answer to a call the service cannot serve. The message is a
-// fixed category; the reason stays in the startup log and in Health.
+// fixed category; the reason is in the startup log and the health status.
 func (s *Service) unavailable() error {
 	if s.pool == nil {
 		return connect.NewError(connect.CodeUnavailable, errors.New(msgDatabaseDown))
@@ -168,7 +170,8 @@ func (s *Service) PushSweep(ctx context.Context, req *connect.Request[pb.PushSwe
 	return connect.NewResponse(resp), nil
 }
 
-// ReportCycle records one rig cycle against crawl_run_status. See store.go.
+// ReportCycle records one rig cycle against crawl_run_status. It shares the
+// per-rig call limit with PushSweep. See store.go.
 func (s *Service) ReportCycle(ctx context.Context, req *connect.Request[pb.ReportCycleRequest]) (*connect.Response[pb.ReportCycleResponse], error) {
 	if s.problem != "" {
 		return nil, s.unavailable()
@@ -176,6 +179,9 @@ func (s *Service) ReportCycle(ctx context.Context, req *connect.Request[pb.Repor
 	subject, err := s.rig(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if allowed, retry := s.limiter.allow(subject); !allowed {
+		return nil, rateLimitError(retry)
 	}
 	if err := validateCycle(req.Msg); err != nil {
 		return nil, err
@@ -187,35 +193,32 @@ func (s *Service) ReportCycle(ctx context.Context, req *connect.Request[pb.Repor
 	return connect.NewResponse(&pb.ReportCycleResponse{Recorded: true}), nil
 }
 
-// Health is the readiness view: whether the service can serve and the verifier's
-// key-cache status. It holds no token and no secret. The verifier's last error is
-// a fixed reason string.
-func (s *Service) Health() map[string]any {
-	out := map[string]any{"enabled": s.cfg.Enabled}
-	if !s.cfg.Enabled {
-		return out
+// HealthStatus is the readiness word the health endpoint returns: "disabled",
+// "ready" or "unavailable". It says nothing about why. The reason is logged at
+// startup (LogStartup), so a public endpoint never carries a config problem.
+func (s *Service) HealthStatus() string {
+	switch {
+	case !s.cfg.Enabled:
+		return "disabled"
+	case s.problem != "":
+		return "unavailable"
+	default:
+		return "ready"
 	}
-	out["ready"] = s.problem == ""
-	if s.problem != "" {
-		out["problem"] = s.problem
-	}
-	if s.wa != nil {
-		st := s.wa.Status()
-		verifier := map[string]any{"key_count": st.KeyCount}
-		if !st.LastSuccess.IsZero() {
-			verifier["last_success"] = st.LastSuccess.UTC().Format(time.RFC3339)
-		}
-		if st.LastError != "" {
-			verifier["last_error"] = st.LastError
-			verifier["last_error_at"] = st.LastErrorAt.UTC().Format(time.RFC3339)
-		}
-		out["verifier"] = verifier
-	}
-	return out
+}
+
+// HealthHandler serves the readiness word as JSON. It is safe to expose publicly: it
+// carries no configuration text, no verifier error and no key material.
+func HealthHandler(s *Service) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": s.HealthStatus()})
+	})
 }
 
 // LogStartup writes the one-time startup line. A misconfiguration is an error,
-// because the service is mounted and refusing calls.
+// because the service is mounted and refusing calls. This is where the reason goes.
 func LogStartup(cfg Config, configProblem string) {
 	switch {
 	case configProblem != "":

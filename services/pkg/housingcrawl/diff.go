@@ -41,8 +41,9 @@ func ApplySweep(ctx context.Context, pool *pgxpool.Pool, sw Sweep) (Result, erro
 		return Result{}, err
 	}
 	res := Result{Applied: sw.Status}
-	if sw.Status == Blocked {
-		return res, nil // saw nothing believable — touch nothing
+	hooked := sw.Begin != nil || sw.Record != nil
+	if sw.Status == Blocked && !hooked {
+		return res, nil // saw nothing believable, and nobody asked to record it — touch nothing
 	}
 
 	listings := gateListings(sw.Target, sw.Listings)
@@ -53,18 +54,34 @@ func ApplySweep(ctx context.Context, pool *pgxpool.Pool, sw Sweep) (Result, erro
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	d := &differ{cfg: sw.Rules, res: &res, receipt: sw.ReceiptKey}
-	events, err := d.applyTx(ctx, tx, sw, listings)
-	res.Events = events
-	if err != nil {
-		return res, err
+	// Begin runs first, inside the transaction, so anything it takes (an advisory
+	// lock, a row lock) is held for the whole sweep, and anything it reads is read
+	// under that lock. A false return means the caller has already decided the
+	// outcome (a replay): nothing is applied and nothing is written.
+	if sw.Begin != nil {
+		proceed, err := sw.Begin(ctx, tx)
+		if err != nil {
+			return res, err
+		}
+		if !proceed {
+			return res, nil
+		}
 	}
-	// The guard sees the diff exactly as it would commit, before the commit. A
-	// refusal rolls the whole sweep back: the deferred Rollback below undoes every
-	// write, including the delists.
-	if sw.Guard != nil {
-		if err := sw.Guard(res); err != nil {
-			return res, fmt.Errorf("housingcrawl: sweep held before commit: %w", err)
+
+	if sw.Status != Blocked {
+		d := &differ{cfg: sw.Rules, res: &res, receipt: sw.ReceiptKey}
+		events, err := d.applyTx(ctx, tx, sw, listings)
+		res.Events = events
+		if err != nil {
+			return res, err
+		}
+		// The guard sees the diff exactly as it would commit, before the commit. A
+		// refusal rolls the whole sweep back: the deferred Rollback below undoes
+		// every write, including the delists.
+		if sw.Guard != nil {
+			if err := sw.Guard(res); err != nil {
+				return res, fmt.Errorf("housingcrawl: sweep held before commit: %w", err)
+			}
 		}
 	}
 	if sw.Record != nil {
@@ -220,7 +237,8 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 
 	// Absence / delist detection — only on a COMPLETE sweep.
 	if sw.Status == Complete {
-		actives, err := activeListingsForRegion(ctx, tx, source, regionCode)
+		clock := d.cfg.MinDelistInterval > 0
+		actives, err := activeListingsForRegion(ctx, tx, source, regionCode, clock)
 		if err != nil {
 			return events, err
 		}
@@ -230,14 +248,16 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 			}
 			// At most one absence per listing per MinDelistInterval. A listing
 			// missed again inside the interval is left exactly as it is: no
-			// missed_sweeps advance, no delist, no write.
-			if d.cfg.MinDelistInterval > 0 && a.LastMissedAt != nil &&
+			// missed_sweeps advance, no delist, no write. The clock only counts
+			// while no sighting has happened since the last counted miss: a
+			// sighting moves last_seen_at past last_missed_at and restarts it.
+			if clock && a.LastMissedAt != nil && !a.LastSeen.After(*a.LastMissedAt) &&
 				runTs.Sub(*a.LastMissedAt) < d.cfg.MinDelistInterval {
 				continue
 			}
 			missed := a.MissedSweeps + 1
 			delist := int(missed) >= d.cfg.DelistGrace
-			if err := markAbsentAt(ctx, tx, a.PK, missed, delist, runTs, d.receipt); err != nil {
+			if err := markAbsentAt(ctx, tx, a.PK, missed, delist, runTs, d.receipt, clock); err != nil {
 				return events, err
 			}
 			if delist {

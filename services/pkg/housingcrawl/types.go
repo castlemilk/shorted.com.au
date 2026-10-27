@@ -125,6 +125,15 @@ type Sweep struct {
 	// the Result the sweep would commit. A non-nil error rolls the whole sweep
 	// back, and ApplySweep returns it wrapped. A nil Guard means no check.
 	Guard func(Result) error
+	// Begin, when non-nil, runs as the FIRST statement of the sweep's transaction,
+	// before any read or write the sweep makes. Whatever it takes (an advisory
+	// lock, a row lock) is held until the transaction ends, and whatever it reads
+	// it reads under that lock. Returning false means the caller has already
+	// decided the outcome (a replay), so ApplySweep applies nothing and returns a
+	// zero Result with no error. A non-nil error rolls back and is returned as is.
+	// A transaction pooler may run each statement on a different backend, so the
+	// lock must be a transaction-level lock, never a session lock.
+	Begin func(ctx context.Context, tx pgx.Tx) (proceed bool, err error)
 	// Record, when non-nil, runs inside the sweep's transaction after Guard and
 	// before the commit, with the Result about to be committed. It lets a caller
 	// write its own rows (the ingest receipt) atomically with the sweep: a

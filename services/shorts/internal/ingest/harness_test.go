@@ -41,7 +41,9 @@ import (
 const (
 	testIssuerOrg = "org-shorted"
 	testRig       = "rig:gamma-64"
-	testAudience  = "https://api.shorted.com.au/housing-ingest"
+	// testRig2 is a second allowlisted, enabled rig, for the cross-subject replay test.
+	testRig2     = "rig:second"
+	testAudience = "https://api.shorted.com.au/housing-ingest"
 )
 
 // issuerFixture is a TLS issuer with one ES256 key, plus a knob to take it down.
@@ -194,6 +196,7 @@ func (c *testClock) Advance(d time.Duration) {
 // tables WITHOUT the 000150 columns, so applying 000150 over it is the real test
 // of that migration.
 const ingestDBSchema = `
+DROP TABLE IF EXISTS crawl_ingest_quarantine_bypass;
 DROP TABLE IF EXISTS crawl_ingest_quarantine;
 DROP TABLE IF EXISTS housing_ingest_rigs;
 DROP TABLE IF EXISTS crawl_ingest_receipts;
@@ -241,6 +244,13 @@ func migrationFile(t *testing.T, name string) string {
 // real migrations, and seeds the target region. It skips without the variable.
 func ingestTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
+	return ingestTestDBSized(t, 4)
+}
+
+// ingestTestDBSized is ingestTestDB with a pool of maxConns. It uses newPool, the same
+// constructor the service uses, so the tests run the production query protocol.
+func ingestTestDBSized(t *testing.T, maxConns int32) *pgxpool.Pool {
+	t.Helper()
 	dsn, err := testpostgres.Admin("HOUSING_TEST_DB_URL", "HOUSING_TESTCONTAINERS")
 	if err != nil {
 		t.Fatalf("start the test Postgres: %v", err)
@@ -248,9 +258,16 @@ func ingestTestDB(t *testing.T) *pgxpool.Pool {
 	if dsn == "" {
 		t.Skip("set HOUSING_TEST_DB_URL, or HOUSING_TESTCONTAINERS=1 with -tags=testcontainers, to run the ingest DB tests")
 	}
+	return ingestPoolAt(t, dsn, maxConns)
+}
+
+// ingestPoolAt recreates the fixture on dsn, applies the real migrations and seeds the
+// target region. The pgbouncer test calls it with a transaction-mode pooler's DSN.
+func ingestPoolAt(t *testing.T, dsn string, maxConns int32) *pgxpool.Pool {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	pool, err := pgxpool.New(ctx, dsn)
+	pool, err := newPool(ctx, dsn, maxConns)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
@@ -313,11 +330,14 @@ func startIngest(t *testing.T, pool *pgxpool.Pool, issuer *issuerFixture, clock 
 		Issuer:             issuer.issuer,
 		Audience:           testAudience,
 		Org:                testIssuerOrg,
-		AllowSubjects:      []string{testRig},
+		AllowSubjects:      []string{testRig, testRig2},
 		MinContractVersion: DefaultMinContractVersion,
 		PriceFraction:      DefaultPriceFraction,
+		QuarantineMinMoves: DefaultQuarantineMinMoves,
 		DelistFraction:     DefaultDelistFraction,
 		DelistFloor:        DefaultDelistFloor,
+		DispatchTTL:        DefaultDispatchTTL,
+		DBMaxConns:         DefaultDBMaxConns,
 	}
 	if mutate != nil {
 		mutate(&cfg)

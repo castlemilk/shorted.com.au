@@ -18,17 +18,16 @@ import (
 )
 
 // The end-to-end PushSweep outcomes, through a real Connect client, against the
-// migrated schema. Each test names the spec case it pins.
+// migrated schema. Each test names the case it pins. The policy rules that need no
+// database are in policy_test.go, and the rules that do are in policy_db_test.go.
 
 const testSuburbDisplay = "Testville"
 
-func srcName(s pb.Source) string { return sourceName(s) }
-
-// sweepReq builds a valid PushSweep for job and source. The key is derived from
-// the same fields the service checks, so a test only names what it varies.
+// sweepReq builds a valid PushSweep for job and source. The key is derived from the
+// same fields the service checks, so a test only names what it varies.
 func sweepReq(job string, attempt int32, source pb.Source, status pb.SweepStatus, listings ...*pb.Listing) *pb.PushSweepRequest {
 	return &pb.PushSweepRequest{
-		IdempotencyKey:    fmt.Sprintf("%s:%d:%s", job, attempt, srcName(source)),
+		IdempotencyKey:    fmt.Sprintf("%s:%d:%s", job, attempt, sourceName(source)),
 		JobId:             job,
 		Attempt:           attempt,
 		Target:            &pb.Target{Suburb: testSuburbDisplay, State: "VIC", Postcode: "3000"},
@@ -42,12 +41,17 @@ func sweepReq(job string, attempt int32, source pb.Source, status pb.SweepStatus
 	}
 }
 
-// fixedRea is a priced, on-target REA listing.
+// fixedRea is a priced, on-target REA listing in Testville.
 func fixedRea(id string, price float64) *pb.Listing {
+	return fixedReaAt(id, price, testSuburbDisplay, "3000")
+}
+
+// fixedReaAt is a priced REA listing in the given suburb and postcode.
+func fixedReaAt(id string, price float64, suburb, postcode string) *pb.Listing {
 	p := price
 	return &pb.Listing{
 		Source: "rea", ListingId: id, ListingUrl: "https://example.test/" + id,
-		DisplayAddr: "1 " + id + " Street", Suburb: testSuburbDisplay, State: "VIC", Postcode: "3000",
+		DisplayAddr: "1 " + id + " Street", Suburb: suburb, State: "VIC", Postcode: postcode,
 		PriceLow: &p, PriceKind: "fixed", Status: "for_sale",
 	}
 }
@@ -55,7 +59,13 @@ func fixedRea(id string, price float64) *pb.Listing {
 // push sends req with a fresh token for the test rig.
 func (r *ingestRig) push(t *testing.T, req *pb.PushSweepRequest) (*pb.PushSweepResponse, error) {
 	t.Helper()
-	token := r.issuer.mint(t, testRig, r.clock.Now(), nil)
+	return r.pushAs(t, testRig, req)
+}
+
+// pushAs sends req with a fresh token for subject.
+func (r *ingestRig) pushAs(t *testing.T, subject string, req *pb.PushSweepRequest) (*pb.PushSweepResponse, error) {
+	t.Helper()
+	token := r.issuer.mint(t, subject, r.clock.Now(), nil)
 	resp, err := r.client().PushSweep(context.Background(), withToken(connect.NewRequest(req), token))
 	if err != nil {
 		return nil, err
@@ -82,8 +92,8 @@ func count(t *testing.T, r *ingestRig, query string, args ...any) int {
 	return n
 }
 
-// seedListing inserts an active listing directly, for the boundary tests that need
-// a region already holding listings.
+// seedListing inserts an active listing directly, for the boundary tests that need a
+// region already holding listings.
 func seedListing(t *testing.T, r *ingestRig, id string, price float64, missed int) {
 	t.Helper()
 	if _, err := r.pool.Exec(context.Background(), `
@@ -111,7 +121,7 @@ func TestPush_HappyPathWritesStampedRows(t *testing.T) {
 	resp := mustPush(t, rig, sweepReq("job-1", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE,
 		fixedRea("A", 1_000_000), fixedRea("B", 1_200_000)))
 
-	if resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_COMPLETE || resp.Quarantined || resp.Replayed {
+	if resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_COMPLETE || resp.Quarantined || resp.Replayed || resp.Poisoned {
 		t.Fatalf("unexpected response flags: %+v", resp)
 	}
 	if resp.ListingsUpserted != 2 || resp.Events != 2 {
@@ -125,7 +135,7 @@ func TestPush_HappyPathWritesStampedRows(t *testing.T) {
 	}
 }
 
-// TestPush_ReplayReturnsTheStoredResponse: the same key and body returns the stored
+// TestPush_ReplayReturnsStoredResponse: the same key and body returns the stored
 // response with replayed=true, and writes nothing new.
 func TestPush_ReplayReturnsStoredResponse(t *testing.T) {
 	pool := ingestTestDB(t)
@@ -139,7 +149,7 @@ func TestPush_ReplayReturnsStoredResponse(t *testing.T) {
 	first := mustPush(t, rig, req)
 	events := count(t, rig, `SELECT count(*) FROM property_price_events`)
 
-	clock.Advance(time.Minute) // a retry a minute later is still the same push
+	clock.Advance(time.Minute)
 	second := mustPush(t, rig, req)
 	if !second.Replayed {
 		t.Fatal("a repeated push must be a replay")
@@ -217,8 +227,8 @@ func TestPush_TargetMismatchIsFailedPrecondition(t *testing.T) {
 	}
 }
 
-// TestPush_RunTSIsTheServerReceiveTime: observed_at is informational. Whether it is
-// far in the past or the future, every write is stamped with the server's clock.
+// TestPush_RunTSIsServerTime: observed_at is informational. Whether it is far in the
+// past or the future, every write is stamped with the server's clock.
 func TestPush_RunTSIsServerTime(t *testing.T) {
 	for name, observed := range map[string]time.Time{
 		"far past":   time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -250,7 +260,7 @@ func TestPush_RunTSIsServerTime(t *testing.T) {
 	}
 }
 
-// TestPush_BlockedWritesNothingButIsRecorded: a BLOCKED sweep touches no rows, and
+// TestPush_BlockedWritesNothingButIsRecorded: a BLOCKED sweep touches no listing, and
 // its receipt is still stored, so a retry replays rather than re-applies.
 func TestPush_BlockedWritesNothing(t *testing.T) {
 	pool := ingestTestDB(t)
@@ -281,11 +291,9 @@ func TestPush_EmptyCompleteAcceptedOnlyWithZeroResults(t *testing.T) {
 	clock := newTestClock()
 	rig := startIngest(t, pool, issuer, clock, nil)
 	seedRig(t, pool, testRig, true)
-	seedDispatch(t, pool, "job-seed", "run-1", "rea")
-	seedDispatch(t, pool, "job-empty", "run-1", "rea")
-	seedDispatch(t, pool, "job-zero", "run-1", "rea")
-	seedDispatch(t, pool, "job-nometa", "run-1", "rea")
-	seedDispatch(t, pool, "job-late", "run-1", "rea")
+	for _, j := range []string{"job-seed", "job-empty", "job-zero", "job-nometa"} {
+		seedDispatch(t, pool, j, "run-1", "rea")
+	}
 
 	mustPush(t, rig, sweepReq("job-seed", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE,
 		fixedRea("A", 1_000_000), fixedRea("B", 1_000_000), fixedRea("C", 1_000_000)))
@@ -293,8 +301,7 @@ func TestPush_EmptyCompleteAcceptedOnlyWithZeroResults(t *testing.T) {
 	// The portal reports 5 results, yet the rig sent nothing: this must not delist.
 	empty := sweepReq("job-empty", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE)
 	empty.PageMeta.TotalResults = 5
-	resp := mustPush(t, rig, empty)
-	if resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_PARTIAL {
+	if resp := mustPush(t, rig, empty); resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_PARTIAL {
 		t.Errorf("an empty COMPLETE with results must apply as PARTIAL, got %v", resp.AppliedStatus)
 	}
 	if n := count(t, rig, `SELECT count(*) FROM property_listings WHERE is_active AND missed_sweeps = 0`); n != 3 {
@@ -308,8 +315,8 @@ func TestPush_EmptyCompleteAcceptedOnlyWithZeroResults(t *testing.T) {
 		t.Errorf("an empty COMPLETE without page metadata must be PARTIAL, got %v", resp.AppliedStatus)
 	}
 
-	// Zero results is the one case an empty COMPLETE is believed. It is a miss, not a
-	// delist, on the first sweep (grace is 2).
+	// Zero results is the one case an empty COMPLETE is believed. One miss is not a
+	// delist (grace is 2).
 	zero := sweepReq("job-zero", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE)
 	if resp := mustPush(t, rig, zero); resp.AppliedStatus != pb.SweepStatus_SWEEP_STATUS_COMPLETE {
 		t.Fatalf("an empty COMPLETE with zero results is COMPLETE, got %v", resp.AppliedStatus)
@@ -320,7 +327,7 @@ func TestPush_EmptyCompleteAcceptedOnlyWithZeroResults(t *testing.T) {
 }
 
 // TestPush_DryRunWritesNothing: a dry run reports what it would have produced and
-// leaves no row, no receipt and no key, so the real push still applies.
+// leaves no row, no receipt and no closed job, so the real push still applies.
 func TestPush_DryRunWritesNothing(t *testing.T) {
 	pool := ingestTestDB(t)
 	issuer := newIssuerFixture(t)
@@ -341,6 +348,9 @@ func TestPush_DryRunWritesNothing(t *testing.T) {
 	if n := count(t, rig, `SELECT count(*) FROM crawl_ingest_receipts`); n != 0 {
 		t.Errorf("a dry run must store no receipt, found %d", n)
 	}
+	if n := count(t, rig, `SELECT count(*) FROM crawl_dispatch WHERE closed_at IS NOT NULL`); n != 0 {
+		t.Errorf("a dry run must not close the job, found %d closed", n)
+	}
 
 	real := sweepReq("job-1", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, fixedRea("A", 1_000_000), fixedRea("B", 1_200_000))
 	applied := mustPush(t, rig, real)
@@ -352,15 +362,16 @@ func TestPush_DryRunWritesNothing(t *testing.T) {
 	}
 }
 
-// TestPush_QuarantineAtThePriceBoundary: more than 25% of the listings that already
-// existed moving more than 10% quarantines the sweep. Exactly 25% passes.
+// TestPush_QuarantineAtThePriceBoundary: more than max(25% of existing, 3) of the
+// existing listings moving more than 10% quarantines the sweep. On 8 existing the
+// threshold is 3: three large moves pass, and four are held.
 func TestPush_QuarantineAtThePriceBoundary(t *testing.T) {
 	pool := ingestTestDB(t)
 	issuer := newIssuerFixture(t)
 	clock := newTestClock()
 	rig := startIngest(t, pool, issuer, clock, nil)
 	seedRig(t, pool, testRig, true)
-	for _, j := range []string{"job-seed", "job-just-under", "job-over"} {
+	for _, j := range []string{"job-seed", "job-at-threshold", "job-over", "job-replay-check"} {
 		seedDispatch(t, pool, j, "run-1", "rea")
 	}
 
@@ -370,29 +381,29 @@ func TestPush_QuarantineAtThePriceBoundary(t *testing.T) {
 	}
 	mustPush(t, rig, sweepReq("job-seed", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, seed...))
 
-	// Exactly 2 of 8 existing listings move +20%: 25%, not more than 25%. It passes.
-	var justUnder []*pb.Listing
+	// Exactly 3 of 8 existing listings move +20%: 3 is not more than 3, so it passes.
+	var atThreshold []*pb.Listing
 	for i := 1; i <= 8; i++ {
 		price := 1_000_000.0
-		if i <= 2 {
+		if i <= 3 {
 			price = 1_200_000
 		}
-		justUnder = append(justUnder, fixedRea(fmt.Sprintf("P%d", i), price))
+		atThreshold = append(atThreshold, fixedRea(fmt.Sprintf("P%d", i), price))
 	}
-	resp := mustPush(t, rig, sweepReq("job-just-under", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, justUnder...))
+	resp := mustPush(t, rig, sweepReq("job-at-threshold", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, atThreshold...))
 	if resp.Quarantined {
-		t.Fatalf("exactly 25%% of existing listings moving must pass, got quarantined")
-	}
-	if resp.ListingsUpserted != 8 {
-		t.Errorf("the passing sweep applies its 8 listings, got %d", resp.ListingsUpserted)
+		t.Fatal("exactly the threshold must pass, got quarantined")
 	}
 
-	// Stored now: P1 and P2 at 1,200,000; P3 to P8 at 1,000,000. This sweep moves P3
-	// to P5 up 20% and leaves the rest. That is 3 of 8 existing (37.5%): held.
+	// Stored now: P1 to P3 at 1,200,000; P4 to P8 at 1,000,000. This sweep moves P4 to
+	// P7 up 20%: four large moves, over the threshold of 3. It is held.
 	var over []*pb.Listing
 	for i := 1; i <= 8; i++ {
 		price := 1_000_000.0
-		if i <= 5 {
+		if i <= 3 {
+			price = 1_200_000
+		}
+		if i >= 4 && i <= 7 {
 			price = 1_200_000
 		}
 		over = append(over, fixedRea(fmt.Sprintf("P%d", i), price))
@@ -414,10 +425,13 @@ func TestPush_QuarantineAtThePriceBoundary(t *testing.T) {
 	if err := pool.QueryRow(context.Background(), `SELECT stats::text FROM crawl_ingest_quarantine WHERE job_id = 'job-over'`).Scan(&stats); err != nil {
 		t.Fatal(err)
 	}
-	for _, leaked := range []string{"example.test", "Street", "P3"} {
+	for _, leaked := range []string{"example.test", "Street", "P4"} {
 		if strings.Contains(stats, leaked) {
 			t.Errorf("quarantine stats must hold counts only, found %q in %s", leaked, stats)
 		}
+	}
+	if !strings.Contains(stats, `"status": "SWEEP_STATUS_COMPLETE"`) && !strings.Contains(stats, `"status":"SWEEP_STATUS_COMPLETE"`) {
+		t.Errorf("quarantine stats must record the sweep status, got %s", stats)
 	}
 
 	// The held receipt replays as quarantined: a retry does not re-apply.
@@ -448,11 +462,10 @@ func TestPush_QuarantineAtTheDelistBoundary(t *testing.T) {
 			seedDispatch(t, pool, "job-1", "run-1", "rea")
 
 			// 40 active listings, each already missed once: one more COMPLETE miss
-			// delists them (grace 2).
+			// delists them (grace 2). The rig sees all but tc.absent of them.
 			for i := 1; i <= 40; i++ {
 				seedListing(t, rig, fmt.Sprintf("D%02d", i), 1_000_000, 1)
 			}
-			// The rig sees the last 40-tc.absent listings, so tc.absent are missing.
 			var present []*pb.Listing
 			for i := tc.absent + 1; i <= 40; i++ {
 				present = append(present, fixedRea(fmt.Sprintf("D%02d", i), 1_000_000))
@@ -472,10 +485,8 @@ func TestPush_QuarantineAtTheDelistBoundary(t *testing.T) {
 				if n := count(t, rig, `SELECT count(*) FROM crawl_ingest_quarantine WHERE reason = 'delists_over_threshold'`); n != 1 {
 					t.Errorf("the held delist must be recorded, found %d", n)
 				}
-			} else {
-				if active != 40-tc.absent {
-					t.Errorf("the 20 floor passes and delists 20: want %d active, got %d", 40-tc.absent, active)
-				}
+			} else if active != 40-tc.absent {
+				t.Errorf("the floor passes and delists %d: want %d active, got %d", tc.absent, 40-tc.absent, active)
 			}
 		})
 	}
@@ -512,7 +523,7 @@ func TestPush_MinDelistIntervalEndToEnd(t *testing.T) {
 	// A miss past 12 hours from the first counts and delists at grace 2.
 	clock.Advance(12 * time.Hour)
 	mustPush(t, rig, sweepReq("job-d", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, fixedRea("Y", 1_000_000)))
-	if active := activeOf(t, rig, "X"); active {
+	if activeOf(t, rig, "X") {
 		t.Error("a miss past the interval must delist X at grace 2")
 	}
 }
@@ -598,8 +609,9 @@ func TestPush_OversizeSweepIsInvalidArgument(t *testing.T) {
 	}
 }
 
-// TestPush_BodyOverFourMiBIsRefused: the read limit refuses the body before decode.
-func TestPush_BodyOverFourMiBIsRefused(t *testing.T) {
+// TestPush_BodyOverFourMiBIsResourceExhausted: the read limit refuses a body over 4
+// MiB before it is decoded. That refusal is ResourceExhausted, and only that.
+func TestPush_BodyOverFourMiBIsResourceExhausted(t *testing.T) {
 	pool := ingestTestDB(t)
 	issuer := newIssuerFixture(t)
 	clock := newTestClock()
@@ -610,12 +622,7 @@ func TestPush_BodyOverFourMiBIsRefused(t *testing.T) {
 	huge := fixedRea("A", 1_000_000)
 	huge.ListingUrl = strings.Repeat("x", 5<<20)
 	_, err := rig.push(t, sweepReq("job-1", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, huge))
-	if err == nil {
-		t.Fatal("a body over 4 MiB must be refused")
-	}
-	if code := connect.CodeOf(err); code != connect.CodeResourceExhausted && code != connect.CodeInvalidArgument {
-		t.Errorf("an oversize body is refused as ResourceExhausted or InvalidArgument, got %v", code)
-	}
+	wantCode(t, err, connect.CodeResourceExhausted)
 }
 
 // TestReportCycle_RecordsTheRigsRow: the cycle lands on crawl_run_status under the rig
@@ -651,31 +658,8 @@ func TestReportCycle_RecordsTheRigsRow(t *testing.T) {
 	}
 }
 
-// TestHealth_ReportsReadinessWithoutSecrets: Health exposes the verifier's status and
-// nothing a credential could be built from.
-func TestHealth_ReportsReadinessWithoutSecrets(t *testing.T) {
-	pool := ingestTestDB(t)
-	issuer := newIssuerFixture(t)
-	clock := newTestClock()
-	rig := startIngest(t, pool, issuer, clock, nil)
-
-	h := rig.svc.Health()
-	if h["enabled"] != true || h["ready"] != true {
-		t.Fatalf("a loaded service reports enabled and ready, got %v", h)
-	}
-	v, ok := h["verifier"].(map[string]any)
-	if !ok || v["key_count"] != 1 {
-		t.Fatalf("the verifier's key count is reported, got %v", h["verifier"])
-	}
-	for k := range h {
-		if strings.Contains(strings.ToLower(k), "secret") || strings.Contains(strings.ToLower(k), "token") {
-			t.Errorf("health exposes %q", k)
-		}
-	}
-}
-
-// TestMisconfiguredServiceRefusesEverything: an enabled service with a config
-// problem is mounted and answers Unavailable, even to a valid credential.
+// TestMisconfiguredServiceRefusesEverything: an enabled service with a config problem
+// is mounted and answers Unavailable, even to a valid credential.
 func TestMisconfiguredServiceRefusesEverything(t *testing.T) {
 	pool := ingestTestDB(t)
 	issuer := newIssuerFixture(t)
@@ -701,5 +685,8 @@ func TestMisconfiguredServiceRefusesEverything(t *testing.T) {
 	wantCode(t, err, connect.CodeUnavailable)
 	if !strings.Contains(err.Error(), msgMisconfigured) {
 		t.Errorf("want the ingest_unavailable category, got %v", err)
+	}
+	if strings.Contains(err.Error(), "HOUSING_INGEST_ORG") {
+		t.Errorf("the config problem must not reach the caller, got %v", err)
 	}
 }

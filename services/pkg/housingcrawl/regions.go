@@ -8,6 +8,23 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// UpsertRegionTx writes one region inside tx, with the same statement UpsertRegions
+// runs per region. The ingest calls it as the sweep's first write: a suburb nobody
+// has crawled yet has no house_price_regions row, and every listing for it would
+// fail the foreign key. Idempotent.
+func UpsertRegionTx(ctx context.Context, tx pgx.Tx, r Region) error {
+	_, err := tx.Exec(ctx, `
+			INSERT INTO house_price_regions (region_code, region_type, region_name, state_code, postcode)
+			VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''))
+			ON CONFLICT (region_code) DO UPDATE SET
+				region_type = EXCLUDED.region_type,
+				region_name = EXCLUDED.region_name,
+				state_code  = COALESCE(EXCLUDED.state_code, house_price_regions.state_code),
+				postcode    = COALESCE(EXCLUDED.postcode, house_price_regions.postcode)`,
+		r.RegionCode, r.RegionType, r.RegionName, r.StateCode, r.Postcode)
+	return err
+}
+
 // UpsertRegions writes the distinct regions referenced by regions (the fact table's
 // FK target), deriving each region's metadata from the first region seen.
 func UpsertRegions(ctx context.Context, pool *pgxpool.Pool, regions []Region) error {

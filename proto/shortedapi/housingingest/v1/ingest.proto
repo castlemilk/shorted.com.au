@@ -136,6 +136,10 @@ message PushSweepResponse {
   // replayed is true when the same idempotency key and body were already
   // applied, and this response is the stored one.
   bool replayed = 7;
+  // poisoned is true when more than 30% of the listings were hard off-target
+  // misses (wrong or absent postcode). The sweep was downgraded to BLOCKED and
+  // wrote nothing, so applied_status is BLOCKED.
+  bool poisoned = 8;
 }
 
 message CycleCounts {

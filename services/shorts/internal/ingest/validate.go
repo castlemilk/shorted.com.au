@@ -18,7 +18,7 @@ const (
 	MaxListingsPerSweep = 2000
 	MaxPagesPerSweep    = 50
 	maxKeyBytes         = 300
-	maxJobIDBytes       = 200
+	maxJobIDBytes       = 128
 	maxAttempt          = 10000
 	maxSuburbBytes      = 100
 	maxStateBytes       = 10
@@ -53,6 +53,24 @@ var (
 		"error": true, "deferred": true, "cancelled": true, "failed": true,
 	}
 )
+
+// validJobID reports whether id matches [A-Za-z0-9._:-]{1,128}. The check runs
+// before the id is logged or used as a key.
+func validJobID(id string) bool {
+	if len(id) < 1 || len(id) > maxJobIDBytes {
+		return false
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case c == '.', c == '_', c == ':', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
 
 // sourceName is the lowercase portal name the idempotency key and the store use.
 func sourceName(s pb.Source) string {
@@ -99,8 +117,10 @@ func validateEnvelope(msg *pb.PushSweepRequest, minContract int32) error {
 		return connect.NewError(connect.CodeFailedPrecondition,
 			fmt.Errorf("contract_too_old: contract_version %d is below the minimum %d", msg.ContractVersion, minContract))
 	}
-	if err := checkRequired("job_id", msg.JobId, maxJobIDBytes); err != nil {
-		return err
+	// job_id is checked against a closed alphabet before anything uses it: it is
+	// logged, it is a database key, and it is part of the idempotency key.
+	if !validJobID(msg.JobId) {
+		return invalid("job_id must match [A-Za-z0-9._:-]{1,%d}", maxJobIDBytes)
 	}
 	if msg.Attempt < 1 || msg.Attempt > maxAttempt {
 		return invalid("attempt must be between 1 and %d", maxAttempt)

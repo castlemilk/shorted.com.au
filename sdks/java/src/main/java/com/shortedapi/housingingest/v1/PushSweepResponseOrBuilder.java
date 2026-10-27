@@ -66,4 +66,16 @@ public interface PushSweepResponseOrBuilder extends
    * @return The replayed.
    */
   boolean getReplayed();
+
+  /**
+   * <pre>
+   * poisoned is true when more than 30% of the listings were hard off-target
+   * misses (wrong or absent postcode). The sweep was downgraded to BLOCKED and
+   * wrote nothing, so applied_status is BLOCKED.
+   * </pre>
+   *
+   * <code>bool poisoned = 8 [json_name = "poisoned"];</code>
+   * @return The poisoned.
+   */
+  boolean getPoisoned();
 }

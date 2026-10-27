@@ -2,11 +2,20 @@
 // CrawlIngestService that receives raw listing sweeps from rigs and applies them
 // through services/pkg/housingcrawl.
 //
-// It is mounted only when HOUSING_INGEST_ENABLED is true, and it has its own
-// interceptor chain: workload-identity auth, a per-rig enable flag and a per-rig
-// push rate limit. It does not use the public API's chain (Firebase, user agents,
-// user rate limits, CORS). See docs/superpowers/specs/2026-10-27-fleet-managed-
-// housing-crawl-design.md, "Ingest API" and "Workload identity".
+// It runs in one of two places:
+//
+//   - the dedicated ingest service: SHORTS_SERVE_MODE=ingest. Mounts only
+//     CrawlIngestService and health, on its own small database pool. This is the
+//     production shape: S-SRV deploys it as a separate Cloud Run service from the
+//     same image, so the public API's pool and routes are not shared with rigs.
+//   - in-process, inside the public API, behind HOUSING_INGEST_ENABLED. This is a
+//     development convenience. The public API logs a warning when it is on.
+//
+// Either way it has its own interceptor chain: workload-identity auth, a per-rig
+// enable flag and a per-rig rate limit. It does not use the public API's chain
+// (Firebase, user agents, user rate limits, CORS). See docs/superpowers/specs/
+// 2026-10-27-fleet-managed-housing-crawl-design.md, "Ingest API" and "Workload
+// identity".
 package ingest
 
 import (
@@ -14,6 +23,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Environment variables. HOUSING_INGEST_ENABLED defaults to false.
@@ -26,8 +36,18 @@ const (
 	EnvDenyKIDs                 = "HOUSING_INGEST_DENY_KIDS"
 	EnvMinContractVersion       = "HOUSING_INGEST_MIN_CONTRACT_VERSION"
 	EnvQuarantinePriceFraction  = "HOUSING_INGEST_QUARANTINE_PRICE_FRACTION"
+	EnvQuarantineMinMoves       = "HOUSING_INGEST_QUARANTINE_MIN_MOVES"
 	EnvQuarantineDelistFraction = "HOUSING_INGEST_QUARANTINE_DELIST_FRACTION"
 	EnvQuarantineDelistFloor    = "HOUSING_INGEST_QUARANTINE_DELIST_FLOOR"
+	EnvDispatchTTL              = "HOUSING_INGEST_DISPATCH_TTL"
+	EnvDBMaxConns               = "HOUSING_INGEST_DB_MAX_CONNS"
+	// EnvDatabaseURL is the ingest's own database. It falls back to DATABASE_URL.
+	EnvDatabaseURL      = "HOUSING_INGEST_DATABASE_URL"
+	EnvDatabaseFallback = "DATABASE_URL"
+	// EnvServeMode selects the dedicated ingest service ("ingest"). Anything else,
+	// or unset, is the public API.
+	EnvServeMode    = "SHORTS_SERVE_MODE"
+	ServeModeIngest = "ingest"
 )
 
 // Defaults. The issuer and audience are the values BrandBrain signs for and the
@@ -37,8 +57,11 @@ const (
 	DefaultAudience                 = "https://api.shorted.com.au/housing-ingest"
 	DefaultMinContractVersion int32 = 1
 	DefaultPriceFraction            = 0.25
+	DefaultQuarantineMinMoves       = 3
 	DefaultDelistFraction           = 0.25
 	DefaultDelistFloor              = 20
+	DefaultDispatchTTL              = 72 * time.Hour
+	DefaultDBMaxConns               = 4
 )
 
 // Config is the ingest service's configuration, read from the environment once at
@@ -57,25 +80,33 @@ type Config struct {
 	DenyKIDs []string
 	// MinContractVersion is the lowest PushSweepRequest.contract_version accepted.
 	MinContractVersion int32
-	// PriceFraction is the quarantine's first trip: the fraction of existing
-	// listings that moved more than 10% in one sweep.
-	PriceFraction float64
-	// DelistFraction and DelistFloor form the quarantine's second trip: the sweep
-	// would delist more than max(DelistFraction × active listings, DelistFloor).
+	// PriceFraction and QuarantineMinMoves are the quarantine's first trip: more
+	// than max(PriceFraction × existing listings, QuarantineMinMoves) of the
+	// existing listings moved more than 10% in one sweep.
+	PriceFraction      float64
+	QuarantineMinMoves int
+	// DelistFraction and DelistFloor form the second trip: the sweep would delist
+	// more than max(DelistFraction × active listings, DelistFloor).
 	DelistFraction float64
 	DelistFloor    int
+	// DispatchTTL is how long a dispatch row stays open. S-SRV's enqueue writes
+	// crawl_dispatch.expires_at = created + DispatchTTL. The ingest reads it back
+	// only through expires_at, so a job past its expiry is refused.
+	DispatchTTL time.Duration
+	// DBMaxConns caps the ingest's own pool.
+	DBMaxConns int32
 }
 
 // ConfigFromEnv reads the ingest configuration. getenv is os.Getenv in production
 // and a map lookup in tests.
 //
 // A config error never fails the server. Enabled with missing or invalid required
-// settings, the service stays mounted and answers every call with Unavailable and
-// the reason in the message, and the reason is logged once at startup. That keeps
-// the public API up, and it is still fail-closed: nothing is accepted. A rig then
-// sees a retryable outage, which is the operational signal it should produce.
+// settings, the service stays mounted and answers every call with Unavailable, and
+// the reason is logged once at startup. That keeps the public API up, and it is
+// still fail-closed: nothing is accepted. A rig then sees a retryable outage.
 //
 // The second return is the reason the config is unusable, or "" when it is usable.
+// An unparseable HOUSING_INGEST_ENABLED is reported and the service is not mounted.
 func ConfigFromEnv(getenv func(string) string) (Config, string) {
 	cfg := Config{
 		Issuer:             orDefault(strings.TrimSpace(getenv(EnvIssuer)), DefaultIssuer),
@@ -85,8 +116,11 @@ func ConfigFromEnv(getenv func(string) string) (Config, string) {
 		DenyKIDs:           splitList(getenv(EnvDenyKIDs)),
 		MinContractVersion: DefaultMinContractVersion,
 		PriceFraction:      DefaultPriceFraction,
+		QuarantineMinMoves: DefaultQuarantineMinMoves,
 		DelistFraction:     DefaultDelistFraction,
 		DelistFloor:        DefaultDelistFloor,
+		DispatchTTL:        DefaultDispatchTTL,
+		DBMaxConns:         DefaultDBMaxConns,
 	}
 	enabled, err := parseBool(getenv(EnvEnabled))
 	if err != nil {
@@ -113,6 +147,14 @@ func ConfigFromEnv(getenv func(string) string) (Config, string) {
 			problems = append(problems, EnvQuarantinePriceFraction+" must be in (0, 1]")
 		}
 	}
+	if raw := strings.TrimSpace(getenv(EnvQuarantineMinMoves)); raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err != nil || v < 0 {
+			problems = append(problems, EnvQuarantineMinMoves+" must be an integer >= 0")
+		} else {
+			cfg.QuarantineMinMoves = v
+		}
+	}
 	if raw := strings.TrimSpace(getenv(EnvQuarantineDelistFraction)); raw != "" {
 		if f, ok := parseFraction(raw); ok {
 			cfg.DelistFraction = f
@@ -126,6 +168,22 @@ func ConfigFromEnv(getenv func(string) string) (Config, string) {
 			problems = append(problems, EnvQuarantineDelistFloor+" must be an integer >= 0")
 		} else {
 			cfg.DelistFloor = v
+		}
+	}
+	if raw := strings.TrimSpace(getenv(EnvDispatchTTL)); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil || d <= 0 {
+			problems = append(problems, EnvDispatchTTL+" must be a positive duration, such as 72h")
+		} else {
+			cfg.DispatchTTL = d
+		}
+	}
+	if raw := strings.TrimSpace(getenv(EnvDBMaxConns)); raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err != nil || v < 1 || v > 100 {
+			problems = append(problems, EnvDBMaxConns+" must be an integer from 1 to 100")
+		} else {
+			cfg.DBMaxConns = int32(v)
 		}
 	}
 	if cfg.Org == "" {

@@ -737,7 +737,11 @@ type PushSweepResponse struct {
 	Quarantined bool `protobuf:"varint,6,opt,name=quarantined,proto3" json:"quarantined,omitempty"`
 	// replayed is true when the same idempotency key and body were already
 	// applied, and this response is the stored one.
-	Replayed      bool `protobuf:"varint,7,opt,name=replayed,proto3" json:"replayed,omitempty"`
+	Replayed bool `protobuf:"varint,7,opt,name=replayed,proto3" json:"replayed,omitempty"`
+	// poisoned is true when more than 30% of the listings were hard off-target
+	// misses (wrong or absent postcode). The sweep was downgraded to BLOCKED and
+	// wrote nothing, so applied_status is BLOCKED.
+	Poisoned      bool `protobuf:"varint,8,opt,name=poisoned,proto3" json:"poisoned,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -817,6 +821,13 @@ func (x *PushSweepResponse) GetQuarantined() bool {
 func (x *PushSweepResponse) GetReplayed() bool {
 	if x != nil {
 		return x.Replayed
+	}
+	return false
+}
+
+func (x *PushSweepResponse) GetPoisoned() bool {
+	if x != nil {
+		return x.Poisoned
 	}
 	return false
 }
@@ -1092,7 +1103,7 @@ const file_housingingest_v1_ingest_proto_rawDesc = "" +
 	" \x03(\v2$.shortedapi.housingingest.v1.ListingR\blistings\x12-\n" +
 	"\x12collector_revision\x18\v \x01(\tR\x11collectorRevision\x12)\n" +
 	"\x10contract_version\x18\f \x01(\x05R\x0fcontractVersion\x12\x17\n" +
-	"\adry_run\x18\r \x01(\bR\x06dryRun\"\xa6\x02\n" +
+	"\adry_run\x18\r \x01(\bR\x06dryRun\"\xc2\x02\n" +
 	"\x11PushSweepResponse\x12O\n" +
 	"\x0eapplied_status\x18\x01 \x01(\x0e2(.shortedapi.housingingest.v1.SweepStatusR\rappliedStatus\x12\x16\n" +
 	"\x06events\x18\x02 \x01(\x05R\x06events\x12+\n" +
@@ -1100,7 +1111,8 @@ const file_housingingest_v1_ingest_proto_rawDesc = "" +
 	"\bdelisted\x18\x04 \x01(\x05R\bdelisted\x12!\n" +
 	"\fskipped_rows\x18\x05 \x01(\x05R\vskippedRows\x12 \n" +
 	"\vquarantined\x18\x06 \x01(\bR\vquarantined\x12\x1a\n" +
-	"\breplayed\x18\a \x01(\bR\breplayed\"\xd2\x01\n" +
+	"\breplayed\x18\a \x01(\bR\breplayed\x12\x1a\n" +
+	"\bpoisoned\x18\b \x01(\bR\bpoisoned\"\xd2\x01\n" +
 	"\vCycleCounts\x12)\n" +
 	"\x10suburbs_selected\x18\x01 \x01(\x05R\x0fsuburbsSelected\x12!\n" +
 	"\fsuburbs_done\x18\x02 \x01(\x05R\vsuburbsDone\x12)\n" +

@@ -15,9 +15,11 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 )
 
-// The SQL behind the ingest. Each function touches the tables the migration
-// (000150) creates, plus crawl_run_status (000089) for the counts. Nothing here
-// reads a listing row back out to a caller.
+// The SQL behind the ingest. Every statement that decides an outcome (the receipt,
+// the dispatch state, the close) runs on the sweep's transaction, so its result is
+// read under the key's advisory lock. The helpers that take a *pgxpool.Pool run
+// outside any sweep, after it has finished, and never hold a connection while they
+// take another.
 
 // receipt is a stored ingest receipt: the body digest and the response to replay.
 type receipt struct {
@@ -26,14 +28,22 @@ type receipt struct {
 	resp *pb.PushSweepResponse
 }
 
-// loadReceipt returns the receipt for key, if one exists. q is the connection that
-// holds the key's advisory lock, so the read cannot race a concurrent apply.
-func loadReceipt(ctx context.Context, q *pgxpool.Conn, key string) (receipt, bool, error) {
+// lockKeyTx takes the transaction-level advisory lock for one idempotency key. It is
+// the first statement of every sweep. A transaction-level lock is released at COMMIT
+// or ROLLBACK, so it cannot outlive the transaction on a pooled backend, and it works
+// behind a transaction pooler where a session lock would not.
+func lockKeyTx(ctx context.Context, tx pgx.Tx, key string) error {
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, key)
+	return err
+}
+
+// loadReceiptTx returns the receipt for key, read on tx.
+func loadReceiptTx(ctx context.Context, tx pgx.Tx, key string) (receipt, bool, error) {
 	var (
 		r       receipt
 		payload []byte
 	)
-	err := q.QueryRow(ctx,
+	err := tx.QueryRow(ctx,
 		`SELECT rig_subject, body_sha256, response::text FROM crawl_ingest_receipts WHERE key = $1`, key).
 		Scan(&r.rig, &r.sha, &payload)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -49,9 +59,9 @@ func loadReceipt(ctx context.Context, q *pgxpool.Conn, key string) (receipt, boo
 	return r, true, nil
 }
 
-// insertReceipt stores a receipt inside tx. The response is stored with replayed
-// false, so a replay sets the flag on its own copy.
-func insertReceipt(ctx context.Context, tx pgx.Tx, key, rig string, sum []byte, resp *pb.PushSweepResponse) error {
+// insertReceiptTx stores a receipt inside tx. The primary key on key is the final
+// guard: a second writer of the same key fails here, and its transaction rolls back.
+func insertReceiptTx(ctx context.Context, tx pgx.Tx, key, rig string, sum []byte, resp *pb.PushSweepResponse) error {
 	payload, err := marshalResponse(resp)
 	if err != nil {
 		return err
@@ -63,8 +73,8 @@ func insertReceipt(ctx context.Context, tx pgx.Tx, key, rig string, sum []byte, 
 	return err
 }
 
-// marshalResponse encodes a response for storage. The response carries counts
-// only, so this is the entire replay payload.
+// marshalResponse encodes a response for storage. The response carries counts only,
+// so this is the entire replay payload.
 func marshalResponse(resp *pb.PushSweepResponse) (string, error) {
 	b, err := protojson.Marshal(resp)
 	if err != nil {
@@ -73,7 +83,7 @@ func marshalResponse(resp *pb.PushSweepResponse) (string, error) {
 	return string(b), nil
 }
 
-// dispatch is one row of the crawl_dispatch ledger.
+// dispatch is one row of the crawl_dispatch ledger, as the sweep reads it.
 type dispatch struct {
 	Suburb   string
 	State    string
@@ -82,7 +92,10 @@ type dispatch struct {
 	RunID    string
 }
 
-// loadDispatch returns the ledger row for job, if the job was dispatched.
+// loadDispatch returns the ledger row for job, if the job was dispatched. It runs on
+// the pool, before the sweep. The fields it returns never change after the row is
+// written, so the sweep can use them as its target. Closed and expired are checked
+// again on the transaction, under the row lock.
 func loadDispatch(ctx context.Context, pool *pgxpool.Pool, job string) (dispatch, bool, error) {
 	var d dispatch
 	err := pool.QueryRow(ctx, `
@@ -98,29 +111,80 @@ func loadDispatch(ctx context.Context, pool *pgxpool.Pool, job string) (dispatch
 	return d, true, nil
 }
 
-// insertQuarantine records a held sweep: its reason and counts, never listing rows.
-func insertQuarantine(ctx context.Context, tx pgx.Tx, key, rig, job string, sum []byte, reason string, stats quarantineStats) error {
+// dispatchState is what the sweep's transaction sees for a job.
+type dispatchState struct {
+	found   bool
+	closed  bool
+	expired bool
+}
+
+// lockDispatchTx reads the job's ledger row on tx, FOR UPDATE. Two attempts of one job
+// with different keys take different key locks, so this row lock is what makes them
+// serialise: the second waits for the first to commit, then sees closed_at.
+func lockDispatchTx(ctx context.Context, tx pgx.Tx, job string) (dispatchState, error) {
+	var st dispatchState
+	err := tx.QueryRow(ctx, `
+		SELECT closed_at IS NOT NULL, expires_at <= now()
+		FROM crawl_dispatch WHERE job_id = $1 FOR UPDATE`, job).
+		Scan(&st.closed, &st.expired)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dispatchState{}, nil
+	}
+	if err != nil {
+		return dispatchState{}, err
+	}
+	st.found = true
+	return st, nil
+}
+
+// closeDispatchTx closes the job on tx. It is called only when a COMPLETE or PARTIAL
+// sweep was applied. A BLOCKED sweep may legitimately be retried, so it never closes
+// a job.
+func closeDispatchTx(ctx context.Context, tx pgx.Tx, job string) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE crawl_dispatch SET closed_at = now()
+		WHERE job_id = $1 AND closed_at IS NULL`, job)
+	return err
+}
+
+// insertQuarantineTx records a held sweep: its reason and counts, never listing rows.
+func insertQuarantineTx(ctx context.Context, tx pgx.Tx, key, rig, job string, sum []byte, reason string, stats quarantineStats) error {
 	payload, err := json.Marshal(stats)
 	if err != nil {
 		return err
 	}
+	// The stats go as text. A []byte would be sent as a bytea literal under the simple
+	// query protocol the ingest pool uses, and the jsonb cast would then fail.
 	_, err = tx.Exec(ctx, `
 		INSERT INTO crawl_ingest_quarantine
 			(receipt_key, rig_subject, job_id, reason, stats, payload_sha256)
 		VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
-		key, rig, job, reason, payload, sum)
+		key, rig, job, reason, string(payload), sum)
 	return err
 }
 
 // quarantineStats is what a quarantine row keeps about the held sweep. Counts and
 // the reason only.
 type quarantineStats struct {
+	Status       string `json:"status"`
 	Existing     int    `json:"existing"`
 	LargeMoves   int    `json:"large_moves"`
 	ActiveBefore int    `json:"active_before"`
 	WouldDelist  int    `json:"would_delist"`
 	Listings     int    `json:"listings"`
-	Status       string `json:"status"`
+}
+
+// bypassed reports whether an operator has released this suburb from quarantine. The
+// row is crawl_ingest_quarantine_bypass, documented in migration 000150. It runs on the
+// pool, before the sweep.
+func bypassed(ctx context.Context, pool *pgxpool.Pool, suburb, state, source string) (bool, error) {
+	var on bool
+	err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM crawl_ingest_quarantine_bypass
+			WHERE suburb = $1 AND state = $2 AND source = $3 AND expires_at > now())`,
+		suburb, state, source).Scan(&on)
+	return on, err
 }
 
 // bumpRunStatus adds one applied sweep's counts to the crawl_run_status row for the
@@ -194,13 +258,15 @@ func (s *Service) recordCycle(ctx context.Context, subject string, msg *pb.Repor
 }
 
 // cycleStatus maps a cycle outcome onto crawl_run_status.status, whose CHECK
-// vocabulary is ok, blocked, rewarm, partial and error. A deferred cycle did no
-// work, which is partial progress at best, and every failure is an error.
+// vocabulary is ok, blocked, rewarm, partial and error. The housing-freshness
+// sentinel raises an alarm on error and blocked only, so the mapping keeps a routine
+// cancellation (an upgrade, a stop) out of it: cancelled is partial, a stop that
+// was asked for and did not fail. failed is a real failure, so it is error.
 func cycleStatus(outcome string) string {
 	switch outcome {
 	case "ok", "blocked", "partial", "rewarm":
 		return outcome
-	case "deferred":
+	case "deferred", "cancelled":
 		return "partial"
 	default:
 		return "error"
