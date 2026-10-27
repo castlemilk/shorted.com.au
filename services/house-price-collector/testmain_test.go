@@ -30,6 +30,10 @@ func TestMain(m *testing.M) {
 	if os.Getenv(cycleTestAgentEnv) == "1" {
 		os.Exit(runCycleTestAgent())
 	}
+	// CYCLE_TEST_INSTALL runs one atomic driver install that stalls mid-write (crawl_driver_atomic_test.go).
+	if os.Getenv("CYCLE_TEST_INSTALL") == "1" {
+		os.Exit(runDriverInstallChild())
+	}
 	// CYCLE_FAKE_CHILD_DIR turns the test binary into the fake -mode agent child the cycle tests
 	// spawn (crawl_cycle_fake_test.go). It runs before the test suite, so the child is never a test run.
 	if dir := os.Getenv(cycleFakeChildEnv); dir != "" {

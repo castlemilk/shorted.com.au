@@ -21,9 +21,9 @@ func probeIngestRound(ctx context.Context, ir *ingestRound, stop *stopSignal) in
 	outcome := "ok"
 	switch {
 	case stop.Reason() != "":
-		outcome = "stopped"
+		outcome = "canceled"
 	case code != 0:
-		outcome = "error"
+		outcome = ir.lastProbeWord()
 	}
 	ir.events.startup("probe_auth", "done", outcome)
 	if stop.Reason() != "" {

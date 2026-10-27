@@ -195,32 +195,30 @@ func (e *crawlEvents) ready() {
 	e.emit(func() any { return readyEvent{eventHeader: e.header("ready")} })
 }
 
-// startupEvent is a start-up step's start or done: step is probe_auth or warm_probe, phase is
-// start or done, and outcome is set on done. Work-driven: it is written when the step begins and
-// ends, never on a timer.
+// startupEvent is a start-up step's start or done: step is probe_auth or warm_probe, stage is start or
+// done, and outcome (done only) is ok or an ingest_error code word. Work-driven: it is written when a
+// step begins and ends, never on a timer.
 type startupEvent struct {
 	eventHeader
 	Step    string `json:"step"`
-	Phase   string `json:"phase"`
+	Stage   string `json:"stage"`
 	Outcome string `json:"outcome,omitempty"`
 }
 
 var startupSteps = map[string]bool{"probe_auth": true, "warm_probe": true}
-var startupPhases = map[string]bool{"start": true, "done": true}
-var startupOutcomes = map[string]bool{
-	"ok": true, "error": true, "stopped": true, "warm": true, "cold": true, "unusable": true, "env_broken": true,
-}
+var startupStages = map[string]bool{"start": true, "done": true}
 
-// startup writes one start-up event. A value outside its enum is refused.
-func (e *crawlEvents) startup(step, phase, outcome string) {
-	if !startupSteps[step] || !startupPhases[phase] {
+// startup writes one start-up event. An unknown step or stage is refused; an outcome outside the
+// contract's words is written as other.
+func (e *crawlEvents) startup(step, stage, outcome string) {
+	if !startupSteps[step] || !startupStages[stage] {
 		return
 	}
-	if !startupOutcomes[outcome] {
-		outcome = ""
+	if outcome != "" && !ingestCodeWords[outcome] {
+		outcome = "other"
 	}
 	e.emit(func() any {
-		return startupEvent{eventHeader: e.header("startup"), Step: step, Phase: phase, Outcome: outcome}
+		return startupEvent{eventHeader: e.header("startup"), Step: step, Stage: stage, Outcome: outcome}
 	})
 }
 
@@ -229,15 +227,13 @@ func (e *crawlEvents) startup(step, phase, outcome string) {
 func warmProbeOutcome(rc int) string {
 	switch rc {
 	case 0:
-		return "warm"
-	case 5:
-		return "cold"
-	case 4:
-		return "unusable"
+		return "ok"
 	case exitCrawlEnvBroken:
-		return "env_broken"
+		return "internal"
 	default:
-		return "error"
+		// The contract's outcome words are ingest codes or ok. A cold or unusable Chrome is not one of
+		// them, so it reads as other. Recorded as a gap in the report.
+		return "other"
 	}
 }
 
@@ -444,6 +440,7 @@ func (e *crawlEvents) roundDone(res roundResult, code int) {
 // quarantined is set when the server held the sweep back (it applied nothing).
 type ingestOKEvent struct {
 	eventHeader
+	Probe       bool   `json:"probe"`
 	JobID       string `json:"job_id"`
 	Source      string `json:"source"`
 	Applied     string `json:"applied"`
@@ -454,9 +451,8 @@ type ingestOKEvent struct {
 // ingestErrorEvent is one failed ingest push, named by its code word alone.
 type ingestErrorEvent struct {
 	eventHeader
-	JobID  string `json:"job_id"`
-	Source string `json:"source"`
-	Code   string `json:"code"`
+	Probe bool   `json:"probe"`
+	Code  string `json:"code"`
 }
 
 // shadowCircuitEvent records shadow switching off for the rest of the process.
@@ -467,18 +463,21 @@ type shadowCircuitEvent struct {
 
 // ingestCodeWords is the closed set of codes an ingest_error event may carry. Anything
 // else is written as "other", so no text from the server can reach the stream.
+// ingestCodeWords is the contract's closed set for ingest_error.code. A word outside it is written as
+// other, so nothing the server says reaches the stream. ok is in the set because the contract lists it.
 var ingestCodeWords = map[string]bool{
-	"unavailable": true, "contract": true, "internal": true, "unknown": true, "deadline_exceeded": true,
-	"unauthenticated": true, "permission_denied": true, "resource_exhausted": true,
-	"failed_precondition": true, "already_exists": true, "invalid_argument": true,
-	"not_found": true, "unimplemented": true, "canceled": true, "token": true, "transport": true,
+	"ok": true, "unauthenticated": true, "permission_denied": true, "unavailable": true,
+	"contract": true, "token": true, "invalid_argument": true, "resource_exhausted": true,
+	"failed_precondition": true, "already_exists": true, "not_found": true, "unimplemented": true,
+	"canceled": true, "internal": true, "deadline_exceeded": true, "transport": true,
+	"unknown": true, "other": true,
 }
 
 // ingestOK writes one ingest_ok event. A nil writer is a no-op.
 func (e *crawlEvents) ingestOK(jobID, source, applied string, replayed, quarantined bool) {
 	e.emit(func() any {
 		return ingestOKEvent{
-			eventHeader: e.header("ingest_ok"), JobID: safeJobID(jobID), Source: sourceEnum(source),
+			eventHeader: e.header("ingest_ok"), Probe: false, JobID: safeJobID(jobID), Source: sourceEnum(source),
 			Applied:     enumOrEmpty(applied, map[string]bool{"complete": true, "partial": true, "blocked": true}),
 			Replayed:    replayed,
 			Quarantined: quarantined,
@@ -487,12 +486,12 @@ func (e *crawlEvents) ingestOK(jobID, source, applied string, replayed, quaranti
 }
 
 // ingestError writes one ingest_error event.
-func (e *crawlEvents) ingestError(jobID, source, code string) {
+func (e *crawlEvents) ingestError(code string) {
 	if !ingestCodeWords[code] {
 		code = "other"
 	}
 	e.emit(func() any {
-		return ingestErrorEvent{eventHeader: e.header("ingest_error"), JobID: safeJobID(jobID), Source: sourceEnum(source), Code: code}
+		return ingestErrorEvent{eventHeader: e.header("ingest_error"), Probe: false, Code: code}
 	})
 }
 

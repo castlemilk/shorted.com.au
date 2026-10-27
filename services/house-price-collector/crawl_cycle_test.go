@@ -51,14 +51,15 @@ func (w *blockingWriter) Write(p []byte) (int, error) {
 // cycleHarness runs a real cycle against the fake child (crawl_cycle_fake_test.go). The preflight
 // edges are fakes too, so no test touches Chrome, the playwright driver or ingest.
 type cycleHarness struct {
-	t       *testing.T
-	dir     string
-	lockDir string
-	stdout  lockedBuf
-	evbuf   lockedBuf
-	cfg     cycleConfig
-	deps    cycleDeps
-	sigs    chan os.Signal
+	exitStdout []string
+	t          *testing.T
+	dir        string
+	lockDir    string
+	stdout     lockedBuf
+	evbuf      lockedBuf
+	cfg        cycleConfig
+	deps       cycleDeps
+	sigs       chan os.Signal
 
 	mu         sync.Mutex
 	installs   int
@@ -102,6 +103,9 @@ func newCycleHarness(t *testing.T, plan []fakeStep) *cycleHarness {
 		installTimeout:   5 * time.Second,
 		chromeTimeout:    5 * time.Second,
 		probeTimeout:     5 * time.Second,
+		stepGrace:        300 * time.Millisecond,
+		readyWait:        5 * time.Second,
+		warmTimeout:      5 * time.Second,
 		lockDir:          lockDir,
 		cycleID:          "cyc-test",
 		childArgv:        func() (string, []string) { return os.Args[0], nil },
@@ -162,6 +166,7 @@ func newCycleHarness(t *testing.T, plan []fakeStep) *cycleHarness {
 			h.mu.Lock()
 			defer h.mu.Unlock()
 			h.exits = append(h.exits, code)
+			h.exitStdout = append(h.exitStdout, h.stdout.String())
 		},
 	}
 	t.Cleanup(h.killSurvivors)
@@ -619,6 +624,8 @@ func TestCycleSecondSignalExitCodeMatchesTheSummary(t *testing.T) {
 	if code != exitCrawlCancelled || s.ExitCode != code || s.Outcome != outCancelled {
 		t.Fatalf("returned %d, summary exit %d outcome %q: want 10 cancelled in all three", code, s.ExitCode, s.Outcome)
 	}
+	// The forced exit runs on the signal goroutine, which can finish after the main path returns.
+	waitUntil(2*time.Second, func() bool { return len(h.exitCodes()) == 1 })
 	if ex := h.exitCodes(); len(ex) != 1 || ex[0] != s.ExitCode {
 		t.Fatalf("the forced exit must use the summary's code: exits=%v summary=%d", ex, s.ExitCode)
 	}
@@ -651,7 +658,8 @@ func TestCycleBudgetWithAWorseChildCodeKeepsThatCode(t *testing.T) {
 	}{
 		{name: "8 at the budget is worse: stopped 8, no repair", exit: 8, wantOutcome: outStopped, wantCode: 8, wantInstall: 0},
 		{name: "4 at the budget is worse: stopped 4", exit: 4, wantOutcome: outStopped, wantCode: 4, wantInstall: 0},
-		{name: "3 at the budget is routine: budget 0, no cooldown", exit: 3, wantOutcome: outBudget, wantCode: 0, wantInstall: 0},
+		{name: "3 at the budget is kept: stopped 3, no cooldown", exit: 3, wantOutcome: outStopped, wantCode: 3, wantInstall: 0},
+		{name: "10 at the budget is budget 0", exit: 10, wantOutcome: outBudget, wantCode: 0, wantInstall: 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1164,9 +1172,13 @@ func TestDerivedHungAfterFollowsTheFetchBudget(t *testing.T) {
 		}
 		return ""
 	}
-	// 600 + 3x20 + 3x60 + 3 = 843 s worst page; x2 = 1686 s.
-	if got, want := derivedHungAfter(slow), 1686*time.Second; got != want {
+	// The derived limit is the worst silence (N4 formula): 2x3x600 + 120 + 1800 + 60 + 183 + 45 = 5808 s.
+	// The config clamps it to the ceiling (see TestHungThresholdIsClampedBelowTheRuntimeWatchdog).
+	if got, want := derivedHungAfter(slow), 5808*time.Second; got != want {
 		t.Fatalf("derived hung threshold = %s, want %s", got, want)
+	}
+	if got := loadCycleConfig(slow).hungAfter; got != hungCeiling(defaultHungGrace) {
+		t.Fatalf("the config must clamp a derived limit above the ceiling: got %s", got)
 	}
 }
 

@@ -27,6 +27,8 @@ const cycleFakeChildEnv = "CYCLE_FAKE_CHILD_DIR"
 
 // fakeStep is one round's behaviour.
 type fakeStep struct {
+	NoReady       bool   `json:"no_ready,omitempty"`
+	SelfSignal    string `json:"self_signal,omitempty"`
 	Claims        int    `json:"claims,omitempty"`         // claim events, job-1 .. job-N
 	Fetches       int    `json:"fetches,omitempty"`        // fetch events on job-1
 	FetchEveryMs  int    `json:"fetch_every_ms,omitempty"` // pause between fetch events
@@ -84,7 +86,9 @@ func runCycleFakeChild(dir string) int {
 	}
 	// The handler comes before ready, as in runAgent.
 	installFakeTermHandler(dir, step, ev)
-	ev.ready()
+	if !step.NoReady {
+		ev.ready()
+	}
 
 	if step.Startup {
 		ev.startup("probe_auth", "start", "")
@@ -114,10 +118,18 @@ func runCycleFakeChild(dir string) int {
 		ev.ingestOK(job(1), "rea", "complete", false, i < step.Quarantined)
 	}
 	for i := 0; i < step.PushFailed; i++ {
-		ev.ingestError(job(1), "rea", "unavailable")
+		ev.ingestError("unavailable")
 	}
 	if step.Hang {
 		time.Sleep(time.Hour)
+		return 0
+	}
+	if step.SelfSignal == "hup" {
+		// A signal the cycle never sends: SIGHUP, which the Go runtime does not catch, so the process dies
+		// of it. The cycle must read that as a signal death.
+		time.Sleep(time.Duration(step.DelayExitMs) * time.Millisecond)
+		_ = syscall.Kill(os.Getpid(), syscall.SIGHUP)
+		time.Sleep(time.Minute)
 		return 0
 	}
 	time.Sleep(time.Duration(step.DelayExitMs) * time.Millisecond)

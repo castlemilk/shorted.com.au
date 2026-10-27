@@ -68,42 +68,49 @@ shorted CrawlIngestService ── verify JWT · allowlist · re-derive · quaran
 
 - `-mode cycle -job drain|repair|preflight [-dry-run] [-max-duration 10h]` (S2, `crawl_cycle.go`). It runs only with `CRAWL_SINK=ingest`; `db`, `shadow` and unset refuse with exit 8.
   - **drain** runs these steps in order:
-    1. take the lock (exit 12 if held; a child of the holder passes, as in `crawl_lock.go`);
+    1. take the lock (exit 12 if held). A child of the holder passes, as in `crawl_lock.go`, but the cycle itself must be the holder: a lock held by its parent is exit 12, never a passenger run;
     2. preflight: driver (install it once if missing; a second failure or a failed install is 8), Chrome warm (the existing `ensureChromeWarm`, CDP only; unusable is 4), and `ProbeAuth` against ingest (13, 14, 15, 8 or 7, the S-FETCH mapping);
     3. run drain rounds, each a child `-mode agent` re-exec'd in its own process group, with its events on a pipe at `CRAWL_EVENTS_FD`, its stdout and stderr passed to the cycle's stderr, and `CRAWL_CYCLE_ID` and `CRAWL_RUN_ID` set to the cycle id. The round policy is decided on the child's events and exit code, never on log text:
-       - `CRAWL_DRAIN_MAX_ROUNDS` (default 30);
+       - `CRAWL_DRAIN_MAX_ROUNDS` (default 30; a value of 0 or less is refused with exit 8);
+       - `CRAWL_DRAIN_NO_PROGRESS_ROUNDS` (default 3): after that many consecutive rounds with no succeeded job, the drain stops with outcome `no_progress` and exit 0, and the runtime alarms on it. This also catches a deferral spin, where jobs are claimed and deferred but none succeeds (for example `CRAWL_AGENT_BLOCK_TRIP` above `CRAWL_CIRCUIT_TRIP`);
        - a round with 0 claims and 0 processed is queue empty (done, 0);
        - 3 or 5 cool down `CRAWL_REWARM_COOLDOWN_SEC` (900) and retry, at most `CRAWL_REWARM_MAX_RETRIES` (2), then stop with that code;
        - 8 installs the driver once, retries the round once, then stops with 8;
        - 4, 7, 12, 13, 14 and 15 stop with that code, and 10 stops with 10;
        - 11 (hung): see below.
+       - **Budget (`-max-duration`):** at the deadline no new round starts and the running child gets its graceful stop. A child code of 0 or 10 ends the run as `budget` with exit 0. Any other child code is kept: a routine re-warm code (3 or 5) ends as `stopped` with that code and starts no cooldown, and the runtime owns the 2 h backoff.
     4. write one summary JSON line to stdout. Logs go to stderr.
-  - **repair** takes the lock, forces install-driver, warms Chrome and runs warmcheck. Exit 0, 4 or 8.
-  - **preflight** is NON-mutating and takes no lock. It reports the lock (`free`, `stale`, or `held` with the holder's pid only), the driver, the Chrome reachability and ProbeAuth. It claims nothing and installs nothing. It is health-only: it exits 0 whenever its checks ran, with the health in the summary, and exits non-zero only for invalid configuration (8) or an internal error (1). A held lock is reported, not failed. Chrome is checked read-only: `/json/version` is asked, and no warm, launch or fetch happens, so the summary says `reachable`, not `warm`.
+- **repair** takes the lock, forces install-driver (atomic, see below), warms Chrome and runs warmcheck. If the warm check fails or stalls, it runs the wedged-Chrome recovery (the rc 4 path) and checks once more. Exit 0 (repaired), 4 (not warm), 8 (environment broken), 7 (lock directory cannot be created), 10 (cancelled), 11 (a step hung), 12 (lock held) or 1 (internal error).
+- **preflight** is NON-mutating and takes no lock. It reports the lock (`free`, `held_elsewhere` or `unknown`; the holder's pid is never reported), the driver, Chrome reachability (`reachable` or `unreachable`, read-only: no warm, no launch, no fetch) and ProbeAuth. It claims nothing and installs nothing. It exits 0 whenever its checks ran, with the health in the summary, and exits non-zero only for an invalid configuration (8) or an internal error (1).
   - **Hung (11):** a child that emits no event for `CRAWL_HUNG_AFTER` gets SIGTERM to its process group, then SIGKILL after `CRAWL_HUNG_GRACE` (default 60s). The cycle exits 11. Fetch events are emitted per page, and start-up work emits `startup` events (`probe_auth`, `warm_probe`, each start and done), so silence means real silence.
-  - **`CRAWL_HUNG_AFTER` default** is `max(20m, 2 × worst single page)`, where the worst page is `CRAWL_FETCH_TIMEOUT_S` + 3 × `CRAWL_LISTINGS_PAGE_MAX_MS` + 3 × 60 s (the push attempts) + 3 s (the push backoff). With the defaults that is 60 + 60 + 180 + 3 = 303 s, and 2 × 303 s is about 10 minutes, so the 20-minute floor applies. The floor stays below the runtime's 30-minute watchdog.
+- **`CRAWL_HUNG_AFTER`:** default `max(20m, the worst silence)`. The worst silence is the sum of the silences the child can really have, with the defaults in brackets: 2 sources × 3 fetch attempts × `CRAWL_FETCH_TIMEOUT_S` (360 s); one CDP reconnect (120 s, an estimate, since playwright-go sets no timeout on the driver start and attach); the CDP watchdog, `CRAWL_CDP_WATCHDOG_S` or 3 × the fetch timeout (180 s); the widest page pace, 3 × `CRAWL_LISTINGS_PAGE_MAX_MS` (60 s); a push's retries, 3 × 60 s + 3 s (183 s); and the gap between suburbs, `CRAWL_MAX_DELAY_MS` (45 s). That is 948 s, so the 20-minute floor applies. Both the explicit value and the derived value are clamped to `30m − CRAWL_HUNG_GRACE − 5 s drain − 1m margin` (1675 s with the defaults), so the cycle's kill lands below the runtime's 30-minute watchdog. The clamp logs once.
   - **Parent death:** the cycle checks its parent every `parentCheckInterval` (1 s) while supervising or cooling down, and before each round, the drain's preflight and each repair step. A PPID of 1 means the runtime died: the cycle sends ONE SIGTERM to the round and finishes it, then exits 10 with its summary, and starts no new round. A broken cycle events fd is the same stop.
-  - **Bounded steps:** every preflight and repair step runs under its own timeout (driver install 6 min, Chrome 5 min, ProbeAuth 2 min) and under the cycle's context, so a deadline or a signal ends it at once. A step that ignores its context is a hang (exit 11) after its timeout.
+- **Bounded steps:** each preflight and repair step runs under its own timeout and the cycle's context, so a deadline or a signal ends it at once. A step that misses its timeout gets a grace of 30 s to answer with its own code, and that code is the answer (a ProbeAuth that answers 14 in the grace is 14, not a hang). Only a step still silent after the grace is hung (11). The timeouts follow their budgets: driver install 6 min; ProbeAuth 4 min (its worst case is 3 × 60 s + 3 s = 183 s); Chrome 1106 s, about 18.5 min (launch 30 s, plus 3 warm probes of 312 s each, plus 2 recoveries of 70 s each); a warm check 312 s. Each step announces itself with a `phase` event, so the runtime's silence is one step plus its grace, never the sum of the steps.
   - **SIGTERM/SIGINT:** the first signal is forwarded to the child group, which finishes its suburb and exits 10; the cycle exits 10. A second signal SIGKILLs the group and exits 10 at once.
   - **`-max-duration`:** at the deadline no new round starts and the running child gets the SIGTERM above. The cycle exits 0 with outcome `budget`, unless the child returned a worse code.
   - **Output:** stdout is exactly one summary JSON line in the shape of "Cycle output contract (schema 1)" below. IDs, enums and counts only. Stderr carries the logs.
-  - **Dry run:** `-dry-run` OR `CRAWL_DRY_RUN=true`. A dry run runs one round and sends no ReportCycle at all. The child is always told `CRAWL_DRY_RUN` explicitly.
+- **Graceful stop:** ONE SIGTERM, to the child's PID only (never the group), sent once the child has reported `ready`. For a child that never reports ready (an older collector), the SIGTERM is sent at the 120 s ready wait if a stop is pending. A second signal SIGKILLs the child's group and exits with the decided code. A child that dies of a signal while a stop is pending exits 10; a signal death with no stop is internal (1).
+- **Dry run:** `-dry-run` OR `CRAWL_DRY_RUN=true`. A dry run runs one round and sends no ReportCycle at all. The child is always told `CRAWL_DRY_RUN` explicitly.
   - **ReportCycle:** each child round reports its own counts-only row with `run_id = cycle_id`, and the server accumulates rounds that share a run id, as the bash drain's `CRAWL_RUN_ID` does. The cycle sends a zero-count gap report only for a round that hung, or that exited without a `round_done` and was not stopped by the cycle, and once for a preflight that fails with 4, 8 or 15 (ingest is reachable). It sends none for 12 (the legacy drainer holds the lock in shadow), or for 13 and 14 (which cannot report).
   - **Process groups:** the children are group leaders. Chrome launched by the collector runs under `Setsid`, a session of its own, so the group kill does NOT reach the warm browser. This is deliberate: the warm profile must survive a cycle. The Playwright driver and any fetcher-owned process stay in the child's group and are killed with it.
 - `-mode version` prints `{"revision","modified","source","go"}`. It needs no environment.
 - The agent and cycle modes run **without `DATABASE_URL`**.
-- **Round events** are NDJSON on `CRAWL_EVENTS_FD`: `claim`, `page`, `fetch`, `submit`, `ingest_ok`, `ingest_error`, `shadow`, `shadow_circuit`, `finalize_started`, `round_done`. They carry IDs, counts, enums and Connect code words only, never message text. `fetch` is `{job_id, source, page, outcome: ok|blocked|error}`, one per page fetch (added by S2, so a dense sweep proves the child is alive; the hung timer runs off it). `ingest_ok` is `{job_id, source, applied, replayed, quarantined}` for each accepted push; `quarantined` is true when the server held the sweep back. `ingest_error` is `{job_id, source, code}` for each failed push, where `code` is a Connect code word, `token` or `transport`. `shadow` is the per-sweep parity record. `shadow_circuit` is written once, when shadow switches off after three consecutive dry-run failures.
-- **Start-up events (added by S2):** `ready` is written first, once the SIGTERM handler is installed (`runAgent` installs it before anything slow); the cycle sends its one graceful SIGTERM only after it. `startup {step: probe_auth|warm_probe, phase: start|done, outcome}` brackets each start-up step. `ProbeAuth`'s own answer is `ingest_ok {probe: true}` or `ingest_error {probe: true, code}`, with the contract's `ingest.probe` words.
+- **Round events** are NDJSON on `CRAWL_EVENTS_FD`: `claim`, `page`, `fetch`, `submit`, `ingest_ok`, `ingest_error`, `shadow`, `shadow_circuit`, `finalize_started`, `round_done`. They carry IDs, counts, enums and Connect code words only, never message text. `fetch` is `{job_id, source, page, outcome: ok|blocked|error}`, one per page fetch (added by S2, so a dense sweep proves the child is alive; the hung timer runs off it). `ingest_ok` is `{probe: false, job_id, source, applied, replayed, quarantined}` for each accepted push; `quarantined` is true when the server held the sweep back. `ingest_error` is `{probe: false, code}` for each failed push, where `code` is a word of the contract's closed set. `shadow` is the per-sweep parity record. `shadow_circuit` is written once, when shadow switches off after three consecutive dry-run failures.
+- **Start-up events (added by S2):** `ready` is written first, once the SIGTERM handler is installed (`runAgent` installs it before anything slow). `startup {step: probe_auth|warm_probe, stage: start|done, outcome}` brackets each start-up step; `outcome` on `done` is `ok` or an ingest code word. A warm probe's Chrome state is `ok` (warm), `internal` (env broken) or `other` (cold or unusable), because the contract's outcome words are ingest codes or ok. `ProbeAuth`'s own answer is `ingest_ok {probe: true}` or `ingest_error {probe: true, code}`, with the contract's words.
 - **Events come only from the work loop, never from a timer.** The parent check and the page check are checks, not events.
 - **Cycle events** on the cycle's own `CRAWL_EVENTS_FD` are the contract's events (see "Cycle output contract (schema 1)" below): `cycle_start`, `phase`, `preflight`, `round_start`, `round_done`, `ingest_ok`, `ingest_error`, `cycle_done`. Every event carries `type`, `ts` and `cycle_id`. Forwarded child events keep their own fields, gain `type`, `cycle_id` and `round`, and never include the child's `ready` or `round_done`. The cycle's writes go through a bounded queue with one writer, so a slow or stalled events fd drops and counts events (`counts.events_dropped`) and never stalls supervision.
-- **Lock:** the same lockdir as bash's `hc_acquire_lock`, so a Go holder and a bash holder exclude each other. A child of the holder may pass.
+- **Lock:** the same lockdir as bash's `hc_acquire_lock`, so a Go holder and a bash holder exclude each other. A child of the holder may pass; the cycle itself must be the holder.
+- **Deliberate db-path behaviour changes (batch 5):** (a) a db round whose bash wrapper dies now stops at the next page: the sweep it was in is abandoned as incomplete, its job is failed and retried, and its write is rolled back. (b) A SIGTERM during start-up exits 10 instead of dying by signal, because the handler is installed first. (Item (a)'s rollback is the intended behaviour; the transaction boundary of a db sweep is not re-verified in this doc.)
 - **SIGTERM:** finish the current suburb (including its push), then exit 10.
 
 **Exit codes:**
 
+The table below is the history of the exit codes. Where it conflicts with the contract's runtime policy table (rc 4, 10 and 12 in particular), the contract wins.
+
 | rc | Meaning | Runtime action |
 |---|---|---|
 | 0 | ok | next slot |
+| 1 | internal error: a panic, or a child exit code the table does not know | the contract's runtime policy: next slot; alarm after 3 consecutive |
 | 3 / 5 | re-warm budget spent / Kasada stub | one retry after 2 h; alarm after 3 cycles with no successes |
 | 4 | Chrome unusable | one retry after 30 min, then circuit and alarm |
 | 7 | agent infrastructure failed (including a BrandBrain mint outage) | retry at 5, 15 and 45 min, then alarm |
@@ -131,7 +138,7 @@ RFC 3339 timestamp. No listing data appears anywhere.
 {
   "schema": 1,
   "cycle_id": "string",
-  "job": "drain | repair | preflight",
+  "job": "drain | repair | preflight | unknown",
   "dry_run": false,
   "outcome": "<see below>",
   "exit_code": 0,
@@ -152,8 +159,10 @@ RFC 3339 timestamp. No listing data appears anywhere.
 - **`exit_code`** equals the process exit code in every path.
 - **`outcome`** values:
   - drain: `queue_empty | budget | no_progress | max_rounds | cancelled | lock_held | preflight_failed | stopped | hung | internal_error`;
-  - repair: `repaired | repair_failed | lock_held | cancelled`;
-  - preflight: `checked`.
+  - repair: `repaired | repair_failed | lock_held | cancelled | internal_error`. A hung repair step is `repair_failed` with exit 11;
+  - preflight: `checked | preflight_failed | cancelled | internal_error`. `preflight_failed` is used only for a configuration refusal (exit 8);
+  - a configuration refusal in drain is `preflight_failed` with exit 8. A dry-run drain runs one round and ends `max_rounds`.
+- **Event naming:** every event, forwarded child events included, carries `type`. Consumers key on `type` only. Forwarded child events may also keep their legacy `event` key.
 - **`chrome`:**
   - `warm` only when a real warm check passed (a drain preflight or repair);
   - `reachable` means the `/json/version` endpoint answered and nothing more;
@@ -173,8 +182,10 @@ RFC 3339 timestamp. No listing data appears anywhere.
 | `phase` | `name: preflight \| round \| cooldown \| install_driver \| repair \| stopping`, `until` (RFC 3339, for `cooldown` only) |
 | `preflight` | `lock`, `env{driver, chrome}`, `ingest{probe}` (same value sets as the summary) |
 | `round_start` | `round`, `pid`, `pgid` |
-| `round_done` | `round`, `exit_code`, `counts{...same keys...}` |
-| `ingest_ok` / `ingest_error` | `code` (`ingest_error` only, same words as `ingest.probe`), `quarantined` (bool, `ingest_ok` only). ProbeAuth results emit these too, not only pushes. |
+| `round_done` | `round`, `exit_code`, `counts{...same keys...}`. Counts are for THIS round only (including `events_dropped`). The summary holds the totals. Every `round_start` has a matching `round_done`, including on panic (`exit_code` 1). |
+| `ingest_ok` | `probe` (bool: true for a ProbeAuth result, false for a push). Push only: `job_id`, `source` (`rea \| domain`), `applied`, `replayed`, `quarantined` (bools). |
+| `ingest_error` | `probe` (bool) and `code`, one of `ok \| unauthenticated \| permission_denied \| unavailable \| contract \| token \| invalid_argument \| resource_exhausted \| failed_precondition \| already_exists \| not_found \| unimplemented \| canceled \| internal \| deadline_exceeded \| transport \| unknown \| other`. `ingest.probe` in the summary uses the subset `ok \| unauthenticated \| permission_denied \| unavailable \| contract \| token \| not_run`. |
+| `startup` (child) | `step` (`probe_auth \| warm_probe`), `stage` (`start \| done`), `outcome` (an `ingest_error` code word, or `ok`). |
 | `cycle_done` | `outcome`, `exit_code` |
 | child work events (`claim`, `fetch`, `page`, `submit`, ...) | unchanged; IDs, enums and counts only |
 
@@ -201,7 +212,7 @@ RFC 3339 timestamp. No listing data appears anywhere.
 | 13 | pause the job immediately (`ingest_auth`) |
 | 15 | pause the job immediately (`drift`) |
 
-- **Circuit for 3/5, 4, 7, 11 and 14:** opens after 3 consecutive failures among these codes.
+- **Circuit for 3/5, 4, 7, 11 and 14:** opens after 3 consecutive failed runs among these codes, but only once the latest failing code's own retry schedule is EXHAUSTED. A code's scheduled retries always run before the circuit opens. Example: 7 runs its 5, 15 and 45 min retries, and the circuit opens only if the 45 min retry also fails. A success resets every streak. Exit 10 changes nothing.
 - **"Pause the job":** it does not run at later slots. Pauses and open circuits stay closed to later slots and clear only on:
   - an operator `housing_crawl_run` or `housing_crawl_repair` (B5), or the interim local reset endpoint;
   - a collector revision change. This clears `drift`, and also any pause or circuit opened under the previous revision.

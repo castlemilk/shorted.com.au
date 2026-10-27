@@ -55,8 +55,6 @@ import (
 	"syscall"
 	"time"
 
-	connectrpc "connectrpc.com/connect"
-
 	pb "github.com/castlemilk/shorted.com.au/services/gen/proto/go/housingingest/v1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/housingingest"
 )
@@ -103,8 +101,7 @@ const (
 	defaultHungGrace        = 60 * time.Second
 	defaultMaxDuration      = 10 * time.Hour
 	defaultInstallTimeout   = 6 * time.Minute
-	defaultChromeTimeout    = 5 * time.Minute
-	defaultProbeTimeout     = 2 * time.Minute
+	defaultProbeTimeout     = 4 * time.Minute
 	// hungFloor is the least CRAWL_HUNG_AFTER ever gets. The runtime's watchdog is 30 minutes
 	// (max(last_event + 30m, cooldown_until + 5m)), so the child must go hung below that.
 	hungFloor        = 20 * time.Minute
@@ -146,6 +143,9 @@ var (
 
 // cycleConfig is the policy a cycle runs under. loadCycleConfig fills it from the environment.
 type cycleConfig struct {
+	stepGrace        time.Duration
+	readyWait        time.Duration
+	warmTimeout      time.Duration
 	job              string
 	dryRun           bool
 	maxDuration      time.Duration
@@ -248,20 +248,21 @@ type cycleSummary struct {
 
 // cycleRound is what one child round produced, from its events and its exit.
 type cycleRound struct {
-	round       int
-	exit        int
-	done        bool // the child's round_done was seen
-	hung        bool
-	processed   int
-	claimed     int
-	succeeded   int
-	failed      int
-	deferred    int
-	blocked     int
-	pushed      int
-	pushFailed  int
-	quarantined int
-	needsRewarm bool
+	eventsDropped int
+	round         int
+	exit          int
+	done          bool // the child's round_done was seen
+	hung          bool
+	processed     int
+	claimed       int
+	succeeded     int
+	failed        int
+	deferred      int
+	blocked       int
+	pushed        int
+	pushFailed    int
+	quarantined   int
+	needsRewarm   bool
 }
 
 // childRoundDone is the child's round_done, read for its counts.
@@ -307,6 +308,7 @@ func (p *roundProc) closePipe() {
 // blocking, and one goroutine writes them to the events fd. A full queue drops the event and
 // counts it, so a slow reader can never stall supervision.
 type eventPump struct {
+	onPanic func(any)
 	ev      *crawlEvents
 	ch      chan func() any
 	dropped atomic.Int64
@@ -316,8 +318,8 @@ type eventPump struct {
 	closed  bool
 }
 
-func newEventPump(ev *crawlEvents) *eventPump {
-	p := &eventPump{ev: ev, ch: make(chan func() any, cycleEventPumpCapacity), done: make(chan struct{})}
+func newEventPump(ev *crawlEvents, onPanic func(any)) *eventPump {
+	p := &eventPump{ev: ev, ch: make(chan func() any, cycleEventPumpCapacity), done: make(chan struct{}), onPanic: onPanic}
 	if ev == nil {
 		close(p.done)
 		return p
@@ -330,6 +332,13 @@ func newEventPump(ev *crawlEvents) *eventPump {
 // so offers never back up behind a dead pipe.
 func (p *eventPump) run() {
 	defer close(p.done)
+	defer func() {
+		// A writer panic is an internal error: it takes the background path, which writes the
+		// summary and exits 1 (batch 5 item 8).
+		if r := recover(); r != nil && p.onPanic != nil {
+			p.onPanic(r)
+		}
+	}()
 	for build := range p.ch {
 		if p.broken.Load() {
 			continue
@@ -389,15 +398,16 @@ func (p *eventPump) droppedCount() int {
 // cycleRunner is one cycle. Its fields are guarded by mu, except the atomics and the pump, which
 // are safe to touch from the signal goroutine.
 type cycleRunner struct {
-	cfg    cycleConfig
-	deps   cycleDeps
-	ctx    context.Context
-	cancel context.CancelFunc
-	stop   *stopSignal
-	budget atomic.Bool
-	forced atomic.Bool
-	pump   *eventPump
-	lock   *crawlLock
+	inflight int
+	cfg      cycleConfig
+	deps     cycleDeps
+	ctx      context.Context
+	cancel   context.CancelFunc
+	stop     *stopSignal
+	budget   atomic.Bool
+	forced   atomic.Bool
+	pump     *eventPump
+	lock     *crawlLock
 	// startPPID is the cycle's parent when it started: the runtime. A PPID of 1 later means that
 	// parent has died (checkParent).
 	startPPID int
@@ -433,19 +443,23 @@ func newCycleRunner(cfg cycleConfig, deps cycleDeps) *cycleRunner {
 		deps.exit = os.Exit
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &cycleRunner{
+	c := &cycleRunner{
 		cfg:       cfg,
 		deps:      deps,
 		ctx:       ctx,
 		cancel:    cancel,
 		stop:      newStopSignal(),
-		pump:      newEventPump(deps.events),
 		startPPID: os.Getppid(),
 		preLock:   lockUnknown,
 		preDriver: lockUnknown,
 		preChrome: lockUnknown,
 		preProbe:  "not_run",
 	}
+	c.pump = newEventPump(deps.events, func(r any) {
+		log.Printf("[cycle] internal error (event writer panic): %v", r)
+		go c.backgroundPanic()
+	})
+	return c
 }
 
 // loadCycleConfig reads the cycle's policy from the environment. validateCycleEnv has already
@@ -453,22 +467,34 @@ func newCycleRunner(cfg cycleConfig, deps cycleDeps) *cycleRunner {
 //
 // The hung threshold is derived from the page budget, as the design doc's arithmetic shows.
 func loadCycleConfig(getenv func(string) string) cycleConfig {
+	grace := cycleEnvDuration(getenv, "CRAWL_HUNG_GRACE", defaultHungGrace)
 	cfg := cycleConfig{
 		maxRounds:        cycleEnvInt(getenv, "CRAWL_DRAIN_MAX_ROUNDS", defaultDrainMaxRounds),
 		noProgressRounds: cycleEnvInt(getenv, "CRAWL_DRAIN_NO_PROGRESS_ROUNDS", defaultNoProgressRounds),
 		rewarmCooldown:   time.Duration(cycleEnvInt(getenv, "CRAWL_REWARM_COOLDOWN_SEC", int(defaultRewarmCooldown/time.Second))) * time.Second,
 		rewarmBudget:     cycleEnvInt(getenv, "CRAWL_REWARM_MAX_RETRIES", defaultRewarmBudget),
 		hungAfter:        derivedHungAfter(getenv),
-		hungGrace:        cycleEnvDuration(getenv, "CRAWL_HUNG_GRACE", defaultHungGrace),
+		hungGrace:        grace,
 		installTimeout:   defaultInstallTimeout,
-		chromeTimeout:    defaultChromeTimeout,
+		chromeTimeout:    chromeStepTimeout(getenv),
+		warmTimeout:      warmProbeWorst(getenv),
 		probeTimeout:     defaultProbeTimeout,
+		stepGrace:        defaultStepGrace,
+		readyWait:        defaultReadyWait,
 		lockDir:          defaultCrawlLockDir(),
 	}
 	if raw := strings.TrimSpace(getenv("CRAWL_HUNG_AFTER")); raw != "" {
 		if d, err := time.ParseDuration(raw); err == nil && d > 0 {
 			cfg.hungAfter = d
 		}
+	}
+	// Explicit and derived values are both bounded (batch 5 item 9).
+	cfg.hungAfter = clampHungAfter(cfg.hungAfter, grace, &hungClampOnce)
+	if cfg.maxRounds <= 0 {
+		cfg.maxRounds = defaultDrainMaxRounds
+	}
+	if cfg.rewarmBudget < 0 {
+		cfg.rewarmBudget = 0
 	}
 	if id := strings.TrimSpace(getenv("CRAWL_CYCLE_ID")); id != "" && cycleIDPattern.MatchString(id) {
 		cfg.cycleID = id
@@ -491,13 +517,11 @@ func loadCycleConfig(getenv func(string) string) cycleConfig {
 //
 // The floor is 20 minutes, so the default is 20 minutes. A slower fetch config raises it.
 // The runtime's 30-minute watchdog stays above the result.
+// derivedHungAfter is the child's silence limit when CRAWL_HUNG_AFTER is unset: the worst silence
+// (cycleSilenceWorst), and never below the 20-minute floor. The clamp in loadCycleConfig applies on top.
 func derivedHungAfter(getenv func(string) string) time.Duration {
-	fetch := time.Duration(cycleEnvInt(getenv, "CRAWL_FETCH_TIMEOUT_S", 60)) * time.Second
-	paceMax := time.Duration(cycleEnvInt(getenv, "CRAWL_LISTINGS_PAGE_MAX_MS", 20000)) * time.Millisecond
-	push := time.Duration(ingestMaxAttempts) * ingestCallTimeout
-	worst := fetch + time.Duration(float64(paceMax)*paceWidenFactorMax) + push + 3*time.Second
-	if 2*worst > hungFloor {
-		return 2 * worst
+	if w := cycleSilenceWorst(getenv); w > hungFloor {
+		return w
 	}
 	return hungFloor
 }
@@ -612,7 +636,7 @@ func runCycleMode(stdout io.Writer, job string, dryRunFlag bool, maxDuration tim
 	switch job {
 	case cycleJobDrain, cycleJobRepair, cycleJobPreflight:
 	default:
-		return refuseCycle(deps, cfg, fmt.Sprintf("-job must be drain, repair or preflight (got %q)", job))
+		return refuseCycle(deps, cfg, "-job must be drain, repair or preflight")
 	}
 	if maxDuration <= 0 {
 		return refuseCycle(deps, cfg, fmt.Sprintf("-max-duration must be positive (got %s)", maxDuration))
@@ -648,6 +672,9 @@ func resolveCycleDryRun(flag bool, getenv func(string) string) bool {
 // refuseCycle prints the summary for a configuration refusal. It exits 8, which is the
 // invalid-configuration code, and it names the outcome for the job.
 func refuseCycle(deps cycleDeps, cfg cycleConfig, reason string) int {
+	if !validCycleJob(cfg.job) {
+		cfg.job = cycleJobUnknown
+	}
 	if cfg.cycleID == "" {
 		cfg.cycleID = newCycleID()
 	}
@@ -709,7 +736,7 @@ func (c *cycleRunner) execute() (code int) {
 		if r := recover(); r != nil {
 			log.Printf("[cycle] internal error (panic): %v\n%s", r, debug.Stack())
 			c.killChildGroup(syscall.SIGKILL)
-			code = c.finalize(outInternal, exitCycleInternal)
+			code = c.finalizePanic()
 		}
 	}()
 	c.started = c.deps.now()
@@ -727,10 +754,14 @@ func (c *cycleRunner) execute() (code int) {
 	signal.Ignore(syscall.SIGPIPE)
 	done := make(chan struct{})
 	defer close(done)
-	go c.watchSignals(sigs, done)
+	go func() {
+		defer c.recoverBackground()
+		c.watchSignals(sigs, done)
+	}()
 
 	if c.cfg.maxDuration > 0 {
 		t := time.AfterFunc(c.cfg.maxDuration, func() {
+			defer c.recoverBackground()
 			log.Printf("[cycle] -max-duration %s reached: no new rounds; the running round is stopped", c.cfg.maxDuration)
 			c.budget.Store(true)
 			c.cancel()
@@ -854,11 +885,25 @@ func runStep[T any](c *cycleRunner, timeout time.Duration, fn func(ctx context.C
 	case r := <-failed:
 		log.Printf("[cycle] step panicked: %v\n%s", r, debug.Stack())
 		return zero, errStepPanicked
+	case <-c.ctx.Done():
+		return zero, errStepStopped
 	case <-ctx.Done():
-		if c.ctx.Err() != nil {
+		// The step's own deadline. A step that honours its context answers with its real code
+		// within the grace, and that code is the answer. Only a step still silent after the grace
+		// is hung (batch 4 item 2).
+		grace := time.NewTimer(c.cfg.stepGrace)
+		defer grace.Stop()
+		select {
+		case v := <-done:
+			return v, nil
+		case r := <-failed:
+			log.Printf("[cycle] step panicked after its deadline: %v\n%s", r, debug.Stack())
+			return zero, errStepPanicked
+		case <-c.ctx.Done():
 			return zero, errStepStopped
+		case <-grace.C:
+			return zero, errStepHung
 		}
-		return zero, errStepHung
 	}
 }
 
@@ -874,10 +919,12 @@ func (c *cycleRunner) stopOutcome() (string, int) {
 // drainPreflight runs the drain's checks in order: the driver (installed once if missing),
 // Chrome warm, and ProbeAuth. It returns ok=false with the failing outcome and code.
 func (c *cycleRunner) drainPreflight() (string, int, bool) {
+	c.phase("preflight", nil)
 	code, err := c.ensureDriver()
 	if out, cd, bad := c.drainStepFailure(code, err); bad {
 		return out, cd, false
 	}
+	c.phase("preflight", nil)
 	cr, err := runStep(c, c.cfg.chromeTimeout, func(ctx context.Context) chromeResult {
 		st, rc := c.deps.ensureChrome(ctx)
 		return chromeResult{state: st, code: rc}
@@ -888,6 +935,7 @@ func (c *cycleRunner) drainPreflight() (string, int, bool) {
 	if out, cd, bad := c.drainStepFailure(cr.code, err); bad {
 		return out, cd, false
 	}
+	c.phase("preflight", nil)
 	code, err = c.probeStep()
 	if out, cd, bad := c.drainStepFailure(code, err); bad {
 		return out, cd, false
@@ -1003,8 +1051,9 @@ func (c *cycleRunner) probeStep() (int, error) {
 		c.emit("ingest_ok", map[string]any{"probe": true})
 		return 0, nil
 	}
-	c.setPre(func() { c.preProbe = pr.word })
-	c.emit("ingest_error", map[string]any{"probe": true, "code": pr.word})
+	word := contractProbeCode(pr.word)
+	c.setPre(func() { c.preProbe = summaryProbeWord(word) })
+	c.emit("ingest_error", map[string]any{"probe": true, "code": word})
 	return pr.code, nil
 }
 
@@ -1088,7 +1137,7 @@ func (c *cycleRunner) decide(res cycleRound) (string, int, bool) {
 	code := res.exit
 	budget := c.budget.Load()
 	// At -max-duration, a clean or routine code ends the run as budget. A worse code is kept.
-	if budget && (code == 0 || code == 3 || code == 5 || code == exitCrawlCancelled) {
+	if budget && (code == 0 || code == exitCrawlCancelled) {
 		return outBudget, 0, false
 	}
 	switch code {
@@ -1114,6 +1163,11 @@ func (c *cycleRunner) decide(res cycleRound) (string, int, bool) {
 		}
 		return "", 0, true
 	case 3, 5:
+		if budget {
+			// Budget applies only to a child code of 0 or 10 (contract). A routine re-warm code is kept,
+			// and no cooldown runs at the deadline: the runtime owns the 2 h backoff.
+			return outStopped, code, false
+		}
 		// The bash drain's measured policy, carried over. A re-warm is a routine Kasada outcome,
 		// and the cooldown is what lets a retry work. The budget is what stops a blocking portal
 		// being hammered: 2 retries measured best (2026-09-11), and more retries against an open
@@ -1226,6 +1280,7 @@ func (c *cycleRunner) repairJob() (string, int) {
 		return outRepairFailed, exitCrawlEnvBroken
 	}
 	c.setPre(func() { c.preDriver = "installed" })
+	c.phase("repair", nil)
 	cr, err := runStep(c, c.cfg.chromeTimeout, func(ctx context.Context) chromeResult {
 		st, rc := c.deps.ensureChrome(ctx)
 		return chromeResult{state: st, code: rc}
@@ -1242,6 +1297,7 @@ func (c *cycleRunner) repairJob() (string, int) {
 
 // warmGate is the repair's warm check and recovery.
 func (c *cycleRunner) warmGate() (string, int) {
+	c.phase("repair", nil)
 	rc, err := c.warmStep()
 	if err == nil && rc == 0 {
 		c.setPre(func() { c.preChrome = "warm" })
@@ -1289,7 +1345,7 @@ func (c *cycleRunner) warmGate() (string, int) {
 
 // warmStep runs warmcheck under the Chrome timeout.
 func (c *cycleRunner) warmStep() (int, error) {
-	return runStep(c, c.cfg.chromeTimeout, func(ctx context.Context) int { return c.deps.warmcheck(ctx) })
+	return runStep(c, c.cfg.warmTimeout, func(ctx context.Context) int { return c.deps.warmcheck(ctx) })
 }
 
 // repairFailure maps a repair step's error to its outcome: a stop is cancelled, a hang is 11.
@@ -1317,8 +1373,13 @@ func (c *cycleRunner) preflightJob() (string, int) {
 	defer c.emitPreflight()
 	c.setPre(func() { c.preLock = inspectLock(c.cfg.lockDir) })
 
+	c.phase("preflight", nil)
 	present, err := c.checkDriverPresent()
 	switch {
+	case errors.Is(err, errStepPanicked):
+		return outInternal, exitCycleInternal
+	case errors.Is(err, errStepStopped):
+		return outCancelled, exitCrawlCancelled
 	case err != nil:
 		c.setPre(func() { c.preDriver = lockUnknown })
 	case present:
@@ -1326,12 +1387,14 @@ func (c *cycleRunner) preflightJob() (string, int) {
 	default:
 		c.setPre(func() { c.preDriver = "missing" })
 	}
-	if errors.Is(err, errStepStopped) {
-		return outCancelled, exitCrawlCancelled
-	}
 
+	c.phase("preflight", nil)
 	chrome, err := runStep(c, c.cfg.chromeTimeout, func(context.Context) string { return c.deps.chromeReachable() })
 	switch {
+	case errors.Is(err, errStepPanicked):
+		return outInternal, exitCycleInternal
+	case errors.Is(err, errStepStopped):
+		return outCancelled, exitCrawlCancelled
 	case err != nil:
 		c.setPre(func() { c.preChrome = lockUnknown })
 	case chrome == "reachable":
@@ -1341,12 +1404,13 @@ func (c *cycleRunner) preflightJob() (string, int) {
 	default:
 		c.setPre(func() { c.preChrome = lockUnknown })
 	}
-	if errors.Is(err, errStepStopped) {
-		return outCancelled, exitCrawlCancelled
-	}
 
+	c.phase("preflight", nil)
 	_, err = c.probeStep()
-	if errors.Is(err, errStepStopped) {
+	switch {
+	case errors.Is(err, errStepPanicked):
+		return outInternal, exitCycleInternal
+	case errors.Is(err, errStepStopped):
 		return outCancelled, exitCrawlCancelled
 	}
 	return outChecked, 0
@@ -1360,20 +1424,25 @@ func (c *cycleRunner) runRound(round int) cycleRound {
 		return cycleRound{round: round, exit: exitCrawlCancelled}
 	}
 	c.phase("round", nil)
+	dropsBefore := c.pump.droppedCount()
 	p, err := c.spawn(round)
 	if err != nil {
 		log.Printf("[cycle] round %d: cannot start the child (%v) — exit %d", round, err, exitAgentInfra)
 		return cycleRound{round: round, exit: exitAgentInfra}
 	}
+	c.mu.Lock()
+	c.inflight = round
+	c.mu.Unlock()
 	res := c.supervise(p, round)
 	c.mu.Lock()
 	c.child = nil
 	c.mu.Unlock()
-	// A child that could not report for itself is reported once, with zero counts. A child that
-	// exited because the cycle stopped it has nothing to report (batch 1 item 1d).
+	// A child that could not report for itself is reported once, with zero counts. A child the
+	// cycle stopped has nothing to report (batch 1 item 1d).
 	if !res.done && (res.hung || !c.stopRequested()) {
 		c.report("failed", res.exit)
 	}
+	res.eventsDropped = c.pump.droppedCount() - dropsBefore
 	c.emitRoundDone(round, res)
 	return res
 }
@@ -1425,7 +1494,10 @@ func (c *cycleRunner) spawn(round int) (*roundProc, error) {
 		quit:     make(chan struct{}),
 		waitDone: make(chan struct{}),
 	}
-	go p.readEvents()
+	go func() {
+		defer c.recoverBackground()
+		p.readEvents()
+	}()
 	go func() {
 		_ = cmd.Wait()
 		close(p.waitDone)
@@ -1498,15 +1570,25 @@ func (c *cycleRunner) supervise(p *roundProc, round int) cycleRound {
 	lines := p.lines
 	hung := time.NewTimer(c.cfg.hungAfter)
 	defer hung.Stop()
-	// The parent check runs on a ticker while the child is silent too: a parent that dies during a
-	// long fetch is seen within parentCheckInterval, not only at the child's next event. The ticker
-	// only checks; it never writes an event.
+	// A child that never reports ready gets its SIGTERM at readyWait, if a stop is pending (N3).
+	readyTimer := time.NewTimer(c.cfg.readyWait)
+	defer readyTimer.Stop()
+	readyArmed := true
+	// The parent check runs on a ticker while the child is silent too. It only checks; it never
+	// writes an event.
 	parentTick := time.NewTicker(parentCheckInterval)
 	defer parentTick.Stop()
 	for {
+		var readyC <-chan time.Time
+		if readyArmed {
+			readyC = readyTimer.C
+		}
 		select {
 		case <-parentTick.C:
 			c.checkParent()
+		case <-readyC:
+			readyArmed = false
+			c.readyDeadline(p)
 		case line, ok := <-lines:
 			if !ok {
 				lines = nil
@@ -1781,9 +1863,11 @@ func (c *cycleRunner) finalize(outcome string, code int) int {
 	o, cd := c.finalOutcome, c.finalCode
 	c.mu.Unlock()
 	if first {
+		// The summary is written first. A later path that blocks on the events flush (a stalled
+		// reader), or a second signal during it, can then no longer skip the summary.
+		c.printSummary(o, cd)
 		c.emit("cycle_done", map[string]any{"outcome": o, "exit_code": cd})
 		c.pump.close(cycleEventPumpCloseWait)
-		c.printSummary(o, cd)
 	}
 	return cd
 }
@@ -1903,6 +1987,12 @@ func (c *cycleRunner) emitPreflight() {
 
 // emitRoundDone writes the cycle's round_done for one child round.
 func (c *cycleRunner) emitRoundDone(round int, r cycleRound) {
+	c.mu.Lock()
+	if c.inflight == round {
+		c.inflight = 0
+	}
+	c.mu.Unlock()
+	// Counts are for THIS round only (batch 5 item 4); the summary holds the totals.
 	c.emit("round_done", map[string]any{
 		"round":     round,
 		"exit_code": r.exit,
@@ -1915,7 +2005,7 @@ func (c *cycleRunner) emitRoundDone(round int, r cycleRound) {
 			Pushed:        r.pushed,
 			PushFailed:    r.pushFailed,
 			Quarantined:   r.quarantined,
-			EventsDropped: c.pump.droppedCount(),
+			EventsDropped: r.eventsDropped,
 		},
 	})
 }
@@ -1979,22 +2069,10 @@ func probeWordFor(err error) string {
 	if err == nil {
 		return "ok"
 	}
-	var te *tokenError
-	if errors.As(err, &te) {
-		return "token"
-	}
 	if strings.HasPrefix(connectMessage(err), "contract_too_old") {
 		return "contract"
 	}
-	if code, ok := errCode(err); ok {
-		switch code {
-		case connectrpc.CodeUnauthenticated:
-			return "unauthenticated"
-		case connectrpc.CodePermissionDenied:
-			return "permission_denied"
-		}
-	}
-	return "unavailable"
+	return errCodeWord(err)
 }
 
 // probeIngestDetail runs ProbeAuth against the pinned ingest URL and returns the S-FETCH exit
@@ -2031,4 +2109,193 @@ func reportGapWith(cycleID, outcome string, exit int, ingestURL string) {
 	if err := ir.client.reportCycle(ctx, req); err != nil {
 		log.Printf("[cycle] ReportCycle for a stalled round failed (best-effort): %s", errCodeWord(err))
 	}
+}
+
+// --- batch 4 and 5 helpers ---
+
+const (
+	// cycleJobUnknown is the job name for a -job value the cycle does not know. The raw value is
+	// never written anywhere (batch 5 item 2).
+	cycleJobUnknown = "unknown"
+	// runtimeWatchdog is the runtime's 30-minute silence watchdog. The child's silence limit, its
+	// kill grace and the drain must all land below it (clampHungAfter).
+	runtimeWatchdog = 30 * time.Minute
+	// hungCeilingMargin is the room kept under the watchdog for process teardown.
+	hungCeilingMargin = time.Minute
+	// cdpReconnectBudget is the worst case of one CDP reconnect: the driver's start-up plus the
+	// attach. playwright-go gives neither a timeout of its own, so this is an estimate, not a bound
+	// measured on the rig.
+	cdpReconnectBudget = 2 * time.Minute
+	// chromeLaunchWorst is launchDedicatedChrome: it waits 12 x 2 s for the CDP port, plus a
+	// reachability probe of up to 3 s. A launch costs about 30 s.
+	chromeLaunchWorst = 30 * time.Second
+	// chromeRecoverWorst is a recovery: killing the dedicated Chrome (about 10 s), then a launch.
+	chromeRecoverWorst = chromeLaunchWorst + 10*time.Second
+	// defaultStepGrace is how long a step that missed its deadline may still answer with its code.
+	defaultStepGrace = 30 * time.Second
+	// defaultReadyWait is how long a child may take to report ready before a pending stop's SIGTERM
+	// is sent anyway (N3).
+	defaultReadyWait = 120 * time.Second
+)
+
+// hungClampOnce keeps the clamp's log line to one per process.
+var hungClampOnce sync.Once
+
+// validCycleJob reports whether job is one the contract names.
+func validCycleJob(job string) bool {
+	switch job {
+	case cycleJobDrain, cycleJobRepair, cycleJobPreflight:
+		return true
+	}
+	return false
+}
+
+// summaryProbeSet is the contract's subset of ingest codes for the summary's ingest.probe.
+var summaryProbeSet = map[string]bool{
+	"ok": true, "unauthenticated": true, "permission_denied": true, "unavailable": true,
+	"contract": true, "token": true, "not_run": true,
+}
+
+// summaryProbeWord maps an ingest code onto the summary's subset. A code outside the subset reads as
+// unavailable there, while the ingest_error event keeps the full word.
+func summaryProbeWord(w string) string {
+	if summaryProbeSet[w] {
+		return w
+	}
+	return "unavailable"
+}
+
+// contractProbeCode is the ingest_error code: the word itself when the contract names it, else other.
+func contractProbeCode(w string) string {
+	if ingestCodeWords[w] {
+		return w
+	}
+	return "other"
+}
+
+// recoverBackground is deferred by every goroutine the cycle starts. A panic there takes the
+// background path (backgroundPanic), not a silent crash. recover is called directly by this deferred
+// function, so it sees the panic.
+func (c *cycleRunner) recoverBackground() {
+	if r := recover(); r != nil {
+		log.Printf("[cycle] internal error (background panic): %v\n%s", r, debug.Stack())
+		c.backgroundPanic()
+	}
+}
+
+// backgroundPanic ends the cycle from a goroutine other than the main path: the child group is
+// killed, the in-flight round and the summary are written as internal_error with exit 1, and the
+// process exits with that code.
+func (c *cycleRunner) backgroundPanic() {
+	c.killChildGroup(syscall.SIGKILL)
+	code := c.finalizePanic()
+	c.deps.exit(code)
+}
+
+// finalizePanic closes the in-flight round (round_done, exit 1) and finalizes as internal_error.
+func (c *cycleRunner) finalizePanic() int {
+	c.emitInFlightDone()
+	return c.finalize(outInternal, exitCycleInternal)
+}
+
+// emitInFlightDone writes round_done for a round that started and never reported one, so every
+// round_start has its round_done (contract, batch 5 item 5).
+func (c *cycleRunner) emitInFlightDone() {
+	c.mu.Lock()
+	round := c.inflight
+	c.inflight = 0
+	c.mu.Unlock()
+	if round == 0 {
+		return
+	}
+	c.emit("round_done", map[string]any{"round": round, "exit_code": exitCycleInternal, "counts": cycleCounts{}})
+}
+
+// readyDeadline runs when readyWait has passed without the child's ready. A pending stop gets its one
+// SIGTERM now, so a child that never reports ready (an older collector) can still be stopped
+// gracefully (N3).
+func (c *cycleRunner) readyDeadline(p *roundProc) {
+	c.mu.Lock()
+	want := !p.ready && (p.wantTerm || c.stopRequested())
+	c.mu.Unlock()
+	if want {
+		p.sendTerm()
+	}
+}
+
+// cycleFetchTimeout is one page fetch's timeout: CRAWL_FETCH_TIMEOUT_S, default 60 s (crawl.go).
+func cycleFetchTimeout(getenv func(string) string) time.Duration {
+	return time.Duration(cycleEnvInt(getenv, "CRAWL_FETCH_TIMEOUT_S", 60)) * time.Second
+}
+
+// cdpWatchdog is the wall-clock ceiling for one page fetch (crawl_cdp.go watchdog()): the value of
+// CRAWL_CDP_WATCHDOG_S when it is set, else 3 x the fetch timeout.
+func cdpWatchdog(getenv func(string) string) time.Duration {
+	if s := cycleEnvInt(getenv, "CRAWL_CDP_WATCHDOG_S", 0); s > 0 {
+		return time.Duration(s) * time.Second
+	}
+	return 3 * cycleFetchTimeout(getenv)
+}
+
+// cycleSilenceWorst is the longest the child's events can be silent, in the worst case, from:
+//
+//	fetch         2 sources x 3 attempts x CRAWL_FETCH_TIMEOUT_S           2 x 3 x 60 s  = 360 s
+//	reconnect     cdpReconnectBudget (one reconnect, an estimate)                          = 120 s
+//	watchdog      cdpWatchdog: CRAWL_CDP_WATCHDOG_S, else 3 x fetch         3 x 60 s     = 180 s
+//	pace          3 x CRAWL_LISTINGS_PAGE_MAX_MS (paceWidenFactorMax)       3 x 20 s     =  60 s
+//	push          ingestMaxAttempts x ingestCallTimeout + backoff (1 s, 2 s) 3 x 60 s + 3 s = 183 s
+//	suburb pause  CRAWL_MAX_DELAY_MS (between suburbs)                                     =  45 s
+//	                                                                        total (defaults) = 948 s
+//
+// The derived limit is that total, never below hungFloor (20 min), so the default is 20 minutes.
+// The total is the sum of worst cases, so no separate margin is added. Each term is a silence the
+// child can really have: a page's work, the gap between pages, a push, and the gap between suburbs.
+func cycleSilenceWorst(getenv func(string) string) time.Duration {
+	fetch := cycleFetchTimeout(getenv)
+	pageMax := time.Duration(cycleEnvInt(getenv, "CRAWL_LISTINGS_PAGE_MAX_MS", 20000)) * time.Millisecond
+	suburbMax := time.Duration(cycleEnvInt(getenv, "CRAWL_MAX_DELAY_MS", 45000)) * time.Millisecond
+	fetchPart := 2 * 3 * fetch
+	pace := time.Duration(float64(pageMax) * paceWidenFactorMax)
+	push := time.Duration(ingestMaxAttempts)*ingestCallTimeout + ingestBackoff(1) + ingestBackoff(2)
+	return fetchPart + cdpReconnectBudget + cdpWatchdog(getenv) + pace + push + suburbMax
+}
+
+// warmProbeWorst is one warm probe: a reconnect, the watchdog on its fetch, and the settle.
+func warmProbeWorst(getenv func(string) string) time.Duration {
+	return cdpReconnectBudget + cdpWatchdog(getenv) + settleCap
+}
+
+// chromeStepTimeout is the Chrome step's worst case, following ensureChromeWarm: one launch, then
+// (1 + warmMaxAttempts) warm probes, with warmMaxAttempts recoveries, each followed by a launch.
+//
+//	launch            30 s
+//	probes            (1 + 2) x 312 s = 936 s     (312 s = reconnect 120 + watchdog 180 + settle 12)
+//	recoveries        2 x (40 s + 30 s) = 140 s
+//	total             1106 s, about 18.5 min
+//
+// The runtime's silence watchdog is 30 minutes. The preflight is a sequence of steps that each emit
+// a phase event first, so the longest silence is one step plus its grace (about 19 min), not the sum.
+func chromeStepTimeout(getenv func(string) string) time.Duration {
+	return chromeLaunchWorst +
+		time.Duration(1+warmMaxAttempts)*warmProbeWorst(getenv) +
+		time.Duration(warmMaxAttempts)*(chromeRecoverWorst+chromeLaunchWorst)
+}
+
+// hungCeiling is the most the child's silence limit may be: the runtime watchdog, less the kill
+// grace (the hung kill's SIGTERM-to-SIGKILL wait), the drain wait, and a margin for teardown.
+func hungCeiling(grace time.Duration) time.Duration {
+	return runtimeWatchdog - grace - cycleEventDrainWait - hungCeilingMargin
+}
+
+// clampHungAfter bounds a silence limit, explicit or derived, so the cycle's kill lands below the
+// runtime's watchdog. It logs the clamp once per once value.
+func clampHungAfter(d, grace time.Duration, once *sync.Once) time.Duration {
+	ceil := hungCeiling(grace)
+	if d <= ceil {
+		return d
+	}
+	once.Do(func() {
+		log.Printf("[cycle] CRAWL_HUNG_AFTER %s is above the ceiling %s (the %s runtime watchdog less the %s grace and the drain); clamped", d, ceil, runtimeWatchdog, grace)
+	})
+	return ceil
 }
