@@ -1,4 +1,4 @@
-package main
+package housingcrawl
 
 import "testing"
 
@@ -26,9 +26,9 @@ func TestAddressKey(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := addressKey(c.displayAddr, c.suburb, c.state, c.pc)
+			got := AddressKey(c.displayAddr, c.suburb, c.state, c.pc)
 			if got != c.want {
-				t.Errorf("addressKey(%q,%q,%q,%q) = %q, want %q", c.displayAddr, c.suburb, c.state, c.pc, got, c.want)
+				t.Errorf("AddressKey(%q,%q,%q,%q) = %q, want %q", c.displayAddr, c.suburb, c.state, c.pc, got, c.want)
 			}
 		})
 	}
@@ -46,18 +46,18 @@ func TestAddressKey_SameAddressDifferentFormats(t *testing.T) {
 		"1 Centre Road", // Domain-style, no suffix at all
 	}
 	for _, v := range variants {
-		if got := addressKey(v, "Brighton", "VIC", "3186"); got != want {
-			t.Errorf("addressKey(%q,...) = %q, want %q", v, got, want)
+		if got := AddressKey(v, "Brighton", "VIC", "3186"); got != want {
+			t.Errorf("AddressKey(%q,...) = %q, want %q", v, got, want)
 		}
 	}
 }
 
 // TestAddressKey_CrossPortalUnification is the whole point of this feature:
 // REA and Domain display the SAME address differently, but crawling both under
-// the SAME CrawlTarget (canonical suburb/state/postcode) must yield one key.
+// the SAME Target (canonical suburb/state/postcode) must yield one key.
 func TestAddressKey_CrossPortalUnification(t *testing.T) {
-	rea := addressKey("1 Centre Road, Brighton, Vic 3186", "Brighton", "VIC", "3186")
-	domain := addressKey("1 Centre Road", "Brighton", "VIC", "3186")
+	rea := AddressKey("1 Centre Road, Brighton, Vic 3186", "Brighton", "VIC", "3186")
+	domain := AddressKey("1 Centre Road", "Brighton", "VIC", "3186")
 	if rea == "" || rea != domain {
 		t.Errorf("expected REA and Domain to unify to the same key, got rea=%q domain=%q", rea, domain)
 	}
@@ -67,7 +67,7 @@ func TestAddressKey_CrossPortalUnification(t *testing.T) {
 // suburb (or any recognizable suffix) entirely — the whole string is treated as
 // the street and the suburb/state/postcode are filled purely from the target.
 func TestAddressKey_MissingSuburbInDisplay(t *testing.T) {
-	got := addressKey("42 Example Ave", "Bondi", "NSW", "2026")
+	got := AddressKey("42 Example Ave", "Bondi", "NSW", "2026")
 	want := "42-example-ave-bondi-nsw-2026"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -88,8 +88,8 @@ func TestAddressKey_Garbage(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := addressKey(c.displayAddr, c.suburb, c.state, c.pc); got != "" {
-				t.Errorf("addressKey(%q,%q,%q,%q) = %q, want \"\"", c.displayAddr, c.suburb, c.state, c.pc, got)
+			if got := AddressKey(c.displayAddr, c.suburb, c.state, c.pc); got != "" {
+				t.Errorf("AddressKey(%q,%q,%q,%q) = %q, want \"\"", c.displayAddr, c.suburb, c.state, c.pc, got)
 			}
 		})
 	}
@@ -105,8 +105,8 @@ func TestSlug(t *testing.T) {
 		"":                     "",
 	}
 	for in, want := range cases {
-		if got := slug(in); got != want {
-			t.Errorf("slug(%q) = %q, want %q", in, got, want)
+		if got := Slug(in); got != want {
+			t.Errorf("Slug(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
@@ -121,8 +121,8 @@ func TestStreetPart(t *testing.T) {
 		{"", "Brighton", ""},
 	}
 	for _, c := range cases {
-		if got := streetPart(c.addr, c.suburb); got != c.want {
-			t.Errorf("streetPart(%q,%q) = %q, want %q", c.addr, c.suburb, got, c.want)
+		if got := StreetPart(c.addr, c.suburb); got != c.want {
+			t.Errorf("StreetPart(%q,%q) = %q, want %q", c.addr, c.suburb, got, c.want)
 		}
 	}
 }

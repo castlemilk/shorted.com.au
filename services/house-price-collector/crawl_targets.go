@@ -1,6 +1,10 @@
 package main
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/housingcrawl"
+)
 
 // CrawlTarget is one suburb to crawl. Capital is the GCCSA region_code of the
 // suburb's capital city (e.g. "1GSYD"), used to look up the TRUSTED ABS median
@@ -567,7 +571,7 @@ func (t CrawlTarget) domainURL() string {
 
 // regionCode is the canonical house_price_regions key for a suburb.
 func (t CrawlTarget) regionCode() string {
-	return "SUBURB:" + t.State + "-" + t.Postcode + "-" + strings.ToUpper(t.Suburb)
+	return housingcrawl.Target{Suburb: t.Suburb, Display: t.Display, Postcode: t.Postcode, State: t.State}.RegionCode()
 }
 
 func (t CrawlTarget) regionName() string {

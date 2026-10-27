@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/housingcrawl"
 )
 
 // Australian listing price strings are wildly inconsistent: "$1,250,000",
@@ -13,16 +15,6 @@ import (
 // returns the canonical numeric(s). Only rows with a non-nil canonical price feed
 // drop detection — auction/POA/unknown carry NULL numerics on purpose, so a guide
 // appearing or an auction resolving never reads as a phantom price move.
-
-const (
-	priceFixed      = "fixed"
-	priceRangeLow   = "range_low"
-	priceRangeHigh  = "range_high"
-	priceOffersOver = "offers_over"
-	priceAuction    = "auction"
-	pricePOA        = "poa"
-	priceUnknown    = "unknown"
-)
 
 // dollarAmtRe matches a $-prefixed amount with an optional m/k (or word) suffix.
 // Requiring the leading $ avoids harvesting bed/bath counts out of a display
@@ -64,6 +56,17 @@ func parseAllDollarAmounts(lower string) []float64 {
 	return out
 }
 
+// Price kinds, aliased from the store (housingcrawl), which owns them.
+const (
+	priceFixed      = housingcrawl.PriceFixed
+	priceRangeLow   = housingcrawl.PriceRangeLow
+	priceRangeHigh  = housingcrawl.PriceRangeHigh
+	priceOffersOver = housingcrawl.PriceOffersOver
+	priceAuction    = housingcrawl.PriceAuction
+	pricePOA        = housingcrawl.PricePOA
+	priceUnknown    = housingcrawl.PriceUnknown
+)
+
 // parseAUPrice classifies a listing price string. `low`/`high` are the parsed
 // bound(s) (nil when absent); `kind` is one of the price* constants.
 func parseAUPrice(display string) (low, high *float64, kind string) {
@@ -102,28 +105,6 @@ func parseAUPrice(display string) (low, high *float64, kind string) {
 	}
 }
 
-// canonicalPrice is the single numeric used for drop detection: the high bound for
-// a range_high (an "under $X" ceiling), else the low bound. auction/POA/unknown
-// return nil (their bounds are nil) and are excluded from drop math.
-func canonicalPrice(low, high *float64, kind string) *float64 {
-	if kind == priceRangeHigh {
-		return high
-	}
-	return low
-}
-
-// comparableKinds reports whether two price kinds may be compared for a price
-// move. Single-value asks (fixed/offers_over) are interchangeable; range kinds
-// only compare like-to-like. Cross-kind flips (e.g. range_low -> fixed) are NOT
-// comparable — they route to a status_change, never a phantom drop/rise.
-func comparableKinds(a, b string) bool {
-	single := map[string]bool{priceFixed: true, priceOffersOver: true}
-	if single[a] && single[b] {
-		return true
-	}
-	return a == b && (a == priceRangeLow || a == priceRangeHigh)
-}
-
 func containsAny(s string, subs []string) bool {
 	for _, sub := range subs {
 		if strings.Contains(s, sub) {
@@ -144,4 +125,10 @@ func minMaxFloat(vs []float64) (min, max float64) {
 		}
 	}
 	return min, max
+}
+
+// canonicalPrice is the single numeric used for drop detection. See
+// housingcrawl.CanonicalPrice.
+func canonicalPrice(low, high *float64, kind string) *float64 {
+	return housingcrawl.CanonicalPrice(low, high, kind)
 }

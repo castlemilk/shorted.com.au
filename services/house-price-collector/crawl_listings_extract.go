@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/castlemilk/shorted.com.au/services/pkg/housingcrawl"
 )
 
 // Per-listing extraction is schema-AGNOSTIC for the same reason the median
@@ -22,37 +23,7 @@ import (
 
 // RawListing is one property listing as harvested from a search-results page,
 // before validation. Pointer fields are nil when absent.
-type RawListing struct {
-	Source      string
-	ListingID   string
-	ListingURL  string
-	DisplayAddr string
-	Suburb      string
-	State       string
-	Postcode    string
-	// AddressKey is a stable per-physical-address identity, stamped by
-	// diffSuburb (crawl_listings_diff.go) from the CANONICAL CrawlTarget
-	// suburb/state/postcode via addressKey() — never populated here, since
-	// extraction has no CrawlTarget in scope. See crawl_address.go.
-	AddressKey   string
-	Lat, Lng     *float64
-	PropertyType string
-	Bedrooms     *int16
-	Bathrooms    *int16
-	CarSpaces    *int16
-	LandSizeSqm  *float64
-	PriceDisplay string
-	PriceLow     *float64
-	PriceHigh    *float64
-	PriceKind    string
-	Status       string // normalized: for_sale|under_offer|sold|withdrawn
-	// Marketing agency + agents, harvested from the same search-results blob
-	// (REA listingCompany + listers; Domain advertiser/agencyProfile +
-	// contactAgents). Best-effort — empty when the portal omits them.
-	AgencyID   string
-	AgencyName string
-	AgentNames []string
-}
+type RawListing = housingcrawl.RawListing
 
 // extractListings walks every <script> JSON blob and returns the deduped
 // listings found. Dedup keeps the most-populated record per listing_id.

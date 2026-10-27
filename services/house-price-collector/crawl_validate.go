@@ -3,6 +3,8 @@ package main
 import (
 	"math"
 	"sort"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/housingcrawl"
 )
 
 // The crawl tier's trust model: realestate.com.au (Kasada) is known to serve
@@ -23,11 +25,11 @@ import (
 // REA-vs-Domain drop-gate is a TODO.
 
 const (
-	minPlausibleMedian       = 100_000.0    // $100k absolute floor
-	maxPlausibleMedian       = 50_000_000.0 // $50M absolute ceiling
-	minCapitalRatio          = 0.15         // suburb median ≥ 15% of capital median
-	maxCapitalRatio          = 8.0          // suburb median ≤ 8× capital median
-	maxCrossSourceDivergence = 0.30         // REA vs Domain must agree within 30%
+	minPlausibleMedian       = housingcrawl.MinPlausiblePrice // $100k absolute floor
+	maxPlausibleMedian       = housingcrawl.MaxPlausiblePrice // $50M absolute ceiling
+	minCapitalRatio          = 0.15                           // suburb median ≥ 15% of capital median
+	maxCapitalRatio          = 8.0                            // suburb median ≤ 8× capital median
+	maxCrossSourceDivergence = 0.30                           // REA vs Domain must agree within 30%
 )
 
 type validation struct {
