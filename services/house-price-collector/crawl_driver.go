@@ -130,6 +130,12 @@ func checkPlaywrightDriver() error {
 // Exit 0 = the driver is installed and verified (or already was); 1 = install failed; 8 = another install
 // held the install lock for the whole wait. force reinstalls even when the driver verifies.
 func runInstallDriver(force bool) int {
+	return runInstallDriverWait(force, installLockWait)
+}
+
+// runInstallDriverWait is runInstallDriver with the install-lock wait given. A cycle passes a wait shorter
+// than its install step's deadline, so a wait that runs out is exit 8 here, not a hung step (11).
+func runInstallDriverWait(force bool, lockWait time.Duration) int {
 	opts := crawlDriverRunOptions()
 	if opts.DriverDirectory == "" {
 		// The playwright default cache is the library's own, and its up-to-date check makes a current
@@ -147,7 +153,7 @@ func runInstallDriver(force bool) int {
 		return 1
 	}
 	dir := opts.DriverDirectory
-	err = withInstallLock(dir, func() error {
+	err = withInstallLock(dir, lockWait, func() error {
 		installed, err := installDriverIfNeeded(dir, version, force, realDriverInstall)
 		if err != nil {
 			return err
@@ -161,7 +167,7 @@ func runInstallDriver(force bool) int {
 	})
 	switch {
 	case errors.Is(err, errInstallLockTimeout):
-		log.Printf("[install-driver] %v after %s — exit 8", err, installLockWait)
+		log.Printf("[install-driver] %v after %s — exit 8", err, lockWait)
 		return exitCrawlEnvBroken
 	case err != nil:
 		log.Printf("[install-driver] playwright driver install failed: %v", err)
@@ -179,7 +185,7 @@ func realDriverInstall(dir string) error {
 
 // withInstallLock runs fn while holding the driver install lock for dir: an exclusive flock on
 // <dir>.install.lock. It polls for the lock until installLockWait has passed (batch 6, 2a).
-func withInstallLock(dir string, fn func() error) error {
+func withInstallLock(dir string, wait time.Duration, fn func() error) error {
 	lockPath := dir + ".install.lock"
 	if err := os.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
 		return fmt.Errorf("create the install lock directory: %w", err)
@@ -189,7 +195,7 @@ func withInstallLock(dir string, fn func() error) error {
 		return fmt.Errorf("open the install lock: %w", err)
 	}
 	defer func() { _ = f.Close() }()
-	deadline := time.Now().Add(installLockWait)
+	deadline := time.Now().Add(wait)
 	for {
 		err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
 		if err == nil {

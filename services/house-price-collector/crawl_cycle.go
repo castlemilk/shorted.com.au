@@ -156,6 +156,7 @@ type cycleConfig struct {
 	hungAfter        time.Duration
 	hungGrace        time.Duration
 	installTimeout   time.Duration
+	installLockWait  time.Duration
 	chromeTimeout    time.Duration
 	probeTimeout     time.Duration
 	lockDir          string
@@ -476,6 +477,7 @@ func loadCycleConfig(getenv func(string) string) cycleConfig {
 		hungAfter:        derivedHungAfter(getenv),
 		hungGrace:        grace,
 		installTimeout:   defaultInstallTimeout,
+		installLockWait:  defaultInstallTimeout - installLockMargin,
 		chromeTimeout:    chromeStepTimeout(getenv),
 		warmTimeout:      warmProbeWorst(getenv),
 		probeTimeout:     defaultProbeTimeout,
@@ -635,7 +637,7 @@ func runCycleMode(stdout io.Writer, job string, dryRunFlag bool, maxDuration tim
 
 	deps := cycleDeps{
 		driverPresent:   checkPlaywrightDriver,
-		installDriver:   func() int { return runInstallDriver(false) },
+		installDriver:   func() int { return runInstallDriverWait(false, cfg.installLockWait) },
 		chromeReachable: defaultChromeReachable,
 		recoverChrome:   defaultRecoverChrome,
 		stdout:          stdout,
@@ -2312,6 +2314,10 @@ func clampHungAfter(d, grace time.Duration, once *sync.Once) time.Duration {
 }
 
 // --- batch 6 helpers ---
+
+// installLockMargin is how much less than the install step's timeout a cycle waits for another install's
+// lock, so the wait returns exit 8 before the step's own deadline fires (exit 11).
+const installLockMargin = 30 * time.Second
 
 const (
 	// minHungGrace and maxHungGrace bound CRAWL_HUNG_GRACE (validateCycleEnv).
