@@ -423,3 +423,206 @@ skip rule for `/api/revalidate`.
   `domain-pagemeta.html`, in both collector copies): real addresses, prices and
   listing ids in a public repo — known-open, fix in flight. `CRAWL_TRACE`
   artifacts are the same and stay local + gitignored.
+
+## Server-side crawl jobs (fleet-managed)
+
+The fleet-managed crawl moves the database work off the rigs. A rig fetches listings and
+pushes them to the **housing-ingest** service; it holds no database credential. The
+server runs the rest as schedules on the collector Cloud Run job. Design:
+`docs/superpowers/specs/2026-10-27-fleet-managed-housing-crawl-design.md`.
+
+**Everything here ships paused.** Every schedule is created with `paused = var.server_schedules_paused`,
+which defaults to `true` and is set `true` in `terraform/environments/prod/main.tf`. A
+deploy changes no schedule's state. Cutover is a reviewed change to that one value.
+
+### The schedules
+
+All run this job with the args shown, in Australia/Sydney time, and each has the same retry
+policy as the monthly schedule. Names are prefixed `house-price-collector-`.
+
+| Schedule | Args | When | What it does |
+|---|---|---|---|
+| `enqueue-delta` | `-mode server-enqueue -selection delta` | daily 10:00 | Posts demand-sized suburbs to BrandBrain's queue, with a Google ID token from this job's SA. Writes one `crawl_dispatch` row per target BrandBrain returns, created or already pending. |
+| `enqueue-full` | `-mode server-enqueue -selection full` | 1st and 15th, 08:00 | As above, for the whole catalog. |
+| `crawl-finalize` | `-mode crawl-finalize` | every 30 min | Sal links, the housing MV refresh and one cache bust, **only** when the ingest has written since the cursor. A lease row keeps overlapping runs single-flight: a held lease exits 0. The MV refresh fails if any view is reported `Skipping`, which holds the cursor and skips the bust. The cursor sits 10 minutes behind the run start, so a slow push that commits late is still picked up. On a finalizing run it also prunes ingest receipts and terminal dispatch rows older than 14 days. |
+| `freshness` | `-mode freshness` | daily 18:00 | The read-only freshness check. Exit 6 is the alarm, as before. Cloud Run retries a non-zero exit twice. See "Alerting" for the gap this leaves. |
+| `property-resolve` | `-mode server-property-resolve`, `CRAWL_DRY_RUN=false`, `CRAWL_PROPERTY_RESOLVE_MAX=700` | daily 21:20 | Banks profile URLs from REA's public autocomplete. No browser. A blocked run (exit 3) is logged as a WARN and exits 0, as the rig wrapper treats it. The chunk is 700 so the run fits the job's 1800 s timeout (about 1300 s at the default pacing). |
+
+A failed enqueue exits 7. A refused batch writes nothing, and an earlier accepted batch is
+kept (its ledger rows are already committed). Re-running is safe: BrandBrain deduplicates
+onto the pending job, and the ledger row is upserted.
+
+### The ingest service
+
+`housing-ingest` is a Cloud Run service built from the shorts API image, run with
+`SHORTS_SERVE_MODE=ingest`. It has its own pool (`HOUSING_INGEST_DB_MAX_CONNS=4`), at most two
+instances, and probes on `/health`. Its URL is the Terraform output `housing_ingest_url`
+(`terraform output housing_ingest_url`). Rigs use that `run.app` URL. It is not on
+`api.shorted.com.au`, so the public edge rate limits never see a rig.
+
+**It ships inert.** `ingest_org` and `ingest_allow_subjects` default to empty, and prod does
+not set them. With an empty org or allowlist the service answers every call `Unavailable`, so
+no rig is accepted and no sweep is applied.
+
+Connection budget: 2 instances × 4 = 8 connections at most, out of Supabase's 60. The
+collector job holds 4 per task. The public API's own ceiling is 25 × 3 = 75, above 60 at full
+scale, so the shared budget is already a known limit. This service adds at most 8 to it.
+
+### Before cutover
+
+1. **Migrations 000150 and 000151 are applied.** Both are on the deploy allowlist and replay
+   safe. They run before the image swap. Check `crawl_dispatch` and `crawl_finalize_state`
+   exist in prod.
+2. **The job SA is on BrandBrain's allowlist.** BrandBrain pins `email=uniqueId`
+   (`BRANDBRAIN_GOOGLE_IDTOKEN_ALLOWED_SAS`). Read the uniqueId with:
+   ```bash
+   gcloud iam service-accounts describe \
+     house-price-collector@rosy-clover-477102-t5.iam.gserviceaccount.com \
+     --format='value(uniqueId)'
+   ```
+   Add `house-price-collector@rosy-clover-477102-t5.iam.gserviceaccount.com=<uniqueId>` to
+   BrandBrain's allowlist. A recreated SA gets a new uniqueId and every enqueue then 401s.
+   A 401 names the cause in the job log ("the Google ID token was refused").
+3. **Confirm the job's `DATABASE_URL` is the transaction pooler (port 6543). Do not change it.**
+   The server jobs run on the same URL as the monthly collector job, which is the transaction
+   pooler. The housing MV refresh (`refresh_housing_materialized_views`) is safe there because
+   `RefreshHousingMV` prefixes `SET LOCAL statement_timeout = 0` in the same implicit
+   transaction, the same as the collector and the rigs already do. The session pooler (5432) is
+   derived from this URL by `terraform-deploy.yml`, for the migration steps only. Do not point the
+   shared `DATABASE_URL` secret at 5432: every other job reads that secret, so the change would
+   affect all of them. Check the port without echoing the URL:
+   ```bash
+   gcloud secrets versions access latest --secret=DATABASE_URL --project=rosy-clover-477102-t5 \
+     | sed -E 's#.*:([0-9]+)/[^/]*$#port \1#'
+   ```
+4. **Prove the first run safely, in this order, before any schedule is unpaused.** Each command
+   runs as the job's own service account, so it proves that identity:
+   ```bash
+   # a. The ID token is accepted by BrandBrain (audience and allowlist). Reads one summary row,
+   #    creates no job, writes nothing.
+   gcloud run jobs execute house-price-collector --region=australia-southeast2 --wait \
+     --args=-mode,server-enqueue,-auth-check
+   # b. The delta selection and the job build, with the counts logged. Sends nothing, writes nothing.
+   gcloud run jobs execute house-price-collector --region=australia-southeast2 --wait \
+     --args=-mode,server-enqueue,-selection,delta,-dry-run
+   ```
+   Read the log of each execution. `-auth-check` must say `auth-check OK`. A 401 or a 403 means
+   the allowlist (step 2) is wrong. `-dry-run` must say `DRY RUN run delta-…` with the counts you
+   expect. Then, still before unpausing, run one bounded real enqueue, because it creates real
+   queue jobs that a legacy rig can claim: `--args=-mode,server-enqueue,-selection,delta,-limit,2`.
+   Check its `run …` line and the `crawl_dispatch` rows for that `run_id`. Run it inside the
+   cutover window (see "Cutover order").
+
+### Cutover order
+
+This follows the Gamma-64 cutover in the design spec. Do the steps in this order, because
+the rig and the server must never both enqueue or drain.
+
+1. Confirm the 1.33.10 app timer is off, and that the rig's collector passes `ProbeAuth`.
+2. Run the "Before cutover" checks, including `-auth-check` and `-dry-run` (step 4 above).
+3. Run shadow parity for three days, with the legacy plists still loaded.
+4. After a delta drain finishes, `launchctl bootout` the three legacy plists
+   (`com.shorted.housing-{delta,full,property-resolve}`) and move them aside. The rig then has
+   no scheduler of its own.
+5. **Unpause the server schedules.** Set `server_schedules_paused = false` in prod through the
+   reviewed change, and deploy. Or resume each schedule with
+   `gcloud scheduler jobs resume house-price-collector-<name> --location=australia-southeast1`.
+   Create the alerting monitors (next section) first.
+6. Send `configure active` to the rig, then `housing_crawl_run {job: drain}`.
+7. Watch for 72 hours with no exit 13, 14 or 15 from the rig and the sentinel green.
+
+The rollback is the reverse: pause the schedules, then re-bootstrap the plists.
+
+### Alerting after unpause
+
+The Telesis cronjob reporter matches runs by their exact args, so each server schedule needs
+its own monitor before it is unpaused. Create one per row, with the args exactly as shown:
+
+| Monitor | Exact args |
+|---|---|
+| `house-price-collector-enqueue-delta` | `-mode server-enqueue -selection delta` |
+| `house-price-collector-enqueue-full` | `-mode server-enqueue -selection full` |
+| `house-price-collector-crawl-finalize` | `-mode crawl-finalize` |
+| `house-price-collector-freshness` | `-mode freshness` |
+| `house-price-collector-property-resolve` | `-mode server-property-resolve` (with `CRAWL_DRY_RUN=false`) |
+
+**The freshness gap, stated plainly.** Server `freshness` exits 6 when the oldest covered suburb
+is past `CRAWL_FRESHNESS_ALARM_HOURS`. It has no `CRAWL_FRESHNESS_WEBHOOK`, and it writes no
+`crawl_run_status` row. So its exit 6 shows only as a failed Cloud Run execution, and no monitor
+pages on it until the `house-price-collector-freshness` monitor exists. The GitHub sentinel's
+per-suburb `CATALOG_STALENESS` check is the backstop. Do not treat the sentinel as covering the
+freshness job until you have confirmed it. The fix for the gap is to set the webhook on the
+schedule (a new secret) or to write a `crawl_run_status` row from the freshness mode. Neither is
+in v1.
+
+### Enable a rig
+
+1. The rig passes `ProbeAuth` on a collector revision the ingest accepts.
+2. In a reviewed PR, set the prod `module "housing_ingest"` inputs:
+   `ingest_org` (the org claim BrandBrain issues) and `ingest_allow_subjects = "rig:<id>"`.
+   Deploy.
+3. Add the rig to the ingest's per-rig flag (cached 60 s in the service). Write the SQL to a
+   file and apply it with the prod helper, which uses the session pooler and one transaction:
+   ```sql
+   INSERT INTO housing_ingest_rigs (subject, enabled, note)
+   VALUES ('rig:<id>', true, '<ticket>: enabled for cutover')
+   ON CONFLICT (subject) DO UPDATE SET enabled = true, note = EXCLUDED.note;
+   ```
+   `task db:prod:apply FILE=<file> CONFIRM=prod`.
+
+To cut a rig off at once, set its flag to false, and the next call is refused within 60 s:
+`UPDATE housing_ingest_rigs SET enabled = false WHERE subject = 'rig:<id>';`. Removing the rig
+from `ingest_allow_subjects` is the permanent form.
+
+### Quarantine
+
+A sweep the guard holds back is recorded in `crawl_ingest_quarantine` with its reason and
+counts, never its listing rows. Inspect the newest holds:
+
+```sql
+SELECT id, rig_subject, job_id, reason, stats, created_at
+FROM crawl_ingest_quarantine ORDER BY created_at DESC LIMIT 20;
+```
+
+When a hold is reviewed and found to be real market movement, release that suburb for a short
+window. The bypass is keyed by the catalog slug, the state in capitals and the source:
+
+```sql
+INSERT INTO crawl_ingest_quarantine_bypass (suburb, state, source, expires_at, note)
+VALUES ('st-kilda', 'VIC', 'rea', now() + interval '2 hours', '<ticket>: reviewed <reason>');
+```
+
+The service never deletes a bypass row, so each release stays in the audit trail. Keep
+`expires_at` short. The service does not replay a held sweep. The next push for that suburb
+and source is evaluated with the bypass in place.
+
+### Dispatch ledger, at a glance
+
+`crawl_dispatch` holds one row per job a rig may push for. `closed_at` is set by the first
+applied COMPLETE or PARTIAL receipt. A re-enqueue refreshes `expires_at` on open jobs only and
+never reopens a closed one. `crawl-finalize` deletes terminal rows (closed, or expired while
+open) older than 14 days, in batches. Look at the latest runs:
+
+```sql
+SELECT run_id, count(*) AS jobs, count(closed_at) AS closed, max(created_at) AS made
+FROM crawl_dispatch GROUP BY run_id ORDER BY made DESC LIMIT 5;
+```
+
+### Pause everything
+
+Set `server_schedules_paused = true` in the prod module and deploy (the reviewed route). In an
+emergency, `gcloud scheduler jobs pause house-price-collector-<name> --location=australia-southeast1`
+for each schedule, then reconcile Terraform. The ingest's allowlist is the kill switch for
+rigs; see "Enable a rig".
+
+### Known limits (v1)
+
+- The finalize watermark follows `crawl_ingest_receipts.created_at` only. `property_price_events`
+  has no index on `created_at`, so a `max()` there would scan the table every 30 minutes.
+  The legacy rig path still does its own MV refresh until its cutover.
+- The watermark assumes no push runs longer than 10 minutes (`crawlWatermarkMargin`). A push
+  that does can still be missed. Raise the margin if a sweep's push ever takes that long.
+- Server `freshness` has the alerting gap described under "Alerting after unpause".
+- The server jobs connect over the transaction pooler (6543), like the monthly job. A failed
+  finalize step holds the cursor, so the next run retries the same data.
+- The ingest has no custom domain. Rigs use the `run.app` URL.

@@ -43,6 +43,8 @@ func connect(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 	}
 	// SimpleProtocol keeps the Supabase transaction pooler (port 6543) happy.
 	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+	// Routes NOTICEs to the housing MV capture (crawl_server.go). A no-op when no capture is active.
+	cfg.ConnConfig.OnNotice = housingNotices.handle
 	cfg.MaxConns = 4
 	return pgxpool.NewWithConfig(ctx, cfg)
 }

@@ -78,3 +78,42 @@ variable "drop_index_scheduler_paused" {
   type        = bool
   default     = false
 }
+
+variable "server_schedules_paused" {
+  description = <<-EOT
+    Pause the server-side crawl schedules (S-SRV): server-enqueue (delta and full),
+    crawl-finalize, freshness and property-resolve. Defaults to TRUE, so every new
+    schedule is created paused and nothing runs until cutover. Cutover is a reviewed
+    change to this value in environments/prod, then docs/feature/housing/operations.md
+    "Server-side crawl jobs". Do not change the default to false.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "brandbrain_url" {
+  description = "BrandBrain base URL for the server-side enqueue (BRANDBRAIN_AGENT_URL). Must be the BrandBrain environment that allowlists this job's service account."
+  type        = string
+  default     = "https://api.brandbrain.dev"
+}
+
+variable "brandbrain_idtoken_audience" {
+  description = "Audience of the Google ID token the server-side enqueue presents to BrandBrain (BRANDBRAIN_IDTOKEN_AUDIENCE). BrandBrain verifies this exact value."
+  type        = string
+  default     = "https://api.brandbrain.dev"
+}
+
+variable "ingest_dispatch_ttl" {
+  description = <<-EOT
+    crawl_dispatch.expires_at = enqueue time + this (HOUSING_INGEST_DISPATCH_TTL). The
+    ingest refuses a sweep for a job past its expiry. Keep equal to the housing-ingest
+    module's dispatch_ttl, which the ingest reads back through expires_at.
+  EOT
+  type        = string
+  default     = "72h"
+
+  validation {
+    condition     = can(regex("^[0-9]+(h|m|s)$", var.ingest_dispatch_ttl))
+    error_message = "ingest_dispatch_ttl must be a Go duration in whole hours, minutes or seconds, such as 72h."
+  }
+}
