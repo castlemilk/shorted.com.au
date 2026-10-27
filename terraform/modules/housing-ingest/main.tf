@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    time = {
+      source  = "hashicorp/time"
+      version = "0.14.2"
+    }
+  }
+}
+
 /**
  * Housing Ingest Module
  *
@@ -43,6 +52,16 @@ resource "google_secret_manager_secret_iam_member" "database_url" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.ingest.email}"
   project   = var.project_id
+}
+
+# A new service account and a new read grant take a moment to reach Secret Manager.
+# Cloud Run refuses a revision that mounts a secret the service account cannot yet
+# read, so the first apply that creates the grant waits 30s before the service. The
+# same fix as chat-service (commit bffa7bdf0).
+resource "time_sleep" "database_url_grant" {
+  create_duration = "30s"
+
+  depends_on = [google_secret_manager_secret_iam_member.database_url]
 }
 
 resource "google_cloud_run_v2_service" "ingest" {
@@ -160,6 +179,7 @@ resource "google_cloud_run_v2_service" "ingest" {
 
   depends_on = [
     google_secret_manager_secret_iam_member.database_url,
+    time_sleep.database_url_grant,
   ]
 }
 

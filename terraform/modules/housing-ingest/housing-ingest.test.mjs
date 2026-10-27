@@ -37,6 +37,17 @@ function envValue(name) {
 
 const service = block(main, 'resource "google_cloud_run_v2_service" "ingest"');
 
+// The chat-service lesson (bffa7bdf0): the service account and its new secret grant are created in
+// the same apply as the revision that mounts the secret. Cloud Run refuses the revision until the
+// grant propagates, so the service must wait for a sleep that follows the grant.
+test("the ingest revision waits for its DATABASE_URL grant to propagate", () => {
+  const sleep = block(main, 'resource "time_sleep" "database_url_grant"');
+  assert.match(sleep, /create_duration\s*=\s*"30s"/);
+  assert.match(sleep, /depends_on\s*=\s*\[\s*google_secret_manager_secret_iam_member\.database_url\s*\]/);
+  assert.match(service, /depends_on\s*=\s*\[[\s\S]*?time_sleep\.database_url_grant[\s\S]*?\]/);
+  assert.match(main, /source\s*=\s*"hashicorp\/time"/, "the time provider is declared by the module");
+});
+
 test("the service is inert: its org and rig allowlist default to empty", () => {
   for (const name of ["ingest_org", "ingest_allow_subjects"]) {
     const variable = block(variables, `variable "${name}"`);

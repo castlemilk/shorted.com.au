@@ -63,6 +63,11 @@ CREATE TABLE crawl_finalize_state (
     watermark   TIMESTAMPTZ NOT NULL,
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE crawl_finalize_lease (
+    name        TEXT PRIMARY KEY,
+    holder      TEXT NOT NULL,
+    expires_at  TIMESTAMPTZ NOT NULL
+);
 CREATE TABLE crawl_run_status (
     run_type                TEXT NOT NULL,
     host                    TEXT NOT NULL,
@@ -115,6 +120,7 @@ func openServerTestPool(t *testing.T) *pgxpool.Pool {
 		t.Fatalf("parse dsn: %v", err)
 	}
 	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+	cfg.ConnConfig.OnNotice = housingNotices.handle
 	cfg.ConnConfig.RuntimeParams["search_path"] = schema
 	cfg.MaxConns = 4
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
@@ -137,6 +143,9 @@ type fakeBrandbrain struct {
 	calls       int
 	authHeaders []string
 	agentHeader []string
+	// mangle, when set before a call, rewrites the reply's targets: a short, reordered or
+	// otherwise wrong answer from BrandBrain. Set it before the request is made.
+	mangle func([]enqueueTargetItem) []enqueueTargetItem
 }
 
 func newFakeBrandbrain(t *testing.T, existing map[string]string, statusFor func(call int) int) *fakeBrandbrain {
@@ -177,6 +186,9 @@ func newFakeBrandbrain(t *testing.T, existing map[string]string, statusFor func(
 				resp.Enqueued++
 			}
 			resp.Targets = append(resp.Targets, item)
+		}
+		if fb.mangle != nil {
+			resp.Targets = fb.mangle(resp.Targets)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
@@ -526,8 +538,13 @@ func TestCrawlFinalize_RunsStepsInOrderAndAdvances_Integration(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT max(created_at) FROM crawl_ingest_receipts`).Scan(&newest); err != nil {
 		t.Fatalf("newest receipt: %v", err)
 	}
-	if wm, ok := watermarkOf(t, pool); !ok || !wm.Equal(newest) {
-		t.Fatalf("watermark = %s (ok=%v), want the newest receipt %s", wm, ok, newest)
+	// The cursor is the newest receipt, held crawlWatermarkMargin behind the run start.
+	wantCursor := newest
+	if floor := now.Add(-crawlWatermarkMargin); wantCursor.After(floor) {
+		wantCursor = floor
+	}
+	if wm, ok := watermarkOf(t, pool); !ok || !closeTo(wm, wantCursor) {
+		t.Fatalf("watermark = %s (ok=%v), want %s (newest receipt %s, held behind the run start)", wm, ok, wantCursor, newest)
 	}
 
 	rec.calls = nil

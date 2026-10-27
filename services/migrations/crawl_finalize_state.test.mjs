@@ -24,15 +24,19 @@ test("nothing in the up migration reads or writes a row", () => {
   assert.doesNotMatch(up, /\bDROP\s+(TABLE|COLUMN|INDEX)\b/i);
 });
 
-test("the cursor table is keyed by name and every CREATE is IF NOT EXISTS", () => {
+test("the cursor and lease tables are keyed by name and every CREATE is IF NOT EXISTS", () => {
   // Count statements, not the words in the header comment.
   const sql = up.replace(/--.*$/gm, "");
   const creates = sql.match(/CREATE\s+(TABLE|INDEX)\b[^\n]*/gi) ?? [];
-  assert.equal(creates.length, 1, "one table, no index");
-  assert.match(creates[0], /IF NOT EXISTS/i);
+  assert.equal(creates.length, 2, "the cursor and the lease, no index");
+  for (const create of creates) assert.match(create, /IF NOT EXISTS/i);
   assert.match(
     up,
     /CREATE TABLE IF NOT EXISTS crawl_finalize_state \([\s\S]*?name\s+TEXT PRIMARY KEY[\s\S]*?watermark\s+TIMESTAMPTZ NOT NULL/i,
+  );
+  assert.match(
+    up,
+    /CREATE TABLE IF NOT EXISTS crawl_finalize_lease \([\s\S]*?name\s+TEXT PRIMARY KEY[\s\S]*?holder\s+TEXT NOT NULL[\s\S]*?expires_at\s+TIMESTAMPTZ NOT NULL/i,
   );
 });
 
@@ -40,8 +44,9 @@ test("the migration runs under a lock timeout", () => {
   assert.match(up, /SET LOCAL lock_timeout = '15s'/);
 });
 
-test("the down migration drops only the cursor and is idempotent", () => {
+test("the down migration drops only the cursor and lease, and is idempotent", () => {
   assert.match(down, /DROP TABLE IF EXISTS crawl_finalize_state;/);
+  assert.match(down, /DROP TABLE IF EXISTS crawl_finalize_lease;/);
   assert.doesNotMatch(down, /crawl_ingest|crawl_dispatch|property_/);
 });
 

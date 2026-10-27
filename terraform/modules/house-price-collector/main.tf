@@ -293,7 +293,7 @@ resource "google_cloud_scheduler_job" "daily_drop_index" {
 #   enqueue-full      server-enqueue -selection full     1st and 15th, 08:00
 #   crawl-finalize    crawl-finalize                     every 30 min, a no-op unless the ingest wrote
 #   freshness         freshness                          daily 18:00 (exit 6 is the alarm, unchanged)
-#   property-resolve  property-resolve, CRAWL_DRY_RUN=false   daily 21:20
+#   property-resolve  server-property-resolve, CRAWL_DRY_RUN=false, cap 700   daily 21:20
 #
 # Every schedule is PAUSED while var.server_schedules_paused is true (the default).
 # Cutover runbook: docs/feature/housing/operations.md "Server-side crawl jobs".
@@ -325,11 +325,20 @@ locals {
       args        = ["-mode", "freshness"]
       env         = {}
     }
+    # The cap is sized to the job's 1800s timeout, not the rig's 3000. At the default pacing
+    # (900-2200 ms, mean 1.55 s) plus a few hundred ms of request time, one address costs about
+    # 1.85 s. 1000 addresses would need ~1850 s, over the timeout, so the cap is 700: ~1300 s,
+    # leaving ~500 s of slack for slow responses. The backlog is ~48k addresses, so a daily 700
+    # clears it in months, not hours. The server-property-resolve mode maps a blocked run (exit 3)
+    # to exit 0, as the rig wrapper does.
     property-resolve = {
-      description = "Bank property.com.au profile URLs from REA's public autocomplete, no browser (S-SRV). Dry-run is off for this schedule only."
+      description = "Bank property.com.au profile URLs from REA's public autocomplete, no browser (S-SRV). Dry-run is off and the chunk is 700 for this schedule only."
       schedule    = "20 21 * * *"
-      args        = ["-mode", "property-resolve"]
-      env         = { CRAWL_DRY_RUN = "false" }
+      args        = ["-mode", "server-property-resolve"]
+      env = {
+        CRAWL_DRY_RUN              = "false"
+        CRAWL_PROPERTY_RESOLVE_MAX = "700"
+      }
     }
   }
 }

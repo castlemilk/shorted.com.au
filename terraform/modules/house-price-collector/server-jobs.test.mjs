@@ -39,7 +39,7 @@ const EXPECTED = {
   "enqueue-full": { schedule: "0 8 1,15 * *", mode: "server-enqueue", selection: "full" },
   "crawl-finalize": { schedule: "*/30 * * * *", mode: "crawl-finalize" },
   freshness: { schedule: "0 18 * * *", mode: "freshness" },
-  "property-resolve": { schedule: "20 21 * * *", mode: "property-resolve" },
+  "property-resolve": { schedule: "20 21 * * *", mode: "server-property-resolve" },
 };
 
 test("the server crawl schedules are exactly the five the design names", () => {
@@ -61,11 +61,17 @@ test("each schedule runs the right mode at the designed cadence", () => {
   }
 });
 
-test("property-resolve is the only schedule that turns dry-run off, and only for itself", () => {
+test("property-resolve is the only schedule that turns dry-run off, and caps its chunk at 700", () => {
   for (const key of Object.keys(EXPECTED)) {
     const body = block(schedules, `${key} = {`);
     if (key === "property-resolve") {
-      assert.match(body, /env\s*=\s*\{\s*CRAWL_DRY_RUN\s*=\s*"false"\s*\}/);
+      assert.match(body, /CRAWL_DRY_RUN\s*=\s*"false"/);
+      // 700 addresses at ~1.85 s each is ~1300 s, under the job's 1800 s timeout. 1000 would
+      // need ~1850 s and exceed it. The test pins the cap and the timeout together.
+      const cap = Number(body.match(/CRAWL_PROPERTY_RESOLVE_MAX\s*=\s*"(\d+)"/)?.[1]);
+      assert.equal(cap, 700, "the property-resolve chunk must stay at 700 for the 1800s job timeout");
+      const timeout = main.match(/timeout\s*=\s*"(\d+)s"/)?.[1];
+      assert.equal(timeout, "1800", "the job timeout the cap is sized to");
     } else {
       assert.match(body, /env\s*=\s*\{\}/, `${key} must not change the environment`);
     }
