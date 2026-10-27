@@ -17,13 +17,13 @@ func TestPublicToolAnnotationsOnTheWire(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer serverSession.Close()
+	t.Cleanup(func() { _ = serverSession.Close() })
 	client := sdk.NewClient(&sdk.Implementation{Name: "public-annotations", Version: "0.1.0"}, nil)
 	session, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer session.Close()
+	t.Cleanup(func() { _ = session.Close() })
 	result, err := session.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
