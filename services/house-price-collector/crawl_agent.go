@@ -619,6 +619,27 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) (code int) {
 	var final roundResult
 	defer func() { events.roundDone(final, code) }()
 
+	// The signal handling is the FIRST thing this mode does (batch 1 item 1c). A SIGTERM that
+	// arrives before the handler exists would kill the process with the default action, with no
+	// round_done. SIGPIPE is ignored here too, so a dead events reader returns EPIPE.
+	lock := newCrawlLockFromEnv()
+	stop := newStopSignal()
+	ctx, cancelRound := context.WithCancel(ctx)
+	defer cancelRound()
+	sigs := make(chan os.Signal, 2)
+	removeSignals := installRoundSignals(stop, lock, sigs, os.Exit)
+	defer removeSignals()
+	if events != nil {
+		// A broken events pipe stops the round at the next page (batch 1 item 5): the stop latch is
+		// set and the fetch in flight is cancelled.
+		events.onBroken = func() {
+			stop.request("event-pipe")
+			cancelRound()
+		}
+	}
+	events.ready()
+	ctx = withPageStop(ctx, agentPageStop(stop, cancelRound, startParentPID))
+
 	sink, ingestURL, refusal := resolveSink("agent", os.Getenv)
 	if refusal != "" {
 		log.Printf("[agent] FATAL: refusing to start: %s", refusal)
@@ -634,29 +655,18 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) (code int) {
 		ctx = withIngestRound(ctx, newIngestRound(sink, acfg, ingestURL, events))
 	}
 
-	lock := newCrawlLockFromEnv()
 	return withCrawlLock(lock, func() int {
-		return runAgentRound(ctx, pool, acfg, lock, events, &final)
+		return runAgentRound(ctx, pool, acfg, lock, events, stop, &final)
 	})
 }
 
-// runAgentRound is one round, run while holding the single-drainer lock. It
-// installs the signal handling, runs the Chrome preflight and fetcher setup, runs
-// the work loop (roundIO.run), then finalizes and writes the health record.
-func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lock *crawlLock, events *crawlEvents, final *roundResult) int {
-	// The first SIGTERM/SIGINT requests a graceful stop (finish the current suburb,
-	// finalize, exit 10). A second exits at once. The lock is released first so an
-	// immediate exit does not leave a stale lock behind.
-	stop := newStopSignal()
-	sigs := make(chan os.Signal, 2)
-	// SIGPIPE is ignored so a dead `| tee` reader makes writes return EPIPE
-	// instead of killing the collector mid-round (see installRoundSignals).
-	removeSignals := installRoundSignals(stop, lock, sigs, os.Exit)
-	defer removeSignals()
-
-	// ProbeAuth (ingest and shadow) runs here, after the lock is held and the signal
-	// handlers are installed. A held lock still exits 12, and a SIGTERM during the probe
-	// exits 10 with round_done (probeIngestRound).
+// runAgentRound is one round, run while holding the single-drainer lock. The signal
+// handling is installed by runAgent, before anything slow, and the stop latch is shared with it.
+// It runs the Chrome preflight and fetcher setup, runs the work loop (roundIO.run), then
+// finalizes and writes the health record.
+func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lock *crawlLock, events *crawlEvents, stop *stopSignal, final *roundResult) int {
+	// ProbeAuth (ingest and shadow) runs here, after the lock is held. A held lock still
+	// exits 12, and a SIGTERM during the probe exits 10 with round_done (probeIngestRound).
 	if ir := ingestRoundFrom(ctx); ir != nil {
 		if code := probeIngestRound(ctx, ir, stop); code != 0 {
 			return code
@@ -687,7 +697,12 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 				reachable: chromeReachable,
 				launch:    launchDedicatedChrome,
 				recover:   recoverWedgedChrome,
-				warmProbe: func() int { return runWarmCheck(ctx, pool) },
+				warmProbe: func() int {
+					events.startup("warm_probe", "start", "")
+					rc := runWarmCheck(ctx, pool)
+					events.startup("warm_probe", "done", warmProbeOutcome(rc))
+					return rc
+				},
 			}
 			if err := ensureChromeWarm(ccfg, deps); err != nil {
 				rc := agentExitForWarmFailure(err)
@@ -1162,7 +1177,7 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		}
 	}
 
-	lc := &listingsCrawler{fetcher: fetcher, cfg: cfg, tel: tel}
+	lc := &listingsCrawler{fetcher: fetcher, cfg: cfg, tel: tel, events: ev, jobID: job.ID, pageStop: pageStopFrom(ctx)}
 	if ir := ingestRoundFrom(ctx); ir != nil {
 		lc.sink = ir.sinkFor(pool, job)
 	}

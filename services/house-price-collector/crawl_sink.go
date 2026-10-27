@@ -293,6 +293,7 @@ func (s shadowSink) write(ctx context.Context, lc *listingsCrawler, t CrawlTarge
 // lease renewer, the round-level exit and the shadow circuit. It is carried on the
 // context, so the existing functions keep their signatures and the db path never sees it.
 type ingestRound struct {
+	probeWord  string
 	mode       crawlSinkMode
 	client     *ingestClient
 	brand      *brandbrainAgentClient
@@ -455,6 +456,7 @@ func (ir *ingestRound) probe(ctx context.Context) int {
 	if err == nil && resp.GetMinContractVersion() > housingingest.ContractVersion {
 		err = fmt.Errorf("contract_too_old: server requires contract %d, this collector sends %d",
 			resp.GetMinContractVersion(), housingingest.ContractVersion)
+		ir.recordProbe(false, "contract")
 		if ir.mode == crawlSinkShadow {
 			ir.disableShadow("ProbeAuth: contract too old")
 			return 0
@@ -463,6 +465,7 @@ func (ir *ingestRound) probe(ctx context.Context) int {
 		return exitIngestContract
 	}
 	if err != nil {
+		ir.recordProbe(false, probeWordFor(err))
 		if ir.mode == crawlSinkShadow {
 			ir.disableShadow("ProbeAuth failed (" + errCodeWord(err) + ")")
 			return 0
@@ -474,6 +477,7 @@ func (ir *ingestRound) probe(ctx context.Context) int {
 		ir.fail(code, err)
 		return code
 	}
+	ir.recordProbe(true, "")
 	log.Printf("[ingest] ProbeAuth ok: contract %d accepted (min %d), subject verified", housingingest.ContractVersion, resp.GetMinContractVersion())
 	return 0
 }
@@ -538,7 +542,7 @@ func (ir *ingestRound) push(ctx context.Context, job *agentCrawlJob, source stri
 // InvalidArgument answers in a row mean the collector and the server disagree about the
 // schema, so the round ends with 15 and the drift alarm fires.
 func (ir *ingestRound) noteIngestFailure(jobID, source string, err error) {
-	ir.events.ingestError(jobID, source, errCodeWord(err))
+	ir.events.ingestError(errCodeWord(err))
 	if code := ingestRoundExit(err); code != 0 {
 		ir.fail(code, err)
 	}
@@ -563,7 +567,7 @@ func (ir *ingestRound) noteIngestOK(jobID, source string, resp *pb.PushSweepResp
 	ir.mu.Lock()
 	ir.invalidN = 0
 	ir.mu.Unlock()
-	ir.events.ingestOK(jobID, source, appliedName(resp.GetAppliedStatus()), resp.GetReplayed())
+	ir.events.ingestOK(jobID, source, appliedName(resp.GetAppliedStatus()), resp.GetReplayed(), resp.GetQuarantined())
 }
 
 // absorb folds one applied push into the job's stats. It returns the events the sweep
@@ -954,4 +958,25 @@ func fillFromTarget(listings []*pb.Listing, job *agentCrawlJob) {
 			l.Postcode = job.Postcode
 		}
 	}
+}
+
+// recordProbe records one ProbeAuth answer: the event, and the word the start-up event reports.
+func (ir *ingestRound) recordProbe(ok bool, code string) {
+	ir.mu.Lock()
+	ir.probeWord = code
+	if ok {
+		ir.probeWord = "ok"
+	}
+	ir.mu.Unlock()
+	ir.events.probeResult(ok, code)
+}
+
+// lastProbeWord is the last ProbeAuth word, or other when none was recorded.
+func (ir *ingestRound) lastProbeWord() string {
+	ir.mu.Lock()
+	defer ir.mu.Unlock()
+	if ir.probeWord == "" {
+		return "other"
+	}
+	return ir.probeWord
 }

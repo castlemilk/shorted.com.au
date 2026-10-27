@@ -28,10 +28,14 @@ import (
 //
 //	claim            {job_id}
 //	page             {job_id, source: rea|domain}   one per source sweep started
+//	fetch            {job_id, source, page, outcome: ok|blocked|error}   one per page fetch
+//	                  (S2): a dense sweep is many paced fetches, so this is the event that
+//	                  proves the child is working. The cycle's hung timer runs off it.
 //	submit           {job_id, outcome: succeeded|failed|deferred, listings, events, blocked}
 //	finalize_started {}
-//	ingest_ok        {job_id, source, applied, replayed}   CRAWL_SINK=ingest, one per accepted push;
-//	                  applied is complete|partial|blocked
+//	ingest_ok        {job_id, source, applied, replayed, quarantined}   CRAWL_SINK=ingest, one
+//	                  per accepted push; applied is complete|partial|blocked; quarantined is
+//	                  true when the server held the sweep back for review
 //	ingest_error     {job_id, source, code}   one per failed push; code is a Connect code
 //	                  word, "token" or "transport". Never the server's message text
 //	shadow           {job_id, source, legacy_events, legacy_failed, dry_events,
@@ -39,8 +43,18 @@ import (
 //	                  push_reason, parity}   CRAWL_SINK=shadow only, one per sweep
 //	shadow_circuit   {failures}   CRAWL_SINK=shadow only, once, when shadow switches off
 //	                  after shadowFailLimit consecutive dry-run failures
+//	ready            {}   the child's SIGTERM handler is installed (written first, by runAgent).
+//	                  The cycle sends its one graceful SIGTERM only after this.
+//	startup          {step: probe_auth|warm_probe, phase: start|done, outcome}   start-up work,
+//	                  written when a step begins and ends (never on a timer), so a slow start-up
+//	                  is not a silence. outcome is set on done.
+//	ingest_ok        {probe: true}   ProbeAuth accepted; ingest_error {probe: true, code}   the
+//	                  contract's ingest.probe word. Pushes never carry probe.
 //	round_done       {processed, succeeded, failed, deferred, listings, events,
 //	                  blocked_sweeps, needs_rewarm, chrome_unusable, env_broken}
+//	The -mode cycle parent (crawl_cycle.go) forwards every event above except a child's
+//	round_done, adding "round", and writes its own cycle_start, preflight, round_start,
+//	round_done and cycle_done (documented there).
 const crawlEventsFDEnv = "CRAWL_EVENTS_FD"
 
 type eventHeader struct {
@@ -102,6 +116,10 @@ type crawlEvents struct {
 	now    func() time.Time
 	isBad  bool
 	badErr error
+	// onBroken, when set, runs once the stream has failed (EPIPE: the reader went away). It runs
+	// under mu, so it must not call back into the writer. -mode agent uses it to stop the round
+	// at the next page, not the next suburb (batch 1 item 5).
+	onBroken func()
 }
 
 // newCrawlEvents wraps w. A nil w returns a disabled writer.
@@ -160,7 +178,102 @@ func (e *crawlEvents) emit(build func() any) {
 		e.isBad = true
 		e.badErr = err
 		log.Printf("[agent] crawl events stream closed (%v) — stopping new claims", err)
+		if e.onBroken != nil {
+			e.onBroken()
+		}
 	}
+}
+
+// readyEvent is the child's first event. It is written once its SIGTERM handler is installed
+// (runAgent), so the cycle never signals a child that has no handler yet.
+type readyEvent struct {
+	eventHeader
+}
+
+// ready writes the ready event. A nil writer is a no-op.
+func (e *crawlEvents) ready() {
+	e.emit(func() any { return readyEvent{eventHeader: e.header("ready")} })
+}
+
+// startupEvent is a start-up step's start or done: step is probe_auth or warm_probe, stage is start or
+// done, and outcome (done only) is ok or an ingest_error code word. Work-driven: it is written when a
+// step begins and ends, never on a timer.
+type startupEvent struct {
+	eventHeader
+	Step    string `json:"step"`
+	Stage   string `json:"stage"`
+	Outcome string `json:"outcome,omitempty"`
+}
+
+var startupSteps = map[string]bool{"probe_auth": true, "warm_probe": true}
+var startupStages = map[string]bool{"start": true, "done": true}
+
+// startup writes one start-up event. An unknown step or stage is refused; an outcome outside the
+// contract's words is written as other.
+func (e *crawlEvents) startup(step, stage, outcome string) {
+	if !startupSteps[step] || !startupStages[stage] {
+		return
+	}
+	// The contract: outcome appears only when stage is done, and its words depend on the step.
+	// probe_auth: ok or an ingest_error code word. warm_probe: warm, cold, unusable or env_broken.
+	switch {
+	case stage != "done":
+		outcome = ""
+	case step == "warm_probe":
+		if !warmProbeWords[outcome] {
+			outcome = "unusable"
+		}
+	case !ingestCodeWords[outcome]:
+		outcome = "other"
+	}
+	e.emit(func() any {
+		return startupEvent{eventHeader: e.header("startup"), Step: step, Stage: stage, Outcome: outcome}
+	})
+}
+
+// warmProbeOutcome names a warm check's result for the startup event: 0 warm, 5 cold (the Kasada
+// stub), 4 unusable, 8 env_broken. Anything else is error.
+func warmProbeOutcome(rc int) string {
+	switch rc {
+	case 0:
+		return "warm"
+	case 5:
+		return "cold"
+	case exitCrawlEnvBroken:
+		return "env_broken"
+	default:
+		// 4 (unusable), and any other code the warm check returns: the contract's words for a Chrome
+		// that is not warm and not a Kasada stub are unusable.
+		return "unusable"
+	}
+}
+
+// warmProbeWords is the contract's outcome set for a warm_probe startup event.
+var warmProbeWords = map[string]bool{"warm": true, "cold": true, "unusable": true, "env_broken": true}
+
+// probeEvent is one ProbeAuth answer: ingest_ok (Probe true), or ingest_error with the
+// contract's ingest.probe code word. A probe has no job or source, so it carries neither.
+type probeEvent struct {
+	eventHeader
+	Probe bool   `json:"probe"`
+	Code  string `json:"code,omitempty"`
+}
+
+// probeResult writes ingest_ok or ingest_error for ProbeAuth. code is one of the contract's
+// ingest.probe words, and it is ignored on success.
+func (e *crawlEvents) probeResult(ok bool, code string) {
+	if ok {
+		e.emit(func() any {
+			return probeEvent{eventHeader: e.header("ingest_ok"), Probe: true}
+		})
+		return
+	}
+	if !ingestCodeWords[code] {
+		code = "other"
+	}
+	e.emit(func() any {
+		return probeEvent{eventHeader: e.header("ingest_error"), Probe: true, Code: code}
+	})
 }
 
 func (e *crawlEvents) header(event string) eventHeader {
@@ -189,6 +302,39 @@ func (e *crawlEvents) page(jobID, source string) {
 		return pageEvent{eventHeader: e.header("page"), JobID: safeJobID(jobID), Source: source}
 	})
 }
+
+// fetchEvent is one page fetch's answer. Outcome is ok, blocked or error.
+type fetchEvent struct {
+	eventHeader
+	JobID   string `json:"job_id"`
+	Source  string `json:"source"`
+	Page    int    `json:"page"`
+	Outcome string `json:"outcome"`
+}
+
+// fetch records one page fetch. Sources outside the enum are dropped, and a page
+// number outside 1..maxFetchPage is clamped so a counter can never carry text.
+func (e *crawlEvents) fetch(jobID, source string, page int, outcome string) {
+	if source != "rea" && source != "domain" {
+		return
+	}
+	if outcome != "ok" && outcome != "blocked" && outcome != "error" {
+		return
+	}
+	if page < 1 {
+		page = 1
+	}
+	if page > maxFetchPage {
+		page = maxFetchPage
+	}
+	e.emit(func() any {
+		return fetchEvent{eventHeader: e.header("fetch"), JobID: safeJobID(jobID), Source: source, Page: page, Outcome: outcome}
+	})
+}
+
+// maxFetchPage bounds the page number a fetch event carries. A sweep never walks this far
+// (see sweepSuburbSource's page cap), so the clamp only ever guards the field's shape.
+const maxFetchPage = 1000
 
 // submit records the outcome sent to the queue (the deferred-to-failed fallback
 // sends "failed"). Outcomes outside the enum are dropped.
@@ -305,20 +451,22 @@ func (e *crawlEvents) roundDone(res roundResult, code int) {
 
 // ingestOKEvent is one accepted ingest push. applied is complete|partial|blocked. The
 // counts stay in the job summary, so the stream carries identifiers and enums only.
+// quarantined is set when the server held the sweep back (it applied nothing).
 type ingestOKEvent struct {
 	eventHeader
-	JobID    string `json:"job_id"`
-	Source   string `json:"source"`
-	Applied  string `json:"applied"`
-	Replayed bool   `json:"replayed"`
+	Probe       bool   `json:"probe"`
+	JobID       string `json:"job_id"`
+	Source      string `json:"source"`
+	Applied     string `json:"applied"`
+	Replayed    bool   `json:"replayed"`
+	Quarantined bool   `json:"quarantined"`
 }
 
 // ingestErrorEvent is one failed ingest push, named by its code word alone.
 type ingestErrorEvent struct {
 	eventHeader
-	JobID  string `json:"job_id"`
-	Source string `json:"source"`
-	Code   string `json:"code"`
+	Probe bool   `json:"probe"`
+	Code  string `json:"code"`
 }
 
 // shadowCircuitEvent records shadow switching off for the rest of the process.
@@ -329,31 +477,35 @@ type shadowCircuitEvent struct {
 
 // ingestCodeWords is the closed set of codes an ingest_error event may carry. Anything
 // else is written as "other", so no text from the server can reach the stream.
+// ingestCodeWords is the contract's closed set for ingest_error.code. A word outside it is written as
+// other, so nothing the server says reaches the stream. ok is in the set because the contract lists it.
 var ingestCodeWords = map[string]bool{
-	"unavailable": true, "internal": true, "unknown": true, "deadline_exceeded": true,
-	"unauthenticated": true, "permission_denied": true, "resource_exhausted": true,
-	"failed_precondition": true, "already_exists": true, "invalid_argument": true,
-	"not_found": true, "unimplemented": true, "canceled": true, "token": true, "transport": true,
+	"ok": true, "unauthenticated": true, "permission_denied": true, "unavailable": true,
+	"contract": true, "token": true, "invalid_argument": true, "resource_exhausted": true,
+	"failed_precondition": true, "already_exists": true, "not_found": true, "unimplemented": true,
+	"canceled": true, "internal": true, "deadline_exceeded": true, "transport": true,
+	"unknown": true, "other": true,
 }
 
 // ingestOK writes one ingest_ok event. A nil writer is a no-op.
-func (e *crawlEvents) ingestOK(jobID, source, applied string, replayed bool) {
+func (e *crawlEvents) ingestOK(jobID, source, applied string, replayed, quarantined bool) {
 	e.emit(func() any {
 		return ingestOKEvent{
-			eventHeader: e.header("ingest_ok"), JobID: safeJobID(jobID), Source: sourceEnum(source),
-			Applied:  enumOrEmpty(applied, map[string]bool{"complete": true, "partial": true, "blocked": true}),
-			Replayed: replayed,
+			eventHeader: e.header("ingest_ok"), Probe: false, JobID: safeJobID(jobID), Source: sourceEnum(source),
+			Applied:     enumOrEmpty(applied, map[string]bool{"complete": true, "partial": true, "blocked": true}),
+			Replayed:    replayed,
+			Quarantined: quarantined,
 		}
 	})
 }
 
 // ingestError writes one ingest_error event.
-func (e *crawlEvents) ingestError(jobID, source, code string) {
+func (e *crawlEvents) ingestError(code string) {
 	if !ingestCodeWords[code] {
 		code = "other"
 	}
 	e.emit(func() any {
-		return ingestErrorEvent{eventHeader: e.header("ingest_error"), JobID: safeJobID(jobID), Source: sourceEnum(source), Code: code}
+		return ingestErrorEvent{eventHeader: e.header("ingest_error"), Probe: false, Code: code}
 	})
 }
 

@@ -287,12 +287,9 @@ func launchDedicatedChrome(cfg chromeConfig) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(cfg.bin, chromeLaunchArgs(cfg, port)...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // detach from the collector
-	if err := cmd.Start(); err != nil {
+	if _, err := startDetachedReaped(cfg.bin, chromeLaunchArgs(cfg, port)); err != nil {
 		return fmt.Errorf("start dedicated Chrome: %w", err)
 	}
-	_ = cmd.Process.Release()
 	// Give Chrome's native startup nav time to bind the port + clear Kasada.
 	for range 12 {
 		time.Sleep(2 * time.Second)
@@ -301,6 +298,22 @@ func launchDedicatedChrome(cfg chromeConfig) error {
 		}
 	}
 	return nil // reachability is re-checked by the caller; don't hard-fail here
+}
+
+// startDetachedReaped starts bin in its own session and returns its pid. A goroutine waits for
+// it, so the process is reaped when it exits and no zombie is left under the collector. The
+// session is what keeps the browser alive after the collector is gone. Process.Release, which
+// this replaced, never reaped, and a launched Chrome stayed a zombie until the collector exited
+// (batch 1, minor fixes).
+func startDetachedReaped(bin string, args []string) (int, error) {
+	cmd := exec.Command(bin, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // detach from the collector
+	if err := cmd.Start(); err != nil {
+		return 0, err
+	}
+	pid := cmd.Process.Pid
+	go func() { _ = cmd.Wait() }()
+	return pid, nil
 }
 
 // recoverWedgedChrome hard-resets a wedged dedicated Chrome (CDP answers but hands
