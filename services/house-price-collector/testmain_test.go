@@ -30,6 +30,10 @@ func TestMain(m *testing.M) {
 	if os.Getenv(cycleTestAgentEnv) == "1" {
 		os.Exit(runCycleTestAgent())
 	}
+	// CYCLE_TEST_INSTALL_CMD runs the real -mode install-driver body once (crawl_driver_install_test.go).
+	if os.Getenv("CYCLE_TEST_INSTALL_CMD") == "1" {
+		os.Exit(runInstallDriver(false))
+	}
 	// CYCLE_TEST_INSTALL runs one atomic driver install that stalls mid-write (crawl_driver_atomic_test.go).
 	if os.Getenv("CYCLE_TEST_INSTALL") == "1" {
 		os.Exit(runDriverInstallChild())

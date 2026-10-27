@@ -58,11 +58,15 @@ func TestStepTimeoutsCoverTheirWorstCase(t *testing.T) {
 	if cfg.probeTimeout < 183*time.Second {
 		t.Fatalf("probe timeout %s is below its worst case of 183 s", cfg.probeTimeout)
 	}
-	if cfg.warmTimeout < cdpReconnectBudget+cdpWatchdog(func(string) string { return "" })+settleCap {
-		t.Fatalf("warm timeout %s is below one warm probe", cfg.warmTimeout)
+	// One warm probe's real worst case: two reconnects and two watchdogs (a stalled fetch reconnects and
+	// retries once), plus the settle. Chrome is one launch, 1 + warmMaxAttempts probes, and recoveries.
+	none := func(string) string { return "" }
+	if want := 2*(cdpReconnectBudget+cdpWatchdog(none)) + settleCap; cfg.warmTimeout != want {
+		t.Fatalf("warm timeout %s, want %s (2 x (reconnect + watchdog) + settle)", cfg.warmTimeout, want)
 	}
-	if need := chromeLaunchWorst + time.Duration(1+warmMaxAttempts)*cfg.warmTimeout; cfg.chromeTimeout < need {
-		t.Fatalf("chrome timeout %s is below its real worst case %s (launch + %d warm probes)", cfg.chromeTimeout, need, 1+warmMaxAttempts)
+	need := warmProbeWorst(none)*time.Duration(1+warmMaxAttempts) + chromeLaunchWorst
+	if limit := hungCeiling(defaultHungGrace); cfg.chromeTimeout != min(need, limit) {
+		t.Fatalf("chrome timeout %s, want the real worst case %s clamped to the ceiling %s", cfg.chromeTimeout, need, limit)
 	}
 }
 

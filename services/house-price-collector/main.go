@@ -89,6 +89,7 @@ func run() int {
 	dryRun := flag.Bool("dry-run", false, "server-enqueue: select and build the jobs, log the counts, send nothing and write nothing. cycle: child rounds push dry (the server rolls back) and the cycle runs one round")
 	limit := flag.Int("limit", 0, "server-enqueue only: post at most N selected targets (0 = no limit)")
 	authCheck := flag.Bool("auth-check", false, "server-enqueue only: prove the ID token and BrandBrain's allowlist with a read, create no jobs, then exit")
+	force := flag.Bool("force", false, "install-driver only: reinstall the driver even when it already verifies (default: a verified driver is a no-op)")
 	job := flag.String("job", "", "cycle only: drain (rounds until the queue is empty) | repair (install-driver, warm Chrome, warmcheck) | preflight (read-only report, no lock, claims nothing)")
 	maxDuration := flag.Duration("max-duration", defaultMaxDuration, "cycle only: stop starting rounds at this deadline and stop the running round (outcome budget, exit 0)")
 	// Parse with ContinueOnError, so a bad flag can return instead of exiting. A -mode cycle
@@ -110,7 +111,7 @@ func run() int {
 	// before everything so a rig with a broken environment can repair itself
 	// with nothing but the binary.
 	if *mode == "install-driver" {
-		return runInstallDriver()
+		return runInstallDriver(*force)
 	}
 	// The drain's one cache bust (hc_drain_until_empty) for the rounds that
 	// deferred theirs (revalidateAfterCrawlWrite). No DB either. Best-effort

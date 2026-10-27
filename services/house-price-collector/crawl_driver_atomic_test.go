@@ -2,10 +2,9 @@ package main
 
 // crawl_driver_atomic_test.go tests the atomic driver install (N1). The install is interrupted for real:
 // a child process runs installDriverAtomic with a stub installer that writes a partial driver and then
-// stalls, the way a stalled download does. The test kills the child mid-write. The stub installer is
-// injected because playwright-go's download host is not configurable, so no HTTP stub registry can
-// be pointed at it; the atomic logic is what is under test, and the real installer is called only by
-// -mode install-driver.
+// stalls, the way a stalled download does. The test kills the child mid-write, and checks what is left.
+// The stub installers are used here for the interruption. The real installer is exercised against stub
+// downloads in crawl_driver_install_test.go.
 
 import (
 	"errors"
@@ -22,31 +21,52 @@ const (
 	driverMarkerEnv     = "CYCLE_TEST_MARKER"
 )
 
-// stubCompleteInstall writes a driver that verifies: an executable node that runs, and cli.js. It
-// also writes a version file, so a test can tell which install is live.
-func stubCompleteInstall(dir string) error {
+// mustDriverVersion is the library's version, for the stub installers. A failure here means the library
+// cannot be read at all, which the tests cannot recover from.
+func mustDriverVersion() string {
+	v, err := expectedDriverVersion()
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+// writeStubDriverFiles writes a driver that verifies at version: an executable node that prints version,
+// package/cli.js, and package/package.json naming version.
+func writeStubDriverFiles(dir, version string) error {
 	if err := os.MkdirAll(filepath.Join(dir, "package"), 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "node"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "node"), []byte("#!/bin/sh\necho "+version+"\n"), 0o755); err != nil {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(dir, "package", "cli.js"), []byte("// stub\n"), 0o644); err != nil {
 		return err
 	}
+	return os.WriteFile(filepath.Join(dir, "package", "package.json"), []byte(`{"name":"playwright-core","version":"`+version+`"}`), 0o644)
+}
+
+// stubCompleteInstall writes a complete driver at the library's version.
+func stubCompleteInstall(dir string) error {
+	if err := writeStubDriverFiles(dir, mustDriverVersion()); err != nil {
+		return err
+	}
 	return os.WriteFile(filepath.Join(dir, "version"), []byte("v1"), 0o644)
 }
 
-// stubNoNodeInstall writes cli.js and no node: an install that cannot verify.
+// stubNoNodeInstall writes a driver with no node: an install that cannot verify.
 func stubNoNodeInstall(dir string) error {
 	if err := os.MkdirAll(filepath.Join(dir, "package"), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "package", "package.json"), []byte(`{"version":"`+mustDriverVersion()+`"}`), 0o644); err != nil {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, "package", "cli.js"), []byte("// stub\n"), 0o644)
 }
 
-// stubStallInstall writes a partial driver, signals the test through the marker file, and stalls, as
-// a stalled download does. Only a kill ends it.
+// stubStallInstall writes a partial driver, signals the test through the marker file, and stalls, as a
+// stalled download does. Only a kill ends it.
 func stubStallInstall(dir string) error {
 	if err := os.MkdirAll(filepath.Join(dir, "package"), 0o755); err != nil {
 		return err
@@ -63,14 +83,14 @@ func stubStallInstall(dir string) error {
 
 // runDriverInstallChild is the subprocess body (testmain_test.go). It returns the exit code.
 func runDriverInstallChild() int {
-	if err := installDriverAtomic(os.Getenv(driverInstallDirEnv), stubStallInstall); err != nil {
+	if err := installDriverAtomic(os.Getenv(driverInstallDirEnv), mustDriverVersion(), stubStallInstall); err != nil {
 		return 1
 	}
 	return 0
 }
 
-// killAtStalledInstall starts an install that stalls mid-write in dir, waits for it to reach the
-// stall, and kills it there.
+// killAtStalledInstall starts an install that stalls mid-write in dir, waits for it to reach the stall,
+// and kills it there.
 func killAtStalledInstall(t *testing.T, dir string) {
 	t.Helper()
 	self, err := os.Executable()
@@ -120,10 +140,11 @@ func TestInstallDriverAtomicKilledInstallLeavesNoLiveDir(t *testing.T) {
 	if _, err := os.Lstat(dir); err == nil {
 		t.Fatalf("a killed install left a live driver directory behind: %s", dir)
 	}
-	if err := installDriverAtomic(dir, stubCompleteInstall); err != nil {
+	version := mustDriverVersion()
+	if err := installDriverAtomic(dir, version, stubCompleteInstall); err != nil {
 		t.Fatalf("the next install must succeed: %v", err)
 	}
-	if err := verifyDriverDir(dir); err != nil {
+	if err := verifyDriverDir(dir, version); err != nil {
 		t.Fatalf("the installed driver does not verify: %v", err)
 	}
 	if n := driverSiblings(dir); n != 0 {
@@ -134,7 +155,8 @@ func TestInstallDriverAtomicKilledInstallLeavesNoLiveDir(t *testing.T) {
 // A killed install over a working driver leaves the working driver exactly as it was.
 func TestInstallDriverAtomicKilledInstallKeepsTheOldDriver(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "pw-driver")
-	if err := installDriverAtomic(dir, stubCompleteInstall); err != nil {
+	version := mustDriverVersion()
+	if err := installDriverAtomic(dir, version, stubCompleteInstall); err != nil {
 		t.Fatal(err)
 	}
 	killAtStalledInstall(t, dir)
@@ -142,7 +164,7 @@ func TestInstallDriverAtomicKilledInstallKeepsTheOldDriver(t *testing.T) {
 	if err != nil || string(b) != "v1" {
 		t.Fatalf("the live driver was replaced by a killed install: version=%q err=%v", b, err)
 	}
-	if err := verifyDriverDir(dir); err != nil {
+	if err := verifyDriverDir(dir, version); err != nil {
 		t.Fatalf("the live driver no longer verifies: %v", err)
 	}
 	if driverHalfWritten(dir) {
@@ -153,10 +175,11 @@ func TestInstallDriverAtomicKilledInstallKeepsTheOldDriver(t *testing.T) {
 // An install that does not verify is refused, and the live driver is not touched.
 func TestInstallDriverAtomicRejectsAnInstallThatDoesNotVerify(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "pw-driver")
-	if err := installDriverAtomic(dir, stubCompleteInstall); err != nil {
+	version := mustDriverVersion()
+	if err := installDriverAtomic(dir, version, stubCompleteInstall); err != nil {
 		t.Fatal(err)
 	}
-	if err := installDriverAtomic(dir, stubNoNodeInstall); err == nil {
+	if err := installDriverAtomic(dir, version, stubNoNodeInstall); err == nil {
 		t.Fatalf("an install with no node must fail")
 	}
 	if b, err := os.ReadFile(filepath.Join(dir, "version")); err != nil || string(b) != "v1" {
@@ -186,7 +209,7 @@ func TestHalfWrittenDriverDirReadsAsMissing(t *testing.T) {
 	}
 }
 
-// Leftover temp and old directories from earlier interrupted installs are removed (N1c).
+// Leftover temp and old directories from an interrupted install, with no pid in their names, are removed.
 func TestInstallDriverAtomicRemovesLeftoverTemps(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "pw-driver")
 	for _, name := range []string{dir + driverTempInfix + "stale1", dir + driverOldInfix + "stale2"} {
@@ -194,7 +217,7 @@ func TestInstallDriverAtomicRemovesLeftoverTemps(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := installDriverAtomic(dir, stubCompleteInstall); err != nil {
+	if err := installDriverAtomic(dir, mustDriverVersion(), stubCompleteInstall); err != nil {
 		t.Fatal(err)
 	}
 	if n := driverSiblings(dir); n != 0 {
@@ -202,16 +225,17 @@ func TestInstallDriverAtomicRemovesLeftoverTemps(t *testing.T) {
 	}
 }
 
-// The install's temp dir is verified before it is renamed in: a half-written temp is never live.
+// A driver verifies only with node, cli.js, a package.json at the version, and a manifest that matches.
 func TestDriverVerifyNeedsNodeAndCliJs(t *testing.T) {
 	dir := t.TempDir()
-	if err := verifyDriverDir(dir); err == nil {
+	version := mustDriverVersion()
+	if err := verifyDriverDir(dir, version); err == nil {
 		t.Fatalf("an empty directory must not verify")
 	}
 	if err := stubNoNodeInstall(dir); err != nil {
 		t.Fatal(err)
 	}
-	if err := verifyDriverDir(dir); err == nil {
+	if err := verifyDriverDir(dir, version); err == nil {
 		t.Fatalf("a directory with no node must not verify")
 	}
 }

@@ -81,15 +81,17 @@ shorted CrawlIngestService ── verify JWT · allowlist · re-derive · quaran
        - **Budget (`-max-duration`):** at the deadline no new round starts and the running child gets its graceful stop. A child code of 0 or 10 ends the run as `budget` with exit 0. Any other child code is kept: a routine re-warm code (3 or 5) ends as `stopped` with that code and starts no cooldown, and the runtime owns the 2 h backoff.
     4. write one summary JSON line to stdout. Logs go to stderr.
 - **repair** takes the lock, forces install-driver (atomic, see below), warms Chrome and runs warmcheck. If the warm check fails or stalls, it runs the wedged-Chrome recovery (the rc 4 path) and checks once more. Exit 0 (repaired), 4 (not warm), 8 (environment broken), 7 (lock directory cannot be created), 10 (cancelled), 11 (a step hung), 12 (lock held) or 1 (internal error).
-- **preflight** is NON-mutating and takes no lock. It reports the lock (`free`, `held_elsewhere` or `unknown`; the holder's pid is never reported), the driver, Chrome reachability (`reachable` or `unreachable`, read-only: no warm, no launch, no fetch) and ProbeAuth. It claims nothing and installs nothing. It exits 0 whenever its checks ran, with the health in the summary, and exits non-zero only for an invalid configuration (8) or an internal error (1).
+- **preflight** is NON-mutating and takes no lock. It reports the lock (`free`, `held_elsewhere` or `unknown`; the holder's pid is never reported), the driver, Chrome reachability (`reachable` or `unreachable`, read-only: no warm, no launch, no fetch; `unknown` when the fetch mode is not CDP or the check stalls) and ProbeAuth. It claims nothing and installs nothing. It exits 0 whenever its checks ran, with the health in the summary, and exits non-zero only for an invalid configuration (8) or an internal error (1).
   - **Hung (11):** a child that emits no event for `CRAWL_HUNG_AFTER` gets SIGTERM to its process group, then SIGKILL after `CRAWL_HUNG_GRACE` (default 60s). The cycle exits 11. Fetch events are emitted per page, and start-up work emits `startup` events (`probe_auth`, `warm_probe`, each start and done), so silence means real silence.
 - **`CRAWL_HUNG_AFTER`:** default `max(20m, the worst silence)`. The worst silence is the sum of the silences the child can really have, with the defaults in brackets: 2 sources × 3 fetch attempts × `CRAWL_FETCH_TIMEOUT_S` (360 s); one CDP reconnect (120 s, an estimate, since playwright-go sets no timeout on the driver start and attach); the CDP watchdog, `CRAWL_CDP_WATCHDOG_S` or 3 × the fetch timeout (180 s); the widest page pace, 3 × `CRAWL_LISTINGS_PAGE_MAX_MS` (60 s); a push's retries, 3 × 60 s + 3 s (183 s); and the gap between suburbs, `CRAWL_MAX_DELAY_MS` (45 s). That is 948 s, so the 20-minute floor applies. Both the explicit value and the derived value are clamped to `30m − CRAWL_HUNG_GRACE − 5 s drain − 1m margin` (1675 s with the defaults), so the cycle's kill lands below the runtime's 30-minute watchdog. The clamp logs once.
   - **Parent death:** the cycle checks its parent every `parentCheckInterval` (1 s) while supervising or cooling down, and before each round, the drain's preflight and each repair step. A PPID of 1 means the runtime died: the cycle sends ONE SIGTERM to the round and finishes it, then exits 10 with its summary, and starts no new round. A broken cycle events fd is the same stop.
 - **Bounded steps:** each preflight and repair step runs under its own timeout and the cycle's context, so a deadline or a signal ends it at once. A step that misses its timeout gets a grace of 30 s to answer with its own code, and that code is the answer (a ProbeAuth that answers 14 in the grace is 14, not a hang). Only a step still silent after the grace is hung (11). The timeouts follow their budgets: driver install 6 min; ProbeAuth 4 min (its worst case is 3 × 60 s + 3 s = 183 s); Chrome 1106 s, about 18.5 min (launch 30 s, plus 3 warm probes of 312 s each, plus 2 recoveries of 70 s each); a warm check 312 s. Each step announces itself with a `phase` event, so the runtime's silence is one step plus its grace, never the sum of the steps.
-  - **SIGTERM/SIGINT:** the first signal is forwarded to the child group, which finishes its suburb and exits 10; the cycle exits 10. A second signal SIGKILLs the group and exits 10 at once.
+  - **SIGTERM/SIGINT:** the first signal sends one graceful SIGTERM to the child's PID (never the group); the child finishes its suburb and exits 10, and the cycle exits 10. A second signal SIGKILLs the child's group and exits with the code already decided (10 for a stop).
   - **`-max-duration`:** at the deadline no new round starts and the running child gets the SIGTERM above. The cycle exits 0 with outcome `budget`, unless the child returned a worse code.
   - **Output:** stdout is exactly one summary JSON line in the shape of "Cycle output contract (schema 1)" below. IDs, enums and counts only. Stderr carries the logs.
 - **Graceful stop:** ONE SIGTERM, to the child's PID only (never the group), sent once the child has reported `ready`. For a child that never reports ready (an older collector), the SIGTERM is sent at the 120 s ready wait if a stop is pending. A second signal SIGKILLs the child's group and exits with the decided code. A child that dies of a signal while a stop is pending exits 10; a signal death with no stop is internal (1).
+  - **Driver install (batch 6):** `-mode install-driver` (and the cycle's install and repair) is a NO-OP when the live driver verifies: the library's version, `package/package.json`, a manifest of the package's file count, and `node cli.js --version` (no download, no swap, the same inode). `-force` reinstalls. An install writes into a sibling temp directory, verifies it, and renames it into place, so a killed install never leaves a half-written driver. Every install takes `<driver-dir>.install.lock` (flock); a second installer waits up to 15 min, then exits 8. Leftover temp and old directories are removed only when their owning pid is not alive. `stage-rig.sh` runs install-driver on every staging, so an offline staging of a good driver exits 0.
+  - **`CRAWL_HUNG_GRACE`** must be between 10 s and 5 m; any other value is refused with exit 8 (outside that range the hung ceiling shrinks towards zero, or the kill never completes).
 - **Dry run:** `-dry-run` OR `CRAWL_DRY_RUN=true`. A dry run runs one round and sends no ReportCycle at all. The child is always told `CRAWL_DRY_RUN` explicitly.
   - **ReportCycle:** each child round reports its own counts-only row with `run_id = cycle_id`, and the server accumulates rounds that share a run id, as the bash drain's `CRAWL_RUN_ID` does. The cycle sends a zero-count gap report only for a round that hung, or that exited without a `round_done` and was not stopped by the cycle, and once for a preflight that fails with 4, 8 or 15 (ingest is reachable). It sends none for 12 (the legacy drainer holds the lock in shadow), or for 13 and 14 (which cannot report).
   - **Process groups:** the children are group leaders. Chrome launched by the collector runs under `Setsid`, a session of its own, so the group kill does NOT reach the warm browser. This is deliberate: the warm profile must survive a cycle. The Playwright driver and any fetcher-owned process stay in the child's group and are killed with it.
@@ -109,20 +111,20 @@ The table below is the history of the exit codes. Where it conflicts with the co
 
 | rc | Meaning | Runtime action |
 |---|---|---|
-| 0 | ok | next slot |
-| 1 | internal error: a panic, or a child exit code the table does not know | the contract's runtime policy: next slot; alarm after 3 consecutive |
-| 3 / 5 | re-warm budget spent / Kasada stub | one retry after 2 h; alarm after 3 cycles with no successes |
-| 4 | Chrome unusable | one retry after 30 min, then circuit and alarm |
-| 7 | agent infrastructure failed (including a BrandBrain mint outage) | retry at 5, 15 and 45 min, then alarm |
-| 8 | environment broken | the cycle runs install-driver once and retries once; the runtime does not retry; alarm `env_broken` |
-| 10 | cancelled | no retry |
-| 11 | hung (the cycle killed a child round that emitted no event for `CRAWL_HUNG_AFTER`) | one retry after 30 min, then circuit |
-| 12 | skipped: lock held | no retry; 3 consecutive gives `legacy_conflict` |
-| 13 | ingest auth refused | no retry; alarm `ingest_auth`; job deferred |
-| 14 | ingest unavailable | retry after 30 min, then 2 h; jobs deferred; alarm after 6 h |
-| 15 | ingest contract (collector too old or schema mismatch) | no retry; alarm `drift`; fix with a release and `upgrade_agent` |
+| 0 | ok | defers to the contract's runtime policy ("Runtime exit-code policy") |
+| 1 | internal error: a panic, or a child exit code the table does not know | defers to the contract's runtime policy ("Runtime exit-code policy") |
+| 3 / 5 | re-warm budget spent / Kasada stub | defers to the contract's runtime policy ("Runtime exit-code policy") |
+| 4 | Chrome unusable | defers to the contract's runtime policy ("Runtime exit-code policy") |
+| 7 | agent infrastructure failed (including a BrandBrain mint outage) | defers to the contract's runtime policy ("Runtime exit-code policy") |
+| 8 | environment broken | defers to the contract's runtime policy ("Runtime exit-code policy") |
+| 10 | cancelled | defers to the contract's runtime policy ("Runtime exit-code policy") |
+| 11 | hung (the cycle killed a child round that emitted no event for `CRAWL_HUNG_AFTER`) | defers to the contract's runtime policy ("Runtime exit-code policy") |
+| 12 | skipped: lock held | defers to the contract's runtime policy ("Runtime exit-code policy") |
+| 13 | ingest auth refused | defers to the contract's runtime policy ("Runtime exit-code policy") |
+| 14 | ingest unavailable | defers to the contract's runtime policy ("Runtime exit-code policy") |
+| 15 | ingest contract (collector too old or schema mismatch) | defers to the contract's runtime policy ("Runtime exit-code policy") |
 
-Never retried automatically: 8 (after its one repair), 10, 12, 13 and 15, plus WAF 403s. Portal blocks inside a drain are handled only by the circuit breaker's deferral. **Circuit:** 3 consecutive failures pause that job until `housing_crawl_run` or `housing_crawl_repair` is sent.
+Never retried automatically: 8 (after its one repair), 10, 12, 13 and 15, plus WAF 403s. Portal blocks inside a drain are handled only by the circuit breaker's deferral. **Circuit and retries:** the runtime's policy is in "Runtime exit-code policy" under the contract (the retries run first; 3 and 5 share one row; a backstop opens the circuit after 6 consecutive failed runs among the circuit codes). The rows above are its history.
 
 ### Cycle output contract (schema 1)
 
@@ -206,13 +208,13 @@ RFC 3339 timestamp. No listing data appears anywhere.
 | 4 | retry after 30 min |
 | 7 | retries at 5, 15 and 45 min |
 | 11 | one retry after 30 min |
-| 14 | retry after 30 min, then 2 h; alarm after 6 h of consecutive 14s |
+| 14 | retry after 30 min, then 2 h; then the circuit opens, raising `ingest_unavailable` |
 | 12 | next slot; 3 CONSECUTIVE 12s raise `legacy_conflict`; no circuit |
 | 8 | pause the job immediately (`env_broken`) |
 | 13 | pause the job immediately (`ingest_auth`) |
 | 15 | pause the job immediately (`drift`) |
 
-- **Circuit for 3/5, 4, 7, 11 and 14:** opens after 3 consecutive failed runs among these codes, but only once the latest failing code's own retry schedule is EXHAUSTED. A code's scheduled retries always run before the circuit opens. Example: 7 runs its 5, 15 and 45 min retries, and the circuit opens only if the 45 min retry also fails. A success resets every streak. Exit 10 changes nothing.
+- **Circuit for 3/5, 4, 7, 11 and 14:** opens after 3 consecutive failed runs among these codes, but only once the latest failing code's own retry schedule is EXHAUSTED. A code's scheduled retries always run before the circuit opens. Example: 7 runs its 5, 15 and 45 min retries, and the circuit opens only if the 45 min retry also fails. 3 and 5 are ONE row and share one schedule. A change of code does not restart a schedule that is already exhausted. As a backstop, the circuit opens unconditionally after 6 consecutive failed runs among these codes, whatever the schedules. A success resets every streak. Exit 10 changes nothing.
 - **"Pause the job":** it does not run at later slots. Pauses and open circuits stay closed to later slots and clear only on:
   - an operator `housing_crawl_run` or `housing_crawl_repair` (B5), or the interim local reset endpoint;
   - a collector revision change. This clears `drift`, and also any pause or circuit opened under the previous revision.

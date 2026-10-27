@@ -488,6 +488,10 @@ func loadCycleConfig(getenv func(string) string) cycleConfig {
 			cfg.hungAfter = d
 		}
 	}
+	// Every bound that can outlive the runtime's watchdog is clamped (batch 6, 3): the whole Chrome step
+	// and one warm probe.
+	cfg.chromeTimeout = clampToCeiling("the Chrome step", cfg.chromeTimeout, grace, &chromeClampOnce)
+	cfg.warmTimeout = clampToCeiling("one warm probe", cfg.warmTimeout, grace, &warmClampOnce)
 	// Explicit and derived values are both bounded (batch 5 item 9).
 	cfg.hungAfter = clampHungAfter(cfg.hungAfter, grace, &hungClampOnce)
 	if cfg.maxRounds <= 0 {
@@ -568,6 +572,14 @@ func validateCycleEnv(getenv func(string) string) error {
 			return fmt.Errorf("CRAWL_HUNG_AFTER must be a positive duration (got %q)", raw)
 		}
 	}
+	// The hung kill waits this long between SIGTERM and SIGKILL. Too short and a slow group never empties;
+	// too long and the ceiling (the 30 m watchdog less grace and drain) shrinks towards zero (batch 6, 4).
+	if raw := strings.TrimSpace(getenv("CRAWL_HUNG_GRACE")); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil || d < minHungGrace || d > maxHungGrace {
+			return fmt.Errorf("CRAWL_HUNG_GRACE must be between %s and %s (got %q)", minHungGrace, maxHungGrace, raw)
+		}
+	}
 	return nil
 }
 
@@ -623,11 +635,9 @@ func runCycleMode(stdout io.Writer, job string, dryRunFlag bool, maxDuration tim
 
 	deps := cycleDeps{
 		driverPresent:   checkPlaywrightDriver,
-		installDriver:   runInstallDriver,
-		ensureChrome:    defaultEnsureChrome,
+		installDriver:   func() int { return runInstallDriver(false) },
 		chromeReachable: defaultChromeReachable,
 		recoverChrome:   defaultRecoverChrome,
-		warmcheck:       func(ctx context.Context) int { return runWarmCheck(ctx, nil) },
 		stdout:          stdout,
 		events:          events,
 		now:             time.Now,
@@ -659,6 +669,10 @@ func runCycleMode(stdout io.Writer, job string, dryRunFlag bool, maxDuration tim
 	deps.probeIngest = func(ctx context.Context) (int, string) { return probeIngestDetail(ctx, ingestURL) }
 	deps.reportGap = func(cycleID, outcome string, exit int) { reportGapWith(cycleID, outcome, exit, ingestURL) }
 	c := newCycleRunner(cfg, deps)
+	// The Chrome step and the warm check report each warm probe as startup events, and bound each probe
+	// separately (batch 6, 3). They need this runner's emitter, so they are bound here.
+	c.deps.ensureChrome = func(ctx context.Context) (string, int) { return defaultEnsureChrome(ctx, c.warmProbeOnce) }
+	c.deps.warmcheck = c.warmProbeOnce
 	return c.execute()
 }
 
@@ -2015,7 +2029,7 @@ func (c *cycleRunner) emitRoundDone(round int, r cycleRound) {
 // defaultEnsureChrome is the production Chrome warm for a drain or repair. It uses the existing
 // warm logic (ensureChromeWarm), in CDP mode only. State is one of not_used, skipped, warm,
 // unusable (exit 4) or env_broken (exit 8).
-func defaultEnsureChrome(ctx context.Context) (string, int) {
+func defaultEnsureChrome(ctx context.Context, probe func(context.Context) int) (string, int) {
 	cfg := loadListingsConfig()
 	if selectFetcherMode(cfg.crawlConfig) != fetcherModeCDP {
 		return "not_used", 0
@@ -2028,7 +2042,7 @@ func defaultEnsureChrome(ctx context.Context) (string, int) {
 		reachable: chromeReachable,
 		launch:    launchDedicatedChrome,
 		recover:   recoverWedgedChrome,
-		warmProbe: func() int { return runWarmCheck(ctx, nil) },
+		warmProbe: func() int { return probe(ctx) },
 	}
 	if err := ensureChromeWarm(ccfg, deps); err != nil {
 		if rc := agentExitForWarmFailure(err); rc == exitCrawlEnvBroken {
@@ -2262,19 +2276,23 @@ func cycleSilenceWorst(getenv func(string) string) time.Duration {
 
 // warmProbeWorst is one warm probe: a reconnect, the watchdog on its fetch, and the settle.
 func warmProbeWorst(getenv func(string) string) time.Duration {
-	return cdpReconnectBudget + cdpWatchdog(getenv) + settleCap
+	// runWarmCheck builds a fetcher (a driver start and an attach: one reconnect budget), then fetches
+	// with the CDP watchdog. A stalled fetch reconnects once and retries (crawl_cdp.go fetch), which is
+	// a second reconnect and a second watchdog. Settle is the page's settle cap.
+	return 2*(cdpReconnectBudget+cdpWatchdog(getenv)) + settleCap
 }
 
 // chromeStepTimeout is the Chrome step's worst case, following ensureChromeWarm: one launch, then
 // (1 + warmMaxAttempts) warm probes, with warmMaxAttempts recoveries, each followed by a launch.
 //
 //	launch            30 s
-//	probes            (1 + 2) x 312 s = 936 s     (312 s = reconnect 120 + watchdog 180 + settle 12)
+//	probes            (1 + 2) x 612 s = 1836 s    (612 s = 2 x (reconnect 120 + watchdog 180) + settle 12)
 //	recoveries        2 x (40 s + 30 s) = 140 s
-//	total             1106 s, about 18.5 min
+//	total             2006 s, about 33 min
 //
-// The runtime's silence watchdog is 30 minutes. The preflight is a sequence of steps that each emit
-// a phase event first, so the longest silence is one step plus its grace (about 19 min), not the sum.
+// The total is clamped to the runtime ceiling (clampToCeiling), so the step never outlives the 30-minute
+// watchdog. Each probe is bounded and reported on its own (warmProbeOnce), so the silence on the events
+// fd is one probe at most, never this total.
 func chromeStepTimeout(getenv func(string) string) time.Duration {
 	return chromeLaunchWorst +
 		time.Duration(1+warmMaxAttempts)*warmProbeWorst(getenv) +
@@ -2290,12 +2308,80 @@ func hungCeiling(grace time.Duration) time.Duration {
 // clampHungAfter bounds a silence limit, explicit or derived, so the cycle's kill lands below the
 // runtime's watchdog. It logs the clamp once per once value.
 func clampHungAfter(d, grace time.Duration, once *sync.Once) time.Duration {
+	return clampToCeiling("CRAWL_HUNG_AFTER", d, grace, once)
+}
+
+// --- batch 6 helpers ---
+
+const (
+	// minHungGrace and maxHungGrace bound CRAWL_HUNG_GRACE (validateCycleEnv).
+	minHungGrace = 10 * time.Second
+	maxHungGrace = 5 * time.Minute
+)
+
+// chromeClampOnce and warmClampOnce keep each clamp's log line to one per process.
+var (
+	chromeClampOnce sync.Once
+	warmClampOnce   sync.Once
+)
+
+// clampToCeiling bounds a step or probe timeout so it lands below the runtime's watchdog, and logs the
+// clamp once per once value.
+func clampToCeiling(name string, d, grace time.Duration, once *sync.Once) time.Duration {
 	ceil := hungCeiling(grace)
 	if d <= ceil {
 		return d
 	}
 	once.Do(func() {
-		log.Printf("[cycle] CRAWL_HUNG_AFTER %s is above the ceiling %s (the %s runtime watchdog less the %s grace and the drain); clamped", d, ceil, runtimeWatchdog, grace)
+		log.Printf("[cycle] %s bound %s is above the ceiling %s (the %s runtime watchdog less the %s grace and the drain); clamped", name, d, ceil, runtimeWatchdog, grace)
 	})
 	return ceil
+}
+
+// warmProbeOnce runs one warm probe under its own bound, between a start and a done startup event.
+func (c *cycleRunner) warmProbeOnce(ctx context.Context) int {
+	c.warmEvent("start", "")
+	return boundedWarm(ctx, c.cfg.warmTimeout, func(pctx context.Context) int {
+		return runWarmCheck(pctx, nil)
+	}, func(rc int) {
+		c.warmEvent("done", warmProbeOutcome(rc))
+	})
+}
+
+// warmEvent writes a warm_probe startup event. outcome is set only on done (contract).
+func (c *cycleRunner) warmEvent(stage, outcome string) {
+	fields := map[string]any{"step": "warm_probe", "stage": stage}
+	if outcome != "" {
+		fields["outcome"] = outcome
+	}
+	c.emit("startup", fields)
+}
+
+// boundedWarm runs one warm probe under bound. A probe still running at the bound is abandoned and reads
+// as unusable (4), which the Chrome step turns into a recovery. A panic reads as env_broken (8).
+func boundedWarm(ctx context.Context, bound time.Duration, run func(context.Context) int, finish func(rc int)) int {
+	res := make(chan int, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[cycle] warm probe panicked: %v\n%s", r, debug.Stack())
+				res <- exitCrawlEnvBroken
+			}
+		}()
+		res <- run(ctx)
+	}()
+	timer := time.NewTimer(bound)
+	defer timer.Stop()
+	select {
+	case rc := <-res:
+		finish(rc)
+		return rc
+	case <-timer.C:
+		log.Printf("[cycle] a warm probe exceeded its %s bound — abandoned, read as unusable", bound)
+		finish(4)
+		return 4
+	case <-ctx.Done():
+		finish(4)
+		return 4
+	}
 }
