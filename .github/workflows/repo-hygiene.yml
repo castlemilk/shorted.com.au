@@ -51,6 +51,9 @@ on:
       - "terraform/modules/**"
       # cost-guardrails.test.mjs pins prod's report_extractor limits too.
       - "terraform/environments/prod/main.tf"
+      - "terraform/environments/prod/variables.tf"
+      - "terraform/tests/metrics-routing/**"
+      - "scripts/tests/metrics-routing.test.py"
       - ".github/workflows/repo-hygiene.yml"
       # Scheduled jobs on Kubernetes: the chart, its scripts, and the guard
       # that keeps local.jobs_on_vke and the chart's `enabled` list in step.
@@ -209,6 +212,8 @@ jobs:
           sparse-checkout: |
             deploy/kubernetes/jobs
             terraform
+            scripts/tests
+            .github/workflows
 
       - uses: azure/setup-helm@v4
         with:
@@ -227,13 +232,23 @@ jobs:
         with:
           python-version: "3.12"
 
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14.6"
+          terraform_wrapper: false
+
       - name: Chart render contract
         run: deploy/kubernetes/jobs/chart/tests/render.sh
 
       - name: Monitor registration tests
         run: |
-          python -m pip install --quiet pyyaml
+          python -m pip install --quiet PyYAML==6.0.3
           python -m unittest discover -s deploy/kubernetes/jobs/scripts -p 'test_*.py' -v
+
+      - name: Metrics-only routing contracts (no cloud credentials)
+        run: |
+          python scripts/tests/metrics-routing.test.py
+          python terraform/tests/metrics-routing/run.py
 
   # web/public/openapi.{json,yaml} is a generated, PUBLISHED artifact. A stale
   # one is worse than none: it reads as authoritative while documenting an API

@@ -86,6 +86,14 @@ resource "google_secret_manager_secret_iam_member" "otel_headers" {
   project   = var.project_id
 }
 
+resource "google_secret_manager_secret_iam_member" "otel_metrics_headers" {
+  count     = var.otel_metrics.enabled ? 1 : 0
+  project   = var.project_id
+  secret_id = var.otel_metrics.headers_secret
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.enrichment_processor.email}"
+}
+
 # Cloud Run Service (v2) for processing enrichment jobs
 # Runs continuously and polls Pub/Sub subscription for jobs
 resource "google_cloud_run_v2_service" "enrichment_processor" {
@@ -210,6 +218,31 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
         }
       }
 
+      dynamic "env" {
+        for_each = var.otel_metrics.enabled ? {
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT               = var.otel_metrics.endpoint
+          OTEL_EXPORTER_OTLP_METRICS_PROTOCOL               = "http/protobuf"
+          OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE = "cumulative"
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.otel_metrics.enabled ? [var.otel_metrics.headers_secret] : []
+        content {
+          name = "OTEL_EXPORTER_OTLP_METRICS_HEADERS"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+
       resources {
         limits = {
           cpu    = "1"
@@ -253,6 +286,7 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
     google_secret_manager_secret_iam_member.openai_api_key,
     google_secret_manager_secret_iam_member.internal_service_secret,
     google_secret_manager_secret_iam_member.otel_headers,
+    google_secret_manager_secret_iam_member.otel_metrics_headers,
     google_secret_manager_secret_iam_member.internal_service_secret,
     google_pubsub_subscription_iam_member.processor_subscriber
   ]

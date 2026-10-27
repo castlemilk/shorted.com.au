@@ -1319,6 +1319,8 @@ module "influence_collector" {
 module "shorts_api" {
   source = "../../modules/shorts-api"
 
+  otel_metrics = var.otel_metrics
+
   project_id        = var.project_id
   region            = var.region
   environment       = "production"
@@ -1533,6 +1535,8 @@ resource "google_cloud_run_v2_job_iam_member" "shorts_api_alerts_replay" {
 module "enrichment_processor" {
   source = "../../modules/enrichment-processor"
 
+  otel_metrics = var.otel_metrics
+
   project_id        = var.project_id
   region            = "us-central1" # Tier 1 pricing — batch job, latency irrelevant
   environment       = "production"
@@ -1576,6 +1580,8 @@ module "weekly_report_generator" {
 # Market Data API Service (Connect-RPC, port 8090)
 module "market_data" {
   source = "../../modules/market-data"
+
+  otel_metrics = var.otel_metrics
 
   project_id    = var.project_id
   region        = var.region

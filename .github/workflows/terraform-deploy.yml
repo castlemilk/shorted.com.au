@@ -400,6 +400,8 @@ jobs:
           OPENROUTER_API_KEY_CHAT: ${{ secrets.OPENROUTER_API_KEY_CHAT }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+          # Optional dedicated ingestion credential; never reuse Grafana headers.
+          TELESIS_OTLP_METRICS_HEADERS: ${{ secrets.TELESIS_OTLP_METRICS_HEADERS }}
           # CREATE ONLY. This job has no GitHub environment, so it reads each secret's
           # project-level copy in Cuttlefish; terraform-apply and deploy-vercel-prod run
           # in the `prod` environment and read a `prod` copy when one is set. When the
@@ -456,6 +458,7 @@ jobs:
           # Resolve step applies. Cloud Run references them by name, so a missing secret
           # would fail the revision.
           has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
+          if has_content "$TELESIS_OTLP_METRICS_HEADERS"; then ensure_secret "TELESIS_OTLP_METRICS_HEADERS" "$TELESIS_OTLP_METRICS_HEADERS"; fi
           if has_content "$FLAGGR_API_KEY"; then ensure_secret "FLAGGR_API_KEY" "$FLAGGR_API_KEY"; fi
           if has_content "$DEEPSEEK_API_KEY"; then ensure_secret "DEEPSEEK_API_KEY" "$DEEPSEEK_API_KEY"; fi
           if has_content "$RESEND_WEBHOOK_SECRET"; then ensure_secret "RESEND_WEBHOOK_SECRET" "$RESEND_WEBHOOK_SECRET"; fi
@@ -661,6 +664,8 @@ jobs:
           DATABASE_URL_DEV: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+          # Optional dedicated ingestion credential; never reuse Grafana headers.
+          TELESIS_OTLP_METRICS_HEADERS: ${{ secrets.TELESIS_OTLP_METRICS_HEADERS }}
           ALGOLIA_APP_ID: ${{ secrets.ALGOLIA_APP_ID }}
           ALGOLIA_SEARCH_KEY: ${{ secrets.ALGOLIA_SEARCH_KEY }}
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
@@ -716,6 +721,7 @@ jobs:
           # Resolve step applies. Cloud Run references them by name, so a missing secret
           # would fail the revision.
           has_content() { [ -n "$(printf '%s' "$1" | tr -d '\r\n[:space:]')" ]; }
+          if has_content "$TELESIS_OTLP_METRICS_HEADERS"; then ensure_secret "TELESIS_OTLP_METRICS_HEADERS" "$TELESIS_OTLP_METRICS_HEADERS"; fi
           if has_content "$FLAGGR_API_KEY"; then ensure_secret "FLAGGR_API_KEY" "$FLAGGR_API_KEY"; fi
           if has_content "$DEEPSEEK_API_KEY"; then ensure_secret "DEEPSEEK_API_KEY" "$DEEPSEEK_API_KEY"; fi
           if has_content "$RESEND_WEBHOOK_SECRET"; then ensure_secret "RESEND_WEBHOOK_SECRET" "$RESEND_WEBHOOK_SECRET"; fi

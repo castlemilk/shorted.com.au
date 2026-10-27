@@ -25,7 +25,9 @@ for bin in kubectl gcloud helm yq jq; do
 done
 
 secret_name="$(yq '.secretEnv.secretName' "${chart}/values.yaml")"
-keys="$(helm template shorted-jobs "${chart}" --namespace "${NAMESPACE}" \
+# Forward reviewed Helm values/--set options so a disabled-by-default profile
+# can have its Secret provisioned before enabling the live Application.
+keys="$(helm template shorted-jobs "${chart}" --namespace "${NAMESPACE}" "$@" \
   | yq -N '.. | select(has("secretKeyRef")) | .secretKeyRef | select(.name == "'"${secret_name}"'") | .key' \
   | sort -u)"
 
