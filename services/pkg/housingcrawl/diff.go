@@ -3,7 +3,9 @@ package housingcrawl
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
+	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -24,9 +26,20 @@ import (
 // only. For the collector these two steps are idempotent: its sweep already
 // applied them, so they change nothing it writes.
 //
-// A BLOCKED sweep returns at once and writes nothing. The returned Result is
-// meaningful on error too.
+// A BLOCKED sweep writes nothing. The returned Result is meaningful on error too.
+//
+// ApplySweep validates its input before it opens a transaction. It returns an
+// error wrapping ErrInvalidSweep, with no writes, when the sweep is unsafe to
+// apply: a zero DelistGrace or a non-positive noise threshold (an empty Config
+// would delist on the first miss and record a $0 price_drop on every unchanged
+// re-crawl), an unknown Status, a zero RunTS, or a listing whose Source is not the
+// sweep's Source (the lookup uses the sweep's source, the write uses the
+// listing's). The checks run before the BLOCKED return, so a malformed sweep is
+// rejected whatever its status.
 func ApplySweep(ctx context.Context, pool *pgxpool.Pool, sw Sweep) (Result, error) {
+	if err := validateSweep(sw); err != nil {
+		return Result{}, err
+	}
 	res := Result{Applied: sw.Status}
 	if sw.Status == Blocked {
 		return res, nil // saw nothing believable — touch nothing
@@ -50,6 +63,38 @@ func ApplySweep(ctx context.Context, pool *pgxpool.Pool, sw Sweep) (Result, erro
 		return res, err
 	}
 	return res, nil
+}
+
+// ErrInvalidSweep is wrapped by every error ApplySweep returns for a sweep it
+// refuses to apply. Check it with errors.Is.
+var ErrInvalidSweep = errors.New("invalid housing sweep")
+
+// validateSweep reports the first rule a sweep breaks. It reads only the sweep, so
+// it runs before any transaction is opened.
+func validateSweep(sw Sweep) error {
+	switch sw.Status {
+	case Complete, Partial, Blocked:
+	default:
+		return fmt.Errorf("%w: unknown status %q", ErrInvalidSweep, sw.Status)
+	}
+	if sw.Rules.DelistGrace <= 0 {
+		return fmt.Errorf("%w: DelistGrace must be > 0, got %d", ErrInvalidSweep, sw.Rules.DelistGrace)
+	}
+	if math.IsNaN(sw.Rules.NoiseAbs) || sw.Rules.NoiseAbs <= 0 {
+		return fmt.Errorf("%w: NoiseAbs must be > 0, got %v", ErrInvalidSweep, sw.Rules.NoiseAbs)
+	}
+	if math.IsNaN(sw.Rules.NoisePct) || sw.Rules.NoisePct <= 0 {
+		return fmt.Errorf("%w: NoisePct must be > 0, got %v", ErrInvalidSweep, sw.Rules.NoisePct)
+	}
+	if sw.RunTS.IsZero() {
+		return fmt.Errorf("%w: RunTS is zero", ErrInvalidSweep)
+	}
+	for _, l := range sw.Listings {
+		if l.Source != sw.Source {
+			return fmt.Errorf("%w: listing %q has source %q, sweep is %q", ErrInvalidSweep, l.ListingID, l.Source, sw.Source)
+		}
+	}
+	return nil
 }
 
 // gateListings keeps the listings that belong to the target and clamps each

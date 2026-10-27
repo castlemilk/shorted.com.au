@@ -2,6 +2,7 @@ package housingcrawl
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -346,5 +347,32 @@ func TestApplySweep_ClampBeforeEventDerivation_Integration(t *testing.T) {
 	if n := countWhere(t, ctx, pool,
 		`SELECT count(*) FROM property_price_events WHERE listing_id='B' AND event_type IN ('price_rise','price_drop')`); n != 0 {
 		t.Errorf("clamped listing B wrote %d price move event(s)", n)
+	}
+}
+
+// A refused sweep writes nothing, not even the listings that were valid. The
+// listing from the wrong source sits after a good one, so a partial-write bug
+// (validating inside the transaction, or per listing) would leave listing A behind.
+func TestApplySweep_SourceMismatchWritesNothing_Integration(t *testing.T) {
+	ctx, pool := applyTestDB(t)
+	seedActive(t, ctx, pool, "B", 0)
+
+	wrong := fixedListing("C", 1_100_000)
+	wrong.Source = "domain"
+	_, err := ApplySweep(ctx, pool, Sweep{
+		Target: applyTarget, Source: "rea", Status: Complete, RunTS: time.Now().UTC(), Rules: testRules(),
+		Listings: []RawListing{fixedListing("A", 1_200_000), wrong},
+	})
+	if err == nil || !errors.Is(err, ErrInvalidSweep) {
+		t.Fatalf("want ErrInvalidSweep for a cross-source listing, got %v", err)
+	}
+	if n := countWhere(t, ctx, pool, `SELECT count(*) FROM property_listings`); n != 1 {
+		t.Errorf("refused sweep wrote rows: property_listings=%d, want only the seeded B", n)
+	}
+	if n := countWhere(t, ctx, pool, `SELECT count(*) FROM property_price_events`); n != 0 {
+		t.Errorf("refused sweep wrote %d event(s)", n)
+	}
+	if active, missed := listingActive(t, ctx, pool, "B"); !active || missed != 0 {
+		t.Errorf("refused sweep touched B: active=%v missed=%d", active, missed)
 	}
 }

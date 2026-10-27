@@ -6,7 +6,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 const up = read("./000128_repoint_stripped_sal_links.up.sql");
 const down = read("./000128_repoint_stripped_sal_links.down.sql");
-const store = read("../house-price-collector/store.go");
+const store = read("../pkg/housingcrawl/regions.go");
 
 const squash = (s) => s.replace(/\s+/g, " ");
 const upSq = squash(up);
@@ -25,9 +25,9 @@ test("000128 is one transaction with the pooler's timeout disarmed in-session", 
 
 test("the target is linkStrippedSalSQL's pick, verbatim", () => {
   const link = store.match(/const linkStrippedSalSQL = `([\s\S]*?)`/)?.[1];
-  assert.ok(link, "linkStrippedSalSQL must exist in store.go");
+  assert.ok(link, "linkStrippedSalSQL must exist in regions.go");
   const strip = squash(link).match(/upper\(trim\(regexp_replace\(d\.sal_name, '([^']+)', ''\)\)\)/)?.[1];
-  assert.ok(strip, "store.go's stripping pattern");
+  assert.ok(strip, "regions.go's stripping pattern");
   assert.ok(
     up.includes(`regexp_replace(d.sal_name, '${strip}', '')`),
     "000128 must strip the qualifier exactly as linkStrippedSalSQL does",

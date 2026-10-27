@@ -604,7 +604,7 @@ tasks:
       # it never took effect: the run gets the role's default timeout, the same
       # one the scheduled shorted-economy job has always run under. If an
       # importer ever needs longer, it must SET LOCAL in its own transaction
-      # (see refreshHousingMV in services/house-price-collector/store.go).
+      # (see RefreshHousingMV in services/pkg/housingcrawl/regions.go).
     cmds:
       - 'GOWORK=off go run . economy -mode {{.MODE}}'
 

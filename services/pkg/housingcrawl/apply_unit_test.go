@@ -218,3 +218,52 @@ func hasEvent(evs []PriceEvent, kind string) bool {
 func testDiffer() *differ {
 	return &differ{cfg: testRules(), res: &Result{}}
 }
+
+// A move must clear BOTH the dollar floor and the percentage gate. $10M to $9.994M
+// is a $6,000 drop (over the $5,000 floor) but only 0.06% (under the 0.5% gate), so
+// it is not a price drop. Removing either gate would make this fire.
+func TestEventsFor_PercentGateAndDollarFloorBothRequired(t *testing.T) {
+	fixed := func(v float64) RawListing {
+		return RawListing{PriceLow: new(v), PriceKind: PriceFixed, Status: "for_sale"}
+	}
+	prev := func(v float64) *storedListing {
+		return &storedListing{Price: new(v), PriceKind: PriceFixed, Status: "for_sale", IsActive: true}
+	}
+	moves := func(evs []PriceEvent) bool {
+		for _, e := range evs {
+			if e.EventType == "price_drop" || e.EventType == "price_rise" {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Clears the $5,000 floor, misses the 0.5% gate: no move, either direction.
+	d := testDiffer()
+	if evs, moved := d.eventsFor(prev(10_000_000), fixed(9_994_000)); moved || moves(evs) {
+		t.Errorf("$6k on $10M (0.06%%) must not move, got %v", evs)
+	}
+	if evs, moved := d.eventsFor(prev(10_000_000), fixed(10_006_000)); moved || moves(evs) {
+		t.Errorf("$6k rise on $10M (0.06%%) must not move, got %v", evs)
+	}
+
+	// Clears the 0.5% gate, misses the $5,000 floor: no move.
+	if evs, moved := testDiffer().eventsFor(prev(100_000), fixed(99_000)); moved || moves(evs) {
+		t.Errorf("$1k on $100k (1%%) is under the dollar floor and must not move, got %v", evs)
+	}
+
+	// Positive control: clears both gates, so it does move.
+	evs, moved := testDiffer().eventsFor(prev(10_000_000), fixed(9_900_000))
+	if !moved || !hasKind(evs, "price_drop") {
+		t.Errorf("$100k on $10M (1%%, over the floor) must be a price_drop, got %v moved=%v", evs, moved)
+	}
+}
+
+func hasKind(evs []PriceEvent, kind string) bool {
+	for _, e := range evs {
+		if e.EventType == kind {
+			return true
+		}
+	}
+	return false
+}
