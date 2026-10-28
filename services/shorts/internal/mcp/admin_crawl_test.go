@@ -105,6 +105,15 @@ type fakeCrawlOp struct {
 	store  CrawlRigStore
 	grants CrawlGrantClient
 	email  string
+	// admits maps a subject to the ingest admission answer; absent means "unknown".
+	admits map[string]string
+}
+
+func (f *fakeCrawlOp) CrawlIngestAdmission(_ context.Context, subject string) string {
+	if v, ok := f.admits[subject]; ok {
+		return v
+	}
+	return "unknown"
 }
 
 func (f *fakeCrawlOp) CrawlRigStore() CrawlRigStore { return f.store }
@@ -123,6 +132,15 @@ type bbStandIn struct {
 	redirectTo string
 	subject    string
 	mintReason string
+	// answerRigID, when set, is the rig_id the answer names (default: the rig asked for).
+	answerRigID string
+	// putAnswerGranted, when set, overrides the granted value a PUT answers with.
+	putAnswerGranted *bool
+	// putAnswerRigID and putAnswerSubject, when set, override what a PUT names.
+	putAnswerRigID   string
+	putAnswerSubject string
+	// plain404, when set, answers 404 with a plain-text mux body rather than the contract's.
+	plain404 bool
 }
 
 func newBBStandIn(t *testing.T, trace *crawlTrace, cfg *bbStandIn) *httptest.Server {
@@ -140,8 +158,7 @@ func newBBStandIn(t *testing.T, trace *crawlTrace, cfg *bbStandIn) *httptest.Ser
 		if r.Method == http.MethodGet {
 			trace.add("bb.GET")
 			if cfg.getStatus != 0 && cfg.getStatus != http.StatusOK {
-				w.WriteHeader(cfg.getStatus)
-				_, _ = fmt.Fprintf(w, `{"detail":"%s"}`, crawlToken)
+				writeStatus(w, cfg, cfg.getStatus)
 				return
 			}
 			writeGrant(w, cfg)
@@ -157,28 +174,59 @@ func newBBStandIn(t *testing.T, trace *crawlTrace, cfg *bbStandIn) *httptest.Ser
 			time.Sleep(cfg.putDelay)
 		}
 		if cfg.putStatus != 0 && cfg.putStatus != http.StatusOK {
-			w.WriteHeader(cfg.putStatus)
-			_, _ = fmt.Fprintf(w, `{"detail":"%s"}`, crawlToken)
+			writeStatus(w, cfg, cfg.putStatus)
 			return
 		}
 		cfg.granted = body.Granted
-		writeGrant(w, cfg)
+		if cfg.putAnswerGranted != nil {
+			cfg.granted = *cfg.putAnswerGranted
+		}
+		rigID, subject := cfg.answerRigID, cfg.subject
+		if cfg.putAnswerRigID != "" {
+			rigID = cfg.putAnswerRigID
+		}
+		if cfg.putAnswerSubject != "" {
+			subject = cfg.putAnswerSubject
+		}
+		writeGrantAs(w, cfg, rigID, subject)
 	}))
 	t.Cleanup(srv.Close)
 	return srv
 }
 
+// writeStatus answers an error. A 404 carries the contract's body unless plain404 asks for
+// a route-missing page. The body never includes the token, so a leak test sees none.
+func writeStatus(w http.ResponseWriter, cfg *bbStandIn, status int) {
+	w.WriteHeader(status)
+	switch {
+	case status == http.StatusNotFound && cfg.plain404:
+		_, _ = io.WriteString(w, "404 page not found")
+	case status == http.StatusNotFound:
+		_, _ = io.WriteString(w, `{"code":"rig_not_found","message":"no such rig"}`)
+	default:
+		_, _ = fmt.Fprintf(w, `{"code":"upstream","detail":"%s"}`, crawlToken)
+	}
+}
+
 func writeGrant(w http.ResponseWriter, cfg *bbStandIn) {
+	writeGrantAs(w, cfg, cfg.answerRigID, cfg.subject)
+}
+
+func writeGrantAs(w http.ResponseWriter, cfg *bbStandIn, answerRigID, answerSubject string) {
 	reason := cfg.mintReason
 	if reason == "" {
 		reason = "ok"
 	}
-	subject := cfg.subject
+	subject := answerSubject
 	if subject == "" {
 		subject = "rig:rig-1"
 	}
+	rigID := answerRigID
+	if rigID == "" {
+		rigID = "rig-1"
+	}
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"rig_id": "rig-1", "granted": cfg.granted, "admin_state": "active", "version": "9",
+		"rig_id": rigID, "granted": cfg.granted, "admin_state": "active", "version": "9",
 		"principal_kind": "rig_token", "can_mint": reason == "ok", "can_mint_reason": reason,
 		"workload_subject": subject,
 	})
@@ -189,6 +237,7 @@ type crawlFixture struct {
 	store *fakeCrawlStore
 	bb    *bbStandIn
 	srv   *httptest.Server
+	pub   *fakePublisher
 }
 
 // newCrawlFixture wires the real brandbrain client to an httptest stand-in and
@@ -205,7 +254,7 @@ func newCrawlFixture(t *testing.T, bb *bbStandIn, timeout time.Duration) *crawlF
 	store := &fakeCrawlStore{trace: trace, rows: map[string]CrawlRigRow{}}
 	pub := &fakePublisher{fakeCrawlOp: fakeCrawlOp{store: store, grants: client, email: "ops@shorted.com.au"}}
 	h := adminStackHandler(t, pub)
-	return &crawlFixture{trace: trace, store: store, bb: bb, srv: h}
+	return &crawlFixture{trace: trace, store: store, bb: bb, srv: h, pub: pub}
 }
 
 func adminStackHandler(t *testing.T, pub AdminOperator) *httptest.Server {
@@ -360,7 +409,7 @@ func TestDisableNeedsNoConfirm(t *testing.T) {
 // --- sequencing ------------------------------------------------------------------
 
 func TestEnableRunsGetPutThenTheShortedWriteForTheServersSubject(t *testing.T) {
-	fx := newCrawlFixture(t, &bbStandIn{subject: "rig:from-brandbrain"}, 0)
+	fx := newCrawlFixture(t, &bbStandIn{subject: "rig:rig-1"}, 0)
 	raw := crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, `,"note":"  the Sydney rig  "`))
 	res := parseToolResult(t, raw)
 	require.False(t, res.Refused, raw)
@@ -368,14 +417,84 @@ func TestEnableRunsGetPutThenTheShortedWriteForTheServersSubject(t *testing.T) {
 	assert.Equal(t, []string{
 		"bb.GET",
 		"bb.PUT granted=true operator=ops@shorted.com.au",
-		"store.enable rig:from-brandbrain",
+		"store.enable rig:rig-1",
 	}, fx.trace.snapshot())
 	require.NotNil(t, fx.store.enabledNote)
 	assert.Equal(t, "the Sydney rig", *fx.store.enabledNote, "the note is trimmed")
 	assert.Equal(t, "enabled", res.Structured["shorted"])
 	assert.Equal(t, "granted", res.Structured["brandbrain"])
 	assert.Equal(t, true, res.Structured["can_mint"])
-	assert.Equal(t, "rig:from-brandbrain", res.Structured["workload_subject"])
+	assert.Equal(t, "rig:rig-1", res.Structured["workload_subject"])
+}
+
+// --- BrandBrain's answer decides nothing about which row is written -----------------
+
+// The answer's subject is not rig:<rig_id>. Enabling must write nothing, not even for the
+// subject the answer names.
+func TestEnableAgainstAVictimSubjectWritesNothing(t *testing.T) {
+	fx := newCrawlFixture(t, &bbStandIn{subject: "rig:victim"}, 0)
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, "")))
+	require.False(t, res.Refused, res.Text)
+	assert.Equal(t, "invalid", res.Structured["brandbrain"])
+	assert.Equal(t, "unchanged", res.Structured["shorted"])
+	assert.Empty(t, fx.store.rows, "enable wrote a row for a subject BrandBrain named")
+	for _, e := range fx.trace.snapshot() {
+		assert.NotContains(t, e, "store.", "shorted was written from a mismatched answer")
+		assert.NotContains(t, e, "bb.PUT", "a PUT was sent after an invalid GET")
+	}
+}
+
+// The answer names another rig_id. Enabling rig-1 writes nothing for it.
+func TestEnableAgainstAnotherRigIDWritesNothing(t *testing.T) {
+	fx := newCrawlFixture(t, &bbStandIn{answerRigID: "rig-2", subject: "rig:rig-2"}, 0)
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, "")))
+	require.False(t, res.Refused, res.Text)
+	assert.Equal(t, "invalid", res.Structured["brandbrain"])
+	assert.Empty(t, fx.store.rows)
+	for _, e := range fx.trace.snapshot() {
+		assert.NotContains(t, e, "store.")
+	}
+}
+
+// Disabling rig-1 whose answer names a bystander's subject never touches that row.
+func TestDisableRigIDNeverTouchesABystanderRow(t *testing.T) {
+	fx := newCrawlFixture(t, &bbStandIn{granted: true, subject: "rig:victim"}, 0)
+	fx.store.rows["rig:victim"] = CrawlRigRow{Subject: "rig:victim", Enabled: true}
+	fx.store.rows["rig:rig-1"] = CrawlRigRow{Subject: "rig:rig-1", Enabled: true}
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, `{"rig_id":"rig-1","enabled":false}`))
+	require.False(t, res.Refused, res.Text)
+	assert.True(t, fx.store.rows["rig:victim"].Enabled, "a bystander's row was disabled")
+	for _, e := range fx.trace.snapshot() {
+		assert.NotContains(t, e, "rig:victim", "the bystander's subject reached shorted")
+	}
+	assert.Equal(t, "failed", res.Structured["shorted"], "the subject is unresolved, so shorted's row is not written")
+}
+
+// A PUT answer that says granted:false to an enable is not a confirmed grant: unknown,
+// and shorted is not written.
+func TestEnableWhosePutAnswersGrantedFalseIsUnknown(t *testing.T) {
+	no := false
+	fx := newCrawlFixture(t, &bbStandIn{putAnswerGranted: &no}, 0)
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, "")))
+	require.False(t, res.Refused, res.Text)
+	assert.Equal(t, "unknown", res.Structured["brandbrain"])
+	assert.Equal(t, "unchanged", res.Structured["shorted"])
+	assert.Empty(t, fx.store.rows, "shorted was written after a PUT that did not confirm the grant")
+}
+
+// A PUT answer that names another rig, or another subject, is not a confirmation either.
+func TestEnableWhosePutNamesAnotherRigOrSubjectIsUnknown(t *testing.T) {
+	for name, bb := range map[string]*bbStandIn{
+		"other rig_id":  {putAnswerRigID: "rig-9"},
+		"other subject": {putAnswerSubject: "rig:victim"},
+	} {
+		fx := newCrawlFixture(t, bb, 0)
+		res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, "")))
+		require.False(t, res.Refused, "%s: %s", name, res.Text)
+		assert.Equal(t, "unknown", res.Structured["brandbrain"], name)
+		assert.Equal(t, "unchanged", res.Structured["shorted"], name)
+		assert.Empty(t, fx.store.rows, "%s: shorted was written after a PUT that named another rig or subject", name)
+	}
 }
 
 func TestRepeatedEnableReportsUnchangedOnBothSides(t *testing.T) {
@@ -668,4 +787,102 @@ func TestBadSubjectsAreRefused(t *testing.T) {
 	fx := newCrawlFixture(t, nil, 0)
 	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, fmt.Sprintf(`{"subject":%q,"enabled":false}`, ok)))
 	assert.False(t, res.Refused, res.Text)
+}
+
+// --- ingest admission (an operator signal, never a gate) -----------------------------
+
+func TestEnableReportsAdmissionAndNamesTheRemainingAction(t *testing.T) {
+	fx := newCrawlFixture(t, nil, 0)
+	fx.pub.admits = map[string]string{"rig:rig-1": "false"}
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, "")))
+	require.False(t, res.Refused, res.Text)
+	// The change still lands on both sides: admission never refuses it.
+	assert.Equal(t, "enabled", res.Structured["shorted"])
+	assert.Equal(t, "granted", res.Structured["brandbrain"])
+	assert.Equal(t, "false", res.Structured["ingest_admits"])
+	steps := strings.Join(stringsOf(res.Structured["next_steps"]), " ")
+	assert.Contains(t, steps, "add rig:rig-1 to ingest_allow_subjects and set ingest_org in terraform/environments/prod (module housing_ingest), then deploy")
+	assert.NotContains(t, steps, "admitted within a minute", "the old overstated next step survived")
+}
+
+func TestEnableReportsAdmissionTrueAndUnknown(t *testing.T) {
+	fx := newCrawlFixture(t, nil, 0)
+	fx.pub.admits = map[string]string{"rig:rig-1": "true"}
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, "")))
+	assert.Equal(t, "true", res.Structured["ingest_admits"])
+	assert.Contains(t, strings.Join(stringsOf(res.Structured["next_steps"]), " "), "admitted")
+
+	fx = newCrawlFixture(t, nil, 0) // no admission answer: unknown
+	res = parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, "")))
+	assert.Equal(t, "unknown", res.Structured["ingest_admits"])
+	assert.Contains(t, strings.Join(stringsOf(res.Structured["next_steps"]), " "), "could not be read")
+}
+
+// Disable must never depend on admission: a subject disable works when the ingest is
+// unreadable, and so does a rig disable.
+func TestDisableDoesNotDependOnAdmission(t *testing.T) {
+	fx := newCrawlFixture(t, &bbStandIn{granted: true}, 0)
+	fx.store.rows["rig:rig-1"] = CrawlRigRow{Subject: "rig:rig-1", Enabled: true}
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, `{"subject":"rig:rig-1","enabled":false}`))
+	require.False(t, res.Refused, res.Text)
+	assert.Equal(t, "disabled", res.Structured["shorted"])
+	assert.Equal(t, "unknown", res.Structured["ingest_admits"])
+
+	fx = newCrawlFixture(t, &bbStandIn{granted: true}, 0)
+	fx.store.rows["rig:rig-1"] = CrawlRigRow{Subject: "rig:rig-1", Enabled: true}
+	res = parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, `{"rig_id":"rig-1","enabled":false}`))
+	require.False(t, res.Refused, res.Text)
+	assert.Equal(t, "disabled", res.Structured["shorted"])
+	assert.Equal(t, "revoked", res.Structured["brandbrain"])
+}
+
+// --- 404 that is not the contract's rig_not_found ------------------------------------
+
+// A route that is not deployed answers a plain 404. A disable by rig_id then cannot resolve
+// the subject: it attempts the revoke, reports shorted failed, and says to disable by subject.
+func TestDisableByRigIDOnAPlain404FallsBackToSubject(t *testing.T) {
+	fx := newCrawlFixture(t, &bbStandIn{plain404: true, getStatus: http.StatusNotFound, granted: true}, 0)
+	fx.store.rows["rig:rig-1"] = CrawlRigRow{Subject: "rig:rig-1", Enabled: true}
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, `{"rig_id":"rig-1","enabled":false}`))
+	require.False(t, res.Refused, res.Text)
+	assert.Equal(t, "failed", res.Structured["shorted"])
+	assert.Equal(t, "revoked", res.Structured["brandbrain"], "the revoke PUT is still attempted when the subject is unresolved")
+	assert.Contains(t, fx.trace.snapshot(), "bb.PUT granted=false operator=ops@shorted.com.au")
+	assert.True(t, fx.store.rows["rig:rig-1"].Enabled, "shorted changed without a resolved subject")
+	assert.Contains(t, strings.Join(stringsOf(res.Structured["next_steps"]), " "),
+		"BrandBrain could not be reached to resolve the subject; disable shorted's side by subject: call again with subject from housing_crawl_rigs")
+}
+
+// The same plain 404 on enable is an unknown outcome, never "rig not found", and writes nothing.
+func TestEnableOnAPlain404WritesNothing(t *testing.T) {
+	fx := newCrawlFixture(t, &bbStandIn{plain404: true, getStatus: http.StatusNotFound}, 0)
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, "")))
+	assert.True(t, res.Refused)
+	assert.NotContains(t, res.Text, "rig_not_found")
+	assert.Empty(t, fx.store.rows)
+	assert.Equal(t, []string{"bb.GET"}, fx.trace.snapshot())
+}
+
+// --- rig_id pattern is BrandBrain's exactly ----------------------------------------
+
+func TestRigIDPatternMatchesTheIssuer(t *testing.T) {
+	ok := []string{"a", "rig-1", "R.9_x", strings.Repeat("a", 100)}
+	bad := []string{"", "-x", ".x", "_x", strings.Repeat("a", 101), "a b", "a/b", "a@b"}
+	for _, id := range ok {
+		assert.True(t, crawlRigIDPattern.MatchString(id), "%q refused", id)
+	}
+	for _, id := range bad {
+		assert.False(t, crawlRigIDPattern.MatchString(id), "%q accepted", id)
+	}
+}
+
+// --- the answer's rig half and subject half are both required ------------------------
+
+// The answer names rig-2 but a subject of rig:rig-1. Only the rig half catches this one.
+func TestEnableWhenTheAnswerNamesAnotherRigWithOurSubjectWritesNothing(t *testing.T) {
+	fx := newCrawlFixture(t, &bbStandIn{answerRigID: "rig-2", subject: "rig:rig-1"}, 0)
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, "")))
+	require.False(t, res.Refused, res.Text)
+	assert.Equal(t, "invalid", res.Structured["brandbrain"])
+	assert.Empty(t, fx.store.rows)
 }

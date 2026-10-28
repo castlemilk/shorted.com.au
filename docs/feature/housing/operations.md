@@ -557,22 +557,35 @@ in v1.
 
 ### Enable a rig
 
-1. The rig passes `ProbeAuth` on a collector revision the ingest accepts.
-2. In a reviewed PR, set the prod `module "housing_ingest"` inputs:
-   `ingest_org` (the org claim BrandBrain issues) and `ingest_allow_subjects = "rig:<id>"`.
-   Deploy.
-3. Add the rig to the ingest's per-rig flag (cached 60 s in the service). Write the SQL to a
-   file and apply it with the prod helper, which uses the session pooler and one transaction:
-   ```sql
-   INSERT INTO housing_ingest_rigs (subject, enabled, note)
-   VALUES ('rig:<id>', true, '<ticket>: enabled for cutover')
-   ON CONFLICT (subject) DO UPDATE SET enabled = true, note = EXCLUDED.note;
-   ```
-   `task db:prod:apply FILE=<file> CONFIRM=prod`.
+Authorize and cut off rigs with the admin connector's `housing_crawl_authorize` tool
+(scope `crawl:authorize`, see `docs/mcp-admin.md` "Housing crawl authorization"). Do not
+write the allowlist by SQL. The tool changes both switches a push needs: shorted's
+allowlist row, and BrandBrain's `housing_crawl_v1` grant.
 
-To cut a rig off at once, set its flag to false, and the next call is refused within 60 s:
-`UPDATE housing_ingest_rigs SET enabled = false WHERE subject = 'rig:<id>';`. Removing the rig
-from `ingest_allow_subjects` is the permanent form.
+1. The rig passes `ProbeAuth` on the collector revision that the ingest accepts.
+2. Authorize it: `housing_crawl_authorize` with `rig_id`, `enabled: true` and `confirm: true`.
+   The result reports `shorted`, `brandbrain` and `ingest_admits`.
+3. `ingest_admits` is the deployed ingest's own answer. It is `true` only when the deployed
+   revision lists `rig:<id>` in `HOUSING_INGEST_ALLOW_SUBJECTS` and sets `HOUSING_INGEST_ORG`.
+   When it is `false`, the rig is authorized but not admitted yet. Make the reviewed deploy
+   change: add `rig:<id>` to `ingest_allow_subjects` and set `ingest_org` in
+   `terraform/environments/prod` (`module "housing_ingest"`), then deploy. Run the tool
+   again and confirm `true`.
+
+The env list the deployed revision carries is the deploy-time ceiling. The allowlist row can
+only narrow it: a rig absent from the list is refused whatever its row says.
+
+### Cut a rig off
+
+Disable it with `housing_crawl_authorize` and `enabled: false`. Shorted's side takes effect
+within about a minute, because the ingest caches its allowlist for 60 seconds. With
+BrandBrain unavailable, disable by `subject` (from `housing_crawl_rigs`). That changes only
+shorted's row and never calls BrandBrain (`brandbrain: not_attempted`). Revoke the BrandBrain
+grant later, when it is reachable, with `rig_id`.
+
+Removing the rig from `ingest_allow_subjects` is the permanent form. It is a reviewed deploy,
+not a database write.
+
 
 ### Quarantine
 

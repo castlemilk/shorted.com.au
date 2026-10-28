@@ -54,7 +54,7 @@ const crawlTimeout = 30 * time.Second
 const crawlNoteMax = 200
 
 var (
-	crawlRigIDPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
+	crawlRigIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)
 	// crawlSubjectPattern mirrors the BrandBrain issuer's rig subject: "rig:" plus a rig
 	// id matching rigIDPattern (backend/internal/adapters/http/fleet_orchestration_handler.go,
 	// rigTokenSubjectPrefix in fleet_handler.go). Anything else is not a rig subject.
@@ -78,6 +78,9 @@ const (
 	// BrandBrainNotAttempted is a disable by subject: BrandBrain is not called, so its
 	// grant is unchanged and the outcome is not known.
 	BrandBrainNotAttempted = "not_attempted"
+	// BrandBrainInvalid means BrandBrain's answer did not name this rig and its subject.
+	// Nothing was written to shorted.
+	BrandBrainInvalid = "invalid"
 )
 
 // CrawlRigRow is one allowlist row as the read tool returns it. The note is not
@@ -110,6 +113,9 @@ type AdminCrawlOperator interface {
 	CrawlRigStore() CrawlRigStore
 	// CrawlGrants is nil when BRANDBRAIN_HOUSING_GRANT_TOKEN is unset.
 	CrawlGrants() CrawlGrantClient
+	// CrawlIngestAdmission reports whether the deployed housing-ingest admits subject:
+	// "true", "false" or "unknown". It is read-only and never gates a change.
+	CrawlIngestAdmission(ctx context.Context, subject string) string
 	// CrawlOperatorEmail is the verified address of the caller, sent to BrandBrain
 	// as X-Operator for audit. Empty when it cannot be read.
 	CrawlOperatorEmail(ctx context.Context, userID string) string
@@ -130,14 +136,16 @@ type CrawlRigsOutput struct {
 
 // CrawlRigOut is one allowlist row.
 type CrawlRigOut struct {
-	Subject   string `json:"subject" jsonschema:"The JWT sub the rig pushes under."`
-	Enabled   bool   `json:"enabled"`
-	CreatedAt string `json:"created_at" jsonschema:"RFC 3339."`
+	IngestAdmits string `json:"ingest_admits" jsonschema:"true | false | unknown: whether the deployed housing-ingest lists this subject and has ingest_org set. Operator signal only."`
+	Subject      string `json:"subject" jsonschema:"The JWT sub the rig pushes under."`
+	Enabled      bool   `json:"enabled"`
+	CreatedAt    string `json:"created_at" jsonschema:"RFC 3339."`
 }
 
 // CrawlGrantOut is BrandBrain's grant state for one rig, and whether shorted's row
 // for its workload_subject exists and is enabled.
 type CrawlGrantOut struct {
+	IngestAdmits      string `json:"ingest_admits" jsonschema:"true | false | unknown: whether the deployed housing-ingest lists workload_subject and has ingest_org set. Operator signal only."`
 	RigID             string `json:"rig_id"`
 	BrandBrain        string `json:"brandbrain" jsonschema:"ok | not_found | rejected | unavailable | invalid | not_configured."`
 	Granted           bool   `json:"granted" jsonschema:"BrandBrain's housing_crawl_v1 grant."`
@@ -194,14 +202,15 @@ func readCrawlRigs(ctx context.Context, op AdminOperator, in CrawlRigsInput) (Cr
 		return out, errCrawlStoreRead
 	}
 	for _, r := range rows {
-		out.Rigs = append(out.Rigs, CrawlRigOut{Subject: r.Subject, Enabled: r.Enabled, CreatedAt: r.CreatedAt.UTC().Format(time.RFC3339)})
+		out.Rigs = append(out.Rigs, CrawlRigOut{Subject: r.Subject, Enabled: r.Enabled,
+			CreatedAt: r.CreatedAt.UTC().Format(time.RFC3339), IngestAdmits: op.CrawlIngestAdmission(ctx, r.Subject)})
 	}
 	if in.RigID == "" {
 		return out, nil
 	}
 
 	grant := &CrawlGrantOut{RigID: in.RigID, BrandBrain: "not_configured", AdminState: "unknown",
-		PrincipalKind: "unknown", CanMintReason: "unknown"}
+		PrincipalKind: "unknown", CanMintReason: "unknown", IngestAdmits: "unknown"}
 	out.Grant = grant
 	client := op.CrawlGrants()
 	if client == nil {
@@ -219,33 +228,26 @@ func readCrawlRigs(ctx context.Context, op AdminOperator, in CrawlRigsInput) (Cr
 		grant.BrandBrain = "unavailable"
 		return out, nil
 	}
+	subject, ok := subjectFor(g, in.RigID)
+	if !ok {
+		grant.BrandBrain = "invalid"
+		return out, nil
+	}
 	grant.BrandBrain = "ok"
 	grant.Granted = g.Granted
 	grant.AdminState = closedEnum(g.AdminState)
 	grant.PrincipalKind = closedEnum(g.PrincipalKind)
 	grant.CanMint = g.CanMint
 	grant.CanMintReason = closedEnum(g.CanMintReason)
-	if !crawlSubjectPattern.MatchString(g.WorkloadSubject) {
-		grant.BrandBrain = "invalid"
-		return out, nil
-	}
-	grant.WorkloadSubject = g.WorkloadSubject
+	grant.WorkloadSubject = subject
 	for _, r := range rows {
-		if r.Subject == g.WorkloadSubject {
+		if r.Subject == subject {
 			grant.SubjectRowPresent = true
 			grant.SubjectRowEnabled = r.Enabled
 		}
 	}
+	grant.IngestAdmits = op.CrawlIngestAdmission(ctx, subject)
 	return out, nil
-}
-
-// closedEnum passes a BrandBrain enum through only when it is a plain lower-case
-// word. Anything else is "unknown", so an unexpected string never reaches the model.
-func closedEnum(s string) string {
-	if crawlEnumPattern.MatchString(s) {
-		return s
-	}
-	return "unknown"
 }
 
 // --- housing_crawl_authorize --------------------------------------------------
@@ -262,6 +264,7 @@ type CrawlAuthorizeInput struct {
 
 // CrawlAuthorizeOutput reports each side separately.
 type CrawlAuthorizeOutput struct {
+	IngestAdmits    string   `json:"ingest_admits" jsonschema:"true | false | unknown: whether the deployed housing-ingest lists the subject and has ingest_org set. An operator signal: it never refuses or undoes a change."`
 	RigID           string   `json:"rig_id"`
 	WorkloadSubject string   `json:"workload_subject,omitempty" jsonschema:"The subject both sides were changed for. Empty when it could not be learned."`
 	Shorted         string   `json:"shorted" jsonschema:"enabled | disabled | unchanged | not_present | failed."`
@@ -336,14 +339,13 @@ func authorizeCrawlRig(ctx context.Context, op AdminOperator, userID string, in 
 	if hasSubject {
 		// The kill switch: shorted's row only. BrandBrain is not needed, so this
 		// works with it down or with its token unset.
-		return disableCrawlBySubject(ctx, store, in.Subject), nil
+		return disableCrawlBySubject(ctx, op, store, in.Subject), nil
 	}
 
 	grants := op.CrawlGrants()
 	if grants == nil {
 		return CrawlAuthorizeOutput{}, errCrawlNotConfigured
 	}
-
 	operator := op.CrawlOperatorEmail(ctx, userID)
 	var note *string
 	if in.Note != "" {
@@ -352,40 +354,64 @@ func authorizeCrawlRig(ctx context.Context, op AdminOperator, userID string, in 
 	}
 
 	if in.Enabled {
-		return enableCrawlRig(ctx, store, grants, operator, in.RigID, note)
+		return enableCrawlRig(ctx, op, store, grants, operator, in.RigID, note)
 	}
-	return disableCrawlRig(ctx, store, grants, operator, in.RigID)
+	return disableCrawlRig(ctx, op, store, grants, operator, in.RigID)
+}
+
+// subjectFor returns the subject BrandBrain's answer names, and only when the answer is
+// about rigID and its subject is exactly rig:<rigID>. BrandBrain reports the subject; it
+// never chooses which shorted row is written.
+func subjectFor(g *brandbrain.Grant, rigID string) (string, bool) {
+	if g == nil || g.RigID != rigID || g.WorkloadSubject != "rig:"+rigID || !crawlSubjectPattern.MatchString(g.WorkloadSubject) {
+		return "", false
+	}
+	return g.WorkloadSubject, true
+}
+
+// putAnswerMatches reports whether a PUT's answer confirms the change asked for: the same
+// granted value, about this rig, with its subject. Anything else is an unknown outcome.
+func putAnswerMatches(g *brandbrain.Grant, rigID string, granted bool) bool {
+	return g != nil && g.Granted == granted && g.RigID == rigID && g.WorkloadSubject == "rig:"+rigID
 }
 
 // disableCrawlBySubject flips shorted's row for subject and never calls BrandBrain.
 // A missing row is not_present and nothing is written.
-func disableCrawlBySubject(ctx context.Context, store CrawlRigStore, subject string) CrawlAuthorizeOutput {
+func disableCrawlBySubject(ctx context.Context, op AdminOperator, store CrawlRigStore, subject string) CrawlAuthorizeOutput {
 	out := CrawlAuthorizeOutput{WorkloadSubject: subject, Shorted: ShortedFailed,
-		BrandBrain: BrandBrainNotAttempted, CanMintReason: "unknown"}
+		BrandBrain: BrandBrainNotAttempted, CanMintReason: "unknown", IngestAdmits: "unknown"}
 	if outcome, err := store.DisableCrawlRig(ctx, subject); err == nil {
 		out.Shorted = outcome
 	}
-	out.NextSteps = crawlNextSteps(false, out.Shorted, out.BrandBrain, out.CanMintReason, false)
+	out.IngestAdmits = op.CrawlIngestAdmission(ctx, subject)
+	out.NextSteps = crawlNextSteps(stepInput{shorted: out.Shorted, bb: out.BrandBrain, mintReason: out.CanMintReason, ingest: out.IngestAdmits})
 	return out
 }
 
-func enableCrawlRig(ctx context.Context, store CrawlRigStore, grants CrawlGrantClient, operator, rigID string, note *string) (CrawlAuthorizeOutput, error) {
-	out := CrawlAuthorizeOutput{RigID: rigID, Shorted: ShortedUnchanged, BrandBrain: BrandBrainUnknown, CanMintReason: "unknown"}
+func enableCrawlRig(ctx context.Context, op AdminOperator, store CrawlRigStore, grants CrawlGrantClient, operator, rigID string, note *string) (CrawlAuthorizeOutput, error) {
+	out := CrawlAuthorizeOutput{RigID: rigID, Shorted: ShortedUnchanged, BrandBrain: BrandBrainUnknown, CanMintReason: "unknown", IngestAdmits: "unknown"}
 
-	// 1. GET: learns the subject. Nothing is written if this fails.
+	// 1. GET: learns the subject. Nothing is written if this fails or does not match.
 	before, err := grants.GetGrant(ctx, rigID)
 	if err != nil {
 		return out, grantReadError(err)
 	}
-	subject, err := usableSubject(before)
-	if err != nil {
-		return out, err
+	subject, ok := subjectFor(before, rigID)
+	if !ok {
+		out.BrandBrain = BrandBrainInvalid
+		out.NextSteps = crawlNextSteps(stepInput{enabling: true, shorted: out.Shorted, bb: out.BrandBrain, mintReason: out.CanMintReason, subjectUnresolved: true})
+		return out, nil
 	}
 	out.WorkloadSubject = subject
 
-	// 2. PUT granted=true. Anything but a confirmed answer stops here, before shorted.
+	// 2. PUT granted=true. The answer must confirm it, for this rig and subject, or the
+	//    outcome is unknown and shorted is not touched.
 	after, putErr := grants.PutGrant(ctx, rigID, true, operator)
 	switch {
+	case putErr == nil && !putAnswerMatches(after, rigID, true):
+		out.BrandBrain = BrandBrainUnknown
+		out.NextSteps = crawlNextSteps(stepInput{enabling: true, subject: subject, shorted: out.Shorted, bb: out.BrandBrain, mintReason: "unknown", ingest: out.IngestAdmits})
+		return out, nil
 	case putErr == nil:
 		out.BrandBrain = BrandBrainGranted
 		if before.Granted {
@@ -394,11 +420,11 @@ func enableCrawlRig(ctx context.Context, store CrawlRigStore, grants CrawlGrantC
 		out.CanMint, out.CanMintReason = after.CanMint, closedEnum(after.CanMintReason)
 	case errors.Is(putErr, brandbrain.ErrUnavailable):
 		out.BrandBrain = BrandBrainUnknown
-		out.NextSteps = crawlNextSteps(true, out.Shorted, out.BrandBrain, "unknown", false)
+		out.NextSteps = crawlNextSteps(stepInput{enabling: true, subject: subject, shorted: out.Shorted, bb: out.BrandBrain, mintReason: "unknown"})
 		return out, nil
 	default:
 		out.BrandBrain = BrandBrainFailed
-		out.NextSteps = crawlNextSteps(true, out.Shorted, out.BrandBrain, "unknown", false)
+		out.NextSteps = crawlNextSteps(stepInput{enabling: true, subject: subject, shorted: out.Shorted, bb: out.BrandBrain, mintReason: "unknown"})
 		return out, nil
 	}
 
@@ -412,20 +438,25 @@ func enableCrawlRig(ctx context.Context, store CrawlRigStore, grants CrawlGrantC
 	default:
 		out.Shorted = ShortedEnabled
 	}
-	out.NextSteps = crawlNextSteps(true, out.Shorted, out.BrandBrain, out.CanMintReason, false)
+
+	// 4. Whether the deployed ingest admits the subject. A signal for the operator only.
+	out.IngestAdmits = op.CrawlIngestAdmission(ctx, subject)
+	out.NextSteps = crawlNextSteps(stepInput{enabling: true, subject: subject, shorted: out.Shorted, bb: out.BrandBrain, mintReason: out.CanMintReason, ingest: out.IngestAdmits})
 	return out, nil
 }
 
-func disableCrawlRig(ctx context.Context, store CrawlRigStore, grants CrawlGrantClient, operator, rigID string) (CrawlAuthorizeOutput, error) {
-	out := CrawlAuthorizeOutput{RigID: rigID, Shorted: ShortedFailed, BrandBrain: BrandBrainUnknown, CanMintReason: "unknown"}
+func disableCrawlRig(ctx context.Context, op AdminOperator, store CrawlRigStore, grants CrawlGrantClient, operator, rigID string) (CrawlAuthorizeOutput, error) {
+	out := CrawlAuthorizeOutput{RigID: rigID, Shorted: ShortedFailed, BrandBrain: BrandBrainUnknown, CanMintReason: "unknown", IngestAdmits: "unknown"}
 
-	// 1. The subject: BrandBrain is the only source of it. A 404 stops with nothing written.
+	// 1. The subject: BrandBrain is the only source of it. A rig_not_found answer stops
+	//    with nothing written. Any other failure, or an answer that does not name this
+	//    rig's subject, leaves the subject unresolved; the revoke is still attempted.
 	before, getErr := grants.GetGrant(ctx, rigID)
 	subjectKnown := false
 	var subject string
 	switch {
 	case getErr == nil:
-		if s, err := usableSubject(before); err == nil {
+		if s, ok := subjectFor(before, rigID); ok {
 			subject, subjectKnown = s, true
 			out.WorkloadSubject = s
 		}
@@ -445,21 +476,25 @@ func disableCrawlRig(ctx context.Context, store CrawlRigStore, grants CrawlGrant
 	//    never the unsafe direction.
 	after, putErr := grants.PutGrant(ctx, rigID, false, operator)
 	switch {
+	case putErr == nil && !putAnswerMatches(after, rigID, false):
+		out.BrandBrain = BrandBrainUnknown
 	case putErr == nil:
 		out.BrandBrain = BrandBrainRevoked
-		if getErr == nil && !before.Granted {
+		if getErr == nil && subjectKnown && !before.Granted {
 			out.BrandBrain = BrandBrainUnchanged
 		}
 		out.CanMint, out.CanMintReason = after.CanMint, closedEnum(after.CanMintReason)
 	case errors.Is(putErr, brandbrain.ErrUnavailable):
 		out.BrandBrain = BrandBrainUnknown
-	case errors.Is(putErr, brandbrain.ErrRigNotFound):
-		out.BrandBrain = BrandBrainFailed
 	default:
 		out.BrandBrain = BrandBrainFailed
 	}
 
-	out.NextSteps = crawlNextSteps(false, out.Shorted, out.BrandBrain, out.CanMintReason, !subjectKnown)
+	if subjectKnown {
+		out.IngestAdmits = op.CrawlIngestAdmission(ctx, subject)
+	}
+	out.NextSteps = crawlNextSteps(stepInput{shorted: out.Shorted, bb: out.BrandBrain, mintReason: out.CanMintReason,
+		subjectUnresolved: !subjectKnown, ingest: out.IngestAdmits})
 	return out, nil
 }
 
@@ -475,46 +510,55 @@ func grantReadError(err error) error {
 	}
 }
 
-// usableSubject returns BrandBrain's workload_subject when it is a value shorted can
-// hold. It is never derived here.
-func usableSubject(g *brandbrain.Grant) (string, error) {
-	if g == nil || !crawlSubjectPattern.MatchString(g.WorkloadSubject) {
-		return "", errCrawlNoSubject
+// closedEnum passes a BrandBrain enum through only when it is a plain lower-case
+// word. Anything else is "unknown", so an unexpected string never reaches the model.
+func closedEnum(s string) string {
+	if crawlEnumPattern.MatchString(s) {
+		return s
 	}
-	return g.WorkloadSubject, nil
+	return "unknown"
 }
 
-// crawlNextSteps is the closed, generated guidance. It is text the model can act
-// on; it never echoes a BrandBrain string.
-func crawlNextSteps(enabling bool, shorted, bbState, mintReason string, subjectUnknown bool) []string {
+// stepInput is what the closed next-step text is generated from.
+type stepInput struct {
+	enabling          bool
+	subject           string // rig:<id>, when known
+	shorted           string
+	bb                string
+	mintReason        string
+	subjectUnresolved bool
+	ingest            string // true | false | unknown
+}
+
+// crawlNextSteps is the closed, generated guidance. It is text the model can act on; it
+// never echoes a BrandBrain or ingest string.
+func crawlNextSteps(in stepInput) []string {
 	var steps []string
-	if subjectUnknown {
+	if in.subjectUnresolved {
 		steps = append(steps, "BrandBrain could not be reached to resolve the subject; disable shorted's side by subject: call again with subject from housing_crawl_rigs")
 	}
-	switch shorted {
-	case ShortedEnabled:
-		steps = append(steps, "The rig's pushes are admitted within about a minute: the ingest caches the allowlist for 60 seconds.")
+	switch in.shorted {
 	case ShortedDisabled:
-		steps = append(steps, "The rig's pushes are refused within about a minute: the ingest caches the allowlist for 60 seconds.")
+		steps = append(steps, "The shorted allowlist row is disabled. The ingest caches the allowlist for 60 seconds, so the rig's pushes are refused within about a minute.")
 	case ShortedFailed:
-		if !subjectUnknown {
+		if !in.subjectUnresolved {
 			steps = append(steps, "The shorted allowlist write did not complete. Run this tool again: it is idempotent.")
 		}
 	}
-	switch bbState {
+	switch in.bb {
 	case BrandBrainUnknown:
 		steps = append(steps, "BrandBrain did not confirm the change. Check the grant with housing_crawl_rigs, then run this tool again. Nothing was retried automatically.")
 	case BrandBrainFailed:
 		steps = append(steps, "BrandBrain refused the change, so its grant was not changed.")
+	case BrandBrainInvalid:
+		steps = append(steps, "BrandBrain's answer did not name this rig and its subject rig:<rig_id>, so nothing was written. Check the rig_id.")
 	case BrandBrainNotAttempted:
 		steps = append(steps, "BrandBrain was not called, so its grant is unchanged. Once BrandBrain is reachable, revoke the grant with housing_crawl_authorize (rig_id, enabled=false).")
 	}
-	if bbState == BrandBrainGranted || bbState == BrandBrainUnchanged || bbState == BrandBrainRevoked {
-		switch mintReason {
+	if in.enabling && (in.bb == BrandBrainGranted || in.bb == BrandBrainUnchanged) {
+		switch in.mintReason {
 		case "ok":
-			if enabling {
-				steps = append(steps, "The rig can mint workload tokens.")
-			}
+			steps = append(steps, "The rig can mint workload tokens.")
 		case "user_session":
 			steps = append(steps, "The rig signs in with a user session; it needs an operator-issued rig token with workload:mint before it can mint.")
 		case "no_rig_token":
@@ -525,6 +569,16 @@ func crawlNextSteps(enabling bool, shorted, bbState, mintReason string, subjectU
 			steps = append(steps, "The housing_crawl_v1 grant is not set for this rig.")
 		case "version_too_old":
 			steps = append(steps, "The rig runs a version too old to mint; update the rig.")
+		}
+	}
+	if in.enabling && in.subject != "" && (in.bb == BrandBrainGranted || in.bb == BrandBrainUnchanged) {
+		switch in.ingest {
+		case "true":
+			steps = append(steps, "The deployed housing-ingest lists "+in.subject+" and has ingest_org set, so its pushes are admitted.")
+		case "false":
+			steps = append(steps, "The rig is authorized but not yet admitted: add "+in.subject+" to ingest_allow_subjects and set ingest_org in terraform/environments/prod (module housing_ingest), then deploy.")
+		default:
+			steps = append(steps, "The deployed housing-ingest configuration could not be read, so admission is unknown. Check ingest_allow_subjects and ingest_org in terraform/environments/prod (module housing_ingest) against the deployed housing-ingest revision.")
 		}
 	}
 	return steps
@@ -545,7 +599,6 @@ var (
 	errCrawlRigNotFound           = errors.New("rig_not_found: BrandBrain has no such rig; nothing was written")
 	errCrawlBrandBrainRejected    = errors.New("BrandBrain rejected the grant token for this route; nothing was written. Check BRANDBRAIN_HOUSING_GRANT_TOKEN")
 	errCrawlBrandBrainUnavailable = errors.New("BrandBrain could not be read, so the rig's subject is unknown; nothing was written. Try again later")
-	errCrawlNoSubject             = errors.New("BrandBrain returned no usable workload_subject for this rig; nothing was written")
 )
 
 // crawlToolError turns a refusal into a tool-level error the model can read. The

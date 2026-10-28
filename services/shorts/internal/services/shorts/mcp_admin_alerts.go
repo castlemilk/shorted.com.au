@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -512,5 +513,6 @@ func newAdminMCPSource(s *ShortsServer, firebaseUsers firebaseUsersReader) *admi
 			return verifiedAccountEmail(ctx, firebaseUsers, uid)
 		},
 		crawlGrants: brandbrainGrantClientFromEnv(),
+		crawlIngest: newIngestAdmissionFromEnv(os.Getenv),
 	}
 }

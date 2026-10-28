@@ -54,8 +54,8 @@ Code on the web) with twenty-five tools:
 | `run_alerts_smoke_test` `{code?, threshold?, condition?, date?}` | `jobs:run` | The end-to-end check on the caller's own account: creates or reuses one daily monitor, then replays one report date for the caller. The replay also emails the caller's other daily monitors that crossed on that date. A real email goes to the caller's verified address. Refuses without Premium or a verified address, and refuses a date where the monitor already has an event. |
 | `alerts_smoke_result` `{monitor_id, date, execution?}` | `jobs:read` | What the replay did for one of the caller's monitors on one date: the event row (with `createdAt`, `runId`) and, with `execution`, the job's state. A row written before that execution started is flagged `predatesExecution`. |
 | `delete_alert_monitor` `{monitor_id}` | `jobs:run` | Deletes one of the caller's own monitors and its events. Refused for any other monitor. |
-| `housing_crawl_rigs` `{rig_id?}` | `crawl:authorize` | Lists shorted's housing crawl allowlist (`housing_ingest_rigs`): each subject, whether it is enabled and when it was added. The note is not returned. With `rig_id`, also BrandBrain's `housing_crawl_v1` grant for that rig and whether shorted's row for its `workload_subject` exists and is enabled. Read-only. |
-| `housing_crawl_authorize` `{rig_id \| subject, enabled, note?, confirm?}` | `crawl:authorize` | Turns a BrandBrain rig's housing crawl on or off. Give **exactly one** of `rig_id` or `subject`. Enabling needs `rig_id`, `confirm: true`, and runs GET, then PUT of the grant, then the shorted allowlist write for the `workload_subject` BrandBrain returns. Disabling by `rig_id` writes shorted first, then revokes the grant, and still revokes when shorted fails. Disabling by `subject` (`rig:<id>`, from `housing_crawl_rigs`) changes only shorted's row and never calls BrandBrain (`brandbrain: not_attempted`), so it works while BrandBrain is down. Reports each side (`shorted`, `brandbrain`) separately. A PUT with an unknown outcome is reported as `unknown` and never retried. Idempotent. |
+| `housing_crawl_rigs` `{rig_id?}` | `crawl:authorize` | Lists shorted's housing crawl allowlist (`housing_ingest_rigs`): each subject, whether it is enabled and when it was added. The note is not returned. With `rig_id`, also BrandBrain's `housing_crawl_v1` grant for that rig and whether shorted's row for its `workload_subject` exists and is enabled. Read-only. Each row also reports `ingest_admits` (see "What `ingest_admits` means"). |
+| `housing_crawl_authorize` `{rig_id \| subject, enabled, note?, confirm?}` | `crawl:authorize` | Turns a BrandBrain rig's housing crawl on or off. Give **exactly one** of `rig_id` or `subject`. Enabling needs `rig_id`, `confirm: true`, and runs GET, then PUT of the grant, then the shorted allowlist write for the `workload_subject` BrandBrain returns. Disabling by `rig_id` writes shorted first, then revokes the grant, and still revokes when shorted fails. Disabling by `subject` (`rig:<id>`, from `housing_crawl_rigs`) changes only shorted's row and never calls BrandBrain (`brandbrain: not_attempted`), so it works while BrandBrain is down. Reports each side (`shorted`, `brandbrain`) separately. A PUT with an unknown outcome is reported as `unknown` and never retried. Idempotent. Reports `ingest_admits` (whether the deployed housing-ingest admits the subject); it never refuses a change. |
 
 Only merged articles can be published — the job image bakes `content/news` in
 at build time, and the tool takes a slug, never a body. Likewise the picks tool
@@ -371,15 +371,16 @@ never returned by either tool.
 
 ### Kill switch with BrandBrain unavailable
 
-Cut a rig off immediately, without BrandBrain. Shorted's allowlist alone decides whether
-the rig's pushes are admitted, so the switch needs only shorted's database:
+Cut a rig off immediately, without BrandBrain. Shorted's allowlist row is one switch;
+the ingest's own deployed config is the other. The kill switch needs only shorted's
+database:
 
 1. Find the rig's subject. Run `housing_crawl_rigs` with no `rig_id`. It lists each
    allowlist subject (`rig:<id>`) and whether it is enabled. It needs no BrandBrain.
 2. Disable it: `housing_crawl_authorize` with `subject: "rig:<id>"` and `enabled: false`.
    The result is `shorted: disabled` (or `unchanged`, or `not_present` if no row exists),
    and `brandbrain: not_attempted`. No BrandBrain token is needed.
-3. Within about a minute the ingest refuses the rig's pushes: it caches the allowlist for
+3. The ingest refuses the rig's pushes within about a minute: it caches the allowlist for
    60 seconds.
 4. When BrandBrain is reachable again, revoke its grant too:
    `housing_crawl_authorize` with `rig_id` and `enabled: false`. The shorted side is
@@ -387,9 +388,24 @@ the rig's pushes are admitted, so the switch needs only shorted's database:
 
 Enabling is never possible by subject. A subject is only valid with `enabled: false`, and
 enabling needs `rig_id` (and `confirm: true`), so BrandBrain always supplies the subject.
-Give exactly one of `rig_id` or `subject`: both, or neither, is refused.
-The subject must be `rig:` followed by 1 to 100 letters, digits, dots, underscores or
-hyphens, starting with a letter or digit. It mirrors the BrandBrain issuer's rig subject.
+Give exactly one of `rig_id` or `subject`: both, or neither, is refused. The subject must
+be `rig:` followed by 1 to 100 characters from the issuer's rig-id set, starting with a
+letter or digit. The `rig_id` pattern is the issuer's too.
+
+### What `ingest_admits` means
+
+Both tools report `ingest_admits: true | false | unknown`. It is read from the deployed
+`housing-ingest` Cloud Run revision (its environment, parsed by the ingest's own config
+reader), not from the database. `true` means the revision lists the subject in
+`HOUSING_INGEST_ALLOW_SUBJECTS`, sets `HOUSING_INGEST_ORG` and has the ingest enabled.
+`false` means it was read and it does not admit the subject. `unknown` means it could not
+be read: the shorts-api service has no `HOUSING_INGEST_RUN_SERVICE`, or Cloud Run did not
+answer. It is an operator signal only. It never refuses an enable, and disable never
+depends on it.
+
+The env list is the deploy-time ceiling: a rig absent from it is refused whatever its
+allowlist row says. Admitting a rig is a reviewed deploy of `ingest_allow_subjects` and
+`ingest_org` (`terraform/environments/prod`, `module "housing_ingest"`).
 
 Operator failure modes:
 

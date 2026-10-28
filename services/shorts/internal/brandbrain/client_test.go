@@ -80,7 +80,6 @@ func TestEmptyOperatorSendsNoHeader(t *testing.T) {
 
 func TestStatusesMapToTypedOutcomes(t *testing.T) {
 	cases := map[int]error{
-		http.StatusNotFound:            ErrRigNotFound,
 		http.StatusBadRequest:          ErrInvalidRequest,
 		http.StatusUnauthorized:        ErrRejected,
 		http.StatusForbidden:           ErrRejected,
@@ -99,6 +98,31 @@ func TestStatusesMapToTypedOutcomes(t *testing.T) {
 		}
 		if err != nil && strings.Contains(err.Error(), testToken) {
 			t.Errorf("status %d: the token appears in the error: %v", status, err)
+		}
+	}
+}
+
+// Only the contract's body is "rig not found". A 404 without it (a route that is not
+// deployed, a proxy page) must not read as a missing rig.
+func TestA404IsRigNotFoundOnlyWithTheContractBody(t *testing.T) {
+	_, c := newServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = io.WriteString(w, `{"code":"rig_not_found","message":"no such rig"}`)
+	})
+	if _, err := c.GetGrant(context.Background(), "rig-1"); !errors.Is(err, ErrRigNotFound) {
+		t.Fatalf("contract 404: err = %v, want ErrRigNotFound", err)
+	}
+	for name, body := range map[string]string{"plain mux 404": "404 page not found", "other json": `{"code":"not_found"}`, "empty": ""} {
+		_, c := newServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = io.WriteString(w, body)
+		})
+		_, err := c.GetGrant(context.Background(), "rig-1")
+		if errors.Is(err, ErrRigNotFound) {
+			t.Fatalf("%s reads as rig_not_found", name)
+		}
+		if !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("%s: err = %v, want ErrUnavailable", name, err)
 		}
 	}
 }

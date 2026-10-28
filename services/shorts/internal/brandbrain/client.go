@@ -183,6 +183,14 @@ func (c *Client) PutGrant(ctx context.Context, rigID string, granted bool, opera
 	return c.do(ctx, http.MethodPut, rigID, body, operator)
 }
 
+// isRigNotFoundBody reports whether a 404 body is BrandBrain's {"code":"rig_not_found"}.
+func isRigNotFoundBody(raw []byte) bool {
+	var body struct {
+		Code string `json:"code"`
+	}
+	return json.Unmarshal(raw, &body) == nil && body.Code == "rig_not_found"
+}
+
 func (c *Client) do(ctx context.Context, method, rigID string, body []byte, operator string) (*Grant, error) {
 	if c == nil {
 		return nil, ErrNotConfigured
@@ -226,7 +234,13 @@ func (c *Client) do(ctx context.Context, method, rigID string, body []byte, oper
 		}
 		return &g, nil
 	case http.StatusNotFound:
-		return nil, ErrRigNotFound
+		// Only the contract's body means the rig does not exist. Any other 404 (a route
+		// that is not deployed, a proxy page) says nothing about the rig, so it is an
+		// unknown outcome.
+		if isRigNotFoundBody(raw) {
+			return nil, ErrRigNotFound
+		}
+		return nil, ErrUnavailable
 	case http.StatusBadRequest:
 		return nil, ErrInvalidRequest
 	case http.StatusUnauthorized, http.StatusForbidden:
