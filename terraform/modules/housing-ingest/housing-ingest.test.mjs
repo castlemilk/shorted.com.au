@@ -111,3 +111,40 @@ test("the prod environment wires the module with the shared shorts image", () =>
   assert.match(wiring, /source\s*=\s*"\.\.\/\.\.\/modules\/housing-ingest"/);
   assert.match(wiring, /image_url\s*=\s*var\.shorts_api_image/);
 });
+
+// HOUSING_INGEST_DENY_KIDS is the emergency kid kill list. It must be declared in
+// Terraform, or an apply reverts a kid someone denied during an incident.
+test("the kid deny list is a variable wired to the env, default empty", () => {
+  const variable = block(variables, 'variable "ingest_deny_kids"');
+  assert.match(variable, /default\s*=\s*""/, "no kid is denied by default");
+  assert.equal(envValue("HOUSING_INGEST_DENY_KIDS"), undefined, "the kids come through a variable, not a literal");
+  assert.match(
+    main,
+    /name\s*=\s*"HOUSING_INGEST_DENY_KIDS"\s*value\s*=\s*var\.ingest_deny_kids/,
+    "the env var must read var.ingest_deny_kids",
+  );
+});
+
+// The validation mirrors the service's parser: empty, or comma-separated kids with no
+// spaces and no empty entry, because the verifier refuses an empty entry and the whole
+// service would then answer every rig with Unavailable.
+test("the kid deny list validation accepts only the format the verifier parses", () => {
+  const variable = block(variables, 'variable "ingest_deny_kids"');
+  const m = variable.match(/can\(regex\("([^"]+)", var\.ingest_deny_kids\)\)/);
+  assert.ok(m, "the validation must be a regex over var.ingest_deny_kids");
+  const re = new RegExp(m[1]);
+  for (const ok of ["", "kid-1", "kid-1,kid_2", "a.b:c-d"]) {
+    assert.ok(re.test(ok), `${JSON.stringify(ok)} must be accepted`);
+  }
+  for (const bad of [",", "a,", ",a", "a,,b", " a", "a ,b", "a b", "a,b,"]) {
+    assert.ok(!re.test(bad), `${JSON.stringify(bad)} must be refused`);
+  }
+});
+
+test("prod exposes the kid deny list as a variable, empty unless an incident sets it", () => {
+  const prodVariables = readFileSync(join(repoRoot, "terraform/environments/prod/variables.tf"), "utf8");
+  const declared = block(prodVariables, 'variable "housing_ingest_deny_kids"');
+  assert.match(declared, /default\s*=\s*""/);
+  const wiring = block(prodMain, 'module "housing_ingest"');
+  assert.match(wiring, /ingest_deny_kids\s*=\s*var\.housing_ingest_deny_kids/);
+});

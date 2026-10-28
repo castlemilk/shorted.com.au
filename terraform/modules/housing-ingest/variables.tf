@@ -61,6 +61,24 @@ variable "ingest_allow_subjects" {
   default     = ""
 }
 
+variable "ingest_deny_kids" {
+  description = <<-EOT
+    HOUSING_INGEST_DENY_KIDS: comma-separated signing key IDs (kid values) the ingest rejects
+    even when the signature verifies. Emergency kill list. Empty by default, so no kid is
+    denied. Entries are the exact kid strings from the token header, with no spaces and no
+    empty entries (the verifier refuses an empty entry, and the service then answers every
+    rig with Unavailable). Set it in environments/prod/variables.tf or a tfvars file and
+    apply, so the next apply keeps it.
+  EOT
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^$|^[A-Za-z0-9._:-]+(,[A-Za-z0-9._:-]+)*$", var.ingest_deny_kids))
+    error_message = "ingest_deny_kids must be empty or a comma-separated list of kid values with no spaces and no empty entries."
+  }
+}
+
 variable "dispatch_ttl" {
   description = "HOUSING_INGEST_DISPATCH_TTL. Keep equal to the house-price-collector module's ingest_dispatch_ttl."
   type        = string

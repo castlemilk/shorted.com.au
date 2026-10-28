@@ -129,6 +129,15 @@ resource "google_cloud_run_v2_service" "ingest" {
         value = var.ingest_allow_subjects
       }
 
+      # Emergency kill list of signing key IDs (HOUSING_INGEST_DENY_KIDS). A token whose kid
+      # is listed is rejected even with a valid signature. Empty means no kid is denied. It
+      # lives here, not only in the console, so the next apply does not silently clear a
+      # kid someone denied in an incident.
+      env {
+        name  = "HOUSING_INGEST_DENY_KIDS"
+        value = var.ingest_deny_kids
+      }
+
       env {
         name = "DATABASE_URL"
         value_source {

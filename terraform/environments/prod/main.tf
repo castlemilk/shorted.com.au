@@ -491,6 +491,8 @@ module "housing_ingest" {
   region      = var.region
   environment = "production"
   image_url   = var.shorts_api_image
+  # Emergency kid kill list (see the module variable). Empty unless an incident sets it.
+  ingest_deny_kids = var.housing_ingest_deny_kids
 
   depends_on = [
     google_project_service.required_apis,
