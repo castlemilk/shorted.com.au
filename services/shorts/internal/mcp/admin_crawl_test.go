@@ -175,7 +175,7 @@ func writeGrant(w http.ResponseWriter, cfg *bbStandIn) {
 	}
 	subject := cfg.subject
 	if subject == "" {
-		subject = "subj-rig-1"
+		subject = "rig:rig-1"
 	}
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"rig_id": "rig-1", "granted": cfg.granted, "admin_state": "active", "version": "9",
@@ -350,7 +350,7 @@ func TestEnableWithoutConfirmIsRefusedAndSendsNothing(t *testing.T) {
 
 func TestDisableNeedsNoConfirm(t *testing.T) {
 	fx := newCrawlFixture(t, &bbStandIn{granted: true}, 0)
-	fx.store.rows["subj-rig-1"] = CrawlRigRow{Subject: "subj-rig-1", Enabled: true}
+	fx.store.rows["rig:rig-1"] = CrawlRigRow{Subject: "rig:rig-1", Enabled: true}
 	raw := crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, `{"rig_id":"rig-1","enabled":false}`)
 	res := parseToolResult(t, raw)
 	require.False(t, res.Refused, raw)
@@ -360,7 +360,7 @@ func TestDisableNeedsNoConfirm(t *testing.T) {
 // --- sequencing ------------------------------------------------------------------
 
 func TestEnableRunsGetPutThenTheShortedWriteForTheServersSubject(t *testing.T) {
-	fx := newCrawlFixture(t, &bbStandIn{subject: "subj-from-brandbrain"}, 0)
+	fx := newCrawlFixture(t, &bbStandIn{subject: "rig:from-brandbrain"}, 0)
 	raw := crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, `,"note":"  the Sydney rig  "`))
 	res := parseToolResult(t, raw)
 	require.False(t, res.Refused, raw)
@@ -368,14 +368,14 @@ func TestEnableRunsGetPutThenTheShortedWriteForTheServersSubject(t *testing.T) {
 	assert.Equal(t, []string{
 		"bb.GET",
 		"bb.PUT granted=true operator=ops@shorted.com.au",
-		"store.enable subj-from-brandbrain",
+		"store.enable rig:from-brandbrain",
 	}, fx.trace.snapshot())
 	require.NotNil(t, fx.store.enabledNote)
 	assert.Equal(t, "the Sydney rig", *fx.store.enabledNote, "the note is trimmed")
 	assert.Equal(t, "enabled", res.Structured["shorted"])
 	assert.Equal(t, "granted", res.Structured["brandbrain"])
 	assert.Equal(t, true, res.Structured["can_mint"])
-	assert.Equal(t, "subj-from-brandbrain", res.Structured["workload_subject"])
+	assert.Equal(t, "rig:from-brandbrain", res.Structured["workload_subject"])
 }
 
 func TestRepeatedEnableReportsUnchangedOnBothSides(t *testing.T) {
@@ -390,12 +390,12 @@ func TestRepeatedEnableReportsUnchangedOnBothSides(t *testing.T) {
 
 func TestDisableWritesShortedBeforeTheRevokingPut(t *testing.T) {
 	fx := newCrawlFixture(t, &bbStandIn{granted: true}, 0)
-	fx.store.rows["subj-rig-1"] = CrawlRigRow{Subject: "subj-rig-1", Enabled: true}
+	fx.store.rows["rig:rig-1"] = CrawlRigRow{Subject: "rig:rig-1", Enabled: true}
 	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, `{"rig_id":"rig-1","enabled":false}`))
 	require.False(t, res.Refused)
 	assert.Equal(t, []string{
 		"bb.GET",
-		"store.disable subj-rig-1",
+		"store.disable rig:rig-1",
 		"bb.PUT granted=false operator=ops@shorted.com.au",
 	}, fx.trace.snapshot())
 	assert.Equal(t, "revoked", res.Structured["brandbrain"])
@@ -403,20 +403,20 @@ func TestDisableWritesShortedBeforeTheRevokingPut(t *testing.T) {
 
 func TestDisableUpdatesShortedBeforeAPutThatFails(t *testing.T) {
 	fx := newCrawlFixture(t, &bbStandIn{granted: true, putStatus: http.StatusServiceUnavailable}, 0)
-	fx.store.rows["subj-rig-1"] = CrawlRigRow{Subject: "subj-rig-1", Enabled: true}
+	fx.store.rows["rig:rig-1"] = CrawlRigRow{Subject: "rig:rig-1", Enabled: true}
 	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, `{"rig_id":"rig-1","enabled":false}`))
 	require.False(t, res.Refused)
 	events := fx.trace.snapshot()
 	require.Len(t, events, 3)
-	assert.Equal(t, "store.disable subj-rig-1", events[1], "shorted must be written before the revoke is attempted")
+	assert.Equal(t, "store.disable rig:rig-1", events[1], "shorted must be written before the revoke is attempted")
 	assert.Equal(t, "disabled", res.Structured["shorted"])
 	assert.Equal(t, "unknown", res.Structured["brandbrain"], "a 5xx on the PUT is an unknown outcome")
-	assert.False(t, fx.store.rows["subj-rig-1"].Enabled)
+	assert.False(t, fx.store.rows["rig:rig-1"].Enabled)
 }
 
 func TestDisableRevokesEvenWhenTheShortedWriteFails(t *testing.T) {
 	fx := newCrawlFixture(t, &bbStandIn{granted: true}, 0)
-	fx.store.rows["subj-rig-1"] = CrawlRigRow{Subject: "subj-rig-1", Enabled: true}
+	fx.store.rows["rig:rig-1"] = CrawlRigRow{Subject: "rig:rig-1", Enabled: true}
 	fx.store.disableErr = errors.New("connection reset")
 	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, `{"rig_id":"rig-1","enabled":false}`))
 	require.False(t, res.Refused)
@@ -427,7 +427,7 @@ func TestDisableRevokesEvenWhenTheShortedWriteFails(t *testing.T) {
 
 func TestRepeatedDisableIsUnchanged(t *testing.T) {
 	fx := newCrawlFixture(t, &bbStandIn{granted: false}, 0)
-	fx.store.rows["subj-rig-1"] = CrawlRigRow{Subject: "subj-rig-1", Enabled: false}
+	fx.store.rows["rig:rig-1"] = CrawlRigRow{Subject: "rig:rig-1", Enabled: false}
 	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, `{"rig_id":"rig-1","enabled":false}`))
 	require.False(t, res.Refused)
 	assert.Equal(t, "unchanged", res.Structured["shorted"])
@@ -483,7 +483,8 @@ func TestADisableWhoseGetFailsStillRevokesAndExplainsTheShortedRow(t *testing.T)
 	for _, e := range fx.trace.snapshot() {
 		assert.NotContains(t, e, "store.disable", "shorted was written without a subject from BrandBrain")
 	}
-	assert.Contains(t, strings.Join(stringsOf(res.Structured["next_steps"]), " "), "comes from BrandBrain")
+	assert.Contains(t, strings.Join(stringsOf(res.Structured["next_steps"]), " "),
+		"BrandBrain could not be reached to resolve the subject; disable shorted's side by subject: call again with subject from housing_crawl_rigs")
 }
 
 func TestARedirectIsRefusedAndNeverFollowed(t *testing.T) {
@@ -529,7 +530,7 @@ func TestWithoutTheGrantTokenTheWriteIsNotConfiguredAndTheReadStillLists(t *test
 func TestTheReadToolReturnsIdentifiersEnumsBoolsAndTimestampsOnly(t *testing.T) {
 	fx := newCrawlFixture(t, &bbStandIn{granted: true}, 0)
 	note := "operator note with free text"
-	fx.store.rows["subj-rig-1"] = CrawlRigRow{Subject: "subj-rig-1", Enabled: true, CreatedAt: time.Date(2026, 10, 2, 3, 4, 5, 0, time.UTC)}
+	fx.store.rows["rig:rig-1"] = CrawlRigRow{Subject: "rig:rig-1", Enabled: true, CreatedAt: time.Date(2026, 10, 2, 3, 4, 5, 0, time.UTC)}
 	fx.store.enabledNote = &note
 
 	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlRigsTool, `{"rig_id":"rig-1"}`))
@@ -544,7 +545,7 @@ func TestTheReadToolReturnsIdentifiersEnumsBoolsAndTimestampsOnly(t *testing.T) 
 	assert.Equal(t, "ok", grant["brandbrain"])
 	assert.Equal(t, true, grant["subject_row_present"])
 	assert.Equal(t, true, grant["subject_row_enabled"])
-	assert.Equal(t, "subj-rig-1", grant["workload_subject"])
+	assert.Equal(t, "rig:rig-1", grant["workload_subject"])
 }
 
 func TestTheGrantTokenNeverAppearsInAnyResponse(t *testing.T) {
@@ -577,4 +578,94 @@ func stringsOf(v any) []string {
 		}
 	}
 	return out
+}
+
+// --- disable by subject (the kill switch) -----------------------------------------
+
+// BrandBrain down: a disable by subject changes shorted's row and never calls BrandBrain.
+func TestDisableBySubjectWorksWithBrandBrainDown(t *testing.T) {
+	fx := newCrawlFixture(t, &bbStandIn{getStatus: http.StatusServiceUnavailable, putStatus: http.StatusServiceUnavailable}, 0)
+	fx.store.rows["rig:rig-1"] = CrawlRigRow{Subject: "rig:rig-1", Enabled: true}
+	raw := crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, `{"subject":"rig:rig-1","enabled":false}`)
+	res := parseToolResult(t, raw)
+	require.False(t, res.Refused, raw)
+	assert.Equal(t, "disabled", res.Structured["shorted"])
+	assert.Equal(t, "not_attempted", res.Structured["brandbrain"])
+	assert.Equal(t, []string{"store.disable rig:rig-1"}, fx.trace.snapshot(), "BrandBrain was called on a subject disable")
+	assert.False(t, fx.store.rows["rig:rig-1"].Enabled)
+}
+
+// With its token unset there is no BrandBrain client at all. The kill switch still works.
+func TestDisableBySubjectWorksWhenTheGrantTokenIsUnset(t *testing.T) {
+	trace := &crawlTrace{}
+	store := &fakeCrawlStore{trace: trace, rows: map[string]CrawlRigRow{"rig:rig-1": {Subject: "rig:rig-1", Enabled: true}}}
+	srv := adminStackHandler(t, &fakePublisher{fakeCrawlOp: fakeCrawlOp{store: store, grants: nil}})
+	res := parseToolResult(t, crawlCall(t, srv, "t", CrawlAuthorizeTool, `{"subject":"rig:rig-1","enabled":false}`))
+	require.False(t, res.Refused, res.Text)
+	assert.Equal(t, "disabled", res.Structured["shorted"])
+	assert.Equal(t, "not_attempted", res.Structured["brandbrain"])
+}
+
+func TestDisableBySubjectWithoutARowReportsNotPresent(t *testing.T) {
+	fx := newCrawlFixture(t, nil, 0)
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, `{"subject":"rig:ghost","enabled":false}`))
+	require.False(t, res.Refused)
+	assert.Equal(t, "not_present", res.Structured["shorted"])
+	assert.Empty(t, fx.store.rows, "a subject disable created a row")
+}
+
+// Enabling needs rig_id. A subject is never enough to turn a rig on.
+func TestEnableWithASubjectIsRefused(t *testing.T) {
+	for name, args := range map[string]string{
+		"with confirm":    `{"subject":"rig:rig-1","enabled":true,"confirm":true}`,
+		"without confirm": `{"subject":"rig:rig-1","enabled":true}`,
+	} {
+		fx := newCrawlFixture(t, nil, 0)
+		res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, args))
+		assert.True(t, res.Refused, "%s: enable by subject was accepted", name)
+		assert.Contains(t, res.Text, "needs rig_id", name)
+		assert.Empty(t, fx.trace.snapshot(), "%s: an enable by subject reached a side effect", name)
+	}
+}
+
+func TestExactlyOneOfRigIDOrSubject(t *testing.T) {
+	for name, args := range map[string]string{
+		"both":         `{"rig_id":"rig-1","subject":"rig:rig-1","enabled":false}`,
+		"neither":      `{"enabled":false}`,
+		"both, enable": `{"rig_id":"rig-1","subject":"rig:rig-1","enabled":true,"confirm":true}`,
+	} {
+		fx := newCrawlFixture(t, nil, 0)
+		res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, args))
+		assert.True(t, res.Refused, "%s was accepted", name)
+		assert.Empty(t, fx.trace.snapshot(), "%s reached a side effect", name)
+	}
+}
+
+func TestBadSubjectsAreRefused(t *testing.T) {
+	long := "rig:" + strings.Repeat("a", 101) // 101 id characters: one too many
+	ok := "rig:" + strings.Repeat("a", 100)   // the issuer's maximum: 1 leading + 99
+	bad := []string{
+		"rig-1",      // no prefix
+		"subj-rig-1", // not the issuer's form
+		"RIG:rig-1",  // prefix is lower-case
+		"rig:",       // empty id
+		"rig:-x",     // id must start with a letter or digit
+		"rig:a b",    // space
+		"rig:../x",   // path
+		"rig:a/b",    // slash
+		"rig:a@b",    // not in the id charset
+		long,         // id 101 characters
+		"rig:x\n",    // control character
+	}
+	for _, sub := range bad {
+		fx := newCrawlFixture(t, nil, 0)
+		args := fmt.Sprintf(`{"subject":%q,"enabled":false}`, sub)
+		res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, args))
+		assert.True(t, res.Refused, "subject %q was accepted", sub)
+		assert.Empty(t, fx.trace.snapshot(), "subject %q reached a side effect", sub)
+	}
+	// The longest legal id is accepted.
+	fx := newCrawlFixture(t, nil, 0)
+	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, fmt.Sprintf(`{"subject":%q,"enabled":false}`, ok)))
+	assert.False(t, res.Refused, res.Text)
 }

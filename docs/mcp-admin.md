@@ -55,7 +55,7 @@ Code on the web) with twenty-five tools:
 | `alerts_smoke_result` `{monitor_id, date, execution?}` | `jobs:read` | What the replay did for one of the caller's monitors on one date: the event row (with `createdAt`, `runId`) and, with `execution`, the job's state. A row written before that execution started is flagged `predatesExecution`. |
 | `delete_alert_monitor` `{monitor_id}` | `jobs:run` | Deletes one of the caller's own monitors and its events. Refused for any other monitor. |
 | `housing_crawl_rigs` `{rig_id?}` | `crawl:authorize` | Lists shorted's housing crawl allowlist (`housing_ingest_rigs`): each subject, whether it is enabled and when it was added. The note is not returned. With `rig_id`, also BrandBrain's `housing_crawl_v1` grant for that rig and whether shorted's row for its `workload_subject` exists and is enabled. Read-only. |
-| `housing_crawl_authorize` `{rig_id, enabled, note?, confirm?}` | `crawl:authorize` | Turns a BrandBrain rig's housing crawl on or off on **both** sides. Enabling needs `confirm: true` and runs GET, then PUT of the grant, then the shorted allowlist write for the `workload_subject` BrandBrain returns. Disabling writes shorted first, then revokes the grant, and still revokes it when shorted fails. Reports each side (`shorted`, `brandbrain`) separately. A PUT with an unknown outcome is reported as `unknown` and never retried. Idempotent. |
+| `housing_crawl_authorize` `{rig_id \| subject, enabled, note?, confirm?}` | `crawl:authorize` | Turns a BrandBrain rig's housing crawl on or off. Give **exactly one** of `rig_id` or `subject`. Enabling needs `rig_id`, `confirm: true`, and runs GET, then PUT of the grant, then the shorted allowlist write for the `workload_subject` BrandBrain returns. Disabling by `rig_id` writes shorted first, then revokes the grant, and still revokes when shorted fails. Disabling by `subject` (`rig:<id>`, from `housing_crawl_rigs`) changes only shorted's row and never calls BrandBrain (`brandbrain: not_attempted`), so it works while BrandBrain is down. Reports each side (`shorted`, `brandbrain`) separately. A PUT with an unknown outcome is reported as `unknown` and never retried. Idempotent. |
 
 Only merged articles can be published — the job image bakes `content/news` in
 at build time, and the tool takes a slug, never a body. Likewise the picks tool
@@ -360,13 +360,36 @@ never returned by either tool.
 - **Enable** (`confirm: true` required): GET, then PUT `granted: true`, then the allowlist
   upsert. A 404 on the GET stops with nothing written. An unknown PUT outcome stops before
   shorted is touched.
-- **Disable**: the subject comes from BrandBrain's GET, so shorted's row is written first
-  and the revoke follows. The revoke is still attempted when the shorted write fails. A
-  disable whose GET fails cannot name the row, so it reports `shorted: failed` and changes
-  nothing on shorted. Run it again once BrandBrain answers.
+- **Disable by `rig_id`**: the subject comes from BrandBrain's GET, so shorted's row is
+  written first and the revoke follows. The revoke is still attempted when the shorted
+  write fails. When the GET fails, the subject cannot be resolved: the tool reports
+  `shorted: failed`, still attempts the revoke, and says to disable by subject instead.
+- **Disable by `subject`**: the kill switch. See the next section.
 - **`brandbrain: unknown`** means a PUT timed out or returned a 5xx. Nothing is retried
   automatically. Run `housing_crawl_rigs` with the `rig_id`, then run the tool again. Both
   operations are idempotent.
+
+### Kill switch with BrandBrain unavailable
+
+Cut a rig off immediately, without BrandBrain. Shorted's allowlist alone decides whether
+the rig's pushes are admitted, so the switch needs only shorted's database:
+
+1. Find the rig's subject. Run `housing_crawl_rigs` with no `rig_id`. It lists each
+   allowlist subject (`rig:<id>`) and whether it is enabled. It needs no BrandBrain.
+2. Disable it: `housing_crawl_authorize` with `subject: "rig:<id>"` and `enabled: false`.
+   The result is `shorted: disabled` (or `unchanged`, or `not_present` if no row exists),
+   and `brandbrain: not_attempted`. No BrandBrain token is needed.
+3. Within about a minute the ingest refuses the rig's pushes: it caches the allowlist for
+   60 seconds.
+4. When BrandBrain is reachable again, revoke its grant too:
+   `housing_crawl_authorize` with `rig_id` and `enabled: false`. The shorted side is
+   `unchanged` and BrandBrain reports `revoked`.
+
+Enabling is never possible by subject. A subject is only valid with `enabled: false`, and
+enabling needs `rig_id` (and `confirm: true`), so BrandBrain always supplies the subject.
+Give exactly one of `rig_id` or `subject`: both, or neither, is refused.
+The subject must be `rig:` followed by 1 to 100 letters, digits, dots, underscores or
+hyphens, starting with a letter or digit. It mirrors the BrandBrain issuer's rig subject.
 
 Operator failure modes:
 

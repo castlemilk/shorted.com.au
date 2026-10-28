@@ -54,8 +54,11 @@ const crawlTimeout = 30 * time.Second
 const crawlNoteMax = 200
 
 var (
-	crawlRigIDPattern   = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
-	crawlSubjectPattern = regexp.MustCompile(`^[A-Za-z0-9._:@/-]{1,256}$`)
+	crawlRigIDPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
+	// crawlSubjectPattern mirrors the BrandBrain issuer's rig subject: "rig:" plus a rig
+	// id matching rigIDPattern (backend/internal/adapters/http/fleet_orchestration_handler.go,
+	// rigTokenSubjectPrefix in fleet_handler.go). Anything else is not a rig subject.
+	crawlSubjectPattern = regexp.MustCompile(`^rig:[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)
 	crawlEnumPattern    = regexp.MustCompile(`^[a-z_]{1,40}$`)
 )
 
@@ -72,6 +75,9 @@ const (
 	BrandBrainUnchanged = "unchanged"
 	BrandBrainFailed    = "failed"
 	BrandBrainUnknown   = "unknown"
+	// BrandBrainNotAttempted is a disable by subject: BrandBrain is not called, so its
+	// grant is unchanged and the outcome is not known.
+	BrandBrainNotAttempted = "not_attempted"
 )
 
 // CrawlRigRow is one allowlist row as the read tool returns it. The note is not
@@ -244,9 +250,11 @@ func closedEnum(s string) string {
 
 // --- housing_crawl_authorize --------------------------------------------------
 
-// CrawlAuthorizeInput is closed: any other field is refused by the schema.
+// CrawlAuthorizeInput is closed: any other field is refused by the schema. Exactly one
+// of rig_id and subject is required; that is enforced in code, not in the schema.
 type CrawlAuthorizeInput struct {
-	RigID   string `json:"rig_id" jsonschema:"The BrandBrain rig to change, e.g. rig_01 (letters, digits, dot, underscore, hyphen; at most 100)."`
+	RigID   string `json:"rig_id,omitempty" jsonschema:"The BrandBrain rig to change, e.g. rig_01 (letters, digits, dot, underscore, hyphen; at most 100). Give exactly one of rig_id or subject. Required to enable."`
+	Subject string `json:"subject,omitempty" jsonschema:"Disable only: the rig's workload_subject (rig:<id>), as housing_crawl_rigs lists it. Only shorted's allowlist row is changed, and BrandBrain is not called, so this works while BrandBrain is down. Give exactly one of rig_id or subject. Not valid with enabled=true."`
 	Enabled bool   `json:"enabled" jsonschema:"true authorizes the rig on both sides; false revokes it."`
 	Note    string `json:"note,omitempty" jsonschema:"Free text stored on shorted's allowlist row, at most 200 characters. Never returned."`
 	Confirm bool   `json:"confirm,omitempty" jsonschema:"Must be true to enable a rig. Not needed to disable one."`
@@ -257,7 +265,7 @@ type CrawlAuthorizeOutput struct {
 	RigID           string   `json:"rig_id"`
 	WorkloadSubject string   `json:"workload_subject,omitempty" jsonschema:"The subject both sides were changed for. Empty when it could not be learned."`
 	Shorted         string   `json:"shorted" jsonschema:"enabled | disabled | unchanged | not_present | failed."`
-	BrandBrain      string   `json:"brandbrain" jsonschema:"granted | revoked | unchanged | failed | unknown. unknown means a PUT timed out or returned a 5xx: the outcome is not known, and nothing was retried."`
+	BrandBrain      string   `json:"brandbrain" jsonschema:"granted | revoked | unchanged | failed | unknown | not_attempted. unknown means a PUT timed out or returned a 5xx: the outcome is not known, and nothing was retried. not_attempted means BrandBrain was not called (disable by subject)."`
 	CanMint         bool     `json:"can_mint"`
 	CanMintReason   string   `json:"can_mint_reason" jsonschema:"BrandBrain's answer after the change, or unknown when no answer came back."`
 	NextSteps       []string `json:"next_steps"`
@@ -271,7 +279,9 @@ func crawlAuthorizeTool() AdminTool {
 			Title: "Authorize a housing crawl rig",
 			Description: "Turn a BrandBrain rig's housing crawl on or off on both sides: BrandBrain's housing_crawl_v1 operator grant, and shorted's " +
 				"allowlist that admits its listing pushes. Enabling needs confirm=true and runs GET, then PUT, then the shorted write. " +
-				"Disabling writes shorted first, then revokes the grant, and still revokes it when shorted fails. Idempotent: repeat it after an unknown outcome. " +
+				"Disabling writes shorted first, then revokes the grant, and still revokes it when shorted fails. " +
+				"To cut a rig off when BrandBrain is unreachable, disable by subject (subject from housing_crawl_rigs, enabled=false): only shorted's row is changed. " +
+				"Idempotent: repeat it after an unknown outcome. " +
 				"Reports each side separately; check housing_crawl_rigs afterwards.",
 			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false), IdempotentHint: true, OpenWorldHint: new(true)},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, in CrawlAuthorizeInput) (*sdk.CallToolResult, CrawlAuthorizeOutput, error) {
@@ -294,7 +304,20 @@ func crawlAuthorizeTool() AdminTool {
 // reported in the output, never as an error, so the model sees what did land.
 func authorizeCrawlRig(ctx context.Context, op AdminOperator, userID string, in CrawlAuthorizeInput) (CrawlAuthorizeOutput, error) {
 	// Refusals first, before any request leaves this process.
-	if !crawlRigIDPattern.MatchString(in.RigID) {
+	hasRig, hasSubject := in.RigID != "", in.Subject != ""
+	if hasRig == hasSubject {
+		return CrawlAuthorizeOutput{}, errCrawlOneTarget
+	}
+	if hasSubject {
+		// A subject names a rig already known to shorted. Only a disable may use it:
+		// enabling needs rig_id, so the subject always comes from BrandBrain.
+		if in.Enabled {
+			return CrawlAuthorizeOutput{}, errCrawlSubjectEnable
+		}
+		if !crawlSubjectPattern.MatchString(in.Subject) {
+			return CrawlAuthorizeOutput{}, errCrawlSubject
+		}
+	} else if !crawlRigIDPattern.MatchString(in.RigID) {
 		return CrawlAuthorizeOutput{}, errCrawlRigID
 	}
 	if in.Enabled && !in.Confirm {
@@ -307,13 +330,20 @@ func authorizeCrawlRig(ctx context.Context, op AdminOperator, userID string, in 
 	if store == nil {
 		return CrawlAuthorizeOutput{}, errCrawlStoreUnavailable
 	}
+	ctx, cancel := context.WithTimeout(ctx, crawlTimeout)
+	defer cancel()
+
+	if hasSubject {
+		// The kill switch: shorted's row only. BrandBrain is not needed, so this
+		// works with it down or with its token unset.
+		return disableCrawlBySubject(ctx, store, in.Subject), nil
+	}
+
 	grants := op.CrawlGrants()
 	if grants == nil {
 		return CrawlAuthorizeOutput{}, errCrawlNotConfigured
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, crawlTimeout)
-	defer cancel()
 	operator := op.CrawlOperatorEmail(ctx, userID)
 	var note *string
 	if in.Note != "" {
@@ -325,6 +355,18 @@ func authorizeCrawlRig(ctx context.Context, op AdminOperator, userID string, in 
 		return enableCrawlRig(ctx, store, grants, operator, in.RigID, note)
 	}
 	return disableCrawlRig(ctx, store, grants, operator, in.RigID)
+}
+
+// disableCrawlBySubject flips shorted's row for subject and never calls BrandBrain.
+// A missing row is not_present and nothing is written.
+func disableCrawlBySubject(ctx context.Context, store CrawlRigStore, subject string) CrawlAuthorizeOutput {
+	out := CrawlAuthorizeOutput{WorkloadSubject: subject, Shorted: ShortedFailed,
+		BrandBrain: BrandBrainNotAttempted, CanMintReason: "unknown"}
+	if outcome, err := store.DisableCrawlRig(ctx, subject); err == nil {
+		out.Shorted = outcome
+	}
+	out.NextSteps = crawlNextSteps(false, out.Shorted, out.BrandBrain, out.CanMintReason, false)
+	return out
 }
 
 func enableCrawlRig(ctx context.Context, store CrawlRigStore, grants CrawlGrantClient, operator, rigID string, note *string) (CrawlAuthorizeOutput, error) {
@@ -447,7 +489,7 @@ func usableSubject(g *brandbrain.Grant) (string, error) {
 func crawlNextSteps(enabling bool, shorted, bbState, mintReason string, subjectUnknown bool) []string {
 	var steps []string
 	if subjectUnknown {
-		steps = append(steps, "The shorted allowlist row was not changed: its workload_subject comes from BrandBrain, which did not answer. BrandBrain's grant revoke was still attempted. Run this disable again once BrandBrain is reachable.")
+		steps = append(steps, "BrandBrain could not be reached to resolve the subject; disable shorted's side by subject: call again with subject from housing_crawl_rigs")
 	}
 	switch shorted {
 	case ShortedEnabled:
@@ -464,6 +506,8 @@ func crawlNextSteps(enabling bool, shorted, bbState, mintReason string, subjectU
 		steps = append(steps, "BrandBrain did not confirm the change. Check the grant with housing_crawl_rigs, then run this tool again. Nothing was retried automatically.")
 	case BrandBrainFailed:
 		steps = append(steps, "BrandBrain refused the change, so its grant was not changed.")
+	case BrandBrainNotAttempted:
+		steps = append(steps, "BrandBrain was not called, so its grant is unchanged. Once BrandBrain is reachable, revoke the grant with housing_crawl_authorize (rig_id, enabled=false).")
 	}
 	if bbState == BrandBrainGranted || bbState == BrandBrainUnchanged || bbState == BrandBrainRevoked {
 		switch mintReason {
@@ -490,6 +534,9 @@ func crawlNextSteps(enabling bool, shorted, bbState, mintReason string, subjectU
 
 var (
 	errCrawlRigID                 = errors.New("rig_id must be 1 to 100 letters, digits, dots, underscores or hyphens; nothing was sent")
+	errCrawlOneTarget             = errors.New("give exactly one of rig_id or subject; nothing was sent or written")
+	errCrawlSubjectEnable         = errors.New("subject is only valid with enabled=false: enabling a rig needs rig_id, so BrandBrain supplies the subject; nothing was written")
+	errCrawlSubject               = errors.New("subject must be rig: followed by 1 to 100 letters, digits, dots, underscores or hyphens, starting with a letter or digit, as housing_crawl_rigs lists it; nothing was written")
 	errCrawlConfirm               = errors.New("enabling a rig needs confirm=true; nothing was sent or written. Disabling does not need it")
 	errCrawlNote                  = fmt.Errorf("note must be at most %d characters; nothing was written", crawlNoteMax)
 	errCrawlNotConfigured         = errors.New("BRANDBRAIN_HOUSING_GRANT_TOKEN is not configured on this deployment, so BrandBrain's grant cannot be read or changed; nothing was written")
