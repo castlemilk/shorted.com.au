@@ -44,6 +44,37 @@ work. Serving an existing logo from GCS produces no discovery metric. Validate
 with ordinary scheduled work; do not trigger enrichment or other business jobs
 solely to generate telemetry. Empty historical windows remain honestly empty.
 
+## Metric dimensions
+
+Bound dimensions at the producer, before the SDK aggregates measurements.
+The collector must preserve datapoint attributes: deleting a dimension or
+truncating its value after aggregation can turn distinct points into the same
+series at the same timestamp, losing data or rejecting the batch.
+
+Logo counters and duration histograms retain only `logo.source`, `logo.format`
+and `logo.success`. SDK views combine observations across stocks while keeping
+the existing histogram buckets. Individual `stock_code` details remain in
+traces.
+
+Stealth metrics retain `http.host` as a **provider category**, rather than a raw
+request hostname. Configured providers map to `linkedin.com`, `duckduckgo.com`,
+`finance.yahoo.com`, `news.google.com`, `asx.com.au`, `realestate.com.au`,
+`localgovernment.vic.gov.au`, `discover.data.vic.gov.au`, `land.vic.gov.au`,
+`valuergeneral.nsw.gov.au` or `infrastructure.gov.au`. Their subdomains use the
+same category; host case, ports and a trailing DNS dot do not create series.
+All other company websites, feeds, image CDNs and invalid URLs use `other`.
+Hostname matches require a domain boundary. Traces retain the original URL.
+Historical raw-host series remain in storage, so select a post-cutover time
+window when comparing these categories.
+
+Chat tool metrics retain registered tool names and group rejected unknown names
+as `unknown`; logs and tool results keep the original name. Blocked rate-limit
+metrics use the same tier categories as the other limiter metrics, with unknown
+tiers grouped as `other`. Quota decisions and response headers keep their
+existing behavior.
+HTTP duration metrics use the standard HTTP methods plus `_OTHER`; traces and
+handlers retain the original request method.
+
 ## Receiver and credential prerequisites
 
 Before enabling either deployment:
