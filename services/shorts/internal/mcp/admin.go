@@ -69,11 +69,15 @@ const (
 	// one subscriber or of all of them (admin_billing.go). Its own scope, not
 	// part of jobs:read, so a monitoring-only connection never carries it.
 	ScopeUsersRead = "users:read"
+	// ScopeCrawlAuthorize covers housing_crawl_rigs (read) and housing_crawl_authorize
+	// (write): turning a BrandBrain rig's housing crawl on or off on both sides
+	// (admin_crawl.go). It is not in Scopes, so it is never on the public server.
+	ScopeCrawlAuthorize = "crawl:authorize"
 )
 
 // AdminScopes is the admin resource's entire scope vocabulary, in published
 // order. An empty scope request against /mcp/admin is granted all of it.
-var AdminScopes = []string{ScopeNewsPublish, ScopeJobsRun, ScopeJobsRead, ScopeUsersRead}
+var AdminScopes = []string{ScopeNewsPublish, ScopeJobsRun, ScopeJobsRead, ScopeUsersRead, ScopeCrawlAuthorize}
 
 // AdminProtectedResourceMetadataPath is RFC 9728 §3.1's location for a
 // resource whose identifier has the path /mcp/admin.
@@ -192,6 +196,7 @@ type AdminOperator interface {
 	AdminBillingReader
 	AdminProbeOperator
 	AdminAlertsOperator
+	AdminCrawlOperator
 	RunPublish(ctx context.Context, req jobmonitor.PublishRequest) (*jobmonitor.PublishRun, error)
 	PublishResult(ctx context.Context, executionName string) (*jobmonitor.PublishStatus, error)
 	RunPicks(ctx context.Context, req jobmonitor.PicksRequest) (*jobmonitor.PicksRun, error)
@@ -214,7 +219,8 @@ func AdminRegistry() []AdminTool {
 		listAsyncJobsTool(), listJobExecutionsTool(), getJobExecutionTool(), listEnrichmentJobsTool(), searchJobMentionsTool(),
 		peopleOverviewTool(), listUsersTool(), listPayingUsersTool(), listMailingListTool(), lookupPersonTool(),
 		checkSubscriptionTool(), billingExceptionsTool(), paidFeatureStatusTool(), runPaidProbeTool()}
-	return append(tools, alertsAdminTools()...)
+	tools = append(tools, alertsAdminTools()...)
+	return append(tools, crawlAdminTools()...)
 }
 
 // NewAdminServer builds the admin MCP server with operational tools, its app,

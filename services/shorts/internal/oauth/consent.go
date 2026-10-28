@@ -110,6 +110,9 @@ var scopeDescriptions = map[string]string{
 	"jobs:read":    "View asynchronous jobs, execution history, queue status and operational errors",
 	"jobs:run":     "Start on-demand runs of the stock picker data job (fundamentals, filings, view refresh)",
 	"users:read":   "View personal data: signed-up accounts, paying subscribers and mailing list addresses",
+	// Admin resource: lets a BrandBrain rig push housing listings into shorted, and
+	// revokes that. Changes which rig may write listing data, so it is a write scope.
+	"crawl:authorize": "Authorize or revoke a BrandBrain rig's housing listing crawl, on both BrandBrain and shorted",
 }
 
 // DescribeScopes turns a space-delimited grant into ordered, human-readable

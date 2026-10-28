@@ -98,6 +98,18 @@ variable "telesis_secret_exists" {
   default     = false
 }
 
+variable "brandbrain_housing_grant_secret_exists" {
+  description = "Whether the brandbrain-housing-grant-token secret exists in Secret Manager. Gates the secret IAM grant, the settle delay and the BRANDBRAIN_HOUSING_GRANT_TOKEN env var. Leave it false until the secret exists WITH AN ENABLED VERSION: with it true, the IAM grant fails if the secret is missing, and Cloud Run fails to create a revision if the secret has no enabled version (Terraform cannot check a version's existence without failing the plan). Without it the admin housing-crawl write tool answers not_configured."
+  type        = bool
+  default     = false
+}
+
+variable "housing_ingest_service_name" {
+  description = "Name of the housing-ingest Cloud Run service (module housing-ingest's service_name). Grants shorts-api roles/run.viewer on that one service and points HOUSING_INGEST_RUN_SERVICE at it, so the admin housing-crawl tools can report whether the deployed ingest admits a rig. Empty leaves the admission signal unknown."
+  type        = string
+  default     = ""
+}
+
 variable "telesis_org_id" {
   description = "Telesis organisation that owns the shorted cron monitors (TELESIS_ORG_ID)."
   type        = string

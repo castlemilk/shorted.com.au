@@ -1333,6 +1333,10 @@ module "shorts_api" {
 
   otel_metrics = var.otel_metrics
 
+  # The housing-ingest service the admin housing-crawl tools read for admission
+  # (roles/run.viewer on that one service; mcp_admin_ingest.go).
+  housing_ingest_service_name = module.housing_ingest.service_name
+
   project_id        = var.project_id
   region            = var.region
   environment       = "production"

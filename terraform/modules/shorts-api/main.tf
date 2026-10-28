@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    time = {
+      source  = "hashicorp/time"
+      version = "0.14.2"
+    }
+  }
+}
+
 /**
  * Shorts API Module
  * 
@@ -153,6 +162,39 @@ resource "google_secret_manager_secret_iam_member" "telesis_api_token" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.shorts_api.email}"
   project   = var.project_id
+}
+
+# BrandBrain's housing grant credential (internal/brandbrain). It works only on the
+# grant route and only for the admin housing-crawl tools. Count-gated like the Telesis
+# token, so apply is safe before the secret is provisioned.
+resource "google_secret_manager_secret_iam_member" "brandbrain_housing_grant_token" {
+  count     = var.brandbrain_housing_grant_secret_exists ? 1 : 0
+  secret_id = "brandbrain-housing-grant-token"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
+# Cloud Run resolves a secret reference when it creates a revision. The IAM grant can take
+# a moment to propagate, so the service waits for it (same 30s settle as housing-ingest's
+# database_url grant). Count-gated with the secret, so nothing is created while the flag is off.
+resource "time_sleep" "brandbrain_housing_grant" {
+  count           = var.brandbrain_housing_grant_secret_exists ? 1 : 0
+  create_duration = "30s"
+
+  depends_on = [google_secret_manager_secret_iam_member.brandbrain_housing_grant_token]
+}
+
+# Read-only access to the deployed housing-ingest Cloud Run service. The admin housing
+# crawl tools read its env (the allowlist and org) to report whether it admits a rig
+# (mcp_admin_ingest.go). roles/run.viewer grants read on that one service, nothing else.
+resource "google_cloud_run_v2_service_iam_member" "housing_ingest_viewer" {
+  count    = var.housing_ingest_service_name != "" ? 1 : 0
+  name     = var.housing_ingest_service_name
+  location = var.region
+  project  = var.project_id
+  role     = "roles/run.viewer"
+  member   = "serviceAccount:${google_service_account.shorts_api.email}"
 }
 
 # Grant access to internal service secret (for webhook/server action calls from frontend)
@@ -332,6 +374,30 @@ resource "google_cloud_run_v2_service" "shorts_api" {
           value_source {
             secret_key_ref {
               secret  = "TELESIS_API_TOKEN"
+              version = "latest"
+            }
+          }
+        }
+      }
+      # The housing-ingest service the admin housing-crawl tools read for admission
+      # (mcp_admin_ingest.go). Unset means the admission signal is unknown.
+      dynamic "env" {
+        for_each = var.housing_ingest_service_name != "" ? [1] : []
+        content {
+          name  = "HOUSING_INGEST_RUN_SERVICE"
+          value = "projects/${var.project_id}/locations/${var.region}/services/${var.housing_ingest_service_name}"
+        }
+      }
+
+      # BrandBrain's housing grant token for the admin housing-crawl tools
+      # (internal/brandbrain). Unset means those write tools answer not_configured.
+      dynamic "env" {
+        for_each = var.brandbrain_housing_grant_secret_exists ? [1] : []
+        content {
+          name = "BRANDBRAIN_HOUSING_GRANT_TOKEN"
+          value_source {
+            secret_key_ref {
+              secret  = "brandbrain-housing-grant-token"
               version = "latest"
             }
           }
@@ -694,6 +760,8 @@ resource "google_cloud_run_v2_service" "shorts_api" {
     google_secret_manager_secret_iam_member.otel_metrics_headers,
     google_secret_manager_secret_iam_member.news_publish_token,
     google_secret_manager_secret_version.news_publish_token,
+    google_secret_manager_secret_iam_member.brandbrain_housing_grant_token,
+    time_sleep.brandbrain_housing_grant,
   ]
 }
 

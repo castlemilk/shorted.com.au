@@ -250,7 +250,8 @@ and resource reads count towards the app-layer quota when it is enabled;
 `initialize`, `tools/list`, `resources/list` and `prompts/list` remain free.
 
 Administrators connect **separately** to `https://api.shorted.com.au/mcp/admin` for
-job visibility, publishing and (with `users:read`) account and subscriber data.
+job visibility, publishing, (with `users:read`) account and subscriber data, and
+(with `crawl:authorize`) authorizing BrandBrain housing crawl rigs.
 Request `jobs:read` for monitoring-only access.
 The public server never advertises admin jobs or accepts admin tokens. Existing
 admin connections must reconnect after deployment to approve the new read scope.

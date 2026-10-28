@@ -1356,7 +1356,11 @@ the `jobs:read` fleet tools, and the `users:read` personal-data tools
 (`people_overview`, `list_users`, `list_paying_users`, `list_mailing_list`,
 `lookup_person`: Firebase accounts via the web app's `/api/internal/admin-users`,
 `api_subscriptions`, the `subscriptions` mailing list; minimal fields, every
-call logged with its actor). It is a
+call logged with its actor), and the housing crawl authorization
+(`housing_crawl_rigs` / `housing_crawl_authorize`, scope `crawl:authorize`:
+turns a BrandBrain rig on or off on both shorted's `housing_ingest_rigs` and
+BrandBrain's `housing_crawl_v1` grant; `internal/brandbrain` is the client, and
+`docs/mcp-admin.md` "Housing crawl authorization" has the sequencing). It is a
 separate OAuth resource with its own scope vocabulary (`oauth/resources.go`) —
 on the public server, the read-only rule has ONE exception: `alerts:write`
 (`mcp.Scopes`), which unlocks the signed-in user's own alert tools. Constraints that
