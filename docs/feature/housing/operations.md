@@ -575,6 +575,15 @@ allowlist row, and BrandBrain's `housing_crawl_v1` grant.
 The env list the deployed revision carries is the deploy-time ceiling. The allowlist row can
 only narrow it: a rig absent from the list is refused whatever its row says.
 
+`ingest_admits: unknown` right after a deploy, or at any time, means the admin tools could not
+read the deployed ingest config. Check the shorts-api service's permissions first. The
+`roles/run.viewer` binding is on the `housing-ingest` service, and it is meant to cover
+`services.get` and `revisions.get`. The service-level role may not cover `revisions.get` on
+every project setup. If `unknown` persists after the deploy, confirm that the shorts-api
+service account can read the latest ready revision of `housing-ingest`, and, if it cannot, add the narrowest
+binding that does (a reviewed Terraform change, not an ad-hoc grant). `HOUSING_INGEST_RUN_SERVICE` must also be
+set on shorts-api, which Terraform does from `module.housing_ingest.service_name`.
+
 ### Cut a rig off
 
 Disable it with `housing_crawl_authorize` and `enabled: false`. Shorted's side takes effect

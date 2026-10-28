@@ -107,13 +107,18 @@ type fakeCrawlOp struct {
 	email  string
 	// admits maps a subject to the ingest admission answer; absent means "unknown".
 	admits map[string]string
+	// snapshots counts CrawlIngestAdmitter calls, one per tool invocation expected.
+	snapshots int
 }
 
-func (f *fakeCrawlOp) CrawlIngestAdmission(_ context.Context, subject string) string {
-	if v, ok := f.admits[subject]; ok {
-		return v
+func (f *fakeCrawlOp) CrawlIngestAdmitter(context.Context) func(string) string {
+	f.snapshots++
+	return func(subject string) string {
+		if v, ok := f.admits[subject]; ok {
+			return v
+		}
+		return "unknown"
 	}
-	return "unknown"
 }
 
 func (f *fakeCrawlOp) CrawlRigStore() CrawlRigStore { return f.store }
@@ -810,7 +815,10 @@ func TestEnableReportsAdmissionTrueAndUnknown(t *testing.T) {
 	fx.pub.admits = map[string]string{"rig:rig-1": "true"}
 	res := parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, "")))
 	assert.Equal(t, "true", res.Structured["ingest_admits"])
-	assert.Contains(t, strings.Join(stringsOf(res.Structured["next_steps"]), " "), "admitted")
+	steps := strings.Join(stringsOf(res.Structured["next_steps"]), " ")
+	assert.Contains(t, steps, "config admits rig:rig-1")
+	assert.Contains(t, steps, "does not show that the shorted row was written", "admission must not claim the change landed")
+	assert.NotContains(t, steps, "so its pushes are admitted")
 
 	fx = newCrawlFixture(t, nil, 0) // no admission answer: unknown
 	res = parseToolResult(t, crawlCall(t, fx.srv, "t", CrawlAuthorizeTool, authorizeArgs(true, "")))
@@ -885,4 +893,20 @@ func TestEnableWhenTheAnswerNamesAnotherRigWithOurSubjectWritesNothing(t *testin
 	require.False(t, res.Refused, res.Text)
 	assert.Equal(t, "invalid", res.Structured["brandbrain"])
 	assert.Empty(t, fx.store.rows)
+}
+
+// A listing of many rows takes one admission snapshot, not one per row.
+func TestCrawlRigsListingReadsTheIngestOnce(t *testing.T) {
+	trace := &crawlTrace{}
+	store := &fakeCrawlStore{trace: trace, rows: map[string]CrawlRigRow{}}
+	for _, id := range []string{"rig:a", "rig:b", "rig:c", "rig:d"} {
+		store.rows[id] = CrawlRigRow{Subject: id, Enabled: true, CreatedAt: time.Unix(1, 0)}
+	}
+	op := &fakeCrawlOp{store: store}
+	pub := &fakePublisher{fakeCrawlOp: *op}
+	srv := adminStackHandler(t, pub)
+	res := parseToolResult(t, crawlCall(t, srv, "t", CrawlRigsTool, `{}`))
+	require.False(t, res.Refused, res.Text)
+	assert.Len(t, res.Structured["rigs"], 4)
+	assert.Equal(t, 1, pub.snapshots, "one listing read the ingest config more than once")
 }

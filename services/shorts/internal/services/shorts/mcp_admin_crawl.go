@@ -94,11 +94,11 @@ func (a *adminMCPSource) CrawlOperatorEmail(ctx context.Context, userID string) 
 	return email
 }
 
-// CrawlIngestAdmission is "true", "false" or "unknown": whether the deployed housing-ingest
-// admits subject. It never gates a change.
-func (a *adminMCPSource) CrawlIngestAdmission(ctx context.Context, subject string) string {
+// CrawlIngestAdmitter reads the deployed housing-ingest config once and returns the
+// per-subject answer ("true", "false" or "unknown"). It never gates a change.
+func (a *adminMCPSource) CrawlIngestAdmitter(ctx context.Context) func(subject string) string {
 	if a == nil {
-		return "unknown"
+		return func(string) string { return "unknown" }
 	}
-	return a.crawlIngest.Admits(ctx, subject)
+	return a.crawlIngest.Snapshot(ctx)
 }

@@ -113,9 +113,9 @@ type AdminCrawlOperator interface {
 	CrawlRigStore() CrawlRigStore
 	// CrawlGrants is nil when BRANDBRAIN_HOUSING_GRANT_TOKEN is unset.
 	CrawlGrants() CrawlGrantClient
-	// CrawlIngestAdmission reports whether the deployed housing-ingest admits subject:
-	// "true", "false" or "unknown". It is read-only and never gates a change.
-	CrawlIngestAdmission(ctx context.Context, subject string) string
+	// CrawlIngestAdmitter reads the deployed housing-ingest config once and returns the
+	// per-subject answer: "true", "false" or "unknown". Read-only; it never gates a change.
+	CrawlIngestAdmitter(ctx context.Context) func(subject string) string
 	// CrawlOperatorEmail is the verified address of the caller, sent to BrandBrain
 	// as X-Operator for audit. Empty when it cannot be read.
 	CrawlOperatorEmail(ctx context.Context, userID string) string
@@ -201,9 +201,10 @@ func readCrawlRigs(ctx context.Context, op AdminOperator, in CrawlRigsInput) (Cr
 	if err != nil {
 		return out, errCrawlStoreRead
 	}
+	admit := op.CrawlIngestAdmitter(ctx)
 	for _, r := range rows {
 		out.Rigs = append(out.Rigs, CrawlRigOut{Subject: r.Subject, Enabled: r.Enabled,
-			CreatedAt: r.CreatedAt.UTC().Format(time.RFC3339), IngestAdmits: op.CrawlIngestAdmission(ctx, r.Subject)})
+			CreatedAt: r.CreatedAt.UTC().Format(time.RFC3339), IngestAdmits: admit(r.Subject)})
 	}
 	if in.RigID == "" {
 		return out, nil
@@ -246,7 +247,7 @@ func readCrawlRigs(ctx context.Context, op AdminOperator, in CrawlRigsInput) (Cr
 			grant.SubjectRowEnabled = r.Enabled
 		}
 	}
-	grant.IngestAdmits = op.CrawlIngestAdmission(ctx, subject)
+	grant.IngestAdmits = op.CrawlIngestAdmitter(ctx)(subject)
 	return out, nil
 }
 
@@ -383,7 +384,7 @@ func disableCrawlBySubject(ctx context.Context, op AdminOperator, store CrawlRig
 	if outcome, err := store.DisableCrawlRig(ctx, subject); err == nil {
 		out.Shorted = outcome
 	}
-	out.IngestAdmits = op.CrawlIngestAdmission(ctx, subject)
+	out.IngestAdmits = op.CrawlIngestAdmitter(ctx)(subject)
 	out.NextSteps = crawlNextSteps(stepInput{shorted: out.Shorted, bb: out.BrandBrain, mintReason: out.CanMintReason, ingest: out.IngestAdmits})
 	return out
 }
@@ -440,7 +441,7 @@ func enableCrawlRig(ctx context.Context, op AdminOperator, store CrawlRigStore, 
 	}
 
 	// 4. Whether the deployed ingest admits the subject. A signal for the operator only.
-	out.IngestAdmits = op.CrawlIngestAdmission(ctx, subject)
+	out.IngestAdmits = op.CrawlIngestAdmitter(ctx)(subject)
 	out.NextSteps = crawlNextSteps(stepInput{enabling: true, subject: subject, shorted: out.Shorted, bb: out.BrandBrain, mintReason: out.CanMintReason, ingest: out.IngestAdmits})
 	return out, nil
 }
@@ -491,7 +492,7 @@ func disableCrawlRig(ctx context.Context, op AdminOperator, store CrawlRigStore,
 	}
 
 	if subjectKnown {
-		out.IngestAdmits = op.CrawlIngestAdmission(ctx, subject)
+		out.IngestAdmits = op.CrawlIngestAdmitter(ctx)(subject)
 	}
 	out.NextSteps = crawlNextSteps(stepInput{shorted: out.Shorted, bb: out.BrandBrain, mintReason: out.CanMintReason,
 		subjectUnresolved: !subjectKnown, ingest: out.IngestAdmits})
@@ -574,7 +575,7 @@ func crawlNextSteps(in stepInput) []string {
 	if in.enabling && in.subject != "" && (in.bb == BrandBrainGranted || in.bb == BrandBrainUnchanged) {
 		switch in.ingest {
 		case "true":
-			steps = append(steps, "The deployed housing-ingest lists "+in.subject+" and has ingest_org set, so its pushes are admitted.")
+			steps = append(steps, "The deployed housing-ingest config admits "+in.subject+". This does not show that the shorted row was written or that the rig can mint: see the shorted and can_mint results.")
 		case "false":
 			steps = append(steps, "The rig is authorized but not yet admitted: add "+in.subject+" to ingest_allow_subjects and set ingest_org in terraform/environments/prod (module housing_ingest), then deploy.")
 		default:
