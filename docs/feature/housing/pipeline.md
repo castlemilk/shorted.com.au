@@ -249,6 +249,55 @@ source-level assertion on purpose — a mode that drops its error still logs, st
 records `"error"` in `sync_status` and still exits 0, so the dispatch shape is
 the only observable difference.
 
+## Crawl sinks (`CRAWL_SINK`, `-mode agent`)
+
+Where a queue sweep is written (S-FETCH; the design is
+`docs/superpowers/specs/2026-10-27-fleet-managed-housing-crawl-design.md`).
+`CRAWL_SINK` is read only by `-mode agent`. Other modes ignore it.
+
+- **`db`** (default, unset): the local diff into the database, exactly as before.
+  Gamma-64's launchd wrappers and BrandBrain 1.33.10's bundled collector run this.
+- **`ingest`**: each sweep is PUSHED to `CrawlIngestService`. The URL is pinned: https,
+  no userinfo, no port other than 443, and a host of `housing-ingest-uiekqxovma-km.a.run.app`
+  or under `.shorted.com.au`. `CRAWL_DRY_RUN` must be set explicitly. No `DATABASE_URL`,
+  no pool. The server runs the database work through `crawl-finalize`. The rig does not
+  load the resume snapshot or run the finalize step, and it reports its round through
+  `ReportCycle`.
+- **`shadow`**: the `db` diff plus a single-attempt, 15-second `dry_run=true` push of the
+  same sweep. Parity goes to the events stream as `shadow` records. A shadow failure never
+  changes the job outcome, and three consecutive failures switch shadow off for the process
+  (`shadow_circuit`).
+
+Refusals exit 8: an unknown value; an unpinned or missing `SHORTED_INGEST_URL`; `ingest`
+with `DATABASE_URL` set; `shadow` without it; `ingest` without `CRAWL_DRY_RUN`; a gateway
+fetch route; a non-loopback `CRAWL_CDP_URL`; `-mode agent` with the db sink and no
+`DATABASE_URL`. `-mode crawl` is removed and exits 1.
+
+Exit codes the ingest sink adds: **13** ingest refused the token, **14** ingest
+unavailable after three attempts, **15** contract mismatch (or three invalid sweeps in a
+row), **8** `Unimplemented` or `NotFound` (wrong URL or path), **7** the workload token
+could not be minted or failed its shape check. A cancel (10) beats all of them.
+
+Per-job answers become the job's submit, with `no_retry: true` on the permanent ones so
+BrandBrain makes them terminal: `dispatch_applied` succeeds; `not_dispatched`,
+`dispatch_expired`, `target_mismatch`, `AlreadyExists`, `InvalidArgument`, quarantined and
+an oversize sweep fail with `no_retry`. A rate limit, an auth refusal or a round ended
+before the push defers the job, **only when nothing of the job may have been stored**.
+Otherwise the job fails retryably and its next attempt gets new keys.
+
+Sanitising: before a push, every listing is clamped to the server's caps (out-of-range
+numbers become unknown, over-cap strings are truncated at a rune boundary, unusable
+identities are dropped). Any dropped listing, or a sweep past the listing or page cap,
+downgrades a COMPLETE sweep to PARTIAL, because an absent listing would be read as delisted.
+The caps and the validator live in `services/pkg/housingingest`, shared with the server.
+
+The workload token is the loopback's issuer shape, `{token, expires_at, audience}`. The
+rig checks the audience and the token's shape, and it exits 7 on either.
+
+Per-job mapping and the parity rules: `jobDispositionTable` and `parity` in
+`services/house-price-collector/crawl_sink.go`. The wire mapping is in
+`services/pkg/housingingest`, shared with the server.
+
 ## Revalidation ping
 
 `pingRevalidate` POSTs `REVALIDATION_URL?secret=…&path=/price-drops,/housing&flush=housing`

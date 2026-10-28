@@ -170,8 +170,8 @@ fi
 # 3. Warm — safe to spend the real (slow, adversarial) crawl run.
 "$BIN" -mode listings >>"$LOG" 2>&1
 rc_listings=$?
-"$BIN" -mode crawl >>"$LOG" 2>&1
-rc_crawl=$?
+# -mode crawl was removed (S-FETCH): the medians tier sent page HTML to BrandBrain.
+rc_crawl=0
 echo "listings rc=$rc_listings crawl rc=$rc_crawl" >>"$LOG"
 
 if [[ "$rc_listings" -eq 3 || "$rc_crawl" -eq 3 ]]; then

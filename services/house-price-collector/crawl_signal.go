@@ -118,6 +118,40 @@ func watchSignals(sigs <-chan os.Signal, done <-chan struct{}, stop *stopSignal,
 // jitterSleepUntil is jitterSleep (crawl_listings.go) with one extra exit: a stop
 // request ends the pause, so a signal that arrives between suburbs is acted on
 // promptly and not after the full jitter.
+// pageStopKey carries the per-page stop check on the round's context.
+type pageStopKey struct{}
+
+// withPageStop attaches the per-page check. It runs after every page fetch, and a false answer
+// makes the sweep end at once (crawlAgentJob copies it onto the listings crawler).
+func withPageStop(ctx context.Context, fn func() bool) context.Context {
+	return context.WithValue(ctx, pageStopKey{}, fn)
+}
+
+// pageStopFrom returns the per-page check on ctx, or nil.
+func pageStopFrom(ctx context.Context) func() bool {
+	fn, _ := ctx.Value(pageStopKey{}).(func() bool)
+	return fn
+}
+
+// agentPageStop is the child's per-page check (batch 1 item 5). It answers false, so the sweep
+// abandons its fetch, when the events pipe has broken or when the cycle that spawned this child is
+// gone (its PPID changed). Both are checked per PAGE, not per job, so an orphan finishes at most
+// the page it is on. A plain signal is not in this check: a graceful stop finishes the suburb.
+func agentPageStop(stop *stopSignal, cancelRound context.CancelFunc, startPPID int) func() bool {
+	return func() bool {
+		if startPPID != 1 && os.Getppid() == 1 {
+			stop.request("orphaned")
+			cancelRound()
+			return false
+		}
+		switch stop.Reason() {
+		case "event-pipe", "orphaned":
+			return false
+		}
+		return true
+	}
+}
+
 func jitterSleepUntil(ctx context.Context, stopped <-chan struct{}, lo, hi time.Duration) {
 	d := lo
 	if hi > lo {

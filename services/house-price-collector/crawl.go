@@ -6,11 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
-	"strings"
 	"time"
-
-	"github.com/PuerkitoBio/goquery"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // The Tier-3 crawl. SUPPLEMENTARY and OPTIONAL: realestate.com.au (Kasada) and
@@ -118,7 +114,6 @@ type crawlConfig struct {
 	dryRun          bool
 	maxConsecBlocks int
 	fetchTimeout    time.Duration
-	brandbrainURL   string
 	profileDir      string
 	// cdpURL, when set, selects the "option (b)" local-agent execution model:
 	// instead of the container rendering pages itself, the collector drives the
@@ -159,7 +154,6 @@ func loadCrawlConfig() crawlConfig {
 		dryRun:            os.Getenv("CRAWL_DRY_RUN") != "false",
 		maxConsecBlocks:   envInt("CRAWL_MAX_CONSEC_BLOCKS", 3),
 		fetchTimeout:      time.Duration(envInt("CRAWL_FETCH_TIMEOUT_S", 60)) * time.Second,
-		brandbrainURL:     os.Getenv("BRANDBRAIN_URL"), // "" -> brandbrainEndpoint() default
 		profileDir:        envStr("CRAWL_PROFILE_DIR", "/data/pw-profile"),
 		cdpURL:            os.Getenv("CRAWL_CDP_URL"), // e.g. http://host.docker.internal:9222
 		shardIndex:        envInt("CRAWL_SHARD_INDEX", 0),
@@ -223,153 +217,10 @@ const (
 	outcomeError
 )
 
-type crawlStats struct {
-	attempted, accepted, blocked, rejected, diverged int
-}
-
 type crawler struct {
 	fetcher   htmlFetcher        // headed Playwright in prod; a fake in tests
 	baselines map[string]float64 // capital GCCSA region_code -> trusted ABS median
 	cfg       crawlConfig
-	reaBlocks int // consecutive-block counters for the circuit breaker
-	domBlocks int
-	stats     crawlStats
-}
-
-// runCrawl is the -mode=crawl entry point. It returns true when the run detected
-// that the browser profile needs a human to re-warm its anti-bot clearance.
-func runCrawl(ctx context.Context, pool *pgxpool.Pool) bool {
-	cfg := loadCrawlConfig()
-
-	baselines, err := loadCapitalBaselines(ctx, pool)
-	if err != nil {
-		log.Printf("[crawl] ABS baselines unavailable (%v) — capital-band validation OFF, absolute bounds still enforced", err)
-		baselines = map[string]float64{}
-	}
-
-	// A real, headed Chrome is the ONLY client that survives Kasada/Akamai from a
-	// residential IP. With CRAWL_CDP_URL set we drive the HOST's macOS Chrome over
-	// CDP (option (b)); otherwise we launch a self-contained persistent Chromium
-	// (native/launchd fallback). If the chosen client can't init (e.g. driver
-	// missing, host Chrome not on :9222), fail non-fatally — the official backbone
-	// is unaffected.
-	fetcher, err := newCrawlFetcher(cfg)
-	if err != nil {
-		log.Printf("[crawl] crawl fetcher init failed (%v) — aborting crawl (non-fatal; official backbone unaffected)", err)
-		_ = updateRun(ctx, pool, "crawl", nil, 0, "error", "fetcher init: "+err.Error())
-		return false
-	}
-	defer fetcher.Close()
-
-	cr := &crawler{fetcher: fetcher, baselines: baselines, cfg: cfg}
-
-	targets := selectTargets(crawlTargets, cfg)
-	log.Printf("[crawl] start: %d suburbs · %s · profile=%s · dryRun=%v", len(targets), crawlFetcherMode(cfg), cfg.profileDir, cfg.dryRun)
-
-	var obs []Observation
-	for i, t := range targets {
-		if i > 0 {
-			cr.sleepJitter(ctx)
-		}
-		obs = append(obs, cr.crawlSuburb(ctx, t)...)
-	}
-
-	status, detail := "ok", ""
-	if cfg.dryRun {
-		log.Printf("[crawl] dry-run: %d observations NOT written", len(obs))
-	} else if len(obs) > 0 {
-		if err := upsertRegions(ctx, pool, obs); err != nil {
-			status, detail = "error", err.Error()
-			log.Printf("[crawl] region upsert error: %v", err)
-		} else if n, err := upsertObservations(ctx, pool, obs); err != nil {
-			status, detail = "error", err.Error()
-			log.Printf("[crawl] obs upsert error: %v", err)
-		} else {
-			log.Printf("[crawl] upserted %d suburb observations", n)
-		}
-	}
-	rewarm := needsRewarm(cfg.maxConsecBlocks, cr.reaBlocks, cr.domBlocks)
-	if rewarm && status == "ok" {
-		status, detail = "needs_rewarm", "circuit breaker tripped — re-warm the crawl Chrome profile"
-	}
-	_ = updateRun(ctx, pool, "crawl", nil, len(obs), status, detail)
-
-	s := cr.stats
-	log.Printf("[crawl] done: attempted=%d accepted=%d blocked=%d rejected=%d diverged=%d",
-		s.attempted, s.accepted, s.blocked, s.rejected, s.diverged)
-	if rewarm {
-		log.Printf("[crawl] REWARM REQUIRED: circuit breaker tripped (rea=%d dom=%d ≥ %d) — the dedicated Chrome profile likely lost its Kasada/Akamai clearance; re-warm it by hand",
-			cr.reaBlocks, cr.domBlocks, cfg.maxConsecBlocks)
-	}
-	return rewarm
-}
-
-// crawlSuburb fetches both sources via the headed browser, hands an allowlisted
-// aggregate projection of each page to brandbrain's ExtractRealEstate, and maps
-// the returned suburb-aggregate fields into validated Observations. Returns
-// everything to store (0..N).
-func (cr *crawler) crawlSuburb(ctx context.Context, t CrawlTarget) []Observation {
-	cr.stats.attempted++
-
-	var obs []Observation
-	obs = append(obs, cr.crawlSource(ctx, t, "rea", t.reaURL(), &cr.reaBlocks)...)
-	obs = append(obs, cr.crawlSource(ctx, t, "domain", t.domainURL(), &cr.domBlocks)...)
-
-	if len(obs) > 0 {
-		cr.stats.accepted++
-		log.Printf("[crawl] %s: accepted %d observation(s)", t.Display, len(obs))
-	}
-	return obs
-}
-
-// crawlSource fetches ONE source's rendered page (honouring the per-site circuit
-// breaker), routes its aggregate-only projection through brandbrain's extractor,
-// and returns the validated brandbrain Observations. The legacy
-// extractSaleMedians path is run as a non-blocking local cross-check against the
-// same rendered HTML (logged only).
-func (cr *crawler) crawlSource(ctx context.Context, t CrawlTarget, site, url string, blockCounter *int) []Observation {
-	if *blockCounter >= cr.cfg.maxConsecBlocks {
-		return nil // breaker open: stop hammering this source for the rest of the run
-	}
-
-	html, finalURL, outcome := cr.fetchPage(ctx, url)
-	switch outcome {
-	case outcomeBlocked:
-		*blockCounter++
-		cr.stats.blocked++
-		if *blockCounter == cr.cfg.maxConsecBlocks {
-			log.Printf("[crawl] %s circuit-breaker tripped (%d consecutive blocks) — skipping remaining %s fetches", site, *blockCounter, site)
-		}
-		return nil
-	case outcomeError:
-		return nil
-	}
-	*blockCounter = 0 // a success resets the breaker
-
-	x, err := extractRealEstate(ctx, cr.cfg.brandbrainURL, string(html), finalURL, t.Display, t.State)
-	if err != nil {
-		if err == errBrandbrainProjectionEmpty {
-			cr.stats.rejected++
-			log.Printf("[crawl] %s %s: brandbrain skipped: local aggregate projection empty", t.Display, site)
-			cr.crossCheck(t, site, html, nil)
-			return nil
-		}
-		log.Printf("[crawl] %s %s: brandbrain extract failed: %v", t.Display, site, err)
-		return nil
-	}
-
-	obs := cr.brandbrainObservations(t, site, x)
-	if len(obs) == 0 {
-		cr.stats.rejected++ // page rendered but nothing survived extraction/validation
-	}
-
-	// Optional, non-blocking cross-check: the schema-agnostic median harvester on
-	// the SAME rendered HTML. If it finds a robust median that diverges sharply
-	// from brandbrain's, log it as a poisoning/extraction-drift signal — but never
-	// drop the brandbrain observations on it (the capital-band gate already ran).
-	cr.crossCheck(t, site, html, obs)
-
-	return obs
 }
 
 // fetchPage fetches one URL via the injected htmlFetcher and classifies the
@@ -387,37 +238,6 @@ func (cr *crawler) fetchPage(ctx context.Context, url string) ([]byte, string, f
 		return nil, "", outcomeBlocked
 	}
 	return html, finalURL, outcomeOK
-}
-
-// crossCheck runs the legacy extractSaleMedians harvester over the rendered HTML
-// and logs (only) when its robust median diverges from brandbrain's house median.
-// It is deliberately advisory — extraction drift on an adversarial page is a
-// signal, not a reason to discard the already-capital-band-gated value.
-func (cr *crawler) crossCheck(t CrawlTarget, site string, html []byte, obs []Observation) {
-	var bbHouse float64
-	for _, o := range obs {
-		if o.Measure == "median_price" && o.DwellingType == "house" {
-			bbHouse = o.Value
-			break
-		}
-	}
-	if bbHouse == 0 {
-		return
-	}
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(html)))
-	if err != nil {
-		return
-	}
-	candidates := extractSaleMedians(doc)
-	raw, ok := robustMedian(candidates, cr.baselines[t.Capital])
-	if !ok {
-		return
-	}
-	if !crossSourceAgrees(bbHouse, raw) {
-		cr.stats.diverged++
-		log.Printf("[crawl] %s %s: brandbrain $%.0f vs page-harvest $%.0f diverge (>%.0f%%) — extraction-drift signal (value kept; capital-band gate passed)",
-			t.Display, site, bbHouse, raw, maxCrossSourceDivergence*100)
-	}
 }
 
 // needsRewarm reports whether a source's circuit breaker tripped — every recent
@@ -441,33 +261,4 @@ func (cr *crawler) sleepJitter(ctx context.Context) {
 	case <-time.After(d):
 	case <-ctx.Done():
 	}
-}
-
-// loadCapitalBaselines reads the trusted ABS GCCSA established-house medians that
-// every crawled value is validated against.
-func loadCapitalBaselines(ctx context.Context, pool *pgxpool.Pool) (map[string]float64, error) {
-	rows, err := pool.Query(ctx, `
-		SELECT region_code, value FROM mv_housing_headline
-		WHERE measure = 'median_price' AND dwelling_type = 'established_house'`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	m := map[string]float64{}
-	for rows.Next() {
-		var code string
-		var val float64
-		if err := rows.Scan(&code, &val); err != nil {
-			return nil, err
-		}
-		m[code] = val
-	}
-	return m, rows.Err()
-}
-
-func currentQuarterEnd() time.Time {
-	now := time.Now().UTC()
-	q := (int(now.Month())-1)/3 + 1
-	firstNext := time.Date(now.Year(), time.Month(q*3)+1, 1, 0, 0, 0, 0, time.UTC)
-	return firstNext.AddDate(0, 0, -1)
 }
