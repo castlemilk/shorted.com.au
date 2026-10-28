@@ -1390,6 +1390,11 @@ module "shorts_api" {
   telesis_org_id        = "2571efb1-144c-4ec4-9757-30cdc23c920f"
   telesis_service_id    = "2d6332a1-f560-4a54-9032-4ef174cd0256"
 
+  # brandbrain-housing-grant-token exists with an enabled version (provisioned 2026-10-29 by
+  # brandbrain scripts/infra/provision_housing_grant_token.sh). It lets the admin MCP's
+  # housing_crawl_authorize grant or revoke housing_crawl_v1 on a BrandBrain rig.
+  brandbrain_housing_grant_secret_exists = true
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted
