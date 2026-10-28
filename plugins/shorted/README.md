@@ -1,7 +1,10 @@
 # Shorted customer plugin
 
 The portable package uses the public, anonymous Streamable HTTP endpoint at
-`https://api.shorted.com.au/mcp`. It contains no Shorted Admin dependency,
+`https://api.shorted.com.au/mcp/public`. This fixed catalog does not advertise
+the alerts sign-in shortcut or add alert tools for a signed-in caller. The
+general `/mcp` endpoint retains its separate optional alert workflow.
+The package contains no Shorted Admin dependency,
 credential, account binding or customer-data permission. Optional OAuth in the
 service is not required for this public-data package.
 

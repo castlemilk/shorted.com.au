@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "shorted",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Explore public Australian market and economic data through Shorted\u2019s read-only MCP.",
   "author": {
     "name": "Ben Ebsworth"
@@ -89,7 +89,7 @@
         }
       },
       "publication": {
-        "release_notes": "Initial customer-facing Shorted connector for public market and economic data. Shorted Admin is excluded.",
+        "release_notes": "Use a fixed public read-only MCP catalog. Optional signed-in alerts and Shorted Admin are excluded from this plugin connection.",
         "countries": []
       }
     }
