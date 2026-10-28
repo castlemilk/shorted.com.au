@@ -43,6 +43,18 @@ func normalizeRoute(path string) string {
 	return "/other"
 }
 
+// metricHTTPMethod bounds arbitrary HTTP method tokens before aggregation.
+// Traces retain the original method for request diagnostics.
+func metricHTTPMethod(method string) string {
+	switch method {
+	case http.MethodConnect, http.MethodDelete, http.MethodGet, http.MethodHead,
+		http.MethodOptions, http.MethodPatch, http.MethodPost, http.MethodPut, http.MethodTrace:
+		return method
+	default:
+		return "_OTHER"
+	}
+}
+
 // statusRecorder wraps http.ResponseWriter to capture the status code.
 type statusRecorder struct {
 	http.ResponseWriter
@@ -97,7 +109,7 @@ func HTTPMiddleware(next http.Handler) http.Handler {
 		duration := float64(time.Since(start).Milliseconds())
 		durationHistogram.Record(ctx, duration,
 			otelmetric.WithAttributes(
-				attribute.String("http.method", r.Method),
+				attribute.String("http.method", metricHTTPMethod(r.Method)),
 				attribute.String("http.route", route),
 				attribute.Int("http.status_code", rec.statusCode),
 			),

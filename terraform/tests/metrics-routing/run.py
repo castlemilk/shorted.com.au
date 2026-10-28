@@ -10,6 +10,9 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 HERE = pathlib.Path(__file__).resolve().parent
 production = (ROOT / "terraform/environments/prod/main.tf").read_text()
+production_metrics = ROOT / "terraform/environments/prod/metrics-routing.auto.tfvars"
+if not production_metrics.is_file():
+    raise RuntimeError("Production metrics profile is missing")
 provider_versions = {}
 # Each deployed resource shape is planned, including paused/manual templates.
 # Market discovery has two distinct runtime identities and must grant both.
@@ -47,7 +50,7 @@ with tempfile.TemporaryDirectory(prefix="shorted-metrics-terraform-") as tempora
             variables.pop("otel_endpoint")
             variables.update(env={"OTEL_EXPORTER_OTLP_ENDPOINT": "https://traces.test/otlp", "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf", "ENVIRONMENT": "fixture"}, secret_env={"OTEL_EXPORTER_OTLP_HEADERS": "OTEL_EXPORTER_OTLP_HEADERS", "DATABASE_URL": "DATABASE_URL"})
         # Use exactly the production provider versions, without initializing its
-        # GCS backend or loading any production variable files.
+        # GCS backend. Generic default tests do not load production overrides.
         providers = "\n".join(f'    {name} = {{ source = "hashicorp/{name}", version = "{version}" }}' for name, version in provider_versions.items())
         # Override merges these exact pins with module-specific providers (chat
         # also requires time), rather than declaring a duplicate provider block.
@@ -70,3 +73,10 @@ with tempfile.TemporaryDirectory(prefix="shorted-metrics-terraform-") as tempora
         (target / "test-outputs.tf").write_text('output "non_metrics_env" {\n  value = [for e in ' + container + '.env : e if !startswith(e.name, "OTEL_EXPORTER_OTLP_METRICS")]\n}\n')
         subprocess.run(["terraform", "init", "-backend=false", "-input=false", "-no-color"], cwd=target, env=env, check=True)
         subprocess.run(["terraform", "test", "-no-color"], cwd=target, env=env, check=True)
+        # The real, non-secret production profile is tested separately so
+        # reusable module defaults remain independently disabled and verified.
+        production_test = (HERE / "production.tftest.hcl.tpl").read_text().replace("@CONTAINER@", container).replace("@IAM@", iam).replace("@VARIABLES@", "variables {\n" + "\n".join(f"  {key} = {json.dumps(value)}" for key, value in variables.items()) + "\n}")
+        if name == "chat-service":
+            production_test = 'mock_provider "time" {}\n' + production_test
+        (target / "production.tftest.hcl").write_text(production_test)
+        subprocess.run(["terraform", "test", "-no-color", "-filter=production.tftest.hcl", "-var-file=" + str(production_metrics)], cwd=target, env=env, check=True)

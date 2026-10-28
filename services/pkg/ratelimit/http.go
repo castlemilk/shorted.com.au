@@ -139,7 +139,7 @@ func (m *HTTPMiddleware) wrap(next http.Handler) http.Handler {
 			if shortedotel.RateLimitBlocked != nil {
 				shortedotel.RateLimitBlocked.Add(r.Context(), 1,
 					otelmetric.WithAttributes(
-						attribute.String("tier", last.Tier),
+						attribute.String("tier", tierLabel(last.Tier)),
 						attribute.String("kind", string(last.ExceededKind)),
 					),
 				)

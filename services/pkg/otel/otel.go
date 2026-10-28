@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
@@ -16,8 +17,13 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
-// histogramViews returns Views that set explicit bucket boundaries for
-// duration histograms, keeping cardinality predictable.
+// Independent processes must not merge their cumulative counters. Keep one
+// identity across SDK reinitialization, shared by metrics and traces.
+var processInstanceID = uuid.NewString()
+
+// histogramViews sets bucket boundaries and bounds logo dimensions before
+// aggregation. Dropping stock identity at the collector would lose samples
+// when different stocks become the same series at the same timestamp.
 func histogramViews() []metric.View {
 	// RPC duration buckets (milliseconds): focused on API latency ranges
 	// 10 buckets → 10 time series per unique label combination
@@ -31,6 +37,7 @@ func histogramViews() []metric.View {
 
 	// Request/response size buckets (bytes)
 	sizeBuckets := []float64{128, 512, 1024, 4096, 16384, 65536, 262144, 1048576}
+	logoAttributes := attribute.NewAllowKeysFilter("logo.source", "logo.format", "logo.success")
 
 	return []metric.View{
 		// otelconnect RPC duration
@@ -75,12 +82,19 @@ func histogramViews() []metric.View {
 				Boundaries: []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 30},
 			}},
 		),
-		// Logo discovery duration (seconds)
+		metric.NewView(
+			metric.Instrument{Name: "shorted.logo.discovery_total"},
+			metric.Stream{AttributeFilter: logoAttributes},
+		),
+		// Keep the attribute filter and existing buckets in one matching view.
 		metric.NewView(
 			metric.Instrument{Name: "shorted.logo.discovery_duration"},
-			metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
-				Boundaries: syncBuckets,
-			}},
+			metric.Stream{
+				AttributeFilter: logoAttributes,
+				Aggregation: metric.AggregationExplicitBucketHistogram{
+					Boundaries: syncBuckets,
+				},
+			},
 		),
 		// Monthly quota consumption (percent of quota). The buckets are dense
 		// where a decision gets made — 90/95/99 is where a caller is about to
@@ -142,6 +156,7 @@ func InitProvider(ctx context.Context, serviceName string) (func(context.Context
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			semconv.ServiceName(serviceName),
+			semconv.ServiceInstanceID(processInstanceID),
 			semconv.ServiceVersion(serviceVersion),
 			attribute.String("deployment.environment", environment),
 		),

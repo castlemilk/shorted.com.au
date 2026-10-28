@@ -130,10 +130,27 @@ func recordFirstCallViolation(ctx context.Context, provider, model string) {
 	)
 }
 
+var metricToolNames = func() map[string]struct{} {
+	names := make(map[string]struct{})
+	for _, definition := range GetToolDefinitions() {
+		names[definition.Name] = struct{}{}
+	}
+	return names
+}()
+
+// A model can return arbitrary tool names, including names the executor rejects.
+// Keep those names in logs and results, but aggregate their metrics as unknown.
+func metricToolName(name string) string {
+	if _, known := metricToolNames[name]; known {
+		return name
+	}
+	return "unknown"
+}
+
 func recordToolCall(ctx context.Context, toolName string, resultBytes int, status string) {
 	attrs := []attribute.KeyValue{
 		attribute.String("feature", "chat"),
-		attribute.String("tool_name", toolName),
+		attribute.String("tool_name", metricToolName(toolName)),
 		attribute.String("status", status),
 	}
 	if shortedotel.AIToolCallsTotal != nil {

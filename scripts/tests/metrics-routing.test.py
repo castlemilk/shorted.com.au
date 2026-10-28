@@ -14,6 +14,7 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CHART = ROOT / "deploy/kubernetes/jobs/chart"
 ENDPOINT = "https://origin-vke.telesis.dev/v1/metrics"
+DISABLED = {"profiles": {"otel": {"metrics": {"enabled": False}}}}
 ENABLED = {"profiles": {"otel": {"metrics": {"enabled": True, "endpoint": ENDPOINT, "headersSecretKey": "TELESIS_OTLP_METRICS_HEADERS"}}}}
 
 
@@ -29,6 +30,18 @@ def objects(values):
 
 
 class MetricsRoutingTest(unittest.TestCase):
+    def test_production_profile_changes_run_the_routing_contract(self):
+        workflow = yaml.safe_load((ROOT / ".github/workflows/repo-hygiene.yml").read_text())
+        # PyYAML's YAML 1.1 loader represents the unquoted `on` key as True.
+        events = workflow.get("on", workflow.get(True))
+        self.assertIn("terraform/environments/prod/metrics-routing.auto.tfvars", events["pull_request"]["paths"])
+        job = workflow["jobs"]["vke-jobs-chart"]
+        self.assertNotIn("if", job, "Production profile changes must not skip routing validation")
+        checks = [step for step in job["steps"] if "terraform/tests/metrics-routing/run.py" in step.get("run", "")]
+        self.assertEqual(len(checks), 1)
+        self.assertNotIn("if", checks[0])
+        self.assertIn("scripts/tests/metrics-routing.test.py", checks[0]["run"])
+
     def test_all_shared_sdk_cloud_run_templates_receive_metrics_routing(self):
         production = (ROOT / "terraform/environments/prod/main.tf").read_text()
         modules = dict(re.findall(r'^module "([^"]+)" \{\n(.*?)^\}', production, re.M | re.S))
@@ -42,14 +55,19 @@ class MetricsRoutingTest(unittest.TestCase):
             with self.subTest(module=name):
                 self.assertRegex(modules[name], r"(?m)^\s*otel_metrics\s*=\s*var\.otel_metrics\s*$")
 
-    def test_disabled_has_no_metrics_override_even_with_staged_configuration(self):
+    def test_explicit_disable_has_no_metrics_override_even_with_staged_configuration(self):
         configured = copy.deepcopy(ENABLED)
         configured["profiles"]["otel"]["metrics"]["enabled"] = False
-        self.assertEqual(objects({}), objects(configured))
-        self.assertNotIn("OTEL_EXPORTER_OTLP_METRICS", render({}).stdout)
+        self.assertEqual(objects(DISABLED), objects(configured))
+        self.assertNotIn("OTEL_EXPORTER_OTLP_METRICS", render(DISABLED).stdout)
+
+    def test_chart_defaults_match_the_declared_production_profile(self):
+        metrics = yaml.safe_load((CHART / "values.yaml").read_text())["profiles"]["otel"]["metrics"]
+        self.assertIsInstance(metrics["enabled"], bool)
+        self.assertEqual(objects({}), objects(ENABLED if metrics["enabled"] else DISABLED))
 
     def test_enabled_changes_only_metrics_environment_on_otel_jobs(self):
-        baseline, enabled = objects({}), objects(ENABLED)
+        baseline, enabled = objects(DISABLED), objects(ENABLED)
         values = yaml.safe_load((CHART / "values.yaml").read_text())
         active = []
         self.assertEqual(set(baseline), set(enabled))
@@ -116,13 +134,17 @@ class MetricsRoutingTest(unittest.TestCase):
             env = {"PATH": temporary + os.pathsep + os.environ["PATH"]}
             script = str(ROOT / "deploy/kubernetes/jobs/scripts/sync-secrets.sh")
             flags = ["--set", "profiles.otel.metrics.enabled=true", "--set-string", "profiles.otel.metrics.endpoint=" + ENDPOINT]
-            baseline = subprocess.run(["bash", script], env=env, text=True, capture_output=True)
+            baseline = subprocess.run(["bash", script, "--set", "profiles.otel.metrics.enabled=false"], env=env, text=True, capture_output=True)
             self.assertEqual(baseline.returncode, 0, baseline.stderr)
             self.assertNotIn("TELESIS_OTLP_METRICS_HEADERS", baseline.stdout)
             enabled = subprocess.run(["bash", script, *flags], env=env, text=True, capture_output=True)
             self.assertEqual(enabled.returncode, 0, enabled.stderr)
             self.assertIn("TELESIS_OTLP_METRICS_HEADERS", enabled.stdout)
             self.assertIn("PLAN ONLY", enabled.stdout)
+            production = subprocess.run(["bash", script], env=env, text=True, capture_output=True)
+            self.assertEqual(production.returncode, 0, production.stderr)
+            configured = yaml.safe_load((CHART / "values.yaml").read_text())["profiles"]["otel"]["metrics"]["enabled"]
+            self.assertEqual("TELESIS_OTLP_METRICS_HEADERS" in production.stdout, configured)
             missing = subprocess.run(["bash", script, *flags], env={**env, "CONFIRM": "prod", "MISSING_KEY": "TELESIS_OTLP_METRICS_HEADERS"}, text=True, capture_output=True)
             self.assertEqual(missing.returncode, 1, missing.stderr)
             self.assertIn("refusing to sync a partial Secret", missing.stderr)

@@ -1,9 +1,10 @@
 # Optional metrics routing through Telesis
 
 Shorted can send application metrics to Telesis while keeping its existing
-Grafana trace endpoint and credentials. Routing is **disabled by default**.
-These settings prepare deployment; they do not provision the receiver, a
-credential, or start any business job.
+Grafana trace endpoint and credentials. Reusable module defaults remain disabled.
+The reviewed production profile opts in through `terraform/environments/prod/metrics-routing.auto.tfvars`
+and the jobs chart values, after the receiver and dedicated credentials are ready.
+Routing does not start any business job.
 
 ## Coverage
 
@@ -43,6 +44,37 @@ work. Serving an existing logo from GCS produces no discovery metric. Validate
 with ordinary scheduled work; do not trigger enrichment or other business jobs
 solely to generate telemetry. Empty historical windows remain honestly empty.
 
+## Metric dimensions
+
+Bound dimensions at the producer, before the SDK aggregates measurements.
+The collector must preserve datapoint attributes: deleting a dimension or
+truncating its value after aggregation can turn distinct points into the same
+series at the same timestamp, losing data or rejecting the batch.
+
+Logo counters and duration histograms retain only `logo.source`, `logo.format`
+and `logo.success`. SDK views combine observations across stocks while keeping
+the existing histogram buckets. Individual `stock_code` details remain in
+traces.
+
+Stealth metrics retain `http.host` as a **provider category**, rather than a raw
+request hostname. Configured providers map to `linkedin.com`, `duckduckgo.com`,
+`finance.yahoo.com`, `news.google.com`, `asx.com.au`, `realestate.com.au`,
+`localgovernment.vic.gov.au`, `discover.data.vic.gov.au`, `land.vic.gov.au`,
+`valuergeneral.nsw.gov.au` or `infrastructure.gov.au`. Their subdomains use the
+same category; host case, ports and a trailing DNS dot do not create series.
+All other company websites, feeds, image CDNs and invalid URLs use `other`.
+Hostname matches require a domain boundary. Traces retain the original URL.
+Historical raw-host series remain in storage, so select a post-cutover time
+window when comparing these categories.
+
+Chat tool metrics retain registered tool names and group rejected unknown names
+as `unknown`; logs and tool results keep the original name. Blocked rate-limit
+metrics use the same tier categories as the other limiter metrics, with unknown
+tiers grouped as `other`. Quota decisions and response headers keep their
+existing behavior.
+HTTP duration metrics use the standard HTTP methods plus `_OTHER`; traces and
+handlers retain the original request method.
+
 ## Receiver and credential prerequisites
 
 Before enabling either deployment:
@@ -72,8 +104,8 @@ value into Terraform state; only the Secret Manager ID enters the plan.
 
 ## Cloud Run enablement
 
-After the secret and receiver are ready, set the following non-secret production
-Terraform input through the usual reviewed configuration / deployment pipeline:
+The committed `terraform/environments/prod/metrics-routing.auto.tfvars` supplies
+the following non-secret production input to the normal Terraform pipeline:
 
 ```hcl
 otel_metrics = {
@@ -113,7 +145,8 @@ read, or its value is empty. The complete Secret is buffered privately in memory
 before applying; credential bytes never reach logs, files or process arguments. Only forward the
 metrics profile overrides here; this helper reads the base `secretEnv.secretName`.
 
-Then enable the same profile through the reviewed jobs-chart configuration.
+The committed jobs-chart profile enables the same route. Keep the override file
+when invoking secret sync so its preflight includes the dedicated key.
 Paprika follows `deploy/vke-jobs`, not `main`: the normal Terraform pipeline's
 `bump-vke-jobs-image` step advances that deployment branch after apply succeeds.
 There is no automatic Kubernetes Secret synchronization in that pipeline, so

@@ -171,7 +171,7 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 					// is unbounded and would create a time series per unique client.
 					shortedotel.RateLimitBlocked.Add(ctx, 1,
 						otelmetric.WithAttributes(
-							attribute.String("tier", tier),
+							attribute.String("tier", tierLabel(tier)),
 							attribute.String("kind", string(result.ExceededKind)),
 						),
 					)

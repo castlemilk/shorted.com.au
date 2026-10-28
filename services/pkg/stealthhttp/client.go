@@ -181,19 +181,35 @@ func NewChromium(opts ...Option) (*Client, error) {
 	}, nil
 }
 
-// urlHost extracts the host from a URL for use as a span/metric attribute.
-func urlHost(rawURL string) string {
+// metricHost groups configured providers into a closed catalog. Company sites,
+// RSS links and image CDNs are unbounded, so keep their full URL only in traces.
+// Normalize before recording; relabelling already aggregated points can make
+// different hosts collide at the same timestamp and lose observations.
+func metricHost(rawURL string) string {
 	u, err := url.Parse(rawURL)
-	if err != nil {
-		return "unknown"
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return "other"
 	}
-	return u.Host
+	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	// These domains come from enrichment, market data, news, announcements
+	// and the property collector's configured provider URLs.
+	for _, provider := range []string{
+		"linkedin.com", "duckduckgo.com", "finance.yahoo.com", "news.google.com",
+		"asx.com.au", "realestate.com.au", "localgovernment.vic.gov.au",
+		"discover.data.vic.gov.au", "land.vic.gov.au", "valuergeneral.nsw.gov.au",
+		"infrastructure.gov.au",
+	} {
+		if host == provider || strings.HasSuffix(host, "."+provider) {
+			return provider
+		}
+	}
+	return "other"
 }
 
 // recordFetch records metrics and span attributes for a completed fetch.
 func (c *Client) recordFetch(ctx context.Context, span trace.Span, start time.Time, reqURL string, status int, bodyLen int, err error) {
 	duration := time.Since(start).Seconds()
-	host := urlHost(reqURL)
+	host := metricHost(reqURL)
 	attrs := []attribute.KeyValue{
 		attribute.String("stealth.engine", c.engineName),
 		attribute.String("http.host", host),
