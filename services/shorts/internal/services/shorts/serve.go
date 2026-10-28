@@ -252,6 +252,18 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mux.Handle("/mcp", mcpHandler)
 	mux.Handle("/mcp/", mcpHandler)
 
+	// The no-auth public plugin has a fixed read-only catalog. In particular,
+	// it must not advertise the alerts sign-in discovery tool or gain alert
+	// operations when a caller happens to supply an alerts:write token.
+	// Keep the same credential validation, batch guard and quota enforcement
+	// as /mcp; only the registered tool surface differs.
+	publicMCPHandler := mcp.OptionalBearerToken(
+		mcp.NewTokenVerifier(s.tokenService, mcp.ResourceURI(apiBaseURL)),
+		mcp.BearerTokenOptions(apiBaseURL),
+	)(mcp.WithChallengeScope(mcp.BatchGuard(mcpRateLimit(mcp.Handler(s)))))
+	mux.Handle("/mcp/public", publicMCPHandler)
+	mux.Handle("/mcp/public/", publicMCPHandler)
+
 	// ADMIN MCP server — publishing and on-demand data jobs, for administrators
 	// only. A separate OAuth resource (/mcp/admin) with its own scopes
 	// (news:publish, jobs:run); see internal/mcp/admin.go for why it is not

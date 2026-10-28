@@ -3,7 +3,7 @@
   "mcpServers": {
     "shorted": {
       "type": "streamable-http",
-      "url": "https://api.shorted.com.au/mcp",
+      "url": "https://api.shorted.com.au/mcp/public",
       "extensions": {
         "com.openai": {
           "auth": {
