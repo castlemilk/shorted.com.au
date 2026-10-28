@@ -1,6 +1,6 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "shorted",
+  "name": "shorted-public",
   "version": "0.1.1",
   "description": "Explore public Australian market and economic data through Shorted\u2019s read-only MCP.",
   "author": {
