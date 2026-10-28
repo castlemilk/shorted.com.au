@@ -164,6 +164,8 @@ RFC 3339 timestamp. No listing data appears anywhere.
   - repair: `repaired | repair_failed | lock_held | cancelled | internal_error`. A hung repair step is `repair_failed` with exit 11;
   - preflight: `checked | preflight_failed | cancelled | internal_error`. `preflight_failed` is used only for a configuration refusal (exit 8);
   - a configuration refusal in drain is `preflight_failed` with exit 8. A dry-run drain runs one round and ends `max_rounds`.
+- **Outcomes the runtime records** (in the heartbeat's per-job `last`, not printed by the collector): a repair that the runtime's own repair time limit stopped (`-max-duration`, 45 min) is recorded as `budget`, distinct from an operator `cancelled`. The repair outcome set in the heartbeat is therefore the list above plus `budget`.
+- **Heartbeat `jobs.<job>.enabled`** is the operator SETTING (for drain: not disabled by `housing_crawl_configure {job: drain, enabled: false}`), not "will run now". Scheduled drains run only when the state is `active` and the setting is on. Alarms and dashboards must read it that way.
 - **Event naming:** every event, forwarded child events included, carries `type`. Consumers key on `type` only. Forwarded child events may also keep their legacy `event` key.
 - **`chrome`:**
   - `warm` only when a real warm check passed (a drain preflight or repair);
