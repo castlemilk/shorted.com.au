@@ -98,6 +98,12 @@ variable "telesis_secret_exists" {
   default     = false
 }
 
+variable "brandbrain_housing_grant_secret_exists" {
+  description = "Whether the brandbrain-housing-grant-token secret exists in Secret Manager. Gates the secret binding, its IAM grant and the BRANDBRAIN_HOUSING_GRANT_TOKEN env var, so apply is safe before it is provisioned. Without it the admin housing-crawl write tool answers not_configured. Flip to true in the environment after creating the secret."
+  type        = bool
+  default     = false
+}
+
 variable "telesis_org_id" {
   description = "Telesis organisation that owns the shorted cron monitors (TELESIS_ORG_ID)."
   type        = string

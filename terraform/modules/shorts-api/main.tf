@@ -155,6 +155,17 @@ resource "google_secret_manager_secret_iam_member" "telesis_api_token" {
   project   = var.project_id
 }
 
+# BrandBrain's housing grant credential (internal/brandbrain). It works only on the
+# grant route and only for the admin housing-crawl tools. Count-gated like the Telesis
+# token, so apply is safe before the secret is provisioned.
+resource "google_secret_manager_secret_iam_member" "brandbrain_housing_grant_token" {
+  count     = var.brandbrain_housing_grant_secret_exists ? 1 : 0
+  secret_id = "brandbrain-housing-grant-token"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Grant access to internal service secret (for webhook/server action calls from frontend)
 resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
   secret_id = "INTERNAL_SERVICE_SECRET"
@@ -332,6 +343,20 @@ resource "google_cloud_run_v2_service" "shorts_api" {
           value_source {
             secret_key_ref {
               secret  = "TELESIS_API_TOKEN"
+              version = "latest"
+            }
+          }
+        }
+      }
+      # BrandBrain's housing grant token for the admin housing-crawl tools
+      # (internal/brandbrain). Unset means those write tools answer not_configured.
+      dynamic "env" {
+        for_each = var.brandbrain_housing_grant_secret_exists ? [1] : []
+        content {
+          name = "BRANDBRAIN_HOUSING_GRANT_TOKEN"
+          value_source {
+            secret_key_ref {
+              secret  = "brandbrain-housing-grant-token"
               version = "latest"
             }
           }

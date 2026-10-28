@@ -511,5 +511,6 @@ func newAdminMCPSource(s *ShortsServer, firebaseUsers firebaseUsersReader) *admi
 		verifiedEmail: func(ctx context.Context, uid string) (string, error) {
 			return verifiedAccountEmail(ctx, firebaseUsers, uid)
 		},
+		crawlGrants: brandbrainGrantClientFromEnv(),
 	}
 }

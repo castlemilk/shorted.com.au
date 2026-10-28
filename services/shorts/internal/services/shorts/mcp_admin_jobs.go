@@ -40,6 +40,9 @@ type adminMCPSource struct {
 	entitled      func(userID string) (bool, error)
 	verifiedEmail func(ctx context.Context, userID string) (string, error)
 	logger        Logger
+	// crawlGrants is the BrandBrain grant client behind housing_crawl_authorize. Nil
+	// when BRANDBRAIN_HOUSING_GRANT_TOKEN is unset (mcp_admin_crawl.go).
+	crawlGrants mcp.CrawlGrantClient
 }
 
 var _ mcp.AdminOperator = (*adminMCPSource)(nil)

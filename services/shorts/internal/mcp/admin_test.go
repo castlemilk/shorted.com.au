@@ -24,6 +24,7 @@ import (
 
 type fakePublisher struct {
 	fakeAlertsOp
+	fakeCrawlOp
 	req    jobmonitor.PublishRequest
 	runErr error
 	exec   string

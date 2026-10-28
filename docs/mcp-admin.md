@@ -22,10 +22,12 @@ credentials remain in the host connection.
 claude.ai → Settings → Connectors → **Add custom connector** →
 `https://api.shorted.com.au/mcp/admin`. Claude discovers the OAuth server,
 sends you to the Shorted consent screen, you sign in with your normal account
-and approve **jobs:read**, **news:publish**, **jobs:run** and **users:read**.
+and approve **jobs:read**, **news:publish**, **jobs:run**, **users:read** and
+**crawl:authorize**.
 For a monitoring-only client, request only `jobs:read`; leave out `users:read`
-unless the client needs personal data. The connector then appears in
-every Claude session (including Claude Code on the web) with twenty-three tools:
+and `crawl:authorize` unless the client needs personal data or the housing
+crawl. The connector then appears in every Claude session (including Claude
+Code on the web) with twenty-five tools:
 
 | Tool | Scope | What it does |
 |---|---|---|
@@ -52,6 +54,8 @@ every Claude session (including Claude Code on the web) with twenty-three tools:
 | `run_alerts_smoke_test` `{code?, threshold?, condition?, date?}` | `jobs:run` | The end-to-end check on the caller's own account: creates or reuses one daily monitor, then replays one report date for the caller. The replay also emails the caller's other daily monitors that crossed on that date. A real email goes to the caller's verified address. Refuses without Premium or a verified address, and refuses a date where the monitor already has an event. |
 | `alerts_smoke_result` `{monitor_id, date, execution?}` | `jobs:read` | What the replay did for one of the caller's monitors on one date: the event row (with `createdAt`, `runId`) and, with `execution`, the job's state. A row written before that execution started is flagged `predatesExecution`. |
 | `delete_alert_monitor` `{monitor_id}` | `jobs:run` | Deletes one of the caller's own monitors and its events. Refused for any other monitor. |
+| `housing_crawl_rigs` `{rig_id?}` | `crawl:authorize` | Lists shorted's housing crawl allowlist (`housing_ingest_rigs`): each subject, whether it is enabled and when it was added. The note is not returned. With `rig_id`, also BrandBrain's `housing_crawl_v1` grant for that rig and whether shorted's row for its `workload_subject` exists and is enabled. Read-only. |
+| `housing_crawl_authorize` `{rig_id, enabled, note?, confirm?}` | `crawl:authorize` | Turns a BrandBrain rig's housing crawl on or off on **both** sides. Enabling needs `confirm: true` and runs GET, then PUT of the grant, then the shorted allowlist write for the `workload_subject` BrandBrain returns. Disabling writes shorted first, then revokes the grant, and still revokes it when shorted fails. Reports each side (`shorted`, `brandbrain`) separately. A PUT with an unknown outcome is reported as `unknown` and never retried. Idempotent. |
 
 Only merged articles can be published — the job image bakes `content/news` in
 at build time, and the tool takes a slug, never a body. Likewise the picks tool
@@ -330,6 +334,48 @@ they do not silently acquire monitoring privileges. A plugin-aware host is neede
 for sidebar/chat entrypoints; publishing/installing a plugin is separate from
 serving the metadata.
 
+## Housing crawl authorization (`crawl:authorize`)
+
+A BrandBrain rig pushes housing listings into shorted only when BOTH switches are on:
+
+1. **shorted's allowlist**, the `housing_ingest_rigs` row for the rig's JWT `sub`
+   (migration `000150`). The ingest checks it on every push and caches the answer for
+   a minute. A missing row means refused.
+2. **BrandBrain's `housing_crawl_v1` operator grant** on the rig. The grant route is
+   `/api/v1/fleet/rigs/{rig_id}/housing-crawl/grant`, reached with
+   `BRANDBRAIN_HOUSING_GRANT_TOKEN`. That credential works on that route only.
+
+The subject is BrandBrain's `workload_subject`, read from its GET and never derived.
+Config: `BRANDBRAIN_API_URL` (default and only allowed value
+`https://api.brandbrain.dev`; any other host, port, path or credential is refused at
+start) and `BRANDBRAIN_HOUSING_GRANT_TOKEN`, delivered from the Secret Manager secret
+`brandbrain-housing-grant-token` by the `shorts-api` module
+(`brandbrain_housing_grant_secret_exists`, off until the secret is provisioned). Without
+the token the write tool answers `not_configured` and the read tool still lists rows.
+
+The brandbrain client refuses redirects, applies a 10-second timeout to each request and
+never puts the token in an error or a log line. The note on an allowlist row is stored but
+never returned by either tool.
+
+- **Enable** (`confirm: true` required): GET, then PUT `granted: true`, then the allowlist
+  upsert. A 404 on the GET stops with nothing written. An unknown PUT outcome stops before
+  shorted is touched.
+- **Disable**: the subject comes from BrandBrain's GET, so shorted's row is written first
+  and the revoke follows. The revoke is still attempted when the shorted write fails. A
+  disable whose GET fails cannot name the row, so it reports `shorted: failed` and changes
+  nothing on shorted. Run it again once BrandBrain answers.
+- **`brandbrain: unknown`** means a PUT timed out or returned a 5xx. Nothing is retried
+  automatically. Run `housing_crawl_rigs` with the `rig_id`, then run the tool again. Both
+  operations are idempotent.
+
+Operator failure modes:
+
+- **"BRANDBRAIN_HOUSING_GRANT_TOKEN is not configured"** — the secret is not provisioned
+  or the `shorts-api` variable is off. Nothing was written.
+- **"BrandBrain rejected the grant token for this route"** — the token is wrong or
+  expired. Rotate the Secret Manager version. Nothing was written.
+- **"rig_not_found"** — the id is not a BrandBrain rig. Nothing was written.
+
 ## Who can use it
 
 An administrator is a Shorted account whose **verified** email is on the web
@@ -354,7 +400,7 @@ the Vercel origin, because Cloudflare challenges non-browser POSTs to the apex).
 
 - **Separate OAuth resource.** Tokens are audience-bound to exactly one
   resource: a `/mcp` token is refused on `/mcp/admin` and vice versa.
-- **Separate scope vocabulary.** `news:publish`, `jobs:run`, `jobs:read` and `users:read` are not in
+- **Separate scope vocabulary.** `news:publish`, `jobs:run`, `jobs:read`, `users:read` and `crawl:authorize` are not in
   `mcp.Scopes`; an empty scope request on `/mcp` still gets only the `:read`
   scopes, and an absent `resource` still defaults to `/mcp` — nothing ever
   defaults to the admin resource (`oauth/resources.go`). Admin scopes name
