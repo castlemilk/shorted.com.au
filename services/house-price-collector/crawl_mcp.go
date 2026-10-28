@@ -20,7 +20,7 @@ import (
 // Registered in Claude Code as a stdio MCP server; env: BRANDBRAIN_AGENT_URL
 // (DATABASE_URL is required by main() to init a lazy pool but is never used).
 func runMCP(ctx context.Context, _ *pgxpool.Pool) {
-	acfg := loadAgentConfig()
+	acfg := loadAgentConfig(false)
 	if acfg.brandbrainURL == "" {
 		log.Fatal("[mcp] BRANDBRAIN_AGENT_URL is required")
 	}

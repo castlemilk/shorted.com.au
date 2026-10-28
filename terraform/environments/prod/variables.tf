@@ -316,3 +316,9 @@ variable "otel_metrics" {
     error_message = "Enabled metrics routing requires an HTTPS /v1/metrics endpoint without credentials/query and a dedicated Secret Manager header-secret ID; generic Grafana credentials must not be reused."
   }
 }
+
+variable "housing_ingest_deny_kids" {
+  description = "HOUSING_INGEST_DENY_KIDS for the housing ingest: comma-separated kid values to reject. Empty unless an incident needs a signing key killed."
+  type        = string
+  default     = ""
+}

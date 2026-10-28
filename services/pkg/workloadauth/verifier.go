@@ -197,8 +197,11 @@ func (v *Verifier) Status() Status {
 // Verify returns ctx.Err(), which is neither ErrUnauthenticated nor
 // ErrUnavailable.
 func (v *Verifier) Verify(ctx context.Context, raw string) (*Identity, error) {
-	if raw == "" || len(raw) > maxTokenBytes {
-		return nil, unauth("token missing or oversized")
+	if raw == "" {
+		return nil, unauth(ReasonMalformed, "token missing")
+	}
+	if len(raw) > maxTokenBytes {
+		return nil, unauth(ReasonTokenSize, "token oversized")
 	}
 
 	var (
@@ -206,23 +209,7 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (*Identity, error) {
 		kid    string
 	)
 	keyFunc := func(t *jwt.Token) (any, error) {
-		// Rule 1: the algorithm is checked before any key material is chosen.
-		if t.Method == nil || t.Method.Alg() != algES256 {
-			keyErr = unauth("algorithm not allowed")
-			return nil, keyErr
-		}
-		// Rule 2: kid is required.
-		k, _ := t.Header["kid"].(string)
-		if k == "" {
-			keyErr = unauth("kid missing")
-			return nil, keyErr
-		}
-		// Rule 6: the kill list wins over a valid signature.
-		if _, denied := v.denyKIDs[k]; denied {
-			keyErr = unauth("kid denied")
-			return nil, keyErr
-		}
-		key, err := v.key(ctx, k)
+		key, k, err := v.selectKey(ctx, t)
 		if err != nil {
 			keyErr = err
 			return nil, err
@@ -232,17 +219,62 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (*Identity, error) {
 	}
 
 	claims := &tokenClaims{}
-	_, err := jwt.ParseWithClaims(raw, claims, keyFunc,
-		jwt.WithValidMethods([]string{algES256}),
-		jwt.WithoutClaimsValidation(),
-	)
+	_, err := jwt.ParseWithClaims(raw, claims, keyFunc, parserOptions()...)
 	if keyErr != nil {
 		return nil, keyErr
 	}
 	if err != nil {
-		return nil, unauth("token malformed or signature invalid")
+		return nil, parseRejection(raw, err)
 	}
 	return v.checkClaims(claims, kid)
+}
+
+// parseRejection classifies a token the parser refused before keyFunc ran. The
+// parser's own list refuses a non-ES256 alg with a signature error, so the algorithm
+// is read from the header first, and that answer wins.
+func parseRejection(raw string, err error) error {
+	if tok, _, perr := jwt.NewParser().ParseUnverified(raw, &jwt.RegisteredClaims{}); perr == nil &&
+		tok.Method != nil && tok.Method.Alg() != algES256 {
+		return unauth(ReasonAlgorithm, "algorithm not allowed")
+	}
+	if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
+		return unauth(ReasonBadSignature, "signature invalid")
+	}
+	return unauth(ReasonMalformed, "token malformed")
+}
+
+// parserOptions are the library options Verify parses with. They are the second
+// of two algorithm checks: the library refuses any alg outside the list before
+// keyFunc runs, and selectKey refuses it again before any key is chosen. Each
+// check is pinned on its own by a test, so removing either one fails a test.
+func parserOptions() []jwt.ParserOption {
+	return []jwt.ParserOption{
+		jwt.WithValidMethods([]string{algES256}),
+		jwt.WithoutClaimsValidation(),
+	}
+}
+
+// selectKey is the key function. It applies rules 1, 2 and 6 and then chooses the
+// key for kid (rule 7). It returns the key and the kid it was chosen for.
+func (v *Verifier) selectKey(ctx context.Context, t *jwt.Token) (*ecdsa.PublicKey, string, error) {
+	// Rule 1: the algorithm is checked before any key material is chosen.
+	if t.Method == nil || t.Method.Alg() != algES256 {
+		return nil, "", unauth(ReasonAlgorithm, "algorithm not allowed")
+	}
+	// Rule 2: kid is required.
+	k, _ := t.Header["kid"].(string)
+	if k == "" {
+		return nil, "", unauth(ReasonKIDMissing, "kid missing")
+	}
+	// Rule 6: the kill list wins over a valid signature.
+	if _, denied := v.denyKIDs[k]; denied {
+		return nil, "", unauth(ReasonKIDDenied, "kid denied")
+	}
+	key, err := v.key(ctx, k)
+	if err != nil {
+		return nil, "", err
+	}
+	return key, k, nil
 }
 
 // checkClaims applies rules 3 to 5 once the signature is known good.
@@ -252,46 +284,46 @@ func (v *Verifier) checkClaims(c *tokenClaims, kid string) (*Identity, error) {
 
 	// Rule 3: iss and aud are compared exactly, case included.
 	if c.Issuer != v.cfg.Issuer {
-		return nil, unauth("issuer mismatch")
+		return nil, unauth(ReasonIssuer, "issuer mismatch")
 	}
 	if len(c.Audience) != 1 || c.Audience[0] != v.cfg.Audience {
-		return nil, unauth("audience mismatch")
+		return nil, unauth(ReasonAudience, "audience mismatch")
 	}
 
 	// Rule 4: time claims.
 	if c.ExpiresAt == nil {
-		return nil, unauth("exp missing")
+		return nil, unauth(ReasonClaimMissing, "exp missing")
 	}
 	exp := c.ExpiresAt.Time
 	if now.After(exp.Add(leeway)) {
-		return nil, unauth("token expired")
+		return nil, unauth(ReasonExpired, "token expired")
 	}
 	if c.NotBefore != nil && c.NotBefore.After(now.Add(leeway)) {
-		return nil, unauth("token not yet valid")
+		return nil, unauth(ReasonNotYetValid, "token not yet valid")
 	}
 	if c.IssuedAt == nil {
-		return nil, unauth("iat missing")
+		return nil, unauth(ReasonClaimMissing, "iat missing")
 	}
 	iat := c.IssuedAt.Time
 	if iat.After(now.Add(leeway)) {
-		return nil, unauth("iat in the future")
+		return nil, unauth(ReasonIATFuture, "iat in the future")
 	}
 	if life := exp.Sub(iat); life <= 0 || life > v.cfg.MaxLifetime {
-		return nil, unauth("token lifetime out of range")
+		return nil, unauth(ReasonLifetime, "token lifetime out of range")
 	}
 
 	// Rule 5: identity.
 	if c.Subject == "" {
-		return nil, unauth("sub missing")
+		return nil, unauth(ReasonClaimMissing, "sub missing")
 	}
 	if _, ok := v.allowSubjects[c.Subject]; !ok {
-		return nil, unauth("subject not allowed")
+		return nil, unauth(ReasonSubjectNotAllowed, "subject not allowed")
 	}
 	if c.Org != v.cfg.Org {
-		return nil, unauth("org mismatch")
+		return nil, unauth(ReasonOrg, "org mismatch")
 	}
 	if c.ID == "" {
-		return nil, unauth("jti missing")
+		return nil, unauth(ReasonClaimMissing, "jti missing")
 	}
 
 	return &Identity{
@@ -389,7 +421,7 @@ func (v *Verifier) key(ctx context.Context, kid string) (*ecdsa.PublicKey, error
 	if c.down {
 		return nil, unavailable("unknown kid while the issuer is unreachable")
 	}
-	return nil, unauth("unknown kid")
+	return nil, unauth(ReasonUnknownKID, "unknown kid")
 }
 
 func (c Config) withDefaults() (Config, error) {
@@ -446,8 +478,56 @@ func trimEntries(name string, in []string) ([]string, error) {
 	return out, nil
 }
 
-func unauth(reason string) error {
-	return fmt.Errorf("%w: %s", ErrUnauthenticated, reason)
+// Reason is the closed set of codes a rejected token carries. The ingest logs it,
+// so it is a fixed vocabulary, never token text. A new rejection gets a new code
+// here, not a free-form string.
+type Reason string
+
+const (
+	ReasonMalformed         Reason = "malformed"
+	ReasonBadSignature      Reason = "bad_signature"
+	ReasonAlgorithm         Reason = "algorithm"
+	ReasonKIDMissing        Reason = "kid_missing"
+	ReasonUnknownKID        Reason = "unknown_kid"
+	ReasonKIDDenied         Reason = "kid_denied"
+	ReasonIssuer            Reason = "issuer"
+	ReasonAudience          Reason = "audience"
+	ReasonExpired           Reason = "expired"
+	ReasonNotYetValid       Reason = "not_yet_valid"
+	ReasonIATFuture         Reason = "iat_future"
+	ReasonLifetime          Reason = "lifetime"
+	ReasonClaimMissing      Reason = "claim_missing"
+	ReasonSubjectNotAllowed Reason = "subject_not_allowed"
+	ReasonOrg               Reason = "org"
+	ReasonTokenSize         Reason = "token_size"
+)
+
+// RejectError is a token the verifier refused. It matches ErrUnauthenticated with
+// errors.Is. Its Error text is the reason and a fixed detail, never the token.
+type RejectError struct {
+	Code   Reason
+	detail string
+}
+
+func (e *RejectError) Error() string {
+	return fmt.Sprintf("%v: %s", ErrUnauthenticated, e.detail)
+}
+
+// Unwrap makes errors.Is(err, ErrUnauthenticated) hold for every rejection.
+func (e *RejectError) Unwrap() error { return ErrUnauthenticated }
+
+// ReasonOf returns the rejection code of err, or "" when err is not a rejection
+// (an outage, a cancelled context, or nil).
+func ReasonOf(err error) Reason {
+	var re *RejectError
+	if errors.As(err, &re) {
+		return re.Code
+	}
+	return ""
+}
+
+func unauth(code Reason, detail string) error {
+	return &RejectError{Code: code, detail: detail}
 }
 
 func unavailable(reason string) error {

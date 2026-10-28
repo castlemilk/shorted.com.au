@@ -164,6 +164,13 @@ type cycleConfig struct {
 	// childArgv names the child process. Nil runs this binary as `-mode agent`. The tests point
 	// it at the test binary, which runs as a fake child (crawl_cycle_fake_test.go).
 	childArgv func() (string, []string)
+	// workloadSecret is BRANDBRAIN_WORKLOAD_TOKEN_SECRET, read once at entry. It authenticates
+	// the cycle's token mints and is handed to each child round, and it is never logged, put in
+	// an event or summary, or left in this process's environment.
+	workloadSecret string
+	// proxyURL is BRANDBRAIN_AGENT_PROXY_URL, the loopback agent proxy the rounds send their queue
+	// calls to. Set only when it is the exact loopback URL; the rounds get nothing else.
+	proxyURL string
 }
 
 // probeResult is one ProbeAuth answer: the exit code the S-FETCH mapping gives it, and the
@@ -631,6 +638,12 @@ func applyCycleDriverDefault(getenv func(string) string, setenv func(k, v string
 // and bad configuration included. dryRun is the -dry-run flag OR CRAWL_DRY_RUN=true.
 func runCycleMode(stdout io.Writer, job string, dryRunFlag bool, maxDuration time.Duration, getenv func(string) string, events *crawlEvents) int {
 	cfg := loadCycleConfig(getenv)
+	// The workload secret is read here and only here, then scrubbed from this process's
+	// environment: the cycle's own helper processes inherit the environment and must not get it.
+	acfg := loadCycleAgentConfig(getenv)
+	cfg.workloadSecret = acfg.workloadSecret
+	cfg.proxyURL = acfg.brandbrainURL
+	scrubWorkloadSecret()
 	cfg.job = job
 	cfg.dryRun = resolveCycleDryRun(dryRunFlag, getenv)
 	cfg.maxDuration = maxDuration
@@ -666,10 +679,18 @@ func runCycleMode(stdout io.Writer, job string, dryRunFlag bool, maxDuration tim
 	if sink != crawlSinkIngest {
 		return refuseCycle(deps, cfg, fmt.Sprintf("-mode cycle runs only with %s=ingest (got %q)", crawlSinkEnv, sink))
 	}
+	// Without the workload secret the cycle cannot mint, so it refuses before any probe or lock.
+	// The refusal names the variable and never a value. The control secret is not a fallback.
+	if cfg.workloadSecret == "" {
+		return refuseCycle(deps, cfg, workloadTokenSecretEnv+" is missing or empty: the cycle mints workload tokens with it and never reads the control secret")
+	}
+	if cfg.proxyURL == "" {
+		return refuseCycle(deps, cfg, agentProxyURLEnv+" is missing or is not the loopback agent proxy URL (http://127.0.0.1:<port>"+agentProxyPath+"): the rounds reach the queue only through it")
+	}
 	applyCycleDriverDefault(getenv, os.Setenv)
 
-	deps.probeIngest = func(ctx context.Context) (int, string) { return probeIngestDetail(ctx, ingestURL) }
-	deps.reportGap = func(cycleID, outcome string, exit int) { reportGapWith(cycleID, outcome, exit, ingestURL) }
+	deps.probeIngest = func(ctx context.Context) (int, string) { return probeIngestDetail(ctx, ingestURL, acfg) }
+	deps.reportGap = func(cycleID, outcome string, exit int) { reportGapWith(cycleID, outcome, exit, ingestURL, acfg) }
 	c := newCycleRunner(cfg, deps)
 	// The Chrome step and the warm check report each warm probe as startup events, and bound each probe
 	// separately (batch 6, 3). They need this runner's emitter, so they are bound here.
@@ -1533,10 +1554,18 @@ func (c *cycleRunner) spawn(round int) (*roundProc, error) {
 // childEnv is the cycle's environment, with the cycle's events fd, the cycle id and the run id
 // applied. CRAWL_RUN_ID is the cycle id, so the rounds accumulate into one run. CRAWL_DRY_RUN is
 // always set explicitly, to the cycle's own dry-run decision.
+//
+// The control secret is dropped: a cycle never uses it. The workload secret is dropped from the
+// inherited environment and handed over only here, because a round mints its own tokens with it.
+// The round scrubs it again once it has read it, so Chrome and the driver never inherit it.
 func (c *cycleRunner) childEnv() []string {
-	drop := map[string]bool{crawlEventsFDEnv: true, "CRAWL_CYCLE_ID": true, "CRAWL_RUN_ID": true, "CRAWL_DRY_RUN": true}
+	drop := map[string]bool{
+		crawlEventsFDEnv: true, "CRAWL_CYCLE_ID": true, "CRAWL_RUN_ID": true, "CRAWL_DRY_RUN": true,
+		controlSecretEnv: true, workloadTokenSecretEnv: true, tokenSourceEnv: true,
+		agentProxyURLEnv: true, agentTokenEnv: true, agentURLEnv: true,
+	}
 	base := os.Environ()
-	env := make([]string, 0, len(base)+4)
+	env := make([]string, 0, len(base)+6)
 	for _, kv := range base {
 		k, _, _ := strings.Cut(kv, "=")
 		if drop[k] {
@@ -1548,12 +1577,20 @@ func (c *cycleRunner) childEnv() []string {
 	if c.cfg.dryRun {
 		dry = "true"
 	}
-	return append(env,
+	env = append(env,
 		crawlEventsFDEnv+"="+cycleChildEventsFDValue,
 		"CRAWL_CYCLE_ID="+c.cfg.cycleID,
 		"CRAWL_RUN_ID="+c.cfg.cycleID,
 		"CRAWL_DRY_RUN="+dry,
+		tokenSourceEnv+"="+tokenSourceWorkload,
 	)
+	if c.cfg.workloadSecret != "" {
+		env = append(env, workloadTokenSecretEnv+"="+c.cfg.workloadSecret)
+	}
+	if c.cfg.proxyURL != "" {
+		env = append(env, agentProxyURLEnv+"="+c.cfg.proxyURL)
+	}
+	return env
 }
 
 // readEvents reads the child's NDJSON lines. It closes lines at EOF, or when supervision stops
@@ -2094,8 +2131,8 @@ func probeWordFor(err error) string {
 // probeIngestDetail runs ProbeAuth against the pinned ingest URL and returns the S-FETCH exit
 // code and the contract word. A contract mismatch is 15. Unimplemented or not found is 8, and its
 // probe word is unavailable (the exit code carries the environment fault).
-func probeIngestDetail(ctx context.Context, ingestURL string) (int, string) {
-	ir := newIngestRound(crawlSinkIngest, loadAgentConfig(), ingestURL, nil)
+func probeIngestDetail(ctx context.Context, ingestURL string, acfg agentConfig) (int, string) {
+	ir := newIngestRound(crawlSinkIngest, acfg, ingestURL, nil)
 	resp, err := ir.client.probe(ctx)
 	if err == nil && resp.GetMinContractVersion() > housingingest.ContractVersion {
 		return exitIngestContract, "contract"
@@ -2112,8 +2149,8 @@ func probeIngestDetail(ctx context.Context, ingestURL string) (int, string) {
 
 // reportGapWith sends a ReportCycle for a round or a preflight that could not report for itself.
 // The counts are zero, because the round's own counts never reached the server.
-func reportGapWith(cycleID, outcome string, exit int, ingestURL string) {
-	ir := newIngestRound(crawlSinkIngest, loadAgentConfig(), ingestURL, nil)
+func reportGapWith(cycleID, outcome string, exit int, ingestURL string, acfg agentConfig) {
+	ir := newIngestRound(crawlSinkIngest, acfg, ingestURL, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	req := &pb.ReportCycleRequest{

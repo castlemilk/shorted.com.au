@@ -60,6 +60,18 @@ const (
 	rateLimitedMessage = "rate_limited"
 )
 
+// Workload-token environment for -mode cycle (contract with BrandBrain's runtime). The
+// runtime passes a fresh per-cycle secret in workloadTokenSecretEnv, strips the control
+// secret and the agent token from the cycle env, and the loopback mint accepts that secret
+// as a bearer on workloadTokenPath only. A cycle's child rounds run with tokenSourceEnv set
+// to tokenSourceWorkload, which is how a round knows to mint with the workload secret.
+const (
+	workloadTokenSecretEnv = "BRANDBRAIN_WORKLOAD_TOKEN_SECRET"
+	controlSecretEnv       = "BRANDBRAIN_CONTROL_SECRET"
+	tokenSourceEnv         = "CRAWL_TOKEN_SOURCE"
+	tokenSourceWorkload    = "workload"
+)
+
 // The round exit codes an ingest failure ends the round with (design table: 13, 14,
 // 15). Exit 7 is shared with the agent's other infrastructure failures, including a
 // token the loopback could not mint.
@@ -150,11 +162,27 @@ func validWorkloadToken(tok string) bool {
 }
 
 // loopbackWorkloadToken returns the fetch function for the co-located agent's loopback
-// mint endpoint. It authenticates the way refreshToken does: the control secret in
-// X-Agent-Control-Secret. The response is the BrandBrain issuer's own shape, and the
-// audience must be the one this collector pins. Errors carry the status or a fixed
-// reason, never the response body, because the body is the token.
+// mint endpoint on the legacy (-mode agent) path. It authenticates the way refreshToken
+// does: the control secret in X-Agent-Control-Secret. The response is the BrandBrain
+// issuer's own shape, and the audience must be the one this collector pins. Errors carry
+// the status or a fixed reason, never the response body, because the body is the token.
 func loopbackWorkloadToken(client *http.Client, controlURL, secret string, now func() time.Time) func(ctx context.Context) (string, time.Time, error) {
+	return mintWorkloadToken(client, controlURL, secret, now, func(req *http.Request, s string) {
+		req.Header.Set("X-Agent-Control-Secret", s)
+	})
+}
+
+// cycleWorkloadToken is loopbackWorkloadToken for a cycle's rounds: the per-cycle workload
+// secret goes as a bearer, and the control secret is never sent or read on this path.
+func cycleWorkloadToken(client *http.Client, controlURL, workloadSecret string, now func() time.Time) func(ctx context.Context) (string, time.Time, error) {
+	return mintWorkloadToken(client, controlURL, workloadSecret, now, func(req *http.Request, s string) {
+		req.Header.Set("Authorization", "Bearer "+s)
+	})
+}
+
+// mintWorkloadToken is the shared mint: the same request, response shape and checks for
+// either credential, with setAuth placing the credential on the request.
+func mintWorkloadToken(client *http.Client, controlURL, secret string, now func() time.Time, setAuth func(req *http.Request, secret string)) func(ctx context.Context) (string, time.Time, error) {
 	return func(ctx context.Context) (string, time.Time, error) {
 		if controlURL == "" || secret == "" {
 			return "", time.Time{}, errors.New("local agent control API not configured")
@@ -164,7 +192,7 @@ func loopbackWorkloadToken(client *http.Client, controlURL, secret string, now f
 		if err != nil {
 			return "", time.Time{}, errors.New("workload token request could not be built")
 		}
-		req.Header.Set("X-Agent-Control-Secret", secret)
+		setAuth(req, secret)
 		resp, err := client.Do(req)
 		if err != nil {
 			return "", time.Time{}, fmt.Errorf("control api unreachable: %w", err)

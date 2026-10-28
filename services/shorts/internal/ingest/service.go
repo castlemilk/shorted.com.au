@@ -127,6 +127,16 @@ func (s *Service) unavailable() error {
 	return connect.NewError(connect.CodeUnavailable, errors.New(msgMisconfigured))
 }
 
+// caller returns the verified identity: the subject, and the token that proved it.
+// A call that reached a method without passing the interceptor is refused.
+func (s *Service) caller(ctx context.Context) (identity, error) {
+	id, ok := rigFromContext(ctx)
+	if !ok {
+		return identity{}, connect.NewError(connect.CodeUnauthenticated, errors.New(msgUnauthenticated))
+	}
+	return id, nil
+}
+
 // rig returns the verified subject. A call that reached a method without passing
 // the interceptor is refused, never served as anonymous.
 func (s *Service) rig(ctx context.Context) (string, error) {
@@ -159,14 +169,14 @@ func (s *Service) PushSweep(ctx context.Context, req *connect.Request[pb.PushSwe
 	if s.problem != "" {
 		return nil, s.unavailable()
 	}
-	subject, err := s.rig(ctx)
+	who, err := s.caller(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if allowed, retry := s.limiter.allow(subject); !allowed {
+	if allowed, retry := s.limiter.allow(who.Subject); !allowed {
 		return nil, rateLimitError(retry)
 	}
-	resp, err := s.pushSweep(ctx, subject, req.Msg)
+	resp, err := s.pushSweep(ctx, who, req.Msg)
 	if err != nil {
 		return nil, err
 	}

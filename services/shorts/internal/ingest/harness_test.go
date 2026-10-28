@@ -281,6 +281,9 @@ func ingestPoolAt(t *testing.T, dsn string, maxConns int32) *pgxpool.Pool {
 	if _, err := pool.Exec(ctx, migrationFile(t, "000150_add_crawl_ingest.up.sql")); err != nil {
 		t.Fatalf("apply 000150: %v", err)
 	}
+	if _, err := pool.Exec(ctx, migrationFile(t, "000152_add_crawl_ingest_receipt_audit.up.sql")); err != nil {
+		t.Fatalf("apply 000152: %v", err)
+	}
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO house_price_regions (region_code, region_type, region_name, state_code, postcode)
 		VALUES ('SUBURB:VIC-3000-TESTVILLE', 'suburb', 'Testville', 'VIC', '3000')`); err != nil {

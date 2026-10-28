@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -61,16 +63,63 @@ func loadReceiptTx(ctx context.Context, tx pgx.Tx, key string) (receipt, bool, e
 
 // insertReceiptTx stores a receipt inside tx. The primary key on key is the final
 // guard: a second writer of the same key fails here, and its transaction rolls back.
-func insertReceiptTx(ctx context.Context, tx pgx.Tx, key, rig string, sum []byte, resp *pb.PushSweepResponse) error {
+//
+// The receipt records the token that made the push (jwt_jti, jwt_kid, migration 000152),
+// so a replayed or forged push can be traced to its token. Those columns come from a
+// later migration than the one that creates the table. Until that migration is applied
+// the insert fails with undefined_column (42703), and the receipt is written without
+// them: a deploy that runs before the DDL must not 500 the pushes. The first attempt
+// runs under a savepoint, because a failed statement would otherwise abort the sweep.
+func insertReceiptTx(ctx context.Context, tx pgx.Tx, key string, who identity, sum []byte, resp *pb.PushSweepResponse) error {
 	payload, err := marshalResponse(resp)
 	if err != nil {
 		return err
 	}
+	sp, err := tx.Begin(ctx) // a SAVEPOINT on tx
+	if err != nil {
+		return err
+	}
+	_, err = sp.Exec(ctx, `
+		INSERT INTO crawl_ingest_receipts (key, rig_subject, body_sha256, response, jwt_jti, jwt_kid)
+		VALUES ($1, $2, $3, $4::jsonb, $5, $6)`,
+		key, who.Subject, sum, payload, nullable(who.JTI), nullable(who.KID))
+	if err == nil {
+		return sp.Commit(ctx)
+	}
+	_ = sp.Rollback(ctx)
+	if !isUndefinedColumn(err) {
+		return err
+	}
+	warnAuditColumnsMissing()
 	_, err = tx.Exec(ctx, `
 		INSERT INTO crawl_ingest_receipts (key, rig_subject, body_sha256, response)
 		VALUES ($1, $2, $3, $4::jsonb)`,
-		key, rig, sum, payload)
+		key, who.Subject, sum, payload)
 	return err
+}
+
+// auditColumnsWarned makes the missing-columns warning once per process, not per push.
+var auditColumnsWarned sync.Once
+
+func warnAuditColumnsMissing() {
+	auditColumnsWarned.Do(func() {
+		log.Warnf("housing ingest: crawl_ingest_receipts has no jwt_jti/jwt_kid (migration 000152 not applied); receipts are written without the token audit columns")
+	})
+}
+
+// isUndefinedColumn reports Postgres undefined_column (42703).
+func isUndefinedColumn(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "42703"
+}
+
+// nullable maps an empty string to SQL NULL: a receipt from before a token carried
+// the claim, or one written by a test, has no value to record.
+func nullable(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // marshalResponse encodes a response for storage. The response carries counts only,
