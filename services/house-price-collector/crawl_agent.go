@@ -39,9 +39,16 @@ type agentConfig struct {
 	maxJobs       int    // CRAWL_AGENT_MAX_JOBS — safety cap per run
 	controlURL    string // loopback macOS-agent control API for on-401 token refresh (optional)
 	controlSecret string // matching X-Agent-Control-Secret
+	// workloadTokens is set on a cycle's rounds (CRAWL_TOKEN_SOURCE=workload). Workload tokens
+	// are then minted with workloadSecret, and the control secret is never read or sent.
+	workloadTokens bool
+	workloadSecret string // BRANDBRAIN_WORKLOAD_TOKEN_SECRET, the per-cycle secret. Never logged.
 }
 
 func loadAgentConfig() agentConfig {
+	if os.Getenv(tokenSourceEnv) == tokenSourceWorkload {
+		return loadCycleAgentConfig(os.Getenv)
+	}
 	host, _ := os.Hostname()
 	if host == "" {
 		host = "collector"
@@ -57,6 +64,55 @@ func loadAgentConfig() agentConfig {
 	}
 }
 
+// loadCycleAgentConfig is the config for -mode cycle and for a cycle's child rounds. It reads
+// the loopback port (a number, not a secret) and the workload secret, and nothing else that is
+// secret: ~/.brandbrain/control_secret and BRANDBRAIN_CONTROL_SECRET are never read here, so
+// controlSecret is always empty and only the workload mint can authenticate.
+func loadCycleAgentConfig(getenv func(string) string) agentConfig {
+	host, _ := os.Hostname()
+	if host == "" {
+		host = "collector"
+	}
+	controlURL := ""
+	if port := loadControlPort(getenv); port != "" {
+		controlURL = "http://127.0.0.1:" + port
+	}
+	agentID := strings.TrimSpace(getenv("CRAWL_AGENT_ID"))
+	if agentID == "" {
+		agentID = "housing-" + host
+	}
+	return agentConfig{
+		brandbrainURL:  strings.TrimRight(getenv("BRANDBRAIN_AGENT_URL"), "/"),
+		token:          getenv("BRANDBRAIN_AGENT_TOKEN"),
+		agentID:        agentID,
+		maxJobs:        20,
+		controlURL:     controlURL,
+		workloadTokens: true,
+		workloadSecret: strings.TrimSpace(getenv(workloadTokenSecretEnv)),
+	}
+}
+
+// loadControlPort returns the loopback control port from BRANDBRAIN_CONTROL_PORT or
+// ~/.brandbrain/diag-port, validated, or "" when neither names one. The port is not a secret.
+func loadControlPort(getenv func(string) string) string {
+	home, _ := os.UserHomeDir()
+	port := strings.TrimSpace(getenv("BRANDBRAIN_CONTROL_PORT"))
+	// The env value is not trusted to be a port: "1@evil.example" would name a host.
+	if port == "" && home != "" {
+		if b, err := os.ReadFile(filepath.Join(home, ".brandbrain", "diag-port")); err == nil {
+			port = digitsOnly(string(b))
+		}
+	}
+	return validControlPort(port)
+}
+
+// scrubWorkloadSecret removes the workload secret from this process's environment once it has
+// been read into a config. Anything this process starts afterwards (Chrome, the Playwright
+// driver, the install-driver step) inherits the environment, so it must not carry the secret.
+func scrubWorkloadSecret() {
+	_ = os.Unsetenv(workloadTokenSecretEnv)
+}
+
 // loadAgentControlAuth locates the co-located macOS BrandBrain agent's loopback
 // control API. That agent is already signed in and continuously rotates its short
 // (~15 min) access token from a 30-day refresh token, so it is a durable, always-
@@ -67,20 +123,13 @@ func loadAgentConfig() agentConfig {
 // unavailable → no auto-refresh, plain single-token behaviour (back-compat).
 func loadAgentControlAuth() (controlURL, secret string) {
 	home, _ := os.UserHomeDir()
-	port := strings.TrimSpace(os.Getenv("BRANDBRAIN_CONTROL_PORT"))
-	// The env value is not trusted to be a port: "1@evil.example" would name a host.
-	if port == "" && home != "" {
-		if b, err := os.ReadFile(filepath.Join(home, ".brandbrain", "diag-port")); err == nil {
-			port = digitsOnly(string(b))
-		}
-	}
+	port := loadControlPort(os.Getenv)
 	secret = strings.TrimSpace(os.Getenv("BRANDBRAIN_CONTROL_SECRET"))
 	if secret == "" && home != "" {
 		if b, err := os.ReadFile(filepath.Join(home, ".brandbrain", "control_secret")); err == nil {
 			secret = strings.TrimSpace(string(b))
 		}
 	}
-	port = validControlPort(port)
 	if port == "" || secret == "" {
 		return "", ""
 	}
@@ -646,6 +695,15 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) (code int) {
 		return exitSinkRefused
 	}
 	acfg := loadAgentConfig()
+	if acfg.workloadTokens {
+		// A cycle's child round: the secret is in the config now, so this process and whatever it
+		// starts must not inherit it. A round that cannot mint refuses as a configuration error.
+		scrubWorkloadSecret()
+		if acfg.workloadSecret == "" {
+			log.Printf("[agent] FATAL: %s is missing or empty; a cycle round cannot mint workload tokens", workloadTokenSecretEnv)
+			return exitSinkRefused
+		}
+	}
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
 		log.Printf("[agent] FATAL: BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required")
 		return 7

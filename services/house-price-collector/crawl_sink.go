@@ -323,12 +323,15 @@ func ingestRoundFrom(ctx context.Context) *ingestRound {
 }
 
 // newIngestRound builds the round for an ingest or shadow run. The token comes from the
-// co-located agent's loopback control API, the same source refreshToken uses.
+// co-located agent's loopback control API: the control secret on the legacy path, or the
+// per-cycle workload secret on a cycle's rounds (acfg.workloadTokens).
 func newIngestRound(mode crawlSinkMode, acfg agentConfig, ingestURL string, events *crawlEvents) *ingestRound {
-	tokens := &workloadTokenSource{
-		fetch: loopbackWorkloadToken(noRedirectHTTPClient(controlCallTimeout), acfg.controlURL, acfg.controlSecret, time.Now),
-		now:   time.Now,
+	fetch := loopbackWorkloadToken(noRedirectHTTPClient(controlCallTimeout), acfg.controlURL, acfg.controlSecret, time.Now)
+	if acfg.workloadTokens {
+		// A cycle's round mints with the per-cycle workload secret, never the control secret.
+		fetch = cycleWorkloadToken(noRedirectHTTPClient(controlCallTimeout), acfg.controlURL, acfg.workloadSecret, time.Now)
 	}
+	tokens := &workloadTokenSource{fetch: fetch, now: time.Now}
 	ir := &ingestRound{
 		mode:       mode,
 		client:     newIngestClient(ingestURL, tokens),
