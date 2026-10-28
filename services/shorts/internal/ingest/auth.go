@@ -11,9 +11,12 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/pkg/workloadauth"
 )
 
@@ -31,10 +34,44 @@ const (
 )
 
 // identity is the verified rig attached to a request's context by the interceptor.
+// JTI is the token's unique id; the receipts store it so a push can be traced to the
+// one token that made it (migration 000152).
 type identity struct {
-	Subject string
-	KID     string
+	Subject   string
+	KID       string
+	JTI       string
+	IssuedAt  time.Time
+	ExpiresAt time.Time
 }
+
+// Auth decisions are logged, one line each, with the service's logger. An accepted
+// line carries the identity the token proved; a rejected line carries only a closed
+// reason code, plus the kid and sub when the token parses, which are attacker-chosen
+// and are shown quoted and bounded. The token itself is never logged.
+//
+// These are variables so the tests can read the lines back.
+var (
+	logAuthAccepted = func(format string, args ...any) { log.Infof(format, args...) }
+	logAuthRejected = func(format string, args ...any) { log.Warnf(format, args...) }
+)
+
+// The rejection reasons the ingest adds to workloadauth's own. They are the closed
+// vocabulary of the auth log's reason field, with workloadauth's codes.
+const (
+	reasonMissingToken    = "missing_token"
+	reasonMisconfigured   = "misconfigured"
+	reasonJWKSUnavailable = "jwks_unavailable"
+	reasonRigDisabled     = "rig_disabled"
+	reasonRigLookupFailed = "rig_lookup_failed"
+	reasonVerifyOther     = "verify_failed"
+)
+
+// maxLoggedField bounds an attacker-chosen value (kid, sub) in a log line.
+const maxLoggedField = 128
+
+// maxParsedToken bounds the token the rejection log parses for kid and sub. A real
+// token is well under this; a larger one is logged without them.
+const maxParsedToken = 8 << 10
 
 type identityKey struct{}
 
@@ -192,37 +229,113 @@ func pruneBefore(ts []time.Time, cutoff time.Time) []time.Time {
 //   - attaches the verified identity to the request context. The Connect handlers
 //     read it there and never verify a second time.
 //
+// There is no replay cache, on purpose. A token is a bearer credential for its 600s
+// window, so a copy of it passes here until it expires. The audit log and the receipt
+// (jwt_jti) make a replay visible after the fact. If a replay cache is ever added, it
+// must key on the token's jti, never on the raw token string: ES256 signatures are
+// malleable (s and N-s both verify), so one token has more than one valid string form.
+//
 // Errors are written in the Connect unary error shape, so Connect clients map them to
 // the same codes as before: the HTTP status and the {code, message} body agree.
 func requireWorkloadAuth(v tokenVerifier, gate *rigGate, problem string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if problem != "" || v == nil {
+			rejectAudit(r, reasonMisconfigured, "")
 			writeUnaryError(w, http.StatusServiceUnavailable, "unavailable", msgMisconfigured)
 			return
 		}
 		raw := bearerToken(r.Header.Get("Authorization"))
 		if raw == "" {
+			rejectAudit(r, reasonMissingToken, "")
 			writeUnaryError(w, http.StatusUnauthorized, "unauthenticated", msgUnauthenticated)
 			return
 		}
 		id, err := v.Verify(r.Context(), raw)
 		if err != nil {
 			status, code, msg := verifyFailure(err)
+			rejectAudit(r, verifyReason(err), raw)
 			writeUnaryError(w, status, code, msg)
 			return
 		}
 		on, err := gate.enabled(r.Context(), id.Subject)
 		if err != nil {
+			rejectAudit(r, reasonRigLookupFailed, raw)
 			writeUnaryError(w, http.StatusServiceUnavailable, "unavailable", msgRigLookupFailed)
 			return
 		}
 		if !on {
+			rejectAudit(r, reasonRigDisabled, raw)
 			writeUnaryError(w, http.StatusForbidden, "permission_denied", msgRigNotEnabled)
 			return
 		}
-		ctx := context.WithValue(r.Context(), identityKey{}, identity{Subject: id.Subject, KID: id.KID})
+		acceptAudit(r, id)
+		ctx := context.WithValue(r.Context(), identityKey{}, identity{
+			Subject:   id.Subject,
+			KID:       id.KID,
+			JTI:       id.JTI,
+			IssuedAt:  id.IssuedAt,
+			ExpiresAt: id.ExpiresAt,
+		})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// verifyReason is the closed reason code for a verifier failure.
+func verifyReason(err error) string {
+	if errors.Is(err, workloadauth.ErrUnavailable) {
+		return reasonJWKSUnavailable
+	}
+	if code := workloadauth.ReasonOf(err); code != "" {
+		return string(code)
+	}
+	return reasonVerifyOther
+}
+
+// acceptAudit logs one accepted decision: the verified subject, kid and jti, the
+// token's validity window, and the client address.
+func acceptAudit(r *http.Request, id *workloadauth.Identity) {
+	logAuthAccepted("housing ingest auth decision=accepted subject=%s kid=%s jti=%s iat=%d exp=%d client_ip=%s",
+		quoteField(id.Subject), quoteField(id.KID), quoteField(id.JTI),
+		id.IssuedAt.Unix(), id.ExpiresAt.Unix(), quoteField(ratelimit.ClientIP(r)))
+}
+
+// rejectAudit logs one rejected decision. raw is parsed without verification, only
+// for the kid and sub, so the line can say which key or subject was presented. Those
+// values are not trusted and are never used for anything but the log.
+func rejectAudit(r *http.Request, reason, raw string) {
+	kid, sub := unverifiedKidSub(raw)
+	logAuthRejected("housing ingest auth decision=rejected reason=%s subject=%s kid=%s client_ip=%s",
+		reason, quoteField(sub), quoteField(kid), quoteField(ratelimit.ClientIP(r)))
+}
+
+// unverifiedKidSub reads the kid header and the sub claim of a token WITHOUT checking
+// its signature. Used only for the rejection log line.
+func unverifiedKidSub(raw string) (string, string) {
+	if raw == "" || len(raw) > maxParsedToken {
+		return "", ""
+	}
+	tok, _, err := jwt.NewParser().ParseUnverified(raw, jwt.MapClaims{})
+	if err != nil {
+		return "", ""
+	}
+	kid, _ := tok.Header["kid"].(string)
+	sub := ""
+	if claims, ok := tok.Claims.(jwt.MapClaims); ok {
+		sub, _ = claims["sub"].(string)
+	}
+	return kid, sub
+}
+
+// quoteField quotes a value for a log line and bounds it, so a hostile value can
+// neither break the line nor fill it.
+func quoteField(v string) string {
+	if v == "" {
+		return `""`
+	}
+	if len(v) > maxLoggedField {
+		v = v[:maxLoggedField]
+	}
+	return strconv.Quote(v)
 }
 
 // verifyFailure maps a workloadauth error onto the HTTP status and Connect code the

@@ -257,7 +257,8 @@ func (s *Service) inTx(ctx context.Context, fn func(pgx.Tx) error) error {
 // The only work outside that transaction is reads that do not decide anything (the
 // dispatch target, the quarantine bypass) and the counts bump, which runs after the
 // commit.
-func (s *Service) pushSweep(ctx context.Context, rig string, msg *pb.PushSweepRequest) (*pb.PushSweepResponse, error) {
+func (s *Service) pushSweep(ctx context.Context, who identity, msg *pb.PushSweepRequest) (*pb.PushSweepResponse, error) {
+	rig := who.Subject
 	receivedAt := s.now().UTC()
 	if err := validateEnvelope(msg, s.cfg.MinContractVersion); err != nil {
 		return nil, err
@@ -388,7 +389,7 @@ func (s *Service) pushSweep(ctx context.Context, rig string, msg *pb.PushSweepRe
 		}
 		sw.Record = func(ctx context.Context, tx pgx.Tx, r housingcrawl.Result) error {
 			final = responseFor(status, r, false, poisoned)
-			if err := insertReceiptTx(ctx, tx, key, rig, sum, final); err != nil {
+			if err := insertReceiptTx(ctx, tx, key, who, sum, final); err != nil {
 				return txErr(err)
 			}
 			// The job closes only when a gated listing was written. A sweep that applied
@@ -430,7 +431,7 @@ func (s *Service) pushSweep(ctx context.Context, rig string, msg *pb.PushSweepRe
 
 	var qe *quarantineError
 	if errors.As(applyErr, &qe) {
-		resp, err := s.recordQuarantine(ctx, key, rig, job, sum, qe, status, poisoned)
+		resp, err := s.recordQuarantine(ctx, key, who, job, sum, qe, status, poisoned)
 		if err != nil {
 			return nil, err
 		}
@@ -445,7 +446,8 @@ func (s *Service) pushSweep(ctx context.Context, rig string, msg *pb.PushSweepRe
 // transaction, after the held sweep has rolled back. It takes the key lock again and
 // re-reads the receipt first. If an identical push got there first, its receipt is
 // replayed, so a retry never writes a second quarantine row for the same key.
-func (s *Service) recordQuarantine(ctx context.Context, key, rig, job string, sum []byte, qe *quarantineError, status pb.SweepStatus, poisoned bool) (*pb.PushSweepResponse, error) {
+func (s *Service) recordQuarantine(ctx context.Context, key string, who identity, job string, sum []byte, qe *quarantineError, status pb.SweepStatus, poisoned bool) (*pb.PushSweepResponse, error) {
+	rig := who.Subject
 	resp := responseFor(status, housingcrawl.Result{}, true, poisoned)
 	var out *pb.PushSweepResponse
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
@@ -467,7 +469,7 @@ func (s *Service) recordQuarantine(ctx context.Context, key, rig, job string, su
 		if err := insertQuarantineTx(ctx, tx, key, rig, job, sum, qe.reason, qe.stats); err != nil {
 			return err
 		}
-		if err := insertReceiptTx(ctx, tx, key, rig, sum, resp); err != nil {
+		if err := insertReceiptTx(ctx, tx, key, who, sum, resp); err != nil {
 			return err
 		}
 		out = resp
