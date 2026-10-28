@@ -8,7 +8,7 @@ description: Explore Shorted's published ASX short positions, stock history, hou
 Use the connected Shorted public MCP tools for supported market and economic
 questions. No account is required for public reads. Discover available tools
 before claiming access; plugin metadata alone does not establish a callable
-connection. This package connects only to `https://api.shorted.com.au/mcp`.
+connection. This package connects only to `https://api.shorted.com.au/mcp/public`.
 
 Read `shorted://guide/reading-the-data` before interpreting short-interest
 figures, and `shorted://catalog/coverage` when scope or missing data matters.

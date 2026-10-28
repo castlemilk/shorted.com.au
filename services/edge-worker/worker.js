@@ -412,6 +412,27 @@ const worker = {
       return withEdgeAnalytics(request, env, limited, "edge-ratelimit", 0, started);
     }
 
+    // Public domain-ownership proof for the Shorted public MCP App. This is a
+    // published verification value, not an API credential. Keep it on the exact
+    // API hostname/path; all other requests retain normal routing and auth.
+    if (hostname === API_HOST && path === "/.well-known/openai-apps-challenge") {
+      const headers = {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      };
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return new Response(null, {
+          status: 405,
+          headers: { ...headers, Allow: "GET, HEAD" },
+        });
+      }
+      return new Response(
+        request.method === "HEAD" ? null : "swR1UbIz7NmrVtryxLnNUHIO-49mkLoNCzLoSPZX2yQ",
+        { headers },
+      );
+    }
+
     // --- 0.4. Connect RPC paths are POST-only. Answer a GET/HEAD here rather
     // than forwarding it, because the origin handler simply never responds to
     // a body-less GET and Cloudflare eventually records a 504 with

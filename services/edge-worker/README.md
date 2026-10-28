@@ -13,7 +13,7 @@ proxy) and `shorted.com.au` (transparent proxy to Vercel).
 | `ratelimit.test.mjs` | Edge rate limiting tests |
 
 ```bash
-node --test services/edge-worker      # run all worker tests
+node --test services/edge-worker/*.test.mjs  # run all worker tests
 node --check services/edge-worker/worker.js
 ```
 
@@ -562,3 +562,12 @@ npx wrangler deploy
 
 Treat that as a break-glass path only: the next `terraform apply` re-asserts the
 Terraform-declared binding set.
+
+## OpenAI MCP domain ownership
+
+`GET https://api.shorted.com.au/.well-known/openai-apps-challenge` serves the
+public ownership proof for Shorted’s `shorted-public` App. HEAD returns the same
+headers with no body; other methods return 405. This exact route does not call
+Cloud Run or change MCP authentication. The value is intentionally public and
+must match the active publisher Portal challenge. It ships through the normal
+Terraform-owned Worker deployment above.
