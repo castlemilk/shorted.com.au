@@ -168,6 +168,9 @@ type cycleConfig struct {
 	// the cycle's token mints and is handed to each child round, and it is never logged, put in
 	// an event or summary, or left in this process's environment.
 	workloadSecret string
+	// proxyURL is BRANDBRAIN_AGENT_PROXY_URL, the loopback agent proxy the rounds send their queue
+	// calls to. Set only when it is the exact loopback URL; the rounds get nothing else.
+	proxyURL string
 }
 
 // probeResult is one ProbeAuth answer: the exit code the S-FETCH mapping gives it, and the
@@ -639,6 +642,7 @@ func runCycleMode(stdout io.Writer, job string, dryRunFlag bool, maxDuration tim
 	// environment: the cycle's own helper processes inherit the environment and must not get it.
 	acfg := loadCycleAgentConfig(getenv)
 	cfg.workloadSecret = acfg.workloadSecret
+	cfg.proxyURL = acfg.brandbrainURL
 	scrubWorkloadSecret()
 	cfg.job = job
 	cfg.dryRun = resolveCycleDryRun(dryRunFlag, getenv)
@@ -679,6 +683,9 @@ func runCycleMode(stdout io.Writer, job string, dryRunFlag bool, maxDuration tim
 	// The refusal names the variable and never a value. The control secret is not a fallback.
 	if cfg.workloadSecret == "" {
 		return refuseCycle(deps, cfg, workloadTokenSecretEnv+" is missing or empty: the cycle mints workload tokens with it and never reads the control secret")
+	}
+	if cfg.proxyURL == "" {
+		return refuseCycle(deps, cfg, agentProxyURLEnv+" is missing or is not the loopback agent proxy URL (http://127.0.0.1:<port>"+agentProxyPath+"): the rounds reach the queue only through it")
 	}
 	applyCycleDriverDefault(getenv, os.Setenv)
 
@@ -1555,6 +1562,7 @@ func (c *cycleRunner) childEnv() []string {
 	drop := map[string]bool{
 		crawlEventsFDEnv: true, "CRAWL_CYCLE_ID": true, "CRAWL_RUN_ID": true, "CRAWL_DRY_RUN": true,
 		controlSecretEnv: true, workloadTokenSecretEnv: true, tokenSourceEnv: true,
+		agentProxyURLEnv: true, agentTokenEnv: true, agentURLEnv: true,
 	}
 	base := os.Environ()
 	env := make([]string, 0, len(base)+6)
@@ -1578,6 +1586,9 @@ func (c *cycleRunner) childEnv() []string {
 	)
 	if c.cfg.workloadSecret != "" {
 		env = append(env, workloadTokenSecretEnv+"="+c.cfg.workloadSecret)
+	}
+	if c.cfg.proxyURL != "" {
+		env = append(env, agentProxyURLEnv+"="+c.cfg.proxyURL)
 	}
 	return env
 }

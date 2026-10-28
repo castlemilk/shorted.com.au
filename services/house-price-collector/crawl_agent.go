@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,10 +44,65 @@ type agentConfig struct {
 	// are then minted with workloadSecret, and the control secret is never read or sent.
 	workloadTokens bool
 	workloadSecret string // BRANDBRAIN_WORKLOAD_TOKEN_SECRET, the per-cycle secret. Never logged.
+	// proxy is set on a cycle's rounds. The queue (claim, renew, submit) then goes through the
+	// loopback agent proxy at brandbrainURL, with the per-cycle secret as the bearer (token). The
+	// round holds no BrandBrain credential, cannot refresh a token, and never exports a session.
+	proxy bool
 }
 
-func loadAgentConfig() agentConfig {
-	if os.Getenv(tokenSourceEnv) == tokenSourceWorkload {
+// agentProxyURLEnv names the loopback agent proxy a cycle hands its rounds. The URL is
+// exactly http://127.0.0.1:<port>/control/v1/agent-proxy; nothing else is accepted.
+const (
+	agentProxyURLEnv = "BRANDBRAIN_AGENT_PROXY_URL"
+	agentProxyPath   = "/control/v1/agent-proxy"
+	// The cycle's env names that a round must never receive: a BrandBrain credential, or the
+	// direct BrandBrain URL that would invite a round to bypass the proxy.
+	agentTokenEnv = "BRANDBRAIN_AGENT_TOKEN"
+	agentURLEnv   = "BRANDBRAIN_AGENT_URL"
+)
+
+var agentProxyURLRe = regexp.MustCompile(`^http://127\.0\.0\.1:([0-9]{1,5})/control/v1/agent-proxy$`)
+
+// parseAgentProxyURL returns the canonical proxy URL and its loopback port, or "", "" when raw
+// is not exactly the loopback proxy URL. Host, scheme, path, query and port are all exact.
+func parseAgentProxyURL(raw string) (string, string) {
+	m := agentProxyURLRe.FindStringSubmatch(raw)
+	if m == nil {
+		return "", ""
+	}
+	port := validControlPort(m[1])
+	if port == "" || port != m[1] {
+		return "", ""
+	}
+	return "http://127.0.0.1:" + port + agentProxyPath, port
+}
+
+// isCycleChild reports whether this process was started by a cycle: the cycle passes the
+// round-only events fd and its cycle id, and no hand-run process has both.
+func isCycleChild(getenv func(string) string) bool {
+	fd, err := strconv.Atoi(strings.TrimSpace(getenv(crawlEventsFDEnv)))
+	return err == nil && fd >= 3 && strings.TrimSpace(getenv("CRAWL_CYCLE_ID")) != ""
+}
+
+// resolveRoundTokenSource decides how a round authenticates. CRAWL_TOKEN_SOURCE=workload is
+// honoured only inside a cycle child, and then the proxy URL and the per-cycle secret are
+// required. Set by hand on any other run it is refused, never treated as the legacy path.
+func resolveRoundTokenSource(getenv func(string) string) (bool, string) {
+	v := strings.TrimSpace(getenv(tokenSourceEnv))
+	switch {
+	case v == "":
+		return false, ""
+	case v != tokenSourceWorkload:
+		return false, fmt.Sprintf("%s=%q is not a known token source", tokenSourceEnv, v)
+	case !isCycleChild(getenv):
+		return false, fmt.Sprintf("%s=workload is set only by a collector cycle; a plain -mode agent run must not set it", tokenSourceEnv)
+	}
+	return true, ""
+}
+
+// loadAgentConfig is the round's config. workload is the result of resolveRoundTokenSource.
+func loadAgentConfig(workload bool) agentConfig {
+	if workload {
 		return loadCycleAgentConfig(os.Getenv)
 	}
 	host, _ := os.Hostname()
@@ -65,30 +121,34 @@ func loadAgentConfig() agentConfig {
 }
 
 // loadCycleAgentConfig is the config for -mode cycle and for a cycle's child rounds. It reads
-// the loopback port (a number, not a secret) and the workload secret, and nothing else that is
-// secret: ~/.brandbrain/control_secret and BRANDBRAIN_CONTROL_SECRET are never read here, so
-// controlSecret is always empty and only the workload mint can authenticate.
+// the loopback proxy URL (which names the control port), and the per-cycle workload secret. It
+// never reads ~/.brandbrain/control_secret, BRANDBRAIN_CONTROL_SECRET, BRANDBRAIN_AGENT_TOKEN or
+// BRANDBRAIN_AGENT_URL: the queue is reached through the proxy with the secret as the bearer.
+// An invalid or missing proxy URL leaves brandbrainURL empty, and the callers refuse.
 func loadCycleAgentConfig(getenv func(string) string) agentConfig {
 	host, _ := os.Hostname()
 	if host == "" {
 		host = "collector"
 	}
+	proxyURL, port := parseAgentProxyURL(strings.TrimSpace(getenv(agentProxyURLEnv)))
 	controlURL := ""
-	if port := loadControlPort(getenv); port != "" {
+	if port != "" {
 		controlURL = "http://127.0.0.1:" + port
 	}
 	agentID := strings.TrimSpace(getenv("CRAWL_AGENT_ID"))
 	if agentID == "" {
 		agentID = "housing-" + host
 	}
+	secret := strings.TrimSpace(getenv(workloadTokenSecretEnv))
 	return agentConfig{
-		brandbrainURL:  strings.TrimRight(getenv("BRANDBRAIN_AGENT_URL"), "/"),
-		token:          getenv("BRANDBRAIN_AGENT_TOKEN"),
+		brandbrainURL:  proxyURL,
+		token:          secret, // the queue bearer on the proxy; empty when the secret is absent
 		agentID:        agentID,
 		maxJobs:        20,
 		controlURL:     controlURL,
 		workloadTokens: true,
-		workloadSecret: strings.TrimSpace(getenv(workloadTokenSecretEnv)),
+		workloadSecret: secret,
+		proxy:          true,
 	}
 }
 
@@ -202,8 +262,11 @@ type crawlJobSummary struct {
 }
 
 type brandbrainAgentClient struct {
-	url           string
-	token         string
+	url   string
+	token string
+	// proxy is set for a cycle round: the bearer is the per-cycle secret, the URL is the loopback
+	// proxy, and a 401 is terminal (no refresh, no session export).
+	proxy         bool
 	agentID       string
 	http          *http.Client
 	controlURL    string // loopback macOS-agent control API (optional token source)
@@ -234,12 +297,16 @@ func newBrandbrainAgentClient(cfg agentConfig) *brandbrainAgentClient {
 		url: cfg.brandbrainURL, token: cfg.token, agentID: cfg.agentID,
 		http:       noRedirectHTTPClient(30 * time.Second),
 		controlURL: cfg.controlURL, controlSecret: cfg.controlSecret,
+		proxy: cfg.proxy,
 	}
 }
 
 // canRefresh reports whether an expired token can be transparently replaced from
 // the co-located macOS agent's control API (see loadAgentControlAuth).
 func (c *brandbrainAgentClient) canRefresh() bool {
+	if c.proxy {
+		return false // a cycle round never refreshes: a 401 is terminal
+	}
 	return c.controlURL != "" && c.controlSecret != ""
 }
 
@@ -305,6 +372,11 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 	}
 	if err != nil {
 		return err
+	}
+	if status == http.StatusUnauthorized && c.proxy {
+		// Terminal for the round: the proxy refused the per-cycle secret. The round never
+		// refreshes a token or exports a session, so there is nothing else to try.
+		return fmt.Errorf("brandbrain %s %s: 401 from the agent proxy: the per-cycle workload secret was refused; the cycle round does not refresh", method, path)
 	}
 	if status == http.StatusUnauthorized && refreshErr != nil {
 		// Refresh WAS available and failed — carry its reason. The common case
@@ -403,6 +475,9 @@ func (c *brandbrainAgentClient) roundtrip(ctx context.Context, method, path stri
 // this token continuously valid off its 30-day refresh token, so this needs no
 // stored long-lived credential — it just re-reads whatever is fresh right now.
 func (c *brandbrainAgentClient) refreshToken(ctx context.Context) (string, error) {
+	if c.proxy {
+		return "", fmt.Errorf("token refresh is disabled for a cycle round")
+	}
 	if !c.canRefresh() {
 		return "", fmt.Errorf("local agent control API not configured")
 	}
@@ -546,7 +621,7 @@ func buildEnqueueJobs(targets []CrawlTarget, sources []string, tier string) []cr
 //     ranked + capped (see selectDeltaSuburbs / crawl_delta.go). Reads freshness
 //     read-only from prod; needs the pool, hence it is passed through here.
 func runEnqueue(ctx context.Context, pool *pgxpool.Pool) error {
-	acfg := loadAgentConfig()
+	acfg := loadAgentConfig(false)
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
 		return fmt.Errorf("BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API for auto-refresh) required")
 	}
@@ -694,13 +769,23 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) (code int) {
 		log.Printf("[agent] FATAL: refusing to start: %s", refusal)
 		return exitSinkRefused
 	}
-	acfg := loadAgentConfig()
+	workload, refusal := resolveRoundTokenSource(os.Getenv)
+	if refusal != "" {
+		log.Printf("[agent] FATAL: refusing to start: %s", refusal)
+		return exitSinkRefused
+	}
+	acfg := loadAgentConfig(workload)
 	if acfg.workloadTokens {
 		// A cycle's child round: the secret is in the config now, so this process and whatever it
-		// starts must not inherit it. A round that cannot mint refuses as a configuration error.
+		// starts must not inherit it. A round that cannot reach the queue or mint refuses as a
+		// configuration error.
 		scrubWorkloadSecret()
 		if acfg.workloadSecret == "" {
 			log.Printf("[agent] FATAL: %s is missing or empty; a cycle round cannot mint workload tokens", workloadTokenSecretEnv)
+			return exitSinkRefused
+		}
+		if acfg.brandbrainURL == "" {
+			log.Printf("[agent] FATAL: %s is missing or is not the loopback agent proxy URL (http://127.0.0.1:<port>%s)", agentProxyURLEnv, agentProxyPath)
 			return exitSinkRefused
 		}
 	}
@@ -829,7 +914,7 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 
 	client := newBrandbrainAgentClient(acfg)
 	log.Printf("[agent] start: agent=%s brandbrain=%s maxJobs=%d dryRun=%v", acfg.agentID, acfg.brandbrainURL, acfg.maxJobs, cfg.dryRun)
-	if acfg.controlURL != "" {
+	if acfg.controlURL != "" && !acfg.proxy {
 		log.Printf("[agent] token auto-refresh ENABLED via local agent control API — an expired token is re-fetched mid-run (no minted credential needed)")
 	}
 
@@ -1492,7 +1577,7 @@ func (c *brandbrainAgentClient) purge(ctx context.Context, req crawlPurgeRequest
 // "false" to actually delete). DRY-RUN by default so the operator previews the
 // match count before deleting.
 func runPurge(ctx context.Context, _ *pgxpool.Pool) {
-	acfg := loadAgentConfig()
+	acfg := loadAgentConfig(false)
 	if acfg.brandbrainURL == "" || (acfg.token == "" && acfg.controlURL == "") {
 		log.Printf("[purge] BRANDBRAIN_AGENT_URL + a token (BRANDBRAIN_AGENT_TOKEN, or a local agent control API) required — nothing to do")
 		return

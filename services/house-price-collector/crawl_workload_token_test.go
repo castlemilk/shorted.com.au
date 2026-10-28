@@ -113,6 +113,7 @@ func cycleWorkloadEnv(ingestURL, controlPort string) map[string]string {
 		"BRANDBRAIN_CONTROL_PORT": controlPort,
 		"BRANDBRAIN_AGENT_URL":    "",
 		"DATABASE_URL":            "",
+		agentProxyURLEnv:          "http://127.0.0.1:" + controlPort + agentProxyPath,
 	}
 }
 
@@ -247,6 +248,8 @@ func TestCycleLoaderReadsOnlyThePortAndTheWorkloadSecret(t *testing.T) {
 	env := map[string]string{
 		"BRANDBRAIN_CONTROL_PORT":          "4411",
 		"BRANDBRAIN_CONTROL_SECRET":        controlSentinel,
+		"BRANDBRAIN_AGENT_TOKEN":           "sentinel-agent-token-5c1d",
+		agentProxyURLEnv:                   "http://127.0.0.1:4411" + agentProxyPath,
 		"BRANDBRAIN_WORKLOAD_TOKEN_SECRET": wtsSentinel,
 	}
 	acfg := loadCycleAgentConfig(func(k string) string { return env[k] })
@@ -258,6 +261,9 @@ func TestCycleLoaderReadsOnlyThePortAndTheWorkloadSecret(t *testing.T) {
 	}
 	if acfg.controlURL != "http://127.0.0.1:4411" {
 		t.Fatalf("controlURL = %q", acfg.controlURL)
+	}
+	if acfg.brandbrainURL != "http://127.0.0.1:4411"+agentProxyPath || !acfg.proxy || acfg.token != wtsSentinel {
+		t.Fatalf("queue is not the proxy with the per-cycle secret: url=%q proxy=%v token-is-secret=%v", acfg.brandbrainURL, acfg.proxy, acfg.token == wtsSentinel)
 	}
 }
 
@@ -377,6 +383,8 @@ func TestRunAgentRefusesAWorkloadRoundWithoutTheWorkloadSecret(t *testing.T) {
 	t.Setenv("BRANDBRAIN_AGENT_TOKEN", "")
 	t.Setenv("BRANDBRAIN_CONTROL_PORT", stubURLPort(t, ctlSrv.URL))
 	t.Setenv("BRANDBRAIN_CONTROL_SECRET", controlSentinel)
+	t.Setenv(agentProxyURLEnv, "http://127.0.0.1:"+stubURLPort(t, ctlSrv.URL)+agentProxyPath)
+	setCycleChildMarkers(t)
 	t.Setenv(tokenSourceEnv, tokenSourceWorkload)
 	t.Setenv(workloadTokenSecretEnv, "")
 	if err := os.Unsetenv(workloadTokenSecretEnv); err != nil {
