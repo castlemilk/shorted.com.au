@@ -335,13 +335,16 @@ func TestDisposition_PermanentAnswersAreNoRetry(t *testing.T) {
 
 // Item 2: the submit body carries no_retry only when the job's summary asks for it.
 func TestSubmitSendsNoRetryOnlyWhenAsked(t *testing.T) {
-	var bodies []map[string]any
+	// Bodies are keyed by job_id, not arrival order: the client retries a timed-out
+	// request, so on a loaded runner job-a can arrive twice before job-b.
+	bodies := map[string]map[string]any{}
 	var mu sync.Mutex
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var b map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&b)
+		id, _ := b["job_id"].(string)
 		mu.Lock()
-		bodies = append(bodies, b)
+		bodies[id] = b
 		mu.Unlock()
 		_, _ = w.Write([]byte(`{}`))
 	}))
@@ -356,13 +359,15 @@ func TestSubmitSendsNoRetryOnlyWhenAsked(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if bodies[0]["no_retry"] != true {
-		t.Errorf("permanent submit body = %v, want no_retry true", bodies[0])
+	if bodies["job-a"]["no_retry"] != true {
+		t.Errorf("permanent submit body = %v, want no_retry true", bodies["job-a"])
 	}
-	if _, present := bodies[1]["no_retry"]; present {
-		t.Errorf("retryable submit body carries no_retry: %v", bodies[1])
+	if b, ok := bodies["job-b"]; !ok {
+		t.Errorf("no submit body for job-b; got %v", bodies)
+	} else if _, present := b["no_retry"]; present {
+		t.Errorf("retryable submit body carries no_retry: %v", b)
 	}
-	raw, _ := json.Marshal(bodies[0])
+	raw, _ := json.Marshal(bodies["job-a"])
 	if bytes.Contains(raw, []byte("noRetry")) {
 		t.Errorf("the in-process noRetry field leaked into the body: %s", raw)
 	}
