@@ -122,3 +122,38 @@ func TestResendFeedbackOverAStoreWithoutItSaysSo(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "does not record Resend feedback")
 }
+
+// allowlistStore is a backend that provides the housing crawl allowlist.
+type allowlistStore struct{ shorts.Store }
+
+func (allowlistStore) ListIngestRigs(context.Context) ([]shorts.IngestRig, error) {
+	return []shorts.IngestRig{{Subject: "rig:gamma", Enabled: true}}, nil
+}
+func (allowlistStore) IngestRigState(context.Context, string) (bool, bool, error) {
+	return true, true, nil
+}
+func (allowlistStore) EnableIngestRig(context.Context, string, *string) (bool, error) {
+	return false, nil
+}
+func (allowlistStore) DisableIngestRig(context.Context, string) (string, error) {
+	return shorts.IngestRigDisabled, nil
+}
+
+// The same regression as the alerts view, shipped again: CrawlRigStore asserts on the
+// adapter, which did not forward the allowlist, so housing_crawl_rigs and
+// housing_crawl_authorize answered "not configured" in production.
+func TestCrawlRigStoreReachableThroughTheAdapter(t *testing.T) {
+	src := newAdminMCPSource(&ShortsServer{store: NewStoreAdapter(allowlistStore{}), logger: NewLoggerAdapter()}, nil)
+	store := src.CrawlRigStore()
+	require.NotNil(t, store, "the adapter must expose the housing crawl allowlist")
+
+	rows, err := store.ListCrawlRigs(context.Background())
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "rig:gamma", rows[0].Subject, "the forwarded read reaches the store")
+}
+
+func TestAdapterOverAStoreWithoutTheAllowlistSaysSo(t *testing.T) {
+	_, err := NewStoreAdapter(plainStore{}).ListIngestRigs(context.Background())
+	assert.ErrorContains(t, err, "does not provide the housing crawl allowlist")
+}
