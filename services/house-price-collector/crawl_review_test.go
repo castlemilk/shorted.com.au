@@ -399,6 +399,13 @@ func runCollector(t *testing.T, mode string, extra ...string) int {
 	cmd.Env = childEnv(t, append([]string{"HPC_CHILD_ARGS=-mode " + mode}, extra...)...)
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
+	// Modes such as warmcheck and install-driver start grandchildren (a browser, the
+	// driver) that inherit the output pipes. Killing only the child left Run waiting
+	// on those pipes until the package's 10-minute timeout, so the whole group is
+	// killed and Run stops waiting for the pipes 5s after that.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	cmd.WaitDelay = 5 * time.Second
 	err := cmd.Run()
 	if ctx.Err() != nil {
 		t.Logf("%s killed after 20s", mode)
