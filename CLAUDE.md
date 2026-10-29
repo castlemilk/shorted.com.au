@@ -1490,7 +1490,7 @@ An HTTP interactions endpoint, not a gateway bot: Discord POSTs every command,
 autocomplete keystroke and button press to `/api/discord/interactions`
 (`web/src/app/api/discord/interactions/route.ts`; a GET reports its status),
 signed with the app's Ed25519 key, and it deploys with the web app. Commands:
-`/stock`, `/chart`, `/search`, `/top`, `/help`. A chart message is the
+`/stock`, `/chart`, `/search`, `/top`, `/settings`, `/help`. A chart message is the
 `/chart/<CODE>/image` card plus two rows of buttons (period, view) that redraw
 it in place, and an **Interactive** button (`"activity": true`, on since
 2026-10-23) that opens `StockChartEmbed` inside Discord as an Activity
@@ -1504,6 +1504,7 @@ it in place, and an **Interactive** button (`"activity": true`, on since
 | Router, 1.5s fast path then defer + webhook edit (`waitUntil`) | `web/src/@/lib/discord/handler.ts` |
 | Messages, commands (registered and handled from one list), button `custom_id` codec | `lib/discord/messages.ts`, `commands.ts`, `custom-id.ts` |
 | Reads: the stock pages' server actions, 6s cap each | `lib/discord/data.ts` |
+| Settings (default stock, view, period, interactive mode; per server or per person) | model `lib/discord/settings.ts`, Firestore `discord_settings` via `settings-store.ts`, signed link `settings-link.ts`, page `app/discord/settings/` (live preview from `buildChartMessage`), interactive-mode hand-off `launch.ts` + `/api/discord/activity/launch` |
 
 ### Landmines
 
@@ -1534,6 +1535,21 @@ it in place, and an **Interactive** button (`"activity": true`, on since
   authentication").
 - `@vercel/functions` stays on 1.x: 3.x drags in an OIDC chain and moved
   next-auth's `jose`.
+- **A `/settings` link is a 30-minute bearer grant** for one scope, signed
+  with a key derived from `NEXTAUTH_SECRET` (rotating it voids open links).
+  Who may change a server's settings is Discord's decision (Manage Server, in
+  the signed interaction); the page has no sign-in. `/discord/settings/open`
+  moves the token into an httpOnly cookie scoped to the page, and every action
+  re-reads the grant from it; nothing the browser sends picks the scope.
+- **Nothing in the Activity may navigate the frame.** Discord's mobile webview
+  follows a plain link in place and loaded the whole site inside the Activity
+  (2026-10-29): the embed layout's corner credit is off on `/embed/discord`
+  (`app/embed/embed-brand-link.tsx`), and links go out through
+  `openExternalLink`.
+- **Discord's in-app browser does not rotate.** **Open on Shorted** links to
+  the share page with `landscape=1`, which opens the chart turned sideways on a
+  phone held upright (`StockChartEmbed` `startLandscape`); only the bot's link
+  carries it.
 
 ## Twitter / X Automation
 

@@ -14,6 +14,9 @@ import type { DiscordData } from "../data";
 import { handleInteraction, type HandlerDeps } from "../handler";
 import type { StockHit, StockSummary } from "../messages";
 import type { DiscordRest } from "../rest";
+import { scopeKey, type DiscordSettings } from "../settings";
+import type { SettingsGrant } from "../settings-link";
+import type { SettingsStore } from "../settings-store";
 
 // The global setup stubs this module down to `cn`; the figures need the real
 // formatNumber.
@@ -56,16 +59,36 @@ interface Setup {
   data?: jest.Mocked<DiscordData>;
   activityEnabled?: boolean;
   fastPathMs?: number;
+  /** Stored settings by scope key ("guild:<id>", "user:<id>"). */
+  settings?: Record<string, Partial<DiscordSettings>>;
+  /** How long a settings read takes. */
+  settingsDelayMs?: number;
+  /** Whether settings links can be signed. */
+  canSign?: boolean;
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function setup({
   data = fakeData(),
   activityEnabled = false,
   fastPathMs = 200,
+  settings = {},
+  settingsDelayMs = 0,
+  canSign = true,
 }: Setup = {}) {
   const rest = fakeRest();
   const background: Promise<unknown>[] = [];
   const outcomes: unknown[] = [];
+  const settingsStore: jest.Mocked<SettingsStore> = {
+    get: jest.fn(async (scope) => {
+      if (settingsDelayMs) await sleep(settingsDelayMs);
+      return settings[scopeKey(scope)] ?? null;
+    }),
+    put: jest.fn(async () => undefined),
+  };
+  const launches: [string, unknown][] = [];
+  const grants: SettingsGrant[] = [];
   const deps: HandlerDeps = {
     data,
     rest,
@@ -76,11 +99,24 @@ function setup({
     },
     fastPathMs,
     onOutcome: (o) => outcomes.push(o),
+    settingsStore,
+    rememberLaunch: async (channelId, state) => {
+      launches.push([channelId, state]);
+    },
+    settingsUrl: (grant) => {
+      grants.push(grant);
+      return canSign
+        ? `https://shorted.com.au/discord/settings?t=signed`
+        : null;
+    },
   };
   return {
     data,
     rest,
     outcomes,
+    settingsStore,
+    launches,
+    grants,
     handle: (interaction: Interaction) => handleInteraction(interaction, deps),
     settle: () => Promise.all(background),
   };
@@ -452,5 +488,268 @@ describe("handleInteraction", () => {
         data: { choices: [{ name: "CBA", value: "CBA" }] },
       });
     });
+  });
+});
+
+const GUILD = "1290000000000000001";
+const MEMBER = "1290000000000000002";
+const CHANNEL = "1290000000000000003";
+const MANAGE_GUILD = String(1 << 5);
+
+/** A command as a server member sends it. */
+function inServer(interaction: Interaction, permissions = "0"): Interaction {
+  return {
+    ...interaction,
+    guild_id: GUILD,
+    channel_id: CHANNEL,
+    member: { user: { id: MEMBER }, permissions },
+  };
+}
+
+/** A command as someone sends it in a DM with the bot. */
+function inDm(interaction: Interaction): Interaction {
+  return { ...interaction, channel_id: CHANNEL, user: { id: MEMBER } };
+}
+
+function chartUrl(message: MessagePayload): URL {
+  return new URL(message.embeds![0]!.image!.url);
+}
+
+describe("settings", () => {
+  it("start /stock with the server's chart and period", async () => {
+    const { handle } = setup({
+      settings: { [`guild:${GUILD}`]: { view: "combined", period: "3m" } },
+    });
+    const url = chartUrl(
+      messageOf(await handle(inServer(command("stock", { code: "BHP" })))),
+    );
+    expect(url.searchParams.get("view")).toBe("combined");
+    expect(url.searchParams.get("period")).toBe("3m");
+  });
+
+  it("open the default stock when no code is given", async () => {
+    const { handle } = setup({
+      settings: { [`guild:${GUILD}`]: { code: "PLS" } },
+    });
+    const message = messageOf(await handle(inServer(command("chart"))));
+    expect(message.embeds![0]!.title).toBe("PLS · Pilbara Minerals");
+  });
+
+  it("ask for a stock, privately, when none is given or set", async () => {
+    const { handle } = setup();
+    const message = messageOf(await handle(inServer(command("stock"))));
+    expect(message.flags).toBe(MessageFlags.EPHEMERAL);
+    expect(message.content).toContain("/settings");
+  });
+
+  it("yield to what the command says", async () => {
+    const { handle } = setup({
+      settings: { [`guild:${GUILD}`]: { view: "combined", period: "3m" } },
+    });
+    const url = chartUrl(
+      messageOf(
+        await handle(
+          inServer(
+            command("chart", { code: "BHP", view: "price", period: "max" }),
+          ),
+        ),
+      ),
+    );
+    expect(url.searchParams.get("view")).toBe("price");
+    expect(url.searchParams.get("period")).toBe("max");
+  });
+
+  it("are the server's over the member's in a server, and the member's in a DM", async () => {
+    const settings = {
+      [`guild:${GUILD}`]: { view: "price" as const },
+      [`user:${MEMBER}`]: { view: "combined" as const, period: "6m" as const },
+    };
+    const { handle } = setup({ settings });
+    const server = chartUrl(
+      messageOf(await handle(inServer(command("stock", { code: "BHP" })))),
+    );
+    expect(server.searchParams.get("view")).toBe("price");
+    // A field the server leaves unset falls through to the member's.
+    expect(server.searchParams.get("period")).toBe("6m");
+    const dm = chartUrl(
+      messageOf(await handle(inDm(command("stock", { code: "BHP" })))),
+    );
+    expect(dm.searchParams.get("view")).toBe("combined");
+  });
+
+  it("give way to the built-ins when the store is slow", async () => {
+    const { handle } = setup({
+      fastPathMs: 2000,
+      settingsDelayMs: 900,
+      settings: { [`guild:${GUILD}`]: { view: "price" } },
+    });
+    const url = chartUrl(
+      messageOf(await handle(inServer(command("stock", { code: "BHP" })))),
+    );
+    expect(url.searchParams.get("view")).toBeNull(); // the built-in, short
+  });
+
+  it("chart a picked stock with the server's chart", async () => {
+    const { handle } = setup({
+      settings: { [`guild:${GUILD}`]: { view: "combined" } },
+    });
+    const url = chartUrl(
+      messageOf(await handle(inServer(component("pick", ["PLS"])))),
+    );
+    expect(url.pathname).toBe("/chart/PLS/image");
+    expect(url.searchParams.get("view")).toBe("combined");
+  });
+});
+
+describe("interactive mode", () => {
+  const interactive = {
+    activityEnabled: true,
+    settings: {
+      [`guild:${GUILD}`]: {
+        interactive: true,
+        view: "combined" as const,
+        period: "6m" as const,
+      },
+    },
+  };
+
+  it("launches the Activity at the chart, handed over by channel", async () => {
+    const { handle, launches } = setup(interactive);
+    const response = await handle(
+      inServer(command("stock", { code: "pilbara" })),
+    );
+    expect(response).toEqual({ type: InteractionResponseType.LAUNCH_ACTIVITY });
+    expect(launches).toEqual([
+      [CHANNEL, { code: "PLS", view: "combined", period: "6m" }],
+    ]);
+  });
+
+  it("launches from a picked stock too", async () => {
+    const { handle, launches } = setup(interactive);
+    expect((await handle(inServer(component("pick", ["BHP"])))).type).toBe(
+      InteractionResponseType.LAUNCH_ACTIVITY,
+    );
+    expect(launches[0]![1]).toMatchObject({ code: "BHP" });
+  });
+
+  it("answers privately when the stock is not found", async () => {
+    const { handle, launches } = setup(interactive);
+    const message = messageOf(
+      await handle(inServer(command("stock", { code: "nothing" }))),
+    );
+    expect(message.flags).toBe(MessageFlags.EPHEMERAL);
+    expect(launches).toEqual([]);
+  });
+
+  it("posts the message when the Activity is off", async () => {
+    const { handle } = setup({ ...interactive, activityEnabled: false });
+    const response = await handle(inServer(command("stock", { code: "BHP" })));
+    expect(response.type).toBe(
+      InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    );
+  });
+
+  it("posts the message, deferred, when the lookup outlasts Discord's window", async () => {
+    const data = fakeData({
+      stockSummary: jest.fn(async (code: string) => {
+        await sleep(300);
+        return STOCKS[code] ?? null;
+      }),
+    });
+    const { handle, launches, rest, settle } = setup({
+      ...interactive,
+      data,
+      fastPathMs: 100,
+    });
+    const response = await handle(inServer(command("stock", { code: "BHP" })));
+    expect(response.type).toBe(
+      InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+    );
+    await settle();
+    expect(rest.editOriginal).toHaveBeenCalledTimes(1);
+    expect(launches).toEqual([]);
+  });
+});
+
+describe("/settings", () => {
+  it("links a manager to the server's settings, privately", async () => {
+    const { handle, grants } = setup({
+      settings: { [`guild:${GUILD}`]: { code: "PLS", interactive: true } },
+    });
+    const message = messageOf(
+      await handle(inServer(command("settings"), MANAGE_GUILD)),
+    );
+    expect(message.flags).toBe(MessageFlags.EPHEMERAL);
+    expect(message.embeds![0]!.title).toBe("Settings for this server");
+    const fields = message.embeds![0]!.fields!;
+    expect(fields.find((f) => f.name === "Default stock")!.value).toBe("PLS");
+    expect(fields.find((f) => f.name === "Opens as")!.value).toBe(
+      "The interactive chart",
+    );
+    const button = message.components![0]!.components[0]!;
+    expect(button).toMatchObject({ label: "Change settings" });
+    expect(grants).toEqual([
+      {
+        scope: { kind: "guild", id: GUILD },
+        by: MEMBER,
+        expiresAt: Math.floor(NOW.getTime() / 1000) + 30 * 60,
+      },
+    ]);
+  });
+
+  it("gives a member without Manage Server their own settings", async () => {
+    const { handle, grants } = setup();
+    const message = messageOf(await handle(inServer(command("settings"))));
+    expect(message.embeds![0]!.title).toBe("Your settings");
+    expect(grants[0]!.scope).toEqual({ kind: "user", id: MEMBER });
+  });
+
+  it("refuses a member the server's settings, and says why", async () => {
+    const { handle, grants } = setup();
+    const message = messageOf(
+      await handle(inServer(command("settings", { for: "server" }))),
+    );
+    expect(message.content).toContain("Manage Server");
+    expect(grants).toEqual([]);
+  });
+
+  it("gives a manager their own settings when asked", async () => {
+    const { handle, grants } = setup();
+    await handle(inServer(command("settings", { for: "me" }), MANAGE_GUILD));
+    expect(grants[0]!.scope).toEqual({ kind: "user", id: MEMBER });
+  });
+
+  it("is personal in a DM", async () => {
+    const { handle, grants } = setup();
+    await handle(inDm(command("settings")));
+    expect(grants[0]!.scope).toEqual({ kind: "user", id: MEMBER });
+    const refused = messageOf(
+      await handle(inDm(command("settings", { for: "server" }))),
+    );
+    expect(refused.content).toContain("no server here");
+  });
+
+  it("says so when links cannot be signed", async () => {
+    const { handle } = setup({ canSign: false });
+    const message = messageOf(
+      await handle(inServer(command("settings"), MANAGE_GUILD)),
+    );
+    expect(message.flags).toBe(MessageFlags.EPHEMERAL);
+    expect(message.components).toBeUndefined();
+  });
+
+  it("defers privately when the store is slow, then replaces the deferral", async () => {
+    const { handle, rest, settle } = setup({
+      fastPathMs: 50,
+      settingsDelayMs: 200,
+    });
+    const response = await handle(inServer(command("settings"), MANAGE_GUILD));
+    expect(response).toEqual({
+      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { flags: MessageFlags.EPHEMERAL },
+    });
+    await settle();
+    expect(rest.deleteOriginal).not.toHaveBeenCalled();
+    expect(rest.editOriginal).toHaveBeenCalledTimes(1);
   });
 });

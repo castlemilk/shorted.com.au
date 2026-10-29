@@ -26,6 +26,7 @@ import {
   chartCustomId,
   type ChartState,
 } from "./custom-id";
+import type { DiscordSettings, SettingsScope } from "./settings";
 
 /**
  * Discord messages, built from data and nothing else: no fetches, no clock
@@ -185,6 +186,18 @@ function footer(summary: StockSummary, state: ChartState): string {
   );
 }
 
+/**
+ * The chart's share page, turned sideways on a phone held upright. Discord's
+ * in-app browser keeps to portrait, so turning the phone does nothing there;
+ * the page draws the chart sideways instead. Anywhere else the flag is
+ * ignored.
+ */
+export function openOnShortedUrl(state: ChartState): string {
+  const url = new URL(chartShareUrl(state.code, state.view, state.period));
+  url.searchParams.set("landscape", "1");
+  return url.toString();
+}
+
 function button(label: string, customId: string, active: boolean): Button {
   return {
     type: ComponentType.BUTTON,
@@ -229,7 +242,7 @@ export function chartComponents(
     type: ComponentType.BUTTON,
     style: ButtonStyle.LINK,
     label: "Open on Shorted",
-    url: chartShareUrl(state.code, state.view, state.period),
+    url: openOnShortedUrl(state),
   });
   return [periods, { type: ComponentType.ACTION_ROW, components: views }];
 }
@@ -382,12 +395,13 @@ export function buildHelpMessage({
   activity: boolean;
 }): MessagePayload {
   const lines = [
-    "`/stock <code>` A stock's short interest and a chart",
-    "`/chart <code> [view] [period]` Short interest, share price, or both",
+    "`/stock [code]` A stock's short interest and a chart",
+    "`/chart [code] [view] [period]` Short interest, share price, or both",
     "`/search <query>` Find stocks by code or company name",
     "`/top [count]` The most shorted ASX stocks",
+    "`/settings` The stock, chart and period the bot opens with, for this server (Manage Server) or just you",
     "",
-    "Start typing a company name in `code` to search as you go.",
+    "Start typing a company name in `code` to search as you go. With a default stock set, `code` can be left out.",
     "The buttons under a chart redraw it in place for everyone in the channel: pick a period, or switch between short interest, price and both. Pressing the highlighted one again redraws it with the latest figures.",
   ];
   if (activity) {
@@ -411,6 +425,78 @@ export function buildHelpMessage({
     allowed_mentions: NO_MENTIONS,
   };
 }
+
+export interface SettingsMessageOptions {
+  /** Whose settings: a server's, or the person's own. */
+  scope: SettingsScope["kind"];
+  settings: DiscordSettings;
+  /** The settings page, signed for this scope (settings-link.ts). */
+  url: string;
+  /** How long the link works. */
+  minutes: number;
+}
+
+/** What `/settings` answers, privately: the settings now, and the page to change them. */
+export function buildSettingsMessage({
+  scope,
+  settings,
+  url,
+  minutes,
+}: SettingsMessageOptions): MessagePayload {
+  const view = DISCORD_VIEWS.find((v) => v.id === settings.view)?.name;
+  const period = DISCORD_PERIODS.find((p) => p.id === settings.period)?.name;
+  const whose =
+    scope === "guild"
+      ? "everyone's charts in this server"
+      : "your charts in DMs, and in servers that have not set their own";
+  return {
+    embeds: [
+      {
+        title: scope === "guild" ? "Settings for this server" : "Your settings",
+        description: `These set how ${whose} start. Anything typed in a command still wins: \`/chart BHP view:price\` is BHP's price whatever is set here.`,
+        color: EMBED_COLOR,
+        fields: [
+          {
+            name: "Default stock",
+            value: settings.code ?? "None: commands ask for one",
+            inline: true,
+          },
+          { name: "Chart", value: view ?? settings.view, inline: true },
+          { name: "Period", value: period ?? settings.period, inline: true },
+          {
+            name: "Opens as",
+            value: settings.interactive
+              ? "The interactive chart"
+              : "A chart message with buttons",
+            inline: true,
+          },
+        ],
+        footer: {
+          text: `Only you can see this. The link works for ${minutes} minutes; run /settings again for a new one.`,
+        },
+      },
+    ],
+    components: [
+      {
+        type: ComponentType.ACTION_ROW,
+        components: [
+          {
+            type: ComponentType.BUTTON,
+            style: ButtonStyle.LINK,
+            label: "Change settings",
+            url,
+          },
+        ],
+      },
+    ],
+    flags: MessageFlags.EPHEMERAL,
+    allowed_mentions: NO_MENTIONS,
+  };
+}
+
+/** What a chart command without a code says, with no default stock set. */
+export const ASK_FOR_STOCK =
+  "Which stock? Give me an ASX code or a company name, e.g. `/stock BHP`, or set a default stock with `/settings`.";
 
 /** A short note only the person who asked can see. */
 export function notice(text: string): MessagePayload {

@@ -153,6 +153,7 @@ describe("registered commands", () => {
     { name: "chart" },
     { name: "search", type: 1 },
     { name: "top", type: 1 },
+    { name: "settings", type: 1 },
     { name: "help", type: 1 },
     { name: "launch", type: 4 },
   ];
@@ -163,6 +164,7 @@ describe("registered commands", () => {
       "/chart",
       "/search",
       "/top",
+      "/settings",
       "/help",
     ]);
   });

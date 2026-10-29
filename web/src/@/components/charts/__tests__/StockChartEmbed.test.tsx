@@ -145,6 +145,38 @@ describe("StockChartEmbed: landscape mode", () => {
     expect(box(container)).not.toHaveAttribute("data-landscape");
   });
 
+  describe("opened sideways (a link from Discord, whose browser keeps to portrait)", () => {
+    const realMatchMedia = window.matchMedia;
+    const screenIs = (portraitPhone: boolean) => {
+      window.matchMedia = ((query: string) => ({
+        matches: portraitPhone && query.includes("orientation: portrait"),
+        media: query,
+      })) as unknown as typeof window.matchMedia;
+    };
+    afterEach(() => {
+      window.matchMedia = realMatchMedia;
+    });
+
+    it("starts turned on a phone held upright", () => {
+      screenIs(true);
+      const { container } = render(<StockChartEmbed stockCode="WBT" allowLandscape startLandscape />);
+      expect(box(container)).toHaveAttribute("data-landscape", "true");
+      expect(screen.getByRole("button", { name: "Back to portrait" })).toBeInTheDocument();
+    });
+
+    it("leaves any other screen as it is", () => {
+      screenIs(false);
+      const { container } = render(<StockChartEmbed stockCode="WBT" allowLandscape startLandscape />);
+      expect(box(container)).not.toHaveAttribute("data-landscape");
+    });
+
+    it("needs landscape mode to be offered at all", () => {
+      screenIs(true);
+      const { container } = render(<StockChartEmbed stockCode="WBT" startLandscape />);
+      expect(box(container)).not.toHaveAttribute("data-landscape");
+    });
+  });
+
   it("leaves with Escape", () => {
     const { container } = render(<StockChartEmbed stockCode="WBT" allowLandscape />);
     fireEvent.click(screen.getByRole("button", { name: "Rotate chart to landscape" }));

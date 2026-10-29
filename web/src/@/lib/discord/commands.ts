@@ -50,6 +50,7 @@ export const COMMAND_NAMES = [
   "chart",
   "search",
   "top",
+  "settings",
   "help",
 ] as const;
 export type CommandName = (typeof COMMAND_NAMES)[number];
@@ -61,11 +62,12 @@ export function isCommandName(name: unknown): name is CommandName {
   );
 }
 
+/** Optional: a default stock set with /settings stands in for it. */
 const codeOption = {
   type: ApplicationCommandOptionType.STRING,
   name: "code",
-  description: "ASX code or company name, e.g. BHP or Pilbara",
-  required: true,
+  description:
+    "ASX code or company name, e.g. BHP or Woodside (default: the stock set in /settings)",
   autocomplete: true,
   max_length: 60,
 };
@@ -73,16 +75,23 @@ const codeOption = {
 const viewOption = {
   type: ApplicationCommandOptionType.STRING,
   name: "view",
-  description: "What to chart (default: short interest)",
+  description:
+    "What to chart (default: as set in /settings, else short interest)",
   choices: DISCORD_VIEWS.map((v) => ({ name: v.name, value: v.id })),
 };
 
 const periodOption = {
   type: ApplicationCommandOptionType.STRING,
   name: "period",
-  description: "How far back (default: 1 year)",
+  description: "How far back (default: as set in /settings, else 1 year)",
   choices: DISCORD_PERIODS.map((p) => ({ name: p.name, value: p.id })),
 };
+
+/** Whose settings `/settings` changes. */
+export const SETTINGS_FOR = [
+  { id: "server", name: "This server (needs Manage Server)" },
+  { id: "me", name: "Just me" },
+] as const;
 
 /**
  * Installable to a server and to a user's own account, and usable in servers,
@@ -142,6 +151,20 @@ export const COMMANDS: readonly ({ name: CommandName } & Record<
         description: `How many (default ${TOP_DEFAULT_COUNT})`,
         min_value: 5,
         max_value: TOP_MAX_COUNT,
+      },
+    ],
+    ...everywhere,
+  },
+  {
+    name: "settings",
+    description: "Choose the stock, chart and period the bot opens with",
+    options: [
+      {
+        type: ApplicationCommandOptionType.STRING,
+        name: "for",
+        description:
+          "Whose settings to change (default: this server, if you manage it)",
+        choices: SETTINGS_FOR.map((f) => ({ name: f.name, value: f.id })),
       },
     ],
     ...everywhere,

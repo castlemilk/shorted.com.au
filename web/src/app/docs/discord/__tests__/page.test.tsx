@@ -36,6 +36,13 @@ describe("/docs/discord", () => {
     expect(screen.getByText("Interactive")).toBeInTheDocument();
   });
 
+  it("explains settings at the anchor the settings page links to", () => {
+    renderPage({ applicationId: APP_ID, activity: true });
+    const heading = screen.getByRole("heading", { name: "Settings" });
+    expect(heading).toHaveAttribute("id", "settings");
+    expect(screen.getByText(/for:Just me/)).toBeInTheDocument();
+  });
+
   it("lists every command the bot registers, with its options", () => {
     renderPage({ applicationId: "", activity: false });
     const table = screen.getByRole("table");
@@ -45,7 +52,7 @@ describe("/docs/discord", () => {
       ).toBeInTheDocument();
     }
     expect(
-      within(table).getByText("/chart <code> [view] [period]"),
+      within(table).getByText("/chart [code] [view] [period]"),
     ).toBeInTheDocument();
   });
 });

@@ -32,6 +32,8 @@ export interface ChartShareViewProps {
   view: ChartViewId;
   period: ChartPeriod;
   company: string | null;
+  /** Open turned sideways on a portrait phone (`?landscape=1`). */
+  startLandscape?: boolean;
 }
 
 /**
@@ -45,6 +47,7 @@ export function ChartShareView({
   view,
   period,
   company,
+  startLandscape = false,
 }: ChartShareViewProps) {
   // The short-only view came from the Short interest tab; the others from
   // the Overview, whose chart is the combined one.
@@ -81,6 +84,7 @@ export function ChartShareView({
           defaultView={view}
           defaultPeriod={period}
           allowLandscape
+          startLandscape={startLandscape}
         />
       </main>
     </div>

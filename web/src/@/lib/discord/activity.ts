@@ -15,19 +15,45 @@ export function isDiscordLaunch(params: ParamSource): boolean {
   return Boolean(params.get("frame_id") && params.get("instance_id"));
 }
 
+/** What api/discord/activity/launch answers. */
+export type LaunchAnswer =
+  | { source: "command" | "server"; state: ChartState }
+  | { source: "none"; state: null };
+
+export interface ActivityLaunch {
+  state: ChartState;
+  /**
+   * Where `state` came from: the button that launched the Activity (Discord
+   * passes its custom_id through), the page's own query (`?code=`, as the
+   * page is tried outside Discord), or nothing, which leaves the embed's
+   * defaults until the server's settings say otherwise.
+   */
+  source: "button" | "query" | "default";
+  /** The channel and server Discord launched it in (its URL carries both). */
+  channelId: string | null;
+  guildId: string | null;
+}
+
 /**
- * The chart to open: the one on the button that launched the Activity
- * (Discord passes the button's custom_id through), else `?code=&view=&period=`
- * as /embed/chart reads them, which is how the page is tried outside Discord.
- * Launched from the App Launcher there is neither, and it opens the embed's
- * default stock.
+ * The chart to open, as far as the URL says. A launch from the App Launcher,
+ * or from a command in interactive mode, says nothing (`source: "default"`):
+ * the Activity then asks api/discord/activity/launch, which knows the
+ * command's chart and the server's defaults.
  */
-export function activityLaunchState(params: ParamSource): ChartState {
+export function activityLaunchState(params: ParamSource): ActivityLaunch {
+  const context = {
+    channelId: params.get("channel_id"),
+    guildId: params.get("guild_id"),
+  };
   const parsed = parseCustomId(params.get("custom_id"));
   if (parsed?.kind === "activity" || parsed?.kind === "chart") {
-    return parsed.state;
+    return { state: parsed.state, source: "button", ...context };
   }
-  return parseEmbedChartParams(params);
+  return {
+    state: parseEmbedChartParams(params),
+    source: params.get("code") ? "query" : "default",
+    ...context,
+  };
 }
 
 /**

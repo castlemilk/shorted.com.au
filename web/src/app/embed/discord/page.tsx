@@ -20,10 +20,10 @@ const DiscordActivity = dynamic(
 );
 
 function DiscordActivityInner() {
-  const initial = activityLaunchState(useSearchParams());
+  const launch = activityLaunchState(useSearchParams());
   return (
     <div className="h-[100dvh] w-full overflow-auto">
-      <DiscordActivity initial={initial} />
+      <DiscordActivity launch={launch} />
     </div>
   );
 }

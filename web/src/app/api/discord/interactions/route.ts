@@ -8,7 +8,14 @@ import {
 } from "~/@/lib/discord/config";
 import { discordData } from "~/@/lib/discord/data";
 import { handleInteraction } from "~/@/lib/discord/handler";
+import { rememberLaunch } from "~/@/lib/discord/launch";
 import { discordRest } from "~/@/lib/discord/rest";
+import {
+  settingsLinkKey,
+  settingsPageUrl,
+  signSettingsGrant,
+} from "~/@/lib/discord/settings-link";
+import { firestoreSettingsStore } from "~/@/lib/discord/settings-store";
 import { verifyDiscordRequest } from "~/@/lib/discord/verify";
 import { recordProductEvent } from "~/@/lib/product-events";
 
@@ -85,6 +92,12 @@ export async function POST(request: NextRequest) {
     activityEnabled: discordActivityEnabled(),
     now: () => new Date(),
     waitUntil,
+    settingsStore: firestoreSettingsStore,
+    rememberLaunch,
+    settingsUrl: (grant) => {
+      const key = settingsLinkKey();
+      return key ? settingsPageUrl(signSettingsGrant(grant, key)) : null;
+    },
     onOutcome: ({ action, status, delivery }) =>
       recordProductEvent({
         feature: "discord",

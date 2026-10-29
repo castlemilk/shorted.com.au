@@ -103,7 +103,17 @@ export interface Interaction {
   };
   guild_id?: string;
   channel_id?: string;
+  /** In a server: who acted, and their permissions in this channel. */
+  member?: { user?: DiscordUser; permissions?: string };
+  /** In a DM or a group DM: who acted. */
+  user?: DiscordUser;
   locale?: string;
+}
+
+export interface DiscordUser {
+  id: string;
+  username?: string;
+  global_name?: string | null;
 }
 
 export interface Embed {

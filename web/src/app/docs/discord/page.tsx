@@ -208,7 +208,9 @@ export default function DiscordDocsPage() {
             </li>
             <li>
               <strong>Open on Shorted</strong> opens the full interactive chart
-              on the site.
+              on the site. On a phone held upright it opens turned sideways,
+              because Discord&apos;s browser does not rotate; the button beside
+              the periods turns it back.
             </li>
             {activity && (
               <li>
@@ -217,6 +219,39 @@ export default function DiscordDocsPage() {
                 dates and switch stocks.
               </li>
             )}
+          </ul>
+
+          <h2 id="settings" className={cn(sectionTitle, "mt-12 scroll-mt-24")}>
+            Settings
+          </h2>
+          <p>
+            <code>/settings</code> chooses how the bot opens charts: a default
+            stock (so <code>/stock</code> and <code>/chart</code> work with
+            nothing typed), the chart (short interest, price or both), the
+            period, and whether a command posts a chart message or
+            {activity
+              ? " opens the interactive chart inside Discord."
+              : " opens the interactive chart, once that is switched on."}
+          </p>
+          <ul>
+            <li>
+              In a server where you have the Manage Server permission, it
+              changes the server&apos;s settings, for everyone in it.
+            </li>
+            <li>
+              Anywhere else, or with <code>for:Just me</code>, it changes your
+              own: they apply in DMs, and in servers that have not set theirs.
+            </li>
+            <li>
+              It answers privately with a link to a page where you pick the
+              settings and see the chart they make. The link works for 30
+              minutes, for whoever has it, so keep it to yourself.
+            </li>
+            <li>
+              Anything typed in a command still wins:{" "}
+              <code>/chart BHP view:price</code> is BHP&apos;s price whatever is
+              set.
+            </li>
           </ul>
 
           <h2 className={cn(sectionTitle, "mt-12")}>
