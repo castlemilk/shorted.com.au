@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Maximize2, RotateCw } from "lucide-react";
+import { Maximize2, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useElementSize } from "@/hooks/use-element-size";
 import { StockChart } from "./StockChart";
@@ -25,6 +25,9 @@ const MIN_CHART_HEIGHT = 160;
  */
 const STRIP_MIN_CHART_HEIGHT = 260;
 
+/** Tailwind's `max-sm:portrait`, where landscape mode is offered. */
+const PORTRAIT_PHONE = "(max-width: 639.98px) and (orientation: portrait)";
+
 const asOfFmt = new Intl.DateTimeFormat("en-AU", {
   day: "numeric",
   month: "short",
@@ -42,6 +45,13 @@ export interface StockChartEmbedProps {
    * publisher's iframe there is no screen to turn.
    */
   allowLandscape?: boolean;
+  /**
+   * Open already turned sideways on a portrait phone: for a link from an app
+   * whose browser does not rotate (Discord's, reported 2026-10-29), where the
+   * landscape screen the site gets in a browser never arrives. Only with
+   * `allowLandscape`; on any other screen it does nothing.
+   */
+  startLandscape?: boolean;
   /**
    * Inside an iframe: a link that opens the chart, at the period on screen,
    * full screen on its share page in a new tab.
@@ -92,12 +102,19 @@ export function StockChartEmbed({
   defaultView = "short",
   defaultPeriod = "1y",
   allowLandscape = false,
+  startLandscape = false,
   expandable = false,
   selectableView = false,
 }: StockChartEmbedProps) {
   const [period, setPeriod] = useState<ChartPeriod>(defaultPeriod);
   const [chosenView, setView] = useState<ChartViewId>(defaultView);
   const [landscape, setLandscape] = useState(false);
+
+  useEffect(() => {
+    if (!allowLandscape || !startLandscape) return;
+    // The same screens the toggle is offered on (`max-sm:portrait`).
+    if (window.matchMedia?.(PORTRAIT_PHONE).matches) setLandscape(true);
+  }, [allowLandscape, startLandscape]);
 
   useEffect(() => {
     if (!landscape) return;
@@ -183,8 +200,12 @@ export function StockChartEmbed({
                   onClick={() => setView(v.id)}
                   aria-pressed={view === v.id}
                   className={cn(
+                    // Finger-sized where the pointer is a finger, unless the
+                    // screen is short (a phone held sideways), where 44px rows
+                    // would leave the chart no height; 32px still clears
+                    // WCAG 2.2's 24px target minimum.
                     "inline-flex min-h-8 items-center justify-center rounded px-2 text-xs font-medium transition-colors",
-                    "[@media(pointer:coarse)]:min-h-11",
+                    "[@media(pointer:coarse)_and_(min-height:481px)]:min-h-11",
                     view === v.id
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -209,7 +230,7 @@ export function StockChartEmbed({
                 className={cn(
                   "inline-flex min-h-8 min-w-8 items-center justify-center rounded px-2 text-xs font-medium uppercase transition-colors",
                   // Finger-sized targets where the pointer is a finger.
-                  "[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11",
+                  "[@media(pointer:coarse)_and_(min-height:481px)]:min-h-11 [@media(pointer:coarse)_and_(min-height:481px)]:min-w-11",
                   period === p
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -234,7 +255,12 @@ export function StockChartEmbed({
                   : "hidden text-muted-foreground max-sm:portrait:inline-flex",
               )}
             >
-              <RotateCw aria-hidden className="h-4 w-4" />
+              {/* A phone on its side, upright again once it is: the arrow
+                  this replaced read as "refresh". */}
+              <Smartphone
+                aria-hidden
+                className={cn("h-4 w-4", !landscape && "rotate-90")}
+              />
               <span className="sr-only">
                 {landscape ? "Back to portrait" : "Rotate chart to landscape"}
               </span>
@@ -246,7 +272,7 @@ export function StockChartEmbed({
               target="_blank"
               rel="noopener"
               title="Open full screen"
-              className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+              className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground [@media(pointer:coarse)_and_(min-height:481px)]:min-h-11 [@media(pointer:coarse)_and_(min-height:481px)]:min-w-11"
             >
               <Maximize2 aria-hidden className="h-3.5 w-3.5" />
               <span className="sr-only">

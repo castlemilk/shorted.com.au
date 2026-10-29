@@ -11,36 +11,45 @@ describe("activityLaunchState", () => {
     expect(
       activityLaunchState(
         params(
-          "frame_id=f&instance_id=i&platform=desktop&custom_id=activity:PLS:combined:6m",
+          "frame_id=f&instance_id=i&platform=desktop&channel_id=11&guild_id=22&custom_id=activity:PLS:combined:6m",
         ),
       ),
-    ).toEqual({ code: "PLS", view: "combined", period: "6m" });
+    ).toEqual({
+      state: { code: "PLS", view: "combined", period: "6m" },
+      source: "button",
+      channelId: "11",
+      guildId: "22",
+    });
   });
 
   it("reads ?code=&view=&period= when opened outside Discord", () => {
     expect(
       activityLaunchState(params("code=wbt&view=price&period=3m")),
     ).toEqual({
-      code: "WBT",
-      view: "price",
-      period: "3m",
+      state: { code: "WBT", view: "price", period: "3m" },
+      source: "query",
+      channelId: null,
+      guildId: null,
     });
   });
 
-  it("falls back to the embed's default chart from the App Launcher", () => {
+  it("says nothing chose the chart from the App Launcher or a command", () => {
     expect(
-      activityLaunchState(params("frame_id=f&instance_id=i&platform=mobile")),
+      activityLaunchState(
+        params("frame_id=f&instance_id=i&platform=mobile&channel_id=11"),
+      ),
     ).toEqual({
-      code: "BHP",
-      view: "short",
-      period: "1y",
+      state: { code: "BHP", view: "short", period: "1y" },
+      source: "default",
+      channelId: "11",
+      guildId: null,
     });
   });
 
   it("ignores a custom_id that is not a chart", () => {
-    expect(activityLaunchState(params("custom_id=pick&code=CBA")).code).toBe(
-      "CBA",
-    );
+    const launch = activityLaunchState(params("custom_id=pick&code=CBA"));
+    expect(launch.state.code).toBe("CBA");
+    expect(launch.source).toBe("query");
   });
 });
 

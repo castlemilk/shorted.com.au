@@ -92,6 +92,7 @@ export async function generateMetadata({
  * dialog's link opens. A full-screen chart (with a landscape mode for phones)
  * under a slim bar back to the stock page. Its card is the chart itself
  * (./image), so a link pasted into Discord or Slack shows the chart.
+ * `?landscape=1` opens it turned sideways on a phone held upright.
  */
 export default async function ChartSharePage({
   params,
@@ -99,12 +100,17 @@ export default async function ChartSharePage({
 }: PageProps) {
   const { code: rawCode } = await params;
   if (!isChartCode(rawCode)) notFound();
-  const { code, view, period } = parseChartShareParams(
-    rawCode,
-    await searchParams,
-  );
+  const query = await searchParams;
+  const { code, view, period } = parseChartShareParams(rawCode, query);
   const company = await readCompany(code);
   return (
-    <ChartShareView code={code} view={view} period={period} company={company} />
+    <ChartShareView
+      code={code}
+      view={view}
+      period={period}
+      company={company}
+      // The bot's "Open on Shorted" link (lib/discord/messages.ts).
+      startLandscape={query.landscape === "1"}
+    />
   );
 }

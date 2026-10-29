@@ -163,9 +163,11 @@ describe("buildChartMessage", () => {
       kind: "chart",
       state: { code: "BHP", view: "combined", period: "3m" },
     });
+    // Sideways on a phone held upright: Discord's in-app browser keeps to
+    // portrait, so the page turns the chart instead.
     expect(byLabel["Open on Shorted"]).toMatchObject({
       style: ButtonStyle.LINK,
-      url: "https://shorted.com.au/chart/BHP?view=price&period=3m",
+      url: "https://shorted.com.au/chart/BHP?view=price&period=3m&landscape=1",
     });
   });
 

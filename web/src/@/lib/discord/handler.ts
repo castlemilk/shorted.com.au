@@ -1,8 +1,4 @@
 import {
-  DEFAULT_CHART_PERIOD,
-  DEFAULT_CHART_VIEW,
-} from "~/@/lib/embed/snippet";
-import {
   InteractionResponseType,
   InteractionType,
   LIMITS,
@@ -21,15 +17,29 @@ import {
 import { normalizeCode, parseCustomId, type ChartState } from "./custom-id";
 import type { DiscordData } from "./data";
 import {
+  ASK_FOR_STOCK,
   buildChartMessage,
   buildHelpMessage,
   buildSearchMessage,
+  buildSettingsMessage,
   buildTopMessage,
   notice,
   toAutocompleteChoices,
   type StockSummary,
 } from "./messages";
 import type { DiscordRest } from "./rest";
+import {
+  BUILT_IN_SETTINGS,
+  actingUserId,
+  canManageGuild,
+  isSnowflake,
+  resolveSettings,
+  settingsScopes,
+  type DiscordSettings,
+  type SettingsScope,
+} from "./settings";
+import { SETTINGS_LINK_TTL_S, type SettingsGrant } from "./settings-link";
+import type { SettingsStore } from "./settings-store";
 
 /**
  * Routes one verified interaction to its response.
@@ -54,6 +64,12 @@ export interface HandlerDeps {
   fastPathMs?: number;
   /** Called once per interaction with what happened, for the event log. */
   onOutcome?: (outcome: Outcome) => void;
+  /** Servers' and people's settings (settings-store.ts). */
+  settingsStore: SettingsStore;
+  /** Hands a command's chart to the Activity it launches (launch.ts). */
+  rememberLaunch: (channelId: string, state: ChartState) => Promise<void>;
+  /** The signed settings page for a grant, or null when links cannot be signed. */
+  settingsUrl: (grant: SettingsGrant) => string | null;
 }
 
 export interface Outcome {
@@ -67,6 +83,15 @@ export const DEFAULT_FAST_PATH_MS = 1500;
 
 const SEARCH_RESULTS = 10;
 
+/**
+ * How long settings may take to read before the built-ins stand in. A cached
+ * read is instant; this bounds a cold one so the reply still makes Discord's
+ * window.
+ */
+export const SETTINGS_BUDGET_MS = 500;
+/** How long the hand-off to the Activity may take before it launches anyway. */
+const LAUNCH_HANDOFF_MS = 600;
+
 type Mode = "new" | "update";
 
 type Reply =
@@ -76,6 +101,18 @@ type Reply =
       action: string;
       mode: Mode;
       work: Promise<MessagePayload>;
+      /** Defer privately: the reply is for the person who asked alone. */
+      private?: boolean;
+    }
+  | {
+      /** Interactive mode: open the chart in the Activity, not a message. */
+      kind: "launch";
+      action: string;
+      channelId: string;
+      summary: Promise<StockSummary | null>;
+      input: string;
+      view: ChartState["view"];
+      period: ChartState["period"];
     };
 
 const FAILED = "Something went wrong on our side. Try again in a moment.";
@@ -94,12 +131,15 @@ function privately(action: string, text: string): Reply {
 }
 
 /** A message that needs data: a new one, or the one a button is on. */
+type MessageReply = Extract<Reply, { kind: "message" }>;
+
 function withData(
   action: string,
   mode: Mode,
   work: Promise<MessagePayload>,
-): Reply {
-  return { kind: "message", action, mode, work };
+  options: { private?: boolean } = {},
+): MessageReply {
+  return { kind: "message", action, mode, work, ...options };
 }
 
 function isEphemeral(message: MessagePayload): boolean {
@@ -121,14 +161,16 @@ function stringOption(interaction: Interaction, name: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function viewOption(interaction: Interaction): ChartState["view"] {
+function viewOption(interaction: Interaction): ChartState["view"] | undefined {
   const raw = stringOption(interaction, "view");
-  return DISCORD_VIEWS.find((v) => v.id === raw)?.id ?? DEFAULT_CHART_VIEW;
+  return DISCORD_VIEWS.find((v) => v.id === raw)?.id;
 }
 
-function periodOption(interaction: Interaction): ChartState["period"] {
+function periodOption(
+  interaction: Interaction,
+): ChartState["period"] | undefined {
   const raw = stringOption(interaction, "period");
-  return DISCORD_PERIODS.find((p) => p.id === raw)?.id ?? DEFAULT_CHART_PERIOD;
+  return DISCORD_PERIODS.find((p) => p.id === raw)?.id;
 }
 
 /**
@@ -165,25 +207,137 @@ function chartMessage(
   });
 }
 
-async function chartForInput(
-  input: string,
-  deps: HandlerDeps,
-  view: ChartState["view"] = DEFAULT_CHART_VIEW,
-  period: ChartState["period"] = DEFAULT_CHART_PERIOD,
-): Promise<MessagePayload> {
-  if (!input) {
-    return notice("Give me an ASX code or a company name, e.g. `/stock BHP`.");
-  }
-  const summary = await resolveStock(input, deps.data);
-  if (!summary) {
-    return notice(
-      `Couldn't find an ASX stock matching “${input.slice(0, 60)}”. Try \`/search\`.`,
-    );
-  }
-  return chartMessage(summary, view, period, deps);
+function notFound(input: string): MessagePayload {
+  return notice(
+    `Couldn't find an ASX stock matching “${input.slice(0, 60)}”. Try \`/search\`.`,
+  );
 }
 
-function routeCommand(interaction: Interaction, deps: HandlerDeps): Reply {
+/**
+ * A chart for what was asked: a chart message, or in interactive mode the
+ * Activity at that chart. Interactive mode needs a channel to hand the chart
+ * over in (launch.ts) and the Activity switched on; without either it posts
+ * the message.
+ */
+function chartReply(
+  action: string,
+  input: string,
+  view: ChartState["view"],
+  period: ChartState["period"],
+  settings: DiscordSettings,
+  interaction: Interaction,
+  deps: HandlerDeps,
+): Reply {
+  if (!input) {
+    return privately(action, ASK_FOR_STOCK);
+  }
+  const summary = resolveStock(input, deps.data);
+  const channelId = interaction.channel_id;
+  if (settings.interactive && deps.activityEnabled && isSnowflake(channelId)) {
+    return { kind: "launch", action, channelId, summary, input, view, period };
+  }
+  return withData(
+    action,
+    "new",
+    summary.then((s) =>
+      s ? chartMessage(s, view, period, deps) : notFound(input),
+    ),
+  );
+}
+
+/**
+ * The settings that apply to an interaction, server first (settings.ts). A
+ * read that takes longer than SETTINGS_BUDGET_MS is not waited for: the
+ * built-ins stand in, and the read still fills the cache for the next one.
+ */
+async function loadSettings(
+  interaction: Interaction,
+  deps: HandlerDeps,
+): Promise<DiscordSettings> {
+  const reads = Promise.all(
+    settingsScopes(interaction).map((scope) =>
+      deps.settingsStore.get(scope).catch(() => null),
+    ),
+  );
+  const settled = await within(reads, SETTINGS_BUDGET_MS);
+  return settled.done ? resolveSettings(...settled.value) : BUILT_IN_SETTINGS;
+}
+
+/** Whether routing this interaction reads settings (charts do; nothing else). */
+function needsSettings(interaction: Interaction): boolean {
+  if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+    const name = interaction.data?.name;
+    return name === "stock" || name === "chart";
+  }
+  return parseCustomId(interaction.data?.custom_id)?.kind === "pick";
+}
+
+/**
+ * `/settings`: privately, the settings now and a signed link to the page that
+ * changes them. A server's settings need Manage Server; anyone may change
+ * their own.
+ */
+function settingsReply(interaction: Interaction, deps: HandlerDeps): Reply {
+  const action = "command_settings";
+  const user = actingUserId(interaction);
+  if (!user) {
+    return privately(action, "Couldn't tell who asked. Try again.");
+  }
+  const wanted = stringOption(interaction, "for");
+  const guildId = interaction.guild_id;
+  const inGuild = isSnowflake(guildId);
+  const manages = canManageGuild(interaction);
+  if (wanted === "server" && !inGuild) {
+    return privately(
+      action,
+      "There's no server here. Run `/settings` in a server to change its settings, or `/settings for:Just me` for your own.",
+    );
+  }
+  if (wanted === "server" && !manages) {
+    return privately(
+      action,
+      "Changing this server's settings needs the **Manage Server** permission. `/settings for:Just me` changes your own.",
+    );
+  }
+  const scope: SettingsScope =
+    inGuild && wanted !== "me" && manages
+      ? { kind: "guild", id: guildId }
+      : { kind: "user", id: user };
+  const nowS = Math.floor(deps.now().getTime() / 1000);
+  const url = deps.settingsUrl({
+    scope,
+    by: user,
+    expiresAt: nowS + SETTINGS_LINK_TTL_S,
+  });
+  if (!url) {
+    return privately(
+      action,
+      "Settings can't be changed right now. Try again later.",
+    );
+  }
+  return withData(
+    action,
+    "new",
+    deps.settingsStore
+      .get(scope)
+      .catch(() => null)
+      .then((stored) =>
+        buildSettingsMessage({
+          scope: scope.kind,
+          settings: resolveSettings(stored),
+          url,
+          minutes: SETTINGS_LINK_TTL_S / 60,
+        }),
+      ),
+    { private: true },
+  );
+}
+
+function routeCommand(
+  interaction: Interaction,
+  deps: HandlerDeps,
+  settings: DiscordSettings,
+): Reply {
   const name = interaction.data?.name;
   if (!isCommandName(name)) {
     return privately(
@@ -199,22 +353,27 @@ function routeCommand(interaction: Interaction, deps: HandlerDeps): Reply {
         data: buildHelpMessage({ activity: deps.activityEnabled }),
       });
     case "stock":
-      return withData(
+      return chartReply(
         action,
-        "new",
-        chartForInput(stringOption(interaction, "code"), deps),
+        stringOption(interaction, "code") || (settings.code ?? ""),
+        settings.view,
+        settings.period,
+        settings,
+        interaction,
+        deps,
       );
     case "chart":
-      return withData(
+      return chartReply(
         action,
-        "new",
-        chartForInput(
-          stringOption(interaction, "code"),
-          deps,
-          viewOption(interaction),
-          periodOption(interaction),
-        ),
+        stringOption(interaction, "code") || (settings.code ?? ""),
+        viewOption(interaction) ?? settings.view,
+        periodOption(interaction) ?? settings.period,
+        settings,
+        interaction,
+        deps,
       );
+    case "settings":
+      return settingsReply(interaction, deps);
     case "search": {
       const query = stringOption(interaction, "query");
       if (!query) {
@@ -246,7 +405,11 @@ function routeCommand(interaction: Interaction, deps: HandlerDeps): Reply {
   }
 }
 
-function routeComponent(interaction: Interaction, deps: HandlerDeps): Reply {
+function routeComponent(
+  interaction: Interaction,
+  deps: HandlerDeps,
+  settings: DiscordSettings,
+): Reply {
   const parsed = parseCustomId(interaction.data?.custom_id);
   switch (parsed?.kind) {
     case "chart": {
@@ -277,7 +440,15 @@ function routeComponent(interaction: Interaction, deps: HandlerDeps): Reply {
     case "pick": {
       const code = normalizeCode(interaction.data?.values?.[0]);
       return code
-        ? withData("component_pick", "new", chartForInput(code, deps))
+        ? chartReply(
+            "component_pick",
+            code,
+            settings.view,
+            settings.period,
+            settings,
+            interaction,
+            deps,
+          )
         : privately("component_pick", "Pick a stock from the list.");
     }
     default:
@@ -352,8 +523,14 @@ async function deliverLater(
   mode: Mode,
   message: MessagePayload,
   rest: DiscordRest,
+  deferredPrivately: boolean,
 ): Promise<void> {
   const { application_id: app, token } = interaction;
+  if (deferredPrivately) {
+    // The deferral was private already, so the reply simply replaces it.
+    await rest.editOriginal(app, token, { ...message, flags: undefined });
+    return;
+  }
   if (isEphemeral(message)) {
     // A public "thinking…" cannot be made private: replace it with a private
     // note. On a button, leave the chart as it was.
@@ -382,12 +559,59 @@ export async function handleInteraction(
     return response;
   }
 
-  const reply =
+  const started = Date.now();
+  const fastPathMs = deps.fastPathMs ?? DEFAULT_FAST_PATH_MS;
+  const remaining = () => Math.max(0, fastPathMs - (Date.now() - started));
+
+  const settings = needsSettings(interaction)
+    ? await loadSettings(interaction, deps)
+    : BUILT_IN_SETTINGS;
+
+  let reply =
     interaction.type === InteractionType.APPLICATION_COMMAND
-      ? routeCommand(interaction, deps)
+      ? routeCommand(interaction, deps, settings)
       : interaction.type === InteractionType.MESSAGE_COMPONENT
-        ? routeComponent(interaction, deps)
+        ? routeComponent(interaction, deps, settings)
         : privately("unsupported", "That isn't something this bot handles.");
+
+  if (reply.kind === "launch") {
+    const { action, channelId, input, view, period } = reply;
+    const summary = reply.summary.catch((error: unknown) => {
+      console.error(`[discord] ${action} lookup failed:`, error);
+      return null;
+    });
+    const settled = await within(summary, remaining());
+    if (settled.done) {
+      const found = settled.value;
+      deps.onOutcome?.({
+        action,
+        status: "success",
+        delivery: "immediate",
+      });
+      if (!found) {
+        return respondNow("new", notFound(input));
+      }
+      const state = { code: found.code, view, period };
+      // Best effort: should the hand-off fail, the Activity opens the
+      // server's default stock instead, which still beats no chart.
+      await within(
+        deps.rememberLaunch(channelId, state).catch((error: unknown) => {
+          console.error(`[discord] ${action} hand-off failed:`, error);
+        }),
+        LAUNCH_HANDOFF_MS,
+      );
+      return { type: InteractionResponseType.LAUNCH_ACTIVITY };
+    }
+    // Too slow to launch inside Discord's window (a launch cannot be
+    // deferred): post the chart message instead, as a deferred reply.
+    reply = withData(
+      action,
+      "new",
+      summary.then((s) =>
+        s ? chartMessage(s, view, period, deps) : notFound(input),
+      ),
+    );
+  }
 
   if (reply.kind === "now") {
     deps.onOutcome?.({
@@ -398,45 +622,51 @@ export async function handleInteraction(
     return reply.response;
   }
 
+  const { action, mode } = reply;
   let failed = false;
   const work = reply.work.catch((error: unknown) => {
     failed = true;
-    console.error(`[discord] ${reply.action} failed:`, error);
+    console.error(`[discord] ${action} failed:`, error);
     return notice(FAILED);
   });
-  const settled = await within(work, deps.fastPathMs ?? DEFAULT_FAST_PATH_MS);
+  const settled = await within(work, remaining());
   if (settled.done) {
     deps.onOutcome?.({
-      action: reply.action,
+      action,
       status: failed ? "error" : "success",
       delivery: "immediate",
     });
-    return respondNow(reply.mode, settled.value);
+    return respondNow(mode, settled.value);
   }
 
+  // A reply for one person (/settings) defers privately, so its "thinking…"
+  // is theirs alone and the reply can simply replace it.
+  const deferredPrivately = reply.private === true && mode === "new";
   deps.waitUntil(
     work
       .then((message) =>
-        deliverLater(interaction, reply.mode, message, deps.rest),
+        deliverLater(interaction, mode, message, deps.rest, deferredPrivately),
       )
       .then(
         () =>
           deps.onOutcome?.({
-            action: reply.action,
+            action,
             status: failed ? "error" : "success",
             delivery: "deferred",
           }),
         (error: unknown) => {
-          console.error(`[discord] ${reply.action} follow-up failed:`, error);
-          deps.onOutcome?.({
-            action: reply.action,
-            status: "error",
-            delivery: "deferred",
-          });
+          console.error(`[discord] ${action} follow-up failed:`, error);
+          deps.onOutcome?.({ action, status: "error", delivery: "deferred" });
         },
       ),
   );
-  return reply.mode === "new"
-    ? { type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE }
-    : { type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE };
+  if (mode === "update") {
+    return { type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE };
+  }
+  return deferredPrivately
+    ? {
+        type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { flags: MessageFlags.EPHEMERAL },
+      }
+    : { type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE };
 }

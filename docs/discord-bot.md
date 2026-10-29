@@ -60,20 +60,88 @@ set up" until step 2 is merged and needs no edit afterwards.
 
 | Command | What it posts |
 |---|---|
-| `/stock <code>` | The stock's short interest, 30-day change, short position, shares on issue, days to cover, market cap and industry, over its 1-year short-interest chart |
-| `/chart <code> [view] [period]` | The same message for any view (short interest, price and volume, both) and period (1M, 3M, 6M, 1Y, Max) |
+| `/stock [code]` | The stock's short interest, 30-day change, short position, shares on issue, days to cover, market cap and industry, over its short-interest chart |
+| `/chart [code] [view] [period]` | The same message for any view (short interest, price and volume, both) and period (1M, 3M, 6M, 1Y, Max) |
 | `/search <query>` | Up to 10 matches with their short interest, and a menu to chart one |
 | `/top [count]` | The 5 to 25 most shorted stocks (default 10), and a menu to chart one |
+| `/settings [for]` | The settings that apply, privately, with a link to change them (below) |
 | `/help` | The list, privately |
 
 `code` autocompletes: typing a code or part of a name searches as you go, and
 an empty field offers the most shorted stocks. A name typed without picking a
-suggestion still works (`/stock pilbara` charts PLS, the best match).
+suggestion still works (`/stock woodside` charts WDS, the best match). With a
+default stock set, `code` can be left out; without one, the command asks for
+one, privately.
 
 Under every chart are two rows of buttons: the periods, then the views, an
 **Open on Shorted** link (the chart's share page) and **Interactive** (the
 Activity, below). A press redraws the message for everyone; pressing the
-highlighted one redraws it with the latest figures.
+highlighted one redraws it with the latest figures. **Open on Shorted** carries
+`landscape=1`: Discord's in-app browser keeps to portrait whatever the phone
+does, so on a phone held upright the share page opens with the chart turned
+sideways (its landscape mode, `StockChartEmbed` `startLandscape`); anywhere
+else the flag does nothing.
+
+## Settings
+
+Out of the box a chart command needs a code, opens the short-interest chart
+over a year, and posts a chart message. `/settings` changes that, for a server
+or for one person:
+
+| Setting | Values | Built in |
+|---|---|---|
+| Default stock | any ASX code, or none (a command without a code asks) | none |
+| Chart | short interest, price, combined | short interest |
+| Period | 1M, 3M, 6M, 1Y, Max (the message's buttons) | 1Y |
+| Commands open | a chart message, or the interactive chart (the Activity) | a chart message |
+
+**Layers.** A server's settings apply to everyone in it; a person's own apply
+in DMs and group DMs, and in servers with none of their own; the built-ins fill
+the rest. Anything typed in a command wins over all three
+(`/chart BHP view:price`). `settings.ts` resolves them field by field, and a
+read slower than 500ms (`SETTINGS_BUDGET_MS`) is not waited for: the built-ins
+stand in, and the read still fills the cache.
+
+**Who may change what is decided in Discord.** `/settings` in a server changes
+the server's settings when the member has Manage Server or Administrator
+(Discord computes `member.permissions` and signs the interaction); otherwise,
+in a DM, or with `for:Just me`, the person's own. It answers privately with the
+settings now and a **Change settings** link to `/discord/settings`, signed for
+that one scope and person and good for 30 minutes (`settings-link.ts`). The
+link is a grant, so the page has no Discord sign-in and the deployment needs no
+client secret:
+
+- The signing key is derived from `NEXTAUTH_SECRET` under its own label, so
+  nothing else signed with that secret can be replayed as a grant. Without the
+  secret, `/settings` says settings cannot be changed right now.
+- The link lands on `/discord/settings/open`, which moves the token into an
+  httpOnly cookie scoped to `/discord/settings` for the grant's lifetime and
+  redirects to the page's clean URL, so the token is not left in the address
+  bar, the history or analytics. An expired or forged link clears the cookie
+  and the page says the link has expired.
+- The page and its actions (`app/discord/settings/actions.ts`) re-read the
+  grant from the cookie on every call. Nothing the browser sends decides whose
+  settings change, a form left open past 30 minutes cannot save, and a default
+  stock that does not exist is refused.
+
+The page previews the result live: the chart message is drawn from the payload
+`buildChartMessage` builds, with the stock's real readings and chart card, and
+interactive mode frames `/embed/discord` itself.
+
+**Storage.** Firestore collection `discord_settings`, one document per scope
+(`guild:<id>`, `user:<id>`), written whole, with `updatedBy` and `updatedAt`
+(`settings-store.ts`). Reads fail open (nothing set) and are cached per
+instance for a minute, so a change shows everywhere within a minute; the
+settings page reads fresh.
+
+**Interactive mode.** With "Commands open: the interactive chart", `/stock` and
+`/chart` answer with `LAUNCH_ACTIVITY` instead of a message. That response has
+no room for the chart and cannot be deferred, so the command's chart is handed
+over through Upstash KV (`discord:launch:<channel id>`, 2 minutes,
+`launch.ts`), and the Activity asks `/api/discord/activity/launch` as it loads:
+the command's chart in this channel, else the server's defaults, else its own
+default. A lookup that cannot finish inside the 1.5s fast path posts the chart
+message instead; an unknown stock is answered privately, as ever.
 
 Lookups that fail are answered privately (ephemeral), never posted to the
 channel. Every message sets `allowed_mentions: { parse: [] }`, so a search for
@@ -192,6 +260,17 @@ through a proxy, and its CSP blocks every other host. So:
   handshake with `@discord/embedded-app-sdk`, loaded on this page only. Opened
   outside Discord (`/embed/discord?code=BHP&view=combined`) it is a plain chart
   page, which is how to check it in a browser.
+- **Nothing on it may navigate the frame.** Discord's mobile webview follows a
+  plain link in place, which loaded the whole site, header and footer, inside
+  the Activity (reported 2026-10-29). So the embed layout's corner credit is
+  left off this page (`app/embed/embed-brand-link.tsx`), and while the SDK is
+  connected a capture-phase click handler sends every link out through
+  `openExternalLink`.
+- **Phones.** On mobile the page asks Discord to unlock its orientation
+  (`setOrientationLockState`), so a phone turned sideways turns the chart; the
+  layout fits a sideways phone (330px tall) without scrolling. Where Discord
+  keeps it upright anyway, the chart offers its landscape mode (the
+  sideways-phone button), as the share page does.
 
 The Activity is on (`"activity": true` in `web/src/config/discord-app.json`,
 2026-10-23), so every chart message carries **Interactive**. What it takes, in
@@ -290,6 +369,11 @@ this repo holds only a client secret.
   the portal points elsewhere (`task discord:status`).
 - Commands missing: global registration takes up to an hour to reach every
   client; `-- --guild <id>` shows them in one server at once.
+- `/settings` says settings cannot be changed: the deployment has no
+  `NEXTAUTH_SECRET`. "Couldn't save" on the page: Firestore is unreachable or
+  the admin credentials are missing (the function log says which).
+- Settings changed but a chart still opens the old way: each instance caches
+  them for a minute.
 
 ## Landmines
 
@@ -317,3 +401,15 @@ this repo holds only a client secret.
   signature check is what keeps it closed.
 - **`@vercel/functions` stays on 1.x** for `waitUntil`: 3.x pulls in an OIDC
   and CLI-config chain and moved next-auth's `jose`.
+- **A settings link is a bearer grant for 30 minutes.** Anyone holding it can
+  change that scope's settings until it expires, which is why `/settings`
+  answers privately and the page moves it out of the URL at once. Do not
+  lengthen its life, and do not log the `open` route's query string.
+- **Rotating `NEXTAUTH_SECRET` voids every open settings link** (and every
+  next-auth session); people run `/settings` again. Nothing stored changes.
+- **`LAUNCH_ACTIVITY` cannot be deferred.** Interactive mode answers inside the
+  fast path or falls back to a chart message; never make it wait on a read
+  without a bound.
+- **The share page's `landscape=1` is Discord's.** Only the bot's
+  **Open on Shorted** link carries it; the share dialog's links do not, so a
+  chart shared to a forum opens the way it always did.

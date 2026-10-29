@@ -82,12 +82,16 @@ global.Response = class Response {
 // @ts-expect-error - Polyfill for test environment
 global.Headers = class Headers {
   private map: Map<string, string>;
+  // Set-Cookie is the one header kept as separate values (getSetCookie);
+  // NextResponse's cookies write through append and read them back.
+  private cookies: string[] = [];
 
   constructor(init?: any) {
     this.map = new Map();
     if (init) {
       if (init instanceof Headers) {
         this.map = new Map(init.map);
+        this.cookies = [...init.cookies];
       } else if (typeof init === "object") {
         Object.entries(init).forEach(([key, value]) => {
           this.map.set(key.toLowerCase(), String(value));
@@ -102,6 +106,18 @@ global.Headers = class Headers {
 
   set(name: string, value: string): void {
     this.map.set(name.toLowerCase(), value);
+    if (name.toLowerCase() === "set-cookie") this.cookies = [value];
+  }
+
+  append(name: string, value: string): void {
+    const key = name.toLowerCase();
+    if (key === "set-cookie") this.cookies.push(value);
+    const existing = this.map.get(key);
+    this.map.set(key, existing === undefined ? value : `${existing}, ${value}`);
+  }
+
+  getSetCookie(): string[] {
+    return [...this.cookies];
   }
 
   has(name: string): boolean {
@@ -110,6 +126,7 @@ global.Headers = class Headers {
 
   delete(name: string): void {
     this.map.delete(name.toLowerCase());
+    if (name.toLowerCase() === "set-cookie") this.cookies = [];
   }
 
   forEach(callback: (value: string, key: string) => void): void {
