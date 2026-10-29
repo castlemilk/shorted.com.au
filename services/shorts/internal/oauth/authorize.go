@@ -363,10 +363,18 @@ func (h *grantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// 6. SCOPE. Unknown scopes are refused rather than dropped: silently
 	//    narrowing a grant produces a client that believes it has access it
-	//    does not, and fails later somewhere unrelated. A client that declared
-	//    a scope set at registration is also held to it — a registration is a
-	//    statement of what the client needs, and letting a request exceed it
-	//    makes the declaration decorative.
+	//    does not, and fails later somewhere unrelated.
+	//
+	//    A client that declared a scope set at registration is held to it for
+	//    the PUBLIC resource: a registration is a statement of what the client
+	//    needs, and letting a request exceed it makes the declaration decorative.
+	//    The exceptions are the ones stepUpExempt names, and both are decided by
+	//    the TARGET resource, not the client: alerts:write (user-consented), and
+	//    every scope of an entitlement-gated resource (the admin one). For those
+	//    the consent ticket binds the exact scope set, the screen shows it, and
+	//    the entitlement is re-checked above, so a registration made before a
+	//    scope existed (crawl:authorize) does not lock the client out of it.
+	//    Every scope is still refused unless it is in the TARGET's vocabulary.
 	scope, ok := normaliseScope(target, req.Scope, client.Scope)
 	if !ok {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_scope", "unsupported scope requested")
@@ -452,12 +460,29 @@ func (h *grantHandler) checkEntitled(w http.ResponseWriter, r *http.Request, tar
 
 // normaliseScope validates the requested scope set against the RESOURCE's
 // published vocabulary AND against the client's registered scope, returning the
-// space-delimited grant. One exception to the registration: alerts:write, which a
-// client may name even when its registration does not list it (see below).
+// space-delimited grant.
 //
-// An empty request gets the client's registered scope, or the resource's default
-// scopes when the client registered none. Only a request that names a scope gets
-// a write scope (alerts:write), and only if it asked for it by name.
+// THE RULE, for a scope the request NAMES:
+//
+//   - It must be in the TARGET resource's vocabulary. Nothing outside it is
+//     granted, whatever the registration says, so a public-resource request can
+//     never gain an admin scope and an admin request can never gain a public one.
+//   - It must be in the client's registration, EXCEPT where stepUpExempt says
+//     the grant is consented to without it: alerts:write (user-consented, the
+//     consent screen shows it), and every scope of an entitlement-gated resource
+//     (the admin resource). A registration is a statement made at registration
+//     time, and a scope added to the vocabulary later must not lock every
+//     existing client out of it. The consent ticket binds the exact scope set and
+//     the consent screen shows it, and checkEntitled re-checks the user at ticket,
+//     grant, token and every refresh.
+//
+// An EMPTY request is never a step-up: it gets the client's registered scope
+// (intersected with the vocabulary), or the resource's defaults when the client
+// registered none. So a registration that predates a scope does not gain it by
+// omission, and only a request that names a scope gets alerts:write.
+//
+// Refresh does not come through here at all: a refresh narrows the stored grant
+// (narrowScope) and can never widen it, so it has no registration check to relax.
 //
 // It is shared with the consent endpoints so the scope the human is SHOWN is
 // computed by the same code as the scope that is GRANTED. Two implementations
@@ -491,18 +516,35 @@ func normaliseScope(target *grantableResource, requested, registered string) (st
 		return strings.Join(granted, " "), true
 	}
 	for _, s := range fields {
-		// alerts:write is user-consented: the consent ticket binds it, and the consent
-		// screen shows it. So a client whose registration was copied from an older
-		// scopes_supported list can still step up to it. Every other scope must be
-		// registered, and the default above never grants it.
-		if s == mcp.ScopeAlertsWrite && vocabulary[s] {
-			continue
+		if !allowed[s] && !stepUpExempt(target, s) {
+			return "", false
 		}
-		if !allowed[s] {
+		if !vocabulary[s] {
 			return "", false
 		}
 	}
 	return strings.Join(fields, " "), true
+}
+
+// stepUpExempt reports whether a named scope may be granted on target without
+// being in the client's registration. It is a question about the TARGET only:
+//
+//   - alerts:write, when the resource publishes it (the public resource): a
+//     user-consented write scope that a read-only registration may name.
+//   - any scope, when the resource is entitlement-gated (target.entitled set).
+//     Such a resource is granted only to users the Entitlement approves, and
+//     that check is repeated at every stage, so the registration adds nothing
+//     the entitlement does not already decide. This is how a connector whose
+//     registration predates a new admin scope (crawl:authorize) can ask for it.
+//
+// It never grants a scope outside the target's vocabulary: the caller checks
+// vocabulary membership separately, and this function is only consulted for it.
+// Nothing here names a scope; the rule is the resource's own gate.
+func stepUpExempt(target *grantableResource, s string) bool {
+	if s == mcp.ScopeAlertsWrite && target.vocab[s] {
+		return true
+	}
+	return target.entitled != nil
 }
 
 // ticketMismatch reports the FIRST binding on which the approval and the
