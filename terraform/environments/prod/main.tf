@@ -494,6 +494,13 @@ module "housing_ingest" {
   # Emergency kid kill list (see the module variable). Empty unless an incident sets it.
   ingest_deny_kids = var.housing_ingest_deny_kids
 
+  # Fleet-managed crawl cutover: the org claim BrandBrain's issuer stamps, and the
+  # rigs allowed to push. A rig also needs an enabled housing_ingest_rigs row and
+  # BrandBrain's housing_crawl_v1 grant (admin MCP housing_crawl_authorize).
+  # Gamma-64: rig token issued 2026-10-29, expires 2027-01-27.
+  ingest_org            = "brandbrain"
+  ingest_allow_subjects = "rig:Bens-MacBook-Pro-2.local"
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted
