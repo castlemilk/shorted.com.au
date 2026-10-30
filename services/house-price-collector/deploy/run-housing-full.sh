@@ -17,8 +17,8 @@
 #
 # Exit codes: 0 ok · 3 re-warm needed · 4 Chrome unusable · 6 freshness ALARM ·
 # 7 agent infrastructure failed before any work · 8 crawl ENVIRONMENT broken
-# (Playwright driver missing — needs an operator to reinstall it; re-warming
-# Chrome and re-running the schedule cannot fix it).
+# (driver missing, or the CDP port is held by another process — see the log;
+# re-warming Chrome and re-running the schedule cannot fix either).
 set -uo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
