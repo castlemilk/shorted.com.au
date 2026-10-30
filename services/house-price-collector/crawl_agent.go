@@ -836,16 +836,15 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 	// so an unattended scheduler re-runs after a cooldown.
 	if cfg.fixtureDir == "" && selectFetcherMode(cfg.crawlConfig) == fetcherModeCDP {
 		if ccfg := loadChromeConfig(cfg.cdpURL); ccfg.autoWarm {
-			deps := chromeDeps{
-				reachable: chromeReachable,
-				launch:    launchDedicatedChrome,
-				recover:   recoverWedgedChrome,
-				warmProbe: func() int {
-					events.startup("warm_probe", "start", "")
-					rc := runWarmCheck(ctx, pool)
-					events.startup("warm_probe", "done", warmProbeOutcome(rc))
-					return rc
-				},
+			deps := osChromeDeps()
+			deps.reachable = chromeReachable
+			deps.launch = launchDedicatedChrome
+			deps.recover = recoverWedgedChrome
+			deps.warmProbe = func() int {
+				events.startup("warm_probe", "start", "")
+				rc := runWarmCheck(ctx, pool)
+				events.startup("warm_probe", "done", warmProbeOutcome(rc))
+				return rc
 			}
 			if err := ensureChromeWarm(ccfg, deps); err != nil {
 				rc := agentExitForWarmFailure(err)

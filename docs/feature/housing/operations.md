@@ -244,6 +244,36 @@ specifically so a rig with a broken environment can repair itself.
 Nothing else on the rig needs touching — Chrome keeps its Kasada clearance
 across the whole failure.
 
+### Port conflict: another process holds the CDP port (exit 8)
+
+Symptom: the cycle summary carries `env.chrome="port_conflict"` and the process
+exits **8**. The log names the holder:
+
+```
+[agent] CDP port 9333 is held by another process (pid 83542: /Applications/Google Chrome.app/...) — not launching; free the port or set CRAWL_CDP_URL to a free loopback port
+```
+
+The collector drives its **dedicated-profile** Chrome on the port in
+`CRAWL_CDP_URL`. When any other process listens on that port (typically the
+operator's everyday Chrome with remote debugging on), the collector neither
+launches over it nor kills it: the holder is not ours to stop. Before this check
+the same state read as "unreachable" or "unusable", and the collector relaunched
+or sent people to the re-warm runbook, which cannot clear a foreign holder.
+
+Fix, in order:
+
+1. Identify the holder: `lsof -nP -iTCP:<port> -sTCP:LISTEN` (the log gives the pid).
+2. Either stop that process yourself, if it is not the crawl's Chrome, or move
+   the rig to a free loopback port by setting `CRAWL_CDP_URL=http://127.0.0.1:<port>`
+   for the agent. The check keys on the port, so the host spelling does not matter.
+3. Re-run the drain. The dedicated Chrome auto-launches on the free port.
+
+A dedicated-profile Chrome left running on the **old** port is not a conflict.
+The collector kills it (matched on its `--user-data-dir`, never the personal
+profile) and relaunches on the configured port, because a second launch with the
+same profile would hand off to the running instance and never bind. Never
+`pkill` Chrome by pattern to clear a conflict.
+
 Diagnosis order: agent alive → hung round → wrapper log (it buffers a whole
 drain round, so a quiet log is not evidence of a stall) → `SELECT max(created_at)
 FROM property_price_events` → queue state.

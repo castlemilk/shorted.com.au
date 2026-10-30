@@ -59,7 +59,8 @@ var errCrawlEnvBroken = fmt.Errorf(
 // exit code. The wrapper only ever sees this number, so the classification has
 // to survive the trip out of the process or the scheduler log lies again.
 func agentExitForWarmFailure(err error) int {
-	if errors.Is(err, errCrawlEnvBroken) {
+	// A port held by another process is an operator fault too: no Chrome action fixes it.
+	if errors.Is(err, errCrawlEnvBroken) || errors.Is(err, errChromePortConflict) {
 		return exitCrawlEnvBroken
 	}
 	return 4

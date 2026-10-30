@@ -150,7 +150,7 @@ RFC 3339 timestamp. No listing data appears anywhere.
   "collector": {"revision": "string", "modified": false},
   "lock":   "free | held_by_cycle | held_elsewhere | unknown",
   "env":    {"driver": "ok | installed | missing | unknown",
-             "chrome": "warm | reachable | unreachable | unusable | unknown"},
+             "chrome": "warm | reachable | unreachable | unusable | port_conflict | unknown"},
   "ingest": {"probe": "ok | unauthenticated | permission_denied | unavailable | contract | token | not_run",
              "last_ok_at": "RFC3339 | null"},
   "counts": {"claimed": 0, "succeeded": 0, "failed": 0, "deferred": 0, "blocked": 0,
