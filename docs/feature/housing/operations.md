@@ -265,14 +265,27 @@ Fix, in order:
 1. Identify the holder: `lsof -nP -iTCP:<port> -sTCP:LISTEN` (the log gives the pid).
 2. Either stop that process yourself, if it is not the crawl's Chrome, or move
    the rig to a free loopback port by setting `CRAWL_CDP_URL=http://127.0.0.1:<port>`
-   for the agent. The check keys on the port, so the host spelling does not matter.
-3. Re-run the drain. The dedicated Chrome auto-launches on the free port.
+   for the agent. The check matches the address family: `127.0.0.1` counts only
+   listeners on `127.0.0.1` and the wildcard, `[::1]` only `[::1]` and the wildcard,
+   and `localhost` every listener. A holder on the other family does not block it.
+3. Clear the drain's hold and run it again. Under BrandBrain the drain is held
+   after exit 8, so clear it with the fleet `housing_crawl_repair` command, or
+   `housing_crawl_run {job: drain}`. The dedicated Chrome auto-launches on the free port.
 
 A dedicated-profile Chrome left running on the **old** port is not a conflict.
-The collector kills it (matched on its `--user-data-dir`, never the personal
-profile) and relaunches on the configured port, because a second launch with the
-same profile would hand off to the running instance and never bind. Never
-`pkill` Chrome by pattern to clear a conflict.
+The collector re-probes the configured port after about 2 s, so a busy warm
+Chrome that missed one probe keeps its Kasada clearance. Only a Chrome that is
+still silent is killed (matched on its `--user-data-dir`, never the personal
+profile), and then relaunched on the configured port. A second launch with the
+same profile would hand off to the running instance and never bind. The kill
+only ever targets a loopback CDP URL with a valid port. Never `pkill` Chrome by
+pattern to clear a conflict.
+
+Each listener is classified by its own command line. If `ps` or `lsof` fails or
+times out (5 s each), the collector does not report a conflict from the guess.
+One known limit: the profile match runs on `ps` output, which loses argv quoting,
+so a profile path that contains a space can match a sibling profile whose path is
+a prefix of it.
 
 Diagnosis order: agent alive → hung round → wrapper log (it buffers a whole
 drain round, so a quiet log is not evidence of a stall) → `SELECT max(created_at)

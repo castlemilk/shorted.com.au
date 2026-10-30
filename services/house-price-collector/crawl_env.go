@@ -55,6 +55,15 @@ var errCrawlEnvBroken = fmt.Errorf(
 	driverInstallHint,
 )
 
+// runRecordDetail is the run record's detail for a failed step. A port conflict is recorded as its
+// word alone: the holder's pid and command stay in the local log, never in the database.
+func runRecordDetail(prefix string, err error) string {
+	if errors.Is(err, errChromePortConflict) {
+		return prefix + chromePortConflict
+	}
+	return prefix + err.Error()
+}
+
 // agentExitForWarmFailure maps an ensureChromeWarm failure to runAgent's process
 // exit code. The wrapper only ever sees this number, so the classification has
 // to survive the trip out of the process or the scheduler log lies again.

@@ -195,12 +195,15 @@ type cycleDeps struct {
 	ensureChrome    func(ctx context.Context) (string, int)
 	chromeReachable func() string
 	recoverChrome   func() error
-	probeIngest     func(ctx context.Context) (int, string)
-	warmcheck       func(ctx context.Context) int
-	reportGap       func(cycleID, outcome string, exit int)
-	stdout          io.Writer
-	events          *crawlEvents
-	now             func() time.Time
+	// chromePortConflict is the read-only ownership check a round's exit 8 runs first. It is nil in
+	// tests that do not exercise it, and nil reads as no conflict.
+	chromePortConflict func() bool
+	probeIngest        func(ctx context.Context) (int, string)
+	warmcheck          func(ctx context.Context) int
+	reportGap          func(cycleID, outcome string, exit int)
+	stdout             io.Writer
+	events             *crawlEvents
+	now                func() time.Time
 	// sigs is the injected signal channel. Nil means SIGTERM and SIGINT via signal.Notify.
 	sigs <-chan os.Signal
 	// exit ends the process after a forced (second-signal) exit. Nil means os.Exit.
@@ -651,13 +654,14 @@ func runCycleMode(stdout io.Writer, job string, dryRunFlag bool, maxDuration tim
 	cfg.maxDuration = maxDuration
 
 	deps := cycleDeps{
-		driverPresent:   checkPlaywrightDriver,
-		installDriver:   func() int { return runInstallDriverWait(false, cfg.installLockWait) },
-		chromeReachable: defaultChromeReachable,
-		recoverChrome:   defaultRecoverChrome,
-		stdout:          stdout,
-		events:          events,
-		now:             time.Now,
+		driverPresent:      checkPlaywrightDriver,
+		installDriver:      func() int { return runInstallDriverWait(false, cfg.installLockWait) },
+		chromeReachable:    defaultChromeReachable,
+		recoverChrome:      defaultRecoverChrome,
+		chromePortConflict: defaultCDPPortConflict,
+		stdout:             stdout,
+		events:             events,
+		now:                time.Now,
 	}
 
 	switch job {
@@ -1016,6 +1020,19 @@ func chromeWord(state string) string {
 	}
 }
 
+// roundPortConflict runs the read-only port ownership check for a round's exit 8. It launches,
+// kills and installs nothing. On a conflict it records env.chrome=port_conflict and reports true.
+func (c *cycleRunner) roundPortConflict() bool {
+	conflict, err := runStep(c, c.cfg.chromeTimeout, func(context.Context) bool {
+		return c.deps.chromePortConflict != nil && c.deps.chromePortConflict()
+	})
+	if err != nil || !conflict {
+		return false
+	}
+	c.setPre(func() { c.preChrome = chromePortConflict })
+	return true
+}
+
 // checkDriverPresent runs the driver check under the install timeout. It installs nothing and
 // creates nothing.
 func (c *cycleRunner) checkDriverPresent() (bool, error) {
@@ -1236,6 +1253,11 @@ func (c *cycleRunner) decide(res cycleRound) (string, int, bool) {
 		// retry the round once (the install is shared with the preflight, so a driver the preflight
 		// already repaired is not installed twice).
 		if budget {
+			return outStopped, exitCrawlEnvBroken, false
+		}
+		// Exit 8 also means a foreign process holds the CDP port. No driver install can clear that,
+		// so check the port first and leave the driver repair and its one retry unspent.
+		if c.roundPortConflict() {
 			return outStopped, exitCrawlEnvBroken, false
 		}
 		c.mu.Lock()
@@ -2114,13 +2136,29 @@ func defaultChromeReachable() string {
 		return "not_used"
 	}
 	ccfg := loadChromeConfig(cfg.cdpURL)
-	if checkCDPPortOwner(ccfg, osChromeDeps()) != nil {
+	reachable := chromeReachable(ccfg.cdpURL)
+	// With the warm off (CRAWL_AUTO_WARM=false) the ownership check is skipped, as in the drain.
+	if ccfg.autoWarm && checkCDPPortOwner(ccfg, osChromeDeps(), reachable) != nil {
 		return chromePortConflict
 	}
-	if chromeReachable(ccfg.cdpURL) {
+	if reachable {
 		return "reachable"
 	}
 	return "unreachable"
+}
+
+// defaultCDPPortConflict is the production port check for a round's exit 8. It reads as no conflict
+// outside CDP mode and with the warm off, the same gates as the drain's preflight.
+func defaultCDPPortConflict() bool {
+	cfg := loadListingsConfig()
+	if selectFetcherMode(cfg.crawlConfig) != fetcherModeCDP {
+		return false
+	}
+	ccfg := loadChromeConfig(cfg.cdpURL)
+	if !ccfg.autoWarm {
+		return false
+	}
+	return checkCDPPortOwner(ccfg, osChromeDeps(), chromeReachable(ccfg.cdpURL)) != nil
 }
 
 // defaultRecoverChrome is the wedged-Chrome recovery the rc 4 path uses (kill, clear the profile

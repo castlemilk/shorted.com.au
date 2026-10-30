@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -859,7 +860,7 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 				if !cfg.dryRun {
 					persistRunRecord(ctx, pool, crawlRunStatusRecord{
 						RunType: runType, Host: host, RunID: runID, StartedAt: runStart,
-						Status: "error", Detail: "self-warm failed: " + err.Error(),
+						Status: "error", Detail: runRecordDetail("self-warm failed: ", err),
 					}, rc)
 				}
 				return rc
@@ -893,7 +894,17 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 			// the shell runner's agent-rc4 retry so an unattended run self-heals.
 			log.Printf("[agent] crawl fetcher init failed (%v) — hard-recovering Chrome and retrying", err)
 			if selectFetcherMode(cfg.crawlConfig) == fetcherModeCDP {
-				_ = recoverWedgedChrome(loadChromeConfig(cfg.cdpURL))
+				if rerr := recoverWedgedChrome(loadChromeConfig(cfg.cdpURL)); errors.Is(rerr, errChromePortConflict) {
+					// A foreign holder is an operator fault, not a Chrome one: no relaunch and no retry.
+					log.Printf("[agent] %v — exiting %d for OPERATOR action", rerr, exitCrawlEnvBroken)
+					if !cfg.dryRun {
+						persistRunRecord(ctx, pool, crawlRunStatusRecord{
+							RunType: runType, Host: host, RunID: runID, StartedAt: runStart,
+							Status: "error", Detail: runRecordDetail("", rerr),
+						}, exitCrawlEnvBroken)
+					}
+					return exitCrawlEnvBroken
+				}
 			}
 			f, err = newCrawlFetcher(cfg.crawlConfig)
 			if err != nil {

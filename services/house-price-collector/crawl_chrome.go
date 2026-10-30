@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -9,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -46,24 +46,10 @@ func chromeCDPPort(cdpURL string) (string, error) {
 // profileDir — a bare substring match would also catch a sibling profile whose path
 // merely has profileDir as a prefix (e.g. "...-backup"), which must NEVER be killed.
 func matchDedicatedPIDs(psOutput, profileDir string) []int {
-	if strings.TrimSpace(profileDir) == "" {
-		return nil
-	}
-	needle := "--user-data-dir=" + profileDir
 	var pids []int
 	for line := range strings.SplitSeq(psOutput, "\n") {
 		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		idx := strings.Index(line, needle)
-		if idx < 0 {
-			continue
-		}
-		// The flag value must end here: the next character (if any) must be
-		// whitespace, not more path (e.g. a "-backup" sibling profile dir).
-		after := idx + len(needle)
-		if after < len(line) && line[after] != ' ' && line[after] != '\t' {
+		if line == "" || !isDedicatedCommand(line, profileDir) {
 			continue
 		}
 		if strings.Contains(line, "grep ") || strings.HasPrefix(line, "grep") {
@@ -80,6 +66,22 @@ func matchDedicatedPIDs(psOutput, profileDir string) []int {
 		pids = append(pids, pid)
 	}
 	return pids
+}
+
+// isDedicatedCommand reports whether one command line carries the EXACT dedicated --user-data-dir
+// flag. The value must end where profileDir ends, so a sibling "...-backup" profile never matches.
+// An empty profileDir matches nothing.
+func isDedicatedCommand(cmd, profileDir string) bool {
+	if strings.TrimSpace(profileDir) == "" {
+		return false
+	}
+	needle := "--user-data-dir=" + profileDir
+	idx := strings.Index(cmd, needle)
+	if idx < 0 {
+		return false
+	}
+	after := idx + len(needle)
+	return after == len(cmd) || cmd[after] == ' ' || cmd[after] == '\t'
 }
 
 // chromeConfig is the dedicated-Chrome lifecycle config for -mode agent.
@@ -110,31 +112,77 @@ func loadChromeConfig(cdpURL string) chromeConfig {
 
 // chromeDeps are the side-effecting operations ensureChromeWarm calls, injected
 // so the state machine is unit-testable without a real browser. In production
-// they are chromeReachable / launchDedicatedChrome / recoverWedgedChrome, a
-// warmProbe backed by runWarmCheck, and the osChromeDeps lookups.
+// they are chromeReachable / launchDedicatedChrome / recoverWedgedChrome and a
+// warmProbe backed by runWarmCheck. A dependency left nil falls back to its
+// production implementation (withOSDefaults); warmProbe has no such fallback.
 type chromeDeps struct {
 	reachable func(cdpURL string) bool
 	launch    func(cfg chromeConfig) error
 	recover   func(cfg chromeConfig) error
 	warmProbe func() int // 0=warm, 4=wedged/unusable, 5=reachable-but-Kasada-stub
-	// Port ownership and the stale-instance kill. listeners is lsof's LISTEN set
-	// for a port, dedicated the dedicated-profile PIDs, command a PID's command
-	// line (for the log), kill killDedicatedChrome.
-	listeners func(port string) []int
-	dedicated func(profileDir string) []int
-	command   func(pid int) string
+	// Port ownership and the stale-instance kill. listeners is lsof's LISTEN set for
+	// the port, dedicated the dedicated-profile PIDs, command a PID's command line and
+	// kill killDedicatedChrome. A failed lookup returns an error, and callers fail open.
+	listeners func(port string) ([]cdpListener, error)
+	dedicated func(profileDir string) ([]int, error)
+	command   func(pid int) (string, error)
 	kill      func(profileDir string) bool
 }
 
+// cdpListener is one socket LISTENing on the CDP port: its owner and the host part of
+// its address, "127.0.0.1", "[::1]" or "*" (every address).
+type cdpListener struct {
+	pid  int
+	host string
+}
+
+// cdpToolTimeout bounds each lsof and ps call, so a stuck tool cannot stall the warm step.
+const cdpToolTimeout = 5 * time.Second
+
+// staleReprobeWait is how long a stale-instance kill waits before it re-probes the port. A busy,
+// warm Chrome can miss one 3 s probe, and a kill throws away its Kasada clearance.
+var staleReprobeWait = 2 * time.Second
+
 // osChromeDeps are the production lookups behind the port-ownership check.
 func osChromeDeps() chromeDeps {
-	return chromeDeps{listeners: listCDPListeners, dedicated: dedicatedChromePIDs, command: processCommand, kill: killDedicatedChrome}
+	return chromeDeps{}.withOSDefaults()
+}
+
+// withOSDefaults fills every nil dependency with its production implementation, so a chromeDeps
+// built by hand cannot dereference nil. A nil warmProbe reads as unusable (4): nothing proves warmth.
+func (d chromeDeps) withOSDefaults() chromeDeps {
+	if d.reachable == nil {
+		d.reachable = chromeReachable
+	}
+	if d.launch == nil {
+		d.launch = launchDedicatedChrome
+	}
+	if d.recover == nil {
+		d.recover = recoverWedgedChrome
+	}
+	if d.listeners == nil {
+		d.listeners = listCDPListeners
+	}
+	if d.dedicated == nil {
+		d.dedicated = dedicatedChromePIDsChecked
+	}
+	if d.command == nil {
+		d.command = processCommand
+	}
+	if d.kill == nil {
+		d.kill = killDedicatedChrome
+	}
+	if d.warmProbe == nil {
+		d.warmProbe = func() int { return 4 }
+	}
+	return d
 }
 
 const warmMaxAttempts = 2
 
-// errChromePortConflict: a process other than the dedicated Chrome holds the CDP
-// port. It is never launched over or killed, because it is not ours to stop.
+// errChromePortConflict: a process other than the dedicated Chrome holds the CDP port. It is never
+// launched over or killed, because it is not ours to stop. Its pid and command go to the local log
+// only: this error is persisted in the run record.
 var errChromePortConflict = errors.New("CDP port held by another process")
 
 // ensureChromeWarm guarantees the dedicated Chrome is reachable over CDP and its
@@ -142,23 +190,41 @@ var errChromePortConflict = errors.New("CDP port held by another process")
 // run-housing-agent.sh steps 1-2. Returns an error (mapped by the caller to a
 // re-warm exit) if Chrome can't be made reachable or warm within the bounds.
 func ensureChromeWarm(cfg chromeConfig, deps chromeDeps) error {
-	// 0. Someone else owns the port: refuse before trusting or launching anything.
-	if err := checkCDPPortOwner(cfg, deps); err != nil {
+	deps = deps.withOSDefaults()
+	// Validate the endpoint before anything can be killed or launched on its behalf.
+	if _, err := chromeCDPPort(cfg.cdpURL); err != nil {
 		return err
 	}
 
-	// 1. Reachable at all — auto-launch rather than requiring a human.
-	if !deps.reachable(cfg.cdpURL) {
-		// A dedicated-profile Chrome that is running but not answering on this port is a
-		// stale instance (on another port, or bound to one address family only). Launching
-		// over it hands off to that instance and never binds, so kill it first.
-		if stale := deps.dedicated(cfg.profileDir); len(stale) > 0 {
-			log.Printf("[agent] dedicated Chrome %v is running but not answering on %s — killing it before relaunch", stale, cfg.cdpURL)
-			if !deps.kill(cfg.profileDir) {
-				return fmt.Errorf("dedicated Chrome still alive after SIGKILL — not relaunching (would fork a second instance)")
+	// 1. Reachable at all. Ownership comes first, so a foreign holder is refused before a stale
+	//    instance is touched or anything is launched over it.
+	reachable := deps.reachable(cfg.cdpURL)
+	if err := checkCDPPortOwner(cfg, deps, reachable); err != nil {
+		return err
+	}
+	if !reachable {
+		// A dedicated-profile Chrome that is running but not answering is a stale instance (on
+		// another port, or bound to one address family only). Launching over it hands off to that
+		// instance and never binds, so it is killed first, but only once a re-probe confirms it is
+		// silent: a busy, warm Chrome that missed one probe must keep its Kasada clearance.
+		if stale := staleDedicatedChrome(cfg, deps); len(stale) > 0 {
+			time.Sleep(staleReprobeWait)
+			if deps.reachable(cfg.cdpURL) {
+				log.Printf("[agent] dedicated Chrome %v answered on re-probe at %s — keeping it", stale, cfg.cdpURL)
+				if err := checkCDPPortOwner(cfg, deps, true); err != nil {
+					return err
+				}
+				reachable = true
+			} else {
+				log.Printf("[agent] dedicated Chrome %v is running but not answering on %s — killing it before relaunch", stale, cfg.cdpURL)
+				if !deps.kill(cfg.profileDir) {
+					return fmt.Errorf("dedicated Chrome still alive after SIGKILL — not relaunching (would fork a second instance)")
+				}
+				clearSingletonLocks(cfg.profileDir)
 			}
-			clearSingletonLocks(cfg.profileDir)
 		}
+	}
+	if !reachable {
 		log.Printf("[agent] chrome unreachable at %s — auto-launching dedicated Chrome", cfg.cdpURL)
 		if err := deps.launch(cfg); err != nil {
 			return fmt.Errorf("launch dedicated Chrome: %w", err)
@@ -201,11 +267,28 @@ func ensureChromeWarm(cfg chromeConfig, deps chromeDeps) error {
 	return nil
 }
 
-// checkCDPPortOwner refuses with errChromePortConflict when any process listening on the
-// loopback CDP port is not the dedicated Chrome. It launches nothing and kills nothing: the
-// holder is the operator's, and the fix is theirs (free the port or move CRAWL_CDP_URL). A
-// remote CDP host is not checked, because lsof only sees this machine's listeners.
-func checkCDPPortOwner(cfg chromeConfig, deps chromeDeps) error {
+// staleDedicatedChrome lists the dedicated-profile Chrome that a stale-instance kill may touch. It
+// is empty unless the endpoint is a loopback CDP URL, so a remote endpoint never leads to a kill,
+// and a failed ps lookup reads as none.
+func staleDedicatedChrome(cfg chromeConfig, deps chromeDeps) []int {
+	if !loopbackCDP(cfg.cdpURL) {
+		return nil
+	}
+	pids, err := deps.dedicated(cfg.profileDir)
+	if err != nil {
+		return nil
+	}
+	return pids
+}
+
+// checkCDPPortOwner refuses with errChromePortConflict when a process that is not the dedicated
+// Chrome holds the loopback CDP port. It launches nothing and kills nothing: the holder is not ours
+// to stop. Each listener is classified by its own command line, and only the listeners that answer
+// on the URL's address family count (see cdpLoopbackHost). Any lookup failure fails open.
+//
+// reachable is whether /json/version answered. A port that answers while lsof shows no listener we
+// can see and no dedicated Chrome runs is a holder owned by another user, so it is a conflict too.
+func checkCDPPortOwner(cfg chromeConfig, deps chromeDeps, reachable bool) error {
 	if !loopbackCDP(cfg.cdpURL) {
 		return nil
 	}
@@ -213,45 +296,141 @@ func checkCDPPortOwner(cfg chromeConfig, deps chromeDeps) error {
 	if err != nil {
 		return nil // no usable port: the launch and reachability checks report it
 	}
-	listeners := deps.listeners(port)
-	if len(listeners) == 0 {
+	all, err := deps.listeners(port)
+	if err != nil {
 		return nil
 	}
-	dedicated := deps.dedicated(cfg.profileDir)
-	for _, pid := range listeners {
-		if slices.Contains(dedicated, pid) {
+	classified := 0
+	for _, l := range listenersOnHost(all, cdpLoopbackHost(cfg.cdpURL)) {
+		cmd, err := deps.command(l.pid)
+		if err != nil {
+			return nil
+		}
+		if cmd == "" {
+			continue // exited between lsof and ps
+		}
+		classified++
+		if isDedicatedCommand(cmd, cfg.profileDir) {
 			continue
 		}
-		cmd := deps.command(pid)
-		if len(cmd) > 120 {
-			cmd = cmd[:120] + "..."
-		}
-		log.Printf("[agent] CDP port %s is held by another process (pid %d: %s) — not launching; free the port or set CRAWL_CDP_URL to a free loopback port", port, pid, cmd)
-		return fmt.Errorf("%w: port %s, pid %d (%s)", errChromePortConflict, port, pid, cmd)
+		logPortConflict(port, l.pid, cmd)
+		return errChromePortConflict
 	}
-	return nil
+	if classified > 0 || !reachable {
+		return nil
+	}
+	pids, err := deps.dedicated(cfg.profileDir)
+	if err != nil || len(pids) > 0 {
+		return nil
+	}
+	log.Printf("[agent] CDP port %s answers, but lsof shows no listener on it and no dedicated Chrome runs — treating it as another user's process; not launching; free the port or set CRAWL_CDP_URL to a free loopback port", port)
+	return errChromePortConflict
 }
 
-// listCDPListeners returns the PIDs LISTENING on a TCP port (IPv4 and IPv6). A failed
-// lookup reads as no listeners, so the check stays advisory where lsof is absent.
-func listCDPListeners(port string) []int {
-	out, _ := exec.Command("/usr/sbin/lsof", "-nP", "-iTCP:"+port, "-sTCP:LISTEN", "-t").Output()
-	var pids []int
-	for line := range strings.SplitSeq(string(out), "\n") {
-		if pid, err := strconv.Atoi(strings.TrimSpace(line)); err == nil {
-			pids = append(pids, pid)
-		}
+// logPortConflict names the holder in the local log. The command is cut to 120 characters.
+func logPortConflict(port string, pid int, cmd string) {
+	if len(cmd) > 120 {
+		cmd = cmd[:120] + "..."
 	}
-	return pids
+	log.Printf("[agent] CDP port %s is held by another process (pid %d: %s) — not launching; free the port or set CRAWL_CDP_URL to a free loopback port", port, pid, cmd)
 }
 
-// processCommand returns a PID's command line, or "" if it has already exited.
-func processCommand(pid int) string {
-	out, err := exec.Command("/bin/ps", "-o", "command=", "-p", strconv.Itoa(pid)).Output()
+// cdpLoopbackHost is the lsof host a CDP URL's listeners must be on. 127.0.0.1 and [::1] count
+// only their own family, and localhost may resolve either way, so it counts every listener. The
+// empty string means every listener.
+func cdpLoopbackHost(cdpURL string) string {
+	u, err := url.Parse(cdpURL)
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(out))
+	switch strings.ToLower(u.Hostname()) {
+	case "127.0.0.1":
+		return "127.0.0.1"
+	case "::1":
+		return "[::1]"
+	default:
+		return ""
+	}
+}
+
+// listenersOnHost keeps the listeners that answer on host: that address and the wildcard. An empty
+// host keeps all of them.
+func listenersOnHost(all []cdpListener, host string) []cdpListener {
+	if host == "" {
+		return all
+	}
+	var kept []cdpListener
+	for _, l := range all {
+		if l.host == host || l.host == "*" {
+			kept = append(kept, l)
+		}
+	}
+	return kept
+}
+
+// listCDPListeners returns the sockets LISTENing on a TCP port, IPv4 and IPv6. lsof exits 1 when
+// nothing matches, which is no listeners and no error. Any other failure is an error for the caller
+// to fail open on.
+func listCDPListeners(port string) ([]cdpListener, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), cdpToolTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "/usr/sbin/lsof", "-nP", "-iTCP:"+port, "-sTCP:LISTEN", "-F", "pn").Output()
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && ee.ExitCode() == 1 {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return parseLsofListeners(string(out)), nil
+}
+
+// parseLsofListeners reads `lsof -F pn` output. A "p<pid>" line starts a process, and each following
+// "n<address>" line is one listening socket, such as 127.0.0.1:9222, [::1]:9222 or *:9222.
+func parseLsofListeners(out string) []cdpListener {
+	var ls []cdpListener
+	pid := 0
+	for line := range strings.SplitSeq(out, "\n") {
+		if len(line) < 2 {
+			continue
+		}
+		switch line[0] {
+		case 'p':
+			pid, _ = strconv.Atoi(line[1:])
+		case 'n':
+			if pid <= 0 {
+				continue
+			}
+			host := line[1:]
+			if i := strings.LastIndex(host, ":"); i >= 0 {
+				host = host[:i]
+			}
+			ls = append(ls, cdpListener{pid: pid, host: host})
+		}
+	}
+	return ls
+}
+
+// processCommand returns a PID's command line. It returns "" with no error when the process has
+// already exited: ps exits 1 with no output for a pid that is gone. Any other failure is an error.
+func processCommand(pid int) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), cdpToolTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "/bin/ps", "-o", "command=", "-p", strconv.Itoa(pid)).Output()
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && ee.ExitCode() == 1 && strings.TrimSpace(string(out)) == "" {
+			return "", nil
+		}
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // chromeReachable reports whether the CDP endpoint answers /json/version.
@@ -268,11 +447,20 @@ func chromeReachable(cdpURL string) bool {
 // dedicatedChromePIDs runs `ps -axww -o pid=,command=` and returns the PIDs of the
 // dedicated-profile Chrome only (via matchDedicatedPIDs).
 func dedicatedChromePIDs(profileDir string) []int {
-	out, err := exec.Command("/bin/ps", "-axww", "-o", "pid=,command=").Output()
+	pids, _ := dedicatedChromePIDsChecked(profileDir)
+	return pids
+}
+
+// dedicatedChromePIDsChecked is dedicatedChromePIDs with the ps error kept, for callers that must
+// fail open rather than read a failed lookup as "none running".
+func dedicatedChromePIDsChecked(profileDir string) ([]int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), cdpToolTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "/bin/ps", "-axww", "-o", "pid=,command=").Output()
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return matchDedicatedPIDs(string(out), profileDir)
+	return matchDedicatedPIDs(string(out), profileDir), nil
 }
 
 // killDedicatedChrome SIGKILLs the dedicated-profile Chrome and waits up to ~10s
@@ -407,9 +595,13 @@ func startDetachedReaped(bin string, args []string) (int, error) {
 // shell's recover_wedged_chrome — if Chrome won't die it does NOT relaunch (avoids
 // a second instance on the profile).
 func recoverWedgedChrome(cfg chromeConfig) error {
-	// A foreign holder of the port is never killed, and relaunching would only hand off to
-	// it. recover is also reached without ensureChromeWarm (the repair path), so check here.
-	if err := checkCDPPortOwner(cfg, osChromeDeps()); err != nil {
+	// Validate before any kill. A foreign holder of the port is never killed, and relaunching would
+	// only hand off to it. recover is also reached without ensureChromeWarm (the repair path), so
+	// the checks run here too.
+	if _, err := chromeCDPPort(cfg.cdpURL); err != nil {
+		return err
+	}
+	if err := checkCDPPortOwner(cfg, osChromeDeps(), chromeReachable(cfg.cdpURL)); err != nil {
 		return err
 	}
 	if !killDedicatedChrome(cfg.profileDir) {

@@ -61,20 +61,21 @@ type cycleHarness struct {
 	deps       cycleDeps
 	sigs       chan os.Signal
 
-	mu         sync.Mutex
-	installs   int
-	installRC  int
-	driverFail int
-	recovers   int
-	recoverErr error
-	chromeFn   func(ctx context.Context) (string, int)
-	reach      string
-	probeCode  int
-	probeWord  string
-	warmFn     func(ctx context.Context) int
-	warmRC     int
-	gaps       []string
-	exits      []int
+	mu           sync.Mutex
+	installs     int
+	installRC    int
+	driverFail   int
+	recovers     int
+	recoverErr   error
+	chromeFn     func(ctx context.Context) (string, int)
+	portConflict bool
+	reach        string
+	probeCode    int
+	probeWord    string
+	warmFn       func(ctx context.Context) int
+	warmRC       int
+	gaps         []string
+	exits        []int
 }
 
 func newCycleHarness(t *testing.T, plan []fakeStep) *cycleHarness {
@@ -136,6 +137,11 @@ func newCycleHarness(t *testing.T, plan []fakeStep) *cycleHarness {
 			return "not_used", 0
 		},
 		chromeReachable: func() string { return h.reach },
+		chromePortConflict: func() bool {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+			return h.portConflict
+		},
 		recoverChrome: func() error {
 			h.mu.Lock()
 			defer h.mu.Unlock()

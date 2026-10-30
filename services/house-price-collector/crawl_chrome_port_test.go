@@ -1,28 +1,37 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 )
 
-// withQuietPort fills the port-ownership deps for tests that are not about the port: nothing
-// listens, nothing is dedicated, and a kill would succeed.
+const (
+	dedicatedTestPID = 54121 // the dedicated-profile Chrome
+	foreignTestPID   = 83542 // the operator's everyday Chrome, remote debugging on
+)
+
+// withQuietPort fills the port-ownership deps for tests that are not about the port. Nothing
+// listens, and ps cannot list dedicated Chrome. A failed ps lookup reads as "unknown", so the
+// invisible-holder rule fails open and no stale instance is seen.
 func withQuietPort(d chromeDeps) chromeDeps {
 	if d.listeners == nil {
-		d.listeners = func(string) []int { return nil }
+		d.listeners = func(string) ([]cdpListener, error) { return nil, nil }
 	}
 	if d.dedicated == nil {
-		d.dedicated = func(string) []int { return nil }
+		d.dedicated = func(string) ([]int, error) { return nil, errors.New("ps not stubbed") }
 	}
 	if d.command == nil {
-		d.command = func(int) string { return "" }
+		d.command = func(int) (string, error) { return "", nil }
 	}
 	if d.kill == nil {
 		d.kill = func(string) bool { return true }
@@ -30,16 +39,51 @@ func withQuietPort(d chromeDeps) chromeDeps {
 	return d
 }
 
+// noReprobeWait removes the stale-instance re-probe pause for one test.
+func noReprobeWait(t *testing.T) {
+	t.Helper()
+	prev := staleReprobeWait
+	staleReprobeWait = 0
+	t.Cleanup(func() { staleReprobeWait = prev })
+}
+
+// captureLog routes the package log to a buffer for one test.
+func captureLog(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var buf bytes.Buffer
+	prev := log.Writer()
+	log.SetOutput(&buf)
+	t.Cleanup(func() { log.SetOutput(prev) })
+	return &buf
+}
+
+func dedicatedCommand(profile string) string {
+	return "Google Chrome --remote-debugging-port=9333 --user-data-dir=" + profile + " https://www.realestate.com.au/"
+}
+
+func foreignCommand(pid int) string {
+	return fmt.Sprintf("Google Chrome --remote-debugging-port=9222 --pid=%d", pid)
+}
+
+// wildcardListeners is the LISTEN set for pids bound to every address.
+func wildcardListeners(pids []int) []cdpListener {
+	var ls []cdpListener
+	for _, pid := range pids {
+		ls = append(ls, cdpListener{pid: pid, host: "*"})
+	}
+	return ls
+}
+
 // portScenario is one ensureChromeWarm run against a port with the given holders.
 type portScenario struct {
 	name         string
 	cdpURL       string
-	listeners    []int  // lsof's LISTEN set for the port
+	listeners    []int  // LISTEN pids, bound to every address
 	dedicated    []int  // dedicated-profile Chrome PIDs
 	reachable    []bool // answers per call; the last value repeats
 	killOK       bool
 	wantConflict bool
-	wantErr      bool   // any error (a conflict counts)
+	wantErr      bool
 	wantPort     string // the port the listener lookup was asked about
 	wantLaunch   int
 	wantKill     int
@@ -47,12 +91,8 @@ type portScenario struct {
 	wantLocks    bool // the profile's SingletonLock is removed
 }
 
-const (
-	dedicatedTestPID = 54121 // the dedicated-profile Chrome
-	foreignTestPID   = 83542 // the operator's everyday Chrome, remote debugging on
-)
-
 func TestEnsureChromeWarmPortOwnership(t *testing.T) {
+	noReprobeWait(t)
 	cases := []portScenario{
 		{
 			name:         "foreign listener while unreachable: conflict, no launch, no kill",
@@ -86,7 +126,7 @@ func TestEnsureChromeWarmPortOwnership(t *testing.T) {
 			wantPort:     "9222",
 		},
 		{
-			name:      "127.0.0.1 CDP URL: port comes from the URL, dedicated listener is warm",
+			name:      "127.0.0.1 CDP URL: dedicated listener is warm",
 			cdpURL:    "http://127.0.0.1:9333",
 			listeners: []int{dedicatedTestPID},
 			dedicated: []int{dedicatedTestPID},
@@ -115,7 +155,7 @@ func TestEnsureChromeWarmPortOwnership(t *testing.T) {
 			name:       "stale dedicated instance on another port: killed, locks cleared, launched",
 			cdpURL:     "http://localhost:9333",
 			dedicated:  []int{dedicatedTestPID},
-			reachable:  []bool{false, true},
+			reachable:  []bool{false, false, true}, // initial, re-probe, after launch
 			killOK:     true,
 			wantKill:   1,
 			wantLaunch: 1,
@@ -127,7 +167,7 @@ func TestEnsureChromeWarmPortOwnership(t *testing.T) {
 			cdpURL:     "http://localhost:9333",
 			listeners:  []int{dedicatedTestPID},
 			dedicated:  []int{dedicatedTestPID},
-			reachable:  []bool{false, true},
+			reachable:  []bool{false, false, true},
 			killOK:     true,
 			wantKill:   1,
 			wantLaunch: 1,
@@ -135,17 +175,35 @@ func TestEnsureChromeWarmPortOwnership(t *testing.T) {
 			wantLocks:  true,
 		},
 		{
+			name:      "stale instance that answers on re-probe is kept, not killed",
+			cdpURL:    "http://localhost:9333",
+			dedicated: []int{dedicatedTestPID},
+			reachable: []bool{false, true}, // a busy warm Chrome that missed the first probe
+			killOK:    true,
+			wantProbe: 1,
+		},
+		{
 			name:      "stale dedicated instance that will not die: refused, no launch",
 			cdpURL:    "http://localhost:9333",
 			dedicated: []int{dedicatedTestPID},
-			reachable: []bool{false},
+			reachable: []bool{false, false},
 			killOK:    false,
 			wantErr:   true,
 			wantKill:  1,
 		},
+		{
+			name:         "port answers, nothing visible, no dedicated Chrome: another user's holder",
+			cdpURL:       "http://localhost:9333",
+			reachable:    []bool{true},
+			killOK:       true,
+			wantConflict: true,
+			wantErr:      true,
+			wantPort:     "9333",
+		},
 	}
 	for _, sc := range cases {
 		t.Run(sc.name, func(t *testing.T) {
+			captureLog(t)
 			profile := t.TempDir()
 			lock := filepath.Join(profile, "SingletonLock")
 			if err := os.WriteFile(lock, nil, 0o600); err != nil {
@@ -164,10 +222,18 @@ func TestEnsureChromeWarmPortOwnership(t *testing.T) {
 				launch:    func(chromeConfig) error { launches++; return nil },
 				recover:   func(chromeConfig) error { t.Fatal("recover must not run in a port scenario"); return nil },
 				warmProbe: func() int { probes++; return 0 },
-				listeners: func(port string) []int { gotPort = port; return sc.listeners },
-				dedicated: func(string) []int { return sc.dedicated },
-				command:   func(pid int) string { return fmt.Sprintf("Google Chrome --pid=%d", pid) },
-				kill:      func(string) bool { kills++; return sc.killOK },
+				listeners: func(port string) ([]cdpListener, error) {
+					gotPort = port
+					return wildcardListeners(sc.listeners), nil
+				},
+				dedicated: func(string) ([]int, error) { return sc.dedicated, nil },
+				command: func(pid int) (string, error) {
+					if slices.Contains(sc.dedicated, pid) {
+						return dedicatedCommand(profile), nil
+					}
+					return foreignCommand(pid), nil
+				},
+				kill: func(string) bool { kills++; return sc.killOK },
 			})
 
 			err := ensureChromeWarm(cfg, deps)
@@ -192,107 +258,180 @@ func TestEnsureChromeWarmPortOwnership(t *testing.T) {
 	}
 }
 
-// A conflict names the holder, and the command is cut so one process cannot flood the log.
-func TestCheckCDPPortOwnerTruncatesHolderCommand(t *testing.T) {
-	long := strings.Repeat("x", 500)
-	deps := withQuietPort(chromeDeps{
-		listeners: func(string) []int { return []int{foreignTestPID} },
-		command:   func(int) string { return long },
-	})
-	err := checkCDPPortOwner(chromeConfig{cdpURL: "http://localhost:9222", profileDir: t.TempDir()}, deps)
-	if !errors.Is(err, errChromePortConflict) {
-		t.Fatalf("err = %v, want a port conflict", err)
-	}
-	msg := err.Error()
-	if !strings.Contains(msg, fmt.Sprintf("pid %d", foreignTestPID)) {
-		t.Fatalf("error %q does not name the holder pid", msg)
-	}
-	if strings.Contains(msg, strings.Repeat("x", 121)) || !strings.Contains(msg, "...") {
-		t.Fatalf("error %q is not truncated to ~120 characters", msg)
-	}
-}
-
-// The state and exit code a conflict reports to the cycle summary and the agent exit.
-func TestChromeStateForWarmError(t *testing.T) {
+// A listener is classified by its own address family. A 127.0.0.1 URL must not be refused for a
+// holder that only binds [::1], because requests to 127.0.0.1 never reach it (reviewer repro R3).
+func TestCheckCDPPortOwnerMatchesAddressFamily(t *testing.T) {
 	cases := []struct {
-		name      string
-		err       error
-		wantState string
-		wantCode  int
+		name         string
+		cdpURL       string
+		listeners    []cdpListener
+		wantConflict bool
 	}{
-		{"port conflict", fmt.Errorf("%w: port 9222, pid %d (Google Chrome)", errChromePortConflict, foreignTestPID), "port_conflict", 8},
-		{"driver missing", errCrawlEnvBroken, "env_broken", 8},
-		{"chrome still unreachable", errors.New("chrome still unreachable at http://localhost:9333 after launch"), "unusable", 4},
+		{"127.0.0.1 URL, foreign on [::1] only", "http://127.0.0.1:9333", []cdpListener{{foreignTestPID, "[::1]"}}, false},
+		{"127.0.0.1 URL, foreign on 127.0.0.1", "http://127.0.0.1:9333", []cdpListener{{foreignTestPID, "127.0.0.1"}}, true},
+		{"127.0.0.1 URL, foreign on wildcard", "http://127.0.0.1:9333", []cdpListener{{foreignTestPID, "*"}}, true},
+		{"[::1] URL, foreign on 127.0.0.1 only", "http://[::1]:9333", []cdpListener{{foreignTestPID, "127.0.0.1"}}, false},
+		{"[::1] URL, foreign on [::1]", "http://[::1]:9333", []cdpListener{{foreignTestPID, "[::1]"}}, true},
+		{"localhost URL, foreign on 127.0.0.1", "http://localhost:9333", []cdpListener{{foreignTestPID, "127.0.0.1"}}, true},
+		{"localhost URL, foreign on [::1]", "http://localhost:9333", []cdpListener{{foreignTestPID, "[::1]"}}, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			state, code := chromeStateForWarmError(tc.err)
-			if state != tc.wantState || code != tc.wantCode {
-				t.Fatalf("state=%q code=%d, want %q %d", state, code, tc.wantState, tc.wantCode)
+			captureLog(t)
+			deps := withQuietPort(chromeDeps{
+				listeners: func(string) ([]cdpListener, error) { return tc.listeners, nil },
+				command:   func(pid int) (string, error) { return foreignCommand(pid), nil },
+			})
+			err := checkCDPPortOwner(chromeConfig{cdpURL: tc.cdpURL, profileDir: t.TempDir()}, deps, true)
+			if errors.Is(err, errChromePortConflict) != tc.wantConflict {
+				t.Fatalf("err = %v, want conflict %v", err, tc.wantConflict)
 			}
 		})
 	}
-	if got := chromeWord("port_conflict"); got != "port_conflict" {
-		t.Fatalf("chromeWord(port_conflict) = %q, want port_conflict (not collapsed to unusable)", got)
+}
+
+// lsof -F pn output parses into one entry per listening socket, owned by its process.
+func TestParseLsofListeners(t *testing.T) {
+	out := "p83542\nn127.0.0.1:9222\nn[::1]:9222\nf5\np54121\nn*:9333\n"
+	got := parseLsofListeners(out)
+	want := []cdpListener{{83542, "127.0.0.1"}, {83542, "[::1]"}, {54121, "*"}}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("parseLsofListeners = %v, want %v", got, want)
 	}
 }
 
-// listCDPListeners is the real lsof. The test process holds a loopback port, so lsof must name
-// this PID. Skipped where lsof is absent.
-func TestListCDPListenersFindsOwnListener(t *testing.T) {
-	if _, err := os.Stat("/usr/sbin/lsof"); err != nil {
-		t.Skip("lsof not available")
+// Every failed lookup fails open: a conflict is never reported from a guess.
+func TestCheckCDPPortOwnerFailsOpen(t *testing.T) {
+	cases := []struct {
+		name      string
+		listeners func(string) ([]cdpListener, error)
+		command   func(int) (string, error)
+		reachable bool
+		dedicated func(string) ([]int, error)
+	}{
+		{
+			name:      "lsof fails",
+			listeners: func(string) ([]cdpListener, error) { return nil, errors.New("lsof: timed out") },
+			reachable: true,
+		},
+		{
+			name:      "ps fails on our own Chrome (repro R2)",
+			listeners: func(string) ([]cdpListener, error) { return []cdpListener{{dedicatedTestPID, "*"}}, nil },
+			command:   func(int) (string, error) { return "", errors.New("ps: failed") },
+			reachable: true,
+		},
+		{
+			name:      "listener exited between lsof and ps",
+			listeners: func(string) ([]cdpListener, error) { return []cdpListener{{foreignTestPID, "*"}}, nil },
+			command:   func(int) (string, error) { return "", nil },
+			reachable: true,
+			dedicated: func(string) ([]int, error) { return nil, errors.New("ps failed") },
+		},
 	}
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = ln.Close() }()
-	_, port, _ := net.SplitHostPort(ln.Addr().String())
-
-	if pids := listCDPListeners(port); !containsPID(pids, os.Getpid()) {
-		t.Fatalf("listCDPListeners(%s) = %v, want it to include this process (%d)", port, pids, os.Getpid())
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			captureLog(t)
+			deps := withQuietPort(chromeDeps{listeners: tc.listeners, command: tc.command, dedicated: tc.dedicated})
+			err := checkCDPPortOwner(chromeConfig{cdpURL: "http://localhost:9333", profileDir: t.TempDir()}, deps, tc.reachable)
+			if err != nil {
+				t.Fatalf("err = %v, want nil (fail open)", err)
+			}
+		})
 	}
 }
 
-// recoverWedgedChrome is the repair path's recovery, which runs without ensureChromeWarm. With a
-// foreign holder on the port it must refuse before any kill. The holder here is this test
-// process, and the profile matches nothing, so a missing check would reach the real kill path.
-func TestRecoverWedgedChromeRefusesForeignHolder(t *testing.T) {
-	if _, err := os.Stat("/usr/sbin/lsof"); err != nil {
-		t.Skip("lsof not available")
-	}
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = ln.Close() }()
-	_, port, _ := net.SplitHostPort(ln.Addr().String())
-
-	cfg := chromeConfig{
-		bin:        "/nonexistent/chrome",
-		profileDir: t.TempDir(),
-		cdpURL:     "http://127.0.0.1:" + port,
-	}
-	err = recoverWedgedChrome(cfg)
+// The holder's pid and command go to the local log only. The error, which the run record keeps,
+// carries the sentinel and nothing from the foreign argv.
+func TestCheckCDPPortOwnerKeepsHolderArgvOutOfTheError(t *testing.T) {
+	logs := captureLog(t)
+	long := "Google Chrome --secret-flag " + strings.Repeat("x", 500)
+	deps := withQuietPort(chromeDeps{
+		listeners: func(string) ([]cdpListener, error) { return []cdpListener{{foreignTestPID, "*"}}, nil },
+		command:   func(int) (string, error) { return long, nil },
+	})
+	err := checkCDPPortOwner(chromeConfig{cdpURL: "http://localhost:9222", profileDir: t.TempDir()}, deps, true)
 	if !errors.Is(err, errChromePortConflict) {
-		t.Fatalf("recoverWedgedChrome = %v, want a port conflict before any kill or launch", err)
+		t.Fatalf("err = %v, want a port conflict", err)
+	}
+	if err.Error() != errChromePortConflict.Error() {
+		t.Fatalf("error text %q carries more than the sentinel", err.Error())
+	}
+	logged := logs.String()
+	if !strings.Contains(logged, fmt.Sprintf("pid %d", foreignTestPID)) {
+		t.Fatalf("log %q does not name the holder pid", logged)
+	}
+	if strings.Contains(logged, strings.Repeat("x", 121)) || !strings.Contains(logged, "...") {
+		t.Fatalf("log %q is not truncated to ~120 characters", logged)
 	}
 }
 
-func containsPID(pids []int, pid int) bool {
-	for _, p := range pids {
-		if p == pid {
-			return true
-		}
+// A stale-kill target is validated first: a bad or remote endpoint never kills or launches on
+// behalf of a dedicated Chrome it cannot reach.
+func TestEnsureChromeWarmValidatesBeforeKill(t *testing.T) {
+	noReprobeWait(t)
+	cases := []struct {
+		name       string
+		cdpURL     string
+		wantErr    bool
+		wantLaunch int
+	}{
+		{"no port: refused before any kill", "http://localhost", true, 0},
+		{"no port on IPv6: refused before any kill", "http://[::1]", true, 0},
+		{"remote host: never killed, the local launch is as before", "http://host.docker.internal:9333", false, 1},
 	}
-	return false
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			captureLog(t)
+			kills, launches := 0, 0
+			reachable := []bool{false, true}
+			calls := 0
+			deps := withQuietPort(chromeDeps{
+				reachable: func(string) bool { i := min(calls, len(reachable)-1); calls++; return reachable[i] },
+				launch:    func(chromeConfig) error { launches++; return nil },
+				recover:   func(chromeConfig) error { return nil },
+				warmProbe: func() int { return 0 },
+				dedicated: func(string) ([]int, error) { return []int{dedicatedTestPID}, nil },
+				kill:      func(string) bool { kills++; return true },
+			})
+			err := ensureChromeWarm(chromeConfig{cdpURL: tc.cdpURL, profileDir: t.TempDir(), autoWarm: true}, deps)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tc.wantErr)
+			}
+			if kills != 0 {
+				t.Fatalf("kills = %d, want 0 for an endpoint that cannot be validated or is remote", kills)
+			}
+			if launches != tc.wantLaunch {
+				t.Fatalf("launches = %d, want %d", launches, tc.wantLaunch)
+			}
+		})
+	}
 }
 
-// The cycle carries the conflict word through every step that reads Chrome: the drain's preflight,
-// the repair's warm gate and recovery, and the read-only preflight. Each is exit 8, never 4.
+// recoverWedgedChrome validates the endpoint before it reaches the kill.
+func TestRecoverWedgedChromeValidatesFirst(t *testing.T) {
+	if err := recoverWedgedChrome(chromeConfig{cdpURL: "http://localhost", profileDir: t.TempDir()}); err == nil {
+		t.Fatal("recoverWedgedChrome with no CDP port returned nil, want a validation error")
+	}
+}
+
+// Nil dependencies fall back to the production implementation, so a hand-built chromeDeps never
+// dereferences nil (reviewer repro R5). A nil warmProbe reads as unusable.
+func TestEnsureChromeWarmNilDepsFallBack(t *testing.T) {
+	captureLog(t)
+	deps := chromeDeps{}.withOSDefaults()
+	if deps.reachable == nil || deps.listeners == nil || deps.dedicated == nil || deps.command == nil || deps.kill == nil || deps.warmProbe == nil {
+		t.Fatal("withOSDefaults left a dependency nil")
+	}
+	if rc := deps.warmProbe(); rc != 4 {
+		t.Fatalf("default warmProbe = %d, want 4 (unusable)", rc)
+	}
+}
+
+// The cycle carries the conflict through every step that reads Chrome: the drain's preflight, the
+// repair's warm gate and recovery, the read-only preflight and a round's exit 8. Each is exit 8, or 0
+// for the read-only preflight, and never 4.
 func TestCyclePortConflictReportsPortConflict(t *testing.T) {
-	conflict := fmt.Errorf("%w: port 9222, pid %d (Google Chrome)", errChromePortConflict, foreignTestPID)
+	conflict := fmt.Errorf("%w", errChromePortConflict)
 	cases := []struct {
 		name        string
 		job         string
@@ -358,5 +497,128 @@ func TestCyclePortConflictReportsPortConflict(t *testing.T) {
 				t.Fatalf("children spawned = %d, want 0: a port conflict must not run a round", h.spawned())
 			}
 		})
+	}
+}
+
+// A round's exit 8 is a port conflict when a foreign process holds the port (reviewer repro R1). The
+// check runs before any driver install, so the install and its one retry stay unspent, and the
+// summary names the conflict. Without a conflict the same exit 8 still installs the driver once.
+func TestCycleRoundExit8PortConflictSkipsDriverRepair(t *testing.T) {
+	cases := []struct {
+		name         string
+		conflict     bool
+		wantChrome   string
+		wantInstalls int
+		wantSpawned  int
+	}{
+		{name: "port conflict: no install, no retry round", conflict: true, wantChrome: "port_conflict", wantInstalls: 0, wantSpawned: 1},
+		{name: "no conflict: the driver repair runs once, as before", conflict: false, wantChrome: "warm", wantInstalls: 1, wantSpawned: 2},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newCycleHarness(t, []fakeStep{{Exit: 8}, {Exit: 8}})
+			h.chromeFn = func(context.Context) (string, int) { return "warm", 0 }
+			h.portConflict = tc.conflict
+			code := h.runGuarded(20 * time.Second)
+			s := h.summary()
+			if code != 8 || s.ExitCode != 8 {
+				t.Fatalf("exit = %d (summary %d), want 8", code, s.ExitCode)
+			}
+			if s.Env.Chrome != tc.wantChrome {
+				t.Fatalf("env.chrome = %q, want %q", s.Env.Chrome, tc.wantChrome)
+			}
+			if h.installCount() != tc.wantInstalls {
+				t.Fatalf("driver installs = %d, want %d", h.installCount(), tc.wantInstalls)
+			}
+			if h.spawned() != tc.wantSpawned {
+				t.Fatalf("children spawned = %d, want %d", h.spawned(), tc.wantSpawned)
+			}
+		})
+	}
+}
+
+// The run record keeps a port conflict as its word. The foreign pid and command never reach the DB.
+func TestRunRecordDetailKeepsArgvOut(t *testing.T) {
+	if got := runRecordDetail("self-warm failed: ", fmt.Errorf("%w", errChromePortConflict)); got != "self-warm failed: port_conflict" {
+		t.Fatalf("detail = %q, want the port_conflict word only", got)
+	}
+	other := errors.New("chrome still unreachable")
+	if got := runRecordDetail("x: ", other); got != "x: chrome still unreachable" {
+		t.Fatalf("detail = %q", got)
+	}
+}
+
+// chromeStateForWarmError names a conflict and keeps the word and exit code the cycle reports.
+func TestChromeStateForWarmError(t *testing.T) {
+	cases := []struct {
+		name      string
+		err       error
+		wantState string
+		wantCode  int
+	}{
+		{"port conflict", fmt.Errorf("%w", errChromePortConflict), "port_conflict", 8},
+		{"driver missing", errCrawlEnvBroken, "env_broken", 8},
+		{"chrome still unreachable", errors.New("chrome still unreachable at http://localhost:9333 after launch"), "unusable", 4},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state, code := chromeStateForWarmError(tc.err)
+			if state != tc.wantState || code != tc.wantCode {
+				t.Fatalf("state=%q code=%d, want %q %d", state, code, tc.wantState, tc.wantCode)
+			}
+		})
+	}
+	if got := chromeWord("port_conflict"); got != "port_conflict" {
+		t.Fatalf("chromeWord(port_conflict) = %q, want port_conflict (not collapsed to unusable)", got)
+	}
+}
+
+// listCDPListeners is the real lsof. The test process holds a loopback port, so lsof must name this
+// PID on 127.0.0.1. Skipped where lsof is absent.
+func TestListCDPListenersFindsOwnListener(t *testing.T) {
+	if _, err := os.Stat("/usr/sbin/lsof"); err != nil {
+		t.Skip("lsof not available")
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+
+	ls, err := listCDPListeners(port)
+	if err != nil {
+		t.Fatalf("listCDPListeners(%s): %v", port, err)
+	}
+	for _, l := range ls {
+		if l.pid == os.Getpid() && l.host == "127.0.0.1" {
+			return
+		}
+	}
+	t.Fatalf("listCDPListeners(%s) = %v, want this process (%d) on 127.0.0.1", port, ls, os.Getpid())
+}
+
+// recoverWedgedChrome is the repair path's recovery, which runs without ensureChromeWarm. With a
+// foreign holder on the port it must refuse before any kill. The holder here is this test process,
+// and the profile matches nothing, so a missing check would reach the real kill path.
+func TestRecoverWedgedChromeRefusesForeignHolder(t *testing.T) {
+	if _, err := os.Stat("/usr/sbin/lsof"); err != nil {
+		t.Skip("lsof not available")
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+
+	cfg := chromeConfig{
+		bin:        "/nonexistent/chrome",
+		profileDir: t.TempDir(),
+		cdpURL:     "http://127.0.0.1:" + port,
+	}
+	err = recoverWedgedChrome(cfg)
+	if !errors.Is(err, errChromePortConflict) {
+		t.Fatalf("recoverWedgedChrome = %v, want a port conflict before any kill or launch", err)
 	}
 }
