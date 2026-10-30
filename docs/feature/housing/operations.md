@@ -308,6 +308,67 @@ Kasada stub → relaunch). The brandbrain token needs no minting — the collect
 re-reads the running macOS agent's token on 401; `BRANDBRAIN_AGENT_TOKEN` is an
 optional fallback and, as a ~15-min snapshot, rescues nothing once stale.
 
+### Chrome lifecycle, circuit state and the Domain reset (2026-10-31)
+
+Three things changed how the dedicated Chrome and the per-source breaker
+behave across a cycle. All of them live in `services/house-price-collector`.
+
+**Chrome per cycle.** `CRAWL_CHROME_LIFECYCLE=cycle` is the default. When a
+`drain` or `repair` cycle ends, the cycle parent (after its last round, still
+holding the lock) quits the dedicated Chrome: CDP `Browser.close` first, so
+Chrome flushes its cookie database, then up to 15 s for the dedicated PIDs to
+exit, then the existing `killDedicatedChrome` as the fallback. Before the quit
+the log names the dedicated PID count, their summed RSS and the profile size.
+The next cycle's `ensureChromeWarm` launches Chrome fresh, and the native
+startup navigation re-warms Kasada. `CRAWL_CHROME_LIFECYCLE=persistent` keeps
+the old behaviour. The quit runs only with CDP mode and `CRAWL_AUTO_WARM` not
+`false`. It is never part of `preflight`, which stays read-only. A CDP port held
+by another process is refused before any signal is sent, and a `ps` error means
+no graceful close, no prune and no relaunch.
+
+**Disk hygiene.** Chrome is launched with `--disk-cache-size=268435456`
+(256 MiB). After the quit, and only once the dedicated Chrome is confirmed gone,
+the cycle prunes the profile's cache directories from this allowlist, and
+nothing else:
+
+| Directory (under the profile) | Kind |
+|---|---|
+| `Default/Cache`, `Default/Code Cache`, `Default/GPUCache`, `GPUCache` | HTTP and code caches |
+| `ShaderCache`, `GrShaderCache`, `GraphiteDawnCache` | shader caches |
+| `Default/DawnGraphiteCache`, `Default/DawnWebGPUCache` | WebGPU caches |
+| `Default/Service Worker/CacheStorage`, `Default/Service Worker/ScriptCache` | service-worker caches |
+
+Never touched: `Default/Network` (the cookie database lives there in current
+Chrome), `Default/Cookies`, `Default/Local Storage`, `Default/IndexedDB`,
+`Default/Session Storage`, `Default/Preferences` and `Local State`. Each path is
+checked with `Lstat` component by component. A symlink, or a file where a
+directory belongs, is skipped and never followed. The log reports MB freed and
+the profile size left behind.
+
+**Circuit state across rounds and cycles.** The per-source breaker
+(`rea`, `domain`) now persists to `~/.shorted-housing-crawl/circuit-state.json`
+(override: `CRAWL_CIRCUIT_STATE_FILE`). Each round is a fresh child process, and
+before this change every round restarted each source at the base cooldown: a
+Domain block that had doubled was probed again 5 minutes later. The file is
+written atomically (temp file, `0600`, rename) after every change, and only by
+the lock holder or its child, so there is one writer. A dry run never writes it.
+An entry whose open window and last update are both older than
+`CRAWL_CIRCUIT_MAX_S` is expired. A missing file is a fresh start. A corrupt or
+unreadable file is logged and also a fresh start, so the breaker never stops a
+crawl. Delete the file to reset every source to closed:
+
+```bash
+rm ~/.shorted-housing-crawl/circuit-state.json   # every source closed, next round starts at the base cooldown
+```
+
+**Domain session reset.** When the Domain circuit trips (not on each probe),
+the collector deletes Domain's cookies from the dedicated Chrome's context: the
+cookies whose domain is `domain.com.au` or a subdomain of it (`_abck`, `bm_sz`,
+`ak_bmsc` and the rest). Nothing else is deleted, and `realestate.com.au`'s
+Kasada clearance stays. The log reports the count. It runs only with the
+collector managing a loopback dedicated Chrome. A failed reset is logged, and
+the cooldown applies regardless.
+
 ## Deploying the rig
 
 The rig binary (`~/bin/house-price-collector`) and the staged wrappers

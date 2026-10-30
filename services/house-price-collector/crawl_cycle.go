@@ -201,9 +201,13 @@ type cycleDeps struct {
 	probeIngest        func(ctx context.Context) (int, string)
 	warmcheck          func(ctx context.Context) int
 	reportGap          func(cycleID, outcome string, exit int)
-	stdout             io.Writer
-	events             *crawlEvents
-	now                func() time.Time
+	// cycleEnd runs once after a drain or repair's last round, still under the lock: the dedicated
+	// Chrome quit and prune (crawl_chrome_lifecycle.go). Nil does nothing, so the tests never reach a
+	// real Chrome; the production wiring is set in runCycleMode.
+	cycleEnd func()
+	stdout   io.Writer
+	events   *crawlEvents
+	now      func() time.Time
 	// sigs is the injected signal channel. Nil means SIGTERM and SIGINT via signal.Notify.
 	sigs <-chan os.Signal
 	// exit ends the process after a forced (second-signal) exit. Nil means os.Exit.
@@ -659,6 +663,7 @@ func runCycleMode(stdout io.Writer, job string, dryRunFlag bool, maxDuration tim
 		chromeReachable:    defaultChromeReachable,
 		recoverChrome:      defaultRecoverChrome,
 		chromePortConflict: defaultCDPPortConflict,
+		cycleEnd:           defaultCycleEndChrome,
 		stdout:             stdout,
 		events:             events,
 		now:                time.Now,
@@ -870,7 +875,11 @@ func (c *cycleRunner) withLock(job string, fn func() (string, int)) (string, int
 		c.mu.Unlock()
 		c.setPre(func() { c.preLock = lockHeldByCycle })
 		defer c.releaseLock()
-		return fn()
+		out, code := fn()
+		if c.deps.cycleEnd != nil {
+			c.deps.cycleEnd()
+		}
+		return out, code
 	}
 }
 

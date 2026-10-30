@@ -28,6 +28,10 @@ type crawlCircuitBreaker struct {
 	base     time.Duration // first cooldown when a circuit opens
 	max      time.Duration // cap on the (doubling) cooldown
 	circuits map[string]*sourceCircuit
+	// path is the state file record() saves to after every change, so a source's streak and
+	// backoff survive the child process that ends the round (see crawl_circuit_state.go). Empty
+	// keeps the breaker in memory only, as the dry run and the tests use it.
+	path string
 }
 
 // sourceCircuit is one source's breaker state (persisted across suburbs).
@@ -35,6 +39,7 @@ type sourceCircuit struct {
 	consec    int           // consecutive blocked sweeps for this source
 	openUntil time.Time     // circuit OPEN (skip this source) until here
 	backoff   time.Duration // current cooldown; doubles each re-open, capped at max
+	updated   time.Time     // the last record() for this source; with openUntil, decides expiry
 }
 
 // newCircuitBreaker builds a breaker. trip<1 ⇒ 1; a non-positive base ⇒ 5m; a
@@ -78,6 +83,8 @@ func (cb *crawlCircuitBreaker) skip(source string, now time.Time) (bool, time.Du
 // up to max. Returns whether it (re)opened and the cooldown applied.
 func (cb *crawlCircuitBreaker) record(source string, blocked bool, now time.Time) (opened bool, cooldown time.Duration) {
 	sc := cb.circuit(source)
+	sc.updated = now
+	defer cb.save()
 	if !blocked {
 		sc.consec = 0
 		sc.backoff = 0

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -47,5 +49,14 @@ func TestMain(m *testing.M) {
 		os.Args = append([]string{"house-price-collector"}, strings.Fields(os.Getenv("HPC_CHILD_ARGS"))...)
 		os.Exit(run())
 	}
-	os.Exit(testpostgres.Main(m))
+	// The circuit state defaults under the real home. Every test run gets a scratch file, so no test
+	// writes ~/.shorted-housing-crawl; a test that needs its own file sets it with t.Setenv.
+	scratch, err := os.MkdirTemp("", "hpc-circuit-state-")
+	if err != nil {
+		log.Fatalf("circuit state scratch dir: %v", err)
+	}
+	_ = os.Setenv(circuitStateEnv, filepath.Join(scratch, "circuit-state.json"))
+	code := testpostgres.Main(m)
+	_ = os.RemoveAll(scratch)
+	os.Exit(code)
 }

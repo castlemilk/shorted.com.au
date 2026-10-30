@@ -949,7 +949,13 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 	// of being hammered on every suburb — while the healthy portal keeps crawling.
 	// This is the state the per-job listingsCrawler (rebuilt each suburb) can't
 	// hold, which is why Domain-only blocking previously ran unthrottled.
-	cb := newCircuitBreaker(cfg.circuitTrip, cfg.circuitBase, cfg.circuitMax)
+	// The state is loaded from and saved to the file (crawl_circuit_state.go), so a streak and its
+	// backoff carry across the rounds and cycles of one crawl. A dry run never writes it.
+	circuitPath := circuitStatePath()
+	if cfg.dryRun {
+		circuitPath = ""
+	}
+	cb := newPersistentCircuitBreaker(cfg.circuitTrip, cfg.circuitBase, cfg.circuitMax, circuitPath, time.Now().UTC())
 	circuitSources := []string{"rea", "domain"}
 
 	// Optional LIVE telemetry stream (crawl_telemetry.go): off unless CRAWL_TELEMETRY
@@ -1376,6 +1382,9 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		domEvents, domErr = lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
 		if opened, cd := cb.record("domain", lc.domBlocks > 0, runTs); opened {
 			log.Printf("[agent] domain circuit OPEN after %d consecutive blocked sweep(s) — backing off %s before probing again", cb.circuit("domain").consec, cd.Round(time.Second))
+			if !cfg.dryRun {
+				resetDomainSessionOnTrip(fetcher, cfg.cdpURL)
+			}
 		}
 	}
 
