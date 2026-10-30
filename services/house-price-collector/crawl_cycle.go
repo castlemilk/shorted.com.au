@@ -1848,7 +1848,7 @@ func (c *cycleRunner) absorb(p *roundProc, round int, line []byte, res *cycleRou
 		if !probe {
 			res.pushFailed++
 		}
-	case "page", "fetch", "submit", "finalize_started", "shadow", "shadow_circuit", "startup":
+	case "page", "fetch", "submit", "finalize_started", "shadow", "shadow_circuit", "startup", "portal":
 	default:
 		return
 	}

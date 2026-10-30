@@ -27,6 +27,7 @@ var contractEventFields = map[string]struct{ required, optional []string }{
 	"ingest_error": {required: []string{"probe", "code"}},
 	"cycle_done":   {required: []string{"outcome", "exit_code"}},
 	"startup":      {required: []string{"step", "stage"}, optional: []string{"outcome"}},
+	"portal":       {required: []string{"source", "state", "consecutive_blocked", "backoff_s"}, optional: []string{"open_until"}},
 }
 
 // contractEventRow is the doc's events-table row for typ.
@@ -69,6 +70,11 @@ func collectContractEvents(t *testing.T) map[string][]map[string]any {
 	// A repair: its phases, and a forced install.
 	h = newCycleHarness(t, []fakeStep{{Exit: 0}})
 	h.cfg.job = cycleJobRepair
+	h.runGuarded(20 * time.Second)
+	add(h)
+
+	// A child's circuit state: both sources at start, one of them open.
+	h = newCycleHarness(t, []fakeStep{{Portal: true, Exit: 0}})
 	h.runGuarded(20 * time.Second)
 	add(h)
 

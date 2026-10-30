@@ -43,6 +43,10 @@ import (
 //	                  push_reason, parity}   CRAWL_SINK=shadow only, one per sweep
 //	shadow_circuit   {failures}   CRAWL_SINK=shadow only, once, when shadow switches off
 //	                  after shadowFailLimit consecutive dry-run failures
+//	portal           {source: rea|domain, state: closed|open, consecutive_blocked, backoff_s,
+//	                  open_until}   one per source at child start (the persisted circuit as loaded),
+//	                  and on each open, close and re-open of a source's circuit. open_until (RFC3339
+//	                  UTC, seconds) is present only when state is open. Dry runs emit it too.
 //	ready            {}   the child's SIGTERM handler is installed (written first, by runAgent).
 //	                  The cycle sends its one graceful SIGTERM only after this.
 //	startup          {step: probe_auth|warm_probe, phase: start|done, outcome}   start-up work,
@@ -506,6 +510,42 @@ func (e *crawlEvents) ingestError(code string) {
 	}
 	e.emit(func() any {
 		return ingestErrorEvent{eventHeader: e.header("ingest_error"), Probe: false, Code: code}
+	})
+}
+
+// portalEvent is one source's circuit state (crawl_circuit.go). backoff_s is the current cooldown,
+// and open_until is set only while the circuit is open.
+type portalEvent struct {
+	eventHeader
+	Source             string `json:"source"`
+	State              string `json:"state"`
+	ConsecutiveBlocked int    `json:"consecutive_blocked"`
+	BackoffS           int    `json:"backoff_s"`
+	OpenUntil          string `json:"open_until,omitempty"`
+}
+
+// The bounds a portal event's numbers are clamped to, so the contract's ranges hold whatever the breaker holds.
+const (
+	maxPortalConsecutive = 1000
+	maxPortalBackoffS    = 86400
+)
+
+// portal writes one source's circuit state. Sources outside the enum are dropped.
+func (e *crawlEvents) portal(source string, open bool, until time.Time, consec int, backoff time.Duration) {
+	if source != "rea" && source != "domain" {
+		return
+	}
+	state, openUntil := "closed", ""
+	if open {
+		state, openUntil = "open", until.UTC().Format(time.RFC3339)
+	}
+	consecutive := min(max(consec, 0), maxPortalConsecutive)
+	backoffS := min(max(int(backoff/time.Second), 0), maxPortalBackoffS)
+	e.emit(func() any {
+		return portalEvent{
+			eventHeader: e.header("portal"), Source: source, State: state,
+			ConsecutiveBlocked: consecutive, BackoffS: backoffS, OpenUntil: openUntil,
+		}
 	})
 }
 
