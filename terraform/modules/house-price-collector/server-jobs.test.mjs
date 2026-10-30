@@ -92,11 +92,13 @@ test("every server schedule is created PAUSED, through the variable whose defaul
   assert.match(variable, /type\s*=\s*bool/);
 });
 
-test("prod does not override server_schedules_paused to false", () => {
-  assert.doesNotMatch(
+test("prod runs the server schedules after the reviewed cutover", () => {
+  // The Gamma-64 cutover (2026-10-30) set this false. Terraform owns the schedule state, so
+  // pausing again is a reviewed change back to true, never a gcloud pause left in place.
+  assert.match(
     prodMain,
     /server_schedules_paused\s*=\s*false/,
-    "prod must not unpause the server schedules outside the reviewed cutover",
+    "prod sets server_schedules_paused = false after cutover (operations.md \"Server-side crawl jobs\")",
   );
 });
 

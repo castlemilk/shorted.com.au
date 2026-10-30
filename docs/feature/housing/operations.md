@@ -572,9 +572,12 @@ pushes them to the **housing-ingest** service; it holds no database credential. 
 server runs the rest as schedules on the collector Cloud Run job. Design:
 `docs/superpowers/specs/2026-10-27-fleet-managed-housing-crawl-design.md`.
 
-**Everything here ships paused.** Every schedule is created with `paused = var.server_schedules_paused`,
-which defaults to `true` and is set `true` in `terraform/environments/prod/main.tf`. A
-deploy changes no schedule's state. Cutover is a reviewed change to that one value.
+**Terraform owns the schedule state.** Every schedule is created with `paused = var.server_schedules_paused`,
+which defaults to `true`. Prod set it `false` at the Gamma-64 cutover (2026-10-30), so the
+schedules run. Every deploy re-applies that value: a `gcloud scheduler jobs resume` or `pause`
+that disagrees with Terraform is undone by the next shorted deploy. Measured 2026-10-30: three
+schedules resumed by hand at 19:22Z were re-paused by the 20:19Z deploy of an unrelated PR,
+and `crawl-finalize` stopped refreshing the site until they were resumed again.
 
 ### The schedules
 
@@ -666,9 +669,11 @@ the rig and the server must never both enqueue or drain.
    (`com.shorted.housing-{delta,full,property-resolve}`) and move them aside. The rig then has
    no scheduler of its own.
 5. **Unpause the server schedules.** Set `server_schedules_paused = false` in prod through the
-   reviewed change, and deploy. Or resume each schedule with
-   `gcloud scheduler jobs resume house-price-collector-<name> --location=australia-southeast1`.
-   Create the alerting monitors (next section) first.
+   reviewed change, and deploy. A `gcloud scheduler jobs resume` alone does not last: the next
+   deploy re-pauses every schedule while Terraform still says `true`. Use it only to bridge
+   the gap until that change deploys. Create the alerting monitors (next section) first.
+   **Done 2026-10-30** for Gamma-64 (agent-managed; the legacy shadow parity in step 3 was
+   skipped by owner decision, and the first pushes were verified instead).
 6. Send `configure active` to the rig, then `housing_crawl_run {job: drain}`.
 7. Watch for 72 hours with no exit 13, 14 or 15 from the rig and the sentinel green.
 
