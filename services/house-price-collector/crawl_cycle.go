@@ -201,10 +201,10 @@ type cycleDeps struct {
 	probeIngest        func(ctx context.Context) (int, string)
 	warmcheck          func(ctx context.Context) int
 	reportGap          func(cycleID, outcome string, exit int)
-	// cycleEnd runs once after a drain or repair's last round, still under the lock: the dedicated
-	// Chrome quit and prune (crawl_chrome_lifecycle.go). Nil does nothing, so the tests never reach a
-	// real Chrome; the production wiring is set in runCycleMode.
-	cycleEnd func()
+	// cycleEnd runs once after a drain's last round, still under the lock: the dedicated Chrome quit
+	// and prune (crawl_chrome_lifecycle.go). It gets a phase hook. Nil does nothing, so the tests
+	// never reach a real Chrome; the production wiring is set in runCycleMode.
+	cycleEnd func(phase func(string))
 	stdout   io.Writer
 	events   *crawlEvents
 	now      func() time.Time
@@ -876,8 +876,10 @@ func (c *cycleRunner) withLock(job string, fn func() (string, int)) (string, int
 		c.setPre(func() { c.preLock = lockHeldByCycle })
 		defer c.releaseLock()
 		out, code := fn()
-		if c.deps.cycleEnd != nil {
-			c.deps.cycleEnd()
+		// Drain only: repair exists to leave Chrome warm, and a dry run never touches the real
+		// browser or its profile.
+		if job == cycleJobDrain && !c.cfg.dryRun && c.deps.cycleEnd != nil {
+			c.deps.cycleEnd(func(name string) { c.phase(name, nil) })
 		}
 		return out, code
 	}

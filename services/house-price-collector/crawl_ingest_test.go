@@ -631,6 +631,7 @@ func TestRunAgent_IngestRoundExitCodes(t *testing.T) {
 			t.Cleanup(ctlSrv.Close)
 			stubAgentEnv(t, ingest.URL, bbSrv.URL, ctlSrv, "ctl-secret")
 
+			isolateCircuitState(t)
 			if got := runAgent(context.Background(), nil); got != tc.want {
 				t.Fatalf("runAgent exit = %d, want %d", got, tc.want)
 			}
@@ -651,6 +652,7 @@ func TestRunAgent_IngestRefusesDatabaseURL(t *testing.T) {
 	stubAgentEnv(t, ingest.URL, bbSrv.URL, ctlSrv, "x")
 	t.Setenv("DATABASE_URL", "postgres://admin:pw@db.example/shorts")
 
+	isolateCircuitState(t)
 	if got := runAgent(context.Background(), nil); got != exitSinkRefused {
 		t.Fatalf("runAgent with DATABASE_URL and ingest = %d, want %d", got, exitSinkRefused)
 	}

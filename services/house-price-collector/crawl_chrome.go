@@ -132,6 +132,7 @@ type chromeDeps struct {
 	// crawl_chrome_lifecycle.go and fail closed when nil.
 	closeBrowser func(cdpURL string) error
 	rss          func(pids []int) (int64, error)
+	term         func(pid int) error
 }
 
 // cdpListener is one socket LISTENing on the CDP port: its owner and the host part of
@@ -169,6 +170,7 @@ func osChromeDeps() chromeDeps {
 		kill:         killDedicatedChrome,
 		closeBrowser: closeDedicatedBrowserCDP,
 		rss:          dedicatedChromeRSS,
+		term:         signalTermPID,
 	}
 }
 
@@ -207,6 +209,9 @@ func (d chromeDeps) withOSDefaults() chromeDeps {
 	}
 	if d.rss == nil {
 		d.rss = func([]int) (int64, error) { return 0, errChromeNotStubbed }
+	}
+	if d.term == nil {
+		d.term = func(int) error { return errChromeNotStubbed }
 	}
 	if d.warmProbe == nil {
 		d.warmProbe = func() int { return 4 }

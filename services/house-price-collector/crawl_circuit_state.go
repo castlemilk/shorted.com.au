@@ -54,6 +54,15 @@ type circuitStateEntry struct {
 	Updated   time.Time `json:"updated"`
 }
 
+// circuitPathForRun is the state file a round may use. A dry run gets "" (memory only): its blocks
+// are not the portal's, so it must neither read nor write the real state.
+func circuitPathForRun(dryRun bool) string {
+	if dryRun {
+		return ""
+	}
+	return circuitStatePath()
+}
+
 // newPersistentCircuitBreaker builds a breaker that saves to path (empty means memory only) and
 // restores the state already there. An entry whose openUntil and last update are both more than
 // the cap (CRAWL_CIRCUIT_MAX_S) in the past is expired and dropped, so an old streak no longer
@@ -65,6 +74,7 @@ func newPersistentCircuitBreaker(trip int, base, ceiling time.Duration, path str
 	if path == "" {
 		return cb
 	}
+	removeStaleCircuitTemps(path)
 	entries, err := readCircuitState(path)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
@@ -72,8 +82,15 @@ func newPersistentCircuitBreaker(trip int, base, ceiling time.Duration, path str
 		}
 		return cb
 	}
-	kept, expired := 0, 0
+	// A cooldown is at most cap, plus the 20% jitter in jitterDur. An openUntil past that is a
+	// clock that was wrong when it was written, so it is clamped rather than trusted.
+	horizon := now.Add(cb.max + cb.max/5)
+	kept, expired, future := 0, 0, 0
 	for name, e := range entries {
+		if e.Updated.After(now) {
+			future++ // written by a clock ahead of ours, or corrupt: not trusted
+			continue
+		}
 		ref := e.Updated
 		if e.OpenUntil.After(ref) {
 			ref = e.OpenUntil
@@ -82,14 +99,44 @@ func newPersistentCircuitBreaker(trip int, base, ceiling time.Duration, path str
 			expired++
 			continue
 		}
-		sc := &sourceCircuit{consec: max(e.Consec, 0), openUntil: e.OpenUntil, backoff: min(max(time.Duration(e.BackoffNS), 0), cb.max), updated: e.Updated}
+		open := e.OpenUntil
+		if open.After(horizon) {
+			open = horizon
+		}
+		sc := &sourceCircuit{consec: max(e.Consec, 0), openUntil: open, backoff: min(max(time.Duration(e.BackoffNS), 0), cb.max), updated: e.Updated}
 		cb.circuits[name] = sc
 		kept++
 	}
-	if kept+expired > 0 {
-		log.Printf("[agent] circuit state loaded from %s: %d source(s) carried over, %d expired", path, kept, expired)
+	if kept+expired+future > 0 {
+		log.Printf("[agent] circuit state loaded from %s: %d source(s) carried over, %d expired, %d future-dated dropped", path, kept, expired, future)
 	}
 	return cb
+}
+
+// circuitTempMaxAge is how old a temp file must be before load treats it as left behind by a crash.
+// A live writer holds the lock, so a fresh temp is never removed under it.
+const circuitTempMaxAge = time.Minute
+
+// removeStaleCircuitTemps deletes the ".circuit-state.json.*.tmp" files a crashed save left beside
+// the state file. Errors are ignored: a temp that cannot be removed is only clutter.
+func removeStaleCircuitTemps(path string) {
+	dir, base := filepath.Dir(path), filepath.Base(path)
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	prefix, suffix := "."+base+".", ".tmp"
+	for _, e := range ents {
+		name := e.Name()
+		if e.IsDir() || !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, suffix) {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil || time.Since(info.ModTime()) < circuitTempMaxAge {
+			continue
+		}
+		_ = os.Remove(filepath.Join(dir, name))
+	}
 }
 
 // readCircuitState parses the state file. fs.ErrNotExist passes through unchanged.

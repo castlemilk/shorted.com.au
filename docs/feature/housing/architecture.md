@@ -329,8 +329,10 @@ base; the cookies Akamai flagged stayed in the profile, so every re-probe was bl
 fix: the breaker state is saved to `circuit-state.json` (atomic, `0600`, lock holder only) and
 restored by the next round, so the doubling carries across children and cycles. When the Domain
 circuit trips, Domain's cookies (only `domain.com.au`) are deleted from the dedicated Chrome. The
-dedicated Chrome is also quit at each cycle's end (graceful `Browser.close` first) and relaunched
-by the next cycle, which re-earns the Kasada clearance by the native startup navigation. Operations
+dedicated Chrome is also quit at the end of each drain (`Browser.close` only when the CDP port is
+vouched for as dedicated, otherwise SIGTERM to its main process) and relaunched by the next cycle,
+which re-earns the Kasada clearance by the native startup navigation. A passing warm check re-opens
+REA for one probe. Operations
 and the prune allowlist are in `operations.md`, "Chrome lifecycle, circuit state and the Domain
 reset".
 

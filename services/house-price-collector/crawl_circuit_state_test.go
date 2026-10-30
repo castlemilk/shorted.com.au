@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -200,4 +201,133 @@ func TestCircuitStatePathDefault(t *testing.T) {
 	if got := circuitStatePath(); got != "/Users/example/.shorted-housing-crawl/circuit-state.json" {
 		t.Fatalf("default = %q", got)
 	}
+}
+
+// A passing warm check re-opens REA for one probe. The streak and the backoff are kept, so one more
+// block doubles the cooldown as before, and the reopened state survives a save.
+func TestReopenProbeKeepsStreakAndBackoff(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "circuit-state.json")
+	cb := newPersistentCircuitBreaker(1, 5*time.Minute, time.Hour, path, circuitT0)
+	cb.record("rea", true, circuitT0)
+	cb.record("rea", true, circuitT0.Add(time.Second)) // consec 2, backoff 10m, open
+	if open, _ := cb.skip("rea", circuitT0.Add(2*time.Second)); !open {
+		t.Fatalf("setup: REA must be open before the warm check")
+	}
+
+	cb.reopenProbe("rea")
+	if open, _ := cb.skip("rea", circuitT0.Add(2*time.Second)); open {
+		t.Fatalf("after a passing warm check REA must be probeable")
+	}
+	if sc := cb.circuit("rea"); sc.consec != 2 || sc.backoff != 10*time.Minute {
+		t.Fatalf("reopen must keep the streak and backoff, got consec=%d backoff=%s", sc.consec, sc.backoff)
+	}
+
+	reloaded := newPersistentCircuitBreaker(1, 5*time.Minute, time.Hour, path, circuitT0.Add(2*time.Second))
+	if open, _ := reloaded.skip("rea", circuitT0.Add(2*time.Second)); open {
+		t.Fatalf("the reopened probe must persist to the next child")
+	}
+
+	opened, cool := cb.record("rea", true, circuitT0.Add(3*time.Second))
+	if !opened || cb.circuit("rea").backoff != 20*time.Minute || cool <= 0 {
+		t.Fatalf("one more block after the probe must double to 20m, got opened=%v backoff=%s", opened, cb.circuit("rea").backoff)
+	}
+}
+
+// Both sources open and not yet due: the warm check is skipped. Only one open: it runs.
+func TestWarmBlockedOnlyWhenBothSourcesAreOpen(t *testing.T) {
+	captureLog(t)
+	sources := []string{"rea", "domain"}
+
+	both := newCircuitBreaker(1, 15*time.Minute, time.Hour)
+	both.record("rea", true, circuitT0)
+	both.record("domain", true, circuitT0)
+	if !warmBlockedByCircuit(both, sources, circuitT0.Add(time.Minute)) {
+		t.Fatalf("both sources open and not due must skip the warm check")
+	}
+	if warmBlockedByCircuit(both, sources, circuitT0.Add(time.Hour)) {
+		t.Fatalf("once the cooldowns have passed the warm check must run")
+	}
+
+	one := newCircuitBreaker(1, 15*time.Minute, time.Hour)
+	one.record("rea", true, circuitT0)
+	one.record("domain", false, circuitT0)
+	if warmBlockedByCircuit(one, sources, circuitT0.Add(time.Minute)) {
+		t.Fatalf("with REA open but Domain closed the warm check must still run (it re-opens REA)")
+	}
+}
+
+// A future-dated entry is not trusted, and a cooldown past the cap plus jitter is clamped.
+func TestCircuitStateClampsLoadedValues(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "circuit-state.json")
+	const ceiling = time.Hour
+	now := circuitT0
+	body := `{"version":1,"sources":{` +
+		`"domain":{"consec":2,"open_until":"` + now.Add(10*time.Hour).Format(time.RFC3339) + `","backoff_ns":` + fmt.Sprint(int64(ceiling)) + `,"updated":"` + now.Format(time.RFC3339) + `"},` +
+		`"rea":{"consec":1,"open_until":"` + now.Add(time.Minute).Format(time.RFC3339) + `","backoff_ns":1,"updated":"` + now.Add(time.Hour).Format(time.RFC3339) + `"}}}`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	captureLog(t)
+	cb := newPersistentCircuitBreaker(2, 5*time.Minute, ceiling, path, now)
+	horizon := now.Add(ceiling + ceiling/5)
+	if d := cb.circuit("domain"); !d.openUntil.Equal(horizon) {
+		t.Fatalf("openUntil must clamp to now+1.2x cap (%s), got %s", horizon, d.openUntil)
+	}
+	if _, ok := cb.circuits["rea"]; ok {
+		if cb.circuit("rea").consec != 0 {
+			t.Fatalf("a future-dated entry must not be carried over")
+		}
+	}
+}
+
+// A temp file left by a crashed save is removed on load once it is a minute old. A fresh one, which a
+// live writer may still be using, is left alone.
+func TestCircuitStateRemovesOnlyStaleTemps(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "circuit-state.json")
+	stale := filepath.Join(dir, ".circuit-state.json.123456.tmp")
+	fresh := filepath.Join(dir, ".circuit-state.json.654321.tmp")
+	for _, p := range []string{stale, fresh} {
+		if err := os.WriteFile(p, []byte("partial"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old := time.Now().Add(-5 * time.Minute)
+	if err := os.Chtimes(stale, old, old); err != nil {
+		t.Fatal(err)
+	}
+	newPersistentCircuitBreaker(1, time.Minute, time.Hour, path, time.Now())
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Fatalf("a stale temp must be removed on load")
+	}
+	if _, err := os.Stat(fresh); err != nil {
+		t.Fatalf("a fresh temp must be left alone: %v", err)
+	}
+}
+
+// A dry run never touches the circuit file: its path is empty, and a breaker built on that path
+// writes nothing.
+func TestDryRunNeverTouchesTheCircuitFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(circuitStateEnv, filepath.Join(dir, "circuit-state.json"))
+	if got := circuitPathForRun(true); got != "" {
+		t.Fatalf("a dry run must get no state path, got %q", got)
+	}
+	if got := circuitPathForRun(false); got == "" {
+		t.Fatalf("a real run must get the state path")
+	}
+	cb := newPersistentCircuitBreaker(1, time.Minute, time.Hour, circuitPathForRun(true), circuitT0)
+	cb.record("domain", true, circuitT0)
+	cb.reopenProbe("domain")
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 0 {
+		t.Fatalf("a dry run wrote %d file(s) into the state directory", len(entries))
+	}
+}
+
+// isolateCircuitState gives one test its own circuit file, so no round it drives shares state with
+// another test. The package-wide scratch path in TestMain is only the fallback.
+func isolateCircuitState(t *testing.T) {
+	t.Helper()
+	t.Setenv(circuitStateEnv, filepath.Join(t.TempDir(), "circuit-state.json"))
 }

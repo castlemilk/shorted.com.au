@@ -228,6 +228,7 @@ func TestProxyRoundRefusesANonLoopbackURL(t *testing.T) {
 	log.SetOutput(&logBuf)
 	t.Cleanup(func() { log.SetOutput(prev) })
 
+	isolateCircuitState(t)
 	if got := runAgent(context.Background(), nil); got != exitSinkRefused {
 		t.Fatalf("exit = %d, want %d", got, exitSinkRefused)
 	}
@@ -274,6 +275,7 @@ func TestHandSetTokenSourceIsRefusedOutsideACycle(t *testing.T) {
 	prev := log.Writer()
 	log.SetOutput(&logBuf)
 	t.Cleanup(func() { log.SetOutput(prev) })
+	isolateCircuitState(t)
 	if got := runAgent(context.Background(), nil); got != exitSinkRefused {
 		t.Fatalf("exit = %d, want %d", got, exitSinkRefused)
 	}

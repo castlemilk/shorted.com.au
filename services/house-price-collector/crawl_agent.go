@@ -828,6 +828,13 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 	runID := crawlRunID(runType)
 	host := crawlHost()
 
+	// The per-source circuit breaker (crawl_circuit.go) is loaded BEFORE the warm check: the warm
+	// check fetches REA, and a persisted cooldown has to decide whether it may. The state is saved to
+	// the file (crawl_circuit_state.go), so a streak and its backoff carry across the rounds and
+	// cycles of one crawl. A dry run never reads or writes it.
+	cb := newPersistentCircuitBreaker(cfg.circuitTrip, cfg.circuitBase, cfg.circuitMax, circuitPathForRun(cfg.dryRun), time.Now().UTC())
+	circuitSources := []string{"rea", "domain"}
+
 	// Self-warm the dedicated Chrome before crawling (in-process port of
 	// run-housing-agent.sh). Only when the run will ACTUALLY drive the host Chrome
 	// over CDP: selectFetcherMode mirrors newCrawlFetcher's precedence
@@ -836,7 +843,9 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 	// Skipped for FIXTURE runs and when CRAWL_AUTO_WARM=false. On failure, exit 4
 	// so an unattended scheduler re-runs after a cooldown.
 	if cfg.fixtureDir == "" && selectFetcherMode(cfg.crawlConfig) == fetcherModeCDP {
-		if ccfg := loadChromeConfig(cfg.cdpURL); ccfg.autoWarm {
+		// Both sources persisted-open and not yet due: the round would claim nothing, so the warm
+		// check (which fetches REA) is skipped. The round loop below exits on the same condition.
+		if ccfg := loadChromeConfig(cfg.cdpURL); ccfg.autoWarm && !warmBlockedByCircuit(cb, circuitSources, time.Now().UTC()) {
 			deps := chromeDepsForDefaults()
 			deps.reachable = chromeReachable
 			deps.launch = launchDedicatedChrome
@@ -866,6 +875,9 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 				return rc
 			}
 			log.Printf("[agent] dedicated Chrome warm (self-managed)")
+			// The warm check just proved REA's session. A persisted REA cooldown no longer describes
+			// it, so one probe goes through. The streak and backoff are kept.
+			cb.reopenProbe("rea")
 		}
 	}
 
@@ -942,21 +954,6 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 	} else if cfg.resumeWindow > 0 {
 		log.Printf("[agent] resume window=%s — %d (source,suburb) pair(s) loaded", cfg.resumeWindow, len(rs))
 	}
-
-	// Per-source circuit breaker (crawl_circuit.go): persists across suburbs so a
-	// portal that starts serving block pages (Akamai errors.edgesuite.net, Kasada
-	// stubs) is backed off exponentially and SKIPPED during its cooldown instead
-	// of being hammered on every suburb — while the healthy portal keeps crawling.
-	// This is the state the per-job listingsCrawler (rebuilt each suburb) can't
-	// hold, which is why Domain-only blocking previously ran unthrottled.
-	// The state is loaded from and saved to the file (crawl_circuit_state.go), so a streak and its
-	// backoff carry across the rounds and cycles of one crawl. A dry run never writes it.
-	circuitPath := circuitStatePath()
-	if cfg.dryRun {
-		circuitPath = ""
-	}
-	cb := newPersistentCircuitBreaker(cfg.circuitTrip, cfg.circuitBase, cfg.circuitMax, circuitPath, time.Now().UTC())
-	circuitSources := []string{"rea", "domain"}
 
 	// Optional LIVE telemetry stream (crawl_telemetry.go): off unless CRAWL_TELEMETRY
 	// is set. Created once per run so the co-located macOS agent UI can tail

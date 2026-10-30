@@ -398,6 +398,7 @@ func TestRunAgentRefusesAWorkloadRoundWithoutTheWorkloadSecret(t *testing.T) {
 	log.SetOutput(&logBuf)
 	t.Cleanup(func() { log.SetOutput(prevLog) })
 
+	isolateCircuitState(t)
 	if got := runAgent(context.Background(), nil); got != exitSinkRefused {
 		t.Fatalf("exit = %d, want %d", got, exitSinkRefused)
 	}

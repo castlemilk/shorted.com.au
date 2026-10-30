@@ -113,6 +113,7 @@ func TestRunAgentHeldLockExits12AndClaimsNothing(t *testing.T) {
 	t.Setenv("BRANDBRAIN_CONTROL_PORT", "")
 	t.Setenv("BRANDBRAIN_CONTROL_SECRET", "")
 
+	isolateCircuitState(t)
 	if got := runAgent(context.Background(), nil); got != exitLockHeld {
 		t.Fatalf("runAgent with a live foreign holder = %d, want %d", got, exitLockHeld)
 	}
