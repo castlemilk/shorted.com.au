@@ -471,9 +471,10 @@ module "house_price_collector" {
   manage_revalidation_secret = true
 
   # S-SRV server-side crawl schedules (enqueue, finalize, freshness, property-resolve).
-  # Created PAUSED. Golden rule: nothing runs until the cutover in
-  # docs/feature/housing/operations.md "Server-side crawl jobs" flips this to false.
-  server_schedules_paused = true
+  # Created PAUSED; the Gamma-64 cutover (2026-10-30, owner-approved) flipped this to false.
+  # Terraform owns the state: a `gcloud scheduler jobs resume` while this says true is undone
+  # by the next deploy. Pause through this value (operations.md "Pause everything").
+  server_schedules_paused = false
 
   depends_on = [
     google_project_service.required_apis,
