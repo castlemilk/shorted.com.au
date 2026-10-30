@@ -355,8 +355,8 @@ hc_drain_rounds() {
 			# line is: "Chrome unusable" sent the operator to the re-warm runbook, which
 			# cannot fix either, and the crawl stayed down two days. The collector's own
 			# log line says which one it was.
-			echo "$(date -u +%FT%TZ) drain: crawl environment broken (rc=8) — the Playwright DRIVER is missing (reinstall: ~/bin/house-price-collector -mode install-driver), or the CDP port is held by another process (see the log line above). Re-warming will not help." >>"$LOG"
-			hc_alert "Housing crawl STOPPED: crawl environment broken (rc=8) — driver missing, or the CDP port is held by another process. Re-warming Chrome will NOT fix either. See $LOG."
+			echo "$(date -u +%FT%TZ) drain: crawl environment broken (rc=8) — the Playwright DRIVER is missing (reinstall: ~/bin/house-price-collector -mode install-driver), or the CDP port held by another process (see the log line above). Re-warming will not help." >>"$LOG"
+			hc_alert "Housing crawl STOPPED: crawl environment broken (rc=8) — driver missing, or the CDP port held by another process. Re-warming Chrome will NOT fix either. See $LOG."
 			return 8
 			;;
 		10)

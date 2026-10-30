@@ -2137,8 +2137,8 @@ func defaultChromeReachable() string {
 	}
 	ccfg := loadChromeConfig(cfg.cdpURL)
 	reachable := chromeReachable(ccfg.cdpURL)
-	// With the warm off (CRAWL_AUTO_WARM=false) the ownership check is skipped, as in the drain.
-	if ccfg.autoWarm && checkCDPPortOwner(ccfg, osChromeDeps(), reachable) != nil {
+	// checkCDPPortOwner skips the check when the warm is off (CRAWL_AUTO_WARM=false), as the drain does.
+	if checkCDPPortOwner(ccfg, osChromeDeps(), reachable) != nil {
 		return chromePortConflict
 	}
 	if reachable {

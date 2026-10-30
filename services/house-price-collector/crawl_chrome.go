@@ -143,22 +143,30 @@ const cdpToolTimeout = 5 * time.Second
 // warm Chrome can miss one 3 s probe, and a kill throws away its Kasada clearance.
 var staleReprobeWait = 2 * time.Second
 
-// osChromeDeps are the production lookups behind the port-ownership check.
+// osChromeDeps is the full production wiring: every side effect is the real implementation.
 func osChromeDeps() chromeDeps {
-	return chromeDeps{}.withOSDefaults()
+	return chromeDeps{
+		reachable: chromeReachable,
+		launch:    launchDedicatedChrome,
+		recover:   recoverWedgedChrome,
+		listeners: listCDPListeners,
+		dedicated: dedicatedChromePIDsChecked,
+		command:   processCommand,
+		kill:      killDedicatedChrome,
+	}
 }
 
-// withOSDefaults fills every nil dependency with its production implementation, so a chromeDeps
-// built by hand cannot dereference nil. A nil warmProbe reads as unusable (4): nothing proves warmth.
+// errChromeNotStubbed is what a launch or recovery returns when a test built chromeDeps without a
+// stub for it. The refusal is deliberate: a nil dependency never falls back to a real launch.
+var errChromeNotStubbed = errors.New("chrome dependency not stubbed")
+
+// withOSDefaults fills every nil dependency. The read-only lookups (reachable, listeners, dedicated,
+// command) fall back to the OS implementations. A nil launch, recover or kill does NOT: it becomes a
+// refusal, so a test that forgets a stub can never signal or start a real process. A nil warmProbe
+// reads as unusable (4): nothing proves warmth.
 func (d chromeDeps) withOSDefaults() chromeDeps {
 	if d.reachable == nil {
 		d.reachable = chromeReachable
-	}
-	if d.launch == nil {
-		d.launch = launchDedicatedChrome
-	}
-	if d.recover == nil {
-		d.recover = recoverWedgedChrome
 	}
 	if d.listeners == nil {
 		d.listeners = listCDPListeners
@@ -169,8 +177,14 @@ func (d chromeDeps) withOSDefaults() chromeDeps {
 	if d.command == nil {
 		d.command = processCommand
 	}
+	if d.launch == nil {
+		d.launch = func(chromeConfig) error { return errChromeNotStubbed }
+	}
+	if d.recover == nil {
+		d.recover = func(chromeConfig) error { return errChromeNotStubbed }
+	}
 	if d.kill == nil {
-		d.kill = killDedicatedChrome
+		d.kill = func(string) bool { return false }
 	}
 	if d.warmProbe == nil {
 		d.warmProbe = func() int { return 4 }
@@ -271,7 +285,7 @@ func ensureChromeWarm(cfg chromeConfig, deps chromeDeps) error {
 // is empty unless the endpoint is a loopback CDP URL, so a remote endpoint never leads to a kill,
 // and a failed ps lookup reads as none.
 func staleDedicatedChrome(cfg chromeConfig, deps chromeDeps) []int {
-	if !loopbackCDP(cfg.cdpURL) {
+	if !cfg.autoWarm || !loopbackCDP(cfg.cdpURL) {
 		return nil
 	}
 	pids, err := deps.dedicated(cfg.profileDir)
@@ -289,7 +303,10 @@ func staleDedicatedChrome(cfg chromeConfig, deps chromeDeps) []int {
 // reachable is whether /json/version answered. A port that answers while lsof shows no listener we
 // can see and no dedicated Chrome runs is a holder owned by another user, so it is a conflict too.
 func checkCDPPortOwner(cfg chromeConfig, deps chromeDeps, reachable bool) error {
-	if !loopbackCDP(cfg.cdpURL) {
+	deps = deps.withOSDefaults()
+	// With the warm off (CRAWL_AUTO_WARM=false) the collector does not manage this Chrome, so it does
+	// not police the port either. This is the one warm-off gate every caller goes through.
+	if !cfg.autoWarm || !loopbackCDP(cfg.cdpURL) {
 		return nil
 	}
 	port, err := chromeCDPPort(cfg.cdpURL)
@@ -317,6 +334,11 @@ func checkCDPPortOwner(cfg chromeConfig, deps chromeDeps, reachable bool) error 
 		return errChromePortConflict
 	}
 	if classified > 0 || !reachable {
+		return nil
+	}
+	// Re-check at the last moment before calling it a conflict. The answering holder may have
+	// exited since the probe, or our own Chrome may have come up.
+	if !deps.reachable(cfg.cdpURL) {
 		return nil
 	}
 	pids, err := deps.dedicated(cfg.profileDir)
@@ -444,15 +466,9 @@ func chromeReachable(cdpURL string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-// dedicatedChromePIDs runs `ps -axww -o pid=,command=` and returns the PIDs of the
-// dedicated-profile Chrome only (via matchDedicatedPIDs).
-func dedicatedChromePIDs(profileDir string) []int {
-	pids, _ := dedicatedChromePIDsChecked(profileDir)
-	return pids
-}
-
-// dedicatedChromePIDsChecked is dedicatedChromePIDs with the ps error kept, for callers that must
-// fail open rather than read a failed lookup as "none running".
+// dedicatedChromePIDsChecked runs `ps -axww -o pid=,command=` and returns the PIDs of the
+// dedicated-profile Chrome only (via matchDedicatedPIDs). The ps error is kept, so callers fail
+// open on a lookup or, for a kill, fail closed.
 func dedicatedChromePIDsChecked(profileDir string) ([]int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cdpToolTimeout)
 	defer cancel()
@@ -475,7 +491,13 @@ func killDedicatedChrome(profileDir string) bool {
 	// and our own launch (which passes --disable-background-mode) is the one that
 	// sticks.
 	for i := range chromeKillRounds {
-		pids := dedicatedChromePIDs(profileDir)
+		pids, err := dedicatedPIDLister(profileDir)
+		if err != nil {
+			// Fail closed. A ps that cannot be read may hide a live Chrome, and the callers would then
+			// clear its profile locks and launch a second browser on the same profile.
+			log.Printf("[chrome] cannot list dedicated Chrome (%v) — not confirming the kill", err)
+			return false
+		}
 		if len(pids) == 0 {
 			return true
 		}
@@ -483,12 +505,20 @@ func killDedicatedChrome(profileDir string) bool {
 			log.Printf("[chrome] dedicated Chrome came back after SIGKILL (%d pid(s)) — re-killing (round %d/%d)", len(pids), i+1, chromeKillRounds)
 		}
 		for _, pid := range pids {
-			_ = syscall.Kill(pid, syscall.SIGKILL)
+			killSignal(pid)
 		}
 		time.Sleep(time.Second)
 	}
-	return len(dedicatedChromePIDs(profileDir)) == 0
+	pids, err := dedicatedPIDLister(profileDir)
+	return err == nil && len(pids) == 0
 }
+
+// dedicatedPIDLister and killSignal are the process lookup and the signal the kill loop uses. Tests
+// replace them to exercise a failing ps or a fake pid; production leaves them as they are.
+var (
+	dedicatedPIDLister = dedicatedChromePIDsChecked
+	killSignal         = func(pid int) { _ = syscall.Kill(pid, syscall.SIGKILL) }
+)
 
 // chromeKillRounds bounds the re-kill loop above. Enough to outlast Chrome's
 // background-mode relaunch, low enough that a genuinely unkillable Chrome still

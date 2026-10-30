@@ -277,12 +277,21 @@ The collector re-probes the configured port after about 2 s, so a busy warm
 Chrome that missed one probe keeps its Kasada clearance. Only a Chrome that is
 still silent is killed (matched on its `--user-data-dir`, never the personal
 profile), and then relaunched on the configured port. A second launch with the
-same profile would hand off to the running instance and never bind. The kill
-only ever targets a loopback CDP URL with a valid port. Never `pkill` Chrome by
-pattern to clear a conflict.
+same profile would hand off to the running instance and never bind.
 
-Each listener is classified by its own command line. If `ps` or `lsof` fails or
-times out (5 s each), the collector does not report a conflict from the guess.
+The stale-instance kill runs only for a loopback CDP URL with a valid port. The
+recovery path (`recoverWedgedChrome`, the rc 4 repair) also kills the local
+dedicated-profile Chrome for a non-loopback URL. Its ownership check covers only
+loopback URLs, and that predates this change. A kill is confirmed only when
+`ps -axww` can be read. If it cannot, the collector refuses, clears no profile
+locks and launches nothing. Never `pkill` Chrome by pattern to clear a conflict.
+
+Each listener is classified by its own command line. `lsof` exits 1 both when
+nothing listens and on some usage errors, so the collector reads exit 1 as no
+listeners and lets `ps -axww` decide: a reachable port with no dedicated Chrome in
+`ps` is treated as a conflict. If `ps` or `lsof` fails or times out (5 s each), the
+collector does not report a conflict from the guess. With `CRAWL_AUTO_WARM=false`
+the collector does not police the port at all.
 One known limit: the profile match runs on `ps` output, which loses argv quoting,
 so a profile path that contains a space can match a sibling profile whose path is
 a prefix of it.
