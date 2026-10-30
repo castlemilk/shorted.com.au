@@ -92,7 +92,7 @@ func TestCycleOutputContractGolden(t *testing.T) {
 		outQueueEmpty, outBudget, outNoProgress, outMaxRounds, outCancelled, outLockHeld,
 		outPreflightFailed, outStopped, outHung, outInternal, outRepaired, outRepairFailed, outChecked,
 		lockFree, lockHeldByCycle, lockHeldElsewhere, lockUnknown,
-		"warm", "reachable", "unreachable", "unusable",
+		"warm", "reachable", "unreachable", "unusable", chromePortConflict,
 		"ok", "installed", "missing", "unknown",
 		"unauthenticated", "permission_denied", "unavailable", "contract", "token", "not_run",
 		"cycle_start", "phase", "preflight", "round_start", "round_done", "ingest_ok", "ingest_error", "cycle_done",

@@ -81,7 +81,7 @@ shorted CrawlIngestService ── verify JWT · allowlist · re-derive · quaran
        - **Budget (`-max-duration`):** at the deadline no new round starts and the running child gets its graceful stop. A child code of 0 or 10 ends the run as `budget` with exit 0. Any other child code is kept: a routine re-warm code (3 or 5) ends as `stopped` with that code and starts no cooldown, and the runtime owns the 2 h backoff.
     4. write one summary JSON line to stdout. Logs go to stderr.
 - **repair** takes the lock, forces install-driver (atomic, see below), warms Chrome and runs warmcheck. If the warm check fails or stalls, it runs the wedged-Chrome recovery (the rc 4 path) and checks once more. Exit 0 (repaired), 4 (not warm), 8 (environment broken), 7 (lock directory cannot be created), 10 (cancelled), 11 (a step hung), 12 (lock held) or 1 (internal error).
-- **preflight** is NON-mutating and takes no lock. It reports the lock (`free`, `held_elsewhere` or `unknown`; the holder's pid is never reported), the driver, Chrome reachability (`reachable` or `unreachable`, read-only: no warm, no launch, no fetch; `unknown` when the fetch mode is not CDP or the check stalls) and ProbeAuth. It claims nothing and installs nothing. It exits 0 whenever its checks ran, with the health in the summary, and exits non-zero only for an invalid configuration (8) or an internal error (1).
+- **preflight** is NON-mutating and takes no lock. It reports the lock (`free`, `held_elsewhere` or `unknown`; the holder's pid is never reported), the driver, Chrome reachability (`reachable`, `unreachable` or `port_conflict`, read-only: no warm, no launch, no fetch; `port_conflict` means another process holds the CDP port, see the `chrome` bullets below; `unknown` when the fetch mode is not CDP or the check stalls) and ProbeAuth. It claims nothing and installs nothing. It exits 0 whenever its checks ran, with the health in the summary, and exits non-zero only for an invalid configuration (8) or an internal error (1).
   - **Hung (11):** a child that emits no event for `CRAWL_HUNG_AFTER` gets SIGTERM to its process group, then SIGKILL after `CRAWL_HUNG_GRACE` (default 60s). The cycle exits 11. Fetch events are emitted per page, and start-up work emits `startup` events (`probe_auth`, `warm_probe`, each start and done), so silence means real silence.
 - **`CRAWL_HUNG_AFTER`:** default `max(20m, the worst silence)`. The worst silence is the sum of the silences the child can really have, with the defaults in brackets: 2 sources × 3 fetch attempts × `CRAWL_FETCH_TIMEOUT_S` (360 s); one CDP reconnect (120 s, an estimate, since playwright-go sets no timeout on the driver start and attach); the CDP watchdog, `CRAWL_CDP_WATCHDOG_S` or 3 × the fetch timeout (180 s); the widest page pace, 3 × `CRAWL_LISTINGS_PAGE_MAX_MS` (60 s); a push's retries, 3 × 60 s + 3 s (183 s); and the gap between suburbs, `CRAWL_MAX_DELAY_MS` (45 s). That is 948 s, so the 20-minute floor applies. Both the explicit value and the derived value are clamped to `30m − CRAWL_HUNG_GRACE − 5 s drain − 1m margin` (1675 s with the defaults), so the cycle's kill lands below the runtime's 30-minute watchdog. The clamp logs once.
   - **Parent death:** the cycle checks its parent every `parentCheckInterval` (1 s) while supervising or cooling down, and before each round, the drain's preflight and each repair step. A PPID of 1 means the runtime died: the cycle sends ONE SIGTERM to the round and finishes it, then exits 10 with its summary, and starts no new round. A broken cycle events fd is the same stop.
@@ -150,7 +150,7 @@ RFC 3339 timestamp. No listing data appears anywhere.
   "collector": {"revision": "string", "modified": false},
   "lock":   "free | held_by_cycle | held_elsewhere | unknown",
   "env":    {"driver": "ok | installed | missing | unknown",
-             "chrome": "warm | reachable | unreachable | unusable | unknown"},
+             "chrome": "warm | reachable | unreachable | unusable | port_conflict | unknown"},
   "ingest": {"probe": "ok | unauthenticated | permission_denied | unavailable | contract | token | not_run",
              "last_ok_at": "RFC3339 | null"},
   "counts": {"claimed": 0, "succeeded": 0, "failed": 0, "deferred": 0, "blocked": 0,
@@ -171,6 +171,7 @@ RFC 3339 timestamp. No listing data appears anywhere.
   - `warm` only when a real warm check passed (a drain preflight or repair);
   - `reachable` means the `/json/version` endpoint answered and nothing more;
   - `unreachable` means no Chrome answered.
+  - `port_conflict` means a process that is not the dedicated-profile Chrome holds the loopback CDP port, or the port answers while no process on it is visible and no dedicated Chrome runs (another user's process). The collector neither launches over it nor kills it, and the cycle exits 8. It is set by the drain and repair preflight, a round's exit 8, the repair's recovery and the read-only preflight. It never means the Chrome is wedged or unusable.
 - **`ingest.probe`** uses the same code words as the `ingest_error.code` event.
 - **`counts`** keys are exactly this set; there are no others.
 

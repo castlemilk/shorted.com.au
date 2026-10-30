@@ -180,6 +180,7 @@ mid-write (this bit the bundled macOS agent).
 | 4 | Fetcher init failed — wedged/cold Chrome (`agent`); wrapper Chrome relaunch failed (`run-housing-crawl.sh`) |
 | 5 | `warmcheck`: REA returned the Kasada stub — Chrome must relaunch with an REA startup URL |
 | 6 | `freshness` ALARM — the board is silently going stale |
+| 8 | Crawl environment broken: the Playwright driver is missing, or the CDP port is held by another process (`env.chrome=port_conflict`). No Chrome action can fix either — see `operations.md` |
 | 9 | `vg-nsw`: ingest committed and views refreshed, but a fetched year kept its stale rows (under 50k sales, or prune over 20%) — suspect a truncated download or parser regression |
 
 ### A re-warm costs minutes, not a day (2026-09-11)

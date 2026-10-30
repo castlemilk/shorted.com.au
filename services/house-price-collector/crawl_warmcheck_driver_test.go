@@ -64,12 +64,12 @@ func TestWarmCheckInitExitCode(t *testing.T) {
 func TestEnsureChromeWarmDoesNotThrashChromeOnBrokenEnv(t *testing.T) {
 	cfg := chromeConfig{cdpURL: "http://localhost:9333", autoWarm: true}
 	launches, recovers, probes := 0, 0, 0
-	deps := chromeDeps{
+	deps := withQuietPort(chromeDeps{
 		reachable: func(string) bool { return true },
 		launch:    func(chromeConfig) error { launches++; return nil },
 		recover:   func(chromeConfig) error { recovers++; return nil },
 		warmProbe: func() int { probes++; return exitCrawlEnvBroken },
-	}
+	})
 
 	err := ensureChromeWarm(cfg, deps)
 	if err == nil {

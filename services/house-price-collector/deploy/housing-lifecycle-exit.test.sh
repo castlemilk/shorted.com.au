@@ -328,6 +328,12 @@ test_common_names_the_driver_fix_on_broken_env() {
 		echo "FAIL: rc=8 drain log does not carry the reinstall command: $log" >&2
 		return 1
 	fi
+	# The other rc=8 cause is a CDP port another process holds. The line must name it, so the
+	# operator does not go looking for a driver problem that is not there.
+	if ! /usr/bin/grep -q "CDP port held by another process" "$log"; then
+		echo "FAIL: rc=8 drain log does not name the held CDP port: $log" >&2
+		return 1
+	fi
 	if /usr/bin/grep -qi "chrome unusable" "$log"; then
 		echo "FAIL: rc=8 drain log still blames Chrome: $log" >&2
 		return 1

@@ -244,6 +244,58 @@ specifically so a rig with a broken environment can repair itself.
 Nothing else on the rig needs touching — Chrome keeps its Kasada clearance
 across the whole failure.
 
+### Port conflict: another process holds the CDP port (exit 8)
+
+Symptom: the cycle summary carries `env.chrome="port_conflict"` and the process
+exits **8**. The log names the holder:
+
+```
+[agent] CDP port 9333 is held by another process (pid 83542: /Applications/Google Chrome.app/...) — not launching; free the port or set CRAWL_CDP_URL to a free loopback port
+```
+
+The collector drives its **dedicated-profile** Chrome on the port in
+`CRAWL_CDP_URL`. When any other process listens on that port (typically the
+operator's everyday Chrome with remote debugging on), the collector neither
+launches over it nor kills it: the holder is not ours to stop. Before this check
+the same state read as "unreachable" or "unusable", and the collector relaunched
+or sent people to the re-warm runbook, which cannot clear a foreign holder.
+
+Fix, in order:
+
+1. Identify the holder: `lsof -nP -iTCP:<port> -sTCP:LISTEN` (the log gives the pid).
+2. Either stop that process yourself, if it is not the crawl's Chrome, or move
+   the rig to a free loopback port by setting `CRAWL_CDP_URL=http://127.0.0.1:<port>`
+   for the agent. The check matches the address family: `127.0.0.1` counts only
+   listeners on `127.0.0.1` and the wildcard, `[::1]` only `[::1]` and the wildcard,
+   and `localhost` every listener. A holder on the other family does not block it.
+3. Clear the drain's hold and run it again. Under BrandBrain the drain is held
+   after exit 8, so clear it with the fleet `housing_crawl_repair` command, or
+   `housing_crawl_run {job: drain}`. The dedicated Chrome auto-launches on the free port.
+
+A dedicated-profile Chrome left running on the **old** port is not a conflict.
+The collector re-probes the configured port after about 2 s, so a busy warm
+Chrome that missed one probe keeps its Kasada clearance. Only a Chrome that is
+still silent is killed (matched on its `--user-data-dir`, never the personal
+profile), and then relaunched on the configured port. A second launch with the
+same profile would hand off to the running instance and never bind.
+
+The stale-instance kill runs only for a loopback CDP URL with a valid port. The
+recovery path (`recoverWedgedChrome`, the rc 4 repair) also kills the local
+dedicated-profile Chrome for a non-loopback URL. Its ownership check covers only
+loopback URLs, and that predates this change. A kill is confirmed only when
+`ps -axww` can be read. If it cannot, the collector refuses, clears no profile
+locks and launches nothing. Never `pkill` Chrome by pattern to clear a conflict.
+
+Each listener is classified by its own command line. `lsof` exits 1 both when
+nothing listens and on some usage errors, so the collector reads exit 1 as no
+listeners and lets `ps -axww` decide: a reachable port with no dedicated Chrome in
+`ps` is treated as a conflict. If `ps` or `lsof` fails or times out (5 s each), the
+collector does not report a conflict from the guess. With `CRAWL_AUTO_WARM=false`
+the collector does not police the port at all.
+One known limit: the profile match runs on `ps` output, which loses argv quoting,
+so a profile path that contains a space can match a sibling profile whose path is
+a prefix of it.
+
 Diagnosis order: agent alive → hung round → wrapper log (it buffers a whole
 drain round, so a quiet log is not evidence of a stall) → `SELECT max(created_at)
 FROM property_price_events` → queue state.
