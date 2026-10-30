@@ -155,6 +155,7 @@ func TestCycleMintsWithTheWorkloadSecretAndNeverReadsTheControlSecret(t *testing
 	log.SetOutput(&logBuf)
 	t.Cleanup(func() { log.SetOutput(prevLog) })
 
+	isolateCrawlFetchEnv(t)
 	code := runCycleMode(&stdout, cycleJobPreflight, false, time.Hour, getenv, newCrawlEvents(&evbuf))
 	if code != 0 {
 		t.Fatalf("preflight exit = %d, want 0 (its checks ran)", code)
@@ -212,6 +213,7 @@ func TestCycleWithoutTheWorkloadSecretRefusesExit8AndNamesTheVariable(t *testing
 	log.SetOutput(&logBuf)
 	t.Cleanup(func() { log.SetOutput(prevLog) })
 
+	isolateCrawlFetchEnv(t)
 	code := runCycleMode(&stdout, cycleJobDrain, false, time.Hour, getenv, newCrawlEvents(&evbuf))
 	if code != exitSinkRefused {
 		t.Fatalf("exit = %d, want %d", code, exitSinkRefused)

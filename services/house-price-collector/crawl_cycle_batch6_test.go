@@ -127,6 +127,7 @@ func TestHungGraceOutOfRangeExitsEightAtTheEntryPoint(t *testing.T) {
 		}
 		return ""
 	}
+	isolateCrawlFetchEnv(t)
 	code := runCycleMode(&out, cycleJobDrain, false, time.Hour, getenv, nil)
 	if code != exitSinkRefused {
 		t.Fatalf("exit = %d, want 8", code)

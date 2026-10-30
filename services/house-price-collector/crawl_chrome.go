@@ -143,6 +143,15 @@ const cdpToolTimeout = 5 * time.Second
 // warm Chrome can miss one 3 s probe, and a kill throws away its Kasada clearance.
 var staleReprobeWait = 2 * time.Second
 
+// chromeDepsForDefaults supplies the dependencies of the production defaults: the preflight and round
+// checks, the drain's Chrome warm, and recoverWedgedChrome's ownership check. Production is osChromeDeps.
+// A test replaces it so those paths run without lsof, ps or a socket.
+var chromeDepsForDefaults func() chromeDeps
+
+// init sets the production value outside the package var declaration, which would otherwise be an
+// initialization cycle (osChromeDeps reaches recoverWedgedChrome, which reads this var).
+func init() { chromeDepsForDefaults = osChromeDeps }
+
 // osChromeDeps is the full production wiring: every side effect is the real implementation.
 func osChromeDeps() chromeDeps {
 	return chromeDeps{
@@ -631,7 +640,8 @@ func recoverWedgedChrome(cfg chromeConfig) error {
 	if _, err := chromeCDPPort(cfg.cdpURL); err != nil {
 		return err
 	}
-	if err := checkCDPPortOwner(cfg, osChromeDeps(), chromeReachable(cfg.cdpURL)); err != nil {
+	deps := chromeDepsForDefaults().withOSDefaults()
+	if err := checkCDPPortOwner(cfg, deps, deps.reachable(cfg.cdpURL)); err != nil {
 		return err
 	}
 	if !killDedicatedChrome(cfg.profileDir) {

@@ -1094,6 +1094,7 @@ func TestCycleRefusesBadConfigWithOneSummaryLine(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
 			getenv := func(k string) string { return tc.env[k] }
+			isolateCrawlFetchEnv(t)
 			code := runCycleMode(&out, tc.job, false, time.Hour, getenv, nil)
 			if code != exitSinkRefused {
 				t.Fatalf("exit = %d, want 8", code)

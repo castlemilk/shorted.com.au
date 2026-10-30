@@ -194,6 +194,7 @@ func TestInvalidJobIsUnknownAndNeverEchoed(t *testing.T) {
 		}
 		return ""
 	}
+	isolateCrawlFetchEnv(t)
 	code := runCycleMode(&out, raw, false, time.Hour, getenv, newCrawlEvents(&evbuf))
 	if code != exitSinkRefused {
 		t.Fatalf("exit = %d, want 8", code)

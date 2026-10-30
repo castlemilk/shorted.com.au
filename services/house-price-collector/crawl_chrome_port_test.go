@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -26,6 +24,10 @@ const (
 // listens, and ps cannot list dedicated Chrome. A failed ps lookup reads as "unknown", so the
 // invisible-holder rule fails open and no stale instance is seen.
 func withQuietPort(d chromeDeps) chromeDeps {
+	if d.reachable == nil {
+		// Nothing answers /json/version. Without this the re-check would probe the real port.
+		d.reachable = func(string) bool { return false }
+	}
 	if d.listeners == nil {
 		d.listeners = func(string) ([]cdpListener, error) { return nil, nil }
 	}
@@ -439,6 +441,33 @@ func TestEnsureChromeWarmNilDepsFallBack(t *testing.T) {
 	}
 }
 
+// isolateCrawlFetchEnv clears the fetch-mode variables for a test that runs the cycle's production
+// defaults, so they take the playwright path (no Chrome probe) whatever the developer's shell exports.
+func isolateCrawlFetchEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("CRAWL_CDP_URL", "")
+	t.Setenv("CRAWL_GATEWAY_URL", "")
+	t.Setenv("CRAWL_FETCH_MODE", "")
+}
+
+// withFakeDefaults points the production defaults at a fake holder set for one test. It stands in
+// for lsof, ps and the /json/version probe, so the outcome does not depend on the host's tools.
+func withFakeDefaults(t *testing.T, d chromeDeps) {
+	t.Helper()
+	prev := chromeDepsForDefaults
+	chromeDepsForDefaults = func() chromeDeps { return withQuietPort(d) }
+	t.Cleanup(func() { chromeDepsForDefaults = prev })
+}
+
+// requireOSTool skips an OS-integration test when the tool it drives is not installed. These tests
+// are named OSIntegration and are the only ones that run lsof, so the rest of the package is hermetic.
+func requireOSTool(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("OS integration test: %s is not installed (%v)", path, err)
+	}
+}
+
 // withKillSeams replaces the ps lookup and the signal for one test, so the kill loop can be driven
 // without a real process. The fake pids are never signalled for real.
 func withKillSeams(t *testing.T, lister func(string) ([]int, error)) *[]int {
@@ -515,22 +544,19 @@ func TestEnsureChromeWarmPsErrorDuringKillKeepsLocksAndDoesNotLaunch(t *testing.
 	}
 }
 
-// recoverWedgedChrome (the repair and rc 4 path) refuses the same way: no lock clear, no launch.
 func TestRecoverWedgedChromeFailsClosedOnPsError(t *testing.T) {
 	captureLog(t)
 	withKillSeams(t, func(string) ([]int, error) { return nil, errors.New("ps: timed out") })
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, port, _ := net.SplitHostPort(ln.Addr().String())
-	_ = ln.Close() // a free port: lsof finds no listener, so the ownership check passes
+	withFakeDefaults(t, chromeDeps{
+		reachable: func(string) bool { return false },
+		listeners: func(string) ([]cdpListener, error) { return nil, nil },
+	})
 	profile := t.TempDir()
 	lock := filepath.Join(profile, "SingletonLock")
 	if err := os.WriteFile(lock, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err = recoverWedgedChrome(chromeConfig{bin: "/nonexistent/chrome", profileDir: profile, cdpURL: "http://127.0.0.1:" + port, autoWarm: true})
+	err := recoverWedgedChrome(chromeConfig{bin: "/nonexistent/chrome", profileDir: profile, cdpURL: "http://127.0.0.1:9333", autoWarm: true})
 	if err == nil || !strings.Contains(err.Error(), "still alive") {
 		t.Fatalf("err = %v, want the refusal to fork a second instance", err)
 	}
@@ -560,18 +586,20 @@ func TestCheckCDPPortOwnerWarmOffGate(t *testing.T) {
 	}
 }
 
-// defaultChromeReachable and defaultCDPPortConflict read the real environment. A foreign process
-// (this test's own httptest listener) holds the port, so the only difference between the two cases
-// is the warm gate.
 func TestDefaultPortHelpersWarmOffGate(t *testing.T) {
 	captureLog(t)
-	// A real foreign listener that answers /json/version with 404: not reachable, and not ours.
-	srv := httptest.NewServer(http.NotFoundHandler())
-	t.Cleanup(srv.Close)
-	t.Setenv("CRAWL_CDP_URL", srv.URL)
+	t.Setenv("CRAWL_CDP_URL", "http://127.0.0.1:9333")
 	t.Setenv("CRAWL_GATEWAY_URL", "")
 	t.Setenv("CRAWL_FETCH_MODE", "")
 	t.Setenv("HOUSING_CRAWL_CHROME_PROFILE", t.TempDir())
+	// A foreign holder that does not answer /json/version. The fake stands in for lsof, ps and the
+	// probe, so the result is the same on a host with or without those tools.
+	withFakeDefaults(t, chromeDeps{
+		reachable: func(string) bool { return false },
+		listeners: func(string) ([]cdpListener, error) { return wildcardListeners([]int{foreignTestPID}), nil },
+		command:   func(pid int) (string, error) { return foreignCommand(pid), nil },
+		dedicated: func(string) ([]int, error) { return nil, nil },
+	})
 
 	t.Run("warm on: the foreign holder is a conflict", func(t *testing.T) {
 		t.Setenv("CRAWL_AUTO_WARM", "true")
@@ -772,10 +800,8 @@ func TestChromeStateForWarmError(t *testing.T) {
 
 // listCDPListeners is the real lsof. The test process holds a loopback port, so lsof must name this
 // PID on 127.0.0.1. Skipped where lsof is absent.
-func TestListCDPListenersFindsOwnListener(t *testing.T) {
-	if _, err := os.Stat("/usr/sbin/lsof"); err != nil {
-		t.Skip("lsof not available")
-	}
+func TestOSIntegrationListCDPListenersFindsOwnListener(t *testing.T) {
+	requireOSTool(t, "/usr/sbin/lsof")
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -795,28 +821,34 @@ func TestListCDPListenersFindsOwnListener(t *testing.T) {
 	t.Fatalf("listCDPListeners(%s) = %v, want this process (%d) on 127.0.0.1", port, ls, os.Getpid())
 }
 
-// recoverWedgedChrome is the repair path's recovery, which runs without ensureChromeWarm. With a
-// foreign holder on the port it must refuse before any kill. The holder here is this test process,
-// and the profile matches nothing, so a missing check would reach the real kill path.
 func TestRecoverWedgedChromeRefusesForeignHolder(t *testing.T) {
-	if _, err := os.Stat("/usr/sbin/lsof"); err != nil {
-		t.Skip("lsof not available")
+	captureLog(t)
+	// The kill must never be reached: a holder on the port is refused first.
+	withKillSeams(t, func(string) ([]int, error) { t.Error("ps reached the kill path"); return nil, nil })
+	withFakeDefaults(t, chromeDeps{
+		reachable: func(string) bool { return true },
+		listeners: func(string) ([]cdpListener, error) { return wildcardListeners([]int{foreignTestPID}), nil },
+		command:   func(pid int) (string, error) { return foreignCommand(pid), nil },
+	})
+	profile := t.TempDir()
+	cfg := chromeConfig{bin: "/nonexistent/chrome", profileDir: profile, cdpURL: "http://127.0.0.1:9333", autoWarm: true}
+	err := recoverWedgedChrome(cfg)
+	if !errors.Is(err, errChromePortConflict) {
+		t.Fatalf("recoverWedgedChrome = %v, want a port conflict before any kill or launch", err)
 	}
+}
+
+// OS integration: the real lsof and a real socket, on the URL's loopback port.
+func TestOSIntegrationRecoverWedgedChromeRefusesRealHolder(t *testing.T) {
+	requireOSTool(t, "/usr/sbin/lsof")
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = ln.Close() }()
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
-
-	cfg := chromeConfig{
-		bin:        "/nonexistent/chrome",
-		profileDir: t.TempDir(),
-		cdpURL:     "http://127.0.0.1:" + port,
-		autoWarm:   true,
-	}
-	err = recoverWedgedChrome(cfg)
-	if !errors.Is(err, errChromePortConflict) {
+	cfg := chromeConfig{bin: "/nonexistent/chrome", profileDir: t.TempDir(), cdpURL: "http://127.0.0.1:" + port, autoWarm: true}
+	if err := recoverWedgedChrome(cfg); !errors.Is(err, errChromePortConflict) {
 		t.Fatalf("recoverWedgedChrome = %v, want a port conflict before any kill or launch", err)
 	}
 }

@@ -837,7 +837,7 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 	// so an unattended scheduler re-runs after a cooldown.
 	if cfg.fixtureDir == "" && selectFetcherMode(cfg.crawlConfig) == fetcherModeCDP {
 		if ccfg := loadChromeConfig(cfg.cdpURL); ccfg.autoWarm {
-			deps := osChromeDeps()
+			deps := chromeDepsForDefaults()
 			deps.reachable = chromeReachable
 			deps.launch = launchDedicatedChrome
 			deps.recover = recoverWedgedChrome

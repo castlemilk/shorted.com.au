@@ -2104,7 +2104,7 @@ func defaultEnsureChrome(ctx context.Context, probe func(context.Context) int) (
 	if !ccfg.autoWarm {
 		return "skipped", 0
 	}
-	deps := osChromeDeps()
+	deps := chromeDepsForDefaults()
 	deps.reachable = chromeReachable
 	deps.launch = launchDedicatedChrome
 	deps.recover = recoverWedgedChrome
@@ -2136,9 +2136,10 @@ func defaultChromeReachable() string {
 		return "not_used"
 	}
 	ccfg := loadChromeConfig(cfg.cdpURL)
-	reachable := chromeReachable(ccfg.cdpURL)
+	deps := chromeDepsForDefaults().withOSDefaults()
+	reachable := deps.reachable(ccfg.cdpURL)
 	// checkCDPPortOwner skips the check when the warm is off (CRAWL_AUTO_WARM=false), as the drain does.
-	if checkCDPPortOwner(ccfg, osChromeDeps(), reachable) != nil {
+	if checkCDPPortOwner(ccfg, deps, reachable) != nil {
 		return chromePortConflict
 	}
 	if reachable {
@@ -2158,7 +2159,8 @@ func defaultCDPPortConflict() bool {
 	if !ccfg.autoWarm {
 		return false
 	}
-	return checkCDPPortOwner(ccfg, osChromeDeps(), chromeReachable(ccfg.cdpURL)) != nil
+	deps := chromeDepsForDefaults().withOSDefaults()
+	return checkCDPPortOwner(ccfg, deps, deps.reachable(ccfg.cdpURL)) != nil
 }
 
 // defaultRecoverChrome is the wedged-Chrome recovery the rc 4 path uses (kill, clear the profile
