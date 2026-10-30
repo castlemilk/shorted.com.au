@@ -323,6 +323,19 @@ This is the load-bearing fact the whole listings tier depends on, so it's encode
 - **Events-based terminal status** (`agentJobOutcome`, `crawl_agent.go`) — the queue status is gated on **events actually written**, not the raw `seen` count (poison inflates `seen > 0` with `0` events written). A blocked sweep that produced `0` events submits **`failed`**, not a misleading success.
 - **Consecutive-block circuit-break** — after **2 consecutive blocked jobs** the agent stops claiming and flags a re-warm (exit `3`), so a cold session can't burn the whole batch before the launcher re-warms it (the job-level counterpart to §6.3's per-fetch `CRAWL_MAX_CONSEC_BLOCKS` breaker).
 
+**Lifecycle, persisted circuit and Domain reset (2026-10-31).** Two faults from the
+2026-10-30/31 incident. The breaker lived in each child round, so it restarted every source at
+base; the cookies Akamai flagged stayed in the profile, so every re-probe was blocked again. The
+fix: the breaker state is saved to `circuit-state.json` (atomic, `0600`, lock holder only) and
+restored by the next round, so the doubling carries across children and cycles. When the Domain
+circuit trips, Domain's cookies (only `domain.com.au`) are deleted from the dedicated Chrome. The
+dedicated Chrome is also quit at the end of each drain (`Browser.close` only when the CDP port is
+vouched for as dedicated, otherwise SIGTERM to its main process) and relaunched by the next cycle,
+which re-earns the Kasada clearance by the native startup navigation. A passing warm check re-opens
+REA for one probe. Operations
+and the prune allowlist are in `operations.md`, "Chrome lifecycle, circuit state and the Domain
+reset".
+
 ### 6.6 Smart pagination & sweep sizing
 
 Earlier sweeps walked a fixed page budget and always came back `partial`; the listings sweep (`crawl_listings.go` `sweepSuburbSource` + `crawl_listings_extract.go` `extractPageMeta`) now **sizes and terminates each walk from the portal's own result counts**.

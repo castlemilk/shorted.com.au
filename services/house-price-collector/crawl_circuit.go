@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"math/rand"
 	"time"
 )
@@ -28,6 +29,10 @@ type crawlCircuitBreaker struct {
 	base     time.Duration // first cooldown when a circuit opens
 	max      time.Duration // cap on the (doubling) cooldown
 	circuits map[string]*sourceCircuit
+	// path is the state file record() saves to after every change, so a source's streak and
+	// backoff survive the child process that ends the round (see crawl_circuit_state.go). Empty
+	// keeps the breaker in memory only, as the dry run and the tests use it.
+	path string
 }
 
 // sourceCircuit is one source's breaker state (persisted across suburbs).
@@ -35,6 +40,7 @@ type sourceCircuit struct {
 	consec    int           // consecutive blocked sweeps for this source
 	openUntil time.Time     // circuit OPEN (skip this source) until here
 	backoff   time.Duration // current cooldown; doubles each re-open, capped at max
+	updated   time.Time     // the last record() for this source; with openUntil, decides expiry
 }
 
 // newCircuitBreaker builds a breaker. trip<1 ⇒ 1; a non-positive base ⇒ 5m; a
@@ -78,6 +84,8 @@ func (cb *crawlCircuitBreaker) skip(source string, now time.Time) (bool, time.Du
 // up to max. Returns whether it (re)opened and the cooldown applied.
 func (cb *crawlCircuitBreaker) record(source string, blocked bool, now time.Time) (opened bool, cooldown time.Duration) {
 	sc := cb.circuit(source)
+	sc.updated = now
+	defer cb.save()
 	if !blocked {
 		sc.consec = 0
 		sc.backoff = 0
@@ -99,6 +107,28 @@ func (cb *crawlCircuitBreaker) record(source string, blocked bool, now time.Time
 	cooldown = jitterDur(sc.backoff)
 	sc.openUntil = now.Add(cooldown)
 	return true, cooldown
+}
+
+// warmBlockedByCircuit reports whether every source is circuit-open at now, so the round would
+// claim nothing. It logs the decision. The warm check is skipped on it.
+func warmBlockedByCircuit(cb *crawlCircuitBreaker, sources []string, now time.Time) bool {
+	open, rem := cb.allOpen(sources, now)
+	if open {
+		log.Printf("[agent] every source circuit-open (longest cooldown %s) — skipping the warm check and the REA fetch; this round claims nothing", rem.Round(time.Second))
+	}
+	return open
+}
+
+// reopenProbe lets one probe through a source whose cooldown has ended early. Used after a warm
+// check passes: the Chrome session just earned its clearance, so the persisted cooldown no longer
+// describes it. The streak and the backoff stay, so one more block doubles the cooldown as before.
+func (cb *crawlCircuitBreaker) reopenProbe(source string) {
+	sc := cb.circuit(source)
+	if sc.openUntil.IsZero() {
+		return
+	}
+	sc.openUntil = time.Time{}
+	cb.save()
 }
 
 // allOpen reports whether EVERY listed source is currently in an open circuit —

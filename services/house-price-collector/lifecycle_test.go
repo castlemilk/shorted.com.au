@@ -13,6 +13,7 @@ func TestRunAgentMissingQueueConfigurationIsFatal(t *testing.T) {
 	t.Setenv("BRANDBRAIN_CONTROL_PORT", "")
 	t.Setenv("BRANDBRAIN_CONTROL_SECRET", "")
 
+	isolateCircuitState(t)
 	if got := runAgent(context.Background(), nil); got != 7 {
 		t.Fatalf("runAgent without BrandBrain queue configuration = %d, want 7", got)
 	}

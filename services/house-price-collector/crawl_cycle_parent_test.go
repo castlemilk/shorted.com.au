@@ -230,6 +230,7 @@ func waitGoneWithin(t *testing.T, pid int, d time.Duration) {
 // Killing the runtime during a round: the round finishes its suburb, the cycle exits 10 with a
 // summary, and no new round starts.
 func TestCycleParentDeathDuringARoundStopsAfterTheRoundAndStartsNothingNew(t *testing.T) {
+	isolateCircuitState(t) // the child agent round reads the circuit file from the environment
 	plan := []fakeStep{
 		{Claims: 1, Fetches: 1, Hang: true, OnTerm: "count"},
 		{Claims: 1, Processed: 1, Succeeded: 1, Exit: 0},
@@ -253,6 +254,7 @@ func TestCycleParentDeathDuringARoundStopsAfterTheRoundAndStartsNothingNew(t *te
 // Killing the runtime during a cooldown: the cooldown ends at once, the cycle exits 10, and the round
 // that would have followed the cooldown never starts.
 func TestCycleParentDeathDuringACooldownStartsNoRound(t *testing.T) {
+	isolateCircuitState(t) // the child agent round reads the circuit file from the environment
 	plan := []fakeStep{
 		{Exit: 3},
 		{Claims: 1, Processed: 1, Succeeded: 1, Exit: 0},
@@ -285,6 +287,7 @@ type failingWriter struct{}
 func (failingWriter) Write([]byte) (int, error) { return 0, syscall.EPIPE }
 
 func TestCycleBrokenOwnEventsFdStopsTheCycle(t *testing.T) {
+	isolateCircuitState(t) // the child agent round reads the circuit file from the environment
 	h := newCycleHarness(t, []fakeStep{
 		{Claims: 1, Processed: 1, Succeeded: 1, Exit: 0},
 		{Exit: 0},

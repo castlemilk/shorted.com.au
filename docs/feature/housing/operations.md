@@ -308,6 +308,95 @@ Kasada stub → relaunch). The brandbrain token needs no minting — the collect
 re-reads the running macOS agent's token on 401; `BRANDBRAIN_AGENT_TOKEN` is an
 optional fallback and, as a ~15-min snapshot, rescues nothing once stale.
 
+### Chrome lifecycle, circuit state and the Domain reset (2026-10-31)
+
+Three things changed how the dedicated Chrome and the per-source breaker behave
+across a cycle. All of them live in `services/house-price-collector`.
+
+**Chrome at the end of a drain.** `CRAWL_CHROME_LIFECYCLE=cycle` is the default.
+When a `drain` cycle ends, the cycle parent quits the dedicated Chrome after its
+last round, still holding the lock. It runs only with CDP mode, a loopback
+`CRAWL_CDP_URL` and `CRAWL_AUTO_WARM` not `false`, and never on a dry run. It
+does not run for `repair`, which exists to leave Chrome warm, or for
+`preflight`, which is read-only. The cycle reports a `stopping` phase while it
+works. The next cycle's `ensureChromeWarm` launches Chrome fresh, and the native
+startup navigation re-warms Kasada. `CRAWL_CHROME_LIFECYCLE=persistent` keeps the
+old behaviour.
+
+How the quit is chosen:
+
+1. **Graceful: `Browser.close` over CDP.** Sent only when `lsof` read the port
+   and every listener on it is a dedicated PID from a successful `ps`. This is
+   the one case where the port is vouched for.
+2. **Otherwise: SIGTERM to the dedicated main process.** The main process is the
+   one dedicated PID whose command line has no `--type=`. If there is not exactly
+   one such process, no signal is sent.
+3. **Then the wait.** Up to 15 s, and only if a close or a SIGTERM was sent.
+4. **Last: the SIGKILL fallback** (`killDedicatedChrome`, which fails closed when
+   `ps` is unreadable). A confirmed kill also clears the profile's
+   `SingletonLock`, `SingletonSocket` and `SingletonCookie`.
+
+A CDP port held by another process is refused before any signal is sent. A `ps`
+error means no signal, no prune and no relaunch. Nothing that is not matched as
+the dedicated profile is ever signalled. The log names the dedicated PID count,
+their summed RSS and the profile size before the quit.
+
+**Disk hygiene.** Chrome is launched with `--disk-cache-size=268435456`
+(256 MiB). After the quit, and only once the dedicated Chrome is confirmed gone,
+the cycle prunes the profile's browser-cache directories from this allowlist, and
+nothing else:
+
+| Directory (under the profile) | Kind |
+|---|---|
+| `Default/Cache`, `Default/Code Cache`, `Default/GPUCache`, `GPUCache` | HTTP and code caches |
+| `ShaderCache`, `GrShaderCache`, `GraphiteDawnCache` | shader caches |
+| `Default/DawnGraphiteCache`, `Default/DawnWebGPUCache` | WebGPU caches |
+
+Never touched: `Default/Network` (the cookie database lives there in current
+Chrome), `Default/Cookies`, `Default/Local Storage`, `Default/IndexedDB`,
+`Default/Session Storage`, `Default/Preferences`, `Local State`, and the
+service-worker directories (`Default/Service Worker/CacheStorage` and
+`ScriptCache` are site data that offline apps depend on). Each path is checked
+with `Lstat` component by component. A symlink, or a file where a directory
+belongs, is skipped and never followed. The prune is refused while the profile's
+`SingletonLock` names a live PID. The log reports MB freed and the profile size
+left behind.
+
+**Circuit state across rounds and cycles.** The per-source breaker (`rea`,
+`domain`) persists to `~/.shorted-housing-crawl/circuit-state.json` (override:
+`CRAWL_CIRCUIT_STATE_FILE`). Before this change every round, a fresh child
+process, restarted each source at the base cooldown. The file is written
+atomically (temp file, `0600`, rename) after every change, and only by the lock
+holder or its child, so there is one writer. Temp files a crashed save left
+behind are removed on load once they are a minute old. A dry run neither reads
+nor writes it. On load:
+
+- An entry whose open window and last update are both older than
+  `CRAWL_CIRCUIT_MAX_S` is expired.
+- An entry updated in the future is dropped, since its clock is not trusted.
+- An `openUntil` past now plus 1.2 times the cap (the jitter bound) is clamped.
+- A missing file is a fresh start. A corrupt or unreadable file is logged and is
+  also a fresh start, so the breaker never stops a crawl.
+
+Before the warm check, the round loads the breaker. If both sources are open and
+not yet due, the warm check is skipped, because it would fetch REA for a round
+that claims nothing. A passing warm check re-opens REA for one probe. Its streak
+and backoff are kept, so one more block doubles the cooldown. Delete the file to
+reset every source to closed:
+
+```bash
+rm ~/.shorted-housing-crawl/circuit-state.json   # every source closed; the next round starts at the base cooldown
+```
+
+**Domain session reset.** The reset runs each time the Domain circuit opens. With
+the persisted breaker, that means every failed retry probe re-opens the circuit
+and re-runs the reset. A Domain that stays blocked is reset once per probe, not
+once per run. The reset deletes the cookies whose domain is `domain.com.au` or a
+subdomain of it (`_abck`, `bm_sz`, `ak_bmsc` and the rest), and nothing else.
+`realestate.com.au`'s Kasada clearance stays. It runs only with the collector
+managing a loopback dedicated Chrome, and never on a dry run. The log reports the
+count. A failed reset is logged, and the cooldown applies regardless.
+
 ## Deploying the rig
 
 The rig binary (`~/bin/house-price-collector`) and the staged wrappers

@@ -668,6 +668,7 @@ func TestProbeRunsOnlyAfterTheLock(t *testing.T) {
 	t.Cleanup(ctl.Close)
 	stubAgentEnv(t, ingest.URL, bb.URL, ctl, "ctl")
 
+	isolateCircuitState(t)
 	if got := runAgent(context.Background(), nil); got != exitLockHeld {
 		t.Fatalf("runAgent with a held lock = %d, want %d", got, exitLockHeld)
 	}
@@ -692,6 +693,7 @@ func TestSigtermDuringProbeExits10(t *testing.T) {
 	stubAgentEnv(t, ingest.URL, bb.URL, ctl, "ctl")
 
 	start := time.Now()
+	isolateCircuitState(t)
 	got := runAgent(context.Background(), nil)
 	if got != exitCrawlCancelled {
 		t.Fatalf("runAgent with SIGTERM during the probe = %d, want %d", got, exitCrawlCancelled)
@@ -1064,6 +1066,7 @@ func TestProbeWrongEndpointExits8NotUnavailable(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		t.Setenv(crawlLockDirEnv, filepath.Join(t.TempDir(), "lockdir"))
 		stubAgentEnv(t, ing.URL, bb.URL, ctl, "ctl")
+		isolateCircuitState(t)
 		if got := runAgent(context.Background(), nil); got != exitCrawlEnvBroken {
 			t.Errorf("ProbeAuth %v exited %d, want %d", code, got, exitCrawlEnvBroken)
 		}

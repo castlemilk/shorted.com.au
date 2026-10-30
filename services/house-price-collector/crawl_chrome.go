@@ -127,6 +127,12 @@ type chromeDeps struct {
 	dedicated func(profileDir string) ([]int, error)
 	command   func(pid int) (string, error)
 	kill      func(profileDir string) bool
+	// closeBrowser asks the dedicated Chrome to quit over CDP (Browser.close) at the end of a cycle;
+	// rss sums the resident size of pids for the cycle-end telemetry. Both are in
+	// crawl_chrome_lifecycle.go and fail closed when nil.
+	closeBrowser func(cdpURL string) error
+	rss          func(pids []int) (int64, error)
+	term         func(pid int) error
 }
 
 // cdpListener is one socket LISTENing on the CDP port: its owner and the host part of
@@ -155,13 +161,16 @@ func init() { chromeDepsForDefaults = osChromeDeps }
 // osChromeDeps is the full production wiring: every side effect is the real implementation.
 func osChromeDeps() chromeDeps {
 	return chromeDeps{
-		reachable: chromeReachable,
-		launch:    launchDedicatedChrome,
-		recover:   recoverWedgedChrome,
-		listeners: listCDPListeners,
-		dedicated: dedicatedChromePIDsChecked,
-		command:   processCommand,
-		kill:      killDedicatedChrome,
+		reachable:    chromeReachable,
+		launch:       launchDedicatedChrome,
+		recover:      recoverWedgedChrome,
+		listeners:    listCDPListeners,
+		dedicated:    dedicatedChromePIDsChecked,
+		command:      processCommand,
+		kill:         killDedicatedChrome,
+		closeBrowser: closeDedicatedBrowserCDP,
+		rss:          dedicatedChromeRSS,
+		term:         signalTermPID,
 	}
 }
 
@@ -194,6 +203,15 @@ func (d chromeDeps) withOSDefaults() chromeDeps {
 	}
 	if d.kill == nil {
 		d.kill = func(string) bool { return false }
+	}
+	if d.closeBrowser == nil {
+		d.closeBrowser = func(string) error { return errChromeNotStubbed }
+	}
+	if d.rss == nil {
+		d.rss = func([]int) (int64, error) { return 0, errChromeNotStubbed }
+	}
+	if d.term == nil {
+		d.term = func(int) error { return errChromeNotStubbed }
 	}
 	if d.warmProbe == nil {
 		d.warmProbe = func() int { return 4 }
@@ -582,6 +600,9 @@ func chromeLaunchArgs(cfg chromeConfig, port string) []string {
 		// silently discards any launch flag we add, which is why an off-screen or
 		// re-warmed window would never actually appear.
 		"--disable-background-mode",
+		// The disk cache is capped at 256 MiB. Uncapped it grew without limit in the profile. The
+		// cycle end also prunes the cache directories (crawl_chrome_lifecycle.go).
+		"--disk-cache-size=268435456",
 	}
 	if !truthyEnv("HOUSING_CRAWL_CHROME_ONSCREEN") {
 		args = append(args,

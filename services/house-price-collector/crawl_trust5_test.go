@@ -120,6 +120,7 @@ func TestTraceUnderSinksExits8ThroughRunAgent(t *testing.T) {
 				}
 				t.Setenv("CRAWL_TRACE_DIR", root+"/"+v)
 				t.Setenv("CRAWL_TRACE", "")
+				isolateCircuitState(t)
 				if got := runAgent(context.Background(), nil); got != exitSinkRefused {
 					t.Fatalf("CRAWL_TRACE_DIR=%q under %s exited %d, want %d", v, sink, got, exitSinkRefused)
 				}
@@ -136,6 +137,7 @@ func TestTraceUnderSinksExits8ThroughRunAgent(t *testing.T) {
 		t.Setenv("DATABASE_URL", "")
 		t.Setenv("CRAWL_TRACE", "false")
 		t.Setenv("CRAWL_TRACE_DIR", "")
+		isolateCircuitState(t)
 		if got := runAgent(context.Background(), nil); got != exitSinkRefused {
 			t.Fatalf("CRAWL_TRACE=false under ingest exited %d, want %d", got, exitSinkRefused)
 		}

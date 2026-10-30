@@ -91,6 +91,7 @@ func newCycleHarness(t *testing.T, plan []fakeStep) *cycleHarness {
 	lockDir := filepath.Join(t.TempDir(), "lockdir")
 	t.Setenv(cycleFakeChildEnv, dir)
 	t.Setenv(crawlLockDirEnv, lockDir)
+	isolateCircuitState(t)
 
 	h := &cycleHarness{t: t, dir: dir, lockDir: lockDir, reach: "not_used", probeWord: "ok", sigs: make(chan os.Signal, 4)}
 	h.cfg = cycleConfig{
