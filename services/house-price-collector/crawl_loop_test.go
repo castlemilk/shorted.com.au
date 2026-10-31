@@ -376,7 +376,7 @@ func TestSecondSignalExitsImmediately(t *testing.T) {
 	select {
 	case c := <-exited:
 		t.Fatalf("first signal exited with %d, want a graceful stop", c)
-	default:
+	case <-time.After(200 * time.Millisecond):
 	}
 	sigs <- syscall.SIGTERM
 	select {

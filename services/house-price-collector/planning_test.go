@@ -170,7 +170,7 @@ func TestPlanningUpsertArgsFollowColumnOrder(t *testing.T) {
 	}
 }
 
-func TestZoneFamiliesMatchTheMigration(t *testing.T) {
+func TestContractZoneFamiliesMatchTheMigration(t *testing.T) {
 	sql, err := os.ReadFile(filepath.Join("..", "migrations", "000125_add_suburb_planning.up.sql"))
 	if err != nil {
 		t.Fatalf("read migration: %v", err)
@@ -210,10 +210,10 @@ func TestEmbeddedPlanningArtifactLoads(t *testing.T) {
 	}
 }
 
-// TestPlanningGatesMatchTheBuild holds the two coverage gates together across
+// TestContractPlanningGatesMatchTheBuild holds the two coverage gates together across
 // the offline build (which applies them), this loader (which re-checks the
 // artifact) and the migration (which makes a violating row unstorable).
-func TestPlanningGatesMatchTheBuild(t *testing.T) {
+func TestContractPlanningGatesMatchTheBuild(t *testing.T) {
 	py, err := os.ReadFile(filepath.Join("..", "..", "web", "scripts", "geo", "planning", "planning_share.py"))
 	if err != nil {
 		t.Fatalf("read planning_share.py: %v", err)

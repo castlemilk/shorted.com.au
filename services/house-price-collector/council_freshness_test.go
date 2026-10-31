@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestCouncilFreshnessPoliciesDoNotDrift(t *testing.T) {
+func TestContractCouncilFreshnessPoliciesDoNotDrift(t *testing.T) {
 	want := []vgFreshnessPolicy{
 		{source: "abs_ba_lga", maxAgeDays: 120, table: "lga_series"},
 		{source: "abs_erp_lga", maxAgeDays: 700, table: "lga_series"},

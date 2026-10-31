@@ -141,7 +141,7 @@ func TestCycleEventNamesMatchTheContract(t *testing.T) {
 }
 
 // The runtime's silence rule: the cycle's own events must mark a cooldown with an until.
-func TestCooldownPhaseCarriesUntil(t *testing.T) {
+func TestContractCooldownPhaseCarriesUntil(t *testing.T) {
 	section := contractSection(t)
 	if !strings.Contains(section, "`until`") {
 		t.Fatalf("the contract must name the cooldown phase's until")

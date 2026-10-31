@@ -248,7 +248,7 @@ func TestCrawlLockUnreadablePidGetsAGrace(t *testing.T) {
 		_ = os.WriteFile(filepath.Join(dir, "pid"), []byte(strconv.Itoa(os.Getpid())+"\n"), 0o644)
 	}()
 	l := newCrawlLock(dir)
-	l.grace = 10 * time.Second // the pid is written after 40ms; no scheduling delay outruns this
+	l.grace = time.Second // the pid is written after 40ms; a 1s grace leaves 25x headroom
 	outcome, _, _ := l.acquire()
 	if outcome != lockHeld {
 		t.Fatalf("a lock whose pid appears within the grace must be respected, got %v", outcome)

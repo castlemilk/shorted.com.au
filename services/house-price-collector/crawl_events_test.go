@@ -30,7 +30,7 @@ func sorted(s ...string) []string {
 
 // The schema is the contract the parent reads. Every event carries exactly the
 // documented keys, no more and no less.
-func TestEventSchemaIsExact(t *testing.T) {
+func TestContractEventSchemaIsExact(t *testing.T) {
 	t.Parallel()
 	var buf syncBuffer
 	ev := newCrawlEvents(&buf)
@@ -91,7 +91,7 @@ func TestRoundDoneFlagsFollowExitCode(t *testing.T) {
 }
 
 // Anything outside the enums is dropped, and a job ID that is not an ID is replaced.
-func TestEventsRejectOutOfEnumValues(t *testing.T) {
+func TestContractEventsRejectOutOfEnumValues(t *testing.T) {
 	t.Parallel()
 	var buf syncBuffer
 	ev := newCrawlEvents(&buf)

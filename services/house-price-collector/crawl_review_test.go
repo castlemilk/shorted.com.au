@@ -495,11 +495,9 @@ func TestShadowCircuitBoundsTheStallAndTrips(t *testing.T) {
 			t.Errorf("sweep %d took %v; a failing dry run may delay the legacy write by one short timeout only", i+1, durations[i])
 		}
 	}
-	// At most shadowFailLimit pushes reach ingest. Fewer is legitimate: a dry run that fails on
-	// the client before the request is sent never reaches the stub, and still counts as a
-	// failure toward the circuit. The circuit trip below is the real assertion.
-	if n := fi.pushCount(); n < 1 || n > shadowFailLimit {
-		t.Errorf("dry-run pushes = %d, want 1..%d: the circuit must stop them", n, shadowFailLimit)
+	// Exactly shadowFailLimit pushes reach ingest: the circuit stops the rest.
+	if fi.pushCount() != shadowFailLimit {
+		t.Errorf("dry-run pushes = %d, want %d: the circuit must stop them", fi.pushCount(), shadowFailLimit)
 	}
 	for i := shadowFailLimit; i < 5; i++ {
 		if durations[i] > shadowDryRunTimeout {
@@ -851,7 +849,7 @@ func countTelemetry(t *testing.T, path, typ string) int {
 // H1, M1, M2c, L1, C1, C2: the trust boundary and the token contract.
 // ---------------------------------------------------------------------------
 
-func TestIngestURLIsPinned(t *testing.T) {
+func TestContractIngestURLIsPinned(t *testing.T) {
 	prev := testAllowLoopbackIngest
 	testAllowLoopbackIngest = false
 	t.Cleanup(func() { testAllowLoopbackIngest = prev })
@@ -1130,7 +1128,7 @@ func TestIngestEventsNameCodesNotMessages(t *testing.T) {
 }
 
 // Items 1 and 5 through the table: the defer/no-retry decision the job submits.
-func TestJobDispositionTableAcceptsOnlyTheDocumentedAnswers(t *testing.T) {
+func TestContractJobDispositionTableAcceptsOnlyTheDocumentedAnswers(t *testing.T) {
 	if n := len(jobDispositionTable); n == 0 {
 		t.Fatal("empty disposition table")
 	}

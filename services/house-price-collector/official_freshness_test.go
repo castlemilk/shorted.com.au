@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func TestVGFreshnessPoliciesDoNotDrift(t *testing.T) {
+func TestContractVGFreshnessPoliciesDoNotDrift(t *testing.T) {
 	want := []vgFreshnessPolicy{
 		{source: "vg_nsw", maxAgeDays: 550},
 		{source: "vg_sa", maxAgeDays: 270},

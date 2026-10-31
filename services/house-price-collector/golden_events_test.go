@@ -87,7 +87,7 @@ func collectContractEvents(t *testing.T) map[string][]map[string]any {
 	return out
 }
 
-func TestEveryEventTypeIsPinnedAgainstTheDoc(t *testing.T) {
+func TestGoldenEveryEventTypeIsPinnedAgainstTheDoc(t *testing.T) {
 	section := contractSection(t)
 	events := collectContractEvents(t)
 	common := map[string]bool{"type": true, "ts": true, "cycle_id": true, "round": true, "event": true}
@@ -177,7 +177,7 @@ func TestStartupOutcomeFollowsTheContractPerStep(t *testing.T) {
 }
 
 // The events the cycle writes carry type, ts and cycle_id; the contract says every event does.
-func TestEveryCycleEventCarriesTypeTsAndCycleID(t *testing.T) {
+func TestGoldenEveryCycleEventCarriesTypeTsAndCycleID(t *testing.T) {
 	for typ, insts := range collectContractEvents(t) {
 		for _, inst := range insts {
 			for _, k := range []string{"type", "ts", "cycle_id"} {

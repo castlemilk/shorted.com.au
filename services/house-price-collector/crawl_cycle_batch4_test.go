@@ -28,6 +28,9 @@ func TestProbeAnsweringAfterItsDeadlineKeepsItsCode(t *testing.T) {
 	// deadline by construction, not by a 400ms guess that load could reorder.
 	h.deps.probeIngest = func(ctx context.Context) (int, string) {
 		<-ctx.Done()
+		// runStep's select may still be on its own deadline branch; answer after it has
+		// taken that branch, so the late answer is the one under test.
+		time.Sleep(100 * time.Millisecond)
 		return 14, "unavailable"
 	}
 	code := h.runGuarded(20 * time.Second)
@@ -43,6 +46,7 @@ func TestChromeAnsweringAfterItsDeadlineKeepsItsCode(t *testing.T) {
 	h.cfg.stepGrace = 2 * time.Second
 	h.chromeFn = func(ctx context.Context) (string, int) {
 		<-ctx.Done()
+		time.Sleep(100 * time.Millisecond) // see the probe case above: answer after runStep takes its deadline
 		return "unusable", 4
 	}
 	code := h.runGuarded(20 * time.Second)
