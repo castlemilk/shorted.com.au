@@ -482,6 +482,7 @@ func TestShadowCircuitBoundsTheStallAndTrips(t *testing.T) {
 		legacy: &stubLegacy{log: cl, events: 5}}
 
 	var durations []time.Duration
+	pushesAtTrip := -1
 	for i := 0; i < 5; i++ {
 		start := time.Now()
 		n, err := sink.write(context.Background(), &listingsCrawler{}, bondi, "domain", stubShadowSweep(), time.Now())
@@ -489,15 +490,23 @@ func TestShadowCircuitBoundsTheStallAndTrips(t *testing.T) {
 		if err != nil || n != 5 {
 			t.Fatalf("sweep %d: legacy result (%d, %v), want (5, nil) whatever shadow does", i+1, n, err)
 		}
+		if i == shadowFailLimit-1 {
+			pushesAtTrip = fi.pushCount()
+		}
 	}
 	for i := 0; i < shadowFailLimit; i++ {
 		if durations[i] > failingBound {
 			t.Errorf("sweep %d took %v; a failing dry run may delay the legacy write by one short timeout only", i+1, durations[i])
 		}
 	}
-	// Exactly shadowFailLimit pushes reach ingest: the circuit stops the rest.
-	if fi.pushCount() != shadowFailLimit {
-		t.Errorf("dry-run pushes = %d, want %d: the circuit must stop them", fi.pushCount(), shadowFailLimit)
+	// At most shadowFailLimit pushes reach ingest, and none after the circuit trips. The count at
+	// the trip is not asserted exactly: a dry run that fails before its request lands (slow -race
+	// runs) still counts toward the trip without reaching the stub.
+	if pushesAtTrip < 1 || pushesAtTrip > shadowFailLimit {
+		t.Errorf("dry-run pushes before the trip = %d, want 1..%d", pushesAtTrip, shadowFailLimit)
+	}
+	if got := fi.pushCount(); got != pushesAtTrip {
+		t.Errorf("dry-run pushes after the trip = %d, want %d (unchanged): the circuit must stop them", got, pushesAtTrip)
 	}
 	for i := shadowFailLimit; i < 5; i++ {
 		if durations[i] > shadowDryRunTimeout {
