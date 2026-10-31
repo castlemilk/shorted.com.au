@@ -34,12 +34,13 @@ const (
 	FailureChrome            = "chrome"
 	FailureTimeout           = "timeout"
 	FailureIngestUnavailable = "ingest_unavailable"
+	FailureQuarantined       = "quarantined"
 	FailureOther             = "other"
 )
 
 // FailureClasses is every class, in the order the tools report them.
 var FailureClasses = []string{FailureNotDispatched, FailureDispatchExpired, FailureTargetMismatch,
-	FailureBlocked, FailureCircuitOpen, FailureChrome, FailureTimeout, FailureIngestUnavailable, FailureOther}
+	FailureBlocked, FailureCircuitOpen, FailureChrome, FailureTimeout, FailureIngestUnavailable, FailureQuarantined, FailureOther}
 
 var (
 	redactURL   = regexp.MustCompile(`(?i)\b(?:https?|ftp)://\S+`)
@@ -189,6 +190,10 @@ func classifyCrawlFailure(message string, summary json.RawMessage) string {
 		return FailureDispatchExpired
 	case has("target mismatch", "target_mismatch"):
 		return FailureTargetMismatch
+	// The ingest held the sweep for review (crawl_ingest_quarantine): the crawl itself worked, the
+	// gate refused the result. Checked before blocked, whose counters a quarantined sweep lacks.
+	case has("quarantined", "held for review"):
+		return FailureQuarantined
 	case has("circuit open", "circuit_open"):
 		return FailureCircuitOpen
 	case has("blocked") || counters["blocked_sweeps"] > 0:

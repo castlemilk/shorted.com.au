@@ -1210,3 +1210,31 @@ func smokeLedger(smokeID string, future time.Time) *fakeLedger {
 	}
 	return l
 }
+
+// The heartbeat reports Chrome and driver as state words, not versions. The first release
+// filtered them as versions, so env always came back empty in production, hiding exactly
+// the port_conflict and missing-driver states the field exists to show.
+func TestCrawlRigEnvKeepsHeartbeatStateWords(t *testing.T) {
+	cases := []struct{ chrome, driver, wantChrome, wantDriver string }{
+		{"warm", "ok", "warm", "ok"},
+		{"port_conflict", "missing", "port_conflict", "missing"},
+		{"128.0.6613.120", "ok", "unknown", "ok"},
+		{"", "", "", ""},
+	}
+	for _, c := range cases {
+		got := CrawlRigEnv{Chrome: closedWord(c.chrome, crawlChromeStates), Driver: closedWord(c.driver, crawlDriverStates)}
+		if got.Chrome != c.wantChrome || got.Driver != c.wantDriver {
+			t.Errorf("env(%q, %q) = %+v, want chrome %q driver %q", c.chrome, c.driver, got, c.wantChrome, c.wantDriver)
+		}
+	}
+}
+
+// A sweep the ingest quarantined was crawled fine and refused by the gate. It read as "other"
+// in production, hiding six delists_over_threshold holds in one day.
+func TestClassifyQuarantinedSweep(t *testing.T) {
+	got := classifyCrawlFailure("ingest: sweep quarantined (held for review, not retried)",
+		json.RawMessage(`{"blocked_sweeps":0,"events":0,"listings":90,"needs_rewarm":false,"suburbs":1}`))
+	if got != FailureQuarantined {
+		t.Fatalf("class = %q, want %q", got, FailureQuarantined)
+	}
+}
