@@ -11,6 +11,8 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	pb "github.com/castlemilk/shorted.com.au/services/gen/proto/go/housingingest/v1"
 )
@@ -633,4 +635,142 @@ func mustExec(t *testing.T, pool *pgxpool.Pool, query string, args ...any) {
 	if _, err := pool.Exec(context.Background(), query, args...); err != nil {
 		t.Fatalf("exec %q: %v", query, err)
 	}
+}
+
+// TestPush_OutageThenTruncatedSweepPairIsHeld is the B1 outage. A region went dark 25
+// days ago, and then two page-1-truncated COMPLETE sweeps arrive 13 hours apart. The
+// first arms the 100 unseen listings (0 -> 1) and passes. The second would delist all
+// 100, and every one is stale, so the stale exemption must not let it through: the
+// sweep covered 20 of 120, under half. It is held with exemption on or off, the live
+// listings all stay active, and the held sweep rolls back.
+func TestPush_QuarantineHoldsTheOutageThenTruncatedPair(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		staleAfter time.Duration
+	}{
+		{"exemption on (the default)", DefaultDelistStaleAfter},
+		{"exemption off (pre-exemption behaviour)", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pool := ingestTestDB(t)
+			issuer := newIssuerFixture(t)
+			clock := newTestClock()
+			rig := startIngest(t, pool, issuer, clock, func(c *Config) { c.DelistStaleAfter = tc.staleAfter })
+			seedRig(t, pool, testRig, true)
+			seedDispatch(t, pool, "job-1", "run-1", "rea")
+			seedDispatch(t, pool, "job-2", "run-2", "rea")
+
+			const live, truncated = 120, 20
+			var page1 []*pb.Listing
+			for i := 1; i <= live; i++ {
+				id := fmt.Sprintf("L%03d", i)
+				seedListing(t, rig, id, 1_000_000, 0)
+				if i <= truncated {
+					page1 = append(page1, fixedRea(id, 1_000_000))
+				}
+			}
+			// The region went dark 25 days ago: nothing has been seen since.
+			mustExec(t, pool, `UPDATE property_listings SET last_seen_at = $1`, clock.Now().Add(-25*24*time.Hour))
+
+			first, err := rig.push(t, sweepReq("job-1", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, page1...))
+			if err != nil {
+				t.Fatalf("truncated sweep 1: %v", err)
+			}
+			if first.Quarantined || first.Delisted != 0 {
+				t.Fatalf("sweep 1 arms the unseen listings and delists none, got %+v", first)
+			}
+			if armed := count(t, rig, `SELECT count(*) FROM property_listings WHERE is_active AND missed_sweeps = 1`); armed != live-truncated {
+				t.Fatalf("sweep 1 must arm the %d unseen listings, armed %d", live-truncated, armed)
+			}
+
+			clock.Advance(13 * time.Hour) // past MinDelistInterval
+			second, err := rig.push(t, sweepReq("job-2", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, page1...))
+			if err != nil {
+				t.Fatalf("truncated sweep 2: %v", err)
+			}
+			if !second.Quarantined {
+				t.Fatalf("HOLE: a truncated COMPLETE sweep over a dark region was applied (delisted %d)", second.Delisted)
+			}
+			if active := count(t, rig, `SELECT count(*) FROM property_listings WHERE is_active`); active != live {
+				t.Errorf("the held sweep rolls back, so all %d listings stay active, got %d", live, active)
+			}
+			if n := count(t, rig, `SELECT count(*) FROM property_price_events WHERE event_type = 'delisted'`); n != 0 {
+				t.Errorf("a held sweep writes no delisted event, found %d", n)
+			}
+		})
+	}
+}
+
+// TestPush_StaleCleanupIsLogged: an applied sweep that withdraws listings leaves one
+// line with the stale split and whether the exemption applied, and a dry run reports
+// its delisted_stale too. The log is captured through zap's observer.
+func TestPush_StaleCleanupIsLogged(t *testing.T) {
+	capture := func(t *testing.T) *observer.ObservedLogs {
+		t.Helper()
+		core, logs := observer.New(zap.InfoLevel)
+		restore := zap.ReplaceGlobals(zap.New(core))
+		t.Cleanup(restore)
+		return logs
+	}
+	seed := func(t *testing.T) (*ingestRig, []*pb.Listing) {
+		pool := ingestTestDB(t)
+		issuer := newIssuerFixture(t)
+		clock := newTestClock()
+		rig := startIngest(t, pool, issuer, clock, func(c *Config) { c.DelistStaleAfter = DefaultDelistStaleAfter })
+		seedRig(t, pool, testRig, true)
+		seedDispatch(t, pool, "job-1", "run-1", "rea")
+		var present []*pb.Listing
+		for i := 1; i <= 40; i++ {
+			id := fmt.Sprintf("L%02d", i)
+			seedListing(t, rig, id, 1_000_000, 0)
+			present = append(present, fixedRea(id, 1_000_000))
+		}
+		for i := 1; i <= 10; i++ {
+			id := fmt.Sprintf("S%02d", i)
+			seedListing(t, rig, id, 1_000_000, 1)
+			mustExec(t, pool, `UPDATE property_listings SET last_seen_at = now() - interval '40 days' WHERE listing_id = $1`, id)
+		}
+		return rig, present
+	}
+	find := func(logs *observer.ObservedLogs, parts ...string) string {
+		for _, e := range logs.All() {
+			ok := true
+			for _, p := range parts {
+				if !strings.Contains(e.Message, p) {
+					ok = false
+					break
+				}
+			}
+			if ok {
+				return e.Message
+			}
+		}
+		return ""
+	}
+
+	t.Run("an applied cleanup records the split and the exemption", func(t *testing.T) {
+		logs := capture(t)
+		rig, present := seed(t)
+		resp, err := rig.push(t, sweepReq("job-1", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, present...))
+		if err != nil || resp.Quarantined {
+			t.Fatalf("the sweep must apply, got err=%v resp=%+v", err, resp)
+		}
+		line := find(logs, "applied", "delisted=10", "delisted_stale=10", "stale_exempt=true")
+		if line == "" {
+			t.Fatalf("want one applied-cleanup line with delisted=10 delisted_stale=10 stale_exempt=true, logged: %v", logs.All())
+		}
+	})
+
+	t.Run("a dry run reports delisted_stale", func(t *testing.T) {
+		logs := capture(t)
+		rig, present := seed(t)
+		req := sweepReq("job-1", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, present...)
+		req.DryRun = true
+		if _, err := rig.push(t, req); err != nil {
+			t.Fatalf("dry run: %v", err)
+		}
+		if find(logs, "dry run", "delisted_stale=10") == "" {
+			t.Fatalf("the dry-run line must carry delisted_stale=10, logged: %v", logs.All())
+		}
+	})
 }

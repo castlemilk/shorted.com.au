@@ -99,6 +99,13 @@ type Config struct {
 	DelistStaleAfter time.Duration
 }
 
+// DefaultDelistStaleAfter is how long a listing may go unseen before a delist of it is
+// a confirmed withdrawal, not a sign of a bad sweep. The ingest's
+// HOUSING_INGEST_QUARANTINE_DELIST_STALE_AFTER defaults to it, and the drop index's
+// capitulation counter excludes stale delists by the same age. One constant, so the
+// gate and the published signal cannot drift apart.
+const DefaultDelistStaleAfter = 504 * time.Hour // 21 days
+
 // LargeMoveFraction is the price move that Result.LargeMoves counts: a listing
 // already stored whose price moved by more than this fraction of its stored
 // price. It is the quarantine's "moved more than 10%" test, reported here so the

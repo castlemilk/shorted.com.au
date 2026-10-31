@@ -449,3 +449,80 @@ func TestApplySweep_StaleAfterZeroCountsNoneAsStale_Integration(t *testing.T) {
 		t.Fatalf("want Delisted=1 DelistedStale=0 with the split off, got Delisted=%d DelistedStale=%d", res.Delisted, res.DelistedStale)
 	}
 }
+
+// TestApplySweep_StaleCountPinsTheStaleListing_Integration: DelistedStale must count the
+// listing that is stale, not merely some listing. Each subtest has one absent listing,
+// and only the stale one may count. Counting the recent one instead would still give a
+// total of one, so the count alone cannot tell the two apart.
+func TestApplySweep_StaleCountPinsTheStaleListing_Integration(t *testing.T) {
+	cases := []struct {
+		name      string
+		id        string
+		age       time.Duration
+		wantStale int
+	}{
+		{"the listing unseen for 30 days is counted", "STALE", 30 * 24 * time.Hour, 1},
+		{"the listing seen 5 days ago is not", "RECENT", 5 * 24 * time.Hour, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, pool := applyTestDB(t)
+			now := time.Now().UTC()
+			seedActive(t, ctx, pool, "KEEP", 0)
+			seedActive(t, ctx, pool, tc.id, 1) // one absence from the grace
+			setLastSeen(t, ctx, pool, tc.id, now.Add(-tc.age))
+
+			rules := testRules()
+			rules.DelistStaleAfter = 21 * 24 * time.Hour
+			res, err := ApplySweep(ctx, pool, Sweep{
+				Target: applyTarget, Source: "rea", Status: Complete, RunTS: now, Rules: rules,
+				Listings: []RawListing{fixedListing("KEEP", 1_000_000)}, // tc.id absent
+			})
+			if err != nil {
+				t.Fatalf("apply: %v", err)
+			}
+			if res.Delisted != 1 || res.DelistedStale != tc.wantStale {
+				t.Fatalf("want Delisted=1 DelistedStale=%d, got Delisted=%d DelistedStale=%d", tc.wantStale, res.Delisted, res.DelistedStale)
+			}
+		})
+	}
+}
+
+// TestApplySweep_StaleAbsenceThatOnlyArmsCountsNothing_Integration: a stale listing with
+// missed_sweeps 0 is only armed by its first absent COMPLETE sweep (0 -> 1). It is not
+// delisted, so it must not be counted as stale. The second absent sweep delists it and
+// counts it once. Counting at the arming step would report one on the first sweep.
+func TestApplySweep_StaleAbsenceThatOnlyArmsCountsNothing_Integration(t *testing.T) {
+	ctx, pool := applyTestDB(t)
+	now := time.Now().UTC()
+	seedActive(t, ctx, pool, "KEEP", 0)
+	seedActive(t, ctx, pool, "STALE", 0)
+	setLastSeen(t, ctx, pool, "STALE", now.Add(-30*24*time.Hour))
+
+	rules := testRules()
+	rules.DelistStaleAfter = 21 * 24 * time.Hour
+	sweep := func(runTS time.Time) Result {
+		t.Helper()
+		res, err := ApplySweep(ctx, pool, Sweep{
+			Target: applyTarget, Source: "rea", Status: Complete, RunTS: runTS, Rules: rules,
+			Listings: []RawListing{fixedListing("KEEP", 1_000_000)}, // STALE absent
+		})
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		return res
+	}
+
+	first := sweep(now)
+	if first.Delisted != 0 || first.DelistedStale != 0 {
+		t.Fatalf("the arming sweep delists and counts nothing, got Delisted=%d DelistedStale=%d", first.Delisted, first.DelistedStale)
+	}
+	if active, missed := listingActive(t, ctx, pool, "STALE"); !active || missed != 1 {
+		t.Fatalf("after the arming sweep want active missed=1, got active=%v missed=%d", active, missed)
+	}
+
+	second := sweep(now.Add(time.Second))
+	if second.Delisted != 1 || second.DelistedStale != 1 {
+		t.Fatalf("the second absent sweep delists and counts STALE once, got Delisted=%d DelistedStale=%d", second.Delisted, second.DelistedStale)
+	}
+}

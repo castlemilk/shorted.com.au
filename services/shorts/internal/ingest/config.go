@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/housingcrawl"
 )
 
 // Environment variables. HOUSING_INGEST_ENABLED defaults to false.
@@ -63,7 +65,7 @@ const (
 	DefaultDelistFraction           = 0.25
 	DefaultDelistCap                = 20
 	DefaultMinDelists               = 3
-	DefaultDelistStaleAfter         = 504 * time.Hour // 21 days
+	DefaultDelistStaleAfter         = housingcrawl.DefaultDelistStaleAfter
 	DefaultDispatchTTL              = 72 * time.Hour
 	DefaultDBMaxConns               = 4
 )

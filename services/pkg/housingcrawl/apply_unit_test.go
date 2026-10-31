@@ -2,6 +2,7 @@ package housingcrawl
 
 import (
 	"testing"
+	"time"
 	"unicode/utf8"
 )
 
@@ -266,4 +267,33 @@ func hasKind(evs []PriceEvent, kind string) bool {
 		}
 	}
 	return false
+}
+
+// TestIsStale: a listing is stale when no sweep has seen it for more than the window.
+// Exactly the window is not stale (the comparison is strict), a zero last_seen_at is
+// never stale, and a window of 0 or less disables the split.
+func TestIsStale(t *testing.T) {
+	run := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	const window = 21 * 24 * time.Hour
+	cases := []struct {
+		name     string
+		lastSeen time.Time
+		after    time.Duration
+		want     bool
+	}{
+		{"seen 30 days ago is stale", run.Add(-30 * 24 * time.Hour), window, true},
+		{"seen 5 days ago is recent", run.Add(-5 * 24 * time.Hour), window, false},
+		{"exactly the window is not stale", run.Add(-window), window, false},
+		{"one nanosecond past the window is stale", run.Add(-window - time.Nanosecond), window, true},
+		{"a zero last_seen_at is not stale", time.Time{}, window, false},
+		{"window 0 disables the split", run.Add(-60 * 24 * time.Hour), 0, false},
+		{"a negative window disables the split", run.Add(-60 * 24 * time.Hour), -time.Hour, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isStale(tc.lastSeen, run, tc.after); got != tc.want {
+				t.Errorf("isStale = %v, want %v", got, tc.want)
+			}
+		})
+	}
 }

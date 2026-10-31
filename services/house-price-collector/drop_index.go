@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/housingcrawl"
 )
 
 // drop_index.go computes the daily discounting index behind /price-drops.
@@ -205,6 +207,13 @@ const (
 	// rate drops to ~64 genuine events per 60 days. Do not remove this floor
 	// "to simplify" — it is the only thing keeping the counter honest.
 	indexRelistGapDays = 7
+	// indexDelistStaleDays is the age past which a delist is a confirmed withdrawal,
+	// not capitulation. It is the ingest's stale-delist exemption, the same 21 days as
+	// HOUSING_INGEST_QUARANTINE_DELIST_STALE_AFTER (housingcrawl.DefaultDelistStaleAfter).
+	// The ingest withdraws a backlog of long-unseen listings on their next COMPLETE
+	// sweep, all stamped on one day, and that would read as a spike here. A delist
+	// does not move last_seen_at, so the age is read from the listing after the fact.
+	indexDelistStaleDays = int(housingcrawl.DefaultDelistStaleAfter / (24 * time.Hour))
 )
 
 // suburbDaysSQL is the query behind querySuburbDays, extracted so tests can
@@ -298,6 +307,14 @@ func querySuburbDays(ctx context.Context, pool *pgxpool.Pool, day time.Time) ([]
 // mostly not a market signal — see indexRelistGapDays' comment for the
 // measured REA-truncation numbers that motivated it. Do not drop the $3 gap
 // parameter to "simplify" this query.
+//
+// Stale delists are excluded from BOTH sides: a delisted event counts only when its
+// listing was seen within indexDelistStaleDays of the delist ($4). The ingest withdraws
+// long-unseen listings as cleanup, which is not a vendor capitulating. The test is
+// last_seen_at >= observed_at - $4 days, the same age as the ingest's isStale. A
+// listing that was later seen again has a newer last_seen_at, so its old stale
+// delist counts as recent. That is a bounded under-exclusion (a stale listing that
+// came back), and it is accepted.
 func capitulationSQL() string {
 	return `
 WITH delist_relist AS (
@@ -306,11 +323,13 @@ WITH delist_relist AS (
         d.observed_at AS delisted_at,
         min(r.observed_at) AS relisted_at
     FROM property_price_events d
+    JOIN property_listings dl ON dl.id = d.listing_pk
     JOIN property_price_events r
         ON r.listing_pk = d.listing_pk
        AND r.event_type = 'relisted'
        AND r.observed_at > d.observed_at
     WHERE d.event_type = 'delisted'
+      AND dl.last_seen_at >= d.observed_at - $4::int * interval '1 day'
     GROUP BY d.listing_pk, d.observed_at
 )
 SELECT
@@ -321,9 +340,11 @@ SELECT
   ),
   (SELECT count(*)
    FROM property_price_events e
+   JOIN property_listings el ON el.id = e.listing_pk
    WHERE e.event_type = 'delisted'
      AND e.observed_at::date <= $1::date
-     AND e.observed_at::date >  $1::date - $2::int)
+     AND e.observed_at::date >  $1::date - $2::int
+     AND el.last_seen_at >= e.observed_at - $4::int * interval '1 day')
 FROM delist_relist`
 }
 
@@ -548,7 +569,7 @@ func runDropIndex(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) i
 		// catalog expanded, while these are plain counts of events on listings
 		// we actually observed — no denominator to be distorted by newly-added
 		// suburbs.
-		if err := pool.QueryRow(ctx, capitulationSQL(), d, indexWindowDays, indexRelistGapDays).
+		if err := pool.QueryRow(ctx, capitulationSQL(), d, indexWindowDays, indexRelistGapDays, indexDelistStaleDays).
 			Scan(&national.WithdrawnThenRelisted, &national.DelistedCount); err != nil {
 			log.Printf("[drop-index] capitulation %s: %v", d.Format("2006-01-02"), err)
 			return 1

@@ -388,3 +388,19 @@ func TestAggregateMedianWithheldBelowTheKFloor(t *testing.T) {
 		t.Fatalf("3 dropped addresses: MedianDropPct = %v, want 0.05", got.MedianDropPct)
 	}
 }
+
+// The capitulation counters exclude stale delists (the ingest's cleanup of a backlog of
+// long-unseen listings) on BOTH sides: the delist-side CTE and the total subquery. The
+// age is parameterised, and is the same 21 days as the ingest's exemption.
+func TestCapitulationExcludesStaleDelists(t *testing.T) {
+	sql := capitulationSQL()
+	if !strings.Contains(sql, "dl.last_seen_at >= d.observed_at - $4::int * interval '1 day'") {
+		t.Fatalf("the delist-side CTE does not exclude stale delists:\n%s", sql)
+	}
+	if !strings.Contains(sql, "el.last_seen_at >= e.observed_at - $4::int * interval '1 day'") {
+		t.Fatalf("the delisted_count subquery does not exclude stale delists:\n%s", sql)
+	}
+	if indexDelistStaleDays != 21 {
+		t.Fatalf("indexDelistStaleDays = %d, want 21 (the ingest's default stale-delist age)", indexDelistStaleDays)
+	}
+}

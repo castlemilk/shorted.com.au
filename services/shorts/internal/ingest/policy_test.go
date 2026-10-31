@@ -259,33 +259,33 @@ func TestCycleStatusMapping(t *testing.T) {
 	}
 }
 
-// TestQuarantineCountsRecentDelistsOnly: the delist trip judges Delisted minus
-// DelistedStale, the delists of listings unseen for DelistStaleAfter. The threshold
-// is unchanged. Bundoora (124 active) lost 43 listings in one sweep, but 42 of them
-// were the long-gone backlog, so one recent delist is not a bad sweep. A poisoned
-// sweep that drops listings seen recently is still held, whatever the stale count,
-// and StaleAfter 0 leaves every delist counted (the old behaviour).
+// TestQuarantineCountsRecentDelistsOnly: the delist trip judges the recent delists. The
+// stale ones (DelistedStale) are exempt only when the sweep covered the region, so
+// Upserted must reach half of ActiveBefore. The threshold itself is unchanged. A
+// poisoned or truncated sweep is held, whatever its stale count, and StaleAfter 0
+// leaves every delist counted (no split reported).
 func TestQuarantineCountsRecentDelistsOnly(t *testing.T) {
 	s := testPolicyService()
 	cases := []struct {
 		name        string
 		active      int
+		upserted    int
 		delisted    int
 		delistStale int
 		quarantine  bool
 	}{
-		{"Bundoora shape: 43 delists, 42 stale, one recent: not held", 124, 43, 42, false},
-		{"Bundoora measured: 43 delists, 36 stale, seven recent: not held", 124, 43, 36, false},
-		{"poison shape: 43 delists, none stale: held", 124, 43, 0, true},
-		{"mixed: 30 delists, 5 stale, 25 recent is over the 20 cap: held", 124, 30, 5, true},
-		{"mixed: 30 delists, 10 stale, 20 recent is exactly the cap: not held", 124, 30, 10, false},
-		{"small suburb: 5 delists, 3 stale, 2 recent is under the minimum of 3: not held", 4, 5, 3, false},
-		{"StaleAfter 0 (no split, DelistedStale 0): 43 delists is held", 124, 43, 0, true},
+		{"Bundoora: 124 active, 90 seen, 43 delists, 41 stale, 2 recent: not held", 124, 90, 43, 41, false},
+		{"poison shape: 124 active, 90 seen, 43 delists, none stale: held", 124, 90, 43, 0, true},
+		{"mixed: 30 delists, 5 stale, 25 recent is over the 20 cap: held", 124, 100, 30, 5, true},
+		{"mixed: 30 delists, 10 stale, 20 recent is exactly the cap: not held", 124, 100, 30, 10, false},
+		{"small suburb: 5 delists, 3 stale, 2 recent is under the minimum of 3: not held", 4, 2, 5, 3, false},
+		{"no split (StaleAfter 0, DelistedStale 0): 43 delists is held", 124, 90, 43, 0, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			q := s.quarantineCheck(housingcrawl.Result{
 				ActiveBefore:  tc.active,
+				Upserted:      tc.upserted,
 				Delisted:      tc.delisted,
 				DelistedStale: tc.delistStale,
 			}, pb.SweepStatus_SWEEP_STATUS_COMPLETE)
@@ -301,5 +301,66 @@ func TestQuarantineCountsRecentDelistsOnly(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestQuarantineMeasuredSweeps: the six holds measured in prod on 2026-10-30/31, with
+// DelistedStale reconstructed from property_listings (armed, last_seen_at older than 21
+// days before the hold), plus the outage shapes that the coverage rule exists for.
+func TestQuarantineMeasuredSweeps(t *testing.T) {
+	s := testPolicyService()
+	cases := []struct {
+		name                              string
+		active, upserted, delisted, stale int
+		wantHeld                          bool
+	}{
+		{"Thomastown rea: 26 recent (seen 20 Oct), stays held", 150, 123, 26, 0, true},
+		{"Wantirna South domain: all 50 stale", 94, 53, 50, 50, false},
+		{"Miranda domain: all 27 stale", 95, 70, 27, 27, false},
+		{"Narre Warren domain: all 59 stale", 176, 110, 59, 59, false},
+		{"Essendon domain: all 48 stale", 133, 89, 48, 48, false},
+		{"Bundoora domain: 41 of 43 stale", 124, 90, 43, 41, false},
+		{"outage: page-1 truncation of a dark 120, all stale", 120, 20, 100, 100, true},
+		{"outage: page-2 truncation of a dark 120, all stale", 120, 40, 80, 80, true},
+		{"residual: half of a dark 120 seen, all stale", 120, 60, 60, 60, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			q := s.quarantineCheck(housingcrawl.Result{
+				ActiveBefore: tc.active, Upserted: tc.upserted, Delisted: tc.delisted, DelistedStale: tc.stale,
+			}, pb.SweepStatus_SWEEP_STATUS_COMPLETE)
+			if (q != nil) != tc.wantHeld {
+				t.Errorf("held = %v, want %v", q != nil, tc.wantHeld)
+			}
+		})
+	}
+}
+
+// TestStaleExemptNeedsHalfTheRegionSeen pins the coverage boundary: exactly half is
+// covered, one fewer is not. Without coverage the stale delists count in full.
+func TestStaleExemptNeedsHalfTheRegionSeen(t *testing.T) {
+	cases := []struct {
+		name     string
+		upserted int
+		want     bool
+	}{
+		{"62 of 124 is exactly half", 62, true},
+		{"61 of 124 is under half", 61, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := staleExempt(housingcrawl.Result{ActiveBefore: 124, Upserted: tc.upserted}); got != tc.want {
+				t.Errorf("staleExempt = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestRecentDelistsNeverNegative: a stale count can never exceed the delists it came
+// from, but the figure is clamped at zero so a bad input cannot read as a credit.
+func TestQuarantineRecentDelistsNeverNegative(t *testing.T) {
+	r := housingcrawl.Result{ActiveBefore: 10, Upserted: 10, Delisted: 2, DelistedStale: 5}
+	if got := recentDelists(r); got != 0 {
+		t.Errorf("recentDelists = %d, want 0 (clamped)", got)
 	}
 }
