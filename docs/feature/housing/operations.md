@@ -764,6 +764,30 @@ The service never deletes a bypass row, so each release stays in the audit trail
 `expires_at` short. The service does not replay a held sweep. The next push for that suburb
 and source is evaluated with the bypass in place.
 
+#### The delist trip counts recent delists only
+
+A COMPLETE sweep withdraws a listing once no sweep has seen it for `DelistGrace` sweeps. A
+listing that no sweep has seen for `HOUSING_INGEST_QUARANTINE_DELIST_STALE_AFTER` (default
+`504h`, 21 days) is confirmed gone, not a sign of a bad sweep. The guard therefore holds a
+sweep on the delists of listings seen more recently only:
+
+- `delisted_stale` in the quarantine stats is the delists whose `last_seen_at` is older than
+  that window. `would_delist` stays the total.
+- The guard holds a sweep when `would_delist - delisted_stale` exceeds
+  `max(MinDelists, min(DelistFraction × active_before, DelistCap))`. The threshold is unchanged.
+- A poisoned or truncated sweep that drops listings seen inside the window is still held,
+  whatever its stale count. `0` disables the exemption, so every delist counts, as before.
+
+The reason is the backlog that caused six `delists_over_threshold` holds in one day, measured
+2026-10-31. Each was cleaning up active rows that no sweep had seen for weeks, because most
+sweeps were PARTIAL and never delisted them. On Bundoora (domain), 124 listings were active. 80
+were seen in the last trusted sweep (24 October), and this sweep saw those 80 again plus 10 new
+ones. Its 43 would-be delists included 36 listings last seen 4 August, against a threshold of 20.
+Each stale listing is delisted as before. It just no longer holds the sweep.
+
+Receipts report `delisted` only, because the PushSweep proto has no field for the split. The
+split appears in held sweeps' quarantine stats, which is where an operator looks.
+
 ### Dispatch ledger, at a glance
 
 `crawl_dispatch` holds one row per job a rig may push for. `closed_at` is set by the first
