@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -225,10 +226,29 @@ type CrawlRigStatus struct {
 	Ingest          CrawlIngestOut    `json:"ingest"`
 }
 
-// CrawlRigEnv is the rig's Chrome and driver versions.
+// CrawlRigEnv is the rig's Chrome and driver STATE, as the heartbeat reports them (BrandBrain
+// domain.HousingCrawlChromes and HousingCrawlDrivers): words, not versions. A word outside the
+// set reads as unknown.
 type CrawlRigEnv struct {
 	Chrome string `json:"chrome,omitempty"`
 	Driver string `json:"driver,omitempty"`
+}
+
+var (
+	crawlChromeStates = []string{"warm", "reachable", "unreachable", "unusable", "port_conflict", "unknown"}
+	crawlDriverStates = []string{"ok", "installed", "missing", "unknown"}
+)
+
+// closedWord returns s when it is one of words, "unknown" for any other non-empty value, and ""
+// when the rig sent nothing.
+func closedWord(s string, words []string) string {
+	if s == "" {
+		return ""
+	}
+	if slices.Contains(words, s) {
+		return s
+	}
+	return "unknown"
 }
 
 // CrawlDrainOut is a rig's last drain.
@@ -327,7 +347,7 @@ func crawlStatusTool() AdminTool {
 			Name:  t.Name,
 			Title: "Housing crawl status",
 			Description: "One read that answers whether the housing crawl is healthy: each rig's version, liveness, drain and last outcome, " +
-				"in-flight phase and counts, Chrome and driver versions, portal breakers (blocked is judged against the server's clock), " +
+				"in-flight phase and counts, Chrome and driver state (warm, port_conflict, missing…), portal breakers (blocked is judged against the server's clock), " +
 				"alarms and ingest probe; the BrandBrain queue by status and source; shorted's dispatch ledger, ingest receipts for the last hour " +
 				"and day, quarantine reasons, and the finalize cursor; and the server schedules. Counts only, no listing data.",
 			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: new(true)},
@@ -494,7 +514,7 @@ func rigStatus(r brandbrain.Rig, serverTime *time.Time) CrawlRigStatus {
 	}
 	out.State = closedValue(hc.State)
 	if hc.Env != nil {
-		out.Env = CrawlRigEnv{Chrome: closedVersion(hc.Env.Chrome), Driver: closedVersion(hc.Env.Driver)}
+		out.Env = CrawlRigEnv{Chrome: closedWord(hc.Env.Chrome, crawlChromeStates), Driver: closedWord(hc.Env.Driver, crawlDriverStates)}
 	}
 	if d, ok := hc.Jobs["drain"]; ok {
 		out.DrainEnabled = d.Enabled
