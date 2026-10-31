@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -107,17 +108,24 @@ func TestPickStalestNeverCrawledThenOldest(t *testing.T) {
 	}
 }
 
-// A smoke run is all or nothing: one target BrandBrain did not create refuses the whole run.
-func TestSmokeDeduplicatedCountRefusesAPartialRun(t *testing.T) {
-	created := []enqueueTargetItem{{Source: "rea", Created: true}, {Source: "domain", Created: true}}
-	if n := smokeDeduplicatedCount(created); n != 0 {
-		t.Fatalf("all created: %d deduplicated, want 0", n)
+// A smoke run's ledger rows expire in hours, so an undrained smoke fails as expired, not after three days.
+func TestSmokeRowsExpireInHours(t *testing.T) {
+	if smokeDispatchTTL != 6*time.Hour {
+		t.Fatalf("smokeDispatchTTL = %s, want 6h", smokeDispatchTTL)
 	}
-	one := []enqueueTargetItem{{Source: "rea", Created: true}, {Source: "domain", Created: false}}
-	if n := smokeDeduplicatedCount(one); n != 1 {
-		t.Fatalf("one deduplicated: %d, want 1", n)
+}
+
+// The smoke's ledger write never rewrites an existing row: a deduplicated job belongs to another run,
+// and its run id and expiry must survive the smoke. The upsert the scheduled enqueue uses does rewrite
+// the expiry, so the two statements must differ on conflict.
+func TestSmokeLedgerWriteNeverRewritesAnExistingRow(t *testing.T) {
+	if strings.Contains(insertDispatchIfAbsentSQL, "DO UPDATE") {
+		t.Fatal("the smoke insert must not update an existing row")
 	}
-	if smokeExitDeduplicated == 7 || smokeExitDeduplicated == 0 {
-		t.Fatalf("the deduplicated exit %d must not collide with the failure (7) or success (0) codes", smokeExitDeduplicated)
+	if !strings.Contains(insertDispatchIfAbsentSQL, "DO NOTHING") {
+		t.Fatal("the smoke insert must be ON CONFLICT DO NOTHING")
+	}
+	if !strings.Contains(upsertDispatchSQL, "SET expires_at = EXCLUDED.expires_at") {
+		t.Fatal("the scheduled upsert's behaviour is the reason the smoke statement differs")
 	}
 }
