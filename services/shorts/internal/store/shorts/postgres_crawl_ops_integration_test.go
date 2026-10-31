@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -36,6 +37,7 @@ func crawlOpsTestStore(t *testing.T) *postgresStore {
 		"000150_add_crawl_ingest.up.sql",
 		"000151_add_crawl_finalize_state.up.sql",
 		"000152_add_crawl_ingest_receipt_audit.up.sql",
+		"000153_add_crawl_ops_indexes.up.sql",
 	} {
 		sql, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "migrations", file))
 		require.NoError(t, err)
@@ -188,6 +190,7 @@ func TestCrawlOpsReceiptsForAJobAreExactAndCountsOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, recs, 2)
 	assert.Equal(t, "job-a:1:rea", recs[0].Key)
+	assert.Equal(t, "rig:rig-1", recs[0].RigSubject, "a receipt names the rig that pushed it")
 	assert.Equal(t, "SWEEP_STATUS_COMPLETE", recs[0].AppliedStatus)
 	assert.Equal(t, 4, recs[0].ListingsUpserted)
 	assert.Equal(t, 2, recs[0].Events)
@@ -199,4 +202,38 @@ func TestCrawlOpsReceiptsForAJobAreExactAndCountsOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, qs, 1)
 	assert.Equal(t, "mass_delist", qs[0].Reason)
+}
+
+// The three indexes of 000153 exist after the migration, under the names the queries and the
+// migration test rely on.
+func TestCrawlOpsIndexesExist(t *testing.T) {
+	s := crawlOpsTestStore(t)
+	for _, name := range []string{"idx_crawl_ingest_receipts_job_id", "idx_crawl_dispatch_run_id", "idx_crawl_dispatch_open_suburb"} {
+		var n int
+		err := s.db.QueryRow(context.Background(), `SELECT count(*) FROM pg_indexes WHERE indexname = $1`, name).Scan(&n)
+		require.NoError(t, err)
+		assert.Equal(t, 1, n, "index %s is missing", name)
+	}
+}
+
+// Every crawl-ops read runs in a READ ONLY transaction: a write attempted inside it is refused.
+func TestCrawlOpsReadsCannotWrite(t *testing.T) {
+	s := crawlOpsTestStore(t)
+	err := s.crawlOpsRead(context.Background(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(context.Background(), `INSERT INTO crawl_finalize_state (name, watermark) VALUES ('x', now())`)
+		return err
+	})
+	require.Error(t, err, "a write inside the crawl-ops read transaction must be refused")
+	assert.Contains(t, err.Error(), "read-only")
+}
+
+// The statement timeout is set on every read: a slow statement is cancelled, not held open.
+func TestCrawlOpsReadsCarryTheStatementTimeout(t *testing.T) {
+	s := crawlOpsTestStore(t)
+	var got string
+	err := s.crawlOpsRead(context.Background(), func(tx pgx.Tx) error {
+		return tx.QueryRow(context.Background(), `SHOW statement_timeout`).Scan(&got)
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "5s", got)
 }
