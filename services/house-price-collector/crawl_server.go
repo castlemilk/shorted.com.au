@@ -76,6 +76,12 @@ const (
 	serverRunHost = "server"
 )
 
+// smokeExitDeduplicated is the exit code of a smoke enqueue that BrandBrain deduplicated onto an
+// existing pending job. It is distinct from 7 (a failure). Cloud Run retries a non-zero exit, and each
+// retry is the same no-op, since the refused run writes nothing. The admin tool reads it as
+// "deduplicated", not "failed".
+const smokeExitDeduplicated = 11
+
 // smokeEnqueuePriority ranks a smoke job above the queue's default order (0), so the
 // rig's next drain claims it before the scheduled work. BrandBrain claims priority DESC then
 // created_at ASC and accepts any integer, so 100 is claimed ahead of the default 5. An enqueue
@@ -447,15 +453,42 @@ func runSmokeEnqueue(ctx context.Context, pool *pgxpool.Pool, opts serverEnqueue
 		return 7
 	}
 	run := serverRun{Selection: "smoke", RunID: runID, Now: time.Now().UTC(), TTL: cfg.dispatchTTL, Batch: cfg.batch}
-	res, err := enqueueServer(ctx, pool, client, jobs, run)
+
+	// One batch, one answer. The queue keeps an existing pending job's run id and priority, so a job
+	// BrandBrain deduplicated belongs to another run: this run must not write a ledger row for it. The
+	// whole smoke is refused in that case, rather than a partial run, and nothing is written.
+	resp, err := client.enqueueTargets(ctx, jobs)
+	if err == nil {
+		err = checkTargetsEcho(jobs, resp.Targets)
+	}
 	if err != nil {
-		log.Printf("[server-enqueue] smoke fatal (run %s, %d job(s) created, %d already pending before the failure): %v",
-			run.RunID, res.Created, res.Existing, err)
+		log.Printf("[server-enqueue] smoke fatal (run %s): %v", run.RunID, err)
 		return 7
 	}
-	log.Printf("[server-enqueue] smoke run %s: suburb %s: %d job(s) created, %d already pending; priority %d",
-		run.RunID, target.Suburb, res.Created, res.Existing, smokeEnqueuePriority)
+	if dup := smokeDeduplicatedCount(resp.Targets); dup > 0 {
+		log.Printf("[server-enqueue] smoke DEDUPLICATED (run %s): suburb %s: %d of %d job(s) already pending for another run; nothing written",
+			run.RunID, target.Suburb, dup, len(resp.Targets))
+		return smokeExitDeduplicated
+	}
+	if err := writeDispatchRows(ctx, pool, jobs, resp.Targets, run, run.Now.Add(run.TTL)); err != nil {
+		log.Printf("[server-enqueue] smoke fatal (run %s): dispatch write: %v", run.RunID, err)
+		return 7
+	}
+	log.Printf("[server-enqueue] smoke run %s: suburb %s: %d job(s) created at priority %d",
+		run.RunID, target.Suburb, len(resp.Targets), smokeEnqueuePriority)
 	return 0
+}
+
+// smokeDeduplicatedCount counts the targets BrandBrain did not create: each one was deduplicated onto an
+// existing pending job. A smoke run is all-or-nothing, so any count above zero refuses the run.
+func smokeDeduplicatedCount(targets []enqueueTargetItem) int {
+	n := 0
+	for _, t := range targets {
+		if !t.Created {
+			n++
+		}
+	}
+	return n
 }
 
 // selectSmokeTarget returns the catalog suburb a smoke run enqueues. The queue dedupes an enqueue

@@ -106,3 +106,18 @@ func TestPickStalestNeverCrawledThenOldest(t *testing.T) {
 		t.Fatal("an empty catalog must report no target")
 	}
 }
+
+// A smoke run is all or nothing: one target BrandBrain did not create refuses the whole run.
+func TestSmokeDeduplicatedCountRefusesAPartialRun(t *testing.T) {
+	created := []enqueueTargetItem{{Source: "rea", Created: true}, {Source: "domain", Created: true}}
+	if n := smokeDeduplicatedCount(created); n != 0 {
+		t.Fatalf("all created: %d deduplicated, want 0", n)
+	}
+	one := []enqueueTargetItem{{Source: "rea", Created: true}, {Source: "domain", Created: false}}
+	if n := smokeDeduplicatedCount(one); n != 1 {
+		t.Fatalf("one deduplicated: %d, want 1", n)
+	}
+	if smokeExitDeduplicated == 7 || smokeExitDeduplicated == 0 {
+		t.Fatalf("the deduplicated exit %d must not collide with the failure (7) or success (0) codes", smokeExitDeduplicated)
+	}
+}
