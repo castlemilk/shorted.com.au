@@ -28,6 +28,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -74,6 +75,15 @@ const (
 	// hostname, so the (run_type, host) primary key never collides.
 	serverRunHost = "server"
 )
+
+// smokeEnqueuePriority ranks a smoke job above the queue's default order (0), so the
+// rig's next drain claims it before the scheduled work. BrandBrain's accepted range is not
+// set in this repository, so the value is unverified until a live smoke run confirms it.
+const smokeEnqueuePriority = 100
+
+// smokeRunIDPattern is the run id a smoke run writes to its ledger rows: the admin tool
+// generates smoke-<UTC ts>-<8 hex>, and a manual run gets smoke-<UTC ts> from serverRunID.
+var smokeRunIDPattern = regexp.MustCompile(`^smoke-[0-9]{8}T[0-9]{6}Z(-[a-f0-9]{8})?$`)
 
 // serverEnqueueConfig is what -mode server-enqueue reads from the environment.
 type serverEnqueueConfig struct {
@@ -314,14 +324,17 @@ type serverEnqueueOpts struct {
 	DryRun    bool // select and build, log the counts, send nothing, write nothing
 	Limit     int  // post at most this many targets; 0 means no limit
 	AuthCheck bool // prove the ID token and the allowlist with a read, then exit
+	// Suburb and RunID are for -selection smoke only (see runSmokeEnqueue).
+	Suburb string
+	RunID  string
 }
 
 // runServerEnqueue is -mode server-enqueue. Exit codes: 0 ok (including an empty delta
 // selection and a dry run), 7 any failure, matching -mode enqueue.
 func runServerEnqueue(ctx context.Context, pool *pgxpool.Pool, opts serverEnqueueOpts) int {
 	sel := strings.ToLower(strings.TrimSpace(opts.Selection))
-	if sel != "delta" && sel != "full" {
-		log.Printf("[server-enqueue] fatal: -selection must be delta or full (got %q)", opts.Selection)
+	if sel != "delta" && sel != "full" && sel != "smoke" {
+		log.Printf("[server-enqueue] fatal: -selection must be delta, full or smoke (got %q)", opts.Selection)
 		return 7
 	}
 	if opts.Limit < 0 {
@@ -346,6 +359,10 @@ func runServerEnqueue(ctx context.Context, pool *pgxpool.Pool, opts serverEnqueu
 		}
 		log.Printf("[server-enqueue] auth-check OK: BrandBrain accepted the ID token for audience %s; no jobs were created", cfg.audience)
 		return 0
+	}
+
+	if sel == "smoke" {
+		return runSmokeEnqueue(ctx, pool, opts, cfg)
 	}
 
 	targets, err := selectEnqueueTargets(ctx, pool, sel == "delta")
@@ -391,6 +408,102 @@ func runServerEnqueue(ctx context.Context, pool *pgxpool.Pool, opts serverEnqueu
 	log.Printf("[server-enqueue] run %s: %d target(s) × %d source(s): %d job(s) created, %d already pending; dispatch ttl %s",
 		run.RunID, len(targets), len(cfg.sources), res.Created, res.Existing, cfg.dispatchTTL)
 	return 0
+}
+
+// runSmokeEnqueue is -selection smoke: enqueue ONE catalog suburb, for both portals, at
+// smokeEnqueuePriority, under a run id the caller chose (the admin smoke tool) or a
+// generated smoke-<ts>. It exists so an end-to-end check can name its own target and find
+// its own ledger rows. It writes no crawl_run_status row: that table's run_type is
+// CHECKed to delta, full, agent and freshness, and a smoke run is none of them, so the
+// freshness sentinel must not see it. Exit codes match server-enqueue: 0 ok, 7 failure.
+func runSmokeEnqueue(ctx context.Context, pool *pgxpool.Pool, opts serverEnqueueOpts, cfg serverEnqueueConfig) int {
+	runID := strings.TrimSpace(opts.RunID)
+	if runID == "" {
+		runID = serverRunID("smoke", time.Now())
+	}
+	if !smokeRunIDPattern.MatchString(runID) {
+		log.Printf("[server-enqueue] fatal: -run-id must be smoke-<UTC ts> with an optional -<8 hex> suffix (got %q)", opts.RunID)
+		return 7
+	}
+	target, err := selectSmokeTarget(ctx, pool, opts.Suburb)
+	if err != nil {
+		log.Printf("[server-enqueue] fatal: %v", err)
+		return 7
+	}
+	jobs := buildEnqueueJobs([]CrawlTarget{target}, cfg.sources, cfg.tier)
+	for i := range jobs {
+		jobs[i].Priority = smokeEnqueuePriority
+	}
+	if opts.DryRun {
+		log.Printf("[server-enqueue] DRY RUN smoke %s: suburb %s (%s %s) × %d source(s) = %d job(s) at priority %d; nothing sent, nothing written",
+			runID, target.Suburb, target.State, target.Postcode, len(cfg.sources), len(jobs), smokeEnqueuePriority)
+		return 0
+	}
+	client, err := newServerIDTokenClient(ctx, cfg)
+	if err != nil {
+		log.Printf("[server-enqueue] fatal: %v", err)
+		return 7
+	}
+	run := serverRun{Selection: "smoke", RunID: runID, Now: time.Now().UTC(), TTL: cfg.dispatchTTL, Batch: cfg.batch}
+	res, err := enqueueServer(ctx, pool, client, jobs, run)
+	if err != nil {
+		log.Printf("[server-enqueue] smoke fatal (run %s, %d job(s) created, %d already pending before the failure): %v",
+			run.RunID, res.Created, res.Existing, err)
+		return 7
+	}
+	log.Printf("[server-enqueue] smoke run %s: suburb %s: %d job(s) created, %d already pending; priority %d",
+		run.RunID, target.Suburb, res.Created, res.Existing, smokeEnqueuePriority)
+	return 0
+}
+
+// selectSmokeTarget returns the catalog suburb a smoke run enqueues: the one named by
+// suburb (a catalog slug), or else the stalest one by its newest listing crawl.
+func selectSmokeTarget(ctx context.Context, pool *pgxpool.Pool, suburb string) (CrawlTarget, error) {
+	want := strings.ToLower(strings.TrimSpace(suburb))
+	if want != "" {
+		for _, t := range crawlTargets {
+			if t.Suburb == want {
+				return t, nil
+			}
+		}
+		return CrawlTarget{}, fmt.Errorf("-suburb %q is not a catalog suburb slug", suburb)
+	}
+	fresh, err := queryCatalogFreshness(ctx, pool, crawlTargets, loadDeltaConfig().churnDays)
+	if err != nil {
+		return CrawlTarget{}, fmt.Errorf("smoke target freshness query failed: %w", err)
+	}
+	t, ok := pickStalest(fresh)
+	if !ok {
+		return CrawlTarget{}, errors.New("the crawl catalog is empty")
+	}
+	return t, nil
+}
+
+// pickStalest returns the suburb crawled longest ago. A never-crawled suburb beats any
+// crawled one; ties keep the first in catalog order.
+func pickStalest(fresh []suburbFreshness) (CrawlTarget, bool) {
+	best := -1
+	for i, f := range fresh {
+		if best < 0 || staler(f.LastCrawled, fresh[best].LastCrawled) {
+			best = i
+		}
+	}
+	if best < 0 {
+		return CrawlTarget{}, false
+	}
+	return fresh[best].Target, true
+}
+
+// staler reports whether a last crawl at a is older than one at b. nil means never crawled.
+func staler(a, b *time.Time) bool {
+	switch {
+	case a == nil:
+		return b != nil
+	case b == nil:
+		return false
+	default:
+		return a.Before(*b)
+	}
 }
 
 // serverPropertyResolveExit maps the resolver's exit code for the server schedule. Exit 3
