@@ -196,6 +196,29 @@ describe("buildChartMessage", () => {
     });
   });
 
+  it("uploads the card when it has one, and points at its URL when not", () => {
+    const card = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const attached = chart({
+      state: { code: "BHP", view: "combined", period: "6m" },
+      card,
+    });
+    expect(attached.embeds![0]!.image!.url).toBe(
+      "attachment://BHP-combined-6m.png",
+    );
+    expect(attached.files).toEqual([
+      {
+        name: "BHP-combined-6m.png",
+        data: card,
+        contentType: "image/png",
+        description: "BHP share price and short interest chart, past 6 months",
+      },
+    ]);
+
+    const linked = chart({ card: null });
+    expect(linked.files).toBeUndefined();
+    expect(linked.embeds![0]!.image!.url).toContain("/chart/BHP/image");
+  });
+
   it("never pings anyone", () => {
     expect(chart().allowed_mentions).toEqual({ parse: [] });
   });

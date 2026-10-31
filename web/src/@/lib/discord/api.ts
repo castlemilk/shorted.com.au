@@ -77,6 +77,7 @@ export const LIMITS = {
   selectOptionLabel: 100,
   autocompleteChoices: 25,
   choiceName: 100,
+  attachmentDescription: 1024,
 } as const;
 
 export interface CommandOption {
@@ -154,6 +155,15 @@ export interface ActionRow {
   components: (Button | StringSelect)[];
 }
 
+/** A file a message uploads; an embed shows it as `attachment://<name>`. */
+export interface MessageFile {
+  name: string;
+  data: Uint8Array;
+  contentType: string;
+  /** Alt text. */
+  description?: string;
+}
+
 export interface MessagePayload {
   content?: string;
   embeds?: Embed[];
@@ -164,6 +174,13 @@ export interface MessagePayload {
    * query of "@everyone" must never ping a server.
    */
   allowed_mentions: { parse: [] };
+  /**
+   * Uploaded with the message (rest.ts sends them as multipart and lists them
+   * as the message's attachments, replacing any it had). Only a webhook call
+   * can upload: an interaction's HTTP response is JSON, so handler.ts defers
+   * every reply that carries files.
+   */
+  files?: MessageFile[];
 }
 
 export interface AutocompleteChoice {

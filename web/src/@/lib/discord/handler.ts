@@ -50,6 +50,11 @@ import type { SettingsStore } from "./settings-store";
  * response is a deferral ("Shorted is thinking…", or for a button, nothing
  * visible) and the reply is delivered over the interaction's webhook once it
  * lands, kept alive past the response by `waitUntil`.
+ *
+ * A chart message always takes the second path: it uploads its card
+ * (chart-card.ts), which only a webhook call can do, and drawing the card
+ * outlasts the fast path. So a button press defers at once, and a command
+ * waits only to learn whether the stock exists (a typo is answered privately).
  */
 
 export interface HandlerDeps {
@@ -70,6 +75,8 @@ export interface HandlerDeps {
   rememberLaunch: (channelId: string, state: ChartState) => Promise<void>;
   /** The signed settings page for a grant, or null when links cannot be signed. */
   settingsUrl: (grant: SettingsGrant) => string | null;
+  /** A chart's card as PNG, or null when it cannot be drawn whole (chart-card.ts). */
+  renderChart: (state: ChartState) => Promise<Uint8Array | null>;
 }
 
 export interface Outcome {
@@ -91,6 +98,12 @@ const SEARCH_RESULTS = 10;
 export const SETTINGS_BUDGET_MS = 500;
 /** How long the hand-off to the Activity may take before it launches anyway. */
 const LAUNCH_HANDOFF_MS = 600;
+/**
+ * How long a chart's card may take to draw before its message goes out with
+ * the card's URL instead. Inside the route's maxDuration with the summary
+ * read (6s) ahead of it.
+ */
+export const CARD_BUDGET_MS = 9000;
 
 type Mode = "new" | "update";
 
@@ -103,6 +116,18 @@ type Reply =
       work: Promise<MessagePayload>;
       /** Defer privately: the reply is for the person who asked alone. */
       private?: boolean;
+      /** Defer at once rather than race the fast path (it uploads a card). */
+      defer?: boolean;
+    }
+  | {
+      /** A chart message: the stock, then its card (see the top of the file). */
+      kind: "chart";
+      action: string;
+      mode: Mode;
+      summary: Promise<StockSummary | null>;
+      draw: (summary: StockSummary) => Promise<MessagePayload>;
+      /** What to say when there is no such stock. */
+      missing: MessagePayload;
     }
   | {
       /** Interactive mode: open the chart in the Activity, not a message. */
@@ -132,12 +157,13 @@ function privately(action: string, text: string): Reply {
 
 /** A message that needs data: a new one, or the one a button is on. */
 type MessageReply = Extract<Reply, { kind: "message" }>;
+type ChartReply = Extract<Reply, { kind: "chart" }>;
 
 function withData(
   action: string,
   mode: Mode,
   work: Promise<MessagePayload>,
-  options: { private?: boolean } = {},
+  options: { private?: boolean; defer?: boolean } = {},
 ): MessageReply {
   return { kind: "message", action, mode, work, ...options };
 }
@@ -193,18 +219,68 @@ async function resolveStock(
   return data.stockSummary(hitCode);
 }
 
-function chartMessage(
+/** A chart's card, or null once CARD_BUDGET_MS has passed or the render failed. */
+async function drawCard(
+  state: ChartState,
+  deps: HandlerDeps,
+): Promise<Uint8Array | null> {
+  try {
+    const drawn = await within(
+      deps.renderChart(state).catch(() => null),
+      CARD_BUDGET_MS,
+    );
+    return drawn.done ? drawn.value : null;
+  } catch {
+    return null; // the renderer threw before it returned a promise
+  }
+}
+
+/**
+ * A chart message, its card drawn and attached. `early` is a card already
+ * being drawn for the code that was asked for, used when the stock resolves to
+ * that code, so the card and the stock read run side by side.
+ */
+async function chartMessage(
   summary: StockSummary,
   view: ChartState["view"],
   period: ChartState["period"],
   deps: HandlerDeps,
-): MessagePayload {
+  early?: { code: string; card: Promise<Uint8Array | null> },
+): Promise<MessagePayload> {
+  const state = { code: summary.code, view, period };
+  const card = await (early?.code === summary.code
+    ? early.card
+    : drawCard(state, deps));
   return buildChartMessage({
     summary,
-    state: { code: summary.code, view, period },
+    state,
     activity: deps.activityEnabled,
     now: deps.now(),
+    card,
   });
+}
+
+/** A new chart message for what was typed (a code, or a name to search). */
+function newChart(
+  action: string,
+  input: string,
+  summary: Promise<StockSummary | null>,
+  view: ChartState["view"],
+  period: ChartState["period"],
+  deps: HandlerDeps,
+): ChartReply {
+  const code = normalizeCode(input);
+  const early = code
+    ? { code, card: drawCard({ code, view, period }, deps) }
+    : undefined;
+  return {
+    kind: "chart",
+    action,
+    mode: "new",
+    summary,
+    draw: (s) => chartMessage(s, view, period, deps, early),
+    missing: notFound(input),
+  };
 }
 
 function notFound(input: string): MessagePayload {
@@ -236,13 +312,7 @@ function chartReply(
   if (settings.interactive && deps.activityEnabled && isSnowflake(channelId)) {
     return { kind: "launch", action, channelId, summary, input, view, period };
   }
-  return withData(
-    action,
-    "new",
-    summary.then((s) =>
-      s ? chartMessage(s, view, period, deps) : notFound(input),
-    ),
-  );
+  return newChart(action, input, summary, view, period, deps);
 }
 
 /**
@@ -414,19 +484,18 @@ function routeComponent(
   switch (parsed?.kind) {
     case "chart": {
       const { code, view, period } = parsed.state;
-      return withData(
-        "component_chart",
-        "update",
-        deps.data
-          .stockSummary(code)
-          .then((summary) =>
-            summary
-              ? chartMessage(summary, view, period, deps)
-              : notice(
-                  "Couldn't redraw that chart just now. Try again in a moment.",
-                ),
-          ),
-      );
+      const card = drawCard(parsed.state, deps);
+      return {
+        kind: "chart",
+        action: "component_chart",
+        mode: "update",
+        summary: deps.data.stockSummary(code),
+        draw: (summary) =>
+          chartMessage(summary, view, period, deps, { code, card }),
+        missing: notice(
+          "Couldn't redraw that chart just now. Try again in a moment.",
+        ),
+      };
     }
     case "activity":
       return deps.activityEnabled
@@ -604,12 +673,38 @@ export async function handleInteraction(
     }
     // Too slow to launch inside Discord's window (a launch cannot be
     // deferred): post the chart message instead, as a deferred reply.
+    reply = newChart(action, input, summary, view, period, deps);
+  }
+
+  if (reply.kind === "chart") {
+    const { action, mode, draw, missing } = reply;
+    // A command's stock may not exist, and that is said privately and at
+    // once. A button's stock was charted a moment ago, so it defers straight
+    // away: the card takes longer than the fast path anyway.
+    if (mode === "new") {
+      const looked = await within(
+        reply.summary.then(
+          (summary) => ({ summary, error: undefined }),
+          (error: unknown) => ({ summary: null, error: error ?? "failed" }),
+        ),
+        remaining(),
+      );
+      if (looked.done && !looked.value.summary) {
+        const { error } = looked.value;
+        if (error) console.error(`[discord] ${action} failed:`, error);
+        deps.onOutcome?.({
+          action,
+          status: error ? "error" : "success",
+          delivery: "immediate",
+        });
+        return respondNow(mode, error ? notice(FAILED) : missing);
+      }
+    }
     reply = withData(
       action,
-      "new",
-      summary.then((s) =>
-        s ? chartMessage(s, view, period, deps) : notFound(input),
-      ),
+      mode,
+      reply.summary.then((s) => (s ? draw(s) : missing)),
+      { defer: true },
     );
   }
 
@@ -629,8 +724,11 @@ export async function handleInteraction(
     console.error(`[discord] ${action} failed:`, error);
     return notice(FAILED);
   });
-  const settled = await within(work, remaining());
-  if (settled.done) {
+  const settled = reply.defer
+    ? ({ done: false } as const)
+    : await within(work, remaining());
+  // Files go up only with a webhook call, so a reply carrying one defers.
+  if (settled.done && !settled.value.files?.length) {
     deps.onOutcome?.({
       action,
       status: failed ? "error" : "success",

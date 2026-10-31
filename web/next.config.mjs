@@ -434,6 +434,12 @@ export default withBundleAnalyzer(
         // opengraph-image file, so the glob above misses it; it draws the
         // same getOgLogo() mark.
         "/chart/[code]/image": ["./public/icon-512.png", "./public/logo.png"],
+        // The Discord bot draws the same card for the charts it posts
+        // (lib/discord/chart-card.ts).
+        "/api/discord/interactions": [
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
         // OG card assets. The scene JPEGs and the state-boundary topojson are
         // read with readFileSync at REQUEST time inside opengraph-image
         // lambdas, and nft does not trace those reads — measured on prod

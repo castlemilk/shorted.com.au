@@ -1510,6 +1510,12 @@ it in place, and an **Interactive** button (`"activity": true`, on since
 
 - **Buttons carry their chart in `custom_id`** (`chart:p:BHP:short:3m`); old
   messages keep sending what they were posted with. Add kinds, never change one.
+- **A chart message uploads its card** (`lib/discord/chart-card.ts`, drawn from
+  the share card's `load-card.tsx`) as `attachment://<CODE>-<view>-<period>.png`
+  in the deferred webhook edit; an interaction's HTTP response is JSON and
+  cannot. The card's URL made Discord's media proxy fetch every redraw cold
+  through Cloudflare, and a redrawn chart often stayed blank or stale
+  (2026-10-31). The URL is only the fallback when the card cannot be drawn.
 - **The Activity loads `/`.** Discord's proxy (`<app id>.discordsays.com`,
   root mapping `shorted.com.au`) always opens the root with `frame_id` and
   `instance_id`; `src/config/discord-activity.mjs` redirects exactly those
