@@ -1260,6 +1260,7 @@ func TestCycleOutputIsOneCleanLineAndEventsAreWellFormed(t *testing.T) {
 		"cycle_start": true, "phase": true, "preflight": true, "round_start": true, "round_done": true, "cycle_done": true,
 		"claim": true, "fetch": true, "submit": true, "finalize_started": true, "startup": true,
 		"ingest_ok": true, "ingest_error": true, "shadow": true, "shadow_circuit": true, "page": true,
+		"portal": true,
 	}
 	roundDone := 0
 	sawReady := false

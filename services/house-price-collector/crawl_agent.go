@@ -834,6 +834,8 @@ func runAgentRound(ctx context.Context, pool *pgxpool.Pool, acfg agentConfig, lo
 	// cycles of one crawl. A dry run never reads or writes it.
 	cb := newPersistentCircuitBreaker(cfg.circuitTrip, cfg.circuitBase, cfg.circuitMax, circuitPathForRun(cfg.dryRun), time.Now().UTC())
 	circuitSources := []string{"rea", "domain"}
+	cb.events = events
+	cb.announceAll(circuitSources, time.Now().UTC())
 
 	// Self-warm the dedicated Chrome before crawling (in-process port of
 	// run-housing-agent.sh). Only when the run will ACTUALLY drive the host Chrome

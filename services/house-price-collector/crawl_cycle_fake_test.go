@@ -51,6 +51,7 @@ type fakeStep struct {
 	RecordEnv     bool   `json:"record_env,omitempty"` // write the environment to env-N.txt
 	SkipRoundDone bool   `json:"skip_round_done,omitempty"`
 	Startup       bool   `json:"startup,omitempty"` // emit probe_auth start/done
+	Portal        bool   `json:"portal,omitempty"`  // emit a rea closed and a domain open portal event
 }
 
 // runCycleFakeChild is the fake child's main. It returns the exit code.
@@ -93,6 +94,10 @@ func runCycleFakeChild(dir string) int {
 	if step.Startup {
 		ev.startup("probe_auth", "start", "")
 		ev.startup("probe_auth", "done", "ok")
+	}
+	if step.Portal {
+		ev.portal("rea", false, time.Time{}, 0, 0)
+		ev.portal("domain", true, time.Now().Add(time.Hour), 2, 10*time.Minute)
 	}
 	if step.Grandchild != "" {
 		spawnFakeGrandchild(dir, tag, step.Grandchild)

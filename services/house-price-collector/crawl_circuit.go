@@ -33,6 +33,9 @@ type crawlCircuitBreaker struct {
 	// backoff survive the child process that ends the round (see crawl_circuit_state.go). Empty
 	// keeps the breaker in memory only, as the dry run and the tests use it.
 	path string
+	// events, when set, receives a portal event for each source whose circuit opens, closes or re-opens,
+	// and for both sources at child start (announceAll). Nil writes nothing.
+	events *crawlEvents
 }
 
 // sourceCircuit is one source's breaker state (persisted across suburbs).
@@ -41,6 +44,7 @@ type sourceCircuit struct {
 	openUntil time.Time     // circuit OPEN (skip this source) until here
 	backoff   time.Duration // current cooldown; doubles each re-open, capped at max
 	updated   time.Time     // the last record() for this source; with openUntil, decides expiry
+	announced bool          // the state the last portal event reported was open, so a close is reported
 }
 
 // newCircuitBreaker builds a breaker. trip<1 ⇒ 1; a non-positive base ⇒ 5m; a
@@ -87,9 +91,13 @@ func (cb *crawlCircuitBreaker) record(source string, blocked bool, now time.Time
 	sc.updated = now
 	defer cb.save()
 	if !blocked {
+		closing := sc.announced
 		sc.consec = 0
 		sc.backoff = 0
 		sc.openUntil = time.Time{}
+		if closing {
+			cb.announce(source, false)
+		}
 		return false, 0
 	}
 	sc.consec++
@@ -106,7 +114,23 @@ func (cb *crawlCircuitBreaker) record(source string, blocked bool, now time.Time
 	}
 	cooldown = jitterDur(sc.backoff)
 	sc.openUntil = now.Add(cooldown)
+	cb.announce(source, true)
 	return true, cooldown
+}
+
+// announce writes one source's circuit state as a portal event and remembers the state it reported.
+func (cb *crawlCircuitBreaker) announce(source string, open bool) {
+	sc := cb.circuit(source)
+	sc.announced = open
+	cb.events.portal(source, open, sc.openUntil, sc.consec, sc.backoff)
+}
+
+// announceAll reports each listed source's persisted state at child start, so a freshly started agent
+// learns the circuit before its first sweep. A source is open while its cooldown runs, as in skip.
+func (cb *crawlCircuitBreaker) announceAll(sources []string, now time.Time) {
+	for _, s := range sources {
+		cb.announce(s, now.Before(cb.circuit(s).openUntil))
+	}
 }
 
 // warmBlockedByCircuit reports whether every source is circuit-open at now, so the round would
@@ -129,6 +153,9 @@ func (cb *crawlCircuitBreaker) reopenProbe(source string) {
 	}
 	sc.openUntil = time.Time{}
 	cb.save()
+	if sc.announced {
+		cb.announce(source, false)
+	}
 }
 
 // allOpen reports whether EVERY listed source is currently in an open circuit —

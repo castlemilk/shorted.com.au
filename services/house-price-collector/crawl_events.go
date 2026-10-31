@@ -43,9 +43,22 @@ import (
 //	                  push_reason, parity}   CRAWL_SINK=shadow only, one per sweep
 //	shadow_circuit   {failures}   CRAWL_SINK=shadow only, once, when shadow switches off
 //	                  after shadowFailLimit consecutive dry-run failures
+//	portal           {source: rea|domain, state: closed|open, consecutive_blocked, backoff_s,
+//	                  open_until}   one per source at child start (the persisted circuit as loaded),
+//	                  and on each open, close and re-open of a source's circuit. Nothing fires on a
+//	                  timer, and a round that exits before the breaker loads emits none. open_until
+//	                  (RFC3339 UTC, whole seconds, rounded up) is present only when state is open.
+//	                  "Blocked" is time-relative: state open AND open_until > now. An open whose
+//	                  open_until has passed means the cooldown is over and its probe is pending; no
+//	                  event follows it. A child's start announcement reports such a breaker closed.
+//	                  backoff_s is the base cooldown before the ±20% jitter, not the exact remaining
+//	                  cooldown. consecutive_blocked and backoff_s are as of the last announced
+//	                  transition: a clean probe can reset them without an event. A dry run reports
+//	                  both sources closed (its breaker is memory-only), so consumers must ignore
+//	                  portal events from a dry-run cycle (cycle_start.dry_run).
 //	ready            {}   the child's SIGTERM handler is installed (written first, by runAgent).
 //	                  The cycle sends its one graceful SIGTERM only after this.
-//	startup          {step: probe_auth|warm_probe, phase: start|done, outcome}   start-up work,
+//	startup          {step: probe_auth|warm_probe, stage: start|done, outcome}   start-up work,
 //	                  written when a step begins and ends (never on a timer), so a slow start-up
 //	                  is not a silence. outcome is set on done.
 //	ingest_ok        {probe: true}   ProbeAuth accepted; ingest_error {probe: true, code}   the
@@ -506,6 +519,47 @@ func (e *crawlEvents) ingestError(code string) {
 	}
 	e.emit(func() any {
 		return ingestErrorEvent{eventHeader: e.header("ingest_error"), Probe: false, Code: code}
+	})
+}
+
+// portalEvent is one source's circuit state (crawl_circuit.go). backoff_s is the current cooldown,
+// and open_until is set only while the circuit is open.
+type portalEvent struct {
+	eventHeader
+	Source             string `json:"source"`
+	State              string `json:"state"`
+	ConsecutiveBlocked int    `json:"consecutive_blocked"`
+	BackoffS           int    `json:"backoff_s"`
+	OpenUntil          string `json:"open_until,omitempty"`
+}
+
+// The bounds a portal event's numbers are clamped to, so the contract's ranges hold whatever the breaker holds.
+const (
+	maxPortalConsecutive = 1000
+	maxPortalBackoffS    = 86400
+)
+
+// portal writes one source's circuit state. Sources outside the enum are dropped.
+func (e *crawlEvents) portal(source string, open bool, until time.Time, consec int, backoff time.Duration) {
+	if source != "rea" && source != "domain" {
+		return
+	}
+	state, openUntil := "closed", ""
+	if open {
+		// Rounded up: a truncated end would report the cooldown over up to a second early.
+		u := until.UTC()
+		if u.Nanosecond() != 0 {
+			u = u.Truncate(time.Second).Add(time.Second)
+		}
+		state, openUntil = "open", u.Format(time.RFC3339)
+	}
+	consecutive := min(max(consec, 0), maxPortalConsecutive)
+	backoffS := min(max(int(backoff/time.Second), 0), maxPortalBackoffS)
+	e.emit(func() any {
+		return portalEvent{
+			eventHeader: e.header("portal"), Source: source, State: state,
+			ConsecutiveBlocked: consecutive, BackoffS: backoffS, OpenUntil: openUntil,
+		}
 	})
 }
 
