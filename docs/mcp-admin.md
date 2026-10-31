@@ -448,8 +448,8 @@ then retire the old token on BrandBrain.
 
 The token is delivered from the Secret Manager secret
 `brandbrain-fleet-ops-token` by the `shorts-api` module (`brandbrain_fleet_ops_secret_exists`,
-off until the secret has an enabled version; prod sets it to false in the PR that adds it, so the
-tools answer "not configured" until the secret is provisioned). A separate
+off until the secret has an enabled version; prod turned it on on 2026-10-31, once the secret
+was provisioned alongside BrandBrain's `BRANDBRAIN_FLEET_OPS_TOKEN`). A separate
 token from the grant token, so either can be rotated alone. Without it, the four read tools
 and the two smoke tools answer that the fleet is not configured, and send nothing.
 

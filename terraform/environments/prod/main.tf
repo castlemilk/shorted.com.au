@@ -1403,10 +1403,10 @@ module "shorts_api" {
   # housing_crawl_authorize grant or revoke housing_crawl_v1 on a BrandBrain rig.
   brandbrain_housing_grant_secret_exists = true
 
-  # brandbrain-fleet-ops-token is NOT provisioned yet. Until it exists with an enabled version,
-  # the admin housing-crawl debugging and smoke tools answer not configured. Flip this to true
-  # only after the secret has a version (the same order as the grant token above).
-  brandbrain_fleet_ops_secret_exists = false
+  # brandbrain-fleet-ops-token exists with an enabled version (provisioned 2026-10-31; the same
+  # value is BrandBrain's BRANDBRAIN_FLEET_OPS_TOKEN, GSM brandbrain-486909/brandbrain-prod-fleet-ops-token).
+  # It lets the admin MCP's housing-crawl status, debugging and smoke tools reach BrandBrain.
+  brandbrain_fleet_ops_secret_exists = true
 
   depends_on = [
     google_project_service.required_apis,
