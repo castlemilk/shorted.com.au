@@ -130,7 +130,8 @@ func TestCDPScreenshot_WatchdogReleasesFetcherLock(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "stalled") {
 			t.Fatalf("hung screenshot should return a stalled error, got: %v", err)
 		}
-	case <-time.After(250 * time.Millisecond):
+	case <-time.After(10 * time.Second):
+		// The watchdog is 1ms; 10s only bounds "it never returned", not its speed.
 		t.Fatal("hung screenshot exceeded its wall-clock watchdog")
 	}
 

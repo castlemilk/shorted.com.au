@@ -56,6 +56,15 @@ func TestMain(m *testing.M) {
 		log.Fatalf("circuit state scratch dir: %v", err)
 	}
 	_ = os.Setenv(circuitStateEnv, filepath.Join(scratch, "circuit-state.json"))
+	// The crawl lock defaults under the real home too, so a test run and a live housing
+	// crawl on the same Mac contend for one lock: the test then exits 12 ("another housing
+	// crawl is draining") or, worse, holds the real lock while the rig is working. Every
+	// test process gets its own lock dir, and child processes inherit it.
+	// Only when unset: the test binary also runs as the child of a bash lock test, which hands
+	// it the lock dir it must contend for, and that value must survive into the child.
+	if os.Getenv(crawlLockDirEnv) == "" {
+		_ = os.Setenv(crawlLockDirEnv, filepath.Join(scratch, "crawl.lockdir"))
+	}
 	code := testpostgres.Main(m)
 	_ = os.RemoveAll(scratch)
 	os.Exit(code)

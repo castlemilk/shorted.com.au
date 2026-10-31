@@ -24,8 +24,10 @@ func TestProbeAnsweringAfterItsDeadlineKeepsItsCode(t *testing.T) {
 	h := newCycleHarness(t, []fakeStep{{Exit: 0}})
 	h.cfg.probeTimeout = 200 * time.Millisecond
 	h.cfg.stepGrace = 2 * time.Second
-	h.deps.probeIngest = func(context.Context) (int, string) {
-		time.Sleep(400 * time.Millisecond)
+	// The step answers only once its own deadline has fired, so the answer is after the
+	// deadline by construction, not by a 400ms guess that load could reorder.
+	h.deps.probeIngest = func(ctx context.Context) (int, string) {
+		<-ctx.Done()
 		return 14, "unavailable"
 	}
 	code := h.runGuarded(20 * time.Second)
@@ -39,8 +41,8 @@ func TestChromeAnsweringAfterItsDeadlineKeepsItsCode(t *testing.T) {
 	h := newCycleHarness(t, []fakeStep{{Exit: 0}})
 	h.cfg.chromeTimeout = 200 * time.Millisecond
 	h.cfg.stepGrace = 2 * time.Second
-	h.chromeFn = func(context.Context) (string, int) {
-		time.Sleep(400 * time.Millisecond)
+	h.chromeFn = func(ctx context.Context) (string, int) {
+		<-ctx.Done()
 		return "unusable", 4
 	}
 	code := h.runGuarded(20 * time.Second)
@@ -94,11 +96,14 @@ func TestReadyWaitSendsTheStopToAChildThatNeverReportsReady(t *testing.T) {
 
 // A signal death while a stop is pending is cancelled (10), not an internal failure.
 func TestChildKilledBySignalWhileStoppingIsCancelled(t *testing.T) {
-	h := newCycleHarness(t, []fakeStep{{NoReady: true, SelfSignal: "hup", DelayExitMs: 300}})
-	h.cfg.readyWait = 2 * time.Second
+	// The child signals itself 3s in. The stop is requested at 50ms, well before that, so
+	// the test does not depend on a 300ms race under load: a stop that is 3s early is still
+	// pending when the SIGHUP lands.
+	h := newCycleHarness(t, []fakeStep{{NoReady: true, SelfSignal: "hup", DelayExitMs: 3000}})
+	h.cfg.readyWait = 10 * time.Second
 	h.cfg.hungAfter = 10 * time.Minute
 	h.signalAfterStart(syscall.SIGTERM, 50*time.Millisecond, 1)
-	code := h.runGuarded(20 * time.Second)
+	code := h.runGuarded(60 * time.Second)
 	s := h.summary()
 	if code != exitCrawlCancelled || s.Outcome != outCancelled {
 		t.Fatalf("exit=%d outcome=%q, want 10 cancelled: a signal death while stopping is the stop's end", code, s.Outcome)
