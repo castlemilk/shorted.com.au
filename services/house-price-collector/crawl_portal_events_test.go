@@ -5,6 +5,7 @@ package main
 // the listings fixture dir stands in for Chrome, so no test touches a real browser.
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http/httptest"
@@ -125,9 +126,21 @@ func TestPortalEventsAtChildStartReflectPersistedState(t *testing.T) {
 	}
 }
 
-// A dry run reports too: its circuit is memory-only, so both sources start closed.
+// A dry run reports both sources closed even when the real state has domain open, and it leaves the
+// circuit file byte for byte as it was: its breaker is memory-only.
 func TestPortalEventsEmittedOnDryRun(t *testing.T) {
 	isolateCircuitState(t)
+	state := map[string]*sourceCircuit{
+		"domain": {consec: 3, openUntil: time.Now().UTC().Add(20 * time.Minute), backoff: 10 * time.Minute, updated: time.Now().UTC()},
+	}
+	if err := writeCircuitState(circuitStatePath(), state); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(circuitStatePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	by := portalBySource(t, portalEventsOf(t, runAgentWithEvents(t, true)))
 	if len(by) != 2 {
 		t.Fatalf("a dry run must still report both sources, got %v", by)
@@ -137,8 +150,35 @@ func TestPortalEventsEmittedOnDryRun(t *testing.T) {
 			t.Fatalf("dry-run %s = %v, want closed (the dry run never reads the circuit file)", src, e)
 		}
 	}
-	if _, err := os.Stat(circuitStatePath()); err == nil {
-		t.Fatal("a dry run wrote the circuit state file")
+	after, err := os.ReadFile(circuitStatePath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatalf("a dry run changed the circuit file:\nbefore: %s\nafter:  %s", before, after)
+	}
+}
+
+// A persisted open whose cooldown ended before this child started is announced closed, and the streak
+// and backoff are kept. This kills a mutant that reports any non-zero open_until as open.
+func TestPortalEventExpiredPersistedOpenAnnouncesClosed(t *testing.T) {
+	isolateCircuitState(t)
+	now := time.Now().UTC()
+	state := map[string]*sourceCircuit{
+		"domain": {consec: 3, openUntil: now.Add(-time.Minute), backoff: 20 * time.Minute, updated: now.Add(-21 * time.Minute)},
+	}
+	if err := writeCircuitState(circuitStatePath(), state); err != nil {
+		t.Fatal(err)
+	}
+	dom := portalBySource(t, portalEventsOf(t, runAgentWithEvents(t, false)))["domain"]
+	if dom["state"] != "closed" {
+		t.Fatalf("an ended cooldown at start = %v, want closed", dom)
+	}
+	if _, has := dom["open_until"]; has {
+		t.Fatalf("a closed circuit must omit open_until: %v", dom)
+	}
+	if dom["consecutive_blocked"] != float64(3) || dom["backoff_s"] != float64(1200) {
+		t.Fatalf("streak and backoff must be kept at start: %v", dom)
 	}
 }
 
@@ -162,8 +202,12 @@ func TestPortalEventOnOpenReopenAndClose(t *testing.T) {
 	if open["source"] != "domain" || open["state"] != "open" || open["consecutive_blocked"] != float64(1) || open["backoff_s"] != float64(60) {
 		t.Fatalf("open event = %v", open)
 	}
-	if open["open_until"] != t0.Add(cd).Format(time.RFC3339) {
-		t.Fatalf("open_until = %v, want the cooldown end %s", open["open_until"], t0.Add(cd).Format(time.RFC3339))
+	until, err := time.Parse(time.RFC3339, open["open_until"].(string))
+	if err != nil {
+		t.Fatalf("open_until %v is not RFC 3339: %v", open["open_until"], err)
+	}
+	if until.Before(t0.Add(cd)) || until.After(t0.Add(cd).Add(time.Second)) {
+		t.Fatalf("open_until = %s, want the cooldown end %s rounded up to the second", until, t0.Add(cd))
 	}
 
 	// The cooldown ends, the probe is blocked again: the circuit re-opens with the backoff doubled.

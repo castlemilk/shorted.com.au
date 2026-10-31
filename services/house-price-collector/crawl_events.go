@@ -45,11 +45,20 @@ import (
 //	                  after shadowFailLimit consecutive dry-run failures
 //	portal           {source: rea|domain, state: closed|open, consecutive_blocked, backoff_s,
 //	                  open_until}   one per source at child start (the persisted circuit as loaded),
-//	                  and on each open, close and re-open of a source's circuit. open_until (RFC3339
-//	                  UTC, seconds) is present only when state is open. Dry runs emit it too.
+//	                  and on each open, close and re-open of a source's circuit. Nothing fires on a
+//	                  timer, and a round that exits before the breaker loads emits none. open_until
+//	                  (RFC3339 UTC, whole seconds, rounded up) is present only when state is open.
+//	                  "Blocked" is time-relative: state open AND open_until > now. An open whose
+//	                  open_until has passed means the cooldown is over and its probe is pending; no
+//	                  event follows it. A child's start announcement reports such a breaker closed.
+//	                  backoff_s is the base cooldown before the ±20% jitter, not the exact remaining
+//	                  cooldown. consecutive_blocked and backoff_s are as of the last announced
+//	                  transition: a clean probe can reset them without an event. A dry run reports
+//	                  both sources closed (its breaker is memory-only), so consumers must ignore
+//	                  portal events from a dry-run cycle (cycle_start.dry_run).
 //	ready            {}   the child's SIGTERM handler is installed (written first, by runAgent).
 //	                  The cycle sends its one graceful SIGTERM only after this.
-//	startup          {step: probe_auth|warm_probe, phase: start|done, outcome}   start-up work,
+//	startup          {step: probe_auth|warm_probe, stage: start|done, outcome}   start-up work,
 //	                  written when a step begins and ends (never on a timer), so a slow start-up
 //	                  is not a silence. outcome is set on done.
 //	ingest_ok        {probe: true}   ProbeAuth accepted; ingest_error {probe: true, code}   the
@@ -537,7 +546,12 @@ func (e *crawlEvents) portal(source string, open bool, until time.Time, consec i
 	}
 	state, openUntil := "closed", ""
 	if open {
-		state, openUntil = "open", until.UTC().Format(time.RFC3339)
+		// Rounded up: a truncated end would report the cooldown over up to a second early.
+		u := until.UTC()
+		if u.Nanosecond() != 0 {
+			u = u.Truncate(time.Second).Add(time.Second)
+		}
+		state, openUntil = "open", u.Format(time.RFC3339)
 	}
 	consecutive := min(max(consec, 0), maxPortalConsecutive)
 	backoffS := min(max(int(backoff/time.Second), 0), maxPortalBackoffS)
