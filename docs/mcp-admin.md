@@ -22,12 +22,12 @@ credentials remain in the host connection.
 claude.ai → Settings → Connectors → **Add custom connector** →
 `https://api.shorted.com.au/mcp/admin`. Claude discovers the OAuth server,
 sends you to the Shorted consent screen, you sign in with your normal account
-and approve **jobs:read**, **news:publish**, **jobs:run**, **users:read** and
-**crawl:authorize**.
-For a monitoring-only client, request only `jobs:read`; leave out `users:read`
-and `crawl:authorize` unless the client needs personal data or the housing
-crawl. The connector then appears in every Claude session (including Claude
-Code on the web) with twenty-five tools:
+and approve **jobs:read**, **news:publish**, **jobs:run**, **users:read**,
+**crawl:authorize**, **crawl:read** and **crawl:operate**.
+For a monitoring-only client, request only `jobs:read`; leave out `users:read`,
+`crawl:authorize`, `crawl:read` and `crawl:operate` unless the client needs personal
+data or the housing crawl. The connector then appears in every Claude session (including Claude
+Code on the web) with thirty-one tools:
 
 | Tool | Scope | What it does |
 |---|---|---|
@@ -55,6 +55,12 @@ Code on the web) with twenty-five tools:
 | `alerts_smoke_result` `{monitor_id, date, execution?}` | `jobs:read` | What the replay did for one of the caller's monitors on one date: the event row (with `createdAt`, `runId`) and, with `execution`, the job's state. A row written before that execution started is flagged `predatesExecution`. |
 | `delete_alert_monitor` `{monitor_id}` | `jobs:run` | Deletes one of the caller's own monitors and its events. Refused for any other monitor. |
 | `housing_crawl_rigs` `{rig_id?}` | `crawl:authorize` | Lists shorted's housing crawl allowlist (`housing_ingest_rigs`): each subject, whether it is enabled and when it was added. The note is not returned. With `rig_id`, also BrandBrain's `housing_crawl_v1` grant for that rig and whether shorted's row for its `workload_subject` exists and is enabled. Read-only. Each row also reports `ingest_admits` (see "What `ingest_admits` means"). |
+| `housing_crawl_status` `{}` | `crawl:read` | One read that answers whether the housing crawl is healthy: each rig's version, liveness, state, drain and last outcome and exit code, in-flight phase, round and counts, Chrome and driver versions, alarms and ingest probe; each portal's breaker with `blocked` judged against the server's clock (see "Housing crawl debugging"); the BrandBrain queue by status and source; shorted's open and expiring dispatches, receipts for the last hour and day by portal and status, quarantine reasons for the day, the finalize cursor, and the server schedules. Counts only. |
+| `housing_crawl_failures` `{since?, rig_id?, source?}` | `crawl:read` | BrandBrain failed and deferred crawl jobs grouped by failure class (`not_dispatched`, `dispatch_expired`, `target_mismatch`, `blocked`, `circuit_open`, `chrome`, `timeout`, `ingest_unavailable`, `other`), with counts, the top five suburbs and up to five sample job ids per class; BLOCKED and PARTIAL ingest receipts; and quarantine reasons. `since` is `24h` (the default) or `7d` at most. |
+| `housing_crawl_job` `{job_id, with_logs?}` | `crawl:read` | One job's whole trail: its BrandBrain record (the error text redacted, the result summary reduced to its counts), its ledger row, every ingest receipt for it, its quarantine rows and, with `with_logs: true`, the assigned rig's housing log lines around the job id (requested now, waits up to 60 seconds). |
+| `housing_crawl_logs` `{rig_id, source, grep?, max_lines?}` | `crawl:read` | Asks one rig for its `housing` or `runtime` log, waits up to 60 seconds, and returns the lines that match `grep` (case-insensitive), the last `max_lines` of them (default 200, at most 1000). URLs, prices, e-mail addresses, phone numbers and street addresses are redacted. A log request is a command to the rig, sent once per call. |
+| `housing_crawl_smoke` `{rig_id, confirm: true, suburb?, smoke_id?}` | `crawl:operate` | The end-to-end check: enqueues ONE catalog suburb (`suburb`, else the one crawled longest ago) on both portals at queue priority, waits up to two minutes for the enqueue, then sends the rig one `housing_crawl_run {job: drain}`. Returns a `smoke_id`. Call it again with `smoke_id` to continue a run that stopped before its drain: the drain is keyed by the run, so it is never sent twice. |
+| `housing_crawl_smoke_status` `{smoke_id}` | `crawl:operate` | The verdict for one smoke run, derived from its state alone: `passed` (every job has an applied COMPLETE or PARTIAL receipt with listings), `failed` (with the failure classes), or `waiting` (with what it waits on). Read-only. |
 | `housing_crawl_authorize` `{rig_id \| subject, enabled, note?, confirm?}` | `crawl:authorize` | Turns a BrandBrain rig's housing crawl on or off. Give **exactly one** of `rig_id` or `subject`. Enabling needs `rig_id`, `confirm: true`, and runs GET, then PUT of the grant, then the shorted allowlist write for the `workload_subject` BrandBrain returns. Disabling by `rig_id` writes shorted first, then revokes the grant, and still revokes when shorted fails. Disabling by `subject` (`rig:<id>`, from `housing_crawl_rigs`) changes only shorted's row and never calls BrandBrain (`brandbrain: not_attempted`), so it works while BrandBrain is down. Reports each side (`shorted`, `brandbrain`) separately. A PUT with an unknown outcome is reported as `unknown` and never retried. Idempotent. Reports `ingest_admits` (whether the deployed housing-ingest admits the subject); it never refuses a change. |
 
 Only merged articles can be published — the job image bakes `content/news` in
@@ -415,6 +421,81 @@ Operator failure modes:
   expired. Rotate the Secret Manager version. Nothing was written.
 - **"rig_not_found"** — the id is not a BrandBrain rig. Nothing was written.
 
+## Housing crawl debugging and smoke (`crawl:read`, `crawl:operate`)
+
+The read tools answer "is the crawl healthy, what is failing and where, what happened to
+this job". The smoke pair runs one real pass through the pipeline and gives a verdict. Both
+sides of the crawl are read through one narrow BrandBrain client, the fleet client
+(`services/shorts/internal/brandbrain/fleet.go`). It talks to these routes and no others:
+`GET /api/v1/fleet/rigs`, `GET /api/v1/fleet/rigs/{id}` (for its `server_time`),
+`GET /api/v1/fleet/rigs/{id}/commands`, `GET /api/v1/fleet/crawl-jobs`, and
+`POST /api/v1/fleet/rigs/{id}/commands` with exactly two kinds: `collect_runtime_logs`
+(`source` `housing` or `runtime`) and `housing_crawl_run` (`job: drain`, `dry_run: false`).
+
+Config: `BRANDBRAIN_FLEET_OPS_TOKEN` is the fleet credential, sent as `X-Fleet-Ops-Token`.
+Every request also names the verified admin in `X-Fleet-Operator: shorted-admin:<email>`,
+for BrandBrain's audit log. The base URL is the grant client's `BRANDBRAIN_API_URL` and is
+pinned to `https://api.brandbrain.dev`. The token is delivered from the Secret Manager secret
+`brandbrain-fleet-ops-token` by the `shorts-api` module (`brandbrain_fleet_ops_secret_exists`,
+off until the secret has an enabled version; the prod environment sets it). A separate
+token from the grant token, so either can be rotated alone. Without it, the four read tools
+and the two smoke tools answer that the fleet is not configured, and send nothing.
+
+What the tools never return: listing rows, addresses, prices, the fleet token. An error or
+a log is redacted before it leaves (URLs, prices, e-mail addresses, phone numbers and street
+addresses). Redaction is best effort, which is why the log tools are for administrators only.
+A job's result summary keeps its numeric and enum values and drops free text. Every database
+query is a `SELECT`, except that `housing_crawl_smoke` starts one Cloud Run execution and sends
+one drain command.
+
+### Portal breakers and the clock
+
+A portal is **blocked** when its breaker is `open` and `open_until` is after the server's
+clock, which is the `server_time` the fleet returns with each rig. An open breaker whose
+deadline has passed reads `cooldown_over_probing_next`: the next attempt is a probe. An open
+breaker with no deadline is `open_without_deadline` and is not judged blocked. When the clock
+cannot be read, `blocked` is absent and the status is `unknown_clock`. The admin's own clock
+is never used.
+
+### Smoke runbook
+
+1. Read `housing_crawl_status`. Start only when the rigs you care about are alive and no
+   portal is blocked. A smoke run into an open breaker only waits.
+2. Run `housing_crawl_smoke` with `rig_id`, `confirm: true` and, optionally, `suburb` (a
+   catalog slug). It returns a `smoke_id`. `enqueue: succeeded` means the job wrote its
+   ledger rows, and then `drain: sent` means the rig was told to collect.
+3. Run `housing_crawl_smoke_status` with the `smoke_id` until the verdict is not `waiting`.
+   `passed` means every job (one per portal) has an applied COMPLETE or PARTIAL receipt with
+   listings above zero. `failed` names the failure classes; read them with
+   `housing_crawl_failures`, and one job's trail with `housing_crawl_job` (`with_logs: true`).
+4. If the call returned `waiting` before its drain (`enqueue: running`, or `drain: unknown`),
+   call `housing_crawl_smoke` again with the `smoke_id`. It sends no second enqueue, and the
+   drain is keyed by the run, so the rig is told once.
+
+A smoke run never reports `passed` on a suburb with zero listings: an applied sweep with no
+listings is a failure, because an empty sweep of a live suburb is what this loop exists to
+catch. A job whose BrandBrain state cannot be read is `waiting`, never `passed`.
+
+### Failure classes
+
+`housing_crawl_failures` and the smoke verdict share one normalised classification of a
+BrandBrain failed or deferred job's error text and result summary. Only string values of the
+summary are read, so a count named `blocked` is a count, not a block. The classes are closed,
+and anything unmatched is `other`.
+
+### Scheduling and the enqueue
+
+The smoke job is the collector's `server-enqueue` with `-selection smoke`, `-suburb <slug>`
+and `-run-id smoke-<UTC>-<8 hex>` (`services/house-price-collector/crawl_server.go`). The run
+id is generated by the admin tool, so it can report it before the job starts. The job writes
+no `crawl_run_status` row (that table's `run_type` is CHECKed to delta, full, agent and
+freshness), so the freshness sentinel does not see a smoke run. The enqueue goes to BrandBrain
+at priority 100. BrandBrain's accepted range is not set in this repository, so the value
+is UNVERIFIED: confirm on the first live smoke run that the rig drains it first.
+
+The shorts API runs the job under `roles/run.developer` on the single `house-price-collector`
+job (`terraform/environments/prod`, `shorts_api_crawl_smoke`), with an argv the service builds.
+
 ## Who can use it
 
 An administrator is a Shorted account whose **verified** email is on the web
@@ -439,7 +520,7 @@ the Vercel origin, because Cloudflare challenges non-browser POSTs to the apex).
 
 - **Separate OAuth resource.** Tokens are audience-bound to exactly one
   resource: a `/mcp` token is refused on `/mcp/admin` and vice versa.
-- **Separate scope vocabulary.** `news:publish`, `jobs:run`, `jobs:read`, `users:read` and `crawl:authorize` are not in
+- **Separate scope vocabulary.** `news:publish`, `jobs:run`, `jobs:read`, `users:read`, `crawl:authorize`, `crawl:read` and `crawl:operate` are not in
   `mcp.Scopes`; an empty scope request on `/mcp` still gets only the `:read`
   scopes, and an absent `resource` still defaults to `/mcp` — nothing ever
   defaults to the admin resource (`oauth/resources.go`). Admin scopes name
