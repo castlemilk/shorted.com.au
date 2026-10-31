@@ -3,6 +3,7 @@ package shorts
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -156,4 +157,59 @@ func TestCrawlRigStoreReachableThroughTheAdapter(t *testing.T) {
 func TestAdapterOverAStoreWithoutTheAllowlistSaysSo(t *testing.T) {
 	_, err := NewStoreAdapter(plainStore{}).ListIngestRigs(context.Background())
 	assert.ErrorContains(t, err, "does not provide the housing crawl allowlist")
+}
+
+// Every admin view the services reach by type assertion on the adapter. The adapter
+// shipped twice without forwarding one (the alerts view, then the crawl allowlist), and a
+// third time without the crawl ledger (#815), each time reading "not configured" in
+// production while the tests, which fake the store directly, passed. Adding a view means
+// adding it here: the build then fails until StoreAdapter forwards it.
+var (
+	_ shorts.AdminAlertsStore    = (*StoreAdapter)(nil)
+	_ shorts.IngestRigAdminStore = (*StoreAdapter)(nil)
+	_ shorts.CrawlOpsAdminStore  = (*StoreAdapter)(nil)
+)
+
+type crawlLedgerStore struct{ shorts.Store }
+
+func (crawlLedgerStore) CrawlDispatchOpen(context.Context) (int64, int64, error) { return 7, 2, nil }
+func (crawlLedgerStore) CrawlReceiptGroups(context.Context, time.Time, string, []string) ([]shorts.CrawlReceiptGroup, error) {
+	return nil, nil
+}
+func (crawlLedgerStore) CrawlQuarantineReasons(context.Context, time.Time, string) ([]shorts.CrawlReasonCount, error) {
+	return nil, nil
+}
+func (crawlLedgerStore) CrawlFinalizeWatermark(context.Context) (time.Time, time.Time, bool, error) {
+	return time.Time{}, time.Time{}, false, nil
+}
+func (crawlLedgerStore) CrawlDispatchForRun(context.Context, string) ([]shorts.CrawlDispatchRow, error) {
+	return nil, nil
+}
+func (crawlLedgerStore) CrawlOpenDispatchForSuburb(context.Context, string) ([]shorts.CrawlDispatchRow, error) {
+	return nil, nil
+}
+func (crawlLedgerStore) CrawlDispatchForJob(context.Context, string) (*shorts.CrawlDispatchRow, error) {
+	return nil, nil
+}
+func (crawlLedgerStore) CrawlReceiptsForJob(context.Context, string) ([]shorts.CrawlReceipt, error) {
+	return nil, nil
+}
+func (crawlLedgerStore) CrawlQuarantineForJob(context.Context, string) ([]shorts.CrawlQuarantineEntry, error) {
+	return nil, nil
+}
+
+func TestCrawlOpsReachableThroughTheAdapter(t *testing.T) {
+	src := newAdminMCPSource(&ShortsServer{store: NewStoreAdapter(crawlLedgerStore{}), logger: NewLoggerAdapter()}, nil)
+	ops := src.CrawlOps()
+	require.NotNil(t, ops, "the adapter must expose the housing crawl ledger")
+
+	open, expiring, err := ops.DispatchOpen(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, int64(7), open, "the forwarded read reaches the store")
+	assert.Equal(t, int64(2), expiring)
+}
+
+func TestAdapterOverAStoreWithoutTheCrawlLedgerSaysSo(t *testing.T) {
+	_, _, err := NewStoreAdapter(plainStore{}).CrawlDispatchOpen(context.Background())
+	assert.ErrorContains(t, err, "does not provide the housing crawl ledger")
 }
