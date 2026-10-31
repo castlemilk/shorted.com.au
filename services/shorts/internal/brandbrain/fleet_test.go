@@ -75,7 +75,6 @@ func TestFleetIsNotConfiguredWithoutItsToken(t *testing.T) {
 	if err != nil || f != nil {
 		t.Fatalf("unset token: client=%v err=%v, want nil and nil", f, err)
 	}
-	// A nil client sends nothing and says so.
 	var none *FleetClient
 	if _, err := none.ListRigs(context.Background()); !errors.Is(err, ErrNotConfigured) {
 		t.Fatalf("nil client: %v", err)
@@ -104,7 +103,6 @@ func TestFleetSendsItsHeadersAndNeverEchoesTheToken(t *testing.T) {
 	if len(reqs) != 1 || reqs[0].Token != fleetToken || reqs[0].Operator != "shorted-admin:ops@shorted.com.au" {
 		t.Fatalf("headers = %+v", reqs)
 	}
-	// A bad token is refused without leaking the token in the error.
 	bad, _ := NewFleetTestClient(srv.URL, "wrong", 0)
 	_, err := bad.ListRigs(context.Background())
 	if !errors.Is(err, ErrRejected) || strings.Contains(err.Error(), fleetToken) {
@@ -145,10 +143,11 @@ func TestFleetStatusesMapToTypedOutcomes(t *testing.T) {
 		want   error
 	}{
 		{"contract 404", http.StatusNotFound, `{"code":"rig_not_found"}`, ErrRigNotFound},
+		{"command 404", http.StatusNotFound, `{"error":"command_not_found","code":"command_not_found"}`, ErrCommandNotFound},
 		{"plain 404", http.StatusNotFound, `404 page not found`, ErrUnavailable},
 		{"400", http.StatusBadRequest, `{}`, ErrInvalidRequest},
-		{"403", http.StatusForbidden, `{}`, ErrRejected},
-		{"429", http.StatusTooManyRequests, `{"code":"rate_limited"}`, ErrRateLimited},
+		{"403 fleet_ops_forbidden", http.StatusForbidden, `{"error":"fleet_ops_forbidden","code":"fleet_ops_forbidden"}`, ErrRejected},
+		{"429", http.StatusTooManyRequests, `{"error":"rate_limited","code":"rate_limited"}`, ErrRateLimited},
 		{"500", http.StatusInternalServerError, `{}`, ErrUnavailable},
 		{"unexpected 418", http.StatusTeapot, `{}`, ErrUnavailable},
 	}
@@ -158,7 +157,7 @@ func TestFleetStatusesMapToTypedOutcomes(t *testing.T) {
 				w.WriteHeader(c.status)
 				_, _ = io.WriteString(w, c.body)
 			})
-			_, err := fleetClient(t, srv.URL, 0).GetRig(context.Background(), "rig-1")
+			_, err := fleetClient(t, srv.URL, 0).ListRigs(context.Background())
 			if !errors.Is(err, c.want) {
 				t.Fatalf("got %v, want %v", err, c.want)
 			}
@@ -166,52 +165,61 @@ func TestFleetStatusesMapToTypedOutcomes(t *testing.T) {
 	}
 }
 
-func TestFleetRigDetailCarriesServerTime(t *testing.T) {
-	srv, _ := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, `{"id":"rig-1","version":"1.4.0","liveness":"alive",
-			"resources":{"housing_crawl":{"state":"running","portals":[{"source":"rea","state":"open","open_until":"2026-10-31T10:00:00Z"}]}},
-			"server_time":"2026-10-31T09:00:00Z"}`)
-	})
-	d, err := fleetClient(t, srv.URL, 0).GetRig(context.Background(), "rig-1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if d.ID != "rig-1" || d.ServerTime == nil || !d.ServerTime.Equal(time.Date(2026, 10, 31, 9, 0, 0, 0, time.UTC)) {
-		t.Fatalf("detail = %+v", d)
-	}
-	if len(d.Resources.HousingCrawl.Portals) != 1 || d.Resources.HousingCrawl.Portals[0].OpenUntil == nil {
-		t.Fatalf("portal not decoded: %+v", d.Resources.HousingCrawl)
-	}
-}
-
-func TestFleetCrawlJobsQueryIsEncodedAndBounded(t *testing.T) {
-	srv, st := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, `{"jobs":[],"summary":{"by_status_source":[{"status":"failed","source":"rea","count":3}]}}`)
-	})
-	page, err := fleetClient(t, srv.URL, 0).ListCrawlJobs(context.Background(), CrawlJobQuery{
-		Status: "failed", Kind: "housing", Source: "rea", UpdatedSince: "2026-10-30T00:00:00Z", Limit: 1,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if page.Summary.ByStatusSource[0].Count != 3 {
-		t.Fatalf("summary = %+v", page.Summary)
-	}
-	q := st.requests()[0].Query
-	for _, want := range []string{"status=failed", "kind=housing", "source=rea", "limit=1", "updated_since=2026-10-30T00%3A00%3A00Z"} {
-		if !strings.Contains(q, want) {
-			t.Errorf("query %q lacks %s", q, want)
+// A 409 is a typed conflict carrying BrandBrain's closed code. Nothing was created.
+func TestFleetConflictCarriesTheClosedCode(t *testing.T) {
+	for _, code := range []string{"rig_busy", "rig_not_active", "agent_update_required", "management_action_unsupported", "idempotency_conflict", "housing_crawl_grant_required"} {
+		srv, _ := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusConflict)
+			_, _ = io.WriteString(w, `{"error":"`+code+`","code":"`+code+`"}`)
+		})
+		_, err := fleetClient(t, srv.URL, 0).RunDrain(context.Background(), "rig-1", "k")
+		var ce *ConflictError
+		if !errors.Is(err, ErrConflict) || !errors.As(err, &ce) || ce.Code != code {
+			t.Fatalf("409 %s: %v", code, err)
+		}
+		if errors.Is(err, ErrUnavailable) {
+			t.Fatalf("409 %s reads as unknown; nothing was created, so it is a refusal", code)
 		}
 	}
-	if strings.Contains(q, "assigned_agent") || strings.Contains(q, "id=") {
-		t.Errorf("unset filters were sent: %q", q)
+}
+
+// A 409 whose code is not a plain word (free text, a path) is reported as unknown, never echoed.
+func TestFleetConflictNeverEchoesFreeText(t *testing.T) {
+	srv, _ := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = io.WriteString(w, `{"error":"see https://evil.example/x and secret=abc"}`)
+	})
+	_, err := fleetClient(t, srv.URL, 0).RunDrain(context.Background(), "rig-1", "k")
+	var ce *ConflictError
+	if !errors.As(err, &ce) || ce.Code != "unknown" || strings.Contains(err.Error(), "evil") {
+		t.Fatalf("free-text code echoed: %v", err)
 	}
 }
 
-func TestFleetRunDrainSendsOnlyTheClosedCommand(t *testing.T) {
+func TestFleetCrawlJobsRestrictsKindToHousing(t *testing.T) {
+	srv, st := newFleetStandIn(t, nil)
+	f := fleetClient(t, srv.URL, 0)
+	if _, err := f.ListCrawlJobs(context.Background(), CrawlJobQuery{Source: "both"}); err != nil {
+		t.Fatalf("source=both: %v", err)
+	}
+	if q := st.requests()[0].Query; !strings.Contains(q, "kind=housing") || !strings.Contains(q, "source=both") {
+		t.Fatalf("query = %q", q)
+	}
+	if _, err := f.ListCrawlJobs(context.Background(), CrawlJobQuery{Kind: "other"}); !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("kind=other: %v, want refused", err)
+	}
+	if _, err := f.ListCrawlJobs(context.Background(), CrawlJobQuery{Source: "all"}); !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("source=all: %v, want refused", err)
+	}
+	if n := len(st.requests()); n != 1 {
+		t.Fatalf("%d requests sent; refused queries must send none", n)
+	}
+}
+
+func TestFleetRunDrainSendsOnlyTheLiveDrain(t *testing.T) {
 	srv, st := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusAccepted)
-		_, _ = io.WriteString(w, `{"id":"cmd-9","kind":"housing_crawl_run","status":"queued"}`)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = io.WriteString(w, `{"command":{"id":"cmd-9","kind":"housing_crawl_run","status":"pending"}}`)
 	})
 	cmd, err := fleetClient(t, srv.URL, 0).RunDrain(context.Background(), "rig-1", "smoke-x:drain")
 	if err != nil {
@@ -240,23 +248,19 @@ func TestFleetLogRequestRefusesAnyOtherSourceWithoutSending(t *testing.T) {
 	srv, st := newFleetStandIn(t, nil)
 	f := fleetClient(t, srv.URL, 0)
 	for _, src := range []string{"", "all", "Housing", "../runtime", "housing;x"} {
-		if _, err := f.RequestRuntimeLogs(context.Background(), "rig-1", src, "k"); !errors.Is(err, ErrCommandRefused) {
+		if _, err := f.RequestRuntimeLogs(context.Background(), "rig-1", src, "logs-k"); !errors.Is(err, ErrCommandRefused) {
 			t.Errorf("source %q: %v, want refused", src, err)
 		}
 	}
 	if n := len(st.requests()); n != 0 {
 		t.Fatalf("%d requests were sent for refused sources", n)
 	}
-	cmd, err := f.RequestRuntimeLogs(context.Background(), "rig-1", LogSourceHousing, "k")
-	if err == nil {
-		t.Fatalf("a 200 with no command id must be unknown, got %+v", cmd)
-	}
 }
 
 func TestFleetCommandWithoutAnIDIsUnknown(t *testing.T) {
 	srv, _ := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
-		_, _ = io.WriteString(w, `{"status":"queued"}`)
+		_, _ = io.WriteString(w, `{"command":{"status":"pending"}}`)
 	})
 	if _, err := fleetClient(t, srv.URL, 0).RunDrain(context.Background(), "rig-1", "k"); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("no id: %v, want unavailable", err)
@@ -276,13 +280,37 @@ func TestFleetCommandFiveHundredIsNotRetried(t *testing.T) {
 	}
 }
 
-// A rig id can never add a path segment, a query or a traversal: it is refused before any
-// request is built, so nothing reaches the wire.
+// A 429 on a drain is the per-rig live limit: nothing was sent, and the caller must say so.
+func TestFleetDrainOver429IsRateLimitedNotFailed(t *testing.T) {
+	srv, _ := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = io.WriteString(w, `{"error":"rate_limited","code":"rate_limited"}`)
+	})
+	_, err := fleetClient(t, srv.URL, 0).RunDrain(context.Background(), "rig-1", "k")
+	if !errors.Is(err, ErrRateLimited) || errors.Is(err, ErrUnavailable) {
+		t.Fatalf("429: %v, want rate limited (and not an unknown outcome)", err)
+	}
+}
+
+// A drain never carries dry_run true, whatever the caller asks.
+func TestFleetDrainNeverSendsADryRun(t *testing.T) {
+	srv, st := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"command":{"id":"cmd-1"}}`)
+	})
+	if _, err := fleetClient(t, srv.URL, 0).RunDrain(context.Background(), "rig-1", "k"); err != nil {
+		t.Fatal(err)
+	}
+	if body := st.requests()[0].Body; strings.Contains(body, `"dry_run":true`) || !strings.Contains(body, `"dry_run":false`) {
+		t.Fatalf("drain body = %s", body)
+	}
+}
+
+// A rig id that would change the route is refused before any request is built.
 func TestFleetRefusesARigIDThatWouldChangeTheRoute(t *testing.T) {
 	srv, st := newFleetStandIn(t, nil)
 	f := fleetClient(t, srv.URL, 0)
 	for _, id := range []string{"", "..", "a/../b", "rig-1/commands", "rig-1?x=1", "rig 1", "-rig"} {
-		if _, err := f.GetRig(context.Background(), id); !errors.Is(err, ErrInvalidRequest) {
+		if _, err := f.CommandByRequestKey(context.Background(), id, "k"); !errors.Is(err, ErrInvalidRequest) {
 			t.Errorf("rig id %q: %v, want invalid", id, err)
 		}
 		if _, err := f.RunDrain(context.Background(), id, "k"); !errors.Is(err, ErrInvalidRequest) {
@@ -294,49 +322,24 @@ func TestFleetRefusesARigIDThatWouldChangeTheRoute(t *testing.T) {
 	}
 }
 
-// A 429 on a drain is the per-rig live limit: nothing was sent, and the caller must say so.
-func TestFleetDrainOver429IsRateLimitedNotFailed(t *testing.T) {
-	srv, _ := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusTooManyRequests)
-		_, _ = io.WriteString(w, `{"code":"rate_limited"}`)
+// The request-key lookup is the only command read: it sends request_key and nothing else, and a
+// key outside BrandBrain's pattern is refused before a request is built.
+func TestFleetCommandByRequestKeySendsOnlyTheKey(t *testing.T) {
+	srv, st := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"command":{"id":"cmd-7","kind":"collect_runtime_logs","status":"succeeded"}}`)
 	})
-	_, err := fleetClient(t, srv.URL, 0).RunDrain(context.Background(), "rig-1", "k")
-	if !errors.Is(err, ErrRateLimited) || errors.Is(err, ErrUnavailable) {
-		t.Fatalf("429: %v, want rate limited (and not an unknown outcome)", err)
-	}
-}
-
-// The ops token reads the housing queue only: kind is always housing, a foreign kind is
-// refused before a request is built, and source may be rea, domain or both.
-func TestFleetCrawlJobsRestrictsKindToHousing(t *testing.T) {
-	srv, st := newFleetStandIn(t, nil)
 	f := fleetClient(t, srv.URL, 0)
-	if _, err := f.ListCrawlJobs(context.Background(), CrawlJobQuery{Source: "both"}); err != nil {
-		t.Fatalf("source=both: %v", err)
+	cmd, err := f.CommandByRequestKey(context.Background(), "rig-1", "logs-abc")
+	if err != nil || cmd.ID != "cmd-7" {
+		t.Fatalf("lookup: %+v %v", cmd, err)
 	}
-	if q := st.requests()[0].Query; !strings.Contains(q, "kind=housing") || !strings.Contains(q, "source=both") {
-		t.Fatalf("query = %q", q)
+	if q := st.requests()[0].Query; q != "request_key=logs-abc" {
+		t.Fatalf("query = %q, want only request_key", q)
 	}
-	if _, err := f.ListCrawlJobs(context.Background(), CrawlJobQuery{Kind: "other"}); !errors.Is(err, ErrInvalidRequest) {
-		t.Fatalf("kind=other: %v, want refused", err)
-	}
-	if _, err := f.ListCrawlJobs(context.Background(), CrawlJobQuery{Source: "all"}); !errors.Is(err, ErrInvalidRequest) {
-		t.Fatalf("source=all: %v, want refused", err)
+	if _, err := f.CommandByRequestKey(context.Background(), "rig-1", "bad key with spaces"); !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("bad key: %v", err)
 	}
 	if n := len(st.requests()); n != 1 {
-		t.Fatalf("%d requests sent; refused queries must send none", n)
-	}
-}
-
-// Every drain the client can build is a live drain: dry_run is never true.
-func TestFleetDrainNeverSendsADryRun(t *testing.T) {
-	srv, st := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, `{"id":"cmd-1"}`)
-	})
-	if _, err := fleetClient(t, srv.URL, 0).RunDrain(context.Background(), "rig-1", "k"); err != nil {
-		t.Fatal(err)
-	}
-	if body := st.requests()[0].Body; strings.Contains(body, `"dry_run":true`) || !strings.Contains(body, `"dry_run":false`) {
-		t.Fatalf("drain body = %s", body)
+		t.Fatalf("a bad key reached the wire (%d requests)", n)
 	}
 }

@@ -174,7 +174,7 @@ func (c crawlOpsAdapter) ReceiptsForJob(ctx context.Context, jobID string) ([]mc
 	}
 	out := make([]mcp.CrawlReceipt, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, mcp.CrawlReceipt{Key: r.Key, AppliedStatus: r.AppliedStatus, ListingsUpserted: r.ListingsUpserted,
+		out = append(out, mcp.CrawlReceipt{Key: r.Key, RigSubject: r.RigSubject, AppliedStatus: r.AppliedStatus, ListingsUpserted: r.ListingsUpserted,
 			Events: r.Events, Delisted: r.Delisted, Quarantined: r.Quarantined, Poisoned: r.Poisoned, Replayed: r.Replayed,
 			CreatedAt: r.CreatedAt})
 	}

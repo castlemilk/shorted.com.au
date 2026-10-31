@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // The failure classes a BrandBrain failed or deferred job is grouped into. The set is
@@ -41,38 +42,73 @@ var FailureClasses = []string{FailureNotDispatched, FailureDispatchExpired, Fail
 	FailureBlocked, FailureCircuitOpen, FailureChrome, FailureTimeout, FailureIngestUnavailable, FailureOther}
 
 var (
-	redactURL     = regexp.MustCompile(`(?i)\b(?:https?|ftp)://\S+`)
-	redactEmail   = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
-	redactPrice   = regexp.MustCompile(`\$\s?[0-9][0-9,]*(?:\.[0-9]+)?\s?[kKmMbB]?`)
-	redactPhone   = regexp.MustCompile(`(?:\+?61|\b0)[2-9](?:[ -]?[0-9]){7,9}\b`)
-	redactAddress = regexp.MustCompile(`(?i)\b[0-9]+[a-z]?(?:/[0-9]+[a-z]?)?\s+(?:[A-Za-z'-]+\s+){1,3}(?:street|st|road|rd|avenue|ave|drive|dr|place|pl|court|ct|crescent|cres|lane|ln|way|terrace|tce|boulevard|blvd|parade|pde|close|cl|highway|hwy)\b\.?`)
+	redactURL   = regexp.MustCompile(`(?i)\b(?:https?|ftp)://\S+`)
+	redactEmail = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
+	redactPrice = regexp.MustCompile(`\$\s?[0-9][0-9,]*(?:\.[0-9]+)?\s?[kKmMbB]?`)
+	redactPhone = regexp.MustCompile(`(?:\+?61|\b0)[2-9](?:[ -]?[0-9]){7,9}\b`)
+	// redactAddress is a street address: a number, up to three words, then a street type.
+	redactAddress = regexp.MustCompile(`(?i)\b[0-9]+[a-z]?(?:/[0-9]+[a-z]?)?\s+(?:[A-Za-z'-]+\s+){1,3}(?:` + streetTypes + `)\b\.?`)
+	// redactSlugAddress is a catalog-style address key: street words, the state and a postcode,
+	// as the collector writes them in its log keys (12-smith-street-bondi-nsw-2026).
+	redactSlugAddress = regexp.MustCompile(`(?i)\b[a-z0-9]+(?:-[a-z0-9]+){2,}-(?:nsw|vic|qld|sa|wa|tas|nt|act)-[0-9]{4}\b`)
 	// closedName is a lower-case enum-shaped word: what the fleet and the ledger use for
 	// states, phases, reasons and statuses.
 	closedName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,39}$`)
+	// closedVersion is a release version as the agent reports it: 1.21.0, 1.40.0-rc1.
+	versionPattern = regexp.MustCompile(`^[0-9]{1,4}(?:\.[0-9]{1,4}){1,3}(?:-[A-Za-z0-9.]{1,24})?$`)
 )
+
+// streetTypes are the street words an address line can end in. Redaction is conservative, so a
+// longer list only over-redacts.
+const streetTypes = `street|st|road|rd|avenue|ave|av|drive|dr|place|pl|court|ct|crescent|cres|lane|ln|way|terrace|tce|boulevard|blvd|parade|pde|close|cl|highway|hwy|grove|gr|circuit|cct|esplanade|esp|rise|square|sq|loop|mews|walk|trail|track|quay|promenade|ridge|vista|crest|gardens|gdns|parkway|pwy|row|mall`
 
 // maxErrorText is the longest error or log text a tool returns for one item.
 const maxErrorText = 300
 
-// redactText removes URLs, e-mail addresses, prices, phone numbers and street addresses,
-// in that order, and trims the result. Each removal leaves a marker so a reader can see
-// that something was there.
+// redactText removes URLs, e-mail addresses, prices, phone numbers and street addresses, in that
+// order, and trims the result. Each removal leaves a marker so a reader can see that something was
+// there. It is applied to text that is kept; a line that carries listing data is dropped whole by
+// keepLogLine before it reaches here.
 func redactText(s string) string {
 	s = redactURL.ReplaceAllString(s, "[url]")
 	s = redactEmail.ReplaceAllString(s, "[email]")
 	s = redactPrice.ReplaceAllString(s, "[price]")
+	s = redactSlugAddress.ReplaceAllString(s, "[address]")
 	s = redactAddress.ReplaceAllString(s, "[address]")
 	s = redactPhone.ReplaceAllString(s, "[phone]")
 	return strings.TrimSpace(s)
 }
 
+// keepLogLine reports whether a rig log line may leave at all. Two collector prefixes carry listing
+// data by design, so the whole line is dropped rather than redacted: the per-suburb DRY listing
+// rows ("[listings] DRY ..." carries a price, an address and a listing URL) and the property
+// per-address keys ("[property] <slug-address>: ..."). Redaction is best effort; dropping is exact.
+func keepLogLine(line string) bool {
+	l := strings.TrimSpace(line)
+	if strings.HasPrefix(l, "[listings] DRY") {
+		return false
+	}
+	if rest, ok := strings.CutPrefix(l, "[property] "); ok && redactSlugAddress.MatchString(rest) {
+		return false
+	}
+	return true
+}
+
 // boundedText redacts and caps one error or log text.
 func boundedText(s string) string {
-	s = redactText(s)
-	if len(s) > maxErrorText {
-		s = s[:maxErrorText] + "…"
+	return truncateRunes(redactText(s), maxErrorText)
+}
+
+// truncateRunes caps s at n bytes, never splitting a UTF-8 sequence, and marks the cut.
+func truncateRunes(s string, n int) string {
+	if len(s) <= n {
+		return s
 	}
-	return s
+	cut := n
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + "…"
 }
 
 // stringLeaves returns every string VALUE in a JSON document, joined by spaces. Keys and
@@ -240,4 +276,13 @@ func randomHex(n int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+// closedVersion passes a release version through (1.21.0, 128.0.6613.120) and returns "" for
+// anything else. A version is not an enum, so closedValue would blank it.
+func closedVersion(s string) string {
+	if versionPattern.MatchString(s) {
+		return s
+	}
+	return ""
 }

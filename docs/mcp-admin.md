@@ -59,7 +59,7 @@ Code on the web) with thirty-one tools:
 | `housing_crawl_failures` `{since?, rig_id?, source?}` | `crawl:read` | BrandBrain failed crawl jobs grouped by failure class (`not_dispatched`, `dispatch_expired`, `target_mismatch`, `blocked`, `circuit_open`, `chrome`, `timeout`, `ingest_unavailable`, `other`), with counts, the top five suburbs and up to five sample job ids per class; BLOCKED and PARTIAL ingest receipts; and quarantine reasons. `since` is `24h` (the default) or `7d` at most. `source` is `rea`, `domain` or `both`. |
 | `housing_crawl_job` `{job_id, with_logs?}` | `crawl:read` | One job's whole trail: its BrandBrain record (the error text redacted, the result summary reduced to its counts), its ledger row, every ingest receipt for it, its quarantine rows and, with `with_logs: true`, the assigned rig's housing log lines around the job id (requested now, waits up to 60 seconds). |
 | `housing_crawl_logs` `{rig_id, source, grep?, max_lines?}` | `crawl:read` | Asks one rig for its `housing` or `runtime` log, waits up to 60 seconds, and returns the lines that match `grep` (case-insensitive), the last `max_lines` of them (default 200, at most 1000). URLs, prices, e-mail addresses, phone numbers and street addresses are redacted. A log request is a command to the rig, sent once per call. |
-| `housing_crawl_smoke` `{rig_id, confirm: true, suburb?, smoke_id?}` | `crawl:operate` | **LIVE CRAWL.** Starts a live drain on the rig (dry runs are refused for this token). Enqueues ONE catalog suburb on both portals at queue priority 100, waits up to two minutes for the enqueue, then sends the rig one live `housing_crawl_run {job: drain, dry_run: false}`. A suburb that already has open crawl jobs is reported as `already_queued` with its queue position, and nothing is sent: a new enqueue would dedupe onto the existing job and keep its priority. A 429 from BrandBrain is reported as `rate_limited` ("rig drain rate limit reached; retry later"), not as a failure. Returns a `smoke_id`. Call it again with `smoke_id` to continue a run that stopped before its drain: the drain is keyed by the run, so it is never sent twice. |
+| `housing_crawl_smoke` `{rig_id, confirm: true, suburb?, smoke_id?}` | `crawl:operate` | **LIVE CRAWL: this starts a live drain on the rig.** Enqueues ONE catalog suburb on both portals at queue priority 100, waits up to 50 seconds for the enqueue, then sends the rig one live `housing_crawl_run {job: drain, dry_run: false}`. That drain is a FULL drain: it works through the whole backlog, not only the smoke job, and it uses one of the rig's live runs (four per six hours). If the rig is already draining, no second drain is sent. A suburb with open jobs is `already_queued` and nothing is sent. A collector dedupe is `deduplicated`, not a failure. A 429 is `rate_limited`. Returns a `smoke_id`. Call it again with `smoke_id` to continue a run that stopped before its drain: the drain is keyed by the run, so it is sent at most once. |
 | `housing_crawl_smoke_status` `{smoke_id}` | `crawl:operate` | The verdict for one smoke run, derived from its state alone: `passed` (every job has an applied COMPLETE or PARTIAL receipt with listings), `failed` (with the failure classes), or `waiting` (with what it waits on). Read-only. |
 | `housing_crawl_authorize` `{rig_id \| subject, enabled, note?, confirm?}` | `crawl:authorize` | Turns a BrandBrain rig's housing crawl on or off. Give **exactly one** of `rig_id` or `subject`. Enabling needs `rig_id`, `confirm: true`, and runs GET, then PUT of the grant, then the shorted allowlist write for the `workload_subject` BrandBrain returns. Disabling by `rig_id` writes shorted first, then revokes the grant, and still revokes when shorted fails. Disabling by `subject` (`rig:<id>`, from `housing_crawl_rigs`) changes only shorted's row and never calls BrandBrain (`brandbrain: not_attempted`), so it works while BrandBrain is down. Reports each side (`shorted`, `brandbrain`) separately. A PUT with an unknown outcome is reported as `unknown` and never retried. Idempotent. Reports `ingest_admits` (whether the deployed housing-ingest admits the subject); it never refuses a change. |
 
@@ -448,7 +448,8 @@ then retire the old token on BrandBrain.
 
 The token is delivered from the Secret Manager secret
 `brandbrain-fleet-ops-token` by the `shorts-api` module (`brandbrain_fleet_ops_secret_exists`,
-off until the secret has an enabled version; the prod environment sets it). A separate
+off until the secret has an enabled version; prod sets it to false in the PR that adds it, so the
+tools answer "not configured" until the secret is provisioned). A separate
 token from the grant token, so either can be rotated alone. Without it, the four read tools
 and the two smoke tools answer that the fleet is not configured, and send nothing.
 
@@ -475,29 +476,76 @@ is never used.
 
 ### Smoke runbook
 
-1. Read `housing_crawl_status`. Start only when the rigs you care about are alive and no
-   portal is blocked. A smoke run into an open breaker only waits.
-2. Run `housing_crawl_smoke` with `rig_id`, `confirm: true` and, optionally, `suburb` (a
-   catalog slug). It returns a `smoke_id`. `enqueue: succeeded` means the job wrote its
-   ledger rows, and then `drain: sent` means the rig was told to collect. `enqueue:
-   already_queued` means the suburb had open jobs: nothing was enqueued or drained, and
-   `queue` lists each job with its priority and how many PENDING jobs are claimed before it:
-   pending jobs with a priority at least its own and created earlier. BrandBrain's crawl_jobs
-   statuses are exactly `pending`, `in_progress`, `succeeded` and `failed`; anything else reads as
-   `other`, never as pending.
-   `drain: rate_limited` means BrandBrain's per-rig live limit was reached: retry later.
-3. Run `housing_crawl_smoke_status` with the `smoke_id` until the verdict is not `waiting`. A
-   job whose priority is not 100 was deduplicated onto an existing job, and its detail says so.
-   `passed` means every job (one per portal) has an applied COMPLETE or PARTIAL receipt with
-   listings above zero. `failed` names the failure classes; read them with
-   `housing_crawl_failures`, and one job's trail with `housing_crawl_job` (`with_logs: true`).
-4. If the call returned `waiting` before its drain (`enqueue: running`, or `drain: unknown`),
-   call `housing_crawl_smoke` again with the `smoke_id`. It sends no second enqueue, and the
-   drain is keyed by the run, so the rig is told once.
+Run it only when a live drain is wanted: the smoke sends the rig a FULL drain of the whole backlog,
+live, and it uses one of the rig's four live runs per six hours.
+
+1. Read `housing_crawl_status`. Start only when the rig you target is alive and its portals are not
+   blocked. A smoke into an open breaker only waits. A rig whose `portals_state` is `unknown` has
+   reported no breakers: that is unknown, not clear.
+2. Run `housing_crawl_smoke` with `rig_id`, `confirm: true` and, optionally, `suburb` (a catalog
+   slug). It returns a `smoke_id` within about 50 seconds, with a normal answer even when the
+   enqueue is still running.
+   - `enqueue: succeeded` and `drain: sent`: the rig was told to drain.
+   - `drain: skipped_drain_running`: the rig is already draining. That drain claims the priority-100
+     job next, so no second drain was sent.
+   - `enqueue: already_queued`: the suburb has open jobs. Nothing was enqueued or drained, and `queue`
+     lists each job with its priority and the count of pending jobs claimed before it.
+   - `enqueue: deduplicated`: the collector found a job already pending for the suburb and enqueued
+     nothing. This is a refusal of a duplicate, not a failure, and the verdict is `deduplicated`.
+   - `drain: rig_busy`, `refused`, `rate_limited`, `not_sent` or `unknown`: see "Refusals and outcome
+     codes" below.
+3. Run `housing_crawl_smoke_status` with the `smoke_id` (and the `rig_id`) until the verdict is not
+   `waiting`. `passed` needs a passing job for EACH portal, rea and domain. A job landed by one rig
+   and passed is flagged `rig_mismatch` when it was crawled by another rig than the target.
+4. If the call returned `waiting` before its drain (`enqueue: running`, or `drain: unknown`), call
+   `housing_crawl_smoke` again with the `smoke_id`. It sends no second enqueue, and the drain is keyed
+   by the run, so the rig is told at most once.
 
 A smoke run never reports `passed` on a suburb with zero listings: an applied sweep with no
 listings is a failure, because an empty sweep of a live suburb is what this loop exists to
-catch. A job whose BrandBrain state cannot be read is `waiting`, never `passed`.
+catch. A job whose BrandBrain state cannot be read is `waiting` unless a landed receipt proves it,
+and never `passed` on the state alone. A BLOCKED sweep fails the job once BrandBrain has finished
+it (`succeeded` or `failed`), and waits while BrandBrain may still retry.
+
+### Refusals and outcome codes
+
+BrandBrain's answers are reported with their closed codes. A refusal (409) created nothing, and is
+never reported as an unknown outcome. A lost answer is settled by reading the command under its
+request key: found means it was created; `command_not_found` means it was not.
+
+| Code | Meaning | What the tool reports |
+|---|---|---|
+| `rig_busy` | the rig is busy with another action | `drain: rig_busy`: a drain is already running |
+| `rig_not_active` | the rig is not active in BrandBrain | `drain: refused` |
+| `rig_offline` | the rig is offline | `drain: refused` |
+| `housing_crawl_grant_required` | the rig has no housing crawl grant | `drain: refused` |
+| `agent_update_required` | the rig's agent is too old | `drain: refused` (logs too) |
+| `management_unsupported` | the rig does not advertise remote management | `drain: refused` |
+| `idempotency_conflict` | the key was used for a different command | `drain: refused` |
+| `rate_limited` (429) | BrandBrain's per-rig live limit | `drain: rate_limited`: "rig drain rate limit reached; retry later" |
+| `fleet_ops_forbidden` (403) | the ops token refused the request, for example a dry run | an error |
+
+Only `rig_busy` appears on a drain's refusal path when a drain is running. The drain path itself
+returns `rig_busy` only for a repair command in BrandBrain today, so a live drain sent while another
+is running is accepted and queued. The smoke avoids that by reading the rig's `in_flight` first.
+
+### Waits and the connection lifetime
+
+The admin connection is cut at 90 seconds (`StreamLifetime`), and Cloudflare at 120. Every tool
+answers inside an 80-second budget (`toolBudget`). The enqueue wait and the log wait are each 50
+seconds at most. A wait that runs out is a normal answer: `running` with the `smoke_id`, or
+`pending` for a log, never a tool error. A test pins these bounds to `StreamLifetime`.
+
+### Reading job and log text
+
+BrandBrain's job errors and result summaries, and a rig's log lines, are untrusted data. They are
+returned as data in marked fields and never interpolated into a summary, a verdict or an
+instruction. BrandBrain redacts job text (URLs, e-mail addresses and paths) and caps it at about
+512 bytes. A rig's log is redacted here as well: URLs, prices, e-mail addresses, phone numbers and
+street addresses (including the catalog's slug form, such as `12-smith-street-bondi-nsw-2026`) are
+replaced with a marker. Whole lines that carry listing data are dropped rather than redacted: the
+collector's `[listings] DRY` rows and its `[property] <address-key>` lines. Caps fall on a UTF-8
+boundary. Redaction is best effort, which is why the log tools are for administrators only.
 
 ### Failure classes
 
@@ -513,6 +561,16 @@ is `other`.
 
 ### Scheduling and the enqueue
 
+**Dedupe.** BrandBrain's queue dedupes an enqueue onto an existing pending job for the same
+(kind, suburb, state, postcode, source, tier), and returns that job with its ORIGINAL priority and
+run id. So a smoke never writes a ledger row for a job it did not create. When any target is
+deduplicated, the collector writes nothing and exits 11 (`smokeExitDeduplicated`), which the tool
+reads as `deduplicated`. A smoke that picked a suburb already queued is refused the same way. Cloud
+Run retries a non-zero exit (the job's `max_retries` is 2); each retry is the same no-op, so the
+refused run writes nothing twice. A race between two smokes can leave one unledgered pending job
+on the other portal (a Cloud Run execution cannot retry a single batch item); the rig fails it as
+`not_dispatched`, and it shows in `housing_crawl_failures`.
+
 The smoke job is the collector's `server-enqueue` with `-selection smoke`, `-suburb <slug>`
 and `-run-id smoke-<UTC>-<8 hex>` (`services/house-price-collector/crawl_server.go`). The run
 id is generated by the admin tool, so it can report it before the job starts. The job writes
@@ -524,7 +582,19 @@ that job's priority, which is why a suburb with open jobs is never smoked (see `
 `housing_crawl_smoke_status` reads each job's priority back and says when it was not 100.
 
 The shorts API runs the job under `roles/run.developer` on the single `house-price-collector`
-job (`terraform/environments/prod`, `shorts_api_crawl_smoke`), with an argv the service builds.
+job (`terraform/environments/prod`, `shorts_api_crawl_smoke`), with an argv the service builds. That
+grant is job-scoped, as the picks and alerts grants are. A custom role carrying only the
+`runWithOverrides` permission is the narrower follow-up; it is not in this change.
+
+### Migration 000153
+
+`services/migrations/000153_add_crawl_ops_indexes.up.sql` adds three indexes: receipts by job id
+(`split_part(key, ':', 1)`), the ledger by run id, and the ledger's open rows by suburb slug. It
+runs in the deploy allowlist before the image swap (`terraform-deploy.yml`), so it needs no prod
+hand-apply: the deploy applies it. Plain builds in one transaction under `lock_timeout 15s`, not
+`CONCURRENTLY`, because the repo does not use `CONCURRENTLY` in migrations (see 000022). The tables
+are small and pruned. A failed build leaves an INVALID index that `IF NOT EXISTS` would skip; check
+`pg_index.indisvalid` and drop it before re-running.
 
 ## Who can use it
 

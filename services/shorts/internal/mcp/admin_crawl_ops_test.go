@@ -28,65 +28,70 @@ const fleetFixtureToken = "fleet-ops-SECRET-4b1d"
 
 var fixedNow = time.Date(2026, 10, 31, 10, 0, 0, 0, time.UTC)
 
-// fakeFleet is the BrandBrain fleet surface. It records every write, and a log request's
+// fakeFleet is the BrandBrain fleet surface. Commands are stored under their request key, the way
+// BrandBrain stores them, so a poll by key and a settle by key read what the create wrote. A log
 // command reads as pending for pendingReads polls before it answers.
 type fakeFleet struct {
-	mu        sync.Mutex
-	rigs      []brandbrain.Rig
-	details   map[string]brandbrain.RigDetail
-	detailErr error
-	jobs      []brandbrain.CrawlJob
-	summary   []brandbrain.StatusSourceCount
-	listErr   error
-	// Log requests.
+	mu         sync.Mutex
+	rigs       []brandbrain.Rig
+	serverTime *time.Time
+	listErr    error
+	jobs       []brandbrain.CrawlJob
+	summary    []brandbrain.StatusSourceCount
+	// Log requests: the command the next RequestRuntimeLogs creates, and its answer.
 	logErr       error
 	logText      string
 	logStatus    string
 	pendingReads int
+	logKey       string
 	logCmdID     string
 	logRequests  []string
 	reads        int
+	// lostPost makes the next create answer unknown (a 5xx or a timeout), without creating it when
+	// notCreated is set, or after creating it when not.
+	lostPost   bool
+	notCreated bool
 	// Drains.
 	drainErr  error
 	drainKeys []string
+	drainRigs []string
 	nextCmd   int
+	// commands holds every created command by request key (drains and logs alike).
+	commands map[string]brandbrain.Command
 }
 
-func (f *fakeFleet) ListRigs(context.Context) ([]brandbrain.Rig, error) {
+func (f *fakeFleet) ListRigs(context.Context) (*brandbrain.RigList, error) {
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
-	return f.rigs, nil
+	return &brandbrain.RigList{Rigs: f.rigs, ServerTime: f.serverTime}, nil
 }
 
-func (f *fakeFleet) GetRig(_ context.Context, id string) (*brandbrain.RigDetail, error) {
-	if f.detailErr != nil {
-		return nil, f.detailErr
-	}
-	d, ok := f.details[id]
-	if !ok {
-		return nil, brandbrain.ErrRigNotFound
-	}
-	return &d, nil
-}
-
-func (f *fakeFleet) ListRigCommands(_ context.Context, _ string) ([]brandbrain.Command, error) {
+// CommandByRequestKey answers like BrandBrain's request-key route: the command under the key, or
+// command_not_found. A log command's status moves to succeeded after pendingReads polls.
+func (f *fakeFleet) CommandByRequestKey(_ context.Context, _ string, key string) (*brandbrain.Command, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.reads++
-	if f.logCmdID == "" {
-		return nil, nil
+	if key == f.logKey && f.logCmdID != "" {
+		if f.pendingReads > 0 {
+			f.pendingReads--
+			return &brandbrain.Command{ID: f.logCmdID, Kind: brandbrain.CommandCollectRuntimeLogs, RequestKey: key, Status: brandbrain.CommandRunning}, nil
+		}
+		status := f.logStatus
+		if status == "" {
+			status = brandbrain.CommandSucceeded
+		}
+		cmd := &brandbrain.Command{ID: f.logCmdID, Kind: brandbrain.CommandCollectRuntimeLogs, RequestKey: key, Status: status}
+		if status == brandbrain.CommandSucceeded {
+			cmd.ResultData = &brandbrain.ResultData{RuntimeLogs: &brandbrain.RuntimeLogs{Text: f.logText}}
+		}
+		return cmd, nil
 	}
-	if f.pendingReads > 0 {
-		f.pendingReads--
-		return []brandbrain.Command{{ID: f.logCmdID, Kind: brandbrain.CommandCollectRuntimeLogs, Status: "running"}}, nil
+	if cmd, ok := f.commands[key]; ok {
+		return &cmd, nil
 	}
-	status := f.logStatus
-	if status == "" {
-		status = "succeeded"
-	}
-	return []brandbrain.Command{{ID: f.logCmdID, Kind: brandbrain.CommandCollectRuntimeLogs, Status: status,
-		ResultData: &brandbrain.ResultData{RuntimeLogs: &brandbrain.RuntimeLogs{Text: f.logText}}}}, nil
+	return nil, brandbrain.ErrCommandNotFound
 }
 
 func (f *fakeFleet) ListCrawlJobs(_ context.Context, q brandbrain.CrawlJobQuery) (*brandbrain.CrawlJobsPage, error) {
@@ -115,8 +120,14 @@ func (f *fakeFleet) RequestRuntimeLogs(_ context.Context, rigID, source, key str
 	}
 	f.logRequests = append(f.logRequests, rigID+"/"+source+"/"+key)
 	f.nextCmd++
-	f.logCmdID = fmt.Sprintf("cmd-%d", f.nextCmd)
-	return &brandbrain.Command{ID: f.logCmdID, Status: "queued"}, nil
+	f.logCmdID, f.logKey = fmt.Sprintf("cmd-%d", f.nextCmd), key
+	if f.lostPost {
+		if f.notCreated {
+			f.logCmdID = ""
+		}
+		return nil, brandbrain.ErrUnavailable
+	}
+	return &brandbrain.Command{ID: f.logCmdID, Status: brandbrain.CommandPending, RequestKey: key}, nil
 }
 
 func (f *fakeFleet) RunDrain(_ context.Context, rigID, key string) (*brandbrain.Command, error) {
@@ -126,8 +137,14 @@ func (f *fakeFleet) RunDrain(_ context.Context, rigID, key string) (*brandbrain.
 		return nil, f.drainErr
 	}
 	f.drainKeys = append(f.drainKeys, rigID+"|"+key)
+	f.drainRigs = append(f.drainRigs, rigID)
 	f.nextCmd++
-	return &brandbrain.Command{ID: fmt.Sprintf("drain-%d", f.nextCmd), Status: "queued"}, nil
+	cmd := brandbrain.Command{ID: fmt.Sprintf("drain-%d", f.nextCmd), Kind: brandbrain.CommandHousingCrawlRun, RequestKey: key, Status: brandbrain.CommandPending}
+	if f.commands == nil {
+		f.commands = map[string]brandbrain.Command{}
+	}
+	f.commands[key] = cmd
+	return &cmd, nil
 }
 
 // fakeLedger is the read-only ledger. Each map is a fixture; nothing is written.
@@ -388,12 +405,9 @@ func TestStatusJudgesBlockedByTheServersClock(t *testing.T) {
 	serverNow := fixedNow
 	openUntil := serverNow.Add(time.Minute)
 	fleet := &fakeFleet{
-		rigs: []brandbrain.Rig{{ID: "rig-1", Version: "1.4.0"}},
-		details: map[string]brandbrain.RigDetail{"rig-1": {
-			Rig: brandbrain.Rig{ID: "rig-1", Resources: brandbrain.RigResources{HousingCrawl: brandbrain.HousingCrawl{
-				State: "running", Portals: []brandbrain.Portal{{Source: "rea", State: "open", OpenUntil: &openUntil, ConsecutiveBlocked: 3}}}}},
-			ServerTime: &serverNow,
-		}},
+		serverTime: &serverNow,
+		rigs: []brandbrain.Rig{{ID: "rig-1", Version: "1.21.0", Resources: brandbrain.RigResources{HousingCrawl: &brandbrain.HousingCrawl{
+			State: "running", Portals: []brandbrain.Portal{{Source: "rea", State: "open", OpenUntil: &openUntil, ConsecutiveBlocked: 3}}}}}},
 	}
 	out := crawlStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet}, "uid", fixedNow.Add(time.Hour))
 	require.Len(t, out.Rigs, 1)
@@ -641,22 +655,18 @@ func TestStatusShowsLedgerCountsAndSchedulesWithoutRows(t *testing.T) {
 func TestStatusNamesABlockedPortalAndAnAlarmInItsNotes(t *testing.T) {
 	future := fixedNow.Add(time.Hour)
 	fleet := &fakeFleet{
-		rigs: []brandbrain.Rig{{ID: "rig-1"}},
-		details: map[string]brandbrain.RigDetail{"rig-1": {
-			Rig: brandbrain.Rig{ID: "rig-1", Resources: brandbrain.RigResources{HousingCrawl: brandbrain.HousingCrawl{
-				Portals: []brandbrain.Portal{{Source: "domain", State: "open", OpenUntil: &future}},
-				Alarm:   map[string]any{"active": true, "since": "not a timestamp in the enum", "kind": "stale_suburbs"},
-			}}},
-			ServerTime: &fixedNow,
-		}},
+		serverTime: &fixedNow,
+		rigs: []brandbrain.Rig{{ID: "rig-1", Resources: brandbrain.RigResources{HousingCrawl: &brandbrain.HousingCrawl{
+			Portals: []brandbrain.Portal{{Source: "domain", State: "open", OpenUntil: &future}},
+			Jobs: map[string]brandbrain.DrainSched{"drain": {Enabled: true, Last: &brandbrain.DrainRun{
+				Outcome: "blocked", Alarm: "stale_suburbs"}}},
+		}}}},
 	}
 	out := crawlStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet}, "uid", fixedNow)
 	require.Len(t, out.Rigs, 1)
-	alarm, _ := out.Rigs[0].Alarm.(map[string]any)
-	require.NotNil(t, alarm)
-	assert.Equal(t, true, alarm["active"])
-	assert.Equal(t, "stale_suburbs", alarm["kind"])
-	assert.NotContains(t, alarm, "since", "free text in an alarm must be dropped")
+	alarm, _ := out.Rigs[0].Alarm.(map[string]string)
+	require.NotNil(t, alarm, "the alarm is read from jobs.<job>.last")
+	assert.Equal(t, "stale_suburbs", alarm["drain"])
 	joined := strings.Join(out.Notes, " | ")
 	assert.Contains(t, joined, "domain portal blocked")
 	assert.Contains(t, joined, "rig reports an alarm")
@@ -729,8 +739,8 @@ func TestSmokeVerdictPassedWhenEveryJobLandedWithListings(t *testing.T) {
 	assert.Empty(t, class)
 	assert.Equal(t, "applied with listings", detail)
 
-	jobs := []CrawlSmokeJob{{Verdict: SmokePassed}, {Verdict: SmokePassed}}
-	v, classes, waiting := smokeVerdict(jobs)
+	jobs := []CrawlSmokeJob{{Source: "rea", Verdict: SmokePassed}, {Source: "domain", Verdict: SmokePassed}}
+	v, classes, waiting := smokeVerdict(jobs, smokeTargetSources)
 	assert.Equal(t, SmokePassed, v)
 	assert.Empty(t, classes)
 	assert.Empty(t, waiting)
@@ -750,8 +760,8 @@ func TestSmokeVerdictFailedWithTheFailureClass(t *testing.T) {
 	assert.Equal(t, SmokeFailed, verdict)
 	assert.Equal(t, FailureChrome, class)
 
-	jobs := []CrawlSmokeJob{{Verdict: SmokeFailed, FailureClass: class, JobID: "job-1"}, {Verdict: SmokeWaiting, Detail: "queued", JobID: "job-2"}}
-	v, classes, waiting := smokeVerdict(jobs)
+	jobs := []CrawlSmokeJob{{Source: "rea", Verdict: SmokeFailed, FailureClass: class, JobID: "job-1"}, {Source: "domain", Verdict: SmokeWaiting, Detail: "pending", JobID: "job-2"}}
+	v, classes, waiting := smokeVerdict(jobs, smokeTargetSources)
 	assert.Equal(t, SmokeFailed, v, "one failed job fails the run, whatever the other is doing")
 	assert.Equal(t, []string{FailureChrome}, classes)
 	assert.Len(t, waiting, 1)
@@ -794,7 +804,7 @@ func TestSmokeVerdictWaitingWithWhatItWaitsOn(t *testing.T) {
 }
 
 func TestSmokeVerdictWithNoRowsIsWaitingNotPassed(t *testing.T) {
-	v, classes, waiting := smokeVerdict(nil)
+	v, classes, waiting := smokeVerdict(nil, smokeTargetSources)
 	assert.Equal(t, SmokeWaiting, v)
 	assert.Empty(t, classes)
 	assert.NotEmpty(t, waiting)
@@ -815,7 +825,7 @@ func TestSmokeStatusIsStatelessAndReadsRowsReceiptsAndBrandBrain(t *testing.T) {
 		},
 	}
 	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{{ID: "job-domain", Status: "pending", Source: "domain"}}}
-	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, fixedNow)
+	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, SmokeWaiting, out.Verdict)
 	require.Len(t, out.Jobs, 2)
@@ -825,7 +835,7 @@ func TestSmokeStatusIsStatelessAndReadsRowsReceiptsAndBrandBrain(t *testing.T) {
 	assert.Equal(t, "pending", out.Jobs[1].BrandBrainStatus)
 
 	// Stateless: the same inputs give the same answer, and nothing was written.
-	again, _ := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, fixedNow)
+	again, _ := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", fixedNow)
 	assert.Equal(t, out.Verdict, again.Verdict)
 	assert.Empty(t, fleet.drainKeys)
 }
@@ -840,7 +850,7 @@ func TestSmokeStatusPassesOnlyWhenEveryJobPassed(t *testing.T) {
 			"job-domain": {{AppliedStatus: "SWEEP_STATUS_PARTIAL", ListingsUpserted: 2}},
 		},
 	}
-	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, fixedNow)
+	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "", fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, SmokePassed, out.Verdict)
 	assert.Empty(t, out.Waiting)
@@ -851,19 +861,19 @@ func TestSmokeStatusFailsWithClassesAndWithoutBrandBrainNothingPasses(t *testing
 	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
 	ledger := &fakeLedger{dispatch: []CrawlDispatch{smokeDispatch("job-rea", "rea", future, false)}}
 	// No fleet: BrandBrain state is unknown, so the job waits. It never passes.
-	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, fixedNow)
+	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "", fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, SmokeWaiting, out.Verdict)
 
 	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{{ID: "job-rea", Status: "failed", Source: "rea", ErrorMessage: "ingest unavailable: connect refused"}}}
-	out, err = crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, fixedNow)
+	out, err = crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, SmokeFailed, out.Verdict)
 	assert.Equal(t, []string{FailureIngestUnavailable}, out.FailureClasses)
 }
 
 func TestSmokeStatusRefusesAMalformedRunID(t *testing.T) {
-	_, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: &fakeLedger{}}, "uid", "smoke-../x", fixedNow)
+	_, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: &fakeLedger{}}, "uid", "smoke-../x", "", fixedNow)
 	assert.ErrorIs(t, err, errCrawlSmokeID)
 }
 
@@ -976,10 +986,10 @@ func TestTheReadToolsCarryNoListingData(t *testing.T) {
 	shortPolls(t)
 	future := fixedNow.Add(time.Hour)
 	fleet := &fakeFleet{
-		rigs:    []brandbrain.Rig{{ID: "rig-1"}},
-		details: map[string]brandbrain.RigDetail{"rig-1": {Rig: brandbrain.Rig{ID: "rig-1"}, ServerTime: &fixedNow}},
-		jobs:    []brandbrain.CrawlJob{{ID: "job-1", Status: "failed", Suburb: "Bondi", ErrorMessage: "chrome: listing at 12 Smith Street $900k https://x.example"}},
-		logText: "scrape 12 Smith Street Bondi $900k https://x.example\nfine",
+		rigs:       []brandbrain.Rig{{ID: "rig-1"}},
+		serverTime: &fixedNow,
+		jobs:       []brandbrain.CrawlJob{{ID: "job-1", Status: "failed", Suburb: "Bondi", ErrorMessage: "chrome: listing at 12 Smith Street $900k https://x.example"}},
+		logText:    "scrape 12 Smith Street Bondi $900k https://x.example\nfine",
 	}
 	ledger := &fakeLedger{dispatch: []CrawlDispatch{smokeDispatch("job-1", "rea", future, false)}}
 	fake := &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}
@@ -990,7 +1000,7 @@ func TestTheReadToolsCarryNoListingData(t *testing.T) {
 	require.NoError(t, err)
 	logs, err := crawlLogs(context.Background(), fake, "uid", CrawlLogsInput{RigID: "rig-1", Source: "housing"})
 	require.NoError(t, err)
-	smoke, err := crawlSmokeStatus(context.Background(), fake, "uid", "smoke-20261031T093000Z-0a1b2c3d", fixedNow)
+	smoke, err := crawlSmokeStatus(context.Background(), fake, "uid", "smoke-20261031T093000Z-0a1b2c3d", "", fixedNow)
 	require.NoError(t, err)
 	for name, v := range map[string]any{"status": status, "failures": failures, "job": job, "logs": logs, "smoke": smoke} {
 		raw, _ := json.Marshal(v)
@@ -1027,7 +1037,7 @@ func TestSmokeDrainReachesTheRigOverTheFleetWire(t *testing.T) {
 			raw, _ := io.ReadAll(r.Body)
 			drainBody, drainIdem = string(raw), r.Header.Get("Idempotency-Key")
 			w.WriteHeader(http.StatusAccepted)
-			_, _ = io.WriteString(w, `{"id":"cmd-wire-1","kind":"housing_crawl_run","status":"queued"}`)
+			_, _ = io.WriteString(w, `{"command":{"id":"cmd-wire-1","kind":"housing_crawl_run","status":"pending","request_key":"smoke:drain"}}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/fleet/crawl-jobs":
 			jobQuery = r.URL.RawQuery
 			_, _ = io.WriteString(w, `{"jobs":[],"summary":{"by_status_source":[]}}`)
@@ -1103,7 +1113,7 @@ func TestQueueAheadCountsPendingJobsAtLeastOwnPriorityAndOlder(t *testing.T) {
 		{ID: "same-older-done", Status: "succeeded", Priority: 9, CreatedAt: &early},
 		{ID: "same-older-unknown", Status: "queued", Priority: 9, CreatedAt: &early},
 	}
-	assert.Equal(t, 2, queueAhead(pending, own), "only pending jobs at least as urgent and older than own")
+	assert.Equal(t, 2, queueAhead(pending, own, fixedNow), "only pending jobs at least as urgent and older than own")
 }
 
 // Only the four real statuses are passed through. Anything else is "other", never pending.
@@ -1148,7 +1158,7 @@ func TestSmokeStatusNamesAJobNotEnqueuedAtTheSmokePriority(t *testing.T) {
 	ledger := &fakeLedger{dispatch: []CrawlDispatch{smokeDispatch("job-rea", "rea", future, false)}}
 	ledger.dispatch[0].RunID = smokeID
 	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{{ID: "job-rea", Status: "pending", Priority: 5, Source: "rea"}}}
-	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, fixedNow)
+	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", fixedNow)
 	require.NoError(t, err)
 	require.Len(t, out.Jobs, 1)
 	assert.Equal(t, 5, out.Jobs[0].Priority)
@@ -1157,7 +1167,7 @@ func TestSmokeStatusNamesAJobNotEnqueuedAtTheSmokePriority(t *testing.T) {
 	assert.Contains(t, out.Jobs[0].Detail, "not the smoke priority 100")
 
 	fleet.jobs[0].Priority = smokeQueuePriority
-	out, err = crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, fixedNow)
+	out, err = crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", fixedNow)
 	require.NoError(t, err)
 	assert.True(t, *out.Jobs[0].PriorityAsSent)
 }

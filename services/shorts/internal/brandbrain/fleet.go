@@ -1,27 +1,23 @@
 package brandbrain
 
-// fleet.go is the admin MCP's second BrandBrain client: the fleet routes the housing
-// crawl debugging tools read, plus the two rig commands the smoke loop sends. It is
-// as narrow as the grant client (client.go), and shares its rules:
+// fleet.go is the admin MCP's second BrandBrain client: the fleet routes the housing crawl
+// debugging tools read, plus the two rig commands the smoke loop sends. It is as narrow as the
+// grant client (client.go), and shares its rules: the pinned https://api.brandbrain.dev host, no
+// redirects, a hard timeout, typed outcomes, and a token that is never returned or logged.
 //
-//   - the base URL is the same pinned https://api.brandbrain.dev (ValidateBaseURL);
-//   - redirects are refused, so the token never travels to another host;
-//   - every request has the same hard timeout;
-//   - outcomes are typed, and a command whose outcome is not known is ErrUnavailable,
-//     which the caller reports as unknown and never retries on its own;
-//   - the token is sent only in its header and never appears in an error or a return.
+// The shapes decoded here are BrandBrain's, from the handlers on origin/main at 780a11b5
+// (backend/internal/adapters/http): fleet_handler.go (handleListRigs, handleGetRig),
+// fleet_orchestration_handler.go (handleCreateCommand, handleListRigCommands, writeCommands),
+// fleet_crawl_jobs_admin.go (handleListFleetCrawlJobs) and domain/housing_crawl_heartbeat.go.
+// fleet_contract_test.go pins them. A change on BrandBrain's side must change that test first.
 //
-// It talks to these routes and no others:
+// The ops token may open exactly these routes (fleet_ops_token.go, fleetOpsRoutes):
 //
-//	GET  /api/v1/fleet/rigs
-//	GET  /api/v1/fleet/rigs/{id}                 (carries server_time)
-//	GET  /api/v1/fleet/rigs/{id}/commands
-//	POST /api/v1/fleet/rigs/{id}/commands        (two kinds only, see RequestRuntimeLogs and RunDrain)
-//	GET  /api/v1/fleet/crawl-jobs
-//
-// The token is a separate credential from the grant token (BRANDBRAIN_FLEET_OPS_TOKEN,
-// header X-Fleet-Ops-Token). Every request also names the verified admin in
-// X-Fleet-Operator, for BrandBrain's audit log.
+//	GET  /api/v1/fleet/rigs                       list, with server_time
+//	GET  /api/v1/fleet/rigs/{id}                  one rig, with server_time (not used here)
+//	GET  /api/v1/fleet/rigs/{id}/commands         list, or one command with ?request_key=
+//	GET  /api/v1/fleet/crawl-jobs                 housing only
+//	POST /api/v1/fleet/rigs/{id}/commands         collect_runtime_logs, or a LIVE housing_crawl_run drain
 
 import (
 	"bytes"
@@ -38,16 +34,16 @@ import (
 )
 
 const (
-	// EnvFleetOpsToken carries the fleet credential. Unset means the crawl debugging
-	// tools report themselves as not configured and send nothing.
+	// EnvFleetOpsToken carries the fleet credential. Unset means the crawl debugging tools report
+	// themselves as not configured and send nothing.
 	EnvFleetOpsToken = "BRANDBRAIN_FLEET_OPS_TOKEN"
 
 	fleetTokenHeader    = "X-Fleet-Ops-Token"
 	fleetOperatorHeader = "X-Fleet-Operator"
 	idempotencyHeader   = "Idempotency-Key"
 
-	// fleetMaxResponseBytes bounds a fleet read. A page of 200 crawl jobs is well under
-	// this; anything larger is not that contract.
+	// fleetMaxResponseBytes bounds a fleet read. A command list of 50 entries with runtime logs
+	// is far under this; anything larger is not that contract.
 	fleetMaxResponseBytes = 1 << 20
 
 	// Rig command kinds. These are the only two the client can send.
@@ -58,29 +54,52 @@ const (
 	LogSourceRuntime = "runtime"
 	// DrainJob is the only job housing_crawl_run may name.
 	DrainJob = "drain"
-	// CrawlKind is the only job kind the ops token may read. BrandBrain restricts it, and
-	// the client does too, so an ops caller cannot read another queue's jobs.
+	// CrawlKind is the only job kind the ops token may read (fleetCrawlJobsDefaultKind).
 	CrawlKind = "housing"
 )
 
-// ErrRateLimited means BrandBrain's per-rig live limit was reached (429). Nothing was
-// sent for a command, and for a read nothing was learned. It says nothing about the crawl.
-var ErrRateLimited = errors.New("rate_limited")
-
-// ErrCommandRefused means the client refused to build a command it was not asked to
-// send (an unknown log source). Nothing was sent.
+// ErrCommandRefused means the client refused to build a command it was not asked to send (an
+// unknown log source). Nothing was sent.
 var ErrCommandRefused = errors.New("command_refused")
 
-// FleetClient calls the fleet routes. Build it with FleetFromEnv, or WithOperator to
-// name the admin on a request.
+// ErrRateLimited means BrandBrain's per-rig live limit was reached (429). Nothing was created. It
+// says nothing about the crawl.
+var ErrRateLimited = errors.New("rate_limited")
+
+// ErrCommandNotFound is a 404 from the request-key lookup: no command has that key, so nothing was
+// created under it. It is a definite answer, not an unknown outcome.
+var ErrCommandNotFound = errors.New("command_not_found")
+
+// ErrConflict is a 409 from BrandBrain. Nothing was created. The code says why (see ConflictError).
+var ErrConflict = errors.New("conflict")
+
+// ConflictError is a 409 with BrandBrain's closed code: rig_busy, rig_not_active,
+// agent_update_required, management_action_unsupported, idempotency_conflict and the others the
+// housing command path returns. errors.Is(err, ErrConflict) holds for every one.
+type ConflictError struct{ Code string }
+
+func (e *ConflictError) Error() string { return "conflict: " + e.Code }
+
+// Is makes errors.Is(err, ErrConflict) hold for any ConflictError.
+func (e *ConflictError) Is(target error) bool { return target == ErrConflict }
+
+var (
+	// closedCode is a BrandBrain refusal code. Anything else is not echoed.
+	closedCode = regexp.MustCompile(`^[a-z][a-z_]{1,60}$`)
+	// requestKeyPattern is BrandBrain's commandRequestKey.
+	requestKeyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+)
+
+// FleetClient calls the fleet routes. Build it with FleetFromEnv, or WithOperator to name the admin
+// on a request.
 type FleetClient struct {
 	c        *Client
 	operator string
 }
 
-// FleetFromEnv builds the fleet client. It returns (nil, nil) when BRANDBRAIN_FLEET_OPS_TOKEN
-// is unset, so the caller reports the tools as not configured. The base URL is the grant
-// client's (BRANDBRAIN_API_URL), and is refused unless it is the pinned host.
+// FleetFromEnv builds the fleet client. It returns (nil, nil) when BRANDBRAIN_FLEET_OPS_TOKEN is
+// unset. The base URL is the grant client's (BRANDBRAIN_API_URL), refused unless it is the pinned
+// host.
 func FleetFromEnv(getenv func(string) string) (*FleetClient, error) {
 	token := strings.TrimSpace(getenv(EnvFleetOpsToken))
 	if token == "" {
@@ -98,7 +117,6 @@ func FleetFromEnv(getenv func(string) string) (*FleetClient, error) {
 }
 
 // NewFleetTestClient is the test hook: a client against a loopback http stand-in.
-// Nothing in production calls it.
 func NewFleetTestClient(baseURL, token string, timeout time.Duration) (*FleetClient, error) {
 	c, err := NewTestClient(baseURL, token, timeout)
 	if err != nil {
@@ -107,8 +125,8 @@ func NewFleetTestClient(baseURL, token string, timeout time.Duration) (*FleetCli
 	return &FleetClient{c: c}, nil
 }
 
-// WithOperator returns a copy of the client that names operator (an admin's verified
-// address) in X-Fleet-Operator as shorted-admin:<operator>. An empty operator sends no header.
+// WithOperator returns a copy that names operator (an admin's verified address) in X-Fleet-Operator
+// as shorted-admin:<operator>. An empty operator sends no header.
 func (f *FleetClient) WithOperator(operator string) *FleetClient {
 	if f == nil {
 		return nil
@@ -118,7 +136,7 @@ func (f *FleetClient) WithOperator(operator string) *FleetClient {
 	return &cp
 }
 
-// Rig is one rig as the fleet lists it. Only the fields the crawl tools read are kept.
+// Rig is one rig as the fleet list returns it (rigDTO, flattened into the list item).
 type Rig struct {
 	ID              string       `json:"id"`
 	Version         string       `json:"version"`
@@ -127,22 +145,21 @@ type Rig struct {
 	Resources       RigResources `json:"resources"`
 }
 
-// RigResources wraps the housing crawl's self-report.
+// RigResources wraps the housing crawl's self-report. A rig that reports no housing block has a
+// nil HousingCrawl, which the tools read as unknown, never as healthy.
 type RigResources struct {
-	HousingCrawl HousingCrawl `json:"housing_crawl"`
+	HousingCrawl *HousingCrawl `json:"housing_crawl"`
 }
 
-// HousingCrawl is a rig's housing crawl state. The fleet's circuit list is not decoded:
-// the crawl tools report portals, not breaker internals. Alarm has no fixed shape in the
-// contract, so it is kept as decoded JSON and reduced to closed values by the caller.
+// HousingCrawl is a rig's housing crawl heartbeat (domain.HousingCrawlHeartbeat). Circuit is not
+// decoded: the tools report portals, not breaker internals.
 type HousingCrawl struct {
-	State    string     `json:"state"`
-	Env      CrawlEnv   `json:"env"`
-	Portals  []Portal   `json:"portals"`
-	InFlight *InFlight  `json:"in_flight"`
-	Jobs     CrawlJobs  `json:"jobs"`
-	Alarm    any        `json:"alarm"`
-	Ingest   IngestInfo `json:"ingest"`
+	State    string                `json:"state"`
+	Env      *CrawlEnv             `json:"env"`
+	Portals  []Portal              `json:"portals"`
+	InFlight *InFlight             `json:"in_flight"`
+	Jobs     map[string]DrainSched `json:"jobs"`
+	Ingest   IngestInfo            `json:"ingest"`
 }
 
 // CrawlEnv is the rig's Chrome and driver versions.
@@ -151,7 +168,7 @@ type CrawlEnv struct {
 	Driver string `json:"driver"`
 }
 
-// Portal is one portal's breaker state on a rig.
+// Portal is one portal's breaker state on a rig (domain.HousingCrawlPortal).
 type Portal struct {
 	Source             string     `json:"source"`
 	State              string     `json:"state"`
@@ -161,16 +178,16 @@ type Portal struct {
 	UpdatedAt          *time.Time `json:"updated_at"`
 }
 
-// InFlight is the job a rig is running now.
+// InFlight is the job a rig is running now (domain.HousingCrawlInFlight).
 type InFlight struct {
 	Job            string     `json:"job"`
 	Phase          string     `json:"phase"`
 	Round          int        `json:"round"`
 	LastProgressAt *time.Time `json:"last_progress_at"`
-	Counts         Counts     `json:"counts"`
+	Counts         *Counts    `json:"counts"`
 }
 
-// Counts are a drain's or an in-flight job's tallies.
+// Counts are a drain's or an in-flight job's tallies (domain.HousingCrawlLiveCounts).
 type Counts struct {
 	Claimed   int `json:"claimed"`
 	Succeeded int `json:"succeeded"`
@@ -180,62 +197,80 @@ type Counts struct {
 	Listings  int `json:"listings"`
 }
 
-// CrawlJobs holds the rig's job schedules.
-type CrawlJobs struct {
-	Drain DrainSchedule `json:"drain"`
-}
-
-// DrainSchedule is the rig's drain: whether it runs, when next, and the last run.
-type DrainSchedule struct {
+// DrainSched is one job's schedule and last outcome (domain.HousingCrawlJob). The alarm is on the
+// last run (HousingCrawlResult.Alarm), not at the top of the heartbeat.
+type DrainSched struct {
 	Enabled   bool       `json:"enabled"`
 	NextRunAt *time.Time `json:"next_run_at"`
 	RetryAt   *time.Time `json:"retry_at"`
+	Held      string     `json:"held"`
 	Last      *DrainRun  `json:"last"`
 }
 
-// DrainRun is the outcome of one drain.
+// DrainRun is the outcome of one run (domain.HousingCrawlResult). Counts is a JSON object keyed by
+// the tally names; it decodes into Counts by name.
 type DrainRun struct {
 	Outcome    string     `json:"outcome"`
 	ExitCode   int        `json:"exit_code"`
 	FinishedAt *time.Time `json:"finished_at"`
 	Counts     Counts     `json:"counts"`
+	Alarm      string     `json:"alarm"`
 }
 
-// IngestInfo is the rig's last push probe.
+// IngestInfo is the rig's last push probe (domain.HousingCrawlIngest).
 type IngestInfo struct {
 	Probe         string     `json:"probe"`
 	LastOKAt      *time.Time `json:"last_ok_at"`
 	LastErrorCode string     `json:"last_error_code"`
 }
 
-// RigDetail is one rig plus the server's clock. The clock is what makes a portal's
-// open_until mean something: a breaker is open only while open_until is in the future.
-type RigDetail struct {
-	Rig
-	ServerTime *time.Time `json:"server_time"`
+// RigList is the rig list and the server's clock. The clock is what makes a portal's open_until
+// mean something: a breaker is open only while open_until is in the future. It is nil when the
+// response carries none, and then no portal can be judged blocked.
+type RigList struct {
+	Rigs       []Rig
+	ServerTime *time.Time
 }
 
-// Command is one command sent to a rig.
+// Command is one command, as the create, replay, request-key and list routes return it
+// (rigCommandDTO).
 type Command struct {
 	ID         string      `json:"id"`
 	Kind       string      `json:"kind"`
+	RequestKey string      `json:"request_key"`
 	Status     string      `json:"status"`
+	Result     string      `json:"result"`
 	ResultData *ResultData `json:"result_data"`
 	CreatedAt  *time.Time  `json:"created_at"`
+	ExpiresAt  *time.Time  `json:"expires_at"`
 }
 
-// ResultData carries a command's result. Only the runtime log text is kept.
+// ResultData carries a command's result. Only the runtime log is kept.
 type ResultData struct {
 	RuntimeLogs *RuntimeLogs `json:"runtime_logs"`
 }
 
-// RuntimeLogs is the text a collect_runtime_logs command returned.
+// RuntimeLogs is the text a collect_runtime_logs command returned (domain.RigRuntimeLogs).
 type RuntimeLogs struct {
-	Text string `json:"text"`
+	Text      string `json:"text"`
+	Truncated bool   `json:"truncated"`
+	Redacted  bool   `json:"redacted"`
 }
 
-// CrawlJob is one BrandBrain crawl job. Its error and result text is returned as the
-// fleet sends it; the admin tools decide what reaches the model.
+// CommandStatuses are BrandBrain's rig command statuses (domain.RigCommandStatus). A command is
+// finished when it is succeeded, failed or expired; pending, delivered and running are not.
+const (
+	CommandPending   = "pending"
+	CommandDelivered = "delivered"
+	CommandRunning   = "running"
+	CommandSucceeded = "succeeded"
+	CommandFailed    = "failed"
+	CommandExpired   = "expired"
+)
+
+// CrawlJob is one BrandBrain crawl job (fleetCrawlJobDTO). ResultSummary is the counts-only
+// outcome, kept raw so the caller reads only what it needs. error_message and result_summary.detail
+// are redacted by BrandBrain and capped at about 512 bytes.
 type CrawlJob struct {
 	ID            string          `json:"id"`
 	Kind          string          `json:"kind"`
@@ -276,11 +311,10 @@ type StatusSourceCount struct {
 	Count  int    `json:"count"`
 }
 
-// CrawlJobQuery filters the crawl-jobs list. Zero fields are not sent. Kind, when set, must
-// be CrawlKind; the list is always restricted to it. Source may be rea, domain or both.
+// CrawlJobQuery filters the crawl-jobs list. Kind, when set, must be CrawlKind; the list is always
+// restricted to it. Source may be rea, domain or both.
 type CrawlJobQuery struct {
-	ID string
-	// Status is one of BrandBrain's crawl_jobs statuses: pending, in_progress, succeeded or failed.
+	ID            string
 	Status        string
 	Source        string
 	Kind          string
@@ -292,46 +326,45 @@ type CrawlJobQuery struct {
 // crawlJobSources are the source values the ops token may filter on.
 var crawlJobSources = map[string]bool{"": true, "rea": true, "domain": true, "both": true}
 
-// ListRigs returns every rig the fleet knows.
-func (f *FleetClient) ListRigs(ctx context.Context) ([]Rig, error) {
+// ListRigs returns every rig and the server's clock, from one request. The per-rig read carries
+// the same clock, so the tools never need one call per rig.
+func (f *FleetClient) ListRigs(ctx context.Context) (*RigList, error) {
 	var out struct {
-		Rigs []Rig `json:"rigs"`
+		Rigs       []Rig      `json:"rigs"`
+		ServerTime *time.Time `json:"server_time"`
 	}
 	if err := f.call(ctx, http.MethodGet, "/api/v1/fleet/rigs", nil, nil, "", &out); err != nil {
 		return nil, err
 	}
-	return out.Rigs, nil
+	return &RigList{Rigs: out.Rigs, ServerTime: out.ServerTime}, nil
 }
 
-// GetRig returns one rig with the server's clock.
-func (f *FleetClient) GetRig(ctx context.Context, rigID string) (*RigDetail, error) {
+// CommandByRequestKey reads one command by the key it was created under. It is ErrCommandNotFound
+// when no command has that key. It is how a POST whose outcome was lost is settled, and how a log
+// request is polled without listing the rig's other commands.
+func (f *FleetClient) CommandByRequestKey(ctx context.Context, rigID, requestKey string) (*Command, error) {
 	path, err := rigPath(rigID)
 	if err != nil {
 		return nil, err
 	}
-	var out RigDetail
-	if err := f.call(ctx, http.MethodGet, path, nil, nil, "", &out); err != nil {
-		return nil, err
+	if !requestKeyPattern.MatchString(requestKey) {
+		return nil, ErrInvalidRequest
 	}
-	return &out, nil
-}
-
-// ListRigCommands returns a rig's recent commands, newest first as the fleet orders them.
-func (f *FleetClient) ListRigCommands(ctx context.Context, rigID string) ([]Command, error) {
-	path, err := rigPath(rigID)
-	if err != nil {
-		return nil, err
-	}
+	q := url.Values{}
+	q.Set("request_key", requestKey)
 	var out struct {
-		Commands []Command `json:"commands"`
+		Command Command `json:"command"`
 	}
-	if err := f.call(ctx, http.MethodGet, path+"/commands", nil, nil, "", &out); err != nil {
+	if err := f.call(ctx, http.MethodGet, path+"/commands", q, nil, "", &out); err != nil {
 		return nil, err
 	}
-	return out.Commands, nil
+	if out.Command.ID == "" {
+		return nil, ErrUnavailable
+	}
+	return &out.Command, nil
 }
 
-// ListCrawlJobs reads one page of crawl jobs and the queue summary.
+// ListCrawlJobs reads one page of housing crawl jobs and the queue summary.
 func (f *FleetClient) ListCrawlJobs(ctx context.Context, q CrawlJobQuery) (*CrawlJobsPage, error) {
 	if q.Kind != "" && q.Kind != CrawlKind {
 		return nil, ErrInvalidRequest
@@ -361,19 +394,19 @@ func (f *FleetClient) ListCrawlJobs(ctx context.Context, q CrawlJobQuery) (*Craw
 	return &out, nil
 }
 
-// RequestRuntimeLogs asks a rig for its logs. source is housing or runtime. The fleet
-// answers with the command; its result arrives later on the rig's command list. idemKey
-// makes a retry return the same command rather than a second one.
+// RequestRuntimeLogs asks a rig for its logs. source is housing or runtime. The answer is the
+// command, created under idemKey; its result arrives later, read with CommandByRequestKey.
 func (f *FleetClient) RequestRuntimeLogs(ctx context.Context, rigID, source, idemKey string) (*Command, error) {
 	if source != LogSourceHousing && source != LogSourceRuntime {
 		return nil, ErrCommandRefused
 	}
-	return f.command(ctx, rigID, CommandCollectRuntimeLogs, map[string]string{"source": source}, idemKey)
+	return f.command(ctx, rigID, CommandCollectRuntimeLogs, map[string]any{"source": source}, idemKey)
 }
 
-// RunDrain asks a rig to run its housing drain now, once. This is a LIVE crawl. The ops
-// token refuses dry runs (403 fleet_ops_forbidden), so dry_run is always false and is never
-// configurable. A 429 is ErrRateLimited.
+// RunDrain asks a rig to run its housing drain now. This is a LIVE crawl: drain-until-empty over
+// the whole backlog, using one of the rig's live runs (a limited number per window). The ops token
+// refuses dry runs (403 fleet_ops_forbidden), so dry_run is always false and never configurable.
+// A 429 is ErrRateLimited; a refused request is a *ConflictError.
 func (f *FleetClient) RunDrain(ctx context.Context, rigID, idemKey string) (*Command, error) {
 	return f.command(ctx, rigID, CommandHousingCrawlRun, map[string]any{"job": DrainJob, "dry_run": false}, idemKey)
 }
@@ -386,6 +419,9 @@ func (f *FleetClient) command(ctx context.Context, rigID, kind string, payload a
 	if err != nil {
 		return nil, err
 	}
+	if !requestKeyPattern.MatchString(idemKey) {
+		return nil, ErrInvalidRequest
+	}
 	body, err := json.Marshal(struct {
 		Kind    string `json:"kind"`
 		Payload any    `json:"payload"`
@@ -393,19 +429,21 @@ func (f *FleetClient) command(ctx context.Context, rigID, kind string, payload a
 	if err != nil {
 		return nil, ErrInvalidRequest
 	}
-	var out Command
+	// BrandBrain answers 201 with {"command": ...} on create, and the same on an idempotent replay.
+	var out struct {
+		Command Command `json:"command"`
+	}
 	if err := f.call(ctx, http.MethodPost, path+"/commands", nil, body, idemKey, &out); err != nil {
 		return nil, err
 	}
-	if out.ID == "" {
-		// A 2xx with no command id cannot be followed up. The outcome is not known.
+	if out.Command.ID == "" {
+		// A 2xx with no command cannot be followed up. The outcome is not known.
 		return nil, ErrUnavailable
 	}
-	return &out, nil
+	return &out.Command, nil
 }
 
-// rigIDPattern is BrandBrain's rig id shape. Anything else is refused before a request is
-// built, so a rig id can never add a path segment or a query to the route.
+// rigIDPattern is BrandBrain's rig id shape. Anything else is refused before a request is built.
 var rigIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)
 
 func rigPath(rigID string) (string, error) {
@@ -462,20 +500,48 @@ func (f *FleetClient) call(ctx context.Context, method, path string, query url.V
 		}
 		return nil
 	case http.StatusNotFound:
-		if isRigNotFoundBody(raw) {
+		switch bodyCode(raw) {
+		case "rig_not_found":
 			return ErrRigNotFound
+		case "command_not_found":
+			return ErrCommandNotFound
+		default:
+			// A plain 404 (a route that is not deployed, a proxy page) says nothing about the rig.
+			return ErrUnavailable
 		}
-		return ErrUnavailable
 	case http.StatusBadRequest:
 		return ErrInvalidRequest
 	case http.StatusUnauthorized, http.StatusForbidden:
-		// 403 fleet_ops_forbidden is the ops token refusing a request it may not make (for
-		// example a dry run). It is a rejection, not an unknown outcome.
+		// 403 fleet_ops_forbidden: the ops token refusing a request it may not make.
 		return ErrRejected
+	case http.StatusConflict:
+		// Nothing was created. The code is BrandBrain's closed refusal, or unknown.
+		code := bodyCode(raw)
+		if code == "" {
+			code = "unknown"
+		}
+		return &ConflictError{Code: code}
 	case http.StatusTooManyRequests:
-		// The per-rig live limit. Nothing was changed; the caller reports it as a limit.
 		return ErrRateLimited
 	default:
 		return ErrUnavailable
 	}
+}
+
+// bodyCode returns BrandBrain's closed code from an error body ({"code": ...} or {"error": ...}).
+// Free text is never returned.
+func bodyCode(raw []byte) string {
+	var body struct {
+		Code  string `json:"code"`
+		Error string `json:"error"`
+	}
+	if json.Unmarshal(raw, &body) != nil {
+		return ""
+	}
+	for _, c := range []string{body.Code, body.Error} {
+		if closedCode.MatchString(c) {
+			return c
+		}
+	}
+	return ""
 }
