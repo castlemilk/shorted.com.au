@@ -262,6 +262,12 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 				return events, err
 			}
 			if delist {
+				// A listing no sweep has seen for DelistStaleAfter is confirmed gone,
+				// not a sign of a bad sweep. Count it apart, so the quarantine gate can
+				// judge only the recent delists. Zero disables the split.
+				if d.cfg.DelistStaleAfter > 0 && a.LastSeen.Before(runTs.Add(-d.cfg.DelistStaleAfter)) {
+					d.res.DelistedStale++
+				}
 				if err := InsertPriceEvent(ctx, tx, PriceEvent{
 					ListingPK:  a.PK,
 					Source:     source,

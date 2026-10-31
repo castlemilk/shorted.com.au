@@ -39,7 +39,7 @@ type storedListing struct {
 	IsActive     bool
 	MissedSweeps int16
 	// LastMissedAt is when an ingest absence last counted. Loaded only on the
-	// MinDelistInterval path. LastSeen is last_seen_at, loaded on the same path.
+	// MinDelistInterval path. LastSeen is last_seen_at, loaded for every active listing.
 	LastMissedAt *time.Time
 	LastSeen     time.Time
 }
@@ -354,12 +354,13 @@ const insertPriceEventReceiptSQL = `
 		ON CONFLICT (listing_pk, event_type, observed_at) DO NOTHING`
 
 // activeListingsForRegion returns the currently-active listings for a (source,
-// region) — the candidate set for absence/delist detection. withClock also loads
-// last_missed_at and last_seen_at for the MinDelistInterval gate; the collector
-// never asks for them.
+// region) — the candidate set for absence/delist detection. last_seen_at is always
+// loaded: the stale-delist split reads it on every COMPLETE sweep, and it is NOT
+// NULL in every schema. withClock also loads last_missed_at for the MinDelistInterval
+// gate. The collector never asks for that column (its path must not name it).
 func activeListingsForRegion(ctx context.Context, tx pgx.Tx, source, regionCode string, withClock bool) ([]storedListing, error) {
 	query := `
-		SELECT id, listing_id, address_key, listing_status, missed_sweeps
+		SELECT id, listing_id, address_key, listing_status, missed_sweeps, last_seen_at
 		FROM property_listings
 		WHERE source = $1 AND region_code = $2 AND is_active`
 	if withClock {
@@ -381,7 +382,7 @@ func activeListingsForRegion(ctx context.Context, tx pgx.Tx, source, regionCode 
 				return nil, err
 			}
 		} else {
-			if err := rows.Scan(&s.PK, &s.ListingID, &s.AddressKey, &s.Status, &s.MissedSweeps); err != nil {
+			if err := rows.Scan(&s.PK, &s.ListingID, &s.AddressKey, &s.Status, &s.MissedSweeps, &s.LastSeen); err != nil {
 				return nil, err
 			}
 		}

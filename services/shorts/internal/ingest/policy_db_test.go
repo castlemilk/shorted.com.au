@@ -557,3 +557,80 @@ func TestPushThroughTransactionPooler(t *testing.T) {
 	identicalConcurrentPushes(t, ingestPoolAt(t, dsn, 4))
 	concurrentAttemptsOfOneJob(t, ingestPoolAt(t, dsn, 4))
 }
+
+// TestPush_StaleBacklogDoesNotHoldASoundSweep: a COMPLETE sweep that sees the live
+// listings and drops a backlog no sweep has seen for weeks is applied, and the stale
+// listings are delisted. A sweep whose RECENT delists are over the threshold is still
+// held, whatever its stale count. The threshold on 70 active is 17.5.
+func TestPush_StaleBacklogDoesNotHoldASoundSweep(t *testing.T) {
+	cases := []struct {
+		name        string
+		staleGone   int
+		recentGone  int
+		quarantined bool
+	}{
+		{"30 stale delists, none recent: applied", 30, 0, false},
+		{"10 stale and 20 recent delists: recent 20 is over 17.5, held", 10, 20, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pool := ingestTestDB(t)
+			issuer := newIssuerFixture(t)
+			clock := newTestClock()
+			// The production exemption, as ConfigFromEnv sets it. The harness's own Config
+			// leaves it at 0 (off), which is the disabled case.
+			rig := startIngest(t, pool, issuer, clock, func(c *Config) { c.DelistStaleAfter = DefaultDelistStaleAfter })
+			seedRig(t, pool, testRig, true)
+			seedDispatch(t, pool, "job-1", "run-1", "rea")
+
+			const live = 40
+			var present []*pb.Listing
+			for i := 1; i <= live; i++ {
+				id := fmt.Sprintf("L%02d", i)
+				seedListing(t, rig, id, 1_000_000, 0)
+				present = append(present, fixedRea(id, 1_000_000))
+			}
+			// The absent backlog: missed once, last seen 40 days ago (stale) or 5 days ago (recent).
+			for i := 1; i <= tc.staleGone; i++ {
+				seedListing(t, rig, fmt.Sprintf("S%02d", i), 1_000_000, 1)
+				mustExec(t, pool, `UPDATE property_listings SET last_seen_at = now() - interval '40 days' WHERE listing_id = $1`, fmt.Sprintf("S%02d", i))
+			}
+			for i := 1; i <= tc.recentGone; i++ {
+				seedListing(t, rig, fmt.Sprintf("R%02d", i), 1_000_000, 1)
+				mustExec(t, pool, `UPDATE property_listings SET last_seen_at = now() - interval '5 days' WHERE listing_id = $1`, fmt.Sprintf("R%02d", i))
+			}
+
+			resp, err := rig.push(t, sweepReq("job-1", 1, pb.Source_SOURCE_REA, pb.SweepStatus_SWEEP_STATUS_COMPLETE, present...))
+			if err != nil {
+				t.Fatalf("PushSweep: %v", err)
+			}
+			if resp.Quarantined != tc.quarantined {
+				t.Fatalf("quarantined = %v, want %v (%+v)", resp.Quarantined, tc.quarantined, resp)
+			}
+			if tc.quarantined {
+				var stats string
+				if err := pool.QueryRow(context.Background(), `SELECT stats::text FROM crawl_ingest_quarantine WHERE job_id = 'job-1'`).Scan(&stats); err != nil {
+					t.Fatalf("read quarantine stats: %v", err)
+				}
+				if !strings.Contains(stats, `"delisted_stale": 10`) || !strings.Contains(stats, `"would_delist": 30`) {
+					t.Errorf("a held sweep must report both delist counts, got %s", stats)
+				}
+				return
+			}
+			if resp.Delisted != int32(tc.staleGone+tc.recentGone) {
+				t.Errorf("Delisted = %d, want %d (the total is unchanged)", resp.Delisted, tc.staleGone+tc.recentGone)
+			}
+			if active := count(t, rig, `SELECT count(*) FROM property_listings WHERE is_active`); active != live {
+				t.Errorf("want %d live listings after the sweep, got %d", live, active)
+			}
+		})
+	}
+}
+
+// mustExec runs one statement against the pool and fails the test on error.
+func mustExec(t *testing.T, pool *pgxpool.Pool, query string, args ...any) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), query, args...); err != nil {
+		t.Fatalf("exec %q: %v", query, err)
+	}
+}

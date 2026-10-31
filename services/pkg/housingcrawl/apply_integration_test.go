@@ -384,3 +384,68 @@ func TestApplySweep_SourceMismatchWritesNothing_Integration(t *testing.T) {
 		t.Errorf("refused sweep touched B: active=%v missed=%d", active, missed)
 	}
 }
+
+// setLastSeen moves one seeded listing's last_seen_at, so a test can say how long it
+// has been since a sweep saw it.
+func setLastSeen(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id string, at time.Time) {
+	t.Helper()
+	if _, err := pool.Exec(ctx,
+		`UPDATE property_listings SET last_seen_at = $2 WHERE source = 'rea' AND listing_id = $1`, id, at); err != nil {
+		t.Fatalf("set last_seen_at for %s: %v", id, err)
+	}
+}
+
+// TestApplySweep_StaleDelistsSplitFromRecent: on a COMPLETE sweep, a delist of a
+// listing no sweep has seen for DelistStaleAfter is counted in DelistedStale, and a
+// delist of a recently seen listing is not. Delisted stays the total. A listing that
+// is missed twice but was seen 5 days ago is recent, so the stale count only moves on
+// the age of the last sighting.
+func TestApplySweep_StaleDelistsSplitFromRecent_Integration(t *testing.T) {
+	ctx, pool := applyTestDB(t)
+	now := time.Now().UTC()
+	seedActive(t, ctx, pool, "KEEP", 0)
+	seedActive(t, ctx, pool, "STALE", 1)
+	seedActive(t, ctx, pool, "RECENT", 1)
+	setLastSeen(t, ctx, pool, "STALE", now.Add(-30*24*time.Hour))
+	setLastSeen(t, ctx, pool, "RECENT", now.Add(-5*24*time.Hour))
+
+	rules := testRules()
+	rules.DelistStaleAfter = 21 * 24 * time.Hour
+	res, err := ApplySweep(ctx, pool, Sweep{
+		Target: applyTarget, Source: "rea", Status: Complete, RunTS: now, Rules: rules,
+		Listings: []RawListing{fixedListing("KEEP", 1_000_000)}, // STALE and RECENT absent
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Delisted != 2 || res.DelistedStale != 1 {
+		t.Fatalf("want Delisted=2 DelistedStale=1, got Delisted=%d DelistedStale=%d", res.Delisted, res.DelistedStale)
+	}
+	for _, id := range []string{"STALE", "RECENT"} {
+		if active, _ := listingActive(t, ctx, pool, id); active {
+			t.Errorf("%s should be withdrawn after DelistGrace absent COMPLETE sweeps", id)
+		}
+	}
+}
+
+// TestApplySweep_StaleAfterZeroCountsNoneAsStale: DelistStaleAfter 0 disables the
+// split, so DelistedStale is 0 whatever the listings' ages, and every delist is
+// counted in Delisted as before.
+func TestApplySweep_StaleAfterZeroCountsNoneAsStale_Integration(t *testing.T) {
+	ctx, pool := applyTestDB(t)
+	now := time.Now().UTC()
+	seedActive(t, ctx, pool, "KEEP", 0)
+	seedActive(t, ctx, pool, "STALE", 1)
+	setLastSeen(t, ctx, pool, "STALE", now.Add(-60*24*time.Hour))
+
+	res, err := ApplySweep(ctx, pool, Sweep{
+		Target: applyTarget, Source: "rea", Status: Complete, RunTS: now, Rules: testRules(),
+		Listings: []RawListing{fixedListing("KEEP", 1_000_000)},
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if res.Delisted != 1 || res.DelistedStale != 0 {
+		t.Fatalf("want Delisted=1 DelistedStale=0 with the split off, got Delisted=%d DelistedStale=%d", res.Delisted, res.DelistedStale)
+	}
+}

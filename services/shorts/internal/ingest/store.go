@@ -215,12 +215,13 @@ func insertQuarantineTx(ctx context.Context, tx pgx.Tx, key, rig, job string, su
 // quarantineStats is what a quarantine row keeps about the held sweep. Counts and
 // the reason only.
 type quarantineStats struct {
-	Status       string `json:"status"`
-	Existing     int    `json:"existing"`
-	LargeMoves   int    `json:"large_moves"`
-	ActiveBefore int    `json:"active_before"`
-	WouldDelist  int    `json:"would_delist"`
-	Listings     int    `json:"listings"`
+	Status        string `json:"status"`
+	Existing      int    `json:"existing"`
+	LargeMoves    int    `json:"large_moves"`
+	ActiveBefore  int    `json:"active_before"`
+	WouldDelist   int    `json:"would_delist"`
+	DelistedStale int    `json:"delisted_stale"`
+	Listings      int    `json:"listings"`
 }
 
 // bypassed reports whether an operator has released this suburb from quarantine. The

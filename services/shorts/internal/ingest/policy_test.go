@@ -258,3 +258,48 @@ func TestCycleStatusMapping(t *testing.T) {
 		}
 	}
 }
+
+// TestQuarantineCountsRecentDelistsOnly: the delist trip judges Delisted minus
+// DelistedStale, the delists of listings unseen for DelistStaleAfter. The threshold
+// is unchanged. Bundoora (124 active) lost 43 listings in one sweep, but 42 of them
+// were the long-gone backlog, so one recent delist is not a bad sweep. A poisoned
+// sweep that drops listings seen recently is still held, whatever the stale count,
+// and StaleAfter 0 leaves every delist counted (the old behaviour).
+func TestQuarantineCountsRecentDelistsOnly(t *testing.T) {
+	s := testPolicyService()
+	cases := []struct {
+		name        string
+		active      int
+		delisted    int
+		delistStale int
+		quarantine  bool
+	}{
+		{"Bundoora shape: 43 delists, 42 stale, one recent: not held", 124, 43, 42, false},
+		{"Bundoora measured: 43 delists, 36 stale, seven recent: not held", 124, 43, 36, false},
+		{"poison shape: 43 delists, none stale: held", 124, 43, 0, true},
+		{"mixed: 30 delists, 5 stale, 25 recent is over the 20 cap: held", 124, 30, 5, true},
+		{"mixed: 30 delists, 10 stale, 20 recent is exactly the cap: not held", 124, 30, 10, false},
+		{"small suburb: 5 delists, 3 stale, 2 recent is under the minimum of 3: not held", 4, 5, 3, false},
+		{"StaleAfter 0 (no split, DelistedStale 0): 43 delists is held", 124, 43, 0, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			q := s.quarantineCheck(housingcrawl.Result{
+				ActiveBefore:  tc.active,
+				Delisted:      tc.delisted,
+				DelistedStale: tc.delistStale,
+			}, pb.SweepStatus_SWEEP_STATUS_COMPLETE)
+			if (q != nil) != tc.quarantine {
+				t.Fatalf("quarantined = %v, want %v", q != nil, tc.quarantine)
+			}
+			if q != nil {
+				if q.reason != reasonDelists {
+					t.Errorf("reason = %q, want %q", q.reason, reasonDelists)
+				}
+				if q.stats.WouldDelist != tc.delisted || q.stats.DelistedStale != tc.delistStale {
+					t.Errorf("stats must keep both counts, got would_delist=%d delisted_stale=%d", q.stats.WouldDelist, q.stats.DelistedStale)
+				}
+			}
+		})
+	}
+}
