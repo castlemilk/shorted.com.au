@@ -109,8 +109,8 @@ type CrawlQueuedJob struct {
 	Source         string `json:"source"`
 	Status         string `json:"status,omitempty"`
 	Priority       int    `json:"priority"`
-	Ahead          int    `json:"ahead" jsonschema:"Pending jobs claimed before this one: a higher priority, or the same priority and created earlier. Counted over the first page of queued jobs."`
-	AheadTruncated bool   `json:"ahead_truncated" jsonschema:"True when the queued list reached its page limit, so Ahead is a floor."`
+	Ahead          int    `json:"ahead" jsonschema:"Pending jobs with a priority at least this job's and created earlier. Counted over the first page of pending jobs."`
+	AheadTruncated bool   `json:"ahead_truncated" jsonschema:"True when the pending list reached its page limit, so Ahead is a floor."`
 }
 
 // CrawlSmokeStatusInput names the run to judge.
@@ -194,18 +194,19 @@ func judgeSmokeJob(f smokeJobFacts) (verdict, class, detail string) {
 	if f.BB == nil {
 		return SmokeWaiting, "", "BrandBrain's state for this job could not be read"
 	}
+	// BrandBrain's crawl_jobs statuses are exactly these four. Any other value is other, and it
+	// is never read as pending.
 	switch f.BB.Status {
 	case "failed":
 		return SmokeFailed, classifyCrawlFailure(f.BB.ErrorMessage, f.BB.ResultSummary), "BrandBrain marked the job failed"
-	case "deferred":
-		if f.BB.MaxAttempts > 0 && f.BB.Attempts >= f.BB.MaxAttempts {
-			return SmokeFailed, classifyCrawlFailure(f.BB.ErrorMessage, f.BB.ResultSummary), "deferred and out of attempts"
-		}
-		return SmokeWaiting, "", "deferred at BrandBrain; it will retry"
-	case "queued", "pending", "":
-		return SmokeWaiting, "", "queued at BrandBrain; waiting for the rig's drain"
-	default:
+	case "pending":
+		return SmokeWaiting, "", "pending at BrandBrain; waiting for the rig's drain"
+	case "in_progress":
 		return SmokeWaiting, "", "in progress at BrandBrain"
+	case "succeeded":
+		return SmokeWaiting, "", "succeeded at BrandBrain; no ingest receipt names it yet"
+	default:
+		return SmokeWaiting, "", "unrecognised BrandBrain status (other); not treated as pending"
 	}
 }
 
@@ -447,7 +448,7 @@ func queuedJobs(ctx context.Context, fleet CrawlFleet, open []CrawlDispatch) []C
 	out := []CrawlQueuedJob{}
 	var pending []brandbrain.CrawlJob
 	truncated := false
-	if page, err := fleet.ListCrawlJobs(ctx, brandbrain.CrawlJobQuery{Status: "queued", Kind: crawlKind, Limit: crawlJobsPage}); err == nil {
+	if page, err := fleet.ListCrawlJobs(ctx, brandbrain.CrawlJobQuery{Status: jobStatusPending, Kind: crawlKind, Limit: crawlJobsPage}); err == nil {
 		pending = page.Jobs
 		truncated = len(page.Jobs) >= crawlJobsPage
 	}
@@ -456,7 +457,7 @@ func queuedJobs(ctx context.Context, fleet CrawlFleet, open []CrawlDispatch) []C
 		if page, err := fleet.ListCrawlJobs(ctx, brandbrain.CrawlJobQuery{ID: d.JobID, Kind: crawlKind, Limit: 1}); err == nil {
 			for _, j := range page.Jobs {
 				if j.ID == d.JobID {
-					q.Status, q.Priority = closedValue(j.Status), j.Priority
+					q.Status, q.Priority = knownJobStatus(j.Status), j.Priority
 					q.Ahead, q.AheadTruncated = queueAhead(pending, j), truncated
 				}
 			}
@@ -466,19 +467,34 @@ func queuedJobs(ctx context.Context, fleet CrawlFleet, open []CrawlDispatch) []C
 	return out
 }
 
-// queueAhead counts the pending jobs BrandBrain claims before own: a higher priority, or the
-// same priority created earlier. Claim order is priority DESC, created_at ASC.
+// queueAhead counts the PENDING jobs with a priority at least own's and created before own. Only
+// pending jobs are waiting to be claimed; a job in any other status is not in the queue.
 func queueAhead(pending []brandbrain.CrawlJob, own brandbrain.CrawlJob) int {
 	n := 0
 	for _, j := range pending {
-		if j.ID == own.ID {
+		if j.ID == own.ID || j.Status != jobStatusPending {
 			continue
 		}
-		if j.Priority > own.Priority || (j.Priority == own.Priority && j.CreatedAt != nil && own.CreatedAt != nil && j.CreatedAt.Before(*own.CreatedAt)) {
+		if j.Priority >= own.Priority && j.CreatedAt != nil && own.CreatedAt != nil && j.CreatedAt.Before(*own.CreatedAt) {
 			n++
 		}
 	}
 	return n
+}
+
+// jobStatusPending is the status of a job waiting to be claimed. Claim selects WHERE status =
+// 'pending' in BrandBrain's crawl_job_repository.go.
+const jobStatusPending = "pending"
+
+// knownJobStatus passes one of BrandBrain's four crawl_jobs statuses through and reports any other
+// value as "other". An unknown status is never read as pending.
+func knownJobStatus(s string) string {
+	switch s {
+	case "pending", "in_progress", "succeeded", "failed":
+		return s
+	default:
+		return "other"
+	}
 }
 
 // waitSmokeExecution polls the enqueue execution until it finishes or smokeWait passes. It
@@ -556,7 +572,7 @@ func crawlSmokeStatus(ctx context.Context, op AdminCrawlOpsOperator, userID, smo
 			if !asSent {
 				j.Detail += fmt.Sprintf(" (queued at priority %d, not the smoke priority %d: it was deduplicated onto an existing job)", facts.BB.Priority, smokeQueuePriority)
 			}
-			j.BrandBrainStatus, j.AssignedRig = closedValue(facts.BB.Status), facts.BB.AssignedAgent
+			j.BrandBrainStatus, j.AssignedRig = knownJobStatus(facts.BB.Status), facts.BB.AssignedAgent
 			j.Attempts, j.MaxAttempts = facts.BB.Attempts, facts.BB.MaxAttempts
 		}
 		if n := len(receipts); n > 0 {

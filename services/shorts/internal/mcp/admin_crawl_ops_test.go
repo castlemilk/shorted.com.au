@@ -669,15 +669,14 @@ func TestFailuresGroupJobsByClassWithSamplesAndTopSuburbs(t *testing.T) {
 			ErrorMessage: "chrome exited"})
 	}
 	jobs = append(jobs,
-		brandbrain.CrawlJob{ID: "job-x", Suburb: "manly", Status: "deferred", Source: "rea", ErrorMessage: "timeout"},
-		brandbrain.CrawlJob{ID: "job-y", Suburb: "manly", Status: "deferred", Source: "domain", ErrorMessage: "timeout"})
+		brandbrain.CrawlJob{ID: "job-x", Suburb: "manly", Status: "failed", Source: "rea", ErrorMessage: "timeout"},
+		brandbrain.CrawlJob{ID: "job-y", Suburb: "manly", Status: "failed", Source: "domain", ErrorMessage: "timeout"})
 	fleet := &fakeFleet{jobs: jobs}
 	ledger := &fakeLedger{groups: []CrawlReceiptGroup{{Source: "rea", AppliedStatus: "SWEEP_STATUS_BLOCKED", Suburb: "bondi", Count: 2}},
 		reasons: []CrawlReasonCount{{Reason: "mass_delist", Count: 1}}}
 	out, err := crawlFailures(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", CrawlFailuresInput{Source: "rea"}, fixedNow)
 	require.NoError(t, err)
-	assert.Equal(t, 6, out.JobFailed)
-	assert.Equal(t, 1, out.JobDeferred, "the domain deferral is filtered by source")
+	assert.Equal(t, 7, out.JobFailed, "six chrome failures and one timeout on rea; the domain failure is filtered by source")
 	require.Len(t, out.Classes, 2)
 	chrome := out.Classes[0]
 	assert.Equal(t, FailureChrome, chrome.Class)
@@ -779,8 +778,9 @@ func TestSmokeVerdictWaitingWithWhatItWaitsOn(t *testing.T) {
 		bb     *brandbrain.CrawlJob
 		detail string
 	}{
-		{"queued at brandbrain", &brandbrain.CrawlJob{Status: "queued"}, "queued at BrandBrain; waiting for the rig's drain"},
-		{"deferred with attempts left", &brandbrain.CrawlJob{Status: "deferred", Attempts: 1, MaxAttempts: 3}, "deferred at BrandBrain; it will retry"},
+		{"pending at brandbrain", &brandbrain.CrawlJob{Status: "pending"}, "pending at BrandBrain; waiting for the rig's drain"},
+		{"in progress at brandbrain", &brandbrain.CrawlJob{Status: "in_progress"}, "in progress at BrandBrain"},
+		{"succeeded but unreceipted", &brandbrain.CrawlJob{Status: "succeeded"}, "succeeded at BrandBrain; no ingest receipt names it yet"},
 		{"brandbrain unknown", nil, "BrandBrain's state for this job could not be read"},
 	}
 	for _, c := range cases {
@@ -814,7 +814,7 @@ func TestSmokeStatusIsStatelessAndReadsRowsReceiptsAndBrandBrain(t *testing.T) {
 			"job-rea": {{AppliedStatus: "SWEEP_STATUS_COMPLETE", ListingsUpserted: 9}},
 		},
 	}
-	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{{ID: "job-domain", Status: "queued", Source: "domain"}}}
+	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{{ID: "job-domain", Status: "pending", Source: "domain"}}}
 	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, SmokeWaiting, out.Verdict)
@@ -822,7 +822,7 @@ func TestSmokeStatusIsStatelessAndReadsRowsReceiptsAndBrandBrain(t *testing.T) {
 	assert.Equal(t, SmokePassed, out.Jobs[0].Verdict)
 	assert.Equal(t, 9, out.Jobs[0].Listings)
 	assert.Equal(t, SmokeWaiting, out.Jobs[1].Verdict)
-	assert.Equal(t, "queued", out.Jobs[1].BrandBrainStatus)
+	assert.Equal(t, "pending", out.Jobs[1].BrandBrainStatus)
 
 	// Stateless: the same inputs give the same answer, and nothing was written.
 	again, _ := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, fixedNow)
@@ -1062,12 +1062,12 @@ func TestSmokeDrainReachesTheRigOverTheFleetWire(t *testing.T) {
 // smoke priority, no drain is sent, and the queue position of each open job is named.
 func TestSmokeReportsAnExplicitSuburbAlreadyQueuedAndSendsNothing(t *testing.T) {
 	shortPolls(t)
-	created := fixedNow.Add(-time.Hour)
+	created, older := fixedNow.Add(-time.Hour), fixedNow.Add(-2*time.Hour)
 	fleet := &fakeFleet{
 		jobs: []brandbrain.CrawlJob{
-			{ID: "job-open", Status: "queued", Priority: 5, CreatedAt: &created, Source: "rea"},
-			{ID: "job-ahead", Status: "queued", Priority: 9, CreatedAt: &created, Source: "rea"},
-			{ID: "job-behind", Status: "queued", Priority: 5, CreatedAt: &fixedNow, Source: "rea"},
+			{ID: "job-open", Status: "pending", Priority: 5, CreatedAt: &created, Source: "rea"},
+			{ID: "job-ahead", Status: "pending", Priority: 9, CreatedAt: &older, Source: "rea"},
+			{ID: "job-behind", Status: "pending", Priority: 5, CreatedAt: &fixedNow, Source: "rea"},
 		},
 	}
 	ledger := &fakeLedger{dispatch: []CrawlDispatch{smokeDispatch("job-open", "rea", fixedNow.Add(time.Hour), false)}}
@@ -1082,23 +1082,43 @@ func TestSmokeReportsAnExplicitSuburbAlreadyQueuedAndSendsNothing(t *testing.T) 
 	require.Len(t, out.Queue, 1)
 	assert.Equal(t, "job-open", out.Queue[0].JobID)
 	assert.Equal(t, 5, out.Queue[0].Priority)
-	assert.Equal(t, 1, out.Queue[0].Ahead, "only job-ahead, at a higher priority, is claimed first")
+	assert.Equal(t, 1, out.Queue[0].Ahead, "only job-ahead is pending, at least as urgent and older")
 	assert.Contains(t, strings.Join(out.Waiting, " "), "smoke priority cannot apply")
 }
 
 // The count of pending jobs claimed before a job: higher priority, or the same priority created
 // earlier. A job never counts itself.
-func TestQueueAheadFollowsTheClaimOrder(t *testing.T) {
+// The queue position counts PENDING jobs with a priority at least the job's own and an older
+// created_at. A job in any other status is not waiting, and a job never counts itself.
+func TestQueueAheadCountsPendingJobsAtLeastOwnPriorityAndOlder(t *testing.T) {
 	early, late := fixedNow.Add(-time.Hour), fixedNow
-	own := brandbrain.CrawlJob{ID: "own", Priority: 5, CreatedAt: &late}
+	own := brandbrain.CrawlJob{ID: "own", Status: "pending", Priority: 5, CreatedAt: &late}
 	pending := []brandbrain.CrawlJob{
 		own,
-		{ID: "higher", Priority: 6, CreatedAt: &late},
-		{ID: "same-earlier", Priority: 5, CreatedAt: &early},
-		{ID: "same-later", Priority: 5, CreatedAt: &late},
-		{ID: "lower", Priority: 4, CreatedAt: &early},
+		{ID: "higher-older", Status: "pending", Priority: 6, CreatedAt: &early}, // counts
+		{ID: "same-older", Status: "pending", Priority: 5, CreatedAt: &early},   // counts
+		{ID: "same-newer", Status: "pending", Priority: 5, CreatedAt: &late},    // not older
+		{ID: "lower-older", Status: "pending", Priority: 4, CreatedAt: &early},  // lower priority
+		{ID: "same-older-running", Status: "in_progress", Priority: 5, CreatedAt: &early},
+		{ID: "same-older-done", Status: "succeeded", Priority: 9, CreatedAt: &early},
+		{ID: "same-older-unknown", Status: "queued", Priority: 9, CreatedAt: &early},
 	}
-	assert.Equal(t, 2, queueAhead(pending, own))
+	assert.Equal(t, 2, queueAhead(pending, own), "only pending jobs at least as urgent and older than own")
+}
+
+// Only the four real statuses are passed through. Anything else is "other", never pending.
+func TestUnknownJobStatusIsOtherNeverPending(t *testing.T) {
+	for _, s := range []string{"pending", "in_progress", "succeeded", "failed"} {
+		assert.Equal(t, s, knownJobStatus(s))
+	}
+	for _, s := range []string{"queued", "deferred", "", "Pending"} {
+		assert.Equal(t, "other", knownJobStatus(s), "%q must read as other", s)
+	}
+	verdict, _, detail := judgeSmokeJob(smokeJobFacts{Dispatch: smokeDispatch("job-1", "rea", fixedNow.Add(time.Hour), false),
+		BB: &brandbrain.CrawlJob{Status: "queued"}, Now: fixedNow})
+	assert.Equal(t, SmokeWaiting, verdict)
+	assert.Contains(t, detail, "unrecognised")
+	assert.NotContains(t, detail, "pending at BrandBrain", "an unknown status must not read as pending")
 }
 
 // A 429 on the drain is reported as a limit, with its message, and never as a failure.
@@ -1127,7 +1147,7 @@ func TestSmokeStatusNamesAJobNotEnqueuedAtTheSmokePriority(t *testing.T) {
 	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
 	ledger := &fakeLedger{dispatch: []CrawlDispatch{smokeDispatch("job-rea", "rea", future, false)}}
 	ledger.dispatch[0].RunID = smokeID
-	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{{ID: "job-rea", Status: "queued", Priority: 5, Source: "rea"}}}
+	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{{ID: "job-rea", Status: "pending", Priority: 5, Source: "rea"}}}
 	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, fixedNow)
 	require.NoError(t, err)
 	require.Len(t, out.Jobs, 1)

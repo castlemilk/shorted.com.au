@@ -56,7 +56,7 @@ Code on the web) with thirty-one tools:
 | `delete_alert_monitor` `{monitor_id}` | `jobs:run` | Deletes one of the caller's own monitors and its events. Refused for any other monitor. |
 | `housing_crawl_rigs` `{rig_id?}` | `crawl:authorize` | Lists shorted's housing crawl allowlist (`housing_ingest_rigs`): each subject, whether it is enabled and when it was added. The note is not returned. With `rig_id`, also BrandBrain's `housing_crawl_v1` grant for that rig and whether shorted's row for its `workload_subject` exists and is enabled. Read-only. Each row also reports `ingest_admits` (see "What `ingest_admits` means"). |
 | `housing_crawl_status` `{}` | `crawl:read` | One read that answers whether the housing crawl is healthy: each rig's version, liveness, state, drain and last outcome and exit code, in-flight phase, round and counts, Chrome and driver versions, alarms and ingest probe; each portal's breaker with `blocked` judged against the server's clock (see "Housing crawl debugging"); the BrandBrain queue by status and source; shorted's open and expiring dispatches, receipts for the last hour and day by portal and status, quarantine reasons for the day, the finalize cursor, and the server schedules. Counts only. |
-| `housing_crawl_failures` `{since?, rig_id?, source?}` | `crawl:read` | BrandBrain failed and deferred crawl jobs grouped by failure class (`not_dispatched`, `dispatch_expired`, `target_mismatch`, `blocked`, `circuit_open`, `chrome`, `timeout`, `ingest_unavailable`, `other`), with counts, the top five suburbs and up to five sample job ids per class; BLOCKED and PARTIAL ingest receipts; and quarantine reasons. `since` is `24h` (the default) or `7d` at most. `source` is `rea`, `domain` or `both`. |
+| `housing_crawl_failures` `{since?, rig_id?, source?}` | `crawl:read` | BrandBrain failed crawl jobs grouped by failure class (`not_dispatched`, `dispatch_expired`, `target_mismatch`, `blocked`, `circuit_open`, `chrome`, `timeout`, `ingest_unavailable`, `other`), with counts, the top five suburbs and up to five sample job ids per class; BLOCKED and PARTIAL ingest receipts; and quarantine reasons. `since` is `24h` (the default) or `7d` at most. `source` is `rea`, `domain` or `both`. |
 | `housing_crawl_job` `{job_id, with_logs?}` | `crawl:read` | One job's whole trail: its BrandBrain record (the error text redacted, the result summary reduced to its counts), its ledger row, every ingest receipt for it, its quarantine rows and, with `with_logs: true`, the assigned rig's housing log lines around the job id (requested now, waits up to 60 seconds). |
 | `housing_crawl_logs` `{rig_id, source, grep?, max_lines?}` | `crawl:read` | Asks one rig for its `housing` or `runtime` log, waits up to 60 seconds, and returns the lines that match `grep` (case-insensitive), the last `max_lines` of them (default 200, at most 1000). URLs, prices, e-mail addresses, phone numbers and street addresses are redacted. A log request is a command to the rig, sent once per call. |
 | `housing_crawl_smoke` `{rig_id, confirm: true, suburb?, smoke_id?}` | `crawl:operate` | **LIVE CRAWL.** Starts a live drain on the rig (dry runs are refused for this token). Enqueues ONE catalog suburb on both portals at queue priority 100, waits up to two minutes for the enqueue, then sends the rig one live `housing_crawl_run {job: drain, dry_run: false}`. A suburb that already has open crawl jobs is reported as `already_queued` with its queue position, and nothing is sent: a new enqueue would dedupe onto the existing job and keep its priority. A 429 from BrandBrain is reported as `rate_limited` ("rig drain rate limit reached; retry later"), not as a failure. Returns a `smoke_id`. Call it again with `smoke_id` to continue a run that stopped before its drain: the drain is keyed by the run, so it is never sent twice. |
@@ -481,7 +481,10 @@ is never used.
    catalog slug). It returns a `smoke_id`. `enqueue: succeeded` means the job wrote its
    ledger rows, and then `drain: sent` means the rig was told to collect. `enqueue:
    already_queued` means the suburb had open jobs: nothing was enqueued or drained, and
-   `queue` lists each job with its priority and how many pending jobs are claimed before it.
+   `queue` lists each job with its priority and how many PENDING jobs are claimed before it:
+   pending jobs with a priority at least its own and created earlier. BrandBrain's crawl_jobs
+   statuses are exactly `pending`, `in_progress`, `succeeded` and `failed`; anything else reads as
+   `other`, never as pending.
    `drain: rate_limited` means BrandBrain's per-rig live limit was reached: retry later.
 3. Run `housing_crawl_smoke_status` with the `smoke_id` until the verdict is not `waiting`. A
    job whose priority is not 100 was deduplicated onto an existing job, and its detail says so.
@@ -498,8 +501,8 @@ catch. A job whose BrandBrain state cannot be read is `waiting`, never `passed`.
 
 ### Failure classes
 
-`housing_crawl_failures` and the smoke verdict share one classification of a BrandBrain failed or
-deferred job. BrandBrain redacts the error text (URLs, e-mail addresses and paths are stripped)
+`housing_crawl_failures` and the smoke verdict share one classification of a BrandBrain failed
+job. BrandBrain redacts the error text (URLs, e-mail addresses and paths are stripped)
 and caps it at about 512 bytes, so the classifier reads stable words that survive redaction:
 `not dispatched`, `dispatch expired`, `target mismatch`, `circuit open`, `blocked`, `chrome`,
 `timeout` or `timed out`, `ingest unavailable`. Two counters in the result summary are read as

@@ -279,7 +279,8 @@ type StatusSourceCount struct {
 // CrawlJobQuery filters the crawl-jobs list. Zero fields are not sent. Kind, when set, must
 // be CrawlKind; the list is always restricted to it. Source may be rea, domain or both.
 type CrawlJobQuery struct {
-	ID            string
+	ID string
+	// Status is one of BrandBrain's crawl_jobs statuses: pending, in_progress, succeeded or failed.
 	Status        string
 	Source        string
 	Kind          string

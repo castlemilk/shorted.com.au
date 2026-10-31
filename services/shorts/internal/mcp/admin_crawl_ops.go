@@ -7,7 +7,7 @@ package mcp
 //
 //   - housing_crawl_status: rigs, portals (blocked computed against the server's clock),
 //     the queue summary, the shorted ledger, and the server schedules.
-//   - housing_crawl_failures: BrandBrain failed and deferred jobs grouped by failure
+//   - housing_crawl_failures: BrandBrain failed jobs grouped by failure
 //     class, plus BLOCKED and PARTIAL receipts and quarantine reasons.
 //   - housing_crawl_job: one job's record, ledger row, receipts and quarantine rows, and
 //     optionally its rig's log lines around the job id.
@@ -545,16 +545,15 @@ type CrawlFailuresInput struct {
 
 // CrawlFailuresOutput is what is failing, and where.
 type CrawlFailuresOutput struct {
-	Since       string                 `json:"since"`
-	RigID       string                 `json:"rig_id,omitempty"`
-	Source      string                 `json:"source,omitempty"`
-	JobFailed   int                    `json:"jobs_failed"`
-	JobDeferred int                    `json:"jobs_deferred"`
-	Classes     []CrawlFailureClassOut `json:"failure_classes" jsonschema:"BrandBrain failed and deferred jobs, grouped by failure class. Only classes that occurred."`
-	Receipts    []CrawlReceiptFailure  `json:"receipts" jsonschema:"Ingest receipts that were BLOCKED or PARTIAL."`
-	Quarantine  []CrawlReasonOut       `json:"quarantine"`
-	Truncated   bool                   `json:"truncated" jsonschema:"True when the job list reached its page limit, so counts are a floor."`
-	Sources     []JobSource            `json:"sources"`
+	Since      string                 `json:"since"`
+	RigID      string                 `json:"rig_id,omitempty"`
+	Source     string                 `json:"source,omitempty"`
+	JobFailed  int                    `json:"jobs_failed"`
+	Classes    []CrawlFailureClassOut `json:"failure_classes" jsonschema:"BrandBrain failed jobs, grouped by failure class. Only classes that occurred."`
+	Receipts   []CrawlReceiptFailure  `json:"receipts" jsonschema:"Ingest receipts that were BLOCKED or PARTIAL."`
+	Quarantine []CrawlReasonOut       `json:"quarantine"`
+	Truncated  bool                   `json:"truncated" jsonschema:"True when the job list reached its page limit, so counts are a floor."`
+	Sources    []JobSource            `json:"sources"`
 }
 
 // CrawlFailureClassOut is one failure class.
@@ -562,7 +561,6 @@ type CrawlFailureClassOut struct {
 	Class        string             `json:"class"`
 	Count        int                `json:"count"`
 	Failed       int                `json:"failed"`
-	Deferred     int                `json:"deferred"`
 	TopSuburbs   []CrawlSuburbCount `json:"top_suburbs"`
 	SampleJobIDs []string           `json:"sample_job_ids"`
 }
@@ -587,7 +585,7 @@ func crawlFailuresTool() AdminTool {
 		sdk.AddTool(server, &sdk.Tool{
 			Name:  t.Name,
 			Title: "Housing crawl failures",
-			Description: "What is going wrong and where: BrandBrain failed and deferred crawl jobs grouped by a normalised failure class " +
+			Description: "What is going wrong and where: BrandBrain failed crawl jobs grouped by a normalised failure class " +
 				"(not_dispatched, dispatch_expired, target_mismatch, blocked, circuit_open, chrome, timeout, ingest_unavailable, other), " +
 				"with counts, the top suburbs and up to five sample job ids per class; BLOCKED and PARTIAL ingest receipts; and quarantine reasons. " +
 				"Filter by since (default 24h, max 7d), rig_id or source. Counts and ids only.",
@@ -602,8 +600,8 @@ func crawlFailuresTool() AdminTool {
 			if err != nil {
 				return crawlToolError(err), CrawlFailuresOutput{}, nil
 			}
-			text := fmt.Sprintf("Since %s: %d failed and %d deferred job(s) in %d class(es); %d receipt group(s) BLOCKED or PARTIAL.",
-				out.Since, out.JobFailed, out.JobDeferred, len(out.Classes), len(out.Receipts))
+			text := fmt.Sprintf("Since %s: %d failed job(s) in %d class(es); %d receipt group(s) BLOCKED or PARTIAL.",
+				out.Since, out.JobFailed, len(out.Classes), len(out.Receipts))
 			return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: text}}}, out, nil
 		})
 	}
@@ -652,7 +650,8 @@ func crawlFailures(ctx context.Context, op AdminCrawlOpsOperator, userID string,
 		return out, errCrawlFleetUnconfigured
 	}
 	byClass := map[string]*classAcc{}
-	for _, status := range []string{"failed", "deferred"} {
+	// Crawl jobs have four statuses: pending, in_progress, succeeded and failed. Only failed is a failure.
+	for _, status := range []string{"failed"} {
 		page, err := fleet.ListCrawlJobs(ctx, brandbrain.CrawlJobQuery{
 			Status: status, Kind: crawlKind, Source: in.Source, AssignedAgent: in.RigID,
 			UpdatedSince: now.Add(-since).Format(time.RFC3339), Limit: crawlJobsPage,
@@ -671,21 +670,17 @@ func crawlFailures(ctx context.Context, op AdminCrawlOpsOperator, userID string,
 				acc = &classAcc{suburbs: map[string]int{}}
 				byClass[class] = acc
 			}
-			acc.add(j.ID, j.Suburb, status)
-			if status == "failed" {
-				out.JobFailed++
-			} else {
-				out.JobDeferred++
-			}
+			acc.add(j.ID, j.Suburb)
+			out.JobFailed++
 		}
 	}
 	if len(out.Sources) == 0 {
-		out.Sources = append(out.Sources, JobSource{Name: "brandbrain_crawl_jobs", Status: "available", Detail: "Failed and deferred jobs in the window, by class."})
+		out.Sources = append(out.Sources, JobSource{Name: "brandbrain_crawl_jobs", Status: "available", Detail: "Failed jobs in the window, by class."})
 	}
 	for _, class := range FailureClasses {
 		if acc := byClass[class]; acc != nil {
-			out.Classes = append(out.Classes, CrawlFailureClassOut{Class: class, Count: acc.failed + acc.deferred,
-				Failed: acc.failed, Deferred: acc.deferred, TopSuburbs: topSuburbs(acc.suburbs), SampleJobIDs: acc.samples()})
+			out.Classes = append(out.Classes, CrawlFailureClassOut{Class: class, Count: acc.failed,
+				TopSuburbs: topSuburbs(acc.suburbs), SampleJobIDs: acc.samples()})
 		}
 	}
 
@@ -717,17 +712,13 @@ func crawlFailures(ctx context.Context, op AdminCrawlOpsOperator, userID string,
 
 // classAcc collects one failure class.
 type classAcc struct {
-	failed, deferred int
-	suburbs          map[string]int
-	ids              []string
+	failed  int
+	suburbs map[string]int
+	ids     []string
 }
 
-func (c *classAcc) add(id, suburb, status string) {
-	if status == "failed" {
-		c.failed++
-	} else {
-		c.deferred++
-	}
+func (c *classAcc) add(id, suburb string) {
+	c.failed++
 	c.suburbs[suburb]++
 	if len(c.ids) < crawlFailureSample {
 		c.ids = append(c.ids, id)
@@ -943,7 +934,7 @@ func crawlJob(ctx context.Context, op AdminCrawlOpsOperator, userID string, in C
 		return out, errCrawlJobNotFound
 	}
 	out.Job = jobRecord(*job)
-	if job.Status == "failed" || job.Status == "deferred" {
+	if job.Status == "failed" {
 		out.FailureClass = classifyCrawlFailure(job.ErrorMessage, job.ResultSummary)
 	}
 	out.Sources = append(out.Sources, JobSource{Name: "brandbrain_crawl_jobs", Status: "available", Detail: "The job record."})
