@@ -93,6 +93,7 @@ function setup({
     put: jest.fn(async () => undefined),
   };
   const launches: [string, unknown][] = [];
+  const warmCharts = jest.fn(async () => undefined);
   const grants: SettingsGrant[] = [];
   const deps: HandlerDeps = {
     data,
@@ -115,10 +116,12 @@ function setup({
         : null;
     },
     renderChart,
+    warmCharts,
   };
   return {
     data,
     renderChart,
+    warmCharts,
     rest,
     outcomes,
     settingsStore,
@@ -445,9 +448,13 @@ describe("handleInteraction", () => {
     it("post a private note, not an edit, when a slow redraw fails", async () => {
       let release!: (s: StockSummary | null) => void;
       const data = fakeData({
-        stockSummary: jest.fn(
-          () => new Promise<StockSummary | null>((r) => (release = r)),
-        ),
+        stockSummary: jest
+          .fn()
+          .mockImplementationOnce(
+            () => new Promise<StockSummary | null>((r) => (release = r)),
+          )
+          // The retry finds nothing either.
+          .mockResolvedValue(null),
       });
       const { handle, rest, settle } = setup({ data, fastPathMs: 20 });
       await handle(
@@ -465,8 +472,66 @@ describe("handleInteraction", () => {
     });
   });
 
+  it("read the stock again once when a read comes back empty", async () => {
+    const data = fakeData({
+      stockSummary: jest
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockImplementation(async (code: string) => STOCKS[code] ?? null),
+    });
+    const t = setup({ data });
+    const message = await deliveredChart(
+      t,
+      await t.handle(
+        component(
+          chartCustomId("period", { code: "BHP", view: "short", period: "6m" }),
+        ),
+      ),
+      InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+    );
+    expect(data.stockSummary).toHaveBeenCalledTimes(2);
+    expect(chartShown(message)).toBe("attachment://BHP-short-6m.png");
+  });
+
+  it("have the cards one press away drawn once the chart is out", async () => {
+    const t = setup();
+    await deliveredChart(
+      t,
+      await t.handle(
+        component(
+          chartCustomId("period", { code: "BHP", view: "price", period: "3m" }),
+        ),
+      ),
+      InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+    );
+    expect(t.warmCharts).toHaveBeenCalledWith({
+      code: "BHP",
+      view: "price",
+      period: "3m",
+    });
+  });
+
   describe("the Interactive button", () => {
-    const id = activityCustomId({ code: "BHP", view: "short", period: "1y" });
+    const id = activityCustomId({
+      code: "CBA",
+      view: "combined",
+      period: "6m",
+    });
+
+    it("launches the Activity at the message's chart, handed over by channel", async () => {
+      // Discord does not pass the button to the Activity, which then opened the
+      // server's default stock instead of this one.
+      const { handle, launches } = setup({ activityEnabled: true });
+      expect(
+        await handle({ ...component(id), channel_id: "1290000000000000003" }),
+      ).toEqual({ type: InteractionResponseType.LAUNCH_ACTIVITY });
+      expect(launches).toEqual([
+        [
+          "1290000000000000003",
+          { code: "CBA", view: "combined", period: "6m" },
+        ],
+      ]);
+    });
 
     it("launches the Activity when it is enabled", async () => {
       const { handle } = setup({ activityEnabled: true });

@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import type { MessagePayload } from "../api";
-import { editOriginal, messageBody } from "../rest";
+import { editOriginal, followUp, messageBody } from "../rest";
 
 const message: MessagePayload = {
   embeds: [{ title: "BHP", image: { url: "attachment://BHP-short-1y.png" } }],
@@ -86,5 +86,80 @@ describe("editOriginal", () => {
     await expect(editOriginal("app-1", token, message)).rejects.toThrow(
       /PATCH \/webhooks\/app-1\/<token>\/messages\/@original -> 400: bad/,
     );
+  });
+});
+
+describe("retries", () => {
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  // What fetch answers, with just what rest.ts reads.
+  const answer = (status: number, headers: Record<string, string> = {}) => ({
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers(headers),
+    text: async () => "",
+  });
+
+  function fetchAnswering(...answers: (number | Error)[]) {
+    const mock = jest.fn(async () => {
+      const next = answers.shift() ?? 200;
+      if (next instanceof Error) throw next;
+      return answer(next, next === 429 ? { "retry-after": "0.01" } : {});
+    });
+    global.fetch = mock as unknown as typeof fetch;
+    return mock;
+  }
+
+  it("tries an edit again after a 5xx, and after Discord's rate limit", async () => {
+    const fetchMock = fetchAnswering(502, 429, 200);
+    await editOriginal("app-1", "tok-1", message);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("sends the upload afresh on each attempt", async () => {
+    const fetchMock = fetchAnswering(500, 200);
+    await editOriginal("app-1", "tok-1", {
+      ...message,
+      files: [{ name: "a.png", data: card, contentType: "image/png" }],
+    });
+    const bodies = (
+      fetchMock.mock.calls as unknown as [string, RequestInit][]
+    ).map(([, init]) => init.body);
+    expect(bodies[0]).toBeInstanceOf(FormData);
+    expect(bodies[1]).toBeInstanceOf(FormData);
+    expect(bodies[1]).not.toBe(bodies[0]);
+  });
+
+  it("tries an edit again after a dropped connection", async () => {
+    const fetchMock = fetchAnswering(new Error("socket hang up"), 200);
+    await editOriginal("app-1", "tok-1", message);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("never resends a follow-up after a dropped connection, which may have posted it", async () => {
+    const fetchMock = fetchAnswering(new Error("socket hang up"), 200);
+    await expect(followUp("app-1", "tok-1", message)).rejects.toThrow(
+      "socket hang up",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes any other answer as final", async () => {
+    const fetchMock = fetchAnswering(404, 200);
+    await expect(editOriginal("app-1", "tok-1", message)).rejects.toThrow(
+      /-> 404/,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up after three attempts", async () => {
+    const fetchMock = fetchAnswering(503, 503, 503, 200);
+    await expect(editOriginal("app-1", "tok-1", message)).rejects.toThrow(
+      /-> 503/,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

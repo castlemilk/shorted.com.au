@@ -16,5 +16,9 @@ describe("Vercel cost configuration", () => {
     expect(root.functions).toEqual(web.functions);
     expect(web.crons.some((cron: { path: string }) => cron.path === "/api/auth/session")).toBe(false);
     expect(web.crons).toContainEqual({ path: "/api/static-pages/warm-cache", schedule: "10 * * * *" });
+    // Keeps the Discord bot's function warm: Discord fails an interaction not
+    // answered in three seconds, and a cold start can take most of them. The
+    // GET is the bot's status, which reads only config.
+    expect(web.crons).toContainEqual({ path: "/api/discord/interactions", schedule: "*/5 * * * *" });
   });
 });

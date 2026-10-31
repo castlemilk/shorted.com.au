@@ -77,6 +77,11 @@ export interface HandlerDeps {
   settingsUrl: (grant: SettingsGrant) => string | null;
   /** A chart's card as PNG, or null when it cannot be drawn whole (chart-card.ts). */
   renderChart: (state: ChartState) => Promise<Uint8Array | null>;
+  /**
+   * Has the cards one press away from a posted chart drawn ahead of the press
+   * (chart-card.ts). Run in the background; nothing waits on it.
+   */
+  warmCharts?: (state: ChartState) => Promise<void>;
 }
 
 export interface Outcome {
@@ -98,6 +103,8 @@ const SEARCH_RESULTS = 10;
 export const SETTINGS_BUDGET_MS = 500;
 /** How long the hand-off to the Activity may take before it launches anyway. */
 const LAUNCH_HANDOFF_MS = 600;
+/** A button's stock was charted a moment ago, so a failed read is retried once, after this. */
+export const SUMMARY_RETRY_MS = 400;
 /**
  * How long a chart's card may take to draw before its message goes out with
  * the card's URL instead. Inside the route's maxDuration with the summary
@@ -251,6 +258,9 @@ async function chartMessage(
   const card = await (early?.code === summary.code
     ? early.card
     : drawCard(state, deps));
+  if (deps.warmCharts) {
+    deps.waitUntil(deps.warmCharts(state).catch(() => undefined));
+  }
   return buildChartMessage({
     summary,
     state,
@@ -258,6 +268,20 @@ async function chartMessage(
     now: deps.now(),
     card,
   });
+}
+
+/**
+ * A button's stock: it was charted a moment ago, so a read that comes back
+ * empty or fails is a blip, and is tried once more before the presser is told.
+ */
+async function buttonSummary(
+  code: string,
+  data: DiscordData,
+): Promise<StockSummary | null> {
+  const first = await data.stockSummary(code).catch(() => null);
+  if (first) return first;
+  await new Promise((resolve) => setTimeout(resolve, SUMMARY_RETRY_MS));
+  return data.stockSummary(code);
 }
 
 /** A new chart message for what was typed (a code, or a name to search). */
@@ -489,7 +513,7 @@ function routeComponent(
         kind: "chart",
         action: "component_chart",
         mode: "update",
-        summary: deps.data.stockSummary(code),
+        summary: buttonSummary(code, deps.data),
         draw: (summary) =>
           chartMessage(summary, view, period, deps, { code, card }),
         missing: notice(
@@ -497,15 +521,33 @@ function routeComponent(
         ),
       };
     }
-    case "activity":
-      return deps.activityEnabled
-        ? now("component_activity", {
+    case "activity": {
+      if (!deps.activityEnabled) {
+        return privately(
+          "component_activity",
+          "The interactive chart isn't switched on for this bot. Use **Open on Shorted** instead.",
+        );
+      }
+      // Discord does not pass the pressed button to the Activity, which then
+      // opened the server's default stock (DRO from a CBA message, 2026-10-31).
+      // So the button's chart is handed over by channel first, as interactive
+      // mode does, and the Activity's launch lookup finds it.
+      const { code, view, period } = parsed.state;
+      const channelId = interaction.channel_id;
+      return isSnowflake(channelId)
+        ? {
+            kind: "launch",
+            action: "component_activity",
+            channelId,
+            summary: Promise.resolve({ code }),
+            input: code,
+            view,
+            period,
+          }
+        : now("component_activity", {
             type: InteractionResponseType.LAUNCH_ACTIVITY,
-          })
-        : privately(
-            "component_activity",
-            "The interactive chart isn't switched on for this bot. Use **Open on Shorted** instead.",
-          );
+          });
+    }
     case "pick": {
       const code = normalizeCode(interaction.data?.values?.[0]);
       return code

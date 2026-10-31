@@ -50,26 +50,59 @@ export function messageBody(payload: MessagePayload): {
   return { body: form, headers: {} };
 }
 
+/** Waits before the second and third attempts (a 429's own Retry-After wins). */
+export const RETRY_DELAYS_MS = [400, 1200];
+const MAX_RETRY_AFTER_MS = 5000;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Discord's Retry-After (seconds, possibly fractional), capped; null without one. */
+function retryAfterMs(response: Response): number | null {
+  const seconds = Number(response.headers.get("retry-after"));
+  return Number.isFinite(seconds) && seconds > 0
+    ? Math.min(seconds * 1000, MAX_RETRY_AFTER_MS)
+    : null;
+}
+
+/**
+ * One webhook call, tried up to three times: a 429 (after its Retry-After), a
+ * 5xx, or for an edit or a delete a failed connection. A follow-up (POST) is
+ * not resent after a failed connection, which may have delivered it, since a
+ * second copy would post twice. Any other answer is final.
+ */
 async function call(
   method: "PATCH" | "POST" | "DELETE",
   path: string,
   payload?: MessagePayload,
 ): Promise<void> {
-  const encoded = payload === undefined ? undefined : messageBody(payload);
-  const response = await fetch(`${DISCORD_API_BASE}${path}`, {
-    method,
-    headers: { ...encoded?.headers, "User-Agent": USER_AGENT },
-    body: encoded?.body,
-    cache: "no-store",
-    signal: AbortSignal.timeout(
-      payload?.files?.length ? UPLOAD_TIMEOUT_MS : TIMEOUT_MS,
-    ),
-  });
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(
-      `Discord ${method} ${path.replace(/\/[^/]{60,}/, "/<token>")} -> ${response.status}: ${text.slice(0, 200)}`,
-    );
+  const name = `Discord ${method} ${path.replace(/\/[^/]{60,}/, "/<token>")}`;
+  for (let attempt = 0; ; attempt += 1) {
+    const last = attempt >= RETRY_DELAYS_MS.length;
+    // A body is read once, so each attempt encodes its own.
+    const encoded = payload === undefined ? undefined : messageBody(payload);
+    let response: Response;
+    try {
+      response = await fetch(`${DISCORD_API_BASE}${path}`, {
+        method,
+        headers: { ...encoded?.headers, "User-Agent": USER_AGENT },
+        body: encoded?.body,
+        cache: "no-store",
+        signal: AbortSignal.timeout(
+          payload?.files?.length ? UPLOAD_TIMEOUT_MS : TIMEOUT_MS,
+        ),
+      });
+    } catch (error) {
+      if (last || method === "POST") throw error;
+      await sleep(RETRY_DELAYS_MS[attempt]!);
+      continue;
+    }
+    if (response.ok) return;
+    const retryable = response.status === 429 || response.status >= 500;
+    if (!retryable || last) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`${name} -> ${response.status}: ${text.slice(0, 200)}`);
+    }
+    await sleep(retryAfterMs(response) ?? RETRY_DELAYS_MS[attempt]!);
   }
 }
 

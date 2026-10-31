@@ -54,6 +54,9 @@ export async function GET(
     ...OG_SIZE,
     headers: {
       "cache-control": complete ? CACHE_COMPLETE : CACHE_INCOMPLETE,
+      // The Discord bot uploads this card with its messages, and draws its own
+      // rather than upload one missing a series (lib/discord/chart-card.ts).
+      "x-chart-card": complete ? "complete" : "partial",
     },
   });
 }

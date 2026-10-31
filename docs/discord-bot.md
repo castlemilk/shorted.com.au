@@ -195,21 +195,46 @@ the endpoint answers 503 and Discord will not accept its URL. For a second app
 that deployment and pass `-- --endpoint <url>` to the tasks.
 
 **The chart image** is the share card the site serves to unfurlers
-(`/chart/<CODE>/image`), drawn by the bot itself and uploaded with the message
-as `attachment://<CODE>-<view>-<period>.png`. It used to be that card's URL, for
-Discord's media proxy to fetch. Every period or view button names a new URL, so
-the proxy fetched each one cold (1.5 to 5s to render, measured 2026-10-31),
-through Cloudflare's bot checks, and a slow or refused fetch left the redrawn
-chart blank or stale, which the proxy then kept for that URL ("changing the time
-window does not reliably update the chart"). An upload arrives with the edit
-itself. So every chart reply is deferred: a button press answers
-`DEFERRED_UPDATE_MESSAGE` at once (its loading state is the feedback) and the
-webhook edit carries the new card; a command waits only to learn whether the
-stock exists, so a typo is still answered privately and at once. The stock read
-and the card render run side by side. A card that cannot be drawn whole inside
-9s (a read failed or timed out, or the renderer threw) leaves the embed on the
-card's URL as before, with `v=<today in Sydney>` so a chart posted tomorrow is
-not today's picture.
+(`/chart/<CODE>/image`), uploaded with the message as
+`attachment://<CODE>-<view>-<period>.png` (`lib/discord/chart-card.ts`). It used
+to be that card's URL, for Discord's media proxy to fetch. Every period or view
+button names a new URL, so the proxy fetched each one cold (1.5 to 5s to
+render, measured 2026-10-31), through Cloudflare's bot checks, and a slow or
+refused fetch left the redrawn chart blank or stale, which the proxy then kept
+for that URL. An upload arrives with the edit itself. So every chart reply is
+deferred: a button press answers `DEFERRED_UPDATE_MESSAGE` at once (its loading
+state is the feedback) and the webhook edit carries the new card; a command
+waits only to learn whether the stock exists, so a typo is still answered
+privately and at once. The stock read and the card run side by side.
+
+Where the card comes from:
+
+- **The share card's route, cached.** The bot fetches
+  `/chart/<CODE>/image?…&v=<today in Sydney>`, the URL a message would
+  otherwise carry, with the first-party SSR marker and secret, which the zone's
+  skip rule matches on this host, so Cloudflare lets it through. The CDN keeps
+  the card, so a period or view seen once today comes back in about 70ms, and
+  the render runs in the route's own function. Drawing it in the bot's function
+  (the first version of this) blocked it for a second or more, so a second
+  press arriving during one could miss Discord's three seconds ("This
+  interaction failed"), and nothing was cached.
+- **The neighbours, ahead of the press.** After a chart goes out, the bot has
+  the CDN draw the six charts one press away (the other four periods, the other
+  two views), two at a time in the background, so the first press on each is
+  cached too.
+- **Drawn in the bot's function** when the secret is missing, the route fails,
+  or it answers a partial card (`x-chart-card: partial`, a read timed out).
+- **The card's URL**, as before, when no whole card arrives within 9s.
+
+**Retries.** Webhook calls (the edit, a follow-up, a delete) are tried up to
+three times: after a 429 (its `Retry-After`, capped at 5s), a 5xx, or for an
+edit or a delete a dropped connection. A follow-up is not resent after a dropped
+connection, which may have posted it. A button's stock read that comes back
+empty is tried once more after 400ms before the presser is told it failed.
+
+**Warm.** Discord fails an interaction not answered in three seconds, and a
+cold start can take most of them, so a Vercel cron GETs the endpoint's status
+every five minutes (`vercel.json`; the cost config test pins it).
 
 **The reads** are the server actions the stock pages use, through the same
 caches and the first-party fetch, so Discord traffic lands on warm entries and
@@ -249,9 +274,12 @@ Activity's Entry Point command when there is one.
 The chart messages are pictures: a fresh one per button press. The Activity is
 the real chart, the site's `StockChartEmbed` with every period and view, the
 scrub readout, pinning and measuring, plus a stock search box, in an iframe
-inside Discord. **Interactive** on a chart message launches it at that chart
-(Discord passes the button's `custom_id` to the Activity's URL); the App
-Launcher opens it at the default stock. Each person explores on their own; it
+inside Discord. **Interactive** on a chart message launches it at that chart:
+Discord does not pass the pressed button to the Activity (a CBA message opened
+the server's default stock, DRO, 2026-10-31), so the button hands its chart over
+by channel first, as interactive mode does (`launch.ts`), and the Activity's
+launch lookup finds it. The App Launcher opens it at the server's default
+stock. Each person explores on their own; it
 does not sync one person's chart to the others.
 
 Discord serves an Activity from `https://<application id>.discordsays.com/`
