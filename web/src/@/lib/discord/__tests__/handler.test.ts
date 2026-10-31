@@ -55,8 +55,12 @@ function fakeRest(): jest.Mocked<DiscordRest> {
   };
 }
 
+/** What the fake renderer draws: a PNG's signature is enough to follow. */
+const CARD = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+
 interface Setup {
   data?: jest.Mocked<DiscordData>;
+  renderChart?: HandlerDeps["renderChart"];
   activityEnabled?: boolean;
   fastPathMs?: number;
   /** Stored settings by scope key ("guild:<id>", "user:<id>"). */
@@ -71,6 +75,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function setup({
   data = fakeData(),
+  renderChart = jest.fn(async () => CARD),
   activityEnabled = false,
   fastPathMs = 200,
   settings = {},
@@ -109,9 +114,11 @@ function setup({
         ? `https://shorted.com.au/discord/settings?t=signed`
         : null;
     },
+    renderChart,
   };
   return {
     data,
+    renderChart,
     rest,
     outcomes,
     settingsStore,
@@ -163,6 +170,26 @@ function messageOf(response: InteractionResponse): MessagePayload {
 
 const never = () => new Promise<never>(() => undefined);
 
+/**
+ * A chart reply: the deferral Discord gets at once, then the edit that
+ * delivers the chart with its card (only a webhook call can upload one).
+ */
+async function deliveredChart(
+  t: { rest: jest.Mocked<DiscordRest>; settle: () => Promise<unknown> },
+  response: InteractionResponse,
+  deferral: number = InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+): Promise<MessagePayload> {
+  expect(response).toEqual({ type: deferral });
+  await t.settle();
+  expect(t.rest.editOriginal).toHaveBeenCalledTimes(1);
+  return t.rest.editOriginal.mock.calls[0]![2];
+}
+
+/** The chart a message shows, as its card's file name says. */
+function chartShown(message: MessagePayload): string {
+  return message.embeds![0]!.image!.url;
+}
+
 describe("handleInteraction", () => {
   it("answers Discord's PING", async () => {
     const { handle } = setup();
@@ -172,47 +199,87 @@ describe("handleInteraction", () => {
   });
 
   describe("/stock and /chart", () => {
-    it("replies with the chart when the data is quick", async () => {
-      const { handle, data } = setup();
-      const response = await handle(command("stock", { code: "bhp" }));
-      expect(response.type).toBe(
-        InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    it("defers, then posts the chart with its card attached", async () => {
+      const t = setup();
+      const message = await deliveredChart(
+        t,
+        await t.handle(command("stock", { code: "bhp" })),
       );
-      const message = messageOf(response);
       expect(message.flags).toBeUndefined();
       expect(message.embeds![0]!.title).toBe("BHP · BHP Group");
-      expect(message.embeds![0]!.image!.url).toContain("/chart/BHP/image");
-      expect(data.stockSummary).toHaveBeenCalledWith("BHP");
+      expect(chartShown(message)).toBe("attachment://BHP-short-1y.png");
+      expect(message.files).toEqual([
+        expect.objectContaining({
+          name: "BHP-short-1y.png",
+          data: CARD,
+          contentType: "image/png",
+        }),
+      ]);
+      expect(t.data.stockSummary).toHaveBeenCalledWith("BHP");
+      expect(t.renderChart).toHaveBeenCalledWith({
+        code: "BHP",
+        view: "short",
+        period: "1y",
+      });
     });
 
     it("charts the view and period asked for", async () => {
-      const { handle } = setup();
-      const message = messageOf(
-        await handle(
+      const t = setup();
+      const message = await deliveredChart(
+        t,
+        await t.handle(
           command("chart", { code: "BHP", view: "combined", period: "6m" }),
         ),
       );
-      const url = new URL(message.embeds![0]!.image!.url);
-      expect(url.searchParams.get("view")).toBe("combined");
-      expect(url.searchParams.get("period")).toBe("6m");
+      expect(chartShown(message)).toBe("attachment://BHP-combined-6m.png");
+    });
+
+    it("points at the card's URL when the card cannot be drawn", async () => {
+      const t = setup({ renderChart: jest.fn(async () => null) });
+      const message = await deliveredChart(
+        t,
+        await t.handle(command("chart", { code: "BHP", period: "3m" })),
+      );
+      const url = new URL(chartShown(message));
+      expect(url.pathname).toBe("/chart/BHP/image");
+      expect(url.searchParams.get("period")).toBe("3m");
+      expect(message.files).toBeUndefined();
+    });
+
+    it("points at the card's URL when the renderer throws", async () => {
+      const t = setup({
+        renderChart: jest.fn(() => {
+          throw new Error("no resvg");
+        }),
+      });
+      const message = await deliveredChart(
+        t,
+        await t.handle(command("stock", { code: "BHP" })),
+      );
+      expect(chartShown(message)).toContain("/chart/BHP/image");
     });
 
     it("finds a stock by company name", async () => {
-      const { handle, data } = setup();
-      const message = messageOf(
-        await handle(command("stock", { code: "Pilbara" })),
+      const t = setup();
+      const message = await deliveredChart(
+        t,
+        await t.handle(command("stock", { code: "Pilbara" })),
       );
-      expect(data.search).toHaveBeenCalledWith("Pilbara", 1);
+      expect(t.data.search).toHaveBeenCalledWith("Pilbara", 1);
       expect(message.embeds![0]!.title).toBe("PLS · Pilbara Minerals");
+      expect(chartShown(message)).toBe("attachment://PLS-short-1y.png");
     });
 
     it("searches a code-shaped word that is not a listed code", async () => {
-      const { handle, data } = setup();
-      const message = messageOf(
-        await handle(command("stock", { code: "PILB" })),
+      const t = setup();
+      const message = await deliveredChart(
+        t,
+        await t.handle(command("stock", { code: "PILB" })),
       );
-      expect(data.stockSummary).toHaveBeenCalledWith("PILB");
+      expect(t.data.stockSummary).toHaveBeenCalledWith("PILB");
       expect(message.embeds![0]!.title).toBe("PLS · Pilbara Minerals");
+      // The card drawn for the typed code is not the one sent.
+      expect(chartShown(message)).toBe("attachment://PLS-short-1y.png");
     });
 
     it("tells only the asker when nothing matches", async () => {
@@ -285,6 +352,7 @@ describe("handleInteraction", () => {
         await handle(command("stock", { code: "BHP" })),
       );
       expect(message.flags).toBe(MessageFlags.EPHEMERAL);
+      expect(message.content).toContain("went wrong");
       expect(outcomes).toContainEqual({
         action: "command_stock",
         status: "error",
@@ -294,31 +362,58 @@ describe("handleInteraction", () => {
   });
 
   describe("chart buttons", () => {
-    it("redraw the chart in place", async () => {
-      const { handle } = setup();
-      const response = await handle(
+    it("redraw the chart in place, its new card uploaded with the edit", async () => {
+      const t = setup();
+      const message = await deliveredChart(
+        t,
+        await t.handle(
+          component(
+            chartCustomId("period", {
+              code: "BHP",
+              view: "price",
+              period: "3m",
+            }),
+          ),
+        ),
+        InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+      );
+      expect(chartShown(message)).toBe("attachment://BHP-price-3m.png");
+      expect(message.files![0]!.data).toBe(CARD);
+      // The stock and the card are read side by side.
+      expect(t.renderChart).toHaveBeenCalledTimes(1);
+    });
+
+    it("defer at once, without racing the fast path", async () => {
+      const t = setup({ fastPathMs: 2000 });
+      const started = Date.now();
+      const response = await t.handle(
         component(
-          chartCustomId("period", { code: "BHP", view: "price", period: "3m" }),
+          chartCustomId("view", { code: "BHP", view: "short", period: "1y" }),
         ),
       );
-      expect(response.type).toBe(InteractionResponseType.UPDATE_MESSAGE);
-      const url = new URL(messageOf(response).embeds![0]!.image!.url);
-      expect(url.searchParams.get("view")).toBe("price");
-      expect(url.searchParams.get("period")).toBe("3m");
+      expect(response).toEqual({
+        type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+      });
+      expect(Date.now() - started).toBeLessThan(500);
+      await t.settle();
     });
 
     it("leave the chart alone, and tell the presser, when the stock cannot be read", async () => {
       const data = fakeData({ stockSummary: jest.fn(async () => null) });
-      const { handle } = setup({ data });
+      const { handle, rest, settle } = setup({ data });
       const response = await handle(
         component(
           chartCustomId("view", { code: "BHP", view: "short", period: "1y" }),
         ),
       );
-      expect(response.type).toBe(
-        InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      expect(response).toEqual({
+        type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+      });
+      await settle();
+      expect(rest.editOriginal).not.toHaveBeenCalled();
+      expect(rest.followUp.mock.calls[0]![2].flags).toBe(
+        MessageFlags.EPHEMERAL,
       );
-      expect(messageOf(response).flags).toBe(MessageFlags.EPHEMERAL);
     });
 
     it("defer a slow redraw without showing anything, then edit the message", async () => {
@@ -388,14 +483,12 @@ describe("handleInteraction", () => {
   });
 
   it("charts a stock picked from a list as a new message", async () => {
-    const { handle } = setup();
-    const response = await handle(component("pick", ["PLS"]));
-    expect(response.type).toBe(
-      InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    const t = setup();
+    const message = await deliveredChart(
+      t,
+      await t.handle(component("pick", ["PLS"])),
     );
-    expect(messageOf(response).embeds![0]!.title).toBe(
-      "PLS · Pilbara Minerals",
-    );
+    expect(message.embeds![0]!.title).toBe("PLS · Pilbara Minerals");
   });
 
   it("answers an unknown control privately", async () => {
@@ -511,27 +604,26 @@ function inDm(interaction: Interaction): Interaction {
   return { ...interaction, channel_id: CHANNEL, user: { id: MEMBER } };
 }
 
-function chartUrl(message: MessagePayload): URL {
-  return new URL(message.embeds![0]!.image!.url);
-}
-
 describe("settings", () => {
   it("start /stock with the server's chart and period", async () => {
-    const { handle } = setup({
+    const t = setup({
       settings: { [`guild:${GUILD}`]: { view: "combined", period: "3m" } },
     });
-    const url = chartUrl(
-      messageOf(await handle(inServer(command("stock", { code: "BHP" })))),
+    const message = await deliveredChart(
+      t,
+      await t.handle(inServer(command("stock", { code: "BHP" }))),
     );
-    expect(url.searchParams.get("view")).toBe("combined");
-    expect(url.searchParams.get("period")).toBe("3m");
+    expect(chartShown(message)).toBe("attachment://BHP-combined-3m.png");
   });
 
   it("open the default stock when no code is given", async () => {
-    const { handle } = setup({
+    const t = setup({
       settings: { [`guild:${GUILD}`]: { code: "PLS" } },
     });
-    const message = messageOf(await handle(inServer(command("chart"))));
+    const message = await deliveredChart(
+      t,
+      await t.handle(inServer(command("chart"))),
+    );
     expect(message.embeds![0]!.title).toBe("PLS · Pilbara Minerals");
   });
 
@@ -543,20 +635,18 @@ describe("settings", () => {
   });
 
   it("yield to what the command says", async () => {
-    const { handle } = setup({
+    const t = setup({
       settings: { [`guild:${GUILD}`]: { view: "combined", period: "3m" } },
     });
-    const url = chartUrl(
-      messageOf(
-        await handle(
-          inServer(
-            command("chart", { code: "BHP", view: "price", period: "max" }),
-          ),
+    const message = await deliveredChart(
+      t,
+      await t.handle(
+        inServer(
+          command("chart", { code: "BHP", view: "price", period: "max" }),
         ),
       ),
     );
-    expect(url.searchParams.get("view")).toBe("price");
-    expect(url.searchParams.get("period")).toBe("max");
+    expect(chartShown(message)).toBe("attachment://BHP-price-max.png");
   });
 
   it("are the server's over the member's in a server, and the member's in a DM", async () => {
@@ -564,40 +654,49 @@ describe("settings", () => {
       [`guild:${GUILD}`]: { view: "price" as const },
       [`user:${MEMBER}`]: { view: "combined" as const, period: "6m" as const },
     };
-    const { handle } = setup({ settings });
-    const server = chartUrl(
-      messageOf(await handle(inServer(command("stock", { code: "BHP" })))),
-    );
-    expect(server.searchParams.get("view")).toBe("price");
     // A field the server leaves unset falls through to the member's.
-    expect(server.searchParams.get("period")).toBe("6m");
-    const dm = chartUrl(
-      messageOf(await handle(inDm(command("stock", { code: "BHP" })))),
-    );
-    expect(dm.searchParams.get("view")).toBe("combined");
+    const server = setup({ settings });
+    expect(
+      chartShown(
+        await deliveredChart(
+          server,
+          await server.handle(inServer(command("stock", { code: "BHP" }))),
+        ),
+      ),
+    ).toBe("attachment://BHP-price-6m.png");
+    const dm = setup({ settings });
+    expect(
+      chartShown(
+        await deliveredChart(
+          dm,
+          await dm.handle(inDm(command("stock", { code: "BHP" }))),
+        ),
+      ),
+    ).toBe("attachment://BHP-combined-6m.png");
   });
 
   it("give way to the built-ins when the store is slow", async () => {
-    const { handle } = setup({
+    const t = setup({
       fastPathMs: 2000,
       settingsDelayMs: 900,
       settings: { [`guild:${GUILD}`]: { view: "price" } },
     });
-    const url = chartUrl(
-      messageOf(await handle(inServer(command("stock", { code: "BHP" })))),
+    const message = await deliveredChart(
+      t,
+      await t.handle(inServer(command("stock", { code: "BHP" }))),
     );
-    expect(url.searchParams.get("view")).toBeNull(); // the built-in, short
+    expect(chartShown(message)).toBe("attachment://BHP-short-1y.png");
   });
 
   it("chart a picked stock with the server's chart", async () => {
-    const { handle } = setup({
+    const t = setup({
       settings: { [`guild:${GUILD}`]: { view: "combined" } },
     });
-    const url = chartUrl(
-      messageOf(await handle(inServer(component("pick", ["PLS"])))),
+    const message = await deliveredChart(
+      t,
+      await t.handle(inServer(component("pick", ["PLS"]))),
     );
-    expect(url.pathname).toBe("/chart/PLS/image");
-    expect(url.searchParams.get("view")).toBe("combined");
+    expect(chartShown(message)).toBe("attachment://PLS-combined-1y.png");
   });
 });
 
@@ -642,11 +741,12 @@ describe("interactive mode", () => {
   });
 
   it("posts the message when the Activity is off", async () => {
-    const { handle } = setup({ ...interactive, activityEnabled: false });
-    const response = await handle(inServer(command("stock", { code: "BHP" })));
-    expect(response.type).toBe(
-      InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    const t = setup({ ...interactive, activityEnabled: false });
+    const message = await deliveredChart(
+      t,
+      await t.handle(inServer(command("stock", { code: "BHP" }))),
     );
+    expect(chartShown(message)).toBe("attachment://BHP-combined-6m.png");
   });
 
   it("posts the message, deferred, when the lookup outlasts Discord's window", async () => {

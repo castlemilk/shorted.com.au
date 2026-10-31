@@ -166,9 +166,8 @@ Discord ──POST, Ed25519-signed──▶ /api/discord/interactions (Vercel, N
                    reply within 1.5s ──▶ the message itself
                    slower           ──▶ "thinking…" now, then the message over
                                         the interaction's webhook (waitUntil)
-
-Discord media proxy ──GET──▶ /chart/<CODE>/image?view=&period=&v=<day>
-                             (the site's 1200x630 chart card)
+                   a chart          ──▶ deferred at once; the edit uploads the
+                                        1200x630 chart card it draws
 ```
 
 | Piece | Where |
@@ -181,7 +180,8 @@ Discord media proxy ──GET──▶ /chart/<CODE>/image?view=&period=&v=<day>
 | Button state codec | `web/src/@/lib/discord/custom-id.ts` |
 | Signature check | `web/src/@/lib/discord/verify.ts` |
 | Reads (the stock pages' server actions, 6s cap each) | `web/src/@/lib/discord/data.ts` |
-| Follow-up webhooks | `web/src/@/lib/discord/rest.ts` |
+| Follow-up webhooks (JSON, or multipart with a card) | `web/src/@/lib/discord/rest.ts` |
+| Chart card, drawn for each chart message | `web/src/@/lib/discord/chart-card.ts`, over the share card's `web/src/app/chart/[code]/image/load-card.tsx` |
 | Setup and status | `web/scripts/discord.ts` (`task discord:*`), decisions in `web/src/@/lib/discord/setup.ts` |
 | Activity page | `web/src/app/embed/discord/page.tsx`, `web/src/@/components/discord/discord-activity.tsx` |
 | Activity redirect | `web/src/config/discord-activity.mjs` (in `next.config.mjs` `redirects()`) |
@@ -194,10 +194,22 @@ the endpoint answers 503 and Discord will not accept its URL. For a second app
 (a preview deployment, or a tunnel to `next dev`), set `DISCORD_PUBLIC_KEY` on
 that deployment and pass `-- --endpoint <url>` to the tasks.
 
-**The chart image** is the share card the site already serves to unfurlers.
-Its URL carries `v=<today in Sydney>`: Discord's media proxy caches an image by
-URL, so without it a chart posted tomorrow would show today's picture. The
-route ignores the parameter; the CDN keys on it.
+**The chart image** is the share card the site serves to unfurlers
+(`/chart/<CODE>/image`), drawn by the bot itself and uploaded with the message
+as `attachment://<CODE>-<view>-<period>.png`. It used to be that card's URL, for
+Discord's media proxy to fetch. Every period or view button names a new URL, so
+the proxy fetched each one cold (1.5 to 5s to render, measured 2026-10-31),
+through Cloudflare's bot checks, and a slow or refused fetch left the redrawn
+chart blank or stale, which the proxy then kept for that URL ("changing the time
+window does not reliably update the chart"). An upload arrives with the edit
+itself. So every chart reply is deferred: a button press answers
+`DEFERRED_UPDATE_MESSAGE` at once (its loading state is the feedback) and the
+webhook edit carries the new card; a command waits only to learn whether the
+stock exists, so a typo is still answered privately and at once. The stock read
+and the card render run side by side. A card that cannot be drawn whole inside
+9s (a read failed or timed out, or the renderer threw) leaves the embed on the
+card's URL as before, with `v=<today in Sydney>` so a chart posted tomorrow is
+not today's picture.
 
 **The reads** are the server actions the stock pages use, through the same
 caches and the first-party fetch, so Discord traffic lands on warm entries and
@@ -410,6 +422,11 @@ this repo holds only a client secret.
 - **`LAUNCH_ACTIVITY` cannot be deferred.** Interactive mode answers inside the
   fast path or falls back to a chart message; never make it wait on a read
   without a bound.
+- **An interaction's HTTP response cannot upload.** It is JSON, so a reply that
+  carries a file (every chart message) is delivered by the webhook edit after a
+  deferral; `handleInteraction` defers any reply with `files`. Do not move the
+  chart back to an image URL to answer "instantly": that is the unreliable
+  path this replaced.
 - **The share page's `landscape=1` is Discord's.** Only the bot's
   **Open on Shorted** link carries it; the share dialog's links do not, so a
   chart shared to a forum opens the way it always did.

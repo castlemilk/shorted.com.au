@@ -1,9 +1,13 @@
 import { siteConfig } from "~/@/config/site";
-import { shortFmt } from "~/@/components/charts/chart-views";
+import {
+  CHART_PERIOD_PHRASE,
+  shortFmt,
+} from "~/@/components/charts/chart-views";
 import {
   CHART_SOURCE,
   chartImageUrl,
   chartShareUrl,
+  chartSubject,
 } from "~/@/lib/embed/snippet";
 import { formatCompanyName } from "~/@/lib/company-name";
 import { formatNumber } from "~/@/lib/utils";
@@ -253,6 +257,16 @@ export interface ChartMessageOptions {
   /** Offer the button that opens the chart as a Discord Activity. */
   activity: boolean;
   now: Date;
+  /**
+   * The chart card as PNG, uploaded with the message (chart-card.ts). Without
+   * it the embed points at the card's URL for Discord to fetch.
+   */
+  card?: Uint8Array | null;
+}
+
+/** The card's file name: one per chart, so a redraw names what it shows. */
+export function chartCardFileName({ code, view, period }: ChartState): string {
+  return `${code}-${view}-${period}.png`;
 }
 
 /**
@@ -264,7 +278,19 @@ export function buildChartMessage({
   state,
   activity,
   now,
+  card,
 }: ChartMessageOptions): MessagePayload {
+  const file = card
+    ? {
+        name: chartCardFileName(state),
+        data: card,
+        contentType: "image/png",
+        description: truncate(
+          `${state.code} ${chartSubject(state.view)} chart, ${CHART_PERIOD_PHRASE[state.period]}`,
+          LIMITS.attachmentDescription,
+        ),
+      }
+    : null;
   const title = summary.name ? `${state.code} · ${summary.name}` : state.code;
   const embed: Embed = {
     title: truncate(title, LIMITS.embedTitle),
@@ -276,13 +302,16 @@ export function buildChartMessage({
     fields: stockFields(summary),
     // No thumbnail: the card draws the company's logo on a light tile, and the
     // raw logo (often dark on transparent) would vanish on Discord's dark theme.
-    image: { url: chartCardUrl(state, now) },
+    image: {
+      url: file ? `attachment://${file.name}` : chartCardUrl(state, now),
+    },
     footer: { text: footer(summary, state) },
   };
   return {
     embeds: [embed],
     components: chartComponents(state, { activity }),
     allowed_mentions: NO_MENTIONS,
+    ...(file ? { files: [file] } : {}),
   };
 }
 

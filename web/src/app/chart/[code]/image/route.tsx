@@ -1,15 +1,9 @@
 import { ImageResponse } from "next/og";
 import { type NextRequest } from "next/server";
 
-import { getStock } from "~/app/actions/getStock";
 import { parseEmbedChartParams } from "~/app/embed/chart/params";
-import { CHART_PERIOD_PHRASE } from "~/@/components/charts/chart-views";
-import { formatCompanyName } from "~/@/lib/company-name";
-import { CHART_SOURCE, chartSubject } from "~/@/lib/embed/snippet";
-import { NO_LOGO, OG_SIZE, getCompanyLogo, getOgLogo } from "~/@/lib/og/card";
-import { OgChartCard } from "~/@/lib/og/chart-card";
-import type { SeriesPoint } from "~/@/lib/og/chart-image";
-import { getChartPrices, getChartShorts, withTimeout } from "./chart-data";
+import { OG_SIZE } from "~/@/lib/og/card";
+import { loadChartCard } from "./load-card";
 
 export const maxDuration = 15;
 
@@ -28,7 +22,8 @@ const CACHE_INCOMPLETE = "public, max-age=60, s-maxage=300";
 /**
  * The og:image of a shared chart link (/chart/CODE?view=&period=): the chart
  * itself, so a link pasted into Discord, Slack or X unfurls into the picture
- * rather than a generic site card.
+ * rather than a generic site card. The card itself is ./load-card.tsx, which
+ * the Discord bot also renders for the charts it posts.
  *
  *   /chart/BHP/image                          short interest, 1y
  *   /chart/BHP/image?view=combined&period=1m  price + short, past month
@@ -51,43 +46,14 @@ export async function GET(
     get: (k) => (k === "code" ? rawCode : req.nextUrl.searchParams.get(k)),
   });
 
-  const none: SeriesPoint[] = [];
-  const [short, price, stock, logoSrc] = await Promise.all([
-    view === "price"
-      ? none
-      : withTimeout(getChartShorts(code, period), READ_TIMEOUT_MS, none),
-    view === "short"
-      ? none
-      : withTimeout(getChartPrices(code, period), READ_TIMEOUT_MS, none),
-    withTimeout(getStock(code), READ_TIMEOUT_MS, undefined),
-    getOgLogo(),
-  ]);
-  const brand = await getCompanyLogo(stock?.logoUrl).catch(() => NO_LOGO);
-  const complete =
-    (view === "price" || short.length > 0) &&
-    (view === "short" || price.length > 0);
-
-  const subject = chartSubject(view);
-  return new ImageResponse(
-    (
-      <OgChartCard
-        code={code}
-        company={stock?.name ? formatCompanyName(stock.name, code) : undefined}
-        view={view}
-        subject={subject.charAt(0).toUpperCase() + subject.slice(1)}
-        periodPhrase={CHART_PERIOD_PHRASE[period]}
-        source={CHART_SOURCE[view]}
-        short={short}
-        price={price}
-        logoSrc={logoSrc}
-        brand={brand}
-      />
-    ),
-    {
-      ...OG_SIZE,
-      headers: {
-        "cache-control": complete ? CACHE_COMPLETE : CACHE_INCOMPLETE,
-      },
-    },
+  const { card, complete } = await loadChartCard(
+    { code, view, period },
+    READ_TIMEOUT_MS,
   );
+  return new ImageResponse(card, {
+    ...OG_SIZE,
+    headers: {
+      "cache-control": complete ? CACHE_COMPLETE : CACHE_INCOMPLETE,
+    },
+  });
 }
