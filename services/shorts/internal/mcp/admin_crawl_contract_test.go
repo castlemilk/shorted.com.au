@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -40,18 +41,34 @@ func TestAnEnqueueWaitThatRunsOutIsANormalRunningAnswer(t *testing.T) {
 
 // --- the enqueue dedupe (collector exit code 11) --------------------------------------
 
-func TestADeduplicatedEnqueueIsReportedAsDeduplicatedNotFailed(t *testing.T) {
+// The exit code of an enqueue means nothing to the tool: a failed execution is a failure, whatever its
+// message says. A dedupe is read from the ledger and BrandBrain, never from a number in a message.
+func TestAnEnqueueFailureIsAFailureWhateverItsMessage(t *testing.T) {
 	shortPolls(t)
-	fleet := &fakeFleet{}
-	fake := &fakeCrawlOpsOp{fleet: fleet, ledger: &fakeLedger{}, execs: []*jobmonitor.ExecutionStatus{
-		{Status: "failed", Message: "Container exited with code 11"},
+	fake := &fakeCrawlOpsOp{fleet: &fakeFleet{}, ledger: &fakeLedger{}, execs: []*jobmonitor.ExecutionStatus{
+		{Status: "failed", Message: "Task house-price-collector-abcde-task0 failed with exit code: 11 and message: The container exited with an error."},
 	}}
 	out, err := crawlSmoke(context.Background(), fake, "uid", CrawlSmokeInput{RigID: "rig-1", Confirm: true}, fixedNow)
 	require.NoError(t, err)
-	assert.Equal(t, "deduplicated", out.Enqueue)
+	assert.Equal(t, "failed", out.Enqueue)
+	assert.Equal(t, SmokeFailed, out.Verdict)
+}
+
+// A run whose enqueue wrote no row of its own, for a suburb another run holds on both portals, is
+// deduplicated: read from the ledger, with the suburb known.
+func TestSmokeStatusReadsADeduplicatedRunFromTheLedger(t *testing.T) {
+	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
+	ledger := &fakeLedger{dispatch: []CrawlDispatch{
+		smokeDispatch("job-rea", "rea", fixedNow.Add(time.Hour), false),
+		smokeDispatch("job-domain", "domain", fixedNow.Add(time.Hour), false),
+	}}
+	for i := range ledger.dispatch {
+		ledger.dispatch[i].RunID = "delta-20261031T080000Z"
+	}
+	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "", "bondi", fixedNow)
+	require.NoError(t, err)
 	assert.Equal(t, SmokeDeduplicated, out.Verdict)
-	assert.NotEqual(t, SmokeFailed, out.Verdict, "a second smoke on a queued suburb is not a failure")
-	assert.Empty(t, fleet.drainKeys, "no drain for a deduplicated run")
+	assert.NotEqual(t, SmokeFailed, out.Verdict, "a deduplicated suburb is not a failure")
 }
 
 func TestAnOrdinaryEnqueueFailureStaysAFailure(t *testing.T) {
@@ -68,12 +85,12 @@ func TestAnOrdinaryEnqueueFailureStaysAFailure(t *testing.T) {
 
 func TestTheDrainIsSkippedWhenTheRigIsAlreadyDraining(t *testing.T) {
 	shortPolls(t)
-	fleet := &fakeFleet{rigs: []brandbrain.Rig{{ID: "rig-1", Resources: brandbrain.RigResources{HousingCrawl: &brandbrain.HousingCrawl{
-		InFlight: &brandbrain.InFlight{Job: "drain", Phase: "sweeping"}}}}}}
-	ledger := &fakeLedger{dispatch: []CrawlDispatch{smokeDispatch("job-rea", "rea", fixedNow.Add(time.Hour), false)}}
-	ledger.dispatch[0].RunID = "smoke-20261031T093000Z-0a1b2c3d"
+	fleet := &fakeFleet{rigs: []brandbrain.Rig{{ID: "rig-1", Liveness: "online", Resources: brandbrain.RigResources{HousingCrawl: &brandbrain.HousingCrawl{
+		InFlight: &brandbrain.InFlight{Job: "drain", Phase: "sweeping", LastProgressAt: ptrTime(fixedNow.Add(-time.Minute))}}}}}}
+	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
+	ledger := smokeLedger(smokeID, fixedNow.Add(time.Hour))
 	fake := &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}
-	out, err := crawlSmoke(context.Background(), fake, "uid", CrawlSmokeInput{RigID: "rig-1", Confirm: true, SmokeID: "smoke-20261031T093000Z-0a1b2c3d"}, fixedNow)
+	out, err := crawlSmoke(context.Background(), fake, "uid", CrawlSmokeInput{RigID: "rig-1", Confirm: true, SmokeID: smokeID}, fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, "skipped_drain_running", out.Drain)
 	assert.Empty(t, fleet.drainKeys, "a second live drain must not be sent over a running one")
@@ -94,14 +111,13 @@ func TestARefusedDrainIsARefusalWithBrandBrainsReason(t *testing.T) {
 	assert.NotContains(t, out.Drain, "unknown")
 }
 
-// rig_busy means a drain is already running; the run reports it, and does not fail.
 func TestRigBusyIsReportedAsADrainAlreadyRunning(t *testing.T) {
 	shortPolls(t)
-	ledger := &fakeLedger{dispatch: []CrawlDispatch{smokeDispatch("job-rea", "rea", fixedNow.Add(time.Hour), false)}}
-	ledger.dispatch[0].RunID = "smoke-20261031T093000Z-0a1b2c3d"
+	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
+	ledger := smokeLedger(smokeID, fixedNow.Add(time.Hour))
 	fleet := &fakeFleet{drainErr: &brandbrain.ConflictError{Code: "rig_busy"}}
 	out, err := crawlSmoke(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid",
-		CrawlSmokeInput{RigID: "rig-1", Confirm: true, SmokeID: "smoke-20261031T093000Z-0a1b2c3d"}, fixedNow)
+		CrawlSmokeInput{RigID: "rig-1", Confirm: true, SmokeID: smokeID}, fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, "rig_busy", out.Drain)
 	assert.Contains(t, out.Message, "already running")
@@ -286,7 +302,7 @@ func TestAPassingJobCrawledByAnotherRigIsFlagged(t *testing.T) {
 			"job-domain": {{RigSubject: "rig:rig-1", AppliedStatus: "SWEEP_STATUS_PARTIAL", ListingsUpserted: 2}},
 		},
 	}
-	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "rig-1", fixedNow)
+	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "rig-1", "", fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, SmokePassed, out.Verdict)
 	require.Len(t, out.Jobs, 2)
@@ -312,7 +328,7 @@ func TestUnconfiguredFleetDoesNotClaimNoJobCanPass(t *testing.T) {
 			"job-domain": {{RigSubject: "rig:rig-1", AppliedStatus: "SWEEP_STATUS_COMPLETE", ListingsUpserted: 1}},
 		},
 	}
-	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "", fixedNow)
+	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "", "", fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, SmokePassed, out.Verdict, "receipts are the evidence; a missing fleet does not block a pass")
 	raw, _ := json.Marshal(out.Sources)
@@ -385,4 +401,177 @@ func TestSmokeToolDescriptionsSayItIsLive(t *testing.T) {
 	assert.Contains(t, desc, "LIVE CRAWL")
 	assert.Contains(t, desc, "FULL drain")
 	assert.Contains(t, desc, "priority 100")
+}
+
+// --- round 2: probes ported as tests -------------------------------------------------
+
+// Real log lines carry the default logger's timestamp. Listing rows and address-keyed property lines
+// are dropped whole; run-summary lines are kept.
+func TestRealTimestampedLogLinesAreDroppedOrKept(t *testing.T) {
+	dropped := []string{
+		"2026/10/31 09:00:01 [listings] DRY   7 Banksia Glade, Bondi NSW 2026 | $1250000 (asking) | https://www.realestate.com.au/property-x",
+		"2026/10/31 09:00:01 [listings] DRY   12 Federation Bvd, Bondi NSW 2026 | $n/a (contact) | https://www.domain.com.au/y",
+		"2026/10/31 09:00:01 [property] 12-banksia-glade-bondi-nsw-2026: profile address MISMATCH (final=https://www.domain.com.au/x built=y)",
+		"2026/10/31 09:00:01 [property-resolve] 4-ocean-view-manly-nsw-2095: write failed: boom",
+		"2026/10/31 09:00:01 [property] 12-smith-street-bondi--2026: DRY would mark NOTFOUND (final=https://x)",
+		"[listings] DRY   7 Banksia Glade, Bondi NSW 2026 | $1250000",
+	}
+	for _, l := range dropped {
+		assert.False(t, keepLogLine(l), "must drop: %q", l)
+	}
+	kept := []string{
+		"2026/10/31 09:00:01 [property] start: 40 address(es) · direct · dryRun=true",
+		"2026/10/31 09:00:01 [listings] start: 2 suburbs · direct",
+		"2026/10/31 09:00:02 [enqueue] run smoke-20261031T093000Z-0a1b2c3d: 2 job(s) created",
+		"2026/10/31 09:00:02 [property] circuit OPEN after 3 consecutive blocked fetch(es)",
+	}
+	for _, l := range kept {
+		assert.True(t, keepLogLine(l), "must keep: %q", l)
+	}
+	// A timestamped listing line leaves no listing data in the excerpt either.
+	joined := strings.Join(logLines(strings.Join(append(dropped, kept...), "\n")), "\n")
+	assert.NotContains(t, joined, "Banksia")
+	assert.NotContains(t, joined, "1250000")
+	assert.NotContains(t, joined, "realestate")
+}
+
+// Street addresses in the shapes the collector and listings carry. Each is redacted; the suburb after
+// a comma is left in place.
+func TestUncommonStreetTypesAreRedacted(t *testing.T) {
+	cases := map[string]string{
+		"7 Banksia Glade, Bondi NSW 2026": "[address], Bondi NSW 2026",
+		"3 Federation Bvd":                "[address]",
+		"12 Smith Chase":                  "[address]",
+		"4 Ocean View":                    "[address]",
+		"9 Kingfisher Link":               "[address]",
+		"2 Harbour Strand":                "[address]",
+		"5 Elm Heights":                   "[address]",
+		"11 River Bend":                   "[address]",
+		"6 Kurrajong Approach":            "[address]",
+		"12 2nd Avenue":                   "[address]",
+		"8 Rose Gate":                     "[address]",
+		"14 Wattle Retreat":               "[address]",
+		"1 Park Circle":                   "[address]",
+		"20 The Boulevarde":               "[address]",
+		"15 The Corso":                    "[address]",
+		"3 Smith Hwy":                     "[address]",
+		"1/14 Smith St":                   "[address]",
+		"14A Smith Street":                "[address]",
+	}
+	for in, want := range cases {
+		assert.Equal(t, want, redactText(in), "input %q", in)
+	}
+}
+
+// BrandBrain's log is read after its timestamp too: a redacted slug address in a kept line is removed.
+func TestAKeptTimestampedLineHasItsAddressRedacted(t *testing.T) {
+	line := "2026/10/31 09:00:03 [enqueue] suburb 12-smith-street-bondi-nsw-2026 queued"
+	assert.True(t, keepLogLine(line))
+	assert.NotContains(t, cappedLine(line), "smith-street-bondi-nsw-2026")
+}
+
+// A status read that fails after the drain went out is waiting, not an error: the drain may be queued.
+type statusReadFailsAfterFirst struct {
+	*fakeLedger
+	calls int
+}
+
+func (l *statusReadFailsAfterFirst) DispatchForRun(ctx context.Context, runID string) ([]CrawlDispatch, error) {
+	l.calls++
+	if l.calls >= 2 {
+		return nil, errors.New("statement timeout")
+	}
+	return l.fakeLedger.DispatchForRun(ctx, runID)
+}
+
+func TestAStatusReadFailureAfterTheDrainIsWaiting(t *testing.T) {
+	shortPolls(t)
+	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
+	fleet := &fakeFleet{}
+	out, err := crawlSmoke(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: &statusReadFailsAfterFirst{fakeLedger: smokeLedger(smokeID, fixedNow.Add(time.Hour))}}, "uid",
+		CrawlSmokeInput{RigID: "rig-1", Confirm: true, SmokeID: smokeID}, fixedNow)
+	require.NoError(t, err, "the verdict read failing must not be a tool error after the drain went out")
+	assert.Equal(t, "sent", out.Drain)
+	assert.Equal(t, SmokeWaiting, out.Verdict)
+	assert.Contains(t, strings.Join(out.Waiting, " "), "could not be read")
+	assert.NotContains(t, out.Message, "nothing was sent", "the drain was sent; the message must not say otherwise")
+}
+
+// An offline rig is refused as rig_offline. Its stale in-flight record is not a drain.
+func TestAnOfflineRigIsNotSentADrain(t *testing.T) {
+	shortPolls(t)
+	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
+	fleet := &fakeFleet{rigs: []brandbrain.Rig{{ID: "rig-1", Liveness: "offline", Resources: brandbrain.RigResources{HousingCrawl: &brandbrain.HousingCrawl{
+		InFlight: &brandbrain.InFlight{Job: "drain", LastProgressAt: ptrTime(fixedNow.Add(-time.Minute))}}}}}}
+	out, err := crawlSmoke(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: smokeLedger(smokeID, fixedNow.Add(time.Hour))}, "uid",
+		CrawlSmokeInput{RigID: "rig-1", Confirm: true, SmokeID: smokeID}, fixedNow)
+	require.NoError(t, err)
+	assert.Equal(t, "rig_offline", out.Drain)
+	assert.Empty(t, fleet.drainKeys, "no drain is sent to an offline rig")
+}
+
+// A stale in-flight record on an online rig is not a running drain: the drain is sent.
+func TestAStaleInFlightRecordIsNotADrainAlreadyRunning(t *testing.T) {
+	shortPolls(t)
+	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
+	fleet := &fakeFleet{rigs: []brandbrain.Rig{{ID: "rig-1", Liveness: "online", Resources: brandbrain.RigResources{HousingCrawl: &brandbrain.HousingCrawl{
+		InFlight: &brandbrain.InFlight{Job: "drain", LastProgressAt: ptrTime(fixedNow.Add(-2 * time.Hour))}}}}}}
+	out, err := crawlSmoke(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: smokeLedger(smokeID, fixedNow.Add(time.Hour))}, "uid",
+		CrawlSmokeInput{RigID: "rig-1", Confirm: true, SmokeID: smokeID}, fixedNow)
+	require.NoError(t, err)
+	assert.Equal(t, "sent", out.Drain)
+}
+
+// Every refused drain says why, in words, and never reads as an unknown outcome.
+func TestRefusedDrainMessagesAreNeverEmpty(t *testing.T) {
+	shortPolls(t)
+	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
+	for _, e := range []error{brandbrain.ErrRejected, brandbrain.ErrRigNotFound, brandbrain.ErrInvalidRequest} {
+		out, err := crawlSmoke(context.Background(), &fakeCrawlOpsOp{fleet: &fakeFleet{drainErr: e}, ledger: smokeLedger(smokeID, fixedNow.Add(time.Hour))}, "uid",
+			CrawlSmokeInput{RigID: "rig-1", Confirm: true, SmokeID: smokeID}, fixedNow)
+		require.NoError(t, err)
+		assert.Equal(t, "refused", out.Drain, "%v", e)
+		assert.NotEmpty(t, out.Message, "%v must say why", e)
+	}
+}
+
+// A run whose portal has no row past the start deadline is not_dispatched: it fails, rather than waiting
+// forever. Before the deadline it waits.
+func TestAPortalWithNoRowPastTheDeadlineFailsAsNotDispatched(t *testing.T) {
+	smokeID := "smoke-20261031T093000Z-0a1b2c3d" // started 09:30
+	ledger := &fakeLedger{}                      // no rows at all: the enqueue dispatched nothing
+	for _, c := range []struct {
+		name string
+		now  time.Time
+		want string
+	}{
+		{"before the deadline", time.Date(2026, 10, 31, 9, 45, 0, 0, time.UTC), SmokeWaiting},
+		{"past the deadline", time.Date(2026, 10, 31, 10, 5, 0, 0, time.UTC), SmokeFailed},
+	} {
+		out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "", "", c.now)
+		require.NoError(t, err, c.name)
+		assert.Equal(t, c.want, out.Verdict, c.name)
+		if c.want == SmokeFailed {
+			assert.Contains(t, out.FailureClasses, FailureNotDispatched, c.name)
+		}
+	}
+}
+
+// The agent's own result for the drain is read back, so a busy agent shows as busy.
+func TestTheAgentsDrainResultIsReadBack(t *testing.T) {
+	shortPolls(t)
+	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
+	fleet := &fakeFleet{drainResult: "busy"}
+	out, err := crawlSmoke(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: smokeLedger(smokeID, fixedNow.Add(time.Hour))}, "uid",
+		CrawlSmokeInput{RigID: "rig-1", Confirm: true, SmokeID: smokeID}, fixedNow)
+	require.NoError(t, err)
+	assert.Equal(t, "sent", out.Drain)
+	assert.Equal(t, "busy", out.DrainResult)
+	assert.Contains(t, out.Message, "busy")
+}
+
+// The log wait's 429 is not the drain's limit: its message does not claim to be one.
+func TestALogRateLimitIsNotCalledADrainLimit(t *testing.T) {
+	assert.NotContains(t, errCrawlLogLimited.Error(), "drain")
+	assert.Contains(t, errCrawlLogLimited.Error(), "retry later")
 }

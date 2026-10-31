@@ -52,10 +52,11 @@ type fakeFleet struct {
 	lostPost   bool
 	notCreated bool
 	// Drains.
-	drainErr  error
-	drainKeys []string
-	drainRigs []string
-	nextCmd   int
+	drainErr    error
+	drainResult string
+	drainKeys   []string
+	drainRigs   []string
+	nextCmd     int
 	// commands holds every created command by request key (drains and logs alike).
 	commands map[string]brandbrain.Command
 }
@@ -139,7 +140,7 @@ func (f *fakeFleet) RunDrain(_ context.Context, rigID, key string) (*brandbrain.
 	f.drainKeys = append(f.drainKeys, rigID+"|"+key)
 	f.drainRigs = append(f.drainRigs, rigID)
 	f.nextCmd++
-	cmd := brandbrain.Command{ID: fmt.Sprintf("drain-%d", f.nextCmd), Kind: brandbrain.CommandHousingCrawlRun, RequestKey: key, Status: brandbrain.CommandPending}
+	cmd := brandbrain.Command{ID: fmt.Sprintf("drain-%d", f.nextCmd), Kind: brandbrain.CommandHousingCrawlRun, RequestKey: key, Status: brandbrain.CommandPending, Result: f.drainResult}
 	if f.commands == nil {
 		f.commands = map[string]brandbrain.Command{}
 	}
@@ -824,8 +825,8 @@ func TestSmokeStatusIsStatelessAndReadsRowsReceiptsAndBrandBrain(t *testing.T) {
 			"job-rea": {{AppliedStatus: "SWEEP_STATUS_COMPLETE", ListingsUpserted: 9}},
 		},
 	}
-	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{{ID: "job-domain", Status: "pending", Source: "domain"}}}
-	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", fixedNow)
+	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{{ID: "job-domain", Status: "pending", Priority: smokeQueuePriority, Source: "domain"}}}
+	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", "", fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, SmokeWaiting, out.Verdict)
 	require.Len(t, out.Jobs, 2)
@@ -835,7 +836,7 @@ func TestSmokeStatusIsStatelessAndReadsRowsReceiptsAndBrandBrain(t *testing.T) {
 	assert.Equal(t, "pending", out.Jobs[1].BrandBrainStatus)
 
 	// Stateless: the same inputs give the same answer, and nothing was written.
-	again, _ := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", fixedNow)
+	again, _ := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", "", fixedNow)
 	assert.Equal(t, out.Verdict, again.Verdict)
 	assert.Empty(t, fleet.drainKeys)
 }
@@ -850,7 +851,7 @@ func TestSmokeStatusPassesOnlyWhenEveryJobPassed(t *testing.T) {
 			"job-domain": {{AppliedStatus: "SWEEP_STATUS_PARTIAL", ListingsUpserted: 2}},
 		},
 	}
-	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "", fixedNow)
+	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "", "", fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, SmokePassed, out.Verdict)
 	assert.Empty(t, out.Waiting)
@@ -859,21 +860,21 @@ func TestSmokeStatusPassesOnlyWhenEveryJobPassed(t *testing.T) {
 func TestSmokeStatusFailsWithClassesAndWithoutBrandBrainNothingPasses(t *testing.T) {
 	future := fixedNow.Add(time.Hour)
 	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
-	ledger := &fakeLedger{dispatch: []CrawlDispatch{smokeDispatch("job-rea", "rea", future, false)}}
-	// No fleet: BrandBrain state is unknown, so the job waits. It never passes.
-	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "", fixedNow)
+	ledger := smokeLedger(smokeID, future)
+	// No fleet: BrandBrain state is unknown, so the jobs wait. They never pass.
+	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: ledger}, "uid", smokeID, "", "", fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, SmokeWaiting, out.Verdict)
 
 	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{{ID: "job-rea", Status: "failed", Source: "rea", ErrorMessage: "ingest unavailable: connect refused"}}}
-	out, err = crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", fixedNow)
+	out, err = crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", "", fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, SmokeFailed, out.Verdict)
 	assert.Equal(t, []string{FailureIngestUnavailable}, out.FailureClasses)
 }
 
 func TestSmokeStatusRefusesAMalformedRunID(t *testing.T) {
-	_, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: &fakeLedger{}}, "uid", "smoke-../x", "", fixedNow)
+	_, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{ledger: &fakeLedger{}}, "uid", "smoke-../x", "", "", fixedNow)
 	assert.ErrorIs(t, err, errCrawlSmokeID)
 }
 
@@ -889,8 +890,10 @@ func TestSmokeStartsOneEnqueueWaitsDrainsAndReturnsItsID(t *testing.T) {
 	require.Equal(t, 1, pub.runCalls, "exactly one enqueue")
 	assert.Equal(t, "bondi", pub.runReq.Suburb)
 	assert.True(t, strings.HasPrefix(pub.runReq.RunID, "smoke-"), "the run id must carry the smoke- prefix")
-	// The run wrote no rows, so the smoke says so and sends no drain.
-	assert.Equal(t, "failed", res.Structured["verdict"])
+	// The run wrote no rows of its own. Its suburb is known to hold no other run's rows either, so the
+	// verdict waits for the start deadline rather than failing now, and no drain is sent.
+	assert.Equal(t, "waiting", res.Structured["verdict"])
+	assert.Equal(t, "not_sent", res.Structured["drain"])
 	assert.Empty(t, fleet.drainKeys)
 }
 
@@ -1000,7 +1003,7 @@ func TestTheReadToolsCarryNoListingData(t *testing.T) {
 	require.NoError(t, err)
 	logs, err := crawlLogs(context.Background(), fake, "uid", CrawlLogsInput{RigID: "rig-1", Source: "housing"})
 	require.NoError(t, err)
-	smoke, err := crawlSmokeStatus(context.Background(), fake, "uid", "smoke-20261031T093000Z-0a1b2c3d", "", fixedNow)
+	smoke, err := crawlSmokeStatus(context.Background(), fake, "uid", "smoke-20261031T093000Z-0a1b2c3d", "", "", fixedNow)
 	require.NoError(t, err)
 	for name, v := range map[string]any{"status": status, "failures": failures, "job": job, "logs": logs, "smoke": smoke} {
 		raw, _ := json.Marshal(v)
@@ -1131,15 +1134,11 @@ func TestUnknownJobStatusIsOtherNeverPending(t *testing.T) {
 	assert.NotContains(t, detail, "pending at BrandBrain", "an unknown status must not read as pending")
 }
 
-// A 429 on the drain is reported as a limit, with its message, and never as a failure.
 func TestSmokeDrainOver429IsARateLimitNotAFailure(t *testing.T) {
 	shortPolls(t)
-	future := fixedNow.Add(time.Hour)
 	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
 	fleet := &fakeFleet{drainErr: brandbrain.ErrRateLimited}
-	ledger := &fakeLedger{dispatch: []CrawlDispatch{smokeDispatch("job-rea", "rea", future, false)}}
-	ledger.dispatch[0].RunID = smokeID
-	fake := &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}
+	fake := &fakeCrawlOpsOp{fleet: fleet, ledger: smokeLedger(smokeID, fixedNow.Add(time.Hour))}
 	out, err := crawlSmoke(context.Background(), fake, "uid", CrawlSmokeInput{RigID: "rig-1", Confirm: true, SmokeID: smokeID}, fixedNow)
 	require.NoError(t, err)
 	assert.Equal(t, "rate_limited", out.Drain)
@@ -1151,23 +1150,26 @@ func TestSmokeDrainOver429IsARateLimitNotAFailure(t *testing.T) {
 	assert.Empty(t, out.DrainCommandID)
 }
 
-// A job read back at another priority was deduplicated onto an existing job: the status says so.
 func TestSmokeStatusNamesAJobNotEnqueuedAtTheSmokePriority(t *testing.T) {
-	future := fixedNow.Add(time.Hour)
 	smokeID := "smoke-20261031T093000Z-0a1b2c3d"
-	ledger := &fakeLedger{dispatch: []CrawlDispatch{smokeDispatch("job-rea", "rea", future, false)}}
-	ledger.dispatch[0].RunID = smokeID
-	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{{ID: "job-rea", Status: "pending", Priority: 5, Source: "rea"}}}
-	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", fixedNow)
+	ledger := smokeLedger(smokeID, fixedNow.Add(time.Hour))
+	fleet := &fakeFleet{jobs: []brandbrain.CrawlJob{
+		{ID: "job-rea", Status: "pending", Priority: 5, Source: "rea"},
+		{ID: "job-domain", Status: "pending", Priority: smokeQueuePriority, Source: "domain"},
+	}}
+	out, err := crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", "", fixedNow)
 	require.NoError(t, err)
-	require.Len(t, out.Jobs, 1)
-	assert.Equal(t, 5, out.Jobs[0].Priority)
-	require.NotNil(t, out.Jobs[0].PriorityAsSent)
-	assert.False(t, *out.Jobs[0].PriorityAsSent)
-	assert.Contains(t, out.Jobs[0].Detail, "not the smoke priority 100")
+	require.Len(t, out.Jobs, 2)
+	rea := out.Jobs[0]
+	assert.Equal(t, "rea", rea.Source)
+	assert.Equal(t, 5, rea.Priority)
+	require.NotNil(t, rea.PriorityAsSent)
+	assert.False(t, *rea.PriorityAsSent)
+	assert.Equal(t, SmokeDeduplicated, rea.Verdict, "a job at another priority is another run's, so deduplicated")
+	assert.Contains(t, rea.Detail, "not the smoke priority 100")
 
 	fleet.jobs[0].Priority = smokeQueuePriority
-	out, err = crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", fixedNow)
+	out, err = crawlSmokeStatus(context.Background(), &fakeCrawlOpsOp{fleet: fleet, ledger: ledger}, "uid", smokeID, "", "", fixedNow)
 	require.NoError(t, err)
 	assert.True(t, *out.Jobs[0].PriorityAsSent)
 }
@@ -1198,4 +1200,13 @@ func TestFailuresAcceptSourceBothWithoutNarrowingTheLedger(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, out.JobFailed)
 	assert.Len(t, out.Receipts, 2)
+}
+
+// smokeLedger is one run's two portal rows (rea and domain), both pending under the run id.
+func smokeLedger(smokeID string, future time.Time) *fakeLedger {
+	l := &fakeLedger{dispatch: []CrawlDispatch{smokeDispatch("job-rea", "rea", future, false), smokeDispatch("job-domain", "domain", future, false)}}
+	for i := range l.dispatch {
+		l.dispatch[i].RunID = smokeID
+	}
+	return l
 }

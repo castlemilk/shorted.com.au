@@ -46,8 +46,9 @@ var (
 	redactEmail = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
 	redactPrice = regexp.MustCompile(`\$\s?[0-9][0-9,]*(?:\.[0-9]+)?\s?[kKmMbB]?`)
 	redactPhone = regexp.MustCompile(`(?:\+?61|\b0)[2-9](?:[ -]?[0-9]){7,9}\b`)
-	// redactAddress is a street address: a number, up to three words, then a street type.
-	redactAddress = regexp.MustCompile(`(?i)\b[0-9]+[a-z]?(?:/[0-9]+[a-z]?)?\s+(?:[A-Za-z'-]+\s+){1,3}(?:` + streetTypes + `)\b\.?`)
+	// redactAddress is a street address: a number, up to three words (a word may carry digits, as in
+	// "2nd"), then a street type. A word may also be "The".
+	redactAddress = regexp.MustCompile(`(?i)\b[0-9]+[a-z]?(?:/[0-9]+[a-z]?)?\s+(?:[A-Za-z0-9'-]+\s+){1,3}(?:` + streetTypes + `)\b\.?`)
 	// redactSlugAddress is a catalog-style address key: street words, the state and a postcode,
 	// as the collector writes them in its log keys (12-smith-street-bondi-nsw-2026).
 	redactSlugAddress = regexp.MustCompile(`(?i)\b[a-z0-9]+(?:-[a-z0-9]+){2,}-(?:nsw|vic|qld|sa|wa|tas|nt|act)-[0-9]{4}\b`)
@@ -58,9 +59,9 @@ var (
 	versionPattern = regexp.MustCompile(`^[0-9]{1,4}(?:\.[0-9]{1,4}){1,3}(?:-[A-Za-z0-9.]{1,24})?$`)
 )
 
-// streetTypes are the street words an address line can end in. Redaction is conservative, so a
-// longer list only over-redacts.
-const streetTypes = `street|st|road|rd|avenue|ave|av|drive|dr|place|pl|court|ct|crescent|cres|lane|ln|way|terrace|tce|boulevard|blvd|parade|pde|close|cl|highway|hwy|grove|gr|circuit|cct|esplanade|esp|rise|square|sq|loop|mews|walk|trail|track|quay|promenade|ridge|vista|crest|gardens|gdns|parkway|pwy|row|mall`
+// streetTypes are the street words an address line can end in. Redaction is conservative, so a longer
+// list only over-redacts: a common English word after a number and up to three words is redacted too.
+const streetTypes = `street|st|road|rd|avenue|ave|av|drive|dr|place|pl|court|ct|crescent|cres|cr|lane|ln|way|terrace|tce|boulevard|boulevarde|bvd|blvd|parade|pde|close|cl|highway|hwy|grove|gr|circuit|cct|esplanade|esp|rise|square|sq|loop|mews|walk|trail|track|quay|promenade|ridge|vista|crest|gardens|gdns|parkway|pwy|row|mall|glade|chase|view|link|strand|heights|bend|approach|gate|retreat|circle|corso|tarn|wynd|crossing|esp`
 
 // maxErrorText is the longest error or log text a tool returns for one item.
 const maxErrorText = 300
@@ -84,14 +85,33 @@ func redactText(s string) string {
 // rows ("[listings] DRY ..." carries a price, an address and a listing URL) and the property
 // per-address keys ("[property] <slug-address>: ..."). Redaction is best effort; dropping is exact.
 func keepLogLine(line string) bool {
-	l := strings.TrimSpace(line)
+	l := stripLogTimestamp(strings.TrimSpace(line))
 	if strings.HasPrefix(l, "[listings] DRY") {
 		return false
 	}
-	if rest, ok := strings.CutPrefix(l, "[property] "); ok && redactSlugAddress.MatchString(rest) {
-		return false
+	// A [property...] line keyed by an address: the first word is the address key, a slug with a
+	// digit and a hyphen (12-smith-street-bondi-nsw-2026:). Run-summary words (start, FIXTURE) have
+	// neither, so they are kept.
+	if m := propertyPrefix.FindStringSubmatch(l); m != nil {
+		key := strings.TrimSuffix(strings.Fields(m[1])[0], ":")
+		if strings.ContainsAny(key, "0123456789") && strings.Contains(key, "-") {
+			return false
+		}
 	}
 	return true
+}
+
+// propertyPrefix matches a collector log line from the [property] family and captures the text after the
+// bracketed tag.
+var propertyPrefix = regexp.MustCompile(`^\[property[a-z-]*\] (.*)$`)
+
+// logTimestamp is the prefix Go's default logger writes (2026/10/31 09:00:01). The collector does not set
+// log flags, so every real line starts with it.
+var logTimestamp = regexp.MustCompile(`^[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})? `)
+
+// stripLogTimestamp removes the default logger's timestamp, so a line is judged by its content.
+func stripLogTimestamp(line string) string {
+	return logTimestamp.ReplaceAllString(line, "")
 }
 
 // boundedText redacts and caps one error or log text.

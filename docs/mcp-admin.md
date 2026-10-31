@@ -490,8 +490,9 @@ live, and it uses one of the rig's four live runs per six hours.
      job next, so no second drain was sent.
    - `enqueue: already_queued`: the suburb has open jobs. Nothing was enqueued or drained, and `queue`
      lists each job with its priority and the count of pending jobs claimed before it.
-   - `enqueue: deduplicated`: the collector found a job already pending for the suburb and enqueued
-     nothing. This is a refusal of a duplicate, not a failure, and the verdict is `deduplicated`.
+   - `verdict: deduplicated` (step 3): a portal's job is another run's. The enqueue itself succeeded:
+     BrandBrain returned the job another run already held, and the ledger kept that run's row. This
+     is a duplicate, not a failure.
    - `drain: rig_busy`, `refused`, `rate_limited`, `not_sent` or `unknown`: see "Refusals and outcome
      codes" below.
 3. Run `housing_crawl_smoke_status` with the `smoke_id` (and the `rig_id`) until the verdict is not
@@ -517,13 +518,19 @@ request key: found means it was created; `command_not_found` means it was not.
 |---|---|---|
 | `rig_busy` | the rig is busy with another action | `drain: rig_busy`: a drain is already running |
 | `rig_not_active` | the rig is not active in BrandBrain | `drain: refused` |
-| `rig_offline` | the rig is offline | `drain: refused` |
+| `rig_offline` (checked here, from the rig list) | the rig is not online | `drain: rig_offline`: no drain was sent |
 | `housing_crawl_grant_required` | the rig has no housing crawl grant | `drain: refused` |
 | `agent_update_required` | the rig's agent is too old | `drain: refused` (logs too) |
 | `management_unsupported` | the rig does not advertise remote management | `drain: refused` |
 | `idempotency_conflict` | the key was used for a different command | `drain: refused` |
-| `rate_limited` (429) | BrandBrain's per-rig live limit | `drain: rate_limited`: "rig drain rate limit reached; retry later" |
-| `fleet_ops_forbidden` (403) | the ops token refused the request, for example a dry run | an error |
+| `rate_limited` (429) | BrandBrain's per-rig live drain limit | `drain: rate_limited`: "rig drain rate limit reached; retry later" |
+| `fleet_ops_forbidden` (403) | the ops token refused the request, for example a dry run | `drain: refused`, with the reason |
+| `rig_not_found` (404) | BrandBrain has no such rig | `drain: refused`, with the reason |
+| `invalid_request` (400) | BrandBrain rejected the request | `drain: refused`, with the reason |
+
+A 429 on a LOG request is BrandBrain's request limit, not the drain limit: log requests are not
+counted against live drains. The log tools report it as "BrandBrain rate-limited the log request;
+retry later".
 
 Only `rig_busy` appears on a drain's refusal path when a drain is running. The drain path itself
 returns `rig_busy` only for a repair command in BrandBrain today, so a live drain sent while another
@@ -561,15 +568,34 @@ is `other`.
 
 ### Scheduling and the enqueue
 
-**Dedupe.** BrandBrain's queue dedupes an enqueue onto an existing pending job for the same
-(kind, suburb, state, postcode, source, tier), and returns that job with its ORIGINAL priority and
-run id. So a smoke never writes a ledger row for a job it did not create. When any target is
-deduplicated, the collector writes nothing and exits 11 (`smokeExitDeduplicated`), which the tool
-reads as `deduplicated`. A smoke that picked a suburb already queued is refused the same way. Cloud
-Run retries a non-zero exit (the job's `max_retries` is 2); each retry is the same no-op, so the
-refused run writes nothing twice. A race between two smokes can leave one unledgered pending job
-on the other portal (a Cloud Run execution cannot retry a single batch item); the rig fails it as
-`not_dispatched`, and it shows in `housing_crawl_failures`.
+**Dedupe, from the ledger.** The queue dedupes an enqueue onto an existing pending job for the same
+(kind, suburb, state, postcode, source, tier), and returns that job with its ORIGINAL priority and run
+id. The smoke enqueue therefore writes a ledger row for EVERY target BrandBrain returns:
+
+- a row for a job this run created carries the run id;
+- a row for a job another run already holds is left exactly as it was: its run id AND its expiry (a
+  scheduled job keeps its 72 hours; the scheduled enqueue's upsert would have shortened it to the smoke's 6).
+
+The enqueue exits 0 once BrandBrain has answered and the rows have committed. No exit code carries the
+outcome, so a Cloud Run retry is a no-op: the insert does nothing for a row that exists. Nothing is left
+unledgered, so no job sits at priority 100 with no row.
+
+The verdict is read from the ledger and BrandBrain, per portal:
+
+- `deduplicated`: the portal's job is at a priority other than 100 (it is another run's), or the
+  suburb's open row for that portal belongs to another run;
+- `failed: not_dispatched`: the portal has no row by the start deadline (30 minutes after the time in
+  the `smoke_id`). The deadline is a fixed bound, not BrandBrain's job timeout times attempts, which the
+  fleet does not expose. The run never waits forever;
+- `waiting`: the row exists and the job is still in flight.
+
+The enqueue runs under a transaction-scoped advisory lock, `pg_advisory_xact_lock(hashtext('crawl-smoke'))`,
+taken before the suburb is chosen and released at the ledger commit, so two smokes never pick the same
+suburb or interleave their writes. Smoke rows expire after 6 hours, so an undrained smoke fails as
+expired in hours; scheduled rows keep their 72-hour expiry.
+
+With no rows at all, a smoke whose suburb is known (an explicit `suburb`) reads as deduplicated when another
+run holds the suburb; without a suburb it reads as not_dispatched after the deadline.
 
 The smoke job is the collector's `server-enqueue` with `-selection smoke`, `-suburb <slug>`
 and `-run-id smoke-<UTC>-<8 hex>` (`services/house-price-collector/crawl_server.go`). The run

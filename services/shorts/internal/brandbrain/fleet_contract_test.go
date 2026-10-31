@@ -65,7 +65,7 @@ const commandCreatedBody = `{"command": {
   "id": "cmd-1", "rig_id": "rig-1", "request_key": "smoke-20261031T093000Z-0a1b2c3d:drain",
   "kind": "housing_crawl_run", "payload": {"job": "drain", "dry_run": false},
   "status": "pending", "result": "", "delivery_attempts": 0, "events": [],
-  "created_via": "api", "created_by": "fleet-ops:shorted-admin",
+  "created_via": "fleet_ops_token", "created_by": "fleet-ops:shorted-admin",
   "created_at": "2026-10-31T09:00:01Z", "expires_at": "2026-10-31T09:10:01Z"
 }}`
 
@@ -227,4 +227,9 @@ func TestContractCrawlJobsDecodesTheRealShape(t *testing.T) {
 	assert.Equal(t, "null", string(pending.ResultSummary), "a job with no summary carries null")
 	require.NotNil(t, pending.NotBefore)
 	assert.Equal(t, 1, page.Summary.ByStatusSource[0].Count)
+}
+
+// The fixture's created_via is the value BrandBrain's ops-token path records for a drain.
+func TestContractCreatedViaIsTheOpsTokenValue(t *testing.T) {
+	assert.Contains(t, commandCreatedBody, `"created_via": "fleet_ops_token"`)
 }

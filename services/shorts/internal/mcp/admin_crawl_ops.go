@@ -188,7 +188,7 @@ var (
 	errCrawlSourceLogs        = errors.New("source must be housing or runtime; nothing was sent")
 	errCrawlSince             = errors.New("since must be a number of hours (24h, the default) or days up to 7d; nothing was read")
 	errCrawlLogRequest        = errors.New("BrandBrain would not take the log request; nothing was collected")
-	errCrawlLogLimited        = errors.New("rig drain rate limit reached; retry later")
+	errCrawlLogLimited        = errors.New("BrandBrain rate-limited the log request; retry later")
 	errCrawlLogNotCreated     = errors.New("BrandBrain did not create the log request, so nothing was collected; ask again")
 	errCrawlLogUnknown        = errors.New("the log request's outcome is not known; ask again, and check the rig's command list before retrying")
 )
