@@ -77,8 +77,10 @@ const (
 )
 
 // smokeEnqueuePriority ranks a smoke job above the queue's default order (0), so the
-// rig's next drain claims it before the scheduled work. BrandBrain's accepted range is not
-// set in this repository, so the value is unverified until a live smoke run confirms it.
+// rig's next drain claims it before the scheduled work. BrandBrain claims priority DESC then
+// created_at ASC and accepts any integer, so 100 is claimed ahead of the default 5. An enqueue
+// onto an existing pending job keeps that job's priority, which is why selectSmokeTarget skips
+// suburbs that are already queued.
 const smokeEnqueuePriority = 100
 
 // smokeRunIDPattern is the run id a smoke run writes to its ledger rows: the admin tool
@@ -456,25 +458,70 @@ func runSmokeEnqueue(ctx context.Context, pool *pgxpool.Pool, opts serverEnqueue
 	return 0
 }
 
-// selectSmokeTarget returns the catalog suburb a smoke run enqueues: the one named by
-// suburb (a catalog slug), or else the stalest one by its newest listing crawl.
+// selectSmokeTarget returns the catalog suburb a smoke run enqueues. The queue dedupes an enqueue
+// onto an existing pending job and keeps that job's priority, so a suburb with an open ledger row
+// is already queued and cannot be smoked at the smoke priority. See chooseSmokeTarget.
 func selectSmokeTarget(ctx context.Context, pool *pgxpool.Pool, suburb string) (CrawlTarget, error) {
+	queued, err := queuedSuburbSlugs(ctx, pool)
+	if err != nil {
+		return CrawlTarget{}, fmt.Errorf("smoke queue check failed: %w", err)
+	}
+	var fresh []suburbFreshness
+	if strings.TrimSpace(suburb) == "" {
+		fresh, err = queryCatalogFreshness(ctx, pool, crawlTargets, loadDeltaConfig().churnDays)
+		if err != nil {
+			return CrawlTarget{}, fmt.Errorf("smoke target freshness query failed: %w", err)
+		}
+	}
+	return chooseSmokeTarget(suburb, queued, fresh)
+}
+
+// queuedSuburbSlugs returns the catalog slugs that have an open ledger row (not closed, not
+// expired) for either portal. Every pending BrandBrain job is dispatched, so these are queued.
+func queuedSuburbSlugs(ctx context.Context, pool *pgxpool.Pool) (map[string]bool, error) {
+	rows, err := pool.Query(ctx, `SELECT DISTINCT lower(replace(suburb, ' ', '-')) FROM crawl_dispatch
+		WHERE closed_at IS NULL AND expires_at > now()`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		out[slug] = true
+	}
+	return out, rows.Err()
+}
+
+// chooseSmokeTarget is the pure decision. An explicit suburb must be a catalog slug and must
+// not be queued: a queued suburb would dedupe onto its existing job at that job's priority. With
+// no suburb, the stalest catalog suburb that is not queued is chosen (fresh is then required).
+func chooseSmokeTarget(suburb string, queued map[string]bool, fresh []suburbFreshness) (CrawlTarget, error) {
 	want := strings.ToLower(strings.TrimSpace(suburb))
 	if want != "" {
 		for _, t := range crawlTargets {
-			if t.Suburb == want {
-				return t, nil
+			if t.Suburb != want {
+				continue
 			}
+			if queued[want] {
+				return CrawlTarget{}, fmt.Errorf("-suburb %q already has open crawl jobs, so a smoke enqueue would dedupe onto them at their priority; refused", suburb)
+			}
+			return t, nil
 		}
 		return CrawlTarget{}, fmt.Errorf("-suburb %q is not a catalog suburb slug", suburb)
 	}
-	fresh, err := queryCatalogFreshness(ctx, pool, crawlTargets, loadDeltaConfig().churnDays)
-	if err != nil {
-		return CrawlTarget{}, fmt.Errorf("smoke target freshness query failed: %w", err)
+	var free []suburbFreshness
+	for _, f := range fresh {
+		if !queued[f.Target.Suburb] {
+			free = append(free, f)
+		}
 	}
-	t, ok := pickStalest(fresh)
+	t, ok := pickStalest(free)
 	if !ok {
-		return CrawlTarget{}, errors.New("the crawl catalog is empty")
+		return CrawlTarget{}, errors.New("every catalog suburb has open crawl jobs; there is nothing to smoke at the smoke priority")
 	}
 	return t, nil
 }
