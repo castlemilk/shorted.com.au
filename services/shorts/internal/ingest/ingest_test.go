@@ -486,6 +486,9 @@ func TestPush_QuarantineAtTheDelistBoundary(t *testing.T) {
 				if n := count(t, rig, `SELECT count(*) FROM crawl_ingest_quarantine WHERE reason = 'delists_over_threshold'`); n != 1 {
 					t.Errorf("the held delist must be recorded, found %d", n)
 				}
+				if n := count(t, rig, `SELECT count(*) FROM crawl_dispatch WHERE job_id = 'job-1' AND closed_at IS NOT NULL`); n != 1 {
+					t.Errorf("a held sweep is terminal for its job: the dispatch must be closed, found %d closed", n)
+				}
 			} else if active != 80-tc.absent {
 				t.Errorf("the threshold passes and delists %d: want %d active, got %d", tc.absent, 80-tc.absent, active)
 			}
