@@ -230,7 +230,7 @@ test("housing freshness workflow enforces the read-only production sentinel cont
   assert.match(workflow, /exit\s+"\$check_rc"/);
 });
 
-test("terraform deploy workflow gates housing contracts on open pull requests", () => {
+test("terraform deploy workflow gates the deploy on housing contracts, on PRs and pushes", () => {
   assert.ok(deployWorkflow, "terraform-deploy.yml must exist");
 
   const jobStart = deployWorkflow.match(/^  housing-contract-tests:\s*$/m);
@@ -243,11 +243,22 @@ test("terraform deploy workflow gates housing contracts on open pull requests", 
       ? remainingWorkflow
       : remainingWorkflow.slice(0, jobStart[0].length + nextJobOffset);
 
-  assert.match(
-    job,
-    /^    if: github\.event_name == 'pull_request' && github\.event\.action != 'closed'$/m,
-  );
+  // It runs on every event (a PR, a push to main, a manual dispatch), so that
+  // terraform-apply can wait on it. An `if:` that skipped a push would leave
+  // the gate reading "skipped", and the apply condition would then fail closed.
+  assert.doesNotMatch(job, /^    if:/m, "housing contract tests must run on every event, not only PRs");
   assert.doesNotMatch(job, /^    needs:/m, "housing contract tests must be independent");
+  const apply = deployWorkflow.slice(deployWorkflow.indexOf("\n  terraform-apply:"));
+  assert.match(
+    apply.slice(0, apply.indexOf("\n  bump-vke-jobs-image:")),
+    /needs: \[[^\]]*housing-contract-tests[^\]]*\]/,
+    "terraform-apply must list housing-contract-tests in needs",
+  );
+  assert.match(
+    apply.slice(0, apply.indexOf("\n  bump-vke-jobs-image:")),
+    /needs\.housing-contract-tests\.result == 'success'/,
+    "terraform-apply must assert the contract result explicitly",
+  );
   assert.doesNotMatch(job, /\b(?:run-tests|build-images|build-docker-images|build-ko-images)\b/);
 
   assert.match(job, /uses: actions\/checkout@v5/);
@@ -271,10 +282,13 @@ test("terraform deploy workflow gates housing contracts on open pull requests", 
     /go test -count=1 -p 1 -tags=testcontainers \.\/pkg\/housingcrawl \.\/shorts\/internal\/ingest/,
     "the listing store and the ingest DB tests run in the housing job",
   );
+  // The whole collector package runs once, in go-quality's unit-tests job. This
+  // job runs only the contract and golden tests, selected by name.
   assert.match(
     job,
-    /working-directory:\s*services\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test \.\/house-price-collector/,
+    /working-directory:\s*services\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test -count=1 -run 'Contract\|Golden' \.\/house-price-collector/,
   );
+  assert.doesNotMatch(job, /\.\/house-price-collector\s*$/m, "the collector package must not run twice");
   // The services/jobs houseprices mirror was retired (nothing scheduled it; the
   // rig and the Cloud Run job both run house-price-collector). A test step for
   // it would point at a package that no longer exists.

@@ -594,7 +594,7 @@ jobs:
     #
     # If a flaky test starts blocking deploys, fix or quarantine the test — do not
     # remove this edge, or the gate silently becomes decorative again.
-    needs: [determine-environment, validate-secrets, terraform-plan, run-tests]
+    needs: [determine-environment, validate-secrets, terraform-plan, run-tests, housing-contract-tests]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
     # apply holds the lock far longer than a plan, so this is the job most
@@ -614,7 +614,8 @@ jobs:
       github.event_name != 'pull_request' &&
       github.event.inputs.plan_only != 'true' &&
       needs.terraform-plan.result == 'success' &&
-      needs.run-tests.result == 'success'
+      needs.run-tests.result == 'success' &&
+      needs.housing-contract-tests.result == 'success'
     environment:
       name: ${{ needs.determine-environment.outputs.environment }}
     outputs:
@@ -1830,10 +1831,15 @@ jobs:
           echo "### Backend Services" >> $GITHUB_STEP_SUMMARY
           echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
 
+  # The contract and golden gate. It runs on PRs AND on pushes to main, and
+  # terraform-apply lists it in `needs`, so a red contract stops the deploy.
+  # It does not re-run the collector package: unit-tests (go-quality.yml) runs
+  # that package on every PR; this job runs only the contract and golden tests,
+  # the rig and lifecycle guards, and the housing DB tests (kept on the gate
+  # because they are the only CI run of the listing and ingest SQL).
   housing-contract-tests:
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -1862,9 +1868,12 @@ jobs:
       - name: Run housing workflow contract tests
         run: node --test .github/workflows/housing-lifecycle.test.mjs
 
-      - name: Run deployed housing collector tests
+      # The collector's contract and golden tests: the pinned event names, the
+      # probe words and the cycle output. Selected by name, so the rest of the
+      # package stays on the PR's unit-tests job and is not run twice.
+      - name: Run collector contract and golden tests
         working-directory: services
-        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./house-price-collector ./pkg/housingcrawl
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test -count=1 -run 'Contract|Golden' ./house-price-collector ./pkg/housingcrawl
 
       # The listing store and the crawl ingest, against a real Postgres. Without
       # HOUSING_TEST_DB_URL these tests skip, so their SQL (receipts, the guard,
@@ -1879,7 +1888,7 @@ jobs:
         env:
           HOUSING_TESTCONTAINERS: "1"
           CGO_ENABLED: "0"
-        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test -count=1 -p 1 -tags=testcontainers ./pkg/housingcrawl ./shorts/internal/ingest ./house-price-collector
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test -count=1 -p 1 -tags=testcontainers ./pkg/housingcrawl ./shorts/internal/ingest
 
       - name: Run housing wrapper lifecycle tests
         run: bash services/house-price-collector/deploy/housing-lifecycle-exit.test.sh
@@ -1921,19 +1930,9 @@ jobs:
           cd services/jobs
           GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./...
 
-      - name: Run integration tests
-        run: |
-          echo "🧪 Running integration tests (local testcontainers)..."
-          cd services
-          make test-integration-ci
-
-      # Its own step, not part of test-integration-ci: that target is the one that
-      # integration-image-prefetch.test.mjs pins to exactly three go calls, and this
-      # suite needs a postgres:15 container of its own. It still gates the deploy.
-      - name: Run alerts evaluator end-to-end suite
-        run: |
-          echo "🧪 Running the alerts evaluator end-to-end suite (postgres container)..."
-          cd services
-          make test-alerts-e2e
+      # The integration suites (test-integration-ci) and the alerts end-to-end
+      # suite (test-alerts-e2e) run in go-quality.yml's `extended` job: they need
+      # Postgres containers, they are the slowest suites on the runner, and they
+      # report without gating. Only the jobs-module unit tests above gate a deploy.
 
 
