@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -236,4 +237,81 @@ func TestCrawlOpsReadsCarryTheStatementTimeout(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "5s", got)
+}
+
+// A replay of 000153 with the indexes already present takes no table lock: a receipt insert held open
+// by another writer does not block it, even under a one-second lock timeout. CREATE INDEX IF NOT EXISTS
+// would wait here, which is why each index is catalog-guarded.
+func TestMigrationReplayTakesNoLock_Integration(t *testing.T) {
+	s := crawlOpsTestStore(t)
+	ctx := context.Background()
+
+	writer, err := s.db.Begin(ctx)
+	require.NoError(t, err)
+	defer func() { _ = writer.Rollback(ctx) }()
+	_, err = writer.Exec(ctx, `INSERT INTO crawl_ingest_receipts (key, rig_subject, body_sha256, response) VALUES ('w:1:rea','rig:rig-1','\x00','{}')`)
+	require.NoError(t, err)
+
+	replay := migrationSQL(t, "000153_add_crawl_ops_indexes.up.sql")
+	replay = strings.Replace(replay, "lock_timeout = '15s'", "lock_timeout = '1s'", 1)
+	_, err = s.db.Exec(ctx, replay)
+	require.NoError(t, err, "a replay with the indexes present must not wait on the open insert")
+}
+
+// A replay rebuilds an index that is missing, and leaves a valid one alone.
+func TestMigrationReplayRebuildsAMissingIndex_Integration(t *testing.T) {
+	s := crawlOpsTestStore(t)
+	ctx := context.Background()
+	_, err := s.db.Exec(ctx, `DROP INDEX idx_crawl_dispatch_run_id`)
+	require.NoError(t, err)
+	_, err = s.db.Exec(ctx, migrationSQL(t, "000153_add_crawl_ops_indexes.up.sql"))
+	require.NoError(t, err)
+	var n int
+	require.NoError(t, s.db.QueryRow(ctx, `SELECT count(*) FROM pg_indexes WHERE indexname = 'idx_crawl_dispatch_run_id'`).Scan(&n))
+	assert.Equal(t, 1, n, "the replay must rebuild the missing index")
+}
+
+// Each query the admin tools run uses its index on a table of realistic size. The plans are read after
+// ANALYZE, so the planner has the statistics it has in prod.
+func TestCrawlOpsQueriesUseTheirIndexes_Integration(t *testing.T) {
+	s := crawlOpsTestStore(t)
+	ctx := context.Background()
+	_, err := s.db.Exec(ctx, `
+		INSERT INTO crawl_dispatch (job_id, run_id, selection, suburb, state, postcode, source, created_at, expires_at, closed_at)
+		SELECT 'job-'||g, 'delta-'||(g/1000), 'delta', 'Suburb '||(g % 500), 'NSW', '2000', CASE WHEN g%2=0 THEN 'rea' ELSE 'domain' END,
+		       now(), now() + interval '2 days', CASE WHEN g % 3 = 0 THEN NULL ELSE now() END
+		FROM generate_series(1, 20000) g;
+		INSERT INTO crawl_ingest_receipts (key, rig_subject, body_sha256, response, created_at)
+		SELECT 'job-'||g||':1:rea', 'rig:rig-1', '\x00', '{"appliedStatus":"SWEEP_STATUS_COMPLETE","listingsUpserted":3}', now()
+		FROM generate_series(1, 20000) g;
+		ANALYZE crawl_dispatch; ANALYZE crawl_ingest_receipts;`)
+	require.NoError(t, err)
+
+	cases := []struct {
+		name, sql, arg, index string
+	}{
+		{"receipts by job", `SELECT key FROM crawl_ingest_receipts WHERE split_part(key, ':', 1) = $1 ORDER BY created_at, key`, "job-77", "idx_crawl_ingest_receipts_job_id"},
+		{"ledger by run", `SELECT job_id FROM crawl_dispatch WHERE run_id = $1 ORDER BY created_at, job_id`, "delta-7", "idx_crawl_dispatch_run_id"},
+		{"open rows by suburb", `SELECT job_id FROM crawl_dispatch WHERE lower(replace(suburb, ' ', '-')) = $1 AND closed_at IS NULL AND expires_at > now() ORDER BY created_at, job_id`, "suburb-42", "idx_crawl_dispatch_open_suburb"},
+	}
+	for _, c := range cases {
+		rows, err := s.db.Query(ctx, "EXPLAIN "+c.sql, c.arg)
+		require.NoError(t, err)
+		var plan []string
+		for rows.Next() {
+			var l string
+			require.NoError(t, rows.Scan(&l))
+			plan = append(plan, l)
+		}
+		rows.Close()
+		assert.Contains(t, strings.Join(plan, "\n"), c.index, "%s does not use %s:\n%s", c.name, c.index, strings.Join(plan, "\n"))
+	}
+}
+
+// migrationSQL reads one migration file from services/migrations.
+func migrationSQL(t *testing.T, name string) string {
+	t.Helper()
+	sql, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "migrations", name))
+	require.NoError(t, err)
+	return string(sql)
 }
