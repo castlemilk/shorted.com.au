@@ -200,10 +200,13 @@ func (l *fakeLedger) DispatchForRun(_ context.Context, run string) ([]CrawlDispa
 	return out, nil
 }
 
+// OpenDispatchForSuburb is the store's `expires_at > now()`, read on the tests' clock: every
+// fixture is pinned to fixedNow, so the real clock made these rows expire once it passed
+// 2026-10-31 11:00 UTC, and the smoke tests failed from then on.
 func (l *fakeLedger) OpenDispatchForSuburb(_ context.Context, slug string) ([]CrawlDispatch, error) {
 	var out []CrawlDispatch
 	for _, d := range l.dispatch {
-		if strings.ToLower(strings.ReplaceAll(d.Suburb, " ", "-")) == slug && d.ClosedAt == nil && d.ExpiresAt.After(time.Now()) {
+		if strings.ToLower(strings.ReplaceAll(d.Suburb, " ", "-")) == slug && d.ClosedAt == nil && d.ExpiresAt.After(fixedNow) {
 			out = append(out, d)
 		}
 	}
@@ -899,7 +902,9 @@ func TestSmokeStartsOneEnqueueWaitsDrainsAndReturnsItsID(t *testing.T) {
 
 func TestSmokeDrainsOnceTheRowsExistAndKeysItByRun(t *testing.T) {
 	shortPolls(t)
-	future := fixedNow.Add(time.Hour)
+	// Through the tool handler, which judges on the real clock: a row expiring an hour after
+	// fixedNow read as expired, and the run as failed, from 2026-10-31 11:00 UTC on.
+	future := time.Now().Add(time.Hour)
 	fleet := &fakeFleet{}
 	ledger := &fakeLedger{}
 	fake := &fakeCrawlOpsOp{fleet: fleet, ledger: ledger, execs: []*jobmonitor.ExecutionStatus{{Status: "succeeded"}}}
