@@ -262,6 +262,12 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 				return events, err
 			}
 			if delist {
+				// A listing no sweep has seen for DelistStaleAfter is confirmed gone,
+				// not a sign of a bad sweep. Count it apart, so the quarantine gate can
+				// judge only the recent delists. Zero disables the split.
+				if isStale(a.LastSeen, runTs, d.cfg.DelistStaleAfter) {
+					d.res.DelistedStale++
+				}
 				if err := InsertPriceEvent(ctx, tx, PriceEvent{
 					ListingPK:  a.PK,
 					Source:     source,
@@ -282,6 +288,16 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 		}
 	}
 	return events, nil
+}
+
+// isStale reports whether a listing last seen at lastSeen is stale at runTs: no sweep
+// has seen it for more than after. A zero lastSeen is not stale (there is no sighting
+// to age), and after <= 0 disables the split. Exactly after is not stale.
+func isStale(lastSeen, runTs time.Time, after time.Duration) bool {
+	if after <= 0 || lastSeen.IsZero() {
+		return false
+	}
+	return lastSeen.Before(runTs.Add(-after))
 }
 
 // diffListing diffs + upserts ONE (already-sanitised, AddressKey-stamped) listing

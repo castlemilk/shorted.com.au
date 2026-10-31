@@ -93,7 +93,18 @@ type Config struct {
 	// interval, so a re-swept job cannot speed up delisting. Zero means every
 	// COMPLETE sweep counts, as the collector has always done.
 	MinDelistInterval time.Duration
+	// DelistStaleAfter splits the delists of a COMPLETE sweep. A listing whose
+	// last_seen_at is older than runTs - DelistStaleAfter is confirmed gone, and
+	// Result.DelistedStale counts it. Zero disables the split: DelistedStale stays 0.
+	DelistStaleAfter time.Duration
 }
+
+// DefaultDelistStaleAfter is how long a listing may go unseen before a delist of it is
+// a confirmed withdrawal, not a sign of a bad sweep. The ingest's
+// HOUSING_INGEST_QUARANTINE_DELIST_STALE_AFTER defaults to it, and the drop index's
+// capitulation counter excludes stale delists by the same age. One constant, so the
+// gate and the published signal cannot drift apart.
+const DefaultDelistStaleAfter = 504 * time.Hour // 21 days
 
 // LargeMoveFraction is the price move that Result.LargeMoves counts: a listing
 // already stored whose price moved by more than this fraction of its stored
@@ -156,6 +167,11 @@ type Result struct {
 	Upserted int
 	// Delisted is the number of listings withdrawn by this sweep.
 	Delisted int
+	// DelistedStale is the subset of Delisted whose last_seen_at is older than
+	// Config.DelistStaleAfter: no sweep has seen them for that long. It is 0 when
+	// DelistStaleAfter is 0. The quarantine gate subtracts it, so a backlog of
+	// long-gone listings does not trip a hold on a sweep that is otherwise sound.
+	DelistedStale int
 	// SkippedRows is the number of listings dropped on a PERMANENT per-row error.
 	// The rest of the sweep still persisted.
 	SkippedRows int

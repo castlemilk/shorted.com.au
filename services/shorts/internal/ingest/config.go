@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/housingcrawl"
 )
 
 // Environment variables. HOUSING_INGEST_ENABLED defaults to false.
@@ -40,6 +42,7 @@ const (
 	EnvQuarantineDelistFraction = "HOUSING_INGEST_QUARANTINE_DELIST_FRACTION"
 	EnvQuarantineDelistCap      = "HOUSING_INGEST_QUARANTINE_DELIST_CAP"
 	EnvQuarantineMinDelists     = "HOUSING_INGEST_QUARANTINE_MIN_DELISTS"
+	EnvQuarantineDelistStale    = "HOUSING_INGEST_QUARANTINE_DELIST_STALE_AFTER"
 	EnvDispatchTTL              = "HOUSING_INGEST_DISPATCH_TTL"
 	EnvDBMaxConns               = "HOUSING_INGEST_DB_MAX_CONNS"
 	// EnvDatabaseURL is the ingest's own database. It falls back to DATABASE_URL.
@@ -62,6 +65,7 @@ const (
 	DefaultDelistFraction           = 0.25
 	DefaultDelistCap                = 20
 	DefaultMinDelists               = 3
+	DefaultDelistStaleAfter         = housingcrawl.DefaultDelistStaleAfter
 	DefaultDispatchTTL              = 72 * time.Hour
 	DefaultDBMaxConns               = 4
 )
@@ -95,6 +99,12 @@ type Config struct {
 	DelistFraction float64
 	DelistCap      int
 	MinDelists     int
+	// DelistStaleAfter exempts long-unseen listings from the delist count. A listing
+	// whose last_seen_at is older than this is confirmed gone and does not count
+	// toward the threshold; the rest of the delists still do. A held sweep's
+	// Delisted minus DelistedStale is what is compared. Zero disables the exemption,
+	// so every delist counts, as before.
+	DelistStaleAfter time.Duration
 	// DispatchTTL is how long a dispatch row stays open. S-SRV's enqueue writes
 	// crawl_dispatch.expires_at = created + DispatchTTL. The ingest reads it back
 	// only through expires_at, so a job past its expiry is refused.
@@ -126,6 +136,7 @@ func ConfigFromEnv(getenv func(string) string) (Config, string) {
 		DelistFraction:     DefaultDelistFraction,
 		DelistCap:          DefaultDelistCap,
 		MinDelists:         DefaultMinDelists,
+		DelistStaleAfter:   DefaultDelistStaleAfter,
 		DispatchTTL:        DefaultDispatchTTL,
 		DBMaxConns:         DefaultDBMaxConns,
 	}
@@ -183,6 +194,14 @@ func ConfigFromEnv(getenv func(string) string) (Config, string) {
 			problems = append(problems, EnvQuarantineDelistCap+" must be an integer >= 0")
 		} else {
 			cfg.DelistCap = v
+		}
+	}
+	if raw := strings.TrimSpace(getenv(EnvQuarantineDelistStale)); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil || d < 0 {
+			problems = append(problems, EnvQuarantineDelistStale+" must be a duration >= 0, such as 504h (0 disables)")
+		} else {
+			cfg.DelistStaleAfter = d
 		}
 	}
 	if raw := strings.TrimSpace(getenv(EnvDispatchTTL)); raw != "" {

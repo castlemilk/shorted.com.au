@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/testpostgres"
 )
 
 // The drop-index queries are asserted elsewhere with string matching, which
@@ -56,5 +58,67 @@ func TestDropIndexQueriesAreValidSQL_Integration(t *testing.T) {
 		if _, err := conn.Conn().Prepare(ctx, name, sql); err != nil {
 			t.Errorf("%s is not valid SQL: %v\n\n%s", name, err, sql)
 		}
+	}
+}
+
+// TestCapitulationExcludesStaleDelistEvents_Integration executes capitulationSQL on
+// seeded delist and relist events, so the counts are checked, not just the query text.
+// Four listings, the day is 2026-10-31, the window 30 days and the relist gap 7 days:
+//
+//   - A: delisted 10 Oct, last seen 1 Sep (stale), relisted 30 Oct. Excluded from both.
+//   - B: delisted 9 Oct, last seen 25 Sep (recent), relisted 30 Oct. Counted in both.
+//   - C: delisted 20 Oct, last seen 10 Sep (stale), never relisted. Excluded.
+//   - D: delisted 20 Oct, last seen 18 Oct (recent), never relisted. Counted.
+//
+// Expected: withdrawn_then_relisted 1 (B), delisted_count 2 (B, D). Without the stale
+// exclusion it is 2 and 4.
+//
+// It uses a throwaway database, as the other housing integration tests do, and runs only
+// with HOUSING_TEST_DB_URL or HOUSING_TESTCONTAINERS=1 (-tags=testcontainers).
+func TestCapitulationExcludesStaleDelistEvents_Integration(t *testing.T) {
+	dsn, err := testpostgres.Admin("HOUSING_TEST_DB_URL", "HOUSING_TESTCONTAINERS")
+	if err != nil {
+		t.Fatalf("start the test Postgres: %v", err)
+	}
+	if dsn == "" {
+		t.Skip("set HOUSING_TEST_DB_URL, or HOUSING_TESTCONTAINERS=1 with -tags=testcontainers, to run the capitulation test")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer pool.Close()
+
+	if _, err := pool.Exec(ctx, `
+		DROP TABLE IF EXISTS property_price_events;
+		DROP TABLE IF EXISTS property_listings;
+		CREATE TABLE property_listings (id BIGINT PRIMARY KEY, last_seen_at TIMESTAMPTZ NOT NULL);
+		CREATE TABLE property_price_events (
+		  id BIGSERIAL PRIMARY KEY, listing_pk BIGINT NOT NULL,
+		  event_type TEXT NOT NULL, observed_at TIMESTAMPTZ NOT NULL);
+		INSERT INTO property_listings (id, last_seen_at) VALUES
+		  (1, '2026-09-01T00:00:00Z'), (2, '2026-09-25T00:00:00Z'),
+		  (3, '2026-09-10T00:00:00Z'), (4, '2026-10-18T00:00:00Z');
+		INSERT INTO property_price_events (listing_pk, event_type, observed_at) VALUES
+		  (1, 'delisted', '2026-10-10T12:00:00Z'), (1, 'relisted', '2026-10-30T12:00:00Z'),
+		  (2, 'delisted', '2026-10-09T12:00:00Z'), (2, 'relisted', '2026-10-30T12:00:00Z'),
+		  (3, 'delisted', '2026-10-20T12:00:00Z'),
+		  (4, 'delisted', '2026-10-20T12:00:00Z');`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	var withdrawnThenRelisted, delistedCount int
+	if err := pool.QueryRow(ctx, capitulationSQL(),
+		time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC), indexWindowDays, indexRelistGapDays, indexDelistStaleDays,
+	).Scan(&withdrawnThenRelisted, &delistedCount); err != nil {
+		t.Fatalf("run capitulationSQL: %v", err)
+	}
+	if withdrawnThenRelisted != 1 {
+		t.Errorf("withdrawn_then_relisted = %d, want 1 (only B: A is stale)", withdrawnThenRelisted)
+	}
+	if delistedCount != 2 {
+		t.Errorf("delisted_count = %d, want 2 (B and D: A and C are stale)", delistedCount)
 	}
 }

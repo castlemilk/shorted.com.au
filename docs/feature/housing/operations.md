@@ -764,6 +764,53 @@ The service never deletes a bypass row, so each release stays in the audit trail
 `expires_at` short. The service does not replay a held sweep. The next push for that suburb
 and source is evaluated with the bypass in place.
 
+#### The delist trip counts recent delists only
+
+A COMPLETE sweep withdraws a listing once no sweep has seen it for `DelistGrace` sweeps. A
+listing that no sweep has seen for `HOUSING_INGEST_QUARANTINE_DELIST_STALE_AFTER` (default
+`504h`, 21 days) is confirmed gone, not a sign of a bad sweep. The guard therefore holds a
+sweep on the delists of listings seen more recently only:
+
+- `delisted_stale` in the quarantine stats is the delists whose `last_seen_at` is older than
+  that window. `would_delist` stays the total.
+- The stale exemption applies only when the sweep covered the region: `2 × upserted >=
+  active_before`. A sweep that covered less than half of what the region held before it is
+  judged on every delist, so a truncated sweep over a dark region cannot withdraw it under the
+  exemption.
+- The guard holds a sweep when the recent delists, `would_delist` less `delisted_stale` when
+  covered, exceed `max(MinDelists, min(DelistFraction × active_before, DelistCap))`. The
+  threshold is unchanged.
+- `0` disables the exemption, so every delist counts, as before.
+
+Residual risk: a truncation that keeps at least half of a dark region still passes the
+coverage test, and the most it can withdraw is about half that region.
+
+Why the exemption exists. Measured 2026-10-31, six COMPLETE sweeps were held as
+`delists_over_threshold`. Five were a backlog of active rows that no sweep had seen for weeks,
+left behind because most sweeps were PARTIAL. On Bundoora (domain) 124 listings were active.
+90 were seen in the sweep, against 80 in the last trusted sweep (24 October), so this sweep
+covered the region. Its 43 would-be delists included 41 last seen more than 21 days before
+the hold, and 36 last seen on 4 August, against a threshold of 20. Thomastown (rea) was the
+exception. Its 26 would-be delists were last seen on 20 October, so they are recent: it stays
+held. Once those listings pass 21 days, a re-crawl applies.
+
+Each stale listing is still delisted in the sweep that counts it. The exemption changes only
+whether the sweep is held.
+
+Applied sweeps that withdraw listings log one line: `upserted`, `active_before`, `delisted`,
+`delisted_stale` and `stale_exempt`. Held sweeps keep both counts in their quarantine stats.
+The PushSweep receipt reports only the total `delisted`, because the proto has no field for the
+split.
+
+Every delist through this gate carries `ingest_receipt_key`. Delists before the 2026-10-30
+cutover came from the ungated collector.
+
+The drop index's capitulation counter (`delisted_count`, `withdrawn_then_relisted`) excludes
+stale delists as well. Otherwise the cleanup of a backlog would show as a spike in a published
+signal. The 21-day age is `housingcrawl.DefaultDelistStaleAfter`, which both the ingest default
+and the drop index read. A stale listing that is later seen again keeps its old delist in the
+count, because its `last_seen_at` has moved.
+
 ### Dispatch ledger, at a glance
 
 `crawl_dispatch` holds one row per job a rig may push for. `closed_at` is set by the first

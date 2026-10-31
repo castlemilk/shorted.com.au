@@ -326,3 +326,44 @@ func TestBearerToken(t *testing.T) {
 		}
 	}
 }
+
+// TestConfig_DelistStaleAfterFromEnv: the stale-delist exemption defaults to 21 days,
+// reads a Go duration, and 0 disables it. A negative or unparseable value is a problem.
+func TestConfig_DelistStaleAfterFromEnv(t *testing.T) {
+	base := map[string]string{EnvEnabled: "true", EnvOrg: "o", EnvAllowSubjects: "rig:a"}
+	with := func(v string) map[string]string {
+		m := map[string]string{}
+		for k, val := range base {
+			m[k] = val
+		}
+		m[EnvQuarantineDelistStale] = v
+		return m
+	}
+	cases := []struct {
+		name    string
+		raw     string
+		want    time.Duration
+		problem bool
+	}{
+		{"unset defaults to 504h", "", 504 * time.Hour, false},
+		{"explicit 336h", "336h", 336 * time.Hour, false},
+		{"zero disables the exemption", "0", 0, false},
+		{"negative is a problem", "-1h", 0, true},
+		{"unparseable is a problem", "three weeks", 0, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := base
+			if tc.raw != "" {
+				m = with(tc.raw)
+			}
+			cfg, problem := ConfigFromEnv(env(m))
+			if (problem != "") != tc.problem {
+				t.Fatalf("problem = %q, want problem=%v", problem, tc.problem)
+			}
+			if !tc.problem && cfg.DelistStaleAfter != tc.want {
+				t.Errorf("DelistStaleAfter = %v, want %v", cfg.DelistStaleAfter, tc.want)
+			}
+		})
+	}
+}
