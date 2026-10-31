@@ -2,7 +2,7 @@ import { waitUntil } from "@vercel/functions";
 import { NextResponse, type NextRequest } from "next/server";
 
 import type { Interaction } from "~/@/lib/discord/api";
-import { renderChartCard } from "~/@/lib/discord/chart-card";
+import { chartCard, warmChartCards } from "~/@/lib/discord/chart-card";
 import {
   discordActivityEnabled,
   discordPublicKey,
@@ -29,8 +29,9 @@ import { recordProductEvent } from "~/@/lib/product-events";
  * Node, not Edge: signature verification uses node:crypto, and the replies
  * are built from the same server actions (and caches) as the stock pages.
  * maxDuration bounds a deferred reply, which finishes in the background after
- * the response (waitUntil): a chart reads its stock (6s at most), draws its
- * card (9s at most) and uploads it.
+ * the response (waitUntil): a chart reads its stock (6s at most), fetches or
+ * draws its card (9s at most) and uploads it, then has the CDN draw the cards
+ * one press away.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,7 +101,8 @@ export async function POST(request: NextRequest) {
       const key = settingsLinkKey();
       return key ? settingsPageUrl(signSettingsGrant(grant, key)) : null;
     },
-    renderChart: renderChartCard,
+    renderChart: (state) => chartCard(state, new Date()),
+    warmCharts: (state) => warmChartCards(state, new Date()),
     onOutcome: ({ action, status, delivery }) =>
       recordProductEvent({
         feature: "discord",
