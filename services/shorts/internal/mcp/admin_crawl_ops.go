@@ -632,7 +632,7 @@ func crawlFailuresTool() AdminTool {
 			Name:  t.Name,
 			Title: "Housing crawl failures",
 			Description: "What is going wrong and where: BrandBrain failed crawl jobs grouped by a normalised failure class " +
-				"(not_dispatched, dispatch_expired, target_mismatch, blocked, circuit_open, chrome, timeout, ingest_unavailable, other), " +
+				"(not_dispatched, dispatch_expired, target_mismatch, blocked, circuit_open, chrome, timeout, ingest_unavailable, quarantined, other), " +
 				"with counts, the top suburbs and up to five sample job ids per class; BLOCKED and PARTIAL ingest receipts; and quarantine reasons. " +
 				"Filter by since (default 24h, max 7d), rig_id or source. Counts and ids only.",
 			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: new(true)},

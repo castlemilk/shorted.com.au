@@ -1228,3 +1228,13 @@ func TestCrawlRigEnvKeepsHeartbeatStateWords(t *testing.T) {
 		}
 	}
 }
+
+// A sweep the ingest quarantined was crawled fine and refused by the gate. It read as "other"
+// in production, hiding six delists_over_threshold holds in one day.
+func TestClassifyQuarantinedSweep(t *testing.T) {
+	got := classifyCrawlFailure("ingest: sweep quarantined (held for review, not retried)",
+		json.RawMessage(`{"blocked_sweeps":0,"events":0,"listings":90,"needs_rewarm":false,"suburbs":1}`))
+	if got != FailureQuarantined {
+		t.Fatalf("class = %q, want %q", got, FailureQuarantined)
+	}
+}
