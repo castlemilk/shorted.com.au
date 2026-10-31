@@ -28,6 +28,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -74,6 +75,17 @@ const (
 	// hostname, so the (run_type, host) primary key never collides.
 	serverRunHost = "server"
 )
+
+// smokeEnqueuePriority ranks a smoke job above the queue's default order (0), so the
+// rig's next drain claims it before the scheduled work. BrandBrain claims priority DESC then
+// created_at ASC and accepts any integer, so 100 is claimed ahead of the default 5. An enqueue
+// onto an existing pending job keeps that job's priority, which is why selectSmokeTarget skips
+// suburbs that are already queued.
+const smokeEnqueuePriority = 100
+
+// smokeRunIDPattern is the run id a smoke run writes to its ledger rows: the admin tool
+// generates smoke-<UTC ts>-<8 hex>, and a manual run gets smoke-<UTC ts> from serverRunID.
+var smokeRunIDPattern = regexp.MustCompile(`^smoke-[0-9]{8}T[0-9]{6}Z(-[a-f0-9]{8})?$`)
 
 // serverEnqueueConfig is what -mode server-enqueue reads from the environment.
 type serverEnqueueConfig struct {
@@ -252,6 +264,15 @@ const upsertDispatchSQL = `
 	SET expires_at = EXCLUDED.expires_at
 	WHERE crawl_dispatch.closed_at IS NULL`
 
+// insertDispatchIfAbsentSQL is the smoke run's ledger write. It inserts a row for a job the run
+// created, and does nothing for a job already in the ledger: that job belongs to another run, so
+// its run id and its expiry (72h for a scheduled job) are left as they are. upsertDispatchSQL would
+// rewrite the expiry of another run's open job, shortening it to the smoke's 6 hours.
+const insertDispatchIfAbsentSQL = `
+	INSERT INTO crawl_dispatch (job_id, run_id, selection, suburb, state, postcode, source, expires_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	ON CONFLICT (job_id) DO NOTHING`
+
 // writeDispatchRows commits one batch's ledger rows in one transaction. The suburb is the
 // catalog display name from the request, and state is uppercased.
 func writeDispatchRows(ctx context.Context, pool *pgxpool.Pool, sent []crawlEnqueueInput, got []enqueueTargetItem, run serverRun, expires time.Time) error {
@@ -260,9 +281,18 @@ func writeDispatchRows(ctx context.Context, pool *pgxpool.Pool, sent []crawlEnqu
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err := writeDispatchRowsTx(ctx, tx, upsertDispatchSQL, sent, got, run, expires); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// writeDispatchRowsTx writes one ledger row per target on tx, with the given statement. A smoke run
+// uses insertDispatchIfAbsentSQL: an existing row keeps its run id AND its expiry.
+func writeDispatchRowsTx(ctx context.Context, tx pgx.Tx, sql string, sent []crawlEnqueueInput, got []enqueueTargetItem, run serverRun, expires time.Time) error {
 	for i, t := range got {
 		s := sent[i]
-		if _, err := tx.Exec(ctx, upsertDispatchSQL,
+		if _, err := tx.Exec(ctx, sql,
 			strings.TrimSpace(t.JobID),
 			run.RunID,
 			run.Selection,
@@ -275,7 +305,7 @@ func writeDispatchRows(ctx context.Context, pool *pgxpool.Pool, sent []crawlEnqu
 			return err
 		}
 	}
-	return tx.Commit(ctx)
+	return nil
 }
 
 // recordServerRun writes the crawl_run_status row for a run that finished, or stopped part
@@ -314,14 +344,17 @@ type serverEnqueueOpts struct {
 	DryRun    bool // select and build, log the counts, send nothing, write nothing
 	Limit     int  // post at most this many targets; 0 means no limit
 	AuthCheck bool // prove the ID token and the allowlist with a read, then exit
+	// Suburb and RunID are for -selection smoke only (see runSmokeEnqueue).
+	Suburb string
+	RunID  string
 }
 
 // runServerEnqueue is -mode server-enqueue. Exit codes: 0 ok (including an empty delta
 // selection and a dry run), 7 any failure, matching -mode enqueue.
 func runServerEnqueue(ctx context.Context, pool *pgxpool.Pool, opts serverEnqueueOpts) int {
 	sel := strings.ToLower(strings.TrimSpace(opts.Selection))
-	if sel != "delta" && sel != "full" {
-		log.Printf("[server-enqueue] fatal: -selection must be delta or full (got %q)", opts.Selection)
+	if sel != "delta" && sel != "full" && sel != "smoke" {
+		log.Printf("[server-enqueue] fatal: -selection must be delta, full or smoke (got %q)", opts.Selection)
 		return 7
 	}
 	if opts.Limit < 0 {
@@ -346,6 +379,10 @@ func runServerEnqueue(ctx context.Context, pool *pgxpool.Pool, opts serverEnqueu
 		}
 		log.Printf("[server-enqueue] auth-check OK: BrandBrain accepted the ID token for audience %s; no jobs were created", cfg.audience)
 		return 0
+	}
+
+	if sel == "smoke" {
+		return runSmokeEnqueue(ctx, pool, opts, cfg)
 	}
 
 	targets, err := selectEnqueueTargets(ctx, pool, sel == "delta")
@@ -391,6 +428,199 @@ func runServerEnqueue(ctx context.Context, pool *pgxpool.Pool, opts serverEnqueu
 	log.Printf("[server-enqueue] run %s: %d target(s) × %d source(s): %d job(s) created, %d already pending; dispatch ttl %s",
 		run.RunID, len(targets), len(cfg.sources), res.Created, res.Existing, cfg.dispatchTTL)
 	return 0
+}
+
+// smokeDispatchTTL is the expiry of a smoke run's ledger rows. A smoke that the rig never drains fails
+// as expired in hours, not after the scheduled jobs' three days.
+const smokeDispatchTTL = 6 * time.Hour
+
+// smokeAdvisoryLock names the transaction-scoped advisory lock that serialises smoke runs. The lock
+// is taken before the target is chosen and held until the ledger rows commit, so two smokes can
+// never pick the same suburb or interleave their writes. A transaction lock works through the
+// transaction pooler (port 6543), which the server's DATABASE_URL is.
+const smokeAdvisoryLock = "hashtext('crawl-smoke')"
+
+// runSmokeEnqueue is -selection smoke: enqueue ONE catalog suburb, for both portals, at
+// smokeEnqueuePriority, under a run id the caller chose (the admin smoke tool) or a generated one.
+//
+// BrandBrain answers with every target, created or deduplicated onto a job another run made. The
+// ledger takes a row for EVERY target: a row for a job this run created carries this run's id; a row
+// for a deduplicated job already exists under another run, and is left alone (insertDispatchIfAbsentSQL).
+// So a retried enqueue is a no-op, nothing is left unledgered, and the job's expiry is never changed.
+// Whether the smoke was deduplicated is decided by the admin tool from the ledger and BrandBrain, not
+// by an exit code. The run exits 0 once BrandBrain has answered and the rows have committed.
+//
+// It writes no crawl_run_status row: that table's run_type is CHECKed to delta, full, agent and
+// freshness, so the freshness sentinel does not see a smoke run. Exit 0 ok, 7 failure.
+func runSmokeEnqueue(ctx context.Context, pool *pgxpool.Pool, opts serverEnqueueOpts, cfg serverEnqueueConfig) int {
+	runID := strings.TrimSpace(opts.RunID)
+	if runID == "" {
+		runID = serverRunID("smoke", time.Now())
+	}
+	if !smokeRunIDPattern.MatchString(runID) {
+		log.Printf("[server-enqueue] fatal: -run-id must be smoke-<UTC ts> with an optional -<8 hex> suffix (got %q)", opts.RunID)
+		return 7
+	}
+	if opts.DryRun {
+		target, err := selectSmokeTarget(ctx, pool, opts.Suburb)
+		if err != nil {
+			log.Printf("[server-enqueue] fatal: %v", err)
+			return 7
+		}
+		log.Printf("[server-enqueue] DRY RUN smoke %s: suburb %s (%s %s) × %d source(s) at priority %d; nothing sent, nothing written",
+			runID, target.Suburb, target.State, target.Postcode, len(cfg.sources), smokeEnqueuePriority)
+		return 0
+	}
+	client, err := newServerIDTokenClient(ctx, cfg)
+	if err != nil {
+		log.Printf("[server-enqueue] fatal: %v", err)
+		return 7
+	}
+
+	// One transaction holds the lock from the target choice to the ledger commit.
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		log.Printf("[server-enqueue] smoke fatal (run %s): begin: %v", runID, err)
+		return 7
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock("+smokeAdvisoryLock+")"); err != nil {
+		log.Printf("[server-enqueue] smoke fatal (run %s): advisory lock: %v", runID, err)
+		return 7
+	}
+
+	target, err := selectSmokeTarget(ctx, pool, opts.Suburb)
+	if err != nil {
+		log.Printf("[server-enqueue] fatal: %v", err)
+		return 7
+	}
+	jobs := buildEnqueueJobs([]CrawlTarget{target}, cfg.sources, cfg.tier)
+	for i := range jobs {
+		jobs[i].Priority = smokeEnqueuePriority
+	}
+	run := serverRun{Selection: "smoke", RunID: runID, Now: time.Now().UTC(), TTL: smokeDispatchTTL, Batch: cfg.batch}
+
+	resp, err := client.enqueueTargets(ctx, jobs)
+	if err == nil {
+		err = checkTargetsEcho(jobs, resp.Targets)
+	}
+	if err != nil {
+		log.Printf("[server-enqueue] smoke fatal (run %s): %v", runID, err)
+		return 7
+	}
+	if err := writeDispatchRowsTx(ctx, tx, insertDispatchIfAbsentSQL, jobs, resp.Targets, run, run.Now.Add(run.TTL)); err != nil {
+		log.Printf("[server-enqueue] smoke fatal (run %s): dispatch write: %v", runID, err)
+		return 7
+	}
+	if err := tx.Commit(ctx); err != nil {
+		log.Printf("[server-enqueue] smoke fatal (run %s): commit: %v", runID, err)
+		return 7
+	}
+	created := 0
+	for _, t := range resp.Targets {
+		if t.Created {
+			created++
+		}
+	}
+	log.Printf("[server-enqueue] smoke run %s: suburb %s: %d job(s) created, %d deduplicated onto pending jobs of another run; ledger written; priority %d",
+		runID, target.Suburb, created, len(resp.Targets)-created, smokeEnqueuePriority)
+	return 0
+}
+
+
+// selectSmokeTarget returns the catalog suburb a smoke run enqueues. The queue dedupes an enqueue
+// onto an existing pending job and keeps that job's priority, so a suburb with an open ledger row
+// is already queued and cannot be smoked at the smoke priority. See chooseSmokeTarget.
+func selectSmokeTarget(ctx context.Context, pool *pgxpool.Pool, suburb string) (CrawlTarget, error) {
+	queued, err := queuedSuburbSlugs(ctx, pool)
+	if err != nil {
+		return CrawlTarget{}, fmt.Errorf("smoke queue check failed: %w", err)
+	}
+	var fresh []suburbFreshness
+	if strings.TrimSpace(suburb) == "" {
+		fresh, err = queryCatalogFreshness(ctx, pool, crawlTargets, loadDeltaConfig().churnDays)
+		if err != nil {
+			return CrawlTarget{}, fmt.Errorf("smoke target freshness query failed: %w", err)
+		}
+	}
+	return chooseSmokeTarget(suburb, queued, fresh)
+}
+
+// queuedSuburbSlugs returns the catalog slugs that have an open ledger row (not closed, not
+// expired) for either portal. Every pending BrandBrain job is dispatched, so these are queued.
+func queuedSuburbSlugs(ctx context.Context, pool *pgxpool.Pool) (map[string]bool, error) {
+	rows, err := pool.Query(ctx, `SELECT DISTINCT lower(replace(suburb, ' ', '-')) FROM crawl_dispatch
+		WHERE closed_at IS NULL AND expires_at > now()`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		out[slug] = true
+	}
+	return out, rows.Err()
+}
+
+// chooseSmokeTarget is the pure decision. An explicit suburb must be a catalog slug and must
+// not be queued: a queued suburb would dedupe onto its existing job at that job's priority. With
+// no suburb, the stalest catalog suburb that is not queued is chosen (fresh is then required).
+func chooseSmokeTarget(suburb string, queued map[string]bool, fresh []suburbFreshness) (CrawlTarget, error) {
+	want := strings.ToLower(strings.TrimSpace(suburb))
+	if want != "" {
+		for _, t := range crawlTargets {
+			if t.Suburb != want {
+				continue
+			}
+			if queued[want] {
+				return CrawlTarget{}, fmt.Errorf("-suburb %q already has open crawl jobs, so a smoke enqueue would dedupe onto them at their priority; refused", suburb)
+			}
+			return t, nil
+		}
+		return CrawlTarget{}, fmt.Errorf("-suburb %q is not a catalog suburb slug", suburb)
+	}
+	var free []suburbFreshness
+	for _, f := range fresh {
+		if !queued[f.Target.Suburb] {
+			free = append(free, f)
+		}
+	}
+	t, ok := pickStalest(free)
+	if !ok {
+		return CrawlTarget{}, errors.New("every catalog suburb has open crawl jobs; there is nothing to smoke at the smoke priority")
+	}
+	return t, nil
+}
+
+// pickStalest returns the suburb crawled longest ago. A never-crawled suburb beats any
+// crawled one; ties keep the first in catalog order.
+func pickStalest(fresh []suburbFreshness) (CrawlTarget, bool) {
+	best := -1
+	for i, f := range fresh {
+		if best < 0 || staler(f.LastCrawled, fresh[best].LastCrawled) {
+			best = i
+		}
+	}
+	if best < 0 {
+		return CrawlTarget{}, false
+	}
+	return fresh[best].Target, true
+}
+
+// staler reports whether a last crawl at a is older than one at b. nil means never crawled.
+func staler(a, b *time.Time) bool {
+	switch {
+	case a == nil:
+		return b != nil
+	case b == nil:
+		return false
+	default:
+		return a.Before(*b)
+	}
 }
 
 // serverPropertyResolveExit maps the resolver's exit code for the server schedule. Exit 3

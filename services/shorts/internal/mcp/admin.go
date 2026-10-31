@@ -73,11 +73,18 @@ const (
 	// (write): turning a BrandBrain rig's housing crawl on or off on both sides
 	// (admin_crawl.go). It is not in Scopes, so it is never on the public server.
 	ScopeCrawlAuthorize = "crawl:authorize"
+	// ScopeCrawlRead covers the housing crawl's read-only debugging tools
+	// (admin_crawl_ops.go): fleet state, failures, one job's trail, a rig's logs.
+	// Log requests are commands to a rig, but they change nothing in shorted or BrandBrain.
+	ScopeCrawlRead = "crawl:read"
+	// ScopeCrawlOperate covers the smoke loop (admin_crawl_smoke.go): one enqueue of one
+	// suburb and a drain sent to a rig. It is a write, and the tool needs confirm=true.
+	ScopeCrawlOperate = "crawl:operate"
 )
 
 // AdminScopes is the admin resource's entire scope vocabulary, in published
 // order. An empty scope request against /mcp/admin is granted all of it.
-var AdminScopes = []string{ScopeNewsPublish, ScopeJobsRun, ScopeJobsRead, ScopeUsersRead, ScopeCrawlAuthorize}
+var AdminScopes = []string{ScopeNewsPublish, ScopeJobsRun, ScopeJobsRead, ScopeUsersRead, ScopeCrawlAuthorize, ScopeCrawlRead, ScopeCrawlOperate}
 
 // AdminProtectedResourceMetadataPath is RFC 9728 §3.1's location for a
 // resource whose identifier has the path /mcp/admin.
@@ -197,6 +204,7 @@ type AdminOperator interface {
 	AdminProbeOperator
 	AdminAlertsOperator
 	AdminCrawlOperator
+	AdminCrawlOpsOperator
 	RunPublish(ctx context.Context, req jobmonitor.PublishRequest) (*jobmonitor.PublishRun, error)
 	PublishResult(ctx context.Context, executionName string) (*jobmonitor.PublishStatus, error)
 	RunPicks(ctx context.Context, req jobmonitor.PicksRequest) (*jobmonitor.PicksRun, error)
@@ -220,7 +228,9 @@ func AdminRegistry() []AdminTool {
 		peopleOverviewTool(), listUsersTool(), listPayingUsersTool(), listMailingListTool(), lookupPersonTool(),
 		checkSubscriptionTool(), billingExceptionsTool(), paidFeatureStatusTool(), runPaidProbeTool()}
 	tools = append(tools, alertsAdminTools()...)
-	return append(tools, crawlAdminTools()...)
+	tools = append(tools, crawlAdminTools()...)
+	tools = append(tools, crawlOpsAdminTools()...)
+	return append(tools, crawlSmokeAdminTools()...)
 }
 
 // NewAdminServer builds the admin MCP server with operational tools, its app,

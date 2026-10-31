@@ -185,6 +185,28 @@ resource "time_sleep" "brandbrain_housing_grant" {
   depends_on = [google_secret_manager_secret_iam_member.brandbrain_housing_grant_token]
 }
 
+# BrandBrain's fleet operations credential (internal/brandbrain, fleet.go). It reads the
+# fleet's rigs and crawl jobs and sends a rig its two housing commands, for the admin
+# housing-crawl debugging and smoke tools (crawl:read, crawl:operate). A separate secret
+# from the grant token, so a rotation of one does not touch the other. Count-gated the
+# same way: apply is safe before the secret is provisioned.
+resource "google_secret_manager_secret_iam_member" "brandbrain_fleet_ops_token" {
+  count     = var.brandbrain_fleet_ops_secret_exists ? 1 : 0
+  secret_id = "brandbrain-fleet-ops-token"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
+# The same settle as the grant token above: Cloud Run resolves the secret reference when it
+# creates a revision, and the IAM grant can take a moment to propagate.
+resource "time_sleep" "brandbrain_fleet_ops" {
+  count           = var.brandbrain_fleet_ops_secret_exists ? 1 : 0
+  create_duration = "30s"
+
+  depends_on = [google_secret_manager_secret_iam_member.brandbrain_fleet_ops_token]
+}
+
 # Read-only access to the deployed housing-ingest Cloud Run service. The admin housing
 # crawl tools read its env (the allowlist and org) to report whether it admits a rig
 # (mcp_admin_ingest.go). roles/run.viewer grants read on that one service, nothing else.
@@ -398,6 +420,21 @@ resource "google_cloud_run_v2_service" "shorts_api" {
           value_source {
             secret_key_ref {
               secret  = "brandbrain-housing-grant-token"
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      # BrandBrain's fleet operations token for the admin housing-crawl debugging and smoke
+      # tools (internal/brandbrain/fleet.go). Unset means those tools answer not configured.
+      dynamic "env" {
+        for_each = var.brandbrain_fleet_ops_secret_exists ? [1] : []
+        content {
+          name = "BRANDBRAIN_FLEET_OPS_TOKEN"
+          value_source {
+            secret_key_ref {
+              secret  = "brandbrain-fleet-ops-token"
               version = "latest"
             }
           }
@@ -762,6 +799,8 @@ resource "google_cloud_run_v2_service" "shorts_api" {
     google_secret_manager_secret_version.news_publish_token,
     google_secret_manager_secret_iam_member.brandbrain_housing_grant_token,
     time_sleep.brandbrain_housing_grant,
+    google_secret_manager_secret_iam_member.brandbrain_fleet_ops_token,
+    time_sleep.brandbrain_fleet_ops,
   ]
 }
 

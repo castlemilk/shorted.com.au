@@ -9,6 +9,7 @@ import (
 	"time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/brandbrain"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
@@ -46,6 +47,9 @@ type adminMCPSource struct {
 	// crawlIngest reads the deployed housing-ingest config for the admission signal
 	// (mcp_admin_ingest.go). Nil reads as unknown.
 	crawlIngest *ingestAdmission
+	// crawlFleet is the BrandBrain fleet client behind the crawl debugging and smoke tools
+	// (mcp_admin_crawl_ops.go). Nil when BRANDBRAIN_FLEET_OPS_TOKEN is unset.
+	crawlFleet *brandbrain.FleetClient
 }
 
 var _ mcp.AdminOperator = (*adminMCPSource)(nil)

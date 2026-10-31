@@ -1403,6 +1403,11 @@ module "shorts_api" {
   # housing_crawl_authorize grant or revoke housing_crawl_v1 on a BrandBrain rig.
   brandbrain_housing_grant_secret_exists = true
 
+  # brandbrain-fleet-ops-token exists with an enabled version (provisioned 2026-10-31; the same
+  # value is BrandBrain's BRANDBRAIN_FLEET_OPS_TOKEN, GSM brandbrain-486909/brandbrain-prod-fleet-ops-token).
+  # It lets the admin MCP's housing-crawl status, debugging and smoke tools reach BrandBrain.
+  brandbrain_fleet_ops_secret_exists = true
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted
@@ -1558,6 +1563,19 @@ resource "google_cloud_run_v2_job_iam_member" "shorts_api_alerts_replay" {
   project  = var.project_id
   location = var.region
   name     = module.shorted_job_alerts_replay.job_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.shorts_api.service_account_email}"
+}
+
+# Housing crawl smoke — the admin MCP server's housing_crawl_smoke tool (scope crawl:operate,
+# services/shorts/internal/jobmonitor/crawl_smoke.go). Same pairing as the picks and alerts
+# grants: run.developer (runWithOverrides) on this ONE job, and an argv the service builds from
+# a generated run id and a catalog slug, always `-mode server-enqueue -selection smoke`. The
+# scheduled jobs use the same image; without this grant the smoke tool cannot start its enqueue.
+resource "google_cloud_run_v2_job_iam_member" "shorts_api_crawl_smoke" {
+  project  = var.project_id
+  location = var.region
+  name     = module.house_price_collector.job_name
   role     = "roles/run.developer"
   member   = "serviceAccount:${module.shorts_api.service_account_email}"
 }

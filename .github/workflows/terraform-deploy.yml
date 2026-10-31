@@ -1017,6 +1017,10 @@ jobs:
             # until this runs, so it can ship on either side of the swap. It runs before
             # the image swap like 000150, so the new image finds the columns.
             run_psql_session -f /migrations/000152_add_crawl_ingest_receipt_audit.up.sql
+            # 000153 (admin housing-crawl tools) adds three indexes: receipts by job id, the ledger by
+            # run id and by suburb slug. Plain builds in one transaction under lock_timeout, like 000150 to
+            # 000152. The tables are small and pruned, and a replay touches nothing once the indexes exist.
+            run_psql_session -f /migrations/000153_add_crawl_ops_indexes.up.sql
 
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the

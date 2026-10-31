@@ -85,7 +85,9 @@ func main() {
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
 	mode := flag.String("mode", "all", "version | official | vg-nsw | vg-vic | listings | details | property | property-resolve | agent | cycle | enqueue | server-enqueue | server-property-resolve | crawl-finalize | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | revalidate | all")
-	selection := flag.String("selection", "delta", "server-enqueue only: delta (demand-sized suburbs) | full (the whole catalog)")
+	selection := flag.String("selection", "delta", "server-enqueue only: delta (demand-sized suburbs) | full (the whole catalog) | smoke (one suburb, at queue priority, for an end-to-end check; see -suburb and -run-id)")
+	suburb := flag.String("suburb", "", "server-enqueue -selection smoke only: the catalog suburb slug to enqueue (empty = the stalest catalog suburb)")
+	runID := flag.String("run-id", "", "server-enqueue -selection smoke only: the run id to write to the ledger, smoke-<UTC ts> with an optional -<8 hex> suffix (empty = generated)")
 	dryRun := flag.Bool("dry-run", false, "server-enqueue: select and build the jobs, log the counts, send nothing and write nothing. cycle: child rounds push dry (the server rolls back) and the cycle runs one round")
 	limit := flag.Int("limit", 0, "server-enqueue only: post at most N selected targets (0 = no limit)")
 	authCheck := flag.Bool("auth-check", false, "server-enqueue only: prove the ID token and BrandBrain's allowlist with a read, create no jobs, then exit")
@@ -269,6 +271,8 @@ func run() int {
 			DryRun:    *dryRun,
 			Limit:     *limit,
 			AuthCheck: *authCheck,
+			Suburb:    *suburb,
+			RunID:     *runID,
 		})
 	case "server-property-resolve":
 		// S-SRV: property-resolve on the schedule. A blocked autocomplete is a logged

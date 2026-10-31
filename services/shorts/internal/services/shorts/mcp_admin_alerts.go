@@ -514,5 +514,6 @@ func newAdminMCPSource(s *ShortsServer, firebaseUsers firebaseUsersReader) *admi
 		},
 		crawlGrants: brandbrainGrantClientFromEnv(),
 		crawlIngest: newIngestAdmissionFromEnv(os.Getenv),
+		crawlFleet:  brandbrainFleetClientFromEnv(),
 	}
 }

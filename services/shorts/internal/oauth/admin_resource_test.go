@@ -75,8 +75,8 @@ func TestScopesDoNotCrossResources(t *testing.T) {
 	if got, _ := normaliseScope(public, "", ""); strings.Contains(got, "news:publish") {
 		t.Errorf("default public grant %q includes news:publish", got)
 	}
-	if got, ok := normaliseScope(admin, "", ""); !ok || got != "news:publish jobs:run jobs:read users:read crawl:authorize" {
-		t.Errorf("default admin grant = %q, %v; want news:publish jobs:run jobs:read users:read", got, ok)
+	if got, ok := normaliseScope(admin, "", ""); !ok || got != "news:publish jobs:run jobs:read users:read crawl:authorize crawl:read crawl:operate" {
+		t.Errorf("default admin grant = %q, %v; want the whole admin vocabulary", got, ok)
 	}
 	// A client that declares only ONE admin action is held to it.
 	if got, ok := normaliseScope(admin, "jobs:run", ""); !ok || got != "jobs:run" {
