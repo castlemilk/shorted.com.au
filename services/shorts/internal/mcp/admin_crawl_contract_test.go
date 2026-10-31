@@ -342,7 +342,7 @@ func TestListingLinesAreDroppedWholeAndNeverReturned(t *testing.T) {
 	text := strings.Join([]string{
 		"[listings] start: 2 suburbs · direct · maxPages=3 · dryRun=true",
 		"[listings] DRY bondi rea: status=ok pages=2 listings=14",
-		"[listings] DRY   12 Smith Street, Bondi NSW 2026 | $1,250,000 (asking) | https://www.realestate.com.au/property-x",
+		"[listings] DRY   12 Smith Street, Bondi NSW 2026 | $1,250,000 (asking) | https://listing.example.invalid/1",
 		"[property] 12-smith-street-bondi-nsw-2026: profile address MISMATCH (final=https://www.domain.com.au/x built=y)",
 		"[property] 4-ocean-parade-manly-nsw-2095: DRY would mark NOTFOUND (final=https://www.domain.com.au/y)",
 		"[property] start: 40 address(es) · direct · dryRun=true",
@@ -409,7 +409,7 @@ func TestSmokeToolDescriptionsSayItIsLive(t *testing.T) {
 // are dropped whole; run-summary lines are kept.
 func TestRealTimestampedLogLinesAreDroppedOrKept(t *testing.T) {
 	dropped := []string{
-		"2026/10/31 09:00:01 [listings] DRY   7 Banksia Glade, Bondi NSW 2026 | $1250000 (asking) | https://www.realestate.com.au/property-x",
+		"2026/10/31 09:00:01 [listings] DRY   7 Banksia Glade, Bondi NSW 2026 | $1250000 (asking) | https://listing.example.invalid/1",
 		"2026/10/31 09:00:01 [listings] DRY   12 Federation Bvd, Bondi NSW 2026 | $n/a (contact) | https://www.domain.com.au/y",
 		"2026/10/31 09:00:01 [property] 12-banksia-glade-bondi-nsw-2026: profile address MISMATCH (final=https://www.domain.com.au/x built=y)",
 		"2026/10/31 09:00:01 [property-resolve] 4-ocean-view-manly-nsw-2095: write failed: boom",
