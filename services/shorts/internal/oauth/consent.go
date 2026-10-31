@@ -113,6 +113,10 @@ var scopeDescriptions = map[string]string{
 	// Admin resource: lets a BrandBrain rig push housing listings into shorted, and
 	// revokes that. Changes which rig may write listing data, so it is a write scope.
 	"crawl:authorize": "Authorize or revoke a BrandBrain rig's housing listing crawl, on both BrandBrain and shorted",
+	// Admin resource: read the housing crawl's rig, queue, ledger and job state, and a rig's logs.
+	"crawl:read": "View the housing crawl's rig, queue, ledger and job state, and read a rig's logs",
+	// Admin resource: smoke-test the housing crawl. Starts one enqueue and sends a rig a drain.
+	"crawl:operate": "Smoke-test the housing crawl: enqueue one suburb and send a rig a drain",
 }
 
 // DescribeScopes turns a space-delimited grant into ordered, human-readable
