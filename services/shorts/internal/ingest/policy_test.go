@@ -312,22 +312,26 @@ func TestQuarantineMeasuredSweeps(t *testing.T) {
 	cases := []struct {
 		name                              string
 		active, upserted, delisted, stale int
+		freshBefore, freshSeen            int
 		wantHeld                          bool
 	}{
-		{"Thomastown rea: 26 recent (seen 20 Oct), stays held", 150, 123, 26, 0, true},
-		{"Wantirna South domain: all 50 stale", 94, 53, 50, 50, false},
-		{"Miranda domain: all 27 stale", 95, 70, 27, 27, false},
-		{"Narre Warren domain: all 59 stale", 176, 110, 59, 59, false},
-		{"Essendon domain: all 48 stale", 133, 89, 48, 48, false},
-		{"Bundoora domain: 41 of 43 stale", 124, 90, 43, 41, false},
-		{"outage: page-1 truncation of a dark 120, all stale", 120, 20, 100, 100, true},
-		{"outage: page-2 truncation of a dark 120, all stale", 120, 40, 80, 80, true},
-		{"residual: half of a dark 120 seen, all stale", 120, 60, 60, 60, false},
+		{"Thomastown rea: 26 recent (seen 20 Oct), stays held", 150, 123, 26, 0, 0, 0, true},
+		{"Wantirna South domain: all 50 stale", 94, 53, 50, 50, 0, 0, false},
+		{"Miranda domain: all 27 stale", 95, 70, 27, 27, 0, 0, false},
+		{"Narre Warren domain: all 59 stale", 176, 110, 59, 59, 0, 0, false},
+		{"Essendon domain: all 48 stale", 133, 89, 48, 48, 0, 0, false},
+		{"Bundoora domain: 41 of 43 stale", 124, 90, 43, 41, 0, 0, false},
+		{"Deception Bay domain: all 104 stale, 101 of 118 recent re-found", 222, 110, 104, 104, 118, 101, false},
+		{"truncated sweep over a region with recent sightings: 20 of 118 recent re-found", 222, 20, 104, 104, 118, 20, true},
+		{"outage: page-1 truncation of a dark 120, all stale", 120, 20, 100, 100, 0, 0, true},
+		{"outage: page-2 truncation of a dark 120, all stale", 120, 40, 80, 80, 0, 0, true},
+		{"residual: half of a dark 120 seen, all stale", 120, 60, 60, 60, 0, 0, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			q := s.quarantineCheck(housingcrawl.Result{
 				ActiveBefore: tc.active, Upserted: tc.upserted, Delisted: tc.delisted, DelistedStale: tc.stale,
+				FreshBefore: tc.freshBefore, FreshSeen: tc.freshSeen,
 			}, pb.SweepStatus_SWEEP_STATUS_COMPLETE)
 			if (q != nil) != tc.wantHeld {
 				t.Errorf("held = %v, want %v", q != nil, tc.wantHeld)
@@ -350,6 +354,35 @@ func TestStaleExemptNeedsHalfTheRegionSeen(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := staleExempt(housingcrawl.Result{ActiveBefore: 124, Upserted: tc.upserted}); got != tc.want {
+				t.Errorf("staleExempt = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestStaleExemptByRecentlySeen: the second coverage test. The recently seen listings
+// must be at least half the region, and the sweep must have re-found at least half of
+// them. An outage-then-truncated pair fails on the first half.
+func TestStaleExemptByRecentlySeen(t *testing.T) {
+	cases := []struct {
+		name                                     string
+		active, upserted, freshBefore, freshSeen int
+		want                                     bool
+	}{
+		{"Deception Bay: 118 recent, 101 re-found", 222, 110, 118, 101, true},
+		{"recent set exactly half the region", 222, 110, 111, 60, true},
+		{"recent set under half the region", 222, 110, 110, 60, false},
+		{"exactly half of the recent re-found", 222, 110, 118, 59, true},
+		{"under half of the recent re-found", 222, 110, 118, 58, false},
+		{"outage-then-truncated: 20 of 120 seen twice", 120, 20, 20, 20, false},
+		{"dark region: no recent listings", 120, 20, 0, 0, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := staleExempt(housingcrawl.Result{
+				ActiveBefore: tc.active, Upserted: tc.upserted, FreshBefore: tc.freshBefore, FreshSeen: tc.freshSeen,
+			})
+			if got != tc.want {
 				t.Errorf("staleExempt = %v, want %v", got, tc.want)
 			}
 		})

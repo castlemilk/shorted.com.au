@@ -222,6 +222,8 @@ type quarantineStats struct {
 	WouldDelist   int    `json:"would_delist"`
 	DelistedStale int    `json:"delisted_stale"`
 	Listings      int    `json:"listings"`
+	FreshBefore   int    `json:"fresh_before"`
+	FreshSeen     int    `json:"fresh_seen"`
 }
 
 // bypassed reports whether an operator has released this suburb from quarantine. The

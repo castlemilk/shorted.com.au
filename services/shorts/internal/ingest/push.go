@@ -83,9 +83,10 @@ func ingestRules(delistStaleAfter time.Duration) housingcrawl.Config {
 // a re-crawl applies. A sweep that drops many recently-seen listings is still held,
 // whatever its stale count.
 //
-// The stale exemption needs coverage (staleExempt). A truncated COMPLETE sweep over a
-// region no sweep has seen for weeks drops listings that are all stale, so without
-// coverage the exemption would let it withdraw the region.
+// The stale exemption needs coverage (staleExempt), by either of two tests. A
+// truncated COMPLETE sweep over a region no sweep has seen for weeks drops listings
+// that are all stale, so without coverage the exemption would let it withdraw the
+// region.
 func (s *Service) quarantineCheck(r housingcrawl.Result, status pb.SweepStatus) *quarantineError {
 	stats := quarantineStats{
 		Status:        status.String(),
@@ -95,6 +96,8 @@ func (s *Service) quarantineCheck(r housingcrawl.Result, status pb.SweepStatus) 
 		WouldDelist:   r.Delisted,
 		DelistedStale: r.DelistedStale,
 		Listings:      r.Upserted,
+		FreshBefore:   r.FreshBefore,
+		FreshSeen:     r.FreshSeen,
 	}
 	priceFloor := math.Max(s.cfg.PriceFraction*float64(r.Existing), float64(s.cfg.QuarantineMinMoves))
 	if float64(r.LargeMoves) > priceFloor {
@@ -108,15 +111,32 @@ func (s *Service) quarantineCheck(r housingcrawl.Result, status pb.SweepStatus) 
 }
 
 // staleExempt reports whether the sweep's stale delists are exempt from the delist
-// trip. It must have seen at least half of what the region held before it
-// (Upserted against ActiveBefore, not against the recently seen actives). A sweep
-// that covered less than half is judged on every delist, so a truncated sweep over a
-// dark region cannot withdraw it under the stale exemption.
+// trip. It takes either of two coverage tests.
 //
-// Residual risk: a truncation that keeps at least half of a dark region still passes,
-// and the most it can withdraw is about half that region.
+// (1) Region-wide: the sweep wrote at least half of what the region held before it
+// (Upserted against ActiveBefore). A sweep that covered less than half is judged on
+// every delist.
+//
+// (2) Recently seen: listings seen within DelistStaleAfter were at least half of what
+// the region held (FreshBefore against ActiveBefore), and the sweep re-found at least
+// half of them (FreshSeen against FreshBefore). A stale listing in such a region was
+// missed by the recent sweeps that saw half of it, so it is gone. Deception Bay
+// (Domain), measured 2026-10-31, held by 2: 222 active before, 104 all stale, 110
+// written, so (1) failed at 2*110 < 222. 118 were seen in the last 21 days, so
+// 2*118 >= 222, and the sweep re-found 101 of them.
+//
+// After an outage the recently seen set is exactly what the recovering sweeps saw, so
+// (2) needs those sweeps to have seen half the region, the same bar as (1). The
+// outage-then-truncated pair (20 of 120 seen, twice) is held: 2*20 < 120.
+//
+// Residual risk for (1): a truncation that keeps at least half of a dark region still
+// passes, and the most it can withdraw is about half that region. (2) has the same
+// bound: what it withdraws was missed by sweeps that saw at least half the region.
 func staleExempt(r housingcrawl.Result) bool {
-	return 2*r.Upserted >= r.ActiveBefore
+	if 2*r.Upserted >= r.ActiveBefore {
+		return true
+	}
+	return 2*r.FreshBefore >= r.ActiveBefore && 2*r.FreshSeen >= r.FreshBefore
 }
 
 // recentDelists is the delist count the threshold judges: every delist, less the stale
@@ -456,7 +476,7 @@ func (s *Service) pushSweep(ctx context.Context, who identity, msg *pb.PushSweep
 		if applyErr != nil && !errors.Is(applyErr, errDryRun) {
 			return nil, mapApplyError(applyErr)
 		}
-		log.Infof("housing ingest: dry run %s by %s: would_quarantine=%t upserted=%d delisted=%d delisted_stale=%d", key, rig, dryHeld != nil, res.Upserted, res.Delisted, res.DelistedStale)
+		log.Infof("housing ingest: dry run %s by %s: would_quarantine=%t upserted=%d delisted=%d delisted_stale=%d fresh_before=%d fresh_seen=%d", key, rig, dryHeld != nil, res.Upserted, res.Delisted, res.DelistedStale, res.FreshBefore, res.FreshSeen)
 		return responseFor(status, res, dryHeld != nil, poisoned), nil
 	}
 
@@ -468,8 +488,8 @@ func (s *Service) pushSweep(ctx context.Context, who identity, msg *pb.PushSweep
 			// One line per applied sweep that withdrew listings, so a stale cleanup
 			// leaves a record. delisted_stale is what the exemption removed from the
 			// count; stale_exempt says whether it was allowed to.
-			log.Infof("housing ingest: applied %s from %s: upserted=%d active_before=%d delisted=%d delisted_stale=%d stale_exempt=%t",
-				key, rig, res.Upserted, res.ActiveBefore, res.Delisted, res.DelistedStale, staleExempt(res))
+			log.Infof("housing ingest: applied %s from %s: upserted=%d active_before=%d delisted=%d delisted_stale=%d stale_exempt=%t fresh_before=%d fresh_seen=%d",
+				key, rig, res.Upserted, res.ActiveBefore, res.Delisted, res.DelistedStale, staleExempt(res), res.FreshBefore, res.FreshSeen)
 		}
 		if status == pb.SweepStatus_SWEEP_STATUS_BLOCKED {
 			s.bumpRunStatus(ctx, d.RunID, true, 0, 0, 0)
@@ -485,8 +505,8 @@ func (s *Service) pushSweep(ctx context.Context, who identity, msg *pb.PushSweep
 		if err != nil {
 			return nil, err
 		}
-		log.Warnf("housing ingest: quarantined %s from %s: reason=%s existing=%d large_moves=%d active_before=%d would_delist=%d delisted_stale=%d",
-			key, rig, qe.reason, qe.stats.Existing, qe.stats.LargeMoves, qe.stats.ActiveBefore, qe.stats.WouldDelist, qe.stats.DelistedStale)
+		log.Warnf("housing ingest: quarantined %s from %s: reason=%s existing=%d large_moves=%d active_before=%d would_delist=%d delisted_stale=%d fresh_before=%d fresh_seen=%d",
+			key, rig, qe.reason, qe.stats.Existing, qe.stats.LargeMoves, qe.stats.ActiveBefore, qe.stats.WouldDelist, qe.stats.DelistedStale, qe.stats.FreshBefore, qe.stats.FreshSeen)
 		return resp, nil
 	}
 	return nil, mapApplyError(applyErr)

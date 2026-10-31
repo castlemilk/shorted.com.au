@@ -526,3 +526,54 @@ func TestApplySweep_StaleAbsenceThatOnlyArmsCountsNothing_Integration(t *testing
 		t.Fatalf("the second absent sweep delists and counts STALE once, got Delisted=%d DelistedStale=%d", second.Delisted, second.DelistedStale)
 	}
 }
+
+// TestApplySweep_FreshCountsReadBeforeTheSweep_Integration: FreshBefore counts the
+// active listings seen within DelistStaleAfter before the sweep wrote, and FreshSeen
+// counts how many of those the sweep saw. The counts are read before the listings
+// loop. A read after the upserts would see SEEN_STALE as fresh too (it was just upserted
+// with last_seen_at = now), giving FreshBefore 3 and FreshSeen 2.
+func TestApplySweep_FreshCountsReadBeforeTheSweep_Integration(t *testing.T) {
+	ctx, pool := applyTestDB(t)
+	now := time.Now().UTC()
+	seedActive(t, ctx, pool, "SEEN_FRESH", 0)
+	seedActive(t, ctx, pool, "SEEN_STALE", 0)
+	seedActive(t, ctx, pool, "MISSED_FRESH", 0)
+	seedActive(t, ctx, pool, "MISSED_STALE", 0)
+	setLastSeen(t, ctx, pool, "SEEN_FRESH", now.Add(-5*24*time.Hour))
+	setLastSeen(t, ctx, pool, "SEEN_STALE", now.Add(-30*24*time.Hour))
+	setLastSeen(t, ctx, pool, "MISSED_FRESH", now.Add(-5*24*time.Hour))
+	setLastSeen(t, ctx, pool, "MISSED_STALE", now.Add(-30*24*time.Hour))
+
+	rules := testRules()
+	rules.DelistStaleAfter = 21 * 24 * time.Hour
+	var got Result
+	_, err := ApplySweep(ctx, pool, Sweep{
+		Target: applyTarget, Source: "rea", Status: Complete, RunTS: now, Rules: rules,
+		Listings: []RawListing{fixedListing("SEEN_FRESH", 1_000_000), fixedListing("SEEN_STALE", 1_000_000)},
+		Guard:    func(r Result) error { got = r; return nil },
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if got.FreshBefore != 2 || got.FreshSeen != 1 {
+		t.Fatalf("want FreshBefore=2 FreshSeen=1, got FreshBefore=%d FreshSeen=%d", got.FreshBefore, got.FreshSeen)
+	}
+
+	// With the split off, neither count is taken.
+	t.Run("StaleAfter 0 takes no fresh counts", func(t *testing.T) {
+		ctx, pool := applyTestDB(t)
+		seedActive(t, ctx, pool, "KEEP", 0)
+		var off Result
+		_, err := ApplySweep(ctx, pool, Sweep{
+			Target: applyTarget, Source: "rea", Status: Complete, RunTS: now, Rules: testRules(),
+			Listings: []RawListing{fixedListing("KEEP", 1_000_000)},
+			Guard:    func(r Result) error { off = r; return nil },
+		})
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		if off.FreshBefore != 0 || off.FreshSeen != 0 {
+			t.Fatalf("want both 0 with the split off, got FreshBefore=%d FreshSeen=%d", off.FreshBefore, off.FreshSeen)
+		}
+	})
+}

@@ -159,6 +159,7 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 	source := sw.Source
 	runTs := sw.RunTS
 	regionCode := t.RegionCode()
+	var freshBefore []string
 
 	// The guard compares this sweep against what the region held before it wrote
 	// anything, so count the active set first. Only a guarded sweep needs it.
@@ -168,6 +169,17 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 			return 0, err
 		}
 		d.res.ActiveBefore = n
+		if d.cfg.DelistStaleAfter > 0 {
+			// This must read before the listings loop. Each upsert sets last_seen_at
+			// to runTs, so a read afterwards would count every listing this sweep saw
+			// as fresh.
+			freshIDs, err := freshActiveIDs(ctx, tx, source, regionCode, runTs.Add(-d.cfg.DelistStaleAfter))
+			if err != nil {
+				return 0, err
+			}
+			freshBefore = freshIDs
+			d.res.FreshBefore = len(freshIDs)
+		}
 	}
 
 	seen := make(map[string]bool, len(listings))
@@ -234,6 +246,12 @@ func (d *differ) applyTx(ctx context.Context, tx pgx.Tx, sw Sweep, listings []Ra
 			return events, err
 		}
 		events += n
+	}
+
+	for _, id := range freshBefore {
+		if seen[id] {
+			d.res.FreshSeen++
+		}
 	}
 
 	// Absence / delist detection — only on a COMPLETE sweep.
@@ -481,6 +499,20 @@ func countActiveForRegion(ctx context.Context, tx pgx.Tx, source, regionCode str
 		WHERE source = $1 AND region_code = $2 AND is_active`,
 		source, regionCode).Scan(&n)
 	return n, err
+}
+
+// freshActiveIDs lists the active listing ids for a (source, region) whose last_seen_at
+// is at or after cutoff. It is the exact complement of isStale for a listing that is
+// still active, so the guard can tell how many recently seen listings a sweep covered.
+func freshActiveIDs(ctx context.Context, tx pgx.Tx, source, regionCode string, cutoff time.Time) ([]string, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT listing_id FROM property_listings
+		WHERE source = $1 AND region_code = $2 AND is_active AND last_seen_at >= $3`,
+		source, regionCode, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
 // addressPriceMove computes a price_drop/price_rise for a brand-new listing_id
