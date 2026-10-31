@@ -172,6 +172,13 @@ type Result struct {
 	// DelistStaleAfter is 0. The quarantine gate subtracts it, so a backlog of
 	// long-gone listings does not trip a hold on a sweep that is otherwise sound.
 	DelistedStale int
+	// FreshBefore is the number of active listings in the region before the sweep
+	// wrote, whose last_seen_at was within Config.DelistStaleAfter of RunTS (not
+	// stale). It is counted only on a guarded sweep with DelistStaleAfter > 0; it is
+	// 0 otherwise.
+	FreshBefore int
+	// FreshSeen is how many of those FreshBefore listings this sweep saw.
+	FreshSeen int
 	// SkippedRows is the number of listings dropped on a PERMANENT per-row error.
 	// The rest of the sweep still persisted.
 	SkippedRows int

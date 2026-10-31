@@ -773,17 +773,34 @@ sweep on the delists of listings seen more recently only:
 
 - `delisted_stale` in the quarantine stats is the delists whose `last_seen_at` is older than
   that window. `would_delist` stays the total.
-- The stale exemption applies only when the sweep covered the region: `2 × upserted >=
-  active_before`. A sweep that covered less than half of what the region held before it is
-  judged on every delist, so a truncated sweep over a dark region cannot withdraw it under the
-  exemption.
+- The stale exemption applies when either coverage test holds (`staleExempt` in
+  `services/shorts/internal/ingest/push.go`). A sweep that passes neither is judged on every
+  delist.
+  1. Region-wide: `2 × upserted >= active_before`. The sweep wrote at least half of what the
+     region held before it.
+  2. Recently seen: `fresh_before` (active listings seen within the stale window, counted before
+     the sweep wrote) is at least half of `active_before`, and the sweep re-found at least half of
+     them (`2 × fresh_seen >= fresh_before`). A stale listing in a region that its recent
+     sweeps saw at least half of was missed by those sweeps too, so it is gone.
 - The guard holds a sweep when the recent delists, `would_delist` less `delisted_stale` when
   covered, exceed `max(MinDelists, min(DelistFraction × active_before, DelistCap))`. The
   threshold is unchanged.
 - `0` disables the exemption, so every delist counts, as before.
 
-Residual risk: a truncation that keeps at least half of a dark region still passes the
-coverage test, and the most it can withdraw is about half that region.
+Residual risk: a truncation that keeps at least half of a dark region still passes test 1, and
+the most it can withdraw is about half that region. Test 2 has the same bound: what it withdraws
+was missed by sweeps that saw at least half the region.
+
+A dark region stays held under test 2. After an outage the recently seen set is exactly what the
+recovering sweeps saw, so test 2 needs those sweeps to have covered half the region, the same bar
+as test 1. An outage followed by a truncated pair (20 of 120 seen, twice) is held: `2 × 20 < 120`
+on both tests. `TestPush_QuarantineHoldsTheOutageThenTruncatedPair` pins it.
+
+Measured 2026-10-31, Deception Bay (domain) was held by 2. It had 222 active, 104 would-be
+delists all last seen more than 21 days before the hold, and 110 written. Test 1 failed
+(`2 × 110 < 222`). 118 listings were seen in the last 21 days, so test 2's first condition
+holds (`2 × 118 >= 222`), and the sweep re-found 101 of them, so the second holds too. The
+sweep is applied and the 104 stale delists are withdrawn.
 
 Why the exemption exists. Measured 2026-10-31, six COMPLETE sweeps were held as
 `delists_over_threshold`. Five were a backlog of active rows that no sweep had seen for weeks,
@@ -798,7 +815,10 @@ Each stale listing is still delisted in the sweep that counts it. The exemption 
 whether the sweep is held.
 
 Applied sweeps that withdraw listings log one line: `upserted`, `active_before`, `delisted`,
-`delisted_stale` and `stale_exempt`. Held sweeps keep both counts in their quarantine stats.
+`delisted_stale`, `stale_exempt`, `fresh_before` and `fresh_seen`. Dry-run and quarantined lines
+carry `fresh_before` and `fresh_seen` too. Held sweeps keep `delisted_stale`, `fresh_before` and
+`fresh_seen` in their quarantine stats (`fresh_before` and `fresh_seen` are JSON keys in
+`crawl_ingest_quarantine`).
 The PushSweep receipt reports only the total `delisted`, because the proto has no field for the
 split.
 
