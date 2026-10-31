@@ -186,9 +186,9 @@ func lockDispatchTx(ctx context.Context, tx pgx.Tx, job string) (dispatchState, 
 	return st, nil
 }
 
-// closeDispatchTx closes the job on tx. It is called only when a COMPLETE or PARTIAL
-// sweep was applied. A BLOCKED sweep may legitimately be retried, so it never closes
-// a job.
+// closeDispatchTx closes the job on tx. It is called when a COMPLETE or PARTIAL sweep
+// was applied, and when a sweep was quarantined (terminal: the rig never retries a held
+// job). A BLOCKED sweep may legitimately be retried, so it never closes a job.
 func closeDispatchTx(ctx context.Context, tx pgx.Tx, job string) error {
 	_, err := tx.Exec(ctx, `
 		UPDATE crawl_dispatch SET closed_at = now()

@@ -519,6 +519,13 @@ func (s *Service) recordQuarantine(ctx context.Context, key string, who identity
 		if err := insertQuarantineTx(ctx, tx, key, rig, job, sum, qe.reason, qe.stats); err != nil {
 			return err
 		}
+		// A held sweep is terminal for its job: the rig records it as failed and never
+		// retries it, and a release applies to the NEXT push for the suburb (a new job). An
+		// open ledger row would read as still queued (housing_crawl_smoke refused the
+		// suburb, and dispatch_open counted dead jobs) until its 72-hour expiry.
+		if err := closeDispatchTx(ctx, tx, job); err != nil {
+			return err
+		}
 		if err := insertReceiptTx(ctx, tx, key, who, sum, resp); err != nil {
 			return err
 		}
