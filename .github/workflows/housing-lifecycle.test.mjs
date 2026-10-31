@@ -230,6 +230,45 @@ test("housing freshness workflow enforces the read-only production sentinel cont
   assert.match(workflow, /exit\s+"\$check_rc"/);
 });
 
+// Guard: the contract step's -run filter must match every test in golden_*_test.go
+// and every contract test the reviewers named. A renamed or new golden test that
+// falls outside the filter would otherwise stop gating the deploy silently.
+test("the contract step's -run filter covers every golden test and every named contract test", async () => {
+  const contractJob = deployWorkflow.split(/\n  housing-contract-tests:\n/)[1]?.split(/\n  [\w-]+:\n/)[0] ?? "";
+  const runMatch = contractJob.match(/go test -count=1 -run '([^']+)' \.\/house-price-collector/);
+  assert.ok(runMatch, "the contract step must select its tests with -run and the collector package");
+  const filter = new RegExp(runMatch[1]);
+
+  const { readdirSync } = await import("node:fs");
+  const priceDir = fileURLToPath(new URL("../../services/house-price-collector/", import.meta.url));
+  const goldenFiles = readdirSync(priceDir).filter((f) => /^golden_.*_test\.go$/.test(f));
+  assert.ok(goldenFiles.length >= 2, "expected the golden_*_test.go files");
+  const outside = [];
+  for (const f of goldenFiles) {
+    for (const m of readFileSync(priceDir + f, "utf8").matchAll(/^func (Test\w+)\(/gm)) {
+      if (!filter.test(m[1])) outside.push(`${f}:${m[1]}`);
+    }
+  }
+  assert.deepEqual(outside, [], "golden tests outside the contract filter");
+
+  const named = [
+    "TestGoldenEveryEventTypeIsPinnedAgainstTheDoc",
+    "TestGoldenEveryCycleEventCarriesTypeTsAndCycleID",
+    "TestContractCooldownPhaseCarriesUntil",
+    "TestContractEventSchemaIsExact",
+    "TestContractEventsRejectOutOfEnumValues",
+    "TestContractIngestURLIsPinned",
+    "TestContractJobDispositionTableAcceptsOnlyTheDocumentedAnswers",
+    "TestContractZoneFamiliesMatchTheMigration",
+    "TestContractPlanningGatesMatchTheBuild",
+    "TestContractLGAFactsArtifactAgreesWithCollector",
+    "TestContractCouncilFreshnessPoliciesDoNotDrift",
+    "TestContractVGFreshnessPoliciesDoNotDrift",
+  ];
+  const missing = named.filter((n) => !filter.test(n));
+  assert.deepEqual(missing, [], "named contract tests outside the filter");
+});
+
 test("terraform deploy workflow gates the deploy on housing contracts, on PRs and pushes", () => {
   assert.ok(deployWorkflow, "terraform-deploy.yml must exist");
 
@@ -286,9 +325,10 @@ test("terraform deploy workflow gates the deploy on housing contracts, on PRs an
   // job runs only the contract and golden tests, selected by name.
   assert.match(
     job,
-    /working-directory:\s*services\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test -count=1 -run 'Contract\|Golden' \.\/house-price-collector/,
+    /working-directory:\s*services\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test -count=1 -run 'Contract\|Golden' \.\/house-price-collector\s*$/m,
   );
-  assert.doesNotMatch(job, /\.\/house-price-collector\s*$/m, "the collector package must not run twice");
+  assert.doesNotMatch(job, /pkg\/housingcrawl[^\n]*-run 'Contract/, "housingcrawl has no contract tests; it must not sit in the contract step");
+  assert.doesNotMatch(job, /go test (?![^\n]*-run)[^\n]*\.\/house-price-collector/, "the collector package must not run unfiltered here");
   // The services/jobs houseprices mirror was retired (nothing scheduled it; the
   // rig and the Cloud Run job both run house-price-collector). A test step for
   // it would point at a package that no longer exists.

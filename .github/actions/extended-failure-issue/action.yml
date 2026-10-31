@@ -1,0 +1,77 @@
+# Files or updates one tracking issue for a non-gating suite, following
+# housing-freshness.yml. `outcome: failure` opens or comments on the issue;
+# `outcome: success` closes it. The caller grants `issues: write` at job level
+# and calls this action twice, once `if: failure()` and once `if: success()`.
+# One open issue per suite label, reused by every failing run.
+name: Extended suite failure issue
+description: Open or update a tracking issue for a failing non-gating suite
+inputs:
+  suite:
+    description: Short name of the suite, used in the title and the label
+    required: true
+  outcome:
+    description: failure to open or comment; success to close
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: File or update the tracking issue
+      if: inputs.outcome == 'failure'
+      uses: actions/github-script@v7
+      env:
+        SUITE: ${{ inputs.suite }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      with:
+        script: |
+          const suite = process.env.SUITE;
+          const label = `ci-extended-${suite}`;
+          const title = `Extended CI suite failing: ${suite}`;
+          const body = [
+            `The non-gating \`${suite}\` suite failed on ${new Date().toISOString()}.`,
+            "",
+            `Run: ${process.env.RUN_URL}`,
+            "",
+            "This suite does not block PRs or deploys, so nothing here is broken for users.",
+            "It means the suite has stopped passing and somebody should look.",
+            "This issue is reused by every failing run and closes on the next green run.",
+          ].join("\n");
+          const { owner, repo } = context.repo;
+          const open = await github.rest.issues.listForRepo({
+            owner, repo, state: "open", labels: label, per_page: 1,
+          });
+          if (open.data.length) {
+            const number = open.data[0].number;
+            await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
+            core.info(`commented on existing issue #${number}`);
+            return;
+          }
+          try {
+            await github.rest.issues.createLabel({
+              owner, repo, name: label, color: "B60205",
+              description: "Non-gating extended CI suite",
+            });
+          } catch (err) {
+            if (err.status !== 422) throw err; // 422 = the label already exists
+          }
+          const created = await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
+          core.info(`opened issue #${created.data.number}`);
+
+    - name: Close the tracking issue when the suite is green again
+      if: inputs.outcome == 'success'
+      uses: actions/github-script@v7
+      env:
+        SUITE: ${{ inputs.suite }}
+      with:
+        script: |
+          const label = `ci-extended-${process.env.SUITE}`;
+          const { owner, repo } = context.repo;
+          const open = await github.rest.issues.listForRepo({
+            owner, repo, state: "open", labels: label, per_page: 1,
+          });
+          if (!open.data.length) return;
+          const number = open.data[0].number;
+          await github.rest.issues.createComment({
+            owner, repo, issue_number: number, body: "Green again. Closing.",
+          });
+          await github.rest.issues.update({ owner, repo, issue_number: number, state: "closed" });
+          core.info(`closed issue #${number}`);

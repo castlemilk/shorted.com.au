@@ -1839,7 +1839,7 @@ jobs:
   # because they are the only CI run of the listing and ingest SQL).
   housing-contract-tests:
     runs-on: [self-hosted, cuttlefish, linux]
-    timeout-minutes: 150
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -1869,11 +1869,13 @@ jobs:
         run: node --test .github/workflows/housing-lifecycle.test.mjs
 
       # The collector's contract and golden tests: the pinned event names, the
-      # probe words and the cycle output. Selected by name, so the rest of the
-      # package stays on the PR's unit-tests job and is not run twice.
+      # probe words and the cycle output. Selected by name; the guard in
+      # housing-lifecycle.test.mjs fails the build if a golden_*_test.go test or a
+      # named contract test falls outside this filter. ./pkg/housingcrawl has no
+      # contract tests, so it is not in this step.
       - name: Run collector contract and golden tests
         working-directory: services
-        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test -count=1 -run 'Contract|Golden' ./house-price-collector ./pkg/housingcrawl
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test -count=1 -run 'Contract|Golden' ./house-price-collector
 
       # The listing store and the crawl ingest, against a real Postgres. Without
       # HOUSING_TEST_DB_URL these tests skip, so their SQL (receipts, the guard,
@@ -1903,6 +1905,10 @@ jobs:
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
     if: github.event_name != 'pull_request'
+    # The deploy's test gate. terraform-apply lists run-tests in `needs` and asserts
+    # its result, so every suite here blocks the deploy. go-quality's unit-tests job
+    # runs the same -short suite on PRs only; main has no branch protection, so this
+    # job is the only thing between a red main and production.
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -1930,9 +1936,41 @@ jobs:
           cd services/jobs
           GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./...
 
-      # The integration suites (test-integration-ci) and the alerts end-to-end
-      # suite (test-alerts-e2e) run in go-quality.yml's `extended` job: they need
-      # Postgres containers, they are the slowest suites on the runner, and they
-      # report without gating. Only the jobs-module unit tests above gate a deploy.
+      # The services module's -short suite: MCP OAuth and admin scopes, rate
+      # limiting, workload auth, ingest auth. unit-tests in go-quality.yml runs
+      # the same command on PRs; this step is what gates the deploy. About 110s,
+      # in parallel with terraform-plan.
+      - name: Run services unit tests (gates the deploy)
+        working-directory: services
+        env:
+          GOWORK: "off"
+          GOPRIVATE: github.com/skunkworq/*
+        run: go test ./... -short
+
+      # The alerts evaluator's cross-user and fail-closed checks (owner isolation,
+      # the pause link, the owner lookup and billing failing closed). Kept on the
+      # deploy gate: about 17s, and they guard who can see or change a monitor.
+      - name: Run alerts evaluator end-to-end suite (gates the deploy)
+        run: |
+          echo "🧪 Running the alerts evaluator end-to-end suite (postgres container)..."
+          cd services
+          make test-alerts-e2e
+
+      # Workflow pins: the apply gate and the smoke ordering are asserted here,
+      # and nothing else ran these tests in CI. The test imports `yaml`, a root
+      # devDependency, so the runner installs the root packages first.
+      - name: Set up Node for workflow pins
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.22.1"
+
+      - name: Install root packages for workflow pins
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run terraform-deploy workflow pins
+        run: node --test scripts/tests/terraform-deploy-workflow.test.mjs
+
+      # The integration suites (test-integration-ci) run in go-quality.yml's
+      # `extended` job: they are slow and non-gating. Everything above gates a deploy.
 
 
