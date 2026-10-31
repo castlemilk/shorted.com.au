@@ -30,6 +30,10 @@ type CrawlOpsAdminStore interface {
 	CrawlFinalizeWatermark(ctx context.Context) (watermark, updatedAt time.Time, ok bool, err error)
 	// CrawlDispatchForRun returns the ledger rows a run wrote, oldest first.
 	CrawlDispatchForRun(ctx context.Context, runID string) ([]CrawlDispatchRow, error)
+	// CrawlOpenDispatchForSuburb returns the open ledger rows (not closed, not expired) for a
+	// catalog slug, for either portal. Every pending BrandBrain job is dispatched, so an open
+	// row means the suburb is already queued.
+	CrawlOpenDispatchForSuburb(ctx context.Context, slug string) ([]CrawlDispatchRow, error)
 	// CrawlDispatchForJob returns one ledger row, or nil when the job has none.
 	CrawlDispatchForJob(ctx context.Context, jobID string) (*CrawlDispatchRow, error)
 	// CrawlReceiptsForJob returns every receipt for a job (keys <job_id>:<attempt>:<source>).
@@ -177,6 +181,27 @@ func scanCrawlDispatch(scan func(...any) error) (CrawlDispatchRow, error) {
 // CrawlDispatchForRun implements CrawlOpsAdminStore.
 func (s *postgresStore) CrawlDispatchForRun(ctx context.Context, runID string) ([]CrawlDispatchRow, error) {
 	rows, err := s.db.Query(ctx, `SELECT `+crawlDispatchColumns+` FROM crawl_dispatch WHERE run_id = $1 ORDER BY created_at, job_id`, runID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []CrawlDispatchRow{}
+	for rows.Next() {
+		r, err := scanCrawlDispatch(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// CrawlOpenDispatchForSuburb implements CrawlOpsAdminStore. The ledger keeps the catalog's
+// display name ("St Kilda"); the slug is the same name lower-cased with hyphens.
+func (s *postgresStore) CrawlOpenDispatchForSuburb(ctx context.Context, slug string) ([]CrawlDispatchRow, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+crawlDispatchColumns+` FROM crawl_dispatch
+		WHERE lower(replace(suburb, ' ', '-')) = $1 AND closed_at IS NULL AND expires_at > now()
+		ORDER BY created_at, job_id`, slug)
 	if err != nil {
 		return nil, err
 	}

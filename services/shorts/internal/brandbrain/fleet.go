@@ -58,7 +58,14 @@ const (
 	LogSourceRuntime = "runtime"
 	// DrainJob is the only job housing_crawl_run may name.
 	DrainJob = "drain"
+	// CrawlKind is the only job kind the ops token may read. BrandBrain restricts it, and
+	// the client does too, so an ops caller cannot read another queue's jobs.
+	CrawlKind = "housing"
 )
+
+// ErrRateLimited means BrandBrain's per-rig live limit was reached (429). Nothing was
+// sent for a command, and for a read nothing was learned. It says nothing about the crawl.
+var ErrRateLimited = errors.New("rate_limited")
 
 // ErrCommandRefused means the client refused to build a command it was not asked to
 // send (an unknown log source). Nothing was sent.
@@ -269,7 +276,8 @@ type StatusSourceCount struct {
 	Count  int    `json:"count"`
 }
 
-// CrawlJobQuery filters the crawl-jobs list. Zero fields are not sent.
+// CrawlJobQuery filters the crawl-jobs list. Zero fields are not sent. Kind, when set, must
+// be CrawlKind; the list is always restricted to it. Source may be rea, domain or both.
 type CrawlJobQuery struct {
 	ID            string
 	Status        string
@@ -279,6 +287,9 @@ type CrawlJobQuery struct {
 	UpdatedSince  string // RFC 3339
 	Limit         int    // 0 sends no limit
 }
+
+// crawlJobSources are the source values the ops token may filter on.
+var crawlJobSources = map[string]bool{"": true, "rea": true, "domain": true, "both": true}
 
 // ListRigs returns every rig the fleet knows.
 func (f *FleetClient) ListRigs(ctx context.Context) ([]Rig, error) {
@@ -321,6 +332,12 @@ func (f *FleetClient) ListRigCommands(ctx context.Context, rigID string) ([]Comm
 
 // ListCrawlJobs reads one page of crawl jobs and the queue summary.
 func (f *FleetClient) ListCrawlJobs(ctx context.Context, q CrawlJobQuery) (*CrawlJobsPage, error) {
+	if q.Kind != "" && q.Kind != CrawlKind {
+		return nil, ErrInvalidRequest
+	}
+	if !crawlJobSources[q.Source] {
+		return nil, ErrInvalidRequest
+	}
 	v := url.Values{}
 	set := func(k, s string) {
 		if s != "" {
@@ -330,7 +347,7 @@ func (f *FleetClient) ListCrawlJobs(ctx context.Context, q CrawlJobQuery) (*Craw
 	set("id", q.ID)
 	set("status", q.Status)
 	set("source", q.Source)
-	set("kind", q.Kind)
+	set("kind", CrawlKind)
 	set("assigned_agent", q.AssignedAgent)
 	set("updated_since", q.UpdatedSince)
 	if q.Limit > 0 {
@@ -353,7 +370,9 @@ func (f *FleetClient) RequestRuntimeLogs(ctx context.Context, rigID, source, ide
 	return f.command(ctx, rigID, CommandCollectRuntimeLogs, map[string]string{"source": source}, idemKey)
 }
 
-// RunDrain asks a rig to run its housing drain now, once, with dry_run false.
+// RunDrain asks a rig to run its housing drain now, once. This is a LIVE crawl. The ops
+// token refuses dry runs (403 fleet_ops_forbidden), so dry_run is always false and is never
+// configurable. A 429 is ErrRateLimited.
 func (f *FleetClient) RunDrain(ctx context.Context, rigID, idemKey string) (*Command, error) {
 	return f.command(ctx, rigID, CommandHousingCrawlRun, map[string]any{"job": DrainJob, "dry_run": false}, idemKey)
 }
@@ -449,7 +468,12 @@ func (f *FleetClient) call(ctx context.Context, method, path string, query url.V
 	case http.StatusBadRequest:
 		return ErrInvalidRequest
 	case http.StatusUnauthorized, http.StatusForbidden:
+		// 403 fleet_ops_forbidden is the ops token refusing a request it may not make (for
+		// example a dry run). It is a rejection, not an unknown outcome.
 		return ErrRejected
+	case http.StatusTooManyRequests:
+		// The per-rig live limit. Nothing was changed; the caller reports it as a limit.
+		return ErrRateLimited
 	default:
 		return ErrUnavailable
 	}

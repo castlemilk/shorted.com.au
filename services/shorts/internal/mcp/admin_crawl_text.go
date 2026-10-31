@@ -105,9 +105,16 @@ func stringLeaves(raw json.RawMessage) string {
 	return strings.Join(parts, " ")
 }
 
-// classifyCrawlFailure returns the failure class for a job. The order is the order of
-// specificity: a dispatch expiry is named before a generic timeout, and a circuit before
-// the blocked it causes.
+// classifyCrawlFailure returns the failure class for a job from its error text and result
+// summary. BrandBrain redacts the text (URLs, e-mail addresses and paths are stripped) and
+// caps it at about 512 bytes, so the match is on stable words, not on anything a redaction
+// could remove. Two counters in the summary are read as well:
+//
+//   - blocked_sweeps > 0 is a block, whatever the text says;
+//   - needs_rewarm (a count, or true) means the browser session needs warming again, which
+//     is a Chrome failure.
+//
+// The order is the order of specificity: a circuit before the block it causes.
 func classifyCrawlFailure(message string, summary json.RawMessage) string {
 	text := strings.ToLower(message + " " + stringLeaves(summary))
 	has := func(words ...string) bool {
@@ -118,26 +125,51 @@ func classifyCrawlFailure(message string, summary json.RawMessage) string {
 		}
 		return false
 	}
+	counters := summaryCounters(summary)
 	switch {
-	case has("not_dispatched", "not dispatched", "no dispatch"):
+	case has("not dispatched", "not_dispatched"):
 		return FailureNotDispatched
-	case has("dispatch_expired", "dispatch expired", "expired"):
+	case has("dispatch expired", "dispatch_expired"):
 		return FailureDispatchExpired
-	case has("target_mismatch", "target mismatch", "mismatch"):
+	case has("target mismatch", "target_mismatch"):
 		return FailureTargetMismatch
-	case has("circuit"):
+	case has("circuit open", "circuit_open"):
 		return FailureCircuitOpen
-	case has("blocked"):
+	case has("blocked") || counters["blocked_sweeps"] > 0:
 		return FailureBlocked
-	case has("chrome"):
+	case has("chrome") || counters["needs_rewarm"] > 0:
 		return FailureChrome
-	case has("timeout", "timed out", "deadline"):
+	case has("timeout", "timed out", "deadline exceeded"):
 		return FailureTimeout
-	case has("ingest_unavailable", "ingest unavailable", "ingest") && has("unavailable", "503", "502", "connect", "refused"):
+	case has("ingest unavailable", "ingest_unavailable"):
 		return FailureIngestUnavailable
 	default:
 		return FailureOther
 	}
+}
+
+// summaryCounters reads the numeric top-level counters the classifier uses. A boolean true
+// counts as 1, so needs_rewarm: true and needs_rewarm: 1 agree. Other values are absent.
+func summaryCounters(raw json.RawMessage) map[string]float64 {
+	out := map[string]float64{}
+	if len(raw) == 0 {
+		return out
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return out
+	}
+	for _, key := range []string{"blocked_sweeps", "needs_rewarm"} {
+		switch v := m[key].(type) {
+		case float64:
+			out[key] = v
+		case bool:
+			if v {
+				out[key] = 1
+			}
+		}
+	}
+	return out
 }
 
 // receiptStatusName turns a stored applied status (SWEEP_STATUS_COMPLETE) into the word the

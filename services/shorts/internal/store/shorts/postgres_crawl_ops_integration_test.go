@@ -136,6 +136,27 @@ func TestCrawlOpsQuarantineReasonsAndWatermark(t *testing.T) {
 	assert.False(t, ok, "no finalize has run: the cursor is absent, not zero")
 }
 
+// A suburb is queued while it has an open row, for either portal; a closed or expired row
+// does not count. The slug matches the display name ("Bondi" is "bondi").
+func TestCrawlOpsFindsOpenDispatchesBySuburbSlug(t *testing.T) {
+	s := crawlOpsTestStore(t)
+	seedCrawlLedger(t, s)
+	ctx := context.Background()
+
+	bondi, err := s.CrawlOpenDispatchForSuburb(ctx, "bondi")
+	require.NoError(t, err)
+	require.Len(t, bondi, 1, "job-a is open; job-b is closed")
+	assert.Equal(t, "job-a", bondi[0].JobID)
+
+	manly, err := s.CrawlOpenDispatchForSuburb(ctx, "manly")
+	require.NoError(t, err)
+	assert.Len(t, manly, 1, "job-ab is open")
+
+	none, err := s.CrawlOpenDispatchForSuburb(ctx, "no-such-suburb")
+	require.NoError(t, err)
+	assert.Empty(t, none)
+}
+
 func TestCrawlOpsRowsForARunAndAJob(t *testing.T) {
 	s := crawlOpsTestStore(t)
 	seedCrawlLedger(t, s)

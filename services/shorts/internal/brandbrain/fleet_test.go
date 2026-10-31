@@ -148,6 +148,7 @@ func TestFleetStatusesMapToTypedOutcomes(t *testing.T) {
 		{"plain 404", http.StatusNotFound, `404 page not found`, ErrUnavailable},
 		{"400", http.StatusBadRequest, `{}`, ErrInvalidRequest},
 		{"403", http.StatusForbidden, `{}`, ErrRejected},
+		{"429", http.StatusTooManyRequests, `{"code":"rate_limited"}`, ErrRateLimited},
 		{"500", http.StatusInternalServerError, `{}`, ErrUnavailable},
 		{"unexpected 418", http.StatusTeapot, `{}`, ErrUnavailable},
 	}
@@ -290,5 +291,52 @@ func TestFleetRefusesARigIDThatWouldChangeTheRoute(t *testing.T) {
 	}
 	if n := len(st.requests()); n != 0 {
 		t.Fatalf("%d requests were sent for bad rig ids", n)
+	}
+}
+
+// A 429 on a drain is the per-rig live limit: nothing was sent, and the caller must say so.
+func TestFleetDrainOver429IsRateLimitedNotFailed(t *testing.T) {
+	srv, _ := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = io.WriteString(w, `{"code":"rate_limited"}`)
+	})
+	_, err := fleetClient(t, srv.URL, 0).RunDrain(context.Background(), "rig-1", "k")
+	if !errors.Is(err, ErrRateLimited) || errors.Is(err, ErrUnavailable) {
+		t.Fatalf("429: %v, want rate limited (and not an unknown outcome)", err)
+	}
+}
+
+// The ops token reads the housing queue only: kind is always housing, a foreign kind is
+// refused before a request is built, and source may be rea, domain or both.
+func TestFleetCrawlJobsRestrictsKindToHousing(t *testing.T) {
+	srv, st := newFleetStandIn(t, nil)
+	f := fleetClient(t, srv.URL, 0)
+	if _, err := f.ListCrawlJobs(context.Background(), CrawlJobQuery{Source: "both"}); err != nil {
+		t.Fatalf("source=both: %v", err)
+	}
+	if q := st.requests()[0].Query; !strings.Contains(q, "kind=housing") || !strings.Contains(q, "source=both") {
+		t.Fatalf("query = %q", q)
+	}
+	if _, err := f.ListCrawlJobs(context.Background(), CrawlJobQuery{Kind: "other"}); !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("kind=other: %v, want refused", err)
+	}
+	if _, err := f.ListCrawlJobs(context.Background(), CrawlJobQuery{Source: "all"}); !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("source=all: %v, want refused", err)
+	}
+	if n := len(st.requests()); n != 1 {
+		t.Fatalf("%d requests sent; refused queries must send none", n)
+	}
+}
+
+// Every drain the client can build is a live drain: dry_run is never true.
+func TestFleetDrainNeverSendsADryRun(t *testing.T) {
+	srv, st := newFleetStandIn(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"id":"cmd-1"}`)
+	})
+	if _, err := fleetClient(t, srv.URL, 0).RunDrain(context.Background(), "rig-1", "k"); err != nil {
+		t.Fatal(err)
+	}
+	if body := st.requests()[0].Body; strings.Contains(body, `"dry_run":true`) || !strings.Contains(body, `"dry_run":false`) {
+		t.Fatalf("drain body = %s", body)
 	}
 }

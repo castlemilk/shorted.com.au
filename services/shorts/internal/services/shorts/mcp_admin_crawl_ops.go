@@ -146,6 +146,18 @@ func (c crawlOpsAdapter) DispatchForRun(ctx context.Context, runID string) ([]mc
 	return out, nil
 }
 
+func (c crawlOpsAdapter) OpenDispatchForSuburb(ctx context.Context, slug string) ([]mcp.CrawlDispatch, error) {
+	rows, err := c.store.CrawlOpenDispatchForSuburb(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]mcp.CrawlDispatch, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, dispatchToMCP(r))
+	}
+	return out, nil
+}
+
 func (c crawlOpsAdapter) DispatchForJob(ctx context.Context, jobID string) (*mcp.CrawlDispatch, error) {
 	r, err := c.store.CrawlDispatchForJob(ctx, jobID)
 	if err != nil || r == nil {
