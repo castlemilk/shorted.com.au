@@ -594,7 +594,7 @@ jobs:
     #
     # If a flaky test starts blocking deploys, fix or quarantine the test — do not
     # remove this edge, or the gate silently becomes decorative again.
-    needs: [determine-environment, validate-secrets, terraform-plan, run-tests]
+    needs: [determine-environment, validate-secrets, terraform-plan, run-tests, housing-contract-tests]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
     # apply holds the lock far longer than a plan, so this is the job most
@@ -614,7 +614,8 @@ jobs:
       github.event_name != 'pull_request' &&
       github.event.inputs.plan_only != 'true' &&
       needs.terraform-plan.result == 'success' &&
-      needs.run-tests.result == 'success'
+      needs.run-tests.result == 'success' &&
+      needs.housing-contract-tests.result == 'success'
     environment:
       name: ${{ needs.determine-environment.outputs.environment }}
     outputs:
@@ -1830,10 +1831,15 @@ jobs:
           echo "### Backend Services" >> $GITHUB_STEP_SUMMARY
           echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
 
+  # The contract and golden gate. It runs on PRs AND on pushes to main, and
+  # terraform-apply lists it in `needs`, so a red contract stops the deploy.
+  # It does not re-run the collector package: unit-tests (go-quality.yml) runs
+  # that package on every PR; this job runs only the contract and golden tests,
+  # the rig and lifecycle guards, and the housing DB tests (kept on the gate
+  # because they are the only CI run of the listing and ingest SQL).
   housing-contract-tests:
     runs-on: [self-hosted, cuttlefish, linux]
-    timeout-minutes: 150
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -1862,9 +1868,14 @@ jobs:
       - name: Run housing workflow contract tests
         run: node --test .github/workflows/housing-lifecycle.test.mjs
 
-      - name: Run deployed housing collector tests
+      # The collector's contract and golden tests: the pinned event names, the
+      # probe words and the cycle output. Selected by name; the guard in
+      # housing-lifecycle.test.mjs fails the build if a golden_*_test.go test or a
+      # named contract test falls outside this filter. ./pkg/housingcrawl has no
+      # contract tests, so it is not in this step.
+      - name: Run collector contract and golden tests
         working-directory: services
-        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./house-price-collector ./pkg/housingcrawl
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test -count=1 -run 'Contract|Golden' ./house-price-collector
 
       # The listing store and the crawl ingest, against a real Postgres. Without
       # HOUSING_TEST_DB_URL these tests skip, so their SQL (receipts, the guard,
@@ -1879,7 +1890,7 @@ jobs:
         env:
           HOUSING_TESTCONTAINERS: "1"
           CGO_ENABLED: "0"
-        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test -count=1 -p 1 -tags=testcontainers ./pkg/housingcrawl ./shorts/internal/ingest ./house-price-collector
+        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test -count=1 -p 1 -tags=testcontainers ./pkg/housingcrawl ./shorts/internal/ingest
 
       - name: Run housing wrapper lifecycle tests
         run: bash services/house-price-collector/deploy/housing-lifecycle-exit.test.sh
@@ -1894,6 +1905,10 @@ jobs:
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
     if: github.event_name != 'pull_request'
+    # The deploy's test gate. terraform-apply lists run-tests in `needs` and asserts
+    # its result, so every suite here blocks the deploy. go-quality's unit-tests job
+    # runs the same -short suite on PRs only; main has no branch protection, so this
+    # job is the only thing between a red main and production.
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -1921,19 +1936,41 @@ jobs:
           cd services/jobs
           GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./...
 
-      - name: Run integration tests
-        run: |
-          echo "🧪 Running integration tests (local testcontainers)..."
-          cd services
-          make test-integration-ci
+      # The services module's -short suite: MCP OAuth and admin scopes, rate
+      # limiting, workload auth, ingest auth. unit-tests in go-quality.yml runs
+      # the same command on PRs; this step is what gates the deploy. About 110s,
+      # in parallel with terraform-plan.
+      - name: Run services unit tests (gates the deploy)
+        working-directory: services
+        env:
+          GOWORK: "off"
+          GOPRIVATE: github.com/skunkworq/*
+        run: go test ./... -short
 
-      # Its own step, not part of test-integration-ci: that target is the one that
-      # integration-image-prefetch.test.mjs pins to exactly three go calls, and this
-      # suite needs a postgres:15 container of its own. It still gates the deploy.
-      - name: Run alerts evaluator end-to-end suite
+      # The alerts evaluator's cross-user and fail-closed checks (owner isolation,
+      # the pause link, the owner lookup and billing failing closed). Kept on the
+      # deploy gate: about 17s, and they guard who can see or change a monitor.
+      - name: Run alerts evaluator end-to-end suite (gates the deploy)
         run: |
           echo "🧪 Running the alerts evaluator end-to-end suite (postgres container)..."
           cd services
           make test-alerts-e2e
+
+      # Workflow pins: the apply gate and the smoke ordering are asserted here,
+      # and nothing else ran these tests in CI. The test imports `yaml`, a root
+      # devDependency, so the runner installs the root packages first.
+      - name: Set up Node for workflow pins
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.22.1"
+
+      - name: Install root packages for workflow pins
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run terraform-deploy workflow pins
+        run: node --test scripts/tests/terraform-deploy-workflow.test.mjs
+
+      # The integration suites (test-integration-ci) run in go-quality.yml's
+      # `extended` job: they are slow and non-gating. Everything above gates a deploy.
 
 

@@ -18,6 +18,10 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Nightly run of the extended lane below. Nothing gates on it.
+  schedule:
+    - cron: "17 16 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,9 +34,11 @@ env:
   # from `make lint-backend` on a developer's machine.
   GOLANGCI_VERSION: "v2.15.0"
 
+# Cancel superseded PR runs only. A push to main and the nightly run must each
+# finish: their result is the signal that main is healthy.
 concurrency:
   group: go-quality-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
@@ -151,3 +157,121 @@ jobs:
           GOWORK: off
           GOPRIVATE: github.com/skunkworq/*
         run: go test ./... -short
+
+  # Extended lane: the slow suites that used to sit on the PR and deploy gates.
+  # Three independent jobs, so one failure never skips the others. They run on
+  # push to main, nightly and on demand, and they REPORT ONLY: no job here or in
+  # terraform-deploy.yml lists them in `needs`. A failing suite opens or comments
+  # on a tracking issue (see .github/actions/extended-failure-issue).
+  #
+  # Not here, deliberately: make test-alerts-e2e, which gates the deploy in
+  # terraform-deploy.yml run-tests (owner isolation and fail-closed checks).
+
+  extended-race:
+    name: Extended - race detector (collector, housingcrawl)
+    if: github.event_name != 'pull_request'
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+      - name: Race detector over the collector and housingcrawl
+        working-directory: services
+        env:
+          GOWORK: "off"
+          GOPRIVATE: github.com/skunkworq/*
+        run: go test -count=1 -race -timeout 20m ./house-price-collector ./pkg/housingcrawl
+      - name: Open or update the failure issue
+        if: failure()
+        uses: ./.github/actions/extended-failure-issue
+        with:
+          suite: race
+          outcome: failure
+      - name: Close the failure issue when green
+        if: success()
+        uses: ./.github/actions/extended-failure-issue
+        with:
+          suite: race
+          outcome: success
+
+  extended-collector-db:
+    name: Extended - collector Postgres suites (testcontainers)
+    if: github.event_name != 'pull_request'
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+      # Only the *_Integration tests: the ones that need a Postgres. The rest of
+      # the package already ran in unit-tests with -short.
+      - name: Collector suites that need Postgres
+        working-directory: services
+        env:
+          GOWORK: "off"
+          GOPRIVATE: github.com/skunkworq/*
+          HOUSING_TESTCONTAINERS: "1"
+          CGO_ENABLED: "0"
+        run: go test -count=1 -p 1 -tags=testcontainers -run '_Integration$' ./house-price-collector
+      - name: Open or update the failure issue
+        if: failure()
+        uses: ./.github/actions/extended-failure-issue
+        with:
+          suite: collector-db
+          outcome: failure
+      - name: Close the failure issue when green
+        if: success()
+        uses: ./.github/actions/extended-failure-issue
+        with:
+          suite: collector-db
+          outcome: success
+
+  extended-integration:
+    name: Extended - integration suites (testcontainers)
+    if: github.event_name != 'pull_request'
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+      - name: Integration suites (make test-integration-ci)
+        working-directory: services
+        env:
+          GOWORK: "off"
+          GOPRIVATE: github.com/skunkworq/*
+        run: make test-integration-ci
+      - name: Open or update the failure issue
+        if: failure()
+        uses: ./.github/actions/extended-failure-issue
+        with:
+          suite: integration
+          outcome: failure
+      - name: Close the failure issue when green
+        if: success()
+        uses: ./.github/actions/extended-failure-issue
+        with:
+          suite: integration
+          outcome: success

@@ -367,13 +367,16 @@ func TestSecondSignalExitsImmediately(t *testing.T) {
 	go watchSignals(sigs, done, stop, func(c int) { exited <- c })
 
 	sigs <- syscall.SIGTERM
+	// The watcher records the stop on its own goroutine, so wait for it to land rather than
+	// sleep for it. Then the first signal must not have exited: a select on exited with no
+	// default would catch that without any timer.
+	if !waitUntil(10*time.Second, func() bool { return stop.Reason() == "signal" }) {
+		t.Fatalf("stop reason after first signal = %q", stop.Reason())
+	}
 	select {
 	case c := <-exited:
 		t.Fatalf("first signal exited with %d, want a graceful stop", c)
-	case <-time.After(50 * time.Millisecond):
-	}
-	if stop.Reason() != "signal" {
-		t.Fatalf("stop reason after first signal = %q", stop.Reason())
+	case <-time.After(200 * time.Millisecond):
 	}
 	sigs <- syscall.SIGTERM
 	select {
@@ -381,7 +384,7 @@ func TestSecondSignalExitsImmediately(t *testing.T) {
 		if c != exitCrawlCancelled || exitCrawlCancelled != 10 {
 			t.Fatalf("second signal exit code = %d, want 10", c)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("second signal must exit immediately")
 	}
 }

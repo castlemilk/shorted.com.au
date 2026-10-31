@@ -188,7 +188,7 @@ func TestParseSuburbLGA(t *testing.T) {
 // loads them exactly as the mode does, so a regenerated artifact that the
 // collector would refuse (or a classification that drifted between
 // join-lga-mb.py and lga.go) fails here rather than in a prod run.
-func TestLGAFactsArtifactAgreesWithCollector(t *testing.T) {
+func TestContractLGAFactsArtifactAgreesWithCollector(t *testing.T) {
 	t.Setenv("LGA_DIR", filepath.Join("..", "..", "web", "public", "geo", "insights"))
 	lgas, subs, err := ingestLGA()
 	if err != nil {

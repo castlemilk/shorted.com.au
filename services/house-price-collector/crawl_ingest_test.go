@@ -281,6 +281,11 @@ func newStubIngestRound(mode crawlSinkMode, ingestURL, bbURL string, tokens *wor
 		shadowOn:   mode == crawlSinkShadow,
 	}
 	ir.client.renew = ir.renewLease
+	if bbURL == "" {
+		// No BrandBrain in these tests: a real renew would retry with agentBackoff (~4s a
+		// push). The renewal is not what these tests assert, so it is a no-op here.
+		ir.client.renew = func(context.Context, string) error { return nil }
+	}
 	ir.client.sleep = func(context.Context, time.Duration) error { return nil }
 	ir.client.backoff = func(int) time.Duration { return 0 }
 	return ir
