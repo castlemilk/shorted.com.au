@@ -80,7 +80,8 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
 
   /**
    * <pre>
-   * Stocks with the highest disclosed substantial voting power.
+   * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+   * disclose the most voting power; banks and brokers are not counted.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -89,7 +90,8 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
       getCrowdedList();
   /**
    * <pre>
-   * Stocks with the highest disclosed substantial voting power.
+   * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+   * disclose the most voting power; banks and brokers are not counted.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -97,7 +99,8 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
   com.shorts.v1alpha1.OwnershipStock getCrowded(int index);
   /**
    * <pre>
-   * Stocks with the highest disclosed substantial voting power.
+   * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+   * disclose the most voting power; banks and brokers are not counted.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -105,7 +108,8 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
   int getCrowdedCount();
   /**
    * <pre>
-   * Stocks with the highest disclosed substantial voting power.
+   * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+   * disclose the most voting power; banks and brokers are not counted.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -114,7 +118,8 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
       getCrowdedOrBuilderList();
   /**
    * <pre>
-   * Stocks with the highest disclosed substantial voting power.
+   * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+   * disclose the most voting power; banks and brokers are not counted.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -295,7 +300,7 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
 
   /**
    * <pre>
-   * Stocks the tracked index ETFs own the largest share of.
+   * Stocks the tracked index funds own the largest share of.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -304,7 +309,7 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
       getPassiveList();
   /**
    * <pre>
-   * Stocks the tracked index ETFs own the largest share of.
+   * Stocks the tracked index funds own the largest share of.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -312,7 +317,7 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
   com.shorts.v1alpha1.OwnershipStock getPassive(int index);
   /**
    * <pre>
-   * Stocks the tracked index ETFs own the largest share of.
+   * Stocks the tracked index funds own the largest share of.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -320,7 +325,7 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
   int getPassiveCount();
   /**
    * <pre>
-   * Stocks the tracked index ETFs own the largest share of.
+   * Stocks the tracked index funds own the largest share of.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -329,7 +334,7 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
       getPassiveOrBuilderList();
   /**
    * <pre>
-   * Stocks the tracked index ETFs own the largest share of.
+   * Stocks the tracked index funds own the largest share of.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -420,4 +425,58 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getAsOfBytes();
+
+  /**
+   * <pre>
+   * Withheld documents by outcome; notices_withheld stays their total.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.WithheldOutcome> 
+      getWithheldByOutcomeList();
+  /**
+   * <pre>
+   * Withheld documents by outcome; notices_withheld stays their total.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+   */
+  com.shorts.v1alpha1.WithheldOutcome getWithheldByOutcome(int index);
+  /**
+   * <pre>
+   * Withheld documents by outcome; notices_withheld stays their total.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+   */
+  int getWithheldByOutcomeCount();
+  /**
+   * <pre>
+   * Withheld documents by outcome; notices_withheld stays their total.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.WithheldOutcomeOrBuilder> 
+      getWithheldByOutcomeOrBuilderList();
+  /**
+   * <pre>
+   * Withheld documents by outcome; notices_withheld stays their total.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+   */
+  com.shorts.v1alpha1.WithheldOutcomeOrBuilder getWithheldByOutcomeOrBuilder(
+      int index);
+
+  /**
+   * <pre>
+   * Every document attempted, parsed included: the base of notices_withheld.
+   * </pre>
+   *
+   * <code>int32 documents_attempted = 20 [json_name = "documentsAttempted"];</code>
+   * @return The documentsAttempted.
+   */
+  int getDocumentsAttempted();
 }

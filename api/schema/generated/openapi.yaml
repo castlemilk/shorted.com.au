@@ -2231,7 +2231,7 @@ paths:
       summary: GetStockOwnership
       description: |-
         Who holds one stock: its substantial holders, their notices, and the index
-         ETFs and super fund options that hold it.
+         funds and super fund options that hold it.
       operationId: OwnershipService_GetStockOwnership
       parameters:
         - name: Connect-Protocol-Version
@@ -7745,6 +7745,11 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.OwnershipFund'
           title: funds
           description: (proto shorts.v1alpha1.OwnershipFund)
+        fundHoldingsTotal:
+          type: integer
+          title: fund_holdings_total
+          format: int32
+          description: Rows in its latest files; fund_holdings serves the largest 100. (proto int32)
       title: GetInstitutionResponse
       additionalProperties: false
     shorts.v1alpha1.GetMarketByDateRequest:
@@ -7924,7 +7929,9 @@ components:
           items:
             $ref: '#/components/schemas/shorts.v1alpha1.OwnershipStock'
           title: crowded
-          description: Stocks with the highest disclosed substantial voting power. (proto shorts.v1alpha1.OwnershipStock)
+          description: |-
+            Stocks where investors (super, index, active, hedge, sovereign, insurer)
+             disclose the most voting power; banks and brokers are not counted. (proto shorts.v1alpha1.OwnershipStock)
         crowdedBothWays:
           type: array
           items:
@@ -7959,7 +7966,7 @@ components:
           items:
             $ref: '#/components/schemas/shorts.v1alpha1.OwnershipStock'
           title: passive
-          description: Stocks the tracked index ETFs own the largest share of. (proto shorts.v1alpha1.OwnershipStock)
+          description: Stocks the tracked index funds own the largest share of. (proto shorts.v1alpha1.OwnershipStock)
         sources:
           type: array
           items:
@@ -8010,6 +8017,17 @@ components:
           type: string
           title: as_of
           description: (proto string)
+        withheldByOutcome:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.WithheldOutcome'
+          title: withheld_by_outcome
+          description: Withheld documents by outcome; notices_withheld stays their total. (proto shorts.v1alpha1.WithheldOutcome)
+        documentsAttempted:
+          type: integer
+          title: documents_attempted
+          format: int32
+          description: 'Every document attempted, parsed included: the base of notices_withheld. (proto int32)'
       title: GetOwnershipOverviewResponse
       additionalProperties: false
     shorts.v1alpha1.GetParliamentOverviewRequest:
@@ -9177,6 +9195,23 @@ components:
           type: boolean
           title: has_shares_on_issue
           description: (proto bool)
+        historyTotal:
+          type: integer
+          title: history_total
+          format: int32
+          description: Parsed notices for the stock on record; history serves the newest 100. (proto int32)
+        withheldListed:
+          type: integer
+          title: withheld_listed
+          format: int32
+          description: |-
+            Documents listed under this code whose outcome is one of the six
+             withholding outcomes. A document ASX lists under several codes is counted
+             under one of them, so the figure is "listed under", never beside a sum. (proto int32)
+        asOf:
+          type: string
+          title: as_of
+          description: The newest notice release date read anywhere. (proto string)
       title: GetStockOwnershipResponse
       additionalProperties: false
     shorts.v1alpha1.GetStockPricesRequest:
@@ -12260,6 +12295,17 @@ components:
           title: records
           format: int32
           description: (proto int32)
+        funds:
+          type: integer
+          title: funds
+          format: int32
+          description: Files (index funds) or options (super funds) the source holds. 0 for notices. (proto int32)
+        asAtFrom:
+          type: string
+          title: as_at_from
+          description: |-
+            The oldest file date behind the source; equals as_at when one file or
+             one date. "" for notices. (proto string)
       title: OwnershipSource
       additionalProperties: false
       description: One holdings source's coverage.
@@ -12312,7 +12358,7 @@ components:
           type: number
           title: index_pct
           format: double
-          description: Shares held by the index ETFs tracked, over shares on issue. (proto double)
+          description: Shares held by the index funds tracked, over shares on issue. (proto double)
         hasIndexPct:
           type: boolean
           title: has_index_pct
@@ -12340,6 +12386,29 @@ components:
           type: boolean
           title: has_market_cap
           description: (proto bool)
+        shortAsOf:
+          type: string
+          title: short_as_of
+          description: ASIC's report date behind short_pct; "" when there is none. (proto string)
+        indexAsAtFrom:
+          type: string
+          title: index_as_at_from
+          description: |-
+            The oldest and newest file dates behind index_pct, and how many files
+             contributed; "" and 0 when there is no index figure. (proto string)
+        indexAsAtTo:
+          type: string
+          title: index_as_at_to
+          description: (proto string)
+        indexFiles:
+          type: integer
+          title: index_files
+          format: int32
+          description: (proto int32)
+        latestNoticeDate:
+          type: string
+          title: latest_notice_date
+          description: The newest release date among the current holders' notices; "" when none. (proto string)
       title: OwnershipStock
       additionalProperties: false
       description: A stock's register as the three sources show it.
@@ -16852,6 +16921,26 @@ components:
       title: WeeklyReportTrendInsight
       additionalProperties: false
       description: Structured trend insight for a riser or faller
+    shorts.v1alpha1.WithheldOutcome:
+      type: object
+      properties:
+        outcome:
+          type: string
+          title: outcome
+          description: (proto string)
+        count:
+          type: integer
+          title: count
+          format: int32
+          description: (proto int32)
+      title: WithheldOutcome
+      additionalProperties: false
+      description: |-
+        Documents attempted and not parsed, by outcome. Six outcomes withhold a
+         notice that was read or could not be read (no_text, no_voting_power,
+         implausible, ambiguous_target, no_holder, inconsistent_votes); not_a_notice
+         is a document that was never a substantial holding form and fetch_error a
+         download that is retried. Neither is an unread notice.
     shorts.v1alpha1.ZoneFamilyShare:
       type: object
       properties:

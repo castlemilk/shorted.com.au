@@ -38,6 +38,7 @@ private static final long serialVersionUID = 0L;
     passive_ = java.util.Collections.emptyList();
     sources_ = java.util.Collections.emptyList();
     asOf_ = "";
+    withheldByOutcome_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -165,7 +166,8 @@ private static final long serialVersionUID = 0L;
   private java.util.List<com.shorts.v1alpha1.OwnershipStock> crowded_;
   /**
    * <pre>
-   * Stocks with the highest disclosed substantial voting power.
+   * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+   * disclose the most voting power; banks and brokers are not counted.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -176,7 +178,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Stocks with the highest disclosed substantial voting power.
+   * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+   * disclose the most voting power; banks and brokers are not counted.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -188,7 +191,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Stocks with the highest disclosed substantial voting power.
+   * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+   * disclose the most voting power; banks and brokers are not counted.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -199,7 +203,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Stocks with the highest disclosed substantial voting power.
+   * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+   * disclose the most voting power; banks and brokers are not counted.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -210,7 +215,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Stocks with the highest disclosed substantial voting power.
+   * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+   * disclose the most voting power; banks and brokers are not counted.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -465,7 +471,7 @@ private static final long serialVersionUID = 0L;
   private java.util.List<com.shorts.v1alpha1.OwnershipStock> passive_;
   /**
    * <pre>
-   * Stocks the tracked index ETFs own the largest share of.
+   * Stocks the tracked index funds own the largest share of.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -476,7 +482,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Stocks the tracked index ETFs own the largest share of.
+   * Stocks the tracked index funds own the largest share of.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -488,7 +494,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Stocks the tracked index ETFs own the largest share of.
+   * Stocks the tracked index funds own the largest share of.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -499,7 +505,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Stocks the tracked index ETFs own the largest share of.
+   * Stocks the tracked index funds own the largest share of.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -510,7 +516,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Stocks the tracked index ETFs own the largest share of.
+   * Stocks the tracked index funds own the largest share of.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -689,6 +695,82 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int WITHHELD_BY_OUTCOME_FIELD_NUMBER = 19;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.WithheldOutcome> withheldByOutcome_;
+  /**
+   * <pre>
+   * Withheld documents by outcome; notices_withheld stays their total.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.WithheldOutcome> getWithheldByOutcomeList() {
+    return withheldByOutcome_;
+  }
+  /**
+   * <pre>
+   * Withheld documents by outcome; notices_withheld stays their total.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.WithheldOutcomeOrBuilder> 
+      getWithheldByOutcomeOrBuilderList() {
+    return withheldByOutcome_;
+  }
+  /**
+   * <pre>
+   * Withheld documents by outcome; notices_withheld stays their total.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+   */
+  @java.lang.Override
+  public int getWithheldByOutcomeCount() {
+    return withheldByOutcome_.size();
+  }
+  /**
+   * <pre>
+   * Withheld documents by outcome; notices_withheld stays their total.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.WithheldOutcome getWithheldByOutcome(int index) {
+    return withheldByOutcome_.get(index);
+  }
+  /**
+   * <pre>
+   * Withheld documents by outcome; notices_withheld stays their total.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.WithheldOutcomeOrBuilder getWithheldByOutcomeOrBuilder(
+      int index) {
+    return withheldByOutcome_.get(index);
+  }
+
+  public static final int DOCUMENTS_ATTEMPTED_FIELD_NUMBER = 20;
+  private int documentsAttempted_ = 0;
+  /**
+   * <pre>
+   * Every document attempted, parsed included: the base of notices_withheld.
+   * </pre>
+   *
+   * <code>int32 documents_attempted = 20 [json_name = "documentsAttempted"];</code>
+   * @return The documentsAttempted.
+   */
+  @java.lang.Override
+  public int getDocumentsAttempted() {
+    return documentsAttempted_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -756,6 +838,12 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 18, asOf_);
+    }
+    for (int i = 0; i < withheldByOutcome_.size(); i++) {
+      output.writeMessage(19, withheldByOutcome_.get(i));
+    }
+    if (documentsAttempted_ != 0) {
+      output.writeInt32(20, documentsAttempted_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -877,6 +965,19 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(18, asOf_);
     }
+
+        {
+          final int count = withheldByOutcome_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(withheldByOutcome_.get(i));
+          }
+          size += 2 * count;
+        }
+    if (documentsAttempted_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(20, documentsAttempted_);
+    }
     return size;
   }
   @java.lang.Override
@@ -940,6 +1041,10 @@ private static final long serialVersionUID = 0L;
             other.getLicMarketCapAud())) return false;
     if (!getAsOf()
         .equals(other.getAsOf())) return false;
+    if (!getWithheldByOutcomeList()
+        .equals(other.getWithheldByOutcomeList())) return false;
+    if (getDocumentsAttempted()
+        != other.getDocumentsAttempted()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1008,6 +1113,12 @@ private static final long serialVersionUID = 0L;
         java.lang.Double.doubleToLongBits(getLicMarketCapAud()));
     hash = (37 * hash) + AS_OF_FIELD_NUMBER;
     hash = (53 * hash) + getAsOf().hashCode();
+    if (getWithheldByOutcomeCount() > 0) {
+      hash = (37 * hash) + WITHHELD_BY_OUTCOME_FIELD_NUMBER;
+      hash = (53 * hash) + getWithheldByOutcomeList().hashCode();
+    }
+    hash = (37 * hash) + DOCUMENTS_ATTEMPTED_FIELD_NUMBER;
+    hash = (53 * hash) + getDocumentsAttempted();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1211,6 +1322,14 @@ private static final long serialVersionUID = 0L;
       lics_ = 0;
       licMarketCapAud_ = 0D;
       asOf_ = "";
+      if (withheldByOutcomeBuilder_ == null) {
+        withheldByOutcome_ = java.util.Collections.emptyList();
+      } else {
+        withheldByOutcome_ = null;
+        withheldByOutcomeBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00040000);
+      documentsAttempted_ = 0;
       return this;
     }
 
@@ -1325,6 +1444,15 @@ private static final long serialVersionUID = 0L;
       } else {
         result.sources_ = sourcesBuilder_.build();
       }
+      if (withheldByOutcomeBuilder_ == null) {
+        if (((bitField0_ & 0x00040000) != 0)) {
+          withheldByOutcome_ = java.util.Collections.unmodifiableList(withheldByOutcome_);
+          bitField0_ = (bitField0_ & ~0x00040000);
+        }
+        result.withheldByOutcome_ = withheldByOutcome_;
+      } else {
+        result.withheldByOutcome_ = withheldByOutcomeBuilder_.build();
+      }
     }
 
     private void buildPartial0(com.shorts.v1alpha1.GetOwnershipOverviewResponse result) {
@@ -1355,6 +1483,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00020000) != 0)) {
         result.asOf_ = asOf_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.documentsAttempted_ = documentsAttempted_;
       }
     }
 
@@ -1633,6 +1764,35 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00020000;
         onChanged();
       }
+      if (withheldByOutcomeBuilder_ == null) {
+        if (!other.withheldByOutcome_.isEmpty()) {
+          if (withheldByOutcome_.isEmpty()) {
+            withheldByOutcome_ = other.withheldByOutcome_;
+            bitField0_ = (bitField0_ & ~0x00040000);
+          } else {
+            ensureWithheldByOutcomeIsMutable();
+            withheldByOutcome_.addAll(other.withheldByOutcome_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.withheldByOutcome_.isEmpty()) {
+          if (withheldByOutcomeBuilder_.isEmpty()) {
+            withheldByOutcomeBuilder_.dispose();
+            withheldByOutcomeBuilder_ = null;
+            withheldByOutcome_ = other.withheldByOutcome_;
+            bitField0_ = (bitField0_ & ~0x00040000);
+            withheldByOutcomeBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetWithheldByOutcomeFieldBuilder() : null;
+          } else {
+            withheldByOutcomeBuilder_.addAllMessages(other.withheldByOutcome_);
+          }
+        }
+      }
+      if (other.getDocumentsAttempted() != 0) {
+        setDocumentsAttempted(other.getDocumentsAttempted());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1821,6 +1981,24 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00020000;
               break;
             } // case 146
+            case 154: {
+              com.shorts.v1alpha1.WithheldOutcome m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.WithheldOutcome.parser(),
+                      extensionRegistry);
+              if (withheldByOutcomeBuilder_ == null) {
+                ensureWithheldByOutcomeIsMutable();
+                withheldByOutcome_.add(m);
+              } else {
+                withheldByOutcomeBuilder_.addMessage(m);
+              }
+              break;
+            } // case 154
+            case 160: {
+              documentsAttempted_ = input.readInt32();
+              bitField0_ |= 0x00080000;
+              break;
+            } // case 160
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2404,7 +2582,8 @@ private static final long serialVersionUID = 0L;
 
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2418,7 +2597,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2432,7 +2612,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2446,7 +2627,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2467,7 +2649,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2485,7 +2668,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2505,7 +2689,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2526,7 +2711,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2544,7 +2730,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2562,7 +2749,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2581,7 +2769,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2598,7 +2787,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2615,7 +2805,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2626,7 +2817,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2640,7 +2832,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2655,7 +2848,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2666,7 +2860,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -2678,7 +2873,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks with the highest disclosed substantial voting power.
+     * Stocks where investors (super, index, active, hedge, sovereign, insurer)
+     * disclose the most voting power; banks and brokers are not counted.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock crowded = 3 [json_name = "crowded"];</code>
@@ -3946,7 +4142,7 @@ private static final long serialVersionUID = 0L;
 
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -3960,7 +4156,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -3974,7 +4170,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -3988,7 +4184,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4009,7 +4205,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4027,7 +4223,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4047,7 +4243,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4068,7 +4264,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4086,7 +4282,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4104,7 +4300,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4123,7 +4319,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4140,7 +4336,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4157,7 +4353,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4168,7 +4364,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4182,7 +4378,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4197,7 +4393,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4208,7 +4404,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4220,7 +4416,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Stocks the tracked index ETFs own the largest share of.
+     * Stocks the tracked index funds own the largest share of.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.OwnershipStock passive = 8 [json_name = "passive"];</code>
@@ -4808,6 +5004,362 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       asOf_ = value;
       bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.WithheldOutcome> withheldByOutcome_ =
+      java.util.Collections.emptyList();
+    private void ensureWithheldByOutcomeIsMutable() {
+      if (!((bitField0_ & 0x00040000) != 0)) {
+        withheldByOutcome_ = new java.util.ArrayList<com.shorts.v1alpha1.WithheldOutcome>(withheldByOutcome_);
+        bitField0_ |= 0x00040000;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.WithheldOutcome, com.shorts.v1alpha1.WithheldOutcome.Builder, com.shorts.v1alpha1.WithheldOutcomeOrBuilder> withheldByOutcomeBuilder_;
+
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.WithheldOutcome> getWithheldByOutcomeList() {
+      if (withheldByOutcomeBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(withheldByOutcome_);
+      } else {
+        return withheldByOutcomeBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public int getWithheldByOutcomeCount() {
+      if (withheldByOutcomeBuilder_ == null) {
+        return withheldByOutcome_.size();
+      } else {
+        return withheldByOutcomeBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public com.shorts.v1alpha1.WithheldOutcome getWithheldByOutcome(int index) {
+      if (withheldByOutcomeBuilder_ == null) {
+        return withheldByOutcome_.get(index);
+      } else {
+        return withheldByOutcomeBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public Builder setWithheldByOutcome(
+        int index, com.shorts.v1alpha1.WithheldOutcome value) {
+      if (withheldByOutcomeBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureWithheldByOutcomeIsMutable();
+        withheldByOutcome_.set(index, value);
+        onChanged();
+      } else {
+        withheldByOutcomeBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public Builder setWithheldByOutcome(
+        int index, com.shorts.v1alpha1.WithheldOutcome.Builder builderForValue) {
+      if (withheldByOutcomeBuilder_ == null) {
+        ensureWithheldByOutcomeIsMutable();
+        withheldByOutcome_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        withheldByOutcomeBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public Builder addWithheldByOutcome(com.shorts.v1alpha1.WithheldOutcome value) {
+      if (withheldByOutcomeBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureWithheldByOutcomeIsMutable();
+        withheldByOutcome_.add(value);
+        onChanged();
+      } else {
+        withheldByOutcomeBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public Builder addWithheldByOutcome(
+        int index, com.shorts.v1alpha1.WithheldOutcome value) {
+      if (withheldByOutcomeBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureWithheldByOutcomeIsMutable();
+        withheldByOutcome_.add(index, value);
+        onChanged();
+      } else {
+        withheldByOutcomeBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public Builder addWithheldByOutcome(
+        com.shorts.v1alpha1.WithheldOutcome.Builder builderForValue) {
+      if (withheldByOutcomeBuilder_ == null) {
+        ensureWithheldByOutcomeIsMutable();
+        withheldByOutcome_.add(builderForValue.build());
+        onChanged();
+      } else {
+        withheldByOutcomeBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public Builder addWithheldByOutcome(
+        int index, com.shorts.v1alpha1.WithheldOutcome.Builder builderForValue) {
+      if (withheldByOutcomeBuilder_ == null) {
+        ensureWithheldByOutcomeIsMutable();
+        withheldByOutcome_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        withheldByOutcomeBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public Builder addAllWithheldByOutcome(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.WithheldOutcome> values) {
+      if (withheldByOutcomeBuilder_ == null) {
+        ensureWithheldByOutcomeIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, withheldByOutcome_);
+        onChanged();
+      } else {
+        withheldByOutcomeBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public Builder clearWithheldByOutcome() {
+      if (withheldByOutcomeBuilder_ == null) {
+        withheldByOutcome_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00040000);
+        onChanged();
+      } else {
+        withheldByOutcomeBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public Builder removeWithheldByOutcome(int index) {
+      if (withheldByOutcomeBuilder_ == null) {
+        ensureWithheldByOutcomeIsMutable();
+        withheldByOutcome_.remove(index);
+        onChanged();
+      } else {
+        withheldByOutcomeBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public com.shorts.v1alpha1.WithheldOutcome.Builder getWithheldByOutcomeBuilder(
+        int index) {
+      return internalGetWithheldByOutcomeFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public com.shorts.v1alpha1.WithheldOutcomeOrBuilder getWithheldByOutcomeOrBuilder(
+        int index) {
+      if (withheldByOutcomeBuilder_ == null) {
+        return withheldByOutcome_.get(index);  } else {
+        return withheldByOutcomeBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.WithheldOutcomeOrBuilder> 
+         getWithheldByOutcomeOrBuilderList() {
+      if (withheldByOutcomeBuilder_ != null) {
+        return withheldByOutcomeBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(withheldByOutcome_);
+      }
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public com.shorts.v1alpha1.WithheldOutcome.Builder addWithheldByOutcomeBuilder() {
+      return internalGetWithheldByOutcomeFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.WithheldOutcome.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public com.shorts.v1alpha1.WithheldOutcome.Builder addWithheldByOutcomeBuilder(
+        int index) {
+      return internalGetWithheldByOutcomeFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.WithheldOutcome.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Withheld documents by outcome; notices_withheld stays their total.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.WithheldOutcome withheld_by_outcome = 19 [json_name = "withheldByOutcome"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.WithheldOutcome.Builder> 
+         getWithheldByOutcomeBuilderList() {
+      return internalGetWithheldByOutcomeFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.WithheldOutcome, com.shorts.v1alpha1.WithheldOutcome.Builder, com.shorts.v1alpha1.WithheldOutcomeOrBuilder> 
+        internalGetWithheldByOutcomeFieldBuilder() {
+      if (withheldByOutcomeBuilder_ == null) {
+        withheldByOutcomeBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.WithheldOutcome, com.shorts.v1alpha1.WithheldOutcome.Builder, com.shorts.v1alpha1.WithheldOutcomeOrBuilder>(
+                withheldByOutcome_,
+                ((bitField0_ & 0x00040000) != 0),
+                getParentForChildren(),
+                isClean());
+        withheldByOutcome_ = null;
+      }
+      return withheldByOutcomeBuilder_;
+    }
+
+    private int documentsAttempted_ ;
+    /**
+     * <pre>
+     * Every document attempted, parsed included: the base of notices_withheld.
+     * </pre>
+     *
+     * <code>int32 documents_attempted = 20 [json_name = "documentsAttempted"];</code>
+     * @return The documentsAttempted.
+     */
+    @java.lang.Override
+    public int getDocumentsAttempted() {
+      return documentsAttempted_;
+    }
+    /**
+     * <pre>
+     * Every document attempted, parsed included: the base of notices_withheld.
+     * </pre>
+     *
+     * <code>int32 documents_attempted = 20 [json_name = "documentsAttempted"];</code>
+     * @param value The documentsAttempted to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDocumentsAttempted(int value) {
+
+      documentsAttempted_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Every document attempted, parsed included: the base of notices_withheld.
+     * </pre>
+     *
+     * <code>int32 documents_attempted = 20 [json_name = "documentsAttempted"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDocumentsAttempted() {
+      bitField0_ = (bitField0_ & ~0x00080000);
+      documentsAttempted_ = 0;
       onChanged();
       return this;
     }

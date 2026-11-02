@@ -171,11 +171,15 @@ export const OWNERSHIP_DATA_CACHE_PREFIXES = ["cache:ownership:"] as const;
  */
 export const CACHE_KEYS = {
   // --- Ownership (substantial holders, ETF and super fund holdings) ---
-  ownershipOverview: () => `cache:ownership:overview`,
+  // v2 added the as-at dates and counts the register reads. A v1 entry still
+  // parses, with those fields empty, so it must never be read as the current
+  // shape: the version lives in the key. The institutions list gained no field,
+  // so its key stays where it is.
+  ownershipOverview: () => `cache:ownership:overview:v2`,
   ownershipInstitutions: (kind: string, query: string, limit: number, offset: number) =>
     `cache:ownership:institutions:${kind || "all"}:${query || "-"}:${limit}:${offset}`,
-  ownershipInstitution: (slug: string) => `cache:ownership:institution:${slug}`,
-  stockOwnership: (stockCode: string) => `cache:ownership:stock:${stockCode}`,
+  ownershipInstitution: (slug: string) => `cache:ownership:institution:v2:${slug}`,
+  stockOwnership: (stockCode: string) => `cache:ownership:stock:v2:${stockCode}`,
   // --- Registers of Members'/Senators' Interests ---
   parliamentOverview: () => `cache:politicians:overview`,
   politicianList: (chamber: string, state: string, party: string, query: string, limit: number, offset: number) =>

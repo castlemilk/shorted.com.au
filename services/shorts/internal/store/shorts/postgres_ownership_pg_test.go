@@ -53,6 +53,12 @@ func TestOwnershipReadsAgainstPostgres(t *testing.T) {
 		funds, err := s.OwnershipFunds(ctx, "")
 		require.NoError(t, err)
 		assert.Empty(t, funds)
+		counts, err := s.NoticeCountsByStock(ctx)
+		require.NoError(t, err)
+		assert.Empty(t, counts)
+		attempts, err := s.AttemptOutcomes(ctx)
+		require.NoError(t, err)
+		assert.Empty(t, attempts)
 	})
 
 	migration, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "migrations", "000137_add_ownership.up.sql"))
@@ -97,6 +103,19 @@ func TestOwnershipReadsAgainstPostgres(t *testing.T) {
 		assert.Equal(t, 1, stats.Withheld)
 		assert.Equal(t, "2026-10-16", stats.LatestAnnounced)
 		assert.Equal(t, 2, stats.PerHolder["australian-retirement-trust"].Notices)
+	})
+
+	t.Run("notice counts and attempt outcomes, whole-table, per stock", func(t *testing.T) {
+		counts, err := s.NoticeCountsByStock(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]int{"ZIP": 5}, counts, "every seeded notice is ZIP's")
+		attempts, err := s.AttemptOutcomes(ctx)
+		require.NoError(t, err)
+		got := map[string]int{}
+		for _, a := range attempts {
+			got[a.StockCode+"|"+a.Outcome] = a.Count
+		}
+		assert.Equal(t, map[string]int{"ZIP|parsed": 1, "ZIP|no_text": 1}, got)
 	})
 
 	t.Run("fund holdings read each fund's newest snapshot only", func(t *testing.T) {

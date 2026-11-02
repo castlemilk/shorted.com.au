@@ -51,4 +51,36 @@ public interface OwnershipSourceOrBuilder extends
    * @return The records.
    */
   int getRecords();
+
+  /**
+   * <pre>
+   * Files (index funds) or options (super funds) the source holds. 0 for notices.
+   * </pre>
+   *
+   * <code>int32 funds = 5 [json_name = "funds"];</code>
+   * @return The funds.
+   */
+  int getFunds();
+
+  /**
+   * <pre>
+   * The oldest file date behind the source; equals as_at when one file or
+   * one date. "" for notices.
+   * </pre>
+   *
+   * <code>string as_at_from = 6 [json_name = "asAtFrom"];</code>
+   * @return The asAtFrom.
+   */
+  java.lang.String getAsAtFrom();
+  /**
+   * <pre>
+   * The oldest file date behind the source; equals as_at when one file or
+   * one date. "" for notices.
+   * </pre>
+   *
+   * <code>string as_at_from = 6 [json_name = "asAtFrom"];</code>
+   * @return The bytes for asAtFrom.
+   */
+  com.google.protobuf.ByteString
+      getAsAtFromBytes();
 }

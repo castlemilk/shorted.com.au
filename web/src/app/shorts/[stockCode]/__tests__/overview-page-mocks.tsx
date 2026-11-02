@@ -74,6 +74,11 @@ jest.mock("~/app/actions/getRelatedStocks", () => ({
 jest.mock("~/app/actions/getStockNews", () => ({
   getStockHeadlines: jest.fn(async () => []),
 }));
+// The register strip reads the ownership service, which this connect stub does
+// not have. A stock with no current holder answers null, so the strip is left out.
+jest.mock("~/app/actions/getStockRegisterStrip", () => ({
+  getStockRegisterStrip: jest.fn(async () => null),
+}));
 jest.mock("~/app/actions/getLatestShortDate", () => ({
   getLatestShortDate: jest.fn(async () => null),
 }));

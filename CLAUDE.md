@@ -950,20 +950,27 @@ four readouts and the ladder); on `/picks` it is unchanged.
 
 `/ownership` (hub: the map by kind, biggest holders, crowded registers, crowded
 both ways, lending desks, index fund ownership, super funds' consensus, latest
-notices, institutions directory), `/ownership/[slug]` (one institution) and the
-"Who owns it" card on the stock page's Company tab, over `OwnershipService`
+notices, institutions directory), `/ownership/[slug]` (one institution),
+`/ownership/stocks/[code]` (one stock's register: the Holder Lanes, the
+holders, the index fund and super option rows, the notices trail) and, on the
+stock page, the "Substantial holders" card on the Company tab (`#ownership`,
+the summary) and the one-line strip on the Overview, over `OwnershipService`
 (`ownership.proto`, 4 rpcs, all public, mirrored on `ShortedStocksService`).
 Fed by `shorted ownership` (`services/jobs/README.md` "ownership"): a curated
 registry of ~145 institutions, APRA's super fund statistics, ASX's ETF/LIC
-report, 11 index ETFs' holdings files, 11 super funds' portfolio holdings
+report, 11 index funds' holdings files, 11 super funds' portfolio holdings
 disclosures, and every substantial holding notice PDF since 2024. Migration
-`000137_add_ownership` is in the deploy allowlist.
+`000137_add_ownership` is in the deploy allowlist. Spec:
+`docs/superpowers/specs/2026-11-02-ownership-explorer-design.md` (stage 1
+built; stages 2 and 3, the notices feed, the registers explorer and the hub
+desk, are specified there and not built).
 
 | Piece | Where |
 |---|---|
-| Job, parser, registry | `services/jobs/internal/jobs/ownership/` (`notice.go` parser, fixtures in `testdata/notices/`; `registry.go` kinds, aliases, groups) |
-| API | `services/shorts/internal/services/shorts/ownership.go` (views built in pure functions, 10-minute cache), `store/shorts/postgres_ownership.go` (a schema without 000137 reads empty, never a 500) |
-| Web | `app/ownership/`, `components/ownership/` (server components only), `lib/ownership/kinds.ts`, `app/actions/getOwnership.ts` (ISR tag `ownership` + KV last-good, flush `ownership`) |
+| Job, parser, registry | `services/jobs/internal/jobs/ownership/` (`notice.go` parser, fixtures in `testdata/notices/`; `registry.go` kinds, aliases, groups; `repair.go` the `-mode repair-placeholders` dry run) |
+| API | `services/shorts/internal/services/shorts/ownership.go` (handlers assemble every response from ONE cached universe, `ownership_universe.go`: built once per `ownershipTTL` from 11 statements, refreshed in the background two minutes ahead of expiry, never served past it; a stock's or an institution's notices are the one per-key statement, cached under the universe's generation), `store/shorts/postgres_ownership.go` (a schema without 000137 reads empty, never a 500) |
+| Web | `app/ownership/` (the hub, `[slug]`, `stocks/[code]`), `components/ownership/` (server components; `ownership-tables.tsx` is the one island), `components/stocks/register-strip.tsx` (props only), `lib/ownership/` (`trace.ts` the lane geometry, `kinds.ts`, `rows.ts`, `age.ts`, `register-indexability.ts`), `app/actions/getOwnership.ts` (ISR tag `ownership` + KV last-good under the `v2` keys, flush `ownership`), `app/actions/getStockRegisterStrip.ts` (the Overview's read: `unstable_cache`, a 4 s abort, no KV, tagged by stock and never `ownership`) |
+| Guards | `app/ownership/__tests__/isr-source-safety.test.ts` (no `searchParams`, `cookies()`, `headers()`, `auth()` or `useSearchParams` under `app/ownership`), `app/__tests__/editorial-copy.test.ts` (no em dash, "of the voting power", "index ETF", "sold" in ownership copy), `scripts/route-kinds.mjs` `OWNERSHIP_ROUTES`, `components/ownership/__tests__/client-boundary.test.ts` |
 | MCP | `get_stock_ownership` (holders, by-kind sum, the 15 largest fund holdings, each fund named with its institution) and `get_institution_holdings` (slug or name; an ambiguous name lists the slugs), `services/shorts/internal/mcp/tools_ownership.go`. A stated 0.00% fund weight beside a real value is omitted (super disclosures state two places) |
 
 ### Landmines
@@ -983,6 +990,53 @@ disclosures, and every substantial holding notice PDF since 2024. Migration
 - **A super fund's holdings disclosure is one investment option**, not the
   whole fund; ETF issuers are linked by the manager before the slash in ASX's
   issuer field ("Milford / EQT" is Equity Trustees the RE, not EQT the firm).
+- **"Current" means the newest notice we could read**, not held today: a
+  withheld 605 or a cessation filed under another holder key leaves a stale
+  row (about a quarter of current holdings are over 12 months old). Every
+  holding row carries its notice date and an age cue past 90 days
+  (`lib/ownership/age.ts`); an empty register reads "no notice read", never
+  "no holder".
+- **A sum is never drawn against a 100% company track.** `DisclosedBar`'s full
+  width is the disclosed sum, printed beside it; `KindBar` (a 0-100% track
+  rescaled past 100 without saying so) was deleted. Counts and sums share one
+  basis: "interests" is `sum(by_kind.holders)`, the deduplicated count, while
+  `OwnershipStock.holders` counts rows.
+- **Only per-holder history is drawn.** The Holder Lanes (`lib/ownership/trace.ts`)
+  step one holder at a time from notice to notice, on a per-lane scale from the
+  5% threshold up; a cessation ends at the 5% edge ("under 5%", never zero) and
+  a dotted tail is the time since the last notice read. A stock-wide or by-kind
+  history would reconstruct past registers from a record with withheld notices,
+  split keys and the 100-notice cap, which is guessing. Server SVG, no visx, no
+  client JS; kinds never colour a lane (`hedge_fund` is the short-interest
+  series colour) and kinds and short interest never share one figure.
+- **"Crowded" counts investors only.** `institutionalKinds` excludes
+  `bank_broker`: ATH's 58% "crowded" register was 74% a lending desk. Banks and
+  brokers stay in the register sums and the lending view; their notices are
+  "often" securities lending, one word, everywhere.
+- **"Withheld" is eight outcomes, reported apart.** The overview carries
+  `withheld_by_outcome`; `not_a_notice` and `fetch_error` are never "unread".
+  `GetStockOwnership.withheld_listed` is "listed under" the code (a notice
+  under several codes is counted under one) and is never printed beside a sum.
+  `history_total` says when the 100-notice `history` is capped.
+- **Every figure carries its own date.** `short_as_of`, `index_as_at_from/to`
+  and `index_files`, `latest_notice_date`, `OwnershipSource.as_at_from`; AUM is
+  dated by `aum_as_at`, which was NULL until `parseAPRADate` learned Excel's
+  format 14 (the next funds run writes it). Never one page-level "as at".
+- **New rpc cost.** A field on an existing response needs only `ownership.proto`
+  and `make openapi`; a NEW rpc needs the `shorts.proto` mirror (the parity test
+  runs on pull requests). Per-query cache keys on the old loader cost 8-9 pool
+  acquisitions each; every handler now reads the universe, and a list or feed
+  filters it in memory or runs its own one-statement indexed query. The web KV
+  keys are versioned (`cache:ownership:*:v2`): a new field read from an old
+  entry is silently 0/false for up to 21,600 s otherwise.
+- **The strip's read is outside the Overview's critical path** and reads no
+  KV: the daily sync's layout expiry refreshes it, and the job's `ownership`
+  ping must not add a regeneration wave to the most-visited tab.
+- **Unclassified holders (59% of positions) are plain text**: no holder pages,
+  no holder search, no fuzzy merging across keys (`name:` keys split on text
+  layer breaks: "Limite d"). The parser withholds placeholder names ("SEE
+  ANNEXURE 1") as `no_holder` unless the name resolves to a curated
+  institution; `-mode repair-placeholders` removes rows stored before the gate.
 
 ## Weekly/Monthly/Yearly Reports
 

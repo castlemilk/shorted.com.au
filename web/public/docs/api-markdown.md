@@ -945,7 +945,7 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetOwn
 #### `POST /shorts.v1alpha1.OwnershipService/GetStockOwnership`
 
 Who holds one stock: its substantial holders, their notices, and the index
- ETFs and super fund options that hold it.
+ funds and super fund options that hold it.
 
 Request body fields:
 

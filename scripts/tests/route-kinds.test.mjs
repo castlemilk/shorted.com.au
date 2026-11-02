@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import { STOCK_ROUTES } from "../../web/scripts/route-kinds.mjs";
+import { OWNERSHIP_ROUTES, STOCK_ROUTES } from "../../web/scripts/route-kinds.mjs";
 
 const script = fileURLToPath(new URL("../../web/scripts/route-kinds.mjs", import.meta.url));
+const OWNERSHIP_DIR = fileURLToPath(new URL("../../web/src/app/ownership/", import.meta.url));
 
 // The stock routes that exist, read from the one registry of stock tabs instead of copied
 // here. The registry is TypeScript and this job installs no web dependencies, so it is read
@@ -30,6 +31,20 @@ function registryRoutes() {
 
 const EXPECTED = registryRoutes();
 
+// The same drift check for the ownership section: a dynamic page the gate does not list is never
+// checked for ISR, so the routes are read from the tree rather than restated here. A __tests__
+// folder holds no page, and a page.tsx under a dynamic segment is a dynamic route.
+function dynamicOwnershipRoutes(dir = OWNERSHIP_DIR, prefix = "/ownership") {
+  return readdirSync(dir, { withFileTypes: true })
+    .flatMap((entry) => {
+      if (entry.isDirectory()) {
+        return entry.name === "__tests__" ? [] : dynamicOwnershipRoutes(join(dir, entry.name), `${prefix}/${entry.name}`);
+      }
+      return entry.name === "page.tsx" && prefix.includes("[") ? [prefix] : [];
+    })
+    .sort();
+}
+
 function run(t, manifest) {
   const dir = mkdtempSync(join(tmpdir(), "shorted-route-kinds-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -49,11 +64,21 @@ test("the gate checks exactly the stock tabs the registry declares", () => {
   );
 });
 
-test("passes when every stock route is an ISR dynamic route", (t) => {
-  const dynamicRoutes = Object.fromEntries(EXPECTED.map((r) => [r, { fallback: null, routeRegex: "x", dataRoute: "y" }]));
+test("the gate checks exactly the dynamic ownership pages on disk", () => {
+  assert.deepEqual(
+    [...OWNERSHIP_ROUTES].sort(),
+    dynamicOwnershipRoutes(),
+    "OWNERSHIP_ROUTES in web/scripts/route-kinds.mjs has drifted from the dynamic pages under web/src/app/ownership: a dynamic ownership page missing from the gate's list is never checked for ISR",
+  );
+});
+
+test("passes when every stock and ownership route is an ISR dynamic route", (t) => {
+  const routes = [...EXPECTED, ...OWNERSHIP_ROUTES];
+  const dynamicRoutes = Object.fromEntries(routes.map((r) => [r, { fallback: null, routeRegex: "x", dataRoute: "y" }]));
   const result = run(t, { version: 4, routes: {}, dynamicRoutes });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, new RegExp(`${EXPECTED.length} stock routes are ISR`));
+  assert.match(result.stdout, new RegExp(`${OWNERSHIP_ROUTES.length} ownership routes are ISR`));
 });
 
 test("fails and names the route when one has slipped to per-request rendering", (t) => {
@@ -61,6 +86,29 @@ test("fails and names the route when one has slipped to per-request rendering", 
   const result = run(t, { version: 4, routes: {}, dynamicRoutes });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /\/shorts\/\[stockCode\]\/strategy/);
+});
+
+test("fails and names the ownership route when one has slipped to per-request rendering", (t) => {
+  const kept = OWNERSHIP_ROUTES.filter((r) => r !== "/ownership/stocks/[code]");
+  const dynamicRoutes = Object.fromEntries([...EXPECTED, ...kept].map((r) => [r, { fallback: null }]));
+  const result = run(t, { version: 4, routes: {}, dynamicRoutes });
+  assert.equal(result.status, 1);
+  // The stock routes are all present, so the stock check passes and the ownership one is what fails.
+  assert.match(result.stdout, new RegExp(`${EXPECTED.length} stock routes are ISR`));
+  assert.match(result.stderr, /\/ownership\/stocks\/\[code\]/);
+});
+
+// Both lists are checked before the verdict: a build that slips on both names every route it lost,
+// and prints no pass line, so one CI round finds them all.
+test("names the stock and the ownership routes together when both have slipped", (t) => {
+  const result = run(t, { version: 4, routes: {}, dynamicRoutes: {} });
+  assert.equal(result.status, 1, result.stderr);
+  assert.equal(result.stdout, "", "a failing gate prints no pass line");
+  // Each missing route is printed alone on an indented line, so the whole line is compared.
+  const lines = result.stderr.split("\n");
+  for (const route of [...EXPECTED, ...OWNERSHIP_ROUTES]) {
+    assert.ok(lines.includes(`  ${route}`), `${route} is missing from the failure, so a second CI round would be needed to find it`);
+  }
 });
 
 // Exit 2 is "the gate could not run", and CI must be able to tell it from 1, "a route slipped":
@@ -96,6 +144,17 @@ test("the failure hint and the header point at the source scan for dynamic-API r
   const result = run(t, { version: 4, routes: {}, dynamicRoutes: {} });
   assert.equal(result.status, 1);
   assert.ok(result.stderr.includes(scan), `the failure hint does not name ${scan}`);
+  const header = readFileSync(script, "utf8").split("\n").filter((line) => line.startsWith("//"));
+  assert.ok(header.some((line) => line.includes(scan)), `the header comment does not name ${scan}`);
+});
+
+test("the ownership failure hint and the header point at the ownership source scan", (t) => {
+  const scan = "web/src/app/ownership/__tests__/isr-source-safety.test.ts";
+  assert.ok(existsSync(new URL(`../../${scan}`, import.meta.url)), `${scan} is gone, but the gate points at it`);
+  const dynamicRoutes = Object.fromEntries(EXPECTED.map((r) => [r, { fallback: null }]));
+  const result = run(t, { version: 4, routes: {}, dynamicRoutes });
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.includes(scan), `the ownership failure hint does not name ${scan}`);
   const header = readFileSync(script, "utf8").split("\n").filter((line) => line.startsWith("//"));
   assert.ok(header.some((line) => line.includes(scan)), `the header comment does not name ${scan}`);
 });

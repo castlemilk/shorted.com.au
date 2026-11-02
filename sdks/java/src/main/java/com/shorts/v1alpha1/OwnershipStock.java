@@ -36,6 +36,10 @@ private static final long serialVersionUID = 0L;
     companyName_ = "";
     industry_ = "";
     byKind_ = java.util.Collections.emptyList();
+    shortAsOf_ = "";
+    indexAsAtFrom_ = "";
+    indexAsAtTo_ = "";
+    latestNoticeDate_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -274,7 +278,7 @@ private static final long serialVersionUID = 0L;
   private double indexPct_ = 0D;
   /**
    * <pre>
-   * Shares held by the index ETFs tracked, over shares on issue.
+   * Shares held by the index funds tracked, over shares on issue.
    * </pre>
    *
    * <code>double index_pct = 9 [json_name = "indexPct"];</code>
@@ -355,6 +359,199 @@ private static final long serialVersionUID = 0L;
     return hasMarketCap_;
   }
 
+  public static final int SHORT_AS_OF_FIELD_NUMBER = 16;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object shortAsOf_ = "";
+  /**
+   * <pre>
+   * ASIC's report date behind short_pct; "" when there is none.
+   * </pre>
+   *
+   * <code>string short_as_of = 16 [json_name = "shortAsOf"];</code>
+   * @return The shortAsOf.
+   */
+  @java.lang.Override
+  public java.lang.String getShortAsOf() {
+    java.lang.Object ref = shortAsOf_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      shortAsOf_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * ASIC's report date behind short_pct; "" when there is none.
+   * </pre>
+   *
+   * <code>string short_as_of = 16 [json_name = "shortAsOf"];</code>
+   * @return The bytes for shortAsOf.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getShortAsOfBytes() {
+    java.lang.Object ref = shortAsOf_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      shortAsOf_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int INDEX_AS_AT_FROM_FIELD_NUMBER = 17;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object indexAsAtFrom_ = "";
+  /**
+   * <pre>
+   * The oldest and newest file dates behind index_pct, and how many files
+   * contributed; "" and 0 when there is no index figure.
+   * </pre>
+   *
+   * <code>string index_as_at_from = 17 [json_name = "indexAsAtFrom"];</code>
+   * @return The indexAsAtFrom.
+   */
+  @java.lang.Override
+  public java.lang.String getIndexAsAtFrom() {
+    java.lang.Object ref = indexAsAtFrom_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      indexAsAtFrom_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The oldest and newest file dates behind index_pct, and how many files
+   * contributed; "" and 0 when there is no index figure.
+   * </pre>
+   *
+   * <code>string index_as_at_from = 17 [json_name = "indexAsAtFrom"];</code>
+   * @return The bytes for indexAsAtFrom.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getIndexAsAtFromBytes() {
+    java.lang.Object ref = indexAsAtFrom_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      indexAsAtFrom_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int INDEX_AS_AT_TO_FIELD_NUMBER = 18;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object indexAsAtTo_ = "";
+  /**
+   * <code>string index_as_at_to = 18 [json_name = "indexAsAtTo"];</code>
+   * @return The indexAsAtTo.
+   */
+  @java.lang.Override
+  public java.lang.String getIndexAsAtTo() {
+    java.lang.Object ref = indexAsAtTo_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      indexAsAtTo_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string index_as_at_to = 18 [json_name = "indexAsAtTo"];</code>
+   * @return The bytes for indexAsAtTo.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getIndexAsAtToBytes() {
+    java.lang.Object ref = indexAsAtTo_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      indexAsAtTo_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int INDEX_FILES_FIELD_NUMBER = 19;
+  private int indexFiles_ = 0;
+  /**
+   * <code>int32 index_files = 19 [json_name = "indexFiles"];</code>
+   * @return The indexFiles.
+   */
+  @java.lang.Override
+  public int getIndexFiles() {
+    return indexFiles_;
+  }
+
+  public static final int LATEST_NOTICE_DATE_FIELD_NUMBER = 20;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object latestNoticeDate_ = "";
+  /**
+   * <pre>
+   * The newest release date among the current holders' notices; "" when none.
+   * </pre>
+   *
+   * <code>string latest_notice_date = 20 [json_name = "latestNoticeDate"];</code>
+   * @return The latestNoticeDate.
+   */
+  @java.lang.Override
+  public java.lang.String getLatestNoticeDate() {
+    java.lang.Object ref = latestNoticeDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      latestNoticeDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The newest release date among the current holders' notices; "" when none.
+   * </pre>
+   *
+   * <code>string latest_notice_date = 20 [json_name = "latestNoticeDate"];</code>
+   * @return The bytes for latestNoticeDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getLatestNoticeDateBytes() {
+    java.lang.Object ref = latestNoticeDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      latestNoticeDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -413,6 +610,21 @@ private static final long serialVersionUID = 0L;
     }
     if (hasMarketCap_ != false) {
       output.writeBool(15, hasMarketCap_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortAsOf_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 16, shortAsOf_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(indexAsAtFrom_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 17, indexAsAtFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(indexAsAtTo_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 18, indexAsAtTo_);
+    }
+    if (indexFiles_ != 0) {
+      output.writeInt32(19, indexFiles_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(latestNoticeDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 20, latestNoticeDate_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -480,6 +692,22 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(15, hasMarketCap_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortAsOf_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(16, shortAsOf_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(indexAsAtFrom_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(17, indexAsAtFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(indexAsAtTo_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(18, indexAsAtTo_);
+    }
+    if (indexFiles_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(19, indexFiles_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(latestNoticeDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(20, latestNoticeDate_);
+    }
     return size;
   }
   @java.lang.Override
@@ -539,6 +767,16 @@ private static final long serialVersionUID = 0L;
             other.getMarketCap())) return false;
     if (getHasMarketCap()
         != other.getHasMarketCap()) return false;
+    if (!getShortAsOf()
+        .equals(other.getShortAsOf())) return false;
+    if (!getIndexAsAtFrom()
+        .equals(other.getIndexAsAtFrom())) return false;
+    if (!getIndexAsAtTo()
+        .equals(other.getIndexAsAtTo())) return false;
+    if (getIndexFiles()
+        != other.getIndexFiles()) return false;
+    if (!getLatestNoticeDate()
+        .equals(other.getLatestNoticeDate())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -591,6 +829,16 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_MARKET_CAP_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasMarketCap());
+    hash = (37 * hash) + SHORT_AS_OF_FIELD_NUMBER;
+    hash = (53 * hash) + getShortAsOf().hashCode();
+    hash = (37 * hash) + INDEX_AS_AT_FROM_FIELD_NUMBER;
+    hash = (53 * hash) + getIndexAsAtFrom().hashCode();
+    hash = (37 * hash) + INDEX_AS_AT_TO_FIELD_NUMBER;
+    hash = (53 * hash) + getIndexAsAtTo().hashCode();
+    hash = (37 * hash) + INDEX_FILES_FIELD_NUMBER;
+    hash = (53 * hash) + getIndexFiles();
+    hash = (37 * hash) + LATEST_NOTICE_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getLatestNoticeDate().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -747,6 +995,11 @@ private static final long serialVersionUID = 0L;
       hasSuperValue_ = false;
       marketCap_ = 0D;
       hasMarketCap_ = false;
+      shortAsOf_ = "";
+      indexAsAtFrom_ = "";
+      indexAsAtTo_ = "";
+      indexFiles_ = 0;
+      latestNoticeDate_ = "";
       return this;
     }
 
@@ -835,6 +1088,21 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00004000) != 0)) {
         result.hasMarketCap_ = hasMarketCap_;
       }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.shortAsOf_ = shortAsOf_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.indexAsAtFrom_ = indexAsAtFrom_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.indexAsAtTo_ = indexAsAtTo_;
+      }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.indexFiles_ = indexFiles_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.latestNoticeDate_ = latestNoticeDate_;
+      }
     }
 
     @java.lang.Override
@@ -922,6 +1190,29 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasMarketCap() != false) {
         setHasMarketCap(other.getHasMarketCap());
+      }
+      if (!other.getShortAsOf().isEmpty()) {
+        shortAsOf_ = other.shortAsOf_;
+        bitField0_ |= 0x00008000;
+        onChanged();
+      }
+      if (!other.getIndexAsAtFrom().isEmpty()) {
+        indexAsAtFrom_ = other.indexAsAtFrom_;
+        bitField0_ |= 0x00010000;
+        onChanged();
+      }
+      if (!other.getIndexAsAtTo().isEmpty()) {
+        indexAsAtTo_ = other.indexAsAtTo_;
+        bitField0_ |= 0x00020000;
+        onChanged();
+      }
+      if (other.getIndexFiles() != 0) {
+        setIndexFiles(other.getIndexFiles());
+      }
+      if (!other.getLatestNoticeDate().isEmpty()) {
+        latestNoticeDate_ = other.latestNoticeDate_;
+        bitField0_ |= 0x00080000;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1032,6 +1323,31 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00004000;
               break;
             } // case 120
+            case 130: {
+              shortAsOf_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 130
+            case 138: {
+              indexAsAtFrom_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 138
+            case 146: {
+              indexAsAtTo_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00020000;
+              break;
+            } // case 146
+            case 152: {
+              indexFiles_ = input.readInt32();
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 152
+            case 162: {
+              latestNoticeDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00080000;
+              break;
+            } // case 162
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1672,7 +1988,7 @@ private static final long serialVersionUID = 0L;
     private double indexPct_ ;
     /**
      * <pre>
-     * Shares held by the index ETFs tracked, over shares on issue.
+     * Shares held by the index funds tracked, over shares on issue.
      * </pre>
      *
      * <code>double index_pct = 9 [json_name = "indexPct"];</code>
@@ -1684,7 +2000,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Shares held by the index ETFs tracked, over shares on issue.
+     * Shares held by the index funds tracked, over shares on issue.
      * </pre>
      *
      * <code>double index_pct = 9 [json_name = "indexPct"];</code>
@@ -1700,7 +2016,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Shares held by the index ETFs tracked, over shares on issue.
+     * Shares held by the index funds tracked, over shares on issue.
      * </pre>
      *
      * <code>double index_pct = 9 [json_name = "indexPct"];</code>
@@ -1913,6 +2229,391 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasMarketCap() {
       bitField0_ = (bitField0_ & ~0x00004000);
       hasMarketCap_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object shortAsOf_ = "";
+    /**
+     * <pre>
+     * ASIC's report date behind short_pct; "" when there is none.
+     * </pre>
+     *
+     * <code>string short_as_of = 16 [json_name = "shortAsOf"];</code>
+     * @return The shortAsOf.
+     */
+    public java.lang.String getShortAsOf() {
+      java.lang.Object ref = shortAsOf_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        shortAsOf_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * ASIC's report date behind short_pct; "" when there is none.
+     * </pre>
+     *
+     * <code>string short_as_of = 16 [json_name = "shortAsOf"];</code>
+     * @return The bytes for shortAsOf.
+     */
+    public com.google.protobuf.ByteString
+        getShortAsOfBytes() {
+      java.lang.Object ref = shortAsOf_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        shortAsOf_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * ASIC's report date behind short_pct; "" when there is none.
+     * </pre>
+     *
+     * <code>string short_as_of = 16 [json_name = "shortAsOf"];</code>
+     * @param value The shortAsOf to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortAsOf(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      shortAsOf_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ASIC's report date behind short_pct; "" when there is none.
+     * </pre>
+     *
+     * <code>string short_as_of = 16 [json_name = "shortAsOf"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShortAsOf() {
+      shortAsOf_ = getDefaultInstance().getShortAsOf();
+      bitField0_ = (bitField0_ & ~0x00008000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ASIC's report date behind short_pct; "" when there is none.
+     * </pre>
+     *
+     * <code>string short_as_of = 16 [json_name = "shortAsOf"];</code>
+     * @param value The bytes for shortAsOf to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortAsOfBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      shortAsOf_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object indexAsAtFrom_ = "";
+    /**
+     * <pre>
+     * The oldest and newest file dates behind index_pct, and how many files
+     * contributed; "" and 0 when there is no index figure.
+     * </pre>
+     *
+     * <code>string index_as_at_from = 17 [json_name = "indexAsAtFrom"];</code>
+     * @return The indexAsAtFrom.
+     */
+    public java.lang.String getIndexAsAtFrom() {
+      java.lang.Object ref = indexAsAtFrom_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        indexAsAtFrom_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The oldest and newest file dates behind index_pct, and how many files
+     * contributed; "" and 0 when there is no index figure.
+     * </pre>
+     *
+     * <code>string index_as_at_from = 17 [json_name = "indexAsAtFrom"];</code>
+     * @return The bytes for indexAsAtFrom.
+     */
+    public com.google.protobuf.ByteString
+        getIndexAsAtFromBytes() {
+      java.lang.Object ref = indexAsAtFrom_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        indexAsAtFrom_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The oldest and newest file dates behind index_pct, and how many files
+     * contributed; "" and 0 when there is no index figure.
+     * </pre>
+     *
+     * <code>string index_as_at_from = 17 [json_name = "indexAsAtFrom"];</code>
+     * @param value The indexAsAtFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndexAsAtFrom(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      indexAsAtFrom_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The oldest and newest file dates behind index_pct, and how many files
+     * contributed; "" and 0 when there is no index figure.
+     * </pre>
+     *
+     * <code>string index_as_at_from = 17 [json_name = "indexAsAtFrom"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIndexAsAtFrom() {
+      indexAsAtFrom_ = getDefaultInstance().getIndexAsAtFrom();
+      bitField0_ = (bitField0_ & ~0x00010000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The oldest and newest file dates behind index_pct, and how many files
+     * contributed; "" and 0 when there is no index figure.
+     * </pre>
+     *
+     * <code>string index_as_at_from = 17 [json_name = "indexAsAtFrom"];</code>
+     * @param value The bytes for indexAsAtFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndexAsAtFromBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      indexAsAtFrom_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object indexAsAtTo_ = "";
+    /**
+     * <code>string index_as_at_to = 18 [json_name = "indexAsAtTo"];</code>
+     * @return The indexAsAtTo.
+     */
+    public java.lang.String getIndexAsAtTo() {
+      java.lang.Object ref = indexAsAtTo_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        indexAsAtTo_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string index_as_at_to = 18 [json_name = "indexAsAtTo"];</code>
+     * @return The bytes for indexAsAtTo.
+     */
+    public com.google.protobuf.ByteString
+        getIndexAsAtToBytes() {
+      java.lang.Object ref = indexAsAtTo_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        indexAsAtTo_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string index_as_at_to = 18 [json_name = "indexAsAtTo"];</code>
+     * @param value The indexAsAtTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndexAsAtTo(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      indexAsAtTo_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string index_as_at_to = 18 [json_name = "indexAsAtTo"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIndexAsAtTo() {
+      indexAsAtTo_ = getDefaultInstance().getIndexAsAtTo();
+      bitField0_ = (bitField0_ & ~0x00020000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string index_as_at_to = 18 [json_name = "indexAsAtTo"];</code>
+     * @param value The bytes for indexAsAtTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndexAsAtToBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      indexAsAtTo_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    private int indexFiles_ ;
+    /**
+     * <code>int32 index_files = 19 [json_name = "indexFiles"];</code>
+     * @return The indexFiles.
+     */
+    @java.lang.Override
+    public int getIndexFiles() {
+      return indexFiles_;
+    }
+    /**
+     * <code>int32 index_files = 19 [json_name = "indexFiles"];</code>
+     * @param value The indexFiles to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndexFiles(int value) {
+
+      indexFiles_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int32 index_files = 19 [json_name = "indexFiles"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIndexFiles() {
+      bitField0_ = (bitField0_ & ~0x00040000);
+      indexFiles_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object latestNoticeDate_ = "";
+    /**
+     * <pre>
+     * The newest release date among the current holders' notices; "" when none.
+     * </pre>
+     *
+     * <code>string latest_notice_date = 20 [json_name = "latestNoticeDate"];</code>
+     * @return The latestNoticeDate.
+     */
+    public java.lang.String getLatestNoticeDate() {
+      java.lang.Object ref = latestNoticeDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        latestNoticeDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The newest release date among the current holders' notices; "" when none.
+     * </pre>
+     *
+     * <code>string latest_notice_date = 20 [json_name = "latestNoticeDate"];</code>
+     * @return The bytes for latestNoticeDate.
+     */
+    public com.google.protobuf.ByteString
+        getLatestNoticeDateBytes() {
+      java.lang.Object ref = latestNoticeDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        latestNoticeDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The newest release date among the current holders' notices; "" when none.
+     * </pre>
+     *
+     * <code>string latest_notice_date = 20 [json_name = "latestNoticeDate"];</code>
+     * @param value The latestNoticeDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLatestNoticeDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      latestNoticeDate_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The newest release date among the current holders' notices; "" when none.
+     * </pre>
+     *
+     * <code>string latest_notice_date = 20 [json_name = "latestNoticeDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLatestNoticeDate() {
+      latestNoticeDate_ = getDefaultInstance().getLatestNoticeDate();
+      bitField0_ = (bitField0_ & ~0x00080000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The newest release date among the current holders' notices; "" when none.
+     * </pre>
+     *
+     * <code>string latest_notice_date = 20 [json_name = "latestNoticeDate"];</code>
+     * @param value The bytes for latestNoticeDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLatestNoticeDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      latestNoticeDate_ = value;
+      bitField0_ |= 0x00080000;
       onChanged();
       return this;
     }

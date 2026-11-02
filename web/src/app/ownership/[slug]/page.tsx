@@ -5,6 +5,7 @@ import { BreadcrumbStructuredData, Breadcrumbs } from "~/@/components/seo/breadc
 import { ExternalLinkGlyph, ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
 import { NoticeTable } from "~/@/components/ownership/notice-table";
 import { KindBadge, OwnershipMethodology } from "~/@/components/ownership/ownership-parts";
+import { OwnershipReportError } from "~/@/components/ownership/ownership-provenance";
 import { FileHoldingsTable, SubstantialHoldingsTable } from "~/@/components/ownership/ownership-tables";
 import { formatAmount } from "~/@/lib/fundamentals/format";
 import { institutionIsIndexable } from "~/@/lib/ownership/indexability";
@@ -212,6 +213,11 @@ export default async function InstitutionPage({ params }: PageProps) {
               rows={data.fundHoldings.map(fileHoldingRow)}
               caption={`${inst.name}'s largest disclosed ASX holdings`}
             />
+            {data.fundHoldingsTotal > data.fundHoldings.length ? (
+              <p className="text-xs text-muted-foreground">
+                {`The largest ${data.fundHoldings.length.toLocaleString("en-AU")} of ${data.fundHoldingsTotal.toLocaleString("en-AU")} ASX holdings in its files.`}
+              </p>
+            ) : null}
           </section>
         ) : null}
 
@@ -255,6 +261,9 @@ export default async function InstitutionPage({ params }: PageProps) {
             <span className="text-xs text-muted-foreground">{info.note}</span>
           </div>
           <OwnershipMethodology className="max-w-[80ch]" />
+          <p className="text-xs text-muted-foreground">
+            <OwnershipReportError subject={`Ownership data: ${inst.name}`} />
+          </p>
         </section>
       </div>
     </DashboardLayout>

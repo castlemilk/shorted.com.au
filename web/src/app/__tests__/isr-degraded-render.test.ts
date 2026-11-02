@@ -27,6 +27,7 @@ import * as comparePage from "../compare/[pair]/page";
 import * as insiderPage from "../insider-trading/[stockCode]/page";
 import * as newsPage from "../news/[slug]/page";
 import * as ownershipPage from "../ownership/[slug]/page";
+import * as registerPage from "../ownership/stocks/[code]/page";
 import * as scanPage from "../scans/[slug]/page";
 
 const getStock = jest.fn();
@@ -35,6 +36,7 @@ const getDirectorTrades = jest.fn();
 const getEditorialTakeOrNotFound = jest.fn();
 const getScanResults = jest.fn();
 const getInstitutionOrNotFound = jest.fn();
+const getStockOwnership = jest.fn();
 const bailOnEmptyRender = jest.fn();
 
 const NOT_FOUND = "NEXT_NOT_FOUND";
@@ -69,10 +71,12 @@ jest.mock("~/app/actions/getScanResults", () => ({
 }));
 // Both reads answer alike, so a page that went back to getInstitution (which
 // returns undefined for NotFound and for a failure) fails its case here rather
-// than throwing for a missing mock.
+// than throwing for a missing mock. The register's read answers undefined for a
+// failure too; its data module throws on that, and the case below checks it.
 jest.mock("~/app/actions/getOwnership", () => ({
   getInstitution: (...args: unknown[]) => getInstitutionOrNotFound(...args),
   getInstitutionOrNotFound: (...args: unknown[]) => getInstitutionOrNotFound(...args),
+  getStockOwnership: (...args: unknown[]) => getStockOwnership(...args),
 }));
 // The pages are called, not rendered, so their components never run; these
 // keep the imports out of jsdom.
@@ -151,6 +155,61 @@ const INSTITUTION = {
   notices: [],
 };
 
+/** A register that reads: a company with a short figure and no current holder, so a page, not a 404. */
+const REGISTER = {
+  summary: {
+    stockCode: "BHP",
+    companyName: "BHP Group Limited",
+    industry: "Materials",
+    holders: 0,
+    disclosedPct: 0,
+    byKind: [],
+    shortPct: 0.4,
+    hasShortPct: true,
+    shortAsOf: "2026-10-30",
+    superOptions: 0,
+    superValueAud: 0,
+    hasSuperValue: false,
+    indexPct: 0,
+    hasIndexPct: false,
+  },
+  holders: [],
+  history: [],
+  fundHoldings: [],
+  historyTotal: 0,
+  withheldListed: 0,
+  asOf: "2026-10-30",
+  sharesOnIssue: 0,
+  hasSharesOnIssue: false,
+};
+
+/** A register that knows nothing of the code: no holder, row, notice, name or short figure. */
+const UNKNOWN_REGISTER = {
+  summary: {
+    stockCode: "ZZZ",
+    companyName: "",
+    industry: "",
+    holders: 0,
+    disclosedPct: 0,
+    byKind: [],
+    shortPct: 0,
+    hasShortPct: false,
+    superOptions: 0,
+    superValueAud: 0,
+    hasSuperValue: false,
+    indexPct: 0,
+    hasIndexPct: false,
+  },
+  holders: [],
+  history: [],
+  fundHoldings: [],
+  historyTotal: 0,
+  withheldListed: 0,
+  asOf: "",
+  sharesOnIssue: 0,
+  hasSharesOnIssue: false,
+};
+
 interface Case {
   page: string;
   /** The page module, for its route-segment exports. */
@@ -213,6 +272,24 @@ const CASES: Case[] = [
     fail: () => getInstitutionOrNotFound.mockResolvedValue(undefined),
     render: () => ownershipPage.default({ params: Promise.resolve({ slug: "vanguard" }) }),
   },
+  {
+    // It throws on a failed read (readRegister), so a regeneration leaves the last
+    // good register in place. An unknown code is a 404, tested below.
+    page: "ownership/stocks/[code]/page.tsx",
+    route: registerPage,
+    read: "the register",
+    fail: () => getStockOwnership.mockResolvedValue(undefined),
+    render: () => registerPage.default({ params: Promise.resolve({ code: "BHP" }) }),
+  },
+  {
+    // A response with no summary is no answer either (the API answers an empty
+    // message when it runs without an ownership store), so readRegister throws on it too.
+    page: "ownership/stocks/[code]/page.tsx",
+    route: registerPage,
+    read: "the register's summary",
+    fail: () => getStockOwnership.mockResolvedValue({ ...REGISTER, summary: undefined }),
+    render: () => registerPage.default({ params: Promise.resolve({ code: "BHP" }) }),
+  },
 ];
 
 /** A dynamic page is statically optimised when it exports generateStaticParams. */
@@ -245,6 +322,7 @@ describe("a failed read in a dynamic page that ISR could cache", () => {
     getEditorialTakeOrNotFound.mockResolvedValue({ take: TAKE });
     getScanResults.mockResolvedValue({ asOfDate: "2026-10-15", rows: [], totalCount: 0 });
     getInstitutionOrNotFound.mockResolvedValue(INSTITUTION);
+    getStockOwnership.mockResolvedValue(REGISTER);
   });
   afterEach(() => jest.restoreAllMocks());
 
@@ -273,5 +351,29 @@ describe("a failed read in a dynamic page that ISR could cache", () => {
   it("lists only pages it checks", () => {
     const checked = new Set(CASES.map(({ page }) => page));
     expect(Object.keys(PER_REQUEST).filter((page) => !checked.has(page))).toEqual([]);
+  });
+});
+
+// Only a register that knows nothing of the code is a 404 (register-data.ts): a
+// company the register names with no current holder is a page. A code outside
+// REGISTER_CODE_PATTERN (1 to 6 upper-case letters or digits) is refused before the read.
+describe("the register page's 404s", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getStockOwnership.mockResolvedValue(REGISTER);
+  });
+
+  it("answers a code the register does not know with notFound", async () => {
+    getStockOwnership.mockResolvedValue(UNKNOWN_REGISTER);
+    await expect(registerPage.default({ params: Promise.resolve({ code: "ZZZ" }) })).rejects.toThrow(
+      NOT_FOUND,
+    );
+  });
+
+  it("answers a code outside REGISTER_CODE_PATTERN with notFound, and reads nothing", async () => {
+    await expect(
+      registerPage.default({ params: Promise.resolve({ code: "not-a-code" }) }),
+    ).rejects.toThrow(NOT_FOUND);
+    expect(getStockOwnership).not.toHaveBeenCalled();
   });
 });

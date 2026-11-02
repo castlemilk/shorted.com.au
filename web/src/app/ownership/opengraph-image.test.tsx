@@ -44,7 +44,7 @@ jest.mock("~/@/lib/og/card", () => {
 });
 jest.mock("~/app/actions/getOwnership", () => ({ getOwnershipOverview: () => getOwnershipOverview() }));
 
-import Image from "./opengraph-image";
+import Image, { alt } from "./opengraph-image";
 
 describe("ownership hub Open Graph image", () => {
   it("draws the hub's headline over its coverage counts, leaving out a zero", async () => {
@@ -64,5 +64,9 @@ describe("ownership hub Open Graph image", () => {
     render(res.element);
     expect(screen.getByRole("heading")).toHaveTextContent("Who owns the ASX");
     expect(screen.queryByRole("list")).toBeNull();
+  });
+
+  it("carries the hub's static alt text, with no dash", () => {
+    expect(alt).toBe("Who owns the ASX, on Shorted");
   });
 });

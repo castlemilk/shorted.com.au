@@ -13,7 +13,7 @@ import "options/v1/options.proto";
 //     every holder of 5% or more, whatever it is: super funds, index managers,
 //     hedge funds, banks lending stock to short sellers, companies, families.
 //     A figure is the notice's own voting power, as at the notice.
-//   - Index ETF holdings files (iShares, Vanguard, SPDR, Betashares), daily or
+//   - Index fund holdings files (iShares, Vanguard, SPDR, Betashares), daily or
 //     monthly: shares held by the fund.
 //   - Super fund portfolio holdings disclosures, semi-annual: one investment
 //     option's holdings (the default or balanced option), never the whole fund.
@@ -42,7 +42,7 @@ service OwnershipService {
   }
 
   // Who holds one stock: its substantial holders, their notices, and the index
-  // ETFs and super fund options that hold it.
+  // funds and super fund options that hold it.
   rpc GetStockOwnership (GetStockOwnershipRequest) returns (GetStockOwnershipResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
@@ -191,7 +191,7 @@ message OwnershipStock {
   // ASIC's latest reported short position, as a percentage of shares on issue.
   double short_pct = 7;
   bool has_short_pct = 8;
-  // Shares held by the index ETFs tracked, over shares on issue.
+  // Shares held by the index funds tracked, over shares on issue.
   double index_pct = 9;
   bool has_index_pct = 10;
   // Super fund options holding it, of those tracked, and their combined value.
@@ -200,6 +200,15 @@ message OwnershipStock {
   bool has_super_value = 13;
   double market_cap = 14;
   bool has_market_cap = 15;
+  // ASIC's report date behind short_pct; "" when there is none.
+  string short_as_of = 16;
+  // The oldest and newest file dates behind index_pct, and how many files
+  // contributed; "" and 0 when there is no index figure.
+  string index_as_at_from = 17;
+  string index_as_at_to = 18;
+  int32 index_files = 19;
+  // The newest release date among the current holders' notices; "" when none.
+  string latest_notice_date = 20;
 }
 
 // One holdings source's coverage.
@@ -208,6 +217,21 @@ message OwnershipSource {
   string description = 2;
   string as_at = 3;
   int32 records = 4;
+  // Files (index funds) or options (super funds) the source holds. 0 for notices.
+  int32 funds = 5;
+  // The oldest file date behind the source; equals as_at when one file or
+  // one date. "" for notices.
+  string as_at_from = 6;
+}
+
+// Documents attempted and not parsed, by outcome. Six outcomes withhold a
+// notice that was read or could not be read (no_text, no_voting_power,
+// implausible, ambiguous_target, no_holder, inconsistent_votes); not_a_notice
+// is a document that was never a substantial holding form and fetch_error a
+// download that is retried. Neither is an unread notice.
+message WithheldOutcome {
+  string outcome = 1;
+  int32 count = 2;
 }
 
 message GetOwnershipOverviewRequest {}
@@ -216,7 +240,8 @@ message GetOwnershipOverviewResponse {
   repeated OwnershipKindSummary kinds = 1;
   // Institutions with the most current substantial holdings.
   repeated OwnershipInstitution top_holders = 2;
-  // Stocks with the highest disclosed substantial voting power.
+  // Stocks where investors (super, index, active, hedge, sovereign, insurer)
+  // disclose the most voting power; banks and brokers are not counted.
   repeated OwnershipStock crowded = 3;
   // Stocks where hedge funds and active managers hold substantial stakes and
   // short interest is high: crowded on both sides.
@@ -228,7 +253,7 @@ message GetOwnershipOverviewResponse {
   repeated SubstantialNotice recent = 6;
   // Stocks the tracked super fund options hold most of, by combined value.
   repeated OwnershipStock super_consensus = 7;
-  // Stocks the tracked index ETFs own the largest share of.
+  // Stocks the tracked index funds own the largest share of.
   repeated OwnershipStock passive = 8;
   repeated OwnershipSource sources = 9;
   int32 notices_parsed = 10;
@@ -240,6 +265,10 @@ message GetOwnershipOverviewResponse {
   int32 lics = 16;
   double lic_market_cap_aud = 17;
   string as_of = 18;
+  // Withheld documents by outcome; notices_withheld stays their total.
+  repeated WithheldOutcome withheld_by_outcome = 19;
+  // Every document attempted, parsed included: the base of notices_withheld.
+  int32 documents_attempted = 20;
 }
 
 message ListInstitutionsRequest {
@@ -266,6 +295,8 @@ message GetInstitutionResponse {
   // The largest holdings, by value, of its latest holdings files.
   repeated FundHolding fund_holdings = 4;
   repeated OwnershipFund funds = 5;
+  // Rows in its latest files; fund_holdings serves the largest 100.
+  int32 fund_holdings_total = 6;
 }
 
 message GetStockOwnershipRequest {
@@ -279,4 +310,12 @@ message GetStockOwnershipResponse {
   repeated FundHolding fund_holdings = 4;
   double shares_on_issue = 5;
   bool has_shares_on_issue = 6;
+  // Parsed notices for the stock on record; history serves the newest 100.
+  int32 history_total = 7;
+  // Documents listed under this code whose outcome is one of the six
+  // withholding outcomes. A document ASX lists under several codes is counted
+  // under one of them, so the figure is "listed under", never beside a sum.
+  int32 withheld_listed = 8;
+  // The newest notice release date read anywhere.
+  string as_of = 9;
 }

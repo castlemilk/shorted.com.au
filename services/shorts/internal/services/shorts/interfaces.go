@@ -309,10 +309,8 @@ type Cache interface {
 	GetStrategyUniverseKey() string
 	GetStrategyPicksKey(strategyID string) string
 	GetMarketRegimeKey(indexCode string) string
-	GetOwnershipOverviewKey() string
-	ListInstitutionsKey(kind, query string, limit, offset int32) string
-	GetInstitutionKey(slug string) string
-	GetStockOwnershipKey(stockCode string) string
+	GetInstitutionKey(slug string, generation int64) string
+	GetStockOwnershipKey(stockCode string, generation int64) string
 	GetCompanyTaxProfileKey(productCode string) string
 	GetIndustryIntelligenceKey(industry string, stockCode string, recordLimit int32) string
 	GetShortCampaignScoreboardKey(industry string, limit, offset int32) string

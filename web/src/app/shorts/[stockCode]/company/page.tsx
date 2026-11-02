@@ -1,6 +1,7 @@
 import nextDynamic from "next/dynamic";
 import { type Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { DirectorTradesSkeleton } from "~/@/components/company/director-trades-skeleton";
 import {
@@ -13,6 +14,7 @@ import { StockOwnershipView } from "~/@/components/ownership/stock-ownership-vie
 import { StockEvidencePanelClient } from "~/@/components/company/stock-evidence-panel-client";
 import { StockStateExposure } from "~/@/components/economy/stock-state-exposure";
 import { cleanCompanyName } from "~/@/lib/company-name";
+import { registerHref } from "~/@/lib/ownership/kinds";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabTitle } from "~/@/lib/seo/stock-tab-title";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
@@ -49,6 +51,24 @@ export function generateStaticParams(): Array<{ stockCode: string }> {
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
+}
+
+/**
+ * The first part of company.none.line: a stock whose notices on record name no
+ * current holder. A count of zero is left out, never printed as 0, so the line
+ * says only what the register holds.
+ */
+function noneLineLead(code: string, historyTotal: number, withheldListed: number): string {
+  const notices = (n: number) => `${n.toLocaleString("en-AU")} ${n === 1 ? "notice" : "notices"}`;
+  // "Has since ceased" is said of each holding, not of the notices: a trail that
+  // opens with a 603 does not end in a cessation, but every holding it disclosed has.
+  const ceased =
+    historyTotal > 0 ? `: each holding in its ${notices(historyTotal)} read has since ceased` : "";
+  const withheld =
+    withheldListed > 0
+      ? `; ${notices(withheldListed)} listed under it ${withheldListed === 1 ? "was" : "were"} withheld`
+      : "";
+  return `No current substantial holder read for ${code}${ceased}${withheld}. `;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -98,6 +118,10 @@ export default async function CompanyPage({ params }: PageProps) {
   const ownership = await ownershipPromise;
   const hasOwnership =
     ownership != null && (ownership.holders.length > 0 || ownership.fundHoldings.length > 0);
+  // Notices on record with no current holder: one line says so, drawn in the
+  // server HTML, so the section keeps its place whatever the register holds.
+  const noticesOnRecord =
+    ownership != null && (ownership.historyTotal > 0 || ownership.withheldListed > 0);
   const companyName = cleanCompanyName(stock.name || code, code);
 
   return (
@@ -132,9 +156,30 @@ export default async function CompanyPage({ params }: PageProps) {
             <DirectorTradesTable stockCode={code} />
           )}
         </section>
-        {hasOwnership ? (
-          <section aria-label="Ownership">
-            <StockOwnershipView data={ownership} />
+        {ownership != null && (hasOwnership || noticesOnRecord) ? (
+          <section id="ownership" className="scroll-mt-[124px]" aria-label="Ownership">
+            {hasOwnership ? (
+              <StockOwnershipView data={ownership} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {noneLineLead(code, ownership.historyTotal, ownership.withheldListed)}
+                <Link
+                  href={registerHref(code)}
+                  prefetch={false}
+                  className="text-primary hover:underline"
+                >
+                  Full register →
+                </Link>
+                {" · "}
+                <Link
+                  href="/ownership#method"
+                  prefetch={false}
+                  className="text-primary hover:underline"
+                >
+                  How ownership is read →
+                </Link>
+              </p>
+            )}
           </section>
         ) : null}
         <PoliticianInterestsCard stockCode={code} />

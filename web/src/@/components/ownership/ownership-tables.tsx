@@ -10,8 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from "~/@/components/ui/table";
+import { registerHref } from "~/@/lib/ownership/kinds";
 import type { FileHoldingRow, HoldingRow, NoticeRow } from "~/@/lib/ownership/rows";
-import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { ExternalLinkGlyph } from "./external-link-glyph";
 
@@ -70,10 +70,11 @@ function ShowAll({
   );
 }
 
+/** A stock's code, linked to its register page (every stock link on the ownership surfaces). */
 function StockLink({ code }: { code: string }) {
   return (
     <Link
-      href={stockTabHref(code, "company")}
+      href={registerHref(code)}
       prefetch={false}
       className="font-semibold text-primary underline-offset-4 hover:underline"
     >

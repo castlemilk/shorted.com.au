@@ -6,14 +6,16 @@ import { getOwnershipOverview } from "~/app/actions/getOwnership";
 
 export const maxDuration = 15;
 
-export const alt = "Who owns the ASX — Shorted.com.au";
+// Static on purpose: a per-parameter alt needs generateImageMetadata, which
+// also changes the image URL.
+export const alt = "Who owns the ASX, on Shorted";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 export const revalidate = 86400;
 
 /**
- * The hub card: the hub's headline over its coverage counts, with the tiles'
- * own labels. Reads the same cached overview the page does; a failed read,
+ * The hub card: the hub's headline over its coverage counts. Reads the same
+ * cached overview the page does; a failed read,
  * or a database the first collection has not filled, degrades to the card
  * without the stat row, never a 500.
  */
@@ -39,7 +41,7 @@ export default async function Image() {
       <OgCard
         eyebrow="Ownership"
         title="Who owns the ASX"
-        subtitle="Super funds, index funds, hedge funds and banks: every substantial holding notice read from its PDF, and the holdings files of the largest index ETFs and super funds."
+        subtitle="Super funds, index funds, hedge funds and banks: substantial holding notices read from their PDFs, and the ASX holdings in the latest files of the index funds and super fund options tracked."
         stats={stats}
         footer="ASX substantial holding notices"
         logoSrc={logoSrc}

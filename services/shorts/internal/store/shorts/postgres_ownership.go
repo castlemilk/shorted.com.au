@@ -26,11 +26,18 @@ type OwnershipStore interface {
 	CurrentSubstantialHoldings(ctx context.Context, filter OwnershipFilter) ([]SubstantialHoldingRow, error)
 	SubstantialNotices(ctx context.Context, filter OwnershipFilter, limit int) ([]SubstantialNoticeRow, error)
 	NoticeStats(ctx context.Context) (*NoticeStats, error)
+	NoticeCountsByStock(ctx context.Context) (map[string]int, error)
+	AttemptOutcomes(ctx context.Context) ([]AttemptOutcomeRow, error)
 	LatestFundHoldings(ctx context.Context, filter OwnershipFilter) ([]FundHoldingRow, error)
 	OwnershipFunds(ctx context.Context, institutionSlug string) ([]OwnershipFundRow, error)
 	LatestShortPositions(ctx context.Context) (map[string]ShortPosition, error)
 	OwnershipCompanies(ctx context.Context) (map[string]OwnershipCompany, error)
 }
+
+// The Postgres store is the one implementation; a signature drift here would
+// otherwise nil the store at runtime, because the server finds it by type
+// assertion.
+var _ OwnershipStore = (*postgresStore)(nil)
 
 // OwnershipFilter narrows a read to one stock or one holder; empty fields do
 // not filter.
@@ -76,6 +83,13 @@ type NoticeStats struct {
 type HolderNoticeStats struct {
 	Notices      int
 	LatestNotice string
+}
+
+// AttemptOutcomeRow counts one stock's documents with one outcome. Parsed
+// notices are included: the caller decides what withholds.
+type AttemptOutcomeRow struct {
+	StockCode, Outcome string
+	Count              int
 }
 
 type FundHoldingRow struct {
@@ -243,6 +257,41 @@ func (s *postgresStore) NoticeStats(ctx context.Context) (*NoticeStats, error) {
 		SELECT count(*) FROM substantial_holder_notice_attempts WHERE outcome <> 'parsed'`, nil,
 		func(r pgx.Rows) error { return r.Scan(&st.Withheld) })
 	return st, err
+}
+
+// NoticeCountsByStock is every code's parsed notices. It is one whole-table
+// GROUP BY, read once per universe build, so no per-code statement exists.
+func (s *postgresStore) NoticeCountsByStock(ctx context.Context) (map[string]int, error) {
+	out := map[string]int{}
+	err := ownershipRead(ctx, s, "NoticeCountsByStock", `
+		SELECT stock_code, count(*) FROM substantial_holder_notices GROUP BY stock_code`, nil,
+		func(r pgx.Rows) error {
+			var code string
+			var n int
+			if err := r.Scan(&code, &n); err != nil {
+				return err
+			}
+			out[code] = n
+			return nil
+		})
+	return out, err
+}
+
+// AttemptOutcomes is every code's documents by outcome, one whole-table GROUP
+// BY read once per universe build.
+func (s *postgresStore) AttemptOutcomes(ctx context.Context) ([]AttemptOutcomeRow, error) {
+	var out []AttemptOutcomeRow
+	err := ownershipRead(ctx, s, "AttemptOutcomes", `
+		SELECT stock_code, outcome, count(*) FROM substantial_holder_notice_attempts GROUP BY stock_code, outcome`, nil,
+		func(r pgx.Rows) error {
+			var row AttemptOutcomeRow
+			if err := r.Scan(&row.StockCode, &row.Outcome, &row.Count); err != nil {
+				return err
+			}
+			out = append(out, row)
+			return nil
+		})
+	return out, err
 }
 
 func (s *postgresStore) LatestFundHoldings(ctx context.Context, f OwnershipFilter) ([]FundHoldingRow, error) {

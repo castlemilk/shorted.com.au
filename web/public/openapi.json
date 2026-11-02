@@ -4191,6 +4191,12 @@
             "title": "fund_holdings",
             "type": "array"
           },
+          "fundHoldingsTotal": {
+            "description": "Rows in its latest files; fund_holdings serves the largest 100. (proto int32)",
+            "format": "int32",
+            "title": "fund_holdings_total",
+            "type": "integer"
+          },
           "funds": {
             "description": "(proto shorts.v1alpha1.OwnershipFund)",
             "items": {
@@ -4356,7 +4362,7 @@
             "type": "string"
           },
           "crowded": {
-            "description": "Stocks with the highest disclosed substantial voting power. (proto shorts.v1alpha1.OwnershipStock)",
+            "description": "Stocks where investors (super, index, active, hedge, sovereign, insurer)\n disclose the most voting power; banks and brokers are not counted. (proto shorts.v1alpha1.OwnershipStock)",
             "items": {
               "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock"
             },
@@ -4370,6 +4376,12 @@
             },
             "title": "crowded_both_ways",
             "type": "array"
+          },
+          "documentsAttempted": {
+            "description": "Every document attempted, parsed included: the base of notices_withheld. (proto int32)",
+            "format": "int32",
+            "title": "documents_attempted",
+            "type": "integer"
           },
           "etfFumAud": {
             "description": "(proto double)",
@@ -4424,7 +4436,7 @@
             "type": "integer"
           },
           "passive": {
-            "description": "Stocks the tracked index ETFs own the largest share of. (proto shorts.v1alpha1.OwnershipStock)",
+            "description": "Stocks the tracked index funds own the largest share of. (proto shorts.v1alpha1.OwnershipStock)",
             "items": {
               "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock"
             },
@@ -4473,6 +4485,14 @@
               "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipInstitution"
             },
             "title": "top_holders",
+            "type": "array"
+          },
+          "withheldByOutcome": {
+            "description": "Withheld documents by outcome; notices_withheld stays their total. (proto shorts.v1alpha1.WithheldOutcome)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.WithheldOutcome"
+            },
+            "title": "withheld_by_outcome",
             "type": "array"
           }
         },
@@ -5779,6 +5799,11 @@
       "shorts.v1alpha1.GetStockOwnershipResponse": {
         "additionalProperties": false,
         "properties": {
+          "asOf": {
+            "description": "The newest notice release date read anywhere. (proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
           "fundHoldings": {
             "description": "(proto shorts.v1alpha1.FundHolding)",
             "items": {
@@ -5800,6 +5825,12 @@
             "title": "history",
             "type": "array"
           },
+          "historyTotal": {
+            "description": "Parsed notices for the stock on record; history serves the newest 100. (proto int32)",
+            "format": "int32",
+            "title": "history_total",
+            "type": "integer"
+          },
           "holders": {
             "description": "(proto shorts.v1alpha1.SubstantialHolding)",
             "items": {
@@ -5818,6 +5849,12 @@
             "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock",
             "description": "(proto shorts.v1alpha1.OwnershipStock)",
             "title": "summary"
+          },
+          "withheldListed": {
+            "description": "Documents listed under this code whose outcome is one of the six\n withholding outcomes. A document ASX lists under several codes is counted\n under one of them, so the figure is \"listed under\", never beside a sum. (proto int32)",
+            "format": "int32",
+            "title": "withheld_listed",
+            "type": "integer"
           }
         },
         "title": "GetStockOwnershipResponse",
@@ -9214,10 +9251,21 @@
             "title": "as_at",
             "type": "string"
           },
+          "asAtFrom": {
+            "description": "The oldest file date behind the source; equals as_at when one file or\n one date. \"\" for notices. (proto string)",
+            "title": "as_at_from",
+            "type": "string"
+          },
           "description": {
             "description": "(proto string)",
             "title": "description",
             "type": "string"
+          },
+          "funds": {
+            "description": "Files (index funds) or options (super funds) the source holds. 0 for notices. (proto int32)",
+            "format": "int32",
+            "title": "funds",
+            "type": "integer"
           },
           "records": {
             "description": "(proto int32)",
@@ -9283,8 +9331,24 @@
             "title": "holders",
             "type": "integer"
           },
+          "indexAsAtFrom": {
+            "description": "The oldest and newest file dates behind index_pct, and how many files\n contributed; \"\" and 0 when there is no index figure. (proto string)",
+            "title": "index_as_at_from",
+            "type": "string"
+          },
+          "indexAsAtTo": {
+            "description": "(proto string)",
+            "title": "index_as_at_to",
+            "type": "string"
+          },
+          "indexFiles": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "index_files",
+            "type": "integer"
+          },
           "indexPct": {
-            "description": "Shares held by the index ETFs tracked, over shares on issue. (proto double)",
+            "description": "Shares held by the index funds tracked, over shares on issue. (proto double)",
             "format": "double",
             "title": "index_pct",
             "type": "number"
@@ -9294,11 +9358,21 @@
             "title": "industry",
             "type": "string"
           },
+          "latestNoticeDate": {
+            "description": "The newest release date among the current holders' notices; \"\" when none. (proto string)",
+            "title": "latest_notice_date",
+            "type": "string"
+          },
           "marketCap": {
             "description": "(proto double)",
             "format": "double",
             "title": "market_cap",
             "type": "number"
+          },
+          "shortAsOf": {
+            "description": "ASIC's report date behind short_pct; \"\" when there is none. (proto string)",
+            "title": "short_as_of",
+            "type": "string"
           },
           "shortPct": {
             "description": "ASIC's latest reported short position, as a percentage of shares on issue. (proto double)",
@@ -14445,6 +14519,25 @@
         "title": "WeeklyReportTrendInsight",
         "type": "object"
       },
+      "shorts.v1alpha1.WithheldOutcome": {
+        "additionalProperties": false,
+        "description": "Documents attempted and not parsed, by outcome. Six outcomes withhold a\n notice that was read or could not be read (no_text, no_voting_power,\n implausible, ambiguous_target, no_holder, inconsistent_votes); not_a_notice\n is a document that was never a substantial holding form and fetch_error a\n download that is retried. Neither is an unread notice.",
+        "properties": {
+          "count": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "count",
+            "type": "integer"
+          },
+          "outcome": {
+            "description": "(proto string)",
+            "title": "outcome",
+            "type": "string"
+          }
+        },
+        "title": "WithheldOutcome",
+        "type": "object"
+      },
       "shorts.v1alpha1.ZoneFamilyShare": {
         "additionalProperties": false,
         "description": "One harmonised zoning family's share of a suburb (program decision 8).\n family: res_low | res_medium_high | centre_mixed | industrial | rural |\n conservation | open_space | infrastructure | water | other.",
@@ -17617,7 +17710,7 @@
     },
     "/shorts.v1alpha1.OwnershipService/GetStockOwnership": {
       "post": {
-        "description": "Who holds one stock: its substantial holders, their notices, and the index\n ETFs and super fund options that hold it.",
+        "description": "Who holds one stock: its substantial holders, their notices, and the index\n funds and super fund options that hold it.",
         "operationId": "OwnershipService_GetStockOwnership",
         "parameters": [
           {

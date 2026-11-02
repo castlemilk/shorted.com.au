@@ -140,4 +140,14 @@ public interface GetInstitutionResponseOrBuilder extends
    */
   com.shorts.v1alpha1.OwnershipFundOrBuilder getFundsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * Rows in its latest files; fund_holdings serves the largest 100.
+   * </pre>
+   *
+   * <code>int32 fund_holdings_total = 6 [json_name = "fundHoldingsTotal"];</code>
+   * @return The fundHoldingsTotal.
+   */
+  int getFundHoldingsTotal();
 }

@@ -8,7 +8,8 @@ import { getInstitution } from "~/app/actions/getOwnership";
 
 export const maxDuration = 15;
 
-export const alt = "Institution holdings — Shorted.com.au";
+// Static, like the hub's: a per-parameter alt needs generateImageMetadata.
+export const alt = "An institution's ASX holdings, on Shorted";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 export const revalidate = 86400;

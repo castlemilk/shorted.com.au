@@ -68,7 +68,7 @@ type OwnershipServiceClient interface {
 	// and what its holdings files hold.
 	GetInstitution(context.Context, *connect.Request[v1alpha1.GetInstitutionRequest]) (*connect.Response[v1alpha1.GetInstitutionResponse], error)
 	// Who holds one stock: its substantial holders, their notices, and the index
-	// ETFs and super fund options that hold it.
+	// funds and super fund options that hold it.
 	GetStockOwnership(context.Context, *connect.Request[v1alpha1.GetStockOwnershipRequest]) (*connect.Response[v1alpha1.GetStockOwnershipResponse], error)
 }
 
@@ -149,7 +149,7 @@ type OwnershipServiceHandler interface {
 	// and what its holdings files hold.
 	GetInstitution(context.Context, *connect.Request[v1alpha1.GetInstitutionRequest]) (*connect.Response[v1alpha1.GetInstitutionResponse], error)
 	// Who holds one stock: its substantial holders, their notices, and the index
-	// ETFs and super fund options that hold it.
+	// funds and super fund options that hold it.
 	GetStockOwnership(context.Context, *connect.Request[v1alpha1.GetStockOwnershipRequest]) (*connect.Response[v1alpha1.GetStockOwnershipResponse], error)
 }
 

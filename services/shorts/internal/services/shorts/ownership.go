@@ -11,22 +11,27 @@ import (
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
+	"google.golang.org/protobuf/proto"
 )
 
 // OwnershipService handlers (ownership.proto). The store returns row sets;
-// the views are built here, in pure functions, so they are testable without
-// a database. Data changes once a day (the `shorted ownership` job), so every
-// response is cached for ownershipTTL. The job waits out this TTL before it
-// revalidates the web pages (ownership.revalidateWait): change one, change
-// the other.
-
+// the views are built here, in pure functions, so they are testable without a
+// database. The register is read once into a universe (ownership_universe.go)
+// and every response is assembled from it.
+//
+// ownershipTTL is the life of the universe and of every entry built beside it
+// (keyed by the universe's generation). The job waits out this TTL before it
+// revalidates the web pages (ownership.revalidateWait): change one, change the
+// other.
 const ownershipTTL = 10 * time.Minute
 
-// Kinds whose substantial holdings are an investment view rather than a
-// company's strategic stake or a person's own shares. "Crowded" counts these.
+// The investors: kinds whose substantial holdings are an investment view rather
+// than a company's strategic stake or a person's own shares. Crowded sums these.
+// Banks and brokers are shown beside them and never counted in crowded, because
+// their notices are often securities lending.
 var institutionalKinds = map[string]bool{
 	"super_fund": true, "index_manager": true, "hedge_fund": true, "active_manager": true,
-	"bank_broker": true, "sovereign_public": true, "insurer": true,
+	"sovereign_public": true, "insurer": true,
 }
 
 // ownershipData is everything a view is built from.
@@ -41,33 +46,32 @@ type ownershipData struct {
 	companies    map[string]shortsstore.OwnershipCompany
 }
 
-func (s *ShortsServer) loadOwnership(ctx context.Context, f shortsstore.OwnershipFilter, noticeLimit int, fundsFor string, allFunds bool) (*ownershipData, error) {
+// loadOwnership reads the whole register: every institution, holding, fund and
+// company, and the newest noticeLimit notices. It is the universe's only read
+// of the register.
+func (s *ShortsServer) loadOwnership(ctx context.Context, noticeLimit int) (*ownershipData, error) {
 	st := s.ownershipStore
 	d := &ownershipData{stats: &shortsstore.NoticeStats{PerHolder: map[string]shortsstore.HolderNoticeStats{}}}
 	var err error
 	if d.institutions, err = st.OwnershipInstitutions(ctx); err != nil {
 		return nil, err
 	}
-	if d.holdings, err = st.CurrentSubstantialHoldings(ctx, f); err != nil {
+	if d.holdings, err = st.CurrentSubstantialHoldings(ctx, shortsstore.OwnershipFilter{}); err != nil {
 		return nil, err
 	}
-	if noticeLimit > 0 {
-		if d.notices, err = st.SubstantialNotices(ctx, f, noticeLimit); err != nil {
-			return nil, err
-		}
+	if d.notices, err = st.SubstantialNotices(ctx, shortsstore.OwnershipFilter{}, noticeLimit); err != nil {
+		return nil, err
 	}
 	if stats, err := st.NoticeStats(ctx); err != nil {
 		return nil, err
 	} else if stats != nil {
 		d.stats = stats
 	}
-	if d.fundHoldings, err = st.LatestFundHoldings(ctx, shortsstore.OwnershipFilter{StockCode: f.StockCode, InstitutionSlug: f.InstitutionSlug}); err != nil {
+	if d.fundHoldings, err = st.LatestFundHoldings(ctx, shortsstore.OwnershipFilter{}); err != nil {
 		return nil, err
 	}
-	if fundsFor != "" || allFunds {
-		if d.funds, err = st.OwnershipFunds(ctx, fundsFor); err != nil {
-			return nil, err
-		}
+	if d.funds, err = st.OwnershipFunds(ctx, ""); err != nil {
+		return nil, err
 	}
 	if d.shorts, err = st.LatestShortPositions(ctx); err != nil {
 		return nil, err
@@ -200,14 +204,18 @@ func (d *ownershipData) stockViews() map[string]*shortsv1alpha1.OwnershipStock {
 			v.MarketCap, v.HasMarketCap = *c.MarketCap, true
 		}
 		if sp, ok := d.shorts[code]; ok {
-			v.ShortPct, v.HasShortPct = sp.Pct, true
+			v.ShortPct, v.HasShortPct, v.ShortAsOf = sp.Pct, true, sp.Date
 		}
 		out[code] = v
 		return v
 	}
 	byKind := map[string]map[string]*shortsv1alpha1.KindShare{}
 	for _, h := range d.holdings {
-		get(h.StockCode).Holders++
+		v := get(h.StockCode)
+		v.Holders++
+		if h.AnnouncedOn > v.LatestNoticeDate {
+			v.LatestNoticeDate = h.AnnouncedOn
+		}
 	}
 	for _, h := range countedHoldings(d.holdings, d.groups()) {
 		v := get(h.StockCode)
@@ -235,12 +243,32 @@ func (d *ownershipData) stockViews() map[string]*shortsv1alpha1.OwnershipStock {
 			return v.ByKind[i].Kind < v.ByKind[j].Kind
 		})
 	}
-	indexUnits := map[string]float64{}
+
+	// The index funds' units per stock, and the files that make them up.
+	type indexHolding struct {
+		units    float64
+		from, to string
+		files    map[string]bool
+	}
+	indexByCode := map[string]*indexHolding{}
 	for _, h := range d.fundHoldings {
 		switch h.SourceKind {
 		case "etf":
-			if h.Units != nil {
-				indexUnits[h.StockCode] += *h.Units
+			if h.Units == nil {
+				continue
+			}
+			ix := indexByCode[h.StockCode]
+			if ix == nil {
+				ix = &indexHolding{files: map[string]bool{}}
+				indexByCode[h.StockCode] = ix
+			}
+			ix.units += *h.Units
+			ix.files[h.InstitutionSlug+"|"+h.FundName] = true
+			if ix.from == "" || h.AsAt < ix.from {
+				ix.from = h.AsAt
+			}
+			if h.AsAt > ix.to {
+				ix.to = h.AsAt
 			}
 		case "super_phd":
 			v := get(h.StockCode)
@@ -251,10 +279,11 @@ func (d *ownershipData) stockViews() map[string]*shortsv1alpha1.OwnershipStock {
 			}
 		}
 	}
-	for code, units := range indexUnits {
+	for code, ix := range indexByCode {
 		if sp, ok := d.shorts[code]; ok && sp.Issued > 0 {
 			v := get(code)
-			v.IndexPct, v.HasIndexPct = units/sp.Issued*100, true
+			v.IndexPct, v.HasIndexPct = ix.units/sp.Issued*100, true
+			v.IndexAsAtFrom, v.IndexAsAtTo, v.IndexFiles = ix.from, ix.to, int32(len(ix.files))
 		}
 	}
 	return out
@@ -406,13 +435,38 @@ const (
 	crowdedShortPct = 3.0
 )
 
-// buildOwnershipOverview is GetOwnershipOverview's response.
-func buildOwnershipOverview(d *ownershipData) *shortsv1alpha1.GetOwnershipOverviewResponse {
-	views := d.stockViews()
+// outcomeParsed is the attempt outcome of a notice that was read. Every other
+// outcome is a document the register does not hold.
+const outcomeParsed = "parsed"
+
+// withheldByOutcome is every outcome but parsed, largest first.
+func withheldByOutcome(byOutcome map[string]int) []*shortsv1alpha1.WithheldOutcome {
+	var out []*shortsv1alpha1.WithheldOutcome
+	for outcome, n := range byOutcome {
+		if outcome == outcomeParsed {
+			continue
+		}
+		out = append(out, &shortsv1alpha1.WithheldOutcome{Outcome: outcome, Count: int32(n)})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Count != out[j].Count {
+			return out[i].Count > out[j].Count
+		}
+		return out[i].Outcome < out[j].Outcome
+	})
+	return out
+}
+
+// buildOwnershipOverview is GetOwnershipOverview's response, built once per
+// universe from the universe's own views and counts.
+func buildOwnershipOverview(u *ownershipUniverse) *shortsv1alpha1.GetOwnershipOverviewResponse {
+	d := u.data
+	views := u.views
 	positions := positionsByHolder(d.holdings)
 	funds := fundsByInstitution(d.funds)
 	out := &shortsv1alpha1.GetOwnershipOverviewResponse{
 		NoticesParsed: int32(d.stats.Parsed), NoticesWithheld: int32(d.stats.Withheld), AsOf: d.stats.LatestAnnounced,
+		WithheldByOutcome: withheldByOutcome(u.byOutcome), DocumentsAttempted: int32(u.documentsAttempted),
 	}
 
 	// The map: registry institutions by kind, and who holds what by kind.
@@ -514,12 +568,13 @@ func buildOwnershipOverview(d *ownershipData) *shortsv1alpha1.GetOwnershipOvervi
 	return out
 }
 
-// ownershipSources reports each source's coverage and as-at date.
+// ownershipSources reports each source's coverage and as-at dates: the newest
+// file (as_at) and the oldest (as_at_from), with how many files or options.
 func ownershipSources(d *ownershipData) []*shortsv1alpha1.OwnershipSource {
 	type agg struct {
-		asAt  string
-		count int
-		funds map[string]bool
+		from, to string
+		count    int
+		funds    map[string]bool
 	}
 	by := map[string]*agg{}
 	for _, h := range d.fundHoldings {
@@ -530,8 +585,11 @@ func ownershipSources(d *ownershipData) []*shortsv1alpha1.OwnershipSource {
 		}
 		a.count++
 		a.funds[h.InstitutionSlug+"|"+h.FundName] = true
-		if h.AsAt > a.asAt {
-			a.asAt = h.AsAt
+		if a.from == "" || h.AsAt < a.from {
+			a.from = h.AsAt
+		}
+		if h.AsAt > a.to {
+			a.to = h.AsAt
 		}
 	}
 	out := []*shortsv1alpha1.OwnershipSource{{
@@ -541,15 +599,36 @@ func ownershipSources(d *ownershipData) []*shortsv1alpha1.OwnershipSource {
 	}}
 	if a := by["etf"]; a != nil {
 		out = append(out, &shortsv1alpha1.OwnershipSource{Source: "etf",
-			Description: fmt.Sprintf("Holdings files of %d index ETFs (iShares, Vanguard, SPDR, Betashares)", len(a.funds)),
-			AsAt:        a.asAt, Records: int32(a.count)})
+			Description: fmt.Sprintf("Holdings files of %d index funds (iShares, Vanguard, SPDR, Betashares)", len(a.funds)),
+			AsAt:        a.to, AsAtFrom: a.from, Funds: int32(len(a.funds)), Records: int32(a.count)})
 	}
 	if a := by["super_phd"]; a != nil {
 		out = append(out, &shortsv1alpha1.OwnershipSource{Source: "super_phd",
 			Description: fmt.Sprintf("Portfolio holdings disclosures of %d super fund options (each fund's default or balanced option)", len(a.funds)),
-			AsAt:        a.asAt, Records: int32(a.count)})
+			AsAt:        a.to, AsAtFrom: a.from, Funds: int32(len(a.funds)), Records: int32(a.count)})
 	}
 	return out
+}
+
+// ownershipNotices is one holder's or one stock's newest notices. The read is a
+// database read cached beside the universe it was made under: the key carries
+// the generation and the entry lives no longer than the universe, so it can
+// outlive neither.
+func (s *ShortsServer) ownershipNotices(ctx context.Context, u *ownershipUniverse, key string, f shortsstore.OwnershipFilter) ([]shortsstore.SubstantialNoticeRow, error) {
+	v, err := s.cache.GetOrSetWithTTL(key, u.ttlRemaining(), func() (any, error) {
+		// The cache shares this read with every caller of the key and keeps the
+		// result for them, so the caller that started it may leave. The store
+		// bounds the read itself.
+		rows, err := s.ownershipStore.SubstantialNotices(context.WithoutCancel(ctx), f, ownershipHistoryLimit)
+		if err != nil {
+			return nil, err
+		}
+		return rows, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return v.([]shortsstore.SubstantialNoticeRow), nil
 }
 
 func (s *ShortsServer) GetOwnershipOverview(
@@ -559,17 +638,11 @@ func (s *ShortsServer) GetOwnershipOverview(
 	if s.ownershipStore == nil {
 		return connect.NewResponse(&shortsv1alpha1.GetOwnershipOverviewResponse{}), nil
 	}
-	cached, err := s.cache.GetOrSetWithTTL(s.cache.GetOwnershipOverviewKey(), ownershipTTL, func() (any, error) {
-		d, err := s.loadOwnership(ctx, shortsstore.OwnershipFilter{}, 30, "", true)
-		if err != nil {
-			return nil, err
-		}
-		return buildOwnershipOverview(d), nil
-	})
+	u, err := s.ownershipUniverse.get(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("ownership overview: %w", err))
 	}
-	return connect.NewResponse(cached.(*shortsv1alpha1.GetOwnershipOverviewResponse)), nil
+	return connect.NewResponse(u.overview), nil
 }
 
 func (s *ShortsServer) ListInstitutions(
@@ -588,17 +661,11 @@ func (s *ShortsServer) ListInstitutions(
 	if s.ownershipStore == nil {
 		return connect.NewResponse(&shortsv1alpha1.ListInstitutionsResponse{}), nil
 	}
-	cached, err := s.cache.GetOrSetWithTTL(s.cache.ListInstitutionsKey(kind, query, limit, offset), ownershipTTL, func() (any, error) {
-		d, err := s.loadOwnership(ctx, shortsstore.OwnershipFilter{}, 0, "", true)
-		if err != nil {
-			return nil, err
-		}
-		return buildInstitutionList(d, kind, query, limit, offset), nil
-	})
+	u, err := s.ownershipUniverse.get(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("list institutions: %w", err))
 	}
-	return connect.NewResponse(cached.(*shortsv1alpha1.ListInstitutionsResponse)), nil
+	return connect.NewResponse(buildInstitutionList(u.data, kind, query, limit, offset)), nil
 }
 
 // buildInstitutionList filters and pages the institutions: most current
@@ -645,39 +712,39 @@ func (s *ShortsServer) GetInstitution(
 	if s.ownershipStore == nil {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("institution not found"))
 	}
-	cached, err := s.cache.GetOrSetWithTTL(s.cache.GetInstitutionKey(slug), ownershipTTL, func() (any, error) {
-		d, err := s.loadOwnership(ctx, shortsstore.OwnershipFilter{HolderKey: slug, InstitutionSlug: slug}, 100, slug, false)
-		if err != nil {
-			return nil, err
-		}
-		return buildInstitution(d, slug), nil
-	})
+	u, err := s.ownershipUniverse.get(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get institution: %w", err))
 	}
-	resp := cached.(*shortsv1alpha1.GetInstitutionResponse)
-	if resp.Institution == nil {
+	if _, ok := u.data.institutionBySlug()[slug]; !ok {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("institution not found"))
 	}
-	return connect.NewResponse(resp), nil
+	notices, err := s.ownershipNotices(ctx, u, s.cache.GetInstitutionKey(slug, u.generation), shortsstore.OwnershipFilter{HolderKey: slug})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get institution: %w", err))
+	}
+	return connect.NewResponse(buildInstitution(u, slug, notices)), nil
 }
 
 // institutionFundHoldings is how many of an institution's file holdings are
 // served: its largest, by value.
 const institutionFundHoldings = 100
 
-func buildInstitution(d *ownershipData, slug string) *shortsv1alpha1.GetInstitutionResponse {
+// buildInstitution is one registry institution, from the universe and its
+// newest notices. The caller has checked that the slug is in the registry.
+func buildInstitution(u *ownershipUniverse, slug string, notices []shortsstore.SubstantialNoticeRow) *shortsv1alpha1.GetInstitutionResponse {
+	d := u.data
 	out := &shortsv1alpha1.GetInstitutionResponse{}
 	insts := d.institutionBySlug()
 	inst, ok := insts[slug]
 	if !ok {
 		return out
 	}
-	out.Institution = d.institutionProto(inst, positionsByHolder(d.holdings), fundsByInstitution(d.funds))
-	for _, h := range d.holdings {
-		if h.HolderKey == slug {
-			out.Positions = append(out.Positions, d.holdingProto(h))
-		}
+	held := u.holdingsByHolder[slug]
+	out.Institution = d.institutionProto(inst,
+		map[string]int{slug: len(held)}, fundsByInstitution(u.fundsByInstitution[slug]))
+	for _, h := range held {
+		out.Positions = append(out.Positions, d.holdingProto(h))
 	}
 	sort.Slice(out.Positions, func(i, j int) bool {
 		if out.Positions[i].VotingPowerPct != out.Positions[j].VotingPowerPct {
@@ -685,23 +752,16 @@ func buildInstitution(d *ownershipData, slug string) *shortsv1alpha1.GetInstitut
 		}
 		return out.Positions[i].StockCode < out.Positions[j].StockCode
 	})
-	for _, n := range d.notices {
-		if n.HolderKey == slug {
-			out.Notices = append(out.Notices, d.noticeProto(n))
-		}
+	for _, n := range notices {
+		out.Notices = append(out.Notices, d.noticeProto(n))
 	}
-	for _, h := range d.fundHoldings {
-		if len(out.FundHoldings) >= institutionFundHoldings {
-			break
-		}
-		if h.InstitutionSlug == slug {
-			out.FundHoldings = append(out.FundHoldings, d.fundHoldingProto(h, insts))
-		}
+	files := u.fundHoldingsByInstitution[slug]
+	out.FundHoldingsTotal = int32(len(files))
+	for _, h := range files[:min(len(files), institutionFundHoldings)] {
+		out.FundHoldings = append(out.FundHoldings, d.fundHoldingProto(h, insts))
 	}
-	for _, f := range d.funds {
-		if f.InstitutionSlug == slug {
-			out.Funds = append(out.Funds, fundProto(f))
-		}
+	for _, f := range u.fundsByInstitution[slug] {
+		out.Funds = append(out.Funds, fundProto(f))
 	}
 	return out
 }
@@ -726,36 +786,36 @@ func (s *ShortsServer) GetStockOwnership(
 	if s.ownershipStore == nil {
 		return connect.NewResponse(&shortsv1alpha1.GetStockOwnershipResponse{}), nil
 	}
-	cached, err := s.cache.GetOrSetWithTTL(s.cache.GetStockOwnershipKey(code), ownershipTTL, func() (any, error) {
-		d, err := s.loadOwnership(ctx, shortsstore.OwnershipFilter{StockCode: code}, 100, "", false)
-		if err != nil {
-			return nil, err
-		}
-		return buildStockOwnership(d, code), nil
-	})
+	u, err := s.ownershipUniverse.get(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("stock ownership: %w", err))
 	}
-	return connect.NewResponse(cached.(*shortsv1alpha1.GetStockOwnershipResponse)), nil
+	notices, err := s.ownershipNotices(ctx, u, s.cache.GetStockOwnershipKey(code, u.generation), shortsstore.OwnershipFilter{StockCode: code})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("stock ownership: %w", err))
+	}
+	return connect.NewResponse(buildStockOwnership(u, code, notices)), nil
 }
 
-func buildStockOwnership(d *ownershipData, code string) *shortsv1alpha1.GetStockOwnershipResponse {
-	views := d.stockViews()
-	out := &shortsv1alpha1.GetStockOwnershipResponse{Summary: views[code]}
-	if out.Summary == nil {
+// buildStockOwnership is one stock's register, from the universe and its newest
+// notices. The summary is a copy: the universe's view is never handed out.
+func buildStockOwnership(u *ownershipUniverse, code string, notices []shortsstore.SubstantialNoticeRow) *shortsv1alpha1.GetStockOwnershipResponse {
+	d := u.data
+	out := &shortsv1alpha1.GetStockOwnershipResponse{}
+	if v, ok := u.views[code]; ok {
+		out.Summary = proto.Clone(v).(*shortsv1alpha1.OwnershipStock)
+	} else {
 		c := d.companies[code]
 		out.Summary = &shortsv1alpha1.OwnershipStock{StockCode: code, CompanyName: c.Name, Industry: c.Industry}
 		if sp, ok := d.shorts[code]; ok {
-			out.Summary.ShortPct, out.Summary.HasShortPct = sp.Pct, true
+			out.Summary.ShortPct, out.Summary.HasShortPct, out.Summary.ShortAsOf = sp.Pct, true, sp.Date
 		}
 	}
 	if sp, ok := d.shorts[code]; ok && sp.Issued > 0 {
 		out.SharesOnIssue, out.HasSharesOnIssue = sp.Issued, true
 	}
-	for _, h := range d.holdings {
-		if h.StockCode == code {
-			out.Holders = append(out.Holders, d.holdingProto(h))
-		}
+	for _, h := range u.holdingsByStock[code] {
+		out.Holders = append(out.Holders, d.holdingProto(h))
 	}
 	sort.Slice(out.Holders, func(i, j int) bool {
 		if out.Holders[i].VotingPowerPct != out.Holders[j].VotingPowerPct {
@@ -763,16 +823,15 @@ func buildStockOwnership(d *ownershipData, code string) *shortsv1alpha1.GetStock
 		}
 		return out.Holders[i].HolderKey < out.Holders[j].HolderKey
 	})
-	for _, n := range d.notices {
-		if n.StockCode == code {
-			out.History = append(out.History, d.noticeProto(n))
-		}
+	for _, n := range notices {
+		out.History = append(out.History, d.noticeProto(n))
 	}
 	insts := d.institutionBySlug()
-	for _, h := range d.fundHoldings {
-		if h.StockCode == code {
-			out.FundHoldings = append(out.FundHoldings, d.fundHoldingProto(h, insts))
-		}
+	for _, h := range u.fundHoldingsByStock[code] {
+		out.FundHoldings = append(out.FundHoldings, d.fundHoldingProto(h, insts))
 	}
+	out.HistoryTotal = int32(u.noticeCountByStock[code])
+	out.WithheldListed = int32(u.withheldListed(code))
+	out.AsOf = d.stats.LatestAnnounced
 	return out
 }

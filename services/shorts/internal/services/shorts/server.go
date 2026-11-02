@@ -55,6 +55,10 @@ type ShortsServer struct {
 	// ownershipStore serves OwnershipService (migration 000137). Nil when the
 	// store is not Postgres; the ownership rpcs then answer empty.
 	ownershipStore shorts.OwnershipStore
+	// ownershipUniverse is the whole register, read once per ownershipTTL and
+	// shared by every ownership rpc (ownership_universe.go). Set exactly when
+	// ownershipStore is.
+	ownershipUniverse *ownershipUniverseHolder
 	// oauthStore backs the OAuth authorization server (clients, codes,
 	// refresh tokens — migration 000116). Nil when no Postgres pool is
 	// reachable, in which case the grant endpoint reports
@@ -170,7 +174,7 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		logger.Warnf("No Postgres pool available — the OAuth authorization endpoints will report temporarily_unavailable")
 	}
 
-	return &ShortsServer{
+	srv := &ShortsServer{
 		config:            cfg,
 		store:             store,
 		cache:             cache,
@@ -185,5 +189,9 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		oauthStore:        oauthStore,
 		peopleStore:       peopleStore,
 		ownershipStore:    ownershipStore,
-	}, nil
+	}
+	if ownershipStore != nil {
+		srv.ownershipUniverse = newServerOwnershipUniverse(srv)
+	}
+	return srv, nil
 }

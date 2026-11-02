@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// ISR gate for the stock segment.
+// ISR gate for the stock segment and the two dynamic ownership routes.
 //
 // Every route under /shorts/[stockCode] must be on-demand ISR: generated on
 // first request and served from the cache for `revalidate` seconds. A route
-// that Next renders on every request runs a function per page view — the one
+// that Next renders on every request runs a function per page view, the one
 // regression the stock page's cost model cannot survive.
 //
 // Per-request routes never appear in .next/prerender-manifest.json; ISR
@@ -23,6 +23,13 @@
 // revalidate, dynamicParams and generateStaticParams exports. A read inside a
 // component imported from outside the segment is beyond both and needs a
 // request-level check.
+//
+// The ownership section has two dynamic routes, the institution page
+// /ownership/[slug] and the register /ownership/stocks/[code] (OWNERSHIP_ROUTES
+// below), under the same rule. Their reads are caught from source by
+//   web/src/app/ownership/__tests__/isr-source-safety.test.ts
+// The hub at /ownership has no dynamic segment, so dynamicRoutes never lists
+// it; web/src/app/__tests__/isr-hubs.test.ts holds its ISR instead.
 
 import { readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
@@ -37,6 +44,12 @@ export const STOCK_ROUTES = [
   "/shorts/[stockCode]/news",
   "/shorts/[stockCode]/community",
 ];
+
+// The two dynamic routes of the ownership section, the institution page and the
+// register. Both export generateStaticParams with dynamicParams on, so a slug or
+// code Next cannot prerender renders on its first request and is cached for its
+// revalidate, as the stock tabs are.
+export const OWNERSHIP_ROUTES = ["/ownership/[slug]", "/ownership/stocks/[code]"];
 
 export function missingIsrRoutes(manifest, expected = STOCK_ROUTES) {
   const dynamicRoutes = manifest?.dynamicRoutes ?? {};
@@ -53,6 +66,8 @@ function main(argv) {
     console.error(`route-kinds: cannot read ${path}: ${err.message}. Run \`next build\` first.`);
     return 2;
   }
+  // Both lists are checked before the verdict, so a manifest that slips on both names both.
+  let failed = false;
   const missing = missingIsrRoutes(manifest);
   if (missing.length) {
     console.error("route-kinds: these stock routes are NOT ISR (absent from prerender-manifest dynamicRoutes):");
@@ -66,10 +81,27 @@ function main(argv) {
       "With the empty generateStaticParams every tab exports, such a read does not show up here: " +
         "web/src/app/shorts/__tests__/isr-source-safety.test.ts is the check for it.",
     );
-    return 1;
+    failed = true;
+  } else {
+    console.log(`route-kinds: ${STOCK_ROUTES.length} stock routes are ISR.`);
   }
-  console.log(`route-kinds: ${STOCK_ROUTES.length} stock routes are ISR.`);
-  return 0;
+  const missingOwnership = missingIsrRoutes(manifest, OWNERSHIP_ROUTES);
+  if (missingOwnership.length) {
+    console.error("route-kinds: these ownership routes are NOT ISR (absent from prerender-manifest dynamicRoutes):");
+    for (const r of missingOwnership) console.error(`  ${r}`);
+    console.error(
+      "A page under /ownership/[slug] or /ownership/stocks/[code] has lost its generateStaticParams export, or sets " +
+        'revalidate = 0 or dynamic = "force-dynamic".',
+    );
+    console.error(
+      "The reads this gate cannot see are checked from source: " +
+        "web/src/app/ownership/__tests__/isr-source-safety.test.ts.",
+    );
+    failed = true;
+  } else {
+    console.log(`route-kinds: ${OWNERSHIP_ROUTES.length} ownership routes are ISR.`);
+  }
+  return failed ? 1 : 0;
 }
 
 // Run only when executed directly, not when imported. Both sides go through
