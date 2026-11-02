@@ -12,7 +12,7 @@
  * Two scopes, because the tabs agree about some choices and not others:
  * - the PERIOD is per stock, under `period:<STOCKCODE>`, and both chart tabs
  *   share it: 6M means the same on Overview and on Short interest;
- * - the VIEW, SMA 20 and divergence are per `prefsKey` (`"BHP:overview"`), so
+ * - the VIEW, indicators and divergence are per `prefsKey` (`"BHP:overview"`), so
  *   each tab keeps its own default view. Short interest opens on the short
  *   series, and a visitor who picked Price & Volume on Overview has not asked
  *   for that there.
@@ -21,18 +21,20 @@
  * period included: the dashboard and the stories take no part in this.
  */
 import { useCallback, useState } from "react";
+import type { ChartIndicatorId } from "./chart-indicators";
 import type { ChartPeriod, ChartViewId } from "./chart-views";
 
 export interface ChartPrefs {
   period: ChartPeriod;
   view: ChartViewId;
-  showMA: boolean;
+  /** The indicators drawn, in registry order (chart-indicators.ts). */
+  indicators: readonly ChartIndicatorId[];
   showDivergence: boolean;
 }
 
 export interface UseChartPrefsOptions {
   stockCode: string;
-  /** Where the view, SMA 20 and divergence are kept. Omitted: nothing is kept. */
+  /** Where the view, indicators and divergence are kept. Omitted: nothing is kept. */
   prefsKey?: string;
   /** What each choice is until the visitor makes it. */
   defaults: ChartPrefs;
@@ -55,7 +57,7 @@ function readPrefs(
   return {
     period: shared?.period ?? defaults.period,
     view: mine?.view ?? defaults.view,
-    showMA: mine?.showMA ?? defaults.showMA,
+    indicators: mine?.indicators ?? defaults.indicators,
     showDivergence: mine?.showDivergence ?? defaults.showDivergence,
   };
 }

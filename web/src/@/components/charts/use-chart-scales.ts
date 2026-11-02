@@ -88,8 +88,14 @@ export function useChartScales(opts: {
   margin: { top: number; right: number; bottom: number; left: number };
   leftDomain?: [number, number];
   rightDomain?: [number, number];
+  /**
+   * Room, in px, the value scales leave free above the plot: the top of the data
+   * sits this far below the plot's top. Used where something is drawn there (the
+   * in-plot legend), so no value is drawn under it. Default 0.
+   */
+  top?: number;
 }): ChartScales {
-  const { series, width, height, margin, leftDomain, rightDomain } = opts;
+  const { series, width, height, margin, leftDomain, rightDomain, top = 0 } = opts;
   const innerW = Math.max(0, width - margin.left - margin.right);
   const innerH = Math.max(0, height - margin.top - margin.bottom);
 
@@ -111,8 +117,9 @@ export function useChartScales(opts: {
       range: [0, innerW],
     });
 
-    const leftScale = valueScale(valueDomain(series, "left", leftDomain), [innerH, 0]);
-    const rightScale = valueScale(valueDomain(series, "right", rightDomain), [innerH, 0]);
+    const range: [number, number] = [innerH, Math.min(top, innerH)];
+    const leftScale = valueScale(valueDomain(series, "left", leftDomain), range);
+    const rightScale = valueScale(valueDomain(series, "right", rightDomain), range);
     return { dateScale, leftScale, rightScale, innerW, innerH };
-  }, [series, innerW, innerH, leftDomain, rightDomain]);
+  }, [series, innerW, innerH, leftDomain, rightDomain, top]);
 }

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, mocked, waitFor, within, userEvent } from "storybook/test";
+import { SessionProvider } from "next-auth/react";
 import { StockChartEmbed } from "./StockChartEmbed";
 import { fetchStockDataClient } from "~/@/lib/client-api";
 import { getHistoricalData } from "~/@/lib/stock-data-service";
@@ -23,6 +24,13 @@ const meta = {
   parameters: { layout: "fullscreen" },
   args: { stockCode: "PLS" },
   decorators: [
+    // The embed reads the session for its advanced indicators, and a story has no
+    // provider of its own: no session, so nothing is unlocked and no request is made.
+    (Story) => (
+      <SessionProvider session={null}>
+        <Story />
+      </SessionProvider>
+    ),
     (Story) => (
       <div style={{ width: 720, height: 480 }} className="bg-background">
         <Story />

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import { Button } from "~/@/components/ui/button";
 import { MessageSquare, Lock, Loader2 } from "lucide-react";
 import { useSubscription } from "~/@/hooks/use-subscription";
 import { useSession } from "next-auth/react";
+import { isChromelessRoute } from "~/@/lib/chromeless-routes";
 
 /**
  * Lightweight chat entry point rendered in the global layout on EVERY page.
@@ -41,7 +43,15 @@ interface ChatSidebarProps {
   stockCode?: string;
 }
 
-export function ChatSidebar({ stockCode }: ChatSidebarProps) {
+export function ChatSidebar(props: ChatSidebarProps) {
+  const pathname = usePathname();
+  // Chrome-less routes (embeds, the chart share page, the Discord Activity, OAuth)
+  // own the viewport: no floating launcher, and no subscription lookup for one.
+  if (isChromelessRoute(pathname ?? "")) return null;
+  return <ChatSidebarLauncher {...props} />;
+}
+
+function ChatSidebarLauncher({ stockCode }: ChatSidebarProps) {
   const [activated, setActivated] = useState(false);
   const { data: session } = useSession();
   const { isPremium } = useSubscription();

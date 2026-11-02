@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { X, GitPullRequest, AlertTriangle } from "lucide-react";
 import {
   config,
   getPreviewPRNumber,
   isPreviewDeployment,
 } from "~/@/config/environment";
+import { isChromelessRoute } from "~/@/lib/chromeless-routes";
 
 export function EnvironmentBanner() {
+  const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(false);
   const [prNumber, setPrNumber] = useState<string | null>(null);
 
@@ -20,6 +23,9 @@ export function EnvironmentBanner() {
     }
   }, []);
 
+  // The header reads the same list (chromeless-routes.ts): chrome-less pages own
+  // the viewport, so no banner sits above them, the preview one included.
+  if (isChromelessRoute(pathname ?? "")) return null;
   if (!isVisible) return null;
 
   const handleDismiss = () => {
@@ -69,6 +75,7 @@ export function EnvironmentBanner() {
 }
 
 export function DevelopmentBanner() {
+  const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -78,6 +85,7 @@ export function DevelopmentBanner() {
     }
   }, []);
 
+  if (isChromelessRoute(pathname ?? "")) return null;
   if (!isVisible) return null;
 
   return (

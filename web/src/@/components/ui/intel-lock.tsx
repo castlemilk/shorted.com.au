@@ -10,6 +10,18 @@ import {
 } from "~/@/components/ui/card";
 
 /**
+ * The classes of the yellow sign-in CTA, for a control that is not a link (the
+ * Discord Activity's sign-in, which opens outside Discord) to match it.
+ */
+export const YELLOW_SIGN_IN_CLASS = [
+  "inline-flex h-10 items-center justify-center gap-2 rounded-md px-4",
+  "bg-yellow-400 text-sm font-semibold text-yellow-950",
+  "hover:bg-yellow-300 dark:bg-yellow-500 dark:hover:bg-yellow-400",
+  "transition-colors focus-visible:outline-none focus-visible:ring-2",
+  "focus-visible:ring-yellow-500 focus-visible:ring-offset-2",
+].join(" ");
+
+/**
  * High-visibility yellow sign-in CTA used on intel lock states. Distinct from
  * the amber primary so "sign in to unlock" reads as its own action.
  */
@@ -30,14 +42,7 @@ export function YellowSignInButton({
       // stock/suburb/politician page. `nofollow` keeps that fan-out out of the
       // crawl budget; `/signin` is `noindex` besides (see app/signin/layout.tsx).
       rel="nofollow"
-      className={cn(
-        "inline-flex h-10 items-center justify-center gap-2 rounded-md px-4",
-        "bg-yellow-400 text-sm font-semibold text-yellow-950",
-        "hover:bg-yellow-300 dark:bg-yellow-500 dark:hover:bg-yellow-400",
-        "transition-colors focus-visible:outline-none focus-visible:ring-2",
-        "focus-visible:ring-yellow-500 focus-visible:ring-offset-2",
-        className,
-      )}
+      className={cn(YELLOW_SIGN_IN_CLASS, className)}
     >
       <Lock className="h-4 w-4" aria-hidden />
       {children}

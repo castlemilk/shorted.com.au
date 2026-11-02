@@ -27,6 +27,14 @@ import { useChartScales, valueAxisLabels } from "./use-chart-scales";
 import { normalizeToPercentChange } from "./indicators";
 import { layoutLevels } from "./chart-levels";
 import {
+  LEGEND_GAP_PX,
+  LEGEND_HEADROOM_PX,
+  LEGEND_HEIGHT_PX,
+  LEGEND_SWATCH_PX,
+  indicatorDomainSeries,
+  layoutIndicatorLegend,
+} from "./indicator-layout";
+import {
   buildLatestReadout,
   buildMeasureReadout,
   buildPointReadout,
@@ -63,6 +71,7 @@ import type {
   ChartPoint,
   ChartSeriesSpec,
   OscillatorSpec,
+  SeriesIndicator,
   StockChartProps,
 } from "./types";
 
@@ -89,12 +98,18 @@ const TAP_MAX_MOVE_PX = 6;
 const TOUCH_MOUSE_GUARD_MS = 800;
 // Width of the hover/pinned tooltip.
 const TIP_W = 168;
+// The room an oscillator panel's caption takes at its top (a 10px label at y = 10).
+const OSC_CAPTION_HEADROOM_PX = 12;
 // What an omitted `levels`, `bands` or `markers` defaults to: one shared, frozen
 // array each. A fresh `[]` per render is a new identity every time, which would
 // recompute the `reference` memo on every render of every chart, levels or not.
 const NO_LEVELS: readonly ChartLevel[] = Object.freeze([]);
 const NO_BANDS: readonly ChartBand[] = Object.freeze([]);
 const NO_MARKERS: readonly ChartMarker[] = Object.freeze([]);
+// The same for an omitted indicator or panel list: a fresh [] per render would
+// recompute the memos built on them every render.
+const NO_INDICATORS: SeriesIndicator[] = [];
+const NO_OSCILLATORS: OscillatorSpec[] = [];
 // The tooltip shows the reading, so no strip needs the room of a value.
 const NO_VALUE_CHARS: Readonly<Record<string, number>> = Object.freeze({});
 
@@ -134,8 +149,8 @@ export function StockChartInner({
   height,
   series,
   volume,
-  indicators = [],
-  oscillators = [],
+  indicators = NO_INDICATORS,
+  oscillators = NO_OSCILLATORS,
   regions = [],
   levels = NO_LEVELS,
   bands = NO_BANDS,
@@ -148,6 +163,8 @@ export function StockChartInner({
   decimationTargetPerPx = 2,
   readout = "strip",
   readoutReserveSeries,
+  indicatorLegend = false,
+  indicatorsInDomain = false,
   handleRef,
 }: StockChartProps & {
   width: number;
@@ -163,6 +180,10 @@ export function StockChartInner({
   const isMobile = width > 0 && width <= MOBILE_MAX;
   const compact = variant === "compact";
   const hasRight = series.some((s) => s.axis === "right");
+  // The indicators widen the value axes on the absolute view only: the normalised
+  // view draws percent change, and an indicator is not in those units.
+  const fitIndicators =
+    indicatorsInDomain && viewMode === "absolute" && indicators.length > 0;
 
   // The room beside the plot. A side with an axis gets the room of the widest
   // label it prints (axisMargin): the tick and the label's offset from it (10px),
@@ -201,6 +222,11 @@ export function StockChartInner({
           points: viewMode === "normalized" ? normalizePoints(inRange) : inRange,
         };
       });
+      // The labels of an axis cover the indicator values on it too, so the margin
+      // is wide enough for the widest of them.
+      if (fitIndicators) {
+        axisSeries.push(...indicatorDomainSeries(indicators, series, range));
+      }
       const labels = (
         side: "left" | "right",
         hard: typeof leftHard,
@@ -220,7 +246,18 @@ export function StockChartInner({
           : 28,
       };
     },
-    [compact, series, viewMode, hasRight, leftHard, leftFormat, rightHard, rightFormat],
+    [
+      compact,
+      series,
+      viewMode,
+      hasRight,
+      leftHard,
+      leftFormat,
+      rightHard,
+      rightFormat,
+      fitIndicators,
+      indicators,
+    ],
   );
   // What the whole series needs: a new object exactly when the data, the view
   // or an axis changes, never on a zoom.
@@ -327,13 +364,45 @@ export function StockChartInner({
     [series, decBySeries, viewMode],
   );
 
+  // The series the value scales are fitted to: what is drawn, and the indicators'
+  // own values when they are to be on screen. The pointer and the readout keep
+  // `renderSeries`, so a reading is only ever of the price or the short series.
+  const scaleSeries = useMemo(
+    () =>
+      fitIndicators
+        ? [...renderSeries, ...indicatorDomainSeries(indicators, series, filtered)]
+        : renderSeries,
+    [fitIndicators, indicators, renderSeries, series, filtered],
+  );
+
+  // The in-plot legend, from the indicators that are drawn. It uses the same checks
+  // as the render loop, so an entry is there exactly when its line is.
+  const legend = useMemo(() => {
+    if (!indicatorLegend || compact) return null;
+    const items = indicators.flatMap((ind) => {
+      const d = decBySeries.get(ind.seriesId);
+      const target = series.find((s) => s.id === ind.seriesId);
+      if (!d || !target || ind.values.length !== target.points.length) return [];
+      return [
+        {
+          label: ind.label,
+          color: ind.color,
+          dash: ind.dash ?? ((ind.upper ?? ind.lower) ? "4,3" : undefined),
+        },
+      ];
+    });
+    return layoutIndicatorLegend(items, innerW);
+  }, [indicatorLegend, compact, indicators, decBySeries, series, innerW]);
+
   const { dateScale, leftScale, rightScale } = useChartScales({
-    series: renderSeries,
+    series: scaleSeries,
     width,
     height: mainH + margin.top + margin.bottom,
     margin,
     leftDomain: leftAxis?.domain,
     rightDomain: rightAxis?.domain,
+    // The legend sits in the plot's top margin, so the values start under it.
+    top: legend && legend.width > 0 ? LEGEND_HEADROOM_PX : 0,
   });
 
   const scaleForAxis = useCallback(
@@ -935,7 +1004,9 @@ export function StockChartInner({
 
   if (width < MIN_DRAWABLE_PX) return null;
 
-  const oscTop = margin.top + mainH + (showOsc ? 12 : 0);
+  // The panel starts 4px under the bottom margin, where the time labels are, and
+  // stops 12px above the brush band.
+  const oscTop = margin.top + mainH + margin.bottom + 4;
   const brushTop = svgH - brushH + 4;
 
   return (
@@ -1081,6 +1152,52 @@ export function StockChartInner({
               </Group>
             );
           })}
+          {legend && legend.width > 0 && (
+            <g
+              data-chart="indicator-legend"
+              pointerEvents="none"
+              transform="translate(0,4)"
+            >
+              <rect
+                x={0}
+                y={0}
+                width={legend.width}
+                height={LEGEND_HEIGHT_PX}
+                rx={2}
+                fill="hsl(var(--background))"
+                fillOpacity={0.8}
+              />
+              {legend.items.map((item) => (
+                <g key={item.label}>
+                  <Line
+                    from={{ x: item.x, y: 8 }}
+                    to={{ x: item.x + LEGEND_SWATCH_PX, y: 8 }}
+                    stroke={item.color}
+                    strokeWidth={2}
+                    strokeDasharray={item.dash}
+                  />
+                  <text
+                    x={item.x + LEGEND_SWATCH_PX + LEGEND_GAP_PX}
+                    y={12}
+                    fontSize={10}
+                    fill={chartTheme.axisLabel}
+                  >
+                    {item.label}
+                  </text>
+                </g>
+              ))}
+              {legend.overflow > 0 && (
+                <text
+                  x={legend.overflowX}
+                  y={12}
+                  fontSize={10}
+                  fill={chartTheme.axisLabel}
+                >
+                  +{legend.overflow}
+                </text>
+              )}
+            </g>
+          )}
           {reference.levels.map((l, i) => (
             <Group key={`level-${i}`} data-chart-level pointerEvents="none">
               <Line
@@ -1199,7 +1316,7 @@ export function StockChartInner({
               refIndices={decBySeries.get(series[0]?.id ?? "")?.indices ?? []}
               points={decBySeries.get(series[0]?.id ?? "")?.points ?? []}
               width={innerW}
-              height={oscH - 16}
+              height={oscH - 12}
               xScale={dateScale}
             />
           </Group>
@@ -1451,7 +1568,9 @@ function OscillatorPanel({
   const osc = oscillators[0];
   if (!osc || !points.length) return null;
   const domain = osc.domain ?? [0, 100];
-  const yScale = scaleLinear<number>({ domain, range: [height, 0] });
+  // A caption sits at the top left; the top of the values stays under it.
+  const top = osc.caption ? Math.min(OSC_CAPTION_HEADROOM_PX, height) : 0;
+  const yScale = scaleLinear<number>({ domain, range: [height, top] });
   // Subsample the original-length oscillator values by the same original indices
   // used for the reference series (mirrors the indicator subsampling contract).
   const oscValues = refIndices.map((i) => osc.values[i] ?? null);
@@ -1468,6 +1587,25 @@ function OscillatorPanel({
           strokeOpacity={0.6}
         />
       ))}
+      {osc.caption && (
+        <>
+          <text x={4} y={10} fontSize={10} fill={chartTheme.axisLabel}>
+            {osc.caption}
+          </text>
+          {(osc.reference ?? []).map((lvl) => (
+            <text
+              key={`ref-${lvl}`}
+              x={width - 2}
+              y={(yScale(lvl) ?? 0) - 2}
+              textAnchor="end"
+              fontSize={9}
+              fill={chartTheme.axisLabel}
+            >
+              {lvl}
+            </text>
+          ))}
+        </>
+      )}
       {(osc.extraLines ?? []).map((ln, i) => (
         <IndicatorPath
           key={i}

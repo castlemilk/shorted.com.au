@@ -80,7 +80,7 @@ highlighted one redraws it with the latest figures. **Open on Shorted** carries
 `landscape=1`: Discord's in-app browser keeps to portrait whatever the phone
 does, so on a phone held upright the share page opens with the chart turned
 sideways (its landscape mode, `StockChartEmbed` `startLandscape`); anywhere
-else the flag does nothing.
+else the flag does nothing. The Activity's sign-in link carries it too (below).
 
 ## Settings
 
@@ -273,8 +273,8 @@ Activity's Entry Point command when there is one.
 
 The chart messages are pictures: a fresh one per button press. The Activity is
 the real chart, the site's `StockChartEmbed` with every period and view, the
-scrub readout, pinning and measuring, plus a stock search box, in an iframe
-inside Discord. **Interactive** on a chart message launches it at that chart:
+scrub readout, pinning and measuring, plus indicators and a stock search, in an
+iframe inside Discord. **Interactive** on a chart message launches it at that chart:
 Discord does not pass the pressed button to the Activity (a CBA message opened
 the server's default stock, DRO, 2026-10-31), so the button hands its chart over
 by channel first, as interactive mode does (`launch.ts`), and the Activity's
@@ -303,14 +303,48 @@ through a proxy, and its CSP blocks every other host. So:
 - **Nothing on it may navigate the frame.** Discord's mobile webview follows a
   plain link in place, which loaded the whole site, header and footer, inside
   the Activity (reported 2026-10-29). So the embed layout's corner credit is
-  left off this page (`app/embed/embed-brand-link.tsx`), and while the SDK is
-  connected a capture-phase click handler sends every link out through
-  `openExternalLink`.
+  left off this page (`app/embed/embed-brand-link.tsx`), and a capture-phase
+  click handler, installed from mount inside Discord, sends every link out
+  through `openExternalLink`. A middle click is caught too (`auxclick`); a right
+  click keeps its menu. Inside Discord `openOutside` never calls `window.open`:
+  it waits up to 3 seconds for the SDK, and while it waits, the control that pressed it shows it is busy (Open on Shorted, or the sign-in in the menu). If no SDK connects in time, the address is shown as text to
+  copy, in the chart's box, so it turns with a landscape chart. A later open that goes out clears it. An SDK that
+  connects later does not open it after all. Discord's answer to the open is
+  not waited for past 10 seconds. A press on either control while a link is on its way out does nothing (one link at a time). A stock switch releases that guard and clears the address: a link still on its way out then goes out if the SDK answers in time, but shows no address for the chart the reader has left.
 - **Phones.** On mobile the page asks Discord to unlock its orientation
   (`setOrientationLockState`), so a phone turned sideways turns the chart; the
   layout fits a sideways phone (330px tall) without scrolling. Where Discord
   keeps it upright anyway, the chart offers its landscape mode (the
-  sideways-phone button), as the share page does.
+  sideways-phone button), as the share page does. The Activity reads the screen
+  once, when the chart first appears: only a phone's own launch (`platform=mobile`)
+  on a portrait phone starts turned sideways. A frame's shape says nothing of the
+  device (the settings preview is a portrait frame on a phone, and a desktop
+  window can be narrow). The choice then belongs to the Activity, not to the
+  chart, so it holds across every stock switch. The screen is not read again,
+  because a search's on-screen keyboard can reshape it in the middle of a switch.
+- **The chart is the page.** Search and **Open on Shorted** are buttons in the
+  chart's header row (`headerActions`), and nothing sits above the chart. Search
+  is an upright dialog over the Activity, not a panel inside the chart: typing
+  needs the phone's keyboard in its own orientation. The Search button says it
+  opens a dialog (`aria-haspopup`) and whether it is open (`aria-expanded`).
+  Closing the dialog, by Escape, its close button or a pick, returns focus to
+  the Search button; after a pick that is the new chart's, since the chart
+  remounts.
+- **Indicators.** The **Indicators** button in the header row opens the same
+  menu as the stock page and the share page. The base set (SMA 20 and 50, EMA
+  20, WMA 20, and the 30-day average of short interest) is for everyone. The
+  advanced set (SMA 200, Bollinger Bands, RSI, MACD and the 90-day average of
+  short interest) stays locked here, because the Activity cannot hold a
+  session. **Sign in on Shorted** opens `/signin` outside Discord
+  (`activitySignInUrl`), which returns to the chart's share page turned
+  sideways (`landscape=1`); the Activity itself stays signed out. A press on either control while a link is on its way out does nothing. Only the control pressed shows it: **Open on Shorted** and the menu's **Sign in on Shorted** each show a spinner and `aria-busy` for their own press, and the sign-in takes no press while it is busy. The
+  picks survive a stock switch within the Activity, and nothing is stored. An indicator whose lookback is more than a tenth of the window fetches the first longer period that covers it, once: SMA 50 at 1M fetches 6M. At the default 1Y view, SMA 20, WMA 20 and the 30-day short average need no request, and SMA 50 and EMA 20 fetch the 2Y prices once. A longer history this chart has already loaded, its own visible series included, serves an indicator that it covers, and nothing is fetched. That history lasts only while the chart stays mounted: leaving a stock and returning to it in the Activity asks for the longer history again, and TanStack's cache may answer from memory. Each indicator waits for its own
+  history: a panel that waits is drawn empty, so the plot keeps its height. A
+  series too short for a picked indicator (a young listing) says so in the menu
+  ("Not enough history") and is left out of the count on the button. A Combined
+  chart with only one of its two series offers, counts and draws only the series
+  it can draw; a warm-up for the missing series may already be on its way when the
+  chart learns it is missing.
 
 The Activity is on (`"activity": true` in `web/src/config/discord-app.json`,
 2026-10-23), so every chart message carries **Interactive**. What it takes, in
@@ -344,7 +378,10 @@ order, for this app or a second one:
    would override the file).
 5. `task discord:register` once: enabling Activities created the Entry Point
    command, and registration keeps it.
-6. Press **Interactive** on a chart message and check the chart loads.
+6. Press **Interactive** on a chart message and check the chart loads. On a
+   phone held upright it opens turned sideways; on a desktop the header row
+   holds Search, Open on Shorted and Indicators, and no link, header or footer
+   shows.
 
 ### Proxy authentication
 
@@ -456,5 +493,7 @@ this repo holds only a client secret.
   chart back to an image URL to answer "instantly": that is the unreliable
   path this replaced.
 - **The share page's `landscape=1` is Discord's.** Only the bot's
-  **Open on Shorted** link carries it; the share dialog's links do not, so a
+  **Open on Shorted** link carries it, and the sign-in links that return to a
+  turned chart do too: the Activity's (`activitySignInUrl`) and the share
+  page's own, while its chart is turned. The share dialog's links do not, so a
   chart shared to a forum opens the way it always did.

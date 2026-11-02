@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { useSession } from "next-auth/react";
 import { StockChartPanel } from "../StockChartPanel";
 import {
   CHART_BOX_HEIGHT_CLASS,
@@ -16,11 +17,27 @@ jest.mock("../use-stock-chart-data", () => ({
   useStockChartData: (code: string, period: string) => mockChartData(code, period),
 }));
 
+// The warm-up history is a query: the panel needs no QueryClient for these tests.
+jest.mock("../use-indicator-history", () => ({
+  useIndicatorHistory: () => ({
+    price: undefined,
+    short: undefined,
+    pricePending: false,
+    shortPending: false,
+    waiting: [],
+  }),
+}));
+
+// The sign-in link returns to the stock page.
+jest.mock("next/navigation", () => ({ usePathname: () => "/shorts/BHP" }));
+
 jest.mock("../StockChart", () => ({
   StockChart: (props: {
     height?: number;
     series: unknown[];
     readoutReserveSeries?: number;
+    indicators?: { id: string }[];
+    oscillators?: { id: string }[];
   }) => (
     <div
       data-testid="stock-chart"
@@ -29,6 +46,9 @@ jest.mock("../StockChart", () => ({
       data-height={props.height === undefined ? "" : String(props.height)}
       // Absent when the panel holds no readout rows for series still to come.
       data-reserve={props.readoutReserveSeries === undefined ? "" : String(props.readoutReserveSeries)}
+      // The ids of the indicators and the panel the chart was given, in order.
+      data-indicators={(props.indicators ?? []).map((i) => i.id).join(",")}
+      data-oscillators={(props.oscillators ?? []).map((o) => o.id).join(",")}
     />
   ),
 }));
@@ -83,6 +103,13 @@ const periodButton = (label: string) =>
 const area = (container: HTMLElement, name: string) =>
   container.querySelector<HTMLElement>(`[class*="[grid-area:${name}]"]`);
 
+/** Opens the Indicators menu, unless it is open already, and returns the menu. */
+function openIndicators() {
+  const trigger = screen.getByRole("button", { name: /^Indicators/ });
+  if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger);
+  return screen.getByRole("group", { name: "Chart indicators" });
+}
+
 describe("StockChartPanel: settings", () => {
   it("restores the period when remounted with the same prefsKey", () => {
     const first = render(<StockChartPanel stockCode="BHP" prefsKey="BHP:overview" />);
@@ -102,13 +129,15 @@ describe("StockChartPanel: settings", () => {
   it("restores the view and both toggles too", () => {
     const first = render(<StockChartPanel stockCode="BHP" prefsKey="BHP:overview" />);
     fireEvent.click(screen.getByRole("button", { name: /Divergence/ }));
-    fireEvent.click(screen.getByRole("button", { name: /SMA 20/ }));
+    openIndicators();
+    fireEvent.click(screen.getByRole("button", { name: "SMA 20" }));
     fireEvent.click(viewButton("Price & Volume"));
     first.unmount();
 
     render(<StockChartPanel stockCode="BHP" prefsKey="BHP:overview" />);
     expect(viewButton("Price & Volume")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /SMA 20/ })).toHaveAttribute("aria-pressed", "true");
+    openIndicators();
+    expect(screen.getByRole("button", { name: "SMA 20" })).toHaveAttribute("aria-pressed", "true");
     // Divergence belongs to the combined view; its choice is still kept.
     fireEvent.click(viewButton("Combined"));
     expect(screen.getByRole("button", { name: /Divergence/ })).toHaveAttribute("aria-pressed", "true");
@@ -191,7 +220,9 @@ describe("StockChartPanel: controls", () => {
     render(<StockChartPanel stockCode="BHP" />);
     expect(screen.getAllByRole("group", { name: "Chart view" })).toHaveLength(1);
     expect(screen.getAllByRole("group", { name: "Period" })).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: /SMA 20/ })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^Indicators/ })).toHaveLength(1);
+    // The SMA 20 item is in the menu, which is closed until it is opened.
+    expect(screen.queryByRole("button", { name: "SMA 20" })).toBeNull();
     expect(screen.getAllByRole("button", { name: /Divergence/ })).toHaveLength(1);
     expect(screen.getAllByTestId("embed")).toHaveLength(1);
   });
@@ -244,20 +275,21 @@ describe("StockChartPanel: controls", () => {
   it("shows the toggles each view has, and keeps the toggles row for the one with none", () => {
     const { container } = render(<StockChartPanel stockCode="BHP" defaultView="combined" />);
     expect(screen.getByText(/corr \+0\.55/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /SMA 20/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Indicators/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Divergence/ })).toBeInTheDocument();
 
     fireEvent.click(viewButton("Price & Volume"));
     expect(screen.queryByText(/corr/)).toBeNull();
-    expect(screen.getByRole("button", { name: /SMA 20/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Indicators/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Divergence/ })).toBeNull();
 
     fireEvent.click(viewButton("Short Interest"));
-    expect(screen.queryByRole("button", { name: /SMA 20/ })).toBeNull();
-    // Nothing in it, and still there: the row is part of the skeleton's footprint.
+    // The trigger is on every view, the short one included: the row is part of
+    // the skeleton's footprint, and holds the trigger alone here.
     const toggles = area(container, "toggles");
     expect(toggles).not.toBeNull();
-    expect(toggles!.children).toHaveLength(0);
+    expect(toggles!.children).toHaveLength(1);
+    expect(toggles!.children[0]).toBe(screen.getByRole("button", { name: /^Indicators/ }));
   });
 });
 
@@ -321,6 +353,59 @@ describe("StockChartPanel: the readout's rows", () => {
     expect(reserve()).toBe("");
     fireEvent.click(viewButton("Combined"));
     expect(reserve()).toBe("2");
+  });
+});
+
+describe("StockChartPanel: indicators", () => {
+  const session = jest.mocked(useSession);
+  const signedIn = session.getMockImplementation();
+  afterEach(() => session.mockImplementation(signedIn));
+
+  it("draws a base indicator for everyone, and says how many are on", () => {
+    render(<StockChartPanel stockCode="BHP" />);
+    openIndicators();
+    fireEvent.click(screen.getByRole("button", { name: "SMA 20" }));
+    expect(screen.getByTestId("stock-chart")).toHaveAttribute("data-indicators", "sma20");
+    // jsdom puts a space before the comma (it separates every span); a browser does not.
+    expect(screen.getByRole("button", { name: /^Indicators/ })).toHaveAccessibleName(/^Indicators\s*,\s*1 on$/);
+  });
+
+  // The global next-auth mock is signed in; a visitor who is not sees the same base
+  // indicators, and the advanced ones locked.
+  it("draws a base indicator for a signed-out visitor too", () => {
+    session.mockImplementation(
+      () => ({ data: null, status: "unauthenticated", update: jest.fn() }) as never,
+    );
+    render(<StockChartPanel stockCode="BHP" />);
+    openIndicators();
+    fireEvent.click(screen.getByRole("button", { name: "SMA 20" }));
+    expect(screen.getByTestId("stock-chart")).toHaveAttribute("data-indicators", "sma20");
+    expect(screen.getByRole("button", { name: /^Indicators/ })).toHaveAccessibleName(
+      /^Indicators\s*,\s*1 on$/,
+    );
+  });
+
+  it("keeps one panel on the chart at a time: RSI, then MACD in its place", () => {
+    render(<StockChartPanel stockCode="BHP" />);
+    openIndicators();
+    fireEvent.click(screen.getByRole("button", { name: "RSI 14" }));
+    expect(screen.getByTestId("stock-chart")).toHaveAttribute("data-oscillators", "rsi14");
+    fireEvent.click(screen.getByRole("button", { name: "MACD" }));
+    expect(screen.getByTestId("stock-chart")).toHaveAttribute("data-oscillators", "macd");
+  });
+
+  it("locks the advanced indicators for a signed-out visitor, behind a sign-in link back to the stock", () => {
+    session.mockImplementation(
+      () => ({ data: null, status: "unauthenticated", update: jest.fn() }) as never,
+    );
+    render(<StockChartPanel stockCode="BHP" />);
+    openIndicators();
+    expect(screen.queryByRole("button", { name: "SMA 200" })).toBeNull();
+    expect(screen.getByText("SMA 200")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign in to unlock" })).toHaveAttribute(
+      "href",
+      "/signin?callbackUrl=%2Fshorts%2FBHP",
+    );
   });
 });
 

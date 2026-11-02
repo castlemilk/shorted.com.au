@@ -1,6 +1,9 @@
 import {
   activityLaunchState,
+  activitySignInUrl,
   discordClientIdFromHost,
+  discordPlatform,
+  inDiscordFrame,
   isDiscordLaunch,
 } from "../activity";
 
@@ -75,5 +78,72 @@ describe("discordClientIdFromHost", () => {
     "abc.discordsays.com",
   ])("is null for %s", (host) => {
     expect(discordClientIdFromHost(host)).toBeNull();
+  });
+});
+
+describe("discordPlatform", () => {
+  it("reads the platform Discord launched the Activity on", () => {
+    expect(
+      discordPlatform(params("frame_id=f&instance_id=i&platform=mobile")),
+    ).toBe("mobile");
+    expect(
+      discordPlatform(params("frame_id=f&instance_id=i&platform=desktop")),
+    ).toBe("desktop");
+  });
+
+  it("is null when the platform is missing or not one Discord sends", () => {
+    expect(discordPlatform(params("frame_id=f&instance_id=i"))).toBeNull();
+    expect(
+      discordPlatform(params("frame_id=f&instance_id=i&platform=x")),
+    ).toBeNull();
+  });
+
+  it("is null outside a Discord launch, whatever the platform says", () => {
+    expect(discordPlatform(params("platform=mobile"))).toBeNull();
+    expect(discordPlatform(params("code=CBA&platform=mobile"))).toBeNull();
+  });
+});
+
+describe("inDiscordFrame", () => {
+  it("is true on Discord's proxy host", () => {
+    expect(
+      inDiscordFrame({
+        hostname: "1291234567890123456.discordsays.com",
+        search: "",
+      }),
+    ).toBe(true);
+  });
+
+  it("is true for a page carrying Discord's launch parameters", () => {
+    expect(
+      inDiscordFrame({
+        hostname: "localhost",
+        search: "?frame_id=f&instance_id=i",
+      }),
+    ).toBe(true);
+  });
+
+  it("is false for a page opened directly", () => {
+    expect(
+      inDiscordFrame({ hostname: "shorted.com.au", search: "?code=CBA" }),
+    ).toBe(false);
+  });
+});
+
+describe("activitySignInUrl", () => {
+  it("returns to the chart's share page turned sideways", () => {
+    expect(
+      activitySignInUrl({ code: "CBA", view: "combined", period: "max" }),
+    ).toBe(
+      "https://shorted.com.au/signin?callbackUrl=%2Fchart%2FCBA%3Fview%3Dcombined%26period%3Dmax%26landscape%3D1",
+    );
+  });
+
+  it("leaves the share page's defaults out of the callback", () => {
+    expect(
+      activitySignInUrl({ code: "CBA", view: "short", period: "1y" }),
+    ).toBe(
+      "https://shorted.com.au/signin?callbackUrl=%2Fchart%2FCBA%3Flandscape%3D1",
+    );
   });
 });
