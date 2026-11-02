@@ -99,7 +99,7 @@ describe("chat RPC proxy", () => {
     mockAuth.mockResolvedValue(null);
 
     const response = await POST(requestFor("SendMessage"), {
-      params: { method: "SendMessage" },
+      params: Promise.resolve({ method: "SendMessage" }),
     });
 
     expect(response.status).toBe(401);
@@ -118,7 +118,7 @@ describe("chat RPC proxy", () => {
     );
 
     const response = await POST(requestFor("SendMessage"), {
-      params: { method: "SendMessage" },
+      params: Promise.resolve({ method: "SendMessage" }),
     });
 
     expect(response.status).toBe(403);
@@ -175,7 +175,7 @@ describe("chat RPC proxy", () => {
     mockGetSubscriptionStatus.mockResolvedValue(info);
 
     const response = await POST(requestFor("SendMessage"), {
-      params: { method: "SendMessage" },
+      params: Promise.resolve({ method: "SendMessage" }),
     });
 
     expect(response.status).toBe(403);
@@ -193,7 +193,7 @@ describe("chat RPC proxy", () => {
     );
 
     const response = await POST(requestFor("SendMessage"), {
-      params: { method: "SendMessage" },
+      params: Promise.resolve({ method: "SendMessage" }),
     });
 
     expect(response.status).toBe(200);
@@ -204,7 +204,7 @@ describe("chat RPC proxy", () => {
     mockGetSubscriptionStatus.mockRejectedValue(new Error("subscription down"));
 
     const response = await POST(requestFor("SendMessage"), {
-      params: { method: "SendMessage" },
+      params: Promise.resolve({ method: "SendMessage" }),
     });
 
     expect(response.status).toBe(403);
@@ -213,7 +213,7 @@ describe("chat RPC proxy", () => {
 
   it("applies isolated per-user minute, daily, and monthly send limits", async () => {
     await POST(requestFor("SendMessage"), {
-      params: { method: "SendMessage" },
+      params: Promise.resolve({ method: "SendMessage" }),
     });
 
     expect(mockRateLimit).toHaveBeenCalledTimes(3);
@@ -259,7 +259,7 @@ describe("chat RPC proxy", () => {
     });
 
     const response = await POST(requestFor("SendMessage"), {
-      params: { method: "SendMessage" },
+      params: Promise.resolve({ method: "SendMessage" }),
     });
 
     expect(response.status).toBe(429);
@@ -270,7 +270,7 @@ describe("chat RPC proxy", () => {
     const response = await POST(
       requestFor("SendMessage", { origin: "https://evil.example" }),
       {
-        params: { method: "SendMessage" },
+        params: Promise.resolve({ method: "SendMessage" }),
       },
     );
 
@@ -280,7 +280,7 @@ describe("chat RPC proxy", () => {
 
   it("uses isolated chat quota bucket names including a monthly user bucket", async () => {
     await POST(requestFor("SendMessage"), {
-      params: { method: "SendMessage" },
+      params: Promise.resolve({ method: "SendMessage" }),
     });
 
     expect(mockRateLimit).toHaveBeenCalledTimes(3);
@@ -328,7 +328,7 @@ describe("chat RPC proxy", () => {
         "x-user-id": "attacker",
       }),
       {
-        params: { method: "SendMessage" },
+        params: Promise.resolve({ method: "SendMessage" }),
       },
     );
 
@@ -354,7 +354,7 @@ describe("chat RPC proxy", () => {
         "X-User-Roles": "admin",
       }),
       {
-        params: { method: "SendMessage" },
+        params: Promise.resolve({ method: "SendMessage" }),
       },
     );
 
@@ -369,7 +369,7 @@ describe("chat RPC proxy", () => {
     delete process.env.INTERNAL_SERVICE_SECRET;
 
     const response = await POST(requestFor("SendMessage"), {
-      params: { method: "SendMessage" },
+      params: Promise.resolve({ method: "SendMessage" }),
     });
 
     expect(response.status).toBe(503);
@@ -381,7 +381,7 @@ describe("chat RPC proxy", () => {
     process.env.NEXT_PUBLIC_CHAT_SERVICE_ENDPOINT = "https://api.shorted.com.au";
 
     const response = await POST(requestFor("SendMessage"), {
-      params: { method: "SendMessage" },
+      params: Promise.resolve({ method: "SendMessage" }),
     });
 
     expect(response.status).toBe(503);
@@ -400,7 +400,7 @@ describe("chat RPC proxy", () => {
         );
 
         const response = await POST(requestFor("GetConversationHistory"), {
-          params: { method: "GetConversationHistory" },
+          params: Promise.resolve({ method: "GetConversationHistory" }),
         });
 
         expect(response.status).toBe(503);
@@ -437,7 +437,7 @@ describe("chat RPC proxy", () => {
       );
 
       const response = await POST(requestFor("SendMessage"), {
-        params: { method: "SendMessage" },
+        params: Promise.resolve({ method: "SendMessage" }),
       });
 
       expect(response.status).toBe(429);
@@ -456,7 +456,7 @@ describe("chat RPC proxy", () => {
       );
 
       const response = await POST(requestFor("ListConversations"), {
-        params: { method: "ListConversations" },
+        params: Promise.resolve({ method: "ListConversations" }),
       });
 
       expect(response.status).toBe(503);
@@ -470,7 +470,7 @@ describe("chat RPC proxy", () => {
       fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
 
       const response = await POST(requestFor("ListConversations"), {
-        params: { method: "ListConversations" },
+        params: Promise.resolve({ method: "ListConversations" }),
       });
 
       expect(response.status).toBe(503);
@@ -481,7 +481,7 @@ describe("chat RPC proxy", () => {
 
     it("answers an unknown method with the invalid_request contract", async () => {
       const response = await POST(requestFor("DropTables"), {
-        params: { method: "DropTables" },
+        params: Promise.resolve({ method: "DropTables" }),
       });
 
       expect(response.status).toBe(404);
@@ -502,7 +502,7 @@ describe("chat RPC proxy", () => {
       );
 
       const response = await POST(requestFor("SendMessage"), {
-        params: { method: "SendMessage" },
+        params: Promise.resolve({ method: "SendMessage" }),
       });
 
       expect(response.status).toBe(403);
@@ -521,7 +521,7 @@ describe("chat RPC proxy", () => {
       );
 
       const response = await POST(requestFor("SendMessage"), {
-        params: { method: "SendMessage" },
+        params: Promise.resolve({ method: "SendMessage" }),
       });
 
       expect(response.status).toBe(200);
@@ -536,7 +536,7 @@ describe("chat RPC proxy", () => {
     // over a socket; these pin the two halves of the fix.
     it("asks the chat service for an uncompressed answer, whatever the browser accepts", async () => {
       await POST(requestFor("ListConversations", { "accept-encoding": "gzip, deflate, br" }), {
-        params: { method: "ListConversations" },
+        params: Promise.resolve({ method: "ListConversations" }),
       });
 
       const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -555,7 +555,7 @@ describe("chat RPC proxy", () => {
       );
 
       const response = await POST(requestFor("ListConversations"), {
-        params: { method: "ListConversations" },
+        params: Promise.resolve({ method: "ListConversations" }),
       });
 
       expect(response.status).toBe(200);

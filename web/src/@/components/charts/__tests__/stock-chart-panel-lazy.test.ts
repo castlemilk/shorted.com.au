@@ -1,8 +1,9 @@
 /** @jest-environment node */
 
-// The Overview's chart module and the panel's code. In the browser, on the
-// Overview, the module starts fetching the panel as soon as it runs. It never
-// does on the server, because the panel reaches @connectrpc, which must not be
+// The chart module the Overview and Short interest share, and the panel's code.
+// In the browser, on those two tabs, the module starts fetching the panel as
+// soon as it runs. It never does on the server, because the panel reaches
+// @connectrpc, which must not be
 // evaluated during server rendering (CLAUDE.md, "SSR Issues with
 // @connectrpc/connect"). Nor on any other tab: Next runs the Overview's client
 // modules there too, whenever a tab resolves a shared module through the
@@ -50,8 +51,8 @@ describe("stock-chart-panel-lazy", () => {
   // Started when the module runs, during hydration, rather than when the panel
   // first renders after it: on a throttled phone that is the difference between
   // the chart landing when it did as a first-load chunk and 0.2s later.
-  it.each(["/shorts/BHP", "/shorts/BHP/"])(
-    "starts loading the panel as soon as it runs on the Overview (%s), before anything renders it",
+  it.each(["/shorts/BHP", "/shorts/BHP/", "/shorts/BHP/short-interest"])(
+    "starts loading the panel as soon as it runs on the Overview or Short interest (%s), before anything renders it",
     async (pathname) => {
       await runModuleAt(pathname);
       expect(panelLoaded).toHaveBeenCalledTimes(1);
@@ -64,6 +65,7 @@ describe("stock-chart-panel-lazy", () => {
     "/shorts/BHP/community/thread-1",
     "/shorts/BHP/company",
     "/shorts/BHP/news",
+    "/shorts/BHP/strategy",
   ])("does not load the panel when it runs on %s", async (pathname) => {
     await runModuleAt(pathname);
     expect(panelLoaded).not.toHaveBeenCalled();

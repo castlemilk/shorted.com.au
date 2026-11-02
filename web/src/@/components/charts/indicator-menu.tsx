@@ -50,7 +50,9 @@ export interface IndicatorMenu {
   toggle: () => void;
   /** Closes the menu; `returnFocus` puts the focus back on the trigger (Escape does, a press outside does not). */
   close: (returnFocus: boolean) => void;
-  triggerRef: RefObject<HTMLButtonElement>;
+  // Readonly, so a DOM ref prop takes it on @types/react 18 (RefObject<T>) and
+  // 19 (RefObject<T | null>).
+  triggerRef: Readonly<RefObject<HTMLButtonElement | null>>;
   id: string;
 }
 
@@ -79,7 +81,7 @@ export interface IndicatorMenuPanelProps {
   access: IndicatorAccess;
   signIn: IndicatorSignIn;
   onClose: (returnFocus: boolean) => void;
-  triggerRef: RefObject<HTMLElement>;
+  triggerRef: RefObject<HTMLElement | null>;
   /** The chart is too short for a panel indicator: those items say so and do nothing. */
   panelUnavailable?: boolean;
   /** Selected indicators with nothing to draw on this series, for want of history: the item says so. */

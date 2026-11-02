@@ -1,4 +1,3 @@
-import nextDynamic from "next/dynamic";
 import { type Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
@@ -20,14 +19,10 @@ import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 // rendered on the server. A static import of the tax card made this route
 // answer 500 for every stock in a production build ("Element type is invalid
 // ... got: undefined", the SSR failure CLAUDE.md describes for @connectrpc).
-const DividendHistory = nextDynamic(
-  () => import("~/@/components/company/dividend-history").then((m) => m.DividendHistory),
-  { ssr: false },
-);
-const CompanyTaxCard = nextDynamic(
-  () => import("~/@/components/company/company-tax-card").then((m) => m.CompanyTaxCard),
-  { ssr: false },
-);
+// Each comes from its "use client" loader, which holds the next/dynamic with
+// ssr: false, so the server page never calls next/dynamic itself.
+import { DividendHistory } from "~/@/components/company/dividend-history-loader";
+import { CompanyTaxCard } from "~/@/components/company/company-tax-card-loader";
 
 export const revalidate = 3600;
 export const dynamicParams = true;

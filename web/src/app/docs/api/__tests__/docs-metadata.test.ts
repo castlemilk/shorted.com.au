@@ -52,7 +52,9 @@ describe("/docs/api metadata", () => {
   });
 
   it("titles an endpoint by its method and service, under its own canonical", async () => {
-    const meta = await endpointMetadata({ params: { endpoint: GET_INSTITUTION } });
+    const meta = await endpointMetadata({
+      params: Promise.resolve({ endpoint: GET_INSTITUTION }),
+    });
 
     expectOwnPage(meta, `${siteConfig.url}/docs/api/${GET_INSTITUTION}`);
     expect(rendered(meta)).toBe("GetInstitution — Ownership API | Shorted");
@@ -68,7 +70,9 @@ describe("/docs/api metadata", () => {
 
     const titles: string[] = [];
     for (const endpoint of endpoints) {
-      const meta = await endpointMetadata({ params: { endpoint: endpoint.id } });
+      const meta = await endpointMetadata({
+        params: Promise.resolve({ endpoint: endpoint.id }),
+      });
       titles.push(rendered(meta));
       expect(occurrences(rendered(meta), siteConfig.name)).toBe(1);
       expect(rendered(meta).length).toBeLessThanOrEqual(75);

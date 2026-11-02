@@ -738,20 +738,25 @@ Overview's mapping downloads all of the Overview's first-load chunks. A
 `nextDynamic` in a server page is bundled into that list: Financials and
 Community downloaded the Overview's chart that way (227 KiB of JS for BHP). A
 route group does not stop it (Next strips the group from the manifest's group
-name). So Short interest loads the panel with `nextDynamic(..., { ssr: false })`
-in its page, and the Overview through `StockChartPanelLazy`
-(`components/charts/stock-chart-panel-lazy.tsx`), a `"use client"` module whose
-`next/dynamic` is a real `import()`: the chart is a chunk of its own, in no list
-another tab inherits. The module starts that download as it runs, so the
-Overview's chart lands when it did as a first-load chunk, but only when the
-path is the Overview: a tab that loads the Overview's page chunk runs every
-Overview client module, and the unguarded `import()` put the chart back on
-Financials and Community. `web/scripts/stock-chart-chunks.mjs`
+name). So the Overview and Short interest load the panel through
+`StockChartPanelLazy` (`components/charts/stock-chart-panel-lazy.tsx`), and
+Strategy loads its levels chart through
+`components/strategy/strategy-levels-chart-loader.tsx`. Each is a `"use client"`
+module whose `next/dynamic` is a real `import()`: the chart is a chunk of its
+own, in no list another tab inherits. A server page may not call
+`next/dynamic` with `ssr: false` (Next 15 refuses it), so the charts come
+through these client modules. The panel's module starts that download as it
+runs, so the chart lands when it did as a first-load chunk, but only when the
+path is the Overview or Short interest: a tab that loads the Overview's page
+chunk runs every Overview client module, and the unguarded `import()` put the
+chart back on Financials and Community. `web/scripts/stock-chart-chunks.mjs`
 (`npm run routes:charts` after `next build`; `task test:bundle` and
-`perf-budget.yml` run it) fails when a client module in the manifest of the
-Overview or of a tab without a chart maps to a chunk carrying the chart's code
-(`data-chart-capture`). It cannot see an `import()` started at runtime; the
-download check in `web/e2e/stock-tabs.spec.ts` can (no workflow runs it).
+`perf-budget.yml` run it) fails when any stock tab's client manifest maps a
+module to a chunk carrying the chart's code (`data-chart-capture`), when a chart
+route's manifest stops mapping its loader, or when the loader's import in
+`.next/react-loadable-manifest.json` stops listing that chunk. It cannot see an
+`import()` started at runtime; the download check in
+`web/e2e/stock-tabs.spec.ts` can (no workflow runs it).
 
 The chart box is sized by CSS, `h-[360px] sm:h-[420px]`
 (`CHART_BOX_HEIGHT_CLASS`), and `StockChart` takes its height from its parent
@@ -862,11 +867,13 @@ follows the same rules. `ChatSidebar` and both environment banners read
   - `web/src/app/shorts/__tests__/ssr-import-safety.test.ts` (Jest) walks
     static imports from the layout, the data loader and every tab page, and
     fails when a `"use client"` module on the way reaches `@connectrpc` (the
-    SSR failure under Known Issues). Client widgets load through
-    `nextDynamic(() => import(...), { ssr: false })` and are listed in the
-    test's `CONNECT_ISLANDS`. The Overview's chart is the one exception: a test
-    of its own requires that the page has no `nextDynamic` and loads it through
-    the client module `stock-chart-panel-lazy.tsx`. The walk's allowlist, `KNOWN_CLIENT_CONNECT`, holds only
+    SSR failure under Known Issues). Client widgets load through a `"use client"`
+    loader (`*-loader.tsx`) that holds `nextDynamic(() => import(...), { ssr: false })`:
+    the page imports the loader, and the loader is listed in the test's
+    `CONNECT_ISLANDS`. A server module never calls `next/dynamic` with
+    `ssr: false`, and a test checks that across `src`. The two chart tabs share
+    one loader, `stock-chart-panel-lazy.tsx`, and a test checks that no tab's
+    loader is reachable from another tab. The walk's allowlist, `KNOWN_CLIENT_CONNECT`, holds only
     the pre-existing `company-info-with-retry` fallback (on the Overview) and
     can only shrink. The layout's two twins, `company-profile-with-retry` and
     `company-stats-with-retry`, were deleted with the cards they served, and

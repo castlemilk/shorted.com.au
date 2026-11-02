@@ -3,6 +3,7 @@ import { describe, expect, it } from "@jest/globals";
 import { renderToStaticMarkup } from "react-dom/server";
 import { JsonLd } from "~/@/components/seo/json-ld";
 import { serializeJsonLd } from "~/@/lib/seo/json-ld";
+import type { JSX } from "react";
 
 /**
  * Security review SEC-07: a JSON-LD script's text is raw HTML, so a stored

@@ -1,10 +1,8 @@
-import nextDynamic from "next/dynamic";
 import { type Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import {
   StockChartHeading,
-  StockChartPanelSkeleton,
 } from "~/@/components/charts/stock-chart-section";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { cleanCompanyName } from "~/@/lib/company-name";
@@ -12,31 +10,17 @@ import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabTitle } from "~/@/lib/seo/stock-tab-title";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { ShortInterestHistory } from "../short-interest-history";
+// Client islands that import @connectrpc/connect: client-only, each imported
+// from its "use client" loader, which holds the next/dynamic with ssr: false (a
+// server component may not call it). The chart is StockChartPanelLazy, the loader
+// the Overview uses too: it starts the panel's download after the page is in the
+// browser, on both chart tabs (stock-chart-panel-lazy.tsx).
+import { StockChartPanelLazy } from "~/@/components/charts/stock-chart-panel-lazy";
+import { PeerComparisonTable } from "~/@/components/company/peer-comparison-table-loader";
+import { StockSignals } from "~/@/components/company/stock-signals-loader";
+import { StockVerdict } from "~/@/components/company/stock-verdict-loader";
 import { loadStockOrFail } from "../stock-page-data";
 import { STOCK_CODE_PATTERN } from "../stock-page-shared";
-
-// Client islands that import @connectrpc/connect: client-only, each loaded
-// through next/dynamic with ssr: false. The chart panel is the first of them,
-// and its placeholder is the panel's own skeleton (the one loading.tsx shows).
-const StockChartPanel = nextDynamic(
-  () =>
-    import("~/@/components/charts/StockChartPanel").then(
-      (m) => m.StockChartPanel,
-    ),
-  { ssr: false, loading: () => <StockChartPanelSkeleton /> },
-);
-const PeerComparisonTable = nextDynamic(
-  () => import("~/@/components/company/peer-comparison-table").then((m) => m.PeerComparisonTable),
-  { ssr: false },
-);
-const StockSignals = nextDynamic(
-  () => import("~/@/components/company/stock-signals").then((m) => m.StockSignals),
-  { ssr: false },
-);
-const StockVerdict = nextDynamic(
-  () => import("~/@/components/company/stock-verdict").then((m) => m.StockVerdict),
-  { ssr: false },
-);
 
 // On-demand ISR: the empty generateStaticParams is what makes the segment
 // statically optimisable; without it revalidate is inert (see the overview).
@@ -97,7 +81,7 @@ export default async function ShortInterestPage({ params }: PageProps) {
             Overview's; the period is shared with it (chart-prefs.ts). */}
         <section aria-labelledby="stock-chart-heading" className="min-w-0">
           <StockChartHeading title="Short interest chart" />
-          <StockChartPanel
+          <StockChartPanelLazy
             stockCode={code}
             prefsKey={`${code}:short-interest`}
             defaultView={hasShortInterest ? "short" : "combined"}

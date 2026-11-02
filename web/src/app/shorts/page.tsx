@@ -1,4 +1,3 @@
-import nextDynamic from "next/dynamic";
 import { type Metadata } from "next";
 import { getTopShortsData } from "../actions/getTopShorts";
 import { bailOnEmptyRender } from "../actions/config";
@@ -7,12 +6,9 @@ import { siteConfig } from "~/@/config/site";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { ShortsListFallback } from "~/@/components/shorts-list-fallback";
 import { JsonLd } from "~/@/components/seo/json-ld";
-
-// Dynamic import to avoid SSR issues — child imports @connectrpc/connect
-const TopShortsClient = nextDynamic(
-  () => import("./components/top-shorts-client").then((m) => m.TopShortsClient),
-  { ssr: false }
-);
+// The dashboard imports @connectrpc/connect, so it is client-only: its loader
+// holds the ssr: false import.
+import { TopShortsClient } from "./components/top-shorts-client-loader";
 
 export const metadata: Metadata = {
   title: "ASX Short Positions List & Short Interest Data",
@@ -77,7 +73,7 @@ export default async function TopShortsPage() {
   const moversData = calculateMovers(timeSeries, DEFAULT_PERIOD);
 
   // Server-rendered fallback rows so crawlers see real data (the interactive
-  // dashboard below is client-only via dynamic ssr:false).
+  // dashboard below is client-only, through its ssr:false loader).
   const fallbackStocks = timeSeries.map((ts) => ({
     code: ts.productCode,
     name: ts.name || ts.productCode,

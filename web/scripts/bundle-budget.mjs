@@ -35,8 +35,8 @@ const BUDGETS = {
   default: 300,
   routes: {
     // Public, SEO-critical routes — tighter guards (current value + headroom).
-    "/": 185,
-    "/stocks": 225,
+    "/": 150,
+    "/stocks": 215,
     // 2026-07-22: shorts.proto split into per-domain files (market/stock/
     // housing/...), each with its own service — routes now carry only their
     // own domain's descriptor instead of the monolithic 66.7KB blob. The
@@ -56,11 +56,11 @@ const BUDGETS = {
     // layout entry fell 289 -> 137 kB and every tab's root layout + stock layout
     // + page union fell or held (Overview -1.5, Short interest -11.7, the other
     // five -45 to -152 kB; app-build-manifest.json, gzip kB, before and after).
-    // These two budgets are the new measure + 10%, rounded up to 5 kB. Their
-    // numbers now include the chart's chunks, which the layout used to carry
-    // where no budget counted them; what a visit loads did not grow. A
-    // layout-aware metric is a follow-up.
-    //
+    // These two budgets were the new measure + 10%, rounded up to 5 kB. At that
+    // date their numbers included the chart's chunks, which the tabs loaded with
+    // their page (the layout used to carry them, where no budget counted them);
+    // what a visit loads did not grow. A layout-aware metric is a follow-up. The
+    // 2026-10-13 and 2026-11-03 entries below took the chart out of both.
     //
     // 2026-10-13: Financials and Community were still loading the chart. Next
     // 14 merges the Overview page's client manifest into every tab's, and a
@@ -73,20 +73,36 @@ const BUDGETS = {
     // visit downloads fell 1340 -> 1113 KiB of JS on Financials and 1453 ->
     // 1226 KiB on Community (uncompressed); scripts/stock-chart-chunks.mjs is
     // the gate. The Overview's budget is the new measure + 10%, rounded up.
+    // Short interest and Strategy kept their charts in the first load until
+    // 2026-11-03 (below).
+    //
+    // 2026-11-03, React 19 prep: Short interest and Strategy load their charts
+    // after the page too, through client loaders (stock-chart-panel-lazy.tsx,
+    // strategy-levels-chart-loader.tsx). The ssr: false islands that the stock
+    // tabs, the home and chat pages, the /shorts dashboard and the root layout
+    // loaded from server files moved into client loaders as well. A loader's
+    // import() starts in the browser, not with the page's first load, so these
+    // routes' printed First Load JS no longer counts those chunks. Against the
+    // 2026-11-02 baseline, 65 routes shrank by more than 1 kB and none grew:
+    // Short interest 292 -> 113 kB, Strategy 244 -> 106, the article route
+    // 308 -> 158, /chat 231 -> 98, /stocks 210 -> 192. Each budget that shrank
+    // is the new measure + 10%, rounded up to 5 kB. What a visit downloads is
+    // not in these numbers: perf:lh:compare (the Lighthouse baseline) and
+    // scripts/stock-chart-chunks.mjs are the guards on that.
     "/shorts/[stockCode]": 225,
-    "/shorts/[stockCode]/short-interest": 305,
-    "/shorts/[stockCode]/strategy": 260,
-    "/shorts/[stockCode]/financials": 230,
-    "/shorts/[stockCode]/company": 200,
-    "/shorts/[stockCode]/news": 190,
+    "/shorts/[stockCode]/short-interest": 125,
+    "/shorts/[stockCode]/strategy": 120,
+    "/shorts/[stockCode]/financials": 140,
+    "/shorts/[stockCode]/company": 155,
+    "/shorts/[stockCode]/news": 125,
     "/shorts/[stockCode]/community": 135,
-    "/news/[slug]": 315,
+    "/news/[slug]": 175,
     "/screener": 250,
     "/dashboards": 280,
     // Known-heavy / non-public routes — guarded at current + headroom. These
     // are acknowledged tech debt (chat pulls markdown+mermaid+katex; trim via
     // dynamic import if they grow). Tighten as they're optimized.
-    "/chat": 740,
+    "/chat": 110,
     "/admin/takes/[slug]": 620,
     "/e2e-chat-render": 620,
   },

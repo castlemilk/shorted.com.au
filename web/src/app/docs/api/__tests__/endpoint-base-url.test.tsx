@@ -20,7 +20,7 @@ jest.mock("~/@/components/docs/code-panel", () => ({
 import EndpointPage from "../[endpoint]/page";
 
 async function baseUrlsOf(endpoint: string): Promise<string[]> {
-  const element = await EndpointPage({ params: { endpoint } });
+  const element = await EndpointPage({ params: Promise.resolve({ endpoint }) });
   const html = renderToStaticMarkup(element as React.ReactElement);
   return [...html.matchAll(/data-base-url="([^"]*)"/g)].map((m) => m[1]!);
 }

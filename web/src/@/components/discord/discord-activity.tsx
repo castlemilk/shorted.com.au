@@ -580,7 +580,7 @@ function StockSearchDialog({
   onOpenChange: (open: boolean) => void;
   onPick: (code: string) => void;
   /** The Search button that opened it, which focus returns to however the dialog closed. */
-  returnFocusTo: RefObject<HTMLElement>;
+  returnFocusTo: RefObject<HTMLElement | null>;
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>

@@ -234,7 +234,7 @@ describe.each<[string, ChatServiceMode]>([
   it.each(["ListConversations", "GetConversationHistory", "DeleteConversation"])(
     "%s: a client reads the proxied answer as the JSON the chat service sent",
     async (method) => {
-      const response = await POST(requestFor(method), { params: { method } });
+      const response = await POST(requestFor(method), { params: Promise.resolve({ method }) });
       expect(response.status).toBe(200);
 
       const served = await serveResponse(response);
@@ -245,7 +245,7 @@ describe.each<[string, ChatServiceMode]>([
   );
 
   it("passes a server stream through byte for byte", async () => {
-    const response = await POST(requestFor("SendMessage"), { params: { method: "SendMessage" } });
+    const response = await POST(requestFor("SendMessage"), { params: Promise.resolve({ method: "SendMessage" }) });
     const served = await serveResponse(response);
     servers.push(served);
 

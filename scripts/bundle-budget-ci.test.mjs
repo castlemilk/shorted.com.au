@@ -31,21 +31,25 @@ test("capturing the production build preserves its failure and stderr", (t) => {
   assert.equal(readFileSync(join(directory, "outputs"), "utf8"), `release-sha=${"a".repeat(40)}\n`);
 });
 
+// The "/" fixtures sit at the committed baseline (136 kB), under its budget (150
+// kB) in web/scripts/bundle-budget.mjs. A fixture above the budget would fail
+// this test for the budget, not for what it checks.
 test("existing build output passes budgets without invoking another build", (t) => {
   const directory = scratch(t);
-  writeFileSync(join(directory, "build.log"), "┌ ○ / 12 kB 170 kB\n+ First Load JS shared by all 96.1 kB\n");
-  writeFileSync(join(directory, "baseline.json"), JSON.stringify({ sharedByAllKB: 96.1, routes: { "/": { firstLoadKB: 170 } } }));
+  writeFileSync(join(directory, "build.log"), "┌ ○ / 12 kB 136 kB\n+ First Load JS shared by all 96.1 kB\n");
+  writeFileSync(join(directory, "baseline.json"), JSON.stringify({ sharedByAllKB: 96.1, routes: { "/": { firstLoadKB: 136 } } }));
   const result = runBudget(directory);
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /all bundle budgets met/);
   assert.match(result.stdout, /no regressions/);
-  assert.equal(JSON.parse(readFileSync(join(directory, "report.json"), "utf8")).routes["/"].firstLoadKB, 170);
+  assert.equal(JSON.parse(readFileSync(join(directory, "report.json"), "utf8")).routes["/"].firstLoadKB, 136);
 });
 
 test("existing build output still rejects route-budget and baseline regressions", (t) => {
   const directory = scratch(t);
-  writeFileSync(join(directory, "baseline.json"), JSON.stringify({ sharedByAllKB: 96.1, routes: { "/": { firstLoadKB: 170 } } }));
-  for (const [size, failure] of [[195, /bundle budget breach/], [181, /1 regression\(s\)/]]) {
+  writeFileSync(join(directory, "baseline.json"), JSON.stringify({ sharedByAllKB: 96.1, routes: { "/": { firstLoadKB: 136 } } }));
+  // 195 is over the budget; 145 is under it but more than 5% and 5 kB over the baseline.
+  for (const [size, failure] of [[195, /bundle budget breach/], [145, /1 regression\(s\)/]]) {
     writeFileSync(join(directory, "build.log"), `┌ ○ / 12 kB ${size} kB\n+ First Load JS shared by all 96.1 kB\n`);
     const result = runBudget(directory);
     assert.equal(result.status, 1, result.stdout + result.stderr);

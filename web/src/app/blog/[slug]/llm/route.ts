@@ -9,9 +9,10 @@ import {
 
 export async function GET(
   _request: Request,
-  { params }: { params: { slug: string } },
+  { params }: { params: Promise<{ slug: string }> },
 ) {
-  const post = getPostBySlug(params.slug);
+  const { slug } = await params;
+  const post = getPostBySlug(slug);
 
   if (!post) {
     return NextResponse.json(
@@ -21,7 +22,7 @@ export async function GET(
   }
 
   const readingTime = calculateReadingTime(String(post.content));
-  const postUrl = `${siteConfig.url}/blog/${params.slug}`;
+  const postUrl = `${siteConfig.url}/blog/${slug}`;
   const cleanContent = mdxToCleanMarkdown(post.content);
   const publishedDate = new Date(post.date).toLocaleDateString("en-AU", {
     year: "numeric",

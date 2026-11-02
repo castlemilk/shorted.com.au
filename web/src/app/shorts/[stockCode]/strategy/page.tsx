@@ -1,4 +1,3 @@
-import nextDynamic from "next/dynamic";
 import Link from "next/link";
 import { type Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -23,7 +22,8 @@ import { loadStockOrFail } from "../stock-page-data";
 import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 
 // Client island: the chart reads prices through Connect-RPC, so it is
-// client-only (as the chart panels on the Overview and Short interest tabs are).
+// client-only. Its "use client" loader holds the next/dynamic with ssr: false,
+// and starts the chart's download while the page hydrates.
 // It reads 1y of prices, the period those panels open on, so a visitor who came
 // from one of them on that period finds the queries in TanStack Query's cache;
 // one who lands here directly makes the requests itself. Its placeholder is the
@@ -33,18 +33,7 @@ import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 // row 16 = 430, measured in Chromium with this project's Tailwind build at
 // desktop widths. Each further caption row adds 20 and each row the controls
 // wrap onto adds 28, so a narrow screen, where both wrap, still shifts.
-const StrategyLevelsChart = nextDynamic(
-  () =>
-    import("~/@/components/strategy/strategy-levels-chart").then(
-      (m) => m.StrategyLevelsChart,
-    ),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[430px] animate-pulse rounded-lg bg-muted/40" />
-    ),
-  },
-);
+import { StrategyLevelsChart } from "~/@/components/strategy/strategy-levels-chart-loader";
 
 // On-demand ISR: the empty generateStaticParams is what makes the segment
 // statically optimisable; without it revalidate is inert (see the overview).

@@ -83,7 +83,7 @@ describe("blog article page", () => {
   beforeEach(() => notFound.mockClear());
 
   it("renders the masthead, the body, the byline link and a same-category-first rail", async () => {
-    render(await Post({ params: { slug: guideOne!.slug } }));
+    render(await Post({ params: Promise.resolve({ slug: guideOne!.slug }) }));
 
     expect(
       screen.getByRole("heading", { level: 1, name: guideOne!.title }),
@@ -117,7 +117,7 @@ describe("blog article page", () => {
   });
 
   it("emits BlogPosting JSON-LD with the category as section, the author profile and the tags", async () => {
-    render(await Post({ params: { slug: newestHousing!.slug } }));
+    render(await Post({ params: Promise.resolve({ slug: newestHousing!.slug }) }));
 
     const schema = JSON.parse(
       screen.getByTestId("article-schema").textContent!,
@@ -147,14 +147,16 @@ describe("blog article page", () => {
   });
 
   it("404s an unknown slug", async () => {
-    await expect(Post({ params: { slug: "nope" } })).rejects.toThrow(
+    await expect(Post({ params: Promise.resolve({ slug: "nope" }) })).rejects.toThrow(
       "NEXT_NOT_FOUND",
     );
     expect(notFound).toHaveBeenCalled();
   });
 
-  it("publishes article OpenGraph with section, tags and a canonical", () => {
-    const meta = generateMetadata({ params: { slug: newestHousing!.slug } });
+  it("publishes article OpenGraph with section, tags and a canonical", async () => {
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: newestHousing!.slug }),
+    });
     expect(meta.alternates?.canonical).toBe(
       "https://shorted.com.au/blog/newest-housing",
     );

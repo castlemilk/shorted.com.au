@@ -16,10 +16,12 @@ const PAUSED_MONITOR = {
   cadence: "Daily" as const,
 };
 
-function renderPage(token?: string) {
+async function renderPage(token?: string) {
   const searchParams: { t?: string | string[] } =
     token === undefined ? {} : { t: token };
-  return render(AlertUnsubscribePage({ searchParams }));
+  return render(
+    await AlertUnsubscribePage({ searchParams: Promise.resolve(searchParams) }),
+  );
 }
 
 describe("/alerts/unsubscribe page", () => {
@@ -31,8 +33,8 @@ describe("/alerts/unsubscribe page", () => {
     expect(metadata.robots).toEqual({ index: false, follow: false });
   });
 
-  it("does not pause anything on render", () => {
-    renderPage("signed-token");
+  it("does not pause anything on render", async () => {
+    await renderPage("signed-token");
 
     expect(
       screen.getByRole("heading", { name: "Pause this alert?" }),
@@ -46,7 +48,7 @@ describe("/alerts/unsubscribe page", () => {
       alreadyPaused: false,
       monitor: PAUSED_MONITOR,
     });
-    renderPage("signed-token");
+    await renderPage("signed-token");
 
     fireEvent.click(screen.getByRole("button", { name: "Pause this alert" }));
 
@@ -69,7 +71,7 @@ describe("/alerts/unsubscribe page", () => {
       alreadyPaused: true,
       monitor: PAUSED_MONITOR,
     });
-    renderPage("signed-token");
+    await renderPage("signed-token");
 
     fireEvent.click(screen.getByRole("button", { name: "Pause this alert" }));
 
@@ -86,7 +88,7 @@ describe("/alerts/unsubscribe page", () => {
       ok: false,
       reason: "invalid",
     });
-    renderPage("forged-token");
+    await renderPage("forged-token");
 
     fireEvent.click(screen.getByRole("button", { name: "Pause this alert" }));
 
@@ -101,7 +103,7 @@ describe("/alerts/unsubscribe page", () => {
       ok: false,
       reason: "gone",
     });
-    renderPage("signed-token");
+    await renderPage("signed-token");
 
     fireEvent.click(screen.getByRole("button", { name: "Pause this alert" }));
 
@@ -124,7 +126,7 @@ describe("/alerts/unsubscribe page", () => {
       ok: false,
       reason: "unavailable",
     });
-    renderPage("signed-token");
+    await renderPage("signed-token");
 
     fireEvent.click(screen.getByRole("button", { name: "Pause this alert" }));
 
@@ -146,8 +148,8 @@ describe("/alerts/unsubscribe page", () => {
     );
   });
 
-  it("treats a missing token as invalid without calling the service", () => {
-    renderPage();
+  it("treats a missing token as invalid without calling the service", async () => {
+    await renderPage();
 
     expect(
       screen.getByRole("heading", { name: "This link is not valid" }),
@@ -159,7 +161,7 @@ describe("/alerts/unsubscribe page", () => {
   });
 
   it("takes the first value when the token parameter repeats", async () => {
-    renderPage(undefined);
+    await renderPage(undefined);
     expect(mockPauseAlertByToken).not.toHaveBeenCalled();
 
     mockPauseAlertByToken.mockResolvedValueOnce({
@@ -167,7 +169,11 @@ describe("/alerts/unsubscribe page", () => {
       alreadyPaused: false,
       monitor: PAUSED_MONITOR,
     });
-    render(AlertUnsubscribePage({ searchParams: { t: ["first", "second"] } }));
+    render(
+      await AlertUnsubscribePage({
+        searchParams: Promise.resolve({ t: ["first", "second"] }),
+      }),
+    );
     fireEvent.click(
       screen.getAllByRole("button", { name: "Pause this alert" })[0],
     );

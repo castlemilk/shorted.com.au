@@ -144,6 +144,10 @@ describe("Homepage Cache Warming Endpoint", () => {
     expect(data.results["treemap-3m"].success).toBe(true);
   });
 
+  // These call GET with a request object, so they check the authorization, not
+  // the route's caching. With the secret set, route.ts must be force-dynamic:
+  // force-static prerenders with no headers, so it would cache a 401 (see the
+  // comment there).
   it("should require secret when CACHE_WARM_SECRET is set", async () => {
     process.env.CACHE_WARM_SECRET = "test-secret";
 
