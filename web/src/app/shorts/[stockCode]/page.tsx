@@ -443,7 +443,7 @@ const Page = async ({ params }: PageProps) => {
       })()}
 
       {/* The chart is this tab's first block: the price and the short interest
-          are what the visitor came for. Its settings (period, view, SMA 20) are
+          are what the visitor came for. Its settings (period, view, indicators) are
           kept per stock and per tab across a tab switch (chart-prefs.ts). */}
       <section aria-labelledby="stock-chart-heading" className="mb-4 min-w-0">
         <StockChartHeading />

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Maximize2, Smartphone } from "lucide-react";
+import { FunctionSquare, Maximize2, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useElementSize } from "@/hooks/use-element-size";
 import { StockChart } from "./StockChart";
@@ -13,9 +13,29 @@ import {
   CHART_VIEWS,
   buildChartView,
   chartViewLabel,
+  resolveChartView,
   type ChartPeriod,
   type ChartViewId,
 } from "./chart-views";
+import {
+  NO_INDICATORS,
+  drawnIndicatorIds,
+  indicatorDef,
+  indicatorsWithoutValues,
+  menuIndicators,
+  readyIndicators,
+  toggleIndicator,
+  visibleIndicators,
+  type ChartIndicatorId,
+} from "./chart-indicators";
+import {
+  IndicatorMenuPanel,
+  useIndicatorAccess,
+  useIndicatorMenu,
+  type IndicatorSignIn,
+} from "./indicator-menu";
+import { useIndicatorHistory } from "./use-indicator-history";
+import { isPortraitPhone } from "./portrait-phone";
 
 /** Below this the chart is unreadable; the iframe scrolls instead. */
 const MIN_CHART_HEIGHT = 160;
@@ -24,9 +44,20 @@ const MIN_CHART_HEIGHT = 160;
  * floating tooltip, which costs the plot no height (spec D5).
  */
 const STRIP_MIN_CHART_HEIGHT = 260;
+/**
+ * From this chart height a panel indicator (RSI, MACD) has room under the plot.
+ * Below it the panel is not drawn, and its menu item says so.
+ */
+const OSC_MIN_CHART_HEIGHT = 320;
 
-/** Tailwind's `max-sm:portrait`, where landscape mode is offered. */
-const PORTRAIT_PHONE = "(max-width: 639.98px) and (orientation: portrait)";
+/**
+ * A round icon button in a chart's header row: the share page link, and the
+ * Activity's search and open. Finger-sized where the pointer is a finger,
+ * unless the screen is short (a phone held sideways), where 44px rows would
+ * leave the chart no height; 32px still clears WCAG 2.2's 24px target minimum.
+ */
+export const EMBED_CONTROL_BUTTON =
+  "inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground [@media(pointer:coarse)_and_(min-height:481px)]:min-h-11 [@media(pointer:coarse)_and_(min-height:481px)]:min-w-11";
 
 const asOfFmt = new Intl.DateTimeFormat("en-AU", {
   day: "numeric",
@@ -34,6 +65,37 @@ const asOfFmt = new Intl.DateTimeFormat("en-AU", {
   year: "numeric",
   timeZone: "Australia/Sydney",
 });
+
+/**
+ * The indicator menu a host offers on its chart. Omitted (the public /embed/chart),
+ * the chart has no menu, draws no overlay and asks for no history.
+ */
+export interface EmbedIndicatorOptions {
+  /**
+   * Whether a session opens the advanced indicators: the share page does
+   * ("session"); the Discord Activity cannot hold one, so they stay locked there
+   * ("never").
+   */
+  unlock: "session" | "never";
+  /**
+   * Handles the sign-in click itself (the Activity opens it outside Discord).
+   * Without it, sign-in is a link to /signin that returns to this chart's share page.
+   */
+  onSignIn?: (chart: {
+    stockCode: string;
+    view: ChartViewId;
+    period: ChartPeriod;
+  }) => void;
+  /** The picks to start from, for a host that keeps them across a stock switch. */
+  initial?: readonly ChartIndicatorId[];
+  /** Told the new picks each time the reader changes them. */
+  onChange?: (ids: readonly ChartIndicatorId[]) => void;
+  /**
+   * A sign-in from `onSignIn` is on its way out: its menu button shows it busy and takes
+   * no press until the host clears it (the Activity sets it while its link is out).
+   */
+  signInBusy?: boolean;
+}
 
 export interface StockChartEmbedProps {
   stockCode: string;
@@ -48,10 +110,19 @@ export interface StockChartEmbedProps {
   /**
    * Open already turned sideways on a portrait phone: for a link from an app
    * whose browser does not rotate (Discord's, reported 2026-10-29), where the
-   * landscape screen the site gets in a browser never arrives. Only with
-   * `allowLandscape`; on any other screen it does nothing.
+   * landscape screen the site gets in a browser never arrives. Read on the first
+   * render, so the first frame is already turned. Only with `allowLandscape`;
+   * on any other screen it does nothing. Ignored when `landscape` is given.
    */
   startLandscape?: boolean;
+  /**
+   * Whether the chart is turned sideways, when the host holds that choice itself
+   * (the Discord Activity keeps it outside the chart, which remounts for each stock,
+   * so a stock switch keeps the reader's choice). Given, the chart renders from it,
+   * never reads the screen for `startLandscape`, and only reports the toggle and
+   * Escape through `onLandscapeChange`, which the host answers by changing this.
+   */
+  landscape?: boolean;
   /**
    * Inside an iframe: a link that opens the chart, at the period on screen,
    * full screen on its share page in a new tab.
@@ -62,6 +133,27 @@ export interface StockChartEmbedProps {
    * is the one they chose; on in the Discord Activity, which is the reader's.
    */
   selectableView?: boolean;
+  /**
+   * Extra controls at the end of the header row, before the landscape toggle
+   * (the Discord Activity's search and open).
+   */
+  headerActions?: React.ReactNode;
+  /**
+   * Told when the reader turns landscape on or off (the toggle, or Escape);
+   * not when startLandscape turns it on.
+   */
+  onLandscapeChange?: (on: boolean) => void;
+  /**
+   * Drawn over the chart's box, which is `relative`: the caller positions it
+   * (absolute, inside the box, so it turns with a landscape chart). The Discord
+   * Activity's copy-link fallback.
+   */
+  chartOverlay?: React.ReactNode;
+  /**
+   * The Indicators menu and what it draws. Omitted, there is no menu, and the chart
+   * draws nothing extra, asks for no history and carries no legend.
+   */
+  indicators?: EmbedIndicatorOptions;
 }
 
 function LegendSwatch({ color, label }: { color: string; label: string }) {
@@ -87,6 +179,12 @@ function LegendSwatch({ color, label }: { color: string; label: string }) {
  * only the period is interactive, unless `selectableView` hands the view to
  * the reader as well.
  *
+ * INDICATORS: a host that passes `indicators` gets the Indicators menu (the base
+ * set for everyone, the advanced set behind `unlock`), with each overlay on its
+ * series' axis, a legend in the plot and the panel under the time axis (where the
+ * chart is tall enough for one). Without the prop the chart is the public widget
+ * it always was: no menu, no legend, and no request beyond its own.
+ *
  * LANDSCAPE MODE: a phone held upright gives a time series a tall, narrow
  * plot, and many phones keep rotation locked, which no page can override
  * (iOS Safari has no Screen Orientation lock at all). So the toggle draws the
@@ -105,36 +203,172 @@ export function StockChartEmbed({
   startLandscape = false,
   expandable = false,
   selectableView = false,
+  headerActions,
+  onLandscapeChange,
+  indicators,
+  landscape: landscapeProp,
+  chartOverlay,
 }: StockChartEmbedProps) {
+  // Read as a boolean, not the options object: the hooks below depend on it, and
+  // a host passes a new object each render.
+  const offers = indicators !== undefined;
   const [period, setPeriod] = useState<ChartPeriod>(defaultPeriod);
   const [chosenView, setView] = useState<ChartViewId>(defaultView);
-  const [landscape, setLandscape] = useState(false);
-
-  useEffect(() => {
-    if (!allowLandscape || !startLandscape) return;
-    // The same screens the toggle is offered on (`max-sm:portrait`).
-    if (window.matchMedia?.(PORTRAIT_PHONE).matches) setLandscape(true);
-  }, [allowLandscape, startLandscape]);
+  // Uncontrolled, the chart keeps its own choice. It starts turned when `startLandscape`
+  // asks and the screen is a portrait phone, and the initializer reads the screen on the
+  // first render, so the first frame is already sideways (no flash of upright). Given a
+  // `landscape`, the screen is not read at all.
+  const [ownLandscape, setOwnLandscape] = useState(
+    () =>
+      landscapeProp === undefined &&
+      allowLandscape &&
+      startLandscape &&
+      isPortraitPhone(),
+  );
+  // Controlled, when the host passes `landscape`: the host holds the choice.
+  const controlled = landscapeProp !== undefined;
+  const landscape = landscapeProp ?? ownLandscape;
+  const [chosen, setChosen] = useState<readonly ChartIndicatorId[]>(
+    () => indicators?.initial ?? NO_INDICATORS,
+  );
 
   useEffect(() => {
     if (!landscape) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLandscape(false);
+      // On window, after every listener on the page: a menu, a dialog or a pinned
+      // reading that took this Escape has called preventDefault, and keeps landscape.
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (!controlled) setOwnLandscape(false);
+      onLandscapeChange?.(false);
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [landscape]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [landscape, controlled, onLandscapeChange]);
   const view = selectableView ? chosenView : defaultView;
   const { short, price, volume, anyLoading, isError } = useStockChartData(
     stockCode,
     period,
   );
+  // The view the chart is drawn as, from the series that have arrived. The menu, the
+  // selection and the history follow it, so a Combined chart with one series counts,
+  // fetches and offers only what it draws (as the stock page's panel does).
+  const shown = resolveChartView(view, { price, short });
   const [chartRef, chartBox] = useElementSize<HTMLDivElement>();
+  const chartHeight = Math.max(MIN_CHART_HEIGHT, chartBox.height);
+  const readout = chartHeight >= STRIP_MIN_CHART_HEIGHT ? "strip" : "tooltip";
+  const panelFits = chartHeight >= OSC_MIN_CHART_HEIGHT;
 
-  const { series, volume: vol, indicators, leftAxis, rightAxis } = useMemo(
-    () => buildChartView(view, { stockCode, short, price, volume }),
-    [view, stockCode, short, price, volume],
+  // The indicators the host offers and the visitor may see (base ones for everyone,
+  // advanced ones with a session). A panel the chart is too short for is left out
+  // here as well as from the drawing, so its history is not fetched for nothing.
+  const access = useIndicatorAccess(indicators?.unlock ?? "never");
+  const offered = useMemo(
+    () =>
+      panelFits
+        ? chosen
+        : chosen.filter((id) => indicatorDef(id).kind !== "panel"),
+    [chosen, panelFits],
   );
+  const visible = useMemo(
+    () =>
+      offers
+        ? visibleIndicators(offered, { view: shown, access })
+        : NO_INDICATORS,
+    [offers, offered, shown, access],
+  );
+  // Each indicator waits for its own history (useIndicatorHistory). One that waits is
+  // held back, and a panel among them keeps its place, empty, until it lands. An
+  // indicator that has its history is drawn even while another one still loads.
+  const history = useIndicatorHistory(stockCode, period, visible);
+  const drawn = useMemo(
+    () =>
+      readyIndicators(
+        visible,
+        { price: history.pricePending, short: history.shortPending },
+        history.waiting,
+      ),
+    [visible, history.pricePending, history.shortPending, history.waiting],
+  );
+  const menu = useIndicatorMenu();
+  const menuItems = useMemo(() => menuIndicators(shown), [shown]);
+
+  const {
+    series,
+    volume: vol,
+    indicators: overlays,
+    oscillators,
+    leftAxis,
+    rightAxis,
+  } = useMemo(
+    () =>
+      buildChartView(view, {
+        stockCode,
+        short,
+        price,
+        volume,
+        indicators: drawn,
+        pending: history.waiting,
+        history: { price: history.price, short: history.short },
+      }),
+    [
+      view,
+      stockCode,
+      short,
+      price,
+      volume,
+      drawn,
+      history.waiting,
+      history.price,
+      history.short,
+    ],
+  );
+
+  // What is on screen, counted and named. A selected indicator with nothing to draw,
+  // and nothing still loading, is on a series too short for it (a young listing): it is
+  // not counted, and the menu says so. The panel counts only where the chart draws one.
+  const drawnIds = useMemo(
+    () =>
+      drawnIndicatorIds({
+        indicators: overlays,
+        oscillators: panelFits ? oscillators : [],
+      }),
+    [overlays, oscillators, panelFits],
+  );
+  const hasPrice = price.length > 0;
+  const hasShort = short.length > 0;
+  const noHistory = useMemo(
+    () =>
+      indicatorsWithoutValues(visible, {
+        drawn: drawnIds,
+        waiting: history.waiting,
+        hasData: { price: hasPrice, short: hasShort },
+      }),
+    [visible, drawnIds, history.waiting, hasPrice, hasShort],
+  );
+  const shownCount = visible.length - noHistory.length;
+
+  // A locked indicator's sign-in returns the reader to this chart's share page,
+  // turned sideways if it is. A host that signs the visitor in itself gets the click.
+  const sharePath = useMemo(() => {
+    const share = new URL(chartShareUrl(stockCode, view, period));
+    if (landscape) share.searchParams.set("landscape", "1");
+    return share.pathname + share.search;
+  }, [stockCode, view, period, landscape]);
+  const onSignIn = indicators?.onSignIn;
+  const signIn: IndicatorSignIn = onSignIn
+    ? {
+        onClick: () => onSignIn({ stockCode, view, period }),
+        busy: indicators?.signInBusy,
+      }
+    : { callbackUrl: sharePath };
+
+  const toggle = (id: ChartIndicatorId) => {
+    // The whole selection, not `offered`: a panel the chart is too short for stays
+    // chosen for when the chart is taller.
+    const next = toggleIndicator(chosen, id);
+    setChosen(next);
+    indicators?.onChange?.(next);
+  };
 
   const lastShort = short.length ? short[short.length - 1]!.t : null;
   const lastPrice = price.length ? price[price.length - 1]!.t : null;
@@ -145,15 +379,12 @@ export function StockChartEmbed({
   const partialNote =
     view === "combined" && !anyLoading && series.length === 1
       ? price.length
-        ? "No short position data for this period — showing price only."
-        : "No price data for this period — showing short interest only."
+        ? "No short position data for this period. Showing price only."
+        : "No price data for this period. Showing short interest only."
       : null;
 
   const missingNoun =
     view === "short" ? "short" : view === "price" ? "price" : "price or short";
-
-  const chartHeight = Math.max(MIN_CHART_HEIGHT, chartBox.height);
-  const readout = chartHeight >= STRIP_MIN_CHART_HEIGHT ? "strip" : "tooltip";
 
   return (
     <div
@@ -169,7 +400,10 @@ export function StockChartEmbed({
       )}
     >
       {/* Header: code + view, then the period control. Wraps on narrow frames. */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+      <div
+        data-embed-header
+        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5"
+      >
         <h2 className="flex min-w-0 items-baseline gap-2 text-sm font-semibold">
           <span className="tracking-tight">{stockCode}</span>
           <span
@@ -240,10 +474,44 @@ export function StockChartEmbed({
               </button>
             ))}
           </div>
+          {offers && (
+            <button
+              ref={menu.triggerRef}
+              type="button"
+              aria-expanded={menu.open}
+              aria-controls={menu.open ? menu.id : undefined}
+              onClick={menu.toggle}
+              title="Indicators"
+              className={cn(
+                EMBED_CONTROL_BUTTON,
+                "relative",
+                (menu.open || shownCount > 0) && "bg-muted text-foreground",
+              )}
+            >
+              <FunctionSquare aria-hidden className="h-4 w-4" />
+              <span className="sr-only">Indicators</span>
+              {shownCount > 0 && (
+                <>
+                  <span
+                    aria-hidden
+                    className="absolute -right-1 -top-1 rounded-full bg-primary px-1 text-[9px] leading-4 text-primary-foreground"
+                  >
+                    {shownCount}
+                  </span>
+                  <span className="sr-only">, {shownCount} on</span>
+                </>
+              )}
+            </button>
+          )}
+          {headerActions}
           {allowLandscape && (
             <button
               type="button"
-              onClick={() => setLandscape((v) => !v)}
+              onClick={() => {
+                const next = !landscape;
+                if (!controlled) setOwnLandscape(next);
+                onLandscapeChange?.(next);
+              }}
               aria-pressed={landscape}
               title={landscape ? "Back to portrait" : "Rotate to landscape"}
               className={cn(
@@ -272,7 +540,7 @@ export function StockChartEmbed({
               target="_blank"
               rel="noopener"
               title="Open full screen"
-              className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground [@media(pointer:coarse)_and_(min-height:481px)]:min-h-11 [@media(pointer:coarse)_and_(min-height:481px)]:min-w-11"
+              className={EMBED_CONTROL_BUTTON}
             >
               <Maximize2 aria-hidden className="h-3.5 w-3.5" />
               <span className="sr-only">
@@ -294,6 +562,24 @@ export function StockChartEmbed({
 
       {/* The chart takes the remaining height; measured, then handed to StockChart. */}
       <div ref={chartRef} className="relative min-h-0 flex-1">
+        {/* Inside the chart box, so a landscape box turns it with the chart; the
+            positioning is CSS, never a floating-ui popover, which a rotated box
+            places wrongly. */}
+        {offers && menu.open && (
+          <IndicatorMenuPanel
+            id={menu.id}
+            items={menuItems}
+            selected={offered}
+            noHistory={noHistory}
+            onToggle={toggle}
+            access={access}
+            signIn={signIn}
+            onClose={menu.close}
+            triggerRef={menu.triggerRef}
+            panelUnavailable={!panelFits}
+            className="right-2 top-2"
+          />
+        )}
         {isError ? (
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
             Unable to load chart data.
@@ -303,7 +589,9 @@ export function StockChartEmbed({
             <StockChart
               series={series}
               volume={vol}
-              indicators={indicators}
+              indicators={overlays}
+              // A panel is drawn only where the chart is tall enough for one.
+              oscillators={panelFits ? oscillators : undefined}
               leftAxis={leftAxis}
               rightAxis={rightAxis}
               height={chartHeight}
@@ -313,6 +601,10 @@ export function StockChartEmbed({
               // frame each is a row of the strip: hold the second's row from the
               // first render so the plot does not move 18px when it lands.
               readoutReserveSeries={view === "combined" ? 2 : undefined}
+              // A host that offers indicators also gets their legend and the room
+              // they need in the value axis; a publisher's embed gets neither.
+              indicatorLegend={offers}
+              indicatorsInDomain={offers}
             />
           )
         ) : anyLoading ? (
@@ -325,6 +617,7 @@ export function StockChartEmbed({
             No {missingNoun} data for {stockCode}.
           </div>
         )}
+        {chartOverlay}
       </div>
 
       {/* Caption. Right padding clears the embed layout's fixed brand link,

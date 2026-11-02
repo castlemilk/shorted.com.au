@@ -7,11 +7,16 @@
  * it was copied from showed price too).
  */
 import { seriesColor } from "./chart-theme";
-import { calculateSMA } from "./indicators";
+import {
+  buildIndicatorLayers,
+  chartSeriesId,
+  type ChartIndicatorId,
+} from "./chart-indicators";
 import type {
   AxisSpec,
   ChartPoint,
   ChartSeriesSpec,
+  OscillatorSpec,
   SeriesIndicator,
 } from "./types";
 
@@ -61,23 +66,25 @@ export const priceFmt = (v: number) => `$${v.toFixed(2)}`;
  */
 export const shortFmt = (v: number) => `${v.toFixed(2)}%`;
 
-/** Minimum price points before the SMA 20 overlay is drawn. */
-export const SMA_PERIOD = 20;
-export const SMA_COLOR = "#f59e0b";
-
 export interface ChartViewInput {
   stockCode: string;
   short: ChartPoint[];
   price: ChartPoint[];
   volume: ChartPoint[];
-  /** Draw the SMA 20 overlay on price (price + combined views only). */
-  showMA?: boolean;
+  /** The indicators to draw, already limited to what the visitor may see (chart-indicators.ts). */
+  indicators?: readonly ChartIndicatorId[];
+  /** Selected indicators still waiting for their history. A panel among them is drawn empty (chart-indicators.ts). */
+  pending?: readonly ChartIndicatorId[];
+  /** Earlier history for an indicator's warm-up, by target series (chart-indicators.ts, planWarmup). */
+  history?: { price?: readonly ChartPoint[]; short?: readonly ChartPoint[] };
 }
 
 export interface ChartViewConfig {
   series: ChartSeriesSpec[];
   volume: ChartPoint[] | undefined;
   indicators: SeriesIndicator[];
+  /** The panel under the chart (RSI or MACD), aligned to series[0]. */
+  oscillators: OscillatorSpec[];
   leftAxis: AxisSpec;
   rightAxis: AxisSpec | undefined;
 }
@@ -86,8 +93,8 @@ export interface ChartViewConfig {
  * Series, volume, indicators and axes for one view.
  *
  * - short:    short % alone, area, on the LEFT axis; no volume.
- * - price:    price area on the left axis + volume (+ SMA 20).
- * - combined: price area (left, $) + short % line (right, %) + volume (+ SMA 20).
+ * - price:    price area on the left axis + volume (+ the price indicators).
+ * - combined: price area (left, $) + short % line (right, %) + volume (+ the indicators).
  *
  * A series whose data is empty is left out, so a partial load renders what
  * arrived rather than nothing. And the axes follow the data: a Combined view
@@ -100,13 +107,11 @@ export function buildChartView(
   view: ChartViewId,
   input: ChartViewInput,
 ): ChartViewConfig {
-  const { stockCode, short, price, volume, showMA = false } = input;
-  if (view === "combined") {
-    if (!price.length && short.length) return buildChartView("short", input);
-    if (!short.length && price.length) return buildChartView("price", input);
-  }
+  const { stockCode, short, price, volume } = input;
+  const shown = resolveChartView(view, { price, short });
+  if (shown !== view) return buildChartView(shown, input);
   const priceSeries: ChartSeriesSpec = {
-    id: `${stockCode}:price`,
+    id: chartSeriesId(stockCode, "price"),
     label: "Price",
     color: seriesColor("price"),
     axis: "left",
@@ -114,7 +119,7 @@ export function buildChartView(
     points: price,
   };
   const shortSeries: ChartSeriesSpec = {
-    id: `${stockCode}:short`,
+    id: chartSeriesId(stockCode, "short"),
     label: "Short %",
     color: seriesColor("short"),
     // right axis in Combined (dual), left axis when shown alone
@@ -126,28 +131,24 @@ export function buildChartView(
     measureMode: "absolute",
     measureUnit: "pp",
   };
-
-  const maIndicator: SeriesIndicator[] =
-    showMA && price.length >= SMA_PERIOD
-      ? [
-          {
-            id: "sma20",
-            seriesId: `${stockCode}:price`,
-            label: "SMA 20",
-            color: SMA_COLOR,
-            values: calculateSMA(
-              price.map((p) => p.v),
-              SMA_PERIOD,
-            ),
-          },
-        ]
-      : [];
+  // The indicators follow the branch they are drawn on, so a price one is never
+  // laid over a short-only chart, nor a short one over a price-only chart.
+  const layers = (branch: ChartViewId) =>
+    buildIndicatorLayers({
+      stockCode,
+      view: branch,
+      price,
+      short,
+      ids: input.indicators ?? [],
+      pending: input.pending,
+      history: input.history,
+    });
 
   if (view === "short") {
     return {
       series: short.length ? [shortSeries] : [],
       volume: undefined,
-      indicators: [],
+      ...layers("short"),
       leftAxis: { side: "left", format: shortFmt },
       rightAxis: undefined,
     };
@@ -156,7 +157,7 @@ export function buildChartView(
     return {
       series: price.length ? [priceSeries] : [],
       volume,
-      indicators: maIndicator,
+      ...layers("price"),
       leftAxis: { side: "left", format: priceFmt },
       rightAxis: undefined,
     };
@@ -167,8 +168,24 @@ export function buildChartView(
   return {
     series,
     volume,
-    indicators: maIndicator,
+    ...layers("combined"),
     leftAxis: { side: "left", format: priceFmt },
     rightAxis: { side: "right", format: shortFmt },
   };
+}
+
+/**
+ * The view a chart is drawn as. A Combined view with one of its two series is that
+ * series' own view, with its axis in its own unit (buildChartView falls back the
+ * same way). Decided from the lengths alone, so the indicators, their menu and
+ * their history can follow it before anything is built.
+ */
+export function resolveChartView(
+  view: ChartViewId,
+  data: { price: readonly ChartPoint[]; short: readonly ChartPoint[] },
+): ChartViewId {
+  if (view !== "combined") return view;
+  if (!data.price.length && data.short.length) return "short";
+  if (!data.short.length && data.price.length) return "price";
+  return view;
 }

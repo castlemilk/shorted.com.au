@@ -6,6 +6,19 @@ jest.mock("next/navigation", () => ({
   usePathname: () => mockPathname.value,
 }));
 
+// A preview deployment shows the "Preview Environment" banner, which the chrome-less
+// routes must not show. Top level: a mock inside a describe would be hoisted there only,
+// after the banner has already imported the real module.
+jest.mock("~/@/config/environment", () => ({
+  config: {
+    isDevelopment: false,
+    features: { showEnvironmentBanner: true },
+    api: { url: "https://api.shorted.com.au" },
+  },
+  getPreviewPRNumber: () => null,
+  isPreviewDeployment: () => true,
+}));
+
 jest.mock("~/@/components/ui/site-header", () => ({
   __esModule: true,
   default: () => <header data-testid="site-header">header</header>,
@@ -18,6 +31,7 @@ jest.mock("~/@/components/ui/site-footer", () => ({
 
 import { ConditionalHeader } from "../conditional-header";
 import { ConditionalFooter } from "../conditional-footer";
+import { EnvironmentBanner } from "~/@/components/ui/environment-banner";
 
 function chromeOn(pathname: string) {
   mockPathname.value = pathname;
@@ -67,6 +81,10 @@ describe("site chrome on the OAuth flow", () => {
   // The pre-existing exclusions must survive this change.
   it("keeps the embed and roadmap rules", () => {
     expect(chromeOn("/embed/chart")).toEqual({ header: false, footer: false });
+    expect(chromeOn("/embed/discord")).toEqual({
+      header: false,
+      footer: false,
+    });
     // Roadmap drops only the footer, so it can use the space below the nav.
     expect(chromeOn("/roadmap")).toEqual({ header: true, footer: false });
   });
@@ -83,4 +101,27 @@ describe("site chrome on the chart share page", () => {
     expect(chromeOn("/charts")).toEqual({ header: true, footer: true });
     expect(chromeOn("/chartbook")).toEqual({ header: true, footer: true });
   });
+});
+
+// The header and every banner read one list (chromeless-routes.ts). The preview banner
+// used to ignore it, so a chart opened on a preview showed "Preview Environment" above it.
+describe("environment banner on chrome-less routes", () => {
+  const bannerOn = (pathname: string) => {
+    mockPathname.value = pathname;
+    const banner = render(<EnvironmentBanner />);
+    const shown = banner.queryByText("Preview Environment") !== null;
+    banner.unmount();
+    return shown;
+  };
+
+  it("shows on the site", () => {
+    expect(bannerOn("/")).toBe(true);
+  });
+
+  it.each(["/embed/discord", "/embed/chart", "/chart/WBT"])(
+    "is absent on %s",
+    (path) => {
+      expect(bannerOn(path)).toBe(false);
+    },
+  );
 });

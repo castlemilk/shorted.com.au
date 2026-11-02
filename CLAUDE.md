@@ -726,7 +726,7 @@ history, `"<CODE>:short-interest"`), always client-only (`ssr: false`).
 Strategy keeps its own levels chart; Financials, Company, News and Community
 have none. The visitor's settings survive a tab switch in `chart-prefs.ts`, a
 client-only module store: the period is kept per stock and shared by both chart
-tabs, the view, SMA 20 and divergence per `prefsKey`. It lives until a reload
+tabs, the view, indicators and divergence per `prefsKey`. It lives until a reload
 and writes nothing to storage; a panel with no `prefsKey` (the dashboard, the
 stories) is plain local state.
 
@@ -814,6 +814,26 @@ is the same height before and after the banner mounts. The site header's Sign
 in button stays on every page. The Strategy tab's `RegimeBanner` takes
 `compact` below `sm` (the pill, the as-of date and the verdict, without the
 four readouts and the ladder); on `/picks` it is unchanged.
+
+**Indicators.** The toggles row holds an **Indicators** trigger in every view:
+an icon below `sm`, the word from `sm`, and a count badge when any are on. From
+`xl` the one row needs about
+975px (at a 1280px window beside the signed-in sidebar the toggles row scrolls
+about 15px, as it was built to). The menu is a panel inside the chart box, CSS
+positioned (`indicator-menu.tsx`): the base set for everyone, the advanced set
+(SMA 200, Bollinger Bands, RSI, MACD, the 90-day short average) behind a session.
+An overlay draws on its series' own axis and widens the value axis
+(`indicatorsInDomain`); the legend sits inside the plot's top left
+(`indicatorLegend`), its width estimated from its labels at `AXIS_CHAR_PX`
+(6.1px a character) and never measured, as the axis labels are. At most one panel shows, under the time axis (it used to
+overlap the labels' bottom 8px). An indicator whose lookback is more than a tenth of the window on screen (sessions for price, calendar days for short interest) fetches the first longer period that covers it, once, through that period's own query keys (`planWarmup`): 1M with SMA 50 fetches 6M, 2Y with SMA 200 fetches MAX, and SMA 20 at 1Y fetches nothing. Short interest never warms up from MAX, which is weekly buckets. A longer history the stock already loaded, when it covers the lookback, serves the indicator and nothing is fetched (`useIndicatorHistory`). Each indicator waits for its own history
+(`readyIndicators` with `history.waiting`), and a waiting panel is drawn empty
+(`buildChartView` `pending`), so the plot keeps its height. The menu follows the
+view the chart is drawn as (`resolveChartView`: a Combined chart with one series
+is that series' view), and a selected indicator the series is too short for says
+so ("Not enough history") and is not counted in the trigger. The StockChartEmbed
+follows the same rules. `ChatSidebar` and both environment banners read
+`isChromelessRoute`, as the header does.
 
 ### Landmines
 
@@ -1465,6 +1485,7 @@ because chat apps show HTML as text (a WBT snippet pasted into Discord,
 | Chart share page `/chart/<CODE>?view=&period=` | `app/chart/[code]/` (noindex, follow; no site chrome; params and fallbacks are `/embed/chart`'s, `app/embed/chart/params.ts`) |
 | Its card `/chart/<CODE>/image` | `app/chart/[code]/image/route.tsx` + `lib/og/chart-image.ts` (geometry) + `lib/og/chart-card.tsx`: the chart itself, 1200x630, never a 500 |
 | Landscape mode | `StockChartEmbed` `allowLandscape`: on a portrait phone the box is turned 90deg with CSS (`portrait:` variants), because rotation lock cannot be overridden and iOS has no orientation lock API |
+| Indicators | `components/charts/chart-indicators.ts` (registry, base and advanced sets, warm-up plan), `chart-indicator-math.ts`, `indicator-layout.ts`, `indicator-menu.tsx`, `use-indicator-history.ts`. `StockChartEmbed` `indicators`: the share page `unlock: "session"`, the Discord Activity `unlock: "never"` (its sign-in is `onSignIn`, which opens outside Discord), `/embed/chart` none (the prop is omitted: no menu, no legend, no extra query) |
 
 ### Landmines
 
@@ -1483,6 +1504,25 @@ because chat apps show HTML as text (a WBT snippet pasted into Discord,
   `localPoint`), which includes the CSS rotation. A pointer path that uses
   `getBoundingClientRect` or `clientX` arithmetic would break scrubbing in
   landscape.
+- **Nothing that positions with floating-ui may render inside the landscape
+  box.** Radix Popover, DropdownMenu and Tooltip place themselves from
+  `getBoundingClientRect`, which a rotated containing block breaks; a portal is
+  unrotated and sits under the box's `z-[60]`. So the indicator menu is
+  CSS-positioned inside the chart box and turns with it, and the Activity's
+  search is an upright dialog at `z-[70]`.
+- **The landscape box hears Escape on `window`, after every other listener,
+  and ignores an Escape already handled (`defaultPrevented`).** Every handler
+  that takes an Escape calls `preventDefault` (Radix does; the indicator menu
+  does when the Escape comes from inside it, where focus is); one that does not
+  leaves landscape on the same press. The host can hold the choice itself
+  (`StockChartEmbed` `landscape`, controlled): the chart then only reports
+  the toggle and Escape, and the host answers by changing it.
+- **`chart-indicators.ts` imports only types from `chart-views.ts` and stays
+  free of `"use client"`.** Server code (the share page's metadata, the bot's
+  messages) reaches it through `chart-views.ts`, so a value import back is a
+  module cycle. `indicator-menu.tsx` and `use-indicator-history.ts` are client
+  modules imported only by `StockChartPanel` and `StockChartEmbed`, which are
+  dynamic islands (`ssr-import-safety.test.ts` does not follow them).
 
 ## Discord bot (slash commands, live charts, Activity)
 
@@ -1557,11 +1597,35 @@ it in place, and an **Interactive** button (`"activity": true`, on since
   follows a plain link in place and loaded the whole site inside the Activity
   (2026-10-29): the embed layout's corner credit is off on `/embed/discord`
   (`app/embed/embed-brand-link.tsx`), and links go out through
-  `openExternalLink`.
+  `openExternalLink`. `openOutside` never calls `window.open` inside Discord
+  (`inDiscordFrame`): it waits up to 3 seconds for the SDK, with the pressed control `aria-busy` meanwhile (Open on Shorted, or the menu's sign-in; see the in-flight rule below), and otherwise shows the address as text to
+  copy, drawn in the chart's box (`chartOverlay`, an `absolute z-40` child that turns
+  with a landscape chart; the announcement is an always-mounted `sr-only`
+  status region in the Activity). An SDK that connects after the wait does not open the link afterwards. A later open that goes out clears the address, and so does a stock switch. A command Discord never answers releases the
+  in-flight guard after 10 seconds (`LINK_SETTLE_MS`). While a link is in flight (`linkInFlight`) a press on any control does nothing. `opening` names the control that asked (`"open"`, `"sign-in"` or `"link"`), and only that control shows busy: the menu's sign-in button does so through `IndicatorSignIn.busy` (set from `signInBusy`), and it takes no press while busy. A stock switch releases the guard, clears the address and bumps `generation`, so a link that settles after it reports nothing, while one whose SDK answered in time still goes out.
+  The link interceptor is on from mount, not once the handshake has finished,
+  and it catches `auxclick` for a middle click only (a right click keeps its
+  menu). The Activity renders no `<a>` at all (a test and the e2e spec both
+  count them): search and **Open on Shorted** are buttons in the chart's header
+  row (`headerActions`), and the advanced indicators' sign-in is `onSignIn`,
+  not a link.
+- **The Activity reads the screen once, and then the choice is its own.** A
+  phone's own launch (`platform=mobile`) on a portrait phone starts turned
+  sideways; the Activity holds that in its state (`landscapePref`, passed as the
+  controlled `landscape`), outside the keyed chart, so every stock switch keeps
+  it. It is never read again: a search's on-screen keyboard can reshape the
+  screen mid-switch, and a re-read would turn the new chart upright. A frame's
+  shape says nothing of the device (the `/discord/settings` preview is a portrait
+  frame on a phone, and a desktop window can be narrow).
+- **Search returns focus to its button however the dialog closes.** The Search
+  button carries `aria-haspopup="dialog"` and `aria-expanded`; the dialog's
+  `onCloseAutoFocus` puts focus back on it (`returnFocusTo`), since Radix would
+  return focus to a chart a pick has just replaced.
 - **Discord's in-app browser does not rotate.** **Open on Shorted** links to
   the share page with `landscape=1`, which opens the chart turned sideways on a
   phone held upright (`StockChartEmbed` `startLandscape`); only the bot's link
-  carries it.
+  carries it, and so does the Activity's sign-in hand-off (`activitySignInUrl`),
+  which returns to the same share page turned sideways.
 
 ## Twitter / X Automation
 

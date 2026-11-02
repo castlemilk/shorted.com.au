@@ -82,6 +82,8 @@ export interface OscillatorSpec {
   dash?: string;
   reference?: number[]; // horizontal guide levels (e.g. [30, 50, 70])
   domain?: [number, number]; // default [0, 100]
+  /** The panel's name, drawn at its top left (e.g. "RSI 14"). Not drawn when absent. */
+  caption?: string;
   /** Additional lines on the same panel (e.g. STOCH %D, ADX +DI/-DI). */
   extraLines?: { values: (number | null)[]; color: string; dash?: string }[];
 }
@@ -132,6 +134,16 @@ export interface StockChartProps {
    * whatever it shows, and nothing in the tooltip mode.
    */
   readoutReserveSeries?: number;
+  /**
+   * Draw the indicators' names as a legend inside the plot, at its top left. Not
+   * drawn on a compact chart.
+   */
+  indicatorLegend?: boolean;
+  /**
+   * Fit the value axes to the indicator lines and bands as well as the series, so
+   * an average above the last close is on screen. Absolute view only.
+   */
+  indicatorsInDomain?: boolean;
 }
 
 /** A horizontal reference line on one axis, optionally bounded to a time span. */

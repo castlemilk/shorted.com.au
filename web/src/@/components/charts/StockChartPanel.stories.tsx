@@ -2,6 +2,7 @@ import { useState, type ComponentType } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, mocked, waitFor, within, userEvent } from "storybook/test";
 import { create } from "@bufbuild/protobuf";
+import { SessionProvider } from "next-auth/react";
 import { StockChartPanel, type StockChartPanelProps } from "./StockChartPanel";
 import { StockChartPanelSkeleton } from "./stock-chart-section";
 import { resetChartPrefsForTests } from "./chart-prefs";
@@ -26,16 +27,22 @@ const meta = {
   parameters: { layout: "fullscreen" },
   args: { stockCode: "PLS" },
   decorators: [
+    // No session: the panel's advanced indicators show locked, as for a visitor who has not signed in.
+    (Story) => (
+      <SessionProvider session={null}>
+        <Story />
+      </SessionProvider>
+    ),
     // `bare` stories are laid out at a real page width by their own decorator.
     // The frame has a width and no height: the panel's height depends on the
     // viewport (a 360 or 420px box, one row of controls or a stack), and a
-    // frame that hugs its content is right for every runner. 1000px is a panel
-    // of 968, past the 960 its one row of controls needs.
+    // frame that hugs its content is right for every runner. 1040px is a panel
+    // of 1008, past the 975 its one row of controls needs.
     (Story, { parameters }) =>
       parameters.bare ? (
         <Story />
       ) : (
-        <div style={{ width: 1000 }} className="rounded-lg border bg-background p-4">
+        <div style={{ width: 1040 }} className="rounded-lg border bg-background p-4">
           <Story />
         </div>
       ),
@@ -288,7 +295,7 @@ export const Phone: Story = {
 
     // The toggles are 36px, and the chart is the box: a strip for the two
     // series of this view and the plot under it.
-    for (const name of ["SMA 20", "Divergence"]) {
+    for (const name of [/^Indicators/, /Divergence/]) {
       expect(rect(canvas.getByRole("button", { name })).height).toBeCloseTo(36, 0);
     }
     const { chart } = parts(canvasElement);
@@ -313,10 +320,11 @@ export const Phone: Story = {
     );
     expect(canvas.getByRole("button", { name: /^1y$/i })).toHaveAttribute("aria-pressed", "false");
 
-    // A view with no toggles keeps their row: the panel does not change height.
+    // The Short view has no Divergence, and keeps the row: the panel does not change height.
     const before = rect(parts(canvasElement).panel).height;
     await userEvent.click(canvas.getByRole("button", { name: "Short" }));
-    await waitFor(() => expect(canvas.queryByRole("button", { name: "SMA 20" })).toBeNull());
+    await waitFor(() => expect(canvas.queryByRole("button", { name: /^Divergence/ })).toBeNull());
+    expect(canvas.getByRole("button", { name: /^Indicators/ })).toBeInTheDocument();
     expect(rect(parts(canvasElement).panel).height).toBeCloseTo(before, 0);
     expect(rect(parts(canvasElement).toggles).height).toBeCloseTo(36, 0);
     expectSameFootprint(canvasElement);
@@ -505,10 +513,12 @@ export const RemembersSettings: Story = {
     const period = (label: RegExp) => canvas.getByRole("button", { name: label });
     await drawn(canvasElement);
 
-    // On Overview: 6M, the Price & Volume view and SMA 20.
+    // On Overview: 6M, the Price & Volume view, and SMA 20 picked in the Indicators menu.
     await userEvent.click(period(/^6m$/i));
     await userEvent.click(canvas.getByRole("button", { name: "Price & Volume" }));
-    await userEvent.click(canvas.getByRole("button", { name: "SMA 20" }));
+    await userEvent.click(canvas.getByRole("button", { name: /^Indicators/ }));
+    await userEvent.click(canvas.getByRole("button", { name: /^SMA 20/ }));
+    await userEvent.keyboard("{Escape}");
 
     // Financials has no chart to keep a setting in.
     await userEvent.click(tab("Financials tab"));
@@ -520,7 +530,8 @@ export const RemembersSettings: Story = {
     expect(period(/^6m$/i)).toHaveAttribute("aria-pressed", "true");
     expect(period(/^1y$/i)).toHaveAttribute("aria-pressed", "false");
     expect(canvas.getByRole("button", { name: "Price & Volume" })).toHaveAttribute("aria-pressed", "true");
-    expect(canvas.getByRole("button", { name: "SMA 20" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(canvas.getByRole("button", { name: /^Indicators/ }));
+    expect(canvas.getByRole("button", { name: /^SMA 20/ })).toHaveAttribute("aria-pressed", "true");
 
     // Short interest opens on its own view, with the stock's period.
     await userEvent.click(tab("Short interest tab"));

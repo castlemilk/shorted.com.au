@@ -93,7 +93,7 @@ export default async function ShortInterestPage({ params }: PageProps) {
         {/* The chart is this tab's first block, opened on the short series: the
             one the tab is about. A stock with no short history has nothing to
             show there, so it opens on the combined view instead. The view,
-            SMA 20 and divergence are kept for this tab apart from the
+            indicators and divergence are kept for this tab apart from the
             Overview's; the period is shared with it (chart-prefs.ts). */}
         <section aria-labelledby="stock-chart-heading" className="min-w-0">
           <StockChartHeading title="Short interest chart" />

@@ -85,6 +85,9 @@ export function ChartShareView({
           defaultPeriod={period}
           allowLandscape
           startLandscape={startLandscape}
+          // A visitor with a session gets the advanced indicators; the sign-in
+          // link returns them to this page.
+          indicators={{ unlock: "session" }}
         />
       </main>
     </div>

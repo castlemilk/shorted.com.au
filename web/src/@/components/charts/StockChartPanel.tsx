@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { FunctionSquare } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { EmbedDialog } from "~/@/components/ui/embed-dialog";
 import { StockChart } from "./StockChart";
@@ -11,11 +13,26 @@ import { CHART_BOX_HEIGHT_CLASS } from "./stock-chart-section";
 import {
   CHART_PERIODS,
   CHART_VIEWS,
-  SMA_COLOR,
   buildChartView,
+  resolveChartView,
   type ChartPeriod,
   type ChartViewId,
 } from "./chart-views";
+import {
+  NO_INDICATORS,
+  drawnIndicatorIds,
+  indicatorsWithoutValues,
+  menuIndicators,
+  readyIndicators,
+  toggleIndicator,
+  visibleIndicators,
+} from "./chart-indicators";
+import {
+  IndicatorMenuPanel,
+  useIndicatorAccess,
+  useIndicatorMenu,
+} from "./indicator-menu";
+import { useIndicatorHistory } from "./use-indicator-history";
 
 // Where each control sits, as CSS grid areas: every control is rendered once
 // and only its place changes with the breakpoint (spec D4, phone controls).
@@ -23,13 +40,14 @@ import {
 // chart, and the period control (the full width) and the toggles sit under it.
 // From `xl` it is one row above the chart.
 //
-// `xl`, where the spec says `sm`. The one row needs a panel 960px wide
-// (measured, in a browser: the view control 329, the toggles 291, the period
-// control 230, the embed button 76, three gaps of 12). A panel is that wide from
-// a 1024px window signed out, and from 1280px beside the signed-in sidebar
-// (256px), so `xl` is the first breakpoint that is safe for both. At exactly
-// 1280 there it has no slack, and the toggles, which scroll, give up whatever a
-// classic scrollbar takes. Given less width than that the row does not wrap as
+// `xl`, where the spec says `sm`. The one row needs a panel about 975px wide
+// (measured in a browser before the Indicators trigger: the view control 329, the
+// toggles 291, the period control 230, the embed button 76, three gaps of 12; the
+// Indicators trigger makes the toggles about 306, so the row about 975). A panel is
+// that wide from a 1024px window signed out, and from 1280px beside the signed-in
+// sidebar (256px), so `xl` is the first breakpoint that is safe for both. At 1280
+// beside the sidebar the panel is 960px, and the toggles, which scroll, give up
+// about 15px of their row. Given less width than that the row does not wrap as
 // the old flex row did: at a 704px panel the toggles had 37px of their 291, at
 // 886px 219, and at 576px the view control broke onto two lines and the row came
 // out 62px tall. The skeleton breaks at `xl` too, so the two match at every
@@ -50,7 +68,7 @@ const AREAS_WITH_LEGEND =
 const SEG_GROUP =
   "flex h-10 items-center overflow-hidden rounded-md ring-1 ring-inset ring-border xl:h-auto xl:gap-0.5 xl:self-center xl:overflow-visible xl:border xl:p-0.5 xl:ring-0";
 
-// The two toggles share a look; below `xl` they fill the 36px row they sit in
+// The toggles share a look; below `xl` they fill the 36px row they sit in
 // (and, like the segmented buttons, draw their focus ring inside: the row clips).
 const TOGGLE =
   "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium transition-colors max-xl:focus-visible:-outline-offset-2 xl:h-auto";
@@ -89,7 +107,7 @@ export interface StockChartPanelProps {
   defaultPeriod?: ChartPeriod;
   defaultView?: ChartViewId;
   /**
-   * Where this panel keeps its view, SMA 20 and divergence choices between
+   * Where this panel keeps its view, indicators and divergence choices between
    * mounts (see chart-prefs.ts): `"<CODE>:overview"`, `"<CODE>:short-interest"`.
    * The period is kept per stock, shared by every panel with a key. Without a
    * key the panel remembers nothing.
@@ -114,19 +132,44 @@ export function StockChartPanel({
   prefsKey,
   height,
 }: StockChartPanelProps) {
-  const [{ period, view, showMA, showDivergence }, setPrefs] = useChartPrefs({
+  const [{ period, view, indicators: chosen, showDivergence }, setPrefs] = useChartPrefs({
     stockCode,
     prefsKey,
     defaults: {
       period: defaultPeriod,
       view: defaultView,
-      showMA: false,
+      indicators: NO_INDICATORS,
       showDivergence: false,
     },
   });
 
   const { short, price, volume, correlation, anyLoading, isError } =
     useStockChartData(stockCode, period);
+
+  // The view the chart is drawn as, from the series that have arrived. The menu,
+  // the selection and the history follow it, so a Combined chart with one series
+  // counts, fetches and offers only what it draws.
+  const shown = resolveChartView(view, { price, short });
+  const access = useIndicatorAccess("session");
+  const pathname = usePathname();
+  const visible = useMemo(
+    () => visibleIndicators(chosen, { view: shown, access }),
+    [chosen, shown, access],
+  );
+  // Each indicator waits for its own history (useIndicatorHistory). One that waits
+  // is held back, and a panel among them keeps its place, empty, until it lands.
+  const history = useIndicatorHistory(stockCode, period, visible);
+  const drawn = useMemo(
+    () =>
+      readyIndicators(
+        visible,
+        { price: history.pricePending, short: history.shortPending },
+        history.waiting,
+      ),
+    [visible, history.pricePending, history.shortPending, history.waiting],
+  );
+  const menu = useIndicatorMenu();
+  const menuItems = useMemo(() => menuIndicators(shown), [shown]);
 
   // Shorted-only overlay (combined view): shade spans where short interest and
   // price trend the SAME way — shorts building into a rally (bearish) or
@@ -140,13 +183,58 @@ export function StockChartPanel({
   );
 
   // Per-view chart config — shared with the /embed/chart widget.
-  const { series, volume: vol, indicators, leftAxis, rightAxis } = useMemo(
-    () => buildChartView(view, { stockCode, short, price, volume, showMA }),
-    [view, stockCode, short, price, volume, showMA],
+  const {
+    series,
+    volume: vol,
+    indicators,
+    oscillators,
+    leftAxis,
+    rightAxis,
+  } = useMemo(
+    () =>
+      buildChartView(view, {
+        stockCode,
+        short,
+        price,
+        volume,
+        indicators: drawn,
+        pending: history.waiting,
+        history: { price: history.price, short: history.short },
+      }),
+    [
+      view,
+      stockCode,
+      short,
+      price,
+      volume,
+      drawn,
+      history.waiting,
+      history.price,
+      history.short,
+    ],
   );
 
+  // What is on screen, counted and named. A selected indicator with nothing to draw,
+  // and nothing still loading, is on a series too short for it (a young listing):
+  // it is not counted, and the menu says so.
+  const drawnIds = useMemo(
+    () => drawnIndicatorIds({ indicators, oscillators }),
+    [indicators, oscillators],
+  );
+  const hasPrice = price.length > 0;
+  const hasShort = short.length > 0;
+  const noHistory = useMemo(
+    () =>
+      indicatorsWithoutValues(visible, {
+        drawn: drawnIds,
+        waiting: history.waiting,
+        hasData: { price: hasPrice, short: hasShort },
+      }),
+    [visible, drawnIds, history.waiting, hasPrice, hasShort],
+  );
+  const shownCount = visible.length - noHistory.length;
+
   const hasData = series.length > 0;
-  const showMAToggle = view !== "short";
   const showLegend = showDivergence && view === "combined" && regions.length > 0;
 
   return (
@@ -205,31 +293,39 @@ export function StockChartPanel({
             {correlation.toFixed(2)}
           </span>
         )}
-        {showMAToggle && (
-          <button
-            type="button"
-            onClick={() => setPrefs({ showMA: !showMA })}
-            aria-pressed={showMA}
-            className={cn(
-              TOGGLE,
-              showMA
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-            )}
-          >
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ background: showMA ? SMA_COLOR : "transparent", border: `1px solid ${SMA_COLOR}` }}
-            />
-            SMA 20
-          </button>
-        )}
+        <button
+          ref={menu.triggerRef}
+          type="button"
+          aria-expanded={menu.open}
+          aria-controls={menu.open ? menu.id : undefined}
+          onClick={menu.toggle}
+          className={cn(
+            TOGGLE,
+            menu.open || shownCount > 0
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+          )}
+        >
+          <FunctionSquare aria-hidden className="h-4 w-4 sm:hidden" />
+          <span className="max-sm:sr-only">Indicators</span>
+          {shownCount > 0 && (
+            <>
+              <span
+                aria-hidden
+                className="rounded bg-primary/15 px-1 text-[10px] tabular-nums"
+              >
+                {shownCount}
+              </span>
+              <span className="sr-only">, {shownCount} on</span>
+            </>
+          )}
+        </button>
         {view === "combined" && (
           <button
             type="button"
             onClick={() => setPrefs({ showDivergence: !showDivergence })}
             aria-pressed={showDivergence}
-            title="Shade spans where short interest and price trend the same way — shorts building into a rally, or covering into a slide"
+            title="Shade spans where short interest and price trend the same way: shorts building into a rally, or covering into a slide"
             className={cn(
               TOGGLE,
               showDivergence
@@ -296,14 +392,30 @@ export function StockChartPanel({
       )}
 
       {/* Chart. The box has its height whatever it holds, so the loading,
-          empty and error states fill the footprint the chart will have. */}
+          empty and error states fill the footprint the chart will have. The
+          indicator menu sits over it, inside the box, so it never moves the
+          chart. */}
       <div
         className={cn(
-          "min-w-0 [grid-area:chart]",
+          "relative min-w-0 [grid-area:chart]",
           height === undefined && CHART_BOX_HEIGHT_CLASS,
         )}
         style={height === undefined ? undefined : { height }}
       >
+        {menu.open && (
+          <IndicatorMenuPanel
+            id={menu.id}
+            items={menuItems}
+            selected={chosen}
+            noHistory={noHistory}
+            onToggle={(id) => setPrefs({ indicators: toggleIndicator(chosen, id) })}
+            access={access}
+            signIn={{ callbackUrl: pathname ?? "/" }}
+            onClose={menu.close}
+            triggerRef={menu.triggerRef}
+            className="right-2 max-xl:bottom-2 xl:top-2"
+          />
+        )}
         {isError ? (
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
             Unable to load chart data. Please try again later.
@@ -313,10 +425,13 @@ export function StockChartPanel({
             series={series}
             volume={vol}
             indicators={indicators}
+            oscillators={oscillators}
             regions={regions}
             leftAxis={leftAxis}
             rightAxis={rightAxis}
             height={height}
+            indicatorLegend
+            indicatorsInDomain
             // The price and the short series load separately, and on a phone each
             // is a row of the strip: hold the second's row from the first render
             // so the plot does not move 18px when it lands.

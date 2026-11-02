@@ -8,7 +8,7 @@ import {
 const DEFAULTS: ChartPrefs = {
   period: "1y",
   view: "combined",
-  showMA: false,
+  indicators: [],
   showDivergence: false,
 };
 
@@ -38,10 +38,10 @@ describe("useChartPrefs", () => {
     const { result } = mount("BHP", "BHP:overview");
 
     act(() => result.current[1]({ view: "price" }));
-    act(() => result.current[1]({ showMA: true }));
+    act(() => result.current[1]({ indicators: ["sma20"] }));
 
     // The first patch is still there after the second.
-    expect(result.current[0]).toEqual({ ...DEFAULTS, view: "price", showMA: true });
+    expect(result.current[0]).toEqual({ ...DEFAULTS, view: "price", indicators: ["sma20"] });
   });
 
   it("shares the period between two keys of the same stock", () => {
@@ -69,12 +69,12 @@ describe("useChartPrefs", () => {
     expect(lower.result.current[0].period).toBe("3m");
   });
 
-  it("keeps the view, SMA 20 and divergence per key", () => {
+  it("keeps the view, indicators and divergence per key", () => {
     const overview = mount("BHP", "BHP:overview");
     act(() =>
       overview.result.current[1]({
         view: "price",
-        showMA: true,
+        indicators: ["sma20"],
         showDivergence: true,
       }),
     );
@@ -87,7 +87,7 @@ describe("useChartPrefs", () => {
     expect(shortInterest.result.current[0]).toEqual({
       period: "1y",
       view: "short",
-      showMA: false,
+      indicators: [],
       showDivergence: false,
     });
 
@@ -96,7 +96,7 @@ describe("useChartPrefs", () => {
     expect(overviewAgain.result.current[0]).toEqual({
       period: "1y",
       view: "price",
-      showMA: true,
+      indicators: ["sma20"],
       showDivergence: true,
     });
   });
@@ -111,22 +111,22 @@ describe("useChartPrefs", () => {
   });
 
   it("lets a choice of false stand over a default of true", () => {
-    const on: ChartPrefs = { ...DEFAULTS, showMA: true };
+    const on: ChartPrefs = { ...DEFAULTS, indicators: ["sma20"] };
     const first = mount("BHP", "BHP:overview", on);
-    act(() => first.result.current[1]({ showMA: false }));
+    act(() => first.result.current[1]({ indicators: [] }));
     first.unmount();
 
-    expect(mount("BHP", "BHP:overview", on).result.current[0].showMA).toBe(false);
+    expect(mount("BHP", "BHP:overview", on).result.current[0].indicators).toEqual([]);
   });
 
   it("stores nothing without a key, the period included", () => {
     const unkeyed = mount("BHP");
-    act(() => unkeyed.result.current[1]({ period: "6m", view: "price", showMA: true }));
+    act(() => unkeyed.result.current[1]({ period: "6m", view: "price", indicators: ["sma20"] }));
     // It is local state: the panel itself changes...
     expect(unkeyed.result.current[0]).toMatchObject({
       period: "6m",
       view: "price",
-      showMA: true,
+      indicators: ["sma20"],
     });
     unkeyed.unmount();
 
@@ -177,7 +177,7 @@ describe("useChartPrefs: a panel pointed at another stock", () => {
     cba.unmount();
 
     const panel = mountPointed({ stockCode: "BHP", prefsKey: "BHP:overview" });
-    act(() => panel.result.current[1]({ period: "6m", view: "price", showMA: true }));
+    act(() => panel.result.current[1]({ period: "6m", view: "price", indicators: ["sma20"] }));
 
     panel.rerender({ stockCode: "CBA", prefsKey: "CBA:overview" });
     expect(panel.result.current[0]).toEqual({ ...DEFAULTS, period: "3m", view: "short" });

@@ -216,7 +216,8 @@ export default function DiscordDocsPage() {
               <li>
                 <strong>Interactive</strong> opens that chart inside Discord,
                 where you can scrub across it, pin readings, measure between two
-                dates and switch stocks.
+                dates, add indicators such as moving averages and switch stocks.
+                On a phone it opens turned sideways.
               </li>
             )}
           </ul>
