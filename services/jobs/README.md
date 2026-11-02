@@ -1122,9 +1122,24 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
 | `phd` | 11 super funds' portfolio holdings disclosures (one option each, the default or balanced; semi-annual, `phdPeriod` = latest 30 Jun / 31 Dec at least 90 days ago, else the period before) | same |
 | `notices` | Substantial holding notices (Forms 603/604/605, NZ disclosures) selected from `asx_announcements` by headline, read from their PDFs | `substantial_holder_notices`, `substantial_holder_notice_attempts` |
 | `all` | all of the above, in that order (the scheduled run) | |
+| `repair-placeholders` | the stored notices (`substantial_holder_notices`), judged by the placeholder rule and listed one line each; no PDFs are read | with `-apply` and `-dry-run=false`, removes their rows and attempts in one transaction, so the next `notices` run reads them again (rows keyed to an institution are kept). Not in `all` |
 
 - **Hand runs write nothing.** `OWNERSHIP_DRY_RUN=false` (set on the scheduled
   job) or `-dry-run=false` is what writes.
+- **The placeholder repair is a dry run by default, and `-apply` writes.**
+  `-mode repair-placeholders` is never part of `all`: it removes rows, so only
+  an explicit `-mode` asks for it. Run it once after the gate deploys. First run
+  it without `-apply` and read the listing: one line per notice, with its stock,
+  holder_key, form, ceased flag, voting power (four decimal places), announcement
+  date, URL and the rule's reason. Then run `-apply -dry-run=false`, which
+  removes the listed notices and their attempts in one transaction (the next
+  `notices` run reads them again) and revalidates the pages after
+  `-revalidate-wait`. `-apply` under a dry run fails with exit 1 and removes
+  nothing, and so does a failed read or removal. A row whose holder_key is an
+  institution's slug is listed with a note and kept: its name resolves to that
+  institution, so a re-read would store it again, and removing a ceased notice
+  would bring an earlier holding back as current in
+  `v_substantial_holdings_current`.
 - **A notice is withheld rather than guessed.** Every refusal is an attempt row
   with an outcome: `no_text` (scanned, retried after 7 days, at most 3 times),
   `no_voting_power` (the figure is only in an annexure, or the form is an
@@ -1134,6 +1149,19 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
   the holder's), `inconsistent_votes` (votes over voting power implies a share
   count outside 0.5-2x ASIC's total product in issue AS AT THE NOTICE'S DATE,
   so a consolidation or a scrip takeover never rejects an older notice).
+  A placeholder section 1 name is `no_holder` and is never read from the
+  annexure. It is a pointer (`SEE ANNEXURE 1`, `Refer to Annexure A`, `N/A`,
+  `see attached`) or a name with no letter or only single letters, with no
+  other word of its own, so "Citigroup ..., as listed in Annexure A" stays a
+  holder. The gate did not bump `noticeParserVersion`: it only adds refusals,
+  so re-reading the 8,556 withheld notices (one PDF download each) would change
+  nothing but their labels. A row parsed under a placeholder name before the
+  gate (SYR's `SEE ANNEXURE 1` at 6.0049%) keeps its holder, since a parsed
+  attempt is never read again; the placeholder repair, above, removes such rows.
+  A name that resolves to a curated institution is a holder, whatever its
+  opening words: "Refer Annexure A for Vanguard Group entities" and "SEE ANNEXURE
+  A (BlackRock Inc. and its subsidiaries)" parse, and "SEE ANNEXURE 1", "Refer to
+  Annexure A" and "N/A" stay withheld.
   Refusals are re-read only after `noticeParserVersion` rises.
 - **PDFs are read in a child process** (package `pdfchild`, mode `layout`,
   the same binary): `ledongthuc/pdf` loops on some malformed streams and

@@ -111,8 +111,12 @@ func parseAPRAFunds(rows [][]string, url string) ([]fundRow, error) {
 	return out, nil
 }
 
-// parseAPRADate reads the period cell: an Excel serial ("45838") or a date.
+// parseAPRADate reads the period cell as xlsxSheet returns it: the text Excel
+// shows, not the serial. Table 2a's period is Excel's built-in format 14, which
+// excelize prints month first, so "06-30-25" is 30 June 2025 (serial 45838).
+// A blank or unparseable cell is "", never a guessed date.
 func parseAPRADate(s string) string {
+	s = strings.TrimSpace(s)
 	if v, ok := parseNumber(s); ok && v > 30000 && v < 80000 {
 		return time.Date(1899, 12, 30, 0, 0, 0, 0, time.UTC).AddDate(0, 0, int(v)).Format("2006-01-02")
 	}
@@ -121,8 +125,34 @@ func parseAPRADate(s string) string {
 			return t.Format("2006-01-02")
 		}
 	}
+	// Format 14 always shows a real date, so text that reads month first is
+	// that date. Text that does not is not format 14 and goes on to the forms
+	// below.
+	if t, err := time.Parse("1-2-06", s); err == nil {
+		return t.Format("2006-01-02")
+	}
+	for _, layout := range apraDayLayouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.Format("2006-01-02")
+		}
+	}
+	for _, layout := range apraMonthLayouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.AddDate(0, 1, -1).Format("2006-01-02")
+		}
+	}
 	return parseAsAt(s)
 }
+
+// apraDayLayouts are the dated forms of the period cell besides ISO and format
+// 14. A slash is day first, as Australian dates are written.
+var apraDayLayouts = []string{
+	"2/1/2006", "2/1/06", // 30/06/2025, 30/6/25
+	"2 Jan 2006", "2 January 2006", "2-Jan-2006", "2-Jan-06", // 30 Jun 2025, 30-Jun-25
+}
+
+// apraMonthLayouts are the month-only forms. Each reads as the month's last day.
+var apraMonthLayouts = []string{"Jan 2006", "January 2006", "Jan-2006", "Jan-06", "2006-01"}
 
 // monthEnd is the last day of the report's month ("sep", "2026").
 func monthEnd(month, year string) string {

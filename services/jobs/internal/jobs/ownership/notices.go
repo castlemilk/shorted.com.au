@@ -75,7 +75,9 @@ type pdfSource interface {
 	PDF(ctx context.Context, url string) ([]byte, error)
 }
 
-// Outcomes the pass adds to the parser's.
+// Outcomes the pass records beyond the parser's. no_holder is both: the parser
+// returns it for a placeholder section 1 name (notice.go), and the pass returns it
+// for a name it cannot resolve to a holder.
 const (
 	outcomeFetchError        = "fetch_error"
 	outcomeAmbiguousTarget   = "ambiguous_target"
@@ -333,7 +335,13 @@ func (p *noticePass) run(ctx context.Context, limit int, since string) (noticePa
 		}
 		notice, outcome, detail := parseSubstantialNotice(text, n.Headline)
 		if outcome != outcomeParsed {
-			record(n, "", string(outcome), detail)
+			// A placeholder names no holder, so its attempt is filed under the
+			// company its target names, as a parsed notice's would be.
+			code := ""
+			if outcome == outcomeNoHolder {
+				code, _ = resolveTarget(n, notice.CompanyName, companies)
+			}
+			record(n, code, string(outcome), detail)
 			return
 		}
 		code, why := resolveTarget(n, notice.CompanyName, companies)

@@ -1,8 +1,10 @@
 package ownership
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -239,6 +241,207 @@ func sprintfOne(format, arg string) string {
 		}
 	}
 	return format
+}
+
+// The placeholder rule, on names as the pass judges them (tidied). Each case is
+// either a placeholder or a name that passes through unchanged.
+func TestPlaceholderReason(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		placeholder bool
+	}{
+		// Pointers to an annexure, to another page or to the schedule.
+		{"SEE ANNEXURE 1", true},
+		{"see annexure a", true},
+		{"Refer to Annexure A", true},
+		{"ANNEXURE1", true},
+		{"Annexures", true},
+		{"SEE ATTACHED", true},
+		{"  see   Attached ", true},
+		{"As above", true},
+		{"As per", true},
+		{"Not applicable", true},
+		{"N/A", true},
+		{"(N/A)", true},
+		{"Schedule 1", true},
+		{"SCHEDULE", true},
+		{"Refer", true},
+		{"NA", true},
+		{"See Appendix A", true},
+		{"See Annex A", true},
+		{"See Annexe 1", true},
+		{"See attachment 1", true},
+		{"Refer attached", true},
+		{"Per attached", true},
+		{"Please see Schedule 1", true},
+		{"Listed in Schedule 1", true},
+		{"Details in Annexure 1", true},
+		{"Holders listed in Annexure B", true},
+		// Boilerplate with no holder named before it: the name was lost.
+		{"AND ITS SUBSIDIARIES LISTED IN ANNEXURE A", true},
+		// A text layer broke a word apart: "ANNEX URE", "a pp licable".
+		{"SEE ANNEX URE 1", true},
+		{"Not a pp licable", true},
+		// A pointer that opens the name, with words after it.
+		{"Refer to the holding statement", true},
+		// No letter in it, or every word a single letter.
+		{"123 456 789", true},
+		{"-", true},
+		{"--", true},
+		{"(1)", true},
+		{"A B", true},
+		{"J.S.", true},
+		// Holders, which pass unchanged.
+		{"Mrs Georgina Hope Rinehart , Hancock Prospecting Pty Ltd", false},
+		{"FMR LLC", false},
+		{"Vanguard Group", false},
+		{"Christmas Perry Holdings Pty Ltd", false}, // "as per" inside a word
+		{"Scheduled Asset Management Limited", false},
+		{"Schedule Capital Partners Pty Ltd", false}, // the word, but in more than three words
+		{"Limite d", false},                          // a split key: not a placeholder, and not merged
+		{"L1 Capital Pty Ltd", false},
+		{"Ana", false},
+		// A pointer word can open a company's name, so the rest of the name decides.
+		{"Annexe Capital", false},
+		{"Attached Capital Pty Ltd", false},
+		// A pointer beside a name of its own is a clause about that name, whether
+		// or not nameTails cut it.
+		{"Citigroup Global Markets Australia Pty Limited, as listed in Annexure A", false},
+		{"HSBC Holdings plc and its group companies listed in Annexure A", false},
+		{"BlackRock Inc. - see Annexure A", false},
+		{"Mitsubishi UFJ Financial Group, Inc. See Annexure A", false},
+		{"L1 Capital Pty Ltd and the entities in Annexure A", false},
+		{"Regal Partners Limited, together with its controlled entities listed in Annexure A", false},
+		{"Tribeca Investment Partners Pty Ltd as per Annexure A", false},
+		{"Acme Pty Ltd and its wholly owned subsidiaries listed in Annexure A", false},
+		{"As trustee for Smith Family", false},
+		// A word that only contains a pointer's letters is a name: "Jasper" is not
+		// "as per", and "Prefer To" is not "refer to".
+		{"Jasper Holdings Pty Ltd", false},
+		{"Prefer To Invest Pty Ltd", false},
+		{"N/AB Holdings", false},
+		{"", false}, // no value was written: the fallbacks read the holder
+	} {
+		if got := placeholderReason(tc.name); (got != "") != tc.placeholder {
+			t.Errorf("placeholderReason(%q) = %q, want placeholder %v", tc.name, got, tc.placeholder)
+		}
+	}
+}
+
+// A boilerplate tail is cut before the rule reads a name, so the annexure
+// reference inside the tail does not withhold a holder the form names.
+func TestPlaceholderJudgedAfterTidy(t *testing.T) {
+	for _, raw := range []string{
+		"Vanguard Group (The Vanguard Group, Inc. and its controlled entities including those listed in Annexure A)",
+		"FMR LLC and its entities listed in Annexure A",
+		"PINNACLE INVESTMENT MANAGEMENT GROUP LIMITED (AND ITS SUBSIDIARIES LISTED IN ANNEXURE A)",
+	} {
+		if got := placeholderReason(tidyHolderName(raw)); got != "" {
+			t.Errorf("tidyHolderName(%q) = %q reads as a placeholder: %s", raw, tidyHolderName(raw), got)
+		}
+	}
+}
+
+// placeholderNotice is a synthetic 603 whose section 1 names holder as given.
+// Its holding (6.0049%, the figure a placeholder row counted in SYR's sum)
+// parses on its own, and its annexure names BlackRock's entities, so a holder
+// read from the notice's text would show as BlackRock.
+func placeholderNotice(holder string) string {
+	return fmt.Sprintf("Form 603 Notice of initial substantial holder To Company Name/Scheme Example Resources Limited "+
+		"1. Details of substantial holder (1) Name %s ACN/ARSN 2. Details of voting power Class Ordinary "+
+		"62,856,312 6.0049%% 3. Changes in relevant interests %s Annexure A: BlackRock Advisors (UK) Limited; "+
+		"BlackRock Investment Management (Australia) Limited; BlackRock Financial Management, Inc.", holder, padding)
+}
+
+// placeholderNZNotice is a synthetic NZ disclosure whose full name is holder.
+func placeholderNZNotice(holder string) string {
+	return fmt.Sprintf("Disclosure of movement of 1%% or more in substantial holding "+
+		"Sections 277 and 278, Financial Markets Conduct Act 2013 To New Zealand Stock Exchange and To EXAMPLE LIMITED "+
+		"Relevant event being disclosed: Disclosure of movement of 1%% or more in substantial holding "+
+		"Substantial product holder(s) giving disclosure Full name(s): %s Summary of substantial holding "+
+		"For this disclosure, - (a) total number held in class: 37,935,318 (b) total in class: 728,055,850 "+
+		"(c) total percentage held in class: 5.21%% For last disclosure, - (a) total number held in class: 45,159,220 "+
+		"(b) total in class: 725,426,194 (c) total percentage held in class: 6.23%% %s", holder, padding)
+}
+
+// A placeholder section 1 name withholds the notice as no_holder, and the
+// detail names the text. Only the company is read from a withheld notice: no
+// figure, and no holder from the annexure.
+func TestPlaceholderHolderWithheld(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		text    string
+		outcome Outcome
+		detail  string
+	}{
+		{"a real name parses", placeholderNotice("Some Fund Pty Ltd"), outcomeParsed, ""},
+		{"a clause after a real name", placeholderNotice("Citigroup Global Markets Australia Pty Limited, as listed in Annexure A"), outcomeParsed, ""},
+		{"SEE ANNEXURE 1", placeholderNotice("SEE ANNEXURE 1"), outcomeNoHolder, `"SEE ANNEXURE 1" (matches "annexure")`},
+		{"SEE ANNEX URE 1", placeholderNotice("SEE ANNEX URE 1"), outcomeNoHolder, `"SEE ANNEX URE 1" (matches "annexure")`},
+		{"Refer to Annexure A", placeholderNotice("Refer to Annexure A"), outcomeNoHolder, `"Refer to Annexure A" (matches "annexure")`},
+		{"N/A", placeholderNotice("N/A"), outcomeNoHolder, `"N/A" (matches "n/a")`},
+		// The pointer sits in the tail that tidying cuts, so the rule reads the
+		// pointer alone.
+		{"a pointer behind a tail", placeholderNotice("SEE ANNEXURE 1 on behalf of Some Fund Pty Ltd"), outcomeNoHolder, `"SEE ANNEXURE 1" (matches "annexure")`},
+		{"a dash", placeholderNotice("-"), outcomeNoHolder, `"-" (no letter in it)`},
+		{"digits only", placeholderNotice("123 456 789"), outcomeNoHolder, `"123 456 789" (no letter in it)`},
+		{"single letters", placeholderNotice("A B"), outcomeNoHolder, `"A B" (every word is a single letter)`},
+		{"an NZ name parses", placeholderNZNotice("Some Fund Limited"), outcomeParsed, ""},
+		{"an NZ pointer", placeholderNZNotice("SEE ATTACHED"), outcomeNoHolder, `"SEE ATTACHED" (matches "attached")`},
+		{"an NZ institution clause parses", placeholderNZNotice("Refer Annexure A for Vanguard Group entities"), outcomeParsed, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			n, outcome, detail := parseSubstantialNotice(tc.text, "")
+			if outcome != tc.outcome || !strings.Contains(detail, tc.detail) {
+				t.Fatalf("outcome %s (%s), want %s (%s)", outcome, detail, tc.outcome, tc.detail)
+			}
+			if outcome == outcomeNoHolder && (n.HolderName != "" || n.PresentPct != nil || n.PresentVotes != nil) {
+				t.Errorf("a withheld notice kept %+v", n)
+			}
+		})
+	}
+}
+
+// A name that resolves to a curated institution is a holder whatever its opening
+// words. The notice parses, the section 1 name is kept (the words named here are
+// in the holder name the parser returns), and the institution is the one it
+// names. This holds on both the Australian forms and the NZ disclosure. The
+// words are checked, not the whole name: a text layer can glue a standalone "A"
+// to the word after it, as cleanHolderName does to "A for".
+func TestPlaceholderHolderResolvesToInstitution(t *testing.T) {
+	for _, tc := range []struct {
+		name, holder, slug string
+	}{
+		{"Annexure A: BlackRock Inc.", "BlackRock Inc", "blackrock"},
+		{"Refer Annexure A for Vanguard Group entities", "Vanguard Group entities", "vanguard"},
+		// The tail tidying cuts names BlackRock, and the rule still reads the name
+		// as written.
+		{"SEE ANNEXURE A (BlackRock Inc. and its subsidiaries)", "BlackRock Inc. and its subsidiaries", "blackrock"},
+	} {
+		for _, form := range []struct {
+			label, text string
+		}{
+			{"603", placeholderNotice(tc.name)},
+			{"nz", placeholderNZNotice(tc.name)},
+		} {
+			t.Run(tc.name+" "+form.label, func(t *testing.T) {
+				n, outcome, detail := parseSubstantialNotice(form.text, "")
+				if outcome != outcomeParsed {
+					t.Fatalf("outcome %s (%s), want parsed", outcome, detail)
+				}
+				if !strings.Contains(n.HolderName, tc.holder) {
+					t.Errorf("holder name %q, want it to keep %q", n.HolderName, tc.holder)
+				}
+				got := ""
+				if inst := resolveInstitution(n.HolderName); inst != nil {
+					got = inst.Slug
+				}
+				if got != tc.slug {
+					t.Errorf("institution %q, want %q", got, tc.slug)
+				}
+			})
+		}
+	}
 }
 
 func TestResolveHolderBlackRockAnnexure(t *testing.T) {

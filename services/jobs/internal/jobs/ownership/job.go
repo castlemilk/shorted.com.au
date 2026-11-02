@@ -16,18 +16,24 @@
 //	-mode notices   ASX substantial holding notices (Forms 603/604/605),
 //	                selected from asx_announcements and read from their PDFs
 //	-mode all       registry, funds, etf, phd, notices, in that order
+//	-mode repair-placeholders  stored notices whose holder name is a placeholder
+//	                ("SEE ANNEXURE 1"): listed, and with -apply and -dry-run=false
+//	                removed with their attempts (rows keyed to an institution are
+//	                listed and kept); never part of all
 //
-// -dry-run (default true in code: REGISTER_DRY_RUN's convention, so a hand
-// run never writes by accident) reads every source and writes nothing.
+// -dry-run (true unless OWNERSHIP_DRY_RUN=false, so a hand run never writes by
+// accident) reads every source and writes nothing.
 //
 // Exit codes: 1 when a mode collected nothing (every source failed, or the
-// database is unreachable); 10 (DEGRADED) when some sources failed and the
-// rest were stored.
+// database is unreachable), when -apply is set under a dry run (the repair
+// removes nothing), and when the repair's read or removal fails; 10 (DEGRADED)
+// when some sources failed and the rest were stored.
 //
-// After a run that stored anything it waits -revalidate-wait for the API's
-// ownership cache (10 minutes) to turn over, then pings the web tier's
-// /api/revalidate (tag and KV family "ownership"). Best-effort: a failed or
-// skipped ping never fails the run, and the pages self-heal on their TTLs.
+// After a run that stored anything, and after the repair removes rows, it waits
+// -revalidate-wait for the API's ownership cache (10 minutes) to turn over, then
+// pings the web tier's /api/revalidate (tag and KV family "ownership").
+// Best-effort: a failed or skipped ping never fails the run, and the pages
+// self-heal on their TTLs.
 package ownership
 
 import (
@@ -57,6 +63,10 @@ const (
 	modeAll      = "all"
 )
 
+// modeRepairPlaceholders is deliberately not part of modeAll: it removes stored
+// rows, so only an explicit -mode asks for it.
+const modeRepairPlaceholders = "repair-placeholders"
+
 const exitCodeDegraded = 10
 
 // revalidateWait outlasts the API's ownership cache (ownershipTTL in
@@ -67,6 +77,7 @@ const revalidateWait = 11 * time.Minute
 type config struct {
 	mode    string
 	dryRun  bool
+	apply   bool
 	limit   int
 	since   string
 	workers int
@@ -90,8 +101,9 @@ func Run(ctx context.Context, args []string) error {
 	globals := runner.FromContext(ctx)
 	fs := flag.NewFlagSet("ownership", flag.ContinueOnError)
 	cfg := config{}
-	fs.StringVar(&cfg.mode, "mode", modeAll, "registry | funds | etf | phd | notices | all")
+	fs.StringVar(&cfg.mode, "mode", modeAll, "registry | funds | etf | phd | notices | all | repair-placeholders")
 	fs.BoolVar(&cfg.dryRun, "dry-run", defaultDryRun(globals.DryRun), "read every source, write nothing (default true unless OWNERSHIP_DRY_RUN=false)")
+	fs.BoolVar(&cfg.apply, "apply", false, "repair-placeholders: remove the placeholder notices and their attempts (also needs -dry-run=false)")
 	fs.IntVar(&cfg.limit, "limit", 400, "notices: the most notice PDFs to read this run, newest first")
 	fs.StringVar(&cfg.since, "since", "2024-01-01", "notices: read notices released on or after this date")
 	fs.IntVar(&cfg.workers, "workers", 3, "notices: concurrent PDF downloads")
@@ -110,6 +122,9 @@ func Run(ctx context.Context, args []string) error {
 	if _, err := time.Parse("2006-01-02", cfg.since); err != nil {
 		return fmt.Errorf("-since %q is not YYYY-MM-DD", cfg.since)
 	}
+	if cfg.apply && cfg.mode != modeRepairPlaceholders {
+		return fmt.Errorf("-apply is for -mode %s only", modeRepairPlaceholders)
+	}
 
 	db, err := platform.ConnectFromEnv(ctx, platform.WithMaxConns(int32(max(cfg.workers, 1)+2)))
 	if err != nil {
@@ -126,6 +141,8 @@ func Run(ctx context.Context, args []string) error {
 		modes = []string{modeRegistry, modeFunds, modeETF, modePHD, modeNotices}
 	case modeRegistry, modeFunds, modeETF, modePHD, modeNotices:
 		modes = []string{cfg.mode}
+	case modeRepairPlaceholders:
+		return repairPlaceholders(ctx, st, cfg, platform.PingRevalidate)
 	default:
 		return fmt.Errorf("unknown -mode %q", cfg.mode)
 	}
@@ -154,11 +171,7 @@ func Run(ctx context.Context, args []string) error {
 		total += n
 	}
 	if !cfg.dryRun && len(failed) < total {
-		if os.Getenv("REVALIDATION_URL") == "" || os.Getenv("REVALIDATION_SECRET") == "" {
-			log.Printf("ownership: REVALIDATION_URL/REVALIDATION_SECRET not set; pages refresh on their TTLs")
-		} else {
-			revalidate(ctx, cfg.rvWait, platform.PingRevalidate)
-		}
+		pingRevalidate(ctx, cfg.rvWait, platform.PingRevalidate)
 	}
 	return outcome(failed, total)
 }
@@ -179,6 +192,17 @@ func revalidate(ctx context.Context, wait time.Duration, ping func(platform.Reva
 		}
 	}
 	ping(platform.RevalidateRequest{Reason: "ownership", Tag: "ownership", Flush: "ownership"})
+}
+
+// pingRevalidate is the ping after a run that stored or removed rows. Without the
+// web tier's URL and secret the pages refresh on their TTLs instead, and the wait
+// is skipped too.
+func pingRevalidate(ctx context.Context, wait time.Duration, ping func(platform.RevalidateRequest)) {
+	if os.Getenv("REVALIDATION_URL") == "" || os.Getenv("REVALIDATION_SECRET") == "" {
+		log.Printf("ownership: REVALIDATION_URL/REVALIDATION_SECRET not set; pages refresh on their TTLs")
+		return
+	}
+	revalidate(ctx, wait, ping)
 }
 
 // defaultDryRun is true unless OWNERSHIP_DRY_RUN=false or the global
