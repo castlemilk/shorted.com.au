@@ -338,12 +338,13 @@ through a proxy, and its CSP blocks every other host. So:
   session. **Sign in on Shorted** opens `/signin` outside Discord
   (`activitySignInUrl`), which returns to the chart's share page turned
   sideways (`landscape=1`); the Activity itself stays signed out. A press on either control while a link is on its way out does nothing. Only the control pressed shows it: **Open on Shorted** and the menu's **Sign in on Shorted** each show a spinner and `aria-busy` for their own press, and the sign-in takes no press while it is busy. The
-  picks survive a stock switch within the Activity, and nothing is stored. An indicator whose lookback is more than a tenth of the window fetches the first longer period that covers it, once: SMA 50 at 1M fetches 6M. At the default 1Y view, SMA 20, WMA 20 and the 30-day short average need no request, and SMA 50 and EMA 20 fetch the 2Y prices once. A history the stock already loaded for a longer period serves an indicator that it covers, and nothing is fetched. Each indicator waits for its own
+  picks survive a stock switch within the Activity, and nothing is stored. An indicator whose lookback is more than a tenth of the window fetches the first longer period that covers it, once: SMA 50 at 1M fetches 6M. At the default 1Y view, SMA 20, WMA 20 and the 30-day short average need no request, and SMA 50 and EMA 20 fetch the 2Y prices once. A longer history this chart has already loaded, its own visible series included, serves an indicator that it covers, and nothing is fetched. That history lasts only while the chart stays mounted: leaving a stock and returning to it in the Activity asks for the longer history again, and TanStack's cache may answer from memory. Each indicator waits for its own
   history: a panel that waits is drawn empty, so the plot keeps its height. A
   series too short for a picked indicator (a young listing) says so in the menu
   ("Not enough history") and is left out of the count on the button. A Combined
-  chart with only one of its two series offers and fetches only what that series
-  can draw.
+  chart with only one of its two series offers, counts and draws only the series
+  it can draw; a warm-up for the missing series may already be on its way when the
+  chart learns it is missing.
 
 The Activity is on (`"activity": true` in `web/src/config/discord-app.json`,
 2026-10-23), so every chart message carries **Interactive**. What it takes, in

@@ -148,7 +148,8 @@ export function StockChartPanel({
 
   // The view the chart is drawn as, from the series that have arrived. The menu,
   // the selection and the history follow it, so a Combined chart with one series
-  // counts, fetches and offers only what it draws.
+  // offers, counts and draws only the series it can draw. A warm-up for the missing
+  // series may already be on its way when the chart learns it is missing.
   const shown = resolveChartView(view, { price, short });
   const access = useIndicatorAccess("session");
   const pathname = usePathname();

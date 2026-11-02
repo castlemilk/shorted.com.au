@@ -331,10 +331,11 @@ export const Phone: Story = {
   },
 };
 
-// Short interest opens on the short view, which has no toggle at all. The row
-// the toggles would be on is still there, as it is in the skeleton.
+// Short interest opens on the short view, which has no Divergence toggle. The
+// Indicators trigger is in every view, so the toggles row holds that one button,
+// at the 36px height the skeleton reserves for the row.
 export const PhoneShortView: Story = {
-  name: "Phone, short view (empty toggles row)",
+  name: "Phone, short view (Indicators only)",
   tags: ["no-visual"],
   args: { defaultView: "short" },
   parameters: { bare: true, viewport: { options: VIEWPORTS } },
@@ -343,8 +344,15 @@ export const PhoneShortView: Story = {
   beforeEach: () => mockData("PLS", "1y"),
   render: (args) => <SkeletonAndPanel {...args} />,
   play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
     await drawn(canvasElement);
-    expect(parts(canvasElement).toggles.children).toHaveLength(0);
+    // The row holds the Indicators trigger and nothing else.
+    const toggles = parts(canvasElement).toggles;
+    expect(toggles.children).toHaveLength(1);
+    expect(within(toggles).getByRole("button", { name: /^Indicators/ })).toBe(
+      toggles.children[0],
+    );
+    expect(canvas.queryByRole("button", { name: /^Divergence/ })).toBeNull();
     await expectStack(canvasElement, 360);
   },
 };

@@ -18,7 +18,11 @@ import type { ChartPeriod } from "./chart-views";
 import type { ChartPoint } from "./types";
 
 export interface IndicatorHistory {
-  /** The earlier price points the price indicators compute from: the longest loaded for this stock. */
+  /**
+   * The earlier price points the price indicators compute from: the longest loaded for
+   * this stock. Undefined when that is the visible series, which has no points before
+   * its first one.
+   */
   price?: ChartPoint[];
   /** The earlier short-interest points, likewise. */
   short?: ChartPoint[];
@@ -72,9 +76,11 @@ function longerHeld(
  *
  * The history loaded for a stock is kept across periods: a longer one serves a
  * shorter period too, since a computation only takes the points before its first
- * visible one. So an indicator that is turned off does not take away the history the
- * others use, and a period whose history is already held asks for nothing more. The
- * warm-up is planned only for the indicators that held history does not cover.
+ * visible one. The visible series is kept as well, so a period the visitor has already
+ * viewed serves a shorter one with no request. So an indicator that is turned off does
+ * not take away the history the others use, and a period whose history is already held
+ * asks for nothing more. The warm-up is planned only for the indicators that held
+ * history does not cover.
  *
  * An indicator waits only while it needs history that is not held and that history is
  * loading. Once it lands, or the load ends without it, the indicator is drawn from what
@@ -96,6 +102,20 @@ export function useIndicatorHistory(
   const visibleShort = useMemo(
     () => shortSeriesToPoints(visibleShortQ.data),
     [visibleShortQ.data],
+  );
+  // The visible series is held history too, so a period the visitor has already viewed
+  // serves a shorter one with no request. Short interest on MAX is weekly buckets and is
+  // never held. Memoized, so a held value keeps its identity from one render to the next.
+  const visiblePriceHeld = useMemo<Held | undefined>(
+    () => (visiblePrice.length ? { period, points: visiblePrice } : undefined),
+    [period, visiblePrice],
+  );
+  const visibleShortHeld = useMemo<Held | undefined>(
+    () =>
+      period !== "max" && visibleShort.length
+        ? { period, points: visibleShort }
+        : undefined,
+    [period, visibleShort],
   );
 
   // What is kept for this stock. It is read during render and set when a longer
@@ -142,8 +162,16 @@ export function useIndicatorHistory(
     [plan.short, warmShortQ.data],
   );
 
-  const priceHeld = longerHeld("price", current.price, freshPrice);
-  const shortHeld = longerHeld("short", current.short, freshShort);
+  const priceHeld = longerHeld(
+    "price",
+    longerHeld("price", current.price, visiblePriceHeld),
+    freshPrice,
+  );
+  const shortHeld = longerHeld(
+    "short",
+    longerHeld("short", current.short, visibleShortHeld),
+    freshShort,
+  );
   if (
     current !== kept ||
     priceHeld !== current.price ||
@@ -181,9 +209,18 @@ export function useIndicatorHistory(
     loadingShort,
   ]);
 
+  // The earlier history the indicators compute from. The visible series has none before
+  // its own first point, so it is not returned; and short interest on MAX takes no daily
+  // history, since its points are weekly buckets.
+  const earlierPrice =
+    priceHeld !== visiblePriceHeld ? priceHeld?.points : undefined;
+  const earlierShort =
+    period !== "max" && shortHeld !== visibleShortHeld
+      ? shortHeld?.points
+      : undefined;
   return {
-    price: priceHeld?.points,
-    short: shortHeld?.points,
+    price: earlierPrice,
+    short: earlierShort,
     pricePending: waiting.some((id) => indicatorDef(id).target === "price"),
     shortPending: waiting.some((id) => indicatorDef(id).target === "short"),
     waiting,

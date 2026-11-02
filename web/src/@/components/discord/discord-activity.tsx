@@ -538,6 +538,12 @@ function ActivityChart({
         onOpenChange={setSearching}
         returnFocusTo={searchButtonRef}
         onPick={(picked) => {
+          // The stock already on screen is no switch: the chart does not remount, so a link
+          // still on its way out keeps its guard, its busy state and its fallback.
+          if (picked === code) {
+            setSearching(false);
+            return;
+          }
           // A new stock. The last stock's fallback goes, and a link still on its way out
           // no longer holds the guard or the busy state: its own settling reports nothing.
           generation.current += 1;

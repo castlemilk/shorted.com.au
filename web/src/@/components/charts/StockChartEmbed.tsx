@@ -250,8 +250,10 @@ export function StockChartEmbed({
     period,
   );
   // The view the chart is drawn as, from the series that have arrived. The menu, the
-  // selection and the history follow it, so a Combined chart with one series counts,
-  // fetches and offers only what it draws (as the stock page's panel does).
+  // selection and the history follow it, so a Combined chart with one series offers,
+  // counts and draws only the series it can draw, as the stock page's panel does. A
+  // warm-up for the missing series may already be on its way when the chart learns it
+  // is missing.
   const shown = resolveChartView(view, { price, short });
   const [chartRef, chartBox] = useElementSize<HTMLDivElement>();
   const chartHeight = Math.max(MIN_CHART_HEIGHT, chartBox.height);

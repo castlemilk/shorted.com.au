@@ -489,6 +489,52 @@ describe("the copy-link fallback, and which control shows a link on its way out"
     expect(bhpOpen).not.toHaveAttribute("aria-busy");
     expect(fallback()).toHaveTextContent("shorted.com.au/shorts/BHP");
   });
+
+  it("treats a pick of the stock already on screen as no switch: a pending Open still shows its fallback", async () => {
+    jest.useFakeTimers();
+    mockReady.mockReturnValue(new Promise<void>(() => undefined));
+    renderActivity();
+    fireEvent.click(openButton());
+    await settle();
+    expect(openButton()).toHaveAttribute("aria-busy", "true");
+
+    // The reader searches for CBA, the stock on screen, and picks it. The chart does not
+    // remount, so the Open still waiting for the SDK keeps its busy state and its wait.
+    await pickStock("cba");
+    expect(openButton()).toHaveAttribute("aria-busy", "true");
+
+    act(() => {
+      jest.advanceTimersByTime(3_000);
+    });
+    await settle();
+    expect(fallback()).toHaveTextContent(STOCK_URL);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Copy it into your browser",
+    );
+    expect(mockOpenExternalLink).not.toHaveBeenCalled();
+  });
+
+  it("a pick of the stock already on screen keeps the one-link guard: the link goes out once", async () => {
+    let connect: () => void = () => undefined;
+    mockReady.mockReturnValue(
+      new Promise<void>((resolve) => {
+        connect = resolve;
+      }),
+    );
+    renderActivity();
+    fireEvent.click(openButton());
+    await settle();
+    await pickStock("cba");
+
+    // A second press while the first link is still on its way out sends nothing more.
+    fireEvent.click(openButton());
+    await settle();
+    connect();
+    await settle();
+    expect(mockOpenExternalLink).toHaveBeenCalledTimes(1);
+    expect(mockOpenExternalLink).toHaveBeenCalledWith({ url: STOCK_URL });
+    expect(fallback()).toBeNull();
+  });
 });
 
 describe("the chart inside Discord", () => {

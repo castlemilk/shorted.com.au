@@ -628,7 +628,7 @@ describe("StockChartEmbed: what is on screen", () => {
     expect(stockChart()).toHaveAttribute("data-indicators", "sma20");
   });
 
-  it("offers and fetches only for the series a Combined chart draws when it has one", () => {
+  it("offers, counts and draws only the series a Combined chart can draw when it has one", () => {
     mockChartData.mockImplementation(() => data({ price: [] }));
     render(
       <StockChartEmbed

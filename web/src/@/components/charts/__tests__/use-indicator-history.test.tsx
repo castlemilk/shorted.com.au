@@ -30,6 +30,8 @@ jest.mock("@/lib/client-api", () => ({
 
 const DAY = 86_400_000;
 const LAST_SESSION = Date.UTC(2026, 9, 30);
+/** MAX short interest: ten years of weekly buckets. */
+const MAX_WEEKS = 520;
 
 /** `n` daily closes ending on the last session, in the shape the price query returns. */
 function priceRows(n: number) {
@@ -44,12 +46,15 @@ function priceRows(n: number) {
   }));
 }
 
-/** `n` daily short-interest points ending on the last session, in the shape the short query returns. */
-function shortRows(n: number) {
+/**
+ * `n` short-interest points ending on the last session, `stepDays` apart (a day unless
+ * given), in the shape the short query returns.
+ */
+function shortRows(n: number, stepDays = 1) {
   return {
     points: Array.from({ length: n }, (_, i) => ({
       timestamp: {
-        seconds: BigInt(Math.floor((LAST_SESSION - (n - 1 - i) * DAY) / 1000)),
+        seconds: BigInt(Math.floor((LAST_SESSION - (n - 1 - i) * stepDays * DAY) / 1000)),
         nanos: 0,
       },
       shortPosition: 3 + i * 0.001,
@@ -84,16 +89,32 @@ function renderHistory(
     const inner = <QueryClientProvider client={client}>{children}</QueryClientProvider>;
     return options.strict ? <StrictMode>{inner}</StrictMode> : inner;
   };
-  return renderHook(
+  const rendered = renderHook(
     (props: { code: string; period: ChartPeriod; ids: ChartIndicatorId[] }) =>
       useIndicatorHistory(props.code, props.period, props.ids),
     { wrapper, initialProps: { code: "BHP", ...initial } },
   );
+  return { ...rendered, client };
+}
+
+/**
+ * Lets the queries in flight answer, and React draw what they hold. A period the visitor
+ * has viewed is held only once its data has reached the hook.
+ */
+async function answered(client: QueryClient): Promise<void> {
+  await waitFor(() => expect(client.isFetching()).toBe(0));
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 /** The periods the price query was asked for, in order. */
 const pricePeriods = () =>
   jest.mocked(getHistoricalData).mock.calls.map((call) => call[1] as string);
+
+/** The periods the short query was asked for, in order. */
+const shortPeriods = () =>
+  jest.mocked(fetchStockDataClient).mock.calls.map((call) => call[1] as string);
 
 beforeEach(() => {
   held.clear();
@@ -221,5 +242,67 @@ describe("useIndicatorHistory", () => {
     await act(async () => held.get("short:3m")!.resolve(shortRows(SHORT_DAYS["3m"])));
     await waitFor(() => expect(result.current.waiting).toEqual([]));
     expect(result.current.short).toHaveLength(SHORT_DAYS["3m"]);
+  });
+
+  // The visible series is history too: a period the visitor has already viewed serves a
+  // shorter one, as docs/discord-bot.md says (a longer history this chart has already
+  // loaded serves an indicator it covers, and nothing is fetched).
+  it("serves a shorter period from a longer one the visitor has viewed, with no request", async () => {
+    const { result, rerender, client } = renderHistory({ period: "2y", ids: ["sma50"] });
+    await answered(client);
+    // SMA 50 needs 49 sessions before a 2Y chart, which has 504 of them: no warm-up.
+    expect(pricePeriods()).toEqual(["2y"]);
+
+    rerender({ code: "BHP", period: "3m", ids: ["sma50"] });
+    await answered(client);
+    // The 2Y the visitor saw covers SMA 50 on 3M, so 6M is not asked for.
+    expect(pricePeriods()).toEqual(["2y", "3m"]);
+    expect(result.current.waiting).toEqual([]);
+    expect(result.current.price).toHaveLength(PRICE_SESSIONS["2y"]);
+  });
+
+  it("serves 1Y from the MAX history the visitor has viewed, with no 2Y request", async () => {
+    const { result, rerender, client } = renderHistory({ period: "max", ids: ["sma50"] });
+    await answered(client);
+    rerender({ code: "BHP", period: "1y", ids: ["sma50"] });
+    await answered(client);
+    expect(pricePeriods()).toEqual(["max", "1y"]);
+    expect(result.current.waiting).toEqual([]);
+    expect(result.current.price).toHaveLength(PRICE_SESSIONS["max"]);
+  });
+
+  // Short interest on MAX is weekly buckets, so a daily history held for a shorter period
+  // is never taken into it.
+  it("does not take daily short interest history into MAX", async () => {
+    const { result, rerender, client } = renderHistory({
+      period: "1y",
+      ids: ["short-avg-30d"],
+    });
+    await answered(client);
+    rerender({ code: "BHP", period: "max", ids: ["short-avg-30d"] });
+    await answered(client);
+    expect(result.current.short).toBeUndefined();
+  });
+
+  // MAX short interest is weekly buckets. Kept as held history, its span is infinite and
+  // wins every later comparison, so a 3M chart with a 30-day average would be served those
+  // weekly points rather than the daily 6M warm-up the plan asks for.
+  it("does not serve MAX's weekly short interest as the 3M warm-up", async () => {
+    jest.mocked(fetchStockDataClient).mockImplementation(((_code: string, period: string) =>
+      Promise.resolve(
+        period === "max"
+          ? shortRows(MAX_WEEKS, 7)
+          : shortRows(SHORT_DAYS[period as Exclude<ChartPeriod, "max">]),
+      )) as never);
+    const { result, rerender, client } = renderHistory({
+      period: "max",
+      ids: ["short-avg-30d"],
+    });
+    await answered(client);
+    rerender({ code: "BHP", period: "3m", ids: ["short-avg-30d"] });
+    await answered(client);
+    expect(shortPeriods()).toContain("6m");
+    expect(result.current.short).toHaveLength(SHORT_DAYS["6m"]);
+    expect(result.current.waiting).toEqual([]);
   });
 });

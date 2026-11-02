@@ -760,8 +760,9 @@ dynamic import's `loading` fallback and as the first block of both chart tabs'
 `loading.tsx`, so the placeholder and the chart are the same size. The controls
 stack below `xl`: one 40px row above the plot (the view control and the embed
 button), then the period and the toggles beneath it. From `xl` they sit in one
-row, which needs about 960px of panel; every narrower window gets the stacked
-form.
+row, which needs about 975px of panel (at a 1280px window beside the signed-in
+sidebar the toggles row scrolls about 15px, see **Indicators** below); every
+narrower window gets the stacked form.
 
 `StockChart` takes `readout?: "strip" | "tooltip"`, default `"strip"`. The
 strip is a fixed-height band above the plot, so nothing covers the plot: 28px
@@ -826,7 +827,7 @@ An overlay draws on its series' own axis and widens the value axis
 (`indicatorsInDomain`); the legend sits inside the plot's top left
 (`indicatorLegend`), its width estimated from its labels at `AXIS_CHAR_PX`
 (6.1px a character) and never measured, as the axis labels are. At most one panel shows, under the time axis (it used to
-overlap the labels' bottom 8px). An indicator whose lookback is more than a tenth of the window on screen (sessions for price, calendar days for short interest) fetches the first longer period that covers it, once, through that period's own query keys (`planWarmup`): 1M with SMA 50 fetches 6M, 2Y with SMA 200 fetches MAX, and SMA 20 at 1Y fetches nothing. Short interest never warms up from MAX, which is weekly buckets. A longer history the stock already loaded, when it covers the lookback, serves the indicator and nothing is fetched (`useIndicatorHistory`). Each indicator waits for its own history
+overlap the labels' bottom 8px). An indicator whose lookback is more than a tenth of the window on screen (sessions for price, calendar days for short interest) fetches the first longer period that covers it, once, through that period's own query keys (`planWarmup`): 1M with SMA 50 fetches 6M, 2Y with SMA 200 fetches MAX, and SMA 20 at 1Y fetches nothing. Short interest never warms up from MAX, which is weekly buckets. A longer history this chart has already loaded, its own visible series included, serves the indicator when it covers the lookback, and nothing is fetched (`useIndicatorHistory`). That history lasts only while the chart stays mounted: a remount (a stock-page tab switch, or leaving a stock and returning to it in the Activity) asks for the longer history again, and TanStack's cache may answer from memory. Each indicator waits for its own history
 (`readyIndicators` with `history.waiting`), and a waiting panel is drawn empty
 (`buildChartView` `pending`), so the plot keeps its height. The menu follows the
 view the chart is drawn as (`resolveChartView`: a Combined chart with one series
