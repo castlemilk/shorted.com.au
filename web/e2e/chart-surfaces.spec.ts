@@ -215,6 +215,70 @@ test.describe("the Discord Activity launched on a phone", () => {
   });
 });
 
+// Discord's proxy loads the site root with the launch parameters and follows the server
+// redirect itself, so the browser's address stays `/` while the Activity page's HTML
+// arrives. route.fetch() follows that redirect the way the proxy does, and fulfilling it
+// keeps the address the page asked for. Without the script that moves the address, in the
+// root layout's <head> (src/config/discord-activity.mjs), the site chrome renders and
+// hydration fails, so this check fails without it.
+async function behindDiscordProxy(page: Page): Promise<void> {
+  await page.route(
+    (url) => url.pathname === "/" && url.searchParams.has("frame_id"),
+    async (route) => {
+      try {
+        // This route runs before the fixture's, so it sends the trusted-test header itself.
+        const request = route.request();
+        const response = await route.fetch({
+          headers: {
+            ...request.headers(),
+            ...cloudflareTestingBypassHeadersFor(request.url()),
+          },
+        });
+        await route.fulfill({ response });
+      } catch (error) {
+        // The test is over and the page with it.
+        if (!page.isClosed()) throw error;
+      }
+    },
+  );
+}
+
+// The root with the launch parameters Discord sends, and the custom_id a button launches with.
+const launchPath = (platform: "mobile" | "desktop") =>
+  `/?frame_id=f&instance_id=i&platform=${platform}&custom_id=activity%3ACBA%3Acombined%3A6m`;
+
+for (const [device, viewport, platform] of [
+  ["phone", PHONE, "mobile"],
+  ["desktop", DESKTOP, "desktop"],
+] as const) {
+  test.describe(`the Discord Activity behind Discord's proxy on a ${device}`, () => {
+    test.use({ viewport });
+
+    test("keeps the Activity's address, renders no site chrome, and opens the chart it was launched on", async ({
+      page,
+    }) => {
+      test.setTimeout(120_000);
+      await waitOutRateLimit(page);
+      await behindDiscordProxy(page);
+      // The proxy's route holds the navigation while a cold dev server compiles the Activity.
+      await page.goto(launchPath(platform), LOADED);
+
+      // The router reads the Activity's address, not the homepage's.
+      await expect(page).toHaveURL(
+        /\/embed\/discord\?frame_id=f&instance_id=i/,
+        LOADED,
+      );
+      await expect(page.locator("header, footer")).toHaveCount(0);
+      await expect(page.locator("a")).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Open CBA on Shorted", exact: true }),
+      ).toBeVisible(LOADED);
+      await expect(page.locator(CHART).first()).toBeVisible(LOADED);
+      await shot(page, `activity-proxy-${device}`);
+    });
+  });
+}
+
 test.describe("the Discord Activity's indicators", () => {
   test.use({ viewport: DESKTOP });
 

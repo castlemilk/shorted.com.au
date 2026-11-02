@@ -1565,9 +1565,24 @@ it in place, and an **Interactive** button (`"activity": true`, on since
   opens the server's default stock.
 - **The Activity loads `/`.** Discord's proxy (`<app id>.discordsays.com`,
   root mapping `shorted.com.au`) always opens the root with `frame_id` and
-  `instance_id`; `src/config/discord-activity.mjs` redirects exactly those
-  requests to `/embed/discord` (frameable). Inside it only same-origin requests
-  work, so it uses relative rewrites and opens links through the SDK.
+  `instance_id`, and `src/config/discord-activity.mjs` redirects those requests
+  to `/embed/discord` (frameable). The proxy follows that redirect on the
+  server, so the browser's address stays `/`. Next 14.2's router takes its
+  initial URL from `window.location`, so every `usePathname()` check (the
+  header, the footer, the corner credit, the banners) reads `/` and the page
+  hydrates as the homepage: the site chrome renders and hydration fails (React
+  #418 and #423). The root layout's inline `discordActivityUrlScript`, in
+  `<head>`, moves the address to `/embed/discord` before the router reads it.
+  Keep it a static inline script in `<head>`: the proxy adds a nonce to every
+  inline script in the page, so a script created at runtime is blocked, and
+  next/script, a `type="module"` script, an effect or the body can each run
+  after the router has read the address. Its guards are
+  `scripts/tests/discord-activity-redirect.test.mjs` (the placement, and the
+  script run in a VM), `web/src/config/__tests__/discord-activity-url.test.ts`
+  (it moves only what the server redirects) and the proxy case in
+  `web/e2e/chart-surfaces.spec.ts` (it runs against `next dev`; no workflow runs
+  it). Inside the Activity only same-origin requests work, so it uses relative
+  rewrites and opens links through the SDK.
 - **`/api/discord/` is in the Cloudflare SBFM skip** (Discord is an automated
   client); the signature check is what keeps the route closed. So is the
   Activity: Discord's proxy fetches it from Discord's servers, and SBFM served
@@ -1596,9 +1611,10 @@ it in place, and an **Interactive** button (`"activity": true`, on since
   re-reads the grant from it; nothing the browser sends picks the scope.
 - **Nothing in the Activity may navigate the frame.** Discord's mobile webview
   follows a plain link in place and loaded the whole site inside the Activity
-  (2026-10-29): the embed layout's corner credit is off on `/embed/discord`
-  (`app/embed/embed-brand-link.tsx`), and links go out through
-  `openExternalLink`. `openOutside` never calls `window.open` inside Discord
+  (2026-10-29). The embed layout's corner credit is off on `/embed/discord`
+  (`app/embed/embed-brand-link.tsx`), but that check reads `usePathname()`, so it
+  holds only once the address fix above has run: without it the credit shows
+  inside Discord. Links go out through `openExternalLink`. `openOutside` never calls `window.open` inside Discord
   (`inDiscordFrame`): it waits up to 3 seconds for the SDK, with the pressed control `aria-busy` meanwhile (Open on Shorted, or the menu's sign-in; see the in-flight rule below), and otherwise shows the address as text to
   copy, drawn in the chart's box (`chartOverlay`, an `absolute z-40` child that turns
   with a landscape chart; the announcement is an always-mounted `sr-only`

@@ -2,6 +2,7 @@ import { IBM_Plex_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "~/styles/globals.css";
 import { criticalCSS } from "~/styles/critical-css";
+import { discordActivityUrlScript } from "~/config/discord-activity.mjs";
 
 import dynamic from "next/dynamic";
 import { cn } from "../@/lib/utils";
@@ -179,6 +180,15 @@ export default function RootLayout({
   return (
     <html lang="en-AU" className={`${fontMono.variable} ${fontSerif.variable}`} suppressHydrationWarning>
       <head>
+        {/* Discord Activity (config/discord-activity.mjs). Discord's proxy follows
+            the server redirect, so the address is still "/" when the Activity
+            hydrates. This moves it to the page the server rendered. It must stay a
+            static inline script in the head: the proxy nonces inline scripts, so one
+            created at runtime is blocked, and the RSC payload is pushed from the
+            body, after this runs. */}
+        <script
+          dangerouslySetInnerHTML={{ __html: discordActivityUrlScript() }}
+        />
         {/* Inline critical CSS to prevent render-blocking */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />
         {/* Pre-paint session sniff: mark html.anon when no next-auth cookie is
