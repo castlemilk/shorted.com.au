@@ -2,6 +2,10 @@ import { readFile } from "fs/promises";
 import { NextResponse } from "next/server";
 import path from "path";
 
+// Read from public/docs at build time and served as a static response, as it
+// is today. Next 15 would render a GET handler per request unless told not to.
+export const dynamic = "force-static";
+
 // Note: Cannot use Edge runtime as we need fs/path modules
 export async function GET() {
   try {

@@ -1,5 +1,4 @@
 import { type Metadata } from "next";
-import nextDynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 import { Newspaper } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
@@ -14,13 +13,10 @@ import { stockOgImage } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { JsonLd } from "~/@/components/seo/json-ld";
 
-// The timeline imports @connectrpc/connect, so it is client-only (as the chart
-// panels on the Overview and Short interest tabs are) and fetches after
-// hydration.
-const EventTimeline = nextDynamic(
-  () => import("~/@/components/company/event-timeline").then((m) => m.EventTimeline),
-  { ssr: false },
-);
+// The timeline imports @connectrpc/connect, so it is client-only and fetches
+// after hydration. It comes from its "use client" loader, which holds the
+// next/dynamic with ssr: false.
+import { EventTimeline } from "~/@/components/company/event-timeline-loader";
 
 // On-demand ISR: the empty generateStaticParams is what makes the segment
 // statically optimisable; without it revalidate is inert and the page renders

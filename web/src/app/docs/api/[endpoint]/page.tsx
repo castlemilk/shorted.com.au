@@ -8,9 +8,9 @@ import { siteConfig } from '~/@/config/site';
 import { apiDocsMetadata, descriptionSnippet, endpointTitle } from '../docs-metadata';
 
 interface EndpointPageProps {
-  params: {
+  params: Promise<{
     endpoint: string;
-  };
+  }>;
 }
 
 export async function generateStaticParams() {
@@ -21,7 +21,8 @@ export async function generateStaticParams() {
 }
 
 export default async function EndpointPage({ params }: EndpointPageProps) {
-  const endpoint = await getEndpoint(params.endpoint);
+  const { endpoint: endpointId } = await params;
+  const endpoint = await getEndpoint(endpointId);
 
   if (!endpoint) {
     return notFound();
@@ -52,7 +53,8 @@ export default async function EndpointPage({ params }: EndpointPageProps) {
 }
 
 export async function generateMetadata({ params }: EndpointPageProps): Promise<Metadata> {
-  const endpoint = await getEndpoint(params.endpoint);
+  const { endpoint: endpointId } = await params;
+  const endpoint = await getEndpoint(endpointId);
   if (!endpoint) return {};
 
   return apiDocsMetadata({

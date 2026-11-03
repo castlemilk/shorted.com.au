@@ -40,11 +40,12 @@ async function loadIndustryNames(): Promise<string[]> {
 export default async function AlertsPage({
   searchParams,
 }: {
-  searchParams?: { industry?: string | string[] };
+  searchParams?: Promise<{ industry?: string | string[] }>;
 }) {
-  const industry = Array.isArray(searchParams?.industry)
-    ? searchParams.industry[0]
-    : searchParams?.industry;
+  const query = await searchParams;
+  const industry = Array.isArray(query?.industry)
+    ? query.industry[0]
+    : query?.industry;
   const industryNames = await loadIndustryNames();
 
   return (

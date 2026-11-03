@@ -22,7 +22,7 @@ import { BlogCategoryNav } from "~/@/components/blog/blog-category-nav";
 import { BlogPostGrid } from "~/@/components/blog/blog-post-grid";
 
 interface Params {
-  params: { category: string };
+  params: Promise<{ category: string }>;
 }
 
 // One static page per category; anything else is a 404, never a dynamic
@@ -34,8 +34,9 @@ export function generateStaticParams() {
   return BLOG_CATEGORY_SLUGS.map((category) => ({ category }));
 }
 
-export function generateMetadata({ params }: Params): Metadata {
-  const category = getBlogCategory(params.category);
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const { category: categorySlug } = await params;
+  const category = getBlogCategory(categorySlug);
   if (!category) return {};
   const url = `${siteConfig.url}${blogCategoryPath(category.slug)}`;
   // Absolute: the root layout's `%s | Shorted` template would otherwise
@@ -76,8 +77,9 @@ export function generateMetadata({ params }: Params): Metadata {
   };
 }
 
-export default function BlogCategoryPage({ params }: Params) {
-  const category = getBlogCategory(params.category);
+export default async function BlogCategoryPage({ params }: Params) {
+  const { category: categorySlug } = await params;
+  const category = getBlogCategory(categorySlug);
   if (!category) notFound();
 
   const allCards = getAllPosts().map(toBlogCard);

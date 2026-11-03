@@ -673,7 +673,7 @@ export function ChatLineChart({
 }
 
 /** The rendered width of an element, kept current as it resizes. 0 until it is measured. */
-function useMeasuredWidth(ref: RefObject<HTMLElement>): number {
+function useMeasuredWidth(ref: RefObject<HTMLElement | null>): number {
   const [width, setWidth] = useState(0);
   useEffect(() => {
     const element = ref.current;

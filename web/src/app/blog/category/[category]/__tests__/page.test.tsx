@@ -64,9 +64,9 @@ const countLine = () =>
 describe("BlogCategoryPage", () => {
   beforeEach(() => notFound.mockClear());
 
-  it("lists only the posts filed under the category as h2 cards, one eager cover", () => {
+  it("lists only the posts filed under the category as h2 cards, one eager cover", async () => {
     const { container } = render(
-      <BlogCategoryPage params={{ category: "guides" }} />,
+      await BlogCategoryPage({ params: Promise.resolve({ category: "guides" }) }),
     );
 
     expect(
@@ -89,8 +89,10 @@ describe("BlogCategoryPage", () => {
     expect(covers[1]).not.toHaveAttribute("data-priority");
   });
 
-  it("marks the current category in the chip row and keeps the counts global", () => {
-    render(<BlogCategoryPage params={{ category: "housing" }} />);
+  it("marks the current category in the chip row and keeps the counts global", async () => {
+    render(
+      await BlogCategoryPage({ params: Promise.resolve({ category: "housing" }) }),
+    );
 
     const nav = screen.getByRole("navigation", { name: "Blog categories" });
     expect(within(nav).getByRole("link", { name: /Housing/ })).toHaveAttribute(
@@ -106,22 +108,23 @@ describe("BlogCategoryPage", () => {
     expect(countLine()).toHaveTextContent("1 article");
   });
 
-  it("404s an unknown category instead of rendering an empty hub", () => {
-    expect(() =>
-      render(<BlogCategoryPage params={{ category: "nope" }} />),
-    ).toThrow("NEXT_NOT_FOUND");
-    // React replays a render that throws, so the call count is >= 1.
-    expect(notFound).toHaveBeenCalled();
+  it("404s an unknown category instead of rendering an empty hub", async () => {
+    await expect(
+      BlogCategoryPage({ params: Promise.resolve({ category: "nope" }) }),
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(notFound).toHaveBeenCalledTimes(1);
   });
 
-  it("pre-renders every registry category and publishes a canonical per hub", () => {
+  it("pre-renders every registry category and publishes a canonical per hub", async () => {
     expect(generateStaticParams()).toEqual([
       { category: "guides" },
       { category: "analysis" },
       { category: "housing" },
       { category: "product" },
     ]);
-    const meta = generateMetadata({ params: { category: "housing" } });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ category: "housing" }),
+    });
     expect(meta.alternates?.canonical).toBe(
       "https://shorted.com.au/blog/category/housing",
     );
@@ -139,6 +142,8 @@ describe("BlogCategoryPage", () => {
     expect(meta.twitter?.images).toEqual([
       "https://shorted.com.au/opengraph-image",
     ]);
-    expect(generateMetadata({ params: { category: "nope" } })).toEqual({});
+    expect(
+      await generateMetadata({ params: Promise.resolve({ category: "nope" }) }),
+    ).toEqual({});
   });
 });

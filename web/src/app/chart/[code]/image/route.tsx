@@ -39,7 +39,7 @@ const CACHE_INCOMPLETE = "public, max-age=60, s-maxage=300";
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ code: string }> | { code: string } },
+  { params }: { params: Promise<{ code: string }> },
 ) {
   const { code: rawCode } = await params;
   const { code, view, period } = parseEmbedChartParams({

@@ -19,11 +19,11 @@ import { Skeleton } from "~/@/components/ui/skeleton";
  *
  * Its own file, with no "use client" and no Connect import, on purpose. The
  * table queries through Connect-RPC, so a server page can only reach it through
- * `next/dynamic` with `ssr: false`, and with nothing to show until the chunk
- * arrived the page popped a card of about 330px in after load (a first-load
- * layout shift of 0.023 on desktop). A server page can import THIS at no cost
- * and without dragging Connect into a server bundle (ssr-import-safety), so the
- * page passes it as the island's `loading`. The table's own loading branch
+ * its client loader (`next/dynamic` with `ssr: false`), and with nothing to show
+ * until the chunk arrived the page popped a card of about 330px in after load (a
+ * first-load layout shift of 0.023 on desktop). A server page can import THIS at
+ * no cost and without dragging Connect into a server bundle (ssr-import-safety),
+ * so the loader passes it as the island's `loading`. The table's own loading branch
  * renders the same component, so the placeholder and the loading state are one
  * footprint and cannot drift apart.
  */

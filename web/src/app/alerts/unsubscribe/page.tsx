@@ -11,12 +11,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function AlertUnsubscribePage({
+export default async function AlertUnsubscribePage({
   searchParams,
 }: {
-  searchParams: { t?: string | string[] };
+  searchParams: Promise<{ t?: string | string[] }>;
 }) {
-  const raw = searchParams.t;
+  const raw = (await searchParams).t;
   const token = (Array.isArray(raw) ? raw[0] : raw) ?? "";
 
   return (

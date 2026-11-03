@@ -1,10 +1,5 @@
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
-
-const ChatPageContent = dynamic(
-  () => import("./chat-page-content").then((mod) => mod.ChatPageContent),
-  { ssr: false },
-);
+import { ChatPageContent } from "./chat-page-content-loader";
 
 export const metadata: Metadata = {
   title: "AI Chat",

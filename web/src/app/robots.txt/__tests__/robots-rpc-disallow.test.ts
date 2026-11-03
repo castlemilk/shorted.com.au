@@ -14,6 +14,8 @@
  *   - adding a Disallow for `/_next/` or a content path would stop Google
  *     rendering or indexing the site, which is far worse.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GET } from "../route";
 
 async function robotsBody(): Promise<string> {
@@ -107,5 +109,20 @@ describe("robots.txt", () => {
       expect(disallows.some((d) => path.startsWith(d))).toBe(false);
     }
     expect(disallows).toContain("/embed/");
+  });
+
+  // The share page's noindex also goes out as a header (next.config.mjs), so a
+  // crawler that never renders the page still reads it. Only the one rule
+  // covers /chart: the card at /chart/<code>/image is an unfurler's image and
+  // carries no robots header.
+  it("sends noindex, follow as a header on the chart share page only", () => {
+    const config = readFileSync(join(process.cwd(), "next.config.mjs"), "utf8");
+    const rule =
+      config.match(/source:\s*"\/chart\/:code",\s*headers:\s*\[([^\]]*)\]/)?.[1] ?? "";
+    expect(rule).toContain('key: "X-Robots-Tag"');
+    expect(rule).toContain('value: "noindex, follow"');
+    expect(config.match(/source:\s*"\/chart[^"]*"/g)).toEqual([
+      'source: "/chart/:code"',
+    ]);
   });
 });

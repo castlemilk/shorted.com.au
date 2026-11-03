@@ -29,11 +29,13 @@ interface LayoutProps {
  * What a tab LOADS is another matter. Next 14 merges the Overview page's
  * client manifest into every tab's, so the Overview's first-load chunks are
  * what any tab may inherit (a route group would not change that: Next strips
- * it from the manifest's group name). So the Overview fetches its chart after
- * the page (stock-chart-panel-lazy.tsx), and only Short interest and Strategy
- * load a chart with the page. scripts/stock-chart-chunks.mjs fails the perf
- * job when a manifest gives chart code to a tab without a chart, and
- * e2e/stock-tabs.spec.ts checks what each tab actually downloads.
+ * it from the manifest's group name). So no tab loads a chart with its page.
+ * The Overview, Short interest and Strategy each fetch their chart once the
+ * page is in the browser, through a client loader (stock-chart-panel-lazy.tsx,
+ * strategy-levels-chart-loader.tsx). scripts/stock-chart-chunks.mjs fails the
+ * perf job when a manifest gives chart code to any stock tab, or a chart route
+ * stops loading its chart through its loader, and e2e/stock-tabs.spec.ts
+ * checks what each tab actually downloads.
  */
 export default async function StockLayout({ children, params }: LayoutProps) {
   const { stockCode: raw } = await params;

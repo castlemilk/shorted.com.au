@@ -1,38 +1,19 @@
-import dynamic from "next/dynamic";
 import { StatGroup, Stat } from "./stat-group";
 import { PullQuote } from "./pull-quote";
 import { Figure } from "./figure";
 import { Timeline, TimelineEvent } from "./timeline";
 import { articleFigureComponents } from "~/@/components/mdx/article-figures";
-
-// Charts are client-only (connect-web under the hood) — never SSR them.
-const ShortInterestChart = dynamic(
-  () => import("./short-interest-chart").then((m) => m.ShortInterestChart),
-  { ssr: false },
-);
-const PriceChart = dynamic(() => import("./price-chart").then((m) => m.PriceChart), {
-  ssr: false,
-});
-const BankShortBasket = dynamic(
-  () => import("./bank-short-basket").then((m) => m.BankShortBasket),
-  { ssr: false },
-);
-const ShortBasket = dynamic(
-  () => import("./short-basket").then((m) => m.ShortBasket),
-  { ssr: false },
-);
-const MultiSeriesChart = dynamic(
-  () => import("./multi-series-chart").then((m) => m.MultiSeriesChart),
-  { ssr: false },
-);
-const BarChart = dynamic(
-  () => import("./bar-chart").then((m) => m.BarChart),
-  { ssr: false },
-);
-const FlowChart = dynamic(
-  () => import("./flow-chart").then((m) => m.FlowChart),
-  { ssr: false },
-);
+// The charts are client-only (connect-web under the hood). Their next/dynamic
+// calls, with ssr: false, live in chart-loaders.tsx, a "use client" module.
+import {
+  ShortInterestChart,
+  PriceChart,
+  BankShortBasket,
+  ShortBasket,
+  MultiSeriesChart,
+  BarChart,
+  FlowChart,
+} from "./chart-loaders";
 
 export const MDX_COMPONENTS = {
   ...articleFigureComponents,

@@ -50,7 +50,7 @@ editor (signal board + novelty gate, commissions angle + tier)
 ### Frontend render path
 
 `web/src/app/news/[slug]/page.tsx` branches on `take.bodyFormat === "mdx"`:
-- **mdx** → `MdxTakeBody` (`web/src/@/components/news/mdx-take-body.tsx`): `[ref-N]` markers preprocessed to `<Cite/>`, compiled via `next-mdx-remote/rsc` against the whitelist registry (`mdx/registry.tsx`; charts are `dynamic({ssr:false})` because connect-web). Compile failure falls back to the legacy markdown renderer at runtime.
+- **mdx** → `MdxTakeBody` (`web/src/@/components/news/mdx-take-body.tsx`): `[ref-N]` markers preprocessed to `<Cite/>`, compiled via `next-mdx-remote/rsc` against the whitelist registry (`mdx/registry.tsx`; the charts are `dynamic({ssr:false})` in the client module `mdx/chart-loaders.tsx`, because connect-web). Compile failure falls back to the legacy markdown renderer at runtime.
 - **markdown** → legacy `take-body.tsx` (untouched; react-markdown + citation pills).
 
 `/news` index (`web/src/app/news/page.tsx`) is the masthead: `MastheadHeader`, `MarketPulse`, `LeadStory`, `StoryStack`, `WireList` (ISR `revalidate = 600`).
@@ -169,7 +169,7 @@ The palette is defined in three places that MUST stay in sync:
 
 ### Adding a component
 
-1. Implement in `web/src/@/components/news/mdx/` and export from `registry.tsx`. Anything touching connect-web/browser APIs must be `"use client"` and loaded via `dynamic(..., { ssr: false })` in the registry (see the charts).
+1. Implement in `web/src/@/components/news/mdx/` and export from `registry.tsx`. Anything touching connect-web/browser APIs must be `"use client"` and loaded via `dynamic(..., { ssr: false })` in a client loader, as `chart-loaders.tsx` does for the charts: the loader exports the component under its name, and `registry.tsx` imports it from there. A server module may not call `next/dynamic` with `ssr: false`.
 2. Add its zod schema to `manifest.ts` + describe it in the manifest `MDX_PALETTE_DOC`.
 3. Mirror the schema in `mdxgate.ts` `COMPONENT_SCHEMAS`.
 4. Mirror the doc line in `narrative.ts` `MDX_PALETTE_DOC`.

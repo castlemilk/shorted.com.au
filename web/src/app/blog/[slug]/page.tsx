@@ -36,23 +36,24 @@ export function generateStaticParams(): Array<{ slug: string }> {
 }
 
 interface Params {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
 const authorSlugFor = (name?: string): string | undefined =>
   AUTHORS.find((a) => a.name === name)?.slug;
 
 export default async function Post({ params }: Params) {
-  const post = getPostBySlug(params.slug);
+  const { slug } = await params;
+  const post = getPostBySlug(slug);
 
   if (!post) {
     return notFound();
   }
 
   const card = toBlogCard(post);
-  const postUrl = `${siteConfig.url}${blogPostPath(params.slug)}`;
+  const postUrl = `${siteConfig.url}${blogPostPath(slug)}`;
   const description =
     post.excerpt ||
     `Read ${post.title} on Shorted - insights into ASX short positions and market analysis.`;
@@ -68,7 +69,7 @@ export default async function Post({ params }: Params) {
   const breadcrumbItems = [
     { label: "Blog", href: "/blog" },
     { label: card.category.label, href: blogCategoryPath(card.category.slug) },
-    { label: post.title, href: blogPostPath(params.slug) },
+    { label: post.title, href: blogPostPath(slug) },
   ];
 
   // Plain container rather than DashboardLayout: its sidebar mounts client
@@ -136,14 +137,15 @@ export default async function Post({ params }: Params) {
           </div>
         </article>
 
-        <RelatedPosts currentSlug={params.slug} />
+        <RelatedPosts currentSlug={slug} />
       </div>
     </main>
   );
 }
 
-export function generateMetadata({ params }: Params): Metadata {
-  const post = getPostBySlug(params.slug);
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const { slug } = await params;
+  const post = getPostBySlug(slug);
 
   if (!post) {
     return notFound();
@@ -155,7 +157,7 @@ export function generateMetadata({ params }: Params): Metadata {
     post.excerpt ||
     `${post.title} - Expert analysis on ASX short positions, market trends, and ASIC regulations. Learn about Australian stock market short selling with data-driven insights.`;
   const authorName = post.author?.name || siteConfig.author;
-  const url = `${siteConfig.url}${blogPostPath(params.slug)}`;
+  const url = `${siteConfig.url}${blogPostPath(slug)}`;
 
   return {
     title,

@@ -14,8 +14,11 @@ interface UseWidgetVisibilityOptions {
 }
 
 interface UseWidgetVisibilityReturn {
-  /** Ref to attach to the widget container */
-  ref: React.RefObject<HTMLDivElement>;
+  /**
+   * Ref to attach to the widget container. Readonly, so a DOM ref prop takes it
+   * on @types/react 18 (RefObject<T>) and 19 (RefObject<T | null>).
+   */
+  ref: Readonly<React.RefObject<HTMLDivElement | null>>;
   /** Is the widget currently visible in viewport */
   isVisible: boolean;
   /** Has the widget ever been visible (for lazy loading) */
