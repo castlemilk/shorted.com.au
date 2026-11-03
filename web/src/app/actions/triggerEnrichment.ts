@@ -9,6 +9,12 @@ import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { revalidatePath } from "next/cache";
 import { retryWithBackoff } from "@/lib/retry";
 
+// The message the API writes only when it creates a job
+// (services/shorts/internal/services/shorts/enrichment.go). Its other success
+// answers create none: a job already running (its id comes back) or a pending
+// review (no id). The form must not announce a job for those.
+const CREATED_JOB_MESSAGE = "Enrichment job created";
+
 const RETRY_OPTIONS = {
   maxRetries: 3,
   initialDelayMs: 500,
@@ -65,10 +71,19 @@ export async function triggerEnrichmentAction(formData: FormData) {
       throw new Error("Received empty response from enrichment service");
     }
     
+    const jobId = resp.jobId || "";
+    // jobId alone cannot say a job is new: the id of a job already running comes back too.
+    const created =
+      jobId !== "" && (resp.message || "").startsWith(CREATED_JOB_MESSAGE);
     return {
       success: true,
-      jobId: resp?.jobId || "",
-      message: resp?.message || `Enrichment job created: ${resp?.jobId || "unknown"}`,
+      created,
+      jobId,
+      message:
+        resp.message ||
+        (created
+          ? `Enrichment job created: ${jobId}`
+          : "No new enrichment job was created."),
     };
   } catch (error) {
     console.error("Failed to trigger enrichment:", error);
