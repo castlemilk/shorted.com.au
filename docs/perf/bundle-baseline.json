@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-11-02T23:26:09.391Z",
-  "gitRef": "bbff5b4c9+uncommitted-pr1",
+  "capturedAt": "2026-11-03T02:01:31.080Z",
+  "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 96.5,
   "routes": {
@@ -509,15 +509,30 @@
       "firstLoadKB": 0
     },
     "/ownership": {
-      "firstLoadKB": 114
+      "firstLoadKB": 115
     },
     "/ownership/[slug]": {
-      "firstLoadKB": 115
+      "firstLoadKB": 116
     },
     "/ownership/[slug]/opengraph-image": {
       "firstLoadKB": 0
     },
+    "/ownership/notices": {
+      "firstLoadKB": 127
+    },
+    "/ownership/notices/opengraph-image": {
+      "firstLoadKB": 0
+    },
     "/ownership/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/ownership/stocks": {
+      "firstLoadKB": 124
+    },
+    "/ownership/stocks/[code]": {
+      "firstLoadKB": 116
+    },
+    "/ownership/stocks/[code]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/picks": {
