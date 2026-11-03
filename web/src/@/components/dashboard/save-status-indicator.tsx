@@ -1,7 +1,7 @@
 "use client";
 
 import { type SaveStatus } from "@/types/dashboard";
-import { Loader2, Check, AlertCircle, Cloud, CloudOff } from "lucide-react";
+import { LoaderCircle, Check, CircleAlert, Cloud, CloudOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -58,7 +58,7 @@ export function SaveStatusIndicator({
       case "saving":
         return (
           <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <LoaderCircle className="h-3 w-3 animate-spin" />
             <span className="text-xs">Saving...</span>
           </div>
         );
@@ -74,7 +74,7 @@ export function SaveStatusIndicator({
       case "error":
         return (
           <div className="flex items-center gap-1.5 text-destructive">
-            <AlertCircle className="h-3 w-3" />
+            <CircleAlert className="h-3 w-3" />
             <span className="text-xs">Save failed</span>
             {onRetry && (
               <Button

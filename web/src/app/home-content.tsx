@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { EmbedDialog } from "~/@/components/ui/embed-dialog";
 import dynamic from "next/dynamic";
 import type { JsonValue } from "@bufbuild/protobuf";
-import { RefreshCw, BarChart3 } from "lucide-react";
+import { RefreshCw, ChartColumn } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
 import { clearSessionCache } from "~/@/lib/session-cache";
 import { cn } from "~/@/lib/utils";
@@ -28,7 +28,7 @@ function DashboardLoadingSkeleton({
         heightClass
       )}
     >
-      <BarChart3 className="h-10 w-10 text-muted-foreground/30 animate-pulse" />
+      <ChartColumn className="h-10 w-10 text-muted-foreground/30 animate-pulse" />
       <p className="mt-3 text-sm text-muted-foreground/50 animate-pulse">
         Loading market data...
       </p>

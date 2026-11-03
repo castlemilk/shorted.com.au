@@ -4,11 +4,11 @@ import Link from "next/link";
 import { Button } from "~/@/components/ui/button";
 import {
   Activity,
-  BarChart3,
+  ChartColumn,
   ChevronRight,
   Clock,
   Cloud,
-  Code2,
+  CodeXml,
   CreditCard,
   Database,
   Globe,
@@ -44,7 +44,7 @@ export default function MetricsClient({ statistics }: MetricsClientProps) {
         <div className="container px-4 md:px-6 relative">
           <div className="max-w-3xl mx-auto text-center">
             <p className={cn(eyebrow, "mb-4 inline-flex items-center gap-2 text-primary font-medium")}>
-              <BarChart3 className="h-3.5 w-3.5" />
+              <ChartColumn className="h-3.5 w-3.5" />
               Platform Metrics
             </p>
             <h1 className={cn(pageTitle, "text-4xl text-foreground md:text-5xl")}>
@@ -170,7 +170,7 @@ export default function MetricsClient({ statistics }: MetricsClientProps) {
 
             <SpotlightCard className="p-6">
               <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4">
-                <Code2 className="w-6 h-6" />
+                <CodeXml className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-semibold text-foreground mb-2">Developer API</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -209,7 +209,7 @@ export default function MetricsClient({ statistics }: MetricsClientProps) {
             <InfraCard icon={<Server className="w-8 h-8" />} value="10+" label="Cloud Run Services" />
             <InfraCard icon={<Clock className="w-8 h-8" />} value="6" label="Scheduled Jobs" />
             <InfraCard icon={<Cloud className="w-8 h-8" />} value="GCP" label="Cloud Provider" />
-            <InfraCard icon={<Code2 className="w-8 h-8" />} value="IaC" label="Terraform Managed" />
+            <InfraCard icon={<CodeXml className="w-8 h-8" />} value="IaC" label="Terraform Managed" />
           </div>
 
           <div className="mt-12 max-w-3xl mx-auto">

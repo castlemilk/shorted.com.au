@@ -7,7 +7,7 @@ import { IntentPrefetchLink } from "~/@/components/ui/intent-prefetch-link";
 import {
   TrendingUp,
   TrendingDown,
-  BarChart3,
+  ChartColumn,
   Zap,
   ArrowUpRight,
   ArrowDownRight,
@@ -15,7 +15,7 @@ import {
   ChevronRight,
   Search,
   Clock,
-  AlertTriangle,
+  TriangleAlert,
 } from "lucide-react";
 import {
   type TimePeriod,
@@ -201,7 +201,7 @@ export function TopPageClient({
             <StatCard
               label="Average Short %"
               value={formatPercentage(marketStats?.avgShortPosition ?? 0)}
-              icon={<BarChart3 className="h-4 w-4" />}
+              icon={<ChartColumn className="h-4 w-4" />}
               color="orange"
               subtext="Across top 100"
             />
@@ -210,7 +210,7 @@ export function TopPageClient({
             <StatCard
               label="Highly Shorted"
               value={`${marketStats?.highlyShorted ?? 0}`}
-              icon={<AlertTriangle className="h-4 w-4" />}
+              icon={<TriangleAlert className="h-4 w-4" />}
               color="yellow"
               subtext="Above 10%"
             />

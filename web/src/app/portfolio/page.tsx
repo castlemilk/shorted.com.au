@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { PortfolioClient } from "./components/portfolio-client";
 import { getPortfolioData } from "../actions/getPortfolio";
@@ -11,7 +11,7 @@ import { type PortfolioHolding } from "~/@/lib/portfolio-service";
 function PortfolioLoadingState() {
   return (
     <div className="flex items-center justify-center h-64">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <LoaderCircle className="h-8 w-8 animate-spin text-muted-foreground" />
     </div>
   );
 }

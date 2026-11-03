@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Home } from "lucide-react";
+import { ChevronRight, House } from "lucide-react";
 import { Fragment } from "react";
 import { JsonLd } from "~/@/components/seo/json-ld";
 
@@ -39,7 +39,7 @@ export function Breadcrumbs({
         className="flex items-center hover:text-foreground transition-colors"
         aria-label="Home"
       >
-        <Home className="h-4 w-4" />
+        <House className="h-4 w-4" />
       </Link>
 
       {items.map((item, index) => (

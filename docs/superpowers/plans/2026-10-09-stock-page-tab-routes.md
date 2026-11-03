@@ -2130,7 +2130,7 @@ Then:
 - [ ] **Step 5: Run the tests, the typecheck and the lint**
 
 ```bash
-cd web && npx jest "src/app/shorts/\[stockCode\]/__tests__" && npx tsc --noEmit -p tsconfig.json && npx next lint --max-warnings=1000 --dir "src/app/shorts/[stockCode]"
+cd web && npx jest "src/app/shorts/\[stockCode\]/__tests__" && npx tsc --noEmit -p tsconfig.json && npx eslint --ext .js,.jsx,.ts,.tsx --max-warnings=1000 "src/app/shorts/[stockCode]"
 ```
 Expected: the runtime and old-api tests PASS except the ones that read `../company/page.tsx` / `../financials/page.tsx` (those files arrive in Tasks 11-12; mark the two expectations `it.todo` with a comment naming the task ONLY if the executor is running tasks strictly in order and the reviewer is told, otherwise implement Tasks 11-12 before reporting this task done). `page-all-imports` and `page-component-imports` still pass unchanged (they import modules, not the page's text).
 
@@ -2876,7 +2876,7 @@ In `community/[threadId]/page.tsx`: remove the `DashboardLayout` and `Breadcrumb
 - [ ] **Step 5: Run the tests, typecheck, lint**
 
 ```bash
-cd web && npx jest "src/app/shorts" && npx tsc --noEmit -p tsconfig.json && npx next lint --max-warnings=1000 --dir "src/app/shorts"
+cd web && npx jest "src/app/shorts" && npx tsc --noEmit -p tsconfig.json && npx eslint --ext .js,.jsx,.ts,.tsx --max-warnings=1000 "src/app/shorts"
 ```
 Expected: PASS / clean. If a news-page test exists under `news/__tests__`, update any assertion that looked for the back link or `Breadcrumbs`.
 
@@ -4102,7 +4102,7 @@ export default async function StrategyPage({ params }: PageProps) {
 - [ ] **Step 5: Run the tests, typecheck and lint**
 
 ```bash
-cd web && npx jest "src/app/shorts/\[stockCode\]/strategy" src/@/components/strategy && npx tsc --noEmit -p tsconfig.json && npx next lint --max-warnings=1000 --dir "src/app/shorts/[stockCode]/strategy" --dir src/@/components/strategy
+cd web && npx jest "src/app/shorts/\[stockCode\]/strategy" src/@/components/strategy && npx tsc --noEmit -p tsconfig.json && npx eslint --ext .js,.jsx,.ts,.tsx --max-warnings=1000 "src/app/shorts/[stockCode]/strategy" src/@/components/strategy
 ```
 Expected: PASS / clean.
 

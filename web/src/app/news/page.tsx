@@ -68,12 +68,12 @@ export const metadata: Metadata = {
 // (POST /api/revalidate?path=/news or ?tag=news-index).
 export const revalidate = 86400;
 
-// This route is ISR, so its RPCs must be plain-JSON POSTs (string bodies)
-// with an explicit data-cache option — the connect transport's streamed
-// bodies can't be data-cached ("Failed to generate cache key"), and its
-// runtime no-store fallback throws "Dynamic server usage" during ISR
-// regeneration, silently pinning the page to a stale copy (same landmine
-// as sitemap/feed, fixed the same way).
+// This route is ISR, so its RPCs carry an explicit `next` option. Without one,
+// serverFetchWithUserAgent sends a POST as no-store, which throws "Dynamic
+// server usage" during regeneration and silently pins the page to a stale copy
+// (same landmine as sitemap/feed). The option is applied to the route (300 s,
+// tagged news-index), so each regeneration asks the API again and an empty
+// answer is not held in the data cache.
 const newsIndexFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, {
     ...init,

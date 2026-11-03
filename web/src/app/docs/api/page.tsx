@@ -5,7 +5,7 @@ import { summarizePublicSurface } from '~/lib/openapi/public-surface';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '~/@/components/ui/card';
 import Image from 'next/image';
-import { ArrowRight, Book, Terminal, Shield, Lock, AlertTriangle } from 'lucide-react';
+import { ArrowRight, Book, Terminal, Shield, Lock, TriangleAlert } from 'lucide-react';
 import { ApiAccessSection } from '~/@/components/docs/api-access-section';
 import { WebApiSchema } from '~/@/components/seo/web-api-schema';
 import { planPricePerMonth } from "~/@/config/pricing";
@@ -219,7 +219,7 @@ export default async function ApiDocsIndex() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <TriangleAlert className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               <CardTitle className="text-xl">Usage Policy</CardTitle>
             </div>
           </CardHeader>

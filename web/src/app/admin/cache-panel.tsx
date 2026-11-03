@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DatabaseZap, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { DatabaseZap, LoaderCircle, CircleCheck, CircleX } from "lucide-react";
 
 import {
   Card,
@@ -135,12 +135,12 @@ export function CachePanel() {
                 </div>
                 {st.state === "ok" && (
                   <div className="mt-1 flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 className="h-3 w-3" /> {st.message}
+                    <CircleCheck className="h-3 w-3" /> {st.message}
                   </div>
                 )}
                 {st.state === "error" && (
                   <div className="mt-1 flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
-                    <XCircle className="h-3 w-3" /> {st.message}
+                    <CircleX className="h-3 w-3" /> {st.message}
                   </div>
                 )}
               </div>
@@ -153,7 +153,7 @@ export function CachePanel() {
               >
                 {st.state === "busy" ? (
                   <>
-                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    <LoaderCircle className="mr-1 h-3.5 w-3.5 animate-spin" />
                     Flushing…
                   </>
                 ) : (

@@ -8,7 +8,7 @@ import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
 import { Input } from "~/@/components/ui/input";
 import { ScrollArea } from "~/@/components/ui/scroll-area";
-import { TrendingUp, TrendingDown, Plus, X, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, Plus, X, ChartColumn } from "lucide-react";
 import Link from "next/link";
 import { Sparkline, type SparklineData } from "~/@/components/ui/sparkline";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/@/components/ui/select";
@@ -273,7 +273,7 @@ export function WatchlistWidget({ config, onSettingsChange, sizeVariant = "stand
                                       variant="outline"
                                       className={cn("text-xs h-5", getShortIntensity(shortData.percentageShorted))}
                                     >
-                                      <BarChart3 className="h-3 w-3 mr-1" />
+                                      <ChartColumn className="h-3 w-3 mr-1" />
                                       {shortData.percentageShorted.toFixed(2)}%
                                     </Badge>
                                   </TooltipTrigger>

@@ -9,7 +9,7 @@ import { easeCubicInOut } from "d3-ease";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Feature, Geometry } from "geojson";
-import { ParentSize } from "@visx/responsive";
+import { ParentSize } from "@/components/charts/parent-size";
 import { useQuery } from "@tanstack/react-query";
 import { listStateSuburbsClient } from "~/app/actions/client/getHousingClient";
 import { makePriceScale, fmtPriceShort } from "@/lib/housing/price-scale";

@@ -26,7 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "~/@/components/ui/popover";
-import { Settings2, Activity, RotateCcw, LineChart, BarChart3 } from "lucide-react";
+import { Settings2, Activity, RotateCcw, ChartLine, ChartColumn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type IndicatorConfig,
@@ -242,7 +242,7 @@ export function TimeSeriesWidget({ config, onSettingsChange }: WidgetProps) {
       <div className="h-full flex flex-col">
         <div className="px-4 pt-3 pb-2 border-b flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <LineChart className="h-4 w-4 text-muted-foreground" />
+            <ChartLine className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium text-sm">Time Series Analysis</span>
           </div>
           <Popover open={showSettings} onOpenChange={setShowSettings}>
@@ -267,7 +267,7 @@ export function TimeSeriesWidget({ config, onSettingsChange }: WidgetProps) {
         </div>
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <div className="text-center">
-            <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <ChartColumn className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p className="text-sm font-medium">No Stocks Selected</p>
             <p className="text-xs mt-2">
               Click the settings icon to add stocks for analysis
@@ -284,7 +284,7 @@ export function TimeSeriesWidget({ config, onSettingsChange }: WidgetProps) {
       <div className="px-4 pt-3 pb-2 border-b">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
-            <LineChart className="h-4 w-4 text-muted-foreground" />
+            <ChartLine className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium text-sm">Comparing</span>
             {stocks.map((code, index) => (
               <Badge
@@ -441,7 +441,7 @@ export function TimeSeriesWidget({ config, onSettingsChange }: WidgetProps) {
         {chartData.series.length === 0 ? (
           <div className="h-full flex items-center justify-center text-muted-foreground">
             <div className="text-center">
-              <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <ChartColumn className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="text-sm font-medium">No Data Available</p>
               <p className="text-xs">No short position data found for selected stocks</p>
             </div>

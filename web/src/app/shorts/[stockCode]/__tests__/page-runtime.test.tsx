@@ -163,13 +163,20 @@ describe("Stock Detail Page Runtime Imports", () => {
   });
 
   it("keeps stock-page child fetches aligned with the public edge cache window", () => {
+    // The rank read moved out of the component into actions/getShortRank.ts,
+    // so the window is checked where the read now lives.
     const source = fs.readFileSync(
       path.resolve(__dirname, "../short-interest-history.tsx"),
       "utf8",
     );
+    const rankRead = fs.readFileSync(
+      path.resolve(__dirname, "../../../actions/getShortRank.ts"),
+      "utf8",
+    );
 
-    expect(source).toContain("STOCK_PAGE_CACHE_SECONDS");
+    expect(rankRead).toContain("STOCK_PAGE_CACHE_SECONDS");
     expect(source).not.toContain("revalidate: 3600");
+    expect(rankRead).not.toContain("revalidate: 3600");
   });
 
   it("should import child components used by EnrichedCompanySection", async () => {

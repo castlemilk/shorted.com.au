@@ -3,7 +3,7 @@ import { LinearGradient } from "@visx/gradient";
 
 // ParentSize measures the DOM and jsdom reports 0, so the chart short-circuits
 // to null without a width and there would be nothing to assert against.
-jest.mock("@visx/responsive", () => ({
+jest.mock("@/components/charts/parent-size", () => ({
   __esModule: true,
   ParentSize: ({ children }: { children: (s: { width: number; height: number }) => unknown }) =>
     children({ width: 800, height: 280 }),

@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertTriangle, RefreshCw, Home, FileText } from "lucide-react";
+import { TriangleAlert, RefreshCw, House, FileText } from "lucide-react";
 import Link from "next/link";
 
 interface ReportsErrorProps {
@@ -28,7 +28,7 @@ export default function ReportsError({ error, reset }: ReportsErrorProps) {
         <CardHeader className="pb-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-amber-100 dark:bg-amber-900/40 rounded-lg">
-              <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              <TriangleAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
               <CardTitle className="text-xl text-amber-900 dark:text-amber-100">
@@ -57,7 +57,7 @@ export default function ReportsError({ error, reset }: ReportsErrorProps) {
             </Button>
             <Button variant="ghost" asChild className="flex items-center gap-2">
               <Link href="/">
-                <Home className="h-4 w-4" />
+                <House className="h-4 w-4" />
                 Go Home
               </Link>
             </Button>

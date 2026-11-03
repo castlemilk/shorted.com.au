@@ -16,9 +16,13 @@
  * SKIP_STATIC_GENERATION=1, so a prerender only ever contains the 20-stock
  * fallback — with ISR that degenerate copy would serve for up to an hour after
  * EVERY deploy (GSC "discovered - not indexed" regression, July 2026).
- * Freshness/cost is handled at the fetch layer instead: the plain-JSON RPCs
- * carry `next.revalidate`, so repeat renders hit the data cache and only the
- * first request after a deploy pays the full fan-out.
+ * Freshness is an hour, shared. The top-shorts list (sitemap-shorts) and the
+ * industry tree (sitemap-core) are each one shared entry for an hour
+ * (sharedRead, actions/shared-read.ts), so a sitemap request does not call the
+ * API again within it. An empty or failed answer throws, so it is never held.
+ * A CDN in front of the route can still hold a sitemap response for its
+ * s-maxage (sitemapResponse), including the fallback list served while the API
+ * is down; the origin stores none.
  *
  * LASTMOD POLICY
  * --------------
@@ -56,9 +60,11 @@ import { getHousingStateSlugs } from "~/app/actions/getHousingSitemap";
 import {
   buildApiUrl,
   getServerShortsApiUrl,
+  serverFetchOutsideNextCache,
   serverFetchWithUserAgent,
   skipForBuild,
 } from "~/app/actions/config";
+import { sharedRead } from "~/app/actions/shared-read";
 import { getReportsList } from "~/app/actions/reports/getReportData";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { SCAN_SLUGS } from "~/@/lib/scans/registry";
@@ -86,19 +92,95 @@ import { timestampToDate } from "~/@/lib/housing/drops-freshness";
 const baseUrl = siteConfig.url;
 const API_URL = getServerShortsApiUrl();
 
-// Data-cached fetch for the plain-JSON RPCs below (string bodies hash into a
-// Next data-cache key, so repeat renders skip the network). Connect-transport
-// calls must NOT use this: their streamed request bodies make Next throw
-// "Failed to generate cache key" (500'd the whole route on Vercel) — they run
-// uncached instead, which is legal in a force-dynamic route.
-const sitemapFetch: typeof fetch = (input, init) =>
-  serverFetchWithUserAgent(input, {
-    ...init,
-    next: { revalidate: 3600 },
-  } as RequestInit);
+// The two plain-JSON reads below each hold one good answer for an hour in a
+// shared entry (sharedRead). They use serverFetchOutsideNextCache, so Next's
+// fetch cache holds nothing and the entry is the only cache.
+const SITEMAP_READ_REVALIDATE_SECONDS = 3600;
 
-// One connect client factory per render. Uses the plain (uncached / no-store)
-// fetch: connect streams its POST bodies, which the Next data cache cannot key.
+// GetTopShorts (summary) for getAllStockCodes. A failed or empty answer throws,
+// so it is not held.
+function topShortsShared(): Promise<TopShortsResponse> {
+  return sharedRead(
+    ["sitemap-top-shorts", "1y", "1000", "0", "summary", "v1"],
+    SITEMAP_READ_REVALIDATE_SECONDS,
+    async () => {
+      const response = await serverFetchOutsideNextCache(
+        buildApiUrl(
+          API_URL,
+          "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
+        ),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Connect-Protocol-Version": "1",
+            "User-Agent": "shorted-sitemap/1.0 (+https://shorted.com.au)",
+          },
+          body: JSON.stringify({
+            period: "1y",
+            limit: 1000,
+            offset: 0,
+            summaryOnly: true,
+          }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          `Sitemap GetTopShorts: API returned ${response.status}`,
+        );
+      }
+      const data = (await response.json()) as TopShortsResponse;
+      if (!data.timeSeries?.length) {
+        throw new Error("Sitemap GetTopShorts: API returned no time series");
+      }
+      return data;
+    },
+  );
+}
+
+// GetIndustryTreeMap (max, 50) for the industry pages in sitemap-core. A failed
+// or empty answer throws, so it is not held.
+function industryTreeMapShared(): Promise<{
+  stocks?: Array<{ industry?: string }>;
+}> {
+  return sharedRead(
+    ["sitemap-industry-treemap", "max", "50", "0", "v1"],
+    SITEMAP_READ_REVALIDATE_SECONDS,
+    async () => {
+      const response = await serverFetchOutsideNextCache(
+        buildApiUrl(
+          API_URL,
+          "/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap",
+        ),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Connect-Protocol-Version": "1",
+          },
+          body: JSON.stringify({ period: "max", limit: 50, viewMode: 0 }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          `Sitemap GetIndustryTreeMap: API returned ${response.status}`,
+        );
+      }
+      const treemap = (await response.json()) as {
+        stocks?: Array<{ industry?: string }>;
+      };
+      if (!treemap.stocks?.length) {
+        throw new Error(
+          "Sitemap GetIndustryTreeMap: API returned no industry rows",
+        );
+      }
+      return treemap;
+    },
+  );
+}
+
+// One connect client factory per render. Uses the plain fetch, with no `next`
+// option, so nothing is stored.
 function connectTransport() {
   return createConnectTransport({
     fetch: serverFetchWithUserAgent,
@@ -202,34 +284,10 @@ async function getAllStockCodes(): Promise<string[]> {
   }
 
   try {
-    // Send Connect protocol + UA headers — the Cloudflare WAF 403s bare
-    // server-side fetches to api.shorted.com.au (see CLAUDE.md / mcp-server),
-    // which would otherwise silently fall back to FALLBACK_STOCK_CODES.
-    const response = await sitemapFetch(
-      buildApiUrl(API_URL, "/shorts.v1alpha1.ShortedStocksService/GetTopShorts"),
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Connect-Protocol-Version": "1",
-          "User-Agent": "shorted-sitemap/1.0 (+https://shorted.com.au)",
-        },
-        body: JSON.stringify({
-          period: "1y",
-          limit: 1000,
-          offset: 0,
-          summaryOnly: true,
-        }),
-        next: { revalidate: 3600 },
-      },
-    );
-
-    if (!response.ok) {
-      console.warn(`Sitemap API returned ${response.status}, using fallback stocks`);
-      return FALLBACK_STOCK_CODES;
-    }
-
-    const data = (await response.json()) as TopShortsResponse;
+    // topShortsShared sends the Connect protocol and UA headers: the Cloudflare
+    // WAF 403s bare server-side fetches to api.shorted.com.au (see CLAUDE.md /
+    // mcp-server), which would otherwise silently fall back to FALLBACK_STOCK_CODES.
+    const data = await topShortsShared();
 
     // Only list URLs the page itself indexes (see stock-indexability): named
     // stocks at/above the shared short-interest floor and with a code the
@@ -375,35 +433,17 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     },
   );
 
-  // Industry pages. Fetched directly (not via getAllIndustrySlugs) so the fetch
-  // carries the ISR-safe cache mode; slug rules use the canonical helper.
+  // Industry pages. Read directly (not via getAllIndustrySlugs) through the
+  // shared treemap entry; slug rules use the canonical helper.
   let industrySlugs: string[] = [];
   if (!skipForBuild()) {
     try {
-      const resp = await sitemapFetch(
-        buildApiUrl(
-          API_URL,
-          "/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap",
-        ),
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Connect-Protocol-Version": "1",
-          },
-          body: JSON.stringify({ period: "max", limit: 50, viewMode: 0 }),
-        },
-      );
-      if (resp.ok) {
-        const treemap = (await resp.json()) as {
-          stocks?: Array<{ industry?: string }>;
-        };
-        const names = new Set<string>();
-        for (const s of treemap.stocks ?? []) {
-          names.add(industryLabel(s.industry) || "Other");
-        }
-        industrySlugs = [...names].map(createSlug);
+      const treemap = await industryTreeMapShared();
+      const names = new Set<string>();
+      for (const s of treemap.stocks ?? []) {
+        names.add(industryLabel(s.industry) || "Other");
       }
+      industrySlugs = [...names].map(createSlug);
     } catch (error) {
       console.error("Failed to fetch industry slugs for sitemap:", error);
     }

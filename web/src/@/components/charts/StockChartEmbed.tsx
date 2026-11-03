@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { FunctionSquare, Maximize2, Smartphone } from "lucide-react";
+import { SquareFunction, Maximize2, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useElementSize } from "@/hooks/use-element-size";
 import { StockChart } from "./StockChart";
@@ -490,7 +490,7 @@ export function StockChartEmbed({
                 (menu.open || shownCount > 0) && "bg-muted text-foreground",
               )}
             >
-              <FunctionSquare aria-hidden className="h-4 w-4" />
+              <SquareFunction aria-hidden className="h-4 w-4" />
               <span className="sr-only">Indicators</span>
               {shownCount > 0 && (
                 <>

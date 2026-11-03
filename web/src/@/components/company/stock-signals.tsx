@@ -19,7 +19,7 @@ import {
   Award,
   ExternalLink,
   Scale,
-  AlertTriangle,
+  TriangleAlert,
 } from "lucide-react";
 import { cn } from "~/@/lib/utils";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
@@ -48,7 +48,7 @@ const SEVERITY_STYLES: Record<string, string> = {
 
 function SignalItem({ s }: { s: SignalView }) {
   const adverse = s.polarity === "adverse";
-  const Icon = adverse ? (s.kind === "court" || s.kind === "sanction" ? Scale : AlertTriangle) : Award;
+  const Icon = adverse ? (s.kind === "court" || s.kind === "sanction" ? Scale : TriangleAlert) : Award;
   return (
     <div className="flex gap-3">
       <Icon

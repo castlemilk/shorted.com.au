@@ -8,7 +8,7 @@ import {
   type TimeSeriesData,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { ParentSize } from "@visx/responsive";
+import { ParentSize } from "@/components/charts/parent-size";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { localPoint } from "@visx/event";

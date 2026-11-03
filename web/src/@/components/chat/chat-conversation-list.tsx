@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/@/components/ui/alert-dialog";
-import { Plus, Trash2, MessageSquare, Loader2 } from "lucide-react";
+import { Plus, Trash2, MessageSquare, LoaderCircle } from "lucide-react";
 import { type ConversationSummary } from "~/@/hooks/use-chat";
 
 interface ChatConversationListProps {
@@ -70,7 +70,7 @@ export function ChatConversationList({
 
       {isLoading ? (
         <div className="flex items-center justify-center flex-1">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <LoaderCircle className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : conversations.length === 0 ? (
         <div className="flex flex-col items-center justify-center flex-1 text-center px-4">

@@ -4,7 +4,7 @@ import { useCallback, useId, useMemo, useState } from "react";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { curveMonotoneX } from "@visx/curve";
 import { localPoint } from "@visx/event";
-import { ParentSize } from "@visx/responsive";
+import { ParentSize } from "@/components/charts/parent-size";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { Bar, LinePath } from "@visx/shape";
 import { format as formatDate } from "date-fns";

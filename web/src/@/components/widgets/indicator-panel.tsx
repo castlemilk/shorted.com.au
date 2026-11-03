@@ -24,7 +24,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/@/components/ui/tabs";
 import { Input } from "~/@/components/ui/input";
 import { Label } from "~/@/components/ui/label";
-import { X, Plus, Activity, Settings2, TrendingUp, BarChart3, LineChart } from "lucide-react";
+import { X, Plus, Activity, Settings2, TrendingUp, ChartColumn, ChartLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type IndicatorConfig,
@@ -54,12 +54,12 @@ interface IndicatorPanelProps {
 }
 
 const CATEGORY_ICONS: Record<IndicatorCategory, React.ReactNode> = {
-  "Moving Averages": <LineChart className="h-3 w-3" />,
+  "Moving Averages": <ChartLine className="h-3 w-3" />,
   Momentum: <TrendingUp className="h-3 w-3" />,
   Volatility: <Activity className="h-3 w-3" />,
   Trend: <TrendingUp className="h-3 w-3" />,
-  Statistical: <BarChart3 className="h-3 w-3" />,
-  Volume: <BarChart3 className="h-3 w-3" />,
+  Statistical: <ChartColumn className="h-3 w-3" />,
+  Volume: <ChartColumn className="h-3 w-3" />,
 };
 
 export function IndicatorPanel({

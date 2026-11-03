@@ -1,31 +1,21 @@
 import { NextResponse } from "next/server";
-import getConfig from "next/config";
 
-interface RuntimeConfig {
-  version?: string;
-  buildDate?: string;
-  gitCommit?: string;
-  gitBranch?: string;
-  environment?: string;
-}
-
+// The build identity comes from next.config.mjs through `env`
+// (src/config/build-identity.mjs). Next replaces each `process.env.NAME` read
+// below with its value when the artifact is built, so a runtime environment
+// change cannot make an old build report a newer release. Keep every read a
+// literal `process.env.NAME`: a dynamic lookup is not inlined.
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  // next/config can be unavailable in the App Router's standalone runtime.
-  const config = getConfig() as
-    | { publicRuntimeConfig?: RuntimeConfig }
-    | undefined;
-  const publicRuntimeConfig = config?.publicRuntimeConfig;
-
   return NextResponse.json(
     {
-      version: publicRuntimeConfig?.version ?? "dev",
-      buildDate: publicRuntimeConfig?.buildDate ?? new Date().toISOString(),
-      gitCommit: publicRuntimeConfig?.gitCommit ?? "local",
+      version: process.env.SHORTED_BUILD_VERSION ?? "dev",
+      buildDate: process.env.SHORTED_BUILD_DATE ?? new Date().toISOString(),
+      gitCommit: process.env.SHORTED_BUILD_COMMIT ?? "local",
       gitCommitFull: process.env.NEXT_PUBLIC_RELEASE_COMMIT ?? "local",
-      gitBranch: publicRuntimeConfig?.gitBranch ?? "local",
-      environment: publicRuntimeConfig?.environment ?? "development",
+      gitBranch: process.env.SHORTED_BUILD_BRANCH ?? "local",
+      environment: process.env.SHORTED_BUILD_ENVIRONMENT ?? "development",
       uptime: process.uptime(),
       nodeVersion: process.version,
     },

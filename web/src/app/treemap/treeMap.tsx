@@ -14,7 +14,7 @@ import { Card, CardTitle } from "~/@/components/ui/card";
 // Lazy load @visx modules to reduce initial bundle size
 import { Treemap, hierarchy, stratify, treemapSquarify } from "@visx/hierarchy";
 import { Group } from "@visx/group";
-import { ParentSize } from "@visx/responsive";
+import { ParentSize } from "@/components/charts/parent-size";
 import { scaleLinear } from "@visx/scale";
 import { type IndustryTreeMap, IndustryTreeMapSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getIndustryTreeMapClient } from "../actions/client/getIndustryTreeMap";

@@ -2,12 +2,7 @@ import {
   getDailyShortSeries,
   reportDate,
 } from "~/app/actions/getDailyShortSeries";
-import {
-  SHORTS_API_URL,
-  buildApiUrl,
-  serverFetchWithUserAgent,
-} from "~/app/actions/config";
-import { STOCK_PAGE_CACHE_SECONDS } from "~/app/actions/stockPageCache";
+import { getShortRank } from "~/app/actions/getShortRank";
 
 interface Point {
   date: Date;
@@ -55,40 +50,6 @@ function computeStats(points: Point[]): HistoryStats | null {
     allTimeHigh,
     allTimeLow,
   };
-}
-
-/** Rank among all shorted ASX equities, from the summary-only top-shorts API. */
-async function getShortRank(stockCode: string): Promise<{ rank: number; total: number } | null> {
-  try {
-    // trim + headers: Vercel env vars can carry trailing newlines, and the
-    // Cloudflare WAF in front of api.shorted.com.au serves an HTML 500 to
-    // fetches without a UA and Connect-Protocol-Version header.
-    const response = await serverFetchWithUserAgent(
-      buildApiUrl(
-        SHORTS_API_URL,
-        "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
-      ),
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Connect-Protocol-Version": "1",
-        },
-        body: JSON.stringify({ period: "max", limit: 1000, offset: 0, summaryOnly: true }),
-        next: { revalidate: STOCK_PAGE_CACHE_SECONDS },
-      },
-    );
-    if (!response.ok) return null;
-    const data = (await response.json()) as {
-      timeSeries?: Array<{ productCode?: string }>;
-    };
-    const list = data.timeSeries ?? [];
-    const idx = list.findIndex((t) => t.productCode === stockCode);
-    if (idx < 0) return null;
-    return { rank: idx + 1, total: list.length };
-  } catch {
-    return null;
-  }
 }
 
 function fmtDelta(d: number | null): string {

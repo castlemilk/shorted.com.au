@@ -485,7 +485,10 @@ this repo holds only a client secret.
   app API skip rule (`security-skip-expression.test.mjs`); the route's
   signature check is what keeps it closed.
 - **`@vercel/functions` stays on 1.x** for `waitUntil`: 3.x pulls in an OIDC
-  and CLI-config chain and moved next-auth's `jose`.
+  and CLI-config chain whose `jose` used to move next-auth's copy. With
+  next-auth beta.32 next-auth resolves `jose` 6 and that chain nests its own
+  `jose` 5 (a lockfile-only resolve, 2026-11-03), so re-check the chain itself
+  before moving.
 - **A settings link is a bearer grant for 30 minutes.** Anyone holding it can
   change that scope's settings until it expires, which is why `/settings`
   answers privately and the page moves it out of the URL at once. Do not

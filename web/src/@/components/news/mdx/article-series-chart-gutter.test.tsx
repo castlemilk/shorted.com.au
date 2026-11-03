@@ -2,7 +2,7 @@ import { render } from "@testing-library/react";
 
 // ParentSize measures the DOM and jsdom reports 0, so without a width the chart
 // short-circuits to null and there is nothing to assert against.
-jest.mock("@visx/responsive", () => ({
+jest.mock("@/components/charts/parent-size", () => ({
   __esModule: true,
   ParentSize: ({ children }: { children: (s: { width: number; height: number }) => unknown }) =>
     children({ width: 800, height: 280 }),

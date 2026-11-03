@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Loader2, User } from "lucide-react";
+import { Bot, LoaderCircle, User } from "lucide-react";
 import { Message, MessageContent } from "~/@/components/ai-elements/message";
 import {
   Source,
@@ -80,7 +80,7 @@ export function ChatMessageBubble({ message, isActive = false }: ChatMessageBubb
             <div className="whitespace-pre-wrap break-words">{message.content}</div>
           ) : !message.content && streaming ? (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 aria-hidden="true" className="h-3 w-3 motion-safe:animate-spin" />
+              <LoaderCircle aria-hidden="true" className="h-3 w-3 motion-safe:animate-spin" />
               <span>Thinking...</span>
             </div>
           ) : (

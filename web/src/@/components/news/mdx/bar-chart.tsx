@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ParentSize } from "@visx/responsive";
+import { ParentSize } from "@/components/charts/parent-size";
 import { scaleBand, scaleLinear } from "@visx/scale";
 import { AxisBottom } from "@visx/axis";
 import { localPoint } from "@visx/event";

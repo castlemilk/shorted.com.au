@@ -4,7 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Button } from "~/@/components/ui/button";
-import { MessageSquare, Lock, Loader2 } from "lucide-react";
+import { MessageSquare, Lock, LoaderCircle } from "lucide-react";
 import { useSubscription } from "~/@/hooks/use-subscription";
 import { useSession } from "next-auth/react";
 import { isChromelessRoute } from "~/@/lib/chromeless-routes";
@@ -33,7 +33,7 @@ const ChatSidebarFull = dynamic(
         aria-label="Opening Shorted AI chat"
         disabled
       >
-        <Loader2 className="h-5 w-5 animate-spin" />
+        <LoaderCircle className="h-5 w-5 animate-spin" />
       </Button>
     ),
   }

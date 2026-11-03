@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useId } from "react";
-import { Activity, ArrowUpRight, BarChart3, Building2 } from "lucide-react";
+import { Activity, ArrowUpRight, ChartColumn, Building2 } from "lucide-react";
 import { Badge } from "~/@/components/ui/badge";
 import {
   Card,
@@ -221,7 +221,7 @@ function ShortPositionChart({ chart }: { chart: ShortPositionsView }) {
     >
       <CardHeader className="space-y-1 p-3 pb-0">
         <CardTitle className="flex items-center gap-2 text-sm">
-          <BarChart3 className="h-4 w-4 text-primary" />
+          <ChartColumn className="h-4 w-4 text-primary" />
           {chart.code} short interest
         </CardTitle>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

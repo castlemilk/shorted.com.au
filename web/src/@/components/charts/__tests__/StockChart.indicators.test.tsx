@@ -7,7 +7,7 @@ import type { ChartSeriesSpec, OscillatorSpec, SeriesIndicator } from "../types"
 
 // ParentSize measures the DOM, which jsdom cannot, so it is stood in for, as
 // StockChart.height.test.tsx does.
-jest.mock("@visx/responsive", () => ({
+jest.mock("@/components/charts/parent-size", () => ({
   ParentSize: ({
     children,
   }: {

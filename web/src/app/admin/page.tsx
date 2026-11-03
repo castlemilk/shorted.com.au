@@ -22,9 +22,9 @@ import {
 } from "@/components/ui/table";
 import { formatDistanceToNow, differenceInMinutes } from "date-fns";
 import {
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
+  TriangleAlert,
+  CircleCheck,
+  CircleX,
   Clock,
   Activity,
   Server,
@@ -102,11 +102,11 @@ function getFleetHealth(overview: JobsOverviewData): FleetHealth {
 function StatusIcon({ status }: { status: "healthy" | "degraded" | "critical" }) {
   switch (status) {
     case "healthy":
-      return <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />;
+      return <CircleCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />;
     case "degraded":
-      return <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />;
+      return <TriangleAlert className="h-5 w-5 text-amber-600 dark:text-amber-400" />;
     case "critical":
-      return <XCircle className="h-5 w-5 text-destructive" />;
+      return <CircleX className="h-5 w-5 text-destructive" />;
   }
 }
 
@@ -119,7 +119,7 @@ function RunHealthBadge({ run }: { run: SyncRun }) {
     return (
       <div className="flex items-center gap-1.5">
         <Badge variant="destructive" className="gap-1">
-          <XCircle className="h-3 w-3" />
+          <CircleX className="h-3 w-3" />
           {isStuck ? "stuck" : "failed"}
         </Badge>
         {run.errorMessage && (
@@ -191,7 +191,7 @@ function RunHealthBadge({ run }: { run: SyncRun }) {
           variant="secondary"
           className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
         >
-          <AlertTriangle className="h-3 w-3" />
+          <TriangleAlert className="h-3 w-3" />
           0 records
         </Badge>
       </div>
@@ -200,7 +200,7 @@ function RunHealthBadge({ run }: { run: SyncRun }) {
 
   return (
     <Badge variant="secondary" className="gap-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
-      <CheckCircle2 className="h-3 w-3" />
+      <CircleCheck className="h-3 w-3" />
       completed
     </Badge>
   );
@@ -294,7 +294,7 @@ export default async function AdminDashboard({ searchParams }: AdminPageProps) {
           <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-400">
-                <AlertTriangle className="h-4 w-4" />
+                <TriangleAlert className="h-4 w-4" />
                 Needs attention
               </CardTitle>
             </CardHeader>

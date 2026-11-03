@@ -16,7 +16,7 @@ import {
   TrendingUp,
   TrendingDown,
   Circle,
-  BarChart3,
+  ChartColumn,
   Activity,
   Target,
 } from "lucide-react";
@@ -230,7 +230,7 @@ export function TopShortsClient({
               Biggest Movers
             </TabsTrigger>
             <TabsTrigger value="volatility" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
+              <ChartColumn className="h-4 w-4" />
               Most Volatile
             </TabsTrigger>
           </TabsList>
@@ -305,7 +305,7 @@ export function TopShortsClient({
           <TabsContent value="volatility" className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-primary" />
+                <ChartColumn className="h-5 w-5 text-primary" />
                 Most Volatile Short Positions
               </h2>
               <Badge variant="outline">{PERIOD_LABELS[selectedPeriod]}</Badge>

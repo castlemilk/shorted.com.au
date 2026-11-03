@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { FunctionSquare } from "lucide-react";
+import { SquareFunction } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { EmbedDialog } from "~/@/components/ui/embed-dialog";
@@ -307,7 +307,7 @@ export function StockChartPanel({
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
           )}
         >
-          <FunctionSquare aria-hidden className="h-4 w-4 sm:hidden" />
+          <SquareFunction aria-hidden className="h-4 w-4 sm:hidden" />
           <span className="max-sm:sr-only">Indicators</span>
           {shownCount > 0 && (
             <>

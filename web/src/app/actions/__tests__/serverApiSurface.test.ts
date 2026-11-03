@@ -15,9 +15,19 @@ describe("server API surface", () => {
     return env;
   }
 
+  // A console.warn spy is restored after each test, even one whose assertions
+  // fail: a leaked spy would also fail the next test's call count.
+  const warnSpies: jest.SpyInstance[] = [];
+  const silenceWarn = (): jest.SpyInstance => {
+    const spy = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    warnSpies.push(spy);
+    return spy;
+  };
+
   afterEach(() => {
     process.env = originalEnv;
     global.fetch = originalFetch;
+    for (const spy of warnSpies.splice(0)) spy.mockRestore();
     jest.resetModules();
   });
 
@@ -157,12 +167,13 @@ describe("server API surface", () => {
     expect(fetchMock.mock.calls[0]?.[1]?.cache).toBeUndefined();
   });
 
-  it("respects explicit fetch cache options when callers intentionally opt into Next caching", async () => {
+  it("keeps a POST's next option off the fetch: its lifetime is the route's, not a stored response's", async () => {
     process.env = {
       ...originalEnv,
     };
     const fetchMock = jest.fn().mockResolvedValue(new Response("{}"));
     global.fetch = fetchMock;
+    silenceWarn();
 
     const { serverFetchWithUserAgent } = await import("../config");
 
@@ -175,10 +186,13 @@ describe("server API surface", () => {
       } as RequestInit & { next: { revalidate: number } },
     );
 
+    // Next 15 would store this response in the data cache for an hour, so one
+    // empty answer would outlive the render. The revalidate is registered on
+    // the route instead (applyRoutePolicy, connect-route-policy.test.ts).
     expect(fetchMock.mock.calls[0]?.[1]?.cache).toBeUndefined();
     expect(
       (fetchMock.mock.calls[0]?.[1] as RequestInit & { next?: unknown })?.next,
-    ).toEqual({ revalidate: 3600 });
+    ).toBeUndefined();
   });
 
   it("routes per-stock SSR API calls to the direct service endpoint, not Cloudflare", async () => {

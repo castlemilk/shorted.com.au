@@ -24,7 +24,7 @@ import {
 import {
   TrendingUp,
   TrendingDown,
-  BarChart3,
+  ChartColumn,
   Settings2,
   RotateCcw,
 } from "lucide-react";
@@ -534,7 +534,7 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
 
                 {primaryInfo && dataTypes.includes("shorts") && (
                   <Badge variant="outline" className="text-xs h-5">
-                    <BarChart3 className="h-3 w-3 mr-1" />
+                    <ChartColumn className="h-3 w-3 mr-1" />
                     {primaryInfo.percentageShorted.toFixed(2)}% shorted
                   </Badge>
                 )}
@@ -750,7 +750,7 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
         ) : chartData.series.length === 0 ? (
           <div className="h-full flex items-center justify-center text-muted-foreground">
             <div className="text-center">
-              <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <ChartColumn className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="text-sm font-medium mb-2">No Data Available</p>
               <p className="text-xs">
                 {stocks.length === 0

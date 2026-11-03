@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { type WidgetProps } from "~/@/types/dashboard";
-import { ParentSize } from "@visx/responsive";
+import { ParentSize } from "@/components/charts/parent-size";
 import { Pie } from "@visx/shape";
 import { Group } from "@visx/group";
 import { scaleBand, scaleLinear } from "@visx/scale";
@@ -222,6 +222,9 @@ export function SectorPerformanceWidget({ config }: WidgetProps) {
                   <Pie
                     data={pieData}
                     pieValue={(d) => d.absPerformance}
+                    // visx 4 keeps input order when no sort is given; visx 3 (d3-shape 1)
+                    // drew the largest sector first, and the donut keeps that order.
+                    pieSortValues={(a, b) => b - a}
                     outerRadius={radius}
                     innerRadius={radius * 0.6}
                   >

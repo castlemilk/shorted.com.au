@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Search, TrendingDown, Home } from "lucide-react";
+import { Search, TrendingDown, House } from "lucide-react";
 import Link from "next/link";
 
 export default function StockNotFound() {
@@ -61,7 +61,7 @@ export default function StockNotFound() {
             </Button>
             <Button variant="ghost" asChild className="flex items-center gap-2">
               <Link href="/">
-                <Home className="h-4 w-4" />
+                <House className="h-4 w-4" />
                 Go Home
               </Link>
             </Button>

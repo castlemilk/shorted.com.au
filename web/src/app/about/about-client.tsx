@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Button } from "~/@/components/ui/button";
 import {
   Activity,
-  BarChart3,
+  ChartColumn,
   Bell,
   Bot,
   ChevronRight,
@@ -12,7 +12,7 @@ import {
   FileText,
   Globe,
   Key,
-  LineChart,
+  ChartLine,
   Lock,
   Newspaper,
   Search,
@@ -254,7 +254,7 @@ const AboutClient = ({ initialStatistics, companySection }: AboutClientProps) =>
 
               <div className="mt-5 space-y-3">
                 <IndustryStoryRow
-                  icon={<BarChart3 className="w-5 h-5" />}
+                  icon={<ChartColumn className="w-5 h-5" />}
                   title="Crowding"
                   description="Rank industries by average short interest and surface concentrated pressure."
                 />
@@ -293,13 +293,13 @@ const AboutClient = ({ initialStatistics, companySection }: AboutClientProps) =>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <FeatureCard
-              icon={<LineChart className="w-6 h-6" />}
+              icon={<ChartLine className="w-6 h-6" />}
               title="Historical Charts"
               description="Track short interest changes over time with interactive historical charts and trend analysis."
               color="amber"
             />
             <FeatureCard
-              icon={<BarChart3 className="w-6 h-6" />}
+              icon={<ChartColumn className="w-6 h-6" />}
               title="Industry Heatmaps"
               description="Visualize short interest across sectors with our industry treemap to spot sector-wide trends."
               color="rust"

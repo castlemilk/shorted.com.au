@@ -667,7 +667,7 @@ describe("loadNoticeFeed", () => {
     expect(mockGetCached).not.toHaveBeenCalled();
   });
 
-  it("sends every request through the ISR-tagged transport: an hour, under the ownership tag", async () => {
+  it("sends every request through the ISR-tagged transport, which stores none of the answers (the hour and tag are the route's)", async () => {
     const fetchSpy = jest.fn().mockResolvedValue(new Response("{}"));
     const originalFetch = global.fetch;
     global.fetch = fetchSpy as unknown as typeof fetch;
@@ -684,9 +684,10 @@ describe("loadNoticeFeed", () => {
         { method: "POST", body: "{}" },
       );
 
-      expect(fetchSpy.mock.calls[0]?.[1]).toMatchObject({
-        next: { revalidate: 3600, tags: ["ownership"] },
-      });
+      // A POST's `next` never reaches the fetch: Next would store the answer
+      // for the hour. The revalidate and the tag go to the route instead
+      // (applyRoutePolicy; connect-route-policy.test.ts pins that).
+      expect(fetchSpy.mock.calls[0]?.[1]).not.toHaveProperty("next");
     } finally {
       global.fetch = originalFetch;
     }

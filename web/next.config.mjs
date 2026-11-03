@@ -8,18 +8,30 @@ await import("./src/env.js");
 import packageJson from "./package.json" with { type: "json" };
 import { legacyTabRedirects } from "./src/config/stock-tab-redirects.mjs";
 import { discordActivityRedirect } from "./src/config/discord-activity.mjs";
+import { buildIdentityEnv } from "./src/config/build-identity.mjs";
 import { execSync } from "child_process";
 
-// Get version from git if available, fallback to package.json
-let version = packageJson.version;
+// Version from git if available, fallback to package.json
+let gitVersion;
 try {
-  const gitVersion = execSync("git describe --tags --always --dirty", {
+  gitVersion = execSync("git describe --tags --always --dirty", {
     encoding: "utf8",
   }).trim();
-  version = gitVersion;
 } catch (e) {
-  console.warn("Git not available, using package.json version:", version);
+  console.warn(
+    "Git not available, using package.json version:",
+    packageJson.version,
+  );
 }
+
+// The build identity /api/version reports (src/config/build-identity.mjs).
+// It is baked into the artifact through `env` below, not read at runtime.
+const buildIdentityValues = buildIdentityEnv({
+  env: process.env,
+  now: new Date(),
+  gitVersion,
+  packageVersion: packageJson.version,
+});
 
 // Bundle analyzer configuration (optional - only if installed)
 // Install with: npm install --save-dev @next/bundle-analyzer
@@ -81,17 +93,9 @@ const firebaseAuthHelperOrigin = `https://${
 const config = {
   output: "standalone", // Enable standalone mode for Docker
   poweredByHeader: false,
-  // Bake the full source identity into the artifact; runtime env changes cannot
-  // make an old build report a newer release. This value is public metadata.
-  env: {
-    NEXT_PUBLIC_RELEASE_COMMIT: /^[a-f0-9]{40}$/.test(
-      process.env.SHORTED_RELEASE_SHA ??
-        process.env.VERCEL_GIT_COMMIT_SHA ??
-        "",
-    )
-      ? (process.env.SHORTED_RELEASE_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA)
-      : "local",
-  },
+  // Bake the build identity into the artifact: runtime env changes cannot make
+  // an old build report a newer release. These values are public metadata.
+  env: buildIdentityValues,
   // Proxy Connect-RPC and backend API requests to avoid CORS issues.
   // Client-side code uses relative URLs; Next.js rewrites proxy them to the backend.
   async headers() {
@@ -375,16 +379,6 @@ const config = {
       },
     ];
   },
-  publicRuntimeConfig: {
-    version,
-    buildDate: new Date().toISOString(),
-    gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 
-               process.env.VERCEL_GIT_COMMIT_SHA || 
-               "local",
-    gitBranch: process.env.VERCEL_GIT_COMMIT_REF || "local",
-    environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
-    shortsUrl: shortsApiUrl,
-  },
   // Optionally, add any other Next.js config below
   images: {
     remotePatterns: [
@@ -505,9 +499,10 @@ export default withBundleAnalyzer(
     },
     experimental: {
       // Next 15 prerenders this many pages at once in each build worker (its
-      // default is 8). The CI prerender has drawn edge 429s before
-      // (CLAUDE.md, "Rate Limiting"), so build one page at a time until a
-      // Next 15 build has been checked.
+      // default is 8). Kept at 1 after measuring CI (CLAUDE.md, "React 19 /
+      // Next 15", Build concurrency): the prerender takes 8 to 12 s with no
+      // rate-limit or fallback lines, so 8 would save seconds at up to 8x the
+      // concurrent API and database load.
       staticGenerationMaxConcurrency: 1,
       // Next 15 defaults the client router cache for dynamic pages to 0 s
       // (Next 14 used 30 s). Keep 30 s, so a Link to a dynamic page reuses one
