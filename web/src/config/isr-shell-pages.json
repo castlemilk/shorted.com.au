@@ -15,5 +15,6 @@
   "/housing/nt/council",
   "/housing/act/council",
   "/ownership/notices",
-  "/ownership/stocks"
+  "/ownership/stocks",
+  "/ownership/insights"
 ]

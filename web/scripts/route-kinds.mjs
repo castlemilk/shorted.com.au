@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ISR gate for the stock segment and the ownership pages: the two dynamic
-// ownership routes and the three static ones.
+// ownership routes and the four static ones.
 //
 // Every route under /shorts/[stockCode] must be on-demand ISR: generated on
 // first request and served from the cache for `revalidate` seconds. A route
@@ -33,8 +33,9 @@
 // A read in a module imported from outside that folder is beyond both, as for
 // the stock segment, and needs a request-level check.
 //
-// The three static ownership pages, the hub /ownership, the notice feed
-// /ownership/notices and the register list /ownership/stocks
+// The four static ownership pages, the hub /ownership, the notice feed
+// /ownership/notices, the register list /ownership/stocks and the insights
+// explorer /ownership/insights
 // (OWNERSHIP_STATIC_ROUTES below), have no dynamic segment, so none is in
 // dynamicRoutes. Next writes an ISR page of that kind under `routes`, with its
 // revalidate in initialRevalidateSeconds: a number for an ISR page, false for
@@ -69,9 +70,9 @@ export const STOCK_ROUTES = [
 // revalidate, as the stock tabs are.
 export const OWNERSHIP_ROUTES = ["/ownership/[slug]", "/ownership/stocks/[code]"];
 
-// The three static ownership pages. Each exports a revalidate and takes no
+// The four static ownership pages. Each exports a revalidate and takes no
 // dynamic segment, so each is listed under `routes` (see the header).
-export const OWNERSHIP_STATIC_ROUTES = ["/ownership", "/ownership/notices", "/ownership/stocks"];
+export const OWNERSHIP_STATIC_ROUTES = ["/ownership", "/ownership/notices", "/ownership/stocks", "/ownership/insights"];
 
 export function missingIsrRoutes(manifest, expected = STOCK_ROUTES) {
   const dynamicRoutes = manifest?.dynamicRoutes ?? {};
@@ -141,7 +142,7 @@ function main(argv) {
     );
     for (const r of missingStatic) console.error(`  ${r}`);
     console.error(
-      "A page at /ownership, /ownership/notices or /ownership/stocks has lost its `export const revalidate` " +
+      "A page at /ownership, /ownership/notices, /ownership/stocks or /ownership/insights has lost its `export const revalidate` " +
         "(Next then builds it once and never regenerates it), or sets revalidate = 0 or " +
         'dynamic = "force-dynamic", or reads a request-time API during its build render ' +
         "(Next then renders it per request).",

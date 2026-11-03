@@ -164,6 +164,22 @@ describe("ownership client boundary", () => {
   );
 });
 
+describe("insights explorer client boundary", () => {
+  it.each(["insights-explorer", "insights-charts-lazy", "market-map", "money-flow", "position-heatmap", "time-window"])(
+    "keeps insights/%s free of protobuf, Connect, generated code and server actions",
+    (name) => {
+      const { files, packages } = reach(join(DIR, "insights", `${name}.tsx`));
+      expect(packages.filter(isProtobufOrConnect)).toEqual([]);
+      expect(files.filter(isGeneratedOrAction)).toEqual([]);
+    },
+  );
+
+  it("keeps the server desk from reaching any client module", () => {
+    const { files } = reach(join(DIR, "insights", "insight-cards.tsx"));
+    expect(files.filter(isClientModule)).toEqual([]);
+  });
+});
+
 describe("notice explorer client boundary", () => {
   it.each(["notice-feed-explorer", "registers-explorer", "notice-mark", "notice-week-bars", "register-rows-table"])(
     "keeps %s free of protobuf, Connect, generated code and server actions",
