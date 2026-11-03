@@ -3,18 +3,25 @@
  *
  * The stock segment's rule (app/shorts/__tests__/isr-source-safety.test.ts),
  * held for the ownership pages. scripts/route-kinds.mjs gates the two dynamic
- * routes on Next's prerender manifest, and that cannot see a read of
- * searchParams, cookies(), headers(), auth() or a no-store fetch. A dynamic
- * route whose generateStaticParams is empty renders nothing at build time, so
- * the read is never observed and the route stays listed as ISR; the read fails
- * at request time instead. This file is the source half of the check.
+ * routes and the three static ones on Next's prerender manifest. For the two
+ * dynamic routes it cannot see a read of searchParams, cookies(), headers(),
+ * auth() or a no-store fetch: their generateStaticParams lists are empty, so
+ * Next renders nothing at build time, the route stays listed as ISR, and the
+ * read fails at request time instead. For the static pages (the hub, the notice
+ * feed and the register list) it does see a read that runs during the build
+ * render, since Next then renders the page per request and drops it from
+ * `routes`. This file is the source half of the check. It also catches a read on
+ * a code path the build render does not take, and one in a module that a page
+ * imports from this folder.
  *
  * What it checks:
  *  1. No non-test file under app/ownership reads a request-time API or opts out
  *     of the cache. DYNAMIC_READS below is the list.
  *  2. Every page.tsx exports a literal positive `revalidate`. A page under a
  *     dynamic segment also exports `dynamicParams = true` and
- *     `generateStaticParams`, so it is on-demand ISR and not per request.
+ *     `generateStaticParams`, so it is on-demand ISR and not per request. A
+ *     static page (the hub, the notice feed, the register list) exports no
+ *     `dynamic` segment config: its revalidate alone keeps it ISR.
  *
  * Comments do not count: several files name these APIs to say they are not
  * used. Comments are removed with TypeScript's own parser (withoutComments), as
@@ -144,7 +151,11 @@ function namedExports(sourceFile: ts.SourceFile): Map<string, ExportedValue> {
 /**
  * What is wrong with a page's ISR exports, one message per problem. A static
  * page has no params to generate, so only a dynamic page is held to
- * dynamicParams and generateStaticParams.
+ * dynamicParams and generateStaticParams. A static page exports no `dynamic`
+ * segment config either: force-dynamic turned the revalidate off on /shorts
+ * (2026-10-21, app/__tests__/isr-hubs.test.ts), so the revalidate must be the
+ * only thing that keeps it ISR. `dynamic` here is whether the page has a
+ * dynamic segment; the export is read separately.
  */
 function isrExportProblems(source: string, dynamic: boolean, fileName = "page.tsx"): string[] {
   const exported = namedExports(parse(source, fileName));
@@ -171,6 +182,10 @@ function isrExportProblems(source: string, dynamic: boolean, fileName = "page.ts
     if (!exported.has("generateStaticParams")) {
       problems.push("generateStaticParams is not exported");
     }
+  }
+  const dynamicConfig = exported.get("dynamic");
+  if (!dynamic && dynamicConfig) {
+    problems.push(`dynamic must not be exported on a static page, found ${dynamicConfig.text}`);
   }
   return problems;
 }
@@ -231,12 +246,28 @@ describe("ownership ISR source safety", () => {
       );
     });
 
+    // The notice feed and the register list have no dynamic segment, so the source scan holds them
+    // to the static half of the rule: a revalidate, and no `dynamic` export (checked per page below).
+    it("finds the two static pages the explorer adds, and classes them as static", () => {
+      expect(files.map(([name]) => name)).toEqual(
+        expect.arrayContaining([
+          "notices/page.tsx",
+          "notices/loading.tsx",
+          "notices/opengraph-image.tsx",
+          "stocks/page.tsx",
+          "stocks/loading.tsx",
+        ]),
+      );
+      const staticPages = pages.map(([name]) => name).filter((name) => !isDynamicPage(name));
+      expect(staticPages).toEqual(expect.arrayContaining(["page.tsx", "notices/page.tsx", "stocks/page.tsx"]));
+    });
+
     it.each(files)("%s reads no dynamic API and does not opt out of the cache", (_name, file) => {
       expect(dynamicReads(read(file), file)).toEqual([]);
     });
 
     it.each(pages)(
-      "%s exports a literal positive revalidate, and the ISR trio if it is dynamic",
+      "%s exports a literal positive revalidate, and the rule for its kind (ISR trio or no dynamic export)",
       (name, file) => {
         expect(isrExportProblems(read(file), isDynamicPage(name), file)).toEqual([]);
       },
@@ -351,6 +382,15 @@ describe("ownership ISR source safety", () => {
         expect(isrExportProblems(page(REVALIDATE, "export const dynamicParams = false;"), false)).toEqual(
           [],
         );
+      });
+
+      it("holds a static page to no dynamic export, whatever its revalidate", () => {
+        expect(isrExportProblems(page(REVALIDATE, 'export const dynamic = "auto";'), false)).toEqual([
+          'dynamic must not be exported on a static page, found "auto"',
+        ]);
+        expect(
+          isrExportProblems(page("export const revalidate = 600;", "export const dynamic = 'force-dynamic';"), false),
+        ).toEqual(["dynamic must not be exported on a static page, found 'force-dynamic'"]);
       });
 
       it("reports a revalidate that is missing or not a literal positive number", () => {

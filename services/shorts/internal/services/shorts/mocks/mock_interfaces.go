@@ -3237,6 +3237,20 @@ func (mr *MockCacheMockRecorder) ListStockPoliticiansKey(stockCode, currentOnly 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStockPoliticiansKey", reflect.TypeOf((*MockCache)(nil).ListStockPoliticiansKey), stockCode, currentOnly)
 }
 
+// ListSubstantialNoticesKey mocks base method.
+func (m *MockCache) ListSubstantialNoticesKey(generation int64, windowDays int32, event, kind, stockCode, institutionSlug string, limit int32, includeActivity bool) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSubstantialNoticesKey", generation, windowDays, event, kind, stockCode, institutionSlug, limit, includeActivity)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ListSubstantialNoticesKey indicates an expected call of ListSubstantialNoticesKey.
+func (mr *MockCacheMockRecorder) ListSubstantialNoticesKey(generation, windowDays, event, kind, stockCode, institutionSlug, limit, includeActivity any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSubstantialNoticesKey", reflect.TypeOf((*MockCache)(nil).ListSubstantialNoticesKey), generation, windowDays, event, kind, stockCode, institutionSlug, limit, includeActivity)
+}
+
 // ListSuburbPoliticiansKey mocks base method.
 func (m *MockCache) ListSuburbPoliticiansKey(salCode string) string {
 	m.ctrl.T.Helper()

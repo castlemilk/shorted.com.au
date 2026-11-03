@@ -457,6 +457,15 @@ export default async function OwnershipPage() {
             <h2 id="notices" className={sectionTitle}>
               Latest notices
             </h2>
+            <p className="text-sm">
+              <Link
+                href="/ownership/notices"
+                prefetch={false}
+                className="hit-target text-primary underline-offset-4 hover:underline"
+              >
+                All notices →
+              </Link>
+            </p>
             <NoticeTable notices={overview?.recent ?? []} caption="Latest substantial holding notices" />
           </section>
 

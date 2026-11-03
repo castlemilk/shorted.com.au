@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// ISR gate for the stock segment and the two dynamic ownership routes.
+// ISR gate for the stock segment and the ownership pages: the two dynamic
+// ownership routes and the three static ones.
 //
 // Every route under /shorts/[stockCode] must be on-demand ISR: generated on
 // first request and served from the cache for `revalidate` seconds. A route
@@ -26,10 +27,27 @@
 //
 // The ownership section has two dynamic routes, the institution page
 // /ownership/[slug] and the register /ownership/stocks/[code] (OWNERSHIP_ROUTES
-// below), under the same rule. Their reads are caught from source by
+// below), under the same rule. Their reads are caught from source, in a file
+// under app/ownership, by
 //   web/src/app/ownership/__tests__/isr-source-safety.test.ts
-// The hub at /ownership has no dynamic segment, so dynamicRoutes never lists
-// it; web/src/app/__tests__/isr-hubs.test.ts holds its ISR instead.
+// A read in a module imported from outside that folder is beyond both, as for
+// the stock segment, and needs a request-level check.
+//
+// The three static ownership pages, the hub /ownership, the notice feed
+// /ownership/notices and the register list /ownership/stocks
+// (OWNERSHIP_STATIC_ROUTES below), have no dynamic segment, so none is in
+// dynamicRoutes. Next writes an ISR page of that kind under `routes`, with its
+// revalidate in initialRevalidateSeconds: a number for an ISR page, false for
+// one with no revalidate. That entry is what this gate reads. A request-time
+// read that runs during such a page's build render makes Next render it per
+// request, so it drops out of `routes` and this gate fails. A read on a branch
+// the build render does not take is caught only from source, and only in a
+// file under app/ownership (the scan named above). A read in a module imported
+// from outside that folder is beyond the scan, and on such a branch beyond this
+// gate too: it needs a request-level check (a second request answering
+// x-nextjs-cache: HIT). Each static page's own file is also checked for
+// request-time reads, by
+//   web/src/app/__tests__/isr-hubs.test.ts
 
 import { readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
@@ -51,9 +69,24 @@ export const STOCK_ROUTES = [
 // revalidate, as the stock tabs are.
 export const OWNERSHIP_ROUTES = ["/ownership/[slug]", "/ownership/stocks/[code]"];
 
+// The three static ownership pages. Each exports a revalidate and takes no
+// dynamic segment, so each is listed under `routes` (see the header).
+export const OWNERSHIP_STATIC_ROUTES = ["/ownership", "/ownership/notices", "/ownership/stocks"];
+
 export function missingIsrRoutes(manifest, expected = STOCK_ROUTES) {
   const dynamicRoutes = manifest?.dynamicRoutes ?? {};
   return expected.filter((route) => !(route in dynamicRoutes));
+}
+
+// A static page is ISR when `routes` lists it with a positive number of seconds.
+// Under dynamicRoutes it is not static at all, whatever `routes` says.
+export function missingStaticIsrRoutes(manifest, expected = OWNERSHIP_STATIC_ROUTES) {
+  const routes = manifest?.routes ?? {};
+  const dynamicRoutes = manifest?.dynamicRoutes ?? {};
+  return expected.filter((route) => {
+    const seconds = routes[route]?.initialRevalidateSeconds;
+    return !(typeof seconds === "number" && seconds > 0) || route in dynamicRoutes;
+  });
 }
 
 function main(argv) {
@@ -66,7 +99,7 @@ function main(argv) {
     console.error(`route-kinds: cannot read ${path}: ${err.message}. Run \`next build\` first.`);
     return 2;
   }
-  // Both lists are checked before the verdict, so a manifest that slips on both names both.
+  // Every list is checked before the verdict, so a manifest that slips on several names every route it lost.
   let failed = false;
   const missing = missingIsrRoutes(manifest);
   if (missing.length) {
@@ -94,12 +127,32 @@ function main(argv) {
         'revalidate = 0 or dynamic = "force-dynamic".',
     );
     console.error(
-      "The reads this gate cannot see are checked from source: " +
+      "The reads this gate cannot see are checked from source, in a file under app/ownership: " +
         "web/src/app/ownership/__tests__/isr-source-safety.test.ts.",
     );
     failed = true;
   } else {
     console.log(`route-kinds: ${OWNERSHIP_ROUTES.length} ownership routes are ISR.`);
+  }
+  const missingStatic = missingStaticIsrRoutes(manifest);
+  if (missingStatic.length) {
+    console.error(
+      "route-kinds: these static ownership pages are NOT ISR (no positive initialRevalidateSeconds under prerender-manifest routes, or listed under dynamicRoutes):",
+    );
+    for (const r of missingStatic) console.error(`  ${r}`);
+    console.error(
+      "A page at /ownership, /ownership/notices or /ownership/stocks has lost its `export const revalidate` " +
+        "(Next then builds it once and never regenerates it), or sets revalidate = 0 or " +
+        'dynamic = "force-dynamic", or reads a request-time API during its build render ' +
+        "(Next then renders it per request).",
+    );
+    console.error(
+      "The reads this gate cannot see are checked from source too, in a file under app/ownership: " +
+        "web/src/app/ownership/__tests__/isr-source-safety.test.ts.",
+    );
+    failed = true;
+  } else {
+    console.log(`route-kinds: ${OWNERSHIP_STATIC_ROUTES.length} static ownership routes are ISR.`);
   }
   return failed ? 1 : 0;
 }

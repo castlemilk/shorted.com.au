@@ -513,7 +513,9 @@ func TestStockNoticesAreReadAgainForEachUniverse(t *testing.T) {
 // A stock's notices are one read, shared by every caller of its key and kept for
 // them, so the caller that started the read may leave before the store runs it.
 func TestStockNoticesSurviveTheCallerLeaving(t *testing.T) {
-	clock := &fakeClock{t: ownershipTestNow}
+	// The clock starts at the wall clock, so the entry lives the universe's real
+	// life and the second caller hits it however long the runner stalls.
+	clock := &fakeClock{t: time.Now()}
 	store := newFakeOwnershipStore(ownershipFixture())
 	store.notices = []shortsstore.SubstantialNoticeRow{
 		{StockCode: "BHP", HolderKey: "citigroup", Kind: "bank_broker", AnnouncedOn: "2026-10-07"},

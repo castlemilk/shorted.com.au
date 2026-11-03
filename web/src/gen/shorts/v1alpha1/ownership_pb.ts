@@ -11,7 +11,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/ownership.proto.
  */
 export const file_shorts_v1alpha1_ownership: GenFile = /*@__PURE__*/
-  fileDesc("Ch9zaG9ydHMvdjFhbHBoYTEvb3duZXJzaGlwLnByb3RvEg9zaG9ydHMudjFhbHBoYTEitwIKFE93bmVyc2hpcEluc3RpdHV0aW9uEgwKBHNsdWcYASABKAkSDAoEbmFtZRgCIAEoCRIMCgRraW5kGAMgASgJEg8KB2NvdW50cnkYBCABKAkSDwoHd2Vic2l0ZRgFIAEoCRITCgtkZXNjcmlwdGlvbhgGIAEoCRIPCgdhdW1fYXVkGAcgASgBEg8KB2hhc19hdW0YCCABKAgSEQoJYXVtX2FzX2F0GAkgASgJEh0KFXN1YnN0YW50aWFsX3Bvc2l0aW9ucxgKIAEoBRIPCgdub3RpY2VzGAsgASgFEhoKEmxhdGVzdF9ub3RpY2VfZGF0ZRgMIAEoCRINCgVmdW5kcxgNIAEoBRIWCg5mdW5kc19zaXplX2F1ZBgOIAEoARIWCg5oYXNfZnVuZHNfc2l6ZRgPIAEoCCLbAgoSU3Vic3RhbnRpYWxIb2xkaW5nEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhIKCmhvbGRlcl9rZXkYBCABKAkSEwoLaG9sZGVyX25hbWUYBSABKAkSGAoQaW5zdGl0dXRpb25fc2x1ZxgGIAEoCRIMCgRraW5kGAcgASgJEgwKBGZvcm0YCCABKAkSGAoQdm90aW5nX3Bvd2VyX3BjdBgJIAEoARIUCgxwcmV2aW91c19wY3QYCiABKAESFAoMaGFzX3ByZXZpb3VzGAsgASgIEg0KBXZvdGVzGAwgASgDEhEKCWhhc192b3RlcxgNIAEoCBISCgpldmVudF9kYXRlGA4gASgJEhQKDGFubm91bmNlZF9vbhgPIAEoCRIYChBhbm5vdW5jZW1lbnRfdXJsGBAgASgJIsYCChFTdWJzdGFudGlhbE5vdGljZRISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRISCgpob2xkZXJfa2V5GAMgASgJEhMKC2hvbGRlcl9uYW1lGAQgASgJEhgKEGluc3RpdHV0aW9uX3NsdWcYBSABKAkSDAoEa2luZBgGIAEoCRIMCgRmb3JtGAcgASgJEhMKC3ByZXNlbnRfcGN0GAggASgBEhMKC2hhc19wcmVzZW50GAkgASgIEhQKDHByZXZpb3VzX3BjdBgKIAEoARIUCgxoYXNfcHJldmlvdXMYCyABKAgSDgoGY2Vhc2VkGAwgASgIEhIKCmV2ZW50X2RhdGUYDSABKAkSFAoMYW5ub3VuY2VkX29uGA4gASgJEhgKEGFubm91bmNlbWVudF91cmwYDyABKAki5QIKC0Z1bmRIb2xkaW5nEhgKEGluc3RpdHV0aW9uX3NsdWcYASABKAkSGAoQaW5zdGl0dXRpb25fbmFtZRgCIAEoCRIMCgRraW5kGAMgASgJEhEKCWZ1bmRfbmFtZRgEIAEoCRIRCglmdW5kX2NvZGUYBSABKAkSEwoLc291cmNlX2tpbmQYBiABKAkSDQoFYXNfYXQYByABKAkSEgoKc3RvY2tfY29kZRgIIAEoCRIUCgxjb21wYW55X25hbWUYCSABKAkSDQoFdW5pdHMYCiABKAESEQoJaGFzX3VuaXRzGAsgASgIEhEKCXZhbHVlX2F1ZBgMIAEoARIRCgloYXNfdmFsdWUYDSABKAgSEgoKd2VpZ2h0X3BjdBgOIAEoARISCgpoYXNfd2VpZ2h0GA8gASgIEhUKDXBjdF9vZl9pc3N1ZWQYECABKAESGQoRaGFzX3BjdF9vZl9pc3N1ZWQYESABKAgirwEKDU93bmVyc2hpcEZ1bmQSEAoIZnVuZF9rZXkYASABKAkSDAoEbmFtZRgCIAEoCRIRCglmdW5kX3R5cGUYAyABKAkSEAoIYXN4X2NvZGUYBCABKAkSFAoMbWFuYWdlcl9uYW1lGAUgASgJEhAKCGNhdGVnb3J5GAYgASgJEhAKCHNpemVfYXVkGAcgASgBEhAKCGhhc19zaXplGAggASgIEg0KBWFzX2F0GAkgASgJIjcKCUtpbmRTaGFyZRIMCgRraW5kGAEgASgJEgsKA3BjdBgCIAEoARIPCgdob2xkZXJzGAMgASgFIpABChRPd25lcnNoaXBLaW5kU3VtbWFyeRIMCgRraW5kGAEgASgJEhQKDGluc3RpdHV0aW9ucxgCIAEoBRIPCgdob2xkZXJzGAMgASgFEhEKCXBvc2l0aW9ucxgEIAEoBRIOCgZzdG9ja3MYBSABKAUSDwoHYXVtX2F1ZBgGIAEoARIPCgdoYXNfYXVtGAcgASgIIuIDCg5Pd25lcnNoaXBTdG9jaxISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRIPCgdob2xkZXJzGAQgASgFEhUKDWRpc2Nsb3NlZF9wY3QYBSABKAESKwoHYnlfa2luZBgGIAMoCzIaLnNob3J0cy52MWFscGhhMS5LaW5kU2hhcmUSEQoJc2hvcnRfcGN0GAcgASgBEhUKDWhhc19zaG9ydF9wY3QYCCABKAgSEQoJaW5kZXhfcGN0GAkgASgBEhUKDWhhc19pbmRleF9wY3QYCiABKAgSFQoNc3VwZXJfb3B0aW9ucxgLIAEoBRIXCg9zdXBlcl92YWx1ZV9hdWQYDCABKAESFwoPaGFzX3N1cGVyX3ZhbHVlGA0gASgIEhIKCm1hcmtldF9jYXAYDiABKAESFgoOaGFzX21hcmtldF9jYXAYDyABKAgSEwoLc2hvcnRfYXNfb2YYECABKAkSGAoQaW5kZXhfYXNfYXRfZnJvbRgRIAEoCRIWCg5pbmRleF9hc19hdF90bxgSIAEoCRITCgtpbmRleF9maWxlcxgTIAEoBRIaChJsYXRlc3Rfbm90aWNlX2RhdGUYFCABKAkieQoPT3duZXJzaGlwU291cmNlEg4KBnNvdXJjZRgBIAEoCRITCgtkZXNjcmlwdGlvbhgCIAEoCRINCgVhc19hdBgDIAEoCRIPCgdyZWNvcmRzGAQgASgFEg0KBWZ1bmRzGAUgASgFEhIKCmFzX2F0X2Zyb20YBiABKAkiMQoPV2l0aGhlbGRPdXRjb21lEg8KB291dGNvbWUYASABKAkSDQoFY291bnQYAiABKAUiHQobR2V0T3duZXJzaGlwT3ZlcnZpZXdSZXF1ZXN0IpwGChxHZXRPd25lcnNoaXBPdmVydmlld1Jlc3BvbnNlEjQKBWtpbmRzGAEgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEtpbmRTdW1tYXJ5EjoKC3RvcF9ob2xkZXJzGAIgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEjAKB2Nyb3dkZWQYAyADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSOgoRY3Jvd2RlZF9ib3RoX3dheXMYBCADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSMAoHbGVuZGluZxgFIAMoCzIfLnNob3J0cy52MWFscGhhMS5Pd25lcnNoaXBTdG9jaxIyCgZyZWNlbnQYBiADKAsyIi5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxOb3RpY2USOAoPc3VwZXJfY29uc2Vuc3VzGAcgAygLMh8uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcFN0b2NrEjAKB3Bhc3NpdmUYCCADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSMQoHc291cmNlcxgJIAMoCzIgLnNob3J0cy52MWFscGhhMS5Pd25lcnNoaXBTb3VyY2USFgoObm90aWNlc19wYXJzZWQYCiABKAUSGAoQbm90aWNlc193aXRoaGVsZBgLIAEoBRITCgtzdXBlcl9mdW5kcxgMIAEoBRIYChBzdXBlcl9hc3NldHNfYXVkGA0gASgBEgwKBGV0ZnMYDiABKAUSEwoLZXRmX2Z1bV9hdWQYDyABKAESDAoEbGljcxgQIAEoBRIaChJsaWNfbWFya2V0X2NhcF9hdWQYESABKAESDQoFYXNfb2YYEiABKAkSPQoTd2l0aGhlbGRfYnlfb3V0Y29tZRgTIAMoCzIgLnNob3J0cy52MWFscGhhMS5XaXRoaGVsZE91dGNvbWUSGwoTZG9jdW1lbnRzX2F0dGVtcHRlZBgUIAEoBSJVChdMaXN0SW5zdGl0dXRpb25zUmVxdWVzdBIMCgRraW5kGAEgASgJEg0KBXF1ZXJ5GAIgASgJEg0KBWxpbWl0GAMgASgFEg4KBm9mZnNldBgEIAEoBSJmChhMaXN0SW5zdGl0dXRpb25zUmVzcG9uc2USOwoMaW5zdGl0dXRpb25zGAEgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEg0KBXRvdGFsGAIgASgFIiUKFUdldEluc3RpdHV0aW9uUmVxdWVzdBIMCgRzbHVnGAEgASgJIsICChZHZXRJbnN0aXR1dGlvblJlc3BvbnNlEjoKC2luc3RpdHV0aW9uGAEgASgLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEjYKCXBvc2l0aW9ucxgCIAMoCzIjLnNob3J0cy52MWFscGhhMS5TdWJzdGFudGlhbEhvbGRpbmcSMwoHbm90aWNlcxgDIAMoCzIiLnNob3J0cy52MWFscGhhMS5TdWJzdGFudGlhbE5vdGljZRIzCg1mdW5kX2hvbGRpbmdzGAQgAygLMhwuc2hvcnRzLnYxYWxwaGExLkZ1bmRIb2xkaW5nEi0KBWZ1bmRzGAUgAygLMh4uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEZ1bmQSGwoTZnVuZF9ob2xkaW5nc190b3RhbBgGIAEoBSIuChhHZXRTdG9ja093bmVyc2hpcFJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCSLiAgoZR2V0U3RvY2tPd25lcnNoaXBSZXNwb25zZRIwCgdzdW1tYXJ5GAEgASgLMh8uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcFN0b2NrEjQKB2hvbGRlcnMYAiADKAsyIy5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxIb2xkaW5nEjMKB2hpc3RvcnkYAyADKAsyIi5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxOb3RpY2USMwoNZnVuZF9ob2xkaW5ncxgEIAMoCzIcLnNob3J0cy52MWFscGhhMS5GdW5kSG9sZGluZxIXCg9zaGFyZXNfb25faXNzdWUYBSABKAESGwoTaGFzX3NoYXJlc19vbl9pc3N1ZRgGIAEoCBIVCg1oaXN0b3J5X3RvdGFsGAcgASgFEhcKD3dpdGhoZWxkX2xpc3RlZBgIIAEoBRINCgVhc19vZhgJIAEoCTLXAwoQT3duZXJzaGlwU2VydmljZRJ5ChRHZXRPd25lcnNoaXBPdmVydmlldxIsLnNob3J0cy52MWFscGhhMS5HZXRPd25lcnNoaXBPdmVydmlld1JlcXVlc3QaLS5zaG9ydHMudjFhbHBoYTEuR2V0T3duZXJzaGlwT3ZlcnZpZXdSZXNwb25zZSIEgLUYARJtChBMaXN0SW5zdGl0dXRpb25zEiguc2hvcnRzLnYxYWxwaGExLkxpc3RJbnN0aXR1dGlvbnNSZXF1ZXN0Gikuc2hvcnRzLnYxYWxwaGExLkxpc3RJbnN0aXR1dGlvbnNSZXNwb25zZSIEgLUYARJnCg5HZXRJbnN0aXR1dGlvbhImLnNob3J0cy52MWFscGhhMS5HZXRJbnN0aXR1dGlvblJlcXVlc3QaJy5zaG9ydHMudjFhbHBoYTEuR2V0SW5zdGl0dXRpb25SZXNwb25zZSIEgLUYARJwChFHZXRTdG9ja093bmVyc2hpcBIpLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja093bmVyc2hpcFJlcXVlc3QaKi5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tPd25lcnNoaXBSZXNwb25zZSIEgLUYAULdAQoTY29tLnNob3J0cy52MWFscGhhMUIOT3duZXJzaGlwUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_options_v1_options]);
+  fileDesc("Ch9zaG9ydHMvdjFhbHBoYTEvb3duZXJzaGlwLnByb3RvEg9zaG9ydHMudjFhbHBoYTEitwIKFE93bmVyc2hpcEluc3RpdHV0aW9uEgwKBHNsdWcYASABKAkSDAoEbmFtZRgCIAEoCRIMCgRraW5kGAMgASgJEg8KB2NvdW50cnkYBCABKAkSDwoHd2Vic2l0ZRgFIAEoCRITCgtkZXNjcmlwdGlvbhgGIAEoCRIPCgdhdW1fYXVkGAcgASgBEg8KB2hhc19hdW0YCCABKAgSEQoJYXVtX2FzX2F0GAkgASgJEh0KFXN1YnN0YW50aWFsX3Bvc2l0aW9ucxgKIAEoBRIPCgdub3RpY2VzGAsgASgFEhoKEmxhdGVzdF9ub3RpY2VfZGF0ZRgMIAEoCRINCgVmdW5kcxgNIAEoBRIWCg5mdW5kc19zaXplX2F1ZBgOIAEoARIWCg5oYXNfZnVuZHNfc2l6ZRgPIAEoCCLbAgoSU3Vic3RhbnRpYWxIb2xkaW5nEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhIKCmhvbGRlcl9rZXkYBCABKAkSEwoLaG9sZGVyX25hbWUYBSABKAkSGAoQaW5zdGl0dXRpb25fc2x1ZxgGIAEoCRIMCgRraW5kGAcgASgJEgwKBGZvcm0YCCABKAkSGAoQdm90aW5nX3Bvd2VyX3BjdBgJIAEoARIUCgxwcmV2aW91c19wY3QYCiABKAESFAoMaGFzX3ByZXZpb3VzGAsgASgIEg0KBXZvdGVzGAwgASgDEhEKCWhhc192b3RlcxgNIAEoCBISCgpldmVudF9kYXRlGA4gASgJEhQKDGFubm91bmNlZF9vbhgPIAEoCRIYChBhbm5vdW5jZW1lbnRfdXJsGBAgASgJItUCChFTdWJzdGFudGlhbE5vdGljZRISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRISCgpob2xkZXJfa2V5GAMgASgJEhMKC2hvbGRlcl9uYW1lGAQgASgJEhgKEGluc3RpdHV0aW9uX3NsdWcYBSABKAkSDAoEa2luZBgGIAEoCRIMCgRmb3JtGAcgASgJEhMKC3ByZXNlbnRfcGN0GAggASgBEhMKC2hhc19wcmVzZW50GAkgASgIEhQKDHByZXZpb3VzX3BjdBgKIAEoARIUCgxoYXNfcHJldmlvdXMYCyABKAgSDgoGY2Vhc2VkGAwgASgIEhIKCmV2ZW50X2RhdGUYDSABKAkSFAoMYW5ub3VuY2VkX29uGA4gASgJEhgKEGFubm91bmNlbWVudF91cmwYDyABKAkSDQoFZXZlbnQYECABKAki5QIKC0Z1bmRIb2xkaW5nEhgKEGluc3RpdHV0aW9uX3NsdWcYASABKAkSGAoQaW5zdGl0dXRpb25fbmFtZRgCIAEoCRIMCgRraW5kGAMgASgJEhEKCWZ1bmRfbmFtZRgEIAEoCRIRCglmdW5kX2NvZGUYBSABKAkSEwoLc291cmNlX2tpbmQYBiABKAkSDQoFYXNfYXQYByABKAkSEgoKc3RvY2tfY29kZRgIIAEoCRIUCgxjb21wYW55X25hbWUYCSABKAkSDQoFdW5pdHMYCiABKAESEQoJaGFzX3VuaXRzGAsgASgIEhEKCXZhbHVlX2F1ZBgMIAEoARIRCgloYXNfdmFsdWUYDSABKAgSEgoKd2VpZ2h0X3BjdBgOIAEoARISCgpoYXNfd2VpZ2h0GA8gASgIEhUKDXBjdF9vZl9pc3N1ZWQYECABKAESGQoRaGFzX3BjdF9vZl9pc3N1ZWQYESABKAgirwEKDU93bmVyc2hpcEZ1bmQSEAoIZnVuZF9rZXkYASABKAkSDAoEbmFtZRgCIAEoCRIRCglmdW5kX3R5cGUYAyABKAkSEAoIYXN4X2NvZGUYBCABKAkSFAoMbWFuYWdlcl9uYW1lGAUgASgJEhAKCGNhdGVnb3J5GAYgASgJEhAKCHNpemVfYXVkGAcgASgBEhAKCGhhc19zaXplGAggASgIEg0KBWFzX2F0GAkgASgJIjcKCUtpbmRTaGFyZRIMCgRraW5kGAEgASgJEgsKA3BjdBgCIAEoARIPCgdob2xkZXJzGAMgASgFIpABChRPd25lcnNoaXBLaW5kU3VtbWFyeRIMCgRraW5kGAEgASgJEhQKDGluc3RpdHV0aW9ucxgCIAEoBRIPCgdob2xkZXJzGAMgASgFEhEKCXBvc2l0aW9ucxgEIAEoBRIOCgZzdG9ja3MYBSABKAUSDwoHYXVtX2F1ZBgGIAEoARIPCgdoYXNfYXVtGAcgASgIIuIDCg5Pd25lcnNoaXBTdG9jaxISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRIPCgdob2xkZXJzGAQgASgFEhUKDWRpc2Nsb3NlZF9wY3QYBSABKAESKwoHYnlfa2luZBgGIAMoCzIaLnNob3J0cy52MWFscGhhMS5LaW5kU2hhcmUSEQoJc2hvcnRfcGN0GAcgASgBEhUKDWhhc19zaG9ydF9wY3QYCCABKAgSEQoJaW5kZXhfcGN0GAkgASgBEhUKDWhhc19pbmRleF9wY3QYCiABKAgSFQoNc3VwZXJfb3B0aW9ucxgLIAEoBRIXCg9zdXBlcl92YWx1ZV9hdWQYDCABKAESFwoPaGFzX3N1cGVyX3ZhbHVlGA0gASgIEhIKCm1hcmtldF9jYXAYDiABKAESFgoOaGFzX21hcmtldF9jYXAYDyABKAgSEwoLc2hvcnRfYXNfb2YYECABKAkSGAoQaW5kZXhfYXNfYXRfZnJvbRgRIAEoCRIWCg5pbmRleF9hc19hdF90bxgSIAEoCRITCgtpbmRleF9maWxlcxgTIAEoBRIaChJsYXRlc3Rfbm90aWNlX2RhdGUYFCABKAkieQoPT3duZXJzaGlwU291cmNlEg4KBnNvdXJjZRgBIAEoCRITCgtkZXNjcmlwdGlvbhgCIAEoCRINCgVhc19hdBgDIAEoCRIPCgdyZWNvcmRzGAQgASgFEg0KBWZ1bmRzGAUgASgFEhIKCmFzX2F0X2Zyb20YBiABKAkiMQoPV2l0aGhlbGRPdXRjb21lEg8KB291dGNvbWUYASABKAkSDQoFY291bnQYAiABKAUiHQobR2V0T3duZXJzaGlwT3ZlcnZpZXdSZXF1ZXN0IpwGChxHZXRPd25lcnNoaXBPdmVydmlld1Jlc3BvbnNlEjQKBWtpbmRzGAEgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEtpbmRTdW1tYXJ5EjoKC3RvcF9ob2xkZXJzGAIgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEjAKB2Nyb3dkZWQYAyADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSOgoRY3Jvd2RlZF9ib3RoX3dheXMYBCADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSMAoHbGVuZGluZxgFIAMoCzIfLnNob3J0cy52MWFscGhhMS5Pd25lcnNoaXBTdG9jaxIyCgZyZWNlbnQYBiADKAsyIi5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxOb3RpY2USOAoPc3VwZXJfY29uc2Vuc3VzGAcgAygLMh8uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcFN0b2NrEjAKB3Bhc3NpdmUYCCADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSMQoHc291cmNlcxgJIAMoCzIgLnNob3J0cy52MWFscGhhMS5Pd25lcnNoaXBTb3VyY2USFgoObm90aWNlc19wYXJzZWQYCiABKAUSGAoQbm90aWNlc193aXRoaGVsZBgLIAEoBRITCgtzdXBlcl9mdW5kcxgMIAEoBRIYChBzdXBlcl9hc3NldHNfYXVkGA0gASgBEgwKBGV0ZnMYDiABKAUSEwoLZXRmX2Z1bV9hdWQYDyABKAESDAoEbGljcxgQIAEoBRIaChJsaWNfbWFya2V0X2NhcF9hdWQYESABKAESDQoFYXNfb2YYEiABKAkSPQoTd2l0aGhlbGRfYnlfb3V0Y29tZRgTIAMoCzIgLnNob3J0cy52MWFscGhhMS5XaXRoaGVsZE91dGNvbWUSGwoTZG9jdW1lbnRzX2F0dGVtcHRlZBgUIAEoBSJVChdMaXN0SW5zdGl0dXRpb25zUmVxdWVzdBIMCgRraW5kGAEgASgJEg0KBXF1ZXJ5GAIgASgJEg0KBWxpbWl0GAMgASgFEg4KBm9mZnNldBgEIAEoBSJmChhMaXN0SW5zdGl0dXRpb25zUmVzcG9uc2USOwoMaW5zdGl0dXRpb25zGAEgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEg0KBXRvdGFsGAIgASgFIiUKFUdldEluc3RpdHV0aW9uUmVxdWVzdBIMCgRzbHVnGAEgASgJIsICChZHZXRJbnN0aXR1dGlvblJlc3BvbnNlEjoKC2luc3RpdHV0aW9uGAEgASgLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEjYKCXBvc2l0aW9ucxgCIAMoCzIjLnNob3J0cy52MWFscGhhMS5TdWJzdGFudGlhbEhvbGRpbmcSMwoHbm90aWNlcxgDIAMoCzIiLnNob3J0cy52MWFscGhhMS5TdWJzdGFudGlhbE5vdGljZRIzCg1mdW5kX2hvbGRpbmdzGAQgAygLMhwuc2hvcnRzLnYxYWxwaGExLkZ1bmRIb2xkaW5nEi0KBWZ1bmRzGAUgAygLMh4uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEZ1bmQSGwoTZnVuZF9ob2xkaW5nc190b3RhbBgGIAEoBSIuChhHZXRTdG9ja093bmVyc2hpcFJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCSLiAgoZR2V0U3RvY2tPd25lcnNoaXBSZXNwb25zZRIwCgdzdW1tYXJ5GAEgASgLMh8uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcFN0b2NrEjQKB2hvbGRlcnMYAiADKAsyIy5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxIb2xkaW5nEjMKB2hpc3RvcnkYAyADKAsyIi5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxOb3RpY2USMwoNZnVuZF9ob2xkaW5ncxgEIAMoCzIcLnNob3J0cy52MWFscGhhMS5GdW5kSG9sZGluZxIXCg9zaGFyZXNfb25faXNzdWUYBSABKAESGwoTaGFzX3NoYXJlc19vbl9pc3N1ZRgGIAEoCBIVCg1oaXN0b3J5X3RvdGFsGAcgASgFEhcKD3dpdGhoZWxkX2xpc3RlZBgIIAEoBRINCgVhc19vZhgJIAEoCSK4AQodTGlzdFN1YnN0YW50aWFsTm90aWNlc1JlcXVlc3QSEwoLd2luZG93X2RheXMYASABKAUSDQoFZXZlbnQYAiABKAkSDAoEa2luZBgDIAEoCRISCgpzdG9ja19jb2RlGAQgASgJEhgKEGluc3RpdHV0aW9uX3NsdWcYBSABKAkSDgoGY3Vyc29yGAYgASgJEg0KBWxpbWl0GAcgASgFEhgKEGluY2x1ZGVfYWN0aXZpdHkYCCABKAgigwEKCk5vdGljZVdlZWsSEgoKd2Vla19zdGFydBgBIAEoCRIOCgZiZWNhbWUYAiABKAUSEQoJaW5jcmVhc2VkGAMgASgFEhEKCWRlY3JlYXNlZBgEIAEoBRIPCgdjaGFuZ2VkGAUgASgFEg4KBmNlYXNlZBgGIAEoBRIKCgJuehgHIAEoBSKVAgoOTm90aWNlQWN0aXZpdHkSDgoGYmVjYW1lGAEgASgFEhEKCWluY3JlYXNlZBgCIAEoBRIRCglkZWNyZWFzZWQYAyABKAUSDwoHY2hhbmdlZBgEIAEoBRIOCgZjZWFzZWQYBSABKAUSCgoCbnoYBiABKAUSKgoFd2Vla3MYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuTm90aWNlV2VlaxI5Cg1sYXJnZXN0X3Jpc2VzGAggAygLMiIuc2hvcnRzLnYxYWxwaGExLlN1YnN0YW50aWFsTm90aWNlEjkKDWxhcmdlc3RfZmFsbHMYCSADKAsyIi5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxOb3RpY2Ui0AEKHkxpc3RTdWJzdGFudGlhbE5vdGljZXNSZXNwb25zZRIzCgdub3RpY2VzGAEgAygLMiIuc2hvcnRzLnYxYWxwaGExLlN1YnN0YW50aWFsTm90aWNlEhMKC25leHRfY3Vyc29yGAIgASgJEg0KBXRvdGFsGAMgASgFEhMKC3dpbmRvd19kYXlzGAQgASgFEg0KBWFzX29mGAUgASgJEjEKCGFjdGl2aXR5GAYgASgLMh8uc2hvcnRzLnYxYWxwaGExLk5vdGljZUFjdGl2aXR5IrgBChlMaXN0U3RvY2tSZWdpc3RlcnNSZXF1ZXN0EgwKBHNvcnQYASABKAkSEQoJYXNjZW5kaW5nGAIgASgIEhAKCGluZHVzdHJ5GAMgASgJEgwKBGtpbmQYBCABKAkSFQoNbWluX2ludGVyZXN0cxgFIAEoBRIVCg1taW5fc2hvcnRfcGN0GAYgASgBEg0KBXF1ZXJ5GAcgASgJEg0KBWxpbWl0GAggASgFEg4KBm9mZnNldBgJIAEoBSIxCg1JbmR1c3RyeUNvdW50EhAKCGluZHVzdHJ5GAEgASgJEg4KBnN0b2NrcxgCIAEoBSKxAQoaTGlzdFN0b2NrUmVnaXN0ZXJzUmVzcG9uc2USLwoGc3RvY2tzGAEgAygLMh8uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcFN0b2NrEg0KBXRvdGFsGAIgASgFEhAKCHVuaXZlcnNlGAMgASgFEjIKCmluZHVzdHJpZXMYBCADKAsyHi5zaG9ydHMudjFhbHBoYTEuSW5kdXN0cnlDb3VudBINCgVhc19vZhgFIAEoCTLNBQoQT3duZXJzaGlwU2VydmljZRJ5ChRHZXRPd25lcnNoaXBPdmVydmlldxIsLnNob3J0cy52MWFscGhhMS5HZXRPd25lcnNoaXBPdmVydmlld1JlcXVlc3QaLS5zaG9ydHMudjFhbHBoYTEuR2V0T3duZXJzaGlwT3ZlcnZpZXdSZXNwb25zZSIEgLUYARJtChBMaXN0SW5zdGl0dXRpb25zEiguc2hvcnRzLnYxYWxwaGExLkxpc3RJbnN0aXR1dGlvbnNSZXF1ZXN0Gikuc2hvcnRzLnYxYWxwaGExLkxpc3RJbnN0aXR1dGlvbnNSZXNwb25zZSIEgLUYARJnCg5HZXRJbnN0aXR1dGlvbhImLnNob3J0cy52MWFscGhhMS5HZXRJbnN0aXR1dGlvblJlcXVlc3QaJy5zaG9ydHMudjFhbHBoYTEuR2V0SW5zdGl0dXRpb25SZXNwb25zZSIEgLUYARJwChFHZXRTdG9ja093bmVyc2hpcBIpLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja093bmVyc2hpcFJlcXVlc3QaKi5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tPd25lcnNoaXBSZXNwb25zZSIEgLUYARJ/ChZMaXN0U3Vic3RhbnRpYWxOb3RpY2VzEi4uc2hvcnRzLnYxYWxwaGExLkxpc3RTdWJzdGFudGlhbE5vdGljZXNSZXF1ZXN0Gi8uc2hvcnRzLnYxYWxwaGExLkxpc3RTdWJzdGFudGlhbE5vdGljZXNSZXNwb25zZSIEgLUYARJzChJMaXN0U3RvY2tSZWdpc3RlcnMSKi5zaG9ydHMudjFhbHBoYTEuTGlzdFN0b2NrUmVnaXN0ZXJzUmVxdWVzdBorLnNob3J0cy52MWFscGhhMS5MaXN0U3RvY2tSZWdpc3RlcnNSZXNwb25zZSIEgLUYAULdAQoTY29tLnNob3J0cy52MWFscGhhMUIOT3duZXJzaGlwUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_options_v1_options]);
 
 /**
  * @generated from message shorts.v1alpha1.OwnershipInstitution
@@ -291,6 +291,17 @@ export type SubstantialNotice = Message<"shorts.v1alpha1.SubstantialNotice"> & {
    * @generated from field: string announcement_url = 15;
    */
   announcementUrl: string;
+
+  /**
+   * A notice's event, decided once from its form and figures, ceased first:
+   * ceased (the ceased flag, or Form 605), became (603), increased or
+   * decreased (604 with both figures and a difference), changed (604 with no
+   * previous figure, no present figure, or an equal one), nz (an NZ
+   * disclosure that is not a cessation).
+   *
+   * @generated from field: string event = 16;
+   */
+  event: string;
 };
 
 /**
@@ -1106,6 +1117,387 @@ export const GetStockOwnershipResponseSchema: GenMessage<GetStockOwnershipRespon
   messageDesc(file_shorts_v1alpha1_ownership, 17);
 
 /**
+ * @generated from message shorts.v1alpha1.ListSubstantialNoticesRequest
+ */
+export type ListSubstantialNoticesRequest = Message<"shorts.v1alpha1.ListSubstantialNoticesRequest"> & {
+  /**
+   * 7, 30, 90 or 365; 0 means every notice read (no date clause). Another
+   * positive value rounds UP to the next served window, and one above 365 is
+   * 0; the response echoes the window used. A negative value is invalid.
+   *
+   * @generated from field: int32 window_days = 1;
+   */
+  windowDays: number;
+
+  /**
+   * "" or one of became, increased, decreased, changed, ceased, nz.
+   *
+   * @generated from field: string event = 2;
+   */
+  event: string;
+
+  /**
+   * "" or a holder kind: an institution kind, corporate or unclassified.
+   *
+   * @generated from field: string kind = 3;
+   */
+  kind: string;
+
+  /**
+   * "" or an ASX code (1 to 6 uppercase alphanumerics).
+   *
+   * @generated from field: string stock_code = 4;
+   */
+  stockCode: string;
+
+  /**
+   * "" or a registry slug: that holder's notices, as its institution page reads
+   * them. Holders off the map cannot be filtered.
+   *
+   * @generated from field: string institution_slug = 5;
+   */
+  institutionSlug: string;
+
+  /**
+   * "" for the first page, else the previous page's next_cursor.
+   *
+   * @generated from field: string cursor = 6;
+   */
+  cursor: string;
+
+  /**
+   * 0 means 50; above 100 is 100.
+   *
+   * @generated from field: int32 limit = 7;
+   */
+  limit: number;
+
+  /**
+   * Also compute the window's counts, weekly buckets and largest moves
+   * (windows of at most 90 days; omitted above that). Only the first page
+   * (cursor ""): a page after a cursor never carries it.
+   *
+   * @generated from field: bool include_activity = 8;
+   */
+  includeActivity: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListSubstantialNoticesRequest.
+ * Use `create(ListSubstantialNoticesRequestSchema)` to create a new message.
+ */
+export const ListSubstantialNoticesRequestSchema: GenMessage<ListSubstantialNoticesRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 18);
+
+/**
+ * One ISO week of notices, by event.
+ *
+ * @generated from message shorts.v1alpha1.NoticeWeek
+ */
+export type NoticeWeek = Message<"shorts.v1alpha1.NoticeWeek"> & {
+  /**
+   * The Monday that starts the week, YYYY-MM-DD.
+   *
+   * @generated from field: string week_start = 1;
+   */
+  weekStart: string;
+
+  /**
+   * @generated from field: int32 became = 2;
+   */
+  became: number;
+
+  /**
+   * @generated from field: int32 increased = 3;
+   */
+  increased: number;
+
+  /**
+   * @generated from field: int32 decreased = 4;
+   */
+  decreased: number;
+
+  /**
+   * @generated from field: int32 changed = 5;
+   */
+  changed: number;
+
+  /**
+   * @generated from field: int32 ceased = 6;
+   */
+  ceased: number;
+
+  /**
+   * @generated from field: int32 nz = 7;
+   */
+  nz: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.NoticeWeek.
+ * Use `create(NoticeWeekSchema)` to create a new message.
+ */
+export const NoticeWeekSchema: GenMessage<NoticeWeek> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 19);
+
+/**
+ * A window's notices by event, by week, and the largest moves.
+ *
+ * @generated from message shorts.v1alpha1.NoticeActivity
+ */
+export type NoticeActivity = Message<"shorts.v1alpha1.NoticeActivity"> & {
+  /**
+   * @generated from field: int32 became = 1;
+   */
+  became: number;
+
+  /**
+   * @generated from field: int32 increased = 2;
+   */
+  increased: number;
+
+  /**
+   * @generated from field: int32 decreased = 3;
+   */
+  decreased: number;
+
+  /**
+   * @generated from field: int32 changed = 4;
+   */
+  changed: number;
+
+  /**
+   * @generated from field: int32 ceased = 5;
+   */
+  ceased: number;
+
+  /**
+   * @generated from field: int32 nz = 6;
+   */
+  nz: number;
+
+  /**
+   * Every ISO week in the window, oldest first, empty weeks included.
+   *
+   * @generated from field: repeated shorts.v1alpha1.NoticeWeek weeks = 7;
+   */
+  weeks: NoticeWeek[];
+
+  /**
+   * Form 604 notices with both figures, by the largest rise and fall in
+   * percentage points; at most five each.
+   *
+   * @generated from field: repeated shorts.v1alpha1.SubstantialNotice largest_rises = 8;
+   */
+  largestRises: SubstantialNotice[];
+
+  /**
+   * @generated from field: repeated shorts.v1alpha1.SubstantialNotice largest_falls = 9;
+   */
+  largestFalls: SubstantialNotice[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.NoticeActivity.
+ * Use `create(NoticeActivitySchema)` to create a new message.
+ */
+export const NoticeActivitySchema: GenMessage<NoticeActivity> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 20);
+
+/**
+ * @generated from message shorts.v1alpha1.ListSubstantialNoticesResponse
+ */
+export type ListSubstantialNoticesResponse = Message<"shorts.v1alpha1.ListSubstantialNoticesResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.SubstantialNotice notices = 1;
+   */
+  notices: SubstantialNotice[];
+
+  /**
+   * The cursor for the next page; "" on the last page.
+   *
+   * @generated from field: string next_cursor = 2;
+   */
+  nextCursor: string;
+
+  /**
+   * Notices matching the filters in the window; the cursor does not narrow it.
+   *
+   * @generated from field: int32 total = 3;
+   */
+  total: number;
+
+  /**
+   * The window used, echoed: 0 is every notice read (no date clause).
+   *
+   * @generated from field: int32 window_days = 4;
+   */
+  windowDays: number;
+
+  /**
+   * @generated from field: string as_of = 5;
+   */
+  asOf: string;
+
+  /**
+   * Only on a first page that set include_activity, for a window that allows it.
+   *
+   * @generated from field: shorts.v1alpha1.NoticeActivity activity = 6;
+   */
+  activity?: NoticeActivity;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListSubstantialNoticesResponse.
+ * Use `create(ListSubstantialNoticesResponseSchema)` to create a new message.
+ */
+export const ListSubstantialNoticesResponseSchema: GenMessage<ListSubstantialNoticesResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 21);
+
+/**
+ * @generated from message shorts.v1alpha1.ListStockRegistersRequest
+ */
+export type ListStockRegistersRequest = Message<"shorts.v1alpha1.ListStockRegistersRequest"> & {
+  /**
+   * disclosed (default), investors, banks, hedge_active, short, index,
+   * super_value, super_options, interests, latest_notice, code. A stock
+   * without the figure sorts last whatever the direction; ties are broken by
+   * code.
+   *
+   * @generated from field: string sort = 1;
+   */
+  sort: string;
+
+  /**
+   * @generated from field: bool ascending = 2;
+   */
+  ascending: boolean;
+
+  /**
+   * "" or one of the response's industries, matched exactly after trim.
+   *
+   * @generated from field: string industry = 3;
+   */
+  industry: string;
+
+  /**
+   * A kind that must disclose 5% or more in the stock; "" for any.
+   *
+   * @generated from field: string kind = 4;
+   */
+  kind: string;
+
+  /**
+   * Interests counted once; 0 means 1.
+   *
+   * @generated from field: int32 min_interests = 5;
+   */
+  minInterests: number;
+
+  /**
+   * One of 0, 1, 3, 5, 10; another value snaps DOWN to the nearest served step.
+   *
+   * @generated from field: double min_short_pct = 6;
+   */
+  minShortPct: number;
+
+  /**
+   * A code prefix or a name substring, at most 24 characters.
+   *
+   * @generated from field: string query = 7;
+   */
+  query: string;
+
+  /**
+   * 0 means 50; above 100 is 100.
+   *
+   * @generated from field: int32 limit = 8;
+   */
+  limit: number;
+
+  /**
+   * 0 to 5000.
+   *
+   * @generated from field: int32 offset = 9;
+   */
+  offset: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListStockRegistersRequest.
+ * Use `create(ListStockRegistersRequestSchema)` to create a new message.
+ */
+export const ListStockRegistersRequestSchema: GenMessage<ListStockRegistersRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 22);
+
+/**
+ * One industry among the register's stocks, for the filter.
+ *
+ * @generated from message shorts.v1alpha1.IndustryCount
+ */
+export type IndustryCount = Message<"shorts.v1alpha1.IndustryCount"> & {
+  /**
+   * @generated from field: string industry = 1;
+   */
+  industry: string;
+
+  /**
+   * @generated from field: int32 stocks = 2;
+   */
+  stocks: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.IndustryCount.
+ * Use `create(IndustryCountSchema)` to create a new message.
+ */
+export const IndustryCountSchema: GenMessage<IndustryCount> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 23);
+
+/**
+ * @generated from message shorts.v1alpha1.ListStockRegistersResponse
+ */
+export type ListStockRegistersResponse = Message<"shorts.v1alpha1.ListStockRegistersResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.OwnershipStock stocks = 1;
+   */
+  stocks: OwnershipStock[];
+
+  /**
+   * Stocks matching the filters.
+   *
+   * @generated from field: int32 total = 2;
+   */
+  total: number;
+
+  /**
+   * Stocks with at least one current holder, before the filters.
+   *
+   * @generated from field: int32 universe = 3;
+   */
+  universe: number;
+
+  /**
+   * The distinct industries, sorted, for the filter.
+   *
+   * @generated from field: repeated shorts.v1alpha1.IndustryCount industries = 4;
+   */
+  industries: IndustryCount[];
+
+  /**
+   * @generated from field: string as_of = 5;
+   */
+  asOf: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListStockRegistersResponse.
+ * Use `create(ListStockRegistersResponseSchema)` to create a new message.
+ */
+export const ListStockRegistersResponseSchema: GenMessage<ListStockRegistersResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 24);
+
+/**
  * OwnershipService: who holds ASX stocks.
  *
  * Three public sources, never blended into one number:
@@ -1169,6 +1561,32 @@ export const OwnershipService: GenService<{
     methodKind: "unary";
     input: typeof GetStockOwnershipRequestSchema;
     output: typeof GetStockOwnershipResponseSchema;
+  },
+  /**
+   * The substantial holding notices we could read, newest release first:
+   * filtered by window, event, kind, stock or registry holder, paged by a
+   * keyset cursor, with the window's activity on the first page for windows of
+   * up to 90 days.
+   *
+   * @generated from rpc shorts.v1alpha1.OwnershipService.ListSubstantialNotices
+   */
+  listSubstantialNotices: {
+    methodKind: "unary";
+    input: typeof ListSubstantialNoticesRequestSchema;
+    output: typeof ListSubstantialNoticesResponseSchema;
+  },
+  /**
+   * Every stock with a current substantial holder, filtered and sorted for the
+   * register explorer: what its notices disclose (each interest counted once,
+   * not a share of the company), the investors, banks and index funds among its
+   * holders, and its short interest.
+   *
+   * @generated from rpc shorts.v1alpha1.OwnershipService.ListStockRegisters
+   */
+  listStockRegisters: {
+    methodKind: "unary";
+    input: typeof ListStockRegistersRequestSchema;
+    output: typeof ListStockRegistersResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_shorts_v1alpha1_ownership, 0);

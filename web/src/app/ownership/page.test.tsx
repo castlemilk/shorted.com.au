@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type {
   GetOwnershipOverviewResponse,
   OwnershipSource,
@@ -185,6 +185,17 @@ describe("OwnershipPage coverage and sources", () => {
     expect(screen.getByRole("link", { name: "Report an error" })).toHaveAttribute(
       "href",
       "mailto:support@shorted.com.au?subject=Ownership%20data%3A%20hub",
+    );
+  });
+
+  it("links the latest notices to the feed", async () => {
+    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
+    const { container } = render(await OwnershipPage());
+
+    const notices = container.querySelector("section[aria-labelledby='notices']") as HTMLElement;
+    expect(within(notices).getByRole("link", { name: "All notices →" })).toHaveAttribute(
+      "href",
+      "/ownership/notices",
     );
   });
 });

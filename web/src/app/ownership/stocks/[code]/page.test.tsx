@@ -567,11 +567,32 @@ describe("the register page's links and figures", () => {
     ).toEqual([
       [1, "Home", "https://shorted.com.au/"],
       [2, "Ownership", "https://shorted.com.au/ownership"],
-      [3, "BHP register", "https://shorted.com.au/ownership/stocks/BHP"],
+      [3, "Registers", "https://shorted.com.au/ownership/stocks"],
+      [4, "BHP register", "https://shorted.com.au/ownership/stocks/BHP"],
     ]);
     const dataset = blocks.find((b) => b["@type"] === "Dataset");
     expect(dataset.name).toBe("BHP Group (BHP) substantial holders");
     expect(dataset.dateModified).toBe("2026-10-20");
+  });
+
+  // The feed's default window is 30 days, so the link asks for every notice read for the stock.
+  // It is nofollow: each filtered view repeats the feed's default HTML under another canonical.
+  it("links its notices heading to every notice read for the stock, as a nofollow link", async () => {
+    useFixture(healthy());
+    const { container } = render(await RegisterPage(params("BHP")));
+
+    const link = screen.getByRole("link", { name: "All notices for BHP →" });
+    expect(link).toHaveAttribute("href", "/ownership/notices?window=all&stock=BHP");
+    expect(link).toHaveAttribute("rel", "nofollow");
+    expect(section(container, "notices")).toContainElement(link);
+  });
+
+  // A register that holds fund rows and no notice has no notice for the feed to show.
+  it("draws no notices link when the register holds no notice", async () => {
+    useFixture({ funds: [fund({})] });
+    render(await RegisterPage(params("BHP")));
+
+    expect(screen.queryByRole("link", { name: /All notices for/ })).toBeNull();
   });
 });
 

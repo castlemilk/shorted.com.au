@@ -180,6 +180,17 @@ export const CACHE_KEYS = {
     `cache:ownership:institutions:${kind || "all"}:${query || "-"}:${limit}:${offset}`,
   ownershipInstitution: (slug: string) => `cache:ownership:institution:v2:${slug}`,
   stockOwnership: (stockCode: string) => `cache:ownership:stock:v2:${stockCode}`,
+  // The explorer's two default views, and nothing else: /ownership/notices at
+  // window 30 with no filters, and /ownership/stocks sorted by disclosed voting
+  // power with no filters. Every other query is a live read, so a key never
+  // stands for a visitor's choice of filter. Each entry is the API's answer as
+  // proto JSON, mapped again on every read (ownershipExplorer.ts), so a change to
+  // the mapping needs no new version. Two changes do bump it: a change to what a
+  // field means, and a mapping that starts reading a field the API did not send
+  // when the entry was written. The old entry still parses, with that field
+  // empty, and a deploy does not flush KV, so it is served for up to OWNERSHIP_TTL.
+  ownershipNotices: () => `cache:ownership:notices:v1`,
+  ownershipRegisters: () => `cache:ownership:registers:v1`,
   // --- Registers of Members'/Senators' Interests ---
   parliamentOverview: () => `cache:politicians:overview`,
   politicianList: (chamber: string, state: string, party: string, query: string, limit: number, offset: number) =>

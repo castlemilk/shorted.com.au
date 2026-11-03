@@ -15,9 +15,10 @@ import (
 
 // The register is read once, into a universe, and every ownership response is
 // assembled from it. One universe serves every rpc for ownershipTTL. The only
-// other reads are a holder's or a stock's newest notices, cached beside the
-// universe under its generation, so no entry outlives the universe it was read
-// beside.
+// other cached reads are a holder's or a stock's newest notices and the notices
+// feed's first page, which are cached beside the universe under its generation,
+// so no entry outlives the universe it was read beside; a feed page after a
+// cursor is read through.
 
 // ownershipRefreshAhead is how long before its expiry a background build
 // starts, so a request rarely finds the universe expired and has to wait.

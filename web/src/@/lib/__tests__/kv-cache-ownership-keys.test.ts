@@ -29,6 +29,16 @@ describe("ownership cache keys", () => {
     );
   });
 
+  it("pins the v1 keys of the explorer's default views, the notices feed and the registers table", () => {
+    expect(CACHE_KEYS.ownershipNotices()).toBe("cache:ownership:notices:v1");
+    expect(CACHE_KEYS.ownershipRegisters()).toBe("cache:ownership:registers:v1");
+  });
+
+  it("takes no argument for either explorer key, so no filter value can ever become a key", () => {
+    expect(CACHE_KEYS.ownershipNotices).toHaveLength(0);
+    expect(CACHE_KEYS.ownershipRegisters).toHaveLength(0);
+  });
+
   it("keeps every ownership key under the prefix the flush reaches", () => {
     expect(OWNERSHIP_DATA_CACHE_PREFIXES).toEqual(["cache:ownership:"]);
     const keys = [
@@ -36,6 +46,8 @@ describe("ownership cache keys", () => {
       CACHE_KEYS.ownershipInstitutions("", "", 200, 0),
       CACHE_KEYS.ownershipInstitution("blackrock"),
       CACHE_KEYS.stockOwnership("BHP"),
+      CACHE_KEYS.ownershipNotices(),
+      CACHE_KEYS.ownershipRegisters(),
     ];
     for (const key of keys) {
       expect(key.startsWith("cache:ownership:")).toBe(true);

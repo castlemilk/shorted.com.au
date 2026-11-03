@@ -18,6 +18,7 @@ import { BreadcrumbStructuredData, Breadcrumbs } from "~/@/components/seo/breadc
 import { JsonLd } from "~/@/components/seo/json-ld";
 import { NOT_AVAILABLE, formatAmount, formatPct, formatShares } from "~/@/lib/fundamentals/format";
 import { REGISTER_CODE_PATTERN, asAtRange, registerHref } from "~/@/lib/ownership/kinds";
+import { defaultNoticeQuery, NOTICE_WINDOW_ALL, serialiseNoticeParams } from "~/@/lib/ownership/query";
 import { registerIsIndexable } from "~/@/lib/ownership/register-indexability";
 import { buildHolderLanes } from "~/@/lib/ownership/trace";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
@@ -225,8 +226,17 @@ export default async function RegisterPage({ params }: PageProps) {
   });
   const crumbs = [
     { label: "Ownership", href: "/ownership" },
+    { label: "Registers", href: "/ownership/stocks" },
     { label: `${code} register`, href: registerHref(code) },
   ];
+  // The feed's whole-register view of this stock. Its default window is the last 30
+  // days, and this link promises every notice read for the stock. Each filtered view
+  // repeats the feed's default HTML under another canonical, so the link is nofollow.
+  const allNotices = `/ownership/notices?${serialiseNoticeParams({
+    ...defaultNoticeQuery(),
+    windowDays: NOTICE_WINDOW_ALL,
+    stockCode: code,
+  }).toString()}`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Dataset",
@@ -331,6 +341,18 @@ export default async function RegisterPage({ params }: PageProps) {
             <h2 id="notices" className={SECTION_HEADING}>
               Notices
             </h2>
+            {data.historyTotal > 0 ? (
+              <p className="text-sm">
+                <Link
+                  href={allNotices}
+                  rel="nofollow"
+                  prefetch={false}
+                  className="hit-target text-primary underline-offset-4 hover:underline"
+                >
+                  All notices for {code} →
+                </Link>
+              </p>
+            ) : null}
             {data.historyTotal > data.history.length ? (
               <p className="text-sm tabular-nums text-muted-foreground">
                 {`The latest ${data.history.length.toLocaleString("en-AU")} of ${data.historyTotal.toLocaleString("en-AU")} notices read for ${code}.`}

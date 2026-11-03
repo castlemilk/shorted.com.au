@@ -952,25 +952,30 @@ four readouts and the ladder); on `/picks` it is unchanged.
 both ways, lending desks, index fund ownership, super funds' consensus, latest
 notices, institutions directory), `/ownership/[slug]` (one institution),
 `/ownership/stocks/[code]` (one stock's register: the Holder Lanes, the
-holders, the index fund and super option rows, the notices trail) and, on the
+holders, the index fund and super option rows, the notices trail),
+`/ownership/notices` (the feed: every notice read, newest release first, with
+window, event, kind, stock and holder filters and the window's weekly bars)
+and `/ownership/stocks` (the registers list: eleven sorts, industry, kind,
+interest and short-position floors, a code or name query) and, on the
 stock page, the "Substantial holders" card on the Company tab (`#ownership`,
 the summary) and the one-line strip on the Overview, over `OwnershipService`
-(`ownership.proto`, 4 rpcs, all public, mirrored on `ShortedStocksService`).
+(`ownership.proto`, 6 rpcs, all public, mirrored on `ShortedStocksService`).
 Fed by `shorted ownership` (`services/jobs/README.md` "ownership"): a curated
 registry of ~145 institutions, APRA's super fund statistics, ASX's ETF/LIC
 report, 11 index funds' holdings files, 11 super funds' portfolio holdings
 disclosures, and every substantial holding notice PDF since 2024. Migration
 `000137_add_ownership` is in the deploy allowlist. Spec:
-`docs/superpowers/specs/2026-11-02-ownership-explorer-design.md` (stage 1
-built; stages 2 and 3, the notices feed, the registers explorer and the hub
-desk, are specified there and not built).
+`docs/superpowers/specs/2026-11-02-ownership-explorer-design.md` (stages 1
+and 2 built; stage 3, the hub desk, the Short interest lending line, the
+register OG lanes and the e2e spec, is specified there and not built; section
+7.1 holds the decisions taken in review).
 
 | Piece | Where |
 |---|---|
 | Job, parser, registry | `services/jobs/internal/jobs/ownership/` (`notice.go` parser, fixtures in `testdata/notices/`; `registry.go` kinds, aliases, groups; `repair.go` the `-mode repair-placeholders` dry run) |
-| API | `services/shorts/internal/services/shorts/ownership.go` (handlers assemble every response from ONE cached universe, `ownership_universe.go`: built once per `ownershipTTL` from 11 statements, refreshed in the background two minutes ahead of expiry, never served past it; a stock's or an institution's notices are the one per-key statement, cached under the universe's generation), `store/shorts/postgres_ownership.go` (a schema without 000137 reads empty, never a 500) |
-| Web | `app/ownership/` (the hub, `[slug]`, `stocks/[code]`), `components/ownership/` (server components; `ownership-tables.tsx` is the one island), `components/stocks/register-strip.tsx` (props only), `lib/ownership/` (`trace.ts` the lane geometry, `kinds.ts`, `rows.ts`, `age.ts`, `register-indexability.ts`), `app/actions/getOwnership.ts` (ISR tag `ownership` + KV last-good under the `v2` keys, flush `ownership`), `app/actions/getStockRegisterStrip.ts` (the Overview's read: `unstable_cache`, a 4 s abort, no KV, tagged by stock and never `ownership`) |
-| Guards | `app/ownership/__tests__/isr-source-safety.test.ts` (no `searchParams`, `cookies()`, `headers()`, `auth()` or `useSearchParams` under `app/ownership`), `app/__tests__/editorial-copy.test.ts` (no em dash, "of the voting power", "index ETF", "sold" in ownership copy), `scripts/route-kinds.mjs` `OWNERSHIP_ROUTES`, `components/ownership/__tests__/client-boundary.test.ts` |
+| API | `services/shorts/internal/services/shorts/ownership.go` (handlers assemble every response from ONE cached universe, `ownership_universe.go`: built once per `ownershipTTL` from 11 statements, refreshed in the background two minutes ahead of expiry, never served past it; a stock's or an institution's notices and the feed's first page are the per-key statements, cached under the universe's generation; `ownership_lists.go` holds `ListSubstantialNotices` (a keyset cursor `YYYY-MM-DD|url`, windows rounded UP to 7/30/90/365, 0 = every notice read) and `ListStockRegisters` (in memory over the universe, never cached per query), with every clamp mirrored in `web/src/@/lib/ownership/__fixtures__/clamps.json`, which a Go test and the web test both read), `store/shorts/postgres_ownership.go` (a schema without 000137 reads empty, never a 500; `eventOf` classifies a notice's event ONCE here: ceased, then 603 became, then 604 increased / decreased / changed, then nz) |
+| Web | `app/ownership/` (the hub, `[slug]`, `stocks/[code]`, and the static ISR pages `notices/` and `stocks/`), `components/ownership/` (server components; the islands are `ownership-tables.tsx`, `notice-feed-explorer.tsx` and `registers-explorer.tsx`: the action as a prop, `useSearchParams` under their own Suspense, `history.replaceState`, no Connect; `notice-mark.tsx`, `notice-week-bars.tsx`, `register-rows-table.tsx` are the parts they draw), `app/actions/ownershipExplorer.ts` ("use server"; the one loader a page and its island share; KV only for each page's DEFAULT view), `lib/ownership/query.ts` (the clamps and the URL codec) and `events.ts` (reads `notice.event`, never re-derives it), `components/stocks/register-strip.tsx` (props only), `lib/ownership/` (`trace.ts` the lane geometry, `kinds.ts`, `rows.ts`, `age.ts`, `register-indexability.ts`), `app/actions/getOwnership.ts` (ISR tag `ownership` + KV last-good under the `v2` keys, flush `ownership`), `app/actions/getStockRegisterStrip.ts` (the Overview's read: `unstable_cache`, a 4 s abort, no KV, tagged by stock and never `ownership`) |
+| Guards | `app/ownership/__tests__/isr-source-safety.test.ts` (no `searchParams`, `cookies()`, `headers()`, `auth()` or `useSearchParams` under `app/ownership`), `app/__tests__/editorial-copy.test.ts` (no em dash, "of the voting power", "index ETF", "sold" in ownership copy), `scripts/route-kinds.mjs` `OWNERSHIP_ROUTES` (the two dynamic routes) and `OWNERSHIP_STATIC_ROUTES` (the hub, the feed, the registers list: each must keep a positive `initialRevalidateSeconds`), `components/ownership/__tests__/client-boundary.test.ts`, `app/api/static-pages/warm-cache/__tests__/budget.test.ts` (17 shell pages read six at a time fit the 145 s the callers allow) |
 | MCP | `get_stock_ownership` (holders, by-kind sum, the 15 largest fund holdings, each fund named with its institution) and `get_institution_holdings` (slug or name; an ambiguous name lists the slugs), `services/shorts/internal/mcp/tools_ownership.go`. A stated 0.00% fund weight beside a real value is omitted (super disclosures state two places) |
 
 ### Landmines
@@ -1032,6 +1037,32 @@ desk, are specified there and not built).
 - **The strip's read is outside the Overview's critical path** and reads no
   KV: the daily sync's layout expiry refreshes it, and the job's `ownership`
   ping must not add a regeneration wave to the most-visited tab.
+- **Activity exists only on a first page.** `ListSubstantialNotices` computes
+  the weekly counts for windows of at most 90 days and only when `cursor` is
+  empty; the loader asks for it only there (`wantsActivity`), so a load-more
+  never reads `activityOk` false. The first page is the only cached read
+  (`ListSubstantialNoticesKey`, TTL the universe's remaining life); a cursor page
+  is read through.
+- **The API names no start date.** Window 0 is every notice read; the record's
+  first day is not a fact the API states, so `feed.empty.all` says "No notices
+  read match these filters." and nothing more.
+- **The registry reaches the feed island only when it is whole.** The notices
+  page passes `ListInstitutions` to the holder select only when
+  `total <= institutions.length`; otherwise the API validates a `?holder=`
+  slug. An unlisted slug from a link is kept as an option labelled by its
+  slug; a slug the registry does not hold is refused by the API and drawn as
+  the outage, never silently another view.
+- **"All notices" links carry `window=all` and `rel="nofollow"`** and are
+  drawn only when the page has a notice to show (`history_total > 0`, an
+  institution's count > 0): over 1,100 filtered URLs each serving the default
+  view's HTML otherwise. The hub's bare `/ownership/notices` link is followable.
+- **The register list has three grammars switched on the TABLE's width**
+  (a container query at 980 and 1,320 px, because the signed-in rail takes
+  288 px of the viewport): two rows per stock below 980, seven columns with the
+  name and industry under the code from 980, eleven from 1,320; every value is
+  rendered once, every `<time>` is `whitespace-nowrap`. The feed stacks below
+  `md`. Measured on static markup to fit 360 to 1280 px signed in; no e2e holds
+  it yet (stage 3).
 - **Unclassified holders (59% of positions) are plain text**: no holder pages,
   no holder search, no fuzzy merging across keys (`name:` keys split on text
   layer breaks: "Limite d"). The parser withholds placeholder names ("SEE

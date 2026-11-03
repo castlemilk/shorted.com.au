@@ -189,3 +189,218 @@ INSERT INTO fund_holdings (snapshot_id, stock_code, units, value_aud, weight_pct
 INSERT INTO ownership_funds (fund_key, name, fund_type, institution_slug, aum_aud, source) VALUES
 	('abn:1', 'Australian Retirement Trust', 'super_fund', 'australian-retirement-trust', 3.5e11, 'apra-fund-level');
 `
+
+// noticeFeedTestSeed is seventeen notices: every event, every holder kind, two
+// notices sharing a release date, a URL with a "|" in it, six rises and two falls
+// for the largest moves, and one notice from September.
+const noticeFeedTestSeed = `
+INSERT INTO ownership_institutions (slug, name, kind) VALUES
+	('aaa-super', 'Aaa Super', 'super_fund'),
+	('bbb-bank', 'Bbb Bank', 'bank_broker'),
+	('ccc-hedge', 'Ccc Hedge', 'hedge_fund');
+INSERT INTO substantial_holder_notices (announcement_url, stock_code, form, holder_name, holder_key, institution_slug,
+	event_date, announced_on, previous_pct, present_pct, present_votes, ceased, parser_version) VALUES
+	('n01', 'ZIP', '603', 'Aaa Super', 'aaa-super', 'aaa-super', '2026-10-05', '2026-10-06', NULL, 5.5, NULL, false, 1),
+	('n02', 'ZIP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-13', 5.5, 6.5, NULL, false, 1),
+	('n03', 'ZIP', '604', 'Bbb Bank', 'bbb-bank', 'bbb-bank', NULL, '2026-10-13', 9, 7, NULL, false, 1),
+	('n04', 'ZIP', '605', 'Ccc Hedge', 'ccc-hedge', 'ccc-hedge', '2026-10-08', '2026-10-13', 4, NULL, NULL, true, 1),
+	('n05', 'ZIP', '604', 'Ccc Hedge', 'ccc-hedge', 'ccc-hedge', NULL, '2026-10-20', NULL, 5, NULL, false, 1),
+	('n06', 'ZIP', 'nz', 'CBA', 'asx:CBA', NULL, NULL, '2026-10-22', NULL, 9, NULL, false, 1),
+	('n07', 'BHP', '604', 'Mystery Holder', 'name:mystery holder', NULL, NULL, '2026-10-22', 5, 5, NULL, false, 1),
+	('x|y', 'ZIP', '603', 'Bbb Bank', 'bbb-bank', 'bbb-bank', NULL, '2026-10-22', NULL, 6, NULL, false, 1),
+	('n09', 'BHP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-09-01', NULL, NULL, NULL, false, 1),
+	('r1', 'BHP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-21', 1, 2, NULL, false, 1),
+	('r2', 'BHP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-21', 1, 3, NULL, false, 1),
+	('r3', 'BHP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-21', 1, 4, NULL, false, 1),
+	('r4', 'BHP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-21', 1, 5, NULL, false, 1),
+	('r5', 'BHP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-21', 1, 6, NULL, false, 1),
+	('r6', 'BHP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-21', 1, 7, NULL, false, 1),
+	('d1', 'BHP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-21', 9, 8, NULL, false, 1),
+	('d2', 'BHP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-21', 9, 5, NULL, false, 1);
+`
+
+// The notices feed against Postgres: the event SQL against Event, the keyset
+// page, the filters, the weekly aggregate and the largest moves. It runs on the
+// same disposable server as TestOwnershipReadsAgainstPostgres.
+func TestOwnershipNoticeFeedAgainstPostgres(t *testing.T) {
+	adminURL := os.Getenv("SHORTS_TEST_POSTGRES_URL")
+	if adminURL == "" {
+		t.Skip("SHORTS_TEST_POSTGRES_URL not set; skipping the real-Postgres notices feed test")
+	}
+	for _, shared := range []string{"supabase", "pooler", ":6543"} {
+		if strings.Contains(adminURL, shared) {
+			t.Fatalf("refusing a shared or pooled database (%q): this test creates and drops databases", shared)
+		}
+	}
+	ctx := context.Background()
+	pool := fundamentalsTestDatabase(t, ctx, adminURL)
+	s := &postgresStore{db: pool}
+	exec := func(sql string) {
+		t.Helper()
+		_, err := pool.Exec(ctx, sql)
+		require.NoError(t, err)
+	}
+	exec(ownershipTestBaseSchema)
+
+	t.Run("without 000137 the feed reads empty, never an error", func(t *testing.T) {
+		rows, err := s.SubstantialNoticesPage(ctx, NoticeFilter{}, "", "", 10)
+		require.NoError(t, err)
+		assert.Empty(t, rows)
+		n, err := s.CountSubstantialNotices(ctx, NoticeFilter{})
+		require.NoError(t, err)
+		assert.Zero(t, n)
+		act, err := s.NoticeActivity(ctx, NoticeFilter{})
+		require.NoError(t, err)
+		assert.Empty(t, act.Weeks)
+		assert.Empty(t, act.Rises)
+		assert.Empty(t, act.Falls)
+	})
+
+	migration, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "migrations", "000137_add_ownership.up.sql"))
+	require.NoError(t, err)
+	exec(string(migration))
+	exec(noticeFeedTestSeed)
+
+	// The newest first, the announcement URL breaking the tie of one release date.
+	wantOrder := []string{"x|y", "n07", "n06", "r6", "r5", "r4", "r3", "r2", "r1", "d2", "d1", "n05", "n04", "n03", "n02", "n01", "n09"}
+
+	t.Run("the event SQL agrees with Event for every notice", func(t *testing.T) {
+		all, err := s.SubstantialNoticesPage(ctx, NoticeFilter{}, "", "", 100)
+		require.NoError(t, err)
+		require.Len(t, all, len(wantOrder))
+		goEvent := map[string]string{}
+		for _, n := range all {
+			goEvent[n.AnnouncementURL] = n.Event()
+		}
+		rows, err := pool.Query(ctx, `SELECT h.announcement_url, `+noticeEventSQL+` FROM substantial_holder_notices h`)
+		require.NoError(t, err)
+		defer rows.Close()
+		seen := 0
+		for rows.Next() {
+			var url, sqlEvent string
+			require.NoError(t, rows.Scan(&url, &sqlEvent))
+			assert.Equal(t, goEvent[url], sqlEvent, "event of %s", url)
+			seen++
+		}
+		require.NoError(t, rows.Err())
+		assert.Equal(t, len(wantOrder), seen)
+		assert.Equal(t, "increased", goEvent["r1"])
+		assert.Equal(t, "decreased", goEvent["d1"])
+		assert.Equal(t, "ceased", goEvent["n04"])
+		assert.Equal(t, "changed", goEvent["n05"], "a 604 with no previous figure")
+		assert.Equal(t, "changed", goEvent["n07"], "a 604 whose figures are equal")
+		assert.Equal(t, "changed", goEvent["n09"], "a 604 with neither figure")
+		assert.Equal(t, "nz", goEvent["n06"])
+	})
+
+	t.Run("the kind is the institution's, corporate, or unclassified", func(t *testing.T) {
+		kinds := map[string]string{}
+		all, err := s.SubstantialNoticesPage(ctx, NoticeFilter{}, "", "", 100)
+		require.NoError(t, err)
+		for _, n := range all {
+			kinds[n.AnnouncementURL] = n.Kind
+		}
+		assert.Equal(t, "bank_broker", kinds["n03"])
+		assert.Equal(t, "hedge_fund", kinds["n05"])
+		assert.Equal(t, "corporate", kinds["n06"])
+		assert.Equal(t, "unclassified", kinds["n07"])
+	})
+
+	t.Run("the keyset pages every notice once, in order, cursor by cursor", func(t *testing.T) {
+		for _, pageSize := range []int{1, 4} {
+			var got []string
+			cursorDate, cursorURL := "", ""
+			for pages := 0; pages < len(wantOrder); pages++ {
+				page, err := s.SubstantialNoticesPage(ctx, NoticeFilter{}, cursorDate, cursorURL, pageSize+1)
+				require.NoError(t, err)
+				if len(page) > pageSize {
+					page = page[:pageSize]
+				}
+				for _, n := range page {
+					got = append(got, n.AnnouncementURL)
+				}
+				if len(page) == 0 {
+					break
+				}
+				last := page[len(page)-1]
+				cursorDate, cursorURL = last.AnnouncedOn, last.AnnouncementURL
+			}
+			assert.Equal(t, wantOrder, got, "page size %d", pageSize)
+		}
+	})
+
+	t.Run("the filters narrow each other and the total, the cursor aside", func(t *testing.T) {
+		count := func(f NoticeFilter) int {
+			t.Helper()
+			n, err := s.CountSubstantialNotices(ctx, f)
+			require.NoError(t, err)
+			return n
+		}
+		assert.Equal(t, 17, count(NoticeFilter{}))
+		assert.Equal(t, 16, count(NoticeFilter{Since: "2026-10-01"}), "September's notice is outside")
+		assert.Equal(t, 7, count(NoticeFilter{Event: "increased"}))
+		assert.Equal(t, 3, count(NoticeFilter{Event: "decreased"}))
+		assert.Equal(t, 2, count(NoticeFilter{Event: "became"}))
+		assert.Equal(t, 3, count(NoticeFilter{Event: "changed"}))
+		assert.Equal(t, 2, count(NoticeFilter{Kind: "bank_broker"}))
+		assert.Equal(t, 1, count(NoticeFilter{Kind: "corporate"}))
+		assert.Equal(t, 10, count(NoticeFilter{StockCode: "BHP"}))
+		assert.Equal(t, 11, count(NoticeFilter{HolderKey: "aaa-super"}))
+		assert.Equal(t, 7, count(NoticeFilter{Since: "2026-10-01", Event: "increased", HolderKey: "aaa-super"}),
+			"n02 and r1 to r6 are Aaa Super's increases")
+
+		page, err := s.SubstantialNoticesPage(ctx, NoticeFilter{Event: "decreased"}, "", "", 10)
+		require.NoError(t, err)
+		var decreased []string
+		for _, n := range page {
+			decreased = append(decreased, n.AnnouncementURL)
+		}
+		assert.Equal(t, []string{"d2", "d1", "n03"}, decreased, "newest release first")
+	})
+
+	t.Run("the window's weeks and its largest moves", func(t *testing.T) {
+		act, err := s.NoticeActivity(ctx, NoticeFilter{Since: "2026-10-01"})
+		require.NoError(t, err)
+		var weeks []string
+		for _, w := range act.Weeks {
+			weeks = append(weeks, w.WeekStart)
+		}
+		assert.Equal(t, []string{"2026-10-05", "2026-10-12", "2026-10-19"}, weeks,
+			"only the weeks that hold notices; the service fills the rest")
+		total := NoticeWeekRow{}
+		for _, w := range act.Weeks {
+			total.Became += w.Became
+			total.Increased += w.Increased
+			total.Decreased += w.Decreased
+			total.Changed += w.Changed
+			total.Ceased += w.Ceased
+			total.NZ += w.NZ
+		}
+		assert.Equal(t, 2, total.Became)
+		assert.Equal(t, 7, total.Increased)
+		assert.Equal(t, 3, total.Decreased)
+		assert.Equal(t, 2, total.Changed)
+		assert.Equal(t, 1, total.Ceased)
+		assert.Equal(t, 1, total.NZ)
+
+		var rises, falls []string
+		for _, n := range act.Rises {
+			rises = append(rises, n.AnnouncementURL)
+		}
+		for _, n := range act.Falls {
+			falls = append(falls, n.AnnouncementURL)
+		}
+		assert.Equal(t, []string{"r6", "r5", "r4", "r3", "r2"}, rises, "the five largest rises, the ties at +1 left out")
+		assert.Equal(t, []string{"d2", "n03", "d1"}, falls, "the falls, largest first")
+	})
+
+	t.Run("a whole-register window keeps September's week", func(t *testing.T) {
+		act, err := s.NoticeActivity(ctx, NoticeFilter{})
+		require.NoError(t, err)
+		var weeks []string
+		for _, w := range act.Weeks {
+			weeks = append(weeks, w.WeekStart)
+		}
+		assert.Equal(t, []string{"2026-08-31", "2026-10-05", "2026-10-12", "2026-10-19"}, weeks)
+	})
+}

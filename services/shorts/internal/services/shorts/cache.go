@@ -542,3 +542,11 @@ func (c *MemoryCache) GetInstitutionKey(slug string, generation int64) string {
 func (c *MemoryCache) GetStockOwnershipKey(stockCode string, generation int64) string {
 	return c.generateKey("stock_ownership", stockCode, generation)
 }
+
+// ListSubstantialNoticesKey builds a cache key for the notices feed's first
+// page's read, beside the universe of the given generation. It names every
+// clamped input the read depends on, so two requests that clamp to the same
+// query share one entry.
+func (c *MemoryCache) ListSubstantialNoticesKey(generation int64, windowDays int32, event, kind, stockCode, institutionSlug string, limit int32, includeActivity bool) string {
+	return c.generateKey("ownership_notices", generation, windowDays, event, kind, stockCode, institutionSlug, limit, includeActivity)
+}

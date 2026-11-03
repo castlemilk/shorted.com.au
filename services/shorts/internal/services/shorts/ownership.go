@@ -156,6 +156,7 @@ func (d *ownershipData) noticeProto(n shortsstore.SubstantialNoticeRow) *shortsv
 		StockCode: n.StockCode, CompanyName: d.companies[n.StockCode].Name, HolderKey: n.HolderKey, HolderName: n.HolderName,
 		InstitutionSlug: n.InstitutionSlug, Kind: n.Kind, Form: n.Form, Ceased: n.Ceased,
 		EventDate: n.EventDate, AnnouncedOn: n.AnnouncedOn, AnnouncementUrl: n.AnnouncementURL,
+		Event: n.Event(),
 	}
 	if n.PresentPct != nil {
 		out.PresentPct, out.HasPresent = *n.PresentPct, true

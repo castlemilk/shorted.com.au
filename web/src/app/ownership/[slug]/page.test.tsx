@@ -259,6 +259,26 @@ describe("InstitutionPage", () => {
       "mailto:support@shorted.com.au?subject=Ownership%20data%3A%20Vanguard",
     );
   });
+
+  // The feed's default window is 30 days, so the link asks for every notice this holder has.
+  // It is nofollow, for the reason the register page's link gives.
+  it("links its notices heading to every notice read for the holder, as a nofollow link", async () => {
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1, notices: 2 }));
+    const { container } = render(await InstitutionPage(params("vanguard")));
+
+    const history = container.querySelector("section[aria-labelledby='history']") as HTMLElement;
+    const link = within(history).getByRole("link", { name: "All notices →" });
+    expect(link).toHaveAttribute("href", "/ownership/notices?window=all&holder=vanguard");
+    expect(link).toHaveAttribute("rel", "nofollow");
+  });
+
+  it("draws no notices link when the holder has no notice on record", async () => {
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1, notices: 0 }));
+    const { container } = render(await InstitutionPage(params("vanguard")));
+
+    const history = container.querySelector("section[aria-labelledby='history']") as HTMLElement;
+    expect(within(history).queryByRole("link", { name: "All notices →" })).toBeNull();
+  });
 });
 
 // /ownership/stocks and /ownership/notices are the hub's own paths. A registry

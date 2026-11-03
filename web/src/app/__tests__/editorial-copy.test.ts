@@ -1,6 +1,8 @@
 /**
- * Editorial copy on the ownership surfaces: the register and the hub, their
- * components, the stock strip and the lib that feeds them.
+ * Editorial copy on the ownership surfaces: the register, the hub, the notice
+ * feed and the register list, their components, the stock strip, the explorer's
+ * server action that supplies the rows the feed and the list print, and the lib
+ * that feeds them.
  *
  * Section 7 of the ownership explorer spec ("Copy") bans an em dash and four
  * phrases from this copy, because each one claims more than the source says.
@@ -30,11 +32,15 @@ import * as ts from "typescript";
 const APP_DIR = path.resolve(__dirname, "..");
 const SRC_DIR = path.resolve(APP_DIR, "..");
 
-/** What is scanned: the pages, their components and the strip, and the lib beneath them. */
+/**
+ * What is scanned: the pages, their components and the strip, the explorer's server action (its
+ * rows are the copy the feed and the register list print), and the lib beneath them.
+ */
 const SCANNED = [
   path.join(APP_DIR, "ownership"),
   path.join(SRC_DIR, "@", "components", "ownership"),
   path.join(SRC_DIR, "@", "components", "stocks", "register-strip.tsx"),
+  path.join(APP_DIR, "actions", "ownershipExplorer.ts"),
   path.join(SRC_DIR, "@", "lib", "ownership"),
 ];
 
@@ -142,13 +148,21 @@ const relative = (file: string): string => path.relative(SRC_DIR, file).split(pa
 const files = SCANNED.flatMap((target) => sourceFilesUnder(target)).sort();
 
 describe("ownership editorial copy", () => {
-  it("reads the register, the hub, their components, the strip and the lib", () => {
+  it("reads the ownership pages, their components, the strip, the explorer's action and the lib", () => {
     expect(files.map(relative)).toEqual(
       expect.arrayContaining([
         "app/ownership/page.tsx",
         "app/ownership/stocks/[code]/page.tsx",
+        "app/ownership/notices/page.tsx",
+        "app/ownership/stocks/page.tsx",
         "@/components/ownership/ownership-parts.tsx",
+        "@/components/ownership/notice-feed-explorer.tsx",
+        "@/components/ownership/notice-week-bars.tsx",
+        "@/components/ownership/notice-mark.tsx",
+        "@/components/ownership/registers-explorer.tsx",
+        "@/components/ownership/register-rows-table.tsx",
         "@/components/stocks/register-strip.tsx",
+        "app/actions/ownershipExplorer.ts",
         "@/lib/ownership/trace.ts",
       ]),
     );

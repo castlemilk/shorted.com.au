@@ -39,8 +39,9 @@ export type SitemapEntry = {
  *   housing     /housing + /housing/calculators + /price-drops +
  *               /housing/[state] + /housing/[state]/[suburb]
  *   politicians /politicians hubs + /politicians/[slug]
- *   ownership   /ownership + the /ownership/[slug] pages the page indexes
- *               (institutionIsIndexable)
+ *   ownership   /ownership + /ownership/notices + /ownership/stocks + the register
+ *               pages (/ownership/stocks/[code], holders at least 1) + the
+ *               /ownership/[slug] pages the page indexes (institutionIsIndexable)
  *
  * Removed vs the flat sitemap: /developer (auth-gated dashboard stub — it
  * renders a spinner for anonymous crawlers).

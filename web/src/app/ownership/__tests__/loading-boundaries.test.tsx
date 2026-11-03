@@ -25,6 +25,9 @@ jest.mock("~/@/components/layouts/dashboard-layout", () => ({
 
 const OWNERSHIP_DIR = path.resolve(__dirname, "..");
 const REGISTER_LOADING = path.join(OWNERSHIP_DIR, "stocks", "[code]", "loading.tsx");
+// The two static pages the explorer adds: the notice feed and the register list.
+const NOTICES_LOADING = path.join(OWNERSHIP_DIR, "notices", "loading.tsx");
+const REGISTERS_LOADING = path.join(OWNERSHIP_DIR, "stocks", "loading.tsx");
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const loadingAt = (file: string) => (require(file) as { default: () => React.ReactElement }).default;
@@ -44,6 +47,10 @@ describe("the ownership loading boundaries", () => {
     expect(files).toContain(REGISTER_LOADING);
   });
 
+  it("has one for the notice feed and one for the register list", () => {
+    expect(files).toEqual(expect.arrayContaining([NOTICES_LOADING, REGISTERS_LOADING]));
+  });
+
   it.each(files.map((file) => [path.relative(OWNERSHIP_DIR, file), file] as const))(
     "%s is a labelled status region that is busy, and is the root",
     (_name, file) => {
@@ -56,11 +63,15 @@ describe("the ownership loading boundaries", () => {
     },
   );
 
-  // The register's skeleton draws in the page's layout, so a client navigation into
-  // it keeps the sidebar where it is. Only the register is held to this: a boundary
-  // that does not draw the layout is not wrong for that reason.
-  it("draws the register's skeleton inside the layout, so the sidebar stays put", () => {
-    const Loading = loadingAt(REGISTER_LOADING);
+  // A skeleton that draws in the page's layout keeps the sidebar where it is when a client
+  // navigation lands on it. Each one that does is named here and held to it: a boundary that
+  // does not draw the layout is not wrong for that reason.
+  it.each([
+    ["the register", REGISTER_LOADING],
+    ["the notice feed", NOTICES_LOADING],
+    ["the register list", REGISTERS_LOADING],
+  ])("draws %s's skeleton inside the layout, so the sidebar stays put", (_name, file) => {
+    const Loading = loadingAt(file);
     render(<Loading />);
     expect(screen.getByRole("status")).toContainElement(screen.getByTestId("dashboard-layout"));
   });

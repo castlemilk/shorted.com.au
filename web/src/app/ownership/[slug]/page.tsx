@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { BreadcrumbStructuredData, Breadcrumbs } from "~/@/components/seo/breadcrumbs";
@@ -10,6 +11,7 @@ import { FileHoldingsTable, SubstantialHoldingsTable } from "~/@/components/owne
 import { formatAmount } from "~/@/lib/fundamentals/format";
 import { institutionIsIndexable } from "~/@/lib/ownership/indexability";
 import { isInstitutionSlug, kindInfo } from "~/@/lib/ownership/kinds";
+import { defaultNoticeQuery, NOTICE_WINDOW_ALL, serialiseNoticeParams } from "~/@/lib/ownership/query";
 import { INSTITUTION_NOTICES_SHOWN, fileHoldingRow, holdingRow } from "~/@/lib/ownership/rows";
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { getInstitutionOrNotFound } from "~/app/actions/getOwnership";
@@ -122,6 +124,13 @@ export default async function InstitutionPage({ params }: PageProps) {
     { label: "Ownership", href: "/ownership" },
     { label: inst.name, href: `/ownership/${inst.slug}` },
   ];
+  // The feed's whole-register view of this holder, for the same reason as the register
+  // page's link: the default window is 30 days, and the link promises every notice.
+  const allNotices = `/ownership/notices?${serialiseNoticeParams({
+    ...defaultNoticeQuery(),
+    windowDays: NOTICE_WINDOW_ALL,
+    institutionSlug: inst.slug,
+  }).toString()}`;
 
   return (
     <DashboardLayout fullWidth>
@@ -246,6 +255,18 @@ export default async function InstitutionPage({ params }: PageProps) {
           <h2 id="history" className={sectionTitle}>
             Notices
           </h2>
+          {inst.notices > 0 ? (
+            <p className="text-sm">
+              <Link
+                href={allNotices}
+                rel="nofollow"
+                prefetch={false}
+                className="hit-target text-primary underline-offset-4 hover:underline"
+              >
+                All notices →
+              </Link>
+            </p>
+          ) : null}
           <NoticeTable
             notices={data.notices}
             showHolder={false}
