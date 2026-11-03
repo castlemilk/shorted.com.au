@@ -98,3 +98,31 @@ describe("isChartCode", () => {
     expect(isChartCode("BH-P")).toBe(false);
   });
 });
+
+describe("the as-posted anchor", () => {
+  it("reads asof and shorts", () => {
+    const p = parseEmbedChartParams(
+      new URLSearchParams("code=BHP&asof=2026-11-04&shorts=2026-10-29"),
+    );
+    expect(p.anchor).toEqual({ day: "2026-11-04", shorts: "2026-10-29" });
+  });
+
+  it("is live without asof, or with an invalid one", () => {
+    expect(parseEmbedChartParams(new URLSearchParams("code=BHP")).anchor).toBeUndefined();
+    expect(
+      parseEmbedChartParams(new URLSearchParams("code=BHP&asof=2026-02-30"))
+        .anchor,
+    ).toBeUndefined();
+  });
+
+  it("reads the share page's query", () => {
+    expect(
+      parseChartShareParams("bhp", { asof: "2026-11-04", period: "3m" }),
+    ).toEqual({
+      code: "BHP",
+      view: "short",
+      period: "3m",
+      anchor: { day: "2026-11-04", shorts: "2026-11-04" },
+    });
+  });
+});

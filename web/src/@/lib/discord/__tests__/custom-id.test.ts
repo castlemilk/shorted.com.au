@@ -66,6 +66,59 @@ describe("chart and activity custom ids", () => {
     expect(activityCustomId(longest).length).toBeLessThanOrEqual(100);
   });
 
+  describe("kept as posted", () => {
+    const anchored = {
+      ...state,
+      anchor: { day: "2026-11-04", shorts: "2026-10-29" },
+    } as const;
+
+    it("carries the posting day and the newest short report", () => {
+      expect(chartCustomId("period", anchored)).toBe(
+        "chart:p:BHP:combined:6m:20261104:20261029",
+      );
+      expect(activityCustomId(anchored)).toBe(
+        "activity:BHP:combined:6m:20261104:20261029",
+      );
+      expect(parseCustomId(chartCustomId("view", anchored))).toEqual({
+        kind: "chart",
+        state: anchored,
+      });
+      expect(parseCustomId(activityCustomId(anchored))).toEqual({
+        kind: "activity",
+        state: anchored,
+      });
+    });
+
+    it("still reads a live id as live", () => {
+      const parsed = parseCustomId("chart:p:BHP:combined:6m");
+      expect(parsed).toEqual({ kind: "chart", state });
+      expect(parsed?.kind === "chart" && parsed.state.anchor).toBeFalsy();
+    });
+
+    it("stays inside the 100-character limit", () => {
+      const longest = {
+        code: "GSBW34",
+        view: "combined",
+        period: "max",
+        anchor: { day: "2026-11-04", shorts: "2026-10-29" },
+      } as const;
+      expect(chartCustomId("period", longest).length).toBeLessThanOrEqual(100);
+      expect(activityCustomId(longest).length).toBeLessThanOrEqual(100);
+    });
+
+    it.each([
+      "chart:p:BHP:short:3m:20261104",
+      "chart:p:BHP:short:3m:20261104:20261029:x",
+      "chart:p:BHP:short:3m:20261104:20261109",
+      "chart:p:BHP:short:3m:20260230:20260201",
+      "chart:p:BHP:short:3m:2026-11-04:2026-10-29",
+      "activity:BHP:short:3m:20261104",
+      "activity:BHP:short:3m:x:20261029",
+    ])("rejects %j rather than drawing it live", (id) => {
+      expect(parseCustomId(id)).toBeNull();
+    });
+  });
+
   it("reads the stock select menu", () => {
     expect(parseCustomId("pick")).toEqual({ kind: "pick" });
   });
