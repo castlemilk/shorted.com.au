@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, MessageSquare } from "lucide-react";
+import { LoaderCircle, MessageSquare } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -105,7 +105,7 @@ export function ChatThread({
             role="status"
             className="flex items-center gap-2 text-sm text-muted-foreground"
           >
-            <Loader2 aria-hidden="true" className="h-4 w-4 motion-safe:animate-spin" />
+            <LoaderCircle aria-hidden="true" className="h-4 w-4 motion-safe:animate-spin" />
             Thinking...
           </div>
         )}

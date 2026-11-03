@@ -21,7 +21,7 @@ import {
   Building2,
   History,
   TrendingUp,
-  AlertTriangle,
+  TriangleAlert,
   Newspaper,
   Users,
 } from "lucide-react";
@@ -111,7 +111,7 @@ export function CompanyInsightsCard({
       value: "risks",
       label: "Risk factors",
       icon: (
-        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        <TriangleAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
       ),
       count: data.risk_factors.length,
       content: (

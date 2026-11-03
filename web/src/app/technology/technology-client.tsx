@@ -10,7 +10,7 @@ import {
   ChevronRight,
   Clock,
   Cloud,
-  Code2,
+  CodeXml,
   Container,
   Database,
   Globe,
@@ -241,7 +241,7 @@ export default function TechnologyClient({ statistics }: TechnologyClientProps) 
               description="Serving company logos and static assets with global CDN distribution."
             />
             <GCPCard
-              icon={<Code2 className="w-6 h-6" />}
+              icon={<CodeXml className="w-6 h-6" />}
               title="Terraform IaC"
               description="Entire infrastructure defined as code — reproducible, version-controlled, and auditable deployments."
             />

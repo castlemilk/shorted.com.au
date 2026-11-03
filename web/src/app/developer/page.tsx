@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { pageTitle } from "~/@/lib/typography";
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import Image from "next/image";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { ApiKeyManager } from "~/@/components/api-key-manager";
@@ -10,7 +10,7 @@ import { ApiKeyManager } from "~/@/components/api-key-manager";
 function DeveloperLoadingState() {
   return (
     <div className="flex items-center justify-center h-64">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <LoaderCircle className="h-8 w-8 animate-spin text-muted-foreground" />
     </div>
   );
 }

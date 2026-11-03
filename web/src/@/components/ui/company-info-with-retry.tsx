@@ -10,9 +10,9 @@ import {
   CardTitle,
 } from "./card";
 import {
-  Building2Icon,
-  RefreshCwIcon,
-  AlertCircleIcon,
+  Building2,
+  RefreshCw,
+  CircleAlert,
 } from "lucide-react";
 import { Separator } from "./separator";
 import { Button } from "./button";
@@ -59,7 +59,7 @@ export function CompanyInfoWithRetry({ stockCode, initialData }: CompanyInfoClie
     return (
       <Card className="sm:col-span-4">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2"><Building2Icon className="h-5 w-5" />Company details</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2"><Building2 className="h-5 w-5" />Company details</CardTitle>
           <Separator />
           <CardContent className="p-0 pt-4">
             <p className="text-sm text-muted-foreground">
@@ -71,7 +71,7 @@ export function CompanyInfoWithRetry({ stockCode, initialData }: CompanyInfoClie
               onClick={retry}
               className="mt-2"
             >
-              <RefreshCwIcon className="mr-2 h-4 w-4" />
+              <RefreshCw className="mr-2 h-4 w-4" />
               Try again
             </Button>
           </CardContent>
@@ -89,7 +89,7 @@ function CompanyInfoError({ onRetry, stockCode }: { onRetry: () => void; stockCo
     <Card className="sm:col-span-4 border-amber-200 dark:border-amber-800">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <AlertCircleIcon className="h-5 w-5 text-amber-500" />
+          <CircleAlert className="h-5 w-5 text-amber-500" />
           Company details
         </CardTitle>
         <Separator />
@@ -103,7 +103,7 @@ function CompanyInfoError({ onRetry, stockCode }: { onRetry: () => void; stockCo
             onClick={onRetry}
             className="border-amber-300 hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-950"
           >
-            <RefreshCwIcon className="mr-2 h-4 w-4" />
+            <RefreshCw className="mr-2 h-4 w-4" />
             Retry
           </Button>
         </CardContent>

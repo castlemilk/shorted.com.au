@@ -45,7 +45,7 @@ jest.mock("lucide-react", () => {
   );
   return {
     ArrowDown: Icon,
-    Loader2: Icon,
+    LoaderCircle: Icon,
     MessageSquare: Icon,
     Send: Icon,
     Square: Icon,

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { AlertTriangle, Check, Loader2, Lock, X } from "lucide-react";
+import { TriangleAlert, Check, LoaderCircle, Lock, X } from "lucide-react";
 
 import { AsciiFire } from "@/components/ui/ascii-fire";
 import { Button } from "@/components/ui/button";
@@ -78,7 +78,7 @@ export function ConsentScreen({
         <Card className="w-full shadow-lg">
           <CardHeader className="space-y-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-destructive/10">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <TriangleAlert className="h-5 w-5 text-destructive" />
             </div>
             <CardTitle className="text-2xl tracking-tight">
               This request can&rsquo;t be completed
@@ -206,7 +206,7 @@ export function ConsentScreen({
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <LoaderCircle className="h-4 w-4 animate-spin" />
               <span>Handing you back&hellip;</span>
             </div>
             <HandoffFallback url={handoff.url} clientLabel={clientLabel} />
@@ -332,7 +332,7 @@ export function ConsentScreen({
               role="alert"
               className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
             >
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{failure}</span>
             </p>
           ) : null}
@@ -345,7 +345,7 @@ export function ConsentScreen({
             >
               {pending === "approve" ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                   Authorising&hellip;
                 </>
               ) : (
@@ -360,7 +360,7 @@ export function ConsentScreen({
             >
               {pending === "deny" ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                   Cancelling&hellip;
                 </>
               ) : (

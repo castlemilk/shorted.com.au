@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { PieChart, ChevronRight } from "lucide-react";
+import { ChartPie, ChevronRight } from "lucide-react";
 import type { TopRow } from "~/app/actions/top/top-rows";
 import { cn } from "~/@/lib/utils";
 import { formatPercentage } from "~/@/lib/shorts-calculations";
@@ -126,7 +126,7 @@ export function IndustryBreakdown({ data }: IndustryBreakdownProps) {
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <PieChart className="h-5 w-5 text-muted-foreground" />
+        <ChartPie className="h-5 w-5 text-muted-foreground" />
         <h2 className="text-xl font-semibold">Industry Breakdown</h2>
       </div>
 

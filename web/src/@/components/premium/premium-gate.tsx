@@ -3,7 +3,7 @@
 import React from "react";
 import { useSession } from "next-auth/react";
 import { useSubscription } from "~/@/hooks/use-subscription";
-import { Lock, Sparkles, Loader2 } from "lucide-react";
+import { Lock, Sparkles, LoaderCircle } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -35,7 +35,7 @@ export function PremiumGate({
     if (variant === "card") {
       return (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       );
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Filter, Building2, Coins, Tag, Sparkles } from "lucide-react";
+import { X, Funnel, Building2, Coins, Tag, Sparkles } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
 import {
   Select,
@@ -82,7 +82,7 @@ export function StockSearchFiltersView({
         {/* Filter Label */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <div className="p-1.5 rounded-lg bg-muted">
-            <Filter className="w-3.5 h-3.5" />
+            <Funnel className="w-3.5 h-3.5" />
           </div>
           <span className="font-medium">Filters</span>
           {activeFilterCount > 0 && (

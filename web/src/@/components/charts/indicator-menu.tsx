@@ -10,7 +10,7 @@ import {
   type RefObject,
 } from "react";
 import { useSession } from "next-auth/react";
-import { Check, Loader2, Lock, X } from "lucide-react";
+import { Check, LoaderCircle, Lock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { eyebrow } from "@/lib/typography";
 import {
@@ -336,7 +336,7 @@ function SignInAction({
         }}
         className={cn(YELLOW_SIGN_IN_CLASS, "mt-2 h-9 w-full px-2 text-xs")}
       >
-        {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
+        {busy && <LoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" />}
         Sign in on Shorted
       </button>
       <p className="mt-1 text-[11px] text-muted-foreground">

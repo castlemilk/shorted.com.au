@@ -41,7 +41,7 @@ jest.mock("lucide-react", () => ({
     }),
   X: ({ className }: { className?: string }) =>
     React.createElement("svg", { "data-testid": "x-icon", className }),
-  Loader2: ({ className }: { className?: string }) =>
+  LoaderCircle: ({ className }: { className?: string }) =>
     React.createElement("svg", {
       "data-testid": "loader-icon",
       className,

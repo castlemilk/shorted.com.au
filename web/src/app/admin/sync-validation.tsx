@@ -33,7 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertTriangle, ExternalLink, Loader2, ShieldCheck } from "lucide-react";
+import { TriangleAlert, ExternalLink, LoaderCircle, ShieldCheck } from "lucide-react";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 
 /** How often the report is polled once a run has been accepted. */
@@ -256,7 +256,7 @@ export function SyncValidationPanel() {
           <span className="text-[11px] text-muted-foreground">ASIC dates</span>
         </div>
         <Button size="sm" className="h-8 gap-1.5" disabled={busy} onClick={() => void start()}>
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {busy ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : null}
           {phase.kind === "starting"
             ? "Starting…"
             : phase.kind === "polling"
@@ -275,7 +275,7 @@ export function SyncValidationPanel() {
       {phase.kind === "failed" && (
         <div className="space-y-2 rounded border border-red-300/60 bg-red-50/60 p-3 dark:border-red-900/50 dark:bg-red-950/20">
           <div className="flex items-start gap-2 text-xs text-red-700 dark:text-red-400">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>{phase.message}</span>
           </div>
           {phase.logTail && phase.logTail.length > 0 && (
@@ -339,7 +339,7 @@ function ValidationReportView({
 
       {windowEmpty && (
         <div className="flex items-start gap-2 rounded border border-red-300/60 bg-red-50/60 p-2 text-[11px] text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-400">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
             {win?.problem ??
               "No ASIC files were scanned, so this report says nothing about these codes."}{" "}

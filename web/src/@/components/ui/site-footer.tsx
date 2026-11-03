@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GitCommit, AlertCircle, Lock } from "lucide-react";
+import { GitCommitHorizontal, CircleAlert, Lock } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { siteConfig } from "~/@/config/site";
 import { Badge } from "~/@/components/ui/badge";
@@ -136,7 +136,7 @@ const SiteFooter = () => {
               with T+4 delay.
             </p>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
-              <AlertCircle className="h-3 w-3 flex-shrink-0" />
+              <CircleAlert className="h-3 w-3 flex-shrink-0" />
               <span>Not financial advice.</span>
             </div>
             <p className="text-sm text-muted-foreground mb-3">
@@ -168,7 +168,7 @@ const SiteFooter = () => {
                   : "Build info not available"
               }
             >
-              <GitCommit className="w-3 h-3 mr-1" />
+              <GitCommitHorizontal className="w-3 h-3 mr-1" />
               {version}
             </Badge>
           </div>

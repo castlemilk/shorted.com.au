@@ -28,8 +28,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Loader2,
-  AlertCircle,
+  LoaderCircle,
+  CircleAlert,
   Lock,
   ArrowRight,
   Eye,
@@ -470,7 +470,7 @@ function SignInForm() {
                   >
                     {pending === "resume" ||
                     (pending === "google" && remembered.method === "google") ? (
-                      <Loader2
+                      <LoaderCircle
                         className="h-4 w-4 animate-spin"
                         aria-hidden="true"
                       />
@@ -492,7 +492,7 @@ function SignInForm() {
                   role="alert"
                   className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
                 >
-                  <AlertCircle
+                  <CircleAlert
                     className="mt-0.5 h-4 w-4 flex-shrink-0"
                     aria-hidden="true"
                   />
@@ -510,7 +510,7 @@ function SignInForm() {
                 disabled={isBusy}
               >
                 {pending === "google" ? (
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
                   <GoogleLogo className="mr-2 h-5 w-5" />
                 )}
@@ -608,7 +608,7 @@ function SignInForm() {
                 >
                   {pending === "password" ? (
                     <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
                       Signing in...
                     </>
                   ) : (

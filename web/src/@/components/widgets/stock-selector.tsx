@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Input } from "~/@/components/ui/input";
 import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
-import { X, Plus, Search, Loader2 } from "lucide-react";
+import { X, Plus, Search, LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { searchStocksClient } from "~/app/actions/searchStocks";
 import { type Stock } from "~/gen/stocks/v1alpha1/stocks_pb";
@@ -217,7 +217,7 @@ export function StockSelector({
               autoFocus
             />
             {isSearching && (
-              <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              <LoaderCircle className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
             )}
           </div>
 

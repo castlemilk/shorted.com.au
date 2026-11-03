@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '~/@/lib/utils';
 import { ScrollArea } from '~/@/components/ui/scroll-area';
 import type { ApiNavGroup } from './api-nav';
-import { Shield, Home, Terminal } from 'lucide-react';
+import { Shield, House, Terminal } from 'lucide-react';
 
 interface ApiSidebarProps {
   groups: ApiNavGroup[];
@@ -30,7 +30,7 @@ export function ApiSidebar({ groups }: ApiSidebarProps) {
                 pathname === "/docs/api" ? "font-medium text-foreground" : "text-muted-foreground"
               )}
             >
-              <Home className="h-4 w-4" />
+              <House className="h-4 w-4" />
               Overview
             </Link>
             <Link

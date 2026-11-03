@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, Clock, Send, Loader2, Mail } from "lucide-react";
+import { CircleCheck, CircleX, Clock, Send, LoaderCircle, Mail } from "lucide-react";
 
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
@@ -23,14 +23,14 @@ function StatusBadge({ status }: { status: string }) {
           variant="secondary"
           className="gap-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
         >
-          <CheckCircle2 className="h-3 w-3" />
+          <CircleCheck className="h-3 w-3" />
           sent
         </Badge>
       );
     case "failed":
       return (
         <Badge variant="destructive" className="gap-1">
-          <XCircle className="h-3 w-3" />
+          <CircleX className="h-3 w-3" />
           failed
         </Badge>
       );
@@ -190,7 +190,7 @@ export function BroadcastsClient({ initial }: { initial: Broadcast[] }) {
                       title="Send a test to one address (does not email the list)"
                     >
                       {isBusy ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <Mail className="h-3.5 w-3.5" />
                       )}
@@ -204,7 +204,7 @@ export function BroadcastsClient({ initial }: { initial: Broadcast[] }) {
                         className="gap-1.5"
                       >
                         {isBusy ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <Send className="h-3.5 w-3.5" />
                         )}

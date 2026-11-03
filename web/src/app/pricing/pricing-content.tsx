@@ -15,10 +15,10 @@ import {
 import {
   Check,
   Sparkles,
-  Loader2,
+  LoaderCircle,
   ExternalLink,
   Settings,
-  AlertCircle,
+  CircleAlert,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "~/@/lib/utils";
@@ -170,7 +170,7 @@ export function PricingContent() {
 
             {isLoading ? (
               <Button className="w-full" disabled>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <LoaderCircle className="h-4 w-4 animate-spin mr-2" />
                 Loading...
               </Button>
             ) : isPremium ? (
@@ -191,7 +191,7 @@ export function PricingContent() {
                   disabled={portalLoading}
                 >
                   {portalLoading ? (
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    <LoaderCircle className="h-3 w-3 animate-spin mr-1" />
                   ) : (
                     <Settings className="h-3 w-3 mr-1" />
                   )}
@@ -212,7 +212,7 @@ export function PricingContent() {
                 disabled={checkoutLoading}
               >
                 {checkoutLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <LoaderCircle className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <Sparkles className="h-4 w-4 mr-2" />
                 )}
@@ -223,7 +223,7 @@ export function PricingContent() {
 
             {error && (
               <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <CircleAlert className="h-4 w-4 flex-shrink-0" />
                 <span>{error}</span>
               </div>
             )}
@@ -237,7 +237,7 @@ export function PricingContent() {
                 disabled={portalLoading}
               >
                 {portalLoading ? (
-                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  <LoaderCircle className="h-3 w-3 animate-spin mr-1" />
                 ) : (
                   <Settings className="h-3 w-3 mr-1" />
                 )}

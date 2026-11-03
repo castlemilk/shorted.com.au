@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import {
   TrendingDown,
   TrendingUp,
-  BarChart3,
+  ChartColumn,
   ArrowLeft,
 } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
@@ -408,7 +408,7 @@ export default async function YearlyReportPage({ params }: PageProps) {
             href="/reports"
             className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
           >
-            <BarChart3 className="h-4 w-4" />
+            <ChartColumn className="h-4 w-4" />
             View All Reports
           </Link>
         </div>

@@ -11,7 +11,7 @@ import {
   NewsSourceBadge,
   isASXSource,
 } from "~/@/components/ui/news-source-badge";
-import { ExternalLink, AlertTriangle, Megaphone } from "lucide-react";
+import { ExternalLink, TriangleAlert, Megaphone } from "lucide-react";
 import { useWidgetVisibility } from "~/@/hooks/use-widget-visibility";
 import { getTypedSettings } from "~/@/lib/widget-settings";
 import Link from "next/link";
@@ -85,7 +85,7 @@ export function NewsFeedWidget({ config, sizeVariant = "standard" }: WidgetProps
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     {article.isPriceSensitive && (
-                      <AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" />
+                      <TriangleAlert className="h-3 w-3 text-amber-500 flex-shrink-0" />
                     )}
                     {article.stockCode && article.stockCode !== "MARKET" && (
                       <Link

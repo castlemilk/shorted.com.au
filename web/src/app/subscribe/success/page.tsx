@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { CheckCircle, ArrowRight, Sparkles, MessageSquare, Activity, Bell, LayoutDashboard } from "lucide-react";
+import { CircleCheckBig, ArrowRight, Sparkles, MessageSquare, Activity, Bell, LayoutDashboard } from "lucide-react";
 import Image from "next/image";
 import { Button } from "~/@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/@/components/ui/card";
@@ -43,7 +43,7 @@ function SuccessContent() {
                 Advanced dashboard widgets
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-lime-700 dark:text-lime-300" />
+                <CircleCheckBig className="h-4 w-4 text-lime-700 dark:text-lime-300" />
                 Priority support
               </li>
             </ul>

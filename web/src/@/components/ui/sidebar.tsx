@@ -7,9 +7,9 @@ import {
   TrendingUp,
   Briefcase,
   LayoutDashboard,
-  LineChart,
+  ChartLine,
   FileText,
-  Code2,
+  CodeXml,
   Activity,
   Bell,
   Lock,
@@ -44,7 +44,7 @@ const sidebarItems: SidebarItem[] = [
   {
     title: "Stocks",
     href: "/stocks",
-    icon: LineChart,
+    icon: ChartLine,
   },
   {
     title: "Reports",
@@ -71,7 +71,7 @@ const sidebarItems: SidebarItem[] = [
   {
     title: "Developer",
     href: "/developer",
-    icon: Code2,
+    icon: CodeXml,
   },
 ];
 

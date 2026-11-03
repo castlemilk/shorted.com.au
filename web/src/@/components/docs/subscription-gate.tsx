@@ -11,7 +11,7 @@ import {
 } from "~/@/components/ui/card";
 import {
   Check,
-  Loader2,
+  LoaderCircle,
   CreditCard,
   ExternalLink,
   Settings,
@@ -91,7 +91,7 @@ export function SubscriptionGate({
     return (
       <Card className="border-dashed">
         <CardContent className="py-8 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -150,7 +150,7 @@ export function SubscriptionGate({
             disabled={loading}
           >
             {loading ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <LoaderCircle className="h-3 w-3 animate-spin" />
             ) : (
               <>
                 <Settings className="h-3 w-3 mr-1" />
@@ -217,7 +217,7 @@ export function SubscriptionGate({
           className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            <LoaderCircle className="h-4 w-4 animate-spin mr-2" />
           ) : (
             <CreditCard className="h-4 w-4 mr-2" />
           )}

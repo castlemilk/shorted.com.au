@@ -23,19 +23,19 @@ import {
 } from "@/components/ui/table";
 import { formatDistanceToNow } from "date-fns";
 import {
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
+  TriangleAlert,
+  CircleCheck,
+  CircleX,
   Clock,
   Activity,
-  HelpCircle,
+  CircleQuestionMark,
   ExternalLink,
   ServerCog,
   CalendarClock,
   CalendarX,
   Archive,
   Play,
-  Loader2,
+  LoaderCircle,
 } from "lucide-react";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 
@@ -106,7 +106,7 @@ function JobHealthBadge({ job }: { job: JobStatus }) {
     case "critical":
       return (
         <Badge variant="destructive" className="gap-1">
-          <XCircle className="h-3 w-3" />
+          <CircleX className="h-3 w-3" />
           {label}
         </Badge>
       );
@@ -133,14 +133,14 @@ function JobHealthBadge({ job }: { job: JobStatus }) {
           variant="secondary"
           className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
         >
-          <AlertTriangle className="h-3 w-3" />
+          <TriangleAlert className="h-3 w-3" />
           {label}
         </Badge>
       );
     case "unknown":
       return (
         <Badge variant="outline" className="gap-1 text-muted-foreground">
-          <HelpCircle className="h-3 w-3" />
+          <CircleQuestionMark className="h-3 w-3" />
           {label}
         </Badge>
       );
@@ -150,7 +150,7 @@ function JobHealthBadge({ job }: { job: JobStatus }) {
           variant="secondary"
           className="gap-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
         >
-          <CheckCircle2 className="h-3 w-3" />
+          <CircleCheck className="h-3 w-3" />
           {label}
         </Badge>
       );
@@ -286,7 +286,7 @@ function RunNowButton({
       }
     >
       {state.phase === "busy" ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
+        <LoaderCircle className="h-3 w-3 animate-spin" />
       ) : (
         <Play className="h-3 w-3" />
       )}
@@ -341,7 +341,7 @@ export function JobsOverview({ overview }: { overview: JobsOverviewData }) {
       <CardContent className="space-y-4">
         {errored ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
-            <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+            <TriangleAlert className="h-8 w-8 text-amber-600 dark:text-amber-400" />
             <span className="font-medium">Couldn&apos;t load job status</span>
             <span className="text-xs max-w-md">
               The backend /api/admin/jobs call failed. Confirm INTERNAL_SERVICE_SECRET is set in the

@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { Button } from '~/@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/@/components/ui/card';
-import { Loader2, Copy, Check, ShieldCheck } from 'lucide-react';
+import { LoaderCircle, Copy, Check, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import { mintApiTokenAction } from '~/app/actions/mintToken';
 import { useSession } from 'next-auth/react';
@@ -88,7 +88,7 @@ export function TokenGenerator() {
             disabled={loading}
             className="w-full gap-2"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+            {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
             Generate New API Key
           </Button>
         ) : (

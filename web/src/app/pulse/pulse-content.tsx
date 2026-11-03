@@ -1,7 +1,7 @@
 "use client";
 import { pageTitle } from "~/@/lib/typography";
 
-import { Activity, TrendingUp, BarChart3, Zap } from "lucide-react";
+import { Activity, TrendingUp, ChartColumn, Zap } from "lucide-react";
 import { PremiumGate } from "~/@/components/premium/premium-gate";
 
 function PulsePreview() {
@@ -23,7 +23,7 @@ function PulsePreview() {
         ))}
       </div>
       <div className="rounded-lg border bg-card p-6 h-64 flex items-center justify-center">
-        <BarChart3 className="h-16 w-16 text-muted-foreground/30" />
+        <ChartColumn className="h-16 w-16 text-muted-foreground/30" />
       </div>
     </div>
   );

@@ -26,7 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
+import { LoaderCircle, CircleAlert } from "lucide-react";
 import { GoogleLogo } from "@/components/ui/google-logo";
 import { useSearchParams } from "next/navigation";
 
@@ -243,7 +243,7 @@ function SignUpForm() {
             disabled={isGoogleLoading || isLoading}
           >
             {isGoogleLoading ? (
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
             ) : (
               <GoogleLogo className="mr-2 h-5 w-5" />
             )}
@@ -359,7 +359,7 @@ function SignUpForm() {
                 role="alert"
                 className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md"
               >
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <CircleAlert className="h-4 w-4 flex-shrink-0" />
                 <span>{error}</span>
               </div>
             )}
@@ -371,7 +371,7 @@ function SignUpForm() {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
                   Creating account...
                 </>
               ) : (

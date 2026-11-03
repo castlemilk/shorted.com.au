@@ -6,7 +6,7 @@ import {
   TrendingDown,
   Building2,
   ChevronRight,
-  BarChart3,
+  ChartColumn,
   Clock,
   Sparkles,
 } from "lucide-react";
@@ -300,7 +300,7 @@ export default async function IndustryPage({ params }: PageProps) {
           <StatCard
             label="Average Short %"
             value={`${industry.avgShortPercent.toFixed(2)}%`}
-            icon={<BarChart3 className="h-4 w-4" />}
+            icon={<ChartColumn className="h-4 w-4" />}
             color="amber"
           />
           <StatCard
