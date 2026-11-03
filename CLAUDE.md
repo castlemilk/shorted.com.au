@@ -2034,17 +2034,44 @@ The Vercel project Root Directory is set to `web/`. When deploying via CLI, depl
   pinned to 19.2.9, the nearest release, and Jest and Storybook run 19.2.9. Only
   a browser run against `next start` exercises production's React.
 - **Next is the 15.5 line (15.5.28).** Next 16 removes the synchronous request
-  APIs and `next lint`, so it is a separate upgrade.
+  APIs, `next lint` and `publicRuntimeConfig`, so it is a separate upgrade.
 - **Request APIs are async.** `cookies()`, `headers()`, `params` and
   `searchParams` are awaited, and their types are `Promise<...>`. Never read
   them as plain objects.
-- **`next lint` is deprecated** (Next prints a warning, and 16 removes it).
-  `npm run lint` still works; move to the ESLint CLI before Next 16.
+- **Lint runs on the ESLint CLI, not `next lint`.** `npm run lint`
+  (web/package.json) is `eslint` over `app pages components lib src` with the
+  extensions `next lint` used by default. Only `src` exists in web/ today. On
+  2026-11-03 the CLI linted the same files as `next lint` and reported the same
+  messages. ESLint 8 and `.eslintrc.cjs` are unchanged;
+  flat config is a separate change. `next build` still lints in 15.5 and still
+  gates the build. **Next 16 removes `next lint`, and `next build` no longer
+  runs linting (the `eslint` key in next.config goes too), so when upgrading,
+  add a CI step that runs `npm run lint`.** Like `next lint`, the script lints
+  only those five directories: code in any other top-level directory under
+  web/ is not linted unless it is added to the script.
+- **The build identity is baked in, not read at runtime.** `/api/version` reads
+  `process.env.SHORTED_BUILD_*` and `NEXT_PUBLIC_RELEASE_COMMIT`, which
+  `next.config.mjs` passes to `env` from `src/config/build-identity.mjs`. Next
+  inlines them at build time, so `publicRuntimeConfig` and `next/config` are
+  gone (Next 16 removes both). Keep each read a literal `process.env.NAME`: a
+  dynamic lookup is not inlined, and the release tooling then reads `local`.
+  The deploy job (`terraform-deploy.yml`, `deploy-vercel-prod`) sets
+  `SHORTED_RELEASE_SHA` and `SHORTED_RELEASE_REF` for `vercel build`, which runs
+  on the runner, so Vercel's git variables are absent: `gitCommit` is the
+  release SHA's first seven characters and `gitBranch` is `main` for a push to
+  main. Local builds report `local`.
 - **Build concurrency:** `experimental.staticGenerationMaxConcurrency: 1`
-  (Next 15 renders 8 pages per export worker by default). The CI `vercel build`
-  prerender calls the API from one runner IP (Rate Limiting, above), and a
-  failed call bakes the fallback page (`bailOnEmptyRender`). Raise it only with
-  measurements.
+  (Next 15 renders 8 pages per export worker by default). A failed call during
+  the prerender bakes the fallback page (`bailOnEmptyRender`). Measured
+  2026-11-03 from the Cuttlefish logs of five production deploys: the CI
+  prerender took 8 to 12 s at concurrency 1 (Next 14: 18 to 21 s) with no
+  rate-limit, retry or fallback lines, because CI builds against the Cloud Run
+  URL directly ("Resolve Service URLs"). Local builds go through Cloudflare
+  without the bypass secret, which is where local 429s come from. Kept at 1:
+  the default 8 would save under 10 s of a ~6 minute deploy at up to 8x the
+  concurrent API and database load (Supabase `max_connections` 60). Re-measure
+  before raising it: `cuttle run logs <run> --project shorted --format ndjson
+  --grep "Generating static pages"` (a `shorted` project login).
 - **Client router cache:** `experimental.staleTimes: { dynamic: 30 }` keeps
   Next 14's 30 s for dynamic pages (Next 15 defaults to 0). The browser's
   requests count against the rate limits, so keep it.
