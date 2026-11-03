@@ -102,4 +102,54 @@ describe("triggerEnrichmentAction", () => {
     expect(request).toMatchObject({ stockCode: "BHP" });
     expect(options.headers["X-User-Roles"]).toBe("admin");
   });
+
+  it("reports a new job only when the API says it created one", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN);
+    mockEnrichStock.mockResolvedValue({
+      jobId: "job-1",
+      message: "Enrichment job created. Job ID: job-1",
+    });
+    const form = new FormData();
+    form.set("stockCode", "CBA");
+
+    await expect(triggerEnrichmentAction(form)).resolves.toMatchObject({
+      created: true,
+      jobId: "job-1",
+    });
+  });
+
+  it("reports no new job for the answers that create none", async () => {
+    mockRequireAdmin.mockResolvedValue(ADMIN);
+    const form = new FormData();
+    form.set("stockCode", "CBA");
+
+    // A job for the stock is already running: its id comes back, no job is made.
+    mockEnrichStock.mockResolvedValueOnce({
+      jobId: "job-9",
+      message:
+        "Enrichment already in progress for CBA (Job ID: job-9). Use force=true to override.",
+    });
+    await expect(triggerEnrichmentAction(form)).resolves.toMatchObject({
+      created: false,
+      jobId: "job-9",
+    });
+
+    // A pending review blocks the run: no id at all.
+    mockEnrichStock.mockResolvedValueOnce({
+      jobId: "",
+      message:
+        "Pending enrichment already exists for CBA (Enrichment ID: en-7). Review or reject it first, or use force=true to create a new enrichment.",
+    });
+    await expect(triggerEnrichmentAction(form)).resolves.toMatchObject({
+      created: false,
+      jobId: "",
+    });
+
+    // An empty answer is not described as a created job either.
+    mockEnrichStock.mockResolvedValueOnce({ jobId: "", message: "" });
+    await expect(triggerEnrichmentAction(form)).resolves.toMatchObject({
+      created: false,
+      message: "No new enrichment job was created.",
+    });
+  });
 });

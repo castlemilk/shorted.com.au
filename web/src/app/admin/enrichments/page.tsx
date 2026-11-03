@@ -32,7 +32,8 @@ export const dynamic = "force-dynamic";
 
 async function triggerEnrichmentFormAction(formData: FormData) {
   "use server";
-  await triggerEnrichmentAction(formData);
+  // The answer goes back to the form, which says Queued only for a job the API created.
+  return triggerEnrichmentAction(formData);
 }
 
 interface AdminEnrichmentsPageProps {

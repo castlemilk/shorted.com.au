@@ -2106,9 +2106,24 @@ The Vercel project Root Directory is set to `web/`. When deploying via CLI, depl
   secret needs `dynamic = "force-dynamic"` first.
 - **`next/dynamic` with `ssr: false` belongs in a client module** (see the stock
   page section). Next 15 refuses it in a server component.
-- **Forms:** React 19 clears an uncontrolled form after its `action` succeeds.
-  Keep values in state where the UX needs them (the admin enrichment forms are
-  the known case).
+- **Forms:** React 19 resets an uncontrolled form once its `action` completes
+  without throwing, whatever the action answered. The admin trigger form
+  (`web/src/app/admin/enrichments/trigger-enrichment-form.tsx`) therefore submits
+  through `onSubmit`. It clears its stock code and Force box only when the API
+  created a job (`created` on the action's result), and then says what it
+  queued, in a `role="status"` line that is always mounted and is cleared when
+  the next submit starts. The clear is on purpose: a Force box left ticked made
+  the next code a forced re-enrichment, which is a paid GPT run. An answer that
+  created no job (a pending review, or a job already running) keeps the fields
+  and shows the API's message, because the admin still has to act on it. A
+  failed trigger reaches the root error boundary (`web/src/app/error.tsx`), which
+  replaces the page, so what was typed is lost on failure whichever way the form
+  submits. The review form (`web/src/app/admin/enrichments/page.tsx`) keeps
+  React 19's reset: a successful review redirects to `/admin/enrichments` without
+  `?id=`, which unmounts its card, so the reset loses nothing the admin still
+  needs. The sign-in form (`web/src/@/components/ui/sign-in.tsx`) has no fields
+  and its action redirects to the sign-in page (`/signin`), so its reset loses
+  nothing.
 - **Head scripts:** Discord's proxy adds a script to `<head>` ahead of the
   Discord address script (layout.tsx), so that script carries
   `suppressHydrationWarning`. The Discord e2e case (`chart-surfaces.spec.ts`,
