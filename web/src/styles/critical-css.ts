@@ -17,9 +17,11 @@ export const criticalCSS = `
   --background: 40 25% 97%;
   --foreground: 19 18% 24%;
   --muted: 40 15% 94%;
-  /* No IBM Plex Mono here: see layout.tsx. Next 15 keeps the family name, so
-     naming it would switch every page to a face the Next 14 build never drew. */
-  --font-sans: 'JetBrains Mono', ui-monospace, monospace;
+  /* IBM Plex Mono is the app face. The stack reads next/font's --font-plex-mono, set
+     on <html> (layout.tsx), not the family name (Next 14 hashed that name). The literal
+     name is var()'s fallback: a var() with no fallback to an undefined property
+     invalidates the declaration, and Storybook and the unit tests have no next/font class. */
+  --font-sans: var(--font-plex-mono, "IBM Plex Mono"), "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
 .dark {

@@ -156,7 +156,7 @@ A single warm hue family carries the entire system, with olive and rust as suppo
 ## 3. Typography
 
 **Display Font:** Newsreader (variable 200–800, with Georgia fallback)
-**Body / Label / Mono Font:** IBM Plex Mono (with `ui-monospace` fallback)
+**Body / Label / Mono Font:** IBM Plex Mono (fallbacks: JetBrains Mono, Fira Code, `ui-monospace`, `monospace`)
 
 **Character:** A monospace that reads as an instrument, paired with a serif that reads as a masthead. The tension between them is the product: measurement on one side, journalism on the other. Because the mono is the *default* rather than the exception, serif arrives with real weight when it appears.
 
