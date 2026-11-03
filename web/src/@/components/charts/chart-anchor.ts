@@ -138,7 +138,7 @@ const labelFmt = new Intl.DateTimeFormat("en-AU", {
 /** "2026-11-04" as "4 Nov 2026", as the site prints a date. */
 export function formatAnchorDay(day: string): string {
   const [y, m, d] = day.split("-").map(Number);
-  return labelFmt.format(new Date(Date.UTC(y!, m! - 1, d!)));
+  return labelFmt.format(new Date(Date.UTC(y!, m! - 1, d)));
 }
 
 /** Months each chart period looks back; MAX has no start. */
