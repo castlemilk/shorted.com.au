@@ -69,15 +69,15 @@ describe("chart and activity custom ids", () => {
   describe("kept as posted", () => {
     const anchored = {
       ...state,
-      anchor: { day: "2026-11-04", shorts: "2026-10-29" },
+      anchor: { day: "2026-11-04", shorts: "2026-10-28", prices: "2026-11-03" },
     } as const;
 
-    it("carries the posting day and the newest short report", () => {
+    it("carries the posting day, the newest short report and the newest close", () => {
       expect(chartCustomId("period", anchored)).toBe(
-        "chart:p:BHP:combined:6m:20261104:20261029",
+        "chart:p:BHP:combined:6m:20261104:20261028:20261103",
       );
       expect(activityCustomId(anchored)).toBe(
-        "activity:BHP:combined:6m:20261104:20261029",
+        "activity:BHP:combined:6m:20261104:20261028:20261103",
       );
       expect(parseCustomId(chartCustomId("view", anchored))).toEqual({
         kind: "chart",
@@ -100,7 +100,7 @@ describe("chart and activity custom ids", () => {
         code: "GSBW34",
         view: "combined",
         period: "max",
-        anchor: { day: "2026-11-04", shorts: "2026-10-29" },
+        anchor: { day: "2026-11-04", shorts: "2026-10-28", prices: "2026-11-03" },
       } as const;
       expect(chartCustomId("period", longest).length).toBeLessThanOrEqual(100);
       expect(activityCustomId(longest).length).toBeLessThanOrEqual(100);
@@ -108,12 +108,15 @@ describe("chart and activity custom ids", () => {
 
     it.each([
       "chart:p:BHP:short:3m:20261104",
-      "chart:p:BHP:short:3m:20261104:20261029:x",
-      "chart:p:BHP:short:3m:20261104:20261109",
-      "chart:p:BHP:short:3m:20260230:20260201",
-      "chart:p:BHP:short:3m:2026-11-04:2026-10-29",
-      "activity:BHP:short:3m:20261104",
-      "activity:BHP:short:3m:x:20261029",
+      "chart:p:BHP:short:3m:20261104:20261028",
+      "chart:p:BHP:short:3m:20261104:20261028:20261103:x",
+      "chart:p:BHP:short:3m:20261104:20261109:20261103",
+      "chart:p:BHP:short:3m:20261104:20261028:20261105",
+      "chart:p:BHP:short:3m:20260230:20260201:20260201",
+      "chart:p:BHP:short:3m:20091104:20091028:20091103",
+      "chart:p:BHP:short:3m:2026-11-04:2026-10-28:2026-11-03",
+      "activity:BHP:short:3m:20261104:20261028",
+      "activity:BHP:short:3m:x:20261028:20261103",
     ])("rejects %j rather than drawing it live", (id) => {
       expect(parseCustomId(id)).toBeNull();
     });

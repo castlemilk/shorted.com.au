@@ -33,7 +33,11 @@ const NO_STORE = { "Cache-Control": "no-store" };
  * dropped (the chart is then live) rather than passed on.
  */
 function checkedState(state: ChartState): ChartState {
-  const anchor = parseChartAnchor(state.anchor?.day, state.anchor?.shorts);
+  const anchor = parseChartAnchor({
+    day: state.anchor?.day,
+    shorts: state.anchor?.shorts,
+    prices: state.anchor?.prices,
+  });
   return {
     code: state.code,
     view: state.view,

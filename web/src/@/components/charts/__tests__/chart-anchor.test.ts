@@ -3,10 +3,10 @@ import {
   chartPeriodPhrase,
   anchoredWindows,
   compactDay,
-  dayBefore,
   expandDay,
   formatAnchorDay,
   isIsoDay,
+  isSettledAnchor,
   parseChartAnchor,
   periodWindow,
   readChartAnchor,
@@ -34,45 +34,56 @@ describe("isIsoDay", () => {
 });
 
 describe("parseChartAnchor", () => {
-  it("keeps both days", () => {
-    expect(parseChartAnchor("2026-11-04", "2026-10-29")).toEqual({
-      day: "2026-11-04",
-      shorts: "2026-10-29",
-    });
+  const day = "2026-11-04";
+
+  it("keeps all three days", () => {
+    expect(
+      parseChartAnchor({ day, shorts: "2026-10-28", prices: "2026-11-03" }),
+    ).toEqual({ day, shorts: "2026-10-28", prices: "2026-11-03" });
   });
 
-  it("takes the day for a missing or invalid shorts day", () => {
-    const day = "2026-11-04";
-    expect(parseChartAnchor(day)).toEqual({ day, shorts: day });
-    expect(parseChartAnchor(day, "nope")).toEqual({ day, shorts: day });
+  it("takes the day for a missing, invalid or later shorts or prices day", () => {
+    expect(parseChartAnchor({ day })).toEqual({ day, shorts: day, prices: day });
+    expect(
+      parseChartAnchor({ day, shorts: "nope", prices: "2026-11-09" }),
+    ).toEqual({ day, shorts: day, prices: day });
+    expect(parseChartAnchor({ day, shorts: "2009-12-31" })?.shorts).toBe(day);
   });
 
-  it("pulls a shorts day after the day back to it", () => {
-    expect(parseChartAnchor("2026-11-04", "2026-11-09")).toEqual({
-      day: "2026-11-04",
-      shorts: "2026-11-04",
-    });
-  });
-
-  it.each([null, undefined, "", "yesterday", "2026-02-30", "1999-12-31"])(
+  it.each([null, undefined, "", "yesterday", "2026-02-30", "2009-12-31"])(
     "is live for the day %j",
-    (day) => {
-      expect(parseChartAnchor(day, "2026-10-29")).toBeNull();
+    (d) => {
+      expect(parseChartAnchor({ day: d, shorts: "2026-10-28" })).toBeNull();
     },
   );
 
+  it("is live for a day after today", () => {
+    expect(parseChartAnchor({ day: "2026-11-05" }, "2026-11-04")).toBeNull();
+    expect(parseChartAnchor({ day }, "2026-11-04")?.day).toBe(day);
+  });
+
   it("reads and writes the query parameters", () => {
-    const params = new URLSearchParams("asof=2026-11-04&shorts=2026-10-29");
-    const anchor = readChartAnchor(params);
-    expect(anchor).toEqual({ day: "2026-11-04", shorts: "2026-10-29" });
+    const params = new URLSearchParams(
+      "asof=2026-11-04&shorts=2026-10-28&prices=2026-11-03",
+    );
+    const anchor = readChartAnchor(params, "2026-11-04");
+    expect(anchor).toEqual({
+      day: "2026-11-04",
+      shorts: "2026-10-28",
+      prices: "2026-11-03",
+    });
     expect(anchorQuery(anchor)).toEqual({
       asof: "2026-11-04",
-      shorts: "2026-10-29",
+      shorts: "2026-10-28",
+      prices: "2026-11-03",
     });
-    expect(
-      anchorQuery({ day: "2026-11-04", shorts: "2026-11-04" }),
-    ).toEqual({ asof: "2026-11-04", shorts: undefined });
+    expect(anchorQuery({ day, shorts: day, prices: day })).toEqual({
+      asof: day,
+      shorts: undefined,
+      prices: undefined,
+    });
     expect(anchorQuery(null)).toEqual({});
+    expect(readChartAnchor(params, "2026-11-03")).toBeNull();
   });
 });
 
@@ -124,30 +135,69 @@ describe("periodWindow", () => {
     expect(periodWindow("max", "2026-11-04")).toEqual({ to: "2026-11-04" });
   });
 
-  it("ends prices the day before posting, shorts on the newest report", () => {
+  it("counts the period back from the newest close, for both series", () => {
     expect(
-      anchoredWindows("1m", { day: "2026-11-04", shorts: "2026-10-28" }),
+      anchoredWindows("1m", {
+        day: "2026-11-04",
+        shorts: "2026-10-28",
+        prices: "2026-11-03",
+      }),
     ).toEqual({
       prices: { from: "2026-10-04", to: "2026-11-03" },
-      shorts: { from: "2026-09-29", to: "2026-10-28" },
-    });
-    // MAX: prices reach back ten years, as the live price read does; short
-    // positions have no start.
-    expect(
-      anchoredWindows("max", { day: "2026-03-01", shorts: "2026-02-23" }),
-    ).toEqual({
-      prices: { from: "2016-02-29", to: "2026-02-28" },
-      shorts: { to: "2026-02-23" },
+      shorts: { from: "2026-10-04", to: "2026-10-28" },
     });
   });
 
-  it.each([
-    ["2026-11-04", "2026-11-03"],
-    ["2026-03-01", "2026-02-28"],
-    ["2024-03-01", "2024-02-29"],
-    ["2026-01-01", "2025-12-31"],
-  ])("dayBefore(%s) is %s", (day, before) => {
-    expect(dayBefore(day)).toBe(before);
+  it("draws no short window for a stock ASIC stopped reporting", () => {
+    // Its last report is before the period starts: from > to, nothing to draw.
+    const { shorts } = anchoredWindows("3m", {
+      day: "2026-11-04",
+      shorts: "2025-10-15",
+      prices: "2026-11-03",
+    });
+    expect(shorts).toEqual({ from: "2026-08-04", to: "2025-10-15" });
+  });
+
+  it("reaches prices back ten years on MAX, and short positions to the start", () => {
+    expect(
+      anchoredWindows("max", {
+        day: "2026-03-01",
+        shorts: "2026-02-23",
+        prices: "2026-02-27",
+      }),
+    ).toEqual({
+      prices: { from: "2016-02-28", to: "2026-02-27" },
+      shorts: { to: "2026-02-23" },
+    });
+  });
+});
+
+describe("isSettledAnchor", () => {
+  const today = "2026-11-12";
+
+  it("is settled two days after posting with a report a week old", () => {
+    expect(
+      isSettledAnchor(
+        { day: "2026-11-10", shorts: "2026-11-04", prices: "2026-11-09" },
+        today,
+      ),
+    ).toBe(true);
+  });
+
+  it("is not settled while the evening sweep or ASIC may still add data", () => {
+    expect(
+      isSettledAnchor(
+        { day: "2026-11-11", shorts: "2026-11-04", prices: "2026-11-10" },
+        today,
+      ),
+    ).toBe(false);
+    // A hand-made link with no shorts day reads reports up to the day itself.
+    expect(
+      isSettledAnchor(
+        { day: "2026-11-10", shorts: "2026-11-10", prices: "2026-11-10" },
+        today,
+      ),
+    ).toBe(false);
   });
 });
 
@@ -157,7 +207,7 @@ describe("chartPeriodPhrase", () => {
   });
 
   it("names the posting day with one", () => {
-    const anchor = { day: "2026-11-04", shorts: "2026-10-29" };
+    const anchor = { day: "2026-11-04", shorts: "2026-10-28", prices: "2026-11-03" };
     expect(chartPeriodPhrase("3m", anchor)).toBe("3 months to 4 Nov 2026");
     expect(chartPeriodPhrase("max", anchor)).toBe("all history to 4 Nov 2026");
   });

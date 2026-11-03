@@ -193,9 +193,11 @@ export function postedAnchor(
   now: Date,
 ): ChartAnchor {
   const day = sydneyDay(now);
-  if (!summary.asOf) return { day, shorts: day };
+  // TEMPORARY (bot agent replaces): prices default to the day until the
+  // card reports the newest close it drew.
+  if (!summary.asOf) return { day, shorts: day, prices: day };
   const shorts = sydneyDay(summary.asOf);
-  return { day, shorts: shorts < day ? shorts : day };
+  return { day, shorts: shorts < day ? shorts : day, prices: day };
 }
 
 /**

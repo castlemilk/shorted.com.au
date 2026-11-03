@@ -6,6 +6,7 @@ import {
 } from "~/@/components/charts/chart-views";
 import {
   readChartAnchor,
+  sydneyDay,
   type ChartAnchor,
 } from "~/@/components/charts/chart-anchor";
 import {
@@ -27,8 +28,9 @@ export interface EmbedChartParams {
   view: ChartViewId;
   period: ChartPeriod;
   /**
-   * `?asof=YYYY-MM-DD[&shorts=YYYY-MM-DD]`: the chart as posted that day
-   * (chart-anchor.ts). Absent, or an invalid day, is a live chart.
+   * `?asof=YYYY-MM-DD[&shorts=YYYY-MM-DD][&prices=YYYY-MM-DD]`: the chart as
+   * posted that day (chart-anchor.ts). Absent, invalid, or a day after today
+   * in Sydney, it is a live chart.
    */
   anchor?: ChartAnchor;
 }
@@ -52,7 +54,9 @@ export function parseEmbedChartParams(
   const rawCode = searchParams?.get("code")?.trim().toUpperCase() ?? "";
   const rawView = searchParams?.get("view")?.trim().toLowerCase();
   const rawPeriod = searchParams?.get("period")?.trim().toLowerCase();
-  const anchor = searchParams ? readChartAnchor(searchParams) : null;
+  const anchor = searchParams
+    ? readChartAnchor(searchParams, sydneyDay(new Date()))
+    : null;
   return {
     code: CODE_RE.test(rawCode) ? rawCode : DEFAULT_EMBED_CODE,
     view: isChartViewId(rawView) ? rawView : DEFAULT_CHART_VIEW,

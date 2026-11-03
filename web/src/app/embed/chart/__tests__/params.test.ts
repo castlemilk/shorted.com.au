@@ -100,29 +100,39 @@ describe("isChartCode", () => {
 });
 
 describe("the as-posted anchor", () => {
-  it("reads asof and shorts", () => {
+  it("reads asof, shorts and prices", () => {
     const p = parseEmbedChartParams(
-      new URLSearchParams("code=BHP&asof=2026-11-04&shorts=2026-10-29"),
+      new URLSearchParams(
+        "code=BHP&asof=2026-11-04&shorts=2026-10-28&prices=2026-11-03",
+      ),
     );
-    expect(p.anchor).toEqual({ day: "2026-11-04", shorts: "2026-10-29" });
+    expect(p.anchor).toEqual({
+      day: "2026-11-04",
+      shorts: "2026-10-28",
+      prices: "2026-11-03",
+    });
   });
 
-  it("is live without asof, or with an invalid one", () => {
+  it("is live without asof, with an invalid one, or with one in the future", () => {
     expect(parseEmbedChartParams(new URLSearchParams("code=BHP")).anchor).toBeUndefined();
     expect(
       parseEmbedChartParams(new URLSearchParams("code=BHP&asof=2026-02-30"))
+        .anchor,
+    ).toBeUndefined();
+    expect(
+      parseEmbedChartParams(new URLSearchParams("code=BHP&asof=2099-01-01"))
         .anchor,
     ).toBeUndefined();
   });
 
   it("reads the share page's query", () => {
     expect(
-      parseChartShareParams("bhp", { asof: "2026-11-04", period: "3m" }),
+      parseChartShareParams("bhp", { asof: "2026-09-01", period: "3m" }),
     ).toEqual({
       code: "BHP",
       view: "short",
       period: "3m",
-      anchor: { day: "2026-11-04", shorts: "2026-11-04" },
+      anchor: { day: "2026-09-01", shorts: "2026-09-01", prices: "2026-09-01" },
     });
   });
 });

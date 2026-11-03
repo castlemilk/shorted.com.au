@@ -280,13 +280,18 @@ function useLaunchChart(launch: ActivityLaunch): ChartState | null {
   const asks = source === "default" && Boolean(channelId ?? guildId);
   const [chart, setChart] = useState<ChartState | null>(asks ? null : state);
   const { code, view, period } = state;
-  // The anchor as its two dates, so the effect below re-runs only when they change.
+  // The anchor as its dates, so the effect below re-runs only when they change.
   const anchorDay = state.anchor?.day;
   const anchorShorts = state.anchor?.shorts;
+  const anchorPrices = state.anchor?.prices;
 
   useEffect(() => {
     if (!asks) return;
-    const anchor = parseChartAnchor(anchorDay, anchorShorts);
+    const anchor = parseChartAnchor({
+      day: anchorDay,
+      shorts: anchorShorts,
+      prices: anchorPrices,
+    });
     const fallback: ChartState = {
       code,
       view,
@@ -315,7 +320,17 @@ function useLaunchChart(launch: ActivityLaunch): ChartState | null {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [asks, channelId, guildId, code, view, period, anchorDay, anchorShorts]);
+  }, [
+    asks,
+    channelId,
+    guildId,
+    code,
+    view,
+    period,
+    anchorDay,
+    anchorShorts,
+    anchorPrices,
+  ]);
 
   return chart;
 }

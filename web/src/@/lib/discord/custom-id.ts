@@ -7,6 +7,7 @@ import {
 import {
   compactDay,
   expandDay,
+  parseChartAnchor,
   type ChartAnchor,
 } from "~/@/components/charts/chart-anchor";
 
@@ -21,11 +22,12 @@ import {
  *   activity:BHP:short:1y    launches the Activity at that chart
  *   pick                     a stock select menu (the code is the value)
  *
- * A chart kept as posted (chart-anchor.ts) adds the day it was posted and the
- * newest short report it showed, and every redraw keeps both:
+ * A chart kept as posted (chart-anchor.ts) adds the day it was posted, the
+ * newest short report it showed and the newest close it drew, and every
+ * redraw keeps all three:
  *
- *   chart:p:BHP:short:3m:20261104:20261029
- *   activity:BHP:short:3m:20261104:20261029
+ *   chart:p:BHP:short:3m:20261104:20261028:20261103
+ *   activity:BHP:short:3m:20261104:20261028:20261103
  *
  * The forms without the dates are live charts, as every message posted before
  * the dates existed is. Never change what a form means; add a new one.
@@ -66,22 +68,31 @@ export function normalizeCode(raw: string | null | undefined): string | null {
 function encodeState({ code, view, period, anchor }: ChartState): string {
   const base = `${code}:${view}:${period}`;
   return anchor
-    ? `${base}:${compactDay(anchor.day)}:${compactDay(anchor.shorts)}`
+    ? `${base}:${[anchor.day, anchor.shorts, anchor.prices].map(compactDay).join(":")}`
     : base;
 }
 
-/** Three parts (live) or five (anchored); anything else is not a chart. */
+/** Three parts (live) or six (anchored); anything else is not a chart. */
 function parseState(parts: string[]): ChartState | null {
-  if (parts.length !== 3 && parts.length !== 5) return null;
-  const [rawCode, view, period, rawDay, rawShorts] = parts;
+  if (parts.length !== 3 && parts.length !== 6) return null;
+  const [rawCode, view, period, rawDay, rawShorts, rawPrices] = parts;
   const code = normalizeCode(rawCode);
   if (!code || !isChartViewId(view) || !isChartPeriod(period)) return null;
   if (parts.length === 3) return { code, view, period };
-  const day = expandDay(rawDay);
-  const shorts = expandDay(rawShorts);
-  // A malformed anchor is a malformed id, never a quietly live chart.
-  if (!day || !shorts || shorts > day) return null;
-  return { code, view, period, anchor: { day, shorts } };
+  const [day, shorts, prices] = [rawDay, rawShorts, rawPrices].map(expandDay);
+  // A malformed anchor is a malformed id, never a quietly live chart. The
+  // bot writes only real dates on or before the day, so the parsed anchor
+  // must be exactly what was written.
+  const anchor = parseChartAnchor({ day, shorts, prices });
+  if (
+    !anchor ||
+    anchor.day !== day ||
+    anchor.shorts !== shorts ||
+    anchor.prices !== prices
+  ) {
+    return null;
+  }
+  return { code, view, period, anchor };
 }
 
 export const PICK_CUSTOM_ID = "pick";
