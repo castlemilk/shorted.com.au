@@ -1708,8 +1708,10 @@ it in place, and an **Interactive** button (`"activity": true`, on since
   accepts only a digits timestamp, which keeps the two messages apart.
   `/api/discord/activity` only observes today (docs/discord-bot.md, "Proxy
   authentication").
-- `@vercel/functions` stays on 1.x: 3.x drags in an OIDC chain and moved
-  next-auth's `jose`.
+- `@vercel/functions` stays on 1.x: 3.x drags in an OIDC chain whose `jose`
+  used to move next-auth's copy. With next-auth beta.32 next-auth resolves
+  `jose` 6 and that chain nests its own `jose` 5 (a lockfile-only resolve,
+  2026-11-03), so re-check the chain itself before moving.
 - **A `/settings` link is a 30-minute bearer grant** for one scope, signed
   with a key derived from `NEXTAUTH_SECRET` (rotating it voids open links).
   Who may change a server's settings is Discord's decision (Manage Server, in
@@ -2087,6 +2089,13 @@ The Vercel project Root Directory is set to `web/`. When deploying via CLI, depl
   it, and every page drew the JetBrains Mono / system monospace face. Next 15 keeps
   the name, so the upgrade keeps the old look by leaving Plex out of the stack.
   Putting Plex back changes every page's typeface, which is a product decision.
+- **next-auth beta.32 Edge warnings are expected.** `next build` prints "Compiled
+  with warnings" for the middleware: `next-auth/jwt` pulls in `jose` 6, whose
+  `deflate.js` calls CompressionStream and DecompressionStream, which the Edge
+  Runtime build flags as unsupported. They are harmless. jose decompresses only a
+  token whose header says `zip` (Auth.js never writes one), and only after the
+  token's tag verifies, which needs `NEXTAUTH_SECRET`. A new Edge warning that
+  does not point at that module is a real one.
 
 ## Debugging
 
