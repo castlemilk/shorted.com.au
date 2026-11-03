@@ -37,3 +37,14 @@ test('PR contract checks enforce smoke ordering', () => {
   const contracts = deploy.split('  housing-contract-tests:\n')[1]?.split('\n  run-tests:')[0];
   assert.match(contracts, /node --test \.github\/workflows\/production-smoke-order\.test\.mjs/);
 });
+
+test('the smoke warm call sends the revalidation secret as a bearer, never in a URL, and is best effort', () => {
+  const start = health.indexOf('      - name: Warm static data pages\n');
+  assert.notEqual(start, -1);
+  const step = health.slice(start, health.indexOf('\n      - name:', start + 1));
+  assert.match(step, /REVALIDATION_SECRET: \$\{\{ secrets\.REVALIDATION_SECRET \}\}/);
+  assert.match(step, /Authorization: Bearer \$\{REVALIDATION_SECRET\}/);
+  assert.doesNotMatch(step, /secret=/);
+  assert.doesNotMatch(step, /set -x/);
+  assert.match(step, /\| head -c 400 \|\| true/);
+});

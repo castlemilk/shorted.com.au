@@ -56,7 +56,12 @@ const mockGetIndustryTreeMap = getIndustryTreeMap as jest.MockedFunction<
 describe("Homepage Cache Warming Endpoint", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
-    delete process.env.CACHE_WARM_SECRET; // Clear secret for most tests
+    delete process.env.CACHE_WARM_SECRET; // Clear credentials for most tests
+    delete process.env.CRON_SECRET;
+    delete process.env.REVALIDATION_SECRET;
+    delete process.env.VERCEL;
+    delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL_REGION;
     
     // Dynamically import GET after mocks
     const route = await import("../warm-cache/route");
@@ -65,6 +70,11 @@ describe("Homepage Cache Warming Endpoint", () => {
 
   afterEach(() => {
     delete process.env.CACHE_WARM_SECRET;
+    delete process.env.CRON_SECRET;
+    delete process.env.REVALIDATION_SECRET;
+    delete process.env.VERCEL;
+    delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL_REGION;
   });
 
   it("should warm cache successfully", async () => {
@@ -144,10 +154,8 @@ describe("Homepage Cache Warming Endpoint", () => {
     expect(data.results["treemap-3m"].success).toBe(true);
   });
 
-  // These call GET with a request object, so they check the authorization, not
-  // the route's caching. With the secret set, route.ts must be force-dynamic:
-  // force-static prerenders with no headers, so it would cache a 401 (see the
-  // comment there).
+  // These call GET with a request object, so they check the authorization. The
+  // route is force-dynamic, so every real call reaches that check.
   it("should require secret when CACHE_WARM_SECRET is set", async () => {
     process.env.CACHE_WARM_SECRET = "test-secret";
 
@@ -178,10 +186,10 @@ describe("Homepage Cache Warming Endpoint", () => {
     } as any);
 
     const request = {
-      headers: new Headers(),
+      headers: new Headers({ "X-Cache-Warm-Secret": "test-secret" }),
       nextUrl: {
         searchParams: {
-          get: jest.fn().mockReturnValue("test-secret"),
+          get: jest.fn().mockReturnValue(null),
         },
       },
     } as any;
@@ -194,10 +202,26 @@ describe("Homepage Cache Warming Endpoint", () => {
     process.env.CACHE_WARM_SECRET = "test-secret";
 
     const request = {
+      headers: new Headers({ "X-Cache-Warm-Secret": "wrong-secret" }),
+      nextUrl: {
+        searchParams: {
+          get: jest.fn().mockReturnValue(null),
+        },
+      },
+    } as any;
+    const response = await GET(request);
+
+    expect(response.status).toBe(401);
+  });
+
+  it("should refuse the secret in the query string, even when it is correct", async () => {
+    process.env.CACHE_WARM_SECRET = "test-secret";
+
+    const request = {
       headers: new Headers(),
       nextUrl: {
         searchParams: {
-          get: jest.fn().mockReturnValue("wrong-secret"),
+          get: jest.fn().mockReturnValue("test-secret"),
         },
       },
     } as any;

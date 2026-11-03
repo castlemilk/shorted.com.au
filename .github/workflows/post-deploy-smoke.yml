@@ -24,6 +24,9 @@ jobs:
       # (see web/src/app/api/static-pages/warm-cache/route.ts). Best-effort: the
       # page's own revalidate + the hourly repair cron backstop it, so a failed
       # warm must not fail the deploy smoke.
+      # This job names no environment, so REVALIDATION_SECRET here is the project-level
+      # copy. Without it, and without CACHE_WARM_SECRET, the warm call answers 401, which
+      # this step ignores.
       #
       # Two steps: (1) repair only confirmed empty shells; (2) fetch
       # each page HERE with the Cloudflare testing bypass. Step 2 is essential —
@@ -34,6 +37,7 @@ jobs:
         env:
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
           CACHE_WARM_SECRET: ${{ secrets.CACHE_WARM_SECRET }}
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
           BASE_URL="https://shorted.com.au"
           CURL_ARGS=(-A "Mozilla/5.0 Shorted-E2E/1.0")
@@ -44,6 +48,9 @@ jobs:
           fi
           WARM_MODE="repair"
           WARM_ARGS=("${CURL_ARGS[@]}")
+          if [ -n "${REVALIDATION_SECRET:-}" ]; then
+            WARM_ARGS+=(-H "Authorization: Bearer ${REVALIDATION_SECRET}")
+          fi
           if [ -n "${CACHE_WARM_SECRET:-}" ]; then
             WARM_ARGS+=(-H "X-Cache-Warm-Secret: ${CACHE_WARM_SECRET}")
           fi

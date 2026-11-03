@@ -6,16 +6,10 @@ import { isCacheWarmAuthorized } from "~/@/lib/cache-warm-auth";
 // ViewMode enum value - using constant to avoid protobuf-es SSR issues
 const VIEW_MODE_CURRENT_CHANGE = 0;
 
-// Static on purpose. Production does not set CACHE_WARM_SECRET, so
-// isCacheWarmAuthorized returns before it reads the request, and this route
-// prerenders and revalidates once a day (86400 s, the HOMEPAGE_TTL that the
-// connect reads below carry). Next 15 would render it per request instead, and
-// with no secret that leaves its five data reads open to anyone. force-static
-// empties the request's headers and query string, so once CACHE_WARM_SECRET is
-// set this must become `dynamic = "force-dynamic"`: otherwise every call fails
-// the check and gets a cached 401.
-export const dynamic = "force-static";
-export const revalidate = 86400;
+// Dynamic on purpose. isCacheWarmAuthorized reads the request's headers, so a
+// static render would freeze one caller's answer, a 401 or a 200 for a warm that
+// never ran, and serve it to every later caller, Vercel Cron included.
+export const dynamic = "force-dynamic";
 
 /**
  * Cache warming endpoint for homepage data

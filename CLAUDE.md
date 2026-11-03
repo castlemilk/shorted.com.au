@@ -2100,10 +2100,14 @@ The Vercel project Root Directory is set to `web/`. When deploying via CLI, depl
 - **Client router cache:** `experimental.staleTimes: { dynamic: 30 }` keeps
   Next 14's 30 s for dynamic pages (Next 15 defaults to 0). The browser's
   requests count against the rate limits, so keep it.
-- **The homepage warm-cache route stays static** (`api/homepage/warm-cache`,
-  `force-static`, revalidate 86400) until `CACHE_WARM_SECRET` is set. Production
-  sets `CRON_SECRET` only, so the route serves its frozen response. Setting the
-  secret needs `dynamic = "force-dynamic"` first.
+- **The warm-cache routes are dynamic and take three credentials.** All four
+  `api/*/warm-cache` routes and `api/warm-pages` are `force-dynamic` and call
+  `isCacheWarmAuthorized` (`web/src/@/lib/cache-warm-auth.ts`). They accept
+  Vercel Cron's `CRON_SECRET` bearer, the `REVALIDATION_SECRET` bearer (the
+  deploy's prime step) and an `X-Cache-Warm-Secret` header. They never accept a
+  query-string secret. On Vercel they refuse everything else, which with nothing
+  configured is every request. Off Vercel with nothing configured they answer
+  everyone, so local dev keeps working.
 - **`next/dynamic` with `ssr: false` belongs in a client module** (see the stock
   page section). Next 15 refuses it in a server component.
 - **Forms:** React 19 clears an uncontrolled form after its `action` succeeds.

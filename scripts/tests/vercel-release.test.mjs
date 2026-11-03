@@ -701,6 +701,22 @@ test("post-promotion verification, ISR revalidation and priming key on the promo
   }
 });
 
+test("the deploy's revalidation and prime calls send their secrets in headers, never in a URL", () => {
+  const steps = parse(workflowSource).jobs["deploy-vercel-prod"].steps;
+  const revalidate = steps.find((s) => s.name === "Revalidate ISR pages post-promote");
+  assert.equal(revalidate.env.REVALIDATION_SECRET, "${{ secrets.REVALIDATION_SECRET }}");
+  assert.match(revalidate.run, /--header "X-Revalidate-Secret: \$REVALIDATION_SECRET"/);
+  assert.doesNotMatch(revalidate.run, /secret=/, "the revalidation secret stays out of the query string");
+  const prime = steps.find((s) => s.name === "Prime static pages after promotion");
+  assert.equal(prime.env.REVALIDATION_SECRET, "${{ secrets.REVALIDATION_SECRET }}");
+  assert.equal(prime.env.CACHE_WARM_SECRET, "${{ secrets.CACHE_WARM_SECRET }}");
+  assert.match(prime.run, /Authorization: Bearer \$\{REVALIDATION_SECRET\}/);
+  assert.match(prime.run, /X-Cache-Warm-Secret: \$\{CACHE_WARM_SECRET\}/);
+  assert.doesNotMatch(prime.run, /secret=/, "the warm calls take no secret in the URL");
+  assert.doesNotMatch(prime.run, /set -x/);
+  assert.doesNotMatch(prime.run, /echo[^\n]*\$\{?(REVALIDATION|CACHE_WARM)_SECRET/);
+});
+
 test("production promotion is serialised and never cancels a run in flight", () => {
   const job = parse(workflowSource).jobs["deploy-vercel-prod"];
   assert.deepEqual(job.concurrency, { group: "vercel-prod-promote", "cancel-in-progress": false });

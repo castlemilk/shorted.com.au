@@ -18,7 +18,9 @@ export const revalidate = 0;
  * 
  * Usage:
  * - Cron: Vercel sends Authorization: Bearer CRON_SECRET on the hourly schedule
- * - Manual: GET /api/about/warm-cache?secret=YOUR_SECRET
+ * - Deploy: Authorization: Bearer REVALIDATION_SECRET
+ * - Manual: GET /api/about/warm-cache with an X-Cache-Warm-Secret header
+ * Credentials are never read from the query string (see cache-warm-auth.ts).
  */
 export async function GET(request: NextRequest) {
   if (!isCacheWarmAuthorized(request)) {

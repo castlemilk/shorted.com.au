@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { isCacheWarmAuthorized } from "~/@/lib/cache-warm-auth";
 
 /**
  * ISR page warming endpoint.
@@ -6,12 +7,11 @@ import { type NextRequest, NextResponse } from "next/server";
  * Makes self-referential fetch() calls to critical pages, which populates
  * the Vercel edge CDN cache (ISR). This eliminates cold hits after deploys.
  *
- * Called by:
- *  - Vercel Cron (every hour) to keep pages warm
- *  - Post-deploy script (scripts/warm-pages-after-deploy.sh) for immediate warming
+ * Called by the post-deploy script (scripts/warm-pages-after-deploy.sh), by hand.
+ * No Vercel Cron schedule calls it (web/vercel.json).
  *
- * With 24-hour ISR revalidation, hourly cron ensures pages are never stale
- * and the edge cache stays populated across all active edge locations.
+ * Authorized by isCacheWarmAuthorized: send REVALIDATION_SECRET as a bearer or
+ * CACHE_WARM_SECRET as X-Cache-Warm-Secret. A query-string secret is refused.
  */
 
 // Core pages that should always be warm
@@ -47,11 +47,10 @@ const TOP_STOCK_PAGES = [
   "/shorts/QBE",
 ];
 
-export async function GET(request: NextRequest) {
-  const secret = request.nextUrl.searchParams.get("secret");
-  const expectedSecret = process.env.CACHE_WARM_SECRET;
+export const dynamic = "force-dynamic";
 
-  if (expectedSecret && secret !== expectedSecret) {
+export async function GET(request: NextRequest) {
+  if (!isCacheWarmAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

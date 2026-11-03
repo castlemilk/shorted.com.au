@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import isrShellPages from "~/config/isr-shell-pages.json";
+import { isCacheWarmAuthorized } from "~/@/lib/cache-warm-auth";
 
 export const maxDuration = 150;
 export const dynamic = "force-dynamic";
@@ -17,12 +18,7 @@ const CONCURRENCY = 6;
 // explicitly invalidates and primes them. The hourly repair only invalidates
 // confirmed shells, leaving healthy ISR entries to their own TTL/data events.
 export async function GET(request: NextRequest) {
-  const expectedSecret = process.env.CACHE_WARM_SECRET;
-  const providedSecret = request.headers.get("x-cache-warm-secret") ??
-    request.nextUrl.searchParams.get("secret");
-  const cronAuthorized = process.env.CRON_SECRET &&
-    request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
-  if (expectedSecret && providedSecret !== expectedSecret && !cronAuthorized) {
+  if (!isCacheWarmAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
