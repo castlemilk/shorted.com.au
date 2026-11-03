@@ -244,7 +244,7 @@ function CellShape({
   scale,
   selected,
   focused,
-  labelled,
+  banded,
   handlers,
 }: {
   cell: MapCell;
@@ -252,8 +252,8 @@ function CellShape({
   scale: LensScale;
   selected: boolean;
   focused: boolean;
-  /** False where a sector's name is printed over the cell's label. */
-  labelled: boolean;
+  /** True where a sector's name is printed over the cell's top: the label moves under the band. */
+  banded: boolean;
   handlers?: MapHandlers;
 }) {
   const width = cell.x1 - cell.x0;
@@ -261,8 +261,11 @@ function CellShape({
   const fill = cell.hatched ? `url(#${HATCH_ID})` : (lensFill(cell.value, scale) ?? `url(#${HATCH_ID})`);
   const title = cellTitle(cell, lens);
   // Below sm the labels are not printed: a 4 px code is no label, and the title and the table carry it.
-  const showLabel = labelled && width >= 40 && height >= 22;
-  const fontSize = Math.min(12, height * 0.3);
+  // Under a sector's name band the label starts below the band (a cell that fills its sector once
+  // lost its code altogether); a cell too short to hold both prints none.
+  const bandOffset = banded ? SECTOR_BAND : 0;
+  const showLabel = width >= 40 && height >= 22 + bandOffset;
+  const fontSize = Math.min(12, (height - bandOffset) * 0.3);
   const interactive = handlers !== undefined;
   const interaction = interactive
     ? {
@@ -308,7 +311,7 @@ function CellShape({
       {showLabel ? (
         <text
           x={cell.x0 + 4}
-          y={cell.y0 + fontSize + 3}
+          y={cell.y0 + bandOffset + fontSize + 3}
           fontSize={fontSize}
           fill={labelColourFor(cell.value, scale)}
           className="pointer-events-none hidden font-mono tabular-nums sm:inline"
@@ -342,6 +345,10 @@ function SectorShape({
   const zoom = handlers !== undefined && !zoomed && width >= 24 && height >= 24 ? handlers : undefined;
   const showText = width >= 72;
   const bandWidth = Math.min(width, sectorNameWidth(label));
+  // The name is cut to its box: "Equity Real Estate Investment Trusts (REITs)" once ran over three
+  // sectors to its right. The full name stays in the title and the zoom's label.
+  const fitChars = Math.floor((width - 8) / 6.6);
+  const printed = label.length > fitChars ? `${label.slice(0, Math.max(1, fitChars - 1))}…` : label;
   const bandHeight = Math.min(SECTOR_BAND, height);
   return (
     <g data-sector={sector.sector}>
@@ -397,7 +404,7 @@ function SectorShape({
               className="pointer-events-none hidden font-mono sm:inline"
               fill="hsl(var(--foreground))"
             >
-              {label}
+              {printed}
             </text>
           ) : null}
         </g>
@@ -409,7 +416,7 @@ function SectorShape({
           className="pointer-events-none hidden font-mono sm:inline"
           fill="hsl(var(--foreground))"
         >
-          {label}
+          {printed}
         </text>
       ) : null}
     </g>
@@ -463,7 +470,7 @@ export function DeskMapFigure({
             scale={scale}
             selected={cell.code === selected}
             focused={handlers !== undefined && cell.code === roving}
-            labelled={!banded.has(cell.code)}
+            banded={banded.has(cell.code)}
             handlers={handlers}
           />
         ))}

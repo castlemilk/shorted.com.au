@@ -232,9 +232,11 @@ function PanelBody({ page, scaleMax }: { page: StockPanelPage; scaleMax: number 
             </span>
           ) : (
             <span>
-              {formatPct(page.index.pct, { digits: 2 })} of shares on issue
+              {formatPct(page.index.pct, { digits: 2 })}
+              {/* The qualifier sits under the figure: beside it, it wrapped the narrow column
+                  into four lines (the visual pass of 2026-11-03). */}
               <span className="block text-[11px] text-muted-foreground">
-                as at <DateText iso={page.index.asAt} />
+                of shares on issue, as at <DateText iso={page.index.asAt} />
               </span>
             </span>
           )}

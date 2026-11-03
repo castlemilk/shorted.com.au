@@ -147,7 +147,7 @@ export function LensLegend({ lens, scale }: { lens: DeskLens; scale: LensScale }
   const mid = lensFill((scale.lo + scale.hi) / 2, scale) ?? "transparent";
   const high = lensFill(scale.hi, scale) ?? "transparent";
   const lowText = formatLensFigure(lens, scale.lo);
-  const highText = formatLensFigure(lens, scale.hi);
+  const highText = scale.capped ? `${formatLensFigure(lens, scale.hi)} and above` : formatLensFigure(lens, scale.hi);
   return (
     <div className="flex items-center gap-3 text-[11px] tabular-nums text-muted-foreground">
       <span className="shrink-0">{lowText}</span>

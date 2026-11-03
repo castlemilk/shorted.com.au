@@ -29,7 +29,7 @@ function noSignalColour(fill: string | null): void {
 describe("lens scales", () => {
   it("starts a share at zero and runs to the largest figure", () => {
     const scale = lensScale("disclosed", [4, 12, null, 9]);
-    expect(scale).toEqual({ lens: "disclosed", mode: "sequential", lo: 0, hi: 12 });
+    expect(scale).toEqual({ lens: "disclosed", mode: "sequential", lo: 0, hi: 12, capped: false });
   });
 
   it("gives an empty share scale a unit top, so a zero still has a fill", () => {
@@ -38,7 +38,7 @@ describe("lens scales", () => {
   });
 
   it("diverges a flow symmetrically around zero, whichever way the figures lean", () => {
-    expect(lensScale("flow", [2, -5, 1])).toEqual({ lens: "flow", mode: "diverging", lo: -5, hi: 5 });
+    expect(lensScale("flow", [2, -5, 1])).toEqual({ lens: "flow", mode: "diverging", lo: -5, hi: 5, capped: false });
     expect(lensScale("flow", [0, null])).toEqual({ lens: "flow", mode: "diverging", lo: -1, hi: 1 });
   });
 
@@ -106,5 +106,22 @@ describe("direction and week fills", () => {
     expect(netFill(-4, 4)).toContain("hsl(var(--foreground))");
     expect(netFill(2, 4)).toContain("50%");
     noSignalColour(netFill(-2, 4));
+  });
+});
+
+describe("the scale's cap", () => {
+  it("tops a long list at the 98th percentile and says so, and keeps a short list's largest figure", () => {
+    const { lensScale } = require("../desk-scales") as typeof import("../desk-scales");
+    const many = Array.from({ length: 99 }, (_, i) => i + 1).concat([242]);
+    const capped = lensScale("disclosed", many);
+    expect(capped.capped).toBe(true);
+    expect(capped.hi).toBeLessThan(242);
+    expect(capped.hi).toBeGreaterThanOrEqual(97);
+    const few = lensScale("disclosed", [1, 2, 242]);
+    expect(few.capped).toBe(false);
+    expect(few.hi).toBe(242);
+    const flow = lensScale("flow", many.map((v) => (v % 2 ? v : -v)));
+    expect(flow.capped).toBe(true);
+    expect(flow.lo).toBe(-flow.hi);
   });
 });
