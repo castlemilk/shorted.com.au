@@ -441,7 +441,7 @@ lint: lint-frontend lint-backend
 
 lint-frontend:
 	@echo "🔍 Linting frontend..."
-	@cd web && npm run lint -- --max-warnings 1000
+	@cd web && npm run lint
 
 lint-backend: lint-backend-install
 	@echo "🔍 Linting backend with golangci-lint..."

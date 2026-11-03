@@ -1564,6 +1564,10 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           SHORTED_RELEASE_SHA: ${{ github.sha }}
+          # The branch the release came from, reported by /api/version as
+          # gitBranch ("main" for every push to main). `vercel build` runs here,
+          # not on Vercel, so Vercel's own git variables are not set.
+          SHORTED_RELEASE_REF: ${{ github.ref_name }}
           # Version identity comes from the checked-out commit. Keep the
           # prebuild hook from rewriting tracked package.json during CI.
           SKIP_VERSION_BUMP: "1"

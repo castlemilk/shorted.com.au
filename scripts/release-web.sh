@@ -83,10 +83,12 @@ rm -rf "$WEB_DIR/.next" "$ROOT_DIR/.vercel/output" "$WEB_DIR/.vercel/output"
 )
 (
   cd "$WEB_DIR"
-  npm run lint -- \
-    --file 'e2e/release-smoke.spec.ts' \
-    --file 'src/app/shorts/[stockCode]/page.tsx' \
-    --file 'src/app/market/[date]/page.tsx'
+  # The ESLint CLI takes file paths, with no --file option. Same config and
+  # limit as `npm run lint`, on the three release files only.
+  npx eslint --max-warnings=1000 \
+    e2e/release-smoke.spec.ts \
+    'src/app/shorts/[stockCode]/page.tsx' \
+    'src/app/market/[date]/page.tsx'
   npm test -- --runTestsByPath \
     'src/app/shorts/[stockCode]/__tests__/page-runtime.test.tsx' \
     'src/app/market/[date]/__tests__/page-runtime.test.tsx' \

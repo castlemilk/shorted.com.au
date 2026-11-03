@@ -27,7 +27,7 @@
     "routes:charts": "node scripts/stock-chart-chunks.mjs",
     "dev": "APP_VERSION=`git describe --tags --always --dirty` next dev -p 3020",
     "bump-version": "sh ./scripts/bump-version.sh",
-    "lint": "next lint --max-warnings=1000",
+    "lint": "eslint --no-error-on-unmatched-pattern --ext .js,.mjs,.cjs,.jsx,.ts,.mts,.cts,.tsx --cache --cache-location .next/cache/eslint/ --max-warnings=1000 app pages components lib src",
     "start": "next start -p 3020",
     "test": "jest",
     "test:watch": "jest --watch",

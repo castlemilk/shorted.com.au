@@ -14,21 +14,74 @@ assert.match(
 const settings = JSON.parse(
   readFileSync(resolve(output, "required-server-files.json"), "utf8"),
 );
+// The identity values next.config.mjs inlined (src/config/build-identity.mjs).
+const IDENTITY_KEYS = [
+  "NEXT_PUBLIC_RELEASE_COMMIT",
+  "SHORTED_BUILD_VERSION",
+  "SHORTED_BUILD_DATE",
+  "SHORTED_BUILD_COMMIT",
+  "SHORTED_BUILD_BRANCH",
+  "SHORTED_BUILD_ENVIRONMENT",
+];
+const recorded = settings.config.env;
+for (const key of IDENTITY_KEYS) {
+  assert.equal(
+    typeof recorded[key],
+    "string",
+    `Build config must record ${key}`,
+  );
+}
 assert.equal(
-  settings.config.env.NEXT_PUBLIC_RELEASE_COMMIT,
+  recorded.NEXT_PUBLIC_RELEASE_COMMIT,
   sha,
   "Build config must contain its exact source identity",
 );
+assert.equal(
+  recorded.SHORTED_BUILD_COMMIT,
+  sha.slice(0, 7),
+  "Build config must contain the short form of its exact source identity",
+);
 
 // Change the runtime environment before loading the actual compiled handler.
-// A runtime lookup must not be able to make an old artifact claim a newer SHA.
-process.env.NEXT_PUBLIC_RELEASE_COMMIT = "runtime-value-must-not-win";
+// A runtime lookup must not be able to make an old artifact claim a newer SHA,
+// or another version, date, branch or environment.
+for (const key of IDENTITY_KEYS) {
+  process.env[key] = "runtime-value-must-not-win";
+}
 const require = createRequire(import.meta.url);
 const compiled = require(resolve(output, "server/app/api/version/route.js"));
 const response = await compiled.routeModule.userland.GET();
 assert.equal(response.status, 200);
 assert.equal(response.headers.get("cache-control"), "private, no-store");
-assertRuntime(await response.json(), sha);
+const body = await response.json();
+assertRuntime(body, sha);
+assert.equal(
+  body.gitCommit,
+  sha.slice(0, 7),
+  "The compiled handler must report the short form of the same source identity",
+);
+// Each field is read from the same overridden environment and must still be
+// the value the build recorded.
+assert.equal(
+  body.version,
+  recorded.SHORTED_BUILD_VERSION,
+  "The compiled handler must report the build's version",
+);
+assert.equal(
+  body.buildDate,
+  recorded.SHORTED_BUILD_DATE,
+  "The compiled handler must report the build's date",
+);
+assert.equal(
+  body.gitBranch,
+  recorded.SHORTED_BUILD_BRANCH,
+  "The compiled handler must report the build's branch",
+);
+assert.equal(
+  body.environment,
+  recorded.SHORTED_BUILD_ENVIRONMENT,
+  "The compiled handler must report the build's environment",
+);
 console.log(
   `Compiled web version handler accepted ${sha}; runtime environment override rejected.`,
 );
