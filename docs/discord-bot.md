@@ -162,20 +162,24 @@ how it was posted, and a press never reads the setting. It is stored as
 - **Three dates.** Each series ends on its own day, so an anchor records three
   (`anchor` in `chart-anchor.ts`). `day` is the posting day (the Sydney calendar
   day, `sydneyDay`), which the chart is labelled with. `shorts` is the newest
-  ASIC report the chart showed, never after `day`: ASIC publishes four trading
-  days late, so a chart posted on 4 Nov shows short positions to 28 Oct.
-  `prices` is the newest close the chart drew, never after `day`. Prices end
-  there, and the period is counted back from it. The footer prints the posting
-  day and, on the short and combined views, the report date.
-- **Posting.** A new message's card is drawn up to the posting day, and the card
-  reports the newest close it read (the image route's `x-chart-prices-through`
-  header, or the in-process loader's `pricesThrough`). The message then records
-  that close. A card that reports no close, or one that is not a real day on or
-  before the posting day, records the day before the posting day instead.
-- **Live when the report date is unknown.** A chart whose stock has no readable
-  report date is posted live, as every chart was before anchors existed: live
-  ids, a live footer, no "As posted". Its anchor is never set to the posting
-  day.
+  ASIC report, never after `day`: ASIC publishes four trading days late, so a
+  chart posted on 4 Nov shows short positions to 28 Oct. `prices` is the newest
+  close, never after `day`, and the period is counted back from the later of
+  the two dates. The footer prints the posting day and, on the short and
+  combined views, the report date.
+- **Posting.** Before it draws a new kept chart, the bot reads the stock's
+  newest report (the stock summary's `asOf`) and its newest close on or before
+  the posting day (`newestClose` in `data.ts`, bounded to six seconds). The
+  anchor is decided from those two reads, and the card is drawn once, for that
+  anchor. The first card is therefore the card every redraw asks for, and the
+  highlighted button's press hits the same CDN entry. The close is read
+  beside the stock read where the code is typed, and read again only when the
+  typed code resolves to another stock.
+- **Live when a date is unknown.** A chart is posted live, as every chart was
+  before anchors existed, when the stock has no readable report date or no
+  newest close (none on or before the day, or the read is too slow). Live means
+  live ids, a live footer, and no "As posted". Such a chart is never anchored to
+  a guessed date.
 - **The ids and links.** An anchored chart's buttons and Interactive button
   carry all three dates in their `custom_id`
   (`chart:p:BHP:short:3m:20261104:20261028:20261103`,
