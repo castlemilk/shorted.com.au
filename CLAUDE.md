@@ -1122,6 +1122,35 @@ e2e spec remain specified and unbuilt).
   ANNEXURE 1") as `no_holder` unless the name resolves to a curated
   institution; `-mode repair-placeholders` removes rows stored before the gate.
 
+### Insights explorer (`/ownership/insights`)
+
+A market map (treemap: sector, then stock), a position heatmap (sector by
+week or month), a money flow (Sankey: kind, institution, sector) and a
+two-handle time window that drives all three, over
+`OwnershipInsightsService.GetOwnershipInsights` (`ownership_insights.proto`,
+its own service, mirrored on `ShortedStocksService`). Go:
+`ownership_insights.go` (one base per universe generation: the fund files'
+index and every notice; at most 64 window answers per generation) and
+`store/shorts/postgres_ownership_insights.go` (`OwnershipInsightsStore`, found
+by type assertion; reads files by id). Web: `app/ownership/insights/` (static
+ISR, the desk and a table per chart in the server HTML),
+`components/ownership/insights/` (the island `insights-explorer.tsx`; the
+charts load from `insights-charts-lazy.tsx`, `ssr: false`, and size with
+`use-element-size.ts`, no visx), `lib/ownership/insights/` (pure geometry and
+the link codec), `app/actions/ownershipInsights.ts` (KV for the default view
+only, `cache:ownership:insights:v1`).
+
+- **A fund change compares a fund with itself.** Its file at the window's start
+  (or its first file inside the window) against its newest file at the end;
+  shares are compared and valued at the later file's price. A window with one
+  file per fund states levels only, and every fund change is n/a, never 0.
+- **The notice change is what the notices state** (present less previous,
+  where both are stated), summed in percentage points. No past register is
+  rebuilt, for the Holder Lanes' reason.
+- **The change scale is rust to avocado**, three steps a side and a warm grey
+  midpoint, light and dark steps checked with the dataviz validator
+  (`lib/ownership/insights/scale.ts`); n/a is hatched, never the midpoint.
+
 ## Weekly/Monthly/Yearly Reports
 
 LLM-generated short-selling reports at `/reports` (weekly `2026-W23`, monthly `2026-05`, yearly `2025` — one `weekly_reports` table, slug shape disambiguates).

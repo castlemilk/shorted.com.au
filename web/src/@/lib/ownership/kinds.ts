@@ -188,7 +188,7 @@ export function institutionHref(slug: string | null | undefined): string | null 
 const INSTITUTION_SLUG = /^[a-z0-9-]{2,64}$/;
 
 /** Ownership paths that are not institutions. A slug that took one would shadow its page. */
-export const RESERVED_SLUGS: readonly string[] = ["stocks", "notices"];
+export const RESERVED_SLUGS: readonly string[] = ["stocks", "notices", "insights"];
 
 /** Whether a path segment can be a registry slug, checked before any read. */
 export function isInstitutionSlug(slug: string): boolean {

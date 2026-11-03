@@ -43,6 +43,7 @@ const SCANNED = [
   path.join(SRC_DIR, "@", "components", "stocks", "register-strip.tsx"),
   path.join(APP_DIR, "actions", "ownershipExplorer.ts"),
   path.join(APP_DIR, "actions", "ownershipDesk.ts"),
+  path.join(APP_DIR, "actions", "ownershipInsights.ts"),
   path.join(SRC_DIR, "@", "lib", "ownership"),
 ];
 
