@@ -722,7 +722,11 @@ describe("StockChartEmbed: header actions", () => {
 // hook is given end on the anchor, and the reader can switch to the latest data
 // and back without a navigation.
 describe("StockChartEmbed: as posted", () => {
-  const anchor: ChartAnchor = { day: "2026-11-04", shorts: "2026-10-29" };
+  const anchor: ChartAnchor = {
+    day: "2026-11-04",
+    shorts: "2026-10-29",
+    prices: "2026-11-03",
+  };
 
   it("draws no note when no anchor is given, and asks for live data", () => {
     render(<StockChartEmbed stockCode="BHP" defaultView="combined" />);
@@ -770,6 +774,7 @@ describe("StockChartEmbed: as posted", () => {
     const full = screen.getByRole("link", { name: /Open BHP chart full screen/ });
     expect(full.getAttribute("href")).toContain("asof=2026-11-04");
     expect(full.getAttribute("href")).toContain("shorts=2026-10-29");
+    expect(full.getAttribute("href")).toContain("prices=2026-11-03");
 
     fireEvent.click(screen.getByRole("button", { name: "Show latest" }));
     expect(
