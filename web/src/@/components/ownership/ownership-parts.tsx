@@ -1,9 +1,5 @@
 import Link from "next/link";
-import type {
-  KindShare,
-  OwnershipStock,
-} from "~/gen/shorts/v1alpha1/ownership_pb";
-import { Badge } from "~/@/components/ui/badge";
+import type { OwnershipStock } from "~/gen/shorts/v1alpha1/ownership_pb";
 import {
   Table,
   TableBody,
@@ -13,9 +9,9 @@ import {
   TableRow,
 } from "~/@/components/ui/table";
 import { formatAmount, formatPct } from "~/@/lib/fundamentals/format";
-import { holderHref, kindInfo, kindRank } from "~/@/lib/ownership/kinds";
-import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
+import { INVESTOR_KINDS, holderHref, registerHref } from "~/@/lib/ownership/kinds";
 import { cn } from "~/@/lib/utils";
+import { DisclosedBar } from "./disclosed-bar";
 
 // Server components only: no "use client", no Connect import, type imports
 // from the generated code. The ownership pages and the stock page's Company
@@ -24,49 +20,15 @@ import { cn } from "~/@/lib/utils";
 // from here: Next ships every client module a route's server graph reaches,
 // and the Company tab reaches this file.
 
+// The badge lives in its own module; re-exported so a page keeps one import.
+export { KindBadge } from "./kind-badge";
+
 /**
  * A sum of voting powers: two decimals, so a column of sums lines up. A single
  * notice's figure keeps the precision it states (formatVotingPower).
  */
 export function formatSum(pct: number | null | undefined): string {
   return formatPct(pct, { digits: 2 });
-}
-
-/** A kind's name as a small badge with its swatch. */
-export function KindBadge({ kind }: { kind: string }) {
-  const info = kindInfo(kind);
-  return (
-    <Badge variant="outline" className="gap-1.5 whitespace-nowrap font-normal">
-      <span aria-hidden className={cn("inline-block h-2 w-2 rounded-sm", info.swatch)} />
-      {info.label}
-    </Badge>
-  );
-}
-
-/**
- * Disclosed voting power by kind as one bar, 0 to 100% of the company. Holders'
- * interests can overlap, so a register whose notices sum past 100% is drawn
- * scaled to fit, and the text says so.
- */
-export function KindBar({ byKind, className }: { byKind: readonly KindShare[]; className?: string }) {
-  const shares = [...byKind].sort((a, b) => kindRank(a.kind) - kindRank(b.kind));
-  const total = shares.reduce((sum, k) => sum + k.pct, 0);
-  const scale = total > 100 ? 100 / total : 1;
-  const summary = shares.map((k) => `${kindInfo(k.kind).label} ${formatSum(k.pct)}`).join(", ");
-  return (
-    <div className={cn("flex h-2.5 w-full min-w-24 overflow-hidden rounded-sm bg-muted", className)}>
-      <span className="sr-only">{summary}</span>
-      {shares.map((k) => (
-        <span
-          key={k.kind}
-          aria-hidden
-          title={`${kindInfo(k.kind).label}: ${formatSum(k.pct)} (${k.holders} holder${k.holders === 1 ? "" : "s"})`}
-          className={cn("h-full", kindInfo(k.kind).swatch)}
-          style={{ width: `${k.pct * scale}%` }}
-        />
-      ))}
-    </div>
-  );
 }
 
 export type StockColumn =
@@ -94,30 +56,33 @@ const COLUMN_HEADS: Record<StockColumn, string> = {
   superValue: "Super value",
 };
 
-const INSTITUTIONAL = new Set([
-  "super_fund",
-  "index_manager",
-  "hedge_fund",
-  "active_manager",
-  "bank_broker",
-  "sovereign_public",
-  "insurer",
-]);
-
 function kindSum(stock: OwnershipStock, accept: (kind: string) => boolean): number {
   return stock.byKind.filter((k) => accept(k.kind)).reduce((s, k) => s + k.pct, 0);
 }
 
-function cell(stock: OwnershipStock, col: StockColumn, superOptionsTotal?: number) {
+interface TableContext {
+  superOptionsTotal?: number;
+  /** The table's largest disclosed sum: every bar in it is drawn against this. */
+  barScale: number;
+}
+
+function cell(stock: OwnershipStock, col: StockColumn, ctx: TableContext) {
   switch (col) {
     case "holders":
       return String(stock.holders);
     case "institutional":
-      return formatSum(kindSum(stock, (k) => INSTITUTIONAL.has(k)));
+      return formatSum(kindSum(stock, (k) => INVESTOR_KINDS.has(k)));
     case "disclosed":
       return formatSum(stock.disclosedPct);
     case "bar":
-      return <KindBar byKind={stock.byKind} />;
+      return (
+        <DisclosedBar
+          segments={stock.byKind}
+          total={stock.disclosedPct}
+          scaleMax={ctx.barScale}
+          showFigure={false}
+        />
+      );
     case "longActive":
       return formatSum(kindSum(stock, (k) => k === "hedge_fund" || k === "active_manager"));
     case "bank":
@@ -127,7 +92,9 @@ function cell(stock: OwnershipStock, col: StockColumn, superOptionsTotal?: numbe
     case "index":
       return stock.hasIndexPct ? formatPct(stock.indexPct, { digits: 2 }) : "n/a";
     case "superOptions":
-      return superOptionsTotal ? `${stock.superOptions} of ${superOptionsTotal}` : String(stock.superOptions);
+      return ctx.superOptionsTotal
+        ? `${stock.superOptions} of ${ctx.superOptionsTotal}`
+        : String(stock.superOptions);
     case "superValue":
       return stock.hasSuperValue ? formatAmount(stock.superValueAud, "AUD") : "n/a";
   }
@@ -148,6 +115,10 @@ export function OwnershipStockTable({
   if (stocks.length === 0) {
     return <p className="text-sm text-muted-foreground">No stocks meet this view yet.</p>;
   }
+  const ctx: TableContext = {
+    superOptionsTotal,
+    barScale: Math.max(0, ...stocks.map((s) => s.disclosedPct)),
+  };
   return (
     <Table>
       <caption className="sr-only">{caption}</caption>
@@ -166,7 +137,7 @@ export function OwnershipStockTable({
           <TableRow key={s.stockCode}>
             <TableCell className="min-w-0">
               <Link
-                href={stockTabHref(s.stockCode, "company")}
+                href={registerHref(s.stockCode)}
                 prefetch={false}
                 className="font-semibold text-primary underline-offset-4 hover:underline"
               >
@@ -178,7 +149,7 @@ export function OwnershipStockTable({
             </TableCell>
             {columns.map((c) => (
               <TableCell key={c} className={c === "bar" ? "" : "text-right tabular-nums"}>
-                {cell(s, c, superOptionsTotal)}
+                {cell(s, c, ctx)}
               </TableCell>
             ))}
           </TableRow>
@@ -215,28 +186,22 @@ export function HolderName({
   );
 }
 
+// The method's three paragraphs. The hub, an institution page and the stock
+// card all describe the same figures, so the words live once, here.
+const METHOD_P1 =
+  "Substantial holdings are the voting power stated in each holder's latest ASX notice (Corporations Act s671B, Forms 603, 604 and 605), read from the notice PDF. A holding is shown until a later notice read says it changed or ceased; the date is the notice's, and \"current\" means the newest notice we could read. A notice whose voting power cannot be read unambiguously (a scanned form, a figure only in an annexure) is withheld, never estimated.";
+const METHOD_P2 =
+  "Holders' interests can overlap: MUFG reports Morgan Stanley's and First Sentier's interests as its own. Sums count each interest once where the overlap is known (a group and its member count the larger figure; two notices disclosing the same voting power on the same date count once), and every holder is still listed. Other overlaps remain, so a sum is what the notices disclose, not a share of the company. Banks' and brokers' notices are often securities lending, so crowded registers do not count them. A fall in voting power is a fall in the notice's figure, not necessarily a disposal: a placement dilutes a holder whose shares did not change.";
+const METHOD_P3 =
+  "Index fund holdings are the funds' own holdings files (Vanguard's are the pooled fund behind each ETF); super fund holdings are each fund's portfolio holdings disclosure for one investment option, not the whole fund. Short interest is ASIC's daily short position report. Not financial advice.";
+
 /** Where the figures come from, and what they are not. */
 export function OwnershipMethodology({ className }: { className?: string }) {
   return (
     <div className={cn("space-y-2 text-xs text-muted-foreground", className)}>
-      <p>
-        Substantial holdings are the voting power stated in each holder&apos;s latest ASX notice (Corporations Act
-        s671B, Forms 603, 604 and 605), read from the notice PDF. A holding is shown until a later notice says it
-        changed or ceased; the date is the notice&apos;s. Notices whose voting power cannot be read unambiguously (a
-        scanned form, a figure only in an annexure) are withheld, never estimated.
-      </p>
-      <p>
-        Holders&apos; interests can overlap: MUFG reports Morgan Stanley&apos;s and First Sentier&apos;s interests as
-        its own. Sums count each interest once where the overlap is known (a group and its member count the larger
-        figure; two notices disclosing the same voting power on the same date count once), and every holder is
-        still listed. Other overlaps remain, so a sum is what the notices disclose, not a share of the company.
-        Banks&apos; and brokers&apos; notices are mostly securities lending, often to short sellers.
-      </p>
-      <p>
-        Index ETF holdings are the funds&apos; own holdings files; super fund holdings are each fund&apos;s portfolio
-        holdings disclosure for one investment option (its default or balanced option), not the whole fund. Short
-        interest is ASIC&apos;s daily short position report. Not financial advice.
-      </p>
+      <p>{METHOD_P1}</p>
+      <p>{METHOD_P2}</p>
+      <p>{METHOD_P3}</p>
     </div>
   );
 }

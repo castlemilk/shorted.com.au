@@ -15,6 +15,7 @@ import type {
   SubstantialNotice,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
 import { formatAmount, formatPct } from "~/@/lib/fundamentals/format";
+import { ageLabel } from "./age";
 import {
   formLabel,
   formatFundWeight,
@@ -39,18 +40,29 @@ export interface HoldingRow {
   votingPower: string;
   change: string;
   asAt: string;
+  /** How long the holding has gone unread, or "" while it is recent. */
+  age: string;
   form: string;
   url: string;
 }
 
-export function holdingRow(p: SubstantialHolding): HoldingRow {
+/**
+ * `asOf` is the date the age counts to. The one-argument form stays because
+ * `rows.map(holdingRow)` passes the index as a second argument, which a string
+ * parameter would refuse. An index is not a date, so that row carries no age.
+ */
+export function holdingRow(p: SubstantialHolding): HoldingRow;
+export function holdingRow(p: SubstantialHolding, asOf: string): HoldingRow;
+export function holdingRow(p: SubstantialHolding, asOf = ""): HoldingRow {
+  // No event date on the notice: the release date stands in.
+  const asAt = p.eventDate || p.announcedOn;
   return {
     code: p.stockCode,
     company: p.companyName,
     votingPower: formatVotingPower(p.votingPowerPct),
     change: p.hasPrevious ? formatPointChange(p.previousPct, p.votingPowerPct) : "",
-    // No event date on the notice: the release date stands in.
-    asAt: p.eventDate || p.announcedOn,
+    asAt,
+    age: ageLabel(asAt, asOf),
     form: formLabel(p.form, false),
     url: p.announcementUrl,
   };

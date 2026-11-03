@@ -52,6 +52,8 @@ describe("isr-shell-pages.json", () => {
       "/housing/tas/council",
       "/housing/nt/council",
       "/housing/act/council",
+      "/ownership/notices",
+      "/ownership/stocks",
     ]);
   });
 });
@@ -243,5 +245,15 @@ describe("economy topic pages in the ISR sweep inventory", () => {
 describe("the ownership hub in the ISR sweep inventory", () => {
   it("lists /ownership", () => {
     expect(isrPages).toContain("/ownership");
+  });
+});
+
+// The explorer's two list pages read the API through the same actions as the island.
+// Those actions skip at build, so each builds as a shell that draws the marker.
+// Listing them in both sets lets the warm-cache repair re-prime them after a promote.
+describe("the ownership explorer pages in the sweep and the shell re-prime", () => {
+  it.each(["/ownership/notices", "/ownership/stocks"])("lists %s in both sets", (page) => {
+    expect(isrPages).toContain(page);
+    expect(isrShellPages).toContain(page);
   });
 });

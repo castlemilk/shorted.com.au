@@ -171,11 +171,26 @@ export const OWNERSHIP_DATA_CACHE_PREFIXES = ["cache:ownership:"] as const;
  */
 export const CACHE_KEYS = {
   // --- Ownership (substantial holders, ETF and super fund holdings) ---
-  ownershipOverview: () => `cache:ownership:overview`,
+  // v2 added the as-at dates and counts the register reads. A v1 entry still
+  // parses, with those fields empty, so it must never be read as the current
+  // shape: the version lives in the key. The institutions list gained no field,
+  // so its key stays where it is.
+  ownershipOverview: () => `cache:ownership:overview:v2`,
   ownershipInstitutions: (kind: string, query: string, limit: number, offset: number) =>
     `cache:ownership:institutions:${kind || "all"}:${query || "-"}:${limit}:${offset}`,
-  ownershipInstitution: (slug: string) => `cache:ownership:institution:${slug}`,
-  stockOwnership: (stockCode: string) => `cache:ownership:stock:${stockCode}`,
+  ownershipInstitution: (slug: string) => `cache:ownership:institution:v2:${slug}`,
+  stockOwnership: (stockCode: string) => `cache:ownership:stock:v2:${stockCode}`,
+  // The explorer's two default views, and nothing else: /ownership/notices at
+  // window 30 with no filters, and /ownership/stocks sorted by disclosed voting
+  // power with no filters. Every other query is a live read, so a key never
+  // stands for a visitor's choice of filter. Each entry is the API's answer as
+  // proto JSON, mapped again on every read (ownershipExplorer.ts), so a change to
+  // the mapping needs no new version. Two changes do bump it: a change to what a
+  // field means, and a mapping that starts reading a field the API did not send
+  // when the entry was written. The old entry still parses, with that field
+  // empty, and a deploy does not flush KV, so it is served for up to OWNERSHIP_TTL.
+  ownershipNotices: () => `cache:ownership:notices:v1`,
+  ownershipRegisters: () => `cache:ownership:registers:v1`,
   // --- Registers of Members'/Senators' Interests ---
   parliamentOverview: () => `cache:politicians:overview`,
   politicianList: (chamber: string, state: string, party: string, query: string, limit: number, offset: number) =>

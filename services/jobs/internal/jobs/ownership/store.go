@@ -208,6 +208,55 @@ func (s *pgStore) RelinkNotices(ctx context.Context) (int, error) {
 	return batch.Len(), nil
 }
 
+// StoredNotices reads every stored notice's holder for the placeholder repair.
+// The repair judges the names in Go (placeholderRows), so the rule is the
+// parser's own and is not copied into SQL.
+func (s *pgStore) StoredNotices(ctx context.Context) ([]storedNotice, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT announcement_url, stock_code, holder_key, COALESCE(holder_name, ''), present_pct,
+		       announced_on::text, form, ceased
+		FROM substantial_holder_notices
+		ORDER BY announced_on DESC, announcement_url`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []storedNotice
+	for rows.Next() {
+		var n storedNotice
+		if err := rows.Scan(&n.URL, &n.StockCode, &n.HolderKey, &n.HolderName, &n.PresentPct,
+			&n.AnnouncedOn, &n.Form, &n.Ceased); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+// RemoveNoticesAndAttempts deletes the notices and their attempts for urls in
+// one transaction. The next notices run reads a URL again only when it has no
+// attempt, and a re-read withholds a placeholder without touching its notice
+// row, so the row and the attempt must go together.
+func (s *pgStore) RemoveNoticesAndAttempts(ctx context.Context, urls []string) (int64, int64, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	notices, err := tx.Exec(ctx, `DELETE FROM substantial_holder_notices WHERE announcement_url = ANY($1)`, urls)
+	if err != nil {
+		return 0, 0, fmt.Errorf("delete notices: %w", err)
+	}
+	attempts, err := tx.Exec(ctx, `DELETE FROM substantial_holder_notice_attempts WHERE announcement_url = ANY($1)`, urls)
+	if err != nil {
+		return 0, 0, fmt.Errorf("delete attempts: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, 0, err
+	}
+	return notices.RowsAffected(), attempts.RowsAffected(), nil
+}
+
 // SaveSnapshot replaces one fund's holdings for one as-at date, in one
 // transaction: a re-run of the same file rewrites it, never doubles it.
 func (s *pgStore) SaveSnapshot(ctx context.Context, snap snapshot) (int, error) {

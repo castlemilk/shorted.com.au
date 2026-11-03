@@ -12,7 +12,12 @@ import (
 // noticeParserVersion is stored with every attempt. Bump it when a change to
 // parseSubstantialNotice would read a notice it once refused differently: a
 // refused notice whose attempt carries an older version is read again
-// (pendingNoticesSQL), a parsed one never is.
+// (pendingNoticesSQL), a parsed one never is. The placeholder gate (a section 1
+// name such as "SEE ANNEXURE 1" is withheld as no_holder) did not bump it: it
+// only adds refusals, so no notice refused before would parse now, and a bump
+// would re-download every refusal to change nothing but its label. A notice
+// parsed with a placeholder name before the gate keeps its row until a repair
+// removes it, because a parsed attempt is never read again.
 const noticeParserVersion = 1
 
 // Form is the statutory form a substantial holding notice was given on.
@@ -70,6 +75,8 @@ const (
 	// outcomeImplausible: a figure was read but contradicts the form (a 603
 	// under 5%).
 	outcomeImplausible Outcome = "implausible"
+	// outcomeNoHolder is declared with the pass's outcomes (notices.go). The
+	// parser returns it too, for a placeholder section 1 name.
 )
 
 // loose turns a label into a pattern that survives a text layer's breaks: a
@@ -238,33 +245,225 @@ var (
 	labelWords = []string{"the holder became", "the holder ceased", "there was a change", "acn/arsn", "details of", "name"}
 )
 
-// cleanHolderName trims the label debris around a section 1 name.
+// cleanHolderName trims the label debris around a section 1 name. It returns ""
+// when no value was written (the label alone, or nothing), which leaves the
+// holder to the institution fallbacks. A value with no letter at all ("-",
+// "(1)", an ACN whose label was lost) is kept as written, for placeholderReason
+// to withhold: blanking it would hand the holder to the fallbacks that read it
+// from the notice's text, the guess the gate exists to prevent.
 func cleanHolderName(raw string) string {
 	s := strings.TrimSpace(splitCapRe.ReplaceAllString(raw, "$1$2"))
-	s = strings.Trim(s, " :;,.-\"'()")
-	// A label drawn in the middle of a two-line value: "PINNACLE ... (AND ITS
-	// SUBSIDIARIES Name LISTED IN ANNEXURE A)".
-	s = strings.Replace(s, " Name ", " ", 1)
-	lower := strings.ToLower(s)
-	for _, w := range labelWords {
-		if lower == w || strings.HasPrefix(lower, w+" ") {
-			return ""
+	if strings.IndexFunc(s, unicode.IsLetter) >= 0 {
+		s = strings.Trim(s, " :;,.-\"'()")
+		// A label drawn in the middle of a two-line value: "PINNACLE ... (AND ITS
+		// SUBSIDIARIES Name LISTED IN ANNEXURE A)".
+		s = strings.Replace(s, " Name ", " ", 1)
+		lower := strings.ToLower(s)
+		for _, w := range labelWords {
+			if lower == w || strings.HasPrefix(lower, w+" ") {
+				return ""
+			}
 		}
-	}
-	letters := 0
-	for _, r := range s {
-		if unicode.IsLetter(r) {
-			letters++
-		}
-	}
-	// A name has letters; a run of digits is an ACN that lost its label.
-	if letters < 2 {
-		return ""
 	}
 	if len(s) > 200 {
 		s = strings.TrimSpace(s[:200])
 	}
 	return s
+}
+
+// placeholderPointers are the words a section 1 name uses to point the reader at
+// another page: "SEE ANNEXURE 1", "Refer attached", "N/A". A name made of
+// pointers, glue and labels alone, with at least one pointer, is a placeholder.
+var placeholderPointers = map[string]bool{
+	"see": true, "refer": true, "attached": true, "attachment": true, "attachments": true,
+	"annexed": true, "enclosed": true, "herewith": true, "below": true, "above": true,
+	"annex": true, "annexe": true, "annexure": true, "annexures": true,
+	"appendix": true, "appendices": true, "schedule": true, "schedules": true,
+	"per": true, "applicable": true, "na": true,
+}
+
+// placeholderGlue are the words that stand around a pointer without naming
+// anyone: "as per", "not applicable", "please see", "listed in", "AND ITS
+// SUBSIDIARIES", "Details of holders". A name of glue alone names no one, but
+// glue is never enough on its own: a pointer must be there too.
+var placeholderGlue = map[string]bool{
+	"a": true, "an": true, "the": true, "as": true, "to": true, "in": true, "of": true,
+	"and": true, "or": true, "on": true, "at": true, "for": true, "by": true,
+	"from": true, "with": true, "is": true, "are": true, "its": true, "their": true,
+	"this": true, "these": true, "those": true, "other": true, "others": true,
+	"each": true, "all": true, "any": true, "please": true, "not": true,
+	"listed": true, "details": true, "detail": true, "following": true, "follows": true,
+	"including": true, "subsidiaries": true, "subsidiary": true, "entities": true,
+	"entity": true, "associates": true, "affiliates": true, "related": true,
+	"bodies": true, "corporate": true, "controlled": true, "companies": true,
+	"holder": true, "holders": true, "list": true, "lists": true, "register": true,
+	"statement": true, "statements": true, "copy": true, "copies": true, "page": true,
+	"pages": true, "section": true, "form": true, "notice": true, "number": true,
+	"numbers": true, "name": true, "names": true,
+}
+
+// placeholderLeads are the pointers that open a name's own clause. A name that
+// opens with one points elsewhere whatever follows ("Refer to the holding
+// statement"). "Annex" and "Annexe" are not among them: they can open a fund's
+// name ("Annex Partners"), which only the rule for names made of pointers may
+// withhold.
+var placeholderLeads = map[string]bool{
+	"refer": true, "annexure": true, "annexures": true,
+	"appendix": true, "appendices": true,
+}
+
+// placeholderTokenRe splits a name into its letter runs and its digit runs, so
+// "ANNEXURE1" reads as two words and "A" as a label.
+var placeholderTokenRe = regexp.MustCompile(`\pL+|\pN+`)
+
+// placeholderReason says why a section 1 name is a placeholder rather than a
+// holder, or returns "" for a name. A placeholder is a pointer where the name
+// belongs ("SEE ANNEXURE 1", "Refer to Annexure A", "As per", "N/A") or no name
+// at all ("123 456", "A B", "-"). The rule turns on what else the name says: a
+// pointer makes a placeholder when no other word in the name is a word of its
+// own, or when the name opens with it ("Refer to the holding statement"). So a
+// holder whose clause points at an annexure stays a holder, whether or not
+// nameTails cuts the clause ("Citigroup Global Markets Australia Pty Limited, as
+// listed in Annexure A"). The gates judge a name through placeholderHolder, which
+// applies judgedHolderName and lets a name that resolves to an institution
+// through. An empty name is not a placeholder: no value was written, and the
+// fallbacks read the holder from the notice.
+func placeholderReason(name string) string {
+	if strings.TrimSpace(name) == "" {
+		return ""
+	}
+	lower := strings.ToLower(strings.Join(strings.Fields(name), " "))
+	// "N/A" is one word. It is matched before the name is split at its slash,
+	// which would leave "n" and "a".
+	for _, w := range strings.Fields(lower) {
+		if strings.Trim(w, ".,;:()[]\"'") == "n/a" {
+			return `matches "n/a"`
+		}
+	}
+	tokens := joinSplitPointers(placeholderTokenRe.FindAllString(lower, -1))
+	if p := pointerOnly(tokens); p != "" {
+		return fmt.Sprintf("matches %q", p)
+	}
+	if p := leadingPointer(tokens); p != "" {
+		return fmt.Sprintf("opens with %q", p)
+	}
+	// A name of three words or fewer that names a schedule is a pointer too:
+	// "Schedule Holdings" is no holder. A longer name that contains the word is a
+	// name ("Schedule Capital Partners Pty Ltd").
+	if len(strings.Fields(lower)) <= 3 {
+		for _, t := range tokens {
+			if t == "schedule" || t == "schedules" {
+				return `matches "schedule" in a name of three words or fewer`
+			}
+		}
+	}
+	letters := strings.FieldsFunc(lower, func(r rune) bool { return !unicode.IsLetter(r) })
+	if len(letters) == 0 {
+		return "no letter in it"
+	}
+	for _, w := range letters {
+		if len([]rune(w)) > 1 {
+			return ""
+		}
+	}
+	return "every word is a single letter"
+}
+
+// placeholderDetail is the attempt's detail for a withheld placeholder: it names
+// the text the form wrote, so the attempts table explains the refusal.
+func placeholderDetail(name, reason string) string {
+	return fmt.Sprintf("section 1 names a placeholder, not a holder: %q (%s)", name, reason)
+}
+
+// judgedHolderName is the name the placeholder rule reads: the tidied name or,
+// when tidying cuts a value made of punctuation alone ("-") to nothing, that
+// value as written. The rule has to see that such a value names no one.
+func judgedHolderName(name string) string {
+	if t := tidyHolderName(name); t != "" {
+		return t
+	}
+	return strings.TrimSpace(name)
+}
+
+// placeholderHolder is the one judgment of a section 1 name. The parser's gates
+// call it on the name as cleanHolderName left it, the string resolveHolder keys a
+// holder by. It returns the name the rule reads (judgedHolderName) and why that
+// name is a placeholder, or "" for a holder.
+//
+// A name that resolves to a curated institution is a holder whatever its opening
+// words: "Refer Annexure A for Vanguard Group entities" points at an annexure and
+// names Vanguard, which the pass keys it to. Resolution reads the name as written,
+// not the tidied one, because tidying cuts at the first " (" or " on behalf of":
+// "SEE ANNEXURE A (BlackRock Inc. and its subsidiaries)" tidies to a pointer, but
+// its institution is BlackRock. The repair calls it on the stored name instead,
+// which is the tidied text (see placeholderRows in repair.go).
+func placeholderHolder(name string) (judged, reason string) {
+	judged = judgedHolderName(name)
+	if resolveInstitution(name) != nil {
+		return judged, ""
+	}
+	return judged, placeholderReason(judged)
+}
+
+// joinSplitPointers rejoins a pointer a text layer broke apart: "ANNEX URE 1" and
+// "Not a pp licable" read as "ANNEXURE 1" and "Not applicable" once the pieces
+// are joined.
+func joinSplitPointers(tokens []string) []string {
+	var out []string
+	for i := 0; i < len(tokens); {
+		n := 1
+		for k := 3; k >= 2 && i+k <= len(tokens); k-- {
+			if w := strings.Join(tokens[i:i+k], ""); placeholderPointers[w] {
+				out = append(out, w)
+				n = k
+				break
+			}
+		}
+		if n == 1 {
+			out = append(out, tokens[i])
+		}
+		i += n
+	}
+	return out
+}
+
+// pointerOnly returns the longest pointer in a name made only of pointers, glue
+// and labels, or "" when the name has a word of its own or no pointer at all.
+func pointerOnly(tokens []string) string {
+	best := ""
+	for _, t := range tokens {
+		switch {
+		case placeholderPointers[t]:
+			if len(t) > len(best) {
+				best = t
+			}
+		case placeholderGlue[t], isLabel(t):
+		default:
+			return ""
+		}
+	}
+	return best
+}
+
+// leadingPointer returns the pointer that opens a name, past any glue and
+// labels, or "" when the name opens with a word of its own.
+func leadingPointer(tokens []string) string {
+	for _, t := range tokens {
+		if placeholderGlue[t] || isLabel(t) {
+			continue
+		}
+		if placeholderLeads[t] {
+			return t
+		}
+		return ""
+	}
+	return ""
+}
+
+// isLabel is a token a clause uses to number or letter itself: the "A" of
+// "Annexure A", the "1" of "Schedule 1".
+func isLabel(t string) bool {
+	return len([]rune(t)) == 1 || strings.Trim(t, "0123456789") == ""
 }
 
 // The date a notice gives for its event. A layout can draw the date cell
@@ -516,6 +715,13 @@ func parseSubstantialNotice(text, headline string) (Notice, Outcome, string) {
 	if m := companyNameRe.FindStringSubmatch(s); m != nil {
 		n.CompanyName = strings.Trim(strings.TrimSpace(splitCapRe.ReplaceAllString(m[1], "$1$2")), ` :;,."'`)
 	}
+	// A placeholder is no holder. It is withheld here, before any institution or
+	// name is read from the rest of the notice. Its company is kept, so the
+	// attempt is filed under the company the notice is about.
+	holder, why := placeholderHolder(n.HolderName)
+	if why != "" {
+		return Notice{Form: form, CompanyName: n.CompanyName}, outcomeNoHolder, placeholderDetail(holder, why)
+	}
 	for _, re := range eventDateRes {
 		if m := re.FindStringSubmatch(s); m != nil {
 			if d := parseNoticeDate(m[1]); d != "" {
@@ -604,6 +810,11 @@ func parseNZNotice(s string, n Notice) (Notice, Outcome, string) {
 	}
 	if m := nzCompanyRe.FindStringSubmatch(s); m != nil {
 		n.CompanyName = strings.TrimSpace(m[1])
+	}
+	// The same gate as the Australian forms: a placeholder is no holder.
+	holder, why := placeholderHolder(n.HolderName)
+	if why != "" {
+		return Notice{Form: n.Form, CompanyName: n.CompanyName}, outcomeNoHolder, placeholderDetail(holder, why)
 	}
 	if m := nzEventDateRe.FindStringSubmatch(s); m != nil {
 		n.EventDate = parseNoticeDate(m[1])

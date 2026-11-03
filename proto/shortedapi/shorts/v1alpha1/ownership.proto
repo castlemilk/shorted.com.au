@@ -13,7 +13,7 @@ import "options/v1/options.proto";
 //     every holder of 5% or more, whatever it is: super funds, index managers,
 //     hedge funds, banks lending stock to short sellers, companies, families.
 //     A figure is the notice's own voting power, as at the notice.
-//   - Index ETF holdings files (iShares, Vanguard, SPDR, Betashares), daily or
+//   - Index fund holdings files (iShares, Vanguard, SPDR, Betashares), daily or
 //     monthly: shares held by the fund.
 //   - Super fund portfolio holdings disclosures, semi-annual: one investment
 //     option's holdings (the default or balanced option), never the whole fund.
@@ -42,8 +42,24 @@ service OwnershipService {
   }
 
   // Who holds one stock: its substantial holders, their notices, and the index
-  // ETFs and super fund options that hold it.
+  // funds and super fund options that hold it.
   rpc GetStockOwnership (GetStockOwnershipRequest) returns (GetStockOwnershipResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // The substantial holding notices we could read, newest release first:
+  // filtered by window, event, kind, stock or registry holder, paged by a
+  // keyset cursor, with the window's activity on the first page for windows of
+  // up to 90 days.
+  rpc ListSubstantialNotices (ListSubstantialNoticesRequest) returns (ListSubstantialNoticesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Every stock with a current substantial holder, filtered and sorted for the
+  // register explorer: what its notices disclose (each interest counted once,
+  // not a share of the company), the investors, banks and index funds among its
+  // holders, and its short interest.
+  rpc ListStockRegisters (ListStockRegistersRequest) returns (ListStockRegistersResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
 }
@@ -114,6 +130,12 @@ message SubstantialNotice {
   string event_date = 13;
   string announced_on = 14;
   string announcement_url = 15;
+  // A notice's event, decided once from its form and figures, ceased first:
+  // ceased (the ceased flag, or Form 605), became (603), increased or
+  // decreased (604 with both figures and a difference), changed (604 with no
+  // previous figure, no present figure, or an equal one), nz (an NZ
+  // disclosure that is not a cessation).
+  string event = 16;
 }
 
 // One stock in one fund's holdings file.
@@ -191,7 +213,7 @@ message OwnershipStock {
   // ASIC's latest reported short position, as a percentage of shares on issue.
   double short_pct = 7;
   bool has_short_pct = 8;
-  // Shares held by the index ETFs tracked, over shares on issue.
+  // Shares held by the index funds tracked, over shares on issue.
   double index_pct = 9;
   bool has_index_pct = 10;
   // Super fund options holding it, of those tracked, and their combined value.
@@ -200,6 +222,15 @@ message OwnershipStock {
   bool has_super_value = 13;
   double market_cap = 14;
   bool has_market_cap = 15;
+  // ASIC's report date behind short_pct; "" when there is none.
+  string short_as_of = 16;
+  // The oldest and newest file dates behind index_pct, and how many files
+  // contributed; "" and 0 when there is no index figure.
+  string index_as_at_from = 17;
+  string index_as_at_to = 18;
+  int32 index_files = 19;
+  // The newest release date among the current holders' notices; "" when none.
+  string latest_notice_date = 20;
 }
 
 // One holdings source's coverage.
@@ -208,6 +239,21 @@ message OwnershipSource {
   string description = 2;
   string as_at = 3;
   int32 records = 4;
+  // Files (index funds) or options (super funds) the source holds. 0 for notices.
+  int32 funds = 5;
+  // The oldest file date behind the source; equals as_at when one file or
+  // one date. "" for notices.
+  string as_at_from = 6;
+}
+
+// Documents attempted and not parsed, by outcome. Six outcomes withhold a
+// notice that was read or could not be read (no_text, no_voting_power,
+// implausible, ambiguous_target, no_holder, inconsistent_votes); not_a_notice
+// is a document that was never a substantial holding form and fetch_error a
+// download that is retried. Neither is an unread notice.
+message WithheldOutcome {
+  string outcome = 1;
+  int32 count = 2;
 }
 
 message GetOwnershipOverviewRequest {}
@@ -216,7 +262,8 @@ message GetOwnershipOverviewResponse {
   repeated OwnershipKindSummary kinds = 1;
   // Institutions with the most current substantial holdings.
   repeated OwnershipInstitution top_holders = 2;
-  // Stocks with the highest disclosed substantial voting power.
+  // Stocks where investors (super, index, active, hedge, sovereign, insurer)
+  // disclose the most voting power; banks and brokers are not counted.
   repeated OwnershipStock crowded = 3;
   // Stocks where hedge funds and active managers hold substantial stakes and
   // short interest is high: crowded on both sides.
@@ -228,7 +275,7 @@ message GetOwnershipOverviewResponse {
   repeated SubstantialNotice recent = 6;
   // Stocks the tracked super fund options hold most of, by combined value.
   repeated OwnershipStock super_consensus = 7;
-  // Stocks the tracked index ETFs own the largest share of.
+  // Stocks the tracked index funds own the largest share of.
   repeated OwnershipStock passive = 8;
   repeated OwnershipSource sources = 9;
   int32 notices_parsed = 10;
@@ -240,6 +287,10 @@ message GetOwnershipOverviewResponse {
   int32 lics = 16;
   double lic_market_cap_aud = 17;
   string as_of = 18;
+  // Withheld documents by outcome; notices_withheld stays their total.
+  repeated WithheldOutcome withheld_by_outcome = 19;
+  // Every document attempted, parsed included: the base of notices_withheld.
+  int32 documents_attempted = 20;
 }
 
 message ListInstitutionsRequest {
@@ -266,6 +317,8 @@ message GetInstitutionResponse {
   // The largest holdings, by value, of its latest holdings files.
   repeated FundHolding fund_holdings = 4;
   repeated OwnershipFund funds = 5;
+  // Rows in its latest files; fund_holdings serves the largest 100.
+  int32 fund_holdings_total = 6;
 }
 
 message GetStockOwnershipRequest {
@@ -279,4 +332,117 @@ message GetStockOwnershipResponse {
   repeated FundHolding fund_holdings = 4;
   double shares_on_issue = 5;
   bool has_shares_on_issue = 6;
+  // Parsed notices for the stock on record; history serves the newest 100.
+  int32 history_total = 7;
+  // Documents listed under this code whose outcome is one of the six
+  // withholding outcomes. A document ASX lists under several codes is counted
+  // under one of them, so the figure is "listed under", never beside a sum.
+  int32 withheld_listed = 8;
+  // The newest notice release date read anywhere.
+  string as_of = 9;
+}
+
+message ListSubstantialNoticesRequest {
+  // 7, 30, 90 or 365; 0 means every notice read (no date clause). Another
+  // positive value rounds UP to the next served window, and one above 365 is
+  // 0; the response echoes the window used. A negative value is invalid.
+  int32 window_days = 1;
+  // "" or one of became, increased, decreased, changed, ceased, nz.
+  string event = 2;
+  // "" or a holder kind: an institution kind, corporate or unclassified.
+  string kind = 3;
+  // "" or an ASX code (1 to 6 uppercase alphanumerics).
+  string stock_code = 4;
+  // "" or a registry slug: that holder's notices, as its institution page reads
+  // them. Holders off the map cannot be filtered.
+  string institution_slug = 5;
+  // "" for the first page, else the previous page's next_cursor.
+  string cursor = 6;
+  // 0 means 50; above 100 is 100.
+  int32 limit = 7;
+  // Also compute the window's counts, weekly buckets and largest moves
+  // (windows of at most 90 days; omitted above that). Only the first page
+  // (cursor ""): a page after a cursor never carries it.
+  bool include_activity = 8;
+}
+
+// One ISO week of notices, by event.
+message NoticeWeek {
+  // The Monday that starts the week, YYYY-MM-DD.
+  string week_start = 1;
+  int32 became = 2;
+  int32 increased = 3;
+  int32 decreased = 4;
+  int32 changed = 5;
+  int32 ceased = 6;
+  int32 nz = 7;
+}
+
+// A window's notices by event, by week, and the largest moves.
+message NoticeActivity {
+  int32 became = 1;
+  int32 increased = 2;
+  int32 decreased = 3;
+  int32 changed = 4;
+  int32 ceased = 5;
+  int32 nz = 6;
+  // Every ISO week in the window, oldest first, empty weeks included.
+  repeated NoticeWeek weeks = 7;
+  // Form 604 notices with both figures, by the largest rise and fall in
+  // percentage points; at most five each.
+  repeated SubstantialNotice largest_rises = 8;
+  repeated SubstantialNotice largest_falls = 9;
+}
+
+message ListSubstantialNoticesResponse {
+  repeated SubstantialNotice notices = 1;
+  // The cursor for the next page; "" on the last page.
+  string next_cursor = 2;
+  // Notices matching the filters in the window; the cursor does not narrow it.
+  int32 total = 3;
+  // The window used, echoed: 0 is every notice read (no date clause).
+  int32 window_days = 4;
+  string as_of = 5;
+  // Only on a first page that set include_activity, for a window that allows it.
+  NoticeActivity activity = 6;
+}
+
+message ListStockRegistersRequest {
+  // disclosed (default), investors, banks, hedge_active, short, index,
+  // super_value, super_options, interests, latest_notice, code. A stock
+  // without the figure sorts last whatever the direction; ties are broken by
+  // code.
+  string sort = 1;
+  bool ascending = 2;
+  // "" or one of the response's industries, matched exactly after trim.
+  string industry = 3;
+  // A kind that must disclose 5% or more in the stock; "" for any.
+  string kind = 4;
+  // Interests counted once; 0 means 1.
+  int32 min_interests = 5;
+  // One of 0, 1, 3, 5, 10; another value snaps DOWN to the nearest served step.
+  double min_short_pct = 6;
+  // A code prefix or a name substring, at most 24 characters.
+  string query = 7;
+  // 0 means 50; above 100 is 100.
+  int32 limit = 8;
+  // 0 to 5000.
+  int32 offset = 9;
+}
+
+// One industry among the register's stocks, for the filter.
+message IndustryCount {
+  string industry = 1;
+  int32 stocks = 2;
+}
+
+message ListStockRegistersResponse {
+  repeated OwnershipStock stocks = 1;
+  // Stocks matching the filters.
+  int32 total = 2;
+  // Stocks with at least one current holder, before the filters.
+  int32 universe = 3;
+  // The distinct industries, sorted, for the filter.
+  repeated IndustryCount industries = 4;
+  string as_of = 5;
 }

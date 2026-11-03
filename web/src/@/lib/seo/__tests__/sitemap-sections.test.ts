@@ -121,18 +121,50 @@ const institutionsFixture = [
 const getOwnershipOverview = jest.fn();
 const listInstitutions = jest.fn();
 const getInstitution = jest.fn();
+const getStockOwnership = jest.fn();
 jest.mock("~/app/actions/getOwnership", () => ({
   getOwnershipOverview: () => getOwnershipOverview(),
   listInstitutions: (...args: unknown[]) => listInstitutions(...args),
   getInstitution: (slug: string) => getInstitution(slug),
   // The institution page reads through the NotFound-aware twin.
   getInstitutionOrNotFound: (slug: string) => getInstitution(slug),
+  // The register page's metadata reads through the same call its page does.
+  getStockOwnership: (code: string) => getStockOwnership(code),
+}));
+// The register list, read a page at a time, as the sitemap reads it.
+const loadStockRegisters = jest.fn();
+jest.mock("~/app/actions/ownershipExplorer", () => ({
+  loadStockRegisters: (...args: unknown[]) => loadStockRegisters(...args),
 }));
 // The institution page's metadata is read below; its layout never renders.
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({ DashboardLayout: () => null }));
+
+// The register list's rows, as the action maps them: the sitemap reads the code,
+// the interests (a count, as text) and the newest notice. `holders` is the count the
+// register page's own summary reports for the stock. The list does not carry it, so
+// the strict-subset check below feeds the page that count, not the interests.
+const registerRowsFixture = [
+  { code: "BHP", interests: "3", holders: "3", latestNotice: "2026-10-16" },
+  { code: "PLS", interests: "1", holders: "1", latestNotice: "" },
+  // Every holder ceased: no current holder, so no page is listed.
+  { code: "GONE", interests: "0", holders: "0", latestNotice: "2025-03-02" },
+  // A code the register route does not accept.
+  { code: "A-B", interests: "2", holders: "2", latestNotice: "2026-10-01" },
+];
+// One page of the list, as the action answers it for a query.
+const pageOf = (rows: Array<Record<string, string>>, { limit = 50, offset = 0 }: { limit?: number; offset?: number }) => ({
+  ok: true,
+  rows: rows.slice(offset, offset + limit),
+  asOf: "2026-10-20",
+});
+// The institution pages only: /ownership/<slug>, not the hub, the explorer's two
+// pages (/ownership/notices, /ownership/stocks) or a register (/ownership/stocks/<code>).
+const isInstitutionUrl = (url: string) =>
+  /\/ownership\/[^/]+$/.test(url) && !/\/ownership\/(notices|stocks)$/.test(url);
 beforeEach(() => {
   getOwnershipOverview.mockResolvedValue({ asOf: "2026-10-20", noticesParsed: 6367 });
   listInstitutions.mockResolvedValue({ institutions: institutionsFixture, total: institutionsFixture.length });
+  loadStockRegisters.mockImplementation(async (query) => pageOf(registerRowsFixture, query));
 });
 
 jest.mock("~/lib/openapi/parser", () => ({
@@ -166,6 +198,7 @@ import {
   buildShortsSitemap,
 } from "../sitemap-sections";
 import { generateMetadata as institutionMetadata } from "~/app/ownership/[slug]/page";
+import { generateMetadata as registerMetadata } from "~/app/ownership/stocks/[code]/page";
 import {
   SITEMAP_CHILDREN,
   dedupeEntries,
@@ -519,7 +552,7 @@ describe("sitemap children", () => {
   // no sitemap, and the empty ones were indexable (SEO review F09).
   it("lists only the institution pages the page itself indexes, dated by their newest notice", async () => {
     const ownership = await buildOwnershipSitemap();
-    const listed = ownership.filter((e) => e.url.includes("/ownership/"));
+    const listed = ownership.filter((e) => isInstitutionUrl(e.url));
     expect(listed.map((e) => e.url)).toEqual([
       "https://shorted.com.au/ownership/vanguard",
       "https://shorted.com.au/ownership/argo",
@@ -535,7 +568,7 @@ describe("sitemap children", () => {
   // key when GetInstitution returns only what ListInstitutions showed the
   // sitemap (its stakes) and no holdings files at all.
   it("lists no institution page that the page's own metadata noindexes", async () => {
-    const listed = (await buildOwnershipSitemap()).filter((e) => e.url.includes("/ownership/"));
+    const listed = (await buildOwnershipSitemap()).filter((e) => isInstitutionUrl(e.url));
     expect(listed).toHaveLength(2);
     for (const entry of listed) {
       const inst = institutionsFixture.find((i) => entry.url.endsWith(`/ownership/${i.slug}`))!;
@@ -558,10 +591,125 @@ describe("sitemap children", () => {
     expect(core.some((e) => e.url === "https://shorted.com.au/ownership")).toBe(false);
   });
 
-  it("keeps /ownership listed, with no lastmod, while the ownership reads fail", async () => {
+  it("keeps /ownership and the explorer pages listed, with no lastmod, while the ownership reads fail", async () => {
     getOwnershipOverview.mockResolvedValue(undefined);
     listInstitutions.mockResolvedValue(undefined);
-    expect(await buildOwnershipSitemap()).toEqual([{ url: "https://shorted.com.au/ownership" }]);
+    loadStockRegisters.mockResolvedValue({ ok: false, rows: [], asOf: "" });
+    const logged = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(await buildOwnershipSitemap()).toEqual([
+      { url: "https://shorted.com.au/ownership" },
+      { url: "https://shorted.com.au/ownership/notices" },
+      { url: "https://shorted.com.au/ownership/stocks" },
+    ]);
+    expect(logged).toHaveBeenCalledWith("Failed to fetch the register list for sitemap: a page was not answered.");
+    logged.mockRestore();
+  });
+
+  it("dates the explorer pages by the newest notice read, as the hub is", async () => {
+    const explorer = (await buildOwnershipSitemap()).filter((e) => /\/ownership\/(notices|stocks)$/.test(e.url));
+    expect(explorer).toEqual([
+      { url: "https://shorted.com.au/ownership/notices", lastModified: "2026-10-20T00:00:00.000Z" },
+      { url: "https://shorted.com.au/ownership/stocks", lastModified: "2026-10-20T00:00:00.000Z" },
+    ]);
+  });
+
+  it("lists the register pages that hold a current holder, in the register's order, dated by their newest notice", async () => {
+    const registers = (await buildOwnershipSitemap()).filter((e) =>
+      e.url.startsWith("https://shorted.com.au/ownership/stocks/"),
+    );
+    expect(registers.map((e) => e.url)).toEqual([
+      "https://shorted.com.au/ownership/stocks/BHP",
+      "https://shorted.com.au/ownership/stocks/PLS",
+    ]);
+    expect(registers[0]!.lastModified).toBe("2026-10-16T00:00:00.000Z");
+    // No notice date: listed, with no invented lastmod.
+    expect(registers[1]!.lastModified).toBeUndefined();
+    expect(loadStockRegisters).toHaveBeenCalledWith({ limit: 100, offset: 0 });
+  });
+
+  it("reads the register list a hundred at a time, and lists at most 1,000 register pages", async () => {
+    const many = Array.from({ length: 1200 }, (_, i) => ({ code: `R${i}`, interests: "1", latestNotice: "" }));
+    loadStockRegisters.mockClear();
+    loadStockRegisters.mockImplementation(async (query) => pageOf(many, query));
+    const registers = (await buildOwnershipSitemap()).filter((e) =>
+      e.url.startsWith("https://shorted.com.au/ownership/stocks/"),
+    );
+    expect(registers).toHaveLength(1000);
+    expect(loadStockRegisters).toHaveBeenCalledTimes(10);
+  });
+
+  // The ten reads are in flight together, so two of them can answer the same register:
+  // it is listed once.
+  it("lists a register once when two reads of the list answer it", async () => {
+    loadStockRegisters.mockImplementation(async (query) => ({
+      ok: true,
+      rows: query.offset === 0 || query.offset === 100 ? registerRowsFixture.slice(0, 2) : [],
+      asOf: "2026-10-20",
+    }));
+    const registers = (await buildOwnershipSitemap()).filter((e) =>
+      e.url.startsWith("https://shorted.com.au/ownership/stocks/"),
+    );
+    expect(registers.map((e) => e.url)).toEqual([
+      "https://shorted.com.au/ownership/stocks/BHP",
+      "https://shorted.com.au/ownership/stocks/PLS",
+    ]);
+  });
+
+  // A list that did not answer every page is not a list of the whole register: one
+  // page the list did not answer drops every register page, and the institutions stay.
+  it("drops the register pages, and keeps the institutions, when one page of the list is not answered", async () => {
+    loadStockRegisters.mockImplementation(async (query) =>
+      query.offset === 100 ? { ok: false, rows: [], asOf: "" } : pageOf(registerRowsFixture, query),
+    );
+    const logged = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const ownership = await buildOwnershipSitemap();
+    expect(ownership.some((e) => e.url.startsWith("https://shorted.com.au/ownership/stocks/"))).toBe(false);
+    expect(ownership.map((e) => e.url)).toContain("https://shorted.com.au/ownership/vanguard");
+    expect(logged).toHaveBeenCalledWith("Failed to fetch the register list for sitemap: a page was not answered.");
+    logged.mockRestore();
+  });
+
+  // A register as the API answers it, with the figures the register page's metadata reads.
+  const registerResponse = (code: string, holders: number) => ({
+    summary: {
+      stockCode: code,
+      companyName: `${code} Limited`,
+      holders,
+      disclosedPct: 9.5,
+      byKind: [],
+      shortPct: 0,
+      hasShortPct: false,
+      indexPct: 0,
+      hasIndexPct: false,
+      superOptions: 0,
+      superValueAud: 0,
+      hasSuperValue: false,
+    },
+    holders: [],
+    history: [],
+    fundHoldings: [],
+    historyTotal: 0,
+    withheldListed: 0,
+    asOf: "2026-10-20",
+    sharesOnIssue: 0,
+    hasSharesOnIssue: false,
+  });
+
+  // The strict-subset rule for the register pages, asked of the page itself: each
+  // listed register's own metadata is indexable, with no robots key.
+  it("lists no register page that the page's own metadata noindexes", async () => {
+    const registers = (await buildOwnershipSitemap()).filter((e) =>
+      e.url.startsWith("https://shorted.com.au/ownership/stocks/"),
+    );
+    expect(registers).toHaveLength(2);
+    for (const entry of registers) {
+      const code = entry.url.slice(entry.url.lastIndexOf("/") + 1);
+      const row = registerRowsFixture.find((r) => r.code === code)!;
+      getStockOwnership.mockResolvedValue(registerResponse(code, Number(row.holders)));
+      const meta = await registerMetadata({ params: Promise.resolve({ code }) });
+      expect(meta.alternates?.canonical).toBe(entry.url);
+      expect(Object.keys(meta)).not.toContain("robots");
+    }
   });
 
   it("lists the capital-prices hub and every capital registry slug", async () => {

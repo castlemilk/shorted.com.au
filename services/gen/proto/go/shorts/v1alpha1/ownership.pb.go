@@ -372,8 +372,14 @@ type SubstantialNotice struct {
 	EventDate       string                 `protobuf:"bytes,13,opt,name=event_date,json=eventDate,proto3" json:"event_date,omitempty"`
 	AnnouncedOn     string                 `protobuf:"bytes,14,opt,name=announced_on,json=announcedOn,proto3" json:"announced_on,omitempty"`
 	AnnouncementUrl string                 `protobuf:"bytes,15,opt,name=announcement_url,json=announcementUrl,proto3" json:"announcement_url,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// A notice's event, decided once from its form and figures, ceased first:
+	// ceased (the ceased flag, or Form 605), became (603), increased or
+	// decreased (604 with both figures and a difference), changed (604 with no
+	// previous figure, no present figure, or an equal one), nz (an NZ
+	// disclosure that is not a cessation).
+	Event         string `protobuf:"bytes,16,opt,name=event,proto3" json:"event,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubstantialNotice) Reset() {
@@ -507,6 +513,13 @@ func (x *SubstantialNotice) GetAnnouncedOn() string {
 func (x *SubstantialNotice) GetAnnouncementUrl() string {
 	if x != nil {
 		return x.AnnouncementUrl
+	}
+	return ""
+}
+
+func (x *SubstantialNotice) GetEvent() string {
+	if x != nil {
+		return x.Event
 	}
 	return ""
 }
@@ -971,7 +984,7 @@ type OwnershipStock struct {
 	// ASIC's latest reported short position, as a percentage of shares on issue.
 	ShortPct    float64 `protobuf:"fixed64,7,opt,name=short_pct,json=shortPct,proto3" json:"short_pct,omitempty"`
 	HasShortPct bool    `protobuf:"varint,8,opt,name=has_short_pct,json=hasShortPct,proto3" json:"has_short_pct,omitempty"`
-	// Shares held by the index ETFs tracked, over shares on issue.
+	// Shares held by the index funds tracked, over shares on issue.
 	IndexPct    float64 `protobuf:"fixed64,9,opt,name=index_pct,json=indexPct,proto3" json:"index_pct,omitempty"`
 	HasIndexPct bool    `protobuf:"varint,10,opt,name=has_index_pct,json=hasIndexPct,proto3" json:"has_index_pct,omitempty"`
 	// Super fund options holding it, of those tracked, and their combined value.
@@ -980,8 +993,17 @@ type OwnershipStock struct {
 	HasSuperValue bool    `protobuf:"varint,13,opt,name=has_super_value,json=hasSuperValue,proto3" json:"has_super_value,omitempty"`
 	MarketCap     float64 `protobuf:"fixed64,14,opt,name=market_cap,json=marketCap,proto3" json:"market_cap,omitempty"`
 	HasMarketCap  bool    `protobuf:"varint,15,opt,name=has_market_cap,json=hasMarketCap,proto3" json:"has_market_cap,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// ASIC's report date behind short_pct; "" when there is none.
+	ShortAsOf string `protobuf:"bytes,16,opt,name=short_as_of,json=shortAsOf,proto3" json:"short_as_of,omitempty"`
+	// The oldest and newest file dates behind index_pct, and how many files
+	// contributed; "" and 0 when there is no index figure.
+	IndexAsAtFrom string `protobuf:"bytes,17,opt,name=index_as_at_from,json=indexAsAtFrom,proto3" json:"index_as_at_from,omitempty"`
+	IndexAsAtTo   string `protobuf:"bytes,18,opt,name=index_as_at_to,json=indexAsAtTo,proto3" json:"index_as_at_to,omitempty"`
+	IndexFiles    int32  `protobuf:"varint,19,opt,name=index_files,json=indexFiles,proto3" json:"index_files,omitempty"`
+	// The newest release date among the current holders' notices; "" when none.
+	LatestNoticeDate string `protobuf:"bytes,20,opt,name=latest_notice_date,json=latestNoticeDate,proto3" json:"latest_notice_date,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *OwnershipStock) Reset() {
@@ -1119,13 +1141,53 @@ func (x *OwnershipStock) GetHasMarketCap() bool {
 	return false
 }
 
+func (x *OwnershipStock) GetShortAsOf() string {
+	if x != nil {
+		return x.ShortAsOf
+	}
+	return ""
+}
+
+func (x *OwnershipStock) GetIndexAsAtFrom() string {
+	if x != nil {
+		return x.IndexAsAtFrom
+	}
+	return ""
+}
+
+func (x *OwnershipStock) GetIndexAsAtTo() string {
+	if x != nil {
+		return x.IndexAsAtTo
+	}
+	return ""
+}
+
+func (x *OwnershipStock) GetIndexFiles() int32 {
+	if x != nil {
+		return x.IndexFiles
+	}
+	return 0
+}
+
+func (x *OwnershipStock) GetLatestNoticeDate() string {
+	if x != nil {
+		return x.LatestNoticeDate
+	}
+	return ""
+}
+
 // One holdings source's coverage.
 type OwnershipSource struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Source        string                 `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	AsAt          string                 `protobuf:"bytes,3,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
-	Records       int32                  `protobuf:"varint,4,opt,name=records,proto3" json:"records,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Source      string                 `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	Description string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	AsAt        string                 `protobuf:"bytes,3,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	Records     int32                  `protobuf:"varint,4,opt,name=records,proto3" json:"records,omitempty"`
+	// Files (index funds) or options (super funds) the source holds. 0 for notices.
+	Funds int32 `protobuf:"varint,5,opt,name=funds,proto3" json:"funds,omitempty"`
+	// The oldest file date behind the source; equals as_at when one file or
+	// one date. "" for notices.
+	AsAtFrom      string `protobuf:"bytes,6,opt,name=as_at_from,json=asAtFrom,proto3" json:"as_at_from,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1188,6 +1250,77 @@ func (x *OwnershipSource) GetRecords() int32 {
 	return 0
 }
 
+func (x *OwnershipSource) GetFunds() int32 {
+	if x != nil {
+		return x.Funds
+	}
+	return 0
+}
+
+func (x *OwnershipSource) GetAsAtFrom() string {
+	if x != nil {
+		return x.AsAtFrom
+	}
+	return ""
+}
+
+// Documents attempted and not parsed, by outcome. Six outcomes withhold a
+// notice that was read or could not be read (no_text, no_voting_power,
+// implausible, ambiguous_target, no_holder, inconsistent_votes); not_a_notice
+// is a document that was never a substantial holding form and fetch_error a
+// download that is retried. Neither is an unread notice.
+type WithheldOutcome struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Outcome       string                 `protobuf:"bytes,1,opt,name=outcome,proto3" json:"outcome,omitempty"`
+	Count         int32                  `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WithheldOutcome) Reset() {
+	*x = WithheldOutcome{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WithheldOutcome) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WithheldOutcome) ProtoMessage() {}
+
+func (x *WithheldOutcome) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WithheldOutcome.ProtoReflect.Descriptor instead.
+func (*WithheldOutcome) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *WithheldOutcome) GetOutcome() string {
+	if x != nil {
+		return x.Outcome
+	}
+	return ""
+}
+
+func (x *WithheldOutcome) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
 type GetOwnershipOverviewRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1196,7 +1329,7 @@ type GetOwnershipOverviewRequest struct {
 
 func (x *GetOwnershipOverviewRequest) Reset() {
 	*x = GetOwnershipOverviewRequest{}
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1208,7 +1341,7 @@ func (x *GetOwnershipOverviewRequest) String() string {
 func (*GetOwnershipOverviewRequest) ProtoMessage() {}
 
 func (x *GetOwnershipOverviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1221,7 +1354,7 @@ func (x *GetOwnershipOverviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOwnershipOverviewRequest.ProtoReflect.Descriptor instead.
 func (*GetOwnershipOverviewRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{9}
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{10}
 }
 
 type GetOwnershipOverviewResponse struct {
@@ -1229,7 +1362,8 @@ type GetOwnershipOverviewResponse struct {
 	Kinds []*OwnershipKindSummary `protobuf:"bytes,1,rep,name=kinds,proto3" json:"kinds,omitempty"`
 	// Institutions with the most current substantial holdings.
 	TopHolders []*OwnershipInstitution `protobuf:"bytes,2,rep,name=top_holders,json=topHolders,proto3" json:"top_holders,omitempty"`
-	// Stocks with the highest disclosed substantial voting power.
+	// Stocks where investors (super, index, active, hedge, sovereign, insurer)
+	// disclose the most voting power; banks and brokers are not counted.
 	Crowded []*OwnershipStock `protobuf:"bytes,3,rep,name=crowded,proto3" json:"crowded,omitempty"`
 	// Stocks where hedge funds and active managers hold substantial stakes and
 	// short interest is high: crowded on both sides.
@@ -1241,7 +1375,7 @@ type GetOwnershipOverviewResponse struct {
 	Recent  []*SubstantialNotice `protobuf:"bytes,6,rep,name=recent,proto3" json:"recent,omitempty"`
 	// Stocks the tracked super fund options hold most of, by combined value.
 	SuperConsensus []*OwnershipStock `protobuf:"bytes,7,rep,name=super_consensus,json=superConsensus,proto3" json:"super_consensus,omitempty"`
-	// Stocks the tracked index ETFs own the largest share of.
+	// Stocks the tracked index funds own the largest share of.
 	Passive         []*OwnershipStock  `protobuf:"bytes,8,rep,name=passive,proto3" json:"passive,omitempty"`
 	Sources         []*OwnershipSource `protobuf:"bytes,9,rep,name=sources,proto3" json:"sources,omitempty"`
 	NoticesParsed   int32              `protobuf:"varint,10,opt,name=notices_parsed,json=noticesParsed,proto3" json:"notices_parsed,omitempty"`
@@ -1253,13 +1387,17 @@ type GetOwnershipOverviewResponse struct {
 	Lics            int32              `protobuf:"varint,16,opt,name=lics,proto3" json:"lics,omitempty"`
 	LicMarketCapAud float64            `protobuf:"fixed64,17,opt,name=lic_market_cap_aud,json=licMarketCapAud,proto3" json:"lic_market_cap_aud,omitempty"`
 	AsOf            string             `protobuf:"bytes,18,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Withheld documents by outcome; notices_withheld stays their total.
+	WithheldByOutcome []*WithheldOutcome `protobuf:"bytes,19,rep,name=withheld_by_outcome,json=withheldByOutcome,proto3" json:"withheld_by_outcome,omitempty"`
+	// Every document attempted, parsed included: the base of notices_withheld.
+	DocumentsAttempted int32 `protobuf:"varint,20,opt,name=documents_attempted,json=documentsAttempted,proto3" json:"documents_attempted,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *GetOwnershipOverviewResponse) Reset() {
 	*x = GetOwnershipOverviewResponse{}
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1271,7 +1409,7 @@ func (x *GetOwnershipOverviewResponse) String() string {
 func (*GetOwnershipOverviewResponse) ProtoMessage() {}
 
 func (x *GetOwnershipOverviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1284,7 +1422,7 @@ func (x *GetOwnershipOverviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOwnershipOverviewResponse.ProtoReflect.Descriptor instead.
 func (*GetOwnershipOverviewResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{10}
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetOwnershipOverviewResponse) GetKinds() []*OwnershipKindSummary {
@@ -1413,6 +1551,20 @@ func (x *GetOwnershipOverviewResponse) GetAsOf() string {
 	return ""
 }
 
+func (x *GetOwnershipOverviewResponse) GetWithheldByOutcome() []*WithheldOutcome {
+	if x != nil {
+		return x.WithheldByOutcome
+	}
+	return nil
+}
+
+func (x *GetOwnershipOverviewResponse) GetDocumentsAttempted() int32 {
+	if x != nil {
+		return x.DocumentsAttempted
+	}
+	return 0
+}
+
 type ListInstitutionsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// A kind to filter to; "" for all.
@@ -1426,7 +1578,7 @@ type ListInstitutionsRequest struct {
 
 func (x *ListInstitutionsRequest) Reset() {
 	*x = ListInstitutionsRequest{}
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1438,7 +1590,7 @@ func (x *ListInstitutionsRequest) String() string {
 func (*ListInstitutionsRequest) ProtoMessage() {}
 
 func (x *ListInstitutionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1451,7 +1603,7 @@ func (x *ListInstitutionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInstitutionsRequest.ProtoReflect.Descriptor instead.
 func (*ListInstitutionsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{11}
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListInstitutionsRequest) GetKind() string {
@@ -1492,7 +1644,7 @@ type ListInstitutionsResponse struct {
 
 func (x *ListInstitutionsResponse) Reset() {
 	*x = ListInstitutionsResponse{}
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1504,7 +1656,7 @@ func (x *ListInstitutionsResponse) String() string {
 func (*ListInstitutionsResponse) ProtoMessage() {}
 
 func (x *ListInstitutionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1517,7 +1669,7 @@ func (x *ListInstitutionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInstitutionsResponse.ProtoReflect.Descriptor instead.
 func (*ListInstitutionsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{12}
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListInstitutionsResponse) GetInstitutions() []*OwnershipInstitution {
@@ -1543,7 +1695,7 @@ type GetInstitutionRequest struct {
 
 func (x *GetInstitutionRequest) Reset() {
 	*x = GetInstitutionRequest{}
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1555,7 +1707,7 @@ func (x *GetInstitutionRequest) String() string {
 func (*GetInstitutionRequest) ProtoMessage() {}
 
 func (x *GetInstitutionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1568,7 +1720,7 @@ func (x *GetInstitutionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInstitutionRequest.ProtoReflect.Descriptor instead.
 func (*GetInstitutionRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{13}
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetInstitutionRequest) GetSlug() string {
@@ -1584,15 +1736,17 @@ type GetInstitutionResponse struct {
 	Positions   []*SubstantialHolding  `protobuf:"bytes,2,rep,name=positions,proto3" json:"positions,omitempty"`
 	Notices     []*SubstantialNotice   `protobuf:"bytes,3,rep,name=notices,proto3" json:"notices,omitempty"`
 	// The largest holdings, by value, of its latest holdings files.
-	FundHoldings  []*FundHolding   `protobuf:"bytes,4,rep,name=fund_holdings,json=fundHoldings,proto3" json:"fund_holdings,omitempty"`
-	Funds         []*OwnershipFund `protobuf:"bytes,5,rep,name=funds,proto3" json:"funds,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	FundHoldings []*FundHolding   `protobuf:"bytes,4,rep,name=fund_holdings,json=fundHoldings,proto3" json:"fund_holdings,omitempty"`
+	Funds        []*OwnershipFund `protobuf:"bytes,5,rep,name=funds,proto3" json:"funds,omitempty"`
+	// Rows in its latest files; fund_holdings serves the largest 100.
+	FundHoldingsTotal int32 `protobuf:"varint,6,opt,name=fund_holdings_total,json=fundHoldingsTotal,proto3" json:"fund_holdings_total,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *GetInstitutionResponse) Reset() {
 	*x = GetInstitutionResponse{}
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1604,7 +1758,7 @@ func (x *GetInstitutionResponse) String() string {
 func (*GetInstitutionResponse) ProtoMessage() {}
 
 func (x *GetInstitutionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1617,7 +1771,7 @@ func (x *GetInstitutionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInstitutionResponse.ProtoReflect.Descriptor instead.
 func (*GetInstitutionResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{14}
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetInstitutionResponse) GetInstitution() *OwnershipInstitution {
@@ -1655,6 +1809,13 @@ func (x *GetInstitutionResponse) GetFunds() []*OwnershipFund {
 	return nil
 }
 
+func (x *GetInstitutionResponse) GetFundHoldingsTotal() int32 {
+	if x != nil {
+		return x.FundHoldingsTotal
+	}
+	return 0
+}
+
 type GetStockOwnershipRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	StockCode     string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
@@ -1664,7 +1825,7 @@ type GetStockOwnershipRequest struct {
 
 func (x *GetStockOwnershipRequest) Reset() {
 	*x = GetStockOwnershipRequest{}
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[15]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1676,7 +1837,7 @@ func (x *GetStockOwnershipRequest) String() string {
 func (*GetStockOwnershipRequest) ProtoMessage() {}
 
 func (x *GetStockOwnershipRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[15]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1689,7 +1850,7 @@ func (x *GetStockOwnershipRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockOwnershipRequest.ProtoReflect.Descriptor instead.
 func (*GetStockOwnershipRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{15}
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetStockOwnershipRequest) GetStockCode() string {
@@ -1707,13 +1868,21 @@ type GetStockOwnershipResponse struct {
 	FundHoldings     []*FundHolding         `protobuf:"bytes,4,rep,name=fund_holdings,json=fundHoldings,proto3" json:"fund_holdings,omitempty"`
 	SharesOnIssue    float64                `protobuf:"fixed64,5,opt,name=shares_on_issue,json=sharesOnIssue,proto3" json:"shares_on_issue,omitempty"`
 	HasSharesOnIssue bool                   `protobuf:"varint,6,opt,name=has_shares_on_issue,json=hasSharesOnIssue,proto3" json:"has_shares_on_issue,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Parsed notices for the stock on record; history serves the newest 100.
+	HistoryTotal int32 `protobuf:"varint,7,opt,name=history_total,json=historyTotal,proto3" json:"history_total,omitempty"`
+	// Documents listed under this code whose outcome is one of the six
+	// withholding outcomes. A document ASX lists under several codes is counted
+	// under one of them, so the figure is "listed under", never beside a sum.
+	WithheldListed int32 `protobuf:"varint,8,opt,name=withheld_listed,json=withheldListed,proto3" json:"withheld_listed,omitempty"`
+	// The newest notice release date read anywhere.
+	AsOf          string `protobuf:"bytes,9,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetStockOwnershipResponse) Reset() {
 	*x = GetStockOwnershipResponse{}
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[16]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1725,7 +1894,7 @@ func (x *GetStockOwnershipResponse) String() string {
 func (*GetStockOwnershipResponse) ProtoMessage() {}
 
 func (x *GetStockOwnershipResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[16]
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1738,7 +1907,7 @@ func (x *GetStockOwnershipResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockOwnershipResponse.ProtoReflect.Descriptor instead.
 func (*GetStockOwnershipResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{16}
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetStockOwnershipResponse) GetSummary() *OwnershipStock {
@@ -1781,6 +1950,685 @@ func (x *GetStockOwnershipResponse) GetHasSharesOnIssue() bool {
 		return x.HasSharesOnIssue
 	}
 	return false
+}
+
+func (x *GetStockOwnershipResponse) GetHistoryTotal() int32 {
+	if x != nil {
+		return x.HistoryTotal
+	}
+	return 0
+}
+
+func (x *GetStockOwnershipResponse) GetWithheldListed() int32 {
+	if x != nil {
+		return x.WithheldListed
+	}
+	return 0
+}
+
+func (x *GetStockOwnershipResponse) GetAsOf() string {
+	if x != nil {
+		return x.AsOf
+	}
+	return ""
+}
+
+type ListSubstantialNoticesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 7, 30, 90 or 365; 0 means every notice read (no date clause). Another
+	// positive value rounds UP to the next served window, and one above 365 is
+	// 0; the response echoes the window used. A negative value is invalid.
+	WindowDays int32 `protobuf:"varint,1,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"`
+	// "" or one of became, increased, decreased, changed, ceased, nz.
+	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
+	// "" or a holder kind: an institution kind, corporate or unclassified.
+	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
+	// "" or an ASX code (1 to 6 uppercase alphanumerics).
+	StockCode string `protobuf:"bytes,4,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	// "" or a registry slug: that holder's notices, as its institution page reads
+	// them. Holders off the map cannot be filtered.
+	InstitutionSlug string `protobuf:"bytes,5,opt,name=institution_slug,json=institutionSlug,proto3" json:"institution_slug,omitempty"`
+	// "" for the first page, else the previous page's next_cursor.
+	Cursor string `protobuf:"bytes,6,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// 0 means 50; above 100 is 100.
+	Limit int32 `protobuf:"varint,7,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Also compute the window's counts, weekly buckets and largest moves
+	// (windows of at most 90 days; omitted above that). Only the first page
+	// (cursor ""): a page after a cursor never carries it.
+	IncludeActivity bool `protobuf:"varint,8,opt,name=include_activity,json=includeActivity,proto3" json:"include_activity,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListSubstantialNoticesRequest) Reset() {
+	*x = ListSubstantialNoticesRequest{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSubstantialNoticesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSubstantialNoticesRequest) ProtoMessage() {}
+
+func (x *ListSubstantialNoticesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSubstantialNoticesRequest.ProtoReflect.Descriptor instead.
+func (*ListSubstantialNoticesRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ListSubstantialNoticesRequest) GetWindowDays() int32 {
+	if x != nil {
+		return x.WindowDays
+	}
+	return 0
+}
+
+func (x *ListSubstantialNoticesRequest) GetEvent() string {
+	if x != nil {
+		return x.Event
+	}
+	return ""
+}
+
+func (x *ListSubstantialNoticesRequest) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *ListSubstantialNoticesRequest) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *ListSubstantialNoticesRequest) GetInstitutionSlug() string {
+	if x != nil {
+		return x.InstitutionSlug
+	}
+	return ""
+}
+
+func (x *ListSubstantialNoticesRequest) GetCursor() string {
+	if x != nil {
+		return x.Cursor
+	}
+	return ""
+}
+
+func (x *ListSubstantialNoticesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListSubstantialNoticesRequest) GetIncludeActivity() bool {
+	if x != nil {
+		return x.IncludeActivity
+	}
+	return false
+}
+
+// One ISO week of notices, by event.
+type NoticeWeek struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The Monday that starts the week, YYYY-MM-DD.
+	WeekStart     string `protobuf:"bytes,1,opt,name=week_start,json=weekStart,proto3" json:"week_start,omitempty"`
+	Became        int32  `protobuf:"varint,2,opt,name=became,proto3" json:"became,omitempty"`
+	Increased     int32  `protobuf:"varint,3,opt,name=increased,proto3" json:"increased,omitempty"`
+	Decreased     int32  `protobuf:"varint,4,opt,name=decreased,proto3" json:"decreased,omitempty"`
+	Changed       int32  `protobuf:"varint,5,opt,name=changed,proto3" json:"changed,omitempty"`
+	Ceased        int32  `protobuf:"varint,6,opt,name=ceased,proto3" json:"ceased,omitempty"`
+	Nz            int32  `protobuf:"varint,7,opt,name=nz,proto3" json:"nz,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NoticeWeek) Reset() {
+	*x = NoticeWeek{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NoticeWeek) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NoticeWeek) ProtoMessage() {}
+
+func (x *NoticeWeek) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NoticeWeek.ProtoReflect.Descriptor instead.
+func (*NoticeWeek) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *NoticeWeek) GetWeekStart() string {
+	if x != nil {
+		return x.WeekStart
+	}
+	return ""
+}
+
+func (x *NoticeWeek) GetBecame() int32 {
+	if x != nil {
+		return x.Became
+	}
+	return 0
+}
+
+func (x *NoticeWeek) GetIncreased() int32 {
+	if x != nil {
+		return x.Increased
+	}
+	return 0
+}
+
+func (x *NoticeWeek) GetDecreased() int32 {
+	if x != nil {
+		return x.Decreased
+	}
+	return 0
+}
+
+func (x *NoticeWeek) GetChanged() int32 {
+	if x != nil {
+		return x.Changed
+	}
+	return 0
+}
+
+func (x *NoticeWeek) GetCeased() int32 {
+	if x != nil {
+		return x.Ceased
+	}
+	return 0
+}
+
+func (x *NoticeWeek) GetNz() int32 {
+	if x != nil {
+		return x.Nz
+	}
+	return 0
+}
+
+// A window's notices by event, by week, and the largest moves.
+type NoticeActivity struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Became    int32                  `protobuf:"varint,1,opt,name=became,proto3" json:"became,omitempty"`
+	Increased int32                  `protobuf:"varint,2,opt,name=increased,proto3" json:"increased,omitempty"`
+	Decreased int32                  `protobuf:"varint,3,opt,name=decreased,proto3" json:"decreased,omitempty"`
+	Changed   int32                  `protobuf:"varint,4,opt,name=changed,proto3" json:"changed,omitempty"`
+	Ceased    int32                  `protobuf:"varint,5,opt,name=ceased,proto3" json:"ceased,omitempty"`
+	Nz        int32                  `protobuf:"varint,6,opt,name=nz,proto3" json:"nz,omitempty"`
+	// Every ISO week in the window, oldest first, empty weeks included.
+	Weeks []*NoticeWeek `protobuf:"bytes,7,rep,name=weeks,proto3" json:"weeks,omitempty"`
+	// Form 604 notices with both figures, by the largest rise and fall in
+	// percentage points; at most five each.
+	LargestRises  []*SubstantialNotice `protobuf:"bytes,8,rep,name=largest_rises,json=largestRises,proto3" json:"largest_rises,omitempty"`
+	LargestFalls  []*SubstantialNotice `protobuf:"bytes,9,rep,name=largest_falls,json=largestFalls,proto3" json:"largest_falls,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NoticeActivity) Reset() {
+	*x = NoticeActivity{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NoticeActivity) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NoticeActivity) ProtoMessage() {}
+
+func (x *NoticeActivity) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NoticeActivity.ProtoReflect.Descriptor instead.
+func (*NoticeActivity) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *NoticeActivity) GetBecame() int32 {
+	if x != nil {
+		return x.Became
+	}
+	return 0
+}
+
+func (x *NoticeActivity) GetIncreased() int32 {
+	if x != nil {
+		return x.Increased
+	}
+	return 0
+}
+
+func (x *NoticeActivity) GetDecreased() int32 {
+	if x != nil {
+		return x.Decreased
+	}
+	return 0
+}
+
+func (x *NoticeActivity) GetChanged() int32 {
+	if x != nil {
+		return x.Changed
+	}
+	return 0
+}
+
+func (x *NoticeActivity) GetCeased() int32 {
+	if x != nil {
+		return x.Ceased
+	}
+	return 0
+}
+
+func (x *NoticeActivity) GetNz() int32 {
+	if x != nil {
+		return x.Nz
+	}
+	return 0
+}
+
+func (x *NoticeActivity) GetWeeks() []*NoticeWeek {
+	if x != nil {
+		return x.Weeks
+	}
+	return nil
+}
+
+func (x *NoticeActivity) GetLargestRises() []*SubstantialNotice {
+	if x != nil {
+		return x.LargestRises
+	}
+	return nil
+}
+
+func (x *NoticeActivity) GetLargestFalls() []*SubstantialNotice {
+	if x != nil {
+		return x.LargestFalls
+	}
+	return nil
+}
+
+type ListSubstantialNoticesResponse struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Notices []*SubstantialNotice   `protobuf:"bytes,1,rep,name=notices,proto3" json:"notices,omitempty"`
+	// The cursor for the next page; "" on the last page.
+	NextCursor string `protobuf:"bytes,2,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
+	// Notices matching the filters in the window; the cursor does not narrow it.
+	Total int32 `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
+	// The window used, echoed: 0 is every notice read (no date clause).
+	WindowDays int32  `protobuf:"varint,4,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"`
+	AsOf       string `protobuf:"bytes,5,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	// Only on a first page that set include_activity, for a window that allows it.
+	Activity      *NoticeActivity `protobuf:"bytes,6,opt,name=activity,proto3" json:"activity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSubstantialNoticesResponse) Reset() {
+	*x = ListSubstantialNoticesResponse{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSubstantialNoticesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSubstantialNoticesResponse) ProtoMessage() {}
+
+func (x *ListSubstantialNoticesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSubstantialNoticesResponse.ProtoReflect.Descriptor instead.
+func (*ListSubstantialNoticesResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ListSubstantialNoticesResponse) GetNotices() []*SubstantialNotice {
+	if x != nil {
+		return x.Notices
+	}
+	return nil
+}
+
+func (x *ListSubstantialNoticesResponse) GetNextCursor() string {
+	if x != nil {
+		return x.NextCursor
+	}
+	return ""
+}
+
+func (x *ListSubstantialNoticesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ListSubstantialNoticesResponse) GetWindowDays() int32 {
+	if x != nil {
+		return x.WindowDays
+	}
+	return 0
+}
+
+func (x *ListSubstantialNoticesResponse) GetAsOf() string {
+	if x != nil {
+		return x.AsOf
+	}
+	return ""
+}
+
+func (x *ListSubstantialNoticesResponse) GetActivity() *NoticeActivity {
+	if x != nil {
+		return x.Activity
+	}
+	return nil
+}
+
+type ListStockRegistersRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// disclosed (default), investors, banks, hedge_active, short, index,
+	// super_value, super_options, interests, latest_notice, code. A stock
+	// without the figure sorts last whatever the direction; ties are broken by
+	// code.
+	Sort      string `protobuf:"bytes,1,opt,name=sort,proto3" json:"sort,omitempty"`
+	Ascending bool   `protobuf:"varint,2,opt,name=ascending,proto3" json:"ascending,omitempty"`
+	// "" or one of the response's industries, matched exactly after trim.
+	Industry string `protobuf:"bytes,3,opt,name=industry,proto3" json:"industry,omitempty"`
+	// A kind that must disclose 5% or more in the stock; "" for any.
+	Kind string `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"`
+	// Interests counted once; 0 means 1.
+	MinInterests int32 `protobuf:"varint,5,opt,name=min_interests,json=minInterests,proto3" json:"min_interests,omitempty"`
+	// One of 0, 1, 3, 5, 10; another value snaps DOWN to the nearest served step.
+	MinShortPct float64 `protobuf:"fixed64,6,opt,name=min_short_pct,json=minShortPct,proto3" json:"min_short_pct,omitempty"`
+	// A code prefix or a name substring, at most 24 characters.
+	Query string `protobuf:"bytes,7,opt,name=query,proto3" json:"query,omitempty"`
+	// 0 means 50; above 100 is 100.
+	Limit int32 `protobuf:"varint,8,opt,name=limit,proto3" json:"limit,omitempty"`
+	// 0 to 5000.
+	Offset        int32 `protobuf:"varint,9,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListStockRegistersRequest) Reset() {
+	*x = ListStockRegistersRequest{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListStockRegistersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListStockRegistersRequest) ProtoMessage() {}
+
+func (x *ListStockRegistersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListStockRegistersRequest.ProtoReflect.Descriptor instead.
+func (*ListStockRegistersRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ListStockRegistersRequest) GetSort() string {
+	if x != nil {
+		return x.Sort
+	}
+	return ""
+}
+
+func (x *ListStockRegistersRequest) GetAscending() bool {
+	if x != nil {
+		return x.Ascending
+	}
+	return false
+}
+
+func (x *ListStockRegistersRequest) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *ListStockRegistersRequest) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *ListStockRegistersRequest) GetMinInterests() int32 {
+	if x != nil {
+		return x.MinInterests
+	}
+	return 0
+}
+
+func (x *ListStockRegistersRequest) GetMinShortPct() float64 {
+	if x != nil {
+		return x.MinShortPct
+	}
+	return 0
+}
+
+func (x *ListStockRegistersRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *ListStockRegistersRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListStockRegistersRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+// One industry among the register's stocks, for the filter.
+type IndustryCount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Industry      string                 `protobuf:"bytes,1,opt,name=industry,proto3" json:"industry,omitempty"`
+	Stocks        int32                  `protobuf:"varint,2,opt,name=stocks,proto3" json:"stocks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IndustryCount) Reset() {
+	*x = IndustryCount{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IndustryCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IndustryCount) ProtoMessage() {}
+
+func (x *IndustryCount) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IndustryCount.ProtoReflect.Descriptor instead.
+func (*IndustryCount) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *IndustryCount) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *IndustryCount) GetStocks() int32 {
+	if x != nil {
+		return x.Stocks
+	}
+	return 0
+}
+
+type ListStockRegistersResponse struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Stocks []*OwnershipStock      `protobuf:"bytes,1,rep,name=stocks,proto3" json:"stocks,omitempty"`
+	// Stocks matching the filters.
+	Total int32 `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	// Stocks with at least one current holder, before the filters.
+	Universe int32 `protobuf:"varint,3,opt,name=universe,proto3" json:"universe,omitempty"`
+	// The distinct industries, sorted, for the filter.
+	Industries    []*IndustryCount `protobuf:"bytes,4,rep,name=industries,proto3" json:"industries,omitempty"`
+	AsOf          string           `protobuf:"bytes,5,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListStockRegistersResponse) Reset() {
+	*x = ListStockRegistersResponse{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListStockRegistersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListStockRegistersResponse) ProtoMessage() {}
+
+func (x *ListStockRegistersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListStockRegistersResponse.ProtoReflect.Descriptor instead.
+func (*ListStockRegistersResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ListStockRegistersResponse) GetStocks() []*OwnershipStock {
+	if x != nil {
+		return x.Stocks
+	}
+	return nil
+}
+
+func (x *ListStockRegistersResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ListStockRegistersResponse) GetUniverse() int32 {
+	if x != nil {
+		return x.Universe
+	}
+	return 0
+}
+
+func (x *ListStockRegistersResponse) GetIndustries() []*IndustryCount {
+	if x != nil {
+		return x.Industries
+	}
+	return nil
+}
+
+func (x *ListStockRegistersResponse) GetAsOf() string {
+	if x != nil {
+		return x.AsOf
+	}
+	return ""
 }
 
 var File_shorts_v1alpha1_ownership_proto protoreflect.FileDescriptor
@@ -1826,7 +2674,7 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\n" +
 	"event_date\x18\x0e \x01(\tR\teventDate\x12!\n" +
 	"\fannounced_on\x18\x0f \x01(\tR\vannouncedOn\x12)\n" +
-	"\x10announcement_url\x18\x10 \x01(\tR\x0fannouncementUrl\"\xf5\x03\n" +
+	"\x10announcement_url\x18\x10 \x01(\tR\x0fannouncementUrl\"\x8b\x04\n" +
 	"\x11SubstantialNotice\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +
@@ -1849,7 +2697,8 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\n" +
 	"event_date\x18\r \x01(\tR\teventDate\x12!\n" +
 	"\fannounced_on\x18\x0e \x01(\tR\vannouncedOn\x12)\n" +
-	"\x10announcement_url\x18\x0f \x01(\tR\x0fannouncementUrl\"\xa3\x04\n" +
+	"\x10announcement_url\x18\x0f \x01(\tR\x0fannouncementUrl\x12\x14\n" +
+	"\x05event\x18\x10 \x01(\tR\x05event\"\xa3\x04\n" +
 	"\vFundHolding\x12)\n" +
 	"\x10institution_slug\x18\x01 \x01(\tR\x0finstitutionSlug\x12)\n" +
 	"\x10institution_name\x18\x02 \x01(\tR\x0finstitutionName\x12\x12\n" +
@@ -1894,7 +2743,7 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\tpositions\x18\x04 \x01(\x05R\tpositions\x12\x16\n" +
 	"\x06stocks\x18\x05 \x01(\x05R\x06stocks\x12\x17\n" +
 	"\aaum_aud\x18\x06 \x01(\x01R\x06aumAud\x12\x17\n" +
-	"\ahas_aum\x18\a \x01(\bR\x06hasAum\"\x9e\x04\n" +
+	"\ahas_aum\x18\a \x01(\bR\x06hasAum\"\xdb\x05\n" +
 	"\x0eOwnershipStock\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +
@@ -1913,13 +2762,25 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x0fhas_super_value\x18\r \x01(\bR\rhasSuperValue\x12\x1d\n" +
 	"\n" +
 	"market_cap\x18\x0e \x01(\x01R\tmarketCap\x12$\n" +
-	"\x0ehas_market_cap\x18\x0f \x01(\bR\fhasMarketCap\"z\n" +
+	"\x0ehas_market_cap\x18\x0f \x01(\bR\fhasMarketCap\x12\x1e\n" +
+	"\vshort_as_of\x18\x10 \x01(\tR\tshortAsOf\x12'\n" +
+	"\x10index_as_at_from\x18\x11 \x01(\tR\rindexAsAtFrom\x12#\n" +
+	"\x0eindex_as_at_to\x18\x12 \x01(\tR\vindexAsAtTo\x12\x1f\n" +
+	"\vindex_files\x18\x13 \x01(\x05R\n" +
+	"indexFiles\x12,\n" +
+	"\x12latest_notice_date\x18\x14 \x01(\tR\x10latestNoticeDate\"\xae\x01\n" +
 	"\x0fOwnershipSource\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x13\n" +
 	"\x05as_at\x18\x03 \x01(\tR\x04asAt\x12\x18\n" +
-	"\arecords\x18\x04 \x01(\x05R\arecords\"\x1d\n" +
-	"\x1bGetOwnershipOverviewRequest\"\x8a\a\n" +
+	"\arecords\x18\x04 \x01(\x05R\arecords\x12\x14\n" +
+	"\x05funds\x18\x05 \x01(\x05R\x05funds\x12\x1c\n" +
+	"\n" +
+	"as_at_from\x18\x06 \x01(\tR\basAtFrom\"A\n" +
+	"\x0fWithheldOutcome\x12\x18\n" +
+	"\aoutcome\x18\x01 \x01(\tR\aoutcome\x12\x14\n" +
+	"\x05count\x18\x02 \x01(\x05R\x05count\"\x1d\n" +
+	"\x1bGetOwnershipOverviewRequest\"\x8d\b\n" +
 	"\x1cGetOwnershipOverviewResponse\x12;\n" +
 	"\x05kinds\x18\x01 \x03(\v2%.shorts.v1alpha1.OwnershipKindSummaryR\x05kinds\x12F\n" +
 	"\vtop_holders\x18\x02 \x03(\v2%.shorts.v1alpha1.OwnershipInstitutionR\n" +
@@ -1941,7 +2802,9 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\vetf_fum_aud\x18\x0f \x01(\x01R\tetfFumAud\x12\x12\n" +
 	"\x04lics\x18\x10 \x01(\x05R\x04lics\x12+\n" +
 	"\x12lic_market_cap_aud\x18\x11 \x01(\x01R\x0flicMarketCapAud\x12\x13\n" +
-	"\x05as_of\x18\x12 \x01(\tR\x04asOf\"q\n" +
+	"\x05as_of\x18\x12 \x01(\tR\x04asOf\x12P\n" +
+	"\x13withheld_by_outcome\x18\x13 \x03(\v2 .shorts.v1alpha1.WithheldOutcomeR\x11withheldByOutcome\x12/\n" +
+	"\x13documents_attempted\x18\x14 \x01(\x05R\x12documentsAttempted\"q\n" +
 	"\x17ListInstitutionsRequest\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
@@ -1951,28 +2814,95 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\finstitutions\x18\x01 \x03(\v2%.shorts.v1alpha1.OwnershipInstitutionR\finstitutions\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"+\n" +
 	"\x15GetInstitutionRequest\x12\x12\n" +
-	"\x04slug\x18\x01 \x01(\tR\x04slug\"\xdb\x02\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\"\x8b\x03\n" +
 	"\x16GetInstitutionResponse\x12G\n" +
 	"\vinstitution\x18\x01 \x01(\v2%.shorts.v1alpha1.OwnershipInstitutionR\vinstitution\x12A\n" +
 	"\tpositions\x18\x02 \x03(\v2#.shorts.v1alpha1.SubstantialHoldingR\tpositions\x12<\n" +
 	"\anotices\x18\x03 \x03(\v2\".shorts.v1alpha1.SubstantialNoticeR\anotices\x12A\n" +
 	"\rfund_holdings\x18\x04 \x03(\v2\x1c.shorts.v1alpha1.FundHoldingR\ffundHoldings\x124\n" +
-	"\x05funds\x18\x05 \x03(\v2\x1e.shorts.v1alpha1.OwnershipFundR\x05funds\"9\n" +
+	"\x05funds\x18\x05 \x03(\v2\x1e.shorts.v1alpha1.OwnershipFundR\x05funds\x12.\n" +
+	"\x13fund_holdings_total\x18\x06 \x01(\x05R\x11fundHoldingsTotal\"9\n" +
 	"\x18GetStockOwnershipRequest\x12\x1d\n" +
 	"\n" +
-	"stock_code\x18\x01 \x01(\tR\tstockCode\"\xed\x02\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\"\xd0\x03\n" +
 	"\x19GetStockOwnershipResponse\x129\n" +
 	"\asummary\x18\x01 \x01(\v2\x1f.shorts.v1alpha1.OwnershipStockR\asummary\x12=\n" +
 	"\aholders\x18\x02 \x03(\v2#.shorts.v1alpha1.SubstantialHoldingR\aholders\x12<\n" +
 	"\ahistory\x18\x03 \x03(\v2\".shorts.v1alpha1.SubstantialNoticeR\ahistory\x12A\n" +
 	"\rfund_holdings\x18\x04 \x03(\v2\x1c.shorts.v1alpha1.FundHoldingR\ffundHoldings\x12&\n" +
 	"\x0fshares_on_issue\x18\x05 \x01(\x01R\rsharesOnIssue\x12-\n" +
-	"\x13has_shares_on_issue\x18\x06 \x01(\bR\x10hasSharesOnIssue2\xd7\x03\n" +
+	"\x13has_shares_on_issue\x18\x06 \x01(\bR\x10hasSharesOnIssue\x12#\n" +
+	"\rhistory_total\x18\a \x01(\x05R\fhistoryTotal\x12'\n" +
+	"\x0fwithheld_listed\x18\b \x01(\x05R\x0ewithheldListed\x12\x13\n" +
+	"\x05as_of\x18\t \x01(\tR\x04asOf\"\x8d\x02\n" +
+	"\x1dListSubstantialNoticesRequest\x12\x1f\n" +
+	"\vwindow_days\x18\x01 \x01(\x05R\n" +
+	"windowDays\x12\x14\n" +
+	"\x05event\x18\x02 \x01(\tR\x05event\x12\x12\n" +
+	"\x04kind\x18\x03 \x01(\tR\x04kind\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x04 \x01(\tR\tstockCode\x12)\n" +
+	"\x10institution_slug\x18\x05 \x01(\tR\x0finstitutionSlug\x12\x16\n" +
+	"\x06cursor\x18\x06 \x01(\tR\x06cursor\x12\x14\n" +
+	"\x05limit\x18\a \x01(\x05R\x05limit\x12)\n" +
+	"\x10include_activity\x18\b \x01(\bR\x0fincludeActivity\"\xc1\x01\n" +
+	"\n" +
+	"NoticeWeek\x12\x1d\n" +
+	"\n" +
+	"week_start\x18\x01 \x01(\tR\tweekStart\x12\x16\n" +
+	"\x06became\x18\x02 \x01(\x05R\x06became\x12\x1c\n" +
+	"\tincreased\x18\x03 \x01(\x05R\tincreased\x12\x1c\n" +
+	"\tdecreased\x18\x04 \x01(\x05R\tdecreased\x12\x18\n" +
+	"\achanged\x18\x05 \x01(\x05R\achanged\x12\x16\n" +
+	"\x06ceased\x18\x06 \x01(\x05R\x06ceased\x12\x0e\n" +
+	"\x02nz\x18\a \x01(\x05R\x02nz\"\xeb\x02\n" +
+	"\x0eNoticeActivity\x12\x16\n" +
+	"\x06became\x18\x01 \x01(\x05R\x06became\x12\x1c\n" +
+	"\tincreased\x18\x02 \x01(\x05R\tincreased\x12\x1c\n" +
+	"\tdecreased\x18\x03 \x01(\x05R\tdecreased\x12\x18\n" +
+	"\achanged\x18\x04 \x01(\x05R\achanged\x12\x16\n" +
+	"\x06ceased\x18\x05 \x01(\x05R\x06ceased\x12\x0e\n" +
+	"\x02nz\x18\x06 \x01(\x05R\x02nz\x121\n" +
+	"\x05weeks\x18\a \x03(\v2\x1b.shorts.v1alpha1.NoticeWeekR\x05weeks\x12G\n" +
+	"\rlargest_rises\x18\b \x03(\v2\".shorts.v1alpha1.SubstantialNoticeR\flargestRises\x12G\n" +
+	"\rlargest_falls\x18\t \x03(\v2\".shorts.v1alpha1.SubstantialNoticeR\flargestFalls\"\x88\x02\n" +
+	"\x1eListSubstantialNoticesResponse\x12<\n" +
+	"\anotices\x18\x01 \x03(\v2\".shorts.v1alpha1.SubstantialNoticeR\anotices\x12\x1f\n" +
+	"\vnext_cursor\x18\x02 \x01(\tR\n" +
+	"nextCursor\x12\x14\n" +
+	"\x05total\x18\x03 \x01(\x05R\x05total\x12\x1f\n" +
+	"\vwindow_days\x18\x04 \x01(\x05R\n" +
+	"windowDays\x12\x13\n" +
+	"\x05as_of\x18\x05 \x01(\tR\x04asOf\x12;\n" +
+	"\bactivity\x18\x06 \x01(\v2\x1f.shorts.v1alpha1.NoticeActivityR\bactivity\"\x8a\x02\n" +
+	"\x19ListStockRegistersRequest\x12\x12\n" +
+	"\x04sort\x18\x01 \x01(\tR\x04sort\x12\x1c\n" +
+	"\tascending\x18\x02 \x01(\bR\tascending\x12\x1a\n" +
+	"\bindustry\x18\x03 \x01(\tR\bindustry\x12\x12\n" +
+	"\x04kind\x18\x04 \x01(\tR\x04kind\x12#\n" +
+	"\rmin_interests\x18\x05 \x01(\x05R\fminInterests\x12\"\n" +
+	"\rmin_short_pct\x18\x06 \x01(\x01R\vminShortPct\x12\x14\n" +
+	"\x05query\x18\a \x01(\tR\x05query\x12\x14\n" +
+	"\x05limit\x18\b \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\t \x01(\x05R\x06offset\"C\n" +
+	"\rIndustryCount\x12\x1a\n" +
+	"\bindustry\x18\x01 \x01(\tR\bindustry\x12\x16\n" +
+	"\x06stocks\x18\x02 \x01(\x05R\x06stocks\"\xdc\x01\n" +
+	"\x1aListStockRegistersResponse\x127\n" +
+	"\x06stocks\x18\x01 \x03(\v2\x1f.shorts.v1alpha1.OwnershipStockR\x06stocks\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x1a\n" +
+	"\buniverse\x18\x03 \x01(\x05R\buniverse\x12>\n" +
+	"\n" +
+	"industries\x18\x04 \x03(\v2\x1e.shorts.v1alpha1.IndustryCountR\n" +
+	"industries\x12\x13\n" +
+	"\x05as_of\x18\x05 \x01(\tR\x04asOf2\xcd\x05\n" +
 	"\x10OwnershipService\x12y\n" +
 	"\x14GetOwnershipOverview\x12,.shorts.v1alpha1.GetOwnershipOverviewRequest\x1a-.shorts.v1alpha1.GetOwnershipOverviewResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
 	"\x10ListInstitutions\x12(.shorts.v1alpha1.ListInstitutionsRequest\x1a).shorts.v1alpha1.ListInstitutionsResponse\"\x04\x80\xb5\x18\x01\x12g\n" +
 	"\x0eGetInstitution\x12&.shorts.v1alpha1.GetInstitutionRequest\x1a'.shorts.v1alpha1.GetInstitutionResponse\"\x04\x80\xb5\x18\x01\x12p\n" +
-	"\x11GetStockOwnership\x12).shorts.v1alpha1.GetStockOwnershipRequest\x1a*.shorts.v1alpha1.GetStockOwnershipResponse\"\x04\x80\xb5\x18\x01B\xdd\x01\n" +
+	"\x11GetStockOwnership\x12).shorts.v1alpha1.GetStockOwnershipRequest\x1a*.shorts.v1alpha1.GetStockOwnershipResponse\"\x04\x80\xb5\x18\x01\x12\x7f\n" +
+	"\x16ListSubstantialNotices\x12..shorts.v1alpha1.ListSubstantialNoticesRequest\x1a/.shorts.v1alpha1.ListSubstantialNoticesResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
+	"\x12ListStockRegisters\x12*.shorts.v1alpha1.ListStockRegistersRequest\x1a+.shorts.v1alpha1.ListStockRegistersResponse\"\x04\x80\xb5\x18\x01B\xdd\x01\n" +
 	"\x13com.shorts.v1alpha1B\x0eOwnershipProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
@@ -1987,25 +2917,33 @@ func file_shorts_v1alpha1_ownership_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_ownership_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_ownership_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_shorts_v1alpha1_ownership_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_shorts_v1alpha1_ownership_proto_goTypes = []any{
-	(*OwnershipInstitution)(nil),         // 0: shorts.v1alpha1.OwnershipInstitution
-	(*SubstantialHolding)(nil),           // 1: shorts.v1alpha1.SubstantialHolding
-	(*SubstantialNotice)(nil),            // 2: shorts.v1alpha1.SubstantialNotice
-	(*FundHolding)(nil),                  // 3: shorts.v1alpha1.FundHolding
-	(*OwnershipFund)(nil),                // 4: shorts.v1alpha1.OwnershipFund
-	(*KindShare)(nil),                    // 5: shorts.v1alpha1.KindShare
-	(*OwnershipKindSummary)(nil),         // 6: shorts.v1alpha1.OwnershipKindSummary
-	(*OwnershipStock)(nil),               // 7: shorts.v1alpha1.OwnershipStock
-	(*OwnershipSource)(nil),              // 8: shorts.v1alpha1.OwnershipSource
-	(*GetOwnershipOverviewRequest)(nil),  // 9: shorts.v1alpha1.GetOwnershipOverviewRequest
-	(*GetOwnershipOverviewResponse)(nil), // 10: shorts.v1alpha1.GetOwnershipOverviewResponse
-	(*ListInstitutionsRequest)(nil),      // 11: shorts.v1alpha1.ListInstitutionsRequest
-	(*ListInstitutionsResponse)(nil),     // 12: shorts.v1alpha1.ListInstitutionsResponse
-	(*GetInstitutionRequest)(nil),        // 13: shorts.v1alpha1.GetInstitutionRequest
-	(*GetInstitutionResponse)(nil),       // 14: shorts.v1alpha1.GetInstitutionResponse
-	(*GetStockOwnershipRequest)(nil),     // 15: shorts.v1alpha1.GetStockOwnershipRequest
-	(*GetStockOwnershipResponse)(nil),    // 16: shorts.v1alpha1.GetStockOwnershipResponse
+	(*OwnershipInstitution)(nil),           // 0: shorts.v1alpha1.OwnershipInstitution
+	(*SubstantialHolding)(nil),             // 1: shorts.v1alpha1.SubstantialHolding
+	(*SubstantialNotice)(nil),              // 2: shorts.v1alpha1.SubstantialNotice
+	(*FundHolding)(nil),                    // 3: shorts.v1alpha1.FundHolding
+	(*OwnershipFund)(nil),                  // 4: shorts.v1alpha1.OwnershipFund
+	(*KindShare)(nil),                      // 5: shorts.v1alpha1.KindShare
+	(*OwnershipKindSummary)(nil),           // 6: shorts.v1alpha1.OwnershipKindSummary
+	(*OwnershipStock)(nil),                 // 7: shorts.v1alpha1.OwnershipStock
+	(*OwnershipSource)(nil),                // 8: shorts.v1alpha1.OwnershipSource
+	(*WithheldOutcome)(nil),                // 9: shorts.v1alpha1.WithheldOutcome
+	(*GetOwnershipOverviewRequest)(nil),    // 10: shorts.v1alpha1.GetOwnershipOverviewRequest
+	(*GetOwnershipOverviewResponse)(nil),   // 11: shorts.v1alpha1.GetOwnershipOverviewResponse
+	(*ListInstitutionsRequest)(nil),        // 12: shorts.v1alpha1.ListInstitutionsRequest
+	(*ListInstitutionsResponse)(nil),       // 13: shorts.v1alpha1.ListInstitutionsResponse
+	(*GetInstitutionRequest)(nil),          // 14: shorts.v1alpha1.GetInstitutionRequest
+	(*GetInstitutionResponse)(nil),         // 15: shorts.v1alpha1.GetInstitutionResponse
+	(*GetStockOwnershipRequest)(nil),       // 16: shorts.v1alpha1.GetStockOwnershipRequest
+	(*GetStockOwnershipResponse)(nil),      // 17: shorts.v1alpha1.GetStockOwnershipResponse
+	(*ListSubstantialNoticesRequest)(nil),  // 18: shorts.v1alpha1.ListSubstantialNoticesRequest
+	(*NoticeWeek)(nil),                     // 19: shorts.v1alpha1.NoticeWeek
+	(*NoticeActivity)(nil),                 // 20: shorts.v1alpha1.NoticeActivity
+	(*ListSubstantialNoticesResponse)(nil), // 21: shorts.v1alpha1.ListSubstantialNoticesResponse
+	(*ListStockRegistersRequest)(nil),      // 22: shorts.v1alpha1.ListStockRegistersRequest
+	(*IndustryCount)(nil),                  // 23: shorts.v1alpha1.IndustryCount
+	(*ListStockRegistersResponse)(nil),     // 24: shorts.v1alpha1.ListStockRegistersResponse
 }
 var file_shorts_v1alpha1_ownership_proto_depIdxs = []int32{
 	5,  // 0: shorts.v1alpha1.OwnershipStock.by_kind:type_name -> shorts.v1alpha1.KindShare
@@ -2018,29 +2956,41 @@ var file_shorts_v1alpha1_ownership_proto_depIdxs = []int32{
 	7,  // 7: shorts.v1alpha1.GetOwnershipOverviewResponse.super_consensus:type_name -> shorts.v1alpha1.OwnershipStock
 	7,  // 8: shorts.v1alpha1.GetOwnershipOverviewResponse.passive:type_name -> shorts.v1alpha1.OwnershipStock
 	8,  // 9: shorts.v1alpha1.GetOwnershipOverviewResponse.sources:type_name -> shorts.v1alpha1.OwnershipSource
-	0,  // 10: shorts.v1alpha1.ListInstitutionsResponse.institutions:type_name -> shorts.v1alpha1.OwnershipInstitution
-	0,  // 11: shorts.v1alpha1.GetInstitutionResponse.institution:type_name -> shorts.v1alpha1.OwnershipInstitution
-	1,  // 12: shorts.v1alpha1.GetInstitutionResponse.positions:type_name -> shorts.v1alpha1.SubstantialHolding
-	2,  // 13: shorts.v1alpha1.GetInstitutionResponse.notices:type_name -> shorts.v1alpha1.SubstantialNotice
-	3,  // 14: shorts.v1alpha1.GetInstitutionResponse.fund_holdings:type_name -> shorts.v1alpha1.FundHolding
-	4,  // 15: shorts.v1alpha1.GetInstitutionResponse.funds:type_name -> shorts.v1alpha1.OwnershipFund
-	7,  // 16: shorts.v1alpha1.GetStockOwnershipResponse.summary:type_name -> shorts.v1alpha1.OwnershipStock
-	1,  // 17: shorts.v1alpha1.GetStockOwnershipResponse.holders:type_name -> shorts.v1alpha1.SubstantialHolding
-	2,  // 18: shorts.v1alpha1.GetStockOwnershipResponse.history:type_name -> shorts.v1alpha1.SubstantialNotice
-	3,  // 19: shorts.v1alpha1.GetStockOwnershipResponse.fund_holdings:type_name -> shorts.v1alpha1.FundHolding
-	9,  // 20: shorts.v1alpha1.OwnershipService.GetOwnershipOverview:input_type -> shorts.v1alpha1.GetOwnershipOverviewRequest
-	11, // 21: shorts.v1alpha1.OwnershipService.ListInstitutions:input_type -> shorts.v1alpha1.ListInstitutionsRequest
-	13, // 22: shorts.v1alpha1.OwnershipService.GetInstitution:input_type -> shorts.v1alpha1.GetInstitutionRequest
-	15, // 23: shorts.v1alpha1.OwnershipService.GetStockOwnership:input_type -> shorts.v1alpha1.GetStockOwnershipRequest
-	10, // 24: shorts.v1alpha1.OwnershipService.GetOwnershipOverview:output_type -> shorts.v1alpha1.GetOwnershipOverviewResponse
-	12, // 25: shorts.v1alpha1.OwnershipService.ListInstitutions:output_type -> shorts.v1alpha1.ListInstitutionsResponse
-	14, // 26: shorts.v1alpha1.OwnershipService.GetInstitution:output_type -> shorts.v1alpha1.GetInstitutionResponse
-	16, // 27: shorts.v1alpha1.OwnershipService.GetStockOwnership:output_type -> shorts.v1alpha1.GetStockOwnershipResponse
-	24, // [24:28] is the sub-list for method output_type
-	20, // [20:24] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	9,  // 10: shorts.v1alpha1.GetOwnershipOverviewResponse.withheld_by_outcome:type_name -> shorts.v1alpha1.WithheldOutcome
+	0,  // 11: shorts.v1alpha1.ListInstitutionsResponse.institutions:type_name -> shorts.v1alpha1.OwnershipInstitution
+	0,  // 12: shorts.v1alpha1.GetInstitutionResponse.institution:type_name -> shorts.v1alpha1.OwnershipInstitution
+	1,  // 13: shorts.v1alpha1.GetInstitutionResponse.positions:type_name -> shorts.v1alpha1.SubstantialHolding
+	2,  // 14: shorts.v1alpha1.GetInstitutionResponse.notices:type_name -> shorts.v1alpha1.SubstantialNotice
+	3,  // 15: shorts.v1alpha1.GetInstitutionResponse.fund_holdings:type_name -> shorts.v1alpha1.FundHolding
+	4,  // 16: shorts.v1alpha1.GetInstitutionResponse.funds:type_name -> shorts.v1alpha1.OwnershipFund
+	7,  // 17: shorts.v1alpha1.GetStockOwnershipResponse.summary:type_name -> shorts.v1alpha1.OwnershipStock
+	1,  // 18: shorts.v1alpha1.GetStockOwnershipResponse.holders:type_name -> shorts.v1alpha1.SubstantialHolding
+	2,  // 19: shorts.v1alpha1.GetStockOwnershipResponse.history:type_name -> shorts.v1alpha1.SubstantialNotice
+	3,  // 20: shorts.v1alpha1.GetStockOwnershipResponse.fund_holdings:type_name -> shorts.v1alpha1.FundHolding
+	19, // 21: shorts.v1alpha1.NoticeActivity.weeks:type_name -> shorts.v1alpha1.NoticeWeek
+	2,  // 22: shorts.v1alpha1.NoticeActivity.largest_rises:type_name -> shorts.v1alpha1.SubstantialNotice
+	2,  // 23: shorts.v1alpha1.NoticeActivity.largest_falls:type_name -> shorts.v1alpha1.SubstantialNotice
+	2,  // 24: shorts.v1alpha1.ListSubstantialNoticesResponse.notices:type_name -> shorts.v1alpha1.SubstantialNotice
+	20, // 25: shorts.v1alpha1.ListSubstantialNoticesResponse.activity:type_name -> shorts.v1alpha1.NoticeActivity
+	7,  // 26: shorts.v1alpha1.ListStockRegistersResponse.stocks:type_name -> shorts.v1alpha1.OwnershipStock
+	23, // 27: shorts.v1alpha1.ListStockRegistersResponse.industries:type_name -> shorts.v1alpha1.IndustryCount
+	10, // 28: shorts.v1alpha1.OwnershipService.GetOwnershipOverview:input_type -> shorts.v1alpha1.GetOwnershipOverviewRequest
+	12, // 29: shorts.v1alpha1.OwnershipService.ListInstitutions:input_type -> shorts.v1alpha1.ListInstitutionsRequest
+	14, // 30: shorts.v1alpha1.OwnershipService.GetInstitution:input_type -> shorts.v1alpha1.GetInstitutionRequest
+	16, // 31: shorts.v1alpha1.OwnershipService.GetStockOwnership:input_type -> shorts.v1alpha1.GetStockOwnershipRequest
+	18, // 32: shorts.v1alpha1.OwnershipService.ListSubstantialNotices:input_type -> shorts.v1alpha1.ListSubstantialNoticesRequest
+	22, // 33: shorts.v1alpha1.OwnershipService.ListStockRegisters:input_type -> shorts.v1alpha1.ListStockRegistersRequest
+	11, // 34: shorts.v1alpha1.OwnershipService.GetOwnershipOverview:output_type -> shorts.v1alpha1.GetOwnershipOverviewResponse
+	13, // 35: shorts.v1alpha1.OwnershipService.ListInstitutions:output_type -> shorts.v1alpha1.ListInstitutionsResponse
+	15, // 36: shorts.v1alpha1.OwnershipService.GetInstitution:output_type -> shorts.v1alpha1.GetInstitutionResponse
+	17, // 37: shorts.v1alpha1.OwnershipService.GetStockOwnership:output_type -> shorts.v1alpha1.GetStockOwnershipResponse
+	21, // 38: shorts.v1alpha1.OwnershipService.ListSubstantialNotices:output_type -> shorts.v1alpha1.ListSubstantialNoticesResponse
+	24, // 39: shorts.v1alpha1.OwnershipService.ListStockRegisters:output_type -> shorts.v1alpha1.ListStockRegistersResponse
+	34, // [34:40] is the sub-list for method output_type
+	28, // [28:34] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_ownership_proto_init() }
@@ -2054,7 +3004,7 @@ func file_shorts_v1alpha1_ownership_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_ownership_proto_rawDesc), len(file_shorts_v1alpha1_ownership_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

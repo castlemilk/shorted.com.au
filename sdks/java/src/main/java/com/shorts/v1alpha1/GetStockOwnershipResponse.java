@@ -31,6 +31,7 @@ private static final long serialVersionUID = 0L;
     holders_ = java.util.Collections.emptyList();
     history_ = java.util.Collections.emptyList();
     fundHoldings_ = java.util.Collections.emptyList();
+    asOf_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -223,6 +224,85 @@ private static final long serialVersionUID = 0L;
     return hasSharesOnIssue_;
   }
 
+  public static final int HISTORY_TOTAL_FIELD_NUMBER = 7;
+  private int historyTotal_ = 0;
+  /**
+   * <pre>
+   * Parsed notices for the stock on record; history serves the newest 100.
+   * </pre>
+   *
+   * <code>int32 history_total = 7 [json_name = "historyTotal"];</code>
+   * @return The historyTotal.
+   */
+  @java.lang.Override
+  public int getHistoryTotal() {
+    return historyTotal_;
+  }
+
+  public static final int WITHHELD_LISTED_FIELD_NUMBER = 8;
+  private int withheldListed_ = 0;
+  /**
+   * <pre>
+   * Documents listed under this code whose outcome is one of the six
+   * withholding outcomes. A document ASX lists under several codes is counted
+   * under one of them, so the figure is "listed under", never beside a sum.
+   * </pre>
+   *
+   * <code>int32 withheld_listed = 8 [json_name = "withheldListed"];</code>
+   * @return The withheldListed.
+   */
+  @java.lang.Override
+  public int getWithheldListed() {
+    return withheldListed_;
+  }
+
+  public static final int AS_OF_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object asOf_ = "";
+  /**
+   * <pre>
+   * The newest notice release date read anywhere.
+   * </pre>
+   *
+   * <code>string as_of = 9 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  @java.lang.Override
+  public java.lang.String getAsOf() {
+    java.lang.Object ref = asOf_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      asOf_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The newest notice release date read anywhere.
+   * </pre>
+   *
+   * <code>string as_of = 9 [json_name = "asOf"];</code>
+   * @return The bytes for asOf.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getAsOfBytes() {
+    java.lang.Object ref = asOf_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      asOf_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -254,6 +334,15 @@ private static final long serialVersionUID = 0L;
     }
     if (hasSharesOnIssue_ != false) {
       output.writeBool(6, hasSharesOnIssue_);
+    }
+    if (historyTotal_ != 0) {
+      output.writeInt32(7, historyTotal_);
+    }
+    if (withheldListed_ != 0) {
+      output.writeInt32(8, withheldListed_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 9, asOf_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -298,6 +387,17 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(6, hasSharesOnIssue_);
     }
+    if (historyTotal_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(7, historyTotal_);
+    }
+    if (withheldListed_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(8, withheldListed_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(9, asOf_);
+    }
     return size;
   }
   @java.lang.Override
@@ -338,6 +438,12 @@ private static final long serialVersionUID = 0L;
             other.getSharesOnIssue())) return false;
     if (getHasSharesOnIssue()
         != other.getHasSharesOnIssue()) return false;
+    if (getHistoryTotal()
+        != other.getHistoryTotal()) return false;
+    if (getWithheldListed()
+        != other.getWithheldListed()) return false;
+    if (!getAsOf()
+        .equals(other.getAsOf())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -371,6 +477,12 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_SHARES_ON_ISSUE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasSharesOnIssue());
+    hash = (37 * hash) + HISTORY_TOTAL_FIELD_NUMBER;
+    hash = (53 * hash) + getHistoryTotal();
+    hash = (37 * hash) + WITHHELD_LISTED_FIELD_NUMBER;
+    hash = (53 * hash) + getWithheldListed();
+    hash = (37 * hash) + AS_OF_FIELD_NUMBER;
+    hash = (53 * hash) + getAsOf().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -539,6 +651,9 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00000008);
       sharesOnIssue_ = 0D;
       hasSharesOnIssue_ = false;
+      historyTotal_ = 0;
+      withheldListed_ = 0;
+      asOf_ = "";
       return this;
     }
 
@@ -615,6 +730,15 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.hasSharesOnIssue_ = hasSharesOnIssue_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.historyTotal_ = historyTotal_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.withheldListed_ = withheldListed_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.asOf_ = asOf_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -718,6 +842,17 @@ private static final long serialVersionUID = 0L;
       if (other.getHasSharesOnIssue() != false) {
         setHasSharesOnIssue(other.getHasSharesOnIssue());
       }
+      if (other.getHistoryTotal() != 0) {
+        setHistoryTotal(other.getHistoryTotal());
+      }
+      if (other.getWithheldListed() != 0) {
+        setWithheldListed(other.getWithheldListed());
+      }
+      if (!other.getAsOf().isEmpty()) {
+        asOf_ = other.asOf_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -800,6 +935,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000020;
               break;
             } // case 48
+            case 56: {
+              historyTotal_ = input.readInt32();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 56
+            case 64: {
+              withheldListed_ = input.readInt32();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 64
+            case 74: {
+              asOf_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1718,6 +1868,192 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasSharesOnIssue() {
       bitField0_ = (bitField0_ & ~0x00000020);
       hasSharesOnIssue_ = false;
+      onChanged();
+      return this;
+    }
+
+    private int historyTotal_ ;
+    /**
+     * <pre>
+     * Parsed notices for the stock on record; history serves the newest 100.
+     * </pre>
+     *
+     * <code>int32 history_total = 7 [json_name = "historyTotal"];</code>
+     * @return The historyTotal.
+     */
+    @java.lang.Override
+    public int getHistoryTotal() {
+      return historyTotal_;
+    }
+    /**
+     * <pre>
+     * Parsed notices for the stock on record; history serves the newest 100.
+     * </pre>
+     *
+     * <code>int32 history_total = 7 [json_name = "historyTotal"];</code>
+     * @param value The historyTotal to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHistoryTotal(int value) {
+
+      historyTotal_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Parsed notices for the stock on record; history serves the newest 100.
+     * </pre>
+     *
+     * <code>int32 history_total = 7 [json_name = "historyTotal"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHistoryTotal() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      historyTotal_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int withheldListed_ ;
+    /**
+     * <pre>
+     * Documents listed under this code whose outcome is one of the six
+     * withholding outcomes. A document ASX lists under several codes is counted
+     * under one of them, so the figure is "listed under", never beside a sum.
+     * </pre>
+     *
+     * <code>int32 withheld_listed = 8 [json_name = "withheldListed"];</code>
+     * @return The withheldListed.
+     */
+    @java.lang.Override
+    public int getWithheldListed() {
+      return withheldListed_;
+    }
+    /**
+     * <pre>
+     * Documents listed under this code whose outcome is one of the six
+     * withholding outcomes. A document ASX lists under several codes is counted
+     * under one of them, so the figure is "listed under", never beside a sum.
+     * </pre>
+     *
+     * <code>int32 withheld_listed = 8 [json_name = "withheldListed"];</code>
+     * @param value The withheldListed to set.
+     * @return This builder for chaining.
+     */
+    public Builder setWithheldListed(int value) {
+
+      withheldListed_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Documents listed under this code whose outcome is one of the six
+     * withholding outcomes. A document ASX lists under several codes is counted
+     * under one of them, so the figure is "listed under", never beside a sum.
+     * </pre>
+     *
+     * <code>int32 withheld_listed = 8 [json_name = "withheldListed"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearWithheldListed() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      withheldListed_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object asOf_ = "";
+    /**
+     * <pre>
+     * The newest notice release date read anywhere.
+     * </pre>
+     *
+     * <code>string as_of = 9 [json_name = "asOf"];</code>
+     * @return The asOf.
+     */
+    public java.lang.String getAsOf() {
+      java.lang.Object ref = asOf_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        asOf_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The newest notice release date read anywhere.
+     * </pre>
+     *
+     * <code>string as_of = 9 [json_name = "asOf"];</code>
+     * @return The bytes for asOf.
+     */
+    public com.google.protobuf.ByteString
+        getAsOfBytes() {
+      java.lang.Object ref = asOf_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        asOf_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The newest notice release date read anywhere.
+     * </pre>
+     *
+     * <code>string as_of = 9 [json_name = "asOf"];</code>
+     * @param value The asOf to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAsOf(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      asOf_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The newest notice release date read anywhere.
+     * </pre>
+     *
+     * <code>string as_of = 9 [json_name = "asOf"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAsOf() {
+      asOf_ = getDefaultInstance().getAsOf();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The newest notice release date read anywhere.
+     * </pre>
+     *
+     * <code>string as_of = 9 [json_name = "asOf"];</code>
+     * @param value The bytes for asOf to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAsOfBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      asOf_ = value;
+      bitField0_ |= 0x00000100;
       onChanged();
       return this;
     }

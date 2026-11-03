@@ -4191,6 +4191,12 @@
             "title": "fund_holdings",
             "type": "array"
           },
+          "fundHoldingsTotal": {
+            "description": "Rows in its latest files; fund_holdings serves the largest 100. (proto int32)",
+            "format": "int32",
+            "title": "fund_holdings_total",
+            "type": "integer"
+          },
           "funds": {
             "description": "(proto shorts.v1alpha1.OwnershipFund)",
             "items": {
@@ -4356,7 +4362,7 @@
             "type": "string"
           },
           "crowded": {
-            "description": "Stocks with the highest disclosed substantial voting power. (proto shorts.v1alpha1.OwnershipStock)",
+            "description": "Stocks where investors (super, index, active, hedge, sovereign, insurer)\n disclose the most voting power; banks and brokers are not counted. (proto shorts.v1alpha1.OwnershipStock)",
             "items": {
               "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock"
             },
@@ -4370,6 +4376,12 @@
             },
             "title": "crowded_both_ways",
             "type": "array"
+          },
+          "documentsAttempted": {
+            "description": "Every document attempted, parsed included: the base of notices_withheld. (proto int32)",
+            "format": "int32",
+            "title": "documents_attempted",
+            "type": "integer"
           },
           "etfFumAud": {
             "description": "(proto double)",
@@ -4424,7 +4436,7 @@
             "type": "integer"
           },
           "passive": {
-            "description": "Stocks the tracked index ETFs own the largest share of. (proto shorts.v1alpha1.OwnershipStock)",
+            "description": "Stocks the tracked index funds own the largest share of. (proto shorts.v1alpha1.OwnershipStock)",
             "items": {
               "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock"
             },
@@ -4473,6 +4485,14 @@
               "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipInstitution"
             },
             "title": "top_holders",
+            "type": "array"
+          },
+          "withheldByOutcome": {
+            "description": "Withheld documents by outcome; notices_withheld stays their total. (proto shorts.v1alpha1.WithheldOutcome)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.WithheldOutcome"
+            },
+            "title": "withheld_by_outcome",
             "type": "array"
           }
         },
@@ -5779,6 +5799,11 @@
       "shorts.v1alpha1.GetStockOwnershipResponse": {
         "additionalProperties": false,
         "properties": {
+          "asOf": {
+            "description": "The newest notice release date read anywhere. (proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
           "fundHoldings": {
             "description": "(proto shorts.v1alpha1.FundHolding)",
             "items": {
@@ -5800,6 +5825,12 @@
             "title": "history",
             "type": "array"
           },
+          "historyTotal": {
+            "description": "Parsed notices for the stock on record; history serves the newest 100. (proto int32)",
+            "format": "int32",
+            "title": "history_total",
+            "type": "integer"
+          },
           "holders": {
             "description": "(proto shorts.v1alpha1.SubstantialHolding)",
             "items": {
@@ -5818,6 +5849,12 @@
             "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock",
             "description": "(proto shorts.v1alpha1.OwnershipStock)",
             "title": "summary"
+          },
+          "withheldListed": {
+            "description": "Documents listed under this code whose outcome is one of the six\n withholding outcomes. A document ASX lists under several codes is counted\n under one of them, so the figure is \"listed under\", never beside a sum. (proto int32)",
+            "format": "int32",
+            "title": "withheld_listed",
+            "type": "integer"
           }
         },
         "title": "GetStockOwnershipResponse",
@@ -6773,6 +6810,25 @@
           }
         },
         "title": "IndexPoint",
+        "type": "object"
+      },
+      "shorts.v1alpha1.IndustryCount": {
+        "additionalProperties": false,
+        "description": "One industry among the register's stocks, for the filter.",
+        "properties": {
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "stocks": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "stocks",
+            "type": "integer"
+          }
+        },
+        "title": "IndustryCount",
         "type": "object"
       },
       "shorts.v1alpha1.IndustryIntelligenceEntityTotal": {
@@ -8518,6 +8574,102 @@
         "title": "ListStockPoliticiansResponse",
         "type": "object"
       },
+      "shorts.v1alpha1.ListStockRegistersRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "ascending": {
+            "description": "(proto bool)",
+            "title": "ascending",
+            "type": "boolean"
+          },
+          "industry": {
+            "description": "\"\" or one of the response's industries, matched exactly after trim. (proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "kind": {
+            "description": "A kind that must disclose 5% or more in the stock; \"\" for any. (proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "limit": {
+            "description": "0 means 50; above 100 is 100. (proto int32)",
+            "format": "int32",
+            "title": "limit",
+            "type": "integer"
+          },
+          "minInterests": {
+            "description": "Interests counted once; 0 means 1. (proto int32)",
+            "format": "int32",
+            "title": "min_interests",
+            "type": "integer"
+          },
+          "minShortPct": {
+            "description": "One of 0, 1, 3, 5, 10; another value snaps DOWN to the nearest served step. (proto double)",
+            "format": "double",
+            "title": "min_short_pct",
+            "type": "number"
+          },
+          "offset": {
+            "description": "0 to 5000. (proto int32)",
+            "format": "int32",
+            "title": "offset",
+            "type": "integer"
+          },
+          "query": {
+            "description": "A code prefix or a name substring, at most 24 characters. (proto string)",
+            "title": "query",
+            "type": "string"
+          },
+          "sort": {
+            "description": "disclosed (default), investors, banks, hedge_active, short, index,\n super_value, super_options, interests, latest_notice, code. A stock\n without the figure sorts last whatever the direction; ties are broken by\n code. (proto string)",
+            "title": "sort",
+            "type": "string"
+          }
+        },
+        "title": "ListStockRegistersRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListStockRegistersResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "asOf": {
+            "description": "(proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
+          "industries": {
+            "description": "The distinct industries, sorted, for the filter. (proto shorts.v1alpha1.IndustryCount)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.IndustryCount"
+            },
+            "title": "industries",
+            "type": "array"
+          },
+          "stocks": {
+            "description": "(proto shorts.v1alpha1.OwnershipStock)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock"
+            },
+            "title": "stocks",
+            "type": "array"
+          },
+          "total": {
+            "description": "Stocks matching the filters. (proto int32)",
+            "format": "int32",
+            "title": "total",
+            "type": "integer"
+          },
+          "universe": {
+            "description": "Stocks with at least one current holder, before the filters. (proto int32)",
+            "format": "int32",
+            "title": "universe",
+            "type": "integer"
+          }
+        },
+        "title": "ListStockRegistersResponse",
+        "type": "object"
+      },
       "shorts.v1alpha1.ListStrategiesRequest": {
         "additionalProperties": false,
         "description": "Request for ListStrategies.",
@@ -8543,6 +8695,97 @@
           }
         },
         "title": "ListStrategiesResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListSubstantialNoticesRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "description": "\"\" for the first page, else the previous page's next_cursor. (proto string)",
+            "title": "cursor",
+            "type": "string"
+          },
+          "event": {
+            "description": "\"\" or one of became, increased, decreased, changed, ceased, nz. (proto string)",
+            "title": "event",
+            "type": "string"
+          },
+          "includeActivity": {
+            "description": "Also compute the window's counts, weekly buckets and largest moves\n (windows of at most 90 days; omitted above that). Only the first page\n (cursor \"\"): a page after a cursor never carries it. (proto bool)",
+            "title": "include_activity",
+            "type": "boolean"
+          },
+          "institutionSlug": {
+            "description": "\"\" or a registry slug: that holder's notices, as its institution page reads\n them. Holders off the map cannot be filtered. (proto string)",
+            "title": "institution_slug",
+            "type": "string"
+          },
+          "kind": {
+            "description": "\"\" or a holder kind: an institution kind, corporate or unclassified. (proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "limit": {
+            "description": "0 means 50; above 100 is 100. (proto int32)",
+            "format": "int32",
+            "title": "limit",
+            "type": "integer"
+          },
+          "stockCode": {
+            "description": "\"\" or an ASX code (1 to 6 uppercase alphanumerics). (proto string)",
+            "title": "stock_code",
+            "type": "string"
+          },
+          "windowDays": {
+            "description": "7, 30, 90 or 365; 0 means every notice read (no date clause). Another\n positive value rounds UP to the next served window, and one above 365 is\n 0; the response echoes the window used. A negative value is invalid. (proto int32)",
+            "format": "int32",
+            "title": "window_days",
+            "type": "integer"
+          }
+        },
+        "title": "ListSubstantialNoticesRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListSubstantialNoticesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activity": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.NoticeActivity",
+            "description": "Only on a first page that set include_activity, for a window that allows it. (proto shorts.v1alpha1.NoticeActivity)",
+            "title": "activity"
+          },
+          "asOf": {
+            "description": "(proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
+          "nextCursor": {
+            "description": "The cursor for the next page; \"\" on the last page. (proto string)",
+            "title": "next_cursor",
+            "type": "string"
+          },
+          "notices": {
+            "description": "(proto shorts.v1alpha1.SubstantialNotice)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.SubstantialNotice"
+            },
+            "title": "notices",
+            "type": "array"
+          },
+          "total": {
+            "description": "Notices matching the filters in the window; the cursor does not narrow it. (proto int32)",
+            "format": "int32",
+            "title": "total",
+            "type": "integer"
+          },
+          "windowDays": {
+            "description": "The window used, echoed: 0 is every notice read (no date clause). (proto int32)",
+            "format": "int32",
+            "title": "window_days",
+            "type": "integer"
+          }
+        },
+        "title": "ListSubstantialNoticesResponse",
         "type": "object"
       },
       "shorts.v1alpha1.ListSuburbDropListingsRequest": {
@@ -9017,6 +9260,123 @@
         "title": "NewsArticle",
         "type": "object"
       },
+      "shorts.v1alpha1.NoticeActivity": {
+        "additionalProperties": false,
+        "description": "A window's notices by event, by week, and the largest moves.",
+        "properties": {
+          "became": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "became",
+            "type": "integer"
+          },
+          "ceased": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "ceased",
+            "type": "integer"
+          },
+          "changed": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "changed",
+            "type": "integer"
+          },
+          "decreased": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "decreased",
+            "type": "integer"
+          },
+          "increased": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "increased",
+            "type": "integer"
+          },
+          "largestFalls": {
+            "description": "(proto shorts.v1alpha1.SubstantialNotice)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.SubstantialNotice"
+            },
+            "title": "largest_falls",
+            "type": "array"
+          },
+          "largestRises": {
+            "description": "Form 604 notices with both figures, by the largest rise and fall in\n percentage points; at most five each. (proto shorts.v1alpha1.SubstantialNotice)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.SubstantialNotice"
+            },
+            "title": "largest_rises",
+            "type": "array"
+          },
+          "nz": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "nz",
+            "type": "integer"
+          },
+          "weeks": {
+            "description": "Every ISO week in the window, oldest first, empty weeks included. (proto shorts.v1alpha1.NoticeWeek)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.NoticeWeek"
+            },
+            "title": "weeks",
+            "type": "array"
+          }
+        },
+        "title": "NoticeActivity",
+        "type": "object"
+      },
+      "shorts.v1alpha1.NoticeWeek": {
+        "additionalProperties": false,
+        "description": "One ISO week of notices, by event.",
+        "properties": {
+          "became": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "became",
+            "type": "integer"
+          },
+          "ceased": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "ceased",
+            "type": "integer"
+          },
+          "changed": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "changed",
+            "type": "integer"
+          },
+          "decreased": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "decreased",
+            "type": "integer"
+          },
+          "increased": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "increased",
+            "type": "integer"
+          },
+          "nz": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "nz",
+            "type": "integer"
+          },
+          "weekStart": {
+            "description": "The Monday that starts the week, YYYY-MM-DD. (proto string)",
+            "title": "week_start",
+            "type": "string"
+          }
+        },
+        "title": "NoticeWeek",
+        "type": "object"
+      },
       "shorts.v1alpha1.OwnershipFund": {
         "additionalProperties": false,
         "description": "A product in the fund registers.",
@@ -9214,10 +9574,21 @@
             "title": "as_at",
             "type": "string"
           },
+          "asAtFrom": {
+            "description": "The oldest file date behind the source; equals as_at when one file or\n one date. \"\" for notices. (proto string)",
+            "title": "as_at_from",
+            "type": "string"
+          },
           "description": {
             "description": "(proto string)",
             "title": "description",
             "type": "string"
+          },
+          "funds": {
+            "description": "Files (index funds) or options (super funds) the source holds. 0 for notices. (proto int32)",
+            "format": "int32",
+            "title": "funds",
+            "type": "integer"
           },
           "records": {
             "description": "(proto int32)",
@@ -9283,8 +9654,24 @@
             "title": "holders",
             "type": "integer"
           },
+          "indexAsAtFrom": {
+            "description": "The oldest and newest file dates behind index_pct, and how many files\n contributed; \"\" and 0 when there is no index figure. (proto string)",
+            "title": "index_as_at_from",
+            "type": "string"
+          },
+          "indexAsAtTo": {
+            "description": "(proto string)",
+            "title": "index_as_at_to",
+            "type": "string"
+          },
+          "indexFiles": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "index_files",
+            "type": "integer"
+          },
           "indexPct": {
-            "description": "Shares held by the index ETFs tracked, over shares on issue. (proto double)",
+            "description": "Shares held by the index funds tracked, over shares on issue. (proto double)",
             "format": "double",
             "title": "index_pct",
             "type": "number"
@@ -9294,11 +9681,21 @@
             "title": "industry",
             "type": "string"
           },
+          "latestNoticeDate": {
+            "description": "The newest release date among the current holders' notices; \"\" when none. (proto string)",
+            "title": "latest_notice_date",
+            "type": "string"
+          },
           "marketCap": {
             "description": "(proto double)",
             "format": "double",
             "title": "market_cap",
             "type": "number"
+          },
+          "shortAsOf": {
+            "description": "ASIC's report date behind short_pct; \"\" when there is none. (proto string)",
+            "title": "short_as_of",
+            "type": "string"
           },
           "shortPct": {
             "description": "ASIC's latest reported short position, as a percentage of shares on issue. (proto double)",
@@ -12484,6 +12881,11 @@
             "title": "company_name",
             "type": "string"
           },
+          "event": {
+            "description": "A notice's event, decided once from its form and figures, ceased first:\n ceased (the ceased flag, or Form 605), became (603), increased or\n decreased (604 with both figures and a difference), changed (604 with no\n previous figure, no present figure, or an equal one), nz (an NZ\n disclosure that is not a cessation). (proto string)",
+            "title": "event",
+            "type": "string"
+          },
           "eventDate": {
             "description": "(proto string)",
             "title": "event_date",
@@ -14443,6 +14845,25 @@
           }
         },
         "title": "WeeklyReportTrendInsight",
+        "type": "object"
+      },
+      "shorts.v1alpha1.WithheldOutcome": {
+        "additionalProperties": false,
+        "description": "Documents attempted and not parsed, by outcome. Six outcomes withhold a\n notice that was read or could not be read (no_text, no_voting_power,\n implausible, ambiguous_target, no_holder, inconsistent_votes); not_a_notice\n is a document that was never a substantial holding form and fetch_error a\n download that is retried. Neither is an unread notice.",
+        "properties": {
+          "count": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "count",
+            "type": "integer"
+          },
+          "outcome": {
+            "description": "(proto string)",
+            "title": "outcome",
+            "type": "string"
+          }
+        },
+        "title": "WithheldOutcome",
         "type": "object"
       },
       "shorts.v1alpha1.ZoneFamilyShare": {
@@ -17617,7 +18038,7 @@
     },
     "/shorts.v1alpha1.OwnershipService/GetStockOwnership": {
       "post": {
-        "description": "Who holds one stock: its substantial holders, their notices, and the index\n ETFs and super fund options that hold it.",
+        "description": "Who holds one stock: its substantial holders, their notices, and the index\n funds and super fund options that hold it.",
         "operationId": "OwnershipService_GetStockOwnership",
         "parameters": [
           {
@@ -17728,6 +18149,124 @@
           }
         },
         "summary": "ListInstitutions",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.OwnershipService/ListStockRegisters": {
+      "post": {
+        "description": "Every stock with a current substantial holder, filtered and sorted for the\n register explorer: what its notices disclose (each interest counted once,\n not a share of the company), the investors, banks and index funds among its\n holders, and its short interest.",
+        "operationId": "OwnershipService_ListStockRegisters",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.ListStockRegistersRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.ListStockRegistersResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "ListStockRegisters",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.OwnershipService/ListSubstantialNotices": {
+      "post": {
+        "description": "The substantial holding notices we could read, newest release first:\n filtered by window, event, kind, stock or registry holder, paged by a\n keyset cursor, with the window's activity on the first page for windows of\n up to 90 days.",
+        "operationId": "OwnershipService_ListSubstantialNotices",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.ListSubstantialNoticesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.ListSubstantialNoticesResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "ListSubstantialNotices",
         "tags": [
           "shorts.v1alpha1.OwnershipService"
         ]

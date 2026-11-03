@@ -778,7 +778,12 @@ pipeline-help: ## Show pipeline documentation
 # =========================================
 
 openapi: ## Regenerate the public OpenAPI spec from the protos
-	cd proto && buf generate
+	# buf gives a plugin 2 minutes by default. connect-openapi is `go run` from
+	# source, and on a runner with a cold Go cache its download and build alone
+	# took longer than that: buf killed the plugin at 120s and the drift check
+	# reported a toolchain failure (repo-hygiene, 2026-11-03). A cold build is
+	# slow, not broken, so give it the time.
+	cd proto && buf generate --timeout 15m
 	cd services && GOWORK=off go run ./cmd/openapi-postprocess \
 		-in ../api/schema/generated/openapi.yaml \
 		-base ../api/schema/base.yaml \

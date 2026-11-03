@@ -976,7 +976,7 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Ownership Overview",
-      description: "Who holds ASX stocks: super funds, index managers, hedge funds, banks and others by kind, the most crowded registers, stocks crowded both long (substantial holders) and short (ASIC short interest), recent substantial holding notices, super funds' consensus holdings and index ETF ownership. Substantial holdings are the voting power stated in ASX Forms 603/604/605; ETF and super fund holdings are the funds' own disclosures."
+      description: "Who holds ASX stocks: super funds, index managers, hedge funds, banks and others by kind, the most crowded registers, stocks crowded both long (substantial holders) and short (ASIC short interest), recent substantial holding notices, super funds' consensus holdings and index fund ownership. Substantial holdings are the voting power stated in ASX Forms 603/604/605; ETF and super fund holdings are the funds' own disclosures."
     };
   }
 
@@ -1003,7 +1003,25 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Stock Ownership",
-      description: "One ASX stock's substantial holders (voting power as stated in their latest Form 603/604), their notice history, and the index ETFs and super fund options that hold it, with shares held as a percentage of shares on issue."
+      description: "One ASX stock's substantial holders (voting power as stated in their latest Form 603/604), their notice history, and the index funds and super fund options that hold it, with shares held as a percentage of shares on issue."
+    };
+  }
+
+  // The substantial holding notices we could read, newest release first.
+  rpc ListSubstantialNotices (ListSubstantialNoticesRequest) returns (ListSubstantialNoticesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Substantial Notices",
+      description: "The ASX substantial holding notices (Forms 603, 604 and 605) read from their PDFs, newest release first, filtered by window, event, holder kind, stock or registry holder, with a keyset cursor. Each notice carries its event (became, increased, decreased, changed, ceased or nz). For windows of up to 90 days, on the first page, the window's counts by week and its largest moves."
+    };
+  }
+
+  // Every stock with a current substantial holder, filtered and sorted.
+  rpc ListStockRegisters (ListStockRegistersRequest) returns (ListStockRegistersResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Stock Registers",
+      description: "Every ASX stock with a current substantial holder, with what its notices disclose (each interest counted once, not a share of the company), the investors, banks and index funds in it, and its short interest. Filtered by industry, holder kind, minimum interests, minimum short interest and code or name, and sorted by any of those figures."
     };
   }
 

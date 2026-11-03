@@ -108,4 +108,46 @@ public interface GetStockOwnershipResponseOrBuilder extends
    * @return The hasSharesOnIssue.
    */
   boolean getHasSharesOnIssue();
+
+  /**
+   * <pre>
+   * Parsed notices for the stock on record; history serves the newest 100.
+   * </pre>
+   *
+   * <code>int32 history_total = 7 [json_name = "historyTotal"];</code>
+   * @return The historyTotal.
+   */
+  int getHistoryTotal();
+
+  /**
+   * <pre>
+   * Documents listed under this code whose outcome is one of the six
+   * withholding outcomes. A document ASX lists under several codes is counted
+   * under one of them, so the figure is "listed under", never beside a sum.
+   * </pre>
+   *
+   * <code>int32 withheld_listed = 8 [json_name = "withheldListed"];</code>
+   * @return The withheldListed.
+   */
+  int getWithheldListed();
+
+  /**
+   * <pre>
+   * The newest notice release date read anywhere.
+   * </pre>
+   *
+   * <code>string as_of = 9 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  java.lang.String getAsOf();
+  /**
+   * <pre>
+   * The newest notice release date read anywhere.
+   * </pre>
+   *
+   * <code>string as_of = 9 [json_name = "asOf"];</code>
+   * @return The bytes for asOf.
+   */
+  com.google.protobuf.ByteString
+      getAsOfBytes();
 }

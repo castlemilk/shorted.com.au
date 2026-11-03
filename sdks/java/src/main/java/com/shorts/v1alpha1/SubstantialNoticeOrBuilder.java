@@ -159,4 +159,32 @@ public interface SubstantialNoticeOrBuilder extends
    */
   com.google.protobuf.ByteString
       getAnnouncementUrlBytes();
+
+  /**
+   * <pre>
+   * A notice's event, decided once from its form and figures, ceased first:
+   * ceased (the ceased flag, or Form 605), became (603), increased or
+   * decreased (604 with both figures and a difference), changed (604 with no
+   * previous figure, no present figure, or an equal one), nz (an NZ
+   * disclosure that is not a cessation).
+   * </pre>
+   *
+   * <code>string event = 16 [json_name = "event"];</code>
+   * @return The event.
+   */
+  java.lang.String getEvent();
+  /**
+   * <pre>
+   * A notice's event, decided once from its form and figures, ceased first:
+   * ceased (the ceased flag, or Form 605), became (603), increased or
+   * decreased (604 with both figures and a difference), changed (604 with no
+   * previous figure, no present figure, or an equal one), nz (an NZ
+   * disclosure that is not a cessation).
+   * </pre>
+   *
+   * <code>string event = 16 [json_name = "event"];</code>
+   * @return The bytes for event.
+   */
+  com.google.protobuf.ByteString
+      getEventBytes();
 }

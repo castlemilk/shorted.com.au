@@ -59,7 +59,7 @@ export const KIND_INFO: Readonly<Record<OwnershipKind, KindInfo>> = {
   bank_broker: {
     label: "Bank or broker",
     plural: "Banks and brokers",
-    note: "Mostly securities lending: shares lent to, or held as collateral from, short sellers.",
+    note: "Often securities lending: shares lent to, or held as collateral from, short sellers.",
     swatch: "bg-[#72625A]",
   },
   sovereign_public: {
@@ -78,13 +78,13 @@ export const KIND_INFO: Readonly<Record<OwnershipKind, KindInfo>> = {
     label: "Private equity",
     plural: "Private equity",
     note: "Private equity and infrastructure investors, often building a takeover stake.",
-    swatch: "bg-[#9E5210]",
+    swatch: "bg-[#9E5210] dark:bg-[#C77A2A]",
   },
   corporate: {
     label: "Listed company",
     plural: "Listed companies",
     note: "Another ASX company: a strategic stake, a takeover bidder or a parent.",
-    swatch: "bg-[#483932]",
+    swatch: "bg-[#483932] dark:bg-[#B5A48C]",
   },
   other: {
     label: "Other",
@@ -114,6 +114,20 @@ export const KIND_ORDER: readonly OwnershipKind[] = [
   "other",
   "unclassified",
 ];
+
+/**
+ * The investors a crowded register counts: what super funds, index and active
+ * managers, hedge funds, sovereign funds and insurers disclose. Banks and
+ * brokers are left out, because their notices are often securities lending.
+ */
+export const INVESTOR_KINDS: ReadonlySet<string> = new Set<string>([
+  "super_fund",
+  "index_manager",
+  "active_manager",
+  "hedge_fund",
+  "sovereign_public",
+  "insurer",
+]);
 
 export function kindInfo(kind: string): KindInfo {
   return KIND_INFO[kind as OwnershipKind] ?? KIND_INFO.unclassified;
@@ -173,9 +187,12 @@ export function institutionHref(slug: string | null | undefined): string | null 
 
 const INSTITUTION_SLUG = /^[a-z0-9-]{2,64}$/;
 
+/** Ownership paths that are not institutions. A slug that took one would shadow its page. */
+export const RESERVED_SLUGS: readonly string[] = ["stocks", "notices"];
+
 /** Whether a path segment can be a registry slug, checked before any read. */
 export function isInstitutionSlug(slug: string): boolean {
-  return INSTITUTION_SLUG.test(slug);
+  return INSTITUTION_SLUG.test(slug) && !RESERVED_SLUGS.includes(slug);
 }
 
 const LISTED_HOLDER = /^asx:([A-Z0-9]{2,6})$/;
@@ -190,8 +207,67 @@ export function holderHref(slug: string | null | undefined, holderKey?: string):
   return institutionHref(slug) ?? (listed ? stockTabHref(listed, "company") : null);
 }
 
+/** A stock's ASX code as the register path takes it. */
+export const REGISTER_CODE_PATTERN = /^[A-Z0-9]{1,6}$/;
+
+/**
+ * A stock's register page. Every stock link on an ownership surface points
+ * here; a listed holder's own name stays with its Company tab (holderHref).
+ */
+export function registerHref(code: string): string {
+  return `/ownership/stocks/${code.toUpperCase()}`;
+}
+
 /** A fund's name with its ASX code in front, unless the name already carries it. */
 export function fundLabel(code: string | null | undefined, name: string): string {
   if (!code || name.includes(`(${code})`) || name.startsWith(`${code} `)) return name;
   return `${code}, ${name}`;
+}
+
+/**
+ * Vanguard's index fund files cover the pooled wholesale fund behind each ETF,
+ * not the ETF alone, so their rows carry the P mark.
+ */
+export function isPooledFile(f: { sourceKind: string; institutionSlug: string }): boolean {
+  return f.sourceKind === "etf" && f.institutionSlug === "vanguard";
+}
+
+/**
+ * Why a document was withheld. The first six are withholding outcomes: a
+ * substantial holding notice whose figure we could not read unambiguously, so
+ * the register shows nothing for it. The last two are not withheld at all: a
+ * document that is not a holding form, or one not downloaded yet. They are
+ * reported apart, never as withheld notices.
+ */
+export const WITHHOLDING_OUTCOMES: readonly string[] = [
+  "no_text",
+  "no_voting_power",
+  "implausible",
+  "ambiguous_target",
+  "no_holder",
+  "inconsistent_votes",
+];
+
+/** What each outcome says on the page. An outcome not listed here prints its raw name. */
+export const OUTCOME_COPY: Readonly<Record<string, string>> = {
+  no_text: "no text layer (a scan)",
+  no_voting_power: "voting power not stated, or only in an annexure",
+  implausible: "figures that do not reconcile",
+  ambiguous_target: "company not identified",
+  no_holder: "holder not named",
+  inconsistent_votes: "votes do not fit the share count",
+  not_a_notice: "not a substantial holding form",
+  fetch_error: "not yet downloaded (retried)",
+};
+
+/**
+ * A source's dating: one date when its files share it, else the span they
+ * cover. "n/a" only when no date is known, never a blank.
+ */
+export function asAtRange(from: string, to: string): string {
+  const dates = [from, to].filter((d) => d !== "").sort();
+  const first = dates[0];
+  const last = dates.at(-1);
+  if (first === undefined || last === undefined) return "as at n/a";
+  return first === last ? `as at ${first}` : `as at ${first} to ${last}`;
 }

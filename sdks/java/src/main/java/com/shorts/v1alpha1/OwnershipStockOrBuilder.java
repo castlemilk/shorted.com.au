@@ -108,7 +108,7 @@ public interface OwnershipStockOrBuilder extends
 
   /**
    * <pre>
-   * Shares held by the index ETFs tracked, over shares on issue.
+   * Shares held by the index funds tracked, over shares on issue.
    * </pre>
    *
    * <code>double index_pct = 9 [json_name = "indexPct"];</code>
@@ -155,4 +155,84 @@ public interface OwnershipStockOrBuilder extends
    * @return The hasMarketCap.
    */
   boolean getHasMarketCap();
+
+  /**
+   * <pre>
+   * ASIC's report date behind short_pct; "" when there is none.
+   * </pre>
+   *
+   * <code>string short_as_of = 16 [json_name = "shortAsOf"];</code>
+   * @return The shortAsOf.
+   */
+  java.lang.String getShortAsOf();
+  /**
+   * <pre>
+   * ASIC's report date behind short_pct; "" when there is none.
+   * </pre>
+   *
+   * <code>string short_as_of = 16 [json_name = "shortAsOf"];</code>
+   * @return The bytes for shortAsOf.
+   */
+  com.google.protobuf.ByteString
+      getShortAsOfBytes();
+
+  /**
+   * <pre>
+   * The oldest and newest file dates behind index_pct, and how many files
+   * contributed; "" and 0 when there is no index figure.
+   * </pre>
+   *
+   * <code>string index_as_at_from = 17 [json_name = "indexAsAtFrom"];</code>
+   * @return The indexAsAtFrom.
+   */
+  java.lang.String getIndexAsAtFrom();
+  /**
+   * <pre>
+   * The oldest and newest file dates behind index_pct, and how many files
+   * contributed; "" and 0 when there is no index figure.
+   * </pre>
+   *
+   * <code>string index_as_at_from = 17 [json_name = "indexAsAtFrom"];</code>
+   * @return The bytes for indexAsAtFrom.
+   */
+  com.google.protobuf.ByteString
+      getIndexAsAtFromBytes();
+
+  /**
+   * <code>string index_as_at_to = 18 [json_name = "indexAsAtTo"];</code>
+   * @return The indexAsAtTo.
+   */
+  java.lang.String getIndexAsAtTo();
+  /**
+   * <code>string index_as_at_to = 18 [json_name = "indexAsAtTo"];</code>
+   * @return The bytes for indexAsAtTo.
+   */
+  com.google.protobuf.ByteString
+      getIndexAsAtToBytes();
+
+  /**
+   * <code>int32 index_files = 19 [json_name = "indexFiles"];</code>
+   * @return The indexFiles.
+   */
+  int getIndexFiles();
+
+  /**
+   * <pre>
+   * The newest release date among the current holders' notices; "" when none.
+   * </pre>
+   *
+   * <code>string latest_notice_date = 20 [json_name = "latestNoticeDate"];</code>
+   * @return The latestNoticeDate.
+   */
+  java.lang.String getLatestNoticeDate();
+  /**
+   * <pre>
+   * The newest release date among the current holders' notices; "" when none.
+   * </pre>
+   *
+   * <code>string latest_notice_date = 20 [json_name = "latestNoticeDate"];</code>
+   * @return The bytes for latestNoticeDate.
+   */
+  com.google.protobuf.ByteString
+      getLatestNoticeDateBytes();
 }

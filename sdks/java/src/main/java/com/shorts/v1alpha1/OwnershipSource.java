@@ -35,6 +35,7 @@ private static final long serialVersionUID = 0L;
     source_ = "";
     description_ = "";
     asAt_ = "";
+    asAtFrom_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -183,6 +184,70 @@ private static final long serialVersionUID = 0L;
     return records_;
   }
 
+  public static final int FUNDS_FIELD_NUMBER = 5;
+  private int funds_ = 0;
+  /**
+   * <pre>
+   * Files (index funds) or options (super funds) the source holds. 0 for notices.
+   * </pre>
+   *
+   * <code>int32 funds = 5 [json_name = "funds"];</code>
+   * @return The funds.
+   */
+  @java.lang.Override
+  public int getFunds() {
+    return funds_;
+  }
+
+  public static final int AS_AT_FROM_FIELD_NUMBER = 6;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object asAtFrom_ = "";
+  /**
+   * <pre>
+   * The oldest file date behind the source; equals as_at when one file or
+   * one date. "" for notices.
+   * </pre>
+   *
+   * <code>string as_at_from = 6 [json_name = "asAtFrom"];</code>
+   * @return The asAtFrom.
+   */
+  @java.lang.Override
+  public java.lang.String getAsAtFrom() {
+    java.lang.Object ref = asAtFrom_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      asAtFrom_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The oldest file date behind the source; equals as_at when one file or
+   * one date. "" for notices.
+   * </pre>
+   *
+   * <code>string as_at_from = 6 [json_name = "asAtFrom"];</code>
+   * @return The bytes for asAtFrom.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getAsAtFromBytes() {
+    java.lang.Object ref = asAtFrom_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      asAtFrom_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -209,6 +274,12 @@ private static final long serialVersionUID = 0L;
     if (records_ != 0) {
       output.writeInt32(4, records_);
     }
+    if (funds_ != 0) {
+      output.writeInt32(5, funds_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asAtFrom_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 6, asAtFrom_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -225,6 +296,13 @@ private static final long serialVersionUID = 0L;
     if (records_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(4, records_);
+    }
+    if (funds_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(5, funds_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asAtFrom_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(6, asAtFrom_);
     }
     return size;
   }
@@ -258,6 +336,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getAsAt())) return false;
     if (getRecords()
         != other.getRecords()) return false;
+    if (getFunds()
+        != other.getFunds()) return false;
+    if (!getAsAtFrom()
+        .equals(other.getAsAtFrom())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -277,6 +359,10 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getAsAt().hashCode();
     hash = (37 * hash) + RECORDS_FIELD_NUMBER;
     hash = (53 * hash) + getRecords();
+    hash = (37 * hash) + FUNDS_FIELD_NUMBER;
+    hash = (53 * hash) + getFunds();
+    hash = (37 * hash) + AS_AT_FROM_FIELD_NUMBER;
+    hash = (53 * hash) + getAsAtFrom().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -416,6 +502,8 @@ private static final long serialVersionUID = 0L;
       description_ = "";
       asAt_ = "";
       records_ = 0;
+      funds_ = 0;
+      asAtFrom_ = "";
       return this;
     }
 
@@ -461,6 +549,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.records_ = records_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.funds_ = funds_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.asAtFrom_ = asAtFrom_;
+      }
     }
 
     @java.lang.Override
@@ -492,6 +586,14 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getRecords() != 0) {
         setRecords(other.getRecords());
+      }
+      if (other.getFunds() != 0) {
+        setFunds(other.getFunds());
+      }
+      if (!other.getAsAtFrom().isEmpty()) {
+        asAtFrom_ = other.asAtFrom_;
+        bitField0_ |= 0x00000020;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -539,6 +641,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 32
+            case 40: {
+              funds_ = input.readInt32();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 40
+            case 50: {
+              asAtFrom_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 50
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -800,6 +912,147 @@ private static final long serialVersionUID = 0L;
     public Builder clearRecords() {
       bitField0_ = (bitField0_ & ~0x00000008);
       records_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int funds_ ;
+    /**
+     * <pre>
+     * Files (index funds) or options (super funds) the source holds. 0 for notices.
+     * </pre>
+     *
+     * <code>int32 funds = 5 [json_name = "funds"];</code>
+     * @return The funds.
+     */
+    @java.lang.Override
+    public int getFunds() {
+      return funds_;
+    }
+    /**
+     * <pre>
+     * Files (index funds) or options (super funds) the source holds. 0 for notices.
+     * </pre>
+     *
+     * <code>int32 funds = 5 [json_name = "funds"];</code>
+     * @param value The funds to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFunds(int value) {
+
+      funds_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Files (index funds) or options (super funds) the source holds. 0 for notices.
+     * </pre>
+     *
+     * <code>int32 funds = 5 [json_name = "funds"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFunds() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      funds_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object asAtFrom_ = "";
+    /**
+     * <pre>
+     * The oldest file date behind the source; equals as_at when one file or
+     * one date. "" for notices.
+     * </pre>
+     *
+     * <code>string as_at_from = 6 [json_name = "asAtFrom"];</code>
+     * @return The asAtFrom.
+     */
+    public java.lang.String getAsAtFrom() {
+      java.lang.Object ref = asAtFrom_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        asAtFrom_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The oldest file date behind the source; equals as_at when one file or
+     * one date. "" for notices.
+     * </pre>
+     *
+     * <code>string as_at_from = 6 [json_name = "asAtFrom"];</code>
+     * @return The bytes for asAtFrom.
+     */
+    public com.google.protobuf.ByteString
+        getAsAtFromBytes() {
+      java.lang.Object ref = asAtFrom_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        asAtFrom_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The oldest file date behind the source; equals as_at when one file or
+     * one date. "" for notices.
+     * </pre>
+     *
+     * <code>string as_at_from = 6 [json_name = "asAtFrom"];</code>
+     * @param value The asAtFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAsAtFrom(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      asAtFrom_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The oldest file date behind the source; equals as_at when one file or
+     * one date. "" for notices.
+     * </pre>
+     *
+     * <code>string as_at_from = 6 [json_name = "asAtFrom"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAsAtFrom() {
+      asAtFrom_ = getDefaultInstance().getAsAtFrom();
+      bitField0_ = (bitField0_ & ~0x00000020);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The oldest file date behind the source; equals as_at when one file or
+     * one date. "" for notices.
+     * </pre>
+     *
+     * <code>string as_at_from = 6 [json_name = "asAtFrom"];</code>
+     * @param value The bytes for asAtFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAsAtFromBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      asAtFrom_ = value;
+      bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }

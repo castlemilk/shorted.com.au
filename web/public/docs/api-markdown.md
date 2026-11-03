@@ -945,7 +945,7 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetOwn
 #### `POST /shorts.v1alpha1.OwnershipService/GetStockOwnership`
 
 Who holds one stock: its substantial holders, their notices, and the index
- ETFs and super fund options that hold it.
+ funds and super fund options that hold it.
 
 Request body fields:
 
@@ -976,6 +976,63 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/ListInstitutions' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/ListStockRegisters`
+
+Every stock with a current substantial holder, filtered and sorted for the
+ register explorer: what its notices disclose (each interest counted once,
+ not a share of the company), the investors, banks and index funds among its
+ holders, and its short interest.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `ascending` | boolean | no | (proto bool) |
+| `industry` | string | no | "" or one of the response's industries, matched exactly after trim. (proto string) |
+| `kind` | string | no | A kind that must disclose 5% or more in the stock; "" for any. (proto string) |
+| `limit` | integer (int32) | no | 0 means 50; above 100 is 100. (proto int32) |
+| `minInterests` | integer (int32) | no | Interests counted once; 0 means 1. (proto int32) |
+| `minShortPct` | number (double) | no | One of 0, 1, 3, 5, 10; another value snaps DOWN to the nearest served step. (proto double) |
+| `offset` | integer (int32) | no | 0 to 5000. (proto int32) |
+| `query` | string | no | A code prefix or a name substring, at most 24 characters. (proto string) |
+| `sort` | string | no | disclosed (default), investors, banks, hedge_active, short, index, super_value, super_options, interests, latest_notice, code. A stock without the figure sorts last whatever the direction; ties are broken by code. (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/ListStockRegisters' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/ListSubstantialNotices`
+
+The substantial holding notices we could read, newest release first:
+ filtered by window, event, kind, stock or registry holder, paged by a
+ keyset cursor, with the window's activity on the first page for windows of
+ up to 90 days.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `cursor` | string | no | "" for the first page, else the previous page's next_cursor. (proto string) |
+| `event` | string | no | "" or one of became, increased, decreased, changed, ceased, nz. (proto string) |
+| `includeActivity` | boolean | no | Also compute the window's counts, weekly buckets and largest moves (windows of at most 90 days; omitted above that). Only the first page (cursor ""): a page after a cursor never carries it. (proto bool) |
+| `institutionSlug` | string | no | "" or a registry slug: that holder's notices, as its institution page reads them. Holders off the map cannot be filtered. (proto string) |
+| `kind` | string | no | "" or a holder kind: an institution kind, corporate or unclassified. (proto string) |
+| `limit` | integer (int32) | no | 0 means 50; above 100 is 100. (proto int32) |
+| `stockCode` | string | no | "" or an ASX code (1 to 6 uppercase alphanumerics). (proto string) |
+| `windowDays` | integer (int32) | no | 7, 30, 90 or 365; 0 means every notice read (no date clause). Another positive value rounds UP to the next served window, and one above 365 is 0; the response echoes the window used. A negative value is invalid. (proto int32) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/ListSubstantialNotices' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \

@@ -26,11 +26,21 @@ type OwnershipStore interface {
 	CurrentSubstantialHoldings(ctx context.Context, filter OwnershipFilter) ([]SubstantialHoldingRow, error)
 	SubstantialNotices(ctx context.Context, filter OwnershipFilter, limit int) ([]SubstantialNoticeRow, error)
 	NoticeStats(ctx context.Context) (*NoticeStats, error)
+	NoticeCountsByStock(ctx context.Context) (map[string]int, error)
+	AttemptOutcomes(ctx context.Context) ([]AttemptOutcomeRow, error)
 	LatestFundHoldings(ctx context.Context, filter OwnershipFilter) ([]FundHoldingRow, error)
 	OwnershipFunds(ctx context.Context, institutionSlug string) ([]OwnershipFundRow, error)
 	LatestShortPositions(ctx context.Context) (map[string]ShortPosition, error)
 	OwnershipCompanies(ctx context.Context) (map[string]OwnershipCompany, error)
+	SubstantialNoticesPage(ctx context.Context, filter NoticeFilter, cursorDate, cursorURL string, limit int) ([]SubstantialNoticeRow, error)
+	CountSubstantialNotices(ctx context.Context, filter NoticeFilter) (int, error)
+	NoticeActivity(ctx context.Context, filter NoticeFilter) (NoticeActivityRows, error)
 }
+
+// The Postgres store is the one implementation; a signature drift here would
+// otherwise nil the store at runtime, because the server finds it by type
+// assertion.
+var _ OwnershipStore = (*postgresStore)(nil)
 
 // OwnershipFilter narrows a read to one stock or one holder; empty fields do
 // not filter.
@@ -76,6 +86,13 @@ type NoticeStats struct {
 type HolderNoticeStats struct {
 	Notices      int
 	LatestNotice string
+}
+
+// AttemptOutcomeRow counts one stock's documents with one outcome. Parsed
+// notices are included: the caller decides what withholds.
+type AttemptOutcomeRow struct {
+	StockCode, Outcome string
+	Count              int
 }
 
 type FundHoldingRow struct {
@@ -194,23 +211,22 @@ func (s *postgresStore) CurrentSubstantialHoldings(ctx context.Context, f Owners
 	return out, err
 }
 
+// SubstantialNotices is a stock's or a holder's notices, newest first. It reads the
+// feed's columns and scans them with the feed's scan, so a column added to one read
+// is in both.
 func (s *postgresStore) SubstantialNotices(ctx context.Context, f OwnershipFilter, limit int) ([]SubstantialNoticeRow, error) {
 	where, args := ownershipWhere(f, nil)
 	args = append(args, limit)
 	var out []SubstantialNoticeRow
 	err := ownershipRead(ctx, s, "SubstantialNotices", `
-		SELECT h.stock_code, h.holder_key, COALESCE(h.holder_name, ''), COALESCE(h.institution_slug, ''), `+holderKindSQL+`,
-		       h.form, COALESCE(h.event_date::text, ''), h.announced_on::text, h.announcement_url,
-		       h.present_pct::float8, h.previous_pct::float8, h.ceased
-		FROM substantial_holder_notices h
-		LEFT JOIN ownership_institutions i ON i.slug = h.institution_slug
+		SELECT `+noticeColumns+`
+		`+noticeFrom+`
 		WHERE true`+where+`
 		ORDER BY h.announced_on DESC, COALESCE(h.event_date, h.announced_on) DESC, h.announcement_url
 		LIMIT $`+strconv.Itoa(len(args)), args,
 		func(r pgx.Rows) error {
 			var row SubstantialNoticeRow
-			if err := r.Scan(&row.StockCode, &row.HolderKey, &row.HolderName, &row.InstitutionSlug, &row.Kind, &row.Form,
-				&row.EventDate, &row.AnnouncedOn, &row.AnnouncementURL, &row.PresentPct, &row.PreviousPct, &row.Ceased); err != nil {
+			if err := scanSubstantialNotice(r, &row); err != nil {
 				return err
 			}
 			out = append(out, row)
@@ -243,6 +259,41 @@ func (s *postgresStore) NoticeStats(ctx context.Context) (*NoticeStats, error) {
 		SELECT count(*) FROM substantial_holder_notice_attempts WHERE outcome <> 'parsed'`, nil,
 		func(r pgx.Rows) error { return r.Scan(&st.Withheld) })
 	return st, err
+}
+
+// NoticeCountsByStock is every code's parsed notices. It is one whole-table
+// GROUP BY, read once per universe build, so no per-code statement exists.
+func (s *postgresStore) NoticeCountsByStock(ctx context.Context) (map[string]int, error) {
+	out := map[string]int{}
+	err := ownershipRead(ctx, s, "NoticeCountsByStock", `
+		SELECT stock_code, count(*) FROM substantial_holder_notices GROUP BY stock_code`, nil,
+		func(r pgx.Rows) error {
+			var code string
+			var n int
+			if err := r.Scan(&code, &n); err != nil {
+				return err
+			}
+			out[code] = n
+			return nil
+		})
+	return out, err
+}
+
+// AttemptOutcomes is every code's documents by outcome, one whole-table GROUP
+// BY read once per universe build.
+func (s *postgresStore) AttemptOutcomes(ctx context.Context) ([]AttemptOutcomeRow, error) {
+	var out []AttemptOutcomeRow
+	err := ownershipRead(ctx, s, "AttemptOutcomes", `
+		SELECT stock_code, outcome, count(*) FROM substantial_holder_notice_attempts GROUP BY stock_code, outcome`, nil,
+		func(r pgx.Rows) error {
+			var row AttemptOutcomeRow
+			if err := r.Scan(&row.StockCode, &row.Outcome, &row.Count); err != nil {
+				return err
+			}
+			out = append(out, row)
+			return nil
+		})
+	return out, err
 }
 
 func (s *postgresStore) LatestFundHoldings(ctx context.Context, f OwnershipFilter) ([]FundHoldingRow, error) {
@@ -342,6 +393,223 @@ func (s *postgresStore) OwnershipCompanies(ctx context.Context) (map[string]Owne
 				return err
 			}
 			out[strings.ToUpper(strings.TrimSpace(code))] = c
+			return nil
+		})
+	return out, err
+}
+
+// The notices feed (ListSubstantialNotices, the explorer). A page is one indexed
+// keyset read and one count; a window of a quarter or less adds one aggregate
+// and two bounded move reads. A notice's event is decided once, in Event.
+// noticeEventSQL is the same rule for the feed's filter and activity: a pg test
+// selects both for every notice and compares them.
+
+// NoticeFilter narrows the notices feed. Empty fields do not filter. Since is
+// the first release date in the window, YYYY-MM-DD, and empty for no date
+// clause. HolderKey is one holder's key: a registry slug is its institution's
+// notices, keyed as the institution page keys them.
+type NoticeFilter struct {
+	Since     string
+	Event     string
+	Kind      string
+	StockCode string
+	HolderKey string
+}
+
+// The notice events: the vocabulary of SubstantialNotice.event.
+const (
+	EventCeased    = "ceased"
+	EventBecame    = "became"
+	EventIncreased = "increased"
+	EventDecreased = "decreased"
+	EventChanged   = "changed"
+	EventNZ        = "nz"
+)
+
+// Event is the notice's event, ceased first: a cessation is ceased whatever its
+// form says, a 603 became substantial, and a 604 is a move only when both
+// figures are stated and differ.
+func (r SubstantialNoticeRow) Event() string {
+	switch {
+	case r.Ceased || r.Form == "605":
+		return EventCeased
+	case r.Form == "603":
+		return EventBecame
+	case r.Form == "604" && r.PresentPct != nil && r.PreviousPct != nil && *r.PresentPct != *r.PreviousPct:
+		if *r.PresentPct > *r.PreviousPct {
+			return EventIncreased
+		}
+		return EventDecreased
+	case r.Form == "604":
+		return EventChanged
+	default:
+		return EventNZ
+	}
+}
+
+// noticeEventSQL is Event over alias h.
+const noticeEventSQL = `CASE
+		WHEN h.ceased OR h.form = '605' THEN '` + EventCeased + `'
+		WHEN h.form = '603' THEN '` + EventBecame + `'
+		WHEN h.form = '604' AND h.present_pct IS NOT NULL AND h.previous_pct IS NOT NULL AND h.present_pct <> h.previous_pct
+			THEN CASE WHEN h.present_pct > h.previous_pct THEN '` + EventIncreased + `' ELSE '` + EventDecreased + `' END
+		WHEN h.form = '604' THEN '` + EventChanged + `'
+		ELSE '` + EventNZ + `' END`
+
+// noticeColumns is a notice as the feed and SubstantialNotices read it, over alias h
+// and noticeFrom.
+const noticeColumns = `h.stock_code, h.holder_key, COALESCE(h.holder_name, ''), COALESCE(h.institution_slug, ''), ` + holderKindSQL + `,
+		       h.form, COALESCE(h.event_date::text, ''), h.announced_on::text, h.announcement_url,
+		       h.present_pct::float8, h.previous_pct::float8, h.ceased`
+
+// noticeFrom is the notices table with each notice's institution, for its kind.
+const noticeFrom = `FROM substantial_holder_notices h
+		LEFT JOIN ownership_institutions i ON i.slug = h.institution_slug`
+
+// noticeWhere builds "AND ..." clauses for a feed filter over aliases h and i.
+func noticeWhere(f NoticeFilter, args []any) (string, []any) {
+	var b strings.Builder
+	if f.Since != "" {
+		args = append(args, f.Since)
+		fmt.Fprintf(&b, " AND h.announced_on >= $%d::date", len(args))
+	}
+	if f.Event != "" {
+		args = append(args, f.Event)
+		fmt.Fprintf(&b, " AND %s = $%d", noticeEventSQL, len(args))
+	}
+	if f.Kind != "" {
+		args = append(args, f.Kind)
+		fmt.Fprintf(&b, " AND %s = $%d", holderKindSQL, len(args))
+	}
+	if f.StockCode != "" {
+		args = append(args, f.StockCode)
+		fmt.Fprintf(&b, " AND h.stock_code = $%d", len(args))
+	}
+	if f.HolderKey != "" {
+		args = append(args, f.HolderKey)
+		fmt.Fprintf(&b, " AND h.holder_key = $%d", len(args))
+	}
+	return b.String(), args
+}
+
+func scanSubstantialNotice(r pgx.Rows, row *SubstantialNoticeRow) error {
+	return r.Scan(&row.StockCode, &row.HolderKey, &row.HolderName, &row.InstitutionSlug, &row.Kind, &row.Form,
+		&row.EventDate, &row.AnnouncedOn, &row.AnnouncementURL, &row.PresentPct, &row.PreviousPct, &row.Ceased)
+}
+
+// SubstantialNoticesPage is one page of the feed, newest release first. The
+// cursor is the previous page's last notice: its release date and announcement
+// URL, the primary key. Both are needed, because several notices share a
+// release date. The caller asks for one row more than a page, to learn whether
+// another page follows.
+func (s *postgresStore) SubstantialNoticesPage(ctx context.Context, f NoticeFilter, cursorDate, cursorURL string, limit int) ([]SubstantialNoticeRow, error) {
+	where, args := noticeWhere(f, nil)
+	if cursorDate != "" {
+		args = append(args, cursorDate, cursorURL)
+		where += fmt.Sprintf(" AND (h.announced_on, h.announcement_url) < ($%d::date, $%d)", len(args)-1, len(args))
+	}
+	args = append(args, limit)
+	var out []SubstantialNoticeRow
+	err := ownershipRead(ctx, s, "SubstantialNoticesPage", `
+		SELECT `+noticeColumns+`
+		`+noticeFrom+`
+		WHERE true`+where+`
+		ORDER BY h.announced_on DESC, h.announcement_url DESC
+		LIMIT $`+strconv.Itoa(len(args)), args,
+		func(r pgx.Rows) error {
+			var row SubstantialNoticeRow
+			if err := scanSubstantialNotice(r, &row); err != nil {
+				return err
+			}
+			out = append(out, row)
+			return nil
+		})
+	return out, err
+}
+
+// CountSubstantialNotices is the feed's total: every notice the filter matches
+// in its window, whatever the cursor.
+func (s *postgresStore) CountSubstantialNotices(ctx context.Context, f NoticeFilter) (int, error) {
+	where, args := noticeWhere(f, nil)
+	n := 0
+	err := ownershipRead(ctx, s, "CountSubstantialNotices", `
+		SELECT count(*) `+noticeFrom+`
+		WHERE true`+where, args,
+		func(r pgx.Rows) error { return r.Scan(&n) })
+	return n, err
+}
+
+// NoticeWeekRow is one ISO week's notices by event. WeekStart is its Monday.
+type NoticeWeekRow struct {
+	WeekStart                                         string
+	Became, Increased, Decreased, Changed, Ceased, NZ int
+}
+
+// NoticeActivityRows is a window's activity as the store reads it: the weeks
+// that hold notices, and the largest rises and falls (at most five each).
+type NoticeActivityRows struct {
+	Weeks []NoticeWeekRow
+	Rises []SubstantialNoticeRow
+	Falls []SubstantialNoticeRow
+}
+
+// NoticeActivity is the window's activity: one aggregate by week and event, and
+// the largest moves. The service fills in the weeks that hold no notice.
+func (s *postgresStore) NoticeActivity(ctx context.Context, f NoticeFilter) (NoticeActivityRows, error) {
+	where, args := noticeWhere(f, nil)
+	var out NoticeActivityRows
+	err := ownershipRead(ctx, s, "NoticeActivity", `
+		SELECT ev.week_start::text,
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventBecame+`'),
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventIncreased+`'),
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventDecreased+`'),
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventChanged+`'),
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventCeased+`'),
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventNZ+`')
+		FROM (
+			SELECT date_trunc('week', h.announced_on::timestamp)::date AS week_start, `+noticeEventSQL+` AS notice_event
+			`+noticeFrom+`
+			WHERE true`+where+`
+		) ev
+		GROUP BY ev.week_start
+		ORDER BY ev.week_start`, args,
+		func(r pgx.Rows) error {
+			var w NoticeWeekRow
+			if err := r.Scan(&w.WeekStart, &w.Became, &w.Increased, &w.Decreased, &w.Changed, &w.Ceased, &w.NZ); err != nil {
+				return err
+			}
+			out.Weeks = append(out.Weeks, w)
+			return nil
+		})
+	if err != nil {
+		return out, err
+	}
+	if out.Rises, err = s.noticeMoves(ctx, f, EventIncreased, "DESC"); err != nil {
+		return out, err
+	}
+	out.Falls, err = s.noticeMoves(ctx, f, EventDecreased, "ASC")
+	return out, err
+}
+
+// noticeMoves is the window's largest rises (increased, DESC) or falls
+// (decreased, ASC) by their size in percentage points: at most five.
+func (s *postgresStore) noticeMoves(ctx context.Context, f NoticeFilter, event, order string) ([]SubstantialNoticeRow, error) {
+	where, args := noticeWhere(f, nil)
+	args = append(args, event)
+	where += fmt.Sprintf(" AND %s = $%d", noticeEventSQL, len(args))
+	var out []SubstantialNoticeRow
+	err := ownershipRead(ctx, s, "NoticeActivity.moves", `
+		SELECT `+noticeColumns+`
+		`+noticeFrom+`
+		WHERE true`+where+`
+		ORDER BY (h.present_pct - h.previous_pct) `+order+`, h.announced_on DESC, h.announcement_url DESC
+		LIMIT 5`, args,
+		func(r pgx.Rows) error {
+			var row SubstantialNoticeRow
+			if err := scanSubstantialNotice(r, &row); err != nil {
+				return err
+			}
+			out = append(out, row)
 			return nil
 		})
 	return out, err

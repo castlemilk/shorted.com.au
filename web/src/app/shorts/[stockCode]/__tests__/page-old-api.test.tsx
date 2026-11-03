@@ -29,6 +29,7 @@ import {
 import { describe, it, expect } from "@jest/globals";
 import { create } from "@bufbuild/protobuf";
 import { render, screen, within } from "@testing-library/react";
+import type { StockRegisterStrip } from "~/app/actions/getStockRegisterStrip";
 import {
   FundamentalsGrowthSchema,
   FundamentalsPeriodSchema,
@@ -100,6 +101,44 @@ function oldProtoResponse() {
   });
 }
 
+/** A stock's register strip as the action maps it: the largest three holders, one of them off the map. */
+const registerStrip: StockRegisterStrip = {
+  stockCode: "BHP",
+  holders: 3,
+  interests: 4,
+  disclosed: "18.40%",
+  indexPct: "4.25",
+  indexAsAtFrom: "2026-09-01",
+  indexAsAtTo: "2026-09-30",
+  asOf: "2026-10-16",
+  rows: [
+    {
+      name: "Vanguard Group",
+      href: "/ownership/vanguard",
+      kind: "index_manager",
+      votingPower: "6.12%",
+      asAt: "2026-10-02",
+      age: "",
+    },
+    {
+      name: "Citigroup",
+      href: "/ownership/citigroup",
+      kind: "bank_broker",
+      votingPower: "5.40%",
+      asAt: "2025-03-12",
+      age: "19 mo",
+    },
+    {
+      name: "Unlisted Holder",
+      href: null,
+      kind: "other",
+      votingPower: "5.10%",
+      asAt: "2026-06-04",
+      age: "",
+    },
+  ],
+};
+
 const EMPTY_STATE = /Our data providers hold no|not yet collected|could not be collected/;
 
 describe("stock page against an older API", () => {
@@ -107,6 +146,11 @@ describe("stock page against an older API", () => {
     mockGetStockFundamentals.mockReset();
     mockGetStockStrategyFit.mockReset();
     mockListStrategies.mockReset();
+    const { getStockRegisterStrip } = jest.requireMock<{ getStockRegisterStrip: jest.Mock }>(
+      "~/app/actions/getStockRegisterStrip",
+    );
+    getStockRegisterStrip.mockReset();
+    getStockRegisterStrip.mockResolvedValue(null);
     jest.spyOn(console, "warn").mockImplementation(() => undefined);
     jest.spyOn(console, "error").mockImplementation(() => undefined);
   });
@@ -232,7 +276,7 @@ describe("stock page against an older API", () => {
     ).toHaveAttribute("href", "https://example.test/n1");
   });
 
-  it("keeps the fit fetch out of the page's critical Promise.all", () => {
+  it("keeps the fit and register-strip fetches out of the page's critical Promise.all", () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require("node:fs") as typeof import("node:fs");
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -247,7 +291,13 @@ describe("stock page against an older API", () => {
     const critical = /await Promise\.all\(\[([\s\S]*?)\]\)/.exec(source)?.[1] ?? "";
     expect(critical).toContain("loadStockOrFail");
     expect(critical).not.toContain("getStockStrategyFit");
+    expect(critical).not.toContain("getStockRegisterStrip");
     expect(source).toMatch(/getStockStrategyFit\(stockCode\)\.catch\(/);
+    expect(source).toMatch(/getStockRegisterStrip\(stockCode\)\.catch\(/);
+    // Both strips are awaited after the critical reads, never inside them.
+    expect(source.indexOf("await registerStripPromise")).toBeGreaterThan(
+      source.indexOf("await Promise.all(["),
+    );
     // The enriched-metadata read (the Company tab's) is not the Overview's, and
     // the filings stream under their own Suspense boundary in the Financials
     // page, which reads no company details either.
@@ -273,5 +323,52 @@ describe("stock page against an older API", () => {
 
     expect(screen.queryByText(EMPTY_STATE)).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Strategy fit" })).not.toBeInTheDocument();
+  });
+
+  // The register strip is the Overview's line on who holds the stock. Its read is
+  // the ownership service's, so an older API leaves the strip out and the page
+  // renders as it did.
+  it("renders the register strip in the Overview when its read answers", async () => {
+    mockGetStockFundamentals.mockResolvedValue(oldProtoResponse());
+    mockGetStockStrategyFit.mockRejectedValue(new Error("unavailable"));
+    mockListStrategies.mockRejectedValue(new Error("unavailable"));
+    const { getStockRegisterStrip } = jest.requireMock<{ getStockRegisterStrip: jest.Mock }>(
+      "~/app/actions/getStockRegisterStrip",
+    );
+    getStockRegisterStrip.mockResolvedValueOnce(registerStrip);
+
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+
+    expect(getStockRegisterStrip).toHaveBeenCalledWith("BHP");
+    const region = screen.getByRole("region", { name: "Substantial holders" });
+    expect(within(region).getByRole("link", { name: "Vanguard Group" })).toHaveAttribute(
+      "href",
+      "/ownership/vanguard",
+    );
+    expect(region.textContent).toContain("Unlisted Holder 5.10%");
+    expect(within(region).queryByRole("link", { name: "Unlisted Holder" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Full register →" })).toHaveAttribute(
+      "href",
+      "/ownership/stocks/BHP",
+    );
+  });
+
+  it("leaves the register strip out when its read fails, and the render goes on", async () => {
+    mockGetStockFundamentals.mockResolvedValue(oldProtoResponse());
+    mockGetStockStrategyFit.mockRejectedValue(new Error("unavailable"));
+    mockListStrategies.mockRejectedValue(new Error("unavailable"));
+    const { getStockRegisterStrip } = jest.requireMock<{ getStockRegisterStrip: jest.Mock }>(
+      "~/app/actions/getStockRegisterStrip",
+    );
+    getStockRegisterStrip.mockRejectedValueOnce(new Error("deadline exceeded"));
+
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+
+    expect(screen.queryByRole("region", { name: "Substantial holders" })).not.toBeInTheDocument();
+    expect(screen.getByText(/recorded revenue of US\$51\.3B/)).toBeInTheDocument();
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining("register strip unavailable for BHP"),
+      expect.any(Error),
+    );
   });
 });

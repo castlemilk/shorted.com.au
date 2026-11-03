@@ -47,7 +47,7 @@ const fileHolding = (i: number): FundHolding =>
     institutionSlug: "vanguard",
     institutionName: "Vanguard",
     kind: "index_manager",
-    fundName: "Vanguard Australian Shares Index ETF",
+    fundName: "Vanguard Australian Shares Index Fund",
     fundCode: "VAS",
     sourceKind: "etf",
     asAt: "2026-10-19",
@@ -139,11 +139,12 @@ describe("InstitutionPage", () => {
     expect(bodyRows(files)).toHaveLength(100);
     expect(bodyRows(notices)).toHaveLength(25);
     // Every holding's stock link is in the page, in the API's order.
+    // Every stock on the page goes to its register, not to its Company tab.
     expect(within(stakes).getAllByRole("link", { name: /^P\d\d$/ }).map((a) => a.getAttribute("href"))).toEqual(
-      Array.from({ length: 88 }, (_, i) => `/shorts/P${String(i).padStart(2, "0")}/company`),
+      Array.from({ length: 88 }, (_, i) => `/ownership/stocks/P${String(i).padStart(2, "0")}`),
     );
     expect(within(files).getAllByRole("link", { name: /^F\d\d$/ }).map((a) => a.getAttribute("href"))).toEqual(
-      Array.from({ length: 100 }, (_, i) => `/shorts/F${String(i).padStart(2, "0")}/company`),
+      Array.from({ length: 100 }, (_, i) => `/ownership/stocks/F${String(i).padStart(2, "0")}`),
     );
 
     // One control, under the notices.
@@ -227,6 +228,72 @@ describe("InstitutionPage", () => {
       [2, "Ownership", "https://shorted.com.au/ownership"],
       [3, "Vanguard", "https://shorted.com.au/ownership/vanguard"],
     ]);
+  });
+
+  // GetInstitution serves the newest 100 holdings-file rows of a fund list
+  // that can hold more; the page says how many of its holdings it shows.
+  it("says how many of its holdings the page shows when its files hold more", async () => {
+    const data = response({ fundHoldings: 100 });
+    data.fundHoldingsTotal = 250;
+    getInstitutionOrNotFound.mockResolvedValue(data);
+    render(await InstitutionPage(params("vanguard")));
+
+    expect(screen.getByText("The largest 100 of 250 ASX holdings in its files.")).toBeInTheDocument();
+  });
+
+  it("says nothing of a cap when its files are shown whole", async () => {
+    const data = response({ fundHoldings: 10 });
+    data.fundHoldingsTotal = 10;
+    getInstitutionOrNotFound.mockResolvedValue(data);
+    render(await InstitutionPage(params("vanguard")));
+
+    expect(screen.queryByText(/ASX holdings in its files\./)).toBeNull();
+  });
+
+  it("ends its method with a report-an-error line that names the institution", async () => {
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1 }));
+    render(await InstitutionPage(params("vanguard")));
+
+    expect(screen.getByRole("link", { name: "Report an error" })).toHaveAttribute(
+      "href",
+      "mailto:support@shorted.com.au?subject=Ownership%20data%3A%20Vanguard",
+    );
+  });
+
+  // The feed's default window is 30 days, so the link asks for every notice this holder has.
+  // It is nofollow, for the reason the register page's link gives.
+  it("links its notices heading to every notice read for the holder, as a nofollow link", async () => {
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1, notices: 2 }));
+    const { container } = render(await InstitutionPage(params("vanguard")));
+
+    const history = container.querySelector("section[aria-labelledby='history']") as HTMLElement;
+    const link = within(history).getByRole("link", { name: "All notices →" });
+    expect(link).toHaveAttribute("href", "/ownership/notices?window=all&holder=vanguard");
+    expect(link).toHaveAttribute("rel", "nofollow");
+  });
+
+  it("draws no notices link when the holder has no notice on record", async () => {
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1, notices: 0 }));
+    const { container } = render(await InstitutionPage(params("vanguard")));
+
+    const history = container.querySelector("section[aria-labelledby='history']") as HTMLElement;
+    expect(within(history).queryByRole("link", { name: "All notices →" })).toBeNull();
+  });
+});
+
+// /ownership/stocks and /ownership/notices are the hub's own paths. A registry
+// slug may not shadow them, so they are refused before anything is read.
+describe("reserved ownership paths", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it.each(["stocks", "notices"])("answers %s as not found, reading no institution", async (slug) => {
+    jest.mocked(notFound).mockClear();
+    jest.mocked(notFound).mockImplementationOnce(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+    await expect(InstitutionPage(params(slug))).rejects.toThrow("NEXT_NOT_FOUND");
+    expect((await generateMetadata(params(slug))).robots).toEqual(NOINDEX);
+    expect(getInstitutionOrNotFound).not.toHaveBeenCalled();
   });
 });
 

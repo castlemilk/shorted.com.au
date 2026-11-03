@@ -1,8 +1,4 @@
-import { createConnectTransport } from "@connectrpc/connect-web";
-import { createClient } from "@connectrpc/connect";
-import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import {
-  OwnershipService,
   GetOwnershipOverviewResponseSchema,
   ListInstitutionsResponseSchema,
   GetInstitutionResponseSchema,
@@ -13,61 +9,10 @@ import {
   type GetStockOwnershipResponse,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
 import { cache } from "react";
-import {
-  SERVER_SHORTS_API_URL,
-  serverFetchWithUserAgent,
-  skipForBuild,
-} from "./config";
-import { CACHE_KEYS, OWNERSHIP_TTL, getCached, setCached } from "@/lib/kv-cache";
+import { skipForBuild } from "./config";
+import { CACHE_KEYS } from "@/lib/kv-cache";
 import { withRetryAndNotFound, withRetryAndThrowNotFound } from "./withRetry";
-
-// ISR-tagged transport. LOAD-BEARING: without `next`, serverFetchWithUserAgent
-// forces no-store on a POST at Vercel runtime and an ISR regeneration throws
-// "static to dynamic" (getPoliticians.ts, getEconomy.ts).
-const isrOwnershipFetch: typeof fetch = (input, init) =>
-  serverFetchWithUserAgent(input, {
-    ...init,
-    next: { revalidate: 3600, tags: ["ownership"] },
-  } as RequestInit);
-
-function ownershipClient() {
-  return createClient(
-    OwnershipService,
-    createConnectTransport({ fetch: isrOwnershipFetch, baseUrl: SERVER_SHORTS_API_URL }),
-  );
-}
-
-/**
- * The KV last-good layer: a cached projection is served while it parses and
- * is populated. An empty entry is a miss (getPoliticians.ts readCached), and
- * an empty response is never written: a database without the ownership tables
- * answers {}, and caching that would pin it for the TTL.
- */
-async function cachedRead<T>(
-  key: string,
-  schema: Parameters<typeof fromJson>[0],
-  isPopulated: (value: T) => boolean,
-  fetchFresh: () => Promise<T>,
-): Promise<T> {
-  const hit = await getCached<JsonValue>(key);
-  if (hit != null) {
-    try {
-      const parsed = fromJson(schema, hit) as T;
-      if (isPopulated(parsed)) return parsed;
-    } catch {
-      // The proto changed since the entry was written: read fresh.
-    }
-  }
-  const fresh = await fetchFresh();
-  if (isPopulated(fresh)) {
-    try {
-      void setCached(key, toJson(schema, fresh as never) as JsonValue, OWNERSHIP_TTL);
-    } catch {
-      // Never let a cache write break a render.
-    }
-  }
-  return fresh;
-}
+import { cachedRead, ownershipClient } from "./ownership-shared";
 
 /** The map of investors and the aggregated ownership view. */
 export const getOwnershipOverview = cache(

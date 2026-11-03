@@ -35,6 +35,15 @@ const HUBS = [
   "statistics/page.tsx",
   // Its ?price=&state= prefill is read in the browser (calculator-prefill.tsx).
   "housing/calculators/page.tsx",
+  // The ownership section: the hub, its two dynamic pages, and the two static pages the
+  // explorer adds (the notice feed and the register list). The register's data module
+  // (stocks/[code]/register-data.ts) is outside this check;
+  // app/ownership/__tests__/isr-source-safety.test.ts reads it.
+  "ownership/page.tsx",
+  "ownership/[slug]/page.tsx",
+  "ownership/stocks/[code]/page.tsx",
+  "ownership/notices/page.tsx",
+  "ownership/stocks/page.tsx",
 ];
 
 /**

@@ -263,6 +263,21 @@ private static final long serialVersionUID = 0L;
     return funds_.get(index);
   }
 
+  public static final int FUND_HOLDINGS_TOTAL_FIELD_NUMBER = 6;
+  private int fundHoldingsTotal_ = 0;
+  /**
+   * <pre>
+   * Rows in its latest files; fund_holdings serves the largest 100.
+   * </pre>
+   *
+   * <code>int32 fund_holdings_total = 6 [json_name = "fundHoldingsTotal"];</code>
+   * @return The fundHoldingsTotal.
+   */
+  @java.lang.Override
+  public int getFundHoldingsTotal() {
+    return fundHoldingsTotal_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -291,6 +306,9 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < funds_.size(); i++) {
       output.writeMessage(5, funds_.get(i));
+    }
+    if (fundHoldingsTotal_ != 0) {
+      output.writeInt32(6, fundHoldingsTotal_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -336,6 +354,10 @@ private static final long serialVersionUID = 0L;
           }
           size += 1 * count;
         }
+    if (fundHoldingsTotal_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(6, fundHoldingsTotal_);
+    }
     return size;
   }
   @java.lang.Override
@@ -373,6 +395,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getFundHoldingsList())) return false;
     if (!getFundsList()
         .equals(other.getFundsList())) return false;
+    if (getFundHoldingsTotal()
+        != other.getFundHoldingsTotal()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -404,6 +428,8 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + FUNDS_FIELD_NUMBER;
       hash = (53 * hash) + getFundsList().hashCode();
     }
+    hash = (37 * hash) + FUND_HOLDINGS_TOTAL_FIELD_NUMBER;
+    hash = (53 * hash) + getFundHoldingsTotal();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -578,6 +604,7 @@ private static final long serialVersionUID = 0L;
         fundsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000010);
+      fundHoldingsTotal_ = 0;
       return this;
     }
 
@@ -657,6 +684,9 @@ private static final long serialVersionUID = 0L;
             ? institution_
             : institutionBuilder_.build();
         to_bitField0_ |= 0x00000001;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.fundHoldingsTotal_ = fundHoldingsTotal_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -780,6 +810,9 @@ private static final long serialVersionUID = 0L;
           }
         }
       }
+      if (other.getFundHoldingsTotal() != 0) {
+        setFundHoldingsTotal(other.getFundHoldingsTotal());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -865,6 +898,11 @@ private static final long serialVersionUID = 0L;
               }
               break;
             } // case 42
+            case 48: {
+              fundHoldingsTotal_ = input.readInt32();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 48
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2033,6 +2071,50 @@ private static final long serialVersionUID = 0L;
         funds_ = null;
       }
       return fundsBuilder_;
+    }
+
+    private int fundHoldingsTotal_ ;
+    /**
+     * <pre>
+     * Rows in its latest files; fund_holdings serves the largest 100.
+     * </pre>
+     *
+     * <code>int32 fund_holdings_total = 6 [json_name = "fundHoldingsTotal"];</code>
+     * @return The fundHoldingsTotal.
+     */
+    @java.lang.Override
+    public int getFundHoldingsTotal() {
+      return fundHoldingsTotal_;
+    }
+    /**
+     * <pre>
+     * Rows in its latest files; fund_holdings serves the largest 100.
+     * </pre>
+     *
+     * <code>int32 fund_holdings_total = 6 [json_name = "fundHoldingsTotal"];</code>
+     * @param value The fundHoldingsTotal to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundHoldingsTotal(int value) {
+
+      fundHoldingsTotal_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Rows in its latest files; fund_holdings serves the largest 100.
+     * </pre>
+     *
+     * <code>int32 fund_holdings_total = 6 [json_name = "fundHoldingsTotal"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundHoldingsTotal() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      fundHoldingsTotal_ = 0;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetInstitutionResponse)

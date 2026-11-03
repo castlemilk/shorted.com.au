@@ -13,5 +13,7 @@
   "/housing/wa/council",
   "/housing/tas/council",
   "/housing/nt/council",
-  "/housing/act/council"
+  "/housing/act/council",
+  "/ownership/notices",
+  "/ownership/stocks"
 ]

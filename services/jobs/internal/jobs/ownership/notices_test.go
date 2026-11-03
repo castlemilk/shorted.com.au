@@ -253,6 +253,65 @@ func TestNoticePass(t *testing.T) {
 	}
 }
 
+// The pass withholds a placeholder holder as no_holder, names the text in the
+// attempt's detail, and writes no notice row.
+func TestNoticePassWithholdsPlaceholderHolder(t *testing.T) {
+	store := &fakeStore{attempts: map[string]noticeAttempt{}, pending: []pendingNotice{
+		{URL: "syr", Headline: "Becoming a substantial holder", AnnouncedOn: "2026-10-20", ListedCodes: []string{"SYR"}},
+	}}
+	pass := &noticePass{store: store, pdfs: fakePDFs{"syr": placeholderNotice("SEE ANNEXURE 1")},
+		extractor: passthrough{}, workers: 1, logf: t.Logf}
+	res, err := pass.run(context.Background(), 10, "2025-01-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Parsed != 0 || res.Outcomes["no_holder"] != 1 {
+		t.Fatalf("outcomes %+v", res.Outcomes)
+	}
+	if len(store.rows) != 0 {
+		t.Errorf("a placeholder holder wrote %d rows", len(store.rows))
+	}
+	if a := store.attempts["syr"]; a.Outcome != "no_holder" || a.StockCode != "SYR" || !strings.Contains(a.Detail, `"SEE ANNEXURE 1"`) {
+		t.Errorf("attempt %+v", a)
+	}
+}
+
+// A withheld placeholder is filed under the company its target names, as a parsed
+// notice is, not under the first code ASX lists it under (MQG sorts before WTC).
+func TestNoticePassFilesPlaceholderUnderTarget(t *testing.T) {
+	store := &fakeStore{attempts: map[string]noticeAttempt{}, pending: []pendingNotice{
+		{URL: "wtc", Headline: "Ceasing to be a substantial holder from MQG", AnnouncedOn: "2026-10-20", ListedCodes: []string{"MQG", "WTC"}},
+	}}
+	pass := &noticePass{store: store, pdfs: fakePDFs{"wtc": placeholderNotice("SEE ANNEXURE 1")},
+		extractor: passthrough{}, workers: 1, logf: t.Logf}
+	if _, err := pass.run(context.Background(), 10, "2025-01-01"); err != nil {
+		t.Fatal(err)
+	}
+	if a := store.attempts["wtc"]; a.Outcome != "no_holder" || a.StockCode != "WTC" {
+		t.Errorf("attempt %+v, want no_holder filed under WTC", a)
+	}
+}
+
+// A name that resolves to an institution is keyed to it even when its tidied name
+// is a pointer. The pass parses the notice and stores it under the institution;
+// a withheld placeholder would have stored nothing.
+func TestNoticePassKeysInstitutionBehindAPointer(t *testing.T) {
+	store := &fakeStore{attempts: map[string]noticeAttempt{}, pending: []pendingNotice{
+		{URL: "blk", Headline: "Becoming a substantial holder", AnnouncedOn: "2026-10-20", ListedCodes: []string{"XYZ"}},
+	}}
+	pass := &noticePass{store: store, pdfs: fakePDFs{"blk": placeholderNotice("SEE ANNEXURE A (BlackRock Inc. and its subsidiaries)")},
+		extractor: passthrough{}, workers: 1, logf: t.Logf}
+	if _, err := pass.run(context.Background(), 10, "2025-01-01"); err != nil {
+		t.Fatal(err)
+	}
+	if a := store.attempts["blk"]; a.Outcome != "parsed" {
+		t.Fatalf("attempt %+v, want parsed", a)
+	}
+	if len(store.rows) != 1 || store.rows[0].HolderKey != "blackrock" || store.rows[0].InstitutionSlug != "blackrock" {
+		t.Errorf("rows %+v, want one row keyed to blackrock", store.rows)
+	}
+}
+
 func TestLayoutTexts(t *testing.T) {
 	g := func(s string, x, y float64) pdf.Text { return pdf.Text{S: s, X: x, Y: y, W: 5, FontSize: 9} }
 	texts := []pdf.Text{

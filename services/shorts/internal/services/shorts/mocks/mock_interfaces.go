@@ -2550,17 +2550,17 @@ func (mr *MockCacheMockRecorder) GetIndustryTreeMapKey(limit, period, viewMode a
 }
 
 // GetInstitutionKey mocks base method.
-func (m *MockCache) GetInstitutionKey(slug string) string {
+func (m *MockCache) GetInstitutionKey(slug string, generation int64) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInstitutionKey", slug)
+	ret := m.ctrl.Call(m, "GetInstitutionKey", slug, generation)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetInstitutionKey indicates an expected call of GetInstitutionKey.
-func (mr *MockCacheMockRecorder) GetInstitutionKey(slug any) *gomock.Call {
+func (mr *MockCacheMockRecorder) GetInstitutionKey(slug, generation any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstitutionKey", reflect.TypeOf((*MockCache)(nil).GetInstitutionKey), slug)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstitutionKey", reflect.TypeOf((*MockCache)(nil).GetInstitutionKey), slug, generation)
 }
 
 // GetMarketByDateKey mocks base method.
@@ -2633,20 +2633,6 @@ func (m *MockCache) GetOrSetWithTTL(key string, ttl time.Duration, computeFn fun
 func (mr *MockCacheMockRecorder) GetOrSetWithTTL(key, ttl, computeFn any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrSetWithTTL", reflect.TypeOf((*MockCache)(nil).GetOrSetWithTTL), key, ttl, computeFn)
-}
-
-// GetOwnershipOverviewKey mocks base method.
-func (m *MockCache) GetOwnershipOverviewKey() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOwnershipOverviewKey")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetOwnershipOverviewKey indicates an expected call of GetOwnershipOverviewKey.
-func (mr *MockCacheMockRecorder) GetOwnershipOverviewKey() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnershipOverviewKey", reflect.TypeOf((*MockCache)(nil).GetOwnershipOverviewKey))
 }
 
 // GetPeerComparisonKey mocks base method.
@@ -2944,17 +2930,17 @@ func (mr *MockCacheMockRecorder) GetStockNewsKey(stockCode, limit, source, senti
 }
 
 // GetStockOwnershipKey mocks base method.
-func (m *MockCache) GetStockOwnershipKey(stockCode string) string {
+func (m *MockCache) GetStockOwnershipKey(stockCode string, generation int64) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStockOwnershipKey", stockCode)
+	ret := m.ctrl.Call(m, "GetStockOwnershipKey", stockCode, generation)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetStockOwnershipKey indicates an expected call of GetStockOwnershipKey.
-func (mr *MockCacheMockRecorder) GetStockOwnershipKey(stockCode any) *gomock.Call {
+func (mr *MockCacheMockRecorder) GetStockOwnershipKey(stockCode, generation any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockOwnershipKey", reflect.TypeOf((*MockCache)(nil).GetStockOwnershipKey), stockCode)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockOwnershipKey", reflect.TypeOf((*MockCache)(nil).GetStockOwnershipKey), stockCode, generation)
 }
 
 // GetStockPricesKey mocks base method.
@@ -3111,20 +3097,6 @@ func (mr *MockCacheMockRecorder) ListEconomicSeriesKey(topic, metric, regionType
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).ListEconomicSeriesKey), topic, metric, regionType, regionCode, product, limit, includeInternal)
 }
 
-// ListInstitutionsKey mocks base method.
-func (m *MockCache) ListInstitutionsKey(kind, query string, limit, offset int32) string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListInstitutionsKey", kind, query, limit, offset)
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ListInstitutionsKey indicates an expected call of ListInstitutionsKey.
-func (mr *MockCacheMockRecorder) ListInstitutionsKey(kind, query, limit, offset any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInstitutionsKey", reflect.TypeOf((*MockCache)(nil).ListInstitutionsKey), kind, query, limit, offset)
-}
-
 // ListPartyFundingKey mocks base method.
 func (m *MockCache) ListPartyFundingKey(partyGroup, financialYear string, limit int32) string {
 	m.ctrl.T.Helper()
@@ -3263,6 +3235,20 @@ func (m *MockCache) ListStockPoliticiansKey(stockCode string, currentOnly bool) 
 func (mr *MockCacheMockRecorder) ListStockPoliticiansKey(stockCode, currentOnly any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStockPoliticiansKey", reflect.TypeOf((*MockCache)(nil).ListStockPoliticiansKey), stockCode, currentOnly)
+}
+
+// ListSubstantialNoticesKey mocks base method.
+func (m *MockCache) ListSubstantialNoticesKey(generation int64, windowDays int32, event, kind, stockCode, institutionSlug string, limit int32, includeActivity bool) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSubstantialNoticesKey", generation, windowDays, event, kind, stockCode, institutionSlug, limit, includeActivity)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ListSubstantialNoticesKey indicates an expected call of ListSubstantialNoticesKey.
+func (mr *MockCacheMockRecorder) ListSubstantialNoticesKey(generation, windowDays, event, kind, stockCode, institutionSlug, limit, includeActivity any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSubstantialNoticesKey", reflect.TypeOf((*MockCache)(nil).ListSubstantialNoticesKey), generation, windowDays, event, kind, stockCode, institutionSlug, limit, includeActivity)
 }
 
 // ListSuburbPoliticiansKey mocks base method.

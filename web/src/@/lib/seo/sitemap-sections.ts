@@ -78,7 +78,9 @@ import { createSlug } from "~/@/lib/industry-slug";
 import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
 import { isSuburbSitemapEligible } from "~/@/lib/seo/suburb-indexability";
 import { institutionIsIndexable } from "~/@/lib/ownership/indexability";
-import { newestLastMod, type SitemapEntry } from "~/@/lib/seo/sitemap-xml";
+import { REGISTER_CODE_PATTERN, registerHref } from "~/@/lib/ownership/kinds";
+import { registerIsIndexable } from "~/@/lib/ownership/register-indexability";
+import { dedupeEntries, newestLastMod, type SitemapEntry } from "~/@/lib/seo/sitemap-xml";
 import { timestampToDate } from "~/@/lib/housing/drops-freshness";
 
 const baseUrl = siteConfig.url;
@@ -926,8 +928,58 @@ function noticeDateLastMod(date: string | undefined): string | undefined {
   return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T00:00:00.000Z` : undefined;
 }
 
+/** The register list is read in pages of this size, and the sitemap lists at most this many register pages. */
+const REGISTER_PAGE_SIZE = 100;
+const REGISTER_SITEMAP_CAP = 1000;
+
 /**
- * /ownership and the institution pages the page itself indexes.
+ * The register pages: every stock with a current holder, in the register list's own
+ * order (disclosed, largest first), up to the cap. The predicate is the one the
+ * register page's robots tag applies (registerIsIndexable, holders at least one),
+ * and the codes are the ones its route accepts. The list carries the counted
+ * interests, not the holder count, and the two agree: countedHoldings keeps one
+ * holding per family and per interest, so a stock with a current holder always
+ * keeps a counted interest, and a stock without one has none.
+ *
+ * A page the list did not answer drops every register page from this build, the way
+ * a failed institution read drops the institutions: a partial list would read as the
+ * whole register, and an outage is not a takedown.
+ */
+async function registerPageEntries(): Promise<SitemapEntry[]> {
+  try {
+    const { loadStockRegisters } = await import("~/app/actions/ownershipExplorer");
+    const offsets = Array.from(
+      { length: REGISTER_SITEMAP_CAP / REGISTER_PAGE_SIZE },
+      (_, i) => i * REGISTER_PAGE_SIZE,
+    );
+    const pages = await Promise.all(
+      offsets.map((offset) => loadStockRegisters({ limit: REGISTER_PAGE_SIZE, offset })),
+    );
+    if (pages.some((page) => !page.ok)) {
+      console.error("Failed to fetch the register list for sitemap: a page was not answered.");
+      return [];
+    }
+    const entries = pages
+      .flatMap((page) => page.rows)
+      .filter(
+        (row) => REGISTER_CODE_PATTERN.test(row.code) && registerIsIndexable({ holders: Number(row.interests) }),
+      )
+      .map((row) => ({
+        url: `${baseUrl}${registerHref(row.code)}`,
+        lastModified: noticeDateLastMod(row.latestNotice),
+      }));
+    // The ten reads are in flight together, so a universe swap between them can repeat
+    // a code at a page boundary: each register is counted once, before the cap.
+    return dedupeEntries(entries).slice(0, REGISTER_SITEMAP_CAP);
+  } catch (error) {
+    console.error("Failed to fetch register pages for sitemap:", error);
+    return [];
+  }
+}
+
+/**
+ * /ownership, the two explorer pages, the institution pages the page itself indexes
+ * and the register pages.
  *
  * The SAME predicate as the page's robots tag (institutionIsIndexable),
  * applied to what ListInstitutions carries: the stake count, not the holdings
@@ -939,18 +991,25 @@ function noticeDateLastMod(date: string | undefined): string | undefined {
  *
  * lastmod: an institution's newest notice read; the hub's is the ownership
  * data's asOf (the newest notice read anywhere), which it used to borrow from
- * the ASIC short-position date. A failed read leaves the hub listed and bare:
- * an outage is not a takedown, and no date is better than a borrowed one.
+ * the ASIC short-position date. A failed read leaves the hub and the explorer
+ * pages listed and bare: an outage is not a takedown, and no date is better than
+ * a borrowed one.
  */
 export async function buildOwnershipSitemap(): Promise<SitemapEntry[]> {
   const hub: SitemapEntry = { url: `${baseUrl}/ownership` };
-  if (skipForBuild()) return [hub];
+  // The two explorer pages are static, so they are listed whatever the reads do.
+  const explorer: SitemapEntry[] = [
+    { url: `${baseUrl}/ownership/notices` },
+    { url: `${baseUrl}/ownership/stocks` },
+  ];
+  if (skipForBuild()) return [hub, ...explorer];
 
   try {
     const { getOwnershipOverview, listInstitutions } = await import("~/app/actions/getOwnership");
-    const [overview, directory] = await Promise.all([
+    const [overview, directory, registers] = await Promise.all([
       getOwnershipOverview(),
       listInstitutions("", "", 200, 0),
+      registerPageEntries(),
     ]);
     const institutions: SitemapEntry[] = (directory?.institutions ?? [])
       .filter((inst) => inst.slug && institutionIsIndexable(inst))
@@ -958,9 +1017,16 @@ export async function buildOwnershipSitemap(): Promise<SitemapEntry[]> {
         url: `${baseUrl}/ownership/${inst.slug}`,
         lastModified: noticeDateLastMod(inst.latestNoticeDate),
       }));
-    return [{ ...hub, lastModified: noticeDateLastMod(overview?.asOf) }, ...institutions];
+    // The explorer pages are dated by the newest notice read, as the hub is.
+    const asOf = noticeDateLastMod(overview?.asOf);
+    return [
+      { ...hub, lastModified: asOf },
+      ...explorer.map((entry) => ({ ...entry, lastModified: asOf })),
+      ...institutions,
+      ...registers,
+    ];
   } catch (error) {
     console.error("Failed to fetch ownership institutions for sitemap:", error);
-    return [hub];
+    return [hub, ...explorer];
   }
 }

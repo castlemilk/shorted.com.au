@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import {
@@ -9,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
+import { Disclosure } from "~/@/components/ui/disclosure";
 import {
   Table,
   TableBody,
@@ -24,8 +26,22 @@ import {
 } from "~/@/components/ownership/ownership-parts";
 import { ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
 import { NoticeTable } from "~/@/components/ownership/notice-table";
-import { formatAmount } from "~/@/lib/fundamentals/format";
-import { KIND_ORDER, kindInfo, kindRank } from "~/@/lib/ownership/kinds";
+import { OwnershipPlate, type PlateItem } from "~/@/components/ownership/ownership-plate";
+import {
+  Dated,
+  OwnershipReportError,
+  OwnershipSourceLines,
+  type SourceLine,
+} from "~/@/components/ownership/ownership-provenance";
+import { WithheldBreakdown } from "~/@/components/ownership/withheld-breakdown";
+import { NOT_AVAILABLE, formatAmount } from "~/@/lib/fundamentals/format";
+import {
+  KIND_ORDER,
+  WITHHOLDING_OUTCOMES,
+  asAtRange,
+  kindInfo,
+  kindRank,
+} from "~/@/lib/ownership/kinds";
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getOwnershipOverview, listInstitutions } from "~/app/actions/getOwnership";
@@ -35,7 +51,22 @@ import { JsonLd } from "~/@/components/seo/json-ld";
 const URL = "https://shorted.com.au/ownership";
 const TITLE = "Who Owns the ASX: Super Funds, Index Funds and Hedge Funds";
 const DESCRIPTION =
-  "Which super funds, index funds, hedge funds, banks and other institutions hold ASX stocks: every substantial holding notice read from its PDF, the holdings of the largest index ETFs and super funds, and where crowded registers meet high short interest.";
+  "Which super funds, index funds, hedge funds, banks and other institutions hold ASX stocks: substantial holding notices read from their PDFs, the ASX holdings in the latest files of the index funds and super fund options tracked, and where crowded registers meet high short interest.";
+const LLM_SOURCE =
+  "ASX substantial holding notices; APRA fund-level statistics; ASX Investment Products report; the holdings files index funds and super fund options publish";
+const REPORT_SUBJECT = "Ownership data: hub";
+
+// What each register view counts, in the words the views are read by.
+const CROWDED =
+  "Stocks where investors (super funds, index and active managers, hedge funds, sovereign funds and insurers) disclose the most voting power between them. Banks and brokers (often securities lending), listed companies and private holders are not counted.";
+const BOTH_WAYS =
+  "Hedge funds and active managers together disclose 5% or more, and at least 3% of the shares are reported short. Two disclosures on one page, not a finding.";
+const LENDING =
+  "Banks and brokers with a substantial interest, often securities lending (shares lent to, or held as collateral from, short sellers), beside each stock's short interest.";
+const INDEX =
+  "The share of each company held by the index funds tracked (iShares, Vanguard, SPDR, Betashares), from their latest holdings files. Vanguard's files cover the whole fund behind each ETF, so VAS's figures are the fund's, not the ETF's alone.";
+const superCopy = (range: string) =>
+  `What the tracked super fund options hold most of, by combined value: each fund's default or balanced option, from its portfolio holdings disclosure, ${range}.`;
 
 export const revalidate = 3600;
 
@@ -66,12 +97,23 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", site: "@shorted___", creator: "@shorted___" },
 };
 
-function Tile({ value, label, meta }: { value: string; label: string; meta?: string }) {
+function Tile({
+  value,
+  label,
+  meta,
+  children,
+}: {
+  value: string;
+  label: string;
+  meta?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <div className="space-y-1 bg-card p-4">
       <p className="text-2xl font-semibold tabular-nums">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
       {meta ? <p className="text-xs tabular-nums text-muted-foreground">{meta}</p> : null}
+      {children}
     </div>
   );
 }
@@ -106,32 +148,41 @@ export default async function OwnershipPage() {
     members: institutions.filter((i) => i.kind === kind),
   })).filter((g) => g.members.length > 0);
   const asOf = overview?.asOf ?? "";
+  const etfs = overview?.etfs ?? 0;
+  const lics = overview?.lics ?? 0;
+  const superFunds = overview?.superFunds ?? 0;
 
-  const header = (
-    <header className="space-y-1.5">
-      <div className="flex flex-wrap items-baseline gap-x-3">
-        <h1 className={pageTitle}>Who owns the ASX</h1>
-        <p className={eyebrow}>Ownership</p>
-      </div>
-      <p className={lede}>
-        Super funds, index funds, hedge funds, banks and the rest of the register: every substantial holding notice
-        read from its PDF, the full holdings of the largest index ETFs and super fund options, and where a crowded
-        register meets heavy short interest.
-        {asOf ? (
-          <>
-            {" "}
-            Notices to <span className="whitespace-nowrap">{asOf}</span>.
-          </>
-        ) : null}
-      </p>
-    </header>
+  // A source the API leaves out holds no files: its count is a real zero, and
+  // only its date range is unknown.
+  const sources = overview?.sources ?? [];
+  const indexSource = sources.find((s) => s.source === "etf");
+  const superSource = sources.find((s) => s.source === "super_phd");
+  const indexFiles = indexSource?.funds ?? 0;
+  const superOptions = superSource?.funds ?? 0;
+  const indexRange = asAtRange(indexSource?.asAtFrom ?? "", indexSource?.asAt ?? "");
+  const superRange = asAtRange(superSource?.asAtFrom ?? "", superSource?.asAt ?? "");
+
+  // The tile counts the six withholding outcomes. The two that are not withheld
+  // are named apart in the breakdown, never counted here.
+  const outcomes = overview?.withheldByOutcome ?? [];
+  const attempted = overview?.documentsAttempted ?? 0;
+  const withheld =
+    outcomes.length > 0
+      ? outcomes.filter((o) => WITHHOLDING_OUTCOMES.includes(o.outcome)).reduce((n, o) => n + o.count, 0)
+      : (overview?.noticesWithheld ?? 0);
+
+  const title = (
+    <div className="flex flex-wrap items-baseline gap-x-3">
+      <h1 className={pageTitle}>Who owns the ASX</h1>
+      <p className={eyebrow}>Ownership</p>
+    </div>
   );
 
   if (empty) {
     return (
       <DashboardLayout fullWidth>
         <div className="mx-auto w-full max-w-[100rem] space-y-10">
-          {header}
+          <header className="space-y-1.5">{title}</header>
           <section aria-label="Status" className="rounded-lg border bg-card p-6">
             <p className="max-w-[70ch] text-sm">
               Ownership data is not available yet. It is collected once a day from ASX substantial holding notices,
@@ -143,12 +194,42 @@ export default async function OwnershipPage() {
             <h2 id="sources" className={sectionTitle}>
               Sources and method
             </h2>
-            <OwnershipMethodology className="max-w-[80ch]" />
+            <div id="method" className="scroll-mt-20">
+              <OwnershipMethodology className="max-w-[80ch]" />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <OwnershipReportError subject={REPORT_SUBJECT} />
+            </p>
           </section>
         </div>
       </DashboardLayout>
     );
   }
+
+  // The file counts are a field the API may not hold yet; a count it does not
+  // hold is left out of the sentence, never printed as 0.
+  const filesClause =
+    indexFiles > 0 && superOptions > 0
+      ? `the latest files of ${indexFiles.toLocaleString("en-AU")} index funds and ${superOptions.toLocaleString("en-AU")} super fund options (one option per fund)`
+      : "the latest files of the index funds and super fund options tracked (one option per fund)";
+  const ledeText = `Super funds, index funds, hedge funds, banks and the rest of the register: substantial holding notices read from their PDFs, the ASX-listed holdings in ${filesClause}, and where a crowded register meets heavy short interest.`;
+
+  // The plate carries the dates the page's figures are read to, each with its own.
+  const plate: PlateItem[] = [
+    { text: asOf ? `Notices read to ${asOf}` : "", dateTime: asOf || undefined },
+    { text: `index fund files ${indexRange}` },
+    { text: `super option files ${superRange}` },
+    { text: "ASIC shorts T+4" },
+  ];
+
+  const sourceLines: SourceLine[] = [
+    ...sources.map((s) => ({
+      text: `${s.description}: ${s.records.toLocaleString("en-AU")} records, ${asAtRange(s.asAtFrom, s.asAt)}`,
+    })),
+    {
+      text: `ASX Investment Products report and APRA fund-level statistics: ${etfs.toLocaleString("en-AU")} exchange-traded products, ${lics.toLocaleString("en-AU")} listed investment companies and trusts, ${superFunds.toLocaleString("en-AU")} APRA-regulated super funds.`,
+    },
+  ];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -161,7 +242,7 @@ export default async function OwnershipPage() {
       "ASX substantial holding notices (Corporations Act s671B)",
       "APRA annual fund-level superannuation statistics",
       "ASX Investment Products monthly report",
-      "Index ETF holdings files (iShares, Vanguard, SPDR, Betashares)",
+      "Index fund holdings files (iShares, Vanguard, SPDR, Betashares)",
       "Super fund portfolio holdings disclosures",
     ],
     ...(asOf ? { dateModified: asOf } : {}),
@@ -174,7 +255,7 @@ export default async function OwnershipPage() {
         title={TITLE}
         description={DESCRIPTION}
         url={URL}
-        dataSource="ASX substantial holding notices; APRA; ASX Investment Products report; ETF and super fund holdings disclosures"
+        dataSource={LLM_SOURCE}
         dataFrequency="daily"
         keywords={["substantial holders", "super fund holdings", "index fund ownership", "hedge funds"]}
         lastUpdated={asOf || undefined}
@@ -183,29 +264,41 @@ export default async function OwnershipPage() {
         <div className="mx-auto w-full max-w-[100rem] space-y-10">
           {/* The latest notices' ASX links point at it. */}
           <ExternalLinkSymbol />
-          {header}
+          <header className="space-y-1.5">
+            {title}
+            <p className={lede}>{ledeText}</p>
+          </header>
+          <OwnershipPlate items={plate} />
 
-          <section aria-label="Coverage">
+          <section aria-label="Coverage" id="coverage" className="scroll-mt-20">
             <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border md:grid-cols-4">
               <Tile
-                value={String(overview?.superFunds ?? 0)}
-                label="APRA-regulated super funds"
-                meta={overview?.superAssetsAud ? `${formatAmount(overview.superAssetsAud, "AUD")} in assets` : undefined}
-              />
-              <Tile
-                value={String(overview?.etfs ?? 0)}
-                label="ASX exchange-traded products"
-                meta={overview?.etfFumAud ? `${formatAmount(overview.etfFumAud, "AUD")} under management` : undefined}
-              />
-              <Tile
-                value={String(overview?.lics ?? 0)}
-                label="Listed investment companies and trusts"
-                meta={overview?.licMarketCapAud ? `${formatAmount(overview.licMarketCapAud, "AUD")} market cap` : undefined}
-              />
-              <Tile
                 value={(overview?.noticesParsed ?? 0).toLocaleString("en-AU")}
-                label="Substantial holding notices read"
-                meta={overview?.noticesWithheld ? `${overview.noticesWithheld.toLocaleString("en-AU")} withheld (unreadable)` : undefined}
+                label="Notices read"
+                meta={asOf ? <Dated text={`to ${asOf}`} /> : undefined}
+              />
+              <Tile
+                value={withheld.toLocaleString("en-AU")}
+                label={outcomes.length > 0 ? "Notices withheld" : "Documents not parsed (all outcomes)"}
+                meta={attempted > 0 ? `of ${attempted.toLocaleString("en-AU")} documents attempted` : undefined}
+              >
+                {outcomes.length > 0 ? (
+                  <Disclosure title="Withheld, by outcome">
+                    <WithheldBreakdown outcomes={outcomes} />
+                  </Disclosure>
+                ) : null}
+              </Tile>
+              {/* A file count the API does not hold reads n/a, never 0: a source
+                  with a file is in the list, so 0 means the field is absent. */}
+              <Tile
+                value={indexFiles > 0 ? `${indexFiles.toLocaleString("en-AU")} of ${etfs.toLocaleString("en-AU")}` : NOT_AVAILABLE}
+                label="Index fund files"
+                meta={<Dated text={`of ${etfs.toLocaleString("en-AU")} exchange-traded products; ${indexRange}`} />}
+              />
+              <Tile
+                value={superOptions > 0 ? `${superOptions.toLocaleString("en-AU")} of ${superFunds.toLocaleString("en-AU")}` : NOT_AVAILABLE}
+                label="Super option files"
+                meta={<Dated text={`of ${superFunds.toLocaleString("en-AU")} APRA funds; ${superRange}`} />}
               />
             </div>
           </section>
@@ -293,10 +386,7 @@ export default async function OwnershipPage() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Most crowded registers</CardTitle>
-                  <CardDescription>
-                    Stocks where institutions disclose the most voting power between them. Listed companies and
-                    private holders are not counted.
-                  </CardDescription>
+                  <CardDescription>{CROWDED}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <OwnershipStockTable
@@ -309,10 +399,7 @@ export default async function OwnershipPage() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Crowded both ways</CardTitle>
-                  <CardDescription>
-                    Hedge funds and active managers together hold 5% or more, and at least 3% of the shares are
-                    reported short.
-                  </CardDescription>
+                  <CardDescription>{BOTH_WAYS}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <OwnershipStockTable
@@ -325,10 +412,7 @@ export default async function OwnershipPage() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Lending desks</CardTitle>
-                  <CardDescription>
-                    Banks and brokers with a substantial interest, mostly stock lent to or held as collateral from
-                    short sellers, beside each stock&apos;s short interest.
-                  </CardDescription>
+                  <CardDescription>{LENDING}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <OwnershipStockTable
@@ -341,11 +425,7 @@ export default async function OwnershipPage() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Index fund ownership</CardTitle>
-                  <CardDescription>
-                    The share of each company held by the index funds tracked (iShares, Vanguard, SPDR, Betashares),
-                    from their holdings files. Vanguard&apos;s files cover the whole fund behind each ETF, its
-                    unlisted classes included, so VAS&apos;s figures are the fund&apos;s, not the ETF&apos;s alone.
-                  </CardDescription>
+                  <CardDescription>{INDEX}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <OwnershipStockTable
@@ -359,8 +439,7 @@ export default async function OwnershipPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Super funds&apos; consensus</CardTitle>
                   <CardDescription>
-                    What the tracked super fund options hold most of, by combined value. Each fund&apos;s default or
-                    balanced option, from its portfolio holdings disclosure.
+                    <Dated text={superCopy(superRange)} />
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -378,6 +457,15 @@ export default async function OwnershipPage() {
             <h2 id="notices" className={sectionTitle}>
               Latest notices
             </h2>
+            <p className="text-sm">
+              <Link
+                href="/ownership/notices"
+                prefetch={false}
+                className="hit-target text-primary underline-offset-4 hover:underline"
+              >
+                All notices →
+              </Link>
+            </p>
             <NoticeTable notices={overview?.recent ?? []} caption="Latest substantial holding notices" />
           </section>
 
@@ -413,15 +501,13 @@ export default async function OwnershipPage() {
             <h2 id="sources" className={sectionTitle}>
               Sources and method
             </h2>
-            <ul className="space-y-1 text-sm">
-              {(overview?.sources ?? []).map((s) => (
-                <li key={s.source}>
-                  {s.description}: {s.records.toLocaleString("en-AU")} records
-                  {s.asAt ? <span className="tabular-nums text-muted-foreground">, as at {s.asAt}</span> : null}
-                </li>
-              ))}
-            </ul>
-            <OwnershipMethodology className="max-w-[80ch]" />
+            <OwnershipSourceLines lines={sourceLines} />
+            <div id="method" className="scroll-mt-20">
+              <OwnershipMethodology className="max-w-[80ch]" />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <OwnershipReportError subject={REPORT_SUBJECT} />
+            </p>
           </section>
         </div>
       </DashboardLayout>

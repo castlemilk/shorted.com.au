@@ -1,0 +1,101 @@
+{
+  "_about": "The clamps the ownership list rpcs apply (services/shorts/internal/services/shorts/ownership_lists.go). The Go test and the web mirror (web/src/@/lib/ownership/query.ts) both read this file, so a change here is a change to both. normalised is what a request's text becomes (trimmed, case-folded); a query marked rejected is refused, never truncated.",
+  "windowDays": [
+    { "in": 0, "out": 0 },
+    { "in": 1, "out": 7 },
+    { "in": 7, "out": 7 },
+    { "in": 8, "out": 30 },
+    { "in": 30, "out": 30 },
+    { "in": 31, "out": 90 },
+    { "in": 90, "out": 90 },
+    { "in": 91, "out": 365 },
+    { "in": 365, "out": 365 },
+    { "in": 366, "out": 0 },
+    { "in": 4000, "out": 0 }
+  ],
+  "windowDaysNegative": [-1, -365],
+  "activityMaxWindow": 90,
+  "limit": [
+    { "in": -1, "out": 50 },
+    { "in": 0, "out": 50 },
+    { "in": 1, "out": 1 },
+    { "in": 100, "out": 100 },
+    { "in": 101, "out": 100 }
+  ],
+  "minShortPct": [
+    { "in": -1, "out": 0 },
+    { "in": 0, "out": 0 },
+    { "in": 0.9, "out": 0 },
+    { "in": 1, "out": 1 },
+    { "in": 2.9, "out": 1 },
+    { "in": 3, "out": 3 },
+    { "in": 4.99, "out": 3 },
+    { "in": 5, "out": 5 },
+    { "in": 9.99, "out": 5 },
+    { "in": 10, "out": 10 },
+    { "in": 12, "out": 10 }
+  ],
+  "minInterests": [
+    { "in": -2, "out": 1 },
+    { "in": 0, "out": 1 },
+    { "in": 3, "out": 3 }
+  ],
+  "offset": { "min": 0, "max": 5000 },
+  "queryMaxLength": 24,
+  "defaultRegisterSort": "disclosed",
+  "registerSorts": [
+    "disclosed",
+    "investors",
+    "banks",
+    "hedge_active",
+    "short",
+    "index",
+    "super_value",
+    "super_options",
+    "interests",
+    "latest_notice",
+    "code"
+  ],
+  "noticeEvents": ["became", "increased", "decreased", "changed", "ceased", "nz"],
+  "holderKinds": [
+    "super_fund",
+    "index_manager",
+    "active_manager",
+    "hedge_fund",
+    "bank_broker",
+    "sovereign_public",
+    "insurer",
+    "private_equity",
+    "corporate",
+    "other",
+    "unclassified"
+  ],
+  "stockCode": {
+    "valid": ["BHP", "A1", "ABCDEF"],
+    "invalid": ["BH-P", "TOOLONG7"]
+  },
+  "cursor": {
+    "valid": "2026-10-16|https://www.asx.com.au/a|b.pdf",
+    "invalid": ["2026-10-16", "2026-10-16|", "16-10-2026|x", "2026-02-30|x", "1999-12-31|x", "0000-01-01|x"]
+  },
+  "normalised": {
+    "stockCode": [
+      { "in": " bhp ", "out": "BHP" },
+      { "in": "a1", "out": "A1" }
+    ],
+    "event": [
+      { "in": "BECAME", "out": "became" },
+      { "in": " Ceased ", "out": "ceased" }
+    ],
+    "kind": [{ "in": "Index_Manager", "out": "index_manager" }],
+    "institutionSlug": [{ "in": " Vanguard ", "out": "vanguard" }],
+    "sort": [
+      { "in": " Disclosed ", "out": "disclosed" },
+      { "in": "", "out": "disclosed" }
+    ],
+    "query": [
+      { "in": "  Min ", "code": "MIN", "name": "min" },
+      { "in": "abcdefghijklmnopqrstuvwxy", "rejected": true }
+    ]
+  }
+}

@@ -2231,7 +2231,7 @@ paths:
       summary: GetStockOwnership
       description: |-
         Who holds one stock: its substantial holders, their notices, and the index
-         ETFs and super fund options that hold it.
+         funds and super fund options that hold it.
       operationId: OwnershipService_GetStockOwnership
       parameters:
         - name: Connect-Protocol-Version
@@ -2298,6 +2298,86 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.ListInstitutionsResponse'
+  /shorts.v1alpha1.OwnershipService/ListStockRegisters:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: ListStockRegisters
+      description: |-
+        Every stock with a current substantial holder, filtered and sorted for the
+         register explorer: what its notices disclose (each interest counted once,
+         not a share of the company), the investors, banks and index funds among its
+         holders, and its short interest.
+      operationId: OwnershipService_ListStockRegisters
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListStockRegistersRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListStockRegistersResponse'
+  /shorts.v1alpha1.OwnershipService/ListSubstantialNotices:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: ListSubstantialNotices
+      description: |-
+        The substantial holding notices we could read, newest release first:
+         filtered by window, event, kind, stock or registry holder, paged by a
+         keyset cursor, with the window's activity on the first page for windows of
+         up to 90 days.
+      operationId: OwnershipService_ListSubstantialNotices
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListSubstantialNoticesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListSubstantialNoticesResponse'
   /shorts.v1alpha1.PoliticiansService/ComparePoliticians:
     post:
       tags:
@@ -7745,6 +7825,11 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.OwnershipFund'
           title: funds
           description: (proto shorts.v1alpha1.OwnershipFund)
+        fundHoldingsTotal:
+          type: integer
+          title: fund_holdings_total
+          format: int32
+          description: Rows in its latest files; fund_holdings serves the largest 100. (proto int32)
       title: GetInstitutionResponse
       additionalProperties: false
     shorts.v1alpha1.GetMarketByDateRequest:
@@ -7924,7 +8009,9 @@ components:
           items:
             $ref: '#/components/schemas/shorts.v1alpha1.OwnershipStock'
           title: crowded
-          description: Stocks with the highest disclosed substantial voting power. (proto shorts.v1alpha1.OwnershipStock)
+          description: |-
+            Stocks where investors (super, index, active, hedge, sovereign, insurer)
+             disclose the most voting power; banks and brokers are not counted. (proto shorts.v1alpha1.OwnershipStock)
         crowdedBothWays:
           type: array
           items:
@@ -7959,7 +8046,7 @@ components:
           items:
             $ref: '#/components/schemas/shorts.v1alpha1.OwnershipStock'
           title: passive
-          description: Stocks the tracked index ETFs own the largest share of. (proto shorts.v1alpha1.OwnershipStock)
+          description: Stocks the tracked index funds own the largest share of. (proto shorts.v1alpha1.OwnershipStock)
         sources:
           type: array
           items:
@@ -8010,6 +8097,17 @@ components:
           type: string
           title: as_of
           description: (proto string)
+        withheldByOutcome:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.WithheldOutcome'
+          title: withheld_by_outcome
+          description: Withheld documents by outcome; notices_withheld stays their total. (proto shorts.v1alpha1.WithheldOutcome)
+        documentsAttempted:
+          type: integer
+          title: documents_attempted
+          format: int32
+          description: 'Every document attempted, parsed included: the base of notices_withheld. (proto int32)'
       title: GetOwnershipOverviewResponse
       additionalProperties: false
     shorts.v1alpha1.GetParliamentOverviewRequest:
@@ -9177,6 +9275,23 @@ components:
           type: boolean
           title: has_shares_on_issue
           description: (proto bool)
+        historyTotal:
+          type: integer
+          title: history_total
+          format: int32
+          description: Parsed notices for the stock on record; history serves the newest 100. (proto int32)
+        withheldListed:
+          type: integer
+          title: withheld_listed
+          format: int32
+          description: |-
+            Documents listed under this code whose outcome is one of the six
+             withholding outcomes. A document ASX lists under several codes is counted
+             under one of them, so the figure is "listed under", never beside a sum. (proto int32)
+        asOf:
+          type: string
+          title: as_of
+          description: The newest notice release date read anywhere. (proto string)
       title: GetStockOwnershipResponse
       additionalProperties: false
     shorts.v1alpha1.GetStockPricesRequest:
@@ -10098,6 +10213,21 @@ components:
       title: IndexPoint
       additionalProperties: false
       description: One session of an index.
+    shorts.v1alpha1.IndustryCount:
+      type: object
+      properties:
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        stocks:
+          type: integer
+          title: stocks
+          format: int32
+          description: (proto int32)
+      title: IndustryCount
+      additionalProperties: false
+      description: One industry among the register's stocks, for the filter.
     shorts.v1alpha1.IndustryIntelligenceEntityTotal:
       type: object
       properties:
@@ -11604,6 +11734,86 @@ components:
           description: (proto string)
       title: ListStockPoliticiansResponse
       additionalProperties: false
+    shorts.v1alpha1.ListStockRegistersRequest:
+      type: object
+      properties:
+        sort:
+          type: string
+          title: sort
+          description: |-
+            disclosed (default), investors, banks, hedge_active, short, index,
+             super_value, super_options, interests, latest_notice, code. A stock
+             without the figure sorts last whatever the direction; ties are broken by
+             code. (proto string)
+        ascending:
+          type: boolean
+          title: ascending
+          description: (proto bool)
+        industry:
+          type: string
+          title: industry
+          description: '"" or one of the response''s industries, matched exactly after trim. (proto string)'
+        kind:
+          type: string
+          title: kind
+          description: A kind that must disclose 5% or more in the stock; "" for any. (proto string)
+        minInterests:
+          type: integer
+          title: min_interests
+          format: int32
+          description: Interests counted once; 0 means 1. (proto int32)
+        minShortPct:
+          type: number
+          title: min_short_pct
+          format: double
+          description: One of 0, 1, 3, 5, 10; another value snaps DOWN to the nearest served step. (proto double)
+        query:
+          type: string
+          title: query
+          description: A code prefix or a name substring, at most 24 characters. (proto string)
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: 0 means 50; above 100 is 100. (proto int32)
+        offset:
+          type: integer
+          title: offset
+          format: int32
+          description: 0 to 5000. (proto int32)
+      title: ListStockRegistersRequest
+      additionalProperties: false
+    shorts.v1alpha1.ListStockRegistersResponse:
+      type: object
+      properties:
+        stocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.OwnershipStock'
+          title: stocks
+          description: (proto shorts.v1alpha1.OwnershipStock)
+        total:
+          type: integer
+          title: total
+          format: int32
+          description: Stocks matching the filters. (proto int32)
+        universe:
+          type: integer
+          title: universe
+          format: int32
+          description: Stocks with at least one current holder, before the filters. (proto int32)
+        industries:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.IndustryCount'
+          title: industries
+          description: The distinct industries, sorted, for the filter. (proto shorts.v1alpha1.IndustryCount)
+        asOf:
+          type: string
+          title: as_of
+          description: (proto string)
+      title: ListStockRegistersResponse
+      additionalProperties: false
     shorts.v1alpha1.ListStrategiesRequest:
       type: object
       title: ListStrategiesRequest
@@ -11625,6 +11835,86 @@ components:
       title: ListStrategiesResponse
       additionalProperties: false
       description: Response for ListStrategies.
+    shorts.v1alpha1.ListSubstantialNoticesRequest:
+      type: object
+      properties:
+        windowDays:
+          type: integer
+          title: window_days
+          format: int32
+          description: |-
+            7, 30, 90 or 365; 0 means every notice read (no date clause). Another
+             positive value rounds UP to the next served window, and one above 365 is
+             0; the response echoes the window used. A negative value is invalid. (proto int32)
+        event:
+          type: string
+          title: event
+          description: '"" or one of became, increased, decreased, changed, ceased, nz. (proto string)'
+        kind:
+          type: string
+          title: kind
+          description: '"" or a holder kind: an institution kind, corporate or unclassified. (proto string)'
+        stockCode:
+          type: string
+          title: stock_code
+          description: '"" or an ASX code (1 to 6 uppercase alphanumerics). (proto string)'
+        institutionSlug:
+          type: string
+          title: institution_slug
+          description: |-
+            "" or a registry slug: that holder's notices, as its institution page reads
+             them. Holders off the map cannot be filtered. (proto string)
+        cursor:
+          type: string
+          title: cursor
+          description: '"" for the first page, else the previous page''s next_cursor. (proto string)'
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: 0 means 50; above 100 is 100. (proto int32)
+        includeActivity:
+          type: boolean
+          title: include_activity
+          description: |-
+            Also compute the window's counts, weekly buckets and largest moves
+             (windows of at most 90 days; omitted above that). Only the first page
+             (cursor ""): a page after a cursor never carries it. (proto bool)
+      title: ListSubstantialNoticesRequest
+      additionalProperties: false
+    shorts.v1alpha1.ListSubstantialNoticesResponse:
+      type: object
+      properties:
+        notices:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SubstantialNotice'
+          title: notices
+          description: (proto shorts.v1alpha1.SubstantialNotice)
+        nextCursor:
+          type: string
+          title: next_cursor
+          description: The cursor for the next page; "" on the last page. (proto string)
+        total:
+          type: integer
+          title: total
+          format: int32
+          description: Notices matching the filters in the window; the cursor does not narrow it. (proto int32)
+        windowDays:
+          type: integer
+          title: window_days
+          format: int32
+          description: 'The window used, echoed: 0 is every notice read (no date clause). (proto int32)'
+        asOf:
+          type: string
+          title: as_of
+          description: (proto string)
+        activity:
+          title: activity
+          description: Only on a first page that set include_activity, for a window that allows it. (proto shorts.v1alpha1.NoticeActivity)
+          $ref: '#/components/schemas/shorts.v1alpha1.NoticeActivity'
+      title: ListSubstantialNoticesResponse
+      additionalProperties: false
     shorts.v1alpha1.ListSuburbDropListingsRequest:
       type: object
       properties:
@@ -12081,6 +12371,102 @@ components:
       title: NewsArticle
       additionalProperties: false
       description: A single news article
+    shorts.v1alpha1.NoticeActivity:
+      type: object
+      properties:
+        became:
+          type: integer
+          title: became
+          format: int32
+          description: (proto int32)
+        increased:
+          type: integer
+          title: increased
+          format: int32
+          description: (proto int32)
+        decreased:
+          type: integer
+          title: decreased
+          format: int32
+          description: (proto int32)
+        changed:
+          type: integer
+          title: changed
+          format: int32
+          description: (proto int32)
+        ceased:
+          type: integer
+          title: ceased
+          format: int32
+          description: (proto int32)
+        nz:
+          type: integer
+          title: nz
+          format: int32
+          description: (proto int32)
+        weeks:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.NoticeWeek'
+          title: weeks
+          description: Every ISO week in the window, oldest first, empty weeks included. (proto shorts.v1alpha1.NoticeWeek)
+        largestRises:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SubstantialNotice'
+          title: largest_rises
+          description: |-
+            Form 604 notices with both figures, by the largest rise and fall in
+             percentage points; at most five each. (proto shorts.v1alpha1.SubstantialNotice)
+        largestFalls:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SubstantialNotice'
+          title: largest_falls
+          description: (proto shorts.v1alpha1.SubstantialNotice)
+      title: NoticeActivity
+      additionalProperties: false
+      description: A window's notices by event, by week, and the largest moves.
+    shorts.v1alpha1.NoticeWeek:
+      type: object
+      properties:
+        weekStart:
+          type: string
+          title: week_start
+          description: The Monday that starts the week, YYYY-MM-DD. (proto string)
+        became:
+          type: integer
+          title: became
+          format: int32
+          description: (proto int32)
+        increased:
+          type: integer
+          title: increased
+          format: int32
+          description: (proto int32)
+        decreased:
+          type: integer
+          title: decreased
+          format: int32
+          description: (proto int32)
+        changed:
+          type: integer
+          title: changed
+          format: int32
+          description: (proto int32)
+        ceased:
+          type: integer
+          title: ceased
+          format: int32
+          description: (proto int32)
+        nz:
+          type: integer
+          title: nz
+          format: int32
+          description: (proto int32)
+      title: NoticeWeek
+      additionalProperties: false
+      description: One ISO week of notices, by event.
     shorts.v1alpha1.OwnershipFund:
       type: object
       properties:
@@ -12260,6 +12646,17 @@ components:
           title: records
           format: int32
           description: (proto int32)
+        funds:
+          type: integer
+          title: funds
+          format: int32
+          description: Files (index funds) or options (super funds) the source holds. 0 for notices. (proto int32)
+        asAtFrom:
+          type: string
+          title: as_at_from
+          description: |-
+            The oldest file date behind the source; equals as_at when one file or
+             one date. "" for notices. (proto string)
       title: OwnershipSource
       additionalProperties: false
       description: One holdings source's coverage.
@@ -12312,7 +12709,7 @@ components:
           type: number
           title: index_pct
           format: double
-          description: Shares held by the index ETFs tracked, over shares on issue. (proto double)
+          description: Shares held by the index funds tracked, over shares on issue. (proto double)
         hasIndexPct:
           type: boolean
           title: has_index_pct
@@ -12340,6 +12737,29 @@ components:
           type: boolean
           title: has_market_cap
           description: (proto bool)
+        shortAsOf:
+          type: string
+          title: short_as_of
+          description: ASIC's report date behind short_pct; "" when there is none. (proto string)
+        indexAsAtFrom:
+          type: string
+          title: index_as_at_from
+          description: |-
+            The oldest and newest file dates behind index_pct, and how many files
+             contributed; "" and 0 when there is no index figure. (proto string)
+        indexAsAtTo:
+          type: string
+          title: index_as_at_to
+          description: (proto string)
+        indexFiles:
+          type: integer
+          title: index_files
+          format: int32
+          description: (proto int32)
+        latestNoticeDate:
+          type: string
+          title: latest_notice_date
+          description: The newest release date among the current holders' notices; "" when none. (proto string)
       title: OwnershipStock
       additionalProperties: false
       description: A stock's register as the three sources show it.
@@ -15051,6 +15471,15 @@ components:
           type: string
           title: announcement_url
           description: (proto string)
+        event:
+          type: string
+          title: event
+          description: |-
+            A notice's event, decided once from its form and figures, ceased first:
+             ceased (the ceased flag, or Form 605), became (603), increased or
+             decreased (604 with both figures and a difference), changed (604 with no
+             previous figure, no present figure, or an equal one), nz (an NZ
+             disclosure that is not a cessation). (proto string)
       title: SubstantialNotice
       additionalProperties: false
       description: One notice as released.
@@ -16852,6 +17281,26 @@ components:
       title: WeeklyReportTrendInsight
       additionalProperties: false
       description: Structured trend insight for a riser or faller
+    shorts.v1alpha1.WithheldOutcome:
+      type: object
+      properties:
+        outcome:
+          type: string
+          title: outcome
+          description: (proto string)
+        count:
+          type: integer
+          title: count
+          format: int32
+          description: (proto int32)
+      title: WithheldOutcome
+      additionalProperties: false
+      description: |-
+        Documents attempted and not parsed, by outcome. Six outcomes withhold a
+         notice that was read or could not be read (no_text, no_voting_power,
+         implausible, ambiguous_target, no_holder, inconsistent_votes); not_a_notice
+         is a document that was never a substantial holding form and fetch_error a
+         download that is retried. Neither is an unread notice.
     shorts.v1alpha1.ZoneFamilyShare:
       type: object
       properties:

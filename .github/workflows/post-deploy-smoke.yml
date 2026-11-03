@@ -65,9 +65,21 @@ jobs:
             process.stdout.write(pages.join(" "));
           ')
           echo "   re-priming ${SHELL_PAGES}"
-          for p in $SHELL_PAGES; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "${CURL_ARGS[@]}" "${BASE_URL}${p}")
-            echo "   re-prime ${p}: HTTP ${code}"
+          # Six at a time, as warm-cache reads them. A batch waits for its slowest page,
+          # so the warm call (at most 145 s, above) plus this loop (at most 90 s a batch)
+          # is 145 + ceil(n / 6) * 90 s: 415 s for the 17 shell pages, under this job's
+          # 25 minutes. curl's own exit status is ignored, so every page prints its line,
+          # a timeout included (000).
+          BATCH=6
+          read -r -a PAGES <<< "${SHELL_PAGES}"
+          for ((start = 0; start < ${#PAGES[@]}; start += BATCH)); do
+            for p in "${PAGES[@]:start:BATCH}"; do
+              (
+                code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "${CURL_ARGS[@]}" "${BASE_URL}${p}" || true)
+                echo "   re-prime ${p}: HTTP ${code}"
+              ) &
+            done
+            wait
           done
 
       - name: Smoke test critical routes
