@@ -65,9 +65,25 @@ script leaves to the operator's shell, found the hard way:
 
 Then run the post-promote sweep the workflow used to run (the ISR paths from
 `web/src/config/isr-pages.json` minus `isr-shell-pages.json` through
-`/api/revalidate` with `REVALIDATION_SECRET`, then
-`/api/static-pages/warm-cache?mode=deploy` and `mode=repair`), because
-promotion resets every ISR page to its build-time shell.
+`/api/revalidate`, with `REVALIDATION_SECRET` in the `X-Revalidate-Secret`
+header, then `/api/static-pages/warm-cache?mode=deploy` and `mode=repair`),
+because promotion resets every ISR page to its build-time shell. The warm calls
+take the secret as a bearer, and the warm routes refuse a secret in the query
+string. The workflow sends the testing user agent and bypass header on these
+calls too, so the example does:
+
+```bash
+for mode in deploy repair; do
+  curl --fail --silent --show-error --max-time 145 \
+    -A "Mozilla/5.0 Shorted-E2E/1.0" \
+    -H "X-Shorted-Testing-Bypass: $CLOUDFLARE_TESTING_BYPASS_SECRET" \
+    -H "Authorization: Bearer $REVALIDATION_SECRET" \
+    "https://shorted.com.au/api/static-pages/warm-cache?mode=$mode"
+done
+```
+
+Without the bearer both calls answer 401, and the shells stay empty until the
+hourly repair cron runs.
 
 Newsroom takes do not ride the web release at all: `shorted-news-publish`'s
 image is built only by the disabled workflow, so a merged `content/news`

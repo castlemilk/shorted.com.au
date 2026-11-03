@@ -1770,7 +1770,7 @@ jobs:
             --request POST \
             --get \
             --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" \
-            --data-urlencode "secret=$REVALIDATION_SECRET" \
+            --header "X-Revalidate-Secret: $REVALIDATION_SECRET" \
             --data-urlencode "path=$isr_paths" \
             --data-urlencode "flush=shorts,housing" \
             "https://shorted.com.au/api/revalidate") || curl_exit=$?
@@ -1789,10 +1789,16 @@ jobs:
         env:
           CACHE_WARM_SECRET: ${{ secrets.CACHE_WARM_SECRET }}
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
           CURL_ARGS=(-A "Mozilla/5.0 Shorted-E2E/1.0")
           if [ -n "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
             CURL_ARGS+=(-H "X-Shorted-Testing-Bypass: ${CLOUDFLARE_TESTING_BYPASS_SECRET}")
+          fi
+          # The deploy holds REVALIDATION_SECRET for /api/revalidate, and the warm
+          # routes accept it as a bearer. CACHE_WARM_SECRET stays as the header.
+          if [ -n "${REVALIDATION_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "Authorization: Bearer ${REVALIDATION_SECRET}")
           fi
           if [ -n "${CACHE_WARM_SECRET:-}" ]; then
             CURL_ARGS+=(-H "X-Cache-Warm-Secret: ${CACHE_WARM_SECRET}")

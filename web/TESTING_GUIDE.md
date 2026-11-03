@@ -28,7 +28,7 @@ npm run test:cache:manual
 
 3. **Cache Warming Endpoint** (`src/app/api/homepage/__tests__/warm-cache.test.ts`)
    - Endpoint functionality
-   - Secret protection
+   - Secret protection, for every warm route (`src/app/api/__tests__/warm-auth.test.ts`, `src/@/lib/__tests__/cache-warm-auth.test.ts`)
    - Error handling
 
 4. **Homepage Server Component** (`src/app/__tests__/page-server.test.tsx`)
@@ -76,10 +76,16 @@ npm run test:cache:manual
 ### 1. Cache Warming
 
 ```bash
-# Test cache warming endpoint
+# Test cache warming endpoint (off Vercel, with no warm credential configured)
 curl http://localhost:3020/api/homepage/warm-cache
 
 # Expected: Success response with all cache operations
+
+# With CRON_SECRET or REVALIDATION_SECRET set on the server, send it as a bearer
+curl -H "Authorization: Bearer $REVALIDATION_SECRET" http://localhost:3020/api/homepage/warm-cache
+
+# With CACHE_WARM_SECRET set on the server, send it in the X-Cache-Warm-Secret header
+curl -H "X-Cache-Warm-Secret: $CACHE_WARM_SECRET" http://localhost:3020/api/homepage/warm-cache
 ```
 
 ### 2. Cache Hit Performance
@@ -107,8 +113,12 @@ curl http://localhost:3020/api/homepage/warm-cache
 ### 4. Error Handling
 
 ```bash
-# Test with invalid secret (if CACHE_WARM_SECRET is set)
-curl "http://localhost:3020/api/homepage/warm-cache?secret=wrong"
+# With a warm secret configured, a wrong header is refused
+curl -H "X-Cache-Warm-Secret: wrong" http://localhost:3020/api/homepage/warm-cache
+# Expected: 401 Unauthorized
+
+# A query-string secret is never accepted, even a correct one (CACHE_WARM_SECRET set on the server)
+curl "http://localhost:3020/api/homepage/warm-cache?secret=$CACHE_WARM_SECRET"
 # Expected: 401 Unauthorized
 ```
 

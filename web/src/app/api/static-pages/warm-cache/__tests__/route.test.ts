@@ -21,6 +21,10 @@ describe("static page warming", () => {
     jest.clearAllMocks();
     delete process.env.CACHE_WARM_SECRET;
     delete process.env.CRON_SECRET;
+    delete process.env.REVALIDATION_SECRET;
+    delete process.env.VERCEL;
+    delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL_REGION;
     delete process.env.VERCEL_URL;
     delete process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
     fetchMock = jest.fn().mockResolvedValue(html());
@@ -123,6 +127,20 @@ describe("static page warming", () => {
     expect((await GET(request())).status).toBe(401);
     expect((await GET(request("", new Headers({ "X-Cache-Warm-Secret": "warm-test" })))).status).toBe(200);
     expect((await GET(request("", new Headers({ Authorization: "Bearer cron-test" })))).status).toBe(200);
+  });
+
+  it("accepts the deploy's revalidation bearer and never a query-string secret", async () => {
+    process.env.CACHE_WARM_SECRET = "warm-test";
+    process.env.REVALIDATION_SECRET = "reval-test";
+    expect((await GET(request("?secret=warm-test"))).status).toBe(401);
+    expect((await GET(request("?secret=reval-test"))).status).toBe(401);
+    expect((await GET(request("", new Headers({ Authorization: "Bearer reval-test" })))).status).toBe(200);
+  });
+
+  it("refuses every request on Vercel when no credential is configured", async () => {
+    process.env.VERCEL = "1";
+    expect((await GET(request("", new Headers({ Authorization: "Bearer anything" })))).status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("uses the internal deployment origin with bounded requests", async () => {

@@ -17,32 +17,57 @@ if [ "${NODE_ENV:-}" = "development" ]; then
   exit 0
 fi
 
-# Get the deployment URL from environment or use default
-DEPLOYMENT_URL="${VERCEL_URL:-http://localhost:3020}"
+# The deployment URL. VERCEL_URL has no scheme, and a bare host would send the
+# credentials below over plain HTTP before any redirect.
+if [ -n "${VERCEL_URL:-}" ]; then
+  case "$VERCEL_URL" in
+    http://*|https://*) DEPLOYMENT_URL="$VERCEL_URL" ;;
+    *) DEPLOYMENT_URL="https://${VERCEL_URL}" ;;
+  esac
+else
+  DEPLOYMENT_URL="http://localhost:3020"
+fi
 WARM_SECRET="${CACHE_WARM_SECRET:-}"
 
-# Build the URL with optional secret
-if [ -n "$WARM_SECRET" ]; then
-  WARM_URL="${DEPLOYMENT_URL}/api/about/warm-cache?secret=${WARM_SECRET}"
-else
-  WARM_URL="${DEPLOYMENT_URL}/api/about/warm-cache"
-fi
+# Credentials go only to an https deployment. The local fallback is plain http,
+# and a secret exported in the build shell must not reach whatever listens there.
+case "$DEPLOYMENT_URL" in
+  https://*) SEND_CREDENTIALS=1 ;;
+  *)
+    SEND_CREDENTIALS=
+    if [ -n "${REVALIDATION_SECRET:-}" ] || [ -n "$WARM_SECRET" ]; then
+      echo "Not sending credentials to ${DEPLOYMENT_URL}: only an https deployment gets them."
+    fi
+    ;;
+esac
 
-echo "Calling: ${WARM_URL}"
+# The warm routes read credentials from headers, never the URL, because request
+# logs keep URLs. REVALIDATION_SECRET goes as a bearer and CACHE_WARM_SECRET as
+# X-Cache-Warm-Secret. Either one is enough. With neither, a Vercel deployment
+# refuses the call.
+warm_route() {
+  url="$1"
+  set -- -f -s --max-time 30
+  if [ -n "$SEND_CREDENTIALS" ]; then
+    if [ -n "${REVALIDATION_SECRET:-}" ]; then
+      set -- "$@" -H "Authorization: Bearer ${REVALIDATION_SECRET}"
+    fi
+    if [ -n "$WARM_SECRET" ]; then
+      set -- "$@" -H "X-Cache-Warm-Secret: ${WARM_SECRET}"
+    fi
+  fi
+  curl "$@" "$url" > /dev/null
+}
+
+echo "Calling: ${DEPLOYMENT_URL}/api/about/warm-cache"
 
 # Warm about page cache with timeout
-curl -f -s --max-time 30 "${WARM_URL}" > /dev/null || {
+warm_route "${DEPLOYMENT_URL}/api/about/warm-cache" || {
   echo "⚠️  Warning: Cache warm failed (this is OK if services aren't ready yet)"
 }
 
 # Also warm homepage cache if endpoint exists
-if [ -n "$WARM_SECRET" ]; then
-  HOME_URL="${DEPLOYMENT_URL}/api/homepage/warm-cache?secret=${WARM_SECRET}"
-else
-  HOME_URL="${DEPLOYMENT_URL}/api/homepage/warm-cache"
-fi
-
-curl -f -s --max-time 30 "${HOME_URL}" > /dev/null || {
+warm_route "${DEPLOYMENT_URL}/api/homepage/warm-cache" || {
   echo "⚠️  Warning: Homepage cache warm failed (endpoint may not exist yet)"
 }
 

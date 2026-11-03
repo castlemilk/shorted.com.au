@@ -5,6 +5,7 @@ import { isCacheWarmAuthorized } from "~/@/lib/cache-warm-auth";
 
 // Warming fetches happen serially in small batches; allow enough wall time.
 export const maxDuration = 300;
+export const dynamic = "force-dynamic";
 
 const STOCK_PAGES_TO_WARM = 30;
 const FETCH_BATCH_SIZE = 5;
