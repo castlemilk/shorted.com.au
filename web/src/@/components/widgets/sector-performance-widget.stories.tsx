@@ -75,8 +75,9 @@ type Story = StoryObj<typeof meta>;
 
 /**
  * Default pie view. Asserts the header, the period subtitle, six donut arcs,
- * and the full legend (sector swatch + signed badge for every sector), then
- * hovers an arc and pins the no-op (KNOWN GAP above).
+ * the donut's order (the arc at 12 o'clock is the largest |performance| sector,
+ * as visx 3 drew it), and the full legend (sector swatch + signed badge for
+ * every sector), then hovers an arc and pins the no-op (KNOWN GAP above).
  */
 export const Default: Story = {
   beforeEach: () => {
@@ -106,6 +107,26 @@ export const Default: Story = {
     // after the data state lands, so poll.
     await waitFor(() => {
       expect(canvasElement.querySelectorAll("svg g path")).toHaveLength(6);
+    });
+
+    // Donut order: the arc that starts at 12 o'clock belongs to the largest
+    // |performance| sector (Technology, +2.73%). The widget sorts the arcs by
+    // magnitude with pieSortValues; without it visx 4 starts the first input
+    // sector (Financials) there. The arcs are drawn once ParentSize has
+    // measured the box, so poll.
+    const largest = fixture.reduce((a, b) =>
+      Math.abs(b.performance) > Math.abs(a.performance) ? b : a,
+    );
+    await waitFor(() => {
+      const topArc = [...canvasElement.querySelectorAll("svg > g > g > path")].find(
+        (path) => {
+          const [x = "", y = ""] = (path.getAttribute("d") ?? "").slice(1).split(",");
+          return Math.abs(Number(x)) < 1e-6 && parseFloat(y) < 0;
+        },
+      );
+      expect(topArc?.parentElement?.querySelector("text")?.textContent).toBe(
+        pct(largest.performance),
+      );
     });
 
     // Primary "interaction" (KNOWN GAP): arcs have no handlers — hovering

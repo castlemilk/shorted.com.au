@@ -2,26 +2,6 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-// Mock the chart component since it's complex and uses D3/Visx
-jest.mock('@visx/xychart', () => ({
-  XYChart: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="xy-chart">{children}</div>
-  ),
-  Axis: ({ orientation }: { orientation: string }) => (
-    <div data-testid={`axis-${orientation}`} />
-  ),
-  LineSeries: ({ data }: { data: any[] }) => (
-    <div data-testid="line-series">{data.length} data points</div>
-  ),
-  AreaSeries: ({ data }: { data: any[] }) => (
-    <div data-testid="area-series">{data.length} data points</div>
-  ),
-  Grid: () => <div data-testid="grid" />,
-  Tooltip: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="tooltip">{children}</div>
-  ),
-}));
-
 jest.mock('@visx/responsive', () => ({
   ParentSize: ({ children }: { children: (props: any) => React.ReactNode }) =>
     children({ width: 800, height: 400 }),

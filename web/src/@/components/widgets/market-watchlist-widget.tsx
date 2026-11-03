@@ -17,7 +17,7 @@ import {
   LoaderCircle,
   ChartColumn,
 } from "lucide-react";
-import ParentSize from "@visx/responsive/lib/components/ParentSize";
+import { ParentSize } from "@/components/charts/parent-size";
 import Link from "next/link";
 import { Sparkline, type SparklineData } from "~/@/components/ui/sparkline";
 import {

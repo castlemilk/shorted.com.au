@@ -8,7 +8,7 @@ import type { ChartSeriesSpec } from "../types";
 // for. The component reports a size it is told (as it would after layout) and
 // otherwise does what it does: `children` receives it.
 let mockSize = { width: 400, height: 300 };
-jest.mock("@visx/responsive", () => ({
+jest.mock("@/components/charts/parent-size", () => ({
   ParentSize: ({
     children,
   }: {

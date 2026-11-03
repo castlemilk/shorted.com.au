@@ -11,7 +11,7 @@ import { ViewMode } from "~/gen/shorts/v1alpha1/market_pb";
 import { fetchIndustryTreeMapClient } from "~/@/lib/client-api";
 import { Treemap, hierarchy, stratify, treemapSquarify } from "@visx/hierarchy";
 import { Group } from "@visx/group";
-import { ParentSize } from "@visx/responsive";
+import { ParentSize } from "@/components/charts/parent-size";
 import { scaleLinear } from "@visx/scale";
 import { useRouter } from "next/navigation";
 import { TreemapTooltip } from "./treemap-tooltip";

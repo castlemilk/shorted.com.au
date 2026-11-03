@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { type WidgetProps } from "~/@/types/dashboard";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { getCorrelationMatrix } from "@/lib/stock-data-service";
-import { ParentSize } from "@visx/responsive";
+import { ParentSize } from "@/components/charts/parent-size";
 import { scaleLinear } from "@visx/scale";
 
 // Diverging correlation ramp on the warm chart palette (rust <-> avocado),

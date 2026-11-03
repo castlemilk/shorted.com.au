@@ -6,7 +6,7 @@ import {
   HousingMultiLineChart,
 } from "./housing-multi-line-chart";
 
-jest.mock("@visx/responsive", () => ({
+jest.mock("@/components/charts/parent-size", () => ({
   ParentSize: ({
     children,
   }: {

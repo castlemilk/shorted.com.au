@@ -72,7 +72,7 @@ All feature charts live in `web/src/@/components/features/housing/charts/`. They
 
 ### Conventions (universal across all charts)
 
-- **Responsive**: each chart wraps its inner component in `<ParentSize>` (`@visx/responsive`) and receives `{ width }`. Inner guards: `if (innerWidth <= 0) return null`. Margins subtracted: `innerWidth = Math.max(width - MARGIN.left - MARGIN.right, 0)`.
+- **Responsive**: each chart wraps its inner component in `<ParentSize>` (`@/components/charts/parent-size`, not `@visx/responsive`: visx 4's own one collapses a content-height box, see CLAUDE.md "React 19 / Next 15") and receives `{ width }`. Inner guards: `if (innerWidth <= 0) return null`. Margins subtracted: `innerWidth = Math.max(width - MARGIN.left - MARGIN.right, 0)`.
 - **Scales**: `scaleLinear` for numeric, `scaleTime` for dates (`@visx/scale`). y-range is **inverted**: `range: [innerHeight, 0]`. Call `.nice()` for readable ticks; `.invert()` in move handlers.
 - **Tooltip**: `useTooltip` + `bisector<T>(accessor).left` (d3-array, requires sorted data) + `localPoint(event)` (`@visx/event`) → `TooltipWithBounds` (stays on-canvas) styled with `TOOLTIP_STYLE`. A transparent `<Bar fill="transparent">` overlay drives `onMouseMove`/`onTouchMove`.
 - **Curve**: `curveMonotoneX` everywhere.

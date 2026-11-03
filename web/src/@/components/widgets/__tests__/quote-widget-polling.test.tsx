@@ -11,7 +11,7 @@ jest.mock("@/lib/stock-data-service", () => ({
   getSectorPerformance: jest.fn(),
   getMultipleStockQuotes: jest.fn(),
 }));
-jest.mock("@visx/responsive", () => ({ ParentSize: () => null }));
+jest.mock("@/components/charts/parent-size", () => ({ ParentSize: () => null }));
 jest.mock("@/lib/client-api", () => ({}));
 jest.mock("@visx/shape", () => ({ Pie: () => null }));
 jest.mock("@visx/group", () => ({ Group: () => null }));
