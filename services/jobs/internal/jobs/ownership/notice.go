@@ -279,7 +279,7 @@ var placeholderPointers = map[string]bool{
 	"annexed": true, "enclosed": true, "herewith": true, "below": true, "above": true,
 	"annex": true, "annexe": true, "annexure": true, "annexures": true,
 	"appendix": true, "appendices": true, "schedule": true, "schedules": true,
-	"per": true, "applicable": true, "na": true,
+	"per": true, "applicable": true, "na": true, "n/a": true,
 }
 
 // placeholderGlue are the words that stand around a pointer without naming
@@ -333,14 +333,20 @@ func placeholderReason(name string) string {
 		return ""
 	}
 	lower := strings.ToLower(strings.Join(strings.Fields(name), " "))
-	// "N/A" is one word. It is matched before the name is split at its slash,
-	// which would leave "n" and "a".
+	// "N/A" is one word, kept whole before the name is split at its slash (which
+	// would leave "n" and "a"). It is a pointer like "see annexure", not a verdict
+	// on its own: a form's ACN or ARSN column reads "N/A" and a text layer can
+	// glue it onto a real name ("Mega Uranium Ltd ... - N/A", "Hugh Warner N/A
+	// 25/03/2025"), and those name a holder.
+	var tokens []string
 	for _, w := range strings.Fields(lower) {
 		if strings.Trim(w, ".,;:()[]\"'") == "n/a" {
-			return `matches "n/a"`
+			tokens = append(tokens, "n/a")
+			continue
 		}
+		tokens = append(tokens, placeholderTokenRe.FindAllString(w, -1)...)
 	}
-	tokens := joinSplitPointers(placeholderTokenRe.FindAllString(lower, -1))
+	tokens = joinSplitPointers(tokens)
 	if p := pointerOnly(tokens); p != "" {
 		return fmt.Sprintf("matches %q", p)
 	}

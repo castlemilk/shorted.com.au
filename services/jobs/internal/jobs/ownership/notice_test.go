@@ -320,6 +320,12 @@ func TestPlaceholderReason(t *testing.T) {
 		{"Jasper Holdings Pty Ltd", false},
 		{"Prefer To Invest Pty Ltd", false},
 		{"N/AB Holdings", false},
+		// "N/A" glued onto a real name by a text layer (the form's ACN column) is
+		// still a name: the pointer rule needs a name with no word of its own.
+		{"Hugh Warner N/A 25 / 03 / 2025", false},
+		{"Mega Uranium Ltd and Mega Redport Pty Ltd who are each associates of each other - N/A", false},
+		{"Name: N/A", true},
+		{"Not applicable (N/A)", true},
 		{"", false}, // no value was written: the fallbacks read the holder
 	} {
 		if got := placeholderReason(tc.name); (got != "") != tc.placeholder {
