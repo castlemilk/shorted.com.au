@@ -20,6 +20,7 @@ jest.mock("~/@/components/charts/StockChartEmbed", () => ({
   EMBED_CONTROL_BUTTON: "",
   StockChartEmbed: (props: {
     stockCode: string;
+    anchor?: { day: string } | null;
     landscape?: boolean;
     headerActions?: ReactNode;
     chartOverlay?: ReactNode;
@@ -36,6 +37,7 @@ jest.mock("~/@/components/charts/StockChartEmbed", () => ({
     <div
       data-testid="embed"
       data-code={props.stockCode}
+      data-anchor={props.anchor?.day ?? ""}
       data-landscape={String(!!props.landscape)}
       data-initial={(props.indicators?.initial ?? []).join(",")}
     >
@@ -317,3 +319,28 @@ describe("DiscordActivity: search", () => {
     );
   });
 });
+
+describe("DiscordActivity: a chart kept as posted", () => {
+  const PINNED = "code=CBA&view=combined&period=3m&asof=2026-11-04&shorts=2026-10-29";
+
+  it("opens the chart as posted on its day", () => {
+    renderActivity(PINNED, null);
+    expect(screen.getByTestId("embed")).toHaveAttribute("data-anchor", "2026-11-04");
+  });
+
+  it("opens a live chart when the launch names none", () => {
+    renderActivity(QUERY, null);
+    expect(screen.getByTestId("embed")).toHaveAttribute("data-anchor", "");
+  });
+
+  it("drops the anchor once a different stock is picked, since it is the posted stock's", async () => {
+    renderActivity(PINNED, null);
+    fireEvent.click(screen.getByRole("button", { name: "Search stocks" }));
+    const input = screen.getByRole("searchbox", { name: "Search ASX stocks" });
+    fireEvent.change(input, { target: { value: "bhp" } });
+    fireEvent.submit(input.closest("form")!);
+    expect(screen.getByTestId("embed")).toHaveAttribute("data-code", "BHP");
+    expect(screen.getByTestId("embed")).toHaveAttribute("data-anchor", "");
+  });
+});
+

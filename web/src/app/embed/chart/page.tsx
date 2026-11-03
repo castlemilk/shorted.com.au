@@ -36,17 +36,18 @@ function useFramed(): boolean | null {
 }
 
 function EmbedChartInner() {
-  const { code, view, period } = parseEmbedChartParams(useSearchParams());
+  const { code, view, period, anchor } = parseEmbedChartParams(useSearchParams());
   const framed = useFramed();
   return (
     // The iframe IS the viewport: fill it, and let the chart take what is left.
     <div className="h-[100dvh] w-full overflow-auto">
       <StockChartEmbed
         // Remount on a param change so the period state resets with the URL.
-        key={`${code}:${view}:${period}`}
+        key={`${code}:${view}:${period}:${anchor?.day ?? ""}:${anchor?.shorts ?? ""}`}
         stockCode={code}
         defaultView={view}
         defaultPeriod={period}
+        anchor={anchor ?? null}
         // Framed: a way out to the full-screen share page. Opened on its own
         // (a link to the iframe's src, as in a pasted snippet): landscape.
         expandable={framed === true}

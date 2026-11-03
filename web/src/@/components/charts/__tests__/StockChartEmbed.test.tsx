@@ -3,13 +3,18 @@ import { useSession } from "next-auth/react";
 import { StockChartEmbed } from "../StockChartEmbed";
 import type { StockChartData } from "../use-stock-chart-data";
 import type { ChartPoint } from "../types";
+import type { ChartAnchor } from "../chart-anchor";
 
 // The data hook is the embed's only source of numbers, the element-size hook its
 // only measurement, and the chart its only drawing: all three are stood in for,
 // so these tests are about what the embed hands the chart.
-const mockChartData = jest.fn<StockChartData, [string, string]>();
+const mockChartData = jest.fn<
+  StockChartData,
+  [string, string, ChartAnchor | null | undefined]
+>();
 jest.mock("../use-stock-chart-data", () => ({
-  useStockChartData: (code: string, period: string) => mockChartData(code, period),
+  useStockChartData: (code: string, period: string, anchor?: ChartAnchor | null) =>
+    mockChartData(code, period, anchor),
 }));
 
 // The warm-up history is a query, and the embed's tests have no QueryClient: it is
@@ -710,5 +715,65 @@ describe("StockChartEmbed: header actions", () => {
     const toggle = within(header).getByRole("button", { name: "Rotate chart to landscape" });
     expect(period.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(action.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+// A chart kept as posted: the note is there from the first frame, the windows the
+// hook is given end on the anchor, and the reader can switch to the latest data
+// and back without a navigation.
+describe("StockChartEmbed: as posted", () => {
+  const anchor: ChartAnchor = { day: "2026-11-04", shorts: "2026-10-29" };
+
+  it("draws no note when no anchor is given, and asks for live data", () => {
+    render(<StockChartEmbed stockCode="BHP" defaultView="combined" />);
+    expect(screen.queryByText(/As posted/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Show (latest|as posted)/ })).not.toBeInTheDocument();
+    expect(mockChartData).toHaveBeenLastCalledWith("BHP", "1y", null);
+  });
+
+  it("says the chart is as posted on its day, from the first render", () => {
+    render(<StockChartEmbed stockCode="BHP" defaultView="combined" anchor={anchor} />);
+    expect(screen.getByText("As posted 4 Nov 2026")).toBeInTheDocument();
+    expect(mockChartData).toHaveBeenLastCalledWith("BHP", "1y", anchor);
+  });
+
+  it("switches to the latest data, with no anchor anywhere, and back", () => {
+    const { container } = render(
+      <StockChartEmbed stockCode="BHP" defaultView="combined" anchor={anchor} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Show latest" }));
+    expect(screen.getByText("Showing latest data")).toBeInTheDocument();
+    expect(mockChartData).toHaveBeenLastCalledWith("BHP", "1y", null);
+    expect(container.querySelector("a")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show as posted" }));
+    expect(screen.getByText("As posted 4 Nov 2026")).toBeInTheDocument();
+    expect(mockChartData).toHaveBeenLastCalledWith("BHP", "1y", anchor);
+  });
+
+  it("keeps the anchor through a period change, the period's window ending on the anchor", () => {
+    render(<StockChartEmbed stockCode="BHP" defaultView="combined" anchor={anchor} />);
+    fireEvent.click(screen.getByRole("button", { name: "3m" }));
+    expect(mockChartData).toHaveBeenLastCalledWith("BHP", "3m", anchor);
+  });
+
+  it("shares the anchored chart's page while pinned, and the live page once switched", () => {
+    render(
+      <StockChartEmbed
+        stockCode="BHP"
+        defaultView="combined"
+        defaultPeriod="3m"
+        anchor={anchor}
+        expandable
+      />,
+    );
+    const full = screen.getByRole("link", { name: /Open BHP chart full screen/ });
+    expect(full.getAttribute("href")).toContain("asof=2026-11-04");
+    expect(full.getAttribute("href")).toContain("shorts=2026-10-29");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show latest" }));
+    expect(
+      screen.getByRole("link", { name: /Open BHP chart full screen/ }).getAttribute("href"),
+    ).not.toContain("asof=");
   });
 });

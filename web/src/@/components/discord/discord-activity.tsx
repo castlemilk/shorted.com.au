@@ -20,6 +20,7 @@ import {
   EMBED_CONTROL_BUTTON,
   StockChartEmbed,
 } from "~/@/components/charts/StockChartEmbed";
+import { parseChartAnchor } from "~/@/components/charts/chart-anchor";
 import { isPortraitPhone } from "~/@/components/charts/portrait-phone";
 import {
   NO_INDICATORS,
@@ -279,10 +280,19 @@ function useLaunchChart(launch: ActivityLaunch): ChartState | null {
   const asks = source === "default" && Boolean(channelId ?? guildId);
   const [chart, setChart] = useState<ChartState | null>(asks ? null : state);
   const { code, view, period } = state;
+  // The anchor as its two dates, so the effect below re-runs only when they change.
+  const anchorDay = state.anchor?.day;
+  const anchorShorts = state.anchor?.shorts;
 
   useEffect(() => {
     if (!asks) return;
-    const fallback = { code, view, period };
+    const anchor = parseChartAnchor(anchorDay, anchorShorts);
+    const fallback: ChartState = {
+      code,
+      view,
+      period,
+      ...(anchor ? { anchor } : {}),
+    };
     const query = new URLSearchParams();
     if (channelId) query.set("channel", channelId);
     if (guildId) query.set("guild", guildId);
@@ -305,7 +315,7 @@ function useLaunchChart(launch: ActivityLaunch): ChartState | null {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [asks, channelId, guildId, code, view, period]);
+  }, [asks, channelId, guildId, code, view, period, anchorDay, anchorShorts]);
 
   return chart;
 }
@@ -466,6 +476,9 @@ function ActivityChart({
         stockCode={code}
         defaultView={initial.view}
         defaultPeriod={initial.period}
+        // The launch's chart as posted, for the stock it was posted about: a stock
+        // picked in search is the live chart, so the anchor goes with the switch.
+        anchor={code === initial.code ? initial.anchor : undefined}
         selectableView
         // Discord can keep a phone's Activity upright whatever the phone does,
         // so the chart offers to turn itself, as the share page does. The choice

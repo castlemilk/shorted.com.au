@@ -2,10 +2,10 @@ import type { ReactElement } from "react";
 
 import { getStock } from "~/app/actions/getStock";
 import {
-  CHART_PERIOD_PHRASE,
-  type ChartPeriod,
-  type ChartViewId,
-} from "~/@/components/charts/chart-views";
+  chartPeriodPhrase,
+  type ChartAnchor,
+} from "~/@/components/charts/chart-anchor";
+import type { ChartPeriod, ChartViewId } from "~/@/components/charts/chart-views";
 import { formatCompanyName } from "~/@/lib/company-name";
 import { CHART_SOURCE, chartSubject } from "~/@/lib/embed/snippet";
 import { NO_LOGO, getCompanyLogo, getOgLogo } from "~/@/lib/og/card";
@@ -17,6 +17,8 @@ export interface ChartCardState {
   code: string;
   view: ChartViewId;
   period: ChartPeriod;
+  /** A chart kept as posted: its windows end on the anchor, and its period reads so. */
+  anchor?: ChartAnchor;
 }
 
 export interface LoadedChartCard {
@@ -33,17 +35,21 @@ export interface LoadedChartCard {
  * draws whatever arrived: a failed read leaves that series out, never throws.
  */
 export async function loadChartCard(
-  { code, view, period }: ChartCardState,
+  { code, view, period, anchor }: ChartCardState,
   readTimeoutMs: number,
 ): Promise<LoadedChartCard> {
   const none: SeriesPoint[] = [];
   const [short, price, stock, logoSrc] = await Promise.all([
     view === "price"
       ? none
-      : withTimeout(getChartShorts(code, period), readTimeoutMs, none),
+      : withTimeout(
+          getChartShorts(code, period, anchor),
+          readTimeoutMs,
+          none,
+        ),
     view === "short"
       ? none
-      : withTimeout(getChartPrices(code, period), readTimeoutMs, none),
+      : withTimeout(getChartPrices(code, period, anchor), readTimeoutMs, none),
     withTimeout(getStock(code), readTimeoutMs, undefined),
     getOgLogo(),
   ]);
@@ -61,7 +67,7 @@ export async function loadChartCard(
         company={stock?.name ? formatCompanyName(stock.name, code) : undefined}
         view={view}
         subject={subject.charAt(0).toUpperCase() + subject.slice(1)}
-        periodPhrase={CHART_PERIOD_PHRASE[period]}
+        periodPhrase={chartPeriodPhrase(period, anchor)}
         source={CHART_SOURCE[view]}
         short={short}
         price={price}
