@@ -78,3 +78,44 @@ describe("chart share page metadata", () => {
     expect(m.openGraph).toBeUndefined();
   });
 });
+
+describe("chart share page metadata, kept as posted", () => {
+  const pinned = {
+    view: "combined",
+    period: "3m",
+    asof: "2026-11-04",
+    shorts: "2026-10-29",
+  };
+
+  it("names the period as posted, and drops the daily promise", async () => {
+    const m = await generateMetadata(props("WBT", pinned));
+    expect(m.title).toBe(
+      "WBT share price and short interest chart, 3 months to 4 Nov 2026",
+    );
+    expect(m.description).toContain("3 months to 4 Nov 2026");
+    expect(m.description).toContain("The chart as posted on 4 Nov 2026.");
+    expect(m.description).not.toContain("Updated daily.");
+  });
+
+  it("points the link and the card at the pinned chart", async () => {
+    const m = await generateMetadata(props("WBT", pinned));
+    const og = m.openGraph as { url: string; images: { url: string }[] };
+    expect(og.url).toContain("https://shorted.com.au/chart/WBT?");
+    expect(og.url).toContain("asof=2026-11-04");
+    expect(og.url).toContain("shorts=2026-10-29");
+    expect(og.images[0]!.url).toContain("https://shorted.com.au/chart/WBT/image?");
+    expect(og.images[0]!.url).toContain("asof=2026-11-04");
+    const tw = m.twitter as { images: { url: string }[] };
+    expect(tw.images[0]!.url).toBe(og.images[0]!.url);
+  });
+
+  it("keeps a live page's title, description and links unchanged", async () => {
+    const m = await generateMetadata(props("WBT", { view: "combined", period: "3m" }));
+    expect(m.title).toBe("WBT share price and short interest chart, past 3 months");
+    expect(m.description).toContain("Updated daily.");
+    expect(m.description).not.toContain("as posted");
+    const og = m.openGraph as { url: string };
+    expect(og.url).not.toContain("asof=");
+  });
+});
+

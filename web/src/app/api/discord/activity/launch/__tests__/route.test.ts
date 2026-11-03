@@ -83,3 +83,63 @@ describe("GET /api/discord/activity/launch", () => {
     expect(getSettings).not.toHaveBeenCalled();
   });
 });
+
+describe("GET /api/discord/activity/launch: a recalled chart kept as posted", () => {
+  beforeEach(() => {
+    recallLaunch.mockReset().mockResolvedValue(null);
+    getSettings.mockReset().mockResolvedValue(null);
+  });
+
+  it("passes a valid anchor through", async () => {
+    recallLaunch.mockResolvedValue({
+      code: "WBT",
+      view: "combined",
+      period: "3m",
+      anchor: { day: "2026-11-04", shorts: "2026-10-29" },
+    });
+    expect(await (await ask(`channel=${CHANNEL}`)).json()).toEqual({
+      source: "command",
+      state: {
+        code: "WBT",
+        view: "combined",
+        period: "3m",
+        anchor: { day: "2026-11-04", shorts: "2026-10-29" },
+      },
+    });
+  });
+
+  it("drops an anchor whose day is not a real day, leaving a live chart", async () => {
+    recallLaunch.mockResolvedValue({
+      code: "WBT",
+      view: "combined",
+      period: "3m",
+      anchor: { day: "2026-02-30", shorts: "2026-02-30" },
+    });
+    const body = await (await ask(`channel=${CHANNEL}`)).json();
+    expect(body.state).toEqual({ code: "WBT", view: "combined", period: "3m" });
+    expect(body.state).not.toHaveProperty("anchor");
+  });
+
+  it("drops an anchor that is not an object", async () => {
+    recallLaunch.mockResolvedValue({
+      code: "WBT",
+      view: "price",
+      period: "1y",
+      anchor: "2026-11-04",
+    });
+    const body = await (await ask(`channel=${CHANNEL}`)).json();
+    expect(body.state).toEqual({ code: "WBT", view: "price", period: "1y" });
+  });
+
+  it("pulls a shorts day after the posting day back to it", async () => {
+    recallLaunch.mockResolvedValue({
+      code: "WBT",
+      view: "short",
+      period: "1m",
+      anchor: { day: "2026-11-04", shorts: "2026-11-09" },
+    });
+    const body = await (await ask(`channel=${CHANNEL}`)).json();
+    expect(body.state.anchor).toEqual({ day: "2026-11-04", shorts: "2026-11-04" });
+  });
+});
+
