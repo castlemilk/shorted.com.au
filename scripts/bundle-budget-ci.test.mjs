@@ -31,9 +31,9 @@ test("capturing the production build preserves its failure and stderr", (t) => {
   assert.equal(readFileSync(join(directory, "outputs"), "utf8"), `release-sha=${"a".repeat(40)}\n`);
 });
 
-// The "/" fixtures sit at the committed baseline (136 kB), under its budget (150
-// kB) in web/scripts/bundle-budget.mjs. A fixture above the budget would fail
-// this test for the budget, not for what it checks.
+// The "/" fixtures sit at the committed baseline (136 kB), under its budget (165
+// kB, raised for Next 15 in web/scripts/bundle-budget.mjs). A fixture above the
+// budget would fail this test for the budget, not for what it checks.
 test("existing build output passes budgets without invoking another build", (t) => {
   const directory = scratch(t);
   writeFileSync(join(directory, "build.log"), "┌ ○ / 12 kB 136 kB\n+ First Load JS shared by all 96.1 kB\n");

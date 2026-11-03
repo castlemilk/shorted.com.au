@@ -10,9 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -29,6 +26,7 @@ import { EnrichmentStatus } from "~/gen/shorts/v1alpha1/enrichment_pb";
 import { EnrichmentJobsStatus } from "@/components/admin/enrichment-jobs-status";
 import { retryWithBackoff } from "@/lib/retry";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
+import { TriggerEnrichmentForm } from "./trigger-enrichment-form";
 
 export const dynamic = "force-dynamic";
 
@@ -278,40 +276,9 @@ export default async function AdminEnrichmentsPage({
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form
-                    action={triggerEnrichmentFormAction}
-                    className="flex flex-col gap-3"
-                  >
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="stockCode" className="text-xs">
-                        Stock Code
-                      </Label>
-                      <Input
-                        id="stockCode"
-                        name="stockCode"
-                        placeholder="e.g., CBA, BHP"
-                        className="h-9 text-sm"
-                        required
-                        pattern="[A-Z0-9]{3,4}"
-                        title="3-4 uppercase letters/numbers"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="force"
-                        name="force"
-                        value="true"
-                        className="h-4 w-4 rounded border-input"
-                      />
-                      <Label htmlFor="force" className="text-xs cursor-pointer">
-                        Force re-enrichment (even if already enriched)
-                      </Label>
-                    </div>
-                    <Button type="submit" size="sm" className="w-full">
-                      Trigger Enrichment
-                    </Button>
-                  </form>
+                  <TriggerEnrichmentForm
+                    onTrigger={triggerEnrichmentFormAction}
+                  />
                 </CardContent>
               </Card>
               <div className="overflow-auto">
@@ -507,6 +474,7 @@ export default async function AdminEnrichmentsPage({
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
+                      {/* React 19 clears this form only after a successful review. That review redirects, which unmounts the card, so nothing typed here is lost. */}
                       <form
                         action={reviewEnrichmentAction}
                         className="flex flex-col gap-3"

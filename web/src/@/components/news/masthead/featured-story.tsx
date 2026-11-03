@@ -52,9 +52,9 @@ export function FeaturedStory({
                 aria-hidden
                 alt=""
                 src={optimizedBackgroundUrl(item.image)}
-                // React 18 forwards the lowercase HTML attribute without an
-                // unknown-prop warning; the browser still honours its priority.
-                {...{ fetchpriority: priority ? "high" : "auto" }}
+                // React 19 renders fetchPriority as the lowercase attribute the
+                // browser honours; the lowercase prop name warns.
+                fetchPriority={priority ? "high" : "auto"}
                 loading={priority ? "eager" : "lazy"}
                 decoding="async"
                 className={cn("absolute inset-0 h-full w-full object-center", item.image.includes("/opengraph-image") ? "object-contain" : "object-cover")}

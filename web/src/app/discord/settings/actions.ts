@@ -33,12 +33,14 @@ export type SaveResult =
 const EXPIRED_MESSAGE =
   "This link has expired. Run /settings in Discord for a new one.";
 
-function currentGrant(): SettingsGrant | null {
-  return readSettingsGrant(cookies().get(SETTINGS_COOKIE)?.value);
+// cookies() is async in Next 15: every read of the grant awaits it.
+async function currentGrant(): Promise<SettingsGrant | null> {
+  const jar = await cookies();
+  return readSettingsGrant(jar.get(SETTINGS_COOKIE)?.value);
 }
 
 export async function saveDiscordSettings(input: unknown): Promise<SaveResult> {
-  const grant = currentGrant();
+  const grant = await currentGrant();
   if (!grant) return { ok: false, error: EXPIRED_MESSAGE, expired: true };
 
   // The form sends all four. One that is missing or not valid is refused
@@ -82,7 +84,7 @@ export async function saveDiscordSettings(input: unknown): Promise<SaveResult> {
 
 /** The default stock picker's search: codes and names, as `/stock` suggests them. */
 export async function searchDiscordStocks(query: unknown): Promise<StockHit[]> {
-  if (typeof query !== "string" || !currentGrant()) return [];
+  if (typeof query !== "string" || !(await currentGrant())) return [];
   const q = query.trim().slice(0, 60);
   return q ? discordData.search(q, 8) : [];
 }
@@ -97,7 +99,7 @@ export async function previewStock(
   code: unknown,
 ): Promise<PreviewSummary | null> {
   const c = typeof code === "string" ? normalizeCode(code) : null;
-  if (!c || !currentGrant()) return null;
+  if (!c || !(await currentGrant())) return null;
   const summary = await discordData.stockSummary(c);
   return summary
     ? { ...summary, asOf: summary.asOf ? summary.asOf.toISOString() : null }

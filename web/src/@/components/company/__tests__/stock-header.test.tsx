@@ -60,7 +60,7 @@ const details = (overrides: Partial<StockDetails> = {}) =>
   }) as StockDetails;
 
 /**
- * react-dom 18 cannot render an async server component, and the header holds
+ * react-dom cannot render an async server component, and the header holds
  * one: the logo, under Suspense. Render the header the way the server would:
  * call it, await each StockHeaderLogo in what it returns, and put that output
  * where the element was. The boundary, the fixed box and every class stay real.

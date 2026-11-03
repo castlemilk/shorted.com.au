@@ -12,7 +12,7 @@ const stockSummary = jest.fn();
 const search = jest.fn();
 
 jest.mock("next/headers", () => ({
-  cookies: () => ({
+  cookies: async () => ({
     get: () => {
       const value = cookieValue();
       return value === undefined ? undefined : { value };

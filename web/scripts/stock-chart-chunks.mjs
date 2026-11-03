@@ -7,9 +7,10 @@
 // import() in a client module, so the chart is a chunk of its own. CHART_LOADERS
 // names the loader each chart route uses.
 //
-// Next 14 builds each page's client reference manifest from the manifests of
-// every page and layout above it (flight-manifest-plugin.js), and each maps a
-// client module to the whole first-load chunk list of the page that holds it.
+// Next builds each page's client reference manifest from the manifests of every
+// page and layout above it (flight-manifest-plugin.js, checked on 15.5.28), and
+// each maps a client module to the whole first-load chunk list of the page that
+// holds it.
 // The Overview is the page above the six other tabs, so a tab that resolves a
 // shared module (next/link) through the Overview's mapping downloads all of the
 // Overview's first-load chunks. A route group does not change that: the plugin
@@ -181,7 +182,7 @@ function main(argv) {
     );
     for (const p of problems) console.error(`  ${p}`);
     console.error(
-      "No stock tab may load the chart with its page: Next 14 merges the Overview page's client manifest into every tab's, so the Overview's first-load chunks are every tab's. " +
+      "No stock tab may load the chart with its page: Next merges the Overview page's client manifest into every tab's, so the Overview's first-load chunks are every tab's. " +
         "Load chart code after the page, through a client loader (stock-chart-panel-lazy.tsx or strategy-levels-chart-loader.tsx), never with a " +
         "next/dynamic in a server component.",
     );

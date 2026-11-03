@@ -31,11 +31,11 @@ import { dirname, resolve } from "node:path";
 // Budgets are in kB (matching Next's printed unit) — regression guards, set a
 // little above today's worst. Real gate is --compare against the baseline.
 const BUDGETS = {
-  sharedByAll: 110,
+  sharedByAll: 125,
   default: 300,
   routes: {
     // Public, SEO-critical routes — tighter guards (current value + headroom).
-    "/": 150,
+    "/": 165,
     "/stocks": 215,
     // 2026-07-22: shorts.proto split into per-domain files (market/stock/
     // housing/...), each with its own service — routes now carry only their
@@ -89,22 +89,32 @@ const BUDGETS = {
     // is the new measure + 10%, rounded up to 5 kB. What a visit downloads is
     // not in these numbers: perf:lh:compare (the Lighthouse baseline) and
     // scripts/stock-chart-chunks.mjs are the guards on that.
+    //
+    // 2026-11-03, Next 15.5.28 and React 19.2.9 (the runtime, not the app): the
+    // shared chunk and the route handlers the build prints at that size rose
+    // from 96.5 to 112 kB, and /chat from 98 to 113 kB. Next 15 also left nine
+    // routes with 4 kB or less of headroom (zero on short interest), so the next
+    // unrelated change would have failed the gate. Every budget that breached or
+    // sat that close to its limit is the new measure + 10%, rounded up to 5 kB:
+    // shared by all, "/", /chat, /e2e-chat-render, /news/[slug] and the stock
+    // tabs. Routes with more headroom keep their budgets. The measured numbers are in docs/perf/bundle-baseline.json
+    // (gitRef c620b26e6+next15).
     "/shorts/[stockCode]": 225,
-    "/shorts/[stockCode]/short-interest": 125,
-    "/shorts/[stockCode]/strategy": 120,
-    "/shorts/[stockCode]/financials": 140,
-    "/shorts/[stockCode]/company": 155,
-    "/shorts/[stockCode]/news": 125,
-    "/shorts/[stockCode]/community": 135,
-    "/news/[slug]": 175,
+    "/shorts/[stockCode]/short-interest": 140,
+    "/shorts/[stockCode]/strategy": 130,
+    "/shorts/[stockCode]/financials": 155,
+    "/shorts/[stockCode]/company": 170,
+    "/shorts/[stockCode]/news": 140,
+    "/shorts/[stockCode]/community": 150,
+    "/news/[slug]": 190,
     "/screener": 250,
     "/dashboards": 280,
     // Known-heavy / non-public routes — guarded at current + headroom. These
     // are acknowledged tech debt (chat pulls markdown+mermaid+katex; trim via
     // dynamic import if they grow). Tighten as they're optimized.
-    "/chat": 110,
+    "/chat": 125,
     "/admin/takes/[slug]": 620,
-    "/e2e-chat-render": 620,
+    "/e2e-chat-render": 680,
   },
 };
 

@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
+// Still needed: there is no @types/three. src/types/three-shim.d.ts is the only typing of
+// "three", and it declares no Mesh class, ShaderMaterial, PlaneGeometry or MeshBasicMaterial,
+// so R3F 9's typed JSX intrinsics for them are missing (8 errors with the directive removed,
+// from a full tsc run on 2026-11-03).
 "use client";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -7,7 +11,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 
-import React, { forwardRef, useEffect, useMemo, useRef } from "react";
+import React, { forwardRef, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   Canvas,
   useFrame,
@@ -226,6 +230,7 @@ function DitheredWaves({
   mouseRadius,
 }: DitheredWavesProps) {
   const mesh = useRef<THREE.Mesh>(null);
+  const material = useRef<THREE.ShaderMaterial>(null);
   const mouseRef = useRef(new THREE.Vector2());
   const { viewport, size, gl } = useThree();
 
@@ -240,6 +245,15 @@ function DitheredWaves({
     enableMouseInteraction: new THREE.Uniform(enableMouseInteraction ? 1 : 0),
     mouseRadius: new THREE.Uniform(mouseRadius),
   });
+
+  // The per-frame writes below replace `.value` on these Uniform objects, so the material must
+  // hold these exact objects. A `uniforms` prop would not do: R3F 9 copies it into objects of
+  // its own on first sight (its ShaderMaterial rule), and the copies would never see a write,
+  // which froze the waves at time 0. Set before the first draw, since the first frame follows
+  // this commit.
+  useLayoutEffect(() => {
+    if (material.current) material.current.uniforms = waveUniformsRef.current;
+  }, []);
 
   useEffect(() => {
     const dpr = gl.getPixelRatio();
@@ -311,9 +325,9 @@ function DitheredWaves({
       <mesh ref={mesh} scale={[viewport.width, viewport.height, 1]}>
         <planeGeometry args={[1, 1]} />
         <shaderMaterial
+          ref={material}
           vertexShader={waveVertexShader}
           fragmentShader={waveFragmentShader}
-          uniforms={waveUniformsRef.current}
         />
       </mesh>
 

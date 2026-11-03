@@ -6,13 +6,14 @@
  *
  * The panel reads prices through Connect-RPC and the market-data hooks, so it
  * is client-only (ssr: false). Why the chart tabs load it from here and not with
- * a next/dynamic in their own pages: Next 14 merges the Overview page's client
- * manifest into every tab below it, and maps each client module to the whole
- * first-load chunk list of the page that holds it. A next/dynamic in a server
- * component is bundled into that list, so a tab that resolved a shared module
- * (next/link) through the Overview's mapping downloaded the chart: Financials and
- * Community did. Called in a client module, next/dynamic is a real import(): the
- * chart is a chunk of its own, in no list another tab inherits. A server
+ * a next/dynamic in their own pages: Next merges the Overview page's client
+ * manifest into every tab below it (checked on 15.5.28), and maps each client
+ * module to the whole first-load chunk list of the page that holds it. On 14.2 a
+ * next/dynamic in a server component was bundled into that list, so a tab that
+ * resolved a shared module (next/link) through the Overview's mapping downloaded
+ * the chart: Financials and Community did. Called in a client module,
+ * next/dynamic is a real import(): the chart is a chunk of its own, in no list
+ * another tab inherits. A server
  * component may not call next/dynamic with ssr: false at all (Next 15 refuses
  * it), so both chart tabs load the panel through this module.
  * web/scripts/stock-chart-chunks.mjs checks the build's manifests, and

@@ -13,15 +13,14 @@ import type { SuburbLike } from "@/lib/housing/suburb-stats";
  *   1. `ListStateSuburbs(NSW, limit 5000)` returns **3.65 MB** of JSON for 4,544
  *      suburbs (measured 2026-08-22). Next's data cache refuses entries over
  *      2 MB, so caching the raw response is not on the table.
- *   2. Connect POSTs carry a Uint8Array body that Next cannot hash into a cache
- *      key at all — the dev server says so out loud ("Failed to generate cache
- *      key for …/ListStateSuburbs"), and `getHousing.ts` documents it. So the
- *      fetch-level `next: { revalidate }` tag keeps the ROUTE static but caches
- *      nothing. The inner call therefore uses `serverFetchOutsideNextCache`,
- *      the posture `config.ts` prescribes for RPCs cached at this layer: a
- *      `cache: 'no-store'` fetch would THROW inside an unstable_cache callback
- *      during static generation, and the default options would just retry the
- *      failed body-keying.
+ *   2. Connect POSTs carry a Uint8Array body. With a fetch-level
+ *      `next: { revalidate }` tag Next 15 would store the response in its data
+ *      cache, where an empty response would outlive the render that found it
+ *      (`getHousing.ts` documents the body). The inner call therefore uses
+ *      `serverFetchOutsideNextCache`, the posture `config.ts` prescribes for
+ *      RPCs cached at this layer: a `cache: 'no-store'` fetch would THROW inside
+ *      an unstable_cache callback during static generation, and the default
+ *      options would store the body in the data cache.
  *
  * Together those mean a naive `await listStateSuburbs(...)` in the page would
  * re-pull 3.65 MB from Cloud Run and re-decode it for every one of ~3,600 suburb

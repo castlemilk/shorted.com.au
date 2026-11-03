@@ -17,7 +17,9 @@ export const criticalCSS = `
   --background: 40 25% 97%;
   --foreground: 19 18% 24%;
   --muted: 40 15% 94%;
-  --font-sans: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+  /* No IBM Plex Mono here: see layout.tsx. Next 15 keeps the family name, so
+     naming it would switch every page to a face the Next 14 build never drew. */
+  --font-sans: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 .dark {
