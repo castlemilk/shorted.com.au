@@ -184,7 +184,7 @@ Discord ──POST, Ed25519-signed──▶ /api/discord/interactions (Vercel, N
 | Chart card, drawn for each chart message | `web/src/@/lib/discord/chart-card.ts`, over the share card's `web/src/app/chart/[code]/image/load-card.tsx` |
 | Setup and status | `web/scripts/discord.ts` (`task discord:*`), decisions in `web/src/@/lib/discord/setup.ts` |
 | Activity page | `web/src/app/embed/discord/page.tsx`, `web/src/@/components/discord/discord-activity.tsx` |
-| Activity redirect and its browser half | `web/src/config/discord-activity.mjs` (`discordActivityRedirect` in `next.config.mjs` `redirects()`; `discordActivityUrlScript` in the root layout's `<head>`, `web/src/app/layout.tsx`) |
+| Activity redirect and its browser half | `web/src/config/discord-activity.mjs` (`discordActivityRedirect` in `next.config.mjs` `redirects()`; `discordActivityHeadScript` in the root layout's `<head>`, `web/src/app/layout.tsx`) |
 | Cloudflare bot-fight skip for `/api/discord/` | `terraform/modules/cloudflare-edge/main.tf` (`app_api_security_skip`) |
 
 **The app is configuration.** Its id and public key are public values (the key
@@ -296,10 +296,14 @@ through a proxy, and its CSP blocks every other host. So:
   `frame_id` and `instance_id` present) to `/embed/discord`, which can be
   framed (`frame-ancestors *`, like every `/embed/` page); every other visit to
   `/` is untouched. The proxy follows that redirect on the server, so the
-  browser's address stays `/`: `discordActivityUrlScript` (the same file,
+  browser's address stays `/`: `discordActivityHeadScript` (the same file,
   rendered first in the root layout's `<head>`) moves it to `/embed/discord`
   before the app router reads it. Without that the Activity renders the site
-  header, the footer and the corner link, and hydration fails.
+  header, the footer and the corner link, and hydration fails. The proxy also
+  wraps the script it adds to `<head>` in newlines, and React 19 rejects those
+  injected text nodes during hydration (production React #418), so the same
+  script removes whitespace text from `<head>` on `.discordsays.com` hosts
+  before the page hydrates.
 - The page reads its application id from its hostname and completes Discord's
   handshake with `@discord/embedded-app-sdk`, loaded on this page only. Opened
   outside Discord (`/embed/discord?code=BHP&view=combined`) it is a plain chart

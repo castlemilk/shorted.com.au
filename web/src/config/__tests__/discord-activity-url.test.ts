@@ -18,11 +18,11 @@ const activitySource = readFileSync(
   join(__dirname, "..", "discord-activity.mjs"),
   "utf8",
 );
-const { discordActivityRedirect, discordActivityUrlScript } = new Function(
-  `${activitySource.replace(/^export /gm, "")}\nreturn { discordActivityRedirect, discordActivityUrlScript };`,
+const { discordActivityRedirect, discordActivityHeadScript } = new Function(
+  `${activitySource.replace(/^export /gm, "")}\nreturn { discordActivityRedirect, discordActivityHeadScript };`,
 )() as {
   discordActivityRedirect: () => { has: { type: string; key: string }[] };
-  discordActivityUrlScript: () => string;
+  discordActivityHeadScript: () => string;
 };
 
 type Has = Parameters<typeof matchHas>[2];
@@ -74,7 +74,7 @@ function browserRedirects(query: string): boolean {
     "location",
     "history",
     "URLSearchParams",
-    discordActivityUrlScript(),
+    discordActivityHeadScript(),
   )(
     { pathname: "/", search: query ? `?${query}` : "", hash: "" },
     fakeHistory,
