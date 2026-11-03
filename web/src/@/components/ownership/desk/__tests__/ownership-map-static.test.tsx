@@ -152,8 +152,10 @@ describe("OwnershipMapStatic", () => {
     // CBA has no short figure: its cell is the hatch, and its label is the foreground.
     expect(container.querySelector(`g[data-code="CBA"] rect`)?.getAttribute("fill")).toBe(`url(#${HATCH_ID})`);
     expect(container.querySelector(`g[data-code="BHP"] rect`)?.getAttribute("fill")).not.toContain(HATCH_ID);
-    // CBA is the top-left cell of Financials, whose name is printed over it: its code is in its title, not drawn.
-    expect(container.querySelector(`g[data-code="CBA"] text`)).toBeNull();
+    // CBA is the top-left cell of Financials, whose name is printed over its top: its code starts under
+    // the 20-unit band, so a cell that fills its sector still prints its code.
+    const cbaLabel = container.querySelector(`g[data-code="CBA"] text`);
+    expect(Number(cbaLabel?.getAttribute("y"))).toBeGreaterThanOrEqual(20);
     expect(container.querySelector(`g[data-code="CBA"] title`)?.textContent).toContain("CBA");
   });
 
@@ -233,7 +235,7 @@ describe("layout inputs the view depends on", () => {
 });
 
 describe("the drawing's labels and the phone's way into a sector", () => {
-  it("prints no cell label in a named sector's top band, so a sector's name is never drawn over a cell's code", () => {
+  it("prints a banded cell's code under the sector's name band, so the name is never drawn over it", () => {
     // The band rule itself (static view's SECTOR_BAND and name width): a cell in it is drawn with no text.
     const layout = layoutMap(STOCKS, { width: MAP_WIDTH, height: MAP_HEIGHT, lens: "disclosed" });
     const { container } = render(<OwnershipMapStatic initial={page()} />);
@@ -245,7 +247,9 @@ describe("the drawing's labels and the phone's way into a sector", () => {
         const inBand = cell.sector === sector.sector && cell.y0 < sector.y0 + 20 && cell.x0 < right && cell.x1 > sector.x0;
         if (!inBand) continue;
         banded += 1;
-        expect(container.querySelector(`g[data-code="${cell.code}"] text`)).toBeNull();
+        const label = container.querySelector(`g[data-code="${cell.code}"] text`);
+        // A banded cell prints its code under the band, or none when it is too short for both.
+        if (label) expect(Number(label.getAttribute("y"))).toBeGreaterThanOrEqual(cell.y0 + 20);
       }
     }
     expect(banded).toBeGreaterThan(0);
