@@ -12,6 +12,7 @@ import {
   escapeMarkdown,
   formatChange,
   openOnShortedUrl,
+  acceptPricesThrough,
   postedAnchor,
   toAutocompleteChoices,
   type StockSummary,
@@ -325,13 +326,18 @@ describe("escapeMarkdown", () => {
 });
 
 describe("charts kept as posted", () => {
-  const ANCHOR = { day: "2026-11-04", shorts: "2026-10-29" };
+  const ANCHOR = {
+    day: "2026-11-04",
+    shorts: "2026-10-29",
+    prices: "2026-11-03",
+  };
   const anchored = {
     code: "BHP",
     view: "short",
     period: "3m",
     anchor: ANCHOR,
   } as const;
+  const live = { code: "BHP", view: "short", period: "3m" } as const;
 
   it("footer names the posting day and the report, and the price view names only the day", () => {
     expect(chart({ state: anchored }).embeds![0]!.footer!.text).toBe(
@@ -389,31 +395,62 @@ describe("charts kept as posted", () => {
     );
   });
 
-  it("points the card's URL at the anchored state, with the day kept for the cache", () => {
+  it("points the card's URL at the anchored state, keyed by its posting day, not today", () => {
     const url = new URL(chartCardUrl(anchored, NOW));
     expect(url.searchParams.get("asof")).toBe("2026-11-04");
     expect(url.searchParams.get("shorts")).toBe("2026-10-29");
-    expect(url.searchParams.get("v")).toBe("2026-10-20");
+    expect(url.searchParams.get("prices")).toBe("2026-11-03");
+    // NOW is 20 Oct in Sydney: a pinned card does not move with the day.
+    expect(url.searchParams.get("v")).toBe("2026-11-04");
+    // A live card is still keyed by today.
+    expect(new URL(chartCardUrl(live, NOW)).searchParams.get("v")).toBe(
+      "2026-10-20",
+    );
   });
 
-  it("dates a posting by Sydney's calendar day and never after it", () => {
+  it("dates a posting by Sydney's calendar day, and never after it", () => {
     // 19 Oct 23:30 UTC is 20 Oct in Sydney; a report dated 20 Oct is that day.
     expect(
       postedAnchor({ asOf: new Date("2026-10-19T14:00:00Z") }, NOW),
     ).toEqual({
       day: "2026-10-20",
       shorts: "2026-10-20",
+      prices: "2026-10-20",
     });
     expect(
       postedAnchor({ asOf: new Date("2026-10-14T00:00:00Z") }, NOW),
     ).toEqual({
       day: "2026-10-20",
       shorts: "2026-10-14",
+      prices: "2026-10-20",
     });
-    expect(postedAnchor({ asOf: null }, NOW)).toEqual({
-      day: "2026-10-20",
-      shorts: "2026-10-20",
-    });
+  });
+
+  it("is no anchor at all without the report date, so the chart is live", () => {
+    expect(postedAnchor({ asOf: null }, NOW)).toBeNull();
+    expect(postedAnchor({}, NOW)).toBeNull();
+  });
+});
+
+describe("acceptPricesThrough", () => {
+  it("keeps a real day on or before the posting day", () => {
+    expect(acceptPricesThrough("2026-11-03", "2026-11-04")).toBe("2026-11-03");
+    expect(acceptPricesThrough("2026-11-04", "2026-11-04")).toBe("2026-11-04");
+  });
+
+  it.each([
+    ["after the day", "2026-11-05"],
+    ["not a date", "2026-11-3"],
+    ["an impossible date", "2026-02-30"],
+    ["text", "<script>"],
+    ["empty", ""],
+    ["missing", null],
+  ])("refuses %s", (_label, value) => {
+    expect(acceptPricesThrough(value, "2026-11-04")).toBeUndefined();
+  });
+
+  it("refuses everything for a live chart, which has no day to check against", () => {
+    expect(acceptPricesThrough("2026-11-03", undefined)).toBeUndefined();
   });
 });
 

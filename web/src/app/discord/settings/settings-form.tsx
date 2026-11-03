@@ -414,11 +414,13 @@ function Preview({
   const summary = useStockSummary(code);
   const now = new Date();
   // The Activity a command opens is live (commands with the interactive chart
-  // stay live), so its frame is built from the plain state.
+  // stay live), so its frame is built from the plain state. A chart without
+  // its report date is live too, as the bot posts it.
   const live = { code, view: settings.view, period: settings.period };
-  const state = settings.asPosted
-    ? { ...live, anchor: postedAnchor(summary ?? { asOf: null }, now) }
-    : live;
+  const anchor = settings.asPosted
+    ? postedAnchor(summary ?? { asOf: null }, now)
+    : null;
+  const state = anchor ? { ...live, anchor } : live;
   const interactive = settings.interactive && activityEnabled;
   const command = settings.code ? "/chart" : `/chart ${SAMPLE_CODE}`;
   const payload = buildChartMessage({
@@ -532,7 +534,7 @@ export function DiscordSettingsForm({
     {
       id: "latest",
       label: "Redraw with the latest figures",
-      hint: "Each press redraws it with today's readings and a window ending today.",
+      hint: "Charts posted from now on redraw with today's readings, in a window ending today. Charts already posted keep how they were posted.",
     },
   ];
   const modeChoices: Choice<"message" | "interactive">[] = [
@@ -626,7 +628,7 @@ export function DiscordSettingsForm({
 
         <Section
           legend="Buttons"
-          description="Buttons on a chart redraw it inside the window it was posted with, and its figures stay as posted."
+          description="For charts posted from now on. Buttons on a chart redraw it inside the window it was posted with, and its figures stay as posted. Charts already posted keep how they were posted."
         >
           <ChoiceGroup
             name="buttons"

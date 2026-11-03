@@ -81,7 +81,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function setup({
   data = fakeData(),
-  renderChart = jest.fn(async () => CARD),
+  renderChart = jest.fn(async () => ({ png: CARD })),
   activityEnabled = false,
   fastPathMs = 200,
   settings = {},
@@ -937,7 +937,11 @@ describe("/settings", () => {
 
 const DAY = "2026-10-19";
 const SHORTS = "2026-10-15";
-const ANCHOR = { day: DAY, shorts: SHORTS };
+/** The newest close a card drew on a press, which the anchor carries. */
+const PRICES = "2026-10-16";
+const ANCHOR = { day: DAY, shorts: SHORTS, prices: PRICES };
+/** A new message's anchor before its card reports a close: the day before. */
+const POSTED = { day: DAY, shorts: SHORTS, prices: "2026-10-18" };
 /** BHP's latest short report is four trading days behind the posting day. */
 const BHP_AS_OF = new Date("2026-10-15T00:00:00Z");
 
@@ -956,11 +960,13 @@ describe("charts kept as posted", () => {
       t,
       await t.handle(command("stock", { code: "BHP" })),
     );
+    // The card is drawn up to the posting day; the message then records the
+    // close the card reports (none here, so the day before).
     expect(t.renderChart).toHaveBeenCalledWith({
       code: "BHP",
       view: "short",
       period: "1y",
-      anchor: ANCHOR,
+      anchor: { day: DAY, shorts: SHORTS, prices: DAY },
     });
     expect(message.files![0]!.name).toBe("BHP-short-1y.png");
     expect(message.embeds![0]!.footer!.text).toBe(
@@ -976,7 +982,7 @@ describe("charts kept as posted", () => {
       expect(parsed?.kind === "chart" || parsed?.kind === "activity").toBe(
         true,
       );
-      expect(parsed).toMatchObject({ state: { code: "BHP", anchor: ANCHOR } });
+      expect(parsed).toMatchObject({ state: { code: "BHP", anchor: POSTED } });
     }
   });
 
@@ -1012,7 +1018,9 @@ describe("charts kept as posted", () => {
     });
     await deliveredChart(t, await t.handle(command("stock", { code: "BHP" })));
     expect(t.renderChart).toHaveBeenCalledWith(
-      expect.objectContaining({ anchor: { day: DAY, shorts: DAY } }),
+      expect.objectContaining({
+        anchor: { day: DAY, shorts: DAY, prices: DAY },
+      }),
     );
   });
 
@@ -1109,12 +1117,15 @@ describe("charts kept as posted", () => {
     });
   });
 
-  it("read the stock, still inside the anchor, when the message has no usable embed", async () => {
-    const data = dataAsOf();
-    const t = setup({ anchored: true, data });
-    const message = await deliveredChart(
-      t,
-      await t.handle({
+  it.each([
+    ["no embed at all", { embeds: [] }],
+    ["an embed with no title", { embeds: [{ fields: "nope" }] }],
+  ])(
+    "answers privately, reads nothing and edits nothing, on a press with %s",
+    async (_label, message) => {
+      const data = dataAsOf();
+      const t = setup({ anchored: true, data });
+      const response = await t.handle({
         ...component(
           chartCustomId("period", {
             code: "BHP",
@@ -1123,14 +1134,20 @@ describe("charts kept as posted", () => {
             anchor: ANCHOR,
           }),
         ),
-        message: { embeds: [{ fields: "nope" as unknown as [] }] },
-      }),
-      InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
-    );
-    expect(data.stockSummary).toHaveBeenCalledWith("BHP");
-    expect(message.embeds![0]!.title).toBe("BHP · BHP Group");
-    expect(message.embeds![0]!.footer!.text).toContain("As posted 19 Oct 2026");
-  });
+        message: message as Interaction["message"],
+      });
+      const notice = messageOf(response);
+      expect(notice.flags).toBe(MessageFlags.EPHEMERAL);
+      expect(notice.content).toContain("can't be redrawn as posted");
+      expect(response.type).toBe(
+        InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      );
+      await t.settle();
+      expect(data.stockSummary).not.toHaveBeenCalled();
+      expect(t.rest.editOriginal).not.toHaveBeenCalled();
+      expect(t.renderChart).not.toHaveBeenCalled();
+    },
+  );
 
   it("keep a press on a live chart live, whatever the setting says", async () => {
     const data = dataAsOf();
@@ -1196,5 +1213,179 @@ describe("charts kept as posted", () => {
       (f) => f.name === "Buttons",
     );
     expect(buttons!.value).toBe("Keep the chart as posted");
+  });
+});
+
+describe("the newest close a new kept chart records", () => {
+  const embed = {
+    title: "BHP · BHP Group",
+    description: "**0.81%** of shares reported short",
+    fields: [],
+  };
+
+  function idsOf(message: MessagePayload): ReturnType<typeof parseCustomId>[] {
+    return message.components!.flatMap((row) =>
+      row.components.flatMap((c) =>
+        c.custom_id ? [parseCustomId(c.custom_id)] : [],
+      ),
+    );
+  }
+
+  it("takes the close the card read, not the day before", async () => {
+    const t = setup({
+      anchored: true,
+      data: dataAsOf(),
+      renderChart: jest.fn(async () => ({ png: CARD, pricesThrough: PRICES })),
+    });
+    const message = await deliveredChart(
+      t,
+      await t.handle(command("stock", { code: "BHP" })),
+    );
+    for (const parsed of idsOf(message)) {
+      expect(parsed).toMatchObject({ state: { anchor: ANCHOR } });
+    }
+    expect(message.files![0]!.data).toBe(CARD);
+  });
+
+  it("warms the neighbours with the recorded anchor", async () => {
+    const t = setup({
+      anchored: true,
+      data: dataAsOf(),
+      renderChart: jest.fn(async () => ({ png: CARD, pricesThrough: PRICES })),
+    });
+    await deliveredChart(t, await t.handle(command("stock", { code: "BHP" })));
+    expect(t.warmCharts).toHaveBeenCalledWith(
+      expect.objectContaining({ anchor: ANCHOR }),
+    );
+  });
+
+  it.each([
+    ["after the posting day", "2026-10-25"],
+    ["not a date", "yesterday"],
+    ["a date that does not exist", "2026-02-30"],
+  ])("refuses a close %s", async (_label, reported) => {
+    const t = setup({
+      anchored: true,
+      data: dataAsOf(),
+      renderChart: jest.fn(async () => ({
+        png: CARD,
+        pricesThrough: reported,
+      })),
+    });
+    const message = await deliveredChart(
+      t,
+      await t.handle(command("stock", { code: "BHP" })),
+    );
+    for (const parsed of idsOf(message)) {
+      expect(parsed).toMatchObject({ state: { anchor: POSTED } });
+    }
+  });
+
+  it("falls back to the day before the posting day when no card was drawn", async () => {
+    const t = setup({
+      anchored: true,
+      data: dataAsOf(),
+      renderChart: jest.fn(async () => null),
+    });
+    const message = await deliveredChart(
+      t,
+      await t.handle(command("stock", { code: "BHP" })),
+    );
+    expect(message.files).toBeUndefined();
+    for (const parsed of idsOf(message)) {
+      expect(parsed).toMatchObject({ state: { anchor: POSTED } });
+    }
+    // The card the message points at is the anchored one, keyed by its day.
+    const url = new URL(chartShown(message));
+    expect(url.searchParams.get("asof")).toBe(DAY);
+    expect(url.searchParams.get("prices")).toBe("2026-10-18");
+    expect(url.searchParams.get("v")).toBe(DAY);
+  });
+
+  it("is live when the stock's report date is unknown, even with the setting on", async () => {
+    const t = setup({
+      anchored: true,
+      data: dataAsOf(null),
+      renderChart: jest.fn(async () => ({ png: CARD })),
+    });
+    const message = await deliveredChart(
+      t,
+      await t.handle(command("stock", { code: "BHP" })),
+    );
+    expect(t.renderChart).toHaveBeenCalledWith({
+      code: "BHP",
+      view: "short",
+      period: "1y",
+    });
+    expect(message.embeds![0]!.footer!.text).not.toContain("As posted");
+    for (const parsed of idsOf(message)) {
+      expect(parsed).toMatchObject({ kind: expect.any(String) });
+      expect(parsed && "state" in parsed && parsed.state.anchor).toBeFalsy();
+    }
+  });
+
+  it("keeps a redraw's anchor as it is, whatever the card reports", async () => {
+    const t = setup({
+      anchored: true,
+      renderChart: jest.fn(async () => ({
+        png: CARD,
+        pricesThrough: "2026-10-17",
+      })),
+    });
+    const message = await deliveredChart(
+      t,
+      await t.handle({
+        ...component(
+          chartCustomId("view", {
+            code: "BHP",
+            view: "price",
+            period: "1y",
+            anchor: ANCHOR,
+          }),
+        ),
+        message: { embeds: [embed] },
+      }),
+      InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+    );
+    expect(t.renderChart).toHaveBeenCalledWith({
+      code: "BHP",
+      view: "price",
+      period: "1y",
+      anchor: ANCHOR,
+    });
+    for (const parsed of idsOf(message)) {
+      expect(parsed).toMatchObject({ state: { anchor: ANCHOR } });
+    }
+  });
+});
+
+describe("the Buttons setting copy", () => {
+  it("is not read by a press, which keeps the message's own anchor", async () => {
+    const t = setup({
+      anchored: true,
+      settings: { [`guild:${GUILD}`]: { asPosted: false } },
+      renderChart: jest.fn(async () => ({ png: CARD })),
+    });
+    await deliveredChart(
+      t,
+      await t.handle({
+        ...component(
+          chartCustomId("period", {
+            code: "BHP",
+            view: "short",
+            period: "3m",
+            anchor: ANCHOR,
+          }),
+        ),
+        message: { embeds: [{ title: "BHP · BHP Group", fields: [] }] },
+        guild_id: GUILD,
+        member: { user: { id: MEMBER }, permissions: "0" },
+      }),
+      InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+    );
+    expect(t.settingsStore.get).not.toHaveBeenCalled();
+    expect(t.renderChart).toHaveBeenCalledWith(
+      expect.objectContaining({ anchor: ANCHOR }),
+    );
   });
 });

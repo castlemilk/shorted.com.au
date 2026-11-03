@@ -67,7 +67,7 @@ describe("chartCard", () => {
   });
 
   it("takes the share card's cached copy, through Cloudflare as first party", async () => {
-    expect(await chartCard(STATE, NOW)).toEqual(PNG);
+    expect(await chartCard(STATE, NOW)).toEqual({ png: PNG });
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(CARD_URL);
     const headers = init.headers as Record<string, string>;
@@ -85,18 +85,18 @@ describe("chartCard", () => {
     ["the answer is not an image", () => answer(200, "<html>")],
   ])("draws the card here when %s", async (_label, answer) => {
     fetchMock.mockImplementation(async () => answer());
-    expect(await chartCard(STATE, NOW)).toEqual(DRAWN);
+    expect(await chartCard(STATE, NOW)).toEqual({ png: DRAWN });
     expect(mockLoad).toHaveBeenCalledWith(STATE, expect.any(Number));
   });
 
   it("draws it here when the fetch fails outright", async () => {
     fetchMock.mockRejectedValue(new Error("socket hang up"));
-    expect(await chartCard(STATE, NOW)).toEqual(DRAWN);
+    expect(await chartCard(STATE, NOW)).toEqual({ png: DRAWN });
   });
 
   it("does not ask without the bypass secret, which would only be challenged", async () => {
     delete process.env.SHORTED_SSR_BYPASS_SECRET;
-    expect(await chartCard(STATE, NOW)).toEqual(DRAWN);
+    expect(await chartCard(STATE, NOW)).toEqual({ png: DRAWN });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -106,6 +106,82 @@ describe("chartCard", () => {
     );
     mockLoad.mockResolvedValue({ card: null, complete: false });
     expect(await chartCard(STATE, NOW)).toBeNull();
+  });
+});
+
+describe("chartCard on a chart kept as posted", () => {
+  const env = process.env;
+  const realFetch = global.fetch;
+  const ANCHORED = {
+    ...STATE,
+    anchor: { day: "2026-10-31", shorts: "2026-10-28", prices: "2026-10-30" },
+  } as const;
+  let fetchMock: jest.Mock;
+
+  beforeEach(() => {
+    process.env = { ...env, SHORTED_SSR_BYPASS_SECRET: "ssr-secret" };
+    fetchMock = jest.fn(async () => png());
+    global.fetch = fetchMock as unknown as typeof fetch;
+    mockLoad.mockReset().mockResolvedValue({ card: null, complete: true });
+    jest.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    process.env = env;
+    global.fetch = realFetch;
+  });
+
+  it("asks for the card of its posting day, and takes the close the route drew", async () => {
+    fetchMock.mockImplementation(async () =>
+      png({ "x-chart-prices-through": "2026-10-30" }),
+    );
+    expect(await chartCard(ANCHORED, NOW)).toEqual({
+      png: PNG,
+      pricesThrough: "2026-10-30",
+    });
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(new URL(url).searchParams.get("asof")).toBe("2026-10-31");
+    expect(new URL(url).searchParams.get("v")).toBe("2026-10-31");
+  });
+
+  it.each([
+    ["after the posting day", "2026-11-01"],
+    ["not a date", "30 Oct"],
+    ["an impossible date", "2026-02-30"],
+  ])("refuses a header close %s", async (_label, value) => {
+    fetchMock.mockImplementation(async () =>
+      png({ "x-chart-prices-through": value }),
+    );
+    expect(await chartCard(ANCHORED, NOW)).toEqual({ png: PNG });
+  });
+
+  it("takes the close the in-process render drew when the fetch fails", async () => {
+    fetchMock.mockImplementation(async () => answer(403, "challenge"));
+    mockLoad.mockResolvedValue({
+      card: null,
+      complete: true,
+      pricesThrough: "2026-10-29",
+    });
+    expect(await chartCard(ANCHORED, NOW)).toEqual({
+      png: DRAWN,
+      pricesThrough: "2026-10-29",
+    });
+  });
+
+  it("refuses an in-process close after the posting day", async () => {
+    fetchMock.mockImplementation(async () => answer(403, "challenge"));
+    mockLoad.mockResolvedValue({
+      card: null,
+      complete: true,
+      pricesThrough: "2026-11-02",
+    });
+    expect(await chartCard(ANCHORED, NOW)).toEqual({ png: DRAWN });
+  });
+
+  it("reports no close for a live chart, whatever the header says", async () => {
+    fetchMock.mockImplementation(async () =>
+      png({ "x-chart-prices-through": "2026-10-30" }),
+    );
+    expect(await chartCard(STATE, NOW)).toEqual({ png: PNG });
   });
 });
 

@@ -205,7 +205,8 @@ export default function DiscordDocsPage() {
               <strong>Periods and views</strong> redraw the chart. The
               highlighted one is what is on screen. A chart keeps the window and
               figures it was posted with, unless the server has set its buttons
-              to redraw with the latest figures.
+              to redraw with the latest figures, which applies to charts posted
+              from then on.
             </li>
             <li>
               <strong>Open on Shorted</strong> opens the full interactive chart
@@ -252,7 +253,9 @@ export default function DiscordDocsPage() {
             <li>
               <strong>Buttons</strong>: keep the chart as posted (the default),
               so a redraw stays inside the window the chart was posted with, or
-              redraw with the latest figures.
+              redraw with the latest figures. The choice applies to charts
+              posted from then on; charts already posted keep how they were
+              posted.
             </li>
             <li>
               Anything typed in a command still wins:{" "}

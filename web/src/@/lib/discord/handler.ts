@@ -14,7 +14,11 @@ import {
   TOP_MAX_COUNT,
   isCommandName,
 } from "./commands";
-import type { ChartAnchor } from "~/@/components/charts/chart-anchor";
+import {
+  daysBefore,
+  type ChartAnchor,
+} from "~/@/components/charts/chart-anchor";
+import type { RenderedCard } from "./chart-card";
 import { normalizeCode, parseCustomId, type ChartState } from "./custom-id";
 import type { DiscordData } from "./data";
 import {
@@ -24,6 +28,7 @@ import {
   buildHelpMessage,
   buildSearchMessage,
   buildSettingsMessage,
+  acceptPricesThrough,
   buildTopMessage,
   copiedFigures,
   notice,
@@ -79,8 +84,11 @@ export interface HandlerDeps {
   rememberLaunch: (channelId: string, state: ChartState) => Promise<void>;
   /** The signed settings page for a grant, or null when links cannot be signed. */
   settingsUrl: (grant: SettingsGrant) => string | null;
-  /** A chart's card as PNG, or null when it cannot be drawn whole (chart-card.ts). */
-  renderChart: (state: ChartState) => Promise<Uint8Array | null>;
+  /**
+   * A chart's card as PNG, with the newest close it drew when it is anchored,
+   * or null when it cannot be drawn whole (chart-card.ts).
+   */
+  renderChart: (state: ChartState) => Promise<RenderedCard | null>;
   /**
    * Has the cards one press away from a posted chart drawn ahead of the press
    * (chart-card.ts). Run in the background; nothing waits on it.
@@ -120,6 +128,10 @@ type Mode = "new" | "update";
 
 /** A chart kept as posted: the window and figures are pinned to its anchor. */
 type PostedState = ChartState & { anchor: ChartAnchor };
+
+/** A press on a kept chart with no embed to copy its figures from. */
+const AS_POSTED_UNAVAILABLE =
+  "This chart can't be redrawn as posted. Run `/chart` again for today's.";
 
 type Reply =
   | { kind: "now"; action: string; response: InteractionResponse }
@@ -244,7 +256,7 @@ async function resolveStock(
 async function drawCard(
   state: ChartState,
   deps: HandlerDeps,
-): Promise<Uint8Array | null> {
+): Promise<RenderedCard | null> {
   try {
     const drawn = await within(
       deps.renderChart(state).catch(() => null),
@@ -264,19 +276,18 @@ function warmNeighbours(state: ChartState, deps: HandlerDeps): void {
 }
 
 /**
- * A chart message, its card drawn and attached. `early` is a card already
+ * A live chart message, its card drawn and attached. `early` is a card already
  * being drawn for the code that was asked for, used when the stock resolves to
- * that code, so the card and the stock read run side by side. A kept chart
- * never takes one: its card depends on the anchor, which the stock fixes.
+ * that code, so the card and the stock read run side by side.
  */
 async function chartMessage(
   summary: StockSummary,
   state: ChartState,
   deps: HandlerDeps,
-  early?: { code: string; card: Promise<Uint8Array | null> },
+  early?: { code: string; card: Promise<RenderedCard | null> },
 ): Promise<MessagePayload> {
   const target = { ...state, code: summary.code };
-  const card = await (early?.code === summary.code && !target.anchor
+  const drawn = await (early?.code === summary.code
     ? early.card
     : drawCard(target, deps));
   warmNeighbours(target, deps);
@@ -285,7 +296,51 @@ async function chartMessage(
     state: target,
     activity: deps.activityEnabled,
     now: deps.now(),
-    card,
+    card: drawn?.png ?? null,
+  });
+}
+
+/**
+ * A new chart message kept as posted. Its card is drawn for the anchor the
+ * stock's report date gives: everything up to the posting day. The card then
+ * reports the newest close it drew, and the message records that close, so
+ * every redraw ends where this drawing did. Without a report date the chart is
+ * live (postedAnchor). Without a card, the close is the day before the posting
+ * day, which the card would have shown.
+ */
+async function postedMessage(
+  summary: StockSummary,
+  view: ChartState["view"],
+  period: ChartState["period"],
+  deps: HandlerDeps,
+): Promise<MessagePayload> {
+  const first = postedAnchor(summary, deps.now());
+  if (!first) {
+    return chartMessage(summary, { code: summary.code, view, period }, deps);
+  }
+  const drawn = await drawCard(
+    { code: summary.code, view, period, anchor: first },
+    deps,
+  );
+  const anchor: ChartAnchor = {
+    ...first,
+    prices:
+      acceptPricesThrough(drawn?.pricesThrough, first.day) ??
+      daysBefore(first.day, 1),
+  };
+  const state: PostedState = {
+    code: summary.code,
+    view,
+    period,
+    anchor,
+  };
+  warmNeighbours(state, deps);
+  return buildChartMessage({
+    summary,
+    state,
+    activity: deps.activityEnabled,
+    now: deps.now(),
+    card: drawn?.png ?? null,
   });
 }
 
@@ -305,8 +360,8 @@ async function buttonSummary(
 
 /**
  * A new chart message for what was typed (a code, or a name to search). Kept
- * as posted, its anchor needs the stock's as-of date, so its card is drawn
- * once the stock has resolved, not alongside the read.
+ * as posted, its card needs the stock's report date, so it is drawn once the
+ * stock has resolved, not alongside the read.
  */
 function newChart(
   action: string,
@@ -328,14 +383,9 @@ function newChart(
     mode: "new",
     summary,
     draw: (s) =>
-      chartMessage(
-        s,
-        posted
-          ? { code: s.code, view, period, anchor: postedAnchor(s, deps.now()) }
-          : { code: s.code, view, period },
-        deps,
-        early,
-      ),
+      posted
+        ? postedMessage(s, view, period, deps)
+        : chartMessage(s, { code: s.code, view, period }, deps, early),
     missing: notFound(input),
   };
 }
@@ -558,8 +608,9 @@ const REDRAW_FAILED =
  * A press on a chart kept as posted. Its figures are the message's own: they
  * are copied from the embed the button is on, and the stock is not read again,
  * so the figures above the chart stay the ones posted. Only the card is drawn,
- * for the anchored state. A message with no usable embed falls back to a read,
- * still inside the anchor's window.
+ * for the anchored state. A message with no embed to copy (suppressed embeds)
+ * is answered privately and left as it is: reading the stock would print
+ * today's figures under a chart posted with other ones.
  */
 function postedRedraw(
   interaction: Interaction,
@@ -567,20 +618,19 @@ function postedRedraw(
   deps: HandlerDeps,
 ): Reply {
   const figures = copiedFigures(interaction.message?.embeds?.[0]);
-  const work = figures
-    ? drawCard(state, deps).then((card) => {
-        warmNeighbours(state, deps);
-        return buildCopiedChartMessage({
-          figures,
-          state,
-          activity: deps.activityEnabled,
-          now: deps.now(),
-          card,
-        });
-      })
-    : buttonSummary(state.code, deps.data).then((summary) =>
-        summary ? chartMessage(summary, state, deps) : notice(REDRAW_FAILED),
-      );
+  if (!figures) {
+    return privately("component_chart", AS_POSTED_UNAVAILABLE);
+  }
+  const work = drawCard(state, deps).then((drawn) => {
+    warmNeighbours(state, deps);
+    return buildCopiedChartMessage({
+      figures,
+      state,
+      activity: deps.activityEnabled,
+      now: deps.now(),
+      card: drawn?.png ?? null,
+    });
+  });
   return withData("component_chart", "update", work, { defer: true });
 }
 
@@ -592,11 +642,16 @@ function routeComponent(
   const parsed = parseCustomId(interaction.data?.custom_id);
   switch (parsed?.kind) {
     case "chart": {
-      if (parsed.state.anchor) {
-        return postedRedraw(interaction, parsed.state as PostedState, deps);
+      const state = parsed.state;
+      if (state.anchor) {
+        return postedRedraw(
+          interaction,
+          { ...state, anchor: state.anchor },
+          deps,
+        );
       }
-      const { code, view, period } = parsed.state;
-      const card = drawCard(parsed.state, deps);
+      const { code, view, period } = state;
+      const card = drawCard(state, deps);
       return {
         kind: "chart",
         action: "component_chart",

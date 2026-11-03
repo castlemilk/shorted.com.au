@@ -8,6 +8,7 @@ import {
 
 const cookieValue = jest.fn<string | undefined, []>();
 const put = jest.fn();
+const get = jest.fn();
 const stockSummary = jest.fn();
 const search = jest.fn();
 
@@ -21,6 +22,7 @@ jest.mock("next/headers", () => ({
 }));
 jest.mock("~/@/lib/discord/settings-store", () => ({
   firestoreSettingsStore: {
+    get: (...args: unknown[]) => get(...args) as unknown,
     put: (...args: unknown[]) => put(...args) as unknown,
   },
 }));
@@ -61,6 +63,7 @@ describe("Discord settings actions", () => {
     process.env = { ...env, NEXTAUTH_SECRET: "test-secret" };
     cookieValue.mockReset().mockReturnValue(grantCookie());
     put.mockReset().mockResolvedValue(undefined);
+    get.mockReset().mockResolvedValue(null);
     stockSummary
       .mockReset()
       .mockResolvedValue({ code: "PLS", name: "Pilbara" });
@@ -101,6 +104,33 @@ describe("Discord settings actions", () => {
       );
     });
 
+    it("keeps the stored Buttons setting for a page that predates it", async () => {
+      // The form loaded before the deploy sends no asPosted; the link lasts 30
+      // minutes, so the submission is saved, not refused.
+      get.mockResolvedValue({ asPosted: false });
+      const { asPosted: _omitted, ...withoutButtons } = VALID;
+      const result = await saveDiscordSettings(withoutButtons);
+      expect(result).toMatchObject({ ok: true, settings: { asPosted: false } });
+      expect(get).toHaveBeenCalledWith(
+        { kind: "guild", id: GUILD },
+        { fresh: true },
+      );
+      expect(put.mock.calls[0][1]).toMatchObject({ asPosted: false });
+    });
+
+    it("defaults to charts kept as posted when nothing is stored", async () => {
+      const { asPosted: _omitted, ...withoutButtons } = VALID;
+      const result = await saveDiscordSettings(withoutButtons);
+      expect(result).toMatchObject({ ok: true, settings: { asPosted: true } });
+      expect(put.mock.calls[0][1]).toMatchObject({ asPosted: true });
+    });
+
+    it("saves an explicit Buttons setting without reading the stored one", async () => {
+      const result = await saveDiscordSettings({ ...VALID, asPosted: true });
+      expect(result).toMatchObject({ ok: true, settings: { asPosted: true } });
+      expect(get).not.toHaveBeenCalled();
+    });
+
     it("saves no default stock without looking one up", async () => {
       const result = await saveDiscordSettings({ ...VALID, code: null });
       expect(result.ok).toBe(true);
@@ -125,11 +155,6 @@ describe("Discord settings actions", () => {
 
     it.each([
       ["a missing field", { code: "PLS", view: "short", period: "1y" }],
-      ["a missing button setting", { ...VALID, asPosted: undefined }],
-      [
-        "a button setting that is not a yes or no",
-        { ...VALID, asPosted: "posted" },
-      ],
       ["an unknown view", { ...VALID, view: "candles" }],
       ["a period with no button", { ...VALID, period: "2y" }],
       ["a code that is not one", { ...VALID, code: "not a code" }],

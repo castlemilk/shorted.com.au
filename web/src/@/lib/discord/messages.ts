@@ -1,7 +1,8 @@
 import { siteConfig } from "~/@/config/site";
 import {
-  formatAnchorDay,
   chartPeriodPhrase,
+  formatAnchorDay,
+  isIsoDay,
   sydneyDay,
   type ChartAnchor,
 } from "~/@/components/charts/chart-anchor";
@@ -143,16 +144,19 @@ export function stockPageUrl(code: string): string {
 }
 
 /**
- * The chart card (/chart/<CODE>/image), with today's Sydney date appended.
- * Discord's media proxy caches an image by its URL, so without the date a
- * chart posted again tomorrow would show yesterday's picture; the route
- * ignores the parameter, and the CDN keys on it, so each day draws afresh.
+ * The chart card (/chart/<CODE>/image), with a date appended for the CDN's
+ * key. A live chart takes today's Sydney date: Discord's media proxy caches an
+ * image by its URL, so without the date a chart posted again tomorrow would
+ * show yesterday's picture. A kept chart takes its posting day, which never
+ * changes, so its card is drawn once and stays cached while the message is
+ * pressed, instead of being redrawn each day someone presses an old message.
+ * The route ignores the parameter.
  */
 export function chartCardUrl(state: ChartState, now: Date): string {
   const url = new URL(
     chartImageUrl(state.code, state.view, state.period, state.anchor),
   );
-  url.searchParams.set("v", dayFmt.format(now));
+  url.searchParams.set("v", state.anchor?.day ?? dayFmt.format(now));
   return url.toString();
 }
 
@@ -184,20 +188,35 @@ function stockFields(s: StockSummary): NonNullable<Embed["fields"]> {
 }
 
 /**
- * A chart kept as posted, the day it was posted (Sydney) and the newest short
- * report it shows. Its short positions are dated by the report, never after
- * the day: a report for a later day that lands afterwards is not shown.
+ * The anchor a new message is posted with, or null when the stock's report
+ * date is unknown: such a chart is live, as every chart was before anchors.
+ * The day is the posting day (Sydney), prices are drawn up to it, and the
+ * report is the newest ASIC report the stock has, never after the day. The
+ * card records the newest close it actually drew (handler.ts), so this is
+ * the first draft of the anchor, not the final one.
  */
 export function postedAnchor(
   summary: { asOf?: Date | null },
   now: Date,
-): ChartAnchor {
+): ChartAnchor | null {
+  if (!summary.asOf) return null;
   const day = sydneyDay(now);
-  // TEMPORARY (bot agent replaces): prices default to the day until the
-  // card reports the newest close it drew.
-  if (!summary.asOf) return { day, shorts: day, prices: day };
   const shorts = sydneyDay(summary.asOf);
   return { day, shorts: shorts < day ? shorts : day, prices: day };
+}
+
+/**
+ * A date a card reports back (the image route's header, or the in-process
+ * loader), kept only when it is a real day on or before the posting day. The
+ * header is network data, so nothing else is trusted. Undefined for a live
+ * chart, which has no day to check against.
+ */
+export function acceptPricesThrough(
+  value: string | null | undefined,
+  day: string | undefined,
+): string | undefined {
+  if (!day || !isIsoDay(value) || value > day) return undefined;
+  return value;
 }
 
 /**
@@ -575,7 +594,7 @@ export function buildHelpMessage({
     "`/settings` The stock, chart and period the bot opens with, for this server (Manage Server) or just you",
     "",
     "Start typing a company name in `code` to search as you go. With a default stock set, `code` can be left out.",
-    "The buttons under a chart redraw it in place for everyone in the channel: pick a period, or switch between short interest, price and both. A chart keeps the window and figures it was posted with. A server can switch its buttons to redraw with the latest figures in `/settings`.",
+    "The buttons under a chart redraw it in place for everyone in the channel: pick a period, or switch between short interest, price and both. A chart keeps the window and figures it was posted with. A server can switch its buttons to redraw with the latest figures in `/settings`, for charts posted from then on.",
   ];
   if (activity) {
     lines.push(

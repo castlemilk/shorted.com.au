@@ -51,8 +51,7 @@ export async function saveDiscordSettings(input: unknown): Promise<SaveResult> {
     parsed.code === undefined ||
     parsed.view === undefined ||
     parsed.period === undefined ||
-    parsed.interactive === undefined ||
-    parsed.asPosted === undefined
+    parsed.interactive === undefined
   ) {
     return {
       ok: false,
@@ -60,7 +59,13 @@ export async function saveDiscordSettings(input: unknown): Promise<SaveResult> {
         "Some of these settings are not valid. Reload the page and try again.",
     };
   }
-  const settings = resolveSettings(parsed);
+  // A page loaded before the Buttons setting existed sends no asPosted, and
+  // links last 30 minutes, so such a submission is not refused: the stored
+  // value stands, else the default.
+  const asPosted =
+    parsed.asPosted ??
+    (await firestoreSettingsStore.get(grant.scope, { fresh: true }))?.asPosted;
+  const settings = resolveSettings({ ...parsed, asPosted });
 
   // A default stock that does not exist would make every command without a
   // code answer "not found".

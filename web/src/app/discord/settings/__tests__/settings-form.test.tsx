@@ -67,14 +67,26 @@ describe("DiscordSettingsForm", () => {
     await waitFor(() => expect(mockPreview).toHaveBeenCalledWith("PLS"));
   });
 
-  it("previews a chart kept as posted, with its window ending on the day", () => {
+  it("previews a chart kept as posted, once its report date is known", async () => {
+    mockPreview.mockResolvedValue({
+      code: "PLS",
+      name: "Pilbara Minerals",
+      asOf: "2026-10-20T00:00:00.000Z",
+    });
     renderForm({ code: "PLS", asPosted: true });
-    expect(chartCard().getAttribute("src")).toMatch(
-      /^\/chart\/PLS\/image\?asof=\d{4}-\d{2}-\d{2}&v=\d{4}-\d{2}-\d{2}$/,
+    await waitFor(() =>
+      expect(chartCard().getAttribute("src")).toMatch(
+        /[?&]asof=\d{4}-\d{2}-\d{2}/,
+      ),
     );
     expect(
       screen.getByRole("radio", { name: /^Keep the chart as posted/ }),
     ).toBeChecked();
+  });
+
+  it("previews a chart without its report date live, as the bot posts it", () => {
+    renderForm({ code: "PLS", asPosted: true });
+    expect(chartCard().getAttribute("src")).not.toMatch(/asof=/);
   });
 
   it("switches the buttons to the latest figures, and saves that", async () => {
