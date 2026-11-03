@@ -14,6 +14,7 @@ import {
   fetchStockClient,
   fetchStockDataClient,
   fetchStockDetailsClient,
+  fetchStockDataWindowClient,
   fetchStockPricesClient,
   fetchTopShortsClient,
   type ClientDateWindow,
@@ -69,12 +70,14 @@ export function useHistoricalData(
   period: string,
   options: { enabled?: boolean; window?: ClientDateWindow } = {},
 ) {
-  const window = options.window;
+  const range = options.window;
   return useQuery({
-    queryKey: queryKeys.market.historical(code, period, window),
-    queryFn: async () =>
-      window
-        ? ((await fetchStockPricesClient(code.toUpperCase(), window)) ?? [])
+    queryKey: queryKeys.market.historical(code, period, range),
+    // A failed windowed read rejects (fetchStockPricesClient), so TanStack retries
+    // it rather than caching an empty series for the stale time.
+    queryFn: () =>
+      range
+        ? fetchStockPricesClient(code.toUpperCase(), range)
         : getHistoricalData(code, period),
     enabled: (options.enabled ?? true) && !!code && !!period,
     staleTime: DAILY_STALE, // daily end-of-day prices
@@ -114,10 +117,13 @@ export function useShortTimeSeries(
   period: string,
   options: { enabled?: boolean; window?: ClientDateWindow } = {},
 ) {
-  const window = options.window;
+  const range = options.window;
   return useQuery({
-    queryKey: queryKeys.stock.timeSeries(code, period, window),
-    queryFn: () => fetchStockDataClient(code, period, window),
+    queryKey: queryKeys.stock.timeSeries(code, period, range),
+    queryFn: () =>
+      range
+        ? fetchStockDataWindowClient(code, period, range)
+        : fetchStockDataClient(code, period),
     enabled: (options.enabled ?? true) && !!code && !!period,
     staleTime: DAILY_STALE, // daily (ASIC T+4)
   });

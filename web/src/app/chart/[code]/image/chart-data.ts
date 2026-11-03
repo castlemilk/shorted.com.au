@@ -12,6 +12,7 @@ import { getStockData } from "~/app/actions/getStockData";
 import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import {
   anchoredWindows,
+  isSettledAnchor,
   sydneyDay,
   type ChartAnchor,
   type DateWindow,
@@ -62,91 +63,79 @@ async function fetchPrices(
   return (await response.json()) as unknown;
 }
 
-/** A settled anchor's card and data never change: cached for a week. */
+/** A settled anchor's picture never changes: its data is cached for a week. */
 const SETTLED_REVALIDATE_SECONDS = 7 * 86400;
-/** A chart posted in the last two days may still gain figures, so it is re-read hourly. */
+/** A chart still gaining figures is re-read hourly. */
 const RECENT_REVALIDATE_SECONDS = 3600;
 
-function addDays(day: string, days: number): string {
-  const [y, m, d] = day.split("-").map(Number);
-  return new Date(Date.UTC(y!, m! - 1, d! + days)).toISOString().slice(0, 10);
-}
-
 /**
- * Whether an anchored chart is settled: its posting day is at least two days
- * before today in Sydney. ASIC reports arrive four trading days late, so only
- * a chart posted that long ago can no longer change: its card and its data
- * are the same on every read. Anything else (no anchor, or a recent one) is
- * not settled.
+ * Whether a window cannot hold a session: from after to. The stock service
+ * answers such a window with nothing, so it is never asked.
  */
-export function isSettledAnchor(
-  anchor: ChartAnchor | null | undefined,
-  now: Date,
-): boolean {
-  return !!anchor && anchor.day <= addDays(sydneyDay(now), -2);
+export function isEmptyWindow(range: DateWindow): boolean {
+  return range.from !== undefined && range.from > range.to;
 }
 
-function anchoredRevalidate(anchor: ChartAnchor, now: Date): number {
-  return isSettledAnchor(anchor, now)
+/** The data cache's lifetime for an anchored read, decided on the Sydney day. */
+export function anchoredRevalidate(anchor: ChartAnchor, now: Date): number {
+  return isSettledAnchor(anchor, sydneyDay(now))
     ? SETTLED_REVALIDATE_SECONDS
     : RECENT_REVALIDATE_SECONDS;
 }
 
+function stockClient() {
+  return createClient(
+    StockService,
+    createConnectTransport({
+      fetch: serverFetchOutsideNextCache,
+      baseUrl: SHORTS_API_URL,
+    }),
+  );
+}
+
 /**
- * The short series for a window, as the stock service answers it. Only the
- * mapped points are cached: a read that comes back empty throws, so an empty
- * answer (a read gone wrong, or a stock with no reports yet) is not stored.
+ * The short series for a window, as the stock service answers it. Cached only
+ * when a read answers points: a read that throws (or answers nothing) is
+ * re-asked on the next render, so a failure is never stored.
  */
 function readAnchoredShorts(
   code: string,
   period: ChartPeriod,
-  window: DateWindow,
+  range: DateWindow,
   revalidate: number,
 ): Promise<SeriesPoint[]> {
+  if (isEmptyWindow(range)) return Promise.resolve([]);
   return unstable_cache(
     async () => {
-      const client = createClient(
-        StockService,
-        createConnectTransport({
-          fetch: serverFetchOutsideNextCache,
-          baseUrl: SHORTS_API_URL,
-        }),
-      );
       const points = shortPointsFromSeries(
-        await client.getStockData({
+        await stockClient().getStockData({
           productCode: code,
           period: formatPeriodForAPI(period),
-          from: window.from ?? "",
-          to: window.to,
+          from: range.from ?? "",
+          to: range.to,
         }),
       );
       if (points.length === 0) throw new Error("no short positions in window");
       return points;
     },
-    ["chart-image", "anchored-shorts", code, period, window.from ?? "", window.to],
+    ["chart-image", "anchored-shorts", code, period, range.from ?? "", range.to],
     { tags: [`chart-anchored:${code}`], revalidate },
   )();
 }
 
-/** The close series for a window (the prices end on the day before posting). */
+/** The close series for a window, cached only when it answers points. */
 function readAnchoredPrices(
   code: string,
-  window: DateWindow,
+  range: DateWindow,
   revalidate: number,
 ): Promise<SeriesPoint[]> {
+  if (isEmptyWindow(range)) return Promise.resolve([]);
   return unstable_cache(
     async () => {
-      const client = createClient(
-        StockService,
-        createConnectTransport({
-          fetch: serverFetchOutsideNextCache,
-          baseUrl: SHORTS_API_URL,
-        }),
-      );
-      const response = await client.getStockPrices({
+      const response = await stockClient().getStockPrices({
         productCode: code,
-        from: window.from ?? "",
-        to: window.to,
+        from: range.from ?? "",
+        to: range.to,
       });
       // The close, as the live chart draws it; a day is its calendar date.
       const points = pricePointsFromResponse({
@@ -155,14 +144,14 @@ function readAnchoredPrices(
       if (points.length === 0) throw new Error("no prices in window");
       return points;
     },
-    ["chart-image", "anchored-prices", code, window.from ?? "", window.to],
+    ["chart-image", "anchored-prices", code, range.from ?? "", range.to],
     { tags: [`chart-anchored:${code}`], revalidate },
   )();
 }
 
 /**
  * The close series for `period`, or [] on any failure. Kept as posted (an
- * anchor), the window ends on the day before the posting day.
+ * anchor), the window is counted back from the newest close and ends on it.
  */
 export async function getChartPrices(
   code: string,
