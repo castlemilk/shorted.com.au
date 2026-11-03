@@ -97,5 +97,48 @@
       { "in": "  Min ", "code": "MIN", "name": "min" },
       { "in": "abcdefghijklmnopqrstuvwxy", "rejected": true }
     ]
+  },
+  "desk": {
+    "_about": "The desk's clamps (spec section 13.1 and 13.6). A window of change is two inclusive dates: an empty to ends it at the newest notice read (newest), an empty from starts it defaultWindowDays - 1 days before to. A window that ends before it starts, or spans more than maxSpanDays, is refused. The Go test reads this section; the lenses are the web's colours and are pinned there.",
+    "windowChips": [28, 91, 182, 364],
+    "defaultWindowDays": 91,
+    "maxSpanDays": 366,
+    "lenses": ["disclosed", "institutional", "hedge", "index", "short", "flow"],
+    "newest": "2026-10-16",
+    "windows": [
+      { "from": "", "to": "", "resolvedFrom": "2026-07-18", "resolvedTo": "2026-10-16" },
+      { "from": "2026-01-01", "to": "", "resolvedFrom": "2026-01-01", "resolvedTo": "2026-10-16" },
+      { "from": "", "to": "2026-03-31", "resolvedFrom": "2025-12-31", "resolvedTo": "2026-03-31" },
+      { "from": "2026-10-16", "to": "2026-10-16", "resolvedFrom": "2026-10-16", "resolvedTo": "2026-10-16" },
+      { "from": "2025-10-15", "to": "2026-10-16", "resolvedFrom": "2025-10-15", "resolvedTo": "2026-10-16" },
+      { "from": "2026-10-02", "to": "2026-10-01", "rejected": true },
+      { "from": "2025-10-14", "to": "2026-10-16", "rejected": true },
+      { "from": "2026-02-30", "to": "", "rejected": true },
+      { "from": "16-10-2026", "to": "", "rejected": true }
+    ],
+    "noticeDates": [
+      { "since": "2026-03-02", "until": "2026-03-08", "windowDays": 30, "resolvedSince": "2026-03-02", "resolvedUntil": "2026-03-08", "window": 0 },
+      { "since": "2026-10-01", "windowDays": 7, "resolvedSince": "2026-10-01", "resolvedUntil": "", "window": 0 },
+      { "until": "2026-10-20", "resolvedSince": "2025-10-20", "resolvedUntil": "2026-10-20", "window": 0 },
+      { "since": "2025-10-19", "until": "2026-10-20", "resolvedSince": "2025-10-19", "resolvedUntil": "2026-10-20", "window": 0 },
+      { "since": "2025-11-01", "resolvedSince": "2025-11-01", "resolvedUntil": "", "window": 0 },
+      { "since": "2025-10-31", "rejected": true },
+      { "since": "2026-10-02", "until": "2026-10-01", "rejected": true },
+      { "windowDays": -1, "rejected": true },
+      { "since": "16-10-2026", "rejected": true }
+    ],
+    "activityWeeks": [
+      { "in": 0, "out": 52 },
+      { "in": 1, "out": 1 },
+      { "in": 52, "out": 52 },
+      { "in": 53, "out": 52 },
+      { "in": -1, "rejected": true }
+    ],
+    "fundLimit": [
+      { "in": 0, "out": 10 },
+      { "in": 3, "out": 3 },
+      { "in": 51, "out": 50 },
+      { "in": -1, "rejected": true }
+    ]
   }
 }

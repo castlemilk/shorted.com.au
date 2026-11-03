@@ -200,3 +200,64 @@ describe("notice explorer client boundary", () => {
     ).toThrow(/unresolved import "@\/components\/ownership\/no-such-file"/);
   });
 });
+
+describe("desk client boundary", () => {
+  // Every desk module: the islands, the static twins the server draws into the ISR
+  // HTML, and the pure helpers both read. The loaders arrive as props (typeof is a
+  // type import, erased by the walk), so no module reaches a generated module,
+  // protobuf, Connect or an action at run time.
+  const DESK_MODULES = [
+    "ownership-map",
+    "ownership-map-static",
+    "stock-panel",
+    "lens-legend",
+    "ownership-flows",
+    "ownership-flows-static",
+    "movement-heatmap",
+    "movement-heatmap-static",
+    "fund-positions",
+    "fund-positions-static",
+    "fund-series",
+    "date-slider",
+    "window-chips",
+  ];
+  const DESK_PURE = ["map-layout", "desk-scales", "desk-state", "flows-layout", "fund-changes"];
+
+  it.each(DESK_MODULES)("keeps desk/%s free of protobuf, Connect, generated code and server actions", (name) => {
+    const { files, packages } = reach(join(DIR, "desk", `${name}.tsx`));
+    expect(packages.filter(isProtobufOrConnect)).toEqual([]);
+    expect(files.filter(isGeneratedOrAction)).toEqual([]);
+  });
+
+  it.each(DESK_PURE)("keeps desk/%s free of protobuf, Connect, generated code and server actions", (name) => {
+    const { files, packages } = reach(join(DIR, "desk", `${name}.ts`));
+    expect(packages.filter(isProtobufOrConnect)).toEqual([]);
+    expect(files.filter(isGeneratedOrAction)).toEqual([]);
+  });
+
+  it.each([
+    "ownership-map-static",
+    "stock-panel",
+    "ownership-flows-static",
+    "movement-heatmap-static",
+    "fund-positions-static",
+  ])("keeps the server's default view desk/%s free of any client module, so the page's HTML is drawn on the server", (name) => {
+    const { files } = reach(join(DIR, "desk", `${name}.tsx`));
+    expect(files.filter(isClientModule)).toEqual([]);
+  });
+
+  it("follows the map island's own imports, so the check reaches the drawing, the panel and the window it reads", () => {
+    const { files } = reach(join(DIR, "desk", "ownership-map.tsx"));
+    expect(files).toContain("@/components/ownership/desk/ownership-map-static.tsx");
+    expect(files).toContain("@/components/ownership/desk/stock-panel.tsx");
+    // The window of change is the chips' own reader, shared with the flows and the heatmap.
+    expect(files).toContain("@/components/ownership/desk/window-chips.tsx");
+  });
+
+  it("keeps the stock panel's links on the stock-tab table and the feed's own serialiser", () => {
+    const { files } = reach(join(DIR, "desk", "stock-panel.tsx"));
+    expect(files).toContain("@/lib/stocks/stock-tabs.ts");
+    // The "All notices" link is the feed's own serialiser, so the link cannot drift from the feed's parser.
+    expect(files).toContain("@/lib/ownership/query.ts");
+  });
+});

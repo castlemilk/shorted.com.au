@@ -89,6 +89,9 @@ type NoticeRequest = Pick<
   | "event"
   | "kind"
   | "stockCode"
+  | "industry"
+  | "since"
+  | "until"
   | "institutionSlug"
   | "cursor"
   | "limit"
@@ -315,6 +318,9 @@ function noticeRequest(query: NoticeQuery): NoticeRequest {
     event: query.event,
     kind: query.kind,
     stockCode: query.stockCode,
+    industry: query.industry,
+    since: query.since,
+    until: query.until,
     institutionSlug: query.institutionSlug,
     cursor: query.cursor,
     limit: query.limit,

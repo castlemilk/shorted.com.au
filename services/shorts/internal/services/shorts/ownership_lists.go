@@ -155,6 +155,11 @@ type noticeFeedQuery struct {
 	kind            string
 	stockCode       string
 	institutionSlug string
+	industry        string
+	// since and until are the release dates the request names, inclusive: zero
+	// when unnamed. withSpan fills in the start of an until-only span.
+	since           time.Time
+	until           time.Time
 	cursorDate      string
 	cursorURL       string
 	limit           int
@@ -181,6 +186,23 @@ func parseNoticeFeedQuery(m *shortsv1alpha1.ListSubstantialNoticesRequest) (noti
 		return q, fmt.Errorf("stock_code %q is not 1 to 6 letters or digits", m.StockCode)
 	}
 	q.institutionSlug = lowerTrim(m.InstitutionSlug)
+	q.industry = strings.TrimSpace(m.Industry)
+	since, hasSince, err := deskDate("since", m.Since)
+	if err != nil {
+		return q, err
+	}
+	until, hasUntil, err := deskDate("until", m.Until)
+	if err != nil {
+		return q, err
+	}
+	if hasSince && hasUntil && until.Before(since) {
+		return q, errors.New("until must not be before since")
+	}
+	q.since, q.until = since, until
+	if q.dated() {
+		// The dates are the window: a window_days beside them is ignored.
+		q.window = 0
+	}
 	if m.Cursor != "" {
 		if q.cursorDate, q.cursorURL, err = parseNoticeCursor(m.Cursor); err != nil {
 			return q, err
@@ -191,21 +213,77 @@ func parseNoticeFeedQuery(m *shortsv1alpha1.ListSubstantialNoticesRequest) (noti
 	return q, nil
 }
 
-// filter is the store's filter for the query, its window measured back from today.
-// A registry slug filters on the holder key: the job keys an institution's
-// notices by its slug, and the institution page reads them by that same key.
+// dated reports whether the query names a release date. Named dates are the
+// window, so a dated query has window 0.
+func (q noticeFeedQuery) dated() bool {
+	return !q.since.IsZero() || !q.until.IsZero()
+}
+
+// withSpan resolves the dates a query names into the span it reads, measured from
+// today (a UTC day). A since with no until runs to today. An until with no since
+// starts deskMaxSpanDays - 1 days before it, as a desk window does, so the span is
+// at most deskMaxSpanDays either way. A span that ends before it starts, or runs
+// longer than deskMaxSpanDays, is refused. A query with no dates is unchanged.
+func (q noticeFeedQuery) withSpan(today time.Time) (noticeFeedQuery, error) {
+	if !q.dated() {
+		return q, nil
+	}
+	end := today
+	if !q.until.IsZero() {
+		end = q.until
+	}
+	start := q.since
+	if start.IsZero() {
+		start = end.AddDate(0, 0, -(deskMaxSpanDays - 1))
+	}
+	if end.Before(start) {
+		return q, errors.New("until must not be before since")
+	}
+	if end.Sub(start) > deskMaxSpanDays*24*time.Hour {
+		return q, fmt.Errorf("since and until must be at most %d days apart", deskMaxSpanDays)
+	}
+	q.since = start
+	return q, nil
+}
+
+// narrowed reports whether the query names an industry or a date of its own. The
+// first-page cache keys on the window, event, kind, stock and institution only, so
+// a narrowed query is read through.
+func (q noticeFeedQuery) narrowed() bool {
+	return q.industry != "" || q.dated()
+}
+
+// filter is the store's filter for the query, its window measured back from today,
+// or the dates the query names, which replace the window. A registry slug filters
+// on the holder key: the job keys an institution's notices by its slug, and the
+// institution page reads them by that same key. The query must have been resolved
+// by withSpan.
 func (q noticeFeedQuery) filter(today time.Time) shortsstore.NoticeFilter {
-	return shortsstore.NoticeFilter{
-		Since: noticeSince(q.window, today), Event: q.event, Kind: q.kind,
+	f := shortsstore.NoticeFilter{
+		Since: noticeSince(q.window, today), Event: q.event, Kind: q.kind, Industry: q.industry,
 		StockCode: q.stockCode, HolderKey: q.institutionSlug,
 	}
+	if !q.since.IsZero() {
+		f.Since = q.since.Format(time.DateOnly)
+	}
+	if !q.until.IsZero() {
+		f.Until = q.until.Format(time.DateOnly)
+	}
+	return f
 }
 
 // wantsActivity reports whether the response carries the window's activity: a
-// first page of a window that allows it. A page after a cursor never does, so it
-// reads none.
+// first page of a window that allows it. A page after a cursor never does, and
+// neither does a query with its own dates, whose weeks would not cover its rows.
 func (q noticeFeedQuery) wantsActivity() bool {
-	return q.includeActivity && q.cursorDate == "" && q.window > 0 && q.window <= noticeActivityMaxWindow
+	return q.includeActivity && q.cursorDate == "" && !q.dated() &&
+		q.window > 0 && q.window <= noticeActivityMaxWindow
+}
+
+// utcDay is t's calendar day, at UTC midnight.
+func utcDay(t time.Time) time.Time {
+	y, m, d := t.UTC().Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 }
 
 // noticeFeedRead is one read of the feed, all of it from the store: the rows a
@@ -266,7 +344,8 @@ func (u *ownershipUniverse) noticeFeedResponse(q noticeFeedQuery, read noticeFee
 // ListSubstantialNotices pages the notices feed, newest release first. A first
 // page's read is cached beside the universe it was made under: the key names the
 // generation, and the entry lives no longer than that universe does. A cursor
-// page is read through, since its cursor makes it a query of its own.
+// page, or a query with an industry or dates, is read through, since it is a
+// query of its own that the key does not name.
 func (s *ShortsServer) ListSubstantialNotices(
 	ctx context.Context,
 	req *connect.Request[shortsv1alpha1.ListSubstantialNoticesRequest],
@@ -278,6 +357,10 @@ func (s *ShortsServer) ListSubstantialNotices(
 	if s.ownershipStore == nil {
 		return connect.NewResponse(&shortsv1alpha1.ListSubstantialNoticesResponse{WindowDays: q.window}), nil
 	}
+	today := utcDay(s.ownershipUniverse.now())
+	if q, err = q.withSpan(today); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	u, err := s.ownershipUniverse.get(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("list substantial notices: %w", err))
@@ -288,8 +371,7 @@ func (s *ShortsServer) ListSubstantialNotices(
 				fmt.Errorf("institution_slug %q is not in the registry", q.institutionSlug))
 		}
 	}
-	today := s.ownershipUniverse.now().UTC()
-	if q.cursorDate != "" {
+	if q.cursorDate != "" || q.narrowed() {
 		read, err := s.readNoticeFeed(ctx, q, today)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("list substantial notices: %w", err))

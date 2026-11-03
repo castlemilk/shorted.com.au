@@ -137,12 +137,84 @@ public interface ListSubstantialNoticesRequestOrBuilder extends
   /**
    * <pre>
    * Also compute the window's counts, weekly buckets and largest moves
-   * (windows of at most 90 days; omitted above that). Only the first page
-   * (cursor ""): a page after a cursor never carries it.
+   * (windows of at most 90 days; omitted above that, and with since or until). Only
+   * the first page (cursor ""): a page after a cursor never carries it.
    * </pre>
    *
    * <code>bool include_activity = 8 [json_name = "includeActivity"];</code>
    * @return The includeActivity.
    */
   boolean getIncludeActivity();
+
+  /**
+   * <pre>
+   * "" or an industry, matched exactly as the register's industries are. "" is
+   * no filter, so the stocks with no industry on record cannot be filtered to.
+   * </pre>
+   *
+   * <code>string industry = 9 [json_name = "industry"];</code>
+   * @return The industry.
+   */
+  java.lang.String getIndustry();
+  /**
+   * <pre>
+   * "" or an industry, matched exactly as the register's industries are. "" is
+   * no filter, so the stocks with no industry on record cannot be filtered to.
+   * </pre>
+   *
+   * <code>string industry = 9 [json_name = "industry"];</code>
+   * @return The bytes for industry.
+   */
+  com.google.protobuf.ByteString
+      getIndustryBytes();
+
+  /**
+   * <pre>
+   * "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates
+   * are the window: window_days is ignored when since or until is named, and the
+   * response echoes 0. With no until the span runs to today; with no since it
+   * starts 365 days before until. A span over 366 days is InvalidArgument, as is
+   * an invalid date.
+   * </pre>
+   *
+   * <code>string since = 10 [json_name = "since"];</code>
+   * @return The since.
+   */
+  java.lang.String getSince();
+  /**
+   * <pre>
+   * "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates
+   * are the window: window_days is ignored when since or until is named, and the
+   * response echoes 0. With no until the span runs to today; with no since it
+   * starts 365 days before until. A span over 366 days is InvalidArgument, as is
+   * an invalid date.
+   * </pre>
+   *
+   * <code>string since = 10 [json_name = "since"];</code>
+   * @return The bytes for since.
+   */
+  com.google.protobuf.ByteString
+      getSinceBytes();
+
+  /**
+   * <pre>
+   * "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as
+   * InvalidArgument when it is before since (see since for the span).
+   * </pre>
+   *
+   * <code>string until = 11 [json_name = "until"];</code>
+   * @return The until.
+   */
+  java.lang.String getUntil();
+  /**
+   * <pre>
+   * "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as
+   * InvalidArgument when it is before since (see since for the span).
+   * </pre>
+   *
+   * <code>string until = 11 [json_name = "until"];</code>
+   * @return The bytes for until.
+   */
+  com.google.protobuf.ByteString
+      getUntilBytes();
 }

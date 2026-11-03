@@ -26,6 +26,17 @@ export const NOTICE_WINDOW_ALL = 0;
 /** The widest window that carries activity: its weekly buckets and largest moves. */
 export const ACTIVITY_MAX_WINDOW = 90;
 /**
+ * The widest span a brushed pair of notice dates may cover, in days, measured as
+ * the API measures it: `until` minus `since` (their difference, not a count of
+ * both ends). The desk's span cap (spec 13.8); the API refuses a wider one.
+ */
+export const NOTICE_MAX_SPAN_DAYS = 366;
+/** The longest industry name a feed request may carry, the desk's sector limit. */
+const INDUSTRY_MAX = 64;
+/** Any control character: an industry is printed, never a line break or a tab. */
+const CONTROL = /[\u0000-\u001f\u007f]/;
+const DAY_MS = 86_400_000;
+/**
  * Whether a feed request that does not say asks for activity. The default view
  * draws its week bars from it, so the default asks. The API itself reads an
  * omitted flag as false.
@@ -178,12 +189,21 @@ function isNoticeCursor(cursor: string): boolean {
 
 /** A feed query as the API runs it. */
 export interface NoticeQuery {
-  /** 0 for every notice the register holds, else a served window. */
+  /**
+   * 0 for every notice the register holds, else a served window. A named since or
+   * until takes the place of the window, so a dated query is 0 here.
+   */
   windowDays: number;
   event: NoticeEvent | "";
   kind: OwnershipKind | "";
   /** Upper case, 1 to 6 letters or digits, or "". */
   stockCode: string;
+  /** Trimmed. The API matches it exactly against the register's industries; "" is no filter. */
+  industry: string;
+  /** The first notice release date, YYYY-MM-DD, inclusive; "" for none. */
+  since: string;
+  /** The last notice release date, YYYY-MM-DD, inclusive; "" for none. */
+  until: string;
   /**
    * A lower-case slug in the shape a registry slug takes, or "". The API checks it
    * against the registry.
@@ -202,6 +222,12 @@ export interface NoticeQueryInput {
   event?: string;
   kind?: string;
   stockCode?: string;
+  /** Left out means no industry filter. */
+  industry?: string;
+  /** Left out means no start date. */
+  since?: string;
+  /** Left out means no end date. */
+  until?: string;
   institutionSlug?: string;
   cursor?: string;
   limit?: number;
@@ -241,6 +267,81 @@ export interface RegistersQueryInput {
 
 export type ClampResult<T> = { ok: true; query: T } | { ok: false; error: string };
 
+/** The clock's day as the API reads it: UTC, YYYY-MM-DD. */
+export function utcToday(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+/**
+ * The notice dates a request names, checked the way the API checks them
+ * (ownership_lists.go withSpan, pinned by clamps.json desk.noticeDates). A lone
+ * since runs to `today`; a lone until starts NOTICE_MAX_SPAN_DAYS - 1 days before
+ * it. The span is `until` minus `since` in days: an inverted pair, or one more
+ * than NOTICE_MAX_SPAN_DAYS, is refused. Null when the dates are served, and when
+ * none is named.
+ */
+export function noticeDatesError(
+  since: string,
+  until: string,
+  today: string = utcToday(),
+): string | null {
+  const shape = noticeDatesShapeError(since, until);
+  if (shape !== null || (since === "" && until === "")) return shape;
+  const end = until !== "" ? until : today;
+  const start = since !== "" ? since : shiftDate(end, -(NOTICE_MAX_SPAN_DAYS - 1));
+  if (start > end) return "until is before since";
+  if (dayGap(start, end) > NOTICE_MAX_SPAN_DAYS) {
+    return `a span of ${NOTICE_MAX_SPAN_DAYS} days is the most the feed serves`;
+  }
+  return null;
+}
+
+/**
+ * The part of noticeDatesError that needs no clock: each date's shape, and for a
+ * pair, its order and span. A lone date is never judged here.
+ */
+function noticeDatesShapeError(since: string, until: string): string | null {
+  if (since !== "" && !isCalendarDate(since)) return "since must be a YYYY-MM-DD date";
+  if (until !== "" && !isCalendarDate(until)) return "until must be a YYYY-MM-DD date";
+  if (since === "" || until === "") return null;
+  if (since > until) return "until is before since";
+  if (dayGap(since, until) > NOTICE_MAX_SPAN_DAYS) {
+    return `a span of ${NOTICE_MAX_SPAN_DAYS} days is the most the feed serves`;
+  }
+  return null;
+}
+
+/** `date` moved by `days` (negative goes back), as YYYY-MM-DD. The date must be valid. */
+function shiftDate(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** The days from `from` to `to`, as the API measures a span (their difference). */
+function dayGap(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
+}
+
+/**
+ * An industry name a request may carry: at most INDUSTRY_MAX characters and no
+ * control character. The desk's sector rule, so one link means one thing on both.
+ */
+function isIndustryName(value: string): boolean {
+  return value.length <= INDUSTRY_MAX && !CONTROL.test(value);
+}
+
+/** Options for the clamps that read the clock: the day an open end counts from. */
+export interface NoticeClampOptions {
+  /** YYYY-MM-DD. Left out, the UTC day of the clock. */
+  today?: string;
+  /**
+   * "deferred": a lone date is kept without the clock's check, and only its shape
+   * and a pair's order and span are judged. A browser's clock is not the API's, so
+   * the server clamp, which reads the UTC day, decides the open end. Left out, a
+   * lone date is checked against `today` (or the clock) as the API checks it.
+   */
+  openEnds?: "clock" | "deferred";
+}
+
 /**
  * A feed query clamped the way the API clamps it. Refused input is never
  * truncated: a negative window, an unknown event or a malformed cursor is an
@@ -250,7 +351,10 @@ export type ClampResult<T> = { ok: true; query: T } | { ok: false; error: string
  * shape of a path segment, as the codec requires; only the API knows the
  * registry, so it refuses a slug of that shape the registry does not hold.
  */
-export function clampNoticeQuery(input: unknown): ClampResult<NoticeQuery> {
+export function clampNoticeQuery(
+  input: unknown,
+  options: NoticeClampOptions = {},
+): ClampResult<NoticeQuery> {
   if (!isRequestObject(input)) return refuse(NOT_A_REQUEST);
   const requestedDays = input.windowDays ?? DEFAULT_NOTICE_WINDOW;
   if (!isInt32(requestedDays)) return refuse("window_days must be a whole number");
@@ -266,6 +370,20 @@ export function clampNoticeQuery(input: unknown): ClampResult<NoticeQuery> {
   if (stockCode !== "" && !REGISTER_CODE_PATTERN.test(stockCode)) {
     return refuse(`stock_code ${quoted(input.stockCode)} is not 1 to 6 letters or digits`);
   }
+  const industry = requestText(input.industry, (text) => text.trim());
+  if (industry === null) return refuse("industry must be text");
+  if (!isIndustryName(industry)) {
+    return refuse(`industry must be at most ${INDUSTRY_MAX} characters with no control character`);
+  }
+  const since = requestText(input.since, (text) => text.trim());
+  if (since === null) return refuse("since must be text");
+  const until = requestText(input.until, (text) => text.trim());
+  if (until === null) return refuse("until must be text");
+  const datesError =
+    options.openEnds === "deferred"
+      ? noticeDatesShapeError(since, until)
+      : noticeDatesError(since, until, options.today);
+  if (datesError !== null) return refuse(datesError);
   const institutionSlug = requestText(input.institutionSlug, lowerTrim);
   if (institutionSlug === null) return refuse("institution_slug must be text");
   if (institutionSlug !== "" && !isInstitutionSlug(institutionSlug)) {
@@ -281,13 +399,18 @@ export function clampNoticeQuery(input: unknown): ClampResult<NoticeQuery> {
   const includeActivity = input.includeActivity ?? DEFAULT_NOTICE_ACTIVITY;
   if (typeof includeActivity !== "boolean") return refuse("include_activity must be true or false");
 
+  // A named date takes the place of the window: the API ignores window_days beside one.
+  const dated = since !== "" || until !== "";
   return {
     ok: true,
     query: {
-      windowDays,
+      windowDays: dated ? NOTICE_WINDOW_ALL : windowDays,
       event,
       kind,
       stockCode,
+      industry,
+      since,
+      until,
       institutionSlug,
       cursor,
       limit: pageLimit(requestedLimit),
@@ -390,6 +513,9 @@ export function defaultNoticeQuery(): NoticeQuery {
     event: "",
     kind: "",
     stockCode: "",
+    industry: "",
+    since: "",
+    until: "",
     institutionSlug: "",
     cursor: "",
     limit: PAGE_DEFAULT_LIMIT,
@@ -448,20 +574,42 @@ function parseWindow(value: string): number {
  * rest of the query (limit, cursor, activity) is not in a link and takes its
  * default. Each parameter falls back on its own, so one bad value keeps the rest.
  */
-export function parseNoticeParams(params: ParamSource): NoticeQuery {
+export function parseNoticeParams(
+  params: ParamSource,
+  options: NoticeClampOptions = {},
+): NoticeQuery {
+  // A link is read without a clock (the browser's is not the API's), so an open end
+  // is left to the server clamp, which reads the UTC day. A caller that gives a day reads against it.
+  const clamp: NoticeClampOptions =
+    options.today === undefined ? { ...options, openEnds: "deferred" } : options;
   const read = (name: string): string => (params.get(name) ?? "").trim();
   const holder = read("holder").toLowerCase();
   const stock = read("stock").toUpperCase();
+  const since = read("since");
+  const until = read("until");
+  // A date pair the API would refuse is no window, one parameter at a time, as the window is.
+  const datesServed =
+    (clamp.openEnds === "deferred"
+      ? noticeDatesShapeError(since, until)
+      : noticeDatesError(since, until, clamp.today)) === null;
+  const industry = read("industry");
   // A holder is a slug in the shape a path segment takes. A name or a listed
   // company's key never is. Whether the registry holds the slug is for the API to
-  // check, so a well-formed slug is kept.
-  const clamped = clampNoticeQuery({
-    windowDays: parseWindow(read("window").toLowerCase()),
-    event: inVocabulary(lowerTrim(read("event")), NOTICE_EVENTS) ?? "",
-    kind: inVocabulary(lowerTrim(read("kind")), KIND_ORDER) ?? "",
-    stockCode: REGISTER_CODE_PATTERN.test(stock) ? stock : "",
-    institutionSlug: isInstitutionSlug(holder) ? holder : "",
-  } satisfies NoticeQueryInput);
+  // check, so a well-formed slug is kept. An industry too long or with a control
+  // character reads as no industry, as the desk's sector does.
+  const clamped = clampNoticeQuery(
+    {
+      windowDays: parseWindow(read("window").toLowerCase()),
+      event: inVocabulary(lowerTrim(read("event")), NOTICE_EVENTS) ?? "",
+      kind: inVocabulary(lowerTrim(read("kind")), KIND_ORDER) ?? "",
+      stockCode: REGISTER_CODE_PATTERN.test(stock) ? stock : "",
+      industry: isIndustryName(industry) ? industry : "",
+      since: datesServed ? since : "",
+      until: datesServed ? until : "",
+      institutionSlug: isInstitutionSlug(holder) ? holder : "",
+    } satisfies NoticeQueryInput,
+    clamp,
+  );
   return clamped.ok ? clamped.query : defaultNoticeQuery();
 }
 
@@ -473,12 +621,17 @@ export function parseNoticeParams(params: ParamSource): NoticeQuery {
  */
 export function serialiseNoticeParams(query: NoticeQuery): URLSearchParams {
   const out = new URLSearchParams();
-  if (query.windowDays !== DEFAULT_NOTICE_WINDOW) {
+  // A dated query carries no window: its dates are the window, so a link names only them.
+  const dated = query.since !== "" || query.until !== "";
+  if (!dated && query.windowDays !== DEFAULT_NOTICE_WINDOW) {
     out.set("window", query.windowDays === NOTICE_WINDOW_ALL ? "all" : String(query.windowDays));
   }
+  if (query.since !== "") out.set("since", query.since);
+  if (query.until !== "") out.set("until", query.until);
   if (query.event !== "") out.set("event", query.event);
   if (query.kind !== "") out.set("kind", query.kind);
   if (query.stockCode !== "") out.set("stock", query.stockCode);
+  if (query.industry !== "") out.set("industry", query.industry);
   if (query.institutionSlug !== "") out.set("holder", query.institutionSlug);
   return out;
 }

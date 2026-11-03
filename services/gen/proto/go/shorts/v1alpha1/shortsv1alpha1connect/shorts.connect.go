@@ -298,6 +298,21 @@ const (
 	// ShortedStocksServiceListStockRegistersProcedure is the fully-qualified name of the
 	// ShortedStocksService's ListStockRegisters RPC.
 	ShortedStocksServiceListStockRegistersProcedure = "/shorts.v1alpha1.ShortedStocksService/ListStockRegisters"
+	// ShortedStocksServiceGetOwnershipMapProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetOwnershipMap RPC.
+	ShortedStocksServiceGetOwnershipMapProcedure = "/shorts.v1alpha1.ShortedStocksService/GetOwnershipMap"
+	// ShortedStocksServiceGetOwnershipFlowsProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetOwnershipFlows RPC.
+	ShortedStocksServiceGetOwnershipFlowsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetOwnershipFlows"
+	// ShortedStocksServiceGetOwnershipActivityProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetOwnershipActivity RPC.
+	ShortedStocksServiceGetOwnershipActivityProcedure = "/shorts.v1alpha1.ShortedStocksService/GetOwnershipActivity"
+	// ShortedStocksServiceListFundPositionChangesProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListFundPositionChanges RPC.
+	ShortedStocksServiceListFundPositionChangesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListFundPositionChanges"
+	// ShortedStocksServiceGetStockFundSeriesProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetStockFundSeries RPC.
+	ShortedStocksServiceGetStockFundSeriesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockFundSeries"
 	// ShortedStocksServiceGetParliamentOverviewProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetParliamentOverview RPC.
 	ShortedStocksServiceGetParliamentOverviewProcedure = "/shorts.v1alpha1.ShortedStocksService/GetParliamentOverview"
@@ -451,6 +466,11 @@ var (
 	shortedStocksServiceGetStockOwnershipMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockOwnership")
 	shortedStocksServiceListSubstantialNoticesMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSubstantialNotices")
 	shortedStocksServiceListStockRegistersMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStockRegisters")
+	shortedStocksServiceGetOwnershipMapMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetOwnershipMap")
+	shortedStocksServiceGetOwnershipFlowsMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetOwnershipFlows")
+	shortedStocksServiceGetOwnershipActivityMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetOwnershipActivity")
+	shortedStocksServiceListFundPositionChangesMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("ListFundPositionChanges")
+	shortedStocksServiceGetStockFundSeriesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockFundSeries")
 	shortedStocksServiceGetParliamentOverviewMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetParliamentOverview")
 	shortedStocksServiceListPoliticiansMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPoliticians")
 	shortedStocksServiceGetPoliticianMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPolitician")
@@ -653,6 +673,20 @@ type ShortedStocksServiceClient interface {
 	ListSubstantialNotices(context.Context, *connect.Request[v1alpha1.ListSubstantialNoticesRequest]) (*connect.Response[v1alpha1.ListSubstantialNoticesResponse], error)
 	// Every stock with a current substantial holder, filtered and sorted.
 	ListStockRegisters(context.Context, *connect.Request[v1alpha1.ListStockRegistersRequest]) (*connect.Response[v1alpha1.ListStockRegistersResponse], error)
+	// The desk's map: every stock with a current substantial holder, what its
+	// notices disclose, and how that moved over a window.
+	GetOwnershipMap(context.Context, *connect.Request[v1alpha1.GetOwnershipMapRequest]) (*connect.Response[v1alpha1.GetOwnershipMapResponse], error)
+	// The desk's flows: disclosed exposure by holder kind and industry, and the
+	// net change in it over a window.
+	GetOwnershipFlows(context.Context, *connect.Request[v1alpha1.GetOwnershipFlowsRequest]) (*connect.Response[v1alpha1.GetOwnershipFlowsResponse], error)
+	// The desk's movement: each industry's notices by week, and the net change
+	// in disclosed voting power that week.
+	GetOwnershipActivity(context.Context, *connect.Request[v1alpha1.GetOwnershipActivityRequest]) (*connect.Response[v1alpha1.GetOwnershipActivityResponse], error)
+	// The index fund positions: the change in each stock's weight across the
+	// tracked funds between two snapshot dates.
+	ListFundPositionChanges(context.Context, *connect.Request[v1alpha1.ListFundPositionChangesRequest]) (*connect.Response[v1alpha1.ListFundPositionChangesResponse], error)
+	// One stock's weight and value in each tracked fund, at every snapshot.
+	GetStockFundSeries(context.Context, *connect.Request[v1alpha1.GetStockFundSeriesRequest]) (*connect.Response[v1alpha1.GetStockFundSeriesResponse], error)
 	// Parliament-wide register counts and the as-at date.
 	GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error)
 	// Browse/filter parliamentarians.
@@ -1234,6 +1268,36 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceListStockRegistersMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getOwnershipMap: connect.NewClient[v1alpha1.GetOwnershipMapRequest, v1alpha1.GetOwnershipMapResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetOwnershipMapProcedure,
+			connect.WithSchema(shortedStocksServiceGetOwnershipMapMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getOwnershipFlows: connect.NewClient[v1alpha1.GetOwnershipFlowsRequest, v1alpha1.GetOwnershipFlowsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetOwnershipFlowsProcedure,
+			connect.WithSchema(shortedStocksServiceGetOwnershipFlowsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getOwnershipActivity: connect.NewClient[v1alpha1.GetOwnershipActivityRequest, v1alpha1.GetOwnershipActivityResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetOwnershipActivityProcedure,
+			connect.WithSchema(shortedStocksServiceGetOwnershipActivityMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listFundPositionChanges: connect.NewClient[v1alpha1.ListFundPositionChangesRequest, v1alpha1.ListFundPositionChangesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListFundPositionChangesProcedure,
+			connect.WithSchema(shortedStocksServiceListFundPositionChangesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getStockFundSeries: connect.NewClient[v1alpha1.GetStockFundSeriesRequest, v1alpha1.GetStockFundSeriesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetStockFundSeriesProcedure,
+			connect.WithSchema(shortedStocksServiceGetStockFundSeriesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getParliamentOverview: connect.NewClient[v1alpha1.GetParliamentOverviewRequest, v1alpha1.GetParliamentOverviewResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetParliamentOverviewProcedure,
@@ -1447,6 +1511,11 @@ type shortedStocksServiceClient struct {
 	getStockOwnership               *connect.Client[v1alpha1.GetStockOwnershipRequest, v1alpha1.GetStockOwnershipResponse]
 	listSubstantialNotices          *connect.Client[v1alpha1.ListSubstantialNoticesRequest, v1alpha1.ListSubstantialNoticesResponse]
 	listStockRegisters              *connect.Client[v1alpha1.ListStockRegistersRequest, v1alpha1.ListStockRegistersResponse]
+	getOwnershipMap                 *connect.Client[v1alpha1.GetOwnershipMapRequest, v1alpha1.GetOwnershipMapResponse]
+	getOwnershipFlows               *connect.Client[v1alpha1.GetOwnershipFlowsRequest, v1alpha1.GetOwnershipFlowsResponse]
+	getOwnershipActivity            *connect.Client[v1alpha1.GetOwnershipActivityRequest, v1alpha1.GetOwnershipActivityResponse]
+	listFundPositionChanges         *connect.Client[v1alpha1.ListFundPositionChangesRequest, v1alpha1.ListFundPositionChangesResponse]
+	getStockFundSeries              *connect.Client[v1alpha1.GetStockFundSeriesRequest, v1alpha1.GetStockFundSeriesResponse]
 	getParliamentOverview           *connect.Client[v1alpha1.GetParliamentOverviewRequest, v1alpha1.GetParliamentOverviewResponse]
 	listPoliticians                 *connect.Client[v1alpha1.ListPoliticiansRequest, v1alpha1.ListPoliticiansResponse]
 	getPolitician                   *connect.Client[v1alpha1.GetPoliticianRequest, v1alpha1.GetPoliticianResponse]
@@ -1912,6 +1981,31 @@ func (c *shortedStocksServiceClient) ListStockRegisters(ctx context.Context, req
 	return c.listStockRegisters.CallUnary(ctx, req)
 }
 
+// GetOwnershipMap calls shorts.v1alpha1.ShortedStocksService.GetOwnershipMap.
+func (c *shortedStocksServiceClient) GetOwnershipMap(ctx context.Context, req *connect.Request[v1alpha1.GetOwnershipMapRequest]) (*connect.Response[v1alpha1.GetOwnershipMapResponse], error) {
+	return c.getOwnershipMap.CallUnary(ctx, req)
+}
+
+// GetOwnershipFlows calls shorts.v1alpha1.ShortedStocksService.GetOwnershipFlows.
+func (c *shortedStocksServiceClient) GetOwnershipFlows(ctx context.Context, req *connect.Request[v1alpha1.GetOwnershipFlowsRequest]) (*connect.Response[v1alpha1.GetOwnershipFlowsResponse], error) {
+	return c.getOwnershipFlows.CallUnary(ctx, req)
+}
+
+// GetOwnershipActivity calls shorts.v1alpha1.ShortedStocksService.GetOwnershipActivity.
+func (c *shortedStocksServiceClient) GetOwnershipActivity(ctx context.Context, req *connect.Request[v1alpha1.GetOwnershipActivityRequest]) (*connect.Response[v1alpha1.GetOwnershipActivityResponse], error) {
+	return c.getOwnershipActivity.CallUnary(ctx, req)
+}
+
+// ListFundPositionChanges calls shorts.v1alpha1.ShortedStocksService.ListFundPositionChanges.
+func (c *shortedStocksServiceClient) ListFundPositionChanges(ctx context.Context, req *connect.Request[v1alpha1.ListFundPositionChangesRequest]) (*connect.Response[v1alpha1.ListFundPositionChangesResponse], error) {
+	return c.listFundPositionChanges.CallUnary(ctx, req)
+}
+
+// GetStockFundSeries calls shorts.v1alpha1.ShortedStocksService.GetStockFundSeries.
+func (c *shortedStocksServiceClient) GetStockFundSeries(ctx context.Context, req *connect.Request[v1alpha1.GetStockFundSeriesRequest]) (*connect.Response[v1alpha1.GetStockFundSeriesResponse], error) {
+	return c.getStockFundSeries.CallUnary(ctx, req)
+}
+
 // GetParliamentOverview calls shorts.v1alpha1.ShortedStocksService.GetParliamentOverview.
 func (c *shortedStocksServiceClient) GetParliamentOverview(ctx context.Context, req *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error) {
 	return c.getParliamentOverview.CallUnary(ctx, req)
@@ -2195,6 +2289,20 @@ type ShortedStocksServiceHandler interface {
 	ListSubstantialNotices(context.Context, *connect.Request[v1alpha1.ListSubstantialNoticesRequest]) (*connect.Response[v1alpha1.ListSubstantialNoticesResponse], error)
 	// Every stock with a current substantial holder, filtered and sorted.
 	ListStockRegisters(context.Context, *connect.Request[v1alpha1.ListStockRegistersRequest]) (*connect.Response[v1alpha1.ListStockRegistersResponse], error)
+	// The desk's map: every stock with a current substantial holder, what its
+	// notices disclose, and how that moved over a window.
+	GetOwnershipMap(context.Context, *connect.Request[v1alpha1.GetOwnershipMapRequest]) (*connect.Response[v1alpha1.GetOwnershipMapResponse], error)
+	// The desk's flows: disclosed exposure by holder kind and industry, and the
+	// net change in it over a window.
+	GetOwnershipFlows(context.Context, *connect.Request[v1alpha1.GetOwnershipFlowsRequest]) (*connect.Response[v1alpha1.GetOwnershipFlowsResponse], error)
+	// The desk's movement: each industry's notices by week, and the net change
+	// in disclosed voting power that week.
+	GetOwnershipActivity(context.Context, *connect.Request[v1alpha1.GetOwnershipActivityRequest]) (*connect.Response[v1alpha1.GetOwnershipActivityResponse], error)
+	// The index fund positions: the change in each stock's weight across the
+	// tracked funds between two snapshot dates.
+	ListFundPositionChanges(context.Context, *connect.Request[v1alpha1.ListFundPositionChangesRequest]) (*connect.Response[v1alpha1.ListFundPositionChangesResponse], error)
+	// One stock's weight and value in each tracked fund, at every snapshot.
+	GetStockFundSeries(context.Context, *connect.Request[v1alpha1.GetStockFundSeriesRequest]) (*connect.Response[v1alpha1.GetStockFundSeriesResponse], error)
 	// Parliament-wide register counts and the as-at date.
 	GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error)
 	// Browse/filter parliamentarians.
@@ -2772,6 +2880,36 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceListStockRegistersMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetOwnershipMapHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetOwnershipMapProcedure,
+		svc.GetOwnershipMap,
+		connect.WithSchema(shortedStocksServiceGetOwnershipMapMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetOwnershipFlowsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetOwnershipFlowsProcedure,
+		svc.GetOwnershipFlows,
+		connect.WithSchema(shortedStocksServiceGetOwnershipFlowsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetOwnershipActivityHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetOwnershipActivityProcedure,
+		svc.GetOwnershipActivity,
+		connect.WithSchema(shortedStocksServiceGetOwnershipActivityMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListFundPositionChangesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListFundPositionChangesProcedure,
+		svc.ListFundPositionChanges,
+		connect.WithSchema(shortedStocksServiceListFundPositionChangesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetStockFundSeriesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetStockFundSeriesProcedure,
+		svc.GetStockFundSeries,
+		connect.WithSchema(shortedStocksServiceGetStockFundSeriesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceGetParliamentOverviewHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetParliamentOverviewProcedure,
 		svc.GetParliamentOverview,
@@ -3070,6 +3208,16 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceListSubstantialNoticesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListStockRegistersProcedure:
 			shortedStocksServiceListStockRegistersHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetOwnershipMapProcedure:
+			shortedStocksServiceGetOwnershipMapHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetOwnershipFlowsProcedure:
+			shortedStocksServiceGetOwnershipFlowsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetOwnershipActivityProcedure:
+			shortedStocksServiceGetOwnershipActivityHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListFundPositionChangesProcedure:
+			shortedStocksServiceListFundPositionChangesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetStockFundSeriesProcedure:
+			shortedStocksServiceGetStockFundSeriesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetParliamentOverviewProcedure:
 			shortedStocksServiceGetParliamentOverviewHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListPoliticiansProcedure:
@@ -3469,6 +3617,26 @@ func (UnimplementedShortedStocksServiceHandler) ListSubstantialNotices(context.C
 
 func (UnimplementedShortedStocksServiceHandler) ListStockRegisters(context.Context, *connect.Request[v1alpha1.ListStockRegistersRequest]) (*connect.Response[v1alpha1.ListStockRegistersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListStockRegisters is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetOwnershipMap(context.Context, *connect.Request[v1alpha1.GetOwnershipMapRequest]) (*connect.Response[v1alpha1.GetOwnershipMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetOwnershipMap is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetOwnershipFlows(context.Context, *connect.Request[v1alpha1.GetOwnershipFlowsRequest]) (*connect.Response[v1alpha1.GetOwnershipFlowsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetOwnershipFlows is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetOwnershipActivity(context.Context, *connect.Request[v1alpha1.GetOwnershipActivityRequest]) (*connect.Response[v1alpha1.GetOwnershipActivityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetOwnershipActivity is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListFundPositionChanges(context.Context, *connect.Request[v1alpha1.ListFundPositionChangesRequest]) (*connect.Response[v1alpha1.ListFundPositionChangesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListFundPositionChanges is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetStockFundSeries(context.Context, *connect.Request[v1alpha1.GetStockFundSeriesRequest]) (*connect.Response[v1alpha1.GetStockFundSeriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStockFundSeries is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error) {

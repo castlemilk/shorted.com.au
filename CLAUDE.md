@@ -995,15 +995,15 @@ registry of ~145 institutions, APRA's super fund statistics, ASX's ETF/LIC
 report, 11 index funds' holdings files, 11 super funds' portfolio holdings
 disclosures, and every substantial holding notice PDF since 2024. Migration
 `000137_add_ownership` is in the deploy allowlist. Spec:
-`docs/superpowers/specs/2026-11-02-ownership-explorer-design.md` (stages 1
-and 2 built; stage 3, the hub desk, the Short interest lending line, the
-register OG lanes and the e2e spec, is specified there and not built; section
-7.1 holds the decisions taken in review).
+`docs/superpowers/specs/2026-11-02-ownership-explorer-design.md` (stages 1 to 3 built: section 13 is the desk, 7.1 and 13.8 hold the decisions
+taken in review; the Short interest lending line, the register OG lanes and the
+e2e spec remain specified and unbuilt).
 
 | Piece | Where |
 |---|---|
 | Job, parser, registry | `services/jobs/internal/jobs/ownership/` (`notice.go` parser, fixtures in `testdata/notices/`; `registry.go` kinds, aliases, groups; `repair.go` the `-mode repair-placeholders` dry run) |
 | API | `services/shorts/internal/services/shorts/ownership.go` (handlers assemble every response from ONE cached universe, `ownership_universe.go`: built once per `ownershipTTL` from 11 statements, refreshed in the background two minutes ahead of expiry, never served past it; a stock's or an institution's notices and the feed's first page are the per-key statements, cached under the universe's generation; `ownership_lists.go` holds `ListSubstantialNotices` (a keyset cursor `YYYY-MM-DD|url`, windows rounded UP to 7/30/90/365, 0 = every notice read) and `ListStockRegisters` (in memory over the universe, never cached per query), with every clamp mirrored in `web/src/@/lib/ownership/__fixtures__/clamps.json`, which a Go test and the web test both read), `store/shorts/postgres_ownership.go` (a schema without 000137 reads empty, never a 500; `eventOf` classifies a notice's event ONCE here: ceased, then 603 became, then 604 increased / decreased / changed, then nz) |
+| Desk | The hub's instruments over one window of time, `components/ownership/desk/`: the map (`ownership-map.tsx`, a d3-hierarchy treemap of sectors and stocks, area = market cap, six lenses, a sector zoom and a stock panel), flows (`ownership-flows.tsx`, a d3-sankey from holder kinds to sectors by disclosed exposure, estimated, with a changes-in-the-window toggle), movement (`movement-heatmap.tsx`, sectors by week with a two-handle brush), index fund positions (`fund-positions.tsx`, a two-handle date slider over the funds' snapshot dates, the largest weight changes, per-fund series). Each has a `-static.tsx` twin the server renders from the pure layouts (`map-layout.ts`, `flows-layout.ts`, `fund-changes.ts`), one URL state (`desk-state.ts`: window, lens, sector, since/until, from/to) and loaders in `app/actions/ownershipDesk.ts` over five rpcs (`GetOwnershipMap`, `GetOwnershipFlows`, `GetOwnershipActivity`, `ListFundPositionChanges`, `GetStockFundSeries`; `ownership_desk.go`) |
 | Web | `app/ownership/` (the hub, `[slug]`, `stocks/[code]`, and the static ISR pages `notices/` and `stocks/`), `components/ownership/` (server components; the islands are `ownership-tables.tsx`, `notice-feed-explorer.tsx` and `registers-explorer.tsx`: the action as a prop, `useSearchParams` under their own Suspense, `history.replaceState`, no Connect; `notice-mark.tsx`, `notice-week-bars.tsx`, `register-rows-table.tsx` are the parts they draw), `app/actions/ownershipExplorer.ts` ("use server"; the one loader a page and its island share; KV only for each page's DEFAULT view), `lib/ownership/query.ts` (the clamps and the URL codec) and `events.ts` (reads `notice.event`, never re-derives it), `components/stocks/register-strip.tsx` (props only), `lib/ownership/` (`trace.ts` the lane geometry, `kinds.ts`, `rows.ts`, `age.ts`, `register-indexability.ts`), `app/actions/getOwnership.ts` (ISR tag `ownership` + KV last-good under the `v2` keys, flush `ownership`), `app/actions/getStockRegisterStrip.ts` (the Overview's read: `unstable_cache`, a 4 s abort, no KV, tagged by stock and never `ownership`) |
 | Guards | `app/ownership/__tests__/isr-source-safety.test.ts` (no `searchParams`, `cookies()`, `headers()`, `auth()` or `useSearchParams` under `app/ownership`), `app/__tests__/editorial-copy.test.ts` (no em dash, "of the voting power", "index ETF", "sold" in ownership copy), `scripts/route-kinds.mjs` `OWNERSHIP_ROUTES` (the two dynamic routes) and `OWNERSHIP_STATIC_ROUTES` (the hub, the feed, the registers list: each must keep a positive `initialRevalidateSeconds`), `components/ownership/__tests__/client-boundary.test.ts`, `app/api/static-pages/warm-cache/__tests__/budget.test.ts` (17 shell pages read six at a time fit the 145 s the callers allow) |
 | MCP | `get_stock_ownership` (holders, by-kind sum, the 15 largest fund holdings, each fund named with its institution) and `get_institution_holdings` (slug or name; an ambiguous name lists the slugs), `services/shorts/internal/mcp/tools_ownership.go`. A stated 0.00% fund weight beside a real value is omitted (super disclosures state two places) |
@@ -1093,6 +1093,29 @@ register OG lanes and the e2e spec, is specified there and not built; section
   rendered once, every `<time>` is `whitespace-nowrap`. The feed stacks below
   `md`. Measured on static markup to fit 360 to 1280 px signed in; no e2e holds
   it yet (stage 3).
+- **Dates bound the feed on their own.** When `since` or `until` is named on
+  `ListSubstantialNotices` the window is ignored, the span is capped at 366
+  days and `until` before `since` is refused; the heatmap's cell links depend
+  on it (they carry dates and no window). The feed reads `industry`, `since`
+  and `until` from its link.
+- **The desk is one state.** `desk-state.ts` holds window, lens, sector, the
+  brushed `since`/`until` and the fund window's `from`/`to`; every island writes
+  through it, so no island's write erases another's. While a brush or the date
+  slider is held nothing moves but its handles.
+- **The stock panel never prints the short position** (sections 11, 12 and
+  13.8: kinds and short interest never share a panel); it links the Short
+  interest tab. The map's short lens is the one place the chart's short colour
+  is used; a notice flow is drawn ink/paper/amber, never red or green.
+- **Exposure is an estimate**: voting power x market cap, labelled "disclosed
+  exposure, estimated" wherever it is drawn; a stock without a market cap has
+  none (has_ false, never 0), and in the map its area is the universe's median,
+  flagged in its title.
+- **A screen-reader table takes the house wrapper** (`ScreenReaderTable`):
+  `sr-only` on a `<table>` does not constrain a display:table box, and the
+  map's own sr-only table made the hub scroll sideways to 801 px on a phone.
+- **The hub's first-load JS grew from 127 to 179 kB** with the four
+  instruments (the budget is 300 kB; the baseline carries it). A new
+  instrument must earn its chunk: the layouts are pure and run on the server.
 - **Unclassified holders (59% of positions) are plain text**: no holder pages,
   no holder search, no fuzzy merging across keys (`name:` keys split on text
   layer breaks: "Limite d"). The parser withholds placeholder names ("SEE

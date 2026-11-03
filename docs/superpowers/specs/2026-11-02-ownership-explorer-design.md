@@ -469,3 +469,68 @@ Integration (after all packages): `cd web && npx tsc --noEmit && npm run lint &&
 - Minor (strip departs from the brief's one line): the strip is now one line, with the largest three holders' names inside it, so the brief's form and the cross-link value both hold.
 - Minor (1 pp step always visible): the claim is withdrawn and restated honestly in section 2 and in the lanes caption; the per-lane scale stays.
 - Minor (hub rack top 3 vs the brief's top 10): the brief's top 10 is restored for stage 3.
+## 13. The desk: visual instruments with drilldowns (stage 3, decided 2026-11-03)
+
+The owner's verdict on stages 1 and 2: the tables are the record, not the insight. The hub becomes a desk of four instruments over the same data, each a way in, each drilling to the record (the register page, the feed, the registers list, the institution page). The tables stay beneath as the record. One window of time drives every instrument. Nothing here is a new fact: every figure is the one the record already states, drawn.
+
+### 13.1 Shared state and copy rules
+
+- URL state on `/ownership`: `?window=<days>` (the window of change: 28, 91, 182 or 364; default 91), `?lens=<lens>` (the map's colour), `?sector=<industry>` (a zoomed sector; absent = the whole market), `?from=&to=` (the index-fund window, two snapshot dates). Written with `history.replaceState` by the islands, read by each island under its own Suspense; the server renders the default view (window 91, lens disclosed, whole market, the newest two index snapshots). No page reads `searchParams`.
+- Colour: kinds keep their category colours (`kinds.ts`). A sequential lens runs paper to amber in the theme's tones; a diverging lens (net flow) runs ink to paper to amber, NEVER red or green: a notice flow is not a market direction. Short interest as a lens is the exception, drawn in the chart's short-interest colour. Every cell carries its figure as text in a `<title>` and in the sr-only table.
+- Copy: every sum is "what the notices disclose"; exposure is "disclosed exposure, estimated" (voting power x market cap, an estimate that assumes the voting power is of the shares on issue; the caption says so once per instrument). A change over a window is "net change in disclosed voting power, percentage points"; never "bought" or "sold".
+- Motion: `motion-safe:` only; a zoom is a 200 ms transform; the heatmap brush and the date slider move nothing but their own handles.
+
+### 13.2 The map (hero): a treemap of sectors and stocks
+
+- Cells are stocks grouped by industry (the company-metadata industry through `industryLabel`; placeholders fall into "Other"); area = market cap (a stock without one takes the universe's median, flagged in its title as estimated); the squarify layout from `d3-hierarchy`, computed on the SERVER for the default view so the HTML carries the SVG (ISR), and in the island for a zoom or a lens change.
+- Lenses (`?lens=`): `disclosed` (the sum of substantial holdings, default), `institutional` (the investor kinds' sum), `hedge` (hedge funds), `index` (index funds' share of shares on issue), `short` (ASIC short interest), `flow` (net change in disclosed voting power over the window, diverging). A lens with no figure for a stock draws the cell hatched (`pattern`), never zero.
+- Drilldown: click (or Enter on) a sector label zooms to that sector (`?sector=`), the breadcrumb above the map reads "Market > Materials", Escape or the breadcrumb zooms out; click a stock opens the **stock panel** beside the map (a `<aside>`, under the map on a phone): the code and name, the disclosed bar by kind (`DisclosedBar`), the three largest holders with their figures and dates, the index-fund share and the short position with dates, the five latest notices, and links "Full register", "Overview", "All notices for CODE". Arrow keys move between cells; the panel is a `role="dialog"`-free region with a heading, closed by its own button.
+- Hover: a tooltip with the code, the lens figure and the sector; the sr-only table beneath lists every cell with its figure.
+- Legend: the lens scale as a labelled bar; the window chip row (28/91/182/364 days) is shared with the heatmap and the flows.
+
+### 13.3 Flows: a sankey from holder kinds to sectors
+
+- Left nodes = holder kinds (the nine investor kinds plus banks and brokers, listed companies and unclassified), right nodes = sectors, bands = disclosed exposure, estimated (sum over current holdings of voting power x market cap). Toggle "Positions" / "Changes in the window": the second draws the same bands from the window's notices (Δ voting power x market cap), a band for increases and one for decreases, ink and amber.
+- Layout from `d3-sankey` on the server for the default view; the island redraws on toggle or window change. Hover a band: the exposure in AUD (estimated), the number of holdings and the largest; click a band: the registers list filtered `?industry=&kind=` (an existing view); click a kind node: the institution directory filtered to the kind (an existing view); click a sector node: zooms the map.
+- Caption: "Disclosed exposure, estimated: voting power x market cap, what the notices disclose; banks' and brokers' notices are often securities lending."
+
+### 13.4 Movement: a heatmap of sectors by week, with the window brush
+
+- Rows = sectors (sorted by the window's activity), columns = the last 52 weeks (Monday-started), cell = net change in disclosed voting power in percentage points, summed over the notices released that week (diverging ink/paper/amber); hover shows the counts by event (became, increased, decreased, ceased) and the net; click a cell: the feed filtered `?industry=&since=&until=` (new filters, 13.6).
+- The brush: a two-handle selection over the week axis sets the window; the window chips set it to the last N days; the brush and the chips are the same state. A brushed window that does not end today is "from X to Y" on every instrument's caption. On a phone the heatmap shows 26 weeks and the brush becomes the chip row.
+- The sr-only table lists sectors by week.
+
+### 13.5 Index fund positions: the sliding window
+
+- A two-handle date slider over the snapshot dates the tracked index funds have (`snapshot_dates` from the API; the history accumulates nightly as files change: iShares and Betashares daily, Vanguard monthly, super options semi-annually, so the first weeks have few steps). The default window is the two newest dates.
+- Left: a diverging bar list of the largest changes in weight between the two dates, summed across the tracked funds per stock (percentage points of weight; AUD value change beside it as "estimated"); ten up, ten down; a stock whose weight is only in one date is marked "new" or "dropped" and sits in its own two rows, never counted as a change from zero.
+- Right (or beneath): clicking a stock draws its weight series per fund as small multiples (one line per fund, the x axis the snapshot dates, a dot per snapshot); the panel names each fund with its institution and the file date range.
+- Caption: "Index fund holdings files, one snapshot per file date; a weight is the fund's, not a share of the company. Super options disclose semi-annually."
+
+### 13.6 API (OwnershipService, mirrored on ShortedStocksService, all VISIBILITY_PUBLIC)
+
+- `GetOwnershipMap(from, to)` -> every stock of the universe: `code`, `name`, `industry`, `market_cap` (+has), `disclosed_pct`, `institutional_pct`, `hedge_pct`, `index_pct` (+has), `short_pct` (+has), `flow_pp` (+has; the net change in disclosed voting power from notices released in [from, to]), `notices` (count in the window), `as_of`. Dates default to the last 91 days ending at the newest notice. One statement for the window aggregate (`SUM(present_pct - previous_pct) GROUP BY stock_code` over notices in the range, a ceased notice counting its previous as a fall), the rest from the universe. Cached beside the universe for the default window only.
+- `GetOwnershipFlows(from, to)` -> `positions`: rows of (kind, industry, exposure_aud, holdings, largest_code, largest_pct); `changes`: rows of (kind, industry, direction up|down, exposure_aud, notices). Computed from the universe and the same window aggregate grouped by (kind, industry).
+- `GetOwnershipActivity(weeks)` -> rows of (industry, week_start, became, increased, decreased, ceased, nz, net_pp), 52 weeks at most, gap-filled; one statement.
+- `ListFundPositionChanges(from, to, limit)` -> `snapshot_dates` (every distinct as_at across tracked index funds), `from`, `to` (the dates used: the newest at or before each), rows of (code, name, weight_from_pct, weight_to_pct, delta_pp, value_from_aud, value_to_aud, funds, state current|new|dropped) sorted by |delta|; and `GetStockFundSeries(code)` -> per fund: (fund, institution, source_kind, points of (as_at, weight_pct, value_aud)).
+- `ListSubstantialNotices` gains `industry`, `since` and `until` (dates, inclusive; refused when until < since).
+- Every number travels with its `has_`; the web prints n/a, never 0.
+
+### 13.7 Web
+
+- Islands under `components/ownership/desk/`: `ownership-map.tsx` (treemap; `map-layout.ts` pure, shared with the server render), `ownership-flows.tsx` (`flows-layout.ts` pure), `movement-heatmap.tsx`, `fund-positions.tsx`, `desk-state.ts` (the URL codec for 13.1), `stock-panel.tsx`; loaders in `app/actions/ownershipDesk.ts` ("use server"; one per rpc; KV for the default views only). The islands take the actions as props and plain rows, reach no protobuf, Connect or action module at run time (`client-boundary.test.ts`), and read the URL under their own Suspense with the default view as fallback.
+- The hub `/ownership`: the plate, then the map with its lens and window chips, then flows and movement side by side from `lg` (stacked beneath), then index fund positions, then the existing sections as the record. ISR 3600 stays; the default view's SVGs are in the HTML; `bailOnEmptyRender` on any failed instrument read. The page's budget: under 450 kB of first-load JS for the route; the layouts are computed, not animated, on the server.
+- Guards as stage 2's: the editorial scan, the ISR source scan, the client boundary, `isr-hubs`, the bundle baseline rows. Every instrument has a jsdom test for its sr-only table and its links; the layouts have pure tests (areas sum, bands sum, weeks gap-filled, the new/dropped rule).
+
+### 13.8 Amendments after the first build's review (2026-11-03)
+
+- **The stock panel keeps the rule of sections 11 and 12**: kinds and short interest never share a panel. The panel draws the disclosed bar by kind, the three largest holders, the index-fund share with its file dates and the five latest notices; the short position is a link, "Short interest →" (`stockTabHref(code, "short-interest")`), never a figure in the aside. 13.2 is read with this.
+- **The map's caption follows the lens.** `disclosed`, `institutional`, `hedge` and `flow`: "What the notices disclose, each interest counted once; not a share of the company." `index`: "Index fund holdings files; a weight is the fund's, of shares on issue, not a share of the company." `short`: "ASIC short position report, published T+4; a short position is of shares on issue."
+- **Dates bound the feed on their own.** When `since` or `until` is named on `ListSubstantialNotices`, `window_days` is ignored (the dates are the window), the span is capped at 366 days, `until` before `since` is refused. The web feed reads `?industry=`, `?since=` and `?until=` (its codec and loader forward them; an active industry or date range shows as a removable chip beside the window chips, and the window chips are hidden while a date range is set).
+- **One desk state.** `since`/`until` (the brushed notice window) live in `desk-state.ts` beside `window`, `lens`, `sector`, `from` and `to`, so no island's write erases another's; the chips and the brush are that one state. While a brush is held, nothing moves but its handles: rows, captions and chips follow the committed window until release.
+- **The brush reads week indices**: visx's Brush reports bounds in domain units (weeks), never pixels.
+- **Index fund positions**: a stock's weight on a date is its sum over every tracked fund holding it; `new` and `dropped` are only a stock absent from every fund on one of the two dates; a stock held by different funds on the two dates is a change like any other. Rows are ordered current by |delta|, then new, then dropped. A `from` before the first snapshot clamps to the first; a `from` after the newest with no `to` is refused.
+- **Drilldowns land filtered.** The directory on the hub gives each kind's group an id (`directory-<kind>`) and a kind node links to it; a heatmap cell links to the feed with `industry`, `since` and `until`, which the feed now reads.
+- **The pure fund-change helpers live in `fund-changes.ts`**, so the fund island's chunk carries no d3-sankey; every desk module (islands, static twins, pure helpers) is in `client-boundary.test.ts`.
+- **A segment's `loading.tsx` wraps its children**: `/ownership/[slug]` gets its own institution-shaped skeleton, so the hub's desk skeleton never shows before an institution page.
+- **The movement heatmap takes its loader as a prop** (`loadActivity`), so its chips and brush redraw; the page passes `loadOwnershipActivity`.

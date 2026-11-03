@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-11-03T06:07:43.899Z",
+  "capturedAt": "2026-11-03T11:09:48.589Z",
   "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 112,
@@ -509,7 +509,7 @@
       "firstLoadKB": 112
     },
     "/ownership": {
-      "firstLoadKB": 127
+      "firstLoadKB": 179
     },
     "/ownership/[slug]": {
       "firstLoadKB": 128
@@ -518,7 +518,7 @@
       "firstLoadKB": 112
     },
     "/ownership/notices": {
-      "firstLoadKB": 138
+      "firstLoadKB": 140
     },
     "/ownership/notices/opengraph-image": {
       "firstLoadKB": 112
@@ -527,7 +527,7 @@
       "firstLoadKB": 112
     },
     "/ownership/stocks": {
-      "firstLoadKB": 136
+      "firstLoadKB": 137
     },
     "/ownership/stocks/[code]": {
       "firstLoadKB": 128
@@ -539,7 +539,7 @@
       "firstLoadKB": 123
     },
     "/picks/[strategy]": {
-      "firstLoadKB": 135
+      "firstLoadKB": 136
     },
     "/picks/[strategy]/opengraph-image": {
       "firstLoadKB": 112
@@ -707,7 +707,7 @@
       "firstLoadKB": 178
     },
     "/signup": {
-      "firstLoadKB": 175
+      "firstLoadKB": 176
     },
     "/sitemap-core.xml": {
       "firstLoadKB": 112

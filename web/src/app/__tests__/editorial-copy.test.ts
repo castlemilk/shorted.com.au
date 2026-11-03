@@ -1,8 +1,9 @@
 /**
- * Editorial copy on the ownership surfaces: the register, the hub, the notice
- * feed and the register list, their components, the stock strip, the explorer's
- * server action that supplies the rows the feed and the list print, and the lib
- * that feeds them.
+ * Editorial copy on the ownership surfaces: the register, the hub and its desk
+ * (the map, the flows, the movement, the index fund window and the stock panel),
+ * the notice feed and the register list, their components, the stock strip, the
+ * explorer's and the desk's server actions that supply the rows the instruments
+ * and lists print, and the lib that feeds them.
  *
  * Section 7 of the ownership explorer spec ("Copy") bans an em dash and four
  * phrases from this copy, because each one claims more than the source says.
@@ -41,6 +42,7 @@ const SCANNED = [
   path.join(SRC_DIR, "@", "components", "ownership"),
   path.join(SRC_DIR, "@", "components", "stocks", "register-strip.tsx"),
   path.join(APP_DIR, "actions", "ownershipExplorer.ts"),
+  path.join(APP_DIR, "actions", "ownershipDesk.ts"),
   path.join(SRC_DIR, "@", "lib", "ownership"),
 ];
 
@@ -162,7 +164,18 @@ describe("ownership editorial copy", () => {
         "@/components/ownership/registers-explorer.tsx",
         "@/components/ownership/register-rows-table.tsx",
         "@/components/stocks/register-strip.tsx",
+        "@/components/ownership/desk/ownership-map.tsx",
+        "@/components/ownership/desk/ownership-flows.tsx",
+        "@/components/ownership/desk/movement-heatmap.tsx",
+        "@/components/ownership/desk/fund-positions.tsx",
+        "@/components/ownership/desk/stock-panel.tsx",
+        "@/components/ownership/desk/ownership-map-static.tsx",
+        "@/components/ownership/desk/ownership-flows-static.tsx",
+        "@/components/ownership/desk/movement-heatmap-static.tsx",
+        "@/components/ownership/desk/fund-positions-static.tsx",
+        "app/ownership/loading.tsx",
         "app/actions/ownershipExplorer.ts",
+        "app/actions/ownershipDesk.ts",
         "@/lib/ownership/trace.ts",
       ]),
     );

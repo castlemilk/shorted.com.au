@@ -151,6 +151,91 @@ public final class OwnershipProto extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_ListStockRegistersResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetOwnershipMapRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetOwnershipMapRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_MapStock_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_MapStock_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetOwnershipMapResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetOwnershipMapResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetOwnershipFlowsRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetOwnershipFlowsRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_FlowPosition_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_FlowPosition_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_FlowChange_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_FlowChange_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetOwnershipFlowsResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetOwnershipFlowsResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetOwnershipActivityRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetOwnershipActivityRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_IndustryWeek_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_IndustryWeek_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetOwnershipActivityResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetOwnershipActivityResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListFundPositionChangesRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListFundPositionChangesRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_FundPositionChange_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_FundPositionChange_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListFundPositionChangesResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListFundPositionChangesResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetStockFundSeriesRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetStockFundSeriesRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_FundPoint_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_FundPoint_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_FundSeries_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_FundSeries_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetStockFundSeriesResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetStockFundSeriesResponse_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -309,72 +394,168 @@ public final class OwnershipProto extends com.google.protobuf.GeneratedFile {
       "ue\030\006 \001(\010R\020hasSharesOnIssue\022#\n\rhistory_to" +
       "tal\030\007 \001(\005R\014historyTotal\022\'\n\017withheld_list" +
       "ed\030\010 \001(\005R\016withheldListed\022\023\n\005as_of\030\t \001(\tR" +
-      "\004asOf\"\215\002\n\035ListSubstantialNoticesRequest\022" +
+      "\004asOf\"\325\002\n\035ListSubstantialNoticesRequest\022" +
       "\037\n\013window_days\030\001 \001(\005R\nwindowDays\022\024\n\005even" +
       "t\030\002 \001(\tR\005event\022\022\n\004kind\030\003 \001(\tR\004kind\022\035\n\nst" +
       "ock_code\030\004 \001(\tR\tstockCode\022)\n\020institution" +
       "_slug\030\005 \001(\tR\017institutionSlug\022\026\n\006cursor\030\006" +
       " \001(\tR\006cursor\022\024\n\005limit\030\007 \001(\005R\005limit\022)\n\020in" +
-      "clude_activity\030\010 \001(\010R\017includeActivity\"\301\001" +
-      "\n\nNoticeWeek\022\035\n\nweek_start\030\001 \001(\tR\tweekSt" +
-      "art\022\026\n\006became\030\002 \001(\005R\006became\022\034\n\tincreased" +
-      "\030\003 \001(\005R\tincreased\022\034\n\tdecreased\030\004 \001(\005R\tde" +
-      "creased\022\030\n\007changed\030\005 \001(\005R\007changed\022\026\n\006cea" +
-      "sed\030\006 \001(\005R\006ceased\022\016\n\002nz\030\007 \001(\005R\002nz\"\353\002\n\016No" +
-      "ticeActivity\022\026\n\006became\030\001 \001(\005R\006became\022\034\n\t" +
-      "increased\030\002 \001(\005R\tincreased\022\034\n\tdecreased\030" +
-      "\003 \001(\005R\tdecreased\022\030\n\007changed\030\004 \001(\005R\007chang" +
-      "ed\022\026\n\006ceased\030\005 \001(\005R\006ceased\022\016\n\002nz\030\006 \001(\005R\002" +
-      "nz\0221\n\005weeks\030\007 \003(\0132\033.shorts.v1alpha1.Noti" +
-      "ceWeekR\005weeks\022G\n\rlargest_rises\030\010 \003(\0132\".s" +
-      "horts.v1alpha1.SubstantialNoticeR\014larges" +
-      "tRises\022G\n\rlargest_falls\030\t \003(\0132\".shorts.v" +
-      "1alpha1.SubstantialNoticeR\014largestFalls\"" +
-      "\210\002\n\036ListSubstantialNoticesResponse\022<\n\007no" +
-      "tices\030\001 \003(\0132\".shorts.v1alpha1.Substantia" +
-      "lNoticeR\007notices\022\037\n\013next_cursor\030\002 \001(\tR\nn" +
-      "extCursor\022\024\n\005total\030\003 \001(\005R\005total\022\037\n\013windo" +
-      "w_days\030\004 \001(\005R\nwindowDays\022\023\n\005as_of\030\005 \001(\tR" +
-      "\004asOf\022;\n\010activity\030\006 \001(\0132\037.shorts.v1alpha" +
-      "1.NoticeActivityR\010activity\"\212\002\n\031ListStock" +
-      "RegistersRequest\022\022\n\004sort\030\001 \001(\tR\004sort\022\034\n\t" +
-      "ascending\030\002 \001(\010R\tascending\022\032\n\010industry\030\003" +
-      " \001(\tR\010industry\022\022\n\004kind\030\004 \001(\tR\004kind\022#\n\rmi" +
-      "n_interests\030\005 \001(\005R\014minInterests\022\"\n\rmin_s" +
-      "hort_pct\030\006 \001(\001R\013minShortPct\022\024\n\005query\030\007 \001" +
-      "(\tR\005query\022\024\n\005limit\030\010 \001(\005R\005limit\022\026\n\006offse" +
-      "t\030\t \001(\005R\006offset\"C\n\rIndustryCount\022\032\n\010indu" +
-      "stry\030\001 \001(\tR\010industry\022\026\n\006stocks\030\002 \001(\005R\006st" +
-      "ocks\"\334\001\n\032ListStockRegistersResponse\0227\n\006s" +
-      "tocks\030\001 \003(\0132\037.shorts.v1alpha1.OwnershipS" +
-      "tockR\006stocks\022\024\n\005total\030\002 \001(\005R\005total\022\032\n\010un" +
-      "iverse\030\003 \001(\005R\010universe\022>\n\nindustries\030\004 \003" +
-      "(\0132\036.shorts.v1alpha1.IndustryCountR\nindu" +
-      "stries\022\023\n\005as_of\030\005 \001(\tR\004asOf2\315\005\n\020Ownershi" +
-      "pService\022y\n\024GetOwnershipOverview\022,.short" +
-      "s.v1alpha1.GetOwnershipOverviewRequest\032-" +
-      ".shorts.v1alpha1.GetOwnershipOverviewRes" +
-      "ponse\"\004\200\265\030\001\022m\n\020ListInstitutions\022(.shorts" +
-      ".v1alpha1.ListInstitutionsRequest\032).shor" +
-      "ts.v1alpha1.ListInstitutionsResponse\"\004\200\265" +
-      "\030\001\022g\n\016GetInstitution\022&.shorts.v1alpha1.G" +
-      "etInstitutionRequest\032\'.shorts.v1alpha1.G" +
-      "etInstitutionResponse\"\004\200\265\030\001\022p\n\021GetStockO" +
-      "wnership\022).shorts.v1alpha1.GetStockOwner" +
-      "shipRequest\032*.shorts.v1alpha1.GetStockOw" +
-      "nershipResponse\"\004\200\265\030\001\022\177\n\026ListSubstantial" +
-      "Notices\022..shorts.v1alpha1.ListSubstantia" +
-      "lNoticesRequest\032/.shorts.v1alpha1.ListSu" +
-      "bstantialNoticesResponse\"\004\200\265\030\001\022s\n\022ListSt" +
-      "ockRegisters\022*.shorts.v1alpha1.ListStock" +
-      "RegistersRequest\032+.shorts.v1alpha1.ListS" +
-      "tockRegistersResponse\"\004\200\265\030\001B\335\001\n\023com.shor" +
-      "ts.v1alpha1B\016OwnershipProtoP\001ZYgithub.co" +
-      "m/castlemilk/shorted.com.au/services/gen" +
-      "/proto/go/shorts/v1alpha1;shortsv1alpha1" +
-      "\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alph" +
-      "a1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Short" +
-      "s::V1alpha1b\006proto3"
+      "clude_activity\030\010 \001(\010R\017includeActivity\022\032\n" +
+      "\010industry\030\t \001(\tR\010industry\022\024\n\005since\030\n \001(\t" +
+      "R\005since\022\024\n\005until\030\013 \001(\tR\005until\"\301\001\n\nNotice" +
+      "Week\022\035\n\nweek_start\030\001 \001(\tR\tweekStart\022\026\n\006b" +
+      "ecame\030\002 \001(\005R\006became\022\034\n\tincreased\030\003 \001(\005R\t" +
+      "increased\022\034\n\tdecreased\030\004 \001(\005R\tdecreased\022" +
+      "\030\n\007changed\030\005 \001(\005R\007changed\022\026\n\006ceased\030\006 \001(" +
+      "\005R\006ceased\022\016\n\002nz\030\007 \001(\005R\002nz\"\353\002\n\016NoticeActi" +
+      "vity\022\026\n\006became\030\001 \001(\005R\006became\022\034\n\tincrease" +
+      "d\030\002 \001(\005R\tincreased\022\034\n\tdecreased\030\003 \001(\005R\td" +
+      "ecreased\022\030\n\007changed\030\004 \001(\005R\007changed\022\026\n\006ce" +
+      "ased\030\005 \001(\005R\006ceased\022\016\n\002nz\030\006 \001(\005R\002nz\0221\n\005we" +
+      "eks\030\007 \003(\0132\033.shorts.v1alpha1.NoticeWeekR\005" +
+      "weeks\022G\n\rlargest_rises\030\010 \003(\0132\".shorts.v1" +
+      "alpha1.SubstantialNoticeR\014largestRises\022G" +
+      "\n\rlargest_falls\030\t \003(\0132\".shorts.v1alpha1." +
+      "SubstantialNoticeR\014largestFalls\"\210\002\n\036List" +
+      "SubstantialNoticesResponse\022<\n\007notices\030\001 " +
+      "\003(\0132\".shorts.v1alpha1.SubstantialNoticeR" +
+      "\007notices\022\037\n\013next_cursor\030\002 \001(\tR\nnextCurso" +
+      "r\022\024\n\005total\030\003 \001(\005R\005total\022\037\n\013window_days\030\004" +
+      " \001(\005R\nwindowDays\022\023\n\005as_of\030\005 \001(\tR\004asOf\022;\n" +
+      "\010activity\030\006 \001(\0132\037.shorts.v1alpha1.Notice" +
+      "ActivityR\010activity\"\212\002\n\031ListStockRegister" +
+      "sRequest\022\022\n\004sort\030\001 \001(\tR\004sort\022\034\n\tascendin" +
+      "g\030\002 \001(\010R\tascending\022\032\n\010industry\030\003 \001(\tR\010in" +
+      "dustry\022\022\n\004kind\030\004 \001(\tR\004kind\022#\n\rmin_intere" +
+      "sts\030\005 \001(\005R\014minInterests\022\"\n\rmin_short_pct" +
+      "\030\006 \001(\001R\013minShortPct\022\024\n\005query\030\007 \001(\tR\005quer" +
+      "y\022\024\n\005limit\030\010 \001(\005R\005limit\022\026\n\006offset\030\t \001(\005R" +
+      "\006offset\"C\n\rIndustryCount\022\032\n\010industry\030\001 \001" +
+      "(\tR\010industry\022\026\n\006stocks\030\002 \001(\005R\006stocks\"\334\001\n" +
+      "\032ListStockRegistersResponse\0227\n\006stocks\030\001 " +
+      "\003(\0132\037.shorts.v1alpha1.OwnershipStockR\006st" +
+      "ocks\022\024\n\005total\030\002 \001(\005R\005total\022\032\n\010universe\030\003" +
+      " \001(\005R\010universe\022>\n\nindustries\030\004 \003(\0132\036.sho" +
+      "rts.v1alpha1.IndustryCountR\nindustries\022\023" +
+      "\n\005as_of\030\005 \001(\tR\004asOf\"<\n\026GetOwnershipMapRe" +
+      "quest\022\022\n\004from\030\001 \001(\tR\004from\022\016\n\002to\030\002 \001(\tR\002t" +
+      "o\"\361\003\n\010MapStock\022\035\n\nstock_code\030\001 \001(\tR\tstoc" +
+      "kCode\022!\n\014company_name\030\002 \001(\tR\013companyName" +
+      "\022\032\n\010industry\030\003 \001(\tR\010industry\022\035\n\nmarket_c" +
+      "ap\030\004 \001(\001R\tmarketCap\022$\n\016has_market_cap\030\005 " +
+      "\001(\010R\014hasMarketCap\022#\n\rdisclosed_pct\030\006 \001(\001" +
+      "R\014disclosedPct\022+\n\021institutional_pct\030\007 \001(" +
+      "\001R\020institutionalPct\022\033\n\thedge_pct\030\010 \001(\001R\010" +
+      "hedgePct\022\033\n\tindex_pct\030\t \001(\001R\010indexPct\022\"\n" +
+      "\rhas_index_pct\030\n \001(\010R\013hasIndexPct\022\033\n\tsho" +
+      "rt_pct\030\013 \001(\001R\010shortPct\022\"\n\rhas_short_pct\030" +
+      "\014 \001(\010R\013hasShortPct\022\027\n\007flow_pp\030\r \001(\001R\006flo" +
+      "wPp\022\036\n\013has_flow_pp\030\016 \001(\010R\thasFlowPp\022\030\n\007n" +
+      "otices\030\017 \001(\005R\007notices\"\205\001\n\027GetOwnershipMa" +
+      "pResponse\022\022\n\004from\030\001 \001(\tR\004from\022\016\n\002to\030\002 \001(" +
+      "\tR\002to\0221\n\006stocks\030\003 \003(\0132\031.shorts.v1alpha1." +
+      "MapStockR\006stocks\022\023\n\005as_of\030\004 \001(\tR\004asOf\">\n" +
+      "\030GetOwnershipFlowsRequest\022\022\n\004from\030\001 \001(\tR" +
+      "\004from\022\016\n\002to\030\002 \001(\tR\002to\"\344\001\n\014FlowPosition\022\022" +
+      "\n\004kind\030\001 \001(\tR\004kind\022\032\n\010industry\030\002 \001(\tR\010in" +
+      "dustry\022!\n\014exposure_aud\030\003 \001(\001R\013exposureAu" +
+      "d\022!\n\014has_exposure\030\004 \001(\010R\013hasExposure\022\032\n\010" +
+      "holdings\030\005 \001(\005R\010holdings\022!\n\014largest_code" +
+      "\030\006 \001(\tR\013largestCode\022\037\n\013largest_pct\030\007 \001(\001" +
+      "R\nlargestPct\"\272\001\n\nFlowChange\022\022\n\004kind\030\001 \001(" +
+      "\tR\004kind\022\032\n\010industry\030\002 \001(\tR\010industry\022\034\n\td" +
+      "irection\030\003 \001(\tR\tdirection\022!\n\014exposure_au" +
+      "d\030\004 \001(\001R\013exposureAud\022!\n\014has_exposure\030\005 \001" +
+      "(\010R\013hasExposure\022\030\n\007notices\030\006 \001(\005R\007notice" +
+      "s\"\310\001\n\031GetOwnershipFlowsResponse\022\022\n\004from\030" +
+      "\001 \001(\tR\004from\022\016\n\002to\030\002 \001(\tR\002to\022;\n\tpositions" +
+      "\030\003 \003(\0132\035.shorts.v1alpha1.FlowPositionR\tp" +
+      "ositions\0225\n\007changes\030\004 \003(\0132\033.shorts.v1alp" +
+      "ha1.FlowChangeR\007changes\022\023\n\005as_of\030\005 \001(\tR\004" +
+      "asOf\"3\n\033GetOwnershipActivityRequest\022\024\n\005w" +
+      "eeks\030\001 \001(\005R\005weeks\"\224\002\n\014IndustryWeek\022\032\n\010in" +
+      "dustry\030\001 \001(\tR\010industry\022\035\n\nweek_start\030\002 \001" +
+      "(\tR\tweekStart\022\026\n\006became\030\003 \001(\005R\006became\022\034\n" +
+      "\tincreased\030\004 \001(\005R\tincreased\022\034\n\tdecreased" +
+      "\030\005 \001(\005R\tdecreased\022\030\n\007changed\030\006 \001(\005R\007chan" +
+      "ged\022\026\n\006ceased\030\007 \001(\005R\006ceased\022\016\n\002nz\030\010 \001(\005R" +
+      "\002nz\022\025\n\006net_pp\030\t \001(\001R\005netPp\022\034\n\nhas_net_pp" +
+      "\030\n \001(\010R\010hasNetPp\"\234\001\n\034GetOwnershipActivit" +
+      "yResponse\022\033\n\tfrom_week\030\001 \001(\tR\010fromWeek\022\027" +
+      "\n\007to_week\030\002 \001(\tR\006toWeek\0221\n\004rows\030\003 \003(\0132\035." +
+      "shorts.v1alpha1.IndustryWeekR\004rows\022\023\n\005as" +
+      "_of\030\004 \001(\tR\004asOf\"Z\n\036ListFundPositionChang" +
+      "esRequest\022\022\n\004from\030\001 \001(\tR\004from\022\016\n\002to\030\002 \001(" +
+      "\tR\002to\022\024\n\005limit\030\003 \001(\005R\005limit\"\342\003\n\022FundPosi" +
+      "tionChange\022\035\n\nstock_code\030\001 \001(\tR\tstockCod" +
+      "e\022!\n\014company_name\030\002 \001(\tR\013companyName\022&\n\017" +
+      "weight_from_pct\030\003 \001(\001R\rweightFromPct\022&\n\017" +
+      "has_weight_from\030\004 \001(\010R\rhasWeightFrom\022\"\n\r" +
+      "weight_to_pct\030\005 \001(\001R\013weightToPct\022\"\n\rhas_" +
+      "weight_to\030\006 \001(\010R\013hasWeightTo\022\031\n\010delta_pp" +
+      "\030\007 \001(\001R\007deltaPp\022\033\n\thas_delta\030\010 \001(\010R\010hasD" +
+      "elta\022$\n\016value_from_aud\030\t \001(\001R\014valueFromA" +
+      "ud\022$\n\016has_value_from\030\n \001(\010R\014hasValueFrom" +
+      "\022 \n\014value_to_aud\030\013 \001(\001R\nvalueToAud\022 \n\014ha" +
+      "s_value_to\030\014 \001(\010R\nhasValueTo\022\024\n\005funds\030\r " +
+      "\001(\005R\005funds\022\024\n\005state\030\016 \001(\tR\005state\"\245\001\n\037Lis" +
+      "tFundPositionChangesResponse\022%\n\016snapshot" +
+      "_dates\030\001 \003(\tR\rsnapshotDates\022\022\n\004from\030\002 \001(" +
+      "\tR\004from\022\016\n\002to\030\003 \001(\tR\002to\0227\n\004rows\030\004 \003(\0132#." +
+      "shorts.v1alpha1.FundPositionChangeR\004rows" +
+      "\":\n\031GetStockFundSeriesRequest\022\035\n\nstock_c" +
+      "ode\030\001 \001(\tR\tstockCode\"\230\001\n\tFundPoint\022\023\n\005as" +
+      "_at\030\001 \001(\tR\004asAt\022\035\n\nweight_pct\030\002 \001(\001R\twei" +
+      "ghtPct\022\035\n\nhas_weight\030\003 \001(\010R\thasWeight\022\033\n" +
+      "\tvalue_aud\030\004 \001(\001R\010valueAud\022\033\n\thas_value\030" +
+      "\005 \001(\010R\010hasValue\"\324\001\n\nFundSeries\022)\n\020instit" +
+      "ution_slug\030\001 \001(\tR\017institutionSlug\022)\n\020ins" +
+      "titution_name\030\002 \001(\tR\017institutionName\022\033\n\t" +
+      "fund_name\030\003 \001(\tR\010fundName\022\037\n\013source_kind" +
+      "\030\004 \001(\tR\nsourceKind\0222\n\006points\030\005 \003(\0132\032.sho" +
+      "rts.v1alpha1.FundPointR\006points\"n\n\032GetSto" +
+      "ckFundSeriesResponse\022\035\n\nstock_code\030\001 \001(\t" +
+      "R\tstockCode\0221\n\005funds\030\002 \003(\0132\033.shorts.v1al" +
+      "pha1.FundSeriesR\005funds2\240\n\n\020OwnershipServ" +
+      "ice\022y\n\024GetOwnershipOverview\022,.shorts.v1a" +
+      "lpha1.GetOwnershipOverviewRequest\032-.shor" +
+      "ts.v1alpha1.GetOwnershipOverviewResponse" +
+      "\"\004\200\265\030\001\022m\n\020ListInstitutions\022(.shorts.v1al" +
+      "pha1.ListInstitutionsRequest\032).shorts.v1" +
+      "alpha1.ListInstitutionsResponse\"\004\200\265\030\001\022g\n" +
+      "\016GetInstitution\022&.shorts.v1alpha1.GetIns" +
+      "titutionRequest\032\'.shorts.v1alpha1.GetIns" +
+      "titutionResponse\"\004\200\265\030\001\022p\n\021GetStockOwners" +
+      "hip\022).shorts.v1alpha1.GetStockOwnershipR" +
+      "equest\032*.shorts.v1alpha1.GetStockOwnersh" +
+      "ipResponse\"\004\200\265\030\001\022\177\n\026ListSubstantialNotic" +
+      "es\022..shorts.v1alpha1.ListSubstantialNoti" +
+      "cesRequest\032/.shorts.v1alpha1.ListSubstan" +
+      "tialNoticesResponse\"\004\200\265\030\001\022s\n\022ListStockRe" +
+      "gisters\022*.shorts.v1alpha1.ListStockRegis" +
+      "tersRequest\032+.shorts.v1alpha1.ListStockR" +
+      "egistersResponse\"\004\200\265\030\001\022j\n\017GetOwnershipMa" +
+      "p\022\'.shorts.v1alpha1.GetOwnershipMapReque" +
+      "st\032(.shorts.v1alpha1.GetOwnershipMapResp" +
+      "onse\"\004\200\265\030\001\022p\n\021GetOwnershipFlows\022).shorts" +
+      ".v1alpha1.GetOwnershipFlowsRequest\032*.sho" +
+      "rts.v1alpha1.GetOwnershipFlowsResponse\"\004" +
+      "\200\265\030\001\022y\n\024GetOwnershipActivity\022,.shorts.v1" +
+      "alpha1.GetOwnershipActivityRequest\032-.sho" +
+      "rts.v1alpha1.GetOwnershipActivityRespons" +
+      "e\"\004\200\265\030\001\022\202\001\n\027ListFundPositionChanges\022/.sh" +
+      "orts.v1alpha1.ListFundPositionChangesReq" +
+      "uest\0320.shorts.v1alpha1.ListFundPositionC" +
+      "hangesResponse\"\004\200\265\030\001\022s\n\022GetStockFundSeri" +
+      "es\022*.shorts.v1alpha1.GetStockFundSeriesR" +
+      "equest\032+.shorts.v1alpha1.GetStockFundSer" +
+      "iesResponse\"\004\200\265\030\001B\335\001\n\023com.shorts.v1alpha" +
+      "1B\016OwnershipProtoP\001ZYgithub.com/castlemi" +
+      "lk/shorted.com.au/services/gen/proto/go/" +
+      "shorts/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017S" +
+      "horts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Short" +
+      "s\\V1alpha1\\GPBMetadata\352\002\020Shorts::V1alpha" +
+      "1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -494,7 +675,7 @@ public final class OwnershipProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_ListSubstantialNoticesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListSubstantialNoticesRequest_descriptor,
-        new java.lang.String[] { "WindowDays", "Event", "Kind", "StockCode", "InstitutionSlug", "Cursor", "Limit", "IncludeActivity", });
+        new java.lang.String[] { "WindowDays", "Event", "Kind", "StockCode", "InstitutionSlug", "Cursor", "Limit", "IncludeActivity", "Industry", "Since", "Until", });
     internal_static_shorts_v1alpha1_NoticeWeek_descriptor =
       getDescriptor().getMessageType(19);
     internal_static_shorts_v1alpha1_NoticeWeek_fieldAccessorTable = new
@@ -531,6 +712,108 @@ public final class OwnershipProto extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStockRegistersResponse_descriptor,
         new java.lang.String[] { "Stocks", "Total", "Universe", "Industries", "AsOf", });
+    internal_static_shorts_v1alpha1_GetOwnershipMapRequest_descriptor =
+      getDescriptor().getMessageType(25);
+    internal_static_shorts_v1alpha1_GetOwnershipMapRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetOwnershipMapRequest_descriptor,
+        new java.lang.String[] { "From", "To", });
+    internal_static_shorts_v1alpha1_MapStock_descriptor =
+      getDescriptor().getMessageType(26);
+    internal_static_shorts_v1alpha1_MapStock_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_MapStock_descriptor,
+        new java.lang.String[] { "StockCode", "CompanyName", "Industry", "MarketCap", "HasMarketCap", "DisclosedPct", "InstitutionalPct", "HedgePct", "IndexPct", "HasIndexPct", "ShortPct", "HasShortPct", "FlowPp", "HasFlowPp", "Notices", });
+    internal_static_shorts_v1alpha1_GetOwnershipMapResponse_descriptor =
+      getDescriptor().getMessageType(27);
+    internal_static_shorts_v1alpha1_GetOwnershipMapResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetOwnershipMapResponse_descriptor,
+        new java.lang.String[] { "From", "To", "Stocks", "AsOf", });
+    internal_static_shorts_v1alpha1_GetOwnershipFlowsRequest_descriptor =
+      getDescriptor().getMessageType(28);
+    internal_static_shorts_v1alpha1_GetOwnershipFlowsRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetOwnershipFlowsRequest_descriptor,
+        new java.lang.String[] { "From", "To", });
+    internal_static_shorts_v1alpha1_FlowPosition_descriptor =
+      getDescriptor().getMessageType(29);
+    internal_static_shorts_v1alpha1_FlowPosition_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_FlowPosition_descriptor,
+        new java.lang.String[] { "Kind", "Industry", "ExposureAud", "HasExposure", "Holdings", "LargestCode", "LargestPct", });
+    internal_static_shorts_v1alpha1_FlowChange_descriptor =
+      getDescriptor().getMessageType(30);
+    internal_static_shorts_v1alpha1_FlowChange_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_FlowChange_descriptor,
+        new java.lang.String[] { "Kind", "Industry", "Direction", "ExposureAud", "HasExposure", "Notices", });
+    internal_static_shorts_v1alpha1_GetOwnershipFlowsResponse_descriptor =
+      getDescriptor().getMessageType(31);
+    internal_static_shorts_v1alpha1_GetOwnershipFlowsResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetOwnershipFlowsResponse_descriptor,
+        new java.lang.String[] { "From", "To", "Positions", "Changes", "AsOf", });
+    internal_static_shorts_v1alpha1_GetOwnershipActivityRequest_descriptor =
+      getDescriptor().getMessageType(32);
+    internal_static_shorts_v1alpha1_GetOwnershipActivityRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetOwnershipActivityRequest_descriptor,
+        new java.lang.String[] { "Weeks", });
+    internal_static_shorts_v1alpha1_IndustryWeek_descriptor =
+      getDescriptor().getMessageType(33);
+    internal_static_shorts_v1alpha1_IndustryWeek_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_IndustryWeek_descriptor,
+        new java.lang.String[] { "Industry", "WeekStart", "Became", "Increased", "Decreased", "Changed", "Ceased", "Nz", "NetPp", "HasNetPp", });
+    internal_static_shorts_v1alpha1_GetOwnershipActivityResponse_descriptor =
+      getDescriptor().getMessageType(34);
+    internal_static_shorts_v1alpha1_GetOwnershipActivityResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetOwnershipActivityResponse_descriptor,
+        new java.lang.String[] { "FromWeek", "ToWeek", "Rows", "AsOf", });
+    internal_static_shorts_v1alpha1_ListFundPositionChangesRequest_descriptor =
+      getDescriptor().getMessageType(35);
+    internal_static_shorts_v1alpha1_ListFundPositionChangesRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListFundPositionChangesRequest_descriptor,
+        new java.lang.String[] { "From", "To", "Limit", });
+    internal_static_shorts_v1alpha1_FundPositionChange_descriptor =
+      getDescriptor().getMessageType(36);
+    internal_static_shorts_v1alpha1_FundPositionChange_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_FundPositionChange_descriptor,
+        new java.lang.String[] { "StockCode", "CompanyName", "WeightFromPct", "HasWeightFrom", "WeightToPct", "HasWeightTo", "DeltaPp", "HasDelta", "ValueFromAud", "HasValueFrom", "ValueToAud", "HasValueTo", "Funds", "State", });
+    internal_static_shorts_v1alpha1_ListFundPositionChangesResponse_descriptor =
+      getDescriptor().getMessageType(37);
+    internal_static_shorts_v1alpha1_ListFundPositionChangesResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListFundPositionChangesResponse_descriptor,
+        new java.lang.String[] { "SnapshotDates", "From", "To", "Rows", });
+    internal_static_shorts_v1alpha1_GetStockFundSeriesRequest_descriptor =
+      getDescriptor().getMessageType(38);
+    internal_static_shorts_v1alpha1_GetStockFundSeriesRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetStockFundSeriesRequest_descriptor,
+        new java.lang.String[] { "StockCode", });
+    internal_static_shorts_v1alpha1_FundPoint_descriptor =
+      getDescriptor().getMessageType(39);
+    internal_static_shorts_v1alpha1_FundPoint_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_FundPoint_descriptor,
+        new java.lang.String[] { "AsAt", "WeightPct", "HasWeight", "ValueAud", "HasValue", });
+    internal_static_shorts_v1alpha1_FundSeries_descriptor =
+      getDescriptor().getMessageType(40);
+    internal_static_shorts_v1alpha1_FundSeries_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_FundSeries_descriptor,
+        new java.lang.String[] { "InstitutionSlug", "InstitutionName", "FundName", "SourceKind", "Points", });
+    internal_static_shorts_v1alpha1_GetStockFundSeriesResponse_descriptor =
+      getDescriptor().getMessageType(41);
+    internal_static_shorts_v1alpha1_GetStockFundSeriesResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetStockFundSeriesResponse_descriptor,
+        new java.lang.String[] { "StockCode", "Funds", });
     descriptor.resolveAllFeaturesImmutable();
     com.shortedapi.options.v1.OptionsProto.getDescriptor();
     com.google.protobuf.ExtensionRegistry registry =

@@ -28,6 +28,8 @@ const REGISTER_LOADING = path.join(OWNERSHIP_DIR, "stocks", "[code]", "loading.t
 // The two static pages the explorer adds: the notice feed and the register list.
 const NOTICES_LOADING = path.join(OWNERSHIP_DIR, "notices", "loading.tsx");
 const REGISTERS_LOADING = path.join(OWNERSHIP_DIR, "stocks", "loading.tsx");
+// The institution page: a segment's loading.tsx wraps it, so it has its own skeleton.
+const INSTITUTION_LOADING = path.join(OWNERSHIP_DIR, "[slug]", "loading.tsx");
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const loadingAt = (file: string) => (require(file) as { default: () => React.ReactElement }).default;
@@ -51,6 +53,10 @@ describe("the ownership loading boundaries", () => {
     expect(files).toEqual(expect.arrayContaining([NOTICES_LOADING, REGISTERS_LOADING]));
   });
 
+  it("has one for the institution page, so the hub's desk skeleton never shows before it", () => {
+    expect(files).toContain(INSTITUTION_LOADING);
+  });
+
   it.each(files.map((file) => [path.relative(OWNERSHIP_DIR, file), file] as const))(
     "%s is a labelled status region that is busy, and is the root",
     (_name, file) => {
@@ -70,6 +76,7 @@ describe("the ownership loading boundaries", () => {
     ["the register", REGISTER_LOADING],
     ["the notice feed", NOTICES_LOADING],
     ["the register list", REGISTERS_LOADING],
+    ["the institution page", INSTITUTION_LOADING],
   ])("draws %s's skeleton inside the layout, so the sidebar stays put", (_name, file) => {
     const Loading = loadingAt(file);
     render(<Loading />);
