@@ -49,7 +49,7 @@ Shorted.com.au is a platform for tracking short selling positions in the Austral
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           Frontend                                   │
-│                    Next.js 14 (port 3020)                           │
+│                    Next.js 15 (port 3020)                           │
 │              TailwindCSS, Radix UI, Visx Charts                     │
 └─────────────────────┬───────────────────────────────────────────────┘
                       │ Connect-RPC (HTTP/2)
@@ -662,9 +662,9 @@ which inherit `isStockIndexable`; Strategy adds noindex when `in_universe` is
 false, Short interest adds it (`noindexWhen`) when the stock read resolved and
 reports no short position, and Community is always noindex; Overview and News
 keep their own titles and share `stockOgImage`). An indexable page sets NO
-`robots` key: Next 14.2 merges metadata with `for (key in source)`, so
-`robots: undefined` would replace the root layout's googleBot snippet and
-image-preview directives with nothing.
+`robots` key: Next merges metadata with `for (key in source)` (checked on 15.5.28,
+`lib/metadata/resolve-metadata.js`), so `robots: undefined` would replace the root
+layout's googleBot snippet and image-preview directives with nothing.
 Specs: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`
 (one route per tab) and
 `docs/superpowers/specs/2026-10-10-stock-page-visible-first-design.md`, which
@@ -698,7 +698,8 @@ A missing value is left out, never a dash or "undefined".
 `StockTabNav` is sticky at `top-16`, under the site header's `h-16` row, and
 bleeds to `<main>`'s edges with `-mx-8`; the scrolling list inside carries the
 `px-8`, so on a phone the tabs scroll to the screen edge. Its links pass
-`scroll={false}`: Next 14.2's own scroll on a tab switch does nothing when the
+`scroll={false}`: Next's own scroll on a tab switch (`ScrollAndFocusHandler`,
+`client/components/layout-router.js`, checked on 15.5.28) does nothing when the
 new tab's first node is already in view, which leaves its first ~110px under
 the two bars, and jumps to the top when it is above. So a click sets a flag,
 and when the active tab changes a layout effect scrolls to `dockY` (the
@@ -730,13 +731,14 @@ tabs, the view, indicators and divergence per `prefsKey`. It lives until a reloa
 and writes nothing to storage; a panel with no `prefsKey` (the dashboard, the
 stories) is plain local state.
 
-**Nor does a tab without a chart load one.** Next 14 builds each tab's client
-reference manifest from the Overview page's (the page above the other six), and
+**Nor does a tab without a chart load one.** Next builds each tab's client
+reference manifest from the Overview page's (the page above the other six; checked
+on 15.5.28, `build/webpack/plugins/flight-manifest-plugin.js`), and
 maps each client module to the whole first-load chunk list of the page that
 holds it, so a tab that resolves a shared module (`next/link`) through the
 Overview's mapping downloads all of the Overview's first-load chunks. A
-`nextDynamic` in a server page is bundled into that list: Financials and
-Community downloaded the Overview's chart that way (227 KiB of JS for BHP). A
+On 14.2, a `nextDynamic` in a server page was bundled into that list: Financials
+and Community downloaded the Overview's chart that way (227 KiB of JS for BHP). A
 route group does not stop it (Next strips the group from the manifest's group
 name). So the Overview and Short interest load the panel through
 `StockChartPanelLazy` (`components/charts/stock-chart-panel-lazy.tsx`), and
@@ -1659,8 +1661,9 @@ it in place, and an **Interactive** button (`"activity": true`, on since
   root mapping `shorted.com.au`) always opens the root with `frame_id` and
   `instance_id`, and `src/config/discord-activity.mjs` redirects those requests
   to `/embed/discord` (frameable). The proxy follows that redirect on the
-  server, so the browser's address stays `/`. Next 14.2's router takes its
-  initial URL from `window.location`, so every `usePathname()` check (the
+  server, so the browser's address stays `/`. Next's router takes its initial
+  URL from `window.location` (checked on 15.5.28: `createInitialRouterState`
+  reads it before the first render), so every `usePathname()` check (the
   header, the footer, the corner credit, the banners) reads `/` and the page
   hydrates as the homepage: the site chrome renders and hydration fails (React
   #418 and #423). The root layout's inline `discordActivityUrlScript`, in
@@ -1668,7 +1671,13 @@ it in place, and an **Interactive** button (`"activity": true`, on since
   Keep it a static inline script in `<head>`: the proxy adds a nonce to every
   inline script in the page, so a script created at runtime is blocked, and
   next/script, a `type="module"` script, an effect or the body can each run
-  after the router has read the address. Its guards are
+  after the router has read the address. A script the proxy adds to `<head>`
+  before this one is a hydration mismatch: on 15.5.28 React 19 logs a
+  recoverable "A tree hydrated but some attributes ... didn't match" for the
+  head's script element, and the Activity still renders. Placed after this
+  script, React logs nothing (measured against `next dev` on 2026-11-03). The
+  proxy case in `chart-surfaces.spec.ts` injects the first placement, so it
+  fails as of that date. Its guards are
   `scripts/tests/discord-activity-redirect.test.mjs` (the placement, and the
   script run in a VM), `web/src/config/__tests__/discord-activity-url.test.ts`
   (it moves only what the server redirects) and the proxy case in
@@ -2010,6 +2019,68 @@ The Vercel project Root Directory is set to `web/`. When deploying via CLI, depl
 ### Git Worktree
 
 `main` branch may be checked out in a separate worktree. Can't `git checkout main` — use `git branch fix-name origin/main` instead.
+
+### React 19 / Next 15 (the web app's upgrade, 2026-11)
+
+- **Production runs Next's bundled React, not the `react` in `package.json`.**
+  The App Router renders `next/dist/compiled/react`, which is
+  `19.2.0-canary-0bdb9206-20250818` in Next 15.5.28. `react` and `react-dom` are
+  pinned to 19.2.9, the nearest release, and Jest and Storybook run 19.2.9. Only
+  a browser run against `next start` exercises production's React.
+- **Next is the 15.5 line (15.5.28).** Next 16 removes the synchronous request
+  APIs and `next lint`, so it is a separate upgrade.
+- **Request APIs are async.** `cookies()`, `headers()`, `params` and
+  `searchParams` are awaited, and their types are `Promise<...>`. Never read
+  them as plain objects.
+- **`next lint` is deprecated** (Next prints a warning, and 16 removes it).
+  `npm run lint` still works; move to the ESLint CLI before Next 16.
+- **Build concurrency:** `experimental.staticGenerationMaxConcurrency: 1`
+  (Next 15 renders 8 pages per export worker by default). The CI `vercel build`
+  prerender calls the API from one runner IP (Rate Limiting, above), and a
+  failed call bakes the fallback page (`bailOnEmptyRender`). Raise it only with
+  measurements.
+- **Client router cache:** `experimental.staleTimes: { dynamic: 30 }` keeps
+  Next 14's 30 s for dynamic pages (Next 15 defaults to 0). The browser's
+  requests count against the rate limits, so keep it.
+- **The homepage warm-cache route stays static** (`api/homepage/warm-cache`,
+  `force-static`, revalidate 86400) until `CACHE_WARM_SECRET` is set. Production
+  sets `CRON_SECRET` only, so the route serves its frozen response. Setting the
+  secret needs `dynamic = "force-dynamic"` first.
+- **`next/dynamic` with `ssr: false` belongs in a client module** (see the stock
+  page section). Next 15 refuses it in a server component.
+- **Forms:** React 19 clears an uncontrolled form after its `action` succeeds.
+  Keep values in state where the UX needs them (the admin enrichment forms are
+  the known case).
+- **Head scripts:** Discord's proxy adds a script to `<head>` ahead of the
+  Discord address script (layout.tsx), so that script carries
+  `suppressHydrationWarning`. The Discord e2e case (`chart-surfaces.spec.ts`,
+  "proxy") stays strict and passes on `next dev` and `next start`. Any other
+  third-party head script placed ahead of the address script is still a
+  hydration mismatch (see the Discord landmine).
+- **Connect POSTs stay out of Next's data cache.** Next 15 hashes byte bodies, so
+  a `next: { revalidate, tags }` option on a Connect POST would store the response
+  for the whole revalidate window, and an empty response (a cold materialized view,
+  the kill switch) would then be served to every caller. Next 14 never stored
+  these. `serverFetchWithUserAgent` (config.ts) sends a byte-body POST around the
+  patched fetch and registers the route's revalidate and tags through
+  `unstable_cache` (`applyConnectRoutePolicy`). The route keeps its policy, and
+  nothing is stored. Do not add a static `next/cache` import to config.ts: client
+  components import that module, and the policy helper only runs on the server.
+- **Metadata on dynamic pages.** `htmlLimitedBots: /.*/` (next.config.mjs)
+  resolves metadata before the shell for every request, as Next 14 did. Without
+  it, Next 15 streams title, canonical and robots after the shell, and on dynamic
+  pages those tags stay in `<body>` (measured on /industry, /search and /alerts).
+  Only metadata waits; the body still streams.
+- **Image routes honour their revalidate export.** A metadata image route with
+  `revalidate = 86400` (the `opengraph-image` files) now regenerates daily, where
+  Next 14 kept it until the next deploy. The suburb OG image
+  (`housing/[state]/[suburb]`) has an empty `generateStaticParams`, so it is
+  on-demand ISR: a miss, then cached, instead of a render on every request.
+- **Typeface.** IBM Plex Mono is declared in layout.tsx but not preloaded, and no
+  stylesheet names it. Next 14 hashed its family name, so the stack never matched
+  it, and every page drew the JetBrains Mono / system monospace face. Next 15 keeps
+  the name, so the upgrade keeps the old look by leaving Plex out of the stack.
+  Putting Plex back changes every page's typeface, which is a product decision.
 
 ## Debugging
 

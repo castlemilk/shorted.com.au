@@ -1,6 +1,6 @@
 /**
  * bailOnEmptyRender caps an empty fallback render's ISR lifetime; it must never
- * opt the render out of the cache. On a route prerendered as static, Next 14
+ * opt the render out of the cache. On a route prerendered as static, Next
  * turns unstable_noStore() at runtime into a DynamicServerError ("Page changed
  * from static to dynamic", digest DYNAMIC_SERVER_USAGE), so every blocking
  * render answered 500 instead of the fallback: /price-drops with an empty

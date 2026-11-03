@@ -418,83 +418,101 @@ export default withBundleAnalyzer(
     ...config,
     pageExtensions: ["js", "jsx", "mdx", "md", "ts", "tsx"],
     reactStrictMode: true,
+    // Next 15.2+ streams a dynamic page's metadata (title, canonical, robots,
+    // description) after the shell, for browsers and for JS-running crawlers
+    // such as Googlebot. Measured on /industry, /search and /alerts, the tags then
+    // sat in <body>, where Google does not read canonical or robots from. The
+    // pattern below makes every request that sends a User-Agent resolve metadata
+    // before the shell, as Next 14 did. A request with no User-Agent still
+    // streams it: Next blocks metadata only for a User-Agent the pattern matches
+    // (shouldServeStreamingMetadata). It changes metadata only: the body still
+    // streams.
+    htmlLimitedBots: /.*/,
     staticPageGenerationTimeout: 180,
-    experimental: {
-      instrumentationHook: true,
-      // The sitemap (force-dynamic) and feed (ISR regeneration) read
-      // web/_blogs from the filesystem AT REQUEST TIME in the lambda —
-      // readdirSync isn't statically traced, so without this the directory
-      // is missing from the serverless bundle and the routes 500 with
-      // ENOENT /var/task/web/_blogs.
-      outputFileTracingIncludes: {
-        // The blog posts now live in the core child sitemap (the index itself
-        // fetches nothing). Both keys are kept: /sitemap.xml still exists as
-        // the index route.
-        "/sitemap.xml": ["./_blogs/**/*"],
-        "/sitemap-core.xml": ["./_blogs/**/*"],
-        "/feed.xml": ["./_blogs/**/*"],
-        // getOgLogo() reads these through computed filesystem paths in the
-        // shared OG card helper, which nft cannot discover. Apply them to every
-        // OG route so new shared-card importers are covered automatically.
-        "/**/opengraph-image": [
-          "./public/icon-512.png",
-          "./public/logo.png",
-        ],
-        // The shared chart link's og:image is a route handler, not an
-        // opengraph-image file, so the glob above misses it; it draws the
-        // same getOgLogo() mark.
-        "/chart/[code]/image": ["./public/icon-512.png", "./public/logo.png"],
-        // The Discord bot draws the same card for the charts it posts
-        // (lib/discord/chart-card.ts).
-        "/api/discord/interactions": [
-          "./public/icon-512.png",
-          "./public/logo.png",
-        ],
-        // OG card assets. The scene JPEGs and the state-boundary topojson are
-        // read with readFileSync at REQUEST time inside opengraph-image
-        // lambdas, and nft does not trace those reads — measured on prod
-        // 2026-08-09: the suburb card had shipped scene-less since it landed,
-        // and the state silhouettes fell back to plain cards. Inline-literal
-        // paths did NOT fix it (tried); these explicit includes are the same
-        // mechanism the sitemap/feed routes above rely on.
-        "/housing/opengraph-image": ["./public/housing-banners/og/**/*"],
-        "/housing/[state]/[suburb]/opengraph-image": [
-          "./public/housing-banners/og/**/*",
-          "./public/geo/suburbs/*.topojson",
-          "./public/geo/states.topojson",
-          "./public/icon-512.png",
-          "./public/logo.png",
-        ],
-        // The suburb PAGE projects its banner inset and state locator from the
-        // same boundary files during ISR (lib/housing/suburb-geometry.server).
-        // Computed readFileSync paths again — untraced without this, and the
-        // maps would silently vanish on prod while passing every local test.
-        "/housing/[state]/[suburb]": [
-          "./public/geo/suburbs/*.topojson",
-          "./public/geo/states.topojson",
-        ],
-        "/housing/[state]/opengraph-image": [
-          "./public/geo/states.topojson",
-          "./public/icon-512.png",
-          "./public/logo.png",
-        ],
-        "/housing/calculators/opengraph-image": [
-          "./public/icon-512.png",
-          "./public/logo.png",
-        ],
-        "/price-drops/opengraph-image": [
-          "./public/icon-512.png",
-          "./public/logo.png",
-        ],
-        "/economy/[state]/opengraph-image": ["./public/geo/states.topojson"],
-      },
-      // Externalize protobuf and connect packages to prevent SSR bundling issues
-      serverComponentsExternalPackages: [
-        "@bufbuild/protobuf",
-        "@connectrpc/connect",
-        "@connectrpc/connect-web",
-        "firebase-admin",
+    // Externalize protobuf and connect packages to prevent SSR bundling issues
+    serverExternalPackages: [
+      "@bufbuild/protobuf",
+      "@connectrpc/connect",
+      "@connectrpc/connect-web",
+      "firebase-admin",
+    ],
+    // The sitemap (force-dynamic) and feed (ISR regeneration) read
+    // web/_blogs from the filesystem AT REQUEST TIME in the lambda —
+    // readdirSync isn't statically traced, so without this the directory
+    // is missing from the serverless bundle and the routes 500 with
+    // ENOENT /var/task/web/_blogs.
+    outputFileTracingIncludes: {
+      // The blog posts now live in the core child sitemap (the index itself
+      // fetches nothing). Both keys are kept: /sitemap.xml still exists as
+      // the index route.
+      "/sitemap.xml": ["./_blogs/**/*"],
+      "/sitemap-core.xml": ["./_blogs/**/*"],
+      "/feed.xml": ["./_blogs/**/*"],
+      // getOgLogo() reads these through computed filesystem paths in the
+      // shared OG card helper, which nft cannot discover. Apply them to every
+      // OG route so new shared-card importers are covered automatically.
+      "/**/opengraph-image": [
+        "./public/icon-512.png",
+        "./public/logo.png",
       ],
+      // The shared chart link's og:image is a route handler, not an
+      // opengraph-image file, so the glob above misses it; it draws the
+      // same getOgLogo() mark.
+      "/chart/[code]/image": ["./public/icon-512.png", "./public/logo.png"],
+      // The Discord bot draws the same card for the charts it posts
+      // (lib/discord/chart-card.ts).
+      "/api/discord/interactions": [
+        "./public/icon-512.png",
+        "./public/logo.png",
+      ],
+      // OG card assets. The scene JPEGs and the state-boundary topojson are
+      // read with readFileSync at REQUEST time inside opengraph-image
+      // lambdas, and nft does not trace those reads — measured on prod
+      // 2026-08-09: the suburb card had shipped scene-less since it landed,
+      // and the state silhouettes fell back to plain cards. Inline-literal
+      // paths did NOT fix it (tried); these explicit includes are the same
+      // mechanism the sitemap/feed routes above rely on.
+      "/housing/opengraph-image": ["./public/housing-banners/og/**/*"],
+      "/housing/[state]/[suburb]/opengraph-image": [
+        "./public/housing-banners/og/**/*",
+        "./public/geo/suburbs/*.topojson",
+        "./public/geo/states.topojson",
+        "./public/icon-512.png",
+        "./public/logo.png",
+      ],
+      // The suburb PAGE projects its banner inset and state locator from the
+      // same boundary files during ISR (lib/housing/suburb-geometry.server).
+      // Computed readFileSync paths again — untraced without this, and the
+      // maps would silently vanish on prod while passing every local test.
+      "/housing/[state]/[suburb]": [
+        "./public/geo/suburbs/*.topojson",
+        "./public/geo/states.topojson",
+      ],
+      "/housing/[state]/opengraph-image": [
+        "./public/geo/states.topojson",
+        "./public/icon-512.png",
+        "./public/logo.png",
+      ],
+      "/housing/calculators/opengraph-image": [
+        "./public/icon-512.png",
+        "./public/logo.png",
+      ],
+      "/price-drops/opengraph-image": [
+        "./public/icon-512.png",
+        "./public/logo.png",
+      ],
+      "/economy/[state]/opengraph-image": ["./public/geo/states.topojson"],
+    },
+    experimental: {
+      // Next 15 prerenders this many pages at once in each build worker (its
+      // default is 8). The CI prerender has drawn edge 429s before
+      // (CLAUDE.md, "Rate Limiting"), so build one page at a time until a
+      // Next 15 build has been checked.
+      staticGenerationMaxConcurrency: 1,
+      // Next 15 defaults the client router cache for dynamic pages to 0 s
+      // (Next 14 used 30 s). Keep 30 s, so a Link to a dynamic page reuses one
+      // fetched in the last 30 s and the browser sends the same requests as before.
+      staleTimes: { dynamic: 30 },
       optimizePackageImports: [
         "@radix-ui/react-icons",
         "lucide-react",

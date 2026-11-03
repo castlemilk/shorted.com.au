@@ -79,7 +79,8 @@ export default async function DiscordSettingsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const grant = readSettingsGrant(cookies().get(SETTINGS_COOKIE)?.value);
+  const jar = await cookies();
+  const grant = readSettingsGrant(jar.get(SETTINGS_COOKIE)?.value);
   if (!grant) return <LinkNeeded expired={params.link === "expired"} />;
 
   // Fresh: this page edits what is stored, so it never shows a minute-old copy.

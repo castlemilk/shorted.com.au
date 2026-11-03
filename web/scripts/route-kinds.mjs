@@ -12,8 +12,8 @@
 // Run after `next build`:
 //   node scripts/route-kinds.mjs [--manifest .next/prerender-manifest.json]
 //
-// What it sees, measured on Next 14.2.13: a page that lost its
-// generateStaticParams export, or sets `revalidate = 0` or
+// What it sees, measured on Next 14.2.13 and on a Next 15.5 test build: a page
+// that lost its generateStaticParams export, or sets `revalidate = 0` or
 // `dynamic = "force-dynamic"`, drops out of dynamicRoutes. What it cannot see:
 // a read of cookies(), headers(), searchParams or a no-store fetch under a page
 // that keeps its (empty) generateStaticParams. Next renders nothing at build

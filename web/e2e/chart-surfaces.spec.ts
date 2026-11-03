@@ -221,6 +221,23 @@ test.describe("the Discord Activity launched on a phone", () => {
 // keeps the address the page asked for. Without the script that moves the address, in the
 // root layout's <head> (src/config/discord-activity.mjs), the site chrome renders and
 // hydration fails, so this check fails without it.
+//
+// The proxy also puts its own inline script in <head>, after the first preload. This is the
+// one it adds (it does nothing unless the page is framed). React must hydrate a document with
+// that extra element and report no error, so withProxyHeadScript inserts it into the HTML.
+const DISCORD_PROXY_HEAD_SCRIPT =
+  '<script type="text/javascript">(function(){ if (window.parent === window) return; })();</script>';
+
+/** The HTML with DISCORD_PROXY_HEAD_SCRIPT right after the first <link rel="preload" as="script"> in <head>. */
+function withProxyHeadScript(html: string): string {
+  const preload = /<link\b(?=[^>]*\brel="preload")(?=[^>]*\bas="script")[^>]*>/.exec(html);
+  if (!preload || html.indexOf("</head>") < preload.index) {
+    throw new Error('the Activity HTML has no <link rel="preload" as="script"> in its <head>');
+  }
+  const at = preload.index + preload[0].length;
+  return html.slice(0, at) + DISCORD_PROXY_HEAD_SCRIPT + html.slice(at);
+}
+
 async function behindDiscordProxy(page: Page): Promise<void> {
   await page.route(
     (url) => url.pathname === "/" && url.searchParams.has("frame_id"),
@@ -234,13 +251,40 @@ async function behindDiscordProxy(page: Page): Promise<void> {
             ...cloudflareTestingBypassHeadersFor(request.url()),
           },
         });
-        await route.fulfill({ response });
+        // The body is replaced, so the headers that described the original go: its length, and
+        // its encoding (response.text() is already decoded). The length is set for the new body.
+        const headers = response.headers();
+        delete headers["content-length"];
+        delete headers["content-encoding"];
+        delete headers["transfer-encoding"];
+        const body = withProxyHeadScript(await response.text());
+        await route.fulfill({
+          status: response.status(),
+          headers: { ...headers, "content-length": String(Buffer.byteLength(body)) },
+          body,
+        });
       } catch (error) {
         // The test is over and the page with it.
         if (!page.isClosed()) throw error;
       }
     },
   );
+}
+
+/**
+ * Records every uncaught page error, and every console error that React reports for a
+ * hydration mismatch (#418 and #423 in production; the words in development, where React
+ * prints them in full). Listen before the first load.
+ */
+function recordHydrationProblems(page: Page): { pageErrors: string[]; hydration: string[] } {
+  const problems = { pageErrors: [] as string[], hydration: [] as string[] };
+  page.on("pageerror", (error) => problems.pageErrors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error" && /#418|#423|hydrat/i.test(message.text())) {
+      problems.hydration.push(message.text());
+    }
+  });
+  return problems;
 }
 
 // The root with the launch parameters Discord sends, and the custom_id a button launches with.
@@ -254,12 +298,13 @@ for (const [device, viewport, platform] of [
   test.describe(`the Discord Activity behind Discord's proxy on a ${device}`, () => {
     test.use({ viewport });
 
-    test("keeps the Activity's address, renders no site chrome, and opens the chart it was launched on", async ({
+    test("keeps the Activity's address, renders no site chrome, opens the chart it was launched on, and hydrates past Discord's head script", async ({
       page,
     }) => {
       test.setTimeout(120_000);
       await waitOutRateLimit(page);
       await behindDiscordProxy(page);
+      const problems = recordHydrationProblems(page);
       // The proxy's route holds the navigation while a cold dev server compiles the Activity.
       await page.goto(launchPath(platform), LOADED);
 
@@ -273,7 +318,14 @@ for (const [device, viewport, platform] of [
       await expect(
         page.getByRole("button", { name: "Open CBA on Shorted", exact: true }),
       ).toBeVisible(LOADED);
+      // The chart is drawn by client code, so it is drawn after hydration.
       await expect(page.locator(CHART).first()).toBeVisible(LOADED);
+      // The script the proxy adds is in the document the page hydrated, so the case ran.
+      expect(await page.evaluate(() => document.head.innerHTML)).toContain(
+        "window.parent === window",
+      );
+      expect(problems.pageErrors).toEqual([]);
+      expect(problems.hydration).toEqual([]);
       await shot(page, `activity-proxy-${device}`);
     });
   });

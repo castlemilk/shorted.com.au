@@ -21,11 +21,12 @@ import { suburbSlug } from "@/lib/housing/states";
 
 // These server reads are cached by static ISR, the state index's unstable_cache,
 // and (for populated anonymous aggregates) KV. Keep Connect's Uint8Array POST
-// bodies out of Next 14's fetch cache: its key generator mistakes .keys() for
-// FormData and calls .getAll(), logging an error on every render. `no-store`
-// is not a substitute: it opts a static render into dynamic usage and can 500.
-// Use the existing unpatched fetch path while retaining the SSR identity and
-// abort signal. Flag-gated address/agency reads still consult the backend on
+// bodies out of Next's fetch cache. Next 14 could not key them (its key
+// generator mistakes .keys() for FormData and calls .getAll(), logging an error
+// on every render); Next 15 keys them and would store the response, so an empty
+// render would outlive its request. `no-store` is not a substitute: it opts a
+// static render into dynamic usage and can 500. Use the unpatched fetch path
+// while retaining the SSR identity and abort signal. Flag-gated address/agency reads still consult the backend on
 // each render; do not add a shared result cache to those reads.
 function createHousingClient() {
   const transport = createConnectTransport({

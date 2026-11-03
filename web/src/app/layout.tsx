@@ -31,17 +31,21 @@ import { JsonLd } from "~/@/components/seo/json-ld";
 // past-due banner calls the billing actions; the chat sidebar streams over
 // Connect-RPC, which breaks SSR.
 
-// IBM Plex Mono - Primary monospace for terminal aesthetic
-// Weights audited 2026-07: 400/500/600/700 in active use; 300 had 3 usages
-// (2 admin-only, since normalised; 1 serif blockquote covered by the
-// Newsreader variable font). Every weight here is a preloaded file on the
-// LCP critical path of every route — don't add weights without checking use.
+// IBM Plex Mono is declared here but no stylesheet names it, so it is not
+// preloaded. Next 14 hashed the family name, which the critical CSS and
+// globals.css stack ('IBM Plex Mono') never matched, so visitors saw the
+// JetBrains Mono / system monospace fallback and the preloaded files were never
+// drawn. Next 15 keeps the name, so the stack no longer names Plex and the look
+// is unchanged. Adopting Plex changes every page's typeface: that is a product
+// decision (CLAUDE.md, React 19 / Next 15). If it is taken, restore the name in
+// critical-css.ts and globals.css, set preload back to true, and re-measure CLS
+// with a throttled font. Weights audited 2026-07: 400/500/600/700.
 const fontMono = IBM_Plex_Mono({
   subsets: ["latin"],
   variable: "--font-sans",
   weight: ["400", "500", "600", "700"],
   display: "swap",
-  preload: true,
+  preload: false,
   fallback: ["JetBrains Mono", "Fira Code", "ui-monospace", "monospace"],
 });
 
@@ -180,7 +184,9 @@ export default function RootLayout({
             static inline script in the head: the proxy nonces inline scripts, so one
             created at runtime is blocked, and the RSC payload is pushed from the
             body, after this runs. */}
+        {/* Discord's proxy adds its own script before this one; the content is static, so the attribute warning hides nothing real. */}
         <script
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: discordActivityUrlScript() }}
         />
         {/* Inline critical CSS to prevent render-blocking */}

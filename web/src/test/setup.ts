@@ -10,6 +10,30 @@ if (typeof globalThis.TextDecoder === "undefined") {
   globalThis.TextDecoder = TextDecoder;
 }
 
+// React 19's react-dom/server (browser build) and scheduler create a
+// MessageChannel when they load, and jsdom does not provide one. Each message
+// is delivered as a timer task. Node's worker_threads ports would keep the
+// Jest process alive, because React never closes its channel. The timer is
+// captured here, so a test's fake timers cannot stall delivery.
+if (typeof globalThis.MessageChannel === "undefined") {
+  const realSetTimeout = globalThis.setTimeout.bind(globalThis);
+  globalThis.MessageChannel = class {
+    port1: { onmessage: ((event: { data: unknown }) => void) | null } = {
+      onmessage: null,
+    };
+    port2: { postMessage: (data: unknown) => void };
+
+    constructor() {
+      const port1 = this.port1;
+      this.port2 = {
+        postMessage: (data: unknown) => {
+          realSetTimeout(() => port1.onmessage?.({ data }), 0);
+        },
+      };
+    }
+  } as unknown as typeof MessageChannel;
+}
+
 // Polyfill for Next.js Request/Response API
 // @ts-expect-error - Polyfill for test environment
 global.Request = class Request {
@@ -205,8 +229,8 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("next/headers", () => ({
-  headers: () => new Map(),
-  cookies: () => ({
+  headers: async () => new Map(),
+  cookies: async () => ({
     get: jest.fn(),
     set: jest.fn(),
     delete: jest.fn(),
@@ -599,9 +623,11 @@ jest.mock("@radix-ui/react-toggle-group", () => {
 
 jest.mock("lucide-react", () => {
   const React = require("react");
-  // Proxy factory: any icon name resolves to a generic stub div carrying the
+  // Proxy factory: any icon name resolves to a generic stub <svg> carrying the
   // kebab-cased icon name as a class (the convention the hand-written mocks
-  // used) — new icons never break tests with "Element type is invalid".
+  // used). lucide renders an <svg>, so a stub <div> inside a <p> would report
+  // invalid nesting that production never has. New icons never break tests
+  // with "Element type is invalid".
   const kebab = (name: string) =>
     name
       .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
@@ -616,7 +642,7 @@ jest.mock("lucide-react", () => {
         if (typeof prop !== "string" || prop === "then") return undefined;
         if (!cache[prop]) {
           const Icon = jest.fn(({ className }: any) =>
-            React.createElement("div", {
+            React.createElement("svg", {
               className: `${kebab(prop)} ${className ?? ""}`.trim(),
             }),
           );
@@ -759,42 +785,73 @@ global.performance.now = jest.fn(() => Date.now());
 global.performance.getEntriesByType = jest.fn(() => []);
 global.performance.getEntriesByName = jest.fn(() => []);
 
-// Console error suppression for expected test warnings
+// Console filter for expected test output. React 19 drops the "Warning: "
+// prefix. An error caught by an error boundary is logged with console.error
+// ("The above error occurred in ..."), an uncaught render error with
+// console.warn ("An error occurred in ... Consider adding an error boundary").
 const originalError = console.error;
+const originalWarn = console.warn;
+// Invalid DOM nesting ("In HTML, <div> cannot be a child of <p>.", "<p> cannot
+// contain a nested <div>.") is a hydration error in production, so it is not
+// expected output. It is recorded below, and the test that logged it fails.
+const DOM_NESTING_TEXT = [
+  "cannot be a child of",
+  "cannot be a descendant of",
+  "cannot contain a nested",
+];
+const domNestingMessages: string[] = [];
+const EXPECTED_CONSOLE_TEXT = [
+  "asChild", // Catches various asChild prop warnings
+  "The above error occurred in", // caught by an error boundary (console.error)
+  "Consider adding an error boundary", // uncaught render error (console.warn)
+  "Uncaught [Error:", // jsdom reports errors thrown from event handlers and timers
+  "reportException",
+  "punycode", // Suppress punycode deprecation warnings
+];
+
+function consoleText(args: unknown[]): string {
+  // Convert all arguments to strings for checking
+  return args
+    .map((arg) => {
+      if (typeof arg === "string") return arg;
+      if (arg instanceof Error) return arg.message;
+      try {
+        return String(arg);
+      } catch {
+        return "";
+      }
+    })
+    .join(" ");
+}
+
+function isExpectedConsoleOutput(args: unknown[]): boolean {
+  const message = consoleText(args);
+  return EXPECTED_CONSOLE_TEXT.some((text) => message.includes(text));
+}
+
+// A test that logs invalid DOM nesting fails: it prints, then throws here.
+afterEach(() => {
+  if (domNestingMessages.length === 0) return;
+  const messages = domNestingMessages.splice(0);
+  throw new Error(`invalid DOM nesting logged during this test:\n${messages.join("\n")}`);
+});
+
 beforeAll(() => {
   console.error = (...args: any[]) => {
-    // Convert all arguments to strings for checking
-    const message = args
-      .map((arg) => {
-        if (typeof arg === "string") return arg;
-        if (arg instanceof Error) return arg.message;
-        try {
-          return String(arg);
-        } catch {
-          return "";
-        }
-      })
-      .join(" ");
-
-    // Suppress expected warnings and test error outputs
-    if (
-      message.includes("Warning: ReactDOM.render is no longer supported") ||
-      message.includes("Warning: validateDOMNesting") ||
-      message.includes("cannot appear as a child of") ||
-      message.includes("asChild") || // Catches various asChild prop warnings
-      message.includes("Function components cannot be given refs") ||
-      message.includes("Consider adding an error boundary") ||
-      message.includes("The above error occurred in the") ||
-      message.includes("Uncaught [Error:") ||
-      message.includes("reportException") ||
-      message.includes("punycode") // Suppress punycode deprecation warnings
-    ) {
-      return;
+    const message = consoleText(args);
+    if (DOM_NESTING_TEXT.some((text) => message.includes(text))) {
+      domNestingMessages.push(message);
     }
+    if (isExpectedConsoleOutput(args)) return;
     originalError.call(console, ...args);
+  };
+  console.warn = (...args: any[]) => {
+    if (isExpectedConsoleOutput(args)) return;
+    originalWarn.call(console, ...args);
   };
 });
 
 afterAll(() => {
   console.error = originalError;
+  console.warn = originalWarn;
 });

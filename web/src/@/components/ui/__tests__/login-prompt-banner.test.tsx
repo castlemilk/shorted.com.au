@@ -6,9 +6,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 jest.mock("~/@/components/ui/login-prompt-banner", () =>
   jest.requireActual("~/@/components/ui/login-prompt-banner"),
 );
-// The real SignIn is a form whose action is a server action, which React 18
-// cannot render in jsdom (it warns about a function-valued `action`). The stand-in
-// exposes the two props the banner is held to.
+// The real SignIn is a form whose action is a server action, so this suite
+// uses a stand-in. It exposes the two props the banner is held to.
 jest.mock("~/@/components/ui/sign-in", () => ({
   SignIn: ({ size, variant }: { size?: string; variant?: string }) => (
     <form>
