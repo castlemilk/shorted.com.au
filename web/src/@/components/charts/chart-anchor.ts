@@ -252,7 +252,8 @@ export function isSettledAnchor(anchor: ChartAnchor, today: string): boolean {
   );
 }
 
-function daysBefore(day: string, n: number): string {
+/** The calendar day `n` days before `day`, YYYY-MM-DD. */
+export function daysBefore(day: string, n: number): string {
   const [y, m, d] = day.split("-").map(Number);
   return isoDay(new Date(Date.UTC(y!, m! - 1, d! - n)));
 }

@@ -26,6 +26,15 @@ export interface LoadedChartCard {
   card: ReactElement;
   /** Every series the view asks for arrived in time. */
   complete: boolean;
+  /**
+   * On an anchored chart, the newest close and the newest short report the
+   * card read (YYYY-MM-DD), when it read any. The Discord bot records them in
+   * a new message's button ids, so every redraw ends where this drawing did.
+   * The image route sends them as x-chart-prices-through and
+   * x-chart-shorts-through.
+   */
+  pricesThrough?: string;
+  shortsThrough?: string;
 }
 
 /**
