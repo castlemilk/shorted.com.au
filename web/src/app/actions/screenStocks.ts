@@ -20,7 +20,7 @@ const SCREENER_ISR_REVALIDATE_SECONDS = 3600;
 // createIsrTopShortsClient in getTopShorts.ts and isrEconomyFetch in
 // getEconomy.ts). The POST body is a byte array, so serverFetchWithUserAgent
 // keeps the response out of Next's data cache and applies the `next` policy to
-// the route instead (applyConnectRoutePolicy, config.ts). The regeneration
+// the route instead (applyRoutePolicy, config.ts). The regeneration
 // COMPLETES instead of throwing. The `next` option is inert in the browser, so
 // the client callers (screener page, screener widget, /embed/top-shorts) are
 // unaffected.

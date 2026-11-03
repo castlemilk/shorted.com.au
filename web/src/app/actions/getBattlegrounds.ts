@@ -15,7 +15,7 @@ import { withRetryAndNotFound } from "./withRetry";
 // Tagged `shorts-data` so the daily sync's revalidation busts it with every
 // other ASIC-derived read. The POST body is a byte array, so
 // serverFetchWithUserAgent keeps the response out of Next's data cache and
-// applies this revalidate and these tags to the route (applyConnectRoutePolicy,
+// applies this revalidate and these tags to the route (applyRoutePolicy,
 // config.ts). Nothing is stored, so an empty response is not served from cache
 // for the whole revalidate window.
 const isrBattlegroundsFetch: typeof fetch = (input, init) =>

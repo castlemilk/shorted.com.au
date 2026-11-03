@@ -14,9 +14,17 @@ jest.mock("~/@/lib/kv-cache", () => ({
   },
 }));
 
+// The shared read (shared-read.ts) is pass-through here: this file tests the
+// KV layer and the grouping. The shared entry has its own test.
+jest.mock("next/cache", () => ({
+  unstable_cache: (read: unknown) => read,
+}));
+
 jest.mock("../../config", () => ({
   SHORTS_API_URL: "https://api.shorted.com.au",
   serverFetchWithUserAgent: (...args: unknown[]) =>
+    mockServerFetchWithUserAgent(...args),
+  serverFetchOutsideNextCache: (...args: unknown[]) =>
     mockServerFetchWithUserAgent(...args),
   // Mirror the real build-phase-only guard from actions/config.ts
   skipForBuild: () =>
@@ -113,6 +121,13 @@ describe("industry data cache loading", () => {
       "https://api.shorted.com.au/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap",
       expect.objectContaining({ method: "POST" }),
     );
+    // The window is the shared entry's, not a `next` option on the POST, which
+    // Next would store for the same window (applyRoutePolicy in config.ts).
+    const [, init] = mockServerFetchWithUserAgent.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(init).not.toHaveProperty("next");
   });
 
   it("does not treat empty industry API responses as usable cached data", async () => {
